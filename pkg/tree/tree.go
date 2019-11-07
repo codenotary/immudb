@@ -18,7 +18,7 @@ package tree
 
 import (
 	"crypto/sha256"
-	"math"
+	"math/bits"
 )
 
 const EmptySlot = byte(0)
@@ -60,10 +60,10 @@ func (t *Tree) Add(b []byte) error {
 	h := sha256.Sum256(append([]byte{LeafPrefix}, b...))
 	t.data[0] = append(t.data[0], h)
 
-	// add layers, if needed
-	d := int(math.Ceil(math.Log2(float64(len(t.data[0])))))
-	for d >= len(t.data) {
-		t.data = append(t.data, make([][sha256.Size]byte, 0))
+	// add a new layer, if needed
+	d := bits.Len64(uint64(len(t.data[0]) - 1)) // == int(math.Ceil(math.Log2(float64(len(t.data[0])))))
+	if d == len(t.data) {
+		t.data = append(t.data, make([][sha256.Size]byte, 0, 256*256)) // todo(leogr): optmize pre-allocated capacity
 	}
 
 	return t.buildUp(0)
@@ -73,27 +73,31 @@ func (t *Tree) Add(b []byte) error {
 // the rightmost branch from latest node at level d up to the root.
 // Assuming nodes are added one by one, then calling buidUp(0) after appending
 // a leaf is enough to incrementally update the tree to the new state.
-func (t *Tree) buildUp(d uint64) error {
-
-	for d < t.Depth() {
+func (t *Tree) buildUp(d int) error {
+	for depth := len(t.data) - 1; d < depth; {
 		// compute intermediate node
+
 		l := len(t.data[d])
-		c := []byte{NodePrefix}
+		c := [sha256.Size*2 + 1]byte{NodePrefix}
+		var h [sha256.Size]byte
+
 		if l%2 == 0 {
-			c = append(c, t.data[d][l-2][:]...)
-			c = append(c, t.data[d][l-1][:]...)
+			copy(c[1:sha256.Size+1], t.data[d][l-2][:])
+			copy(c[sha256.Size+1:], t.data[d][l-1][:])
+			h = sha256.Sum256(c[:])
 		} else {
-			c = append(c, t.data[d][l-1][:]...)
-			c = append(c, EmptySlot)
+			copy(c[1:sha256.Size+1], t.data[d][l-1][:])
+			c[sha256.Size+2] = EmptySlot
+			h = sha256.Sum256(c[:sha256.Size+2])
 			l++
 		}
-		h := sha256.Sum256(c)
 
 		d++
-		if len(t.data[d])*2 < l {
+		nl := len(t.data[d])
+		if nl*2 < l {
 			t.data[d] = append(t.data[d], h)
 		} else {
-			t.data[d][len(t.data[d])-1] = h
+			t.data[d][nl-1] = h
 		}
 	}
 

@@ -19,6 +19,7 @@ package tree
 import (
 	"crypto/sha256"
 	"math"
+	"math/bits"
 	"strconv"
 	"testing"
 
@@ -109,5 +110,26 @@ func TestTree(t *testing.T) {
 
 		// internal state
 		assert.Len(t, tr.data[tr.Depth()], 1)
+	}
+}
+
+func BenchmarkLog2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		n := i
+		_ = int(math.Ceil(math.Log2(float64(n))))
+	}
+}
+
+func BenchmarkLog2bits(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		n := uint64(i)
+		_ = bits.Len64(n - 1)
+	}
+}
+
+func BenchmarkTreeAdd(b *testing.B) {
+	tr := New()
+	for i := 0; i < b.N; i++ {
+		tr.Add([]byte{0, 1, 3, 4, 5, 6, 7})
 	}
 }
