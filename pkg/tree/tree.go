@@ -26,30 +26,30 @@ const LeafPrefix = byte(0)
 const NodePrefix = byte(1)
 
 type Tree struct {
-	data [][][sha256.Size]byte
+	store Storer
 }
 
-func New() *Tree {
+func New(store Storer) *Tree {
 	return &Tree{
-		data: make([][][sha256.Size]byte, 1),
+		store: store,
 	}
 }
 
 // N returns the index of the last item stored in the tree.
 // When the tree is empty then -1 is returned.
-func (t *Tree) N() uint64 {
-	return uint64(len(t.data[0])) - 1
+func (t *Tree) N() int {
+	return t.store.Len(0) - 1
 }
 
 // Depth returns the length of the path from leaves to the root.
 // When the tree is empty then -1 is returned.
-func (t *Tree) Depth() uint64 {
-	return uint64(len(t.data)) - 1
+func (t *Tree) Depth() int {
+	return int(t.store.Depth())
 }
 
 // Root returns the root hash of the tree.
 func (t *Tree) Root() [sha256.Size]byte {
-	return t.data[t.Depth()][0]
+	return *t.store.Get(t.store.Depth(), 0)
 }
 
 // Add computes the hash of the given content b, appends it to the next free slot in the tree,
@@ -58,13 +58,7 @@ func (t *Tree) Add(b []byte) error {
 
 	// append the item's hash
 	h := sha256.Sum256(append([]byte{LeafPrefix}, b...))
-	t.data[0] = append(t.data[0], h)
-
-	// add a new layer, if needed
-	d := bits.Len64(uint64(len(t.data[0]) - 1)) // == int(math.Ceil(math.Log2(float64(len(t.data[0])))))
-	if d == len(t.data) {
-		t.data = append(t.data, make([][sha256.Size]byte, 0, 256*256)) // todo(leogr): optmize pre-allocated capacity
-	}
+	t.store.Append(0, h)
 
 	return t.buildUp(0)
 }
@@ -74,30 +68,31 @@ func (t *Tree) Add(b []byte) error {
 // Assuming nodes are added one by one, then calling buidUp(0) after appending
 // a leaf is enough to incrementally update the tree to the new state.
 func (t *Tree) buildUp(d int) error {
-	for depth := len(t.data) - 1; d < depth; {
+	newDepth := bits.Len64(uint64(t.store.Len(0) - 1))
+	for d < newDepth {
 		// compute intermediate node
 
-		l := len(t.data[d])
+		l := t.store.Len(d)
 		c := [sha256.Size*2 + 1]byte{NodePrefix}
 		var h [sha256.Size]byte
 
 		if l%2 == 0 {
-			copy(c[1:sha256.Size+1], t.data[d][l-2][:])
-			copy(c[sha256.Size+1:], t.data[d][l-1][:])
+			copy(c[1:sha256.Size+1], t.store.Get(d, l-2)[:])
+			copy(c[sha256.Size+1:], t.store.Get(d, l-1)[:])
 			h = sha256.Sum256(c[:])
 		} else {
-			copy(c[1:sha256.Size+1], t.data[d][l-1][:])
+			copy(c[1:sha256.Size+1], t.store.Get(d, l-1)[:])
 			c[sha256.Size+2] = EmptySlot
 			h = sha256.Sum256(c[:sha256.Size+2])
 			l++
 		}
 
 		d++
-		nl := len(t.data[d])
+		nl := t.store.Len(d)
 		if nl*2 < l {
-			t.data[d] = append(t.data[d], h)
+			t.store.Append(d, h)
 		} else {
-			t.data[d][nl-1] = h
+			t.store.Set(d, nl-1, h)
 		}
 	}
 
