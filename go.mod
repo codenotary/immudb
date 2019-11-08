@@ -1,4 +1,4 @@
-module github.com/vchain-us/immu
+module github.com/codenotary/immudb
 
 go 1.13
 
