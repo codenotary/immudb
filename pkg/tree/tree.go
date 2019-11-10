@@ -38,41 +38,40 @@ func New(store Storer) *Tree {
 // N returns the index of the last item stored in the tree.
 // When the tree is empty then -1 is returned.
 func (t *Tree) N() int {
-	return t.store.Len(0) - 1
+	return t.store.Width() - 1
 }
 
 // Depth returns the length of the path from leaves to the root.
 // When the tree is empty then -1 is returned.
 func (t *Tree) Depth() int {
-	return int(t.store.Depth())
+	w := t.store.Width()
+	if w == 0 {
+		return -1
+	}
+	return bits.Len64(uint64(w - 1))
 }
 
 // Root returns the root hash of the tree.
 func (t *Tree) Root() [sha256.Size]byte {
-	return *t.store.Get(t.store.Depth(), 0)
+	return *t.store.Get(t.Depth(), 0)
 }
 
 // Add computes the hash of the given content b, appends it to the next free slot in the tree,
 // then incrementally builds the intermediate nodes up to the root.
 func (t *Tree) Add(b []byte) error {
 
+	l := t.store.Width()
+
 	// append the item's hash
 	h := sha256.Sum256(append([]byte{LeafPrefix}, b...))
-	t.store.Append(0, h)
+	t.store.Set(0, l, h)
+	l++
 
-	return t.buildUp(0)
-}
-
-// buildUp is a helper function that for a given level d, constructs and sets
-// the rightmost branch from latest node at level d up to the root.
-// Assuming nodes are added one by one, then calling buidUp(0) after appending
-// a leaf is enough to incrementally update the tree to the new state.
-func (t *Tree) buildUp(d int) error {
-	newDepth := bits.Len64(uint64(t.store.Len(0) - 1))
+	// build up to the root
+	newDepth := bits.Len64(uint64(l - 1))
+	d := 0
 	for d < newDepth {
 		// compute intermediate node
-
-		l := t.store.Len(d)
 		c := [sha256.Size*2 + 1]byte{NodePrefix}
 		var h [sha256.Size]byte
 
@@ -88,12 +87,8 @@ func (t *Tree) buildUp(d int) error {
 		}
 
 		d++
-		nl := t.store.Len(d)
-		if nl*2 < l {
-			t.store.Append(d, h)
-		} else {
-			t.store.Set(d, nl-1, h)
-		}
+		l = l / 2
+		t.store.Set(d, l-1, h)
 	}
 
 	return nil

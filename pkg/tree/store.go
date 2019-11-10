@@ -21,11 +21,9 @@ import (
 )
 
 type Storer interface {
-	Depth() int
+	Width() int
 	Set(layer, index int, value [sha256.Size]byte)
-	Append(layer int, value [sha256.Size]byte)
 	Get(layer, index int) *[sha256.Size]byte
-	Len(layer int) int
 }
 
 type memStore struct {
@@ -38,8 +36,8 @@ func NewMemStore() Storer {
 	}
 }
 
-func (m *memStore) Depth() int {
-	return len(m.data) - 1
+func (m *memStore) Width() int {
+	return len(m.data[0])
 }
 
 func (m *memStore) Set(layer, index int, value [sha256.Size]byte) {
@@ -48,27 +46,18 @@ func (m *memStore) Set(layer, index int, value [sha256.Size]byte) {
 		m.data = append(m.data, make([][sha256.Size]byte, 0, 256*256))
 	}
 
-	if l := len(m.data[layer]); l < index {
+	l := len(m.data[layer])
+	if l < index {
 		m.data[layer] = append(m.data[layer], make([][sha256.Size]byte, l-index)...)
 	}
 
-	m.data[layer][index] = value
-}
-
-func (m *memStore) Append(layer int, value [sha256.Size]byte) {
-	for len(m.data) <= layer {
-		m.data = append(m.data, make([][sha256.Size]byte, 0, 256*256))
+	if l == index {
+		m.data[layer] = append(m.data[layer], value)
+	} else {
+		m.data[layer][index] = value
 	}
-	m.data[layer] = append(m.data[layer], value)
 }
 
 func (m *memStore) Get(layer, index int) *[sha256.Size]byte {
 	return &m.data[layer][index]
-}
-
-func (m *memStore) Len(layer int) int {
-	for len(m.data) <= layer {
-		return 0
-	}
-	return len(m.data[layer])
 }

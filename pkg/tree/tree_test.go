@@ -97,6 +97,8 @@ var testRoots = [][sha256.Size]byte{
 
 func TestTree(t *testing.T) {
 	tr := New(NewMemStore())
+	assert.Equal(t, -1, tr.N())
+	assert.Equal(t, -1, tr.Depth())
 
 	for n := 0; n <= 64; n++ {
 		err := tr.Add([]byte(strconv.FormatUint(uint64(n), 10)))
