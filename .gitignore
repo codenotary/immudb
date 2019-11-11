@@ -25,6 +25,7 @@
 # Binaries
 /immu
 /immud
+/bm
 
 # Vendor
 vendor
