@@ -6,12 +6,20 @@ GO ?= go
 PROTOC ?= protoc
 
 .PHONY: immu
-immu: build/codegen
+immu:
 	$(GO) build ./cmd/immu
 
 .PHONY: immud
-immud: build/codegen
+immud:
 	$(GO) build ./cmd/immud
+
+.PHONY: immu-static
+immu-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immu
+
+.PHONY: immud-static
+immud-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immud
 
 .PHONY: vendor
 vendor:

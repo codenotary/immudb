@@ -1,0 +1,18 @@
+# Compiled binaries
+/immu
+/immud
+/bm
+dist
+
+# Vendor
+vendor
+
+# Unuseful stuff
+*.iml
+*.swp
+.idea/
+.git/
+.gitignore
+build
+resources
+/immudb
