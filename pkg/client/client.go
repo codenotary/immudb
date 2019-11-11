@@ -15,3 +15,51 @@ limitations under the License.
 */
 
 package client
+
+import (
+	"context"
+	"fmt"
+
+	"google.golang.org/grpc"
+
+	"github.com/codenotary/immudb/pkg/schema"
+)
+
+func Get(address string, key string) ([]byte, error) {
+	connection, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	defer connection.Close()
+	client := schema.NewImmuServiceClient(connection)
+	response, err := client.Get(context.Background(), &schema.GetRequest{
+		Key: key,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if response.Status != 0 {
+		return nil, fmt.Errorf("server error")
+	}
+	return response.Value, nil
+}
+
+func Set(address string, key string, value string) error {
+	connection, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+	defer connection.Close()
+	client := schema.NewImmuServiceClient(connection)
+	response, err := client.Set(context.Background(), &schema.SetRequest{
+		Key:   key,
+		Value: []byte(value),
+	})
+	if err != nil {
+		return err
+	}
+	if response.Status != 0 {
+		return fmt.Errorf("server error")
+	}
+	return nil
+}
