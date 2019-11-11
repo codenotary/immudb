@@ -16,6 +16,19 @@ limitations under the License.
 
 package main
 
+import (
+	"fmt"
+
+	"github.com/codenotary/immudb/pkg/client"
+)
+
 func main() {
-	// TODO
+	if err := client.Set("127.0.0.1:8080", "key", "value"); err != nil {
+		panic(err)
+	}
+	response, err := client.Get("127.0.0.1:8080", "key")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Response", string(response))
 }
