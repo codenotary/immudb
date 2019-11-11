@@ -35,8 +35,7 @@ type ImmuServer struct {
 }
 
 func Run(options Options) error {
-	listener, err := net.Listen(options.Network,
-		options.Address+":"+string(options.Port))
+	listener, err := net.Listen(options.Network, options.Bind())
 	if err != nil {
 		return err
 	}

@@ -51,3 +51,7 @@ func (o Options) WithPort(port int16) Options {
 	o.Port = port
 	return o
 }
+
+func (o Options) Bind() string {
+	return o.Address + ":" + string(o.Port)
+}
