@@ -23,6 +23,7 @@ import (
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
+	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/db"
@@ -44,20 +45,16 @@ func Run(address string, dir string) error {
 	}
 	var serverOptions []grpc.ServerOption
 	server := grpc.NewServer(serverOptions...)
-	schema.RegisterImmuServiceServer(server, &ImmuServer{
-		Topic: db.NewTopic(b),
-	})
+	schema.RegisterImmuServiceServer(server, &ImmuServer{Topic: db.NewTopic(b)})
 	return server.Serve(listener)
 }
 
-func (s ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.SetResponse, error) {
+func (s ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*empty.Empty, error) {
 	fmt.Println("Set", sr.Key)
 	if err := s.Topic.Set(sr.Key, sr.Value); err != nil {
 		return nil, err
 	}
-	return &schema.SetResponse{
-		Status: 0,
-	}, nil
+	return &empty.Empty{}, nil
 }
 
 func (s ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.GetResponse, error) {
@@ -66,11 +63,7 @@ func (s ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.Get
 	if err != nil {
 		return nil, err
 	}
-	return &schema.GetResponse{
-		Status: 0,
-		Key:    gr.Key,
-		Value:  value,
-	}, nil
+	return &schema.GetResponse{Value: value}, nil
 }
 
 func makeBadger(dir string, name string) (*badger.DB, error) {

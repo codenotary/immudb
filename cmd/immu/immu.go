@@ -60,7 +60,6 @@ func get() {
 		usage()
 	}
 	key := os.Args[2]
-
 	response, err := client.Get(address, key)
 	if err != nil {
 		panic(err)

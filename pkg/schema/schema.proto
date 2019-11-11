@@ -16,6 +16,8 @@ limitations under the License.
 
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+
 package schema;
 
 message SetRequest {
@@ -23,21 +25,15 @@ message SetRequest {
 	bytes value = 2;
 }
 
-message SetResponse {
-	int32 status = 1;
-}
-
 message GetRequest {
 	string key = 1;
 }
 
 message GetResponse {
-	int32 status = 1;
-	string key = 2;
-	bytes value = 3;
+	bytes value = 1;
 }
 
 service ImmuService {
-	rpc Set (SetRequest) returns (SetResponse);
+	rpc Set (SetRequest) returns (google.protobuf.Empty);
 	rpc Get (GetRequest) returns (GetResponse);
 }

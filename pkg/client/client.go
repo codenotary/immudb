@@ -18,7 +18,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/grpc"
 
@@ -28,14 +27,9 @@ import (
 func Get(address string, key string) ([]byte, error) {
 	return withConnection(address, func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
-		response, err := client.Get(context.Background(), &schema.GetRequest{
-			Key: key,
-		})
+		response, err := client.Get(context.Background(), &schema.GetRequest{Key: key})
 		if err != nil {
 			return nil, err
-		}
-		if response.Status != 0 {
-			return nil, fmt.Errorf("server error")
 		}
 		return response.Value, nil
 	})
@@ -44,15 +38,11 @@ func Get(address string, key string) ([]byte, error) {
 func Set(address string, key string, value string) error {
 	_, err := withConnection(address, func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
-		response, err := client.Set(context.Background(), &schema.SetRequest{
+		if _, err := client.Set(context.Background(), &schema.SetRequest{
 			Key:   key,
 			Value: []byte(value),
-		})
-		if err != nil {
+		}); err != nil {
 			return nil, err
-		}
-		if response.Status != 0 {
-			return nil, fmt.Errorf("server error")
 		}
 		return nil, nil
 	})
