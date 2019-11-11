@@ -51,7 +51,7 @@ func main() {
 				WithPort(port).
 				WithAddress(address).
 				WithDbName(dbName)
-			return server.Run(options)
+			return server.Run(&options)
 		},
 	}
 	cmd.Flags().StringP("directory", "d", server.DefaultOptions().Dir, "directory")

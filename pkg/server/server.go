@@ -34,7 +34,7 @@ type ImmuServer struct {
 	Topic *db.Topic
 }
 
-func Run(options Options) error {
+func Run(options *Options) error {
 	fmt.Println("starting immud", options)
 	listener, err := net.Listen(options.Network, options.Bind())
 	if err != nil {
