@@ -22,8 +22,9 @@ test:
 	$(GO) vet ./...
 	$(GO) test ${TEST_FLAGS} ./...
 
-build/codegen: pkg/proto/schema.proto
-	$(PROTOC) pkg/proto/schema.proto --go_out .
+.PHONY: build/codegen
+build/codegen:
+	$(PROTOC) -I pkg/schema/ pkg/schema/schema.proto --go_out=plugins=grpc:pkg/schema
 
 .PHONY: clean
 clean:
