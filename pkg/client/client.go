@@ -18,6 +18,8 @@ package client
 
 import (
 	"context"
+	"io"
+	"io/ioutil"
 
 	"google.golang.org/grpc"
 
@@ -35,18 +37,21 @@ func Get(options *Options, key string) ([]byte, error) {
 	})
 }
 
-func Set(options *Options, key string, value []byte) error {
-	_, err := withConnection(options, func(connection *grpc.ClientConn) (bytes []byte, e error) {
+func Set(options *Options, key string, reader io.Reader) ([]byte, error) {
+	return withConnection(options, func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
+		value, err := ioutil.ReadAll(reader)
+		if err != nil {
+			return nil, err
+		}
 		if _, err := client.Set(context.Background(), &schema.SetRequest{
 			Key:   key,
 			Value: value,
 		}); err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return value, nil
 	})
-	return err
 }
 
 func withConnection(options *Options, callback func(connection *grpc.ClientConn) ([]byte, error)) ([]byte, error) {

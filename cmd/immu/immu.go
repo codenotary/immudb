@@ -17,7 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -56,14 +59,21 @@ func main() {
 			if err != nil {
 				return err
 			}
-			key, value := args[0], args[1]
-			if err := client.Set(options, key, []byte(value)); err != nil {
+			key := args[0]
+			var reader io.Reader
+			if len(args) > 1 {
+				reader = bytes.NewReader([]byte(args[1]))
+			} else {
+				reader = bufio.NewReader(os.Stdin)
+			}
+			value, err := client.Set(options, key, reader)
+			if err != nil {
 				return err
 			}
-			fmt.Println("Set", key, "=", value)
+			fmt.Println("Set", key, len(value), "bytes)")
 			return nil
 		},
-		Args: cobra.ExactArgs(2),
+		Args: cobra.MinimumNArgs(1),
 	}
 	configureOptions(getCommand)
 	configureOptions(setCommand)
