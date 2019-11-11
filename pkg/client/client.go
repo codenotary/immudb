@@ -24,8 +24,8 @@ import (
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-func Get(address string, key string) ([]byte, error) {
-	return withConnection(address, func(connection *grpc.ClientConn) (bytes []byte, e error) {
+func Get(options Options, key string) ([]byte, error) {
+	return withConnection(options, func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
 		response, err := client.Get(context.Background(), &schema.GetRequest{Key: key})
 		if err != nil {
@@ -35,8 +35,8 @@ func Get(address string, key string) ([]byte, error) {
 	})
 }
 
-func Set(address string, key string, value string) error {
-	_, err := withConnection(address, func(connection *grpc.ClientConn) (bytes []byte, e error) {
+func Set(options Options, key string, value string) error {
+	_, err := withConnection(options, func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
 		if _, err := client.Set(context.Background(), &schema.SetRequest{
 			Key:   key,
@@ -49,8 +49,8 @@ func Set(address string, key string, value string) error {
 	return err
 }
 
-func withConnection(address string, callback func(connection *grpc.ClientConn) ([]byte, error)) ([]byte, error) {
-	connection, err := grpc.Dial(address, grpc.WithInsecure())
+func withConnection(options Options, callback func(connection *grpc.ClientConn) ([]byte, error)) ([]byte, error) {
+	connection, err := grpc.Dial(options.Bind(), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}

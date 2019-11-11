@@ -23,10 +23,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-const (
-	address = "127.0.0.1:8080"
-)
-
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -49,7 +45,7 @@ func set() {
 		usage()
 	}
 	key, value := os.Args[2], os.Args[3]
-	if err := client.Set(address, key, value); err != nil {
+	if err := client.Set(client.DefaultOptions(), key, value); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -61,7 +57,7 @@ func get() {
 		usage()
 	}
 	key := os.Args[2]
-	response, err := client.Get(address, key)
+	response, err := client.Get(client.DefaultOptions(), key)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
