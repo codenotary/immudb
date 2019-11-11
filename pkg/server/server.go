@@ -38,7 +38,7 @@ func Run(address string) error {
 	var serverOptions []grpc.ServerOption
 	server := grpc.NewServer(serverOptions...)
 	schema.RegisterImmuServiceServer(server, &ImmuServer{})
-	panic(server.Serve(lis))
+	return server.Serve(lis)
 }
 
 func (s ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.SetResponse, error) {
