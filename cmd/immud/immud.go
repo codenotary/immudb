@@ -27,8 +27,7 @@ import (
 
 func main() {
 	cmd := &cobra.Command{
-		Use:   "immud",
-		Short: "ImmuDB daemon",
+		Use: "immud",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir, err := cmd.Flags().GetString("directory")
 			if err != nil {
