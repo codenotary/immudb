@@ -17,11 +17,50 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+
 	"github.com/codenotary/immudb/pkg/server"
 )
 
 func main() {
-	if err := server.Run(server.DefaultOptions()); err != nil {
-		panic(err)
+	cmd := &cobra.Command{
+		Use:   "immud",
+		Short: "ImmuDB daemon",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir, err := cmd.Flags().GetString("directory")
+			if err != nil {
+				return err
+			}
+			port, err := cmd.Flags().GetInt("port")
+			if err != nil {
+				return err
+			}
+			address, err := cmd.Flags().GetString("address")
+			if err != nil {
+				return err
+			}
+			dbName, err := cmd.Flags().GetString("name")
+			if err != nil {
+				return err
+			}
+			options := server.
+				DefaultOptions().
+				WithDir(dir).
+				WithPort(port).
+				WithAddress(address).
+				WithDbName(dbName)
+			return server.Run(options)
+		},
+	}
+	cmd.Flags().StringP("directory", "d", server.DefaultOptions().Dir, "directory")
+	cmd.Flags().IntP("port", "p", server.DefaultOptions().Port, "port number")
+	cmd.Flags().StringP("address", "a", server.DefaultOptions().Address, "bind address")
+	cmd.Flags().StringP("name", "n", server.DefaultOptions().DbName, "db name")
+	if err := cmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }

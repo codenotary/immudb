@@ -35,6 +35,7 @@ type ImmuServer struct {
 }
 
 func Run(options Options) error {
+	fmt.Println("starting immud", options)
 	listener, err := net.Listen(options.Network, options.Bind())
 	if err != nil {
 		return err
