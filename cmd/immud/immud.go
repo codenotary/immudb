@@ -16,6 +16,12 @@ limitations under the License.
 
 package main
 
+import (
+	"github.com/codenotary/immudb/pkg/server"
+)
+
 func main() {
-	// TODO
+	if err := server.Run("127.0.0.1:8080"); err != nil {
+		panic(err)
+	}
 }
