@@ -21,3 +21,7 @@
 
 # macOS
 .DS_Store
+
+# Binaries
+/immu
+/immud
