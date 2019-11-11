@@ -27,5 +27,8 @@
 /immud
 /bm
 
+# Working files
+/immudb
+
 # Vendor
 vendor
