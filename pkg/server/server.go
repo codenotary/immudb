@@ -34,7 +34,7 @@ type ImmuServer struct {
 }
 
 func Run(address string, dir string) error {
-	lis, err := net.Listen("tcp", address)
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func Run(address string, dir string) error {
 	schema.RegisterImmuServiceServer(server, &ImmuServer{
 		Topic: db.NewTopic(b),
 	})
-	return server.Serve(lis)
+	return server.Serve(listener)
 }
 
 func (s ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.SetResponse, error) {
