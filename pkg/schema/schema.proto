@@ -14,19 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+syntax = "proto3";
 
-import (
-	"github.com/codenotary/immudb/pkg/server"
-)
+import "google/protobuf/empty.proto";
 
-const (
-	address = "127.0.0.1:8080"
-	dir     = "."
-)
+package schema;
 
-func main() {
-	if err := server.Run(address, dir); err != nil {
-		panic(err)
-	}
+message SetRequest {
+	string key = 1;
+	bytes value = 2;
+}
+
+message GetRequest {
+	string key = 1;
+}
+
+message GetResponse {
+	bytes value = 1;
+}
+
+service ImmuService {
+	rpc Set (SetRequest) returns (google.protobuf.Empty);
+	rpc Get (GetRequest) returns (GetResponse);
 }

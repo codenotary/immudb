@@ -21,3 +21,14 @@
 
 # macOS
 .DS_Store
+
+# Binaries
+/immu
+/immud
+/bm
+
+# Working files
+/immudb
+
+# Vendor
+vendor

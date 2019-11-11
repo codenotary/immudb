@@ -19,8 +19,9 @@ package db
 import (
 	"fmt"
 
-	"github.com/codenotary/immudb/pkg/tree"
 	"github.com/dgraph-io/badger/v2"
+
+	"github.com/codenotary/immudb/pkg/tree"
 )
 
 const reservedPrefix = '_'
@@ -61,4 +62,18 @@ func (t *Topic) Set(key string, value []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (t *Topic) Get(key string) ([]byte, error) {
+	txn := t.db.NewTransaction(true)
+	defer txn.Discard()
+	item, err := txn.Get([]byte(key))
+	if err != nil {
+		return nil, err
+	}
+	val, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
 }

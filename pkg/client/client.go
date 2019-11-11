@@ -15,3 +15,45 @@ limitations under the License.
 */
 
 package client
+
+import (
+	"context"
+
+	"google.golang.org/grpc"
+
+	"github.com/codenotary/immudb/pkg/schema"
+)
+
+func Get(address string, key string) ([]byte, error) {
+	return withConnection(address, func(connection *grpc.ClientConn) (bytes []byte, e error) {
+		client := schema.NewImmuServiceClient(connection)
+		response, err := client.Get(context.Background(), &schema.GetRequest{Key: key})
+		if err != nil {
+			return nil, err
+		}
+		return response.Value, nil
+	})
+}
+
+func Set(address string, key string, value string) error {
+	_, err := withConnection(address, func(connection *grpc.ClientConn) (bytes []byte, e error) {
+		client := schema.NewImmuServiceClient(connection)
+		if _, err := client.Set(context.Background(), &schema.SetRequest{
+			Key:   key,
+			Value: []byte(value),
+		}); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
+	return err
+}
+
+func withConnection(address string, callback func(connection *grpc.ClientConn) ([]byte, error)) ([]byte, error) {
+	connection, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	defer connection.Close()
+	return callback(connection)
+}
