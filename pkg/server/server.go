@@ -34,12 +34,13 @@ type ImmuServer struct {
 	Topic *db.Topic
 }
 
-func Run(address string, dir string) error {
-	listener, err := net.Listen("tcp", address)
+func Run(options Options) error {
+	listener, err := net.Listen(options.Network,
+		options.Address+":"+string(options.Port))
 	if err != nil {
 		return err
 	}
-	b, err := makeBadger(dir, "immudb")
+	b, err := makeBadger(options.Dir, "immudb")
 	if err != nil {
 		return err
 	}
