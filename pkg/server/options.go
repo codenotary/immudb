@@ -21,6 +21,7 @@ type Options struct {
 	Network string
 	Address string
 	Port    int16
+	DbName  string
 }
 
 func DefaultOptions() Options {
@@ -29,6 +30,7 @@ func DefaultOptions() Options {
 		Network: "tcp",
 		Address: "127.0.0.1",
 		Port:    8080,
+		DbName:  "immudb",
 	}
 }
 
@@ -49,6 +51,11 @@ func (o Options) WithAddress(address string) Options {
 
 func (o Options) WithPort(port int16) Options {
 	o.Port = port
+	return o
+}
+
+func (o Options) WithDbName(dbName string) Options {
+	o.DbName = dbName
 	return o
 }
 

@@ -39,7 +39,7 @@ func Run(options Options) error {
 	if err != nil {
 		return err
 	}
-	b, err := makeBadger(options.Dir, "immudb")
+	b, err := makeBadger(options.Dir, options.DbName)
 	if err != nil {
 		return err
 	}
