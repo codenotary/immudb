@@ -18,7 +18,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"github.com/dgraph-io/badger/v2"
@@ -27,15 +26,11 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/db"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-type ImmuServer struct {
-	Topic *db.Topic
-}
-
 func Run(options *Options) error {
-	fmt.Println("starting immud", options)
 	listener, err := net.Listen(options.Network, options.Bind())
 	if err != nil {
 		return err
@@ -44,23 +39,26 @@ func Run(options *Options) error {
 	if err != nil {
 		return err
 	}
-	var serverOptions []grpc.ServerOption
-	server := grpc.NewServer(serverOptions...)
-	schema.RegisterImmuServiceServer(server, &ImmuServer{Topic: db.NewTopic(b)})
-	return server.Serve(listener)
+	server := &ImmuServer{
+		Topic:  db.NewTopic(b),
+		Logger: logger.DefaultLogger}
+	server.Logger.Infof("starting immudb %v", options)
+	gRpcServer := grpc.NewServer()
+	schema.RegisterImmuServiceServer(gRpcServer, server)
+	return gRpcServer.Serve(listener)
 }
 
-func (s ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*empty.Empty, error) {
-	fmt.Println("Set", sr.Key)
+func (s *ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*empty.Empty, error) {
+	s.Logger.Debugf("set %s %d bytes", sr.Key, len(sr.Value))
 	if err := s.Topic.Set(sr.Key, sr.Value); err != nil {
 		return nil, err
 	}
 	return &empty.Empty{}, nil
 }
 
-func (s ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.GetResponse, error) {
-	fmt.Println("Get", gr.Key)
+func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.GetResponse, error) {
 	value, err := s.Topic.Get(gr.Key)
+	s.Logger.Debugf("get %s %d bytes", gr.Key, len(value))
 	if err != nil {
 		return nil, err
 	}
