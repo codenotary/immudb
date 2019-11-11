@@ -62,10 +62,14 @@ func (s ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.Set
 
 func (s ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.GetResponse, error) {
 	fmt.Println("Get", gr.Key)
+	value, err := s.Topic.Get(gr.Key)
+	if err != nil {
+		return nil, err
+	}
 	return &schema.GetResponse{
 		Status: 0,
-		Key:    "test",
-		Value:  []byte("test"), // TODO
+		Key:    gr.Key,
+		Value:  value,
 	}, nil
 }
 
