@@ -18,17 +18,52 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/codenotary/immudb/pkg/client"
 )
 
+const (
+	address = "127.0.0.1:8080"
+)
+
 func main() {
-	if err := client.Set("127.0.0.1:8080", "key", "value"); err != nil {
+	if len(os.Args) < 2 {
+		usage()
+	} else if os.Args[1] == "get" {
+		get()
+	} else if os.Args[1] == "set" {
+		set()
+	} else {
+		usage()
+	}
+}
+
+func usage() {
+	fmt.Println("Usage:", os.Args[0], "<set|get> key (value)?")
+	os.Exit(1)
+}
+
+func set() {
+	if len(os.Args) < 4 {
+		usage()
+	}
+	key, value := os.Args[2], os.Args[3]
+	if err := client.Set(address, key, value); err != nil {
 		panic(err)
 	}
-	response, err := client.Get("127.0.0.1:8080", "key")
+	fmt.Println("Set", key, "=", value)
+}
+
+func get() {
+	if len(os.Args) < 3 {
+		usage()
+	}
+	key := os.Args[2]
+
+	response, err := client.Get(address, key)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Response", string(response))
+	fmt.Println("Get", key, "=", string(response))
 }

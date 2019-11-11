@@ -20,8 +20,13 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 )
 
+const (
+	address = "127.0.0.1:8080"
+	dir     = "."
+)
+
 func main() {
-	if err := server.Run("127.0.0.1:8080", "."); err != nil {
+	if err := server.Run(address, dir); err != nil {
 		panic(err)
 	}
 }
