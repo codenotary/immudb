@@ -16,9 +16,13 @@ limitations under the License.
 
 package client
 
+import (
+	"strconv"
+)
+
 type Options struct {
 	Address string
-	Port    int16
+	Port    int
 }
 
 func DefaultOptions() Options {
@@ -33,11 +37,11 @@ func (o Options) WithAddress(address string) Options {
 	return o
 }
 
-func (o Options) WithPort(port int16) Options {
+func (o Options) WithPort(port int) Options {
 	o.Port = port
 	return o
 }
 
 func (o Options) Bind() string {
-	return o.Address + ":" + string(o.Port)
+	return o.Address + ":" + strconv.Itoa(o.Port)
 }

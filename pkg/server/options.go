@@ -16,11 +16,15 @@ limitations under the License.
 
 package server
 
+import (
+	"strconv"
+)
+
 type Options struct {
 	Dir     string
 	Network string
 	Address string
-	Port    int16
+	Port    int
 	DbName  string
 }
 
@@ -49,7 +53,7 @@ func (o Options) WithAddress(address string) Options {
 	return o
 }
 
-func (o Options) WithPort(port int16) Options {
+func (o Options) WithPort(port int) Options {
 	o.Port = port
 	return o
 }
@@ -60,5 +64,5 @@ func (o Options) WithDbName(dbName string) Options {
 }
 
 func (o Options) Bind() string {
-	return o.Address + ":" + string(o.Port)
+	return o.Address + ":" + strconv.Itoa(o.Port)
 }
