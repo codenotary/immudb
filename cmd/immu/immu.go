@@ -50,7 +50,8 @@ func set() {
 	}
 	key, value := os.Args[2], os.Args[3]
 	if err := client.Set(address, key, value); err != nil {
-		panic(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 	fmt.Println("Set", key, "=", value)
 }
@@ -62,7 +63,8 @@ func get() {
 	key := os.Args[2]
 	response, err := client.Get(address, key)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 	fmt.Println("Get", key, "=", string(response))
 }
