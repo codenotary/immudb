@@ -21,29 +21,40 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v2/options"
 	"google.golang.org/grpc"
 
+	"github.com/codenotary/immudb/pkg/db"
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-type ImmuServer struct{}
+type ImmuServer struct {
+	Topic *db.Topic
+}
 
-var store []byte
-
-func Run(address string) error {
+func Run(address string, dir string) error {
 	lis, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+	b, err := makeBadger(dir, "immudb")
 	if err != nil {
 		return err
 	}
 	var serverOptions []grpc.ServerOption
 	server := grpc.NewServer(serverOptions...)
-	schema.RegisterImmuServiceServer(server, &ImmuServer{})
+	schema.RegisterImmuServiceServer(server, &ImmuServer{
+		Topic: db.NewTopic(b),
+	})
 	return server.Serve(lis)
 }
 
 func (s ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.SetResponse, error) {
 	fmt.Println("Set", sr.Key)
-	store = sr.Value
+	if err := s.Topic.Set(sr.Key, sr.Value); err != nil {
+		return nil, err
+	}
 	return &schema.SetResponse{
 		Status: 0,
 	}, nil
@@ -54,6 +65,16 @@ func (s ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.Get
 	return &schema.GetResponse{
 		Status: 0,
 		Key:    "test",
-		Value:  store,
+		Value:  []byte("test"), // TODO
 	}, nil
+}
+
+func makeBadger(dir string, name string) (*badger.DB, error) {
+	opts := badger.
+		DefaultOptions(dir + "/" + name).
+		WithTableLoadingMode(options.LoadToRAM).
+		WithCompressionType(options.None).
+		WithSyncWrites(false).
+		WithEventLogging(false)
+	return badger.Open(opts)
 }
