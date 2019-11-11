@@ -57,7 +57,7 @@ func main() {
 				return err
 			}
 			key, value := args[0], args[1]
-			if err := client.Set(options, key, value); err != nil {
+			if err := client.Set(options, key, []byte(value)); err != nil {
 				return err
 			}
 			fmt.Println("Set", key, "=", value)

@@ -35,12 +35,12 @@ func Get(options *Options, key string) ([]byte, error) {
 	})
 }
 
-func Set(options *Options, key string, value string) error {
+func Set(options *Options, key string, value []byte) error {
 	_, err := withConnection(options, func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
 		if _, err := client.Set(context.Background(), &schema.SetRequest{
 			Key:   key,
-			Value: []byte(value),
+			Value: value,
 		}); err != nil {
 			return nil, err
 		}
