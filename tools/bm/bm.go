@@ -20,34 +20,42 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/db"
-	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
 )
 
-func makeBadger() *badger.DB {
+func makeTopic() (*db.Topic, func()) {
 
-	dir, err := ioutil.TempDir("", "badger")
+	dir, err := ioutil.TempDir("", "immu")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	opts := badger.
-		DefaultOptions(dir).
-		WithTableLoadingMode(options.LoadToRAM).
-		WithCompressionType(options.None).
+	opts := db.DefaultOptions(dir)
+	opts.Badger.
 		WithSyncWrites(false).
-		WithEventLogging(false)
+		WithEventLogging(false).
+		WithTableLoadingMode(options.LoadToRAM).
+		WithCompressionType(options.None)
 
-	db, err := badger.Open(opts)
+	topic, err := db.Open(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return db
+
+	return topic, func() {
+		if err := topic.Close(); err != nil {
+			log.Fatal(err)
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 const N = 1000000
@@ -56,8 +64,8 @@ const Chunk = 8
 var V = []byte{0, 1, 3, 4, 5, 6, 7}
 
 func main() {
-	badger := makeBadger()
-	topic := db.NewTopic(badger)
+	topic, closer := makeTopic()
+	defer closer()
 
 	var wg sync.WaitGroup
 

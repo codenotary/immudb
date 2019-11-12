@@ -30,10 +30,18 @@ type Topic struct {
 	db *badger.DB
 }
 
-func NewTopic(db *badger.DB) *Topic {
+func Open(options Options) (*Topic, error) {
+	db, err := badger.Open(options.Badger)
+	if err != nil {
+		return nil, err
+	}
 	return &Topic{
 		db: db,
-	}
+	}, nil
+}
+
+func (t *Topic) Close() error {
+	return t.db.Close()
 }
 
 func (t *Topic) Set(key string, value []byte) error {

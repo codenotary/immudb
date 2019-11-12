@@ -19,9 +19,8 @@ package server
 import (
 	"context"
 	"net"
+	"path/filepath"
 
-	"github.com/dgraph-io/badger/v2"
-	"github.com/dgraph-io/badger/v2/options"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
@@ -35,12 +34,16 @@ func (s *ImmuServer) Run() error {
 	if err != nil {
 		return err
 	}
-	b, err := makeBadger(s.Options.Dir, s.Options.DbName)
+	t, err := db.Open(
+		db.DefaultOptions(
+			filepath.Join(s.Options.Dir, s.Options.DbName),
+		),
+	)
 	if err != nil {
 		return err
 	}
 	server := &ImmuServer{
-		Topic:  db.NewTopic(b),
+		Topic:  t,
 		Logger: logger.DefaultLogger}
 	server.Logger.Infof("starting immudb %v", s.Options)
 	gRpcServer := grpc.NewServer()
@@ -63,14 +66,4 @@ func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.Ge
 		return nil, err
 	}
 	return &schema.GetResponse{Value: value}, nil
-}
-
-func makeBadger(dir string, name string) (*badger.DB, error) {
-	opts := badger.
-		DefaultOptions(dir + "/" + name).
-		WithTableLoadingMode(options.LoadToRAM).
-		WithCompressionType(options.None).
-		WithSyncWrites(false).
-		WithEventLogging(false)
-	return badger.Open(opts)
 }

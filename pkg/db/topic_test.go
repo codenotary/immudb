@@ -19,37 +19,41 @@ package db
 import (
 	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 	"testing"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/stretchr/testify/assert"
 )
 
-func makeBadger() *badger.DB {
+func makeTopic() (*Topic, func()) {
 
-	dir, err := ioutil.TempDir("", "badger")
+	dir, err := ioutil.TempDir("", "immu")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	opts := badger.
-		DefaultOptions(dir).
-		WithKeepL0InMemory(true).
-		WithSyncWrites(false)
+	opts := DefaultOptions(dir)
+	opts.Badger.WithSyncWrites(false)
 
-	db, err := badger.Open(opts)
+	topic, err := Open(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return db
+
+	return topic, func() {
+		if err := topic.Close(); err != nil {
+			log.Fatal(err)
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 func TestTopic(t *testing.T) {
-	db := makeBadger()
-	defer db.Close()
-
-	topic := NewTopic(db)
+	topic, closer := makeTopic()
+	defer closer()
 
 	for n := uint64(0); n <= 64; n++ {
 		key := strconv.FormatUint(n, 10)
@@ -69,11 +73,12 @@ func TestTopic(t *testing.T) {
 }
 
 func BenchmarkTreeAdd(b *testing.B) {
-	db := makeBadger()
-	defer db.Close()
-	topic := NewTopic(db)
+	topic, closer := makeTopic()
+	defer closer()
 
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		topic.Set("key"+strconv.FormatUint(uint64(i), 10), []byte{0, 1, 3, 4, 5, 6, 7})
 	}
+	b.StopTimer()
 }
