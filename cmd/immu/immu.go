@@ -42,8 +42,10 @@ func main() {
 				return err
 			}
 			key := args[0]
-			immuClient := client.DefaultClient()
-			response, err := immuClient.Get(options, key)
+			immuClient := client.
+				DefaultClient().
+				WithOptions(options)
+			response, err := immuClient.Get(key)
 			if err != nil {
 				return err
 			}
@@ -60,7 +62,9 @@ func main() {
 			if err != nil {
 				return err
 			}
-			immuClient := client.DefaultClient()
+			immuClient := client.
+				DefaultClient().
+				WithOptions(options)
 			key := args[0]
 			var reader io.Reader
 			if len(args) > 1 {
@@ -68,7 +72,7 @@ func main() {
 			} else {
 				reader = bufio.NewReader(os.Stdin)
 			}
-			value, err := immuClient.Set(options, key, reader)
+			value, err := immuClient.Set(key, reader)
 			if err != nil {
 				return err
 			}

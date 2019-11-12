@@ -23,18 +23,11 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-func DefaultClient() *ImmuClient {
-	return &ImmuClient{
-		Logger: logger.DefaultLogger,
-	}
-}
-
-func (c *ImmuClient) Get(options *Options, key string) ([]byte, error) {
-	return withConnection(options, func(connection *grpc.ClientConn) (bytes []byte, e error) {
+func (c *ImmuClient) Get(key string) ([]byte, error) {
+	return c.withConnection(func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
 		response, err := client.Get(context.Background(), &schema.GetRequest{Key: key})
 		if err != nil {
@@ -44,8 +37,8 @@ func (c *ImmuClient) Get(options *Options, key string) ([]byte, error) {
 	})
 }
 
-func (c *ImmuClient) Set(options *Options, key string, reader io.Reader) ([]byte, error) {
-	return withConnection(options, func(connection *grpc.ClientConn) (bytes []byte, e error) {
+func (c *ImmuClient) Set(key string, reader io.Reader) ([]byte, error) {
+	return c.withConnection(func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
 		value, err := ioutil.ReadAll(reader)
 		if err != nil {
@@ -61,8 +54,8 @@ func (c *ImmuClient) Set(options *Options, key string, reader io.Reader) ([]byte
 	})
 }
 
-func withConnection(options *Options, callback func(connection *grpc.ClientConn) ([]byte, error)) ([]byte, error) {
-	connection, err := grpc.Dial(options.Bind(), grpc.WithInsecure())
+func (c *ImmuClient) withConnection(callback func(connection *grpc.ClientConn) ([]byte, error)) ([]byte, error) {
+	connection, err := grpc.Dial(c.Options.Bind(), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
