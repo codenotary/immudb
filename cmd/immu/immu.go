@@ -44,7 +44,7 @@ func main() {
 			key := args[0]
 			immuClient := client.
 				DefaultClient().
-				WithOptions(options)
+				WithOptions(*options)
 			response, err := immuClient.Get(key)
 			if err != nil {
 				return err
@@ -64,7 +64,7 @@ func main() {
 			}
 			immuClient := client.
 				DefaultClient().
-				WithOptions(options)
+				WithOptions(*options)
 			key := args[0]
 			var reader io.Reader
 			if len(args) > 1 {

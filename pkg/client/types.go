@@ -6,7 +6,7 @@ import (
 
 type ImmuClient struct {
 	Logger  logger.Logger
-	Options *Options
+	Options Options
 }
 
 func DefaultClient() *ImmuClient {
@@ -20,7 +20,7 @@ func (c *ImmuClient) WithLogger(logger logger.Logger) *ImmuClient {
 	return c
 }
 
-func (c *ImmuClient) WithOptions(options *Options) *ImmuClient {
+func (c *ImmuClient) WithOptions(options Options) *ImmuClient {
 	c.Options = options
 	return c
 }
