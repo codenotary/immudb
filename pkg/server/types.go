@@ -22,6 +22,29 @@ import (
 )
 
 type ImmuServer struct {
-	Topic  *db.Topic
-	Logger logger.Logger
+	Topic   *db.Topic
+	Logger  logger.Logger
+	Options Options
+}
+
+func DefaultServer() *ImmuServer {
+	return &ImmuServer{
+		Logger:  logger.DefaultLogger,
+		Options: DefaultOptions(),
+	}
+}
+
+func (s *ImmuServer) WithTopic(topic *db.Topic) *ImmuServer {
+	s.Topic = topic
+	return s
+}
+
+func (s *ImmuServer) WithLogger(logger logger.Logger) *ImmuServer {
+	s.Logger = logger
+	return s
+}
+
+func (s *ImmuServer) WithOptions(options Options) *ImmuServer {
+	s.Options = options
+	return s
 }

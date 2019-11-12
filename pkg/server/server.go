@@ -30,19 +30,19 @@ import (
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-func Run(options *Options) error {
-	listener, err := net.Listen(options.Network, options.Bind())
+func (s *ImmuServer) Run() error {
+	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
 		return err
 	}
-	b, err := makeBadger(options.Dir, options.DbName)
+	b, err := makeBadger(s.Options.Dir, s.Options.DbName)
 	if err != nil {
 		return err
 	}
 	server := &ImmuServer{
 		Topic:  db.NewTopic(b),
 		Logger: logger.DefaultLogger}
-	server.Logger.Infof("starting immudb %v", options)
+	server.Logger.Infof("starting immudb %v", s.Options)
 	gRpcServer := grpc.NewServer()
 	schema.RegisterImmuServiceServer(gRpcServer, server)
 	return gRpcServer.Serve(listener)

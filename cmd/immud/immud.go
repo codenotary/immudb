@@ -51,7 +51,10 @@ func main() {
 				WithPort(port).
 				WithAddress(address).
 				WithDbName(dbName)
-			return server.Run(&options)
+			immuServer := server.
+				DefaultServer().
+				WithOptions(options)
+			return immuServer.Run()
 		},
 	}
 	cmd.Flags().StringP("directory", "d", server.DefaultOptions().Dir, "directory")
