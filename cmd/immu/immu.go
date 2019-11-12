@@ -42,7 +42,8 @@ func main() {
 				return err
 			}
 			key := args[0]
-			response, err := client.Get(options, key)
+			immuClient := client.DefaultClient()
+			response, err := immuClient.Get(options, key)
 			if err != nil {
 				return err
 			}
@@ -59,6 +60,7 @@ func main() {
 			if err != nil {
 				return err
 			}
+			immuClient := client.DefaultClient()
 			key := args[0]
 			var reader io.Reader
 			if len(args) > 1 {
@@ -66,11 +68,11 @@ func main() {
 			} else {
 				reader = bufio.NewReader(os.Stdin)
 			}
-			value, err := client.Set(options, key, reader)
+			value, err := immuClient.Set(options, key, reader)
 			if err != nil {
 				return err
 			}
-			fmt.Println("Set", key, len(value), "bytes)")
+			fmt.Println("Set", key, len(value), "bytes")
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
