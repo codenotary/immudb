@@ -47,9 +47,10 @@ func main() {
 				WithOptions(*options)
 			response, err := immuClient.Get(key)
 			if err != nil {
-				return err
+				fmt.Println(err)
+				os.Exit(1)
 			}
-			fmt.Println("Get", key, "=", string(response))
+			fmt.Println(string(response))
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -74,7 +75,8 @@ func main() {
 			}
 			value, err := immuClient.Set(key, reader)
 			if err != nil {
-				return err
+				fmt.Println(err)
+				os.Exit(1)
 			}
 			fmt.Println("Set", key, len(value), "bytes")
 			return nil
