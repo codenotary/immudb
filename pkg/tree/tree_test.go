@@ -96,19 +96,18 @@ var testRoots = [][sha256.Size]byte{
 }
 
 func TestTree(t *testing.T) {
-	tr := New(NewMemStore())
-	assert.Equal(t, -1, tr.N())
-	assert.Equal(t, -1, tr.Depth())
+	s := NewMemStore()
+	assert.Equal(t, -1, Depth(s))
 
 	for n := 0; n <= 64; n++ {
-		err := tr.Add([]byte(strconv.FormatUint(uint64(n), 10)))
+		err := Append(s, []byte(strconv.FormatUint(uint64(n), 10)))
 		assert.NoError(t, err)
 
-		assert.Equal(t, n, tr.N())
+		assert.Equal(t, n, int(s.Width()-1))
 		d := int(math.Ceil(math.Log2(float64(n + 1))))
-		assert.Equal(t, d, tr.Depth())
+		assert.Equal(t, d, Depth(s))
 
-		assert.Equal(t, testRoots[n], tr.Root())
+		assert.Equal(t, testRoots[n], Root(s))
 	}
 }
 
@@ -126,9 +125,9 @@ func BenchmarkLog2bits(b *testing.B) {
 	}
 }
 
-func BenchmarkTreeAdd(b *testing.B) {
-	tr := New(NewMemStore())
+func BenchmarkAppend(b *testing.B) {
+	s := NewMemStore()
 	for i := 0; i < b.N; i++ {
-		tr.Add([]byte{0, 1, 3, 4, 5, 6, 7})
+		Append(s, []byte{0, 1, 3, 4, 5, 6, 7})
 	}
 }
