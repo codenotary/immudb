@@ -12,6 +12,7 @@
 *.out
 
 # Editor
+.vscode
 .idea
 *.iml
 *.swp
