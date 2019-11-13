@@ -37,3 +37,7 @@ build/codegen:
 .PHONY: clean
 clean:
 	rm -f immu immud
+
+.PHONY: bm
+bm:
+	$(GO) run -ldflags '-s -w' ./tools/bm

@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -59,18 +60,21 @@ func makeTopic() (*db.Topic, func()) {
 }
 
 const N = 1000000
-const Chunk = 8
+
+var Concurrency = runtime.NumCPU()
 
 var V = []byte{0, 1, 3, 4, 5, 6, 7}
 
 func main() {
+	runtime.GOMAXPROCS(128)
+
 	topic, closer := makeTopic()
 	defer closer()
 
 	var wg sync.WaitGroup
 
-	chunkSize := N / Chunk
-	for k := 0; k < Chunk; k++ {
+	chunkSize := N / Concurrency
+	for k := 0; k < Concurrency; k++ {
 		wg.Add(1)
 		go func(kk int) {
 			defer wg.Done()
@@ -86,14 +90,16 @@ func main() {
 	wg.Wait()
 	endTime := time.Now()
 
-	elapsed := endTime.Unix() - startTime.Unix()
-	txnSec := float64(N) / float64(elapsed)
+	elapsed := float64(endTime.UnixNano()-startTime.UnixNano()) / (1000 * 1000 * 1000)
+	txnSec := float64(N) / elapsed
 
 	fmt.Printf(
 		`
+Concurency:	%d
 Iterations:	%d
-Elapsed t.:	%d (sec)
-Txn/sec   :	%f
+Elapsed t.:	%.2f sec
+Throughput:	%.0f tx/sec
+
 `,
-		N, elapsed, txnSec)
+		Concurrency, N, elapsed, txnSec)
 }
