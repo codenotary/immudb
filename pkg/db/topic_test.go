@@ -17,14 +17,19 @@ limitations under the License.
 package db
 
 import (
+	"crypto/sha256"
 	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/tree"
+
 	"github.com/stretchr/testify/assert"
 )
+
+var root64th = [sha256.Size]byte{201, 28, 32, 28, 254, 198, 253, 1, 154, 47, 153, 197, 239, 70, 111, 170, 110, 101, 116, 67, 4, 89, 193, 198, 193, 167, 171, 118, 222, 198, 83, 244}
 
 func makeTopic() (*Topic, func()) {
 
@@ -34,7 +39,9 @@ func makeTopic() (*Topic, func()) {
 	}
 
 	opts := DefaultOptions(dir)
-	opts.Badger.WithSyncWrites(false)
+	opts.Badger.
+		WithSyncWrites(false).
+		WithEventLogging(false)
 
 	topic, err := Open(opts)
 	if err != nil {
@@ -57,19 +64,12 @@ func TestTopic(t *testing.T) {
 
 	for n := uint64(0); n <= 64; n++ {
 		key := strconv.FormatUint(n, 10)
-		err := topic.Set("key"+key, []byte(key))
+		err := topic.Set(key, []byte(key))
 
 		assert.NoError(t, err)
-
-		// assert.Equal(t, n, tr.N())
-		// d := uint64(math.Ceil(math.Log2(float64(n + 1))))
-		// assert.Equal(t, d, tr.Depth())
-
-		// assert.Equal(t, testRoots[n], tr.Root())
-
-		// // internal state
-		// assert.Len(t, tr.data[tr.Depth()], 1)
 	}
+
+	assert.Equal(t, root64th, tree.Root(topic.store))
 }
 
 func BenchmarkTreeAdd(b *testing.B) {
@@ -78,7 +78,7 @@ func BenchmarkTreeAdd(b *testing.B) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		topic.Set("key"+strconv.FormatUint(uint64(i), 10), []byte{0, 1, 3, 4, 5, 6, 7})
+		topic.Set(strconv.FormatUint(uint64(i), 10), []byte{0, 1, 3, 4, 5, 6, 7})
 	}
 	b.StopTimer()
 }

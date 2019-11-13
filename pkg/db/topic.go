@@ -17,39 +17,45 @@ limitations under the License.
 package db
 
 import (
-	"fmt"
-
 	"github.com/dgraph-io/badger/v2"
 
 	"github.com/codenotary/immudb/pkg/tree"
 )
 
-const reservedPrefix = '_'
-
 type Topic struct {
-	db *badger.DB
+	db    *badger.DB
+	ts    *badger.DB
+	store *treeStore
 }
 
 func Open(options Options) (*Topic, error) {
-	db, err := badger.Open(options.Badger)
+	db, err := badger.Open(options.dataStore())
 	if err != nil {
 		return nil, err
 	}
-	return &Topic{
-		db: db,
-	}, nil
+
+	ts, err := badger.OpenManaged(options.treeStore())
+	if err != nil {
+		return nil, err
+	}
+
+	t := &Topic{
+		db:    db,
+		ts:    ts,
+		store: newTreeStore(ts, 10000),
+	}
+
+	return t, nil
 }
 
 func (t *Topic) Close() error {
-	return t.db.Close()
+	if err := t.db.Close(); err != nil {
+		return err
+	}
+	return t.ts.Close()
 }
 
 func (t *Topic) Set(key string, value []byte) error {
-
-	if key[0] == reservedPrefix {
-		return fmt.Errorf("invalid key format: %s", key)
-	}
-
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
@@ -58,17 +64,19 @@ func (t *Topic) Set(key string, value []byte) error {
 		return err
 	}
 
-	trs, err := NewTreeStore(txn)
-	if err != nil {
-		return err
-	}
-	tr := tree.New(trs)
-	tr.Add(value) // fixme(leogr): we're assuming key is contained into value
-
 	// Commit the transaction and check for error.
 	if err := txn.Commit(); err != nil {
 		return err
 	}
+
+	// todo(leogr):
+	//  - tree append error checking
+	//  - index synching between db and ts
+	//  - replay append after crash (if not synched)
+	t.store.Lock()
+	tree.Append(t.store, value) // fixme(leogr): assuming key is present inside value
+	t.store.Unlock()
+
 	return nil
 }
 

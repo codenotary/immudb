@@ -17,7 +17,14 @@ limitations under the License.
 package db
 
 import (
+	"path/filepath"
+
 	"github.com/dgraph-io/badger/v2"
+)
+
+const (
+	dataPath = "data"
+	treePath = "tree"
 )
 
 type Options struct {
@@ -28,4 +35,20 @@ func DefaultOptions(path string) Options {
 	return Options{
 		Badger: badger.DefaultOptions(path),
 	}
+}
+
+func (o Options) dataStore() badger.Options {
+	opt := o.Badger
+	basedir := opt.Dir
+	opt.Dir = filepath.Join(basedir, dataPath)
+	opt.ValueDir = filepath.Join(basedir, dataPath)
+	return opt
+}
+
+func (o Options) treeStore() badger.Options {
+	opt := o.Badger
+	basedir := opt.Dir
+	opt.Dir = filepath.Join(basedir, treePath)
+	opt.ValueDir = filepath.Join(basedir, treePath)
+	return opt
 }
