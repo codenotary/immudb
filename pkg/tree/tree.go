@@ -18,6 +18,7 @@ package tree
 
 import (
 	"crypto/sha256"
+	"math"
 	"math/bits"
 )
 
@@ -90,4 +91,9 @@ func AppendHash(store Storer, h [sha256.Size]byte) error {
 	}
 
 	return nil
+}
+
+func IsFrozen(layer uint8, index, at uint64) bool {
+	a := uint64(math.Pow(2, float64(layer)))
+	return at >= index*a+a-1
 }

@@ -95,6 +95,22 @@ var testRoots = [][sha256.Size]byte{
 	{201, 28, 32, 28, 254, 198, 253, 1, 154, 47, 153, 197, 239, 70, 111, 170, 110, 101, 116, 67, 4, 89, 193, 198, 193, 167, 171, 118, 222, 198, 83, 244},
 }
 
+var testFrozen = []struct {
+	at     uint64
+	layer  uint8
+	index  uint64
+	frozen bool
+}{
+	{0, 0, 0, true},
+	{6, 0, 7, false},
+	{7, 0, 7, true},
+
+	{6, 3, 0, false},
+	{6, 2, 0, true}, {6, 2, 1, false},
+	{6, 1, 0, true}, {6, 1, 1, true}, {6, 1, 2, true}, {6, 1, 3, false},
+	{6, 0, 0, true}, {6, 0, 1, true}, {6, 0, 2, true}, {6, 0, 3, true}, {6, 0, 4, true}, {6, 0, 5, true}, {6, 0, 6, true}, {6, 0, 7, false},
+}
+
 func TestTree(t *testing.T) {
 	s := NewMemStore()
 	assert.Equal(t, -1, Depth(s))
@@ -108,6 +124,12 @@ func TestTree(t *testing.T) {
 		assert.Equal(t, d, Depth(s))
 
 		assert.Equal(t, testRoots[n], Root(s))
+	}
+}
+
+func TestIsFrozen(t *testing.T) {
+	for _, v := range testFrozen {
+		assert.Equal(t, v.frozen, IsFrozen(v.layer, v.index, v.at))
 	}
 }
 
