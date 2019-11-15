@@ -61,25 +61,22 @@ func Append(store Storer, b []byte) error {
 // then incrementally builds the intermediate nodes up to the root.
 func AppendHash(store Storer, h [sha256.Size]byte) error {
 	l := store.Width()
-
-	// append the item's hash
-	store.Set(0, l, h)
+	newDepth := uint8(bits.Len64(l))
 	l++
 
 	// build up to the root
-	newDepth := uint8(bits.Len64(l - 1))
 	d := uint8(0)
 	for d < newDepth {
-		// compute intermediate node
+
+		store.Set(d, l-1, h)
 		c := [sha256.Size*2 + 1]byte{NodePrefix}
-		var h [sha256.Size]byte
 
 		if l%2 == 0 {
 			copy(c[1:sha256.Size+1], store.Get(d, l-2)[:])
-			copy(c[sha256.Size+1:], store.Get(d, l-1)[:])
+			copy(c[sha256.Size+1:], h[:])
 			h = sha256.Sum256(c[:])
 		} else {
-			copy(c[1:sha256.Size+1], store.Get(d, l-1)[:])
+			copy(c[1:sha256.Size+1], h[:])
 			c[sha256.Size+2] = EmptyNode
 			h = sha256.Sum256(c[:sha256.Size+2])
 			l++
@@ -87,8 +84,10 @@ func AppendHash(store Storer, h [sha256.Size]byte) error {
 
 		d++
 		l = l / 2
-		store.Set(d, l-1, h)
 	}
+
+	// finally, set the root
+	store.Set(newDepth, 0, h)
 
 	return nil
 }
