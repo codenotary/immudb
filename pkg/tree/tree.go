@@ -18,12 +18,8 @@ package tree
 
 import (
 	"crypto/sha256"
-	"math"
 	"math/bits"
 )
-
-// EmptyNode represents a node with no content
-const EmptyNode = byte(0)
 
 // Prefixes for leaves and nodes
 const (
@@ -53,46 +49,43 @@ func LeafHash(b []byte) [sha256.Size]byte {
 
 // Append computes the hash of the given content b, appends it to the next free slot in the tree,
 // then incrementally builds the intermediate nodes up to the root.
-func Append(store Storer, b []byte) error {
-	return AppendHash(store, LeafHash(b))
+func Append(store Storer, b []byte) {
+	AppendHash(store, LeafHash(b))
 }
 
 // AppendHash appends the given hash to the next free slot in the tree,
 // then incrementally builds the intermediate nodes up to the root.
-func AppendHash(store Storer, h [sha256.Size]byte) error {
+func AppendHash(store Storer, h [sha256.Size]byte) {
+
+	// append the leaf
 	l := store.Width()
+	store.Set(0, l, h)
+
 	newDepth := uint8(bits.Len64(l))
 	l++
 
 	// build up to the root
 	d := uint8(0)
+	c := [sha256.Size*2 + 1]byte{NodePrefix}
 	for d < newDepth {
-
-		store.Set(d, l-1, h)
-		c := [sha256.Size*2 + 1]byte{NodePrefix}
-
 		if l%2 == 0 {
 			copy(c[1:sha256.Size+1], store.Get(d, l-2)[:])
 			copy(c[sha256.Size+1:], h[:])
 			h = sha256.Sum256(c[:])
+
+			d++
+			l = l / 2
+			store.Set(d, l-1, h)
 		} else {
-			copy(c[1:sha256.Size+1], h[:])
-			c[sha256.Size+2] = EmptyNode
-			h = sha256.Sum256(c[:sha256.Size+2])
+			// skip empty nodes
 			l++
+			d++
+			l = l / 2
 		}
-
-		d++
-		l = l / 2
 	}
-
-	// finally, set the root
-	store.Set(newDepth, 0, h)
-
-	return nil
 }
 
 func IsFrozen(layer uint8, index, at uint64) bool {
-	a := uint64(math.Pow(2, float64(layer)))
+	a := uint64(1) << layer
 	return at >= index*a+a-1
 }
