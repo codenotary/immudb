@@ -147,8 +147,15 @@ func BenchmarkLog2bits(b *testing.B) {
 	}
 }
 
-func BenchmarkAppend(b *testing.B) {
+func BenchmarkAppendMem(b *testing.B) {
 	s := NewMemStore()
+	for i := 0; i < b.N; i++ {
+		Append(s, []byte{0, 1, 3, 4, 5, 6, 7})
+	}
+}
+
+func BenchmarkAppendMap(b *testing.B) {
+	s := NewMapStore()
 	for i := 0; i < b.N; i++ {
 		Append(s, []byte{0, 1, 3, 4, 5, 6, 7})
 	}
