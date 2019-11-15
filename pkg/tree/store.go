@@ -59,5 +59,8 @@ func (m *memStore) Set(layer uint8, index uint64, value [sha256.Size]byte) {
 }
 
 func (m *memStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
+	if int(layer) >= len(m.data) || index >= uint64(len(m.data[layer])) {
+		return nil
+	}
 	return &m.data[layer][index]
 }
