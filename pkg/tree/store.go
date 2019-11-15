@@ -18,6 +18,7 @@ package tree
 
 import (
 	"crypto/sha256"
+	"fmt"
 )
 
 type Storer interface {
@@ -63,4 +64,14 @@ func (m *memStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
 		return nil
 	}
 	return &m.data[layer][index]
+}
+
+func (m *memStore) Print() {
+	l := len(m.data)
+	for i := l - 1; i >= 0; i-- {
+		for _, v := range m.data[i] {
+			fmt.Printf("%x ", v[0])
+		}
+		fmt.Println()
+	}
 }
