@@ -24,7 +24,7 @@ import (
 // MTH returns the Merkle Tree Hash, given an ordered list of n inputs _D_.
 // Reference implementation as per https://tools.ietf.org/html/rfc6962#section-2.1
 func MTH(D [][]byte) [sha256.Size]byte {
-	n := len(D)
+	n := uint64(len(D))
 	if n == 0 {
 		return sha256.Sum256(nil)
 	}
@@ -43,4 +43,30 @@ func MTH(D [][]byte) [sha256.Size]byte {
 	x = MTH(D[k:n])
 	c = append(c, x[:]...)
 	return sha256.Sum256(c)
+}
+
+// MPath returns the Merkle audit path for the (_m_+1)th input of the given ordered list of n inputs _D_.
+// Reference implementation as per https://tools.ietf.org/html/rfc6962#section-2.1.1
+func MPath(m uint64, D [][]byte) (path [][sha256.Size]byte) {
+	path = make([][sha256.Size]byte, 0)
+	n := uint64(len(D))
+	if n < 1 {
+		return
+	}
+
+	if n == 1 && m == 0 {
+		return
+	}
+
+	log := bits.Len64(n - 1)
+	k := uint64(1) << (log - 1)
+
+	if m < k {
+		path = append(path, MPath(m, D[0:k])...)
+		path = append(path, MTH(D[k:n]))
+	} else {
+		path = append(path, MPath(m-k, D[k:n])...)
+		path = append(path, MTH(D[0:k]))
+	}
+	return
 }
