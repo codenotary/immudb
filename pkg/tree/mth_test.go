@@ -38,10 +38,9 @@ func TestMTH(t *testing.T) {
 func TestMPath(t *testing.T) {
 
 	D := [][]byte{}
-	for n := uint64(0); n <= 64; n++ {
+	for n := uint64(0); n <= 8; n++ {
 		b := []byte(strconv.FormatUint(uint64(n), 10))
 		D = append(D, b)
-
 		for i := uint64(0); i <= n; i++ {
 			path := MPath(i, D)
 			// fmt.Printf("TEST(n=%d): i=%d\n", n, i)
@@ -50,7 +49,7 @@ func TestMPath(t *testing.T) {
 			// }
 			// fmt.Println("---------------------------")
 			// fmt.Println()
-			assert.Equal(t, testPaths[n].paths[i], path)
+			assert.Equal(t, testPaths[n][i], path)
 		}
 	}
 }
