@@ -18,6 +18,7 @@ package tree
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -28,28 +29,30 @@ func TestMTH(t *testing.T) {
 
 	D := [][]byte{}
 	assert.Equal(t, sha256.Sum256(nil), MTH(D))
-	for n := 0; n <= 64; n++ {
-		b := []byte(strconv.FormatUint(uint64(n), 10))
+	for index := uint64(0); index <= 64; index++ {
+		b := []byte(strconv.FormatUint(index, 10))
 		D = append(D, b)
-		assert.Equal(t, testRoots[n], MTH(D))
+		assert.Equal(t, testRoots[index], MTH(D))
 	}
 }
 
 func TestMPath(t *testing.T) {
 
 	D := [][]byte{}
-	for n := uint64(0); n <= 8; n++ {
-		b := []byte(strconv.FormatUint(uint64(n), 10))
+	for index := uint64(0); index <= 8; index++ {
+		b := []byte(strconv.FormatUint(index, 10))
 		D = append(D, b)
-		for i := uint64(0); i <= n; i++ {
+		// fmt.Println(index+1, "----------------------------------")
+		for i := uint64(0); i <= index; i++ {
 			path := MPath(i, D)
-			// fmt.Printf("TEST(n=%d): i=%d\n", n, i)
+			fmt.Printf("TEST(n=%d): i=%d len(path)=%d\n", index+1, i, len(path))
+			// fmt.Printf("TEST(n=%d): i=%d\n", index+1, i)
 			// for d, h := range path {
 			// 	fmt.Printf("%d) %.2x\n", d, h[0])
 			// }
 			// fmt.Println("---------------------------")
 			// fmt.Println()
-			assert.Equal(t, testPaths[n][i], path)
+			assert.Equal(t, testPaths[index][i], path)
 		}
 	}
 }
