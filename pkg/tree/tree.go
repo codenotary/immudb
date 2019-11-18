@@ -85,7 +85,87 @@ func AppendHash(store Storer, h [sha256.Size]byte) {
 	}
 }
 
+// IsFrozen returns true when the node (_layer_, _index_) in a tree of width = (_at_ + 1) is frozen, otherwise false.
+// Once a given subtree in the node has no more slots, the hash for the root node of that subtree is frozen
+// (i.e., will not change as future nodes are added).
+// In a tree with position _at_ (i.e. width = _at_ + 1), node (_layer_, _index_) is frozen
 func IsFrozen(layer uint8, index, at uint64) bool {
 	a := uint64(1) << layer
 	return at >= index*a+a-1
+}
+
+// Path the shortest list of additional nodes required to compute the root (i.e., MTH) from a leaf.
+type Path [][sha256.Size]byte
+
+func mth(store Storer, l, r uint64) *[sha256.Size]byte {
+	n := r - l + 1
+	if n == 0 {
+		h := sha256.Sum256(nil)
+		return &h
+	}
+	if n == 1 {
+		return store.Get(0, r)
+	}
+
+	k := uint64(1) << (bits.Len64(n-1) - 1)
+
+	c := [sha256.Size*2 + 1]byte{NodePrefix}
+	copy(c[1:sha256.Size+1], mth(store, l, l+k-1)[:]) //MTH(D[0:k])
+	copy(c[sha256.Size+1:], mth(store, l+k, r)[:])    //MTH(D[k:n])
+	h := sha256.Sum256(c[:])
+	return &h
+}
+
+func mthPosition(l, r uint64) (layer uint8, index uint64) {
+
+	n := r - l + 1
+	d := (bits.Len64(n - 1))
+	k := uint64(1) << (d)
+
+	index = l / k
+	layer = uint8(d)
+	return
+}
+
+// PathAt returns the audit _Path_ for the _i_-th leaf, assuming the (sub-)tree constructed up to the _at_ leaf stored into _store_.
+func PathAt(store Storer, at, i uint64) (p Path) {
+
+	w := store.Width()
+	if i > at || at > w || at < 1 {
+		return
+	}
+
+	m := i
+	n := at + 1
+
+	shift := uint64(0)
+	l := uint64(0)
+	r := uint64(0)
+	for {
+		d := (bits.Len64(n - 1))
+		k := uint64(1) << (d - 1)
+		if m < k {
+			l, r = shift+k, shift+n-1
+			n = k
+		} else {
+
+			l, r = shift, shift+k-1
+			m = m - k
+			n = n - k
+			shift += k
+		}
+
+		layer, index := mthPosition(l, r)
+		// fmt.Printf("%d) [%d,%d] -> (%d, %d)\n", len(p), l, r, layer, index)
+
+		if IsFrozen(layer, index, at) {
+			p = append(Path{*store.Get(layer, index)}, p...)
+		} else {
+			p = append(Path{*mth(store, l, r)}, p...)
+		}
+
+		if n < 1 || (n == 1 && m == 0) {
+			return
+		}
+	}
 }

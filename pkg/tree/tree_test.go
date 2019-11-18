@@ -46,15 +46,15 @@ func TestTree(t *testing.T) {
 	s := NewMemStore()
 	assert.Equal(t, -1, Depth(s))
 
-	for n := 0; n <= 64; n++ {
-		b := []byte(strconv.FormatUint(uint64(n), 10))
+	for index := uint64(0); index <= 64; index++ {
+		b := []byte(strconv.FormatUint(index, 10))
 		Append(s, b)
 
-		assert.Equal(t, n, int(s.Width()-1))
-		d := int(math.Ceil(math.Log2(float64(n + 1))))
+		assert.Equal(t, index, uint64(s.Width()-1))
+		d := int(math.Ceil(math.Log2(float64(index + 1))))
 		assert.Equal(t, d, Depth(s))
 
-		assert.Equal(t, testRoots[n], Root(s))
+		assert.Equal(t, testRoots[index], Root(s))
 	}
 }
 
@@ -71,6 +71,34 @@ func TestPrint(t *testing.T) {
 func TestIsFrozen(t *testing.T) {
 	for _, v := range testFrozen {
 		assert.Equal(t, v.frozen, IsFrozen(v.layer, v.index, v.at))
+	}
+}
+
+func TestPath(t *testing.T) {
+
+	s := NewMemStore()
+	D := [][]byte{}
+	for index := uint64(0); index <= 64; index++ {
+		v := []byte(strconv.FormatUint(index, 10))
+		D = append(D, v)
+		Append(s, v)
+		for at := index; at <= index; at++ { // fixme(leogr): enable "at" from 0
+			for i := uint64(0); i <= at; i++ {
+				fmt.Printf("\n\n-----------------\nn=%d at=%d i=%d\n", index+1, at, i)
+				path := PathAt(s, at, i)
+
+				expected := MPath(i, D[0:at+1])
+
+				if !assert.Len(t, path, len(expected)) {
+					return
+				}
+				for k, v := range path {
+					if !assert.Equal(t, expected[k], v) {
+						return
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -99,5 +127,16 @@ func BenchmarkAppendMap(b *testing.B) {
 	s := NewMapStore()
 	for i := 0; i < b.N; i++ {
 		Append(s, []byte{0, 1, 3, 4, 5, 6, 7})
+	}
+}
+
+func BenchmarkPathAt(b *testing.B) {
+	s := NewMemStore()
+	for i := 0; i < b.N; i++ {
+		Append(s, []byte{0, 1, 3, 4, 5, 6, 7})
+	}
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		PathAt(s, uint64(i), uint64(i))
 	}
 }
