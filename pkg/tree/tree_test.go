@@ -17,6 +17,7 @@ limitations under the License.
 package tree
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"math"
 	"math/bits"
@@ -82,7 +83,7 @@ func TestPath(t *testing.T) {
 		v := []byte(strconv.FormatUint(index, 10))
 		D = append(D, v)
 		Append(s, v)
-		for at := index; at <= index; at++ { // fixme(leogr): enable "at" from 0
+		for at := uint64(0); at <= index; at++ {
 			for i := uint64(0); i <= at; i++ {
 				fmt.Printf("\n\n-----------------\nn=%d at=%d i=%d\n", index+1, at, i)
 				path := PathAt(s, at, i)
@@ -96,6 +97,34 @@ func TestPath(t *testing.T) {
 					if !assert.Equal(t, expected[k], v) {
 						return
 					}
+				}
+			}
+		}
+	}
+}
+
+func TestVerify(t *testing.T) {
+
+	path := Path{}
+	assert.True(t, path.Verify(0, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
+
+	assert.False(t, path.Verify(0, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
+	assert.False(t, path.Verify(1, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
+	assert.False(t, path.Verify(1, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
+
+	s := NewMemStore()
+	D := [][]byte{}
+	for index := uint64(0); index <= 64; index++ {
+		v := []byte(strconv.FormatUint(index, 10))
+		D = append(D, v)
+		Append(s, v)
+		for at := uint64(0); at <= index; at++ {
+			for i := uint64(0); i <= at; i++ {
+				path := MPath(i, D[0:at+1])
+				isV := Path(path).Verify(at, i, testRoots[at], *s.Get(0, i))
+				assert.True(t, isV)
+				if !isV {
+					return
 				}
 			}
 		}
