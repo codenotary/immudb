@@ -18,23 +18,20 @@ package tree
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 )
 
 type mapStore struct {
-	data map[[9]byte]*[sha256.Size]byte
+	data map[mapKey]*[sha256.Size]byte
 	w    uint64
 }
 
-func mapStoreKey(layer uint8, index uint64) [9]byte {
-	k := [9]byte{layer}
-	k[0] = layer
-	binary.BigEndian.PutUint64(k[1:], index)
-	return k
+type mapKey struct {
+	l uint8
+	i uint64
 }
 
 func NewMapStore() Storer {
-	m := make(map[[9]byte]*[sha256.Size]byte, 256*256)
+	m := make(map[mapKey]*[sha256.Size]byte, 256*256*64) // ~4M nodes
 	return &mapStore{
 		data: m,
 	}
@@ -45,7 +42,7 @@ func (m *mapStore) Width() uint64 {
 }
 
 func (m *mapStore) Set(layer uint8, index uint64, value [sha256.Size]byte) {
-	m.data[mapStoreKey(layer, index)] = &value
+	m.data[mapKey{layer, index}] = &value
 
 	if layer == 0 && index >= m.w {
 		m.w = index + 1
@@ -53,5 +50,5 @@ func (m *mapStore) Set(layer uint8, index uint64, value [sha256.Size]byte) {
 }
 
 func (m *mapStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
-	return m.data[mapStoreKey(layer, index)]
+	return m.data[mapKey{layer, index}]
 }

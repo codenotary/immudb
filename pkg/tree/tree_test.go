@@ -43,7 +43,7 @@ var testFrozen = []struct {
 	{6, 0, 0, true}, {6, 0, 1, true}, {6, 0, 2, true}, {6, 0, 3, true}, {6, 0, 4, true}, {6, 0, 5, true}, {6, 0, 6, true}, {6, 0, 7, false},
 }
 
-func TestTree(t *testing.T) {
+func TestAppend(t *testing.T) {
 	s := NewMemStore()
 	assert.Equal(t, -1, Depth(s))
 
@@ -145,11 +145,20 @@ func BenchmarkLog2bits(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMem(b *testing.B) {
+func BenchmarkAppend(b *testing.B) {
 	s := NewMemStore()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Append(s, []byte{0, 1, 3, 4, 5, 6, 7})
+	}
+}
+
+func BenchmarkAppendHash(b *testing.B) {
+	h := sha256.Sum256(nil)
+	s := NewMemStore()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		AppendHash(s, &h)
 	}
 }
 
