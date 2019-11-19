@@ -44,15 +44,16 @@ func MTH(D [][]byte) [sha256.Size]byte {
 	return sha256.Sum256(c)
 }
 
-// MPath returns the Merkle audit path for the (_m_+1)th input of the given ordered list of n inputs _D_.
+// MPath returns the Merkle Audit Path for the (_m_+1)th input of the given ordered list of n inputs _D_.
+// The Merkle Audit Path is defined only for 0 <= _m_ < n. For undefined paths, MPath returns a _nil_ slice.
 // Reference implementation as per https://tools.ietf.org/html/rfc6962#section-2.1.1
 func MPath(m uint64, D [][]byte) (path [][sha256.Size]byte) {
-	path = make([][sha256.Size]byte, 0)
 	n := uint64(len(D))
-	if n < 1 {
+	if !(0 <= m && m < n) {
 		return
 	}
 
+	path = make([][sha256.Size]byte, 0)
 	if n == 1 && m == 0 {
 		return
 	}
@@ -94,11 +95,15 @@ func mSubproof(m uint64, D [][]byte, b bool) (path [][sha256.Size]byte) {
 	return
 }
 
-func MProof(m uint64, D [][]byte) (path [][sha256.Size]byte) {
+// MProof returns the Merke Consistency Proof for the MTH(_D_[n]) and the previously advertised MTH(_D_[_m_:0])
+// of the first _m_ leaves when _m_ <= n, where n is the length of the given ordered list of inputs _D_.
+// The Merke Consistency Proof is defined only for 0 < _m_ < n. For undefined proofs, MProof returns a _nil_ slice.
+// Reference implementation as per https://tools.ietf.org/html/rfc6962#section-2.1.2
+func MProof(m uint64, D [][]byte) [][sha256.Size]byte {
 	n := uint64(len(D))
 	// PROOF is defined only for 0 < m < n
-	if m == 0 || m >= n {
-		return
+	if 0 < m && m < n {
+		return mSubproof(m, D, true)
 	}
-	return mSubproof(m, D, true)
+	return nil
 }

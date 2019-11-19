@@ -39,9 +39,15 @@ func TestMTH(t *testing.T) {
 func TestMPath(t *testing.T) {
 
 	D := [][]byte{}
+
+	assert.Nil(t, MPath(0, D)) // undefined path
+
 	for index := uint64(0); index <= 8; index++ {
 		b := []byte(strconv.FormatUint(index, 10))
 		D = append(D, b)
+
+		assert.Nil(t, MPath(index+1, D)) // undefined path
+
 		for i := uint64(0); i <= index; i++ {
 			fmt.Println("\n\n-------- TEST", index+1, "--------")
 			path := MPath(i, D)
@@ -55,10 +61,17 @@ func TestMPath(t *testing.T) {
 }
 
 func TestMProof(t *testing.T) {
+
 	D := [][]byte{}
+
+	assert.Nil(t, MProof(0, D)) // undefined proof
+
 	for index := uint64(0); index <= 8; index++ {
 		b := []byte(strconv.FormatUint(index, 10))
 		D = append(D, b)
+
+		assert.Nil(t, MProof(index+1, D)) // undefined proof
+
 		fmt.Println("\n\n-------- TEST", index+1, "--------")
 		for i := uint64(0); i <= index; i++ {
 			fmt.Printf("\nTEST n=%d i=%d", index+1, i)
