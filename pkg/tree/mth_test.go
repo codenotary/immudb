@@ -42,17 +42,32 @@ func TestMPath(t *testing.T) {
 	for index := uint64(0); index <= 8; index++ {
 		b := []byte(strconv.FormatUint(index, 10))
 		D = append(D, b)
-		// fmt.Println(index+1, "----------------------------------")
 		for i := uint64(0); i <= index; i++ {
+			fmt.Println("\n\n-------- TEST", index+1, "--------")
 			path := MPath(i, D)
-			fmt.Printf("TEST(n=%d): i=%d len(path)=%d\n", index+1, i, len(path))
-			// fmt.Printf("TEST(n=%d): i=%d\n", index+1, i)
-			// for d, h := range path {
-			// 	fmt.Printf("%d) %.2x\n", d, h[0])
-			// }
-			// fmt.Println("---------------------------")
-			// fmt.Println()
+			fmt.Printf(" len(path)=%d\n", len(path))
+			for d, h := range path {
+				fmt.Printf("%d) %.2x\n", d, h[0])
+			}
 			assert.Equal(t, testPaths[index][i], path)
+		}
+	}
+}
+
+func TestMProof(t *testing.T) {
+	D := [][]byte{}
+	for index := uint64(0); index <= 8; index++ {
+		b := []byte(strconv.FormatUint(index, 10))
+		D = append(D, b)
+		fmt.Println("\n\n-------- TEST", index+1, "--------")
+		for i := uint64(0); i <= index; i++ {
+			fmt.Printf("\nTEST n=%d i=%d", index+1, i)
+			path := MProof(i, D)
+			fmt.Printf(" len(path)=%d\n", len(path))
+			for d, h := range path {
+				fmt.Printf("%d) %.2x\n", d, h[0])
+			}
+			assert.Equal(t, testCPaths[index][i], path)
 		}
 	}
 }

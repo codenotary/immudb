@@ -34,8 +34,7 @@ func MTH(D [][]byte) [sha256.Size]byte {
 		return sha256.Sum256(c)
 	}
 
-	log := bits.Len64(uint64(n - 1))
-	k := 1 << (log - 1)
+	k := uint64(1) << (bits.Len64(uint64(n-1)) - 1)
 
 	c := []byte{NodePrefix}
 	x := MTH(D[0:k])
@@ -58,8 +57,7 @@ func MPath(m uint64, D [][]byte) (path [][sha256.Size]byte) {
 		return
 	}
 
-	log := bits.Len64(n - 1)
-	k := uint64(1) << (log - 1)
+	k := uint64(1) << (bits.Len64(uint64(n-1)) - 1)
 
 	if m < k {
 		path = append(path, MPath(m, D[0:k])...)
@@ -69,4 +67,38 @@ func MPath(m uint64, D [][]byte) (path [][sha256.Size]byte) {
 		path = append(path, MTH(D[0:k]))
 	}
 	return
+}
+
+func mSubproof(m uint64, D [][]byte, b bool) (path [][sha256.Size]byte) {
+	path = make([][sha256.Size]byte, 0)
+	n := uint64(len(D))
+
+	if m == n {
+		if !b {
+			path = append(path, MTH(D))
+		}
+		return
+	}
+
+	if m < n {
+		k := uint64(1) << (bits.Len64(uint64(n-1)) - 1)
+
+		if m <= k {
+			path = append(path, mSubproof(m, D[0:k], b)...)
+			path = append(path, MTH(D[k:n]))
+		} else {
+			path = append(path, mSubproof(m-k, D[k:n], false)...)
+			path = append(path, MTH(D[0:k]))
+		}
+	}
+	return
+}
+
+func MProof(m uint64, D [][]byte) (path [][sha256.Size]byte) {
+	n := uint64(len(D))
+	// PROOF is defined only for 0 < m < n
+	if m == 0 || m >= n {
+		return
+	}
+	return mSubproof(m, D, true)
 }
