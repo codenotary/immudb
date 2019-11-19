@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/db"
-	"github.com/dgraph-io/badger/v2/options"
 )
 
 func makeTopic() (*db.Topic, func()) {
@@ -38,11 +37,9 @@ func makeTopic() (*db.Topic, func()) {
 	}
 
 	opts := db.DefaultOptions(dir)
-	opts.Badger.
+	opts.Badger = opts.Badger.
 		WithSyncWrites(false).
-		WithEventLogging(false).
-		WithTableLoadingMode(options.LoadToRAM).
-		WithCompressionType(options.None)
+		WithEventLogging(false)
 
 	topic, err := db.Open(opts)
 	if err != nil {
