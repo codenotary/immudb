@@ -50,39 +50,41 @@ func LeafHash(b []byte) [sha256.Size]byte {
 // Append computes the hash of the given content b, appends it to the next free slot in the tree,
 // then incrementally builds the intermediate nodes up to the root.
 func Append(store Storer, b []byte) {
-	AppendHash(store, LeafHash(b))
+	h := LeafHash(b)
+	AppendHash(store, &h)
 }
 
-// AppendHash appends the given hash to the next free slot in the tree,
+// AppendHash appends the given hash _h_ to the next free slot in the tree,
 // then incrementally builds the intermediate nodes up to the root.
-func AppendHash(store Storer, h [sha256.Size]byte) {
+// AppendHash re-uses _h_ internally, as side-effect the new root will be set to _h_.
+func AppendHash(store Storer, h *[sha256.Size]byte) {
 
 	// append the leaf
 	l := store.Width()
-	store.Set(0, l, h)
-
-	newDepth := uint8(bits.Len64(l))
+	store.Set(0, l, *h)
 	l++
 
 	// build up to the root
 	d := uint8(0)
 	c := [sha256.Size*2 + 1]byte{NodePrefix}
-	for d < newDepth {
+	for l > 1 {
 		if l%2 == 0 {
 			copy(c[1:sha256.Size+1], store.Get(d, l-2)[:])
 			copy(c[sha256.Size+1:], h[:])
-			h = sha256.Sum256(c[:])
+			(*h) = sha256.Sum256(c[:])
 
 			d++
-			l = l / 2
-			store.Set(d, l-1, h)
+			l >>= 1
+			store.Set(d, l-1, *h)
 		} else {
 			// skip empty nodes
+			// todo(leogr): multiple nodes could be skipped when (l-1) is power of 2
 			l++
 			d++
-			l = l / 2
+			l >>= 1
 		}
 	}
+
 }
 
 // IsFrozen returns true when the node (_layer_, _index_) in a tree of width = (_at_ + 1) is frozen, otherwise false.
