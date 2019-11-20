@@ -9,8 +9,6 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -72,6 +70,45 @@ func (m *SetRequest) GetValue() []byte {
 	return nil
 }
 
+type BatchSetRequest struct {
+	SetRequests          []*SetRequest `protobuf:"bytes,1,rep,name=setRequests,proto3" json:"setRequests,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *BatchSetRequest) Reset()         { *m = BatchSetRequest{} }
+func (m *BatchSetRequest) String() string { return proto.CompactTextString(m) }
+func (*BatchSetRequest) ProtoMessage()    {}
+func (*BatchSetRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{1}
+}
+
+func (m *BatchSetRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BatchSetRequest.Unmarshal(m, b)
+}
+func (m *BatchSetRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BatchSetRequest.Marshal(b, m, deterministic)
+}
+func (m *BatchSetRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BatchSetRequest.Merge(m, src)
+}
+func (m *BatchSetRequest) XXX_Size() int {
+	return xxx_messageInfo_BatchSetRequest.Size(m)
+}
+func (m *BatchSetRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_BatchSetRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BatchSetRequest proto.InternalMessageInfo
+
+func (m *BatchSetRequest) GetSetRequests() []*SetRequest {
+	if m != nil {
+		return m.SetRequests
+	}
+	return nil
+}
+
 type GetRequest struct {
 	Key                  []byte   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -83,7 +120,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{1}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{2}
 }
 
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
@@ -122,7 +159,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{2}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{3}
 }
 
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
@@ -152,6 +189,7 @@ func (m *GetResponse) GetValue() []byte {
 
 func init() {
 	proto.RegisterType((*SetRequest)(nil), "schema.SetRequest")
+	proto.RegisterType((*BatchSetRequest)(nil), "schema.BatchSetRequest")
 	proto.RegisterType((*GetRequest)(nil), "schema.GetRequest")
 	proto.RegisterType((*GetResponse)(nil), "schema.GetResponse")
 }
@@ -159,20 +197,23 @@ func init() {
 func init() { proto.RegisterFile("schema.proto", fileDescriptor_1c5fb4d8cc22d66a) }
 
 var fileDescriptor_1c5fb4d8cc22d66a = []byte{
-	// 195 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x29, 0x4e, 0xce, 0x48,
-	0xcd, 0x4d, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x83, 0xf0, 0xa4, 0xa4, 0xd3, 0xf3,
-	0xf3, 0xd3, 0x73, 0x52, 0xf5, 0xc1, 0xa2, 0x49, 0xa5, 0x69, 0xfa, 0xa9, 0xb9, 0x05, 0x25, 0x95,
-	0x10, 0x45, 0x4a, 0x26, 0x5c, 0x5c, 0xc1, 0xa9, 0x25, 0x41, 0xa9, 0x85, 0xa5, 0xa9, 0xc5, 0x25,
-	0x42, 0x02, 0x5c, 0xcc, 0xd9, 0xa9, 0x95, 0x12, 0x8c, 0x0a, 0x8c, 0x1a, 0x3c, 0x41, 0x20, 0xa6,
-	0x90, 0x08, 0x17, 0x6b, 0x59, 0x62, 0x4e, 0x69, 0xaa, 0x04, 0x13, 0x58, 0x0c, 0xc2, 0x51, 0x92,
-	0xe3, 0xe2, 0x72, 0xc7, 0xa3, 0x4b, 0x49, 0x99, 0x8b, 0x1b, 0x2c, 0x5f, 0x5c, 0x90, 0x9f, 0x57,
-	0x9c, 0x8a, 0x30, 0x84, 0x11, 0xc9, 0x10, 0xa3, 0x02, 0x2e, 0x6e, 0xcf, 0xdc, 0xdc, 0xd2, 0xe0,
-	0xd4, 0xa2, 0xb2, 0xcc, 0xe4, 0x54, 0x21, 0x43, 0x2e, 0xe6, 0xe0, 0xd4, 0x12, 0x21, 0x21, 0x3d,
-	0xa8, 0x27, 0x10, 0xce, 0x92, 0x12, 0xd3, 0x83, 0x78, 0x41, 0x0f, 0xe6, 0x05, 0x3d, 0x57, 0x90,
-	0x17, 0x84, 0xf4, 0xb8, 0x98, 0xdd, 0x91, 0xb5, 0x20, 0xdc, 0x24, 0x25, 0x8c, 0x22, 0x06, 0x71,
-	0x47, 0x12, 0x1b, 0x58, 0xbf, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0xf2, 0x6f, 0xf7, 0xbb, 0x28,
-	0x01, 0x00, 0x00,
+	// 242 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x50, 0x4d, 0x4b, 0x03, 0x31,
+	0x10, 0x25, 0x06, 0x8b, 0x4c, 0x0a, 0xca, 0x28, 0xba, 0xac, 0x20, 0x25, 0x5e, 0x7a, 0x4a, 0xb1,
+	0xf6, 0xe6, 0x4d, 0x90, 0xc5, 0xeb, 0xe6, 0x17, 0x6c, 0x97, 0xb1, 0x15, 0x1b, 0xb3, 0x36, 0x49,
+	0xa1, 0x3f, 0xca, 0xff, 0x28, 0x4d, 0xac, 0x1b, 0x45, 0xbd, 0x65, 0x5e, 0xde, 0xe3, 0x7d, 0xc0,
+	0xd0, 0xb5, 0x4b, 0x32, 0x8d, 0xea, 0xd6, 0xd6, 0x5b, 0x1c, 0xa4, 0xab, 0xbc, 0x5c, 0x58, 0xbb,
+	0x58, 0xd1, 0x24, 0xa2, 0xf3, 0xf0, 0x34, 0x21, 0xd3, 0xf9, 0x6d, 0x22, 0xc9, 0x19, 0x80, 0x26,
+	0x5f, 0xd3, 0x5b, 0x20, 0xe7, 0xf1, 0x04, 0xf8, 0x0b, 0x6d, 0x0b, 0x36, 0x62, 0xe3, 0x61, 0xbd,
+	0x7b, 0xe2, 0x19, 0x1c, 0x6e, 0x9a, 0x55, 0xa0, 0xe2, 0x20, 0x62, 0xe9, 0x90, 0x15, 0x1c, 0xdf,
+	0x37, 0xbe, 0x5d, 0x66, 0xd2, 0x19, 0x08, 0xf7, 0x75, 0xb9, 0x82, 0x8d, 0xf8, 0x58, 0x4c, 0x51,
+	0x7d, 0x26, 0xea, 0x89, 0x75, 0x4e, 0x93, 0x57, 0x00, 0xd5, 0x3f, 0xf6, 0xf2, 0x1a, 0x44, 0xfc,
+	0x77, 0x9d, 0x7d, 0x75, 0xd4, 0xa7, 0x61, 0x59, 0x9a, 0xe9, 0x3b, 0x03, 0xf1, 0x68, 0x4c, 0xd0,
+	0xb4, 0xde, 0x3c, 0xb7, 0x84, 0x37, 0xc0, 0x35, 0x79, 0xfc, 0xc5, 0xbc, 0x3c, 0x57, 0x69, 0x0c,
+	0xb5, 0x1f, 0x43, 0x3d, 0xec, 0xc6, 0xc0, 0x3b, 0x38, 0xd2, 0xe4, 0x63, 0x27, 0xbc, 0xd8, 0xeb,
+	0x7e, 0x54, 0xfc, 0x53, 0xac, 0x80, 0x57, 0xb9, 0x5f, 0xdf, 0xa8, 0x3c, 0xfd, 0x86, 0xa5, 0x16,
+	0xf3, 0x41, 0xd4, 0xdf, 0x7e, 0x04, 0x00, 0x00, 0xff, 0xff, 0xda, 0xe1, 0x8d, 0x8e, 0xaf, 0x01,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -188,6 +229,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ImmuServiceClient interface {
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	SetBatch(ctx context.Context, in *BatchSetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 }
 
@@ -208,6 +250,15 @@ func (c *immuServiceClient) Set(ctx context.Context, in *SetRequest, opts ...grp
 	return out, nil
 }
 
+func (c *immuServiceClient) SetBatch(ctx context.Context, in *BatchSetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/schema.ImmuService/SetBatch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *immuServiceClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	out := new(GetResponse)
 	err := c.cc.Invoke(ctx, "/schema.ImmuService/Get", in, out, opts...)
@@ -220,18 +271,8 @@ func (c *immuServiceClient) Get(ctx context.Context, in *GetRequest, opts ...grp
 // ImmuServiceServer is the server API for ImmuService service.
 type ImmuServiceServer interface {
 	Set(context.Context, *SetRequest) (*empty.Empty, error)
+	SetBatch(context.Context, *BatchSetRequest) (*empty.Empty, error)
 	Get(context.Context, *GetRequest) (*GetResponse, error)
-}
-
-// UnimplementedImmuServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedImmuServiceServer struct {
-}
-
-func (*UnimplementedImmuServiceServer) Set(ctx context.Context, req *SetRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
-}
-func (*UnimplementedImmuServiceServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
 
 func RegisterImmuServiceServer(s *grpc.Server, srv ImmuServiceServer) {
@@ -252,6 +293,24 @@ func _ImmuService_Set_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ImmuServiceServer).Set(ctx, req.(*SetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuService_SetBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).SetBatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/schema.ImmuService/SetBatch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).SetBatch(ctx, req.(*BatchSetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -281,6 +340,10 @@ var _ImmuService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Set",
 			Handler:    _ImmuService_Set_Handler,
+		},
+		{
+			MethodName: "SetBatch",
+			Handler:    _ImmuService_SetBatch_Handler,
 		},
 		{
 			MethodName: "Get",

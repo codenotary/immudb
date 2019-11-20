@@ -77,9 +77,14 @@ func main() {
 			defer wg.Done()
 			start := kk * chunkSize
 			end := (kk + 1) * chunkSize
+			var kvPairs []db.KVPair
 			for i := start; i < end; i++ {
-				topic.Set([]byte(strconv.FormatUint(uint64(i), 10)), V)
+				kvPairs = append(kvPairs, db.KVPair{
+					Key:   []byte(strconv.FormatUint(uint64(i), 10)),
+					Value: V,
+				})
 			}
+			_ = topic.SetBatch(kvPairs)
 		}(k)
 	}
 
