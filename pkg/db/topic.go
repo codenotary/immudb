@@ -55,6 +55,25 @@ func (t *Topic) Close() error {
 	return t.ts.Close()
 }
 
+func (t *Topic) SetBatch(kvPairs []KVPair) error {
+	txn := t.db.NewTransaction(true)
+	defer txn.Discard()
+	for _, kv := range kvPairs {
+		if err := txn.Set(kv.Key, kv.Value); err != nil {
+			return err
+		}
+	}
+	if err := txn.Commit(); err != nil {
+		return err
+	}
+	t.store.Lock()
+	for _, kv := range kvPairs {
+		tree.Append(t.store, kv.Value)
+	}
+	t.store.Unlock()
+	return nil
+}
+
 func (t *Topic) Set(key, value []byte) error {
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()

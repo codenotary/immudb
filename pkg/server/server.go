@@ -59,6 +59,21 @@ func (s *ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*empty.Emp
 	return &empty.Empty{}, nil
 }
 
+func (s *ImmuServer) SetBatch(ctx context.Context, bsr *schema.BatchSetRequest) (*empty.Empty, error) {
+	s.Logger.Debugf("set batch %d", len(bsr.SetRequests))
+	var kvPairs []db.KVPair
+	for _, sr := range bsr.SetRequests {
+		kvPairs = append(kvPairs, db.KVPair{
+			Key:   sr.Key,
+			Value: sr.Value,
+		})
+	}
+	if err := s.Topic.SetBatch(kvPairs); err != nil {
+		return nil, err
+	}
+	return &empty.Empty{}, nil
+}
+
 func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.GetResponse, error) {
 	value, err := s.Topic.Get(gr.Key)
 	s.Logger.Debugf("get %s %d bytes", gr.Key, len(value))
