@@ -63,8 +63,8 @@ func TestTopic(t *testing.T) {
 	defer closer()
 
 	for n := uint64(0); n <= 64; n++ {
-		key := strconv.FormatUint(n, 10)
-		err := topic.Set(key, []byte(key))
+		key := []byte(strconv.FormatUint(n, 10))
+		err := topic.Set(key, key)
 
 		assert.NoError(t, err)
 	}
@@ -78,7 +78,7 @@ func BenchmarkTreeAdd(b *testing.B) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		topic.Set(strconv.FormatUint(uint64(i), 10), []byte{0, 1, 3, 4, 5, 6, 7})
+		topic.Set([]byte(strconv.FormatUint(uint64(i), 10)), []byte{0, 1, 3, 4, 5, 6, 7})
 	}
 	b.StopTimer()
 }

@@ -26,7 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-func (c *ImmuClient) Get(key string) ([]byte, error) {
+func (c *ImmuClient) Get(key []byte) ([]byte, error) {
 	return c.withConnection(func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
 		response, err := client.Get(context.Background(), &schema.GetRequest{Key: key})
@@ -37,7 +37,7 @@ func (c *ImmuClient) Get(key string) ([]byte, error) {
 	})
 }
 
-func (c *ImmuClient) Set(key string, reader io.Reader) ([]byte, error) {
+func (c *ImmuClient) Set(key []byte, reader io.Reader) ([]byte, error) {
 	return c.withConnection(func(connection *grpc.ClientConn) (bytes []byte, e error) {
 		client := schema.NewImmuServiceClient(connection)
 		value, err := ioutil.ReadAll(reader)

@@ -78,7 +78,7 @@ func main() {
 			start := kk * chunkSize
 			end := (kk + 1) * chunkSize
 			for i := start; i < end; i++ {
-				topic.Set(strconv.FormatUint(uint64(i), 10), V)
+				topic.Set([]byte(strconv.FormatUint(uint64(i), 10)), V)
 			}
 		}(k)
 	}

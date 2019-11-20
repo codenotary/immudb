@@ -55,7 +55,7 @@ func (t *Topic) Close() error {
 	return t.ts.Close()
 }
 
-func (t *Topic) Set(key string, value []byte) error {
+func (t *Topic) Set(key, value []byte) error {
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
@@ -80,10 +80,10 @@ func (t *Topic) Set(key string, value []byte) error {
 	return nil
 }
 
-func (t *Topic) Get(key string) ([]byte, error) {
-	txn := t.db.NewTransaction(true)
+func (t *Topic) Get(key []byte) ([]byte, error) {
+	txn := t.db.NewTransaction(false)
 	defer txn.Discard()
-	item, err := txn.Get([]byte(key))
+	item, err := txn.Get(key)
 	if err != nil {
 		return nil, err
 	}
