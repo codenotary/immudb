@@ -17,20 +17,24 @@ limitations under the License.
 package server
 
 import (
+	"google.golang.org/grpc"
+
 	"github.com/codenotary/immudb/pkg/db"
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
 type ImmuServer struct {
-	Topic   *db.Topic
-	Logger  logger.Logger
-	Options Options
+	Topic      *db.Topic
+	Logger     logger.Logger
+	Options    Options
+	GrpcServer *grpc.Server
 }
 
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
-		Logger:  logger.DefaultLogger,
-		Options: DefaultOptions(),
+		Logger:     logger.DefaultLogger,
+		Options:    DefaultOptions(),
+		GrpcServer: grpc.NewServer(),
 	}
 }
 
