@@ -34,6 +34,23 @@ func main() {
 	var maxProcs int
 	bms := []Bm{
 		{
+			Name:        "sequential write (fine tuned / experimental)",
+			Concurrency: N, //Concurrency,
+			Iterations:  N,
+			Before: func(bm *Bm) {
+				maxProcs = runtime.GOMAXPROCS(Concurrency)
+			},
+			After: func(bm *Bm) {
+				runtime.GOMAXPROCS(maxProcs)
+			},
+			Work: func(bm *Bm, start int, end int) {
+				for i := start; i < end; i++ {
+					key := []byte(strconv.FormatUint(uint64(i), 10))
+					bm.Topic.Set(key, V)
+				}
+			},
+		},
+		{
 			Name:        "sequential write (baseline)",
 			Concurrency: Concurrency,
 			Iterations:  N,
@@ -91,5 +108,7 @@ func main() {
 	for _, bm := range bms {
 		fmt.Println(*bm.execute())
 		time.Sleep(time.Second) // take a rest
+		runtime.GC()
+		time.Sleep(time.Second) // take another rest
 	}
 }
