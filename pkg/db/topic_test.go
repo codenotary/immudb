@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/dgraph-io/badger/v2/options"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -41,7 +42,9 @@ func makeTopic() (*Topic, func()) {
 	opts := DefaultOptions(dir)
 	opts.Badger.
 		WithSyncWrites(false).
-		WithEventLogging(false)
+		WithEventLogging(false).
+		WithChecksumVerificationMode(options.NoVerification).
+		WithVerifyValueChecksum(false)
 
 	topic, err := Open(opts)
 	if err != nil {
@@ -69,10 +72,11 @@ func TestTopic(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	topic.store.Close()
 	assert.Equal(t, root64th, tree.Root(topic.store))
 }
 
-func BenchmarkTreeAdd(b *testing.B) {
+func BenchmarkTopicSet(b *testing.B) {
 	topic, closer := makeTopic()
 	defer closer()
 

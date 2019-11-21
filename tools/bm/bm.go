@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/db"
 )
@@ -89,5 +90,6 @@ func main() {
 	}
 	for _, bm := range bms {
 		fmt.Println(*bm.execute())
+		time.Sleep(time.Second) // take a rest
 	}
 }

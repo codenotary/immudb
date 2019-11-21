@@ -63,7 +63,7 @@ func (b BmResult) String() string {
 	return fmt.Sprintf(
 		`
 Name:		%s
-Concurency:	%d
+Concurrency:	%d
 Iterations:	%d
 Elapsed t.:	%.2f sec
 Throughput:	%.0f tx/sec
