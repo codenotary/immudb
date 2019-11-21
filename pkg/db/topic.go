@@ -17,86 +17,65 @@ limitations under the License.
 package db
 
 import (
-	"github.com/dgraph-io/badger/v2"
+	"math"
 
 	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/dgraph-io/badger/v2"
 )
 
 type Topic struct {
 	db    *badger.DB
-	ts    *badger.DB
 	store *treeStore
 }
 
 func Open(options Options) (*Topic, error) {
-	db, err := badger.Open(options.dataStore())
-	if err != nil {
-		return nil, err
-	}
-
-	ts, err := badger.OpenManaged(options.treeStore())
+	db, err := badger.OpenManaged(options.dataStore())
 	if err != nil {
 		return nil, err
 	}
 
 	t := &Topic{
 		db:    db,
-		ts:    ts,
-		store: newTreeStore(ts, 10000),
+		store: newTreeStore(db, 500000),
 	}
 
 	return t, nil
 }
 
 func (t *Topic) Close() error {
-	if err := t.db.Close(); err != nil {
-		return err
-	}
-	return t.ts.Close()
+	t.store.Close()
+	return t.db.Close()
 }
 
 func (t *Topic) SetBatch(kvPairs []KVPair) error {
-	txn := t.db.NewTransaction(true)
+	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
+	var next uint64
 	for _, kv := range kvPairs {
-		if err := txn.Set(kv.Key, kv.Value); err != nil {
+		h := tree.LeafHash(kv.Value)
+		next = t.store.Add(&h)
+		if err := txn.SetEntry(&badger.Entry{
+			Key:   kv.Key,
+			Value: kv.Value,
+		}); err != nil {
 			return err
 		}
 	}
-	if err := txn.Commit(); err != nil {
-		return err
-	}
-	t.store.Lock()
-	for _, kv := range kvPairs {
-		tree.Append(t.store, kv.Value)
-	}
-	t.store.Unlock()
-	return nil
+	return txn.CommitAt(next, nil)
 }
 
 func (t *Topic) Set(key, value []byte) error {
-	txn := t.db.NewTransaction(true)
+	h := tree.LeafHash(value)
+	next := t.store.Add(&h)
+	txn := t.db.NewTransactionAt(math.MaxUint64, true) // we don't read, so set readTs to max
 	defer txn.Discard()
-
-	err := txn.Set([]byte(key), value)
-	if err != nil {
+	if err := txn.SetEntry(&badger.Entry{
+		Key:   key,
+		Value: value,
+	}); err != nil {
 		return err
 	}
-
-	// Commit the transaction and check for error.
-	if err := txn.Commit(); err != nil {
-		return err
-	}
-
-	// todo(leogr):
-	//  - tree append error checking
-	//  - index synching between db and ts
-	//  - replay append after crash (if not synched)
-	t.store.Lock()
-	tree.Append(t.store, value) // fixme(leogr): assuming key is present inside value
-	t.store.Unlock()
-
-	return nil
+	return txn.CommitAt(next, nil)
 }
 
 func (t *Topic) Get(key []byte) ([]byte, error) {

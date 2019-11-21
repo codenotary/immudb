@@ -20,31 +20,38 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/tree"
 
 	"github.com/dgraph-io/badger/v2"
 )
 
+var tsPrefix = byte('_')
+
 var tsL0Prefix = []byte{
+	tsPrefix,
 	0x00,
 }
 
 var tsL0UpLimit = []byte{
+	tsPrefix,
 	0x00,
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 }
 
 func treeKey(layer uint8, index uint64) []byte {
-	k := make([]byte, 1+8, 1+8)
-	k[0] = layer
-	binary.BigEndian.PutUint64(k[1:], index)
+	k := make([]byte, 1+1+8, 1+1+8)
+	k[0] = tsPrefix
+	k[1] = layer
+	binary.BigEndian.PutUint64(k[2:], index)
 	return k
 }
 
 func decodeTreeKey(k []byte) (layer uint8, index uint64) {
-	layer = k[0]
-	index = binary.BigEndian.Uint64(k[1:])
+	layer = k[1]
+	index = binary.BigEndian.Uint64(k[2:])
 	return
 }
 
@@ -56,36 +63,85 @@ func treeWidth(txn *badger.Txn) uint64 {
 	defer it.Close()
 	for it.Seek(tsL0UpLimit); it.ValidForPrefix(tsL0Prefix); it.Next() {
 		k := it.Item().Key()
-		return binary.BigEndian.Uint64(k[1:])
+		return binary.BigEndian.Uint64(k[2:])
 	}
 	return 0
 }
 
 type treeStore struct {
-	sync.Mutex
-	db     *badger.DB
-	w      uint64
-	cache  map[string]*[sha256.Size]byte
-	cSize  uint64
-	cCount uint64
+	// A 64-bit integer must be at the top for memory alignment
+	at   uint64
+	c    chan *[sha256.Size]byte
+	quit chan struct{}
+	w    uint64
+	db   *badger.DB
+	// cache  *ristretto.Cache
+	cache map[string]*[sha256.Size]byte
+	cSize uint64
+	sync.RWMutex
 }
 
 func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
+
 	t := &treeStore{
 		db:    db,
-		cache: make(map[string]*[sha256.Size]byte, cacheSize),
+		c:     make(chan *[sha256.Size]byte, cacheSize),
+		quit:  make(chan struct{}, 0),
+		cache: make(map[string]*[sha256.Size]byte, cacheSize*2),
 		cSize: cacheSize,
 	}
 	db.View(func(txn *badger.Txn) error {
-		t.w = treeWidth(txn)
+		t.at = treeWidth(txn)
+		t.w = t.at
 		return nil
 	})
+	go t.worker()
 	return t
 }
 
+func (t *treeStore) Close() {
+	if t.quit != nil {
+		t.quit <- struct{}{}
+		close(t.c)
+		for h := range t.c {
+			tree.AppendHash(t, h)
+		}
+		t.flush()
+	}
+}
+
+func (t *treeStore) Add(h *[sha256.Size]byte) uint64 {
+	t.c <- h
+	return atomic.AddUint64(&t.at, 1)
+}
+
+func (t *treeStore) worker() {
+	for {
+		select {
+		case h := <-t.c:
+			t.Lock()
+			tree.AppendHash(t, h)
+			t.Unlock()
+		case <-t.quit:
+			close(t.quit)
+			t.quit = nil
+			return
+		default:
+			t.Lock()
+			t.flush()
+			t.Unlock()
+			time.Sleep(time.Second * 5)
+		}
+	}
+}
+
 func (t *treeStore) flush() {
+
+	if len(t.cache) < int(t.cSize/3*2) {
+		return
+	}
+
 	wb := t.db.NewWriteBatchAt(t.w)
-	defer wb.Flush()
 
 	oldCache := t.cache
 	t.cache = make(map[string]*[sha256.Size]byte, t.cSize)
@@ -109,7 +165,9 @@ func (t *treeStore) flush() {
 			t.cache[k] = v
 		}
 	}
-	t.cCount = uint64(len(t.cache))
+
+	wb.Flush()
+
 }
 
 func (t *treeStore) Width() uint64 {
@@ -117,14 +175,11 @@ func (t *treeStore) Width() uint64 {
 }
 
 func (t *treeStore) Set(layer uint8, index uint64, value [sha256.Size]byte) {
+	// fmt.Printf("SET (at=%d): [%d,%d]\n", t.at, layer, index)
 	key := string(treeKey(layer, index))
 	t.cache[key] = &value
 	if layer == 0 && t.w <= index {
 		t.w = index + 1
-	}
-	t.cCount++
-	if t.cCount >= t.cSize {
-		t.flush()
 	}
 }
 
@@ -136,7 +191,7 @@ func (t *treeStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
 
 	var ret [sha256.Size]byte
 	t.db.View(func(txn *badger.Txn) error {
-		// fmt.Printf("CACHE MISS (w=%d, d=%d): [%d,%d]\n", t.w, tree.Depth(t), layer, index)
+		// fmt.Printf("CACHE MISS (at=%d, d=%d): [%d,%d]\n", t.at, tree.Depth(t), layer, index)
 		item, err := txn.Get(treeKey(layer, index))
 		if err != nil {
 			return nil
@@ -145,6 +200,7 @@ func (t *treeStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
 			if val != nil {
 				copy(ret[:], val)
 				t.cache[string(key)] = &ret
+				// fmt.Printf("FALLBACK (at=%d, d=%d): [%d,%d]\n", t.at, tree.Depth(t), layer, index)
 			}
 			return nil
 		})
