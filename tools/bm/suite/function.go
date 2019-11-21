@@ -14,6 +14,23 @@ var V = []byte{0, 1, 3, 4, 5, 6, 7}
 
 var FunctionBenchmarks = []bm.Bm{
 	{
+		Name:        "sequential write (fine tuned / experimental)",
+		Concurrency: 1_000_000, // Concurrency,
+		Iterations:  1_000_000,
+		Before: func(bm *bm.Bm) {
+			maxProcs = runtime.GOMAXPROCS(Concurrency)
+		},
+		After: func(bm *bm.Bm) {
+			runtime.GOMAXPROCS(maxProcs)
+		},
+		Work: func(bm *bm.Bm, start int, end int) {
+			for i := start; i < end; i++ {
+				key := []byte(strconv.FormatUint(uint64(i), 10))
+				bm.Topic.Set(key, V)
+			}
+		},
+	},
+	{
 		CreateTopic: true,
 		Name:        "sequential write (baseline)",
 		Concurrency: Concurrency,

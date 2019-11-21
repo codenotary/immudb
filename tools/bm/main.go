@@ -19,6 +19,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -34,6 +36,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, b := range suite.FunctionBenchmarks {
 				fmt.Println(*b.Execute())
+				time.Sleep(time.Second)
+				runtime.GC()
+				time.Sleep(time.Second)
 			}
 			return nil
 		},
@@ -43,6 +48,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, b := range suite.RpcBenchmarks {
 				fmt.Println(*b.Execute())
+				time.Sleep(time.Second)
+				runtime.GC()
+				time.Sleep(time.Second)
 			}
 			return nil
 		},
