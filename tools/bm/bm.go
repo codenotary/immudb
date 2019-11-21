@@ -18,90 +18,76 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
 	"runtime"
 	"strconv"
-	"sync"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/db"
 )
 
-func makeTopic() (*db.Topic, func()) {
-
-	dir, err := ioutil.TempDir("", "immu")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	opts := db.DefaultOptions(dir)
-	opts.Badger = opts.Badger.
-		WithSyncWrites(false).
-		WithEventLogging(false)
-
-	topic, err := db.Open(opts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return topic, func() {
-		if err := topic.Close(); err != nil {
-			log.Fatal(err)
-		}
-		if err := os.RemoveAll(dir); err != nil {
-			log.Fatal(err)
-		}
-	}
-}
-
-const N = 1000000
+const N = 1_000_000
 
 var Concurrency = runtime.NumCPU()
-
 var V = []byte{0, 1, 3, 4, 5, 6, 7}
 
 func main() {
-	runtime.GOMAXPROCS(128)
-
-	topic, closer := makeTopic()
-	defer closer()
-
-	var wg sync.WaitGroup
-
-	chunkSize := N / Concurrency
-	for k := 0; k < Concurrency; k++ {
-		wg.Add(1)
-		go func(kk int) {
-			defer wg.Done()
-			start := kk * chunkSize
-			end := (kk + 1) * chunkSize
-			var kvPairs []db.KVPair
-			for i := start; i < end; i++ {
-				kvPairs = append(kvPairs, db.KVPair{
-					Key:   []byte(strconv.FormatUint(uint64(i), 10)),
-					Value: V,
-				})
-			}
-			_ = topic.SetBatch(kvPairs)
-		}(k)
+	var maxProcs int
+	bms := []Bm{
+		{
+			Name:        "sequential write (baseline)",
+			Concurrency: Concurrency,
+			Iterations:  N,
+			Work: func(bm *Bm, start int, end int) {
+				for i := start; i < end; i++ {
+					key := []byte(strconv.FormatUint(uint64(i), 10))
+					_ = bm.Topic.Set(key, V)
+				}
+			},
+		},
+		{
+			Name:        "sequential write (concurrency++)",
+			Concurrency: Concurrency * 8,
+			Iterations:  N,
+			Work: func(bm *Bm, start int, end int) {
+				for i := start; i < end; i++ {
+					key := []byte(strconv.FormatUint(uint64(i), 10))
+					_ = bm.Topic.Set(key, V)
+				}
+			},
+		},
+		{
+			Name:        "sequential write (GOMAXPROCS=128)",
+			Concurrency: Concurrency,
+			Iterations:  N,
+			Before: func(bm *Bm) {
+				maxProcs = runtime.GOMAXPROCS(128)
+			},
+			After: func(bm *Bm) {
+				runtime.GOMAXPROCS(maxProcs)
+			},
+			Work: func(bm *Bm, start int, end int) {
+				for i := start; i < end; i++ {
+					key := []byte(strconv.FormatUint(uint64(i), 10))
+					_ = bm.Topic.Set(key, V)
+				}
+			},
+		},
+		{
+			Name:        "batch write",
+			Concurrency: Concurrency,
+			Iterations:  N,
+			Work: func(bm *Bm, start int, end int) {
+				var kvPairs []db.KVPair
+				for i := start; i < end; i++ {
+					kvPairs = append(kvPairs, db.KVPair{
+						Key:   []byte(strconv.FormatUint(uint64(i), 10)),
+						Value: V,
+					})
+				}
+				_ = bm.Topic.SetBatch(kvPairs)
+			},
+		},
 	}
-
-	startTime := time.Now()
-	wg.Wait()
-	endTime := time.Now()
-
-	elapsed := float64(endTime.UnixNano()-startTime.UnixNano()) / (1000 * 1000 * 1000)
-	txnSec := float64(N) / elapsed
-
-	fmt.Printf(
-		`
-Concurency:	%d
-Iterations:	%d
-Elapsed t.:	%.2f sec
-Throughput:	%.0f tx/sec
-
-`,
-		Concurrency, N, elapsed, txnSec)
+	for _, bm := range bms {
+		fmt.Println(*bm.execute())
+	}
 }
