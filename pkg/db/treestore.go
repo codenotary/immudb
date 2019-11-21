@@ -159,7 +159,7 @@ func (t *treeStore) flush() {
 	for k, v := range oldCache {
 		l, i := decodeTreeKey([]byte(k))
 
-		if i < limits[l] {
+		if false && i < limits[l] {
 			wb.Set([]byte(k), v[:])
 		} else {
 			t.cache[k] = v

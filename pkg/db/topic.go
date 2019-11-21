@@ -17,6 +17,8 @@ limitations under the License.
 package db
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"math"
 
 	"github.com/codenotary/immudb/pkg/tree"
@@ -24,6 +26,7 @@ import (
 )
 
 type Topic struct {
+	i     uint64
 	db    *badger.DB
 	store *treeStore
 }
@@ -47,13 +50,24 @@ func (t *Topic) Close() error {
 	return t.db.Close()
 }
 
+// todo(leogr): move to public API package
+func digestKV(key, value []byte) *[sha256.Size]byte {
+	kl, vl := len(key), len(value)
+	c := make([]byte, 1+8+kl+vl)
+	c[0] = tree.LeafPrefix
+	binary.BigEndian.PutUint64(c[1:9], uint64(kl))
+	copy(c[9:], key)
+	copy(c[9+kl:], value)
+	h := sha256.Sum256(c)
+	return &h
+}
+
 func (t *Topic) SetBatch(kvPairs []KVPair) error {
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 	var next uint64
 	for _, kv := range kvPairs {
-		h := tree.LeafHash(kv.Value)
-		next = t.store.Add(&h)
+		next = t.store.Add(digestKV(kv.Value, kv.Value))
 		if err := txn.SetEntry(&badger.Entry{
 			Key:   kv.Key,
 			Value: kv.Value,
@@ -65,9 +79,8 @@ func (t *Topic) SetBatch(kvPairs []KVPair) error {
 }
 
 func (t *Topic) Set(key, value []byte) error {
-	h := tree.LeafHash(value)
-	next := t.store.Add(&h)
-	txn := t.db.NewTransactionAt(math.MaxUint64, true) // we don't read, so set readTs to max
+	next := t.store.Add(digestKV(key, value))
+	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 	if err := txn.SetEntry(&badger.Entry{
 		Key:   key,
@@ -79,7 +92,7 @@ func (t *Topic) Set(key, value []byte) error {
 }
 
 func (t *Topic) Get(key []byte) ([]byte, error) {
-	txn := t.db.NewTransaction(false)
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 	item, err := txn.Get(key)
 	if err != nil {
