@@ -1,4 +1,4 @@
-package main
+package bm
 
 import (
 	"io/ioutil"

@@ -40,4 +40,12 @@ clean:
 
 .PHONY: bm
 bm:
-	$(GO) run -ldflags '-s -w' ./tools/bm
+	$(GO) build -ldflags '-s -w' ./tools/bm
+
+.PHONY: bm/function
+bm/function: bm
+	./bm function
+
+.PHONY: bm/rpc
+bm/rpc: bm
+	./bm rpc
