@@ -36,11 +36,11 @@ func (s *ImmuServer) Run() error {
 	if err != nil {
 		return err
 	}
-	t, err := db.Open(
-		db.DefaultOptions(
-			filepath.Join(s.Options.Dir, s.Options.DbName),
-		),
-	)
+	dbDir := filepath.Join(s.Options.Dir, s.Options.DbName)
+	if err := os.MkdirAll(dbDir, os.ModePerm); err != nil {
+		return err
+	}
+	t, err := db.Open(db.DefaultOptions(dbDir))
 	if err != nil {
 		return err
 	}
