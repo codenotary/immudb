@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -65,4 +66,10 @@ func (o Options) WithDbName(dbName string) Options {
 
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
+}
+
+func (o Options) String() string {
+	return fmt.Sprintf(
+		"{dir:%v network:%v address:%v port:%d name:%v}",
+		o.Dir, o.Network, o.Address, o.Port, o.DbName)
 }

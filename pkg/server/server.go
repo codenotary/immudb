@@ -40,26 +40,18 @@ func (s *ImmuServer) Run() error {
 	if err := os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		return err
 	}
-	t, err := db.Open(db.DefaultOptions(dbDir))
+	s.Topic, err = db.Open(db.DefaultOptions(dbDir))
 	if err != nil {
 		return err
 	}
-	server := DefaultServer().WithTopic(t)
-	server.Logger.Infof("starting immudb %v", s.Options)
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		if err := server.Stop(); err != nil {
-			fmt.Println(err)
-		}
-	}()
-	schema.RegisterImmuServiceServer(server.GrpcServer, server)
-	return server.GrpcServer.Serve(listener)
+	schema.RegisterImmuServiceServer(s.GrpcServer, s)
+	s.installShutdownHandler()
+	s.Logger.Infof("starting immud: %v", s.Options)
+	return s.GrpcServer.Serve(listener)
 }
 
 func (s *ImmuServer) Stop() error {
-	s.Logger.Infof("stopping immudb %v", s.Options)
+	s.Logger.Infof("stopping immud: %v", s.Options)
 	s.GrpcServer.Stop()
 	if s.Topic != nil {
 		return s.Topic.Close()
@@ -97,4 +89,16 @@ func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.Ge
 		return nil, err
 	}
 	return &schema.GetResponse{Value: value}, nil
+}
+
+func (s *ImmuServer) installShutdownHandler() {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		s.Logger.Infof("caught SIGTERM")
+		if err := s.Stop(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 }
