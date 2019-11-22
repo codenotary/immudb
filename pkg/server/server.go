@@ -18,14 +18,16 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/db"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
@@ -34,21 +36,35 @@ func (s *ImmuServer) Run() error {
 	if err != nil {
 		return err
 	}
-	t, err := db.Open(
-		db.DefaultOptions(
-			filepath.Join(s.Options.Dir, s.Options.DbName),
-		),
-	)
+	dbDir := filepath.Join(s.Options.Dir, s.Options.DbName)
+	if err := os.MkdirAll(dbDir, os.ModePerm); err != nil {
+		return err
+	}
+	t, err := db.Open(db.DefaultOptions(dbDir))
 	if err != nil {
 		return err
 	}
-	server := &ImmuServer{
-		Topic:  t,
-		Logger: logger.DefaultLogger}
+	server := DefaultServer().WithTopic(t)
 	server.Logger.Infof("starting immudb %v", s.Options)
-	gRpcServer := grpc.NewServer()
-	schema.RegisterImmuServiceServer(gRpcServer, server)
-	return gRpcServer.Serve(listener)
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		if err := server.Stop(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	schema.RegisterImmuServiceServer(server.GrpcServer, server)
+	return server.GrpcServer.Serve(listener)
+}
+
+func (s *ImmuServer) Stop() error {
+	s.Logger.Infof("stopping immudb %v", s.Options)
+	s.GrpcServer.Stop()
+	if s.Topic != nil {
+		return s.Topic.Close()
+	}
+	return nil
 }
 
 func (s *ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*empty.Empty, error) {

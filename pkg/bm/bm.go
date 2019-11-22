@@ -1,7 +1,6 @@
-package main
+package bm
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -9,6 +8,7 @@ import (
 )
 
 type Bm struct {
+	CreateTopic bool
 	Topic       *db.Topic
 	Name        string
 	Concurrency int
@@ -18,10 +18,10 @@ type Bm struct {
 	Work        func(bm *Bm, start int, end int)
 }
 
-func (b *Bm) execute() *BmResult {
+func (b *Bm) Execute() *BmResult {
 	var wg sync.WaitGroup
 	chunkSize := b.Iterations / b.Concurrency
-	if b.Topic == nil {
+	if b.Topic == nil && b.CreateTopic {
 		topic, closer := makeTopic()
 		b.Topic = topic
 		defer closer()
@@ -51,22 +51,4 @@ func (b *Bm) execute() *BmResult {
 		Time:         elapsed,
 		Transactions: txnSec,
 	}
-}
-
-type BmResult struct {
-	Bm           *Bm
-	Time         float64
-	Transactions float64
-}
-
-func (b BmResult) String() string {
-	return fmt.Sprintf(
-		`
-Name:		%s
-Concurrency:	%d
-Iterations:	%d
-Elapsed t.:	%.2f sec
-Throughput:	%.0f tx/sec
-`,
-		b.Bm.Name, b.Bm.Concurrency, b.Bm.Iterations, b.Time, b.Transactions)
 }
