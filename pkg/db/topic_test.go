@@ -73,6 +73,7 @@ func TestTopic(t *testing.T) {
 	}
 
 	topic.store.Close()
+	topic.store.resetCache() // with empty cache, next call should fetch from DB
 	assert.Equal(t, root64th, tree.Root(topic.store))
 }
 

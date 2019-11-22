@@ -21,8 +21,8 @@ import (
 	"encoding/binary"
 	"sync"
 	"sync/atomic"
-	"time"
 
+	"github.com/codenotary/immudb/pkg/ring"
 	"github.com/codenotary/immudb/pkg/tree"
 
 	"github.com/dgraph-io/badger/v2"
@@ -70,29 +70,34 @@ func treeWidth(txn *badger.Txn) uint64 {
 
 type treeStore struct {
 	// A 64-bit integer must be at the top for memory alignment
-	at   uint64
-	c    chan *[sha256.Size]byte
-	quit chan struct{}
-	w    uint64
-	db   *badger.DB
-	// cache  *ristretto.Cache
-	cache map[string]*[sha256.Size]byte
-	cSize uint64
+	ts          uint64 // badger timestamp
+	w           uint64 // width of computed tree
+	c           chan *[sha256.Size]byte
+	quit        chan struct{}
+	lastFlushed uint64
+	db          *badger.DB
+	caches      [256]ring.Buffer
+	cPos        [256]uint64
+	cSize       uint64
 	sync.RWMutex
 }
 
 func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 
 	t := &treeStore{
-		db:    db,
-		c:     make(chan *[sha256.Size]byte, cacheSize),
-		quit:  make(chan struct{}, 0),
-		cache: make(map[string]*[sha256.Size]byte, cacheSize*2),
-		cSize: cacheSize,
+		db:     db,
+		c:      make(chan *[sha256.Size]byte, cacheSize),
+		quit:   make(chan struct{}, 0),
+		caches: [256]ring.Buffer{},
+		cPos:   [256]uint64{},
+		cSize:  cacheSize,
 	}
+
+	t.resetCache()
+
 	db.View(func(txn *badger.Txn) error {
-		t.at = treeWidth(txn)
-		t.w = t.at
+		t.w = treeWidth(txn)
+		t.ts = t.w
 		return nil
 	})
 	go t.worker()
@@ -101,73 +106,56 @@ func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 
 func (t *treeStore) Close() {
 	if t.quit != nil {
-		t.quit <- struct{}{}
 		close(t.c)
-		for h := range t.c {
-			tree.AppendHash(t, h)
-		}
-		t.flush()
+		<-t.quit
+		t.quit = nil
+	}
+}
+
+func (t *treeStore) resetCache() {
+	for i := 0; i < 256; i++ {
+		t.caches[i] = ring.NewRingBuffer(t.cSize)
 	}
 }
 
 func (t *treeStore) Add(h *[sha256.Size]byte) uint64 {
 	t.c <- h
-	return atomic.AddUint64(&t.at, 1)
+	return atomic.AddUint64(&t.ts, 1)
 }
 
 func (t *treeStore) worker() {
-	for {
-		select {
-		case h := <-t.c:
-			t.Lock()
-			tree.AppendHash(t, h)
-			t.Unlock()
-		case <-t.quit:
-			close(t.quit)
-			t.quit = nil
-			return
-		default:
-			t.Lock()
+	for h := range t.c {
+		tree.AppendHash(t, h)
+		if t.w%2 == 0 && (t.w-t.lastFlushed) >= t.cSize/2 {
 			t.flush()
-			t.Unlock()
-			time.Sleep(time.Second * 5)
 		}
 	}
+	t.flush()
+	t.quit <- struct{}{}
 }
 
 func (t *treeStore) flush() {
 
-	if len(t.cache) < int(t.cSize/3*2) {
-		return
-	}
+	// fmt.Println("FLUST at ", t.w)
+	var wb *badger.WriteBatch
+	wb = t.db.NewWriteBatchAt(t.w)
+	defer wb.Flush()
 
-	wb := t.db.NewWriteBatchAt(t.w)
-
-	oldCache := t.cache
-	t.cache = make(map[string]*[sha256.Size]byte, t.cSize)
-
-	d := tree.Depth(t) + 1
-	limits := make([]uint64, d, d)
-	// fmt.Printf("FLUST START (w=%d, d=%d)\n", t.w, d)
-	limit := t.w - 1
-	for i := 0; i < d; i++ {
-		limits[i] = limit - limit%2
-		limit /= 2
-		// fmt.Printf("FROZEN (l=%d): %d\n", i, limits[i])
-	}
-
-	for k, v := range oldCache {
-		l, i := decodeTreeKey([]byte(k))
-
-		if i < limits[l] {
-			wb.Set([]byte(k), v[:])
-		} else {
-			t.cache[k] = v
+	for l, c := range t.caches {
+		tail := c.Tail()
+		if tail == 0 {
+			continue
 		}
+
+		// fmt.Printf("Flushing [l=%d, head=%d, tail=%d] from %d to (%d-1)\n", l, c.Head(), c.Tail(), t.cPos[l], tail)
+
+		for i := t.cPos[l]; i < tail; i++ {
+			wb.Set(treeKey(uint8(l), i), c.Get(i).(*[sha256.Size]byte)[:])
+		}
+		t.cPos[l] = tail
 	}
 
-	wb.Flush()
-
+	t.lastFlushed = t.w
 }
 
 func (t *treeStore) Width() uint64 {
@@ -175,23 +163,22 @@ func (t *treeStore) Width() uint64 {
 }
 
 func (t *treeStore) Set(layer uint8, index uint64, value [sha256.Size]byte) {
-	// fmt.Printf("SET (at=%d): [%d,%d]\n", t.at, layer, index)
-	key := string(treeKey(layer, index))
-	t.cache[key] = &value
+	t.caches[layer].Set(index, &value)
+
 	if layer == 0 && t.w <= index {
 		t.w = index + 1
 	}
 }
 
 func (t *treeStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
-	key := treeKey(layer, index)
-	if v, ok := t.cache[string(key)]; ok {
-		return v
+
+	if v := t.caches[layer].Get(index); v != nil {
+		return v.(*[sha256.Size]byte)
 	}
 
 	var ret [sha256.Size]byte
 	t.db.View(func(txn *badger.Txn) error {
-		// fmt.Printf("CACHE MISS (at=%d, d=%d): [%d,%d]\n", t.at, tree.Depth(t), layer, index)
+		// fmt.Printf("CACHE MISS (ts=%d, w=%d, d=%d): [%d,%d]\n", t.ts, t.w, tree.Depth(t), layer, index)
 		item, err := txn.Get(treeKey(layer, index))
 		if err != nil {
 			return nil
@@ -199,14 +186,12 @@ func (t *treeStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
 		item.Value(func(val []byte) error {
 			if val != nil {
 				copy(ret[:], val)
-				t.cache[string(key)] = &ret
-				// fmt.Printf("FALLBACK (at=%d, d=%d): [%d,%d]\n", t.at, tree.Depth(t), layer, index)
+				// fmt.Printf("CACHE FALLBACK (ts=%d, w=%d, d=%d): [%d,%d]\n", t.ts, t.w, tree.Depth(t), layer, index)
 			}
 			return nil
 		})
 		return nil
 	})
 
-	t.cache[string(key)] = &ret
 	return &ret
 }
