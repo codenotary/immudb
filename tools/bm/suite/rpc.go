@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/bm"
 	"github.com/codenotary/immudb/pkg/client"
@@ -30,7 +31,9 @@ import (
 
 var tmpDir, _ = ioutil.TempDir("", "immudb")
 var immuServer = server.DefaultServer().
-	WithOptions(server.DefaultOptions().WithDir(tmpDir))
+	WithOptions(
+		server.DefaultOptions().WithDir(tmpDir),
+	)
 var immuClient = client.DefaultClient()
 
 var RpcBenchmarks = []bm.Bm{
@@ -46,6 +49,8 @@ var RpcBenchmarks = []bm.Bm{
 					os.Exit(1)
 				}
 			}()
+			// await server to be up and running
+			time.Sleep(time.Second * 2)
 		},
 		After: func(bm *bm.Bm) {
 			if err := immuServer.Stop(); err != nil {
