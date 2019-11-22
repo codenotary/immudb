@@ -32,7 +32,7 @@ type ImmuServer struct {
 
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
-		Logger:     logger.DefaultLogger,
+		Logger:     logger.SimpleLogger,
 		Options:    DefaultOptions(),
 		GrpcServer: grpc.NewServer(),
 	}
