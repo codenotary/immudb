@@ -62,6 +62,7 @@ func (b *Bm) Execute() *BmResult {
 	if b.After != nil {
 		b.After(b)
 	}
+	b.Topic = nil // GC
 	return &BmResult{
 		Bm:           b,
 		Time:         elapsed,
