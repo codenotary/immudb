@@ -39,7 +39,7 @@ func Open(options Options) (*Topic, error) {
 
 	t := &Topic{
 		db:    db,
-		store: newTreeStore(db, 500000),
+		store: newTreeStore(db, 750_000),
 	}
 
 	return t, nil
