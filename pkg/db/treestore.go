@@ -130,12 +130,13 @@ func (t *treeStore) worker() {
 			t.flush()
 		}
 	}
-	t.flush()
+	if t.w > 0 {
+		t.flush()
+	}
 	t.quit <- struct{}{}
 }
 
 func (t *treeStore) flush() {
-
 	// fmt.Println("FLUST at ", t.w)
 	var wb *badger.WriteBatch
 	wb = t.db.NewWriteBatchAt(t.w)
