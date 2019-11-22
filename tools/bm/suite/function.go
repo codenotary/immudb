@@ -14,6 +14,7 @@ var V = []byte{0, 1, 3, 4, 5, 6, 7}
 
 var FunctionBenchmarks = []bm.Bm{
 	{
+		CreateTopic: true,
 		Name:        "sequential write (fine tuned / experimental)",
 		Concurrency: 1_000_000, // Concurrency,
 		Iterations:  1_000_000,
