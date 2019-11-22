@@ -32,9 +32,6 @@ func makeTopic() (*db.Topic, func()) {
 	}
 
 	opts := db.DefaultOptions(dir)
-	opts.Badger = opts.Badger.
-		WithSyncWrites(false).
-		WithEventLogging(false)
 
 	topic, err := db.Open(opts)
 	if err != nil {
