@@ -27,7 +27,8 @@ type ImmuClient struct {
 
 func DefaultClient() *ImmuClient {
 	return &ImmuClient{
-		Logger: logger.SimpleLogger,
+		Logger:  logger.SimpleLogger,
+		Options: DefaultOptions(),
 	}
 }
 
