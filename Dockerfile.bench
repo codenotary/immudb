@@ -1,0 +1,8 @@
+FROM golang:1.13-stretch as build
+
+WORKDIR /src
+COPY . .
+
+RUN make bm
+
+ENTRYPOINT ["/src/bm", "rpc"]
