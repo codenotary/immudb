@@ -9,12 +9,12 @@ batch_size = 10
 print("Running", iterations, "iterations at batch size", batch_size)
 cluster = Cluster(['127.0.0.1'])
 session = cluster.connect('ks_test')
-insert_user = session.prepare('INSERT INTO test (key,value) VALUES (?, ?)')
+stmt = session.prepare('INSERT INTO test (key,value) VALUES (?, ?)')
 batch = BatchStatement(consistency_level=ConsistencyLevel.ANY)
 for k in range(iterations):
 	for i,j in [(str(x), "123456789") for x in range(batch_size)]:
 	    try:
-	      batch.add(insert_user,(i,j))
+	      batch.add(stmt,(i,j))
 	    except Exception as e:
 	      print('Cassandra error: {}'.format(e))
 	session.execute(batch)
