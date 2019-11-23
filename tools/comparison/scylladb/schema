@@ -1,0 +1,2 @@
+create keyspace ks_test with replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
+create table ks_test.test (key text, value text, primary key (key));
