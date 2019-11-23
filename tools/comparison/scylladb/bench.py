@@ -19,7 +19,8 @@ def run(iterations, batch_size):
 			except Exception as e:
 			  print('Cassandra error: {}'.format(e))
 		session.execute(batch)
-		print("Checkpoint", k * batch_size) if k % 10 == 0
+		if k % 100 == 0:
+			print("Checkpoint", k * batch_size)
 
 duration = timeit.timeit(lambda: run(1000, 10), number=1)
 print(duration, "s", )
