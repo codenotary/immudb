@@ -44,7 +44,7 @@ var RpcBenchmarks = []bm.Bm{
 		Iterations:  1_000_000,
 		Before: func(bm *bm.Bm) {
 			go func() {
-				if err := immuServer.Run(); err != nil {
+				if err := immuServer.Start(); err != nil {
 					fmt.Println(err)
 					os.Exit(1)
 				}

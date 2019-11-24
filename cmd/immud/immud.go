@@ -54,7 +54,7 @@ func main() {
 			immuServer := server.
 				DefaultServer().
 				WithOptions(options)
-			return immuServer.Run()
+			return immuServer.Start()
 		},
 	}
 	cmd.Flags().StringP("directory", "d", server.DefaultOptions().Dir, "directory")

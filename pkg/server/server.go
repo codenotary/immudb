@@ -31,7 +31,7 @@ import (
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-func (s *ImmuServer) Run() error {
+func (s *ImmuServer) Start() error {
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
 		return err
