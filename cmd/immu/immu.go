@@ -46,13 +46,13 @@ func main() {
 				DefaultClient().
 				WithOptions(*options)
 			if err := immuClient.Connect(); err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			defer immuClient.Disconnect()
 			response, err := immuClient.Get([]byte(key))
 			if err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			fmt.Println(string(response))
@@ -79,13 +79,13 @@ func main() {
 				reader = bufio.NewReader(os.Stdin)
 			}
 			if err := immuClient.Connect(); err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			defer immuClient.Disconnect()
 			value, err := immuClient.Set([]byte(key), reader)
 			if err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			fmt.Println("Set", key, len(value), "bytes")
@@ -98,7 +98,7 @@ func main() {
 	cmd.AddCommand(getCommand)
 	cmd.AddCommand(setCommand)
 	if err := cmd.Execute(); err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

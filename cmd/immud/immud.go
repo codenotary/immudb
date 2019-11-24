@@ -62,7 +62,7 @@ func main() {
 	cmd.Flags().StringP("address", "a", server.DefaultOptions().Address, "bind address")
 	cmd.Flags().StringP("name", "n", server.DefaultOptions().DbName, "db name")
 	if err := cmd.Execute(); err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

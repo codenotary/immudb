@@ -45,7 +45,7 @@ var RpcBenchmarks = []bm.Bm{
 		Before: func(bm *bm.Bm) {
 			go func() {
 				if err := immuServer.Start(); err != nil {
-					fmt.Println(err)
+					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
 			}()
@@ -57,21 +57,21 @@ var RpcBenchmarks = []bm.Bm{
 				time.Sleep(time.Second * 2)
 			}
 			if err := immuClient.Connect(); err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 		},
 		After: func(bm *bm.Bm) {
 			if err := immuServer.Stop(); err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			if err := os.RemoveAll(tmpDir); err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			if err := immuClient.Disconnect(); err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 		},
@@ -80,7 +80,7 @@ var RpcBenchmarks = []bm.Bm{
 				key := []byte(strconv.FormatUint(uint64(i), 10))
 				_, err := immuClient.Set(key, bytes.NewReader(V))
 				if err != nil {
-					fmt.Println(err)
+					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
 			}

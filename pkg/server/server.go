@@ -18,7 +18,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -98,7 +97,7 @@ func (s *ImmuServer) installShutdownHandler() {
 		<-c
 		s.Logger.Infof("caught SIGTERM")
 		if err := s.Stop(); err != nil {
-			fmt.Println(err)
+			s.Logger.Errorf("shutdown error: %v", err)
 		}
 	}()
 }
