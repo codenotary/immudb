@@ -4,6 +4,7 @@ SHELL=/bin/bash -o pipefail
 PWD = $(shell pwd)
 GO ?= go
 PROTOC ?= protoc
+STRIP = strip
 
 .PHONY: all
 all: immu immud
@@ -44,6 +45,7 @@ clean:
 .PHONY: bm
 bm:
 	$(GO) build -ldflags '-s -w' ./tools/bm
+	$(STRIP) bm
 
 .PHONY: bm/function
 bm/function: bm
