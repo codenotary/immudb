@@ -5,6 +5,9 @@ PWD = $(shell pwd)
 GO ?= go
 PROTOC ?= protoc
 
+.PHONY: all
+all: immu immud
+
 .PHONY: immu
 immu:
 	$(GO) build ./cmd/immu
