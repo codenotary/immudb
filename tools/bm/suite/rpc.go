@@ -41,7 +41,7 @@ var RpcBenchmarks = []bm.Bm{
 		CreateTopic: false,
 		Name:        "sequential write (baseline)",
 		Concurrency: Concurrency,
-		Iterations:  100_000,
+		Iterations:  1_000_000,
 		Before: func(bm *bm.Bm) {
 			go func() {
 				if err := immuServer.Run(); err != nil {
