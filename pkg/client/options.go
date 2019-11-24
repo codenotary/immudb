@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -44,4 +45,8 @@ func (o Options) WithPort(port int) Options {
 
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
+}
+
+func (o Options) String() string {
+	return fmt.Sprintf("{address:%v port:%d}", o.Address, o.Port)
 }
