@@ -36,7 +36,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immu immud
+	rm -f immu immud bm
 
 .PHONY: bm
 bm:
