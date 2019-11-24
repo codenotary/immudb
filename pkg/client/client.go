@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 
@@ -28,53 +29,74 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 )
 
+var AlreadyConnectedError = fmt.Errorf("already connected")
+var NotConnectedError = fmt.Errorf("not connected")
+
+func (c *ImmuClient) Connect() (err error) {
+	if c.isConnected() {
+		return AlreadyConnectedError
+	}
+	if c.clientConn, err = grpc.Dial(c.Options.Bind(), grpc.WithInsecure()); err != nil {
+		return err
+	}
+	c.serviceClient = schema.NewImmuServiceClient(c.clientConn)
+	c.Logger.Debugf("connected %v", c.Options)
+	return nil
+}
+
+func (c *ImmuClient) Disconnect() error {
+	if !c.isConnected() {
+		return NotConnectedError
+	}
+	if err := c.clientConn.Close(); err != nil {
+		return err
+	}
+	c.serviceClient = nil
+	c.clientConn = nil
+	c.Logger.Debugf("disconnected %v", c.Options)
+	return nil
+}
+
 func (c *ImmuClient) Get(key []byte) ([]byte, error) {
-	return c.withConnection(func(connection *grpc.ClientConn) (bytes []byte, e error) {
-		client := schema.NewImmuServiceClient(connection)
-		response, err := client.Get(context.Background(), &schema.GetRequest{Key: key})
-		if err != nil {
-			return nil, err
-		}
-		return response.Value, nil
-	})
-}
-
-func (c *ImmuClient) Set(key []byte, reader io.Reader) ([]byte, error) {
-	return c.withConnection(func(connection *grpc.ClientConn) (bytes []byte, e error) {
-		client := schema.NewImmuServiceClient(connection)
-		value, err := ioutil.ReadAll(reader)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := client.Set(context.Background(), &schema.SetRequest{
-			Key:   key,
-			Value: value,
-		}); err != nil {
-			return nil, err
-		}
-		return value, nil
-	})
-}
-
-func (c *ImmuClient) withConnection(callback func(connection *grpc.ClientConn) ([]byte, error)) ([]byte, error) {
-	connection, err := grpc.Dial(c.Options.Bind(), grpc.WithInsecure())
+	if !c.isConnected() {
+		return nil, NotConnectedError
+	}
+	response, err := c.serviceClient.Get(context.Background(), &schema.GetRequest{Key: key})
 	if err != nil {
 		return nil, err
 	}
-	defer connection.Close()
-	return callback(connection)
+	return response.Value, nil
+}
+
+func (c *ImmuClient) Set(key []byte, reader io.Reader) ([]byte, error) {
+	if !c.isConnected() {
+		return nil, NotConnectedError
+	}
+	value, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.serviceClient.Set(context.Background(), &schema.SetRequest{
+		Key:   key,
+		Value: value,
+	}); err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 func (c *ImmuClient) HealthCheck() (bool, error) {
-	connection, err := grpc.Dial(c.Options.Bind(), grpc.WithInsecure())
-	if err != nil {
-		return false, err
+	if !c.isConnected() {
+		return false, NotConnectedError
 	}
-	defer connection.Close()
-	client := schema.NewImmuServiceClient(connection)
+	client := schema.NewImmuServiceClient(c.clientConn)
 	response, err := client.Health(context.Background(), &empty.Empty{})
 	if err != nil {
 		return false, err
 	}
 	return response.Status == server.HealthOk, nil
+}
+
+func (c *ImmuClient) isConnected() bool {
+	return c.clientConn != nil && c.serviceClient != nil
 }

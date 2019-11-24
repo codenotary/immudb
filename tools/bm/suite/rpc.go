@@ -56,6 +56,10 @@ var RpcBenchmarks = []bm.Bm{
 				}
 				time.Sleep(time.Second * 2)
 			}
+			if err := immuClient.Connect(); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
 		},
 		After: func(bm *bm.Bm) {
 			if err := immuServer.Stop(); err != nil {
@@ -63,6 +67,10 @@ var RpcBenchmarks = []bm.Bm{
 				os.Exit(1)
 			}
 			if err := os.RemoveAll(tmpDir); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			if err := immuClient.Disconnect(); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}

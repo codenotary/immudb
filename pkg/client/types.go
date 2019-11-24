@@ -17,12 +17,18 @@ limitations under the License.
 package client
 
 import (
+	"google.golang.org/grpc"
+
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/schema"
 )
 
 type ImmuClient struct {
 	Logger  logger.Logger
 	Options Options
+
+	clientConn    *grpc.ClientConn
+	serviceClient schema.ImmuServiceClient
 }
 
 func DefaultClient() *ImmuClient {
