@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
 )
 
 func main() {
@@ -104,8 +103,8 @@ func main() {
 }
 
 func configureOptions(cmd *cobra.Command) {
-	cmd.Flags().IntP("port", "p", server.DefaultOptions().Port, "port number")
-	cmd.Flags().StringP("address", "a", server.DefaultOptions().Address, "bind address")
+	cmd.Flags().IntP("port", "p", client.DefaultOptions().Port, "port number")
+	cmd.Flags().StringP("address", "a", client.DefaultOptions().Address, "bind address")
 }
 
 func options(cmd *cobra.Command) (*client.Options, error) {
