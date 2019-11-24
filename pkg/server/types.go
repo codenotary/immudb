@@ -17,10 +17,18 @@ limitations under the License.
 package server
 
 import (
+	"context"
+
+	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/db"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/schema"
+)
+
+const (
+	HealthOk = 0
 )
 
 type ImmuServer struct {
@@ -28,6 +36,10 @@ type ImmuServer struct {
 	Logger     logger.Logger
 	Options    Options
 	GrpcServer *grpc.Server
+}
+
+func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
+	return &schema.HealthResponse{Status: HealthOk}, nil
 }
 
 func DefaultServer() *ImmuServer {

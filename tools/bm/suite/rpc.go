@@ -49,8 +49,13 @@ var RpcBenchmarks = []bm.Bm{
 					os.Exit(1)
 				}
 			}()
-			// await server to be up and running
-			time.Sleep(time.Second * 2)
+			for i := 0; i < 5; i++ {
+				result, _ := immuClient.HealthCheck()
+				if result {
+					return
+				}
+				time.Sleep(time.Second * 2)
+			}
 		},
 		After: func(bm *bm.Bm) {
 			if err := immuServer.Stop(); err != nil {

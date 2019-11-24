@@ -21,9 +21,11 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/schema"
+	"github.com/codenotary/immudb/pkg/server"
 )
 
 func (c *ImmuClient) Get(key []byte) ([]byte, error) {
@@ -61,4 +63,18 @@ func (c *ImmuClient) withConnection(callback func(connection *grpc.ClientConn) (
 	}
 	defer connection.Close()
 	return callback(connection)
+}
+
+func (c *ImmuClient) HealthCheck() (bool, error) {
+	connection, err := grpc.Dial(c.Options.Bind(), grpc.WithInsecure())
+	if err != nil {
+		return false, err
+	}
+	defer connection.Close()
+	client := schema.NewImmuServiceClient(connection)
+	response, err := client.Health(context.Background(), &empty.Empty{})
+	if err != nil {
+		return false, err
+	}
+	return response.Status == server.HealthOk, nil
 }

@@ -37,8 +37,13 @@ message GetResponse {
 	bytes value = 1;
 }
 
+message HealthResponse {
+	int32 status = 1;
+}
+
 service ImmuService {
 	rpc Set (SetRequest) returns (google.protobuf.Empty);
 	rpc SetBatch (BatchSetRequest) returns (google.protobuf.Empty);
 	rpc Get (GetRequest) returns (GetResponse);
+	rpc Health (google.protobuf.Empty) returns (HealthResponse);
 }
