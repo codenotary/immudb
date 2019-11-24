@@ -50,27 +50,25 @@ var RpcBenchmarks = []bm.Bm{
 				}
 			}()
 			for i := 0; i < 5; i++ {
-				result, _ := immuClient.HealthCheck()
-				if result {
+				if err := immuClient.Connect(); err == nil {
 					return
 				}
 				time.Sleep(time.Second * 2)
 			}
-			if err := immuClient.Connect(); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "server startup failed after timeout")
+			os.Exit(1)
+
+		},
+		After: func(bm *bm.Bm) {
+			if err := immuClient.Disconnect(); err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-		},
-		After: func(bm *bm.Bm) {
 			if err := immuServer.Stop(); err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			if err := os.RemoveAll(tmpDir); err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			if err := immuClient.Disconnect(); err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}

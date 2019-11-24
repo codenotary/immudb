@@ -89,8 +89,7 @@ func (c *ImmuClient) HealthCheck() (bool, error) {
 	if !c.isConnected() {
 		return false, NotConnectedError
 	}
-	client := schema.NewImmuServiceClient(c.clientConn)
-	response, err := client.Health(context.Background(), &empty.Empty{})
+	response, err := c.serviceClient.Health(context.Background(), &empty.Empty{})
 	if err != nil {
 		return false, err
 	}
