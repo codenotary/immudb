@@ -52,8 +52,9 @@ func (s *ImmuServer) Start() error {
 func (s *ImmuServer) Stop() error {
 	s.Logger.Infof("stopping immud: %v", s.Options)
 	s.GrpcServer.Stop()
-	if s.Topic != nil {
-		return s.Topic.Close()
+	if topic := s.Topic; topic != nil {
+		s.Topic = nil
+		return topic.Close()
 	}
 	return nil
 }
