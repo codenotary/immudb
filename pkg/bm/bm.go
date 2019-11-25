@@ -17,6 +17,7 @@ limitations under the License.
 package bm
 
 import (
+	"runtime"
 	"sync"
 	"time"
 
@@ -42,6 +43,8 @@ func (b *Bm) Execute() *BmResult {
 		b.Topic = topic
 		defer closer()
 	}
+	var memStatsBeforeRun runtime.MemStats
+	runtime.ReadMemStats(&memStatsBeforeRun)
 	if b.Before != nil {
 		b.Before(b)
 	}
@@ -59,13 +62,21 @@ func (b *Bm) Execute() *BmResult {
 	endTime := time.Now()
 	elapsed := float64(endTime.UnixNano()-startTime.UnixNano()) / (1000 * 1000 * 1000)
 	txnSec := float64(b.Iterations) / elapsed
+	var memStatsBeforeGC runtime.MemStats
+	runtime.ReadMemStats(&memStatsBeforeGC)
 	if b.After != nil {
 		b.After(b)
 	}
 	b.Topic = nil // GC
+	runtime.GC()
+	var memStatsAfterGC runtime.MemStats
+	runtime.ReadMemStats(&memStatsAfterGC)
 	return &BmResult{
-		Bm:           b,
-		Time:         elapsed,
-		Transactions: txnSec,
+		Bm:                b,
+		Time:              elapsed,
+		Transactions:      txnSec,
+		MemStatsBeforeRun: memStatsBeforeRun,
+		MemStatsBeforeGC:  memStatsBeforeGC,
+		MemStatsAfterGC:   memStatsAfterGC,
 	}
 }

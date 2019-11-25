@@ -18,22 +18,33 @@ package bm
 
 import (
 	"fmt"
+	"runtime"
 )
 
 type BmResult struct {
 	Bm           *Bm
 	Time         float64
 	Transactions float64
+
+	MemStatsBeforeRun runtime.MemStats
+	MemStatsBeforeGC  runtime.MemStats
+	MemStatsAfterGC   runtime.MemStats
 }
 
 func (b BmResult) String() string {
 	return fmt.Sprintf(
 		`
-Name:		%s
-Concurency:	%d
-Iterations:	%d
-Elapsed t.:	%.2f sec
-Throughput:	%.0f tx/sec
+Name:       %s
+Concurency: %d
+Iterations: %d
+Elapsed t.: %.2f sec
+Throughput: %.0f tx/sec
+Before Run: %dMB alloc, %dMB sys
+Before GC:  %dMB alloc, %dMB sys
+After GC:   %dMB alloc, %dMB sys
 `,
-		b.Bm.Name, b.Bm.Concurrency, b.Bm.Iterations, b.Time, b.Transactions)
+		b.Bm.Name, b.Bm.Concurrency, b.Bm.Iterations, b.Time, b.Transactions,
+		b.MemStatsBeforeRun.Alloc/1024/1024, b.MemStatsBeforeRun.Sys/1024/1024,
+		b.MemStatsBeforeGC.Alloc/1024/1024, b.MemStatsBeforeGC.Sys/1024/1024,
+		b.MemStatsAfterGC.Alloc/1024/1024, b.MemStatsAfterGC.Sys/1024/1024)
 }
