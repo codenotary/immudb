@@ -110,8 +110,7 @@ func makeRpcBenchmark(name string, concurrency int, iterations int,
 				}
 			}()
 			if err := immuClient.Connect(); err != nil {
-				_, _ = fmt.Fprintln(os.Stderr,
-					"server startup failed after timeout")
+				_, err = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 		},
