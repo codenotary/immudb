@@ -43,17 +43,14 @@ func main() {
 			immuClient := client.
 				DefaultClient().
 				WithOptions(*options)
-			if err := immuClient.Connect(); err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			defer immuClient.Disconnect()
-			response, err := immuClient.Get(bytes.NewReader([]byte(args[0])))
+			response, err := immuClient.Connected(func() (interface{}, error) {
+				return immuClient.Get(bytes.NewReader([]byte(args[0])))
+			})
 			if err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Println(string(response))
+			fmt.Println(string(response.([]byte)))
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -75,12 +72,9 @@ func main() {
 			} else {
 				reader = bufio.NewReader(os.Stdin)
 			}
-			if err := immuClient.Connect(); err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			defer immuClient.Disconnect()
-			if err := immuClient.Set(bytes.NewReader([]byte(args[0])), reader); err != nil {
+			if _, err := immuClient.Connected(func() (interface{}, error) {
+				return nil, immuClient.Set(bytes.NewReader([]byte(args[0])), reader)
+			}); err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}

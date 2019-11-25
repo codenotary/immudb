@@ -54,6 +54,21 @@ func (c *ImmuClient) Disconnect() error {
 	return nil
 }
 
+func (c *ImmuClient) Connected(f func() (interface{}, error)) (interface{}, error) {
+	if err := c.Connect(); err != nil {
+		return nil, err
+	}
+	result, err := f()
+	if err != nil {
+		_ = c.Disconnect()
+		return nil, err
+	}
+	if err := c.Disconnect(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (c *ImmuClient) Get(keyReader io.Reader) ([]byte, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
