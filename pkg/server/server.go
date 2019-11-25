@@ -94,6 +94,12 @@ func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.Ge
 	return &schema.GetResponse{Value: value}, nil
 }
 
+func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
+	health := s.Topic.HealthCheck()
+	s.Logger.Debugf("health check: %v", health)
+	return &schema.HealthResponse{Status: health}, nil
+}
+
 func (s *ImmuServer) installShutdownHandler() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
