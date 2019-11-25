@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/schema"
-	"github.com/codenotary/immudb/pkg/server"
 )
 
 var AlreadyConnectedError = fmt.Errorf("already connected")
@@ -36,11 +36,12 @@ func (c *ImmuClient) Connect() (err error) {
 	if c.isConnected() {
 		return AlreadyConnectedError
 	}
-	if c.clientConn, err = grpc.Dial(c.Options.Bind(), grpc.WithInsecure()); err != nil {
+	if err := c.connectWithRetry(); err != nil {
 		return err
 	}
-	c.serviceClient = schema.NewImmuServiceClient(c.clientConn)
-	c.Logger.Debugf("connected %v", c.Options)
+	if err := c.waitForHealthCheck(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -107,17 +108,45 @@ func (c *ImmuClient) SetBatch(request *BatchRequest) error {
 	return nil
 }
 
-func (c *ImmuClient) HealthCheck() (bool, error) {
+func (c *ImmuClient) HealthCheck() error {
 	if !c.isConnected() {
-		return false, NotConnectedError
+		return NotConnectedError
 	}
 	response, err := c.serviceClient.Health(context.Background(), &empty.Empty{})
 	if err != nil {
-		return false, err
+		return err
 	}
-	return response.Status == server.HealthOk, nil
+	if !response.Status {
+		return fmt.Errorf("health check failed")
+	}
+	return nil
 }
 
 func (c *ImmuClient) isConnected() bool {
 	return c.clientConn != nil && c.serviceClient != nil
+}
+
+func (c *ImmuClient) connectWithRetry() (err error) {
+	for i := 0; i < c.Options.DialRetries; i++ {
+		if c.clientConn, err = grpc.Dial(c.Options.Bind(), grpc.WithInsecure()); err == nil {
+			c.serviceClient = schema.NewImmuServiceClient(c.clientConn)
+			c.Logger.Debugf("connected %v", c.Options)
+			return nil
+		}
+		c.Logger.Debugf("dial failed: %v", err)
+		time.Sleep(time.Second)
+	}
+	return err
+}
+
+func (c *ImmuClient) waitForHealthCheck() (err error) {
+	for i := 0; i < c.Options.HealthCheckRetries; i++ {
+		if err = c.HealthCheck(); err == nil {
+			c.Logger.Debugf("health check succeeded %v", c.Options)
+			return nil
+		}
+		c.Logger.Debugf("health check failed: %v", err)
+		time.Sleep(time.Second)
+	}
+	return err
 }

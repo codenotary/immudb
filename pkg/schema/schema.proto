@@ -38,7 +38,7 @@ message GetResponse {
 }
 
 message HealthResponse {
-	int32 status = 1;
+	bool status = 1;
 }
 
 service ImmuService {

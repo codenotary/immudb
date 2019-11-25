@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/bm"
 	"github.com/codenotary/immudb/pkg/client"
@@ -96,7 +95,8 @@ var RpcBenchmarks = []bm.Bm{
 		}),
 }
 
-func makeRpcBenchmark(name string, concurrency int, iterations int, work func(bm *bm.Bm, start int, end int)) bm.Bm {
+func makeRpcBenchmark(name string, concurrency int, iterations int,
+	work func(bm *bm.Bm, start int, end int)) bm.Bm {
 	return bm.Bm{
 		CreateTopic: false,
 		Name:        name,
@@ -109,15 +109,11 @@ func makeRpcBenchmark(name string, concurrency int, iterations int, work func(bm
 					os.Exit(1)
 				}
 			}()
-			for i := 0; i < 5; i++ {
-				if err := immuClient.Connect(); err == nil {
-					return
-				}
-				time.Sleep(time.Second * 2)
+			if err := immuClient.Connect(); err != nil {
+				_, _ = fmt.Fprintln(os.Stderr,
+					"server startup failed after timeout")
+				os.Exit(1)
 			}
-			_, _ = fmt.Fprintln(os.Stderr, "server startup failed after timeout")
-			os.Exit(1)
-
 		},
 		After: func(bm *bm.Bm) {
 			if err := immuClient.Disconnect(); err != nil {

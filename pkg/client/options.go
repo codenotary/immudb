@@ -22,14 +22,18 @@ import (
 )
 
 type Options struct {
-	Address string
-	Port    int
+	Address            string
+	Port               int
+	DialRetries        int
+	HealthCheckRetries int
 }
 
 func DefaultOptions() Options {
 	return Options{
-		Address: "127.0.0.1",
-		Port:    8080,
+		Address:            "127.0.0.1",
+		Port:               8080,
+		DialRetries:        5,
+		HealthCheckRetries: 5,
 	}
 }
 
