@@ -17,6 +17,7 @@ limitations under the License.
 package logger
 
 import (
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -34,9 +35,11 @@ type simpleLogger struct {
 	LogLevel LogLevel
 }
 
-var SimpleLogger = &simpleLogger{
-	Logger:   log.New(os.Stderr, "immudb ", log.LstdFlags),
-	LogLevel: logLevelFromEnvironment(),
+func MakeLogger(name string, out io.Writer) Logger {
+	return &simpleLogger{
+		Logger:   log.New(out, name+" ", log.LstdFlags),
+		LogLevel: logLevelFromEnvironment(),
+	}
 }
 
 func (l *simpleLogger) Errorf(f string, v ...interface{}) {

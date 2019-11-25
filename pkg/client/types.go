@@ -17,6 +17,8 @@ limitations under the License.
 package client
 
 import (
+	"os"
+
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/logger"
@@ -33,7 +35,7 @@ type ImmuClient struct {
 
 func DefaultClient() *ImmuClient {
 	return &ImmuClient{
-		Logger:  logger.SimpleLogger,
+		Logger:  logger.MakeLogger("immudb-client", os.Stderr),
 		Options: DefaultOptions(),
 	}
 }

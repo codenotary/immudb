@@ -17,6 +17,8 @@ limitations under the License.
 package server
 
 import (
+	"os"
+
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/db"
@@ -32,7 +34,7 @@ type ImmuServer struct {
 
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
-		Logger:  logger.SimpleLogger,
+		Logger:  logger.MakeLogger("immudb-server", os.Stderr),
 		Options: DefaultOptions(),
 	}
 }
