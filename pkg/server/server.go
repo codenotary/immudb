@@ -25,6 +25,7 @@ import (
 	"syscall"
 
 	"github.com/golang/protobuf/ptypes/empty"
+	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/db"
 	"github.com/codenotary/immudb/pkg/schema"
@@ -43,6 +44,7 @@ func (s *ImmuServer) Start() error {
 	if err != nil {
 		return err
 	}
+	s.GrpcServer = grpc.NewServer()
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immud: %v", s.Options)
@@ -52,6 +54,7 @@ func (s *ImmuServer) Start() error {
 func (s *ImmuServer) Stop() error {
 	s.Logger.Infof("stopping immud: %v", s.Options)
 	s.GrpcServer.Stop()
+	s.GrpcServer = nil
 	if topic := s.Topic; topic != nil {
 		s.Topic = nil
 		return topic.Close()

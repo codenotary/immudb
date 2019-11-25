@@ -44,9 +44,8 @@ func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthRespon
 
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
-		Logger:     logger.SimpleLogger,
-		Options:    DefaultOptions(),
-		GrpcServer: grpc.NewServer(),
+		Logger:  logger.SimpleLogger,
+		Options: DefaultOptions(),
 	}
 }
 
