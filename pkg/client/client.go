@@ -18,7 +18,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"time"
@@ -114,7 +113,7 @@ func (c *ImmuClient) HealthCheck() error {
 		return err
 	}
 	if !response.Status {
-		return fmt.Errorf("health check failed")
+		return ErrHealthCheckFailed
 	}
 	return nil
 }

@@ -21,6 +21,7 @@ import (
 )
 
 var (
-	ErrAlreadyConnected = errors.New("already connected")
-	ErrNotConnected     = errors.New("not connected")
+	ErrAlreadyConnected  = errors.New("already connected")
+	ErrNotConnected      = errors.New("not connected")
+	ErrHealthCheckFailed = errors.New("health check failed")
 )
