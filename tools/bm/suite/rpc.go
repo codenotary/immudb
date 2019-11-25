@@ -40,59 +40,41 @@ var immuServer = server.DefaultServer().
 var immuClient = client.DefaultClient()
 
 var RpcBenchmarks = []bm.Bm{
-	makeRpcBenchmark("sequential write", Concurrency, Iterations,
-		func(bm *bm.Bm, start int, end int) {
-			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				_, err := immuClient.Set(bytes.NewReader(key), bytes.NewReader(V))
-				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
-				}
+	makeRpcBenchmark("sequential write", Concurrency, Iterations, sequentialSet),
+	makeRpcBenchmark("batch write", Concurrency, Iterations, batchSet),
+	makeRpcBenchmark("batch write no concurrency", 1, Iterations, batchSet),
+}
+
+func sequentialSet(bm *bm.Bm, start int, end int) {
+	for i := start; i < end; i++ {
+		key := []byte(strconv.FormatUint(uint64(i), 10))
+		_, err := immuClient.Set(bytes.NewReader(key), bytes.NewReader(V))
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+}
+
+func batchSet(bm *bm.Bm, start int, end int) {
+	var keyReaders []io.Reader
+	var valueReaders []io.Reader
+	for i := start; i < end; i++ {
+		key := []byte(strconv.FormatUint(uint64(i), 10))
+		keyReaders = append(keyReaders, bytes.NewReader(key))
+		valueReaders = append(valueReaders, bytes.NewReader(V))
+		if i%BatchSize == 0 || i == end-1 {
+			if err := immuClient.SetBatch(&client.BatchRequest{
+				Keys:   keyReaders,
+				Values: valueReaders,
+			}); err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
 			}
-		}),
-	makeRpcBenchmark("batch write", Concurrency, Iterations,
-		func(bm *bm.Bm, start int, end int) {
-			var keyReaders []io.Reader
-			var valueReaders []io.Reader
-			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				keyReaders = append(keyReaders, bytes.NewReader(key))
-				valueReaders = append(valueReaders, bytes.NewReader(V))
-				if i%BatchSize == 0 || i == end-1 {
-					if err := immuClient.SetBatch(&client.BatchRequest{
-						Keys:   keyReaders,
-						Values: valueReaders,
-					}); err != nil {
-						_, _ = fmt.Fprintln(os.Stderr, err)
-						os.Exit(1)
-					}
-					keyReaders = nil
-					valueReaders = nil
-				}
-			}
-		}),
-	makeRpcBenchmark("batch write no concurrency", 1, Iterations,
-		func(bm *bm.Bm, start int, end int) {
-			var keyReaders []io.Reader
-			var valueReaders []io.Reader
-			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				keyReaders = append(keyReaders, bytes.NewReader(key))
-				valueReaders = append(valueReaders, bytes.NewReader(V))
-				if i%BatchSize == 0 || i == end-1 {
-					if err := immuClient.SetBatch(&client.BatchRequest{
-						Keys:   keyReaders,
-						Values: valueReaders,
-					}); err != nil {
-						_, _ = fmt.Fprintln(os.Stderr, err)
-						os.Exit(1)
-					}
-					keyReaders = nil
-					valueReaders = nil
-				}
-			}
-		}),
+			keyReaders = nil
+			valueReaders = nil
+		}
+	}
 }
 
 func makeRpcBenchmark(name string, concurrency int, iterations int,
