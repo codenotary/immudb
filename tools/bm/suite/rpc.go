@@ -19,6 +19,7 @@ package suite
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 )
 
 const Iterations = 1_000_000
+const BatchSize = 10_000
 
 var tmpDir, _ = ioutil.TempDir("", "immudb")
 var immuServer = server.DefaultServer().
@@ -47,6 +49,27 @@ var RpcBenchmarks = []bm.Bm{
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
+				}
+			}
+		}),
+	makeRpcBenchmark("batch write", Concurrency, Iterations,
+		func(bm *bm.Bm, start int, end int) {
+			var keyReaders []io.Reader
+			var valueReaders []io.Reader
+			for i := start; i < end; i++ {
+				key := []byte(strconv.FormatUint(uint64(i), 10))
+				keyReaders = append(keyReaders, bytes.NewReader(key))
+				valueReaders = append(valueReaders, bytes.NewReader(V))
+				if i%BatchSize == 0 || i == end-1 {
+					if err := immuClient.SetBatch(&client.BatchRequest{
+						Keys:   keyReaders,
+						Values: valueReaders,
+					}); err != nil {
+						_, _ = fmt.Fprintln(os.Stderr, err)
+						os.Exit(1)
+					}
+					keyReaders = nil
+					valueReaders = nil
 				}
 			}
 		}),
