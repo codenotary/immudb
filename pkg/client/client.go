@@ -18,7 +18,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,11 +27,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/schema"
-)
-
-var (
-	ErrAlreadyConnected = errors.New("already connected")
-	ErrNotConnected     = errors.New("not connected")
 )
 
 func (c *ImmuClient) Connect() (err error) {
