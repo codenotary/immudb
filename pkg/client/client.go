@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,12 +30,14 @@ import (
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-var AlreadyConnectedError = fmt.Errorf("already connected")
-var NotConnectedError = fmt.Errorf("not connected")
+var (
+	ErrAlreadyConnected = errors.New("already connected")
+	ErrNotConnected     = errors.New("not connected")
+)
 
 func (c *ImmuClient) Connect() (err error) {
 	if c.isConnected() {
-		return AlreadyConnectedError
+		return ErrAlreadyConnected
 	}
 	if err := c.connectWithRetry(); err != nil {
 		return err
@@ -47,7 +50,7 @@ func (c *ImmuClient) Connect() (err error) {
 
 func (c *ImmuClient) Disconnect() error {
 	if !c.isConnected() {
-		return NotConnectedError
+		return ErrNotConnected
 	}
 	if err := c.clientConn.Close(); err != nil {
 		return err
@@ -60,7 +63,7 @@ func (c *ImmuClient) Disconnect() error {
 
 func (c *ImmuClient) Get(keyReader io.Reader) ([]byte, error) {
 	if !c.isConnected() {
-		return nil, NotConnectedError
+		return nil, ErrNotConnected
 	}
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
@@ -75,7 +78,7 @@ func (c *ImmuClient) Get(keyReader io.Reader) ([]byte, error) {
 
 func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) ([]byte, error) {
 	if !c.isConnected() {
-		return nil, NotConnectedError
+		return nil, ErrNotConnected
 	}
 	value, err := ioutil.ReadAll(valueReader)
 	if err != nil {
@@ -96,7 +99,7 @@ func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) ([]byte, er
 
 func (c *ImmuClient) SetBatch(request *BatchRequest) error {
 	if !c.isConnected() {
-		return NotConnectedError
+		return ErrNotConnected
 	}
 	bsr, err := request.toBatchSetRequest()
 	if err != nil {
@@ -110,7 +113,7 @@ func (c *ImmuClient) SetBatch(request *BatchRequest) error {
 
 func (c *ImmuClient) HealthCheck() error {
 	if !c.isConnected() {
-		return NotConnectedError
+		return ErrNotConnected
 	}
 	response, err := c.serviceClient.Health(context.Background(), &empty.Empty{})
 	if err != nil {
