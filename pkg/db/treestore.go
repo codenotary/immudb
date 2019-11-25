@@ -113,8 +113,17 @@ func (t *treeStore) Close() {
 }
 
 func (t *treeStore) resetCache() {
+	size := t.cSize + 2
+	if size < 64 {
+		size = 64
+	}
 	for i := 0; i < 256; i++ {
-		t.caches[i] = ring.NewRingBuffer(t.cSize)
+		t.caches[i] = ring.NewRingBuffer(size)
+		if size > 64 {
+			size /= 2
+		} else {
+			size = 64
+		}
 	}
 }
 
