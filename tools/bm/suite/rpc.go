@@ -29,6 +29,8 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 )
 
+const Iterations = 1_000_000
+
 var tmpDir, _ = ioutil.TempDir("", "immudb")
 var immuServer = server.DefaultServer().
 	WithOptions(
@@ -37,11 +39,25 @@ var immuServer = server.DefaultServer().
 var immuClient = client.DefaultClient()
 
 var RpcBenchmarks = []bm.Bm{
-	{
+	makeRpcBenchmark("sequential write", Concurrency, Iterations,
+		func(bm *bm.Bm, start int, end int) {
+			for i := start; i < end; i++ {
+				key := []byte(strconv.FormatUint(uint64(i), 10))
+				_, err := immuClient.Set(key, bytes.NewReader(V))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+			}
+		}),
+}
+
+func makeRpcBenchmark(name string, concurrency int, iterations int, work func(bm *bm.Bm, start int, end int)) bm.Bm {
+	return bm.Bm{
 		CreateTopic: false,
-		Name:        "sequential write (baseline)",
-		Concurrency: Concurrency,
-		Iterations:  1_000_000,
+		Name:        name,
+		Concurrency: concurrency,
+		Iterations:  iterations,
 		Before: func(bm *bm.Bm) {
 			go func() {
 				if err := immuServer.Start(); err != nil {
@@ -73,15 +89,6 @@ var RpcBenchmarks = []bm.Bm{
 				os.Exit(1)
 			}
 		},
-		Work: func(bm *bm.Bm, start int, end int) {
-			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				_, err := immuClient.Set(key, bytes.NewReader(V))
-				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
-				}
-			}
-		},
-	},
+		Work: work,
+	}
 }
