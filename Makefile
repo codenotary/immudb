@@ -3,6 +3,7 @@ export GO111MODULE=on
 SHELL=/bin/bash -o pipefail
 PWD = $(shell pwd)
 GO ?= go
+DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
 
@@ -54,3 +55,18 @@ bm/function: bm
 .PHONY: bm/rpc
 bm/rpc: bm
 	./bm rpc
+
+.PHONY: bench
+bench:
+	$(DOCKER) build -t immu_bench -f ./Dockerfile.bench .
+	$(DOCKER) run --rm -it immu_bench
+
+.PHONY: tools/comparison/mongodb
+tools/comparison/mongodb:
+	$(DOCKER) build -t immu_mongodb ./tools/comparison/mongodb
+	$(DOCKER) run --rm -it immu_mongodb
+
+.PHONY: tools/comparison/scylladb
+tools/comparison/scylladb:
+	$(DOCKER) build -t immu_scylladb ./tools/comparison/scylladb
+	$(DOCKER) run --rm -it immu_scylladb
