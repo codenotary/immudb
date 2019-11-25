@@ -57,9 +57,13 @@ func (c *ImmuClient) Disconnect() error {
 	return nil
 }
 
-func (c *ImmuClient) Get(key []byte) ([]byte, error) {
+func (c *ImmuClient) Get(keyReader io.Reader) ([]byte, error) {
 	if !c.isConnected() {
 		return nil, NotConnectedError
+	}
+	key, err := ioutil.ReadAll(keyReader)
+	if err != nil {
+		return nil, err
 	}
 	response, err := c.serviceClient.Get(context.Background(), &schema.GetRequest{Key: key})
 	if err != nil {
@@ -68,11 +72,15 @@ func (c *ImmuClient) Get(key []byte) ([]byte, error) {
 	return response.Value, nil
 }
 
-func (c *ImmuClient) Set(key []byte, reader io.Reader) ([]byte, error) {
+func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) ([]byte, error) {
 	if !c.isConnected() {
 		return nil, NotConnectedError
 	}
-	value, err := ioutil.ReadAll(reader)
+	value, err := ioutil.ReadAll(valueReader)
+	if err != nil {
+		return nil, err
+	}
+	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
 		return nil, err
 	}

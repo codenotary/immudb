@@ -40,7 +40,6 @@ func main() {
 			if err != nil {
 				return err
 			}
-			key := args[0]
 			immuClient := client.
 				DefaultClient().
 				WithOptions(*options)
@@ -49,7 +48,7 @@ func main() {
 				os.Exit(1)
 			}
 			defer immuClient.Disconnect()
-			response, err := immuClient.Get([]byte(key))
+			response, err := immuClient.Get(bytes.NewReader([]byte(args[0])))
 			if err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
@@ -70,7 +69,6 @@ func main() {
 			immuClient := client.
 				DefaultClient().
 				WithOptions(*options)
-			key := args[0]
 			var reader io.Reader
 			if len(args) > 1 {
 				reader = bytes.NewReader([]byte(args[1]))
@@ -82,12 +80,12 @@ func main() {
 				os.Exit(1)
 			}
 			defer immuClient.Disconnect()
-			value, err := immuClient.Set([]byte(key), reader)
+			value, err := immuClient.Set(bytes.NewReader([]byte(args[0])), reader)
 			if err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Println("Set", key, len(value), "bytes")
+			fmt.Println("Set", args[0], len(value), "bytes")
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),

@@ -43,7 +43,7 @@ var RpcBenchmarks = []bm.Bm{
 		func(bm *bm.Bm, start int, end int) {
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				_, err := immuClient.Set(key, bytes.NewReader(V))
+				_, err := immuClient.Set(bytes.NewReader(key), bytes.NewReader(V))
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
