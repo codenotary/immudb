@@ -93,6 +93,20 @@ func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) ([]byte, er
 	return value, nil
 }
 
+func (c *ImmuClient) SetBatch(request *BatchRequest) error {
+	if !c.isConnected() {
+		return NotConnectedError
+	}
+	bsr, err := request.toBatchSetRequest()
+	if err != nil {
+		return err
+	}
+	if _, err := c.serviceClient.SetBatch(context.Background(), bsr); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *ImmuClient) HealthCheck() (bool, error) {
 	if !c.isConnected() {
 		return false, NotConnectedError
