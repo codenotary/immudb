@@ -21,8 +21,9 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/codenotary/immudb/pkg/tree"
 	"github.com/dgraph-io/badger/v2"
+
+	"github.com/codenotary/immudb/pkg/tree"
 )
 
 type Topic struct {
@@ -103,4 +104,8 @@ func (t *Topic) Get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 	return val, nil
+}
+func (t *Topic) HealthCheck() bool {
+	_, err := t.Get([]byte{0})
+	return err == nil || err == badger.ErrKeyNotFound
 }
