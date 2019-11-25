@@ -33,7 +33,7 @@ type Options struct {
 
 func DefaultOptions(path string) Options {
 	opt := badger.DefaultOptions(path).
-		WithSyncWrites(true).
+		WithSyncWrites(false).
 		WithEventLogging(false)
 
 	opt.WithMaxTableSize(opt.MaxTableSize * 2)
