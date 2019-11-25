@@ -80,12 +80,11 @@ func main() {
 				os.Exit(1)
 			}
 			defer immuClient.Disconnect()
-			value, err := immuClient.Set(bytes.NewReader([]byte(args[0])), reader)
-			if err != nil {
+			if err := immuClient.Set(bytes.NewReader([]byte(args[0])), reader); err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Println("Set", args[0], len(value), "bytes")
+			fmt.Println("Set", args[0])
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),

@@ -69,25 +69,25 @@ func (c *ImmuClient) Get(keyReader io.Reader) ([]byte, error) {
 	return response.Value, nil
 }
 
-func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) ([]byte, error) {
+func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) error {
 	if !c.isConnected() {
-		return nil, ErrNotConnected
+		return ErrNotConnected
 	}
 	value, err := ioutil.ReadAll(valueReader)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if _, err := c.serviceClient.Set(context.Background(), &schema.SetRequest{
 		Key:   key,
 		Value: value,
 	}); err != nil {
-		return nil, err
+		return err
 	}
-	return value, nil
+	return nil
 }
 
 func (c *ImmuClient) SetBatch(request *BatchRequest) error {
