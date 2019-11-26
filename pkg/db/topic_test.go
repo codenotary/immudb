@@ -68,16 +68,16 @@ func TestTopic(t *testing.T) {
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
 		index, err := topic.Set(key, key)
-		assert.NoError(t, err)
-		assert.Equal(t, n, index)
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index, "n=%d", n)
 	}
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
 		value, index, err := topic.Get(key)
-		assert.NoError(t, err)
-		assert.Equal(t, n, index)
-		assert.Equal(t, key, value)
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index, "n=%d", n)
+		assert.Equal(t, key, value, "n=%d", n)
 	}
 
 	topic.store.WaitSync()
