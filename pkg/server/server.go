@@ -62,15 +62,16 @@ func (s *ImmuServer) Stop() error {
 	return nil
 }
 
-func (s *ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*empty.Empty, error) {
+func (s *ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.SetResponse, error) {
 	s.Logger.Debugf("set %s %d bytes", sr.Key, len(sr.Value))
-	if err := s.Topic.Set(sr.Key, sr.Value); err != nil {
+	index, err := s.Topic.Set(sr.Key, sr.Value)
+	if err != nil {
 		return nil, err
 	}
-	return &empty.Empty{}, nil
+	return &schema.SetResponse{Index: index}, nil
 }
 
-func (s *ImmuServer) SetBatch(ctx context.Context, bsr *schema.BatchSetRequest) (*empty.Empty, error) {
+func (s *ImmuServer) SetBatch(ctx context.Context, bsr *schema.BatchSetRequest) (*schema.SetResponse, error) {
 	s.Logger.Debugf("set batch %d", len(bsr.SetRequests))
 	var kvPairs []db.KVPair
 	for _, sr := range bsr.SetRequests {
@@ -79,19 +80,20 @@ func (s *ImmuServer) SetBatch(ctx context.Context, bsr *schema.BatchSetRequest) 
 			Value: sr.Value,
 		})
 	}
-	if err := s.Topic.SetBatch(kvPairs); err != nil {
+	index, err := s.Topic.SetBatch(kvPairs)
+	if err != nil {
 		return nil, err
 	}
-	return &empty.Empty{}, nil
+	return &schema.SetResponse{Index: index}, nil
 }
 
 func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.GetResponse, error) {
-	value, err := s.Topic.Get(gr.Key)
+	value, index, err := s.Topic.Get(gr.Key)
 	s.Logger.Debugf("get %s %d bytes", gr.Key, len(value))
 	if err != nil {
 		return nil, err
 	}
-	return &schema.GetResponse{Value: value}, nil
+	return &schema.GetResponse{Index: index, Value: value}, nil
 }
 
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {

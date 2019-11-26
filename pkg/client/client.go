@@ -69,7 +69,7 @@ func (c *ImmuClient) Connected(f func() (interface{}, error)) (interface{}, erro
 	return result, nil
 }
 
-func (c *ImmuClient) Get(keyReader io.Reader) ([]byte, error) {
+func (c *ImmuClient) Get(keyReader io.Reader) (*schema.GetResponse, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
@@ -77,46 +77,36 @@ func (c *ImmuClient) Get(keyReader io.Reader) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.serviceClient.Get(context.Background(), &schema.GetRequest{Key: key})
-	if err != nil {
-		return nil, err
-	}
-	return response.Value, nil
+	return c.serviceClient.Get(context.Background(), &schema.GetRequest{Key: key})
 }
 
-func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) error {
+func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.SetResponse, error) {
 	if !c.isConnected() {
-		return ErrNotConnected
+		return nil, ErrNotConnected
 	}
 	value, err := ioutil.ReadAll(valueReader)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if _, err := c.serviceClient.Set(context.Background(), &schema.SetRequest{
+	return c.serviceClient.Set(context.Background(), &schema.SetRequest{
 		Key:   key,
 		Value: value,
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
-func (c *ImmuClient) SetBatch(request *BatchRequest) error {
+func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.SetResponse, error) {
 	if !c.isConnected() {
-		return ErrNotConnected
+		return nil, ErrNotConnected
 	}
 	bsr, err := request.toBatchSetRequest()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if _, err := c.serviceClient.SetBatch(context.Background(), bsr); err != nil {
-		return err
-	}
-	return nil
+	return c.serviceClient.SetBatch(context.Background(), bsr)
 }
 
 func (c *ImmuClient) HealthCheck() error {

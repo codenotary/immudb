@@ -23,12 +23,16 @@ import (
 	"io"
 	"os"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/spf13/cobra"
 
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/schema"
 )
 
 func main() {
+	marshaller := proto.TextMarshaler{}
 	cmd := &cobra.Command{
 		Use: "immu",
 	}
@@ -50,7 +54,7 @@ func main() {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Println(string(response.([]byte)))
+			fmt.Println(marshaller.Text(response.(*schema.GetResponse)))
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -72,13 +76,14 @@ func main() {
 			} else {
 				reader = bufio.NewReader(os.Stdin)
 			}
-			if _, err := immuClient.Connected(func() (interface{}, error) {
-				return nil, immuClient.Set(bytes.NewReader([]byte(args[0])), reader)
-			}); err != nil {
+			response, err := immuClient.Connected(func() (interface{}, error) {
+				return immuClient.Set(bytes.NewReader([]byte(args[0])), reader)
+			})
+			if err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Println("Set", args[0])
+			fmt.Println(marshaller.Text(response.(*schema.SetResponse)))
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
