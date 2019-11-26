@@ -17,10 +17,14 @@ limitations under the License.
 package db
 
 import (
+	"container/heap"
 	"crypto/sha256"
 	"encoding/binary"
 	"sync"
 	"sync/atomic"
+	"time"
+
+	"github.com/codenotary/immudb/pkg/api"
 
 	"github.com/codenotary/immudb/pkg/ring"
 	"github.com/codenotary/immudb/pkg/tree"
@@ -68,11 +72,16 @@ func treeWidth(txn *badger.Txn) uint64 {
 	return 0
 }
 
+type treeStoreEntry struct {
+	ts uint64
+	h  *[sha256.Size]byte
+}
+
 type treeStore struct {
 	// A 64-bit integer must be at the top for memory alignment
 	ts          uint64 // badger timestamp
 	w           uint64 // width of computed tree
-	c           chan *[sha256.Size]byte
+	c           chan *treeStoreEntry
 	quit        chan struct{}
 	lastFlushed uint64
 	db          *badger.DB
@@ -86,7 +95,7 @@ func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 
 	t := &treeStore{
 		db:     db,
-		c:      make(chan *[sha256.Size]byte, cacheSize),
+		c:      make(chan *treeStoreEntry, cacheSize),
 		quit:   make(chan struct{}, 0),
 		caches: [256]ring.Buffer{},
 		cPos:   [256]uint64{},
@@ -105,6 +114,7 @@ func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 }
 
 func (t *treeStore) Close() {
+	t.WaitSync()
 	if t.quit != nil {
 		close(t.c)
 		<-t.quit
@@ -127,17 +137,56 @@ func (t *treeStore) resetCache() {
 	}
 }
 
-func (t *treeStore) Add(h *[sha256.Size]byte) uint64 {
-	t.c <- h
-	return atomic.AddUint64(&t.ts, 1)
+func (t *treeStore) WaitSync() {
+	for t.w != t.ts || len(t.c) > 0 {
+		time.Sleep(time.Millisecond * 10)
+	}
+}
+
+func (t *treeStore) NewEntry(key []byte, value []byte) *treeStoreEntry {
+	ts := atomic.AddUint64(&t.ts, 1)
+	h := api.Digest(ts, key, value)
+	return &treeStoreEntry{
+		ts: ts,
+		h:  &h,
+	}
+}
+
+func (t *treeStore) NewBatch(kvPairs []KVPair) []*treeStoreEntry {
+	size := uint64(len(kvPairs))
+	batch := make([]*treeStoreEntry, 0, size)
+	lease := atomic.AddUint64(&t.ts, size)
+	for i, kv := range kvPairs {
+		ts := lease - size + uint64(i) + 1
+		h := api.Digest(ts, kv.Key, kv.Value)
+		batch = append(batch, &treeStoreEntry{ts, &h})
+	}
+	return batch
+}
+
+func (t *treeStore) Commit(entry *treeStoreEntry) {
+	t.c <- entry
+}
+
+func (t *treeStore) Discard(entry *treeStoreEntry) {
+	h := api.Digest(entry.ts, []byte{}, []byte{})
+	entry.h = &h
+	t.c <- entry
 }
 
 func (t *treeStore) worker() {
-	for h := range t.c {
-		tree.AppendHash(t, h)
-		if t.w%2 == 0 && (t.w-t.lastFlushed) >= t.cSize/2 {
-			t.flush()
+	pqq := make(treeStorePQ, 0, t.cSize)
+	pq := &pqq
+	for item := range t.c {
+		heap.Push(pq, item)
+
+		for min := pq.Min(); min == t.w+1; min = pq.Min() {
+			tree.AppendHash(t, heap.Pop(pq).(*treeStoreEntry).h)
+			if t.w%2 == 0 && (t.w-t.lastFlushed) >= t.cSize/2 {
+				t.flush()
+			}
 		}
+
 	}
 	if t.w > 0 {
 		t.flush()

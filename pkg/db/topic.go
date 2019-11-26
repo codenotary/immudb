@@ -17,19 +17,17 @@ limitations under the License.
 package db
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"math"
+	"sync"
 
 	"github.com/dgraph-io/badger/v2"
-
-	"github.com/codenotary/immudb/pkg/tree"
 )
 
 type Topic struct {
 	i     uint64
 	db    *badger.DB
 	store *treeStore
+	wg    sync.WaitGroup
 }
 
 func Open(options Options) (*Topic, error) {
@@ -47,28 +45,19 @@ func Open(options Options) (*Topic, error) {
 }
 
 func (t *Topic) Close() error {
+	t.wg.Wait()
 	t.store.Close()
 	return t.db.Close()
-}
-
-// todo(leogr): move to public API package
-func digestKV(key, value []byte) *[sha256.Size]byte {
-	kl, vl := len(key), len(value)
-	c := make([]byte, 1+8+kl+vl)
-	c[0] = tree.LeafPrefix
-	binary.BigEndian.PutUint64(c[1:9], uint64(kl))
-	copy(c[9:], key)
-	copy(c[9+kl:], value)
-	h := sha256.Sum256(c)
-	return &h
 }
 
 func (t *Topic) SetBatch(kvPairs []KVPair) error {
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
-	var next uint64
+
 	for _, kv := range kvPairs {
-		next = t.store.Add(digestKV(kv.Value, kv.Value))
+		if kv.Key[0] == tsPrefix {
+			return InvalidKeyErr
+		}
 		if err := txn.SetEntry(&badger.Entry{
 			Key:   kv.Key,
 			Value: kv.Value,
@@ -76,11 +65,29 @@ func (t *Topic) SetBatch(kvPairs []KVPair) error {
 			return err
 		}
 	}
-	return txn.CommitAt(next, nil)
+
+	tsEntries := t.store.NewBatch(kvPairs)
+	// t.wg.Add(1)
+
+	return txn.CommitAt(tsEntries[len(tsEntries)-1].ts, func(err error) {
+		// we're in new goroutine here
+		if err == nil {
+			for _, entry := range tsEntries {
+				t.store.Commit(entry)
+			}
+		} else {
+			for _, entry := range tsEntries {
+				t.store.Discard(entry)
+			}
+		}
+		// t.wg.Done()
+	})
 }
 
 func (t *Topic) Set(key, value []byte) error {
-	next := t.store.Add(digestKV(key, value))
+	if key[0] == tsPrefix {
+		return InvalidKeyErr
+	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 	if err := txn.SetEntry(&badger.Entry{
@@ -89,7 +96,17 @@ func (t *Topic) Set(key, value []byte) error {
 	}); err != nil {
 		return err
 	}
-	return txn.CommitAt(next, nil)
+	tsEntry := t.store.NewEntry(key, value)
+	// t.wg.Add(1)
+	return txn.CommitAt(tsEntry.ts, func(err error) {
+		// we're in new goroutine here
+		if err == nil {
+			t.store.Commit(tsEntry)
+		} else {
+			t.store.Discard(tsEntry)
+		}
+		// t.wg.Done()
+	})
 }
 
 func (t *Topic) Get(key []byte) ([]byte, error) {
