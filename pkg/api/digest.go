@@ -24,12 +24,13 @@ import (
 )
 
 // Digest returns the hash computed from the union of both key and value.
-func Digest(key, value []byte) [sha256.Size]byte {
+func Digest(index uint64, key, value []byte) [sha256.Size]byte {
 	kl, vl := len(key), len(value)
-	c := make([]byte, 1+8+kl+vl)
+	c := make([]byte, 1+8+8+kl+vl)
 	c[0] = tree.LeafPrefix
-	binary.BigEndian.PutUint64(c[1:9], uint64(kl))
-	copy(c[9:], key)
-	copy(c[9+kl:], value)
+	binary.BigEndian.PutUint64(c[1:1+8], index)
+	binary.BigEndian.PutUint64(c[1+8:1+8+8], uint64(kl))
+	copy(c[1+8+8:], key)
+	copy(c[1+8+8+kl:], value)
 	return sha256.Sum256(c)
 }
