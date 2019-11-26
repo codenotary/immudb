@@ -17,6 +17,8 @@ limitations under the License.
 package bm
 
 import (
+	"fmt"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -32,7 +34,7 @@ type Bm struct {
 	Iterations  int
 	Before      func(bm *Bm)
 	After       func(bm *Bm)
-	Work        func(bm *Bm, start int, end int)
+	Work        func(bm *Bm, start int, end int) error
 }
 
 func (b *Bm) Execute() *BmResult {
@@ -55,7 +57,10 @@ func (b *Bm) Execute() *BmResult {
 			defer wg.Done()
 			start := kk * chunkSize
 			end := (kk + 1) * chunkSize
-			b.Work(b, start, end)
+			if err := b.Work(b, start, end); err != nil {
+				fmt.Fprintf(os.Stderr, `"%s" error: %s`+"\n", b.Name, err)
+				os.Exit(1)
+			}
 		}(k)
 	}
 	wg.Wait()

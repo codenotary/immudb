@@ -45,17 +45,17 @@ var RpcBenchmarks = []bm.Bm{
 	makeRpcBenchmark("batch write no concurrency", 1, Iterations, batchSet),
 }
 
-func sequentialSet(bm *bm.Bm, start int, end int) {
+func sequentialSet(bm *bm.Bm, start int, end int) error {
 	for i := start; i < end; i++ {
 		key := []byte(strconv.FormatUint(uint64(i), 10))
 		if err := immuClient.Set(bytes.NewReader(key), bytes.NewReader(V)); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			return err
 		}
 	}
+	return nil
 }
 
-func batchSet(bm *bm.Bm, start int, end int) {
+func batchSet(bm *bm.Bm, start int, end int) error {
 	var keyReaders []io.Reader
 	var valueReaders []io.Reader
 	for i := start; i < end; i++ {
@@ -67,17 +67,17 @@ func batchSet(bm *bm.Bm, start int, end int) {
 				Keys:   keyReaders,
 				Values: valueReaders,
 			}); err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
+				return err
 			}
 			keyReaders = nil
 			valueReaders = nil
 		}
 	}
+	return nil
 }
 
 func makeRpcBenchmark(name string, concurrency int, iterations int,
-	work func(bm *bm.Bm, start int, end int)) bm.Bm {
+	work func(bm *bm.Bm, start int, end int) error) bm.Bm {
 	return bm.Bm{
 		CreateTopic: false,
 		Name:        name,
