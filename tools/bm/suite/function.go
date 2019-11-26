@@ -43,7 +43,7 @@ var FunctionBenchmarks = []bm.Bm{
 	// 	Work: func(bm *bm.Bm, start int, end int) error {
 	// 		for i := start; i < end; i++ {
 	// 			key := []byte(strconv.FormatUint(uint64(i), 10))
-	// 			if err := bm.Topic.Set(key, V); err != nil {
+	// 			if _, err := bm.Topic.Set(key, V); err != nil {
 	// 				return err
 	// 			}
 	// 		}
@@ -58,7 +58,7 @@ var FunctionBenchmarks = []bm.Bm{
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if err := bm.Topic.Set(key, V); err != nil {
+				if _, err := bm.Topic.Set(key, V); err != nil {
 					return err
 				}
 			}
@@ -73,7 +73,7 @@ var FunctionBenchmarks = []bm.Bm{
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if err := bm.Topic.Set(key, V); err != nil {
+				if _, err := bm.Topic.Set(key, V); err != nil {
 					return err
 				}
 			}
@@ -94,7 +94,7 @@ var FunctionBenchmarks = []bm.Bm{
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if err := bm.Topic.Set(key, V); err != nil {
+				if _, err := bm.Topic.Set(key, V); err != nil {
 					return err
 				}
 			}
@@ -123,7 +123,7 @@ var FunctionBenchmarks = []bm.Bm{
 					Value: V,
 				})
 			}
-			if err := bm.Topic.SetBatch(kvPairs); err != nil {
+			if _, err := bm.Topic.SetBatch(kvPairs); err != nil {
 				return err
 			}
 			return nil
