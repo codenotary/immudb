@@ -145,7 +145,7 @@ func (t *treeStore) WaitSync() {
 
 func (t *treeStore) NewEntry(key []byte, value []byte) *treeStoreEntry {
 	ts := atomic.AddUint64(&t.ts, 1)
-	h := api.Digest(ts, key, value)
+	h := api.Digest(ts-1, key, value)
 	return &treeStoreEntry{
 		ts: ts,
 		h:  &h,
@@ -158,7 +158,7 @@ func (t *treeStore) NewBatch(kvPairs []KVPair) []*treeStoreEntry {
 	lease := atomic.AddUint64(&t.ts, size)
 	for i, kv := range kvPairs {
 		ts := lease - size + uint64(i) + 1
-		h := api.Digest(ts, kv.Key, kv.Value)
+		h := api.Digest(ts-1, kv.Key, kv.Value)
 		batch = append(batch, &treeStoreEntry{ts, &h})
 	}
 	return batch

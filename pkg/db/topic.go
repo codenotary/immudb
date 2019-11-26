@@ -50,26 +50,26 @@ func (t *Topic) Close() error {
 	return t.db.Close()
 }
 
-func (t *Topic) SetBatch(kvPairs []KVPair) error {
+func (t *Topic) SetBatch(kvPairs []KVPair) (index uint64, err error) {
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
 	for _, kv := range kvPairs {
 		if kv.Key[0] == tsPrefix {
-			return InvalidKeyErr
+			err = InvalidKeyErr
 		}
-		if err := txn.SetEntry(&badger.Entry{
+		if err = txn.SetEntry(&badger.Entry{
 			Key:   kv.Key,
 			Value: kv.Value,
 		}); err != nil {
-			return err
+			return
 		}
 	}
 
 	tsEntries := t.store.NewBatch(kvPairs)
 	// t.wg.Add(1)
-
-	return txn.CommitAt(tsEntries[len(tsEntries)-1].ts, func(err error) {
+	ts := tsEntries[len(tsEntries)-1].ts
+	return ts - 1, txn.CommitAt(ts, func(err error) {
 		// we're in new goroutine here
 		if err == nil {
 			for _, entry := range tsEntries {
@@ -84,21 +84,22 @@ func (t *Topic) SetBatch(kvPairs []KVPair) error {
 	})
 }
 
-func (t *Topic) Set(key, value []byte) error {
+func (t *Topic) Set(key, value []byte) (index uint64, err error) {
 	if key[0] == tsPrefix {
-		return InvalidKeyErr
+		err = InvalidKeyErr
+		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
-	if err := txn.SetEntry(&badger.Entry{
+	if err = txn.SetEntry(&badger.Entry{
 		Key:   key,
 		Value: value,
 	}); err != nil {
-		return err
+		return
 	}
 	tsEntry := t.store.NewEntry(key, value)
 	// t.wg.Add(1)
-	return txn.CommitAt(tsEntry.ts, func(err error) {
+	return tsEntry.ts - 1, txn.CommitAt(tsEntry.ts, func(err error) {
 		// we're in new goroutine here
 		if err == nil {
 			t.store.Commit(tsEntry)
@@ -109,20 +110,17 @@ func (t *Topic) Set(key, value []byte) error {
 	})
 }
 
-func (t *Topic) Get(key []byte) ([]byte, error) {
+func (t *Topic) Get(key []byte) (value []byte, index uint64, err error) {
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 	item, err := txn.Get(key)
 	if err != nil {
-		return nil, err
+		return
 	}
-	val, err := item.ValueCopy(nil)
-	if err != nil {
-		return nil, err
-	}
-	return val, nil
+	value, err = item.ValueCopy(nil)
+	return value, item.Version() - 1, nil
 }
 func (t *Topic) HealthCheck() bool {
-	_, err := t.Get([]byte{0})
+	_, _, err := t.Get([]byte{0})
 	return err == nil || err == badger.ErrKeyNotFound
 }

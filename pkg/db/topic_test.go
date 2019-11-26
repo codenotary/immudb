@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var root64th = [sha256.Size]byte{0xbd, 0x68, 0x1e, 0x67, 0xb3, 0xd, 0x1d, 0x6, 0xbf, 0x82, 0xba, 0x97, 0x34, 0x8e, 0x61, 0x2f, 0xda, 0x99, 0x3e, 0x7b, 0xbb, 0xe8, 0x91, 0x31, 0x59, 0x5, 0xe0, 0x3, 0x4c, 0x20, 0x6a, 0xa9}
+var root64th = [sha256.Size]byte{0xb1, 0xbe, 0x73, 0xef, 0x38, 0x8e, 0x7e, 0xd3, 0x79, 0x71, 0x7, 0x26, 0xd1, 0x19, 0xa5, 0x35, 0xb8, 0x67, 0x24, 0x12, 0x48, 0x25, 0x7a, 0x7e, 0x2e, 0x34, 0x32, 0x29, 0x65, 0x60, 0xdf, 0xf9}
 
 func makeTopic() (*Topic, func()) {
 
@@ -67,11 +67,25 @@ func TestTopic(t *testing.T) {
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
-		err := topic.Set(key, key)
+		index, err := topic.Set(key, key)
 		assert.NoError(t, err)
+		assert.Equal(t, n, index)
 	}
 
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		value, index, err := topic.Get(key)
+		assert.NoError(t, err)
+		assert.Equal(t, n, index)
+		assert.Equal(t, key, value)
+	}
+
+	topic.store.WaitSync()
+	assert.Equal(t, root64th, tree.Root(topic.store))
+
 	topic.store.Close()
+	assert.Equal(t, root64th, tree.Root(topic.store))
+
 	topic.store.resetCache() // with empty cache, next call should fetch from DB
 	assert.Equal(t, root64th, tree.Root(topic.store))
 }
