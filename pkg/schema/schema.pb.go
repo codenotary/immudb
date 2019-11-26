@@ -9,6 +9,8 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -70,6 +72,45 @@ func (m *SetRequest) GetValue() []byte {
 	return nil
 }
 
+type SetResponse struct {
+	Index                uint64   `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SetResponse) Reset()         { *m = SetResponse{} }
+func (m *SetResponse) String() string { return proto.CompactTextString(m) }
+func (*SetResponse) ProtoMessage()    {}
+func (*SetResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{1}
+}
+
+func (m *SetResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetResponse.Unmarshal(m, b)
+}
+func (m *SetResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetResponse.Marshal(b, m, deterministic)
+}
+func (m *SetResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetResponse.Merge(m, src)
+}
+func (m *SetResponse) XXX_Size() int {
+	return xxx_messageInfo_SetResponse.Size(m)
+}
+func (m *SetResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetResponse proto.InternalMessageInfo
+
+func (m *SetResponse) GetIndex() uint64 {
+	if m != nil {
+		return m.Index
+	}
+	return 0
+}
+
 type BatchSetRequest struct {
 	SetRequests          []*SetRequest `protobuf:"bytes,1,rep,name=setRequests,proto3" json:"setRequests,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
@@ -81,7 +122,7 @@ func (m *BatchSetRequest) Reset()         { *m = BatchSetRequest{} }
 func (m *BatchSetRequest) String() string { return proto.CompactTextString(m) }
 func (*BatchSetRequest) ProtoMessage()    {}
 func (*BatchSetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{1}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{2}
 }
 
 func (m *BatchSetRequest) XXX_Unmarshal(b []byte) error {
@@ -120,7 +161,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{2}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{3}
 }
 
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
@@ -149,7 +190,8 @@ func (m *GetRequest) GetKey() []byte {
 }
 
 type GetResponse struct {
-	Value                []byte   `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Index                uint64   `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -159,7 +201,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{3}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{4}
 }
 
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
@@ -180,6 +222,13 @@ func (m *GetResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetResponse proto.InternalMessageInfo
 
+func (m *GetResponse) GetIndex() uint64 {
+	if m != nil {
+		return m.Index
+	}
+	return 0
+}
+
 func (m *GetResponse) GetValue() []byte {
 	if m != nil {
 		return m.Value
@@ -198,7 +247,7 @@ func (m *HealthResponse) Reset()         { *m = HealthResponse{} }
 func (m *HealthResponse) String() string { return proto.CompactTextString(m) }
 func (*HealthResponse) ProtoMessage()    {}
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{4}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{5}
 }
 
 func (m *HealthResponse) XXX_Unmarshal(b []byte) error {
@@ -228,6 +277,7 @@ func (m *HealthResponse) GetStatus() bool {
 
 func init() {
 	proto.RegisterType((*SetRequest)(nil), "schema.SetRequest")
+	proto.RegisterType((*SetResponse)(nil), "schema.SetResponse")
 	proto.RegisterType((*BatchSetRequest)(nil), "schema.BatchSetRequest")
 	proto.RegisterType((*GetRequest)(nil), "schema.GetRequest")
 	proto.RegisterType((*GetResponse)(nil), "schema.GetResponse")
@@ -237,25 +287,26 @@ func init() {
 func init() { proto.RegisterFile("schema.proto", fileDescriptor_1c5fb4d8cc22d66a) }
 
 var fileDescriptor_1c5fb4d8cc22d66a = []byte{
-	// 276 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x50, 0xc1, 0x4a, 0xc3, 0x40,
-	0x14, 0x24, 0x06, 0x43, 0x79, 0x29, 0x2a, 0xab, 0xc4, 0x10, 0x41, 0x4a, 0xbc, 0xe4, 0xb4, 0xc5,
-	0xda, 0x83, 0xe0, 0x4d, 0x90, 0xe8, 0x35, 0xf9, 0x82, 0x6d, 0x78, 0x36, 0x62, 0xe2, 0xc6, 0xee,
-	0xdb, 0x42, 0xbf, 0xd8, 0xdf, 0x90, 0xee, 0x26, 0x4d, 0x2a, 0xb6, 0xb7, 0xcc, 0x64, 0x66, 0xdf,
-	0xcc, 0xc0, 0x58, 0x15, 0x25, 0xd6, 0x82, 0x37, 0x2b, 0x49, 0x92, 0x79, 0x16, 0x45, 0x37, 0x4b,
-	0x29, 0x97, 0x15, 0x4e, 0x0d, 0xbb, 0xd0, 0xef, 0x53, 0xac, 0x1b, 0xda, 0x58, 0x51, 0x3c, 0x07,
-	0xc8, 0x91, 0x32, 0xfc, 0xd6, 0xa8, 0x88, 0x5d, 0x80, 0xfb, 0x89, 0x9b, 0xd0, 0x99, 0x38, 0xc9,
-	0x38, 0xdb, 0x7e, 0xb2, 0x2b, 0x38, 0x5d, 0x8b, 0x4a, 0x63, 0x78, 0x62, 0x38, 0x0b, 0xe2, 0x14,
-	0xce, 0x9f, 0x05, 0x15, 0xe5, 0xc0, 0x3a, 0x07, 0x5f, 0xed, 0x90, 0x0a, 0x9d, 0x89, 0x9b, 0xf8,
-	0x33, 0xc6, 0xdb, 0x44, 0xbd, 0x30, 0x1b, 0xca, 0xe2, 0x5b, 0x80, 0xf4, 0xc8, 0xf9, 0xf8, 0x0e,
-	0x7c, 0xf3, 0x5f, 0x35, 0xf2, 0x4b, 0x61, 0x9f, 0xc6, 0x19, 0xa6, 0x49, 0xe0, 0xec, 0x15, 0x45,
-	0x45, 0xe5, 0x4e, 0x17, 0x80, 0xa7, 0x48, 0x90, 0x56, 0x46, 0x38, 0xca, 0x5a, 0x34, 0xfb, 0x71,
-	0xc0, 0x7f, 0xab, 0x6b, 0x9d, 0xe3, 0x6a, 0xfd, 0x51, 0x20, 0xbb, 0x07, 0x37, 0x47, 0x62, 0xff,
-	0xc4, 0x8c, 0x02, 0x6e, 0x67, 0xe3, 0xdd, 0x6c, 0xfc, 0x65, 0x3b, 0x1b, 0x7b, 0x82, 0x51, 0x8e,
-	0x64, 0xda, 0xb3, 0xeb, 0xce, 0xf7, 0x67, 0x8c, 0x83, 0x66, 0x0e, 0x6e, 0x3a, 0xbc, 0xd7, 0x77,
-	0x8f, 0x2e, 0xf7, 0xb8, 0xb6, 0xc7, 0x23, 0x78, 0xb6, 0x19, 0x3b, 0xf0, 0x62, 0x14, 0x74, 0xb6,
-	0xfd, 0x05, 0x16, 0x9e, 0xd1, 0x3d, 0xfc, 0x06, 0x00, 0x00, 0xff, 0xff, 0x04, 0x3b, 0x96, 0xf5,
-	0x13, 0x02, 0x00, 0x00,
+	// 290 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x91, 0xc1, 0x4e, 0x83, 0x40,
+	0x10, 0x86, 0x83, 0x28, 0x69, 0x86, 0x46, 0xcd, 0x6a, 0x90, 0x60, 0x62, 0x1a, 0xbc, 0x70, 0xda,
+	0x26, 0xb5, 0x07, 0xbd, 0x9a, 0x98, 0xd5, 0x2b, 0x3c, 0x01, 0xc5, 0xb1, 0x34, 0x42, 0xc1, 0xee,
+	0xd0, 0xd8, 0xc7, 0xf5, 0x4d, 0x0c, 0xbb, 0x50, 0xc1, 0xa0, 0xbd, 0xed, 0x3f, 0xf9, 0xfe, 0x9d,
+	0x7f, 0x66, 0x60, 0x2c, 0x93, 0x14, 0xf3, 0x98, 0x97, 0x9b, 0x82, 0x0a, 0x66, 0x69, 0xe5, 0x5d,
+	0x2f, 0x8b, 0x62, 0x99, 0xe1, 0x54, 0x55, 0x17, 0xd5, 0xdb, 0x14, 0xf3, 0x92, 0x76, 0x1a, 0xf2,
+	0xe7, 0x00, 0x11, 0x52, 0x88, 0x1f, 0x15, 0x4a, 0x62, 0xe7, 0x60, 0xbe, 0xe3, 0xce, 0x35, 0x26,
+	0x46, 0x30, 0x0e, 0xeb, 0x27, 0xbb, 0x84, 0x93, 0x6d, 0x9c, 0x55, 0xe8, 0x1e, 0xa9, 0x9a, 0x16,
+	0xfe, 0x2d, 0xd8, 0xca, 0x25, 0xcb, 0x62, 0x2d, 0xb1, 0x86, 0x56, 0xeb, 0x57, 0xfc, 0x54, 0xc6,
+	0xe3, 0x50, 0x0b, 0x5f, 0xc0, 0xd9, 0x63, 0x4c, 0x49, 0xda, 0xf9, 0x7f, 0x0e, 0xb6, 0xdc, 0x2b,
+	0xe9, 0x1a, 0x13, 0x33, 0xb0, 0x67, 0x8c, 0x37, 0xb1, 0x7f, 0xc0, 0xb0, 0x8b, 0xf9, 0x37, 0x00,
+	0xe2, 0x9f, 0x8c, 0xfe, 0x03, 0xd8, 0xe2, 0x50, 0x9a, 0x3f, 0x06, 0x09, 0xe0, 0xf4, 0x19, 0xe3,
+	0x8c, 0xd2, 0xbd, 0xdb, 0x01, 0x4b, 0x52, 0x4c, 0x95, 0x54, 0xf6, 0x51, 0xd8, 0xa8, 0xd9, 0x97,
+	0x01, 0xf6, 0x4b, 0x9e, 0x57, 0x11, 0x6e, 0xb6, 0xab, 0x04, 0x19, 0x07, 0x33, 0x42, 0x62, 0x03,
+	0xe1, 0xbd, 0x8b, 0x5e, 0xad, 0xf9, 0xf7, 0x1e, 0x46, 0x11, 0x92, 0x5a, 0x08, 0xbb, 0x6a, 0x81,
+	0x5f, 0xfb, 0x19, 0x76, 0x72, 0x30, 0x45, 0xb7, 0x93, 0x18, 0xe0, 0x45, 0xaf, 0x93, 0xa5, 0x67,
+	0x62, 0x0e, 0xd7, 0xa7, 0xe7, 0xed, 0xe9, 0xf9, 0x53, 0x7d, 0x7a, 0xcf, 0x69, 0x6d, 0xfd, 0xd9,
+	0x17, 0x96, 0xe2, 0xee, 0xbe, 0x03, 0x00, 0x00, 0xff, 0xff, 0xe9, 0x87, 0xfe, 0xa5, 0x48, 0x02,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -270,8 +321,8 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ImmuServiceClient interface {
-	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	SetBatch(ctx context.Context, in *BatchSetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error)
+	SetBatch(ctx context.Context, in *BatchSetRequest, opts ...grpc.CallOption) (*SetResponse, error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
 }
@@ -284,8 +335,8 @@ func NewImmuServiceClient(cc *grpc.ClientConn) ImmuServiceClient {
 	return &immuServiceClient{cc}
 }
 
-func (c *immuServiceClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
+func (c *immuServiceClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
+	out := new(SetResponse)
 	err := c.cc.Invoke(ctx, "/schema.ImmuService/Set", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -293,8 +344,8 @@ func (c *immuServiceClient) Set(ctx context.Context, in *SetRequest, opts ...grp
 	return out, nil
 }
 
-func (c *immuServiceClient) SetBatch(ctx context.Context, in *BatchSetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
+func (c *immuServiceClient) SetBatch(ctx context.Context, in *BatchSetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
+	out := new(SetResponse)
 	err := c.cc.Invoke(ctx, "/schema.ImmuService/SetBatch", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -322,10 +373,27 @@ func (c *immuServiceClient) Health(ctx context.Context, in *empty.Empty, opts ..
 
 // ImmuServiceServer is the server API for ImmuService service.
 type ImmuServiceServer interface {
-	Set(context.Context, *SetRequest) (*empty.Empty, error)
-	SetBatch(context.Context, *BatchSetRequest) (*empty.Empty, error)
+	Set(context.Context, *SetRequest) (*SetResponse, error)
+	SetBatch(context.Context, *BatchSetRequest) (*SetResponse, error)
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Health(context.Context, *empty.Empty) (*HealthResponse, error)
+}
+
+// UnimplementedImmuServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedImmuServiceServer struct {
+}
+
+func (*UnimplementedImmuServiceServer) Set(ctx context.Context, req *SetRequest) (*SetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
+}
+func (*UnimplementedImmuServiceServer) SetBatch(ctx context.Context, req *BatchSetRequest) (*SetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetBatch not implemented")
+}
+func (*UnimplementedImmuServiceServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (*UnimplementedImmuServiceServer) Health(ctx context.Context, req *empty.Empty) (*HealthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Health not implemented")
 }
 
 func RegisterImmuServiceServer(s *grpc.Server, srv ImmuServiceServer) {

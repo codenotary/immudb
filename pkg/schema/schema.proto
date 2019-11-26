@@ -25,6 +25,10 @@ message SetRequest {
 	bytes value = 2;
 }
 
+message SetResponse {
+	uint64 index = 1;
+}
+
 message BatchSetRequest {
 	repeated SetRequest setRequests = 1;
 }
@@ -34,7 +38,8 @@ message GetRequest {
 }
 
 message GetResponse {
-	bytes value = 1;
+	uint64 index = 1;
+	bytes value = 2;
 }
 
 message HealthResponse {
@@ -42,8 +47,8 @@ message HealthResponse {
 }
 
 service ImmuService {
-	rpc Set (SetRequest) returns (google.protobuf.Empty);
-	rpc SetBatch (BatchSetRequest) returns (google.protobuf.Empty);
+	rpc Set (SetRequest) returns (SetResponse);
+	rpc SetBatch (BatchSetRequest) returns (SetResponse);
 	rpc Get (GetRequest) returns (GetResponse);
 	rpc Health (google.protobuf.Empty) returns (HealthResponse);
 }
