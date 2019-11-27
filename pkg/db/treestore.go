@@ -32,7 +32,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 )
 
-var tsPrefix = byte('_')
+var tsPrefix = byte(0)
 
 var tsL0Prefix = []byte{
 	tsPrefix,
@@ -67,7 +67,7 @@ func treeWidth(txn *badger.Txn) uint64 {
 	defer it.Close()
 	for it.Seek(tsL0UpLimit); it.ValidForPrefix(tsL0Prefix); it.Next() {
 		k := it.Item().Key()
-		return binary.BigEndian.Uint64(k[2:])
+		return binary.BigEndian.Uint64(k[2:]) + 1
 	}
 	return 0
 }

@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/tree"
-	"github.com/dgraph-io/badger/v2/options"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -40,11 +39,6 @@ func makeTopic() (*Topic, func()) {
 	}
 
 	opts := DefaultOptions(dir)
-	opts.Badger.
-		WithSyncWrites(false).
-		WithEventLogging(false).
-		WithChecksumVerificationMode(options.NoVerification).
-		WithVerifyValueChecksum(false)
 
 	topic, err := Open(opts)
 	if err != nil {
