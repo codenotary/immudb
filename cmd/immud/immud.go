@@ -50,7 +50,8 @@ func main() {
 				WithDir(dir).
 				WithPort(port).
 				WithAddress(address).
-				WithDbName(dbName)
+				WithDbName(dbName).
+				FromEnvironment()
 			immuServer := server.
 				DefaultServer().
 				WithOptions(options)
