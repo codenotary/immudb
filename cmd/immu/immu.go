@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+
+	"github.com/codenotary/immudb/pkg/api"
 
 	"github.com/golang/protobuf/proto"
 
@@ -88,10 +91,60 @@ func main() {
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
+	membershipCommand := &cobra.Command{
+		Use:     "membership",
+		Aliases: []string{"m"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			options, err := options(cmd)
+			if err != nil {
+				return err
+			}
+			immuClient := client.
+				DefaultClient().
+				WithOptions(*options)
+
+			index, err := strconv.ParseUint(string(args[0]), 10, 64)
+			if err != nil {
+				return err
+			}
+			response, err := immuClient.Connected(func() (interface{}, error) {
+				return immuClient.Membership(index)
+			})
+			if err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+
+			mp := response.(*schema.MembershipProof)
+			proof := api.MembershipProof{
+				Index: mp.Index,
+				At:    mp.At,
+			}
+			copy(proof.Hash[:], mp.Hash[:32])
+			copy(proof.Root[:], mp.Root[:32])
+
+			for _, p := range mp.Path {
+				var parr [32]byte
+				copy(parr[:], p[:32])
+				proof.Path = append(proof.Path, parr)
+			}
+
+			fmt.Printf(`verified: %t
+
+hash: %x at index: %d
+root: %x at index: %d
+
+`, proof.Verify(), proof.Hash, proof.Index, proof.Root, proof.At)
+			return nil
+		},
+		Args: cobra.MinimumNArgs(1),
+	}
 	configureOptions(getCommand)
 	configureOptions(setCommand)
+	configureOptions(membershipCommand)
 	cmd.AddCommand(getCommand)
 	cmd.AddCommand(setCommand)
+	cmd.AddCommand(membershipCommand)
 	if err := cmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

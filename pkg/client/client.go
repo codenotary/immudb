@@ -124,6 +124,16 @@ func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.SetResponse, error
 	return c.serviceClient.SetBatch(context.Background(), bsr)
 }
 
+func (c *ImmuClient) Membership(index uint64) (*schema.MembershipProof, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.serviceClient.Membership(context.Background(), &schema.MembershipRequest{
+		Index: index,
+	})
+}
+
 func (c *ImmuClient) HealthCheck() error {
 	if !c.isConnected() {
 		return ErrNotConnected
