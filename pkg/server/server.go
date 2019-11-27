@@ -99,6 +99,18 @@ func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.Ge
 	return &schema.GetResponse{Index: index, Value: value}, nil
 }
 
+func (s *ImmuServer) GetBatch(ctx context.Context, bgr *schema.BatchGetRequest) (*schema.BatchGetResponse, error) {
+	var grs []*schema.GetResponse
+	for _, gr := range bgr.GetRequests {
+		gr, err := s.Get(ctx, gr)
+		if err != nil {
+			return nil, err
+		}
+		grs = append(grs, gr)
+	}
+	return &schema.BatchGetResponse{GetResponses: grs}, nil
+}
+
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
 	health := s.Topic.HealthCheck()
 	s.Logger.Debugf("health check: %v", health)

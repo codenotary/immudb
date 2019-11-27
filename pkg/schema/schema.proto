@@ -42,6 +42,14 @@ message GetResponse {
 	bytes value = 2;
 }
 
+message BatchGetRequest {
+	repeated GetRequest getRequests = 1;
+}
+
+message BatchGetResponse {
+	repeated GetResponse getResponses = 1;
+}
+
 message HealthResponse {
 	bool status = 1;
 }
@@ -50,5 +58,6 @@ service ImmuService {
 	rpc Set (SetRequest) returns (SetResponse);
 	rpc SetBatch (BatchSetRequest) returns (SetResponse);
 	rpc Get (GetRequest) returns (GetResponse);
+	rpc GetBatch (BatchGetRequest) returns (BatchGetResponse);
 	rpc Health (google.protobuf.Empty) returns (HealthResponse);
 }
