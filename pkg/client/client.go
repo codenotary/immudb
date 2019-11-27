@@ -131,7 +131,7 @@ func (c *ImmuClient) connectWithRetry() (err error) {
 	for i := 0; i < c.Options.DialRetries+1; i++ {
 		if c.clientConn, err = grpc.Dial(c.Options.Bind(), grpc.WithInsecure()); err == nil {
 			c.serviceClient = schema.NewImmuServiceClient(c.clientConn)
-			c.Logger.Debugf("connected %v", c.Options)
+			c.Logger.Debugf("dialed %v", c.Options)
 			return nil
 		}
 		c.Logger.Debugf("dial failed: %v", err)
