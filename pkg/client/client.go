@@ -80,6 +80,21 @@ func (c *ImmuClient) Get(keyReader io.Reader) (*schema.GetResponse, error) {
 	return c.serviceClient.Get(context.Background(), &schema.GetRequest{Key: key})
 }
 
+func (c *ImmuClient) GetBatch(keyReaders []io.Reader) (*schema.BatchGetResponse, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	var grs []*schema.GetRequest
+	for _, keyReader := range keyReaders {
+		key, err := ioutil.ReadAll(keyReader)
+		if err != nil {
+			return nil, err
+		}
+		grs = append(grs, &schema.GetRequest{Key: key})
+	}
+	return c.serviceClient.GetBatch(context.Background(), &schema.BatchGetRequest{GetRequests: grs})
+}
+
 func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.SetResponse, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
