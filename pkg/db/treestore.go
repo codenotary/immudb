@@ -108,6 +108,12 @@ func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 	db.View(func(txn *badger.Txn) error {
 		t.w = treeWidth(txn)
 		t.ts = t.w
+		// fixme(leogr): calculate proper position by re-reading each level from db
+		l := 0
+		for i := t.w; i > 0; i /= 2 {
+			t.cPos[l] = i - 1
+			l++
+		}
 		return nil
 	})
 	go t.worker()
@@ -229,9 +235,11 @@ func (t *treeStore) flush() {
 		}
 
 		// fmt.Printf("Flushing [l=%d, head=%d, tail=%d] from %d to (%d-1)\n", l, c.Head(), c.Tail(), t.cPos[l], tail)
-
 		for i := t.cPos[l]; i < tail; i++ {
-			wb.Set(treeKey(uint8(l), i), c.Get(i).(*[sha256.Size]byte)[:])
+			if h := c.Get(i); h != nil {
+				// fmt.Printf("Storing [l=%d, i=%d]\n", l, i)
+				wb.Set(treeKey(uint8(l), i), h.(*[sha256.Size]byte)[:])
+			}
 		}
 		t.cPos[l] = tail
 	}
