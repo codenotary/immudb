@@ -50,7 +50,12 @@ func (t *Topic) Close() error {
 	return t.db.Close()
 }
 
-func (t *Topic) SetBatch(kvPairs []KVPair) (index uint64, err error) {
+func (t *Topic) Wait() {
+	t.wg.Wait()
+}
+
+func (t *Topic) SetBatch(kvPairs []KVPair, options ...WriteOption) (index uint64, err error) {
+	opts := makeWriteOptions(options...)
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
@@ -67,10 +72,10 @@ func (t *Topic) SetBatch(kvPairs []KVPair) (index uint64, err error) {
 	}
 
 	tsEntries := t.store.NewBatch(kvPairs)
-	t.wg.Add(1)
 	ts := tsEntries[len(tsEntries)-1].ts
-	return ts - 1, txn.CommitAt(ts, func(err error) {
-		// we're in new goroutine here
+	index = ts - 1
+
+	cb := func(err error) {
 		if err == nil {
 			for _, entry := range tsEntries {
 				t.store.Commit(entry)
@@ -80,11 +85,24 @@ func (t *Topic) SetBatch(kvPairs []KVPair) (index uint64, err error) {
 				t.store.Discard(entry)
 			}
 		}
-		t.wg.Done()
-	})
+
+		if opts.asyncCommit {
+			t.wg.Done()
+		}
+	}
+
+	if opts.asyncCommit {
+		t.wg.Add(1)
+		err = txn.CommitAt(ts, cb) // cb will be executed in a new goroutine
+	} else {
+		err = txn.CommitAt(ts, nil)
+		cb(err)
+	}
+	return
 }
 
-func (t *Topic) Set(key, value []byte) (index uint64, err error) {
+func (t *Topic) Set(key, value []byte, options ...WriteOption) (index uint64, err error) {
+	opts := makeWriteOptions(options...)
 	if key[0] == tsPrefix {
 		err = InvalidKeyErr
 		return
@@ -97,17 +115,30 @@ func (t *Topic) Set(key, value []byte) (index uint64, err error) {
 	}); err != nil {
 		return
 	}
+
 	tsEntry := t.store.NewEntry(key, value)
-	t.wg.Add(1)
-	return tsEntry.ts - 1, txn.CommitAt(tsEntry.ts, func(err error) {
-		// we're in new goroutine here
+	index = tsEntry.ts - 1
+
+	cb := func(err error) {
 		if err == nil {
 			t.store.Commit(tsEntry)
 		} else {
 			t.store.Discard(tsEntry)
 		}
-		t.wg.Done()
-	})
+		if opts.asyncCommit {
+			t.wg.Done()
+		}
+	}
+
+	if opts.asyncCommit {
+		t.wg.Add(1)
+		err = txn.CommitAt(tsEntry.ts, cb) // cb will be executed in a new goroutine
+	} else {
+		err = txn.CommitAt(tsEntry.ts, nil)
+		cb(err)
+	}
+
+	return
 }
 
 func (t *Topic) Get(key []byte) (value []byte, index uint64, err error) {

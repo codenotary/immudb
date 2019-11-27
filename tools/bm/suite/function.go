@@ -67,6 +67,22 @@ var FunctionBenchmarks = []bm.Bm{
 	},
 	{
 		CreateTopic: true,
+		Name:        "sequential write (async commit)",
+		Concurrency: Concurrency,
+		Iterations:  1_000_000,
+		Work: func(bm *bm.Bm, start int, end int) error {
+			opt := db.WithAsyncCommit(true)
+			for i := start; i < end; i++ {
+				key := []byte(strconv.FormatUint(uint64(i), 10))
+				if _, err := bm.Topic.Set(key, V, opt); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
+	{
+		CreateTopic: true,
 		Name:        "sequential write (concurrency++)",
 		Concurrency: Concurrency * 8,
 		Iterations:  1_000_000,
@@ -82,8 +98,24 @@ var FunctionBenchmarks = []bm.Bm{
 	},
 	{
 		CreateTopic: true,
-		Name:        "sequential write (GOMAXPROCS=128)",
-		Concurrency: Concurrency,
+		Name:        "sequential write (async commit / concurrency++)",
+		Concurrency: Concurrency * 8,
+		Iterations:  1_000_000,
+		Work: func(bm *bm.Bm, start int, end int) error {
+			opt := db.WithAsyncCommit(true)
+			for i := start; i < end; i++ {
+				key := []byte(strconv.FormatUint(uint64(i), 10))
+				if _, err := bm.Topic.Set(key, V, opt); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
+	{
+		CreateTopic: true,
+		Name:        "sequential write (GOMAXPROCS=128 / concurrency++)",
+		Concurrency: Concurrency * 8,
 		Iterations:  1_000_000,
 		Before: func(bm *bm.Bm) {
 			maxProcs = runtime.GOMAXPROCS(128)
@@ -124,6 +156,35 @@ var FunctionBenchmarks = []bm.Bm{
 				})
 			}
 			if _, err := bm.Topic.SetBatch(kvPairs); err != nil {
+				return err
+			}
+			return nil
+		},
+	},
+	{
+		CreateTopic: true,
+		Name:        "batch write (async commit)",
+
+		// batch size cannot execeed 100k items otherwise txn fail with:
+		// "Txn is too big to fit into one request"
+		Concurrency: func() int {
+			if Concurrency < 10 {
+				return 10
+			}
+			return Concurrency
+		}(),
+		Iterations: 1_000_000,
+
+		Work: func(bm *bm.Bm, start int, end int) error {
+			opt := db.WithAsyncCommit(true)
+			var kvPairs []db.KVPair
+			for i := start; i < end; i++ {
+				kvPairs = append(kvPairs, db.KVPair{
+					Key:   []byte(strconv.FormatUint(uint64(i), 10)),
+					Value: V,
+				})
+			}
+			if _, err := bm.Topic.SetBatch(kvPairs, opt); err != nil {
 				return err
 			}
 			return nil

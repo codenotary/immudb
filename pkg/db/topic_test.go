@@ -72,7 +72,36 @@ func TestTopic(t *testing.T) {
 		assert.Equal(t, n, index, "n=%d", n)
 	}
 
-	topic.wg.Wait()
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		value, index, err := topic.Get(key)
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index, "n=%d", n)
+		assert.Equal(t, key, value, "n=%d", n)
+	}
+
+	topic.store.WaitUntil(64)
+	assert.Equal(t, root64th, tree.Root(topic.store))
+
+	topic.store.Close()
+	assert.Equal(t, root64th, tree.Root(topic.store))
+
+	topic.store.resetCache() // with empty cache, next call should fetch from DB
+	assert.Equal(t, root64th, tree.Root(topic.store))
+}
+
+func TestTopicAsyncCommit(t *testing.T) {
+	topic, closer := makeTopic()
+	defer closer()
+
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		index, err := topic.Set(key, key, WithAsyncCommit(true))
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index, "n=%d", n)
+	}
+
+	topic.Wait()
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
@@ -82,7 +111,7 @@ func TestTopic(t *testing.T) {
 		assert.Equal(t, key, value, "n=%d", n)
 	}
 
-	topic.store.WaitSync()
+	topic.store.WaitUntil(64)
 	assert.Equal(t, root64th, tree.Root(topic.store))
 
 	topic.store.Close()

@@ -58,3 +58,23 @@ func (o Options) treeStore() badger.Options {
 	opt.ValueDir = filepath.Join(basedir, treePath)
 	return opt
 }
+
+type WriteOptions struct {
+	asyncCommit bool
+}
+
+func makeWriteOptions(opts ...WriteOption) *WriteOptions {
+	wo := &WriteOptions{}
+	for _, f := range opts {
+		f(wo)
+	}
+	return wo
+}
+
+type WriteOption func(*WriteOptions)
+
+func WithAsyncCommit(async bool) WriteOption {
+	return func(opts *WriteOptions) {
+		opts.asyncCommit = async
+	}
+}

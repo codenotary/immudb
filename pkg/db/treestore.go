@@ -89,6 +89,7 @@ type treeStore struct {
 	cPos        [256]uint64
 	cSize       uint64
 	sync.RWMutex
+	closeOnce sync.Once
 }
 
 func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
@@ -113,13 +114,29 @@ func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 	return t
 }
 
+// Close closes a treeStore. All pending items will be processed and flushed.
+// Calling treeStore.Close() multiple times would still only close the treeStore once.
 func (t *treeStore) Close() {
-	if t.quit != nil {
-		t.WaitSync()
-		// fixme(leogr): could items be sent to the channel meanwhile?
-		close(t.c)
-		<-t.quit
-		t.quit = nil
+	t.closeOnce.Do(func() {
+		if t.quit != nil {
+			close(t.c)
+			<-t.quit
+			t.quit = nil
+		}
+	})
+}
+
+// WaitUntil waits until the given _index_ has been added into the tree.
+// If the given _index_ cannot be reached, it will never return.
+func (t *treeStore) WaitUntil(index uint64) {
+	for {
+		t.RLock()
+		if t.w >= index+1 {
+			t.RUnlock()
+			return
+		}
+		t.RUnlock()
+		time.Sleep(time.Microsecond)
 	}
 }
 
@@ -138,22 +155,7 @@ func (t *treeStore) resetCache() {
 	}
 }
 
-func (t *treeStore) WaitSync() {
-	// first, wait for an empty queue
-	for len(t.c) > 0 {
-		time.Sleep(time.Millisecond * 10)
-	}
-	for {
-		t.RLock()
-		if t.w == t.ts {
-			t.RUnlock()
-			return
-		}
-		t.RUnlock()
-		time.Sleep(time.Microsecond * 10)
-	}
-}
-
+// NewEntry acquires a lease for a new entry and returns it. The entry must be used with Commit() or Discard().
 func (t *treeStore) NewEntry(key []byte, value []byte) *treeStoreEntry {
 	ts := atomic.AddUint64(&t.ts, 1)
 	h := api.Digest(ts-1, key, value)
@@ -163,6 +165,7 @@ func (t *treeStore) NewEntry(key []byte, value []byte) *treeStoreEntry {
 	}
 }
 
+// NewBatch is similar to NewEntry but accept a slice of key-value pairs.
 func (t *treeStore) NewBatch(kvPairs []KVPair) []*treeStoreEntry {
 	size := uint64(len(kvPairs))
 	batch := make([]*treeStoreEntry, 0, size)
@@ -175,10 +178,14 @@ func (t *treeStore) NewBatch(kvPairs []KVPair) []*treeStoreEntry {
 	return batch
 }
 
+// Commit enqueues the given entry to be included in the tree.
+// Commit will fail if called after Close().
 func (t *treeStore) Commit(entry *treeStoreEntry) {
 	t.c <- entry
 }
 
+// Discard enqueues the given entry to be included in the tree as discarded item.
+// Discard will fail if called after Close().
 func (t *treeStore) Discard(entry *treeStoreEntry) {
 	h := api.Digest(entry.ts, []byte{}, []byte{})
 	entry.h = &h
