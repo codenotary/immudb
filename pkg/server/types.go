@@ -30,12 +30,14 @@ type ImmuServer struct {
 	Logger     logger.Logger
 	Options    Options
 	GrpcServer *grpc.Server
+	quit       chan struct{}
 }
 
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
 		Logger:  logger.MakeLogger("immudb-server", os.Stderr),
 		Options: DefaultOptions(),
+		quit:    make(chan struct{}),
 	}
 }
 

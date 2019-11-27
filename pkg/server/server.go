@@ -31,7 +31,7 @@ import (
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
-func (s *ImmuServer) Start() error {
+func (s *ImmuServer) Start() (err error) {
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
 		return err
@@ -48,16 +48,19 @@ func (s *ImmuServer) Start() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immud: %v", s.Options)
-	return s.GrpcServer.Serve(listener)
+	err = s.GrpcServer.Serve(listener)
+	<-s.quit
+	return
 }
 
 func (s *ImmuServer) Stop() error {
 	s.Logger.Infof("stopping immud: %v", s.Options)
+	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
-	if topic := s.Topic; topic != nil {
-		s.Topic = nil
-		return topic.Close()
+	if s.Topic != nil {
+		defer func() { s.Topic = nil }()
+		return s.Topic.Close()
 	}
 	return nil
 }
@@ -111,5 +114,6 @@ func (s *ImmuServer) installShutdownHandler() {
 		if err := s.Stop(); err != nil {
 			s.Logger.Errorf("shutdown error: %v", err)
 		}
+		s.Logger.Infof("shutdown completed")
 	}()
 }
