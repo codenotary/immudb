@@ -109,6 +109,7 @@ func options(cmd *cobra.Command) (*client.Options, error) {
 	}
 	options := client.DefaultOptions().
 		WithPort(port).
-		WithAddress(address)
+		WithAddress(address).
+		FromEnvironment()
 	return &options, nil
 }
