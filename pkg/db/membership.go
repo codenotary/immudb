@@ -17,10 +17,28 @@ limitations under the License.
 package db
 
 import (
-	"errors"
+	"github.com/codenotary/immudb/pkg/api"
+	"github.com/codenotary/immudb/pkg/tree"
 )
 
-var (
-	InvalidKeyErr = errors.New("invalid key")
-	IndexNotFound = errors.New("index not found")
-)
+func (t *Topic) MembershipProof(index uint64) (*api.MembershipProof, error) {
+
+	ts := t.store
+	ts.RLock()
+	defer ts.RUnlock()
+
+	leaf := ts.Get(0, index)
+	if leaf == nil {
+		return nil, IndexNotFound
+	}
+
+	return &api.MembershipProof{
+		Index: index,
+		Hash:  *leaf,
+
+		Root: tree.Root(ts),
+		At:   ts.w - 1,
+
+		Path: tree.PathAt(ts, ts.w-1, index),
+	}, nil
+}

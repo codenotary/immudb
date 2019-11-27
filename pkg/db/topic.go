@@ -151,6 +151,7 @@ func (t *Topic) Get(key []byte) (value []byte, index uint64, err error) {
 	value, err = item.ValueCopy(nil)
 	return value, item.Version() - 1, nil
 }
+
 func (t *Topic) HealthCheck() bool {
 	_, _, err := t.Get([]byte{0})
 	return err == nil || err == badger.ErrKeyNotFound
