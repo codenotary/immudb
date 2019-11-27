@@ -83,6 +83,11 @@ func TestPath(t *testing.T) {
 		v := []byte(strconv.FormatUint(index, 10))
 		D = append(D, v)
 		Append(s, v)
+
+		// test out of range
+		assert.Nil(t, PathAt(s, index+1, index))
+		assert.Nil(t, PathAt(s, index, index+1))
+
 		for at := uint64(0); at <= index; at++ {
 			for i := uint64(0); i <= at; i++ {
 				fmt.Printf("\n\n-----------------\nn=%d at=%d i=%d\n", index+1, at, i)

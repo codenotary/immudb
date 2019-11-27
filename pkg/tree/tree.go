@@ -133,7 +133,7 @@ func mthPosition(l, r uint64) (layer uint8, index uint64) {
 func PathAt(store Storer, at, i uint64) (p Path) {
 
 	w := store.Width()
-	if i > at || at > w || at < 1 {
+	if i > at || at >= w || at < 1 {
 		return
 	}
 
