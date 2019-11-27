@@ -117,6 +117,26 @@ func (s *ImmuServer) GetBatch(ctx context.Context, bgr *schema.BatchGetRequest) 
 	return &schema.BatchGetResponse{GetResponses: grs}, nil
 }
 
+func (s *ImmuServer) Membership(ctx context.Context, mr *schema.MembershipRequest) (*schema.MembershipProof, error) {
+	s.Logger.Debugf("membership for index %d ", mr.Index)
+	proof, err := s.Topic.MembershipProof(mr.Index)
+	if err != nil {
+		return nil, err
+	}
+	mp := &schema.MembershipProof{
+		Index: proof.Index,
+		Hash:  proof.Hash[:],
+		Root:  proof.Root[:],
+		At:    proof.At,
+	}
+
+	for _, p := range proof.Path {
+		cp := p // copy
+		mp.Path = append(mp.Path, cp[:])
+	}
+	return mp, nil
+}
+
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
 	health := s.Topic.HealthCheck()
 	s.Logger.Debugf("health check: %v", health)
