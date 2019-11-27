@@ -48,6 +48,16 @@ func (o Options) WithPort(port int) Options {
 	return o
 }
 
+func (o Options) WithDialRetries(retries int) Options {
+	o.DialRetries = retries
+	return o
+}
+
+func (o Options) WithHealthCheckRetries(retries int) Options {
+	o.HealthCheckRetries = retries
+	return o
+}
+
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
 }
