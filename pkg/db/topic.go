@@ -67,7 +67,7 @@ func (t *Topic) SetBatch(kvPairs []KVPair) (index uint64, err error) {
 	}
 
 	tsEntries := t.store.NewBatch(kvPairs)
-	// t.wg.Add(1)
+	t.wg.Add(1)
 	ts := tsEntries[len(tsEntries)-1].ts
 	return ts - 1, txn.CommitAt(ts, func(err error) {
 		// we're in new goroutine here
@@ -80,7 +80,7 @@ func (t *Topic) SetBatch(kvPairs []KVPair) (index uint64, err error) {
 				t.store.Discard(entry)
 			}
 		}
-		// t.wg.Done()
+		t.wg.Done()
 	})
 }
 
@@ -98,7 +98,7 @@ func (t *Topic) Set(key, value []byte) (index uint64, err error) {
 		return
 	}
 	tsEntry := t.store.NewEntry(key, value)
-	// t.wg.Add(1)
+	t.wg.Add(1)
 	return tsEntry.ts - 1, txn.CommitAt(tsEntry.ts, func(err error) {
 		// we're in new goroutine here
 		if err == nil {
@@ -106,7 +106,7 @@ func (t *Topic) Set(key, value []byte) (index uint64, err error) {
 		} else {
 			t.store.Discard(tsEntry)
 		}
-		// t.wg.Done()
+		t.wg.Done()
 	})
 }
 

@@ -114,8 +114,9 @@ func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 }
 
 func (t *treeStore) Close() {
-	t.WaitSync()
 	if t.quit != nil {
+		t.WaitSync()
+		// fixme(leogr): could items be sent to the channel meanwhile?
 		close(t.c)
 		<-t.quit
 		t.quit = nil
@@ -138,8 +139,18 @@ func (t *treeStore) resetCache() {
 }
 
 func (t *treeStore) WaitSync() {
-	for t.w != t.ts || len(t.c) > 0 {
+	// first, wait for an empty queue
+	for len(t.c) > 0 {
 		time.Sleep(time.Millisecond * 10)
+	}
+	for {
+		t.RLock()
+		if t.w == t.ts {
+			t.RUnlock()
+			return
+		}
+		t.RUnlock()
+		time.Sleep(time.Microsecond * 10)
 	}
 }
 
@@ -180,16 +191,20 @@ func (t *treeStore) worker() {
 	for item := range t.c {
 		heap.Push(pq, item)
 
+		t.Lock()
 		for min := pq.Min(); min == t.w+1; min = pq.Min() {
 			tree.AppendHash(t, heap.Pop(pq).(*treeStoreEntry).h)
 			if t.w%2 == 0 && (t.w-t.lastFlushed) >= t.cSize/2 {
 				t.flush()
 			}
 		}
-
+		t.Unlock()
 	}
+
 	if t.w > 0 {
+		t.Lock()
 		t.flush()
+		t.Unlock()
 	}
 	t.quit <- struct{}{}
 }

@@ -72,6 +72,8 @@ func TestTopic(t *testing.T) {
 		assert.Equal(t, n, index, "n=%d", n)
 	}
 
+	topic.wg.Wait()
+
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
 		value, index, err := topic.Get(key)
