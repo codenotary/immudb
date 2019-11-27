@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
@@ -102,11 +103,16 @@ func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.Ge
 func (s *ImmuServer) GetBatch(ctx context.Context, bgr *schema.BatchGetRequest) (*schema.BatchGetResponse, error) {
 	var grs []*schema.GetResponse
 	for _, gr := range bgr.GetRequests {
-		gr, err := s.Get(ctx, gr)
-		if err != nil {
+		if gr, err := s.Get(ctx, gr); err == badger.ErrKeyNotFound {
+			grs = append(grs, &schema.GetResponse{
+				Index: 0,
+				Value: []byte{},
+			})
+		} else if err != nil {
 			return nil, err
+		} else {
+			grs = append(grs, gr)
 		}
-		grs = append(grs, gr)
 	}
 	return &schema.BatchGetResponse{GetResponses: grs}, nil
 }
