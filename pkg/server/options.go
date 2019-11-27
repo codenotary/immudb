@@ -18,6 +18,7 @@ package server
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -72,4 +73,28 @@ func (o Options) String() string {
 	return fmt.Sprintf(
 		"{dir:%v network:%v address:%v port:%d name:%v}",
 		o.Dir, o.Network, o.Address, o.Port, o.DbName)
+}
+
+func (o Options) FromEnvironment() Options {
+	dir := os.Getenv("IMMUDB_DIR")
+	if dir != "" {
+		o.Dir = dir
+	}
+	network := os.Getenv("IMMUDB_NETWORK")
+	if network != "" {
+		o.Network = network
+	}
+	address := os.Getenv("IMMUDB_ADDRESS")
+	if address != "" {
+		o.Address = address
+	}
+	port := os.Getenv("IMMUDB_PORT")
+	if parsedPort, err := strconv.Atoi(port); err == nil {
+		o.Port = parsedPort
+	}
+	dbName := os.Getenv("IMMUDB_DBNAME")
+	if dbName != "" {
+		o.DbName = dbName
+	}
+	return o
 }
