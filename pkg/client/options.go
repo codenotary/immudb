@@ -18,6 +18,7 @@ package client
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -53,4 +54,24 @@ func (o Options) Bind() string {
 
 func (o Options) String() string {
 	return fmt.Sprintf("{address:%v port:%d}", o.Address, o.Port)
+}
+
+func (o Options) FromEnvironment() Options {
+	address := os.Getenv("IMMUDB_ADDRESS")
+	if address != "" {
+		o.Address = address
+	}
+	port := os.Getenv("IMMUDB_PORT")
+	if parsedPort, err := strconv.Atoi(port); err == nil {
+		o.Port = parsedPort
+	}
+	dialRetries := os.Getenv("IMMUDB_DIAL_RETRIES")
+	if parsedDialRetries, err := strconv.Atoi(dialRetries); err == nil {
+		o.DialRetries = parsedDialRetries
+	}
+	healthCheckRetries := os.Getenv("IMMUDB_HEALTH_CHECK_RETRIES")
+	if parsedHealthCheckRetries, err := strconv.Atoi(healthCheckRetries); err == nil {
+		o.HealthCheckRetries = parsedHealthCheckRetries
+	}
+	return o
 }
