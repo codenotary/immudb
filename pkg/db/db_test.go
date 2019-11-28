@@ -21,6 +21,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/codenotary/immudb/pkg/logger"
+
 	"github.com/dgraph-io/badger/v2"
 )
 
@@ -37,6 +39,7 @@ func makeBadger() *badgerWrapper {
 	}
 
 	opts := DefaultOptions(dir).Badger
+	opts.Logger = logger.NewWithLevel("test(immudb)", os.Stderr, logger.LogDebug)
 	db, err := badger.OpenManaged(opts)
 	if err != nil {
 		os.RemoveAll(dir)

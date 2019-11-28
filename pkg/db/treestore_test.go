@@ -29,7 +29,7 @@ func TestNewTreeStore(t *testing.T) {
 
 	db := makeBadger()
 	defer db.Close()
-	log := logger.MakeLogger("test", os.Stderr)
+	log := logger.NewWithLevel("test", os.Stderr, logger.LogDebug)
 
 	ts := newTreeStore(db.DB, 1000, log)
 	assert.Zero(t, ts.Width())

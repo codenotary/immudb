@@ -18,6 +18,13 @@ package logger
 
 type LogLevel int8
 
+const (
+	LogDebug LogLevel = iota
+	LogInfo
+	LogWarn
+	LogError
+)
+
 type Logger interface {
 	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
