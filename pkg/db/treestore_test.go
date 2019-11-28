@@ -17,7 +17,10 @@ limitations under the License.
 package db
 
 import (
+	"os"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,8 +29,9 @@ func TestNewTreeStore(t *testing.T) {
 
 	db := makeBadger()
 	defer db.Close()
+	log := logger.MakeLogger("test", os.Stderr)
 
-	ts := newTreeStore(db.DB, 1000)
+	ts := newTreeStore(db.DB, 1000, log)
 	assert.Zero(t, ts.Width())
 
 	// add two items
@@ -41,7 +45,7 @@ func TestNewTreeStore(t *testing.T) {
 	ts.Close()
 	db.Restart()
 
-	ts = newTreeStore(db.DB, 1000)
+	ts = newTreeStore(db.DB, 1000, log)
 	assert.Equal(t, uint64(2), ts.Width())
 
 	ts.Close()

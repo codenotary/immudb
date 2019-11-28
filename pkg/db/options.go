@@ -17,7 +17,10 @@ limitations under the License.
 package db
 
 import (
+	"os"
 	"path/filepath"
+
+	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/dgraph-io/badger/v2"
 )
@@ -33,10 +36,9 @@ type Options struct {
 
 func DefaultOptions(path string) Options {
 	opt := badger.DefaultOptions(path).
+		WithLogger(logger.MakeLogger("immudb", os.Stderr)).
 		WithSyncWrites(false).
 		WithEventLogging(false)
-
-	opt.WithMaxTableSize(opt.MaxTableSize * 2)
 
 	return Options{
 		Badger: opt,

@@ -20,25 +20,29 @@ import (
 	"math"
 	"sync"
 
+	"github.com/codenotary/immudb/pkg/logger"
+
 	"github.com/dgraph-io/badger/v2"
 )
 
 type Topic struct {
-	i     uint64
 	db    *badger.DB
 	store *treeStore
 	wg    sync.WaitGroup
+	log   logger.Logger
 }
 
 func Open(options Options) (*Topic, error) {
-	db, err := badger.OpenManaged(options.dataStore())
+	opt := options.dataStore()
+	db, err := badger.OpenManaged(opt)
 	if err != nil {
 		return nil, err
 	}
 
 	t := &Topic{
 		db:    db,
-		store: newTreeStore(db, 750_000),
+		store: newTreeStore(db, 750_000, opt.Logger),
+		log:   opt.Logger,
 	}
 
 	return t, nil

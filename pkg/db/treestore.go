@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/logger"
+
 	"github.com/codenotary/immudb/pkg/api"
 
 	"github.com/codenotary/immudb/pkg/ring"
@@ -75,6 +77,7 @@ type treeStore struct {
 	quit        chan struct{}
 	lastFlushed uint64
 	db          *badger.DB
+	log         logger.Logger
 	caches      [256]ring.Buffer
 	cPos        [256]uint64
 	cSize       uint64
@@ -82,10 +85,11 @@ type treeStore struct {
 	closeOnce sync.Once
 }
 
-func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
+func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore {
 
 	t := &treeStore{
 		db:     db,
+		log:    log,
 		c:      make(chan *treeStoreEntry, cacheSize),
 		quit:   make(chan struct{}, 0),
 		caches: [256]ring.Buffer{},
@@ -106,6 +110,7 @@ func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 		}
 		t.w = t.cPos[0]
 		t.ts = t.w
+		t.log.Infof("Tree width: %d", t.w)
 		return nil
 	})
 
@@ -122,6 +127,7 @@ func (t *treeStore) Close() {
 			close(t.c)
 			<-t.quit
 			t.quit = nil
+			t.log.Infof("Tree closed at width: %d", t.w)
 		}
 	})
 }
@@ -217,7 +223,7 @@ func (t *treeStore) worker() {
 }
 
 func (t *treeStore) flush() {
-	// fmt.Println("FLUST at ", t.w)
+	t.log.Infof("Flushing tree caches from %d to %d", t.lastFlushed, t.w)
 	var wb *badger.WriteBatch
 	wb = t.db.NewWriteBatchAt(t.w)
 	defer wb.Flush()
