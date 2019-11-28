@@ -110,13 +110,33 @@ func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore
 		}
 		t.w = t.cPos[0]
 		t.ts = t.w
-		t.log.Infof("Tree width: %d", t.w)
+
 		return nil
 	})
 
 	go t.worker()
 
+	t.log.Infof("Tree of width %d ready with root %x", t.w, tree.Root(t))
 	return t
+}
+
+func (t *treeStore) makeCaches() {
+	size := t.cSize + 2
+	if size < 64 {
+		size = 64
+	}
+	for i := 0; i < 256; i++ {
+		t.caches[i] = ring.NewRingBuffer(size)
+		if size > 64 {
+			size /= 2
+		} else {
+			size = 64
+		}
+	}
+}
+
+func (t *treeStore) replay(upTo uint64) {
+
 }
 
 // Close closes a treeStore. All pending items will be processed and flushed.
@@ -127,7 +147,7 @@ func (t *treeStore) Close() {
 			close(t.c)
 			<-t.quit
 			t.quit = nil
-			t.log.Infof("Tree closed at width: %d", t.w)
+			t.log.Infof("Tree of width %d closed with root %x", t.w, tree.Root(t))
 		}
 	})
 }
@@ -143,21 +163,6 @@ func (t *treeStore) WaitUntil(index uint64) {
 		}
 		t.RUnlock()
 		time.Sleep(time.Microsecond)
-	}
-}
-
-func (t *treeStore) makeCaches() {
-	size := t.cSize + 2
-	if size < 64 {
-		size = 64
-	}
-	for i := 0; i < 256; i++ {
-		t.caches[i] = ring.NewRingBuffer(size)
-		if size > 64 {
-			size /= 2
-		} else {
-			size = 64
-		}
 	}
 }
 
@@ -223,10 +228,14 @@ func (t *treeStore) worker() {
 }
 
 func (t *treeStore) flush() {
-	t.log.Infof("Flushing tree caches from %d to %d", t.lastFlushed, t.w)
+	t.log.Infof("Flushing tree caches at index %d", t.w-1)
 	var wb *badger.WriteBatch
 	wb = t.db.NewWriteBatchAt(t.w)
-	defer wb.Flush()
+	defer func() {
+		if err := wb.Flush(); err != nil {
+			t.log.Errorf("Tree flush error: %s", err)
+		}
+	}()
 
 	for l, c := range t.caches {
 		tail := c.Tail()
@@ -238,7 +247,9 @@ func (t *treeStore) flush() {
 		for i := t.cPos[l]; i < tail; i++ {
 			if h := c.Get(i); h != nil {
 				// fmt.Printf("Storing [l=%d, i=%d]\n", l, i)
-				wb.Set(treeKey(uint8(l), i), h.(*[sha256.Size]byte)[:])
+				if err := wb.Set(treeKey(uint8(l), i), h.(*[sha256.Size]byte)[:]); err != nil {
+					t.log.Errorf("Cannot flush tree item (l=%d, i=%d): %s", err)
+				}
 			}
 		}
 		t.cPos[l] = tail

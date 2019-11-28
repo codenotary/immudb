@@ -45,10 +45,12 @@ func Open(options Options) (*Topic, error) {
 		log:   opt.Logger,
 	}
 
+	t.log.Infof("Topic ready with directory: %s", opt.Dir)
 	return t, nil
 }
 
 func (t *Topic) Close() error {
+	defer t.log.Infof("Topic closed")
 	t.wg.Wait()
 	t.store.Close()
 	return t.db.Close()
