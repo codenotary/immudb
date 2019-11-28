@@ -34,17 +34,6 @@ import (
 
 var tsPrefix = byte(0)
 
-var tsL0Prefix = []byte{
-	tsPrefix,
-	0x00,
-}
-
-var tsL0UpLimit = []byte{
-	tsPrefix,
-	0x00,
-	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-}
-
 func treeKey(layer uint8, index uint64) []byte {
 	k := make([]byte, 1+1+8, 1+1+8)
 	k[0] = tsPrefix
@@ -59,15 +48,16 @@ func decodeTreeKey(k []byte) (layer uint8, index uint64) {
 	return
 }
 
-func treeWidth(txn *badger.Txn) uint64 {
+func treeLayerWidth(layer uint8, txn *badger.Txn) uint64 {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false
 	opts.Reverse = true
 	it := txn.NewIterator(opts)
 	defer it.Close()
-	for it.Seek(tsL0UpLimit); it.ValidForPrefix(tsL0Prefix); it.Next() {
-		k := it.Item().Key()
-		return binary.BigEndian.Uint64(k[2:]) + 1
+
+	maxKey := []byte{tsPrefix, layer, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	for it.Seek(maxKey); it.ValidForPrefix(maxKey[:2]); it.Next() {
+		return binary.BigEndian.Uint64(it.Item().Key()[2:]) + 1
 	}
 	return 0
 }
@@ -103,20 +93,24 @@ func newTreeStore(db *badger.DB, cacheSize uint64) *treeStore {
 		cSize:  cacheSize,
 	}
 
-	t.resetCache()
+	t.makeCaches()
 
+	// load tree state
 	db.View(func(txn *badger.Txn) error {
-		t.w = treeWidth(txn)
-		t.ts = t.w
-		// fixme(leogr): calculate proper position by re-reading each level from db
-		l := 0
-		for i := t.w; i > 0; i /= 2 {
-			t.cPos[l] = i - 1
-			l++
+		for l := 0; l < 256; l++ {
+			w := treeLayerWidth(uint8(l), txn)
+			if w == 0 {
+				break
+			}
+			t.cPos[l] = w
 		}
+		t.w = t.cPos[0]
+		t.ts = t.w
 		return nil
 	})
+
 	go t.worker()
+
 	return t
 }
 
@@ -146,7 +140,7 @@ func (t *treeStore) WaitUntil(index uint64) {
 	}
 }
 
-func (t *treeStore) resetCache() {
+func (t *treeStore) makeCaches() {
 	size := t.cSize + 2
 	if size < 64 {
 		size = 64

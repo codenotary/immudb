@@ -80,7 +80,7 @@ func TestTopic(t *testing.T) {
 	topic.store.Close()
 	assert.Equal(t, root64th, tree.Root(topic.store))
 
-	topic.store.resetCache() // with empty cache, next call should fetch from DB
+	topic.store.makeCaches() // with empty cache, next call should fetch from DB
 	assert.Equal(t, root64th, tree.Root(topic.store))
 }
 
@@ -111,7 +111,7 @@ func TestTopicAsyncCommit(t *testing.T) {
 	topic.store.Close()
 	assert.Equal(t, root64th, tree.Root(topic.store))
 
-	topic.store.resetCache() // with empty cache, next call should fetch from DB
+	topic.store.makeCaches() // with empty cache, next call should fetch from DB
 	assert.Equal(t, root64th, tree.Root(topic.store))
 }
 
