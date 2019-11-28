@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strconv"
 
@@ -34,8 +35,25 @@ import (
 	"github.com/codenotary/immudb/pkg/schema"
 )
 
+var marshaller = proto.TextMarshaler{}
+
+func printItem(key []byte, value []byte, message interface{}) {
+	var index uint64
+	switch m := message.(type) {
+	case *schema.GetResponse:
+		index = m.Index
+		value = m.Value
+	case *schema.SetResponse:
+		index = m.Index
+	}
+	fmt.Printf(`index:	%d
+key:	%s
+value:	%s
+hash:	%x
+`, index, key, value, api.Digest(index, key, value))
+}
+
 func main() {
-	marshaller := proto.TextMarshaler{}
 	cmd := &cobra.Command{
 		Use: "immu",
 	}
@@ -57,7 +75,7 @@ func main() {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Println(marshaller.Text(response.(*schema.GetResponse)))
+			printItem([]byte(args[0]), nil, response)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -79,14 +97,20 @@ func main() {
 			} else {
 				reader = bufio.NewReader(os.Stdin)
 			}
+			var buf bytes.Buffer
+			tee := io.TeeReader(reader, &buf)
 			response, err := immuClient.Connected(func() (interface{}, error) {
-				return immuClient.Set(bytes.NewReader([]byte(args[0])), reader)
+				return immuClient.Set(bytes.NewReader([]byte(args[0])), tee)
 			})
 			if err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Println(marshaller.Text(response.(*schema.SetResponse)))
+			value, err := ioutil.ReadAll(&buf)
+			if err != nil {
+				return err
+			}
+			printItem([]byte(args[0]), value, response)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
