@@ -59,6 +59,15 @@ func TestAppend(t *testing.T) {
 	}
 }
 
+func TestRoot(t *testing.T) {
+	s := NewMemStore()
+	assert.Equal(t, sha256.Sum256(nil), Root(s))
+
+	value := []byte("some value")
+	Append(s, value)
+	assert.Equal(t, LeafHash(value), Root(s))
+}
+
 func TestPrint(t *testing.T) {
 	s := NewMemStore()
 	for n := 0; n <= 64; n++ {

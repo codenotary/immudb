@@ -39,7 +39,11 @@ func Depth(store Storer) int {
 
 // Root returns the root hash of the tree. Panic if store is empty.
 func Root(store Storer) [sha256.Size]byte {
-	return *store.Get(uint8(Depth(store)), 0)
+	h := store.Get(uint8(Depth(store)), 0)
+	if h == nil {
+		return sha256.Sum256(nil)
+	}
+	return *h
 }
 
 // LeafHash computes the leaf's hash of the given content b.
