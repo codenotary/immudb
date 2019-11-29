@@ -21,6 +21,7 @@ import (
 )
 
 var (
-	InvalidKeyErr = errors.New("invalid key")
-	IndexNotFound = errors.New("index not found")
+	InvalidKeyErr          = errors.New("invalid key")
+	IndexNotFoundErr       = errors.New("index not found")
+	InconsistentStateError = errors.New("inconsistent state")
 )

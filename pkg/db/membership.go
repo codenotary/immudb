@@ -29,7 +29,7 @@ func (t *Topic) MembershipProof(index uint64) (*api.MembershipProof, error) {
 
 	leaf := ts.Get(0, index)
 	if leaf == nil {
-		return nil, IndexNotFound
+		return nil, IndexNotFoundErr
 	}
 
 	return &api.MembershipProof{

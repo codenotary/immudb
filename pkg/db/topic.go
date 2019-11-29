@@ -17,12 +17,14 @@ limitations under the License.
 package db
 
 import (
+	"context"
 	"math"
 	"sync"
 
 	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v2/pb"
 )
 
 type Topic struct {
@@ -34,18 +36,23 @@ type Topic struct {
 
 func Open(options Options) (*Topic, error) {
 	opt := options.dataStore()
+	opt.NumVersionsToKeep = math.MaxInt64 // immutability, always keep all data
+
 	db, err := badger.OpenManaged(opt)
 	if err != nil {
 		return nil, err
 	}
 
 	t := &Topic{
-		db:    db,
+		db: db,
+		// fixme(leogr): cache size could be calculated using db.MaxBatchCount()
 		store: newTreeStore(db, 750_000, opt.Logger),
 		log:   opt.Logger,
 	}
 
-	t.log.Infof("Topic ready with directory: %s", opt.Dir)
+	// fixme(leogr): need to get all keys inserted after the tree width, if any, and replay
+
+	t.log.Infof("Topic opened at path: %s", opt.Dir)
 	return t, nil
 }
 
@@ -155,7 +162,42 @@ func (t *Topic) Get(key []byte) (value []byte, index uint64, err error) {
 		return
 	}
 	value, err = item.ValueCopy(nil)
-	return value, item.Version() - 1, nil
+	index = item.Version() - 1
+	return
+}
+
+// fixme(leogr): need to be optmized
+func (t *Topic) itemAt(readTs uint64) (version uint64, key, value []byte, err error) {
+	stream := t.db.NewStreamAt(readTs)
+	stream.ChooseKey = func(item *badger.Item) bool {
+		return item.UserMeta() != bitTreeEntry && item.Version() == readTs
+	}
+
+	found := false
+
+	stream.Send = func(list *pb.KVList) error {
+		for _, kv := range list.Kv {
+			key = kv.Key
+			value = kv.Value
+			version = kv.Version
+			found = true
+			return nil
+		}
+		return nil
+	}
+	err = stream.Orchestrate(context.Background())
+	if err == nil && !found {
+		err = IndexNotFoundErr
+	}
+	return
+}
+
+func (t *Topic) ByIndex(index uint64) (key, value []byte, err error) {
+	version, key, value, err := t.itemAt(index + 1)
+	if version != index+1 {
+		err = IndexNotFoundErr
+	}
+	return
 }
 
 func (t *Topic) HealthCheck() bool {
