@@ -160,7 +160,9 @@ func (c *ImmuClient) connectWithRetry() (err error) {
 			return nil
 		}
 		c.Logger.Debugf("dial failed: %v", err)
-		time.Sleep(time.Second)
+		if c.Options.DialRetries > 0 {
+			time.Sleep(time.Second)
+		}
 	}
 	return err
 }
@@ -172,7 +174,9 @@ func (c *ImmuClient) waitForHealthCheck() (err error) {
 			return nil
 		}
 		c.Logger.Debugf("health check failed: %v", err)
-		time.Sleep(time.Second)
+		if c.Options.HealthCheckRetries > 0 {
+			time.Sleep(time.Second)
+		}
 	}
 	return err
 }
