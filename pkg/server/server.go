@@ -137,6 +137,25 @@ func (s *ImmuServer) Membership(ctx context.Context, mr *schema.MembershipReques
 	return mp, nil
 }
 
+func (s *ImmuServer) History(ctx context.Context, gr *schema.GetRequest) (*schema.ItemList, error) {
+	s.Logger.Debugf("hostory for key %s ", string(gr.Key))
+
+	list, err := s.Topic.History(gr.Key)
+	if err != nil {
+		return nil, err
+	}
+	itemList := &schema.ItemList{}
+
+	for _, i := range list {
+		itemList.Items = append(itemList.Items, &schema.Item{
+			Key:   i.Key,
+			Value: i.Value,
+			Index: i.Index,
+		})
+	}
+	return itemList, nil
+}
+
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
 	health := s.Topic.HealthCheck()
 	s.Logger.Debugf("health check: %v", health)
