@@ -134,6 +134,20 @@ func (c *ImmuClient) Membership(index uint64) (*schema.MembershipProof, error) {
 	})
 }
 
+func (c *ImmuClient) History(keyReader io.Reader) (*schema.ItemList, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	key, err := ioutil.ReadAll(keyReader)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.serviceClient.History(context.Background(), &schema.GetRequest{
+		Key: key,
+	})
+}
+
 func (c *ImmuClient) HealthCheck() error {
 	if !c.isConnected() {
 		return ErrNotConnected

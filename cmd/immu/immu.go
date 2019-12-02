@@ -45,7 +45,12 @@ func printItem(key []byte, value []byte, message interface{}) {
 		value = m.Value
 	case *schema.SetResponse:
 		index = m.Index
+	case *schema.Item:
+		key = m.Key
+		value = m.Value
+		index = m.Index
 	}
+
 	fmt.Printf(`index:	%d
 key:	%s
 value:	%s
@@ -163,12 +168,41 @@ root: %x at index: %d
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
+
+	historyCommand := &cobra.Command{
+		Use:     "history",
+		Aliases: []string{"h"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			options, err := options(cmd)
+			if err != nil {
+				return err
+			}
+			immuClient := client.
+				DefaultClient().
+				WithOptions(*options)
+			response, err := immuClient.Connected(func() (interface{}, error) {
+				return immuClient.History(bytes.NewReader([]byte(args[0])))
+			})
+			if err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			for _, item := range response.(*schema.ItemList).Items {
+				printItem(nil, nil, item)
+				fmt.Println()
+			}
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
 	configureOptions(getCommand)
 	configureOptions(setCommand)
 	configureOptions(membershipCommand)
+	configureOptions(historyCommand)
 	cmd.AddCommand(getCommand)
 	cmd.AddCommand(setCommand)
 	cmd.AddCommand(membershipCommand)
+	cmd.AddCommand(historyCommand)
 	if err := cmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
