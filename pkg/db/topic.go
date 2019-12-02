@@ -21,6 +21,8 @@ import (
 	"math"
 	"sync"
 
+	"github.com/codenotary/immudb/pkg/api"
+
 	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/dgraph-io/badger/v2"
@@ -196,6 +198,28 @@ func (t *Topic) ByIndex(index uint64) (key, value []byte, err error) {
 	version, key, value, err := t.itemAt(index + 1)
 	if version != index+1 {
 		err = IndexNotFoundErr
+	}
+	return
+}
+
+func (t *Topic) History(key []byte) (items api.Items, err error) {
+	txn := t.db.NewTransactionAt(math.MaxInt64, false)
+	defer txn.Discard()
+	it := txn.NewKeyIterator(key, badger.IteratorOptions{})
+	defer it.Close()
+
+	for it.Rewind(); it.Valid(); it.Next() {
+		item := it.Item()
+		var value []byte
+		value, err = item.ValueCopy(nil)
+		if err != nil {
+			return
+		}
+		items = append(items, api.Item{
+			Key:   key,
+			Value: value,
+			Index: item.Version() - 1,
+		})
 	}
 	return
 }
