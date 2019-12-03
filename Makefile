@@ -43,6 +43,10 @@ build/codegen:
 clean:
 	rm -f immu immud bm
 
+.PHONY: nimmu
+nimmu:
+	$(GO) build -o nimmu ./tools/nimmu 
+
 .PHONY: bm
 bm:
 	$(GO) build -ldflags '-s -w' ./tools/bm
