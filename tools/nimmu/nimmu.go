@@ -87,7 +87,9 @@ func configureOptions(cmd *cobra.Command) {
 }
 
 func makeDB(dir string) *badger.DB {
-	opts := badger.DefaultOptions(dir)
+	opts := badger.DefaultOptions(dir).
+		WithLogger(nil)
+
 	db, err := badger.OpenManaged(opts)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
