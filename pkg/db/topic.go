@@ -194,10 +194,13 @@ func (t *Topic) itemAt(readTs uint64) (version uint64, key, value []byte, err er
 	return
 }
 
-func (t *Topic) ByIndex(index uint64) (key, value []byte, err error) {
+func (t *Topic) ByIndex(index uint64) (item *api.Item, err error) {
 	version, key, value, err := t.itemAt(index + 1)
 	if version != index+1 {
 		err = IndexNotFoundErr
+	}
+	if err == nil {
+		item = &api.Item{Key: key, Value: value, Index: index}
 	}
 	return
 }
