@@ -129,7 +129,17 @@ func (c *ImmuClient) Membership(index uint64) (*schema.MembershipProof, error) {
 		return nil, ErrNotConnected
 	}
 
-	return c.serviceClient.Membership(context.Background(), &schema.MembershipRequest{
+	return c.serviceClient.Membership(context.Background(), &schema.Index{
+		Index: index,
+	})
+}
+
+func (c *ImmuClient) ByIndex(index uint64) (*schema.Item, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.serviceClient.ByIndex(context.Background(), &schema.Index{
 		Index: index,
 	})
 }
