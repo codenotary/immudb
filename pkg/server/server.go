@@ -117,9 +117,9 @@ func (s *ImmuServer) GetBatch(ctx context.Context, bgr *schema.BatchGetRequest) 
 	return &schema.BatchGetResponse{GetResponses: grs}, nil
 }
 
-func (s *ImmuServer) Membership(ctx context.Context, mr *schema.MembershipRequest) (*schema.MembershipProof, error) {
-	s.Logger.Debugf("membership for index %d ", mr.Index)
-	proof, err := s.Topic.MembershipProof(mr.Index)
+func (s *ImmuServer) Membership(ctx context.Context, mi *schema.Index) (*schema.MembershipProof, error) {
+	s.Logger.Debugf("membership for index %d ", mi.Index)
+	proof, err := s.Topic.MembershipProof(mi.Index)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +135,19 @@ func (s *ImmuServer) Membership(ctx context.Context, mr *schema.MembershipReques
 		mp.Path = append(mp.Path, cp[:])
 	}
 	return mp, nil
+}
+
+func (s *ImmuServer) ByIndex(ctx context.Context, mi *schema.Index) (*schema.Item, error) {
+	s.Logger.Debugf("get by index %d ", mi.Index)
+	item, err := s.Topic.ByIndex(mi.Index)
+	if err != nil {
+		return nil, err
+	}
+	return &schema.Item{
+		Key:   item.Key,
+		Value: item.Value,
+		Index: item.Index,
+	}, nil
 }
 
 func (s *ImmuServer) History(ctx context.Context, gr *schema.GetRequest) (*schema.ItemList, error) {

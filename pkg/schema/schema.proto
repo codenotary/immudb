@@ -58,7 +58,7 @@ message MembershipProof {
 	repeated bytes path = 5;
 }
 
-message MembershipRequest {
+message Index {
 	uint64 index = 1;
 }
 
@@ -81,7 +81,8 @@ service ImmuService {
 	rpc SetBatch (BatchSetRequest) returns (SetResponse);
 	rpc Get (GetRequest) returns (GetResponse);
 	rpc GetBatch (BatchGetRequest) returns (BatchGetResponse);
-	rpc Membership(MembershipRequest) returns (MembershipProof);
+	rpc Membership(Index) returns (MembershipProof);
+	rpc ByIndex(Index) returns (Item);
 	rpc History(GetRequest) returns (ItemList);
 	rpc Health (google.protobuf.Empty) returns (HealthResponse);
 }
