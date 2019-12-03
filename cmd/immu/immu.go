@@ -19,6 +19,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -158,12 +159,39 @@ func main() {
 				proof.Path = append(proof.Path, parr)
 			}
 
+			var hash []byte
+			if len(args) > 1 {
+				src := []byte(args[1])
+				l := hex.DecodedLen(len(src))
+				if l != 32 {
+					return fmt.Errorf("invalid hash lenght")
+				}
+				hash = make([]byte, l)
+				_, err := hex.Decode(hash, src)
+				if err != nil {
+					return err
+				}
+
+			} else {
+				response, err := immuClient.Connected(func() (interface{}, error) {
+					return immuClient.ByIndex(index)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				item := response.(*schema.Item)
+				h := api.Digest(index, item.Key, item.Value)
+				hash = h[:]
+			}
+			hashCheck := bytes.Compare(hash, proof.Hash[:]) == 0
+
 			fmt.Printf(`verified: %t
 
 hash: %x at index: %d
 root: %x at index: %d
 
-`, proof.Verify(), proof.Hash, proof.Index, proof.Root, proof.At)
+`, hashCheck && proof.Verify(), proof.Hash, proof.Index, proof.Root, proof.At)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
