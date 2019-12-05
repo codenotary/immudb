@@ -17,7 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
 
@@ -44,7 +46,17 @@ func main() {
 			defer db.Close()
 
 			k := []byte(args[0])
-			v := []byte(args[1])
+			var v []byte
+
+			if len(args) > 1 {
+				v = []byte(args[1])
+			} else {
+				reader := bufio.NewReader(os.Stdin)
+				v, err = ioutil.ReadAll(reader)
+				if err != nil {
+					return err
+				}
+			}
 
 			txn := db.NewTransactionAt(math.MaxUint64, true)
 			defer txn.Discard()
@@ -52,8 +64,21 @@ func main() {
 			if err != nil {
 				return err
 			}
-
 			ts := item.Version()
+			oldValue, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf(`
+index: %d
+key: %s
+
+OLD value:
+%s
+			
+`, ts-1, item.Key(), oldValue)
+
 			if err := txn.Set(k, v); err != nil {
 				return err
 			}
@@ -63,16 +88,16 @@ func main() {
 			}
 
 			fmt.Printf(`
-key: %s
-value: %s
+NEW value:
+%s
 
 index %d successfully overwritten.
 
-`, k, v, ts-1)
+`, v, ts-1)
 
 			return nil
 		},
-		Args: cobra.MinimumNArgs(2),
+		Args: cobra.MinimumNArgs(1),
 	}
 	configureOptions(rawSetCmd)
 	cmd.AddCommand(rawSetCmd)
