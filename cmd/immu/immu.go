@@ -223,14 +223,39 @@ root: %x at index: %d
 		},
 		Args: cobra.ExactArgs(1),
 	}
+	pingCommand := &cobra.Command{
+		Use:     "ping",
+		Aliases: []string{"p"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			options, err := options(cmd)
+			if err != nil {
+				return err
+			}
+			immuClient := client.
+				DefaultClient().
+				WithOptions(*options)
+			_, err = immuClient.Connected(func() (interface{}, error) {
+				return nil, immuClient.HealthCheck()
+			})
+			if err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("Health check OK")
+			return nil
+		},
+		Args: cobra.NoArgs,
+	}
 	configureOptions(getCommand)
 	configureOptions(setCommand)
 	configureOptions(membershipCommand)
 	configureOptions(historyCommand)
+	configureOptions(pingCommand)
 	cmd.AddCommand(getCommand)
 	cmd.AddCommand(setCommand)
 	cmd.AddCommand(membershipCommand)
 	cmd.AddCommand(historyCommand)
+	cmd.AddCommand(pingCommand)
 	if err := cmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
