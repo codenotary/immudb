@@ -45,6 +45,10 @@ func (s *ImmuServer) Start() (err error) {
 	if err != nil {
 		return err
 	}
+
+	metricsServer := StartMetrics(s.Options.MetricsBind(), s.Logger)
+	defer metricsServer.Close()
+
 	s.GrpcServer = grpc.NewServer()
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	s.installShutdownHandler()

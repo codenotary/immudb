@@ -23,20 +23,22 @@ import (
 )
 
 type Options struct {
-	Dir     string
-	Network string
-	Address string
-	Port    int
-	DbName  string
+	Dir         string
+	Network     string
+	Address     string
+	Port        int
+	MetricsPort int
+	DbName      string
 }
 
 func DefaultOptions() Options {
 	return Options{
-		Dir:     ".",
-		Network: "tcp",
-		Address: "127.0.0.1",
-		Port:    8080,
-		DbName:  "immudb",
+		Dir:         ".",
+		Network:     "tcp",
+		Address:     "127.0.0.1",
+		Port:        8080,
+		MetricsPort: 9497,
+		DbName:      "immudb",
 	}
 }
 
@@ -69,10 +71,14 @@ func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
 }
 
+func (o Options) MetricsBind() string {
+	return o.Address + ":" + strconv.Itoa(o.MetricsPort)
+}
+
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d name:%v}",
-		o.Dir, o.Network, o.Address, o.Port, o.DbName)
+		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v}",
+		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName)
 }
 
 func (o Options) FromEnvironment() Options {
