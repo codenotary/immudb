@@ -151,7 +151,7 @@ func (s *ImmuServer) ByIndex(ctx context.Context, mi *schema.Index) (*schema.Ite
 }
 
 func (s *ImmuServer) History(ctx context.Context, gr *schema.GetRequest) (*schema.ItemList, error) {
-	s.Logger.Debugf("hostory for key %s ", string(gr.Key))
+	s.Logger.Debugf("history for key %s ", string(gr.Key))
 
 	list, err := s.Topic.History(gr.Key)
 	if err != nil {
