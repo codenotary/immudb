@@ -28,19 +28,19 @@ import (
 func init() {
 	http.Handle("/metrics", promhttp.Handler())
 	expvarCollector := prometheus.NewExpvarCollector(map[string]*prometheus.Desc{
-		"badger_blocked_puts_total":   prometheus.NewDesc("immudb_blocked_puts_total", "Blocked Puts", nil, nil),
-		"badger_disk_reads_total":     prometheus.NewDesc("immudb_disk_reads_total", "Disk Reads", nil, nil),
-		"badger_disk_writes_total":    prometheus.NewDesc("immudb_disk_writes_total", "Disk Writes", nil, nil),
-		"badger_gets_total":           prometheus.NewDesc("immudb_gets_total", "Gets", nil, nil),
-		"badger_puts_total":           prometheus.NewDesc("immudb_puts_total", "Puts", nil, nil),
-		"badger_memtable_gets_total":  prometheus.NewDesc("immudb_memtable_gets_total", "Memtable gets", nil, nil),
-		"badger_lsm_size_bytes":       prometheus.NewDesc("immudb_lsm_size_bytes", "LSM Size in bytes", []string{"database"}, nil),
-		"badger_vlog_size_bytes":      prometheus.NewDesc("immudb_vlog_size_bytes", "Value Log Size in bytes", []string{"database"}, nil),
-		"badger_pending_writes_total": prometheus.NewDesc("immudb_pending_writes_total", "Pending Writes", []string{"database"}, nil),
-		"badger_read_bytes":           prometheus.NewDesc("immudb_read_bytes", "Read bytes", nil, nil),
-		"badger_written_bytes":        prometheus.NewDesc("immudb_written_bytes", "Written bytes", nil, nil),
-		"badger_lsm_bloom_hits_total": prometheus.NewDesc("immudb_lsm_bloom_hits_total", "LSM Bloom Hits", []string{"level"}, nil),
-		"badger_lsm_level_gets_total": prometheus.NewDesc("immudb_lsm_level_gets_total", "LSM Level Gets", []string{"level"}, nil),
+		"badger_blocked_puts_total":   prometheus.NewDesc("immud_blocked_puts_total", "Blocked Puts", nil, nil),
+		"badger_disk_reads_total":     prometheus.NewDesc("immud_disk_reads_total", "Disk Reads", nil, nil),
+		"badger_disk_writes_total":    prometheus.NewDesc("immud_disk_writes_total", "Disk Writes", nil, nil),
+		"badger_gets_total":           prometheus.NewDesc("immud_gets_total", "Gets", nil, nil),
+		"badger_puts_total":           prometheus.NewDesc("immud_puts_total", "Puts", nil, nil),
+		"badger_memtable_gets_total":  prometheus.NewDesc("immud_memtable_gets_total", "Memtable gets", nil, nil),
+		"badger_lsm_size_bytes":       prometheus.NewDesc("immud_lsm_size_bytes", "LSM Size in bytes", []string{"database"}, nil),
+		"badger_vlog_size_bytes":      prometheus.NewDesc("immud_vlog_size_bytes", "Value Log Size in bytes", []string{"database"}, nil),
+		"badger_pending_writes_total": prometheus.NewDesc("immud_pending_writes_total", "Pending Writes", []string{"database"}, nil),
+		"badger_read_bytes":           prometheus.NewDesc("immud_read_bytes", "Read bytes", nil, nil),
+		"badger_written_bytes":        prometheus.NewDesc("immud_written_bytes", "Written bytes", nil, nil),
+		"badger_lsm_bloom_hits_total": prometheus.NewDesc("immud_lsm_bloom_hits_total", "LSM Bloom Hits", []string{"level"}, nil),
+		"badger_lsm_level_gets_total": prometheus.NewDesc("immud_lsm_level_gets_total", "LSM Level Gets", []string{"level"}, nil),
 	})
 	prometheus.MustRegister(expvarCollector)
 }
