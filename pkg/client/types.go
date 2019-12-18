@@ -35,7 +35,7 @@ type ImmuClient struct {
 
 func DefaultClient() *ImmuClient {
 	return &ImmuClient{
-		Logger:  logger.New("immudb-client", os.Stderr),
+		Logger:  logger.New("immu-client", os.Stderr),
 		Options: DefaultOptions(),
 	}
 }

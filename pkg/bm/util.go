@@ -34,7 +34,7 @@ func makeTopic() (*db.Topic, func()) {
 	}
 
 	opts := db.DefaultOptions(dir)
-	opts.Badger.Logger = logger.NewWithLevel("bm(immudb)", os.Stderr, logger.LogDebug)
+	opts.Badger.Logger = logger.NewWithLevel("bm(immud)", os.Stderr, logger.LogDebug)
 
 	topic, err := db.Open(opts)
 	if err != nil {

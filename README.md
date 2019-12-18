@@ -1,2 +1,2 @@
-# immu
-ImmuDB
+# immustore
+
