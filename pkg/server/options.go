@@ -82,23 +82,23 @@ func (o Options) String() string {
 }
 
 func (o Options) FromEnvironment() Options {
-	dir := os.Getenv("IMMUDB_DIR")
+	dir := os.Getenv("IMMU_DIR")
 	if dir != "" {
 		o.Dir = dir
 	}
-	network := os.Getenv("IMMUDB_NETWORK")
+	network := os.Getenv("IMMU_NETWORK")
 	if network != "" {
 		o.Network = network
 	}
-	address := os.Getenv("IMMUDB_ADDRESS")
+	address := os.Getenv("IMMU_ADDRESS")
 	if address != "" {
 		o.Address = address
 	}
-	port := os.Getenv("IMMUDB_PORT")
+	port := os.Getenv("IMMU_PORT")
 	if parsedPort, err := strconv.Atoi(port); err == nil {
 		o.Port = parsedPort
 	}
-	dbName := os.Getenv("IMMUDB_DBNAME")
+	dbName := os.Getenv("IMMU_DBNAME")
 	if dbName != "" {
 		o.DbName = dbName
 	}

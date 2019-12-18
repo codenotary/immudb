@@ -67,19 +67,19 @@ func (o Options) String() string {
 }
 
 func (o Options) FromEnvironment() Options {
-	address := os.Getenv("IMMUDB_ADDRESS")
+	address := os.Getenv("IMMU_ADDRESS")
 	if address != "" {
 		o.Address = address
 	}
-	port := os.Getenv("IMMUDB_PORT")
+	port := os.Getenv("IMMU_PORT")
 	if parsedPort, err := strconv.Atoi(port); err == nil {
 		o.Port = parsedPort
 	}
-	dialRetries := os.Getenv("IMMUDB_DIAL_RETRIES")
+	dialRetries := os.Getenv("IMMU_DIAL_RETRIES")
 	if parsedDialRetries, err := strconv.Atoi(dialRetries); err == nil {
 		o.DialRetries = parsedDialRetries
 	}
-	healthCheckRetries := os.Getenv("IMMUDB_HEALTH_CHECK_RETRIES")
+	healthCheckRetries := os.Getenv("IMMU_HEALTH_CHECK_RETRIES")
 	if parsedHealthCheckRetries, err := strconv.Atoi(healthCheckRetries); err == nil {
 		o.HealthCheckRetries = parsedHealthCheckRetries
 	}
