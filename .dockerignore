@@ -15,4 +15,4 @@ vendor
 .gitignore
 build
 resources
-/immudb
+/immudata

@@ -32,7 +32,7 @@ import (
 const Iterations = 500_000
 const BatchSize = 100
 
-var tmpDir, _ = ioutil.TempDir("", "immudb")
+var tmpDir, _ = ioutil.TempDir("", "immu")
 var immuServer = server.DefaultServer().
 	WithOptions(
 		server.DefaultOptions().WithDir(tmpDir),

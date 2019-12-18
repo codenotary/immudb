@@ -38,7 +38,7 @@ func DefaultOptions() Options {
 		Address:     "127.0.0.1",
 		Port:        8080,
 		MetricsPort: 9497,
-		DbName:      "immudb",
+		DbName:      "immustore",
 	}
 }
 

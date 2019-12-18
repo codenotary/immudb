@@ -108,7 +108,7 @@ index %d successfully overwritten.
 }
 
 func configureOptions(cmd *cobra.Command) {
-	cmd.Flags().StringP("dir", "d", "./immudb/data", "immudb data directory")
+	cmd.Flags().StringP("dir", "d", "./immustore/data", "immustore data directory")
 }
 
 func makeDB(dir string) *badger.DB {
