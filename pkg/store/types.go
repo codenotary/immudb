@@ -14,14 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package store
 
-import (
-	"errors"
-)
-
-var (
-	InvalidKeyErr          = errors.New("invalid key")
-	IndexNotFoundErr       = errors.New("index not found")
-	InconsistentStateError = errors.New("inconsistent state")
-)
+type KVPair struct {
+	Key   []byte
+	Value []byte
+}

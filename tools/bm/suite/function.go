@@ -21,7 +21,7 @@ import (
 	"strconv"
 
 	"github.com/codenotary/immustore/pkg/bm"
-	"github.com/codenotary/immustore/pkg/db"
+	"github.com/codenotary/immustore/pkg/store"
 )
 
 var maxProcs int
@@ -30,7 +30,7 @@ var V = []byte{0, 1, 3, 4, 5, 6, 7}
 
 var FunctionBenchmarks = []bm.Bm{
 	// {
-	// 	CreateTopic: true,
+	// 	CreateStore: true,
 	// 	Name:        "sequential write (fine tuned / experimental)",
 	// 	Concurrency: 1_000_000, // Concurrency,
 	// 	Iterations:  1_000_000,
@@ -43,7 +43,7 @@ var FunctionBenchmarks = []bm.Bm{
 	// 	Work: func(bm *bm.Bm, start int, end int) error {
 	// 		for i := start; i < end; i++ {
 	// 			key := []byte(strconv.FormatUint(uint64(i), 10))
-	// 			if _, err := bm.Topic.Set(key, V); err != nil {
+	// 			if _, err := bm.Store.Set(key, V); err != nil {
 	// 				return err
 	// 			}
 	// 		}
@@ -51,14 +51,14 @@ var FunctionBenchmarks = []bm.Bm{
 	// 	},
 	// },
 	{
-		CreateTopic: true,
+		CreateStore: true,
 		Name:        "sequential write (baseline)",
 		Concurrency: Concurrency,
 		Iterations:  1_000_000,
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Topic.Set(key, V); err != nil {
+				if _, err := bm.Store.Set(key, V); err != nil {
 					return err
 				}
 			}
@@ -66,15 +66,15 @@ var FunctionBenchmarks = []bm.Bm{
 		},
 	},
 	{
-		CreateTopic: true,
+		CreateStore: true,
 		Name:        "sequential write (async commit)",
 		Concurrency: Concurrency,
 		Iterations:  1_000_000,
 		Work: func(bm *bm.Bm, start int, end int) error {
-			opt := db.WithAsyncCommit(true)
+			opt := store.WithAsyncCommit(true)
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Topic.Set(key, V, opt); err != nil {
+				if _, err := bm.Store.Set(key, V, opt); err != nil {
 					return err
 				}
 			}
@@ -82,14 +82,14 @@ var FunctionBenchmarks = []bm.Bm{
 		},
 	},
 	{
-		CreateTopic: true,
+		CreateStore: true,
 		Name:        "sequential write (concurrency++)",
 		Concurrency: Concurrency * 8,
 		Iterations:  1_000_000,
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Topic.Set(key, V); err != nil {
+				if _, err := bm.Store.Set(key, V); err != nil {
 					return err
 				}
 			}
@@ -97,15 +97,15 @@ var FunctionBenchmarks = []bm.Bm{
 		},
 	},
 	{
-		CreateTopic: true,
+		CreateStore: true,
 		Name:        "sequential write (async commit / concurrency++)",
 		Concurrency: Concurrency * 8,
 		Iterations:  1_000_000,
 		Work: func(bm *bm.Bm, start int, end int) error {
-			opt := db.WithAsyncCommit(true)
+			opt := store.WithAsyncCommit(true)
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Topic.Set(key, V, opt); err != nil {
+				if _, err := bm.Store.Set(key, V, opt); err != nil {
 					return err
 				}
 			}
@@ -113,7 +113,7 @@ var FunctionBenchmarks = []bm.Bm{
 		},
 	},
 	{
-		CreateTopic: true,
+		CreateStore: true,
 		Name:        "sequential write (GOMAXPROCS=128 / concurrency++)",
 		Concurrency: Concurrency * 8,
 		Iterations:  1_000_000,
@@ -126,7 +126,7 @@ var FunctionBenchmarks = []bm.Bm{
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
 				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Topic.Set(key, V); err != nil {
+				if _, err := bm.Store.Set(key, V); err != nil {
 					return err
 				}
 			}
@@ -134,7 +134,7 @@ var FunctionBenchmarks = []bm.Bm{
 		},
 	},
 	{
-		CreateTopic: true,
+		CreateStore: true,
 		Name:        "batch write",
 
 		// batch size cannot execeed 100k items otherwise txn fail with:
@@ -148,21 +148,21 @@ var FunctionBenchmarks = []bm.Bm{
 		Iterations: 1_000_000,
 
 		Work: func(bm *bm.Bm, start int, end int) error {
-			var kvPairs []db.KVPair
+			var kvPairs []store.KVPair
 			for i := start; i < end; i++ {
-				kvPairs = append(kvPairs, db.KVPair{
+				kvPairs = append(kvPairs, store.KVPair{
 					Key:   []byte(strconv.FormatUint(uint64(i), 10)),
 					Value: V,
 				})
 			}
-			if _, err := bm.Topic.SetBatch(kvPairs); err != nil {
+			if _, err := bm.Store.SetBatch(kvPairs); err != nil {
 				return err
 			}
 			return nil
 		},
 	},
 	{
-		CreateTopic: true,
+		CreateStore: true,
 		Name:        "batch write (async commit)",
 
 		// batch size cannot execeed 100k items otherwise txn fail with:
@@ -176,15 +176,15 @@ var FunctionBenchmarks = []bm.Bm{
 		Iterations: 1_000_000,
 
 		Work: func(bm *bm.Bm, start int, end int) error {
-			opt := db.WithAsyncCommit(true)
-			var kvPairs []db.KVPair
+			opt := store.WithAsyncCommit(true)
+			var kvPairs []store.KVPair
 			for i := start; i < end; i++ {
-				kvPairs = append(kvPairs, db.KVPair{
+				kvPairs = append(kvPairs, store.KVPair{
 					Key:   []byte(strconv.FormatUint(uint64(i), 10)),
 					Value: V,
 				})
 			}
-			if _, err := bm.Topic.SetBatch(kvPairs, opt); err != nil {
+			if _, err := bm.Store.SetBatch(kvPairs, opt); err != nil {
 				return err
 			}
 			return nil

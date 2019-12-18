@@ -79,7 +79,7 @@ func batchSet(bm *bm.Bm, start int, end int) error {
 func makeRpcBenchmark(name string, concurrency int, iterations int,
 	work func(bm *bm.Bm, start int, end int) error) bm.Bm {
 	return bm.Bm{
-		CreateTopic: false,
+		CreateStore: false,
 		Name:        name,
 		Concurrency: concurrency,
 		Iterations:  iterations,

@@ -21,12 +21,12 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immustore/pkg/db"
 	"github.com/codenotary/immustore/pkg/logger"
+	"github.com/codenotary/immustore/pkg/store"
 )
 
 type ImmuServer struct {
-	Topic      *db.Topic
+	Store      *store.Store
 	Logger     logger.Logger
 	Options    Options
 	GrpcServer *grpc.Server
@@ -41,8 +41,8 @@ func DefaultServer() *ImmuServer {
 	}
 }
 
-func (s *ImmuServer) WithTopic(topic *db.Topic) *ImmuServer {
-	s.Topic = topic
+func (s *ImmuServer) WithStore(st *store.Store) *ImmuServer {
+	s.Store = st
 	return s
 }
 

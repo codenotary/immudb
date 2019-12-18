@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package store
 
 import (
 	"context"
@@ -29,14 +29,14 @@ import (
 	"github.com/dgraph-io/badger/v2/pb"
 )
 
-type Topic struct {
-	db    *badger.DB
-	store *treeStore
-	wg    sync.WaitGroup
-	log   logger.Logger
+type Store struct {
+	db   *badger.DB
+	tree *treeStore
+	wg   sync.WaitGroup
+	log  logger.Logger
 }
 
-func Open(options Options) (*Topic, error) {
+func Open(options Options) (*Store, error) {
 	opt := options.dataStore()
 	opt.NumVersionsToKeep = math.MaxInt64 // immutability, always keep all data
 
@@ -45,31 +45,31 @@ func Open(options Options) (*Topic, error) {
 		return nil, err
 	}
 
-	t := &Topic{
+	t := &Store{
 		db: db,
 		// fixme(leogr): cache size could be calculated using db.MaxBatchCount()
-		store: newTreeStore(db, 750_000, opt.Logger),
-		log:   opt.Logger,
+		tree: newTreeStore(db, 750_000, opt.Logger),
+		log:  opt.Logger,
 	}
 
 	// fixme(leogr): need to get all keys inserted after the tree width, if any, and replay
 
-	t.log.Infof("Topic opened at path: %s", opt.Dir)
+	t.log.Infof("Store opened at path: %s", opt.Dir)
 	return t, nil
 }
 
-func (t *Topic) Close() error {
-	defer t.log.Infof("Topic closed")
+func (t *Store) Close() error {
+	defer t.log.Infof("Store closed")
 	t.wg.Wait()
-	t.store.Close()
+	t.tree.Close()
 	return t.db.Close()
 }
 
-func (t *Topic) Wait() {
+func (t *Store) Wait() {
 	t.wg.Wait()
 }
 
-func (t *Topic) SetBatch(kvPairs []KVPair, options ...WriteOption) (index uint64, err error) {
+func (t *Store) SetBatch(kvPairs []KVPair, options ...WriteOption) (index uint64, err error) {
 	opts := makeWriteOptions(options...)
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
@@ -86,18 +86,18 @@ func (t *Topic) SetBatch(kvPairs []KVPair, options ...WriteOption) (index uint64
 		}
 	}
 
-	tsEntries := t.store.NewBatch(kvPairs)
+	tsEntries := t.tree.NewBatch(kvPairs)
 	ts := tsEntries[len(tsEntries)-1].ts
 	index = ts - 1
 
 	cb := func(err error) {
 		if err == nil {
 			for _, entry := range tsEntries {
-				t.store.Commit(entry)
+				t.tree.Commit(entry)
 			}
 		} else {
 			for _, entry := range tsEntries {
-				t.store.Discard(entry)
+				t.tree.Discard(entry)
 			}
 		}
 
@@ -116,7 +116,7 @@ func (t *Topic) SetBatch(kvPairs []KVPair, options ...WriteOption) (index uint64
 	return
 }
 
-func (t *Topic) Set(key, value []byte, options ...WriteOption) (index uint64, err error) {
+func (t *Store) Set(key, value []byte, options ...WriteOption) (index uint64, err error) {
 	opts := makeWriteOptions(options...)
 	if key[0] == tsPrefix {
 		err = InvalidKeyErr
@@ -131,14 +131,14 @@ func (t *Topic) Set(key, value []byte, options ...WriteOption) (index uint64, er
 		return
 	}
 
-	tsEntry := t.store.NewEntry(key, value)
+	tsEntry := t.tree.NewEntry(key, value)
 	index = tsEntry.ts - 1
 
 	cb := func(err error) {
 		if err == nil {
-			t.store.Commit(tsEntry)
+			t.tree.Commit(tsEntry)
 		} else {
-			t.store.Discard(tsEntry)
+			t.tree.Discard(tsEntry)
 		}
 		if opts.asyncCommit {
 			t.wg.Done()
@@ -156,7 +156,7 @@ func (t *Topic) Set(key, value []byte, options ...WriteOption) (index uint64, er
 	return
 }
 
-func (t *Topic) Get(key []byte) (value []byte, index uint64, err error) {
+func (t *Store) Get(key []byte) (value []byte, index uint64, err error) {
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 	item, err := txn.Get(key)
@@ -169,7 +169,7 @@ func (t *Topic) Get(key []byte) (value []byte, index uint64, err error) {
 }
 
 // fixme(leogr): need to be optmized
-func (t *Topic) itemAt(readTs uint64) (version uint64, key, value []byte, err error) {
+func (t *Store) itemAt(readTs uint64) (version uint64, key, value []byte, err error) {
 	stream := t.db.NewStreamAt(readTs)
 	stream.ChooseKey = func(item *badger.Item) bool {
 		return item.UserMeta() != bitTreeEntry && item.Version() == readTs
@@ -194,7 +194,7 @@ func (t *Topic) itemAt(readTs uint64) (version uint64, key, value []byte, err er
 	return
 }
 
-func (t *Topic) ByIndex(index uint64) (item *api.Item, err error) {
+func (t *Store) ByIndex(index uint64) (item *api.Item, err error) {
 	version, key, value, err := t.itemAt(index + 1)
 	if version != index+1 {
 		err = IndexNotFoundErr
@@ -205,7 +205,7 @@ func (t *Topic) ByIndex(index uint64) (item *api.Item, err error) {
 	return
 }
 
-func (t *Topic) History(key []byte) (items api.Items, err error) {
+func (t *Store) History(key []byte) (items api.Items, err error) {
 	txn := t.db.NewTransactionAt(math.MaxInt64, false)
 	defer txn.Discard()
 	it := txn.NewKeyIterator(key, badger.IteratorOptions{})
@@ -227,7 +227,7 @@ func (t *Topic) History(key []byte) (items api.Items, err error) {
 	return
 }
 
-func (t *Topic) HealthCheck() bool {
+func (t *Store) HealthCheck() bool {
 	_, _, err := t.Get([]byte{0})
 	return err == nil || err == badger.ErrKeyNotFound
 }

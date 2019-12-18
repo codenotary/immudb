@@ -28,8 +28,8 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immustore/pkg/db"
 	"github.com/codenotary/immustore/pkg/schema"
+	"github.com/codenotary/immustore/pkg/store"
 )
 
 func (s *ImmuServer) Start() (err error) {
@@ -41,7 +41,7 @@ func (s *ImmuServer) Start() (err error) {
 	if err := os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		return err
 	}
-	s.Topic, err = db.Open(db.DefaultOptions(dbDir))
+	s.Store, err = store.Open(store.DefaultOptions(dbDir))
 	if err != nil {
 		return err
 	}
@@ -63,16 +63,16 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
-	if s.Topic != nil {
-		defer func() { s.Topic = nil }()
-		return s.Topic.Close()
+	if s.Store != nil {
+		defer func() { s.Store = nil }()
+		return s.Store.Close()
 	}
 	return nil
 }
 
 func (s *ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.SetResponse, error) {
 	s.Logger.Debugf("set %s %d bytes", sr.Key, len(sr.Value))
-	index, err := s.Topic.Set(sr.Key, sr.Value)
+	index, err := s.Store.Set(sr.Key, sr.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -81,14 +81,14 @@ func (s *ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.Se
 
 func (s *ImmuServer) SetBatch(ctx context.Context, bsr *schema.BatchSetRequest) (*schema.SetResponse, error) {
 	s.Logger.Debugf("set batch %d", len(bsr.SetRequests))
-	var kvPairs []db.KVPair
+	var kvPairs []store.KVPair
 	for _, sr := range bsr.SetRequests {
-		kvPairs = append(kvPairs, db.KVPair{
+		kvPairs = append(kvPairs, store.KVPair{
 			Key:   sr.Key,
 			Value: sr.Value,
 		})
 	}
-	index, err := s.Topic.SetBatch(kvPairs)
+	index, err := s.Store.SetBatch(kvPairs)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (s *ImmuServer) SetBatch(ctx context.Context, bsr *schema.BatchSetRequest) 
 }
 
 func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.GetResponse, error) {
-	value, index, err := s.Topic.Get(gr.Key)
+	value, index, err := s.Store.Get(gr.Key)
 	s.Logger.Debugf("get %s %d bytes", gr.Key, len(value))
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (s *ImmuServer) GetBatch(ctx context.Context, bgr *schema.BatchGetRequest) 
 
 func (s *ImmuServer) Membership(ctx context.Context, mi *schema.Index) (*schema.MembershipProof, error) {
 	s.Logger.Debugf("membership for index %d ", mi.Index)
-	proof, err := s.Topic.MembershipProof(mi.Index)
+	proof, err := s.Store.MembershipProof(mi.Index)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (s *ImmuServer) Membership(ctx context.Context, mi *schema.Index) (*schema.
 
 func (s *ImmuServer) ByIndex(ctx context.Context, mi *schema.Index) (*schema.Item, error) {
 	s.Logger.Debugf("get by index %d ", mi.Index)
-	item, err := s.Topic.ByIndex(mi.Index)
+	item, err := s.Store.ByIndex(mi.Index)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (s *ImmuServer) ByIndex(ctx context.Context, mi *schema.Index) (*schema.Ite
 func (s *ImmuServer) History(ctx context.Context, gr *schema.GetRequest) (*schema.ItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(gr.Key))
 
-	list, err := s.Topic.History(gr.Key)
+	list, err := s.Store.History(gr.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (s *ImmuServer) History(ctx context.Context, gr *schema.GetRequest) (*schem
 }
 
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
-	health := s.Topic.HealthCheck()
+	health := s.Store.HealthCheck()
 	s.Logger.Debugf("health check: %v", health)
 	return &schema.HealthResponse{Status: health}, nil
 }

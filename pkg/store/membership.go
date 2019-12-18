@@ -14,9 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package store
 
-type KVPair struct {
-	Key   []byte
-	Value []byte
+import (
+	"github.com/codenotary/immustore/pkg/api"
+	"github.com/codenotary/immustore/pkg/tree"
+)
+
+func (t *Store) MembershipProof(index uint64) (*api.MembershipProof, error) {
+
+	ts := t.tree
+	ts.RLock()
+	defer ts.RUnlock()
+
+	leaf := ts.Get(0, index)
+	if leaf == nil {
+		return nil, IndexNotFoundErr
+	}
+
+	return &api.MembershipProof{
+		Index: index,
+		Hash:  *leaf,
+
+		Root: tree.Root(ts),
+		At:   ts.w - 1,
+
+		Path: tree.PathAt(ts, ts.w-1, index),
+	}, nil
 }

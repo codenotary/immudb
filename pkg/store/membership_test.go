@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package store
 
 import (
 	"strconv"
@@ -24,12 +24,12 @@ import (
 )
 
 func TestMembership(t *testing.T) {
-	topic, closer := makeTopic()
+	st, closer := makeStore()
 	defer closer()
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
-		index, err := topic.Set(key, key)
+		index, err := st.Set(key, key)
 		assert.NoError(t, err, "n=%d", n)
 		assert.Equal(t, n, index, "n=%d", n)
 	}
@@ -37,13 +37,13 @@ func TestMembership(t *testing.T) {
 	index := uint64(5)
 	at := uint64(64)
 
-	topic.store.WaitUntil(at)
+	st.tree.WaitUntil(at)
 
-	proof, err := topic.MembershipProof(index)
+	proof, err := st.MembershipProof(index)
 	assert.NoError(t, err)
 	assert.Equal(t, proof.Index, index)
 	assert.Equal(t, proof.At, at)
 	assert.Equal(t, proof.Root, root64th)
-	assert.Equal(t, proof.Hash, *topic.store.Get(0, index))
+	assert.Equal(t, proof.Hash, *st.tree.Get(0, index))
 	assert.True(t, proof.Verify())
 }

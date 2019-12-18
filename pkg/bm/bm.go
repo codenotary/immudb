@@ -23,12 +23,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codenotary/immustore/pkg/db"
+	"github.com/codenotary/immustore/pkg/store"
 )
 
 type Bm struct {
-	CreateTopic bool
-	Topic       *db.Topic
+	CreateStore bool
+	Store       *store.Store
 	Name        string
 	Concurrency int
 	Iterations  int
@@ -40,9 +40,9 @@ type Bm struct {
 func (b *Bm) Execute() *BmResult {
 	var wg sync.WaitGroup
 	chunkSize := b.Iterations / b.Concurrency
-	if b.Topic == nil && b.CreateTopic {
-		topic, closer := makeTopic()
-		b.Topic = topic
+	if b.Store == nil && b.CreateStore {
+		store, closer := makeStore()
+		b.Store = store
 		defer closer()
 	}
 	var memStatsBeforeRun runtime.MemStats
@@ -72,7 +72,7 @@ func (b *Bm) Execute() *BmResult {
 	if b.After != nil {
 		b.After(b)
 	}
-	b.Topic = nil // GC
+	b.Store = nil // GC
 	runtime.GC()
 	var memStatsAfterGC runtime.MemStats
 	runtime.ReadMemStats(&memStatsAfterGC)

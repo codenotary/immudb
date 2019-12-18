@@ -23,26 +23,26 @@ import (
 
 	"github.com/codenotary/immustore/pkg/logger"
 
-	"github.com/codenotary/immustore/pkg/db"
+	"github.com/codenotary/immustore/pkg/store"
 )
 
-func makeTopic() (*db.Topic, func()) {
+func makeStore() (*store.Store, func()) {
 
 	dir, err := ioutil.TempDir("", "immu")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	opts := db.DefaultOptions(dir)
+	opts := store.DefaultOptions(dir)
 	opts.Badger.Logger = logger.NewWithLevel("bm(immud)", os.Stderr, logger.LogDebug)
 
-	topic, err := db.Open(opts)
+	st, err := store.Open(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return topic, func() {
-		if err := topic.Close(); err != nil {
+	return st, func() {
+		if err := st.Close(); err != nil {
 			log.Fatal(err)
 		}
 		if err := os.RemoveAll(dir); err != nil {
