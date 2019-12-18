@@ -20,8 +20,8 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/codenotary/immudb/pkg/bm"
-	"github.com/codenotary/immudb/pkg/db"
+	"github.com/codenotary/immustore/pkg/bm"
+	"github.com/codenotary/immustore/pkg/db"
 )
 
 var maxProcs int

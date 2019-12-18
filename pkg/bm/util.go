@@ -21,9 +21,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immustore/pkg/logger"
 
-	"github.com/codenotary/immudb/pkg/db"
+	"github.com/codenotary/immustore/pkg/db"
 )
 
 func makeTopic() (*db.Topic, func()) {

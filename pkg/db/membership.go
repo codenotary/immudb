@@ -17,8 +17,8 @@ limitations under the License.
 package db
 
 import (
-	"github.com/codenotary/immudb/pkg/api"
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/immustore/pkg/api"
+	"github.com/codenotary/immustore/pkg/tree"
 )
 
 func (t *Topic) MembershipProof(index uint64) (*api.MembershipProof, error) {

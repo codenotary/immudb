@@ -20,7 +20,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immustore/pkg/logger"
 
 	"github.com/dgraph-io/badger/v2"
 )

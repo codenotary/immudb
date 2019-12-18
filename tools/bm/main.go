@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/codenotary/immudb/tools/bm/suite"
+	"github.com/codenotary/immustore/tools/bm/suite"
 )
 
 func main() {

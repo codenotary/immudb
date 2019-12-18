@@ -28,8 +28,8 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immudb/pkg/db"
-	"github.com/codenotary/immudb/pkg/schema"
+	"github.com/codenotary/immustore/pkg/db"
+	"github.com/codenotary/immustore/pkg/schema"
 )
 
 func (s *ImmuServer) Start() (err error) {

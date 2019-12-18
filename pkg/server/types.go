@@ -21,8 +21,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immudb/pkg/db"
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immustore/pkg/db"
+	"github.com/codenotary/immustore/pkg/logger"
 )
 
 type ImmuServer struct {

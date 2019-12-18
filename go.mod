@@ -1,4 +1,4 @@
-module github.com/codenotary/immudb
+module github.com/codenotary/immustore
 
 go 1.13
 

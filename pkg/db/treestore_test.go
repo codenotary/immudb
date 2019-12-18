@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immustore/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -20,7 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/codenotary/immudb/pkg/schema"
+	"github.com/codenotary/immustore/pkg/schema"
 )
 
 type BatchRequest struct {
