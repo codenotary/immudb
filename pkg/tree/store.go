@@ -48,12 +48,7 @@ func (m *memStore) Set(layer uint8, index uint64, value [sha256.Size]byte) {
 		m.data = append(m.data, make([][sha256.Size]byte, 0, 256*256))
 	}
 
-	l := uint64(len(m.data[layer]))
-	if l < index {
-		m.data[layer] = append(m.data[layer], make([][sha256.Size]byte, l-index)...)
-	}
-
-	if l == index {
+	if uint64(len(m.data[layer])) == index {
 		m.data[layer] = append(m.data[layer], value)
 	} else {
 		m.data[layer][index] = value

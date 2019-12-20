@@ -104,16 +104,12 @@ func IsFrozen(layer uint8, index, at uint64) bool {
 type Path [][sha256.Size]byte
 
 func mth(store Storer, l, r uint64) *[sha256.Size]byte {
-	n := r - l + 1
+	n := r - l
 	if n == 0 {
-		h := sha256.Sum256(nil)
-		return &h
-	}
-	if n == 1 {
 		return store.Get(0, r)
 	}
 
-	k := uint64(1) << (bits.Len64(n-1) - 1)
+	k := uint64(1) << (bits.Len64(n) - 1)
 
 	c := [sha256.Size*2 + 1]byte{NodePrefix}
 	copy(c[1:sha256.Size+1], mth(store, l, l+k-1)[:]) //MTH(D[0:k])
@@ -124,9 +120,8 @@ func mth(store Storer, l, r uint64) *[sha256.Size]byte {
 
 func mthPosition(l, r uint64) (layer uint8, index uint64) {
 
-	n := r - l + 1
-	d := (bits.Len64(n - 1))
-	k := uint64(1) << (d)
+	d := (bits.Len64(r - l))
+	k := uint64(1) << d
 
 	index = l / k
 	layer = uint8(d)
