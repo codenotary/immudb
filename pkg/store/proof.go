@@ -39,6 +39,6 @@ func (t *Store) InclusionProof(index uint64) (*api.InclusionProof, error) {
 		Root: tree.Root(ts),
 		At:   ts.w - 1,
 
-		Path: tree.PathAt(ts, ts.w-1, index),
+		Path: tree.InclusionProof(ts, ts.w-1, index),
 	}, nil
 }
