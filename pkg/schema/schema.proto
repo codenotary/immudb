@@ -50,7 +50,7 @@ message BatchGetResponse {
 	repeated GetResponse getResponses = 1;
 }
 
-message MembershipProof {
+message InclusionProof {
 	uint64 index = 1;
 	bytes hash = 2;
 	bytes root = 3;
@@ -81,7 +81,7 @@ service ImmuService {
 	rpc SetBatch (BatchSetRequest) returns (SetResponse);
 	rpc Get (GetRequest) returns (GetResponse);
 	rpc GetBatch (BatchGetRequest) returns (BatchGetResponse);
-	rpc Membership(Index) returns (MembershipProof);
+	rpc Inclusion(Index) returns (InclusionProof);
 	rpc ByIndex(Index) returns (Item);
 	rpc History(GetRequest) returns (ItemList);
 	rpc Health (google.protobuf.Empty) returns (HealthResponse);

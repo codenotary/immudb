@@ -121,8 +121,8 @@ func main() {
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
-	membershipCommand := &cobra.Command{
-		Use:     "membership",
+	inclusionCommand := &cobra.Command{
+		Use:     "inclusion",
 		Aliases: []string{"m"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			options, err := options(cmd)
@@ -138,15 +138,15 @@ func main() {
 				return err
 			}
 			response, err := immuClient.Connected(func() (interface{}, error) {
-				return immuClient.Membership(index)
+				return immuClient.Inclusion(index)
 			})
 			if err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 
-			mp := response.(*schema.MembershipProof)
-			proof := api.MembershipProof{
+			mp := response.(*schema.InclusionProof)
+			proof := api.InclusionProof{
 				Index: mp.Index,
 				At:    mp.At,
 			}
@@ -248,12 +248,12 @@ root: %x at index: %d
 	}
 	configureOptions(getCommand)
 	configureOptions(setCommand)
-	configureOptions(membershipCommand)
+	configureOptions(inclusionCommand)
 	configureOptions(historyCommand)
 	configureOptions(pingCommand)
 	cmd.AddCommand(getCommand)
 	cmd.AddCommand(setCommand)
-	cmd.AddCommand(membershipCommand)
+	cmd.AddCommand(inclusionCommand)
 	cmd.AddCommand(historyCommand)
 	cmd.AddCommand(pingCommand)
 	if err := cmd.Execute(); err != nil {

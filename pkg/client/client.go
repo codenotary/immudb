@@ -124,12 +124,12 @@ func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.SetResponse, error
 	return c.serviceClient.SetBatch(context.Background(), bsr)
 }
 
-func (c *ImmuClient) Membership(index uint64) (*schema.MembershipProof, error) {
+func (c *ImmuClient) Inclusion(index uint64) (*schema.InclusionProof, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
 
-	return c.serviceClient.Membership(context.Background(), &schema.Index{
+	return c.serviceClient.Inclusion(context.Background(), &schema.Index{
 		Index: index,
 	})
 }

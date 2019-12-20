@@ -121,13 +121,13 @@ func (s *ImmuServer) GetBatch(ctx context.Context, bgr *schema.BatchGetRequest) 
 	return &schema.BatchGetResponse{GetResponses: grs}, nil
 }
 
-func (s *ImmuServer) Membership(ctx context.Context, mi *schema.Index) (*schema.MembershipProof, error) {
-	s.Logger.Debugf("membership for index %d ", mi.Index)
-	proof, err := s.Store.MembershipProof(mi.Index)
+func (s *ImmuServer) Inclusion(ctx context.Context, mi *schema.Index) (*schema.InclusionProof, error) {
+	s.Logger.Debugf("inclusion for index %d ", mi.Index)
+	proof, err := s.Store.InclusionProof(mi.Index)
 	if err != nil {
 		return nil, err
 	}
-	mp := &schema.MembershipProof{
+	mp := &schema.InclusionProof{
 		Index: proof.Index,
 		Hash:  proof.Hash[:],
 		Root:  proof.Root[:],

@@ -120,11 +120,11 @@ func TestPath(t *testing.T) {
 func TestVerify(t *testing.T) {
 
 	path := Path{}
-	assert.True(t, path.Verify(0, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
+	assert.True(t, path.VerifyInclusion(0, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
 
-	assert.False(t, path.Verify(0, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
-	assert.False(t, path.Verify(1, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
-	assert.False(t, path.Verify(1, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
+	assert.False(t, path.VerifyInclusion(0, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
+	assert.False(t, path.VerifyInclusion(1, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
+	assert.False(t, path.VerifyInclusion(1, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
 
 	s := NewMemStore()
 	D := [][]byte{}
@@ -135,7 +135,7 @@ func TestVerify(t *testing.T) {
 		for at := uint64(0); at <= index; at++ {
 			for i := uint64(0); i <= at; i++ {
 				path := MPath(i, D[0:at+1])
-				isV := Path(path).Verify(at, i, testRoots[at], *s.Get(0, i))
+				isV := Path(path).VerifyInclusion(at, i, testRoots[at], *s.Get(0, i))
 				assert.True(t, isV)
 				if !isV {
 					return

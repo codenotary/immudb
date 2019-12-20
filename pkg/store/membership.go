@@ -21,7 +21,7 @@ import (
 	"github.com/codenotary/immustore/pkg/tree"
 )
 
-func (t *Store) MembershipProof(index uint64) (*api.MembershipProof, error) {
+func (t *Store) InclusionProof(index uint64) (*api.InclusionProof, error) {
 
 	ts := t.tree
 	ts.RLock()
@@ -32,7 +32,7 @@ func (t *Store) MembershipProof(index uint64) (*api.MembershipProof, error) {
 		return nil, IndexNotFoundErr
 	}
 
-	return &api.MembershipProof{
+	return &api.InclusionProof{
 		Index: index,
 		Hash:  *leaf,
 

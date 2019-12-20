@@ -22,7 +22,7 @@ import (
 	"github.com/codenotary/immustore/pkg/tree"
 )
 
-type MembershipProof struct {
+type InclusionProof struct {
 	Index uint64
 	Hash  [sha256.Size]byte
 
@@ -32,9 +32,9 @@ type MembershipProof struct {
 	Path tree.Path
 }
 
-func (m *MembershipProof) Verify() bool {
+func (m *InclusionProof) Verify() bool {
 	if m == nil {
 		return false
 	}
-	return m.Path.Verify(m.At, m.Index, m.Root, m.Hash)
+	return m.Path.VerifyInclusion(m.At, m.Index, m.Root, m.Hash)
 }

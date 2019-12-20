@@ -170,9 +170,9 @@ func PathAt(store Storer, at, i uint64) (p Path) {
 	}
 }
 
-// Verify returns true when the audit path _p_ proves that the given _leaf_ is the _i_th leaf
+// VerifyInclusion returns true when the audit path _p_ proves that the given _leaf_ is the _i_th leaf
 // of the tree defined by _root_ and width = (_at_ + 1), otherwise false.
-func (p Path) Verify(at, i uint64, root, leaf [sha256.Size]byte) bool {
+func (p Path) VerifyInclusion(at, i uint64, root, leaf [sha256.Size]byte) bool {
 
 	if i > at || (at > 0 && len(p) == 0) {
 		return false

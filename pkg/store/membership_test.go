@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMembership(t *testing.T) {
+func TestInclusion(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -39,7 +39,7 @@ func TestMembership(t *testing.T) {
 
 	st.tree.WaitUntil(at)
 
-	proof, err := st.MembershipProof(index)
+	proof, err := st.InclusionProof(index)
 	assert.NoError(t, err)
 	assert.Equal(t, proof.Index, index)
 	assert.Equal(t, proof.At, at)
