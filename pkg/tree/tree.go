@@ -100,7 +100,7 @@ func IsFrozen(layer uint8, index, at uint64) bool {
 	return at >= index*a+a-1
 }
 
-// Path the shortest list of additional nodes required to compute the root (i.e., MTH) from a leaf.
+// Path is a list of additional nodes required for proving inclusion or consistency.
 type Path [][sha256.Size]byte
 
 func mth(store Storer, l, r uint64) *[sha256.Size]byte {
@@ -128,8 +128,9 @@ func mthPosition(l, r uint64) (layer uint8, index uint64) {
 	return
 }
 
-// PathAt returns the audit _Path_ for the _i_-th leaf, assuming the (sub-)tree constructed up to the _at_ leaf stored into _store_.
-func PathAt(store Storer, at, i uint64) (p Path) {
+// InclusionProof returns the shortest list of additional nodes required to compute the root (i.e., MTH) from the _i_-th leaf,
+// assuming the (sub-)tree constructed up to the _at_-th leaf stored into a given _store_.
+func InclusionProof(store Storer, at, i uint64) (p Path) {
 
 	w := store.Width()
 	if i > at || at >= w || at < 1 {
@@ -157,7 +158,6 @@ func PathAt(store Storer, at, i uint64) (p Path) {
 
 		layer, index := mthPosition(l, r)
 		// fmt.Printf("%d) [%d,%d] -> (%d, %d)\n", len(p), l, r, layer, index)
-
 		if IsFrozen(layer, index, at) {
 			p = append(Path{*store.Get(layer, index)}, p...)
 		} else {
@@ -195,4 +195,51 @@ func (p Path) VerifyInclusion(at, i uint64, root, leaf [sha256.Size]byte) bool {
 	}
 
 	return at == i && h == root
+}
+
+// ConsistencyProof returns the list of nodes required to verify that the first _m_ inputs are equal in both
+// (sub-)trees constructed up to the _m_-th leaf and the _at_-th leaf stored into a given _store_.
+// The number of nodes in the resulting proof is bounded above ceil(log2(at+1))+1.
+func ConsistencyProof(store Storer, at, m uint64) (p Path) {
+	n := at + 1
+	if !(0 < m && m < n) {
+		return
+	}
+
+	if w := store.Width(); n > w {
+		return
+	}
+
+	b := true
+	offset := uint64(0)
+	l := uint64(0)
+	r := uint64(0)
+	for {
+		d := (bits.Len64(n - 1))
+		k := uint64(1) << (d - 1)
+		if m <= k {
+			l, r = offset+k, offset+n-1
+			n = k
+		} else {
+			l, r = offset, offset+k-1
+			m = m - k
+			n = n - k
+			offset += k
+			b = false
+		}
+
+		layer, index := mthPosition(l, r)
+		if IsFrozen(layer, index, at) {
+			p = append(Path{*store.Get(layer, index)}, p...)
+		} else {
+			p = append(Path{*mth(store, l, r)}, p...)
+		}
+
+		if m == n {
+			if !b {
+				p = append(Path{*mth(store, offset, offset+n-1)}, p...)
+			}
+			return
+		}
+	}
 }

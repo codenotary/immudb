@@ -84,7 +84,7 @@ func TestIsFrozen(t *testing.T) {
 	}
 }
 
-func TestPath(t *testing.T) {
+func TestInclusionProof(t *testing.T) {
 
 	s := NewMemStore()
 	D := [][]byte{}
@@ -94,13 +94,13 @@ func TestPath(t *testing.T) {
 		Append(s, v)
 
 		// test out of range
-		assert.Nil(t, PathAt(s, index+1, index))
-		assert.Nil(t, PathAt(s, index, index+1))
+		assert.Nil(t, InclusionProof(s, index+1, index))
+		assert.Nil(t, InclusionProof(s, index, index+1))
 
 		for at := uint64(0); at <= index; at++ {
 			for i := uint64(0); i <= at; i++ {
 				fmt.Printf("\n\n-----------------\nn=%d at=%d i=%d\n", index+1, at, i)
-				path := PathAt(s, at, i)
+				path := InclusionProof(s, at, i)
 
 				expected := MPath(i, D[0:at+1])
 
@@ -117,7 +117,7 @@ func TestPath(t *testing.T) {
 	}
 }
 
-func TestVerify(t *testing.T) {
+func TestVerifyInclusion(t *testing.T) {
 
 	path := Path{}
 	assert.True(t, path.VerifyInclusion(0, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
@@ -139,6 +139,42 @@ func TestVerify(t *testing.T) {
 				assert.True(t, isV)
 				if !isV {
 					return
+				}
+			}
+		}
+	}
+}
+
+func TestConsistencyProof(t *testing.T) {
+
+	s := NewMemStore()
+	D := [][]byte{}
+	for index := uint64(0); index <= 64; index++ {
+		v := []byte(strconv.FormatUint(index, 10))
+		D = append(D, v)
+		Append(s, v)
+
+		// test out of range
+		assert.Nil(t, ConsistencyProof(s, index+1, index))
+		assert.Nil(t, ConsistencyProof(s, index, index+1))
+
+		for at := uint64(0); at <= index; at++ {
+			for m := uint64(0); m <= at; m++ {
+				fmt.Printf("\n\n-----------------\nn=%d at=%d m=%d\n", index+1, at, m)
+				expected := MProof(m, D[0:at+1])
+				for _, v := range expected {
+					fmt.Printf("%x ", v[0:1])
+				}
+				fmt.Println()
+				path := ConsistencyProof(s, at, m)
+
+				if !assert.Len(t, path, len(expected)) {
+					return
+				}
+				for k, v := range path {
+					if !assert.Equal(t, expected[k], v) {
+						return
+					}
 				}
 			}
 		}
@@ -176,13 +212,13 @@ func BenchmarkAppendHash(b *testing.B) {
 	}
 }
 
-func BenchmarkPathAt(b *testing.B) {
+func BenchmarkInclusionProof(b *testing.B) {
 	s := NewMemStore()
 	for i := 0; i < b.N; i++ {
 		Append(s, []byte{0, 1, 3, 4, 5, 6, 7})
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		PathAt(s, uint64(i), uint64(i))
+		InclusionProof(s, uint64(i), uint64(i))
 	}
 }
