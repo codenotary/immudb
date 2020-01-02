@@ -96,7 +96,7 @@ func mSubproof(m uint64, D [][]byte, b bool) (path [][sha256.Size]byte) {
 }
 
 // MProof returns the Merke Consistency Proof for the MTH(_D_[n]) and the previously advertised MTH(_D_[_m_:0])
-// of the first _m_ leaves when _m_ <= n, where n is the length of the given ordered list of inputs _D_.
+// of the first _m_ leaves when _m_ <= n, let n the length of the given ordered list of inputs _D_.
 // The Merke Consistency Proof is defined only for 0 < _m_ < n. For undefined proofs, MProof returns a _nil_ slice.
 // Reference implementation as per https://tools.ietf.org/html/rfc6962#section-2.1.2
 func MProof(m uint64, D [][]byte) [][sha256.Size]byte {
