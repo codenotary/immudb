@@ -79,6 +79,7 @@ func TestInclusionPath(t *testing.T) {
 	assert.Equal(t, m["b"], path[0])
 	assert.Equal(t, m["h"], path[1])
 	assert.Equal(t, m["l"], path[2])
+	assert.True(t, path.VerifyInclusion(6, 0, m["hash"], m["a"]))
 
 	// The audit path for d3 is [c, g, l].
 	path = InclusionProof(s, 6, 3)
@@ -87,6 +88,7 @@ func TestInclusionPath(t *testing.T) {
 	assert.Equal(t, m["c"], path[0])
 	assert.Equal(t, m["g"], path[1])
 	assert.Equal(t, m["l"], path[2])
+	assert.True(t, path.VerifyInclusion(6, 3, m["hash"], m["d"]))
 
 	// The audit path for d4 is [f, j, k].
 	path = InclusionProof(s, 6, 4)
@@ -102,6 +104,7 @@ func TestInclusionPath(t *testing.T) {
 	assert.Len(t, path, 2)
 	assert.Equal(t, m["i"], path[0])
 	assert.Equal(t, m["k"], path[1])
+	assert.True(t, path.VerifyInclusion(6, 6, m["hash"], m["j"]))
 }
 
 func TestConsistencyPath(t *testing.T) {
@@ -110,28 +113,31 @@ func TestConsistencyPath(t *testing.T) {
 	// The consistency proof between hash0 and hash is PROOF(3, D[7]) = [c,
 	// d, g, l].  c, g are used to verify hash0, and d, l are additionally
 	// used to show hash is consistent with hash0.
-	path := ConsistencyProof(s, 6, 3)
+	path := ConsistencyProof(s, 6, 2)
 	assert.Equal(t, Path(MProof(3, D)), path)
 	assert.Len(t, path, 4)
 	assert.Equal(t, m["c"], path[0])
 	assert.Equal(t, m["d"], path[1])
 	assert.Equal(t, m["g"], path[2])
 	assert.Equal(t, m["l"], path[3])
+	assert.True(t, path.VerifyConsistency(6, 2, MTH(D), MTH(D[0:3])))
 
 	// The consistency proof between hash1 and hash is PROOF(4, D[7]) = [l].
 	// hash can be verified using hash1=k and l.
-	path = ConsistencyProof(s, 6, 4)
+	path = ConsistencyProof(s, 6, 3)
 	assert.Equal(t, Path(MProof(4, D)), path)
 	assert.Len(t, path, 1)
 	assert.Equal(t, m["l"], path[0])
+	assert.True(t, path.VerifyConsistency(6, 3, MTH(D), MTH(D[0:4])))
 
 	// The consistency proof between hash2 and hash is PROOF(6, D[7]) = [i,
 	// j, k].  k, i are used to verify hash2, and j is additionally used to
 	// show hash is consistent with hash2.
-	path = ConsistencyProof(s, 6, 6)
+	path = ConsistencyProof(s, 6, 5)
 	assert.Equal(t, Path(MProof(6, D)), path)
 	assert.Len(t, path, 3)
 	assert.Equal(t, m["i"], path[0])
 	assert.Equal(t, m["j"], path[1])
 	assert.Equal(t, m["k"], path[2])
+	assert.True(t, path.VerifyConsistency(6, 5, MTH(D), MTH(D[0:6])))
 }
