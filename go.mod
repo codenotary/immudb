@@ -1,10 +1,9 @@
-module github.com/codenotary/immustore
+module github.com/codenotary/immudb
 
 go 1.13
 
 require (
 	github.com/DataDog/zstd v1.4.4 // indirect
-	github.com/dgraph-io/badger v1.6.0
 	github.com/dgraph-io/badger/v2 v2.0.0
 	github.com/dgraph-io/ristretto v0.0.0-20191114170855-99d1bbbf28e6 // indirect
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect

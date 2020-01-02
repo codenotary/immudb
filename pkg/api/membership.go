@@ -19,7 +19,7 @@ package api
 import (
 	"crypto/sha256"
 
-	"github.com/codenotary/immustore/pkg/tree"
+	"github.com/codenotary/immudb/pkg/tree"
 )
 
 type InclusionProof struct {

@@ -25,7 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immustore/pkg/schema"
+	"github.com/codenotary/immudb/pkg/schema"
 )
 
 func (c *ImmuClient) Connect() (err error) {

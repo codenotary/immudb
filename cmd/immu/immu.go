@@ -26,14 +26,14 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/codenotary/immustore/pkg/api"
+	"github.com/codenotary/immudb/pkg/api"
 
 	"github.com/golang/protobuf/proto"
 
 	"github.com/spf13/cobra"
 
-	"github.com/codenotary/immustore/pkg/client"
-	"github.com/codenotary/immustore/pkg/schema"
+	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/schema"
 )
 
 var marshaller = proto.TextMarshaler{}

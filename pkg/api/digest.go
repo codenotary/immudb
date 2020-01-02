@@ -20,7 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
-	"github.com/codenotary/immustore/pkg/tree"
+	"github.com/codenotary/immudb/pkg/tree"
 )
 
 // Digest returns the hash computed from the union of both key and value.

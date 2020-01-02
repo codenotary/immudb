@@ -21,9 +21,9 @@ import (
 	"math"
 	"sync"
 
-	"github.com/codenotary/immustore/pkg/api"
+	"github.com/codenotary/immudb/pkg/api"
 
-	"github.com/codenotary/immustore/pkg/logger"
+	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/pb"

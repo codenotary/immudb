@@ -24,9 +24,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/codenotary/immustore/pkg/bm"
-	"github.com/codenotary/immustore/pkg/client"
-	"github.com/codenotary/immustore/pkg/server"
+	"github.com/codenotary/immudb/pkg/bm"
+	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/server"
 )
 
 const Iterations = 500_000

@@ -17,8 +17,8 @@ limitations under the License.
 package store
 
 import (
-	"github.com/codenotary/immustore/pkg/api"
-	"github.com/codenotary/immustore/pkg/tree"
+	"github.com/codenotary/immudb/pkg/api"
+	"github.com/codenotary/immudb/pkg/tree"
 )
 
 func (t *Store) InclusionProof(index uint64) (*api.InclusionProof, error) {

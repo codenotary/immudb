@@ -21,9 +21,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/codenotary/immustore/pkg/logger"
+	"github.com/codenotary/immudb/pkg/logger"
 
-	"github.com/codenotary/immustore/pkg/store"
+	"github.com/codenotary/immudb/pkg/store"
 )
 
 func makeStore() (*store.Store, func()) {

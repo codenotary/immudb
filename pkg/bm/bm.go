@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codenotary/immustore/pkg/store"
+	"github.com/codenotary/immudb/pkg/store"
 )
 
 type Bm struct {

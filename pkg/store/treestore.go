@@ -24,12 +24,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codenotary/immustore/pkg/logger"
+	"github.com/codenotary/immudb/pkg/logger"
 
-	"github.com/codenotary/immustore/pkg/api"
+	"github.com/codenotary/immudb/pkg/api"
 
-	"github.com/codenotary/immustore/pkg/ring"
-	"github.com/codenotary/immustore/pkg/tree"
+	"github.com/codenotary/immudb/pkg/ring"
+	"github.com/codenotary/immudb/pkg/tree"
 
 	"github.com/dgraph-io/badger/v2"
 )

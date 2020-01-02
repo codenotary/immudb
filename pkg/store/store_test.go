@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/codenotary/immustore/pkg/tree"
+	"github.com/codenotary/immudb/pkg/tree"
 
 	"github.com/stretchr/testify/assert"
 )
