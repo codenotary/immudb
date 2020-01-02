@@ -159,14 +159,14 @@ func TestConsistencyProof(t *testing.T) {
 		assert.Nil(t, ConsistencyProof(s, index, index+1))
 
 		for at := uint64(0); at <= index; at++ {
-			for m := uint64(0); m <= at; m++ {
-				fmt.Printf("\n\n-----------------\nn=%d at=%d m=%d\n", index+1, at, m)
-				expected := MProof(m, D[0:at+1])
+			for i := uint64(0); i <= at; i++ {
+				fmt.Printf("\n\n-----------------\nn=%d at=%d m=%d\n", index+1, at, i)
+				expected := MProof(i+1, D[0:at+1])
 				for _, v := range expected {
 					fmt.Printf("%x ", v[0:1])
 				}
 				fmt.Println()
-				path := ConsistencyProof(s, at, m)
+				path := ConsistencyProof(s, at, i)
 
 				if !assert.Len(t, path, len(expected)) {
 					return
@@ -175,6 +175,35 @@ func TestConsistencyProof(t *testing.T) {
 					if !assert.Equal(t, expected[k], v) {
 						return
 					}
+				}
+			}
+		}
+	}
+}
+
+func TestVerifyConsistency(t *testing.T) {
+
+	path := Path{}
+	assert.True(t, path.VerifyConsistency(0, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
+	assert.True(t, path.VerifyConsistency(1, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
+
+	assert.False(t, path.VerifyConsistency(0, 0, [sha256.Size]byte{1}, [sha256.Size]byte{2}))
+	assert.False(t, path.VerifyConsistency(0, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
+	assert.False(t, path.VerifyConsistency(1, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
+
+	s := NewMemStore()
+	D := [][]byte{}
+	for index := uint64(0); index <= 64; index++ {
+		v := []byte(strconv.FormatUint(index, 10))
+		D = append(D, v)
+		Append(s, v)
+		for at := uint64(0); at <= index; at++ {
+			for i := uint64(0); i <= at; i++ {
+				path := MProof(i+1, D[0:at+1])
+				isV := Path(path).VerifyConsistency(at, i, testRoots[at], testRoots[i])
+				assert.True(t, isV)
+				if !isV {
+					return
 				}
 			}
 		}
