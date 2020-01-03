@@ -49,6 +49,10 @@ message KeyList {
 	repeated Key keys = 1;
 }
 
+message ItemList {
+	repeated Item items = 1;
+}
+
 message InclusionProof {
 	uint64 at = 1;
 	uint64 index = 2;
@@ -57,8 +61,12 @@ message InclusionProof {
 	repeated bytes path = 5;
 }
 
-message ItemList {
-	repeated Item items = 1;
+message ConsistencyProof {
+	uint64 first = 1;
+	uint64 second = 2;
+	bytes firstRoot = 3;
+	bytes secondRoot = 4;
+	repeated bytes path = 5;
 }
 
 message HealthResponse {
@@ -71,6 +79,7 @@ service ImmuService {
 	rpc Get (Key) returns (Item);
 	rpc GetBatch (KeyList) returns (ItemList);
 	rpc Inclusion(Index) returns (InclusionProof);
+	rpc Consistency(Index) returns (ConsistencyProof);
 	rpc ByIndex(Index) returns (Item);
 	rpc History(Key) returns (ItemList);
 	rpc Health (google.protobuf.Empty) returns (HealthResponse);

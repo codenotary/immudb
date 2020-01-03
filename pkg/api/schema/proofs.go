@@ -23,26 +23,36 @@ import (
 	"github.com/codenotary/immudb/pkg/tree"
 )
 
-// Match returns true iff the _InclusionProof_ can verify the inclusion of the provided
-// _leaf_ at the given _index_.
-func (i *InclusionProof) Match(index uint64, leaf []byte) bool {
-	if i == nil {
-		return false
-	}
-	return i.Index == index && bytes.Compare(leaf, i.Leaf) == 0
-}
+// Verify returns true iff the _InclusionProof_ proves that _leaf_ is included into _i.Root_'s history at
+// the given _index_.
+func (i *InclusionProof) Verify(index uint64, leaf []byte) bool {
 
-// Verify returns true iff _InclusionProof_ proves that _i.Leaf_ is included into _i.Root_'s history.
-func (i *InclusionProof) Verify() bool {
-	if i == nil {
+	if i == nil || i.Index != index || bytes.Compare(leaf, i.Leaf) != 0 {
 		return false
 	}
 
-	path := tree.Path{}
+	var path tree.Path
 	path.FromSlice(i.Path)
 
-	var root, leaf [sha256.Size]byte
-	copy(root[:], i.Root)
-	copy(leaf[:], i.Leaf)
-	return path.VerifyInclusion(i.At, i.Index, root, leaf)
+	var rt, lf [sha256.Size]byte
+	copy(rt[:], i.Root)
+	copy(lf[:], i.Leaf)
+	return path.VerifyInclusion(i.At, i.Index, rt, lf)
+}
+
+// Verify returns true iff the _ConsistencyProof_ proves that the provided _root_ at the given _index_ is included into _c.SecondRoot_'s history.
+func (c *ConsistencyProof) Verify(index uint64, root []byte) bool {
+	if c == nil || c.First != index {
+		return false
+	}
+
+	c.FirstRoot = root
+
+	var path tree.Path
+	path.FromSlice(c.Path)
+
+	var firstRoot, secondRoot [sha256.Size]byte
+	copy(firstRoot[:], c.FirstRoot)
+	copy(secondRoot[:], c.SecondRoot)
+	return path.VerifyConsistency(c.Second, c.First, secondRoot, firstRoot)
 }
