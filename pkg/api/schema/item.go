@@ -14,23 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package schema
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
-
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/immudb/pkg/api"
 )
 
-// Digest returns the hash computed from the union of item's members.
-func Digest(index uint64, key, value []byte) [sha256.Size]byte {
-	kl, vl := len(key), len(value)
-	c := make([]byte, 1+8+8+kl+vl)
-	c[0] = tree.LeafPrefix
-	binary.BigEndian.PutUint64(c[1:1+8], index)
-	binary.BigEndian.PutUint64(c[1+8:1+8+8], uint64(kl))
-	copy(c[1+8+8:], key)
-	copy(c[1+8+8+kl:], value)
-	return sha256.Sum256(c)
+// Hash returns the computed hash of _Item_.
+func (i *Item) Hash() []byte {
+	if i == nil {
+		return nil
+	}
+	d := api.Digest(i.Index, i.Key, i.Value)
+	return d[:]
 }
