@@ -134,6 +134,16 @@ func (c *ImmuClient) Inclusion(index uint64) (*schema.InclusionProof, error) {
 	})
 }
 
+func (c *ImmuClient) Consistency(index uint64) (*schema.ConsistencyProof, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.serviceClient.Consistency(context.Background(), &schema.Index{
+		Index: index,
+	})
+}
+
 func (c *ImmuClient) ByIndex(index uint64) (*schema.Item, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
