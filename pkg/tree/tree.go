@@ -103,6 +103,24 @@ func IsFrozen(layer uint8, index, at uint64) bool {
 // Path is a list of additional nodes required for proving inclusion or consistency.
 type Path [][sha256.Size]byte
 
+// ToSlice returns a copy of _Path_ content as slice of byte slices.
+func (p Path) ToSlice() [][]byte {
+	out := make([][]byte, len(p))
+	for i, h := range p {
+		out[i] = append(out[i], h[:]...)
+	}
+	return out
+}
+
+// FromSlice sets _Path_ from the give _slice_.
+func (p *Path) FromSlice(slice [][]byte) {
+	pp := make([][sha256.Size]byte, len(slice))
+	for i, h := range slice {
+		copy(pp[i][:], h)
+	}
+	*p = Path(pp)
+}
+
 func mth(store Storer, l, r uint64) *[sha256.Size]byte {
 	n := r - l
 	if n == 0 {
