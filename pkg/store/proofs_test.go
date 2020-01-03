@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,9 +31,13 @@ func TestInclusion(t *testing.T) {
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
-		index, err := st.Set(key, key)
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: key,
+		}
+		index, err := st.Set(kv)
 		assert.NoError(t, err, "n=%d", n)
-		assert.Equal(t, n, index, "n=%d", n)
+		assert.Equal(t, n, index.Index, "n=%d", n)
 	}
 
 	index := uint64(5)
@@ -39,11 +45,12 @@ func TestInclusion(t *testing.T) {
 
 	st.tree.WaitUntil(at)
 
-	proof, err := st.InclusionProof(index)
+	proof, err := st.InclusionProof(schema.Index{Index: index})
+	leaf := st.tree.Get(0, index)
 	assert.NoError(t, err)
 	assert.Equal(t, proof.Index, index)
 	assert.Equal(t, proof.At, at)
-	assert.Equal(t, proof.Root, root64th)
-	assert.Equal(t, proof.Hash, *st.tree.Get(0, index))
+	assert.Equal(t, proof.Root, root64th[:])
+	assert.Equal(t, proof.Leaf, leaf[:])
 	assert.True(t, proof.Verify())
 }

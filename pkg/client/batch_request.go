@@ -20,7 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/codenotary/immudb/pkg/schema"
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 type BatchRequest struct {
@@ -28,8 +28,8 @@ type BatchRequest struct {
 	Values []io.Reader
 }
 
-func (b *BatchRequest) toBatchSetRequest() (*schema.BatchSetRequest, error) {
-	var setRequests []*schema.SetRequest
+func (b *BatchRequest) toKVList() (*schema.KVList, error) {
+	list := &schema.KVList{}
 	for i, _ := range b.Keys {
 		key, err := ioutil.ReadAll(b.Keys[i])
 		if err != nil {
@@ -39,10 +39,10 @@ func (b *BatchRequest) toBatchSetRequest() (*schema.BatchSetRequest, error) {
 		if err != nil {
 			return nil, err
 		}
-		setRequests = append(setRequests, &schema.SetRequest{
+		list.KVs = append(list.KVs, &schema.KeyValue{
 			Key:   key,
 			Value: value,
 		})
 	}
-	return &schema.BatchSetRequest{SetRequests: setRequests}, nil
+	return list, nil
 }

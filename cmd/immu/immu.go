@@ -32,8 +32,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/schema"
 )
 
 var marshaller = proto.TextMarshaler{}
@@ -41,10 +41,7 @@ var marshaller = proto.TextMarshaler{}
 func printItem(key []byte, value []byte, message interface{}) {
 	var index uint64
 	switch m := message.(type) {
-	case *schema.GetResponse:
-		index = m.Index
-		value = m.Value
-	case *schema.SetResponse:
+	case *schema.Index:
 		index = m.Index
 	case *schema.Item:
 		key = m.Key
@@ -145,26 +142,14 @@ func main() {
 				os.Exit(1)
 			}
 
-			mp := response.(*schema.InclusionProof)
-			proof := api.InclusionProof{
-				Index: mp.Index,
-				At:    mp.At,
-			}
-			copy(proof.Hash[:], mp.Hash[:32])
-			copy(proof.Root[:], mp.Root[:32])
-
-			for _, p := range mp.Path {
-				var parr [32]byte
-				copy(parr[:], p[:32])
-				proof.Path = append(proof.Path, parr)
-			}
+			proof := response.(*schema.InclusionProof)
 
 			var hash []byte
 			if len(args) > 1 {
 				src := []byte(args[1])
 				l := hex.DecodedLen(len(src))
 				if l != 32 {
-					return fmt.Errorf("invalid hash lenght")
+					return fmt.Errorf("invalid hash length")
 				}
 				hash = make([]byte, l)
 				_, err := hex.Decode(hash, src)
@@ -184,14 +169,14 @@ func main() {
 				h := api.Digest(index, item.Key, item.Value)
 				hash = h[:]
 			}
-			hashCheck := bytes.Compare(hash, proof.Hash[:]) == 0
+			hashCheck := bytes.Compare(hash, proof.Leaf) == 0
 
 			fmt.Printf(`verified: %t
 
 hash: %x at index: %d
 root: %x at index: %d
 
-`, hashCheck && proof.Verify(), proof.Hash, proof.Index, proof.Root, proof.At)
+`, hashCheck && proof.Verify(), proof.Leaf, proof.Index, proof.Root, proof.At)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),

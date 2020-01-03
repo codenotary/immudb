@@ -14,27 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package store
 
 import (
-	"crypto/sha256"
-
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/tree"
 )
 
-type InclusionProof struct {
-	Index uint64
-	Hash  [sha256.Size]byte
+func (t *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, error) {
 
-	Root [sha256.Size]byte
-	At   uint64
+	ts := t.tree
+	ts.RLock()
+	defer ts.RUnlock()
 
-	Path tree.Path
-}
-
-func (m *InclusionProof) Verify() bool {
-	if m == nil {
-		return false
+	leaf := ts.Get(0, index.Index)
+	if leaf == nil {
+		return nil, IndexNotFoundErr
 	}
-	return m.Path.VerifyInclusion(m.At, m.Index, m.Root, m.Hash)
+
+	root := tree.Root(ts)
+
+	path := tree.InclusionProof(ts, ts.w-1, index.Index)
+
+	return &schema.InclusionProof{
+		Index: index.Index,
+		Leaf:  leaf[:],
+
+		Root: root[:],
+		At:   ts.w - 1,
+
+		Path: path.ToSlice(),
+	}, nil
 }

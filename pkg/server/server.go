@@ -28,7 +28,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immudb/pkg/schema"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/store"
 )
 
@@ -70,107 +70,72 @@ func (s *ImmuServer) Stop() error {
 	return nil
 }
 
-func (s *ImmuServer) Set(ctx context.Context, sr *schema.SetRequest) (*schema.SetResponse, error) {
-	s.Logger.Debugf("set %s %d bytes", sr.Key, len(sr.Value))
-	index, err := s.Store.Set(sr.Key, sr.Value)
+func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
+	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
+	item, err := s.Store.Set(*kv)
 	if err != nil {
 		return nil, err
 	}
-	return &schema.SetResponse{Index: index}, nil
+	return item, nil
 }
 
-func (s *ImmuServer) SetBatch(ctx context.Context, bsr *schema.BatchSetRequest) (*schema.SetResponse, error) {
-	s.Logger.Debugf("set batch %d", len(bsr.SetRequests))
-	var kvPairs []store.KVPair
-	for _, sr := range bsr.SetRequests {
-		kvPairs = append(kvPairs, store.KVPair{
-			Key:   sr.Key,
-			Value: sr.Value,
-		})
-	}
-	index, err := s.Store.SetBatch(kvPairs)
+func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
+	s.Logger.Debugf("set batch %d", len(kvl.KVs))
+	index, err := s.Store.SetBatch(*kvl)
 	if err != nil {
 		return nil, err
 	}
-	return &schema.SetResponse{Index: index}, nil
+	return index, nil
 }
 
-func (s *ImmuServer) Get(ctx context.Context, gr *schema.GetRequest) (*schema.GetResponse, error) {
-	value, index, err := s.Store.Get(gr.Key)
-	s.Logger.Debugf("get %s %d bytes", gr.Key, len(value))
+func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
+	item, err := s.Store.Get(*k)
+	s.Logger.Debugf("get %s %d bytes", k.Key, len(item.Value))
 	if err != nil {
 		return nil, err
 	}
-	return &schema.GetResponse{Index: index, Value: value}, nil
+	return item, nil
 }
 
-func (s *ImmuServer) GetBatch(ctx context.Context, bgr *schema.BatchGetRequest) (*schema.BatchGetResponse, error) {
-	var grs []*schema.GetResponse
-	for _, gr := range bgr.GetRequests {
-		if gr, err := s.Get(ctx, gr); err == badger.ErrKeyNotFound {
-			grs = append(grs, &schema.GetResponse{
-				Index: 0,
-				Value: []byte{},
-			})
-		} else if err != nil {
-			return nil, err
+func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
+	var list *schema.ItemList
+	for _, key := range kl.Keys {
+		item, err := s.Store.Get(*key)
+		if err == nil || err == badger.ErrKeyNotFound {
+			list.Items = append(list.Items, item)
 		} else {
-			grs = append(grs, gr)
+			return nil, err
 		}
 	}
-	return &schema.BatchGetResponse{GetResponses: grs}, nil
+	return list, nil
 }
 
-func (s *ImmuServer) Inclusion(ctx context.Context, mi *schema.Index) (*schema.InclusionProof, error) {
-	s.Logger.Debugf("inclusion for index %d ", mi.Index)
-	proof, err := s.Store.InclusionProof(mi.Index)
+func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
+	s.Logger.Debugf("inclusion for index %d ", index.Index)
+	proof, err := s.Store.InclusionProof(*index)
 	if err != nil {
 		return nil, err
 	}
-	mp := &schema.InclusionProof{
-		Index: proof.Index,
-		Hash:  proof.Hash[:],
-		Root:  proof.Root[:],
-		At:    proof.At,
-	}
-
-	for _, p := range proof.Path {
-		cp := p // copy
-		mp.Path = append(mp.Path, cp[:])
-	}
-	return mp, nil
+	return proof, nil
 }
 
-func (s *ImmuServer) ByIndex(ctx context.Context, mi *schema.Index) (*schema.Item, error) {
-	s.Logger.Debugf("get by index %d ", mi.Index)
-	item, err := s.Store.ByIndex(mi.Index)
+func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
+	s.Logger.Debugf("get by index %d ", index.Index)
+	item, err := s.Store.ByIndex(*index)
 	if err != nil {
 		return nil, err
 	}
-	return &schema.Item{
-		Key:   item.Key,
-		Value: item.Value,
-		Index: item.Index,
-	}, nil
+	return item, nil
 }
 
-func (s *ImmuServer) History(ctx context.Context, gr *schema.GetRequest) (*schema.ItemList, error) {
-	s.Logger.Debugf("history for key %s ", string(gr.Key))
+func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
+	s.Logger.Debugf("history for key %s ", string(key.Key))
 
-	list, err := s.Store.History(gr.Key)
+	list, err := s.Store.History(*key)
 	if err != nil {
 		return nil, err
 	}
-	itemList := &schema.ItemList{}
-
-	for _, i := range list {
-		itemList.Items = append(itemList.Items, &schema.Item{
-			Key:   i.Key,
-			Value: i.Value,
-			Index: i.Index,
-		})
-	}
-	return itemList, nil
+	return list, nil
 }
 
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {

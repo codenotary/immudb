@@ -21,7 +21,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/codenotary/immudb/pkg/api"
+	"github.com/codenotary/immudb/pkg/api/schema"
 
 	"github.com/codenotary/immudb/pkg/logger"
 
@@ -69,12 +69,12 @@ func (t *Store) Wait() {
 	t.wg.Wait()
 }
 
-func (t *Store) SetBatch(kvPairs []KVPair, options ...WriteOption) (index uint64, err error) {
+func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
-	for _, kv := range kvPairs {
+	for _, kv := range list.KVs {
 		if kv.Key[0] == tsPrefix {
 			err = InvalidKeyErr
 		}
@@ -86,9 +86,11 @@ func (t *Store) SetBatch(kvPairs []KVPair, options ...WriteOption) (index uint64
 		}
 	}
 
-	tsEntries := t.tree.NewBatch(kvPairs)
+	tsEntries := t.tree.NewBatch(&list)
 	ts := tsEntries[len(tsEntries)-1].ts
-	index = ts - 1
+	index = &schema.Index{
+		Index: ts - 1,
+	}
 
 	cb := func(err error) {
 		if err == nil {
@@ -116,23 +118,25 @@ func (t *Store) SetBatch(kvPairs []KVPair, options ...WriteOption) (index uint64
 	return
 }
 
-func (t *Store) Set(key, value []byte, options ...WriteOption) (index uint64, err error) {
+func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	if key[0] == tsPrefix {
+	if kv.Value[0] == tsPrefix {
 		err = InvalidKeyErr
 		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 	if err = txn.SetEntry(&badger.Entry{
-		Key:   key,
-		Value: value,
+		Key:   kv.Key,
+		Value: kv.Value,
 	}); err != nil {
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(key, value)
-	index = tsEntry.ts - 1
+	tsEntry := t.tree.NewEntry(kv.Key, kv.Value)
+	index = &schema.Index{
+		Index: tsEntry.ts - 1,
+	}
 
 	cb := func(err error) {
 		if err == nil {
@@ -156,15 +160,21 @@ func (t *Store) Set(key, value []byte, options ...WriteOption) (index uint64, er
 	return
 }
 
-func (t *Store) Get(key []byte) (value []byte, index uint64, err error) {
+func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
-	item, err := txn.Get(key)
+	i, err := txn.Get(key.Key)
 	if err != nil {
 		return
 	}
-	value, err = item.ValueCopy(nil)
-	index = item.Version() - 1
+	val, err := i.ValueCopy(nil)
+	if err == nil {
+		item = &schema.Item{
+			Key:   key.Key,
+			Value: val,
+			Index: i.Version() - 1,
+		}
+	}
 	return
 }
 
@@ -194,21 +204,21 @@ func (t *Store) itemAt(readTs uint64) (version uint64, key, value []byte, err er
 	return
 }
 
-func (t *Store) ByIndex(index uint64) (item *api.Item, err error) {
-	version, key, value, err := t.itemAt(index + 1)
-	if version != index+1 {
+func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
+	version, key, value, err := t.itemAt(index.Index + 1)
+	if version != index.Index+1 {
 		err = IndexNotFoundErr
 	}
 	if err == nil {
-		item = &api.Item{Key: key, Value: value, Index: index}
+		item = &schema.Item{Key: key, Value: value, Index: index.Index}
 	}
 	return
 }
 
-func (t *Store) History(key []byte) (items api.Items, err error) {
+func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 	txn := t.db.NewTransactionAt(math.MaxInt64, false)
 	defer txn.Discard()
-	it := txn.NewKeyIterator(key, badger.IteratorOptions{})
+	it := txn.NewKeyIterator(key.Key, badger.IteratorOptions{})
 	defer it.Close()
 
 	for it.Rewind(); it.Valid(); it.Next() {
@@ -218,8 +228,8 @@ func (t *Store) History(key []byte) (items api.Items, err error) {
 		if err != nil {
 			return
 		}
-		items = append(items, api.Item{
-			Key:   key,
+		list.Items = append(list.Items, &schema.Item{
+			Key:   key.Key,
 			Value: value,
 			Index: item.Version() - 1,
 		})
@@ -228,6 +238,6 @@ func (t *Store) History(key []byte) (items api.Items, err error) {
 }
 
 func (t *Store) HealthCheck() bool {
-	_, _, err := t.Get([]byte{0})
+	_, err := t.Get(schema.Key{Key: []byte{0}})
 	return err == nil || err == badger.ErrKeyNotFound
 }

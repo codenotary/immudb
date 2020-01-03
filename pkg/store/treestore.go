@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
+
 	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/codenotary/immudb/pkg/api"
@@ -176,11 +178,11 @@ func (t *treeStore) NewEntry(key []byte, value []byte) *treeStoreEntry {
 
 // NewBatch is similar to NewEntry but accept a slice of key-value pairs.
 // It's thread-safe.
-func (t *treeStore) NewBatch(kvPairs []KVPair) []*treeStoreEntry {
-	size := uint64(len(kvPairs))
+func (t *treeStore) NewBatch(kvPairs *schema.KVList) []*treeStoreEntry {
+	size := uint64(len(kvPairs.KVs))
 	batch := make([]*treeStoreEntry, 0, size)
 	lease := atomic.AddUint64(&t.ts, size)
-	for i, kv := range kvPairs {
+	for i, kv := range kvPairs.KVs {
 		ts := lease - size + uint64(i) + 1
 		h := api.Digest(ts-1, kv.Key, kv.Value)
 		batch = append(batch, &treeStoreEntry{ts, &h})

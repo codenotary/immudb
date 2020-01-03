@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
+
 	"github.com/codenotary/immudb/pkg/tree"
 
 	"github.com/stretchr/testify/assert"
@@ -61,17 +63,22 @@ func TestStore(t *testing.T) {
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
-		index, err := st.Set(key, key)
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: key,
+		}
+		index, err := st.Set(kv)
 		assert.NoError(t, err, "n=%d", n)
-		assert.Equal(t, n, index, "n=%d", n)
+		assert.Equal(t, n, index.Index, "n=%d", n)
 	}
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
-		value, index, err := st.Get(key)
+		item, err := st.Get(schema.Key{Key: key})
 		assert.NoError(t, err, "n=%d", n)
-		assert.Equal(t, n, index, "n=%d", n)
-		assert.Equal(t, key, value, "n=%d", n)
+		assert.Equal(t, n, item.Index, "n=%d", n)
+		assert.Equal(t, key, item.Value, "n=%d", n)
+		assert.Equal(t, key, item.Key, "n=%d", n)
 	}
 
 	st.tree.WaitUntil(64)
@@ -90,19 +97,24 @@ func TestStoreAsyncCommit(t *testing.T) {
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
-		index, err := st.Set(key, key, WithAsyncCommit(true))
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: key,
+		}
+		index, err := st.Set(kv, WithAsyncCommit(true))
 		assert.NoError(t, err, "n=%d", n)
-		assert.Equal(t, n, index, "n=%d", n)
+		assert.Equal(t, n, index.Index, "n=%d", n)
 	}
 
 	st.Wait()
 
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
-		value, index, err := st.Get(key)
+		item, err := st.Get(schema.Key{Key: key})
 		assert.NoError(t, err, "n=%d", n)
-		assert.Equal(t, n, index, "n=%d", n)
-		assert.Equal(t, key, value, "n=%d", n)
+		assert.Equal(t, n, item.Index, "n=%d", n)
+		assert.Equal(t, key, item.Value, "n=%d", n)
+		assert.Equal(t, key, item.Key, "n=%d", n)
 	}
 
 	st.tree.WaitUntil(64)
@@ -121,7 +133,11 @@ func BenchmarkStoreSet(b *testing.B) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		st.Set([]byte(strconv.FormatUint(uint64(i), 10)), []byte{0, 1, 3, 4, 5, 6, 7})
+		kv := schema.KeyValue{
+			Key:   []byte(strconv.FormatUint(uint64(i), 10)),
+			Value: []byte{0, 1, 3, 4, 5, 6, 7},
+		}
+		st.Set(kv)
 	}
 	b.StopTimer()
 }

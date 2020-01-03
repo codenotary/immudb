@@ -21,8 +21,8 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/schema"
 )
 
 type ImmuClient struct {

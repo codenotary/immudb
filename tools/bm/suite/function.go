@@ -20,6 +20,8 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
+
 	"github.com/codenotary/immudb/pkg/bm"
 	"github.com/codenotary/immudb/pkg/store"
 )
@@ -42,8 +44,8 @@ var FunctionBenchmarks = []bm.Bm{
 	// 	},
 	// 	Work: func(bm *bm.Bm, start int, end int) error {
 	// 		for i := start; i < end; i++ {
-	// 			key := []byte(strconv.FormatUint(uint64(i), 10))
-	// 			if _, err := bm.Store.Set(key, V); err != nil {
+	// 			kv := schema.KeyValue{Key:[]byte(strconv.FormatUint(uint64(i), 10)), Value: V}
+	// 			if _, err := bm.Store.Set(kv); err != nil {
 	// 				return err
 	// 			}
 	// 		}
@@ -57,8 +59,8 @@ var FunctionBenchmarks = []bm.Bm{
 		Iterations:  1_000_000,
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Store.Set(key, V); err != nil {
+				kv := schema.KeyValue{Key: []byte(strconv.FormatUint(uint64(i), 10)), Value: V}
+				if _, err := bm.Store.Set(kv); err != nil {
 					return err
 				}
 			}
@@ -73,8 +75,8 @@ var FunctionBenchmarks = []bm.Bm{
 		Work: func(bm *bm.Bm, start int, end int) error {
 			opt := store.WithAsyncCommit(true)
 			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Store.Set(key, V, opt); err != nil {
+				kv := schema.KeyValue{Key: []byte(strconv.FormatUint(uint64(i), 10)), Value: V}
+				if _, err := bm.Store.Set(kv, opt); err != nil {
 					return err
 				}
 			}
@@ -88,8 +90,8 @@ var FunctionBenchmarks = []bm.Bm{
 		Iterations:  1_000_000,
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Store.Set(key, V); err != nil {
+				kv := schema.KeyValue{Key: []byte(strconv.FormatUint(uint64(i), 10)), Value: V}
+				if _, err := bm.Store.Set(kv); err != nil {
 					return err
 				}
 			}
@@ -104,8 +106,8 @@ var FunctionBenchmarks = []bm.Bm{
 		Work: func(bm *bm.Bm, start int, end int) error {
 			opt := store.WithAsyncCommit(true)
 			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Store.Set(key, V, opt); err != nil {
+				kv := schema.KeyValue{Key: []byte(strconv.FormatUint(uint64(i), 10)), Value: V}
+				if _, err := bm.Store.Set(kv, opt); err != nil {
 					return err
 				}
 			}
@@ -125,8 +127,8 @@ var FunctionBenchmarks = []bm.Bm{
 		},
 		Work: func(bm *bm.Bm, start int, end int) error {
 			for i := start; i < end; i++ {
-				key := []byte(strconv.FormatUint(uint64(i), 10))
-				if _, err := bm.Store.Set(key, V); err != nil {
+				kv := schema.KeyValue{Key: []byte(strconv.FormatUint(uint64(i), 10)), Value: V}
+				if _, err := bm.Store.Set(kv); err != nil {
 					return err
 				}
 			}
@@ -148,14 +150,14 @@ var FunctionBenchmarks = []bm.Bm{
 		Iterations: 1_000_000,
 
 		Work: func(bm *bm.Bm, start int, end int) error {
-			var kvPairs []store.KVPair
+			list := schema.KVList{}
 			for i := start; i < end; i++ {
-				kvPairs = append(kvPairs, store.KVPair{
+				list.KVs = append(list.KVs, &schema.KeyValue{
 					Key:   []byte(strconv.FormatUint(uint64(i), 10)),
 					Value: V,
 				})
 			}
-			if _, err := bm.Store.SetBatch(kvPairs); err != nil {
+			if _, err := bm.Store.SetBatch(list); err != nil {
 				return err
 			}
 			return nil
@@ -177,14 +179,14 @@ var FunctionBenchmarks = []bm.Bm{
 
 		Work: func(bm *bm.Bm, start int, end int) error {
 			opt := store.WithAsyncCommit(true)
-			var kvPairs []store.KVPair
+			list := schema.KVList{}
 			for i := start; i < end; i++ {
-				kvPairs = append(kvPairs, store.KVPair{
+				list.KVs = append(list.KVs, &schema.KeyValue{
 					Key:   []byte(strconv.FormatUint(uint64(i), 10)),
 					Value: V,
 				})
 			}
-			if _, err := bm.Store.SetBatch(kvPairs, opt); err != nil {
+			if _, err := bm.Store.SetBatch(list, opt); err != nil {
 				return err
 			}
 			return nil

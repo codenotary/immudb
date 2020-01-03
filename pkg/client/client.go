@@ -25,7 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
-	"github.com/codenotary/immudb/pkg/schema"
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func (c *ImmuClient) Connect() (err error) {
@@ -69,7 +69,7 @@ func (c *ImmuClient) Connected(f func() (interface{}, error)) (interface{}, erro
 	return result, nil
 }
 
-func (c *ImmuClient) Get(keyReader io.Reader) (*schema.GetResponse, error) {
+func (c *ImmuClient) Get(keyReader io.Reader) (*schema.Item, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
@@ -77,25 +77,25 @@ func (c *ImmuClient) Get(keyReader io.Reader) (*schema.GetResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.serviceClient.Get(context.Background(), &schema.GetRequest{Key: key})
+	return c.serviceClient.Get(context.Background(), &schema.Key{Key: key})
 }
 
-func (c *ImmuClient) GetBatch(keyReaders []io.Reader) (*schema.BatchGetResponse, error) {
+func (c *ImmuClient) GetBatch(keyReaders []io.Reader) (*schema.ItemList, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	var grs []*schema.GetRequest
+	keys := &schema.KeyList{}
 	for _, keyReader := range keyReaders {
 		key, err := ioutil.ReadAll(keyReader)
 		if err != nil {
 			return nil, err
 		}
-		grs = append(grs, &schema.GetRequest{Key: key})
+		keys.Keys = append(keys.Keys, &schema.Key{Key: key})
 	}
-	return c.serviceClient.GetBatch(context.Background(), &schema.BatchGetRequest{GetRequests: grs})
+	return c.serviceClient.GetBatch(context.Background(), keys)
 }
 
-func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.SetResponse, error) {
+func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.Index, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
@@ -107,21 +107,21 @@ func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.Se
 	if err != nil {
 		return nil, err
 	}
-	return c.serviceClient.Set(context.Background(), &schema.SetRequest{
+	return c.serviceClient.Set(context.Background(), &schema.KeyValue{
 		Key:   key,
 		Value: value,
 	})
 }
 
-func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.SetResponse, error) {
+func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.Index, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	bsr, err := request.toBatchSetRequest()
+	list, err := request.toKVList()
 	if err != nil {
 		return nil, err
 	}
-	return c.serviceClient.SetBatch(context.Background(), bsr)
+	return c.serviceClient.SetBatch(context.Background(), list)
 }
 
 func (c *ImmuClient) Inclusion(index uint64) (*schema.InclusionProof, error) {
@@ -153,7 +153,7 @@ func (c *ImmuClient) History(keyReader io.Reader) (*schema.ItemList, error) {
 		return nil, err
 	}
 
-	return c.serviceClient.History(context.Background(), &schema.GetRequest{
+	return c.serviceClient.History(context.Background(), &schema.Key{
 		Key: key,
 	})
 }
