@@ -120,7 +120,7 @@ func main() {
 	}
 	inclusionCommand := &cobra.Command{
 		Use:     "inclusion",
-		Aliases: []string{"m"},
+		Aliases: []string{"i"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			options, err := options(cmd)
 			if err != nil {
@@ -166,20 +166,66 @@ func main() {
 					os.Exit(1)
 				}
 				item := response.(*schema.Item)
-				h := api.Digest(index, item.Key, item.Value)
-				hash = h[:]
+				hash = item.Hash()
 			}
-			hashCheck := bytes.Compare(hash, proof.Leaf) == 0
 
 			fmt.Printf(`verified: %t
 
 hash: %x at index: %d
 root: %x at index: %d
 
-`, hashCheck && proof.Verify(), proof.Leaf, proof.Index, proof.Root, proof.At)
+`, proof.Verify(index, hash), proof.Leaf, proof.Index, proof.Root, proof.At)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
+	}
+	consistencyCommand := &cobra.Command{
+		Use:     "consistency",
+		Aliases: []string{"c"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			options, err := options(cmd)
+			if err != nil {
+				return err
+			}
+			immuClient := client.
+				DefaultClient().
+				WithOptions(*options)
+
+			index, err := strconv.ParseUint(string(args[0]), 10, 64)
+			if err != nil {
+				return err
+			}
+			response, err := immuClient.Connected(func() (interface{}, error) {
+				return immuClient.Consistency(index)
+			})
+			if err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+
+			proof := response.(*schema.ConsistencyProof)
+
+			var root []byte
+			src := []byte(args[1])
+			l := hex.DecodedLen(len(src))
+			if l != 32 {
+				return fmt.Errorf("invalid hash length")
+			}
+			root = make([]byte, l)
+			_, err = hex.Decode(root, src)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf(`verified: %t
+
+firstRoot: %x at index: %d
+secondRoot: %x at index: %d
+
+`, proof.Verify(index, root), proof.FirstRoot, proof.First, proof.SecondRoot, proof.Second)
+			return nil
+		},
+		Args: cobra.MinimumNArgs(2),
 	}
 
 	historyCommand := &cobra.Command{
@@ -234,11 +280,13 @@ root: %x at index: %d
 	configureOptions(getCommand)
 	configureOptions(setCommand)
 	configureOptions(inclusionCommand)
+	configureOptions(consistencyCommand)
 	configureOptions(historyCommand)
 	configureOptions(pingCommand)
 	cmd.AddCommand(getCommand)
 	cmd.AddCommand(setCommand)
 	cmd.AddCommand(inclusionCommand)
+	cmd.AddCommand(consistencyCommand)
 	cmd.AddCommand(historyCommand)
 	cmd.AddCommand(pingCommand)
 	if err := cmd.Execute(); err != nil {
