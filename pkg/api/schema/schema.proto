@@ -18,44 +18,17 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 
-package schema;
+package immudb.schema;
 
-message SetRequest {
-	bytes key = 1;
-	bytes value = 2;
-}
+option go_package = "github.com/codenotary/immudb/pkg/api/schema";
 
-message SetResponse {
-	uint64 index = 1;
-}
-
-message BatchSetRequest {
-	repeated SetRequest setRequests = 1;
-}
-
-message GetRequest {
+message Key {
 	bytes key = 1;
 }
 
-message GetResponse {
-	uint64 index = 1;
+message KeyValue {
+	bytes key = 1;
 	bytes value = 2;
-}
-
-message BatchGetRequest {
-	repeated GetRequest getRequests = 1;
-}
-
-message BatchGetResponse {
-	repeated GetResponse getResponses = 1;
-}
-
-message InclusionProof {
-	uint64 index = 1;
-	bytes hash = 2;
-	bytes root = 3;
-	uint64 at = 4;
-	repeated bytes path = 5;
 }
 
 message Index {
@@ -68,6 +41,22 @@ message Item {
 	uint64 index = 3;
 }
 
+message KVList {
+	repeated KeyValue KVs = 1;
+}
+
+message KeyList {
+	repeated Key keys = 1;
+}
+
+message InclusionProof {
+	uint64 at = 1;
+	uint64 index = 2;
+	bytes root = 3;
+	bytes leaf = 4;
+	repeated bytes path = 5;
+}
+
 message ItemList {
 	repeated Item items = 1;
 }
@@ -77,12 +66,12 @@ message HealthResponse {
 }
 
 service ImmuService {
-	rpc Set (SetRequest) returns (SetResponse);
-	rpc SetBatch (BatchSetRequest) returns (SetResponse);
-	rpc Get (GetRequest) returns (GetResponse);
-	rpc GetBatch (BatchGetRequest) returns (BatchGetResponse);
+	rpc Set (KeyValue) returns (Index);
+	rpc SetBatch (KVList) returns (Index);
+	rpc Get (Key) returns (Item);
+	rpc GetBatch (KeyList) returns (ItemList);
 	rpc Inclusion(Index) returns (InclusionProof);
 	rpc ByIndex(Index) returns (Item);
-	rpc History(GetRequest) returns (ItemList);
+	rpc History(Key) returns (ItemList);
 	rpc Health (google.protobuf.Empty) returns (HealthResponse);
 }

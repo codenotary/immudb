@@ -37,7 +37,7 @@ test:
 
 .PHONY: build/codegen
 build/codegen:
-	$(PROTOC) -I pkg/schema/ pkg/schema/schema.proto --go_out=plugins=grpc:pkg/schema
+	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto --go_out=plugins=grpc,paths=source_relative:pkg/api/schema
 
 .PHONY: clean
 clean:
