@@ -119,6 +119,15 @@ func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schem
 	return proof, nil
 }
 
+func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*schema.ConsistencyProof, error) {
+	s.Logger.Debugf("consistency for index %d ", index.Index)
+	proof, err := s.Store.ConsistencyProof(*index)
+	if err != nil {
+		return nil, err
+	}
+	return proof, nil
+}
+
 func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
 	item, err := s.Store.ByIndex(*index)
