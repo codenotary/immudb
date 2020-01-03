@@ -21,9 +21,9 @@ import (
 	"github.com/codenotary/immudb/pkg/tree"
 )
 
-func (t *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, error) {
+func (s *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, error) {
 
-	ts := t.tree
+	ts := s.tree
 	ts.RLock()
 	defer ts.RUnlock()
 
@@ -42,6 +42,30 @@ func (t *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, erro
 
 		Root: root[:],
 		At:   ts.w - 1,
+
+		Path: path.ToSlice(),
+	}, nil
+}
+
+func (s *Store) ConsistencyProof(index schema.Index) (*schema.ConsistencyProof, error) {
+
+	ts := s.tree
+	ts.RLock()
+	defer ts.RUnlock()
+
+	at := ts.w - 1
+	if index.Index > at {
+		return nil, IndexNotFoundErr
+	}
+
+	root := tree.Root(ts)
+
+	path := tree.ConsistencyProof(ts, ts.w-1, index.Index)
+
+	return &schema.ConsistencyProof{
+		First:      index.Index,
+		Second:     at,
+		SecondRoot: root[:],
 
 		Path: path.ToSlice(),
 	}, nil

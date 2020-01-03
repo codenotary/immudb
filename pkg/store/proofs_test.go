@@ -17,8 +17,11 @@ limitations under the License.
 package store
 
 import (
+	"crypto/sha256"
 	"strconv"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/tree"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 
@@ -29,7 +32,8 @@ func TestInclusion(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	for n := uint64(0); n <= 64; n++ {
+	var n uint64
+	for n = 0; n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
 		kv := schema.KeyValue{
 			Key:   key,
@@ -41,16 +45,53 @@ func TestInclusion(t *testing.T) {
 	}
 
 	index := uint64(5)
-	at := uint64(64)
+	at := n - 1
 
 	st.tree.WaitUntil(at)
 
 	proof, err := st.InclusionProof(schema.Index{Index: index})
 	leaf := st.tree.Get(0, index)
 	assert.NoError(t, err)
-	assert.Equal(t, proof.Index, index)
-	assert.Equal(t, proof.At, at)
-	assert.Equal(t, proof.Root, root64th[:])
-	assert.Equal(t, proof.Leaf, leaf[:])
-	assert.True(t, proof.Verify())
+	assert.Equal(t, index, proof.Index)
+	assert.Equal(t, at, proof.At)
+	assert.Equal(t, root64th[:], proof.Root)
+	assert.Equal(t, leaf[:], proof.Leaf)
+	assert.True(t, proof.Verify(index, leaf[:]))
+}
+
+func TestConsistency(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	var root5th [sha256.Size]byte
+	testIndex := uint64(5)
+
+	var n uint64
+	for n = 0; n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: key,
+		}
+		index, err := st.Set(kv)
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index.Index, "n=%d", n)
+		if index.Index == testIndex {
+			st.tree.WaitUntil(testIndex)
+			root5th = tree.Root(st.tree)
+		}
+	}
+
+	index := testIndex
+	at := n - 1
+
+	st.tree.WaitUntil(at)
+
+	proof, err := st.ConsistencyProof(schema.Index{Index: index})
+	assert.NoError(t, err)
+	assert.Equal(t, index, proof.First)
+	assert.Equal(t, at, proof.Second)
+	assert.Equal(t, root64th[:], proof.SecondRoot)
+	assert.True(t, proof.Verify(index, root5th[:]))
+	assert.Equal(t, root5th[:], proof.FirstRoot)
 }
