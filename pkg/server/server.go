@@ -98,11 +98,13 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 }
 
 func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
-	var list *schema.ItemList
+	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
 		item, err := s.Store.Get(*key)
 		if err == nil || err == badger.ErrKeyNotFound {
-			list.Items = append(list.Items, item)
+			if item != nil {
+				list.Items = append(list.Items, item)
+			}
 		} else {
 			return nil, err
 		}

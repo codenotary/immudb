@@ -221,6 +221,7 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 	it := txn.NewKeyIterator(key.Key, badger.IteratorOptions{})
 	defer it.Close()
 
+	var items []*schema.Item
 	for it.Rewind(); it.Valid(); it.Next() {
 		item := it.Item()
 		var value []byte
@@ -228,11 +229,14 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 		if err != nil {
 			return
 		}
-		list.Items = append(list.Items, &schema.Item{
+		items = append(items, &schema.Item{
 			Key:   key.Key,
 			Value: value,
 			Index: item.Version() - 1,
 		})
+	}
+	list = &schema.ItemList{
+		Items: items,
 	}
 	return
 }
