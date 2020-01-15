@@ -90,7 +90,11 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 
 func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
 	item, err := s.Store.Get(*k)
-	s.Logger.Debugf("get %s %d bytes", k.Key, len(item.Value))
+	if item == nil {
+		s.Logger.Debugf("get %s: item not found", k.Key)
+	} else {
+		s.Logger.Debugf("get %s %d bytes", k.Key, len(item.Value))
+	}
 	if err != nil {
 		return nil, err
 	}
