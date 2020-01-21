@@ -210,6 +210,43 @@ func TestVerifyConsistency(t *testing.T) {
 	}
 }
 
+func TestPathToSlice(t *testing.T) {
+	one := sha256.Sum256([]byte("one"))
+	two := sha256.Sum256([]byte("one"))
+	p := Path{
+		one,
+		two,
+	}
+
+	s := p.ToSlice()
+
+	assert.IsType(t, [][]byte{}, s)
+	assert.Len(t, s, 2)
+	for _, v := range s {
+		assert.IsType(t, []byte{}, v)
+	}
+	assert.Equal(t, one[:], s[0])
+	assert.Equal(t, two[:], s[1])
+}
+
+func TestPathFromSlice(t *testing.T) {
+	one := sha256.Sum256([]byte("one"))
+	two := sha256.Sum256([]byte("one"))
+
+	s := [][]byte{
+		one[:],
+		two[:],
+	}
+
+	var p Path
+
+	p.FromSlice(s)
+
+	assert.Len(t, p, 2)
+	assert.Equal(t, one, p[0])
+	assert.Equal(t, two, p[1])
+}
+
 func BenchmarkLog2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		n := i
