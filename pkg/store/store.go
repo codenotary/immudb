@@ -120,7 +120,7 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 
 func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	if kv.Value[0] == tsPrefix {
+	if kv.Key[0] == tsPrefix {
 		err = InvalidKeyErr
 		return
 	}
