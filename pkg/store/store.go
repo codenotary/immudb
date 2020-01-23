@@ -161,6 +161,10 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 }
 
 func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
+	if key.Key[0] == tsPrefix {
+		err = InvalidKeyErr
+		return
+	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 	i, err := txn.Get(key.Key)
@@ -216,6 +220,10 @@ func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 }
 
 func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
+	if key.Key[0] == tsPrefix {
+		err = InvalidKeyErr
+		return
+	}
 	txn := t.db.NewTransactionAt(math.MaxInt64, false)
 	defer txn.Discard()
 	it := txn.NewKeyIterator(key.Key, badger.IteratorOptions{})
@@ -223,17 +231,11 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 
 	var items []*schema.Item
 	for it.Rewind(); it.Valid(); it.Next() {
-		item := it.Item()
-		var value []byte
-		value, err = item.ValueCopy(nil)
+		item, err := itemToSchema(key.Key, it.Item())
 		if err != nil {
-			return
+			return nil, err
 		}
-		items = append(items, &schema.Item{
-			Key:   key.Key,
-			Value: value,
-			Index: item.Version() - 1,
-		})
+		items = append(items, item)
 	}
 	list = &schema.ItemList{
 		Items: items,
@@ -242,6 +244,6 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 }
 
 func (t *Store) HealthCheck() bool {
-	_, err := t.Get(schema.Key{Key: []byte{0}})
+	_, err := t.Get(schema.Key{Key: []byte{255}})
 	return err == nil || err == badger.ErrKeyNotFound
 }
