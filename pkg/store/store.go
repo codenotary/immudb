@@ -182,6 +182,40 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	return
 }
 
+func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err error) {
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
+	defer txn.Discard()
+	it := txn.NewIterator(badger.IteratorOptions{
+		PrefetchValues: true,
+		PrefetchSize:   int(options.Limit),
+		Prefix:         options.Prefix,
+		Reverse:        options.Reverse,
+	})
+	defer it.Close()
+
+	if len(options.Offset) == 0 {
+		it.Rewind()
+	} else {
+		it.Seek(options.Offset)
+		if it.Valid() {
+			it.Next() // skip the offset item
+		}
+	}
+
+	var items []*schema.Item
+	for ; it.Valid(); it.Next() {
+		item, err := itemToSchema(nil, it.Item())
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	list = &schema.ItemList{
+		Items: items,
+	}
+	return
+}
+
 // fixme(leogr): need to be optmized
 func (t *Store) itemAt(readTs uint64) (version uint64, key, value []byte, err error) {
 	stream := t.db.NewStreamAt(readTs)
