@@ -86,6 +86,28 @@ func (c *ImmuClient) Get(keyReader io.Reader) (*schema.Item, error) {
 	return result, err
 }
 
+func (c *ImmuClient) Scan(keyReader io.Reader) (*schema.ItemList, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	prefix, err := ioutil.ReadAll(keyReader)
+	if err != nil {
+		return nil, err
+	}
+	return c.serviceClient.Scan(context.Background(), &schema.ScanOptions{Prefix: prefix})
+}
+
+func (c *ImmuClient) Count(keyReader io.Reader) (*schema.ItemsCount, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	prefix, err := ioutil.ReadAll(keyReader)
+	if err != nil {
+		return nil, err
+	}
+	return c.serviceClient.Count(context.Background(), &schema.KeyPrefix{Prefix: prefix})
+}
+
 func (c *ImmuClient) GetBatch(keyReaders []io.Reader) (*schema.ItemList, error) {
 	start := time.Now()
 	if !c.isConnected() {
