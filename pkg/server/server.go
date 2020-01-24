@@ -116,6 +116,16 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 	return list, nil
 }
 
+func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schema.ItemList, error) {
+	s.Logger.Debugf("scan %+v", *opts)
+	return s.Store.Scan(*opts)
+}
+
+func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
+	s.Logger.Debugf("count %s", prefix.Prefix)
+	return s.Store.Count(*prefix)
+}
+
 func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
 	s.Logger.Debugf("inclusion for index %d ", index.Index)
 	proof, err := s.Store.InclusionProof(*index)
