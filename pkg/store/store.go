@@ -161,7 +161,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 }
 
 func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
-	if key.Key[0] == tsPrefix {
+	if len(key.Key) == 0 || key.Key[0] == tsPrefix {
 		err = InvalidKeyErr
 		return
 	}
@@ -171,18 +171,18 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	if err != nil {
 		return
 	}
-	val, err := i.ValueCopy(nil)
-	if err == nil {
-		item = &schema.Item{
-			Key:   key.Key,
-			Value: val,
-			Index: i.Version() - 1,
-		}
-	}
-	return
+	return itemToSchema(key.Key, i)
 }
 
 func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err error) {
+	if len(options.Prefix) > 0 && options.Prefix[0] == tsPrefix {
+		err = InvalidKeyPrefixErr
+		return
+	}
+	if len(options.Offset) > 0 && options.Offset[0] == tsPrefix {
+		err = InvalidOffsetErr
+		return
+	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 	it := txn.NewIterator(badger.IteratorOptions{
@@ -212,6 +212,25 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	}
 	list = &schema.ItemList{
 		Items: items,
+	}
+	return
+}
+
+func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err error) {
+	if len(prefix.Prefix) == 0 || prefix.Prefix[0] == tsPrefix {
+		err = InvalidKeyPrefixErr
+		return
+	}
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
+	defer txn.Discard()
+	it := txn.NewIterator(badger.IteratorOptions{
+		PrefetchValues: false,
+		Prefix:         prefix.Prefix,
+	})
+	defer it.Close()
+	count = &schema.ItemsCount{}
+	for it.Rewind(); it.Valid(); it.Next() {
+		count.Count++
 	}
 	return
 }
@@ -254,7 +273,7 @@ func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 }
 
 func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
-	if key.Key[0] == tsPrefix {
+	if len(key.Key) == 0 || key.Key[0] == tsPrefix {
 		err = InvalidKeyErr
 		return
 	}

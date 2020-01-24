@@ -22,6 +22,8 @@ import (
 
 var (
 	InvalidKeyErr          = errors.New("invalid key")
+	InvalidKeyPrefixErr    = errors.New("invalid key prefix")
+	InvalidOffsetErr       = errors.New("invalid offset")
 	IndexNotFoundErr       = errors.New("index not found")
 	InconsistentStateError = errors.New("inconsistent state")
 )
