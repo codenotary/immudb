@@ -60,6 +60,14 @@ message ScanOptions {
 	bool reverse = 4;
 }
 
+message KeyPrefix {
+	bytes prefix = 1;
+}
+
+message ItemsCount {
+	uint64 count = 1;
+}
+
 message InclusionProof {
 	uint64 at = 1;
 	uint64 index = 2;
@@ -85,6 +93,8 @@ service ImmuService {
 	rpc SetBatch (KVList) returns (Index);
 	rpc Get (Key) returns (Item);
 	rpc GetBatch (KeyList) returns (ItemList);
+	rpc Scan(ScanOptions) returns (ItemList);
+	rpc Count(KeyPrefix) returns (ItemsCount);
 	rpc Inclusion(Index) returns (InclusionProof);
 	rpc Consistency(Index) returns (ConsistencyProof);
 	rpc ByIndex(Index) returns (Item);
