@@ -191,6 +191,14 @@ func TestVerifyConsistency(t *testing.T) {
 	assert.False(t, path.VerifyConsistency(0, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
 	assert.False(t, path.VerifyConsistency(1, 0, [sha256.Size]byte{}, [sha256.Size]byte{}))
 
+	// test sn == 0
+	path = Path{
+		[sha256.Size]byte{},
+		[sha256.Size]byte{},
+		[sha256.Size]byte{},
+	}
+	assert.False(t, path.VerifyConsistency(2, 1, [sha256.Size]byte{}, [sha256.Size]byte{}))
+
 	s := NewMemStore()
 	D := [][]byte{}
 	for index := uint64(0); index <= 64; index++ {
