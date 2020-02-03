@@ -202,13 +202,21 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 		}
 	}
 
+	var limit = options.Limit
+	if limit == 0 {
+		// we're reusing max batch count to enforce the default scan limit
+		limit = uint64(t.db.MaxBatchCount())
+	}
 	var items []*schema.Item
-	for ; it.Valid(); it.Next() {
+	for i := uint64(0); it.Valid(); it.Next() {
 		item, err := itemToSchema(nil, it.Item())
 		if err != nil {
 			return nil, err
 		}
 		items = append(items, item)
+		if i++; i == limit {
+			break
+		}
 	}
 	list = &schema.ItemList{
 		Items: items,
