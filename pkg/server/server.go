@@ -79,6 +79,15 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 	return item, nil
 }
 
+func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
+	s.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
+	item, err := s.Store.SafeSet(*opts)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
 func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
 	s.Logger.Debugf("set batch %d", len(kvl.KVs))
 	index, err := s.Store.SetBatch(*kvl)
