@@ -56,3 +56,32 @@ func (c *ConsistencyProof) Verify(index uint64, root []byte) bool {
 	copy(secondRoot[:], c.SecondRoot)
 	return path.VerifyConsistency(c.Second, c.First, secondRoot, firstRoot)
 }
+
+func (p *Proof) Verify(leaf []byte, rootIdx uint64, root []byte) bool {
+
+	if p == nil || bytes.Compare(leaf, p.Leaf) != 0 {
+		return false
+	}
+
+	var path tree.Path
+
+	path.FromSlice(p.InclusionPath)
+	var rt, lf [sha256.Size]byte
+	copy(rt[:], p.Root)
+	copy(lf[:], p.Leaf)
+	if !path.VerifyInclusion(p.At, p.Index, rt, lf) {
+		return false
+	}
+
+	// todo(leogr): special case, no previous root
+	if rootIdx == 0 && len(root) == 0 && len(p.ConsistencyPath) == 0 {
+		return true
+	}
+
+	path.FromSlice(p.ConsistencyPath)
+
+	var firstRoot, secondRoot [sha256.Size]byte
+	copy(firstRoot[:], root)
+	copy(secondRoot[:], p.Root)
+	return path.VerifyConsistency(p.At, rootIdx, secondRoot, firstRoot)
+}

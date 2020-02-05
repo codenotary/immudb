@@ -84,9 +84,13 @@ message ConsistencyProof {
 	repeated bytes path = 5;
 }
 
-message Proofs {
-	InclusionProof inclusion = 1;
-	ConsistencyProof consistency = 2;
+message Proof {
+	bytes leaf = 1;
+	uint64 index = 2;
+	bytes root = 3;
+	uint64 at = 4;
+	repeated bytes inclusionPath = 5;
+	repeated bytes consistencyPath = 6;
 }
 
 message SafeSetOptions {
@@ -100,7 +104,7 @@ message HealthResponse {
 
 service ImmuService {
 	rpc Set (KeyValue) returns (Index);
-	rpc SafeSet(SafeSetOptions) returns (Proofs);
+	rpc SafeSet(SafeSetOptions) returns (Proof);
 	rpc SetBatch (KVList) returns (Index);
 	rpc Get (Key) returns (Item);
 	rpc GetBatch (KeyList) returns (ItemList);
