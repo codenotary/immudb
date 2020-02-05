@@ -53,6 +53,11 @@ message ItemList {
 	repeated Item items = 1;
 }
 
+message Root {
+	uint64 index = 1;
+	bytes root = 2;
+}
+
 message ScanOptions {
 	bytes prefix = 1;
 	bytes offset = 2;
@@ -110,6 +115,7 @@ service ImmuService {
 	rpc GetBatch (KeyList) returns (ItemList);
 	rpc Scan(ScanOptions) returns (ItemList);
 	rpc Count(KeyPrefix) returns (ItemsCount);
+	rpc CurrentRoot(google.protobuf.Empty) returns (Root);
 	rpc Inclusion(Index) returns (InclusionProof);
 	rpc Consistency(Index) returns (ConsistencyProof);
 	rpc ByIndex(Index) returns (Item);

@@ -25,6 +25,7 @@ import (
 
 // Verify returns true iff the _InclusionProof_ proves that _leaf_ is included into _i.Root_'s history at
 // the given _index_.
+// todo(leogr): can we use schema.Item instead of (index,leaf)?
 func (i *InclusionProof) Verify(index uint64, leaf []byte) bool {
 
 	if i == nil || i.Index != index || bytes.Compare(leaf, i.Leaf) != 0 {
@@ -40,24 +41,30 @@ func (i *InclusionProof) Verify(index uint64, leaf []byte) bool {
 	return path.VerifyInclusion(i.At, i.Index, rt, lf)
 }
 
-// Verify returns true iff the _ConsistencyProof_ proves that the provided _root_ at the given _index_ is included into _c.SecondRoot_'s history.
-func (c *ConsistencyProof) Verify(index uint64, root []byte) bool {
-	if c == nil || c.First != index {
+// Verify returns true iff the _ConsistencyProof_ proves that _c.SecondRoot_'s history is including the history of
+// the provided _prevRoot_ up to the position _c.First_.
+func (c *ConsistencyProof) Verify(prevRoot Root) bool {
+	if c == nil || c.First != prevRoot.Index {
 		return false
 	}
-
-	c.FirstRoot = root
 
 	var path tree.Path
 	path.FromSlice(c.Path)
 
 	var firstRoot, secondRoot [sha256.Size]byte
-	copy(firstRoot[:], c.FirstRoot)
+	copy(firstRoot[:], prevRoot.Root)
 	copy(secondRoot[:], c.SecondRoot)
-	return path.VerifyConsistency(c.Second, c.First, secondRoot, firstRoot)
+	if path.VerifyConsistency(c.Second, c.First, secondRoot, firstRoot) {
+		c.FirstRoot = prevRoot.Root
+		return true
+	}
+	return false
 }
 
-func (p *Proof) Verify(leaf []byte, rootIdx uint64, root []byte) bool {
+// Verify returns true iff the _Proof_ proves that the given _leaf_ is included into _p.Root_'s history at position _p.Index_
+// and that the provided _prevRoot_ is included into _p.Root_'s history.
+// Providing a zerovalue for _prevRoot_ signals that no previous root is available because _leaf_ is the first leaf in the tree.
+func (p *Proof) Verify(leaf []byte, prevRoot Root) bool {
 
 	if p == nil || bytes.Compare(leaf, p.Leaf) != 0 {
 		return false
@@ -73,15 +80,15 @@ func (p *Proof) Verify(leaf []byte, rootIdx uint64, root []byte) bool {
 		return false
 	}
 
-	// todo(leogr): special case, no previous root
-	if rootIdx == 0 && len(root) == 0 && len(p.ConsistencyPath) == 0 {
+	// we cannot check consistency when the previous root does not exists
+	if p.At == 0 && p.Index == 0 && len(p.ConsistencyPath) == 0 && prevRoot.Index == 0 && len(prevRoot.Root) == 0 {
 		return true
 	}
 
 	path.FromSlice(p.ConsistencyPath)
 
 	var firstRoot, secondRoot [sha256.Size]byte
-	copy(firstRoot[:], root)
+	copy(firstRoot[:], prevRoot.Root)
 	copy(secondRoot[:], p.Root)
-	return path.VerifyConsistency(p.At, rootIdx, secondRoot, firstRoot)
+	return path.VerifyConsistency(p.At, prevRoot.Index, secondRoot, firstRoot)
 }

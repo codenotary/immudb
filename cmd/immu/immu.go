@@ -255,7 +255,7 @@ root: %x at index: %d
 firstRoot: %x at index: %d
 secondRoot: %x at index: %d
 
-`, proof.Verify(index, root), proof.FirstRoot, proof.First, proof.SecondRoot, proof.Second)
+`, proof.Verify(schema.Root{Index: index, Root: root}), proof.FirstRoot, proof.First, proof.SecondRoot, proof.Second)
 				return nil
 			},
 			Args: cobra.MinimumNArgs(2),
