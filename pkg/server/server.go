@@ -70,6 +70,14 @@ func (s *ImmuServer) Stop() error {
 	return nil
 }
 
+func (s *ImmuServer) CurrentRoot(context.Context, *empty.Empty) (*schema.Root, error) {
+	root, err := s.Store.CurrentRoot()
+	if root != nil {
+		s.Logger.Debugf("current root: %d %x", root.Index, root.Root)
+	}
+	return root, err
+}
+
 func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
 	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
 	item, err := s.Store.Set(*kv)
