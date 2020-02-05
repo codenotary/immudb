@@ -26,4 +26,5 @@ var (
 	InvalidOffsetErr       = errors.New("invalid offset")
 	IndexNotFoundErr       = errors.New("index not found")
 	InconsistentStateError = errors.New("inconsistent state")
+	InvalidRootIndexErr    = errors.New("invalid root index")
 )
