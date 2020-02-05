@@ -72,6 +72,14 @@ type treeStoreEntry struct {
 	h  *[sha256.Size]byte
 }
 
+func (t treeStoreEntry) Index() uint64 {
+	return t.ts - 1
+}
+
+func (t treeStoreEntry) HashCopy() []byte {
+	return append([]byte{}, t.h[:]...)
+}
+
 type treeStore struct {
 	// A 64-bit integer must be at the top for memory alignment
 	ts          uint64 // badger timestamp
@@ -165,6 +173,12 @@ func (t *treeStore) WaitUntil(index uint64) {
 	}
 }
 
+// LastIndex returns the index of last tree commitment.
+// It's thread-safe.
+func (t *treeStore) LastIndex() uint64 {
+	return atomic.LoadUint64(&t.ts) - 1
+}
+
 // NewEntry acquires a lease for a new entry and returns it. The entry must be used with Commit() or Discard().
 // It's thread-safe.
 func (t *treeStore) NewEntry(key []byte, value []byte) *treeStoreEntry {
@@ -191,12 +205,16 @@ func (t *treeStore) NewBatch(kvPairs *schema.KVList) []*treeStoreEntry {
 }
 
 // Commit enqueues the given entry to be included in the tree.
+// The value of _entry_ might change once Discard() or Commit() is called,
+// so it must not be used later.
 // It's thread-safe. Commit will fail if called after Close().
 func (t *treeStore) Commit(entry *treeStoreEntry) {
 	t.c <- entry
 }
 
 // Discard enqueues the given entry to be included in the tree as discarded item.
+// The value of _entry_ might change once Discard() or Commit() is called,
+// so it must not be used later.
 // It's thread-safe. Discard will fail if called after Close().
 func (t *treeStore) Discard(entry *treeStoreEntry) {
 	h := api.Digest(entry.ts, []byte{}, []byte{})
