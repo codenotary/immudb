@@ -30,8 +30,10 @@ func TestStoreSafeSet(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	lastRootIdx := uint64(0)
-	var lastRoot []byte
+	root, err := st.CurrentRoot()
+	assert.NotNil(t, root)
+	assert.NoError(t, err)
+
 	for n := uint64(0); n <= 64; n++ {
 		opts := schema.SafeSetOptions{
 			Kv: &schema.KeyValue{
@@ -39,7 +41,7 @@ func TestStoreSafeSet(t *testing.T) {
 				Value: []byte(strconv.FormatUint(n, 10)),
 			},
 			RootIndex: &schema.Index{
-				Index: lastRootIdx,
+				Index: root.Index,
 			},
 		}
 		proof, err := st.SafeSet(opts)
@@ -48,11 +50,11 @@ func TestStoreSafeSet(t *testing.T) {
 		assert.Equal(t, n, proof.Index, "n=%d", n)
 
 		leaf := api.Digest(proof.Index, opts.Kv.Key, opts.Kv.Value)
-		verified := proof.Verify(leaf[:], lastRootIdx, lastRoot)
+		verified := proof.Verify(leaf[:], *root)
 		assert.True(t, verified, "n=%d", n)
 
-		lastRootIdx = proof.At
-		lastRoot = proof.Root
+		root.Index = proof.At
+		root.Root = proof.Root
 	}
 
 	for n := uint64(0); n <= 64; n++ {
