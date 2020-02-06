@@ -98,8 +98,18 @@ message Proof {
 	repeated bytes consistencyPath = 6;
 }
 
+message SafeItem {
+	Item item = 1;
+	Proof proof = 2;
+}
+
 message SafeSetOptions {
 	KeyValue kv = 1;
+	Index rootIndex = 2;
+}
+
+message SafeGetOptions {
+	Key key = 1;
 	Index rootIndex = 2;
 }
 
@@ -112,6 +122,7 @@ service ImmuService {
 	rpc SafeSet(SafeSetOptions) returns (Proof);
 	rpc SetBatch (KVList) returns (Index);
 	rpc Get (Key) returns (Item);
+	rpc SafeGet(SafeGetOptions) returns (SafeItem);
 	rpc GetBatch (KeyList) returns (ItemList);
 	rpc Scan(ScanOptions) returns (ItemList);
 	rpc Count(KeyPrefix) returns (ItemsCount);
