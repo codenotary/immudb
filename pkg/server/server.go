@@ -118,6 +118,15 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 	return item, nil
 }
 
+func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
+	s.Logger.Debugf("safeget %s", opts.Key)
+	item, err := s.Store.SafeGet(*opts)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
 func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
