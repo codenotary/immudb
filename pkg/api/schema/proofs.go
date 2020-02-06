@@ -63,7 +63,7 @@ func (c *ConsistencyProof) Verify(prevRoot Root) bool {
 
 // Verify returns true iff the _Proof_ proves that the given _leaf_ is included into _p.Root_'s history at position _p.Index_
 // and that the provided _prevRoot_ is included into _p.Root_'s history.
-// Providing a zerovalue for _prevRoot_ signals that no previous root is available because _leaf_ is the first leaf in the tree.
+// Providing a zerovalue for _prevRoot_ signals that no previous root is available, thus consistency proof will be skipped.
 func (p *Proof) Verify(leaf []byte, prevRoot Root) bool {
 
 	if p == nil || bytes.Compare(leaf, p.Leaf) != 0 {
@@ -80,8 +80,8 @@ func (p *Proof) Verify(leaf []byte, prevRoot Root) bool {
 		return false
 	}
 
-	// we cannot check consistency when the previous root does not exists
-	if p.At == 0 && p.Index == 0 && len(p.ConsistencyPath) == 0 && prevRoot.Index == 0 && len(prevRoot.Root) == 0 {
+	// we cannot check consistency when the previous root is not provided
+	if prevRoot.Index == 0 && len(prevRoot.Root) == 0 {
 		return true
 	}
 
