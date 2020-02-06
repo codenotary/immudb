@@ -69,6 +69,59 @@ func TestStoreSafeSet(t *testing.T) {
 	assert.Equal(t, root64th, tree.Root(st.tree))
 }
 
+func TestStoreSafeGet(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	firstItem, err := st.Set(schema.KeyValue{Key: []byte(`first`), Value: []byte(`firstValue`)})
+	assert.NoError(t, err)
+	seconditem, err := st.Set(schema.KeyValue{Key: []byte(`second`), Value: []byte(`secondValue`)})
+	assert.NoError(t, err)
+
+	// first item, no prev root
+	safeItem, err := st.SafeGet(schema.SafeGetOptions{
+		Key: &schema.Key{
+			Key: []byte(`first`),
+		},
+		// no root index provided
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, safeItem)
+	assert.Equal(t, []byte(`first`), safeItem.Item.Key)
+	assert.Equal(t, []byte(`firstValue`), safeItem.Item.Value)
+	assert.Equal(t, firstItem.Index, safeItem.Item.Index)
+	assert.True(t, safeItem.Proof.Verify(
+		safeItem.Item.Hash(),
+		schema.Root{}, // zerovalue signals no prev root
+	))
+
+	// second item with prev root
+	prevRoot := safeItem.Proof.NewRoot()
+	safeItem, err = st.SafeGet(schema.SafeGetOptions{
+		Key: &schema.Key{
+			Key: []byte(`second`),
+		},
+		RootIndex: &schema.Index{
+			Index: prevRoot.Index,
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, safeItem)
+	assert.Equal(t, []byte(`second`), safeItem.Item.Key)
+	assert.Equal(t, []byte(`secondValue`), safeItem.Item.Value)
+	assert.Equal(t, seconditem.Index, safeItem.Item.Index)
+	assert.True(t, safeItem.Proof.Verify(
+		safeItem.Item.Hash(),
+		*prevRoot,
+	))
+
+	lastRoot, err := st.CurrentRoot()
+	assert.NoError(t, err)
+	assert.NotNil(t, lastRoot)
+	assert.Equal(t, *lastRoot, *safeItem.Proof.NewRoot())
+
+}
+
 func BenchmarkStoreSafeSet(b *testing.B) {
 	st, closer := makeStore()
 	defer closer()

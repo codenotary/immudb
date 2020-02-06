@@ -161,6 +161,7 @@ func (t *treeStore) Close() {
 
 // WaitUntil waits until the given _index_ has been added into the tree.
 // If the given _index_ cannot be reached, it will never return.
+// It's thread-safe.
 func (t *treeStore) WaitUntil(index uint64) {
 	for {
 		t.RLock()

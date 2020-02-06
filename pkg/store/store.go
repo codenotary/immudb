@@ -93,8 +93,9 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 	defer txn.Discard()
 
 	for _, kv := range list.KVs {
-		if kv.Key[0] == tsPrefix {
-			err = InvalidKeyErr
+		err = checkKey(kv.Key)
+		if err != nil {
+			return
 		}
 		if err = txn.SetEntry(&badger.Entry{
 			Key:   kv.Key,
@@ -138,8 +139,8 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 
 func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	if kv.Key[0] == tsPrefix {
-		err = InvalidKeyErr
+	err = checkKey(kv.Key)
+	if err != nil {
 		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
@@ -179,8 +180,8 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 }
 
 func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
-	if len(key.Key) == 0 || key.Key[0] == tsPrefix {
-		err = InvalidKeyErr
+	err = checkKey(key.Key)
+	if err != nil {
 		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)

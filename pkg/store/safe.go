@@ -25,17 +25,26 @@ import (
 	"github.com/dgraph-io/badger/v2"
 )
 
+func getPrevRootIdx(lastIndex uint64, rootIdx *schema.Index) (uint64, error) {
+	if rootIdx != nil && rootIdx.Index > 0 {
+		if lastIndex > rootIdx.Index {
+			return 0, InvalidRootIndexErr
+		}
+		return rootIdx.Index, nil
+	}
+	return 0, nil
+}
+
 func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err error) {
 	kv := options.Kv
-	if kv.Key[0] == tsPrefix {
-		err = InvalidKeyErr
+	err = checkKey(kv.Key)
+	if err != nil {
 		return
 	}
 
-	if options.RootIndex.Index > 0 {
-		if lastIndex := t.tree.LastIndex(); lastIndex > options.RootIndex.Index {
-			return nil, InvalidRootIndexErr
-		}
+	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
+	if err != nil {
+		return
 	}
 
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
@@ -72,7 +81,52 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 		Root:            root[:],
 		At:              at,
 		InclusionPath:   tree.InclusionProof(t.tree, at, index).ToSlice(),
-		ConsistencyPath: tree.ConsistencyProof(t.tree, at, options.RootIndex.Index).ToSlice(),
+		ConsistencyPath: tree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
+	}
+
+	return
+}
+
+func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeItem, err error) {
+	key := options.Key
+	err = checkKey(key.Key)
+	if err != nil {
+		return
+	}
+
+	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
+	if err != nil {
+		return
+	}
+
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
+	defer txn.Discard()
+	i, err := txn.Get(key.Key)
+	if err != nil {
+		return
+	}
+	item, err := itemToSchema(key.Key, i)
+	if err != nil {
+		return
+	}
+	safeItem = &schema.SafeItem{
+		Item: item,
+	}
+
+	t.tree.WaitUntil(item.Index)
+	t.tree.RLock()
+	defer t.tree.RUnlock()
+
+	at := t.tree.w - 1
+	root := tree.Root(t.tree)
+
+	safeItem.Proof = &schema.Proof{
+		Leaf:            item.Hash(),
+		Index:           item.Index,
+		Root:            root[:],
+		At:              at,
+		InclusionPath:   tree.InclusionProof(t.tree, at, item.Index).ToSlice(),
+		ConsistencyPath: tree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
 
 	return
