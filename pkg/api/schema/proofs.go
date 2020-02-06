@@ -92,3 +92,14 @@ func (p *Proof) Verify(leaf []byte, prevRoot Root) bool {
 	copy(secondRoot[:], p.Root)
 	return path.VerifyConsistency(p.At, prevRoot.Index, secondRoot, firstRoot)
 }
+
+// NewRoot returns a new _Root_ object which holds values referenced by the proof _p_.
+func (p *Proof) NewRoot() *Root {
+	if p != nil {
+		return &Root{
+			Root:  append([]byte{}, p.Root...),
+			Index: p.At,
+		}
+	}
+	return nil
+}
