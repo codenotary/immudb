@@ -16,6 +16,7 @@ limitations under the License.
 
 syntax = "proto3";
 
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 
 package immudb.schema;
@@ -118,18 +119,82 @@ message HealthResponse {
 }
 
 service ImmuService {
-	rpc Set (KeyValue) returns (Index);
-	rpc SafeSet(SafeSetOptions) returns (Proof);
-	rpc SetBatch (KVList) returns (Index);
-	rpc Get (Key) returns (Item);
-	rpc SafeGet(SafeGetOptions) returns (SafeItem);
-	rpc GetBatch (KeyList) returns (ItemList);
-	rpc Scan(ScanOptions) returns (ItemList);
-	rpc Count(KeyPrefix) returns (ItemsCount);
-	rpc CurrentRoot(google.protobuf.Empty) returns (Root);
-	rpc Inclusion(Index) returns (InclusionProof);
-	rpc Consistency(Index) returns (ConsistencyProof);
-	rpc ByIndex(Index) returns (Item);
-	rpc History(Key) returns (ItemList);
-	rpc Health (google.protobuf.Empty) returns (HealthResponse);
+	rpc Set (KeyValue) returns (Index){
+		option (google.api.http) = {
+              post: "/v1/immurestproxy/item"
+              body: "*"
+          };
+	};
+	rpc SafeSet(SafeSetOptions) returns (Proof){
+		option (google.api.http) = {
+              post: "/v1/immurestproxy/item/safe"
+              body: "*"
+          };
+	}
+	rpc Get (Key) returns (Item){
+		option (google.api.http) = {
+            get: "/v1/immurestproxy/item/{key}"
+        };
+	};
+	rpc SafeGet(SafeGetOptions) returns (SafeItem){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/item/safe/get"
+            body: "*"
+        };
+	};
+	rpc SetBatch (KVList) returns (Index){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/batch/set"
+            body: "*"
+        };
+	};
+	rpc GetBatch (KeyList) returns (ItemList){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/batch/get"
+            body: "*"
+        };
+	};
+	rpc Scan(ScanOptions) returns (ItemList){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/item/scan"
+            body: "*"
+        };
+	};
+	rpc Count(KeyPrefix) returns (ItemsCount){
+		option (google.api.http) = {
+            get: "/v1/immurestproxy/item/count/{prefix}"
+        };
+	};
+
+	rpc CurrentRoot(google.protobuf.Empty) returns (Root) {
+		option (google.api.http) = {
+            get: "/v1/immurestproxy/root"
+        };
+	};
+
+	rpc Inclusion(Index) returns (InclusionProof){
+		option (google.api.http) = {
+            get: "/v1/immurestproxy/inclusionproof/{index}"
+        };
+	};
+	rpc Consistency(Index) returns (ConsistencyProof){
+		option (google.api.http) = {
+            get: "/v1/immurestproxy/consistencyproof/{index}"
+        };
+	};
+	rpc ByIndex(Index) returns (Item){
+		option (google.api.http) = {
+            get: "/v1/immurestproxy/item/index/{index}"
+        };
+	};
+	rpc History(Key) returns (ItemList){
+		option (google.api.http) = {
+            get: "/v1/immurestproxy/history/{key}"
+        };
+	};
+	rpc Health (google.protobuf.Empty) returns (HealthResponse){
+		option (google.api.http) = {
+            get: "/v1/immurestproxy/healtresponse"
+        };
+	};
 }
