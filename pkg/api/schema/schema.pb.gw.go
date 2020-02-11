@@ -44,7 +44,7 @@ func request_ImmuService_Set_0(ctx context.Context, marshaler runtime.Marshaler,
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := Set(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Set(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -61,7 +61,7 @@ func local_request_ImmuService_Set_0(ctx context.Context, marshaler runtime.Mars
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := Set(ctx, &protoReq)
+	msg, err := server.Set(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -78,7 +78,7 @@ func request_ImmuService_SafeSet_0(ctx context.Context, marshaler runtime.Marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := SafeSet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.SafeSet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -95,7 +95,7 @@ func local_request_ImmuService_SafeSet_0(ctx context.Context, marshaler runtime.
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := SafeSet(ctx, &protoReq)
+	msg, err := server.SafeSet(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -122,7 +122,7 @@ func request_ImmuService_Get_0(ctx context.Context, marshaler runtime.Marshaler,
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key", err)
 	}
 
-	msg, err := Get(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Get(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -149,7 +149,7 @@ func local_request_ImmuService_Get_0(ctx context.Context, marshaler runtime.Mars
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key", err)
 	}
 
-	msg, err := Get(ctx, &protoReq)
+	msg, err := server.Get(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -166,7 +166,7 @@ func request_ImmuService_SafeGet_0(ctx context.Context, marshaler runtime.Marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := SafeGet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.SafeGet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -183,7 +183,7 @@ func local_request_ImmuService_SafeGet_0(ctx context.Context, marshaler runtime.
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := SafeGet(ctx, &protoReq)
+	msg, err := server.SafeGet(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -200,7 +200,7 @@ func request_ImmuService_SetBatch_0(ctx context.Context, marshaler runtime.Marsh
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := SetBatch(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.SetBatch(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -217,7 +217,7 @@ func local_request_ImmuService_SetBatch_0(ctx context.Context, marshaler runtime
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := SetBatch(ctx, &protoReq)
+	msg, err := server.SetBatch(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -234,7 +234,7 @@ func request_ImmuService_GetBatch_0(ctx context.Context, marshaler runtime.Marsh
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := GetBatch(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetBatch(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -251,7 +251,7 @@ func local_request_ImmuService_GetBatch_0(ctx context.Context, marshaler runtime
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := GetBatch(ctx, &protoReq)
+	msg, err := server.GetBatch(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -268,7 +268,7 @@ func request_ImmuService_Scan_0(ctx context.Context, marshaler runtime.Marshaler
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := Scan(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Scan(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -285,7 +285,7 @@ func local_request_ImmuService_Scan_0(ctx context.Context, marshaler runtime.Mar
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := Scan(ctx, &protoReq)
+	msg, err := server.Scan(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -312,7 +312,7 @@ func request_ImmuService_Count_0(ctx context.Context, marshaler runtime.Marshale
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "prefix", err)
 	}
 
-	msg, err := Count(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Count(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -339,7 +339,7 @@ func local_request_ImmuService_Count_0(ctx context.Context, marshaler runtime.Ma
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "prefix", err)
 	}
 
-	msg, err := Count(ctx, &protoReq)
+	msg, err := server.Count(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -348,7 +348,7 @@ func request_ImmuService_CurrentRoot_0(ctx context.Context, marshaler runtime.Ma
 	var protoReq empty.Empty
 	var metadata runtime.ServerMetadata
 
-	msg, err := CurrentRoot(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.CurrentRoot(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -357,7 +357,7 @@ func local_request_ImmuService_CurrentRoot_0(ctx context.Context, marshaler runt
 	var protoReq empty.Empty
 	var metadata runtime.ServerMetadata
 
-	msg, err := CurrentRoot(ctx, &protoReq)
+	msg, err := server.CurrentRoot(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -384,7 +384,7 @@ func request_ImmuService_Inclusion_0(ctx context.Context, marshaler runtime.Mars
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "index", err)
 	}
 
-	msg, err := Inclusion(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Inclusion(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -411,7 +411,7 @@ func local_request_ImmuService_Inclusion_0(ctx context.Context, marshaler runtim
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "index", err)
 	}
 
-	msg, err := Inclusion(ctx, &protoReq)
+	msg, err := server.Inclusion(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -438,7 +438,7 @@ func request_ImmuService_Consistency_0(ctx context.Context, marshaler runtime.Ma
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "index", err)
 	}
 
-	msg, err := Consistency(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Consistency(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -465,7 +465,7 @@ func local_request_ImmuService_Consistency_0(ctx context.Context, marshaler runt
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "index", err)
 	}
 
-	msg, err := Consistency(ctx, &protoReq)
+	msg, err := server.Consistency(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -492,7 +492,7 @@ func request_ImmuService_ByIndex_0(ctx context.Context, marshaler runtime.Marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "index", err)
 	}
 
-	msg, err := ByIndex(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.ByIndex(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -519,7 +519,7 @@ func local_request_ImmuService_ByIndex_0(ctx context.Context, marshaler runtime.
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "index", err)
 	}
 
-	msg, err := ByIndex(ctx, &protoReq)
+	msg, err := server.ByIndex(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -546,7 +546,7 @@ func request_ImmuService_History_0(ctx context.Context, marshaler runtime.Marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key", err)
 	}
 
-	msg, err := History(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.History(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -573,7 +573,7 @@ func local_request_ImmuService_History_0(ctx context.Context, marshaler runtime.
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key", err)
 	}
 
-	msg, err := History(ctx, &protoReq)
+	msg, err := server.History(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -582,7 +582,7 @@ func request_ImmuService_Health_0(ctx context.Context, marshaler runtime.Marshal
 	var protoReq empty.Empty
 	var metadata runtime.ServerMetadata
 
-	msg, err := Health(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Health(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -591,7 +591,7 @@ func local_request_ImmuService_Health_0(ctx context.Context, marshaler runtime.M
 	var protoReq empty.Empty
 	var metadata runtime.ServerMetadata
 
-	msg, err := Health(ctx, &protoReq)
+	msg, err := server.Health(ctx, &protoReq)
 	return msg, metadata, err
 
 }

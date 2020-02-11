@@ -36,8 +36,21 @@ test:
 	$(GO) test --race ${TEST_FLAGS} ./...
 
 .PHONY: build/codegen
-build/codegen:
-	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto --go_out=plugins=grpc,paths=source_relative:pkg/api/schema
+build/codegen: pkg/api/schema/schema.pb.go pkg/api/schema/schema.pb.gw.go
+
+.PHONY: pkg/api/schema/schema.pb.go
+pkg/api/schema/schema.pb.go:
+	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
+	-I${GOPATH}/pkg/mod \
+	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.12.2/third_party/googleapis \
+	--go_out=plugins=grpc,paths=source_relative:pkg/api/schema
+
+.PHONY: pkg/api/schema/schema.pb.gw.go
+pkg/api/schema/schema.pb.gw.go:
+	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
+	-I${GOPATH}/pkg/mod \
+	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.12.2/third_party/googleapis \
+  	--grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
 
 .PHONY: clean
 clean:
