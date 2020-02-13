@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	rp "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
@@ -87,6 +90,7 @@ func serve(cmd *cobra.Command, args []string) error {
 		}()
 	}()
 
+	logger := logger.New("immugw", os.Stderr)
 	client := schema.NewImmuServiceClient(conn)
 	c := cache.NewFileCache()
 	rs := rp.NewRootService(client, c)
@@ -103,5 +107,21 @@ func serve(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	var protoReq empty.Empty
+	var metadata runtime.ServerMetadata
+	if healt, err := client.Health(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD)); err != nil {
+		logger.Infof(err.Error())
+		return err
+	} else {
+		if healt.GetStatus() != true {
+			msg := fmt.Sprintf("Immudb not in healt at %s:%s", immudhost, immudport)
+			logger.Infof(msg)
+			return errors.New(msg)
+		} else {
+			logger.Infof(fmt.Sprintf("Immudb is listening at %s:%s", immudhost, immudport))
+		}
+	}
+	logger.Infof("Starting immugw at %s:%s", host, port)
 	return http.ListenAndServe(host+":"+port, handler)
 }
