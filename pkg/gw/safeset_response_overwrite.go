@@ -43,13 +43,10 @@ func NewSafeSetResponseOverwrite(rs client.RootService) SafeSetResponseOverwrite
 func (r safeSetResponseOverwrite) call (ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
 	if req.Method == http.MethodPost && resp != nil && req.URL.Path == "/v1/immurestproxy/item/safe" {
 		if p, ok := resp.(*schema.Proof); ok {
-			proof := schema.Proof{p.Leaf, p.Index, p.Root, p.At, p.InclusionPath, p.ConsistencyPath, p.XXX_NoUnkeyedLiteral, p.XXX_unrecognized, p.XXX_sizecache}
-
-			root := new(schema.Root)
-			rootc, _ := r.rs.GetRoot(ctx)
-			root.Root = rootc.Root
-			root.Index = rootc.Index
-
+			root, err := r.rs.GetRoot(ctx)
+			if err != nil {
+				panic(err)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			buf, err := marshaler.Marshal(resp)
 			if err != nil {
@@ -63,7 +60,7 @@ func (r safeSetResponseOverwrite) call (ctx context.Context, mux *runtime.ServeM
 			/* remember to calc the leaf hash from key val with values that are coming from client and index from server.
 			DO NOT USE leaf generated from server for security reasons. (maybe somebody can create a temper leaf)
 			*/
-			verified := proof.Verify(p.Leaf, *root)
+			verified := p.Verify(p.Leaf, *root)
 			m["verified"] = verified
 			newData, _ := json.Marshal(m)
 			if verified {

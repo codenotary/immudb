@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/golang/protobuf/proto"
@@ -43,14 +42,10 @@ func NewSafeGetResponseOverwrite(rs client.RootService) SafeGetResponseOverwrite
 func (r safeGetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
 	if req.Method == http.MethodPost && resp != nil && req.URL.Path == "/v1/immurestproxy/item/safe/get" {
 		if p, ok := resp.(*schema.SafeItem); ok {
-
-			root := new(schema.Root)
-			if buf, err := ioutil.ReadFile(".root"); err == nil {
-				if err = root.XXX_Unmarshal(buf); err != nil {
-					panic(err)
-				}
+			root, err := r.rs.GetRoot(ctx)
+			if err != nil {
+				panic(err)
 			}
-
 			w.Header().Set("Content-Type", "application/json")
 			buf, err := marshaler.Marshal(resp)
 			if err != nil {
