@@ -19,6 +19,7 @@ package gw
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"net/http"
 )
@@ -28,14 +29,16 @@ type SafegetHandler interface {
 }
 
 type safegetHandler struct {
-	mux *runtime.ServeMux
+	mux    *runtime.ServeMux
 	client schema.ImmuServiceClient
+	rs client.RootService
 }
 
-func NewSafegetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient) SafegetHandler {
+func NewSafegetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafegetHandler {
 	return &safegetHandler{
 		mux,
 		client,
+		rs,
 	}
 }
 
@@ -48,11 +51,13 @@ func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathP
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	resp, md, err := SafeGetRequestOverwrite(rctx, inboundMarshaler, h.client, req, pathParams)
+	safeGetRequestOverwrite := NewSafeGetRequestOverwrite(h.rs)
+	resp, md, err := safeGetRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
 	ctx = runtime.NewServerMetadataContext(ctx, md)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	SafeGetResponseOverwrite(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...)
+	safeGetResponseOverwrite := NewSafeGetResponseOverwrite(h.rs)
+	safeGetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...)
 }

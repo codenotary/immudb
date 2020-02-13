@@ -19,7 +19,7 @@ package gw
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	rp "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/utilities"
@@ -30,7 +30,20 @@ import (
 	"net/http"
 )
 
-func SafeSetRequestOverwrite(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+type SafeSetRequestOverwrite interface {
+	call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error)
+}
+
+type safeSetRequestOverwrite struct {
+	rs client.RootService
+}
+
+func NewSafeSetRequestOverwrite(rs client.RootService) SafeSetRequestOverwrite{
+	return safeSetRequestOverwrite{rs}
+}
+
+
+func  (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq schema.SafeSetOptions
 	var metadata runtime.ServerMetadata
 
@@ -41,7 +54,7 @@ func SafeSetRequestOverwrite(ctx context.Context, marshaler runtime.Marshaler, c
 	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	root, err := rp.GetCachedRoot()
+	root, err := r.rs.GetRoot(ctx)
 
 	ri := new(schema.Index)
 	ri.Index = root.Index

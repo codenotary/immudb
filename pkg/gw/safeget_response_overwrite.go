@@ -28,9 +28,19 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
 
+type SafeGetResponseOverwrite interface {
+call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error)
+}
 
+type safeGetResponseOverwrite struct {
+	rs client.RootService
+}
 
-func SafeGetResponseOverwrite(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
+func NewSafeGetResponseOverwrite(rs client.RootService) SafeGetResponseOverwrite{
+	return safeGetResponseOverwrite{rs}
+}
+
+func (r safeGetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
 	if req.Method == http.MethodPost && resp != nil && req.URL.Path == "/v1/immurestproxy/item/safe/get" {
 		if p, ok := resp.(*schema.SafeItem); ok {
 
@@ -63,7 +73,7 @@ func SafeGetResponseOverwrite(ctx context.Context, mux *runtime.ServeMux, marsha
 				tocache := new(schema.Root)
 				tocache.Index = p.Proof.At
 				tocache.Root = p.Proof.Root
-				err := client.SetRoot(tocache)
+				err := r.rs.SetRoot(tocache)
 				if err != nil {
 					panic(err)
 				}

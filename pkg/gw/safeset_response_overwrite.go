@@ -19,23 +19,34 @@ package gw
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	rp "github.com/codenotary/immudb/pkg/client"
-	"log"
+	"github.com/codenotary/immudb/pkg/client"
 	"net/http"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
 
-func SafeSetResponseOverwrite(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
+
+type SafeSetResponseOverwrite interface {
+	call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error)
+}
+
+type safeSetResponseOverwrite struct {
+	rs client.RootService
+}
+
+func NewSafeSetResponseOverwrite(rs client.RootService) SafeSetResponseOverwrite{
+	return safeSetResponseOverwrite{rs}
+}
+
+func (r safeSetResponseOverwrite) call (ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
 	if req.Method == http.MethodPost && resp != nil && req.URL.Path == "/v1/immurestproxy/item/safe" {
 		if p, ok := resp.(*schema.Proof); ok {
 			proof := schema.Proof{p.Leaf, p.Index, p.Root, p.At, p.InclusionPath, p.ConsistencyPath, p.XXX_NoUnkeyedLiteral, p.XXX_unrecognized, p.XXX_sizecache}
 
 			root := new(schema.Root)
-			rootc, _ := rp.GetCachedRoot()
+			rootc, _ := r.rs.GetRoot(ctx)
 			root.Root = rootc.Root
 			root.Index = rootc.Index
 
@@ -53,7 +64,6 @@ func SafeSetResponseOverwrite(ctx context.Context, mux *runtime.ServeMux, marsha
 			DO NOT USE leaf generated from server for security reasons. (maybe somebody can create a temper leaf)
 			*/
 			verified := proof.Verify(p.Leaf, *root)
-			log.Print(fmt.Sprintf("Safe SET Verified %t", verified))
 			m["verified"] = verified
 			newData, _ := json.Marshal(m)
 			if verified {
@@ -61,7 +71,7 @@ func SafeSetResponseOverwrite(ctx context.Context, mux *runtime.ServeMux, marsha
 				tocache := new(schema.Root)
 				tocache.Index = p.Index
 				tocache.Root = p.Root
-				err := rp.SetRoot(tocache)
+				err := r.rs.SetRoot(tocache)
 				if err != nil {
 					panic(err)
 				}

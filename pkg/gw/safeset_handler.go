@@ -19,6 +19,7 @@ package gw
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"net/http"
 )
@@ -28,18 +29,20 @@ type SafesetHandler interface {
 }
 
 type safesetHandler struct {
-	mux *runtime.ServeMux
+	mux    *runtime.ServeMux
 	client schema.ImmuServiceClient
+	rs client.RootService
 }
 
-func NewSafesetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient) SafesetHandler {
+func NewSafesetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafesetHandler {
 	return &safesetHandler{
 		mux,
 		client,
+		rs,
 	}
 }
 
-func (h *safesetHandler)Safeset(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
@@ -48,13 +51,15 @@ func (h *safesetHandler)Safeset(w http.ResponseWriter, req *http.Request, pathPa
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
+	safeSetRequestOverwrite := NewSafeSetRequestOverwrite(h.rs)
+	resp, md, err := safeSetRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
 
-	resp, md, err := SafeSetRequestOverwrite(rctx, inboundMarshaler, h.client, req, pathParams)
 	ctx = runtime.NewServerMetadataContext(ctx, md)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	SafeSetResponseOverwrite(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...)
+	safeSetResponseOverwrite := NewSafeSetResponseOverwrite(h.rs)
+	safeSetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...)
 
 }
