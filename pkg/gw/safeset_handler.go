@@ -31,7 +31,7 @@ type SafesetHandler interface {
 type safesetHandler struct {
 	mux    *runtime.ServeMux
 	client schema.ImmuServiceClient
-	rs client.RootService
+	rs     client.RootService
 }
 
 func NewSafesetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafesetHandler {
@@ -60,6 +60,7 @@ func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathP
 		return
 	}
 	safeSetResponseOverwrite := NewSafeSetResponseOverwrite(h.rs)
-	safeSetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...)
-
+	if err := safeSetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+	}
 }

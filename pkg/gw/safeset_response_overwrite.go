@@ -29,7 +29,7 @@ import (
 )
 
 type SafeSetResponseOverwrite interface {
-	call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error)
+	call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) error
 }
 
 type safeSetResponseOverwrite struct {
@@ -40,22 +40,22 @@ func NewSafeSetResponseOverwrite(rs client.RootService) SafeSetResponseOverwrite
 	return safeSetResponseOverwrite{rs}
 }
 
-func (r safeSetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
+func (r safeSetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) error {
 	if req.Method == http.MethodPost && resp != nil && req.URL.Path == "/v1/immurestproxy/item/safe" {
 		if p, ok := resp.(*schema.Proof); ok {
 			root, err := r.rs.GetRoot(ctx)
 			if err != nil {
-				panic(err)
+				return err
 			}
 			w.Header().Set("Content-Type", "application/json")
 			buf, err := marshaler.Marshal(resp)
 			if err != nil {
-				panic(err)
+				return err
 			}
 			var m map[string]interface{}
 			err = json.Unmarshal(buf, &m)
 			if err != nil {
-				panic(err)
+				return err
 			}
 
 			// The server-generated leaf SHOULD NOT BE USED for security reasons,
@@ -72,11 +72,11 @@ func (r safeSetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 				tocache.Root = p.Root
 				err := r.rs.SetRoot(tocache)
 				if err != nil {
-					panic(err)
+					return err
 				}
 			}
 			w.Write(newData)
-			return
+			return nil
 		}
 	}
 }

@@ -31,7 +31,7 @@ type SafegetHandler interface {
 type safegetHandler struct {
 	mux    *runtime.ServeMux
 	client schema.ImmuServiceClient
-	rs client.RootService
+	rs     client.RootService
 }
 
 func NewSafegetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafegetHandler {
@@ -59,5 +59,7 @@ func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathP
 		return
 	}
 	safeGetResponseOverwrite := NewSafeGetResponseOverwrite(h.rs)
-	safeGetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...)
+	if err := safeGetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+	}
 }
