@@ -28,9 +28,11 @@
 /immud
 /nimmu
 /bm
+/immugw
 
 # Working files
 /immudb
+/.root
 
 # Vendor
 vendor
