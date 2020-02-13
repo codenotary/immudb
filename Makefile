@@ -8,7 +8,7 @@ PROTOC ?= protoc
 STRIP = strip
 
 .PHONY: all
-all: immu immud
+all: immu immud immugw
 
 .PHONY: immu
 immu:
@@ -18,6 +18,10 @@ immu:
 immud:
 	$(GO) build ./cmd/immud
 
+.PHONY: immugw
+immugw:
+	$(GO) build ./cmd/immugw
+
 .PHONY: immu-static
 immu-static:
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immu
@@ -25,6 +29,11 @@ immu-static:
 .PHONY: immud-static
 immud-static:
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immud
+
+.PHONY: immugw-static
+immugw-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immugw
+
 
 .PHONY: vendor
 vendor:
