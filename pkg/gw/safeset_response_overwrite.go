@@ -19,14 +19,14 @@ package gw
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
-	"net/http"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
-
 
 type SafeSetResponseOverwrite interface {
 	call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error)
@@ -36,11 +36,11 @@ type safeSetResponseOverwrite struct {
 	rs client.RootService
 }
 
-func NewSafeSetResponseOverwrite(rs client.RootService) SafeSetResponseOverwrite{
+func NewSafeSetResponseOverwrite(rs client.RootService) SafeSetResponseOverwrite {
 	return safeSetResponseOverwrite{rs}
 }
 
-func (r safeSetResponseOverwrite) call (ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
+func (r safeSetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) {
 	if req.Method == http.MethodPost && resp != nil && req.URL.Path == "/v1/immurestproxy/item/safe" {
 		if p, ok := resp.(*schema.Proof); ok {
 			root, err := r.rs.GetRoot(ctx)

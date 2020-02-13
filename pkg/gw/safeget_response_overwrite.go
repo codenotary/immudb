@@ -19,23 +19,24 @@ package gw
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
-	"net/http"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
 
 type SafeGetResponseOverwrite interface {
-call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error)
+	call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error)
 }
 
 type safeGetResponseOverwrite struct {
 	rs client.RootService
 }
 
-func NewSafeGetResponseOverwrite(rs client.RootService) SafeGetResponseOverwrite{
+func NewSafeGetResponseOverwrite(rs client.RootService) SafeGetResponseOverwrite {
 	return safeGetResponseOverwrite{rs}
 }
 
@@ -56,10 +57,10 @@ func (r safeGetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 			if err != nil {
 				panic(err)
 			}
-			/* remember to calc the leaf hash from key val with values that are coming from client and index from server.
-			DO NOT USE leaf generated from server for security reasons. (maybe somebody can create a temper leaf)
-			*/
-			verified := p.Proof.Verify(p.Proof.Leaf, *root)
+
+			// DO NOT USE leaf generated from server for security reasons
+			// (maybe somebody can create a temper leaf)
+			verified := p.Proof.Verify(p.Item.Hash(), *root)
 
 			m["verified"] = verified
 			newData, _ := json.Marshal(m)
