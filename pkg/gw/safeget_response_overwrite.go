@@ -41,41 +41,40 @@ func NewSafeGetResponseOverwrite(rs client.RootService) SafeGetResponseOverwrite
 }
 
 func (r safeGetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) error {
-	if req.Method == http.MethodPost && resp != nil && req.URL.Path == "/v1/immurestproxy/item/safe/get" {
-		if p, ok := resp.(*schema.SafeItem); ok {
-			root, err := r.rs.GetRoot(ctx)
-			if err != nil {
-				return err
-			}
-			w.Header().Set("Content-Type", "application/json")
-			buf, err := marshaler.Marshal(resp)
-			if err != nil {
-				return err
-			}
-			var m map[string]interface{}
-			err = json.Unmarshal(buf, &m)
-			if err != nil {
-				return err
-			}
-
-			// DO NOT USE leaf generated from server for security reasons
-			// (maybe somebody can create a temper leaf)
-			verified := p.Proof.Verify(p.Item.Hash(), *root)
-
-			m["verified"] = verified
-			newData, _ := json.Marshal(m)
-			if verified {
-				//saving a fresh root
-				tocache := new(schema.Root)
-				tocache.Index = p.Proof.At
-				tocache.Root = p.Proof.Root
-				err := r.rs.SetRoot(tocache)
-				if err != nil {
-					return err
-				}
-			}
-			w.Write(newData)
-			return nil
+	if p, ok := resp.(*schema.SafeItem); ok {
+		root, err := r.rs.GetRoot(ctx)
+		if err != nil {
+			return err
 		}
+		w.Header().Set("Content-Type", "application/json")
+		buf, err := marshaler.Marshal(resp)
+		if err != nil {
+			return err
+		}
+		var m map[string]interface{}
+		err = json.Unmarshal(buf, &m)
+		if err != nil {
+			return err
+		}
+
+		// DO NOT USE leaf generated from server for security reasons
+		// (maybe somebody can create a temper leaf)
+		verified := p.Proof.Verify(p.Item.Hash(), *root)
+
+		m["verified"] = verified
+		newData, _ := json.Marshal(m)
+		if verified {
+			//saving a fresh root
+			tocache := new(schema.Root)
+			tocache.Index = p.Proof.At
+			tocache.Root = p.Proof.Root
+			err := r.rs.SetRoot(tocache)
+			if err != nil {
+				return err
+			}
+		}
+		w.Write(newData)
+		return nil
 	}
+	return nil
 }
