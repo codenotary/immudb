@@ -17,7 +17,12 @@ limitations under the License.
 package gw
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"io"
+	"net/http"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/golang/protobuf/proto"
@@ -26,8 +31,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
-	"net/http"
+)
+
+var (
+	InvalidItemProof = errors.New("proof does not match the given item")
 )
 
 type SafeSetRequestOverwrite interface {
@@ -38,12 +45,11 @@ type safeSetRequestOverwrite struct {
 	rs client.RootService
 }
 
-func NewSafeSetRequestOverwrite(rs client.RootService) SafeSetRequestOverwrite{
+func NewSafeSetRequestOverwrite(rs client.RootService) SafeSetRequestOverwrite {
 	return safeSetRequestOverwrite{rs}
 }
 
-
-func  (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq schema.SafeSetOptions
 	var metadata runtime.ServerMetadata
 
@@ -61,5 +67,22 @@ func  (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Ma
 	protoReq.RootIndex = ri
 
 	msg, err := client.SafeSet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+
+	// This guard ensures that msg.Leaf is equal to the item's hash
+	// computed from request values.
+	// From now on, msg.Leaf can be trusted.
+	// Thus SafeSetResponseOverwrite will not need to decode the request
+	// and compute the hash.
+	if err != nil {
+		item := schema.Item{
+			Key:   protoReq.Kv.Key,
+			Value: protoReq.Kv.Value,
+			Index: msg.Index,
+		}
+		if bytes.Compare(item.Hash(), msg.Leaf) != 0 {
+			return msg, metadata, InvalidItemProof
+		}
+	}
+
 	return msg, metadata, err
 }

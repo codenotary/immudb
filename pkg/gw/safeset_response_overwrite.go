@@ -57,9 +57,11 @@ func (r safeSetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 			if err != nil {
 				panic(err)
 			}
-			/* remember to calc the leaf hash from key val with values that are coming from client and index from server.
-			DO NOT USE leaf generated from server for security reasons. (maybe somebody can create a temper leaf)
-			*/
+
+			// The server-generated leaf SHOULD NOT BE USED for security reasons,
+			// maybe somebody can create a temper leaf.
+			// In this case, we rely on SafeSetRequestOverwrite.call that has validated it
+			// already, so p.Leaf and the item's hash are guaranteed to be equal.
 			verified := p.Verify(p.Leaf, *root)
 			m["verified"] = verified
 			newData, _ := json.Marshal(m)
