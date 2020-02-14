@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 )
 
 // Verify returns true iff the _InclusionProof_ proves that _leaf_ is included into _i.Root_'s history at
@@ -32,7 +32,7 @@ func (i *InclusionProof) Verify(index uint64, leaf []byte) bool {
 		return false
 	}
 
-	var path tree.Path
+	var path merkletree.Path
 	path.FromSlice(i.Path)
 
 	var rt, lf [sha256.Size]byte
@@ -48,7 +48,7 @@ func (c *ConsistencyProof) Verify(prevRoot Root) bool {
 		return false
 	}
 
-	var path tree.Path
+	var path merkletree.Path
 	path.FromSlice(c.Path)
 
 	var firstRoot, secondRoot [sha256.Size]byte
@@ -70,7 +70,7 @@ func (p *Proof) Verify(leaf []byte, prevRoot Root) bool {
 		return false
 	}
 
-	var path tree.Path
+	var path merkletree.Path
 
 	path.FromSlice(p.InclusionPath)
 	var rt, lf [sha256.Size]byte

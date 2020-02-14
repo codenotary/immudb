@@ -22,7 +22,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,7 +66,7 @@ func TestStoreSafeSet(t *testing.T) {
 		assert.Equal(t, key, item.Key, "n=%d", n)
 	}
 
-	assert.Equal(t, root64th, tree.Root(st.tree))
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
 }
 
 func TestStoreSafeGet(t *testing.T) {

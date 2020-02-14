@@ -20,14 +20,14 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 )
 
 // Digest returns the hash computed from the union of item's members.
 func Digest(index uint64, key, value []byte) [sha256.Size]byte {
 	kl, vl := len(key), len(value)
 	c := make([]byte, 1+8+8+kl+vl)
-	c[0] = tree.LeafPrefix
+	c[0] = merkletree.LeafPrefix
 	binary.BigEndian.PutUint64(c[1:1+8], index)
 	binary.BigEndian.PutUint64(c[1+8:1+8+8], uint64(kl))
 	copy(c[1+8+8:], key)

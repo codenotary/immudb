@@ -31,7 +31,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api"
 
 	"github.com/codenotary/immudb/pkg/ring"
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 
 	"github.com/dgraph-io/badger/v2"
 )
@@ -127,7 +127,7 @@ func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore
 
 	go t.worker()
 
-	t.log.Infof("Tree of width %d ready with root %x", t.w, tree.Root(t))
+	t.log.Infof("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
 	return t
 }
 
@@ -154,12 +154,12 @@ func (t *treeStore) Close() {
 			close(t.c)
 			<-t.quit
 			t.quit = nil
-			t.log.Infof("Tree of width %d closed with root %x", t.w, tree.Root(t))
+			t.log.Infof("Tree of width %d closed with root %x", t.w, merkletree.Root(t))
 		}
 	})
 }
 
-// WaitUntil waits until the given _index_ has been added into the tree.
+// WaitUntil waits until the given _index_ has been added into the merkletree.
 // If the given _index_ cannot be reached, it will never return.
 // It's thread-safe.
 func (t *treeStore) WaitUntil(index uint64) {
@@ -205,7 +205,7 @@ func (t *treeStore) NewBatch(kvPairs *schema.KVList) []*treeStoreEntry {
 	return batch
 }
 
-// Commit enqueues the given entry to be included in the tree.
+// Commit enqueues the given entry to be included in the merkletree.
 // The value of _entry_ might change once Discard() or Commit() is called,
 // so it must not be used later.
 // It's thread-safe. Commit will fail if called after Close().
@@ -230,7 +230,7 @@ func (t *treeStore) worker() {
 
 		t.Lock()
 		for min := pq.Min(); min == t.w+1; min = pq.Min() {
-			tree.AppendHash(t, heap.Pop(&pq).(*treeStoreEntry).h)
+			merkletree.AppendHash(t, heap.Pop(&pq).(*treeStoreEntry).h)
 			if t.w%2 == 0 && (t.w-t.lastFlushed) >= t.cSize/2 {
 				t.flush()
 			}
@@ -320,7 +320,7 @@ func (t *treeStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
 
 	var ret [sha256.Size]byte
 	if err := t.db.View(func(txn *badger.Txn) error {
-		// fmt.Printf("CACHE MISS (ts=%d, w=%d, d=%d): [%d,%d]\n", t.ts, t.w, tree.Depth(t), layer, index)
+		// fmt.Printf("CACHE MISS (ts=%d, w=%d, d=%d): [%d,%d]\n", t.ts, t.w, merkletree.Depth(t), layer, index)
 		item, err := txn.Get(treeKey(layer, index))
 		if err != nil {
 			return err

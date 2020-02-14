@@ -21,7 +21,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 
@@ -79,7 +79,7 @@ func (t *Store) CurrentRoot() (root *schema.Root, err error) {
 	t.tree.RLock()
 	defer t.tree.RUnlock()
 	if w := t.tree.Width(); w > 0 {
-		r := tree.Root(t.tree)
+		r := merkletree.Root(t.tree)
 		root.Root = r[:]
 		root.Index = w - 1
 	}

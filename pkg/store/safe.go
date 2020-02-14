@@ -20,7 +20,7 @@ import (
 	"math"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 
 	"github.com/dgraph-io/badger/v2"
 )
@@ -73,15 +73,15 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 	defer t.tree.RUnlock()
 
 	at := t.tree.w - 1
-	root := tree.Root(t.tree)
+	root := merkletree.Root(t.tree)
 
 	proof = &schema.Proof{
 		Leaf:            leaf,
 		Index:           index,
 		Root:            root[:],
 		At:              at,
-		InclusionPath:   tree.InclusionProof(t.tree, at, index).ToSlice(),
-		ConsistencyPath: tree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
+		InclusionPath:   merkletree.InclusionProof(t.tree, at, index).ToSlice(),
+		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
 
 	return
@@ -118,15 +118,15 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 	defer t.tree.RUnlock()
 
 	at := t.tree.w - 1
-	root := tree.Root(t.tree)
+	root := merkletree.Root(t.tree)
 
 	safeItem.Proof = &schema.Proof{
 		Leaf:            item.Hash(),
 		Index:           item.Index,
 		Root:            root[:],
 		At:              at,
-		InclusionPath:   tree.InclusionProof(t.tree, at, item.Index).ToSlice(),
-		ConsistencyPath: tree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
+		InclusionPath:   merkletree.InclusionProof(t.tree, at, item.Index).ToSlice(),
+		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
 
 	return

@@ -18,7 +18,7 @@ package store
 
 import (
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 )
 
 func (s *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, error) {
@@ -32,9 +32,9 @@ func (s *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, erro
 		return nil, IndexNotFoundErr
 	}
 
-	root := tree.Root(ts)
+	root := merkletree.Root(ts)
 
-	path := tree.InclusionProof(ts, ts.w-1, index.Index)
+	path := merkletree.InclusionProof(ts, ts.w-1, index.Index)
 
 	return &schema.InclusionProof{
 		Index: index.Index,
@@ -58,9 +58,9 @@ func (s *Store) ConsistencyProof(index schema.Index) (*schema.ConsistencyProof, 
 		return nil, IndexNotFoundErr
 	}
 
-	root := tree.Root(ts)
+	root := merkletree.Root(ts)
 
-	path := tree.ConsistencyProof(ts, ts.w-1, index.Index)
+	path := merkletree.ConsistencyProof(ts, ts.w-1, index.Index)
 
 	return &schema.ConsistencyProof{
 		First:      index.Index,

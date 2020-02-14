@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 
@@ -78,7 +78,7 @@ func TestConsistency(t *testing.T) {
 		assert.Equal(t, n, index.Index, "n=%d", n)
 		if index.Index == testIndex {
 			st.tree.WaitUntil(testIndex)
-			root5th = tree.Root(st.tree)
+			root5th = merkletree.Root(st.tree)
 		}
 	}
 

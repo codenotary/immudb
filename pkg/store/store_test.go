@@ -26,7 +26,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 
-	"github.com/codenotary/immudb/pkg/tree"
+	"github.com/codenotary/merkletree"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -82,13 +82,13 @@ func TestStore(t *testing.T) {
 	}
 
 	st.tree.WaitUntil(64)
-	assert.Equal(t, root64th, tree.Root(st.tree))
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
 
 	st.tree.Close()
-	assert.Equal(t, root64th, tree.Root(st.tree))
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
 
 	st.tree.makeCaches() // with empty cache, next call should fetch from DB
-	assert.Equal(t, root64th, tree.Root(st.tree))
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
 }
 
 func TestStoreAsyncCommit(t *testing.T) {
@@ -118,13 +118,13 @@ func TestStoreAsyncCommit(t *testing.T) {
 	}
 
 	st.tree.WaitUntil(64)
-	assert.Equal(t, root64th, tree.Root(st.tree))
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
 
 	st.tree.Close()
-	assert.Equal(t, root64th, tree.Root(st.tree))
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
 
 	st.tree.makeCaches() // with empty cache, next call should fetch from DB
-	assert.Equal(t, root64th, tree.Root(st.tree))
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
 }
 
 func BenchmarkStoreSet(b *testing.B) {
