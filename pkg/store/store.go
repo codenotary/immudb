@@ -44,7 +44,7 @@ func Open(options Options) (*Store, error) {
 
 	db, err := badger.OpenManaged(opt)
 	if err != nil {
-		return nil, err
+		return nil, mapError(err)
 	}
 
 	t := &Store{
@@ -101,6 +101,7 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 			Key:   kv.Key,
 			Value: kv.Value,
 		}); err != nil {
+			err = mapError(err)
 			return
 		}
 	}
@@ -129,9 +130,9 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 
 	if opts.asyncCommit {
 		t.wg.Add(1)
-		err = txn.CommitAt(ts, cb) // cb will be executed in a new goroutine
+		err = mapError(txn.CommitAt(ts, cb)) // cb will be executed in a new goroutine
 	} else {
-		err = txn.CommitAt(ts, nil)
+		err = mapError(txn.CommitAt(ts, nil))
 		cb(err)
 	}
 	return
@@ -149,6 +150,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 		Key:   kv.Key,
 		Value: kv.Value,
 	}); err != nil {
+		err = mapError(err)
 		return
 	}
 
@@ -170,9 +172,9 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 
 	if opts.asyncCommit {
 		t.wg.Add(1)
-		err = txn.CommitAt(tsEntry.ts, cb) // cb will be executed in a new goroutine
+		err = mapError(txn.CommitAt(tsEntry.ts, cb)) // cb will be executed in a new goroutine
 	} else {
-		err = txn.CommitAt(tsEntry.ts, nil)
+		err = mapError(txn.CommitAt(tsEntry.ts, nil))
 		cb(err)
 	}
 
@@ -188,6 +190,7 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	defer txn.Discard()
 	i, err := txn.Get(key.Key)
 	if err != nil {
+		err = mapError(err)
 		return
 	}
 	return itemToSchema(key.Key, i)
@@ -281,7 +284,7 @@ func (t *Store) itemAt(readTs uint64) (version uint64, key, value []byte, err er
 		}
 		return nil
 	}
-	err = stream.Orchestrate(context.Background())
+	err = mapError(stream.Orchestrate(context.Background()))
 	if err == nil && !found {
 		err = ErrIndexNotFound
 	}

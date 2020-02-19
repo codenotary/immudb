@@ -24,7 +24,7 @@ import (
 func itemToSchema(key []byte, item *badger.Item) (*schema.Item, error) {
 	value, err := item.ValueCopy(nil)
 	if err != nil {
-		return nil, err
+		return nil, mapError(err)
 	}
 	if key == nil || len(key) == 0 {
 		key = item.KeyCopy(key)

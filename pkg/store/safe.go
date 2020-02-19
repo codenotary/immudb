@@ -53,6 +53,7 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 		Key:   kv.Key,
 		Value: kv.Value,
 	}); err != nil {
+		err = mapError(err)
 		return
 	}
 
@@ -63,6 +64,7 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 	err = txn.CommitAt(tsEntry.ts, nil)
 	if err != nil {
 		t.tree.Discard(tsEntry)
+		err = mapError(err)
 		return
 	}
 
@@ -103,6 +105,7 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 	defer txn.Discard()
 	i, err := txn.Get(key.Key)
 	if err != nil {
+		err = mapError(err)
 		return
 	}
 	item, err := itemToSchema(key.Key, i)
