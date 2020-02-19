@@ -17,14 +17,16 @@ limitations under the License.
 package store
 
 import (
-	"errors"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
+// immudb errors
 var (
-	ErrInvalidKey        = errors.New("invalid key")
-	ErrInvalidKeyPrefix  = errors.New("invalid key prefix")
-	ErrInvalidOffset     = errors.New("invalid offset")
-	ErrIndexNotFound     = errors.New("index not found")
-	ErrInconsistentState = errors.New("inconsistent state")
-	ErrInvalidRootIndex  = errors.New("invalid root index")
+	ErrInconsistentState = status.New(codes.Unknown, "inconsistent state").Err()
+	ErrIndexNotFound     = status.New(codes.NotFound, "index not found").Err()
+	ErrInvalidKey        = status.New(codes.InvalidArgument, "invalid key").Err()
+	ErrInvalidKeyPrefix  = status.New(codes.InvalidArgument, "invalid key prefix").Err()
+	ErrInvalidOffset     = status.New(codes.InvalidArgument, "invalid offset").Err()
+	ErrInvalidRootIndex  = status.New(codes.InvalidArgument, "invalid root index").Err()
 )
