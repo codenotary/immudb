@@ -195,11 +195,11 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 
 func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err error) {
 	if len(options.Prefix) > 0 && options.Prefix[0] == tsPrefix {
-		err = InvalidKeyPrefixErr
+		err = ErrInvalidKeyPrefix
 		return
 	}
 	if len(options.Offset) > 0 && options.Offset[0] == tsPrefix {
-		err = InvalidOffsetErr
+		err = ErrInvalidOffset
 		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
@@ -245,7 +245,7 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 
 func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err error) {
 	if len(prefix.Prefix) == 0 || prefix.Prefix[0] == tsPrefix {
-		err = InvalidKeyPrefixErr
+		err = ErrInvalidKeyPrefix
 		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
@@ -283,7 +283,7 @@ func (t *Store) itemAt(readTs uint64) (version uint64, key, value []byte, err er
 	}
 	err = stream.Orchestrate(context.Background())
 	if err == nil && !found {
-		err = IndexNotFoundErr
+		err = ErrIndexNotFound
 	}
 	return
 }
@@ -291,7 +291,7 @@ func (t *Store) itemAt(readTs uint64) (version uint64, key, value []byte, err er
 func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 	version, key, value, err := t.itemAt(index.Index + 1)
 	if version != index.Index+1 {
-		err = IndexNotFoundErr
+		err = ErrIndexNotFound
 	}
 	if err == nil {
 		item = &schema.Item{Key: key, Value: value, Index: index.Index}
@@ -301,7 +301,7 @@ func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 
 func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 	if len(key.Key) == 0 || key.Key[0] == tsPrefix {
-		err = InvalidKeyErr
+		err = ErrInvalidKey
 		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxInt64, false)

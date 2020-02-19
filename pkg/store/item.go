@@ -38,7 +38,7 @@ func itemToSchema(key []byte, item *badger.Item) (*schema.Item, error) {
 
 func checkKey(key []byte) error {
 	if len(key) == 0 || key[0] == tsPrefix {
-		return InvalidKeyErr
+		return ErrInvalidKey
 	}
 	return nil
 }

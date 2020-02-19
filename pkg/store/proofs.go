@@ -29,7 +29,7 @@ func (s *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, erro
 
 	leaf := ts.Get(0, index.Index)
 	if leaf == nil {
-		return nil, IndexNotFoundErr
+		return nil, ErrIndexNotFound
 	}
 
 	root := merkletree.Root(ts)
@@ -55,7 +55,7 @@ func (s *Store) ConsistencyProof(index schema.Index) (*schema.ConsistencyProof, 
 
 	at := ts.w - 1
 	if index.Index > at {
-		return nil, IndexNotFoundErr
+		return nil, ErrIndexNotFound
 	}
 
 	root := merkletree.Root(ts)

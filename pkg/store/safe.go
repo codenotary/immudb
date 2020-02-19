@@ -28,7 +28,7 @@ import (
 func getPrevRootIdx(lastIndex uint64, rootIdx *schema.Index) (uint64, error) {
 	if rootIdx != nil && rootIdx.Index > 0 {
 		if lastIndex > rootIdx.Index {
-			return 0, InvalidRootIndexErr
+			return 0, ErrInvalidRootIndex
 		}
 		return rootIdx.Index, nil
 	}

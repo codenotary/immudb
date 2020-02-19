@@ -21,10 +21,10 @@ import (
 )
 
 var (
-	InvalidKeyErr          = errors.New("invalid key")
-	InvalidKeyPrefixErr    = errors.New("invalid key prefix")
-	InvalidOffsetErr       = errors.New("invalid offset")
-	IndexNotFoundErr       = errors.New("index not found")
-	InconsistentStateError = errors.New("inconsistent state")
-	InvalidRootIndexErr    = errors.New("invalid root index")
+	ErrInvalidKey        = errors.New("invalid key")
+	ErrInvalidKeyPrefix  = errors.New("invalid key prefix")
+	ErrInvalidOffset     = errors.New("invalid offset")
+	ErrIndexNotFound     = errors.New("index not found")
+	ErrInconsistentState = errors.New("inconsistent state")
+	ErrInvalidRootIndex  = errors.New("invalid root index")
 )
