@@ -47,22 +47,13 @@ func (r safeGetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 			return err
 		}
 		w.Header().Set("Content-Type", "application/json")
-		buf, err := marshaler.Marshal(resp)
-		if err != nil {
-			return err
-		}
-		var m map[string]interface{}
-		err = json.Unmarshal(buf, &m)
-		if err != nil {
-			return err
-		}
 
 		// DO NOT USE leaf generated from server for security reasons
 		// (maybe somebody can create a temper leaf)
 		verified := p.Proof.Verify(p.Item.Hash(), *root)
+		i := &item{p.Item.Key, p.Item.Value, p.Item.Index, verified}
 
-		m["verified"] = verified
-		newData, _ := json.Marshal(m)
+		newData, _ := json.Marshal(i)
 		if verified {
 			//saving a fresh root
 			tocache := new(schema.Root)

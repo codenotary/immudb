@@ -47,16 +47,7 @@ func (r safeSetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 			return err
 		}
 		w.Header().Set("Content-Type", "application/json")
-		buf, err := marshaler.Marshal(resp)
-		if err != nil {
-			return err
-		}
-		var m map[string]interface{}
-		err = json.Unmarshal(buf, &m)
-		if err != nil {
-			return err
-		}
-
+		m := make(map[string]bool)
 		// The server-generated leaf SHOULD NOT BE USED for security reasons,
 		// maybe somebody can create a temper leaf.
 		// In this case, we rely on SafeSetRequestOverwrite.call that has validated it
