@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
@@ -131,7 +130,7 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
 		item, err := s.Store.Get(*key)
-		if err == nil || err == badger.ErrKeyNotFound {
+		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)
 			}
