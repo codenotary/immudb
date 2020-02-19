@@ -328,5 +328,5 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 
 func (t *Store) HealthCheck() bool {
 	_, err := t.Get(schema.Key{Key: []byte{255}})
-	return err == nil || err == badger.ErrKeyNotFound
+	return err == nil || err == ErrKeyNotFound
 }
