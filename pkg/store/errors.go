@@ -40,7 +40,7 @@ var (
 	ErrValueLogSize = status.New(codes.Unknown, badger.ErrValueLogSize.Error()).Err()
 
 	// ErrKeyNotFound is returned when key isn't found on a txn.Get.
-	ErrKeyNotFound = status.New(codes.Unknown, badger.ErrKeyNotFound.Error()).Err()
+	ErrKeyNotFound = status.New(codes.NotFound, badger.ErrKeyNotFound.Error()).Err()
 
 	// ErrTxnTooBig is returned if too many writes are fit into a single transaction.
 	ErrTxnTooBig = status.New(codes.Unknown, badger.ErrTxnTooBig.Error()).Err()
