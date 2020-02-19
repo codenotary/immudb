@@ -101,8 +101,10 @@ func serve(cmd *cobra.Command, args []string) error {
 	}
 	ssh := gw.NewSafesetHandler(mux, client, rs)
 	sgh := gw.NewSafegetHandler(mux, client, rs)
+	hh := gw.NewHistoryHandler(mux, client, rs)
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeSet_0(), ssh.Safeset)
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeGet_0(), sgh.Safeget)
+	mux.Handle(http.MethodGet, schema.Pattern_ImmuService_History_0(), hh.History)
 	err = schema.RegisterImmuServiceHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
 	if err != nil {
 		return err
