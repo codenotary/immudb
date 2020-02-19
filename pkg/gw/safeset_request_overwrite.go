@@ -73,7 +73,7 @@ func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 	// From now on, msg.Leaf can be trusted.
 	// Thus SafeSetResponseOverwrite will not need to decode the request
 	// and compute the hash.
-	if err != nil {
+	if err == nil {
 		item := schema.Item{
 			Key:   protoReq.Kv.Key,
 			Value: protoReq.Kv.Value,
