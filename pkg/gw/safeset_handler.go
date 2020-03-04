@@ -22,6 +22,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"net/http"
+	"sync"
 )
 
 type SafesetHandler interface {
@@ -32,13 +33,14 @@ type safesetHandler struct {
 	mux    *runtime.ServeMux
 	client schema.ImmuServiceClient
 	rs     client.RootService
+	sync.RWMutex
 }
 
 func NewSafesetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafesetHandler {
 	return &safesetHandler{
-		mux,
-		client,
-		rs,
+		mux:    mux,
+		client: client,
+		rs:     rs,
 	}
 }
 
@@ -46,11 +48,13 @@ func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathP
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
+
 	rctx, err := runtime.AnnotateContext(ctx, h.mux, req)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
+	h.Lock()
 	safeSetRequestOverwrite := NewSafeSetRequestOverwrite(h.rs)
 	resp, md, err := safeSetRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
 
@@ -63,4 +67,5 @@ func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathP
 	if err := safeSetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 	}
+	h.Unlock()
 }

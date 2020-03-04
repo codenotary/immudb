@@ -61,7 +61,9 @@ func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	root, err := r.rs.GetRoot(ctx)
-
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.Internal, "%v", err)
+	}
 	ri := new(schema.Index)
 	ri.Index = root.Index
 	protoReq.RootIndex = ri
@@ -79,7 +81,7 @@ func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 			Value: protoReq.Kv.Value,
 			Index: msg.Index,
 		}
-		if bytes.Compare(item.Hash(), msg.Leaf) != 0 {
+		if !bytes.Equal(item.Hash(), msg.Leaf) {
 			return msg, metadata, InvalidItemProof
 		}
 	}

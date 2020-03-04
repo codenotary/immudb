@@ -22,6 +22,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"net/http"
+	"sync"
 )
 
 type SafegetHandler interface {
@@ -32,19 +33,21 @@ type safegetHandler struct {
 	mux    *runtime.ServeMux
 	client schema.ImmuServiceClient
 	rs     client.RootService
+	sync.RWMutex
 }
 
 func NewSafegetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafegetHandler {
 	return &safegetHandler{
-		mux,
-		client,
-		rs,
+		mux:    mux,
+		client: client,
+		rs:     rs,
 	}
 }
 
 func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
+	h.Lock()
 	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
 	rctx, err := runtime.AnnotateContext(ctx, h.mux, req)
 	if err != nil {
@@ -62,4 +65,5 @@ func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathP
 	if err := safeGetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 	}
+	h.Unlock()
 }
