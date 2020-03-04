@@ -29,12 +29,12 @@ const ROOT_FN = ".root"
 
 type RootService interface {
 	GetRoot(ctx context.Context) (*schema.Root, error)
-	SetRoot(root *schema.Root)  error
+	SetRoot(root *schema.Root) error
 }
 
 type rootservice struct {
 	client schema.ImmuServiceClient
-	cache cache.Cache
+	cache  cache.Cache
 }
 
 func NewRootService(immuC schema.ImmuServiceClient, cache cache.Cache) RootService {
@@ -60,4 +60,3 @@ func (r *rootservice) GetRoot(ctx context.Context) (*schema.Root, error) {
 func (r *rootservice) SetRoot(root *schema.Root) error {
 	return r.cache.Set(root)
 }
-
