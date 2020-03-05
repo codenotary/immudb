@@ -28,6 +28,7 @@ var (
 	ErrInconsistentState = status.New(codes.Unknown, "inconsistent state").Err()
 	ErrIndexNotFound     = status.New(codes.NotFound, "index not found").Err()
 	ErrInvalidKey        = status.New(codes.InvalidArgument, "invalid key").Err()
+	ErrInvalidReference  = status.New(codes.InvalidArgument, "invalid reference").Err()
 	ErrInvalidKeyPrefix  = status.New(codes.InvalidArgument, "invalid key prefix").Err()
 	ErrInvalidOffset     = status.New(codes.InvalidArgument, "invalid offset").Err()
 	ErrInvalidRootIndex  = status.New(codes.InvalidArgument, "invalid root index").Err()

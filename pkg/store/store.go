@@ -189,6 +189,17 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 	i, err := txn.Get(key.Key)
+
+	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
+		var refkey []byte
+		if refkey, err = i.ValueCopy(refkey); err != nil {
+			return nil, err
+		}
+		if ref, err := txn.Get(refkey); err == nil {
+			return itemToSchema(refkey, ref)
+		}
+	}
+
 	if err != nil {
 		err = mapError(err)
 		return
@@ -231,9 +242,23 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	}
 	var items []*schema.Item
 	for i := uint64(0); it.Valid(); it.Next() {
-		item, err := itemToSchema(nil, it.Item())
-		if err != nil {
-			return nil, err
+		var item *schema.Item
+		if it.Item().UserMeta()&bitReferenceEntry == bitReferenceEntry {
+			if !options.Deep{
+				continue
+			}
+			var refkey []byte
+			if refkey, err = it.Item().ValueCopy(refkey); err != nil {
+				return nil, err
+			}
+			if ref, err := txn.Get(refkey); err == nil {
+				item, err =  itemToSchema(refkey, ref)
+			}
+		}else{
+			item, err = itemToSchema(nil, it.Item())
+			if err != nil {
+				return nil, err
+			}
 		}
 		items = append(items, item)
 		if i++; i == limit {
@@ -324,6 +349,64 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 		Items: items,
 	}
 	return
+}
+
+func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
+	opts := makeWriteOptions(options...)
+	if len(refOpts.Key.Key) == 0 || refOpts.Key.Key[0] == tsPrefix {
+		err = ErrInvalidKey
+		return
+	}
+	if len(refOpts.Reference.Key) == 0 || refOpts.Reference.Key[0] == tsPrefix {
+		err = ErrInvalidReference
+		return
+	}
+	if err != nil {
+		return
+	}
+	txn := t.db.NewTransactionAt(math.MaxUint64, true)
+	defer txn.Discard()
+
+	i, err := txn.Get(refOpts.Key.Key)
+	if err != nil {
+		err = mapError(err)
+		return
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      refOpts.Reference.Key,
+		Value:    i.Key(),
+		UserMeta: bitReferenceEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
+	}
+
+	tsEntry := t.tree.NewEntry(refOpts.Reference.Key, i.Key())
+	index = &schema.Index{
+		Index: tsEntry.ts - 1,
+	}
+
+	cb := func(err error) {
+		if err == nil {
+			t.tree.Commit(tsEntry)
+		} else {
+			t.tree.Discard(tsEntry)
+		}
+		if opts.asyncCommit {
+			t.wg.Done()
+		}
+	}
+
+	if opts.asyncCommit {
+		t.wg.Add(1)
+		err = mapError(txn.CommitAt(tsEntry.ts, cb)) // cb will be executed in a new goroutine
+	} else {
+		err = mapError(txn.CommitAt(tsEntry.ts, nil))
+		cb(err)
+	}
+
+	return index, nil
 }
 
 func (t *Store) HealthCheck() bool {

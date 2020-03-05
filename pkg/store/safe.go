@@ -90,8 +90,11 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 }
 
 func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeItem, err error) {
-	key := options.Key
-	err = checkKey(key.Key)
+	var item *schema.Item
+	var i *badger.Item
+
+	key := options.Key.Key
+	err = checkKey(key)
 	if err != nil {
 		return
 	}
@@ -103,12 +106,25 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
-	i, err := txn.Get(key.Key)
+	i, err = txn.Get(key)
 	if err != nil {
 		err = mapError(err)
 		return
 	}
-	item, err := itemToSchema(key.Key, i)
+
+	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
+		var refkey []byte
+		if refkey, err = i.ValueCopy(refkey); err != nil {
+			return nil, err
+		}
+		i, err = txn.Get(refkey)
+		key = i.Key()
+		if err != nil {
+			return
+		}
+	}
+
+	item, err = itemToSchema(key, i)
 	if err != nil {
 		return
 	}
@@ -129,6 +145,70 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 		Root:            root[:],
 		At:              at,
 		InclusionPath:   merkletree.InclusionProof(t.tree, at, item.Index).ToSlice(),
+		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
+	}
+
+	return
+}
+
+func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
+	ro := options.Ro
+	err = checkKey(ro.Key.Key)
+	err = checkKey(ro.Reference.Key)
+	if err != nil {
+		return
+	}
+
+	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
+	if err != nil {
+		return
+	}
+
+	txn := t.db.NewTransactionAt(math.MaxUint64, true)
+	defer txn.Discard()
+
+	i, err := txn.Get(ro.Key.Key)
+	if err != nil {
+		err = mapError(err)
+		return
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      ro.Reference.Key,
+		Value:    i.Key(),
+		UserMeta: bitReferenceEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
+	}
+
+	tsEntry := t.tree.NewEntry(ro.Reference.Key, i.Key())
+
+	index := tsEntry.Index()
+	leaf := tsEntry.HashCopy()
+
+	err = txn.CommitAt(tsEntry.ts, nil)
+	if err != nil {
+		t.tree.Discard(tsEntry)
+		err = mapError(err)
+		return
+	}
+
+	t.tree.Commit(tsEntry)
+	t.tree.WaitUntil(index)
+
+	t.tree.RLock()
+	defer t.tree.RUnlock()
+
+	at := t.tree.w - 1
+	root := merkletree.Root(t.tree)
+
+	proof = &schema.Proof{
+		Leaf:            leaf,
+		Index:           index,
+		Root:            root[:],
+		At:              at,
+		InclusionPath:   merkletree.InclusionProof(t.tree, at, index).ToSlice(),
 		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
 

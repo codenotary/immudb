@@ -37,6 +37,7 @@ import (
 )
 
 const tsPrefix = byte(0)
+const bitReferenceEntry = byte(1)
 const bitTreeEntry = byte(255)
 
 func treeKey(layer uint8, index uint64) []byte {
@@ -224,6 +225,7 @@ func (t *treeStore) Discard(entry *treeStoreEntry) {
 }
 
 func (t *treeStore) worker() {
+	//Priority Queue
 	pq := make(treeStorePQ, 0, t.cSize)
 	for item := range t.c {
 		heap.Push(&pq, item)
@@ -291,7 +293,7 @@ func (t *treeStore) flush() {
 				if err := wb.SetEntry(&entry); err != nil {
 					// fixme(leogr): that should never happen, use panic() ?
 					t.log.Errorf("Cannot flush tree item (l=%d, i=%d): %s", err)
-					t.log.Warningf("Tree flush cancelled")
+					t.log.Warningf("Tree flush canceled")
 					cancel = true
 					return
 				}
