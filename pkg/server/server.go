@@ -194,6 +194,24 @@ func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthRespon
 	return &schema.HealthResponse{Status: health}, nil
 }
 
+func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
+	index, err = s.Store.Reference(refOpts)
+	if err != nil {
+		return nil, err
+	}
+	s.Logger.Debugf("reference options: %v", refOpts)
+	return index, nil
+}
+
+func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
+	proof, err = s.Store.SafeReference(*safeRefOpts)
+	if err != nil {
+		return nil, err
+	}
+	s.Logger.Debugf("safe reference options: %v", safeRefOpts)
+	return proof, nil
+}
+
 func (s *ImmuServer) installShutdownHandler() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
