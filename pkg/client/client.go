@@ -213,6 +213,27 @@ func (c *ImmuClient) History(keyReader io.Reader) (*schema.ItemList, error) {
 	return result, err
 }
 
+func (c *ImmuClient) Reference(keyReader io.Reader, valueReader io.Reader) (*schema.Index, error) {
+	start := time.Now()
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	key, err := ioutil.ReadAll(valueReader)
+	if err != nil {
+		return nil, err
+	}
+	reference, err := ioutil.ReadAll(keyReader)
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.serviceClient.Reference(context.Background(), &schema.ReferenceOptions{
+		Reference: &schema.Key{Key: reference},
+		Key:       &schema.Key{Key: key},
+	})
+	c.Logger.Debugf("reference finished in %s", time.Since(start))
+	return result, err
+}
+
 func (c *ImmuClient) HealthCheck() error {
 	start := time.Now()
 	if !c.isConnected() {
