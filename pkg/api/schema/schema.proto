@@ -64,6 +64,7 @@ message ScanOptions {
 	bytes offset = 2;
 	uint64 limit = 3;
 	bool reverse = 4;
+	bool deep    = 5;
 }
 
 message KeyPrefix {
@@ -114,8 +115,18 @@ message SafeGetOptions {
 	Index rootIndex = 2;
 }
 
+message SafeReferenceOptions {
+	ReferenceOptions ro = 1;
+	Index rootIndex = 2;
+}
+
 message HealthResponse {
 	bool status = 1;
+}
+
+message ReferenceOptions {
+	Key reference = 1;
+	Key key = 2;
 }
 
 service ImmuService {
@@ -195,6 +206,18 @@ service ImmuService {
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/healtresponse"
+        };
+	};
+	rpc Reference (ReferenceOptions) returns (Index){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/reference"
+            body: "*"
+        };
+	};
+	rpc SafeReference (SafeReferenceOptions) returns (Proof){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/safe/reference"
+            body: "*"
         };
 	};
 }
