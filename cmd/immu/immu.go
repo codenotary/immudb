@@ -102,6 +102,42 @@ func main() {
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
+			Use:     "reference",
+			Aliases: []string{"r"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				var reader io.Reader
+				if len(args) > 1 {
+					reader = bytes.NewReader([]byte(args[1]))
+				} else {
+					reader = bufio.NewReader(os.Stdin)
+				}
+				var buf bytes.Buffer
+				tee := io.TeeReader(reader, &buf)
+				response, err := immuClient.Connected(func() (interface{}, error) {
+					return immuClient.Reference(bytes.NewReader([]byte(args[0])), tee)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				value, err := ioutil.ReadAll(&buf)
+				if err != nil {
+					return err
+				}
+				printItem([]byte(args[0]), value, response)
+				return nil
+			},
+			Args: cobra.MinimumNArgs(1),
+		},
+
+		&cobra.Command{
 			Use:     "scan",
 			Aliases: []string{"scn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
