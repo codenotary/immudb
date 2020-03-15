@@ -212,6 +212,21 @@ func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.Safe
 	return proof, nil
 }
 
+func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
+	s.Logger.Debugf("zadd %+v", *opts)
+	return s.Store.ZAdd(*opts)
+}
+
+func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
+	s.Logger.Debugf("zscan %+v", *opts)
+	return s.Store.ZScan(*opts)
+}
+
+func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
+	s.Logger.Debugf("zadd %+v", *opts)
+	return s.Store.SafeZAdd(*opts)
+}
+
 func (s *ImmuServer) installShutdownHandler() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
