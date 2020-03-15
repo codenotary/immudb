@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/store"
 	"io"
 	"io/ioutil"
 	"os"
@@ -28,15 +29,11 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/spf13/cobra"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
-
-var marshaller = proto.TextMarshaler{}
 
 func main() {
 	cmd := &cobra.Command{
@@ -136,7 +133,72 @@ func main() {
 			},
 			Args: cobra.MinimumNArgs(1),
 		},
+		&cobra.Command{
+			Use:     "zadd",
+			Aliases: []string{"za"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				var setReader io.Reader
+				var scoreReader io.Reader
+				var keyReader io.Reader
+				if len(args) > 1 {
+					setReader = bytes.NewReader([]byte(args[0]))
+					scoreReader = bytes.NewReader([]byte(args[1]))
+					keyReader = bytes.NewReader([]byte(args[2]))
+				}
 
+				bs, err := ioutil.ReadAll(scoreReader)
+				score, err := strconv.ParseFloat(string(bs[:]), 64)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+
+				response, err := immuClient.Connected(func() (interface{}, error) {
+					return immuClient.ZAdd(setReader, score, keyReader)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				printSetItem([]byte(args[0]), []byte(args[2]), score, response)
+				return nil
+			},
+			Args: cobra.MinimumNArgs(3),
+		},
+		&cobra.Command{
+			Use:     "zscan",
+			Aliases: []string{"zscn"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				response, err := immuClient.Connected(func() (interface{}, error) {
+					return immuClient.ZScan(bytes.NewReader([]byte(args[0])))
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				for _, item := range response.(*schema.ItemList).Items {
+					printItem(nil, nil, item)
+					fmt.Println()
+				}
+
+				return nil
+			},
+			Args: cobra.ExactArgs(1),
+		},
 		&cobra.Command{
 			Use:     "scan",
 			Aliases: []string{"scn"},
@@ -199,7 +261,7 @@ func main() {
 					DefaultClient().
 					WithOptions(*options)
 
-				index, err := strconv.ParseUint(string(args[0]), 10, 64)
+				index, err := strconv.ParseUint(args[0], 10, 64)
 				if err != nil {
 					return err
 				}
@@ -260,7 +322,7 @@ root: %x at index: %d
 					DefaultClient().
 					WithOptions(*options)
 
-				index, err := strconv.ParseUint(string(args[0]), 10, 64)
+				index, err := strconv.ParseUint(args[0], 10, 64)
 				if err != nil {
 					return err
 				}
@@ -395,4 +457,20 @@ key:	%s
 value:	%s
 hash:	%x
 `, index, key, value, api.Digest(index, key, value))
+}
+
+func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {
+	index := message.(*schema.Index).Index
+	key, err := store.SetKey(rkey, set, score)
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+
+	fmt.Printf(`index:	%d
+set:    %s
+key:	%s
+score:  %f
+value:	%s
+hash:	%x
+`, index, set, key, score, rkey, api.Digest(index, key, rkey))
 }
