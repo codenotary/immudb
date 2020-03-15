@@ -129,6 +129,29 @@ message ReferenceOptions {
 	Key key = 2;
 }
 
+/*
+Why use double as score type?
+Because it is not purely about the storage size, but also use cases.
+64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer.
+*/
+message ZAddOptions {
+	bytes set = 1;
+	double score = 2;
+	bytes key = 3;
+}
+
+message ZScanOptions {
+	bytes set = 1;
+	bytes offset = 2;
+	uint64 limit = 3;
+	bool reverse = 4;
+}
+
+message SafeZAddOptions {
+	ZAddOptions zopts = 1;
+	Index rootIndex = 2;
+}
+
 service ImmuService {
 	rpc Set (KeyValue) returns (Index){
 		option (google.api.http) = {
@@ -215,6 +238,24 @@ service ImmuService {
         };
 	};
 	rpc SafeReference (SafeReferenceOptions) returns (Proof){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/safe/reference"
+            body: "*"
+        };
+	};
+	rpc ZAdd (ZAddOptions) returns (Index){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/zadd"
+            body: "*"
+        };
+	};
+	rpc ZScan (ZScanOptions) returns (ItemList){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/zrange"
+            body: "*"
+        };
+	};
+	rpc SafeZAdd (SafeZAddOptions) returns (Proof){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/safe/reference"
             body: "*"

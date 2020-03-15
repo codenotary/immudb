@@ -1,8 +1,9 @@
 {
   "swagger": "2.0",
+  "host": "127.0.0.1:8081",
   "info": {
-    "title": "schema.proto",
-    "version": "version not set"
+	"title": "schema.proto",
+	"version": "v0.0.1"
   },
   "consumes": [
     "application/json"
@@ -400,6 +401,84 @@
           "ImmuService"
         ]
       }
+    },
+    "/v1/immurestproxy/safe/zadd": {
+      "post": {
+        "operationId": "SafeZAdd",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaProof"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSafeZAddOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/zadd": {
+      "post": {
+        "operationId": "ZAdd",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaIndex"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaZAddOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/zrange": {
+      "post": {
+        "operationId": "ZScan",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItemList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaZScanOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -661,6 +740,17 @@
         }
       }
     },
+    "schemaSafeZAddOptions": {
+      "type": "object",
+      "properties": {
+        "zopts": {
+          "$ref": "#/definitions/schemaZAddOptions"
+        },
+        "rootIndex": {
+          "$ref": "#/definitions/schemaIndex"
+        }
+      }
+    },
     "schemaScanOptions": {
       "type": "object",
       "properties": {
@@ -681,6 +771,45 @@
           "format": "boolean"
         },
         "deep": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "schemaZAddOptions": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "string",
+          "format": "byte"
+        },
+        "score": {
+          "type": "number",
+          "format": "double"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "description": "Why use double as score type?\nBecause it is not purely about the storage size, but also use cases.\n64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer."
+    },
+    "schemaZScanOptions": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "string",
+          "format": "byte"
+        },
+        "offset": {
+          "type": "string",
+          "format": "byte"
+        },
+        "limit": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "reverse": {
           "type": "boolean",
           "format": "boolean"
         }
