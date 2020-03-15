@@ -30,6 +30,7 @@ var (
 	ErrInvalidKey        = status.New(codes.InvalidArgument, "invalid key").Err()
 	ErrInvalidReference  = status.New(codes.InvalidArgument, "invalid reference").Err()
 	ErrInvalidKeyPrefix  = status.New(codes.InvalidArgument, "invalid key prefix").Err()
+	ErrInvalidSet        = status.New(codes.InvalidArgument, "invalid set").Err()
 	ErrInvalidOffset     = status.New(codes.InvalidArgument, "invalid offset").Err()
 	ErrInvalidRootIndex  = status.New(codes.InvalidArgument, "invalid root index").Err()
 )

@@ -93,9 +93,8 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 	defer txn.Discard()
 
 	for _, kv := range list.KVs {
-		err = checkKey(kv.Key)
-		if err != nil {
-			return
+		if err = checkKey(kv.Key); err != nil {
+			return nil, err
 		}
 		if err = txn.SetEntry(&badger.Entry{
 			Key:   kv.Key,
@@ -140,9 +139,8 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 
 func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	err = checkKey(kv.Key)
-	if err != nil {
-		return
+	if err = checkKey(kv.Key); err != nil {
+		return nil, err
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
@@ -182,9 +180,8 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 }
 
 func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
-	err = checkKey(key.Key)
-	if err != nil {
-		return
+	if err = checkKey(key.Key); err != nil {
+		return nil, err
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
@@ -192,9 +189,10 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 
 	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
 		var refkey []byte
-		if refkey, err = i.ValueCopy(refkey); err != nil {
-			return nil, err
-		}
+		err = i.Value(func(val []byte) error {
+			refkey = append([]byte{}, val...)
+			return nil
+		})
 		if ref, err := txn.Get(refkey); err == nil {
 			return itemToSchema(refkey, ref)
 		}
@@ -218,6 +216,11 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
+
+	seek := options.Prefix
+	if options.Reverse {
+		seek = append(options.Prefix, 0xFF)
+	}
 	it := txn.NewIterator(badger.IteratorOptions{
 		PrefetchValues: true,
 		PrefetchSize:   int(options.Limit),
@@ -241,20 +244,25 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 		limit = uint64(t.db.MaxBatchCount())
 	}
 	var items []*schema.Item
-	for i := uint64(0); it.Valid(); it.Next() {
+	i := uint64(0)
+	for it.Seek(seek); it.Valid(); it.Next() {
 		var item *schema.Item
 		if it.Item().UserMeta()&bitReferenceEntry == bitReferenceEntry {
-			if !options.Deep{
+			if !options.Deep {
 				continue
 			}
-			var refkey []byte
-			if refkey, err = it.Item().ValueCopy(refkey); err != nil {
+			var refKey []byte
+			err := it.Item().Value(func(val []byte) error {
+				refKey = append([]byte{}, val...)
+				return nil
+			})
+			if err != nil {
 				return nil, err
 			}
-			if ref, err := txn.Get(refkey); err == nil {
-				item, err =  itemToSchema(refkey, ref)
+			if ref, err := txn.Get(refKey); err == nil {
+				item, err = itemToSchema(refKey, ref)
 			}
-		}else{
+		} else {
 			item, err = itemToSchema(nil, it.Item())
 			if err != nil {
 				return nil, err
@@ -407,6 +415,140 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 	}
 
 	return index, nil
+}
+
+func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index *schema.Index, err error) {
+	opts := makeWriteOptions(options...)
+	if err = checkKey(zaddOpts.Key); err != nil {
+		return nil, err
+	}
+	if err := checkSet(zaddOpts.Set); err != nil {
+		return nil, err
+	}
+	if err != nil {
+		return
+	}
+	txn := t.db.NewTransactionAt(math.MaxUint64, true)
+	defer txn.Discard()
+
+	i, err := txn.Get(zaddOpts.Key)
+	if err != nil {
+		err = mapError(err)
+		return
+	}
+
+	ik, err := SetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score)
+	if err != nil {
+		err = mapError(err)
+		return
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      ik,
+		Value:    i.Key(),
+		UserMeta: bitReferenceEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
+	}
+
+	tsEntry := t.tree.NewEntry(zaddOpts.Key, i.Key())
+
+	index = &schema.Index{
+		Index: tsEntry.ts - 1,
+	}
+
+	cb := func(err error) {
+		if err == nil {
+			t.tree.Commit(tsEntry)
+		} else {
+			t.tree.Discard(tsEntry)
+		}
+		if opts.asyncCommit {
+			t.wg.Done()
+		}
+	}
+
+	if opts.asyncCommit {
+		t.wg.Add(1)
+		err = mapError(txn.CommitAt(tsEntry.ts, cb)) // cb will be executed in a new goroutine
+	} else {
+		err = mapError(txn.CommitAt(tsEntry.ts, nil))
+		cb(err)
+	}
+
+	return index, nil
+}
+
+// ZScan The SCAN command is used in order to incrementally iterate over a collection of elements.
+func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err error) {
+
+	if len(options.Offset) > 0 && options.Offset[0] == tsPrefix {
+		err = ErrInvalidOffset
+		return
+	}
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
+	defer txn.Discard()
+
+	it := txn.NewIterator(badger.IteratorOptions{
+		PrefetchValues: true,
+		PrefetchSize:   int(options.Limit),
+		Prefix:         options.Set,
+		Reverse:        options.Reverse,
+	})
+	defer it.Close()
+
+	if len(options.Offset) == 0 {
+		it.Rewind()
+	} else {
+		it.Seek(options.Offset)
+		if it.Valid() {
+			it.Next() // skip the offset item
+		}
+	}
+
+	seek := options.Set
+	if options.Reverse {
+		// https://github.com/dgraph-io/badger#frequently-asked-questions
+		seek = append(options.Set, 0xFF)
+	}
+
+	var limit = options.Limit
+	if limit == 0 {
+		// we're reusing max batch count to enforce the default scan limit
+		limit = uint64(t.db.MaxBatchCount())
+	}
+	var items []*schema.Item
+	i := uint64(0)
+	for it.Seek(seek); it.Valid(); it.Next() {
+		var item *schema.Item
+		if it.Item().UserMeta()&bitReferenceEntry == bitReferenceEntry {
+			var refKey []byte
+			err := it.Item().Value(func(val []byte) error {
+				refKey = append([]byte{}, val...)
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+			if ref, err := txn.Get(refKey); err == nil {
+				item, err = itemToSchema(refKey, ref)
+			}
+		} else {
+			item, err = itemToSchema(nil, it.Item())
+			if err != nil {
+				return nil, err
+			}
+		}
+		items = append(items, item)
+		if i++; i == limit {
+			break
+		}
+	}
+	list = &schema.ItemList{
+		Items: items,
+	}
+	return
 }
 
 func (t *Store) HealthCheck() bool {

@@ -42,3 +42,10 @@ func checkKey(key []byte) error {
 	}
 	return nil
 }
+
+func checkSet(key []byte) error {
+	if len(key) == 0 || key[0] == tsPrefix {
+		return ErrInvalidSet
+	}
+	return nil
+}
