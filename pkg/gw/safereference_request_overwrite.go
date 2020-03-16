@@ -72,8 +72,8 @@ func (r safeReferenceRequestOverwrite) call(ctx context.Context, marshaler runti
 	// and compute the hash.
 	if err == nil {
 		item := schema.Item{
-			Key:   protoReq.Ro.Key.Key,
-			Value: protoReq.Ro.Reference.Key,
+			Key:   protoReq.Ro.Reference.Key,
+			Value: protoReq.Ro.Key.Key,
 			Index: msg.Index,
 		}
 		if !bytes.Equal(item.Hash(), msg.Leaf) {
