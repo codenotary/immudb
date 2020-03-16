@@ -55,6 +55,7 @@ func (h *safeZAddHandler) SafeZAdd(w http.ResponseWriter, req *http.Request, pat
 		return
 	}
 	h.Lock()
+	defer h.Unlock()
 	safeZAddRequestOverwrite := NewSafeZAddRequestOverwrite(h.rs)
 	resp, md, err := safeZAddRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
 
@@ -67,5 +68,4 @@ func (h *safeZAddHandler) SafeZAdd(w http.ResponseWriter, req *http.Request, pat
 	if err := safeZAddResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 	}
-	h.Unlock()
 }

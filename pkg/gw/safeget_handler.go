@@ -48,6 +48,7 @@ func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathP
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 	h.Lock()
+	defer h.Unlock()
 	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
 	rctx, err := runtime.AnnotateContext(ctx, h.mux, req)
 	if err != nil {
@@ -65,5 +66,4 @@ func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathP
 	if err := safeGetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 	}
-	h.Unlock()
 }

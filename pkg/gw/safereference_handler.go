@@ -55,6 +55,7 @@ func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Re
 		return
 	}
 	h.Lock()
+	defer h.Unlock()
 	safeReferenceRequestOverwrite := NewSafeReferenceRequestOverwrite(h.rs)
 	resp, md, err := safeReferenceRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
 
@@ -67,5 +68,4 @@ func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Re
 	if err := safeReferenceResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 	}
-	h.Unlock()
 }

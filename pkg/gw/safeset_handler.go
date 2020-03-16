@@ -55,6 +55,7 @@ func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathP
 		return
 	}
 	h.Lock()
+	defer h.Unlock()
 	safeSetRequestOverwrite := NewSafeSetRequestOverwrite(h.rs)
 	resp, md, err := safeSetRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
 
@@ -67,5 +68,4 @@ func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathP
 	if err := safeSetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 	}
-	h.Unlock()
 }
