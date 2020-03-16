@@ -228,7 +228,7 @@ service ImmuService {
 	};
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
-            get: "/v1/immurestproxy/healtresponse"
+            get: "/v1/immurestproxy/healthresponse"
         };
 	};
 	rpc Reference (ReferenceOptions) returns (Index){
@@ -251,13 +251,13 @@ service ImmuService {
 	};
 	rpc ZScan (ZScanOptions) returns (ItemList){
 		option (google.api.http) = {
-            post: "/v1/immurestproxy/zrange"
+            post: "/v1/immurestproxy/zscan"
             body: "*"
         };
 	};
 	rpc SafeZAdd (SafeZAddOptions) returns (Proof){
 		option (google.api.http) = {
-            post: "/v1/immurestproxy/safe/reference"
+            post: "/v1/immurestproxy/safe/zadd"
             body: "*"
         };
 	};

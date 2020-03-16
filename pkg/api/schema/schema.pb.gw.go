@@ -1602,7 +1602,7 @@ var (
 
 	pattern_ImmuService_History_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "immurestproxy", "history", "key"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_Health_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "healtresponse"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuService_Health_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "healthresponse"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_Reference_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "reference"}, "", runtime.AssumeColonVerbOpt(true)))
 
@@ -1610,7 +1610,7 @@ var (
 
 	pattern_ImmuService_ZAdd_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "zadd"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_ZScan_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "zrange"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuService_ZScan_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "zscan"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_SafeZAdd_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "safe", "zadd"}, "", runtime.AssumeColonVerbOpt(true)))
 )
