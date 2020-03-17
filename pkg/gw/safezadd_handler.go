@@ -67,5 +67,6 @@ func (h *safeZAddHandler) SafeZAdd(w http.ResponseWriter, req *http.Request, pat
 	safeZAddResponseOverwrite := NewSafeZAddResponseOverwrite(h.rs)
 	if err := safeZAddResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		return
 	}
 }

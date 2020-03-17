@@ -65,5 +65,6 @@ func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathP
 	safeGetResponseOverwrite := NewSafeGetResponseOverwrite(h.rs)
 	if err := safeGetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		return
 	}
 }

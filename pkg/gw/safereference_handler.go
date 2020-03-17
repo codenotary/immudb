@@ -67,5 +67,6 @@ func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Re
 	safeReferenceResponseOverwrite := NewSafeReferenceResponseOverwrite(h.rs)
 	if err := safeReferenceResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		return
 	}
 }
