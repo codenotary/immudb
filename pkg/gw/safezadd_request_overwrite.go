@@ -48,7 +48,7 @@ func NewSafeZAddRequestOverwrite(rs client.RootService) SafeZAddRequestOverwrite
 func (r safeZAddRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq schema.SafeZAddOptions
 	var metadata runtime.ServerMetadata
-
+	var key []byte
 	newReader, berr := utilities.IOReaderFactory(req.Body)
 	if berr != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
@@ -64,20 +64,18 @@ func (r safeZAddRequestOverwrite) call(ctx context.Context, marshaler runtime.Ma
 	ri.Index = root.Index
 	protoReq.RootIndex = ri
 
-	msg, err := client.SafeZAdd(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	if err != nil {
+	msg, errza := client.SafeZAdd(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+
+	if key, err = store.SetKey(protoReq.Zopts.Key, protoReq.Zopts.Set, protoReq.Zopts.Score); err != nil {
 		return nil, metadata, status.Errorf(codes.Internal, "%v", err)
 	}
-	key, err := store.SetKey(protoReq.Zopts.Key, protoReq.Zopts.Set, protoReq.Zopts.Score)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.Internal, "%v", err)
-	}
+
 	// This guard ensures that msg.Leaf is equal to the item's hash
 	// computed from request values.
 	// From now on, msg.Leaf can be trusted.
 	// Thus SafeZAddResponseOverwrite will not need to decode the request
 	// and compute the hash.
-	if err == nil {
+	if errza == nil {
 		item := schema.Item{
 			Key:   key,
 			Value: protoReq.Zopts.Key,
@@ -88,5 +86,5 @@ func (r safeZAddRequestOverwrite) call(ctx context.Context, marshaler runtime.Ma
 		}
 	}
 
-	return msg, metadata, err
+	return msg, metadata, errza
 }
