@@ -20,13 +20,11 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
-	"sync"
 )
 
 const ROOT_FN = ".root"
 
 type fileCache struct {
-	sync.RWMutex
 }
 
 func NewFileCache() Cache {
@@ -34,8 +32,6 @@ func NewFileCache() Cache {
 }
 
 func (w *fileCache) Get() (*schema.Root, error) {
-	defer w.RUnlock()
-	w.RLock()
 	root := new(schema.Root)
 	buf, err := ioutil.ReadFile(ROOT_FN)
 	if err == nil {
@@ -48,9 +44,6 @@ func (w *fileCache) Get() (*schema.Root, error) {
 }
 
 func (w *fileCache) Set(root *schema.Root) error {
-	defer w.Unlock()
-	w.Lock()
-
 	raw, err := proto.Marshal(root)
 	if err != nil {
 		return err
