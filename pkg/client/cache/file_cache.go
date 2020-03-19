@@ -24,13 +24,14 @@ import (
 
 const ROOT_FN = ".root"
 
-type file_cache struct{}
-
-func NewFileCache() Cache {
-	return file_cache{}
+type fileCache struct {
 }
 
-func ( w file_cache) Get() (*schema.Root, error){
+func NewFileCache() Cache {
+	return &fileCache{}
+}
+
+func (w *fileCache) Get() (*schema.Root, error) {
 	root := new(schema.Root)
 	buf, err := ioutil.ReadFile(ROOT_FN)
 	if err == nil {
@@ -42,8 +43,7 @@ func ( w file_cache) Get() (*schema.Root, error){
 	return nil, err
 }
 
-func ( w file_cache) Set(root *schema.Root) error{
-	proto.Marshal(root)
+func (w *fileCache) Set(root *schema.Root) error {
 	raw, err := proto.Marshal(root)
 	if err != nil {
 		return err

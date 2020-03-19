@@ -28,19 +28,19 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
 
-type SafeSetResponseOverwrite interface {
+type SafeZAddResponseOverwrite interface {
 	call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) error
 }
 
-type safeSetResponseOverwrite struct {
+type safeZAddResponseOverwrite struct {
 	rs client.RootService
 }
 
-func NewSafeSetResponseOverwrite(rs client.RootService) SafeSetResponseOverwrite {
-	return safeSetResponseOverwrite{rs}
+func NewSafeZAddResponseOverwrite(rs client.RootService) SafeZAddResponseOverwrite {
+	return safeZAddResponseOverwrite{rs}
 }
 
-func (r safeSetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) error {
+func (r safeZAddResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) error {
 	if p, ok := resp.(*schema.Proof); ok {
 		root, err := r.rs.GetRoot(ctx)
 		if err != nil {
@@ -50,7 +50,7 @@ func (r safeSetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 		m := make(map[string]bool)
 		// The server-generated leaf SHOULD NOT BE USED for security reasons,
 		// maybe somebody can create a temper leaf.
-		// In this case, we rely on SafeSetRequestOverwrite.call that has validated it
+		// In this case, we rely on SafeZAddRequestOverwrite.call that has validated it
 		// already, so p.Leaf and the item's hash are guaranteed to be equal.
 		verified := p.Verify(p.Leaf, *root)
 		m["verified"] = verified

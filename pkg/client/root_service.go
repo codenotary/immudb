@@ -23,25 +23,32 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
+	"sync"
 )
 
 const ROOT_FN = ".root"
 
 type RootService interface {
 	GetRoot(ctx context.Context) (*schema.Root, error)
-	SetRoot(root *schema.Root)  error
+	SetRoot(root *schema.Root) error
 }
 
 type rootservice struct {
 	client schema.ImmuServiceClient
-	cache cache.Cache
+	cache  cache.Cache
+	sync.RWMutex
 }
 
 func NewRootService(immuC schema.ImmuServiceClient, cache cache.Cache) RootService {
-	return &rootservice{immuC, cache}
+	return &rootservice{
+		client: immuC,
+		cache:  cache,
+	}
 }
 
 func (r *rootservice) GetRoot(ctx context.Context) (*schema.Root, error) {
+	defer r.RUnlock()
+	r.RLock()
 	if root, err := r.cache.Get(); err == nil {
 		return root, nil
 	}
@@ -58,6 +65,7 @@ func (r *rootservice) GetRoot(ctx context.Context) (*schema.Root, error) {
 }
 
 func (r *rootservice) SetRoot(root *schema.Root) error {
+	defer r.Unlock()
+	r.Lock()
 	return r.cache.Set(root)
 }
-

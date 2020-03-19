@@ -22,4 +22,3 @@ type Cache interface {
 	Get() (*schema.Root, error)
 	Set(root *schema.Root) error
 }
-

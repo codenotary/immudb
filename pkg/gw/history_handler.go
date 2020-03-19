@@ -62,6 +62,7 @@ func (h *historyHandler) History(w http.ResponseWriter, req *http.Request, pathP
 	historyResponseOverwrite := NewHistoryResponseOverwrite(h.rs)
 	if err := historyResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		return
 	}
 
 }

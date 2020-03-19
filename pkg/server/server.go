@@ -194,6 +194,39 @@ func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthRespon
 	return &schema.HealthResponse{Status: health}, nil
 }
 
+func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
+	index, err = s.Store.Reference(refOpts)
+	if err != nil {
+		return nil, err
+	}
+	s.Logger.Debugf("reference options: %v", refOpts)
+	return index, nil
+}
+
+func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
+	proof, err = s.Store.SafeReference(*safeRefOpts)
+	if err != nil {
+		return nil, err
+	}
+	s.Logger.Debugf("safe reference options: %v", safeRefOpts)
+	return proof, nil
+}
+
+func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
+	s.Logger.Debugf("zadd %+v", *opts)
+	return s.Store.ZAdd(*opts)
+}
+
+func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
+	s.Logger.Debugf("zscan %+v", *opts)
+	return s.Store.ZScan(*opts)
+}
+
+func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
+	s.Logger.Debugf("zadd %+v", *opts)
+	return s.Store.SafeZAdd(*opts)
+}
+
 func (s *ImmuServer) installShutdownHandler() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)

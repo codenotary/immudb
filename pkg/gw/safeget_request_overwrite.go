@@ -29,6 +29,7 @@ import (
 	"io"
 	"net/http"
 )
+
 type SafeGetRequestOverwrite interface {
 	call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error)
 }
@@ -37,7 +38,7 @@ type safeGetRequestOverwrite struct {
 	rs client.RootService
 }
 
-func NewSafeGetRequestOverwrite(rs client.RootService) SafeGetRequestOverwrite{
+func NewSafeGetRequestOverwrite(rs client.RootService) SafeGetRequestOverwrite {
 	return safeGetRequestOverwrite{rs}
 }
 
@@ -53,7 +54,9 @@ func (r safeGetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	root, err := r.rs.GetRoot(ctx)
-
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.Internal, "%v", err)
+	}
 	ri := new(schema.Index)
 	ri.Index = root.Index
 	protoReq.RootIndex = ri

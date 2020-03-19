@@ -64,7 +64,9 @@ func (r safeGetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 				return err
 			}
 		}
-		w.Write(newData)
+		if _, err := w.Write(newData); err != nil {
+			return err
+		}
 		return nil
 	}
 	return nil

@@ -64,6 +64,7 @@ message ScanOptions {
 	bytes offset = 2;
 	uint64 limit = 3;
 	bool reverse = 4;
+	bool deep    = 5;
 }
 
 message KeyPrefix {
@@ -114,8 +115,41 @@ message SafeGetOptions {
 	Index rootIndex = 2;
 }
 
+message SafeReferenceOptions {
+	ReferenceOptions ro = 1;
+	Index rootIndex = 2;
+}
+
 message HealthResponse {
 	bool status = 1;
+}
+
+message ReferenceOptions {
+	Key reference = 1;
+	Key key = 2;
+}
+
+/*
+Why use double as score type?
+Because it is not purely about the storage size, but also use cases.
+64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer.
+*/
+message ZAddOptions {
+	bytes set = 1;
+	double score = 2;
+	bytes key = 3;
+}
+
+message ZScanOptions {
+	bytes set = 1;
+	bytes offset = 2;
+	uint64 limit = 3;
+	bool reverse = 4;
+}
+
+message SafeZAddOptions {
+	ZAddOptions zopts = 1;
+	Index rootIndex = 2;
 }
 
 service ImmuService {
@@ -194,7 +228,37 @@ service ImmuService {
 	};
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
-            get: "/v1/immurestproxy/healtresponse"
+            get: "/v1/immurestproxy/healthresponse"
+        };
+	};
+	rpc Reference (ReferenceOptions) returns (Index){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/reference"
+            body: "*"
+        };
+	};
+	rpc SafeReference (SafeReferenceOptions) returns (Proof){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/safe/reference"
+            body: "*"
+        };
+	};
+	rpc ZAdd (ZAddOptions) returns (Index){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/zadd"
+            body: "*"
+        };
+	};
+	rpc ZScan (ZScanOptions) returns (ItemList){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/zscan"
+            body: "*"
+        };
+	};
+	rpc SafeZAdd (SafeZAddOptions) returns (Proof){
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/safe/zadd"
+            body: "*"
         };
 	};
 }

@@ -97,6 +97,17 @@ func (c *ImmuClient) Scan(keyReader io.Reader) (*schema.ItemList, error) {
 	return c.serviceClient.Scan(context.Background(), &schema.ScanOptions{Prefix: prefix})
 }
 
+func (c *ImmuClient) ZScan(setReader io.Reader) (*schema.ItemList, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	set, err := ioutil.ReadAll(setReader)
+	if err != nil {
+		return nil, err
+	}
+	return c.serviceClient.ZScan(context.Background(), &schema.ZScanOptions{Set: set})
+}
+
 func (c *ImmuClient) Count(keyReader io.Reader) (*schema.ItemsCount, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
@@ -210,6 +221,49 @@ func (c *ImmuClient) History(keyReader io.Reader) (*schema.ItemList, error) {
 		Key: key,
 	})
 	c.Logger.Debugf("history finished in %s", time.Since(start))
+	return result, err
+}
+
+func (c *ImmuClient) Reference(keyReader io.Reader, valueReader io.Reader) (*schema.Index, error) {
+	start := time.Now()
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	key, err := ioutil.ReadAll(valueReader)
+	if err != nil {
+		return nil, err
+	}
+	reference, err := ioutil.ReadAll(keyReader)
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.serviceClient.Reference(context.Background(), &schema.ReferenceOptions{
+		Reference: &schema.Key{Key: reference},
+		Key:       &schema.Key{Key: key},
+	})
+	c.Logger.Debugf("reference finished in %s", time.Since(start))
+	return result, err
+}
+
+func (c *ImmuClient) ZAdd(setReader io.Reader, score float64, keyReader io.Reader) (*schema.Index, error) {
+	start := time.Now()
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	set, err := ioutil.ReadAll(setReader)
+	if err != nil {
+		return nil, err
+	}
+	key, err := ioutil.ReadAll(keyReader)
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.serviceClient.ZAdd(context.Background(), &schema.ZAddOptions{
+		Set:   set,
+		Score: score,
+		Key:   key,
+	})
+	c.Logger.Debugf("zadd finished in %s", time.Since(start))
 	return result, err
 }
 

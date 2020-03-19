@@ -1,0 +1,819 @@
+{
+  "swagger": "2.0",
+  "host": "127.0.0.1:8081",
+  "info": {
+	"title": "schema.proto",
+	"version": "v0.0.1"
+  },
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/immurestproxy/batch/get": {
+      "post": {
+        "operationId": "GetBatch",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItemList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaKeyList"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/batch/set": {
+      "post": {
+        "operationId": "SetBatch",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaIndex"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaKVList"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/consistencyproof/{index}": {
+      "get": {
+        "operationId": "Consistency",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaConsistencyProof"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/healthresponse": {
+      "get": {
+        "operationId": "Health",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaHealthResponse"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/history/{key}": {
+      "get": {
+        "operationId": "History",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItemList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "byte"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/inclusionproof/{index}": {
+      "get": {
+        "operationId": "Inclusion",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaInclusionProof"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/item": {
+      "post": {
+        "operationId": "Set",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaIndex"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaKeyValue"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/item/count/{prefix}": {
+      "get": {
+        "operationId": "Count",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItemsCount"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "prefix",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "byte"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/item/index/{index}": {
+      "get": {
+        "operationId": "ByIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItem"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/item/safe": {
+      "post": {
+        "operationId": "SafeSet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaProof"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSafeSetOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/item/safe/get": {
+      "post": {
+        "operationId": "SafeGet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaSafeItem"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSafeGetOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/item/scan": {
+      "post": {
+        "operationId": "Scan",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItemList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaScanOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/item/{key}": {
+      "get": {
+        "operationId": "Get",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItem"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "byte"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/reference": {
+      "post": {
+        "operationId": "Reference",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaIndex"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaReferenceOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/root": {
+      "get": {
+        "operationId": "CurrentRoot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaRoot"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/safe/reference": {
+      "post": {
+        "operationId": "SafeReference",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaProof"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSafeReferenceOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/safe/zadd": {
+      "post": {
+        "operationId": "SafeZAdd",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaProof"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSafeZAddOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/zadd": {
+      "post": {
+        "operationId": "ZAdd",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaIndex"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaZAddOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/zscan": {
+      "post": {
+        "operationId": "ZScan",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItemList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaZScanOptions"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "schemaConsistencyProof": {
+      "type": "object",
+      "properties": {
+        "first": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "second": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "firstRoot": {
+          "type": "string",
+          "format": "byte"
+        },
+        "secondRoot": {
+          "type": "string",
+          "format": "byte"
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "schemaHealthResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "schemaInclusionProof": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "root": {
+          "type": "string",
+          "format": "byte"
+        },
+        "leaf": {
+          "type": "string",
+          "format": "byte"
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "schemaIndex": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaItem": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        },
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaItemList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaItem"
+          }
+        }
+      }
+    },
+    "schemaItemsCount": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaKVList": {
+      "type": "object",
+      "properties": {
+        "KVs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKeyValue"
+          }
+        }
+      }
+    },
+    "schemaKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "schemaKeyList": {
+      "type": "object",
+      "properties": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKey"
+          }
+        }
+      }
+    },
+    "schemaKeyValue": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "schemaProof": {
+      "type": "object",
+      "properties": {
+        "leaf": {
+          "type": "string",
+          "format": "byte"
+        },
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "root": {
+          "type": "string",
+          "format": "byte"
+        },
+        "at": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "inclusionPath": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "consistencyPath": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "schemaReferenceOptions": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "$ref": "#/definitions/schemaKey"
+        },
+        "key": {
+          "$ref": "#/definitions/schemaKey"
+        }
+      }
+    },
+    "schemaRoot": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "root": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "schemaSafeGetOptions": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/schemaKey"
+        },
+        "rootIndex": {
+          "$ref": "#/definitions/schemaIndex"
+        }
+      }
+    },
+    "schemaSafeItem": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/schemaItem"
+        },
+        "proof": {
+          "$ref": "#/definitions/schemaProof"
+        }
+      }
+    },
+    "schemaSafeReferenceOptions": {
+      "type": "object",
+      "properties": {
+        "ro": {
+          "$ref": "#/definitions/schemaReferenceOptions"
+        },
+        "rootIndex": {
+          "$ref": "#/definitions/schemaIndex"
+        }
+      }
+    },
+    "schemaSafeSetOptions": {
+      "type": "object",
+      "properties": {
+        "kv": {
+          "$ref": "#/definitions/schemaKeyValue"
+        },
+        "rootIndex": {
+          "$ref": "#/definitions/schemaIndex"
+        }
+      }
+    },
+    "schemaSafeZAddOptions": {
+      "type": "object",
+      "properties": {
+        "zopts": {
+          "$ref": "#/definitions/schemaZAddOptions"
+        },
+        "rootIndex": {
+          "$ref": "#/definitions/schemaIndex"
+        }
+      }
+    },
+    "schemaScanOptions": {
+      "type": "object",
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "format": "byte"
+        },
+        "offset": {
+          "type": "string",
+          "format": "byte"
+        },
+        "limit": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "reverse": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "deep": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "schemaZAddOptions": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "string",
+          "format": "byte"
+        },
+        "score": {
+          "type": "number",
+          "format": "double"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "description": "Why use double as score type?\nBecause it is not purely about the storage size, but also use cases.\n64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer."
+    },
+    "schemaZScanOptions": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "string",
+          "format": "byte"
+        },
+        "offset": {
+          "type": "string",
+          "format": "byte"
+        },
+        "limit": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "reverse": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -37,9 +37,9 @@ func getPrevRootIdx(lastIndex uint64, rootIdx *schema.Index) (uint64, error) {
 
 func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err error) {
 	kv := options.Kv
-	err = checkKey(kv.Key)
-	if err != nil {
-		return
+
+	if err = checkKey(kv.Key); err != nil {
+		return nil, err
 	}
 
 	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
@@ -90,10 +90,12 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 }
 
 func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeItem, err error) {
-	key := options.Key
-	err = checkKey(key.Key)
-	if err != nil {
-		return
+	var item *schema.Item
+	var i *badger.Item
+	key := options.Key.Key
+
+	if err = checkKey(key); err != nil {
+		return nil, err
 	}
 
 	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
@@ -103,14 +105,31 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
-	i, err := txn.Get(key.Key)
+	i, err = txn.Get(key)
 	if err != nil {
 		err = mapError(err)
 		return
 	}
-	item, err := itemToSchema(key.Key, i)
+
+	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
+		var refKey []byte
+		err = i.Value(func(val []byte) error {
+			refKey = append([]byte{}, val...)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		i, err = txn.Get(refKey)
+		key = i.Key()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	item, err = itemToSchema(key, i)
 	if err != nil {
-		return
+		return nil, err
 	}
 	safeItem = &schema.SafeItem{
 		Item: item,
@@ -129,6 +148,139 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 		Root:            root[:],
 		At:              at,
 		InclusionPath:   merkletree.InclusionProof(t.tree, at, item.Index).ToSlice(),
+		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
+	}
+
+	return
+}
+
+func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
+	ro := options.Ro
+	if err = checkKey(ro.Key.Key); err != nil {
+		return nil, err
+	}
+	if err = checkKey(ro.Reference.Key); err != nil {
+		return nil, err
+	}
+
+	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
+	if err != nil {
+		return
+	}
+
+	txn := t.db.NewTransactionAt(math.MaxUint64, true)
+	defer txn.Discard()
+
+	i, err := txn.Get(ro.Key.Key)
+	if err != nil {
+		err = mapError(err)
+		return
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      ro.Reference.Key,
+		Value:    i.Key(),
+		UserMeta: bitReferenceEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
+	}
+
+	tsEntry := t.tree.NewEntry(ro.Reference.Key, i.Key())
+
+	index := tsEntry.Index()
+	leaf := tsEntry.HashCopy()
+
+	err = txn.CommitAt(tsEntry.ts, nil)
+	if err != nil {
+		t.tree.Discard(tsEntry)
+		err = mapError(err)
+		return
+	}
+
+	t.tree.Commit(tsEntry)
+	t.tree.WaitUntil(index)
+
+	t.tree.RLock()
+	defer t.tree.RUnlock()
+
+	at := t.tree.w - 1
+	root := merkletree.Root(t.tree)
+
+	proof = &schema.Proof{
+		Leaf:            leaf,
+		Index:           index,
+		Root:            root[:],
+		At:              at,
+		InclusionPath:   merkletree.InclusionProof(t.tree, at, index).ToSlice(),
+		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
+	}
+
+	return
+}
+
+func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, err error) {
+
+	if err = checkKey(options.Zopts.Key); err != nil {
+		return nil, err
+	}
+	if err = checkSet(options.Zopts.Set); err != nil {
+		return nil, err
+	}
+	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
+	if err != nil {
+		return
+	}
+
+	txn := t.db.NewTransactionAt(math.MaxUint64, true)
+	defer txn.Discard()
+
+	i, err := txn.Get(options.Zopts.Key)
+	if err != nil {
+		err = mapError(err)
+		return
+	}
+
+	ik, err := SetKey(options.Zopts.Key, options.Zopts.Set, options.Zopts.Score)
+	if err != nil {
+		err = mapError(err)
+		return
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      ik,
+		Value:    i.Key(),
+		UserMeta: bitReferenceEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
+	}
+	tsEntry := t.tree.NewEntry(ik, i.Key())
+	index := tsEntry.Index()
+	leaf := tsEntry.HashCopy()
+
+	err = txn.CommitAt(tsEntry.ts, nil)
+	if err != nil {
+		t.tree.Discard(tsEntry)
+		err = mapError(err)
+		return
+	}
+
+	t.tree.Commit(tsEntry)
+	t.tree.WaitUntil(index)
+
+	t.tree.RLock()
+	defer t.tree.RUnlock()
+
+	at := t.tree.w - 1
+	root := merkletree.Root(t.tree)
+
+	proof = &schema.Proof{
+		Leaf:            leaf,
+		Index:           index,
+		Root:            root[:],
+		At:              at,
+		InclusionPath:   merkletree.InclusionProof(t.tree, at, index).ToSlice(),
 		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
 

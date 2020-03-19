@@ -19,7 +19,7 @@ package gw
 import (
 	"bytes"
 	"context"
-	"errors"
+	"github.com/codenotary/immudb/pkg/store"
 	"io"
 	"net/http"
 
@@ -33,26 +33,22 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	InvalidItemProof = errors.New("proof does not match the given item")
-)
-
-type SafeSetRequestOverwrite interface {
+type SafeZAddRequestOverwrite interface {
 	call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error)
 }
 
-type safeSetRequestOverwrite struct {
+type safeZAddRequestOverwrite struct {
 	rs client.RootService
 }
 
-func NewSafeSetRequestOverwrite(rs client.RootService) SafeSetRequestOverwrite {
-	return safeSetRequestOverwrite{rs}
+func NewSafeZAddRequestOverwrite(rs client.RootService) SafeZAddRequestOverwrite {
+	return safeZAddRequestOverwrite{rs}
 }
 
-func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq schema.SafeSetOptions
+func (r safeZAddRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq schema.SafeZAddOptions
 	var metadata runtime.ServerMetadata
-
+	var key []byte
 	newReader, berr := utilities.IOReaderFactory(req.Body)
 	if berr != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
@@ -68,17 +64,21 @@ func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 	ri.Index = root.Index
 	protoReq.RootIndex = ri
 
-	msg, err := client.SafeSet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, errza := client.SafeZAdd(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+
+	if key, err = store.SetKey(protoReq.Zopts.Key, protoReq.Zopts.Set, protoReq.Zopts.Score); err != nil {
+		return nil, metadata, status.Errorf(codes.Internal, "%v", err)
+	}
 
 	// This guard ensures that msg.Leaf is equal to the item's hash
 	// computed from request values.
 	// From now on, msg.Leaf can be trusted.
-	// Thus SafeSetResponseOverwrite will not need to decode the request
+	// Thus SafeZAddResponseOverwrite will not need to decode the request
 	// and compute the hash.
-	if err == nil {
+	if errza == nil {
 		item := schema.Item{
-			Key:   protoReq.Kv.Key,
-			Value: protoReq.Kv.Value,
+			Key:   key,
+			Value: protoReq.Zopts.Key,
 			Index: msg.Index,
 		}
 		if !bytes.Equal(item.Hash(), msg.Leaf) {
@@ -86,5 +86,5 @@ func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 		}
 	}
 
-	return msg, metadata, err
+	return msg, metadata, errza
 }

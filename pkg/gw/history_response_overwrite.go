@@ -57,7 +57,9 @@ func (r historyResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 		if err != nil {
 			return err
 		}
-		w.Write(newData)
+		if _, err := w.Write(newData); err != nil {
+			return err
+		}
 	}
 	return nil
 }

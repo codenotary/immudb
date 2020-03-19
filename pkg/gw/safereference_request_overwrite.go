@@ -19,7 +19,6 @@ package gw
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net/http"
 
@@ -33,24 +32,20 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	InvalidItemProof = errors.New("proof does not match the given item")
-)
-
-type SafeSetRequestOverwrite interface {
+type SafeReferenceRequestOverwrite interface {
 	call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error)
 }
 
-type safeSetRequestOverwrite struct {
+type safeReferenceRequestOverwrite struct {
 	rs client.RootService
 }
 
-func NewSafeSetRequestOverwrite(rs client.RootService) SafeSetRequestOverwrite {
-	return safeSetRequestOverwrite{rs}
+func NewSafeReferenceRequestOverwrite(rs client.RootService) SafeReferenceRequestOverwrite {
+	return safeReferenceRequestOverwrite{rs}
 }
 
-func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq schema.SafeSetOptions
+func (r safeReferenceRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq schema.SafeReferenceOptions
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -68,17 +63,17 @@ func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 	ri.Index = root.Index
 	protoReq.RootIndex = ri
 
-	msg, err := client.SafeSet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.SafeReference(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 
 	// This guard ensures that msg.Leaf is equal to the item's hash
 	// computed from request values.
 	// From now on, msg.Leaf can be trusted.
-	// Thus SafeSetResponseOverwrite will not need to decode the request
+	// Thus SafeReferenceResponseOverwrite will not need to decode the request
 	// and compute the hash.
 	if err == nil {
 		item := schema.Item{
-			Key:   protoReq.Kv.Key,
-			Value: protoReq.Kv.Value,
+			Key:   protoReq.Ro.Reference.Key,
+			Value: protoReq.Ro.Key.Key,
 			Index: msg.Index,
 		}
 		if !bytes.Equal(item.Hash(), msg.Leaf) {

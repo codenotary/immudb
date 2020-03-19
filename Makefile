@@ -34,7 +34,6 @@ immud-static:
 immugw-static:
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immugw
 
-
 .PHONY: vendor
 vendor:
 	$(GO) mod vendor
@@ -45,21 +44,21 @@ test:
 	$(GO) test --race ${TEST_FLAGS} ./...
 
 .PHONY: build/codegen
-build/codegen: pkg/api/schema/schema.pb.go pkg/api/schema/schema.pb.gw.go
-
-.PHONY: pkg/api/schema/schema.pb.go
-pkg/api/schema/schema.pb.go:
+build/codegen:
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I${GOPATH}/pkg/mod \
 	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.12.2/third_party/googleapis \
 	--go_out=plugins=grpc,paths=source_relative:pkg/api/schema
 
-.PHONY: pkg/api/schema/schema.pb.gw.go
-pkg/api/schema/schema.pb.gw.go:
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I${GOPATH}/pkg/mod \
 	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.12.2/third_party/googleapis \
   	--grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
+
+	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
+	-I${GOPATH}/pkg/mod \
+	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.12.2/third_party/googleapis \
+  	--swagger_out=logtostderr=true:pkg/api/schema \
 
 .PHONY: clean
 clean:
@@ -67,7 +66,7 @@ clean:
 
 .PHONY: nimmu
 nimmu:
-	$(GO) build -o nimmu ./tools/nimmu 
+	$(GO) build -o nimmu ./tools/nimmu
 
 .PHONY: bm
 bm:

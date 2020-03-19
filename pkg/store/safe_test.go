@@ -141,3 +141,198 @@ func BenchmarkStoreSafeSet(b *testing.B) {
 	}
 	b.StopTimer()
 }
+
+func TestStoreSafeReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	root, _ := st.CurrentRoot()
+
+	firstKey := []byte(`firstKey`)
+	firstValue := []byte(`firstValue`)
+
+	firstIndex, _ := st.Set(schema.KeyValue{Key: firstKey, Value: firstValue})
+
+	for n := uint64(0); n <= 64; n++ {
+		opts := schema.SafeReferenceOptions{
+			Ro: &schema.ReferenceOptions{
+				Reference: &schema.Key{Key: []byte(strconv.FormatUint(n, 10))},
+				Key:       &schema.Key{Key: firstKey},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		}
+		proof, err := st.SafeReference(opts)
+		assert.NoError(t, err, "n=%d", n)
+		assert.NotNil(t, proof, "n=%d", n)
+		assert.Equal(t, n+1, proof.Index, "n=%d", n)
+
+		leaf := api.Digest(proof.Index, opts.Ro.Reference.Key, opts.Ro.Key.Key)
+		verified := proof.Verify(leaf[:], *root)
+		assert.True(t, verified, "n=%d", n)
+
+		root.Index = proof.At
+		root.Root = proof.Root
+	}
+
+	for n := uint64(0); n <= 64; n++ {
+		tag := []byte(strconv.FormatUint(n, 10))
+		item, err := st.Get(schema.Key{Key: tag})
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, firstIndex.Index, item.Index, "n=%d", n)
+		assert.Equal(t, firstValue, item.Value, "n=%d", n)
+		assert.Equal(t, firstKey, item.Key, "n=%d", n)
+	}
+}
+
+func TestStoreSafeGetOnSafeReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	firstKey := []byte(`firstKey`)
+	firstValue := []byte(`firstValue`)
+	firstTag := []byte(`firstTag`)
+	secondTag := []byte(`secondTag`)
+
+	firstItem, err := st.Set(schema.KeyValue{Key: firstKey, Value: firstValue})
+	assert.NoError(t, err)
+
+	// first item, no prev root
+	ref1 := schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{
+			Reference: &schema.Key{Key: firstTag},
+			Key:       &schema.Key{Key: firstKey},
+		},
+	}
+
+	proof, err := st.SafeReference(ref1)
+	assert.NoError(t, err)
+
+	leaf := api.Digest(proof.Index, firstTag, firstKey)
+	// Here verify if first reference was correctly inserted. We have no root yet.
+	verified := proof.Verify(leaf[:], schema.Root{})
+	assert.True(t, verified)
+
+	ref2 := schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{
+			Reference: &schema.Key{Key: secondTag},
+			Key:       &schema.Key{Key: firstKey},
+		},
+		RootIndex: &schema.Index{
+			Index: proof.Index,
+		},
+	}
+
+	proof2, err := st.SafeReference(ref2)
+	assert.NoError(t, err)
+
+	prevRoot := proof.NewRoot()
+	leaf2 := api.Digest(proof2.Index, secondTag, firstKey)
+	// Here verify if second reference was correctly inserted. We have root from safeReference 2.
+	verified2 := proof2.Verify(leaf2[:], *prevRoot)
+	assert.True(t, verified2)
+
+	// first item by first tag , no prev root
+	firstItem1, err := st.SafeGet(schema.SafeGetOptions{
+		Key: &schema.Key{
+			Key: firstTag,
+		},
+		RootIndex: &schema.Index{
+			Index: proof2.Index,
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, firstItem1)
+	assert.Equal(t, firstKey, firstItem1.Item.Key)
+	assert.Equal(t, firstValue, firstItem1.Item.Value)
+	assert.Equal(t, firstItem.Index, firstItem1.Item.Index)
+	// here verify if the tree in witch the referenced item was inserted is correct
+	assert.True(t, firstItem1.Proof.Verify(
+		firstItem1.Item.Hash(),
+		*proof2.NewRoot(),
+	))
+
+	// get first item by second tag with most fresh root
+	firstItem2, err := st.SafeGet(schema.SafeGetOptions{
+		Key: &schema.Key{
+			Key: secondTag,
+		},
+		RootIndex: &schema.Index{
+			Index: proof2.Index,
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, firstItem2)
+	assert.Equal(t, firstKey, firstItem2.Item.Key)
+	assert.Equal(t, firstValue, firstItem2.Item.Value)
+	assert.Equal(t, firstItem.Index, firstItem2.Item.Index)
+	assert.True(t, firstItem2.Proof.Verify(
+		firstItem2.Item.Hash(),
+		*proof2.NewRoot(),
+	))
+
+	lastRoot, err := st.CurrentRoot()
+	assert.NoError(t, err)
+	assert.NotNil(t, lastRoot)
+	assert.Equal(t, *lastRoot, *firstItem2.Proof.NewRoot())
+}
+
+func TestStoreSafeZAdd(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	st.Set(schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
+	st.Set(schema.KeyValue{Key: []byte(`mySecondElementKey`), Value: []byte(`secondValue`)})
+	st.Set(schema.KeyValue{Key: []byte(`myThirdElementKey`), Value: []byte(`thirdValue`)})
+
+	safeZAddOptions1 := schema.SafeZAddOptions{
+		Zopts: &schema.ZAddOptions{
+			Set:   []byte(`FirstSet`),
+			Score: float64(43),
+			Key:   []byte(`mySecondElementKey`),
+		},
+	}
+
+	proof1, err := st.SafeZAdd(safeZAddOptions1)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, proof1)
+	assert.Equal(t, uint64(3), proof1.Index)
+
+	key, _ := SetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score)
+
+	leaf := api.Digest(proof1.Index, key, safeZAddOptions1.Zopts.Key)
+	// Here verify if first reference was correctly inserted. We have no root yet.
+	verified := proof1.Verify(leaf[:], schema.Root{})
+	assert.True(t, verified)
+
+	root := schema.Root{
+		Index: proof1.Index,
+		Root:  proof1.Root,
+	}
+	safeZAddOptions2 := schema.SafeZAddOptions{
+		Zopts: &schema.ZAddOptions{
+			Set:   []byte(`FirstSet`),
+			Score: float64(43.548),
+			Key:   []byte(`myThirdElementKey`),
+		},
+		RootIndex: &schema.Index{
+			Index: proof1.Index,
+		},
+	}
+
+	proof2, err2 := st.SafeZAdd(safeZAddOptions2)
+
+	assert.NoError(t, err2)
+	assert.NotNil(t, proof2)
+	assert.Equal(t, uint64(4), proof2.Index)
+
+	key2, _ := SetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score)
+
+	leaf2 := api.Digest(proof2.Index, key2, safeZAddOptions2.Zopts.Key)
+	// Here verify if first reference was correctly inserted. We have no root yet.
+	verified2 := proof2.Verify(leaf2[:], root)
+	assert.True(t, verified2)
+}

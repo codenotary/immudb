@@ -25,26 +25,26 @@ import (
 	"sync"
 )
 
-type SafesetHandler interface {
-	Safeset(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
+type SafeReferenceHandler interface {
+	SafeReference(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
 }
 
-type safesetHandler struct {
+type safeReferenceHandler struct {
 	mux    *runtime.ServeMux
 	client schema.ImmuServiceClient
 	rs     client.RootService
 	sync.RWMutex
 }
 
-func NewSafesetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafesetHandler {
-	return &safesetHandler{
+func NewSafeReferenceHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafeReferenceHandler {
+	return &safeReferenceHandler{
 		mux:    mux,
 		client: client,
 		rs:     rs,
 	}
 }
 
-func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
@@ -56,16 +56,16 @@ func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathP
 	}
 	h.Lock()
 	defer h.Unlock()
-	safeSetRequestOverwrite := NewSafeSetRequestOverwrite(h.rs)
-	resp, md, err := safeSetRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
+	safeReferenceRequestOverwrite := NewSafeReferenceRequestOverwrite(h.rs)
+	resp, md, err := safeReferenceRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
 
 	ctx = runtime.NewServerMetadataContext(ctx, md)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	safeSetResponseOverwrite := NewSafeSetResponseOverwrite(h.rs)
-	if err := safeSetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
+	safeReferenceResponseOverwrite := NewSafeReferenceResponseOverwrite(h.rs)
+	if err := safeReferenceResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
