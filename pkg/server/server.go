@@ -18,6 +18,10 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"google.golang.org/grpc/credentials"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
@@ -31,13 +35,48 @@ import (
 	"github.com/codenotary/immudb/pkg/store"
 )
 
-func (s *ImmuServer) Start() (err error) {
+func (s *ImmuServer) Start() error {
+	options := []grpc.ServerOption{}
+	//----------TLS Setting-----------//
+	if s.Options.MTLs {
+		// credentials needed to communicate with client
+		certificate, err := tls.LoadX509KeyPair(
+			s.Options.MTLsOptions.Certificate,
+			s.Options.MTLsOptions.Pkey,
+		)
+		if err != nil {
+			s.Logger.Errorf("failed to read server key pair: %s", err)
+			return err
+		}
+		certPool := x509.NewCertPool()
+		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
+		bs, err := ioutil.ReadFile(s.Options.MTLsOptions.ClientCAs)
+		if err != nil {
+			s.Logger.Errorf("failed to read client ca cert: %s", err)
+			return err
+		}
+
+		ok := certPool.AppendCertsFromPEM(bs)
+		if !ok {
+			s.Logger.Errorf("failed to append client certs")
+			return err
+		}
+
+		tlsConfig := &tls.Config{
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			Certificates: []tls.Certificate{certificate},
+			ClientCAs:    certPool,
+		}
+
+		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
+	}
+
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
 		return err
 	}
 	dbDir := filepath.Join(s.Options.Dir, s.Options.DbName)
-	if err := os.MkdirAll(dbDir, os.ModePerm); err != nil {
+	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		return err
 	}
 	s.Store, err = store.Open(store.DefaultOptions(dbDir))
@@ -46,15 +85,19 @@ func (s *ImmuServer) Start() (err error) {
 	}
 
 	metricsServer := StartMetrics(s.Options.MetricsBind(), s.Logger)
-	defer metricsServer.Close()
+	defer func() {
+		if err = metricsServer.Close(); err != nil {
+			s.Logger.Errorf("failed to shutdown metric server: %s", err)
+		}
+	}()
 
-	s.GrpcServer = grpc.NewServer()
+	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immud: %v", s.Options)
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
-	return
+	return err
 }
 
 func (s *ImmuServer) Stop() error {

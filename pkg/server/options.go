@@ -29,6 +29,8 @@ type Options struct {
 	Port        int
 	MetricsPort int
 	DbName      string
+	MTLs        bool
+	MTLsOptions MTLsOptions
 }
 
 func DefaultOptions() Options {
@@ -39,6 +41,7 @@ func DefaultOptions() Options {
 		Port:        8080,
 		MetricsPort: 9497,
 		DbName:      "immudb",
+		MTLs:        false,
 	}
 }
 
@@ -67,6 +70,16 @@ func (o Options) WithDbName(dbName string) Options {
 	return o
 }
 
+func (o Options) WithMTLs(MTLs bool) Options {
+	o.MTLs = MTLs
+	return o
+}
+
+func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
+	o.MTLsOptions = MTLsOptions
+	return o
+}
+
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
 }
@@ -77,8 +90,8 @@ func (o Options) MetricsBind() string {
 
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v}",
-		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName)
+		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v MTLs:%v}",
+		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.MTLs)
 }
 
 func (o Options) FromEnvironment() Options {
@@ -101,6 +114,13 @@ func (o Options) FromEnvironment() Options {
 	dbName := os.Getenv("IMMU_DBNAME")
 	if dbName != "" {
 		o.DbName = dbName
+	}
+	if MTLs, err := strconv.ParseBool(os.Getenv("IMMU_MTLS")); err == nil {
+		o.MTLs = MTLs
+	}
+	if o.MTLs {
+		mo := MTLsOptions{}
+		o.MTLsOptions = mo.FromEnvironment()
 	}
 	return o
 }
