@@ -27,6 +27,8 @@ type Options struct {
 	Port               int
 	DialRetries        int
 	HealthCheckRetries int
+	MTLs               bool
+	MTLsOptions        MTLsOptions
 }
 
 func DefaultOptions() Options {
@@ -35,6 +37,7 @@ func DefaultOptions() Options {
 		Port:               8080,
 		DialRetries:        5,
 		HealthCheckRetries: 5,
+		MTLs:               false,
 	}
 }
 
@@ -55,6 +58,16 @@ func (o Options) WithDialRetries(retries int) Options {
 
 func (o Options) WithHealthCheckRetries(retries int) Options {
 	o.HealthCheckRetries = retries
+	return o
+}
+
+func (o Options) WithMTLs(MTLs bool) Options {
+	o.MTLs = MTLs
+	return o
+}
+
+func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
+	o.MTLsOptions = MTLsOptions
 	return o
 }
 
@@ -82,6 +95,10 @@ func (o Options) FromEnvironment() Options {
 	healthCheckRetries := os.Getenv("IMMU_HEALTH_CHECK_RETRIES")
 	if parsedHealthCheckRetries, err := strconv.Atoi(healthCheckRetries); err == nil {
 		o.HealthCheckRetries = parsedHealthCheckRetries
+	}
+	if o.MTLs {
+		mo := MTLsOptions{}
+		o.MTLsOptions = mo.FromEnvironment()
 	}
 	return o
 }
