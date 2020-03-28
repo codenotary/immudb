@@ -18,9 +18,8 @@ package main
 
 import (
 	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
+	"os"
 
 	"github.com/codenotary/immudb/pkg/server"
 )
@@ -45,13 +44,37 @@ func main() {
 			if err != nil {
 				return err
 			}
+			mtls, err := cmd.Flags().GetBool("mtls")
+			if err != nil {
+				return err
+			}
+			certificate, err := cmd.Flags().GetString("certificate")
+			if err != nil {
+				return err
+			}
+			pkey, err := cmd.Flags().GetString("pkey")
+			if err != nil {
+				return err
+			}
+			client_cas, err := cmd.Flags().GetString("clientcas")
+			if err != nil {
+				return err
+			}
 			options := server.
 				DefaultOptions().
 				WithDir(dir).
 				WithPort(port).
 				WithAddress(address).
 				WithDbName(dbName).
+				WithMTLs(mtls).
 				FromEnvironment()
+			if mtls {
+				// todo https://golang.org/src/crypto/x509/root_linux.go
+				options.MTLsOptions = server.DefaultMTLsOptions().
+					WithCertificate(certificate).
+					WithPkey(pkey).
+					WithClientCAs(client_cas)
+			}
 			immuServer := server.
 				DefaultServer().
 				WithOptions(options)
@@ -62,6 +85,10 @@ func main() {
 	cmd.Flags().IntP("port", "p", server.DefaultOptions().Port, "port number")
 	cmd.Flags().StringP("address", "a", server.DefaultOptions().Address, "bind address")
 	cmd.Flags().StringP("name", "n", server.DefaultOptions().DbName, "db name")
+	cmd.Flags().BoolP("mtls", "m", server.DefaultOptions().MTLs, "enable mutual tls")
+	cmd.Flags().String("certificate", server.DefaultMTLsOptions().Certificate, "server certificate file path")
+	cmd.Flags().String("pkey", server.DefaultMTLsOptions().Pkey, "server private key path")
+	cmd.Flags().String("clientcas", server.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
 	if err := cmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
