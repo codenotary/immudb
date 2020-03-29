@@ -48,16 +48,19 @@ build/codegen:
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I${GOPATH}/pkg/mod \
 	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.12.2/third_party/googleapis \
+	-I${GOPATH}/pkg/mod/github.com/dgraph-io/badger/v2@v2.0.1 \
 	--go_out=plugins=grpc,paths=source_relative:pkg/api/schema
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I${GOPATH}/pkg/mod \
 	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.12.2/third_party/googleapis \
+	-I${GOPATH}/pkg/mod/github.com/dgraph-io/badger/v2@v2.0.1 \
   	--grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
 	-I${GOPATH}/pkg/mod \
 	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.12.2/third_party/googleapis \
+	-I${GOPATH}/pkg/mod/github.com/dgraph-io/badger/v2@v2.0.1 \
   	--swagger_out=logtostderr=true:pkg/api/schema \
 
 .PHONY: clean
