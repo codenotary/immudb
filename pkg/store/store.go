@@ -18,12 +18,10 @@ package store
 
 import (
 	"context"
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/merkletree"
 	"math"
 	"sync"
-
-	"github.com/codenotary/merkletree"
-
-	"github.com/codenotary/immudb/pkg/api/schema"
 
 	"github.com/codenotary/immudb/pkg/logger"
 
@@ -549,6 +547,55 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 		Items: items,
 	}
 	return
+}
+
+func (t *Store) Backup(kvChan chan *pb.KVList) (err error) {
+	defer t.tree.Unlock()
+	t.tree.Lock()
+	t.tree.flush()
+
+	stream := t.db.NewStreamAt(t.tree.w)
+	stream.NumGo = 16
+	stream.LogPrefix = "Badger.Streaming"
+
+	stream.Send = func(list *pb.KVList) error {
+		kvChan <- list
+		return nil
+	}
+
+	// Run the stream
+	if err := stream.Orchestrate(context.Background()); err != nil {
+		return err
+	}
+	close(kvChan)
+	return err
+}
+
+func (t *Store) Restore(kvChan chan *pb.KVList) (i uint64, err error) {
+	defer t.tree.Unlock()
+	t.tree.Lock()
+	ldr := t.db.NewKVLoader(16)
+	for {
+		kvList, more := <-kvChan
+		if more {
+			for _, kv := range kvList.Kv {
+				if err := ldr.Set(kv); err != nil {
+					return i, err
+				}
+			}
+
+			if err := ldr.Finish(); err != nil {
+				close(kvChan)
+				return i, err
+			}
+			t.tree.loadTreeState()
+			return t.tree.ts, err
+		} else {
+			err = ldr.Finish()
+			close(kvChan)
+			return i, err
+		}
+	}
 }
 
 func (t *Store) HealthCheck() bool {

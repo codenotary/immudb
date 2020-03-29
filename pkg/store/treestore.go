@@ -112,7 +112,16 @@ func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore
 	t.makeCaches()
 
 	// load tree state
-	db.View(func(txn *badger.Txn) error {
+	t.loadTreeState()
+
+	go t.worker()
+
+	t.log.Infof("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
+	return t
+}
+
+func (t *treeStore) loadTreeState() {
+	t.db.View(func(txn *badger.Txn) error {
 		for l := 0; l < 256; l++ {
 			w := treeLayerWidth(uint8(l), txn)
 			if w == 0 {
@@ -122,14 +131,8 @@ func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore
 		}
 		t.w = t.cPos[0]
 		t.ts = t.w
-
 		return nil
 	})
-
-	go t.worker()
-
-	t.log.Infof("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
-	return t
 }
 
 func (t *treeStore) makeCaches() {
