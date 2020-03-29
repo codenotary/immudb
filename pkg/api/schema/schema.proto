@@ -18,6 +18,7 @@ syntax = "proto3";
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "pb/pb.proto";
 
 package immudb.schema;
 
@@ -261,4 +262,17 @@ service ImmuService {
             body: "*"
         };
 	};
+	rpc Backup(google.protobuf.Empty) returns (stream pb.KVList) {
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/backup"
+            body: "*"
+        };
+	}
+	rpc Restore(stream pb.KVList) returns (ItemsCount) {
+		option (google.api.http) = {
+            post: "/v1/immurestproxy/restore"
+            body: "*"
+        };
+	}
+
 }
