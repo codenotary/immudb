@@ -20,19 +20,19 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/store"
+	"github.com/dgraph-io/badger/v2/pb"
+	"github.com/golang/protobuf/ptypes/empty"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
-
-	"github.com/golang/protobuf/ptypes/empty"
-	"google.golang.org/grpc"
-
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/store"
 )
 
 func (s *ImmuServer) Start() error {
@@ -268,6 +268,62 @@ func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*sch
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
 	return s.Store.SafeZAdd(*opts)
+}
+
+func (s *ImmuServer) Backup(ctx *empty.Empty, stream schema.ImmuService_BackupServer) error {
+	kvChan := make(chan *pb.KVList)
+	done := make(chan bool)
+
+	retrieveLists := func() {
+		for {
+			list, more := <-kvChan
+			if more {
+				stream.Send(list)
+			} else {
+				done <- true
+				return
+			}
+		}
+	}
+
+	go retrieveLists()
+	err := s.Store.Backup(kvChan)
+	<-done
+
+	s.Logger.Debugf("Backup stream complete")
+	return err
+}
+
+func (s *ImmuServer) Restore(stream schema.ImmuService_RestoreServer) (err error) {
+	kvChan := make(chan *pb.KVList)
+	errs := make(chan error, 1)
+
+	sendLists := func() {
+		defer func() {
+			close(errs)
+			close(kvChan)
+		}()
+		for {
+			list, err := stream.Recv()
+			kvChan <- list
+			if err == io.EOF {
+				return
+			}
+			if err != nil {
+				errs <- err
+				return
+			}
+		}
+	}
+
+	go sendLists()
+
+	i, err := s.Store.Restore(kvChan)
+
+	ic := &schema.ItemsCount{
+		Count: i,
+	}
+	return stream.SendAndClose(ic)
 }
 
 func (s *ImmuServer) installShutdownHandler() {
