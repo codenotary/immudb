@@ -116,9 +116,6 @@ var (
 	// ErrNilCallback is returned when subscriber's callback is nil.
 	ErrNilCallback = status.New(codes.Unknown, badger.ErrNilCallback.Error()).Err()
 
-	// ErrNoPrefixes is returned when subscriber doesn't provide any prefix.
-	ErrNoPrefixes = status.New(codes.Unknown, badger.ErrNoPrefixes.Error()).Err()
-
 	// ErrEncryptionKeyMismatch is returned when the storage key is not
 	// matched with the key previously given.
 	ErrEncryptionKeyMismatch = status.New(codes.Unknown, badger.ErrEncryptionKeyMismatch.Error()).Err()
@@ -154,7 +151,6 @@ var badgerErrorsMap = map[error]error{
 	badger.ErrTruncateNeeded:        ErrTruncateNeeded,
 	badger.ErrBlockedWrites:         ErrBlockedWrites,
 	badger.ErrNilCallback:           ErrNilCallback,
-	badger.ErrNoPrefixes:            ErrNoPrefixes,
 	badger.ErrEncryptionKeyMismatch: ErrEncryptionKeyMismatch,
 	badger.ErrInvalidDataKeyID:      ErrInvalidDataKeyID,
 	badger.ErrInvalidEncryptionKey:  ErrInvalidEncryptionKey,
