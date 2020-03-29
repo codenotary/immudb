@@ -12,6 +12,41 @@
     "application/json"
   ],
   "paths": {
+    "/v1/immurestproxy/backup": {
+      "post": {
+        "operationId": "Backup",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pbKVList"
+                },
+                "error": {
+                  "$ref": "#/definitions/runtimeStreamError"
+                }
+              },
+              "title": "Stream result of pbKVList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "properties": {}
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/batch/get": {
       "post": {
         "operationId": "GetBatch",
@@ -55,7 +90,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaKVList"
+              "$ref": "#/definitions/immudbschemaKVList"
             }
           }
         ],
@@ -360,6 +395,33 @@
         ]
       }
     },
+    "/v1/immurestproxy/restore": {
+      "post": {
+        "operationId": "Restore",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItemsCount"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": " (streaming inputs)",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pbKVList"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/root": {
       "get": {
         "operationId": "CurrentRoot",
@@ -482,6 +544,104 @@
     }
   },
   "definitions": {
+    "immudbschemaKVList": {
+      "type": "object",
+      "properties": {
+        "KVs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKeyValue"
+          }
+        }
+      }
+    },
+    "pbKV": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        },
+        "user_meta": {
+          "type": "string",
+          "format": "byte"
+        },
+        "version": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "meta": {
+          "type": "string",
+          "format": "byte"
+        },
+        "stream_id": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Stream id is used to identify which stream the KV came from."
+        },
+        "stream_done": {
+          "type": "boolean",
+          "format": "boolean",
+          "description": "Stream done is used to indicate end of stream."
+        }
+      }
+    },
+    "pbKVList": {
+      "type": "object",
+      "properties": {
+        "kv": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pbKV"
+          }
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "type_url": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "runtimeStreamError": {
+      "type": "object",
+      "properties": {
+        "grpc_code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "http_code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "http_status": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
     "schemaConsistencyProof": {
       "type": "object",
       "properties": {
@@ -590,17 +750,6 @@
         "count": {
           "type": "string",
           "format": "uint64"
-        }
-      }
-    },
-    "schemaKVList": {
-      "type": "object",
-      "properties": {
-        "KVs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaKeyValue"
-          }
         }
       }
     },
