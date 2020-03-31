@@ -91,21 +91,29 @@ func (c *ImmuClient) Get(keyReader io.Reader) (*schema.Item, error) {
 	return result, err
 }
 
+// VerifiedItem ...
+type VerifiedItem struct {
+	Key      []byte `json:"key"`
+	Value    []byte `json:"value"`
+	Index    uint64 `json:"index"`
+	Verified bool   `json:"verified"`
+}
+
 // SafeGet ...
-func (c *ImmuClient) SafeGet(keyReader io.Reader) (*schema.Item, bool, error) {
+func (c *ImmuClient) SafeGet(keyReader io.Reader) (*VerifiedItem, error) {
 	start := time.Now()
 	if !c.isConnected() {
-		return nil, false, ErrNotConnected
+		return nil, ErrNotConnected
 	}
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	rs := NewRootService(c.serviceClient, cache.NewFileCache())
 	root, err := rs.GetRoot(context.Background())
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	opts := &schema.SafeGetOptions{
@@ -132,13 +140,19 @@ func (c *ImmuClient) SafeGet(keyReader io.Reader) (*schema.Item, bool, error) {
 		tocache.Root = safeItem.Proof.Root
 		err := rs.SetRoot(tocache)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 	}
 
 	c.Logger.Debugf("SafeGet finished in %s", time.Since(start))
 
-	return safeItem.Item, verified, err
+	return &VerifiedItem{
+			Key:      safeItem.Item.GetKey(),
+			Value:    safeItem.Item.GetValue(),
+			Index:    safeItem.Item.GetIndex(),
+			Verified: verified,
+		},
+		err
 }
 
 func (c *ImmuClient) Scan(keyReader io.Reader) (*schema.ItemList, error) {
@@ -213,25 +227,48 @@ func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.In
 	return result, err
 }
 
+func verifyAndSetRoot(
+	rs *RootService,
+	result *schema.Proof,
+	root *schema.Root) (bool, error) {
+
+	verified := result.Verify(result.Leaf, *root)
+	var err error
+	if verified {
+		//saving a fresh root
+		tocache := new(schema.Root)
+		tocache.Index = result.Index
+		tocache.Root = result.Root
+		err = (*rs).SetRoot(tocache)
+	}
+	return verified, err
+}
+
+// VerifiedIndex ...
+type VerifiedIndex struct {
+	Index    uint64 `json:"index"`
+	Verified bool   `json:"verified"`
+}
+
 // SafeSet ...
-func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*schema.Index, bool, error) {
+func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*VerifiedIndex, error) {
 	start := time.Now()
 	if !c.isConnected() {
-		return nil, false, ErrNotConnected
+		return nil, ErrNotConnected
 	}
 	value, err := ioutil.ReadAll(valueReader)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	rs := NewRootService(c.serviceClient, cache.NewFileCache())
 	root, err := rs.GetRoot(context.Background())
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	opts := &schema.SafeSetOptions{
@@ -252,8 +289,8 @@ func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*schem
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
 	)
 
-	// This guard ensures that msg.Leaf is equal to the item's hash computed from
-	// request values. From now on, msg.Leaf can be trusted.
+	// This guard ensures that result.Leaf is equal to the item's hash computed from
+	// request values. From now on, result.Leaf can be trusted.
 	if err == nil {
 		item := schema.Item{
 			Key:   key,
@@ -261,29 +298,22 @@ func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*schem
 			Index: result.Index,
 		}
 		if !bytes.Equal(item.Hash(), result.Leaf) {
-			return nil, false, errors.New("proof does not match the given item")
+			return nil, errors.New("proof does not match the given item")
 		}
 	}
 
-	// The server-generated leaf SHOULD NOT BE USED for security reasons,
-	// maybe somebody can create a temper leaf.
-	// In this case, we rely on SafeSetRequestOverwrite.call that has validated it
-	// already, so p.Leaf and the item's hash are guaranteed to be equal.
-	verified := result.Verify(result.Leaf, *root)
-	if verified {
-		//saving a fresh root
-		tocache := new(schema.Root)
-		tocache.Index = result.Index
-		tocache.Root = result.Root
-		err := rs.SetRoot(tocache)
-		if err != nil {
-			return nil, false, err
-		}
+	verified, err := verifyAndSetRoot(&rs, result, root)
+	if err != nil {
+		return nil, err
 	}
 
 	c.Logger.Debugf("SafeSet finished in %s", time.Since(start))
 
-	return &schema.Index{Index: result.Index}, verified, err
+	return &VerifiedIndex{
+			Index:    result.Index,
+			Verified: verified,
+		},
+		err
 }
 
 func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.Index, error) {
@@ -374,24 +404,24 @@ func (c *ImmuClient) Reference(keyReader io.Reader, valueReader io.Reader) (*sch
 }
 
 // SafeReference ...
-func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (*schema.Index, bool, error) {
+func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (*VerifiedIndex, error) {
 	start := time.Now()
 	if !c.isConnected() {
-		return nil, false, ErrNotConnected
+		return nil, ErrNotConnected
 	}
 	key, err := ioutil.ReadAll(valueReader)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	reference, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	rs := NewRootService(c.serviceClient, cache.NewFileCache())
 	root, err := rs.GetRoot(context.Background())
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	opts := &schema.SafeReferenceOptions{
@@ -411,11 +441,8 @@ func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 
-	// This guard ensures that result.Leaf is equal to the item's hash
-	// computed from request values.
-	// From now on, result.Leaf can be trusted.
-	// Thus SafeReferenceResponseOverwrite will not need to decode the request
-	// and compute the hash.
+	// This guard ensures that result.Leaf is equal to the item's hash computed
+	// from request values. From now on, result.Leaf can be trusted.
 	if err == nil {
 		item := schema.Item{
 			Key:   reference,
@@ -423,25 +450,22 @@ func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (
 			Index: result.Index,
 		}
 		if !bytes.Equal(item.Hash(), result.Leaf) {
-			return nil, false, errors.New("proof does not match the given item")
+			return nil, errors.New("proof does not match the given item")
 		}
 	}
 
-	verified := result.Verify(result.Leaf, *root)
-	if verified {
-		//saving a fresh root
-		tocache := new(schema.Root)
-		tocache.Index = result.Index
-		tocache.Root = result.Root
-		err := rs.SetRoot(tocache)
-		if err != nil {
-			return nil, false, err
-		}
+	verified, err := verifyAndSetRoot(&rs, result, root)
+	if err != nil {
+		return nil, err
 	}
 
 	c.Logger.Debugf("SafeReference finished in %s", time.Since(start))
 
-	return &schema.Index{Index: result.Index}, verified, err
+	return &VerifiedIndex{
+			Index:    result.Index,
+			Verified: verified,
+		},
+		err
 }
 
 func (c *ImmuClient) ZAdd(setReader io.Reader, score float64, keyReader io.Reader) (*schema.Index, error) {
@@ -467,24 +491,24 @@ func (c *ImmuClient) ZAdd(setReader io.Reader, score float64, keyReader io.Reade
 }
 
 // SafeZAdd ...
-func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.Reader) (*schema.Index, bool, error) {
+func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.Reader) (*VerifiedIndex, error) {
 	start := time.Now()
 	if !c.isConnected() {
-		return nil, false, ErrNotConnected
+		return nil, ErrNotConnected
 	}
 	set, err := ioutil.ReadAll(setReader)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	key, err := ioutil.ReadAll(keyReader)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	rs := NewRootService(c.serviceClient, cache.NewFileCache())
 	root, err := rs.GetRoot(context.Background())
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	opts := &schema.SafeZAddOptions{
@@ -507,7 +531,7 @@ func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.R
 
 	key2, err := store.SetKey(key, set, score)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	// This guard ensures that result.Leaf is equal to the item's hash computed
@@ -519,25 +543,22 @@ func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.R
 			Index: result.Index,
 		}
 		if !bytes.Equal(item.Hash(), result.Leaf) {
-			return nil, false, errors.New("proof does not match the given item")
+			return nil, errors.New("proof does not match the given item")
 		}
 	}
 
-	verified := result.Verify(result.Leaf, *root)
-	if verified {
-		//saving a fresh root
-		tocache := new(schema.Root)
-		tocache.Index = result.Index
-		tocache.Root = result.Root
-		err := rs.SetRoot(tocache)
-		if err != nil {
-			return nil, false, err
-		}
+	verified, err := verifyAndSetRoot(&rs, result, root)
+	if err != nil {
+		return nil, err
 	}
 
 	c.Logger.Debugf("SafeZAdd finished in %s", time.Since(start))
 
-	return &schema.Index{Index: result.Index}, verified, err
+	return &VerifiedIndex{
+			Index:    result.Index,
+			Verified: verified,
+		},
+		err
 }
 
 func (c *ImmuClient) HealthCheck() error {
