@@ -21,11 +21,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/store"
 	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
+
+	"github.com/codenotary/immudb/pkg/store"
 
 	"github.com/codenotary/immudb/pkg/api"
 
@@ -64,6 +65,29 @@ func main() {
 			Args: cobra.ExactArgs(1),
 		},
 		&cobra.Command{
+			Use:     "safeget",
+			Aliases: []string{"sg"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				response, err := immuClient.Connected(func() (interface{}, error) {
+					return immuClient.SafeGet(bytes.NewReader([]byte(args[0])))
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				printItem([]byte(args[0]), nil, response)
+				return nil
+			},
+			Args: cobra.ExactArgs(1),
+		},
+		&cobra.Command{
 			Use:     "set",
 			Aliases: []string{"s"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -84,6 +108,41 @@ func main() {
 				tee := io.TeeReader(reader, &buf)
 				response, err := immuClient.Connected(func() (interface{}, error) {
 					return immuClient.Set(bytes.NewReader([]byte(args[0])), tee)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				value, err := ioutil.ReadAll(&buf)
+				if err != nil {
+					return err
+				}
+				printItem([]byte(args[0]), value, response)
+				return nil
+			},
+			Args: cobra.MinimumNArgs(1),
+		},
+		&cobra.Command{
+			Use:     "safeset",
+			Aliases: []string{"ss"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				var reader io.Reader
+				if len(args) > 1 {
+					reader = bytes.NewReader([]byte(args[1]))
+				} else {
+					reader = bufio.NewReader(os.Stdin)
+				}
+				var buf bytes.Buffer
+				tee := io.TeeReader(reader, &buf)
+				response, err := immuClient.Connected(func() (interface{}, error) {
+					return immuClient.SafeSet(bytes.NewReader([]byte(args[0])), tee)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -134,6 +193,41 @@ func main() {
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
+			Use:     "safereference",
+			Aliases: []string{"sr"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				var reader io.Reader
+				if len(args) > 1 {
+					reader = bytes.NewReader([]byte(args[1]))
+				} else {
+					reader = bufio.NewReader(os.Stdin)
+				}
+				var buf bytes.Buffer
+				tee := io.TeeReader(reader, &buf)
+				response, err := immuClient.Connected(func() (interface{}, error) {
+					return immuClient.SafeReference(bytes.NewReader([]byte(args[0])), tee)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				value, err := ioutil.ReadAll(&buf)
+				if err != nil {
+					return err
+				}
+				printItem([]byte(args[0]), value, response)
+				return nil
+			},
+			Args: cobra.MinimumNArgs(1),
+		},
+		&cobra.Command{
 			Use:     "zadd",
 			Aliases: []string{"za"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -162,6 +256,45 @@ func main() {
 
 				response, err := immuClient.Connected(func() (interface{}, error) {
 					return immuClient.ZAdd(setReader, score, keyReader)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				printSetItem([]byte(args[0]), []byte(args[2]), score, response)
+				return nil
+			},
+			Args: cobra.MinimumNArgs(3),
+		},
+		&cobra.Command{
+			Use:     "safezadd",
+			Aliases: []string{"sza"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				var setReader io.Reader
+				var scoreReader io.Reader
+				var keyReader io.Reader
+				if len(args) > 1 {
+					setReader = bytes.NewReader([]byte(args[0]))
+					scoreReader = bytes.NewReader([]byte(args[1]))
+					keyReader = bytes.NewReader([]byte(args[2]))
+				}
+
+				bs, err := ioutil.ReadAll(scoreReader)
+				score, err := strconv.ParseFloat(string(bs[:]), 64)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+
+				response, err := immuClient.Connected(func() (interface{}, error) {
+					return immuClient.SafeZAdd(setReader, score, keyReader)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
