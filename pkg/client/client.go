@@ -144,7 +144,7 @@ func (c *ImmuClient) SafeGet(keyReader io.Reader) (*VerifiedItem, error) {
 		}
 	}
 
-	c.Logger.Debugf("SafeGet finished in %s", time.Since(start))
+	c.Logger.Debugf("safeget finished in %s", time.Since(start))
 
 	return &VerifiedItem{
 			Key:      safeItem.Item.GetKey(),
@@ -307,7 +307,7 @@ func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*Verif
 		return nil, err
 	}
 
-	c.Logger.Debugf("SafeSet finished in %s", time.Since(start))
+	c.Logger.Debugf("safeset finished in %s", time.Since(start))
 
 	return &VerifiedIndex{
 			Index:    result.Index,
@@ -459,7 +459,7 @@ func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (
 		return nil, err
 	}
 
-	c.Logger.Debugf("SafeReference finished in %s", time.Since(start))
+	c.Logger.Debugf("safereference finished in %s", time.Since(start))
 
 	return &VerifiedIndex{
 			Index:    result.Index,
@@ -552,7 +552,7 @@ func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.R
 		return nil, err
 	}
 
-	c.Logger.Debugf("SafeZAdd finished in %s", time.Since(start))
+	c.Logger.Debugf("safezadd finished in %s", time.Since(start))
 
 	return &VerifiedIndex{
 			Index:    result.Index,
