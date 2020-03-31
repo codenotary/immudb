@@ -21,6 +21,7 @@ import (
 )
 
 type MTLsOptions struct {
+	Servername  string
 	Pkey        string
 	Certificate string
 	ClientCAs   string
@@ -28,39 +29,49 @@ type MTLsOptions struct {
 
 func DefaultMTLsOptions() MTLsOptions {
 	return MTLsOptions{
+		Servername:  "localhost",
 		Pkey:        "./tools/mtls/4_client/private/localhost.key.pem",
 		Certificate: "./tools/mtls/4_client/certs/localhost.cert.pem",
 		ClientCAs:   "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem",
 	}
 }
 
-func (o MTLsOptions) WithPkey(Pkey string) MTLsOptions {
-	o.Pkey = Pkey
+func (o MTLsOptions) WithServername(servername string) MTLsOptions {
+	o.Servername = servername
 	return o
 }
 
-func (o MTLsOptions) WithCertificate(Certificate string) MTLsOptions {
-	o.Certificate = Certificate
+func (o MTLsOptions) WithPkey(pkey string) MTLsOptions {
+	o.Pkey = pkey
 	return o
 }
 
-func (o MTLsOptions) WithClientCAs(ClientCAs string) MTLsOptions {
-	o.ClientCAs = ClientCAs
+func (o MTLsOptions) WithCertificate(certificate string) MTLsOptions {
+	o.Certificate = certificate
+	return o
+}
+
+func (o MTLsOptions) WithClientCAs(clientCAs string) MTLsOptions {
+	o.ClientCAs = clientCAs
 	return o
 }
 
 func (o MTLsOptions) FromEnvironment() MTLsOptions {
-	Pkey := os.Getenv("IMMUD_PKEY")
-	if Pkey != "" {
-		o.Pkey = Pkey
+	servername := os.Getenv("IMMUD_SERVERNAME")
+	if servername != "" {
+		o.Servername = servername
 	}
-	Certificate := os.Getenv("IMMUD_CERTIFICATE")
-	if Certificate != "" {
-		o.Certificate = Certificate
+	pkey := os.Getenv("IMMUD_PKEY")
+	if pkey != "" {
+		o.Pkey = pkey
 	}
-	ClientCAs := os.Getenv("IMMUD_CLIENT_CAS")
-	if ClientCAs != "" {
-		o.ClientCAs = ClientCAs
+	certificate := os.Getenv("IMMUD_CERTIFICATE")
+	if certificate != "" {
+		o.Certificate = certificate
+	}
+	clientCAs := os.Getenv("IMMUD_CLIENT_CAS")
+	if clientCAs != "" {
+		o.ClientCAs = clientCAs
 	}
 	return o
 }
