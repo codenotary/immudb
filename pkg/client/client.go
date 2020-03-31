@@ -18,14 +18,17 @@ package client
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client/cache"
 )
 
 func (c *ImmuClient) Connect() (err error) {
@@ -84,6 +87,56 @@ func (c *ImmuClient) Get(keyReader io.Reader) (*schema.Item, error) {
 	result, err := c.serviceClient.Get(context.Background(), &schema.Key{Key: key})
 	c.Logger.Debugf("get finished in %s", time.Since(start))
 	return result, err
+}
+
+// SafeGet ...
+func (c *ImmuClient) SafeGet(keyReader io.Reader) (*schema.Item, bool, error) {
+	start := time.Now()
+	if !c.isConnected() {
+		return nil, false, ErrNotConnected
+	}
+	key, err := ioutil.ReadAll(keyReader)
+	if err != nil {
+		return nil, false, err
+	}
+
+	rs := NewRootService(c.serviceClient, cache.NewFileCache())
+	root, err := rs.GetRoot(context.Background())
+	if err != nil {
+		return nil, false, err
+	}
+
+	opts := &schema.SafeGetOptions{
+		Key: &schema.Key{
+			Key: key,
+		},
+		RootIndex: &schema.Index{
+			Index: root.Index,
+		},
+	}
+
+	var metadata runtime.ServerMetadata
+	safeItem, err := c.serviceClient.SafeGet(
+		context.Background(),
+		opts,
+		grpc.Header(&metadata.HeaderMD),
+		grpc.Trailer(&metadata.TrailerMD))
+
+	verified := safeItem.Proof.Verify(safeItem.Item.Hash(), *root)
+	if verified {
+		// saving a fresh root
+		tocache := new(schema.Root)
+		tocache.Index = safeItem.Proof.At
+		tocache.Root = safeItem.Proof.Root
+		err := rs.SetRoot(tocache)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+
+	c.Logger.Debugf("SafeGet finished in %s", time.Since(start))
+
+	return safeItem.Item, verified, err
 }
 
 func (c *ImmuClient) Scan(keyReader io.Reader) (*schema.ItemList, error) {
@@ -156,6 +209,12 @@ func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.In
 	})
 	c.Logger.Debugf("set finished in %s", time.Since(start))
 	return result, err
+}
+
+// SafeSet ...
+func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*schema.Index, error) {
+	// TODO OGG: implement
+	return nil, errors.New("not implemnted yet")
 }
 
 func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.Index, error) {
@@ -245,6 +304,12 @@ func (c *ImmuClient) Reference(keyReader io.Reader, valueReader io.Reader) (*sch
 	return result, err
 }
 
+// SafeReference ...
+func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (*schema.Index, error) {
+	// TODO OGG: implement
+	return nil, errors.New("not implemented yet")
+}
+
 func (c *ImmuClient) ZAdd(setReader io.Reader, score float64, keyReader io.Reader) (*schema.Index, error) {
 	start := time.Now()
 	if !c.isConnected() {
@@ -265,6 +330,12 @@ func (c *ImmuClient) ZAdd(setReader io.Reader, score float64, keyReader io.Reade
 	})
 	c.Logger.Debugf("zadd finished in %s", time.Since(start))
 	return result, err
+}
+
+// SafeZAdd ...
+func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.Reader) (*schema.Index, error) {
+	// TODO OGG: implement
+	return nil, errors.New("not implemented yet")
 }
 
 func (c *ImmuClient) HealthCheck() error {
