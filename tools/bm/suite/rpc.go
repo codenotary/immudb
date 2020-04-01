@@ -18,6 +18,7 @@ package suite
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -48,7 +49,7 @@ var RpcBenchmarks = []bm.Bm{
 func sequentialSet(bm *bm.Bm, start int, end int) error {
 	for i := start; i < end; i++ {
 		key := []byte(strconv.FormatUint(uint64(i), 10))
-		if _, err := immuClient.Set(bytes.NewReader(key), bytes.NewReader(V)); err != nil {
+		if _, err := immuClient.Set(context.Background(), key, V); err != nil {
 			return err
 		}
 	}
@@ -63,7 +64,7 @@ func batchSet(bm *bm.Bm, start int, end int) error {
 		keyReaders = append(keyReaders, bytes.NewReader(key))
 		valueReaders = append(valueReaders, bytes.NewReader(V))
 		if i%BatchSize == 0 || i == end-1 {
-			if _, err := immuClient.SetBatch(&client.BatchRequest{
+			if _, err := immuClient.SetBatch(context.Background(), &client.BatchRequest{
 				Keys:   keyReaders,
 				Values: valueReaders,
 			}); err != nil {
@@ -90,7 +91,7 @@ func makeRpcBenchmark(name string, concurrency int, iterations int,
 					os.Exit(1)
 				}
 			}()
-			if err := immuClient.Connect(); err != nil {
+			if err := immuClient.Connect(context.Background()); err != nil {
 				_, err = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
