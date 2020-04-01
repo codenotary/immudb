@@ -1,0 +1,17 @@
+#Put me in /lib/systemd/system/
+[Unit]
+Description=immudb - the tamperproof database
+Documentation=https://github.com/codenotary/immudb
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+EnvironmentFile=/etc/default/immud
+Type=simple
+Restart=on-failure
+WorkingDirectory=/usr/share/immud
+ExecStart=/usr/bin/immud --address 0.0.0.0 --port 3322 --directory /usr/share/immud
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
