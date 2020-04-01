@@ -20,10 +20,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
-	"io/ioutil"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
@@ -33,15 +32,15 @@ import (
 	"github.com/codenotary/immudb/pkg/store"
 )
 
-func (c *ImmuClient) Connect() (err error) {
+func (c *ImmuClient) Connect(ctx context.Context) (err error) {
 	start := time.Now()
 	if c.isConnected() {
 		return ErrAlreadyConnected
 	}
-	if err := c.connectWithRetry(); err != nil {
+	if err := c.connectWithRetry(ctx); err != nil {
 		return err
 	}
-	if err := c.waitForHealthCheck(); err != nil {
+	if err := c.waitForHealthCheck(ctx); err != nil {
 		return err
 	}
 	c.Logger.Debugf("connected %v in %s", c.Options, time.Since(start))
@@ -62,8 +61,8 @@ func (c *ImmuClient) Disconnect() error {
 	return nil
 }
 
-func (c *ImmuClient) Connected(f func() (interface{}, error)) (interface{}, error) {
-	if err := c.Connect(); err != nil {
+func (c *ImmuClient) Connected(ctx context.Context, f func() (interface{}, error)) (interface{}, error) {
+	if err := c.Connect(ctx); err != nil {
 		return nil, err
 	}
 	result, err := f()
@@ -77,16 +76,12 @@ func (c *ImmuClient) Connected(f func() (interface{}, error)) (interface{}, erro
 	return result, nil
 }
 
-func (c *ImmuClient) Get(keyReader io.Reader) (*schema.Item, error) {
+func (c *ImmuClient) Get(ctx context.Context, key []byte) (*schema.Item, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	key, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
-	result, err := c.serviceClient.Get(context.Background(), &schema.Key{Key: key})
+	result, err := c.serviceClient.Get(ctx, &schema.Key{Key: key})
 	c.Logger.Debugf("get finished in %s", time.Since(start))
 	return result, err
 }
@@ -99,23 +94,27 @@ type VerifiedItem struct {
 	Verified bool   `json:"verified"`
 }
 
+// Reset ...
+func (vi *VerifiedItem) Reset() { *vi = VerifiedItem{} }
+
+func (vi *VerifiedItem) String() string { return proto.CompactTextString(vi) }
+
+// ProtoMessage ...
+func (*VerifiedItem) ProtoMessage() {}
+
 // SafeGet ...
-func (c *ImmuClient) SafeGet(keyReader io.Reader) (*VerifiedItem, error) {
+func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	key, err := ioutil.ReadAll(keyReader)
+
+	root, err := c.rootservice.GetRoot(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	root, err := c.rootservice.GetRoot(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	opts := &schema.SafeGetOptions{
+	sgOpts := &schema.SafeGetOptions{
 		Key: &schema.Key{
 			Key: key,
 		},
@@ -124,12 +123,7 @@ func (c *ImmuClient) SafeGet(keyReader io.Reader) (*VerifiedItem, error) {
 		},
 	}
 
-	var metadata runtime.ServerMetadata
-	safeItem, err := c.serviceClient.SafeGet(
-		context.Background(),
-		opts,
-		grpc.Header(&metadata.HeaderMD),
-		grpc.Trailer(&metadata.TrailerMD))
+	safeItem, err := c.serviceClient.SafeGet(ctx, sgOpts, opts...)
 
 	verified := safeItem.Proof.Verify(safeItem.Item.Hash(), *root)
 	if verified {
@@ -154,71 +148,56 @@ func (c *ImmuClient) SafeGet(keyReader io.Reader) (*VerifiedItem, error) {
 		err
 }
 
-func (c *ImmuClient) Scan(keyReader io.Reader) (*schema.ItemList, error) {
+func (c *ImmuClient) Scan(ctx context.Context, prefix []byte) (*schema.ItemList, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	prefix, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
-	return c.serviceClient.Scan(context.Background(), &schema.ScanOptions{Prefix: prefix})
+	return c.serviceClient.Scan(ctx, &schema.ScanOptions{Prefix: prefix})
 }
 
-func (c *ImmuClient) ZScan(setReader io.Reader) (*schema.ItemList, error) {
+func (c *ImmuClient) ZScan(ctx context.Context, set []byte) (*schema.ItemList, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	set, err := ioutil.ReadAll(setReader)
-	if err != nil {
-		return nil, err
-	}
-	return c.serviceClient.ZScan(context.Background(), &schema.ZScanOptions{Set: set})
+	return c.serviceClient.ZScan(ctx, &schema.ZScanOptions{Set: set})
 }
 
-func (c *ImmuClient) Count(keyReader io.Reader) (*schema.ItemsCount, error) {
+func (c *ImmuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	prefix, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
-	return c.serviceClient.Count(context.Background(), &schema.KeyPrefix{Prefix: prefix})
+	return c.serviceClient.Count(ctx, &schema.KeyPrefix{Prefix: prefix})
 }
 
-func (c *ImmuClient) GetBatch(keyReaders []io.Reader) (*schema.ItemList, error) {
+// Example on how to load keys at caller site (in immu CLI):
+// keys := [][]byte{}
+// for _, key := range keyReaders {
+// 	key, err := ioutil.ReadAll(keyReader)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	keys = append(keys, key)
+// }
+func (c *ImmuClient) GetBatch(ctx context.Context, keys [][]byte) (*schema.ItemList, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	keys := &schema.KeyList{}
-	for _, keyReader := range keyReaders {
-		key, err := ioutil.ReadAll(keyReader)
-		if err != nil {
-			return nil, err
-		}
-		keys.Keys = append(keys.Keys, &schema.Key{Key: key})
+	keyList := &schema.KeyList{}
+	for _, key := range keys {
+		keyList.Keys = append(keyList.Keys, &schema.Key{Key: key})
 	}
-	result, err := c.serviceClient.GetBatch(context.Background(), keys)
+	result, err := c.serviceClient.GetBatch(ctx, keyList)
 	c.Logger.Debugf("get-batch finished in %s", time.Since(start))
 	return result, err
 }
 
-func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.Index, error) {
+func (c *ImmuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.Index, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	value, err := ioutil.ReadAll(valueReader)
-	if err != nil {
-		return nil, err
-	}
-	key, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
-	result, err := c.serviceClient.Set(context.Background(), &schema.KeyValue{
+	result, err := c.serviceClient.Set(ctx, &schema.KeyValue{
 		Key:   key,
 		Value: value,
 	})
@@ -248,22 +227,22 @@ type VerifiedIndex struct {
 	Verified bool   `json:"verified"`
 }
 
+// Reset ...
+func (vi *VerifiedIndex) Reset() { *vi = VerifiedIndex{} }
+
+func (vi *VerifiedIndex) String() string { return proto.CompactTextString(vi) }
+
+// ProtoMessage ...
+func (*VerifiedIndex) ProtoMessage() {}
+
 // SafeSet ...
-func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*VerifiedIndex, error) {
+func (c *ImmuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*VerifiedIndex, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	value, err := ioutil.ReadAll(valueReader)
-	if err != nil {
-		return nil, err
-	}
-	key, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
 
-	root, err := c.rootservice.GetRoot(context.Background())
+	root, err := c.rootservice.GetRoot(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +260,7 @@ func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*Verif
 	var metadata runtime.ServerMetadata
 
 	result, err := c.serviceClient.SafeSet(
-		context.Background(),
+		ctx,
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
 	)
@@ -313,7 +292,7 @@ func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*Verif
 		err
 }
 
-func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.Index, error) {
+func (c *ImmuClient) SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
@@ -322,77 +301,65 @@ func (c *ImmuClient) SetBatch(request *BatchRequest) (*schema.Index, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.serviceClient.SetBatch(context.Background(), list)
+	result, err := c.serviceClient.SetBatch(ctx, list)
 	c.Logger.Debugf("set-batch finished in %s", time.Since(start))
 	return result, err
 }
 
-func (c *ImmuClient) Inclusion(index uint64) (*schema.InclusionProof, error) {
+func (c *ImmuClient) Inclusion(ctx context.Context, index uint64) (*schema.InclusionProof, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.Inclusion(context.Background(), &schema.Index{
+	result, err := c.serviceClient.Inclusion(ctx, &schema.Index{
 		Index: index,
 	})
 	c.Logger.Debugf("inclusion finished in %s", time.Since(start))
 	return result, err
 }
 
-func (c *ImmuClient) Consistency(index uint64) (*schema.ConsistencyProof, error) {
+func (c *ImmuClient) Consistency(ctx context.Context, index uint64) (*schema.ConsistencyProof, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.Consistency(context.Background(), &schema.Index{
+	result, err := c.serviceClient.Consistency(ctx, &schema.Index{
 		Index: index,
 	})
 	c.Logger.Debugf("consistency finished in %s", time.Since(start))
 	return result, err
 }
 
-func (c *ImmuClient) ByIndex(index uint64) (*schema.Item, error) {
+func (c *ImmuClient) ByIndex(ctx context.Context, index uint64) (*schema.Item, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.ByIndex(context.Background(), &schema.Index{
+	result, err := c.serviceClient.ByIndex(ctx, &schema.Index{
 		Index: index,
 	})
 	c.Logger.Debugf("by-index finished in %s", time.Since(start))
 	return result, err
 }
 
-func (c *ImmuClient) History(keyReader io.Reader) (*schema.ItemList, error) {
+func (c *ImmuClient) History(ctx context.Context, key []byte) (*schema.ItemList, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	key, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
-	result, err := c.serviceClient.History(context.Background(), &schema.Key{
+	result, err := c.serviceClient.History(ctx, &schema.Key{
 		Key: key,
 	})
 	c.Logger.Debugf("history finished in %s", time.Since(start))
 	return result, err
 }
 
-func (c *ImmuClient) Reference(keyReader io.Reader, valueReader io.Reader) (*schema.Index, error) {
+func (c *ImmuClient) Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	key, err := ioutil.ReadAll(valueReader)
-	if err != nil {
-		return nil, err
-	}
-	reference, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
-	result, err := c.serviceClient.Reference(context.Background(), &schema.ReferenceOptions{
+	result, err := c.serviceClient.Reference(ctx, &schema.ReferenceOptions{
 		Reference: &schema.Key{Key: reference},
 		Key:       &schema.Key{Key: key},
 	})
@@ -401,21 +368,13 @@ func (c *ImmuClient) Reference(keyReader io.Reader, valueReader io.Reader) (*sch
 }
 
 // SafeReference ...
-func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (*VerifiedIndex, error) {
+func (c *ImmuClient) SafeReference(ctx context.Context, reference []byte, key []byte) (*VerifiedIndex, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	key, err := ioutil.ReadAll(valueReader)
-	if err != nil {
-		return nil, err
-	}
-	reference, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
 
-	root, err := c.rootservice.GetRoot(context.Background())
+	root, err := c.rootservice.GetRoot(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +392,7 @@ func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (
 	var metadata runtime.ServerMetadata
 
 	result, err := c.serviceClient.SafeReference(
-		context.Background(),
+		ctx,
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 
@@ -464,20 +423,12 @@ func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (
 		err
 }
 
-func (c *ImmuClient) ZAdd(setReader io.Reader, score float64, keyReader io.Reader) (*schema.Index, error) {
+func (c *ImmuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	set, err := ioutil.ReadAll(setReader)
-	if err != nil {
-		return nil, err
-	}
-	key, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
-	result, err := c.serviceClient.ZAdd(context.Background(), &schema.ZAddOptions{
+	result, err := c.serviceClient.ZAdd(ctx, &schema.ZAddOptions{
 		Set:   set,
 		Score: score,
 		Key:   key,
@@ -487,21 +438,13 @@ func (c *ImmuClient) ZAdd(setReader io.Reader, score float64, keyReader io.Reade
 }
 
 // SafeZAdd ...
-func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.Reader) (*VerifiedIndex, error) {
+func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*VerifiedIndex, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	set, err := ioutil.ReadAll(setReader)
-	if err != nil {
-		return nil, err
-	}
-	key, err := ioutil.ReadAll(keyReader)
-	if err != nil {
-		return nil, err
-	}
 
-	root, err := c.rootservice.GetRoot(context.Background())
+	root, err := c.rootservice.GetRoot(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +462,7 @@ func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.R
 
 	var metadata runtime.ServerMetadata
 	result, errza := c.serviceClient.SafeZAdd(
-		context.Background(),
+		ctx,
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
 	)
@@ -556,12 +499,12 @@ func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.R
 		err
 }
 
-func (c *ImmuClient) HealthCheck() error {
+func (c *ImmuClient) HealthCheck(ctx context.Context) error {
 	start := time.Now()
 	if !c.isConnected() {
 		return ErrNotConnected
 	}
-	response, err := c.serviceClient.Health(context.Background(), &empty.Empty{})
+	response, err := c.serviceClient.Health(ctx, &empty.Empty{})
 	if err != nil {
 		return err
 	}
@@ -576,12 +519,12 @@ func (c *ImmuClient) isConnected() bool {
 	return c.clientConn != nil && c.serviceClient != nil
 }
 
-func (c *ImmuClient) connectWithRetry() (err error) {
+func (c *ImmuClient) connectWithRetry(ctx context.Context) (err error) {
 	for i := 0; i < c.Options.DialRetries+1; i++ {
 		if c.clientConn, err = grpc.Dial(c.Options.Bind(), grpc.WithInsecure()); err == nil {
 			c.serviceClient = schema.NewImmuServiceClient(c.clientConn)
 			c.rootservice = NewRootService(c.serviceClient, cache.NewFileCache())
-			if _, err = c.rootservice.GetRoot(context.Background()); err == nil {
+			if _, err = c.rootservice.GetRoot(ctx); err == nil {
 				c.Logger.Debugf("dialed %v", c.Options)
 				return nil
 			}
@@ -594,9 +537,9 @@ func (c *ImmuClient) connectWithRetry() (err error) {
 	return err
 }
 
-func (c *ImmuClient) waitForHealthCheck() (err error) {
+func (c *ImmuClient) waitForHealthCheck(ctx context.Context) (err error) {
 	for i := 0; i < c.Options.HealthCheckRetries+1; i++ {
-		if err = c.HealthCheck(); err == nil {
+		if err = c.HealthCheck(ctx); err == nil {
 			c.Logger.Debugf("health check succeeded %v", c.Options)
 			return nil
 		}
