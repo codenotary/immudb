@@ -19,6 +19,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -52,8 +53,14 @@ func main() {
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.Get(bytes.NewReader([]byte(args[0])))
+				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Get(ctx, key)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -75,8 +82,14 @@ func main() {
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.SafeGet(bytes.NewReader([]byte(args[0])))
+				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.SafeGet(ctx, key)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -106,18 +119,29 @@ func main() {
 				}
 				var buf bytes.Buffer
 				tee := io.TeeReader(reader, &buf)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.Set(bytes.NewReader([]byte(args[0])), tee)
+				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				value, err := ioutil.ReadAll(tee)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Set(ctx, key, value)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				value, err := ioutil.ReadAll(&buf)
+				value2, err := ioutil.ReadAll(&buf)
 				if err != nil {
 					return err
 				}
-				printItem([]byte(args[0]), value, response)
+				printItem([]byte(args[0]), value2, response)
 				return nil
 			},
 			Args: cobra.MinimumNArgs(1),
@@ -139,20 +163,31 @@ func main() {
 				} else {
 					reader = bufio.NewReader(os.Stdin)
 				}
+				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
 				var buf bytes.Buffer
 				tee := io.TeeReader(reader, &buf)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.SafeSet(bytes.NewReader([]byte(args[0])), tee)
+				value, err := ioutil.ReadAll(tee)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.SafeSet(ctx, key, value)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				value, err := ioutil.ReadAll(&buf)
+				value2, err := ioutil.ReadAll(&buf)
 				if err != nil {
 					return err
 				}
-				printItem([]byte(args[0]), value, response)
+				printItem([]byte(args[0]), value2, response)
 				return nil
 			},
 			Args: cobra.MinimumNArgs(1),
@@ -174,10 +209,21 @@ func main() {
 				} else {
 					reader = bufio.NewReader(os.Stdin)
 				}
+				reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
 				var buf bytes.Buffer
 				tee := io.TeeReader(reader, &buf)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.Reference(bytes.NewReader([]byte(args[0])), tee)
+				key, err := ioutil.ReadAll(tee)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Reference(ctx, reference, key)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -209,20 +255,31 @@ func main() {
 				} else {
 					reader = bufio.NewReader(os.Stdin)
 				}
+				reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
 				var buf bytes.Buffer
 				tee := io.TeeReader(reader, &buf)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.SafeReference(bytes.NewReader([]byte(args[0])), tee)
+				value, err := ioutil.ReadAll(tee)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.SafeReference(ctx, reference, value)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				value, err := ioutil.ReadAll(&buf)
+				value2, err := ioutil.ReadAll(&buf)
 				if err != nil {
 					return err
 				}
-				printItem([]byte(args[0]), value, response)
+				printItem([]byte(args[0]), value2, response)
 				return nil
 			},
 			Args: cobra.MinimumNArgs(1),
@@ -253,9 +310,19 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.ZAdd(setReader, score, keyReader)
+				set, err := ioutil.ReadAll(setReader)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				key, err := ioutil.ReadAll(keyReader)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.ZAdd(ctx, set, score, key)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -292,9 +359,19 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.SafeZAdd(setReader, score, keyReader)
+				set, err := ioutil.ReadAll(setReader)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				key, err := ioutil.ReadAll(keyReader)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.SafeZAdd(ctx, set, score, key)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -316,8 +393,14 @@ func main() {
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.ZScan(bytes.NewReader([]byte(args[0])))
+				set, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.ZScan(ctx, set)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -343,8 +426,14 @@ func main() {
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.Scan(bytes.NewReader([]byte(args[0])))
+				prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Scan(ctx, prefix)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -370,8 +459,14 @@ func main() {
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.Count(bytes.NewReader([]byte(args[0])))
+				prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Count(ctx, prefix)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -398,8 +493,9 @@ func main() {
 				if err != nil {
 					return err
 				}
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.Inclusion(index)
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Inclusion(ctx, index)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -422,8 +518,8 @@ func main() {
 					}
 
 				} else {
-					response, err := immuClient.Connected(func() (interface{}, error) {
-						return immuClient.ByIndex(index)
+					response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+						return immuClient.ByIndex(ctx, index)
 					})
 					if err != nil {
 						_, _ = fmt.Fprintln(os.Stderr, err)
@@ -459,8 +555,9 @@ root: %x at index: %d
 				if err != nil {
 					return err
 				}
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.Consistency(index)
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Consistency(ctx, index)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -502,8 +599,14 @@ secondRoot: %x at index: %d
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
-				response, err := immuClient.Connected(func() (interface{}, error) {
-					return immuClient.History(bytes.NewReader([]byte(args[0])))
+				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.History(ctx, key)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
@@ -528,8 +631,9 @@ secondRoot: %x at index: %d
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
-				_, err = immuClient.Connected(func() (interface{}, error) {
-					return nil, immuClient.HealthCheck()
+				ctx := context.Background()
+				_, err = immuClient.Connected(ctx, func() (interface{}, error) {
+					return nil, immuClient.HealthCheck(ctx)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
