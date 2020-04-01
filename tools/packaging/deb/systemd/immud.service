@@ -1,4 +1,4 @@
-#Put me in /lib/systemd/system/
+#Put me in /etc/systemd/system/immud.service
 [Unit]
 Description=immudb - the tamperproof database
 Documentation=https://github.com/codenotary/immudb
