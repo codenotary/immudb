@@ -110,8 +110,7 @@ func (c *ImmuClient) SafeGet(keyReader io.Reader) (*VerifiedItem, error) {
 		return nil, err
 	}
 
-	rs := NewRootService(c.serviceClient, cache.NewFileCache())
-	root, err := rs.GetRoot(context.Background())
+	root, err := c.rootservice.GetRoot(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +137,7 @@ func (c *ImmuClient) SafeGet(keyReader io.Reader) (*VerifiedItem, error) {
 		tocache := new(schema.Root)
 		tocache.Index = safeItem.Proof.At
 		tocache.Root = safeItem.Proof.Root
-		err := rs.SetRoot(tocache)
+		err := c.rootservice.SetRoot(tocache)
 		if err != nil {
 			return nil, err
 		}
@@ -227,8 +226,7 @@ func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.In
 	return result, err
 }
 
-func verifyAndSetRoot(
-	rs *RootService,
+func (c *ImmuClient) verifyAndSetRoot(
 	result *schema.Proof,
 	root *schema.Root) (bool, error) {
 
@@ -239,7 +237,7 @@ func verifyAndSetRoot(
 		tocache := new(schema.Root)
 		tocache.Index = result.Index
 		tocache.Root = result.Root
-		err = (*rs).SetRoot(tocache)
+		err = c.rootservice.SetRoot(tocache)
 	}
 	return verified, err
 }
@@ -265,8 +263,7 @@ func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*Verif
 		return nil, err
 	}
 
-	rs := NewRootService(c.serviceClient, cache.NewFileCache())
-	root, err := rs.GetRoot(context.Background())
+	root, err := c.rootservice.GetRoot(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +299,7 @@ func (c *ImmuClient) SafeSet(keyReader io.Reader, valueReader io.Reader) (*Verif
 		}
 	}
 
-	verified, err := verifyAndSetRoot(&rs, result, root)
+	verified, err := c.verifyAndSetRoot(result, root)
 	if err != nil {
 		return nil, err
 	}
@@ -418,8 +415,7 @@ func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (
 		return nil, err
 	}
 
-	rs := NewRootService(c.serviceClient, cache.NewFileCache())
-	root, err := rs.GetRoot(context.Background())
+	root, err := c.rootservice.GetRoot(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +450,7 @@ func (c *ImmuClient) SafeReference(keyReader io.Reader, valueReader io.Reader) (
 		}
 	}
 
-	verified, err := verifyAndSetRoot(&rs, result, root)
+	verified, err := c.verifyAndSetRoot(result, root)
 	if err != nil {
 		return nil, err
 	}
@@ -505,8 +501,7 @@ func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.R
 		return nil, err
 	}
 
-	rs := NewRootService(c.serviceClient, cache.NewFileCache())
-	root, err := rs.GetRoot(context.Background())
+	root, err := c.rootservice.GetRoot(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -547,7 +542,7 @@ func (c *ImmuClient) SafeZAdd(setReader io.Reader, score float64, keyReader io.R
 		}
 	}
 
-	verified, err := verifyAndSetRoot(&rs, result, root)
+	verified, err := c.verifyAndSetRoot(result, root)
 	if err != nil {
 		return nil, err
 	}
@@ -585,8 +580,11 @@ func (c *ImmuClient) connectWithRetry() (err error) {
 	for i := 0; i < c.Options.DialRetries+1; i++ {
 		if c.clientConn, err = grpc.Dial(c.Options.Bind(), grpc.WithInsecure()); err == nil {
 			c.serviceClient = schema.NewImmuServiceClient(c.clientConn)
-			c.Logger.Debugf("dialed %v", c.Options)
-			return nil
+			c.rootservice = NewRootService(c.serviceClient, cache.NewFileCache())
+			if _, err = c.rootservice.GetRoot(context.Background()); err == nil {
+				c.Logger.Debugf("dialed %v", c.Options)
+				return nil
+			}
 		}
 		c.Logger.Debugf("dial failed: %v", err)
 		if c.Options.DialRetries > 0 {
