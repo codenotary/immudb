@@ -1,0 +1,31 @@
+sudo: required
+language: go
+
+services:
+  - docker
+env:
+  global:
+    - DOCKER_IMAGE="codenotary/immudb"
+
+before_script:
+  - sudo apt update && sudo apt install curl rpm -y
+  - curl -L -o /tmp/vcn https://github.com/vchain-us/vcn/releases/download/v0.8.3/vcn-v0.8.3-linux-amd64-static
+  - CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
+  - echo $CHECKSUM
+  - curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
+  - chmod +x /tmp/vcn
+
+script:
+  - docker build --pull --cache-from "$DOCKER_IMAGE" --tag "${DOCKER_IMAGE}:latest" .
+  - VCN_USER=$codenotary_user VCN_PASSWORD=$codenotary_pass /tmp/vcn login
+  - VCN_NOTARIZATION_PASSWORD=$codenotary_pass /tmp/vcn n -p --attr TravisCI=${TRAVIS_BUILD_NUMBER} --silent docker://$DOCKER_IMAGE
+
+after_script:
+  - docker images
+
+before_deploy:
+  - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+
+deploy:
+  provider: script
+  script: docker push "${DOCKER_IMAGE}:latest"
