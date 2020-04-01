@@ -31,6 +31,7 @@ type ImmuClient struct {
 
 	clientConn    *grpc.ClientConn
 	serviceClient schema.ImmuServiceClient
+	rootservice   RootService
 }
 
 func DefaultClient() *ImmuClient {
