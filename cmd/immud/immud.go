@@ -46,6 +46,7 @@ func main() {
 			if cfgfile, err = cmd.Flags().GetString("cfgfile"); err != nil {
 				return err
 			}
+			pidpath := viper.GetString("pidpath")
 			mtls := viper.GetBool("mtls")
 			certificate := viper.GetString("certificate")
 			pkey := viper.GetString("pkey")
@@ -58,6 +59,7 @@ func main() {
 				WithAddress(address).
 				WithDbName(dbName).
 				WithCfgFile(cfgfile).
+				WithPidpath(pidpath).
 				WithMTLs(mtls).
 				FromEnvironment()
 			if mtls {
@@ -79,6 +81,7 @@ func main() {
 	cmd.Flags().StringP("address", "a", server.DefaultOptions().Address, "bind address")
 	cmd.Flags().StringP("dbname", "n", server.DefaultOptions().DbName, "db name")
 	cmd.PersistentFlags().StringVar(&cfgfile, "cfgfile", "", "config file (default path are config or $HOME. Default filename is immucfg.yaml)")
+	cmd.Flags().String("pidpath", server.DefaultOptions().Pidpath, "pid path")
 	cmd.Flags().BoolP("mtls", "m", server.DefaultOptions().MTLs, "enable mutual tls")
 	cmd.Flags().String("certificate", server.DefaultMTLsOptions().Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", server.DefaultMTLsOptions().Pkey, "server private key path")
@@ -94,6 +97,9 @@ func main() {
 		toStdErr(err)
 	}
 	if err := viper.BindPFlag("dbname", cmd.Flags().Lookup("dbname")); err != nil {
+		toStdErr(err)
+	}
+	if err := viper.BindPFlag("pidpath", cmd.Flags().Lookup("pidpath")); err != nil {
 		toStdErr(err)
 	}
 	if err := viper.BindPFlag("mtls", cmd.Flags().Lookup("mtls")); err != nil {
@@ -113,6 +119,7 @@ func main() {
 	viper.SetDefault("port", server.DefaultOptions().Port)
 	viper.SetDefault("address", server.DefaultOptions().Address)
 	viper.SetDefault("dbname", server.DefaultOptions().DbName)
+	viper.SetDefault("pidpath", server.DefaultOptions().Pidpath)
 	viper.SetDefault("mtls", server.DefaultOptions().MTLs)
 	viper.SetDefault("certificate", server.DefaultOptions().MTLsOptions.Certificate)
 	viper.SetDefault("pkey", server.DefaultOptions().MTLsOptions.Pkey)
