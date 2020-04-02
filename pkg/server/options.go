@@ -30,6 +30,7 @@ type Options struct {
 	MetricsPort int
 	DbName      string
 	Cfgfile     string
+	Pidpath     string
 	MTLs        bool
 	MTLsOptions MTLsOptions
 }
@@ -43,6 +44,7 @@ func DefaultOptions() Options {
 		MetricsPort: 9497,
 		DbName:      "immudb",
 		Cfgfile:     "configs/immucfg.yaml",
+		Pidpath:     "",
 		MTLs:        false,
 	}
 }
@@ -74,6 +76,11 @@ func (o Options) WithDbName(dbName string) Options {
 
 func (o Options) WithCfgFile(cfgfile string) Options {
 	o.Cfgfile = cfgfile
+	return o
+}
+
+func (o Options) WithPidpath(pidpath string) Options {
+	o.Pidpath = pidpath
 	return o
 }
 
@@ -125,6 +132,10 @@ func (o Options) FromEnvironment() Options {
 	cfgfile := os.Getenv("IMMU_CFGFILE")
 	if cfgfile != "" {
 		o.Cfgfile = cfgfile
+	}
+	pidpath := os.Getenv("IMMU_PIDPATH")
+	if pidpath != "" {
+		o.Pidpath = pidpath
 	}
 	if MTLs, err := strconv.ParseBool(os.Getenv("IMMU_MTLS")); err == nil {
 		o.MTLs = MTLs
