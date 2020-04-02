@@ -32,10 +32,8 @@ func makeStore() (*store.Store, func()) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	opts := store.DefaultOptions(dir)
-	opts.Badger.Logger = logger.NewWithLevel("bm(immud)", os.Stderr, logger.LogDebug)
-
+	slog := logger.NewSimpleLoggerWithLevel("bm(immud)", os.Stderr, logger.LogDebug)
+	opts := store.DefaultOptions(dir, slog)
 	st, err := store.Open(opts)
 	if err != nil {
 		log.Fatal(err)

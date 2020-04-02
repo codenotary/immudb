@@ -19,8 +19,6 @@ package logger
 import (
 	"io"
 	"log"
-	"os"
-	"strings"
 )
 
 type simpleLogger struct {
@@ -28,14 +26,14 @@ type simpleLogger struct {
 	LogLevel LogLevel
 }
 
-func New(name string, out io.Writer) Logger {
+func NewSimpleLogger(name string, out io.Writer) Logger {
 	return &simpleLogger{
 		Logger:   log.New(out, name+" ", log.LstdFlags),
 		LogLevel: logLevelFromEnvironment(),
 	}
 }
 
-func NewWithLevel(name string, out io.Writer, level LogLevel) Logger {
+func NewSimpleLoggerWithLevel(name string, out io.Writer, level LogLevel) Logger {
 	return &simpleLogger{
 		Logger:   log.New(out, name+" ", log.LstdFlags),
 		LogLevel: level,
@@ -64,19 +62,4 @@ func (l *simpleLogger) Debugf(f string, v ...interface{}) {
 	if l.LogLevel <= LogDebug {
 		l.Logger.Printf("DEBUG: "+f, v...)
 	}
-}
-
-func logLevelFromEnvironment() LogLevel {
-	logLevel, _ := os.LookupEnv("LOG_LEVEL")
-	switch strings.ToLower(logLevel) {
-	case "error":
-		return LogError
-	case "warn":
-		return LogWarn
-	case "info":
-		return LogInfo
-	case "debug":
-		return LogDebug
-	}
-	return LogInfo
 }
