@@ -16,6 +16,11 @@ limitations under the License.
 
 package logger
 
+import (
+	"os"
+	"strings"
+)
+
 type LogLevel int8
 
 const (
@@ -30,4 +35,19 @@ type Logger interface {
 	Warningf(string, ...interface{})
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
+}
+
+func logLevelFromEnvironment() LogLevel {
+	logLevel, _ := os.LookupEnv("LOG_LEVEL")
+	switch strings.ToLower(logLevel) {
+	case "error":
+		return LogError
+	case "warn":
+		return LogWarn
+	case "info":
+		return LogInfo
+	case "debug":
+		return LogDebug
+	}
+	return LogInfo
 }

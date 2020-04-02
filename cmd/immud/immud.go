@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"

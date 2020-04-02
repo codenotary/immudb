@@ -79,7 +79,7 @@ func (s *ImmuServer) Start() error {
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		return err
 	}
-	s.Store, err = store.Open(store.DefaultOptions(dbDir))
+	s.Store, err = store.Open(store.DefaultOptions(dbDir, s.Logger))
 	if err != nil {
 		return err
 	}

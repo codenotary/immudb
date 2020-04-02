@@ -34,9 +34,9 @@ type Options struct {
 	Badger badger.Options
 }
 
-func DefaultOptions(path string) Options {
+func DefaultOptions(path string, log logger.Logger) Options {
 	opt := badger.DefaultOptions(path).
-		WithLogger(logger.New("immud", os.Stderr)).
+		WithLogger(log).
 		WithSyncWrites(false).
 		WithEventLogging(false)
 

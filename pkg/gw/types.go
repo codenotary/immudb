@@ -33,7 +33,7 @@ type ImmuGwServer struct {
 
 func DefaultServer() *ImmuGwServer {
 	return &ImmuGwServer{
-		Logger:  logger.New("immugw-server", os.Stderr),
+		Logger:  logger.NewSimpleLogger("immugw-server", os.Stderr),
 		Options: DefaultOptions(),
 		quit:    make(chan struct{}),
 	}
