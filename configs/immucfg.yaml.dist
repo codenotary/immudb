@@ -4,6 +4,7 @@ address: "127.0.0.1"
 port: 3322
 metricsport: 9497
 dbname: "immudb"
+pidpath: "."
 mtls: false
 pkey: "./tools/mtls/3_application/private/localhost.key.pem"
 certificate: "./tools/mtls/3_application/certs/localhost.cert.pem"
