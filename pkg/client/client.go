@@ -124,6 +124,9 @@ func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 	}
 
 	safeItem, err := c.serviceClient.SafeGet(ctx, sgOpts, opts...)
+	if err != nil {
+		return nil, err
+	}
 
 	verified := safeItem.Proof.Verify(safeItem.Item.Hash(), *root)
 	if verified {
@@ -145,7 +148,7 @@ func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 			Index:    safeItem.Item.GetIndex(),
 			Verified: verified,
 		},
-		err
+		nil
 }
 
 func (c *ImmuClient) Scan(ctx context.Context, prefix []byte) (*schema.ItemList, error) {
@@ -264,18 +267,19 @@ func (c *ImmuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*Ve
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	// This guard ensures that result.Leaf is equal to the item's hash computed from
 	// request values. From now on, result.Leaf can be trusted.
-	if err == nil {
-		item := schema.Item{
-			Key:   key,
-			Value: value,
-			Index: result.Index,
-		}
-		if !bytes.Equal(item.Hash(), result.Leaf) {
-			return nil, errors.New("proof does not match the given item")
-		}
+	item := schema.Item{
+		Key:   key,
+		Value: value,
+		Index: result.Index,
+	}
+	if !bytes.Equal(item.Hash(), result.Leaf) {
+		return nil, errors.New("proof does not match the given item")
 	}
 
 	verified, err := c.verifyAndSetRoot(result, root)
@@ -289,7 +293,7 @@ func (c *ImmuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*Ve
 			Index:    result.Index,
 			Verified: verified,
 		},
-		err
+		nil
 }
 
 func (c *ImmuClient) SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error) {
@@ -395,18 +399,19 @@ func (c *ImmuClient) SafeReference(ctx context.Context, reference []byte, key []
 		ctx,
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	if err != nil {
+		return nil, err
+	}
 
 	// This guard ensures that result.Leaf is equal to the item's hash computed
 	// from request values. From now on, result.Leaf can be trusted.
-	if err == nil {
-		item := schema.Item{
-			Key:   reference,
-			Value: key,
-			Index: result.Index,
-		}
-		if !bytes.Equal(item.Hash(), result.Leaf) {
-			return nil, errors.New("proof does not match the given item")
-		}
+	item := schema.Item{
+		Key:   reference,
+		Value: key,
+		Index: result.Index,
+	}
+	if !bytes.Equal(item.Hash(), result.Leaf) {
+		return nil, errors.New("proof does not match the given item")
 	}
 
 	verified, err := c.verifyAndSetRoot(result, root)
@@ -420,7 +425,7 @@ func (c *ImmuClient) SafeReference(ctx context.Context, reference []byte, key []
 			Index:    result.Index,
 			Verified: verified,
 		},
-		err
+		nil
 }
 
 func (c *ImmuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error) {
@@ -461,11 +466,14 @@ func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 	}
 
 	var metadata runtime.ServerMetadata
-	result, errza := c.serviceClient.SafeZAdd(
+	result, err := c.serviceClient.SafeZAdd(
 		ctx,
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	key2, err := store.SetKey(key, set, score)
 	if err != nil {
@@ -474,15 +482,13 @@ func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 
 	// This guard ensures that result.Leaf is equal to the item's hash computed
 	// from request values. From now on, result.Leaf can be trusted.
-	if errza == nil {
-		item := schema.Item{
-			Key:   key2,
-			Value: key,
-			Index: result.Index,
-		}
-		if !bytes.Equal(item.Hash(), result.Leaf) {
-			return nil, errors.New("proof does not match the given item")
-		}
+	item := schema.Item{
+		Key:   key2,
+		Value: key,
+		Index: result.Index,
+	}
+	if !bytes.Equal(item.Hash(), result.Leaf) {
+		return nil, errors.New("proof does not match the given item")
 	}
 
 	verified, err := c.verifyAndSetRoot(result, root)
@@ -496,7 +502,7 @@ func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 			Index:    result.Index,
 			Verified: verified,
 		},
-		err
+		nil
 }
 
 func (c *ImmuClient) HealthCheck(ctx context.Context) error {
