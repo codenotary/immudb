@@ -28,6 +28,7 @@ import (
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/store"
+	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/api"
 
@@ -674,6 +675,7 @@ func options(cmd *cobra.Command) (*client.Options, error) {
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
+		WithDialOptions(false, grpc.WithInsecure()).
 		FromEnvironment()
 	return &options, nil
 }
