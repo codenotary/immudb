@@ -33,6 +33,7 @@
 # Working files
 /immudb
 /.root
+immud.pid
 
 # Vendor
 vendor
