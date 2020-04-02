@@ -35,9 +35,9 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{
 		Address:      "127.0.0.1",
-		Port:         8081,
+		Port:         3323,
 		ImmudAddress: "127.0.0.1",
-		ImmudPort:    8080,
+		ImmudPort:    3322,
 		MTLs:         false,
 	}
 }
