@@ -521,7 +521,7 @@ func (c *ImmuClient) isConnected() bool {
 
 func (c *ImmuClient) connectWithRetry(ctx context.Context) (err error) {
 	for i := 0; i < c.Options.DialRetries+1; i++ {
-		if c.clientConn, err = grpc.Dial(c.Options.Bind(), grpc.WithInsecure()); err == nil {
+		if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err == nil {
 			c.serviceClient = schema.NewImmuServiceClient(c.clientConn)
 			c.rootservice = NewRootService(c.serviceClient, cache.NewFileCache())
 			if _, err = c.rootservice.GetRoot(ctx); err == nil {

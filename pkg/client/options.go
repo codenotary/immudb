@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"google.golang.org/grpc"
 )
 
 type Options struct {
@@ -29,6 +31,7 @@ type Options struct {
 	HealthCheckRetries int
 	MTLs               bool
 	MTLsOptions        MTLsOptions
+	DialOptions        []grpc.DialOption
 }
 
 func DefaultOptions() Options {
@@ -38,6 +41,7 @@ func DefaultOptions() Options {
 		DialRetries:        5,
 		HealthCheckRetries: 5,
 		MTLs:               false,
+		DialOptions:        []grpc.DialOption{},
 	}
 }
 
@@ -68,6 +72,15 @@ func (o Options) WithMTLs(MTLs bool) Options {
 
 func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
 	o.MTLsOptions = MTLsOptions
+	return o
+}
+
+func (o Options) WithDialOptions(replaceExisting bool, dialOptions ...grpc.DialOption) Options {
+	if replaceExisting {
+		o.DialOptions = dialOptions
+	} else {
+		o.DialOptions = append(o.DialOptions, dialOptions...)
+	}
 	return o
 }
 
