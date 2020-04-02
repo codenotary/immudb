@@ -38,7 +38,7 @@ func DefaultOptions() Options {
 		Dir:         ".",
 		Network:     "tcp",
 		Address:     "127.0.0.1",
-		Port:        8080,
+		Port:        3322,
 		MetricsPort: 9497,
 		DbName:      "immudb",
 		MTLs:        false,

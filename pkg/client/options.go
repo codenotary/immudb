@@ -34,7 +34,7 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{
 		Address:            "127.0.0.1",
-		Port:               8080,
+		Port:               3322,
 		DialRetries:        5,
 		HealthCheckRetries: 5,
 		MTLs:               false,
