@@ -95,6 +95,13 @@ func (s *ImmuServer) Start() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immud: %v", s.Options)
+
+	if s.Options.Pidpath != "" {
+		if s.Pid, err = NewPid(s.Options.Pidpath); err != nil {
+			return err
+		}
+	}
+
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
 	return err
