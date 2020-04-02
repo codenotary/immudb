@@ -18,54 +18,46 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"os"
-
 	"github.com/codenotary/immudb/pkg/server"
+	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"os"
 )
+
+var (
+	cfgfile string
+)
+
+func init() {
+	cobra.OnInitialize(initConfig)
+}
 
 func main() {
 	cmd := &cobra.Command{
 		Use: "immud",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir, err := cmd.Flags().GetString("directory")
-			if err != nil {
+			dir := viper.GetString("dir")
+			port := viper.GetInt("port")
+			address := viper.GetString("address")
+			dbName := viper.GetString("dbname")
+			// config file came only from arguments or default folder
+			var err error
+			if cfgfile, err = cmd.Flags().GetString("cfgfile"); err != nil {
 				return err
 			}
-			port, err := cmd.Flags().GetInt("port")
-			if err != nil {
-				return err
-			}
-			address, err := cmd.Flags().GetString("address")
-			if err != nil {
-				return err
-			}
-			dbName, err := cmd.Flags().GetString("name")
-			if err != nil {
-				return err
-			}
-			mtls, err := cmd.Flags().GetBool("mtls")
-			if err != nil {
-				return err
-			}
-			certificate, err := cmd.Flags().GetString("certificate")
-			if err != nil {
-				return err
-			}
-			pkey, err := cmd.Flags().GetString("pkey")
-			if err != nil {
-				return err
-			}
-			client_cas, err := cmd.Flags().GetString("clientcas")
-			if err != nil {
-				return err
-			}
+			mtls := viper.GetBool("mtls")
+			certificate := viper.GetString("certificate")
+			pkey := viper.GetString("pkey")
+			client_cas := viper.GetString("clientcas")
+
 			options := server.
 				DefaultOptions().
 				WithDir(dir).
 				WithPort(port).
 				WithAddress(address).
 				WithDbName(dbName).
+				WithCfgFile(cfgfile).
 				WithMTLs(mtls).
 				FromEnvironment()
 			if mtls {
@@ -81,16 +73,75 @@ func main() {
 			return immuServer.Start()
 		},
 	}
-	cmd.Flags().StringP("directory", "d", server.DefaultOptions().Dir, "directory")
+
+	cmd.Flags().StringP("dir", "d", server.DefaultOptions().Dir, "data folder")
 	cmd.Flags().IntP("port", "p", server.DefaultOptions().Port, "port number")
 	cmd.Flags().StringP("address", "a", server.DefaultOptions().Address, "bind address")
-	cmd.Flags().StringP("name", "n", server.DefaultOptions().DbName, "db name")
+	cmd.Flags().StringP("dbname", "n", server.DefaultOptions().DbName, "db name")
+	cmd.PersistentFlags().StringVar(&cfgfile, "cfgfile", "", "config file (default path are config or $HOME. Default filename is immucfg.yaml)")
 	cmd.Flags().BoolP("mtls", "m", server.DefaultOptions().MTLs, "enable mutual tls")
 	cmd.Flags().String("certificate", server.DefaultMTLsOptions().Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", server.DefaultMTLsOptions().Pkey, "server private key path")
 	cmd.Flags().String("clientcas", server.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
+
+	if err := viper.BindPFlag("dir", cmd.Flags().Lookup("dir")); err != nil {
+		toStdErr(err)
+	}
+	if err := viper.BindPFlag("port", cmd.Flags().Lookup("port")); err != nil {
+		toStdErr(err)
+	}
+	if err := viper.BindPFlag("address", cmd.Flags().Lookup("address")); err != nil {
+		toStdErr(err)
+	}
+	if err := viper.BindPFlag("dbname", cmd.Flags().Lookup("dbname")); err != nil {
+		toStdErr(err)
+	}
+	if err := viper.BindPFlag("mtls", cmd.Flags().Lookup("mtls")); err != nil {
+		toStdErr(err)
+	}
+	if err := viper.BindPFlag("certificate", cmd.Flags().Lookup("certificate")); err != nil {
+		toStdErr(err)
+	}
+	if err := viper.BindPFlag("pkey", cmd.Flags().Lookup("pkey")); err != nil {
+		toStdErr(err)
+	}
+	if err := viper.BindPFlag("clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
+		toStdErr(err)
+	}
+
+	viper.SetDefault("dir", server.DefaultOptions().Dir)
+	viper.SetDefault("port", server.DefaultOptions().Port)
+	viper.SetDefault("address", server.DefaultOptions().Address)
+	viper.SetDefault("dbname", server.DefaultOptions().DbName)
+	viper.SetDefault("mtls", server.DefaultOptions().MTLs)
+	viper.SetDefault("certificate", server.DefaultOptions().MTLsOptions.Certificate)
+	viper.SetDefault("pkey", server.DefaultOptions().MTLsOptions.Pkey)
+	viper.SetDefault("clientcas", server.DefaultOptions().MTLsOptions.ClientCAs)
+
 	if err := cmd.Execute(); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		toStdErr(err)
 		os.Exit(1)
 	}
+}
+
+func initConfig() {
+	if cfgfile != "" {
+		viper.SetConfigFile(cfgfile)
+	} else {
+		home, err := homedir.Dir()
+		if err != nil {
+			toStdErr(err)
+		}
+		viper.AddConfigPath("configs")
+		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
+		viper.AddConfigPath(home)
+		viper.SetConfigName("immucfg")
+	}
+	viper.AutomaticEnv()
+	_ = viper.ReadInConfig()
+}
+
+func toStdErr(msg interface{}) {
+	_, _ = fmt.Fprintln(os.Stderr, msg)
+	os.Exit(1)
 }

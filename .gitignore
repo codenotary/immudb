@@ -36,3 +36,6 @@
 
 # Vendor
 vendor
+
+# Config
+immucfg.yaml

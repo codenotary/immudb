@@ -29,6 +29,7 @@ type Options struct {
 	Port        int
 	MetricsPort int
 	DbName      string
+	Cfgfile     string
 	MTLs        bool
 	MTLsOptions MTLsOptions
 }
@@ -41,6 +42,7 @@ func DefaultOptions() Options {
 		Port:        3322,
 		MetricsPort: 9497,
 		DbName:      "immudb",
+		Cfgfile:     "configs/immucfg.yaml",
 		MTLs:        false,
 	}
 }
@@ -70,6 +72,11 @@ func (o Options) WithDbName(dbName string) Options {
 	return o
 }
 
+func (o Options) WithCfgFile(cfgfile string) Options {
+	o.Cfgfile = cfgfile
+	return o
+}
+
 func (o Options) WithMTLs(MTLs bool) Options {
 	o.MTLs = MTLs
 	return o
@@ -90,8 +97,8 @@ func (o Options) MetricsBind() string {
 
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v MTLs:%v}",
-		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.MTLs)
+		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v MTLs:%v}",
+		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Cfgfile, o.MTLs)
 }
 
 func (o Options) FromEnvironment() Options {
@@ -114,6 +121,10 @@ func (o Options) FromEnvironment() Options {
 	dbName := os.Getenv("IMMU_DBNAME")
 	if dbName != "" {
 		o.DbName = dbName
+	}
+	cfgfile := os.Getenv("IMMU_CFGFILE")
+	if cfgfile != "" {
+		o.Cfgfile = cfgfile
 	}
 	if MTLs, err := strconv.ParseBool(os.Getenv("IMMU_MTLS")); err == nil {
 		o.MTLs = MTLs
