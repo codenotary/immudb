@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/store"
 	"google.golang.org/grpc"
@@ -644,6 +645,68 @@ secondRoot: %x at index: %d
 				return nil
 			},
 			Args: cobra.NoArgs,
+		},
+		&cobra.Command{
+			Use:     "backup",
+			Aliases: []string{"b"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				filename := fmt.Sprint("immudb_" + time.Now().Format("2006-01-02_15-04-05") + ".bkp")
+				if len(args) > 0 {
+					filename = args[0]
+				}
+				file, err := os.Create(filename)
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Backup(ctx, file)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s", response.(int64), filename)
+				return nil
+			},
+			Args: cobra.MaximumNArgs(1),
+		},
+		&cobra.Command{
+			Use:     "restore",
+			Aliases: []string{"rb"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				file, err := os.Create(args[0])
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Restore(ctx, file)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				fmt.Printf("SUCCESS: %d key-value entries were restored from file %s", response.(int64), args[0])
+				return nil
+			},
+			Args: cobra.ExactArgs(1),
 		},
 	}
 
