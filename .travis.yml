@@ -1,31 +1,76 @@
-sudo: required
+dist: bionic
 language: go
 
-services:
-  - docker
-env:
-  global:
-    - DOCKER_IMAGE="codenotary/immudb"
+git:
+  depth: false
 
+go:
+  - 1.14.x
+
+install: true
+
+notifications:
+  email: false
+    
 before_script:
-  - sudo apt update && sudo apt install curl rpm -y
+  - sudo apt update && sudo apt install curl -y
   - curl -L -o /tmp/vcn https://github.com/vchain-us/vcn/releases/download/v0.8.3/vcn-v0.8.3-linux-amd64-static
   - CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
   - echo $CHECKSUM
   - curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
   - chmod +x /tmp/vcn
 
-script:
-  - docker build --pull --cache-from "$DOCKER_IMAGE" --tag "${DOCKER_IMAGE}:latest" .
-  - VCN_USER=$codenotary_user VCN_PASSWORD=$codenotary_pass /tmp/vcn login
-  - VCN_NOTARIZATION_PASSWORD=$codenotary_pass /tmp/vcn n -p --attr TravisCI=${TRAVIS_BUILD_NUMBER} --silent docker://$DOCKER_IMAGE
+jobs:
+  include:
+    - stage: Scan
+      script:
+        - curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
+        - gosec -fmt=json -out=results.json -no-fail ./...
+        - VCN_USER=$gosec_user VCN_PASSWORD=$gosec_pass /tmp/vcn login
+        - VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --attr  --silent results.json
+        - /tmp/vcn logout
+        - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent results.json
+        - /tmp/vcn logout
 
-after_script:
-  - docker images
+    - stage: Binaries
+      os: linux
+      arch:
+        - amd64
+      script:
+        - GOOS=linux GOARCH=amd64 make immu-static immud-static immugw-static
+        - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immud
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immu
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immugw
+        - /tmp/vcn logout
+      workspaces:
+        create:
+          name: bins
+          paths:
+            - immud
+            - immu
+            - immugw
 
-before_deploy:
-  - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
-
-deploy:
-  provider: script
-  script: docker push "${DOCKER_IMAGE}:latest"
+    - stage: Image
+      env:
+        - DOCKER_IMAGE="codenotary/immudb"
+      services:
+        - docker
+      workspaces:
+        use:
+          - bins
+      script:
+        - /tmp/vcn authenticate immud immu immugw
+        - VCN_USER=$immudb_user VCN_PASSWORD=$immudb_pass /tmp/vcn login
+        - docker build --tag "${DOCKER_IMAGE}:latest" -f Dockerfile.final .
+        - VCN_NOTARIZATION_PASSWORD=$immudb_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent docker://$DOCKER_IMAGE
+        - /tmp/vcn logout
+        - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent docker://$DOCKER_IMAGE
+        - /tmp/vcn logout
+      before_deploy:
+        - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+      deploy:
+        provider: script
+        script: docker push "${DOCKER_IMAGE}:latest"
