@@ -17,11 +17,16 @@ limitations under the License.
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"strings"
 	"time"
 
+	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -503,6 +508,139 @@ func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 			Verified: verified,
 		},
 		nil
+}
+
+// Backup to be used from Immu CLI
+func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteCloser) (int64, error) {
+	start := time.Now()
+
+	defer writer.Close()
+
+	var counter int64
+
+	if !c.isConnected() {
+		return counter, ErrNotConnected
+	}
+
+	bkpClient, err := c.serviceClient.Backup(ctx, &empty.Empty{})
+	if err != nil {
+		return counter, err
+	}
+
+	buffWriter := bufio.NewWriter(writer)
+	var errs []string
+	for {
+		kvList, err := bkpClient.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("error receiving chunk: %v", err))
+			continue
+		}
+		for _, kv := range kvList.Kv {
+			kvBytes, err := proto.Marshal(kv)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("error marshaling key-value %+v: %v", kv, err))
+				continue
+			}
+			buffWriter.Write(kvBytes)
+			buffWriter.Write([]byte(";"))
+			counter++
+		}
+		buffWriter.Flush()
+	}
+	var errorsMerged error
+	if len(errs) > 0 {
+		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t- "))
+	}
+
+	c.Logger.Debugf("backup finished in %s", time.Since(start))
+
+	return counter, errorsMerged
+}
+
+func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error {
+	kvListLen := len(kvList.Kv)
+	kvListStr := fmt.Sprintf("%+v", kvList)
+	restoreClient, err := c.serviceClient.Restore(ctx)
+	if err != nil {
+		return fmt.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: error getting restore client: %v", kvListLen, kvListStr, err)
+	}
+	err = restoreClient.Send(kvList)
+	restoreClient.CloseAndRecv()
+	if err != nil {
+		return fmt.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: %v", kvListLen, kvListStr, err)
+	}
+	return nil
+}
+
+// Restore to be used from Immu CLI
+func (c *ImmuClient) Restore(ctx context.Context, reader io.ReadCloser) (int64, error) {
+	start := time.Now()
+
+	const kvListMaxLen = 30
+
+	defer reader.Close()
+
+	var entryCounter int64
+	var counter int64
+
+	if !c.isConnected() {
+		return counter, ErrNotConnected
+	}
+
+	buffReader := bufio.NewReader(reader)
+	var errs []string
+	kvList := new(pb.KVList)
+	for {
+		lineBytes, err := buffReader.ReadBytes(';')
+		if err == io.EOF {
+			break
+		}
+		entryCounter++
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("error reading file entry %d: %v", entryCounter, err))
+			continue
+		}
+		if len(lineBytes) <= 1 {
+			continue
+		}
+		kv := new(pb.KV)
+		err = proto.Unmarshal(lineBytes[:len(lineBytes)-1], kv)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("error unmarshaling to key-value the file entry %d: %v", entryCounter, err))
+			continue
+		}
+
+		kvList.Kv = append(kvList.Kv, kv)
+		if len(kvList.Kv) == kvListMaxLen {
+			if err := c.restoreChunk(ctx, kvList); err != nil {
+				errs = append(errs, err.Error())
+			} else {
+				counter += int64(len(kvList.Kv))
+			}
+			kvList.Kv = []*pb.KV{}
+		}
+	}
+
+	if len(kvList.Kv) > 0 {
+		if err := c.restoreChunk(ctx, kvList); err != nil {
+			errs = append(errs, err.Error())
+		} else {
+			counter += int64(len(kvList.Kv))
+		}
+		kvList.Kv = []*pb.KV{}
+	}
+
+	var errorsMerged error
+	if len(errs) > 0 {
+		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t"))
+	}
+
+	c.Logger.Infof("restore finished restoring %d of %d entries in %s", counter, entryCounter, time.Since(start))
+
+	return counter, errorsMerged
 }
 
 func (c *ImmuClient) HealthCheck(ctx context.Context) error {

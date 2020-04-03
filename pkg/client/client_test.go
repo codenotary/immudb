@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -21,33 +22,59 @@ const bufSize = 1024 * 1024
 
 var lis *bufconn.Listener
 
+var immuServer *server.ImmuServer
 var client *ImmuClient
 
-func init() {
-	immuServer := server.DefaultServer()
-	dbDir := filepath.Join(immuServer.Options.Dir, immuServer.Options.DbName)
+const BkpFileName = "client_test.backup.bkp"
+const ExpectedBkpFileName = "client_test.expected.bkp"
+
+var testData = struct {
+	keys    [][]byte
+	values  [][]byte
+	refKeys [][]byte
+	set     []byte
+	scores  []float64
+}{
+	keys:    [][]byte{[]byte("key1"), []byte("key2"), []byte("key3")},
+	values:  [][]byte{[]byte("value1"), []byte("value2"), []byte("value3")},
+	refKeys: [][]byte{[]byte("refKey1"), []byte("refKey2"), []byte("refKey3")},
+	set:     []byte("set1"),
+	scores:  []float64{1.0, 2.0, 3.0},
+}
+
+func newServer() *server.ImmuServer {
+	localImmuServer := server.DefaultServer()
+	dbDir := filepath.Join(localImmuServer.Options.Dir, localImmuServer.Options.DbName)
 	var err error
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		log.Fatal(err)
 	}
-	immuServer.Store, err = store.Open(store.DefaultOptions(dbDir))
+	localImmuServer.Store, err = store.Open(store.DefaultOptions(dbDir))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer()
-	schema.RegisterImmuServiceServer(s, immuServer)
+	schema.RegisterImmuServiceServer(s, localImmuServer)
 	go func() {
 		if err := s.Serve(lis); err != nil {
 			log.Fatal(err)
 		}
 	}()
+	return localImmuServer
+}
 
-	client = DefaultClient().
+func newClient() *ImmuClient {
+	return DefaultClient().
 		WithOptions(
 			DefaultOptions().
 				WithDialOptions(false, grpc.WithContextDialer(bufDialer), grpc.WithInsecure()))
+}
+
+func init() {
+	immuServer = newServer()
+	client = newClient()
 }
 
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {
@@ -55,11 +82,16 @@ func bufDialer(ctx context.Context, address string) (net.Conn, error) {
 }
 
 func cleanup() {
-	// delete client file and server folder
+	// delete files and folders created by tests
 	if err := os.Remove(".root"); err != nil {
 		log.Println(err)
 	}
 	if err := os.RemoveAll("immudb"); err != nil {
+		log.Println(err)
+	}
+}
+func cleanupBackup() {
+	if err := os.Remove(BkpFileName); err != nil {
 		log.Println(err)
 	}
 }
@@ -92,48 +124,118 @@ func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, k
 	require.True(t, vi.Verified)
 }
 
+func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
+	r, err := client.Connected(ctx, func() (interface{}, error) {
+		for i := 0; i < len(scores); i++ {
+			_, err := client.SafeZAdd(ctx, set, scores[i], keys[i])
+			require.NoError(t, err)
+		}
+		return client.ZScan(ctx, set)
+	})
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	itemList := r.(*schema.ItemList)
+	require.Len(t, itemList.Items, len(keys))
+
+	for i := 0; i < len(keys); i++ {
+		require.Equal(t, keys[i], itemList.Items[i].Key)
+		require.Equal(t, values[i], itemList.Items[i].Value)
+	}
+}
+
+func testBackup(ctx context.Context, t *testing.T) {
+	bkpFile, err := os.Create(BkpFileName)
+	require.NoError(t, err)
+	r, err := client.Connected(ctx, func() (interface{}, error) {
+		return client.Backup(ctx, bkpFile)
+	})
+	require.NoError(t, err)
+	n := r.(int64)
+	require.Equal(t, int64(26), n)
+
+	bkpBytesActual, err := ioutil.ReadFile(BkpFileName)
+	require.NoError(t, err)
+	require.NotEmpty(t, bkpBytesActual)
+	bkpBytesExpected, err := ioutil.ReadFile(ExpectedBkpFileName)
+	require.NoError(t, err)
+	require.NotEmpty(t, bkpBytesExpected)
+	require.Equal(t, bkpBytesExpected, bkpBytesActual)
+}
+
 func TestImmuClient(t *testing.T) {
+	cleanup()
+	cleanupBackup()
+	defer cleanup()
+	defer cleanupBackup()
+
+	ctx := context.Background()
+
+	testSafeSetAndSafeGet(ctx, t, testData.keys[0], testData.values[0])
+	testSafeSetAndSafeGet(ctx, t, testData.keys[1], testData.values[1])
+	testSafeSetAndSafeGet(ctx, t, testData.keys[2], testData.values[2])
+
+	testSafeReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
+	testSafeReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1])
+	testSafeReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2])
+
+	testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+
+	testBackup(ctx, t)
+}
+
+func TestRestore(t *testing.T) {
+	cleanup()
 	defer cleanup()
 
 	ctx := context.Background()
 
-	key1 := []byte("key1")
-	key2 := []byte("key2")
-	value1 := []byte("value1")
-	value2 := []byte("value2")
-	testSafeSetAndSafeGet(ctx, t, key1, value1)
-	testSafeSetAndSafeGet(ctx, t, key2, value2)
+	// this only succeeds if only this test function is run, otherwise the key may
+	// be present from other test function that run before this:
+	// r1, err := client.Connected(ctx, func() (interface{}, error) {
+	// 	return client.SafeGet(ctx, testData.keys[1])
+	// })
+	// require.Error(t, err)
+	// require.Nil(t, r1)
 
-	refKey1 := []byte("refKey1")
-	refKey2 := []byte("refKey2")
-	testSafeReference(ctx, t, refKey1, key1, value1)
-	testSafeReference(ctx, t, refKey2, key2, value2)
+	bkpFileForRead, err := os.Open(ExpectedBkpFileName)
+	require.NoError(t, err)
+	r2, err := client.Connected(ctx, func() (interface{}, error) {
+		return client.Restore(ctx, bkpFileForRead)
+	})
+	require.NoError(t, err)
+	n2 := r2.(int64)
+	require.Equal(t, int64(26), n2)
 
-	set := []byte("set1")
-	score1, score2, score3 := 1.0, 2.0, 3.0
-	key3 := []byte("key3")
-	value3 := []byte("value3")
 	r3, err := client.Connected(ctx, func() (interface{}, error) {
-		_, err2 := client.SafeSet(ctx, key3, value3)
-		require.NoError(t, err2)
-
-		_, err2 = client.SafeZAdd(ctx, set, score1, key1)
-		require.NoError(t, err2)
-		_, err2 = client.SafeZAdd(ctx, set, score2, key2)
-		require.NoError(t, err2)
-		_, err2 = client.SafeZAdd(ctx, set, score3, key3)
-		require.NoError(t, err2)
-
-		return client.ZScan(ctx, set)
+		return client.SafeGet(ctx, testData.keys[1])
 	})
 	require.NoError(t, err)
 	require.NotNil(t, r3)
-	itemList := r3.(*schema.ItemList)
-	require.Len(t, itemList.Items, 3)
-	require.Equal(t, key1, itemList.Items[0].Key)
-	require.Equal(t, value1, itemList.Items[0].Value)
-	require.Equal(t, key2, itemList.Items[1].Key)
-	require.Equal(t, value2, itemList.Items[1].Value)
-	require.Equal(t, key3, itemList.Items[2].Key)
-	require.Equal(t, value3, itemList.Items[2].Value)
+	vi := r3.(*VerifiedItem)
+	require.Equal(t, testData.keys[1], vi.Key)
+	require.Equal(t, testData.values[1], vi.Value)
+	require.True(t, vi.Verified)
+
+	r4, err := client.Connected(ctx, func() (interface{}, error) {
+		return client.SafeGet(ctx, testData.refKeys[2])
+	})
+	require.NoError(t, err)
+	require.NotNil(t, r4)
+	viFromRef := r4.(*VerifiedItem)
+	require.Equal(t, testData.keys[2], viFromRef.Key)
+	require.Equal(t, testData.values[2], viFromRef.Value)
+	require.True(t, viFromRef.Verified)
+
+	r5, err := client.Connected(ctx, func() (interface{}, error) {
+		return client.ZScan(ctx, testData.set)
+	})
+	require.NoError(t, err)
+	require.NotNil(t, r5)
+	itemList := r5.(*schema.ItemList)
+	require.Len(t, itemList.Items, len(testData.keys))
+
+	for i := 0; i < len(testData.keys); i++ {
+		require.Equal(t, testData.keys[i], itemList.Items[i].Key)
+		require.Equal(t, testData.values[i], itemList.Items[i].Value)
+	}
 }
