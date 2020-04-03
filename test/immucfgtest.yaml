@@ -5,7 +5,7 @@ port: 3322
 metricsport: 9497
 dbname: "immudb"
 pidpath: ""
-logpath: ""
+logpath: "ConfigFileThatsNameIsDeclaredOnTheCommandLine"
 mtls: false
 pkey: "./tools/mtls/3_application/private/localhost.key.pem"
 certificate: "./tools/mtls/3_application/certs/localhost.cert.pem"

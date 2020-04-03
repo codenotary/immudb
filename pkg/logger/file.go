@@ -17,6 +17,7 @@ limitations under the License.
 package logger
 
 import (
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,7 +29,9 @@ type fileLogger struct {
 }
 
 func NewFileLogger(name string, file string) (logger Logger, out *os.File, err error) {
-	out, err = setup(file)
+	if out, err = setup(file); err != nil {
+		return nil, nil, err
+	}
 	logger = &fileLogger{
 		Logger:   log.New(out, name, log.LstdFlags),
 		LogLevel: logLevelFromEnvironment(),
@@ -37,7 +40,9 @@ func NewFileLogger(name string, file string) (logger Logger, out *os.File, err e
 }
 
 func NewFileLoggerWithLevel(name string, file string, level LogLevel) (logger Logger, out *os.File, err error) {
-	out, err = setup(file)
+	if out, err = setup(file); err != nil {
+		return nil, nil, err
+	}
 	logger = &fileLogger{
 		Logger:   log.New(out, name+".log", log.LstdFlags),
 		LogLevel: level,
@@ -46,14 +51,14 @@ func NewFileLoggerWithLevel(name string, file string, level LogLevel) (logger Lo
 }
 
 func setup(file string) (out *os.File, err error) {
-	if _, err := os.Stat(filepath.Dir(file)); os.IsNotExist(err) {
-		if err := os.Mkdir(filepath.Dir(file), os.FileMode(0755)); err != nil {
-			return nil, err
+	if _, err = os.Stat(filepath.Dir(file)); os.IsNotExist(err) {
+		if err = os.Mkdir(filepath.Dir(file), os.FileMode(0755)); err != nil {
+			return nil, errors.New("Unable to create log folder")
 		}
 	}
 	out, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		return out, err
+		return out, errors.New("Unable to create log file")
 	}
 	return out, err
 }

@@ -45,6 +45,9 @@ func NewPid(path string) (*PIDFile, error) {
 	if err := checkPIDFileAlreadyExists(path); err != nil {
 		return nil, err
 	}
+	if fn := filepath.Base(path); fn == "." {
+		return nil, fmt.Errorf("Pid filename is invalid: %s", path)
+	}
 	if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
 		if err := os.Mkdir(filepath.Dir(path), os.FileMode(0755)); err != nil {
 			return nil, err

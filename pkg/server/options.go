@@ -18,7 +18,6 @@ package server
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 )
 
@@ -31,6 +30,7 @@ type Options struct {
 	DbName      string
 	Cfgfile     string
 	Pidpath     string
+	Logpath     string
 	MTLs        bool
 	MTLsOptions MTLsOptions
 }
@@ -45,6 +45,7 @@ func DefaultOptions() Options {
 		DbName:      "immudb",
 		Cfgfile:     "configs/immucfg.yaml",
 		Pidpath:     "",
+		Logpath:     "",
 		MTLs:        false,
 	}
 }
@@ -84,6 +85,11 @@ func (o Options) WithPidpath(pidpath string) Options {
 	return o
 }
 
+func (o Options) WithLogpath(logpath string) Options {
+	o.Logpath = logpath
+	return o
+}
+
 func (o Options) WithMTLs(MTLs bool) Options {
 	o.MTLs = MTLs
 	return o
@@ -106,43 +112,4 @@ func (o Options) String() string {
 	return fmt.Sprintf(
 		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v MTLs:%v}",
 		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Cfgfile, o.MTLs)
-}
-
-func (o Options) FromEnvironment() Options {
-	dir := os.Getenv("IMMU_DIR")
-	if dir != "" {
-		o.Dir = dir
-	}
-	network := os.Getenv("IMMU_NETWORK")
-	if network != "" {
-		o.Network = network
-	}
-	address := os.Getenv("IMMU_ADDRESS")
-	if address != "" {
-		o.Address = address
-	}
-	port := os.Getenv("IMMU_PORT")
-	if parsedPort, err := strconv.Atoi(port); err == nil {
-		o.Port = parsedPort
-	}
-	dbName := os.Getenv("IMMU_DBNAME")
-	if dbName != "" {
-		o.DbName = dbName
-	}
-	cfgfile := os.Getenv("IMMU_CFGFILE")
-	if cfgfile != "" {
-		o.Cfgfile = cfgfile
-	}
-	pidpath := os.Getenv("IMMU_PIDPATH")
-	if pidpath != "" {
-		o.Pidpath = pidpath
-	}
-	if MTLs, err := strconv.ParseBool(os.Getenv("IMMU_MTLS")); err == nil {
-		o.MTLs = MTLs
-	}
-	if o.MTLs {
-		mo := MTLsOptions{}
-		o.MTLsOptions = mo.FromEnvironment()
-	}
-	return o
 }
