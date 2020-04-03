@@ -200,7 +200,7 @@ func TestRestore(t *testing.T) {
 	bkpFileForRead, err := os.Open(ExpectedBkpFileName)
 	require.NoError(t, err)
 	r2, err := client.Connected(ctx, func() (interface{}, error) {
-		return client.Restore(ctx, bkpFileForRead)
+		return client.Restore(ctx, bkpFileForRead, 20)
 	})
 	require.NoError(t, err)
 	n2 := r2.(int64)
