@@ -666,6 +666,7 @@ secondRoot: %x at index: %d
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
+				defer file.Close()
 				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Backup(ctx, file)
@@ -695,9 +696,10 @@ secondRoot: %x at index: %d
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
+				defer file.Close()
 				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					return immuClient.Restore(ctx, file)
+					return immuClient.Restore(ctx, file, 500)
 				})
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
