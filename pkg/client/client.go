@@ -17,9 +17,9 @@ limitations under the License.
 package client
 
 import (
-	"bufio"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -510,11 +510,48 @@ func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 		nil
 }
 
-// Backup to be used from Immu CLI
-func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteCloser) (int64, error) {
-	start := time.Now()
+func writeSeek(w io.WriteSeeker, msg []byte, offset int64) (int64, error) {
+	buf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf, uint32(len(msg)))
+	if _, err := w.Seek(offset, io.SeekStart); err != nil {
+		return offset, err
+	}
+	if _, err := w.Write(buf); err != nil {
+		return offset, err
+	}
+	if _, err := w.Seek(offset+int64(len(buf)), io.SeekStart); err != nil {
+		return offset, err
+	}
+	if _, err := w.Write(msg); err != nil {
+		return offset, err
+	}
+	return offset + int64(len(buf)) + int64(len(msg)), nil
+}
 
-	defer writer.Close()
+func readSeek(r io.ReadSeeker, offset int64) ([]byte, int64, error) {
+	if _, err := r.Seek(offset, io.SeekStart); err != nil {
+		return nil, offset, err
+	}
+	buf := make([]byte, 4)
+	o1 := offset + int64(len(buf))
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, o1, err
+	}
+	if _, err := r.Seek(o1, io.SeekStart); err != nil {
+		return nil, o1, err
+	}
+	size := binary.LittleEndian.Uint32(buf)
+	msg := make([]byte, size)
+	o2 := o1 + int64(size)
+	if _, err := io.ReadFull(r, msg); err != nil {
+		return nil, o2, err
+	}
+	return msg, o2, nil
+}
+
+// Backup to be used from Immu CLI
+func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteSeeker) (int64, error) {
+	start := time.Now()
 
 	var counter int64
 
@@ -527,7 +564,7 @@ func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteCloser) (int64, 
 		return counter, err
 	}
 
-	buffWriter := bufio.NewWriter(writer)
+	var offset int64
 	var errs []string
 	for {
 		kvList, err := bkpClient.Recv()
@@ -544,11 +581,14 @@ func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteCloser) (int64, 
 				errs = append(errs, fmt.Sprintf("error marshaling key-value %+v: %v", kv, err))
 				continue
 			}
-			buffWriter.Write(kvBytes)
-			buffWriter.Write([]byte(";"))
+			o, err := writeSeek(writer, kvBytes, offset)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("error writing as bytes key-value %+v: %v", kv, err))
+				continue
+			}
+			offset = o
 			counter++
 		}
-		buffWriter.Flush()
 	}
 	var errorsMerged error
 	if len(errs) > 0 {
@@ -576,12 +616,8 @@ func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error 
 }
 
 // Restore to be used from Immu CLI
-func (c *ImmuClient) Restore(ctx context.Context, reader io.ReadCloser) (int64, error) {
+func (c *ImmuClient) Restore(ctx context.Context, reader io.ReadSeeker, chunkSize int) (int64, error) {
 	start := time.Now()
-
-	const kvListMaxLen = 30
-
-	defer reader.Close()
 
 	var entryCounter int64
 	var counter int64
@@ -590,15 +626,16 @@ func (c *ImmuClient) Restore(ctx context.Context, reader io.ReadCloser) (int64, 
 		return counter, ErrNotConnected
 	}
 
-	buffReader := bufio.NewReader(reader)
 	var errs []string
+	var offset int64
 	kvList := new(pb.KVList)
 	for {
-		lineBytes, err := buffReader.ReadBytes(';')
+		lineBytes, o, err := readSeek(reader, offset)
 		if err == io.EOF {
 			break
 		}
 		entryCounter++
+		offset = o
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("error reading file entry %d: %v", entryCounter, err))
 			continue
@@ -607,14 +644,14 @@ func (c *ImmuClient) Restore(ctx context.Context, reader io.ReadCloser) (int64, 
 			continue
 		}
 		kv := new(pb.KV)
-		err = proto.Unmarshal(lineBytes[:len(lineBytes)-1], kv)
+		err = proto.Unmarshal(lineBytes, kv)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("error unmarshaling to key-value the file entry %d: %v", entryCounter, err))
 			continue
 		}
 
 		kvList.Kv = append(kvList.Kv, kv)
-		if len(kvList.Kv) == kvListMaxLen {
+		if len(kvList.Kv) == chunkSize {
 			if err := c.restoreChunk(ctx, kvList); err != nil {
 				errs = append(errs, err.Error())
 			} else {
