@@ -17,7 +17,6 @@ limitations under the License.
 package store
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/codenotary/immudb/pkg/logger"
