@@ -32,7 +32,7 @@ immudb is currently runs on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, 
 other systems derived from them, such as **Kubernetes** and **Docker**.
 
 [![Tweet about
-immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb,lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
+immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
 
 
 ## Contents
