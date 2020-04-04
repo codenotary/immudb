@@ -1,7 +1,14 @@
-# immudb
+<!--
+---
+title: "immudb"
+custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
+---
+-->
+
+# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb)
-[![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb)
+
 
 immudb is **lightweight, high-speed immutable database** for systems and applications. With immmudb you can
 track changes in sensitive data in your transactional databases and then record those changes indelibly in a the 
@@ -23,6 +30,10 @@ immudb has 4 main benefits:
 
 immudb is currently runs on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
 other systems derived from them, such as **Kubernetes** and **Docker**.
+
+[![Tweet about
+immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb,lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
+
 
 ## Contents
 
