@@ -42,7 +42,7 @@ other systems derived from them, such as **Kubernetes** and **Docker**.
 
 We welcome [contributions](CONTRIBUTING.md). Feel free to join the team!
 
-To report bugs or get help, use [GitHub's issues](https://github.com/immudb/issues).
+To report bugs or get help, use [GitHub's issues](https://github.com/codenotary/immudb/issues).
 
 
 ## License
