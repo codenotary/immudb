@@ -9,7 +9,7 @@ tamperproof immudb database. This allows you to keep an indelible history of, sa
 
 Traditional transaction logs are hard to scale, and are not immutable. So there is no way to know for sure if your data has been compromised. 
 
-As such immudb provides **unparalleled insights** **retro-actively**, of what happaned to your sensitive data, even
+As such immudb provides **unparalleled insights** **retro-actively**, of what happened to your sensitive data, even
 if your perimiter was compromised. immudb provides the guarantatee of immutability by using internally a **Merkle tree structure**. 
 
 immudb gives you the same **cyrptographic verification** of the integrity of data written with **SHA-256** like classic blockhain without the cost and complexity associated with blockhains today. 
