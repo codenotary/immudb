@@ -5,7 +5,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 ---
 -->
 
-# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb)
+# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb)[![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb)
 
