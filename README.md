@@ -57,10 +57,10 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 ### High level features
 
-**Simplified API for safe SET/GET**
+#### Simplified API for safe SET/GET
 single API call that performs all steps and returns the proofs directly.
 
-**REST gateway (for legacy systems)**
+#### REST gateway (for legacy systems)
 A gRPC REST gateway is a reverse proxy that sits in the middle between the gRPC API and the application.
 
 Other than simply converting the gRPC API to a REST interface, this component will have a built-in verification on query results and will return the verification result directly. 
@@ -68,7 +68,7 @@ Other than simply converting the gRPC API to a REST interface, this component wi
 This solution is completely transparent: the client application can use just one endpoint (the REST interface) to perform all operations.
 The REST gateway can be also embedded into the immud binary directly.
 
-**Driver for common languages**
+#### Driver for common languages
 Driver available for:
 1. Java
 2. .net
@@ -76,37 +76,35 @@ Driver available for:
 4. Python
 5. Node.js
 
-**Structured value**
+#### Structured value
 The Any message type of protobuffer allows to lets you use messages as embedded types without having their .proto definition. Thus it’s possible to decouple and extend (in future) the value structure.
 Value can be augmented with some client provided metadata. That also permits to use an on-demand serialization/deserialization strategy
 
-**Item References**
+#### Item References
 enables the insertion of a special entry which references to another item
 
-**Value timestamp**
+#### Value timestamp
 The server should not set the timestamp, to avoid relying on a not verifiable “single source of truth”. 
 Thus the clients have to provide it. The client driver implementation can automatically do that for the user.
 
-**Primary Index**
+#### Primary Index
 Index enables queries and search based on the data key
 
-**Secondary Index**
+#### Secondary Index
 Index enables queries and search based on the data value
 
-**Cryptographic signatures**
+#### Cryptographic signatures
 A signature (PKI) provided by the client can be became part of the insertion process
 
-**Authentication (transport)**
+#### Authentication (transport)
 integrated mTLS offers the best approach for machine-to-machine authentication, also providing communications security (entryption) over the transport channel
-
-
-
 
 
 ### Tech specs
 
-| DB Model                  | Key-Value store with 3D access (key-value-index) |
+| Topic                     | Description                                      |
 |---------------------------|--------------------------------------------------|
+| DB Model                  | Key-Value store with 3D access (key-value-index) |
 | Data scheme               | schema-free                                      |
 | Implementation design     | LSM tree with value log and parallel Merkle Tree |
 | Implemementation language | Golang                                           |
