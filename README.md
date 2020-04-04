@@ -99,6 +99,14 @@ A signature (PKI) provided by the client can be became part of the insertion pro
 #### Authentication (transport)
 integrated mTLS offers the best approach for machine-to-machine authentication, also providing communications security (entryption) over the transport channel
 
+### Benchmark
+
+* 4 CPU cores
+* Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz
+* 64 GB memory
+* SSD
+
+![immudb Benchmark](img/performance.png "immudb QLDB benchmark")
 
 ### Tech specs
 
