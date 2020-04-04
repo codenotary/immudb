@@ -38,16 +38,28 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 ## Contents
 
 1.  [What does it look like?](#what-does-it-look-like) - Take a quick tour through the project
-2.  [Quickstart](#quickstart) - How to try it now on your systems, get a Docket container running in seconds
-3.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
-4.  [News](#news) - The latest news about immudb
-5.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
-6.  [Features](#features) - How you'll use immudb on your systems
-7.  [Read world examples](#examples) - Read about how others use immudb
-8.  [Documentation](#documentation) - Read the documentation
-9.  [Community](#community) - Discuss immudb with others and get support
-10. [License](#license) - Check immudb's licencing
-11. [Is it awesome?](#is-it-awesome) - Yes.
+2.  [Our userbase](#user-base) - Our userbase
+3.  [Quickstart](#quickstart) - How to try it now on your systems, get a Docket container running in seconds
+4.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
+5.  [News](#news) - The latest news about immudb
+6.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
+7.  [Features](#features) - How you'll use immudb on your systems
+8.  [Read world examples](#examples) - Read about how others use immudb
+9.  [Documentation](#documentation) - Read the documentation
+10.  [Community](#community) - Discuss immudb with others and get support
+11. [License](#license) - Check immudb's licencing
+12. [Is it awesome?](#is-it-awesome) - Yes.
+
+## What does it look like?
+
+## User base
+
+### Docker pulls
+
+We provide Docker images for the most common architectures. These are statistics reported by Docker Hub:
+
+[![codenotary/immudb
+(official)](https://img.shields.io/docker/pulls/codenotary/immudb.svg?label=codenotary/immudb+%28official%29)](https://hub.docker.com/r/codenotary/immudb/)
 
 ## Community
 
