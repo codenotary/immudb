@@ -33,10 +33,17 @@ other systems derived from them, such as **Kubernetes** and **Docker**.
 5.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
 6.  [Features](#features) - How you'll use immudb on your systems
 7.  [Read world examples](#examples) - Read about how others use immudb
-8. [Documentation](#documentation) - Read the documentation
-9. [Community](#community) - Discuss immudb with others and get support
+8.  [Documentation](#documentation) - Read the documentation
+9.  [Community](#community) - Discuss immudb with others and get support
 10. [License](#license) - Check immudb's licencing
 11. [Is it awesome?](#is-it-awesome) - Yes.
+
+## Community
+
+We welcome [contributions](CONTRIBUTING.md). Feel free to join the team!
+
+To report bugs or get help, use [GitHub's issues](https://github.com/immudb/issues).
+
 
 ## License
 
