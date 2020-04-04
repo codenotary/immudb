@@ -53,6 +53,75 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 ## What does it look like?
 
+![immudb Highlevel](img/highlevel.png "immudb highlevel overview")
+
+### High level features
+
+**Simplified API for safe SET/GET**
+single API call that performs all steps and returns the proofs directly.
+
+**REST gateway (for legacy systems)**
+A gRPC REST gateway is a reverse proxy that sits in the middle between the gRPC API and the application.
+
+Other than simply converting the gRPC API to a REST interface, this component will have a built-in verification on query results and will return the verification result directly. 
+
+This solution is completely transparent: the client application can use just one endpoint (the REST interface) to perform all operations.
+The REST gateway can be also embedded into the immud binary directly.
+
+**Driver for common languages**
+Driver available for:
+1. Java
+2. .net
+3. Golang
+4. Python
+5. Node.js
+
+**Structured value**
+The Any message type of protobuffer allows to lets you use messages as embedded types without having their .proto definition. Thus it’s possible to decouple and extend (in future) the value structure.
+Value can be augmented with some client provided metadata. That also permits to use an on-demand serialization/deserialization strategy
+
+**Item References**
+enables the insertion of a special entry which references to another item
+
+**Value timestamp**
+The server should not set the timestamp, to avoid relying on a not verifiable “single source of truth”. 
+Thus the clients have to provide it. The client driver implementation can automatically do that for the user.
+
+**Primary Index**
+Index enables queries and search based on the data key
+
+**Secondary Index**
+Index enables queries and search based on the data value
+
+**Cryptographic signatures**
+A signature (PKI) provided by the client can be became part of the insertion process
+
+**Authentication (transport)**
+integrated mTLS offers the best approach for machine-to-machine authentication, also providing communications security (entryption) over the transport channel
+
+
+
+
+
+### Tech specs
+
+| DB Model                  | Key-Value store with 3D access (key-value-index) |
+|---------------------------|--------------------------------------------------|
+| Data scheme               | schema-free                                      |
+| Implementation design     | LSM tree with value log and parallel Merkle Tree |
+| Implemementation language | Golang                                           |
+| Server OS(s)              | BSD, Linux, OS X, Solaris, Windows               |
+| Embeddable                | Yes, optionally                                  |
+| Server APIs               | gRPC (using protocol buffers); immugw RESTful    |
+| Partition methods         | Sharding                                         |
+| Consistency concepts      | Eventual Consistency Immediate Consistency       |
+| Transaction concepts      | ACID with Snapshot Isolation (SSI)               |
+| Durability                | Yes                                              |
+| Snapshots                 | Yes                                              |
+| High Read throughput      | Yes                                              |
+| High Write throughput     | Yes                                              |
+| Optimized for SSD         | Yes                                              |
+
 ## User base
 
 ### Docker pulls
