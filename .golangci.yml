@@ -1,0 +1,193 @@
+# This file contains all available configuration options
+# with their default values.
+
+# options for analysis running
+run:
+  # default concurrency is a available CPU number
+  concurrency: 4
+
+  # timeout for analysis, e.g. 30s, 5m, default is 1m
+  deadline: 1m
+
+  # exit code when at least one issue was found, default is 1
+  issues-exit-code: 1
+
+  # include test files or not, default is true
+  tests: false
+
+  skip-dirs:
+    - pkg/api
+# output configuration options
+output:
+  # colored-line-number|line-number|json|tab|checkstyle, default is "colored-line-number"
+  format: colored-line-number
+
+  # print lines of code with issue, default is true
+  print-issued-lines: true
+
+  # print linter name in the end of issue text, default is true
+  print-linter-name: true
+
+
+# all available settings of specific linters
+linters-settings:
+  errcheck:
+    # report about not checking of errors in type assetions: `a := b.(MyStruct)`;
+    # default is false: such cases aren't reported by default.
+    check-type-assertions: false
+
+    # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
+    # default is false: such cases aren't reported by default.
+    check-blank: false
+
+    # [deprecated] comma-separated list of pairs of the form pkg:regex
+    # the regex is used to ignore names within pkg. (default "fmt:.*").
+    # see https://github.com/kisielk/errcheck#the-deprecated-method for details
+    ignore: fmt:.*,io/ioutil:^Read.*
+
+    # path to a file containing a list of functions to exclude from checking
+    # see https://github.com/kisielk/errcheck#excluding-functions for details
+    #exclude: /path/to/file.txt
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
+  golint:
+    # minimal confidence for issues, default is 0.8
+    min-confidence: 0.8
+  gofmt:
+    # simplify code: gofmt with `-s` option, true by default
+    simplify: true
+  goimports:
+    # put imports beginning with prefix after 3rd-party packages;
+    # it's a comma-separated list of prefixes
+    local-prefixes: github.com/org/project
+  gocyclo:
+    # minimal code complexity to report, 30 by default (but we recommend 10-20)
+    min-complexity: 15
+  maligned:
+    # print struct with more effective memory layout or not, false by default
+    suggest-new: true
+  dupl:
+    # tokens count to trigger issue, 150 by default
+    threshold: 100
+  goconst:
+    # minimal length of string constant, 3 by default
+    min-len: 3
+    # minimal occurrences count to trigger, 3 by default
+    min-occurrences: 3
+  depguard:
+    list-type: blacklist
+    include-go-root: false
+    packages:
+    - github.com/davecgh/go-spew/spew
+  misspell:
+    # Correct spellings using locale preferences for US or UK.
+    # Default is to use a neutral variety of English.
+    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
+    locale: US
+  lll:
+    # max line length, lines longer will be reported. Default is 120.
+    # '\t' is counted as 1 character by default, and can be changed with the tab-width option
+    line-length: 120
+    # tab width in spaces. Default to 1.
+    tab-width: 1
+  unused:
+    # treat code as a program (not a library) and report unused exported identifiers; default is false.
+    # XXX: if you enable this setting, unused will report a lot of false-positives in text editors:
+    # if it's called for subdir of a project it can't find funcs usages. All text editor integrations
+    # with golangci-lint call it on a directory with the changed file.
+    check-exported: false
+  unparam:
+    # call graph construction algorithm (cha, rta). In general, use cha for libraries,
+    # and rta for programs with main packages. Default is cha.
+    algo: cha
+
+    # Inspect exported functions, default is false. Set to true if no external program/library imports your code.
+    # XXX: if you enable this setting, unparam will report a lot of false-positives in text editors:
+    # if it's called for subdir of a project it can't find external interfaces. All text editor integrations
+    # with golangci-lint call it on a directory with the changed file.
+    check-exported: false
+  nakedret:
+    # make an issue if func has more lines of code than this setting and it has naked returns; default is 30
+    max-func-lines: 30
+  prealloc:
+    # XXX: we don't recommend using this linter before doing performance profiling.
+    # For most programs usage of prealloc will be a premature optimization.
+
+    # Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them.
+    # True by default.
+    simple: true
+    range-loops: true # Report preallocation suggestions on range loops, true by default
+    for-loops: false # Report preallocation suggestions on for loops, false by default
+
+linters:
+  enable:
+    - govet # Used in main precommit. Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string [fast: true]
+    - errcheck # Errcheck is a program for checking for unchecked errors in go programs. These unchecked errors can be critical bugs in some cases [fast: true]
+    - staticcheck  #Staticcheck is a go vet on steroids, applying a ton of static analysis checks [fast: false]
+    - unused # Checks Go code for unused constants, variables, functions and types [fast: false]
+    - gosimple # Linter for Go source code that specializes in simplifying a code [fast: false]
+    - structcheck # Finds an unused struct fields [fast: true]
+    - varcheck # Finds unused global variables and constants [fast: true]
+    - ineffassign # Detects when assignments to existing variables are not used [fast: true]
+    - deadcode # Finds unused code [fast: true]
+    #- typecheck # Like the front-end of a Go compiler, parses and type-checks Go code [fast: true]
+    #- goimports #  Goimports does everything that gofmt does. Additionally it checks unused imports [fast: true]
+    #- golint # Golint differs from gofmt. Gofmt reformats Go source code, whereas golint prints out style mistakes [fast: true]
+    #- gosec (gas) #  Inspects source code for security problems [fast: true]
+    #- interfacer #  Linter that suggests narrower interface types [fast: false]
+    - unconvert #  Remove unnecessary type conversions [fast: true]
+    #- dupl #  Tool for code clone detection [fast: true]
+    #- goconst #  Finds repeated strings that could be replaced by a constant [fast: true]
+    - gocyclo #  Computes and checks the cyclomatic complexity of functions [fast: true]
+    #- gofmt # Used in main precommit.  Gofmt checks whether code was gofmt-ed. By default this tool runs with -s option to check for code simplification [fast: true]
+    #- maligned #  Tool to detect Go structs that would take less memory if their fields were sorted [fast: true]
+    #- megacheck #  3 sub-linters in one: unused, gosimple and staticcheck [fast: false]
+    #- depguard #  Go linter that checks if package imports are in a list of acceptable packages [fast: true]
+    - misspell #  Finds commonly misspelled English words in comments [fast: true]
+    #- lll #  Reports long lines [fast: true]
+    #- unparam #  Reports unused function parameters [fast: false]
+    #- nakedret #  Finds naked returns in functions greater than a specified function length [fast: true]
+    #- prealloc #  Finds slice declarations that could potentially be preallocated [fast: true]
+    #- scopelint #  Scopelint checks for unpinned variables in go programs [fast: true]
+    #- gocritic #  The most opinionated Go source code linter [fast: true]
+    #- gochecknoinits #  Checks that no init functions are present in Go code [fast: true]
+    #- gochecknoglobals #  Checks that no globals are present in Go code [fast: true]
+  fast: true
+
+
+issues:
+  # List of regexps of issue texts to exclude, empty list by default.
+  # But independently from this option we use default exclude patterns,
+  # it can be disabled by `exclude-use-default: false`. To list all
+  # excluded by default patterns execute `golangci-lint run --help`
+  exclude:
+    - "not declared by package utf8"
+    - "unicode/utf8/utf8.go"
+    #- ".*defer.*"
+
+  # Independently from option `exclude` we use default exclude patterns,
+  # it can be disabled by this option. To list all
+  # excluded by default patterns execute `golangci-lint run --help`.
+  # Default value for this option is true.
+  exclude-use-default: false
+
+  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
+  max-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
+  max-same-issues: 0
+
+  # Show only new issues: if there are unstaged changes or untracked files,
+  # only those changes are analyzed, else only changes in HEAD~ are analyzed.
+  # It's a super-useful option for integration of golangci-lint into existing
+  # large codebase. It's not practical to fix all existing issues at the moment
+  # of integration: much better don't allow issues in new code.
+  # Default is false.
+  new: false
+
+  # Show only new issues created after git revision `REV`
+  #new-from-rev: REV
+
+  # Show only new issues created in git patch with set file path.
+  #new-from-patch: path/to/patch/file

@@ -1,0 +1,19 @@
+
+repos:
+- repo: git://github.com/pre-commit/pre-commit-hooks
+  rev: v2.1.0
+  hooks:
+  - id: check-merge-conflict
+  - id: check-yaml
+  - id: end-of-file-fixer
+  - id: trailing-whitespace
+- repo: git://github.com/dnephin/pre-commit-golang
+  rev: v0.3.3
+  hooks:
+  - id: go-fmt
+  - id: validate-toml
+  - id: no-go-testing
+  - id: golangci-lint
+    args: ['./...']
+  - id: go-unit-tests
+    args: ['--race', './...']
