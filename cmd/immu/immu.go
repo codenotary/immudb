@@ -283,11 +283,11 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				value2, err := ioutil.ReadAll(&buf)
+				value, err := ioutil.ReadAll(&buf)
 				if err != nil {
 					return err
 				}
-				printItem([]byte(args[0]), value2, response)
+				printItem([]byte(args[0]), value, response)
 				return nil
 			},
 			Args: cobra.MinimumNArgs(1),
@@ -764,34 +764,74 @@ func options(cmd *cobra.Command) (*client.Options, error) {
 
 func printItem(key []byte, value []byte, message interface{}) {
 	var index uint64
+	verified := false
+	isVerified := false
 	switch m := message.(type) {
 	case *schema.Index:
 		index = m.Index
+	case *client.VerifiedIndex:
+		index = m.Index
+		verified = m.Verified
+		isVerified = true
 	case *schema.Item:
 		key = m.Key
 		value = m.Value
 		index = m.Index
+	case *client.VerifiedItem:
+		key = m.Key
+		value = m.Value
+		index = m.Index
+		verified = m.Verified
+		isVerified = true
 	}
-
-	fmt.Printf(`index:	%d
-key:	%s
-value:	%s
-hash:	%x
+	if !isVerified {
+		fmt.Printf(`index:		%d
+key:		%s
+value:		%s
+hash:		%x
 `, index, key, value, api.Digest(index, key, value))
+		return
+	}
+	fmt.Printf(`index:		%d
+key:		%s
+value:		%s
+hash:		%x
+verified:	%t
+`, index, key, value, api.Digest(index, key, value), verified)
 }
 
 func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {
-	index := message.(*schema.Index).Index
+	var index uint64
+	verified := false
+	isVerified := false
+	switch m := message.(type) {
+	case *schema.Index:
+		index = m.Index
+	case *client.VerifiedIndex:
+		index = m.Index
+		verified = m.Verified
+		isVerified = true
+	}
 	key, err := store.SetKey(rkey, set, score)
 	if err != nil {
 		fmt.Printf(err.Error())
 	}
-
-	fmt.Printf(`index:	%d
-set:    %s
-key:	%s
-score:  %f
-value:	%s
-hash:	%x
+	if !isVerified {
+		fmt.Printf(`index:		%d
+set:		%s
+key:		%s
+score:		%f
+value:		%s
+hash:		%x
 `, index, set, key, score, rkey, api.Digest(index, key, rkey))
+		return
+	}
+	fmt.Printf(`index:		%d
+set:		%s
+key:		%s
+score:		%f
+value:		%s
+hash:		%x
+verified:	%t
+`, index, set, key, score, rkey, api.Digest(index, key, rkey), verified)
 }
