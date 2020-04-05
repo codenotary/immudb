@@ -45,7 +45,7 @@ func main() {
 	}
 	commands := []*cobra.Command{
 		&cobra.Command{
-			Use:     "get [key]",
+			Use:     "get key",
 			Short:   "Get item having the specified key",
 			Aliases: []string{"g"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,7 +75,7 @@ func main() {
 			Args: cobra.ExactArgs(1),
 		},
 		&cobra.Command{
-			Use:     "safeget [key]",
+			Use:     "safeget key",
 			Short:   "Get and verify item having the specified key",
 			Aliases: []string{"sg"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -105,7 +105,7 @@ func main() {
 			Args: cobra.ExactArgs(1),
 		},
 		&cobra.Command{
-			Use:     "set [key] [value]",
+			Use:     "set key value",
 			Short:   "Add new item having the specified key and value",
 			Aliases: []string{"s"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -152,7 +152,7 @@ func main() {
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
-			Use:     "safeset [key] [value]",
+			Use:     "safeset key value",
 			Short:   "Add and verify new item having the specified key and value",
 			Aliases: []string{"ss"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -199,7 +199,7 @@ func main() {
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
-			Use:     "reference [reference] [key]",
+			Use:     "reference refkey key",
 			Short:   "Add new reference to an existing key",
 			Aliases: []string{"r"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -246,7 +246,7 @@ func main() {
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
-			Use:     "safereference [reference] [key]",
+			Use:     "safereference refkey key",
 			Short:   "Add and verify new reference to an existing key",
 			Aliases: []string{"sr"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -293,7 +293,7 @@ func main() {
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
-			Use:     "zadd [set] [score] [key]",
+			Use:     "zadd set score key",
 			Short:   "Add new key with score to a new or existing sorted set",
 			Aliases: []string{"za"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -343,7 +343,7 @@ func main() {
 			Args: cobra.MinimumNArgs(3),
 		},
 		&cobra.Command{
-			Use:     "safezadd [set] [score] [key]",
+			Use:     "safezadd set score key",
 			Short:   "Add and verify new key with score to a new or existing sorted set",
 			Aliases: []string{"sza"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -393,7 +393,7 @@ func main() {
 			Args: cobra.MinimumNArgs(3),
 		},
 		&cobra.Command{
-			Use:     "zscan [set]",
+			Use:     "zscan set",
 			Short:   "Iterate over a sorted set",
 			Aliases: []string{"zscn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -427,7 +427,7 @@ func main() {
 			Args: cobra.ExactArgs(1),
 		},
 		&cobra.Command{
-			Use:     "scan [prefix]",
+			Use:     "scan prefix",
 			Short:   "Iterate over keys having the specified prefix",
 			Aliases: []string{"scn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -461,7 +461,7 @@ func main() {
 			Args: cobra.ExactArgs(1),
 		},
 		&cobra.Command{
-			Use:     "count [prefix]",
+			Use:     "count prefix",
 			Short:   "Count keys having the specified prefix",
 			Aliases: []string{"cnt"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -491,7 +491,7 @@ func main() {
 			Args: cobra.ExactArgs(1),
 		},
 		&cobra.Command{
-			Use:     "inclusion [index]",
+			Use:     "inclusion index",
 			Short:   "Check if specified index is included in the current tree",
 			Aliases: []string{"i"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -554,7 +554,7 @@ root: %x at index: %d
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
-			Use:     "consistency [index] [hash]",
+			Use:     "consistency index hash",
 			Short:   "Check consistency for the specified index and hash",
 			Aliases: []string{"c"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -604,7 +604,7 @@ secondRoot: %x at index: %d
 			Args: cobra.MinimumNArgs(2),
 		},
 		&cobra.Command{
-			Use:     "history [key]",
+			Use:     "history key",
 			Short:   "Fetch history for the item having the specified key",
 			Aliases: []string{"h"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -663,7 +663,7 @@ secondRoot: %x at index: %d
 		},
 		&cobra.Command{
 			Use:     "backup [filename]",
-			Short:   "Save a backup to the specified (optional) filename",
+			Short:   "Save a backup to the specified filename (optional)",
 			Aliases: []string{"b"},
 			RunE: func(cmd *cobra.Command, args []string) error {
 				options, err := options(cmd)
@@ -697,7 +697,7 @@ secondRoot: %x at index: %d
 			Args: cobra.MaximumNArgs(1),
 		},
 		&cobra.Command{
-			Use:     "restore [filename]",
+			Use:     "restore filename",
 			Short:   "Restore a backup from the specified filename",
 			Aliases: []string{"rb"},
 			RunE: func(cmd *cobra.Command, args []string) error {
