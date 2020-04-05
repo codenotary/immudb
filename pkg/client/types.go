@@ -18,6 +18,7 @@ package client
 
 import (
 	"os"
+	"sync"
 
 	"google.golang.org/grpc"
 
@@ -32,6 +33,7 @@ type ImmuClient struct {
 	clientConn    *grpc.ClientConn
 	serviceClient schema.ImmuServiceClient
 	rootservice   RootService
+	sync.RWMutex
 }
 
 func DefaultClient() *ImmuClient {
