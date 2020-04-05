@@ -110,6 +110,10 @@ func (*VerifiedItem) ProtoMessage() {}
 // SafeGet ...
 func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error) {
 	start := time.Now()
+
+	c.Lock()
+	defer c.Unlock()
+
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
@@ -246,6 +250,10 @@ func (*VerifiedIndex) ProtoMessage() {}
 // SafeSet ...
 func (c *ImmuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*VerifiedIndex, error) {
 	start := time.Now()
+
+	c.Lock()
+	defer c.Unlock()
+
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
@@ -379,6 +387,10 @@ func (c *ImmuClient) Reference(ctx context.Context, reference []byte, key []byte
 // SafeReference ...
 func (c *ImmuClient) SafeReference(ctx context.Context, reference []byte, key []byte) (*VerifiedIndex, error) {
 	start := time.Now()
+
+	c.Lock()
+	defer c.Unlock()
+
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
@@ -450,6 +462,10 @@ func (c *ImmuClient) ZAdd(ctx context.Context, set []byte, score float64, key []
 // SafeZAdd ...
 func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*VerifiedIndex, error) {
 	start := time.Now()
+
+	c.Lock()
+	defer c.Unlock()
+
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
@@ -595,6 +611,8 @@ func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteSeeker) (int64, 
 		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t- "))
 	}
 
+	bkpClient.CloseSend()
+
 	c.Logger.Debugf("backup finished in %s", time.Since(start))
 
 	return counter, errorsMerged
@@ -608,7 +626,7 @@ func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error 
 		return fmt.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: error getting restore client: %v", kvListLen, kvListStr, err)
 	}
 	err = restoreClient.Send(kvList)
-	restoreClient.CloseAndRecv()
+	restoreClient.CloseSend()
 	if err != nil {
 		return fmt.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: %v", kvListLen, kvListStr, err)
 	}
