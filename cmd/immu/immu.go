@@ -803,48 +803,56 @@ func options(cmd *cobra.Command) (*client.Options, error) {
 
 func printItem(key []byte, value []byte, message interface{}) {
 	var index uint64
-	var ts uint64
 	verified := false
 	isVerified := false
+	var ts uint64
+	var hash []byte
 	switch m := message.(type) {
 	case *schema.Index:
 		index = m.Index
+		digest := api.Digest(index, key, value)
+		hash = digest[:]
 	case *client.VerifiedIndex:
 		index = m.Index
+		digest := api.Digest(index, key, value)
+		hash = digest[:]
 		verified = m.Verified
 		isVerified = true
 	case *schema.Item:
 		key = m.Key
 		value = m.Value
 		index = m.Index
-	case *client.VerifiedItem:
-		key = m.Key
-		value = m.Value
-		index = m.Index
-		verified = m.Verified
-		isVerified = true
+		hash = m.Hash()
 	case *schema.StructuredItem:
 		key = m.Key
 		value = m.Value.Payload
 		ts = m.Value.Timestamp
 		index = m.Index
+		hash = m.Hash()
+	case *client.VerifiedItem:
+		key = m.Key
+		value = m.Value
+		index = m.Index
+		verified = m.Verified
+		digest := api.Digest(index, key, value)
+		hash = digest[:]
+		isVerified = true
 	}
 	if !isVerified {
 		fmt.Printf(`index:		%d
 key:		%s
 value:		%s
 hash:		%x
-time:       %s
-`, index, key, value, api.Digest(index, key, value), time.Unix(int64(ts), 0))
+time:   %s
+`, index, key, value, hash, time.Unix(int64(ts),0))
 		return
 	}
 	fmt.Printf(`index:		%d
 key:		%s
 value:		%s
 hash:		%x
-time:       %s
 verified:	%t
-`, index, key, value, api.Digest(index, key, value), time.Unix(int64(ts), 0), verified)
+`, index, key, value, hash, time.Unix(int64(ts),0), verified)
 }
 
 func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {

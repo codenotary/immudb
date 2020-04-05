@@ -106,7 +106,7 @@ func (c *ImmuClient) Get(ctx context.Context, key []byte) (*schema.StructuredIte
 }
 
 // VerifiedItem ...
-type VerifiedStructuredItem struct {
+type VerifiedItem struct {
 	Key      []byte `json:"key"`
 	Value    []byte `json:"value"`
 	Index    uint64 `json:"index"`
@@ -114,15 +114,15 @@ type VerifiedStructuredItem struct {
 }
 
 // Reset ...
-func (vi *VerifiedStructuredItem) Reset() { *vi = VerifiedStructuredItem{} }
+func (vi *VerifiedItem) Reset() { *vi = VerifiedItem{} }
 
-func (vi *VerifiedStructuredItem) String() string { return proto.CompactTextString(vi) }
+func (vi *VerifiedItem) String() string { return proto.CompactTextString(vi) }
 
 // ProtoMessage ...
-func (*VerifiedStructuredItem) ProtoMessage() {}
+func (*VerifiedItem) ProtoMessage() {}
 
 // SafeGet ...
-func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedStructuredItem, error) {
+func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error) {
 	start := time.Now()
 
 	c.Lock()
@@ -146,7 +146,7 @@ func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 		},
 	}
 
-	safeSItem, err := c.serviceClient.SafeGetSV(ctx, sgOpts, opts...)
+	safeItem, err := c.serviceClient.SafeGet(ctx, sgOpts, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -174,12 +174,11 @@ func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 		nil
 }
 
-func (c *ImmuClient) Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error) {
+func (c *ImmuClient) Scan(ctx context.Context, prefix []byte) (*schema.ItemList, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	list, err := c.serviceClient.Scan(ctx, &schema.ScanOptions{Prefix: prefix})
-	return list.ToSItemList(), err
+	return c.serviceClient.Scan(ctx, &schema.ScanOptions{Prefix: prefix})
 }
 
 func (c *ImmuClient) ZScan(ctx context.Context, set []byte) (*schema.ItemList, error) {
@@ -215,8 +214,10 @@ func (c *ImmuClient) Set(ctx context.Context, key []byte, value []byte) (*schema
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	skv := schema.NewSKV(key, value)
-	result, err := c.serviceClient.Set(ctx, skv.ToKV())
+	result, err := c.serviceClient.Set(ctx, &schema.KeyValue{
+		Key:   key,
+		Value: value,
+	})
 	c.Logger.Debugf("set finished in %s", time.Since(start))
 	return result, err
 }
@@ -359,8 +360,9 @@ func (c *ImmuClient) ByIndex(ctx context.Context, index uint64) (*schema.Structu
 	item, err := c.serviceClient.ByIndex(ctx, &schema.Index{
 		Index: index,
 	})
+	result := item.ToSItem()
 	c.Logger.Debugf("by-index finished in %s", time.Since(start))
-	return item.ToSItem(), err
+	return result, err
 }
 
 func (c *ImmuClient) History(ctx context.Context, key []byte) (*schema.StructuredItemList, error) {
@@ -371,8 +373,9 @@ func (c *ImmuClient) History(ctx context.Context, key []byte) (*schema.Structure
 	list, err := c.serviceClient.History(ctx, &schema.Key{
 		Key: key,
 	})
+	result := list.ToSItemList()
 	c.Logger.Debugf("history finished in %s", time.Since(start))
-	return list.ToSItemList(), err
+	return result, err
 }
 
 func (c *ImmuClient) Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error) {

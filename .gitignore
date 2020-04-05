@@ -35,6 +35,8 @@ cmd/immugw/immugw
 
 # Working files
 /immudb
+/.root
+cmd/immugw/.root
 cmd/immud/immudb
 **/.root
 immud.pid

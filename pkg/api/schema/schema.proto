@@ -234,7 +234,7 @@ service ImmuService {
               body: "*"
           };
 	};
-
+	
 	rpc SafeSet(SafeSetOptions) returns (Proof){}
 
 	rpc SafeSetSV(SafeSetSVOptions) returns (Proof){
@@ -277,7 +277,7 @@ service ImmuService {
             body: "*"
         };
 	};
-
+	
 	rpc Scan(ScanOptions) returns (ItemList){};
 
 	rpc ScanSV(ScanOptions) returns (StructuredItemList){
