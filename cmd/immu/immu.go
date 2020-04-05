@@ -708,7 +708,7 @@ secondRoot: %x at index: %d
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
-				file, err := os.Create(args[0])
+				file, err := os.Open(args[0])
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
