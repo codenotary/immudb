@@ -1,9 +1,8 @@
 {
   "swagger": "2.0",
-  "host": "127.0.0.1:8081",
   "info": {
-	"title": "schema.proto",
-	"version": "v0.0.1"
+    "title": "schema.proto",
+    "version": "version not set"
   },
   "consumes": [
     "application/json"
@@ -30,6 +29,12 @@
               },
               "title": "Stream result of pbKVList"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -49,12 +54,18 @@
     },
     "/v1/immurestproxy/batch/get": {
       "post": {
-        "operationId": "GetBatch",
+        "operationId": "GetBatchSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaStructuredItemList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -75,12 +86,18 @@
     },
     "/v1/immurestproxy/batch/set": {
       "post": {
-        "operationId": "SetBatch",
+        "operationId": "SetBatchSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaIndex"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -90,7 +107,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/immudbschemaKVList"
+              "$ref": "#/definitions/schemaSKVList"
             }
           }
         ],
@@ -107,6 +124,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaConsistencyProof"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -133,6 +156,12 @@
             "schema": {
               "$ref": "#/definitions/schemaHealthResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "tags": [
@@ -142,12 +171,18 @@
     },
     "/v1/immurestproxy/history/{key}": {
       "get": {
-        "operationId": "History",
+        "operationId": "HistorySV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaStructuredItemList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -174,6 +209,12 @@
             "schema": {
               "$ref": "#/definitions/schemaInclusionProof"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -192,12 +233,18 @@
     },
     "/v1/immurestproxy/item": {
       "post": {
-        "operationId": "Set",
+        "operationId": "SetSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaIndex"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -207,7 +254,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaKeyValue"
+              "$ref": "#/definitions/schemaStructuredKeyValue"
             }
           }
         ],
@@ -224,6 +271,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaItemsCount"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -243,12 +296,18 @@
     },
     "/v1/immurestproxy/item/index/{index}": {
       "get": {
-        "operationId": "ByIndex",
+        "operationId": "ByIndexSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItem"
+              "$ref": "#/definitions/schemaStructuredItem"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -268,12 +327,18 @@
     },
     "/v1/immurestproxy/item/safe": {
       "post": {
-        "operationId": "SafeSet",
+        "operationId": "SafeSetSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaProof"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -283,7 +348,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaSafeSetOptions"
+              "$ref": "#/definitions/schemaSafeSetSVOptions"
             }
           }
         ],
@@ -294,12 +359,18 @@
     },
     "/v1/immurestproxy/item/safe/get": {
       "post": {
-        "operationId": "SafeGet",
+        "operationId": "SafeGetSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaSafeItem"
+              "$ref": "#/definitions/schemaSafeStructuredItem"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -320,12 +391,18 @@
     },
     "/v1/immurestproxy/item/scan": {
       "post": {
-        "operationId": "Scan",
+        "operationId": "ScanSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaStructuredItemList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -346,12 +423,18 @@
     },
     "/v1/immurestproxy/item/{key}": {
       "get": {
-        "operationId": "Get",
+        "operationId": "GetSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItem"
+              "$ref": "#/definitions/schemaStructuredItem"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -378,6 +461,12 @@
             "schema": {
               "$ref": "#/definitions/schemaIndex"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -403,6 +492,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaItemsCount"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -431,6 +526,12 @@
             "schema": {
               "$ref": "#/definitions/schemaRoot"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "tags": [
@@ -446,6 +547,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaProof"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -473,6 +580,12 @@
             "schema": {
               "$ref": "#/definitions/schemaProof"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -499,6 +612,12 @@
             "schema": {
               "$ref": "#/definitions/schemaIndex"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -518,12 +637,18 @@
     },
     "/v1/immurestproxy/zscan": {
       "post": {
-        "operationId": "ZScan",
+        "operationId": "ZScanSV",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaStructuredItemList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -544,17 +669,6 @@
     }
   },
   "definitions": {
-    "immudbschemaKVList": {
-      "type": "object",
-      "properties": {
-        "KVs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaKeyValue"
-          }
-        }
-      }
-    },
     "pbKV": {
       "type": "object",
       "properties": {
@@ -617,6 +731,27 @@
         }
       }
     },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
     "runtimeStreamError": {
       "type": "object",
       "properties": {
@@ -667,6 +802,19 @@
             "type": "string",
             "format": "byte"
           }
+        }
+      }
+    },
+    "schemaContent": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "payload": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -845,6 +993,17 @@
         }
       }
     },
+    "schemaSKVList": {
+      "type": "object",
+      "properties": {
+        "SKVs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaStructuredKeyValue"
+          }
+        }
+      }
+    },
     "schemaSafeGetOptions": {
       "type": "object",
       "properties": {
@@ -878,14 +1037,25 @@
         }
       }
     },
-    "schemaSafeSetOptions": {
+    "schemaSafeSetSVOptions": {
       "type": "object",
       "properties": {
-        "kv": {
-          "$ref": "#/definitions/schemaKeyValue"
+        "skv": {
+          "$ref": "#/definitions/schemaStructuredKeyValue"
         },
         "rootIndex": {
           "$ref": "#/definitions/schemaIndex"
+        }
+      }
+    },
+    "schemaSafeStructuredItem": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/schemaStructuredItem"
+        },
+        "proof": {
+          "$ref": "#/definitions/schemaProof"
         }
       }
     },
@@ -922,6 +1092,45 @@
         "deep": {
           "type": "boolean",
           "format": "boolean"
+        }
+      }
+    },
+    "schemaStructuredItem": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "$ref": "#/definitions/schemaContent"
+        },
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaStructuredItemList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaStructuredItem"
+          }
+        }
+      }
+    },
+    "schemaStructuredKeyValue": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "$ref": "#/definitions/schemaContent"
         }
       }
     },

@@ -50,8 +50,9 @@ func (r safeGetResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMu
 
 		// DO NOT USE leaf generated from server for security reasons
 		// (maybe somebody can create a temper leaf)
+		si := p.Item.ToSItem()
 		verified := p.Proof.Verify(p.Item.Hash(), *root)
-		i := &item{p.Item.Key, p.Item.Value, p.Item.Index, verified}
+		i := &item{p.Item.Key, si.Value.Payload, si.Value.Timestamp, p.Item.Index, verified}
 
 		newData, _ := json.Marshal(i)
 		if verified {

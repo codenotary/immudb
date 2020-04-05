@@ -113,6 +113,100 @@ func (m *KeyValue) GetValue() []byte {
 	return nil
 }
 
+type StructuredKeyValue struct {
+	Key                  []byte   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value                *Content `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *StructuredKeyValue) Reset()         { *m = StructuredKeyValue{} }
+func (m *StructuredKeyValue) String() string { return proto.CompactTextString(m) }
+func (*StructuredKeyValue) ProtoMessage()    {}
+func (*StructuredKeyValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{2}
+}
+
+func (m *StructuredKeyValue) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StructuredKeyValue.Unmarshal(m, b)
+}
+func (m *StructuredKeyValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StructuredKeyValue.Marshal(b, m, deterministic)
+}
+func (m *StructuredKeyValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StructuredKeyValue.Merge(m, src)
+}
+func (m *StructuredKeyValue) XXX_Size() int {
+	return xxx_messageInfo_StructuredKeyValue.Size(m)
+}
+func (m *StructuredKeyValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_StructuredKeyValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StructuredKeyValue proto.InternalMessageInfo
+
+func (m *StructuredKeyValue) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+func (m *StructuredKeyValue) GetValue() *Content {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+type Content struct {
+	Timestamp            uint64   `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Payload              []byte   `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Content) Reset()         { *m = Content{} }
+func (m *Content) String() string { return proto.CompactTextString(m) }
+func (*Content) ProtoMessage()    {}
+func (*Content) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{3}
+}
+
+func (m *Content) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Content.Unmarshal(m, b)
+}
+func (m *Content) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Content.Marshal(b, m, deterministic)
+}
+func (m *Content) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Content.Merge(m, src)
+}
+func (m *Content) XXX_Size() int {
+	return xxx_messageInfo_Content.Size(m)
+}
+func (m *Content) XXX_DiscardUnknown() {
+	xxx_messageInfo_Content.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Content proto.InternalMessageInfo
+
+func (m *Content) GetTimestamp() uint64 {
+	if m != nil {
+		return m.Timestamp
+	}
+	return 0
+}
+
+func (m *Content) GetPayload() []byte {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
+
 type Index struct {
 	Index                uint64   `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -124,7 +218,7 @@ func (m *Index) Reset()         { *m = Index{} }
 func (m *Index) String() string { return proto.CompactTextString(m) }
 func (*Index) ProtoMessage()    {}
 func (*Index) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{2}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{4}
 }
 
 func (m *Index) XXX_Unmarshal(b []byte) error {
@@ -165,7 +259,7 @@ func (m *Item) Reset()         { *m = Item{} }
 func (m *Item) String() string { return proto.CompactTextString(m) }
 func (*Item) ProtoMessage()    {}
 func (*Item) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{3}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{5}
 }
 
 func (m *Item) XXX_Unmarshal(b []byte) error {
@@ -207,6 +301,61 @@ func (m *Item) GetIndex() uint64 {
 	return 0
 }
 
+type StructuredItem struct {
+	Key                  []byte   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value                *Content `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Index                uint64   `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *StructuredItem) Reset()         { *m = StructuredItem{} }
+func (m *StructuredItem) String() string { return proto.CompactTextString(m) }
+func (*StructuredItem) ProtoMessage()    {}
+func (*StructuredItem) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{6}
+}
+
+func (m *StructuredItem) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StructuredItem.Unmarshal(m, b)
+}
+func (m *StructuredItem) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StructuredItem.Marshal(b, m, deterministic)
+}
+func (m *StructuredItem) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StructuredItem.Merge(m, src)
+}
+func (m *StructuredItem) XXX_Size() int {
+	return xxx_messageInfo_StructuredItem.Size(m)
+}
+func (m *StructuredItem) XXX_DiscardUnknown() {
+	xxx_messageInfo_StructuredItem.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StructuredItem proto.InternalMessageInfo
+
+func (m *StructuredItem) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+func (m *StructuredItem) GetValue() *Content {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+func (m *StructuredItem) GetIndex() uint64 {
+	if m != nil {
+		return m.Index
+	}
+	return 0
+}
+
 type KVList struct {
 	KVs                  []*KeyValue `protobuf:"bytes,1,rep,name=KVs,proto3" json:"KVs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
@@ -218,7 +367,7 @@ func (m *KVList) Reset()         { *m = KVList{} }
 func (m *KVList) String() string { return proto.CompactTextString(m) }
 func (*KVList) ProtoMessage()    {}
 func (*KVList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{4}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{7}
 }
 
 func (m *KVList) XXX_Unmarshal(b []byte) error {
@@ -246,6 +395,45 @@ func (m *KVList) GetKVs() []*KeyValue {
 	return nil
 }
 
+type SKVList struct {
+	SKVs                 []*StructuredKeyValue `protobuf:"bytes,1,rep,name=SKVs,proto3" json:"SKVs,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
+}
+
+func (m *SKVList) Reset()         { *m = SKVList{} }
+func (m *SKVList) String() string { return proto.CompactTextString(m) }
+func (*SKVList) ProtoMessage()    {}
+func (*SKVList) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{8}
+}
+
+func (m *SKVList) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SKVList.Unmarshal(m, b)
+}
+func (m *SKVList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SKVList.Marshal(b, m, deterministic)
+}
+func (m *SKVList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SKVList.Merge(m, src)
+}
+func (m *SKVList) XXX_Size() int {
+	return xxx_messageInfo_SKVList.Size(m)
+}
+func (m *SKVList) XXX_DiscardUnknown() {
+	xxx_messageInfo_SKVList.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SKVList proto.InternalMessageInfo
+
+func (m *SKVList) GetSKVs() []*StructuredKeyValue {
+	if m != nil {
+		return m.SKVs
+	}
+	return nil
+}
+
 type KeyList struct {
 	Keys                 []*Key   `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -257,7 +445,7 @@ func (m *KeyList) Reset()         { *m = KeyList{} }
 func (m *KeyList) String() string { return proto.CompactTextString(m) }
 func (*KeyList) ProtoMessage()    {}
 func (*KeyList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{5}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{9}
 }
 
 func (m *KeyList) XXX_Unmarshal(b []byte) error {
@@ -296,7 +484,7 @@ func (m *ItemList) Reset()         { *m = ItemList{} }
 func (m *ItemList) String() string { return proto.CompactTextString(m) }
 func (*ItemList) ProtoMessage()    {}
 func (*ItemList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{6}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{10}
 }
 
 func (m *ItemList) XXX_Unmarshal(b []byte) error {
@@ -324,6 +512,45 @@ func (m *ItemList) GetItems() []*Item {
 	return nil
 }
 
+type StructuredItemList struct {
+	Items                []*StructuredItem `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *StructuredItemList) Reset()         { *m = StructuredItemList{} }
+func (m *StructuredItemList) String() string { return proto.CompactTextString(m) }
+func (*StructuredItemList) ProtoMessage()    {}
+func (*StructuredItemList) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{11}
+}
+
+func (m *StructuredItemList) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StructuredItemList.Unmarshal(m, b)
+}
+func (m *StructuredItemList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StructuredItemList.Marshal(b, m, deterministic)
+}
+func (m *StructuredItemList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StructuredItemList.Merge(m, src)
+}
+func (m *StructuredItemList) XXX_Size() int {
+	return xxx_messageInfo_StructuredItemList.Size(m)
+}
+func (m *StructuredItemList) XXX_DiscardUnknown() {
+	xxx_messageInfo_StructuredItemList.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StructuredItemList proto.InternalMessageInfo
+
+func (m *StructuredItemList) GetItems() []*StructuredItem {
+	if m != nil {
+		return m.Items
+	}
+	return nil
+}
+
 type Root struct {
 	Index                uint64   `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
 	Root                 []byte   `protobuf:"bytes,2,opt,name=root,proto3" json:"root,omitempty"`
@@ -336,7 +563,7 @@ func (m *Root) Reset()         { *m = Root{} }
 func (m *Root) String() string { return proto.CompactTextString(m) }
 func (*Root) ProtoMessage()    {}
 func (*Root) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{7}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{12}
 }
 
 func (m *Root) XXX_Unmarshal(b []byte) error {
@@ -386,7 +613,7 @@ func (m *ScanOptions) Reset()         { *m = ScanOptions{} }
 func (m *ScanOptions) String() string { return proto.CompactTextString(m) }
 func (*ScanOptions) ProtoMessage()    {}
 func (*ScanOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{8}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{13}
 }
 
 func (m *ScanOptions) XXX_Unmarshal(b []byte) error {
@@ -453,7 +680,7 @@ func (m *KeyPrefix) Reset()         { *m = KeyPrefix{} }
 func (m *KeyPrefix) String() string { return proto.CompactTextString(m) }
 func (*KeyPrefix) ProtoMessage()    {}
 func (*KeyPrefix) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{9}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{14}
 }
 
 func (m *KeyPrefix) XXX_Unmarshal(b []byte) error {
@@ -492,7 +719,7 @@ func (m *ItemsCount) Reset()         { *m = ItemsCount{} }
 func (m *ItemsCount) String() string { return proto.CompactTextString(m) }
 func (*ItemsCount) ProtoMessage()    {}
 func (*ItemsCount) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{10}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{15}
 }
 
 func (m *ItemsCount) XXX_Unmarshal(b []byte) error {
@@ -535,7 +762,7 @@ func (m *InclusionProof) Reset()         { *m = InclusionProof{} }
 func (m *InclusionProof) String() string { return proto.CompactTextString(m) }
 func (*InclusionProof) ProtoMessage()    {}
 func (*InclusionProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{11}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{16}
 }
 
 func (m *InclusionProof) XXX_Unmarshal(b []byte) error {
@@ -606,7 +833,7 @@ func (m *ConsistencyProof) Reset()         { *m = ConsistencyProof{} }
 func (m *ConsistencyProof) String() string { return proto.CompactTextString(m) }
 func (*ConsistencyProof) ProtoMessage()    {}
 func (*ConsistencyProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{12}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{17}
 }
 
 func (m *ConsistencyProof) XXX_Unmarshal(b []byte) error {
@@ -678,7 +905,7 @@ func (m *Proof) Reset()         { *m = Proof{} }
 func (m *Proof) String() string { return proto.CompactTextString(m) }
 func (*Proof) ProtoMessage()    {}
 func (*Proof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{13}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{18}
 }
 
 func (m *Proof) XXX_Unmarshal(b []byte) error {
@@ -753,7 +980,7 @@ func (m *SafeItem) Reset()         { *m = SafeItem{} }
 func (m *SafeItem) String() string { return proto.CompactTextString(m) }
 func (*SafeItem) ProtoMessage()    {}
 func (*SafeItem) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{14}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{19}
 }
 
 func (m *SafeItem) XXX_Unmarshal(b []byte) error {
@@ -788,6 +1015,53 @@ func (m *SafeItem) GetProof() *Proof {
 	return nil
 }
 
+type SafeStructuredItem struct {
+	Item                 *StructuredItem `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
+	Proof                *Proof          `protobuf:"bytes,2,opt,name=proof,proto3" json:"proof,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *SafeStructuredItem) Reset()         { *m = SafeStructuredItem{} }
+func (m *SafeStructuredItem) String() string { return proto.CompactTextString(m) }
+func (*SafeStructuredItem) ProtoMessage()    {}
+func (*SafeStructuredItem) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{20}
+}
+
+func (m *SafeStructuredItem) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SafeStructuredItem.Unmarshal(m, b)
+}
+func (m *SafeStructuredItem) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SafeStructuredItem.Marshal(b, m, deterministic)
+}
+func (m *SafeStructuredItem) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SafeStructuredItem.Merge(m, src)
+}
+func (m *SafeStructuredItem) XXX_Size() int {
+	return xxx_messageInfo_SafeStructuredItem.Size(m)
+}
+func (m *SafeStructuredItem) XXX_DiscardUnknown() {
+	xxx_messageInfo_SafeStructuredItem.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SafeStructuredItem proto.InternalMessageInfo
+
+func (m *SafeStructuredItem) GetItem() *StructuredItem {
+	if m != nil {
+		return m.Item
+	}
+	return nil
+}
+
+func (m *SafeStructuredItem) GetProof() *Proof {
+	if m != nil {
+		return m.Proof
+	}
+	return nil
+}
+
 type SafeSetOptions struct {
 	Kv                   *KeyValue `protobuf:"bytes,1,opt,name=kv,proto3" json:"kv,omitempty"`
 	RootIndex            *Index    `protobuf:"bytes,2,opt,name=rootIndex,proto3" json:"rootIndex,omitempty"`
@@ -800,7 +1074,7 @@ func (m *SafeSetOptions) Reset()         { *m = SafeSetOptions{} }
 func (m *SafeSetOptions) String() string { return proto.CompactTextString(m) }
 func (*SafeSetOptions) ProtoMessage()    {}
 func (*SafeSetOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{15}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{21}
 }
 
 func (m *SafeSetOptions) XXX_Unmarshal(b []byte) error {
@@ -835,6 +1109,53 @@ func (m *SafeSetOptions) GetRootIndex() *Index {
 	return nil
 }
 
+type SafeSetSVOptions struct {
+	Skv                  *StructuredKeyValue `protobuf:"bytes,1,opt,name=skv,proto3" json:"skv,omitempty"`
+	RootIndex            *Index              `protobuf:"bytes,2,opt,name=rootIndex,proto3" json:"rootIndex,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
+}
+
+func (m *SafeSetSVOptions) Reset()         { *m = SafeSetSVOptions{} }
+func (m *SafeSetSVOptions) String() string { return proto.CompactTextString(m) }
+func (*SafeSetSVOptions) ProtoMessage()    {}
+func (*SafeSetSVOptions) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{22}
+}
+
+func (m *SafeSetSVOptions) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SafeSetSVOptions.Unmarshal(m, b)
+}
+func (m *SafeSetSVOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SafeSetSVOptions.Marshal(b, m, deterministic)
+}
+func (m *SafeSetSVOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SafeSetSVOptions.Merge(m, src)
+}
+func (m *SafeSetSVOptions) XXX_Size() int {
+	return xxx_messageInfo_SafeSetSVOptions.Size(m)
+}
+func (m *SafeSetSVOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_SafeSetSVOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SafeSetSVOptions proto.InternalMessageInfo
+
+func (m *SafeSetSVOptions) GetSkv() *StructuredKeyValue {
+	if m != nil {
+		return m.Skv
+	}
+	return nil
+}
+
+func (m *SafeSetSVOptions) GetRootIndex() *Index {
+	if m != nil {
+		return m.RootIndex
+	}
+	return nil
+}
+
 type SafeGetOptions struct {
 	Key                  *Key     `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	RootIndex            *Index   `protobuf:"bytes,2,opt,name=rootIndex,proto3" json:"rootIndex,omitempty"`
@@ -847,7 +1168,7 @@ func (m *SafeGetOptions) Reset()         { *m = SafeGetOptions{} }
 func (m *SafeGetOptions) String() string { return proto.CompactTextString(m) }
 func (*SafeGetOptions) ProtoMessage()    {}
 func (*SafeGetOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{16}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{23}
 }
 
 func (m *SafeGetOptions) XXX_Unmarshal(b []byte) error {
@@ -894,7 +1215,7 @@ func (m *SafeReferenceOptions) Reset()         { *m = SafeReferenceOptions{} }
 func (m *SafeReferenceOptions) String() string { return proto.CompactTextString(m) }
 func (*SafeReferenceOptions) ProtoMessage()    {}
 func (*SafeReferenceOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{17}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{24}
 }
 
 func (m *SafeReferenceOptions) XXX_Unmarshal(b []byte) error {
@@ -940,7 +1261,7 @@ func (m *HealthResponse) Reset()         { *m = HealthResponse{} }
 func (m *HealthResponse) String() string { return proto.CompactTextString(m) }
 func (*HealthResponse) ProtoMessage()    {}
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{18}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{25}
 }
 
 func (m *HealthResponse) XXX_Unmarshal(b []byte) error {
@@ -980,7 +1301,7 @@ func (m *ReferenceOptions) Reset()         { *m = ReferenceOptions{} }
 func (m *ReferenceOptions) String() string { return proto.CompactTextString(m) }
 func (*ReferenceOptions) ProtoMessage()    {}
 func (*ReferenceOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{19}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{26}
 }
 
 func (m *ReferenceOptions) XXX_Unmarshal(b []byte) error {
@@ -1032,7 +1353,7 @@ func (m *ZAddOptions) Reset()         { *m = ZAddOptions{} }
 func (m *ZAddOptions) String() string { return proto.CompactTextString(m) }
 func (*ZAddOptions) ProtoMessage()    {}
 func (*ZAddOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{20}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{27}
 }
 
 func (m *ZAddOptions) XXX_Unmarshal(b []byte) error {
@@ -1088,7 +1409,7 @@ func (m *ZScanOptions) Reset()         { *m = ZScanOptions{} }
 func (m *ZScanOptions) String() string { return proto.CompactTextString(m) }
 func (*ZScanOptions) ProtoMessage()    {}
 func (*ZScanOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{21}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{28}
 }
 
 func (m *ZScanOptions) XXX_Unmarshal(b []byte) error {
@@ -1149,7 +1470,7 @@ func (m *SafeZAddOptions) Reset()         { *m = SafeZAddOptions{} }
 func (m *SafeZAddOptions) String() string { return proto.CompactTextString(m) }
 func (*SafeZAddOptions) ProtoMessage()    {}
 func (*SafeZAddOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1c5fb4d8cc22d66a, []int{22}
+	return fileDescriptor_1c5fb4d8cc22d66a, []int{29}
 }
 
 func (m *SafeZAddOptions) XXX_Unmarshal(b []byte) error {
@@ -1187,11 +1508,16 @@ func (m *SafeZAddOptions) GetRootIndex() *Index {
 func init() {
 	proto.RegisterType((*Key)(nil), "immudb.schema.Key")
 	proto.RegisterType((*KeyValue)(nil), "immudb.schema.KeyValue")
+	proto.RegisterType((*StructuredKeyValue)(nil), "immudb.schema.StructuredKeyValue")
+	proto.RegisterType((*Content)(nil), "immudb.schema.Content")
 	proto.RegisterType((*Index)(nil), "immudb.schema.Index")
 	proto.RegisterType((*Item)(nil), "immudb.schema.Item")
+	proto.RegisterType((*StructuredItem)(nil), "immudb.schema.StructuredItem")
 	proto.RegisterType((*KVList)(nil), "immudb.schema.KVList")
+	proto.RegisterType((*SKVList)(nil), "immudb.schema.SKVList")
 	proto.RegisterType((*KeyList)(nil), "immudb.schema.KeyList")
 	proto.RegisterType((*ItemList)(nil), "immudb.schema.ItemList")
+	proto.RegisterType((*StructuredItemList)(nil), "immudb.schema.StructuredItemList")
 	proto.RegisterType((*Root)(nil), "immudb.schema.Root")
 	proto.RegisterType((*ScanOptions)(nil), "immudb.schema.ScanOptions")
 	proto.RegisterType((*KeyPrefix)(nil), "immudb.schema.KeyPrefix")
@@ -1200,7 +1526,9 @@ func init() {
 	proto.RegisterType((*ConsistencyProof)(nil), "immudb.schema.ConsistencyProof")
 	proto.RegisterType((*Proof)(nil), "immudb.schema.Proof")
 	proto.RegisterType((*SafeItem)(nil), "immudb.schema.SafeItem")
+	proto.RegisterType((*SafeStructuredItem)(nil), "immudb.schema.SafeStructuredItem")
 	proto.RegisterType((*SafeSetOptions)(nil), "immudb.schema.SafeSetOptions")
+	proto.RegisterType((*SafeSetSVOptions)(nil), "immudb.schema.SafeSetSVOptions")
 	proto.RegisterType((*SafeGetOptions)(nil), "immudb.schema.SafeGetOptions")
 	proto.RegisterType((*SafeReferenceOptions)(nil), "immudb.schema.SafeReferenceOptions")
 	proto.RegisterType((*HealthResponse)(nil), "immudb.schema.HealthResponse")
@@ -1210,95 +1538,114 @@ func init() {
 	proto.RegisterType((*SafeZAddOptions)(nil), "immudb.schema.SafeZAddOptions")
 }
 
-func init() { proto.RegisterFile("schema.proto", fileDescriptor_1c5fb4d8cc22d66a) }
+func init() {
+	proto.RegisterFile("schema.proto", fileDescriptor_1c5fb4d8cc22d66a)
+}
 
 var fileDescriptor_1c5fb4d8cc22d66a = []byte{
-	// 1353 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x58, 0xdb, 0x6e, 0xdb, 0x46,
-	0x13, 0x06, 0x75, 0xf0, 0x61, 0xe4, 0x38, 0xc6, 0xfe, 0xfe, 0x6d, 0x45, 0x3e, 0xc4, 0xd9, 0x38,
-	0xb1, 0xaa, 0x24, 0xa2, 0xe3, 0xa0, 0x37, 0xb9, 0xab, 0xd3, 0xc2, 0x31, 0x5c, 0xa0, 0x01, 0x5d,
-	0xa4, 0x85, 0x7b, 0x11, 0x50, 0xd4, 0xca, 0x62, 0x24, 0x71, 0x09, 0x72, 0xa5, 0x98, 0x31, 0x72,
-	0xd1, 0x3e, 0x42, 0xfb, 0x0c, 0x7d, 0xa2, 0x3e, 0x42, 0xfb, 0x20, 0xc5, 0xce, 0x92, 0x12, 0x45,
-	0x2d, 0xe5, 0xc4, 0xe8, 0x1d, 0x67, 0x76, 0x76, 0xbe, 0x99, 0xd9, 0x39, 0x81, 0xb0, 0x12, 0x3a,
-	0x5d, 0x36, 0xb0, 0x9b, 0x7e, 0xc0, 0x05, 0x27, 0x77, 0xdc, 0xc1, 0x60, 0xd8, 0x6e, 0x35, 0x15,
-	0xb3, 0xb6, 0x7d, 0xc9, 0xf9, 0x65, 0x9f, 0x99, 0xb6, 0xef, 0x9a, 0xb6, 0xe7, 0x71, 0x61, 0x0b,
-	0x97, 0x7b, 0xa1, 0x12, 0xae, 0x6d, 0xc5, 0xa7, 0x48, 0xb5, 0x86, 0x1d, 0x93, 0x0d, 0x7c, 0x11,
-	0xc5, 0x87, 0x15, 0xbf, 0x65, 0xfa, 0x2d, 0x45, 0xd0, 0x4d, 0x28, 0x9e, 0xb1, 0x88, 0xac, 0x41,
-	0xb1, 0xc7, 0xa2, 0xaa, 0xb1, 0x67, 0xd4, 0x57, 0x2c, 0xf9, 0x49, 0x8f, 0x60, 0xe9, 0x8c, 0x45,
-	0x6f, 0xed, 0xfe, 0x90, 0xcd, 0x9e, 0x92, 0x75, 0x28, 0x8f, 0xe4, 0x51, 0xb5, 0x80, 0x3c, 0x45,
-	0xd0, 0x1d, 0x28, 0x9f, 0x7a, 0x6d, 0x76, 0x25, 0x8f, 0x5d, 0xf9, 0x81, 0x57, 0x4a, 0x96, 0x22,
-	0xe8, 0xb7, 0x50, 0x3a, 0x15, 0x6c, 0xf0, 0xb9, 0xea, 0x26, 0x5a, 0x8a, 0x69, 0x2d, 0x2f, 0x60,
-	0xe1, 0xec, 0xed, 0xf7, 0x6e, 0x28, 0xc8, 0x57, 0x50, 0x3c, 0x7b, 0x1b, 0x56, 0x8d, 0xbd, 0x62,
-	0xbd, 0x72, 0xb4, 0xd9, 0x9c, 0x0a, 0x50, 0x33, 0x31, 0xde, 0x92, 0x32, 0xf4, 0x39, 0x2c, 0x9e,
-	0xb1, 0x08, 0x6f, 0x3d, 0x86, 0x52, 0x8f, 0x45, 0xc9, 0x35, 0x32, 0x7b, 0xcd, 0xc2, 0x73, 0xfa,
-	0x35, 0x2c, 0x49, 0x6b, 0x63, 0xa4, 0xb2, 0x2b, 0xd8, 0x20, 0xb9, 0xf4, 0xbf, 0xcc, 0x25, 0x29,
-	0x67, 0x29, 0x09, 0x7a, 0x08, 0x25, 0x8b, 0x73, 0xa1, 0x0f, 0x01, 0x21, 0x50, 0x0a, 0x38, 0x17,
-	0xb1, 0x9f, 0xf8, 0x4d, 0x7f, 0x35, 0xa0, 0x72, 0xee, 0xd8, 0xde, 0x0f, 0x3e, 0x3e, 0x21, 0xd9,
-	0x80, 0x05, 0x3f, 0x60, 0x1d, 0xf7, 0x2a, 0x8e, 0x50, 0x4c, 0x49, 0x3e, 0xef, 0x74, 0x42, 0x96,
-	0xdc, 0x8e, 0x29, 0x89, 0xd4, 0x77, 0x07, 0xae, 0x48, 0xc2, 0x84, 0x04, 0xa9, 0xc2, 0x62, 0xc0,
-	0x46, 0x2c, 0x08, 0x59, 0xb5, 0xb4, 0x67, 0xd4, 0x97, 0xac, 0x84, 0x94, 0x36, 0xb4, 0x19, 0xf3,
-	0xab, 0x65, 0x64, 0xe3, 0x37, 0x7d, 0x08, 0xcb, 0x67, 0x2c, 0x7a, 0x33, 0x06, 0xd2, 0x19, 0x40,
-	0x29, 0x80, 0xf4, 0x34, 0x7c, 0xc5, 0x87, 0x1e, 0xc2, 0x3a, 0xf2, 0x23, 0x71, 0x10, 0x09, 0x1a,
-	0xc0, 0xea, 0xa9, 0xe7, 0xf4, 0x87, 0xa1, 0xcb, 0xbd, 0x37, 0x01, 0xe7, 0x1d, 0xb2, 0x0a, 0x05,
-	0x3b, 0x11, 0x2a, 0xd8, 0xa9, 0xc0, 0x14, 0x74, 0x81, 0x29, 0x4e, 0x02, 0x23, 0x79, 0x7d, 0x66,
-	0x77, 0xd0, 0xfe, 0x15, 0x0b, 0xbf, 0x25, 0xcf, 0xb7, 0x45, 0xb7, 0x5a, 0xde, 0x2b, 0x4a, 0x9e,
-	0xfc, 0xa6, 0xbf, 0x1b, 0xb0, 0xf6, 0x8a, 0x7b, 0xa1, 0x1b, 0x0a, 0xe6, 0x39, 0x91, 0x82, 0x5d,
-	0x87, 0x72, 0xc7, 0x0d, 0xc2, 0xb1, 0x79, 0x48, 0x48, 0xd7, 0x42, 0xe6, 0x70, 0xaf, 0x1d, 0xa3,
-	0xc7, 0x14, 0xd9, 0x86, 0x65, 0x14, 0xb0, 0x26, 0x36, 0x4c, 0x18, 0x64, 0x17, 0x40, 0xc9, 0xe1,
-	0xb1, 0x32, 0x27, 0xc5, 0xd1, 0x1a, 0xf5, 0xa7, 0x01, 0x65, 0x65, 0x49, 0xe2, 0x86, 0x91, 0x72,
-	0xe3, 0xf3, 0x83, 0xa0, 0xc2, 0x57, 0x1a, 0x87, 0x6f, 0x1f, 0xee, 0xb8, 0xe3, 0x00, 0x4f, 0x40,
-	0xa7, 0x99, 0xa4, 0x0e, 0x77, 0x9d, 0x54, 0x44, 0xa4, 0xdc, 0x02, 0xca, 0x65, 0xd9, 0xf4, 0x1d,
-	0x2c, 0x9d, 0xdb, 0x1d, 0x86, 0x85, 0x79, 0x00, 0x25, 0x99, 0xc4, 0x68, 0x69, 0x4e, 0x96, 0xa3,
-	0x00, 0x69, 0x40, 0xd9, 0x97, 0xbe, 0xa1, 0xf9, 0x95, 0xa3, 0xf5, 0x8c, 0x24, 0xfa, 0x6d, 0x29,
-	0x11, 0x3a, 0x80, 0x55, 0x09, 0x70, 0xce, 0x44, 0x92, 0xe0, 0x07, 0x50, 0xe8, 0x8d, 0x62, 0x90,
-	0xdc, 0xb2, 0x2d, 0xf4, 0x46, 0xe4, 0x08, 0x96, 0x65, 0x0c, 0x4e, 0xc7, 0x91, 0x9a, 0x85, 0xc2,
-	0x33, 0x6b, 0x22, 0x46, 0xdf, 0x2b, 0xb8, 0x93, 0x09, 0xdc, 0xfe, 0xa4, 0xdd, 0xe8, 0xeb, 0x1d,
-	0x5b, 0xd0, 0x6d, 0xb0, 0xae, 0x61, 0x5d, 0x62, 0x59, 0xac, 0xc3, 0x02, 0xe6, 0x39, 0x2c, 0x41,
-	0x34, 0xa1, 0x10, 0xf0, 0x18, 0xf0, 0x7e, 0x46, 0x49, 0x56, 0xd8, 0x2a, 0x04, 0xfc, 0x56, 0xe0,
-	0x75, 0x58, 0x7d, 0xcd, 0xec, 0xbe, 0xe8, 0x5a, 0x2c, 0xf4, 0xb9, 0x17, 0x32, 0x4c, 0x6e, 0x61,
-	0x8b, 0x61, 0x88, 0xd0, 0x4b, 0x56, 0x4c, 0xd1, 0xf7, 0xb0, 0x36, 0x63, 0xe2, 0x21, 0x2c, 0x07,
-	0x09, 0x6f, 0x4e, 0x68, 0x26, 0x42, 0x49, 0x18, 0x0b, 0x73, 0xc3, 0x48, 0x4f, 0xa0, 0x72, 0xf1,
-	0x4d, 0xbb, 0x9d, 0xc0, 0xac, 0x41, 0x51, 0x36, 0xac, 0xb8, 0xd5, 0xc7, 0xdd, 0x2a, 0x74, 0x78,
-	0xa0, 0x5a, 0xbd, 0x61, 0x29, 0x22, 0x19, 0x09, 0xc5, 0xc9, 0xfc, 0xe9, 0xc2, 0xca, 0x45, 0xba,
-	0x2b, 0xce, 0x6a, 0xfa, 0x8f, 0xfa, 0x21, 0xfd, 0x00, 0x77, 0xe5, 0x2b, 0xa6, 0xcd, 0x3e, 0x84,
-	0xf2, 0x47, 0xee, 0x8b, 0x30, 0x8e, 0x4c, 0x2d, 0xe3, 0x6d, 0x4a, 0xd4, 0x52, 0x82, 0xb7, 0x79,
-	0xc1, 0xa3, 0xbf, 0xd7, 0xa0, 0x72, 0x3a, 0x18, 0x0c, 0xcf, 0x59, 0x30, 0x72, 0x1d, 0x46, 0x7e,
-	0x82, 0xe2, 0x39, 0x13, 0x24, 0xaf, 0x24, 0x6a, 0x5a, 0x85, 0xf4, 0xc1, 0x6f, 0x7f, 0xfd, 0xf3,
-	0x47, 0x61, 0x8b, 0x6e, 0x98, 0xa3, 0xe7, 0xa6, 0x14, 0x08, 0x58, 0x28, 0xfc, 0x80, 0x5f, 0x45,
-	0xa6, 0xac, 0xd5, 0x97, 0x46, 0x83, 0x74, 0x60, 0x31, 0x2e, 0x41, 0xb2, 0x93, 0xd1, 0x31, 0x5d,
-	0x9a, 0x35, 0x6d, 0x25, 0xd3, 0xc7, 0x08, 0xb1, 0x47, 0xb7, 0xf4, 0x10, 0x66, 0x68, 0x77, 0x98,
-	0xc4, 0xf9, 0x11, 0x8a, 0x27, 0x4c, 0x10, 0x4d, 0x72, 0xd4, 0x74, 0xcd, 0x84, 0xee, 0xa3, 0xde,
-	0x5d, 0xb2, 0x9d, 0xa3, 0xf7, 0xba, 0xc7, 0xa2, 0x4f, 0x64, 0xa0, 0xac, 0x3f, 0xc9, 0xb1, 0x7e,
-	0x52, 0xe9, 0xb5, 0x4d, 0xcd, 0x31, 0x02, 0x35, 0x10, 0x68, 0x9f, 0xde, 0x9f, 0xe3, 0x80, 0x79,
-	0xc9, 0x84, 0x74, 0x42, 0x36, 0x44, 0x26, 0x8e, 0x6d, 0xe1, 0x74, 0xc9, 0xff, 0xb3, 0x9e, 0xe0,
-	0xe2, 0x91, 0xf3, 0x10, 0x73, 0xa2, 0xd4, 0x92, 0xda, 0xcc, 0x50, 0x01, 0x38, 0xb0, 0x74, 0x92,
-	0x00, 0x6c, 0xcc, 0x86, 0x0a, 0x11, 0x36, 0x35, 0xe1, 0x92, 0x07, 0x37, 0x83, 0x5c, 0x26, 0x20,
-	0x25, 0x59, 0x3d, 0x24, 0x9b, 0xba, 0xa9, 0x92, 0xba, 0x15, 0x88, 0x0a, 0x97, 0x63, 0x7b, 0x12,
-	0xa4, 0x07, 0x65, 0xb5, 0x0b, 0x54, 0x67, 0xdd, 0x50, 0xbb, 0x44, 0xed, 0x9e, 0x06, 0x43, 0x2d,
-	0x10, 0xf4, 0x19, 0xa2, 0x1c, 0x90, 0x47, 0x39, 0x28, 0xb8, 0x50, 0x98, 0xd7, 0x6a, 0xf9, 0xf8,
-	0x44, 0x2e, 0xa0, 0xf2, 0x6a, 0x18, 0x04, 0xcc, 0x53, 0x33, 0x79, 0xa3, 0xa9, 0x76, 0xdc, 0x66,
-	0xb2, 0xe3, 0x36, 0xbf, 0x93, 0x3b, 0xee, 0x4c, 0xa2, 0x49, 0x61, 0xba, 0x8b, 0x50, 0x55, 0xa2,
-	0xa9, 0x11, 0x1c, 0xb2, 0x01, 0x2c, 0x8f, 0xb7, 0x16, 0xa2, 0x7d, 0xdd, 0xda, 0xce, 0x0c, 0x37,
-	0xbd, 0xe5, 0xd0, 0x43, 0x44, 0x68, 0x90, 0xba, 0xc6, 0x99, 0x44, 0x12, 0xe7, 0xa1, 0x79, 0x8d,
-	0xb3, 0xfe, 0x13, 0xb9, 0x82, 0x4a, 0x6a, 0x69, 0xc9, 0x41, 0xcd, 0x4e, 0x8f, 0xec, 0x9a, 0x43,
-	0x8f, 0x10, 0xf7, 0x29, 0x69, 0xcc, 0xe2, 0xa6, 0x26, 0xfd, 0x34, 0x72, 0x0b, 0x16, 0x8f, 0xa3,
-	0x78, 0x51, 0xd7, 0xa2, 0x6a, 0x8b, 0xf5, 0x29, 0x22, 0x3d, 0x26, 0xfb, 0x39, 0xcf, 0x85, 0xca,
-	0xc7, 0x18, 0xef, 0x60, 0xf1, 0xb5, 0x1b, 0x0a, 0x1e, 0x44, 0xda, 0x76, 0x90, 0x9b, 0x7a, 0x07,
-	0x88, 0xf2, 0x80, 0x68, 0x2a, 0xb5, 0xab, 0xf4, 0xc5, 0x5d, 0xc1, 0x85, 0x05, 0x35, 0xfe, 0x72,
-	0x33, 0x21, 0xfb, 0x62, 0xd3, 0xd3, 0x92, 0xd6, 0x11, 0x89, 0x92, 0x3d, 0x0d, 0x12, 0x4a, 0x06,
-	0xc9, 0x5c, 0x7d, 0x0f, 0xcb, 0xe3, 0xf9, 0x49, 0x6e, 0x9a, 0xe7, 0x5f, 0xde, 0x1c, 0xc6, 0x23,
-	0x56, 0x96, 0xd4, 0x07, 0xb8, 0x33, 0xb5, 0x52, 0x90, 0x87, 0x9a, 0x9e, 0x76, 0x23, 0xa6, 0xca,
-	0x8d, 0x27, 0x88, 0xf9, 0x88, 0x6a, 0x3c, 0xc4, 0x86, 0x37, 0x05, 0xfc, 0x0b, 0x94, 0xe4, 0x58,
-	0x23, 0x73, 0x66, 0xdd, 0x97, 0x0f, 0xa0, 0x8f, 0x76, 0xbb, 0x2d, 0x95, 0xdb, 0x50, 0xc6, 0x61,
-	0x4e, 0xb6, 0xb2, 0xda, 0x3f, 0xab, 0x1f, 0x51, 0x44, 0xd8, 0xa6, 0x9b, 0x1a, 0x84, 0xa4, 0x17,
-	0x75, 0xd5, 0x1e, 0x8b, 0x3e, 0xec, 0x6a, 0x62, 0x36, 0xcf, 0x8f, 0x1b, 0xa7, 0x1c, 0x86, 0x2b,
-	0x71, 0xe6, 0x1c, 0x16, 0x8e, 0x6d, 0xa7, 0x37, 0xf4, 0x73, 0x33, 0x0f, 0x9a, 0x7e, 0x2b, 0x9e,
-	0x15, 0xf4, 0x21, 0x6a, 0xdd, 0xa1, 0x55, 0x5d, 0xc3, 0x96, 0x5a, 0x5e, 0x1a, 0x8d, 0x43, 0x83,
-	0xfc, 0x0c, 0x8b, 0x16, 0x93, 0xf9, 0xcd, 0x48, 0xea, 0xf6, 0xbc, 0xf6, 0x19, 0x0f, 0x4f, 0x7a,
-	0x4f, 0x97, 0x51, 0xa8, 0xe9, 0xa5, 0xd1, 0xa8, 0x1b, 0xc7, 0xcf, 0x2e, 0x9e, 0x5c, 0xba, 0xa2,
-	0x3b, 0x6c, 0x35, 0x1d, 0x2e, 0x9b, 0x6a, 0x9b, 0x79, 0x5c, 0xd8, 0x41, 0x64, 0x2a, 0xcd, 0xa6,
-	0xdf, 0xbb, 0xc4, 0xbf, 0x08, 0x0a, 0xa1, 0xb5, 0x80, 0xbe, 0xbc, 0xf8, 0x37, 0x00, 0x00, 0xff,
-	0xff, 0x78, 0x55, 0x17, 0x50, 0x7e, 0x10, 0x00, 0x00,
+	// 1624 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x58, 0xef, 0x52, 0xdb, 0x46,
+	0x10, 0xc7, 0xff, 0x30, 0x5e, 0x13, 0xc2, 0x5c, 0x29, 0x38, 0x86, 0xf0, 0xe7, 0x42, 0x82, 0x4b,
+	0x12, 0x8b, 0xc0, 0x24, 0xd3, 0x66, 0xa6, 0xd3, 0x06, 0xda, 0x21, 0x0c, 0x9d, 0x69, 0x46, 0xee,
+	0x30, 0x1d, 0xfa, 0xa1, 0x95, 0xe5, 0x33, 0x16, 0xc6, 0x92, 0x46, 0x3a, 0x13, 0x14, 0x26, 0x1f,
+	0xda, 0x47, 0x68, 0x9f, 0xa1, 0xd3, 0x07, 0xea, 0x2b, 0xf4, 0x41, 0x3a, 0xb7, 0x27, 0xd9, 0xb2,
+	0x2c, 0x09, 0x43, 0xfb, 0xcd, 0x77, 0xb7, 0xb7, 0xbf, 0xdf, 0xee, 0xdd, 0xee, 0xfd, 0x64, 0x98,
+	0x75, 0xf5, 0x0e, 0xeb, 0x69, 0x75, 0xdb, 0xb1, 0xb8, 0x45, 0xee, 0x19, 0xbd, 0x5e, 0xbf, 0xd5,
+	0xac, 0xcb, 0xc9, 0xea, 0xca, 0x99, 0x65, 0x9d, 0x5d, 0x30, 0x45, 0xb3, 0x0d, 0x45, 0x33, 0x4d,
+	0x8b, 0x6b, 0xdc, 0xb0, 0x4c, 0x57, 0x1a, 0x57, 0x97, 0xfd, 0x55, 0x1c, 0x35, 0xfb, 0x6d, 0x85,
+	0xf5, 0x6c, 0xee, 0xf9, 0x8b, 0x65, 0xbb, 0xa9, 0xd8, 0x4d, 0x39, 0xa0, 0x4b, 0x90, 0x3b, 0x66,
+	0x1e, 0x99, 0x87, 0x5c, 0x97, 0x79, 0x95, 0xcc, 0x7a, 0xa6, 0x36, 0xab, 0x8a, 0x9f, 0x74, 0x17,
+	0x66, 0x8e, 0x99, 0x77, 0xa2, 0x5d, 0xf4, 0xd9, 0xf8, 0x2a, 0x59, 0x80, 0xc2, 0xa5, 0x58, 0xaa,
+	0x64, 0x71, 0x4e, 0x0e, 0xe8, 0x0f, 0x40, 0x1a, 0xdc, 0xe9, 0xeb, 0xbc, 0xef, 0xb0, 0x56, 0xca,
+	0xee, 0x67, 0xe1, 0xdd, 0xe5, 0xdd, 0xc5, 0xfa, 0x48, 0x6c, 0xf5, 0x03, 0xcb, 0xe4, 0xcc, 0xe4,
+	0x81, 0xd7, 0x37, 0x50, 0xf4, 0x67, 0xc8, 0x0a, 0x94, 0xb8, 0xd1, 0x63, 0x2e, 0xd7, 0x7a, 0x36,
+	0x3a, 0xcc, 0xab, 0xc3, 0x09, 0x52, 0x81, 0xa2, 0xad, 0x79, 0x17, 0x96, 0xd6, 0xf2, 0x69, 0x05,
+	0x43, 0xfa, 0x10, 0x0a, 0x47, 0x66, 0x8b, 0x5d, 0x09, 0xde, 0x86, 0xf8, 0xe1, 0x6f, 0x96, 0x03,
+	0xfa, 0x0d, 0xe4, 0x8f, 0x38, 0xeb, 0x4d, 0x1a, 0xe7, 0xd0, 0x4b, 0x2e, 0xec, 0xa5, 0x0d, 0x73,
+	0xc3, 0xe8, 0x13, 0xfc, 0xdd, 0x2a, 0xf2, 0x04, 0x9c, 0x3d, 0x98, 0x3e, 0x3e, 0xf9, 0xce, 0x70,
+	0x39, 0xf9, 0x0c, 0x72, 0xc7, 0x27, 0x6e, 0x25, 0xb3, 0x9e, 0xab, 0x95, 0x77, 0x97, 0x22, 0xbe,
+	0x82, 0xfc, 0xab, 0xc2, 0x86, 0x7e, 0x0d, 0xc5, 0x86, 0xbf, 0xeb, 0x25, 0xe4, 0x1b, 0xc3, 0x6d,
+	0x1b, 0x91, 0x6d, 0xe3, 0x07, 0xa8, 0xa2, 0x39, 0x7d, 0x01, 0xc5, 0x63, 0xe6, 0xa1, 0x87, 0x27,
+	0x90, 0xef, 0x32, 0x2f, 0xf0, 0x40, 0xc6, 0x81, 0x55, 0x5c, 0xa7, 0x2f, 0x61, 0x46, 0xe4, 0xc1,
+	0xe7, 0x5a, 0x30, 0x38, 0xeb, 0x05, 0x9b, 0x3e, 0x89, 0x6c, 0x12, 0x76, 0xaa, 0xb4, 0xa0, 0x47,
+	0xe1, 0x6b, 0x34, 0x70, 0xb0, 0x37, 0xea, 0xe0, 0x61, 0x22, 0xef, 0xb0, 0xab, 0x1d, 0xc8, 0xab,
+	0x96, 0xc5, 0xe3, 0xcf, 0x9d, 0x10, 0xc8, 0x3b, 0x96, 0xc5, 0xfd, 0xc3, 0xc5, 0xdf, 0xf4, 0xd7,
+	0x0c, 0x94, 0x1b, 0xba, 0x66, 0x7e, 0x6f, 0x63, 0x41, 0x91, 0x45, 0x98, 0xb6, 0x1d, 0xd6, 0x36,
+	0xae, 0xfc, 0x63, 0xf4, 0x47, 0x62, 0xde, 0x6a, 0xb7, 0x5d, 0x16, 0xec, 0xf6, 0x47, 0x02, 0xe9,
+	0xc2, 0xe8, 0x19, 0x3c, 0x38, 0x33, 0x1c, 0x88, 0xab, 0xe9, 0xb0, 0x4b, 0xe6, 0xb8, 0xac, 0x92,
+	0x5f, 0xcf, 0xd4, 0x66, 0xd4, 0x60, 0x28, 0x38, 0xb4, 0x18, 0xb3, 0x2b, 0x05, 0x9c, 0xc6, 0xdf,
+	0xf4, 0x11, 0x94, 0x8e, 0x99, 0xf7, 0x6e, 0x00, 0x14, 0x47, 0x80, 0x52, 0x00, 0x11, 0xa9, 0x7b,
+	0x60, 0xf5, 0x4d, 0x84, 0xd5, 0xc5, 0x8f, 0x20, 0x40, 0x1c, 0x50, 0x07, 0xe6, 0x8e, 0x4c, 0xfd,
+	0xa2, 0xef, 0x1a, 0x96, 0xf9, 0xce, 0xb1, 0xac, 0x36, 0x99, 0x83, 0xac, 0x16, 0x18, 0x65, 0xb5,
+	0x50, 0x62, 0xb2, 0x71, 0x89, 0xc9, 0x0d, 0x13, 0x23, 0xe6, 0x2e, 0x98, 0xd6, 0x46, 0xfe, 0xb3,
+	0x2a, 0xfe, 0x16, 0x73, 0xb6, 0xc6, 0x3b, 0x95, 0xc2, 0x7a, 0x4e, 0xcc, 0x89, 0xdf, 0xf4, 0xf7,
+	0x0c, 0xcc, 0x1f, 0x58, 0xa6, 0x6b, 0xb8, 0x9c, 0x99, 0xba, 0x27, 0x61, 0x17, 0xa0, 0xd0, 0x36,
+	0x1c, 0x77, 0x40, 0x0f, 0x07, 0x22, 0x34, 0x97, 0xe9, 0x96, 0xd9, 0xf2, 0xd1, 0xfd, 0x91, 0x28,
+	0x73, 0x34, 0x50, 0x87, 0x1c, 0x86, 0x13, 0x64, 0x15, 0x40, 0xda, 0xe1, 0xb2, 0xa4, 0x13, 0x9a,
+	0x89, 0x25, 0xf5, 0x67, 0x06, 0x0a, 0x92, 0x49, 0x10, 0x46, 0x26, 0x14, 0xc6, 0xe4, 0x49, 0x90,
+	0xe9, 0xcb, 0x0f, 0xd2, 0xb7, 0x09, 0xf7, 0x8c, 0x41, 0x82, 0x87, 0xa0, 0xa3, 0x93, 0xa4, 0x06,
+	0xf7, 0xf5, 0x50, 0x46, 0x84, 0xdd, 0x34, 0xda, 0x45, 0xa7, 0xe9, 0xcf, 0x30, 0xd3, 0xd0, 0xda,
+	0x0c, 0xbb, 0xc7, 0x16, 0xe4, 0xc5, 0x25, 0x46, 0xa6, 0x09, 0x05, 0x83, 0x06, 0x64, 0x1b, 0x0a,
+	0xb6, 0x88, 0xcd, 0x6f, 0x2a, 0x0b, 0x11, 0x4b, 0x8c, 0x5b, 0x95, 0x26, 0xd4, 0x05, 0x22, 0x00,
+	0x22, 0x8d, 0xea, 0xc5, 0x08, 0xd4, 0x0d, 0xa5, 0x75, 0x7b, 0xd0, 0x1e, 0xcc, 0x21, 0x28, 0xe3,
+	0x41, 0x55, 0x6d, 0x41, 0xb6, 0x7b, 0xe9, 0xc3, 0x25, 0x36, 0xae, 0x6c, 0xf7, 0x92, 0xec, 0x42,
+	0x49, 0x24, 0xfe, 0x68, 0x70, 0x3c, 0xe3, 0x50, 0xb8, 0xa6, 0x0e, 0xcd, 0xe8, 0x35, 0xcc, 0xfb,
+	0x70, 0x8d, 0x93, 0x00, 0x70, 0x0f, 0x72, 0xee, 0x00, 0x71, 0x82, 0x9e, 0x27, 0xac, 0xef, 0x04,
+	0x7e, 0x2e, 0x63, 0x3d, 0x1c, 0xc6, 0xba, 0x39, 0x7c, 0x05, 0xe2, 0x9b, 0x25, 0xbe, 0x0c, 0x77,
+	0x0b, 0x74, 0x41, 0x60, 0xa9, 0xac, 0xcd, 0x1c, 0x66, 0xea, 0x2c, 0x40, 0x54, 0x20, 0xeb, 0x58,
+	0x3e, 0xe0, 0x5a, 0xc4, 0x49, 0xd4, 0x58, 0xcd, 0x3a, 0xd6, 0x9d, 0xc0, 0x6b, 0x30, 0xf7, 0x96,
+	0x69, 0x17, 0xbc, 0xa3, 0x32, 0xd7, 0xb6, 0x4c, 0x97, 0x61, 0x39, 0x73, 0x8d, 0xf7, 0x5d, 0x84,
+	0x9e, 0x51, 0xfd, 0x11, 0x3d, 0x87, 0xf9, 0x31, 0x8a, 0x3b, 0x50, 0x72, 0x82, 0xb9, 0x94, 0xd4,
+	0x0c, 0x8d, 0x82, 0x34, 0x66, 0x53, 0xd3, 0x48, 0x0f, 0xa1, 0x7c, 0xfa, 0xa6, 0xd5, 0x0a, 0x60,
+	0xe6, 0x21, 0x27, 0x5a, 0xb4, 0xff, 0x02, 0xfb, 0xfd, 0xd9, 0xd5, 0x2d, 0x47, 0xbe, 0xc0, 0x19,
+	0x55, 0x0e, 0x82, 0x97, 0x3a, 0x37, 0xd4, 0x3f, 0x1d, 0x98, 0x3d, 0x0d, 0xbf, 0x03, 0xe3, 0x9e,
+	0xfe, 0xa7, 0x17, 0x80, 0xbe, 0x87, 0xfb, 0xe2, 0x14, 0xc3, 0xb4, 0x77, 0xa0, 0xf0, 0xc1, 0xb2,
+	0xb9, 0xeb, 0x67, 0xa6, 0x1a, 0x89, 0x36, 0x64, 0xaa, 0x4a, 0xc3, 0xbb, 0x9c, 0xe0, 0xee, 0x5f,
+	0x8b, 0x50, 0x3e, 0xea, 0xf5, 0xfa, 0x0d, 0xe6, 0x5c, 0x1a, 0x3a, 0x23, 0xaf, 0x20, 0xd7, 0x60,
+	0x9c, 0x24, 0xd5, 0x63, 0x35, 0xd6, 0x21, 0x9d, 0x22, 0x3a, 0x14, 0xb0, 0xd6, 0xc8, 0xcd, 0x75,
+	0x95, 0xe0, 0x63, 0xe3, 0xb7, 0xbf, 0xff, 0xf9, 0x23, 0xbb, 0x4c, 0x17, 0x95, 0xcb, 0x17, 0x8a,
+	0x30, 0x70, 0x98, 0xcb, 0x6d, 0xc7, 0xba, 0xf2, 0x14, 0xd1, 0x6c, 0x5e, 0x67, 0xb6, 0x89, 0x10,
+	0x30, 0xb2, 0xa8, 0xc9, 0x58, 0x7f, 0x1a, 0xe9, 0x2d, 0xd5, 0xd8, 0x56, 0x44, 0xa7, 0xc8, 0x39,
+	0x94, 0x06, 0x6d, 0x81, 0xac, 0xc5, 0xfb, 0x18, 0x34, 0x8c, 0x04, 0x2f, 0x4f, 0x90, 0xe8, 0x3a,
+	0x5d, 0x8e, 0x27, 0xaa, 0xb8, 0x5a, 0x9b, 0x09, 0xb6, 0x3b, 0x90, 0x3b, 0x64, 0x9c, 0xc4, 0x5c,
+	0xd3, 0x6a, 0x5c, 0x23, 0xa7, 0x53, 0xe4, 0x17, 0x28, 0x1c, 0x22, 0xb3, 0xb8, 0x3d, 0xe9, 0x1d,
+	0x99, 0x6e, 0x22, 0xab, 0x55, 0xb2, 0x92, 0xc0, 0xea, 0xba, 0xcb, 0xbc, 0x8f, 0xe4, 0x40, 0x66,
+	0xf0, 0x30, 0x21, 0x83, 0xc3, 0x8e, 0x55, 0x5d, 0x8a, 0x59, 0xf6, 0x69, 0x7a, 0x32, 0x89, 0x92,
+	0xea, 0x0d, 0x6e, 0x36, 0xe2, 0x72, 0x3c, 0xca, 0x7c, 0x1b, 0x99, 0x6f, 0xd2, 0xb5, 0x94, 0x7c,
+	0x2a, 0x67, 0x8c, 0x8b, 0x9c, 0x7e, 0x01, 0x33, 0x0d, 0xc6, 0xf7, 0x35, 0xae, 0x77, 0xc8, 0xa7,
+	0xd1, 0x24, 0xa1, 0xb4, 0x4d, 0xbc, 0xa1, 0x4d, 0x80, 0x60, 0x6b, 0xe3, 0x84, 0x44, 0x55, 0x77,
+	0x23, 0x75, 0x77, 0xca, 0x91, 0x37, 0x85, 0x43, 0xc5, 0x95, 0xf4, 0xbe, 0x84, 0x99, 0xc3, 0x80,
+	0xde, 0xe2, 0xf8, 0x19, 0x22, 0xc2, 0x52, 0xcc, 0xd9, 0x8b, 0x05, 0x3a, 0x45, 0x2c, 0x80, 0xc3,
+	0x64, 0x8a, 0x81, 0x83, 0x8d, 0xd4, 0x8b, 0x80, 0xae, 0x6e, 0xe4, 0x7b, 0x16, 0xf0, 0xcd, 0x8b,
+	0xfe, 0x46, 0xa2, 0xcd, 0x25, 0xd4, 0xf4, 0xd2, 0xf9, 0x4e, 0x0b, 0xcb, 0xc6, 0x49, 0xaa, 0x83,
+	0xff, 0xc6, 0x57, 0x5e, 0x01, 0x5d, 0x33, 0x05, 0xdf, 0x2e, 0x14, 0xa4, 0xd4, 0xad, 0x8c, 0xe7,
+	0x46, 0x4a, 0xe5, 0xea, 0x83, 0x18, 0xba, 0x52, 0x1f, 0xd3, 0xe7, 0x88, 0xb2, 0x45, 0x1e, 0x27,
+	0xa0, 0xa0, 0x5e, 0x56, 0xae, 0xa5, 0xb6, 0xfe, 0x48, 0x4e, 0xa1, 0x7c, 0xd0, 0x77, 0x1c, 0xf1,
+	0x2d, 0x26, 0x64, 0xdf, 0x62, 0x5d, 0x7e, 0x50, 0xd7, 0x83, 0x0f, 0xea, 0xfa, 0xb7, 0xe2, 0x83,
+	0x7a, 0xac, 0x96, 0x85, 0x31, 0x5d, 0x45, 0xa8, 0x0a, 0x89, 0x69, 0x66, 0xa8, 0x21, 0x1d, 0x28,
+	0x0d, 0x44, 0x39, 0x89, 0xbd, 0x73, 0x63, 0xf5, 0x3e, 0x2a, 0xe2, 0xe9, 0x0e, 0x22, 0x6c, 0x93,
+	0x5a, 0x4c, 0x30, 0x81, 0x25, 0x2a, 0x2f, 0xe5, 0x1a, 0xa5, 0xec, 0x47, 0x72, 0x05, 0xe5, 0x90,
+	0x26, 0x4f, 0x40, 0x5d, 0x1b, 0xff, 0x1a, 0x1d, 0x51, 0xf1, 0x74, 0x17, 0x71, 0x9f, 0x91, 0xed,
+	0x71, 0xdc, 0x90, 0x90, 0x1d, 0x45, 0x7e, 0x05, 0xc5, 0x7d, 0xcf, 0xff, 0xf8, 0x8e, 0x45, 0x4d,
+	0xe8, 0x87, 0x26, 0x94, 0xfc, 0x7d, 0x8d, 0x93, 0x09, 0xb3, 0x14, 0xe9, 0x2d, 0xcf, 0x90, 0xed,
+	0x13, 0xb2, 0x99, 0x70, 0xe4, 0x48, 0x70, 0xc0, 0xf3, 0x73, 0x28, 0xbe, 0x35, 0x5c, 0x6e, 0x39,
+	0x5e, 0x6c, 0x07, 0x4e, 0xa9, 0x84, 0x2e, 0x94, 0xfc, 0x9d, 0x09, 0xdd, 0x7b, 0x82, 0x22, 0xd8,
+	0x42, 0xae, 0x1b, 0x24, 0xa6, 0x0f, 0x76, 0xa4, 0x6f, 0xbf, 0x89, 0x1b, 0x30, 0x2d, 0x55, 0x57,
+	0xe2, 0x9d, 0x8c, 0x66, 0x65, 0x54, 0xa4, 0xd1, 0x1a, 0x22, 0x51, 0xb2, 0x1e, 0x83, 0x84, 0x96,
+	0x4e, 0x20, 0xe7, 0xce, 0xa1, 0x34, 0x90, 0x6d, 0xe4, 0x26, 0x19, 0x79, 0xfb, 0xe6, 0x39, 0x50,
+	0x76, 0xa2, 0xb8, 0xdf, 0xc3, 0xbd, 0x11, 0x25, 0x4b, 0x1e, 0xc5, 0xbc, 0x1d, 0x37, 0x62, 0xca,
+	0x5b, 0xfa, 0x14, 0x31, 0x1f, 0xd3, 0x98, 0x08, 0xf1, 0x39, 0x19, 0x01, 0xfe, 0x09, 0xf2, 0x42,
+	0x4d, 0x91, 0x14, 0x89, 0x75, 0x7b, 0xcd, 0xf2, 0x41, 0x6b, 0xb5, 0x84, 0xf3, 0xaf, 0xa0, 0x80,
+	0x1a, 0x92, 0x2c, 0x47, 0xbd, 0x4f, 0xd8, 0x64, 0x7b, 0x50, 0x3c, 0xf5, 0xbb, 0x6c, 0xaa, 0x8b,
+	0x09, 0x6e, 0x18, 0x45, 0xba, 0x2b, 0x74, 0x29, 0x86, 0x6e, 0xd0, 0x62, 0x3b, 0xf2, 0xeb, 0x13,
+	0x13, 0xb2, 0x1a, 0x73, 0x00, 0x69, 0x49, 0xb9, 0x51, 0x1f, 0x61, 0xee, 0x83, 0xcc, 0x34, 0x60,
+	0x7a, 0x5f, 0xd3, 0xbb, 0x7d, 0x3b, 0xf1, 0x1a, 0x43, 0xdd, 0x6e, 0xfa, 0xcf, 0x3a, 0x7d, 0x84,
+	0x5e, 0x1f, 0xd2, 0x4a, 0xdc, 0x93, 0x26, 0xbc, 0xbc, 0xce, 0x6c, 0xef, 0x64, 0xc8, 0x8f, 0x50,
+	0x54, 0x99, 0x28, 0x16, 0x46, 0x42, 0xbb, 0xd3, 0x5e, 0x05, 0x5f, 0x38, 0xd1, 0x07, 0x71, 0xd7,
+	0x13, 0x3d, 0xbd, 0xce, 0x6c, 0xd7, 0x32, 0xfb, 0xcf, 0x4f, 0x9f, 0x9e, 0x19, 0xbc, 0xd3, 0x6f,
+	0xd6, 0x75, 0x4b, 0xbc, 0x15, 0x2d, 0x66, 0x5a, 0x5c, 0x73, 0x3c, 0x45, 0x7a, 0x56, 0xec, 0xee,
+	0x19, 0xfe, 0x13, 0x2b, 0x11, 0x9a, 0xd3, 0x18, 0xcb, 0xde, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff,
+	0x1e, 0xe2, 0x5d, 0xce, 0xc2, 0x15, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1314,23 +1661,33 @@ const _ = grpc.SupportPackageIsVersion6
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ImmuServiceClient interface {
 	Set(ctx context.Context, in *KeyValue, opts ...grpc.CallOption) (*Index, error)
+	SetSV(ctx context.Context, in *StructuredKeyValue, opts ...grpc.CallOption) (*Index, error)
 	SafeSet(ctx context.Context, in *SafeSetOptions, opts ...grpc.CallOption) (*Proof, error)
+	SafeSetSV(ctx context.Context, in *SafeSetSVOptions, opts ...grpc.CallOption) (*Proof, error)
 	Get(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Item, error)
+	GetSV(ctx context.Context, in *Key, opts ...grpc.CallOption) (*StructuredItem, error)
 	SafeGet(ctx context.Context, in *SafeGetOptions, opts ...grpc.CallOption) (*SafeItem, error)
+	SafeGetSV(ctx context.Context, in *SafeGetOptions, opts ...grpc.CallOption) (*SafeStructuredItem, error)
 	SetBatch(ctx context.Context, in *KVList, opts ...grpc.CallOption) (*Index, error)
+	SetBatchSV(ctx context.Context, in *SKVList, opts ...grpc.CallOption) (*Index, error)
 	GetBatch(ctx context.Context, in *KeyList, opts ...grpc.CallOption) (*ItemList, error)
+	GetBatchSV(ctx context.Context, in *KeyList, opts ...grpc.CallOption) (*StructuredItemList, error)
 	Scan(ctx context.Context, in *ScanOptions, opts ...grpc.CallOption) (*ItemList, error)
+	ScanSV(ctx context.Context, in *ScanOptions, opts ...grpc.CallOption) (*StructuredItemList, error)
 	Count(ctx context.Context, in *KeyPrefix, opts ...grpc.CallOption) (*ItemsCount, error)
 	CurrentRoot(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*Root, error)
 	Inclusion(ctx context.Context, in *Index, opts ...grpc.CallOption) (*InclusionProof, error)
 	Consistency(ctx context.Context, in *Index, opts ...grpc.CallOption) (*ConsistencyProof, error)
 	ByIndex(ctx context.Context, in *Index, opts ...grpc.CallOption) (*Item, error)
+	ByIndexSV(ctx context.Context, in *Index, opts ...grpc.CallOption) (*StructuredItem, error)
 	History(ctx context.Context, in *Key, opts ...grpc.CallOption) (*ItemList, error)
+	HistorySV(ctx context.Context, in *Key, opts ...grpc.CallOption) (*StructuredItemList, error)
 	Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
 	Reference(ctx context.Context, in *ReferenceOptions, opts ...grpc.CallOption) (*Index, error)
 	SafeReference(ctx context.Context, in *SafeReferenceOptions, opts ...grpc.CallOption) (*Proof, error)
 	ZAdd(ctx context.Context, in *ZAddOptions, opts ...grpc.CallOption) (*Index, error)
 	ZScan(ctx context.Context, in *ZScanOptions, opts ...grpc.CallOption) (*ItemList, error)
+	ZScanSV(ctx context.Context, in *ZScanOptions, opts ...grpc.CallOption) (*StructuredItemList, error)
 	SafeZAdd(ctx context.Context, in *SafeZAddOptions, opts ...grpc.CallOption) (*Proof, error)
 	Backup(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (ImmuService_BackupClient, error)
 	Restore(ctx context.Context, opts ...grpc.CallOption) (ImmuService_RestoreClient, error)
@@ -1353,9 +1710,27 @@ func (c *immuServiceClient) Set(ctx context.Context, in *KeyValue, opts ...grpc.
 	return out, nil
 }
 
+func (c *immuServiceClient) SetSV(ctx context.Context, in *StructuredKeyValue, opts ...grpc.CallOption) (*Index, error) {
+	out := new(Index)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SetSV", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *immuServiceClient) SafeSet(ctx context.Context, in *SafeSetOptions, opts ...grpc.CallOption) (*Proof, error) {
 	out := new(Proof)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SafeSet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceClient) SafeSetSV(ctx context.Context, in *SafeSetSVOptions, opts ...grpc.CallOption) (*Proof, error) {
+	out := new(Proof)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SafeSetSV", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1371,9 +1746,27 @@ func (c *immuServiceClient) Get(ctx context.Context, in *Key, opts ...grpc.CallO
 	return out, nil
 }
 
+func (c *immuServiceClient) GetSV(ctx context.Context, in *Key, opts ...grpc.CallOption) (*StructuredItem, error) {
+	out := new(StructuredItem)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/GetSV", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *immuServiceClient) SafeGet(ctx context.Context, in *SafeGetOptions, opts ...grpc.CallOption) (*SafeItem, error) {
 	out := new(SafeItem)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SafeGet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceClient) SafeGetSV(ctx context.Context, in *SafeGetOptions, opts ...grpc.CallOption) (*SafeStructuredItem, error) {
+	out := new(SafeStructuredItem)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SafeGetSV", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1389,6 +1782,15 @@ func (c *immuServiceClient) SetBatch(ctx context.Context, in *KVList, opts ...gr
 	return out, nil
 }
 
+func (c *immuServiceClient) SetBatchSV(ctx context.Context, in *SKVList, opts ...grpc.CallOption) (*Index, error) {
+	out := new(Index)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/SetBatchSV", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *immuServiceClient) GetBatch(ctx context.Context, in *KeyList, opts ...grpc.CallOption) (*ItemList, error) {
 	out := new(ItemList)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/GetBatch", in, out, opts...)
@@ -1398,9 +1800,27 @@ func (c *immuServiceClient) GetBatch(ctx context.Context, in *KeyList, opts ...g
 	return out, nil
 }
 
+func (c *immuServiceClient) GetBatchSV(ctx context.Context, in *KeyList, opts ...grpc.CallOption) (*StructuredItemList, error) {
+	out := new(StructuredItemList)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/GetBatchSV", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *immuServiceClient) Scan(ctx context.Context, in *ScanOptions, opts ...grpc.CallOption) (*ItemList, error) {
 	out := new(ItemList)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/Scan", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceClient) ScanSV(ctx context.Context, in *ScanOptions, opts ...grpc.CallOption) (*StructuredItemList, error) {
+	out := new(StructuredItemList)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ScanSV", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1452,9 +1872,27 @@ func (c *immuServiceClient) ByIndex(ctx context.Context, in *Index, opts ...grpc
 	return out, nil
 }
 
+func (c *immuServiceClient) ByIndexSV(ctx context.Context, in *Index, opts ...grpc.CallOption) (*StructuredItem, error) {
+	out := new(StructuredItem)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ByIndexSV", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *immuServiceClient) History(ctx context.Context, in *Key, opts ...grpc.CallOption) (*ItemList, error) {
 	out := new(ItemList)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/History", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceClient) HistorySV(ctx context.Context, in *Key, opts ...grpc.CallOption) (*StructuredItemList, error) {
+	out := new(StructuredItemList)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/HistorySV", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1500,6 +1938,15 @@ func (c *immuServiceClient) ZAdd(ctx context.Context, in *ZAddOptions, opts ...g
 func (c *immuServiceClient) ZScan(ctx context.Context, in *ZScanOptions, opts ...grpc.CallOption) (*ItemList, error) {
 	out := new(ItemList)
 	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ZScan", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *immuServiceClient) ZScanSV(ctx context.Context, in *ZScanOptions, opts ...grpc.CallOption) (*StructuredItemList, error) {
+	out := new(StructuredItemList)
+	err := c.cc.Invoke(ctx, "/immudb.schema.ImmuService/ZScanSV", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1584,23 +2031,33 @@ func (x *immuServiceRestoreClient) CloseAndRecv() (*ItemsCount, error) {
 // ImmuServiceServer is the server API for ImmuService service.
 type ImmuServiceServer interface {
 	Set(context.Context, *KeyValue) (*Index, error)
+	SetSV(context.Context, *StructuredKeyValue) (*Index, error)
 	SafeSet(context.Context, *SafeSetOptions) (*Proof, error)
+	SafeSetSV(context.Context, *SafeSetSVOptions) (*Proof, error)
 	Get(context.Context, *Key) (*Item, error)
+	GetSV(context.Context, *Key) (*StructuredItem, error)
 	SafeGet(context.Context, *SafeGetOptions) (*SafeItem, error)
+	SafeGetSV(context.Context, *SafeGetOptions) (*SafeStructuredItem, error)
 	SetBatch(context.Context, *KVList) (*Index, error)
+	SetBatchSV(context.Context, *SKVList) (*Index, error)
 	GetBatch(context.Context, *KeyList) (*ItemList, error)
+	GetBatchSV(context.Context, *KeyList) (*StructuredItemList, error)
 	Scan(context.Context, *ScanOptions) (*ItemList, error)
+	ScanSV(context.Context, *ScanOptions) (*StructuredItemList, error)
 	Count(context.Context, *KeyPrefix) (*ItemsCount, error)
 	CurrentRoot(context.Context, *empty.Empty) (*Root, error)
 	Inclusion(context.Context, *Index) (*InclusionProof, error)
 	Consistency(context.Context, *Index) (*ConsistencyProof, error)
 	ByIndex(context.Context, *Index) (*Item, error)
+	ByIndexSV(context.Context, *Index) (*StructuredItem, error)
 	History(context.Context, *Key) (*ItemList, error)
+	HistorySV(context.Context, *Key) (*StructuredItemList, error)
 	Health(context.Context, *empty.Empty) (*HealthResponse, error)
 	Reference(context.Context, *ReferenceOptions) (*Index, error)
 	SafeReference(context.Context, *SafeReferenceOptions) (*Proof, error)
 	ZAdd(context.Context, *ZAddOptions) (*Index, error)
 	ZScan(context.Context, *ZScanOptions) (*ItemList, error)
+	ZScanSV(context.Context, *ZScanOptions) (*StructuredItemList, error)
 	SafeZAdd(context.Context, *SafeZAddOptions) (*Proof, error)
 	Backup(*empty.Empty, ImmuService_BackupServer) error
 	Restore(ImmuService_RestoreServer) error
@@ -1613,23 +2070,44 @@ type UnimplementedImmuServiceServer struct {
 func (*UnimplementedImmuServiceServer) Set(ctx context.Context, req *KeyValue) (*Index, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
+func (*UnimplementedImmuServiceServer) SetSV(ctx context.Context, req *StructuredKeyValue) (*Index, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSV not implemented")
+}
 func (*UnimplementedImmuServiceServer) SafeSet(ctx context.Context, req *SafeSetOptions) (*Proof, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SafeSet not implemented")
+}
+func (*UnimplementedImmuServiceServer) SafeSetSV(ctx context.Context, req *SafeSetSVOptions) (*Proof, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SafeSetSV not implemented")
 }
 func (*UnimplementedImmuServiceServer) Get(ctx context.Context, req *Key) (*Item, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
+func (*UnimplementedImmuServiceServer) GetSV(ctx context.Context, req *Key) (*StructuredItem, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSV not implemented")
+}
 func (*UnimplementedImmuServiceServer) SafeGet(ctx context.Context, req *SafeGetOptions) (*SafeItem, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SafeGet not implemented")
+}
+func (*UnimplementedImmuServiceServer) SafeGetSV(ctx context.Context, req *SafeGetOptions) (*SafeStructuredItem, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SafeGetSV not implemented")
 }
 func (*UnimplementedImmuServiceServer) SetBatch(ctx context.Context, req *KVList) (*Index, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetBatch not implemented")
 }
+func (*UnimplementedImmuServiceServer) SetBatchSV(ctx context.Context, req *SKVList) (*Index, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetBatchSV not implemented")
+}
 func (*UnimplementedImmuServiceServer) GetBatch(ctx context.Context, req *KeyList) (*ItemList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetBatch not implemented")
 }
+func (*UnimplementedImmuServiceServer) GetBatchSV(ctx context.Context, req *KeyList) (*StructuredItemList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBatchSV not implemented")
+}
 func (*UnimplementedImmuServiceServer) Scan(ctx context.Context, req *ScanOptions) (*ItemList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Scan not implemented")
+}
+func (*UnimplementedImmuServiceServer) ScanSV(ctx context.Context, req *ScanOptions) (*StructuredItemList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ScanSV not implemented")
 }
 func (*UnimplementedImmuServiceServer) Count(ctx context.Context, req *KeyPrefix) (*ItemsCount, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Count not implemented")
@@ -1646,8 +2124,14 @@ func (*UnimplementedImmuServiceServer) Consistency(ctx context.Context, req *Ind
 func (*UnimplementedImmuServiceServer) ByIndex(ctx context.Context, req *Index) (*Item, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ByIndex not implemented")
 }
+func (*UnimplementedImmuServiceServer) ByIndexSV(ctx context.Context, req *Index) (*StructuredItem, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ByIndexSV not implemented")
+}
 func (*UnimplementedImmuServiceServer) History(ctx context.Context, req *Key) (*ItemList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method History not implemented")
+}
+func (*UnimplementedImmuServiceServer) HistorySV(ctx context.Context, req *Key) (*StructuredItemList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HistorySV not implemented")
 }
 func (*UnimplementedImmuServiceServer) Health(ctx context.Context, req *empty.Empty) (*HealthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Health not implemented")
@@ -1663,6 +2147,9 @@ func (*UnimplementedImmuServiceServer) ZAdd(ctx context.Context, req *ZAddOption
 }
 func (*UnimplementedImmuServiceServer) ZScan(ctx context.Context, req *ZScanOptions) (*ItemList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ZScan not implemented")
+}
+func (*UnimplementedImmuServiceServer) ZScanSV(ctx context.Context, req *ZScanOptions) (*StructuredItemList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ZScanSV not implemented")
 }
 func (*UnimplementedImmuServiceServer) SafeZAdd(ctx context.Context, req *SafeZAddOptions) (*Proof, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SafeZAdd not implemented")
@@ -1696,6 +2183,24 @@ func _ImmuService_Set_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImmuService_SetSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StructuredKeyValue)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).SetSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/SetSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).SetSV(ctx, req.(*StructuredKeyValue))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ImmuService_SafeSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SafeSetOptions)
 	if err := dec(in); err != nil {
@@ -1710,6 +2215,24 @@ func _ImmuService_SafeSet_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ImmuServiceServer).SafeSet(ctx, req.(*SafeSetOptions))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuService_SafeSetSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SafeSetSVOptions)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).SafeSetSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/SafeSetSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).SafeSetSV(ctx, req.(*SafeSetSVOptions))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1732,6 +2255,24 @@ func _ImmuService_Get_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImmuService_GetSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Key)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).GetSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/GetSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).GetSV(ctx, req.(*Key))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ImmuService_SafeGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SafeGetOptions)
 	if err := dec(in); err != nil {
@@ -1746,6 +2287,24 @@ func _ImmuService_SafeGet_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ImmuServiceServer).SafeGet(ctx, req.(*SafeGetOptions))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuService_SafeGetSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SafeGetOptions)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).SafeGetSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/SafeGetSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).SafeGetSV(ctx, req.(*SafeGetOptions))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1768,6 +2327,24 @@ func _ImmuService_SetBatch_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImmuService_SetBatchSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SKVList)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).SetBatchSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/SetBatchSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).SetBatchSV(ctx, req.(*SKVList))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ImmuService_GetBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(KeyList)
 	if err := dec(in); err != nil {
@@ -1786,6 +2363,24 @@ func _ImmuService_GetBatch_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImmuService_GetBatchSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyList)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).GetBatchSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/GetBatchSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).GetBatchSV(ctx, req.(*KeyList))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ImmuService_Scan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ScanOptions)
 	if err := dec(in); err != nil {
@@ -1800,6 +2395,24 @@ func _ImmuService_Scan_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ImmuServiceServer).Scan(ctx, req.(*ScanOptions))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuService_ScanSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScanOptions)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).ScanSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/ScanSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).ScanSV(ctx, req.(*ScanOptions))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1894,6 +2507,24 @@ func _ImmuService_ByIndex_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImmuService_ByIndexSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Index)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).ByIndexSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/ByIndexSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).ByIndexSV(ctx, req.(*Index))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ImmuService_History_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Key)
 	if err := dec(in); err != nil {
@@ -1908,6 +2539,24 @@ func _ImmuService_History_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ImmuServiceServer).History(ctx, req.(*Key))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ImmuService_HistorySV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Key)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).HistorySV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/HistorySV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).HistorySV(ctx, req.(*Key))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2002,6 +2651,24 @@ func _ImmuService_ZScan_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ImmuService_ZScanSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ZScanOptions)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImmuServiceServer).ZScanSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/immudb.schema.ImmuService/ZScanSV",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImmuServiceServer).ZScanSV(ctx, req.(*ZScanOptions))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ImmuService_SafeZAdd_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SafeZAddOptions)
 	if err := dec(in); err != nil {
@@ -2076,28 +2743,56 @@ var _ImmuService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ImmuService_Set_Handler,
 		},
 		{
+			MethodName: "SetSV",
+			Handler:    _ImmuService_SetSV_Handler,
+		},
+		{
 			MethodName: "SafeSet",
 			Handler:    _ImmuService_SafeSet_Handler,
+		},
+		{
+			MethodName: "SafeSetSV",
+			Handler:    _ImmuService_SafeSetSV_Handler,
 		},
 		{
 			MethodName: "Get",
 			Handler:    _ImmuService_Get_Handler,
 		},
 		{
+			MethodName: "GetSV",
+			Handler:    _ImmuService_GetSV_Handler,
+		},
+		{
 			MethodName: "SafeGet",
 			Handler:    _ImmuService_SafeGet_Handler,
+		},
+		{
+			MethodName: "SafeGetSV",
+			Handler:    _ImmuService_SafeGetSV_Handler,
 		},
 		{
 			MethodName: "SetBatch",
 			Handler:    _ImmuService_SetBatch_Handler,
 		},
 		{
+			MethodName: "SetBatchSV",
+			Handler:    _ImmuService_SetBatchSV_Handler,
+		},
+		{
 			MethodName: "GetBatch",
 			Handler:    _ImmuService_GetBatch_Handler,
 		},
 		{
+			MethodName: "GetBatchSV",
+			Handler:    _ImmuService_GetBatchSV_Handler,
+		},
+		{
 			MethodName: "Scan",
 			Handler:    _ImmuService_Scan_Handler,
+		},
+		{
+			MethodName: "ScanSV",
+			Handler:    _ImmuService_ScanSV_Handler,
 		},
 		{
 			MethodName: "Count",
@@ -2120,8 +2815,16 @@ var _ImmuService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ImmuService_ByIndex_Handler,
 		},
 		{
+			MethodName: "ByIndexSV",
+			Handler:    _ImmuService_ByIndexSV_Handler,
+		},
+		{
 			MethodName: "History",
 			Handler:    _ImmuService_History_Handler,
+		},
+		{
+			MethodName: "HistorySV",
+			Handler:    _ImmuService_HistorySV_Handler,
 		},
 		{
 			MethodName: "Health",
@@ -2142,6 +2845,10 @@ var _ImmuService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ZScan",
 			Handler:    _ImmuService_ZScan_Handler,
+		},
+		{
+			MethodName: "ZScanSV",
+			Handler:    _ImmuService_ZScanSV_Handler,
 		},
 		{
 			MethodName: "SafeZAdd",

@@ -10,6 +10,9 @@ STRIP = strip
 .PHONY: all
 all: immu immud immugw
 
+.PHONY: rebuild
+rebuild: clean build/codegen all
+
 .PHONY: immu
 immu:
 	$(GO) build ./cmd/immu
@@ -98,3 +101,18 @@ tools/comparison/mongodb:
 tools/comparison/scylladb:
 	$(DOCKER) build -t immu_scylladb ./tools/comparison/scylladb
 	$(DOCKER) run --rm -it immu_scylladb
+
+.PHONY: prerequisites
+prerequisites:
+	wget https://github.com/protocolbuffers/protobuf/releases/download/v3.11.4/protoc-3.11.4-linux-x86_64.zip -O /tmp/protoc.zip
+	unzip -o /tmp/protoc.zip -d $(GOPATH)/bin
+	rm -rf $(GOPATH)/pkg/mod/google
+	mv $(GOPATH)/bin/include/google $(GOPATH)/pkg/mod
+	rmdir $(GOPATH)/bin/include
+	rm /tmp/protoc.zip
+	go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+	go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
+	go get -u google.golang.org/grpc
+	go get -u github.com/golang/protobuf/
+	go get -u github.com/golang/protobuf/proto
+	go get -u github.com/golang/protobuf/protoc-gen-go

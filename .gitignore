@@ -40,3 +40,4 @@ vendor
 
 # Config
 immucfg.yaml
+cmd/immugw/.root

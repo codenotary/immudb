@@ -72,7 +72,7 @@ func (c *ImmuClient) Connected(f func() (interface{}, error)) (interface{}, erro
 	return result, nil
 }
 
-func (c *ImmuClient) Get(keyReader io.Reader) (*schema.Item, error) {
+func (c *ImmuClient) Get(keyReader io.Reader) (*schema.StructuredItem, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
@@ -81,12 +81,13 @@ func (c *ImmuClient) Get(keyReader io.Reader) (*schema.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.serviceClient.Get(context.Background(), &schema.Key{Key: key})
+	item, err := c.serviceClient.Get(context.Background(), &schema.Key{Key: key})
+	result := item.ToSItem()
 	c.Logger.Debugf("get finished in %s", time.Since(start))
 	return result, err
 }
 
-func (c *ImmuClient) Scan(keyReader io.Reader) (*schema.ItemList, error) {
+func (c *ImmuClient) Scan(keyReader io.Reader) (*schema.StructuredItemList, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
@@ -94,7 +95,8 @@ func (c *ImmuClient) Scan(keyReader io.Reader) (*schema.ItemList, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.serviceClient.Scan(context.Background(), &schema.ScanOptions{Prefix: prefix})
+	list, err := c.serviceClient.Scan(context.Background(), &schema.ScanOptions{Prefix: prefix})
+	return list.ToSItemList(), err
 }
 
 func (c *ImmuClient) ZScan(setReader io.Reader) (*schema.ItemList, error) {
@@ -150,10 +152,8 @@ func (c *ImmuClient) Set(keyReader io.Reader, valueReader io.Reader) (*schema.In
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.serviceClient.Set(context.Background(), &schema.KeyValue{
-		Key:   key,
-		Value: value,
-	})
+	skv := schema.NewSKV(key, value)
+	result, err := c.serviceClient.Set(context.Background(), skv.ToKV())
 	c.Logger.Debugf("set finished in %s", time.Since(start))
 	return result, err
 }
@@ -196,19 +196,20 @@ func (c *ImmuClient) Consistency(index uint64) (*schema.ConsistencyProof, error)
 	return result, err
 }
 
-func (c *ImmuClient) ByIndex(index uint64) (*schema.Item, error) {
+func (c *ImmuClient) ByIndex(index uint64) (*schema.StructuredItem, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.ByIndex(context.Background(), &schema.Index{
+	item, err := c.serviceClient.ByIndex(context.Background(), &schema.Index{
 		Index: index,
 	})
+	result := item.ToSItem()
 	c.Logger.Debugf("by-index finished in %s", time.Since(start))
 	return result, err
 }
 
-func (c *ImmuClient) History(keyReader io.Reader) (*schema.ItemList, error) {
+func (c *ImmuClient) History(keyReader io.Reader) (*schema.StructuredItemList, error) {
 	start := time.Now()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
@@ -217,9 +218,10 @@ func (c *ImmuClient) History(keyReader io.Reader) (*schema.ItemList, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.serviceClient.History(context.Background(), &schema.Key{
+	list, err := c.serviceClient.History(context.Background(), &schema.Key{
 		Key: key,
 	})
+	result := list.ToSItemList()
 	c.Logger.Debugf("history finished in %s", time.Since(start))
 	return result, err
 }
