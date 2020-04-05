@@ -624,7 +624,7 @@ func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error 
 	if err != nil {
 		return fmt.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: error getting restore client: %v", kvListLen, kvListStr, err)
 	}
-	defer restoreClient.CloseSend()
+	defer restoreClient.CloseAndRecv()
 	err = restoreClient.Send(kvList)
 	if err != nil {
 		return fmt.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: %v", kvListLen, kvListStr, err)
