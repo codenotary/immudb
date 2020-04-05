@@ -579,6 +579,7 @@ func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteSeeker) (int64, 
 	if err != nil {
 		return counter, err
 	}
+	defer bkpClient.CloseSend()
 
 	var offset int64
 	var errs []string
@@ -611,8 +612,6 @@ func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteSeeker) (int64, 
 		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t- "))
 	}
 
-	bkpClient.CloseSend()
-
 	c.Logger.Debugf("backup finished in %s", time.Since(start))
 
 	return counter, errorsMerged
@@ -625,8 +624,8 @@ func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error 
 	if err != nil {
 		return fmt.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: error getting restore client: %v", kvListLen, kvListStr, err)
 	}
+	defer restoreClient.CloseSend()
 	err = restoreClient.Send(kvList)
-	restoreClient.CloseSend()
 	if err != nil {
 		return fmt.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: %v", kvListLen, kvListStr, err)
 	}
