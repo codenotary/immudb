@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,8 @@ var testData = struct {
 	scores:  []float64{1.0, 2.0, 3.0},
 }
 
+var slog = logger.NewSimpleLoggerWithLevel("client_test", os.Stderr, logger.LogDebug)
+
 func newServer() *server.ImmuServer {
 	localImmuServer := server.DefaultServer()
 	dbDir := filepath.Join(localImmuServer.Options.Dir, localImmuServer.Options.DbName)
@@ -49,7 +52,7 @@ func newServer() *server.ImmuServer {
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		log.Fatal(err)
 	}
-	localImmuServer.Store, err = store.Open(store.DefaultOptions(dbDir))
+	localImmuServer.Store, err = store.Open(store.DefaultOptions(dbDir, slog))
 	if err != nil {
 		log.Fatal(err)
 	}
