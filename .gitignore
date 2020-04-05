@@ -32,12 +32,13 @@
 
 # Working files
 /immudb
-/.root
+.root
 immud.pid
 
 # Vendor
 vendor
 
 # Config
+immucfg.toml
 immucfg.yaml
-cmd/immugw/.root
+

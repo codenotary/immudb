@@ -43,7 +43,7 @@ func DefaultOptions() Options {
 		Port:        3322,
 		MetricsPort: 9497,
 		DbName:      "immudb",
-		Cfgfile:     "configs/immucfg.yaml",
+		Cfgfile:     "configs/immucfg.toml",
 		Pidpath:     "",
 		Logpath:     "",
 		MTLs:        false,
@@ -110,6 +110,6 @@ func (o Options) MetricsBind() string {
 
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v MTLs:%v}",
-		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Cfgfile, o.MTLs)
+		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid: log:%v %v MTLs:%v}",
+		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Cfgfile, o.Pidpath, o.Logpath, o.MTLs)
 }
