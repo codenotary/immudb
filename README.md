@@ -38,7 +38,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 1.  [What does it look like?](#what-does-it-look-like) - Take a quick tour through the project
 2.  [Our userbase](#user-base) - Our userbase
-3.  [Quickstart](#quickstart) - How to try it now on your systems, get a Docket container running in seconds
+3.  [Quickstart](#quickstart) - How to try it now on your systems, get a Docker container running in seconds
 4.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
 5.  [News](#news) - The latest news about immudb
 6.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
@@ -127,7 +127,7 @@ integrated mTLS offers the best approach for machine-to-machine authentication, 
 | High Write throughput     | Yes                                              |
 | Optimized for SSD         | Yes                                              |
 
-## User base
+## Our Userbase
 
 ### Docker pulls
 
@@ -135,6 +135,26 @@ We provide Docker images for the most common architectures. These are statistics
 
 [![codenotary/immudb
 (official)](https://img.shields.io/docker/pulls/codenotary/immudb.svg?label=codenotary/immudb+%28official%29)](https://hub.docker.com/r/codenotary/immudb/)
+
+## Quickstart
+
+
+### Performance monitoring (Prometheus)
+
+immudb has a built-in prometheus exporter that publishes all metrics at port 9497 (:9497/metrics) by default. When running a Prometheus instance, you can configure the target like in this example:
+
+```
+  - job_name: 'immudbmetrics'
+    scrape_interval: 60s
+    static_configs:
+         - targets: ['my-immudb-server:9497']
+
+```
+#### Grafana
+
+There is a Grafana dashboard available as well: https://grafana.com/grafana/dashboards/12026
+
+![immudb Grafana dashboard](img/grafana-dashboard.png "immudb Performance dashboard")
 
 ## FAQ
 
