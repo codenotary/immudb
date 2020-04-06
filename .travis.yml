@@ -25,12 +25,12 @@ jobs:
     - stage: Scan
       script:
         - curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
-        - gosec -fmt=json -out=results.json -no-fail ./...
+        - gosec -fmt=json -out=results-${TRAVIS_BUILD_NUMBER}.json -no-fail ./...
         - VCN_USER=$gosec_user VCN_PASSWORD=$gosec_pass /tmp/vcn login
-        - VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --attr  --silent results.json
+        - VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --attr  --silent results-${TRAVIS_BUILD_NUMBER}.json
         - /tmp/vcn logout
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
-        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent results.json
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent results-${TRAVIS_BUILD_NUMBER}.json
         - /tmp/vcn logout
 
     - stage: Binaries
