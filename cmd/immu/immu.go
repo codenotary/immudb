@@ -293,7 +293,7 @@ func main() {
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
-			Use:     "zadd set score key",
+			Use:     "zadd setname score key",
 			Short:   "Add new key with score to a new or existing sorted set",
 			Aliases: []string{"za"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -343,7 +343,7 @@ func main() {
 			Args: cobra.MinimumNArgs(3),
 		},
 		&cobra.Command{
-			Use:     "safezadd set score key",
+			Use:     "safezadd setname score key",
 			Short:   "Add and verify new key with score to a new or existing sorted set",
 			Aliases: []string{"sza"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -393,7 +393,7 @@ func main() {
 			Args: cobra.MinimumNArgs(3),
 		},
 		&cobra.Command{
-			Use:     "zscan set",
+			Use:     "zscan setname",
 			Short:   "Iterate over a sorted set",
 			Aliases: []string{"zscn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
