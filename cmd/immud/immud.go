@@ -18,12 +18,14 @@ package main
 
 import (
 	"fmt"
+	"os"
+
+	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
 var (
@@ -46,6 +48,8 @@ func main() {
 		quitToStdErr(err)
 	}
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
+
+	cmd.AddCommand(man.Generate(cmd, "immud", "../docs/man/immud"))
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)

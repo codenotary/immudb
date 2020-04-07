@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
+
+	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 func main() {
@@ -82,6 +84,8 @@ func main() {
 	immugwCmd.Flags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
 	immugwCmd.Flags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")
 	immugwCmd.Flags().String("clientcas", client.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
+
+	immugwCmd.AddCommand(man.Generate(immugwCmd, "immugw", "../docs/man/immugw"))
 
 	if err := immugwCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
