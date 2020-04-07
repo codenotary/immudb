@@ -190,7 +190,7 @@ func main() {
 					os.Exit(1)
 				}
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					return immuClient.Get(ctx, key)
+					return immuClient.SafeGet(ctx, key)
 				})
 
 				printItem([]byte(args[0]), nil, response)
