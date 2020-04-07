@@ -47,7 +47,7 @@ func Generate(cmd *cobra.Command, title string, defaultDir string) *cobra.Comman
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Printf("SUCCESS: man files generated in the %s directory", dir)
+			fmt.Printf("SUCCESS: man files generated in the %s directory\n", dir)
 			return nil
 		},
 		DisableAutoGenTag: false,
