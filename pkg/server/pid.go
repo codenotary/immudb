@@ -41,24 +41,22 @@ func checkPIDFileAlreadyExists(path string) error {
 	return nil
 }
 
-func NewPid(path string) (*PIDFile, error) {
+func NewPid(path string) (PIDFile, error) {
 	if err := checkPIDFileAlreadyExists(path); err != nil {
-		return nil, err
+		return PIDFile{}, err
 	}
 	if fn := filepath.Base(path); fn == "." {
-		return nil, fmt.Errorf("Pid filename is invalid: %s", path)
+		return PIDFile{}, fmt.Errorf("Pid filename is invalid: %s", path)
 	}
 	if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
 		if err := os.Mkdir(filepath.Dir(path), os.FileMode(0755)); err != nil {
-			return nil, err
+			return PIDFile{}, err
 		}
 	}
-
 	if err := ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {
-		return nil, err
+		return PIDFile{}, err
 	}
-
-	return &PIDFile{path: path}, nil
+	return PIDFile{path: path}, nil
 }
 
 func (file PIDFile) Remove() error {

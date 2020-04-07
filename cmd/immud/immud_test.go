@@ -12,8 +12,8 @@ import (
 
 func DefaultTestOptions() (o server.Options) {
 	o = server.DefaultOptions()
-	o.Pidpath = "tmp/immudtest/immudtest.pid"
-	o.Logpath = "immudtest.log"
+	o.Pidfile = "tmp/immudtest/immudtest.pid"
+	o.Logfile = "immudtest.log"
 	o.Dir = "tmp/immudtest/data"
 	o.DbName = "immudtest"
 	o.MTLs = false
@@ -39,9 +39,9 @@ func TestImmudCommandFlagParser(t *testing.T) {
 	bindFlags(cmd)
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
 
-	_, err = executeCommand(cmd, "--logpath="+o.Logpath)
+	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
 	assert.NoError(t, err)
-	assert.Equal(t, o.Logpath, options.Logpath)
+	assert.Equal(t, o.Logfile, options.Logfile)
 }
 
 //Priority:
@@ -50,6 +50,7 @@ func TestImmudCommandFlagParser(t *testing.T) {
 // 3. env. variables
 // 4. config file
 func TestImmudCommandFlagParserPriority(t *testing.T) {
+	defer tearDown()
 	o := DefaultTestOptions()
 	var options server.Options
 	var err error
@@ -70,28 +71,28 @@ func TestImmudCommandFlagParserPriority(t *testing.T) {
 	// 4. config file
 	_, err = executeCommand(cmd)
 	assert.NoError(t, err)
-	assert.Equal(t, "", options.Logpath)
+	assert.Equal(t, "", options.Logfile)
 	// 4-b. config file specified in command line
-	_, err = executeCommand(cmd, "--cfgfile=./../../test/immucfgtest.toml")
+	_, err = executeCommand(cmd, "--config=./../../test/immucfgtest.toml")
 	assert.NoError(t, err)
-	assert.Equal(t, "ConfigFileThatsNameIsDeclaredOnTheCommandLine", options.Logpath)
+	assert.Equal(t, "ConfigFileThatsNameIsDeclaredOnTheCommandLine", options.Logfile)
 
 	// 3. env. variables
-	os.Setenv("IMMU_LOGPATH", "EnvironmentVars")
+	os.Setenv("IMMUD_LOGFILE", "EnvironmentVars")
 	_, err = executeCommand(cmd)
 	assert.NoError(t, err)
-	assert.Equal(t, "EnvironmentVars", options.Logpath)
+	assert.Equal(t, "EnvironmentVars", options.Logfile)
 
 	// 2. flags
-	_, err = executeCommand(cmd, "--logpath="+o.Logpath)
+	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
 	assert.NoError(t, err)
-	assert.Equal(t, o.Logpath, options.Logpath)
+	assert.Equal(t, o.Logfile, options.Logfile)
 
 	// 1. overrides
-	viper.Set("logpath", "override")
-	_, err = executeCommand(cmd, "--logpath="+o.Logpath)
+	viper.Set("logfile", "override")
+	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
 	assert.NoError(t, err)
-	assert.Equal(t, "override", options.Logpath)
+	assert.Equal(t, "override", options.Logfile)
 }
 
 func executeCommand(root *cobra.Command, args ...string) (output string, err error) {
@@ -106,4 +107,8 @@ func executeCommandC(root *cobra.Command, args ...string) (c *cobra.Command, out
 	root.SetArgs(args)
 	c, err = root.ExecuteC()
 	return c, buf.String(), err
+}
+
+func tearDown() {
+	os.Unsetenv("IMMUD_LOGFILE")
 }

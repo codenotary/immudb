@@ -96,8 +96,8 @@ func (s *ImmuServer) Start() error {
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immud: %v", s.Options)
 
-	if s.Options.Pidpath != "" {
-		if s.Pid, err = NewPid(s.Options.Pidpath); err != nil {
+	if s.Options.Pidfile != "" {
+		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
 			return err
 		}
 	}

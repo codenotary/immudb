@@ -30,7 +30,7 @@ type ImmuServer struct {
 	Logger     logger.Logger
 	Options    Options
 	GrpcServer *grpc.Server
-	Pid        *PIDFile
+	Pid        PIDFile
 	quit       chan struct{}
 }
 
