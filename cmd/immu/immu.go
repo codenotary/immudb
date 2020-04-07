@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/store"
 	"google.golang.org/grpc"
 
@@ -733,6 +734,8 @@ secondRoot: %x at index: %d
 		configureOptions(command)
 		cmd.AddCommand(command)
 	}
+
+	cmd.AddCommand(man.Generate(cmd, "immu", "../docs/man/immu"))
 
 	if err := cmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
