@@ -98,3 +98,9 @@ tools/comparison/mongodb:
 tools/comparison/scylladb:
 	$(DOCKER) build -t immu_scylladb ./tools/comparison/scylladb
 	$(DOCKER) run --rm -it immu_scylladb
+
+.PHONY: man
+man:
+	$(GO) run ./cmd/immu mangen ./cmd/docs/man/immu
+	$(GO) run ./cmd/immud mangen ./cmd/docs/man/immud
+	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
