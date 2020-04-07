@@ -19,7 +19,6 @@ package gw
 import (
 	"fmt"
 	"github.com/codenotary/immudb/pkg/client"
-	"os"
 	"strconv"
 )
 
@@ -30,6 +29,9 @@ type Options struct {
 	ImmudPort    int
 	MTLs         bool
 	MTLsOptions  client.MTLsOptions
+	Config       string
+	Pidfile      string
+	Logfile      string
 }
 
 func DefaultOptions() Options {
@@ -39,6 +41,9 @@ func DefaultOptions() Options {
 		ImmudAddress: "127.0.0.1",
 		ImmudPort:    3322,
 		MTLs:         false,
+		Config:       "configs/immu.toml",
+		Pidfile:      "",
+		Logfile:      "",
 	}
 }
 
@@ -72,39 +77,27 @@ func (o Options) WithMTLsOptions(MTLsOptions client.MTLsOptions) Options {
 	return o
 }
 
+func (o Options) WithConfig(config string) Options {
+	o.Config = config
+	return o
+}
+
+func (o Options) WithPidfile(pidfile string) Options {
+	o.Pidfile = pidfile
+	return o
+}
+
+func (o Options) WithLogfile(logfile string) Options {
+	o.Logfile = logfile
+	return o
+}
+
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
 }
 
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{address:%v port:%d immud-address:%v immud-port:%d MTLs:%v}",
-		o.Address, o.Port, o.ImmudAddress, o.ImmudPort, o.MTLs)
-}
-
-func (o Options) FromEnvironment() Options {
-	address := os.Getenv("IMMUGW_ADDRESS")
-	if address != "" {
-		o.Address = address
-	}
-	port := os.Getenv("IMMUGW_PORT")
-	if parsedPort, err := strconv.Atoi(port); err == nil {
-		o.Port = parsedPort
-	}
-	immudAddress := os.Getenv("IMMU_ADDRESS")
-	if immudAddress != "" {
-		o.ImmudAddress = immudAddress
-	}
-	immudPort := os.Getenv("IMMU_PORT")
-	if parsedPort, err := strconv.Atoi(immudPort); err == nil {
-		o.ImmudPort = parsedPort
-	}
-	if MTLs, err := strconv.ParseBool(os.Getenv("IMMU_MTLS")); err == nil {
-		o.MTLs = MTLs
-	}
-	if o.MTLs {
-		mo := client.MTLsOptions{}
-		o.MTLsOptions = mo.FromEnvironment()
-	}
-	return o
+		"{address:%v port:%d immud-address:%v immud-port:%d config file:%v pid:%v log:%v MTLs:%v}",
+		o.Address, o.Port, o.ImmudAddress, o.ImmudPort, o.Config, o.Pidfile, o.Logfile, o.MTLs)
 }

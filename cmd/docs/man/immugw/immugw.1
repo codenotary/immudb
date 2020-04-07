@@ -15,12 +15,12 @@ immugw \- Immu gateway
 
 .SH DESCRIPTION
 .PP
-Immu gateway is an intelligent proxy for immudb. It expose all gRPC methods with a rest interface and wrap SAFESET and SAFEGET endpoints with a verification service.
+Immu gateway is an smart proxy for immudb. It exposes all gRPC methods with a rest interface and wrap all SAFE endpoints with a verification service.
 
 
 .SH OPTIONS
 .PP
-\fB\-s\fP, \fB\-\-address\fP="127.0.0.1"
+\fB\-a\fP, \fB\-\-address\fP="127.0.0.1"
     immugw host address
 
 .PP
@@ -32,11 +32,15 @@ Immu gateway is an intelligent proxy for immudb. It expose all gRPC methods with
     clients certificates list. Aka certificate authority
 
 .PP
+\fB\-\-config\fP=""
+    config file (default path are config or $HOME. Default filename is immugw.toml)
+
+.PP
 \fB\-h\fP, \fB\-\-help\fP[=false]
     help for immugw
 
 .PP
-\fB\-y\fP, \fB\-\-immudaddress\fP="127.0.0.1"
+\fB\-k\fP, \fB\-\-immudaddress\fP="127.0.0.1"
     immudb host address
 
 .PP
@@ -44,8 +48,16 @@ Immu gateway is an intelligent proxy for immudb. It expose all gRPC methods with
     immudb port number
 
 .PP
+\fB\-\-logfile\fP=""
+    log path with filename. E.g. /tmp/immugw/immugw.log
+
+.PP
 \fB\-m\fP, \fB\-\-mtls\fP[=false]
     enable mutual tls
+
+.PP
+\fB\-\-pidfile\fP=""
+    pid path with filename. E.g. /var/run/immugw.pid
 
 .PP
 \fB\-\-pkey\fP="./tools/mtls/4\_client/private/localhost.key.pem"
