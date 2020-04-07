@@ -28,9 +28,9 @@ type Options struct {
 	Port        int
 	MetricsPort int
 	DbName      string
-	Cfgfile     string
-	Pidpath     string
-	Logpath     string
+	Config      string
+	Pidfile     string
+	Logfile     string
 	MTLs        bool
 	MTLsOptions MTLsOptions
 }
@@ -43,9 +43,9 @@ func DefaultOptions() Options {
 		Port:        3322,
 		MetricsPort: 9497,
 		DbName:      "immudb",
-		Cfgfile:     "configs/immucfg.toml",
-		Pidpath:     "",
-		Logpath:     "",
+		Config:      "configs/immucfg.toml",
+		Pidfile:     "",
+		Logfile:     "",
 		MTLs:        false,
 	}
 }
@@ -75,18 +75,18 @@ func (o Options) WithDbName(dbName string) Options {
 	return o
 }
 
-func (o Options) WithCfgFile(cfgfile string) Options {
-	o.Cfgfile = cfgfile
+func (o Options) WithConfig(config string) Options {
+	o.Config = config
 	return o
 }
 
-func (o Options) WithPidpath(pidpath string) Options {
-	o.Pidpath = pidpath
+func (o Options) WithPidfile(pidfile string) Options {
+	o.Pidfile = pidfile
 	return o
 }
 
-func (o Options) WithLogpath(logpath string) Options {
-	o.Logpath = logpath
+func (o Options) WithLogfile(logfile string) Options {
+	o.Logfile = logfile
 	return o
 }
 
@@ -110,6 +110,6 @@ func (o Options) MetricsBind() string {
 
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid: log:%v %v MTLs:%v}",
-		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Cfgfile, o.Pidpath, o.Logpath, o.MTLs)
+		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v}",
+		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Config, o.Pidfile, o.Logfile, o.MTLs)
 }

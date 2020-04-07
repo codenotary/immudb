@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	cfgfile string
+	config string
 )
 
 func init() {
@@ -64,8 +64,8 @@ func Immud(cmd *cobra.Command, args []string) (err error) {
 	immuServer := server.
 		DefaultServer().
 		WithOptions(options)
-	if options.Logpath != "" {
-		if flogger, file, err := logger.NewFileLogger("immud ", options.Logpath); err == nil {
+	if options.Logfile != "" {
+		if flogger, file, err := logger.NewFileLogger("immud ", options.Logfile); err == nil {
 			defer func() {
 				if err := file.Close(); err != nil {
 					quitToStdErr(err)
@@ -85,11 +85,11 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	address := viper.GetString("address")
 	dbName := viper.GetString("dbname")
 	// config file came only from arguments or default folder
-	if cfgfile, err = cmd.Flags().GetString("cfgfile"); err != nil {
+	if config, err = cmd.Flags().GetString("config"); err != nil {
 		return server.Options{}, err
 	}
-	pidpath := viper.GetString("pidpath")
-	logpath := viper.GetString("logpath")
+	pidfile := viper.GetString("pidfile")
+	logfile := viper.GetString("logfile")
 	mtls := viper.GetBool("mtls")
 	certificate := viper.GetString("certificate")
 	pkey := viper.GetString("pkey")
@@ -101,9 +101,9 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithPort(port).
 		WithAddress(address).
 		WithDbName(dbName).
-		WithCfgFile(cfgfile).
-		WithPidpath(pidpath).
-		WithLogpath(logpath).
+		WithConfig(config).
+		WithPidfile(pidfile).
+		WithLogfile(logfile).
 		WithMTLs(mtls)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
@@ -120,9 +120,9 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
 	cmd.Flags().StringP("dbname", "n", options.DbName, "db name")
-	cmd.Flags().StringVar(&cfgfile, "cfgfile", "", "config file (default path are config or $HOME. Default filename is immucfg.yaml)")
-	cmd.Flags().String("pidpath", options.Pidpath, "pid path with filename. E.g. /var/run/immud.pid")
-	cmd.Flags().String("logpath", options.Logpath, "log path with filename. E.g. /tmp/immud/immud.log")
+	cmd.Flags().StringVar(&config, "config", "", "config file (default path are config or $HOME. Default filename is immud.toml)")
+	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immud.pid")
+	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immud/immud.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
@@ -142,10 +142,10 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("dbname", cmd.Flags().Lookup("dbname")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("pidpath", cmd.Flags().Lookup("pidpath")); err != nil {
+	if err := viper.BindPFlag("pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("logpath", cmd.Flags().Lookup("logpath")); err != nil {
+	if err := viper.BindPFlag("logfile", cmd.Flags().Lookup("logfile")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("mtls", cmd.Flags().Lookup("mtls")); err != nil {
@@ -168,8 +168,8 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("port", options.Port)
 	viper.SetDefault("address", options.Address)
 	viper.SetDefault("dbname", options.DbName)
-	viper.SetDefault("pidpath", options.Pidpath)
-	viper.SetDefault("logpath", options.Logpath)
+	viper.SetDefault("pidfile", options.Pidfile)
+	viper.SetDefault("logfile", options.Logfile)
 	viper.SetDefault("mtls", options.MTLs)
 	viper.SetDefault("certificate", mtlsOptions.Certificate)
 	viper.SetDefault("pkey", mtlsOptions.Pkey)
@@ -177,8 +177,8 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 }
 
 func initConfig() {
-	if cfgfile != "" {
-		viper.SetConfigFile(cfgfile)
+	if config != "" {
+		viper.SetConfigFile(config)
 	} else {
 		home, err := homedir.Dir()
 		if err != nil {
@@ -187,9 +187,9 @@ func initConfig() {
 		viper.AddConfigPath("configs")
 		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
 		viper.AddConfigPath(home)
-		viper.SetConfigName("immucfg")
+		viper.SetConfigName("immudcfg")
 	}
-	viper.SetEnvPrefix("IMMU")
+	viper.SetEnvPrefix("IMMUD")
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
