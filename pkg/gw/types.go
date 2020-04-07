@@ -20,6 +20,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/server"
 	"os"
 )
 
@@ -28,6 +29,7 @@ type ImmuGwServer struct {
 	quit        chan struct{}
 	Logger      logger.Logger
 	RootService client.RootService
+	Pid         server.PIDFile
 	Client      schema.ImmuServiceClient
 }
 

@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/server"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
@@ -167,6 +168,13 @@ func (s *ImmuGwServer) Start() error {
 
 	s.installShutdownHandler()
 	s.Logger.Infof("Starting immugw at %s:%d", s.Options.Address, s.Options.Port)
+
+	if s.Options.Pidfile != "" {
+		if s.Pid, err = server.NewPid(s.Options.Pidfile); err != nil {
+			return err
+		}
+	}
+
 	s.Logger.Infof("Root hash %x at %d", root.Root, root.Index)
 	go func() {
 		if err = http.ListenAndServe(s.Options.Address+":"+strconv.Itoa(s.Options.Port), handler); err != nil && err != http.ErrServerClosed {
