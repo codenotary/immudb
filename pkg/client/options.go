@@ -50,51 +50,61 @@ func DefaultOptions() Options {
 	}
 }
 
+// WithAddress sets address
 func (o Options) WithAddress(address string) Options {
 	o.Address = address
 	return o
 }
 
+// WithPort sets port
 func (o Options) WithPort(port int) Options {
 	o.Port = port
 	return o
 }
 
+// WithDialRetries sets dial retries
 func (o Options) WithDialRetries(retries int) Options {
 	o.DialRetries = retries
 	return o
 }
 
+// WithHealthCheckRetries sets healt check retries
 func (o Options) WithHealthCheckRetries(retries int) Options {
 	o.HealthCheckRetries = retries
 	return o
 }
 
+// WithMTLs activate/deactivate MTLs
 func (o Options) WithMTLs(MTLs bool) Options {
 	o.MTLs = MTLs
 	return o
 }
 
+// WithConfig sets config file name
 func (o Options) WithConfig(config string) Options {
 	o.Config = config
 	return o
 }
 
+// WithPidfile sets pidfile
 func (o Options) WithPidfile(pidfile string) Options {
 	o.Pidfile = pidfile
 	return o
 }
 
+// WithLogfile sets logfile
 func (o Options) WithLogfile(logfile string) Options {
 	o.Logfile = logfile
 	return o
 }
 
+// WithMTLsOptions sets MTLsOptions
 func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
 	o.MTLsOptions = MTLsOptions
 	return o
 }
 
+// WithDialOptions sets dialOptions
 func (o Options) WithDialOptions(replaceExisting bool, dialOptions ...grpc.DialOption) Options {
 	if replaceExisting {
 		o.DialOptions = dialOptions

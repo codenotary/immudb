@@ -47,46 +47,55 @@ func DefaultOptions() Options {
 	}
 }
 
+// WithAddress sets address
 func (o Options) WithAddress(address string) Options {
 	o.Address = address
 	return o
 }
 
+// WithPort sets port
 func (o Options) WithPort(port int) Options {
 	o.Port = port
 	return o
 }
 
+// WithImmudAddress sets immudAddress
 func (o Options) WithImmudAddress(immudAddress string) Options {
 	o.ImmudAddress = immudAddress
 	return o
 }
 
+// WithImmudPort sets immudPort
 func (o Options) WithImmudPort(immudPort int) Options {
 	o.ImmudPort = immudPort
 	return o
 }
 
+// WithMTLs sets MTLs
 func (o Options) WithMTLs(MTLs bool) Options {
 	o.MTLs = MTLs
 	return o
 }
 
+// WithMTLsOptions sets MTLsOptions
 func (o Options) WithMTLsOptions(MTLsOptions client.MTLsOptions) Options {
 	o.MTLsOptions = MTLsOptions
 	return o
 }
 
+// WithConfig sets config
 func (o Options) WithConfig(config string) Options {
 	o.Config = config
 	return o
 }
 
+// WithPidfile sets pidfile
 func (o Options) WithPidfile(pidfile string) Options {
 	o.Pidfile = pidfile
 	return o
 }
 
+// WithLogfile sets logfile
 func (o Options) WithLogfile(logfile string) Options {
 	o.Logfile = logfile
 	return o

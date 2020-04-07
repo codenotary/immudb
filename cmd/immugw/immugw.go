@@ -2,23 +2,20 @@ package main
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/mitchellh/go-homedir"
-	"github.com/spf13/viper"
-	"os"
-
+	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"os"
 )
 
-var (
-	config string
-)
+var o = c.Options{}
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(func() { o.InitConfig("immugw") })
 }
 
 func main() {
@@ -39,7 +36,7 @@ func main() {
 				if flogger, file, err := logger.NewFileLogger("immugw ", options.Logfile); err == nil {
 					defer func() {
 						if err := file.Close(); err != nil {
-							quitToStdErr(err)
+							c.QuitToStdErr(err)
 						}
 					}()
 					immuGwServer.WithLogger(flogger)
@@ -54,7 +51,7 @@ func main() {
 	setupFlags(immugwCmd, gw.DefaultOptions(), client.DefaultMTLsOptions())
 
 	if err := bindFlags(immugwCmd); err != nil {
-		quitToStdErr(err)
+		c.QuitToStdErr(err)
 	}
 	setupDefaults(gw.DefaultOptions(), client.DefaultMTLsOptions())
 	immugwCmd.AddCommand(man.Generate(immugwCmd, "immugw", "../docs/man/immugw"))
@@ -71,7 +68,7 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	immudport := viper.GetInt("immudport")
 	immudAddress := viper.GetString("immudAddress")
 	// config file came only from arguments or default folder
-	if config, err = cmd.Flags().GetString("config"); err != nil {
+	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return gw.Options{}, err
 	}
 	pidfile := viper.GetString("pidfile")
@@ -80,7 +77,7 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	servername := viper.GetString("servername")
 	certificate := viper.GetString("certificate")
 	pkey := viper.GetString("pkey")
-	client_cas := viper.GetString("clientcas")
+	clientcas := viper.GetString("clientcas")
 
 	options = gw.DefaultOptions().
 		WithPort(port).
@@ -96,7 +93,7 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 			WithServername(servername).
 			WithCertificate(certificate).
 			WithPkey(pkey).
-			WithClientCAs(client_cas)
+			WithClientCAs(clientcas)
 	}
 	return options, nil
 }
@@ -106,7 +103,7 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 	cmd.Flags().StringP("address", "a", options.Address, "immugw host address")
 	cmd.Flags().IntP("immudport", "j", options.ImmudPort, "immudb port number")
 	cmd.Flags().StringP("immudaddress", "k", options.ImmudAddress, "immudb host address")
-	cmd.Flags().StringVar(&config, "config", "", "config file (default path are config or $HOME. Default filename is immugw.toml)")
+	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are config or $HOME. Default filename is immugw.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
@@ -164,29 +161,4 @@ func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
 	viper.SetDefault("certificate", mtlsOptions.Certificate)
 	viper.SetDefault("pkey", mtlsOptions.Pkey)
 	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
-}
-
-func initConfig() {
-	if config != "" {
-		viper.SetConfigFile(config)
-	} else {
-		home, err := homedir.Dir()
-		if err != nil {
-			quitToStdErr(err)
-		}
-		viper.AddConfigPath("configs")
-		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
-		viper.AddConfigPath(home)
-		viper.SetConfigName("immugw")
-	}
-	viper.SetEnvPrefix("IMMUGW")
-	viper.AutomaticEnv()
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
-}
-
-func quitToStdErr(msg interface{}) {
-	_, _ = fmt.Fprintln(os.Stderr, msg)
-	os.Exit(1)
 }

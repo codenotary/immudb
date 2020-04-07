@@ -21,6 +21,7 @@ import (
 	"strconv"
 )
 
+// Options server options list
 type Options struct {
 	Dir         string
 	Network     string
@@ -35,6 +36,7 @@ type Options struct {
 	MTLsOptions MTLsOptions
 }
 
+// DefaultOptions returns default server options
 func DefaultOptions() Options {
 	return Options{
 		Dir:         ".",
@@ -50,64 +52,77 @@ func DefaultOptions() Options {
 	}
 }
 
+// WithDir sets dir
 func (o Options) WithDir(dir string) Options {
 	o.Dir = dir
 	return o
 }
 
+// WithNetwork sets network
 func (o Options) WithNetwork(network string) Options {
 	o.Network = network
 	return o
 }
 
+// WithAddress sets address
 func (o Options) WithAddress(address string) Options {
 	o.Address = address
 	return o
 }
 
+// WithPort sets port
 func (o Options) WithPort(port int) Options {
 	o.Port = port
 	return o
 }
 
+// WithDbName sets dbName
 func (o Options) WithDbName(dbName string) Options {
 	o.DbName = dbName
 	return o
 }
 
+// WithConfig sets config file name
 func (o Options) WithConfig(config string) Options {
 	o.Config = config
 	return o
 }
 
+// WithPidfile sets pid file
 func (o Options) WithPidfile(pidfile string) Options {
 	o.Pidfile = pidfile
 	return o
 }
 
+// WithLogfile sets logfile
 func (o Options) WithLogfile(logfile string) Options {
 	o.Logfile = logfile
 	return o
 }
 
+// WithMTLs sets mtls
 func (o Options) WithMTLs(MTLs bool) Options {
 	o.MTLs = MTLs
 	return o
 }
 
+// WithMTLsOptions sets WithMTLsOptions
 func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
 	o.MTLsOptions = MTLsOptions
 	return o
 }
 
+// Bind returns bind address
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
 }
 
+// MetricsBind return metrics bind address
 func (o Options) MetricsBind() string {
 	return o.Address + ":" + strconv.Itoa(o.MetricsPort)
 }
 
+// String print options
 func (o Options) String() string {
 	return fmt.Sprintf(
 		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v}",
