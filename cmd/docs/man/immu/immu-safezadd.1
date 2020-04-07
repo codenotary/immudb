@@ -20,16 +20,22 @@ Add and verify new key with score to a new or existing sorted set
 
 .SH OPTIONS
 .PP
-\fB\-a\fP, \fB\-\-address\fP="127.0.0.1"
-    bind address
-
-.PP
 \fB\-h\fP, \fB\-\-help\fP[=false]
     help for safezadd
 
+
+.SH OPTIONS INHERITED FROM PARENT COMMANDS
+.PP
+\fB\-a\fP, \fB\-\-address\fP="127.0.0.1"
+    immudb host address
+
+.PP
+\fB\-\-config\fP=""
+    config file (default path are config or $HOME. Default filename is immu.toml)
+
 .PP
 \fB\-p\fP, \fB\-\-port\fP=3322
-    port number
+    immudb port number
 
 
 .SH SEE ALSO
