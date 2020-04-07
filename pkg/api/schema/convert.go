@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func merge(payload []byte, timestamp uint64) (merged []byte) {
+func Merge(payload []byte, timestamp uint64) (merged []byte) {
 	ts := make([]byte, 8)
 	binary.LittleEndian.PutUint64(ts, timestamp)
 	merged = append(ts, payload[:]...)
@@ -47,7 +47,7 @@ func (item *Item) ToSItem() *StructuredItem {
 func (item *StructuredItem) ToItem() *Item {
 	return &Item{
 		Key:   item.Key,
-		Value: merge(item.Value.Payload, item.Value.Timestamp),
+		Value: Merge(item.Value.Payload, item.Value.Timestamp),
 		Index: item.Index,
 	}
 }
@@ -70,7 +70,7 @@ func (list *ItemList) ToSItemList() *StructuredItemList {
 func (skv *StructuredKeyValue) ToKV() *KeyValue {
 	return &KeyValue{
 		Key:   skv.Key,
-		Value: merge(skv.Value.Payload, skv.Value.Timestamp),
+		Value: Merge(skv.Value.Payload, skv.Value.Timestamp),
 	}
 }
 
