@@ -22,8 +22,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/pkg/gw"
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 	"io"
 	"io/ioutil"
@@ -43,12 +43,10 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-var (
-	config string
-)
+var o = c.Options{}
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(func() { o.InitConfig("immu") })
 }
 
 func main() {
@@ -742,7 +740,7 @@ secondRoot: %x at index: %d
 	}
 
 	if err := configureOptions(cmd); err != nil {
-		quitToStdErr(err)
+		c.QuitToStdErr(err)
 	}
 
 	for _, command := range commands {
@@ -760,7 +758,7 @@ secondRoot: %x at index: %d
 func configureOptions(cmd *cobra.Command) error {
 	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudPort, "immudb port number")
 	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&config, "config", "", "config file (default path are config or $HOME. Default filename is immu.toml)")
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are config or $HOME. Default filename is immu.toml)")
 	if err := viper.BindPFlag("port", cmd.PersistentFlags().Lookup("port")); err != nil {
 		return err
 	}
@@ -854,29 +852,4 @@ value:		%s
 hash:		%x
 verified:	%t
 `, index, set, key, score, rkey, api.Digest(index, key, rkey), verified)
-}
-
-func initConfig() {
-	if config != "" {
-		viper.SetConfigFile(config)
-	} else {
-		home, err := homedir.Dir()
-		if err != nil {
-			quitToStdErr(err)
-		}
-		viper.AddConfigPath("configs")
-		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
-		viper.AddConfigPath(home)
-		viper.SetConfigName("immu")
-	}
-	viper.SetEnvPrefix("IMMU")
-	viper.AutomaticEnv()
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
-}
-
-func quitToStdErr(msg interface{}) {
-	_, _ = fmt.Fprintln(os.Stderr, msg)
-	os.Exit(1)
 }

@@ -25,6 +25,7 @@ import (
 	"strings"
 )
 
+// PIDFile contains path of pid file
 type PIDFile struct {
 	path string
 }
@@ -41,6 +42,7 @@ func checkPIDFileAlreadyExists(path string) error {
 	return nil
 }
 
+// NewPid returns a new PIDFile or an error
 func NewPid(path string) (PIDFile, error) {
 	if err := checkPIDFileAlreadyExists(path); err != nil {
 		return PIDFile{}, err
@@ -59,6 +61,7 @@ func NewPid(path string) (PIDFile, error) {
 	return PIDFile{path: path}, nil
 }
 
+// Remove remove the pid file
 func (file PIDFile) Remove() error {
 	return os.Remove(file.path)
 }
