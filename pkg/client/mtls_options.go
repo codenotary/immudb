@@ -16,10 +16,6 @@ limitations under the License.
 
 package client
 
-import (
-	"os"
-)
-
 type MTLsOptions struct {
 	Servername  string
 	Pkey        string
@@ -53,25 +49,5 @@ func (o MTLsOptions) WithCertificate(certificate string) MTLsOptions {
 
 func (o MTLsOptions) WithClientCAs(clientCAs string) MTLsOptions {
 	o.ClientCAs = clientCAs
-	return o
-}
-
-func (o MTLsOptions) FromEnvironment() MTLsOptions {
-	servername := os.Getenv("IMMUD_SERVERNAME")
-	if servername != "" {
-		o.Servername = servername
-	}
-	pkey := os.Getenv("IMMUD_PKEY")
-	if pkey != "" {
-		o.Pkey = pkey
-	}
-	certificate := os.Getenv("IMMUD_CERTIFICATE")
-	if certificate != "" {
-		o.Certificate = certificate
-	}
-	clientCAs := os.Getenv("IMMUD_CLIENT_CAS")
-	if clientCAs != "" {
-		o.ClientCAs = clientCAs
-	}
 	return o
 }

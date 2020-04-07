@@ -18,7 +18,6 @@ package client
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	"google.golang.org/grpc"
@@ -32,6 +31,9 @@ type Options struct {
 	MTLs               bool
 	MTLsOptions        MTLsOptions
 	DialOptions        []grpc.DialOption
+	Config             string
+	Pidfile            string
+	Logfile            string
 }
 
 func DefaultOptions() Options {
@@ -41,6 +43,9 @@ func DefaultOptions() Options {
 		DialRetries:        5,
 		HealthCheckRetries: 5,
 		MTLs:               false,
+		Config:             "configs/immu.toml",
+		Pidfile:            "",
+		Logfile:            "",
 		DialOptions:        []grpc.DialOption{},
 	}
 }
@@ -70,6 +75,21 @@ func (o Options) WithMTLs(MTLs bool) Options {
 	return o
 }
 
+func (o Options) WithConfig(config string) Options {
+	o.Config = config
+	return o
+}
+
+func (o Options) WithPidfile(pidfile string) Options {
+	o.Pidfile = pidfile
+	return o
+}
+
+func (o Options) WithLogfile(logfile string) Options {
+	o.Logfile = logfile
+	return o
+}
+
 func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
 	o.MTLsOptions = MTLsOptions
 	return o
@@ -90,28 +110,4 @@ func (o Options) Bind() string {
 
 func (o Options) String() string {
 	return fmt.Sprintf("{address:%v port:%d}", o.Address, o.Port)
-}
-
-func (o Options) FromEnvironment() Options {
-	address := os.Getenv("IMMU_ADDRESS")
-	if address != "" {
-		o.Address = address
-	}
-	port := os.Getenv("IMMU_PORT")
-	if parsedPort, err := strconv.Atoi(port); err == nil {
-		o.Port = parsedPort
-	}
-	dialRetries := os.Getenv("IMMU_DIAL_RETRIES")
-	if parsedDialRetries, err := strconv.Atoi(dialRetries); err == nil {
-		o.DialRetries = parsedDialRetries
-	}
-	healthCheckRetries := os.Getenv("IMMU_HEALTH_CHECK_RETRIES")
-	if parsedHealthCheckRetries, err := strconv.Atoi(healthCheckRetries); err == nil {
-		o.HealthCheckRetries = parsedHealthCheckRetries
-	}
-	if o.MTLs {
-		mo := MTLsOptions{}
-		o.MTLsOptions = mo.FromEnvironment()
-	}
-	return o
 }

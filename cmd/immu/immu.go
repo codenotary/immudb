@@ -22,6 +22,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/viper"
 	"io"
 	"io/ioutil"
 	"os"
@@ -39,6 +42,14 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
+
+var (
+	config string
+)
+
+func init() {
+	cobra.OnInitialize(initConfig)
+}
 
 func main() {
 	cmd := &cobra.Command{
@@ -730,8 +741,11 @@ secondRoot: %x at index: %d
 		},
 	}
 
+	if err := configureOptions(cmd); err != nil {
+		quitToStdErr(err)
+	}
+
 	for _, command := range commands {
-		configureOptions(command)
 		cmd.AddCommand(command)
 	}
 
@@ -743,25 +757,28 @@ secondRoot: %x at index: %d
 	}
 }
 
-func configureOptions(cmd *cobra.Command) {
-	cmd.Flags().IntP("port", "p", client.DefaultOptions().Port, "port number")
-	cmd.Flags().StringP("address", "a", client.DefaultOptions().Address, "bind address")
+func configureOptions(cmd *cobra.Command) error {
+	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudPort, "immudb port number")
+	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudAddress, "immudb host address")
+	cmd.PersistentFlags().StringVar(&config, "config", "", "config file (default path are config or $HOME. Default filename is immu.toml)")
+	if err := viper.BindPFlag("port", cmd.PersistentFlags().Lookup("port")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("address", cmd.PersistentFlags().Lookup("address")); err != nil {
+		return err
+	}
+	viper.SetDefault("port", gw.DefaultOptions().ImmudPort)
+	viper.SetDefault("address", gw.DefaultOptions().ImmudAddress)
+	return nil
 }
 
 func options(cmd *cobra.Command) (*client.Options, error) {
-	port, err := cmd.Flags().GetInt("port")
-	if err != nil {
-		return nil, err
-	}
-	address, err := cmd.Flags().GetString("address")
-	if err != nil {
-		return nil, err
-	}
+	port := viper.GetInt("port")
+	address := viper.GetString("address")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
-		WithDialOptions(false, grpc.WithInsecure()).
-		FromEnvironment()
+		WithDialOptions(false, grpc.WithInsecure())
 	return &options, nil
 }
 
@@ -837,4 +854,29 @@ value:		%s
 hash:		%x
 verified:	%t
 `, index, set, key, score, rkey, api.Digest(index, key, rkey), verified)
+}
+
+func initConfig() {
+	if config != "" {
+		viper.SetConfigFile(config)
+	} else {
+		home, err := homedir.Dir()
+		if err != nil {
+			quitToStdErr(err)
+		}
+		viper.AddConfigPath("configs")
+		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
+		viper.AddConfigPath(home)
+		viper.SetConfigName("immu")
+	}
+	viper.SetEnvPrefix("IMMU")
+	viper.AutomaticEnv()
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+}
+
+func quitToStdErr(msg interface{}) {
+	_, _ = fmt.Fprintln(os.Stderr, msg)
+	os.Exit(1)
 }
