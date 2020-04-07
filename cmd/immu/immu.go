@@ -692,7 +692,7 @@ secondRoot: %x at index: %d
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s", response.(int64), filename)
+				fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response.(int64), filename)
 				return nil
 			},
 			Args: cobra.MaximumNArgs(1),
@@ -723,7 +723,7 @@ secondRoot: %x at index: %d
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				fmt.Printf("SUCCESS: %d key-value entries were restored from file %s", response.(int64), args[0])
+				fmt.Printf("SUCCESS: %d key-value entries were restored from file %s\n", response.(int64), args[0])
 				return nil
 			},
 			Args: cobra.ExactArgs(1),
