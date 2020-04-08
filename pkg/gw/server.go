@@ -167,8 +167,7 @@ func (s *ImmuGwServer) Start() error {
 	}
 
 	s.installShutdownHandler()
-	s.Logger.Infof("Starting immugw at %s:%d", s.Options.Address, s.Options.Port)
-
+	s.Logger.Infof("starting immugw: %v", s.Options)
 	if s.Options.Pidfile != "" {
 		if s.Pid, err = server.NewPid(s.Options.Pidfile); err != nil {
 			return err
