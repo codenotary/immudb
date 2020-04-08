@@ -43,7 +43,7 @@ func DefaultOptions() Options {
 		DialRetries:        5,
 		HealthCheckRetries: 5,
 		MTLs:               false,
-		Config:             "configs/immu.toml",
+		Config:             "configs/immu.ini",
 		Pidfile:            "",
 		Logfile:            "",
 		DialOptions:        []grpc.DialOption{},

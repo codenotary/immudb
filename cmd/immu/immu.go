@@ -758,21 +758,21 @@ secondRoot: %x at index: %d
 func configureOptions(cmd *cobra.Command) error {
 	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudPort, "immudb port number")
 	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are config or $HOME. Default filename is immu.toml)")
-	if err := viper.BindPFlag("port", cmd.PersistentFlags().Lookup("port")); err != nil {
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are config or $HOME. Default filename is immu.ini)")
+	if err := viper.BindPFlag("default.port", cmd.PersistentFlags().Lookup("port")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("address", cmd.PersistentFlags().Lookup("address")); err != nil {
+	if err := viper.BindPFlag("default.address", cmd.PersistentFlags().Lookup("address")); err != nil {
 		return err
 	}
-	viper.SetDefault("port", gw.DefaultOptions().ImmudPort)
-	viper.SetDefault("address", gw.DefaultOptions().ImmudAddress)
+	viper.SetDefault("default.port", gw.DefaultOptions().ImmudPort)
+	viper.SetDefault("default.address", gw.DefaultOptions().ImmudAddress)
 	return nil
 }
 
 func options(cmd *cobra.Command) (*client.Options, error) {
-	port := viper.GetInt("port")
-	address := viper.GetString("address")
+	port := viper.GetInt("default.port")
+	address := viper.GetString("default.address")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).

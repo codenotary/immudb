@@ -76,20 +76,20 @@ func Immud(cmd *cobra.Command, args []string) (err error) {
 }
 
 func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
-	dir := viper.GetString("dir")
-	port := viper.GetInt("port")
-	address := viper.GetString("address")
-	dbName := viper.GetString("dbname")
+	dir := viper.GetString("default.dir")
+	port := viper.GetInt("default.port")
+	address := viper.GetString("default.address")
+	dbName := viper.GetString("default.dbname")
 	// config file came only from arguments or default folder
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return server.Options{}, err
 	}
-	pidfile := viper.GetString("pidfile")
-	logfile := viper.GetString("logfile")
-	mtls := viper.GetBool("mtls")
-	certificate := viper.GetString("certificate")
-	pkey := viper.GetString("pkey")
-	client_cas := viper.GetString("clientcas")
+	pidfile := viper.GetString("default.pidfile")
+	logfile := viper.GetString("default.logfile")
+	mtls := viper.GetBool("default.mtls")
+	certificate := viper.GetString("default.certificate")
+	pkey := viper.GetString("default.pkey")
+	clientcas := viper.GetString("default.clientcas")
 
 	options = server.
 		DefaultOptions().
@@ -106,7 +106,7 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		options.MTLsOptions = server.DefaultMTLsOptions().
 			WithCertificate(certificate).
 			WithPkey(pkey).
-			WithClientCAs(client_cas)
+			WithClientCAs(clientcas)
 	}
 	return options, nil
 }
@@ -126,48 +126,48 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 }
 
 func bindFlags(cmd *cobra.Command) error {
-	if err := viper.BindPFlag("dir", cmd.Flags().Lookup("dir")); err != nil {
+	if err := viper.BindPFlag("default.dir", cmd.Flags().Lookup("dir")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("port", cmd.Flags().Lookup("port")); err != nil {
+	if err := viper.BindPFlag("default.port", cmd.Flags().Lookup("port")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("address", cmd.Flags().Lookup("address")); err != nil {
+	if err := viper.BindPFlag("default.address", cmd.Flags().Lookup("address")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("dbname", cmd.Flags().Lookup("dbname")); err != nil {
+	if err := viper.BindPFlag("default.dbname", cmd.Flags().Lookup("dbname")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
+	if err := viper.BindPFlag("default.pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("logfile", cmd.Flags().Lookup("logfile")); err != nil {
+	if err := viper.BindPFlag("default.logfile", cmd.Flags().Lookup("logfile")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("mtls", cmd.Flags().Lookup("mtls")); err != nil {
+	if err := viper.BindPFlag("default.mtls", cmd.Flags().Lookup("mtls")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("certificate", cmd.Flags().Lookup("certificate")); err != nil {
+	if err := viper.BindPFlag("default.certificate", cmd.Flags().Lookup("certificate")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("pkey", cmd.Flags().Lookup("pkey")); err != nil {
+	if err := viper.BindPFlag("default.pkey", cmd.Flags().Lookup("pkey")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
+	if err := viper.BindPFlag("default.clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
 		return err
 	}
 	return nil
 }
 
 func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
-	viper.SetDefault("dir", options.Dir)
-	viper.SetDefault("port", options.Port)
-	viper.SetDefault("address", options.Address)
-	viper.SetDefault("dbname", options.DbName)
-	viper.SetDefault("pidfile", options.Pidfile)
-	viper.SetDefault("logfile", options.Logfile)
-	viper.SetDefault("mtls", options.MTLs)
-	viper.SetDefault("certificate", mtlsOptions.Certificate)
-	viper.SetDefault("pkey", mtlsOptions.Pkey)
-	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
+	viper.SetDefault("default.dir", options.Dir)
+	viper.SetDefault("default.port", options.Port)
+	viper.SetDefault("default.address", options.Address)
+	viper.SetDefault("default.dbname", options.DbName)
+	viper.SetDefault("default.pidfile", options.Pidfile)
+	viper.SetDefault("default.logfile", options.Logfile)
+	viper.SetDefault("default.mtls", options.MTLs)
+	viper.SetDefault("default.certificate", mtlsOptions.Certificate)
+	viper.SetDefault("default.pkey", mtlsOptions.Pkey)
+	viper.SetDefault("default.clientcas", mtlsOptions.ClientCAs)
 }
