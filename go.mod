@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/DataDog/zstd v1.4.4 // indirect
 	github.com/codenotary/merkletree v0.1.1
-	github.com/dgraph-io/badger/v2 v2.0.1
+	github.com/dgraph-io/badger/v2 v2.0.0-20200408100755-2e708d968e94
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect
 	github.com/golang/protobuf v1.3.3
 	github.com/grpc-ecosystem/grpc-gateway v1.12.2
@@ -22,5 +22,3 @@ require (
 	google.golang.org/grpc v1.27.0
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
-
-replace github.com/dgraph-io/badger/v2 => github.com/codenotary/badger/v2 v2.0.0-20200329161742-127bfd914a21
