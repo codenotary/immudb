@@ -41,7 +41,7 @@ func DefaultOptions() Options {
 		ImmudAddress: "127.0.0.1",
 		ImmudPort:    3322,
 		MTLs:         false,
-		Config:       "configs/immu.toml",
+		Config:       "configs/immu.ini",
 		Pidfile:      "",
 		Logfile:      "",
 	}

@@ -73,12 +73,12 @@ func TestImmudCommandFlagParserPriority(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "", options.Logfile)
 	// 4-b. config file specified in command line
-	_, err = executeCommand(cmd, "--config=./../../test/immucfgtest.toml")
+	_, err = executeCommand(cmd, "--config=./../../test/immucfgtest.ini")
 	assert.NoError(t, err)
 	assert.Equal(t, "ConfigFileThatsNameIsDeclaredOnTheCommandLine", options.Logfile)
 
 	// 3. env. variables
-	os.Setenv("IMMUD_LOGFILE", "EnvironmentVars")
+	os.Setenv("IMMUD_DEFAULT.LOGFILE", "EnvironmentVars")
 	_, err = executeCommand(cmd)
 	assert.NoError(t, err)
 	assert.Equal(t, "EnvironmentVars", options.Logfile)
@@ -89,7 +89,7 @@ func TestImmudCommandFlagParserPriority(t *testing.T) {
 	assert.Equal(t, o.Logfile, options.Logfile)
 
 	// 1. overrides
-	viper.Set("logfile", "override")
+	viper.Set("default.logfile", "override")
 	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
 	assert.NoError(t, err)
 	assert.Equal(t, "override", options.Logfile)

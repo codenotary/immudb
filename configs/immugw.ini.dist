@@ -1,0 +1,11 @@
+address = 127.0.0.1
+port = 3323
+immudaddress = 127.0.0.1
+immudport = 3322
+pidfile =
+logfile =
+mtls = false
+servername = localhost
+pkey = ./tools/mtls/4_client/private/localhost.key.pem
+certificate = ./tools/mtls/4_client/certs/localhost.cert.pem
+clientcas = ./tools/mtls/2_intermediate/certs/ca-chain.cert.pem

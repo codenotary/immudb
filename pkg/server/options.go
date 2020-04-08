@@ -45,7 +45,7 @@ func DefaultOptions() Options {
 		Port:        3322,
 		MetricsPort: 9497,
 		DbName:      "immudb",
-		Config:      "configs/immucfg.toml",
+		Config:      "configs/immucfg.ini",
 		Pidfile:     "",
 		Logfile:     "",
 		MTLs:        false,
