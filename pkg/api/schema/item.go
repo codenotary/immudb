@@ -28,3 +28,12 @@ func (i *Item) Hash() []byte {
 	d := api.Digest(i.Index, i.Key, i.Value)
 	return d[:]
 }
+
+func (si *StructuredItem) Hash() []byte {
+	if si == nil {
+		return nil
+	}
+	i := si.ToItem()
+	d := api.Digest(i.Index, i.Key, i.Value)
+	return d[:]
+}

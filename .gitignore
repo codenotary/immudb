@@ -43,6 +43,7 @@ immud.pid
 vendor
 
 # Config
+cmd/immugw/.root
 configs/immu.ini
 configs/immud.ini
 configs/immugw.ini

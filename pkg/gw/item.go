@@ -19,6 +19,7 @@ package gw
 type item struct {
 	Key      []byte `json:"key"`
 	Value    []byte `json:"value"`
+	Time     uint64 `json:"time"`
 	Index    uint64 `json:"index"`
 	Verified bool   `json:"verified"`
 }

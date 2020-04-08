@@ -445,7 +445,7 @@ func main() {
 					c.QuitWithUserError(err)
 				}
 				for _, item := range response.(*schema.ItemList).Items {
-					printItem(nil, nil, item)
+					printItem(nil, nil, item.ToSItem())
 					fmt.Println()
 				}
 
@@ -476,7 +476,7 @@ func main() {
 				if err != nil {
 					c.QuitWithUserError(err)
 				}
-				for _, item := range response.(*schema.ItemList).Items {
+				for _, item := range response.(*schema.StructuredItemList).Items {
 					printItem(nil, nil, item)
 					fmt.Println()
 				}
@@ -560,7 +560,7 @@ func main() {
 					if err != nil {
 						c.QuitToStdErr(err)
 					}
-					item := response.(*schema.Item)
+					item := response.(*schema.StructuredItem)
 					hash = item.Hash()
 				}
 
@@ -646,7 +646,7 @@ secondRoot: %x at index: %d
 				if err != nil {
 					c.QuitWithUserError(err)
 				}
-				for _, item := range response.(*schema.ItemList).Items {
+				for _, item := range response.(*schema.StructuredItemList).Items {
 					printItem(nil, nil, item)
 					fmt.Println()
 				}
@@ -803,6 +803,7 @@ func options(cmd *cobra.Command) (*client.Options, error) {
 
 func printItem(key []byte, value []byte, message interface{}) {
 	var index uint64
+	var ts uint64
 	verified := false
 	isVerified := false
 	switch m := message.(type) {
@@ -822,21 +823,28 @@ func printItem(key []byte, value []byte, message interface{}) {
 		index = m.Index
 		verified = m.Verified
 		isVerified = true
+	case *schema.StructuredItem:
+		key = m.Key
+		value = m.Value.Payload
+		ts = m.Value.Timestamp
+		index = m.Index
 	}
 	if !isVerified {
 		fmt.Printf(`index:		%d
 key:		%s
 value:		%s
 hash:		%x
-`, index, key, value, api.Digest(index, key, value))
+time:       %s
+`, index, key, value, api.Digest(index, key, value), time.Unix(int64(ts), 0))
 		return
 	}
 	fmt.Printf(`index:		%d
 key:		%s
 value:		%s
 hash:		%x
+time:       %s
 verified:	%t
-`, index, key, value, api.Digest(index, key, value), verified)
+`, index, key, value, api.Digest(index, key, value), time.Unix(int64(ts), 0), verified)
 }
 
 func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {
