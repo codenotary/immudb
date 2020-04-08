@@ -39,7 +39,6 @@ immud.pid
 vendor
 
 # Config
-immucfgtest.ini
-immu.ini
-immud.ini
-immugw.ini
+configs/immu.ini
+configs/immud.ini
+configs/immugw.ini

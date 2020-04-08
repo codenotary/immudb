@@ -73,7 +73,7 @@ func TestImmudCommandFlagParserPriority(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "", options.Logfile)
 	// 4-b. config file specified in command line
-	_, err = executeCommand(cmd, "--config=./../../test/immucfgtest.ini")
+	_, err = executeCommand(cmd, "--config=./../../test/immud.ini")
 	assert.NoError(t, err)
 	assert.Equal(t, "ConfigFileThatsNameIsDeclaredOnTheCommandLine", options.Logfile)
 
