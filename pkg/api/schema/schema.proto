@@ -42,6 +42,15 @@ message KeyValue {
 	bytes value = 2;
 }
 
+message StructuredKeyValue {
+	bytes key = 1;
+	Content value = 2;
+}
+message Content {
+	uint64 timestamp = 1;
+	bytes payload = 2;
+}
+
 message Index {
 	uint64 index = 1;
 }
@@ -52,8 +61,18 @@ message Item {
 	uint64 index = 3;
 }
 
+message StructuredItem {
+	bytes key = 1;
+	Content value = 2;
+	uint64 index = 3;
+}
+
 message KVList {
 	repeated KeyValue KVs = 1;
+}
+
+message SKVList {
+	repeated StructuredKeyValue SKVs = 1;
 }
 
 message KeyList {
@@ -62,6 +81,10 @@ message KeyList {
 
 message ItemList {
 	repeated Item items = 1;
+}
+
+message StructuredItemList {
+	repeated StructuredItem items = 1;
 }
 
 message Root {
@@ -115,8 +138,18 @@ message SafeItem {
 	Proof proof = 2;
 }
 
+message SafeStructuredItem {
+	StructuredItem item = 1;
+	Proof proof = 2;
+}
+
 message SafeSetOptions {
 	KeyValue kv = 1;
+	Index rootIndex = 2;
+}
+
+message SafeSetSVOptions {
+	StructuredKeyValue skv = 1;
 	Index rootIndex = 2;
 }
 
@@ -182,6 +215,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 };
 
 service ImmuService {
+
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option (google.api.http) = {
               post: "/v1/immurestproxy/login"
@@ -189,49 +223,70 @@ service ImmuService {
 					};
 		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
 							security: { } // no security
-					};
+		};
 	};
-	rpc Set (KeyValue) returns (Index){
+
+	rpc Set (KeyValue) returns (Index){};
+
+	rpc SetSV (StructuredKeyValue) returns (Index){
 		option (google.api.http) = {
               post: "/v1/immurestproxy/item"
               body: "*"
           };
 	};
-	rpc SafeSet(SafeSetOptions) returns (Proof){
+
+	rpc SafeSet(SafeSetOptions) returns (Proof){}
+
+	rpc SafeSetSV(SafeSetSVOptions) returns (Proof){
 		option (google.api.http) = {
               post: "/v1/immurestproxy/item/safe"
               body: "*"
           };
 	}
-	rpc Get (Key) returns (Item){
+	rpc Get (Key) returns (Item){};
+
+	rpc GetSV (Key) returns (StructuredItem){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/item/{key}"
         };
 	};
-	rpc SafeGet(SafeGetOptions) returns (SafeItem){
+
+	rpc SafeGet(SafeGetOptions) returns (SafeItem){};
+
+	rpc SafeGetSV(SafeGetOptions) returns (SafeStructuredItem){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/item/safe/get"
             body: "*"
         };
 	};
-	rpc SetBatch (KVList) returns (Index){
+
+	rpc SetBatch (KVList) returns (Index){};
+
+	rpc SetBatchSV (SKVList) returns (Index){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/batch/set"
             body: "*"
         };
 	};
-	rpc GetBatch (KeyList) returns (ItemList){
+
+	rpc GetBatch (KeyList) returns (ItemList){};
+
+	rpc GetBatchSV (KeyList) returns (StructuredItemList){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/batch/get"
             body: "*"
         };
 	};
-	rpc Scan(ScanOptions) returns (ItemList){
+
+	rpc Scan(ScanOptions) returns (ItemList){};
+
+	rpc ScanSV(ScanOptions) returns (StructuredItemList){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/item/scan"
             body: "*"
         };
 	};
+
 	rpc Count(KeyPrefix) returns (ItemsCount){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/item/count/{prefix}"
@@ -257,16 +312,22 @@ service ImmuService {
             get: "/v1/immurestproxy/consistencyproof/{index}"
         };
 	};
-	rpc ByIndex(Index) returns (Item){
+	rpc ByIndex(Index) returns (Item){};
+
+	rpc ByIndexSV(Index) returns (StructuredItem){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/item/index/{index}"
         };
 	};
-	rpc History(Key) returns (ItemList){
+
+	rpc History(Key) returns (ItemList){};
+
+	rpc HistorySV(Key) returns (StructuredItemList){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/history/{key}"
         };
 	};
+
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/healthresponse"
@@ -293,18 +354,22 @@ service ImmuService {
             body: "*"
         };
 	};
-	rpc ZScan (ZScanOptions) returns (ItemList){
+	rpc ZScan (ZScanOptions) returns (ItemList){};
+
+	rpc ZScanSV (ZScanOptions) returns (StructuredItemList){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/zscan"
             body: "*"
         };
 	};
+
 	rpc SafeZAdd (SafeZAddOptions) returns (Proof){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/safe/zadd"
             body: "*"
         };
 	};
+
 	rpc Backup(google.protobuf.Empty) returns (stream pb.KVList) {
 		option (google.api.http) = {
             post: "/v1/immurestproxy/backup"

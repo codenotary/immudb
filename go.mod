@@ -13,6 +13,7 @@ require (
 	github.com/o1egl/paseto v1.0.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
+	github.com/rakyll/statik v0.1.7
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.6.2

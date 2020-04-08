@@ -41,13 +41,15 @@ func NewHistoryResponseOverwrite(rs client.RootService) HistoryResponseOverwrite
 }
 
 func (r historyResponseOverwrite) call(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, resp proto.Message, opts ...func(context.Context, http.ResponseWriter, proto.Message) error) error {
-	if itemList, ok := resp.(*schema.ItemList); ok {
+	if itemList, ok := resp.(*schema.StructuredItemList); ok {
 		w.Header().Set("Content-Type", "application/json")
 		var items []item
 		for _, v := range itemList.Items {
+
 			t := item{
 				Key:      v.Key,
-				Value:    v.Value,
+				Value:    v.Value.Payload,
+				Time:     v.Value.Timestamp,
 				Index:    v.Index,
 				Verified: false,
 			}

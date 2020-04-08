@@ -50,7 +50,7 @@ func NewSafeSetRequestOverwrite(rs client.RootService) SafeSetRequestOverwrite {
 }
 
 func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Marshaler, client schema.ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq schema.SafeSetOptions
+	var protoReq schema.SafeSetSVOptions
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -68,7 +68,7 @@ func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 	ri.Index = root.Index
 	protoReq.RootIndex = ri
 
-	msg, err := client.SafeSet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.SafeSetSV(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 
 	// This guard ensures that msg.Leaf is equal to the item's hash
 	// computed from request values.
@@ -76,12 +76,16 @@ func (r safeSetRequestOverwrite) call(ctx context.Context, marshaler runtime.Mar
 	// Thus SafeSetResponseOverwrite will not need to decode the request
 	// and compute the hash.
 	if err == nil {
-		item := schema.Item{
-			Key:   protoReq.Kv.Key,
-			Value: protoReq.Kv.Value,
+		item := schema.StructuredItem{
+			Key: protoReq.Skv.Key,
+			Value: &schema.Content{
+				Timestamp: protoReq.Skv.Value.Timestamp,
+				Payload:   protoReq.Skv.Value.Payload,
+			},
 			Index: msg.Index,
 		}
-		if !bytes.Equal(item.Hash(), msg.Leaf) {
+		hash := item.Hash()
+		if !bytes.Equal(hash, msg.Leaf) {
 			return msg, metadata, InvalidItemProof
 		}
 	}

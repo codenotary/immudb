@@ -30,13 +30,13 @@ import (
 	"syscall"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"github.com/codenotary/immudb/pkg/auth"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -168,6 +168,10 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 	return item, nil
 }
 
+func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) (*schema.Index, error) {
+	return s.Set(ctx, skv.ToKV())
+}
+
 func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
 	item, err := s.Store.SafeSet(*opts)
@@ -177,6 +181,14 @@ func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (
 	return item, nil
 }
 
+func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
+	opts := &schema.SafeSetOptions{
+		Kv:        sopts.Skv.ToKV(),
+		RootIndex: sopts.RootIndex,
+	}
+	return s.SafeSet(ctx, opts)
+}
+
 func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
 	s.Logger.Debugf("set batch %d", len(kvl.KVs))
 	index, err := s.Store.SetBatch(*kvl)
@@ -184,6 +196,10 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 		return nil, err
 	}
 	return index, nil
+}
+
+func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*schema.Index, error) {
+	return s.SetBatch(ctx, skvl.ToKVList())
 }
 
 func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
@@ -199,6 +215,11 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 	return item, nil
 }
 
+func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
+	it, err := s.Get(ctx, k)
+	return it.ToSItem(), err
+}
+
 func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("safeget %s", opts.Key)
 	item, err := s.Store.SafeGet(*opts)
@@ -206,6 +227,11 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 		return nil, err
 	}
 	return item, nil
+}
+
+func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
+	it, err := s.SafeGet(ctx, opts)
+	return it.ToSafeSItem(), err
 }
 
 func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
@@ -223,9 +249,21 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 	return list, nil
 }
 
+func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
+	list, err := s.GetBatch(ctx, kl)
+	slist := list.ToSItemList()
+	return slist, err
+}
+
 func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
 	return s.Store.Scan(*opts)
+}
+
+func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
+	s.Logger.Debugf("scan %+v", *opts)
+	list, err := s.Store.Scan(*opts)
+	return list.ToSItemList(), err
 }
 
 func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
@@ -260,6 +298,15 @@ func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.
 	return item, nil
 }
 
+func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schema.StructuredItem, error) {
+	s.Logger.Debugf("get by index %d ", index.Index)
+	item, err := s.Store.ByIndex(*index)
+	if err != nil {
+		return nil, err
+	}
+	return item.ToSItem(), nil
+}
+
 func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
 	list, err := s.Store.History(*key)
@@ -267,6 +314,16 @@ func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.Item
 		return nil, err
 	}
 	return list, nil
+}
+
+func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.StructuredItemList, error) {
+	s.Logger.Debugf("history for key %s ", string(key.Key))
+
+	list, err := s.Store.History(*key)
+	if err != nil {
+		return nil, err
+	}
+	return list.ToSItemList(), nil
 }
 
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
@@ -301,6 +358,12 @@ func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schem
 func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	return s.Store.ZScan(*opts)
+}
+
+func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
+	s.Logger.Debugf("zscan %+v", *opts)
+	list, err := s.Store.ZScan(*opts)
+	return list.ToSItemList(), err
 }
 
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
