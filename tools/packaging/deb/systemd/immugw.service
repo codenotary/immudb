@@ -1,0 +1,24 @@
+[Unit]
+Description=immugw - immudb API gateway
+Documentation=https://github.com/codenotary/immudb
+Wants=network-online.target
+Requires=immudb.service
+
+[Service]
+EnvironmentFile=/etc/default/immugw
+User=immu
+Group=immu
+Type=simple
+Restart=on-failure
+WorkingDirectory=/usr/share/immudb
+RuntimeDirectory=immugw
+RuntimeDirectoryMode=0750
+ExecStartPre=/bin/sleep 30
+ExecStart=/usr/sbin/immugw --config /etc/immudb/immugw.ini
+
+LimitNOFILE=10000
+TimeoutStopSec=20
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,40 @@
+name: "immudb"
+arch: "amd64"
+platform: "linux"
+version: "${VERSION}"
+section: "default"
+priority: "extra"
+replaces:
+- immudb
+provides:
+- immudb
+- immugw
+- immuclient
+depends:
+- adduser
+maintainer: "<info@codenotary.io>"
+description: |
+  immudb - the tamperproof database
+vendor: "vChain, Inc."
+homepage: "https://github.com/codenotary/immudb"
+license: "Apache 2"
+bindir: "/usr/sbin"
+files:
+  "./bin/immudb": "/usr/sbin/immudb"
+  "./bin/immugw": "/usr/sbin/immugw"
+  "./bin/immuclient": "/usr/local/bin/immuclient"
+config_files:
+  ./packaging/deb/init.d/immudb: "/etc/init.d/immudb"
+  ./packaging/deb/init.d/immugw: "/etc/init.d/immugw"
+  ./packaging/deb/default/immudb: "/etc/default/immudb"
+  ./packaging/deb/default/immugw: "/etc/default/immugw"
+  ./packaging/deb/default/immudb.ini.dist: "/etc/immudb/immudb.ini"
+  ./packaging/deb/default/immugw.ini.dist: "/etc/immudb/immugw.ini"
+  ./packaging/deb/default/immuclient.ini.dist: "/etc/immudb/immuclient.ini"
+  ./packaging/deb/systemd/immudb.service: "/usr/lib/systemd/system/immudb.service"
+  ./packaging/deb/systemd/immugw.service: "/usr/lib/systemd/system/immugw.service"
+
+overrides:
+  deb:
+    scripts:
+      postinstall: ./packaging/deb/control/postinst

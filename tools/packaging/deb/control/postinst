@@ -1,0 +1,82 @@
+#!/bin/sh
+
+set -e
+
+[ -f /etc/default/immudb ] && . /etc/default/immudb
+
+IS_UPGRADE=false
+
+
+case "$1" in
+	configure)
+	[ -z "$IMMU_USER" ] && IMMU_USER="immu"
+	[ -z "$IMMU_GROUP" ] && IMMU_GROUP="immu"
+	if ! getent group "$IMMU_GROUP" > /dev/null 2>&1 ; then
+	    addgroup --system "$IMMU_GROUP" --quiet
+	fi
+	if ! id $IMMU_USER > /dev/null 2>&1 ; then
+	    adduser --system --home /usr/share/immudb --no-create-home \
+		--ingroup "$IMMU_GROUP" --disabled-password --shell /bin/false \
+		"$IMMU_USER"
+	fi
+
+	# Set user permissions on /var/log/immudb, /var/lib/immudb
+	mkdir -p /var/log/immudb /var/lib/immudb /etc/immudb /usr/share/immudb
+	chown -R $IMMU_USER:$IMMU_GROUP /var/log/immudb /var/lib/immudb /usr/share/immudb
+	chmod 755 /var/log/immudb /var/lib/immudb /usr/share/immudb
+	
+	chmod +x /usr/sbin/immudb
+    chmod +x /usr/sbin/immugw
+    chmod +x /usr/local/bin/immuclient
+  
+	# configuration files should not be modifiable by immu user, as this can be a security issue
+	chown -Rh root:$IMMU_GROUP /etc/immudb
+	chmod 755 /etc/immudb
+	find /etc/immudb -type f -exec chmod 640 {} ';'
+	find /etc/immudb -type d -exec chmod 755 {} ';'
+
+  # If $1=configure and $2 is set, this is an upgrade
+  if [ "$2" != "" ]; then
+    IS_UPGRADE=true
+  fi
+
+  if [ "x$IS_UPGRADE" != "xtrue" ]; then
+    if command -v systemctl >/dev/null; then
+	  echo "### NOT starting on installation, please execute the following statements to configure immudb to start automatically using systemd"
+      echo " sudo /bin/systemctl daemon-reload"
+      echo " sudo /bin/systemctl enable immudb"
+	  echo " sudo /bin/systemctl enable immugw"
+      echo "### You can start immudb by executing"
+      echo " sudo /bin/systemctl start immudb"
+	  echo " sudo /bin/systemctl start immugw"
+
+    elif command -v update-rc.d >/dev/null; then
+      echo "### NOT starting immudb by default on bootup, please execute"
+      echo " sudo update-rc.d immudb defaults 95 10"
+	  echo " sudo update-rc.d immugw defaults 95 10"
+      echo "### In order to start immudb, execute"
+      echo " sudo service immudb start"
+	  echo " sudo service immugw start"
+    fi
+  elif [ "$RESTART_ON_UPGRADE" = "true" ]; then
+
+    echo -n "Restarting immudb services..."
+
+    if command -v systemctl >/dev/null; then
+      systemctl daemon-reload
+      systemctl restart immudb || true
+	  systemctl restart immugw || true
+    elif [ -x /etc/init.d/immudb ]; then
+      if command -v invoke-rc.d >/dev/null; then
+        invoke-rc.d immudb restart || true
+		invoke-rc.d immugw restart || true
+      else
+        /etc/init.d/immudb restart || true
+		/etc/init.d/immugw restart || true
+      fi
+    fi
+    echo " OK"
+
+	fi
+	;;
+esac

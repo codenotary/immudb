@@ -1,0 +1,11 @@
+dir = /var/lib/immudb
+network = tcp
+address = 0.0.0.0
+port = 3322
+dbname = immudb
+#pidfile = /var/run/immudb.pid
+logfile = /var/log/immudb/immudb.log
+mtls = false
+#pkey = ./tools/mtls/3_application/private/localhost.key.pem
+#certificate = ./tools/mtls/3_application/certs/localhost.cert.pem
+#clientcas = ./tools/mtls/2_intermediate/certs/ca-chain.cert.pem

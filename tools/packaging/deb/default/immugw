@@ -1,0 +1,20 @@
+IMMU_USER=immu
+
+IMMU_GROUP=immu
+
+IMMU_HOME=/usr/share/immudb
+
+LOG_DIR=/var/log/immudb
+
+DATA_DIR=/var/lib/immudb
+
+MAX_OPEN_FILES=10000
+
+CONF_DIR=/etc/immudb
+
+CONF_FILE=/etc/immudb/immugw.ini
+
+RESTART_ON_UPGRADE=true
+
+# Only used on systemd systems
+PID_FILE_DIR=/var/run/immugw.pid

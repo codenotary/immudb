@@ -1,0 +1,23 @@
+[Unit]
+Description=immudb database daemon
+Documentation=https://github.com/codenotary/immudb
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+EnvironmentFile=/etc/default/immudb
+User=immu
+Group=immu
+Type=simple
+Restart=on-failure
+WorkingDirectory=/usr/share/immudb
+RuntimeDirectory=immudb
+RuntimeDirectoryMode=0750
+ExecStart=/usr/sbin/immudb --config /etc/immudb/immudb.ini
+
+LimitNOFILE=10000
+TimeoutStopSec=20
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
