@@ -81,6 +81,21 @@ func (c *ImmuClient) Connected(ctx context.Context, f func() (interface{}, error
 	return result, nil
 }
 
+func (c *ImmuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
+	start := time.Now()
+	c.Lock()
+	defer c.Unlock()
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.serviceClient.Login(ctx, &schema.LoginRequest{
+		User:     user,
+		Password: pass,
+	})
+	c.Logger.Debugf("set finished in %s", time.Since(start))
+	return result, err
+}
+
 func (c *ImmuClient) Get(ctx context.Context, key []byte) (*schema.Item, error) {
 	start := time.Now()
 	if !c.isConnected() {

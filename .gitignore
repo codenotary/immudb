@@ -25,14 +25,18 @@
 
 # Binaries
 /immu
+cmd/immu/immu
 /immud
+cmd/immud/immud
 /nimmu
 /bm
 /immugw
+cmd/immugw/immugw
 
 # Working files
 /immudb
-/.root
+cmd/immud/immudb
+**/.root
 immud.pid
 
 # Vendor
@@ -42,3 +46,9 @@ vendor
 configs/immu.ini
 configs/immud.ini
 configs/immugw.ini
+
+# immud auth
+cmd/immu/token
+cmd/immud/immud_pwd
+cmd/immud/immud_private_key
+cmd/immud/immud_public_key
