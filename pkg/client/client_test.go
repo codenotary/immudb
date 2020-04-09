@@ -100,7 +100,7 @@ func newClient() *ImmuClient {
 var token string
 
 func contextWithAuth() context.Context {
-	return metadata.AppendToOutgoingContext(context.Background(), string(auth.AuthContextKey), "Bearer "+string(token))
+	return metadata.AppendToOutgoingContext(context.Background(), auth.AuthContextKey, "Bearer "+string(token))
 }
 func login() {
 	if err := auth.GenerateKeys(); err != nil {

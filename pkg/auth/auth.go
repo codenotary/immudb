@@ -34,9 +34,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type contextKey string
-
-var AuthContextKey = contextKey("authorization")
+var AuthContextKey = "authorization"
 
 // generates a password that is 32 characters long with 5 digits, 5 symbols,
 // allowing upper and lower case letters, disallowing repeat characters.
