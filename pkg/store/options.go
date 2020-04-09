@@ -22,6 +22,8 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/dgraph-io/badger/v2"
+
+	"runtime"
 )
 
 const (
@@ -38,6 +40,11 @@ func DefaultOptions(path string, log logger.Logger) Options {
 		WithLogger(log).
 		WithSyncWrites(false).
 		WithEventLogging(false)
+
+	// set Truncate to true according to https://github.com/dgraph-io/badger/issues/476#issuecomment-388122680
+	if runtime.GOOS == "windows" {
+		opt.Truncate = true
+	}
 
 	return Options{
 		Badger: opt,
