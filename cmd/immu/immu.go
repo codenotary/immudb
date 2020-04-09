@@ -43,6 +43,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
+	"google.golang.org/grpc/metadata"
 )
 
 var o = c.Options{}
@@ -57,7 +58,7 @@ func contextWithAuth() context.Context {
 			fmt.Errorf("error reading token from file '%s': %v\nplease login", tokenFilename, err))
 		os.Exit(1)
 	}
-	return context.WithValue(context.Background(), auth.AuthContextKey, "Bearer "+string(token))
+	return metadata.AppendToOutgoingContext(context.Background(), string(auth.AuthContextKey), "Bearer "+string(token))
 }
 
 func init() {
