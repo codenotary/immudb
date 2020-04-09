@@ -58,7 +58,7 @@ func contextWithAuth() context.Context {
 			fmt.Errorf("error reading token from file '%s': %v\nplease login", tokenFilename, err))
 		os.Exit(1)
 	}
-	return metadata.AppendToOutgoingContext(context.Background(), string(auth.AuthContextKey), "Bearer "+string(token))
+	return metadata.AppendToOutgoingContext(context.Background(), auth.AuthContextKey, "Bearer "+string(token))
 }
 
 func init() {
