@@ -18,6 +18,7 @@ syntax = "proto3";
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "protoc-gen-swagger/options/annotations.proto";
 import "pb/pb.proto";
 
 package immudb.schema;
@@ -26,6 +27,14 @@ option go_package = "github.com/codenotary/immudb/pkg/api/schema";
 
 message Key {
 	bytes key = 1;
+}
+
+message LoginRequest {
+	bytes user = 1;
+	bytes password = 2;
+}
+message LoginResponse {
+	bytes token = 1;
 }
 
 message KeyValue {
@@ -153,7 +162,35 @@ message SafeZAddOptions {
 	Index rootIndex = 2;
 }
 
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+	security_definitions: {
+		security: {
+			key: "bearer"
+			value: {
+				type: TYPE_API_KEY
+				in: IN_HEADER
+				name: "Authorization"
+				description: "Authentication token, prefixed by Bearer: Bearer <token>"
+			}
+		}
+	}
+	security: {
+		security_requirement: {
+			key: "bearer"
+		}
+	}
+};
+
 service ImmuService {
+	rpc Login (LoginRequest) returns (LoginResponse){
+		option (google.api.http) = {
+              post: "/v1/immurestproxy/login"
+              body: "*"
+					};
+		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+							security: { } // no security
+					};
+	};
 	rpc Set (KeyValue) returns (Index){
 		option (google.api.http) = {
               post: "/v1/immurestproxy/item"

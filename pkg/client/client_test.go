@@ -25,7 +25,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"google.golang.org/grpc/metadata"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/store"
@@ -84,6 +87,9 @@ func newServer() *server.ImmuServer {
 	return localImmuServer
 }
 
+func bufDialer(ctx context.Context, address string) (net.Conn, error) {
+	return lis.Dial()
+}
 func newClient() *ImmuClient {
 	return DefaultClient().
 		WithOptions(
@@ -91,13 +97,34 @@ func newClient() *ImmuClient {
 				WithDialOptions(false, grpc.WithContextDialer(bufDialer), grpc.WithInsecure()))
 }
 
+var token string
+
+func contextWithAuth() context.Context {
+	return metadata.AppendToOutgoingContext(context.Background(), string(auth.AuthContextKey), "Bearer "+string(token))
+}
+func login() {
+	if err := auth.GenerateKeys(); err != nil {
+		log.Fatal(err)
+	}
+
+	plainPassword, err := auth.AdminUser.GenerateAndSetPassword()
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctx := context.Background()
+	r, err := client.Connected(ctx, func() (interface{}, error) {
+		return client.Login(ctx, []byte(auth.AdminUser.Username), []byte(plainPassword))
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	token = string(r.(*schema.LoginResponse).GetToken())
+}
+
 func init() {
 	immuServer = newServer()
 	client = newClient()
-}
-
-func bufDialer(ctx context.Context, address string) (net.Conn, error) {
-	return lis.Dial()
+	login()
 }
 
 func cleanup() {
@@ -187,7 +214,7 @@ func TestImmuClient(t *testing.T) {
 	defer cleanup()
 	defer cleanupBackup()
 
-	ctx := context.Background()
+	ctx := contextWithAuth()
 
 	testSafeSetAndSafeGet(ctx, t, testData.keys[0], testData.values[0])
 	testSafeSetAndSafeGet(ctx, t, testData.keys[1], testData.values[1])
@@ -206,7 +233,7 @@ func TestRestore(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	ctx := context.Background()
+	ctx := contextWithAuth()
 
 	// this only succeeds if only this test function is run, otherwise the key may
 	// be present from other test function that run before this:

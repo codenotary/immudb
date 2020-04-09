@@ -17,13 +17,17 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
 var o = c.Options{}
@@ -52,6 +56,37 @@ func main() {
 	}
 }
 
+var pwdFilename = "immud_pwd"
+
+func loadOrGeneratePassword() error {
+	if err := auth.GenerateOrLoadKeys(); err != nil {
+		return fmt.Errorf("error generating or loading access keys (used for auth): %v", err)
+	}
+
+	if _, err := os.Stat(pwdFilename); !os.IsNotExist(err) {
+		hashedPassword, err := ioutil.ReadFile(pwdFilename)
+		if err != nil {
+			return fmt.Errorf("error reading hashed password from file %s: %v", pwdFilename, err)
+		}
+		auth.AdminUser.SetPassword(hashedPassword)
+		fmt.Printf("previous hashed password read from file %s\n", pwdFilename)
+		return nil
+	}
+
+	plainPassword, err := auth.AdminUser.GenerateAndSetPassword()
+	if err != nil {
+		return fmt.Errorf("error generating password: %v", err)
+	}
+	if err := ioutil.WriteFile(pwdFilename, auth.AdminUser.HashedPassword, 0644); err != nil {
+		return fmt.Errorf("error saving generated password hash to file %s: %v", pwdFilename, err)
+	}
+
+	fmt.Printf("user: %s, password: %s\n", auth.AdminUser.Username, plainPassword)
+	fmt.Printf("hashed password saved to file %s\n", pwdFilename)
+
+	return nil
+}
+
 func Immud(cmd *cobra.Command, args []string) (err error) {
 	var options server.Options
 	if options, err = parseOptions(cmd); err != nil {
@@ -71,6 +106,9 @@ func Immud(cmd *cobra.Command, args []string) (err error) {
 		} else {
 			return err
 		}
+	}
+	if err := loadOrGeneratePassword(); err != nil {
+		c.QuitToStdErr(err)
 	}
 	return immuServer.Start()
 }

@@ -22,14 +22,16 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	c "github.com/codenotary/immudb/cmd"
-	"github.com/codenotary/immudb/pkg/gw"
-	"github.com/spf13/viper"
 	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"time"
+
+	c "github.com/codenotary/immudb/cmd"
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/spf13/viper"
 
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/store"
@@ -45,6 +47,19 @@ import (
 
 var o = c.Options{}
 
+var tokenFilename = "token"
+
+func contextWithAuth() context.Context {
+	token, err := ioutil.ReadFile(tokenFilename)
+	if err != nil {
+		fmt.Fprintln(
+			os.Stderr,
+			fmt.Errorf("error reading token from file '%s': %v\nplease login", tokenFilename, err))
+		os.Exit(1)
+	}
+	return context.WithValue(context.Background(), auth.AuthContextKey, "Bearer "+string(token))
+}
+
 func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immu") })
 }
@@ -54,6 +69,37 @@ func main() {
 		Use: "immu",
 	}
 	commands := []*cobra.Command{
+		&cobra.Command{
+			Use:     "login username password",
+			Short:   fmt.Sprintf("Login using the specified username and password, automatically save access token to a file named '%s'", tokenFilename),
+			Aliases: []string{"l"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				options, err := options(cmd)
+				if err != nil {
+					return err
+				}
+				immuClient := client.
+					DefaultClient().
+					WithOptions(*options)
+				user := []byte(args[0])
+				pass := []byte(args[1])
+				ctx := context.Background()
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Login(ctx, user, pass)
+				})
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				if err := ioutil.WriteFile(tokenFilename, response.(*schema.LoginResponse).Token, 0644); err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				fmt.Printf("SUCCESS: access token saved to '%s' file\n", tokenFilename)
+				return nil
+			},
+			Args: cobra.ExactArgs(2),
+		},
 		&cobra.Command{
 			Use:     "get key",
 			Short:   "Get item having the specified key",
@@ -71,7 +117,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Get(ctx, key)
 				})
@@ -101,7 +147,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeGet(ctx, key)
 				})
@@ -144,7 +190,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Set(ctx, key, value)
 				})
@@ -191,7 +237,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeSet(ctx, key, value)
 				})
@@ -238,7 +284,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Reference(ctx, reference, key)
 				})
@@ -285,7 +331,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeReference(ctx, reference, key)
 				})
@@ -339,7 +385,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.ZAdd(ctx, set, score, key)
 				})
@@ -389,7 +435,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeZAdd(ctx, set, score, key)
 				})
@@ -419,7 +465,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.ZScan(ctx, set)
 				})
@@ -453,7 +499,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Scan(ctx, prefix)
 				})
@@ -487,7 +533,7 @@ func main() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Count(ctx, prefix)
 				})
@@ -517,7 +563,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Inclusion(ctx, index)
 				})
@@ -580,7 +626,7 @@ root: %x at index: %d
 				if err != nil {
 					return err
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Consistency(ctx, index)
 				})
@@ -630,7 +676,7 @@ secondRoot: %x at index: %d
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.History(ctx, key)
 				})
@@ -693,7 +739,7 @@ secondRoot: %x at index: %d
 					os.Exit(1)
 				}
 				defer file.Close()
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Backup(ctx, file)
 				})
@@ -724,7 +770,7 @@ secondRoot: %x at index: %d
 					os.Exit(1)
 				}
 				defer file.Close()
-				ctx := context.Background()
+				ctx := contextWithAuth()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Restore(ctx, file, 500)
 				})
