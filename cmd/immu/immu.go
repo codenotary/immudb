@@ -564,7 +564,7 @@ root: %x at index: %d
 			Args: cobra.MinimumNArgs(1),
 		},
 		&cobra.Command{
-			Use:     "consistency index hash",
+			Use:     "verify index hash",
 			Short:   "Check consistency for the specified index and hash",
 			Aliases: []string{"c"},
 			RunE: func(cmd *cobra.Command, args []string) error {
