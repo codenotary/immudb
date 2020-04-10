@@ -19,6 +19,7 @@ package gw
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -29,25 +30,29 @@ import (
 	"net/http"
 )
 
-type SafeReferenceHandler interface {
-	SafeReference(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
+var (
+	InvalidItemProof = errors.New("proof does not match the given item")
+)
+
+type SetHandler interface {
+	Set(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
 }
 
-type safeReferenceHandler struct {
+type setHandler struct {
 	mux    *runtime.ServeMux
 	client *client.ImmuClient
 	rs     client.RootService
 }
 
-func NewSafeReferenceHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) SafeReferenceHandler {
-	return &safeReferenceHandler{
+func NewSetHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) SetHandler {
+	return &setHandler{
 		mux:    mux,
 		client: client,
 		rs:     rs,
 	}
 }
 
-func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+func (h *setHandler) Set(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
@@ -58,7 +63,7 @@ func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	var protoReq schema.SafeReferenceOptions
+	var protoReq schema.KeyValue
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -71,7 +76,7 @@ func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	msg, err := h.client.SafeReference(rctx, protoReq.Ro.Reference, protoReq.Ro.Key)
+	msg, err := h.client.Set(rctx, protoReq.Key, protoReq.Value)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
@@ -79,11 +84,13 @@ func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Re
 
 	ctx = runtime.NewServerMetadataContext(rctx, metadata)
 	w.Header().Set("Content-Type", "application/json")
+
 	newData, err := json.Marshal(msg)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
+
 	if _, err := w.Write(newData); err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return

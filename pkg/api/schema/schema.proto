@@ -154,7 +154,7 @@ message SafeSetSVOptions {
 }
 
 message SafeGetOptions {
-	Key key = 1;
+	bytes key = 1;
 	Index rootIndex = 2;
 }
 
@@ -168,8 +168,8 @@ message HealthResponse {
 }
 
 message ReferenceOptions {
-	Key reference = 1;
-	Key key = 2;
+	bytes reference = 1;
+	bytes key = 2;
 }
 
 /*
@@ -215,7 +215,6 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 };
 
 service ImmuService {
-
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option (google.api.http) = {
               post: "/v1/immurestproxy/login"
@@ -226,66 +225,67 @@ service ImmuService {
 		};
 	};
 
-	rpc Set (KeyValue) returns (Index){};
-
-	rpc SetSV (StructuredKeyValue) returns (Index){
+	rpc Set (KeyValue) returns (Index){
 		option (google.api.http) = {
               post: "/v1/immurestproxy/item"
               body: "*"
           };
 	};
-	
-	rpc SafeSet(SafeSetOptions) returns (Proof){}
 
-	rpc SafeSetSV(SafeSetSVOptions) returns (Proof){
+	rpc SetSV (StructuredKeyValue) returns (Index){};
+
+	rpc SafeSet(SafeSetOptions) returns (Proof){
 		option (google.api.http) = {
               post: "/v1/immurestproxy/item/safe"
               body: "*"
-          };
+        };
 	}
-	rpc Get (Key) returns (Item){};
 
-	rpc GetSV (Key) returns (StructuredItem){
+	rpc SafeSetSV(SafeSetSVOptions) returns (Proof){}
+
+	rpc Get (Key) returns (Item){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/item/{key}"
         };
 	};
 
-	rpc SafeGet(SafeGetOptions) returns (SafeItem){};
+	rpc GetSV (Key) returns (StructuredItem){};
 
-	rpc SafeGetSV(SafeGetOptions) returns (SafeStructuredItem){
+	rpc SafeGet(SafeGetOptions) returns (SafeItem){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/item/safe/get"
             body: "*"
         };
 	};
 
-	rpc SetBatch (KVList) returns (Index){};
+	rpc SafeGetSV(SafeGetOptions) returns (SafeStructuredItem){	};
 
-	rpc SetBatchSV (SKVList) returns (Index){
+	rpc SetBatch (KVList) returns (Index){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/batch/set"
             body: "*"
         };
 	};
 
-	rpc GetBatch (KeyList) returns (ItemList){};
+	rpc SetBatchSV (SKVList) returns (Index){};
 
-	rpc GetBatchSV (KeyList) returns (StructuredItemList){
+	rpc GetBatch (KeyList) returns (ItemList){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/batch/get"
             body: "*"
         };
 	};
-	
-	rpc Scan(ScanOptions) returns (ItemList){};
 
-	rpc ScanSV(ScanOptions) returns (StructuredItemList){
+	rpc GetBatchSV (KeyList) returns (StructuredItemList){};
+
+	rpc Scan(ScanOptions) returns (ItemList){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/item/scan"
             body: "*"
         };
 	};
+
+	rpc ScanSV(ScanOptions) returns (StructuredItemList){};
 
 	rpc Count(KeyPrefix) returns (ItemsCount){
 		option (google.api.http) = {
@@ -312,21 +312,21 @@ service ImmuService {
             get: "/v1/immurestproxy/consistencyproof/{index}"
         };
 	};
-	rpc ByIndex(Index) returns (Item){};
-
-	rpc ByIndexSV(Index) returns (StructuredItem){
+	rpc ByIndex(Index) returns (Item){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/item/index/{index}"
         };
 	};
 
-	rpc History(Key) returns (ItemList){};
+	rpc ByIndexSV(Index) returns (StructuredItem){};
 
-	rpc HistorySV(Key) returns (StructuredItemList){
+	rpc History(Key) returns (ItemList){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/history/{key}"
         };
 	};
+
+	rpc HistorySV(Key) returns (StructuredItemList){};
 
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
@@ -354,14 +354,14 @@ service ImmuService {
             body: "*"
         };
 	};
-	rpc ZScan (ZScanOptions) returns (ItemList){};
-
-	rpc ZScanSV (ZScanOptions) returns (StructuredItemList){
+	rpc ZScan (ZScanOptions) returns (ItemList){
 		option (google.api.http) = {
             post: "/v1/immurestproxy/zscan"
             body: "*"
         };
 	};
+
+	rpc ZScanSV (ZScanOptions) returns (StructuredItemList){};
 
 	rpc SafeZAdd (SafeZAddOptions) returns (Proof){
 		option (google.api.http) = {
@@ -382,5 +382,4 @@ service ImmuService {
             body: "*"
         };
 	}
-
 }

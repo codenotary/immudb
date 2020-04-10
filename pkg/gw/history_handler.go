@@ -18,9 +18,11 @@ package gw
 
 import (
 	"context"
-	"github.com/codenotary/immudb/pkg/api/schema"
+	"encoding/json"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"net/http"
 )
 
@@ -30,11 +32,11 @@ type HistoryHandler interface {
 
 type historyHandler struct {
 	mux    *runtime.ServeMux
-	client schema.ImmuServiceClient
+	client *client.ImmuClient
 	rs     client.RootService
 }
 
-func NewHistoryHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) HistoryHandler {
+func NewHistoryHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) HistoryHandler {
 	return &historyHandler{
 		mux,
 		client,
@@ -45,24 +47,48 @@ func NewHistoryHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, r
 func (h *historyHandler) History(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
-	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
+	_, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
 	rctx, err := runtime.AnnotateContext(ctx, h.mux, req)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	historyRequestOverwrite := NewHistoryRequestOverwrite(h.rs)
-	resp, md, err := historyRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
+	var metadata runtime.ServerMetadata
 
-	ctx = runtime.NewServerMetadataContext(ctx, md)
+	var (
+		val string
+		ok  bool
+	)
+
+	val, ok = pathParams["key"]
+	if !ok {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key"))
+		return
+	}
+
+	key, err := runtime.Bytes(val)
+
+	if err != nil {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key", err))
+		return
+	}
+
+	msg, err := h.client.History(rctx, key)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	historyResponseOverwrite := NewHistoryResponseOverwrite(h.rs)
-	if err := historyResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
+
+	ctx = runtime.NewServerMetadataContext(ctx, metadata)
+	w.Header().Set("Content-Type", "application/json")
+	newData, err := json.Marshal(msg)
+	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-
+	if _, err := w.Write(newData); err != nil {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		return
+	}
+	return
 }

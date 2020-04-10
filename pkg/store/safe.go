@@ -92,7 +92,7 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeItem, err error) {
 	var item *schema.Item
 	var i *badger.Item
-	key := options.Key.Key
+	key := options.Key
 
 	if err = checkKey(key); err != nil {
 		return nil, err
@@ -156,10 +156,10 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 
 func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	ro := options.Ro
-	if err = checkKey(ro.Key.Key); err != nil {
+	if err = checkKey(ro.Key); err != nil {
 		return nil, err
 	}
-	if err = checkKey(ro.Reference.Key); err != nil {
+	if err = checkKey(ro.Reference); err != nil {
 		return nil, err
 	}
 
@@ -171,14 +171,14 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
-	i, err := txn.Get(ro.Key.Key)
+	i, err := txn.Get(ro.Key)
 	if err != nil {
 		err = mapError(err)
 		return
 	}
 
 	if err = txn.SetEntry(&badger.Entry{
-		Key:      ro.Reference.Key,
+		Key:      ro.Reference,
 		Value:    i.Key(),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
@@ -186,7 +186,7 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(ro.Reference.Key, i.Key())
+	tsEntry := t.tree.NewEntry(ro.Reference, i.Key())
 
 	index := tsEntry.Index()
 	leaf := tsEntry.HashCopy()
