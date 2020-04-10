@@ -34,8 +34,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var AuthContextKey = "authorization"
-
 // generates a password that is 32 characters long with 5 digits, 5 symbols,
 // allowing upper and lower case letters, disallowing repeat characters.
 func generatePassword() (string, error) {
@@ -157,8 +155,7 @@ type JSONToken struct {
 	Expiration time.Time
 }
 
-// VerifyToken ...
-func VerifyToken(token string) (*JSONToken, error) {
+func verifyToken(token string) (*JSONToken, error) {
 	var jsonToken paseto.JSONToken
 	var footer string
 	if err := pasetoV2.Verify(token, publicKey, &jsonToken, &footer); err != nil {
@@ -170,8 +167,7 @@ func VerifyToken(token string) (*JSONToken, error) {
 	return &JSONToken{Username: jsonToken.Subject, Expiration: jsonToken.Expiration}, nil
 }
 
-// VerifyTokenFromCtx ...
-func VerifyTokenFromCtx(ctx context.Context) error {
+func verifyTokenFromCtx(ctx context.Context) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return status.Errorf(codes.Internal, "no headers found on request")
@@ -181,9 +177,20 @@ func VerifyTokenFromCtx(ctx context.Context) error {
 		return status.Errorf(codes.Unauthenticated, "no Authorization header found on request")
 	}
 	token := strings.TrimPrefix(authHeader[0], "Bearer ")
-	_, err := VerifyToken(token)
+	_, err := verifyToken(token)
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, "invalid token %s", token)
 	}
 	return nil
+}
+
+var methodsWithoutAuth = map[string]bool{
+	"/immudb.schema.ImmuService/CurrentRoot": true,
+	"/immudb.schema.ImmuService/Health":      true,
+	"/immudb.schema.ImmuService/Login":       true,
+}
+
+func HasAuth(method string) bool {
+	_, noAuth := methodsWithoutAuth[method]
+	return !noAuth
 }

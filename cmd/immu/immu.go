@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -43,23 +44,11 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
-	"google.golang.org/grpc/metadata"
 )
 
 var o = c.Options{}
 
 var tokenFilename = "token"
-
-func contextWithAuth() context.Context {
-	token, err := ioutil.ReadFile(tokenFilename)
-	if err != nil {
-		fmt.Fprintln(
-			os.Stderr,
-			fmt.Errorf("error reading token from file '%s': %v\nplease login", tokenFilename, err))
-		os.Exit(1)
-	}
-	return metadata.AppendToOutgoingContext(context.Background(), auth.AuthContextKey, "Bearer "+string(token))
-}
 
 func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immu") })
@@ -72,12 +61,12 @@ func main() {
 	commands := []*cobra.Command{
 		&cobra.Command{
 			Use:     "login username password",
-			Short:   fmt.Sprintf("Login using the specified username and password, automatically save access token to a file named '%s'", tokenFilename),
+			Short:   "Login using the specified username and password",
 			Aliases: []string{"l"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, false)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -89,42 +78,48 @@ func main() {
 					return immuClient.Login(ctx, user, pass)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				if err := ioutil.WriteFile(tokenFilename, response.(*schema.LoginResponse).Token, 0644); err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				fmt.Printf("SUCCESS: access token saved to '%s' file\n", tokenFilename)
+				fmt.Printf("logged in")
 				return nil
 			},
 			Args: cobra.ExactArgs(2),
+		},
+		&cobra.Command{
+			Use:     "logout",
+			Aliases: []string{"x"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				os.Remove(tokenFilename)
+				fmt.Println("logged out")
+				return nil
+			},
+			Args: cobra.NoArgs,
 		},
 		&cobra.Command{
 			Use:     "get key",
 			Short:   "Get item having the specified key",
 			Aliases: []string{"g"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
 				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Get(ctx, key)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				printItem([]byte(args[0]), nil, response)
 				return nil
@@ -136,25 +131,23 @@ func main() {
 			Short:   "Get and verify item having the specified key",
 			Aliases: []string{"sg"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
 				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeGet(ctx, key)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				printItem([]byte(args[0]), nil, response)
 				return nil
@@ -166,9 +159,9 @@ func main() {
 			Short:   "Add new item having the specified key and value",
 			Aliases: []string{"s"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -183,25 +176,22 @@ func main() {
 				tee := io.TeeReader(reader, &buf)
 				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				value, err := ioutil.ReadAll(tee)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Set(ctx, key, value)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				value2, err := ioutil.ReadAll(&buf)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				printItem([]byte(args[0]), value2, response)
 				return nil
@@ -213,9 +203,9 @@ func main() {
 			Short:   "Add and verify new item having the specified key and value",
 			Aliases: []string{"ss"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -228,27 +218,24 @@ func main() {
 				}
 				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				var buf bytes.Buffer
 				tee := io.TeeReader(reader, &buf)
 				value, err := ioutil.ReadAll(tee)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeSet(ctx, key, value)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				value2, err := ioutil.ReadAll(&buf)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				printItem([]byte(args[0]), value2, response)
 				return nil
@@ -260,9 +247,9 @@ func main() {
 			Short:   "Add new reference to an existing key",
 			Aliases: []string{"r"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -275,27 +262,24 @@ func main() {
 				}
 				reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				var buf bytes.Buffer
 				tee := io.TeeReader(reader, &buf)
 				key, err := ioutil.ReadAll(tee)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Reference(ctx, reference, key)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				value, err := ioutil.ReadAll(&buf)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				printItem([]byte(args[0]), value, response)
 				return nil
@@ -307,9 +291,9 @@ func main() {
 			Short:   "Add and verify new reference to an existing key",
 			Aliases: []string{"sr"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -322,27 +306,24 @@ func main() {
 				}
 				reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				var buf bytes.Buffer
 				tee := io.TeeReader(reader, &buf)
 				key, err := ioutil.ReadAll(tee)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeReference(ctx, reference, key)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				value, err := ioutil.ReadAll(&buf)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				printItem([]byte(args[0]), value, response)
 				return nil
@@ -354,9 +335,9 @@ func main() {
 			Short:   "Add new key with score to a new or existing sorted set",
 			Aliases: []string{"za"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -373,26 +354,22 @@ func main() {
 				bs, err := ioutil.ReadAll(scoreReader)
 				score, err := strconv.ParseFloat(string(bs[:]), 64)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				set, err := ioutil.ReadAll(setReader)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				key, err := ioutil.ReadAll(keyReader)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.ZAdd(ctx, set, score, key)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				printSetItem([]byte(args[0]), []byte(args[2]), score, response)
 				return nil
@@ -404,9 +381,9 @@ func main() {
 			Short:   "Add and verify new key with score to a new or existing sorted set",
 			Aliases: []string{"sza"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -423,26 +400,22 @@ func main() {
 				bs, err := ioutil.ReadAll(scoreReader)
 				score, err := strconv.ParseFloat(string(bs[:]), 64)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				set, err := ioutil.ReadAll(setReader)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				key, err := ioutil.ReadAll(keyReader)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeZAdd(ctx, set, score, key)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				printSetItem([]byte(args[0]), []byte(args[2]), score, response)
 				return nil
@@ -454,25 +427,23 @@ func main() {
 			Short:   "Iterate over a sorted set",
 			Aliases: []string{"zscn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
 				set, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.ZScan(ctx, set)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				for _, item := range response.(*schema.ItemList).Items {
 					printItem(nil, nil, item)
@@ -488,25 +459,23 @@ func main() {
 			Short:   "Iterate over keys having the specified prefix",
 			Aliases: []string{"scn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
 				prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Scan(ctx, prefix)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				for _, item := range response.(*schema.ItemList).Items {
 					printItem(nil, nil, item)
@@ -522,25 +491,23 @@ func main() {
 			Short:   "Count keys having the specified prefix",
 			Aliases: []string{"cnt"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
 				prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Count(ctx, prefix)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				fmt.Println(response.(*schema.ItemsCount).Count)
 				return nil
@@ -552,9 +519,9 @@ func main() {
 			Short:   "Check if specified index is included in the current tree",
 			Aliases: []string{"i"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -562,15 +529,14 @@ func main() {
 
 				index, err := strconv.ParseUint(args[0], 10, 64)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Inclusion(ctx, index)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 
 				proof := response.(*schema.InclusionProof)
@@ -580,12 +546,12 @@ func main() {
 					src := []byte(args[1])
 					l := hex.DecodedLen(len(src))
 					if l != 32 {
-						return fmt.Errorf("invalid hash length")
+						c.QuitToStdErr(fmt.Errorf("invalid hash length"))
 					}
 					hash = make([]byte, l)
 					_, err := hex.Decode(hash, src)
 					if err != nil {
-						return err
+						c.QuitToStdErr(err)
 					}
 
 				} else {
@@ -593,8 +559,7 @@ func main() {
 						return immuClient.ByIndex(ctx, index)
 					})
 					if err != nil {
-						_, _ = fmt.Fprintln(os.Stderr, err)
-						os.Exit(1)
+						c.QuitToStdErr(err)
 					}
 					item := response.(*schema.Item)
 					hash = item.Hash()
@@ -615,9 +580,9 @@ root: %x at index: %d
 			Short:   "Check consistency for the specified index and hash",
 			Aliases: []string{"c"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -625,15 +590,14 @@ root: %x at index: %d
 
 				index, err := strconv.ParseUint(args[0], 10, 64)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Consistency(ctx, index)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 
 				proof := response.(*schema.ConsistencyProof)
@@ -642,12 +606,12 @@ root: %x at index: %d
 				src := []byte(args[1])
 				l := hex.DecodedLen(len(src))
 				if l != 32 {
-					return fmt.Errorf("invalid hash length")
+					c.QuitToStdErr(fmt.Errorf("invalid hash length"))
 				}
 				root = make([]byte, l)
 				_, err = hex.Decode(root, src)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 
 				fmt.Printf(`verified: %t
@@ -665,25 +629,23 @@ secondRoot: %x at index: %d
 			Short:   "Fetch history for the item having the specified key",
 			Aliases: []string{"h"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
 				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.History(ctx, key)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				for _, item := range response.(*schema.ItemList).Items {
 					printItem(nil, nil, item)
@@ -698,9 +660,9 @@ secondRoot: %x at index: %d
 			Short:   "Ping to check if server connection is alive",
 			Aliases: []string{"p"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, false)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -710,8 +672,7 @@ secondRoot: %x at index: %d
 					return nil, immuClient.HealthCheck(ctx)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				fmt.Println("Health check OK")
 				return nil
@@ -723,9 +684,9 @@ secondRoot: %x at index: %d
 			Short:   "Save a backup to the specified filename (optional)",
 			Aliases: []string{"b"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
@@ -736,17 +697,15 @@ secondRoot: %x at index: %d
 				}
 				file, err := os.Create(filename)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				defer file.Close()
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Backup(ctx, file)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response.(int64), filename)
 				return nil
@@ -758,26 +717,24 @@ secondRoot: %x at index: %d
 			Short:   "Restore a backup from the specified filename",
 			Aliases: []string{"rb"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
+				options, err := options(cmd, true)
 				if err != nil {
-					return err
+					c.QuitToStdErr(err)
 				}
 				immuClient := client.
 					DefaultClient().
 					WithOptions(*options)
 				file, err := os.Open(args[0])
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				defer file.Close()
-				ctx := contextWithAuth()
+				ctx := context.Background()
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Restore(ctx, file, 500)
 				})
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					c.QuitToStdErr(err)
 				}
 				fmt.Printf("SUCCESS: %d key-value entries were restored from file %s\n", response.(int64), args[0])
 				return nil
@@ -797,8 +754,7 @@ secondRoot: %x at index: %d
 	cmd.AddCommand(man.Generate(cmd, "immu", "../docs/man/immu"))
 
 	if err := cmd.Execute(); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		c.QuitToStdErr(err)
 	}
 }
 
@@ -817,13 +773,27 @@ func configureOptions(cmd *cobra.Command) error {
 	return nil
 }
 
-func options(cmd *cobra.Command) (*client.Options, error) {
+func options(cmd *cobra.Command, withToken bool) (*client.Options, error) {
 	port := viper.GetInt("default.port")
 	address := viper.GetString("default.address")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
 		WithDialOptions(false, grpc.WithInsecure())
+	if withToken {
+		// TODO OGG: do this only if mTLS is enabled or force from config (for testing)
+		tokenBytes, err := ioutil.ReadFile(tokenFilename)
+		if err != nil {
+			return nil, errors.New("unauthorized, please login")
+		}
+		token := string(tokenBytes)
+		options = options.WithDialOptions(
+			false,
+			grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)),
+			grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
+		)
+	}
+
 	return &options, nil
 }
 

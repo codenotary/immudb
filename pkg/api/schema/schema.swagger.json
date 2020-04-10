@@ -136,7 +136,8 @@
         },
         "tags": [
           "ImmuService"
-        ]
+        ],
+        "security": []
       }
     },
     "/v1/immurestproxy/history/{key}": {
@@ -461,7 +462,8 @@
         },
         "tags": [
           "ImmuService"
-        ]
+        ],
+        "security": []
       }
     },
     "/v1/immurestproxy/safe/reference": {

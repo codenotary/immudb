@@ -75,6 +75,13 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
+	// TODO OGG: do this only if mTLS is enabled
+	options = append(
+		options,
+		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
+		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
+	)
+
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
 		return err
@@ -149,9 +156,6 @@ func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.R
 
 func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
 	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	item, err := s.Store.Set(*kv)
 	if err != nil {
 		return nil, err
@@ -161,9 +165,6 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 
 func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	item, err := s.Store.SafeSet(*opts)
 	if err != nil {
 		return nil, err
@@ -173,9 +174,6 @@ func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (
 
 func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
 	s.Logger.Debugf("set batch %d", len(kvl.KVs))
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	index, err := s.Store.SetBatch(*kvl)
 	if err != nil {
 		return nil, err
@@ -184,9 +182,6 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 }
 
 func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	item, err := s.Store.Get(*k)
 	if item == nil {
 		s.Logger.Debugf("get %s: item not found", k.Key)
@@ -201,9 +196,6 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 
 func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("safeget %s", opts.Key)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	item, err := s.Store.SafeGet(*opts)
 	if err != nil {
 		return nil, err
@@ -212,9 +204,6 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 }
 
 func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
 		item, err := s.Store.Get(*key)
@@ -231,25 +220,16 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 
 func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	return s.Store.Scan(*opts)
 }
 
 func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	s.Logger.Debugf("count %s", prefix.Prefix)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	return s.Store.Count(*prefix)
 }
 
 func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
 	s.Logger.Debugf("inclusion for index %d ", index.Index)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	proof, err := s.Store.InclusionProof(*index)
 	if err != nil {
 		return nil, err
@@ -259,9 +239,6 @@ func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schem
 
 func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*schema.ConsistencyProof, error) {
 	s.Logger.Debugf("consistency for index %d ", index.Index)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	proof, err := s.Store.ConsistencyProof(*index)
 	if err != nil {
 		return nil, err
@@ -271,9 +248,6 @@ func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*sch
 
 func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	item, err := s.Store.ByIndex(*index)
 	if err != nil {
 		return nil, err
@@ -283,9 +257,6 @@ func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.
 
 func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	list, err := s.Store.History(*key)
 	if err != nil {
 		return nil, err
@@ -300,9 +271,6 @@ func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthRespon
 }
 
 func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
-	if err = auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	index, err = s.Store.Reference(refOpts)
 	if err != nil {
 		return nil, err
@@ -312,9 +280,6 @@ func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOpt
 }
 
 func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
-	if err = auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	proof, err = s.Store.SafeReference(*safeRefOpts)
 	if err != nil {
 		return nil, err
@@ -325,25 +290,16 @@ func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.Safe
 
 func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	return s.Store.ZAdd(*opts)
 }
 
 func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	return s.Store.ZScan(*opts)
 }
 
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
-	if err := auth.VerifyTokenFromCtx(ctx); err != nil {
-		return nil, err
-	}
 	return s.Store.SafeZAdd(*opts)
 }
 
