@@ -83,8 +83,6 @@ func (c *ImmuClient) Connected(ctx context.Context, f func() (interface{}, error
 
 func (c *ImmuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
 	start := time.Now()
-	c.Lock()
-	defer c.Unlock()
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
