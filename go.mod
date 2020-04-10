@@ -14,7 +14,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/rs/cors v1.7.0
-	github.com/sethvargo/go-password v0.1.3
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.4.0
@@ -23,6 +22,6 @@ require (
 	golang.org/x/sys v0.0.0-20200122134326-e047566fdf82 // indirect
 	google.golang.org/genproto v0.0.0-20200211035748-55294c81d784
 	google.golang.org/grpc v1.27.0
-	google.golang.org/protobuf v1.20.1
+	google.golang.org/protobuf v1.20.1 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 )

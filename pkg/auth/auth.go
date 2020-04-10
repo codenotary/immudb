@@ -21,12 +21,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/o1egl/paseto"
-	"github.com/sethvargo/go-password/password"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc/codes"
@@ -34,10 +34,26 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// generates a password that is 32 characters long with 5 digits, 5 symbols,
-// allowing upper and lower case letters, disallowing repeat characters.
-func generatePassword() (string, error) {
-	return password.Generate(32, 5, 0, false, false)
+// generates a random ASCII string with at least one digit and one special character
+func generatePassword() string {
+	rand.Seed(time.Now().UnixNano())
+	digits := "0123456789"
+	// other special characters: ~=+%^*/()[]{}/!@#$?|
+	specials := "!?"
+	all := "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"abcdefghijklmnopqrstuvwxyz" +
+		digits + specials
+	length := 32
+	buf := make([]byte, length)
+	buf[0] = digits[rand.Intn(len(digits))]
+	buf[1] = specials[rand.Intn(len(specials))]
+	for i := 2; i < length; i++ {
+		buf[i] = all[rand.Intn(len(all))]
+	}
+	rand.Shuffle(len(buf), func(i, j int) {
+		buf[i], buf[j] = buf[j], buf[i]
+	})
+	return string(buf)
 }
 
 // NOTE: bcrypt.MinCost is 4
