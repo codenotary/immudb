@@ -16,13 +16,8 @@ limitations under the License.
 
 package auth
 
-import (
-	"sync"
-)
-
 // User ...
 type User struct {
-	sync.RWMutex
 	Username       string `json:"username"`
 	HashedPassword []byte `json:"-"`
 	Admin          bool   `json:"admin"`
@@ -47,8 +42,6 @@ func (u *User) GenerateAndSetPassword() (string, error) {
 }
 
 func (u *User) SetPassword(hashedPassword []byte) {
-	u.Lock()
-	defer u.Unlock()
 	u.HashedPassword = hashedPassword
 }
 
