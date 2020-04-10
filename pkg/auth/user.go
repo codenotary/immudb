@@ -37,10 +37,7 @@ var AdminUser = User{
 
 // GenerateAndSetPassword ...
 func (u *User) GenerateAndSetPassword() (string, error) {
-	plainPassword, err := generatePassword()
-	if err != nil {
-		return "", err
-	}
+	plainPassword := generatePassword()
 	hashedPassword, err := hashAndSaltPassword(plainPassword, u.Admin)
 	if err != nil {
 		return "", err

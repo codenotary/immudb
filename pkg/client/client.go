@@ -196,15 +196,6 @@ func (c *ImmuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCou
 	return c.serviceClient.Count(ctx, &schema.KeyPrefix{Prefix: prefix})
 }
 
-// Example on how to load keys at caller site (in immu CLI):
-// keys := [][]byte{}
-// for _, key := range keyReaders {
-// 	key, err := ioutil.ReadAll(keyReader)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	keys = append(keys, key)
-// }
 func (c *ImmuClient) GetBatch(ctx context.Context, keys [][]byte) (*schema.ItemList, error) {
 	start := time.Now()
 	if !c.isConnected() {
