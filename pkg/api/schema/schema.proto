@@ -241,7 +241,10 @@ service ImmuService {
 	rpc CurrentRoot(google.protobuf.Empty) returns (Root) {
 		option (google.api.http) = {
             get: "/v1/immurestproxy/root"
-        };
+				};
+		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+						security: { } // no security
+				};
 	};
 
 	rpc Inclusion(Index) returns (InclusionProof){
@@ -267,7 +270,10 @@ service ImmuService {
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
             get: "/v1/immurestproxy/healthresponse"
-        };
+				};
+		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+						security: { } // no security
+				};
 	};
 	rpc Reference (ReferenceOptions) returns (Index){
 		option (google.api.http) = {

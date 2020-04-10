@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 
+	c "github.com/codenotary/immudb/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
@@ -44,8 +45,7 @@ func Generate(cmd *cobra.Command, title string, defaultDir string) *cobra.Comman
 			_ = os.Mkdir(dir, os.ModePerm)
 			err := doc.GenManTree(cmd, header, dir)
 			if err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
+				c.QuitToStdErr(err)
 			}
 			fmt.Printf("SUCCESS: man files generated in the %s directory\n", dir)
 			return nil

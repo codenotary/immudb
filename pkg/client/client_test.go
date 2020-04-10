@@ -25,8 +25,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"google.golang.org/grpc/metadata"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -77,7 +75,10 @@ func newServer() *server.ImmuServer {
 	}
 
 	lis = bufconn.Listen(bufSize)
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
+		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
+	)
 	schema.RegisterImmuServiceServer(s, localImmuServer)
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -90,41 +91,47 @@ func newServer() *server.ImmuServer {
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {
 	return lis.Dial()
 }
-func newClient() *ImmuClient {
+
+func newClient(withToken bool, token string) *ImmuClient {
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
+	}
+	if withToken {
+		dialOptions = append(
+			dialOptions,
+			grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)),
+			grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
+		)
+	}
 	return DefaultClient().
 		WithOptions(
 			DefaultOptions().
-				WithDialOptions(false, grpc.WithContextDialer(bufDialer), grpc.WithInsecure()))
+				WithDialOptions(false, dialOptions...))
 }
 
-var token string
-
-func contextWithAuth() context.Context {
-	return metadata.AppendToOutgoingContext(context.Background(), auth.AuthContextKey, "Bearer "+string(token))
-}
-func login() {
+func login() string {
 	if err := auth.GenerateKeys(); err != nil {
 		log.Fatal(err)
 	}
-
 	plainPassword, err := auth.AdminUser.GenerateAndSetPassword()
 	if err != nil {
 		log.Fatal(err)
 	}
 	ctx := context.Background()
-	r, err := client.Connected(ctx, func() (interface{}, error) {
-		return client.Login(ctx, []byte(auth.AdminUser.Username), []byte(plainPassword))
+	c := newClient(false, "")
+	r, err := c.Connected(ctx, func() (interface{}, error) {
+		return c.Login(ctx, []byte(auth.AdminUser.Username), []byte(plainPassword))
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	token = string(r.(*schema.LoginResponse).GetToken())
+	return string(r.(*schema.LoginResponse).GetToken())
 }
 
 func init() {
 	immuServer = newServer()
-	client = newClient()
-	login()
+	token := login()
+	client = newClient(true, token)
 }
 
 func cleanup() {
@@ -214,7 +221,7 @@ func TestImmuClient(t *testing.T) {
 	defer cleanup()
 	defer cleanupBackup()
 
-	ctx := contextWithAuth()
+	ctx := context.Background()
 
 	testSafeSetAndSafeGet(ctx, t, testData.keys[0], testData.values[0])
 	testSafeSetAndSafeGet(ctx, t, testData.keys[1], testData.values[1])
@@ -233,7 +240,7 @@ func TestRestore(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	ctx := contextWithAuth()
+	ctx := context.Background()
 
 	// this only succeeds if only this test function is run, otherwise the key may
 	// be present from other test function that run before this:
