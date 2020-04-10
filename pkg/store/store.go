@@ -359,11 +359,11 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 
 func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	if len(refOpts.Key.Key) == 0 || refOpts.Key.Key[0] == tsPrefix {
+	if len(refOpts.Key) == 0 || refOpts.Key[0] == tsPrefix {
 		err = ErrInvalidKey
 		return
 	}
-	if len(refOpts.Reference.Key) == 0 || refOpts.Reference.Key[0] == tsPrefix {
+	if len(refOpts.Reference) == 0 || refOpts.Reference[0] == tsPrefix {
 		err = ErrInvalidReference
 		return
 	}
@@ -373,14 +373,14 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
-	i, err := txn.Get(refOpts.Key.Key)
+	i, err := txn.Get(refOpts.Key)
 	if err != nil {
 		err = mapError(err)
 		return
 	}
 
 	if err = txn.SetEntry(&badger.Entry{
-		Key:      refOpts.Reference.Key,
+		Key:      refOpts.Reference,
 		Value:    i.Key(),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
@@ -388,7 +388,7 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(refOpts.Reference.Key, i.Key())
+	tsEntry := t.tree.NewEntry(refOpts.Reference, i.Key())
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
 	}

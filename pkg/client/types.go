@@ -17,22 +17,22 @@ limitations under the License.
 package client
 
 import (
+	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc"
 	"os"
 	"sync"
-
-	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
 type ImmuClient struct {
-	Logger  logger.Logger
-	Options Options
-
+	Logger        logger.Logger
+	Options       Options
 	clientConn    *grpc.ClientConn
 	serviceClient schema.ImmuServiceClient
 	rootservice   RootService
+	ts            TimestampService
 	sync.RWMutex
 }
 
@@ -48,7 +48,57 @@ func (c *ImmuClient) WithLogger(logger logger.Logger) *ImmuClient {
 	return c
 }
 
+func (c *ImmuClient) WithRootService(rs RootService) *ImmuClient {
+	c.rootservice = rs
+	return c
+}
+
+func (c *ImmuClient) WithTimestampService(ts TimestampService) *ImmuClient {
+	c.ts = ts
+	return c
+}
+
+func (c *ImmuClient) WithClientConn(clientConn *grpc.ClientConn) *ImmuClient {
+	c.clientConn = clientConn
+	return c
+}
+
+func (c *ImmuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *ImmuClient {
+	c.serviceClient = serviceClient
+	return c
+}
+
 func (c *ImmuClient) WithOptions(options Options) *ImmuClient {
 	c.Options = options
 	return c
 }
+
+func (c *ImmuClient) NewSKV(key []byte, value []byte) *schema.StructuredKeyValue {
+	return &schema.StructuredKeyValue{
+		Key: key,
+		Value: &schema.Content{
+			Timestamp: uint64(c.ts.GetTime().Unix()),
+			Payload:   value,
+		},
+	}
+}
+
+// VerifiedItem ...
+type VerifiedItem struct {
+	Key      []byte `json:"key"`
+	Value    []byte `json:"value"`
+	Index    uint64 `json:"index"`
+	Time     uint64 `json:"time"`
+	Verified bool   `json:"verified"`
+}
+
+// VerifiedIndex ...
+type VerifiedIndex struct {
+	Index    uint64 `json:"index"`
+	Verified bool   `json:"verified"`
+}
+
+// Reset ...
+func (vi *VerifiedIndex) Reset() { *vi = VerifiedIndex{} }
+
+func (vi *VerifiedIndex) String() string { return proto.CompactTextString(vi) }

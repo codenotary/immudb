@@ -30,6 +30,7 @@ import (
 
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/viper"
 
@@ -77,12 +78,12 @@ func main() {
 					return immuClient.Login(ctx, user, pass)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				if err := ioutil.WriteFile(tokenFilename, response.(*schema.LoginResponse).Token, 0644); err != nil {
 					c.QuitToStdErr(err)
 				}
-				fmt.Printf("logged in")
+				fmt.Printf("logged in\n")
 				return nil
 			},
 			Args: cobra.ExactArgs(2),
@@ -102,18 +103,13 @@ func main() {
 			Short:   "Get item having the specified key",
 			Aliases: []string{"g"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Get(ctx, key)
 				})
@@ -130,18 +126,13 @@ func main() {
 			Short:   "Get and verify item having the specified key",
 			Aliases: []string{"sg"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeGet(ctx, key)
 				})
@@ -158,13 +149,7 @@ func main() {
 			Short:   "Add new item having the specified key and value",
 			Aliases: []string{"s"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				var reader io.Reader
 				if len(args) > 1 {
 					reader = bytes.NewReader([]byte(args[1]))
@@ -182,6 +167,7 @@ func main() {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Set(ctx, key, value)
 				})
@@ -189,6 +175,12 @@ func main() {
 					c.QuitWithUserError(err)
 				}
 				value2, err := ioutil.ReadAll(&buf)
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				response, err = immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Get(ctx, key)
+				})
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -202,13 +194,7 @@ func main() {
 			Short:   "Add and verify new item having the specified key and value",
 			Aliases: []string{"ss"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				var reader io.Reader
 				if len(args) > 1 {
 					reader = bytes.NewReader([]byte(args[1]))
@@ -226,6 +212,7 @@ func main() {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeSet(ctx, key, value)
 				})
@@ -233,6 +220,12 @@ func main() {
 					c.QuitWithUserError(err)
 				}
 				value2, err := ioutil.ReadAll(&buf)
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				response, err = immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.Get(ctx, key)
+				})
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -246,13 +239,7 @@ func main() {
 			Short:   "Add new reference to an existing key",
 			Aliases: []string{"r"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				var reader io.Reader
 				if len(args) > 1 {
 					reader = bytes.NewReader([]byte(args[1]))
@@ -270,6 +257,7 @@ func main() {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Reference(ctx, reference, key)
 				})
@@ -290,13 +278,7 @@ func main() {
 			Short:   "Add and verify new reference to an existing key",
 			Aliases: []string{"sr"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				var reader io.Reader
 				if len(args) > 1 {
 					reader = bytes.NewReader([]byte(args[1]))
@@ -314,6 +296,7 @@ func main() {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeReference(ctx, reference, key)
 				})
@@ -334,13 +317,7 @@ func main() {
 			Short:   "Add new key with score to a new or existing sorted set",
 			Aliases: []string{"za"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				var setReader io.Reader
 				var scoreReader io.Reader
 				var keyReader io.Reader
@@ -364,6 +341,7 @@ func main() {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.ZAdd(ctx, set, score, key)
 				})
@@ -380,13 +358,7 @@ func main() {
 			Short:   "Add and verify new key with score to a new or existing sorted set",
 			Aliases: []string{"sza"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				var setReader io.Reader
 				var scoreReader io.Reader
 				var keyReader io.Reader
@@ -410,6 +382,7 @@ func main() {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.SafeZAdd(ctx, set, score, key)
 				})
@@ -426,29 +399,22 @@ func main() {
 			Short:   "Iterate over a sorted set",
 			Aliases: []string{"zscn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
 				set, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.ZScan(ctx, set)
 				})
 				if err != nil {
 					c.QuitWithUserError(err)
 				}
-				for _, item := range response.(*schema.ItemList).Items {
-					printItem(nil, nil, item.ToSItem())
+				for _, item := range response.(*schema.StructuredItemList).Items {
+					printItem(nil, nil, item)
 					fmt.Println()
 				}
-
 				return nil
 			},
 			Args: cobra.ExactArgs(1),
@@ -458,18 +424,13 @@ func main() {
 			Short:   "Iterate over keys having the specified prefix",
 			Aliases: []string{"scn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Scan(ctx, prefix)
 				})
@@ -480,7 +441,6 @@ func main() {
 					printItem(nil, nil, item)
 					fmt.Println()
 				}
-
 				return nil
 			},
 			Args: cobra.ExactArgs(1),
@@ -490,18 +450,13 @@ func main() {
 			Short:   "Count keys having the specified prefix",
 			Aliases: []string{"cnt"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Count(ctx, prefix)
 				})
@@ -518,19 +473,12 @@ func main() {
 			Short:   "Check if specified index is included in the current tree",
 			Aliases: []string{"i"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
-
 				index, err := strconv.ParseUint(args[0], 10, 64)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Inclusion(ctx, index)
 				})
@@ -558,10 +506,11 @@ func main() {
 						return immuClient.ByIndex(ctx, index)
 					})
 					if err != nil {
-						c.QuitToStdErr(err)
+						c.QuitWithUserError(err)
 					}
 					item := response.(*schema.StructuredItem)
-					hash = item.Hash()
+					hash, err = item.Hash()
+
 				}
 
 				fmt.Printf(`verified: %t
@@ -579,19 +528,12 @@ root: %x at index: %d
 			Short:   "Check consistency for the specified index and hash",
 			Aliases: []string{"c"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
-
 				index, err := strconv.ParseUint(args[0], 10, 64)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Consistency(ctx, index)
 				})
@@ -628,18 +570,13 @@ secondRoot: %x at index: %d
 			Short:   "Fetch history for the item having the specified key",
 			Aliases: []string{"h"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.History(ctx, key)
 				})
@@ -659,19 +596,14 @@ secondRoot: %x at index: %d
 			Short:   "Ping to check if server connection is alive",
 			Aliases: []string{"p"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				ctx := context.Background()
-				_, err = immuClient.Connected(ctx, func() (interface{}, error) {
+				immuClient := getImmuClient(cmd)
+				_, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return nil, immuClient.HealthCheck(ctx)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				fmt.Println("Health check OK")
 				return nil
@@ -683,23 +615,18 @@ secondRoot: %x at index: %d
 			Short:   "Save a backup to the specified filename (optional)",
 			Aliases: []string{"b"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
+
 				filename := fmt.Sprint("immudb_" + time.Now().Format("2006-01-02_15-04-05") + ".bkp")
 				if len(args) > 0 {
 					filename = args[0]
 				}
 				file, err := os.Create(filename)
+				defer file.Close()
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
-				defer file.Close()
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Backup(ctx, file)
 				})
@@ -716,19 +643,16 @@ secondRoot: %x at index: %d
 			Short:   "Restore a backup from the specified filename",
 			Aliases: []string{"rb"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
 				file, err := os.Open(args[0])
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				defer file.Close()
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
 				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
 					return immuClient.Restore(ctx, file, 500)
 				})
@@ -777,6 +701,23 @@ func configureOptions(cmd *cobra.Command) error {
 	return nil
 }
 
+func getImmuClient(cmd *cobra.Command) *client.ImmuClient {
+	options, err := options(cmd)
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
+	dt, err := timestamp.NewTdefault()
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
+	ts := client.NewTimestampService(dt)
+	immuClient := client.
+		DefaultClient().
+		WithOptions(*options).
+		WithTimestampService(ts)
+	return immuClient
+}
+
 func options(cmd *cobra.Command) (*client.Options, error) {
 	port := viper.GetInt("default.port")
 	address := viper.GetString("default.address")
@@ -810,12 +751,12 @@ func printItem(key []byte, value []byte, message interface{}) {
 	switch m := message.(type) {
 	case *schema.Index:
 		index = m.Index
-		digest := api.Digest(index, key, value)
-		hash = digest[:]
+		dig := api.Digest(index, key, value)
+		hash = dig[:]
 	case *client.VerifiedIndex:
 		index = m.Index
-		digest := api.Digest(index, key, value)
-		hash = digest[:]
+		dig := api.Digest(index, key, value)
+		hash = dig[:]
 		verified = m.Verified
 		isVerified = true
 	case *schema.Item:
@@ -828,31 +769,35 @@ func printItem(key []byte, value []byte, message interface{}) {
 		value = m.Value.Payload
 		ts = m.Value.Timestamp
 		index = m.Index
-		hash = m.Hash()
+		hash, _ = m.Hash()
 	case *client.VerifiedItem:
 		key = m.Key
 		value = m.Value
 		index = m.Index
+		ts = m.Time
 		verified = m.Verified
-		digest := api.Digest(index, key, value)
-		hash = digest[:]
 		isVerified = true
+		me, _ := schema.Merge(value, ts)
+		dig := api.Digest(index, key, me)
+		hash = dig[:]
+
 	}
 	if !isVerified {
 		fmt.Printf(`index:		%d
 key:		%s
 value:		%s
 hash:		%x
-time:   %s
-`, index, key, value, hash, time.Unix(int64(ts),0))
+time:		%s
+`, index, key, value, hash, time.Unix(int64(ts), 0))
 		return
 	}
 	fmt.Printf(`index:		%d
 key:		%s
 value:		%s
 hash:		%x
+time:		%s
 verified:	%t
-`, index, key, value, hash, time.Unix(int64(ts),0), verified)
+`, index, key, value, hash, time.Unix(int64(ts), 0), verified)
 }
 
 func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {

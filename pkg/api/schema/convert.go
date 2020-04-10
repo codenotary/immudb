@@ -1,83 +1,94 @@
 package schema
 
 import (
-	"encoding/binary"
-	"time"
+	"github.com/golang/protobuf/proto"
 )
 
-func merge(payload []byte, timestamp uint64) (merged []byte) {
-	ts := make([]byte, 8)
-	binary.LittleEndian.PutUint64(ts, timestamp)
-	merged = append(ts, payload[:]...)
-	return merged
-}
-
-func split(merged []byte) (payload []byte, timestamp uint64) {
-	if len(merged) < 9 {
-		return payload, 0
+// Merge return a marshalled content object
+func Merge(payload []byte, timestamp uint64) (merged []byte, err error) {
+	c := &Content{
+		Payload:   payload,
+		Timestamp: timestamp,
 	}
-	payload = merged[8:]
-	ts := merged[0:8]
-	timestamp = binary.LittleEndian.Uint64(ts)
-	return payload, timestamp
+	merged , err = proto.Marshal(c)
+	return merged, err
 }
 
-func NewSKV(key []byte, value []byte) *StructuredKeyValue {
-	return &StructuredKeyValue{
-		Key: key,
-		Value: &Content{
-			Timestamp: uint64(time.Now().Unix()),
-			Payload:   value,
-		},
+// ToSItem return StructuredItem from the receiver
+func (item *Item) ToSItem() (*StructuredItem, error) {
+	c := Content{}
+	err := proto.Unmarshal(item.Value, &c)
+	if err != nil {
+		return nil, err
 	}
-}
 
-func (item *Item) ToSItem() *StructuredItem {
-	payload, ts := split(item.Value)
 	return &StructuredItem{
 		Index: item.Index,
 		Key:   item.Key,
 		Value: &Content{
-			Payload:   payload,
-			Timestamp: ts,
+			Payload:   c.Payload,
+			Timestamp: c.Timestamp,
 		},
-	}
+	}, nil
 }
 
-func (item *StructuredItem) ToItem() *Item {
+// ToItem return Item from the receiver
+func (item *StructuredItem) ToItem() (*Item, error) {
+	m, err := Merge(item.Value.Payload, item.Value.Timestamp)
+	if err != nil{
+		return nil, err
+	}
 	return &Item{
 		Key:   item.Key,
-		Value: merge(item.Value.Payload, item.Value.Timestamp),
+		Value: m,
 		Index: item.Index,
-	}
+	}, nil
 }
 
-func (item *SafeItem) ToSafeSItem() *SafeStructuredItem {
+// ToSafeSItem return a SafeStructuredItem from the receiver
+func (item *SafeItem) ToSafeSItem() (*SafeStructuredItem, error) {
+	i, err := item.Item.ToSItem()
 	return &SafeStructuredItem{
-		Item:  item.Item.ToSItem(),
+		Item:  i,
 		Proof: item.Proof,
-	}
+	},
+	err
 }
 
-func (list *ItemList) ToSItemList() *StructuredItemList {
+// ToSItemList return a StructuredItemList from the receiver
+func (list *ItemList) ToSItemList() (*StructuredItemList, error) {
 	slist := &StructuredItemList{}
 	for _, item := range list.Items {
-		slist.Items = append(slist.Items, item.ToSItem())
+		i, err := item.ToSItem()
+		if err != nil {
+			return nil, err
+		}
+		slist.Items = append(slist.Items, i)
 	}
-	return slist
+	return slist, nil
 }
 
-func (skv *StructuredKeyValue) ToKV() *KeyValue {
+// ToKV return a KeyValue from the receiver
+func (skv *StructuredKeyValue) ToKV() (*KeyValue, error) {
+	m, err := proto.Marshal(skv.Value)
+	if err != nil {
+		return nil, err
+	}
 	return &KeyValue{
 		Key:   skv.Key,
-		Value: merge(skv.Value.Payload, skv.Value.Timestamp),
-	}
+		Value: m,
+	}, nil
 }
 
-func (skvl *SKVList) ToKVList() *KVList {
+// ToKVList return a KVList from the receiver
+func (skvl *SKVList) ToKVList() (*KVList, error) {
 	kvl := &KVList{}
 	for _, v := range skvl.SKVs {
-		kvl.KVs = append(kvl.KVs, v.ToKV())
+		m, err := v.ToKV()
+		if err != nil {
+			return nil, err
+		}
+		kvl.KVs = append(kvl.KVs, m)
 	}
-	return kvl
+	return kvl, nil
 }

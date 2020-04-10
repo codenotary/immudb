@@ -18,9 +18,14 @@ package gw
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/grpc-ecosystem/grpc-gateway/utilities"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"io"
 	"net/http"
 	"sync"
 )
@@ -31,12 +36,12 @@ type SafegetHandler interface {
 
 type safegetHandler struct {
 	mux    *runtime.ServeMux
-	client schema.ImmuServiceClient
+	client *client.ImmuClient
 	rs     client.RootService
 	sync.RWMutex
 }
 
-func NewSafegetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, rs client.RootService) SafegetHandler {
+func NewSafegetHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) SafegetHandler {
 	return &safegetHandler{
 		mux:    mux,
 		client: client,
@@ -47,24 +52,42 @@ func NewSafegetHandler(mux *runtime.ServeMux, client schema.ImmuServiceClient, r
 func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
-	h.Lock()
-	defer h.Unlock()
+
 	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
 	rctx, err := runtime.AnnotateContext(ctx, h.mux, req)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	safeGetRequestOverwrite := NewSafeGetRequestOverwrite(h.rs)
-	resp, md, err := safeGetRequestOverwrite.call(rctx, inboundMarshaler, h.client, req, pathParams)
-	ctx = runtime.NewServerMetadataContext(ctx, md)
+	var protoReq schema.SafeGetOptions
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", berr))
+		return
+	}
+	if err := inboundMarshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", err))
+		return
+	}
+
+	msg, err := h.client.SafeGet(rctx, protoReq.Key)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	safeGetResponseOverwrite := NewSafeGetResponseOverwrite(h.rs)
-	if err := safeGetResponseOverwrite.call(ctx, h.mux, outboundMarshaler, w, req, resp, h.mux.GetForwardResponseOptions()...); err != nil {
+
+	ctx = runtime.NewServerMetadataContext(ctx, metadata)
+	w.Header().Set("Content-Type", "application/json")
+	newData, err := json.Marshal(msg)
+	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
+	if _, err := w.Write(newData); err != nil {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		return
+	}
+	return
 }

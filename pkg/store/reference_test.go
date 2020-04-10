@@ -32,8 +32,8 @@ func TestStoreReference(t *testing.T) {
 	assert.NoError(t, err)
 
 	refOpts := &schema.ReferenceOptions{
-		Reference: &schema.Key{Key: []byte(`myTag`)},
-		Key:       &schema.Key{Key: []byte(`firstKey`)},
+		Reference: []byte(`myTag`),
+		Key:       []byte(`firstKey`),
 	}
 
 	reference, err := st.Reference(refOpts)
@@ -65,8 +65,8 @@ func TestStoreReferenceAsyncCommit(t *testing.T) {
 			itemKey = []byte(`secondKey`)
 		}
 		refOpts := &schema.ReferenceOptions{
-			Reference: &schema.Key{Key: tag},
-			Key:       &schema.Key{Key: itemKey},
+			Reference: tag,
+			Key:       itemKey,
 		}
 		index, err := st.Reference(refOpts, WithAsyncCommit(true))
 		assert.NoError(t, err, "n=%d", n)

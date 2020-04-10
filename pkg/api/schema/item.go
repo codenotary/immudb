@@ -17,6 +17,8 @@ limitations under the License.
 package schema
 
 import (
+	"encoding/json"
+	"errors"
 	"github.com/codenotary/immudb/pkg/api"
 )
 
@@ -29,11 +31,44 @@ func (i *Item) Hash() []byte {
 	return d[:]
 }
 
-func (si *StructuredItem) Hash() []byte {
+func (si *StructuredItem) Hash() ([]byte, error) {
 	if si == nil {
-		return nil
+		return nil, errors.New("Empty pointer receive")
 	}
-	i := si.ToItem()
+	i, err := si.ToItem()
+	if err != nil {
+		return nil, err
+	}
 	d := api.Digest(i.Index, i.Key, i.Value)
-	return d[:]
+	return d[:], nil
+}
+
+func (s *SafeItem) Hash() ([]byte, error) {
+	if s == nil {
+		return nil, errors.New("Empty pointer receive")
+	}
+	d := api.Digest(s.Item.Index, s.Item.Key, s.Item.Value)
+	return d[:], nil
+}
+
+func (m *Item) MarshalJSON() ([]byte, error) {
+	type Ci Item
+	return json.Marshal(&struct {
+		Index uint64 `protobuf:"varint,3,opt,name=index,proto3" json:"index"`
+		*Ci
+	}{
+		Index: m.Index,
+		Ci:    (*Ci)(m),
+	})
+}
+
+func (m *StructuredItem) MarshalJSON() ([]byte, error) {
+	type Ci StructuredItem
+	return json.Marshal(&struct {
+		Index uint64 `protobuf:"varint,3,opt,name=index,proto3" json:"index"`
+		*Ci
+	}{
+		Index: m.Index,
+		Ci:    (*Ci)(m),
+	})
 }

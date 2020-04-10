@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/DataDog/zstd v1.4.4 // indirect
+	github.com/beevik/ntp v0.3.0
 	github.com/codenotary/merkletree v0.1.1
 	github.com/dgraph-io/badger/v2 v2.0.0-20200408100755-2e708d968e94
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect

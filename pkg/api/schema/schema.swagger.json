@@ -48,12 +48,12 @@
     },
     "/v1/immurestproxy/batch/get": {
       "post": {
-        "operationId": "GetBatchSV",
+        "operationId": "GetBatch",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaStructuredItemList"
+              "$ref": "#/definitions/schemaItemList"
             }
           }
         },
@@ -74,7 +74,7 @@
     },
     "/v1/immurestproxy/batch/set": {
       "post": {
-        "operationId": "SetBatchSV",
+        "operationId": "SetBatch",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -89,7 +89,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaSKVList"
+              "$ref": "#/definitions/immudbschemaKVList"
             }
           }
         ],
@@ -142,12 +142,12 @@
     },
     "/v1/immurestproxy/history/{key}": {
       "get": {
-        "operationId": "HistorySV",
+        "operationId": "History",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaStructuredItemList"
+              "$ref": "#/definitions/schemaItemList"
             }
           }
         },
@@ -192,7 +192,7 @@
     },
     "/v1/immurestproxy/item": {
       "post": {
-        "operationId": "SetSV",
+        "operationId": "Set",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -207,7 +207,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaStructuredKeyValue"
+              "$ref": "#/definitions/schemaKeyValue"
             }
           }
         ],
@@ -243,12 +243,12 @@
     },
     "/v1/immurestproxy/item/index/{index}": {
       "get": {
-        "operationId": "ByIndexSV",
+        "operationId": "ByIndex",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaStructuredItem"
+              "$ref": "#/definitions/schemaItem"
             }
           }
         },
@@ -268,7 +268,7 @@
     },
     "/v1/immurestproxy/item/safe": {
       "post": {
-        "operationId": "SafeSetSV",
+        "operationId": "SafeSet",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -283,7 +283,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaSafeSetSVOptions"
+              "$ref": "#/definitions/schemaSafeSetOptions"
             }
           }
         ],
@@ -294,12 +294,12 @@
     },
     "/v1/immurestproxy/item/safe/get": {
       "post": {
-        "operationId": "SafeGetSV",
+        "operationId": "SafeGet",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaSafeStructuredItem"
+              "$ref": "#/definitions/schemaSafeItem"
             }
           }
         },
@@ -320,12 +320,12 @@
     },
     "/v1/immurestproxy/item/scan": {
       "post": {
-        "operationId": "ScanSV",
+        "operationId": "Scan",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaStructuredItemList"
+              "$ref": "#/definitions/schemaItemList"
             }
           }
         },
@@ -346,12 +346,12 @@
     },
     "/v1/immurestproxy/item/{key}": {
       "get": {
-        "operationId": "GetSV",
+        "operationId": "Get",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaStructuredItem"
+              "$ref": "#/definitions/schemaItem"
             }
           }
         },
@@ -546,12 +546,12 @@
     },
     "/v1/immurestproxy/zscan": {
       "post": {
-        "operationId": "ZScanSV",
+        "operationId": "ZScan",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaStructuredItemList"
+              "$ref": "#/definitions/schemaItemList"
             }
           }
         },
@@ -572,6 +572,17 @@
     }
   },
   "definitions": {
+    "immudbschemaKVList": {
+      "type": "object",
+      "properties": {
+        "KVs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKeyValue"
+          }
+        }
+      }
+    },
     "pbKV": {
       "type": "object",
       "properties": {
@@ -880,10 +891,12 @@
       "type": "object",
       "properties": {
         "reference": {
-          "$ref": "#/definitions/schemaKey"
+          "type": "string",
+          "format": "byte"
         },
         "key": {
-          "$ref": "#/definitions/schemaKey"
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -900,22 +913,12 @@
         }
       }
     },
-    "schemaSKVList": {
-      "type": "object",
-      "properties": {
-        "SKVs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaStructuredKeyValue"
-          }
-        }
-      }
-    },
     "schemaSafeGetOptions": {
       "type": "object",
       "properties": {
         "key": {
-          "$ref": "#/definitions/schemaKey"
+          "type": "string",
+          "format": "byte"
         },
         "rootIndex": {
           "$ref": "#/definitions/schemaIndex"
@@ -944,11 +947,11 @@
         }
       }
     },
-    "schemaSafeSetSVOptions": {
+    "schemaSafeSetOptions": {
       "type": "object",
       "properties": {
-        "skv": {
-          "$ref": "#/definitions/schemaStructuredKeyValue"
+        "kv": {
+          "$ref": "#/definitions/schemaKeyValue"
         },
         "rootIndex": {
           "$ref": "#/definitions/schemaIndex"

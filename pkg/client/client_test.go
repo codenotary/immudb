@@ -18,12 +18,15 @@ package client
 
 import (
 	"context"
+	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -89,10 +92,6 @@ func newServer() *server.ImmuServer {
 	return is
 }
 
-func bufDialer(ctx context.Context, address string) (net.Conn, error) {
-	return lis.Dial()
-}
-
 func newClient(withToken bool, token string) *ImmuClient {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
@@ -128,10 +127,33 @@ func login() string {
 	return string(r.(*schema.LoginResponse).GetToken())
 }
 
+type ntpMock struct {
+	t time.Time
+}
+
+func NewNtpMock() (timestamp.TsGenerator, error) {
+	i, err := strconv.ParseInt("1405544146", 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	tm := time.Unix(i, 0)
+	return &ntpMock{tm}, nil
+}
+
+func (n *ntpMock) Now() time.Time {
+	return n.t
+}
+
 func init() {
 	immuServer = newServer()
+	nm, _ := NewNtpMock()
+	tss := NewTimestampService(nm)
 	token := login()
-	client = newClient(true, token)
+	client = newClient(true, token).WithTimestampService(tss)
+}
+
+func bufDialer(ctx context.Context, address string) (net.Conn, error) {
+	return lis.Dial()
 }
 
 func cleanup() {
@@ -160,6 +182,7 @@ func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value 
 	vi := r.(*VerifiedItem)
 	require.Equal(t, key, vi.Key)
 	require.Equal(t, value, vi.Value)
+	require.Equal(t, uint64(1405544146), vi.Time)
 	require.True(t, vi.Verified)
 }
 
@@ -174,6 +197,7 @@ func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, k
 	vi := r.(*VerifiedItem)
 	require.Equal(t, key, vi.Key)
 	require.Equal(t, value, vi.Value)
+	require.Equal(t, uint64(1405544146), vi.Time)
 	require.True(t, vi.Verified)
 }
 
@@ -187,12 +211,13 @@ func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float6
 	})
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	itemList := r.(*schema.ItemList)
+	itemList := r.(*schema.StructuredItemList)
 	require.Len(t, itemList.Items, len(keys))
 
 	for i := 0; i < len(keys); i++ {
 		require.Equal(t, keys[i], itemList.Items[i].Key)
-		require.Equal(t, values[i], itemList.Items[i].Value)
+		require.Equal(t, values[i], itemList.Items[i].Value.Payload)
+		require.Equal(t, uint64(1405544146), itemList.Items[i].Value.Timestamp)
 	}
 }
 
@@ -233,9 +258,7 @@ func TestImmuClient(t *testing.T) {
 
 	testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 
-	// !!! test of backup will not work with structured value feature,
-	// since created value contains different timestamps at each run
-	//testBackup(ctx, t)
+	testBackup(ctx, t)
 
 }
 
@@ -287,12 +310,11 @@ func TestRestore(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, r5)
-	itemList := r5.(*schema.ItemList)
-	sitemList := itemList.ToSItemList()
+	itemList := r5.(*schema.StructuredItemList)
 	require.Len(t, itemList.Items, len(testData.keys))
 
 	for i := 0; i < len(testData.keys); i++ {
-		require.Equal(t, testData.keys[i], sitemList.Items[i].Key)
-		require.Equal(t, testData.values[i], sitemList.Items[i].Value.Payload)
+		require.Equal(t, testData.keys[i], itemList.Items[i].Key)
+		require.Equal(t, testData.values[i], itemList.Items[i].Value.Payload)
 	}
 }

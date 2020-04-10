@@ -70,8 +70,8 @@ func TestStoreReferenceScan(t *testing.T) {
 
 	st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
 	st.Set(schema.KeyValue{Key: []byte(`bbb`), Value: []byte(`item2`)})
-	st.Reference(&schema.ReferenceOptions{Key: &schema.Key{Key: []byte(`aab`)}, Reference: &schema.Key{Key: []byte(`aaa`)}})
-	st.Reference(&schema.ReferenceOptions{Key: &schema.Key{Key: []byte(`abb`)}, Reference: &schema.Key{Key: []byte(`bbb`)}})
+	st.Reference(&schema.ReferenceOptions{Key: []byte(`aab`), Reference: []byte(`aaa`)})
+	st.Reference(&schema.ReferenceOptions{Key: []byte(`abb`), Reference: []byte(`bbb`)})
 
 	scanOptions := schema.ScanOptions{
 		Prefix:  []byte(`a`),
@@ -95,8 +95,8 @@ func TestStoreReferenceDeepScan(t *testing.T) {
 
 	st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
 	st.Set(schema.KeyValue{Key: []byte(`bbb`), Value: []byte(`item2`)})
-	st.Reference(&schema.ReferenceOptions{Key: &schema.Key{Key: []byte(`aaa`)}, Reference: &schema.Key{Key: []byte(`aab`)}})
-	st.Reference(&schema.ReferenceOptions{Key: &schema.Key{Key: []byte(`bbb`)}, Reference: &schema.Key{Key: []byte(`abb`)}})
+	st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`aab`)})
+	st.Reference(&schema.ReferenceOptions{Key: []byte(`bbb`), Reference: []byte(`abb`)})
 
 	deepScanOptions := schema.ScanOptions{
 		Prefix:  []byte(`a`),

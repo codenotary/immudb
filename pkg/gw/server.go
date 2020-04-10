@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -130,16 +131,30 @@ func (s *ImmuGwServer) Start() error {
 	s.Client = schema.NewImmuServiceClient(conn)
 	s.RootService = immuclient.NewRootService(s.Client, cache.NewFileCache())
 
+	dt, err := timestamp.NewTdefault()
+	ts := immuclient.NewTimestampService(dt)
+	immuClient := immuclient.ImmuClient{}
+	immuClient.
+		WithTimestampService(ts).
+		WithRootService(s.RootService).
+		WithLogger(s.Logger).
+		WithServiceClient(s.Client).
+		WithClientConn(conn)
+	//immuClient.Connect(ctx)
+
 	var root *schema.Root
 	root, err = s.RootService.GetRoot(ctx)
 	if err != nil {
 		return err
 	}
-	ssh := NewSafesetHandler(mux, s.Client, s.RootService)
-	sgh := NewSafegetHandler(mux, s.Client, s.RootService)
-	hh := NewHistoryHandler(mux, s.Client, s.RootService)
-	sr := NewSafeReferenceHandler(mux, s.Client, s.RootService)
-	sza := NewSafeZAddHandler(mux, s.Client, s.RootService)
+	sh := NewSetHandler(mux, &immuClient, s.RootService)
+	ssh := NewSafesetHandler(mux, &immuClient, s.RootService)
+	sgh := NewSafegetHandler(mux, &immuClient, s.RootService)
+	hh := NewHistoryHandler(mux, &immuClient, s.RootService)
+	sr := NewSafeReferenceHandler(mux, &immuClient, s.RootService)
+	sza := NewSafeZAddHandler(mux, &immuClient, s.RootService)
+
+	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_Set_0(), sh.Set)
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeSet_0(), ssh.Safeset)
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeGet_0(), sgh.Safeget)
 	mux.Handle(http.MethodGet, schema.Pattern_ImmuService_History_0(), hh.History)
