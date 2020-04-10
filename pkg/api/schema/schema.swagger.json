@@ -1,8 +1,9 @@
 {
   "swagger": "2.0",
+  "host": "127.0.0.1:8081",
   "info": {
-    "title": "schema.proto",
-    "version": "version not set"
+	"title": "schema.proto",
+	"version": "v0.0.1"
   },
   "consumes": [
     "application/json"
