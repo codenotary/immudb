@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -75,12 +76,16 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
-	// TODO OGG: do this only if mTLS is enabled
+	//==> TODO OGG: do these only if mTLS is enabled
+	if err := s.loadOrGeneratePassword(); err != nil {
+		return err
+	}
 	options = append(
 		options,
 		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
 		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
 	)
+	//<==
 
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
@@ -370,4 +375,34 @@ func (s *ImmuServer) installShutdownHandler() {
 		}
 		s.Logger.Infof("shutdown completed")
 	}()
+}
+
+func (s *ImmuServer) loadOrGeneratePassword() error {
+	var filename = "immud_pwd"
+	if err := auth.GenerateOrLoadKeys(); err != nil {
+		return fmt.Errorf("error generating or loading access keys (used for auth): %v", err)
+	}
+
+	if _, err := os.Stat(filename); !os.IsNotExist(err) {
+		hashedPassword, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return fmt.Errorf("error reading hashed password from file %s: %v", filename, err)
+		}
+		auth.AdminUser.SetPassword(hashedPassword)
+		s.Logger.Infof("previous hashed password read from file %s\n", filename)
+		return nil
+	}
+
+	plainPassword, err := auth.AdminUser.GenerateAndSetPassword()
+	if err != nil {
+		return fmt.Errorf("error generating password: %v", err)
+	}
+	if err := ioutil.WriteFile(filename, auth.AdminUser.HashedPassword, 0644); err != nil {
+		return fmt.Errorf("error saving generated password hash to file %s: %v", filename, err)
+	}
+
+	s.Logger.Infof("user: %s, password: %s\n", auth.AdminUser.Username, plainPassword)
+	s.Logger.Infof("hashed password saved to file %s\n", filename)
+
+	return nil
 }
