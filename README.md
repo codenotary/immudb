@@ -12,6 +12,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 immudb is **lightweight, high-speed immutable database** for systems and applications. With immmudb you can
 track changes in sensitive data in your transactional databases and then record those changes indelibly in a the 
 tamperproof immudb database. This allows you to keep an indelible history of, say, your debit/credit transactions. 
+<img align="right" src="https://github.com/codenotary/immudb/blob/master/img/immudb-mascot-small.png" width="256px"/>
 
 Traditional transaction logs are hard to scale, and are not immutable. So there is no way to know for sure if your data has been compromised. 
 
