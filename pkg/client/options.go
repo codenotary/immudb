@@ -30,6 +30,7 @@ type Options struct {
 	HealthCheckRetries int
 	MTLs               bool
 	MTLsOptions        MTLsOptions
+	Auth               bool
 	DialOptions        []grpc.DialOption
 	Config             string
 	Pidfile            string
@@ -43,6 +44,7 @@ func DefaultOptions() Options {
 		DialRetries:        5,
 		HealthCheckRetries: 5,
 		MTLs:               false,
+		Auth:               false,
 		Config:             "configs/immu.ini",
 		Pidfile:            "",
 		Logfile:            "",
@@ -77,6 +79,12 @@ func (o Options) WithHealthCheckRetries(retries int) Options {
 // WithMTLs activate/deactivate MTLs
 func (o Options) WithMTLs(MTLs bool) Options {
 	o.MTLs = MTLs
+	return o
+}
+
+// WithAuth activate/deactivate auth
+func (o Options) WithAuth(authEnabled bool) Options {
+	o.Auth = authEnabled
 	return o
 }
 
@@ -119,5 +127,5 @@ func (o Options) Bind() string {
 }
 
 func (o Options) String() string {
-	return fmt.Sprintf("{address:%v port:%d}", o.Address, o.Port)
+	return fmt.Sprintf("{address:%v port:%d auth:%t}", o.Address, o.Port, o.Auth)
 }

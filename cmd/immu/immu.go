@@ -762,26 +762,32 @@ func configureOptions(cmd *cobra.Command) error {
 	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudPort, "immudb port number")
 	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudAddress, "immudb host address")
 	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are config or $HOME. Default filename is immu.ini)")
+	cmd.PersistentFlags().BoolP("auth", "s", client.DefaultOptions().Auth, "use authentication")
 	if err := viper.BindPFlag("default.port", cmd.PersistentFlags().Lookup("port")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("default.address", cmd.PersistentFlags().Lookup("address")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("default.auth", cmd.PersistentFlags().Lookup("auth")); err != nil {
+		return err
+	}
 	viper.SetDefault("default.port", gw.DefaultOptions().ImmudPort)
 	viper.SetDefault("default.address", gw.DefaultOptions().ImmudAddress)
+	viper.SetDefault("default.auth", client.DefaultOptions().Auth)
 	return nil
 }
 
 func options(cmd *cobra.Command, withToken bool) (*client.Options, error) {
 	port := viper.GetInt("default.port")
 	address := viper.GetString("default.address")
+	authEnabled := viper.GetBool("default.auth")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
+		WithAuth(authEnabled).
 		WithDialOptions(false, grpc.WithInsecure())
-	if withToken {
-		// TODO OGG: do this only if mTLS is enabled or force from config (for testing)
+	if authEnabled && withToken {
 		tokenBytes, err := ioutil.ReadFile(tokenFilename)
 		if err != nil {
 			return nil, errors.New("unauthorized, please login")

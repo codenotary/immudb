@@ -63,13 +63,14 @@ var testData = struct {
 var slog = logger.NewSimpleLoggerWithLevel("client_test", os.Stderr, logger.LogDebug)
 
 func newServer() *server.ImmuServer {
-	localImmuServer := server.DefaultServer()
-	dbDir := filepath.Join(localImmuServer.Options.Dir, localImmuServer.Options.DbName)
+	is := server.DefaultServer()
+	is = is.WithOptions(is.Options.WithAuth(true))
+	dbDir := filepath.Join(is.Options.Dir, is.Options.DbName)
 	var err error
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		log.Fatal(err)
 	}
-	localImmuServer.Store, err = store.Open(store.DefaultOptions(dbDir, slog))
+	is.Store, err = store.Open(store.DefaultOptions(dbDir, slog))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,13 +80,13 @@ func newServer() *server.ImmuServer {
 		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
 		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
 	)
-	schema.RegisterImmuServiceServer(s, localImmuServer)
+	schema.RegisterImmuServiceServer(s, is)
 	go func() {
 		if err := s.Serve(lis); err != nil {
 			log.Fatal(err)
 		}
 	}()
-	return localImmuServer
+	return is
 }
 
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {
@@ -103,10 +104,9 @@ func newClient(withToken bool, token string) *ImmuClient {
 			grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
 		)
 	}
-	return DefaultClient().
-		WithOptions(
-			DefaultOptions().
-				WithDialOptions(false, dialOptions...))
+	return DefaultClient().WithOptions(
+		DefaultOptions().WithAuth(withToken).WithDialOptions(false, dialOptions...),
+	)
 }
 
 func login() string {
