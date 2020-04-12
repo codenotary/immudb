@@ -29,6 +29,5 @@ func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[st
 }
 
 func (TokenAuth) RequireTransportSecurity() bool {
-	// TODO OGG: set this to true, unless config says is ok to return false (i.e. for testing)
 	return false
 }
