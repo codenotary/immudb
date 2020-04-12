@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -61,10 +60,10 @@ func main() {
 	commands := []*cobra.Command{
 		&cobra.Command{
 			Use:     "login username \"password\"",
-			Short:   fmt.Sprintf("Login using the specified username and \"password\" (username is %s)", auth.AdminUser.Username),
+			Short:   fmt.Sprintf("Login using the specified username and \"password\" (username is \"%s\")", auth.AdminUser.Username),
 			Aliases: []string{"l"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, false)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -103,7 +102,7 @@ func main() {
 			Short:   "Get item having the specified key",
 			Aliases: []string{"g"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -131,7 +130,7 @@ func main() {
 			Short:   "Get and verify item having the specified key",
 			Aliases: []string{"sg"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -159,7 +158,7 @@ func main() {
 			Short:   "Add new item having the specified key and value",
 			Aliases: []string{"s"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -203,7 +202,7 @@ func main() {
 			Short:   "Add and verify new item having the specified key and value",
 			Aliases: []string{"ss"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -247,7 +246,7 @@ func main() {
 			Short:   "Add new reference to an existing key",
 			Aliases: []string{"r"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -291,7 +290,7 @@ func main() {
 			Short:   "Add and verify new reference to an existing key",
 			Aliases: []string{"sr"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -335,7 +334,7 @@ func main() {
 			Short:   "Add new key with score to a new or existing sorted set",
 			Aliases: []string{"za"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -381,7 +380,7 @@ func main() {
 			Short:   "Add and verify new key with score to a new or existing sorted set",
 			Aliases: []string{"sza"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -427,7 +426,7 @@ func main() {
 			Short:   "Iterate over a sorted set",
 			Aliases: []string{"zscn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -459,7 +458,7 @@ func main() {
 			Short:   "Iterate over keys having the specified prefix",
 			Aliases: []string{"scn"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -491,7 +490,7 @@ func main() {
 			Short:   "Count keys having the specified prefix",
 			Aliases: []string{"cnt"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -519,7 +518,7 @@ func main() {
 			Short:   "Check if specified index is included in the current tree",
 			Aliases: []string{"i"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -580,7 +579,7 @@ root: %x at index: %d
 			Short:   "Check consistency for the specified index and hash",
 			Aliases: []string{"c"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -629,7 +628,7 @@ secondRoot: %x at index: %d
 			Short:   "Fetch history for the item having the specified key",
 			Aliases: []string{"h"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -660,7 +659,7 @@ secondRoot: %x at index: %d
 			Short:   "Ping to check if server connection is alive",
 			Aliases: []string{"p"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, false)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -684,7 +683,7 @@ secondRoot: %x at index: %d
 			Short:   "Save a backup to the specified filename (optional)",
 			Aliases: []string{"b"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -717,7 +716,7 @@ secondRoot: %x at index: %d
 			Short:   "Restore a backup from the specified filename",
 			Aliases: []string{"rb"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd, true)
+				options, err := options(cmd)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -778,7 +777,7 @@ func configureOptions(cmd *cobra.Command) error {
 	return nil
 }
 
-func options(cmd *cobra.Command, withToken bool) (*client.Options, error) {
+func options(cmd *cobra.Command) (*client.Options, error) {
 	port := viper.GetInt("default.port")
 	address := viper.GetString("default.address")
 	authEnabled := viper.GetBool("default.auth")
@@ -787,17 +786,16 @@ func options(cmd *cobra.Command, withToken bool) (*client.Options, error) {
 		WithAddress(address).
 		WithAuth(authEnabled).
 		WithDialOptions(false, grpc.WithInsecure())
-	if authEnabled && withToken {
+	if authEnabled {
 		tokenBytes, err := ioutil.ReadFile(tokenFilename)
-		if err != nil {
-			return nil, errors.New("unauthorized, please login")
+		if err == nil {
+			token := string(tokenBytes)
+			options = options.WithDialOptions(
+				false,
+				grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)),
+				grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
+			)
 		}
-		token := string(tokenBytes)
-		options = options.WithDialOptions(
-			false,
-			grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)),
-			grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
-		)
 	}
 
 	return &options, nil
