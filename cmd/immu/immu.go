@@ -119,7 +119,7 @@ func main() {
 					return immuClient.Get(ctx, key)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				printItem([]byte(args[0]), nil, response)
 				return nil
@@ -147,7 +147,7 @@ func main() {
 					return immuClient.SafeGet(ctx, key)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				printItem([]byte(args[0]), nil, response)
 				return nil
@@ -187,7 +187,7 @@ func main() {
 					return immuClient.Set(ctx, key, value)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				value2, err := ioutil.ReadAll(&buf)
 				if err != nil {
@@ -231,7 +231,7 @@ func main() {
 					return immuClient.SafeSet(ctx, key, value)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				value2, err := ioutil.ReadAll(&buf)
 				if err != nil {
@@ -275,7 +275,7 @@ func main() {
 					return immuClient.Reference(ctx, reference, key)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				value, err := ioutil.ReadAll(&buf)
 				if err != nil {
@@ -319,7 +319,7 @@ func main() {
 					return immuClient.SafeReference(ctx, reference, key)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				value, err := ioutil.ReadAll(&buf)
 				if err != nil {
@@ -369,7 +369,7 @@ func main() {
 					return immuClient.ZAdd(ctx, set, score, key)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				printSetItem([]byte(args[0]), []byte(args[2]), score, response)
 				return nil
@@ -415,7 +415,7 @@ func main() {
 					return immuClient.SafeZAdd(ctx, set, score, key)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				printSetItem([]byte(args[0]), []byte(args[2]), score, response)
 				return nil
@@ -443,7 +443,7 @@ func main() {
 					return immuClient.ZScan(ctx, set)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				for _, item := range response.(*schema.ItemList).Items {
 					printItem(nil, nil, item)
@@ -475,7 +475,7 @@ func main() {
 					return immuClient.Scan(ctx, prefix)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				for _, item := range response.(*schema.ItemList).Items {
 					printItem(nil, nil, item)
@@ -507,7 +507,7 @@ func main() {
 					return immuClient.Count(ctx, prefix)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				fmt.Println(response.(*schema.ItemsCount).Count)
 				return nil
@@ -536,7 +536,7 @@ func main() {
 					return immuClient.Inclusion(ctx, index)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 
 				proof := response.(*schema.InclusionProof)
@@ -597,7 +597,7 @@ root: %x at index: %d
 					return immuClient.Consistency(ctx, index)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 
 				proof := response.(*schema.ConsistencyProof)
@@ -645,7 +645,7 @@ secondRoot: %x at index: %d
 					return immuClient.History(ctx, key)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				for _, item := range response.(*schema.ItemList).Items {
 					printItem(nil, nil, item)
@@ -705,7 +705,7 @@ secondRoot: %x at index: %d
 					return immuClient.Backup(ctx, file)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response.(int64), filename)
 				return nil
@@ -734,7 +734,7 @@ secondRoot: %x at index: %d
 					return immuClient.Restore(ctx, file, 500)
 				})
 				if err != nil {
-					c.QuitToStdErr(err)
+					c.QuitWithUserError(err)
 				}
 				fmt.Printf("SUCCESS: %d key-value entries were restored from file %s\n", response.(int64), args[0])
 				return nil

@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"github.com/mitchellh/go-homedir"
-	"github.com/spf13/viper"
 	"os"
 	"strings"
+
+	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/viper"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Options cmd options
@@ -38,4 +42,15 @@ func (o Options) InitConfig(name string) {
 func QuitToStdErr(msg interface{}) {
 	_, _ = fmt.Fprintln(os.Stderr, msg)
 	os.Exit(1)
+}
+
+// QuitWithUserError ...
+func QuitWithUserError(err error) {
+	s, ok := status.FromError(err)
+	if !ok {
+		QuitToStdErr(err)
+	}
+	if s.Code() == codes.Unauthenticated {
+		QuitToStdErr(errors.New("unauthorized, please login and then pass the -s flag to any subsequent command(s)"))
+	}
 }
