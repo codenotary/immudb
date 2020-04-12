@@ -42,10 +42,9 @@ func DefaultOptions() Options {
 		ImmudAddress: "127.0.0.1",
 		ImmudPort:    3322,
 		MTLs:         false,
-		// TODO OGG: check with Michele: shouldn' this be immugw.ini?
-		Config:  "configs/immu.ini",
-		Pidfile: "",
-		Logfile: "",
+		Config:       "configs/immugw.ini",
+		Pidfile:      "",
+		Logfile:      "",
 	}
 }
 
