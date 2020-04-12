@@ -482,7 +482,7 @@ func (s *ImmuServer) installShutdownHandler() {
 
 func (s *ImmuServer) loadOrGeneratePassword() error {
 	var filename = "immud_pwd"
-	if err := auth.GenerateOrLoadKeys(); err != nil {
+	if err := auth.GenerateKeys(); err != nil {
 		return fmt.Errorf("error generating or loading access keys (used for auth): %v", err)
 	}
 

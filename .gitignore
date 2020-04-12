@@ -53,5 +53,3 @@ configs/immugw.ini
 # immud auth
 cmd/immu/token
 cmd/immud/immud_pwd
-cmd/immud/immud_private_key
-cmd/immud/immud_public_key
