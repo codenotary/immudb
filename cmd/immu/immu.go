@@ -60,8 +60,8 @@ func main() {
 	}
 	commands := []*cobra.Command{
 		&cobra.Command{
-			Use:     "login username password",
-			Short:   "Login using the specified username and password",
+			Use:     "login username \"password\"",
+			Short:   fmt.Sprintf("Login using the specified username and \"password\" (username is %s)", auth.AdminUser.Username),
 			Aliases: []string{"l"},
 			RunE: func(cmd *cobra.Command, args []string) error {
 				options, err := options(cmd, false)
