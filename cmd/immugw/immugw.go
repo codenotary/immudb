@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/client"
@@ -9,7 +11,6 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
 var o = c.Options{}
@@ -22,8 +23,22 @@ func main() {
 
 	immugwCmd := &cobra.Command{
 		Use:   "immugw",
-		Short: "Immu gateway",
-		Long:  `Immu gateway is an smart proxy for immudb. It exposes all gRPC methods with a rest interface and wrap all SAFE endpoints with a verification service.`,
+		Short: "Immu gateway: a smart REST proxy for the ImmuDB tamperproof database",
+		Long: `Immu gateway is a smart REST proxy for the ImmuDB tamperproof database.
+It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
+
+Environment variables:
+  IMMUGW_ADDRESS=127.0.0.1
+  IMMUGW_PORT=3323
+  IMMUGW_IMMUDADDRESS=127.0.0.1
+  IMMUGW_IMMUDPORT=3322
+  IMMUGW_PIDFILE=
+  IMMUGW_LOGFILE=
+  IMMUGW_MTLS=false
+  IMMUGW_SERVERNAME=localhost
+  IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
+  IMMUGW_PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var options gw.Options
 			if options, err = parseOptions(cmd); err != nil {
@@ -46,6 +61,7 @@ func main() {
 			}
 			return immuGwServer.Start()
 		},
+		DisableAutoGenTag: true,
 	}
 
 	setupFlags(immugwCmd, gw.DefaultOptions(), client.DefaultMTLsOptions())
@@ -103,7 +119,7 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 	cmd.Flags().StringP("address", "a", options.Address, "immugw host address")
 	cmd.Flags().IntP("immudport", "j", options.ImmudPort, "immudb port number")
 	cmd.Flags().StringP("immudaddress", "k", options.ImmudAddress, "immudb host address")
-	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are config or $HOME. Default filename is immugw.ini)")
+	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.ini)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
