@@ -56,7 +56,15 @@ func init() {
 
 func main() {
 	cmd := &cobra.Command{
-		Use: "immu",
+		Use:   "immu",
+		Short: "CLI client for the ImmuDB tamperproof database",
+		Long: `CLI client for the ImmuDB tamperproof database.
+
+Environment variables:
+  IMMU_ADDRESS=127.0.0.1
+  IMMU_PORT=3322
+  IMMU_AUTH=false`,
+		DisableAutoGenTag: true,
 	}
 	commands := []*cobra.Command{
 		&cobra.Command{
@@ -684,7 +692,7 @@ secondRoot: %x at index: %d
 func configureOptions(cmd *cobra.Command) error {
 	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudPort, "immudb port number")
 	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are config or $HOME. Default filename is immu.ini)")
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immu.ini)")
 	cmd.PersistentFlags().BoolP("auth", "s", client.DefaultOptions().Auth, "use authentication")
 	if err := viper.BindPFlag("default.port", cmd.PersistentFlags().Lookup("port")); err != nil {
 		return err
