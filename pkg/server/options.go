@@ -34,6 +34,7 @@ type Options struct {
 	Logfile     string
 	MTLs        bool
 	MTLsOptions MTLsOptions
+	Auth        bool
 }
 
 // DefaultOptions returns default server options
@@ -49,6 +50,7 @@ func DefaultOptions() Options {
 		Pidfile:     "",
 		Logfile:     "",
 		MTLs:        false,
+		Auth:        false,
 	}
 }
 
@@ -112,6 +114,12 @@ func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
 	return o
 }
 
+// WithAuth sets auth
+func (o Options) WithAuth(authEnabled bool) Options {
+	o.Auth = authEnabled
+	return o
+}
+
 // Bind returns bind address
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
@@ -125,6 +133,6 @@ func (o Options) MetricsBind() string {
 // String print options
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v}",
-		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Config, o.Pidfile, o.Logfile, o.MTLs)
+		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v auth:%t}",
+		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Config, o.Pidfile, o.Logfile, o.MTLs, o.Auth)
 }

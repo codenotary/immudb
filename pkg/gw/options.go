@@ -18,8 +18,9 @@ package gw
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client"
 	"strconv"
+
+	"github.com/codenotary/immudb/pkg/client"
 )
 
 type Options struct {
@@ -41,9 +42,10 @@ func DefaultOptions() Options {
 		ImmudAddress: "127.0.0.1",
 		ImmudPort:    3322,
 		MTLs:         false,
-		Config:       "configs/immu.ini",
-		Pidfile:      "",
-		Logfile:      "",
+		// TODO OGG: check with Michele: shouldn' this be immugw.ini?
+		Config:  "configs/immu.ini",
+		Pidfile: "",
+		Logfile: "",
 	}
 }
 

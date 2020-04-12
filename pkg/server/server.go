@@ -76,16 +76,16 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
-	//==> TODO OGG: do these only if mTLS is enabled
-	if err := s.loadOrGeneratePassword(); err != nil {
-		return err
+	if s.Options.Auth {
+		if err := s.loadOrGeneratePassword(); err != nil {
+			return err
+		}
+		options = append(
+			options,
+			grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
+			grpc.StreamInterceptor(auth.ServerStreamInterceptor),
+		)
 	}
-	options = append(
-		options,
-		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
-		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
-	)
-	//<==
 
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
