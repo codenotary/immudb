@@ -106,7 +106,13 @@ integrated mTLS offers the best approach for machine-to-machine authentication, 
 * 64 GB memory
 * SSD
 
-![immudb Benchmark](img/performance.png "immudb QLDB benchmark")
+![immudb throughput read Benchmark](img/throughput_read.png "Throughput read (higher is better)")
+
+![immudb Throughput write Benchmark](img/throughput_write.png "Throughput write (higher is better)")
+
+![immudb Query Benchmark](img/query_bm.png "100 records read execution time (lower is better)")
+
+![immudb Execution Benchmark](img/exectime.png "100 records write execution time (lower is better)")
 
 ### Tech specs
 
