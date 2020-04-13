@@ -136,6 +136,9 @@ func (s *ImmuServer) Stop() error {
 }
 
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
+	if !s.Options.Auth {
+		return nil, status.Errorf(codes.Unavailable, "authentication is disabled on server")
+	}
 	user := string(r.User)
 	if user != auth.AdminUser.Username {
 		return nil, status.Errorf(codes.Unauthenticated, "non-existent user %s", user)
