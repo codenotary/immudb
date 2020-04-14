@@ -161,7 +161,7 @@ func cleanup() {
 	if err := os.Remove(".root"); err != nil {
 		log.Println(err)
 	}
-	if err := os.RemoveAll("immudb"); err != nil {
+	if err := os.RemoveAll(server.DefaultOptions().DbName); err != nil {
 		log.Println(err)
 	}
 }
