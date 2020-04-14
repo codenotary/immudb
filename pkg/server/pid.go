@@ -35,7 +35,7 @@ func checkPIDFileAlreadyExists(path string) error {
 		pidString := strings.TrimSpace(string(pidByte))
 		if pid, err := strconv.Atoi(pidString); err == nil {
 			if processExists(pid) {
-				return fmt.Errorf("pid file found, ensure immud is not running or delete %s", path)
+				return fmt.Errorf("pid file found, ensure immudb is not running or delete %s", path)
 			}
 		}
 	}

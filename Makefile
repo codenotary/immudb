@@ -8,30 +8,30 @@ PROTOC ?= protoc
 STRIP = strip
 
 .PHONY: all
-all: immu immud immugw
+all: immuclient immudb immugw
 
 .PHONY: rebuild
 rebuild: clean build/codegen all
 
-.PHONY: immu
-immu:
-	$(GO) build ./cmd/immu
+.PHONY: immuclient
+immuclient:
+	$(GO) build ./cmd/immuclient
 
-.PHONY: immud
-immud:
-	$(GO) build ./cmd/immud
+.PHONY: immudb
+immudb:
+	$(GO) build ./cmd/immudb
 
 .PHONY: immugw
 immugw:
 	$(GO) build ./cmd/immugw
 
-.PHONY: immu-static
-immu-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immu
+.PHONY: immuclient-static
+immuclient-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immuclient
 
-.PHONY: immud-static
-immud-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immud
+.PHONY: immudb-static
+immudb-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immudb
 
 .PHONY: immugw-static
 immugw-static:
@@ -71,7 +71,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immu immud bm
+	rm -f immuclient immudb bm
 
 .PHONY: nimmu
 nimmu:
@@ -107,8 +107,8 @@ tools/comparison/scylladb:
 
 .PHONY: man
 man:
-	$(GO) run ./cmd/immu mangen ./cmd/docs/man/immu
-	$(GO) run ./cmd/immud mangen ./cmd/docs/man/immud
+	$(GO) run ./cmd/immuclient mangen ./cmd/docs/man/immuclient
+	$(GO) run ./cmd/immudb mangen ./cmd/docs/man/immudb
 	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
 
 .PHONY: prerequisites

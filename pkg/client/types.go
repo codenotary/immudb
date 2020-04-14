@@ -17,10 +17,11 @@ limitations under the License.
 package client
 
 import (
-	"github.com/golang/protobuf/proto"
-	"google.golang.org/grpc"
 	"os"
 	"sync"
+
+	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -38,7 +39,7 @@ type ImmuClient struct {
 
 func DefaultClient() *ImmuClient {
 	return &ImmuClient{
-		Logger:  logger.NewSimpleLogger("immu-client", os.Stderr),
+		Logger:  logger.NewSimpleLogger("immuclient", os.Stderr),
 		Options: DefaultOptions(),
 	}
 }

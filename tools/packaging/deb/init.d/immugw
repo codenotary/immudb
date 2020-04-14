@@ -21,7 +21,7 @@
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 NAME=immugw
-DESC="immugw - API Gateway for immud - the tamperproof database"
+DESC="immugw - API Gateway for immudb - the tamperproof database"
 DEFAULT=/etc/default/$NAME
 
 IMMU_USER=immu

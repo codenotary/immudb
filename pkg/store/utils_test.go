@@ -37,7 +37,7 @@ func makeBadger() *badgerWrapper {
 		log.Fatal(err)
 		return nil
 	}
-	sLog := logger.NewSimpleLoggerWithLevel("test(immud)", os.Stderr, logger.LogDebug)
+	sLog := logger.NewSimpleLoggerWithLevel("test(immudb)", os.Stderr, logger.LogDebug)
 	opts := DefaultOptions(dir, sLog).Badger
 
 	db, err := badger.OpenManaged(opts)

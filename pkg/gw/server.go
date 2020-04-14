@@ -23,6 +23,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/cache"
@@ -34,12 +41,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
 )
 
 func (s *ImmuGwServer) Start() error {
@@ -99,7 +100,7 @@ func (s *ImmuGwServer) Start() error {
 		opts = []grpc.DialOption{grpc.WithTransportCredentials(transportCreds)}
 	}
 
-	grpcServerEndpoint := flag.String("grpc-server-endpoint", s.Options.ImmudAddress+":"+strconv.Itoa(s.Options.ImmudPort), "gRPC server endpoint")
+	grpcServerEndpoint := flag.String("grpc-server-endpoint", s.Options.ImmudbAddress+":"+strconv.Itoa(s.Options.ImmudbPort), "gRPC server endpoint")
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -173,11 +174,11 @@ func (s *ImmuGwServer) Start() error {
 		return err
 	} else {
 		if !health.GetStatus() {
-			msg := fmt.Sprintf("Immudb not in health at %s:%d", s.Options.ImmudAddress, s.Options.ImmudPort)
+			msg := fmt.Sprintf("Immudb not in health at %s:%d", s.Options.ImmudbAddress, s.Options.ImmudbPort)
 			s.Logger.Infof(msg)
 			return errors.New(msg)
 		} else {
-			s.Logger.Infof(fmt.Sprintf("Immudb is listening at %s:%d", s.Options.ImmudAddress, s.Options.ImmudPort))
+			s.Logger.Infof(fmt.Sprintf("Immudb is listening at %s:%d", s.Options.ImmudbAddress, s.Options.ImmudbPort))
 		}
 	}
 

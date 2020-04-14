@@ -30,30 +30,30 @@ import (
 var o = c.Options{}
 
 func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immud") })
+	cobra.OnInitialize(func() { o.InitConfig("immudb") })
 }
 
 func main() {
 	cmd := &cobra.Command{
-		Use:   "immud",
+		Use:   "immudb",
 		Short: "The ImmuDB tamperproof database server",
 		Long: `The ImmuDB tamperproof database server.
 
 Environment variables:
-  IMMUD_DIR=.
-  IMMUD_NETWORK=tcp
-  IMMUD_ADDRESS=127.0.0.1
-  IMMUD_PORT=3322
-  IMMUD_DBNAME=immudb
-  IMMUD_PIDFILE=
-  IMMUD_LOGFILE=
-  IMMUD_MTLS=false
-  IMMUD_AUTH=false
-  IMMUD_PKEY=./tools/mtls/3_application/private/localhost.key.pem
-  IMMUD_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
-  IMMUD_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
+  IMMUDB_DIR=.
+  IMMUDB_NETWORK=tcp
+  IMMUDB_ADDRESS=127.0.0.1
+  IMMUDB_PORT=3322
+  IMMUDB_DBNAME=immudb
+  IMMUDB_PIDFILE=
+  IMMUDB_LOGFILE=
+  IMMUDB_MTLS=false
+  IMMUDB_AUTH=false
+  IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
+  IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
+  IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
 		DisableAutoGenTag: true,
-		RunE:              Immud,
+		RunE:              Immudb,
 	}
 
 	setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
@@ -63,14 +63,14 @@ Environment variables:
 	}
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
 
-	cmd.AddCommand(man.Generate(cmd, "immud", "../docs/man/immud"))
+	cmd.AddCommand(man.Generate(cmd, "immudb", "../docs/man/immudb"))
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-func Immud(cmd *cobra.Command, args []string) (err error) {
+func Immudb(cmd *cobra.Command, args []string) (err error) {
 	var options server.Options
 	if options, err = parseOptions(cmd); err != nil {
 		return err
@@ -79,7 +79,7 @@ func Immud(cmd *cobra.Command, args []string) (err error) {
 		DefaultServer().
 		WithOptions(options)
 	if options.Logfile != "" {
-		if flogger, file, err := logger.NewFileLogger("immud ", options.Logfile); err == nil {
+		if flogger, file, err := logger.NewFileLogger("immudb ", options.Logfile); err == nil {
 			defer func() {
 				if err := file.Close(); err != nil {
 					c.QuitToStdErr(err)
@@ -139,9 +139,9 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
 	cmd.Flags().StringP("dbname", "n", options.DbName, "db name")
-	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immud.ini)")
-	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immud.pid")
-	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immud/immud.log")
+	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.ini)")
+	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
+	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
 	cmd.Flags().BoolP("auth", "s", options.MTLs, "enable auth")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")

@@ -30,13 +30,13 @@ import (
 	"syscall"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"github.com/codenotary/immudb/pkg/auth"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
 
@@ -110,7 +110,7 @@ func (s *ImmuServer) Start() error {
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	s.installShutdownHandler()
-	s.Logger.Infof("starting immud: %v", s.Options)
+	s.Logger.Infof("starting immudb: %v", s.Options)
 
 	if s.Options.Pidfile != "" {
 		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
@@ -124,7 +124,7 @@ func (s *ImmuServer) Start() error {
 }
 
 func (s *ImmuServer) Stop() error {
-	s.Logger.Infof("stopping immud: %v", s.Options)
+	s.Logger.Infof("stopping immudb: %v", s.Options)
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
@@ -173,7 +173,7 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 
 func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) (*schema.Index, error) {
 	kv, err := skv.ToKV()
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	return s.Set(ctx, kv)
@@ -190,7 +190,7 @@ func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (
 
 func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
 	kv, err := sopts.Skv.ToKV()
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	opts := &schema.SafeSetOptions{
@@ -211,7 +211,7 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 
 func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*schema.Index, error) {
 	kvl, err := skvl.ToKVList()
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	return s.SetBatch(ctx, kvl)
@@ -232,8 +232,8 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 
 func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
 	it, err := s.Get(ctx, k)
-	si, err :=  it.ToSItem()
-	if err != nil{
+	si, err := it.ToSItem()
+	if err != nil {
 		return nil, err
 	}
 	return si, err
@@ -484,7 +484,7 @@ func (s *ImmuServer) installShutdownHandler() {
 }
 
 func (s *ImmuServer) loadOrGeneratePassword() error {
-	var filename = "immud_pwd"
+	var filename = "immudb_pwd"
 	if err := auth.GenerateKeys(); err != nil {
 		return fmt.Errorf("error generating or loading access keys (used for auth): %v", err)
 	}
