@@ -45,7 +45,7 @@ func DefaultOptions() Options {
 		Address:     "127.0.0.1",
 		Port:        3322,
 		MetricsPort: 9497,
-		DbName:      "immudb",
+		DbName:      "immudata",
 		Config:      "configs/immucfg.ini",
 		Pidfile:     "",
 		Logfile:     "",

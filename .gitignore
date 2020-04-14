@@ -37,7 +37,7 @@ cmd/immugw/immugw
 /immudb
 /.root
 cmd/immugw/.root
-cmd/immudb/immudb
+cmd/immudb/immudata
 **/.root
 immudb.pid
 
