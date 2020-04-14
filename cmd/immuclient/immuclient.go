@@ -97,6 +97,24 @@ Environment variables:
 			Args: cobra.ExactArgs(2),
 		},
 		&cobra.Command{
+			Use:     "current",
+			Short:   "Return the last merkle tree root and index stored locally",
+			Aliases: []string{"crt"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
+				root, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.CurrentRoot(ctx)
+				})
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
+				printRoot(root.(*schema.Root))
+				return nil
+			},
+			Args: cobra.ExactArgs(0),
+		},
+		&cobra.Command{
 			Use:     "logout",
 			Aliases: []string{"x"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -842,4 +860,14 @@ value:		%s
 hash:		%x
 verified:	%t
 `, index, set, key, score, rkey, api.Digest(index, key, rkey), verified)
+}
+
+func printRoot(root *schema.Root) {
+	if root.Root == nil {
+		fmt.Printf("Immudb is empty\n")
+		return
+	}
+	fmt.Printf(`index:		%d
+hash:		%x
+`, root.Index, root.Root)
 }

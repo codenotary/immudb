@@ -147,6 +147,20 @@ func (c *ImmuClient) Get(ctx context.Context, key []byte) (*schema.StructuredIte
 	return result, err
 }
 
+// CurrentRoot returns current merkle tree root and index
+func (c *ImmuClient) CurrentRoot(ctx context.Context) (*schema.Root, error) {
+	start := time.Now()
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	root, err := c.serviceClient.CurrentRoot(ctx, &empty.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	c.Logger.Debugf("Current root finished in %s", time.Since(start))
+	return root, err
+}
+
 // Reset ...
 func (vi *VerifiedItem) Reset() { *vi = VerifiedItem{} }
 
