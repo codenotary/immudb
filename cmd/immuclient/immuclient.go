@@ -51,19 +51,19 @@ var o = c.Options{}
 var tokenFilename = "token"
 
 func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immu") })
+	cobra.OnInitialize(func() { o.InitConfig("immuclient") })
 }
 
 func main() {
 	cmd := &cobra.Command{
-		Use:   "immu",
+		Use:   "immuclient",
 		Short: "CLI client for the ImmuDB tamperproof database",
 		Long: `CLI client for the ImmuDB tamperproof database.
 
 Environment variables:
-  IMMU_ADDRESS=127.0.0.1
-  IMMU_PORT=3322
-  IMMU_AUTH=false`,
+  IMMUCLIENT_ADDRESS=127.0.0.1
+  IMMUCLIENT_PORT=3322
+  IMMUCLIENT_AUTH=false`,
 		DisableAutoGenTag: true,
 	}
 	commands := []*cobra.Command{
@@ -682,7 +682,7 @@ secondRoot: %x at index: %d
 		cmd.AddCommand(command)
 	}
 
-	cmd.AddCommand(man.Generate(cmd, "immu", "../docs/man/immu"))
+	cmd.AddCommand(man.Generate(cmd, "immuclient", "../docs/man/immuclient"))
 
 	if err := cmd.Execute(); err != nil {
 		c.QuitToStdErr(err)
@@ -690,9 +690,9 @@ secondRoot: %x at index: %d
 }
 
 func configureOptions(cmd *cobra.Command) error {
-	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudPort, "immudb port number")
-	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immu.ini)")
+	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
+	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.ini)")
 	cmd.PersistentFlags().BoolP("auth", "s", client.DefaultOptions().Auth, "use authentication")
 	if err := viper.BindPFlag("default.port", cmd.PersistentFlags().Lookup("port")); err != nil {
 		return err
@@ -703,8 +703,8 @@ func configureOptions(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("default.auth", cmd.PersistentFlags().Lookup("auth")); err != nil {
 		return err
 	}
-	viper.SetDefault("default.port", gw.DefaultOptions().ImmudPort)
-	viper.SetDefault("default.address", gw.DefaultOptions().ImmudAddress)
+	viper.SetDefault("default.port", gw.DefaultOptions().ImmudbPort)
+	viper.SetDefault("default.address", gw.DefaultOptions().ImmudbAddress)
 	viper.SetDefault("default.auth", client.DefaultOptions().Auth)
 	return nil
 }

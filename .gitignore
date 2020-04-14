@@ -24,10 +24,10 @@
 .DS_Store
 
 # Binaries
-/immu
-cmd/immu/immu
-/immud
-cmd/immud/immud
+/immuclient
+cmd/immuclient/immuclient
+/immudb
+cmd/immudb/immudb
 /nimmu
 /bm
 /immugw
@@ -37,19 +37,19 @@ cmd/immugw/immugw
 /immudb
 /.root
 cmd/immugw/.root
-cmd/immud/immudb
+cmd/immudb/immudb
 **/.root
-immud.pid
+immudb.pid
 
 # Vendor
 vendor
 
 # Config
 cmd/immugw/.root
-configs/immu.ini
-configs/immud.ini
+configs/immuclient.ini
+configs/immudb.ini
 configs/immugw.ini
 
-# immud auth
-cmd/immu/token
-cmd/immud/immud_pwd
+# immudb auth
+cmd/immuclient/token
+cmd/immudb/immudb_pwd

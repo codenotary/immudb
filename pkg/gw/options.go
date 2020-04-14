@@ -24,27 +24,27 @@ import (
 )
 
 type Options struct {
-	Address      string
-	Port         int
-	ImmudAddress string
-	ImmudPort    int
-	MTLs         bool
-	MTLsOptions  client.MTLsOptions
-	Config       string
-	Pidfile      string
-	Logfile      string
+	Address       string
+	Port          int
+	ImmudbAddress string
+	ImmudbPort    int
+	MTLs          bool
+	MTLsOptions   client.MTLsOptions
+	Config        string
+	Pidfile       string
+	Logfile       string
 }
 
 func DefaultOptions() Options {
 	return Options{
-		Address:      "127.0.0.1",
-		Port:         3323,
-		ImmudAddress: "127.0.0.1",
-		ImmudPort:    3322,
-		MTLs:         false,
-		Config:       "configs/immugw.ini",
-		Pidfile:      "",
-		Logfile:      "",
+		Address:       "127.0.0.1",
+		Port:          3323,
+		ImmudbAddress: "127.0.0.1",
+		ImmudbPort:    3322,
+		MTLs:          false,
+		Config:        "configs/immugw.ini",
+		Pidfile:       "",
+		Logfile:       "",
 	}
 }
 
@@ -60,15 +60,15 @@ func (o Options) WithPort(port int) Options {
 	return o
 }
 
-// WithImmudAddress sets immudAddress
-func (o Options) WithImmudAddress(immudAddress string) Options {
-	o.ImmudAddress = immudAddress
+// WithImmudbAddress sets immudbAddress
+func (o Options) WithImmudbAddress(immudbAddress string) Options {
+	o.ImmudbAddress = immudbAddress
 	return o
 }
 
-// WithImmudPort sets immudPort
-func (o Options) WithImmudPort(immudPort int) Options {
-	o.ImmudPort = immudPort
+// WithImmudbPort sets immudbPort
+func (o Options) WithImmudbPort(immudbPort int) Options {
+	o.ImmudbPort = immudbPort
 	return o
 }
 
@@ -108,6 +108,6 @@ func (o Options) Bind() string {
 
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{address:%v port:%d immud-address:%v immud-port:%d config file:%v pid:%v log:%v MTLs:%v}",
-		o.Address, o.Port, o.ImmudAddress, o.ImmudPort, o.Config, o.Pidfile, o.Logfile, o.MTLs)
+		"{address:%v port:%d immudb-address:%v immudb-port:%d config file:%v pid:%v log:%v MTLs:%v}",
+		o.Address, o.Port, o.ImmudbAddress, o.ImmudbPort, o.Config, o.Pidfile, o.Logfile, o.MTLs)
 }

@@ -92,9 +92,9 @@ func GenerateKeys() error {
 
 // GenerateOrLoadKeys ...
 func GenerateOrLoadKeys() error {
-	publicKeyFileName := "immud_public_key"
+	publicKeyFileName := "immudb_public_key"
 	_, errPublic := os.Stat(publicKeyFileName)
-	privateKeyFileName := "immud_private_key"
+	privateKeyFileName := "immudb_private_key"
 	_, errPrivate := os.Stat(privateKeyFileName)
 
 	bothExist := !os.IsNotExist(errPublic) && !os.IsNotExist(errPrivate)

@@ -19,13 +19,14 @@ package store
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/dgraph-io/badger/v2/pb"
 	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/dgraph-io/badger/v2/pb"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 
@@ -43,7 +44,7 @@ func makeStore() (*Store, func()) {
 		log.Fatal(err)
 	}
 
-	slog := logger.NewSimpleLoggerWithLevel("bm(immud)", os.Stderr, logger.LogDebug)
+	slog := logger.NewSimpleLoggerWithLevel("bm(immudb)", os.Stderr, logger.LogDebug)
 	opts := DefaultOptions(dir, slog)
 
 	st, err := Open(opts)

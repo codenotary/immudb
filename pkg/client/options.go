@@ -45,7 +45,7 @@ func DefaultOptions() Options {
 		HealthCheckRetries: 5,
 		MTLs:               false,
 		Auth:               false,
-		Config:             "configs/immu.ini",
+		Config:             "configs/immuclient.ini",
 		Pidfile:            "",
 		Logfile:            "",
 		DialOptions:        []grpc.DialOption{},

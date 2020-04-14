@@ -30,8 +30,8 @@ It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoi
 Environment variables:
   IMMUGW_ADDRESS=127.0.0.1
   IMMUGW_PORT=3323
-  IMMUGW_IMMUDADDRESS=127.0.0.1
-  IMMUGW_IMMUDPORT=3322
+  IMMUGW_IMMUDBADDRESS=127.0.0.1
+  IMMUGW_IMMUDBPORT=3322
   IMMUGW_PIDFILE=
   IMMUGW_LOGFILE=
   IMMUGW_MTLS=false
@@ -81,8 +81,8 @@ Environment variables:
 func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	port := viper.GetInt("default.port")
 	address := viper.GetString("default.address")
-	immudport := viper.GetInt("default.immudport")
-	immudAddress := viper.GetString("default.immudAddress")
+	immudbport := viper.GetInt("default.immudbport")
+	immudbAddress := viper.GetString("default.immudbAddress")
 	// config file came only from arguments or default folder
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return gw.Options{}, err
@@ -98,8 +98,8 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	options = gw.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
-		WithImmudAddress(immudAddress).
-		WithImmudPort(immudport).
+		WithImmudbAddress(immudbAddress).
+		WithImmudbPort(immudbport).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
 		WithMTLs(mtls)
@@ -117,8 +117,8 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsOptions) {
 	cmd.Flags().IntP("port", "p", options.Port, "immugw port number")
 	cmd.Flags().StringP("address", "a", options.Address, "immugw host address")
-	cmd.Flags().IntP("immudport", "j", options.ImmudPort, "immudb port number")
-	cmd.Flags().StringP("immudaddress", "k", options.ImmudAddress, "immudb host address")
+	cmd.Flags().IntP("immudbport", "j", options.ImmudbPort, "immudb port number")
+	cmd.Flags().StringP("immudbaddress", "k", options.ImmudbAddress, "immudb host address")
 	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.ini)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
@@ -136,10 +136,10 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("default.address", cmd.Flags().Lookup("address")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.immudport", cmd.Flags().Lookup("immudport")); err != nil {
+	if err := viper.BindPFlag("default.immudbport", cmd.Flags().Lookup("immudbport")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.immudaddress", cmd.Flags().Lookup("immudaddress")); err != nil {
+	if err := viper.BindPFlag("default.immudbaddress", cmd.Flags().Lookup("immudbaddress")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("default.pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
@@ -169,8 +169,8 @@ func bindFlags(cmd *cobra.Command) error {
 func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
 	viper.SetDefault("default.port", options.Port)
 	viper.SetDefault("default.address", options.Address)
-	viper.SetDefault("default.immudport", options.ImmudPort)
-	viper.SetDefault("default.immudaddress", options.ImmudAddress)
+	viper.SetDefault("default.immudbport", options.ImmudbPort)
+	viper.SetDefault("default.immudbaddress", options.ImmudbAddress)
 	viper.SetDefault("default.pidfile", options.Pidfile)
 	viper.SetDefault("default.logfile", options.Logfile)
 	viper.SetDefault("default.mtls", options.MTLs)

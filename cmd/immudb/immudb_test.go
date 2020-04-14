@@ -2,31 +2,32 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func DefaultTestOptions() (o server.Options) {
 	o = server.DefaultOptions()
-	o.Pidfile = "tmp/immudtest/immudtest.pid"
-	o.Logfile = "immudtest.log"
-	o.Dir = "tmp/immudtest/data"
-	o.DbName = "immudtest"
+	o.Pidfile = "tmp/immudbtest/immudbtest.pid"
+	o.Logfile = "immudbtest.log"
+	o.Dir = "tmp/immudbtest/data"
+	o.DbName = "immudbtest"
 	o.MTLs = false
 	return o
 }
 
-func TestImmudCommandFlagParser(t *testing.T) {
+func TestImmudbCommandFlagParser(t *testing.T) {
 	o := DefaultTestOptions()
 
 	var options server.Options
 	var err error
 	cmd := &cobra.Command{
-		Use: "immud",
+		Use: "immudb",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			options, err = parseOptions(cmd)
 			if err != nil {
@@ -49,13 +50,13 @@ func TestImmudCommandFlagParser(t *testing.T) {
 // 2. flags
 // 3. env. variables
 // 4. config file
-func TestImmudCommandFlagParserPriority(t *testing.T) {
+func TestImmudbCommandFlagParserPriority(t *testing.T) {
 	defer tearDown()
 	o := DefaultTestOptions()
 	var options server.Options
 	var err error
 	cmd := &cobra.Command{
-		Use: "immud",
+		Use: "immudb",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			options, err = parseOptions(cmd)
 			if err != nil {
@@ -73,12 +74,12 @@ func TestImmudCommandFlagParserPriority(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "", options.Logfile)
 	// 4-b. config file specified in command line
-	_, err = executeCommand(cmd, "--config=./../../test/immud.ini")
+	_, err = executeCommand(cmd, "--config=./../../test/immudb.ini")
 	assert.NoError(t, err)
 	assert.Equal(t, "ConfigFileThatsNameIsDeclaredOnTheCommandLine", options.Logfile)
 
 	// 3. env. variables
-	os.Setenv("IMMUD_DEFAULT.LOGFILE", "EnvironmentVars")
+	os.Setenv("IMMUDB_DEFAULT.LOGFILE", "EnvironmentVars")
 	_, err = executeCommand(cmd)
 	assert.NoError(t, err)
 	assert.Equal(t, "EnvironmentVars", options.Logfile)
@@ -110,5 +111,5 @@ func executeCommandC(root *cobra.Command, args ...string) (c *cobra.Command, out
 }
 
 func tearDown() {
-	os.Unsetenv("IMMUD_LOGFILE")
+	os.Unsetenv("IMMUDB_LOGFILE")
 }
