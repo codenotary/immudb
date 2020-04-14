@@ -40,6 +40,7 @@ cmd/immugw/.root
 cmd/immudb/immudata
 **/.root
 immudb.pid
+/immudata
 
 # Vendor
 vendor
