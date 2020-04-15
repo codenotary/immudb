@@ -9,6 +9,7 @@ STRIP = strip
 
 .PHONY: all
 all: immudb immugw
+	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
 
 .PHONY: rebuild
 rebuild: clean build/codegen all
