@@ -8,7 +8,7 @@ PROTOC ?= protoc
 STRIP = strip
 
 .PHONY: all
-all: immuclient immudb immugw
+all: immudb immugw
 
 .PHONY: rebuild
 rebuild: clean build/codegen all
