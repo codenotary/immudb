@@ -213,7 +213,7 @@ Environment variables:
 				printItem([]byte(args[0]), value2, response)
 				return nil
 			},
-			Args: cobra.MinimumNArgs(1),
+			Args: cobra.ExactArgs(2),
 		},
 		&cobra.Command{
 			Use:     "safeset key value",
@@ -258,7 +258,7 @@ Environment variables:
 				printItem([]byte(args[0]), value2, response)
 				return nil
 			},
-			Args: cobra.MinimumNArgs(1),
+			Args: cobra.ExactArgs(2),
 		},
 		&cobra.Command{
 			Use:     "reference refkey key",
