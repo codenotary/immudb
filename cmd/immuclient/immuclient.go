@@ -250,7 +250,7 @@ Environment variables:
 					c.QuitToStdErr(err)
 				}
 				response, err = immuClient.Connected(ctx, func() (interface{}, error) {
-					return immuClient.Get(ctx, key)
+					return immuClient.SafeGet(ctx, key)
 				})
 				if err != nil {
 					c.QuitToStdErr(err)
