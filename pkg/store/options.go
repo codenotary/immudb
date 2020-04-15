@@ -17,18 +17,11 @@ limitations under the License.
 package store
 
 import (
-	"path/filepath"
-
 	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/dgraph-io/badger/v2"
 
 	"runtime"
-)
-
-const (
-	dataPath = "data"
-	treePath = "tree"
 )
 
 type Options struct {
@@ -53,17 +46,7 @@ func DefaultOptions(path string, log logger.Logger) Options {
 
 func (o Options) dataStore() badger.Options {
 	opt := o.Badger
-	basedir := opt.Dir
-	opt.Dir = filepath.Join(basedir, dataPath)
-	opt.ValueDir = filepath.Join(basedir, dataPath)
-	return opt
-}
-
-func (o Options) treeStore() badger.Options {
-	opt := o.Badger
-	basedir := opt.Dir
-	opt.Dir = filepath.Join(basedir, treePath)
-	opt.ValueDir = filepath.Join(basedir, treePath)
+	opt.ValueDir = opt.Dir
 	return opt
 }
 

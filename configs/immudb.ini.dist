@@ -1,8 +1,8 @@
-dir = .
+dir = ./db
 network = tcp
 address = 127.0.0.1
 port = 3322
-dbname = immudata
+dbname = immudb
 pidfile =
 logfile =
 mtls = false
