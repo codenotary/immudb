@@ -40,12 +40,12 @@ type Options struct {
 // DefaultOptions returns default server options
 func DefaultOptions() Options {
 	return Options{
-		Dir:         ".",
+		Dir:         "./db",
 		Network:     "tcp",
 		Address:     "127.0.0.1",
 		Port:        3322,
 		MetricsPort: 9497,
-		DbName:      "immudata",
+		DbName:      "immudb",
 		Config:      "configs/immudb.ini",
 		Pidfile:     "",
 		Logfile:     "",

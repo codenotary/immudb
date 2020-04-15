@@ -34,19 +34,16 @@ cmd/immudb/immudb
 cmd/immugw/immugw
 
 # Working files
-/immudb
-/.root
 cmd/immugw/.root
-cmd/immudb/immudata
+/.root
 **/.root
 immudb.pid
-/immudata
+/db
 
 # Vendor
 vendor
 
 # Config
-cmd/immugw/.root
 configs/immuclient.ini
 configs/immudb.ini
 configs/immugw.ini

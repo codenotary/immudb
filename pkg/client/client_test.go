@@ -161,7 +161,8 @@ func cleanup() {
 	if err := os.Remove(".root"); err != nil {
 		log.Println(err)
 	}
-	if err := os.RemoveAll(server.DefaultOptions().DbName); err != nil {
+	dbDir := filepath.Join(server.DefaultOptions().Dir, server.DefaultOptions().DbName)
+	if err := os.RemoveAll(dbDir); err != nil {
 		log.Println(err)
 	}
 }
