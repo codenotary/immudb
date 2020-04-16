@@ -417,6 +417,9 @@ func (c *ImmuClient) ByIndex(ctx context.Context, index uint64) (*schema.Structu
 	item, err := c.serviceClient.ByIndex(ctx, &schema.Index{
 		Index: index,
 	})
+	if err != nil {
+		return nil, err
+	}
 	result, err := item.ToSItem()
 	if err != nil {
 		return nil, err

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"testing"
@@ -298,10 +299,16 @@ func TestRestore(t *testing.T) {
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
 		item, err := st2.Get(schema.Key{Key: key})
+
 		assert.NoError(t, err, "n=%d", n)
 		assert.Equal(t, n, item.Index, "n=%d", n)
 		assert.Equal(t, key, item.Value, "n=%d", n)
 		assert.Equal(t, key, item.Key, "n=%d", n)
+		itemByIndex, err := st2.ByIndex(schema.Index{Index: n})
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, key, itemByIndex.Value, "n=%d", n)
+		assert.Equal(t, key, itemByIndex.Key, "n=%d", n)
+
 	}
 
 	st2.tree.WaitUntil(64)
@@ -400,6 +407,102 @@ func TestRestoreHistoryCheck(t *testing.T) {
 	assert.Equal(t, il.Items[0].Value, []byte(`secondval`))
 	assert.Equal(t, il.Items[1].Value, []byte(strconv.FormatUint(13, 10)))
 
+}
+
+func TestInsertionOrderIndex(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	key1 := []byte(`myFirstElementKey`)
+	val1 := []byte(`firstValue`)
+	key2 := []byte(`mySecondElementKey`)
+	val2 := []byte(`secondValue`)
+	key3 := []byte(`myThirdElementKey`)
+	val3 := []byte(`thirdValue`)
+
+	index1, _ := st.Set(schema.KeyValue{Key: key1, Value: val1})
+	index2, _ := st.Set(schema.KeyValue{Key: key2, Value: val2})
+	index3, _ := st.Set(schema.KeyValue{Key: key3, Value: val3})
+
+	st.tree.WaitUntil(2)
+	item1, err := st.ByIndex(*index1)
+	assert.NoError(t, err)
+	assert.Equal(t, item1.Index, index1.Index)
+	assert.Equal(t, key1, item1.Key)
+	assert.Equal(t, val1, item1.Value)
+
+	item2, err := st.ByIndex(*index2)
+	assert.NoError(t, err)
+	assert.Equal(t, item2.Index, item2.Index)
+	assert.Equal(t, key2, item2.Key)
+	assert.Equal(t, val2, item2.Value)
+
+	item3, err := st.ByIndex(*index3)
+	assert.NoError(t, err)
+	assert.Equal(t, item3.Index, item3.Index)
+	assert.Equal(t, key3, item3.Key)
+	assert.Equal(t, val3, item3.Value)
+
+	//flushing and empty cache
+	st.tree.Close()
+	st.tree.makeCaches()
+
+	item1, err = st.ByIndex(*index1)
+	assert.NoError(t, err)
+	assert.Equal(t, item1.Index, index1.Index)
+	assert.Equal(t, key1, item1.Key)
+	assert.Equal(t, val1, item1.Value)
+
+	item2, err = st.ByIndex(*index2)
+	assert.NoError(t, err)
+	assert.Equal(t, item2.Index, item2.Index)
+	assert.Equal(t, key2, item2.Key)
+	assert.Equal(t, val2, item2.Value)
+
+	item3, err = st.ByIndex(*index3)
+	assert.NoError(t, err)
+	assert.Equal(t, item3.Index, item3.Index)
+	assert.Equal(t, key3, item3.Key)
+	assert.Equal(t, val3, item3.Value)
+
+	_, err = st.ByIndex(schema.Index{
+		Index: 4,
+	})
+	assert.Error(t, err, ErrIndexNotFound)
+}
+
+func TestInsertionOrderIndexTamperGuard(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	key1 := []byte(`myFirstElementKey`)
+	val1 := []byte(`firstValue`)
+	key2 := []byte(`mySecondElementKey`)
+	val2 := []byte(`secondValue`)
+
+	_, _ = st.Set(schema.KeyValue{Key: key1, Value: val1})
+	index2, _ := st.Set(schema.KeyValue{Key: key2, Value: val2})
+	st.tree.Close()
+	st.tree.makeCaches()
+
+	// TAMPER: here we try to modify insertion sorted index of element 2 making him pointing to element 1
+	txn := st.tree.db.NewTransactionAt(math.MaxUint64, true)
+	defer txn.Discard()
+	// retrieving the leaf of element 2
+	leaf, _ := txn.Get(treeKey(0, index2.Index))
+	ts := leaf.Version()
+	leafkey := leaf.KeyCopy(nil)
+	refKey, _ := leaf.ValueCopy(nil)
+	// extract the hash ef element 2
+	hash, _, _ := decodeRefTreeKey(refKey)
+	// creation of a fake reference to element 1
+	fakeReference := refTreeKey(hash, key1)
+	// override the leaf
+	_ = txn.Set(leafkey, fakeReference)
+	_ = txn.CommitAt(ts, nil)
+
+	_, err := st.ByIndex(*index2)
+	assert.Errorf(t, err, fmt.Sprintf("Insertion ored index %d was tampered", ts))
 }
 
 func BenchmarkStoreSet(b *testing.B) {
