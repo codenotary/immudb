@@ -112,6 +112,11 @@ func (s *ImmuServer) Start() error {
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
 
+	dbSize, _ := s.Store.DbSize()
+	if dbSize <= 0 {
+		s.Logger.Infof("Started with an empty database")
+	}
+
 	if s.Options.Pidfile != "" {
 		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
 			return err

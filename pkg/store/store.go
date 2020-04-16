@@ -602,3 +602,8 @@ func (t *Store) HealthCheck() bool {
 	_, err := t.Get(schema.Key{Key: []byte{255}})
 	return err == nil || err == ErrKeyNotFound
 }
+
+func (t *Store) DbSize() (int64, int64) {
+	return t.db.Size()
+}
+
