@@ -25,8 +25,10 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -123,6 +125,8 @@ func (s *ImmuServer) Start() error {
 		}
 	}
 
+	s.toggleAppendOnlyFlag(dbDir, true)
+
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
 	return err
@@ -130,6 +134,8 @@ func (s *ImmuServer) Start() error {
 
 func (s *ImmuServer) Stop() error {
 	s.Logger.Infof("stopping immudb: %v", s.Options)
+	dbDir := filepath.Join(s.Options.Dir, s.Options.DbName)
+	s.toggleAppendOnlyFlag(dbDir, false)
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
@@ -138,6 +144,32 @@ func (s *ImmuServer) Stop() error {
 		return s.Store.Close()
 	}
 	return nil
+}
+
+func (s *ImmuServer) toggleAppendOnlyFlag(dbDir string, toggleOn bool) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+	case "darwin":
+		onOrOff := "uappend"
+		if !toggleOn {
+			onOrOff = "nouappend"
+		}
+		cmd = exec.Command("chflags", "-R", onOrOff, dbDir)
+	// case "linux", "freebsd", ...:
+	default:
+		onOrOff := "+a"
+		if !toggleOn {
+			onOrOff = "-a"
+		}
+		cmd = exec.Command("chattr", "-R", onOrOff, dbDir)
+	}
+	if cmd == nil {
+		return
+	}
+	if err := cmd.Run(); err != nil {
+		s.Logger.Warningf("error running os command %+v: %v", cmd, err)
+	}
 }
 
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
