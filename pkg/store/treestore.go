@@ -20,9 +20,11 @@ import (
 	"container/heap"
 	"crypto/sha256"
 	"encoding/binary"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 
@@ -54,6 +56,37 @@ func decodeTreeKey(k []byte) (layer uint8, index uint64) {
 	return
 }
 
+// refTreeKey appends a key of a badger value to an hash
+func refTreeKey(hash [sha256.Size]byte, reference []byte) []byte {
+	kl := len(reference)
+	c := make([]byte, sha256.Size+kl)
+	copy(c[:sha256.Size], hash[:])
+	copy(c[sha256.Size:], reference[:])
+	return c
+}
+
+// refTreeKey split a value of a badger item in an the hash array and slice reference key
+func decodeRefTreeKey(rtk []byte) ([sha256.Size]byte, []byte, error) {
+	lrtk := len(rtk)
+	if lrtk == sha256.Size {
+		return [sha256.Size]byte{}, nil, ErrObsoleteDataFormat
+	}
+	if lrtk < sha256.Size {
+		// this should not happen
+		return [sha256.Size]byte{}, nil, ErrInconsistentState
+	}
+	hash := make([]byte, sha256.Size)
+	reference := make([]byte, lrtk-sha256.Size)
+	copy(hash, rtk[:sha256.Size])
+	copy(reference, rtk[sha256.Size:][:])
+
+	var hArray [sha256.Size]byte
+	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&hash))
+	hArray = *(*[sha256.Size]byte)(unsafe.Pointer(hdr.Data))
+
+	return hArray, reference, nil
+}
+
 func treeLayerWidth(layer uint8, txn *badger.Txn) uint64 {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false
@@ -71,6 +104,7 @@ func treeLayerWidth(layer uint8, txn *badger.Txn) uint64 {
 type treeStoreEntry struct {
 	ts uint64
 	h  *[sha256.Size]byte
+	r  *[]byte
 }
 
 func (t treeStoreEntry) Index() uint64 {
@@ -91,6 +125,7 @@ type treeStore struct {
 	db          *badger.DB
 	log         logger.Logger
 	caches      [256]ring.Buffer
+	rcaches     [256]ring.Buffer
 	cPos        [256]uint64
 	cSize       uint64
 	sync.RWMutex
@@ -148,6 +183,7 @@ func (t *treeStore) makeCaches() {
 			size = 64
 		}
 	}
+	t.rcaches[0] = ring.NewRingBuffer(t.cSize + 2)
 }
 
 // Close closes a treeStore. All pending items will be processed and flushed.
@@ -192,6 +228,7 @@ func (t *treeStore) NewEntry(key []byte, value []byte) *treeStoreEntry {
 	return &treeStoreEntry{
 		ts: ts,
 		h:  &h,
+		r:  &key,
 	}
 }
 
@@ -204,7 +241,7 @@ func (t *treeStore) NewBatch(kvPairs *schema.KVList) []*treeStoreEntry {
 	for i, kv := range kvPairs.KVs {
 		ts := lease - size + uint64(i) + 1
 		h := api.Digest(ts-1, kv.Key, kv.Value)
-		batch = append(batch, &treeStoreEntry{ts, &h})
+		batch = append(batch, &treeStoreEntry{ts, &h, &kv.Key})
 	}
 	return batch
 }
@@ -235,7 +272,15 @@ func (t *treeStore) worker() {
 
 		t.Lock()
 		for min := pq.Min(); min == t.w+1; min = pq.Min() {
-			merkletree.AppendHash(t, heap.Pop(&pq).(*treeStoreEntry).h)
+
+			item := heap.Pop(&pq).(*treeStoreEntry)
+
+			// insertion order index reference creation
+			c := refTreeKey(*item.h, *item.r)
+			// insertion order index cache save
+			t.rcaches[0].Set(item.ts-1, c)
+
+			merkletree.AppendHash(t, item.h)
 			if t.w%2 == 0 && (t.w-t.lastFlushed) >= t.cSize/2 {
 				t.flush()
 			}
@@ -284,10 +329,16 @@ func (t *treeStore) flush() {
 		// fmt.Printf("Flushing [l=%d, head=%d, tail=%d] from %d to (%d-1)\n", l, c.Head(), c.Tail(), t.cPos[l], tail)
 		for i := t.cPos[l]; i < tail; i++ {
 			if h := c.Get(i); h != nil {
+				var value []byte
+				value = h.(*[sha256.Size]byte)[:]
+				// retrieving insertion order index reference from buffer ring
+				if l == 0 {
+					value = t.rcaches[l].Get(i).([]byte)
+				}
 				// fmt.Printf("Storing [l=%d, i=%d]\n", l, i)
 				entry := badger.Entry{
 					Key:      treeKey(uint8(l), i),
-					Value:    h.(*[sha256.Size]byte)[:],
+					Value:    value,
 					UserMeta: bitTreeEntry,
 				}
 				// it's safe to discard, only non-frozen nodes could be overwritten
@@ -322,16 +373,27 @@ func (t *treeStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
 	if v := t.caches[layer].Get(index); v != nil {
 		return v.(*[sha256.Size]byte)
 	}
-
 	var ret [sha256.Size]byte
 	if err := t.db.View(func(txn *badger.Txn) error {
+		var temp []byte
 		// fmt.Printf("CACHE MISS (ts=%d, w=%d, d=%d): [%d,%d]\n", t.ts, t.w, merkletree.Depth(t), layer, index)
 		item, err := txn.Get(treeKey(layer, index))
 		if err != nil {
 			return err
 		}
-		if _, err = item.ValueCopy(ret[:]); err != nil {
-			return err
+		// in layer 0 are stored leaves with value composed by hash concatenated with insertion order index key
+		if layer == 0 {
+			if temp, err = item.ValueCopy(nil); err != nil {
+				return err
+			}
+			if ret, _, err = decodeRefTreeKey(temp); err != nil {
+				return err
+			}
+		} else {
+			// if layer > 0, value of an element is ever an array of 32 bytes
+			if _, err = item.ValueCopy(ret[:]); err != nil {
+				return err
+			}
 		}
 		return nil
 	}); err != nil {

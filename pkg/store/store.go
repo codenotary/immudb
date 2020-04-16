@@ -18,6 +18,10 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"github.com/codenotary/immudb/pkg/api"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/merkletree"
 	"math"
@@ -296,34 +300,77 @@ func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err er
 	return
 }
 
-// fixme(leogr): need to be optmized
-func (t *Store) itemAt(readTs uint64) (version uint64, key, value []byte, err error) {
-	stream := t.db.NewStreamAt(readTs)
-	stream.ChooseKey = func(item *badger.Item) bool {
-		return item.UserMeta() != bitTreeEntry && item.Version() == readTs
+func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err error) {
+	index = readTs
+
+	var refkey []byte
+	// cache reference lookup
+	t.tree.RLock()
+	defer t.tree.RUnlock()
+	if key := t.tree.rcaches[0].Get(readTs - 1); key != nil {
+		refkey = key.([]byte)
+	}
+	// disk reference lookup
+	if refkey == nil {
+		if err := t.db.View(func(txn *badger.Txn) error {
+			item, err := txn.Get(treeKey(0, readTs-1))
+			if err != nil {
+				return err
+			}
+			if refkey, err = item.ValueCopy(nil); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			if err == badger.ErrKeyNotFound {
+				err = ErrIndexNotFound
+			}
+			return 0, nil, nil, err
+		}
 	}
 
-	found := false
+	var hash [sha256.Size]byte
+	// reference parsing
+	if hash, key, err = decodeRefTreeKey(refkey); err != nil {
+		return 0, nil, nil, err
+	}
 
-	stream.Send = func(list *pb.KVList) error {
-		for _, kv := range list.Kv {
-			key = kv.Key
-			value = kv.Value
-			version = kv.Version
-			found = true
-			return nil
+	if key == nil {
+		// this shouldn't happen
+		return 0, nil, nil, ErrObsoleteDataFormat
+	}
+
+	// disk value lookup
+	if err := t.db.View(func(txn *badger.Txn) error {
+		ret, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		if value, err = ret.ValueCopy(nil); err != nil {
+			if err == badger.ErrKeyNotFound {
+				// this shoulden't happen. Key reference is present but item is missing
+				err = ErrInconsistentState
+			}
+			return err
 		}
 		return nil
+	}); err != nil {
+		return 0, nil, nil, err
 	}
-	err = mapError(stream.Orchestrate(context.Background()))
-	if err == nil && !found {
-		err = ErrIndexNotFound
+
+	// this guard ensure that the insertion order index was not tampered.
+	proof := api.Digest(index-1, key, value)
+	if hash != proof {
+		return 0, nil, nil, errors.New(fmt.Sprintf("Insertion ored index %d was tampered", index))
 	}
-	return
+	return readTs, key, value, nil
 }
 
 func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 	version, key, value, err := t.itemAt(index.Index + 1)
+	if err != nil {
+		return nil, err
+	}
 	if version != index.Index+1 {
 		err = ErrIndexNotFound
 	}
@@ -606,4 +653,3 @@ func (t *Store) HealthCheck() bool {
 func (t *Store) DbSize() (int64, int64) {
 	return t.db.Size()
 }
-
