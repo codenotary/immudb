@@ -18,10 +18,12 @@ package store
 
 import (
 	"context"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/merkletree"
 	"math"
 	"sync"
+	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/merkletree"
 
 	"github.com/codenotary/immudb/pkg/logger"
 
@@ -30,10 +32,31 @@ import (
 )
 
 type Store struct {
-	db   *badger.DB
-	tree *treeStore
-	wg   sync.WaitGroup
-	log  logger.Logger
+	sync.Mutex
+	db         *badger.DB
+	tree       *treeStore
+	wg         sync.WaitGroup
+	log        logger.Logger
+	changedAt  time.Time
+	tamperedAt time.Time
+	tampered   bool
+}
+
+func (t *Store) setChangedAt() {
+	t.changedAt = time.Now()
+}
+
+func (t *Store) GetChangedAt() time.Time {
+	return t.changedAt
+}
+
+func (t *Store) SetTamperedAt(ts time.Time) {
+	t.tamperedAt = ts
+	t.tampered = true
+}
+
+func (t *Store) IgnoreTampering() {
+	t.tampered = false
 }
 
 func Open(options Options) (*Store, error) {
@@ -54,6 +77,7 @@ func Open(options Options) (*Store, error) {
 
 	// fixme(leogr): need to get all keys inserted after the tree width, if any, and replay
 
+	t.setChangedAt()
 	t.log.Infof("Store opened at path: %s", opt.Dir)
 	return t, nil
 }
@@ -86,6 +110,7 @@ func (t *Store) CurrentRoot() (root *schema.Root, err error) {
 }
 
 func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *schema.Index, err error) {
+	t.setChangedAt()
 	opts := makeWriteOptions(options...)
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
@@ -132,10 +157,12 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 		err = mapError(txn.CommitAt(ts, nil))
 		cb(err)
 	}
+	t.setChangedAt()
 	return
 }
 
 func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.Index, err error) {
+	t.setChangedAt()
 	opts := makeWriteOptions(options...)
 	if err = checkKey(kv.Key); err != nil {
 		return nil, err
@@ -173,7 +200,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 		err = mapError(txn.CommitAt(tsEntry.ts, nil))
 		cb(err)
 	}
-
+	t.setChangedAt()
 	return
 }
 
@@ -358,6 +385,7 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 }
 
 func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
+	t.setChangedAt()
 	opts := makeWriteOptions(options...)
 	if len(refOpts.Key) == 0 || refOpts.Key[0] == tsPrefix {
 		err = ErrInvalidKey
@@ -411,11 +439,12 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 		err = mapError(txn.CommitAt(tsEntry.ts, nil))
 		cb(err)
 	}
-
+	t.setChangedAt()
 	return index, nil
 }
 
 func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index *schema.Index, err error) {
+	t.setChangedAt()
 	opts := makeWriteOptions(options...)
 	if err = checkKey(zaddOpts.Key); err != nil {
 		return nil, err
@@ -474,7 +503,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		err = mapError(txn.CommitAt(tsEntry.ts, nil))
 		cb(err)
 	}
-
+	t.setChangedAt()
 	return index, nil
 }
 
@@ -550,6 +579,7 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 }
 
 func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
+	t.setChangedAt()
 	defer t.tree.Unlock()
 	t.tree.Lock()
 	t.tree.flush()
@@ -568,6 +598,7 @@ func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
 		return err
 	}
 	close(kvChan)
+	t.setChangedAt()
 	return err
 }
 
@@ -606,4 +637,3 @@ func (t *Store) HealthCheck() bool {
 func (t *Store) DbSize() (int64, int64) {
 	return t.db.Size()
 }
-

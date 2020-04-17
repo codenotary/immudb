@@ -27,6 +27,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -121,6 +122,15 @@ func (s *ImmuServer) Start() error {
 			return err
 		}
 	}
+
+	watcher, err := setUpWatcher(s.Store, dbDir, s.Logger)
+	if err == nil {
+		defer closeWatcher(watcher, dbDir, s.Logger)
+	}
+	go func() {
+		time.Sleep(1 * time.Second)
+		addDirToWatcher(watcher, dbDir, s.Logger)
+	}()
 
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit

@@ -36,6 +36,7 @@ func getPrevRootIdx(lastIndex uint64, rootIdx *schema.Index) (uint64, error) {
 }
 
 func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err error) {
+	t.setChangedAt()
 	kv := options.Kv
 
 	if err = checkKey(kv.Key); err != nil {
@@ -85,7 +86,7 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 		InclusionPath:   merkletree.InclusionProof(t.tree, at, index).ToSlice(),
 		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
-
+	t.setChangedAt()
 	return
 }
 
@@ -155,6 +156,7 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 }
 
 func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
+	t.setChangedAt()
 	ro := options.Ro
 	if err = checkKey(ro.Key); err != nil {
 		return nil, err
@@ -215,12 +217,12 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 		InclusionPath:   merkletree.InclusionProof(t.tree, at, index).ToSlice(),
 		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
-
+	t.setChangedAt()
 	return
 }
 
 func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, err error) {
-
+	t.setChangedAt()
 	if err = checkKey(options.Zopts.Key); err != nil {
 		return nil, err
 	}
@@ -283,6 +285,6 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		InclusionPath:   merkletree.InclusionProof(t.tree, at, index).ToSlice(),
 		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
-
+	t.setChangedAt()
 	return
 }
