@@ -629,9 +629,12 @@ func (t *Store) Restore(kvChan chan *pb.KVList) (i uint64, err error) {
 	}
 }
 
-func (t *Store) HealthCheck() bool {
+func (t *Store) HealthCheck() (*schema.HealthResponse, error) {
 	_, err := t.Get(schema.Key{Key: []byte{255}})
-	return err == nil || err == ErrKeyNotFound
+	return &schema.HealthResponse{
+		Status:   err == nil || err == ErrKeyNotFound,
+		Tampered: t.tampered,
+	}, nil
 }
 
 func (t *Store) DbSize() (int64, int64) {

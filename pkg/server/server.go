@@ -125,12 +125,12 @@ func (s *ImmuServer) Start() error {
 
 	watcher, err := setUpWatcher(s.Store, dbDir, s.Logger)
 	if err == nil {
-		defer closeWatcher(watcher, dbDir, s.Logger)
+		s.watcher = watcher
+		go func() {
+			time.Sleep(1 * time.Second)
+			addDirToWatcher(s.watcher, dbDir, s.Logger)
+		}()
 	}
-	go func() {
-		time.Sleep(1 * time.Second)
-		addDirToWatcher(watcher, dbDir, s.Logger)
-	}()
 
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
@@ -139,6 +139,10 @@ func (s *ImmuServer) Start() error {
 
 func (s *ImmuServer) Stop() error {
 	s.Logger.Infof("stopping immudb: %v", s.Options)
+	if s.watcher != nil {
+		dbDir := filepath.Join(s.Options.Dir, s.Options.DbName)
+		closeWatcher(s.watcher, dbDir, s.Logger)
+	}
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
@@ -380,9 +384,13 @@ func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.St
 }
 
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
-	health := s.Store.HealthCheck()
-	s.Logger.Debugf("health check: %v", health)
-	return &schema.HealthResponse{Status: health}, nil
+	healthResponse, err := s.Store.HealthCheck()
+	if err != nil {
+		s.Logger.Errorf("health check error: %v", err)
+		return nil, err
+	}
+	s.Logger.Debugf("health check: %v", healthResponse)
+	return healthResponse, nil
 }
 
 func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {

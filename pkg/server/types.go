@@ -23,6 +23,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
+	"github.com/fsnotify/fsnotify"
 )
 
 type ImmuServer struct {
@@ -32,6 +33,7 @@ type ImmuServer struct {
 	GrpcServer *grpc.Server
 	Pid        PIDFile
 	quit       chan struct{}
+	watcher    *fsnotify.Watcher
 }
 
 func DefaultServer() *ImmuServer {

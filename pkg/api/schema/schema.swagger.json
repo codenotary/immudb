@@ -106,12 +106,6 @@
               },
               "title": "Stream result of pbKVList"
             }
-          },
-          "default": {
-            "description": "An unexpected error response",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
           }
         },
         "parameters": [
@@ -697,6 +691,10 @@
       "type": "object",
       "properties": {
         "status": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "tampered": {
           "type": "boolean",
           "format": "boolean"
         }

@@ -165,6 +165,7 @@ message SafeReferenceOptions {
 
 message HealthResponse {
 	bool status = 1;
+	bool tampered = 2;
 }
 
 message ReferenceOptions {

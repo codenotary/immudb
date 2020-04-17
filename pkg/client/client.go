@@ -731,6 +731,9 @@ func (c *ImmuClient) HealthCheck(ctx context.Context) error {
 	if !response.Status {
 		return ErrHealthCheckFailed
 	}
+	if response.Tampered {
+		return ErrHealthCheckTampered
+	}
 	c.Logger.Debugf("health-check finished in %s", time.Since(start))
 	return nil
 }
