@@ -108,12 +108,12 @@ func (c *ImmuClient) waitForHealthCheck(ctx context.Context) (err error) {
 			c.Logger.Debugf("health check succeeded %v", c.Options)
 			return nil
 		}
-		c.Logger.Debugf("health check failed: %v", err)
+		// c.Logger.Errorf("health check failed: %v", err)
 		if c.Options.HealthCheckRetries > 0 {
 			time.Sleep(time.Second)
 		}
 	}
-	return err
+	return fmt.Errorf("error: %v", err)
 }
 
 func (c *ImmuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
