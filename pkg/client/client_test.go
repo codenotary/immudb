@@ -46,7 +46,7 @@ var lis *bufconn.Listener
 var immuServer *server.ImmuServer
 var client *ImmuClient
 
-const BkpFileName = "client_test.backup.bkp"
+const BkpFileName = "client_test.dump.bkp"
 const ExpectedBkpFileName = "./../../test/client_test.expected.bkp"
 
 var testData = struct {
@@ -166,7 +166,7 @@ func cleanup() {
 		log.Println(err)
 	}
 }
-func cleanupBackup() {
+func cleanupDump() {
 	if err := os.Remove(BkpFileName); err != nil {
 		log.Println(err)
 	}
@@ -222,11 +222,11 @@ func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float6
 	}
 }
 
-func testBackup(ctx context.Context, t *testing.T) {
+func testDump(ctx context.Context, t *testing.T) {
 	bkpFile, err := os.Create(BkpFileName)
 	require.NoError(t, err)
 	r, err := client.Connected(ctx, func() (interface{}, error) {
-		return client.Backup(ctx, bkpFile)
+		return client.Dump(ctx, bkpFile)
 	})
 	require.NoError(t, err)
 	n := r.(int64)
@@ -243,9 +243,9 @@ func testBackup(ctx context.Context, t *testing.T) {
 
 func TestImmuClient(t *testing.T) {
 	cleanup()
-	cleanupBackup()
+	cleanupDump()
 	defer cleanup()
-	defer cleanupBackup()
+	defer cleanupDump()
 
 	ctx := context.Background()
 
@@ -259,63 +259,64 @@ func TestImmuClient(t *testing.T) {
 
 	testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 
-	testBackup(ctx, t)
+	testDump(ctx, t)
 
 }
 
-func TestRestore(t *testing.T) {
-	cleanup()
-	defer cleanup()
-
-	ctx := context.Background()
-
-	// this only succeeds if only this test function is run, otherwise the key may
-	// be present from other test function that run before this:
-	// r1, err := client.Connected(ctx, func() (interface{}, error) {
-	// 	return client.SafeGet(ctx, testData.keys[1])
-	// })
-	// require.Error(t, err)
-	// require.Nil(t, r1)
-
-	bkpFileForRead, err := os.Open(ExpectedBkpFileName)
-	require.NoError(t, err)
-	r2, err := client.Connected(ctx, func() (interface{}, error) {
-		return client.Restore(ctx, bkpFileForRead, 20)
-	})
-	require.NoError(t, err)
-	n2 := r2.(int64)
-	require.Equal(t, int64(26), n2)
-
-	r3, err := client.Connected(ctx, func() (interface{}, error) {
-		return client.SafeGet(ctx, testData.keys[1])
-	})
-	require.NoError(t, err)
-	require.NotNil(t, r3)
-	vi := r3.(*VerifiedItem)
-	require.Equal(t, testData.keys[1], vi.Key)
-	require.Equal(t, testData.values[1], vi.Value)
-	require.True(t, vi.Verified)
-
-	r4, err := client.Connected(ctx, func() (interface{}, error) {
-		return client.SafeGet(ctx, testData.refKeys[2])
-	})
-	require.NoError(t, err)
-	require.NotNil(t, r4)
-	viFromRef := r4.(*VerifiedItem)
-	require.Equal(t, testData.keys[2], viFromRef.Key)
-	require.Equal(t, testData.values[2], viFromRef.Value)
-	require.True(t, viFromRef.Verified)
-
-	r5, err := client.Connected(ctx, func() (interface{}, error) {
-		return client.ZScan(ctx, testData.set)
-	})
-	require.NoError(t, err)
-	require.NotNil(t, r5)
-	itemList := r5.(*schema.StructuredItemList)
-	require.Len(t, itemList.Items, len(testData.keys))
-
-	for i := 0; i < len(testData.keys); i++ {
-		require.Equal(t, testData.keys[i], itemList.Items[i].Key)
-		require.Equal(t, testData.values[i], itemList.Items[i].Value.Payload)
-	}
-}
+// todo(joe-dz): Enable restore when the feature is required again.
+//func TestRestore(t *testing.T) {
+//	cleanup()
+//	defer cleanup()
+//
+//	ctx := context.Background()
+//
+//	// this only succeeds if only this test function is run, otherwise the key may
+//	// be present from other test function that run before this:
+//	// r1, err := client.Connected(ctx, func() (interface{}, error) {
+//	// 	return client.SafeGet(ctx, testData.keys[1])
+//	// })
+//	// require.Error(t, err)
+//	// require.Nil(t, r1)
+//
+//	bkpFileForRead, err := os.Open(ExpectedBkpFileName)
+//	require.NoError(t, err)
+//	r2, err := client.Connected(ctx, func() (interface{}, error) {
+//		return client.Restore(ctx, bkpFileForRead, 20)
+//	})
+//	require.NoError(t, err)
+//	n2 := r2.(int64)
+//	require.Equal(t, int64(26), n2)
+//
+//	r3, err := client.Connected(ctx, func() (interface{}, error) {
+//		return client.SafeGet(ctx, testData.keys[1])
+//	})
+//	require.NoError(t, err)
+//	require.NotNil(t, r3)
+//	vi := r3.(*VerifiedItem)
+//	require.Equal(t, testData.keys[1], vi.Key)
+//	require.Equal(t, testData.values[1], vi.Value)
+//	require.True(t, vi.Verified)
+//
+//	r4, err := client.Connected(ctx, func() (interface{}, error) {
+//		return client.SafeGet(ctx, testData.refKeys[2])
+//	})
+//	require.NoError(t, err)
+//	require.NotNil(t, r4)
+//	viFromRef := r4.(*VerifiedItem)
+//	require.Equal(t, testData.keys[2], viFromRef.Key)
+//	require.Equal(t, testData.values[2], viFromRef.Value)
+//	require.True(t, viFromRef.Verified)
+//
+//	r5, err := client.Connected(ctx, func() (interface{}, error) {
+//		return client.ZScan(ctx, testData.set)
+//	})
+//	require.NoError(t, err)
+//	require.NotNil(t, r5)
+//	itemList := r5.(*schema.StructuredItemList)
+//	require.Len(t, itemList.Items, len(testData.keys))
+//
+//	for i := 0; i < len(testData.keys); i++ {
+//		require.Equal(t, testData.keys[i], itemList.Items[i].Key)
+//		require.Equal(t, testData.values[i], itemList.Items[i].Value.Payload)
+//	}
+//}

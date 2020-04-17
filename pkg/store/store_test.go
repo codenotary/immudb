@@ -132,7 +132,7 @@ func TestStoreAsyncCommit(t *testing.T) {
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
 }
 
-func TestBackup(t *testing.T) {
+func TestDump(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -177,7 +177,7 @@ func TestBackup(t *testing.T) {
 	}
 
 	go retrieveLists()
-	err := st.Backup(kvChan)
+	err := st.Dump(kvChan)
 	<-done
 
 	assert.NoError(t, err)
@@ -185,7 +185,7 @@ func TestBackup(t *testing.T) {
 	assert.Equal(t, 17, len(lists[0].Kv), "All keys was retrieved")
 }
 
-func TestLargeBackup(t *testing.T) {
+func TestLargeDump(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 	done := make(chan bool)
@@ -235,7 +235,7 @@ func TestLargeBackup(t *testing.T) {
 	}
 
 	go retrieveLists()
-	err := st.Backup(kvChan)
+	err := st.Dump(kvChan)
 	<-done
 
 	assert.NoError(t, err)
@@ -271,7 +271,7 @@ func TestRestore(t *testing.T) {
 		}
 	}
 	go retrieveLists()
-	st.Backup(kvChan)
+	st.Dump(kvChan)
 	<-done
 	closer()
 
@@ -350,7 +350,7 @@ func TestRestoreHistoryCheck(t *testing.T) {
 		}
 	}
 	go retrieveLists()
-	st.Backup(kvChan)
+	st.Dump(kvChan)
 	<-done
 	closer()
 

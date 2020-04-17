@@ -11,41 +11,6 @@
     "application/json"
   ],
   "paths": {
-    "/v1/immurestproxy/backup": {
-      "post": {
-        "operationId": "Backup",
-        "responses": {
-          "200": {
-            "description": "A successful response.(streaming responses)",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "result": {
-                  "$ref": "#/definitions/pbKVList"
-                },
-                "error": {
-                  "$ref": "#/definitions/runtimeStreamError"
-                }
-              },
-              "title": "Stream result of pbKVList"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "properties": {}
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/v1/immurestproxy/batch/get": {
       "post": {
         "operationId": "GetBatch",
@@ -116,6 +81,47 @@
             "required": true,
             "type": "string",
             "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/dump": {
+      "post": {
+        "operationId": "Dump",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pbKVList"
+                },
+                "error": {
+                  "$ref": "#/definitions/runtimeStreamError"
+                }
+              },
+              "title": "Stream result of pbKVList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "properties": {}
+            }
           }
         ],
         "tags": [
@@ -414,33 +420,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaReferenceOptions"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/restore": {
-      "post": {
-        "operationId": "Restore",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaItemsCount"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "description": " (streaming inputs)",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/pbKVList"
             }
           }
         ],
