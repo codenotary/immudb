@@ -51,7 +51,7 @@ func QuitWithUserError(err error) {
 		QuitToStdErr(err)
 	}
 	if s.Code() == codes.Unauthenticated {
-		QuitToStdErr(errors.New("unauthorized, please login first, then pass the -s flag to every command"))
+		QuitToStdErr(errors.New("unauthorized, please login and make sure auth is set to true in config"))
 	}
 	QuitToStdErr(err)
 }
