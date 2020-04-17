@@ -631,10 +631,13 @@ func (t *Store) Restore(kvChan chan *pb.KVList) (i uint64, err error) {
 
 func (t *Store) HealthCheck() (*schema.HealthResponse, error) {
 	_, err := t.Get(schema.Key{Key: []byte{255}})
-	return &schema.HealthResponse{
-		Status:   err == nil || err == ErrKeyNotFound,
-		Tampered: t.tampered,
-	}, nil
+	hr := schema.HealthResponse{
+		Status: err == nil || err == ErrKeyNotFound,
+	}
+	if t.tampered {
+		hr.TamperedAt = uint64(t.tamperedAt.Unix())
+	}
+	return &hr, nil
 }
 
 func (t *Store) DbSize() (int64, int64) {

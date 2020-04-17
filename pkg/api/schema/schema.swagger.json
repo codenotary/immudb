@@ -694,9 +694,9 @@
           "type": "boolean",
           "format": "boolean"
         },
-        "tampered": {
-          "type": "boolean",
-          "format": "boolean"
+        "tamperedAt": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },

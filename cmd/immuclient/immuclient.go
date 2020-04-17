@@ -625,11 +625,20 @@ secondRoot: %x at index: %d
 
 				ctx := context.Background()
 				immuClient := getImmuClient(cmd)
-				_, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					return nil, immuClient.HealthCheck(ctx)
+				r, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.HealthCheck(ctx)
 				})
 				if err != nil {
 					c.QuitWithUserError(err)
+				}
+				hr := r.(*schema.HealthResponse)
+				if !hr.Status {
+					fmt.Println(client.ErrHealthCheckFailed)
+					return nil
+				}
+				if hr.TamperedAt > 0 {
+					fmt.Println(client.ErrHealthCheckTampered(hr.TamperedAt))
+					return nil
 				}
 				fmt.Println("Health check OK")
 				return nil

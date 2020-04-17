@@ -18,11 +18,17 @@ package client
 
 import (
 	"errors"
+	"fmt"
+	"time"
 )
 
 var (
-	ErrAlreadyConnected    = errors.New("already connected")
-	ErrNotConnected        = errors.New("not connected")
-	ErrHealthCheckFailed   = errors.New("health check failed")
-	ErrHealthCheckTampered = errors.New("health check OK, but database may be tampered")
+	ErrAlreadyConnected  = errors.New("already connected")
+	ErrNotConnected      = errors.New("not connected")
+	ErrHealthCheckFailed = errors.New("health check failed")
 )
+
+func ErrHealthCheckTampered(ts uint64) error {
+	t := time.Unix(int64(ts), 0)
+	return fmt.Errorf("health check OK, but database may have been tampered at %v", t)
+}

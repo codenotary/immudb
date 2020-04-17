@@ -102,18 +102,28 @@ func (c *ImmuClient) connectWithRetry(ctx context.Context) (err error) {
 	return err
 }
 
-func (c *ImmuClient) waitForHealthCheck(ctx context.Context) (err error) {
+func (c *ImmuClient) waitForHealthCheck(ctx context.Context) error {
+	var hr *schema.HealthResponse
+	var err error
 	for i := 0; i < c.Options.HealthCheckRetries+1; i++ {
-		if err = c.HealthCheck(ctx); err == nil {
-			c.Logger.Debugf("health check succeeded %v", c.Options)
-			return nil
+		hr, err = c.HealthCheck(ctx)
+		if err == nil {
+			if hr.Status {
+				if hr.TamperedAt > 0 {
+					c.Logger.Warningf(ErrHealthCheckTampered(hr.TamperedAt).Error())
+				} else {
+					c.Logger.Debugf("health check succeeded %v", c.Options)
+				}
+				return nil
+			}
+			err = ErrHealthCheckFailed
 		}
-		// c.Logger.Errorf("health check failed: %v", err)
+		c.Logger.Debugf("health check failed: %v", err)
 		if c.Options.HealthCheckRetries > 0 {
 			time.Sleep(time.Second)
 		}
 	}
-	return fmt.Errorf("error: %v", err)
+	return err
 }
 
 func (c *ImmuClient) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
@@ -719,23 +729,17 @@ func (c *ImmuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, er
 //	return counter, errorsMerged
 //}
 
-func (c *ImmuClient) HealthCheck(ctx context.Context) error {
+func (c *ImmuClient) HealthCheck(ctx context.Context) (*schema.HealthResponse, error) {
 	start := time.Now()
 	if !c.isConnected() {
-		return ErrNotConnected
+		return nil, ErrNotConnected
 	}
 	response, err := c.serviceClient.Health(ctx, &empty.Empty{})
 	if err != nil {
-		return err
-	}
-	if !response.Status {
-		return ErrHealthCheckFailed
-	}
-	if response.Tampered {
-		return ErrHealthCheckTampered
+		return nil, err
 	}
 	c.Logger.Debugf("health-check finished in %s", time.Since(start))
-	return nil
+	return response, nil
 }
 
 // todo(joe-dz): Enable restore when the feature is required again.
