@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -419,7 +418,7 @@ func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions)
 	return s.Store.SafeZAdd(*opts)
 }
 
-func (s *ImmuServer) Backup(in *empty.Empty, stream schema.ImmuService_BackupServer) error {
+func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 	kvChan := make(chan *pb.KVList)
 	done := make(chan bool)
 
@@ -436,44 +435,46 @@ func (s *ImmuServer) Backup(in *empty.Empty, stream schema.ImmuService_BackupSer
 	}
 
 	go retrieveLists()
-	err := s.Store.Backup(kvChan)
+	err := s.Store.Dump(kvChan)
 	<-done
 
-	s.Logger.Debugf("Backup stream complete")
+	s.Logger.Debugf("Dump stream complete")
 	return err
 }
 
-func (s *ImmuServer) Restore(stream schema.ImmuService_RestoreServer) (err error) {
-	kvChan := make(chan *pb.KVList)
-	errs := make(chan error, 1)
-
-	sendLists := func() {
-		defer func() {
-			close(errs)
-			close(kvChan)
-		}()
-		for {
-			list, err := stream.Recv()
-			kvChan <- list
-			if err == io.EOF {
-				return
-			}
-			if err != nil {
-				errs <- err
-				return
-			}
-		}
-	}
-
-	go sendLists()
-
-	i, err := s.Store.Restore(kvChan)
-
-	ic := &schema.ItemsCount{
-		Count: i,
-	}
-	return stream.SendAndClose(ic)
-}
+// todo(joe-dz): Enable restore when the feature is required again.
+// Also, make sure that the generated files are updated
+//func (s *ImmuServer) Restore(stream schema.ImmuService_RestoreServer) (err error) {
+//	kvChan := make(chan *pb.KVList)
+//	errs := make(chan error, 1)
+//
+//	sendLists := func() {
+//		defer func() {
+//			close(errs)
+//			close(kvChan)
+//		}()
+//		for {
+//			list, err := stream.Recv()
+//			kvChan <- list
+//			if err == io.EOF {
+//				return
+//			}
+//			if err != nil {
+//				errs <- err
+//				return
+//			}
+//		}
+//	}
+//
+//	go sendLists()
+//
+//	i, err := s.Store.Restore(kvChan)
+//
+//	ic := &schema.ItemsCount{
+//		Count: i,
+//	}
+//	return stream.SendAndClose(ic)
+//}
 
 func (s *ImmuServer) installShutdownHandler() {
 	c := make(chan os.Signal)

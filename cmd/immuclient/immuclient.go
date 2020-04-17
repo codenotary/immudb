@@ -637,8 +637,8 @@ secondRoot: %x at index: %d
 			Args: cobra.NoArgs,
 		},
 		&cobra.Command{
-			Use:     "backup [filename]",
-			Short:   "Save a backup to the specified filename (optional)",
+			Use:     "dump [filename]",
+			Short:   "Save a database dump to the specified filename (optional)",
 			Aliases: []string{"b"},
 			RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -654,7 +654,7 @@ secondRoot: %x at index: %d
 				ctx := context.Background()
 				immuClient := getImmuClient(cmd)
 				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					return immuClient.Backup(ctx, file)
+					return immuClient.Dump(ctx, file)
 				})
 				if err != nil {
 					c.QuitWithUserError(err)
@@ -664,32 +664,34 @@ secondRoot: %x at index: %d
 			},
 			Args: cobra.MaximumNArgs(1),
 		},
-		&cobra.Command{
-			Use:     "restore filename",
-			Short:   "Restore a backup from the specified filename",
-			Aliases: []string{"rb"},
-			RunE: func(cmd *cobra.Command, args []string) error {
-				file, err := os.Open(args[0])
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				defer file.Close()
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				ctx := context.Background()
-				immuClient := getImmuClient(cmd)
-				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					return immuClient.Restore(ctx, file, 500)
-				})
-				if err != nil {
-					c.QuitWithUserError(err)
-				}
-				fmt.Printf("SUCCESS: %d key-value entries were restored from file %s\n", response.(int64), args[0])
-				return nil
-			},
-			Args: cobra.ExactArgs(1),
-		},
+		// todo(joe-dz): Enable restore when the feature is required again.
+		// Also, make sure that the generated files are updated
+		//&cobra.Command{
+		//	Use:     "restore filename",
+		//	Short:   "Restore a backup from the specified filename",
+		//	Aliases: []string{"rb"},
+		//	RunE: func(cmd *cobra.Command, args []string) error {
+		//		file, err := os.Open(args[0])
+		//		if err != nil {
+		//			c.QuitToStdErr(err)
+		//		}
+		//		defer file.Close()
+		//		if err != nil {
+		//			c.QuitToStdErr(err)
+		//		}
+		//		ctx := context.Background()
+		//		immuClient := getImmuClient(cmd)
+		//		response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+		//			return immuClient.Restore(ctx, file, 500)
+		//		})
+		//		if err != nil {
+		//			c.QuitWithUserError(err)
+		//		}
+		//		fmt.Printf("SUCCESS: %d key-value entries were restored from file %s\n", response.(int64), args[0])
+		//		return nil
+		//	},
+		//	Args: cobra.ExactArgs(1),
+		//},
 	}
 
 	if err := configureOptions(cmd); err != nil {

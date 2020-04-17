@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -600,8 +599,8 @@ func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 		nil
 }
 
-// Backup to be used from Immu CLI
-func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteSeeker) (int64, error) {
+// Dump to be used from Immu CLI
+func (c *ImmuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
 	start := time.Now()
 
 	var counter int64
@@ -610,7 +609,7 @@ func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteSeeker) (int64, 
 		return counter, ErrNotConnected
 	}
 
-	bkpClient, err := c.serviceClient.Backup(ctx, &empty.Empty{})
+	bkpClient, err := c.serviceClient.Dump(ctx, &empty.Empty{})
 	if err != nil {
 		return counter, err
 	}
@@ -647,76 +646,78 @@ func (c *ImmuClient) Backup(ctx context.Context, writer io.WriteSeeker) (int64, 
 		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t- "))
 	}
 
-	c.Logger.Debugf("backup finished in %s", time.Since(start))
+	c.Logger.Debugf("dump finished in %s", time.Since(start))
 
 	return counter, errorsMerged
 }
 
+// todo(joe-dz): Enable restore when the feature is required again.
+// Also, make sure that the generated files are updated
 // Restore to be used from Immu CLI
-func (c *ImmuClient) Restore(ctx context.Context, reader io.ReadSeeker, chunkSize int) (int64, error) {
-	start := time.Now()
-
-	var entryCounter int64
-	var counter int64
-
-	if !c.isConnected() {
-		return counter, ErrNotConnected
-	}
-
-	var errs []string
-	var offset int64
-	kvList := new(pb.KVList)
-	for {
-		lineBytes, o, err := readSeek(reader, offset)
-		if err == io.EOF {
-			break
-		}
-		entryCounter++
-		offset = o
-		if err != nil {
-			errs = append(errs, fmt.Sprintf("error reading file entry %d: %v", entryCounter, err))
-			continue
-		}
-		if len(lineBytes) <= 1 {
-			continue
-		}
-		kv := new(pb.KV)
-		err = proto.Unmarshal(lineBytes, kv)
-		if err != nil {
-			errs = append(errs, fmt.Sprintf("error unmarshaling to key-value the file entry %d: %v", entryCounter, err))
-			continue
-		}
-
-		kvList.Kv = append(kvList.Kv, kv)
-		if len(kvList.Kv) == chunkSize {
-			if err := c.restoreChunk(ctx, kvList); err != nil {
-				errs = append(errs, err.Error())
-			} else {
-				counter += int64(len(kvList.Kv))
-			}
-			kvList.Kv = []*pb.KV{}
-		}
-	}
-
-	if len(kvList.Kv) > 0 {
-		if err := c.restoreChunk(ctx, kvList); err != nil {
-			errs = append(errs, err.Error())
-		} else {
-			counter += int64(len(kvList.Kv))
-		}
-		kvList.Kv = []*pb.KV{}
-	}
-
-	var errorsMerged error
-	if len(errs) > 0 {
-		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t"))
-		c.Logger.Errorf("restore terminated with errors. %v", errorsMerged)
-	} else {
-		c.Logger.Infof("restore finished restoring %d of %d entries in %s", counter, entryCounter, time.Since(start))
-	}
-
-	return counter, errorsMerged
-}
+//func (c *ImmuClient) Restore(ctx context.Context, reader io.ReadSeeker, chunkSize int) (int64, error) {
+//	start := time.Now()
+//
+//	var entryCounter int64
+//	var counter int64
+//
+//	if !c.isConnected() {
+//		return counter, ErrNotConnected
+//	}
+//
+//	var errs []string
+//	var offset int64
+//	kvList := new(pb.KVList)
+//	for {
+//		lineBytes, o, err := readSeek(reader, offset)
+//		if err == io.EOF {
+//			break
+//		}
+//		entryCounter++
+//		offset = o
+//		if err != nil {
+//			errs = append(errs, fmt.Sprintf("error reading file entry %d: %v", entryCounter, err))
+//			continue
+//		}
+//		if len(lineBytes) <= 1 {
+//			continue
+//		}
+//		kv := new(pb.KV)
+//		err = proto.Unmarshal(lineBytes, kv)
+//		if err != nil {
+//			errs = append(errs, fmt.Sprintf("error unmarshaling to key-value the file entry %d: %v", entryCounter, err))
+//			continue
+//		}
+//
+//		kvList.Kv = append(kvList.Kv, kv)
+//		if len(kvList.Kv) == chunkSize {
+//			if err := c.restoreChunk(ctx, kvList); err != nil {
+//				errs = append(errs, err.Error())
+//			} else {
+//				counter += int64(len(kvList.Kv))
+//			}
+//			kvList.Kv = []*pb.KV{}
+//		}
+//	}
+//
+//	if len(kvList.Kv) > 0 {
+//		if err := c.restoreChunk(ctx, kvList); err != nil {
+//			errs = append(errs, err.Error())
+//		} else {
+//			counter += int64(len(kvList.Kv))
+//		}
+//		kvList.Kv = []*pb.KV{}
+//	}
+//
+//	var errorsMerged error
+//	if len(errs) > 0 {
+//		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t"))
+//		c.Logger.Errorf("restore terminated with errors. %v", errorsMerged)
+//	} else {
+//		c.Logger.Infof("restore finished restoring %d of %d entries in %s", counter, entryCounter, time.Since(start))
+//	}
+//
+//	return counter, errorsMerged
+//}
 
 func (c *ImmuClient) HealthCheck(ctx context.Context) error {
 	start := time.Now()
@@ -734,22 +735,24 @@ func (c *ImmuClient) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error {
-	kvListLen := len(kvList.Kv)
-	kvListStr := fmt.Sprintf("%+v", kvList)
-	restoreClient, err := c.serviceClient.Restore(ctx)
-	if err != nil {
-		c.Logger.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: error getting restore client: %v", kvListLen, kvListStr, err)
-		return err
-	}
-	defer restoreClient.CloseAndRecv()
-	err = restoreClient.Send(kvList)
-	if err != nil {
-		c.Logger.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: %v", kvListLen, kvListStr, err)
-		return err
-	}
-	return nil
-}
+// todo(joe-dz): Enable restore when the feature is required again.
+// Also, make sure that the generated files are updated
+//func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error {
+//	kvListLen := len(kvList.Kv)
+//	kvListStr := fmt.Sprintf("%+v", kvList)
+//	restoreClient, err := c.serviceClient.Restore(ctx)
+//	if err != nil {
+//		c.Logger.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: error getting restore client: %v", kvListLen, kvListStr, err)
+//		return err
+//	}
+//	defer restoreClient.CloseAndRecv()
+//	err = restoreClient.Send(kvList)
+//	if err != nil {
+//		c.Logger.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: %v", kvListLen, kvListStr, err)
+//		return err
+//	}
+//	return nil
+//}
 
 func writeSeek(w io.WriteSeeker, msg []byte, offset int64) (int64, error) {
 	buf := make([]byte, 4)

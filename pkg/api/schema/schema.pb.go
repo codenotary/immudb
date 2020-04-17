@@ -1787,8 +1787,7 @@ type ImmuServiceClient interface {
 	ZScan(ctx context.Context, in *ZScanOptions, opts ...grpc.CallOption) (*ItemList, error)
 	ZScanSV(ctx context.Context, in *ZScanOptions, opts ...grpc.CallOption) (*StructuredItemList, error)
 	SafeZAdd(ctx context.Context, in *SafeZAddOptions, opts ...grpc.CallOption) (*Proof, error)
-	Backup(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (ImmuService_BackupClient, error)
-	Restore(ctx context.Context, opts ...grpc.CallOption) (ImmuService_RestoreClient, error)
+	Dump(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (ImmuService_DumpClient, error)
 }
 
 type immuServiceClient struct {
@@ -2069,12 +2068,12 @@ func (c *immuServiceClient) SafeZAdd(ctx context.Context, in *SafeZAddOptions, o
 	return out, nil
 }
 
-func (c *immuServiceClient) Backup(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (ImmuService_BackupClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[0], "/immudb.schema.ImmuService/Backup", opts...)
+func (c *immuServiceClient) Dump(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (ImmuService_DumpClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[0], "/immudb.schema.ImmuService/Dump", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &immuServiceBackupClient{stream}
+	x := &immuServiceDumpClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -2084,51 +2083,17 @@ func (c *immuServiceClient) Backup(ctx context.Context, in *empty.Empty, opts ..
 	return x, nil
 }
 
-type ImmuService_BackupClient interface {
+type ImmuService_DumpClient interface {
 	Recv() (*pb.KVList, error)
 	grpc.ClientStream
 }
 
-type immuServiceBackupClient struct {
+type immuServiceDumpClient struct {
 	grpc.ClientStream
 }
 
-func (x *immuServiceBackupClient) Recv() (*pb.KVList, error) {
+func (x *immuServiceDumpClient) Recv() (*pb.KVList, error) {
 	m := new(pb.KVList)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *immuServiceClient) Restore(ctx context.Context, opts ...grpc.CallOption) (ImmuService_RestoreClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[1], "/immudb.schema.ImmuService/Restore", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &immuServiceRestoreClient{stream}
-	return x, nil
-}
-
-type ImmuService_RestoreClient interface {
-	Send(*pb.KVList) error
-	CloseAndRecv() (*ItemsCount, error)
-	grpc.ClientStream
-}
-
-type immuServiceRestoreClient struct {
-	grpc.ClientStream
-}
-
-func (x *immuServiceRestoreClient) Send(m *pb.KVList) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *immuServiceRestoreClient) CloseAndRecv() (*ItemsCount, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(ItemsCount)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -2167,8 +2132,7 @@ type ImmuServiceServer interface {
 	ZScan(context.Context, *ZScanOptions) (*ItemList, error)
 	ZScanSV(context.Context, *ZScanOptions) (*StructuredItemList, error)
 	SafeZAdd(context.Context, *SafeZAddOptions) (*Proof, error)
-	Backup(*empty.Empty, ImmuService_BackupServer) error
-	Restore(ImmuService_RestoreServer) error
+	Dump(*empty.Empty, ImmuService_DumpServer) error
 }
 
 // UnimplementedImmuServiceServer can be embedded to have forward compatible implementations.
@@ -2265,11 +2229,8 @@ func (*UnimplementedImmuServiceServer) ZScanSV(ctx context.Context, req *ZScanOp
 func (*UnimplementedImmuServiceServer) SafeZAdd(ctx context.Context, req *SafeZAddOptions) (*Proof, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SafeZAdd not implemented")
 }
-func (*UnimplementedImmuServiceServer) Backup(req *empty.Empty, srv ImmuService_BackupServer) error {
-	return status.Errorf(codes.Unimplemented, "method Backup not implemented")
-}
-func (*UnimplementedImmuServiceServer) Restore(srv ImmuService_RestoreServer) error {
-	return status.Errorf(codes.Unimplemented, "method Restore not implemented")
+func (*UnimplementedImmuServiceServer) Dump(req *empty.Empty, srv ImmuService_DumpServer) error {
+	return status.Errorf(codes.Unimplemented, "method Dump not implemented")
 }
 
 func RegisterImmuServiceServer(s *grpc.Server, srv ImmuServiceServer) {
@@ -2816,51 +2777,25 @@ func _ImmuService_SafeZAdd_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_Backup_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _ImmuService_Dump_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(empty.Empty)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ImmuServiceServer).Backup(m, &immuServiceBackupServer{stream})
+	return srv.(ImmuServiceServer).Dump(m, &immuServiceDumpServer{stream})
 }
 
-type ImmuService_BackupServer interface {
+type ImmuService_DumpServer interface {
 	Send(*pb.KVList) error
 	grpc.ServerStream
 }
 
-type immuServiceBackupServer struct {
+type immuServiceDumpServer struct {
 	grpc.ServerStream
 }
 
-func (x *immuServiceBackupServer) Send(m *pb.KVList) error {
+func (x *immuServiceDumpServer) Send(m *pb.KVList) error {
 	return x.ServerStream.SendMsg(m)
-}
-
-func _ImmuService_Restore_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ImmuServiceServer).Restore(&immuServiceRestoreServer{stream})
-}
-
-type ImmuService_RestoreServer interface {
-	SendAndClose(*ItemsCount) error
-	Recv() (*pb.KVList, error)
-	grpc.ServerStream
-}
-
-type immuServiceRestoreServer struct {
-	grpc.ServerStream
-}
-
-func (x *immuServiceRestoreServer) SendAndClose(m *ItemsCount) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *immuServiceRestoreServer) Recv() (*pb.KVList, error) {
-	m := new(pb.KVList)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 var _ImmuService_serviceDesc = grpc.ServiceDesc{
@@ -2990,14 +2925,9 @@ var _ImmuService_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Backup",
-			Handler:       _ImmuService_Backup_Handler,
+			StreamName:    "Dump",
+			Handler:       _ImmuService_Dump_Handler,
 			ServerStreams: true,
-		},
-		{
-			StreamName:    "Restore",
-			Handler:       _ImmuService_Restore_Handler,
-			ClientStreams: true,
 		},
 	},
 	Metadata: "schema.proto",

@@ -549,7 +549,7 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 	return
 }
 
-func (t *Store) Backup(kvChan chan *pb.KVList) (err error) {
+func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
 	defer t.tree.Unlock()
 	t.tree.Lock()
 	t.tree.flush()
