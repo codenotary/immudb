@@ -68,8 +68,8 @@ Environment variables:
 	}
 	commands := []*cobra.Command{
 		&cobra.Command{
-			Use:     "login username \"password\"",
-			Short:   fmt.Sprintf("Login using the specified username and \"password\" (username is \"%s\")", auth.AdminUser.Username),
+			Use:     "login username 'password'",
+			Short:   fmt.Sprintf("Login using the specified username and 'password' (username is '%s')", auth.AdminUser.Username),
 			Aliases: []string{"l"},
 			RunE: func(cmd *cobra.Command, args []string) error {
 				options, err := options(cmd)
@@ -701,6 +701,25 @@ secondRoot: %x at index: %d
 		//	},
 		//	Args: cobra.ExactArgs(1),
 		//},
+
+		&cobra.Command{
+			Use:     "tamperack",
+			Short:   "Clear the 'database may have been tampered' warning message",
+			Aliases: []string{"ta"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
+				_, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return nil, immuClient.AcknowledgeTampering(ctx)
+				})
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
+				fmt.Println("tampering acknowledged")
+				return nil
+			},
+			Args: cobra.NoArgs,
+		},
 	}
 
 	if err := configureOptions(cmd); err != nil {

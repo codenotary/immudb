@@ -384,4 +384,10 @@ service ImmuService {
 	//			body: "*"
 	//		};
 	//	}
+
+	rpc AcknowledgeTampering(google.protobuf.Empty) returns (google.protobuf.Empty){
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/acktampering"
+		};
+	};
 }

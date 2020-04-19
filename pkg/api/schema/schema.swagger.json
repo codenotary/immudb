@@ -11,6 +11,22 @@
     "application/json"
   ],
   "paths": {
+    "/v1/immurestproxy/acktampering": {
+      "get": {
+        "operationId": "AcknowledgeTampering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/batch/get": {
       "post": {
         "operationId": "GetBatch",

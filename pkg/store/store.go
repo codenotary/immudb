@@ -55,7 +55,7 @@ func (t *Store) SetTamperedAt(ts time.Time) {
 	t.tampered = true
 }
 
-func (t *Store) IgnoreTampering() {
+func (t *Store) AcknowledgeTampering() {
 	t.tampered = false
 }
 

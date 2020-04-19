@@ -494,6 +494,11 @@ func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer)
 //	return stream.SendAndClose(ic)
 //}
 
+func (s *ImmuServer) AcknowledgeTampering(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
+	s.Store.AcknowledgeTampering()
+	return &empty.Empty{}, nil
+}
+
 func (s *ImmuServer) installShutdownHandler() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)

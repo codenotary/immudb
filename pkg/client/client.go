@@ -742,6 +742,17 @@ func (c *ImmuClient) HealthCheck(ctx context.Context) (*schema.HealthResponse, e
 	return response, nil
 }
 
+func (c *ImmuClient) AcknowledgeTampering(ctx context.Context) error {
+	if !c.isConnected() {
+		return ErrNotConnected
+	}
+	_, err := c.serviceClient.AcknowledgeTampering(ctx, &empty.Empty{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // todo(joe-dz): Enable restore when the feature is required again.
 // Also, make sure that the generated files are updated
 //func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error {
