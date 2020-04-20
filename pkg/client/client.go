@@ -59,7 +59,7 @@ func (c *ImmuClient) Disconnect() error {
 	if err := c.clientConn.Close(); err != nil {
 		return err
 	}
-	c.serviceClient = nil
+	c.ServiceClient = nil
 	c.clientConn = nil
 	c.Logger.Debugf("disconnected %v in %s", c.Options, time.Since(start))
 	return nil
@@ -81,14 +81,14 @@ func (c *ImmuClient) Connected(ctx context.Context, f func() (interface{}, error
 }
 
 func (c *ImmuClient) isConnected() bool {
-	return c.clientConn != nil && c.serviceClient != nil
+	return c.clientConn != nil && c.ServiceClient != nil
 }
 
 func (c *ImmuClient) connectWithRetry(ctx context.Context) (err error) {
 	for i := 0; i < c.Options.DialRetries+1; i++ {
 		if c.clientConn, err = grpc.Dial(c.Options.Bind(), c.Options.DialOptions...); err == nil {
-			c.serviceClient = schema.NewImmuServiceClient(c.clientConn)
-			c.rootservice = NewRootService(c.serviceClient, cache.NewFileCache())
+			c.ServiceClient = schema.NewImmuServiceClient(c.clientConn)
+			c.rootservice = NewRootService(c.ServiceClient, cache.NewFileCache())
 			if _, err = c.rootservice.GetRoot(ctx); err == nil {
 				c.Logger.Debugf("dialed %v", c.Options)
 				return nil
@@ -121,7 +121,7 @@ func (c *ImmuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.Login(ctx, &schema.LoginRequest{
+	result, err := c.ServiceClient.Login(ctx, &schema.LoginRequest{
 		User:     user,
 		Password: pass,
 	})
@@ -134,7 +134,7 @@ func (c *ImmuClient) Get(ctx context.Context, key []byte) (*schema.StructuredIte
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	item, err := c.serviceClient.Get(ctx, &schema.Key{Key: key})
+	item, err := c.ServiceClient.Get(ctx, &schema.Key{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (c *ImmuClient) CurrentRoot(ctx context.Context) (*schema.Root, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	root, err := c.serviceClient.CurrentRoot(ctx, &empty.Empty{})
+	root, err := c.ServiceClient.CurrentRoot(ctx, &empty.Empty{})
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 		},
 	}
 
-	safeItem, err := c.serviceClient.SafeGet(ctx, sgOpts, opts...)
+	safeItem, err := c.ServiceClient.SafeGet(ctx, sgOpts, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (c *ImmuClient) Scan(ctx context.Context, prefix []byte) (*schema.Structure
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	list, err := c.serviceClient.Scan(ctx, &schema.ScanOptions{Prefix: prefix})
+	list, err := c.ServiceClient.Scan(ctx, &schema.ScanOptions{Prefix: prefix})
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func (c *ImmuClient) ZScan(ctx context.Context, set []byte) (*schema.StructuredI
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	list, err := c.serviceClient.ZScan(ctx, &schema.ZScanOptions{Set: set})
+	list, err := c.ServiceClient.ZScan(ctx, &schema.ZScanOptions{Set: set})
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (c *ImmuClient) IScan(ctx context.Context, pageNumber uint64, pageSize uint
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	page, err := c.serviceClient.IScan(ctx, &schema.IScanOptions{PageSize: pageSize, PageNumber: pageNumber})
+	page, err := c.ServiceClient.IScan(ctx, &schema.IScanOptions{PageSize: pageSize, PageNumber: pageNumber})
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +264,7 @@ func (c *ImmuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCou
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	return c.serviceClient.Count(ctx, &schema.KeyPrefix{Prefix: prefix})
+	return c.ServiceClient.Count(ctx, &schema.KeyPrefix{Prefix: prefix})
 }
 
 func (c *ImmuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.Index, error) {
@@ -277,7 +277,7 @@ func (c *ImmuClient) Set(ctx context.Context, key []byte, value []byte) (*schema
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.serviceClient.Set(ctx, kv)
+	result, err := c.ServiceClient.Set(ctx, kv)
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +317,7 @@ func (c *ImmuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*Ve
 
 	var metadata runtime.ServerMetadata
 
-	result, err := c.serviceClient.SafeSet(
+	result, err := c.ServiceClient.SafeSet(
 		ctx,
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
@@ -370,7 +370,7 @@ func (c *ImmuClient) SetBatch(ctx context.Context, request *BatchRequest) (*sche
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.serviceClient.SetBatch(ctx, list)
+	result, err := c.ServiceClient.SetBatch(ctx, list)
 	c.Logger.Debugf("set-batch finished in %s", time.Since(start))
 	return result, err
 }
@@ -385,7 +385,7 @@ func (c *ImmuClient) GetBatch(ctx context.Context, keys [][]byte) (*schema.Struc
 	for _, key := range keys {
 		keyList.Keys = append(keyList.Keys, &schema.Key{Key: key})
 	}
-	list, err := c.serviceClient.GetBatch(ctx, keyList)
+	list, err := c.ServiceClient.GetBatch(ctx, keyList)
 	c.Logger.Debugf("get-batch finished in %s", time.Since(start))
 	if err != nil {
 		return nil, err
@@ -399,7 +399,7 @@ func (c *ImmuClient) Inclusion(ctx context.Context, index uint64) (*schema.Inclu
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.Inclusion(ctx, &schema.Index{
+	result, err := c.ServiceClient.Inclusion(ctx, &schema.Index{
 		Index: index,
 	})
 	c.Logger.Debugf("inclusion finished in %s", time.Since(start))
@@ -412,7 +412,7 @@ func (c *ImmuClient) Consistency(ctx context.Context, index uint64) (*schema.Con
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.Consistency(ctx, &schema.Index{
+	result, err := c.ServiceClient.Consistency(ctx, &schema.Index{
 		Index: index,
 	})
 	c.Logger.Debugf("consistency finished in %s", time.Since(start))
@@ -425,7 +425,7 @@ func (c *ImmuClient) ByIndex(ctx context.Context, index uint64) (*schema.Structu
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	item, err := c.serviceClient.ByIndex(ctx, &schema.Index{
+	item, err := c.ServiceClient.ByIndex(ctx, &schema.Index{
 		Index: index,
 	})
 	if err != nil {
@@ -445,7 +445,7 @@ func (c *ImmuClient) History(ctx context.Context, key []byte) (*schema.Structure
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	list, err := c.serviceClient.History(ctx, &schema.Key{
+	list, err := c.ServiceClient.History(ctx, &schema.Key{
 		Key: key,
 	})
 	result, err := list.ToSItemList()
@@ -462,7 +462,7 @@ func (c *ImmuClient) Reference(ctx context.Context, reference []byte, key []byte
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.Reference(ctx, &schema.ReferenceOptions{
+	result, err := c.ServiceClient.Reference(ctx, &schema.ReferenceOptions{
 		Reference: reference,
 		Key:       key,
 	})
@@ -498,7 +498,7 @@ func (c *ImmuClient) SafeReference(ctx context.Context, reference []byte, key []
 
 	var metadata runtime.ServerMetadata
 
-	result, err := c.serviceClient.SafeReference(
+	result, err := c.ServiceClient.SafeReference(
 		ctx,
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -537,7 +537,7 @@ func (c *ImmuClient) ZAdd(ctx context.Context, set []byte, score float64, key []
 	if !c.isConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.serviceClient.ZAdd(ctx, &schema.ZAddOptions{
+	result, err := c.ServiceClient.ZAdd(ctx, &schema.ZAddOptions{
 		Set:   set,
 		Score: score,
 		Key:   key,
@@ -574,7 +574,7 @@ func (c *ImmuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 	}
 
 	var metadata runtime.ServerMetadata
-	result, err := c.serviceClient.SafeZAdd(
+	result, err := c.ServiceClient.SafeZAdd(
 		ctx,
 		opts,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
@@ -623,7 +623,7 @@ func (c *ImmuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, er
 		return counter, ErrNotConnected
 	}
 
-	bkpClient, err := c.serviceClient.Dump(ctx, &empty.Empty{})
+	bkpClient, err := c.ServiceClient.Dump(ctx, &empty.Empty{})
 	if err != nil {
 		return counter, err
 	}
@@ -738,7 +738,7 @@ func (c *ImmuClient) HealthCheck(ctx context.Context) error {
 	if !c.isConnected() {
 		return ErrNotConnected
 	}
-	response, err := c.serviceClient.Health(ctx, &empty.Empty{})
+	response, err := c.ServiceClient.Health(ctx, &empty.Empty{})
 	if err != nil {
 		return err
 	}
@@ -754,7 +754,7 @@ func (c *ImmuClient) HealthCheck(ctx context.Context) error {
 //func (c *ImmuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error {
 //	kvListLen := len(kvList.Kv)
 //	kvListStr := fmt.Sprintf("%+v", kvList)
-//	restoreClient, err := c.serviceClient.Restore(ctx)
+//	restoreClient, err := c.ServiceClient.Restore(ctx)
 //	if err != nil {
 //		c.Logger.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: error getting restore client: %v", kvListLen, kvListStr, err)
 //		return err

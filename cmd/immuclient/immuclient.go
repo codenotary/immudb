@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/cache"
 	"io"
 	"io/ioutil"
 	"os"
@@ -168,6 +169,131 @@ Environment variables:
 				return nil
 			},
 			Args: cobra.ExactArgs(1),
+		},
+		&cobra.Command{
+			Use:     "rawsafeget key",
+			Short:   "Get item having the specified key",
+			Aliases: []string{"rg"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+
+				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
+				rootService := client.NewRootService(immuClient.ServiceClient, cache.NewFileCache())
+				root, err := rootService.GetRoot(ctx)
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+
+				sgOpts := &schema.SafeGetOptions{
+					Key: key,
+					RootIndex: &schema.Index{
+						Index: root.Index,
+					},
+				}
+
+				safeItem, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.ServiceClient.SafeGet(ctx, sgOpts)
+				})
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
+				si := safeItem.(*schema.SafeItem)
+				h, err := si.Hash()
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
+				verified := si.Proof.Verify(h, *root)
+				if verified {
+					// saving a fresh root
+					tocache := new(schema.Root)
+					tocache.Index = si.Proof.At
+					tocache.Root = si.Proof.Root
+					err := rootService.SetRoot(tocache)
+					if err != nil {
+						c.QuitWithUserError(err)
+					}
+				}
+
+				vi := &client.VerifiedItem{
+					Key:      si.Item.GetKey(),
+					Value:    si.Item.Value,
+					Index:    si.Item.GetIndex(),
+					Verified: verified,
+				}
+				printItem(si.Item.GetKey(), si.Item.Value, vi)
+				return nil
+			},
+			Args: cobra.ExactArgs(1),
+		},
+		&cobra.Command{
+			Use:     "rawsafeset key",
+			Short:   "Set item having the specified key",
+			Aliases: []string{"rs"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+
+				key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				val, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
+				rootService := client.NewRootService(immuClient.ServiceClient, cache.NewFileCache())
+				root, err := rootService.GetRoot(ctx)
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+
+				opts := &schema.SafeSetOptions{
+					Kv: &schema.KeyValue{
+						Key:   key,
+						Value: val,
+					},
+					RootIndex: &schema.Index{
+						Index: root.Index,
+					},
+				}
+
+				proof, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.ServiceClient.SafeSet(ctx, opts)
+				})
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
+				p := proof.(*schema.Proof)
+				leaf := api.Digest(p.Index, key, val)
+				verified := p.Verify(leaf[:], *root)
+
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
+				if verified {
+					tocache := new(schema.Root)
+					tocache.Index = p.Index
+					tocache.Root = p.Root
+					err = rootService.SetRoot(tocache)
+					if err != nil {
+						c.QuitWithUserError(err)
+					}
+				}
+
+				vi := &client.VerifiedItem{
+					Key:      key,
+					Value:    val,
+					Index:    p.At,
+					Verified: verified,
+				}
+				printItem(vi.Key, vi.Value, vi)
+				return nil
+			},
+			Args: cobra.ExactArgs(2),
 		},
 		&cobra.Command{
 			Use:     "safeget key",
