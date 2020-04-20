@@ -19,6 +19,7 @@ package store
 import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -116,4 +117,60 @@ func TestStoreReferenceDeepScan(t *testing.T) {
 	assert.Equal(t, list.Items[1].Value, []byte(`item1`))
 	assert.Equal(t, list.Items[2].Key, []byte(`bbb`))
 	assert.Equal(t, list.Items[2].Value, []byte(`item2`))
+}
+
+func TestIScan(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	var zero []byte
+	zero = append(zero, byte(0))
+	idx, err := st.Set(schema.KeyValue{Key: zero, Value: []byte(`item0`)})
+	idx, err = st.Set(schema.KeyValue{Key: []byte(`0`), Value: []byte(`itemZERO`)})
+	idx, err = st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	idx, err = st.Set(schema.KeyValue{Key: []byte(`bbb`), Value: []byte(`item2`)})
+	idx, err = st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`aab`)})
+	idx, err = st.Reference(&schema.ReferenceOptions{Key: []byte(`bbb`), Reference: []byte(`abb`)})
+	idx, err = st.Set(schema.KeyValue{Key: []byte(`zzz`), Value: []byte(`itemzzz`)})
+
+	require.NoError(t, err)
+	require.IsType(t, uint64(0), idx.Index)
+
+	st.tree.WaitUntil(5)
+
+	deepScanOptions := schema.IScanOptions{
+		PageSize:   3,
+		PageNumber: 1,
+	}
+
+	page, err := st.IScan(deepScanOptions)
+
+	assert.NoError(t, err)
+	assert.Exactly(t, 3, len(page.Items))
+	assert.Equal(t, true, page.More)
+	assert.Equal(t, uint64(0), page.Items[0].Index)
+	assert.Equal(t, uint64(1), page.Items[1].Index)
+	assert.Equal(t, uint64(2), page.Items[2].Index)
+
+	deepScanOptions1 := schema.IScanOptions{
+		PageSize:   3,
+		PageNumber: 2,
+	}
+
+	page1, err1 := st.IScan(deepScanOptions1)
+
+	assert.NoError(t, err1)
+	assert.Exactly(t, 3, len(page1.Items))
+	assert.Equal(t, false, page1.More)
+	assert.Equal(t, uint64(3), page1.Items[0].Index)
+	assert.Equal(t, uint64(4), page1.Items[1].Index)
+	assert.Equal(t, uint64(5), page1.Items[2].Index)
+
+	deepScanOptions2 := schema.IScanOptions{
+		PageSize:   3,
+		PageNumber: 3,
+	}
+
+	_, err2 := st.IScan(deepScanOptions2)
+	assert.Error(t, ErrIndexNotFound, err2)
 }
