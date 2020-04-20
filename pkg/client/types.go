@@ -31,7 +31,7 @@ type ImmuClient struct {
 	Logger        logger.Logger
 	Options       Options
 	clientConn    *grpc.ClientConn
-	serviceClient schema.ImmuServiceClient
+	ServiceClient schema.ImmuServiceClient
 	rootservice   RootService
 	ts            TimestampService
 	sync.RWMutex
@@ -65,7 +65,7 @@ func (c *ImmuClient) WithClientConn(clientConn *grpc.ClientConn) *ImmuClient {
 }
 
 func (c *ImmuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *ImmuClient {
-	c.serviceClient = serviceClient
+	c.ServiceClient = serviceClient
 	return c
 }
 

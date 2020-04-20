@@ -508,3 +508,21 @@ func (t *Store) HealthCheck() bool {
 func (t *Store) DbSize() (int64, int64) {
 	return t.db.Size()
 }
+
+func (t *Store) fetchFromDb(key []byte) (*schema.Item, error) {
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
+	defer txn.Discard()
+	i, err := txn.Get(key)
+
+	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
+		var refkey []byte
+		err = i.Value(func(val []byte) error {
+			refkey = append([]byte{}, val...)
+			return nil
+		})
+		if ref, err := txn.Get(refkey); err == nil {
+			return itemToSchema(refkey, ref)
+		}
+	}
+	return nil, err
+}
