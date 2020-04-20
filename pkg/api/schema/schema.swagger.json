@@ -106,12 +106,6 @@
               },
               "title": "Stream result of pbKVList"
             }
-          },
-          "default": {
-            "description": "An unexpected error response",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
           }
         },
         "parameters": [
@@ -189,6 +183,32 @@
             "required": true,
             "type": "string",
             "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/iscan": {
+      "post": {
+        "operationId": "IScan",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaPage"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaIScanOptions"
+            }
           }
         ],
         "tags": [
@@ -702,6 +722,19 @@
         }
       }
     },
+    "schemaIScanOptions": {
+      "type": "object",
+      "properties": {
+        "pageSize": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "pageNumber": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "schemaInclusionProof": {
       "type": "object",
       "properties": {
@@ -831,6 +864,21 @@
         }
       }
     },
+    "schemaPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaItem"
+          }
+        },
+        "more": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
     "schemaProof": {
       "type": "object",
       "properties": {
@@ -889,6 +937,25 @@
         "root": {
           "type": "string",
           "format": "byte"
+        }
+      }
+    },
+    "schemaSPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaStructuredItem"
+          }
+        },
+        "pageNum": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "more": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },

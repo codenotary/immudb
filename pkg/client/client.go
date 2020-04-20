@@ -249,6 +249,17 @@ func (c *ImmuClient) ZScan(ctx context.Context, set []byte) (*schema.StructuredI
 	return list.ToSItemList()
 }
 
+func (c *ImmuClient) IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error) {
+	if !c.isConnected() {
+		return nil, ErrNotConnected
+	}
+	page, err := c.serviceClient.IScan(ctx, &schema.IScanOptions{PageSize: pageSize, PageNumber: pageNumber})
+	if err != nil {
+		return nil, err
+	}
+	return page.ToSPage()
+}
+
 func (c *ImmuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error) {
 	if !c.isConnected() {
 		return nil, ErrNotConnected

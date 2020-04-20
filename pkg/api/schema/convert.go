@@ -10,7 +10,7 @@ func Merge(payload []byte, timestamp uint64) (merged []byte, err error) {
 		Payload:   payload,
 		Timestamp: timestamp,
 	}
-	merged , err = proto.Marshal(c)
+	merged, err = proto.Marshal(c)
 	return merged, err
 }
 
@@ -35,7 +35,7 @@ func (item *Item) ToSItem() (*StructuredItem, error) {
 // ToItem return Item from the receiver
 func (item *StructuredItem) ToItem() (*Item, error) {
 	m, err := Merge(item.Value.Payload, item.Value.Timestamp)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	return &Item{
@@ -49,10 +49,10 @@ func (item *StructuredItem) ToItem() (*Item, error) {
 func (item *SafeItem) ToSafeSItem() (*SafeStructuredItem, error) {
 	i, err := item.Item.ToSItem()
 	return &SafeStructuredItem{
-		Item:  i,
-		Proof: item.Proof,
-	},
-	err
+			Item:  i,
+			Proof: item.Proof,
+		},
+		err
 }
 
 // ToSItemList return a StructuredItemList from the receiver
@@ -91,4 +91,16 @@ func (skvl *SKVList) ToKVList() (*KVList, error) {
 		kvl.KVs = append(kvl.KVs, m)
 	}
 	return kvl, nil
+}
+
+func (list *Page) ToSPage() (*SPage, error) {
+	slist := &SPage{}
+	for _, item := range list.Items {
+		i, err := item.ToSItem()
+		if err != nil {
+			return nil, err
+		}
+		slist.Items = append(slist.Items, i)
+	}
+	return slist, nil
 }

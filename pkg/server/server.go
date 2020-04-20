@@ -418,6 +418,21 @@ func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions)
 	return s.Store.SafeZAdd(*opts)
 }
 
+func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*schema.Page, error) {
+	s.Logger.Debugf("iscan %+v", *opts)
+	return s.Store.IScan(*opts)
+}
+
+func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
+	s.Logger.Debugf("zscan %+v", *opts)
+	page, err := s.Store.IScan(*opts)
+	SPage, err := page.ToSPage()
+	if err != nil {
+		return nil, err
+	}
+	return SPage, err
+}
+
 func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 	kvChan := make(chan *pb.KVList)
 	done := make(chan bool)

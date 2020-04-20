@@ -190,6 +190,22 @@ message ZScanOptions {
 	bool reverse = 4;
 }
 
+message IScanOptions {
+	uint64 pageSize = 1;
+	uint64 pageNumber = 2;
+}
+
+message Page {
+	repeated Item items = 1;
+	bool more = 3;
+}
+
+message SPage {
+	repeated StructuredItem items = 1;
+	uint64 pageNum  = 2;
+	bool more = 3;
+}
+
 message SafeZAddOptions {
 	ZAddOptions zopts = 1;
 	Index rootIndex = 2;
@@ -369,6 +385,15 @@ service ImmuService {
 			body: "*"
 		};
 	};
+
+	rpc IScan (IScanOptions) returns (Page){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/iscan"
+			body: "*"
+		};
+	};
+
+	rpc IScanSV (IScanOptions) returns (SPage){};
 
 	rpc Dump(google.protobuf.Empty) returns (stream pb.KVList) {
 		option (google.api.http) = {

@@ -115,6 +115,28 @@ Environment variables:
 			Args: cobra.ExactArgs(0),
 		},
 		&cobra.Command{
+			Use:     "getByIndex",
+			Short:   "Return an element by index",
+			Aliases: []string{"bi"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				index, err := strconv.ParseUint(args[0], 10, 64)
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.ByIndex(ctx, index)
+				})
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
+				printByIndex(response.(*schema.StructuredItem))
+				return nil
+			},
+			Args: cobra.ExactArgs(1),
+		},
+		&cobra.Command{
 			Use:     "logout",
 			Aliases: []string{"x"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -444,6 +466,35 @@ Environment variables:
 				return nil
 			},
 			Args: cobra.ExactArgs(1),
+		},
+		&cobra.Command{
+			Use:     "iscan pagenumber pagesize",
+			Short:   "Iterate over all elements by insertion order",
+			Aliases: []string{"iscn"},
+			RunE: func(cmd *cobra.Command, args []string) error {
+				pageNumber, err := strconv.ParseUint(args[0], 10, 64)
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				pageSize, err := strconv.ParseUint(args[1], 10, 64)
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				ctx := context.Background()
+				immuClient := getImmuClient(cmd)
+				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
+					return immuClient.IScan(ctx, pageNumber, pageSize)
+				})
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
+				for _, item := range response.(*schema.SPage).Items {
+					printItem(nil, nil, item)
+					fmt.Println()
+				}
+				return nil
+			},
+			Args: cobra.ExactArgs(2),
 		},
 		&cobra.Command{
 			Use:     "scan prefix",
@@ -872,4 +923,15 @@ func printRoot(root *schema.Root) {
 	fmt.Printf(`index:		%d
 hash:		%x
 `, root.Index, root.Root)
+}
+
+func printByIndex(item *schema.StructuredItem) {
+	dig, _ := item.Hash()
+	fmt.Printf(`index:		%d
+key:		%s
+value:		%s
+hash:		%x
+time:		%s
+`, item.Index, item.Key, item.Value, dig, time.Unix(int64(item.Value.Timestamp), 0))
+	return
 }
