@@ -1,14 +1,14 @@
 package server
 
 import (
-	"time"
+	"strconv"
 
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/fsnotify/fsnotify"
 )
 
-func setUpWatcher(s *store.Store, dbDir string, log logger.Logger) (*fsnotify.Watcher, error) {
+func setUpWatcher(s *store.Store, dbDir string, pid int, log logger.Logger) (*fsnotify.Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Warningf("failed to create fs watcher: %v", err)
@@ -21,13 +21,17 @@ func setUpWatcher(s *store.Store, dbDir string, log logger.Logger) (*fsnotify.Wa
 				if !ok {
 					return
 				}
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					now := time.Now()
-					if now.Sub(s.GetChangedAt()) > 1*time.Second {
-						s.SetTamperedAt(now)
-						log.Warningf("possible tampering detected on %s", event.Name)
-					}
+
+				// if event.Op&fsnotify.Write == fsnotify.Write {
+				tamperings, err := store.GetTamperings(dbDir, strconv.Itoa(pid), event.Name)
+				if err != nil {
+					log.Errorf("error detecting tampering on %s", event.Name)
 				}
+				if len(tamperings) > 0 {
+					s.AppendTamperings(tamperings...)
+					log.Warningf("possible tampering detected on %s:\n%+v", event.Name, tamperings)
+				}
+				// }
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return

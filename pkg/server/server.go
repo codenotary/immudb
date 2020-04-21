@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -123,13 +124,17 @@ func (s *ImmuServer) Start() error {
 		}
 	}
 
-	watcher, err := setUpWatcher(s.Store, dbDir, s.Logger)
-	if err == nil {
-		s.watcher = watcher
-		go func() {
-			time.Sleep(1 * time.Second)
-			addDirToWatcher(s.watcher, dbDir, s.Logger)
-		}()
+	if _, err := exec.LookPath("lsof"); err == nil {
+		watcher, err := setUpWatcher(s.Store, dbDir, os.Getpid(), s.Logger)
+		if err == nil {
+			s.watcher = watcher
+			go func() {
+				time.Sleep(1 * time.Second)
+				addDirToWatcher(s.watcher, dbDir, s.Logger)
+			}()
+		}
+	} else {
+		s.Logger.Warningf("db files watcher not started: lsof command not available on this OS")
 	}
 
 	err = s.GrpcServer.Serve(listener)
