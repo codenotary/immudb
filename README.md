@@ -19,7 +19,7 @@ Traditional transaction logs are hard to scale, and are not immutable. So there 
 As such immudb provides **unparalleled insights** **retro-actively**, of what happened to your sensitive data, even
 if your perimiter was compromised. immudb provides the guarantatee of immutability by using internally a **Merkle tree structure**.
 
-immudb gives you the same **cyrptographic verification** of the integrity of data written with **SHA-256** like classic blockhain without the cost and complexity associated with blockhains today.
+immudb gives you the same **cyrptographic verification** of the integrity of data written with **SHA-256** like classic blockhain without the cost and complexity associated with blockchains today.
 
 immudb has 4 main benefits:
 
