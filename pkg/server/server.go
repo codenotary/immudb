@@ -27,12 +27,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -86,6 +88,12 @@ func (s *ImmuServer) Start() error {
 		)
 	}
 
+	options = append(
+		options,
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
+
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
 		return err
@@ -108,6 +116,17 @@ func (s *ImmuServer) Start() error {
 
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
+	//===> !NOTE: See Histograms section here:
+	// https://github.com/grpc-ecosystem/go-grpc-prometheus
+	// TL;DR:
+	// Prometheus histograms are a great way to measure latency distributions of
+	// your RPCs. However, since it is bad practice to have metrics of high
+	// cardinality the latency monitoring metrics are disabled by default. To
+	// enable them please call the following in your server initialization code:
+	// TODO OGG: make sure this is enabled only when intended (see note above)
+	grpc_prometheus.EnableHandlingTimeHistogram()
+	//<===
+	grpc_prometheus.Register(s.GrpcServer)
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
 
@@ -159,6 +178,8 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 }
 
 func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.Root, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("CurentRoot", now)
 	root, err := s.Store.CurrentRoot()
 	if root != nil {
 		s.Logger.Debugf("current root: %d %x", root.Index, root.Root)
@@ -167,6 +188,8 @@ func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.R
 }
 
 func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Set", now)
 	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
 	item, err := s.Store.Set(*kv)
 	if err != nil {
@@ -176,6 +199,8 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 }
 
 func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) (*schema.Index, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SetSV", now)
 	kv, err := skv.ToKV()
 	if err != nil {
 		return nil, err
@@ -184,6 +209,8 @@ func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) 
 }
 
 func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SafeSet", now)
 	s.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
 	item, err := s.Store.SafeSet(*opts)
 	if err != nil {
@@ -193,6 +220,8 @@ func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (
 }
 
 func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SafeSetSV", now)
 	kv, err := sopts.Skv.ToKV()
 	if err != nil {
 		return nil, err
@@ -205,6 +234,8 @@ func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptio
 }
 
 func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SetBatch", now)
 	s.Logger.Debugf("set batch %d", len(kvl.KVs))
 	index, err := s.Store.SetBatch(*kvl)
 	if err != nil {
@@ -214,6 +245,8 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 }
 
 func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*schema.Index, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SetBatchSV", now)
 	kvl, err := skvl.ToKVList()
 	if err != nil {
 		return nil, err
@@ -222,6 +255,8 @@ func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*sch
 }
 
 func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Get", now)
 	item, err := s.Store.Get(*k)
 	if item == nil {
 		s.Logger.Debugf("get %s: item not found", k.Key)
@@ -235,6 +270,8 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 }
 
 func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("GetSV", now)
 	it, err := s.Get(ctx, k)
 	si, err := it.ToSItem()
 	if err != nil {
@@ -244,6 +281,8 @@ func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.Structur
 }
 
 func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SafeGet", now)
 	s.Logger.Debugf("safeget %s", opts.Key)
 	sitem, err := s.Store.SafeGet(*opts)
 	if err != nil {
@@ -253,6 +292,8 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 }
 
 func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SafeGetSV", now)
 	it, err := s.SafeGet(ctx, opts)
 	ssitem, err := it.ToSafeSItem()
 	if err != nil {
@@ -262,6 +303,8 @@ func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions)
 }
 
 func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("GetBatch", now)
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
 		item, err := s.Store.Get(*key)
@@ -277,6 +320,8 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 }
 
 func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("GetBatchSV", now)
 	list, err := s.GetBatch(ctx, kl)
 	slist, err := list.ToSItemList()
 	if err != nil {
@@ -286,11 +331,15 @@ func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schem
 }
 
 func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schema.ItemList, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Scan", now)
 	s.Logger.Debugf("scan %+v", *opts)
 	return s.Store.Scan(*opts)
 }
 
 func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("ScanSV", now)
 	s.Logger.Debugf("scan %+v", *opts)
 	list, err := s.Store.Scan(*opts)
 	slist, err := list.ToSItemList()
@@ -301,11 +350,15 @@ func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*sch
 }
 
 func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Count", now)
 	s.Logger.Debugf("count %s", prefix.Prefix)
 	return s.Store.Count(*prefix)
 }
 
 func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Inclusion", now)
 	s.Logger.Debugf("inclusion for index %d ", index.Index)
 	proof, err := s.Store.InclusionProof(*index)
 	if err != nil {
@@ -315,6 +368,8 @@ func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schem
 }
 
 func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*schema.ConsistencyProof, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Consistency", now)
 	s.Logger.Debugf("consistency for index %d ", index.Index)
 	proof, err := s.Store.ConsistencyProof(*index)
 	if err != nil {
@@ -324,6 +379,8 @@ func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*sch
 }
 
 func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("ByIndex", now)
 	s.Logger.Debugf("get by index %d ", index.Index)
 	item, err := s.Store.ByIndex(*index)
 	if err != nil {
@@ -333,6 +390,8 @@ func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.
 }
 
 func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schema.StructuredItem, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("ByIndexSV", now)
 	s.Logger.Debugf("get by index %d ", index.Index)
 	item, err := s.Store.ByIndex(*index)
 	if err != nil {
@@ -346,6 +405,8 @@ func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schem
 }
 
 func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("History", now)
 	s.Logger.Debugf("history for key %s ", string(key.Key))
 	list, err := s.Store.History(*key)
 	if err != nil {
@@ -355,6 +416,8 @@ func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.Item
 }
 
 func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.StructuredItemList, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("HistorySV", now)
 	s.Logger.Debugf("history for key %s ", string(key.Key))
 
 	list, err := s.Store.History(*key)
@@ -370,12 +433,16 @@ func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.St
 }
 
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Health", now)
 	health := s.Store.HealthCheck()
 	s.Logger.Debugf("health check: %v", health)
 	return &schema.HealthResponse{Status: health}, nil
 }
 
 func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Reference", now)
 	index, err = s.Store.Reference(refOpts)
 	if err != nil {
 		return nil, err
@@ -385,6 +452,8 @@ func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOpt
 }
 
 func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SafeReference", now)
 	proof, err = s.Store.SafeReference(*safeRefOpts)
 	if err != nil {
 		return nil, err
@@ -394,16 +463,22 @@ func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.Safe
 }
 
 func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("ZAdd", now)
 	s.Logger.Debugf("zadd %+v", *opts)
 	return s.Store.ZAdd(*opts)
 }
 
 func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("ZScan", now)
 	s.Logger.Debugf("zscan %+v", *opts)
 	return s.Store.ZScan(*opts)
 }
 
 func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("ZScanSV", now)
 	s.Logger.Debugf("zscan %+v", *opts)
 	list, err := s.Store.ZScan(*opts)
 	slist, err := list.ToSItemList()
@@ -414,6 +489,8 @@ func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*s
 }
 
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
+	now := time.Now()
+	defer Metrics.ObserveQuery("SafeZAdd", now)
 	s.Logger.Debugf("zadd %+v", *opts)
 	return s.Store.SafeZAdd(*opts)
 }
@@ -434,6 +511,8 @@ func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*s
 }
 
 func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
+	now := time.Now()
+	defer Metrics.ObserveQuery("Dump", now)
 	kvChan := make(chan *pb.KVList)
 	done := make(chan bool)
 
@@ -460,6 +539,8 @@ func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer)
 // todo(joe-dz): Enable restore when the feature is required again.
 // Also, make sure that the generated files are updated
 //func (s *ImmuServer) Restore(stream schema.ImmuService_RestoreServer) (err error) {
+//	now := time.Now()
+//	defer Metrics.ObserveQuery("Restore", now)
 //	kvChan := make(chan *pb.KVList)
 //	errs := make(chan error, 1)
 //

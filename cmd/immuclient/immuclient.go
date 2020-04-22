@@ -45,6 +45,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 )
 
 var o = c.Options{}
@@ -931,7 +932,13 @@ func options(cmd *cobra.Command) (*client.Options, error) {
 		WithPort(port).
 		WithAddress(address).
 		WithAuth(authEnabled).
-		WithDialOptions(false, grpc.WithInsecure())
+		WithDialOptions(
+			false,
+			grpc.WithInsecure(),
+			// TODO OGG: the client metrics produced by these will have to be retrieved somehow
+			grpc.WithUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
+			grpc.WithStreamInterceptor(grpc_prometheus.StreamClientInterceptor),
+		)
 	if authEnabled {
 		tokenBytes, err := ioutil.ReadFile(tokenFilename)
 		if err == nil {
@@ -943,7 +950,6 @@ func options(cmd *cobra.Command) (*client.Options, error) {
 			)
 		}
 	}
-
 	return &options, nil
 }
 

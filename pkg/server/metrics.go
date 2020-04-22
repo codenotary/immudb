@@ -19,11 +19,56 @@ package server
 import (
 	"expvar"
 	"net/http"
+	"strings"
+	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+type MetricsCollection struct {
+	QuerySummaries *prometheus.SummaryVec
+}
+
+func (mc *MetricsCollection) ObserveQuery(name string, start time.Time) {
+	mc.QuerySummaries.WithLabelValues(name).Observe(float64(time.Since(start).Microseconds()))
+}
+
+func (mc *MetricsCollection) String() string {
+	metricFamilies, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		return err.Error()
+	}
+	if len(metricFamilies) < 1 {
+		return "<empty>"
+	}
+	metrics := []string{}
+	for _, metricFamily := range metricFamilies {
+		metrics = append(metrics, proto.MarshalTextString(metricFamily))
+	}
+	return strings.Join(metrics, "\n\n")
+}
+
+var Metrics MetricsCollection
+
+func initImmuDBMetrics() {
+	Metrics = MetricsCollection{
+		QuerySummaries: promauto.NewSummaryVec(
+			prometheus.SummaryOpts{
+				Namespace:  "immudb",
+				Subsystem:  "query",
+				Name:       "duration",
+				Help:       "A summary of the ImmuDB query durations in microseconds.",
+				Objectives: map[float64]float64{0: 0.001, 0.25: 0.001, 0.5: 0.001, 0.75: 0.001, 1: 0.001},
+			},
+			[]string{"for"},
+		),
+	}
+}
 
 func init() {
 	http.Handle("/metrics", promhttp.Handler())
@@ -43,6 +88,7 @@ func init() {
 		"badger_lsm_level_gets_total": prometheus.NewDesc("immudb_lsm_level_gets_total", "LSM Level Gets", []string{"level"}, nil),
 	})
 	prometheus.MustRegister(expvarCollector)
+	initImmuDBMetrics()
 }
 
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
