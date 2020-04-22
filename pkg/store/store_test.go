@@ -505,6 +505,131 @@ func TestInsertionOrderIndexTamperGuard(t *testing.T) {
 	assert.Errorf(t, err, fmt.Sprintf("Insertion ored index %d was tampered", ts))
 }
 
+func TestInsertionOrderIndexMix(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	key1 := []byte(`myFirstElementKey`)
+	val1 := []byte(`firstValue`)
+	key2 := []byte(`mySecondElementKey`)
+	val2 := []byte(`secondValue`)
+	key3 := []byte(`myThirdElementKey`)
+	val3 := []byte(`thirdValue`)
+
+	val4 := []byte(`444`)
+	val5 := []byte(`555`)
+	val6 := []byte(`666`)
+
+	firstTag := []byte(`firstTag`)
+	secondTag := []byte(`secondTag`)
+
+	index1, _ := st.Set(schema.KeyValue{Key: key1, Value: val1})
+	index2, _ := st.Set(schema.KeyValue{Key: key2, Value: val2})
+	index3, _ := st.Set(schema.KeyValue{Key: key3, Value: val3})
+
+	index4, _ := st.Set(schema.KeyValue{Key: key3, Value: val4})
+	index5, _ := st.Set(schema.KeyValue{Key: key3, Value: val5})
+	index6, _ := st.Set(schema.KeyValue{Key: key3, Value: val6})
+
+	ref1 := schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{
+			Reference: firstTag,
+			Key:       key1,
+		},
+	}
+
+	proof, err := st.SafeReference(ref1)
+
+	ref2 := schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{
+			Reference: secondTag,
+			Key:       key3,
+		},
+		RootIndex: &schema.Index{
+			Index: proof.Index,
+		},
+	}
+
+	st.SafeReference(ref2)
+
+	st.tree.WaitUntil(7)
+	item1, err := st.ByIndex(*index1)
+	assert.NoError(t, err)
+	assert.Equal(t, item1.Index, index1.Index)
+	assert.Equal(t, key1, item1.Key)
+	assert.Equal(t, val1, item1.Value)
+
+	item2, err := st.ByIndex(*index2)
+	assert.NoError(t, err)
+	assert.Equal(t, item2.Index, item2.Index)
+	assert.Equal(t, key2, item2.Key)
+	assert.Equal(t, val2, item2.Value)
+
+	item3, err := st.ByIndex(*index3)
+	assert.NoError(t, err)
+	assert.Equal(t, index3.Index, item3.Index)
+	assert.Equal(t, key3, item3.Key)
+	assert.Equal(t, val3, item3.Value)
+
+	item3v2, err := st.ByIndex(*index4)
+	assert.NoError(t, err)
+	assert.Equal(t, index4.Index, item3v2.Index)
+	assert.Equal(t, key3, item3v2.Key)
+	assert.Equal(t, val4, item3v2.Value)
+	item3v4, err := st.ByIndex(*index5)
+	assert.NoError(t, err)
+	assert.Equal(t, index5.Index, item3v4.Index)
+	assert.Equal(t, key3, item3v4.Key)
+	assert.Equal(t, val5, item3v4.Value)
+	item3v5, err := st.ByIndex(*index6)
+	assert.NoError(t, err)
+	assert.Equal(t, index6.Index, item3v5.Index)
+	assert.Equal(t, key3, item3v5.Key)
+	assert.Equal(t, val6, item3v5.Value)
+	//flushing and empty cache
+	st.tree.Close()
+	st.tree.makeCaches()
+
+	item1, err = st.ByIndex(*index1)
+	assert.NoError(t, err)
+	assert.Equal(t, item1.Index, index1.Index)
+	assert.Equal(t, key1, item1.Key)
+	assert.Equal(t, val1, item1.Value)
+
+	item2, err = st.ByIndex(*index2)
+	assert.NoError(t, err)
+	assert.Equal(t, item2.Index, item2.Index)
+	assert.Equal(t, key2, item2.Key)
+	assert.Equal(t, val2, item2.Value)
+
+	item3, err = st.ByIndex(*index3)
+	assert.NoError(t, err)
+	assert.Equal(t, item3.Index, item3.Index)
+	assert.Equal(t, key3, item3.Key)
+	assert.Equal(t, val3, item3.Value)
+
+	item3v2, err = st.ByIndex(*index4)
+	assert.NoError(t, err)
+	assert.Equal(t, index4.Index, item3v2.Index)
+	assert.Equal(t, key3, item3v2.Key)
+	assert.Equal(t, val4, item3v2.Value)
+	item3v4, err = st.ByIndex(*index5)
+	assert.NoError(t, err)
+	assert.Equal(t, index5.Index, item3v4.Index)
+	assert.Equal(t, key3, item3v4.Key)
+	assert.Equal(t, val5, item3v4.Value)
+	item3v5, err = st.ByIndex(*index6)
+	assert.NoError(t, err)
+	assert.Equal(t, index6.Index, item3v5.Index)
+	assert.Equal(t, key3, item3v5.Key)
+	assert.Equal(t, val6, item3v5.Value)
+
+	_, err = st.ByIndex(schema.Index{
+		Index: 99,
+	})
+	assert.Error(t, err, ErrIndexNotFound)
+}
+
 func BenchmarkStoreSet(b *testing.B) {
 	st, closer := makeStore()
 	defer closer()

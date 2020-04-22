@@ -227,19 +227,19 @@ func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err er
 }
 
 func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err error) {
-	index = readTs
-
+	index = readTs - 1
 	var refkey []byte
 	// cache reference lookup
 	t.tree.RLock()
 	defer t.tree.RUnlock()
-	if key := t.tree.rcaches[0].Get(readTs - 1); key != nil {
+	if key := t.tree.rcaches[0].Get(index); key != nil {
 		refkey = key.([]byte)
 	}
+
 	// disk reference lookup
 	if refkey == nil {
 		if err := t.db.View(func(txn *badger.Txn) error {
-			item, err := txn.Get(treeKey(0, readTs-1))
+			item, err := txn.Get(treeKey(0, index))
 			if err != nil {
 				return err
 			}
@@ -267,41 +267,37 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 	}
 
 	// disk value lookup
-	if err := t.db.View(func(txn *badger.Txn) error {
-		ret, err := txn.Get(key)
+	txn := t.db.NewTransactionAt(math.MaxInt64, false)
+	defer txn.Discard()
+	it := txn.NewKeyIterator(key, badger.IteratorOptions{})
+	defer it.Close()
+	var item *schema.Item
+	for it.Rewind(); it.Valid(); it.Next() {
+		item, err = itemToSchema(key, it.Item())
 		if err != nil {
-			return err
+			return 0, nil, nil, err
 		}
-		if value, err = ret.ValueCopy(nil); err != nil {
-			if err == badger.ErrKeyNotFound {
-				// this shoulden't happen. Key reference is present but item is missing
-				err = ErrInconsistentState
-			}
-			return err
+		// there are multiple possible versions of a key. Here we retrieve the one with the correct timestamp
+		if item.Index == index {
+			break
 		}
-		return nil
-	}); err != nil {
-		return 0, nil, nil, err
 	}
 
 	// this guard ensure that the insertion order index was not tampered.
-	proof := api.Digest(index-1, key, value)
+	proof := api.Digest(item.Index, key, item.Value)
 	if hash != proof {
 		return 0, nil, nil, errors.New(fmt.Sprintf("Insertion ored index %d was tampered", index))
 	}
-	return readTs, key, value, nil
+	return index, item.Key, item.Value, nil
 }
 
 func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
-	version, key, value, err := t.itemAt(index.Index + 1)
+	idx, key, value, err := t.itemAt(index.Index + 1)
 	if err != nil {
 		return nil, err
 	}
-	if version != index.Index+1 {
-		err = ErrIndexNotFound
-	}
 	if err == nil {
-		item = &schema.Item{Key: key, Value: value, Index: index.Index}
+		item = &schema.Item{Key: key, Value: value, Index: idx}
 	}
 	return
 }
