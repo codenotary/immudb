@@ -108,6 +108,7 @@ tools/comparison/scylladb:
 
 .PHONY: man
 man:
+	$(GO) run ./cmd/immuadmin mangen ./cmd/docs/man/immuadmin
 	$(GO) run ./cmd/immuclient mangen ./cmd/docs/man/immuclient
 	$(GO) run ./cmd/immudb mangen ./cmd/docs/man/immudb
 	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
