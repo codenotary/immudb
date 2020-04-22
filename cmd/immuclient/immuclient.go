@@ -172,7 +172,7 @@ Environment variables:
 		},
 		&cobra.Command{
 			Use:     "rawsafeget key",
-			Short:   "Get item having the specified key",
+			Short:   "Get item having the specified key, without parsing structured values",
 			Aliases: []string{"rg"},
 			RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -231,7 +231,7 @@ Environment variables:
 		},
 		&cobra.Command{
 			Use:     "rawsafeset key",
-			Short:   "Set item having the specified key",
+			Short:   "Set item having the specified key, without setup structured values",
 			Aliases: []string{"rs"},
 			RunE: func(cmd *cobra.Command, args []string) error {
 
