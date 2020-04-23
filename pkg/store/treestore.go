@@ -68,9 +68,7 @@ func refTreeKey(hash [sha256.Size]byte, reference []byte) []byte {
 // refTreeKey split a value of a badger item in an the hash array and slice reference key
 func decodeRefTreeKey(rtk []byte) ([sha256.Size]byte, []byte, error) {
 	lrtk := len(rtk)
-	if lrtk == sha256.Size {
-		return [sha256.Size]byte{}, nil, ErrObsoleteDataFormat
-	}
+
 	if lrtk < sha256.Size {
 		// this should not happen
 		return [sha256.Size]byte{}, nil, ErrInconsistentState
@@ -83,7 +81,9 @@ func decodeRefTreeKey(rtk []byte) ([sha256.Size]byte, []byte, error) {
 	var hArray [sha256.Size]byte
 	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&hash))
 	hArray = *(*[sha256.Size]byte)(unsafe.Pointer(hdr.Data))
-
+	if lrtk == sha256.Size {
+		return hArray, nil, ErrObsoleteDataFormat
+	}
 	return hArray, reference, nil
 }
 
@@ -387,7 +387,8 @@ func (t *treeStore) Get(layer uint8, index uint64) *[sha256.Size]byte {
 				return err
 			}
 			if ret, _, err = decodeRefTreeKey(temp); err != nil {
-				return err
+				// here ErrObsoleteDataFormat is suppressed in order to reduce breaking changes
+				return nil
 			}
 		} else {
 			// if layer > 0, value of an element is ever an array of 32 bytes
