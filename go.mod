@@ -9,6 +9,7 @@ require (
 	github.com/dgraph-io/badger/v2 v2.0.0-20200408100755-2e708d968e94
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect
 	github.com/golang/protobuf v1.4.0
+	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway v1.14.3
 	github.com/mitchellh/go-homedir v1.1.0

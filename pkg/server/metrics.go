@@ -20,7 +20,6 @@ import (
 	"expvar"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -31,11 +30,19 @@ import (
 )
 
 type MetricsCollection struct {
-	QuerySummaries *prometheus.SummaryVec
+	RecordsCounter prometheus.CounterFunc
 }
 
-func (mc *MetricsCollection) ObserveQuery(name string, start time.Time) {
-	mc.QuerySummaries.WithLabelValues(name).Observe(float64(time.Since(start).Microseconds()))
+func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
+	mc.RecordsCounter = promauto.NewCounterFunc(
+		prometheus.CounterOpts{
+			Namespace: "immudb",
+			Subsystem: "records",
+			Name:      "counter",
+			Help:      "Number of key-value pairs currently stored by the database.",
+		},
+		f,
+	)
 }
 
 func (mc *MetricsCollection) String() string {
@@ -53,22 +60,7 @@ func (mc *MetricsCollection) String() string {
 	return strings.Join(metrics, "\n\n")
 }
 
-var Metrics MetricsCollection
-
-func initImmuDBMetrics() {
-	Metrics = MetricsCollection{
-		QuerySummaries: promauto.NewSummaryVec(
-			prometheus.SummaryOpts{
-				Namespace:  "immudb",
-				Subsystem:  "query",
-				Name:       "duration",
-				Help:       "A summary of the ImmuDB query durations in microseconds.",
-				Objectives: map[float64]float64{0: 0.001, 0.25: 0.001, 0.5: 0.001, 0.75: 0.001, 1: 0.001},
-			},
-			[]string{"for"},
-		),
-	}
-}
+var Metrics = MetricsCollection{}
 
 func init() {
 	http.Handle("/metrics", promhttp.Handler())
@@ -88,12 +80,16 @@ func init() {
 		"badger_lsm_level_gets_total": prometheus.NewDesc("immudb_lsm_level_gets_total", "LSM Level Gets", []string{"level"}, nil),
 	})
 	prometheus.MustRegister(expvarCollector)
-	initImmuDBMetrics()
 }
 
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
 // The server is then returned and can be stopped using Close().
-func StartMetrics(addr string, l logger.Logger) *http.Server {
+func StartMetrics(
+	addr string,
+	l logger.Logger,
+	recordsCounter func() float64,
+) *http.Server {
+	Metrics.WithRecordsCounter(recordsCounter)
 	// expvar package adds a handler in to the default HTTP server (which has to be started explicitly),
 	// and serves up the metrics at the /debug/vars endpoint.
 	// Here we're registering both expvar and promhttp handlers in our custom server.
