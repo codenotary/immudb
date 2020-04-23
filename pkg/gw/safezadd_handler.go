@@ -35,11 +35,11 @@ type SafeZAddHandler interface {
 
 type safeZAddHandler struct {
 	mux    *runtime.ServeMux
-	client *client.ImmuClient
+	client client.ImmuClient
 	rs     client.RootService
 }
 
-func NewSafeZAddHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) SafeZAddHandler {
+func NewSafeZAddHandler(mux *runtime.ServeMux, client client.ImmuClient, rs client.RootService) SafeZAddHandler {
 	return &safeZAddHandler{
 		mux:    mux,
 		client: client,
@@ -87,5 +87,4 @@ func (h *safeZAddHandler) SafeZAdd(w http.ResponseWriter, req *http.Request, pat
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	return
 }

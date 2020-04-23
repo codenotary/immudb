@@ -34,9 +34,7 @@ cmd/immudb/immudb
 cmd/immugw/immugw
 
 # Working files
-cmd/immugw/.root
-/.root
-**/.root
+.root*
 immudb.pid
 /db
 
@@ -49,5 +47,5 @@ configs/immudb.ini
 configs/immugw.ini
 
 # immudb auth
-cmd/immuclient/token
-cmd/immudb/immudb_pwd
+immudb_pwd
+token

@@ -36,12 +36,12 @@ type SafegetHandler interface {
 
 type safegetHandler struct {
 	mux    *runtime.ServeMux
-	client *client.ImmuClient
+	client client.ImmuClient
 	rs     client.RootService
 	sync.RWMutex
 }
 
-func NewSafegetHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) SafegetHandler {
+func NewSafegetHandler(mux *runtime.ServeMux, client client.ImmuClient, rs client.RootService) SafegetHandler {
 	return &safegetHandler{
 		mux:    mux,
 		client: client,
@@ -89,5 +89,4 @@ func (h *safegetHandler) Safeget(w http.ResponseWriter, req *http.Request, pathP
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	return
 }
