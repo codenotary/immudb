@@ -26,13 +26,13 @@ type ntp struct {
 }
 
 func NewNtp() (TsGenerator, error) {
-	r, err :=  s.Query("0.beevik-ntp.pool.ntp.org")
-	if err!= nil {
+	r, err := s.Query("0.beevik-ntp.pool.ntp.org")
+	if err != nil {
 		return nil, err
 	}
 	return &ntp{r}, nil
 }
 
-func (w *ntp) Now() (time.Time) {
+func (w *ntp) Now() time.Time {
 	return time.Now().Add(w.r.ClockOffset)
 }

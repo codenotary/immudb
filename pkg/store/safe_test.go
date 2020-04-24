@@ -96,7 +96,7 @@ func TestStoreSafeGet(t *testing.T) {
 	// second item with prev root
 	prevRoot := safeItem.Proof.NewRoot()
 	safeItem, err = st.SafeGet(schema.SafeGetOptions{
-			Key: []byte(`second`),
+		Key: []byte(`second`),
 		RootIndex: &schema.Index{
 			Index: prevRoot.Index,
 		},
@@ -153,7 +153,7 @@ func TestStoreSafeReference(t *testing.T) {
 		opts := schema.SafeReferenceOptions{
 			Ro: &schema.ReferenceOptions{
 				Reference: []byte(strconv.FormatUint(n, 10)),
-				Key:        firstKey,
+				Key:       firstKey,
 			},
 			RootIndex: &schema.Index{
 				Index: root.Index,
@@ -197,7 +197,7 @@ func TestStoreSafeGetOnSafeReference(t *testing.T) {
 	// first item, no prev root
 	ref1 := schema.SafeReferenceOptions{
 		Ro: &schema.ReferenceOptions{
-			Reference:firstTag,
+			Reference: firstTag,
 			Key:       firstKey,
 		},
 	}
@@ -212,8 +212,8 @@ func TestStoreSafeGetOnSafeReference(t *testing.T) {
 
 	ref2 := schema.SafeReferenceOptions{
 		Ro: &schema.ReferenceOptions{
-			Reference:secondTag,
-			Key:      firstKey,
+			Reference: secondTag,
+			Key:       firstKey,
 		},
 		RootIndex: &schema.Index{
 			Index: proof.Index,
@@ -231,7 +231,7 @@ func TestStoreSafeGetOnSafeReference(t *testing.T) {
 
 	// first item by first tag , no prev root
 	firstItem1, err := st.SafeGet(schema.SafeGetOptions{
-		Key:firstTag,
+		Key: firstTag,
 		RootIndex: &schema.Index{
 			Index: proof2.Index,
 		},
@@ -249,7 +249,7 @@ func TestStoreSafeGetOnSafeReference(t *testing.T) {
 
 	// get first item by second tag with most fresh root
 	firstItem2, err := st.SafeGet(schema.SafeGetOptions{
-			Key: secondTag,
+		Key: secondTag,
 		RootIndex: &schema.Index{
 			Index: proof2.Index,
 		},

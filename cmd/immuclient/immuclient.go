@@ -68,7 +68,7 @@ Environment variables:
 		DisableAutoGenTag: true,
 	}
 	commands := []*cobra.Command{
-		&cobra.Command{
+		{
 			Use:     "login username \"password\"",
 			Short:   fmt.Sprintf("Login using the specified username and \"password\" (username is \"%s\")", auth.AdminUser.Username),
 			Aliases: []string{"l"},
@@ -97,7 +97,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(2),
 		},
-		&cobra.Command{
+		{
 			Use:     "current",
 			Short:   "Return the last merkle tree root and index stored locally",
 			Aliases: []string{"crt"},
@@ -115,7 +115,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(0),
 		},
-		&cobra.Command{
+		{
 			Use:     "getByIndex",
 			Short:   "Return an element by index",
 			Aliases: []string{"bi"},
@@ -137,7 +137,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "logout",
 			Aliases: []string{"x"},
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -147,7 +147,7 @@ Environment variables:
 			},
 			Args: cobra.NoArgs,
 		},
-		&cobra.Command{
+		{
 			Use:     "get key",
 			Short:   "Get item having the specified key",
 			Aliases: []string{"g"},
@@ -170,7 +170,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "rawsafeget key",
 			Short:   "Get item having the specified key, without parsing structured values",
 			Aliases: []string{"rg"},
@@ -229,7 +229,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "rawsafeset key",
 			Short:   "Set item having the specified key, without setup structured values",
 			Aliases: []string{"rs"},
@@ -295,7 +295,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(2),
 		},
-		&cobra.Command{
+		{
 			Use:     "safeget key",
 			Short:   "Get and verify item having the specified key",
 			Aliases: []string{"sg"},
@@ -318,7 +318,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "set key value",
 			Short:   "Add new item having the specified key and value",
 			Aliases: []string{"s"},
@@ -363,7 +363,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(2),
 		},
-		&cobra.Command{
+		{
 			Use:     "safeset key value",
 			Short:   "Add and verify new item having the specified key and value",
 			Aliases: []string{"ss"},
@@ -408,7 +408,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(2),
 		},
-		&cobra.Command{
+		{
 			Use:     "reference refkey key",
 			Short:   "Add new reference to an existing key",
 			Aliases: []string{"r"},
@@ -447,7 +447,7 @@ Environment variables:
 			},
 			Args: cobra.MinimumNArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "safereference refkey key",
 			Short:   "Add and verify new reference to an existing key",
 			Aliases: []string{"sr"},
@@ -486,7 +486,7 @@ Environment variables:
 			},
 			Args: cobra.MinimumNArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "zadd setname score key",
 			Short:   "Add new key with score to a new or existing sorted set",
 			Aliases: []string{"za"},
@@ -527,7 +527,7 @@ Environment variables:
 			},
 			Args: cobra.MinimumNArgs(3),
 		},
-		&cobra.Command{
+		{
 			Use:     "safezadd setname score key",
 			Short:   "Add and verify new key with score to a new or existing sorted set",
 			Aliases: []string{"sza"},
@@ -568,7 +568,7 @@ Environment variables:
 			},
 			Args: cobra.MinimumNArgs(3),
 		},
-		&cobra.Command{
+		{
 			Use:     "zscan setname",
 			Short:   "Iterate over a sorted set",
 			Aliases: []string{"zscn"},
@@ -593,7 +593,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "iscan pagenumber pagesize",
 			Short:   "Iterate over all elements by insertion order",
 			Aliases: []string{"iscn"},
@@ -622,7 +622,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(2),
 		},
-		&cobra.Command{
+		{
 			Use:     "scan prefix",
 			Short:   "Iterate over keys having the specified prefix",
 			Aliases: []string{"scn"},
@@ -648,7 +648,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "count prefix",
 			Short:   "Count keys having the specified prefix",
 			Aliases: []string{"cnt"},
@@ -671,7 +671,7 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "inclusion index",
 			Short:   "Check if specified index is included in the current tree",
 			Aliases: []string{"i"},
@@ -726,7 +726,7 @@ root: %x at index: %d
 			},
 			Args: cobra.MinimumNArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "check-consistency index hash",
 			Short:   "Check consistency for the specified index and hash",
 			Aliases: []string{"c"},
@@ -768,7 +768,7 @@ secondRoot: %x at index: %d
 			},
 			Args: cobra.MinimumNArgs(2),
 		},
-		&cobra.Command{
+		{
 			Use:     "history key",
 			Short:   "Fetch history for the item having the specified key",
 			Aliases: []string{"h"},
@@ -794,7 +794,7 @@ secondRoot: %x at index: %d
 			},
 			Args: cobra.ExactArgs(1),
 		},
-		&cobra.Command{
+		{
 			Use:     "ping",
 			Short:   "Ping to check if server connection is alive",
 			Aliases: []string{"p"},
@@ -813,7 +813,7 @@ secondRoot: %x at index: %d
 			},
 			Args: cobra.NoArgs,
 		},
-		&cobra.Command{
+		{
 			Use:     "dump [filename]",
 			Short:   "Save a database dump to the specified filename (optional)",
 			Aliases: []string{"b"},
