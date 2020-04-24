@@ -17,12 +17,14 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"expvar"
 	"net/http"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/grpc/peer"
 
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
@@ -30,19 +32,31 @@ import (
 )
 
 type MetricsCollection struct {
-	RecordsCounter prometheus.CounterFunc
+	RecordsCounter        prometheus.CounterFunc
+	RPCsPerClientCounters *prometheus.CounterVec
 }
+
+var metricsNamespace = "immudb"
 
 func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
 	mc.RecordsCounter = promauto.NewCounterFunc(
 		prometheus.CounterOpts{
-			Namespace: "immudb",
-			Subsystem: "records",
-			Name:      "counter",
-			Help:      "Number of key-value pairs currently stored by the database.",
+			Namespace: metricsNamespace,
+			Name:      "number_of_stored_keys",
+			Help:      "Number of keys currently stored by the database.",
 		},
 		f,
 	)
+}
+
+func (mc *MetricsCollection) ObserveRPCsPerClientCounters(ctx context.Context) {
+	p, ok := peer.FromContext(ctx)
+	if ok && p != nil {
+		ipAndPort := strings.Split(p.Addr.String(), ":")
+		if len(ipAndPort) > 0 {
+			mc.RPCsPerClientCounters.WithLabelValues(ipAndPort[0]).Inc()
+		}
+	}
 }
 
 func (mc *MetricsCollection) String() string {
@@ -60,7 +74,16 @@ func (mc *MetricsCollection) String() string {
 	return strings.Join(metrics, "\n\n")
 }
 
-var Metrics = MetricsCollection{}
+var Metrics = MetricsCollection{
+	RPCsPerClientCounters: promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Name:      "number_of_rpcs_per_client",
+			Help:      "Number of handled RPCs per client.",
+		},
+		[]string{"ip"},
+	),
+}
 
 func init() {
 	http.Handle("/metrics", promhttp.Handler())

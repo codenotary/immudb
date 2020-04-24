@@ -77,25 +77,23 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
-	unaryInterceptors := []grpc.UnaryServerInterceptor{
-		grpc_prometheus.UnaryServerInterceptor,
-	}
-	streamInterceptors := []grpc.StreamServerInterceptor{
-		grpc_prometheus.StreamServerInterceptor,
-	}
-
-	if s.Options.Auth {
+	auth.AuthEnabled = s.Options.Auth
+	auth.ObserveMetrics = func(ctx context.Context) { Metrics.ObserveRPCsPerClientCounters(ctx) }
+	if auth.AuthEnabled {
 		if err := s.loadOrGeneratePassword(); err != nil {
 			return err
 		}
-		unaryInterceptors = append(unaryInterceptors, auth.ServerUnaryInterceptor)
-		streamInterceptors = append(streamInterceptors, auth.ServerStreamInterceptor)
 	}
-
 	options = append(
 		options,
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc_prometheus.UnaryServerInterceptor,
+			auth.ServerUnaryInterceptor,
+		)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			grpc_prometheus.StreamServerInterceptor,
+			auth.ServerStreamInterceptor,
+		)),
 	)
 
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
