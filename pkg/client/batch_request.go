@@ -30,7 +30,7 @@ type BatchRequest struct {
 
 func (b *BatchRequest) toKVList() (*schema.KVList, error) {
 	list := &schema.KVList{}
-	for i, _ := range b.Keys {
+	for i := range b.Keys {
 		key, err := ioutil.ReadAll(b.Keys[i])
 		if err != nil {
 			return nil, err

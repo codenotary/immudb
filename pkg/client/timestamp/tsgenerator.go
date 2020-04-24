@@ -19,5 +19,5 @@ package timestamp
 import "time"
 
 type TsGenerator interface {
-	Now() (time.Time)
+	Now() time.Time
 }
