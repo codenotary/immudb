@@ -10,10 +10,6 @@ import (
 	"strconv"
 
 	c "github.com/codenotary/immudb/cmd"
-	"github.com/codenotary/immudb/pkg/api"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/spf13/cobra"
 )
 
@@ -32,54 +28,19 @@ func (cl *commandline) rawSafeSetKey(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
+
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			rootService := client.NewRootService(immuClient.ServiceClient, cache.NewFileCache())
-			root, err := rootService.GetRoot(ctx)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-
-			opts := &schema.SafeSetOptions{
-				Kv: &schema.KeyValue{
-					Key:   key,
-					Value: val,
-				},
-				RootIndex: &schema.Index{
-					Index: root.Index,
-				},
-			}
-
-			proof, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.ServiceClient.SafeSet(ctx, opts)
-			})
+			_, err = cl.immuClient.RawSafeSet(ctx, key, val)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			p := proof.(*schema.Proof)
-			leaf := api.Digest(p.Index, key, val)
-			verified := p.Verify(leaf[:], *root)
+			vi, err := cl.immuClient.RawSafeGet(ctx, key)
 
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			if verified {
-				tocache := new(schema.Root)
-				tocache.Index = p.Index
-				tocache.Root = p.Root
-				err = rootService.SetRoot(tocache)
-				if err != nil {
-					c.QuitWithUserError(err)
-				}
-			}
-
-			vi := &client.VerifiedItem{
-				Key:      key,
-				Value:    val,
-				Index:    p.At,
-				Verified: verified,
-			}
 			printItem(vi.Key, vi.Value, vi)
+
+			if err != nil {
+				c.QuitWithUserError(err)
+			}
 			return nil
 		},
 		Args: cobra.ExactArgs(2),
@@ -111,10 +72,7 @@ func (cl *commandline) setKeyValue(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			_, err = immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.Set(ctx, key, value)
-			})
+			_, err = cl.immuClient.Set(ctx, key, value)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
@@ -122,13 +80,11 @@ func (cl *commandline) setKeyValue(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.Get(ctx, key)
-			})
+			i, err := cl.immuClient.Get(ctx, key)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			printItem([]byte(args[0]), value2, response)
+			printItem([]byte(args[0]), value2, i)
 			return nil
 		},
 		Args: cobra.ExactArgs(2),
@@ -161,10 +117,7 @@ func (cl *commandline) safeSetKeyValue(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			_, err = immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.SafeSet(ctx, key, value)
-			})
+			_, err = cl.immuClient.SafeSet(ctx, key, value)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
@@ -172,13 +125,11 @@ func (cl *commandline) safeSetKeyValue(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.SafeGet(ctx, key)
-			})
+			vi, err := cl.immuClient.SafeGet(ctx, key)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			printItem([]byte(args[0]), value2, response)
+			printItem([]byte(args[0]), value2, vi)
 			return nil
 		},
 		Args: cobra.ExactArgs(2),
@@ -191,7 +142,6 @@ func (cl *commandline) zAddSetNameScoreKey(cmd *cobra.Command) {
 		Short:   "Add new key with score to a new or existing sorted set",
 		Aliases: []string{"za"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			var setReader io.Reader
 			var scoreReader io.Reader
 			var keyReader io.Reader
@@ -215,10 +165,7 @@ func (cl *commandline) zAddSetNameScoreKey(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.ZAdd(ctx, set, score, key)
-			})
+			response, err := cl.immuClient.ZAdd(ctx, set, score, key)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
@@ -236,7 +183,6 @@ func (cl *commandline) safeZAddSetNameScoreKey(cmd *cobra.Command) {
 		Short:   "Add and verify new key with score to a new or existing sorted set",
 		Aliases: []string{"sza"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			var setReader io.Reader
 			var scoreReader io.Reader
 			var keyReader io.Reader
@@ -245,11 +191,7 @@ func (cl *commandline) safeZAddSetNameScoreKey(cmd *cobra.Command) {
 				scoreReader = bytes.NewReader([]byte(args[1]))
 				keyReader = bytes.NewReader([]byte(args[2]))
 			}
-
 			bs, err := ioutil.ReadAll(scoreReader)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
 			score, err := strconv.ParseFloat(string(bs[:]), 64)
 			if err != nil {
 				c.QuitToStdErr(err)
@@ -263,10 +205,7 @@ func (cl *commandline) safeZAddSetNameScoreKey(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.SafeZAdd(ctx, set, score, key)
-			})
+			response, err := cl.immuClient.SafeZAdd(ctx, set, score, key)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}

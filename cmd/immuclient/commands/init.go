@@ -11,6 +11,7 @@ import (
 
 type commandline struct {
 	tokenFilename *string
+	immuClient    client.ImmuClient
 }
 
 func Init(cmd *cobra.Command, o *c.Options, tokenFilename *string) {

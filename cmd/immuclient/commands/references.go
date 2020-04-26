@@ -18,7 +18,6 @@ func (cl *commandline) newRefkeyKey(cmd *cobra.Command) {
 		Short:   "Add new reference to an existing key",
 		Aliases: []string{"r"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			var reader io.Reader
 			if len(args) > 1 {
 				reader = bytes.NewReader([]byte(args[1]))
@@ -36,10 +35,7 @@ func (cl *commandline) newRefkeyKey(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.Reference(ctx, reference, key)
-			})
+			response, err := cl.immuClient.Reference(ctx, reference, key)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
@@ -61,7 +57,6 @@ func (cl *commandline) safeNewRefkeyKey(cmd *cobra.Command) {
 		Short:   "Add and verify new reference to an existing key",
 		Aliases: []string{"sr"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			var reader io.Reader
 			if len(args) > 1 {
 				reader = bytes.NewReader([]byte(args[1]))
@@ -79,10 +74,7 @@ func (cl *commandline) safeNewRefkeyKey(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.SafeReference(ctx, reference, key)
-			})
+			response, err := cl.immuClient.SafeReference(ctx, reference, key)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}

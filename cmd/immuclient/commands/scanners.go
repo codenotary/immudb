@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	c "github.com/codenotary/immudb/cmd"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/spf13/cobra"
 )
 
@@ -24,14 +23,11 @@ func (cl *commandline) zScanSetName(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.ZScan(ctx, set)
-			})
+			response, err := cl.immuClient.ZScan(ctx, set)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			for _, item := range response.(*schema.StructuredItemList).Items {
+			for _, item := range response.Items {
 				printItem(nil, nil, item)
 				fmt.Println()
 			}
@@ -57,14 +53,11 @@ func (cl *commandline) iScanPageNumPageSize(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.IScan(ctx, pageNumber, pageSize)
-			})
+			response, err := cl.immuClient.IScan(ctx, pageNumber, pageSize)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			for _, item := range response.(*schema.SPage).Items {
+			for _, item := range response.Items {
 				printItem(nil, nil, item)
 				fmt.Println()
 			}
@@ -87,14 +80,11 @@ func (cl *commandline) iScanPrefix(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.Scan(ctx, prefix)
-			})
+			response, err := cl.immuClient.Scan(ctx, prefix)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			for _, item := range response.(*schema.StructuredItemList).Items {
+			for _, item := range response.Items {
 				printItem(nil, nil, item)
 				fmt.Println()
 			}
@@ -117,14 +107,11 @@ func (cl *commandline) countPrefix(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.Count(ctx, prefix)
-			})
+			response, err := cl.immuClient.Count(ctx, prefix)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			fmt.Println(response.(*schema.ItemsCount).Count)
+			fmt.Println(response.Count)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -143,16 +130,10 @@ func (cl *commandline) inclusionIndex(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.Inclusion(ctx, index)
-			})
+			proof, err := cl.immuClient.Inclusion(ctx, index)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-
-			proof := response.(*schema.InclusionProof)
-
 			var hash []byte
 			if len(args) > 1 {
 				src := []byte(args[1])
@@ -161,20 +142,17 @@ func (cl *commandline) inclusionIndex(cmd *cobra.Command) {
 					c.QuitToStdErr(fmt.Errorf("invalid hash length"))
 				}
 				hash = make([]byte, l)
-				_, err := hex.Decode(hash, src)
+				_, err = hex.Decode(hash, src)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 
 			} else {
-				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					return immuClient.ByIndex(ctx, index)
-				})
+				item, err := cl.immuClient.ByIndex(ctx, index)
 				if err != nil {
 					c.QuitWithUserError(err)
 				}
-				item := response.(*schema.StructuredItem)
-				hash, _ = item.Hash()
+				hash, err = item.Hash()
 
 			}
 

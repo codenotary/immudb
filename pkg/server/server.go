@@ -1,12 +1,9 @@
 /*
 Copyright 2019-2020 vChain, Inc.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
 	http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,11 +25,14 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/rs/xid"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -75,17 +75,6 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
-	if s.Options.Auth {
-		if err := s.loadOrGeneratePassword(); err != nil {
-			return err
-		}
-		options = append(
-			options,
-			grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
-			grpc.StreamInterceptor(auth.ServerStreamInterceptor),
-		)
-	}
-
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
 		return err
@@ -94,6 +83,30 @@ func (s *ImmuServer) Start() error {
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		return err
 	}
+	var uuid xid.ID
+	if uuid, err = getOrSetUuid(s.Options.Dir); err != nil {
+		return err
+	}
+
+	uuidContext := NewUuidContext(uuid)
+
+	var uis []grpc.UnaryServerInterceptor
+	var sss []grpc.StreamServerInterceptor
+	uis = append(uis, uuidContext.UuidContextSetter)
+	sss = append(sss, uuidContext.UuidStreamContextSetter)
+	if s.Options.Auth {
+		if err := s.loadOrGeneratePassword(); err != nil {
+			return err
+		}
+		uis = append(uis, auth.ServerUnaryInterceptor)
+		sss = append(sss, auth.ServerStreamInterceptor)
+	}
+	options = append(
+		options,
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
+	)
+
 	s.Store, err = store.Open(store.DefaultOptions(dbDir, s.Logger))
 	if err != nil {
 		return err
@@ -236,9 +249,6 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 
 func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
 	it, err := s.Get(ctx, k)
-	if err != nil {
-		return nil, err
-	}
 	si, err := it.ToSItem()
 	if err != nil {
 		return nil, err
@@ -257,9 +267,6 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 
 func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
 	it, err := s.SafeGet(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
 	ssitem, err := it.ToSafeSItem()
 	if err != nil {
 		return nil, err
@@ -284,9 +291,6 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 
 func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
 	list, err := s.GetBatch(ctx, kl)
-	if err != nil {
-		return nil, err
-	}
 	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
@@ -302,9 +306,6 @@ func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schem
 func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
 	list, err := s.Store.Scan(*opts)
-	if err != nil {
-		return nil, err
-	}
 	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
@@ -418,9 +419,6 @@ func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*sch
 func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	list, err := s.Store.ZScan(*opts)
-	if err != nil {
-		return nil, err
-	}
 	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
@@ -441,9 +439,6 @@ func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*sch
 func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	page, err := s.Store.IScan(*opts)
-	if err != nil {
-		return nil, err
-	}
 	SPage, err := page.ToSPage()
 	if err != nil {
 		return nil, err

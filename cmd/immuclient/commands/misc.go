@@ -26,15 +26,10 @@ func (cl *commandline) checkConsistencyIndexHash(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.Consistency(ctx, index)
-			})
+			proof, err := cl.immuClient.Consistency(ctx, index)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-
-			proof := response.(*schema.ConsistencyProof)
 
 			var root []byte
 			src := []byte(args[1])
@@ -47,6 +42,7 @@ func (cl *commandline) checkConsistencyIndexHash(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
+
 			fmt.Printf("verified: %t \nfirstRoot: %x at index: %d \nsecondRoot: %x at index: %d \n",
 				proof.Verify(schema.Root{Index: index, Root: root}),
 				proof.FirstRoot,
@@ -72,14 +68,11 @@ func (cl *commandline) historyKey(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.History(ctx, key)
-			})
+			response, err := cl.immuClient.History(ctx, key)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			for _, item := range response.(*schema.StructuredItemList).Items {
+			for _, item := range response.Items {
 				printItem(nil, nil, item)
 				fmt.Println()
 			}
@@ -98,11 +91,7 @@ func (cl *commandline) ping(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			_, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return nil, immuClient.HealthCheck(ctx)
-			})
-			if err != nil {
+			if err := cl.immuClient.HealthCheck(ctx); err != nil {
 				c.QuitWithUserError(err)
 			}
 			fmt.Println("Health check OK")
@@ -130,14 +119,11 @@ func (cl *commandline) dumpToFile(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			ctx := context.Background()
-			immuClient := cl.getImmuClient(cmd)
-			response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-				return immuClient.Dump(ctx, file)
-			})
+			response, err := cl.immuClient.Dump(ctx, file)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response.(int64), filename)
+			fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response, filename)
 			return nil
 		},
 		Args: cobra.MaximumNArgs(1),
