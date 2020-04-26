@@ -11,10 +11,8 @@ import (
 )
 
 func printItem(key []byte, value []byte, message interface{}) {
-	var index uint64
-	verified := false
-	isVerified := false
-	var ts uint64
+	var index, ts uint64
+	var verified, isVerified bool
 	var hash []byte
 	switch m := message.(type) {
 	case *schema.Index:
@@ -70,8 +68,7 @@ func printItem(key []byte, value []byte, message interface{}) {
 
 func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {
 	var index uint64
-	verified := false
-	isVerified := false
+	var verified, isVerified bool
 	switch m := message.(type) {
 	case *schema.Index:
 		index = m.Index

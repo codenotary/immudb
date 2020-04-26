@@ -301,7 +301,7 @@ func (t *treeStore) worker() {
 // in case of failure previous stored state will be preserved and cache indexes will be not advanced.
 func (t *treeStore) flush() {
 	t.log.Infof("Flushing tree caches at index %d", t.w-1)
-	cancel := false
+	var cancel bool
 	wb := t.db.NewWriteBatchAt(t.w)
 	defer func() {
 		if cancel {
