@@ -14,8 +14,9 @@ type commandline struct {
 	immuClient    client.ImmuClient
 }
 
-func Init(cmd *cobra.Command, o *c.Options, tokenFilename *string) {
+func Init(cmd *cobra.Command, o *c.Options, tokenFilename *string, immuClient client.ImmuClient) {
 	cl := new(commandline)
+	cl.immuClient = immuClient
 	cl.tokenFilename = tokenFilename
 	if err := configureOptions(cmd, o); err != nil {
 		c.QuitToStdErr(err)
