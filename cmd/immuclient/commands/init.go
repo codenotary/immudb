@@ -52,7 +52,6 @@ func Init(cmd *cobra.Command, o *c.Options, tokenFilename *string) {
 
 	// man file generator
 	cmd.AddCommand(man.Generate(cmd, "immuclient", "../docs/man/immuclient"))
-
 }
 
 func configureOptions(cmd *cobra.Command, o *c.Options) error {

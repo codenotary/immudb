@@ -7,7 +7,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/CONTRIBUTING.m
 
 # Contributing
 
-Thank you for considering contributing to ImmuDB.
+Thank you for considering contributing to immudb.
 
 We love to receive contributions. Maintaining a immutable database, that is highly secure, very fast and still easy to use requires a broad understanding of technologies, systems and applications. We rely on community contributions and user feedback to continue providing the best solution out there.
 
