@@ -11,5 +11,4 @@ Readme has been inspired by the amazing Netdata community project.
 immudb uses the following open source projects.
 
 - [badger](https://github.com/dgraph-io/badger)
-
-      Code license: [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+  [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
