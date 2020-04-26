@@ -17,9 +17,10 @@ limitations under the License.
 package cache
 
 import (
+	"io/ioutil"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
-	"io/ioutil"
 )
 
 const ROOT_FN = ".root"

@@ -7,11 +7,11 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/CONTRIBUTING.m
 
 # Contributing
 
-Thank you for considering contributing to Netdata.
+Thank you for considering contributing to ImmuDB.
 
 We love to receive contributions. Maintaining a immutable database, that is highly secure, very fast and still easy to use requires a broad understanding of technologies, systems and applications. We rely on community contributions and user feedback to continue providing the best solution out there.
 
-There are many ways to contribute, with varying requirements of skills, explained in detail in the following sections. 
+There are many ways to contribute, with varying requirements of skills, explained in detail in the following sections.
 Specific GitHub issues we need help with can be seen [here](https://github.com/codenotary/immudb/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22help+wanted%22).
 
 ## All immudb Users

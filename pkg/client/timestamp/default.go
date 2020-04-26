@@ -20,12 +20,12 @@ import (
 	"time"
 )
 
-type tdefault struct {}
+type tdefault struct{}
 
 func NewTdefault() (TsGenerator, error) {
 	return &tdefault{}, nil
 }
 
-func (w *tdefault) Now() (time.Time) {
+func (w *tdefault) Now() time.Time {
 	return time.Now()
 }

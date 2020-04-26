@@ -19,11 +19,12 @@ package gw
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"net/http"
 )
 
 type HistoryHandler interface {
@@ -90,5 +91,4 @@ func (h *historyHandler) History(w http.ResponseWriter, req *http.Request, pathP
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	return
 }

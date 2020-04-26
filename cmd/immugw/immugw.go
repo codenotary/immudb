@@ -50,7 +50,7 @@ Environment variables:
 			if options.Logfile != "" {
 				if flogger, file, err := logger.NewFileLogger("immugw ", options.Logfile); err == nil {
 					defer func() {
-						if err := file.Close(); err != nil {
+						if err = file.Close(); err != nil {
 							c.QuitToStdErr(err)
 						}
 					}()

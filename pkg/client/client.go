@@ -206,7 +206,7 @@ func (c *ImmuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 		tocache := new(schema.Root)
 		tocache.Index = safeItem.Proof.At
 		tocache.Root = safeItem.Proof.Root
-		err := c.rootservice.SetRoot(tocache)
+		err = c.rootservice.SetRoot(tocache)
 		if err != nil {
 			return nil, err
 		}
@@ -448,6 +448,9 @@ func (c *ImmuClient) History(ctx context.Context, key []byte) (*schema.Structure
 	list, err := c.ServiceClient.History(ctx, &schema.Key{
 		Key: key,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("couldn't retrieve history of key: %v", string(key))
+	}
 	result, err := list.ToSItemList()
 	if err != nil {
 		return nil, err

@@ -19,13 +19,13 @@ package store
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
+	"math"
+	"sync"
+
 	"github.com/codenotary/immudb/pkg/api"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/merkletree"
-	"math"
-	"sync"
 
 	"github.com/codenotary/immudb/pkg/logger"
 
@@ -238,7 +238,7 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 
 	// disk reference lookup
 	if refkey == nil {
-		if err := t.db.View(func(txn *badger.Txn) error {
+		if err = t.db.View(func(txn *badger.Txn) error {
 			item, err := txn.Get(treeKey(0, index))
 			if err != nil {
 				return err
@@ -286,7 +286,7 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 	// this guard ensure that the insertion order index was not tampered.
 	proof := api.Digest(item.Index, key, item.Value)
 	if hash != proof {
-		return 0, nil, nil, errors.New(fmt.Sprintf("Insertion ored index %d was tampered", index))
+		return 0, nil, nil, fmt.Errorf("Insertion ored index %d was tampered", index)
 	}
 	return index, item.Key, item.Value, nil
 }
@@ -375,9 +375,9 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 
 	if opts.asyncCommit {
 		t.wg.Add(1)
-		err = mapError(txn.CommitAt(tsEntry.ts, cb)) // cb will be executed in a new goroutine
+		_ = mapError(txn.CommitAt(tsEntry.ts, cb)) // cb will be executed in a new goroutine
 	} else {
-		err = mapError(txn.CommitAt(tsEntry.ts, nil))
+		_ = mapError(txn.CommitAt(tsEntry.ts, nil))
 		cb(err)
 	}
 
@@ -389,11 +389,8 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 	if err = checkKey(zaddOpts.Key); err != nil {
 		return nil, err
 	}
-	if err := checkSet(zaddOpts.Set); err != nil {
+	if err = checkSet(zaddOpts.Set); err != nil {
 		return nil, err
-	}
-	if err != nil {
-		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
@@ -477,12 +474,12 @@ func (t *Store) Restore(kvChan chan *pb.KVList) (i uint64, err error) {
 		kvList, more := <-kvChan
 		if more {
 			for _, kv := range kvList.Kv {
-				if err := ldr.Set(kv); err != nil {
+				if err = ldr.Set(kv); err != nil {
 					return i, err
 				}
 			}
 
-			if err := ldr.Finish(); err != nil {
+			if err = ldr.Finish(); err != nil {
 				close(kvChan)
 				return i, err
 			}

@@ -236,6 +236,9 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 
 func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
 	it, err := s.Get(ctx, k)
+	if err != nil {
+		return nil, err
+	}
 	si, err := it.ToSItem()
 	if err != nil {
 		return nil, err
@@ -254,6 +257,9 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 
 func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
 	it, err := s.SafeGet(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 	ssitem, err := it.ToSafeSItem()
 	if err != nil {
 		return nil, err
@@ -278,6 +284,9 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 
 func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
 	list, err := s.GetBatch(ctx, kl)
+	if err != nil {
+		return nil, err
+	}
 	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
@@ -293,6 +302,9 @@ func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schem
 func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
 	list, err := s.Store.Scan(*opts)
+	if err != nil {
+		return nil, err
+	}
 	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
@@ -406,6 +418,9 @@ func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*sch
 func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	list, err := s.Store.ZScan(*opts)
+	if err != nil {
+		return nil, err
+	}
 	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
@@ -426,6 +441,9 @@ func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*sch
 func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	page, err := s.Store.IScan(*opts)
+	if err != nil {
+		return nil, err
+	}
 	SPage, err := page.ToSPage()
 	if err != nil {
 		return nil, err

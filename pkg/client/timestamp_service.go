@@ -17,12 +17,13 @@ limitations under the License.
 package client
 
 import (
-	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/timestamp"
 )
 
 type TimestampService interface {
-	GetTime() (time.Time)
+	GetTime() time.Time
 }
 
 type timestampService struct {
@@ -33,6 +34,6 @@ func NewTimestampService(ts timestamp.TsGenerator) TimestampService {
 	return &timestampService{ts}
 }
 
-func (r *timestampService) GetTime() (time.Time) {
+func (r *timestampService) GetTime() time.Time {
 	return r.ts.Now()
 }

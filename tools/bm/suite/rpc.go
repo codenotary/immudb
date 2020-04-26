@@ -94,7 +94,7 @@ func makeRpcBenchmark(name string, concurrency int, iterations int,
 				}
 			}()
 			if err := immuClient.Connect(context.Background()); err != nil {
-				_, err = fmt.Fprintln(os.Stderr, err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 		},

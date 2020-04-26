@@ -25,10 +25,7 @@ func (item *Item) ToSItem() (*StructuredItem, error) {
 	return &StructuredItem{
 		Index: item.Index,
 		Key:   item.Key,
-		Value: &Content{
-			Payload:   c.Payload,
-			Timestamp: c.Timestamp,
-		},
+		Value: &c,
 	}, nil
 }
 
