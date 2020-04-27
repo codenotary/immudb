@@ -17,8 +17,9 @@ limitations under the License.
 package timestamp
 
 import (
-	s "github.com/beevik/ntp"
 	"time"
+
+	s "github.com/beevik/ntp"
 )
 
 type ntp struct {

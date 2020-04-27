@@ -17,12 +17,13 @@ limitations under the License.
 package cache
 
 import (
+	"io/ioutil"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
-	"io/ioutil"
 )
 
-const ROOT_FN = ".root-"
+const ROOT_FN = ".root"
 
 type fileCache struct {
 }
@@ -31,10 +32,9 @@ func NewFileCache() Cache {
 	return &fileCache{}
 }
 
-func (w *fileCache) Get(serverUuid string) (*schema.Root, error) {
-	fn := getRootFileName([]byte(ROOT_FN), []byte(serverUuid))
+func (w *fileCache) Get() (*schema.Root, error) {
 	root := new(schema.Root)
-	buf, err := ioutil.ReadFile(string(fn))
+	buf, err := ioutil.ReadFile(ROOT_FN)
 	if err == nil {
 		if err = proto.Unmarshal(buf, root); err != nil {
 			return nil, err
@@ -44,24 +44,14 @@ func (w *fileCache) Get(serverUuid string) (*schema.Root, error) {
 	return nil, err
 }
 
-func (w *fileCache) Set(root *schema.Root, serverUuid string) error {
-	fn := getRootFileName([]byte(ROOT_FN), []byte(serverUuid))
+func (w *fileCache) Set(root *schema.Root) error {
 	raw, err := proto.Marshal(root)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(string(fn), raw, 0644)
+	err = ioutil.WriteFile(ROOT_FN, raw, 0644)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func getRootFileName(prefix []byte, serverUuid []byte) []byte{
-	l1 := len(prefix)
-	l2 := len(serverUuid)
-	var fn = make([]byte, l1+l2)
-	copy(fn[:], ROOT_FN)
-	copy(fn[l1:], serverUuid)
-	return fn
 }

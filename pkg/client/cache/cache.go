@@ -19,6 +19,6 @@ package cache
 import "github.com/codenotary/immudb/pkg/api/schema"
 
 type Cache interface {
-	Get(serverUuid string) (*schema.Root, error)
-	Set(root *schema.Root, serverUuid string) error
+	Get() (*schema.Root, error)
+	Set(root *schema.Root) error
 }

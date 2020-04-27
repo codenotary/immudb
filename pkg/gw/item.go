@@ -1,9 +1,12 @@
 /*
 Copyright 2019-2020 vChain, Inc.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
 	http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -11,26 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package gw
 
-import (
-	"time"
-
-	"github.com/codenotary/immudb/pkg/client/timestamp"
-)
-
-type TimestampService interface {
-	GetTime() time.Time
-}
-
-type timestampService struct {
-	ts timestamp.TsGenerator
-}
-
-func NewTimestampService(ts timestamp.TsGenerator) TimestampService {
-	return &timestampService{ts}
-}
-
-func (r *timestampService) GetTime() time.Time {
-	return r.ts.Now()
+type item struct {
+	Key      []byte `json:"key"`
+	Value    []byte `json:"value"`
+	Time     uint64 `json:"time"`
+	Index    uint64 `json:"index"`
+	Verified bool   `json:"verified"`
 }
