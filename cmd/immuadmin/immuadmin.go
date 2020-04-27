@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/codenotary/immudb/cmd/docs/man"
+	"github.com/codenotary/immudb/cmd/immuadmin/statisticscmd"
 	"google.golang.org/grpc"
 
 	"github.com/spf13/cobra"
@@ -56,6 +57,7 @@ Environment variables:
   IMMUADMIN_PORT=3322`,
 		DisableAutoGenTag: true,
 	}
+
 	commands := []*cobra.Command{
 		&cobra.Command{
 			Use:     "login username \"password\"",
@@ -97,36 +99,6 @@ Environment variables:
 			Args: cobra.NoArgs,
 		},
 		&cobra.Command{
-			Use:     "statistics",
-			Short:   fmt.Sprintf("Show statistics"),
-			Aliases: []string{"l"},
-			RunE: func(cmd *cobra.Command, args []string) error {
-				// TODO OGG: remove:
-				if true {
-					c.QuitToStdErr(fmt.Errorf("not implemented yet"))
-				}
-
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
-				ctx := context.Background()
-				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					// TODO OGG: implement
-					return nil, nil
-				})
-				if err != nil {
-					c.QuitWithUserError(err)
-				}
-				fmt.Println(response)
-				return nil
-			},
-			Args: cobra.NoArgs,
-		},
-		&cobra.Command{
 			Use:     "status",
 			Short:   "Show health status",
 			Aliases: []string{"p"},
@@ -145,6 +117,7 @@ Environment variables:
 			},
 			Args: cobra.NoArgs,
 		},
+		statisticscmd.NewCommand(options),
 	}
 
 	if err := configureOptions(cmd); err != nil {
@@ -202,25 +175,16 @@ func options(cmd *cobra.Command) (*client.Options, error) {
 		WithAddress(address).
 		WithAuth(true).
 		WithDialOptions(false, grpc.WithInsecure())
+	var token string
 	tokenBytes, err := ioutil.ReadFile(tokenFilename)
 	if err == nil {
-		token := string(tokenBytes)
-		options = options.WithDialOptions(
-			false,
-			grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)),
-			grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
-		)
+		token = string(tokenBytes)
 	}
+	options = options.WithDialOptions(
+		false,
+		grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)),
+		grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
+	)
 
 	return &options, nil
-}
-
-func printRoot(root *schema.Root) {
-	if root.Root == nil {
-		fmt.Printf("Immudb is empty\n")
-		return
-	}
-	fmt.Printf(`index:		%d
-hash:		%x
-`, root.Index, root.Root)
 }

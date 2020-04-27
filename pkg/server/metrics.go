@@ -42,8 +42,8 @@ func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
 	mc.RecordsCounter = promauto.NewCounterFunc(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
-			Name:      "number_of_stored_keys",
-			Help:      "Number of keys currently stored by the database.",
+			Name:      "number_of_stored_entries",
+			Help:      "Number of key-value entries currently stored by the database.",
 		},
 		f,
 	)
