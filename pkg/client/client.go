@@ -24,18 +24,19 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client/cache"
-	"github.com/codenotary/immudb/pkg/client/timestamp"
-	"github.com/codenotary/immudb/pkg/logger"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/grpclog"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/timestamp"
+	"github.com/codenotary/immudb/pkg/logger"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/grpclog"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -54,7 +55,7 @@ type ImmuClient interface {
 	Disconnect() error
 	IsConnected() bool
 	WaitForHealthCheck(ctx context.Context) (err error)
-	Connect(ctx context.Context) (clientConn *grpc.ClientConn,  err error)
+	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
 	CurrentRoot(ctx context.Context) (*schema.Root, error)
 	Set(ctx context.Context, key []byte, value []byte) (*schema.Index, error)
@@ -81,7 +82,7 @@ type ImmuClient interface {
 	HealthCheck(ctx context.Context) error
 	verifyAndSetRoot(result *schema.Proof, root *schema.Root, ctx context.Context) (bool, error)
 
-    WithOptions(options *Options) *immuClient
+	WithOptions(options *Options) *immuClient
 	WithLogger(logger logger.Logger) *immuClient
 	WithRootService(rs RootService) *immuClient
 	WithTimestampService(ts TimestampService) *immuClient
@@ -90,7 +91,6 @@ type ImmuClient interface {
 
 	GetServiceClient() *schema.ImmuServiceClient
 }
-
 
 type immuClient struct {
 	Logger        logger.Logger
@@ -102,17 +102,16 @@ type immuClient struct {
 	sync.RWMutex
 }
 
-
 // DefaultClient ...
 func DefaultClient() ImmuClient {
 	return &immuClient{
 		Options: DefaultOptions(),
-		Logger: logger.NewSimpleLogger("immuclient", os.Stderr),
+		Logger:  logger.NewSimpleLogger("immuclient", os.Stderr),
 	}
 }
 
 // NewImmuClient ...
-func NewImmuClient(options *Options) ( c ImmuClient, err error){
+func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	ctx := context.Background()
 	//ctx, cancel := context.WithCancel(ctx)
 
@@ -120,11 +119,11 @@ func NewImmuClient(options *Options) ( c ImmuClient, err error){
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
 	c.WithLogger(l)
 
-    options.DialOptions = setupDialOptions(options)
+	options.DialOptions = setupDialOptions(options)
 
-    c.WithOptions(options)
+	c.WithOptions(options)
 
-    var clientConn *grpc.ClientConn
+	var clientConn *grpc.ClientConn
 	if clientConn, err = c.Connect(ctx); err != nil {
 		return nil, err
 	}
@@ -135,19 +134,19 @@ func NewImmuClient(options *Options) ( c ImmuClient, err error){
 		return nil, err
 	}
 
-	rootService := NewRootService(serviceClient, cache.NewFileCache(), l )
+	rootService := NewRootService(serviceClient, cache.NewFileCache(), l)
 	dt, err := timestamp.NewTdefault()
 	if err != nil {
 		return nil, err
 	}
 	ts := NewTimestampService(dt)
 	c.WithTimestampService(ts).
-	  WithRootService(rootService)
+		WithRootService(rootService)
 
 	return c, nil
 }
 
-func setupDialOptions (options *Options) *[]grpc.DialOption{
+func setupDialOptions(options *Options) *[]grpc.DialOption {
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 
 	//---------- TLS Setting -----------//
@@ -255,7 +254,7 @@ func (c *immuClient) WaitForHealthCheck(ctx context.Context) (err error) {
 }
 
 // GetServiceClient ...
-func  (c *immuClient) GetServiceClient() *schema.ImmuServiceClient {
+func (c *immuClient) GetServiceClient() *schema.ImmuServiceClient {
 	return &c.ServiceClient
 }
 
@@ -272,6 +271,7 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 	c.Logger.Debugf("set finished in %s", time.Since(start))
 	return result, err
 }
+
 // Get ...
 func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.StructuredItem, error) {
 	start := time.Now()
@@ -289,6 +289,7 @@ func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.StructuredIte
 	c.Logger.Debugf("get finished in %s", time.Since(start))
 	return result, err
 }
+
 // CurrentRoot returns current merkle tree root and index
 func (c *immuClient) CurrentRoot(ctx context.Context) (*schema.Root, error) {
 	start := time.Now()
@@ -302,6 +303,7 @@ func (c *immuClient) CurrentRoot(ctx context.Context) (*schema.Root, error) {
 	c.Logger.Debugf("Current root finished in %s", time.Since(start))
 	return root, err
 }
+
 // SafeGet ...
 func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *VerifiedItem, err error) {
 	start := time.Now()
@@ -352,14 +354,15 @@ func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 		return nil, err
 	}
 	return &VerifiedItem{
-		Key:      sitem.Item.GetKey(),
-		Value:    sitem.Item.Value.Payload,
-		Index:    sitem.Item.GetIndex(),
-		Time:     sitem.Item.Value.Timestamp,
-		Verified: verified,
-	},
+			Key:      sitem.Item.GetKey(),
+			Value:    sitem.Item.Value.Payload,
+			Index:    sitem.Item.GetIndex(),
+			Time:     sitem.Item.Value.Timestamp,
+			Verified: verified,
+		},
 		nil
 }
+
 // RawSafeGet ...
 func (c *immuClient) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *VerifiedItem, err error) {
 	c.Lock()
@@ -407,13 +410,14 @@ func (c *immuClient) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.Ca
 	c.Logger.Debugf("safeget finished in %s", time.Since(start))
 
 	return &VerifiedItem{
-		Key:      safeItem.Item.GetKey(),
-		Value:    safeItem.Item.Value,
-		Index:    safeItem.Item.GetIndex(),
-		Verified: verified,
-	},
+			Key:      safeItem.Item.GetKey(),
+			Value:    safeItem.Item.Value,
+			Index:    safeItem.Item.GetIndex(),
+			Verified: verified,
+		},
 		nil
 }
+
 // Scan ...
 func (c *immuClient) Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error) {
 	if !c.IsConnected() {
@@ -425,6 +429,7 @@ func (c *immuClient) Scan(ctx context.Context, prefix []byte) (*schema.Structure
 	}
 	return list.ToSItemList()
 }
+
 // ZScan ...
 func (c *immuClient) ZScan(ctx context.Context, set []byte) (*schema.StructuredItemList, error) {
 	if !c.IsConnected() {
@@ -436,6 +441,7 @@ func (c *immuClient) ZScan(ctx context.Context, set []byte) (*schema.StructuredI
 	}
 	return list.ToSItemList()
 }
+
 // IScan ...
 func (c *immuClient) IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error) {
 	if !c.IsConnected() {
@@ -447,6 +453,7 @@ func (c *immuClient) IScan(ctx context.Context, pageNumber uint64, pageSize uint
 	}
 	return page.ToSPage()
 }
+
 // Count ...
 func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error) {
 	if !c.IsConnected() {
@@ -454,6 +461,7 @@ func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCou
 	}
 	return c.ServiceClient.Count(ctx, &schema.KeyPrefix{Prefix: prefix})
 }
+
 // Set ...
 func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.Index, error) {
 	start := time.Now()
@@ -472,6 +480,7 @@ func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema
 	c.Logger.Debugf("set finished in %s", time.Since(start))
 	return result, err
 }
+
 // SafeSet ...
 func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*VerifiedIndex, error) {
 	start := time.Now()
@@ -538,11 +547,12 @@ func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*Ve
 	c.Logger.Debugf("safeset finished in %s", time.Since(start))
 
 	return &VerifiedIndex{
-		Index:    result.Index,
-		Verified: verified,
-	},
+			Index:    result.Index,
+			Verified: verified,
+		},
 		nil
 }
+
 // RawSafeSet ...
 func (c *immuClient) RawSafeSet(ctx context.Context, key []byte, value []byte) (vi *VerifiedIndex, err error) {
 	start := time.Now()
@@ -560,8 +570,8 @@ func (c *immuClient) RawSafeSet(ctx context.Context, key []byte, value []byte) (
 
 	opts := &schema.SafeSetOptions{
 		Kv: &schema.KeyValue{
-			Key: key,
-			Value:  value,
+			Key:   key,
+			Value: value,
 		},
 		RootIndex: &schema.Index{
 			Index: root.Index,
@@ -582,7 +592,7 @@ func (c *immuClient) RawSafeSet(ctx context.Context, key []byte, value []byte) (
 	// This guard ensures that result.Leaf is equal to the item's hash computed from
 	// request values. From now on, result.Leaf can be trusted.
 	item := schema.Item{
-		Key: key,
+		Key:   key,
 		Value: value,
 		Index: result.Index,
 	}
@@ -601,11 +611,12 @@ func (c *immuClient) RawSafeSet(ctx context.Context, key []byte, value []byte) (
 	c.Logger.Debugf("safeset finished in %s", time.Since(start))
 
 	return &VerifiedIndex{
-		Index:    result.Index,
-		Verified: verified,
-	},
+			Index:    result.Index,
+			Verified: verified,
+		},
 		nil
 }
+
 // SetBatch ...
 func (c *immuClient) SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error) {
 	start := time.Now()
@@ -620,6 +631,7 @@ func (c *immuClient) SetBatch(ctx context.Context, request *BatchRequest) (*sche
 	c.Logger.Debugf("set-batch finished in %s", time.Since(start))
 	return result, err
 }
+
 // GetBatch ...
 func (c *immuClient) GetBatch(ctx context.Context, keys [][]byte) (*schema.StructuredItemList, error) {
 	start := time.Now()
@@ -637,6 +649,7 @@ func (c *immuClient) GetBatch(ctx context.Context, keys [][]byte) (*schema.Struc
 	}
 	return list.ToSItemList()
 }
+
 // Inclusion ...
 func (c *immuClient) Inclusion(ctx context.Context, index uint64) (*schema.InclusionProof, error) {
 	start := time.Now()
@@ -649,6 +662,7 @@ func (c *immuClient) Inclusion(ctx context.Context, index uint64) (*schema.Inclu
 	c.Logger.Debugf("inclusion finished in %s", time.Since(start))
 	return result, err
 }
+
 // Consistency ...
 func (c *immuClient) Consistency(ctx context.Context, index uint64) (*schema.ConsistencyProof, error) {
 	start := time.Now()
@@ -661,6 +675,7 @@ func (c *immuClient) Consistency(ctx context.Context, index uint64) (*schema.Con
 	c.Logger.Debugf("consistency finished in %s", time.Since(start))
 	return result, err
 }
+
 // ByIndex ...
 func (c *immuClient) ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error) {
 	start := time.Now()
@@ -680,6 +695,7 @@ func (c *immuClient) ByIndex(ctx context.Context, index uint64) (*schema.Structu
 	c.Logger.Debugf("by-index finished in %s", time.Since(start))
 	return result, err
 }
+
 // History ...
 func (c *immuClient) History(ctx context.Context, key []byte) (sl *schema.StructuredItemList, err error) {
 	start := time.Now()
@@ -699,6 +715,7 @@ func (c *immuClient) History(ctx context.Context, key []byte) (sl *schema.Struct
 	c.Logger.Debugf("history finished in %s", time.Since(start))
 	return sl, err
 }
+
 // Reference ...
 func (c *immuClient) Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error) {
 	start := time.Now()
@@ -712,6 +729,7 @@ func (c *immuClient) Reference(ctx context.Context, reference []byte, key []byte
 	c.Logger.Debugf("reference finished in %s", time.Since(start))
 	return result, err
 }
+
 // SafeReference ...
 func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []byte) (*VerifiedIndex, error) {
 	start := time.Now()
@@ -772,6 +790,7 @@ func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []
 		},
 		nil
 }
+
 // ZAdd ...
 func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error) {
 	start := time.Now()
@@ -786,6 +805,7 @@ func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []
 	c.Logger.Debugf("zadd finished in %s", time.Since(start))
 	return result, err
 }
+
 // SafeZAdd ...
 func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*VerifiedIndex, error) {
 	start := time.Now()
@@ -852,6 +872,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 		},
 		nil
 }
+
 // Dump to be used from Immu CLI
 func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
 	start := time.Now()
@@ -903,6 +924,7 @@ func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, er
 
 	return counter, errorsMerged
 }
+
 // todo(joe-dz): Enable restore when the feature is required again.
 // Also, make sure that the generated files are updated
 // Restore to be used from Immu CLI

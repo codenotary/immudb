@@ -18,8 +18,6 @@ package client
 
 import (
 	"context"
-	"github.com/codenotary/immudb/pkg/client/cache"
-	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"io/ioutil"
 	"log"
 	"net"
@@ -28,6 +26,9 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/timestamp"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
