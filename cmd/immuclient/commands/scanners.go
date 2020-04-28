@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *commandline) zScanSetName(cmd *cobra.Command) {
+func (cl *commandline) zScan(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:     "zscan setname",
 		Short:   "Iterate over a sorted set",

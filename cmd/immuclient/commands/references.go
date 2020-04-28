@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *commandline) newRefkeyKey(cmd *cobra.Command) {
+func (cl *commandline) newReferenceKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:     "reference refkey key",
 		Short:   "Add new reference to an existing key",
@@ -51,7 +51,7 @@ func (cl *commandline) newRefkeyKey(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) safeNewRefkeyKey(cmd *cobra.Command) {
+func (cl *commandline) safeNewReferenceKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:     "safereference refkey key",
 		Short:   "Add and verify new reference to an existing key",

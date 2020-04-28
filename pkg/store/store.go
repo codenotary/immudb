@@ -375,9 +375,9 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 
 	if opts.asyncCommit {
 		t.wg.Add(1)
-		_ = mapError(txn.CommitAt(tsEntry.ts, cb)) // cb will be executed in a new goroutine
+		err = mapError(txn.CommitAt(tsEntry.ts, cb)) // cb will be executed in a new goroutine
 	} else {
-		_ = mapError(txn.CommitAt(tsEntry.ts, nil))
+		err = mapError(txn.CommitAt(tsEntry.ts, nil))
 		cb(err)
 	}
 

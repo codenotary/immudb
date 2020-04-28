@@ -38,14 +38,14 @@ func Init(cmd *cobra.Command, o *c.Options, tokenFilename *string, immuClient cl
 	cl.zAddSetNameScoreKey(cmd)
 	cl.safeZAddSetNameScoreKey(cmd)
 	// scanners
-	cl.zScanSetName(cmd)
+	cl.zScan(cmd)
 	cl.iScanPageNumPageSize(cmd)
 	cl.iScanPrefix(cmd)
 	cl.countPrefix(cmd)
 	cl.inclusionIndex(cmd)
 	// references
-	cl.newRefkeyKey(cmd)
-	cl.safeNewRefkeyKey(cmd)
+	cl.newReferenceKey(cmd)
+	cl.safeNewReferenceKey(cmd)
 	// misc
 	cl.checkConsistencyIndexHash(cmd)
 	cl.historyKey(cmd)

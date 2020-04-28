@@ -68,13 +68,13 @@ func (r *rootservice) GetRoot(ctx context.Context) (*schema.Root, error) {
 	r.RLock()
 	var metadata runtime.ServerMetadata
 	var protoReq empty.Empty
-	if root, err := r.cache.Get(); err == nil {
+	if root, err := r.cache.Get(r.serverUuid); err == nil {
 		return root, nil
 	}
 	if root, err := r.client.CurrentRoot(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD)); err != nil {
 		return nil, err
 	} else {
-		if err := r.cache.Set(root); err != nil {
+		if err := r.cache.Set(root, r.serverUuid); err != nil {
 			return nil, err
 		}
 		return root, nil
@@ -84,5 +84,5 @@ func (r *rootservice) GetRoot(ctx context.Context) (*schema.Root, error) {
 func (r *rootservice) SetRoot(root *schema.Root) error {
 	defer r.Unlock()
 	r.Lock()
-	return r.cache.Set(root)
+	return r.cache.Set(root, r.serverUuid)
 }

@@ -95,7 +95,10 @@ func (u *uuidContext) UuidStreamContextSetter(srv interface{}, ss grpc.ServerStr
 // UuidContextSetter set uuid header
 func (u *uuidContext) UuidContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	header := metadata.Pairs(SERVER_UUID_HEADER, u.Uuid.String())
-	grpc.SendHeader(ctx, header)
+	err := grpc.SendHeader(ctx, header)
+	if err != nil {
+		return nil, err
+	}
 	m, err := handler(ctx, req)
 	return m, err
 }
