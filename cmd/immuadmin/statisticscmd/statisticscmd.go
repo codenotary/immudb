@@ -69,6 +69,10 @@ func showMetricsAsText(serverAddress string) error {
 	fmt.Printf(strPattern, labelLength, "Queries per client", "---")
 	for k, v := range ms.nbRPCsPerClient {
 		fmt.Printf("   "+intPattern, labelLength-3, k, v)
+		if lastMsgAt, ok := ms.lastMsgAtPerClient[k]; ok {
+			ago := time.Since(time.Unix(int64(lastMsgAt), 0))
+			fmt.Printf("      "+strPattern, labelLength-6, "active", fmt.Sprintf("%s ago", ago))
+		}
 	}
 
 	// print durations

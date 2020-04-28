@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/peer"
 
@@ -32,9 +31,10 @@ import (
 )
 
 type MetricsCollection struct {
-	RecordsCounter        prometheus.CounterFunc
-	UptimeCounter         prometheus.CounterFunc
-	RPCsPerClientCounters *prometheus.CounterVec
+	RecordsCounter               prometheus.CounterFunc
+	UptimeCounter                prometheus.CounterFunc
+	RPCsPerClientCounters        *prometheus.CounterVec
+	LastMessageAtPerClientGauges *prometheus.GaugeVec
 }
 
 var metricsNamespace = "immudb"
@@ -61,29 +61,15 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 	)
 }
 
-func (mc *MetricsCollection) UpdateRPCsPerClientCounters(ctx context.Context) {
+func (mc *MetricsCollection) UpdateClientMetrics(ctx context.Context) {
 	p, ok := peer.FromContext(ctx)
 	if ok && p != nil {
 		ipAndPort := strings.Split(p.Addr.String(), ":")
 		if len(ipAndPort) > 0 {
 			mc.RPCsPerClientCounters.WithLabelValues(ipAndPort[0]).Inc()
+			mc.LastMessageAtPerClientGauges.WithLabelValues(ipAndPort[0]).SetToCurrentTime()
 		}
 	}
-}
-
-func (mc *MetricsCollection) String() string {
-	metricFamilies, err := prometheus.DefaultGatherer.Gather()
-	if err != nil {
-		return err.Error()
-	}
-	if len(metricFamilies) < 1 {
-		return "<empty>"
-	}
-	metrics := []string{}
-	for _, metricFamily := range metricFamilies {
-		metrics = append(metrics, proto.MarshalTextString(metricFamily))
-	}
-	return strings.Join(metrics, "\n\n")
 }
 
 var Metrics = MetricsCollection{
@@ -92,6 +78,14 @@ var Metrics = MetricsCollection{
 			Namespace: metricsNamespace,
 			Name:      "number_of_rpcs_per_client",
 			Help:      "Number of handled RPCs per client.",
+		},
+		[]string{"ip"},
+	),
+	LastMessageAtPerClientGauges: promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "clients_last_message_at_unix_seconds",
+			Help:      "Timestamp at which clients have sent their most recent message.",
 		},
 		[]string{"ip"},
 	),

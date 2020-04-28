@@ -22,6 +22,7 @@ type metrics struct {
 	durationRPCsByMethod map[string]rpcDuration
 	nbClients            int
 	nbRPCsPerClient      map[string]uint64
+	lastMsgAtPerClient   map[string]uint64
 	db                   dbInfo
 }
 
@@ -44,6 +45,19 @@ func (ms *metrics) withClients(metricsFamilies *map[string]*dto.MetricFamily) {
 			}
 		}
 		ms.nbRPCsPerClient[ip] = uint64(m.GetCounter().GetValue())
+	}
+
+	ms.lastMsgAtPerClient = map[string]uint64{}
+	lastMsgAtMetrics := (*metricsFamilies)["immudb_clients_last_message_at_unix_seconds"].GetMetric()
+	for _, m := range lastMsgAtMetrics {
+		var ip string
+		for _, labelPair := range m.GetLabel() {
+			if labelPair.GetName() == "ip" {
+				ip = labelPair.GetValue()
+				break
+			}
+		}
+		ms.lastMsgAtPerClient[ip] = uint64(m.GetGauge().GetValue())
 	}
 }
 
