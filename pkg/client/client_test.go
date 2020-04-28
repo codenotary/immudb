@@ -1,12 +1,9 @@
 /*
 Copyright 2019-2020 vChain, Inc.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
 	http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,8 +15,6 @@ package client
 
 import (
 	"context"
-	"github.com/codenotary/immudb/pkg/client/cache"
-	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"io/ioutil"
 	"log"
 	"net"
@@ -28,6 +23,9 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/timestamp"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"

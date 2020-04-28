@@ -18,7 +18,7 @@ type Options struct {
 }
 
 // InitConfig initializes config
-func (o Options) InitConfig(name string) {
+func (o *Options) InitConfig(name string) {
 	if o.CfgFn != "" {
 		viper.SetConfigFile(o.CfgFn)
 	} else {

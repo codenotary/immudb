@@ -1,12 +1,9 @@
 /*
 Copyright 2019-2020 vChain, Inc.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
 	http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,12 +15,13 @@ package server
 
 import (
 	"context"
-	"github.com/rs/xid"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 	"io/ioutil"
 	"os"
 	"path"
+
+	"github.com/rs/xid"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // IDENTIFIER_FNAME ...
@@ -97,7 +95,10 @@ func (u *uuidContext) UuidStreamContextSetter(srv interface{}, ss grpc.ServerStr
 // UuidContextSetter set uuid header
 func (u *uuidContext) UuidContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	header := metadata.Pairs(SERVER_UUID_HEADER, u.Uuid.String())
-	grpc.SendHeader(ctx, header)
+	err := grpc.SendHeader(ctx, header)
+	if err != nil {
+		return nil, err
+	}
 	m, err := handler(ctx, req)
 	return m, err
 }

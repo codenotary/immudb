@@ -43,7 +43,7 @@ const bitReferenceEntry = byte(1)
 const bitTreeEntry = byte(255)
 
 func treeKey(layer uint8, index uint64) []byte {
-	k := make([]byte, 1+1+8, 1+1+8)
+	k := make([]byte, 1+1+8)
 	k[0] = tsPrefix
 	k[1] = layer
 	binary.BigEndian.PutUint64(k[2:], index)
@@ -138,7 +138,7 @@ func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore
 		db:     db,
 		log:    log,
 		c:      make(chan *treeStoreEntry, cacheSize),
-		quit:   make(chan struct{}, 0),
+		quit:   make(chan struct{}),
 		caches: [256]ring.Buffer{},
 		cPos:   [256]uint64{},
 		cSize:  cacheSize,
@@ -301,9 +301,8 @@ func (t *treeStore) worker() {
 // in case of failure previous stored state will be preserved and cache indexes will be not advanced.
 func (t *treeStore) flush() {
 	t.log.Infof("Flushing tree caches at index %d", t.w-1)
-	cancel := false
-	var wb *badger.WriteBatch
-	wb = t.db.NewWriteBatchAt(t.w)
+	var cancel bool
+	wb := t.db.NewWriteBatchAt(t.w)
 	defer func() {
 		if cancel {
 			wb.Cancel()
