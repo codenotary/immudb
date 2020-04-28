@@ -82,3 +82,6 @@ jobs:
       deploy:
         provider: script
         script: docker push "${DOCKER_IMAGE}:latest"
+branches:
+  only:
+  - master
