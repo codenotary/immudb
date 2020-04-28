@@ -51,7 +51,7 @@ func runUI(loader MetricsLoader, memStats bool) error {
 			switch e.Type {
 			case ui.KeyboardEvent:
 				switch e.ID {
-				case "q", "<C-c>":
+				case "q", "<C-c>", "<Escape>":
 					return nil
 				}
 			case ui.ResizeEvent:
