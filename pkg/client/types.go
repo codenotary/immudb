@@ -83,8 +83,10 @@ type VerifiedIndex struct {
 func (vi *VerifiedIndex) Reset() { *vi = VerifiedIndex{} }
 
 func (vi *VerifiedIndex) String() string { return proto.CompactTextString(vi) }
+
 // ProtoMessage ...
 func (*VerifiedIndex) ProtoMessage() {}
+
 // Reset ...
 func (vi *VerifiedItem) Reset() { *vi = VerifiedItem{} }
 

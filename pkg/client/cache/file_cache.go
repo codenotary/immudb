@@ -17,9 +17,10 @@ limitations under the License.
 package cache
 
 import (
+	"io/ioutil"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
-	"io/ioutil"
 )
 
 const ROOT_FN = ".root-"
@@ -57,7 +58,7 @@ func (w *fileCache) Set(root *schema.Root, serverUuid string) error {
 	return nil
 }
 
-func getRootFileName(prefix []byte, serverUuid []byte) []byte{
+func getRootFileName(prefix []byte, serverUuid []byte) []byte {
 	l1 := len(prefix)
 	l2 := len(serverUuid)
 	var fn = make([]byte, l1+l2)

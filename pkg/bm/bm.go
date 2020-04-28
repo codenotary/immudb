@@ -58,7 +58,7 @@ func (b *Bm) Execute() *BmResult {
 			start := kk * chunkSize
 			end := (kk + 1) * chunkSize
 			if err := b.Work(b, start, end); err != nil {
-				fmt.Fprintf(os.Stderr, `"%s" error: %s`+"\n", b.Name, err)
+				fmt.Fprintf(os.Stderr, "\"%v\" error: %v\n", b.Name, err.Error())
 				os.Exit(1)
 			}
 		}(k)
