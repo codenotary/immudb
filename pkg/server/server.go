@@ -93,7 +93,7 @@ func (s *ImmuServer) Start() error {
 	}
 
 	auth.AuthEnabled = s.Options.Auth
-	auth.ObserveMetrics = func(ctx context.Context) { Metrics.ObserveRPCsPerClientCounters(ctx) }
+	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateRPCsPerClientCounters(ctx) }
 	if auth.AuthEnabled {
 		if err := s.loadOrGeneratePassword(); err != nil {
 			return err

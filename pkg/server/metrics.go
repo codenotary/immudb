@@ -49,7 +49,7 @@ func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
 	)
 }
 
-func (mc *MetricsCollection) ObserveRPCsPerClientCounters(ctx context.Context) {
+func (mc *MetricsCollection) UpdateRPCsPerClientCounters(ctx context.Context) {
 	p, ok := peer.FromContext(ctx)
 	if ok && p != nil {
 		ipAndPort := strings.Split(p.Addr.String(), ":")

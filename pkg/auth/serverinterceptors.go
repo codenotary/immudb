@@ -23,7 +23,7 @@ import (
 )
 
 var AuthEnabled bool
-var ObserveMetrics func(context.Context)
+var UpdateMetrics func(context.Context)
 
 type WrappedServerStream struct {
 	grpc.ServerStream
@@ -44,8 +44,8 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 			return err
 		}
 	}
-	if ObserveMetrics != nil {
-		ObserveMetrics(ctx)
+	if UpdateMetrics != nil {
+		UpdateMetrics(ctx)
 	}
 	return handler(srv, &WrappedServerStream{ss})
 }
@@ -56,8 +56,8 @@ func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Una
 			return nil, err
 		}
 	}
-	if ObserveMetrics != nil {
-		ObserveMetrics(ctx)
+	if UpdateMetrics != nil {
+		UpdateMetrics(ctx)
 	}
 	m, err := handler(ctx, req)
 	return m, err
