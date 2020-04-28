@@ -70,15 +70,7 @@ func main() {
 				return err
 			}
 
-			fmt.Printf(`
-index: %d
-key: %s
-
-OLD value:
-%s
-
-`, ts-1, item.Key(), oldValue)
-
+			fmt.Printf("index: %d\nkey: %s\nOLD value:\n%s\n", ts-1, item.Key(), oldValue)
 			if err := txn.Set(k, v); err != nil {
 				return err
 			}
@@ -87,14 +79,7 @@ OLD value:
 				return err
 			}
 
-			fmt.Printf(`
-NEW value:
-%s
-
-index %d successfully overwritten.
-
-`, v, ts-1)
-
+			fmt.Printf("NEW value:\n%s \nindex %d successfully overwritten.\n", v, ts-1)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),

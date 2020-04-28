@@ -82,7 +82,7 @@ func Immudb(cmd *cobra.Command, args []string) (err error) {
 	if options.Logfile != "" {
 		if flogger, file, err := logger.NewFileLogger("immudb ", options.Logfile); err == nil {
 			defer func() {
-				if err := file.Close(); err != nil {
+				if err = file.Close(); err != nil {
 					c.QuitToStdErr(err)
 				}
 			}()

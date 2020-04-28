@@ -14,26 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package timestamp
+package commands
 
 import (
-	"time"
+	"context"
 
-	s "github.com/beevik/ntp"
+	c "github.com/codenotary/immudb/cmd"
+	"github.com/spf13/cobra"
 )
 
-type ntp struct {
-	r *s.Response
-}
-
-func NewNtp() (TsGenerator, error) {
-	r, err := s.Query("0.beevik-ntp.pool.ntp.org")
-	if err != nil {
-		return nil, err
+func (cl *CommandlineClient) currentRoot(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:     "current",
+		Short:   "Return the last merkle tree root and index stored locally",
+		Aliases: []string{"crt"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+			root, err := cl.ImmuClient.CurrentRoot(ctx)
+			if err != nil {
+				c.QuitWithUserError(err)
+			}
+			printRoot(root)
+			return nil
+		},
+		Args: cobra.ExactArgs(0),
 	}
-	return &ntp{r}, nil
-}
-
-func (w *ntp) Now() time.Time {
-	return time.Now().Add(w.r.ClockOffset)
+	cmd.AddCommand(ccmd)
 }

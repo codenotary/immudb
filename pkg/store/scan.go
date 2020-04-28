@@ -17,9 +17,10 @@ limitations under the License.
 package store
 
 import (
+	"math"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/dgraph-io/badger/v2"
-	"math"
 )
 
 func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err error) {
@@ -69,7 +70,7 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 				continue
 			}
 			var refKey []byte
-			err := it.Item().Value(func(val []byte) error {
+			err = it.Item().Value(func(val []byte) error {
 				refKey = append([]byte{}, val...)
 				return nil
 			})
@@ -78,6 +79,9 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 			}
 			if ref, err := txn.Get(refKey); err == nil {
 				item, err = itemToSchema(refKey, ref)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else {
 			item, err = itemToSchema(nil, it.Item())
@@ -140,7 +144,7 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 		var item *schema.Item
 		if it.Item().UserMeta()&bitReferenceEntry == bitReferenceEntry {
 			var refKey []byte
-			err := it.Item().Value(func(val []byte) error {
+			err = it.Item().Value(func(val []byte) error {
 				refKey = append([]byte{}, val...)
 				return nil
 			})
@@ -149,6 +153,9 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 			}
 			if ref, err := txn.Get(refKey); err == nil {
 				item, err = itemToSchema(refKey, ref)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else {
 			item, err = itemToSchema(nil, it.Item())
