@@ -57,6 +57,8 @@ func showMetricsAsText(serverAddress string) error {
 
 	// print DB info
 	fmt.Printf(strPattern, labelLength, "Database path", ms.db.name)
+	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.db.uptimeHours))
+	fmt.Printf(strPattern, labelLength, "Uptime", uptime)
 	fmt.Printf(intPattern, labelLength, "Number of entries", ms.db.nbEntries)
 	fmt.Printf(intPattern, labelLength, "LSM size (bytes)", ms.db.lsmBytes)
 	fmt.Printf(intPattern, labelLength, "Vlog size (bytes)", ms.db.vlogBytes)

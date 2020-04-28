@@ -33,6 +33,7 @@ import (
 
 type MetricsCollection struct {
 	RecordsCounter        prometheus.CounterFunc
+	UptimeCounter         prometheus.CounterFunc
 	RPCsPerClientCounters *prometheus.CounterVec
 }
 
@@ -44,6 +45,17 @@ func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
 			Namespace: metricsNamespace,
 			Name:      "number_of_stored_entries",
 			Help:      "Number of key-value entries currently stored by the database.",
+		},
+		f,
+	)
+}
+
+func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
+	mc.UptimeCounter = promauto.NewCounterFunc(
+		prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Name:      "uptime_hours",
+			Help:      "Server uptime in hours.",
 		},
 		f,
 	)
@@ -111,8 +123,10 @@ func StartMetrics(
 	addr string,
 	l logger.Logger,
 	recordsCounter func() float64,
+	uptimeCounter func() float64,
 ) *http.Server {
 	Metrics.WithRecordsCounter(recordsCounter)
+	Metrics.WithUptimeCounter(uptimeCounter)
 	// expvar package adds a handler in to the default HTTP server (which has to be started explicitly),
 	// and serves up the metrics at the /debug/vars endpoint.
 	// Here we're registering both expvar and promhttp handlers in our custom server.

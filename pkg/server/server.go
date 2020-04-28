@@ -27,6 +27,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/rs/xid"
 
@@ -42,6 +43,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
+
+var startedAt time.Time
 
 func (s *ImmuServer) Start() error {
 	options := []grpc.ServerOption{}
@@ -127,6 +130,7 @@ func (s *ImmuServer) Start() error {
 		s.Options.MetricsBind(),
 		s.Logger,
 		func() float64 { return float64(s.Store.CountAll()) },
+		func() float64 { return time.Since(startedAt).Hours() },
 	)
 	defer func() {
 		if err = metricsServer.Close(); err != nil {
@@ -159,6 +163,8 @@ func (s *ImmuServer) Start() error {
 			return err
 		}
 	}
+
+	startedAt = time.Now()
 
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit

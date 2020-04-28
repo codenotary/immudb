@@ -10,11 +10,12 @@ type rpcDuration struct {
 }
 
 type dbInfo struct {
-	name       string
-	lsmBytes   uint64
-	vlogBytes  uint64
-	totalBytes uint64
-	nbEntries  uint64
+	name        string
+	lsmBytes    uint64
+	vlogBytes   uint64
+	totalBytes  uint64
+	nbEntries   uint64
+	uptimeHours float64
 }
 
 type metrics struct {
@@ -60,6 +61,7 @@ func (ms *metrics) withDBInfo(metricsFamilies *map[string]*dto.MetricFamily) {
 		}
 	}
 	ms.db.nbEntries = uint64((*metricsFamilies)["immudb_number_of_stored_entries"].GetMetric()[0].GetCounter().GetValue())
+	ms.db.uptimeHours = (*metricsFamilies)["immudb_uptime_hours"].GetMetric()[0].GetCounter().GetValue()
 }
 
 func (ms *metrics) withDuration(metricsFamilies *map[string]*dto.MetricFamily) {
