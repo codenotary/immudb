@@ -24,63 +24,63 @@ import (
 
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/cmd/immuadmin/statisticscmd"
-	"google.golang.org/grpc"
 
 	"github.com/spf13/cobra"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
 var o = c.Options{}
-
-var tokenFilename = "token"
+var immuClient client.ImmuClient
 
 func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immuadmin") })
 }
 
 func main() {
+
 	cmd := &cobra.Command{
 		Use:   "immuadmin",
-		Short: "Admin CLI client for the ImmuDB tamperproof database",
-		Long: `Admin CLI client for the ImmuDB tamperproof database.
+		Short: "CLI admin client for the ImmuDB tamperproof database",
+		Long: `CLI admin client for the ImmuDB tamperproof database.
 
 Environment variables:
   IMMUADMIN_ADDRESS=127.0.0.1
-  IMMUADMIN_PORT=3322`,
+  IMMUADMIN_PORT=3322
+  IMMUADMIN_MTLS=true`,
 		DisableAutoGenTag: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) (err error) {
+			if immuClient, err = client.NewImmuClient(options()); err != nil {
+				c.QuitToStdErr(err)
+			}
+			return
+		},
+		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			if err := immuClient.Disconnect(); err != nil {
+				c.QuitToStdErr(err)
+			}
+		},
 	}
-
 	commands := []*cobra.Command{
-		&cobra.Command{
+		{
 			Use:     "login username \"password\"",
 			Short:   fmt.Sprintf("Login using the specified username and \"password\" (username is \"%s\")", auth.AdminUser.Username),
 			Aliases: []string{"l"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				options, err := options(cmd)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				immuClient := client.
-					DefaultClient().
-					WithOptions(*options)
 				user := []byte(args[0])
 				pass := []byte(args[1])
 				ctx := context.Background()
-				response, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					return immuClient.Login(ctx, user, pass)
-				})
+				response, err := immuClient.Login(ctx, user, pass)
 				if err != nil {
 					c.QuitWithUserError(err)
 				}
-				if err := ioutil.WriteFile(tokenFilename, response.(*schema.LoginResponse).Token, 0644); err != nil {
+				if err := ioutil.WriteFile(client.TokenFileName, response.Token, 0644); err != nil {
 					c.QuitToStdErr(err)
 				}
 				fmt.Printf("logged in\n")
@@ -88,36 +88,33 @@ Environment variables:
 			},
 			Args: cobra.ExactArgs(2),
 		},
-		&cobra.Command{
+		{
 			Use:     "logout",
 			Aliases: []string{"x"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-				os.Remove(tokenFilename)
+				if err := os.Remove(client.TokenFileName); err != nil {
+					c.QuitWithUserError(err)
+				}
 				fmt.Println("logged out")
 				return nil
 			},
 			Args: cobra.NoArgs,
 		},
-		&cobra.Command{
+		{
 			Use:     "status",
-			Short:   "Show health status",
+			Short:   "Show heartbeat status",
 			Aliases: []string{"p"},
 			RunE: func(cmd *cobra.Command, args []string) error {
-
 				ctx := context.Background()
-				immuClient := getImmuClient(cmd)
-				_, err := immuClient.Connected(ctx, func() (interface{}, error) {
-					return nil, immuClient.HealthCheck(ctx)
-				})
-				if err != nil {
+				if err := immuClient.HealthCheck(ctx); err != nil {
 					c.QuitWithUserError(err)
 				}
-				fmt.Println("Healthy")
+				fmt.Println("OK - server is reachable and responding to queries")
 				return nil
 			},
 			Args: cobra.NoArgs,
 		},
-		statisticscmd.NewCommand(options),
+		statisticscmd.NewCommand(optionsWithAuth, &immuClient),
 	}
 
 	if err := configureOptions(cmd); err != nil {
@@ -138,53 +135,86 @@ Environment variables:
 func configureOptions(cmd *cobra.Command) error {
 	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
 	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuadmin.ini)")
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.ini)")
+	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
+	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
+	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
+	cmd.PersistentFlags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")
+	cmd.PersistentFlags().String("clientcas", client.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
 	if err := viper.BindPFlag("default.port", cmd.PersistentFlags().Lookup("port")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("default.address", cmd.PersistentFlags().Lookup("address")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("default.mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("default.servername", cmd.PersistentFlags().Lookup("servername")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("default.certificate", cmd.PersistentFlags().Lookup("certificate")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("default.pkey", cmd.PersistentFlags().Lookup("pkey")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("default.clientcas", cmd.PersistentFlags().Lookup("clientcas")); err != nil {
+		return err
+	}
 	viper.SetDefault("default.port", gw.DefaultOptions().ImmudbPort)
 	viper.SetDefault("default.address", gw.DefaultOptions().ImmudbAddress)
+	viper.SetDefault("default.mtls", client.DefaultOptions().MTLs)
+	viper.SetDefault("default.servername", client.DefaultMTLsOptions().Servername)
+	viper.SetDefault("default.certificate", client.DefaultMTLsOptions().Certificate)
+	viper.SetDefault("default.pkey", client.DefaultMTLsOptions().Pkey)
+	viper.SetDefault("default.clientcas", client.DefaultMTLsOptions().ClientCAs)
+
 	return nil
 }
 
-func getImmuClient(cmd *cobra.Command) *client.ImmuClient {
-	options, err := options(cmd)
-	if err != nil {
-		c.QuitToStdErr(err)
-	}
-	dt, err := timestamp.NewTdefault()
-	if err != nil {
-		c.QuitToStdErr(err)
-	}
-	ts := client.NewTimestampService(dt)
-	immuClient := client.
-		DefaultClient().
-		WithOptions(*options).
-		WithTimestampService(ts)
-	return immuClient
-}
-
-func options(cmd *cobra.Command) (*client.Options, error) {
+func options() *client.Options {
 	port := viper.GetInt("default.port")
 	address := viper.GetString("default.address")
+	mtls := viper.GetBool("default.mtls")
+	certificate := viper.GetString("default.certificate")
+	servername := viper.GetString("default.servername")
+	pkey := viper.GetString("default.pkey")
+	clientcas := viper.GetString("default.clientcas")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
 		WithAuth(true).
-		WithDialOptions(false, grpc.WithInsecure())
+		WithMTLs(mtls)
+	if mtls {
+		// todo https://golang.org/src/crypto/x509/root_linux.go
+		options.MTLsOptions = client.DefaultMTLsOptions().
+			WithServername(servername).
+			WithCertificate(certificate).
+			WithPkey(pkey).
+			WithClientCAs(clientcas)
+	}
+	return options
+}
+
+func optionsWithAuth() *client.Options {
 	var token string
-	tokenBytes, err := ioutil.ReadFile(tokenFilename)
+	tokenBytes, err := ioutil.ReadFile(client.TokenFileName)
 	if err == nil {
 		token = string(tokenBytes)
 	}
-	options = options.WithDialOptions(
-		false,
+	opts := options()
+	dialOpts := opts.DialOptions
+	if dialOpts == nil {
+		dialOpts = &[]grpc.DialOption{}
+	}
+	extraDialOpts := []grpc.DialOption{
+		// TODO OGG: check if this is really needed
+		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)),
 		grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
-	)
-
-	return &options, nil
+	}
+	newDialOpts := append(*dialOpts, extraDialOpts...)
+	opts = opts.WithDialOptions(&newDialOpts)
+	return opts
 }

@@ -1,6 +1,7 @@
 package statisticscmd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const requestTimeout = 3 * time.Second
@@ -170,16 +173,22 @@ func showMetricsVisually(serverAddress string, memStats bool) error {
 	return runUI(newMetricsLoader(metricsURL(serverAddress)), memStats)
 }
 
-func NewCommand(optionsFunc func(cmd *cobra.Command) (*client.Options, error)) *cobra.Command {
+func NewCommand(optionsFunc func() *client.Options, immuClient *client.ImmuClient) *cobra.Command {
 	cmd := cobra.Command{
 		Use:     "statistics",
 		Short:   fmt.Sprintf("Show statistics"),
 		Aliases: []string{"s"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			options, err := optionsFunc(cmd)
+			//--> workaround to achieve auth (this command does HTTP requests which do not go through ImmuClient)
+			_, err := (*immuClient).Get(context.Background(), []byte{255})
 			if err != nil {
-				c.QuitToStdErr(err)
+				s, ok := status.FromError(err)
+				if !ok || s == nil || s.Code() != codes.NotFound {
+					c.QuitWithUserError(err)
+				}
 			}
+			//<--
+			options := optionsFunc()
 			raw, err := cmd.Flags().GetBool("raw")
 			if err != nil {
 				c.QuitToStdErr(err)
@@ -213,6 +222,6 @@ func NewCommand(optionsFunc func(cmd *cobra.Command) (*client.Options, error)) *
 	}
 	cmd.Flags().BoolP("raw", "r", false, "show raw statistics")
 	cmd.Flags().BoolP("visual", "v", false, "show a visual representation of statistics as a dashboard with evolving charts")
-	cmd.Flags().BoolP("memory", "m", false, "show memory statistics (works only with the 'visual' option)")
+	cmd.Flags().BoolP("memory", "d", false, "show memory statistics (works only with the 'visual' option)")
 	return &cmd
 }

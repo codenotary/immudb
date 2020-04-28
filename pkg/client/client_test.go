@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"io/ioutil"
 	"log"
@@ -44,7 +45,7 @@ const bufSize = 1024 * 1024
 var lis *bufconn.Listener
 
 var immuServer *server.ImmuServer
-var client *ImmuClient
+var client ImmuClient
 
 const BkpFileName = "client_test.dump.bkp"
 const ExpectedBkpFileName = "./../../test/client_test.expected.bkp"
@@ -92,7 +93,7 @@ func newServer() *server.ImmuServer {
 	return is
 }
 
-func newClient(withToken bool, token string) *ImmuClient {
+func newClient(withToken bool, token string) ImmuClient {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
 	}
@@ -103,9 +104,16 @@ func newClient(withToken bool, token string) *ImmuClient {
 			grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
 		)
 	}
-	return DefaultClient().WithOptions(
-		DefaultOptions().WithAuth(withToken).WithDialOptions(false, dialOptions...),
-	)
+
+	immuclient := DefaultClient().WithOptions(DefaultOptions().WithAuth(withToken).WithDialOptions(&dialOptions))
+	clientConn, _ := immuclient.Connect(context.TODO())
+	immuclient.WithClientConn(clientConn)
+	serviceClient := schema.NewImmuServiceClient(clientConn)
+	immuclient.WithServiceClient(serviceClient)
+	rootService := NewRootService(serviceClient, cache.NewFileCache(), logger.NewSimpleLogger("test", os.Stdout))
+	immuclient.WithRootService(rootService)
+
+	return immuclient
 }
 
 func login() string {
@@ -118,13 +126,12 @@ func login() string {
 	}
 	ctx := context.Background()
 	c := newClient(false, "")
-	r, err := c.Connected(ctx, func() (interface{}, error) {
-		return c.Login(ctx, []byte(auth.AdminUser.Username), []byte(plainPassword))
-	})
+
+	r, err := c.Login(ctx, []byte(auth.AdminUser.Username), []byte(plainPassword))
 	if err != nil {
 		log.Fatal(err)
 	}
-	return string(r.(*schema.LoginResponse).GetToken())
+	return string(r.GetToken())
 }
 
 type ntpMock struct {
@@ -158,7 +165,7 @@ func bufDialer(ctx context.Context, address string) (net.Conn, error) {
 
 func cleanup() {
 	// delete files and folders created by tests
-	if err := os.Remove(".root"); err != nil {
+	if err := os.Remove(".root-"); err != nil {
 		log.Println(err)
 	}
 	dbDir := filepath.Join(server.DefaultOptions().Dir, server.DefaultOptions().DbName)
@@ -173,14 +180,12 @@ func cleanupDump() {
 }
 
 func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte) {
-	r, err := client.Connected(ctx, func() (interface{}, error) {
-		_, err2 := client.SafeSet(ctx, key, value)
-		require.NoError(t, err2)
-		return client.SafeGet(ctx, key)
-	})
+	_, err2 := client.SafeSet(ctx, key, value)
+	require.NoError(t, err2)
+	vi, err := client.SafeGet(ctx, key)
+
 	require.NoError(t, err)
-	require.NotNil(t, r)
-	vi := r.(*VerifiedItem)
+	require.NotNil(t, vi)
 	require.Equal(t, key, vi.Key)
 	require.Equal(t, value, vi.Value)
 	require.Equal(t, uint64(1405544146), vi.Time)
@@ -188,14 +193,11 @@ func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value 
 }
 
 func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
-	r, err := client.Connected(ctx, func() (interface{}, error) {
-		_, err2 := client.SafeReference(ctx, referenceKey, key)
-		require.NoError(t, err2)
-		return client.SafeGet(ctx, referenceKey)
-	})
+	_, err2 := client.SafeReference(ctx, referenceKey, key)
+	require.NoError(t, err2)
+	vi, err := client.SafeGet(ctx, referenceKey)
 	require.NoError(t, err)
-	require.NotNil(t, r)
-	vi := r.(*VerifiedItem)
+	require.NotNil(t, vi)
 	require.Equal(t, key, vi.Key)
 	require.Equal(t, value, vi.Value)
 	require.Equal(t, uint64(1405544146), vi.Time)
@@ -203,16 +205,13 @@ func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, k
 }
 
 func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
-	r, err := client.Connected(ctx, func() (interface{}, error) {
-		for i := 0; i < len(scores); i++ {
-			_, err := client.SafeZAdd(ctx, set, scores[i], keys[i])
-			require.NoError(t, err)
-		}
-		return client.ZScan(ctx, set)
-	})
+	for i := 0; i < len(scores); i++ {
+		_, err := client.SafeZAdd(ctx, set, scores[i], keys[i])
+		require.NoError(t, err)
+	}
+	itemList, err := client.ZScan(ctx, set)
 	require.NoError(t, err)
-	require.NotNil(t, r)
-	itemList := r.(*schema.StructuredItemList)
+	require.NotNil(t, itemList)
 	require.Len(t, itemList.Items, len(keys))
 
 	for i := 0; i < len(keys); i++ {
@@ -225,11 +224,9 @@ func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float6
 func testDump(ctx context.Context, t *testing.T) {
 	bkpFile, err := os.Create(BkpFileName)
 	require.NoError(t, err)
-	r, err := client.Connected(ctx, func() (interface{}, error) {
-		return client.Dump(ctx, bkpFile)
-	})
+	n, err := client.Dump(ctx, bkpFile)
+
 	require.NoError(t, err)
-	n := r.(int64)
 	require.Equal(t, int64(26), n)
 
 	bkpBytesActual, err := ioutil.ReadFile(BkpFileName)

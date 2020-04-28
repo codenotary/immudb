@@ -32,11 +32,11 @@ type HistoryHandler interface {
 
 type historyHandler struct {
 	mux    *runtime.ServeMux
-	client *client.ImmuClient
+	client client.ImmuClient
 	rs     client.RootService
 }
 
-func NewHistoryHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) HistoryHandler {
+func NewHistoryHandler(mux *runtime.ServeMux, client client.ImmuClient, rs client.RootService) HistoryHandler {
 	return &historyHandler{
 		mux,
 		client,
@@ -90,5 +90,4 @@ func (h *historyHandler) History(w http.ResponseWriter, req *http.Request, pathP
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	return
 }

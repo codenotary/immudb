@@ -28,7 +28,6 @@ import (
 	"github.com/codenotary/immudb/pkg/bm"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
-	"google.golang.org/grpc"
 )
 
 const Iterations = 500_000
@@ -39,8 +38,8 @@ var immuServer = server.DefaultServer().
 	WithOptions(
 		server.DefaultOptions().WithDir(tmpDir),
 	)
-var immuClient = client.DefaultClient().WithOptions(
-	client.DefaultOptions().WithDialOptions(false, grpc.WithInsecure()))
+
+var immuClient, _ = client.NewImmuClient(client.DefaultOptions())
 
 var RpcBenchmarks = []bm.Bm{
 	makeRpcBenchmark("sequential write", Concurrency, Iterations, sequentialSet),
@@ -93,10 +92,6 @@ func makeRpcBenchmark(name string, concurrency int, iterations int,
 					os.Exit(1)
 				}
 			}()
-			if err := immuClient.Connect(context.Background()); err != nil {
-				_, err = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
 		},
 		After: func(bm *bm.Bm) {
 			if err := immuClient.Disconnect(); err != nil {

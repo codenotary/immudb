@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/rs/xid"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
@@ -77,25 +79,6 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
-	auth.AuthEnabled = s.Options.Auth
-	auth.ObserveMetrics = func(ctx context.Context) { Metrics.ObserveRPCsPerClientCounters(ctx) }
-	if auth.AuthEnabled {
-		if err := s.loadOrGeneratePassword(); err != nil {
-			return err
-		}
-	}
-	options = append(
-		options,
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_prometheus.UnaryServerInterceptor,
-			auth.ServerUnaryInterceptor,
-		)),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			grpc_prometheus.StreamServerInterceptor,
-			auth.ServerStreamInterceptor,
-		)),
-	)
-
 	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
 	if err != nil {
 		return err
@@ -104,6 +87,37 @@ func (s *ImmuServer) Start() error {
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		return err
 	}
+	var uuid xid.ID
+	if uuid, err = getOrSetUuid(s.Options.Dir); err != nil {
+		return err
+	}
+
+	auth.AuthEnabled = s.Options.Auth
+	auth.ObserveMetrics = func(ctx context.Context) { Metrics.ObserveRPCsPerClientCounters(ctx) }
+	if auth.AuthEnabled {
+		if err := s.loadOrGeneratePassword(); err != nil {
+			return err
+		}
+	}
+
+	uuidContext := NewUuidContext(uuid)
+
+	uis := []grpc.UnaryServerInterceptor{
+		uuidContext.UuidContextSetter,
+		grpc_prometheus.UnaryServerInterceptor,
+		auth.ServerUnaryInterceptor,
+	}
+	sss := []grpc.StreamServerInterceptor{
+		uuidContext.UuidStreamContextSetter,
+		grpc_prometheus.StreamServerInterceptor,
+		auth.ServerStreamInterceptor,
+	}
+	options = append(
+		options,
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
+	)
+
 	s.Store, err = store.Open(store.DefaultOptions(dbDir, s.Logger))
 	if err != nil {
 		return err

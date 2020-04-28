@@ -20,11 +20,12 @@ require (
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.7.0
 	github.com/rs/cors v1.7.0
+	github.com/rs/xid v1.2.1
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	google.golang.org/genproto v0.0.0-20200413115906-b5235f65be36
