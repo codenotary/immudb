@@ -34,6 +34,7 @@ Environment variables:
   IMMUGW_IMMUDBPORT=3322
   IMMUGW_PIDFILE=
   IMMUGW_LOGFILE=
+  IMMUGW_DETACHED=false
   IMMUGW_MTLS=false
   IMMUGW_SERVERNAME=localhost
   IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
@@ -58,6 +59,9 @@ Environment variables:
 				} else {
 					return err
 				}
+			}
+			if options.Detached {
+				c.Detached()
 			}
 			return immuGwServer.Start()
 		},
@@ -90,6 +94,7 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	pidfile := viper.GetString("default.pidfile")
 	logfile := viper.GetString("default.logfile")
 	mtls := viper.GetBool("default.mtls")
+	detached := viper.GetBool("default.detached")
 	servername := viper.GetString("default.servername")
 	certificate := viper.GetString("default.certificate")
 	pkey := viper.GetString("default.pkey")
@@ -102,7 +107,8 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 		WithImmudbPort(immudbport).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
-		WithMTLs(mtls)
+		WithMTLs(mtls).
+		WithDetached(detached)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = client.DefaultMTLsOptions().
@@ -123,6 +129,7 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
+	cmd.Flags().BoolP(c.DetachedFlag, c.DetachedShortFlag, options.Detached, "run immudb in background")
 	cmd.Flags().String("servername", mtlsOptions.Servername, "used to verify the hostname on the returned certificates")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
@@ -151,6 +158,9 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("default.mtls", cmd.Flags().Lookup("mtls")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("default.detached", cmd.Flags().Lookup("detached")); err != nil {
+		return err
+	}
 	if err := viper.BindPFlag("default.servername", cmd.Flags().Lookup("servername")); err != nil {
 		return err
 	}
@@ -174,6 +184,7 @@ func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
 	viper.SetDefault("default.pidfile", options.Pidfile)
 	viper.SetDefault("default.logfile", options.Logfile)
 	viper.SetDefault("default.mtls", options.MTLs)
+	viper.SetDefault("default.detached", options.Detached)
 	viper.SetDefault("default.certificate", mtlsOptions.Certificate)
 	viper.SetDefault("default.pkey", mtlsOptions.Pkey)
 	viper.SetDefault("default.clientcas", mtlsOptions.ClientCAs)
