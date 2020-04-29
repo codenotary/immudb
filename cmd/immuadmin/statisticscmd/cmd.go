@@ -97,7 +97,7 @@ func showMetricsAsText(serverAddress string) error {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	fmt.Printf(strPattern, labelLength, "Avg. latency (nb calls)", "µs")
+	fmt.Printf(strPattern, labelLength, "Avg. duration (nb calls)", "µs")
 	for _, k := range keys {
 		rd := ms.durationRPCsByMethod[k]
 		lbl := fmt.Sprintf("%s (%d)", rd.method, rd.counter)
