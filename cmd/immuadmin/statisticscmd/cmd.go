@@ -1,3 +1,19 @@
+/*
+Copyright 2019-2020 vChain, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package statisticscmd
 
 import (
@@ -60,18 +76,18 @@ func showMetricsAsText(serverAddress string) error {
 	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.db.uptimeHours))
 	fmt.Printf(strPattern, labelLength, "Uptime", uptime)
 	fmt.Printf(intPattern, labelLength, "Number of entries", ms.db.nbEntries)
-	fmt.Printf(intPattern, labelLength, "LSM size (bytes)", ms.db.lsmBytes)
-	fmt.Printf(intPattern, labelLength, "Vlog size (bytes)", ms.db.vlogBytes)
-	fmt.Printf(intPattern, labelLength, "Total size (bytes)", ms.db.totalBytes)
+	fmt.Printf(strPattern, labelLength, "LSM size", byteCountBinary(ms.db.lsmBytes))
+	fmt.Printf(strPattern, labelLength, "VLog size", byteCountBinary(ms.db.vlogBytes))
+	fmt.Printf(strPattern, labelLength, "Total size", byteCountBinary(ms.db.totalBytes))
 
 	// print clients
 	fmt.Printf(intPattern, labelLength, "Number of clients", ms.nbClients)
-	fmt.Printf(strPattern, labelLength, "Queries per client", "---")
+	fmt.Printf(strPattern, labelLength, "Queries per client", "")
 	for k, v := range ms.nbRPCsPerClient {
 		fmt.Printf("   "+intPattern, labelLength-3, k, v)
 		if lastMsgAt, ok := ms.lastMsgAtPerClient[k]; ok {
 			ago := time.Since(time.Unix(int64(lastMsgAt), 0))
-			fmt.Printf("      "+strPattern, labelLength-6, "last query", fmt.Sprintf("%s ago", ago))
+			fmt.Printf("      "+strPattern, labelLength-6, "Last query", fmt.Sprintf("%s ago", ago))
 		}
 	}
 
@@ -81,18 +97,18 @@ func showMetricsAsText(serverAddress string) error {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	fmt.Printf(strPattern, labelLength, "Avg. latency (µsec)", "---")
+	fmt.Printf(strPattern, labelLength, "Avg. latency (nb calls)", "µs")
 	for _, k := range keys {
 		rd := ms.durationRPCsByMethod[k]
-		lbl := fmt.Sprintf("%s (%d calls)", rd.method, rd.counter)
-		fmt.Printf("   "+intPattern, labelLength-3, lbl, uint64(rd.averageDuration*1000_000))
+		lbl := fmt.Sprintf("%s (%d)", rd.method, rd.counter)
+		fmt.Printf("   "+strPattern, labelLength-3, lbl, fmt.Sprintf("%.0f", rd.avgDuration*1000_000))
 	}
 
 	return nil
 }
 
-func showMetricsVisually(serverAddress string, memStats bool) error {
-	return runUI(newMetricsLoader(metricsURL(serverAddress)), memStats)
+func showMetricsVisually(serverAddress string) error {
+	return runUI(newMetricsLoader(metricsURL(serverAddress)))
 }
 
 func NewCommand(optionsFunc func() *client.Options, immuClient *client.ImmuClient) *cobra.Command {
@@ -131,11 +147,7 @@ func NewCommand(optionsFunc func() *client.Options, immuClient *client.ImmuClien
 				}
 				return nil
 			}
-			memStats, err := cmd.Flags().GetBool("memory")
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			if err := showMetricsVisually(options.Address, memStats); err != nil {
+			if err := showMetricsVisually(options.Address); err != nil {
 				c.QuitToStdErr(err)
 			}
 			return nil
@@ -144,6 +156,5 @@ func NewCommand(optionsFunc func() *client.Options, immuClient *client.ImmuClien
 	}
 	cmd.Flags().BoolP("raw", "r", false, "show raw statistics")
 	cmd.Flags().BoolP("visual", "v", false, "show a visual representation of statistics as a dashboard with evolving charts")
-	cmd.Flags().BoolP("memory", "d", false, "show memory statistics (works only with the 'visual' option)")
 	return &cmd
 }
