@@ -17,6 +17,7 @@ limitations under the License.
 package statisticscmd
 
 import (
+	"fmt"
 	"time"
 
 	dto "github.com/prometheus/client_model/go"
@@ -89,6 +90,10 @@ type memstats struct {
 	heapIdleBytes   uint64
 	heapInUseBytes  uint64
 	stackInUseBytes uint64
+}
+
+type MetricsLoader interface {
+	Load() (*map[string]*dto.MetricFamily, error)
 }
 
 type metrics struct {
@@ -224,4 +229,17 @@ func (ms *metrics) withMemStats(metricsFamilies *map[string]*dto.MetricFamily) {
 	if stackInUseMetric := (*metricsFamilies)["go_memstats_stack_inuse_bytes"]; stackInUseMetric != nil {
 		ms.memstats.stackInUseBytes = uint64(*stackInUseMetric.GetMetric()[0].GetGauge().Value)
 	}
+}
+
+func byteCountBinary(b uint64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := uint64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "kMGTPE"[exp])
 }

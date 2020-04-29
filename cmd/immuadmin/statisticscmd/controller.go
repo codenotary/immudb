@@ -26,6 +26,11 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
+type Controller interface {
+	Render(*map[string]*dto.MetricFamily)
+	Resize()
+}
+
 type statsController struct {
 	Grid                *ui.Grid
 	SummaryTable        *widgets.Table
