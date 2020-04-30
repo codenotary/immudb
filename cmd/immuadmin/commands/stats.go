@@ -60,11 +60,11 @@ func (cl *commandline) stats(cmd *cobra.Command) {
 				}
 				return nil
 			}
-			visual, err := cmd.Flags().GetBool("visual")
+			text, err := cmd.Flags().GetBool("text")
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			if !visual {
+			if text {
 				if err := stats.ShowMetricsAsText(options.Address); err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -77,7 +77,7 @@ func (cl *commandline) stats(cmd *cobra.Command) {
 		},
 		Args: cobra.NoArgs,
 	}
+	ccmd.Flags().BoolP("text", "t", false, "show statistics as text instead of the default graphical view")
 	ccmd.Flags().BoolP("raw", "r", false, "show raw statistics")
-	ccmd.Flags().BoolP("visual", "v", false, "show a visual representation of statistics as a dashboard with evolving charts")
 	cmd.AddCommand(ccmd)
 }

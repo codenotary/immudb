@@ -21,11 +21,14 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 )
 
-func newMetricsLoader(url string) *metricsLoader {
+type MetricsLoader interface {
+	Load() (*metrics, error)
+}
+
+func newMetricsLoader(url string) MetricsLoader {
 	return &metricsLoader{
 		url:    url,
 		client: newHttpClient(),
@@ -37,7 +40,7 @@ type metricsLoader struct {
 	client *http.Client
 }
 
-func (ml *metricsLoader) Load() (*map[string]*dto.MetricFamily, error) {
+func (ml *metricsLoader) Load() (*metrics, error) {
 	resp, err := ml.client.Get(ml.url)
 	if err != nil {
 		return nil, err
@@ -52,5 +55,7 @@ func (ml *metricsLoader) Load() (*map[string]*dto.MetricFamily, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &metricsFamilies, nil
+	ms := &metrics{}
+	ms.populateFrom(&metricsFamilies)
+	return ms, nil
 }

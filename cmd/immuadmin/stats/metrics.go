@@ -92,10 +92,6 @@ type memstats struct {
 	stackInUseBytes uint64
 }
 
-type MetricsLoader interface {
-	Load() (*map[string]*dto.MetricFamily, error)
-}
-
 type metrics struct {
 	durationRPCsByMethod map[string]rpcDuration
 	reads                operations
@@ -105,6 +101,10 @@ type metrics struct {
 	lastMsgAtPerClient   map[string]uint64
 	db                   dbInfo
 	memstats             memstats
+}
+
+func (ms *metrics) isHistogramsDataAvailable() bool {
+	return len(ms.durationRPCsByMethod) > 0
 }
 
 func (ms *metrics) clientsActiveDuringLastHour() *map[string]time.Time {

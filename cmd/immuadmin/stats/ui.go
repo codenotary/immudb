@@ -24,11 +24,11 @@ import (
 )
 
 func loadAndRender(loader MetricsLoader, cntrl Controller) error {
-	metricsFamilies, err := loader.Load()
+	ms, err := loader.Load()
 	if err != nil {
 		return err
 	}
-	cntrl.Render(metricsFamilies)
+	cntrl.Render(ms)
 	return nil
 }
 
@@ -38,7 +38,11 @@ func runUI(loader MetricsLoader) error {
 	}
 	defer ui.Close()
 
-	var controller = newStatsController()
+	ms, err := loader.Load()
+	if err != nil {
+		return err
+	}
+	var controller = newStatsController(ms.isHistogramsDataAvailable())
 	if err := loadAndRender(loader, controller); err != nil {
 		return err
 	}

@@ -52,13 +52,10 @@ func ShowMetricsRaw(serverAddress string) error {
 
 func ShowMetricsAsText(serverAddress string) error {
 	loader := newMetricsLoader(metricsURL(serverAddress))
-	metricsFamilies, err := loader.Load()
+	ms, err := loader.Load()
 	if err != nil {
 		return err
 	}
-
-	ms := &metrics{}
-	ms.populateFrom(metricsFamilies)
 
 	const labelLength = 27
 	const strPattern = "%-*s:\t%s\n"
@@ -85,16 +82,18 @@ func ShowMetricsAsText(serverAddress string) error {
 	}
 
 	// print durations
-	keys := make([]string, 0, len(ms.durationRPCsByMethod))
-	for k := range ms.durationRPCsByMethod {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	fmt.Printf(strPattern, labelLength, "Avg. duration (nb calls)", "µs")
-	for _, k := range keys {
-		rd := ms.durationRPCsByMethod[k]
-		lbl := fmt.Sprintf("%s (%d)", rd.method, rd.counter)
-		fmt.Printf("   "+strPattern, labelLength-3, lbl, fmt.Sprintf("%.0f", rd.avgDuration*1000_000))
+	if ms.isHistogramsDataAvailable() {
+		keys := make([]string, 0, len(ms.durationRPCsByMethod))
+		for k := range ms.durationRPCsByMethod {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		fmt.Printf(strPattern, labelLength, "Avg. duration (nb calls)", "µs")
+		for _, k := range keys {
+			rd := ms.durationRPCsByMethod[k]
+			lbl := fmt.Sprintf("%s (%d)", rd.method, rd.counter)
+			fmt.Printf("   "+strPattern, labelLength-3, lbl, fmt.Sprintf("%.0f", rd.avgDuration*1000_000))
+		}
 	}
 
 	return nil
