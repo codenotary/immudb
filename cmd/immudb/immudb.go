@@ -49,6 +49,7 @@ Environment variables:
   IMMUDB_LOGFILE=
   IMMUDB_MTLS=false
   IMMUDB_AUTH=false
+  IMMUDB_DETACHED=false
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
@@ -90,6 +91,11 @@ func Immudb(cmd *cobra.Command, args []string) (err error) {
 			c.QuitToStdErr(err)
 		}
 	}
+
+	if options.Detached {
+		c.Detached()
+	}
+
 	if err := immuServer.Start(); err != nil {
 		c.QuitToStdErr(err)
 	}
@@ -110,6 +116,7 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	mtls := viper.GetBool("default.mtls")
 	auth := viper.GetBool("default.auth")
 	noHistograms := viper.GetBool("default.no-histograms")
+	detached := viper.GetBool("default.detached")
 	certificate := viper.GetString("default.certificate")
 	pkey := viper.GetString("default.pkey")
 	clientcas := viper.GetString("default.clientcas")
@@ -125,7 +132,8 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithLogfile(logfile).
 		WithMTLs(mtls).
 		WithAuth(auth).
-		WithNoHistograms(noHistograms)
+		WithNoHistograms(noHistograms).
+		WithDetached(detached)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = server.DefaultMTLsOptions().
@@ -137,7 +145,7 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 }
 
 func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.MTLsOptions) {
-	cmd.Flags().StringP("dir", "d", options.Dir, "data folder")
+	cmd.Flags().String("dir", options.Dir, "data folder")
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
 	cmd.Flags().StringP("dbname", "n", options.DbName, "db name")
@@ -147,6 +155,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
 	cmd.Flags().BoolP("auth", "s", options.MTLs, "enable auth")
 	cmd.Flags().Bool("no-histograms", options.MTLs, "disable collection of histogram metrics like query durations")
+	cmd.Flags().BoolP(c.DetachedFlag, c.DetachedShortFlag, options.Detached, "run immudb in background")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
 	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
@@ -180,6 +189,9 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("default.no-histograms", cmd.Flags().Lookup("no-histograms")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("default.detached", cmd.Flags().Lookup("detached")); err != nil {
+		return err
+	}
 	if err := viper.BindPFlag("default.certificate", cmd.Flags().Lookup("certificate")); err != nil {
 		return err
 	}
@@ -202,6 +214,7 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("default.mtls", options.MTLs)
 	viper.SetDefault("default.auth", options.Auth)
 	viper.SetDefault("default.no-histograms", options.NoHistograms)
+	viper.SetDefault("default.detached", options.Detached)
 	viper.SetDefault("default.certificate", mtlsOptions.Certificate)
 	viper.SetDefault("default.pkey", mtlsOptions.Pkey)
 	viper.SetDefault("default.clientcas", mtlsOptions.ClientCAs)

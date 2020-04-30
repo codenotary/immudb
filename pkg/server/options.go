@@ -36,6 +36,7 @@ type Options struct {
 	MTLsOptions  MTLsOptions
 	Auth         bool
 	NoHistograms bool
+	Detached     bool
 }
 
 // DefaultOptions returns default server options
@@ -53,6 +54,7 @@ func DefaultOptions() Options {
 		MTLs:         false,
 		Auth:         false,
 		NoHistograms: false,
+		Detached:     false,
 	}
 }
 
@@ -128,6 +130,12 @@ func (o Options) WithNoHistograms(noHistograms bool) Options {
 	return o
 }
 
+// WithDetached sets immudb to be run in background
+func (o Options) WithDetached(detached bool) Options {
+	o.Detached = detached
+	return o
+}
+
 // Bind returns bind address
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
@@ -141,6 +149,6 @@ func (o Options) MetricsBind() string {
 // String print options
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v auth:%t no-histograms:%t}",
-		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Config, o.Pidfile, o.Logfile, o.MTLs, o.Auth, o.NoHistograms)
+		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v auth:%t detached:%v no-histograms:%t}",
+		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Config, o.Pidfile, o.Logfile, o.MTLs, o.Auth, o.Detached, o.NoHistograms)
 }

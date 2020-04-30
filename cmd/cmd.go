@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
@@ -11,6 +12,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const DetachedFlag = "detached"
+const DetachedShortFlag = "d"
 
 // Options cmd options
 type Options struct {
@@ -36,6 +40,30 @@ func (o Options) InitConfig(name string) {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+// Detached launch command in background
+func Detached() {
+	var err error
+	var executable string
+	var args []string
+
+	if executable, err = os.Executable(); err != nil {
+		QuitToStdErr(err)
+	}
+
+	for i, k := range os.Args {
+		if k != "--"+DetachedFlag && k != "-"+DetachedShortFlag && i != 0 {
+			args = append(args, k)
+		}
+	}
+
+	cmd := exec.Command(executable, args...)
+
+	if err = cmd.Start(); err != nil {
+		QuitToStdErr(err)
+	}
+	os.Exit(0)
 }
 
 // QuitToStdErr prints an error on stderr and closes
