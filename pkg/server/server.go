@@ -147,7 +147,9 @@ func (s *ImmuServer) Start() error {
 	// your RPCs. However, since it is bad practice to have metrics of high
 	// cardinality the latency monitoring metrics are disabled by default. To
 	// enable them the following has to be called during initialization code:
-	grpc_prometheus.EnableHandlingTimeHistogram()
+	if !s.Options.NoHistograms {
+		grpc_prometheus.EnableHandlingTimeHistogram()
+	}
 	//<===
 	grpc_prometheus.Register(s.GrpcServer)
 	s.installShutdownHandler()

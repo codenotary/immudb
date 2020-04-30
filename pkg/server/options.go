@@ -23,34 +23,36 @@ import (
 
 // Options server options list
 type Options struct {
-	Dir         string
-	Network     string
-	Address     string
-	Port        int
-	MetricsPort int
-	DbName      string
-	Config      string
-	Pidfile     string
-	Logfile     string
-	MTLs        bool
-	MTLsOptions MTLsOptions
-	Auth        bool
+	Dir          string
+	Network      string
+	Address      string
+	Port         int
+	MetricsPort  int
+	DbName       string
+	Config       string
+	Pidfile      string
+	Logfile      string
+	MTLs         bool
+	MTLsOptions  MTLsOptions
+	Auth         bool
+	NoHistograms bool
 }
 
 // DefaultOptions returns default server options
 func DefaultOptions() Options {
 	return Options{
-		Dir:         "./db",
-		Network:     "tcp",
-		Address:     "127.0.0.1",
-		Port:        3322,
-		MetricsPort: 9497,
-		DbName:      "immudb",
-		Config:      "configs/immudb.ini",
-		Pidfile:     "",
-		Logfile:     "",
-		MTLs:        false,
-		Auth:        false,
+		Dir:          "./db",
+		Network:      "tcp",
+		Address:      "127.0.0.1",
+		Port:         3322,
+		MetricsPort:  9497,
+		DbName:       "immudb",
+		Config:       "configs/immudb.ini",
+		Pidfile:      "",
+		Logfile:      "",
+		MTLs:         false,
+		Auth:         false,
+		NoHistograms: false,
 	}
 }
 
@@ -120,6 +122,12 @@ func (o Options) WithAuth(authEnabled bool) Options {
 	return o
 }
 
+// WithNoHistograms disables collection of histograms metrics (e.g. query durations)
+func (o Options) WithNoHistograms(noHistograms bool) Options {
+	o.NoHistograms = noHistograms
+	return o
+}
+
 // Bind returns bind address
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
@@ -133,6 +141,6 @@ func (o Options) MetricsBind() string {
 // String print options
 func (o Options) String() string {
 	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v auth:%t}",
-		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Config, o.Pidfile, o.Logfile, o.MTLs, o.Auth)
+		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v auth:%t no-histograms:%t}",
+		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Config, o.Pidfile, o.Logfile, o.MTLs, o.Auth, o.NoHistograms)
 }

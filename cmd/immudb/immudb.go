@@ -109,6 +109,7 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	logfile := viper.GetString("default.logfile")
 	mtls := viper.GetBool("default.mtls")
 	auth := viper.GetBool("default.auth")
+	noHistograms := viper.GetBool("default.no-histograms")
 	certificate := viper.GetString("default.certificate")
 	pkey := viper.GetString("default.pkey")
 	clientcas := viper.GetString("default.clientcas")
@@ -123,7 +124,8 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
 		WithMTLs(mtls).
-		WithAuth(auth)
+		WithAuth(auth).
+		WithNoHistograms(noHistograms)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = server.DefaultMTLsOptions().
@@ -144,6 +146,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
 	cmd.Flags().BoolP("auth", "s", options.MTLs, "enable auth")
+	cmd.Flags().Bool("no-histograms", options.MTLs, "disable collection of histogram metrics like query durations")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
 	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
@@ -174,6 +177,9 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("default.auth", cmd.Flags().Lookup("auth")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("default.no-histograms", cmd.Flags().Lookup("no-histograms")); err != nil {
+		return err
+	}
 	if err := viper.BindPFlag("default.certificate", cmd.Flags().Lookup("certificate")); err != nil {
 		return err
 	}
@@ -195,6 +201,7 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("default.logfile", options.Logfile)
 	viper.SetDefault("default.mtls", options.MTLs)
 	viper.SetDefault("default.auth", options.Auth)
+	viper.SetDefault("default.no-histograms", options.NoHistograms)
 	viper.SetDefault("default.certificate", mtlsOptions.Certificate)
 	viper.SetDefault("default.pkey", mtlsOptions.Pkey)
 	viper.SetDefault("default.clientcas", mtlsOptions.ClientCAs)
