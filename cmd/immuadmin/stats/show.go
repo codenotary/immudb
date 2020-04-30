@@ -14,21 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package statisticscmd
+package stats
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"time"
-
-	c "github.com/codenotary/immudb/cmd"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const requestTimeout = 3 * time.Second
@@ -43,7 +36,7 @@ func newHttpClient() *http.Client {
 	}
 }
 
-func showMetricsRaw(serverAddress string) error {
+func ShowMetricsRaw(serverAddress string) error {
 	resp, err := newHttpClient().Get(metricsURL(serverAddress))
 	if err != nil {
 		return err
@@ -57,7 +50,7 @@ func showMetricsRaw(serverAddress string) error {
 	return nil
 }
 
-func showMetricsAsText(serverAddress string) error {
+func ShowMetricsAsText(serverAddress string) error {
 	loader := newMetricsLoader(metricsURL(serverAddress))
 	metricsFamilies, err := loader.Load()
 	if err != nil {
@@ -107,54 +100,6 @@ func showMetricsAsText(serverAddress string) error {
 	return nil
 }
 
-func showMetricsVisually(serverAddress string) error {
+func ShowMetricsVisually(serverAddress string) error {
 	return runUI(newMetricsLoader(metricsURL(serverAddress)))
-}
-
-func NewCommand(optionsFunc func() *client.Options, immuClient *client.ImmuClient) *cobra.Command {
-	cmd := cobra.Command{
-		Use:     "statistics",
-		Short:   fmt.Sprintf("Show statistics"),
-		Aliases: []string{"s"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			//--> workaround to achieve auth (this command does HTTP requests which do not go through ImmuClient)
-			_, err := (*immuClient).Get(context.Background(), []byte{255})
-			if err != nil {
-				s, ok := status.FromError(err)
-				if !ok || s == nil || s.Code() != codes.NotFound {
-					c.QuitWithUserError(err)
-				}
-			}
-			//<--
-			options := optionsFunc()
-			raw, err := cmd.Flags().GetBool("raw")
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			if raw {
-				if err := showMetricsRaw(options.Address); err != nil {
-					c.QuitToStdErr(err)
-				}
-				return nil
-			}
-			visual, err := cmd.Flags().GetBool("visual")
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			if !visual {
-				if err := showMetricsAsText(options.Address); err != nil {
-					c.QuitToStdErr(err)
-				}
-				return nil
-			}
-			if err := showMetricsVisually(options.Address); err != nil {
-				c.QuitToStdErr(err)
-			}
-			return nil
-		},
-		Args: cobra.NoArgs,
-	}
-	cmd.Flags().BoolP("raw", "r", false, "show raw statistics")
-	cmd.Flags().BoolP("visual", "v", false, "show a visual representation of statistics as a dashboard with evolving charts")
-	return &cmd
 }
