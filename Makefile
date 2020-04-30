@@ -18,6 +18,10 @@ rebuild: clean build/codegen all
 immuclient:
 	$(GO) build ./cmd/immuclient
 
+.PHONY: immuadmin
+immuadmin:
+	$(GO) build ./cmd/immuadmin
+
 .PHONY: immudb
 immudb:
 	$(GO) build ./cmd/immudb
@@ -29,6 +33,10 @@ immugw:
 .PHONY: immuclient-static
 immuclient-static:
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immuclient
+
+.PHONY: immuadmin-static
+immuadmin-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immuadmin
 
 .PHONY: immudb-static
 immudb-static:
@@ -72,7 +80,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immuclient immudb bm
+	rm -f immuclient immuadmin immudb bm
 
 .PHONY: nimmu
 nimmu:
@@ -109,6 +117,7 @@ tools/comparison/scylladb:
 .PHONY: man
 man:
 	$(GO) run ./cmd/immuclient mangen ./cmd/docs/man/immuclient
+	$(GO) run ./cmd/immuadmin mangen ./cmd/docs/man/immuadmin
 	$(GO) run ./cmd/immudb mangen ./cmd/docs/man/immudb
 	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
 

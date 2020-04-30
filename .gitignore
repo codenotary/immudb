@@ -26,6 +26,8 @@
 # Binaries
 /immuclient
 cmd/immuclient/immuclient
+/immuadmin
+cmd/immuadmin/immuadmin
 /immudb
 cmd/immudb/immudb
 /nimmu

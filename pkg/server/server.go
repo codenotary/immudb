@@ -21,25 +21,30 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/rs/xid"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
+
+	"github.com/rs/xid"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
+
+var startedAt time.Time
 
 func (s *ImmuServer) Start() error {
 	options := []grpc.ServerOption{}
@@ -90,18 +95,25 @@ func (s *ImmuServer) Start() error {
 		return err
 	}
 
-	uuidContext := NewUuidContext(uuid)
-
-	var uis []grpc.UnaryServerInterceptor
-	var sss []grpc.StreamServerInterceptor
-	uis = append(uis, uuidContext.UuidContextSetter)
-	sss = append(sss, uuidContext.UuidStreamContextSetter)
-	if s.Options.Auth {
+	auth.AuthEnabled = s.Options.Auth
+	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
+	if auth.AuthEnabled {
 		if err := s.loadOrGeneratePassword(); err != nil {
 			return err
 		}
-		uis = append(uis, auth.ServerUnaryInterceptor)
-		sss = append(sss, auth.ServerStreamInterceptor)
+	}
+
+	uuidContext := NewUuidContext(uuid)
+
+	uis := []grpc.UnaryServerInterceptor{
+		uuidContext.UuidContextSetter,
+		grpc_prometheus.UnaryServerInterceptor,
+		auth.ServerUnaryInterceptor,
+	}
+	sss := []grpc.StreamServerInterceptor{
+		uuidContext.UuidStreamContextSetter,
+		grpc_prometheus.StreamServerInterceptor,
+		auth.ServerStreamInterceptor,
 	}
 	options = append(
 		options,
@@ -114,7 +126,12 @@ func (s *ImmuServer) Start() error {
 		return err
 	}
 
-	metricsServer := StartMetrics(s.Options.MetricsBind(), s.Logger)
+	metricsServer := StartMetrics(
+		s.Options.MetricsBind(),
+		s.Logger,
+		func() float64 { return float64(s.Store.CountAll()) },
+		func() float64 { return time.Since(startedAt).Hours() },
+	)
 	defer func() {
 		if err = metricsServer.Close(); err != nil {
 			s.Logger.Errorf("failed to shutdown metric server: %s", err)
@@ -123,6 +140,18 @@ func (s *ImmuServer) Start() error {
 
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
+	//===> !NOTE: See Histograms section here:
+	// https://github.com/grpc-ecosystem/go-grpc-prometheus
+	// TL;DR:
+	// Prometheus histograms are a great way to measure latency distributions of
+	// your RPCs. However, since it is bad practice to have metrics of high
+	// cardinality the latency monitoring metrics are disabled by default. To
+	// enable them the following has to be called during initialization code:
+	if !s.Options.NoHistograms {
+		grpc_prometheus.EnableHandlingTimeHistogram()
+	}
+	//<===
+	grpc_prometheus.Register(s.GrpcServer)
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
 
@@ -136,6 +165,8 @@ func (s *ImmuServer) Start() error {
 			return err
 		}
 	}
+
+	startedAt = time.Now()
 
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit

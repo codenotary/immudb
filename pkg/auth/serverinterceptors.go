@@ -22,6 +22,9 @@ import (
 	"google.golang.org/grpc"
 )
 
+var AuthEnabled bool
+var UpdateMetrics func(context.Context)
+
 type WrappedServerStream struct {
 	grpc.ServerStream
 }
@@ -35,19 +38,26 @@ func (w *WrappedServerStream) SendMsg(m interface{}) error {
 }
 
 func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	if HasAuth(info.FullMethod) {
-		if err := verifyTokenFromCtx(ss.Context()); err != nil {
+	ctx := ss.Context()
+	if AuthEnabled && HasAuth(info.FullMethod) {
+		if err := verifyTokenFromCtx(ctx); err != nil {
 			return err
 		}
+	}
+	if UpdateMetrics != nil {
+		UpdateMetrics(ctx)
 	}
 	return handler(srv, &WrappedServerStream{ss})
 }
 
 func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	if HasAuth(info.FullMethod) {
+	if AuthEnabled && HasAuth(info.FullMethod) {
 		if err := verifyTokenFromCtx(ctx); err != nil {
 			return nil, err
 		}
+	}
+	if UpdateMetrics != nil {
+		UpdateMetrics(ctx)
 	}
 	m, err := handler(ctx, req)
 	return m, err

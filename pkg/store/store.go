@@ -21,9 +21,11 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+
 	"github.com/codenotary/immudb/pkg/api"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/merkletree"
+
 	"math"
 	"sync"
 
@@ -205,6 +207,19 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 		return
 	}
 	return itemToSchema(key.Key, i)
+}
+
+func (t *Store) CountAll() (count uint64) {
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
+	defer txn.Discard()
+	it := txn.NewIterator(badger.IteratorOptions{
+		PrefetchValues: false,
+	})
+	defer it.Close()
+	for it.Rewind(); it.Valid(); it.Next() {
+		count++
+	}
+	return
 }
 
 func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err error) {

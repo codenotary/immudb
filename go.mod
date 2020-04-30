@@ -8,13 +8,20 @@ require (
 	github.com/codenotary/merkletree v0.1.1
 	github.com/dgraph-io/badger/v2 v2.0.0-20200408100755-2e708d968e94
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect
+	github.com/gizak/termui/v3 v3.1.0
 	github.com/golang/protobuf v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
+	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway v1.14.3
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
+	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1 // indirect
 	github.com/o1egl/paseto v1.0.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
+	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
+	github.com/prometheus/common v0.7.0
 	github.com/rs/cors v1.7.0
 	github.com/rs/xid v1.2.1
 	github.com/spf13/cobra v0.0.5

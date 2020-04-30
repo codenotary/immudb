@@ -17,13 +17,14 @@ limitations under the License.
 package main
 
 import (
+	"os"
+
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
 var o = c.Options{}
@@ -114,6 +115,7 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	logfile := viper.GetString("default.logfile")
 	mtls := viper.GetBool("default.mtls")
 	auth := viper.GetBool("default.auth")
+	noHistograms := viper.GetBool("default.no-histograms")
 	detached := viper.GetBool("default.detached")
 	certificate := viper.GetString("default.certificate")
 	pkey := viper.GetString("default.pkey")
@@ -130,6 +132,7 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithLogfile(logfile).
 		WithMTLs(mtls).
 		WithAuth(auth).
+		WithNoHistograms(noHistograms).
 		WithDetached(detached)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
@@ -151,6 +154,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
 	cmd.Flags().BoolP("auth", "s", options.MTLs, "enable auth")
+	cmd.Flags().Bool("no-histograms", options.MTLs, "disable collection of histogram metrics like query durations")
 	cmd.Flags().BoolP(c.DetachedFlag, c.DetachedShortFlag, options.Detached, "run immudb in background")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
@@ -182,6 +186,9 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("default.auth", cmd.Flags().Lookup("auth")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("default.no-histograms", cmd.Flags().Lookup("no-histograms")); err != nil {
+		return err
+	}
 	if err := viper.BindPFlag("default.detached", cmd.Flags().Lookup("detached")); err != nil {
 		return err
 	}
@@ -206,6 +213,7 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("default.logfile", options.Logfile)
 	viper.SetDefault("default.mtls", options.MTLs)
 	viper.SetDefault("default.auth", options.Auth)
+	viper.SetDefault("default.no-histograms", options.NoHistograms)
 	viper.SetDefault("default.detached", options.Detached)
 	viper.SetDefault("default.certificate", mtlsOptions.Certificate)
 	viper.SetDefault("default.pkey", mtlsOptions.Pkey)
