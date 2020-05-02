@@ -27,6 +27,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.6.3
 	github.com/stretchr/testify v1.5.1
+	github.com/takama/daemon v0.12.0
 	golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
 	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0 // indirect
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f // indirect
