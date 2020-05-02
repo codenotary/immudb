@@ -33,11 +33,13 @@ func (cl *commandline) login(cmd *cobra.Command) {
 		Use:     "login username \"password\"",
 		Short:   fmt.Sprintf("Login using the specified username and \"password\" (username is \"%s\")", auth.AdminUser.Username),
 		Aliases: []string{"l"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user := []byte(args[0])
 			pass := []byte(args[1])
 			ctx := context.Background()
-			response, err := cl.GetImmuClient().Login(ctx, user, pass)
+			response, err := cl.immuClient.Login(ctx, user, pass)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
@@ -53,9 +55,12 @@ func (cl *commandline) login(cmd *cobra.Command) {
 }
 
 func (cl *commandline) logout(cmd *cobra.Command) {
+
 	ccmd := &cobra.Command{
 		Use:     "logout",
 		Aliases: []string{"x"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := os.Remove(client.TokenFileName); err != nil {
 				c.QuitWithUserError(err)
