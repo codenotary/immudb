@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
@@ -49,6 +50,9 @@ func (o *Options) InitConfig(name string) {
 		}
 		viper.AddConfigPath("configs")
 		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
+		if runtime.GOOS != "windows" {
+			viper.AddConfigPath("/etc/immudb")
+		}
 		viper.AddConfigPath(home)
 		viper.SetConfigName(name)
 	}

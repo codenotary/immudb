@@ -20,7 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/takama/daemon"
+	daem "github.com/takama/daemon"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,24 +33,31 @@ import (
 
 var (
 	// ErrUnsupportedSystem appears if try to use service on system which is not supported by this release
-	ErrUnsupportedSystem = errors.New("Unsupported system")
+	errUnsupportedSystem = errors.New("unsupported system")
 
 	// ErrRootPrivileges appears if run installation or deleting the service without root privileges
-	ErrRootPrivileges = errors.New("You must have root user privileges. Possibly using 'sudo' command should help")
+	errRootPrivileges = errors.New("you must have root user privileges. Possibly using 'sudo' command should help")
 
-	ErrRootUserNeeded = errors.New("You must be logged as root user")
+	// ErrRootPrivileges provided executable file does not exists
+	errExecNotFound = errors.New("provided executable file does not exists")
 )
 
-var installable_services = []string{"immudb", "immugw"}
-var available_commands = []string{"install", "uninstall", "start", "stop", "restart", "status"}
+var installableServices = []string{"immudb", "immugw"}
+var availableCommands = []string{"install", "uninstall", "start", "stop", "restart", "status"}
 
 func (cl *commandlineDisc) service(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:           fmt.Sprintf("service %v %v", installable_services, available_commands),
-		Short:         "Manage immu services",
+		Use:   fmt.Sprintf("service %v %v", installableServices, availableCommands),
+		Short: "Manage immu services",
+		Long: `Manage immudb related services.
+Configuration service installation in /etc/immudb is available only under non windows os.
+Currently installing the service under windows may incur anomalies. Related issues on https://github.com/takama/daemon/issues/68.
+Installable services are immudb and immugw.
+Root permission are required in order to make administrator operations.
+`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		ValidArgs:     available_commands,
+		ValidArgs:     availableCommands,
 		Example: `
 sudo ./immuadmin service immudb install --local-file vchain/immudb/src/immudb
 immuadmin service immudb install --local-file immudb.exe
@@ -57,26 +65,26 @@ sudo ./immuadmin service immudb uninstall
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return errors.New("Required a service name")
+				return errors.New("required a service name")
 			}
 			if stringInSlice("--remove-files", os.Args) {
 				return nil
 			}
 			if len(args) < 2 {
-				return errors.New("Required a command name")
+				return errors.New("required a command name")
 			}
-			if !stringInSlice(args[0], installable_services) {
-				return fmt.Errorf("invalid service argument specified: %s. Available list is %v.", args[0], installable_services)
+			if !stringInSlice(args[0], installableServices) {
+				return fmt.Errorf("invalid service argument specified: %s. Available list is %v", args[0], installableServices)
 			}
-			if !stringInSlice(args[1], available_commands) {
-				return fmt.Errorf("invalid command argument specified: %s. Available list is %v.", args[1], available_commands)
+			if !stringInSlice(args[1], availableCommands) {
+				return fmt.Errorf("invalid command argument specified: %s. Available list is %v", args[1], availableCommands)
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 
-			if ok, err := checkPrivileges(); !ok {
-				return err
+			if ok, e := checkPrivileges(); !ok {
+				return e
 			}
 			// delayed operation
 			t, _ := cmd.Flags().GetInt("time")
@@ -88,7 +96,7 @@ sudo ./immuadmin service immudb uninstall
 					if k == "--time" || k == "-t" {
 						continue
 					}
-					if _, err := strconv.ParseFloat(k, 64); err == nil {
+					if _, err = strconv.ParseFloat(k, 64); err == nil {
 						continue
 					}
 					if i != 0 {
@@ -97,7 +105,9 @@ sudo ./immuadmin service immudb uninstall
 				}
 				argi = append(argi, "--delayed")
 				argi = append(argi, strconv.Itoa(t))
-				launch(os.Args[0], argi)
+				if err = launch(os.Args[0], argi); err != nil {
+					return err
+				}
 				return nil
 			}
 			// if delayed flag is set we delay the execution of the action
@@ -116,7 +126,7 @@ sudo ./immuadmin service immudb uninstall
 				if localFile != "" {
 					_, err = os.Stat(localFile)
 					if os.IsNotExist(err) {
-						return errors.New("Provided executable file does not exists")
+						return errExecNotFound
 					}
 				}
 
@@ -138,15 +148,23 @@ sudo ./immuadmin service immudb uninstall
 
 			remove, _ := cmd.Flags().GetBool("remove-files")
 			if remove {
-				os.Remove(localFile)
+				if err = os.Remove(localFile); err != nil {
+					return err
+				}
 				return nil
 			}
 
-			daemon, _ := daemon.New(args[0], args[0], localFile)
+			daemon, _ := daem.New(args[0], args[0], localFile)
 
 			switch args[1] {
 			case "install":
 				fmt.Println("installing " + localFile + "...")
+				if runtime.GOOS == "windows" {
+					if err = installConfig(args[0]); err != nil {
+						return err
+					}
+				}
+
 				if msg, err = daemon.Install(); err != nil {
 					return err
 				}
@@ -163,6 +181,11 @@ sudo ./immuadmin service immudb uninstall
 				if u == "y" {
 					if msg, err = daemon.Remove(); err != nil {
 						return err
+					}
+					if runtime.GOOS == "windows" {
+						if err = uninstallConfig(args[0]); err != nil {
+							return err
+						}
 					}
 					fmt.Println(msg)
 				} else {
@@ -211,6 +234,38 @@ sudo ./immuadmin service immudb uninstall
 	cmd.AddCommand(ccmd)
 }
 
+func installConfig(serviceName string) error {
+	err := os.MkdirAll("/etc/"+serviceName, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	from, err := os.Open("configs/immudb.ini.dist")
+	if err != nil {
+		return err
+	}
+	defer from.Close()
+
+	to, err := os.OpenFile("/etc/"+serviceName+"/"+serviceName+".ini", os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer to.Close()
+
+	_, err = io.Copy(to, from)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func uninstallConfig(serviceName string) error {
+	err := os.Remove("/etc/" + serviceName + "/" + serviceName + ".ini")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -222,21 +277,20 @@ func stringInSlice(a string, list []string) bool {
 
 func launch(command string, args []string) (err error) {
 	cmd := exec.Command(command, args...)
-	if err := cmd.Start(); err != nil {
+	if err = cmd.Start(); err != nil {
 		return err
 	}
 	return nil
 }
 
-// Check root rights to use system service
 func checkPrivileges() (bool, error) {
 	if output, err := exec.Command("id", "-g").Output(); err == nil {
 		if gid, parseErr := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 32); parseErr == nil {
 			if gid == 0 {
 				return true, nil
 			}
-			return false, ErrRootPrivileges
+			return false, errRootPrivileges
 		}
 	}
-	return false, ErrUnsupportedSystem
+	return false, errUnsupportedSystem
 }
