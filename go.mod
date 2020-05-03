@@ -36,3 +36,5 @@ require (
 	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
+
+replace github.com/takama/daemon v0.12.0 => github.com/codenotary/daemon v0.0.0-20200503112505-a01a520b4784

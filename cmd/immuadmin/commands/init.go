@@ -29,6 +29,8 @@ type commandline struct {
 	passwordReader c.PasswordReader
 }
 
+type commandlineDisc struct{}
+
 func Init(cmd *cobra.Command) {
 	cl := new(commandline)
 	cl.passwordReader = c.DefaultPasswordReader
@@ -38,6 +40,10 @@ func Init(cmd *cobra.Command) {
 	cl.logout(cmd)
 	cl.status(cmd)
 	cl.stats(cmd)
+
+	cld := new(commandlineDisc)
+	cld.service(cmd)
+
 	cmd.AddCommand(man.Generate(cmd, "immuadmin", "../docs/man/immuadmin"))
 }
 
