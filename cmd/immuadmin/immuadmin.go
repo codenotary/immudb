@@ -43,6 +43,8 @@ Environment variables:
   IMMUADMIN_ADDRESS=127.0.0.1
   IMMUADMIN_PORT=3322
   IMMUADMIN_MTLS=true`,
+		SilenceUsage:      true,
+		SilenceErrors:     true,
 		DisableAutoGenTag: true,
 	}
 
