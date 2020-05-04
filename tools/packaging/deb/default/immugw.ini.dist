@@ -1,7 +1,7 @@
 address = 0.0.0.0
 port = 3323
-immudbaddress = 127.0.0.1
-immudbport = 3322
+immudaddress = 127.0.0.1
+immudport = 3322
 #pidfile = /var/run/immugw.pid
 logfile = /var/log/immudb/immugw.log
 mtls = false

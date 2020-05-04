@@ -28,6 +28,9 @@ case "$1" in
 	chmod +x /usr/sbin/immudb
     chmod +x /usr/sbin/immugw
     chmod +x /usr/local/bin/immuclient
+	
+	# rebuild manpages
+	mandb -q
   
 	# configuration files should not be modifiable by immu user, as this can be a security issue
 	chown -Rh root:$IMMU_GROUP /etc/immudb
