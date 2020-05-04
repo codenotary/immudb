@@ -17,7 +17,6 @@ limitations under the License.
 package commands
 
 import (
-	"github.com/codenotary/immudb/cmd"
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/client"
@@ -27,7 +26,7 @@ import (
 
 type commandline struct {
 	immuClient     client.ImmuClient
-	passwordReader cmd.PasswordReader
+	passwordReader c.PasswordReader
 }
 
 func Init(cmd *cobra.Command) {
