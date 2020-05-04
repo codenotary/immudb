@@ -115,7 +115,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	if err := auth.IsStrongPassword(newPass); err != nil {
 		return e, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	hashedPassword, err := auth.HashAndSaltPassword(newPass, false)
+	hashedPassword, err := auth.HashAndSaltPassword(newPass)
 	if err != nil {
 		return e, status.Errorf(codes.Internal, "%v", err)
 	}
