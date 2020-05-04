@@ -30,14 +30,17 @@ import (
 
 func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "login username \"password\"",
-		Short:   fmt.Sprintf("Login using the specified username and \"password\" (username is \"%s\")", auth.AdminUser.Username),
-		Aliases: []string{"l"},
+		Use:               "login username (you will be prompted for password)",
+		Short:             fmt.Sprintf("Login using the specified username and password (admin username is %s)", auth.AdminUsername),
+		Aliases:           []string{"l"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user := []byte(args[0])
-			pass := []byte(args[1])
+			pass, err := cl.passwordReader.Read("Password:")
+			if err != nil {
+				c.QuitWithUserError(err)
+			}
 			ctx := context.Background()
 			response, err := cl.immuClient.Login(ctx, user, pass)
 			if err != nil {
@@ -49,16 +52,15 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			fmt.Printf("logged in\n")
 			return nil
 		},
-		Args: cobra.ExactArgs(2),
+		Args: cobra.ExactArgs(1),
 	}
 	cmd.AddCommand(ccmd)
 }
 
 func (cl *commandline) logout(cmd *cobra.Command) {
-
 	ccmd := &cobra.Command{
-		Use:     "logout",
-		Aliases: []string{"x"},
+		Use:               "logout",
+		Aliases:           []string{"x"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {

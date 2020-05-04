@@ -17,29 +17,30 @@ limitations under the License.
 package commands
 
 import (
+	"github.com/codenotary/immudb/cmd"
+	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	c "github.com/codenotary/immudb/cmd"
 )
 
 type commandline struct {
-	immuClient    client.ImmuClient
+	immuClient     client.ImmuClient
+	passwordReader cmd.PasswordReader
 }
-
-type commandlineDisc struct {}
 
 func Init(cmd *cobra.Command) {
 	cl := new(commandline)
+	cl.passwordReader = c.DefaultPasswordReader
 
+	cl.user(cmd)
 	cl.login(cmd)
 	cl.logout(cmd)
 	cl.status(cmd)
 	cl.stats(cmd)
 	cmd.AddCommand(man.Generate(cmd, "immuadmin", "../docs/man/immuadmin"))
 }
-
 
 func options() *client.Options {
 	port := viper.GetInt("default.port")
@@ -65,13 +66,13 @@ func options() *client.Options {
 	return options
 }
 
-func(cl *commandline) disconnect(cmd *cobra.Command, args []string) {
+func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 	if err := cl.immuClient.Disconnect(); err != nil {
 		c.QuitToStdErr(err)
 	}
 }
 
-func(cl *commandline) connect (cmd *cobra.Command, args []string) (err error) {
+func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	if cl.immuClient, err = client.NewImmuClient(options()); err != nil {
 		c.QuitToStdErr(err)
 	}

@@ -25,6 +25,7 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -95,7 +96,23 @@ func QuitWithUserError(err error) {
 		QuitToStdErr(err)
 	}
 	if s.Code() == codes.Unauthenticated {
-		QuitToStdErr(errors.New("unauthorized, please login first, then pass the -s flag to every command"))
+		QuitToStdErr(errors.New("unauthorized, please login first"))
 	}
 	QuitToStdErr(err)
 }
+
+type PasswordReader interface {
+	Read(string) ([]byte, error)
+}
+type stdinPasswordReader struct{}
+
+func (pr *stdinPasswordReader) Read(msg string) ([]byte, error) {
+	fmt.Println(msg)
+	pass, err := terminal.ReadPassword(0)
+	if err != nil {
+		return nil, err
+	}
+	return pass, nil
+}
+
+var DefaultPasswordReader PasswordReader = new(stdinPasswordReader)

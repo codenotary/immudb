@@ -70,8 +70,16 @@ var slog = logger.NewSimpleLoggerWithLevel("client_test", os.Stderr, logger.LogD
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
 	is = is.WithOptions(is.Options.WithAuth(true))
-	dbDir := filepath.Join(is.Options.Dir, is.Options.DbName)
 	var err error
+	sysDbDir := filepath.Join(is.Options.Dir, is.Options.SysDbName)
+	if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
+		log.Fatal(err)
+	}
+	is.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, slog))
+	if err != nil {
+		log.Fatal(err)
+	}
+	dbDir := filepath.Join(is.Options.Dir, is.Options.DbName)
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		log.Fatal(err)
 	}
@@ -79,6 +87,8 @@ func newServer() *server.ImmuServer {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	createAdminUser(is.SysStore)
 
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(
@@ -92,6 +102,27 @@ func newServer() *server.ImmuServer {
 		}
 	}()
 	return is
+}
+
+var plainPass string
+
+func createAdminUser(sysStore *store.Store) {
+	var err error
+	if err = auth.GenerateKeys(); err != nil {
+		log.Fatalf("error generating keys for auth token: %v", err)
+	}
+	u := auth.User{Username: auth.AdminUsername, Admin: true}
+	plainPass, err = u.GenerateAndSetPassword()
+	if err != nil {
+		log.Fatalf("error generating password for admin user: %v", err)
+	}
+	kv := schema.KeyValue{
+		Key:   []byte(u.Username),
+		Value: u.HashedPassword,
+	}
+	if _, err := sysStore.Set(kv); err != nil {
+		log.Fatalf("error creating admin user: %v", err)
+	}
 }
 
 func newClient(withToken bool, token string) ImmuClient {
@@ -118,17 +149,9 @@ func newClient(withToken bool, token string) ImmuClient {
 }
 
 func login() string {
-	if err := auth.GenerateKeys(); err != nil {
-		log.Fatal(err)
-	}
-	plainPassword, err := auth.AdminUser.GenerateAndSetPassword()
-	if err != nil {
-		log.Fatal(err)
-	}
-	ctx := context.Background()
 	c := newClient(false, "")
-
-	r, err := c.Login(ctx, []byte(auth.AdminUser.Username), []byte(plainPassword))
+	ctx := context.Background()
+	r, err := c.Login(ctx, []byte(auth.AdminUsername), []byte(plainPass))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -171,6 +194,10 @@ func cleanup() {
 	}
 	dbDir := filepath.Join(server.DefaultOptions().Dir, server.DefaultOptions().DbName)
 	if err := os.RemoveAll(dbDir); err != nil {
+		log.Println(err)
+	}
+	sysDbDir := filepath.Join(server.DefaultOptions().Dir, server.DefaultOptions().SysDbName)
+	if err := os.RemoveAll(sysDbDir); err != nil {
 		log.Println(err)
 	}
 }
