@@ -713,6 +713,19 @@
         }
       }
     },
+    "schemaCreateUserResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "string",
+          "format": "byte"
+        },
+        "password": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "schemaHealthResponse": {
       "type": "object",
       "properties": {

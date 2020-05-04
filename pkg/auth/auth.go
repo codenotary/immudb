@@ -23,8 +23,10 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/o1egl/paseto"
 	"golang.org/x/crypto/bcrypt"
@@ -34,8 +36,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// generates a random ASCII string with at least one digit and one special character
-func generatePassword() string {
+var AuthEnabled bool
+
+// GeneratePassword generates a random ASCII string with at least one digit and one special character
+func GeneratePassword() string {
 	rand.Seed(time.Now().UnixNano())
 	digits := "0123456789"
 	// other special characters: ~=+%^*/()[]{}/!@#$?|
@@ -60,7 +64,7 @@ func generatePassword() string {
 const passwordHashCostDefault = 6
 const passwordHashCostHigh = bcrypt.DefaultCost
 
-func hashAndSaltPassword(plainPassword string, highCost bool) ([]byte, error) {
+func HashAndSaltPassword(plainPassword string, highCost bool) ([]byte, error) {
 	hashCost := passwordHashCostDefault
 	if highCost {
 		hashCost = passwordHashCostHigh
@@ -72,7 +76,7 @@ func hashAndSaltPassword(plainPassword string, highCost bool) ([]byte, error) {
 	return hashedPasswordBytes, nil
 }
 
-func comparePasswords(hashedPassword []byte, plainPassword []byte) error {
+func ComparePasswords(hashedPassword []byte, plainPassword []byte) error {
 	return bcrypt.CompareHashAndPassword(hashedPassword, plainPassword)
 }
 
@@ -144,20 +148,18 @@ func readKeyFromFile(fileName string) ([]byte, error) {
 	return keyBytes, nil
 }
 
-const footer = "CodeNotary"
+const footer = "ImmuDB"
 const tokenValidity = 1 * time.Hour
 
 // GenerateToken ...
-func GenerateToken(username string) (string, error) {
+func GenerateToken(user User) (string, error) {
 	now := time.Now()
-
-	token, err := pasetoV2.Sign(
-		privateKey,
-		paseto.JSONToken{
-			Expiration: now.Add(tokenValidity),
-			Subject:    username,
-		},
-		footer)
+	jsonToken := paseto.JSONToken{
+		Expiration: now.Add(tokenValidity),
+		Subject:    user.Username,
+	}
+	jsonToken.Set("admin", strconv.FormatBool(user.Admin))
+	token, err := pasetoV2.Sign(privateKey, jsonToken, footer)
 	if err != nil {
 		return "", fmt.Errorf("error generating token: %v", err)
 	}
@@ -168,6 +170,7 @@ func GenerateToken(username string) (string, error) {
 // JSONToken ...
 type JSONToken struct {
 	Username   string
+	Admin      bool
 	Expiration time.Time
 }
 
@@ -180,22 +183,61 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err := jsonToken.Validate(); err != nil {
 		return nil, err
 	}
-	return &JSONToken{Username: jsonToken.Subject, Expiration: jsonToken.Expiration}, nil
+	admin, _ := strconv.ParseBool(jsonToken.Get("admin"))
+	return &JSONToken{
+		Username:   jsonToken.Subject,
+		Admin:      admin,
+		Expiration: jsonToken.Expiration,
+	}, nil
 }
 
-func verifyTokenFromCtx(ctx context.Context) error {
+func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return status.Errorf(codes.Internal, "no headers found on request")
+		return nil, status.Errorf(codes.Internal, "no headers found on request")
 	}
 	authHeader, ok := md["authorization"]
 	if !ok || len(authHeader) < 1 {
-		return status.Errorf(codes.Unauthenticated, "no Authorization header found on request")
+		return nil, status.Errorf(codes.Unauthenticated, "no Authorization header found on request")
 	}
 	token := strings.TrimPrefix(authHeader[0], "Bearer ")
-	_, err := verifyToken(token)
+	jsonToken, err := verifyToken(token)
 	if err != nil {
-		return status.Errorf(codes.Unauthenticated, "invalid token %s", token)
+		return nil, status.Errorf(codes.Unauthenticated, "invalid token %s", token)
+	}
+	return jsonToken, nil
+}
+
+func IsStrongPassword(password string) error {
+	const minLen = 8
+	const maxLen = 32
+	err := fmt.Errorf(
+		"password must have between %d and %d letters, digits and special characters "+
+			"of which at least 1 uppercase letter, 1 digit and 1 special character",
+		minLen,
+		maxLen,
+	)
+	if len(password) < minLen || len(password) > maxLen {
+		return err
+	}
+	var hasUpper bool
+	var hasDigit bool
+	var hasSpecial bool
+	for _, ch := range password {
+		switch {
+		case unicode.IsUpper(ch):
+			hasUpper = true
+		case unicode.IsLower(ch):
+		case unicode.IsDigit(ch):
+			hasDigit = true
+		case unicode.IsPunct(ch) || unicode.IsSymbol(ch):
+			hasSpecial = true
+		default:
+			return err
+		}
+	}
+	if !hasUpper || !hasDigit || !hasSpecial {
+		return err
 	}
 	return nil
 }
@@ -209,4 +251,64 @@ var methodsWithoutAuth = map[string]bool{
 func HasAuth(method string) bool {
 	_, noAuth := methodsWithoutAuth[method]
 	return !noAuth
+}
+
+var methodsForAdmin = map[string]bool{
+	"/immudb.schema.ImmuService/CreateUser":     true,
+	"/immudb.schema.ImmuService/ChangePassword": true,
+	"/immudb.schema.ImmuService/DeleteUser":     true,
+}
+
+func IsAdmin(method string) bool {
+	// TODO OGG: maybe check a custom metadata entry - e.g. clientType or clientID
+	// to identify any method that is coming from immuadmin instead(?)
+	_, ok := methodsForAdmin[method]
+	return ok
+}
+
+var AdminUserExists func(ctx context.Context) bool
+var CreateAdminUser func(ctx context.Context) (string, string, error)
+
+type ErrFirstAdminCall struct {
+	message string
+}
+
+func (e *ErrFirstAdminCall) Error() string {
+	return e.message
+}
+
+func checkAuth(ctx context.Context, method string) error {
+	if !AuthEnabled {
+		if err := isLocalClient(ctx); err != nil {
+			return err
+		}
+	}
+	if AuthEnabled && HasAuth(method) {
+		jsonToken, err := verifyTokenFromCtx(ctx)
+		if err != nil {
+			if IsAdmin(method) && !AdminUserExists(ctx) {
+				if username, plainPassword, err2 := CreateAdminUser(ctx); err2 == nil {
+					return &ErrFirstAdminCall{
+						message: fmt.Sprintf(
+							"\nThis looks like the very first admin access hence the following "+
+								"credentials have been generated:\n---\nusername: %s\npassword: %s\n---\n"+
+								"IMPORTANT: This is the only time they are shown, so make sure you remember them.",
+							username,
+							plainPassword,
+						),
+					}
+				}
+			}
+			return err
+		}
+		if IsAdmin(method) {
+			if !jsonToken.Admin {
+				return status.Errorf(codes.PermissionDenied, "permission denied")
+			}
+			if err := isLocalClient(ctx); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

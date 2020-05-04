@@ -57,6 +57,9 @@ type ImmuClient interface {
 	WaitForHealthCheck(ctx context.Context) (err error)
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
+	CreateUser(ctx context.Context, user []byte) (*schema.CreateUserResponse, error)
+	DeleteUser(ctx context.Context, user []byte) error
+	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	CurrentRoot(ctx context.Context) (*schema.Root, error)
 	Set(ctx context.Context, key []byte, value []byte) (*schema.Index, error)
 	SafeSet(ctx context.Context, key []byte, value []byte) (*VerifiedIndex, error)
@@ -261,6 +264,47 @@ func (c *immuClient) GetServiceClient() *schema.ImmuServiceClient {
 
 func (c *immuClient) GetOptions() *Options {
 	return c.Options
+}
+
+// CreateUser ...
+func (c *immuClient) CreateUser(ctx context.Context, user []byte) (*schema.CreateUserResponse, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.CreateUser(ctx, &schema.CreateUserRequest{
+		User: user,
+	})
+	c.Logger.Debugf("createuser finished in %s", time.Since(start))
+	return result, err
+}
+
+// DeleteUser ...
+func (c *immuClient) DeleteUser(ctx context.Context, user []byte) error {
+	start := time.Now()
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+	_, err := c.ServiceClient.DeleteUser(ctx, &schema.DeleteUserRequest{
+		User: user,
+	})
+	c.Logger.Debugf("deleteuser finished in %s", time.Since(start))
+	return err
+}
+
+// ChangePassword ...
+func (c *immuClient) ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error {
+	start := time.Now()
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+	_, err := c.ServiceClient.ChangePassword(ctx, &schema.ChangePasswordRequest{
+		User:        user,
+		OldPassword: oldPass,
+		NewPassword: newPass,
+	})
+	c.Logger.Debugf("changepassword finished in %s", time.Since(start))
+	return err
 }
 
 // Login ...

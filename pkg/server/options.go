@@ -29,6 +29,7 @@ type Options struct {
 	Port         int
 	MetricsPort  int
 	DbName       string
+	SysDbName    string
 	Config       string
 	Pidfile      string
 	Logfile      string
@@ -48,6 +49,7 @@ func DefaultOptions() Options {
 		Port:         3322,
 		MetricsPort:  9497,
 		DbName:       "immudb",
+		SysDbName:    "immudbsys",
 		Config:       "configs/immudb.ini",
 		Pidfile:      "",
 		Logfile:      "",
@@ -85,6 +87,12 @@ func (o Options) WithPort(port int) Options {
 // WithDbName sets dbName
 func (o Options) WithDbName(dbName string) Options {
 	o.DbName = dbName
+	return o
+}
+
+// WithSysDbName sets SysDbName
+func (o Options) WithSysDbName(sysDbName string) Options {
+	o.SysDbName = sysDbName
 	return o
 }
 

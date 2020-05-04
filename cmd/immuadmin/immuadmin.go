@@ -46,7 +46,6 @@ Environment variables:
   IMMUADMIN_PORT=3322
   IMMUADMIN_MTLS=true`,
 		DisableAutoGenTag: true,
-
 	}
 
 	commands.Init(cmd)
@@ -100,4 +99,3 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 
 	return nil
 }
-
