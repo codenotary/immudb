@@ -53,6 +53,7 @@ func options() *client.Options {
 		WithPort(port).
 		WithAddress(address).
 		WithAuth(true).
+		WithTokenFileName("token_admin").
 		WithMTLs(mtls)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go

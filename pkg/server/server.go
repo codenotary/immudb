@@ -212,10 +212,11 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 		s.Logger.Errorf("error getting user %s during login: %v", string(r.User), err)
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
+	username := string(item.GetKey())
 	u := auth.User{
-		Username:       string(item.GetKey()),
+		Username:       username,
 		HashedPassword: item.GetValue(),
-		Admin:          false,
+		Admin:          username == auth.AdminUsername,
 	}
 	if u.ComparePasswords(r.GetPassword()) != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")

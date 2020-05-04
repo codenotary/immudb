@@ -32,6 +32,7 @@ type Options struct {
 	Auth               bool
 	DialOptions        *[]grpc.DialOption
 	Config             string
+	TokenFileName      string
 }
 
 func DefaultOptions() *Options {
@@ -42,6 +43,7 @@ func DefaultOptions() *Options {
 		MTLs:               false,
 		Auth:               false,
 		Config:             "configs/immuclient.ini",
+		TokenFileName:      "token",
 		DialOptions:        &[]grpc.DialOption{},
 	}
 }
@@ -79,6 +81,12 @@ func (o *Options) WithAuth(authEnabled bool) *Options {
 // WithConfig sets config file name
 func (o *Options) WithConfig(config string) *Options {
 	o.Config = config
+	return o
+}
+
+// WithTokenFileName sets token file name
+func (o *Options) WithTokenFileName(tokenFileName string) *Options {
+	o.TokenFileName = tokenFileName
 	return o
 }
 

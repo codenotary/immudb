@@ -27,8 +27,6 @@ import (
 )
 
 var o = &c.Options{}
-var tokenFileName = client.TokenFileName
-var immuClient client.ImmuClient
 
 func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immuadmin") })

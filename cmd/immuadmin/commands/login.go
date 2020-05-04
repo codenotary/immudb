@@ -24,7 +24,6 @@ import (
 
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +45,8 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			if err := ioutil.WriteFile(client.TokenFileName, response.Token, 0644); err != nil {
+			tokenFileName := cl.immuClient.GetOptions().TokenFileName
+			if err := ioutil.WriteFile(tokenFileName, response.Token, 0644); err != nil {
 				c.QuitToStdErr(err)
 			}
 			fmt.Printf("logged in\n")
@@ -64,9 +64,7 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := os.Remove(client.TokenFileName); err != nil {
-				c.QuitWithUserError(err)
-			}
+			os.Remove(cl.immuClient.GetOptions().TokenFileName)
 			fmt.Println("logged out")
 			return nil
 		},

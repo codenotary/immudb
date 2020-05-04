@@ -47,9 +47,6 @@ import (
 	"github.com/codenotary/immudb/pkg/store"
 )
 
-// TokenFileName name of the token file
-const TokenFileName = "token"
-
 // ImmuClient ...
 type ImmuClient interface {
 	Disconnect() error
@@ -207,7 +204,7 @@ func setupDialOptions(options *Options) *[]grpc.DialOption {
 		opts = []grpc.DialOption{grpc.WithTransportCredentials(transportCreds)}
 	}
 	if options.Auth {
-		tokenBytes, err := ioutil.ReadFile(TokenFileName)
+		tokenBytes, err := ioutil.ReadFile(options.TokenFileName)
 		if err == nil {
 			token := string(tokenBytes)
 			opts = append(opts, grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))

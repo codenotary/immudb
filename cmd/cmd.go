@@ -96,7 +96,7 @@ func QuitWithUserError(err error) {
 		QuitToStdErr(err)
 	}
 	if s.Code() == codes.Unauthenticated {
-		QuitToStdErr(errors.New("unauthorized, please login first"))
+		QuitToStdErr(errors.New("unauthenticated, please login first"))
 	}
 	QuitToStdErr(err)
 }
