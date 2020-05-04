@@ -60,16 +60,8 @@ func GeneratePassword() string {
 	return string(buf)
 }
 
-// NOTE: bcrypt.MinCost is 4
-const passwordHashCostDefault = 6
-const passwordHashCostHigh = bcrypt.DefaultCost
-
-func HashAndSaltPassword(plainPassword string, highCost bool) ([]byte, error) {
-	hashCost := passwordHashCostDefault
-	if highCost {
-		hashCost = passwordHashCostHigh
-	}
-	hashedPasswordBytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), hashCost)
+func HashAndSaltPassword(plainPassword string) ([]byte, error) {
+	hashedPasswordBytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("error hashing password: %v", err)
 	}
