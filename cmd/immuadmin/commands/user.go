@@ -63,7 +63,7 @@ Examples:
 					c.QuitWithUserError(err)
 				}
 				fmt.Printf(
-					"user '%s' created with password '%s'\n",
+					"User %s created with password %s\n",
 					string(response.User),
 					string(response.Password),
 				)
@@ -72,7 +72,7 @@ Examples:
 				if err := cl.immuClient.DeleteUser(ctx, username); err != nil {
 					c.QuitWithUserError(err)
 				}
-				fmt.Printf("user '%s' has been deleted", username)
+				fmt.Printf("User %s has been deleted\n", string(username))
 				return nil
 			case changePass:
 				oldPass, err := cl.passwordReader.Read("Old password:")
@@ -90,9 +90,13 @@ Examples:
 				if !bytes.Equal(pass, pass2) {
 					c.QuitWithUserError(errors.New("Passwords don't match"))
 				}
+				if bytes.Equal(pass, oldPass) {
+					c.QuitWithUserError(errors.New("New password is the same as than the old one"))
+				}
 				if err = cl.immuClient.ChangePassword(ctx, username, oldPass, pass); err != nil {
 					c.QuitWithUserError(err)
 				}
+				fmt.Printf("Password changed for user %s\n", string(username))
 				return nil
 			}
 			c.QuitWithUserError(errors.New("Please specify one of the following flags: --create or --delete or --password"))
