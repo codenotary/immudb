@@ -48,7 +48,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cl := new(commandline)
 
 	cmd.Use = "immupopulate [n]"
-	cmd.Short = "Populate ImmuDB with the (optional) number of entries (100 by default)"
+	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
 	cmd.Example = "immupopulate 1000"
 	cmd.PersistentPreRunE = cl.connect
 	cmd.PersistentPostRun = cl.disconnect
@@ -72,7 +72,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 						"any argument so that the default number of %d entries will be used", defaultNbEntries))
 			}
 		}
-		fmt.Printf("Populating ImmuDB with %d sample entries (credit cards of clients) ...\n", nbEntries)
+		fmt.Printf("Populating immudb with %d sample entries (credit cards of clients) ...\n", nbEntries)
 		took := populate(&cl.immuClient, nbEntries)
 		fmt.Printf(
 			"OK: %d entries were written in %v\n"+

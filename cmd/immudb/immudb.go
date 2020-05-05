@@ -36,8 +36,8 @@ func init() {
 func main() {
 	cmd := &cobra.Command{
 		Use:   "immudb",
-		Short: "The ImmuDB tamperproof database server",
-		Long: `The ImmuDB tamperproof database server.
+		Short: "immudb server - the lightweight, high-speed immutable database for systems and applications",
+		Long: `immudb server - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
   IMMUDB_DIR=.
