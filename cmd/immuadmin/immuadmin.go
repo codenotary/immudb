@@ -31,8 +31,8 @@ func init() {
 func main() {
 	cmd := &cobra.Command{
 		Use:   "immuadmin",
-		Short: "Admin client for the ImmuDB tamperproof database",
-		Long: `Admin client for the ImmuDB tamperproof database.
+		Short: "CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications",
+		Long: `CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
   IMMUADMIN_ADDRESS=127.0.0.1

@@ -140,7 +140,7 @@ func readKeyFromFile(fileName string) ([]byte, error) {
 	return keyBytes, nil
 }
 
-const footer = "ImmuDB"
+const footer = "immudb"
 const tokenValidity = 1 * time.Hour
 
 // GenerateToken ...

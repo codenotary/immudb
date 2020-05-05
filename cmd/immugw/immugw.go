@@ -39,8 +39,8 @@ func main() {
 
 	immugwCmd := &cobra.Command{
 		Use:   "immugw",
-		Short: "Immu gateway: a smart REST proxy for the ImmuDB tamperproof database",
-		Long: `Immu gateway is a smart REST proxy for the ImmuDB tamperproof database.
+		Short: "immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications",
+		Long: `immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications.
 It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
 
 Environment variables:

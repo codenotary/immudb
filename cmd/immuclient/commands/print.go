@@ -119,7 +119,7 @@ func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {
 
 func printRoot(root *schema.Root) {
 	if root.Root == nil {
-		fmt.Printf("Immudb is empty\n")
+		fmt.Printf("immudb is empty\n")
 		return
 	}
 	fmt.Printf("index:		%d\nhash:		%x\n", root.Index, root.Root)

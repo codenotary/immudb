@@ -36,8 +36,8 @@ var GeneralClient = &commands.CommandlineClient{}
 func main() {
 	cmd := &cobra.Command{
 		Use:   "immuclient",
-		Short: "CLI client for the ImmuDB tamperproof database",
-		Long: `CLI client for the ImmuDB tamperproof database.
+		Short: "CLI client for immudb - the lightweight, high-speed immutable database for systems and applications",
+		Long: `CLI client for immudb - the lightweight, high-speed immutable database for systems and applications.
 Environment variables:
   IMMUCLIENT_ADDRESS=127.0.0.1
   IMMUCLIENT_PORT=3322
