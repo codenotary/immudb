@@ -32,13 +32,13 @@ import (
 )
 
 var (
-	// ErrUnsupportedSystem appears if try to use service on system which is not supported by this release
+	// errUnsupportedSystem appears if try to use service on system which is not supported by this release
 	errUnsupportedSystem = errors.New("unsupported system")
 
-	// ErrRootPrivileges appears if run installation or deleting the service without root privileges
+	// errRootPrivileges appears if run installation or deleting the service without root privileges
 	errRootPrivileges = errors.New("you must have root user privileges. Possibly using 'sudo' command should help")
 
-	// ErrRootPrivileges provided executable file does not exists
+	// errExecNotFound provided executable file does not exists
 	errExecNotFound = errors.New("provided executable file does not exists")
 )
 
@@ -55,9 +55,7 @@ Currently installing the service under windows may incur anomalies. Related issu
 Installable services are immudb and immugw.
 Root permission are required in order to make administrator operations.
 `,
-		SilenceUsage:  true,
-		SilenceErrors: true,
-		ValidArgs:     availableCommands,
+		ValidArgs: availableCommands,
 		Example: `
 sudo ./immuadmin service immudb install --local-file vchain/immudb/src/immudb
 immuadmin service immudb install --local-file immudb.exe
