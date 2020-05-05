@@ -27,6 +27,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+var App = "immuclient"
+var Version = "v0.0.1"
+var Commit string
+var BuiltBy string
+var BuiltAt string
+
 var o = c.Options{}
 
 func init() {
@@ -65,6 +71,7 @@ Environment variables:
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
 
 	cmd.AddCommand(man.Generate(cmd, "immudb", "../docs/man/immudb"))
+	cmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)

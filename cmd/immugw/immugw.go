@@ -29,6 +29,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+var App = "immuclient"
+var Version = "v0.0.1"
+var Commit string
+var BuiltBy string
+var BuiltAt string
+
 var o = c.Options{}
 
 func init() {
@@ -91,6 +97,7 @@ Environment variables:
 	}
 	setupDefaults(gw.DefaultOptions(), client.DefaultMTLsOptions())
 	immugwCmd.AddCommand(man.Generate(immugwCmd, "immugw", "../docs/man/immugw"))
+	immugwCmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
 
 	if err := immugwCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
