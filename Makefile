@@ -8,7 +8,7 @@ PROTOC ?= protoc
 STRIP = strip
 
 .PHONY: all
-all: immudb immugw
+all: immudb immuclient immugw immuadmin immupopulate
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
 
 .PHONY: rebuild
@@ -30,6 +30,10 @@ immudb:
 immugw:
 	$(GO) build ./cmd/immugw
 
+.PHONY: immupopulate
+immupopulate:
+	$(GO) build ./cmd/immupopulate
+
 .PHONY: immuclient-static
 immuclient-static:
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immuclient
@@ -45,6 +49,10 @@ immudb-static:
 .PHONY: immugw-static
 immugw-static:
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immugw
+
+.PHONY: immupopulate-static
+immupopulate-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immupopulate
 
 .PHONY: vendor
 vendor:
@@ -80,7 +88,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immuclient immuadmin immudb bm
+	rm -f immuclient immuadmin immupopulate immugw immudb bm
 
 .PHONY: nimmu
 nimmu:
@@ -120,6 +128,7 @@ man:
 	$(GO) run ./cmd/immuadmin mangen ./cmd/docs/man/immuadmin
 	$(GO) run ./cmd/immudb mangen ./cmd/docs/man/immudb
 	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
+	$(GO) run ./cmd/immupopulate mangen ./cmd/docs/man/immupopulate
 
 .PHONY: prerequisites
 prerequisites:
