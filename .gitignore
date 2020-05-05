@@ -28,6 +28,8 @@
 cmd/immuclient/immuclient
 /immuadmin
 cmd/immuadmin/immuadmin
+/immupopulate
+cmd/immupopulate/immupopulate
 /immudb
 cmd/immudb/immudb
 /nimmu
@@ -44,6 +46,7 @@ immudb.pid
 vendor
 
 # Config
+configs/immuadmin.ini
 configs/immuclient.ini
 configs/immudb.ini
 configs/immugw.ini
@@ -51,3 +54,4 @@ configs/immugw.ini
 # immudb auth
 immudb_pwd
 token
+token_admin
