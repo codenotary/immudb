@@ -21,6 +21,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var App = "immuclient"
+var Version = "v0.0.1"
+var Commit string
+var BuiltBy string
+var BuiltAt string
+
 var o = &c.Options{}
 
 func init() {
@@ -30,6 +36,7 @@ func init() {
 func main() {
 	cmd := &cobra.Command{}
 	Init(cmd, o)
+	cmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
 	if err := cmd.Execute(); err != nil {
 		c.QuitToStdErr(err)
 	}

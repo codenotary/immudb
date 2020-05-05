@@ -22,6 +22,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var App = "immuadmin"
+var Version = "v0.0.1"
+var Commit string
+var BuiltBy string
+var BuiltAt string
+
 var o = &c.Options{}
 
 func init() {
@@ -43,6 +49,7 @@ Environment variables:
 		DisableAutoGenTag: true,
 	}
 	commands.Init(cmd, o)
+	cmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
 	if err := cmd.Execute(); err != nil {
 		c.QuitToStdErr(err)
 	}

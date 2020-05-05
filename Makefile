@@ -6,7 +6,25 @@ GO ?= go
 DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
+#~~~> Binaries versions
+V_COMMIT = $(shell git rev-parse HEAD)
+V_BUILT_BY = $(shell git config user.name)
+V_BUILT_AT = $(shell date)
+LDFLAGS_COMMON = -X "main.Commit=$(V_COMMIT)" -X "main.BuiltBy=$(V_BUILT_BY)" -X "main.BuiltAt=$(V_BUILT_AT)"
 
+V_COMMON = v.0.0.1
+V_IMMUCLIENT = $(V_COMMON)
+V_IMMUADMIN = $(V_COMMON)
+V_IMMUDB = $(V_COMMON)
+V_IMMUGW = $(V_COMMON)
+V_IMMUPOPULATE = $(V_COMMON)
+
+V_IMMUCLIENT_LDFLAGS = -X "main.App=immuclient" -X "main.Version=$(V_IMMUCLIENT)" $(LDFLAGS_COMMON)
+V_IMMUADMIN_LDFLAGS = -X "main.App=immuadmin" -X "main.Version=$(V_IMMUADMIN)" $(LDFLAGS_COMMON)
+V_IMMUDB_LDFLAGS = -X "main.App=immudb" -X "main.Version=$(V_IMMUDB)" $(LDFLAGS_COMMON)
+V_IMMUGW_LDFLAGS = -X "main.App=immugw" -X "main.Version=$(V_IMMUGW)" $(LDFLAGS_COMMON)
+V_IMMUPOPULATE_LDFLAGS = -X "main.App=immupopulate" -X "main.Version=$(V_IMMUPOPULATE)" $(LDFLAGS_COMMON)
+#<~~~
 .PHONY: all
 all: immudb immuclient immugw immuadmin immupopulate
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
@@ -16,43 +34,43 @@ rebuild: clean build/codegen all
 
 .PHONY: immuclient
 immuclient:
-	$(GO) build ./cmd/immuclient
+	$(GO) build -v -ldflags '$(V_IMMUCLIENT_LDFLAGS)' ./cmd/immuclient
 
 .PHONY: immuadmin
 immuadmin:
-	$(GO) build ./cmd/immuadmin
+	$(GO) build -v -ldflags '$(V_IMMUADMIN_LDFLAGS)' ./cmd/immuadmin
 
 .PHONY: immudb
 immudb:
-	$(GO) build ./cmd/immudb
+	$(GO) build -v -ldflags '$(V_IMMUDB_LDFLAGS)' ./cmd/immudb
 
 .PHONY: immugw
 immugw:
-	$(GO) build ./cmd/immugw
+	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw
 
 .PHONY: immupopulate
 immupopulate:
-	$(GO) build ./cmd/immupopulate
+	$(GO) build -v -ldflags '$(V_IMMUPOPULATE_LDFLAGS)' ./cmd/immupopulate
 
 .PHONY: immuclient-static
 immuclient-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immuclient
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUCLIENT_LDFLAGS) -extldflags "-static"' ./cmd/immuclient
 
 .PHONY: immuadmin-static
 immuadmin-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immuadmin
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUADMIN_LDFLAGS) -extldflags "-static"' ./cmd/immuadmin
 
 .PHONY: immudb-static
 immudb-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immudb
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUDB_LDFLAGS) -extldflags "-static"' ./cmd/immudb
 
 .PHONY: immugw-static
 immugw-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immugw
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUGW_LDFLAGS) -extldflags "-static"' ./cmd/immugw
 
 .PHONY: immupopulate-static
 immupopulate-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immupopulate
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUPOPULATE_LDFLAGS) -extldflags "-static"' ./cmd/immupopulate
 
 .PHONY: vendor
 vendor:
