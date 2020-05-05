@@ -33,8 +33,17 @@ config_files:
   ./packaging/deb/default/immuclient.ini.dist: "/etc/immudb/immuclient.ini"
   ./packaging/deb/systemd/immudb.service: "/usr/lib/systemd/system/immudb.service"
   ./packaging/deb/systemd/immugw.service: "/usr/lib/systemd/system/immugw.service"
+  ./packaging/deb/man/immuclient.1: "/usr/local/share/man/man1"
+  ./packaging/deb/man/immudb.1: "/usr/local/share/man/man1"
+  ./packaging/deb/man/immugw.1: "/usr/local/share/man/man1"
+
 
 overrides:
+  rpm:
+    scripts:
+      postinstall: ./packaging/rpm/control/postinst
+
   deb:
     scripts:
       postinstall: ./packaging/deb/control/postinst
+

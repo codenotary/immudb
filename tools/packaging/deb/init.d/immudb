@@ -21,7 +21,7 @@
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 NAME=immudb
-DESC="immudb - the tamperproof database"
+DESC="immud - the tamperproof database"
 DEFAULT=/etc/default/$NAME
 
 IMMU_USER=immu
@@ -68,7 +68,7 @@ case "$1" in
   checkUser
 	log_daemon_msg "Starting $DESC"
 
-	pid=`pidofproc -p $PID_FILE immudb`
+	pid=`pidofproc -p $PID_FILE immud`
 	if [ -n "$pid" ] ; then
 		log_begin_msg "Already running."
 		log_end_msg 0
