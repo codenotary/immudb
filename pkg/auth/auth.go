@@ -271,8 +271,10 @@ func (e *ErrFirstAdminCall) Error() string {
 
 func checkAuth(ctx context.Context, method string) error {
 	if !AuthEnabled {
-		if err := isLocalClient(ctx); err != nil {
-			return err
+		if !isLocalClient(ctx) {
+			status.Errorf(
+				codes.PermissionDenied,
+				"server has authentication disabled: only local connections are accepted")
 		}
 	}
 	if AuthEnabled && HasAuth(method) {
@@ -297,8 +299,10 @@ func checkAuth(ctx context.Context, method string) error {
 			if !jsonToken.Admin {
 				return status.Errorf(codes.PermissionDenied, "permission denied")
 			}
-			if err := isLocalClient(ctx); err != nil {
-				return err
+			if !isLocalClient(ctx) {
+				return status.Errorf(
+					codes.PermissionDenied,
+					"server does not accept admin commands from remote clients")
 			}
 		}
 	}

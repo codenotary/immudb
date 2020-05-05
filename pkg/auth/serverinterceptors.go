@@ -21,9 +21,7 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 )
 
 var UpdateMetrics func(context.Context)
@@ -62,13 +60,20 @@ func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Una
 	return m, err
 }
 
-func isLocalClient(ctx context.Context) error {
+var localAddress = map[string]bool{
+	"127.0.0.1": true,
+	"localhost": true,
+	"bufconn":   true,
+}
+
+func isLocalClient(ctx context.Context) bool {
+	isLocal := false
 	p, ok := peer.FromContext(ctx)
 	if ok && p != nil {
 		ipAndPort := strings.Split(p.Addr.String(), ":")
-		if len(ipAndPort) > 0 && ipAndPort[0] == "127.0.0.1" || ipAndPort[0] == "bufconn" {
-			return nil
+		if len(ipAndPort) > 0 {
+			_, isLocal = localAddress[ipAndPort[0]]
 		}
 	}
-	return status.Errorf(codes.PermissionDenied, "server only accepts local connections")
+	return isLocal
 }
