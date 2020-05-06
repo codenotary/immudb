@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	daem "github.com/takama/daemon"
 	"os"
 
 	c "github.com/codenotary/immudb/cmd"
@@ -103,9 +104,17 @@ func Immudb(cmd *cobra.Command, args []string) (err error) {
 		c.Detached()
 	}
 
-	if err := immuServer.Start(); err != nil {
+	var d daem.Daemon
+	if d, err = daem.New("immudb", "immudb", "C:/c/ROOT/immudb/immudb.exe"); err != nil {
 		c.QuitToStdErr(err)
 	}
+
+	service := server.Service{
+		ImmuServer: *immuServer,
+	}
+
+	d.Run(service)
+
 	return nil
 }
 

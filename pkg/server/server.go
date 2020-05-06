@@ -194,7 +194,9 @@ func (s *ImmuServer) Stop() error {
 		s.SysStore.Close()
 	}
 	if s.Store != nil {
-		defer func() { s.Store = nil }()
+		defer func() {
+			s.Store = nil
+		}()
 		return s.Store.Close()
 	}
 	return nil

@@ -19,27 +19,14 @@ package commands
 import (
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/cmd/immuadmin/service"
 	"github.com/spf13/cobra"
 	daem "github.com/takama/daemon"
-	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
-)
-
-var (
-	// errUnsupportedSystem appears if try to use service on system which is not supported by this release
-	errUnsupportedSystem = errors.New("unsupported system")
-
-	// errRootPrivileges appears if run installation or deleting the service without root privileges
-	errRootPrivileges = errors.New("you must have root user privileges. Possibly using 'sudo' command should help")
-
-	// errExecNotFound provided executable file does not exists
-	errExecNotFound = errors.New("provided executable file does not exists")
 )
 
 var installableServices = []string{"immudb", "immugw"}
@@ -81,7 +68,7 @@ sudo ./immuadmin service immudb uninstall
 		},
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 
-			if ok, e := checkPrivileges(); !ok {
+			if ok, e := service.CheckPrivileges(); !ok {
 				return e
 			}
 			// delayed operation
@@ -121,25 +108,7 @@ sudo ./immuadmin service immudb uninstall
 				if localFile, err = cmd.Flags().GetString("local-file"); err != nil {
 					return err
 				}
-				if localFile != "" {
-					_, err = os.Stat(localFile)
-					if os.IsNotExist(err) {
-						return errExecNotFound
-					}
-				}
-
-				if localFile == "" {
-					localFile = args[0]
-					if runtime.GOOS == "windows" {
-						localFile = localFile + ".exe"
-					}
-					_, err = os.Stat(localFile)
-					if os.IsNotExist(err) {
-						return fmt.Errorf("%s executable file was not found on current folder", args[0])
-					}
-				}
-
-				if localFile, err = filepath.Abs(localFile); err != nil {
+				if localFile, err = service.GetExecutable(localFile, args[0]); err != nil {
 					return err
 				}
 			}
@@ -157,12 +126,9 @@ sudo ./immuadmin service immudb uninstall
 			switch args[1] {
 			case "install":
 				fmt.Println("installing " + localFile + "...")
-				if runtime.GOOS == "windows" {
-					if err = installConfig(args[0]); err != nil {
-						return err
-					}
+				if err = service.InstallConfig(args[0]); err != nil {
+					return err
 				}
-
 				if msg, err = daemon.Install(); err != nil {
 					return err
 				}
@@ -180,10 +146,8 @@ sudo ./immuadmin service immudb uninstall
 					if msg, err = daemon.Remove(); err != nil {
 						return err
 					}
-					if runtime.GOOS == "windows" {
-						if err = uninstallConfig(args[0]); err != nil {
-							return err
-						}
+					if err = service.UninstallConfig(args[0]); err != nil {
+						return err
 					}
 					fmt.Println(msg)
 				} else {
@@ -232,38 +196,6 @@ sudo ./immuadmin service immudb uninstall
 	cmd.AddCommand(ccmd)
 }
 
-func installConfig(serviceName string) error {
-	err := os.MkdirAll("/etc/"+serviceName, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	from, err := os.Open("configs/immudb.ini.dist")
-	if err != nil {
-		return err
-	}
-	defer from.Close()
-
-	to, err := os.OpenFile("/etc/"+serviceName+"/"+serviceName+".ini", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer to.Close()
-
-	_, err = io.Copy(to, from)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func uninstallConfig(serviceName string) error {
-	err := os.Remove("/etc/" + serviceName + "/" + serviceName + ".ini")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -279,16 +211,4 @@ func launch(command string, args []string) (err error) {
 		return err
 	}
 	return nil
-}
-
-func checkPrivileges() (bool, error) {
-	if output, err := exec.Command("id", "-g").Output(); err == nil {
-		if gid, parseErr := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 32); parseErr == nil {
-			if gid == 0 {
-				return true, nil
-			}
-			return false, errRootPrivileges
-		}
-	}
-	return false, errUnsupportedSystem
 }
