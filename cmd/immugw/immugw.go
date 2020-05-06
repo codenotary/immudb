@@ -96,7 +96,7 @@ Environment variables:
 		c.QuitToStdErr(err)
 	}
 	setupDefaults(gw.DefaultOptions(), client.DefaultMTLsOptions())
-	immugwCmd.AddCommand(man.Generate(immugwCmd, "immugw", "../docs/man/immugw"))
+	immugwCmd.AddCommand(man.Generate(immugwCmd, "immugw", "./cmd/docs/man/immugw"))
 	immugwCmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
 
 	if err := immugwCmd.Execute(); err != nil {

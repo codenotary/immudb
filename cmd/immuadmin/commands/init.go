@@ -49,7 +49,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cld := new(commandlineDisc)
 	cld.service(cmd)
 
-	cmd.AddCommand(man.Generate(cmd, "immuadmin", "../docs/man/immuadmin"))
+	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/immuadmin"))
 }
 
 func options() *client.Options {

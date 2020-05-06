@@ -69,7 +69,7 @@ func (cl *CommandlineClient) Init(cmd *cobra.Command, o *c.Options) {
 	cl.dumpToFile(cmd)
 
 	// man file generator
-	cmd.AddCommand(man.Generate(cmd, "immuclient", "../docs/man/immuclient"))
+	cmd.AddCommand(man.Generate(cmd, "immuclient", "./cmd/docs/man/immuclient"))
 }
 
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
