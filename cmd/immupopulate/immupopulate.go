@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var App = "immuclient"
+var App = "immupopulate"
 var Version = "v0.0.1"
 var Commit string
 var BuiltBy string
