@@ -10,5 +10,5 @@ var (
 	ErrRootPrivileges = errors.New("you must have root user privileges. Possibly using 'sudo' command should help")
 
 	// errExecNotFound provided executable file does not exists
-	ErrExecNotFound = errors.New("provided executable file does not exists")
+	ErrExecNotFound = errors.New("executable file does not exists or not provided")
 )

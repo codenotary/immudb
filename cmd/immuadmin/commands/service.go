@@ -103,8 +103,9 @@ sudo ./immuadmin service immudb uninstall
 
 			var msg string
 			var localFile string
+			var execPath string
 
-			if stringInSlice("--remove-files", os.Args) || args[1] == "install" {
+			if args[1] == "install" {
 				if localFile, err = cmd.Flags().GetString("local-file"); err != nil {
 					return err
 				}
@@ -113,15 +114,29 @@ sudo ./immuadmin service immudb uninstall
 				}
 			}
 
-			remove, _ := cmd.Flags().GetBool("remove-files")
-			if remove {
-				if err = os.Remove(localFile); err != nil {
+			execPath = service.GetDefaultExecPath(localFile)
+
+			if stringInSlice("--remove-files", os.Args) {
+				if localFile, err = cmd.Flags().GetString("local-file"); err != nil {
+					return err
+				}
+			}
+
+			if args[1] == "install" {
+				if execPath, err = service.CopyExecInOsDefault(localFile); err != nil {
+					return err
+				}
+			}
+
+			// todo remove all involved files
+			if remove, _ := cmd.Flags().GetBool("remove-files"); remove {
+				if err = os.Remove(execPath); err != nil {
 					return err
 				}
 				return nil
 			}
 
-			daemon, _ := daem.New(args[0], args[0], localFile)
+			daemon, _ := daem.New(args[0], args[0], execPath)
 
 			switch args[1] {
 			case "install":
@@ -129,12 +144,23 @@ sudo ./immuadmin service immudb uninstall
 				if err = service.InstallConfig(args[0]); err != nil {
 					return err
 				}
-				if msg, err = daemon.Install(); err != nil {
+				if msg, err = daemon.Install("--config", service.GetDefaultConfigPath(args[0])); err != nil {
+					return err
+				}
+				fmt.Println(msg)
+				if msg, err = daemon.Start(); err != nil {
 					return err
 				}
 				fmt.Println(msg)
 				return nil
 			case "uninstall":
+				// stopping service first
+				if status, err := daemon.Status(); status == "Status: SERVICE_RUNNING" {
+					if msg, err = daemon.Stop(); err != nil {
+						return err
+					}
+					fmt.Println(msg)
+				}
 				var u string
 				fmt.Printf("Are you sure you want to uninstall %s? Default N [Y/N]", args[0])
 				n, _ := fmt.Scanln(&u)
@@ -146,10 +172,25 @@ sudo ./immuadmin service immudb uninstall
 					if msg, err = daemon.Remove(); err != nil {
 						return err
 					}
-					if err = service.UninstallConfig(args[0]); err != nil {
+					fmt.Println(msg)
+					if args[0] == "immudb" {
+						fmt.Printf("Erase data? Default N [Y/N]")
+						n, _ := fmt.Scanln(&u)
+						if n <= 0 {
+							u = "N"
+						}
+						u = strings.TrimSpace(strings.ToLower(u))
+						if u == "y" {
+							if err = service.EraseData(args[0]); err != nil {
+								return err
+							}
+							fmt.Println("Data folder removed")
+						}
+					}
+					if err = service.RemoveProgramFiles(args[0]); err != nil {
 						return err
 					}
-					fmt.Println(msg)
+					fmt.Println("Removed program files.")
 				} else {
 					fmt.Println("No action.")
 				}
