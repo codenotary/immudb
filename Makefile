@@ -17,16 +17,16 @@ V_IMMUCLIENT = $(V_COMMON)
 V_IMMUADMIN = $(V_COMMON)
 V_IMMUDB = $(V_COMMON)
 V_IMMUGW = $(V_COMMON)
-V_IMMUPOPULATE = $(V_COMMON)
+V_IMMUTESTAPP = $(V_COMMON)
 
 V_IMMUCLIENT_LDFLAGS = -X "main.Version=$(V_IMMUCLIENT)" $(LDFLAGS_COMMON)
 V_IMMUADMIN_LDFLAGS = -X "main.Version=$(V_IMMUADMIN)" $(LDFLAGS_COMMON)
 V_IMMUDB_LDFLAGS = -X "main.Version=$(V_IMMUDB)" $(LDFLAGS_COMMON)
 V_IMMUGW_LDFLAGS = -X "main.Version=$(V_IMMUGW)" $(LDFLAGS_COMMON)
-V_IMMUPOPULATE_LDFLAGS = -X "main.Version=$(V_IMMUPOPULATE)" $(LDFLAGS_COMMON)
+V_IMMUTESTAPP_LDFLAGS = -X "main.Version=$(V_IMMUTESTAPP)" $(LDFLAGS_COMMON)
 #<~~~
 .PHONY: all
-all: immudb immuclient immugw immuadmin immupopulate
+all: immudb immuclient immugw immuadmin immutestapp
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
 
 .PHONY: rebuild
@@ -48,9 +48,9 @@ immudb:
 immugw:
 	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw
 
-.PHONY: immupopulate
-immupopulate:
-	$(GO) build -v -ldflags '$(V_IMMUPOPULATE_LDFLAGS)' ./cmd/immupopulate
+.PHONY: immutestapp
+immutestapp:
+	$(GO) build -v -ldflags '$(V_IMMUTESTAPP_LDFLAGS)' ./cmd/immutestapp
 
 .PHONY: immuclient-static
 immuclient-static:
@@ -68,9 +68,9 @@ immudb-static:
 immugw-static:
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUGW_LDFLAGS) -extldflags "-static"' ./cmd/immugw
 
-.PHONY: immupopulate-static
-immupopulate-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUPOPULATE_LDFLAGS) -extldflags "-static"' ./cmd/immupopulate
+.PHONY: immutestapp-static
+immutestapp-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUTESTAPP_LDFLAGS) -extldflags "-static"' ./cmd/immutestapp
 
 .PHONY: vendor
 vendor:
@@ -106,7 +106,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immuclient immuadmin immupopulate immugw immudb bm
+	rm -f immuclient immuadmin immutestapp immugw immudb bm
 
 .PHONY: nimmu
 nimmu:
@@ -146,7 +146,7 @@ man:
 	$(GO) run ./cmd/immuadmin mangen ./cmd/docs/man/immuadmin
 	$(GO) run ./cmd/immudb mangen ./cmd/docs/man/immudb
 	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
-	$(GO) run ./cmd/immupopulate mangen ./cmd/docs/man/immupopulate
+	$(GO) run ./cmd/immutestapp mangen ./cmd/docs/man/immutestapp
 
 .PHONY: prerequisites
 prerequisites:

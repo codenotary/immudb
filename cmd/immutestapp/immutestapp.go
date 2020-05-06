@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var App = "immupopulate"
+var App = "immutestapp"
 var Version = "v0.0.1"
 var Commit string
 var BuiltBy string
@@ -30,7 +30,7 @@ var BuiltAt string
 var o = &c.Options{}
 
 func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immupopulate") })
+	cobra.OnInitialize(func() { o.InitConfig("immutestapp") })
 }
 
 func main() {
