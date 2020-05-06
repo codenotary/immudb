@@ -28,7 +28,7 @@ import (
 )
 
 var App = "immudb"
-var Version = "v0.0.1"
+var Version string
 var Commit string
 var BuiltBy string
 var BuiltAt string
