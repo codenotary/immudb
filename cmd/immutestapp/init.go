@@ -81,7 +81,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	}
 	cmd.Args = cobra.MaximumNArgs(1)
 	cmd.DisableAutoGenTag = true
-	cmd.AddCommand(man.Generate(cmd, "immutestapp", "../docs/man/immutestapp"))
+	cmd.AddCommand(man.Generate(cmd, "immutestapp", "./cmd/docs/man/immutestapp"))
 }
 
 func checkForEmptyDB(serverAddress string) {

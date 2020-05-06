@@ -70,7 +70,7 @@ Environment variables:
 	}
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
 
-	cmd.AddCommand(man.Generate(cmd, "immudb", "../docs/man/immudb"))
+	cmd.AddCommand(man.Generate(cmd, "immudb", "./cmd/docs/man/immudb"))
 	cmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
 
 	if err := cmd.Execute(); err != nil {
