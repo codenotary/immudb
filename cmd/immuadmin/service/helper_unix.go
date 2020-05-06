@@ -1,3 +1,5 @@
+// +build unix
+
 /*
 Copyright 2019-2020 vChain, Inc.
 
