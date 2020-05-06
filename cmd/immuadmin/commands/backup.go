@@ -29,7 +29,7 @@ import (
 func (cl *commandline) dumpToFile(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "dump [file]",
-		Short:             "Dump database contet to a file",
+		Short:             "Dump database content to a file",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
