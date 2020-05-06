@@ -23,11 +23,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *CommandlineClient) currentRoot(cmd *cobra.Command) {
+func (cl *commandline) currentRoot(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "current",
-		Short:   "Return the last merkle tree root and index stored locally",
-		Aliases: []string{"crt"},
+		Use:               "current",
+		Short:             "Return the last merkle tree root and index stored locally",
+		Aliases:           []string{"crt"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 			root, err := cl.ImmuClient.CurrentRoot(ctx)

@@ -28,11 +28,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *CommandlineClient) history(cmd *cobra.Command) {
+func (cl *commandline) history(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "history key",
-		Short:   "Fetch history for the item having the specified key",
-		Aliases: []string{"h"},
+		Use:               "history key",
+		Short:             "Fetch history for the item having the specified key",
+		Aliases:           []string{"h"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
@@ -55,11 +57,13 @@ func (cl *CommandlineClient) history(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) healthCheck(cmd *cobra.Command) {
+func (cl *commandline) healthCheck(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "ping",
-		Short:   "Ping to check if server connection is alive",
-		Aliases: []string{"p"},
+		Use:               "ping",
+		Short:             "Ping to check if server connection is alive",
+		Aliases:           []string{"p"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			ctx := context.Background()
@@ -74,11 +78,13 @@ func (cl *CommandlineClient) healthCheck(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) dumpToFile(cmd *cobra.Command) {
+func (cl *commandline) dumpToFile(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "dump [file]",
-		Short:   "Dump database content to a file",
-		Aliases: []string{"b"},
+		Use:               "dump [file]",
+		Short:             "Dump database content to a file",
+		Aliases:           []string{"b"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			filename := fmt.Sprint("immudb_" + time.Now().Format("2006-01-02_15-04-05") + ".bkp")

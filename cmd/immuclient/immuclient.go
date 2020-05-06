@@ -19,12 +19,8 @@ package main
 import (
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/immuclient/commands"
-	"github.com/codenotary/immudb/pkg/client"
-
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var App = "immuclient"
@@ -39,8 +35,6 @@ func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immuclient") })
 }
 
-var GeneralClient = &commands.CommandlineClient{}
-
 func main() {
 	cmd := &cobra.Command{
 		Use:   "immuclient",
@@ -51,67 +45,12 @@ Environment variables:
   IMMUCLIENT_PORT=3322
   IMMUCLIENT_AUTH=false`,
 		DisableAutoGenTag: true,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) (err error) {
-			if !needsServer(cmd) {
-				return
-			}
-			if GeneralClient.ImmuClient, err = client.NewImmuClient(options()); err != nil || GeneralClient.ImmuClient == nil {
-				c.QuitToStdErr(err)
-			}
-			return
-		},
-		PersistentPostRun: func(cmd *cobra.Command, args []string) {
-			if !needsServer(cmd) {
-				return
-			}
-			if err := GeneralClient.ImmuClient.Disconnect(); err != nil {
-				c.QuitToStdErr(err)
-			}
-		},
 	}
 
-	GeneralClient.Init(cmd, o)
+	commands.Init(cmd, o)
 	cmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
 
 	if err := cmd.Execute(); err != nil {
 		c.QuitToStdErr(err)
 	}
-}
-
-func options() *client.Options {
-	port := viper.GetInt("default.port")
-	address := viper.GetString("default.address")
-	authEnabled := viper.GetBool("default.auth")
-	mtls := viper.GetBool("default.mtls")
-	certificate := viper.GetString("default.certificate")
-	servername := viper.GetString("default.servername")
-	pkey := viper.GetString("default.pkey")
-	clientcas := viper.GetString("default.clientcas")
-	options := client.DefaultOptions().
-		WithPort(port).
-		WithAddress(address).
-		WithAuth(authEnabled).
-		WithMTLs(mtls)
-	if mtls {
-		// todo https://golang.org/src/crypto/x509/root_linux.go
-		options.MTLsOptions = client.DefaultMTLsOptions().
-			WithServername(servername).
-			WithCertificate(certificate).
-			WithPkey(pkey).
-			WithClientCAs(clientcas)
-	}
-	return options
-}
-
-func needsServer(cmd *cobra.Command) bool {
-	var noServerCmds = map[string]bool{
-		"mangen":  true,
-		"version": true,
-	}
-	for k := range noServerCmds {
-		if strings.HasPrefix(cmd.Use, k) {
-			return false
-		}
-	}
-	return true
 }
