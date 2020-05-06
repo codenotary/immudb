@@ -28,8 +28,8 @@
 cmd/immuclient/immuclient
 /immuadmin
 cmd/immuadmin/immuadmin
-/immupopulate
-cmd/immupopulate/immupopulate
+/immutestapp
+cmd/immutestapp/immutestapp
 /immudb
 cmd/immudb/immudb
 /nimmu

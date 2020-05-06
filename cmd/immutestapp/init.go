@@ -47,16 +47,16 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	}
 	cl := new(commandline)
 
-	cmd.Use = "immupopulate [n]"
+	cmd.Use = "immutestapp [n]"
 	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
-	cmd.Example = "immupopulate 1000"
+	cmd.Example = "immutestapp 1000"
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cl.connect(cmd, nil)
 		defer cl.disconnect(cmd, nil)
 		serverAddress := cl.immuClient.GetOptions().Address
 		if serverAddress != "127.0.0.1" && serverAddress != "localhost" {
 			c.QuitToStdErr(errors.New(
-				"immupopulate is allowed to run only on the server machine (remote runs are not allowed)"))
+				"immutestapp is allowed to run only on the server machine (remote runs are not allowed)"))
 		}
 		checkForEmptyDB(serverAddress)
 		nbEntries := defaultNbEntries
@@ -81,7 +81,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	}
 	cmd.Args = cobra.MaximumNArgs(1)
 	cmd.DisableAutoGenTag = true
-	cmd.AddCommand(man.Generate(cmd, "immupopulate", "../docs/man/immupopulate"))
+	cmd.AddCommand(man.Generate(cmd, "immutestapp", "../docs/man/immutestapp"))
 }
 
 func checkForEmptyDB(serverAddress string) {
@@ -219,7 +219,7 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) {
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
 	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immupopulate.ini)")
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immutestapp.ini)")
 	if err := viper.BindPFlag("default.port", cmd.PersistentFlags().Lookup("port")); err != nil {
 		return err
 	}
