@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	daem "github.com/takama/daemon"
 	"os"
 
 	c "github.com/codenotary/immudb/cmd"
@@ -85,7 +86,20 @@ Environment variables:
 			if options.Detached {
 				c.Detached()
 			}
-			return immuGwServer.Start()
+
+			var d daem.Daemon
+			if d, err = daem.New("immugw", "immugw", "C:/c/ROOT/immudb/immugw.exe"); err != nil {
+				c.QuitToStdErr(err)
+			}
+
+			service := gw.Service{
+				ImmuGwServer: *immuGwServer,
+			}
+
+			d.Run(service)
+
+			return
+
 		},
 		DisableAutoGenTag: true,
 	}
