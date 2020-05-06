@@ -76,8 +76,8 @@ func (cl *CommandlineClient) healthCheck(cmd *cobra.Command) {
 
 func (cl *CommandlineClient) dumpToFile(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "dump [filename]",
-		Short:   "Save a database dump to the specified filename (optional)",
+		Use:     "dump [file]",
+		Short:   "Dump database contet to a file",
 		Aliases: []string{"b"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
