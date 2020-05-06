@@ -19,11 +19,11 @@ V_IMMUDB = $(V_COMMON)
 V_IMMUGW = $(V_COMMON)
 V_IMMUPOPULATE = $(V_COMMON)
 
-V_IMMUCLIENT_LDFLAGS = -X "main.App=immuclient" -X "main.Version=$(V_IMMUCLIENT)" $(LDFLAGS_COMMON)
-V_IMMUADMIN_LDFLAGS = -X "main.App=immuadmin" -X "main.Version=$(V_IMMUADMIN)" $(LDFLAGS_COMMON)
-V_IMMUDB_LDFLAGS = -X "main.App=immudb" -X "main.Version=$(V_IMMUDB)" $(LDFLAGS_COMMON)
-V_IMMUGW_LDFLAGS = -X "main.App=immugw" -X "main.Version=$(V_IMMUGW)" $(LDFLAGS_COMMON)
-V_IMMUPOPULATE_LDFLAGS = -X "main.App=immupopulate" -X "main.Version=$(V_IMMUPOPULATE)" $(LDFLAGS_COMMON)
+V_IMMUCLIENT_LDFLAGS = -X "main.Version=$(V_IMMUCLIENT)" $(LDFLAGS_COMMON)
+V_IMMUADMIN_LDFLAGS = -X "main.Version=$(V_IMMUADMIN)" $(LDFLAGS_COMMON)
+V_IMMUDB_LDFLAGS = -X "main.Version=$(V_IMMUDB)" $(LDFLAGS_COMMON)
+V_IMMUGW_LDFLAGS = -X "main.Version=$(V_IMMUGW)" $(LDFLAGS_COMMON)
+V_IMMUPOPULATE_LDFLAGS = -X "main.Version=$(V_IMMUPOPULATE)" $(LDFLAGS_COMMON)
 #<~~~
 .PHONY: all
 all: immudb immuclient immugw immuadmin immupopulate

@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var App = "immuclient"
+var App = "immudb"
 var Version = "v0.0.1"
 var Commit string
 var BuiltBy string
@@ -42,8 +42,8 @@ func init() {
 func main() {
 	cmd := &cobra.Command{
 		Use:   "immudb",
-		Short: "immudb server - the lightweight, high-speed immutable database for systems and applications",
-		Long: `immudb server - the lightweight, high-speed immutable database for systems and applications.
+		Short: "immudb - the lightweight, high-speed immutable database for systems and applications",
+		Long: `immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
   IMMUDB_DIR=.
