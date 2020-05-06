@@ -26,17 +26,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-type CommandlineClient struct {
-	tokenFilename  string
+type commandline struct {
 	ImmuClient     client.ImmuClient
 	passwordReader cmd.PasswordReader
 }
 
-func (cl *CommandlineClient) Init(cmd *cobra.Command, o *c.Options) {
+func Init(cmd *cobra.Command, o *c.Options) {
 	if err := configureOptions(cmd, o); err != nil {
 		c.QuitToStdErr(err)
 	}
+	cl := new(commandline)
 	cl.passwordReader = c.DefaultPasswordReader
+
 	// login and logout
 	cl.login(cmd)
 	cl.logout(cmd)
@@ -70,6 +71,44 @@ func (cl *CommandlineClient) Init(cmd *cobra.Command, o *c.Options) {
 
 	// man file generator
 	cmd.AddCommand(man.Generate(cmd, "immuclient", "./cmd/docs/man/immuclient"))
+}
+
+func options() *client.Options {
+	port := viper.GetInt("default.port")
+	address := viper.GetString("default.address")
+	authEnabled := viper.GetBool("default.auth")
+	mtls := viper.GetBool("default.mtls")
+	certificate := viper.GetString("default.certificate")
+	servername := viper.GetString("default.servername")
+	pkey := viper.GetString("default.pkey")
+	clientcas := viper.GetString("default.clientcas")
+	options := client.DefaultOptions().
+		WithPort(port).
+		WithAddress(address).
+		WithAuth(authEnabled).
+		WithMTLs(mtls)
+	if mtls {
+		// todo https://golang.org/src/crypto/x509/root_linux.go
+		options.MTLsOptions = client.DefaultMTLsOptions().
+			WithServername(servername).
+			WithCertificate(certificate).
+			WithPkey(pkey).
+			WithClientCAs(clientcas)
+	}
+	return options
+}
+
+func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
+	if cl.ImmuClient, err = client.NewImmuClient(options()); err != nil || cl.ImmuClient == nil {
+		c.QuitToStdErr(err)
+	}
+	return
+}
+
+func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
+	if err := cl.ImmuClient.Disconnect(); err != nil {
+		c.QuitToStdErr(err)
+	}
 }
 
 func configureOptions(cmd *cobra.Command, o *c.Options) error {

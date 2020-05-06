@@ -26,11 +26,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *CommandlineClient) login(cmd *cobra.Command) {
+func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "login username (you will be prompted for password)",
-		Short:   "Login using the specified username and password",
-		Aliases: []string{"l"},
+		Use:               "login username (you will be prompted for password)",
+		Short:             "Login using the specified username and password",
+		Aliases:           []string{"l"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user := []byte(args[0])
 			pass, err := cl.passwordReader.Read("Password:")
@@ -54,10 +56,12 @@ func (cl *CommandlineClient) login(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) logout(cmd *cobra.Command) {
+func (cl *commandline) logout(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "logout",
-		Aliases: []string{"x"},
+		Use:               "logout",
+		Aliases:           []string{"x"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			os.Remove(cl.ImmuClient.GetOptions().TokenFileName)
 			fmt.Println("logged out")

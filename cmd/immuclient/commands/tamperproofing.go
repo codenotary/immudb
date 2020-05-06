@@ -27,11 +27,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *CommandlineClient) consistency(cmd *cobra.Command) {
+func (cl *commandline) consistency(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "check-consistency index hash",
-		Short:   "Check consistency for the specified index and hash",
-		Aliases: []string{"c"},
+		Use:               "check-consistency index hash",
+		Short:             "Check consistency for the specified index and hash",
+		Aliases:           []string{"c"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			index, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
@@ -68,11 +70,13 @@ func (cl *CommandlineClient) consistency(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) inclusion(cmd *cobra.Command) {
+func (cl *commandline) inclusion(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "inclusion index",
-		Short:   "Check if specified index is included in the current tree",
-		Aliases: []string{"i"},
+		Use:               "inclusion index",
+		Short:             "Check if specified index is included in the current tree",
+		Aliases:           []string{"i"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			index, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
@@ -95,16 +99,16 @@ func (cl *CommandlineClient) inclusion(cmd *cobra.Command) {
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
-
 			} else {
 				item, err := cl.ImmuClient.ByIndex(ctx, index)
 				if err != nil {
 					c.QuitWithUserError(err)
 				}
 				hash, err = item.Hash()
-
+				if err != nil {
+					c.QuitWithUserError(err)
+				}
 			}
-
 			fmt.Printf("verified: %t \nhash: %x at index: %d \nroot: %x at index: %d \n",
 				proof.Verify(index, hash),
 				proof.Leaf,

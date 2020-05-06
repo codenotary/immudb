@@ -26,11 +26,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *CommandlineClient) getByIndex(cmd *cobra.Command) {
+func (cl *commandline) getByIndex(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "getByIndex",
-		Short:   "Return an element by index",
-		Aliases: []string{"bi"},
+		Use:               "getByIndex",
+		Short:             "Return an element by index",
+		Aliases:           []string{"bi"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			index, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
@@ -49,11 +51,13 @@ func (cl *CommandlineClient) getByIndex(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) getKey(cmd *cobra.Command) {
+func (cl *commandline) getKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "get key",
-		Short:   "Get item having the specified key",
-		Aliases: []string{"g"},
+		Use:               "get key",
+		Short:             "Get item having the specified key",
+		Aliases:           []string{"g"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
@@ -73,11 +77,13 @@ func (cl *CommandlineClient) getKey(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) rawSafeGetKey(cmd *cobra.Command) {
+func (cl *commandline) rawSafeGetKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "rawsafeget key",
-		Short:   "Get item having the specified key, without parsing structured values",
-		Aliases: []string{"rg"},
+		Use:               "rawsafeget key",
+		Short:             "Get item having the specified key, without parsing structured values",
+		Aliases:           []string{"rg"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 			if err != nil {
@@ -96,11 +102,13 @@ func (cl *CommandlineClient) rawSafeGetKey(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) safeGetKey(cmd *cobra.Command) {
+func (cl *commandline) safeGetKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "safeget key",
-		Short:   "Get and verify item having the specified key",
-		Aliases: []string{"sg"},
+		Use:               "safeget key",
+		Short:             "Get and verify item having the specified key",
+		Aliases:           []string{"sg"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))

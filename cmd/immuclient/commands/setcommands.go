@@ -29,11 +29,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *CommandlineClient) rawSafeSet(cmd *cobra.Command) {
+func (cl *commandline) rawSafeSet(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "rawsafeset key",
-		Short:   "Set item having the specified key, without setup structured values",
-		Aliases: []string{"rs"},
+		Use:               "rawsafeset key",
+		Short:             "Set item having the specified key, without setup structured values",
+		Aliases:           []string{"rs"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
@@ -64,11 +66,13 @@ func (cl *CommandlineClient) rawSafeSet(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) set(cmd *cobra.Command) {
+func (cl *commandline) set(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "set key value",
-		Short:   "Add new item having the specified key and value",
-		Aliases: []string{"s"},
+		Use:               "set key value",
+		Short:             "Add new item having the specified key and value",
+		Aliases:           []string{"s"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			var reader io.Reader
@@ -109,11 +113,13 @@ func (cl *CommandlineClient) set(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) safeset(cmd *cobra.Command) {
+func (cl *commandline) safeset(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "safeset key value",
-		Short:   "Add and verify new item having the specified key and value",
-		Aliases: []string{"ss"},
+		Use:               "safeset key value",
+		Short:             "Add and verify new item having the specified key and value",
+		Aliases:           []string{"ss"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			var reader io.Reader
@@ -152,11 +158,13 @@ func (cl *CommandlineClient) safeset(cmd *cobra.Command) {
 	}
 	cmd.AddCommand(ccmd)
 }
-func (cl *CommandlineClient) zAdd(cmd *cobra.Command) {
+func (cl *commandline) zAdd(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "zadd setname score key",
-		Short:   "Add new key with score to a new or existing sorted set",
-		Aliases: []string{"za"},
+		Use:               "zadd setname score key",
+		Short:             "Add new key with score to a new or existing sorted set",
+		Aliases:           []string{"za"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var setReader io.Reader
 			var scoreReader io.Reader
@@ -193,11 +201,13 @@ func (cl *CommandlineClient) zAdd(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) safeZAdd(cmd *cobra.Command) {
+func (cl *commandline) safeZAdd(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "safezadd setname score key",
-		Short:   "Add and verify new key with score to a new or existing sorted set",
-		Aliases: []string{"sza"},
+		Use:               "safezadd setname score key",
+		Short:             "Add and verify new key with score to a new or existing sorted set",
+		Aliases:           []string{"sza"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var setReader io.Reader
 			var scoreReader io.Reader

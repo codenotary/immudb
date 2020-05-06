@@ -28,11 +28,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *CommandlineClient) reference(cmd *cobra.Command) {
+func (cl *commandline) reference(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "reference refkey key",
-		Short:   "Add new reference to an existing key",
-		Aliases: []string{"r"},
+		Use:               "reference refkey key",
+		Short:             "Add new reference to an existing key",
+		Aliases:           []string{"r"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var reader io.Reader
 			if len(args) > 1 {
@@ -67,11 +69,13 @@ func (cl *CommandlineClient) reference(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) safereference(cmd *cobra.Command) {
+func (cl *commandline) safereference(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "safereference refkey key",
-		Short:   "Add and verify new reference to an existing key",
-		Aliases: []string{"sr"},
+		Use:               "safereference refkey key",
+		Short:             "Add and verify new reference to an existing key",
+		Aliases:           []string{"sr"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var reader io.Reader
 			if len(args) > 1 {

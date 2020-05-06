@@ -27,11 +27,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *CommandlineClient) zScan(cmd *cobra.Command) {
+func (cl *commandline) zScan(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "zscan setname",
-		Short:   "Iterate over a sorted set",
-		Aliases: []string{"zscn"},
+		Use:               "zscan setname",
+		Short:             "Iterate over a sorted set",
+		Aliases:           []string{"zscn"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			set, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 			if err != nil {
@@ -53,11 +55,13 @@ func (cl *CommandlineClient) zScan(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) iScan(cmd *cobra.Command) {
+func (cl *commandline) iScan(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "iscan pagenumber pagesize",
-		Short:   "Iterate over all elements by insertion order",
-		Aliases: []string{"iscn"},
+		Use:               "iscan pagenumber pagesize",
+		Short:             "Iterate over all elements by insertion order",
+		Aliases:           []string{"iscn"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pageNumber, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
@@ -83,11 +87,13 @@ func (cl *CommandlineClient) iScan(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) scan(cmd *cobra.Command) {
+func (cl *commandline) scan(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "scan prefix",
-		Short:   "Iterate over keys having the specified prefix",
-		Aliases: []string{"scn"},
+		Use:               "scan prefix",
+		Short:             "Iterate over keys having the specified prefix",
+		Aliases:           []string{"scn"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
@@ -110,11 +116,13 @@ func (cl *CommandlineClient) scan(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *CommandlineClient) count(cmd *cobra.Command) {
+func (cl *commandline) count(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "count prefix",
-		Short:   "Count keys having the specified prefix",
-		Aliases: []string{"cnt"},
+		Use:               "count prefix",
+		Short:             "Count keys having the specified prefix",
+		Aliases:           []string{"cnt"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
