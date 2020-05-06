@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"golang.org/x/sys/windows/svc/debug"
 	"io/ioutil"
 	"net"
 	"os"
@@ -45,8 +46,10 @@ import (
 )
 
 var startedAt time.Time
+var elog debug.Log
 
-func (s *ImmuServer) Start() error {
+func (s *ImmuServer) Go() error{
+	s.Logger.Infof("DEBUG SERVICE: 1")
 	options := []grpc.ServerOption{}
 	//----------TLS Setting-----------//
 	if s.Options.MTLs {
@@ -98,7 +101,7 @@ func (s *ImmuServer) Start() error {
 	if uuid, err = getOrSetUuid(s.Options.Dir); err != nil {
 		return err
 	}
-
+	s.Logger.Infof("DEBUG SERVICE: 2")
 	auth.AuthEnabled = s.Options.Auth
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 	if auth.AuthEnabled {
@@ -136,7 +139,7 @@ func (s *ImmuServer) Start() error {
 
 	auth.AdminUserExists = s.adminUserExists
 	auth.CreateAdminUser = s.createAdminUser
-
+	s.Logger.Infof("DEBUG SERVICE: 3")
 	metricsServer := StartMetrics(
 		s.Options.MetricsBind(),
 		s.Logger,
@@ -166,6 +169,8 @@ func (s *ImmuServer) Start() error {
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
 
+	s.Logger.Infof("DEBUG SERVICE: 4")
+
 	dbSize, _ := s.Store.DbSize()
 	if dbSize <= 0 {
 		s.Logger.Infof("Started with an empty database")
@@ -178,13 +183,105 @@ func (s *ImmuServer) Start() error {
 	}
 
 	startedAt = time.Now()
+	s.Logger.Infof("DEBUG SERVICE: 5")
 
+	s.Logger.Infof("SERVE: 5")
 	err = s.GrpcServer.Serve(listener)
+	if err != nil {
+		s.Logger.Errorf(err.Error())
+	}
+	s.Logger.Infof("DEBUG SERVICE: 6")
+
+	s.Logger.Infof("DEBUG SERVICE: 7")
 	<-s.quit
-	return err
+	return nil
 }
 
-func (s *ImmuServer) Stop() error {
+func (s *ImmuServer) Run() {
+	s.Logger.Infof("I'm running")
+	s.Go()
+
+}
+
+func (s *ImmuServer) Start() {
+	s.Logger.Infof("I'm running")
+	go s.Go()
+
+}
+/*func (m *ImmuServer) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	m.Logger.Infof("Inside Execute - 1")
+
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
+	changes <- svc.Status{State: svc.StartPending}
+	fasttick := time.Tick(500 * time.Millisecond)
+	slowtick := time.Tick(2 * time.Second)
+	tick := fasttick
+
+	m.Logger.Infof("changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}")
+
+	m.Start()
+
+	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+
+
+
+	m.Logger.Infof("Start launched Inside Execute - 2")
+
+	m.Logger.Infof("Start launched Inside Execute - 3")
+
+loop:
+	for {
+		m.Logger.Infof("loop")
+		select {
+		case <-tick:
+			elog.Info(1, "beep")
+			m.Logger.Infof("beep")
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
+				time.Sleep(100 * time.Millisecond)
+				changes <- c.CurrentStatus
+				m.Logger.Infof("Interrogate")
+			case svc.Stop, svc.Shutdown:
+				m.Logger.Infof("Stop0")
+				changes <- svc.Status{State: svc.StopPending}
+				m.Stop()
+				m.Logger.Infof("Stop1")
+				// golang.org/x/sys/windows/svc.TestExample is verifying this output.
+				testOutput := strings.Join(args, "-")
+				testOutput += fmt.Sprintf("-%d", c.Context)
+				elog.Info(1, testOutput)
+				m.Logger.Infof("Stop2")
+				break loop
+			case svc.Pause:
+				m.Logger.Infof("Pause1")
+				changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
+				tick = slowtick
+				m.Logger.Infof("Pause2")
+			case svc.Continue:
+				m.Logger.Infof("Continue1")
+				changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+
+				tick = fasttick
+				m.Logger.Infof("Continue2")
+			default:
+
+				m.Logger.Infof("default")
+
+				elog.Error(1, fmt.Sprintf("unexpected control request #%d", c))
+			}
+		}
+	}
+	m.Logger.Infof("StopPending0")
+	changes <- svc.Status{State: svc.StopPending}
+	m.Logger.Infof("StopPending")
+
+	return
+}*/
+
+func (s *ImmuServer) Stop() {
 	s.Logger.Infof("stopping immudb: %v", s.Options)
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
@@ -195,9 +292,8 @@ func (s *ImmuServer) Stop() error {
 	}
 	if s.Store != nil {
 		defer func() { s.Store = nil }()
-		return s.Store.Close()
+		s.Store.Close()
 	}
-	return nil
 }
 
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
@@ -567,9 +663,7 @@ func (s *ImmuServer) installShutdownHandler() {
 	go func() {
 		<-c
 		s.Logger.Infof("caught SIGTERM")
-		if err := s.Stop(); err != nil {
-			s.Logger.Errorf("shutdown error: %v", err)
-		}
+		s.Stop()
 		s.Logger.Infof("shutdown completed")
 	}()
 }

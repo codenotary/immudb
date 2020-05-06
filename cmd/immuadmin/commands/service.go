@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	daem "github.com/takama/daemon"
+	"golang.org/x/sys/windows"
 	"io"
 	"os"
 	"os/exec"
@@ -157,13 +158,13 @@ sudo ./immuadmin service immudb uninstall
 			switch args[1] {
 			case "install":
 				fmt.Println("installing " + localFile + "...")
-				if runtime.GOOS == "windows" {
+				if runtime.GOOS != "windows" {
 					if err = installConfig(args[0]); err != nil {
 						return err
 					}
 				}
 
-				if msg, err = daemon.Install(); err != nil {
+				if msg, err = daemon.Install("--logfile","C:/c/ROOT/immudb/immudb.log"); err != nil {
 					return err
 				}
 				fmt.Println(msg)
@@ -180,7 +181,7 @@ sudo ./immuadmin service immudb uninstall
 					if msg, err = daemon.Remove(); err != nil {
 						return err
 					}
-					if runtime.GOOS == "windows" {
+					if runtime.GOOS != "windows" {
 						if err = uninstallConfig(args[0]); err != nil {
 							return err
 						}
@@ -282,13 +283,52 @@ func launch(command string, args []string) (err error) {
 }
 
 func checkPrivileges() (bool, error) {
-	if output, err := exec.Command("id", "-g").Output(); err == nil {
-		if gid, parseErr := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 32); parseErr == nil {
-			if gid == 0 {
-				return true, nil
+	if runtime.GOOS != "windows"{
+		if output, err := exec.Command("id", "-g").Output(); err == nil {
+			if gid, parseErr := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 32); parseErr == nil {
+				if gid == 0 {
+					return true, nil
+				}
+				return false, errRootPrivileges
 			}
-			return false, errRootPrivileges
 		}
+	}else{
+		var sid *windows.SID
+
+		// Although this looks scary, it is directly copied from the
+		// official windows documentation. The Go API for this is a
+		// direct wrap around the official C++ API.
+		// See https://docs.microsoft.com/en-us/windows/desktop/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
+		err := windows.AllocateAndInitializeSid(
+			&windows.SECURITY_NT_AUTHORITY,
+			2,
+			windows.SECURITY_BUILTIN_DOMAIN_RID,
+			windows.DOMAIN_ALIAS_RID_ADMINS,
+			0, 0, 0, 0, 0, 0,
+			&sid)
+		if err != nil {
+			return false, err
+		}
+
+		// This appears to cast a null pointer so I'm not sure why this
+		// works, but this guy says it does and it Works for Me™:
+		// https://github.com/golang/go/issues/28804#issuecomment-438838144
+		token := windows.Token(0)
+
+		member, err := token.IsMember(sid)
+		// Also note that an admin is _not_ necessarily considered
+		// elevated.
+		// For elevation see https://github.com/mozey/run-as-admin
+		fmt.Println("Elevated?", token.IsElevated())
+
+		fmt.Println("Admin?", member)
+		if err != nil {
+			return false, err
+		}
+
+
+		return true, nil
 	}
+
 	return false, errUnsupportedSystem
 }

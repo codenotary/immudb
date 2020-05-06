@@ -17,15 +17,15 @@ limitations under the License.
 package server
 
 import (
-	"os"
-
 	"google.golang.org/grpc"
+	"os"
 
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
 )
 
 type ImmuServer struct {
+
 	Store      *store.Store
 	SysStore   *store.Store
 	Logger     logger.Logger
