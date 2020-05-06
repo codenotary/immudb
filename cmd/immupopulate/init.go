@@ -50,9 +50,9 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cmd.Use = "immupopulate [n]"
 	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
 	cmd.Example = "immupopulate 1000"
-	cmd.PersistentPreRunE = cl.connect
-	cmd.PersistentPostRun = cl.disconnect
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		cl.connect(cmd, nil)
+		defer cl.disconnect(cmd, nil)
 		serverAddress := cl.immuClient.GetOptions().Address
 		if serverAddress != "127.0.0.1" && serverAddress != "localhost" {
 			c.QuitToStdErr(errors.New(
@@ -208,7 +208,8 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 	}
 }
 
-func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
+func (cl *commandline) connect(cmd *cobra.Command, args []string) {
+	var err error
 	if cl.immuClient, err = client.NewImmuClient(options()); err != nil {
 		c.QuitToStdErr(err)
 	}
