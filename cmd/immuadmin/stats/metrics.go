@@ -197,7 +197,7 @@ func (ms *metrics) withDuration(metricsFamilies *map[string]*dto.MetricFamily) {
 		}
 		ms.durationRPCsByMethod[method] = d
 		if _, ok := readers[method]; ok {
-			ms.reads.counter++
+			ms.reads.counter += d.counter
 			ms.reads.duration += d.avgDuration
 		}
 		if _, ok := writers[method]; ok {
@@ -231,15 +231,16 @@ func (ms *metrics) withMemStats(metricsFamilies *map[string]*dto.MetricFamily) {
 	}
 }
 
-func byteCountBinary(b uint64) string {
+func byteCountBinary(b uint64) (string, float64) {
 	const unit = 1024
 	if b < unit {
-		return fmt.Sprintf("%d B", b)
+		return fmt.Sprintf("%d B", b), float64(b)
 	}
 	div, exp := uint64(unit), 0
 	for n := b / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "kMGTPE"[exp])
+	v := float64(b) / float64(div)
+	return fmt.Sprintf("%.1f %cB", v, "kMGTPE"[exp]), v
 }

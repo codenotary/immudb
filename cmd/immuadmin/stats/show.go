@@ -66,9 +66,12 @@ func ShowMetricsAsText(serverAddress string) error {
 	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.db.uptimeHours))
 	fmt.Printf(strPattern, labelLength, "Uptime", uptime)
 	fmt.Printf(intPattern, labelLength, "Number of entries", ms.db.nbEntries)
-	fmt.Printf(strPattern, labelLength, "LSM size", byteCountBinary(ms.db.lsmBytes))
-	fmt.Printf(strPattern, labelLength, "VLog size", byteCountBinary(ms.db.vlogBytes))
-	fmt.Printf(strPattern, labelLength, "Total size", byteCountBinary(ms.db.totalBytes))
+	lsmSizeS, _ := byteCountBinary(ms.db.lsmBytes)
+	vlogSizeS, _ := byteCountBinary(ms.db.vlogBytes)
+	totalSizeS, _ := byteCountBinary(ms.db.totalBytes)
+	fmt.Printf(strPattern, labelLength, "LSM size", lsmSizeS)
+	fmt.Printf(strPattern, labelLength, "VLog size", vlogSizeS)
+	fmt.Printf(strPattern, labelLength, "Total size", totalSizeS)
 
 	// print clients
 	fmt.Printf(intPattern, labelLength, "Number of clients", ms.nbClients)
