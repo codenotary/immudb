@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -141,6 +142,12 @@ func GetDefaultExecPath(localFile string) string {
 // GetDefaultConfigPath returns the default config path
 func GetDefaultConfigPath(serviceName string) string {
 	return filepath.Join(linuxConfigPath, serviceName+".ini")
+}
+
+// IsRunning check if status derives from a running process
+func IsRunning(status string) bool {
+	re := regexp.MustCompile(`is running`)
+	return re.Match([]byte(status))
 }
 
 func readConfig(serviceName string) (err error) {
