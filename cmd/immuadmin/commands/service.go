@@ -164,7 +164,7 @@ Root permission are required in order to make administrator operations.
 				}
 				var u string
 				var n int
-				fmt.Printf("Are you sure you want to uninstall %s? Default N [Y/N]", args[0])
+				fmt.Printf("Are you sure you want to uninstall %s? [y/N]", args[0])
 				if n, err = fmt.Scanln(&u); err != nil {
 					return err
 				}
@@ -178,7 +178,7 @@ Root permission are required in order to make administrator operations.
 					}
 					fmt.Println(msg)
 					if args[0] == "immudb" {
-						fmt.Printf("Erase data? Default N [Y/N]")
+						fmt.Printf("Erase data? [y/N]")
 						n, _ := fmt.Scanln(&u)
 						if n <= 0 {
 							u = "N"
@@ -194,9 +194,9 @@ Root permission are required in order to make administrator operations.
 					if err = service.RemoveProgramFiles(args[0]); err != nil {
 						return err
 					}
-					fmt.Println("Removed program files.")
+					fmt.Println("Program files removed")
 				} else {
-					fmt.Println("No action.")
+					fmt.Println("No action")
 				}
 				return nil
 			case "start":
