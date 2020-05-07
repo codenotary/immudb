@@ -19,14 +19,15 @@ package gw
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/utilities"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
-	"net/http"
 )
 
 type SafeZAddHandler interface {
@@ -35,11 +36,11 @@ type SafeZAddHandler interface {
 
 type safeZAddHandler struct {
 	mux    *runtime.ServeMux
-	client *client.ImmuClient
+	client client.ImmuClient
 	rs     client.RootService
 }
 
-func NewSafeZAddHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) SafeZAddHandler {
+func NewSafeZAddHandler(mux *runtime.ServeMux, client client.ImmuClient, rs client.RootService) SafeZAddHandler {
 	return &safeZAddHandler{
 		mux:    mux,
 		client: client,
@@ -65,7 +66,7 @@ func (h *safeZAddHandler) SafeZAdd(w http.ResponseWriter, req *http.Request, pat
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", berr))
 		return
 	}
-	if err := inboundMarshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+	if err = inboundMarshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", err))
 		return
 	}
@@ -87,5 +88,4 @@ func (h *safeZAddHandler) SafeZAdd(w http.ResponseWriter, req *http.Request, pat
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	return
 }

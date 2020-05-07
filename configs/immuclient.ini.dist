@@ -1,3 +1,8 @@
 address = 127.0.0.1
 port = 3322
 auth = false
+mtls = false
+servername = localhost
+pkey = ./tools/mtls/4_client/private/localhost.key.pem
+certificate = ./tools/mtls/4_client/certs/localhost.cert.pem
+clientcas = ./tools/mtls/2_intermediate/certs/ca-chain.cert.pem

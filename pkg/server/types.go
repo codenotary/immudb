@@ -27,6 +27,7 @@ import (
 
 type ImmuServer struct {
 	Store      *store.Store
+	SysStore   *store.Store
 	Logger     logger.Logger
 	Options    Options
 	GrpcServer *grpc.Server

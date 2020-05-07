@@ -14,12 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gw
+package main
 
-type item struct {
-	Key      []byte `json:"key"`
-	Value    []byte `json:"value"`
-	Time     uint64 `json:"time"`
-	Index    uint64 `json:"index"`
-	Verified bool   `json:"verified"`
+import (
+	c "github.com/codenotary/immudb/cmd"
+	"github.com/spf13/cobra"
+)
+
+var App = "immutestapp"
+var Version string
+var Commit string
+var BuiltBy string
+var BuiltAt string
+
+var o = &c.Options{}
+
+func init() {
+	cobra.OnInitialize(func() { o.InitConfig("immutestapp") })
+}
+
+func main() {
+	cmd := &cobra.Command{}
+	Init(cmd, o)
+	cmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
+	if err := cmd.Execute(); err != nil {
+		c.QuitToStdErr(err)
+	}
 }

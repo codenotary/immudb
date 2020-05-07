@@ -26,6 +26,10 @@
 # Binaries
 /immuclient
 cmd/immuclient/immuclient
+/immuadmin
+cmd/immuadmin/immuadmin
+/immutestapp
+cmd/immutestapp/immutestapp
 /immudb
 cmd/immudb/immudb
 /nimmu
@@ -34,9 +38,7 @@ cmd/immudb/immudb
 cmd/immugw/immugw
 
 # Working files
-cmd/immugw/.root
-/.root
-**/.root
+.root*
 immudb.pid
 /db
 
@@ -44,10 +46,12 @@ immudb.pid
 vendor
 
 # Config
+configs/immuadmin.ini
 configs/immuclient.ini
 configs/immudb.ini
 configs/immugw.ini
 
 # immudb auth
-cmd/immuclient/token
-cmd/immudb/immudb_pwd
+immudb_pwd
+token
+token_admin

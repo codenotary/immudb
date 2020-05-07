@@ -1,3 +1,19 @@
+/*
+Copyright 2019-2020 vChain, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -13,6 +29,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+var App = "immugw"
+var Version string
+var Commit string
+var BuiltBy string
+var BuiltAt string
+
 var o = c.Options{}
 
 func init() {
@@ -23,8 +45,8 @@ func main() {
 
 	immugwCmd := &cobra.Command{
 		Use:   "immugw",
-		Short: "Immu gateway: a smart REST proxy for the ImmuDB tamperproof database",
-		Long: `Immu gateway is a smart REST proxy for the ImmuDB tamperproof database.
+		Short: "immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications",
+		Long: `immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications.
 It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
 
 Environment variables:
@@ -34,6 +56,7 @@ Environment variables:
   IMMUGW_IMMUDBPORT=3322
   IMMUGW_PIDFILE=
   IMMUGW_LOGFILE=
+  IMMUGW_DETACHED=false
   IMMUGW_MTLS=false
   IMMUGW_SERVERNAME=localhost
   IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
@@ -50,7 +73,7 @@ Environment variables:
 			if options.Logfile != "" {
 				if flogger, file, err := logger.NewFileLogger("immugw ", options.Logfile); err == nil {
 					defer func() {
-						if err := file.Close(); err != nil {
+						if err = file.Close(); err != nil {
 							c.QuitToStdErr(err)
 						}
 					}()
@@ -58,6 +81,9 @@ Environment variables:
 				} else {
 					return err
 				}
+			}
+			if options.Detached {
+				c.Detached()
 			}
 			return immuGwServer.Start()
 		},
@@ -70,7 +96,8 @@ Environment variables:
 		c.QuitToStdErr(err)
 	}
 	setupDefaults(gw.DefaultOptions(), client.DefaultMTLsOptions())
-	immugwCmd.AddCommand(man.Generate(immugwCmd, "immugw", "../docs/man/immugw"))
+	immugwCmd.AddCommand(man.Generate(immugwCmd, "immugw", "./cmd/docs/man/immugw"))
+	immugwCmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
 
 	if err := immugwCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
@@ -90,6 +117,7 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	pidfile := viper.GetString("default.pidfile")
 	logfile := viper.GetString("default.logfile")
 	mtls := viper.GetBool("default.mtls")
+	detached := viper.GetBool("default.detached")
 	servername := viper.GetString("default.servername")
 	certificate := viper.GetString("default.certificate")
 	pkey := viper.GetString("default.pkey")
@@ -102,7 +130,8 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 		WithImmudbPort(immudbport).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
-		WithMTLs(mtls)
+		WithMTLs(mtls).
+		WithDetached(detached)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = client.DefaultMTLsOptions().
@@ -123,6 +152,7 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
+	cmd.Flags().BoolP(c.DetachedFlag, c.DetachedShortFlag, options.Detached, "run immudb in background")
 	cmd.Flags().String("servername", mtlsOptions.Servername, "used to verify the hostname on the returned certificates")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
@@ -151,6 +181,9 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("default.mtls", cmd.Flags().Lookup("mtls")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("default.detached", cmd.Flags().Lookup("detached")); err != nil {
+		return err
+	}
 	if err := viper.BindPFlag("default.servername", cmd.Flags().Lookup("servername")); err != nil {
 		return err
 	}
@@ -174,6 +207,7 @@ func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
 	viper.SetDefault("default.pidfile", options.Pidfile)
 	viper.SetDefault("default.logfile", options.Logfile)
 	viper.SetDefault("default.mtls", options.MTLs)
+	viper.SetDefault("default.detached", options.Detached)
 	viper.SetDefault("default.certificate", mtlsOptions.Certificate)
 	viper.SetDefault("default.pkey", mtlsOptions.Pkey)
 	viper.SetDefault("default.clientcas", mtlsOptions.ClientCAs)

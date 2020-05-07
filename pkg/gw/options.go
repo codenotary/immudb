@@ -28,6 +28,7 @@ type Options struct {
 	Port          int
 	ImmudbAddress string
 	ImmudbPort    int
+	Detached      bool
 	MTLs          bool
 	MTLsOptions   client.MTLsOptions
 	Config        string
@@ -41,6 +42,7 @@ func DefaultOptions() Options {
 		Port:          3323,
 		ImmudbAddress: "127.0.0.1",
 		ImmudbPort:    3322,
+		Detached:      false,
 		MTLs:          false,
 		Config:        "configs/immugw.ini",
 		Pidfile:       "",
@@ -75,6 +77,12 @@ func (o Options) WithImmudbPort(immudbPort int) Options {
 // WithMTLs sets MTLs
 func (o Options) WithMTLs(MTLs bool) Options {
 	o.MTLs = MTLs
+	return o
+}
+
+// WithDetached sets immugw to be run in background
+func (o Options) WithDetached(detached bool) Options {
+	o.Detached = detached
 	return o
 }
 

@@ -17,8 +17,9 @@ limitations under the License.
 package client
 
 import (
-	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/timestamp"
 )
 
 type TimestampService interface {

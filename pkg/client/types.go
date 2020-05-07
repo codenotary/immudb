@@ -17,9 +17,6 @@ limitations under the License.
 package client
 
 import (
-	"os"
-	"sync"
-
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
@@ -27,54 +24,37 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
-type ImmuClient struct {
-	Logger        logger.Logger
-	Options       Options
-	clientConn    *grpc.ClientConn
-	ServiceClient schema.ImmuServiceClient
-	rootservice   RootService
-	ts            TimestampService
-	sync.RWMutex
-}
-
-func DefaultClient() *ImmuClient {
-	return &ImmuClient{
-		Logger:  logger.NewSimpleLogger("immuclient", os.Stderr),
-		Options: DefaultOptions(),
-	}
-}
-
-func (c *ImmuClient) WithLogger(logger logger.Logger) *ImmuClient {
+func (c *immuClient) WithLogger(logger logger.Logger) *immuClient {
 	c.Logger = logger
 	return c
 }
 
-func (c *ImmuClient) WithRootService(rs RootService) *ImmuClient {
-	c.rootservice = rs
+func (c *immuClient) WithRootService(rs RootService) *immuClient {
+	c.Rootservice = rs
 	return c
 }
 
-func (c *ImmuClient) WithTimestampService(ts TimestampService) *ImmuClient {
+func (c *immuClient) WithTimestampService(ts TimestampService) *immuClient {
 	c.ts = ts
 	return c
 }
 
-func (c *ImmuClient) WithClientConn(clientConn *grpc.ClientConn) *ImmuClient {
+func (c *immuClient) WithClientConn(clientConn *grpc.ClientConn) *immuClient {
 	c.clientConn = clientConn
 	return c
 }
 
-func (c *ImmuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *ImmuClient {
+func (c *immuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient {
 	c.ServiceClient = serviceClient
 	return c
 }
 
-func (c *ImmuClient) WithOptions(options Options) *ImmuClient {
+func (c *immuClient) WithOptions(options *Options) *immuClient {
 	c.Options = options
 	return c
 }
 
-func (c *ImmuClient) NewSKV(key []byte, value []byte) *schema.StructuredKeyValue {
+func (c *immuClient) NewSKV(key []byte, value []byte) *schema.StructuredKeyValue {
 	return &schema.StructuredKeyValue{
 		Key: key,
 		Value: &schema.Content{
@@ -103,3 +83,14 @@ type VerifiedIndex struct {
 func (vi *VerifiedIndex) Reset() { *vi = VerifiedIndex{} }
 
 func (vi *VerifiedIndex) String() string { return proto.CompactTextString(vi) }
+
+// ProtoMessage ...
+func (*VerifiedIndex) ProtoMessage() {}
+
+// Reset ...
+func (vi *VerifiedItem) Reset() { *vi = VerifiedItem{} }
+
+func (vi *VerifiedItem) String() string { return proto.CompactTextString(vi) }
+
+// ProtoMessage ...
+func (*VerifiedItem) ProtoMessage() {}

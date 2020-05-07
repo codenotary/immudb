@@ -6,9 +6,27 @@ GO ?= go
 DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
+#~~~> Binaries versions
+V_COMMIT = $(shell git rev-parse HEAD)
+V_BUILT_BY = $(shell git config user.name)
+V_BUILT_AT = $(shell date)
+V_LDFLAGS_COMMON = -X "main.Commit=$(V_COMMIT)" -X "main.BuiltBy=$(V_BUILT_BY)" -X "main.BuiltAt=$(V_BUILT_AT)"
 
+V_COMMON = v.0.0.1
+V_IMMUCLIENT = $(V_COMMON)
+V_IMMUADMIN = $(V_COMMON)
+V_IMMUDB = $(V_COMMON)
+V_IMMUGW = $(V_COMMON)
+V_IMMUTESTAPP = $(V_COMMON)
+
+V_IMMUCLIENT_LDFLAGS = -X "main.Version=$(V_IMMUCLIENT)" $(V_LDFLAGS_COMMON)
+V_IMMUADMIN_LDFLAGS = -X "main.Version=$(V_IMMUADMIN)" $(V_LDFLAGS_COMMON)
+V_IMMUDB_LDFLAGS = -X "main.Version=$(V_IMMUDB)" $(V_LDFLAGS_COMMON)
+V_IMMUGW_LDFLAGS = -X "main.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
+V_IMMUTESTAPP_LDFLAGS = -X "main.Version=$(V_IMMUTESTAPP)" $(V_LDFLAGS_COMMON)
+#<~~~
 .PHONY: all
-all: immudb immugw
+all: immudb immuclient immugw immuadmin immutestapp bm
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
 
 .PHONY: rebuild
@@ -16,27 +34,43 @@ rebuild: clean build/codegen all
 
 .PHONY: immuclient
 immuclient:
-	$(GO) build ./cmd/immuclient
+	$(GO) build -v -ldflags '$(V_IMMUCLIENT_LDFLAGS)' ./cmd/immuclient
+
+.PHONY: immuadmin
+immuadmin:
+	$(GO) build -v -ldflags '$(V_IMMUADMIN_LDFLAGS)' ./cmd/immuadmin
 
 .PHONY: immudb
 immudb:
-	$(GO) build ./cmd/immudb
+	$(GO) build -v -ldflags '$(V_IMMUDB_LDFLAGS)' ./cmd/immudb
 
 .PHONY: immugw
 immugw:
-	$(GO) build ./cmd/immugw
+	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw
+
+.PHONY: immutestapp
+immutestapp:
+	$(GO) build -v -ldflags '$(V_IMMUTESTAPP_LDFLAGS)' ./cmd/immutestapp
 
 .PHONY: immuclient-static
 immuclient-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immuclient
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUCLIENT_LDFLAGS) -extldflags "-static"' ./cmd/immuclient
+
+.PHONY: immuadmin-static
+immuadmin-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUADMIN_LDFLAGS) -extldflags "-static"' ./cmd/immuadmin
 
 .PHONY: immudb-static
 immudb-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immudb
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUDB_LDFLAGS) -extldflags "-static"' ./cmd/immudb
 
 .PHONY: immugw-static
 immugw-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} -extldflags "-static"' ./cmd/immugw
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUGW_LDFLAGS) -extldflags "-static"' ./cmd/immugw
+
+.PHONY: immutestapp-static
+immutestapp-static:
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUTESTAPP_LDFLAGS) -extldflags "-static"' ./cmd/immutestapp
 
 .PHONY: vendor
 vendor:
@@ -72,7 +106,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immuclient immudb bm
+	rm -f immudb immuclient immugw immuadmin immutestapp bm
 
 .PHONY: nimmu
 nimmu:
@@ -109,8 +143,10 @@ tools/comparison/scylladb:
 .PHONY: man
 man:
 	$(GO) run ./cmd/immuclient mangen ./cmd/docs/man/immuclient
+	$(GO) run ./cmd/immuadmin mangen ./cmd/docs/man/immuadmin
 	$(GO) run ./cmd/immudb mangen ./cmd/docs/man/immudb
 	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
+	$(GO) run ./cmd/immutestapp mangen ./cmd/docs/man/immutestapp
 
 .PHONY: prerequisites
 prerequisites:

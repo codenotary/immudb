@@ -20,14 +20,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/utilities"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
-	"net/http"
 )
 
 var (
@@ -40,11 +41,11 @@ type SetHandler interface {
 
 type setHandler struct {
 	mux    *runtime.ServeMux
-	client *client.ImmuClient
+	client client.ImmuClient
 	rs     client.RootService
 }
 
-func NewSetHandler(mux *runtime.ServeMux, client *client.ImmuClient, rs client.RootService) SetHandler {
+func NewSetHandler(mux *runtime.ServeMux, client client.ImmuClient, rs client.RootService) SetHandler {
 	return &setHandler{
 		mux:    mux,
 		client: client,
@@ -95,5 +96,4 @@ func (h *setHandler) Set(w http.ResponseWriter, req *http.Request, pathParams ma
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
-	return
 }

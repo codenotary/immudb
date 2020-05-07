@@ -23,17 +23,12 @@ type User struct {
 	Admin          bool   `json:"admin"`
 }
 
-// AdminUser is the unique existing user
-// (to be changed/removed in the future, when multiple users will be supported)
-var AdminUser = User{
-	Username: "immu",
-	Admin:    true,
-}
+var AdminUsername = "immu"
 
 // GenerateAndSetPassword ...
 func (u *User) GenerateAndSetPassword() (string, error) {
-	plainPassword := generatePassword()
-	hashedPassword, err := hashAndSaltPassword(plainPassword, u.Admin)
+	plainPassword := GeneratePassword()
+	hashedPassword, err := HashAndSaltPassword(plainPassword)
 	if err != nil {
 		return "", err
 	}
@@ -46,6 +41,6 @@ func (u *User) SetPassword(hashedPassword []byte) {
 }
 
 // ComparePasswords ...
-func (u *User) ComparePasswords(plainPassword string) error {
-	return comparePasswords(u.HashedPassword, []byte(plainPassword))
+func (u *User) ComparePasswords(plainPassword []byte) error {
+	return ComparePasswords(u.HashedPassword, plainPassword)
 }

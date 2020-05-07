@@ -18,9 +18,13 @@ package auth
 
 import (
 	"context"
+	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 )
+
+var UpdateMetrics func(context.Context)
 
 type WrappedServerStream struct {
 	grpc.ServerStream
@@ -35,20 +39,41 @@ func (w *WrappedServerStream) SendMsg(m interface{}) error {
 }
 
 func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	if HasAuth(info.FullMethod) {
-		if err := verifyTokenFromCtx(ss.Context()); err != nil {
-			return err
-		}
+	ctx := ss.Context()
+	if UpdateMetrics != nil {
+		UpdateMetrics(ctx)
+	}
+	if err := checkAuth(ctx, info.FullMethod); err != nil {
+		return err
 	}
 	return handler(srv, &WrappedServerStream{ss})
 }
 
 func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	if HasAuth(info.FullMethod) {
-		if err := verifyTokenFromCtx(ctx); err != nil {
-			return nil, err
-		}
+	if UpdateMetrics != nil {
+		UpdateMetrics(ctx)
+	}
+	if err := checkAuth(ctx, info.FullMethod); err != nil {
+		return nil, err
 	}
 	m, err := handler(ctx, req)
 	return m, err
+}
+
+var localAddress = map[string]bool{
+	"127.0.0.1": true,
+	"localhost": true,
+	"bufconn":   true,
+}
+
+func isLocalClient(ctx context.Context) bool {
+	isLocal := false
+	p, ok := peer.FromContext(ctx)
+	if ok && p != nil {
+		ipAndPort := strings.Split(p.Addr.String(), ":")
+		if len(ipAndPort) > 0 {
+			_, isLocal = localAddress[ipAndPort[0]]
+		}
+	}
+	return isLocal
 }
