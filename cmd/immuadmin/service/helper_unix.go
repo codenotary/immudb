@@ -1,4 +1,4 @@
-// +build unix
+// +build linux
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -19,80 +19,148 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
+	"fmt"
+	service "github.com/codenotary/immudb/cmd/immuadmin/service/configs"
+	"github.com/spf13/viper"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 )
 
+const linuxExecPath = "/usr/sbin/"
+const linuxConfigPath = "/etc/immudb"
+
+// CheckPrivileges check if current user is root
 func CheckPrivileges() (bool, error) {
-	if runtime.GOOS != "windows" {
-		if output, err := exec.Command("id", "-g").Output(); err == nil {
-			if gid, parseErr := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 32); parseErr == nil {
-				if gid == 0 {
-					return true, nil
-				}
-				return false, ErrRootPrivileges
+	if output, err := exec.Command("id", "-g").Output(); err == nil {
+		if gid, parseErr := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 32); parseErr == nil {
+			if gid == 0 {
+				return true, nil
 			}
+			return false, ErrRootPrivileges
 		}
 	}
 	return false, ErrUnsupportedSystem
 }
 
-func InstallConfig(serviceName string) error {
-	err := os.MkdirAll("/etc/"+serviceName, os.ModePerm)
+// InstallConfig install config in /etc folder
+func InstallConfig(serviceName string) (err error) {
+	if err = readConfig(serviceName); err != nil {
+		return err
+	}
+	var configDir = filepath.Dir(GetDefaultConfigPath(serviceName))
+	err = os.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
-
-	from, err := os.Open("configs/immudb.ini.dist")
-	if err != nil {
-		return err
-	}
-	defer from.Close()
-
-	to, err := os.OpenFile("/etc/"+serviceName+"/"+serviceName+".ini", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer to.Close()
-
-	_, err = io.Copy(to, from)
-	if err != nil {
-		return err
-	}
-	return nil
+	return viper.WriteConfigAs(GetDefaultConfigPath(serviceName))
 }
 
-func UninstallConfig(serviceName string) error {
-	err := os.Remove("/etc/" + serviceName + "/" + serviceName + ".ini")
-	if err != nil {
+// RemoveProgramFiles remove all program files
+func RemoveProgramFiles(serviceName string) (err error) {
+	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	return nil
+	config := filepath.Dir(GetDefaultConfigPath(serviceName))
+	os.RemoveAll(config)
+	return
 }
 
+// EraseData erase all service data
+func EraseData(serviceName string) (err error) {
+	if err = readConfig(serviceName); err != nil {
+		return err
+	}
+	return os.RemoveAll(filepath.FromSlash(viper.GetString("default.dir")))
+}
+
+// GetExecutable checks for the service executable name provided.
+// If it's valid returns the absolute file path
+// If is not valid or not presents try to use an executable presents in current executable folder.
+// If found it returns the absolute file path
 func GetExecutable(input string, serviceName string) (exec string, err error) {
-	if input != "" {
-		_, err = os.Stat(input)
-		if os.IsNotExist(err) {
-			return exec, ErrExecNotFound
-		}
-	}
-
 	if input == "" {
-		exec = serviceName
+		if current, err := os.Executable(); err == nil {
+			exec = filepath.Join(filepath.Dir(current), serviceName)
+		} else {
+			return exec, err
+		}
 		_, err = os.Stat(exec)
 		if os.IsNotExist(err) {
 			return exec, ErrExecNotFound
 		}
-		input = exec
+		fmt.Printf("found an executable for the service %s on current dir\n", serviceName)
+	} else {
+		_, err = os.Stat(input)
+		if os.IsNotExist(err) {
+			return input, ErrExecNotFound
+		}
+		exec = input
+		fmt.Printf("using provided executable for the service %s\n", serviceName)
 	}
 	if exec, err = filepath.Abs(exec); err != nil {
 		return exec, err
 	}
 	return exec, err
 }
+
+//CopyExecInOsDefault copy the executable in default exec folder and returns the path. It accepts an executable absolute path
+func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
+	from, err := os.Open(execPath)
+	if err != nil {
+		return "", err
+	}
+	defer from.Close()
+
+	newExecPath = GetDefaultExecPath(execPath)
+
+	to, err := os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return "", err
+	}
+	defer to.Close()
+
+	if _, err = io.Copy(to, from); err != nil {
+		return "", err
+	}
+
+	os.Chmod(newExecPath, 0775)
+	return newExecPath, err
+}
+
+// GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
+func GetDefaultExecPath(localFile string) string {
+	execName := filepath.Base(localFile)
+	return filepath.Join(linuxExecPath, execName)
+}
+
+// GetDefaultConfigPath returns the default config path
+func GetDefaultConfigPath(serviceName string) string {
+	return filepath.Join(linuxConfigPath, serviceName+".ini")
+}
+
+func readConfig(serviceName string) (err error) {
+	viper.SetConfigType("ini")
+	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
+}
+
+var configsMap = map[string][]byte{
+	"immudb": service.ConfigImmudb,
+	"immugw": service.ConfigImmugw,
+}
+
+// UsageDet details on config and log file on specific os
+var UsageDet = fmt.Sprintf(`Config file is present in %s. Log file is in /var/log/immudb`, linuxConfigPath)
+var UsageExamples = fmt.Sprintf(`Install the immutable database
+sudo ./immuadmin service immudb install
+Install the REST proxy client with rest interface. We discourage to install immugw in the same machine of immudb in order to respect the security model of our technology.
+This kind of istallation is suggested only for testing purpose
+sudo ./immuadmin  service immugw install
+It's possible to provide a specific executable
+sudo ./immuadmin  service immudb install --local-file immudb.exe
+Uninstall immudb after 20 second
+sudo ./immuadmin  service immudb uninstall --time 20`)

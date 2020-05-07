@@ -36,18 +36,12 @@ func (cl *commandlineDisc) service(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:   fmt.Sprintf("service %v %v", installableServices, availableCommands),
 		Short: "Manage immu services",
-		Long: `Manage immudb related services.
-Configuration service installation in /etc/immudb is available only under non windows os.
-Currently installing the service under windows may incur anomalies. Related issues on https://github.com/takama/daemon/issues/68.
-Installable services are immudb and immugw.
+		Long: fmt.Sprintf(`Manage immudb related services.
+Available services: immudb and immugw.
 Root permission are required in order to make administrator operations.
-`,
+%s`, service.UsageDet),
 		ValidArgs: availableCommands,
-		Example: `
-sudo ./immuadmin service immudb install --local-file vchain/immudb/src/immudb
-immuadmin service immudb install --local-file immudb.exe
-sudo ./immuadmin service immudb uninstall
-`,
+		Example:   service.UsageExamples,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("required a service name")
@@ -162,8 +156,11 @@ sudo ./immuadmin service immudb uninstall
 					fmt.Println(msg)
 				}
 				var u string
+				var n int
 				fmt.Printf("Are you sure you want to uninstall %s? Default N [Y/N]", args[0])
-				n, _ := fmt.Scanln(&u)
+				if n, err = fmt.Scanln(&u); err != nil {
+					return err
+				}
 				if n <= 0 {
 					u = "N"
 				}
