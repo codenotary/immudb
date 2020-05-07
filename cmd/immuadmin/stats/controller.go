@@ -19,6 +19,7 @@ package stats
 import (
 	"container/list"
 	"fmt"
+	"math"
 	"time"
 
 	ui "github.com/gizak/termui/v3"
@@ -31,15 +32,17 @@ type Controller interface {
 }
 
 type statsController struct {
-	withDBHistograms    bool
-	Grid                *ui.Grid
-	SummaryTable        *widgets.Table
-	SizePie             *widgets.PieChart
-	NbReadsWritesPie    *widgets.PieChart
-	AvgDurationPlot     *widgets.Plot
-	AvgDurationPlotData []*list.List
-	MemoryPlot          *widgets.Plot
-	MemoryPlotData      []*list.List
+	withDBHistograms      bool
+	Grid                  *ui.Grid
+	SummaryTable          *widgets.Table
+	SizePlot              *widgets.Plot
+	SizePlotData          []*list.List
+	NbReadsWritesPlot     *widgets.Plot
+	NbReadsWritesPlotData []*list.List
+	AvgDurationPlot       *widgets.Plot
+	AvgDurationPlotData   []*list.List
+	MemoryPlot            *widgets.Plot
+	MemoryPlotData        []*list.List
 }
 
 func (p *statsController) Resize() {
@@ -79,24 +82,32 @@ func (p *statsController) Render(ms *metrics) {
 		[]string{"  active < 1h ago", fmt.Sprintf("%d", len(*ms.clientsActiveDuringLastHour()))},
 	}
 
-	p.SizePie.Title = fmt.Sprintf(" DB Size: %s ", byteCountBinary(ms.db.totalBytes))
-	p.SizePie.LabelFormatter = func(idx int, _ float64) string {
-		return []string{
-			fmt.Sprintf("VLog: %s", byteCountBinary(ms.db.vlogBytes)),
-			fmt.Sprintf("LSM: %s", byteCountBinary(ms.db.lsmBytes)),
-		}[idx]
+	totalSizeS, _ := byteCountBinary(ms.db.totalBytes)
+	vlogSizeS, vlogSize := byteCountBinary(ms.db.vlogBytes)
+	lsmSizeS, lsmSize := byteCountBinary(ms.db.lsmBytes)
+	p.SizePlot.Title =
+		fmt.Sprintf(" DB Size: %s (VLog %s, LSM %s) ", totalSizeS, vlogSizeS, lsmSizeS)
+	enqueueDequeue(p.SizePlotData[0], vlogSize, sizePlotDataLength)
+	enqueueDequeue(p.SizePlotData[1], lsmSize, sizePlotDataLength)
+	p.SizePlot.Data = [][]float64{
+		toFloats(p.SizePlotData[0]),
+		toFloats(p.SizePlotData[1]),
 	}
-	p.SizePie.Data = []float64{float64(ms.db.vlogBytes), float64(ms.db.lsmBytes)}
 
 	if p.withDBHistograms {
-		p.NbReadsWritesPie.Title = fmt.Sprintf(" %d reads/writes ", ms.reads.counter+ms.writes.counter)
-		p.NbReadsWritesPie.LabelFormatter = func(idx int, _ float64) string {
-			return []string{
-				fmt.Sprintf("%d reads", ms.reads.counter),
-				fmt.Sprintf("%d writes", ms.writes.counter),
-			}[idx]
+		nbReads := ms.reads.counter
+		nbWrites := ms.writes.counter
+		nbReadsWrites := nbReads + nbWrites
+		pReads := math.Round(float64(nbReads) * 100 / float64(nbReadsWrites))
+		pWrites := math.Round(float64(nbWrites) * 100 / float64(nbReadsWrites))
+		p.NbReadsWritesPlot.Title = fmt.Sprintf(
+			" %d reads / %d writes (%.0f%% / %.0f%%) ", nbReads, nbWrites, pReads, pWrites)
+		enqueueDequeue(p.NbReadsWritesPlotData[0], float64(nbReads), nbReadsWritesPlotDataLength)
+		enqueueDequeue(p.NbReadsWritesPlotData[1], float64(nbWrites), nbReadsWritesPlotDataLength)
+		p.NbReadsWritesPlot.Data = [][]float64{
+			toFloats(p.NbReadsWritesPlotData[0]),
+			toFloats(p.NbReadsWritesPlotData[1]),
 		}
-		p.NbReadsWritesPie.Data = []float64{float64(ms.reads.counter), float64(ms.writes.counter)}
 
 		avgDurationReads := ms.reads.avgDuration * 1000_000
 		avgDurationWrites := ms.writes.avgDuration * 1000_000
@@ -109,11 +120,11 @@ func (p *statsController) Render(ms *metrics) {
 		}
 	}
 
-	memReserved := ms.memstats.sysBytes
-	memInUse := ms.memstats.heapInUseBytes + ms.memstats.stackInUseBytes
-	p.MemoryPlot.Title = fmt.Sprintf(" Memory: %s reserved, %s in use ", byteCountBinary(memReserved), byteCountBinary(memInUse))
-	enqueueDequeue(p.MemoryPlotData[0], float64(memReserved/1000_000), memoryPlotDataLength)
-	enqueueDequeue(p.MemoryPlotData[1], float64(memInUse/1000_000), memoryPlotDataLength)
+	memReservedS, memReserved := byteCountBinary(ms.memstats.sysBytes)
+	memInUseS, memInUse := byteCountBinary(ms.memstats.heapInUseBytes + ms.memstats.stackInUseBytes)
+	p.MemoryPlot.Title = fmt.Sprintf(" Memory: %s reserved, %s in use ", memReservedS, memInUseS)
+	enqueueDequeue(p.MemoryPlotData[0], memReserved, memoryPlotDataLength)
+	enqueueDequeue(p.MemoryPlotData[1], memInUse, memoryPlotDataLength)
 	p.MemoryPlot.Data = [][]float64{
 		toFloats(p.MemoryPlotData[0]),
 		toFloats(p.MemoryPlotData[1]),
@@ -123,28 +134,51 @@ func (p *statsController) Render(ms *metrics) {
 }
 
 var avgDurationPlotDataLength int
+var nbReadsWritesPlotDataLength int
+var sizePlotDataLength int
 var memoryPlotDataLength int
 
 func (p *statsController) initUI() {
 	p.resize()
 
-	p.SummaryTable.Title = " Exit: q, Esc or Ctrl-C "
-	p.SummaryTable.PaddingTop = 1
-
-	p.SizePie.Title = " DB Size "
-	p.SizePie.LabelFormatter = func(idx int, _ float64) string { return []string{"VLog", "LSM"}[idx] }
-	p.SizePie.PaddingBottom = 1
-
 	termWidth, _ := ui.TerminalDimensions()
 	avgDurationPlotWidthPercent := .6
 	memoryPlotWidthPercent := avgDurationPlotWidthPercent
-
+	sizePlotWidthPercent := 1.
+	nbReadsWritesWidthPercent := 0.
 	if p.withDBHistograms {
 		memoryPlotWidthPercent = 1.
+		sizePlotWidthPercent = .5
+		nbReadsWritesWidthPercent = .5
+	}
 
-		p.NbReadsWritesPie.Title = " Number of reads/writes "
-		p.NbReadsWritesPie.LabelFormatter = func(idx int, _ float64) string { return []string{"reads", "writes"}[idx] }
-		p.NbReadsWritesPie.PaddingBottom = 1
+	p.SummaryTable.Title = " Exit: q, Esc or Ctrl-C "
+	p.SummaryTable.PaddingTop = 1
+
+	p.SizePlotData = []*list.List{list.New(), list.New()}
+	sizePlotDataLength = int(float64(termWidth) * (sizePlotWidthPercent - .025))
+	for i := 0; i < sizePlotDataLength; i++ {
+		p.SizePlotData[0].PushBack(0.)
+		p.SizePlotData[1].PushBack(0.)
+	}
+	p.SizePlot.Title = " DB Size "
+	p.SizePlot.PaddingTop = 1
+	p.SizePlot.LineColors[0] = ui.ColorGreen
+	p.SizePlot.LineColors[1] = ui.ColorRed
+	p.SizePlot.DataLabels = []string{"VLog", "LSM"}
+
+	if p.withDBHistograms {
+		p.NbReadsWritesPlotData = []*list.List{list.New(), list.New()}
+		nbReadsWritesPlotDataLength = int(float64(termWidth) * (nbReadsWritesWidthPercent - .025))
+		for i := 0; i < nbReadsWritesPlotDataLength; i++ {
+			p.NbReadsWritesPlotData[0].PushBack(0.)
+			p.NbReadsWritesPlotData[1].PushBack(0.)
+		}
+		p.NbReadsWritesPlot.Title = " Number of reads/writes "
+		p.NbReadsWritesPlot.PaddingTop = 1
+		p.NbReadsWritesPlot.LineColors[0] = ui.ColorGreen
+		p.NbReadsWritesPlot.LineColors[1] = ui.ColorRed
+		p.NbReadsWritesPlot.DataLabels = []string{"reads", "writes"}
 
 		p.AvgDurationPlotData = []*list.List{list.New(), list.New()}
 		avgDurationPlotDataLength = int(float64(termWidth) * (avgDurationPlotWidthPercent - .025))
@@ -182,8 +216,8 @@ func (p *statsController) initUI() {
 			),
 			ui.NewRow(
 				.5,
-				ui.NewCol(.5, p.SizePie),
-				ui.NewCol(.5, p.NbReadsWritesPie),
+				ui.NewCol(sizePlotWidthPercent, p.SizePlot),
+				ui.NewCol(1-sizePlotWidthPercent, p.NbReadsWritesPlot),
 			),
 			ui.NewRow(
 				.25,
@@ -201,7 +235,7 @@ func (p *statsController) initUI() {
 		),
 		ui.NewRow(
 			.66,
-			ui.NewCol(1, p.SizePie),
+			ui.NewCol(sizePlotWidthPercent, p.SizePlot),
 		),
 	)
 }
@@ -211,11 +245,11 @@ func newStatsController(withDBHistograms bool) Controller {
 		withDBHistograms: withDBHistograms,
 		Grid:             ui.NewGrid(),
 		SummaryTable:     widgets.NewTable(),
-		SizePie:          widgets.NewPieChart(),
+		SizePlot:         widgets.NewPlot(),
 		MemoryPlot:       widgets.NewPlot(),
 	}
 	if withDBHistograms {
-		ctl.NbReadsWritesPie = widgets.NewPieChart()
+		ctl.NbReadsWritesPlot = widgets.NewPlot()
 		ctl.AvgDurationPlot = widgets.NewPlot()
 	}
 	ctl.initUI()
