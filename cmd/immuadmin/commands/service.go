@@ -148,8 +148,15 @@ Root permission are required in order to make administrator operations.
 				fmt.Println(msg)
 				return nil
 			case "uninstall":
+				// check if already installed
+				var status string
+				if status, err = daemon.Status(); err != nil {
+					if err == daem.ErrNotInstalled {
+						return err
+					}
+				}
 				// stopping service first
-				if status, err := daemon.Status(); status == "Status: SERVICE_RUNNING" {
+				if service.IsRunning(status) {
 					if msg, err = daemon.Stop(); err != nil {
 						return err
 					}

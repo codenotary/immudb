@@ -158,6 +158,11 @@ func GetDefaultConfigPath(serviceName string) string {
 	return filepath.Join(strings.Title(dataDir), "config", serviceName+".ini")
 }
 
+// IsRunning check if status derives from a running process
+func IsRunning(status string) bool {
+	return status == "Status: SERVICE_RUNNING"
+}
+
 func readConfig(serviceName string) (err error) {
 	viper.SetConfigType("ini")
 	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
