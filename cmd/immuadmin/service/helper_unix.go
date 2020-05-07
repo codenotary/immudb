@@ -1,4 +1,4 @@
-// +build linux
+// +build linux darwin
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -21,8 +21,6 @@ package service
 import (
 	"bytes"
 	"fmt"
-	service "github.com/codenotary/immudb/cmd/immuadmin/service/configs"
-	"github.com/spf13/viper"
 	"io"
 	"os"
 	"os/exec"
@@ -30,6 +28,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	service "github.com/codenotary/immudb/cmd/immuadmin/service/configs"
+	"github.com/spf13/viper"
 )
 
 const linuxExecPath = "/usr/sbin/"
