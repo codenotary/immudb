@@ -112,7 +112,7 @@ type stdinPasswordReader struct{}
 
 func (pr *stdinPasswordReader) Read(msg string) ([]byte, error) {
 	fmt.Println(msg)
-	pass, err := terminal.ReadPassword(0)
+	pass, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return nil, err
 	}
