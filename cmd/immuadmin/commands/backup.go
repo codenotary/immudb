@@ -17,7 +17,6 @@ limitations under the License.
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
@@ -42,7 +41,7 @@ func (cl *commandline) dumpToFile(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
+			ctx := cl.context
 			response, err := cl.immuClient.Dump(ctx, file)
 			if err != nil {
 				c.QuitWithUserError(err)

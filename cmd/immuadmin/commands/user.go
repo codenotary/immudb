@@ -18,7 +18,6 @@ package commands
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 
@@ -44,7 +43,7 @@ Delete user:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			action := args[0]
 			username := []byte(args[1])
-			ctx := context.Background()
+			ctx := cl.context
 			switch action {
 			case "create":
 				pass, err := cl.passwordReader.Read("Password:")

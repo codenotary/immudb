@@ -28,6 +28,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/codenotary/immudb/pkg/common"
 	"github.com/o1egl/paseto"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ed25519"
@@ -234,10 +235,12 @@ func IsStrongPassword(password string) error {
 	return nil
 }
 
+const loginMethod = "/immudb.schema.ImmuService/Login"
+
 var methodsWithoutAuth = map[string]bool{
 	"/immudb.schema.ImmuService/CurrentRoot": true,
 	"/immudb.schema.ImmuService/Health":      true,
-	"/immudb.schema.ImmuService/Login":       true,
+	loginMethod:                              true,
 }
 
 func HasAuth(method string) bool {
@@ -251,11 +254,17 @@ var methodsForAdmin = map[string]bool{
 	"/immudb.schema.ImmuService/DeleteUser":     true,
 }
 
-func IsAdmin(method string) bool {
-	// TODO OGG: maybe check a custom metadata entry - e.g. clientType or clientID
-	// to identify any method that is coming from immuadmin instead(?)
+func isAdmin(method string) bool {
 	_, ok := methodsForAdmin[method]
 	return ok
+}
+func isAdminClient(ctx context.Context) bool {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return false
+	}
+	clientIDMD := md[common.ClientIDMetadataKey]
+	return len(clientIDMD) > 0 && clientIDMD[0] == common.ClientIDMetadataValueAdmin
 }
 
 var AdminUserExists func(ctx context.Context) bool
@@ -269,33 +278,46 @@ func (e *ErrFirstAdminCall) Error() string {
 	return e.message
 }
 
+func createAdminUserAndMsg(ctx context.Context) (*ErrFirstAdminCall, error) {
+	username, plainPassword, err := CreateAdminUser(ctx)
+	if err == nil {
+		return &ErrFirstAdminCall{
+			message: fmt.Sprintf(
+				"\nThis looks like the very first admin access hence the following "+
+					"credentials have been generated:\n---\nusername: %s\npassword: %s\n---\n"+
+					"IMPORTANT: This is the only time they are shown, so make sure you remember them.",
+				username,
+				plainPassword,
+			),
+		}, nil
+	}
+	return nil, err
+}
+
 func checkAuth(ctx context.Context, method string) error {
 	if !AuthEnabled {
 		if !isLocalClient(ctx) {
-			status.Errorf(
+			return status.Errorf(
 				codes.PermissionDenied,
 				"server has authentication disabled: only local connections are accepted")
+		}
+	}
+	if method == loginMethod && AuthEnabled && isAdminClient(ctx) && !AdminUserExists(ctx) {
+		if firstAdminCallMsg, err2 := createAdminUserAndMsg(ctx); err2 == nil {
+			return firstAdminCallMsg
 		}
 	}
 	if AuthEnabled && HasAuth(method) {
 		jsonToken, err := verifyTokenFromCtx(ctx)
 		if err != nil {
-			if IsAdmin(method) && !AdminUserExists(ctx) {
-				if username, plainPassword, err2 := CreateAdminUser(ctx); err2 == nil {
-					return &ErrFirstAdminCall{
-						message: fmt.Sprintf(
-							"\nThis looks like the very first admin access hence the following "+
-								"credentials have been generated:\n---\nusername: %s\npassword: %s\n---\n"+
-								"IMPORTANT: This is the only time they are shown, so make sure you remember them.",
-							username,
-							plainPassword,
-						),
-					}
+			if isAdmin(method) && !AdminUserExists(ctx) {
+				if firstAdminCallMsg, err2 := createAdminUserAndMsg(ctx); err2 == nil {
+					return firstAdminCallMsg
 				}
 			}
 			return err
 		}
-		if IsAdmin(method) {
+		if isAdmin(method) {
 			if !jsonToken.Admin {
 				return status.Errorf(codes.PermissionDenied, "permission denied")
 			}

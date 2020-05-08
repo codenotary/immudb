@@ -17,7 +17,6 @@ limitations under the License.
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -40,7 +39,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			ctx := context.Background()
+			ctx := cl.context
 			response, err := cl.immuClient.Login(ctx, user, pass)
 			if err != nil {
 				c.QuitWithUserError(err)
