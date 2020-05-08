@@ -7,23 +7,23 @@ DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
 #~~~> Binaries versions
-V_COMMIT = $(shell git rev-parse HEAD)
-V_BUILT_BY = $(shell git config user.name)
-V_BUILT_AT = $(shell date)
-V_LDFLAGS_COMMON = -X "main.Commit=$(V_COMMIT)" -X "main.BuiltBy=$(V_BUILT_BY)" -X "main.BuiltAt=$(V_BUILT_AT)"
+V_COMMIT := $(shell git rev-parse HEAD)
+V_BUILT_BY := $(shell git config user.name)
+V_BUILT_AT := $(shell date)
+V_LDFLAGS_COMMON := -X "main.Commit=$(V_COMMIT)" -X "main.BuiltBy=$(V_BUILT_BY)" -X "main.BuiltAt=$(V_BUILT_AT)"
 
-V_COMMON = v.0.0.1
-V_IMMUCLIENT = $(V_COMMON)
-V_IMMUADMIN = $(V_COMMON)
-V_IMMUDB = $(V_COMMON)
-V_IMMUGW = $(V_COMMON)
-V_IMMUTESTAPP = $(V_COMMON)
+V_COMMON := v.0.0.1
+V_IMMUCLIENT := $(V_COMMON)
+V_IMMUADMIN := $(V_COMMON)
+V_IMMUDB := $(V_COMMON)
+V_IMMUGW := $(V_COMMON)
+V_IMMUTESTAPP := $(V_COMMON)
 
-V_IMMUCLIENT_LDFLAGS = -X "main.Version=$(V_IMMUCLIENT)" $(V_LDFLAGS_COMMON)
-V_IMMUADMIN_LDFLAGS = -X "main.Version=$(V_IMMUADMIN)" $(V_LDFLAGS_COMMON)
-V_IMMUDB_LDFLAGS = -X "main.Version=$(V_IMMUDB)" $(V_LDFLAGS_COMMON)
-V_IMMUGW_LDFLAGS = -X "main.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
-V_IMMUTESTAPP_LDFLAGS = -X "main.Version=$(V_IMMUTESTAPP)" $(V_LDFLAGS_COMMON)
+V_IMMUCLIENT_LDFLAGS := -X "main.Version=$(V_IMMUCLIENT)" $(V_LDFLAGS_COMMON)
+V_IMMUADMIN_LDFLAGS := -X "main.Version=$(V_IMMUADMIN)" $(V_LDFLAGS_COMMON)
+V_IMMUDB_LDFLAGS := -X "main.Version=$(V_IMMUDB)" $(V_LDFLAGS_COMMON)
+V_IMMUGW_LDFLAGS := -X "main.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
+V_IMMUTESTAPP_LDFLAGS := -X "main.Version=$(V_IMMUTESTAPP)" $(V_LDFLAGS_COMMON)
 #<~~~
 .PHONY: all
 all: immudb immuclient immugw immuadmin immutestapp bm
