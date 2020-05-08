@@ -90,7 +90,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 					c.QuitWithUserError(errors.New("Passwords don't match"))
 				}
 				if bytes.Equal(pass, oldPass) {
-					c.QuitWithUserError(errors.New("New password is the same as than the old one"))
+					c.QuitWithUserError(errors.New("New password is identical to the old one"))
 				}
 				if err = cl.immuClient.ChangePassword(ctx, username, oldPass, pass); err != nil {
 					c.QuitWithUserError(err)
