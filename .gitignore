@@ -25,17 +25,12 @@
 
 # Binaries
 /immuclient
-cmd/immuclient/immuclient
 /immuadmin
-cmd/immuadmin/immuadmin
 /immutestapp
-cmd/immutestapp/immutestapp
 /immudb
-cmd/immudb/immudb
 /nimmu
 /bm
 /immugw
-cmd/immugw/immugw
 
 # Working files
 .root*
