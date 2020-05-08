@@ -71,6 +71,24 @@ func toFloats(l *list.List) []float64 {
 	return a
 }
 
+func updatePlot(
+	plot *widgets.Plot,
+	data *[]*list.List,
+	dataLength int,
+	newData []float64,
+	newTitle string,
+) {
+	plot.Title = newTitle
+	nbLines := len(newData)
+	for i := 0; i < nbLines; i++ {
+		enqueueDequeue((*data)[i], newData[i], dataLength)
+	}
+	plot.Data = make([][]float64, nbLines)
+	for i := 0; i < nbLines; i++ {
+		plot.Data[i] = toFloats((*data)[i])
+	}
+}
+
 func (p *statsController) Render(ms *metrics) {
 	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.db.uptimeHours))
 	p.SummaryTable.Rows = [][]string{
@@ -85,14 +103,12 @@ func (p *statsController) Render(ms *metrics) {
 	totalSizeS, _ := byteCountBinary(ms.db.totalBytes)
 	vlogSizeS, vlogSize := byteCountBinary(ms.db.vlogBytes)
 	lsmSizeS, lsmSize := byteCountBinary(ms.db.lsmBytes)
-	p.SizePlot.Title =
-		fmt.Sprintf(" DB Size: %s (VLog %s, LSM %s) ", totalSizeS, vlogSizeS, lsmSizeS)
-	enqueueDequeue(p.SizePlotData[0], vlogSize, sizePlotDataLength)
-	enqueueDequeue(p.SizePlotData[1], lsmSize, sizePlotDataLength)
-	p.SizePlot.Data = [][]float64{
-		toFloats(p.SizePlotData[0]),
-		toFloats(p.SizePlotData[1]),
-	}
+	updatePlot(
+		p.SizePlot,
+		&p.SizePlotData,
+		sizePlotDataLength,
+		[]float64{vlogSize, lsmSize},
+		fmt.Sprintf(" DB Size: %s (VLog %s, LSM %s) ", totalSizeS, vlogSizeS, lsmSizeS))
 
 	if p.withDBHistograms {
 		nbReads := ms.reads.counter
@@ -100,37 +116,58 @@ func (p *statsController) Render(ms *metrics) {
 		nbReadsWrites := nbReads + nbWrites
 		pReads := math.Round(float64(nbReads) * 100 / float64(nbReadsWrites))
 		pWrites := math.Round(float64(nbWrites) * 100 / float64(nbReadsWrites))
-		p.NbReadsWritesPlot.Title = fmt.Sprintf(
-			" %d reads / %d writes (%.0f%% / %.0f%%) ", nbReads, nbWrites, pReads, pWrites)
-		enqueueDequeue(p.NbReadsWritesPlotData[0], float64(nbReads), nbReadsWritesPlotDataLength)
-		enqueueDequeue(p.NbReadsWritesPlotData[1], float64(nbWrites), nbReadsWritesPlotDataLength)
-		p.NbReadsWritesPlot.Data = [][]float64{
-			toFloats(p.NbReadsWritesPlotData[0]),
-			toFloats(p.NbReadsWritesPlotData[1]),
-		}
+		updatePlot(
+			p.NbReadsWritesPlot,
+			&p.NbReadsWritesPlotData,
+			nbReadsWritesPlotDataLength,
+			[]float64{float64(nbReads), float64(nbWrites)},
+			fmt.Sprintf(
+				" %d reads / %d writes (%.0f%% / %.0f%%) ", nbReads, nbWrites, pReads, pWrites),
+		)
 
 		avgDurationReads := ms.reads.avgDuration * 1000_000
 		avgDurationWrites := ms.writes.avgDuration * 1000_000
-		p.AvgDurationPlot.Title = fmt.Sprintf(" Avg. duration: %.0f µs read, %.0f µs write ", avgDurationReads, avgDurationWrites)
-		enqueueDequeue(p.AvgDurationPlotData[0], avgDurationReads, avgDurationPlotDataLength)
-		enqueueDequeue(p.AvgDurationPlotData[1], avgDurationWrites, avgDurationPlotDataLength)
-		p.AvgDurationPlot.Data = [][]float64{
-			toFloats(p.AvgDurationPlotData[0]),
-			toFloats(p.AvgDurationPlotData[1]),
-		}
+		updatePlot(
+			p.AvgDurationPlot,
+			&p.AvgDurationPlotData,
+			avgDurationPlotDataLength,
+			[]float64{avgDurationReads, avgDurationWrites},
+			fmt.Sprintf(
+				" Avg. duration: %.0f µs read, %.0f µs write ", avgDurationReads, avgDurationWrites),
+		)
 	}
 
 	memReservedS, memReserved := byteCountBinary(ms.memstats.sysBytes)
 	memInUseS, memInUse := byteCountBinary(ms.memstats.heapInUseBytes + ms.memstats.stackInUseBytes)
-	p.MemoryPlot.Title = fmt.Sprintf(" Memory: %s reserved, %s in use ", memReservedS, memInUseS)
-	enqueueDequeue(p.MemoryPlotData[0], memReserved, memoryPlotDataLength)
-	enqueueDequeue(p.MemoryPlotData[1], memInUse, memoryPlotDataLength)
-	p.MemoryPlot.Data = [][]float64{
-		toFloats(p.MemoryPlotData[0]),
-		toFloats(p.MemoryPlotData[1]),
-	}
+	updatePlot(
+		p.MemoryPlot,
+		&p.MemoryPlotData,
+		memoryPlotDataLength,
+		[]float64{memReserved, memInUse},
+		fmt.Sprintf(" Memory: %s reserved, %s in use ", memReservedS, memInUseS))
 
 	ui.Render(p.Grid)
+}
+
+func initPlot(
+	plot *widgets.Plot,
+	data *[]*list.List,
+	dataLength int,
+	labels []string,
+	title string,
+) {
+	nbLines := len(labels)
+	for i := 0; i < nbLines; i++ {
+		(*data)[i] = list.New()
+	}
+	for i := 0; i < dataLength; i++ {
+		for j := 0; j < nbLines; j++ {
+			(*data)[j].PushBack(0.)
+		}
+	}
+	plot.Title = title
+	plot.PaddingTop = 1
+	plot.DataLabels = labels
 }
 
 var avgDurationPlotDataLength int
@@ -155,47 +192,39 @@ func (p *statsController) initUI() {
 	p.SummaryTable.Title = " Exit: q, Esc or Ctrl-C "
 	p.SummaryTable.PaddingTop = 1
 
-	p.SizePlotData = []*list.List{list.New(), list.New()}
-	sizePlotDataLength = int(float64(gridWidth) * (sizePlotWidthPercent - .025))
-	for i := 0; i < sizePlotDataLength; i++ {
-		p.SizePlotData[0].PushBack(0.)
-		p.SizePlotData[1].PushBack(0.)
-	}
-	p.SizePlot.Title = " DB Size "
-	p.SizePlot.PaddingTop = 1
-	p.SizePlot.DataLabels = []string{"VLog", "LSM"}
+	p.SizePlotData = make([]*list.List, 2)
+	initPlot(
+		p.SizePlot,
+		&p.SizePlotData,
+		int(float64(gridWidth)*(sizePlotWidthPercent-.025)),
+		[]string{"VLog", "LSM"},
+		" DB Size ")
 
+	p.NbReadsWritesPlotData = make([]*list.List, 2)
 	if p.withDBHistograms {
-		p.NbReadsWritesPlotData = []*list.List{list.New(), list.New()}
-		nbReadsWritesPlotDataLength = int(float64(gridWidth) * (nbReadsWritesWidthPercent - .025))
-		for i := 0; i < nbReadsWritesPlotDataLength; i++ {
-			p.NbReadsWritesPlotData[0].PushBack(0.)
-			p.NbReadsWritesPlotData[1].PushBack(0.)
-		}
-		p.NbReadsWritesPlot.Title = " Number of reads/writes "
-		p.NbReadsWritesPlot.PaddingTop = 1
-		p.NbReadsWritesPlot.DataLabels = []string{"reads", "writes"}
+		initPlot(
+			p.NbReadsWritesPlot,
+			&p.NbReadsWritesPlotData,
+			int(float64(gridWidth)*(nbReadsWritesWidthPercent-.025)),
+			[]string{"reads", "writes"},
+			" Number of reads/writes ")
 
-		p.AvgDurationPlotData = []*list.List{list.New(), list.New()}
-		avgDurationPlotDataLength = int(float64(gridWidth) * (avgDurationPlotWidthPercent - .025))
-		for i := 0; i < avgDurationPlotDataLength; i++ {
-			p.AvgDurationPlotData[0].PushBack(0.)
-			p.AvgDurationPlotData[1].PushBack(0.)
-		}
-		p.AvgDurationPlot.Title = " Avg. duration read/write "
-		p.AvgDurationPlot.PaddingTop = 1
-		p.AvgDurationPlot.DataLabels = []string{"read", "write"}
+		p.AvgDurationPlotData = make([]*list.List, 2)
+		initPlot(
+			p.AvgDurationPlot,
+			&p.AvgDurationPlotData,
+			int(float64(gridWidth)*(avgDurationPlotWidthPercent-.025)),
+			[]string{"read", "write"},
+			" Avg. duration read/write ")
 	}
 
-	p.MemoryPlotData = []*list.List{list.New(), list.New()}
-	memoryPlotDataLength = int(float64(gridWidth) * (memoryPlotWidthPercent - .025))
-	for i := 0; i < memoryPlotDataLength; i++ {
-		p.MemoryPlotData[0].PushBack(0.)
-		p.MemoryPlotData[1].PushBack(0.)
-	}
-	p.MemoryPlot.Title = " Memory reserved/in use "
-	p.MemoryPlot.PaddingTop = 1
-	p.MemoryPlot.DataLabels = []string{"reserved", "in use"}
+	p.MemoryPlotData = make([]*list.List, 2)
+	initPlot(
+		p.MemoryPlot,
+		&p.MemoryPlotData,
+		int(float64(gridWidth)*(memoryPlotWidthPercent-.025)),
+		[]string{"reserved", "in use"},
+		" Memory reserved/in use ")
 
 	if p.withDBHistograms {
 		p.Grid.Set(
