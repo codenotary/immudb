@@ -97,12 +97,6 @@ Delete user:
 			c.QuitWithUserError(errors.New("Please specify one of the following actions: create, change-password or delete"))
 			return nil
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			if len(args) != 1 {
-				return nil, cobra.ShellCompDirectiveNoFileComp
-			}
-			return validArgs, cobra.ShellCompDirectiveDefault
-		},
 		Args: cobra.ExactArgs(2),
 	}
 	cmd.AddCommand(ccmd)
