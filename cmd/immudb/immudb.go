@@ -107,7 +107,7 @@ func Immudb(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	var d daem.Daemon
-	if d, err = daem.New("immudb", "immudb", "C:/c/ROOT/immudb/immudb.exe"); err != nil {
+	if d, err = daem.New("immudb", "immudb", "immudb"); err != nil {
 		c.QuitToStdErr(err)
 	}
 

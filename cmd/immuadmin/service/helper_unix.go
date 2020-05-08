@@ -21,9 +21,11 @@ package service
 import (
 	"bytes"
 	"fmt"
+	"github.com/takama/daemon"
 	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -35,6 +37,32 @@ import (
 
 const linuxExecPath = "/usr/sbin/"
 const linuxConfigPath = "/etc/immudb"
+const linuxUser = "immu"
+const linuxGroup = "immu"
+
+func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
+	d, err = daemon.New(name, description, execStartPath, dependencies...)
+	d.SetTemplate(systemDConfig)
+	return d, err
+}
+
+var systemDConfig = fmt.Sprintf(`[Unit]
+Description={{.Description}}
+Requires={{.Dependencies}}
+After={{.Dependencies}}
+
+
+[Service]
+PIDFile=/var/run/{{.Name}}.pid
+ExecStartPre=/bin/rm -f /var/run/{{.Name}}.pid
+ExecStart={{.Path}} {{.Args}}
+Restart=on-failure
+User=%s
+Group=%s
+
+[Install]
+WantedBy=multi-user.target
+`, linuxUser, linuxGroup)
 
 // CheckPrivileges check if current user is root
 func CheckPrivileges() (bool, error) {
@@ -49,8 +77,46 @@ func CheckPrivileges() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
+func InstallSetup(serviceName string) (err error) {
+	if err = groupCreateIfNotExists(); err != nil {
+		return err
+	}
+	if err = userCreateIfNotExists(); err != nil {
+		return err
+	}
+	if err = installConfig(serviceName); err != nil {
+		return err
+	}
+
+	if err = os.MkdirAll(viper.GetString("default.dir"), os.ModePerm); err != nil {
+		return err
+	}
+	if err = setOwnership(viper.GetString("default.dir")); err != nil {
+		return err
+	}
+
+	logPath := filepath.Dir(viper.GetString("default.logfile"))
+	if _, err = os.Stat(logPath); !os.IsNotExist(err) {
+		if err = setOwnership(logPath); err != nil {
+			return err
+		}
+	}
+
+	pidPath := filepath.Dir(viper.GetString("default.pidfile"))
+	if err = os.MkdirAll(pidPath, os.ModePerm); err != nil {
+		return err
+	}
+	if _, err = os.Stat(pidPath); !os.IsNotExist(err) {
+		if err = setOwnership(pidPath); err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
 // InstallConfig install config in /etc folder
-func InstallConfig(serviceName string) (err error) {
+func installConfig(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
@@ -59,7 +125,57 @@ func InstallConfig(serviceName string) (err error) {
 	if err != nil {
 		return err
 	}
-	return viper.WriteConfigAs(GetDefaultConfigPath(serviceName))
+
+	configPath := GetDefaultConfigPath(serviceName)
+
+	if err = viper.WriteConfigAs(configPath); err != nil {
+		return err
+	}
+
+	return setOwnership(configPath)
+}
+
+func userCreateIfNotExists() (err error) {
+	if _, err = user.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
+		return err
+	}
+	if err = exec.Command("useradd", "-g", linuxGroup, linuxUser).Run(); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func setOwnership(path string) (err error) {
+	var g *user.Group
+	var u *user.User
+
+	if g, err = user.LookupGroup(linuxGroup); err != nil {
+		return err
+	}
+	if u, err = user.Lookup(linuxUser); err != nil {
+		return err
+	}
+
+	uid, _ := strconv.Atoi(u.Uid)
+	gid, _ := strconv.Atoi(g.Gid)
+
+	return filepath.Walk(path, func(name string, info os.FileInfo, err error) error {
+		if err == nil {
+			err = os.Chown(name, uid, gid)
+		}
+		return err
+	})
+}
+
+func groupCreateIfNotExists() (err error) {
+	if _, err = user.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
+		return err
+	}
+	if err = exec.Command("groupadd", linuxGroup).Run(); err != nil {
+		return err
+	}
+	return err
 }
 
 // RemoveProgramFiles remove all program files
@@ -130,7 +246,14 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 		return "", err
 	}
 
-	os.Chmod(newExecPath, 0775)
+	if err = os.Chmod(newExecPath, 0775); err != nil {
+		return "", err
+	}
+
+	if err = setOwnership(newExecPath); err != nil {
+		return "", err
+	}
+
 	return newExecPath, err
 }
 
