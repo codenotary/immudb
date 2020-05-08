@@ -17,17 +17,22 @@ limitations under the License.
 package commands
 
 import (
+	"context"
+
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/common"
 	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc/metadata"
 )
 
 type commandline struct {
 	immuClient     client.ImmuClient
 	passwordReader c.PasswordReader
+	context        context.Context
 }
 
 type commandlineDisc struct{}
@@ -38,6 +43,9 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	}
 	cl := new(commandline)
 	cl.passwordReader = c.DefaultPasswordReader
+	cl.context = metadata.NewOutgoingContext(
+		context.Background(),
+		metadata.Pairs(common.ClientIDMetadataKey, common.ClientIDMetadataValueAdmin))
 
 	cl.user(cmd)
 	cl.login(cmd)

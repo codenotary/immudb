@@ -17,8 +17,8 @@ limitations under the License.
 package commands
 
 import (
-	"context"
 	"fmt"
+
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/immuadmin/stats"
 	"github.com/spf13/cobra"
@@ -26,13 +26,13 @@ import (
 
 func (cl *commandline) status(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "status",
-		Short:   "Show heartbeat status",
-		Aliases: []string{"p"},
+		Use:               "status",
+		Short:             "Show heartbeat status",
+		Aliases:           []string{"p"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cl.context
 			if err := cl.immuClient.HealthCheck(ctx); err != nil {
 				c.QuitWithUserError(err)
 			}
@@ -46,9 +46,9 @@ func (cl *commandline) status(cmd *cobra.Command) {
 
 func (cl *commandline) stats(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "stats",
-		Short:   fmt.Sprintf("Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details."),
-		Aliases: []string{"s"},
+		Use:               "stats",
+		Short:             fmt.Sprintf("Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details."),
+		Aliases:           []string{"s"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
