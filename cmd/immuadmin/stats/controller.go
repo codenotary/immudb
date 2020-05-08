@@ -141,7 +141,7 @@ var memoryPlotDataLength int
 func (p *statsController) initUI() {
 	p.resize()
 
-	termWidth, _ := ui.TerminalDimensions()
+	gridWidth := p.Grid.GetRect().Dx()
 	avgDurationPlotWidthPercent := .6
 	memoryPlotWidthPercent := avgDurationPlotWidthPercent
 	sizePlotWidthPercent := 1.
@@ -156,55 +156,45 @@ func (p *statsController) initUI() {
 	p.SummaryTable.PaddingTop = 1
 
 	p.SizePlotData = []*list.List{list.New(), list.New()}
-	sizePlotDataLength = int(float64(termWidth) * (sizePlotWidthPercent - .025))
+	sizePlotDataLength = int(float64(gridWidth) * (sizePlotWidthPercent - .025))
 	for i := 0; i < sizePlotDataLength; i++ {
 		p.SizePlotData[0].PushBack(0.)
 		p.SizePlotData[1].PushBack(0.)
 	}
 	p.SizePlot.Title = " DB Size "
 	p.SizePlot.PaddingTop = 1
-	p.SizePlot.LineColors[0] = ui.ColorGreen
-	p.SizePlot.LineColors[1] = ui.ColorRed
 	p.SizePlot.DataLabels = []string{"VLog", "LSM"}
 
 	if p.withDBHistograms {
 		p.NbReadsWritesPlotData = []*list.List{list.New(), list.New()}
-		nbReadsWritesPlotDataLength = int(float64(termWidth) * (nbReadsWritesWidthPercent - .025))
+		nbReadsWritesPlotDataLength = int(float64(gridWidth) * (nbReadsWritesWidthPercent - .025))
 		for i := 0; i < nbReadsWritesPlotDataLength; i++ {
 			p.NbReadsWritesPlotData[0].PushBack(0.)
 			p.NbReadsWritesPlotData[1].PushBack(0.)
 		}
 		p.NbReadsWritesPlot.Title = " Number of reads/writes "
 		p.NbReadsWritesPlot.PaddingTop = 1
-		p.NbReadsWritesPlot.LineColors[0] = ui.ColorGreen
-		p.NbReadsWritesPlot.LineColors[1] = ui.ColorRed
 		p.NbReadsWritesPlot.DataLabels = []string{"reads", "writes"}
 
 		p.AvgDurationPlotData = []*list.List{list.New(), list.New()}
-		avgDurationPlotDataLength = int(float64(termWidth) * (avgDurationPlotWidthPercent - .025))
+		avgDurationPlotDataLength = int(float64(gridWidth) * (avgDurationPlotWidthPercent - .025))
 		for i := 0; i < avgDurationPlotDataLength; i++ {
 			p.AvgDurationPlotData[0].PushBack(0.)
 			p.AvgDurationPlotData[1].PushBack(0.)
 		}
 		p.AvgDurationPlot.Title = " Avg. duration read/write "
 		p.AvgDurationPlot.PaddingTop = 1
-		// xterm color reference https://jonasjacek.github.io/colors/
-		// e.g. ui.Color(89) is xterm color DeepPink4
-		p.AvgDurationPlot.LineColors[0] = ui.ColorGreen
-		p.AvgDurationPlot.LineColors[1] = ui.ColorRed
 		p.AvgDurationPlot.DataLabels = []string{"read", "write"}
 	}
 
 	p.MemoryPlotData = []*list.List{list.New(), list.New()}
-	memoryPlotDataLength = int(float64(termWidth) * (memoryPlotWidthPercent - .025))
+	memoryPlotDataLength = int(float64(gridWidth) * (memoryPlotWidthPercent - .025))
 	for i := 0; i < memoryPlotDataLength; i++ {
 		p.MemoryPlotData[0].PushBack(0.)
 		p.MemoryPlotData[1].PushBack(0.)
 	}
 	p.MemoryPlot.Title = " Memory reserved/in use "
 	p.MemoryPlot.PaddingTop = 1
-	p.MemoryPlot.LineColors[0] = ui.ColorGreen
-	p.MemoryPlot.LineColors[1] = ui.ColorRed
 	p.MemoryPlot.DataLabels = []string{"reserved", "in use"}
 
 	if p.withDBHistograms {
@@ -241,6 +231,8 @@ func (p *statsController) initUI() {
 }
 
 func newStatsController(withDBHistograms bool) Controller {
+	// xterm color reference https://jonasjacek.github.io/colors/
+	ui.Theme.Block.Title.Fg = ui.ColorGreen
 	ctl := &statsController{
 		withDBHistograms: withDBHistograms,
 		Grid:             ui.NewGrid(),
