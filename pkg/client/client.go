@@ -54,7 +54,7 @@ type ImmuClient interface {
 	WaitForHealthCheck(ctx context.Context) (err error)
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
-	CreateUser(ctx context.Context, user []byte) (*schema.CreateUserResponse, error)
+	CreateUser(ctx context.Context, user []byte, pass []byte) (*schema.CreateUserResponse, error)
 	DeleteUser(ctx context.Context, user []byte) error
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	CurrentRoot(ctx context.Context) (*schema.Root, error)
@@ -264,13 +264,17 @@ func (c *immuClient) GetOptions() *Options {
 }
 
 // CreateUser ...
-func (c *immuClient) CreateUser(ctx context.Context, user []byte) (*schema.CreateUserResponse, error) {
+func (c *immuClient) CreateUser(
+	ctx context.Context,
+	user []byte,
+	pass []byte) (*schema.CreateUserResponse, error) {
 	start := time.Now()
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 	result, err := c.ServiceClient.CreateUser(ctx, &schema.CreateUserRequest{
-		User: user,
+		User:     user,
+		Password: pass,
 	})
 	c.Logger.Debugf("createuser finished in %s", time.Since(start))
 	return result, err
