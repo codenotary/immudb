@@ -19,6 +19,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -120,3 +121,23 @@ func (pr *stdinPasswordReader) Read(msg string) ([]byte, error) {
 }
 
 var DefaultPasswordReader PasswordReader = new(stdinPasswordReader)
+
+// ReadFromTerminalYN read terminal user input from a Yes No dialog. It returns y and n only with an explicit Yy or Nn input. If no input is submitted it returns default value. If the input is different from the expected one empty string is returned.
+func ReadFromTerminalYN(def string) (selected string, err error) {
+	var u string
+	var n int
+	if n, err = fmt.Scanln(&u); err != nil && err != io.EOF && err.Error() != "unexpected newline" {
+		return "", err
+	}
+	if n <= 0 {
+		u = def
+	}
+	u = strings.TrimSpace(strings.ToLower(u))
+	if u == "y" {
+		return "y", nil
+	}
+	if u == "n" {
+		return "n", nil
+	}
+	return "", nil
+}
