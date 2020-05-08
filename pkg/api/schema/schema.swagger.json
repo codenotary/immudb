@@ -719,10 +719,6 @@
         "user": {
           "type": "string",
           "format": "byte"
-        },
-        "password": {
-          "type": "string",
-          "format": "byte"
         }
       }
     },

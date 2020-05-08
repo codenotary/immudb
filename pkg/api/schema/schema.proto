@@ -31,10 +31,10 @@ message Key {
 
 message CreateUserRequest {
 	bytes user = 1;
+	bytes password = 2;
 }
 message CreateUserResponse {
 	bytes user = 1;
-	bytes password = 2;
 }
 
 message DeleteUserRequest {

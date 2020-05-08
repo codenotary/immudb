@@ -76,22 +76,20 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	if err == nil && !isFlaggedAsDeleted(item) {
 		return nil, status.Errorf(codes.AlreadyExists, "username already exists")
 	}
-	u := auth.User{}
-	plainPass, err := u.GenerateAndSetPassword()
+	hashedPassword, err := auth.HashAndSaltPassword(string(r.Password))
 	if err != nil {
-		s.Logger.Errorf("error generating password for new user: %v", err)
+		return nil, err
 	}
 	kv := schema.KeyValue{
 		Key:   r.GetUser(),
-		Value: u.HashedPassword,
+		Value: hashedPassword,
 	}
 	if _, err := s.SysStore.Set(kv); err != nil {
 		s.Logger.Errorf("error persisting new user: %v", err)
 		return nil, err
 	}
 	return &schema.CreateUserResponse{
-		User:     r.GetUser(),
-		Password: []byte(plainPass),
+		User: r.GetUser(),
 	}, nil
 }
 
@@ -141,7 +139,7 @@ func (s *ImmuServer) DeleteUser(ctx context.Context, r *schema.DeleteUserRequest
 		return e, err
 	}
 	if isFlaggedAsDeleted(item) {
-		return e, nil
+		return e, status.Errorf(codes.NotFound, "user not found")
 	}
 	kv := schema.KeyValue{
 		Key:   r.GetUser(),
