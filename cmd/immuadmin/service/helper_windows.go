@@ -33,6 +33,11 @@ import (
 
 const winExecPath = "C:\\Windows\\System32\\"
 
+func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
+	d, err = daemon.New(name, description, execStartPath, dependencies...)
+	return d, err
+}
+
 func CheckPrivileges() (bool, error) {
 	if runtime.GOOS == "windows" {
 		var sid *windows.SID
@@ -72,7 +77,14 @@ func CheckPrivileges() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
-func InstallConfig(serviceName string) (err error) {
+func InstallSetup(serviceName string) (err error) {
+	if err = installConfig(serviceName); err != nil {
+		return err
+	}
+	return err
+}
+
+func installConfig(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}

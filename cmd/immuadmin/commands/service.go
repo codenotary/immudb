@@ -130,7 +130,11 @@ Root permission are required in order to make administrator operations.
 				return nil
 			}
 
-			daemon, _ := daem.New(args[0], args[0], execPath)
+			daemon, err := service.NewDaemon(args[0], args[0], execPath)
+			if err != nil {
+				return err
+			}
+
 			var u string
 			switch args[1] {
 			case "install":
@@ -146,7 +150,7 @@ Root permission are required in order to make administrator operations.
 				}
 
 				fmt.Println("installing " + localFile + "...")
-				if err = service.InstallConfig(args[0]); err != nil {
+				if err = service.InstallSetup(args[0]); err != nil {
 					return err
 				}
 				if msg, err = daemon.Install("--config", service.GetDefaultConfigPath(args[0])); err != nil {
