@@ -8,7 +8,7 @@ Readme has been inspired by the amazing Netdata community project.
 [Netdata](https://github.com/netdata/netdata)
 
 
-immudb uses the following open source projects.
+immudb uses the following amazing open source projects. Copyright by their respective copyright holders and vChain, Inc.
 
 | Project                                                      | License                                                      |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
