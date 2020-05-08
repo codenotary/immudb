@@ -1,4 +1,4 @@
-// +build linux darwin
+// +build linux darwin freebsd
 
 /*
 Copyright 2019-2020 vChain, Inc.
