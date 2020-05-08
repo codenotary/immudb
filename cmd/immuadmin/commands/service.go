@@ -19,13 +19,13 @@ package commands
 import (
 	"errors"
 	"fmt"
+	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/immuadmin/service"
 	"github.com/spf13/cobra"
 	daem "github.com/takama/daemon"
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -131,9 +131,20 @@ Root permission are required in order to make administrator operations.
 			}
 
 			daemon, _ := daem.New(args[0], args[0], execPath)
-
+			var u string
 			switch args[1] {
 			case "install":
+				if args[0] == "immugw" {
+					fmt.Printf("To provide the maximum level of security, we recommend running immugw on a different machine than immudb server. Continue ? [Y/n]")
+					if u, err = c.ReadFromTerminalYN("Y"); err != nil {
+						return err
+					}
+					if u != "y" {
+						fmt.Println("No action")
+						return
+					}
+				}
+
 				fmt.Println("installing " + localFile + "...")
 				if err = service.InstallConfig(args[0]); err != nil {
 					return err
@@ -162,42 +173,36 @@ Root permission are required in order to make administrator operations.
 					}
 					fmt.Println(msg)
 				}
-				var u string
-				var n int
 				fmt.Printf("Are you sure you want to uninstall %s? [y/N]", args[0])
-				if n, err = fmt.Scanln(&u); err != nil {
+				if u, err = c.ReadFromTerminalYN("N"); err != nil {
 					return err
 				}
-				if n <= 0 {
-					u = "N"
-				}
-				u = strings.TrimSpace(strings.ToLower(u))
-				if u == "y" {
-					if msg, err = daemon.Remove(); err != nil {
-						return err
-					}
-					fmt.Println(msg)
-					if args[0] == "immudb" {
-						fmt.Printf("Erase data? [y/N]")
-						n, _ := fmt.Scanln(&u)
-						if n <= 0 {
-							u = "N"
-						}
-						u = strings.TrimSpace(strings.ToLower(u))
-						if u == "y" {
-							if err = service.EraseData(args[0]); err != nil {
-								return err
-							}
-							fmt.Println("Data folder removed")
-						}
-					}
-					if err = service.RemoveProgramFiles(args[0]); err != nil {
-						return err
-					}
-					fmt.Println("Program files removed")
-				} else {
+				if u != "y" {
 					fmt.Println("No action")
+					return
 				}
+				if msg, err = daemon.Remove(); err != nil {
+					return err
+				}
+				fmt.Println(msg)
+				if args[0] == "immudb" {
+					fmt.Printf("Erase data? [y/N]")
+					if u, err = c.ReadFromTerminalYN("N"); err != nil {
+						return err
+					}
+					if u != "y" {
+						fmt.Println("No data removed")
+					}
+					if err = service.EraseData(args[0]); err != nil {
+						return err
+					}
+					fmt.Println("Data folder removed")
+				}
+				if err = service.RemoveProgramFiles(args[0]); err != nil {
+					return err
+				}
+				fmt.Println("Program files removed")
+
 				return nil
 			case "start":
 				if msg, err = daemon.Start(); err != nil {
@@ -228,7 +233,6 @@ Root permission are required in order to make administrator operations.
 				fmt.Println(msg)
 				return nil
 			}
-
 			return nil
 		},
 	}
