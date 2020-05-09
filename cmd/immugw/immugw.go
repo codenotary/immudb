@@ -18,8 +18,9 @@ package main
 
 import (
 	"fmt"
-	daem "github.com/takama/daemon"
 	"os"
+
+	daem "github.com/takama/daemon"
 
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
@@ -51,18 +52,18 @@ func main() {
 It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
 
 Environment variables:
-  IMMUGW_ADDRESS=127.0.0.1
-  IMMUGW_PORT=3323
-  IMMUGW_IMMUDBADDRESS=127.0.0.1
-  IMMUGW_IMMUDBPORT=3322
-  IMMUGW_PIDFILE=
-  IMMUGW_LOGFILE=
-  IMMUGW_DETACHED=false
-  IMMUGW_MTLS=false
-  IMMUGW_SERVERNAME=localhost
-  IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
-  IMMUGW_PKEY=./tools/mtls/4_client/private/localhost.key.pem
-  IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
+  IMMUGW_DEFAULT.ADDRESS=127.0.0.1
+  IMMUGW_DEFAULT.PORT=3323
+  IMMUGW_DEFAULT.IMMUDBADDRESS=127.0.0.1
+  IMMUGW_DEFAULT.IMMUDBPORT=3322
+  IMMUGW_DEFAULT.PIDFILE=
+  IMMUGW_DEFAULT.LOGFILE=
+  IMMUGW_DEFAULT.DETACHED=false
+  IMMUGW_DEFAULT.MTLS=false
+  IMMUGW_DEFAULT.SERVERNAME=localhost
+  IMMUGW_DEFAULT.PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUGW_DEFAULT.CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
+  IMMUGW_DEFAULT.CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var options gw.Options
 			if options, err = parseOptions(cmd); err != nil {
@@ -122,8 +123,8 @@ Environment variables:
 func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	port := viper.GetInt("default.port")
 	address := viper.GetString("default.address")
-	immudbport := viper.GetInt("default.immudbport")
-	immudbAddress := viper.GetString("default.immudbAddress")
+	immudbport := viper.GetInt("default.immudb-port")
+	immudbAddress := viper.GetString("default.immudb-address")
 	// config file came only from arguments or default folder
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return gw.Options{}, err
@@ -160,8 +161,8 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsOptions) {
 	cmd.Flags().IntP("port", "p", options.Port, "immugw port number")
 	cmd.Flags().StringP("address", "a", options.Address, "immugw host address")
-	cmd.Flags().IntP("immudbport", "j", options.ImmudbPort, "immudb port number")
-	cmd.Flags().StringP("immudbaddress", "k", options.ImmudbAddress, "immudb host address")
+	cmd.Flags().IntP("immudb-port", "j", options.ImmudbPort, "immudb port number")
+	cmd.Flags().StringP("immudb-address", "k", options.ImmudbAddress, "immudb host address")
 	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.ini)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
@@ -180,10 +181,10 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("default.address", cmd.Flags().Lookup("address")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.immudbport", cmd.Flags().Lookup("immudbport")); err != nil {
+	if err := viper.BindPFlag("default.immudb-port", cmd.Flags().Lookup("immudb-port")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.immudbaddress", cmd.Flags().Lookup("immudbaddress")); err != nil {
+	if err := viper.BindPFlag("default.immudb-address", cmd.Flags().Lookup("immudb-address")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("default.pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
@@ -216,8 +217,8 @@ func bindFlags(cmd *cobra.Command) error {
 func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
 	viper.SetDefault("default.port", options.Port)
 	viper.SetDefault("default.address", options.Address)
-	viper.SetDefault("default.immudbport", options.ImmudbPort)
-	viper.SetDefault("default.immudbaddress", options.ImmudbAddress)
+	viper.SetDefault("default.immudb-port", options.ImmudbPort)
+	viper.SetDefault("default.immudb-address", options.ImmudbAddress)
 	viper.SetDefault("default.pidfile", options.Pidfile)
 	viper.SetDefault("default.logfile", options.Logfile)
 	viper.SetDefault("default.mtls", options.MTLs)

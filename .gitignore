@@ -45,6 +45,7 @@ configs/immuadmin.ini
 configs/immuclient.ini
 configs/immudb.ini
 configs/immugw.ini
+configs/immutestapp.ini
 
 # immudb auth
 immudb_pwd

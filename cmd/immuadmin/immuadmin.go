@@ -41,9 +41,13 @@ func main() {
 		Long: `CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
-  IMMUADMIN_ADDRESS=127.0.0.1
-  IMMUADMIN_PORT=3322
-  IMMUADMIN_MTLS=true`,
+  IMMUADMIN_DEFAULT.ADDRESS=127.0.0.1
+  IMMUADMIN_DEFAULT.PORT=3322
+  IMMUADMIN_DEFAULT.MTLS=true
+  IMMUADMIN_DEFAULT.SERVERNAME=localhost
+  IMMUADMIN_DEFAULT.PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUADMIN_DEFAULT.CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
+  IMMUADMIN_DEFAULT.CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
 		SilenceUsage:      true,
 		SilenceErrors:     true,
 		DisableAutoGenTag: true,

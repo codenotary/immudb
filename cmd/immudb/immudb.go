@@ -17,8 +17,9 @@ limitations under the License.
 package main
 
 import (
-	daem "github.com/takama/daemon"
 	"os"
+
+	daem "github.com/takama/daemon"
 
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
@@ -47,19 +48,20 @@ func main() {
 		Long: `immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
-  IMMUDB_DIR=.
-  IMMUDB_NETWORK=tcp
-  IMMUDB_ADDRESS=127.0.0.1
-  IMMUDB_PORT=3322
-  IMMUDB_DBNAME=immudb
-  IMMUDB_PIDFILE=
-  IMMUDB_LOGFILE=
-  IMMUDB_MTLS=false
-  IMMUDB_AUTH=false
-  IMMUDB_DETACHED=false
-  IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
-  IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
-  IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
+  IMMUDB_DEFAULT.DIR=.
+  IMMUDB_DEFAULT.NETWORK=tcp
+  IMMUDB_DEFAULT.ADDRESS=127.0.0.1
+  IMMUDB_DEFAULT.PORT=3322
+  IMMUDB_DEFAULT.DBNAME=immudb
+  IMMUDB_DEFAULT.PIDFILE=
+  IMMUDB_DEFAULT.LOGFILE=
+  IMMUDB_DEFAULT.MTLS=false
+  IMMUDB_DEFAULT.AUTH=false
+	IMMUDB_DEFAULT.NO-HISTOGRAMS=false
+  IMMUDB_DEFAULT.DETACHED=false
+  IMMUDB_DEFAULT.PKEY=./tools/mtls/3_application/private/localhost.key.pem
+  IMMUDB_DEFAULT.CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
+	IMMUDB_DEFAULT.CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
 		DisableAutoGenTag: true,
 		RunE:              Immudb,
 	}

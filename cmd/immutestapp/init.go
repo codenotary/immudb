@@ -49,6 +49,10 @@ func Init(cmd *cobra.Command, o *c.Options) {
 
 	cmd.Use = "immutestapp [n]"
 	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
+	cmd.Long = `Populate immudb with the (optional) number of entries (100 by default).
+  Environment variables:
+    IMMUTESTAPP_DEFAULT.ADDRESS=127.0.0.1
+    IMMUTESTAPP_DEFAULT.PORT=3322`
 	cmd.Example = "immutestapp 1000"
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cl.connect(cmd, nil)
@@ -193,8 +197,8 @@ func populate(immuClient *client.ImmuClient, nbEntries int) time.Duration {
 }
 
 func options() *client.Options {
-	port := viper.GetInt("default.port")
-	address := viper.GetString("default.address")
+	port := viper.GetInt("default.immudb-port")
+	address := viper.GetString("default.immudb-address")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
@@ -208,8 +212,7 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 	}
 }
 
-func (cl *commandline) connect(cmd *cobra.Command, args []string) {
-	var err error
+func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	if cl.immuClient, err = client.NewImmuClient(options()); err != nil {
 		c.QuitToStdErr(err)
 	}
@@ -217,16 +220,16 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) {
 }
 
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
-	cmd.PersistentFlags().IntP("port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
-	cmd.PersistentFlags().StringP("address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
+	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
+	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
 	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immutestapp.ini)")
-	if err := viper.BindPFlag("default.port", cmd.PersistentFlags().Lookup("port")); err != nil {
+	if err := viper.BindPFlag("default.immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.address", cmd.PersistentFlags().Lookup("address")); err != nil {
+	if err := viper.BindPFlag("default.immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
 		return err
 	}
-	viper.SetDefault("default.port", gw.DefaultOptions().ImmudbPort)
-	viper.SetDefault("default.address", gw.DefaultOptions().ImmudbAddress)
+	viper.SetDefault("default.immudb-port", gw.DefaultOptions().ImmudbPort)
+	viper.SetDefault("default.immudb-address", gw.DefaultOptions().ImmudbAddress)
 	return nil
 }

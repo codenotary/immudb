@@ -1,5 +1,5 @@
-address = 127.0.0.1
-port = 3322
+immudb-address = 127.0.0.1
+immudb-port = 3322
 mtls = false
 servername = localhost
 pkey = ./tools/mtls/4_client/private/localhost.key.pem
