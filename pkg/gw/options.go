@@ -17,7 +17,7 @@ limitations under the License.
 package gw
 
 import (
-	"fmt"
+	"encoding/json"
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -115,7 +115,9 @@ func (o Options) Bind() string {
 }
 
 func (o Options) String() string {
-	return fmt.Sprintf(
-		"{address:%v port:%d immudb-address:%v immudb-port:%d config file:%v pid:%v log:%v MTLs:%v}",
-		o.Address, o.Port, o.ImmudbAddress, o.ImmudbPort, o.Config, o.Pidfile, o.Logfile, o.MTLs)
+	optionsJson, err := json.Marshal(o)
+	if err != nil {
+		return err.Error()
+	}
+	return string(optionsJson)
 }

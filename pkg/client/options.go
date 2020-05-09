@@ -17,7 +17,7 @@ limitations under the License.
 package client
 
 import (
-	"fmt"
+	"encoding/json"
 	"strconv"
 
 	"google.golang.org/grpc"
@@ -107,5 +107,9 @@ func (o *Options) Bind() string {
 }
 
 func (o *Options) String() string {
-	return fmt.Sprintf("{address:%v port:%d auth:%t}", o.Address, o.Port, o.Auth)
+	optionsJson, err := json.Marshal(o)
+	if err != nil {
+		return err.Error()
+	}
+	return string(optionsJson)
 }
