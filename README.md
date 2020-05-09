@@ -166,14 +166,190 @@ The immudb container images can be found here:
 
 ## Quickstart
 
-### Docker
+### Binaries
 
-```bash
-docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:latest
-docker run -it -d -p 3323:3323 --name immugw --env IMMUGW_IMMUDBADDRESS=immudb codenotary/immugw:latest
+Check out our releases and download the required binaries depending on your needs.
+
+- immudb is the server binary that listens on port 3322 on localhost and provides a gRPC interface
+- immugw is the intelligent REST proxy that connects to immudb and provides a RESTful interface for applications. We recommend to run immudb and immugw on separate machines to enhance security
+- immuadmin is the admin CLI for immudb and immugw. You can install and manage the service installation for both components and get statistics as well as runtime information.
+
+The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases )
+
+#### immudb
+
+Simply run ```./immudb -d``` to start immudb locally in the background
+
+```
+immudb - the lightweight, high-speed immutable database for systems and applications.
+
+Environment variables:
+  IMMUDB_DIR=.
+  IMMUDB_NETWORK=tcp
+  IMMUDB_ADDRESS=127.0.0.1
+  IMMUDB_PORT=3322
+  IMMUDB_DBNAME=immudb
+  IMMUDB_PIDFILE=
+  IMMUDB_LOGFILE=
+  IMMUDB_MTLS=false
+  IMMUDB_AUTH=false
+  IMMUDB_DETACHED=false
+  IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
+  IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
+  IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
+
+Usage:
+  immudb [flags]
+  immudb [command]
+
+Available Commands:
+  help        Help about any command
+  version     Show the immudb version
+
+Flags:
+  -a, --address string       bind address (default "127.0.0.1")
+  -s, --auth                 enable auth
+      --certificate string   server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
+      --clientcas string     clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string        config file (default path are configs or $HOME. Default filename is immudb.ini)
+  -n, --dbname string        db name (default "immudb")
+  -d, --detached             run immudb in background
+      --dir string           data folder (default "./db")
+  -h, --help                 help for immudb
+      --logfile string       log path with filename. E.g. /tmp/immudb/immudb.log
+  -m, --mtls                 enable mutual tls
+      --no-histograms        disable collection of histogram metrics like query durations
+      --pidfile string       pid path with filename. E.g. /var/run/immudb.pid
+      --pkey string          server private key path (default "./tools/mtls/3_application/private/localhost.key.pem")
+  -p, --port int             port number (default 3322)
+
+Use "immudb [command] --help" for more information about a command.
+
+```
+
+#### immugw
+
+Simply run ```./immugw``` to start immugw on the same machine as immudb (test or dev environment) or pointing to the remote immudb system ```./immugw --immudbaddress "immudb-server"```.
+
+```
+immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications.
+It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
+
+Environment variables:
+  IMMUGW_ADDRESS=127.0.0.1
+  IMMUGW_PORT=3323
+  IMMUGW_IMMUDBADDRESS=127.0.0.1
+  IMMUGW_IMMUDBPORT=3322
+  IMMUGW_PIDFILE=
+  IMMUGW_LOGFILE=
+  IMMUGW_DETACHED=false
+  IMMUGW_MTLS=false
+  IMMUGW_SERVERNAME=localhost
+  IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
+  IMMUGW_PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
+
+Usage:
+  immugw [flags]
+  immugw [command]
+
+Available Commands:
+  help        Help about any command
+  version     Show the immugw version
+
+Flags:
+  -a, --address string         immugw host address (default "127.0.0.1")
+      --certificate string     server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
+      --clientcas string       clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string          config file (default path are configs or $HOME. Default filename is immugw.ini)
+  -d, --detached               run immudb in background
+  -h, --help                   help for immugw
+  -k, --immudbaddress string   immudb host address (default "127.0.0.1")
+  -j, --immudbport int         immudb port number (default 3322)
+      --logfile string         log path with filename. E.g. /tmp/immugw/immugw.log
+  -m, --mtls                   enable mutual tls
+      --pidfile string         pid path with filename. E.g. /var/run/immugw.pid
+      --pkey string            server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
+  -p, --port int               immugw port number (default 3323)
+      --servername string      used to verify the hostname on the returned certificates (default "localhost")
+
+Use "immugw [command] --help" for more information about a command.
 ```
 
 
+
+#### immuadmin
+
+For security reasons we recommend using immuadmin only on the same system as immudb. Simply run ```./immuadmin``` on the same machine.
+
+```
+CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
+
+Environment variables:
+  IMMUADMIN_ADDRESS=127.0.0.1
+  IMMUADMIN_PORT=3322
+  IMMUADMIN_MTLS=true
+
+Usage:
+  immuadmin [command]
+
+Available Commands:
+  dump        Dump database content to a file
+  help        Help about any command
+  login       Login using the specified username and password (admin username is immu)
+  logout
+  service     Manage immu services
+  stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
+  status      Show heartbeat status
+  user        Perform various user operations: create, delete, change password
+  version     Show the immuadmin version
+
+Flags:
+  -a, --address string       immudb host address (default "127.0.0.1")
+      --certificate string   server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
+      --clientcas string     clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string        config file (default path are configs or $HOME. Default filename is immuadmin.ini)
+  -h, --help                 help for immuadmin
+  -m, --mtls                 enable mutual tls
+      --pkey string          server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
+  -p, --port int             immudb port number (default 3322)
+      --servername string    used to verify the hostname on the returned certificates (default "localhost")
+
+Use "immuadmin [command] --help" for more information about a command.
+
+```
+
+
+
+### Docker
+
+All services and cli components are also available as docker images on dockerhub.com. 
+
+| Component | Container image                               |
+| --------- | --------------------------------------------- |
+| immudb    | https://hub.docker.com/r/codenotary/immudb    |
+| immugw    | https://hub.docker.com/r/codenotary/immugw    |
+| immuadmin | https://hub.docker.com/r/codenotary/immuadmin |
+
+#### Run immudb
+
+```bash
+docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:latest
+```
+
+#### Run immugw
+
+```
+docker run -it -d -p 3323:3323 --name immugw --env IMMUGW_IMMUDBADDRESS=immudb codenotary/immugw:latest
+```
+
+#### Run immuadmin
+
+You can either find immuadmin in the immudb container (/usr/local/bin/immuadmin) or run the docker container to connect to the local immudb.
+
+```
+docker run -it --rm --name immuadmin codenotary/immuadmin:latest status
+```
 
 
 
