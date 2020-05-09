@@ -41,8 +41,8 @@ func main() {
 		Short: "CLI client for immudb - the lightweight, high-speed immutable database for systems and applications",
 		Long: `CLI client for immudb - the lightweight, high-speed immutable database for systems and applications.
 Environment variables:
-  IMMUCLIENT_DEFAULT.ADDRESS=127.0.0.1
-  IMMUCLIENT_DEFAULT.PORT=3322
+  IMMUCLIENT_DEFAULT.IMMUDB-ADDRESS=127.0.0.1
+  IMMUCLIENT_DEFAULT.IMMUDB-PORT=3322
   IMMUCLIENT_DEFAULT.AUTH=false
   IMMUCLIENT_DEFAULT.MTLS=false
   IMMUCLIENT_DEFAULT.SERVERNAME=localhost
