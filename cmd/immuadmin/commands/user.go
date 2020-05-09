@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strings"
 
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/spf13/cobra"
@@ -36,7 +37,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
   Delete user:
     ./immuadmin user delete username`,
 		Aliases:           []string{"u"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.checkLoggedInAndConnect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			action := args[0]
@@ -46,14 +47,14 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			case "create":
 				pass, err := cl.passwordReader.Read("Password:")
 				if err != nil {
-					c.QuitWithUserError(err)
+					c.QuitToStdErr(err)
 				}
 				pass2, err := cl.passwordReader.Read("Confirm password:")
 				if err != nil {
-					c.QuitWithUserError(err)
+					c.QuitToStdErr(err)
 				}
 				if !bytes.Equal(pass, pass2) {
-					c.QuitWithUserError(errors.New("Passwords don't match"))
+					c.QuitToStdErr(errors.New("Passwords don't match"))
 				}
 				_, err = cl.immuClient.CreateUser(ctx, username, pass)
 				if err != nil {
@@ -64,21 +65,21 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			case "change-password":
 				oldPass, err := cl.passwordReader.Read("Old password:")
 				if err != nil {
-					c.QuitWithUserError(err)
+					c.QuitToStdErr(err)
 				}
 				pass, err := cl.passwordReader.Read("New password:")
 				if err != nil {
-					c.QuitWithUserError(err)
+					c.QuitToStdErr(err)
 				}
 				pass2, err := cl.passwordReader.Read("Confirm new password:")
 				if err != nil {
-					c.QuitWithUserError(err)
+					c.QuitToStdErr(err)
 				}
 				if !bytes.Equal(pass, pass2) {
-					c.QuitWithUserError(errors.New("Passwords don't match"))
+					c.QuitToStdErr(errors.New("Passwords don't match"))
 				}
 				if bytes.Equal(pass, oldPass) {
-					c.QuitWithUserError(errors.New("New password is identical to the old one"))
+					c.QuitToStdErr(errors.New("New password is identical to the old one"))
 				}
 				if err = cl.immuClient.ChangePassword(ctx, username, oldPass, pass); err != nil {
 					c.QuitWithUserError(err)
@@ -86,13 +87,19 @@ func (cl *commandline) user(cmd *cobra.Command) {
 				fmt.Printf("Password changed for user %s\n", string(username))
 				return nil
 			case "delete":
+				var answer string
+				fmt.Printf("Are you sure you want to delete user %s? [y/N]: ", username)
+				if _, err := fmt.Scanln(&answer); err != nil ||
+					!(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
+					c.QuitToStdErr("Canceled")
+				}
 				if err := cl.immuClient.DeleteUser(ctx, username); err != nil {
 					c.QuitWithUserError(err)
 				}
 				fmt.Printf("User %s has been deleted\n", string(username))
 				return nil
 			}
-			c.QuitWithUserError(errors.New("Please specify one of the following actions: create, change-password or delete"))
+			c.QuitToStdErr(errors.New("Please specify one of the following actions: create, change-password or delete"))
 			return nil
 		},
 		Args: cobra.ExactArgs(2),

@@ -18,6 +18,8 @@ package commands
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	c "github.com/codenotary/immudb/cmd"
 	"github.com/codenotary/immudb/cmd/docs/man"
@@ -93,6 +95,16 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	if cl.immuClient, err = client.NewImmuClient(options()); err != nil {
+		c.QuitToStdErr(err)
+	}
+	return
+}
+func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
+	opts := options()
+	if _, err = os.Stat(opts.TokenFileName); err != nil && os.IsNotExist(err) {
+		c.QuitToStdErr(fmt.Errorf("please login first"))
+	}
+	if cl.immuClient, err = client.NewImmuClient(opts); err != nil {
 		c.QuitToStdErr(err)
 	}
 	return
