@@ -25,8 +25,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var validArgs = []string{"create", "delete", "change-password"}
-
 func (cl *commandline) user(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:   "user create|change-password|delete username [password]",
