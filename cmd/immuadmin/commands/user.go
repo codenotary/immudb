@@ -31,12 +31,12 @@ func (cl *commandline) user(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:   "user create|change-password|delete username [password]",
 		Short: "Perform various user-related operations: create, delete, change password",
-		Example: `Create a new user:
-  ./immuadmin user create username
-Change password:
-  ./immuadmin user change-password username
-Delete user:
-  ./immuadmin user delete username`,
+		Example: `  Create a new user:
+    ./immuadmin user create username
+  Change password:
+    ./immuadmin user change-password username
+  Delete user:
+    ./immuadmin user delete username`,
 		Aliases:           []string{"u"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
