@@ -17,7 +17,7 @@ limitations under the License.
 package server
 
 import (
-	"fmt"
+	"encoding/json"
 	"strconv"
 )
 
@@ -156,7 +156,9 @@ func (o Options) MetricsBind() string {
 
 // String print options
 func (o Options) String() string {
-	return fmt.Sprintf(
-		"{dir:%v network:%v address:%v port:%d metrics:%d name:%v config file:%v pid:%v log:%v MTLs:%v auth:%t detached:%v no-histograms:%t}",
-		o.Dir, o.Network, o.Address, o.Port, o.MetricsPort, o.DbName, o.Config, o.Pidfile, o.Logfile, o.MTLs, o.Auth, o.Detached, o.NoHistograms)
+	optionsJson, err := json.Marshal(o)
+	if err != nil {
+		return err.Error()
+	}
+	return string(optionsJson)
 }
