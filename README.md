@@ -8,30 +8,28 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 -->
 
-# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb) [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) <img align="right" src="img/Black%20logo%20-%20no%20background.png" width="160px"/>
+# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb) [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb) <img align="right" src="img/Black%20logo%20-%20no%20background.png" width="160px"/> 
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb)
-
-immudb is **lightweight, high-speed immutable database** for systems and applications. With immmudb you can
-track changes in sensitive data in your transactional databases and then record those changes indelibly in a the
-tamperproof immudb database. This allows you to keep an indelible history of, say, your debit/credit transactions.
+immudb is a **lightweight, high-speed immutable database** for systems and applications. With immmudb you can
+track changes in sensitive data in your transactional databases and then record those changes permanently in a
+tamperproof immudb database. This allows you to keep an indelible history of sensitive data, for example debit/credit card transactions.
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
-Traditional transaction logs are hard to scale, and are not immutable. So there is no way to know for sure if your data has been compromised.
+Traditional transaction logs are hard to scale and are mutable. So there is no way to know for sure if your data has been compromised.
 
-As such immudb provides **unparalleled insights** **retro-actively**, of what happened to your sensitive data, even
-if your perimiter was compromised. immudb provides the guarantatee of immutability by using internally a **Merkle tree structure**.
+As such, immudb provides **unparalleled insights** **retroactively** of changes to your sensitive data, even
+if your perimeter has been compromised. immudb guarantees immutability by using a **Merkle tree structure** internally.
 
-immudb gives you the same **cryptographic verification** of the integrity of data written with **SHA-256** like classic blockhain without the cost and complexity associated with blockchains today.
+immudb gives you the same **cryptographic verification** of the integrity of data written with **SHA-256** like a classic blockhain without the cost and complexity associated with blockchains today.
 
 immudb has 4 main benefits:
 
-1. **immudb is immutable**. You can only add records, but **never change or delete records**.
-2. data stored in immudb is **cryptographically coherent and verifiable**, like blockchains, just without all the complexity and at high speed.
-3. Anyone can get **started with immudb in minutes**. Whether in node.js, Java, Python, Golang, .Net, or any other language. It's very easy to use and you can have your immutable database running in just a few minutes.
-4. Finally, immudb is  **Open Source**. You can run it **on premise**, or in the **cloud** and it's completely free. immudb is governed by the Apache 2.0 License.
+1. **immudb is immutable**. You can add records, but **never change or delete records**.
+2. Data stored in immudb is **cryptographically coherent and verifiable**, like blockchains, just without all the complexity and at high speed.
+3. Anyone can get **started with immudb in minutes**. Whether you're using node.js, Java, Python, Golang, .Net, or any other language. It's very easy to use and you can have your immutable database running in just a few minutes.
+4. Finally, immudb is  **Open Source**. You can run it **on premise**, or in the **cloud**. It's completely free. immudb is governed by the Apache 2.0 License.
 
-immudb is currently runs on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
+immudb can be ran on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
 other systems derived from them, such as **Kubernetes** and **Docker**.
 
 **immudb High-level**
@@ -490,7 +488,7 @@ The REST gateway can be also embedded into the immudb binary directly.
 
 #### Drivers for Common Languages
 
-Drivers will be available soon for:
+Drivers will soon be available for:
 
 1. Java
 2. .net
@@ -500,22 +498,25 @@ Drivers will be available soon for:
 
 #### Structured value
 
-The Any message type of protobuffer allows to lets you use messages as embedded types without having their .proto definition. Thus it’s possible to decouple and extend (in future) the value structure.
+Protobuf's [Any](https://developers.google.com/protocol-buffers/docs/proto3#any) message type allows callers to use 
+messages as embedded types without having their .proto definition. Thus, it will soon be possible to decouple and extend
+the value structure. The value, currently a stream of bytes, can be augmented with some client provided metadata. 
+This also permits use of an on-demand serialization/deserialization strategy.
 
-Value (that’s currently is just a stream of bytes) can be augmented with some client provided metadata. The payload includes a timestamp and a value at the moment. In the near future cryptographic signatures will be added as well. It’s possible to decouple and extend (in the future).
-
-The entire payload contribute to hash generation and is inserted in the merkle tree.
+The payload includes a timestamp and a value at the moment. In the near future cryptographic signatures will be added as well. 
+It will be possible to decouple and extend this in the future. The entire payload contribute to hash generation and is inserted in 
+the merkle tree. 
 
 All the complexity is hidden by the SDK.
 
 #### Item References
 
-enables the insertion of a special entry which references to another item
+Enables the insertion of a special entry which references to another item
 
 #### Value timestamp
 
-The server should not set the timestamp, to avoid relying on a not verifiable “single source of truth”.
-Thus the clients have to provide it. The client driver implementation can automatically do that for the user.
+The server should not set the timestamp, to avoid relying on a non-verifiable “single source of truth”.
+Thus, the clients must provide it. The client driver implementation can automatically do that for the user.
 
 #### Primary Index
 
@@ -531,9 +532,7 @@ A signature (PKI) provided by the client can be became part of the insertion pro
 
 #### Authentication (transport)
 
-integrated mTLS offers the best approach for machine-to-machine authentication, also providing communications security (entryption) over the transport channel
-
-
+Integrated mTLS offers the best approach for machine-to-machine authentication, also providing communications security (entryption) over the transport channel
 
 ## Monitor status and performance
 
