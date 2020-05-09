@@ -1,7 +1,0 @@
-FROM scratch
-COPY immudb /bin/immudb
-COPY immuclient /bin/immuclient
-COPY immugw /bin/immugw
-
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "/bin/immuclient", "ping" ]
-ENTRYPOINT ["/bin/immudb"]
