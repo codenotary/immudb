@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -101,11 +100,6 @@ func (s *ImmuServer) Start() error {
 
 	auth.AuthEnabled = s.Options.Auth
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
-	if auth.AuthEnabled {
-		if err = auth.GenerateKeys(); err != nil {
-			return fmt.Errorf("error generating or loading access keys (used for auth token): %v", err)
-		}
-	}
 
 	uuidContext := NewUuidContext(uuid)
 
@@ -203,7 +197,7 @@ func (s *ImmuServer) Stop() error {
 }
 
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
-	if !s.Options.Auth {
+	if !s.Options.Auth && !auth.IsAdminClient(ctx) {
 		return nil, status.Errorf(codes.Unavailable, "authentication is disabled on server")
 	}
 	item, err := s.SysStore.Get(schema.Key{Key: r.User})

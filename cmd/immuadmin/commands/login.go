@@ -34,17 +34,30 @@ func (cl *commandline) login(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			user := []byte(args[0])
+			tokenFileName := cl.immuClient.GetOptions().TokenFileName
+			ctx := cl.context
+			user := args[0]
+			if user == auth.AdminUsername {
+				//===> maybe this is the first admin command so login with empty pass
+				//		 to try to trigger admin user creation (and password generation)
+				if _, err := os.Stat(tokenFileName); err != nil && os.IsNotExist(err) {
+					_, err := cl.immuClient.Login(ctx, []byte(user), []byte{})
+					if err != nil {
+						if errMsg, matches := (&auth.ErrFirstAdminCall{}).With(user, "").Matches(err); matches {
+							c.QuitToStdErr(fmt.Errorf(errMsg))
+						}
+					}
+				}
+				//<===
+			}
 			pass, err := cl.passwordReader.Read("Password:")
 			if err != nil {
-				c.QuitWithUserError(err)
+				c.QuitToStdErr(err)
 			}
-			ctx := cl.context
-			response, err := cl.immuClient.Login(ctx, user, pass)
+			response, err := cl.immuClient.Login(ctx, []byte(user), pass)
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			tokenFileName := cl.immuClient.GetOptions().TokenFileName
 			if err := ioutil.WriteFile(tokenFileName, response.Token, 0644); err != nil {
 				c.QuitToStdErr(err)
 			}

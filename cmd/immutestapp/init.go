@@ -140,7 +140,7 @@ func checkForEmptyDB(serverAddress string) {
 
 func askUserToConfirmOrCancel() {
 	var answer string
-	fmt.Printf("Are you sure you want to proceed? [y/N]:")
+	fmt.Printf("Are you sure you want to proceed? [y/N]: ")
 	if _, err := fmt.Scanln(&answer); err != nil ||
 		!(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 		c.QuitToStdErr("Canceled")

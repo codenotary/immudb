@@ -28,6 +28,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/common"
 	"github.com/o1egl/paseto"
 	"golang.org/x/crypto/bcrypt"
@@ -82,7 +83,7 @@ func GenerateKeys() error {
 	var err error
 	publicKey, privateKey, err = ed25519.GenerateKey(nil)
 	if err != nil {
-		return fmt.Errorf("error generating public and private keys: %v", err)
+		return fmt.Errorf("error generating public and private keys (used for signing and verifying tokens): %v", err)
 	}
 	return nil
 }
@@ -146,6 +147,11 @@ const tokenValidity = 1 * time.Hour
 
 // GenerateToken ...
 func GenerateToken(user User) (string, error) {
+	if privateKey == nil || len(privateKey) == 0 {
+		if err := GenerateKeys(); err != nil {
+			return "", err
+		}
+	}
 	now := time.Now()
 	jsonToken := paseto.JSONToken{
 		Expiration: now.Add(tokenValidity),
@@ -168,6 +174,11 @@ type JSONToken struct {
 }
 
 func verifyToken(token string) (*JSONToken, error) {
+	if publicKey == nil || len(publicKey) == 0 {
+		if err := GenerateKeys(); err != nil {
+			return nil, err
+		}
+	}
 	var jsonToken paseto.JSONToken
 	var footer string
 	if err := pasetoV2.Verify(token, publicKey, &jsonToken, &footer); err != nil {
@@ -258,7 +269,7 @@ func isAdmin(method string) bool {
 	_, ok := methodsForAdmin[method]
 	return ok
 }
-func isAdminClient(ctx context.Context) bool {
+func IsAdminClient(ctx context.Context) bool {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return false
@@ -278,46 +289,66 @@ func (e *ErrFirstAdminCall) Error() string {
 	return e.message
 }
 
+func (e *ErrFirstAdminCall) With(username string, password string) *ErrFirstAdminCall {
+	e.message = fmt.Sprintf(
+		"\nThis looks like the very first admin access hence the following "+
+			"credentials have been generated:\n---\nusername: %s\npassword: %s\n---\n"+
+			"IMPORTANT: This is the only time they are shown, so make sure you remember them.",
+		username,
+		password,
+	)
+	return e
+}
+
+func (e *ErrFirstAdminCall) Matches(err error) (string, bool) {
+	errMsg := err.Error()
+	grpcErrPieces := strings.Split(errMsg, "desc =")
+	if len(grpcErrPieces) > 1 {
+		errMsg = strings.TrimSpace(strings.Join(grpcErrPieces[1:], ""))
+	}
+	errPieces := strings.Split(errMsg, "---")
+	expectedPieces := strings.Split(e.message, "---")
+	return errMsg, len(errPieces) == 3 && len(expectedPieces) == 3 &&
+		strings.TrimSpace(errPieces[0]) == strings.TrimSpace(expectedPieces[0]) &&
+		strings.TrimSpace(errPieces[2]) == strings.TrimSpace(expectedPieces[2])
+}
+
 func createAdminUserAndMsg(ctx context.Context) (*ErrFirstAdminCall, error) {
 	username, plainPassword, err := CreateAdminUser(ctx)
 	if err == nil {
-		return &ErrFirstAdminCall{
-			message: fmt.Sprintf(
-				"\nThis looks like the very first admin access hence the following "+
-					"credentials have been generated:\n---\nusername: %s\npassword: %s\n---\n"+
-					"IMPORTANT: This is the only time they are shown, so make sure you remember them.",
-				username,
-				plainPassword,
-			),
-		}, nil
+		return (&ErrFirstAdminCall{}).With(username, plainPassword), nil
 	}
 	return nil, err
 }
 
-func checkAuth(ctx context.Context, method string) error {
-	if !AuthEnabled {
+func checkAuth(ctx context.Context, method string, req interface{}) error {
+	isAdminCLI := IsAdminClient(ctx)
+	isAuthEnabled := AuthEnabled || isAdminCLI
+	if !isAuthEnabled {
 		if !isLocalClient(ctx) {
 			return status.Errorf(
 				codes.PermissionDenied,
 				"server has authentication disabled: only local connections are accepted")
 		}
 	}
-	if method == loginMethod && AuthEnabled && isAdminClient(ctx) && !AdminUserExists(ctx) {
-		if firstAdminCallMsg, err2 := createAdminUserAndMsg(ctx); err2 == nil {
+	// if it's the first admin call, generated admin user and password
+	if method == loginMethod && isAuthEnabled && isAdminCLI {
+		lReq, ok := req.(*schema.LoginRequest)
+		if ok && string(lReq.GetUser()) == AdminUsername &&
+			len(lReq.GetPassword()) == 0 && !AdminUserExists(ctx) {
+			firstAdminCallMsg, err2 := createAdminUserAndMsg(ctx)
+			if err2 != nil {
+				return err2
+			}
 			return firstAdminCallMsg
 		}
 	}
-	if AuthEnabled && HasAuth(method) {
+	if isAuthEnabled && HasAuth(method) {
 		jsonToken, err := verifyTokenFromCtx(ctx)
 		if err != nil {
-			if isAdmin(method) && !AdminUserExists(ctx) {
-				if firstAdminCallMsg, err2 := createAdminUserAndMsg(ctx); err2 == nil {
-					return firstAdminCallMsg
-				}
-			}
 			return err
 		}
-		if isAdmin(method) {
+		if isAdmin(method) || isAdminCLI {
 			if !jsonToken.Admin {
 				return status.Errorf(codes.PermissionDenied, "permission denied")
 			}

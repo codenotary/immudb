@@ -65,9 +65,6 @@ func (s *ImmuServer) createAdminUser(ctx context.Context) (string, string, error
 }
 
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.CreateUserResponse, error) {
-	if !s.Options.Auth {
-		return nil, status.Errorf(codes.Unavailable, "authentication is disabled on server")
-	}
 	item, err := s.SysStore.Get(schema.Key{Key: r.GetUser()})
 	if err != nil && err != store.ErrKeyNotFound {
 		s.Logger.Errorf("error checking if user already exists: %v", err)
@@ -95,9 +92,6 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
 	e := new(empty.Empty)
-	if !s.Options.Auth {
-		return e, status.Errorf(codes.Unavailable, "authentication is disabled on server")
-	}
 	item, err := s.SysStore.Get(schema.Key{Key: r.GetUser()})
 	if err != nil {
 		s.Logger.Errorf("error getting user: %v", err)
@@ -130,9 +124,6 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 
 func (s *ImmuServer) DeleteUser(ctx context.Context, r *schema.DeleteUserRequest) (*empty.Empty, error) {
 	e := new(empty.Empty)
-	if !s.Options.Auth {
-		return e, status.Errorf(codes.Unavailable, "authentication is disabled on server")
-	}
 	item, err := s.SysStore.Get(schema.Key{Key: r.GetUser()})
 	if err != nil {
 		s.Logger.Errorf("error getting user: %v", err)
