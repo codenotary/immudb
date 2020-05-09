@@ -51,8 +51,8 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
 	cmd.Long = `Populate immudb with the (optional) number of entries (100 by default).
   Environment variables:
-    IMMUTESTAPP_DEFAULT.ADDRESS=127.0.0.1
-    IMMUTESTAPP_DEFAULT.PORT=3322`
+    IMMUTESTAPP_DEFAULT.IMMUDB-ADDRESS=127.0.0.1
+    IMMUTESTAPP_DEFAULT.IMMUDB-PORT=3322`
 	cmd.Example = "immutestapp 1000"
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cl.connect(cmd, nil)
