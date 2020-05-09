@@ -176,7 +176,7 @@ Check out our releases and download the required binaries depending on your need
 
 The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases )
 
-#### Build the binaries it yourself
+#### Build the binaries yourself
 
 To build the binaries yourself, simply clone this repo and run
 
