@@ -8,6 +8,7 @@ logfile =
 mtls = false
 detached = false
 auth = false
+no-histograms = false
 pkey = ./tools/mtls/3_application/private/localhost.key.pem
 certificate = ./tools/mtls/3_application/certs/localhost.cert.pem
 clientcas = ./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
