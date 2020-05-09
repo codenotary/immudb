@@ -170,11 +170,29 @@ The immudb container images can be found here:
 
 Check out our releases and download the required binaries depending on your needs.
 
-- immudb is the server binary that listens on port 3322 on localhost and provides a gRPC interface
-- immugw is the intelligent REST proxy that connects to immudb and provides a RESTful interface for applications. We recommend to run immudb and immugw on separate machines to enhance security
-- immuadmin is the admin CLI for immudb and immugw. You can install and manage the service installation for both components and get statistics as well as runtime information.
+- **immudb** is the server binary that listens on port 3322 on localhost and provides a gRPC interface
+- **immugw** is the intelligent REST proxy that connects to immudb and provides a RESTful interface for applications. We recommend to run immudb and immugw on separate machines to enhance security
+- **immuadmin** is the admin CLI for immudb and immugw. You can install and manage the service installation for both components and get statistics as well as runtime information.
 
 The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases )
+
+#### Build the binaries it yourself
+
+To build the binaries yourself, simply clone this repo and run
+
+##### Linux
+
+```bash
+GOOS=linux GOARCH=amd64 make immuadmin-static immudb-static immugw-static
+```
+
+##### Windows
+
+```bash
+GOOS=windows GOARCH=amd64 make immuadmin-static immudb-static immugw-static
+```
+
+
 
 #### immudb
 
@@ -349,6 +367,16 @@ You can either find immuadmin in the immudb container (/usr/local/bin/immuadmin)
 
 ```
 docker run -it --rm --name immuadmin codenotary/immuadmin:latest status
+```
+
+#### Build the container images yourself
+
+If you want to build the container images yourself, simply clone this repo and run
+
+```
+docker build -t myown/immudb:latest -f Dockerfile .
+docker build -t myown/immugw:latest -f Dockerfile.immugw .
+docker build -t myown/immuadmin:latest -f Dockerfile.immuadmin .
 ```
 
 
