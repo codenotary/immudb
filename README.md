@@ -28,7 +28,7 @@ immudb has 4 main benefits:
 
 1. **immudb is immutable**. You can only add records, but **never change or delete records**.
 2. data stored in immudb is **cryptographically coherent and verifiable**, like blockchains, just without all the complexity and at high speed.
-3. Anyone can get **started with immudb in minutes**. Wether in node.js, Java, Python, Golang, .Net, or any other language. It's very easy to use and you can have your immutable database running in just a few minutes.
+3. Anyone can get **started with immudb in minutes**. Whether in node.js, Java, Python, Golang, .Net, or any other language. It's very easy to use and you can have your immutable database running in just a few minutes.
 4. Finally, immudb is  **Open Source**. You can run it **on premise**, or in the **cloud** and it's completely free. immudb is governed by the Apache 2.0 License.
 
 immudb is currently runs on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
