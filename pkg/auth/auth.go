@@ -326,9 +326,9 @@ func checkAuth(ctx context.Context, method string, req interface{}) error {
 				"server has authentication disabled: only local connections are accepted")
 		}
 	}
-	// if it's the first admin call, generated admin user and password
 	if method == loginMethod && isAuthEnabled && isAdminCLI {
 		lReq, ok := req.(*schema.LoginRequest)
+		// if it's the very first admin login attempt, generate admin user and password
 		if ok && string(lReq.GetUser()) == AdminUsername &&
 			len(lReq.GetPassword()) == 0 && !AdminUserExists(ctx) {
 			firstAdminCallMsg, err2 := createAdminUserAndMsg(ctx)
@@ -336,6 +336,10 @@ func checkAuth(ctx context.Context, method string, req interface{}) error {
 				return err2
 			}
 			return firstAdminCallMsg
+		}
+		// do not allow users other than admin to login from immuadmin CLI
+		if string(lReq.GetUser()) != AdminUsername {
+			return status.Errorf(codes.PermissionDenied, "permission denied")
 		}
 	}
 	if isAuthEnabled && HasAuth(method) {
