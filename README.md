@@ -34,8 +34,15 @@ immudb has 4 main benefits:
 immudb is currently runs on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
 other systems derived from them, such as **Kubernetes** and **Docker**.
 
+**immudb High-level**
+
+![immudb Highlevel](img/highlevel.png "immudb highlevel overview")
+
+
+
 [![Tweet about
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
+
 
 
 ## Contents
@@ -59,7 +66,13 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 ## What does it look like?
 
-![immudb Highlevel](img/highlevel.png "immudb highlevel overview")
+**First Start**
+
+![immudb first start](img/immudb-start.png "immudb start foreground")
+
+**immuadmin performance view**
+
+![immudb statistics](img/stats-v.png "immudb statistics view")
 
 
 
