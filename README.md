@@ -605,7 +605,7 @@ We already learned about the following use cases from users:
 
 ## Documentation
 
-### immudb gRPC API reference
+### immudb RESTful API reference
 
 You can find the swagger schema here:
 
@@ -617,7 +617,9 @@ If you want to run the Swagger UI, simply run the following docker command after
 docker run -d -it -p 8080:8080 --name swagger-immudb -v ${PWD}/pkg/api/schema/schema.swagger.json:/openapi.json -e SWAGGER_JSON=/openapi.json  swaggerapi/swagger-ui
 ```
 
+### immudb gRPC API reference
 
+coming soon
 
 ### immugw RESTful API reference
 
