@@ -95,6 +95,7 @@ func (s *ImmuGwServer) Start() error {
 
 func (s *ImmuGwServer) Stop() error {
 	s.Logger.Infof("stopping immugw: %v", s.Options)
+	defer func() { s.quit <- struct{}{} }()
 	return nil
 }
 
