@@ -281,42 +281,37 @@ func IsAdminClient(ctx context.Context) bool {
 var AdminUserExists func(ctx context.Context) bool
 var CreateAdminUser func(ctx context.Context) (string, string, error)
 
-type ErrFirstAdminCall struct {
+type ErrFirstAdminLogin struct {
 	message string
 }
 
-func (e *ErrFirstAdminCall) Error() string {
+func (e *ErrFirstAdminLogin) Error() string {
 	return e.message
 }
 
-func (e *ErrFirstAdminCall) With(username string, password string) *ErrFirstAdminCall {
+func (e *ErrFirstAdminLogin) With(username string, password string) *ErrFirstAdminLogin {
 	e.message = fmt.Sprintf(
-		"\nThis looks like the very first admin access hence the following "+
-			"credentials have been generated:\n---\nusername: %s\npassword: %s\n---\n"+
-			"IMPORTANT: This is the only time they are shown, so make sure you remember them.",
+		"FirstAdminLogin\n---\nusername: %s\npassword: %s\n---\n",
 		username,
 		password,
 	)
 	return e
 }
 
-func (e *ErrFirstAdminCall) Matches(err error) (string, bool) {
+func (e *ErrFirstAdminLogin) Matches(err error) (string, bool) {
 	errMsg := err.Error()
 	grpcErrPieces := strings.Split(errMsg, "desc =")
 	if len(grpcErrPieces) > 1 {
 		errMsg = strings.TrimSpace(strings.Join(grpcErrPieces[1:], ""))
 	}
-	errPieces := strings.Split(errMsg, "---")
-	expectedPieces := strings.Split(e.message, "---")
-	return errMsg, len(errPieces) == 3 && len(expectedPieces) == 3 &&
-		strings.TrimSpace(errPieces[0]) == strings.TrimSpace(expectedPieces[0]) &&
-		strings.TrimSpace(errPieces[2]) == strings.TrimSpace(expectedPieces[2])
+	return strings.TrimPrefix(errMsg, "FirstAdminLogin"),
+		strings.Index(errMsg, "FirstAdminLogin") == 0
 }
 
-func createAdminUserAndMsg(ctx context.Context) (*ErrFirstAdminCall, error) {
+func createAdminUserAndMsg(ctx context.Context) (*ErrFirstAdminLogin, error) {
 	username, plainPassword, err := CreateAdminUser(ctx)
 	if err == nil {
-		return (&ErrFirstAdminCall{}).With(username, plainPassword), nil
+		return (&ErrFirstAdminLogin{}).With(username, plainPassword), nil
 	}
 	return nil, err
 }

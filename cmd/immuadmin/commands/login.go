@@ -43,8 +43,15 @@ func (cl *commandline) login(cmd *cobra.Command) {
 				if _, err := os.Stat(tokenFileName); err != nil && os.IsNotExist(err) {
 					_, err := cl.immuClient.Login(ctx, []byte(user), []byte{})
 					if err != nil {
-						if errMsg, matches := (&auth.ErrFirstAdminCall{}).With(user, "").Matches(err); matches {
-							c.QuitToStdErr(fmt.Errorf(errMsg))
+						if errMsg, matches := (&auth.ErrFirstAdminLogin{}).With(user, "").Matches(err); matches {
+							c.QuitToStdErr(
+								fmt.Errorf(
+									"===============\n"+
+										"This looks like the very first admin login attempt, hence the following "+
+										"credentials have been generated:%s"+
+										"\nIMPORTANT: This is the only time they are shown, so make sure you remember them."+
+										"\n===============", errMsg),
+							)
 						}
 					}
 				}
