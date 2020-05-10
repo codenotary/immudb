@@ -10,7 +10,7 @@ STRIP = strip
 V_COMMIT := $(shell git rev-parse HEAD)
 V_BUILT_BY := $(shell git config user.name)
 V_BUILT_AT := $(shell date)
-V_LDFLAGS_COMMON := -X "main.Commit=$(V_COMMIT)" -X "main.BuiltBy=$(V_BUILT_BY)" -X "main.BuiltAt=$(V_BUILT_AT)"
+V_LDFLAGS_COMMON := -X "github.com/codenotary/immudb/cmd/version.Commit=$(V_COMMIT)" -X "github.com/codenotary/immudb/cmd/version.BuiltBy=$(V_BUILT_BY)" -X "github.com/codenotary/immudb/cmd/version.BuiltAt=$(V_BUILT_AT)"
 
 V_COMMON := v.0.0.1
 V_IMMUCLIENT := $(V_COMMON)
@@ -19,11 +19,11 @@ V_IMMUDB := $(V_COMMON)
 V_IMMUGW := $(V_COMMON)
 V_IMMUTESTAPP := $(V_COMMON)
 
-V_IMMUCLIENT_LDFLAGS := -X "main.Version=$(V_IMMUCLIENT)" $(V_LDFLAGS_COMMON)
-V_IMMUADMIN_LDFLAGS := -X "main.Version=$(V_IMMUADMIN)" $(V_LDFLAGS_COMMON)
-V_IMMUDB_LDFLAGS := -X "main.Version=$(V_IMMUDB)" $(V_LDFLAGS_COMMON)
-V_IMMUGW_LDFLAGS := -X "main.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
-V_IMMUTESTAPP_LDFLAGS := -X "main.Version=$(V_IMMUTESTAPP)" $(V_LDFLAGS_COMMON)
+V_IMMUCLIENT_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUCLIENT)" $(V_LDFLAGS_COMMON)
+V_IMMUADMIN_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUADMIN)" $(V_LDFLAGS_COMMON)
+V_IMMUDB_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUDB)" $(V_LDFLAGS_COMMON)
+V_IMMUGW_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
+V_IMMUTESTAPP_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUTESTAPP)" $(V_LDFLAGS_COMMON)
 #<~~~
 .PHONY: all
 all: immudb immuclient immugw immuadmin immutestapp bm
@@ -34,23 +34,23 @@ rebuild: clean build/codegen all
 
 .PHONY: immuclient
 immuclient:
-	$(GO) build -v -ldflags '$(V_IMMUCLIENT_LDFLAGS)' ./cmd/immuclient
+	$(GO) build -v -ldflags '$(V_IMMUCLIENT_LDFLAGS)' ./cmd/immuclient.go
 
 .PHONY: immuadmin
 immuadmin:
-	$(GO) build -v -ldflags '$(V_IMMUADMIN_LDFLAGS)' ./cmd/immuadmin
+	$(GO) build -v -ldflags '$(V_IMMUADMIN_LDFLAGS)' ./cmd/immuadmin.go
 
 .PHONY: immudb
 immudb:
-	$(GO) build -v -ldflags '$(V_IMMUDB_LDFLAGS)' ./cmd/immudb
+	$(GO) build -v -ldflags '$(V_IMMUDB_LDFLAGS)' ./cmd/immudb.go
 
 .PHONY: immugw
 immugw:
-	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw
+	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw.go
 
 .PHONY: immutestapp
 immutestapp:
-	$(GO) build -v -ldflags '$(V_IMMUTESTAPP_LDFLAGS)' ./cmd/immutestapp
+	$(GO) build -v -ldflags '$(V_IMMUTESTAPP_LDFLAGS)' ./cmd/immutestapp.go
 
 .PHONY: immuclient-static
 immuclient-static:

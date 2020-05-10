@@ -84,6 +84,11 @@ func InstallSetup(serviceName string) (err error) {
 	return err
 }
 
+func UninstallSetup(serviceName string) (err error) {
+	// Useless at the moment
+	return err
+}
+
 func installConfig(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err

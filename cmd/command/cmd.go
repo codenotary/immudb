@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cmd
+package command
+
+// todo @Michele command package can be refactored in order to semplify packages schema
 
 import (
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"os"
 	"os/exec"
@@ -27,13 +30,14 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
-	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 const DetachedFlag = "detached"
 const DetachedShortFlag = "d"
+
+const LinuxManPath = "/usr/share/man/man1/"
 
 // Options cmd options
 type Options struct {

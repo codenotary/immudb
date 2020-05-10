@@ -14,28 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package immuclient
 
 import (
-	c "github.com/codenotary/immudb/cmd"
-	"github.com/codenotary/immudb/cmd/immuclient/commands"
-
+	c "github.com/codenotary/immudb/cmd/command"
+	"github.com/codenotary/immudb/cmd/version"
 	"github.com/spf13/cobra"
 )
 
-var App = "immuclient"
-var Version string
-var Commit string
-var BuiltBy string
-var BuiltAt string
-
-var o = &c.Options{}
+var o = c.Options{}
 
 func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immuclient") })
 }
 
-func main() {
+func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "immuclient",
 		Short: "CLI client for immudb - the lightweight, high-speed immutable database for systems and applications",
@@ -52,10 +45,8 @@ Environment variables:
 		DisableAutoGenTag: true,
 	}
 
-	commands.Init(cmd, o)
-	cmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
+	Init(cmd, &o)
+	cmd.AddCommand(version.VersionCmd())
 
-	if err := cmd.Execute(); err != nil {
-		c.QuitToStdErr(err)
-	}
+	return cmd
 }

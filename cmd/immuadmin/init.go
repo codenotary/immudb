@@ -14,22 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package commands
+package immuadmin
 
 import (
-	"github.com/codenotary/immudb/cmd"
-	c "github.com/codenotary/immudb/cmd"
+	"context"
+	"fmt"
+	"os"
+
+	c "github.com/codenotary/immudb/cmd/command"
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/common"
 	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc/metadata"
 )
 
 type commandline struct {
-	ImmuClient     client.ImmuClient
-	passwordReader cmd.PasswordReader
+	immuClient     client.ImmuClient
+	passwordReader c.PasswordReader
+	context        context.Context
 }
+
+type commandlineDisc struct{}
 
 func Init(cmd *cobra.Command, o *c.Options) {
 	if err := configureOptions(cmd, o); err != nil {
@@ -37,46 +45,26 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	}
 	cl := new(commandline)
 	cl.passwordReader = c.DefaultPasswordReader
+	cl.context = metadata.NewOutgoingContext(
+		context.Background(),
+		metadata.Pairs(common.ClientIDMetadataKey, common.ClientIDMetadataValueAdmin))
 
-	// login and logout
+	cl.user(cmd)
 	cl.login(cmd)
 	cl.logout(cmd)
-	// current status
-	cl.currentRoot(cmd)
-	// get operations
-	cl.getByIndex(cmd)
-	cl.getKey(cmd)
-	cl.rawSafeGetKey(cmd)
-	cl.safeGetKey(cmd)
-	// set operations
-	cl.rawSafeSet(cmd)
-	cl.set(cmd)
-	cl.safeset(cmd)
-	cl.zAdd(cmd)
-	cl.safeZAdd(cmd)
-	// scanners
-	cl.zScan(cmd)
-	cl.iScan(cmd)
-	cl.scan(cmd)
-	cl.count(cmd)
-	// references
-	cl.reference(cmd)
-	cl.safereference(cmd)
-	// misc
-	cl.inclusion(cmd)
-	cl.consistency(cmd)
-	cl.history(cmd)
-	cl.healthCheck(cmd)
+	cl.status(cmd)
+	cl.stats(cmd)
 	cl.dumpToFile(cmd)
 
-	// man file generator
-	cmd.AddCommand(man.Generate(cmd, "immuclient", "./cmd/docs/man/immuclient"))
+	cld := new(commandlineDisc)
+	cld.service(cmd)
+
+	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/immuadmin"))
 }
 
 func options() *client.Options {
 	port := viper.GetInt("immudb-port")
 	address := viper.GetString("immudb-address")
-	authEnabled := viper.GetBool("auth")
 	mtls := viper.GetBool("mtls")
 	certificate := viper.GetString("certificate")
 	servername := viper.GetString("servername")
@@ -85,7 +73,8 @@ func options() *client.Options {
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
-		WithAuth(authEnabled).
+		WithAuth(true).
+		WithTokenFileName("token_admin").
 		WithMTLs(mtls)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
@@ -98,24 +87,33 @@ func options() *client.Options {
 	return options
 }
 
+func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
+	if err := cl.immuClient.Disconnect(); err != nil {
+		c.QuitToStdErr(err)
+	}
+}
+
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-	if cl.ImmuClient, err = client.NewImmuClient(options()); err != nil || cl.ImmuClient == nil {
+	if cl.immuClient, err = client.NewImmuClient(options()); err != nil {
+		c.QuitToStdErr(err)
+	}
+	return
+}
+func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
+	opts := options()
+	if _, err = os.Stat(opts.TokenFileName); err != nil && os.IsNotExist(err) {
+		c.QuitToStdErr(fmt.Errorf("please login first"))
+	}
+	if cl.immuClient, err = client.NewImmuClient(opts); err != nil {
 		c.QuitToStdErr(err)
 	}
 	return
 }
 
-func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
-	if err := cl.ImmuClient.Disconnect(); err != nil {
-		c.QuitToStdErr(err)
-	}
-}
-
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.toml)")
-	cmd.PersistentFlags().BoolP("auth", "s", client.DefaultOptions().Auth, "use authentication")
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuadmin.toml)")
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
@@ -125,9 +123,6 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 		return err
 	}
 	if err := viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("auth", cmd.PersistentFlags().Lookup("auth")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
@@ -147,7 +142,6 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	}
 	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
 	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
-	viper.SetDefault("auth", client.DefaultOptions().Auth)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
 	viper.SetDefault("certificate", client.DefaultMTLsOptions().Certificate)

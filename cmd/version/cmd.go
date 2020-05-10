@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cmd
+package version
 
 import (
 	"fmt"
@@ -23,39 +23,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func VersionCmd(
-	app string,
-	version string,
-	commit string,
-	builtBy string,
-	builtAt string,
-) *cobra.Command {
+var App string
+var Version string
+var Commit string
+var BuiltBy string
+var BuiltAt string
+
+func VersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: fmt.Sprintf("Show the %s version", app),
+		Short: fmt.Sprintf("Show the %s version", App),
 		Run: func(_ *cobra.Command, _ []string) {
-			if app == "" || version == "" {
+			if App == "" || Version == "" {
 				return
 			}
 			pieces := []string{
-				fmt.Sprintf("%s %s", app, version),
+				fmt.Sprintf("%s %s", App, Version),
 			}
 			const strPattern = "%-*s: %s"
 			const longestLabelLength = 8
-			if commit != "" {
+			if Commit != "" {
 				pieces = append(
 					pieces,
-					fmt.Sprintf(strPattern, longestLabelLength, "Commit", commit))
+					fmt.Sprintf(strPattern, longestLabelLength, "Commit", Commit))
 			}
-			if builtBy != "" {
+			if BuiltBy != "" {
 				pieces = append(
 					pieces,
-					fmt.Sprintf(strPattern, longestLabelLength, "Built by", builtBy))
+					fmt.Sprintf(strPattern, longestLabelLength, "Built by", BuiltBy))
 			}
-			if builtAt != "" {
+			if BuiltAt != "" {
 				pieces = append(
 					pieces,
-					fmt.Sprintf(strPattern, longestLabelLength, "Built at", builtAt))
+					fmt.Sprintf(strPattern, longestLabelLength, "Built at", BuiltAt))
 			}
 			fmt.Println(strings.Join(pieces, "\n"))
 		},

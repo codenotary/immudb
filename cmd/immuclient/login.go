@@ -14,58 +14,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package commands
+package immuclient
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 
-	c "github.com/codenotary/immudb/cmd"
-	"github.com/codenotary/immudb/pkg/auth"
+	c "github.com/codenotary/immudb/cmd/command"
 	"github.com/spf13/cobra"
 )
-
-func checkFirstAdminLogin(err error) {
-	if errMsg, matches := (&auth.ErrFirstAdminLogin{}).With("", "").Matches(err); matches {
-		c.QuitToStdErr(
-			fmt.Errorf(
-				"===============\n"+
-					"This looks like the very first admin login attempt, hence the following "+
-					"credentials have been generated:%s"+
-					"\nIMPORTANT: This is the only time they are shown, so make sure you remember them."+
-					"\n===============", errMsg),
-		)
-	}
-}
 
 func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "login username (you will be prompted for password)",
-		Short:             fmt.Sprintf("Login using the specified username and password (admin username is %s)", auth.AdminUsername),
+		Short:             "Login using the specified username and password",
 		Aliases:           []string{"l"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tokenFileName := cl.immuClient.GetOptions().TokenFileName
-			ctx := cl.context
-			user := args[0]
-			if user == auth.AdminUsername {
-				if _, err := os.Stat(tokenFileName); err != nil && os.IsNotExist(err) {
-					if _, err := cl.immuClient.Login(ctx, []byte(user), []byte{}); err != nil {
-						checkFirstAdminLogin(err)
-					}
-				}
-			}
+			user := []byte(args[0])
 			pass, err := cl.passwordReader.Read("Password:")
 			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			response, err := cl.immuClient.Login(ctx, []byte(user), pass)
-			if err != nil {
-				checkFirstAdminLogin(err)
 				c.QuitWithUserError(err)
 			}
+			ctx := context.Background()
+			response, err := cl.ImmuClient.Login(ctx, user, pass)
+			if err != nil {
+				c.QuitWithUserError(err)
+			}
+			tokenFileName := cl.ImmuClient.GetOptions().TokenFileName
 			if err := ioutil.WriteFile(tokenFileName, response.Token, 0644); err != nil {
 				c.QuitToStdErr(err)
 			}
@@ -84,7 +63,7 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			os.Remove(cl.immuClient.GetOptions().TokenFileName)
+			os.Remove(cl.ImmuClient.GetOptions().TokenFileName)
 			fmt.Println("logged out")
 			return nil
 		},
