@@ -432,13 +432,13 @@ The release contains 3 components, the main immutable database immudb, a RESTful
 
 When adding data the merkle tree changes as well as shown in the diagram
 
-![the merkle tree changes with every new data](img\immudb-adding-data-diagram.png)
+![the merkle tree changes with every new data](img/immudb-adding-data-diagram.png)
 
 #### checking data consistency
 
 The following diagram explains how data is inserted, verified and consistency checked.
 
-![How immudb data consistency works](img\immudb-consistency-diagram.png)
+![How immudb data consistency works](img/immudb-consistency-diagram.png)
 
 
 
@@ -446,7 +446,7 @@ The following diagram explains how data is inserted, verified and consistency ch
 
 immugw proxies REST client communication and gRPC server interface. For security purposes immugw should not run on the same server as immudb. The following diagram shows how the communication works:
 
-![immugw communication explained](img\immugw-diagram.png)
+![immugw communication explained](img/immugw-diagram.png)
 
 ## Features
 
@@ -565,7 +565,7 @@ Avg. duration (nb calls)   :    µs
 
 or visual (default)
 
-![immuadmin stats](img\stats-v.png)
+![immuadmin stats](img/stats-v.png)
 
 ### Performance monitoring (Prometheus)
 
