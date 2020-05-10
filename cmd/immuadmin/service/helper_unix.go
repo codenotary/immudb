@@ -20,7 +20,10 @@ package service
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/cmd/immudb"
+	"github.com/codenotary/immudb/cmd/immugw"
 	"github.com/takama/daemon"
 	"io"
 	"os"
@@ -88,21 +91,21 @@ func InstallSetup(serviceName string) (err error) {
 		return err
 	}
 
-	if err = os.MkdirAll(viper.GetString("default.dir"), os.ModePerm); err != nil {
+	if err = os.MkdirAll(viper.GetString("dir"), os.ModePerm); err != nil {
 		return err
 	}
-	if err = setOwnership(viper.GetString("default.dir")); err != nil {
+	if err = setOwnership(viper.GetString("dir")); err != nil {
 		return err
 	}
 
-	logPath := filepath.Dir(viper.GetString("default.logfile"))
+	logPath := filepath.Dir(viper.GetString("logfile"))
 	if _, err = os.Stat(logPath); !os.IsNotExist(err) {
 		if err = setOwnership(logPath); err != nil {
 			return err
 		}
 	}
 
-	pidPath := filepath.Dir(viper.GetString("default.pidfile"))
+	pidPath := filepath.Dir(viper.GetString("pidfile"))
 	if err = os.MkdirAll(pidPath, os.ModePerm); err != nil {
 		return err
 	}
@@ -111,7 +114,16 @@ func InstallSetup(serviceName string) (err error) {
 			return err
 		}
 	}
+	if err = installManPages(serviceName); err != nil {
+		return err
+	}
+	return err
+}
 
+func UninstallSetup(serviceName string) (err error) {
+	if err = uninstallManPages(serviceName); err != nil {
+		return err
+	}
 	return err
 }
 
@@ -257,6 +269,30 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	return newExecPath, err
 }
 
+func installManPages(serviceName string) error {
+	switch serviceName {
+	case "immudb":
+		return immudb.InstallManPages()
+	case "immugw":
+		return immugw.InstallManPages()
+	default:
+		return errors.New("invalid service name specified")
+	}
+	return nil
+}
+
+func uninstallManPages(serviceName string) error {
+	switch serviceName {
+	case "immudb":
+		return immudb.UnistallManPages()
+	case "immugw":
+		return immugw.UnistallManPages()
+	default:
+		return errors.New("invalid service name specified")
+	}
+	return nil
+}
+
 // GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
 func GetDefaultExecPath(localFile string) string {
 	execName := filepath.Base(localFile)
@@ -275,6 +311,7 @@ func IsRunning(status string) bool {
 }
 
 func readConfig(serviceName string) (err error) {
+	viper.SetConfigType("toml")
 	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
 }
 

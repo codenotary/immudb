@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package immutestapp
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	c "github.com/codenotary/immudb/cmd"
+	c "github.com/codenotary/immudb/cmd/command"
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/gw"

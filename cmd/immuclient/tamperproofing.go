@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package commands
+package immuclient
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strconv"
 
-	c "github.com/codenotary/immudb/cmd"
+	c "github.com/codenotary/immudb/cmd/command"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/spf13/cobra"
 )

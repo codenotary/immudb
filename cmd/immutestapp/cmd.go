@@ -14,30 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package immutestapp
 
 import (
-	c "github.com/codenotary/immudb/cmd"
+	c "github.com/codenotary/immudb/cmd/command"
+	"github.com/codenotary/immudb/cmd/version"
 	"github.com/spf13/cobra"
 )
 
-var App = "immutestapp"
-var Version string
-var Commit string
-var BuiltBy string
-var BuiltAt string
-
-var o = &c.Options{}
+var o = c.Options{}
 
 func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immutestapp") })
 }
 
-func main() {
+func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{}
-	Init(cmd, o)
-	cmd.AddCommand(c.VersionCmd(App, Version, Commit, BuiltBy, BuiltAt))
-	if err := cmd.Execute(); err != nil {
-		c.QuitToStdErr(err)
-	}
+	Init(cmd, &o)
+	cmd.AddCommand(version.VersionCmd())
+	return cmd
 }

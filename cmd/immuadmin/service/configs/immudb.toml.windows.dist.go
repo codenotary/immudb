@@ -18,7 +18,7 @@ limitations under the License.
 
 package service
 
-var ConfigImmudb = []byte(`dir = C:\ProgramData\Immudb
+var ConfigImmudb = []byte(`dir = "C:\ProgramData\Immudb"
 network = "tcp"
 address = "127.0.0.1"
 port = 3322

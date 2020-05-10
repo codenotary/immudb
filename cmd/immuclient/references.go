@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package commands
+package immuclient
 
 import (
 	"bufio"
@@ -24,7 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	c "github.com/codenotary/immudb/cmd"
+	c "github.com/codenotary/immudb/cmd/command"
 	"github.com/spf13/cobra"
 )
 
