@@ -17,14 +17,15 @@ ENV IMMUGW_HOME="/usr/share/immudb" \
     IMMUGW_IMMUDBPORT="3322" \
     IMMUGW_MTLS="false" \
     IMMUGW_DETACHED="false" \
-    IMMUGW_PKEY="$IMMUGW_HOME/mtls/3_application/private/key.pem" \
-    IMMUGW_CERTIFICATE="$IMMUGW_HOME/mtls/3_application/certs/server.pem" \
-    IMMUGW_CLIENTCAS="$IMMUGW_HOME/mtls/2_intermediate/certs/ca-chain.pem"
+    IMMUGW_PKEY="/usr/share/immudb/mtls/3_application/private/key.pem" \
+    IMMUGW_CERTIFICATE="/usr/share/immudb/mtls/3_application/certs/server.pem" \
+    IMMUGW_CLIENTCAS="/usr/share/immudb/mtls/2_intermediate/certs/ca-chain.pem"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
     mkdir -p "$IMMUGW_HOME" && \
     chown -R immu:immu "$IMMUGW_HOME" && \
+    chmod -R 777 "$IMMUGW_HOME"
     chmod +x /usr/sbin/immugw
 
 EXPOSE 3323
