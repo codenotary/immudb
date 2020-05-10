@@ -48,6 +48,7 @@ func (s *ImmuGwServer) Start() error {
 
 	ic, err := immuclient.NewImmuClient(cliOpts)
 	if err != nil {
+		s.Logger.Errorf("Unable to instantiate client %s", err)
 		return err
 	}
 	mux := runtime.NewServeMux()
@@ -69,8 +70,8 @@ func (s *ImmuGwServer) Start() error {
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeZAdd_0(), sza.SafeZAdd)
 
 	err = schema.RegisterImmuServiceHandlerClient(ctx, mux, *ic.GetServiceClient())
-
 	if err != nil {
+		s.Logger.Errorf("Unable to register client handlers %s", err)
 		return err
 	}
 
@@ -78,6 +79,7 @@ func (s *ImmuGwServer) Start() error {
 	s.Logger.Infof("starting immugw: %v", s.Options)
 	if s.Options.Pidfile != "" {
 		if s.Pid, err = server.NewPid(s.Options.Pidfile); err != nil {
+			s.Logger.Errorf("failed to write pidfile: %s", err)
 			return err
 		}
 	}
