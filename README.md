@@ -428,9 +428,25 @@ The release contains 3 components, the main immutable database immudb, a RESTful
 
 ## How immudb works
 
-in the making
+#### adding data
+
+When adding data the merkle tree changes as well as shown in the diagram
+
+![the merkle tree changes with every new data](img\immudb-adding-data-diagram.png)
+
+#### checking data consistency
+
+The following diagram explains how data is inserted, verified and consistency checked.
+
+![How immudb data consistency works](img\immudb-consistency-diagram.png)
 
 
+
+#### immugw communication
+
+immugw proxies REST client communication and gRPC server interface. For security purposes immugw should not run on the same server as immudb. The following diagram shows how the communication works:
+
+![immugw communication explained](img\immugw-diagram.png)
 
 ## Features
 
@@ -493,7 +509,63 @@ integrated mTLS offers the best approach for machine-to-machine authentication, 
 
 ### immuadmin CLI
 
+With `immuadmin stats` you can access text `-t` or visual statistics:
 
+```
+./immuadmin stats -t
+Database path              :    db/immudb
+Uptime                     :    1m38.64s
+Number of entries          :    12
+LSM size                   :    701 B
+VLog size                  :    1.1 kB
+Total size                 :    1.8 kB
+Number of clients          :    1
+Queries per client         :
+   127.0.0.1               :    26
+      Last query           :    749.641765ms ago
+Avg. duration (nb calls)   :    µs
+   ByIndex (0)             :    0
+   ByIndexSV (0)           :    0
+   ChangePassword (0)      :    0
+   Consistency (0)         :    0
+   Count (0)               :    0
+   CreateUser (0)          :    0
+   CurrentRoot (0)         :    0
+   DeleteUser (0)          :    0
+   Dump (0)                :    0
+   Get (5)                 :    20
+   GetBatch (0)            :    0
+   GetBatchSV (0)          :    0
+   GetSV (0)               :    0
+   Health (16)             :    33
+   History (0)             :    0
+   HistorySV (0)           :    0
+   IScan (0)               :    0
+   IScanSV (0)             :    0
+   Inclusion (0)           :    0
+   Login (0)               :    0
+   Reference (0)           :    0
+   SafeGet (0)             :    0
+   SafeGetSV (0)           :    0
+   SafeReference (0)       :    0
+   SafeSet (0)             :    0
+   SafeSetSV (0)           :    0
+   SafeZAdd (0)            :    0
+   Scan (0)                :    0
+   ScanSV (0)              :    0
+   Set (5)                 :    76
+   SetBatch (0)            :    0
+   SetBatchSV (0)          :    0
+   SetSV (0)               :    0
+   ZAdd (0)                :    0
+   ZScan (0)               :    0
+   ZScanSV (0)             :    0
+
+```
+
+or visual (default)
+
+![immuadmin stats](img\stats-v.png)
 
 ### Performance monitoring (Prometheus)
 
@@ -517,13 +589,39 @@ There is a Grafana dashboard available as well: https://grafana.com/grafana/dash
 
 ## Real world examples
 
-Opvizor - immutable log solution for VMware vSphere !!!
+We already learned about the following use cases from users:
+
+- use immudb to immutably store every update to sensitive database fields (credit card or bank account data) of an existing application database
+- store CI/CD recipes in immudb to protect build and deployment pipelines
+- store public certificates in immudb
+- use immudb as an additional hash storage for digital objects checksums
+- store log streams (i. e. audit logs) tamperproof
+
+### Projects using immudb
+
+[Opvizor](https://www.opvizor.com) - immutable log (syslog) solution for VMware vSphere
 
 
 
 ## Documentation
 
-!!! Link to swagger
+### immudb gRPC API reference
+
+You can find the swagger schema here:
+
+https://github.com/codenotary/immudb/blob/master/pkg/api/schema/schema.swagger.json
+
+If you want to run the Swagger UI, simply run the following docker command after you cloned this repo:
+
+```
+docker run -d -it -p 8080:8080 --name swagger-immudb -v ${PWD}/pkg/api/schema/schema.swagger.json:/openapi.json -e SWAGGER_JSON=/openapi.json  swaggerapi/swagger-ui
+```
+
+
+
+### immugw RESTful API reference
+
+coming soon
 
 
 
@@ -562,7 +660,7 @@ To report bugs or get help, use [GitHub's issues](https://github.com/codenotary/
 
 immudb is [Apache v2.0 License](LICENSE).
 
-immudb re-distributes other open-source tools and libraries. (++add repo list++)
+immudb re-distributes other open-source tools and libraries - [Acknowledgements](ACKNOWLEDGEMENTS.md).
 
 
 ## Is it awesome?
