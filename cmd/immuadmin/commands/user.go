@@ -45,7 +45,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			ctx := cl.context
 			switch action {
 			case "create":
-				pass, err := cl.passwordReader.Read("Password:")
+				pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose password for user %s:", username))
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
