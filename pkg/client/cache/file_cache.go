@@ -17,7 +17,9 @@ limitations under the License.
 package cache
 
 import (
+	"github.com/spf13/viper"
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
@@ -33,9 +35,10 @@ func NewFileCache() Cache {
 }
 
 func (w *fileCache) Get(serverUuid string) (*schema.Root, error) {
-	fn := getRootFileName([]byte(ROOT_FN), []byte(serverUuid))
+	fn := filepath.Join(viper.GetString("dir"), string(getRootFileName([]byte(ROOT_FN), []byte(serverUuid))))
+
 	root := new(schema.Root)
-	buf, err := ioutil.ReadFile(string(fn))
+	buf, err := ioutil.ReadFile(fn)
 	if err == nil {
 		if err = proto.Unmarshal(buf, root); err != nil {
 			return nil, err
@@ -46,12 +49,13 @@ func (w *fileCache) Get(serverUuid string) (*schema.Root, error) {
 }
 
 func (w *fileCache) Set(root *schema.Root, serverUuid string) error {
-	fn := getRootFileName([]byte(ROOT_FN), []byte(serverUuid))
+	fn := filepath.Join(viper.GetString("dir"), string(getRootFileName([]byte(ROOT_FN), []byte(serverUuid))))
+
 	raw, err := proto.Marshal(root)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(string(fn), raw, 0644)
+	err = ioutil.WriteFile(fn, raw, 0644)
 	if err != nil {
 		return err
 	}

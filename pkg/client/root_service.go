@@ -29,8 +29,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const ROOT_FN = ".root"
-
 type RootService interface {
 	GetRoot(ctx context.Context) (*schema.Root, error)
 	SetRoot(root *schema.Root) error
