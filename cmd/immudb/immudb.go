@@ -48,20 +48,20 @@ func main() {
 		Long: `immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
-  IMMUDB_DEFAULT.DIR=.
-  IMMUDB_DEFAULT.NETWORK=tcp
-  IMMUDB_DEFAULT.ADDRESS=127.0.0.1
-  IMMUDB_DEFAULT.PORT=3322
-  IMMUDB_DEFAULT.DBNAME=immudb
-  IMMUDB_DEFAULT.PIDFILE=
-  IMMUDB_DEFAULT.LOGFILE=
-  IMMUDB_DEFAULT.MTLS=false
-  IMMUDB_DEFAULT.AUTH=false
-	IMMUDB_DEFAULT.NO-HISTOGRAMS=false
-  IMMUDB_DEFAULT.DETACHED=false
-  IMMUDB_DEFAULT.PKEY=./tools/mtls/3_application/private/localhost.key.pem
-  IMMUDB_DEFAULT.CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
-	IMMUDB_DEFAULT.CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
+  IMMUDB_DIR=.
+  IMMUDB_NETWORK=tcp
+  IMMUDB_ADDRESS=127.0.0.1
+  IMMUDB_PORT=3322
+  IMMUDB_DBNAME=immudb
+  IMMUDB_PIDFILE=
+  IMMUDB_LOGFILE=
+  IMMUDB_MTLS=false
+  IMMUDB_AUTH=false
+  IMMUDB_NO-HISTOGRAMS=false
+  IMMUDB_DETACHED=false
+  IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
+  IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
+  IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
 		DisableAutoGenTag: true,
 		RunE:              Immudb,
 	}
@@ -121,23 +121,23 @@ func Immudb(cmd *cobra.Command, args []string) (err error) {
 }
 
 func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
-	dir := viper.GetString("default.dir")
-	port := viper.GetInt("default.port")
-	address := viper.GetString("default.address")
-	dbName := viper.GetString("default.dbname")
+	dir := viper.GetString("dir")
+	port := viper.GetInt("port")
+	address := viper.GetString("address")
+	dbName := viper.GetString("dbname")
 	// config file came only from arguments or default folder
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return server.Options{}, err
 	}
-	pidfile := viper.GetString("default.pidfile")
-	logfile := viper.GetString("default.logfile")
-	mtls := viper.GetBool("default.mtls")
-	auth := viper.GetBool("default.auth")
-	noHistograms := viper.GetBool("default.no-histograms")
-	detached := viper.GetBool("default.detached")
-	certificate := viper.GetString("default.certificate")
-	pkey := viper.GetString("default.pkey")
-	clientcas := viper.GetString("default.clientcas")
+	pidfile := viper.GetString("pidfile")
+	logfile := viper.GetString("logfile")
+	mtls := viper.GetBool("mtls")
+	auth := viper.GetBool("auth")
+	noHistograms := viper.GetBool("no-histograms")
+	detached := viper.GetBool("detached")
+	certificate := viper.GetString("certificate")
+	pkey := viper.GetString("pkey")
+	clientcas := viper.GetString("clientcas")
 
 	options = server.
 		DefaultOptions().
@@ -167,7 +167,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
 	cmd.Flags().StringP("dbname", "n", options.DbName, "db name")
-	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.ini)")
+	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
@@ -180,60 +180,60 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 }
 
 func bindFlags(cmd *cobra.Command) error {
-	if err := viper.BindPFlag("default.dir", cmd.Flags().Lookup("dir")); err != nil {
+	if err := viper.BindPFlag("dir", cmd.Flags().Lookup("dir")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.port", cmd.Flags().Lookup("port")); err != nil {
+	if err := viper.BindPFlag("port", cmd.Flags().Lookup("port")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.address", cmd.Flags().Lookup("address")); err != nil {
+	if err := viper.BindPFlag("address", cmd.Flags().Lookup("address")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.dbname", cmd.Flags().Lookup("dbname")); err != nil {
+	if err := viper.BindPFlag("dbname", cmd.Flags().Lookup("dbname")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
+	if err := viper.BindPFlag("pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.logfile", cmd.Flags().Lookup("logfile")); err != nil {
+	if err := viper.BindPFlag("logfile", cmd.Flags().Lookup("logfile")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.mtls", cmd.Flags().Lookup("mtls")); err != nil {
+	if err := viper.BindPFlag("mtls", cmd.Flags().Lookup("mtls")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.auth", cmd.Flags().Lookup("auth")); err != nil {
+	if err := viper.BindPFlag("auth", cmd.Flags().Lookup("auth")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.no-histograms", cmd.Flags().Lookup("no-histograms")); err != nil {
+	if err := viper.BindPFlag("no-histograms", cmd.Flags().Lookup("no-histograms")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.detached", cmd.Flags().Lookup("detached")); err != nil {
+	if err := viper.BindPFlag("detached", cmd.Flags().Lookup("detached")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.certificate", cmd.Flags().Lookup("certificate")); err != nil {
+	if err := viper.BindPFlag("certificate", cmd.Flags().Lookup("certificate")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.pkey", cmd.Flags().Lookup("pkey")); err != nil {
+	if err := viper.BindPFlag("pkey", cmd.Flags().Lookup("pkey")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
+	if err := viper.BindPFlag("clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
 		return err
 	}
 	return nil
 }
 
 func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
-	viper.SetDefault("default.dir", options.Dir)
-	viper.SetDefault("default.port", options.Port)
-	viper.SetDefault("default.address", options.Address)
-	viper.SetDefault("default.dbname", options.DbName)
-	viper.SetDefault("default.pidfile", options.Pidfile)
-	viper.SetDefault("default.logfile", options.Logfile)
-	viper.SetDefault("default.mtls", options.MTLs)
-	viper.SetDefault("default.auth", options.Auth)
-	viper.SetDefault("default.no-histograms", options.NoHistograms)
-	viper.SetDefault("default.detached", options.Detached)
-	viper.SetDefault("default.certificate", mtlsOptions.Certificate)
-	viper.SetDefault("default.pkey", mtlsOptions.Pkey)
-	viper.SetDefault("default.clientcas", mtlsOptions.ClientCAs)
+	viper.SetDefault("dir", options.Dir)
+	viper.SetDefault("port", options.Port)
+	viper.SetDefault("address", options.Address)
+	viper.SetDefault("dbname", options.DbName)
+	viper.SetDefault("pidfile", options.Pidfile)
+	viper.SetDefault("logfile", options.Logfile)
+	viper.SetDefault("mtls", options.MTLs)
+	viper.SetDefault("auth", options.Auth)
+	viper.SetDefault("no-histograms", options.NoHistograms)
+	viper.SetDefault("detached", options.Detached)
+	viper.SetDefault("certificate", mtlsOptions.Certificate)
+	viper.SetDefault("pkey", mtlsOptions.Pkey)
+	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
 }

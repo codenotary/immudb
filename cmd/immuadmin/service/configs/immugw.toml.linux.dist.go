@@ -1,4 +1,4 @@
-// +build windows
+// +build linux darwin freebsd
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -18,16 +18,15 @@ limitations under the License.
 
 package service
 
-var ConfigImmugw = []byte(`dir = C:\ProgramData\Immugw
-address = 127.0.0.1
+var ConfigImmugw = []byte(`address = "127.0.0.1"
 port = 3323
-immudbaddress = 127.0.0.1
-immudbport = 3322
-pidfile = C:\ProgramData\Immugw\config\immugw.pid
-logfile = C:\ProgramData\Immugw\config\immugw.log
+immudb-address = "127.0.0.1"
+immudb-port = 3322
+pidfile = "/var/run/immugw.pid"
+logfile = "/var/log/immudb/immugw.log"
 mtls = false
 detached = false
-servername = localhost
-pkey = C:\ProgramData\Immugw\config\mtls\4_client\private\localhost.key.pem
-certificate = C:\ProgramData\Immugw\config\mtls\4_client\certs\localhost.cert.pem
-clientcas = C:\ProgramData\Immugw\config\mtls\2_intermediate\certs\ca-chain.cert.pem`)
+servername = "localhost"
+pkey = "/etc/immudb/mtls/4_client/private/localhost.key.pem"
+certificate = "/etc/immudb/mtls/4_client/certs/localhost.cert.pem"
+clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"`)

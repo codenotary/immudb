@@ -50,7 +50,7 @@ func DefaultOptions() Options {
 		MetricsPort:  9497,
 		DbName:       "immudb",
 		SysDbName:    "immudbsys",
-		Config:       "configs/immudb.ini",
+		Config:       "configs/immudb.toml",
 		Pidfile:      "",
 		Logfile:      "",
 		MTLs:         false,

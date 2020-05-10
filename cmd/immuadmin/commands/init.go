@@ -63,13 +63,13 @@ func Init(cmd *cobra.Command, o *c.Options) {
 }
 
 func options() *client.Options {
-	port := viper.GetInt("default.immudb-port")
-	address := viper.GetString("default.immudb-address")
-	mtls := viper.GetBool("default.mtls")
-	certificate := viper.GetString("default.certificate")
-	servername := viper.GetString("default.servername")
-	pkey := viper.GetString("default.pkey")
-	clientcas := viper.GetString("default.clientcas")
+	port := viper.GetInt("immudb-port")
+	address := viper.GetString("immudb-address")
+	mtls := viper.GetBool("mtls")
+	certificate := viper.GetString("certificate")
+	servername := viper.GetString("servername")
+	pkey := viper.GetString("pkey")
+	clientcas := viper.GetString("clientcas")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
@@ -113,40 +113,40 @@ func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuadmin.ini)")
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuadmin.toml)")
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
 	cmd.PersistentFlags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")
 	cmd.PersistentFlags().String("clientcas", client.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
-	if err := viper.BindPFlag("default.immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
+	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
+	if err := viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
+	if err := viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.servername", cmd.PersistentFlags().Lookup("servername")); err != nil {
+	if err := viper.BindPFlag("servername", cmd.PersistentFlags().Lookup("servername")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.certificate", cmd.PersistentFlags().Lookup("certificate")); err != nil {
+	if err := viper.BindPFlag("certificate", cmd.PersistentFlags().Lookup("certificate")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.pkey", cmd.PersistentFlags().Lookup("pkey")); err != nil {
+	if err := viper.BindPFlag("pkey", cmd.PersistentFlags().Lookup("pkey")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.clientcas", cmd.PersistentFlags().Lookup("clientcas")); err != nil {
+	if err := viper.BindPFlag("clientcas", cmd.PersistentFlags().Lookup("clientcas")); err != nil {
 		return err
 	}
-	viper.SetDefault("default.immudb-port", gw.DefaultOptions().ImmudbPort)
-	viper.SetDefault("default.immudb-address", gw.DefaultOptions().ImmudbAddress)
-	viper.SetDefault("default.mtls", client.DefaultOptions().MTLs)
-	viper.SetDefault("default.servername", client.DefaultMTLsOptions().Servername)
-	viper.SetDefault("default.certificate", client.DefaultMTLsOptions().Certificate)
-	viper.SetDefault("default.pkey", client.DefaultMTLsOptions().Pkey)
-	viper.SetDefault("default.clientcas", client.DefaultMTLsOptions().ClientCAs)
+	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
+	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
+	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
+	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
+	viper.SetDefault("certificate", client.DefaultMTLsOptions().Certificate)
+	viper.SetDefault("pkey", client.DefaultMTLsOptions().Pkey)
+	viper.SetDefault("clientcas", client.DefaultMTLsOptions().ClientCAs)
 
 	return nil
 }

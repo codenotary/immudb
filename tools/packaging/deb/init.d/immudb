@@ -3,7 +3,7 @@
 # chkconfig: 2345 80 05
 # description: immudb database
 # processname: immudb
-# config: /etc/immudb/immudb.ini
+# config: /etc/immudb/immudb.toml
 # pidfile: /var/run/immudb.pid
 
 ### BEGIN INIT INFO
@@ -31,7 +31,7 @@ CONF_DIR=/etc/immudb
 WORK_DIR=$IMMU_HOME
 DATA_DIR=/var/lib/immudb
 LOG_DIR=/var/log/immudb
-CONF_FILE=$CONF_DIR/immudb.ini
+CONF_FILE=$CONF_DIR/immudb.toml
 MAX_OPEN_FILES=10000
 PID_FILE=/var/run/$NAME.pid
 DAEMON=/usr/sbin/$NAME
