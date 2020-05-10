@@ -28,9 +28,9 @@ config_files:
   ./packaging/deb/init.d/immugw: "/etc/init.d/immugw"
   ./packaging/deb/default/immudb: "/etc/default/immudb"
   ./packaging/deb/default/immugw: "/etc/default/immugw"
-  ./packaging/deb/default/immudb.ini.dist: "/etc/immudb/immudb.ini"
-  ./packaging/deb/default/immugw.ini.dist: "/etc/immudb/immugw.ini"
-  ./packaging/deb/default/immuclient.ini.dist: "/etc/immudb/immuclient.ini"
+  ./packaging/deb/default/immudb.toml.dist: "/etc/immudb/immudb.toml"
+  ./packaging/deb/default/immugw.toml.dist: "/etc/immudb/immugw.toml"
+  ./packaging/deb/default/immuclient.toml.dist: "/etc/immudb/immuclient.toml"
   ./packaging/deb/systemd/immudb.service: "/usr/lib/systemd/system/immudb.service"
   ./packaging/deb/systemd/immugw.service: "/usr/lib/systemd/system/immugw.service"
   ./packaging/deb/man/immuclient.1: "/usr/local/share/man/man1"
@@ -46,4 +46,3 @@ overrides:
   deb:
     scripts:
       postinstall: ./packaging/deb/control/postinst
-

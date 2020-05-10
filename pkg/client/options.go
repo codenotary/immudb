@@ -42,7 +42,7 @@ func DefaultOptions() *Options {
 		HealthCheckRetries: 5,
 		MTLs:               false,
 		Auth:               false,
-		Config:             "configs/immuclient.ini",
+		Config:             "configs/immuclient.toml",
 		TokenFileName:      "token",
 		DialOptions:        &[]grpc.DialOption{},
 	}

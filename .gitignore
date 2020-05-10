@@ -41,11 +41,11 @@ immudb.pid
 vendor
 
 # Config
-configs/immuadmin.ini
-configs/immuclient.ini
-configs/immudb.ini
-configs/immugw.ini
-configs/immutestapp.ini
+configs/immuadmin.toml
+configs/immuclient.toml
+configs/immudb.toml
+configs/immugw.toml
+configs/immutestapp.toml
 
 # immudb auth
 immudb_pwd

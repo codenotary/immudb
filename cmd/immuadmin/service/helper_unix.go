@@ -77,7 +77,7 @@ func EraseData(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.FromSlash(viper.GetString("default.dir")))
+	return os.RemoveAll(filepath.FromSlash(viper.GetString("dir")))
 }
 
 // GetExecutable checks for the service executable name provided.
@@ -142,7 +142,7 @@ func GetDefaultExecPath(localFile string) string {
 
 // GetDefaultConfigPath returns the default config path
 func GetDefaultConfigPath(serviceName string) string {
-	return filepath.Join(linuxConfigPath, serviceName+".ini")
+	return filepath.Join(linuxConfigPath, serviceName+".toml")
 }
 
 // IsRunning check if status derives from a running process
@@ -152,7 +152,6 @@ func IsRunning(status string) bool {
 }
 
 func readConfig(serviceName string) (err error) {
-	viper.SetConfigType("ini")
 	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
 }
 

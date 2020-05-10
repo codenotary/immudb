@@ -44,7 +44,7 @@ func DefaultOptions() Options {
 		ImmudbPort:    3322,
 		Detached:      false,
 		MTLs:          false,
-		Config:        "configs/immugw.ini",
+		Config:        "configs/immugw.toml",
 		Pidfile:       "",
 		Logfile:       "",
 	}

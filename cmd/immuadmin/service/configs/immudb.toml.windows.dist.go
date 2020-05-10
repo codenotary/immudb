@@ -1,4 +1,4 @@
-// +build linux darwin freebsd
+// +build windows
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -18,16 +18,16 @@ limitations under the License.
 
 package service
 
-var ConfigImmudb = []byte(`dir = /var/lib/immudb
-network = tcp
-address = 127.0.0.1
+var ConfigImmudb = []byte(`dir = C:\ProgramData\Immudb
+network = "tcp"
+address = "127.0.0.1"
 port = 3322
-dbname = data
-pidfile = /var/run/immudb.pid
-logfile = /var/log/immudb/immudb.log
+dbname = "data"
+pidfile = "C:\ProgramData\Immudb\config\immudb.pid"
+logfile = "C:\ProgramData\Immudb\config\immudb.log"
 mtls = false
 detached = false
 auth = false
-pkey = /etc/immudb/mtls/3_application/private/localhost.key.pem
-certificate = /etc/immudb/mtls/3_application/certs/localhost.cert.pem
-clientcas = /etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem`)
+pkey = "C:\ProgramData\Immudb\config\mtls\3_application\private\localhost.key.pem"
+certificate = "C:\ProgramData\Immudb\config\mtls\3_application\certs\localhost.cert.pem"
+clientcas = "C:\ProgramData\Immudb\config\mtls\2_intermediate\certs\ca-chain.cert.pem"`)

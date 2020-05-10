@@ -18,15 +18,16 @@ limitations under the License.
 
 package service
 
-var ConfigImmugw = []byte(`address = 127.0.0.1
-port = 3323
-immudbaddress = 127.0.0.1
-immudbport = 3322
-pidfile = /var/run/immugw.pid
-logfile = /var/log/immudb/immugw.log
+var ConfigImmudb = []byte(`dir = /var/lib/immudb
+network = "tcp"
+address = "127.0.0.1"
+port = 3322
+dbname = "data"
+pidfile = "/var/run/immudb.pid"
+logfile = "/var/log/immudb/immudb.log"
 mtls = false
 detached = false
-servername = localhost
-pkey = /etc/immudb/mtls/4_client/private/localhost.key.pem
-certificate = /etc/immudb/mtls/4_client/certs/localhost.cert.pem
-clientcas = /etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem`)
+auth = false
+pkey = "/etc/immudb/mtls/3_application/private/localhost.key.pem"
+certificate = "/etc/immudb/mtls/3_application/certs/localhost.cert.pem"
+clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"`)

@@ -89,7 +89,7 @@ func RemoveProgramFiles(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.Join(filepath.FromSlash(viper.GetString("default.dir")), "config"))
+	return os.RemoveAll(filepath.Join(filepath.FromSlash(viper.GetString("dir")), "config"))
 }
 
 // EraseData erase all data
@@ -97,7 +97,7 @@ func EraseData(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.FromSlash(viper.GetString("default.dir")))
+	return os.RemoveAll(filepath.FromSlash(viper.GetString("dir")))
 }
 
 // GetExecutable looks for the service executable name provided or try to use an executable presents in current folder. It returns the absolute file path
@@ -154,8 +154,8 @@ func GetDefaultExecPath(execPath string) string {
 
 // GetDefaultConfigPath returns the default config path
 func GetDefaultConfigPath(serviceName string) string {
-	var dataDir = filepath.FromSlash(viper.GetString("default.dir"))
-	return filepath.Join(strings.Title(dataDir), "config", serviceName+".ini")
+	var dataDir = filepath.FromSlash(viper.GetString("dir"))
+	return filepath.Join(strings.Title(dataDir), "config", serviceName+".toml")
 }
 
 // IsRunning check if status derives from a running process
@@ -164,7 +164,6 @@ func IsRunning(status string) bool {
 }
 
 func readConfig(serviceName string) (err error) {
-	viper.SetConfigType("ini")
 	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
 }
 

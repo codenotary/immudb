@@ -14,7 +14,7 @@ WorkingDirectory=/usr/share/immudb
 RuntimeDirectory=immugw
 RuntimeDirectoryMode=0750
 ExecStartPre=/bin/sleep 30
-ExecStart=/usr/sbin/immugw --config /etc/immudb/immugw.ini
+ExecStart=/usr/sbin/immugw --config /etc/immudb/immugw.toml
 
 LimitNOFILE=10000
 TimeoutStopSec=20

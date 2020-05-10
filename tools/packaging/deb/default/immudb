@@ -12,7 +12,7 @@ MAX_OPEN_FILES=10000
 
 CONF_DIR=/etc/immudb
 
-CONF_FILE=/etc/immudb/immudb.ini
+CONF_FILE=/etc/immudb/immudb.toml
 
 RESTART_ON_UPGRADE=true
 

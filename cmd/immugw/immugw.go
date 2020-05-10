@@ -52,18 +52,18 @@ func main() {
 It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
 
 Environment variables:
-  IMMUGW_DEFAULT.ADDRESS=127.0.0.1
-  IMMUGW_DEFAULT.PORT=3323
-  IMMUGW_DEFAULT.IMMUDB-ADDRESS=127.0.0.1
-  IMMUGW_DEFAULT.IMMUDB-PORT=3322
-  IMMUGW_DEFAULT.PIDFILE=
-  IMMUGW_DEFAULT.LOGFILE=
-  IMMUGW_DEFAULT.DETACHED=false
-  IMMUGW_DEFAULT.MTLS=false
-  IMMUGW_DEFAULT.SERVERNAME=localhost
-  IMMUGW_DEFAULT.PKEY=./tools/mtls/4_client/private/localhost.key.pem
-  IMMUGW_DEFAULT.CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
-  IMMUGW_DEFAULT.CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
+  IMMUGW_ADDRESS=127.0.0.1
+  IMMUGW_PORT=3323
+  IMMUGW_IMMUDB-ADDRESS=127.0.0.1
+  IMMUGW_IMMUDB-PORT=3322
+  IMMUGW_PIDFILE=
+  IMMUGW_LOGFILE=
+  IMMUGW_DETACHED=false
+  IMMUGW_MTLS=false
+  IMMUGW_SERVERNAME=localhost
+  IMMUGW_PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
+  IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var options gw.Options
 			if options, err = parseOptions(cmd); err != nil {
@@ -121,22 +121,22 @@ Environment variables:
 }
 
 func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
-	port := viper.GetInt("default.port")
-	address := viper.GetString("default.address")
-	immudbport := viper.GetInt("default.immudb-port")
-	immudbAddress := viper.GetString("default.immudb-address")
+	port := viper.GetInt("port")
+	address := viper.GetString("address")
+	immudbport := viper.GetInt("immudb-port")
+	immudbAddress := viper.GetString("immudb-address")
 	// config file came only from arguments or default folder
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return gw.Options{}, err
 	}
-	pidfile := viper.GetString("default.pidfile")
-	logfile := viper.GetString("default.logfile")
-	mtls := viper.GetBool("default.mtls")
-	detached := viper.GetBool("default.detached")
-	servername := viper.GetString("default.servername")
-	certificate := viper.GetString("default.certificate")
-	pkey := viper.GetString("default.pkey")
-	clientcas := viper.GetString("default.clientcas")
+	pidfile := viper.GetString("pidfile")
+	logfile := viper.GetString("logfile")
+	mtls := viper.GetBool("mtls")
+	detached := viper.GetBool("detached")
+	servername := viper.GetString("servername")
+	certificate := viper.GetString("certificate")
+	pkey := viper.GetString("pkey")
+	clientcas := viper.GetString("clientcas")
 
 	options = gw.DefaultOptions().
 		WithPort(port).
@@ -163,7 +163,7 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 	cmd.Flags().StringP("address", "a", options.Address, "immugw host address")
 	cmd.Flags().IntP("immudb-port", "j", options.ImmudbPort, "immudb port number")
 	cmd.Flags().StringP("immudb-address", "k", options.ImmudbAddress, "immudb host address")
-	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.ini)")
+	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
@@ -175,55 +175,55 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 }
 
 func bindFlags(cmd *cobra.Command) error {
-	if err := viper.BindPFlag("default.port", cmd.Flags().Lookup("port")); err != nil {
+	if err := viper.BindPFlag("port", cmd.Flags().Lookup("port")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.address", cmd.Flags().Lookup("address")); err != nil {
+	if err := viper.BindPFlag("address", cmd.Flags().Lookup("address")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.immudb-port", cmd.Flags().Lookup("immudb-port")); err != nil {
+	if err := viper.BindPFlag("immudb-port", cmd.Flags().Lookup("immudb-port")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.immudb-address", cmd.Flags().Lookup("immudb-address")); err != nil {
+	if err := viper.BindPFlag("immudb-address", cmd.Flags().Lookup("immudb-address")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
+	if err := viper.BindPFlag("pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.logfile", cmd.Flags().Lookup("logfile")); err != nil {
+	if err := viper.BindPFlag("logfile", cmd.Flags().Lookup("logfile")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.mtls", cmd.Flags().Lookup("mtls")); err != nil {
+	if err := viper.BindPFlag("mtls", cmd.Flags().Lookup("mtls")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.detached", cmd.Flags().Lookup("detached")); err != nil {
+	if err := viper.BindPFlag("detached", cmd.Flags().Lookup("detached")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.servername", cmd.Flags().Lookup("servername")); err != nil {
+	if err := viper.BindPFlag("servername", cmd.Flags().Lookup("servername")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.certificate", cmd.Flags().Lookup("certificate")); err != nil {
+	if err := viper.BindPFlag("certificate", cmd.Flags().Lookup("certificate")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.pkey", cmd.Flags().Lookup("pkey")); err != nil {
+	if err := viper.BindPFlag("pkey", cmd.Flags().Lookup("pkey")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("default.clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
+	if err := viper.BindPFlag("clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
 		return err
 	}
 	return nil
 }
 
 func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
-	viper.SetDefault("default.port", options.Port)
-	viper.SetDefault("default.address", options.Address)
-	viper.SetDefault("default.immudb-port", options.ImmudbPort)
-	viper.SetDefault("default.immudb-address", options.ImmudbAddress)
-	viper.SetDefault("default.pidfile", options.Pidfile)
-	viper.SetDefault("default.logfile", options.Logfile)
-	viper.SetDefault("default.mtls", options.MTLs)
-	viper.SetDefault("default.detached", options.Detached)
-	viper.SetDefault("default.certificate", mtlsOptions.Certificate)
-	viper.SetDefault("default.pkey", mtlsOptions.Pkey)
-	viper.SetDefault("default.clientcas", mtlsOptions.ClientCAs)
+	viper.SetDefault("port", options.Port)
+	viper.SetDefault("address", options.Address)
+	viper.SetDefault("immudb-port", options.ImmudbPort)
+	viper.SetDefault("immudb-address", options.ImmudbAddress)
+	viper.SetDefault("pidfile", options.Pidfile)
+	viper.SetDefault("logfile", options.Logfile)
+	viper.SetDefault("mtls", options.MTLs)
+	viper.SetDefault("detached", options.Detached)
+	viper.SetDefault("certificate", mtlsOptions.Certificate)
+	viper.SetDefault("pkey", mtlsOptions.Pkey)
+	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
 }
