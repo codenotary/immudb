@@ -26,6 +26,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func checkFirstAdminLogin(err error) {
+	if errMsg, matches := (&auth.ErrFirstAdminLogin{}).With("", "").Matches(err); matches {
+		c.QuitToStdErr(
+			fmt.Errorf(
+				"===============\n"+
+					"This looks like the very first admin login attempt, hence the following "+
+					"credentials have been generated:%s"+
+					"\nIMPORTANT: This is the only time they are shown, so make sure you remember them."+
+					"\n===============", errMsg),
+		)
+	}
+}
+
 func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "login username (you will be prompted for password)",
@@ -38,24 +51,11 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			ctx := cl.context
 			user := args[0]
 			if user == auth.AdminUsername {
-				//===> maybe this is the first admin command so login with empty pass
-				//		 to try to trigger admin user creation (and password generation)
 				if _, err := os.Stat(tokenFileName); err != nil && os.IsNotExist(err) {
-					_, err := cl.immuClient.Login(ctx, []byte(user), []byte{})
-					if err != nil {
-						if errMsg, matches := (&auth.ErrFirstAdminLogin{}).With(user, "").Matches(err); matches {
-							c.QuitToStdErr(
-								fmt.Errorf(
-									"===============\n"+
-										"This looks like the very first admin login attempt, hence the following "+
-										"credentials have been generated:%s"+
-										"\nIMPORTANT: This is the only time they are shown, so make sure you remember them."+
-										"\n===============", errMsg),
-							)
-						}
+					if _, err := cl.immuClient.Login(ctx, []byte(user), []byte{}); err != nil {
+						checkFirstAdminLogin(err)
 					}
 				}
-				//<===
 			}
 			pass, err := cl.passwordReader.Read("Password:")
 			if err != nil {
@@ -63,6 +63,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			}
 			response, err := cl.immuClient.Login(ctx, []byte(user), pass)
 			if err != nil {
+				checkFirstAdminLogin(err)
 				c.QuitWithUserError(err)
 			}
 			if err := ioutil.WriteFile(tokenFileName, response.Token, 0644); err != nil {
