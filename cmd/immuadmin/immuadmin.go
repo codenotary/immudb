@@ -20,18 +20,11 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	immuadmin "github.com/codenotary/immudb/cmd/immuadmin/command"
 	"github.com/codenotary/immudb/cmd/version"
-	"github.com/spf13/cobra"
 	"os"
 )
 
-var o = &c.Options{}
-
-func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immuadmin") })
-}
-
 func main() {
-	version.App = "immuclient"
+	version.App = "immuadmin"
 	cmd := immuadmin.NewCmd()
 	if err := cmd.Execute(); err != nil {
 		c.QuitWithUserError(err)

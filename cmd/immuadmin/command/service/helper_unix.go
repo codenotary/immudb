@@ -99,35 +99,43 @@ func InstallSetup(serviceName string) (err error) {
 	}
 
 	logPath := filepath.Dir(viper.GetString("logfile"))
-	if _, err = os.Stat(logPath); !os.IsNotExist(err) {
-		if err = setOwnership(logPath); err != nil {
-			return err
-		}
+	if err = os.MkdirAll(logPath, os.ModePerm); err != nil {
+		return err
+	}
+	if err = setOwnership(logPath); err != nil {
+		return err
 	}
 
 	pidPath := filepath.Dir(viper.GetString("pidfile"))
 	if err = os.MkdirAll(pidPath, os.ModePerm); err != nil {
 		return err
 	}
-	if _, err = os.Stat(pidPath); !os.IsNotExist(err) {
-		if err = setOwnership(pidPath); err != nil {
-			return err
-		}
+	if err = setOwnership(pidPath); err != nil {
+		return err
 	}
+
 	if err = installManPages(serviceName); err != nil {
 		return err
 	}
 	return err
 }
 
+// @todo Michele helper unix should be refactor in order to expose an interface that every service need to implemented.
+// UninstallSetup uninstall operations
 func UninstallSetup(serviceName string) (err error) {
+	if err = uninstallExecutables(serviceName); err != nil {
+		return err
+	}
 	if err = uninstallManPages(serviceName); err != nil {
+		return err
+	}
+	if err = os.RemoveAll(filepath.Dir(viper.GetString("logfile"))); err != nil {
 		return err
 	}
 	return err
 }
 
-// InstallConfig install config in /etc folder
+// installConfig install config in /etc folder
 func installConfig(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
@@ -190,6 +198,7 @@ func groupCreateIfNotExists() (err error) {
 	return err
 }
 
+// todo @Michele this should be moved in UninstallSetup
 // RemoveProgramFiles remove all program files
 func RemoveProgramFiles(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
@@ -208,6 +217,7 @@ func EraseData(serviceName string) (err error) {
 	return os.RemoveAll(filepath.FromSlash(viper.GetString("dir")))
 }
 
+// todo @Michele this can be simplified
 // GetExecutable checks for the service executable name provided.
 // If it's valid returns the absolute file path
 // If is not valid or not presents try to use an executable presents in current executable folder.
@@ -238,6 +248,7 @@ func GetExecutable(input string, serviceName string) (exec string, err error) {
 	return exec, err
 }
 
+// todo @Michele this can be simplified -> CopyExecInOsDefault(servicename string)
 //CopyExecInOsDefault copy the executable in default exec folder and returns the path. It accepts an executable absolute path
 func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	from, err := os.Open(execPath)
@@ -291,6 +302,17 @@ func uninstallManPages(serviceName string) error {
 	}
 }
 
+func uninstallExecutables(serviceName string) error {
+	switch serviceName {
+	case "immudb":
+		return os.Remove(filepath.Join(linuxExecPath, "immudb"))
+	case "immugw":
+		return os.Remove(filepath.Join(linuxExecPath, "immugw"))
+	default:
+		return errors.New("invalid service name specified")
+	}
+}
+
 // GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
 func GetDefaultExecPath(localFile string) string {
 	execName := filepath.Base(localFile)
@@ -320,6 +342,8 @@ var configsMap = map[string][]byte{
 
 // UsageDet details on config and log file on specific os
 var UsageDet = fmt.Sprintf(`Config file is present in %s. Log file is in /var/log/immudb`, linuxConfigPath)
+
+// UsageExamples usage examples for linux
 var UsageExamples = fmt.Sprintf(`Install the immutable database
 sudo ./immuadmin service immudb install
 Install the REST proxy client with rest interface. We discourage to install immugw in the same machine of immudb in order to respect the security model of our technology.
