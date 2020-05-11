@@ -19,10 +19,9 @@ package immuclient
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/common"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +44,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 				c.QuitWithUserError(err)
 			}
 			tokenFileName := cl.ImmuClient.GetOptions().TokenFileName
-			if err := ioutil.WriteFile(tokenFileName, response.Token, 0644); err != nil {
+			if err := common.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 				c.QuitToStdErr(err)
 			}
 			fmt.Printf("logged in\n")
@@ -63,7 +62,7 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			os.Remove(cl.ImmuClient.GetOptions().TokenFileName)
+			common.DeleteFileFromUserHomeDir(cl.ImmuClient.GetOptions().TokenFileName)
 			fmt.Println("logged out")
 			return nil
 		},

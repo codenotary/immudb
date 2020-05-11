@@ -17,6 +17,8 @@ limitations under the License.
 package immuclient
 
 import (
+	"fmt"
+
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
@@ -76,6 +78,7 @@ func options() *client.Options {
 	port := viper.GetInt("immudb-port")
 	address := viper.GetString("immudb-address")
 	authEnabled := viper.GetBool("auth")
+	tokenFileName := viper.GetString("tokenfile")
 	mtls := viper.GetBool("mtls")
 	certificate := viper.GetString("certificate")
 	servername := viper.GetString("servername")
@@ -85,6 +88,7 @@ func options() *client.Options {
 		WithPort(port).
 		WithAddress(address).
 		WithAuth(authEnabled).
+		WithTokenFileName(tokenFileName).
 		WithMTLs(mtls)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
@@ -115,6 +119,13 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
 	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.toml)")
 	cmd.PersistentFlags().BoolP("auth", "s", client.DefaultOptions().Auth, "use authentication")
+	cmd.PersistentFlags().StringP(
+		"tokenfile",
+		"t",
+		client.DefaultOptions().TokenFileName,
+		fmt.Sprintf(
+			"authentication token file (default path is $HOME or binary location; default filename is %s)",
+			client.DefaultOptions().TokenFileName))
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
@@ -127,6 +138,9 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 		return err
 	}
 	if err := viper.BindPFlag("auth", cmd.PersistentFlags().Lookup("auth")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
@@ -147,6 +161,7 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
 	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
 	viper.SetDefault("auth", client.DefaultOptions().Auth)
+	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
 	viper.SetDefault("certificate", client.DefaultMTLsOptions().Certificate)

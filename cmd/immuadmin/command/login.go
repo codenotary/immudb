@@ -18,11 +18,10 @@ package immuadmin
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/common"
 	"github.com/spf13/cobra"
 )
 
@@ -50,8 +49,11 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			tokenFileName := cl.immuClient.GetOptions().TokenFileName
 			ctx := cl.context
 			user := args[0]
+			if user != auth.AdminUsername {
+				c.QuitToStdErr(fmt.Errorf("Permission denied: user %s has no admin rights", user))
+			}
 			if user == auth.AdminUsername {
-				if _, err := os.Stat(tokenFileName); err != nil && os.IsNotExist(err) {
+				if possiblyLoggedIn, err := common.FileExistsInUserHomeDir(tokenFileName); err == nil && !possiblyLoggedIn {
 					if _, err := cl.immuClient.Login(ctx, []byte(user), []byte{}); err != nil {
 						checkFirstAdminLogin(err)
 					}
@@ -66,7 +68,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 				checkFirstAdminLogin(err)
 				c.QuitWithUserError(err)
 			}
-			if err := ioutil.WriteFile(tokenFileName, response.Token, 0644); err != nil {
+			if err := common.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 				c.QuitToStdErr(err)
 			}
 			fmt.Printf("logged in\n")
@@ -84,7 +86,7 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			os.Remove(cl.immuClient.GetOptions().TokenFileName)
+			common.DeleteFileFromUserHomeDir(cl.immuClient.GetOptions().TokenFileName)
 			fmt.Println("logged out")
 			return nil
 		},
