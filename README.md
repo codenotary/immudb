@@ -78,23 +78,23 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 ### Tech specs
 
-| Topic                     | Description                                      |
-| ------------------------- | ------------------------------------------------ |
-| DB Model                  | Key-Value store with 3D access (key-value-index) |
-| Data scheme               | schema-free                                      |
-| Implementation design     | LSM tree with value log and parallel Merkle Tree |
-| Implemementation language | Golang                                           |
-| Server OS(s)              | BSD, Linux, OS X, Solaris, Windows               |
-| Embeddable                | Yes, optionally                                  |
-| Server APIs               | gRPC (using protocol buffers); immugw RESTful    |
-| Partition methods         | Sharding                                         |
-| Consistency concepts      | Eventual Consistency Immediate Consistency       |
-| Transaction concepts      | ACID with Snapshot Isolation (SSI)               |
-| Durability                | Yes                                              |
-| Snapshots                 | Yes                                              |
-| High Read throughput      | Yes                                              |
-| High Write throughput     | Yes                                              |
-| Optimized for SSD         | Yes                                              |
+| Topic                   | Description                                                  |
+| ----------------------- | ------------------------------------------------------------ |
+| DB Model                | Key-Value store with 3D access (key-value-index)             |
+| Data scheme             | schema-free                                                  |
+| Implementation design   | LSM tree with value log and parallel Merkle Tree             |
+| Implementation language | Golang                                                       |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                           |
+| Embeddable              | Yes, optionally                                              |
+| Server APIs             | gRPC (using protocol buffers); immudb RESTful; immugw RESTful |
+| Partition methods       | Sharding                                                     |
+| Consistency concepts    | Eventual Consistency Immediate Consistency                   |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)                           |
+| Durability              | Yes                                                          |
+| Snapshots               | Yes                                                          |
+| High Read throughput    | Yes                                                          |
+| High Write throughput   | Yes                                                          |
+| Optimized for SSD       | Yes                                                          |
 
 ## Our Userbase
 
@@ -114,9 +114,7 @@ The immudb container images can be found here:
 
 ## Quickstart
 
-### Binaries
-
-Check out our releases and download the required binaries depending on your needs.
+### Components
 
 - **immudb** is the server binary that listens on port 3322 on localhost and provides a gRPC interface
 - **immugw** is the intelligent REST proxy that connects to immudb and provides a RESTful interface for applications. We recommend to run immudb and immugw on separate machines to enhance security
@@ -138,6 +136,12 @@ make all
 
 ```bash
 GOOS=linux GOARCH=amd64 make immuadmin-static immudb-static immugw-static
+```
+
+##### MacOS (by component)
+
+```bash
+GOOS=darwin GOARCH=amd64 make immuadmin-static immudb-static immugw-static
 ```
 
 ##### Windows (by component)
@@ -435,9 +439,9 @@ As immudb is compared to Amazon QLDB as well, we compared the performance using 
 
 ## News
 
-`May 11, 2020` - **[immudb v0.6.0 released!](https://github.com/codenotary/immudb/releases)**
+`May 11, 2020` - **[immudb v0.6.0-rc1 released!](https://github.com/codenotary/immudb/releases)**
 
-Release v0.6.0 is our first release to the public. While we were using immudb for quite some time in the [codenotary.io](https://www.codenotary.io) platform, we're thrilled to finally release it to the Open Source community (Apache 2 license).
+Release v0.6.0-rc1 is our first release to the public. While we were using immudb for quite some time in the [codenotary.io](https://www.codenotary.io) platform, we're thrilled to finally release it to the Open Source community (Apache 2 license).
 
 The release contains 3 components, the main immutable database immudb, a RESTful proxy called immugw and the admin CLI tool immuadmin. immudb is ready to be used on Linux as well as Microsoft Windows.
 
