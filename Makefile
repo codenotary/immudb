@@ -17,16 +17,16 @@ V_IMMUCLIENT := $(V_COMMON)
 V_IMMUADMIN := $(V_COMMON)
 V_IMMUDB := $(V_COMMON)
 V_IMMUGW := $(V_COMMON)
-V_IMMUTESTAPP := $(V_COMMON)
+V_IMMUTEST := $(V_COMMON)
 
 V_IMMUCLIENT_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUCLIENT)" $(V_LDFLAGS_COMMON)
 V_IMMUADMIN_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUADMIN)" $(V_LDFLAGS_COMMON)
 V_IMMUDB_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUDB)" $(V_LDFLAGS_COMMON)
 V_IMMUGW_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
-V_IMMUTESTAPP_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUTESTAPP)" $(V_LDFLAGS_COMMON)
+V_IMMUTEST_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUTEST)" $(V_LDFLAGS_COMMON)
 #<~~~
 .PHONY: all
-all: immudb immuclient immugw immuadmin immutestapp bm
+all: immudb immuclient immugw immuadmin immutest bm
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
 
 .PHONY: rebuild
@@ -48,9 +48,9 @@ immudb:
 immugw:
 	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw
 
-.PHONY: immutestapp
-immutestapp:
-	$(GO) build -v -ldflags '$(V_IMMUTESTAPP_LDFLAGS)' ./cmd/immutestapp
+.PHONY: immutest
+immutest:
+	$(GO) build -v -ldflags '$(V_IMMUTEST_LDFLAGS)' ./cmd/immutest
 
 .PHONY: immuclient-static
 immuclient-static:
@@ -68,9 +68,9 @@ immudb-static:
 immugw-static:
 	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUGW_LDFLAGS) -extldflags "-static"' ./cmd/immugw
 
-.PHONY: immutestapp-static
-immutestapp-static:
-	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUTESTAPP_LDFLAGS) -extldflags "-static"' ./cmd/immutestapp
+.PHONY: immutest-static
+immutest-static:
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUTEST_LDFLAGS) -extldflags "-static"' ./cmd/immutest
 
 .PHONY: vendor
 vendor:
@@ -106,7 +106,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immudb immuclient immugw immuadmin immutestapp bm
+	rm -f immudb immuclient immugw immuadmin immutest bm
 
 .PHONY: nimmu
 nimmu:
@@ -146,7 +146,7 @@ man:
 	$(GO) run ./cmd/immuadmin mangen ./cmd/docs/man/immuadmin
 	$(GO) run ./cmd/immudb mangen ./cmd/docs/man/immudb
 	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
-	$(GO) run ./cmd/immutestapp mangen ./cmd/docs/man/immutestapp
+	$(GO) run ./cmd/immutest mangen ./cmd/docs/man/immutest
 
 .PHONY: prerequisites
 prerequisites:
