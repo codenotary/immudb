@@ -34,23 +34,23 @@ rebuild: clean build/codegen all
 
 .PHONY: immuclient
 immuclient:
-	$(GO) build -v -ldflags '$(V_IMMUCLIENT_LDFLAGS)' ./cmd/immuclient.go
+	$(GO) build -v -ldflags '$(V_IMMUCLIENT_LDFLAGS)' ./cmd/immuclient
 
 .PHONY: immuadmin
 immuadmin:
-	$(GO) build -v -ldflags '$(V_IMMUADMIN_LDFLAGS)' ./cmd/immuadmin.go
+	$(GO) build -v -ldflags '$(V_IMMUADMIN_LDFLAGS)' ./cmd/immuadmin
 
 .PHONY: immudb
 immudb:
-	$(GO) build -v -ldflags '$(V_IMMUDB_LDFLAGS)' ./cmd/immudb.go
+	$(GO) build -v -ldflags '$(V_IMMUDB_LDFLAGS)' ./cmd/immudb
 
 .PHONY: immugw
 immugw:
-	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw.go
+	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw
 
 .PHONY: immutestapp
 immutestapp:
-	$(GO) build -v -ldflags '$(V_IMMUTESTAPP_LDFLAGS)' ./cmd/immutestapp.go
+	$(GO) build -v -ldflags '$(V_IMMUTESTAPP_LDFLAGS)' ./cmd/immutestapp
 
 .PHONY: immuclient-static
 immuclient-static:
