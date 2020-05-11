@@ -26,7 +26,7 @@
 # Binaries
 /immuclient
 /immuadmin
-/immutestapp
+/immutest
 /immudb
 /nimmu
 /bm
@@ -45,7 +45,7 @@ configs/immuadmin.toml
 configs/immuclient.toml
 configs/immudb.toml
 configs/immugw.toml
-configs/immutestapp.toml
+configs/immutest.toml
 
 # immudb auth
 immudb_pwd

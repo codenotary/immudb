@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immutestapp
+package immutest
 
 import (
 	"context"
@@ -47,20 +47,20 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	}
 	cl := new(commandline)
 
-	cmd.Use = "immutestapp [n]"
+	cmd.Use = "immutest [n]"
 	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
 	cmd.Long = `Populate immudb with the (optional) number of entries (100 by default).
   Environment variables:
-    IMMUTESTAPP_IMMUDB-ADDRESS=127.0.0.1
-    IMMUTESTAPP_IMMUDB-PORT=3322`
-	cmd.Example = "immutestapp 1000"
+    IMMUTEST_IMMUDB-ADDRESS=127.0.0.1
+    IMMUTEST_IMMUDB-PORT=3322`
+	cmd.Example = "immutest 1000"
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cl.connect(cmd, nil)
 		defer cl.disconnect(cmd, nil)
 		serverAddress := cl.immuClient.GetOptions().Address
 		if serverAddress != "127.0.0.1" && serverAddress != "localhost" {
 			c.QuitToStdErr(errors.New(
-				"immutestapp is allowed to run only on the server machine (remote runs are not allowed)"))
+				"immutest is allowed to run only on the server machine (remote runs are not allowed)"))
 		}
 		checkForEmptyDB(serverAddress)
 		nbEntries := defaultNbEntries
@@ -85,7 +85,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	}
 	cmd.Args = cobra.MaximumNArgs(1)
 	cmd.DisableAutoGenTag = true
-	cmd.AddCommand(man.Generate(cmd, "immutestapp", "./cmd/docs/man/immutestapp"))
+	cmd.AddCommand(man.Generate(cmd, "immutest", "./cmd/docs/man/immutest"))
 }
 
 func checkForEmptyDB(serverAddress string) {
@@ -222,7 +222,7 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immutestapp.toml)")
+	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immutest.toml)")
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err
 	}
