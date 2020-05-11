@@ -23,8 +23,8 @@ import (
 
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/common"
 	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -47,7 +47,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = metadata.NewOutgoingContext(
 		context.Background(),
-		metadata.Pairs(common.ClientIDMetadataKey, common.ClientIDMetadataValueAdmin))
+		metadata.Pairs(auth.ClientIDMetadataKey, auth.ClientIDMetadataValueAdmin))
 
 	cl.user(cmd)
 	cl.login(cmd)
@@ -107,7 +107,7 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 }
 func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
 	opts := options()
-	possiblyLoggedIn, err2 := common.FileExistsInUserHomeDir(opts.TokenFileName)
+	possiblyLoggedIn, err2 := client.FileExistsInUserHomeDir(opts.TokenFileName)
 	if err2 != nil {
 		fmt.Println("error checking if token file exists:", err2)
 	} else if !possiblyLoggedIn {
