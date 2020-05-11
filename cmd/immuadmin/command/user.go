@@ -73,6 +73,10 @@ func (cl *commandline) user(cmd *cobra.Command) {
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
+				_, err = cl.immuClient.Login(ctx, username, oldPass)
+				if err != nil {
+					c.QuitToStdErr(err)
+				}
 				pass, err := cl.passwordReader.Read("New password:")
 				if err != nil {
 					c.QuitToStdErr(err)
