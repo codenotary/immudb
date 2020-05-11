@@ -489,7 +489,12 @@ Drivers will be available soon for:
 #### Structured value
 
 The Any message type of protobuffer allows to lets you use messages as embedded types without having their .proto definition. Thus it’s possible to decouple and extend (in future) the value structure.
-Value can be augmented with some client provided metadata. That also permits to use an on-demand serialization/deserialization strategy
+
+Value (that’s currently is just a stream of bytes) can be augmented with some client provided metadata. The payload includes a timestamp and a value at the moment. In the near future cryptographic signatures will be added as well. It’s possible to decouple and extend (in the future).
+
+The entire payload contribute to hash generation and is inserted in the merkle tree.
+
+All the complexity is hidden by the SDK.
 
 #### Item References
 
@@ -636,7 +641,15 @@ coming soon
 
 ### immugw RESTful API reference
 
-coming soon
+You can find the swagger schema here:
+
+https://github.com/codenotary/immudb/blob/master/pkg/api/schema/gw.schema.swagger.json
+
+If you want to run the Swagger UI, simply run the following docker command after you cloned this repo:
+
+```
+docker run -d -it -p 8081:8080 --name swagger-immugw -v ${PWD}/pkg/api/schema/gw.schema.swagger.json:/openapi.json -e SWAGGER_JSON=/openapi.json  swaggerapi/swagger-ui
+```
 
 
 
