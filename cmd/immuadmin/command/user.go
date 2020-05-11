@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/spf13/cobra"
 )
 
@@ -45,9 +46,13 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			ctx := cl.context
 			switch action {
 			case "create":
-				pass, err := cl.passwordReader.Read("Password:")
+				fmt.Println("NOTE:", auth.PasswordRequirementsMsg+".")
+				pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 				if err != nil {
 					c.QuitToStdErr(err)
+				}
+				if err = auth.IsStrongPassword(string(pass)); err != nil {
+					c.QuitToStdErr(errors.New("Password does not meet the requirements"))
 				}
 				pass2, err := cl.passwordReader.Read("Confirm password:")
 				if err != nil {
@@ -63,12 +68,16 @@ func (cl *commandline) user(cmd *cobra.Command) {
 				fmt.Printf("User %s created\n", username)
 				return nil
 			case "change-password":
+				fmt.Println("NOTE:", auth.PasswordRequirementsMsg+".")
 				oldPass, err := cl.passwordReader.Read("Old password:")
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				pass, err := cl.passwordReader.Read("New password:")
 				if err != nil {
+					c.QuitToStdErr(err)
+				}
+				if err = auth.IsStrongPassword(string(pass)); err != nil {
 					c.QuitToStdErr(err)
 				}
 				pass2, err := cl.passwordReader.Read("Confirm new password:")

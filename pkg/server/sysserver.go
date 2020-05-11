@@ -73,7 +73,10 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	if err == nil && !isFlaggedAsDeleted(item) {
 		return nil, status.Errorf(codes.AlreadyExists, "username already exists")
 	}
-	hashedPassword, err := auth.HashAndSaltPassword(string(r.Password))
+	if err = auth.IsStrongPassword(string(r.GetPassword())); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	hashedPassword, err := auth.HashAndSaltPassword(string(r.GetPassword()))
 	if err != nil {
 		return nil, err
 	}
@@ -100,11 +103,11 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	if isFlaggedAsDeleted(item) {
 		return e, status.Errorf(codes.NotFound, "error changing password: user was already deleted")
 	}
-	if err := auth.ComparePasswords(item.GetValue(), r.GetOldPassword()); err != nil {
+	if err = auth.ComparePasswords(item.GetValue(), r.GetOldPassword()); err != nil {
 		return e, status.Errorf(codes.PermissionDenied, "old password is incorrect")
 	}
 	newPass := string(r.GetNewPassword())
-	if err := auth.IsStrongPassword(newPass); err != nil {
+	if err = auth.IsStrongPassword(newPass); err != nil {
 		return e, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	hashedPassword, err := auth.HashAndSaltPassword(newPass)

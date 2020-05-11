@@ -21,12 +21,13 @@ package helper
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"

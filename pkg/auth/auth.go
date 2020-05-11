@@ -19,6 +19,7 @@ package auth
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -212,16 +213,19 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 	return jsonToken, nil
 }
 
+const minPasswordLen = 8
+const maxPasswordLen = 32
+
+var PasswordRequirementsMsg = fmt.Sprintf(
+	"password must have between %d and %d letters, digits and special characters "+
+		"of which at least 1 uppercase letter, 1 digit and 1 special character",
+	minPasswordLen,
+	maxPasswordLen,
+)
+
 func IsStrongPassword(password string) error {
-	const minLen = 8
-	const maxLen = 32
-	err := fmt.Errorf(
-		"password must have between %d and %d letters, digits and special characters "+
-			"of which at least 1 uppercase letter, 1 digit and 1 special character",
-		minLen,
-		maxLen,
-	)
-	if len(password) < minLen || len(password) > maxLen {
+	err := errors.New(PasswordRequirementsMsg)
+	if len(password) < minPasswordLen || len(password) > maxPasswordLen {
 		return err
 	}
 	var hasUpper bool
@@ -318,14 +322,14 @@ func createAdminUserAndMsg(ctx context.Context) (*ErrFirstAdminLogin, error) {
 
 func checkAuth(ctx context.Context, method string, req interface{}) error {
 	isAdminCLI := IsAdminClient(ctx)
-	isAuthEnabled := AuthEnabled || isAdminCLI
-	if !isAuthEnabled {
+	if isAdminCLI && !AuthEnabled {
 		if !isLocalClient(ctx) {
 			return status.Errorf(
 				codes.PermissionDenied,
 				"server has authentication disabled: only local connections are accepted")
 		}
 	}
+	isAuthEnabled := AuthEnabled || isAdminCLI
 	if method == loginMethod && isAuthEnabled && isAdminCLI {
 		lReq, ok := req.(*schema.LoginRequest)
 		// if it's the very first admin login attempt, generate admin user and password
