@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	c "github.com/codenotary/immudb/cmd/command"
+	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
