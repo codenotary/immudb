@@ -21,7 +21,8 @@ package service
 import (
 	"bytes"
 	"fmt"
-	service "github.com/codenotary/immudb/cmd/immuadmin/service/configs"
+	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
+	"github.com/takama/daemon"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/windows"
 	"io"
