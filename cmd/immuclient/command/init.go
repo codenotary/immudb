@@ -119,9 +119,8 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
 	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.toml)")
 	cmd.PersistentFlags().BoolP("auth", "s", client.DefaultOptions().Auth, "use authentication")
-	cmd.PersistentFlags().StringP(
+	cmd.PersistentFlags().String(
 		"tokenfile",
-		"t",
 		client.DefaultOptions().TokenFileName,
 		fmt.Sprintf(
 			"authentication token file (default path is $HOME or binary location; default filename is %s)",

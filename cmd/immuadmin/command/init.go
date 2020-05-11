@@ -123,9 +123,8 @@ func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
-	cmd.PersistentFlags().StringP(
+	cmd.PersistentFlags().String(
 		"tokenfile",
-		"t",
 		client.DefaultOptions().TokenFileName,
 		fmt.Sprintf(
 			"authentication token file (default path is $HOME or binary location; the supplied "+
