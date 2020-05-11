@@ -18,16 +18,16 @@ limitations under the License.
 
 package service
 
-var ConfigImmugw = []byte(`dir = "C:\ProgramData\Immugw"
+var ConfigImmugw = []byte(`dir = "C:\\ProgramData\\Immugw"
 address = "127.0.0.1"
 port = 3323
 immudb-address = "127.0.0.1"
 immudb-port = 3322
-pidfile = "C:\ProgramData\Immugw\config\immugw.pid"
-logfile = "C:\ProgramData\Immugw\config\immugw.log"
+pidfile = "C:\\ProgramData\\Immugw\\config\\immugw.pid"
+logfile = "C:\\ProgramData\\Immugw\\config\\immugw.log"
 mtls = false
 detached = false
 servername = "localhost"
-pkey = "C:\ProgramData\Immugw\config\mtls\4_client\private\localhost.key.pem"
-certificate = "C:\ProgramData\Immugw\config\mtls\4_client\certs\localhost.cert.pem"
-clientcas = "C:\ProgramData\Immugw\config\mtls\2_intermediate\certs\ca-chain.cert.pem"`)
+pkey = "C:\\ProgramData\\Immugw\\config\\mtls\\4_client\\private\\localhost.key.pem"
+certificate = "C:\\ProgramData\\Immugw\\config\\mtls\\4_client\\certs\\localhost.cert.pem"
+clientcas = "C:\\ProgramData\\Immugw\\config\\mtls\\2_intermediate\\certs\\ca-chain.cert.pem"`)

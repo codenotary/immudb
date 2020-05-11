@@ -22,8 +22,8 @@ import (
 	"bytes"
 	"fmt"
 	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
-	"github.com/takama/daemon"
 	"github.com/spf13/viper"
+	"github.com/takama/daemon"
 	"golang.org/x/sys/windows"
 	"io"
 	"os"
@@ -182,6 +182,7 @@ func IsRunning(status string) bool {
 }
 
 func readConfig(serviceName string) (err error) {
+	viper.SetConfigType("toml")
 	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
 }
 
