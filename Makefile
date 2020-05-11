@@ -54,23 +54,23 @@ immutestapp:
 
 .PHONY: immuclient-static
 immuclient-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUCLIENT_LDFLAGS) -extldflags "-static"' ./cmd/immuclient
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUCLIENT_LDFLAGS) -extldflags  "-static"' ./cmd/immuclient
 
 .PHONY: immuadmin-static
 immuadmin-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUADMIN_LDFLAGS) -extldflags "-static"' ./cmd/immuadmin
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUADMIN_LDFLAGS) -extldflags "-static"' ./cmd/immuadmin
 
 .PHONY: immudb-static
 immudb-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUDB_LDFLAGS) -extldflags "-static"' ./cmd/immudb
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUDB_LDFLAGS) -extldflags "-static"' ./cmd/immudb
 
 .PHONY: immugw-static
 immugw-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUGW_LDFLAGS) -extldflags "-static"' ./cmd/immugw
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUGW_LDFLAGS) -extldflags "-static"' ./cmd/immugw
 
 .PHONY: immutestapp-static
 immutestapp-static:
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUTESTAPP_LDFLAGS) -extldflags "-static"' ./cmd/immutestapp
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUTESTAPP_LDFLAGS) -extldflags "-static"' ./cmd/immutestapp
 
 .PHONY: vendor
 vendor:
