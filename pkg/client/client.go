@@ -34,7 +34,6 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
-	"github.com/codenotary/immudb/pkg/common"
 	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
@@ -205,7 +204,7 @@ func setupDialOptions(options *Options) *[]grpc.DialOption {
 		opts = []grpc.DialOption{grpc.WithTransportCredentials(transportCreds)}
 	}
 	if options.Auth {
-		token, err := common.ReadFileFromUserHomeDir(options.TokenFileName)
+		token, err := ReadFileFromUserHomeDir(options.TokenFileName)
 		if err == nil {
 			opts = append(opts, grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))
 			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))

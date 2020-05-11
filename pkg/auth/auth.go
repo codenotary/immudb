@@ -30,7 +30,6 @@ import (
 	"unicode"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/common"
 	"github.com/o1egl/paseto"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ed25519"
@@ -269,6 +268,9 @@ var methodsForAdmin = map[string]bool{
 	"/immudb.schema.ImmuService/DeleteUser":     true,
 }
 
+const ClientIDMetadataKey = "client_id"
+const ClientIDMetadataValueAdmin = "immuadmin"
+
 func isAdmin(method string) bool {
 	_, ok := methodsForAdmin[method]
 	return ok
@@ -278,8 +280,8 @@ func IsAdminClient(ctx context.Context) bool {
 	if !ok {
 		return false
 	}
-	clientIDMD := md[common.ClientIDMetadataKey]
-	return len(clientIDMD) > 0 && clientIDMD[0] == common.ClientIDMetadataValueAdmin
+	clientIDMD := md[ClientIDMetadataKey]
+	return len(clientIDMD) > 0 && clientIDMD[0] == ClientIDMetadataValueAdmin
 }
 
 var AdminUserExists func(ctx context.Context) bool
