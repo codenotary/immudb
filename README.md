@@ -213,13 +213,15 @@ The linux service is using the following defaults:
 | pid file                | /var/run/immgw.pid |
 | log files               | /var/log/immudb    |
 
-##### 
+
 
 #### Command reference
 
 ##### immudb
 
-Simply run ```./immudb -d``` to start immudb locally in the background
+Simply run ```./immudb -d``` to start immudb locally in the background. 
+
+If you want to stop immudb în that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`. 
 
 ```
 immudb - the lightweight, high-speed immutable database for systems and applications.
@@ -270,7 +272,9 @@ Use "immudb [command] --help" for more information about a command.
 
 ##### immugw
 
-Simply run ```./immugw``` to start immugw on the same machine as immudb (test or dev environment) or pointing to the remote immudb system ```./immugw --immudbaddress "immudb-server"```.
+Simply run ```./immugw -d``` to start immugw on the same machine as immudb (test or dev environment) or pointing to the remote immudb system ```./immugw --immudbaddress "immudb-server"```.
+
+If you want to stop immugw în that case you need to find the process `ps -ax | grep immugw` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immugw* | Stop-Process`. 
 
 ```
 immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications.
