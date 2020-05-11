@@ -87,6 +87,11 @@ func InstallSetup(serviceName string) (err error) {
 	if err = userCreateIfNotExists(); err != nil {
 		return err
 	}
+
+	if err = setOwnership(linuxExecPath); err != nil {
+		return  err
+	}
+
 	if err = installConfig(serviceName); err != nil {
 		return err
 	}
@@ -155,6 +160,16 @@ func installConfig(serviceName string) (err error) {
 	return setOwnership(configPath)
 }
 
+func groupCreateIfNotExists() (err error) {
+	if _, err = user.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
+		return err
+	}
+	if err = exec.Command("addgroup", linuxGroup).Run(); err != nil {
+		return err
+	}
+	return err
+}
+
 func userCreateIfNotExists() (err error) {
 	if _, err = user.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
 		return err
@@ -186,16 +201,6 @@ func setOwnership(path string) (err error) {
 		}
 		return err
 	})
-}
-
-func groupCreateIfNotExists() (err error) {
-	if _, err = user.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
-		return err
-	}
-	if err = exec.Command("groupadd", linuxGroup).Run(); err != nil {
-		return err
-	}
-	return err
 }
 
 // todo @Michele this should be moved in UninstallSetup
@@ -270,10 +275,6 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	}
 
 	if err = os.Chmod(newExecPath, 0775); err != nil {
-		return "", err
-	}
-
-	if err = setOwnership(newExecPath); err != nil {
 		return "", err
 	}
 
