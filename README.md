@@ -287,15 +287,15 @@ It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoi
 Environment variables:
   IMMUGW_ADDRESS=127.0.0.1
   IMMUGW_PORT=3323
-  IMMUGW_IMMUDBADDRESS=127.0.0.1
-  IMMUGW_IMMUDBPORT=3322
+  IMMUGW_IMMUDB-ADDRESS=127.0.0.1
+  IMMUGW_IMMUDB-PORT=3322
   IMMUGW_PIDFILE=
   IMMUGW_LOGFILE=
   IMMUGW_DETACHED=false
   IMMUGW_MTLS=false
   IMMUGW_SERVERNAME=localhost
-  IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
   IMMUGW_PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
   IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
 
 Usage:
@@ -307,37 +307,41 @@ Available Commands:
   version     Show the immugw version
 
 Flags:
-  -a, --address string         immugw host address (default "127.0.0.1")
-      --certificate string     server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
-      --clientcas string       clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string          config file (default path are configs or $HOME. Default filename is immugw.ini)
-  -d, --detached               run immudb in background
-  -h, --help                   help for immugw
-  -k, --immudbaddress string   immudb host address (default "127.0.0.1")
-  -j, --immudbport int         immudb port number (default 3322)
-      --logfile string         log path with filename. E.g. /tmp/immugw/immugw.log
-  -m, --mtls                   enable mutual tls
-      --pidfile string         pid path with filename. E.g. /var/run/immugw.pid
-      --pkey string            server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
-  -p, --port int               immugw port number (default 3323)
-      --servername string      used to verify the hostname on the returned certificates (default "localhost")
+  -a, --address string          immugw host address (default "127.0.0.1")
+      --certificate string      server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
+      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string           config file (default path are configs or $HOME. Default filename is immugw.toml)
+  -d, --detached                run immudb in background
+  -h, --help                    help for immugw
+  -k, --immudb-address string   immudb host address (default "127.0.0.1")
+  -j, --immudb-port int         immudb port number (default 3322)
+      --logfile string          log path with filename. E.g. /tmp/immugw/immugw.log
+  -m, --mtls                    enable mutual tls
+      --pidfile string          pid path with filename. E.g. /var/run/immugw.pid
+      --pkey string             server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
+  -p, --port int                immugw port number (default 3323)
+      --servername string       used to verify the hostname on the returned certificates (default "localhost")
 
 Use "immugw [command] --help" for more information about a command.
-```
 
+```
 
 
 ##### immuadmin
 
-For security reasons we recommend using immuadmin only on the same system as immudb. Simply run ```./immuadmin``` on the same machine.
+For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage. Simply run ```./immuadmin``` on the same machine.
 
 ```
 CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
-  IMMUADMIN_ADDRESS=127.0.0.1
-  IMMUADMIN_PORT=3322
+  IMMUADMIN_IMMUDB-ADDRESS=127.0.0.1
+  IMMUADMIN_IMMUDB-PORT=3322
   IMMUADMIN_MTLS=true
+  IMMUADMIN_SERVERNAME=localhost
+  IMMUADMIN_PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUADMIN_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
+  IMMUADMIN_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
 
 Usage:
   immuadmin [command]
@@ -350,24 +354,24 @@ Available Commands:
   service     Manage immu services
   stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
   status      Show heartbeat status
-  user        Perform various user operations: create, delete, change password
+  user        Perform various user-related operations: create, delete, change password
   version     Show the immuadmin version
 
 Flags:
-  -a, --address string       immudb host address (default "127.0.0.1")
-      --certificate string   server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
-      --clientcas string     clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string        config file (default path are configs or $HOME. Default filename is immuadmin.ini)
-  -h, --help                 help for immuadmin
-  -m, --mtls                 enable mutual tls
-      --pkey string          server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
-  -p, --port int             immudb port number (default 3322)
-      --servername string    used to verify the hostname on the returned certificates (default "localhost")
+      --certificate string      server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
+      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string           config file (default path is configs or $HOME; default filename is immuadmin.toml)
+  -h, --help                    help for immuadmin
+  -a, --immudb-address string   immudb host address (default "127.0.0.1")
+  -p, --immudb-port int         immudb port number (default 3322)
+  -m, --mtls                    enable mutual tls
+      --pkey string             server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
+      --servername string       used to verify the hostname on the returned certificates (default "localhost")
+      --tokenfile string        authentication token file (default path is $HOME or binary location; the supplied value will be automatically suffixed with _admin; default filename is token_admin) (default "token")
 
 Use "immuadmin [command] --help" for more information about a command.
 
 ```
-
 
 
 ### Docker
@@ -389,7 +393,7 @@ docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:late
 #### Run immugw
 
 ```
-docker run -it -d -p 3323:3323 --name immugw --env IMMUGW_IMMUDBADDRESS=immudb codenotary/immugw:latest
+docker run -it -d -p 3323:3323 --name immugw --env IMMUGW_IMMUDB-ADDRESS=immudb codenotary/immugw:latest
 ```
 
 #### Run immuadmin
@@ -677,7 +681,7 @@ docker run -d -it -p 8081:8080 --name swagger-immugw -v ${PWD}/pkg/api/schema/gw
 | Would replication stop, when unverifiable data is detected?  | Customers will able to configure the wanted behavior when a unverifiable state is detected across replicas. By default, all valid replicas will able to continue working and replicas with invalid states will be skipped by all clients. | Q3/2020         |
 | Somebody changes one value in the database - how can it be detected and reverted? | With replication, it's possible to detect which replica nodes are valid and which are not. If at least a replica node was not tampered data can be easily restored. | Q3/2020         |
 | Somebody changes the merkle root entry - how can I recover?  | Each client locally stores the last valid Merkle Tree Root (just 32 bytes of data). When the root of a DB instance is tampered then client will be able to mathematically proof that the provided root is not consistent with the last valid one. If an authenticated backup or a not tampered replica node is available, not-tampered data can be used to recover the Merkle Tree Root to a valid state. | Q3/2020         |
-| How is the database protected? outside probes?               | Each client helps in protecting the DB. Special clients (called "agents") can be installed on different systems and continuosly monitor the DB. | Q3/2020         |
+| How is the database protected? outside probes?               | Each client helps in protecting the DB. Special clients (called "agents") can be installed on different systems and continuously monitor the DB. | Q3/2020         |
 | How can I monitor database performance?                      | immudb provides realtime metrics that can be collected using Prometheus | initial release |
 | How can I monitor database health?                           | immudb provides realtime healthcheck endpoints via API and immu client | initial release |
 | How can I monitor database integrity?                        | immudb provides proof APIs and clients and agents can ask for proof in realtime. | initial release |
