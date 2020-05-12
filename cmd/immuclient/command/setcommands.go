@@ -31,8 +31,8 @@ import (
 
 func (cl *commandline) rawSafeSet(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "rawsafeset key",
-		Short:             "Set item having the specified key, without setup structured values",
+		Use:               "rawsafeset key value",
+		Short:             "Set a value for the item having the specified key, without setup structured values",
 		Aliases:           []string{"rs"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
@@ -42,7 +42,7 @@ func (cl *commandline) rawSafeSet(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			val, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			val, err := ioutil.ReadAll(bytes.NewReader([]byte(args[1])))
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
