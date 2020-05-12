@@ -13,8 +13,8 @@ ARG IMMU_GID="3322"
 ENV IMMUGW_HOME="/usr/share/immudb" \
     IMMUGW_ADDRESS="0.0.0.0" \
     IMMUGW_PORT="3323" \
-    IMMUGW_IMMUDBADDRESS="127.0.0.1" \
-    IMMUGW_IMMUDBPORT="3322" \
+    IMMUGW_IMMUDB-ADDRESS="127.0.0.1" \
+    IMMUGW_IMMUDB-PORT="3322" \
     IMMUGW_MTLS="false" \
     IMMUGW_DETACHED="false" \
     IMMUGW_PKEY="/usr/share/immudb/mtls/3_application/private/key.pem" \
@@ -25,7 +25,7 @@ RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
     mkdir -p "$IMMUGW_HOME" && \
     chown -R immu:immu "$IMMUGW_HOME" && \
-    chmod -R 777 "$IMMUGW_HOME"
+    chmod -R 777 "$IMMUGW_HOME" && \
     chmod +x /usr/sbin/immugw
 
 EXPOSE 3323
