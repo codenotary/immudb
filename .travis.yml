@@ -4,7 +4,7 @@ language: go
 env:
   global:
     - SLEEP_TIME=5
-    
+
 git:
   depth: false
 
@@ -43,19 +43,22 @@ jobs:
       arch:
         - amd64
       script:
-        - GOOS=linux GOARCH=amd64 make immuclient-static immudb-static immugw-static
+        - GOOS=linux GOARCH=amd64 make immudb-static immugw-static immuadmin-static immuclient-static
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immudb
         - sleep $SLEEP_TIME
-        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuclient
-        - sleep $SLEEP_TIME
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immugw
+        - sleep $SLEEP_TIME
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuadmin
+        - sleep $SLEEP_TIME
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuclient
         - /tmp/vcn logout
       workspaces:
         create:
           name: bins
           paths:
             - immudb
+            - immuadmin
             - immuclient
             - immugw
 
@@ -68,9 +71,9 @@ jobs:
         use:
           - bins
       script:
-        - /tmp/vcn authenticate immudb immuclient immugw
+        - /tmp/vcn authenticate immudb immugw immuadmin immuclient
         - VCN_USER=$immudb_user VCN_PASSWORD=$immudb_pass /tmp/vcn login
-        - docker build --tag "${DOCKER_IMAGE}:latest" -f Dockerfile.final .
+        - docker build --tag "${DOCKER_IMAGE}:latest" -f Dockerfile .
         - VCN_NOTARIZATION_PASSWORD=$immudb_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent docker://$DOCKER_IMAGE
         - /tmp/vcn logout
         - sleep $SLEEP_TIME
@@ -84,4 +87,4 @@ jobs:
         script: docker push "${DOCKER_IMAGE}:latest"
 branches:
   only:
-  - master
+    - master
