@@ -672,6 +672,15 @@
         }
       }
     },
+    "schemaBackupResponse": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "schemaConsistencyProof": {
       "type": "object",
       "properties": {

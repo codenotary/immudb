@@ -34,6 +34,7 @@ import (
 )
 
 type Store struct {
+	sync.RWMutex
 	db   *badger.DB
 	tree *treeStore
 	wg   sync.WaitGroup
@@ -455,6 +456,12 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 	}
 
 	return index, err
+}
+
+func (t *Store) FlushToDisk() {
+	defer t.tree.Unlock()
+	t.tree.Lock()
+	t.tree.flush()
 }
 
 func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {

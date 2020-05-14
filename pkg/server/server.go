@@ -24,7 +24,10 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -32,6 +35,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -529,9 +533,153 @@ func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer)
 	return err
 }
 
+func (s *ImmuServer) Backup(ctx context.Context, req *schema.BackupRequest) (*schema.BackupResponse, error) {
+	defer s.Store.Unlock()
+	defer s.SysStore.Unlock()
+	s.Store.Lock()
+	s.SysStore.Lock()
+	s.Store.FlushToDisk()
+	s.SysStore.FlushToDisk()
+
+	snapshotPath := "immudb_bkp_" + time.Now().Format("2006-01-02_15-04-05")
+	if err := fs.CopyDir(s.Options.Dir, snapshotPath); err != nil {
+		return nil, err
+	}
+	// remove the immudb.identifier file from the backup
+	if err := os.Remove(snapshotPath + "/" + IDENTIFIER_FNAME); err != nil {
+		s.Logger.Errorf(
+			"error removing immudb identifier file %s from db snapshot %s: %v",
+			IDENTIFIER_FNAME, snapshotPath, err)
+	}
+	response := &schema.BackupResponse{Message: []byte(snapshotPath)}
+	if req.GetUncompressed() {
+		return response, nil
+	}
+
+	var archivePath string
+	var archiveErr error
+	if runtime.GOOS != "windows" {
+		archivePath = snapshotPath + ".tar.gz"
+		archiveErr = fs.TarIt(snapshotPath, archivePath)
+	} else {
+		archivePath = snapshotPath + ".zip"
+		archiveErr = fs.ZipIt(snapshotPath, archivePath, fs.ZipDefaultCompression)
+	}
+	if archiveErr != nil {
+		return response, status.Errorf(
+			codes.Internal,
+			"database copied successfully to %s, but compression to %s failed: %v",
+			snapshotPath, archivePath, archiveErr)
+	}
+	if err := os.RemoveAll(snapshotPath); err != nil {
+		s.Logger.Errorf(
+			"error removing db snapshot dir %s after successfully compressing it to %s: %v",
+			snapshotPath, archivePath, err)
+	}
+	absArchivePath, err := filepath.Abs(archivePath)
+	if err != nil {
+		s.Logger.Errorf("error converting rel path %s to absolute: %v", archivePath, err)
+		absArchivePath = archivePath
+	}
+	response.Message = []byte(absArchivePath)
+	return response, nil
+}
+
+func (s *ImmuServer) Restore(ctx context.Context, req *schema.RestoreRequest) (*empty.Empty, error) {
+	e := new(empty.Empty)
+	snapshotPath := string(req.GetSnapshotPath())
+	_, err := os.Stat(snapshotPath)
+	if err != nil {
+		return e, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	snapshotExt := filepath.Ext(snapshotPath)
+	snapshotName := filepath.Base(snapshotPath)
+	snapshotNameNoExt := strings.TrimSuffix(snapshotName, snapshotExt)
+	if strings.ToLower(snapshotExt) == ".gz" {
+		snapshotExt = filepath.Ext(snapshotNameNoExt) + snapshotExt
+		snapshotNameNoExt = strings.TrimSuffix(snapshotName, snapshotExt)
+	}
+	dbParentDir := filepath.Dir(s.Options.Dir) + string(os.PathSeparator)
+	extractedSnapshotDir := dbParentDir + snapshotNameNoExt
+	now := time.Now().Format("2006-01-02_15-04-05")
+	var extract func(string, string) error
+	switch snapshotExt {
+	case ".tar.gz":
+		extract = fs.UnTarIt
+	case ".zip":
+		extract = fs.UnZipIt
+	case "": // uncompressed
+		// TODO OGG: this will result in the backup being renamed directly to the db folder
+		if dbParentDir != filepath.Dir(snapshotPath)+string(os.PathSeparator) {
+			extract = fs.CopyDir
+		}
+	default:
+		return e, status.Errorf(
+			codes.InvalidArgument,
+			"snapshot %s has unsupported format %s; supported formats: .tar.gz, .zip or none (uncompressed)",
+			snapshotPath, snapshotExt)
+	}
+	if extract != nil {
+		if err = extract(snapshotPath, dbParentDir); err != nil {
+			return e, status.Errorf(codes.Internal, "%v", err)
+		}
+	}
+	// keep the same db identifier
+	if err = fs.CopyFile(
+		path.Join(s.Options.Dir, IDENTIFIER_FNAME),
+		path.Join(extractedSnapshotDir, IDENTIFIER_FNAME)); err != nil {
+		return e, status.Errorf(codes.Internal, "%v", err)
+	}
+
+	defer s.Store.Unlock()
+	defer s.SysStore.Unlock()
+	s.Store.Lock()
+	s.SysStore.Lock()
+	s.Store.FlushToDisk()
+	s.SysStore.FlushToDisk()
+
+	dbDirAutoBackupPath := s.Options.Dir + "_bkp_before_restore_" + now
+	if err = os.Rename(s.Options.Dir, dbDirAutoBackupPath); err != nil {
+		return e, status.Errorf(
+			codes.Internal,
+			"error renaming previous db dir %s to %s during restore: %v",
+			s.Options.Dir, dbDirAutoBackupPath, err)
+	}
+	if err = os.Rename(extractedSnapshotDir, s.Options.Dir); err != nil {
+		return e, status.Errorf(
+			codes.Internal,
+			"error renaming new tmp snapshot dir %s to db dir %s during restore: %v",
+			extractedSnapshotDir, s.Options.Dir, err)
+	}
+
+	if err = s.Store.Close(); err != nil {
+		s.Logger.Errorf("error closing previous store before db restore: %v", err)
+	}
+	s.Store = nil
+	if err = s.SysStore.Close(); err != nil {
+		s.Logger.Errorf("error closing previous sysstore before db restore: %v", err)
+	}
+	s.SysStore = nil
+
+	sysDbDir := filepath.Join(s.Options.Dir, s.Options.SysDbName)
+	s.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, s.Logger))
+	if err != nil {
+		s.Logger.Errorf("Unable to reopen sysstore: %s", err)
+		return e, status.Errorf(codes.Internal, "unable to reopen sysstore: %s", err)
+	}
+	dbDir := filepath.Join(s.Options.Dir, s.Options.DbName)
+	s.Store, err = store.Open(store.DefaultOptions(dbDir, s.Logger))
+	if err != nil {
+		s.Logger.Errorf("Unable to reopen store: %s", err)
+		return e, status.Errorf(codes.Internal, "unable to reopen store: %s", err)
+	}
+
+	return e, nil
+}
+
 // todo(joe-dz): Enable restore when the feature is required again.
 // Also, make sure that the generated files are updated
-//func (s *ImmuServer) Restore(stream schema.ImmuService_RestoreServer) (err error) {
+//func (s *ImmuServer) HotRestore(stream schema.ImmuService_RestoreServer) (err error) {
 //	kvChan := make(chan *pb.KVList)
 //	errs := make(chan error, 1)
 //

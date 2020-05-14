@@ -79,6 +79,8 @@ type ImmuClient interface {
 	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error)
 	SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*VerifiedIndex, error)
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
+	Backup(ctx context.Context, uncompressed bool) (*schema.BackupResponse, error)
+	Restore(ctx context.Context, snapshotpath []byte) error
 	HealthCheck(ctx context.Context) error
 	verifyAndSetRoot(result *schema.Proof, root *schema.Root, ctx context.Context) (bool, error)
 
@@ -978,6 +980,29 @@ func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, er
 	c.Logger.Debugf("dump finished in %s", time.Since(start))
 
 	return counter, errorsMerged
+}
+
+func (c *immuClient) Backup(ctx context.Context, uncompressed bool) (*schema.BackupResponse, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.Backup(ctx, &schema.BackupRequest{
+		Uncompressed: uncompressed,
+	})
+	c.Logger.Debugf("cold backup finished in %s", time.Since(start))
+	return result, err
+}
+func (c *immuClient) Restore(ctx context.Context, snapshotPath []byte) error {
+	start := time.Now()
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+	_, err := c.ServiceClient.Restore(ctx, &schema.RestoreRequest{
+		SnapshotPath: snapshotPath,
+	})
+	c.Logger.Debugf("cold restore finished in %s", time.Since(start))
+	return err
 }
 
 // todo(joe-dz): Enable restore when the feature is required again.

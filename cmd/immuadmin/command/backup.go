@@ -53,3 +53,53 @@ func (cl *commandline) dumpToFile(cmd *cobra.Command) {
 	}
 	cmd.AddCommand(ccmd)
 }
+
+func (cl *commandline) backup(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:   "backup [--uncompressed]",
+		Short: "Make a copy of the database files and folders",
+		Long: "Pause the immudb server, create and save on the server machine a snapshot " +
+			"of the database files and folders (zip on Windows, tar.gz on Linux or uncompressed).",
+		PersistentPreRunE: cl.checkLoggedInAndConnect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			uncompressed, err := cmd.Flags().GetBool("uncompressed")
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			ctx := cl.context
+			response, err := cl.immuClient.Backup(ctx, uncompressed)
+			if err != nil {
+				c.QuitWithUserError(err)
+			}
+			fmt.Printf("Snapshot created on the server: %s\n", response.GetMessage())
+			return nil
+		},
+		Args: cobra.NoArgs,
+	}
+	ccmd.Flags().BoolP("uncompressed", "u", false, "create an uncompressed snapshot")
+	cmd.AddCommand(ccmd)
+}
+
+func (cl *commandline) restore(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:   "restore snapshot-path",
+		Short: "Restore the database from a snapshot archive or folder",
+		Long: "Pause the immudb server and restore the database files and folders from a snapshot " +
+			"file (zip or tar.gz) or folder (uncompressed) residing on the server machine.",
+		PersistentPreRunE: cl.checkLoggedInAndConnect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			snapshotPath := args[0]
+			ctx := cl.context
+			err := cl.immuClient.Restore(ctx, []byte(snapshotPath))
+			if err != nil {
+				c.QuitWithUserError(err)
+			}
+			fmt.Printf("Database restored from snapshot at %s\n", snapshotPath)
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+	cmd.AddCommand(ccmd)
+}

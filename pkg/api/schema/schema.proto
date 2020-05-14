@@ -47,6 +47,16 @@ message ChangePasswordRequest {
 	bytes newPassword = 3;
 }
 
+message BackupRequest {
+	bool uncompressed = 1;
+}
+message BackupResponse {
+	bytes message = 1;
+}
+message RestoreRequest {
+	bytes snapshotPath = 1;
+}
+
 message LoginRequest {
 	bytes user = 1;
 	bytes password = 2;
@@ -252,6 +262,8 @@ service ImmuService {
 	rpc CreateUser (CreateUserRequest) returns (CreateUserResponse){}
 	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){}
 	rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty){}
+	rpc Backup (BackupRequest) returns (BackupResponse){}
+	rpc Restore (RestoreRequest) returns (google.protobuf.Empty){}
 
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option (google.api.http) = {
