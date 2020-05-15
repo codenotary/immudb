@@ -19,6 +19,7 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1 // indirect
 	github.com/o1egl/paseto v1.0.0
+	github.com/peterh/liner v1.2.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/client_model v0.2.0

@@ -21,8 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
-	"time"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
@@ -47,7 +45,7 @@ func (cl *commandline) history(cmd *cobra.Command) {
 				c.QuitWithUserError(err)
 			}
 			for _, item := range response.Items {
-				printItem(nil, nil, item)
+				printItem(nil, nil, item, false)
 				fmt.Println()
 			}
 			return nil
@@ -57,9 +55,9 @@ func (cl *commandline) history(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) healthCheck(cmd *cobra.Command) {
+func (cl *commandline) status(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "ping",
+		Use:               "status",
 		Short:             "Ping to check if server connection is alive",
 		Aliases:           []string{"p"},
 		PersistentPreRunE: cl.connect,
@@ -74,37 +72,6 @@ func (cl *commandline) healthCheck(cmd *cobra.Command) {
 			return nil
 		},
 		Args: cobra.NoArgs,
-	}
-	cmd.AddCommand(ccmd)
-}
-
-func (cl *commandline) dumpToFile(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:               "dump [file]",
-		Short:             "Dump database content to a file",
-		Aliases:           []string{"b"},
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-
-			filename := fmt.Sprint("immudb_" + time.Now().Format("2006-01-02_15-04-05") + ".bkp")
-			if len(args) > 0 {
-				filename = args[0]
-			}
-			file, err := os.Create(filename)
-			defer file.Close()
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.Dump(ctx, file)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response, filename)
-			return nil
-		},
-		Args: cobra.MaximumNArgs(1),
 	}
 	cmd.AddCommand(ccmd)
 }

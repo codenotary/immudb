@@ -45,7 +45,7 @@ func (cl *commandline) zScan(cmd *cobra.Command) {
 				c.QuitWithUserError(err)
 			}
 			for _, item := range response.Items {
-				printItem(nil, nil, item)
+				printItem(nil, nil, item, false)
 				fmt.Println()
 			}
 			return nil
@@ -77,7 +77,7 @@ func (cl *commandline) iScan(cmd *cobra.Command) {
 				c.QuitWithUserError(err)
 			}
 			for _, item := range response.Items {
-				printItem(nil, nil, item)
+				printItem(nil, nil, item, false)
 				fmt.Println()
 			}
 			return nil
@@ -106,7 +106,7 @@ func (cl *commandline) scan(cmd *cobra.Command) {
 				c.QuitWithUserError(err)
 			}
 			for _, item := range response.Items {
-				printItem(nil, nil, item)
+				printItem(nil, nil, item, false)
 				fmt.Println()
 			}
 			return nil

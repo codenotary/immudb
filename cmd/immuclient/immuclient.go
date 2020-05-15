@@ -17,17 +17,63 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/immuclient/cli"
 	immuclient "github.com/codenotary/immudb/cmd/immuclient/command"
 	"github.com/codenotary/immudb/cmd/version"
-	"os"
+	"github.com/spf13/cobra"
 )
 
 func main() {
 	version.App = "immuclient"
 	cmd := immuclient.NewCmd()
-	if err := cmd.Execute(); err != nil {
+	if isCommand(commandNames(cmd.Commands())) {
+		if err := cmd.Execute(); err != nil {
+			fmt.Println(cmd.Aliases)
+			if strings.HasPrefix(err.Error(), "unknown command") {
+				os.Exit(0)
+			}
+			c.QuitWithUserError(err)
+		}
+		return
+	}
+	cliClient, err := cli.Init()
+	if err != nil {
 		c.QuitWithUserError(err)
 	}
-	os.Exit(0)
+	cliClient.Run()
+}
+
+func isCommand(args []string) bool {
+	hs, hl := "-h", "--help"
+	for i := range os.Args {
+		if os.Args[i] == hs || os.Args[i] == hl {
+			return true
+		}
+	}
+	if len(os.Args) < 2 {
+		return false
+	}
+	for i := range args {
+		for j := range os.Args {
+			if args[i] == os.Args[j] {
+				fmt.Printf("Please sort your commands in \"immudb [command] [flags]\" order. \n")
+				return true
+			}
+		}
+	}
+	return !strings.HasPrefix(os.Args[1], "-")
+}
+
+func commandNames(cms []*cobra.Command) []string {
+	args := make([]string, 0)
+	for i := range cms {
+		arg := strings.Split(cms[i].Use, " ")[0]
+		args = append(args, arg)
+	}
+	return args
 }

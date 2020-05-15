@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuclient
+package cli
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 	"github.com/codenotary/immudb/pkg/store"
 )
 
-func printItem(key []byte, value []byte, message interface{}, valueOnly bool) {
+func printItem(key []byte, value []byte, message interface{}, valueOnly bool) string {
 	var index, ts uint64
 	var verified, isVerified bool
 	var hash []byte
@@ -63,25 +63,27 @@ func printItem(key []byte, value []byte, message interface{}, valueOnly bool) {
 		me, _ := schema.Merge(value, ts)
 		dig := api.Digest(index, key, me)
 		hash = dig[:]
+
 	}
 	if valueOnly {
-		fmt.Println(string(value))
-		return
+		return fmt.Sprintf("%s\n", value)
 	}
 	str := strings.Builder{}
-	str.WriteString(fmt.Sprintf("index:		%d \n", index))
-	str.WriteString(fmt.Sprintf("key:		%s \n", key))
-	str.WriteString(fmt.Sprintf("value:		%s \n", value))
-	str.WriteString(fmt.Sprintf("hash:		%x \n", hash))
-	str.WriteString(fmt.Sprintf("time:		%s \n", time.Unix(int64(ts), 0)))
-	if isVerified {
-		str.WriteString(fmt.Sprintf("verified:	%t \n", verified))
+	if !valueOnly {
+		str.WriteString(fmt.Sprintf("index:		%d \n", index))
+		str.WriteString(fmt.Sprintf("key:		%s \n", key))
+		str.WriteString(fmt.Sprintf("value:		%s \n", value))
+		str.WriteString(fmt.Sprintf("hash:		%x \n", hash))
+		str.WriteString(fmt.Sprintf("time:		%s \n", time.Unix(int64(ts), 0)))
+		if isVerified {
+			str.WriteString(fmt.Sprintf("verified:	%t \n", verified))
+		}
 	}
 
-	fmt.Print(str.String())
+	return str.String()
 }
 
-func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {
+func printSetItem(set []byte, rkey []byte, score float64, message interface{}) string {
 	var index uint64
 	var verified, isVerified bool
 	switch m := message.(type) {
@@ -94,19 +96,18 @@ func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {
 	}
 	key, err := store.SetKey(rkey, set, score)
 	if err != nil {
-		fmt.Print(err.Error())
+		return fmt.Sprint(err.Error())
 	}
 	if !isVerified {
-		fmt.Printf("index:		%d\nset:		%s \nkey:		%s \nscore:		%f \nvalue:		%s \nhash:		%x \n",
+		return fmt.Sprintf("index:		%d\nset:		%s \nkey:		%s \nscore:		%f \nvalue:		%s \nhash:		%x \n",
 			index,
 			set,
 			key,
 			score,
 			rkey,
 			api.Digest(index, key, rkey))
-		return
 	}
-	fmt.Printf("index:		%d\nset:		%s\nkey:		%s\nscore:		%f\nvalue:		%s\nhash:		%x\nverified:	%t\n",
+	return fmt.Sprintf("index:		%d\nset:		%s\nkey:		%s\nscore:		%f\nvalue:		%s\nhash:		%x\nverified:	%t\n",
 		index,
 		set,
 		key,
@@ -116,19 +117,17 @@ func printSetItem(set []byte, rkey []byte, score float64, message interface{}) {
 		verified)
 }
 
-func printRoot(root *schema.Root) {
+func printRoot(root *schema.Root) string {
 	if root.Root == nil {
-		fmt.Printf("immudb is empty\n")
-		return
+		return "immudb is empty\n"
 	}
-	fmt.Printf("index:		%d\nhash:		%x\n", root.Index, root.Root)
+	return fmt.Sprintf("index:		%d\nhash:		%x\n", root.Index, root.Root)
 }
 
-func printByIndex(item *schema.StructuredItem, valueOnly bool) {
+func printByIndex(item *schema.StructuredItem, valueOnly bool) string {
 	dig, _ := item.Hash()
 	if valueOnly {
-		fmt.Printf("%s\n", item.Value)
-		return
+		return fmt.Sprintf("%s\n", item.Value)
 	}
 	str := strings.Builder{}
 	str.WriteString(fmt.Sprintf("index:		%d\n", item.Index))
@@ -136,5 +135,15 @@ func printByIndex(item *schema.StructuredItem, valueOnly bool) {
 	str.WriteString(fmt.Sprintf("value:		%s\n", item.Value))
 	str.WriteString(fmt.Sprintf("hash:		%x\n", dig))
 	str.WriteString(fmt.Sprintf("time:		%s\n", time.Unix(int64(item.Value.Timestamp), 0)))
-	fmt.Print(str.String())
+
+	return str.String()
+}
+
+func padRight(str, pad string, length int) string {
+	for {
+		str += pad
+		if len(str) > length {
+			return str[0:length]
+		}
+	}
 }
