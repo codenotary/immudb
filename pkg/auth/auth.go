@@ -262,10 +262,13 @@ func HasAuth(method string) bool {
 	return !noAuth
 }
 
-var methodsForAdmin = map[string]bool{
-	"/immudb.schema.ImmuService/CreateUser":     true,
-	"/immudb.schema.ImmuService/ChangePassword": true,
-	"/immudb.schema.ImmuService/DeleteUser":     true,
+var empty struct{}
+var methodsForAdmin = map[string]struct{}{
+	"/immudb.schema.ImmuService/CreateUser":     empty,
+	"/immudb.schema.ImmuService/ChangePassword": empty,
+	"/immudb.schema.ImmuService/DeleteUser":     empty,
+	"/immudb.schema.ImmuService/Backup":         empty,
+	"/immudb.schema.ImmuService/Restore":        empty,
 }
 
 const ClientIDMetadataKey = "client_id"
