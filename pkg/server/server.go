@@ -551,7 +551,14 @@ func (s *ImmuServer) Backup(ctx context.Context, req *schema.BackupRequest) (*sc
 			"error removing immudb identifier file %s from db snapshot %s: %v",
 			IDENTIFIER_FNAME, snapshotPath, err)
 	}
-	response := &schema.BackupResponse{Message: []byte(snapshotPath)}
+	absSnapshotPath, err := filepath.Abs(snapshotPath)
+	if err != nil {
+		s.Logger.Errorf(
+			"error converting to absolute the the rel path %s of the uncompressed backup: %v",
+			snapshotPath, err)
+		absSnapshotPath = snapshotPath
+	}
+	response := &schema.BackupResponse{Message: []byte(absSnapshotPath)}
 	if req.GetUncompressed() {
 		return response, nil
 	}
@@ -571,14 +578,16 @@ func (s *ImmuServer) Backup(ctx context.Context, req *schema.BackupRequest) (*sc
 			"database copied successfully to %s, but compression to %s failed: %v",
 			snapshotPath, archivePath, archiveErr)
 	}
-	if err := os.RemoveAll(snapshotPath); err != nil {
+	if err = os.RemoveAll(snapshotPath); err != nil {
 		s.Logger.Errorf(
 			"error removing db snapshot dir %s after successfully compressing it to %s: %v",
 			snapshotPath, archivePath, err)
 	}
 	absArchivePath, err := filepath.Abs(archivePath)
 	if err != nil {
-		s.Logger.Errorf("error converting rel path %s to absolute: %v", archivePath, err)
+		s.Logger.Errorf(
+			"error converting to absolute path the rel path %s of the archived backup: %v",
+			archivePath, err)
 		absArchivePath = archivePath
 	}
 	response.Message = []byte(absArchivePath)
@@ -631,8 +640,16 @@ func (s *ImmuServer) Restore(ctx context.Context, req *schema.RestoreRequest) (*
 		return e, status.Errorf(codes.Internal, "%v", err)
 	}
 
-	defer s.Store.Unlock()
-	defer s.SysStore.Unlock()
+	defer func() {
+		if s.Store != nil {
+			s.Store.Unlock()
+		}
+	}()
+	defer func() {
+		if s.SysStore != nil {
+			s.SysStore.Unlock()
+		}
+	}()
 	s.Store.Lock()
 	s.SysStore.Lock()
 	s.Store.FlushToDisk()
