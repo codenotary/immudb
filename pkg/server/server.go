@@ -652,13 +652,17 @@ func (s *ImmuServer) Restore(ctx context.Context, req *schema.RestoreRequest) (*
 			extractedSnapshotDir, s.Options.Dir, err)
 	}
 
-	if err = s.Store.Close(); err != nil {
-		s.Logger.Errorf("error closing previous store before db restore: %v", err)
-	}
+	//===> NOTE: closing the stores would corrupt the database and moving these before copying
+	//			 (i.e. close stores instead fo FlushToDisk calls above), while it would probably
+	//			 work, it would also leave the server with stores closed if copying would fail
+	// if err = s.Store.Close(); err != nil {
+	// 	s.Logger.Errorf("error closing previous store before db restore: %v", err)
+	// }
+	// if err = s.SysStore.Close(); err != nil {
+	// 	s.Logger.Errorf("error closing previous sysstore before db restore: %v", err)
+	// }
+	//<===
 	s.Store = nil
-	if err = s.SysStore.Close(); err != nil {
-		s.Logger.Errorf("error closing previous sysstore before db restore: %v", err)
-	}
 	s.SysStore = nil
 
 	sysDbDir := filepath.Join(s.Options.Dir, s.Options.SysDbName)
