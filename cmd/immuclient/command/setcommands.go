@@ -54,7 +54,7 @@ func (cl *commandline) rawSafeSet(cmd *cobra.Command) {
 			}
 			vi, err := cl.ImmuClient.RawSafeGet(ctx, key)
 
-			printItem(vi.Key, vi.Value, vi)
+			printItem(vi.Key, vi.Value, vi, false)
 
 			if err != nil {
 				c.QuitWithUserError(err)
@@ -104,7 +104,7 @@ func (cl *commandline) set(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			printItem([]byte(args[0]), value2, i)
+			printItem([]byte(args[0]), value2, i, false)
 			return nil
 		},
 		Args: cobra.ExactArgs(2),
@@ -151,7 +151,7 @@ func (cl *commandline) safeset(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			printItem([]byte(args[0]), value2, vi)
+			printItem([]byte(args[0]), value2, vi, false)
 			return nil
 		},
 		Args: cobra.ExactArgs(2),

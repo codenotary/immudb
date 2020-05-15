@@ -43,7 +43,7 @@ func (cl *commandline) getByIndex(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			printByIndex(response)
+			printByIndex(response, cl.valueOnly)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -69,7 +69,7 @@ func (cl *commandline) getKey(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			printItem([]byte(args[0]), nil, response)
+			printItem([]byte(args[0]), nil, response, cl.valueOnly)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -94,7 +94,7 @@ func (cl *commandline) rawSafeGetKey(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			printItem(vi.Key, vi.Value, vi)
+			printItem(vi.Key, vi.Value, vi, cl.valueOnly)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -120,7 +120,7 @@ func (cl *commandline) safeGetKey(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			printItem([]byte(args[0]), nil, response)
+			printItem([]byte(args[0]), nil, response, cl.valueOnly)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),

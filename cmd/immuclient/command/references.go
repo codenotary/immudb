@@ -61,7 +61,7 @@ func (cl *commandline) reference(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			printItem([]byte(args[0]), value, response)
+			printItem([]byte(args[0]), value, response, false)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
@@ -102,7 +102,7 @@ func (cl *commandline) safereference(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			printItem([]byte(args[0]), value, response)
+			printItem([]byte(args[0]), value, response, false)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
