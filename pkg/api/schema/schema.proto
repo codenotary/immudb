@@ -417,14 +417,14 @@ service ImmuService {
 
 	rpc IScanSV (IScanOptions) returns (SPage){};
 
-	rpc Dump(google.protobuf.Empty) returns (stream pb.KVList) {
+	rpc Dump(google.protobuf.Empty) returns (stream KVList) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/dump"
 			body: "*"
 		};
 	}
 	// todo(joe-dz): Enable restore when the feature is required again
-	//	rpc Restore(stream pb.KVList) returns (ItemsCount) {
+	//	rpc Restore(stream KVList) returns (ItemsCount) {
 	//		option (google.api.http) = {
 	//			post: "/v1/immurestproxy/restore"
 	//			body: "*"
