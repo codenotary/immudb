@@ -143,7 +143,7 @@ func GetExecutable(input string, serviceName string) (exec string, err error) {
 	return exec, err
 }
 
-// toto @Michele use functions from the fs package?
+// todo @Michele use functions from the fs package?
 //CopyExecInOsDefault copy the executable in default exec folder and returns the path
 func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	from, err := os.Open(execPath)
