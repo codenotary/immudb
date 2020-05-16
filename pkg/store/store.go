@@ -460,6 +460,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 
 func (t *Store) FlushToDisk() {
 	defer t.tree.Unlock()
+	t.wg.Wait()
 	t.tree.Lock()
 	t.tree.flush()
 }
