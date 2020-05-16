@@ -24,6 +24,7 @@ import (
 )
 
 type Options struct {
+	Dir           string
 	Address       string
 	Port          int
 	ImmudbAddress string
@@ -38,6 +39,7 @@ type Options struct {
 
 func DefaultOptions() Options {
 	return Options{
+		Dir:           ".",
 		Address:       "127.0.0.1",
 		Port:          3323,
 		ImmudbAddress: "127.0.0.1",
@@ -48,6 +50,12 @@ func DefaultOptions() Options {
 		Pidfile:       "",
 		Logfile:       "",
 	}
+}
+
+// WithDir sets dir
+func (o Options) WithDir(dir string) Options {
+	o.Dir = dir
+	return o
 }
 
 // WithAddress sets address
