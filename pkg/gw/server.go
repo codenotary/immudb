@@ -56,12 +56,12 @@ func (s *ImmuGwServer) Start() error {
 
 	handler := cors.Default().Handler(mux)
 
-	sh := NewSetHandler(mux, ic, s.RootService)
-	ssh := NewSafesetHandler(mux, ic, s.RootService)
-	sgh := NewSafegetHandler(mux, ic, s.RootService)
-	hh := NewHistoryHandler(mux, ic, s.RootService)
-	sr := NewSafeReferenceHandler(mux, ic, s.RootService)
-	sza := NewSafeZAddHandler(mux, ic, s.RootService)
+	sh := NewSetHandler(mux, ic)
+	ssh := NewSafesetHandler(mux, ic)
+	sgh := NewSafegetHandler(mux, ic)
+	hh := NewHistoryHandler(mux, ic)
+	sr := NewSafeReferenceHandler(mux, ic)
+	sza := NewSafeZAddHandler(mux, ic)
 
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_Set_0(), sh.Set)
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeSet_0(), ssh.Safeset)
