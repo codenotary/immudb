@@ -32,14 +32,14 @@ func (cl *commandline) serverConfig(cmd *cobra.Command) {
 		// "cryptosig": auth.KindCryptoSig,
 	}
 	ccmd := &cobra.Command{
-		Use:               "serverconfig set auth|mtls value",
+		Use:               "set auth|mtls value",
 		Short:             "Update server config items: auth (none|password|cryptosig), mtls (true|false)",
 		PersistentPreRunE: cl.checkLoggedInAndConnect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
-			configItem := args[1]
-			v := args[2]
+			configItem := args[0]
+			v := args[1]
 			switch configItem {
 			case "auth":
 				authKind, ok := authKinds[v]
@@ -66,7 +66,7 @@ func (cl *commandline) serverConfig(cmd *cobra.Command) {
 			}
 			return nil
 		},
-		Args: cobra.ExactValidArgs(3),
+		Args: cobra.ExactArgs(2),
 	}
 	cmd.AddCommand(ccmd)
 }
