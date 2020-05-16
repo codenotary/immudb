@@ -24,6 +24,7 @@ import (
 )
 
 type Options struct {
+	Dir                string
 	Address            string
 	Port               int
 	HealthCheckRetries int
@@ -37,6 +38,7 @@ type Options struct {
 
 func DefaultOptions() *Options {
 	return &Options{
+		Dir:                ".",
 		Address:            "127.0.0.1",
 		Port:               3322,
 		HealthCheckRetries: 5,
@@ -46,6 +48,12 @@ func DefaultOptions() *Options {
 		TokenFileName:      "token",
 		DialOptions:        &[]grpc.DialOption{},
 	}
+}
+
+// WithDir sets program file folder
+func (o Options) WithDir(dir string) Options {
+	o.Dir = dir
+	return o
 }
 
 // WithAddress sets address

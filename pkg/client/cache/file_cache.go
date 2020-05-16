@@ -28,14 +28,15 @@ import (
 const ROOT_FN = ".root-"
 
 type fileCache struct {
+	Dir string
 }
 
-func NewFileCache() Cache {
-	return &fileCache{}
+func NewFileCache(dir string) Cache {
+	return &fileCache{Dir: dir}
 }
 
 func (w *fileCache) Get(serverUuid string) (*schema.Root, error) {
-	fn := filepath.Join(viper.GetString("dir"), string(getRootFileName([]byte(ROOT_FN), []byte(serverUuid))))
+	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(ROOT_FN), []byte(serverUuid))))
 
 	root := new(schema.Root)
 	buf, err := ioutil.ReadFile(fn)
