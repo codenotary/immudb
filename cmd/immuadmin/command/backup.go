@@ -117,7 +117,7 @@ func (cl *commandline) backup(cmd *cobra.Command) {
 						c.QuitWithUserError(err)
 					}
 				}
-				backupPath, err := backup(dbDir, uncompressed, manualStopStart)
+				backupPath, err := offlineBackup(dbDir, uncompressed, manualStopStart)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -194,7 +194,7 @@ func (cl *commandline) restore(cmd *cobra.Command) {
 						c.QuitWithUserError(err)
 					}
 				}
-				if err := restore(snapshotPath, dbDir, manualStopStart); err != nil {
+				if err := offlineRestore(snapshotPath, dbDir, manualStopStart); err != nil {
 					c.QuitToStdErr(err)
 				}
 				fmt.Printf("Dabase restored from backup %s\n", snapshotPath)
@@ -217,7 +217,7 @@ func (cl *commandline) restore(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func backup(src string, uncompressed bool, manualStopStart bool) (string, error) {
+func offlineBackup(src string, uncompressed bool, manualStopStart bool) (string, error) {
 	srcInfo, err := os.Stat(src)
 	if err != nil {
 		return "", err
@@ -295,7 +295,7 @@ func backup(src string, uncompressed bool, manualStopStart bool) (string, error)
 	return absArchivePath, nil
 }
 
-func restore(src string, dst string, manualStopStart bool) error {
+func offlineRestore(src string, dst string, manualStopStart bool) error {
 	snapshotPath := src
 	_, err := os.Stat(snapshotPath)
 	if err != nil {
