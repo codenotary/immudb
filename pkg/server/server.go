@@ -640,16 +640,8 @@ func (s *ImmuServer) Restore(ctx context.Context, req *schema.RestoreRequest) (*
 		return e, status.Errorf(codes.Internal, "%v", err)
 	}
 
-	defer func() {
-		if s.Store != nil {
-			s.Store.Unlock()
-		}
-	}()
-	defer func() {
-		if s.SysStore != nil {
-			s.SysStore.Unlock()
-		}
-	}()
+	defer s.Store.Unlock()
+	defer s.SysStore.Unlock()
 	s.Store.Lock()
 	s.SysStore.Lock()
 	s.Store.FlushToDisk()
