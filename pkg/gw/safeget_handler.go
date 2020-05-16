@@ -38,15 +38,13 @@ type SafegetHandler interface {
 type safegetHandler struct {
 	mux    *runtime.ServeMux
 	client client.ImmuClient
-	rs     client.RootService
 	sync.RWMutex
 }
 
-func NewSafegetHandler(mux *runtime.ServeMux, client client.ImmuClient, rs client.RootService) SafegetHandler {
+func NewSafegetHandler(mux *runtime.ServeMux, client client.ImmuClient) SafegetHandler {
 	return &safegetHandler{
 		mux:    mux,
 		client: client,
-		rs:     rs,
 	}
 }
 

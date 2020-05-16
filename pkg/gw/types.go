@@ -18,19 +18,17 @@ package gw
 
 import (
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"os"
 )
 
 type ImmuGwServer struct {
-	Options     Options
-	quit        chan struct{}
-	Logger      logger.Logger
-	RootService client.RootService
-	Pid         server.PIDFile
-	Client      schema.ImmuServiceClient
+	Options Options
+	quit    chan struct{}
+	Logger  logger.Logger
+	Pid     server.PIDFile
+	Client  schema.ImmuServiceClient
 }
 
 func DefaultServer() *ImmuGwServer {
@@ -39,11 +37,6 @@ func DefaultServer() *ImmuGwServer {
 		Options: DefaultOptions(),
 		quit:    make(chan struct{}),
 	}
-}
-
-func (c *ImmuGwServer) WithRootService(rootService client.RootService) *ImmuGwServer {
-	c.RootService = rootService
-	return c
 }
 
 func (c *ImmuGwServer) WithClient(client schema.ImmuServiceClient) *ImmuGwServer {

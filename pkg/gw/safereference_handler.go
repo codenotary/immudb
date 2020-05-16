@@ -36,14 +36,12 @@ type SafeReferenceHandler interface {
 type safeReferenceHandler struct {
 	mux    *runtime.ServeMux
 	client client.ImmuClient
-	rs     client.RootService
 }
 
-func NewSafeReferenceHandler(mux *runtime.ServeMux, client client.ImmuClient, rs client.RootService) SafeReferenceHandler {
+func NewSafeReferenceHandler(mux *runtime.ServeMux, client client.ImmuClient) SafeReferenceHandler {
 	return &safeReferenceHandler{
 		mux:    mux,
 		client: client,
-		rs:     rs,
 	}
 }
 
