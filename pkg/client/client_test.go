@@ -142,7 +142,7 @@ func newClient(withToken bool, token string) ImmuClient {
 	immuclient.WithClientConn(clientConn)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 	immuclient.WithServiceClient(serviceClient)
-	rootService := NewRootService(serviceClient, cache.NewFileCache(), logger.NewSimpleLogger("test", os.Stdout))
+	rootService := NewRootService(serviceClient, cache.NewFileCache("."), logger.NewSimpleLogger("test", os.Stdout))
 	immuclient.WithRootService(rootService)
 
 	return immuclient
