@@ -38,6 +38,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type Kind uint32
+
+const (
+	KindNone Kind = iota
+	KindPassword
+	KindCryptoSig
+)
+
+// TODO OGG: in the future, after other types of auth will be implemented,
+// this will have to be of Kind (see above) type instead of bool:
 var AuthEnabled bool
 
 // GeneratePassword generates a random ASCII string with at least one digit and one special character
@@ -263,9 +273,11 @@ func HasAuth(method string) bool {
 }
 
 var methodsForAdmin = map[string]bool{
-	"/immudb.schema.ImmuService/CreateUser":     true,
-	"/immudb.schema.ImmuService/ChangePassword": true,
-	"/immudb.schema.ImmuService/DeleteUser":     true,
+	"/immudb.schema.ImmuService/CreateUser":       true,
+	"/immudb.schema.ImmuService/ChangePassword":   true,
+	"/immudb.schema.ImmuService/DeleteUser":       true,
+	"/immudb.schema.ImmuService/UpdateAuthConfig": true,
+	"/immudb.schema.ImmuService/UpdateMTLSConfig": true,
 }
 
 const ClientIDMetadataKey = "client_id"

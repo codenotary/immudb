@@ -55,6 +55,14 @@ message LoginResponse {
 	bytes token = 1;
 }
 
+message AuthConfig {
+	uint32 kind = 1;
+}
+message MTLSConfig {
+	bool enabled = 1;
+}
+
+
 message KeyValue {
 	bytes key = 1;
 	bytes value = 2;
@@ -252,6 +260,9 @@ service ImmuService {
 	rpc CreateUser (CreateUserRequest) returns (CreateUserResponse){}
 	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){}
 	rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty){}
+
+	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){}
+	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){}
 
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option (google.api.http) = {

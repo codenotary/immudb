@@ -65,7 +65,8 @@ func (o *Options) InitConfig(name string) {
 	viper.SetEnvPrefix(strings.ToUpper(name))
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		o.CfgFn = viper.ConfigFileUsed()
+		fmt.Println("Using config file:", o.CfgFn)
 	}
 }
 

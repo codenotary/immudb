@@ -57,6 +57,8 @@ type ImmuClient interface {
 	CreateUser(ctx context.Context, user []byte, pass []byte) (*schema.CreateUserResponse, error)
 	DeleteUser(ctx context.Context, user []byte) error
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
+	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
+	UpdateMTLSConfig(ctx context.Context, enabled bool) error
 	CurrentRoot(ctx context.Context) (*schema.Root, error)
 	Set(ctx context.Context, key []byte, value []byte) (*schema.Index, error)
 	SafeSet(ctx context.Context, key []byte, value []byte) (*VerifiedIndex, error)
@@ -310,6 +312,30 @@ func (c *immuClient) ChangePassword(ctx context.Context, user []byte, oldPass []
 		NewPassword: newPass,
 	})
 	c.Logger.Debugf("changepassword finished in %s", time.Since(start))
+	return err
+}
+
+func (c *immuClient) UpdateAuthConfig(ctx context.Context, kind auth.Kind) error {
+	start := time.Now()
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+	_, err := c.ServiceClient.UpdateAuthConfig(ctx, &schema.AuthConfig{
+		Kind: uint32(kind),
+	})
+	c.Logger.Debugf("updateauthconfig finished in %s", time.Since(start))
+	return err
+}
+
+func (c *immuClient) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
+	start := time.Now()
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+	_, err := c.ServiceClient.UpdateMTLSConfig(ctx, &schema.MTLSConfig{
+		Enabled: enabled,
+	})
+	c.Logger.Debugf("updatemtlsconfig finished in %s", time.Since(start))
 	return err
 }
 
