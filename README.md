@@ -20,7 +20,7 @@ Traditional transaction logs are hard to scale and are mutable. So there is no w
 As such, immudb provides **unparalleled insights** **retroactively** of changes to your sensitive data, even
 if your perimeter has been compromised. immudb guarantees immutability by using a **Merkle tree structure** internally.
 
-immudb gives you the same **cryptographic verification** of the integrity of data written with **SHA-256** like a classic blockhain without the cost and complexity associated with blockchains today.
+immudb gives you the same **cryptographic verification** of the integrity of data written with **SHA-256** like a classic blockchain without the cost and complexity associated with blockchains today.
 
 immudb has 4 main benefits:
 
@@ -287,6 +287,7 @@ Environment variables:
   IMMUGW_PORT=3323
   IMMUGW_IMMUDB-ADDRESS=127.0.0.1
   IMMUGW_IMMUDB-PORT=3322
+  IMMUGW_DIR=.
   IMMUGW_PIDFILE=
   IMMUGW_LOGFILE=
   IMMUGW_DETACHED=false
@@ -310,6 +311,7 @@ Flags:
       --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
       --config string           config file (default path are configs or $HOME. Default filename is immugw.toml)
   -d, --detached                run immudb in background
+      --dir string              program files folder (default ".")
   -h, --help                    help for immugw
   -k, --immudb-address string   immudb host address (default "127.0.0.1")
   -j, --immudb-port int         immudb port number (default 3322)
