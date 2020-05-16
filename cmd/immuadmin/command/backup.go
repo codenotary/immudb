@@ -101,10 +101,9 @@ func (cl *commandline) backup(cmd *cobra.Command) {
 
 			if !online {
 				if !manualStopStart {
-					var answer string
 					fmt.Print("Server will be stopped and then restarted during the backup process. Are you sure you want to proceed? [y/N]: ")
-					if _, err = fmt.Scanln(&answer); err != nil ||
-						!(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
+					answer, err := c.ReadFromTerminalYN("N")
+					if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 						c.QuitToStdErr("Canceled")
 					}
 					pass, err := cl.passwordReader.Read(fmt.Sprintf("Enter %s's password:", auth.AdminUsername))
@@ -178,10 +177,9 @@ func (cl *commandline) restore(cmd *cobra.Command) {
 
 			if !online {
 				if !manualStopStart {
-					var answer string
 					fmt.Print("Server will be stopped and then restarted during the restore process. Are you sure you want to proceed? [y/N]: ")
-					if _, err := fmt.Scanln(&answer); err != nil ||
-						!(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
+					answer, err := c.ReadFromTerminalYN("N")
+					if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 						c.QuitToStdErr("Canceled")
 					}
 					pass, err := cl.passwordReader.Read(fmt.Sprintf("Enter %s's password:", auth.AdminUsername))
