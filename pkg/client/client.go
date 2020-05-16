@@ -94,6 +94,7 @@ type ImmuClient interface {
 }
 
 type immuClient struct {
+	Dir           string
 	Logger        logger.Logger
 	Options       *Options
 	clientConn    *grpc.ClientConn
@@ -106,6 +107,7 @@ type immuClient struct {
 // DefaultClient ...
 func DefaultClient() ImmuClient {
 	return &immuClient{
+		Dir:     "",
 		Options: DefaultOptions(),
 		Logger:  logger.NewSimpleLogger("immuclient", os.Stderr),
 	}
@@ -114,7 +116,6 @@ func DefaultClient() ImmuClient {
 // NewImmuClient ...
 func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	ctx := context.Background()
-	//ctx, cancel := context.WithCancel(ctx)
 
 	c = DefaultClient()
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
@@ -135,7 +136,12 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 		return nil, err
 	}
 
-	rootService := NewRootService(serviceClient, cache.NewFileCache(), l)
+	if err = os.MkdirAll(options.Dir, os.ModePerm); err != nil {
+		l.Errorf("unable to create program file folder: %s", err)
+		return nil, err
+	}
+
+	rootService := NewRootService(serviceClient, cache.NewFileCache(options.Dir), l)
 	dt, err := timestamp.NewTdefault()
 	if err != nil {
 		return nil, err
