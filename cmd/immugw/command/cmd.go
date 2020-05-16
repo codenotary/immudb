@@ -33,6 +33,7 @@ Environment variables:
   IMMUGW_PORT=3323
   IMMUGW_IMMUDB-ADDRESS=127.0.0.1
   IMMUGW_IMMUDB-PORT=3322
+  IMMUGW_DIR=
   IMMUGW_PIDFILE=
   IMMUGW_LOGFILE=
   IMMUGW_DETACHED=false
@@ -95,6 +96,7 @@ func Immugw(cmd *cobra.Command, args []string) (err error) {
 	return
 }
 func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
+	dir := viper.GetString("dir")
 	port := viper.GetInt("port")
 	address := viper.GetString("address")
 	immudbport := viper.GetInt("immudb-port")
@@ -113,6 +115,7 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	clientcas := viper.GetString("clientcas")
 
 	options = gw.DefaultOptions().
+		WithDir(dir).
 		WithPort(port).
 		WithAddress(address).
 		WithImmudbAddress(immudbAddress).
@@ -133,6 +136,7 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 }
 
 func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsOptions) {
+	cmd.Flags().String("dir", options.Dir, "program files folder")
 	cmd.Flags().IntP("port", "p", options.Port, "immugw port number")
 	cmd.Flags().StringP("address", "a", options.Address, "immugw host address")
 	cmd.Flags().IntP("immudb-port", "j", options.ImmudbPort, "immudb port number")
@@ -149,6 +153,9 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 }
 
 func bindFlags(cmd *cobra.Command) error {
+	if err := viper.BindPFlag("dir", cmd.Flags().Lookup("dir")); err != nil {
+		return err
+	}
 	if err := viper.BindPFlag("port", cmd.Flags().Lookup("port")); err != nil {
 		return err
 	}
@@ -189,6 +196,7 @@ func bindFlags(cmd *cobra.Command) error {
 }
 
 func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
+	viper.SetDefault("dir", options.Dir)
 	viper.SetDefault("port", options.Port)
 	viper.SetDefault("address", options.Address)
 	viper.SetDefault("immudb-port", options.ImmudbPort)
