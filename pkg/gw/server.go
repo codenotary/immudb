@@ -37,6 +37,7 @@ func (s *ImmuGwServer) Start() error {
 	defer cancel()
 
 	cliOpts := &immuclient.Options{
+		Dir:                s.Options.Dir,
 		Address:            s.Options.ImmudbAddress,
 		Port:               s.Options.ImmudbPort,
 		HealthCheckRetries: 1,
@@ -48,7 +49,7 @@ func (s *ImmuGwServer) Start() error {
 
 	ic, err := immuclient.NewImmuClient(cliOpts)
 	if err != nil {
-		s.Logger.Errorf("Unable to instantiate client %s", err)
+		s.Logger.Errorf("unable to instantiate client: %s", err)
 		return err
 	}
 	mux := runtime.NewServeMux()
@@ -71,7 +72,7 @@ func (s *ImmuGwServer) Start() error {
 
 	err = schema.RegisterImmuServiceHandlerClient(ctx, mux, *ic.GetServiceClient())
 	if err != nil {
-		s.Logger.Errorf("Unable to register client handlers %s", err)
+		s.Logger.Errorf("unable to register client handlers: %s", err)
 		return err
 	}
 
@@ -86,7 +87,7 @@ func (s *ImmuGwServer) Start() error {
 
 	go func() {
 		if err = http.ListenAndServe(s.Options.Address+":"+strconv.Itoa(s.Options.Port), handler); err != nil && err != http.ErrServerClosed {
-			s.Logger.Errorf("Unable to launch immugw:%+s\n", err)
+			s.Logger.Errorf("unable to launch immugw: %+s", err)
 		}
 	}()
 	<-s.quit
