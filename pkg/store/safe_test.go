@@ -328,3 +328,59 @@ func TestStoreSafeZAdd(t *testing.T) {
 	verified2 := proof2.Verify(leaf2[:], root)
 	assert.True(t, verified2)
 }
+
+func TestStoreBySafeIndex(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	_ , err := st.Set(schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
+	assert.NoError(t, err)
+	_ , err = st.Set(schema.KeyValue{Key: []byte(`mySecondElementKey`), Value: []byte(`secondValue`)})
+	assert.NoError(t, err)
+	_ , err = st.Set(schema.KeyValue{Key: []byte(`myThirdElementKey`), Value: []byte(`thirdValue`)})
+	assert.NoError(t, err)
+
+	sio1 := schema.SafeIndexOptions{
+		Index: uint64(1),
+	}
+
+	st.tree.WaitUntil(2)
+
+	safeItem, err := st.BySafeIndex(sio1)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, safeItem)
+	assert.Equal(t, []byte(`mySecondElementKey`), safeItem.Item.Key)
+	assert.Equal(t, []byte(`secondValue`), safeItem.Item.Value)
+	assert.Equal(t, uint64(1), safeItem.Item.Index)
+	assert.True(t, safeItem.Proof.Verify(
+		safeItem.Item.Hash(),
+		schema.Root{}, // zerovalue signals no prev root
+	))
+
+	// second item with prev root
+	prevRoot := safeItem.Proof.NewRoot()
+	sio2 := schema.SafeIndexOptions{
+		Index: uint64(2),
+		RootIndex: &schema.Index{
+			Index: prevRoot.Index,
+		},
+	}
+
+	safeItem2, err := st.BySafeIndex(sio2)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, safeItem2)
+	assert.Equal(t, []byte(`myThirdElementKey`), safeItem2.Item.Key)
+	assert.Equal(t, []byte(`thirdValue`), safeItem2.Item.Value)
+	assert.Equal(t, uint64(2), safeItem2.Item.Index)
+	assert.True(t, safeItem2.Proof.Verify(
+		safeItem2.Item.Hash(),
+		*prevRoot,
+	))
+
+	lastRoot, err := st.CurrentRoot()
+	assert.NoError(t, err)
+	assert.NotNil(t, lastRoot)
+	assert.Equal(t, *lastRoot, *safeItem2.Proof.NewRoot())
+}
