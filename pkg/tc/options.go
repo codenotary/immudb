@@ -23,6 +23,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
+// Options trust checker options
 type Options struct {
 	Address       string
 	Port          int
@@ -36,6 +37,7 @@ type Options struct {
 	Logfile       string
 }
 
+// DefaultOptions trust checker default options
 func DefaultOptions() Options {
 	return Options{
 		Address:       "127.0.0.1",

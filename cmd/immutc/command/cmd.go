@@ -27,8 +27,8 @@ func init() {
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "immutc",
-		Short: "immu trust checker: continuously launch consistency checks of random data",
-		Long: `immu trust checker: continuously launch consistency checks of random data.
+		Short: "immu trust checker: continuously launch consistency checks on random data",
+		Long: `immu trust checker: continuously launch consistency checks on random data.
 
 Environment variables:
   IMMUTC_ADDRESS=127.0.0.1
@@ -66,7 +66,9 @@ func Immutc(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	immutcServer, err := tc.NewServer(options)
-
+	if err != nil {
+		return err
+	}
 	if options.Detached {
 		c.Detached()
 	}
@@ -76,9 +78,7 @@ func Immutc(cmd *cobra.Command, args []string) (err error) {
 		c.QuitToStdErr(err)
 	}
 
-	service := tc.Service{
-		*immutcServer,
-	}
+	service := tc.Service{ImmuTcServer: *immutcServer}
 
 	if _, err = d.Run(service); err != nil {
 		return err

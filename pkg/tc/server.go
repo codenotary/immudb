@@ -30,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 )
 
+// NewServer return a new trust checker server
 func NewServer(options Options) (immutcServer *ImmuTcServer, err error) {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -90,7 +91,7 @@ func (s *ImmuTcServer) Start() (err error) {
 	}()
 
 	s.HttpServer = s.newWebserver()
-	go s.gracefullShutdown()
+	go s.gracefulShutdown()
 
 	s.Logger.Infof("Status server is ready to handle requests at %s/status", s.Options.Address+":"+strconv.Itoa(s.Options.Port))
 	if err = s.HttpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -105,7 +106,7 @@ func (s *ImmuTcServer) Start() (err error) {
 
 // Stop shutdown trust checker and status http server
 func (s *ImmuTcServer) Stop() error {
-	s.gracefullShutdown()
+	s.gracefulShutdown()
 	return nil
 }
 
@@ -132,7 +133,7 @@ func (s *ImmuTcServer) newWebserver() *http.Server {
 	}
 }
 
-func (s *ImmuTcServer) gracefullShutdown() {
+func (s *ImmuTcServer) gracefulShutdown() {
 	signal.Notify(s.Quit, os.Interrupt)
 	<-s.Quit
 	s.Logger.Infof("Trust checker is shutting down...")
