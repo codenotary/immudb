@@ -295,9 +295,8 @@ func (t *Store) BySafeIndex(options schema.SafeIndexOptions) (safeitem *schema.S
 	if err != nil {
 		return nil, err
 	}
-	if err == nil {
-		item = &schema.Item{Key: key, Value: value, Index: idx}
-	}
+
+	item = &schema.Item{Key: key, Value: value, Index: idx}
 
 	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
 	if err != nil {
