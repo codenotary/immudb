@@ -54,6 +54,7 @@ type ImmuClient interface {
 	WaitForHealthCheck(ctx context.Context) (err error)
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
+	ListUsers(ctx context.Context) (*schema.ItemList, error)
 	CreateUser(ctx context.Context, user []byte, pass []byte) (*schema.CreateUserResponse, error)
 	DeleteUser(ctx context.Context, user []byte) error
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
@@ -268,6 +269,10 @@ func (c *immuClient) GetServiceClient() *schema.ImmuServiceClient {
 
 func (c *immuClient) GetOptions() *Options {
 	return c.Options
+}
+
+func (c *immuClient) ListUsers(ctx context.Context) (*schema.ItemList, error) {
+	return c.ServiceClient.ListUsers(ctx, new(empty.Empty))
 }
 
 // CreateUser ...

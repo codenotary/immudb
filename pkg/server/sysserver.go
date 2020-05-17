@@ -64,6 +64,10 @@ func (s *ImmuServer) createAdminUser(ctx context.Context) (string, string, error
 	return u.Username, plainPass, nil
 }
 
+func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.ItemList, error) {
+	return s.SysStore.Scan(schema.ScanOptions{Prefix: []byte{}})
+}
+
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.CreateUserResponse, error) {
 	item, err := s.SysStore.Get(schema.Key{Key: r.GetUser()})
 	if err != nil && err != store.ErrKeyNotFound {

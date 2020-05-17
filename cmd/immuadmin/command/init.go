@@ -39,7 +39,7 @@ type commandline struct {
 
 type commandlineDisc struct{}
 
-func Init(cmd *cobra.Command, o *c.Options) {
+func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
 	if err := configureOptions(cmd, o); err != nil {
 		c.QuitToStdErr(err)
 	}
@@ -49,7 +49,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 		context.Background(),
 		metadata.Pairs(auth.ClientIDMetadataKey, auth.ClientIDMetadataValueAdmin))
 
-	cl.user(cmd)
+	cl.user(cmd, cmdName)
 	cl.login(cmd)
 	cl.logout(cmd)
 	cl.status(cmd)
@@ -60,7 +60,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cld := new(commandlineDisc)
 	cld.service(cmd)
 
-	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/immuadmin"))
+	cmd.AddCommand(man.Generate(cmd, cmdName, "./cmd/docs/man/"+cmdName))
 }
 
 const adminTokenFileSuffix = "_admin"

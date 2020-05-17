@@ -257,6 +257,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 };
 
 service ImmuService {
+	rpc ListUsers (google.protobuf.Empty) returns (ItemList){}
 	rpc CreateUser (CreateUserRequest) returns (CreateUserResponse){}
 	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){}
 	rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty){}

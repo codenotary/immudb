@@ -25,7 +25,9 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strings"
+	"text/tabwriter"
 
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -147,4 +149,76 @@ func ReadFromTerminalYN(def string) (selected string, err error) {
 		return "n", nil
 	}
 	return "", nil
+}
+
+func UsageSprintf(usages map[string][]string) string {
+	subCmds := make([]string, 0, len(usages))
+	for subCmd := range usages {
+		subCmds = append(subCmds, subCmd)
+	}
+	sort.Strings(subCmds)
+	var usagesBuilder strings.Builder
+	for i, subCmd := range subCmds {
+		descAndUsage := usages[subCmd]
+		usagesBuilder.WriteString("  ")
+		usagesBuilder.WriteString(descAndUsage[0])
+		usagesBuilder.WriteString(":\n    ")
+		usagesBuilder.WriteString(descAndUsage[1])
+		if i < len(subCmds)-1 {
+			usagesBuilder.WriteString("\n")
+		}
+	}
+	return usagesBuilder.String()
+}
+
+type RequiredArgs struct {
+	Cmd    string
+	Usage  string
+	Usages map[string][]string
+}
+
+func (ra *RequiredArgs) Require(args []string, argPos int, argName string, action string) (string, error) {
+	isValidAction := true
+	if action != "" {
+		_, isValidAction = ra.Usages[action]
+		if !isValidAction {
+			action = ""
+		}
+	}
+	if len(args) < argPos+1 || !isValidAction {
+		usage := ra.Usage
+		if action != "" {
+			usage = ra.Usages[action][1]
+		}
+		return "", fmt.Errorf(
+			"Please specify %s.\nUsage: %s\nHelp : %s -h", argName, usage, ra.Cmd)
+	}
+	return args[argPos], nil
+}
+
+func PrintTable(header []string, data []interface{}, cols func(int, interface{}, string) string) {
+	if len(data) == 0 {
+		return
+	}
+	colSep := "\t"
+
+	var sb strings.Builder
+	for _, th := range header {
+		for i := 0; i < len(th); i++ {
+			sb.WriteString("-")
+		}
+		sb.WriteString(colSep)
+	}
+	borderBottom := sb.String()
+	sb.Reset()
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, borderBottom)
+	fmt.Fprintln(w, strings.Join(header, colSep)+colSep)
+	fmt.Fprintln(w, borderBottom)
+	for i, item := range data {
+		fmt.Fprintln(w, cols(i+1, item, colSep))
+	}
+	fmt.Fprintln(w, borderBottom)
+	_ = w.Flush()
 }
