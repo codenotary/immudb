@@ -746,8 +746,8 @@ func (c *immuClient) ByIndex(ctx context.Context, index uint64) (*schema.Structu
 	return result, err
 }
 
-// ByIndex returns a structured value at index
-func (c *immuClient) ByRawSafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error){
+// ByRawSafeIndex returns a verified index at specified index
+func (c *immuClient) ByRawSafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -792,11 +792,11 @@ func (c *immuClient) ByRawSafeIndex(ctx context.Context, index uint64) (*Verifie
 	c.Logger.Debugf("by-rawsafeindex finished in %s", time.Since(start))
 
 	return &VerifiedItem{
-		Key:      safeItem.Item.GetKey(),
-		Value:    safeItem.Item.Value,
-		Index:    safeItem.Item.GetIndex(),
-		Verified: verified,
-	},
+			Key:      safeItem.Item.GetKey(),
+			Value:    safeItem.Item.Value,
+			Index:    safeItem.Item.GetIndex(),
+			Verified: verified,
+		},
 		nil
 }
 
