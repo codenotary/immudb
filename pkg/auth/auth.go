@@ -267,8 +267,6 @@ var methodsForAdmin = map[string]struct{}{
 	"/immudb.schema.ImmuService/CreateUser":     empty,
 	"/immudb.schema.ImmuService/ChangePassword": empty,
 	"/immudb.schema.ImmuService/DeleteUser":     empty,
-	"/immudb.schema.ImmuService/Backup":         empty,
-	"/immudb.schema.ImmuService/Restore":        empty,
 }
 
 const ClientIDMetadataKey = "client_id"
