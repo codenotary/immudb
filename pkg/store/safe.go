@@ -286,3 +286,43 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 
 	return
 }
+
+func (t *Store) BySafeIndex(options schema.SafeIndexOptions) (safeitem *schema.SafeItem, err error) {
+
+	var item *schema.Item
+
+	idx, key, value, err := t.itemAt(options.Index + 1)
+	if err != nil {
+		return nil, err
+	}
+	if err == nil {
+		item = &schema.Item{Key: key, Value: value, Index: idx}
+	}
+
+	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
+	if err != nil {
+		return
+	}
+
+	safeItem := &schema.SafeItem{
+		Item: item,
+	}
+
+	t.tree.WaitUntil(item.Index)
+	t.tree.RLock()
+	defer t.tree.RUnlock()
+
+	at := t.tree.w - 1
+	root := merkletree.Root(t.tree)
+
+	safeItem.Proof = &schema.Proof{
+		Leaf:            item.Hash(),
+		Index:           item.Index,
+		Root:            root[:],
+		At:              at,
+		InclusionPath:   merkletree.InclusionProof(t.tree, at, item.Index).ToSlice(),
+		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
+	}
+
+	return safeItem, err
+}
