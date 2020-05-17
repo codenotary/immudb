@@ -417,6 +417,15 @@ func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schem
 	return sitem, nil
 }
 
+func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
+	s.Logger.Debugf("get by safeIndex %d ", sio.Index)
+	item, err := s.Store.BySafeIndex(*sio)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
 func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
 	list, err := s.Store.History(*key)
