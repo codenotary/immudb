@@ -27,6 +27,7 @@ import (
 	"time"
 )
 
+// ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
 const ErrConsistencyFail = "consistency check fail at index %d"
 
 type immuTc struct {
@@ -36,25 +37,30 @@ type immuTc struct {
 	Trusted bool
 }
 
+// ImmuTc trust checker interface
 type ImmuTc interface {
 	Start(context.Context) (err error)
 	Stop(context.Context)
 	GetStatus(context.Context) bool
 }
 
+// NewImmuTc returns new trust checker service
 func NewImmuTc(c client.ImmuClient, l logger.Logger) ImmuTc {
 	return &immuTc{c, l, false, true}
 }
 
+// Start start the trust checker loop
 func (s *immuTc) Start(ctx context.Context) (err error) {
 	s.Logger.Infof("Start scanning ...")
 	return s.checkLevel0(ctx)
 }
 
+// Stop stop the trust checker loop
 func (s *immuTc) Stop(ctx context.Context) {
 	s.Quit = true
 }
 
+// GetStatus return status of the trust checker. False means that a consistency checks was failed
 func (s *immuTc) GetStatus(ctx context.Context) bool {
 	return s.Trusted
 }
