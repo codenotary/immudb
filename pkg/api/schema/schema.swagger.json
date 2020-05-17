@@ -344,6 +344,38 @@
         ]
       }
     },
+    "/v1/immurestproxy/item/safe/index/{index}": {
+      "get": {
+        "operationId": "BySafeIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaSafeItem"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "rootIndex.index",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/item/scan": {
       "post": {
         "operationId": "Scan",
