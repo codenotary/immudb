@@ -56,8 +56,7 @@ After={{.Dependencies}}
 
 
 [Service]
-PIDFile=/var/run/{{.Name}}.pid
-ExecStartPre=/bin/rm -f /var/run/{{.Name}}.pid
+ExecStartPre=/bin/rm -f /var/lib/immudb/{{.Name}}.pid
 ExecStart={{.Path}} {{.Args}}
 Restart=on-failure
 User=%s
@@ -89,7 +88,7 @@ func InstallSetup(serviceName string) (err error) {
 	}
 
 	if err = setOwnership(linuxExecPath); err != nil {
-		return  err
+		return err
 	}
 
 	if err = installConfig(serviceName); err != nil {
