@@ -105,9 +105,8 @@ func (s *ImmuTcServer) Start() (err error) {
 }
 
 // Stop shutdown trust checker and status http server
-func (s *ImmuTcServer) Stop() error {
+func (s *ImmuTcServer) Stop() {
 	s.gracefulShutdown()
-	return nil
 }
 
 func (s *ImmuTcServer) newWebserver() *http.Server {
@@ -125,7 +124,7 @@ func (s *ImmuTcServer) newWebserver() *http.Server {
 	})
 
 	return &http.Server{
-		Addr:         s.Options.Address + ":" + strconv.Itoa(s.Options.Port),
+		Addr:         s.Options.Bind(),
 		Handler:      router,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

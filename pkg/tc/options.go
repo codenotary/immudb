@@ -18,8 +18,7 @@ package tc
 
 import (
 	"encoding/json"
-	"strconv"
-
+	"fmt"
 	"github.com/codenotary/immudb/pkg/client"
 )
 
@@ -113,7 +112,7 @@ func (o Options) WithLogfile(logfile string) Options {
 }
 
 func (o Options) Bind() string {
-	return o.Address + ":" + strconv.Itoa(o.Port)
+	return fmt.Sprintf("%s:%d", o.Address, o.Port)
 }
 
 func (o Options) String() string {
