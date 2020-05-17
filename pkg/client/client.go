@@ -67,6 +67,7 @@ type ImmuClient interface {
 	Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error)
 	ZScan(ctx context.Context, set []byte) (*schema.StructuredItemList, error)
 	ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error)
+	ByRawSafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error)
 	IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error)
 	Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error)
 	SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error)
@@ -731,7 +732,7 @@ func (c *immuClient) Consistency(ctx context.Context, index uint64) (*schema.Con
 	return result, err
 }
 
-// ByIndex ...
+// ByIndex returns a structured value at index
 func (c *immuClient) ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error) {
 	start := time.Now()
 	if !c.IsConnected() {
@@ -749,6 +750,60 @@ func (c *immuClient) ByIndex(ctx context.Context, index uint64) (*schema.Structu
 	}
 	c.Logger.Debugf("by-index finished in %s", time.Since(start))
 	return result, err
+}
+
+// ByIndex returns a structured value at index
+func (c *immuClient) ByRawSafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error){
+	c.Lock()
+	defer c.Unlock()
+
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	root, err := c.Rootservice.GetRoot(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	safeItem, err := c.ServiceClient.BySafeIndex(ctx, &schema.SafeIndexOptions{
+		Index: index,
+		RootIndex: &schema.Index{
+			Index: root.Index,
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	h, err := safeItem.Hash()
+	if err != nil {
+		return nil, err
+	}
+	verified := safeItem.Proof.Verify(h, *root)
+	if verified {
+		// saving a fresh root
+		tocache := new(schema.Root)
+		tocache.Index = safeItem.Proof.At
+		tocache.Root = safeItem.Proof.Root
+		err = c.Rootservice.SetRoot(tocache)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	c.Logger.Debugf("by-rawsafeindex finished in %s", time.Since(start))
+
+	return &VerifiedItem{
+		Key:      safeItem.Item.GetKey(),
+		Value:    safeItem.Item.Value,
+		Index:    safeItem.Item.GetIndex(),
+		Verified: verified,
+	},
+		nil
 }
 
 // History ...
