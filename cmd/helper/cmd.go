@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -196,11 +197,19 @@ func (ra *RequiredArgs) Require(args []string, argPos int, argName string, actio
 	return args[argPos], nil
 }
 
-func PrintTable(header []string, data []interface{}, cols func(int, interface{}, string) string) {
-	if len(data) == 0 {
+func PrintTable(cols []string, nbRows int, row func(int, string) string) {
+	if nbRows == 0 {
 		return
 	}
 	colSep := "\t"
+
+	maxNbDigits := 0
+	tens := nbRows
+	for tens != 0 {
+		tens /= 10
+		maxNbDigits++
+	}
+	header := append([]string{strings.Repeat("#", maxNbDigits)}, cols...)
 
 	var sb strings.Builder
 	for _, th := range header {
@@ -214,10 +223,10 @@ func PrintTable(header []string, data []interface{}, cols func(int, interface{},
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, borderBottom)
-	fmt.Fprintln(w, strings.Join(header, colSep)+colSep)
+	fmt.Fprint(w, strings.Join(header, colSep), colSep, "\n")
 	fmt.Fprintln(w, borderBottom)
-	for i, item := range data {
-		fmt.Fprintln(w, cols(i+1, item, colSep))
+	for i := 0; i < nbRows; i++ {
+		fmt.Fprint(w, strconv.Itoa(i+1), colSep, row(i, colSep), "\n")
 	}
 	fmt.Fprintln(w, borderBottom)
 	_ = w.Flush()

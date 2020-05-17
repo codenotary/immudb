@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/spf13/cobra"
 )
@@ -91,22 +90,13 @@ func (cl *commandline) listUsers() {
 	if len(usersList.Items) <= 0 {
 		fmt.Printf("No users found")
 	}
-
-	users := make([]interface{}, len(usersList.Items))
-	for i, u := range usersList.Items {
-		users[i] = u
-	}
-	fmt.Println(len(users), "users:")
-	tableHeader := []string{"##", "Username", "Role", "Permissions"}
+	fmt.Println(len(usersList.Items), "users:")
 	var sb strings.Builder
 	c.PrintTable(
-		tableHeader,
-		users,
-		func(i int, v interface{}, colSep string) string {
-			item := v.(*schema.Item)
-			u := string(item.GetKey())
-			sb.WriteString(fmt.Sprint(i))
-			sb.WriteString(colSep)
+		[]string{"Username", "Role", "Permissions"},
+		len(usersList.Items),
+		func(i int, colSep string) string {
+			u := string(usersList.Items[i].GetKey())
 			sb.WriteString(u)
 			sb.WriteString(colSep)
 			if u != auth.AdminUsername {
