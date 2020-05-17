@@ -91,27 +91,21 @@ func (cl *commandline) listUsers() {
 		fmt.Printf("No users found")
 	}
 	fmt.Println(len(usersList.Items), "users:")
-	var sb strings.Builder
 	c.PrintTable(
 		[]string{"Username", "Role", "Permissions"},
 		len(usersList.Items),
-		func(i int, colSep string) string {
+		func(i int) []string {
+			row := make([]string, 3)
 			u := string(usersList.Items[i].GetKey())
-			sb.WriteString(u)
-			sb.WriteString(colSep)
+			row[0] = u
 			if u != auth.AdminUsername {
-				sb.WriteString("client")
-				sb.WriteString(colSep)
-				sb.WriteString("read/write")
+				row[1] = "client"
+				row[2] = "read/write"
 			} else {
-				sb.WriteString("admin")
-				sb.WriteString(colSep)
-				sb.WriteString("admin")
+				row[1] = "admin"
+				row[2] = "admin"
 			}
-			sb.WriteString(colSep)
-			s := sb.String()
-			sb.Reset()
-			return s
+			return row
 		},
 	)
 }

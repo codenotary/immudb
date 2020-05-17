@@ -197,8 +197,12 @@ func (ra *RequiredArgs) Require(args []string, argPos int, argName string, actio
 	return args[argPos], nil
 }
 
-func PrintTable(cols []string, nbRows int, row func(int, string) string) {
+func PrintTable(cols []string, nbRows int, getRow func(int) []string) {
 	if nbRows == 0 {
+		return
+	}
+	nbCols := len(cols)
+	if nbCols == 0 {
 		return
 	}
 	colSep := "\t"
@@ -226,7 +230,16 @@ func PrintTable(cols []string, nbRows int, row func(int, string) string) {
 	fmt.Fprint(w, strings.Join(header, colSep), colSep, "\n")
 	fmt.Fprintln(w, borderBottom)
 	for i := 0; i < nbRows; i++ {
-		fmt.Fprint(w, strconv.Itoa(i+1), colSep, row(i, colSep), "\n")
+		row := getRow(i)
+		nbRowCols := len(row)
+		for j := 0; j < nbCols; j++ {
+			if j < nbRowCols {
+				sb.WriteString(row[j])
+			}
+			sb.WriteString(colSep)
+		}
+		fmt.Fprint(w, strconv.Itoa(i+1), colSep, sb.String(), "\n")
+		sb.Reset()
 	}
 	fmt.Fprintln(w, borderBottom)
 	_ = w.Flush()
