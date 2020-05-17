@@ -31,6 +31,7 @@
 /nimmu
 /bm
 /immugw
+/immutc
 
 # Working files
 .root*
@@ -46,6 +47,7 @@ configs/immuclient.toml
 configs/immudb.toml
 configs/immugw.toml
 configs/immutest.toml
+configs/immutc.toml
 
 # immudb auth
 immudb_pwd
