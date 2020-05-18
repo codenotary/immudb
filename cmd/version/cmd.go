@@ -18,7 +18,9 @@ package version
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -53,9 +55,13 @@ func VersionCmd() *cobra.Command {
 					fmt.Sprintf(strPattern, longestLabelLength, "Built by", BuiltBy))
 			}
 			if BuiltAt != "" {
-				pieces = append(
-					pieces,
-					fmt.Sprintf(strPattern, longestLabelLength, "Built at", BuiltAt))
+				i, err := strconv.ParseInt(BuiltAt, 10, 64)
+				if err == nil {
+					builtAt := time.Unix(i, 0).Format(time.RFC1123)
+					pieces = append(
+						pieces,
+						fmt.Sprintf(strPattern, longestLabelLength, "Built at", builtAt))
+				}
 			}
 			fmt.Println(strings.Join(pieces, "\n"))
 		},
