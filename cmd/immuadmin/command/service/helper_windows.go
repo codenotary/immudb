@@ -21,15 +21,16 @@ package service
 import (
 	"bytes"
 	"fmt"
-	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
-	"github.com/spf13/viper"
-	"github.com/takama/daemon"
-	"golang.org/x/sys/windows"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
+	"github.com/spf13/viper"
+	"github.com/takama/daemon"
+	"golang.org/x/sys/windows"
 )
 
 const winExecPath = "C:\\Windows\\System32\\"
@@ -142,6 +143,7 @@ func GetExecutable(input string, serviceName string) (exec string, err error) {
 	return exec, err
 }
 
+// todo @Michele use functions from the fs package?
 //CopyExecInOsDefault copy the executable in default exec folder and returns the path
 func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	from, err := os.Open(execPath)

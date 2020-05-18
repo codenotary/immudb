@@ -28,7 +28,6 @@ func main() {
 	cmd := immugw.NewCmd()
 	if err := cmd.Execute(); err != nil {
 		c.QuitWithUserError(err)
-		os.Exit(1)
 	}
 	os.Exit(0)
 }

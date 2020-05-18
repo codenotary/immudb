@@ -237,6 +237,11 @@ message SafeZAddOptions {
 	Index rootIndex = 2;
 }
 
+message SafeIndexOptions {
+	uint64 index = 1;
+	Index rootIndex = 2;
+}
+
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	security_definitions: {
 		security: {
@@ -365,6 +370,12 @@ service ImmuService {
 	rpc ByIndex(Index) returns (Item){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/index/{index}"
+		};
+	};
+
+	rpc BySafeIndex(SafeIndexOptions) returns (SafeItem){
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/item/safe/index/{index}"
 		};
 	};
 

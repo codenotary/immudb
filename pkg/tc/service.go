@@ -14,22 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package tc
 
-import (
-	"os"
+type Service struct {
+	ImmuTcServer
+}
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	immuadmin "github.com/codenotary/immudb/cmd/immuadmin/command"
-	"github.com/codenotary/immudb/cmd/version"
-)
+// Start - non-blocking start service
+func (s Service) Start() {
+	go s.Run()
+}
 
-func main() {
-	cmdName := "immuadmin"
-	version.App = cmdName
-	cmd := immuadmin.NewCmd(cmdName)
-	if err := cmd.Execute(); err != nil {
-		c.QuitWithUserError(err)
-	}
-	os.Exit(0)
+// Stop - non-blocking stop service
+func (s Service) Stop() {
+	go s.ImmuTcServer.Stop()
+}
+
+// Run - blocking run service
+func (s Service) Run() {
+	s.ImmuTcServer.Start()
 }

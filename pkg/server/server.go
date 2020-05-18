@@ -493,6 +493,15 @@ func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schem
 	return sitem, nil
 }
 
+func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
+	s.Logger.Debugf("get by safeIndex %d ", sio.Index)
+	item, err := s.Store.BySafeIndex(*sio)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
 func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
 	list, err := s.Store.History(*key)
@@ -607,7 +616,7 @@ func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer)
 
 // todo(joe-dz): Enable restore when the feature is required again.
 // Also, make sure that the generated files are updated
-//func (s *ImmuServer) Restore(stream schema.ImmuService_RestoreServer) (err error) {
+//func (s *ImmuServer) HotRestore(stream schema.ImmuService_RestoreServer) (err error) {
 //	kvChan := make(chan *pb.KVList)
 //	errs := make(chan error, 1)
 //

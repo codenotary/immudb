@@ -22,10 +22,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
-	immudb "github.com/codenotary/immudb/cmd/immudb/command"
-	immugw "github.com/codenotary/immudb/cmd/immugw/command"
-	"github.com/takama/daemon"
 	"io"
 	"os"
 	"os/exec"
@@ -34,6 +30,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
+	immudb "github.com/codenotary/immudb/cmd/immudb/command"
+	immugw "github.com/codenotary/immudb/cmd/immugw/command"
+	"github.com/takama/daemon"
 
 	"github.com/spf13/viper"
 )
@@ -89,7 +90,7 @@ func InstallSetup(serviceName string) (err error) {
 	}
 
 	if err = setOwnership(linuxExecPath); err != nil {
-		return  err
+		return err
 	}
 
 	if err = installConfig(serviceName); err != nil {
@@ -254,6 +255,7 @@ func GetExecutable(input string, serviceName string) (exec string, err error) {
 }
 
 // todo @Michele this can be simplified -> CopyExecInOsDefault(servicename string)
+// toto @Michele use functions from the fs package?
 //CopyExecInOsDefault copy the executable in default exec folder and returns the path. It accepts an executable absolute path
 func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	from, err := os.Open(execPath)
