@@ -25,7 +25,10 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -65,7 +68,8 @@ func (o *Options) InitConfig(name string) {
 	viper.SetEnvPrefix(strings.ToUpper(name))
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		o.CfgFn = viper.ConfigFileUsed()
+		fmt.Println("Using config file:", o.CfgFn)
 	}
 }
 
@@ -146,4 +150,97 @@ func ReadFromTerminalYN(def string) (selected string, err error) {
 		return "n", nil
 	}
 	return "", nil
+}
+
+func UsageSprintf(usages map[string][]string) string {
+	subCmds := make([]string, 0, len(usages))
+	for subCmd := range usages {
+		subCmds = append(subCmds, subCmd)
+	}
+	sort.Strings(subCmds)
+	var usagesBuilder strings.Builder
+	for i, subCmd := range subCmds {
+		descAndUsage := usages[subCmd]
+		usagesBuilder.WriteString("  ")
+		usagesBuilder.WriteString(descAndUsage[0])
+		usagesBuilder.WriteString(":\n    ")
+		usagesBuilder.WriteString(descAndUsage[1])
+		if i < len(subCmds)-1 {
+			usagesBuilder.WriteString("\n")
+		}
+	}
+	return usagesBuilder.String()
+}
+
+type RequiredArgs struct {
+	Cmd    string
+	Usage  string
+	Usages map[string][]string
+}
+
+func (ra *RequiredArgs) Require(args []string, argPos int, argName string, action string) (string, error) {
+	isValidAction := true
+	if action != "" {
+		_, isValidAction = ra.Usages[action]
+		if !isValidAction {
+			action = ""
+		}
+	}
+	if len(args) < argPos+1 || !isValidAction {
+		usage := ra.Usage
+		if action != "" {
+			usage = ra.Usages[action][1]
+		}
+		return "", fmt.Errorf(
+			"Please specify %s.\nUsage: %s\nHelp : %s -h", argName, usage, ra.Cmd)
+	}
+	return args[argPos], nil
+}
+
+func PrintTable(cols []string, nbRows int, getRow func(int) []string) {
+	if nbRows == 0 {
+		return
+	}
+	nbCols := len(cols)
+	if nbCols == 0 {
+		return
+	}
+	colSep := "\t"
+
+	maxNbDigits := 0
+	tens := nbRows
+	for tens != 0 {
+		tens /= 10
+		maxNbDigits++
+	}
+	header := append([]string{strings.Repeat("#", maxNbDigits)}, cols...)
+
+	var sb strings.Builder
+	for _, th := range header {
+		for i := 0; i < len(th); i++ {
+			sb.WriteString("-")
+		}
+		sb.WriteString(colSep)
+	}
+	borderBottom := sb.String()
+	sb.Reset()
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, borderBottom)
+	fmt.Fprint(w, strings.Join(header, colSep), colSep, "\n")
+	fmt.Fprintln(w, borderBottom)
+	for i := 0; i < nbRows; i++ {
+		row := getRow(i)
+		nbRowCols := len(row)
+		for j := 0; j < nbCols; j++ {
+			if j < nbRowCols {
+				sb.WriteString(row[j])
+			}
+			sb.WriteString(colSep)
+		}
+		fmt.Fprint(w, strconv.Itoa(i+1), colSep, sb.String(), "\n")
+		sb.Reset()
+	}
+	fmt.Fprintln(w, borderBottom)
+	_ = w.Flush()
 }

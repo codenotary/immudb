@@ -28,9 +28,9 @@ func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immuadmin") })
 }
 
-func NewCmd() *cobra.Command {
+func NewCmd(cmdName string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "immuadmin",
+		Use:   cmdName,
 		Short: "CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications",
 		Long: `CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
 
@@ -46,7 +46,7 @@ Environment variables:
 		SilenceErrors:     true,
 		DisableAutoGenTag: true,
 	}
-	Init(cmd, &o)
+	Init(cmd, cmdName, &o)
 	cmd.AddCommand(version.VersionCmd())
 
 	return cmd

@@ -70,6 +70,7 @@ var slog = logger.NewSimpleLoggerWithLevel("client_test", os.Stderr, logger.LogD
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
 	is = is.WithOptions(is.Options.WithAuth(true))
+	auth.AuthEnabled = is.Options.Auth
 	var err error
 	sysDbDir := filepath.Join(is.Options.Dir, is.Options.SysDbName)
 	if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {

@@ -20,11 +20,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -203,7 +206,7 @@ func (s *ImmuServer) Stop() error {
 }
 
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
-	if !s.Options.Auth && !auth.IsAdminClient(ctx) {
+	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
 		return nil, status.Errorf(codes.Unavailable, "authentication is disabled on server")
 	}
 	item, err := s.SysStore.Get(schema.Key{Key: r.User})
@@ -228,6 +231,79 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 		return nil, err
 	}
 	return &schema.LoginResponse{Token: []byte(token)}, nil
+}
+
+func updateConfigItem(
+	configFilepath string,
+	key string,
+	newOrUpdatedLine string,
+	unchanged func(string) bool) error {
+	if strings.TrimSpace(configFilepath) == "" {
+		return fmt.Errorf("config file does not exist")
+	}
+	configBytes, err := ioutil.ReadFile(configFilepath)
+	if err != nil {
+		return fmt.Errorf("error reading config file %s: %v", configFilepath, err)
+	}
+	configLines := strings.Split(string(configBytes), "\n")
+	write := false
+	for i, l := range configLines {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, key+"=") || strings.HasPrefix(l, key+" =") {
+			kv := strings.Split(l, "=")
+			if unchanged(kv[1]) {
+				return fmt.Errorf("Server config already has %s", newOrUpdatedLine)
+			}
+			configLines[i] = newOrUpdatedLine
+			write = true
+			break
+		}
+	}
+	if !write {
+		configLines = append(configLines, newOrUpdatedLine)
+	}
+	if err := ioutil.WriteFile(configFilepath, []byte(strings.Join(configLines, "\n")), 0644); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfig) (*empty.Empty, error) {
+	e := new(empty.Empty)
+	s.Options.Auth = req.GetKind() > 0
+	auth.AuthEnabled = s.Options.Auth
+	if err := updateConfigItem(
+		s.Options.Config,
+		"auth",
+		fmt.Sprintf("auth = %t", auth.AuthEnabled),
+		func(currValue string) bool {
+			b, err := strconv.ParseBool(currValue)
+			return err == nil && b == auth.AuthEnabled
+		},
+	); err != nil {
+		return e, fmt.Errorf(
+			"auth set to %t, but config file could not be updated: %v",
+			auth.AuthEnabled, err)
+	}
+	return e, nil
+}
+func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfig) (*empty.Empty, error) {
+	e := new(empty.Empty)
+	if err := updateConfigItem(
+		s.Options.Config,
+		"mtls",
+		fmt.Sprintf("mtls = %t", req.GetEnabled()),
+		func(currValue string) bool {
+			b, err := strconv.ParseBool(currValue)
+			return err == nil && b == req.GetEnabled()
+		},
+	); err != nil {
+		return e, fmt.Errorf("MTLS could not be set to %t: %v", req.GetEnabled(), err)
+	}
+	return e, status.Errorf(
+		codes.OK,
+		"MTLS set to %t in server config, but server restart is required for it to take effect.",
+		req.GetEnabled())
 }
 
 func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.Root, error) {
