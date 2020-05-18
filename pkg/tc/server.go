@@ -41,6 +41,7 @@ func NewServer(options Options) (immutcServer *ImmuTcServer, err error) {
 	immutcServer.Options = options
 
 	cliOpts := &immuclient.Options{
+		Dir:                options.Dir,
 		Address:            options.ImmudbAddress,
 		Port:               options.ImmudbPort,
 		HealthCheckRetries: 1,
@@ -85,6 +86,8 @@ func (s *ImmuTcServer) Start() (err error) {
 
 	go func() error {
 		if err = s.Checker.Start(ctx); err != nil {
+			s.Logger.Errorf("Error while running: %s", err)
+			s.Stop()
 			return err
 		}
 		return nil
@@ -106,7 +109,7 @@ func (s *ImmuTcServer) Start() (err error) {
 
 // Stop shutdown trust checker and status http server
 func (s *ImmuTcServer) Stop() {
-	s.gracefulShutdown()
+	s.Quit <- os.Interrupt
 }
 
 func (s *ImmuTcServer) newWebserver() *http.Server {

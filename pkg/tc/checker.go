@@ -67,21 +67,29 @@ func (s *immuTc) GetStatus(ctx context.Context) bool {
 
 func (s *immuTc) checkLevel0(ctx context.Context) (err error) {
 	for ok := true; ok; ok = !s.Quit {
-		s.Logger.Debugf("Retrieving a fresh root ...")
+		s.Logger.Infof("Retrieving a fresh root ...")
 		var r *schema.Root
 		if r, err = s.Client.CurrentRoot(ctx); err != nil {
-			return err
+			s.Logger.Errorf("Error retrieving root: %s", err)
+			s.sleep()
+			continue
+		}
+		if r.Root == nil {
+			s.Logger.Infof("Immudb is empty ...")
+			s.sleep()
+			continue
 		}
 		// create a range with all index presents in immudb
 		ids := makeRange(0, r.Index)
 		rn := mrand.New(newCryptoRandSource())
 		// shuffle indexes
 		rn.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
-
+		s.Logger.Infof("Start scanning %d elements", len(ids))
 		for _, id := range ids {
 			var item *client.VerifiedItem
 			if item, err = s.Client.ByRawSafeIndex(ctx, id); err != nil {
-				return err
+				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
+				continue
 			}
 			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Index, item.Value, item.Verified)
 			if !item.Verified {
@@ -89,10 +97,14 @@ func (s *immuTc) checkLevel0(ctx context.Context) (err error) {
 				s.Logger.Errorf(ErrConsistencyFail, item.Index)
 			}
 		}
-		s.Logger.Debugf("Sleeping for some seconds ...")
-		time.Sleep(10 * time.Second)
+		s.sleep()
 	}
 	return s.checkLevel0(ctx)
+}
+
+func (s *immuTc) sleep() {
+	s.Logger.Infof("Sleeping for some seconds ...")
+	time.Sleep(10 * time.Second)
 }
 
 func makeRange(min, max uint64) []uint64 {
