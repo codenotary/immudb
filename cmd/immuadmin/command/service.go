@@ -197,13 +197,13 @@ Root permission are required in order to make administrator operations.
 				}
 				if u != "y" {
 					fmt.Println("No data removed")
+				} else {
+					if err = service.EraseData(args[0]); err != nil {
+						return err
+					}
+					fmt.Println("Data folder removed")
 				}
-				if err = service.EraseData(args[0]); err != nil {
-					return err
-				}
-				fmt.Println("Data folder removed")
 			}
-
 			if err = service.RemoveProgramFiles(args[0]); err != nil {
 				return err
 			}
