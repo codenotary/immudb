@@ -31,6 +31,7 @@ func NewCmd() *cobra.Command {
 		Long: `immu trust checker: continuously launch consistency checks on random data.
 
 Environment variables:
+  IMMUTC_DIR=.
   IMMUTC_ADDRESS=127.0.0.1
   IMMUTC_PORT=3325
   IMMUTC_IMMUDB-ADDRESS=127.0.0.1
