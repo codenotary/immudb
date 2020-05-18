@@ -1,0 +1,23 @@
+FROM golang:1.13-stretch as build
+WORKDIR /src
+COPY . .
+RUN GOOS=linux GOARCH=amd64 make immuclient-static
+FROM ubuntu:18.04
+MAINTAINER vChain, Inc.  <info@vchain.us>
+
+COPY --from=build /src/immuclient /usr/local/bin/immuclient
+
+ARG IMMU_UID="3322"
+ARG IMMU_GID="3322"
+
+ENV IMMUCLIENT_IMMUDB-ADDRESS="127.0.0.1" \
+    IMMUCLIENT_IMMUDB-PORT="3322" \
+	IMMUCLIENT_AUTH="false" \
+    IMMUCLIENT_MTLS="false"
+
+RUN addgroup --system --gid $IMMU_GID immu && \
+    adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
+    chmod +x /usr/local/bin/immuclient
+
+USER immu
+ENTRYPOINT ["/usr/local/bin/immuclient"]

@@ -1,12 +1,13 @@
 FROM golang:1.13-stretch as build
 WORKDIR /src
 COPY . .
-RUN GOOS=linux GOARCH=amd64 make immuadmin-static immudb-static
+RUN GOOS=linux GOARCH=amd64 make immuclient-static immuadmin-static immudb-static
 FROM ubuntu:18.04
 MAINTAINER vChain, Inc.  <info@vchain.us>
 
 COPY --from=build /src/immudb /usr/sbin/immudb
 COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
+COPY --from=build /src/immuclient /usr/local/bin/immuclient
 
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"
@@ -31,7 +32,7 @@ RUN addgroup --system --gid $IMMU_GID immu && \
     mkdir -p "$IMMUDB_DIR" && \
     chown -R immu:immu "$IMMUDB_HOME" "$IMMUDB_DIR" && \
     chmod -R 777 "$IMMUDB_HOME" "$IMMUDB_DIR" && \
-    chmod +x /usr/sbin/immudb /usr/local/bin/immuadmin
+    chmod +x /usr/sbin/immudb /usr/local/bin/immuadmin /usr/local/bin/immuclient
 
 EXPOSE 3322
 EXPOSE 9497
@@ -39,4 +40,3 @@ EXPOSE 9497
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "/usr/local/bin/immuadmin", "status" ]
 USER immu
 ENTRYPOINT ["/usr/sbin/immudb"]
-
