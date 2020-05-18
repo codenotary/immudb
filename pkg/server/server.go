@@ -270,7 +270,8 @@ func updateConfigItem(
 
 func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfig) (*empty.Empty, error) {
 	e := new(empty.Empty)
-	auth.AuthEnabled = req.GetKind() > 0
+	s.Options.Auth = req.GetKind() > 0
+	auth.AuthEnabled = s.Options.Auth
 	if err := updateConfigItem(
 		s.Options.Config,
 		"auth",
