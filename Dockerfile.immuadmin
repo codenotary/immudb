@@ -12,7 +12,7 @@ ARG IMMU_GID="3322"
 
 ENV IMMUADMIN_IMMUDB-ADDRESS="127.0.0.1" \
     IMMUADMIN_IMMUDB-PORT="3322" \
-    IMMUDB_MTLS="false" 
+    IMMUADMIN_MTLS="false"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
@@ -20,4 +20,3 @@ RUN addgroup --system --gid $IMMU_GID immu && \
 
 USER immu
 ENTRYPOINT ["/usr/local/bin/immuadmin"]
-
