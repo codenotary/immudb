@@ -9,7 +9,7 @@ STRIP = strip
 #~~~> Binaries versions
 V_COMMIT := $(shell git rev-parse HEAD)
 V_BUILT_BY := $(shell git config user.name)
-V_BUILT_AT := $(shell date)
+V_BUILT_AT := $(shell date +%s)
 V_LDFLAGS_COMMON := -X "github.com/codenotary/immudb/cmd/version.Commit=$(V_COMMIT)" -X "github.com/codenotary/immudb/cmd/version.BuiltBy=$(V_BUILT_BY)" -X "github.com/codenotary/immudb/cmd/version.BuiltAt=$(V_BUILT_AT)"
 
 V_COMMON := $(shell git tag --sort=-version:refname | head -n 1)
