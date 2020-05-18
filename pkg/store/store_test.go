@@ -502,7 +502,7 @@ func TestInsertionOrderIndexTamperGuard(t *testing.T) {
 	_ = txn.CommitAt(ts, nil)
 
 	_, err := st.ByIndex(*index2)
-	assert.Errorf(t, err, fmt.Sprintf("Insertion ored index %d was tampered", ts))
+	assert.Errorf(t, err, fmt.Sprintf("insertion order index %d was tampered", ts))
 }
 
 func TestInsertionOrderIndexMix(t *testing.T) {
