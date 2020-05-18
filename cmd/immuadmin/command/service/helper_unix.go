@@ -55,8 +55,8 @@ Description={{.Description}}
 Requires={{.Dependencies}}
 After={{.Dependencies}}
 
-
 [Service]
+PIDFile=/var/lib/immudb/{{.Name}}.pid
 ExecStartPre=/bin/rm -f /var/lib/immudb/{{.Name}}.pid
 ExecStart={{.Path}} {{.Args}}
 Restart=on-failure
