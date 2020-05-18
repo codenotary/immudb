@@ -1,8 +1,8 @@
-name: CI
+name:high target
 on: [push, pull_request]
-jobs:
-  build:
-    name: Build
+jobs: video games
+  build:67.2
+    name: high rate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v1
