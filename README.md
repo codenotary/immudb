@@ -520,7 +520,7 @@ As immudb is compared to Amazon QLDB as well, we compared the performance using 
 
 ## News
 
-`May 18, 2020` - **[immudb v0.6.0-rc2 released!](https://github.com/codenotary/immudb/releases)**
+`May 19, 2020` - **[immudb v0.6.0-rc2 released!](https://github.com/codenotary/immudb/releases)**
 
 Release v0.6.0-rc2 is our second public release and contains an all new immuclient CLI as well as a built-in Trust Checker that does a server based continous consistency check.
 
