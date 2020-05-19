@@ -1,6 +1,9 @@
 package immugw
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
@@ -11,8 +14,6 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
-	"os"
-	"path/filepath"
 )
 
 var o = c.Options{}
@@ -105,6 +106,10 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return gw.Options{}, err
 	}
+	audit := viper.GetBool("audit")
+	auditInterval := viper.GetDuration("audit-interval")
+	auditUsername := viper.GetString("audit-username")
+	auditPassword := viper.GetString("audit-password")
 	pidfile := viper.GetString("pidfile")
 	logfile := viper.GetString("logfile")
 	mtls := viper.GetBool("mtls")
@@ -120,6 +125,10 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 		WithAddress(address).
 		WithImmudbAddress(immudbAddress).
 		WithImmudbPort(immudbport).
+		WithAudit(audit).
+		WithAuditInterval(auditInterval).
+		WithAuditUsername(auditUsername).
+		WithAuditPassword(auditPassword).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
 		WithMTLs(mtls).
@@ -142,6 +151,10 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 	cmd.Flags().IntP("immudb-port", "j", options.ImmudbPort, "immudb port number")
 	cmd.Flags().StringP("immudb-address", "k", options.ImmudbAddress, "immudb host address")
 	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.toml)")
+	cmd.Flags().Bool("audit", options.Audit, "enable audit (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)")
+	cmd.Flags().Duration("audit-interval", options.AuditInterval, "audit interval")
+	cmd.Flags().String("audit-username", options.AuditUsername, "username used by auditor to login to immudb")
+	cmd.Flags().String("audit-password", options.AuditPassword, "password used by auditor to login to immudb")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
@@ -166,6 +179,18 @@ func bindFlags(cmd *cobra.Command) error {
 		return err
 	}
 	if err := viper.BindPFlag("immudb-address", cmd.Flags().Lookup("immudb-address")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("audit", cmd.Flags().Lookup("audit")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("audit-interval", cmd.Flags().Lookup("audit-interval")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("audit-username", cmd.Flags().Lookup("audit-username")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("audit-password", cmd.Flags().Lookup("audit-password")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
@@ -201,6 +226,10 @@ func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
 	viper.SetDefault("address", options.Address)
 	viper.SetDefault("immudb-port", options.ImmudbPort)
 	viper.SetDefault("immudb-address", options.ImmudbAddress)
+	viper.SetDefault("audit", options.Audit)
+	viper.SetDefault("audit-interval", options.AuditInterval)
+	viper.SetDefault("audit-username", options.AuditUsername)
+	viper.SetDefault("audit-password", options.AuditPassword)
 	viper.SetDefault("pidfile", options.Pidfile)
 	viper.SetDefault("logfile", options.Logfile)
 	viper.SetDefault("mtls", options.MTLs)

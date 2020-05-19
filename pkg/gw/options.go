@@ -19,6 +19,7 @@ package gw
 import (
 	"encoding/json"
 	"strconv"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/client"
 )
@@ -27,8 +28,13 @@ type Options struct {
 	Dir           string
 	Address       string
 	Port          int
+	MetricsPort   int
 	ImmudbAddress string
 	ImmudbPort    int
+	Audit         bool
+	AuditInterval time.Duration
+	AuditUsername string
+	AuditPassword string
 	Detached      bool
 	MTLs          bool
 	MTLsOptions   client.MTLsOptions
@@ -42,8 +48,13 @@ func DefaultOptions() Options {
 		Dir:           ".",
 		Address:       "127.0.0.1",
 		Port:          3323,
+		MetricsPort:   9498,
 		ImmudbAddress: "127.0.0.1",
 		ImmudbPort:    3322,
+		Audit:         false,
+		AuditInterval: 5 * time.Minute,
+		AuditUsername: "immugwauditor",
+		AuditPassword: "",
 		Detached:      false,
 		MTLs:          false,
 		Config:        "configs/immugw.toml",
@@ -79,6 +90,30 @@ func (o Options) WithImmudbAddress(immudbAddress string) Options {
 // WithImmudbPort sets immudbPort
 func (o Options) WithImmudbPort(immudbPort int) Options {
 	o.ImmudbPort = immudbPort
+	return o
+}
+
+// WithAudit sets Audit
+func (o Options) WithAudit(audit bool) Options {
+	o.Audit = audit
+	return o
+}
+
+// WithAuditInterval sets AuditInterval
+func (o Options) WithAuditInterval(auditInterval time.Duration) Options {
+	o.AuditInterval = auditInterval
+	return o
+}
+
+// WithAuditUsername sets AuditUsername
+func (o Options) WithAuditUsername(auditUsername string) Options {
+	o.AuditUsername = auditUsername
+	return o
+}
+
+// WithAuditPassword sets AuditPassword
+func (o Options) WithAuditPassword(auditPassword string) Options {
+	o.AuditPassword = auditPassword
 	return o
 }
 
@@ -120,6 +155,11 @@ func (o Options) WithLogfile(logfile string) Options {
 
 func (o Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
+}
+
+// MetricsBind return metrics bind address
+func (o Options) MetricsBind() string {
+	return o.Address + ":" + strconv.Itoa(o.MetricsPort)
 }
 
 func (o Options) String() string {

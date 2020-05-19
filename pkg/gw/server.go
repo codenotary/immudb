@@ -23,6 +23,9 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
+
+	"github.com/codenotary/immudb/pkg/auditor"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
@@ -30,6 +33,8 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
 )
+
+var startedAt time.Time
 
 func (s *ImmuGwServer) Start() error {
 	ctx := context.Background()
@@ -85,12 +90,43 @@ func (s *ImmuGwServer) Start() error {
 		}
 	}
 
+	if s.Options.Audit {
+		defaultAuditor, err := auditor.DefaultAuditor(
+			cliOpts,
+			s.Options.AuditInterval,
+			s.Options.AuditUsername,
+			s.Options.AuditPassword,
+		)
+		if err != nil {
+			s.Logger.Errorf("unable to create auditor: %s", err)
+			return err
+		}
+		auditDone := make(chan struct{})
+		go defaultAuditor.Run(s.Options.AuditInterval, ctx.Done(), auditDone)
+		defer func() { <-auditDone }()
+	}
+
 	go func() {
 		if err = http.ListenAndServe(s.Options.Address+":"+strconv.Itoa(s.Options.Port), handler); err != nil && err != http.ErrServerClosed {
 			s.Logger.Errorf("unable to launch immugw: %+s", err)
 		}
 	}()
+
+	metricsServer := StartMetrics(
+		s.Options.MetricsBind(),
+		s.Logger,
+		func() float64 { return time.Since(startedAt).Hours() },
+	)
+	defer func() {
+		if err = metricsServer.Close(); err != nil {
+			s.Logger.Errorf("failed to shutdown metric server: %s", err)
+		}
+	}()
+	startedAt = time.Now()
 	<-s.quit
+	if s.Options.Audit {
+		cancel()
+	}
 	return err
 }
 
@@ -108,7 +144,7 @@ func (s *ImmuGwServer) installShutdownHandler() {
 			s.quit <- struct{}{}
 		}()
 		<-c
-		s.Logger.Infof("caught SIGTERM")
+		s.Logger.Debugf("caught SIGTERM")
 		if err := s.Stop(); err != nil {
 			s.Logger.Errorf("shutdown error: %v", err)
 		}

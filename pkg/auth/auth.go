@@ -300,6 +300,9 @@ func IsAdminClient(ctx context.Context) bool {
 var AdminUserExists func(ctx context.Context) bool
 var CreateAdminUser func(ctx context.Context) (string, string, error)
 
+var ErrServerAuthDisabled = status.Errorf(
+	codes.Unavailable, "authentication is disabled on server")
+
 type ErrFirstAdminLogin struct {
 	message string
 }
