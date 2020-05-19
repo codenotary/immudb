@@ -207,7 +207,7 @@ func (s *ImmuServer) Stop() error {
 
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
 	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
-		return nil, status.Errorf(codes.Unavailable, "authentication is disabled on server")
+		return nil, auth.ErrServerAuthDisabled
 	}
 	item, err := s.SysStore.Get(schema.Key{Key: r.User})
 	if err != nil {
