@@ -85,7 +85,7 @@ func newTrustCheckGaugeVec(name string, help string) *prometheus.GaugeVec {
 var Metrics = MetricsCollection{
 	TrustCheckResultPerServer: newTrustCheckGaugeVec(
 		"trust_check_result_per_server",
-		"Latest trust check result.",
+		"Latest trust check result (1 = ok, 0 = tampered).",
 	),
 	TrustCheckPrevRootPerServer: newTrustCheckGaugeVec(
 		"trust_check_prev_root_per_server",
