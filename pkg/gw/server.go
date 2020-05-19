@@ -96,6 +96,7 @@ func (s *ImmuGwServer) Start() error {
 			s.Options.AuditInterval,
 			s.Options.AuditUsername,
 			s.Options.AuditPassword,
+			Metrics.UpdateTrustCheckResult,
 		)
 		if err != nil {
 			s.Logger.Errorf("unable to create auditor: %s", err)

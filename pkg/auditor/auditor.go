@@ -48,12 +48,13 @@ type auditor struct {
 	index         uint64
 	logger        logger.Logger
 	dir           string
-	immudbAddress string
+	serverAddress string
 	dialOptions   []grpc.DialOption
 	ts            client.TimestampService
 	username      []byte
 	password      []byte
-	slugifex      *regexp.Regexp
+	slugifyRegExp *regexp.Regexp
+	updateMetrics func(string, string, bool, *schema.Root, *schema.Root)
 }
 
 func DefaultAuditor(
@@ -61,6 +62,7 @@ func DefaultAuditor(
 	interval time.Duration,
 	username string,
 	password string,
+	updateMetrics func(string, string, bool, *schema.Root, *schema.Root),
 ) (Auditor, error) {
 	logr := logger.NewSimpleLogger("auditor", os.Stderr)
 	dir := filepath.Join(options.Dir, "auditor")
@@ -71,7 +73,7 @@ func DefaultAuditor(
 	if err != nil {
 		return nil, err
 	}
-	slugifex, err := regexp.Compile(`[^a-zA-Z0-9\-_]+`)
+	slugifyRegExp, err := regexp.Compile(`[^a-zA-Z0-9\-_]+`)
 	if err != nil {
 		logr.Warningf("error compiling regex for slugifier: %v", err)
 	}
@@ -84,7 +86,8 @@ func DefaultAuditor(
 		client.NewTimestampService(dt),
 		[]byte(username),
 		[]byte(password),
-		slugifex,
+		slugifyRegExp,
+		updateMetrics,
 	}, nil
 }
 
@@ -118,6 +121,7 @@ func (a *auditor) audit() error {
 	defer a.closeConnection(conn)
 	serviceClient := schema.NewImmuServiceClient(conn)
 
+	serverID := a.getServerID(ctx, serviceClient)
 	rootsDir := filepath.Join(a.dir, a.getServerID(ctx, serviceClient))
 	if err = os.MkdirAll(rootsDir, os.ModePerm); err != nil {
 		a.logger.Errorf("error creating roots dir %s: %v", rootsDir, err)
@@ -158,10 +162,11 @@ func (a *auditor) audit() error {
 		}
 		verified =
 			proof.Verify(schema.Root{Index: prevRoot.Index, Root: prevRoot.Root})
-		a.logger.Infof("consistency check result:\n"+
-			"  consistent:	%t\n  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
+		a.logger.Infof("consistency check result:\n  consistent:	%t\n"+
+			"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
 			verified, proof.FirstRoot, proof.First, proof.SecondRoot, proof.Second)
 		root = &schema.Root{Index: proof.Second, Root: proof.SecondRoot}
+		a.updateMetrics(serverID, a.serverAddress, verified, prevRoot, root)
 	} else {
 		root, err = serviceClient.CurrentRoot(ctx, &empty.Empty{})
 		if err != nil {
@@ -199,9 +204,10 @@ func (a *auditor) audit() error {
 }
 
 func (a *auditor) connect(ctx context.Context) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(a.immudbAddress, a.dialOptions...)
+	conn, err := grpc.Dial(a.serverAddress, a.dialOptions...)
 	if err != nil {
-		a.logger.Errorf("error dialing (pre-login) to immudb @ %s: %v", a.immudbAddress, err)
+		a.logger.Errorf(
+			"error dialing (pre-login) to immudb @ %s: %v", a.serverAddress, err)
 		return nil, err
 	}
 	defer a.closeConnection(conn)
@@ -224,10 +230,10 @@ func (a *auditor) connect(ctx context.Context) (*grpc.ClientConn, error) {
 		a.dialOptions = append(a.dialOptions,
 			grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))
 	}
-	connWithToken, err := grpc.Dial(a.immudbAddress, a.dialOptions...)
+	connWithToken, err := grpc.Dial(a.serverAddress, a.dialOptions...)
 	if err != nil {
 		a.logger.Errorf(
-			"error dialing to immudb @ %s: %v", a.immudbAddress, err)
+			"error dialing to immudb @ %s: %v", a.serverAddress, err)
 		return nil, err
 	}
 	return connWithToken, nil
@@ -252,9 +258,9 @@ func (a *auditor) getServerID(
 	}
 	if serverID == "" {
 		serverID = strings.ReplaceAll(
-			strings.ReplaceAll(a.immudbAddress, ".", "-"),
+			strings.ReplaceAll(a.serverAddress, ".", "-"),
 			":", "_")
-		serverID = a.slugifex.ReplaceAllString(serverID, "")
+		serverID = a.slugifyRegExp.ReplaceAllString(serverID, "")
 		a.logger.Debugf(
 			"%s server UUID header is not provided by immudb; auditor will use "+
 				"the immudb url+port slugified as %s to identify the immudb server",
@@ -269,7 +275,7 @@ func (a *auditor) closeConnection(conn *grpc.ClientConn) {
 	}
 }
 
-// repeat executes f every interval seconds until stopc is closed or f returns an error.
+// repeat executes f every interval until stopc is closed or f returns an error.
 // It executes f once right after being called.
 func repeat(interval time.Duration, stopc <-chan struct{}, f func() error) error {
 	tick := time.NewTicker(interval)
