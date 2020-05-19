@@ -22,12 +22,18 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type MetricsCollection struct {
+	TrustCheckResultPerServer   *prometheus.GaugeVec
+	TrustCheckPrevRootPerServer *prometheus.GaugeVec
+	TrustCheckCurrRootPerServer *prometheus.GaugeVec
+	TrustCheckRunAtPerServer    *prometheus.GaugeVec
+
 	UptimeCounter prometheus.CounterFunc
 }
 
@@ -44,7 +50,56 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 	)
 }
 
-var Metrics = MetricsCollection{}
+func (mc *MetricsCollection) UpdateTrustCheckResult(
+	serverID string,
+	serverAddress string,
+	result bool,
+	prevRoot *schema.Root,
+	currRoot *schema.Root,
+) {
+	var r float64
+	if result {
+		r = 1
+	}
+	mc.TrustCheckResultPerServer.
+		WithLabelValues(serverID, serverAddress).Set(r)
+	mc.TrustCheckPrevRootPerServer.
+		WithLabelValues(serverID, serverAddress).Set(float64(prevRoot.GetIndex()))
+	mc.TrustCheckCurrRootPerServer.
+		WithLabelValues(serverID, serverAddress).Set(float64(currRoot.GetIndex()))
+	mc.TrustCheckRunAtPerServer.
+		WithLabelValues(serverID, serverAddress).SetToCurrentTime()
+}
+
+func newTrustCheckGaugeVec(name string, help string) *prometheus.GaugeVec {
+	return promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      name,
+			Help:      help,
+		},
+		[]string{"server_id", "server_address"},
+	)
+}
+
+var Metrics = MetricsCollection{
+	TrustCheckResultPerServer: newTrustCheckGaugeVec(
+		"trust_check_result_per_server",
+		"Latest trust check result.",
+	),
+	TrustCheckPrevRootPerServer: newTrustCheckGaugeVec(
+		"trust_check_prev_root_per_server",
+		"Previous root index used for the latest trust check.",
+	),
+	TrustCheckCurrRootPerServer: newTrustCheckGaugeVec(
+		"trust_check_curr_root_per_server",
+		"Current root index used for the latest trust check.",
+	),
+	TrustCheckRunAtPerServer: newTrustCheckGaugeVec(
+		"trust_check_run_at_per_server",
+		"Timestamp in unix seconds at which latest trust check run.",
+	),
+}
 
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
 // The server is then returned and can be stopped using Close().
