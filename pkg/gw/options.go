@@ -18,7 +18,7 @@ package gw
 
 import (
 	"encoding/json"
-	"strconv"
+	"fmt"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -154,12 +154,12 @@ func (o Options) WithLogfile(logfile string) Options {
 }
 
 func (o Options) Bind() string {
-	return o.Address + ":" + strconv.Itoa(o.Port)
+	return fmt.Sprintf("%s:%d", o.Address, o.Port)
 }
 
 // MetricsBind return metrics bind address
 func (o Options) MetricsBind() string {
-	return o.Address + ":" + strconv.Itoa(o.MetricsPort)
+	return fmt.Sprintf("%s:%d", o.Address, o.MetricsPort)
 }
 
 func (o Options) String() string {
