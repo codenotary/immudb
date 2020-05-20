@@ -51,6 +51,31 @@ func (cl *commandline) getByIndex(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
+func (cl *commandline) getByRawSafeIndex(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:               "getByRawSafeIndex",
+		Short:             "Return an element by index",
+		Aliases:           []string{"brsi"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			index, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			ctx := context.Background()
+			response, err := cl.ImmuClient.ByRawSafeIndex(ctx, index)
+			if err != nil {
+				c.QuitWithUserError(err)
+			}
+			printItem(response.Key, response.Value, response, cl.valueOnly)
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+	cmd.AddCommand(ccmd)
+}
+
 func (cl *commandline) getKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "get key",

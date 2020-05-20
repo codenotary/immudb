@@ -49,6 +49,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cl.currentRoot(cmd)
 	// get operations
 	cl.getByIndex(cmd)
+	cl.getByRawSafeIndex(cmd)
 	cl.getKey(cmd)
 	cl.rawSafeGetKey(cmd)
 	cl.safeGetKey(cmd)
