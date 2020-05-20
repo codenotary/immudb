@@ -15,6 +15,9 @@ limitations under the License.
 export GO111MODULE=on
 
 SHELL=/bin/bash -o pipefail
+
+VERSION=0.6.0
+
 PWD = $(shell pwd)
 GO ?= go
 DOCKER ?= docker
@@ -176,3 +179,11 @@ prerequisites:
 	go get -u github.com/golang/protobuf/
 	go get -u github.com/golang/protobuf/proto
 	go get -u github.com/golang/protobuf/protoc-gen-go
+
+.PHONY: CHANGELOG.md
+CHANGELOG.md:
+	git-chglog -o CHANGELOG.md
+
+.PHONY: CHANGELOG.md.next-tag
+CHANGELOG.md.next-tag:
+	git-chglog -o CHANGELOG.md --next-tag v${VERSION}
