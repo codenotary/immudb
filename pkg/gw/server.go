@@ -25,11 +25,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/auditor"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/pkg/trustchecker"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
 )
@@ -90,21 +89,21 @@ func (s *ImmuGwServer) Start() error {
 		}
 	}
 
-	if s.Options.Audit {
-		defaultAuditor, err := auditor.DefaultAuditor(
+	if s.Options.TrustCheck {
+		defaultTrustChecker, err := trustchecker.DefaultTrustChecker(
 			cliOpts,
-			s.Options.AuditInterval,
-			s.Options.AuditUsername,
-			s.Options.AuditPassword,
+			s.Options.TrustCheckInterval,
+			s.Options.TrustCheckUsername,
+			s.Options.TrustCheckPassword,
 			Metrics.UpdateTrustCheckResult,
 		)
 		if err != nil {
-			s.Logger.Errorf("unable to create auditor: %s", err)
+			s.Logger.Errorf("unable to create trust-checker: %s", err)
 			return err
 		}
-		auditDone := make(chan struct{})
-		go defaultAuditor.Run(s.Options.AuditInterval, ctx.Done(), auditDone)
-		defer func() { <-auditDone }()
+		trustCheckDone := make(chan struct{})
+		go defaultTrustChecker.Run(s.Options.TrustCheckInterval, ctx.Done(), trustCheckDone)
+		defer func() { <-trustCheckDone }()
 	}
 
 	go func() {
@@ -125,7 +124,7 @@ func (s *ImmuGwServer) Start() error {
 	}()
 	startedAt = time.Now()
 	<-s.quit
-	if s.Options.Audit {
+	if s.Options.TrustCheck {
 		cancel()
 	}
 	return err

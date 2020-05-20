@@ -25,41 +25,41 @@ import (
 )
 
 type Options struct {
-	Dir           string
-	Address       string
-	Port          int
-	MetricsPort   int
-	ImmudbAddress string
-	ImmudbPort    int
-	Audit         bool
-	AuditInterval time.Duration
-	AuditUsername string
-	AuditPassword string
-	Detached      bool
-	MTLs          bool
-	MTLsOptions   client.MTLsOptions
-	Config        string
-	Pidfile       string
-	Logfile       string
+	Dir                string
+	Address            string
+	Port               int
+	MetricsPort        int
+	ImmudbAddress      string
+	ImmudbPort         int
+	TrustCheck         bool
+	TrustCheckInterval time.Duration
+	TrustCheckUsername string
+	TrustCheckPassword string
+	Detached           bool
+	MTLs               bool
+	MTLsOptions        client.MTLsOptions
+	Config             string
+	Pidfile            string
+	Logfile            string
 }
 
 func DefaultOptions() Options {
 	return Options{
-		Dir:           ".",
-		Address:       "127.0.0.1",
-		Port:          3323,
-		MetricsPort:   9498,
-		ImmudbAddress: "127.0.0.1",
-		ImmudbPort:    3322,
-		Audit:         false,
-		AuditInterval: 5 * time.Minute,
-		AuditUsername: "immugwauditor",
-		AuditPassword: "",
-		Detached:      false,
-		MTLs:          false,
-		Config:        "configs/immugw.toml",
-		Pidfile:       "",
-		Logfile:       "",
+		Dir:                ".",
+		Address:            "127.0.0.1",
+		Port:               3323,
+		MetricsPort:        9498,
+		ImmudbAddress:      "127.0.0.1",
+		ImmudbPort:         3322,
+		TrustCheck:         false,
+		TrustCheckInterval: 5 * time.Minute,
+		TrustCheckUsername: "immugwtrustchecker",
+		TrustCheckPassword: "",
+		Detached:           false,
+		MTLs:               false,
+		Config:             "configs/immugw.toml",
+		Pidfile:            "",
+		Logfile:            "",
 	}
 }
 
@@ -93,27 +93,27 @@ func (o Options) WithImmudbPort(immudbPort int) Options {
 	return o
 }
 
-// WithAudit sets Audit
-func (o Options) WithAudit(audit bool) Options {
-	o.Audit = audit
+// WithTrustCheck sets TrustCheck
+func (o Options) WithTrustCheck(trustCheck bool) Options {
+	o.TrustCheck = trustCheck
 	return o
 }
 
-// WithAuditInterval sets AuditInterval
-func (o Options) WithAuditInterval(auditInterval time.Duration) Options {
-	o.AuditInterval = auditInterval
+// WithTrustCheckInterval sets TrustCheckInterval
+func (o Options) WithTrustCheckInterval(trustCheckInterval time.Duration) Options {
+	o.TrustCheckInterval = trustCheckInterval
 	return o
 }
 
-// WithAuditUsername sets AuditUsername
-func (o Options) WithAuditUsername(auditUsername string) Options {
-	o.AuditUsername = auditUsername
+// WithTrustCheckUsername sets TrustCheckUsername
+func (o Options) WithTrustCheckUsername(trustCheckUsername string) Options {
+	o.TrustCheckUsername = trustCheckUsername
 	return o
 }
 
-// WithAuditPassword sets AuditPassword
-func (o Options) WithAuditPassword(auditPassword string) Options {
-	o.AuditPassword = auditPassword
+// WithTrustCheckPassword sets TrustCheckPassword
+func (o Options) WithTrustCheckPassword(trustCheckPassword string) Options {
+	o.TrustCheckPassword = trustCheckPassword
 	return o
 }
 
