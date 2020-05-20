@@ -250,13 +250,47 @@ func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float6
 	}
 }
 
+func testGetByRawIndexOnSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
+
+	vi1, err1 := client.RawSafeSet(ctx, []byte("key-n1"), []byte("val-n1"))
+	require.True(t, vi1.Verified)
+	require.NoError(t, err1)
+	vi2, err2 := client.SafeZAdd(ctx, []byte("set-n1"), 98.5, []byte("key-n1"))
+	require.True(t, vi2.Verified)
+	require.NoError(t, err2)
+
+	item1, err3 := client.ByRawSafeIndex(ctx, 9)
+	require.True(t, item1.Verified)
+	require.Equal(t, []byte("val-n1"), item1.Value)
+	require.NoError(t, err3)
+	item2, err2 := client.ByRawSafeIndex(ctx, 1)
+	require.True(t, item2.Verified)
+	require.NoError(t, err2)
+	item3, err3 := client.ByRawSafeIndex(ctx, 2)
+	require.True(t, item3.Verified)
+	require.NoError(t, err3)
+}
+
+func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
+	vi1, err1 := client.RawSafeSet(ctx, []byte("key-n11"), []byte("val-n11"))
+	require.True(t, vi1.Verified)
+	require.NoError(t, err1)
+	index , err2 := client.ZAdd(ctx, []byte("set-n11"), 98.5, []byte("key-n11"))
+	require.NoError(t, err2)
+
+	item1, err3 := client.ByRawSafeIndex(ctx, index.Index)
+	require.True(t, item1.Verified)
+	require.Equal(t, []byte("key-n11"), item1.Value)
+	require.NoError(t, err3)
+}
+
 func testDump(ctx context.Context, t *testing.T) {
 	bkpFile, err := os.Create(BkpFileName)
 	require.NoError(t, err)
 	n, err := client.Dump(ctx, bkpFile)
 
 	require.NoError(t, err)
-	require.Equal(t, int64(26), n)
+	require.Equal(t, int64(38), n)
 
 	bkpBytesActual, err := ioutil.ReadFile(BkpFileName)
 	require.NoError(t, err)
@@ -284,7 +318,8 @@ func TestImmuClient(t *testing.T) {
 	testSafeReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2])
 
 	testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
-
+	testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+	testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	testDump(ctx, t)
 
 }
