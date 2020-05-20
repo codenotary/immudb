@@ -430,7 +430,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(zaddOpts.Key, i.Key())
+	tsEntry := t.tree.NewEntry(ik, i.Key())
 
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
