@@ -29,10 +29,10 @@ import (
 )
 
 type MetricsCollection struct {
-	TrustCheckResultPerServer   *prometheus.GaugeVec
-	TrustCheckPrevRootPerServer *prometheus.GaugeVec
-	TrustCheckCurrRootPerServer *prometheus.GaugeVec
-	TrustCheckRunAtPerServer    *prometheus.GaugeVec
+	AuditResultPerServer   *prometheus.GaugeVec
+	AuditPrevRootPerServer *prometheus.GaugeVec
+	AuditCurrRootPerServer *prometheus.GaugeVec
+	AuditRunAtPerServer    *prometheus.GaugeVec
 
 	UptimeCounter prometheus.CounterFunc
 }
@@ -50,7 +50,7 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 	)
 }
 
-func (mc *MetricsCollection) UpdateTrustCheckResult(
+func (mc *MetricsCollection) UpdateAuditResult(
 	serverID string,
 	serverAddress string,
 	result bool,
@@ -61,17 +61,17 @@ func (mc *MetricsCollection) UpdateTrustCheckResult(
 	if result {
 		r = 1
 	}
-	mc.TrustCheckResultPerServer.
+	mc.AuditResultPerServer.
 		WithLabelValues(serverID, serverAddress).Set(r)
-	mc.TrustCheckPrevRootPerServer.
+	mc.AuditPrevRootPerServer.
 		WithLabelValues(serverID, serverAddress).Set(float64(prevRoot.GetIndex()))
-	mc.TrustCheckCurrRootPerServer.
+	mc.AuditCurrRootPerServer.
 		WithLabelValues(serverID, serverAddress).Set(float64(currRoot.GetIndex()))
-	mc.TrustCheckRunAtPerServer.
+	mc.AuditRunAtPerServer.
 		WithLabelValues(serverID, serverAddress).SetToCurrentTime()
 }
 
-func newTrustCheckGaugeVec(name string, help string) *prometheus.GaugeVec {
+func newAuditGaugeVec(name string, help string) *prometheus.GaugeVec {
 	return promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
@@ -83,21 +83,21 @@ func newTrustCheckGaugeVec(name string, help string) *prometheus.GaugeVec {
 }
 
 var Metrics = MetricsCollection{
-	TrustCheckResultPerServer: newTrustCheckGaugeVec(
-		"trust_check_result_per_server",
-		"Latest trust check result (1 = ok, 0 = tampered).",
+	AuditResultPerServer: newAuditGaugeVec(
+		"audit_result_per_server",
+		"Latest audit result (1 = ok, 0 = tampered).",
 	),
-	TrustCheckPrevRootPerServer: newTrustCheckGaugeVec(
-		"trust_check_prev_root_per_server",
-		"Previous root index used for the latest trust check.",
+	AuditPrevRootPerServer: newAuditGaugeVec(
+		"audit_prev_root_per_server",
+		"Previous root index used for the latest audit.",
 	),
-	TrustCheckCurrRootPerServer: newTrustCheckGaugeVec(
-		"trust_check_curr_root_per_server",
-		"Current root index used for the latest trust check.",
+	AuditCurrRootPerServer: newAuditGaugeVec(
+		"audit_curr_root_per_server",
+		"Current root index used for the latest audit.",
 	),
-	TrustCheckRunAtPerServer: newTrustCheckGaugeVec(
-		"trust_check_run_at_per_server",
-		"Timestamp in unix seconds at which latest trust check run.",
+	AuditRunAtPerServer: newAuditGaugeVec(
+		"audit_run_at_per_server",
+		"Timestamp in unix seconds at which latest audit run.",
 	),
 }
 

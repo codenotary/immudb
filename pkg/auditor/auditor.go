@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package trustchecker
+package auditor
 
 import (
 	"context"
@@ -37,11 +37,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type TrustChecker interface {
+type Auditor interface {
 	Run(interval time.Duration, stopc <-chan struct{}, donec chan<- struct{})
 }
 
-type trustChecker struct {
+type defaultAuditor struct {
 	index         uint64
 	logger        logger.Logger
 	dir           string
@@ -55,15 +55,15 @@ type trustChecker struct {
 	updateMetrics func(string, string, bool, *schema.Root, *schema.Root)
 }
 
-func DefaultTrustChecker(
+func DefaultAuditor(
 	options *client.Options,
 	interval time.Duration,
 	username string,
 	password string,
 	updateMetrics func(string, string, bool, *schema.Root, *schema.Root),
-) (TrustChecker, error) {
-	logr := logger.NewSimpleLogger("trustchecker", os.Stderr)
-	dir := filepath.Join(options.Dir, "trustchecker")
+) (Auditor, error) {
+	logr := logger.NewSimpleLogger("auditor", os.Stderr)
+	dir := filepath.Join(options.Dir, "auditor")
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func DefaultTrustChecker(
 	if err != nil {
 		logr.Warningf("error compiling regex for slugifier: %v", err)
 	}
-	return &trustChecker{
+	return &defaultAuditor{
 		0,
 		logr,
 		dir,
@@ -90,26 +90,26 @@ func DefaultTrustChecker(
 	}, nil
 }
 
-func (a *trustChecker) Run(
+func (a *defaultAuditor) Run(
 	interval time.Duration,
 	stopc <-chan struct{},
 	donec chan<- struct{},
 ) {
 	defer func() { donec <- struct{}{} }()
-	a.logger.Infof("starting trust-checker with a %s interval ...", interval)
-	err := repeat(interval, stopc, a.trustCheck)
+	a.logger.Infof("starting auditor with a %s interval ...", interval)
+	err := repeat(interval, stopc, a.audit)
 	if err != nil {
 		return
 	}
-	a.logger.Infof("trust-checker stopped")
+	a.logger.Infof("auditor stopped")
 }
 
-func (a *trustChecker) trustCheck() error {
+func (a *defaultAuditor) audit() error {
 	start := time.Now()
 	a.index++
-	a.logger.Infof("trust-checker #%d started @ %s", a.index, start)
+	a.logger.Infof("audit #%d started @ %s", a.index, start)
 
-	// returning an error would completely stop the trust-checker process
+	// returning an error would completely stop the auditor process
 	var noErr error
 
 	ctx := context.Background()
@@ -145,9 +145,9 @@ func (a *trustChecker) trustCheck() error {
 		if !verified && len(firstRoot) == 0 {
 			firstRoot = prevRoot.GetRoot()
 		}
-		a.logger.Infof("consistency check result:\n  consistent:	%t\n"+
+		a.logger.Infof("audit #%d result:\n  consistent:	%t\n"+
 			"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
-			verified, firstRoot, proof.First, proof.SecondRoot, proof.Second)
+			a.index, verified, firstRoot, proof.First, proof.SecondRoot, proof.Second)
 		root = &schema.Root{Index: proof.Second, Root: proof.SecondRoot}
 		a.updateMetrics(serverID, a.serverAddress, verified, prevRoot, root)
 	} else {
@@ -160,8 +160,8 @@ func (a *trustChecker) trustCheck() error {
 
 	if !verified {
 		a.logger.Warningf(
-			"trust-checker #%d detected possible tampering of remote root (at index "+
-				"%d) so it will not overwrite the previous local root (at index %d)",
+			"audit #%d detected possible tampering of remote root (at index %d) "+
+				"so it will not overwrite the previous local root (at index %d)",
 			a.index, root.GetIndex(), prevRoot.GetIndex())
 	} else if prevRoot == nil || root.GetIndex() != prevRoot.GetIndex() {
 		if err := a.rootService.Save(serverID, root); err != nil {
@@ -169,12 +169,12 @@ func (a *trustChecker) trustCheck() error {
 			return noErr
 		}
 	}
-	a.logger.Infof("trust-checker #%d finished in %s @ %s",
+	a.logger.Infof("audit #%d finished in %s @ %s",
 		a.index, time.Since(start), time.Now())
 	return noErr
 }
 
-func (a *trustChecker) connect(ctx context.Context) (*grpc.ClientConn, error) {
+func (a *defaultAuditor) connect(ctx context.Context) (*grpc.ClientConn, error) {
 	conn, err := grpc.Dial(a.serverAddress, a.dialOptions...)
 	if err != nil {
 		a.logger.Errorf(
@@ -210,7 +210,7 @@ func (a *trustChecker) connect(ctx context.Context) (*grpc.ClientConn, error) {
 	return connWithToken, nil
 }
 
-func (a *trustChecker) getServerID(
+func (a *defaultAuditor) getServerID(
 	ctx context.Context,
 	serviceClient schema.ImmuServiceClient,
 ) string {
@@ -233,14 +233,14 @@ func (a *trustChecker) getServerID(
 			":", "_")
 		serverID = a.slugifyRegExp.ReplaceAllString(serverID, "")
 		a.logger.Debugf(
-			"%s server UUID header is not provided by immudb; trust-checker will "+
+			"%s server UUID header is not provided by immudb; auditor will "+
 				"use the immudb url+port slugified as %s to identify the immudb server",
 			server.SERVER_UUID_HEADER, serverID)
 	}
 	return serverID
 }
 
-func (a *trustChecker) closeConnection(conn *grpc.ClientConn) {
+func (a *defaultAuditor) closeConnection(conn *grpc.ClientConn) {
 	if err := conn.Close(); err != nil {
 		a.logger.Errorf("error closing connection: %v", err)
 	}
