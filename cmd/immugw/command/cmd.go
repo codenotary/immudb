@@ -106,10 +106,10 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return gw.Options{}, err
 	}
-	audit := viper.GetBool("audit")
-	auditInterval := viper.GetDuration("audit-interval")
-	auditUsername := viper.GetString("audit-username")
-	auditPassword := viper.GetString("audit-password")
+	trustCheck := viper.GetBool("trust-check")
+	trustCheckInterval := viper.GetDuration("trust-check-interval")
+	trustCheckUsername := viper.GetString("trust-check-username")
+	trustCheckPassword := viper.GetString("trust-check-password")
 	pidfile := viper.GetString("pidfile")
 	logfile := viper.GetString("logfile")
 	mtls := viper.GetBool("mtls")
@@ -125,10 +125,10 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 		WithAddress(address).
 		WithImmudbAddress(immudbAddress).
 		WithImmudbPort(immudbport).
-		WithAudit(audit).
-		WithAuditInterval(auditInterval).
-		WithAuditUsername(auditUsername).
-		WithAuditPassword(auditPassword).
+		WithTrustCheck(trustCheck).
+		WithTrustCheckInterval(trustCheckInterval).
+		WithTrustCheckUsername(trustCheckUsername).
+		WithTrustCheckPassword(trustCheckPassword).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
 		WithMTLs(mtls).
@@ -151,10 +151,10 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 	cmd.Flags().IntP("immudb-port", "j", options.ImmudbPort, "immudb port number")
 	cmd.Flags().StringP("immudb-address", "k", options.ImmudbAddress, "immudb host address")
 	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.toml)")
-	cmd.Flags().Bool("audit", options.Audit, "enable audit (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)")
-	cmd.Flags().Duration("audit-interval", options.AuditInterval, "audit interval")
-	cmd.Flags().String("audit-username", options.AuditUsername, "username used by auditor to login to immudb")
-	cmd.Flags().String("audit-password", options.AuditPassword, "password used by auditor to login to immudb")
+	cmd.Flags().Bool("trust-check", options.TrustCheck, "enable trust check (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)")
+	cmd.Flags().Duration("trust-check-interval", options.TrustCheckInterval, "trust check interval")
+	cmd.Flags().String("trust-check-username", options.TrustCheckUsername, "username used by trust-checker to login to immudb")
+	cmd.Flags().String("trust-check-password", options.TrustCheckPassword, "password used by trust-checker to login to immudb")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immugw.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immugw/immugw.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
@@ -181,16 +181,16 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("immudb-address", cmd.Flags().Lookup("immudb-address")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("audit", cmd.Flags().Lookup("audit")); err != nil {
+	if err := viper.BindPFlag("trust-check", cmd.Flags().Lookup("trust-check")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("audit-interval", cmd.Flags().Lookup("audit-interval")); err != nil {
+	if err := viper.BindPFlag("trust-check-interval", cmd.Flags().Lookup("trust-check-interval")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("audit-username", cmd.Flags().Lookup("audit-username")); err != nil {
+	if err := viper.BindPFlag("trust-check-username", cmd.Flags().Lookup("trust-check-username")); err != nil {
 		return err
 	}
-	if err := viper.BindPFlag("audit-password", cmd.Flags().Lookup("audit-password")); err != nil {
+	if err := viper.BindPFlag("trust-check-password", cmd.Flags().Lookup("trust-check-password")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
@@ -226,10 +226,10 @@ func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
 	viper.SetDefault("address", options.Address)
 	viper.SetDefault("immudb-port", options.ImmudbPort)
 	viper.SetDefault("immudb-address", options.ImmudbAddress)
-	viper.SetDefault("audit", options.Audit)
-	viper.SetDefault("audit-interval", options.AuditInterval)
-	viper.SetDefault("audit-username", options.AuditUsername)
-	viper.SetDefault("audit-password", options.AuditPassword)
+	viper.SetDefault("trust-check", options.TrustCheck)
+	viper.SetDefault("trust-check-interval", options.TrustCheckInterval)
+	viper.SetDefault("trust-check-username", options.TrustCheckUsername)
+	viper.SetDefault("trust-check-password", options.TrustCheckPassword)
 	viper.SetDefault("pidfile", options.Pidfile)
 	viper.SetDefault("logfile", options.Logfile)
 	viper.SetDefault("mtls", options.MTLs)
