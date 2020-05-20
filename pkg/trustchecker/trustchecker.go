@@ -17,13 +17,11 @@ limitations under the License.
 package trustchecker
 
 import (
-	"bytes"
 	"context"
-	"io/ioutil"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -33,7 +31,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
@@ -50,6 +47,7 @@ type trustChecker struct {
 	dir           string
 	serverAddress string
 	dialOptions   []grpc.DialOption
+	rootService   RootService
 	ts            client.TimestampService
 	username      []byte
 	password      []byte
@@ -81,8 +79,9 @@ func DefaultTrustChecker(
 		0,
 		logr,
 		dir,
-		options.Address + ":" + strconv.Itoa(options.Port),
+		fmt.Sprintf("%s:%d", options.Address, options.Port),
 		*options.DialOptions,
+		&rootService{dir},
 		client.NewTimestampService(dt),
 		[]byte(username),
 		[]byte(password),
@@ -122,42 +121,21 @@ func (a *trustChecker) trustCheck() error {
 	serviceClient := schema.NewImmuServiceClient(conn)
 
 	serverID := a.getServerID(ctx, serviceClient)
-	rootsDir := filepath.Join(a.dir, a.getServerID(ctx, serviceClient))
-	if err = os.MkdirAll(rootsDir, os.ModePerm); err != nil {
-		a.logger.Errorf("error creating roots dir %s: %v", rootsDir, err)
-		return noErr
-	}
-
-	roots, err := ioutil.ReadDir(rootsDir)
+	prevRoot, err := a.rootService.Load(serverID)
 	if err != nil {
-		a.logger.Errorf("error reading roots dir %s: %v", rootsDir, err)
+		a.logger.Errorf(err.Error())
 		return noErr
 	}
-
-	var prevRoot *schema.Root
 	var root *schema.Root
 	verified := true
-	if len(roots) > 0 {
-		prevRootFilename := filepath.Join(rootsDir, roots[len(roots)-1].Name())
-		prevRootBytes, err := ioutil.ReadFile(prevRootFilename)
-		if err != nil {
-			a.logger.Errorf(
-				"error reading previous root from %s: %v", prevRootFilename, err)
-			return noErr
-		}
-		prevRoot = new(schema.Root)
-		if err = proto.Unmarshal(prevRootBytes, prevRoot); err != nil {
-			a.logger.Errorf(
-				"error unmarshaling previous root from %s: %v", prevRootFilename, err)
-			return noErr
-		}
+	if prevRoot != nil {
 		proof, err := serviceClient.Consistency(ctx, &schema.Index{
 			Index: prevRoot.GetIndex(),
 		})
 		if err != nil {
 			a.logger.Errorf(
-				"error fetching consistency proof for previous root %d (from %s): %v",
-				prevRoot.GetIndex(), prevRootFilename, err)
+				"error fetching consistency proof for previous root %d: %v",
+				prevRoot.GetIndex(), err)
 			return noErr
 		}
 		verified =
@@ -180,28 +158,16 @@ func (a *trustChecker) trustCheck() error {
 		}
 	}
 
-	if verified {
-		if prevRoot == nil ||
-			root.GetIndex() != prevRoot.GetIndex() ||
-			!bytes.Equal(root.Root, prevRoot.Root) {
-			rootBytes, err := proto.Marshal(root)
-			if err != nil {
-				a.logger.Errorf("error marshaling root %d: %v", root.GetIndex(), err)
-				return noErr
-			}
-			rootFilename := filepath.Join(rootsDir, ".root")
-			if err = ioutil.WriteFile(rootFilename, rootBytes, 0644); err != nil {
-				a.logger.Errorf(
-					"error writing root %d to file %s: %v",
-					root.GetIndex(), rootFilename, err)
-				return noErr
-			}
-		}
-	} else {
+	if !verified {
 		a.logger.Warningf(
 			"trust-checker #%d detected possible tampering of remote root (at index "+
 				"%d) so it will not overwrite the previous local root (at index %d)",
 			a.index, root.GetIndex(), prevRoot.GetIndex())
+	} else if prevRoot == nil || root.GetIndex() != prevRoot.GetIndex() {
+		if err := a.rootService.Save(serverID, root); err != nil {
+			a.logger.Errorf(err.Error())
+			return noErr
+		}
 	}
 	a.logger.Infof("trust-checker #%d finished in %s @ %s",
 		a.index, time.Since(start), time.Now())
