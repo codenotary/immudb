@@ -22,3 +22,8 @@ type Cache interface {
 	Get(serverUuid string) (*schema.Root, error)
 	Set(root *schema.Root, serverUuid string) error
 }
+
+type HistoryCache interface {
+	Cache
+	Walk(serverID string, f func(*schema.Root) interface{}) ([]interface{}, error)
+}

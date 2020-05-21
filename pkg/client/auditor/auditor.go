@@ -18,9 +18,7 @@ package auditor
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -28,11 +26,10 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/server"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -44,10 +41,9 @@ type Auditor interface {
 type defaultAuditor struct {
 	index         uint64
 	logger        logger.Logger
-	dir           string
 	serverAddress string
 	dialOptions   []grpc.DialOption
-	rootService   RootService
+	history       cache.HistoryCache
 	ts            client.TimestampService
 	username      []byte
 	password      []byte
@@ -56,17 +52,15 @@ type defaultAuditor struct {
 }
 
 func DefaultAuditor(
-	options *client.Options,
 	interval time.Duration,
+	serverAddress string,
+	dialOptions *[]grpc.DialOption,
 	username string,
 	password string,
+	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, *schema.Root, *schema.Root),
 ) (Auditor, error) {
 	logr := logger.NewSimpleLogger("auditor", os.Stderr)
-	dir := filepath.Join(options.Dir, "auditor")
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return nil, err
-	}
 	dt, err := timestamp.NewTdefault()
 	if err != nil {
 		return nil, err
@@ -78,10 +72,9 @@ func DefaultAuditor(
 	return &defaultAuditor{
 		0,
 		logr,
-		dir,
-		fmt.Sprintf("%s:%d", options.Address, options.Port),
-		*options.DialOptions,
-		&rootService{dir},
+		serverAddress,
+		*dialOptions,
+		history,
 		client.NewTimestampService(dt),
 		[]byte(username),
 		[]byte(password),
@@ -130,7 +123,7 @@ func (a *defaultAuditor) audit() error {
 
 	verified := true
 	serverID := a.getServerID(ctx, serviceClient)
-	prevRoot, err := a.rootService.Get(serverID)
+	prevRoot, err := a.history.Get(serverID)
 	if err != nil {
 		a.logger.Errorf(err.Error())
 		return noErr
@@ -138,9 +131,9 @@ func (a *defaultAuditor) audit() error {
 	if prevRoot != nil {
 		if isEmptyDB {
 			a.logger.Errorf(
-				"audit #%d aborted: database %s @ %s is empty, "+
+				"audit #%d aborted: database is empty on server %s @ %s, "+
 					"but locally a previous root exists with hash %x at index %d",
-				a.index, serverID, a.serverAddress, prevRoot.GetRoot(), prevRoot.GetIndex())
+				a.index, serverID, a.serverAddress, prevRoot.Root, prevRoot.Index)
 			return noErr
 		}
 		proof, err := serviceClient.Consistency(ctx, &schema.Index{
@@ -165,7 +158,7 @@ func (a *defaultAuditor) audit() error {
 		root = &schema.Root{Index: proof.Second, Root: proof.SecondRoot}
 		a.updateMetrics(serverID, a.serverAddress, verified, prevRoot, root)
 	} else if isEmptyDB {
-		a.logger.Warningf("audit #%d canceled: database %s @ %s is empty",
+		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",
 			a.index, serverID, a.serverAddress)
 		return noErr
 	}
@@ -176,7 +169,7 @@ func (a *defaultAuditor) audit() error {
 				"so it will not overwrite the previous local root (at index %d)",
 			a.index, root.GetIndex(), prevRoot.GetIndex())
 	} else if prevRoot == nil || root.GetIndex() != prevRoot.GetIndex() {
-		if err := a.rootService.Set(serverID, root); err != nil {
+		if err := a.history.Set(root, serverID); err != nil {
 			a.logger.Errorf(err.Error())
 			return noErr
 		}
@@ -226,18 +219,13 @@ func (a *defaultAuditor) getServerID(
 	ctx context.Context,
 	serviceClient schema.ImmuServiceClient,
 ) string {
-	var serverID string
-	var metadata runtime.ServerMetadata
-	_, err := serviceClient.Health(
-		ctx,
-		new(empty.Empty),
-		grpc.Header(&metadata.HeaderMD),
-		grpc.Trailer(&metadata.TrailerMD),
-	)
+	serverID, err := client.GetServerUuid(ctx, serviceClient)
 	if err != nil {
-		a.logger.Errorf("health error: %v", err)
-	} else if len(metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)) > 0 {
-		serverID = metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)[0]
+		if err != client.ErrNoServerUuid {
+			a.logger.Errorf("error getting server UUID: %v", err)
+		} else {
+			a.logger.Warningf(err.Error())
+		}
 	}
 	if serverID == "" {
 		serverID = strings.ReplaceAll(
@@ -245,9 +233,8 @@ func (a *defaultAuditor) getServerID(
 			":", "_")
 		serverID = a.slugifyRegExp.ReplaceAllString(serverID, "")
 		a.logger.Debugf(
-			"%s server UUID header is not provided by immudb; auditor will "+
-				"use the immudb url+port slugified as %s to identify the immudb server",
-			server.SERVER_UUID_HEADER, serverID)
+			"the current immudb server @ %s will be identified as %s",
+			a.serverAddress, serverID)
 	}
 	return serverID
 }

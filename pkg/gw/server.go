@@ -18,9 +18,11 @@ package gw
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -28,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
+	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
@@ -91,10 +94,12 @@ func (s *ImmuGwServer) Start() error {
 
 	if s.Options.Audit {
 		defaultAuditor, err := auditor.DefaultAuditor(
-			cliOpts,
 			s.Options.AuditInterval,
+			fmt.Sprintf("%s:%d", s.Options.ImmudbAddress, s.Options.ImmudbPort),
+			cliOpts.DialOptions,
 			s.Options.AuditUsername,
 			s.Options.AuditPassword,
+			cache.NewHistoryFileCache(filepath.Join(cliOpts.Dir, "auditor")),
 			Metrics.UpdateAuditResult,
 		)
 		if err != nil {

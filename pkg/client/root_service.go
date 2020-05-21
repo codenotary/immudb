@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -43,18 +44,12 @@ type rootservice struct {
 }
 
 func NewRootService(immuC schema.ImmuServiceClient, cache cache.Cache, logger logger.Logger) RootService {
-	var protoReq empty.Empty
-	var metadata runtime.ServerMetadata
-	var serverUuid string
-
-	if _, err := immuC.Health(context.Background(), &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD)); err != nil {
-		return nil
-	}
-	if len(metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)) > 0 {
-		serverUuid = metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)[0]
-	}
-	if serverUuid == "" {
-		logger.Warningf("the immudb-uuid header was not provided. Communication with multiple immudb instances that do not provide the identifier is not allowed")
+	serverUuid, err := GetServerUuid(context.Background(), immuC)
+	if err != nil {
+		if err != ErrNoServerUuid {
+			return nil // TODO OGG: check with Michele if this was intended or a mistake
+		}
+		logger.Warningf(err.Error())
 	}
 	return &rootservice{
 		client:     immuC,
@@ -86,4 +81,31 @@ func (r *rootservice) SetRoot(root *schema.Root) error {
 	defer r.Unlock()
 	r.Lock()
 	return r.cache.Set(root, r.serverUuid)
+}
+
+var ErrNoServerUuid = fmt.Errorf(
+	"!IMPORTANT WARNING: %s header is not published by the immudb server; "+
+		"this client MUST NOT be used to connect to different immudb servers!",
+	server.SERVER_UUID_HEADER)
+
+func GetServerUuid(
+	ctx context.Context,
+	immuClient schema.ImmuServiceClient,
+) (string, error) {
+	var metadata runtime.ServerMetadata
+	if _, err := immuClient.Health(
+		ctx,
+		new(empty.Empty),
+		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
+	); err != nil {
+		return "", err
+	}
+	var serverUuid string
+	if len(metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)) > 0 {
+		serverUuid = metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)[0]
+	}
+	if serverUuid == "" {
+		return "", ErrNoServerUuid
+	}
+	return serverUuid, nil
 }
