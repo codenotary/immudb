@@ -89,12 +89,12 @@ func (s *ImmuGwServer) Start() error {
 		}
 	}
 
-	if s.Options.Auditor {
+	if s.Options.Audit {
 		defaultAuditor, err := auditor.DefaultAuditor(
 			cliOpts,
-			s.Options.AuditorInterval,
-			s.Options.AuditorUsername,
-			s.Options.AuditorPassword,
+			s.Options.AuditInterval,
+			s.Options.AuditUsername,
+			s.Options.AuditPassword,
 			Metrics.UpdateAuditResult,
 		)
 		if err != nil {
@@ -102,7 +102,7 @@ func (s *ImmuGwServer) Start() error {
 			return err
 		}
 		auditorDone := make(chan struct{})
-		go defaultAuditor.Run(s.Options.AuditorInterval, ctx.Done(), auditorDone)
+		go defaultAuditor.Run(s.Options.AuditInterval, ctx.Done(), auditorDone)
 		defer func() { <-auditorDone }()
 	}
 
@@ -124,7 +124,7 @@ func (s *ImmuGwServer) Start() error {
 	}()
 	startedAt = time.Now()
 	<-s.quit
-	if s.Options.Auditor {
+	if s.Options.Audit {
 		cancel()
 	}
 	return err

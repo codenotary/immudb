@@ -25,41 +25,41 @@ import (
 )
 
 type Options struct {
-	Dir             string
-	Address         string
-	Port            int
-	MetricsPort     int
-	ImmudbAddress   string
-	ImmudbPort      int
-	Auditor         bool
-	AuditorInterval time.Duration
-	AuditorUsername string
-	AuditorPassword string
-	Detached        bool
-	MTLs            bool
-	MTLsOptions     client.MTLsOptions
-	Config          string
-	Pidfile         string
-	Logfile         string
+	Dir           string
+	Address       string
+	Port          int
+	MetricsPort   int
+	ImmudbAddress string
+	ImmudbPort    int
+	Audit         bool
+	AuditInterval time.Duration
+	AuditUsername string
+	AuditPassword string
+	Detached      bool
+	MTLs          bool
+	MTLsOptions   client.MTLsOptions
+	Config        string
+	Pidfile       string
+	Logfile       string
 }
 
 func DefaultOptions() Options {
 	return Options{
-		Dir:             ".",
-		Address:         "127.0.0.1",
-		Port:            3323,
-		MetricsPort:     9498,
-		ImmudbAddress:   "127.0.0.1",
-		ImmudbPort:      3322,
-		Auditor:         false,
-		AuditorInterval: 5 * time.Minute,
-		AuditorUsername: "immugwauditor",
-		AuditorPassword: "",
-		Detached:        false,
-		MTLs:            false,
-		Config:          "configs/immugw.toml",
-		Pidfile:         "",
-		Logfile:         "",
+		Dir:           ".",
+		Address:       "127.0.0.1",
+		Port:          3323,
+		MetricsPort:   9498,
+		ImmudbAddress: "127.0.0.1",
+		ImmudbPort:    3322,
+		Audit:         false,
+		AuditInterval: 5 * time.Minute,
+		AuditUsername: "immugwauditor",
+		AuditPassword: "",
+		Detached:      false,
+		MTLs:          false,
+		Config:        "configs/immugw.toml",
+		Pidfile:       "",
+		Logfile:       "",
 	}
 }
 
@@ -93,27 +93,27 @@ func (o Options) WithImmudbPort(immudbPort int) Options {
 	return o
 }
 
-// WithAuditor sets Auditor
-func (o Options) WithAuditor(auditor bool) Options {
-	o.Auditor = auditor
+// WithAudit sets Audit
+func (o Options) WithAudit(audit bool) Options {
+	o.Audit = audit
 	return o
 }
 
-// WithAuditorInterval sets AuditorInterval
-func (o Options) WithAuditorInterval(auditorInterval time.Duration) Options {
-	o.AuditorInterval = auditorInterval
+// WithAuditInterval sets AuditInterval
+func (o Options) WithAuditInterval(auditInterval time.Duration) Options {
+	o.AuditInterval = auditInterval
 	return o
 }
 
-// WithAuditorUsername sets AuditorUsername
-func (o Options) WithAuditorUsername(auditorUsername string) Options {
-	o.AuditorUsername = auditorUsername
+// WithAuditUsername sets AuditUsername
+func (o Options) WithAuditUsername(auditUsername string) Options {
+	o.AuditUsername = auditUsername
 	return o
 }
 
-// WithAuditorPassword sets AuditorPassword
-func (o Options) WithAuditorPassword(auditorPassword string) Options {
-	o.AuditorPassword = auditorPassword
+// WithAuditPassword sets AuditPassword
+func (o Options) WithAuditPassword(auditPassword string) Options {
+	o.AuditPassword = auditPassword
 	return o
 }
 

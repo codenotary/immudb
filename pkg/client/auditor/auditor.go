@@ -120,15 +120,29 @@ func (a *defaultAuditor) audit() error {
 	defer a.closeConnection(conn)
 	serviceClient := schema.NewImmuServiceClient(conn)
 
+	root, err := serviceClient.CurrentRoot(ctx, &empty.Empty{})
+	if err != nil {
+		a.logger.Errorf("error getting current root: %v", err)
+		return noErr
+	}
+
+	isEmptyDB := len(root.GetRoot()) == 0 && root.GetIndex() == 0
+
+	verified := true
 	serverID := a.getServerID(ctx, serviceClient)
-	prevRoot, err := a.rootService.Load(serverID)
+	prevRoot, err := a.rootService.Get(serverID)
 	if err != nil {
 		a.logger.Errorf(err.Error())
 		return noErr
 	}
-	var root *schema.Root
-	verified := true
 	if prevRoot != nil {
+		if isEmptyDB {
+			a.logger.Errorf(
+				"audit #%d aborted: database %s @ %s is empty, "+
+					"but locally a previous root exists with hash %x at index %d",
+				a.index, serverID, a.serverAddress, prevRoot.GetRoot(), prevRoot.GetIndex())
+			return noErr
+		}
 		proof, err := serviceClient.Consistency(ctx, &schema.Index{
 			Index: prevRoot.GetIndex(),
 		})
@@ -150,12 +164,10 @@ func (a *defaultAuditor) audit() error {
 			a.index, verified, firstRoot, proof.First, proof.SecondRoot, proof.Second)
 		root = &schema.Root{Index: proof.Second, Root: proof.SecondRoot}
 		a.updateMetrics(serverID, a.serverAddress, verified, prevRoot, root)
-	} else {
-		root, err = serviceClient.CurrentRoot(ctx, &empty.Empty{})
-		if err != nil {
-			a.logger.Errorf("error getting current root: %v", err)
-			return noErr
-		}
+	} else if isEmptyDB {
+		a.logger.Warningf("audit #%d canceled: database %s @ %s is empty",
+			a.index, serverID, a.serverAddress)
+		return noErr
 	}
 
 	if !verified {
@@ -164,13 +176,13 @@ func (a *defaultAuditor) audit() error {
 				"so it will not overwrite the previous local root (at index %d)",
 			a.index, root.GetIndex(), prevRoot.GetIndex())
 	} else if prevRoot == nil || root.GetIndex() != prevRoot.GetIndex() {
-		if err := a.rootService.Save(serverID, root); err != nil {
+		if err := a.rootService.Set(serverID, root); err != nil {
 			a.logger.Errorf(err.Error())
 			return noErr
 		}
 	}
 	a.logger.Infof("audit #%d finished in %s @ %s",
-		a.index, time.Since(start), time.Now())
+		a.index, time.Since(start), time.Now().Format(time.RFC3339Nano))
 	return noErr
 }
 
