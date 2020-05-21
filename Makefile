@@ -17,6 +17,11 @@ export GO111MODULE=on
 SHELL=/bin/bash -o pipefail
 
 VERSION=0.6.0
+TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/ppc64le linux/arm64
+#TARGETS=linux/arm-7 is not supported due to int -> maxInt64 assignment
+IMMUDBEXE=immudb-v${VERSION}-windows-amd64.exe
+SETUPEXE=codenotary_immudb_v${VERSION}_setup.exe
+
 
 PWD = $(shell pwd)
 GO ?= go
@@ -25,7 +30,7 @@ PROTOC ?= protoc
 STRIP = strip
 #~~~> Binaries versions
 V_COMMIT := $(shell git rev-parse HEAD)
-V_BUILT_BY := $(shell git config user.name)
+V_BUILT_BY := $(shell git config user.email)
 V_BUILT_AT := $(shell date +%s)
 V_LDFLAGS_COMMON := -X "github.com/codenotary/immudb/cmd/version.Commit=$(V_COMMIT)" -X "github.com/codenotary/immudb/cmd/version.BuiltBy=$(V_BUILT_BY)" -X "github.com/codenotary/immudb/cmd/version.BuiltAt=$(V_BUILT_AT)"
 
@@ -187,3 +192,83 @@ CHANGELOG.md:
 .PHONY: CHANGELOG.md.next-tag
 CHANGELOG.md.next-tag:
 	git-chglog -o CHANGELOG.md --next-tag v${VERSION}
+
+.PHONY: build/xgo
+build/xgo:
+	$(DOCKER) build \
+			-f ./build/xgo/Dockerfile \
+			-t immudb-xgo \
+			--pull=true \
+			./build/xgo
+
+.PHONY: build/makensis
+build/makensis:
+	$(DOCKER) build \
+		-f ./build/makensis/Dockerfile \
+		-t immudb-makensis \
+		./build/makensis
+
+.PHONY: clean/dist
+clean/dist:
+	rm -Rf ./dist
+
+.PHONY: dist
+dist: clean/dist build/xgo
+	mkdir -p dist
+	$(GO) build -a -tags netgo -ldflags '${LDFLAGS_STATIC}' \
+			-o ./dist/immudb-v${VERSION}-linux-amd64-static \
+    		./cmd/immudb
+	$(DOCKER) run --rm \
+			-v "${PWD}/dist:/dist" \
+			-v "${PWD}:/source:ro" \
+			-e GO111MODULE=on \
+			-e FLAG_LDFLAGS="-s ${V_LDFLAGS_COMMON}" \
+			-e TARGETS="${TARGETS}" \
+			-e PACK=cmd/immudb \
+			-e OUT=immudb-v${VERSION} \
+			immudb-xgo .
+	#mv ./dist/immudb-v${VERSION}-linux-arm-7 ./dist/immudb-v${VERSION}-linux-arm
+	mv ./dist/immudb-v${VERSION}-windows-4.0-amd64.exe ./dist/${IMMUDBEXE}
+	mv ./dist/immudb-v${VERSION}-darwin-10.6-amd64 ./dist/immudb-v${VERSION}-darwin-amd64
+
+.PHONY: dist/${IMMUDBEXE} dist/${SETUPEXE}
+dist/${IMMUDBEXE} dist/${SETUPEXE}:
+	echo ${SIGNCODE_PVK_PASSWORD} | $(DOCKER) run --rm -i \
+		-v ${PWD}/dist:/dist \
+		-v ${SIGNCODE_SPC}:/certs/f.spc:ro \
+		-v ${SIGNCODE_PVK}:/certs/f.pvk:ro \
+		mono:5.20 signcode \
+		-spc /certs/f.spc -v /certs/f.pvk \
+		-a sha1 -$ commercial \
+		-n "CodeNotary immudb" \
+		-i https://codenotary.io/ \
+		-t http://timestamp.comodoca.com -tr 10 \
+		$@
+	rm -Rf $@.bak
+
+.PHONY: dist/NSIS
+dist/NSIS: build/makensis
+	mkdir -p dist/NSIS
+	cp -f ./dist/${IMMUDBEXE} ./dist/NSIS/immudb.exe
+	cp -f ./build/NSIS/* ./dist/NSIS/
+	sed -e "s/{IMMUDB_VERSION}/v${VERSION}/g" ./build/NSIS/setup.nsi > ./dist/NSIS/setup.nsi
+	$(DOCKER) run --rm \
+			-v ${PWD}/dist/NSIS/:/app \
+			immudb-makensis /app/setup.nsi
+	cp ./dist/NSIS/*_setup.exe ./dist/
+	rm -Rf ./dist/NSIS
+
+.PHONY: dist/sign
+dist/sign: vendor immudb
+	for f in ./dist/*; do ./vcn sign -p $$f; printf "\n\n"; done
+
+.PHONY: dist/all
+dist/all: dist dist/${IMMUDBEXE} dist/NSIS dist/${SETUPEXE}
+
+.PHONY: dist/binary.md
+dist/binary.md:
+	@for f in ./dist/*; do \
+		ff=$$(basename $$f); \
+		shm_id=$$(sha256sum $$f | awk '{print $$1}'); \
+		printf "[$$ff](https://github.com/vchain-us/immudb/releases/download/v${VERSION}/$$ff) | $$shm_id \n" ; \
+	done

@@ -33,6 +33,8 @@
 /immugw
 /immutc
 
+/dist
+
 # Working files
 .root*
 immudb.pid
