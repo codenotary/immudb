@@ -56,7 +56,7 @@ Make sure the path of those files is accessible.
 Build all dist files:
 
 ```
-SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchian.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
+SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
 ```
 > Distribution files will be created into the `dist` directory.
 
@@ -91,7 +91,25 @@ Now you can edit the vX.Y.Z newly created [release on GitHub](https://github.com
 **Docker image**
 https://hub.docker.com/r/codenotary/immudb
 
-**Binaries**
+**Immudb Binaries**
+
+File | SHA256
+------------- | -------------
+<!-- use `make dist/binary.md` to generate the downloads links and checksums -->
+
+**Immugw Binaries**
+
+File | SHA256
+------------- | -------------
+<!-- use `make dist/binary.md` to generate the downloads links and checksums -->
+
+**Immucli Binaries**
+
+File | SHA256
+------------- | -------------
+<!-- use `make dist/binary.md` to generate the downloads links and checksums -->
+
+**Immuadmin Binaries**
 
 File | SHA256
 ------------- | -------------

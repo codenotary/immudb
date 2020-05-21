@@ -30,7 +30,9 @@ PROTOC ?= protoc
 STRIP = strip
 #~~~> Binaries versions
 V_COMMIT := $(shell git rev-parse HEAD)
-V_BUILT_BY := $(shell git config user.email)
+username := $(shell git config user.name)
+
+V_BUILT_BY := "${username,,}"
 V_BUILT_AT := $(shell date +%s)
 V_LDFLAGS_COMMON := -X "github.com/codenotary/immudb/cmd/version.Commit=$(V_COMMIT)" -X "github.com/codenotary/immudb/cmd/version.BuiltBy=$(V_BUILT_BY)" -X "github.com/codenotary/immudb/cmd/version.BuiltAt=$(V_BUILT_AT)"
 
@@ -217,7 +219,7 @@ dist: clean/dist build/xgo
 	mkdir -p dist
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS_STATIC}' \
 			-o ./dist/immudb-v${VERSION}-linux-amd64-static \
-    		./cmd/immudb
+     		./cmd/immudb
 	$(DOCKER) run --rm \
 			-v "${PWD}/dist:/dist" \
 			-v "${PWD}:/source:ro" \
@@ -237,7 +239,7 @@ dist/${IMMUDBEXE} dist/${SETUPEXE}:
 		-v ${PWD}/dist:/dist \
 		-v ${SIGNCODE_SPC}:/certs/f.spc:ro \
 		-v ${SIGNCODE_PVK}:/certs/f.pvk:ro \
-		mono:5.20 signcode \
+		mono:6.8.0 signcode \
 		-spc /certs/f.spc -v /certs/f.pvk \
 		-a sha1 -$ commercial \
 		-n "CodeNotary immudb" \
@@ -260,7 +262,7 @@ dist/NSIS: build/makensis
 
 .PHONY: dist/sign
 dist/sign: vendor immudb
-	for f in ./dist/*; do ./vcn sign -p $$f; printf "\n\n"; done
+	for f in ./dist/*; do vcn sign -p $$f; printf "\n\n"; done
 
 .PHONY: dist/all
 dist/all: dist dist/${IMMUDBEXE} dist/NSIS dist/${SETUPEXE}
