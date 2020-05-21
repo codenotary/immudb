@@ -27,15 +27,15 @@ import (
 )
 
 type RootService interface {
-	Load(serverID string) (*schema.Root, error)
-	Save(serverID string, root *schema.Root) error
+	Get(serverID string) (*schema.Root, error)
+	Set(serverID string, root *schema.Root) error
 }
 
 type rootService struct {
 	dir string
 }
 
-func (rs *rootService) Load(serverID string) (*schema.Root, error) {
+func (rs *rootService) Get(serverID string) (*schema.Root, error) {
 	rootsDir := filepath.Join(rs.dir, serverID)
 	if err := os.MkdirAll(rootsDir, os.ModePerm); err != nil {
 		return nil, fmt.Errorf("error creating roots dir %s: %v", rootsDir, err)
@@ -61,7 +61,7 @@ func (rs *rootService) Load(serverID string) (*schema.Root, error) {
 	return prevRoot, nil
 }
 
-func (rs *rootService) Save(serverID string, root *schema.Root) error {
+func (rs *rootService) Set(serverID string, root *schema.Root) error {
 	rootBytes, err := proto.Marshal(root)
 	if err != nil {
 		return fmt.Errorf("error marshaling root %d: %v", root.GetIndex(), err)
