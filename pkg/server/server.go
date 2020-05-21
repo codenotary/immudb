@@ -36,6 +36,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
+	"github.com/codenotary/immudb/pkg/store/sysstore"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -220,7 +221,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
 		return nil, auth.ErrServerAuthDisabled
 	}
-	item, err := s.SysStore.Get(schema.Key{Key: r.User})
+	item, err := s.SysStore.Get(schema.Key{Key: sysstore.AddUserPrefix(r.User)})
 	if err != nil {
 		if err == store.ErrKeyNotFound {
 			return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
@@ -228,7 +229,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 		s.Logger.Errorf("error getting user %s during login: %v", string(r.User), err)
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
-	username := string(item.GetKey())
+	username := string(sysstore.TrimUserPrefix(item.GetKey()))
 	u := auth.User{
 		Username:       username,
 		HashedPassword: item.GetValue(),

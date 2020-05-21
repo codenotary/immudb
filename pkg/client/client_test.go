@@ -29,6 +29,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
+	"github.com/codenotary/immudb/pkg/store/sysstore"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -118,7 +119,7 @@ func createAdminUser(sysStore *store.Store) {
 		log.Fatalf("error generating password for admin user: %v", err)
 	}
 	kv := schema.KeyValue{
-		Key:   []byte(u.Username),
+		Key:   sysstore.AddUserPrefix([]byte(u.Username)),
 		Value: u.HashedPassword,
 	}
 	if _, err := sysStore.Set(kv); err != nil {
@@ -275,7 +276,7 @@ func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scor
 	vi1, err1 := client.RawSafeSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.True(t, vi1.Verified)
 	require.NoError(t, err1)
-	index , err2 := client.ZAdd(ctx, []byte("set-n11"), 98.5, []byte("key-n11"))
+	index, err2 := client.ZAdd(ctx, []byte("set-n11"), 98.5, []byte("key-n11"))
 	require.NoError(t, err2)
 
 	item1, err3 := client.ByRawSafeIndex(ctx, index.Index)
