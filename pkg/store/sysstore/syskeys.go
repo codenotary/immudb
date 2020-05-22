@@ -16,13 +16,21 @@ limitations under the License.
 
 package sysstore
 
-import "bytes"
+import (
+	"bytes"
+)
 
 var sysKeysPrefix = []byte("!immudb!")
 var sysKeysPrefixes = struct {
 	user []byte
 }{
 	user: append(sysKeysPrefix, []byte("user")...),
+}
+
+func raceSafePrefix(prefix []byte, key []byte) []byte {
+	tmp := make([]byte, len(prefix)+len(key))
+	copy(tmp, prefix)
+	return append(tmp, key...)
 }
 
 func IsValidKey(k []byte) bool {
@@ -39,7 +47,7 @@ func AddUserPrefix(k []byte) []byte {
 	if IsUserKey(k) {
 		return k
 	}
-	return append(sysKeysPrefixes.user, k...)
+	return raceSafePrefix(sysKeysPrefixes.user, k)
 }
 func TrimUserPrefix(k []byte) []byte {
 	if !IsUserKey(k) {
