@@ -55,9 +55,10 @@ type ImmuClient interface {
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
 	ListUsers(ctx context.Context) (*schema.ItemList, error)
-	CreateUser(ctx context.Context, user []byte, pass []byte) (*schema.CreateUserResponse, error)
+	CreateUser(ctx context.Context, user []byte, pass []byte, permissions []byte) (*schema.CreateUserResponse, error)
 	DeleteUser(ctx context.Context, user []byte) error
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
+	SetPermission(ctx context.Context, user []byte, permissions []byte) error
 	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
 	UpdateMTLSConfig(ctx context.Context, enabled bool) error
 	CurrentRoot(ctx context.Context) (*schema.Root, error)
@@ -280,14 +281,16 @@ func (c *immuClient) ListUsers(ctx context.Context) (*schema.ItemList, error) {
 func (c *immuClient) CreateUser(
 	ctx context.Context,
 	user []byte,
-	pass []byte) (*schema.CreateUserResponse, error) {
+	pass []byte,
+	permissions []byte) (*schema.CreateUserResponse, error) {
 	start := time.Now()
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 	result, err := c.ServiceClient.CreateUser(ctx, &schema.CreateUserRequest{
-		User:     user,
-		Password: pass,
+		User:        user,
+		Password:    pass,
+		Permissions: permissions,
 	})
 	c.Logger.Debugf("createuser finished in %s", time.Since(start))
 	return result, err
@@ -318,6 +321,20 @@ func (c *immuClient) ChangePassword(ctx context.Context, user []byte, oldPass []
 		NewPassword: newPass,
 	})
 	c.Logger.Debugf("changepassword finished in %s", time.Since(start))
+	return err
+}
+
+// SetPermission ...
+func (c *immuClient) SetPermission(ctx context.Context, user []byte, permissions []byte) error {
+	start := time.Now()
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+	_, err := c.ServiceClient.SetPermission(ctx, &schema.Item{
+		Key:   user,
+		Value: permissions,
+	})
+	c.Logger.Debugf("setpermission finished in %s", time.Since(start))
 	return err
 }
 

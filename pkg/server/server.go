@@ -221,19 +221,33 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
 		return nil, auth.ErrServerAuthDisabled
 	}
-	item, err := s.SysStore.Get(schema.Key{Key: sysstore.AddUserPrefix(r.User)})
+	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+		Prefix: sysstore.AddUserPrefix(r.User),
+	})
 	if err != nil {
-		if err == store.ErrKeyNotFound {
-			return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
-		}
 		s.Logger.Errorf("error getting user %s during login: %v", string(r.User), err)
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
-	username := string(sysstore.TrimUserPrefix(item.GetKey()))
+	if len(itemList.Items) == 0 {
+		return nil, status.Errorf(codes.NotFound, "user not found")
+	}
+	var item *schema.Item
+	for _, currItem := range itemList.Items {
+		if !isFlaggedAsDeleted(currItem) {
+			item = currItem
+			break
+		}
+	}
+	if item == nil {
+		return nil, status.Errorf(codes.NotFound, "user not found")
+	}
+	permissions := auth.GetPermissionFromSuffix(item.GetKey())
+	username :=
+		string(auth.TrimPermissionSuffix(sysstore.TrimUserPrefix(item.GetKey())))
 	u := auth.User{
 		Username:       username,
 		HashedPassword: item.GetValue(),
-		Admin:          username == auth.AdminUsername,
+		Permissions:    permissions,
 	}
 	if u.ComparePasswords(r.GetPassword()) != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")

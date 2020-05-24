@@ -30,11 +30,12 @@ import (
 func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 	cmdName := "user"
 	fullCmdName := parentCmdName + " " + cmdName
-	usage := cmdName + " list|create|change-password|delete [username]"
+	usage := cmdName + " list|create|change-password|set-permission|delete [username] [read|readwrite]"
 	usages := map[string][]string{
 		"list":            []string{"List users", fullCmdName + " list"},
-		"create":          []string{"Create a new user", fullCmdName + " create username"},
+		"create":          []string{"Create a new user", fullCmdName + " create username read|readwrite"},
 		"change-password": []string{"Change password", fullCmdName + " change-password username"},
+		"set-permission":  []string{"Set permission", fullCmdName + " set-permission username read|readwrite"},
 		"delete":          []string{"Delete user", fullCmdName + " delete username"},
 	}
 	requiredArgs := c.RequiredArgs{
@@ -50,28 +51,39 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 		PersistentPreRunE: cl.checkLoggedInAndConnect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			action, err := requiredArgs.Require(args, 0, "a user action", "")
+			action, err := requiredArgs.Require(args, 0, "a user action", map[string]struct{}{}, "")
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
 			switch action {
 			case "list":
 				cl.listUsers()
-			case "create", "change-password", "delete":
-				username, err := requiredArgs.Require(args, 1, "a username", action)
+			case "create", "change-password", "set-permission", "delete":
+				username, err := requiredArgs.Require(args, 1, "a username", map[string]struct{}{}, action)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				switch action {
-				case "create":
-					cl.createUser(username)
+				case "create", "set-permission":
+					permissions, err := requiredArgs.Require(
+						args, 2, "user permissions", map[string]struct{}{"read": struct{}{}, "readwrite": struct{}{}}, action)
+					if err != nil {
+						c.QuitToStdErr(err)
+					}
+					switch action {
+					case "create":
+						cl.createUser(username, permissions)
+					default:
+						// TODO OGG: uncomment
+						// cl.setPermissions(username, permissions)
+					}
 				case "change-password":
 					cl.changePassword(username)
 				case "delete":
 					cl.deleteUser(username)
 				}
 			default:
-				_, err := requiredArgs.Require(args, 0, "a valid user action", action)
+				_, err := requiredArgs.Require(args, 0, "a valid user action", map[string]struct{}{}, action)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
@@ -97,20 +109,20 @@ func (cl *commandline) listUsers() {
 		func(i int) []string {
 			row := make([]string, 3)
 			u := string(usersList.Items[i].GetKey())
+			permission := auth.GetPermissionFromSuffix(usersList.Items[i].GetKey())
 			row[0] = u
-			if u != auth.AdminUsername {
-				row[1] = "client"
-				row[2] = "read/write"
-			} else {
+			if permission == auth.Permissions.Admin {
 				row[1] = "admin"
-				row[2] = "admin"
+			} else {
+				row[1] = "client"
 			}
+			row[2] = string(permission)
 			return row
 		},
 	)
 }
 
-func (cl *commandline) createUser(username string) {
+func (cl *commandline) createUser(username string, permissions string) {
 	fmt.Println("NOTE:", auth.PasswordRequirementsMsg+".")
 	pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
@@ -126,7 +138,14 @@ func (cl *commandline) createUser(username string) {
 	if !bytes.Equal(pass, pass2) {
 		c.QuitToStdErr(errors.New("Passwords don't match"))
 	}
-	_, err = cl.immuClient.CreateUser(cl.context, []byte(username), pass)
+	var permission []byte
+	switch permissions {
+	case "readwrite":
+		permission = []byte{auth.Permissions.RW}
+	default:
+		permission = []byte{auth.Permissions.R}
+	}
+	_, err = cl.immuClient.CreateUser(cl.context, []byte(username), pass, permission)
 	if err != nil {
 		c.QuitWithUserError(err)
 	}

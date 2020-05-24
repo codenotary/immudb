@@ -138,7 +138,7 @@ func (cl *commandline) askUserConfirmation(process string, manualStopStart bool)
 		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 			c.QuitToStdErr("Canceled")
 		}
-		pass, err := cl.passwordReader.Read(fmt.Sprintf("Enter %s's password:", auth.AdminUsername))
+		pass, err := cl.passwordReader.Read("Enter admin password:")
 		if err != nil {
 			c.QuitToStdErr(err)
 		}

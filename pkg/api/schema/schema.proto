@@ -32,6 +32,7 @@ message Key {
 message CreateUserRequest {
 	bytes user = 1;
 	bytes password = 2;
+	bytes permissions = 3;
 }
 message CreateUserResponse {
 	bytes user = 1;
@@ -265,6 +266,7 @@ service ImmuService {
 	rpc ListUsers (google.protobuf.Empty) returns (ItemList){}
 	rpc CreateUser (CreateUserRequest) returns (CreateUserResponse){}
 	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){}
+	rpc SetPermission (Item) returns (google.protobuf.Empty){}
 	rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty){}
 
 	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){}

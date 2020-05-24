@@ -16,11 +16,13 @@ limitations under the License.
 
 package auth
 
+import "regexp"
+
 // User ...
 type User struct {
 	Username       string `json:"username"`
 	HashedPassword []byte `json:"-"`
-	Admin          bool   `json:"admin"`
+	Permissions    byte   `json:"permissions"`
 }
 
 var AdminUsername = "immu"
@@ -44,3 +46,5 @@ func (u *User) SetPassword(hashedPassword []byte) {
 func (u *User) ComparePasswords(plainPassword []byte) error {
 	return ComparePasswords(u.HashedPassword, plainPassword)
 }
+
+var IsValidUsername = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
