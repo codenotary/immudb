@@ -167,7 +167,7 @@ func GenerateToken(user User) (string, error) {
 		Expiration: now.Add(tokenValidity),
 		Subject:    user.Username,
 	}
-	jsonToken.Set("admin", strconv.FormatBool(user.Admin))
+	jsonToken.Set("permissions", fmt.Sprintf("%d", user.Permissions))
 	token, err := pasetoV2.Sign(privateKey, jsonToken, footer)
 	if err != nil {
 		return "", fmt.Errorf("error generating token: %v", err)
@@ -297,7 +297,7 @@ func IsAdminClient(ctx context.Context) bool {
 	return len(clientIDMD) > 0 && clientIDMD[0] == ClientIDMetadataValueAdmin
 }
 
-var AdminUserExists func(ctx context.Context) bool
+var AdminUserExists func(ctx context.Context) (bool, error)
 var CreateAdminUser func(ctx context.Context) (string, string, error)
 
 var ErrServerAuthDisabled = status.Error(
@@ -351,8 +351,12 @@ func checkAuth(ctx context.Context, method string, req interface{}) error {
 	if method == loginMethod && isAuthEnabled && isAdminCLI {
 		lReq, ok := req.(*schema.LoginRequest)
 		// if it's the very first admin login attempt, generate admin user and password
+		adminUserExists, err := AdminUserExists(ctx)
+		if err != nil {
+			return fmt.Errorf("error determining if admin user exists: %v", err)
+		}
 		if ok && string(lReq.GetUser()) == AdminUsername &&
-			len(lReq.GetPassword()) == 0 && !AdminUserExists(ctx) {
+			len(lReq.GetPassword()) == 0 && !adminUserExists {
 			firstAdminCallMsg, err2 := createAdminUserAndMsg(ctx)
 			if err2 != nil {
 				return err2

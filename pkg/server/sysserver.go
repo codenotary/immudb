@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/store"
 	"github.com/codenotary/immudb/pkg/store/sysstore"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc/codes"
@@ -36,27 +36,43 @@ func isFlaggedAsDeleted(user *schema.Item) bool {
 	return bytes.Equal(user.GetValue(), deletedFlag)
 }
 
-func (s *ImmuServer) adminUserExists(ctx context.Context) bool {
-	item, err := s.SysStore.Get(
-		schema.Key{Key: sysstore.AddUserPrefix([]byte(auth.AdminUsername))})
-	if err != nil && err != store.ErrKeyNotFound {
+func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
+	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+		Prefix: sysstore.AddUserPrefix([]byte(auth.AdminUsername)),
+	})
+	if err != nil {
 		s.Logger.Errorf("error getting admin user: %v", err)
-		return false
+		return false, err
 	}
-	return err == nil && !isFlaggedAsDeleted(item)
+	if len(itemList.Items) == 0 {
+		return false, nil
+	}
+	for _, item := range itemList.Items {
+		if !isFlaggedAsDeleted(item) &&
+			auth.HasPermissionSuffix(item.GetKey(), auth.Permissions.Admin) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *ImmuServer) createAdminUser(ctx context.Context) (string, string, error) {
-	if s.adminUserExists(ctx) {
+	exists, err := s.adminUserExists(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf(
+			"error determining if admin user exists: %v", err)
+	}
+	if exists {
 		return "", "", errors.New("admin user already exists")
 	}
-	u := auth.User{Username: auth.AdminUsername, Admin: true}
+	u := auth.User{Username: "immu"}
 	plainPass, err := u.GenerateAndSetPassword()
 	if err != nil {
 		s.Logger.Errorf("error generating password for admin user: %v", err)
 	}
 	kv := schema.KeyValue{
-		Key:   sysstore.AddUserPrefix([]byte(u.Username)),
+		Key: auth.AddPermissionSuffix(
+			sysstore.AddUserPrefix([]byte(u.Username)), auth.Permissions.Admin),
 		Value: u.HashedPassword,
 	}
 	if _, err := s.SysStore.Set(kv); err != nil {
@@ -78,14 +94,23 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.I
 }
 
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.CreateUserResponse, error) {
+	if !auth.IsValidUsername(string(r.GetUser())) {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			"username can only contain letters, digits and underscores")
+	}
 	prefixedUsername := sysstore.AddUserPrefix(r.GetUser())
-	item, err := s.SysStore.Get(schema.Key{Key: prefixedUsername})
-	if err != nil && err != store.ErrKeyNotFound {
+	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+		Prefix: prefixedUsername,
+	})
+	if err != nil {
 		s.Logger.Errorf("error checking if user already exists: %v", err)
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
-	if err == nil && !isFlaggedAsDeleted(item) {
-		return nil, status.Errorf(codes.AlreadyExists, "username already exists")
+	for _, item := range itemList.Items {
+		if !isFlaggedAsDeleted(item) {
+			return nil, status.Errorf(codes.AlreadyExists, "username already exists")
+		}
 	}
 	if err = auth.IsStrongPassword(string(r.GetPassword())); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -95,7 +120,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		return nil, err
 	}
 	kv := schema.KeyValue{
-		Key:   prefixedUsername,
+		Key:   auth.AddPermissionSuffix(prefixedUsername, r.GetPermissions()[0]),
 		Value: hashedPassword,
 	}
 	if _, err := s.SysStore.Set(kv); err != nil {
@@ -107,16 +132,58 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	}, nil
 }
 
+func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
+	prefixedUsername := sysstore.AddUserPrefix(r.GetKey())
+	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+		Prefix: prefixedUsername,
+	})
+	if err != nil {
+		s.Logger.Errorf("error getting user: %v", err)
+		return new(empty.Empty), status.Errorf(codes.Internal, "internal error")
+	}
+	var item *schema.Item
+	for _, currItem := range itemList.Items {
+		if !isFlaggedAsDeleted(item) {
+			item = currItem
+			break
+		}
+	}
+	if item == nil {
+		return new(empty.Empty), status.Error(codes.NotFound, "user not fund")
+	}
+	kv := schema.KeyValue{
+		Key:   auth.ReplacePermissionSuffix(item.GetKey(), r.GetValue()[0]),
+		Value: item.GetValue(),
+	}
+	if _, err := s.SysStore.Set(kv); err != nil {
+		s.Logger.Errorf("error persisting user with updated permission: %v", err)
+		return new(empty.Empty), err
+	}
+	return new(empty.Empty), nil
+}
+
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
 	e := new(empty.Empty)
 	prefixedUsername := sysstore.AddUserPrefix(r.GetUser())
-	item, err := s.SysStore.Get(schema.Key{Key: prefixedUsername})
+	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+		Prefix: prefixedUsername,
+	})
 	if err != nil {
 		s.Logger.Errorf("error getting user: %v", err)
 		return e, err
 	}
-	if isFlaggedAsDeleted(item) {
-		return e, status.Errorf(codes.NotFound, "error changing password: user was already deleted")
+	if len(itemList.Items) == 0 {
+		return e, status.Error(codes.NotFound, "user not found")
+	}
+	var item *schema.Item
+	for _, currItem := range itemList.Items {
+		if !isFlaggedAsDeleted(item) {
+			item = currItem
+			break
+		}
+	}
+	if item == nil {
+		return e, status.Errorf(codes.NotFound, "user not found")
 	}
 	if err = auth.ComparePasswords(item.GetValue(), r.GetOldPassword()); err != nil {
 		return e, status.Errorf(codes.PermissionDenied, "old password is incorrect")
@@ -130,7 +197,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 		return e, status.Errorf(codes.Internal, "%v", err)
 	}
 	kv := schema.KeyValue{
-		Key:   prefixedUsername,
+		Key:   item.GetKey(),
 		Value: hashedPassword,
 	}
 	if _, err := s.SysStore.Set(kv); err != nil {
@@ -143,16 +210,28 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 func (s *ImmuServer) DeleteUser(ctx context.Context, r *schema.DeleteUserRequest) (*empty.Empty, error) {
 	e := new(empty.Empty)
 	prefixedUsername := sysstore.AddUserPrefix(r.GetUser())
-	item, err := s.SysStore.Get(schema.Key{Key: prefixedUsername})
+	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+		Prefix: prefixedUsername,
+	})
 	if err != nil {
 		s.Logger.Errorf("error getting user: %v", err)
 		return e, err
 	}
-	if isFlaggedAsDeleted(item) {
+	if len(itemList.Items) == 0 {
+		return e, status.Error(codes.NotFound, "user not found")
+	}
+	var item *schema.Item
+	for _, currItem := range itemList.GetItems() {
+		if !isFlaggedAsDeleted(currItem) {
+			item = currItem
+			break
+		}
+	}
+	if item == nil {
 		return e, status.Errorf(codes.NotFound, "user not found")
 	}
 	kv := schema.KeyValue{
-		Key:   prefixedUsername,
+		Key:   item.GetKey(),
 		Value: deletedFlag,
 	}
 	if _, err := s.SysStore.Set(kv); err != nil {

@@ -179,7 +179,7 @@ type RequiredArgs struct {
 	Usages map[string][]string
 }
 
-func (ra *RequiredArgs) Require(args []string, argPos int, argName string, action string) (string, error) {
+func (ra *RequiredArgs) Require(args []string, argPos int, argName string, validValues map[string]struct{}, action string) (string, error) {
 	isValidAction := true
 	if action != "" {
 		_, isValidAction = ra.Usages[action]
@@ -194,6 +194,12 @@ func (ra *RequiredArgs) Require(args []string, argPos int, argName string, actio
 		}
 		return "", fmt.Errorf(
 			"Please specify %s.\nUsage: %s\nHelp : %s -h", argName, usage, ra.Cmd)
+	}
+	if len(validValues) > 0 {
+		if _, validValue := validValues[args[argPos]]; !validValue {
+			return "", fmt.Errorf(
+				"Please specify %s.\nUsage: %s\nHelp : %s -h", argName, ra.Usages[action][1], ra.Cmd)
+		}
 	}
 	return args[argPos], nil
 }

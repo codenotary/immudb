@@ -27,12 +27,6 @@ var sysKeysPrefixes = struct {
 	user: append(sysKeysPrefix, []byte("user")...),
 }
 
-func raceSafePrefix(prefix []byte, key []byte) []byte {
-	tmp := make([]byte, len(prefix)+len(key))
-	copy(tmp, prefix)
-	return append(tmp, key...)
-}
-
 func IsValidKey(k []byte) bool {
 	return !bytes.HasPrefix(k, sysKeysPrefix)
 }
@@ -47,7 +41,7 @@ func AddUserPrefix(k []byte) []byte {
 	if IsUserKey(k) {
 		return k
 	}
-	return raceSafePrefix(sysKeysPrefixes.user, k)
+	return bytes.Join([][]byte{sysKeysPrefixes.user, k}, []byte{})
 }
 func TrimUserPrefix(k []byte) []byte {
 	if !IsUserKey(k) {
