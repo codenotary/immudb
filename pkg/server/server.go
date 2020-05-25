@@ -138,6 +138,7 @@ func (s *ImmuServer) Start() error {
 	}
 
 	auth.AdminUserExists = s.adminUserExists
+	auth.IsAdminUser = s.isAdminUser
 	auth.CreateAdminUser = s.createAdminUser
 
 	metricsServer := StartMetrics(

@@ -30,8 +30,43 @@ var Permissions = struct {
 	RW:    3,
 }
 
+var methodsPermissions = map[string]byte{
+	// readwrite methods
+	"/immudb.schema.ImmuService/Set":           Permissions.RW,
+	"/immudb.schema.ImmuService/SetSV":         Permissions.RW,
+	"/immudb.schema.ImmuService/SafeSet":       Permissions.RW,
+	"/immudb.schema.ImmuService/SafeSetSV":     Permissions.RW,
+	"/immudb.schema.ImmuService/SetBatch":      Permissions.RW,
+	"/immudb.schema.ImmuService/SetBatchSV":    Permissions.RW,
+	"/immudb.schema.ImmuService/Reference":     Permissions.RW,
+	"/immudb.schema.ImmuService/SafeReference": Permissions.RW,
+	"/immudb.schema.ImmuService/ZAdd":          Permissions.RW,
+	"/immudb.schema.ImmuService/SafeZAdd":      Permissions.RW,
+	// admin methods
+	"/immudb.schema.ImmuService/CreateUser":       Permissions.Admin,
+	"/immudb.schema.ImmuService/ChangePassword":   Permissions.Admin,
+	"/immudb.schema.ImmuService/SetPermission":    Permissions.Admin,
+	"/immudb.schema.ImmuService/DeleteUser":       Permissions.Admin,
+	"/immudb.schema.ImmuService/UpdateAuthConfig": Permissions.Admin,
+	"/immudb.schema.ImmuService/UpdateMTLSConfig": Permissions.Admin,
+}
+
+func HasPermissionForMethod(userPermission byte, method string) bool {
+	methodPermission, ok := methodsPermissions[method]
+	if !ok {
+		methodPermission = Permissions.R
+	}
+	return methodPermission&userPermission == userPermission
+}
+func HasPermissionSuffixForMethod(username []byte, method string) bool {
+	permission, ok := methodsPermissions[method]
+	if !ok {
+		return true
+	}
+	return HasPermissionSuffix(username, permission)
+}
 func HasPermissionSuffix(username []byte, permission byte) bool {
-	return username[len(username)-1:][0] == permission
+	return username[len(username)-1:][0]&permission == permission
 }
 func GetPermissionFromSuffix(username []byte) byte {
 	return username[len(username)-1:][0]

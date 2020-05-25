@@ -38,10 +38,10 @@ func isFlaggedAsDeleted(user *schema.Item) bool {
 
 func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
 	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: sysstore.AddUserPrefix([]byte(auth.AdminUsername)),
+		Prefix: sysstore.UserPrefix(),
 	})
 	if err != nil {
-		s.Logger.Errorf("error getting admin user: %v", err)
+		s.Logger.Errorf("error checking if any user exists: %v", err)
 		return false, err
 	}
 	if len(itemList.Items) == 0 {
@@ -65,7 +65,7 @@ func (s *ImmuServer) createAdminUser(ctx context.Context) (string, string, error
 	if exists {
 		return "", "", errors.New("admin user already exists")
 	}
-	u := auth.User{Username: "immu"}
+	u := auth.User{Username: auth.AdminUsername}
 	plainPass, err := u.GenerateAndSetPassword()
 	if err != nil {
 		s.Logger.Errorf("error generating password for admin user: %v", err)
@@ -80,6 +80,26 @@ func (s *ImmuServer) createAdminUser(ctx context.Context) (string, string, error
 		return "", "", err
 	}
 	return u.Username, plainPass, nil
+}
+
+func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, error) {
+	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+		Prefix: sysstore.AddUserPrefix(username),
+	})
+	if err != nil {
+		s.Logger.Errorf("error checking if user is admin: %v", err)
+		return false, err
+	}
+	if len(itemList.Items) == 0 {
+		return false, nil
+	}
+	for _, item := range itemList.Items {
+		if !isFlaggedAsDeleted(item) &&
+			auth.HasPermissionSuffix(item.GetKey(), auth.Permissions.Admin) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.ItemList, error) {

@@ -178,9 +178,9 @@ func GenerateToken(user User) (string, error) {
 
 // JSONToken ...
 type JSONToken struct {
-	Username   string
-	Admin      bool
-	Expiration time.Time
+	Username    string
+	Permissions byte
+	Expiration  time.Time
 }
 
 func verifyToken(token string) (*JSONToken, error) {
@@ -197,11 +197,17 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err := jsonToken.Validate(); err != nil {
 		return nil, err
 	}
-	admin, _ := strconv.ParseBool(jsonToken.Get("admin"))
+	permissions := Permissions.R
+	if p := jsonToken.Get("permissions"); p != "" {
+		pint, err := strconv.ParseUint(p, 10, 8)
+		if err != nil {
+			permissions = byte(pint)
+		}
+	}
 	return &JSONToken{
-		Username:   jsonToken.Subject,
-		Admin:      admin,
-		Expiration: jsonToken.Expiration,
+		Username:    jsonToken.Subject,
+		Permissions: permissions,
+		Expiration:  jsonToken.Expiration,
 	}, nil
 }
 
@@ -272,22 +278,9 @@ func HasAuth(method string) bool {
 	return !noAuth
 }
 
-var empty struct{}
-var methodsForAdmin = map[string]struct{}{
-	"/immudb.schema.ImmuService/CreateUser":       empty,
-	"/immudb.schema.ImmuService/ChangePassword":   empty,
-	"/immudb.schema.ImmuService/DeleteUser":       empty,
-	"/immudb.schema.ImmuService/UpdateAuthConfig": empty,
-	"/immudb.schema.ImmuService/UpdateMTLSConfig": empty,
-}
-
 const ClientIDMetadataKey = "client_id"
 const ClientIDMetadataValueAdmin = "immuadmin"
 
-func isAdmin(method string) bool {
-	_, ok := methodsForAdmin[method]
-	return ok
-}
 func IsAdminClient(ctx context.Context) bool {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -297,6 +290,7 @@ func IsAdminClient(ctx context.Context) bool {
 	return len(clientIDMD) > 0 && clientIDMD[0] == ClientIDMetadataValueAdmin
 }
 
+var IsAdminUser func(ctx context.Context, username []byte) (bool, error)
 var AdminUserExists func(ctx context.Context) (bool, error)
 var CreateAdminUser func(ctx context.Context) (string, string, error)
 
@@ -340,31 +334,41 @@ func createAdminUserAndMsg(ctx context.Context) (*ErrFirstAdminLogin, error) {
 
 func checkAuth(ctx context.Context, method string, req interface{}) error {
 	isAdminCLI := IsAdminClient(ctx)
-	if isAdminCLI && !AuthEnabled {
+	if !AuthEnabled || isAdminCLI {
 		if !isLocalClient(ctx) {
-			return status.Errorf(
-				codes.PermissionDenied,
-				"server has authentication disabled: only local connections are accepted")
+			var errMsg string
+			if isAdminCLI {
+				errMsg = "server does not accept admin commands from remote clients"
+			} else {
+				errMsg =
+					"server has authentication disabled: only local connections are accepted"
+			}
+			return status.Errorf(codes.PermissionDenied, errMsg)
 		}
 	}
 	isAuthEnabled := AuthEnabled || isAdminCLI
 	if method == loginMethod && isAuthEnabled && isAdminCLI {
 		lReq, ok := req.(*schema.LoginRequest)
 		// if it's the very first admin login attempt, generate admin user and password
-		adminUserExists, err := AdminUserExists(ctx)
-		if err != nil {
-			return fmt.Errorf("error determining if admin user exists: %v", err)
-		}
-		if ok && string(lReq.GetUser()) == AdminUsername &&
-			len(lReq.GetPassword()) == 0 && !adminUserExists {
-			firstAdminCallMsg, err2 := createAdminUserAndMsg(ctx)
-			if err2 != nil {
-				return err2
+		if ok && string(lReq.GetUser()) == AdminUsername && len(lReq.GetPassword()) == 0 {
+			adminUserExists, err := AdminUserExists(ctx)
+			if err != nil {
+				return fmt.Errorf("error determining if admin user exists: %v", err)
 			}
-			return firstAdminCallMsg
+			if !adminUserExists {
+				firstAdminCallMsg, err := createAdminUserAndMsg(ctx)
+				if err != nil {
+					return err
+				}
+				return firstAdminCallMsg
+			}
 		}
 		// do not allow users other than admin to login from immuadmin CLI
-		if string(lReq.GetUser()) != AdminUsername {
+		isAdmin, err := IsAdminUser(ctx, lReq.GetUser())
+		if err != nil {
+			return err
+		}
+		if !isAdmin {
 			return status.Errorf(codes.PermissionDenied, "permission denied")
 		}
 	}
@@ -373,15 +377,8 @@ func checkAuth(ctx context.Context, method string, req interface{}) error {
 		if err != nil {
 			return err
 		}
-		if isAdmin(method) || isAdminCLI {
-			if !jsonToken.Admin {
-				return status.Errorf(codes.PermissionDenied, "permission denied")
-			}
-			if !isLocalClient(ctx) {
-				return status.Errorf(
-					codes.PermissionDenied,
-					"server does not accept admin commands from remote clients")
-			}
+		if !HasPermissionForMethod(jsonToken.Permissions, method) {
+			return status.Errorf(codes.PermissionDenied, "not enough permissions")
 		}
 	}
 	return nil

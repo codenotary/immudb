@@ -74,8 +74,7 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 					case "create":
 						cl.createUser(username, permissions)
 					default:
-						// TODO OGG: uncomment
-						// cl.setPermissions(username, permissions)
+						cl.setPermissions(username, permissions)
 					}
 				case "change-password":
 					cl.changePassword(username)
@@ -150,6 +149,21 @@ func (cl *commandline) createUser(username string, permissions string) {
 		c.QuitWithUserError(err)
 	}
 	fmt.Printf("User %s created\n", username)
+}
+
+func (cl *commandline) setPermissions(username string, permissions string) {
+	var permission []byte
+	switch permissions {
+	case "readwrite":
+		permission = []byte{auth.Permissions.RW}
+	default:
+		permission = []byte{auth.Permissions.R}
+	}
+	if err := cl.immuClient.SetPermission(
+		cl.context, []byte(username), permission); err != nil {
+		c.QuitWithUserError(err)
+	}
+	fmt.Printf("Permissions updated for user %s\n", username)
 }
 
 func (cl *commandline) changePassword(username string) {
