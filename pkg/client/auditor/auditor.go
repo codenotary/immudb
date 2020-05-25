@@ -48,7 +48,7 @@ type defaultAuditor struct {
 	username      []byte
 	password      []byte
 	slugifyRegExp *regexp.Regexp
-	updateMetrics func(string, string, bool, *schema.Root, *schema.Root)
+	updateMetrics func(string, string, bool, bool, *schema.Root, *schema.Root)
 }
 
 func DefaultAuditor(
@@ -58,7 +58,7 @@ func DefaultAuditor(
 	username string,
 	password string,
 	history cache.HistoryCache,
-	updateMetrics func(string, string, bool, *schema.Root, *schema.Root),
+	updateMetrics func(string, string, bool, bool, *schema.Root, *schema.Root),
 ) (Auditor, error) {
 	logr := logger.NewSimpleLogger("auditor", os.Stderr)
 	dt, err := timestamp.NewTdefault()
@@ -102,6 +102,13 @@ func (a *defaultAuditor) audit() error {
 	a.index++
 	a.logger.Infof("audit #%d started @ %s", a.index, start)
 
+	verified := true
+	checked := false
+	serverID := "unknown"
+	var prevRoot *schema.Root
+	var root *schema.Root
+	defer func() { a.updateMetrics(serverID, a.serverAddress, checked, verified, prevRoot, root) }()
+
 	// returning an error would completely stop the auditor process
 	var noErr error
 
@@ -113,7 +120,7 @@ func (a *defaultAuditor) audit() error {
 	defer a.closeConnection(conn)
 	serviceClient := schema.NewImmuServiceClient(conn)
 
-	root, err := serviceClient.CurrentRoot(ctx, &empty.Empty{})
+	root, err = serviceClient.CurrentRoot(ctx, &empty.Empty{})
 	if err != nil {
 		a.logger.Errorf("error getting current root: %v", err)
 		return noErr
@@ -121,9 +128,8 @@ func (a *defaultAuditor) audit() error {
 
 	isEmptyDB := len(root.GetRoot()) == 0 && root.GetIndex() == 0
 
-	verified := true
-	serverID := a.getServerID(ctx, serviceClient)
-	prevRoot, err := a.history.Get(serverID)
+	serverID = a.getServerID(ctx, serviceClient)
+	prevRoot, err = a.history.Get(serverID)
 	if err != nil {
 		a.logger.Errorf(err.Error())
 		return noErr
@@ -156,7 +162,7 @@ func (a *defaultAuditor) audit() error {
 			"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
 			a.index, verified, firstRoot, proof.First, proof.SecondRoot, proof.Second)
 		root = &schema.Root{Index: proof.Second, Root: proof.SecondRoot}
-		a.updateMetrics(serverID, a.serverAddress, verified, prevRoot, root)
+		checked = true
 	} else if isEmptyDB {
 		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",
 			a.index, serverID, a.serverAddress)
