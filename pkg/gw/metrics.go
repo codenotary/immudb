@@ -54,6 +54,7 @@ func (mc *MetricsCollection) UpdateAuditResult(
 	serverID string,
 	serverAddress string,
 	checked bool,
+	withError bool,
 	result bool,
 	prevRoot *schema.Root,
 	currRoot *schema.Root,
@@ -61,18 +62,22 @@ func (mc *MetricsCollection) UpdateAuditResult(
 	var r float64
 	if checked && result {
 		r = 1
-	} else if !checked {
+	} else if !checked && !withError {
 		r = -1
+	} else if withError {
+		r = -2
 	}
 	prevRootIndex := -1.
 	currRootIndex := -1.
-	if checked {
-		if prevRoot != nil {
-			prevRootIndex = float64(prevRoot.GetIndex())
-		}
-		if currRoot != nil {
-			currRootIndex = float64(currRoot.GetIndex())
-		}
+	if withError {
+		prevRootIndex = -2.
+		currRootIndex = -2.
+	}
+	if prevRoot != nil {
+		prevRootIndex = float64(prevRoot.GetIndex())
+	}
+	if currRoot != nil {
+		currRootIndex = float64(currRoot.GetIndex())
 	}
 
 	mc.AuditResultPerServer.
