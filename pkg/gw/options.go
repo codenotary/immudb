@@ -48,7 +48,7 @@ func DefaultOptions() Options {
 		Dir:           ".",
 		Address:       "127.0.0.1",
 		Port:          3323,
-		MetricsPort:   9498,
+		MetricsPort:   9476,
 		ImmudbAddress: "127.0.0.1",
 		ImmudbPort:    3322,
 		Audit:         false,
