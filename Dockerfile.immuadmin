@@ -12,10 +12,13 @@ ARG IMMU_GID="3322"
 
 ENV IMMUADMIN_IMMUDB-ADDRESS="127.0.0.1" \
     IMMUADMIN_IMMUDB-PORT="3322" \
-    IMMUADMIN_MTLS="false"
+    IMMUADMIN_MTLS="false" \
+    IMMUADMIN_TOKENFILE="/var/lib/immudb"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
+    mkdir -p "$IMMUADMIN_TOKENFILE" && \
+    chown -R immu:immu "$IMMUADMIN_TOKENFILE" && \
     chmod +x /usr/local/bin/immuadmin
 
 USER immu
