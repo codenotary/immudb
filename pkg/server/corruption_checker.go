@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tc
+package server
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/store"
 	mrand "math/rand"
 	"time"
 )
@@ -30,52 +30,54 @@ import (
 // ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
 const ErrConsistencyFail = "consistency check fail at index %d"
 
-type immuTc struct {
-	Client  client.ImmuClient
-	Logger  logger.Logger
-	Quit    bool
-	Trusted bool
+type corruptionChecker struct {
+	store      *store.Store
+	Logger     logger.Logger
+	Exit       bool
+	StopImmudb func() error
+	Trusted    bool
 }
 
 // ImmuTc trust checker interface
-type ImmuTc interface {
+type CorruptionChecker interface {
 	Start(context.Context) (err error)
 	Stop(context.Context)
 	GetStatus(context.Context) bool
 }
 
-// NewImmuTc returns new trust checker service
-func NewImmuTc(c client.ImmuClient, l logger.Logger) ImmuTc {
-	return &immuTc{c, l, false, true}
+// NewCorruptionChecker returns new trust checker service
+func NewCorruptionChecker(s *store.Store, l logger.Logger, stopImmudb func() error) CorruptionChecker {
+	return &corruptionChecker{s, l, false, stopImmudb, true}
 }
 
 // Start start the trust checker loop
-func (s *immuTc) Start(ctx context.Context) (err error) {
-	s.Logger.Infof("Start scanning ...")
+func (s *corruptionChecker) Start(ctx context.Context) (err error) {
+	s.Logger.Debugf("Start scanning ...")
 	return s.checkLevel0(ctx)
 }
 
 // Stop stop the trust checker loop
-func (s *immuTc) Stop(ctx context.Context) {
-	s.Quit = true
+func (s *corruptionChecker) Stop(ctx context.Context) {
+	s.Exit = true
+	s.StopImmudb()
 }
 
 // GetStatus return status of the trust checker. False means that a consistency checks was failed
-func (s *immuTc) GetStatus(ctx context.Context) bool {
+func (s *corruptionChecker) GetStatus(ctx context.Context) bool {
 	return s.Trusted
 }
 
-func (s *immuTc) checkLevel0(ctx context.Context) (err error) {
-	for ok := true; ok; ok = !s.Quit {
-		s.Logger.Infof("Retrieving a fresh root ...")
+func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
+	for ok := true; ok; ok = !s.Exit {
+		s.Logger.Debugf("Retrieving a fresh root ...")
 		var r *schema.Root
-		if r, err = s.Client.CurrentRoot(ctx); err != nil {
+		if r, err = s.store.CurrentRoot(); err != nil {
 			s.Logger.Errorf("Error retrieving root: %s", err)
 			s.sleep()
 			continue
 		}
 		if r.Root == nil {
-			s.Logger.Infof("Immudb is empty ...")
+			s.Logger.Debugf("Immudb is empty ...")
 			s.sleep()
 			continue
 		}
@@ -84,17 +86,30 @@ func (s *immuTc) checkLevel0(ctx context.Context) (err error) {
 		rn := mrand.New(newCryptoRandSource())
 		// shuffle indexes
 		rn.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
-		s.Logger.Infof("Start scanning %d elements", len(ids))
+		s.Logger.Debugf("Start scanning %d elements", len(ids))
 		for _, id := range ids {
-			var item *client.VerifiedItem
-			if item, err = s.Client.ByRawSafeIndex(ctx, id); err != nil {
+			var item *schema.SafeItem
+
+			if item, err = s.store.BySafeIndex(schema.SafeIndexOptions{
+				Index: id,
+				RootIndex: &schema.Index{
+					Index: r.Index,
+				},
+			}); err != nil {
+				if err == store.ErrInconsistentDigest {
+					s.Stop(ctx)
+					s.Logger.Errorf("insertion order index %d was tampered", id)
+					break
+				}
 				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
 				continue
 			}
-			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Index, item.Value, item.Verified)
-			if !item.Verified {
+			verified := item.Proof.Verify(item.Proof.Leaf, *r)
+			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Item.Index, item.Item.Value, verified)
+			if !verified {
 				s.Trusted = false
-				s.Logger.Errorf(ErrConsistencyFail, item.Index)
+				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
+				s.Stop(ctx)
 			}
 		}
 		s.sleep()
@@ -102,8 +117,8 @@ func (s *immuTc) checkLevel0(ctx context.Context) (err error) {
 	return s.checkLevel0(ctx)
 }
 
-func (s *immuTc) sleep() {
-	s.Logger.Infof("Sleeping for some seconds ...")
+func (s *corruptionChecker) sleep() {
+	s.Logger.Debugf("Sleeping for some seconds ...")
 	time.Sleep(10 * time.Second)
 }
 

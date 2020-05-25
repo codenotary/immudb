@@ -165,6 +165,17 @@ func (s *ImmuServer) Start() error {
 	}
 	//<===
 	grpc_prometheus.Register(s.GrpcServer)
+
+	if s.Options.CorruptionCheck {
+		s.Cc = NewCorruptionChecker(s.Store, s.Logger, s.Stop)
+		go func() {
+			s.Logger.Infof("starting consistency-checker")
+			if err = s.Cc.Start(context.Background()); err != nil {
+				s.Logger.Errorf("unable to start consistency-checker: %s", err)
+			}
+		}()
+	}
+
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
 

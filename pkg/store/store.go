@@ -19,7 +19,6 @@ package store
 import (
 	"context"
 	"crypto/sha256"
-	"fmt"
 	"math"
 	"sync"
 
@@ -298,9 +297,9 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 	}
 
 	// this guard ensure that the insertion order index was not tampered.
-	proof := api.Digest(item.Index, key, item.Value)
-	if hash != proof {
-		return 0, nil, nil, fmt.Errorf("insertion order index %d was tampered", index)
+	realHash := api.Digest(item.Index, key, item.Value)
+	if hash != realHash {
+		return 0, nil, nil, ErrInconsistentDigest
 	}
 	return index, item.Key, item.Value, nil
 }
