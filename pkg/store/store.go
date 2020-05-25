@@ -19,6 +19,7 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -91,6 +92,9 @@ func (t *Store) CurrentRoot() (root *schema.Root, err error) {
 }
 
 func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *schema.Index, err error) {
+	if len(list.GetKVs()) == 0 {
+		return nil, errors.New("Empty set")
+	}
 	opts := makeWriteOptions(options...)
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
