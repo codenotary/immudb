@@ -200,7 +200,7 @@ func verifyToken(token string) (*JSONToken, error) {
 	permissions := Permissions.R
 	if p := jsonToken.Get("permissions"); p != "" {
 		pint, err := strconv.ParseUint(p, 10, 8)
-		if err != nil {
+		if err == nil {
 			permissions = byte(pint)
 		}
 	}
