@@ -56,7 +56,7 @@ func HasPermissionForMethod(userPermission byte, method string) bool {
 	if !ok {
 		methodPermission = Permissions.R
 	}
-	return methodPermission&userPermission == userPermission
+	return methodPermission&userPermission == methodPermission
 }
 func HasPermissionSuffixForMethod(username []byte, method string) bool {
 	permission, ok := methodsPermissions[method]

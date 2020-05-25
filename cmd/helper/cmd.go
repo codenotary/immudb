@@ -179,7 +179,14 @@ type RequiredArgs struct {
 	Usages map[string][]string
 }
 
-func (ra *RequiredArgs) Require(args []string, argPos int, argName string, validValues map[string]struct{}, action string) (string, error) {
+func (ra *RequiredArgs) Require(
+	args []string,
+	argPos int,
+	argName string,
+	invalidArgName string,
+	validValues map[string]struct{},
+	action string,
+) (string, error) {
 	isValidAction := true
 	if action != "" {
 		_, isValidAction = ra.Usages[action]
@@ -187,18 +194,23 @@ func (ra *RequiredArgs) Require(args []string, argPos int, argName string, valid
 			action = ""
 		}
 	}
+	usage := ra.Usage
+	if action != "" {
+		usage = ra.Usages[action][1]
+	}
 	if len(args) < argPos+1 || !isValidAction {
-		usage := ra.Usage
-		if action != "" {
-			usage = ra.Usages[action][1]
-		}
 		return "", fmt.Errorf(
 			"Please specify %s.\nUsage: %s\nHelp : %s -h", argName, usage, ra.Cmd)
 	}
 	if len(validValues) > 0 {
 		if _, validValue := validValues[args[argPos]]; !validValue {
+			validValuesArr := make([]string, 0, len(validValues))
+			for v := range validValues {
+				validValuesArr = append(validValuesArr, v)
+			}
 			return "", fmt.Errorf(
-				"Please specify %s.\nUsage: %s\nHelp : %s -h", argName, ra.Usages[action][1], ra.Cmd)
+				"Please specify %s: %s.\nUsage: %s\nHelp : %s -h",
+				invalidArgName, strings.Join(validValuesArr, "|"), usage, ra.Cmd)
 		}
 	}
 	return args[argPos], nil

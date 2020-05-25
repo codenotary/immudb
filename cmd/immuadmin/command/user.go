@@ -38,6 +38,13 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 		"set-permission":  []string{"Set permission", fullCmdName + " set-permission username read|readwrite"},
 		"delete":          []string{"Delete user", fullCmdName + " delete username"},
 	}
+	validCommands := map[string]struct{}{
+		"list":            struct{}{},
+		"create":          struct{}{},
+		"change-password": struct{}{},
+		"set-permission":  struct{}{},
+		"delete":          struct{}{},
+	}
 	requiredArgs := c.RequiredArgs{
 		Cmd:    fullCmdName,
 		Usage:  parentCmdName + " " + usage,
@@ -45,13 +52,13 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 	}
 	ccmd := &cobra.Command{
 		Use:               usage,
-		Short:             "Perform various user-related operations: list, create, delete, change password",
+		Short:             "Perform various user-related operations: list, create, delete, change password, set permissions",
 		Example:           c.UsageSprintf(usages),
 		Aliases:           []string{"u"},
 		PersistentPreRunE: cl.checkLoggedInAndConnect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			action, err := requiredArgs.Require(args, 0, "a user action", map[string]struct{}{}, "")
+			action, err := requiredArgs.Require(args, 0, "a user action", "a valid user action", validCommands, "")
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
@@ -59,14 +66,19 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 			case "list":
 				cl.listUsers()
 			case "create", "change-password", "set-permission", "delete":
-				username, err := requiredArgs.Require(args, 1, "a username", map[string]struct{}{}, action)
+				username, err := requiredArgs.Require(args, 1, "a username", "", map[string]struct{}{}, action)
 				if err != nil {
 					c.QuitToStdErr(err)
 				}
 				switch action {
 				case "create", "set-permission":
 					permissions, err := requiredArgs.Require(
-						args, 2, "user permissions", map[string]struct{}{"read": struct{}{}, "readwrite": struct{}{}}, action)
+						args,
+						2,
+						"user permissions",
+						"some valid user permissions",
+						map[string]struct{}{"read": struct{}{}, "readwrite": struct{}{}},
+						action)
 					if err != nil {
 						c.QuitToStdErr(err)
 					}
@@ -81,11 +93,12 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 				case "delete":
 					cl.deleteUser(username)
 				}
-			default:
-				_, err := requiredArgs.Require(args, 0, "a valid user action", map[string]struct{}{}, action)
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
+				// TODO OGG: remove
+				// default:
+				// 	_, err := requiredArgs.Require(args, 0, "a valid user action", "", map[string]struct{}{}, action)
+				// 	if err != nil {
+				// 		c.QuitToStdErr(err)
+				// 	}
 			}
 			return nil
 		},
@@ -101,21 +114,29 @@ func (cl *commandline) listUsers() {
 	if len(usersList.Items) <= 0 {
 		fmt.Printf("No users found")
 	}
-	fmt.Println(len(usersList.Items), "users:")
+	fmt.Println(len(usersList.Items), "user(s):")
 	c.PrintTable(
 		[]string{"Username", "Role", "Permissions"},
 		len(usersList.Items),
 		func(i int) []string {
 			row := make([]string, 3)
-			u := string(usersList.Items[i].GetKey())
+			u := string(auth.TrimPermissionSuffix(usersList.Items[i].GetKey()))
 			permission := auth.GetPermissionFromSuffix(usersList.Items[i].GetKey())
 			row[0] = u
 			if permission == auth.Permissions.Admin {
 				row[1] = "admin"
+				row[2] = "admin"
 			} else {
 				row[1] = "client"
+				switch permission {
+				case auth.Permissions.R:
+					row[2] = "read"
+				case auth.Permissions.RW:
+					row[2] = "readwrite"
+				default:
+					row[2] = fmt.Sprintf("unknown: %d", permission)
+				}
 			}
-			row[2] = string(permission)
 			return row
 		},
 	)
