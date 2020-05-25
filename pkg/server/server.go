@@ -222,18 +222,16 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
 		return nil, auth.ErrServerAuthDisabled
 	}
-	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: sysstore.AddUserPrefix(r.User),
-	})
+	items, err := s.getUsersLatestVersions(r.GetUser())
 	if err != nil {
 		s.Logger.Errorf("error getting user %s during login: %v", string(r.User), err)
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
-	if len(itemList.Items) == 0 {
+	if len(items) == 0 {
 		return nil, status.Errorf(codes.NotFound, "user not found")
 	}
 	var item *schema.Item
-	for _, currItem := range itemList.Items {
+	for _, currItem := range items {
 		if !isFlaggedAsDeleted(currItem) {
 			item = currItem
 			break

@@ -93,12 +93,6 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 				case "delete":
 					cl.deleteUser(username)
 				}
-				// TODO OGG: remove
-				// default:
-				// 	_, err := requiredArgs.Require(args, 0, "a valid user action", "", map[string]struct{}{}, action)
-				// 	if err != nil {
-				// 		c.QuitToStdErr(err)
-				// 	}
 			}
 			return nil
 		},
@@ -184,7 +178,9 @@ func (cl *commandline) setPermissions(username string, permissions string) {
 		cl.context, []byte(username), permission); err != nil {
 		c.QuitWithUserError(err)
 	}
-	fmt.Printf("Permissions updated for user %s\n", username)
+	fmt.Printf("Permissions updated for user %s. "+
+		"They will be in effect once the user logs out and in again.\n",
+		username)
 }
 
 func (cl *commandline) changePassword(username string) {
