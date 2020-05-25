@@ -36,18 +36,55 @@ func isFlaggedAsDeleted(user *schema.Item) bool {
 	return bytes.Equal(user.GetValue(), deletedFlag)
 }
 
-func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
+func (s *ImmuServer) getUsersLatestVersions(username []byte) ([]*schema.Item, error) {
+	prefix := sysstore.UserPrefix()
+	if username != nil {
+		prefix = sysstore.AddUserPrefix(username)
+	}
 	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: sysstore.UserPrefix(),
+		Prefix: prefix,
 	})
 	if err != nil {
-		s.Logger.Errorf("error checking if any user exists: %v", err)
-		return false, err
+		s.Logger.Errorf("error checking if admin user exists: %v", err)
+		return nil, err
 	}
 	if len(itemList.Items) == 0 {
-		return false, nil
+		return nil, nil
 	}
-	for _, item := range itemList.Items {
+	latestItems := map[string]*schema.Item{}
+	for _, item := range itemList.GetItems() {
+		u := string(auth.TrimPermissionSuffix(item.GetKey()))
+		prev, ok := latestItems[u]
+		if !ok || prev.GetIndex() < item.GetIndex() {
+			latestItems[u] = item
+		}
+	}
+	items := make([]*schema.Item, 0, len(latestItems))
+	for _, item := range latestItems {
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
+	items, err := s.getUsersLatestVersions(nil)
+	if err != nil || len(items) <= 0 {
+		return false, err
+	}
+	for _, item := range items {
+		if !isFlaggedAsDeleted(item) &&
+			auth.HasPermissionSuffix(item.GetKey(), auth.Permissions.Admin) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, error) {
+	items, err := s.getUsersLatestVersions(username)
+	if err != nil || len(items) <= 0 {
+		return false, err
+	}
+	for _, item := range items {
 		if !isFlaggedAsDeleted(item) &&
 			auth.HasPermissionSuffix(item.GetKey(), auth.Permissions.Admin) {
 			return true, nil
@@ -82,35 +119,17 @@ func (s *ImmuServer) createAdminUser(ctx context.Context) (string, string, error
 	return u.Username, plainPass, nil
 }
 
-func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, error) {
-	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: sysstore.AddUserPrefix(username),
-	})
-	if err != nil {
-		s.Logger.Errorf("error checking if user is admin: %v", err)
-		return false, err
-	}
-	if len(itemList.Items) == 0 {
-		return false, nil
-	}
-	for _, item := range itemList.Items {
-		if !isFlaggedAsDeleted(item) &&
-			auth.HasPermissionSuffix(item.GetKey(), auth.Permissions.Admin) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.ItemList, error) {
-	users, err := s.SysStore.Scan(schema.ScanOptions{Prefix: sysstore.UserPrefix()})
+	items, err := s.getUsersLatestVersions(nil)
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(users.Items); i++ {
-		users.Items[i].Key = sysstore.TrimUserPrefix(users.Items[i].Key)
+	itemList := &schema.ItemList{Items: make([]*schema.Item, 0, len(items))}
+	for _, item := range items {
+		item.Key = sysstore.TrimUserPrefix(item.Key)
+		itemList.Items = append(itemList.Items, item)
 	}
-	return users, nil
+	return itemList, nil
 }
 
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.CreateUserResponse, error) {
@@ -119,15 +138,12 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 			codes.InvalidArgument,
 			"username can only contain letters, digits and underscores")
 	}
-	prefixedUsername := sysstore.AddUserPrefix(r.GetUser())
-	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: prefixedUsername,
-	})
+	items, err := s.getUsersLatestVersions(r.GetUser())
 	if err != nil {
 		s.Logger.Errorf("error checking if user already exists: %v", err)
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
-	for _, item := range itemList.Items {
+	for _, item := range items {
 		if !isFlaggedAsDeleted(item) {
 			return nil, status.Errorf(codes.AlreadyExists, "username already exists")
 		}
@@ -140,7 +156,8 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		return nil, err
 	}
 	kv := schema.KeyValue{
-		Key:   auth.AddPermissionSuffix(prefixedUsername, r.GetPermissions()[0]),
+		Key: auth.AddPermissionSuffix(
+			sysstore.AddUserPrefix(r.GetUser()), r.GetPermissions()[0]),
 		Value: hashedPassword,
 	}
 	if _, err := s.SysStore.Set(kv); err != nil {
@@ -153,16 +170,13 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 }
 
 func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
-	prefixedUsername := sysstore.AddUserPrefix(r.GetKey())
-	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: prefixedUsername,
-	})
+	items, err := s.getUsersLatestVersions(r.GetKey())
 	if err != nil {
 		s.Logger.Errorf("error getting user: %v", err)
 		return new(empty.Empty), status.Errorf(codes.Internal, "internal error")
 	}
 	var item *schema.Item
-	for _, currItem := range itemList.Items {
+	for _, currItem := range items {
 		if !isFlaggedAsDeleted(item) {
 			item = currItem
 			break
@@ -184,19 +198,13 @@ func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.
 
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
 	e := new(empty.Empty)
-	prefixedUsername := sysstore.AddUserPrefix(r.GetUser())
-	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: prefixedUsername,
-	})
+	items, err := s.getUsersLatestVersions(r.GetUser())
 	if err != nil {
 		s.Logger.Errorf("error getting user: %v", err)
 		return e, err
 	}
-	if len(itemList.Items) == 0 {
-		return e, status.Error(codes.NotFound, "user not found")
-	}
 	var item *schema.Item
-	for _, currItem := range itemList.Items {
+	for _, currItem := range items {
 		if !isFlaggedAsDeleted(item) {
 			item = currItem
 			break
@@ -229,19 +237,13 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 
 func (s *ImmuServer) DeleteUser(ctx context.Context, r *schema.DeleteUserRequest) (*empty.Empty, error) {
 	e := new(empty.Empty)
-	prefixedUsername := sysstore.AddUserPrefix(r.GetUser())
-	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: prefixedUsername,
-	})
+	items, err := s.getUsersLatestVersions(r.GetUser())
 	if err != nil {
 		s.Logger.Errorf("error getting user: %v", err)
 		return e, err
 	}
-	if len(itemList.Items) == 0 {
-		return e, status.Error(codes.NotFound, "user not found")
-	}
 	var item *schema.Item
-	for _, currItem := range itemList.GetItems() {
+	for _, currItem := range items {
 		if !isFlaggedAsDeleted(currItem) {
 			item = currItem
 			break
