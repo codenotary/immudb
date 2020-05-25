@@ -31,18 +31,16 @@ V_IMMUCLIENT := $(V_COMMON)
 V_IMMUADMIN := $(V_COMMON)
 V_IMMUDB := $(V_COMMON)
 V_IMMUGW := $(V_COMMON)
-V_IMMUTC := $(V_COMMON)
 V_IMMUTEST := $(V_COMMON)
 
 V_IMMUCLIENT_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUCLIENT)" $(V_LDFLAGS_COMMON)
 V_IMMUADMIN_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUADMIN)" $(V_LDFLAGS_COMMON)
 V_IMMUDB_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUDB)" $(V_LDFLAGS_COMMON)
 V_IMMUGW_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
-V_IMMUTC_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
 V_IMMUTEST_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUTEST)" $(V_LDFLAGS_COMMON)
 #<~~~
 .PHONY: all
-all: immudb immuclient immugw immutc immuadmin immutest
+all: immudb immuclient immugw immuadmin immutest
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
 
 .PHONY: rebuild
@@ -64,10 +62,6 @@ immudb:
 immugw:
 	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw
 
-.PHONY: immutc
-immutc:
-	$(GO) build -v -ldflags '$(V_IMMUTC_LDFLAGS)' ./cmd/immutc
-
 .PHONY: immutest
 immutest:
 	$(GO) build -v -ldflags '$(V_IMMUTEST_LDFLAGS)' ./cmd/immutest
@@ -87,10 +81,6 @@ immudb-static:
 .PHONY: immugw-static
 immugw-static:
 	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUGW_LDFLAGS) -extldflags "-static"' ./cmd/immugw
-
-.PHONY: immutc-static
-immutc-static:
-	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUTC_LDFLAGS) -extldflags "-static"' ./cmd/immutc
 
 .PHONY: immutest-static
 immutest-static:
@@ -130,7 +120,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immudb immuclient immugw immutc immuadmin immutest
+	rm -f immudb immuclient immugw immuadmin immutest
 
 .PHONY: nimmu
 nimmu:

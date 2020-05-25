@@ -23,40 +23,42 @@ import (
 
 // Options server options list
 type Options struct {
-	Dir          string
-	Network      string
-	Address      string
-	Port         int
-	MetricsPort  int
-	DbName       string
-	SysDbName    string
-	Config       string
-	Pidfile      string
-	Logfile      string
-	MTLs         bool
-	MTLsOptions  MTLsOptions
-	Auth         bool
-	NoHistograms bool
-	Detached     bool
+	Dir             string
+	Network         string
+	Address         string
+	Port            int
+	MetricsPort     int
+	DbName          string
+	SysDbName       string
+	Config          string
+	Pidfile         string
+	Logfile         string
+	MTLs            bool
+	MTLsOptions     MTLsOptions
+	Auth            bool
+	NoHistograms    bool
+	Detached        bool
+	CorruptionCheck bool
 }
 
 // DefaultOptions returns default server options
 func DefaultOptions() Options {
 	return Options{
-		Dir:          "./db",
-		Network:      "tcp",
-		Address:      "127.0.0.1",
-		Port:         3322,
-		MetricsPort:  9497,
-		DbName:       "immudb",
-		SysDbName:    "immudbsys",
-		Config:       "configs/immudb.toml",
-		Pidfile:      "",
-		Logfile:      "",
-		MTLs:         false,
-		Auth:         false,
-		NoHistograms: false,
-		Detached:     false,
+		Dir:             "./db",
+		Network:         "tcp",
+		Address:         "127.0.0.1",
+		Port:            3322,
+		MetricsPort:     9497,
+		DbName:          "immudb",
+		SysDbName:       "immudbsys",
+		Config:          "configs/immudb.toml",
+		Pidfile:         "",
+		Logfile:         "",
+		MTLs:            false,
+		Auth:            false,
+		NoHistograms:    false,
+		Detached:        false,
+		CorruptionCheck: true,
 	}
 }
 
@@ -141,6 +143,12 @@ func (o Options) WithNoHistograms(noHistograms bool) Options {
 // WithDetached sets immudb to be run in background
 func (o Options) WithDetached(detached bool) Options {
 	o.Detached = detached
+	return o
+}
+
+// WithCorruptionCheck enable corruption check
+func (o Options) WithCorruptionCheck(corruptionCheck bool) Options {
+	o.CorruptionCheck = corruptionCheck
 	return o
 }
 
