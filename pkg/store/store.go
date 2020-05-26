@@ -1,12 +1,9 @@
 /*
 Copyright 2019-2020 vChain, Inc.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
 	http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,6 +16,7 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"math"
 	"sync"
 
@@ -90,6 +88,9 @@ func (t *Store) CurrentRoot() (root *schema.Root, err error) {
 }
 
 func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *schema.Index, err error) {
+	if len(list.GetKVs()) == 0 {
+		return nil, errors.New("Empty set")
+	}
 	opts := makeWriteOptions(options...)
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
