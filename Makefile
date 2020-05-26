@@ -18,8 +18,8 @@ SHELL=/bin/bash -o pipefail
 
 VERSION=0.6.0
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x
-IMMUDBEXE=immudb-v${VERSION}-windows-amd64.exe
-SETUPEXE=codenotary_immudb_v${VERSION}_setup.exe
+SERVICE_EXE=${SERVICE_NAME}-v${VERSION}-windows-amd64.exe
+SETUPEXE=codenotary_${SERVICE_NAME}_v${VERSION}_setup.exe
 
 
 PWD = $(shell pwd)
@@ -185,6 +185,7 @@ prerequisites:
 	go get -u github.com/golang/protobuf/proto
 	go get -u github.com/golang/protobuf/protoc-gen-go
 
+########################## releases scripts ############################################################################
 .PHONY: CHANGELOG.md
 CHANGELOG.md:
 	git-chglog -o CHANGELOG.md
@@ -197,7 +198,7 @@ CHANGELOG.md.next-tag:
 build/xgo:
 	$(DOCKER) build \
 			-f ./build/xgo/Dockerfile \
-			-t immudb-xgo \
+			-t ${SERVICE_NAME}-xgo \
 			--pull=true \
 			./build/xgo
 
@@ -205,7 +206,7 @@ build/xgo:
 build/makensis:
 	$(DOCKER) build \
 		-f ./build/makensis/Dockerfile \
-		-t immudb-makensis \
+		-t ${SERVICE_NAME}-makensis \
 		./build/makensis
 
 .PHONY: clean/dist
@@ -216,22 +217,22 @@ clean/dist:
 dist: clean/dist build/xgo
 	mkdir -p dist
 	$(GO) build -a -tags netgo -ldflags '${LDFLAGS_STATIC}' \
-			-o ./dist/immudb-v${VERSION}-linux-amd64-static \
-     		./cmd/immudb
+			-o ./dist/${SERVICE_NAME}-v${VERSION}-linux-amd64-static \
+     		./cmd/${SERVICE_NAME}
 	$(DOCKER) run --rm \
 			-v "${PWD}/dist:/dist" \
 			-v "${PWD}:/source:ro" \
 			-e GO111MODULE=on \
 			-e FLAG_LDFLAGS="-s ${V_LDFLAGS_COMMON}" \
 			-e TARGETS="${TARGETS}" \
-			-e PACK=cmd/immudb \
-			-e OUT=immudb-v${VERSION} \
-			immudb-xgo .
-	mv ./dist/immudb-v${VERSION}-windows-4.0-amd64.exe ./dist/${IMMUDBEXE}
-	mv ./dist/immudb-v${VERSION}-darwin-10.6-amd64 ./dist/immudb-v${VERSION}-darwin-amd64
+			-e PACK=cmd/${SERVICE_NAME} \
+			-e OUT=${SERVICE_NAME}-v${VERSION} \
+			${SERVICE_NAME}-xgo .
+	mv ./dist/${SERVICE_NAME}-v${VERSION}-windows-4.0-amd64.exe ./dist/${SERVICE_EXE}
+	mv ./dist/${SERVICE_NAME}-v${VERSION}-darwin-10.6-amd64 ./dist/${SERVICE_NAME}-v${VERSION}-darwin-amd64
 
-.PHONY: dist/${IMMUDBEXE} dist/${SETUPEXE}
-dist/${IMMUDBEXE} dist/${SETUPEXE}:
+.PHONY: dist/${SERVICE_EXE} dist/${SETUPEXE}
+dist/${SERVICE_EXE} dist/${SETUPEXE}:
 	echo ${SIGNCODE_PVK_PASSWORD} | $(DOCKER) run --rm -i \
 		-v ${PWD}/dist:/dist \
 		-v ${SIGNCODE_SPC}:/certs/f.spc:ro \
@@ -239,7 +240,7 @@ dist/${IMMUDBEXE} dist/${SETUPEXE}:
 		mono:6.8.0 signcode \
 		-spc /certs/f.spc -v /certs/f.pvk \
 		-a sha1 -$ commercial \
-		-n "CodeNotary immudb" \
+		-n "CodeNotary ${SERVICE_NAME}" \
 		-i https://codenotary.io/ \
 		-t http://timestamp.comodoca.com -tr 10 \
 		$@
@@ -248,21 +249,22 @@ dist/${IMMUDBEXE} dist/${SETUPEXE}:
 .PHONY: dist/NSIS
 dist/NSIS: build/makensis
 	mkdir -p dist/NSIS
-	cp -f ./dist/${IMMUDBEXE} ./dist/NSIS/immudb.exe
+	cp -f ./dist/${SERVICE_EXE} ./dist/NSIS/${SERVICE_NAME}.exe
 	cp -f ./build/NSIS/* ./dist/NSIS/
-	sed -e "s/{IMMUDB_VERSION}/v${VERSION}/g" ./build/NSIS/setup.nsi > ./dist/NSIS/setup.nsi
+	sed -e "s/{IMMUDB_VERSION}/v${VERSION}/g" -e "s/{SERVICE}/${SERVICE_NAME}/g" ./build/NSIS/setup.nsi > ./dist/NSIS/setup.nsi
 	$(DOCKER) run --rm \
 			-v ${PWD}/dist/NSIS/:/app \
-			immudb-makensis /app/setup.nsi
+			${SERVICE_NAME}-makensis /app/setup.nsi
 	cp ./dist/NSIS/*_setup.exe ./dist/
 	rm -Rf ./dist/NSIS
 
 .PHONY: dist/sign
-dist/sign: vendor immudb
+dist/sign: vendor ${SERVICE_NAME}
 	for f in ./dist/*; do vcn sign -p $$f; printf "\n\n"; done
 
+# SERVICE_NAME=immudb|immuclient|immugw SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
 .PHONY: dist/all
-dist/all: dist dist/${IMMUDBEXE} dist/NSIS dist/${SETUPEXE}
+dist/all: dist dist/${SERVICE_EXE} dist/NSIS dist/${SETUPEXE}
 
 .PHONY: dist/binary.md
 dist/binary.md:
@@ -271,3 +273,4 @@ dist/binary.md:
 		shm_id=$$(sha256sum $$f | awk '{print $$1}'); \
 		printf "[$$ff](https://github.com/vchain-us/immudb/releases/download/v${VERSION}/$$ff) | $$shm_id \n" ; \
 	done
+########################## releases scripts end ########################################################################
