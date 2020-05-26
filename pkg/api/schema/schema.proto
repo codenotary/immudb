@@ -42,13 +42,14 @@ message CreateUserRequest {
 	bytes password = 2;
 	bytes permissions = 3;
 }
-message CreateUserResponse {
+message UserRequest {
 	bytes user = 1;
+}
+message UserResponse {
+	bytes user = 1;
+	bytes permissions = 2;
 }
 
-message DeactivateUserRequest {
-	bytes user = 1;
-}
 
 message ChangePasswordRequest {
 	bytes user = 1;
@@ -272,10 +273,12 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 
 service ImmuService {
 	rpc ListUsers (google.protobuf.Empty) returns (UserList){}
-	rpc CreateUser (CreateUserRequest) returns (CreateUserResponse){}
+	rpc GetUser (UserRequest) returns (UserResponse){}
+	rpc CreateUser (CreateUserRequest) returns (UserResponse){}
 	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){}
 	rpc SetPermission (Item) returns (google.protobuf.Empty){}
-	rpc DeactivateUser (DeactivateUserRequest) returns (google.protobuf.Empty){}
+	rpc DeactivateUser (UserRequest) returns (google.protobuf.Empty){}
+
 
 	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){}
 	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){}

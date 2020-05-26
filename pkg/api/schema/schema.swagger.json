@@ -745,15 +745,6 @@
         }
       }
     },
-    "schemaCreateUserResponse": {
-      "type": "object",
-      "properties": {
-        "user": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
     "schemaHealthResponse": {
       "type": "object",
       "properties": {
@@ -1152,6 +1143,19 @@
           "items": {
             "$ref": "#/definitions/schemaUser"
           }
+        }
+      }
+    },
+    "schemaUserResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "string",
+          "format": "byte"
+        },
+        "permissions": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
