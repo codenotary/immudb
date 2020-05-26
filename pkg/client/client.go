@@ -55,7 +55,8 @@ type ImmuClient interface {
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
 	ListUsers(ctx context.Context) (*schema.UserList, error)
-	CreateUser(ctx context.Context, user []byte, pass []byte, permissions []byte) (*schema.CreateUserResponse, error)
+	GetUser(ctx context.Context, user []byte) (*schema.UserResponse, error)
+	CreateUser(ctx context.Context, user []byte, pass []byte, permissions []byte) (*schema.UserResponse, error)
 	DeactivateUser(ctx context.Context, user []byte) error
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	SetPermission(ctx context.Context, user []byte, permissions []byte) error
@@ -277,12 +278,23 @@ func (c *immuClient) ListUsers(ctx context.Context) (*schema.UserList, error) {
 	return c.ServiceClient.ListUsers(ctx, new(empty.Empty))
 }
 
+// GetUser ...
+func (c *immuClient) GetUser(ctx context.Context, user []byte) (*schema.UserResponse, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.GetUser(ctx, &schema.UserRequest{User: user})
+	c.Logger.Debugf("getuser finished in %s", time.Since(start))
+	return result, err
+}
+
 // CreateUser ...
 func (c *immuClient) CreateUser(
 	ctx context.Context,
 	user []byte,
 	pass []byte,
-	permissions []byte) (*schema.CreateUserResponse, error) {
+	permissions []byte) (*schema.UserResponse, error) {
 	start := time.Now()
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -302,9 +314,7 @@ func (c *immuClient) DeactivateUser(ctx context.Context, user []byte) error {
 	if !c.IsConnected() {
 		return ErrNotConnected
 	}
-	_, err := c.ServiceClient.DeactivateUser(ctx, &schema.DeactivateUserRequest{
-		User: user,
-	})
+	_, err := c.ServiceClient.DeactivateUser(ctx, &schema.UserRequest{User: user})
 	c.Logger.Debugf("deactivateuser finished in %s", time.Since(start))
 	return err
 }

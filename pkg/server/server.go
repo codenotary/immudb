@@ -221,7 +221,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
 		return nil, auth.ErrServerAuthDisabled
 	}
-	item, err := s.getUser(r.GetUser())
+	item, err := s.getUser(r.GetUser(), false)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 		return nil, err
 	}
 	u := auth.User{
-		Username:       string(item.GetKey()[1:]),
+		Username:       string(item.GetKey()),
 		HashedPassword: hashedPassword,
 		Permissions:    permissions,
 	}

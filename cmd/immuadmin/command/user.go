@@ -126,6 +126,8 @@ func (cl *commandline) listUsers() {
 					row[2] = "read"
 				case auth.PermissionRW:
 					row[2] = "readwrite"
+				case auth.PermissionNone:
+					row[2] = "deactivated"
 				default:
 					row[2] = fmt.Sprintf("unknown: %d", permission)
 				}
@@ -173,13 +175,26 @@ func (cl *commandline) setPermissions(username string, permissions string) {
 	default:
 		permission = []byte{auth.PermissionR}
 	}
+
+	user, err := cl.immuClient.GetUser(cl.context, []byte(username))
+	if err != nil {
+		c.QuitWithUserError(err)
+	}
+	if user.Permissions[0] == auth.PermissionNone {
+		fmt.Printf(
+			"User %s is deactivated. Are you sure you want to activate it back? [y/N]: ",
+			username)
+		answer, err := c.ReadFromTerminalYN("N")
+		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
+			c.QuitToStdErr("Canceled")
+		}
+	}
+
 	if err := cl.immuClient.SetPermission(
 		cl.context, []byte(username), permission); err != nil {
 		c.QuitWithUserError(err)
 	}
-	fmt.Printf("Permissions updated for user %s. "+
-		"They will be in effect once the user logs out and in again.\n",
-		username)
+	fmt.Printf("Permissions updated for user %s\n", username)
 }
 
 func (cl *commandline) changePassword(username string) {

@@ -44,7 +44,7 @@ func (s *ImmuServer) isUserDeactivated(user *schema.Item) error {
 	return nil
 }
 
-func (s *ImmuServer) getUser(username []byte) (*schema.Item, error) {
+func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*schema.Item, error) {
 	key := make([]byte, 1+len(username))
 	key[0] = sysstore.KeysPrefixes.User
 	copy(key[1:], username)
@@ -52,9 +52,12 @@ func (s *ImmuServer) getUser(username []byte) (*schema.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.isUserDeactivated(item); err != nil {
-		return nil, err
+	if !includeDeactivated {
+		if err := s.isUserDeactivated(item); err != nil {
+			return nil, err
+		}
 	}
+	item.Key = item.GetKey()[1:]
 	return item, nil
 }
 func (s *ImmuServer) getUserAttr(userIndex uint64, attrPrefix byte) ([]byte, error) {
@@ -78,7 +81,7 @@ func (s *ImmuServer) getUserPermissions(userIndex uint64) (byte, error) {
 	return ps[0], nil
 }
 
-func (s *ImmuServer) getUsers() (*schema.ItemList, error) {
+func (s *ImmuServer) getUsers(includeDeactivated bool) (*schema.ItemList, error) {
 	itemList, err := s.SysStore.Scan(schema.ScanOptions{
 		Prefix: []byte{sysstore.KeysPrefixes.User},
 	})
@@ -87,8 +90,10 @@ func (s *ImmuServer) getUsers() (*schema.ItemList, error) {
 		return nil, err
 	}
 	for i := 0; i < len(itemList.Items); i++ {
-		if err := s.isUserDeactivated(itemList.Items[i]); err != nil {
-			continue
+		if !includeDeactivated {
+			if err := s.isUserDeactivated(itemList.Items[i]); err != nil {
+				continue
+			}
 		}
 		itemList.Items[i].Key = itemList.Items[i].Key[1:]
 	}
@@ -134,7 +139,7 @@ func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
 	return s.isAdminUser(ctx, []byte(auth.AdminUsername))
 }
 func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, error) {
-	item, err := s.getUser(username)
+	item, err := s.getUser(username, false)
 	if err != nil {
 		if err == store.ErrKeyNotFound {
 			return false, nil
@@ -169,7 +174,7 @@ func (s *ImmuServer) CreateAdminUser(ctx context.Context) (string, string, error
 }
 
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
-	itemList, err := s.getUsers()
+	itemList, err := s.getUsers(true)
 	if err != nil {
 		return nil, err
 	}
@@ -187,13 +192,25 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	return &schema.UserList{Users: users}, nil
 }
 
-func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.CreateUserResponse, error) {
+func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
+	user, err := s.getUser(r.GetUser(), true)
+	if err != nil {
+		return nil, err
+	}
+	permissions, err := s.getUserPermissions(user.GetIndex())
+	if err != nil {
+		return nil, err
+	}
+	return &schema.UserResponse{User: user.GetKey(), Permissions: []byte{permissions}}, nil
+}
+
+func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
 	if !auth.IsValidUsername(string(r.GetUser())) {
 		return nil, status.Errorf(
 			codes.InvalidArgument,
 			"username can only contain letters, digits and underscores")
 	}
-	if _, err := s.getUser(r.GetUser()); err != store.ErrKeyNotFound {
+	if _, err := s.getUser(r.GetUser(), true); err != store.ErrKeyNotFound {
 		if err == nil {
 			return nil, status.Errorf(codes.AlreadyExists, "user already exists")
 		}
@@ -210,16 +227,16 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	if err := s.saveUser(r.GetUser(), hashedPassword, r.GetPermissions()[0]); err != nil {
 		return nil, err
 	}
-	return &schema.CreateUserResponse{User: r.GetUser()}, nil
+	return &schema.UserResponse{User: r.GetUser(), Permissions: r.GetPermissions()}, nil
 }
 
 func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
-	item, err := s.getUser(r.GetKey())
+	item, err := s.getUser(r.GetKey(), true)
 	if err != nil {
 		return new(empty.Empty), err
 	}
 	if item == nil {
-		return new(empty.Empty), status.Error(codes.NotFound, "user not fund")
+		return new(empty.Empty), status.Error(codes.NotFound, "user not found")
 	}
 	permissionsKey := make([]byte, 1+8)
 	permissionsKey[0] = sysstore.KeysPrefixes.Permissions
@@ -234,7 +251,7 @@ func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.
 }
 
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
-	item, err := s.getUser(r.GetUser())
+	item, err := s.getUser(r.GetUser(), false)
 	if err != nil {
 		return new(empty.Empty), err
 	}
@@ -269,13 +286,14 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	return new(empty.Empty), nil
 }
 
-func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.DeactivateUserRequest) (*empty.Empty, error) {
-	item, err := s.getUser(r.GetUser())
+func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) (*empty.Empty, error) {
+	item, err := s.getUser(r.GetUser(), false)
 	if err != nil {
 		return new(empty.Empty), err
 	}
 	if item == nil {
-		return new(empty.Empty), status.Errorf(codes.NotFound, "user not found")
+		return new(empty.Empty),
+			status.Errorf(codes.NotFound, "user not found or is already deactivated")
 	}
 	permissionsKey := make([]byte, 1+8)
 	permissionsKey[0] = sysstore.KeysPrefixes.Permissions
