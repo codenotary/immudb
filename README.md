@@ -359,7 +359,7 @@ Available Commands:
   set         Update server config items: auth (none|password|cryptosig), mtls (true|false)
   stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
   status      Show heartbeat status
-  user        Perform various user-related operations: list, create, delete, change password
+  user        Perform various user-related operations: list, create, deactivate, change password
   version     Show the immuadmin version
 
 Flags:
@@ -644,7 +644,7 @@ Avg. duration (nb calls)   :    µs
    Count (0)               :    0
    CreateUser (0)          :    0
    CurrentRoot (0)         :    0
-   DeleteUser (0)          :    0
+   DeactivateUser (0)      :    0
    Dump (0)                :    0
    Get (5)                 :    20
    GetBatch (0)            :    0

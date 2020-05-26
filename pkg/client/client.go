@@ -54,9 +54,9 @@ type ImmuClient interface {
 	WaitForHealthCheck(ctx context.Context) (err error)
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
-	ListUsers(ctx context.Context) (*schema.ItemList, error)
+	ListUsers(ctx context.Context) (*schema.UserList, error)
 	CreateUser(ctx context.Context, user []byte, pass []byte, permissions []byte) (*schema.CreateUserResponse, error)
-	DeleteUser(ctx context.Context, user []byte) error
+	DeactivateUser(ctx context.Context, user []byte) error
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	SetPermission(ctx context.Context, user []byte, permissions []byte) error
 	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
@@ -273,7 +273,7 @@ func (c *immuClient) GetOptions() *Options {
 	return c.Options
 }
 
-func (c *immuClient) ListUsers(ctx context.Context) (*schema.ItemList, error) {
+func (c *immuClient) ListUsers(ctx context.Context) (*schema.UserList, error) {
 	return c.ServiceClient.ListUsers(ctx, new(empty.Empty))
 }
 
@@ -296,16 +296,16 @@ func (c *immuClient) CreateUser(
 	return result, err
 }
 
-// DeleteUser ...
-func (c *immuClient) DeleteUser(ctx context.Context, user []byte) error {
+// DeactivateUser ...
+func (c *immuClient) DeactivateUser(ctx context.Context, user []byte) error {
 	start := time.Now()
 	if !c.IsConnected() {
 		return ErrNotConnected
 	}
-	_, err := c.ServiceClient.DeleteUser(ctx, &schema.DeleteUserRequest{
+	_, err := c.ServiceClient.DeactivateUser(ctx, &schema.DeactivateUserRequest{
 		User: user,
 	})
-	c.Logger.Debugf("deleteuser finished in %s", time.Since(start))
+	c.Logger.Debugf("deactivateuser finished in %s", time.Since(start))
 	return err
 }
 

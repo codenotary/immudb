@@ -16,11 +16,10 @@ limitations under the License.
 
 package auth
 
-import "bytes"
-
 const PermissionAdmin = 255
 const (
-	PermissionR = 1 << iota
+	PermissionNone = iota
+	PermissionR
 	PermissionW
 	PermissionRW
 )
@@ -41,7 +40,7 @@ var methodsPermissions = map[string]byte{
 	"/immudb.schema.ImmuService/CreateUser":       PermissionAdmin,
 	"/immudb.schema.ImmuService/ChangePassword":   PermissionAdmin,
 	"/immudb.schema.ImmuService/SetPermission":    PermissionAdmin,
-	"/immudb.schema.ImmuService/DeleteUser":       PermissionAdmin,
+	"/immudb.schema.ImmuService/DeactivateUser":   PermissionAdmin,
 	"/immudb.schema.ImmuService/UpdateAuthConfig": PermissionAdmin,
 	"/immudb.schema.ImmuService/UpdateMTLSConfig": PermissionAdmin,
 }
@@ -52,27 +51,4 @@ func HasPermissionForMethod(userPermission byte, method string) bool {
 		methodPermission = PermissionR
 	}
 	return methodPermission&userPermission == methodPermission
-}
-func HasPermissionSuffixForMethod(username []byte, method string) bool {
-	permission, ok := methodsPermissions[method]
-	if !ok {
-		return true
-	}
-	return HasPermissionSuffix(username, permission)
-}
-func HasPermissionSuffix(username []byte, permission byte) bool {
-	return username[len(username)-1:][0]&permission == permission
-}
-func GetPermissionFromSuffix(username []byte) byte {
-	return username[len(username)-1:][0]
-}
-func AddPermissionSuffix(username []byte, permission byte) []byte {
-	return bytes.Join([][]byte{username, []byte{permission}}, []byte{'!'})
-}
-func TrimPermissionSuffix(username []byte) []byte {
-	return username[:len(username)-2]
-}
-func ReplacePermissionSuffix(username []byte, permission byte) []byte {
-	return bytes.Join(
-		[][]byte{username[:len(username)-2], []byte{permission}}, []byte{'!'})
 }

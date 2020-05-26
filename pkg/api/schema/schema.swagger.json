@@ -1131,6 +1131,30 @@
         }
       }
     },
+    "schemaUser": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "string",
+          "format": "byte"
+        },
+        "permissions": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "schemaUserList": {
+      "type": "object",
+      "properties": {
+        "users": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaUser"
+          }
+        }
+      }
+    },
     "schemaZAddOptions": {
       "type": "object",
       "properties": {

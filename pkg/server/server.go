@@ -36,7 +36,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
-	"github.com/codenotary/immudb/pkg/store/sysstore"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -139,7 +138,7 @@ func (s *ImmuServer) Start() error {
 
 	auth.AdminUserExists = s.adminUserExists
 	auth.IsAdminUser = s.isAdminUser
-	auth.CreateAdminUser = s.createAdminUser
+	auth.CreateAdminUser = s.CreateAdminUser
 
 	metricsServer := StartMetrics(
 		s.Options.MetricsBind(),
@@ -222,30 +221,21 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
 		return nil, auth.ErrServerAuthDisabled
 	}
-	items, err := s.getUsersLatestVersions(r.GetUser())
+	item, err := s.getUser(r.GetUser())
 	if err != nil {
-		s.Logger.Errorf("error getting user %s during login: %v", string(r.User), err)
-		return nil, status.Errorf(codes.Internal, "internal error")
+		return nil, err
 	}
-	if len(items) == 0 {
-		return nil, status.Errorf(codes.NotFound, "user not found")
+	hashedPassword, err := s.getUserPassword(item.GetIndex())
+	if err != nil {
+		return nil, err
 	}
-	var item *schema.Item
-	for _, currItem := range items {
-		if !isFlaggedAsDeleted(currItem) {
-			item = currItem
-			break
-		}
+	permissions, err := s.getUserPermissions(item.GetIndex())
+	if err != nil {
+		return nil, err
 	}
-	if item == nil {
-		return nil, status.Errorf(codes.NotFound, "user not found")
-	}
-	permissions := auth.GetPermissionFromSuffix(item.GetKey())
-	username :=
-		string(auth.TrimPermissionSuffix(sysstore.TrimUserPrefix(item.GetKey())))
 	u := auth.User{
-		Username:       username,
-		HashedPassword: item.GetValue(),
+		Username:       string(item.GetKey()[1:]),
+		HashedPassword: hashedPassword,
 		Permissions:    permissions,
 	}
 	if u.ComparePasswords(r.GetPassword()) != nil {

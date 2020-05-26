@@ -16,36 +16,18 @@ limitations under the License.
 
 package sysstore
 
-import (
-	"bytes"
-)
+import "bytes"
 
-var sysKeysPrefix = []byte("!immudb!")
-var sysKeysPrefixes = struct {
-	user []byte
+var KeysPrefixes = struct {
+	User        byte
+	Password    byte
+	Permissions byte
 }{
-	user: append(sysKeysPrefix, []byte("user")...),
+	User:        1,
+	Password:    2,
+	Permissions: 3,
 }
 
-func IsValidKey(k []byte) bool {
-	return !bytes.HasPrefix(k, sysKeysPrefix)
-}
-
-func UserPrefix() []byte {
-	return sysKeysPrefixes.user
-}
-func IsUserKey(k []byte) bool {
-	return bytes.HasPrefix(k, sysKeysPrefixes.user)
-}
-func AddUserPrefix(k []byte) []byte {
-	if IsUserKey(k) {
-		return k
-	}
-	return bytes.Join([][]byte{sysKeysPrefixes.user, k}, []byte{})
-}
-func TrimUserPrefix(k []byte) []byte {
-	if !IsUserKey(k) {
-		return k
-	}
-	return bytes.TrimPrefix(k, sysKeysPrefixes.user)
+func AddKeyPrefix(k []byte, prefix byte) []byte {
+	return bytes.Join([][]byte{[]byte{prefix}, k}, []byte{})
 }
