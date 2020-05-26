@@ -247,6 +247,7 @@ func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.
 		s.Logger.Errorf("error saving user permissions: %v", err)
 		return new(empty.Empty), err
 	}
+	auth.DropTokenKeys(string(r.GetKey()))
 	return new(empty.Empty), nil
 }
 
@@ -304,5 +305,6 @@ func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) 
 		s.Logger.Errorf("error saving user permissions to deactivate user: %v", err)
 		return new(empty.Empty), err
 	}
+	auth.DropTokenKeys(string(r.GetUser()))
 	return new(empty.Empty), nil
 }

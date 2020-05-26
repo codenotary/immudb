@@ -18,13 +18,14 @@ package auth
 
 import (
 	"context"
-	"encoding/hex"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -84,36 +85,36 @@ func ComparePasswords(hashedPassword []byte, plainPassword []byte) error {
 }
 
 var pasetoV2 = paseto.NewV2()
-var publicKey ed25519.PublicKey
-var privateKey ed25519.PrivateKey
+
+type tokenKeyPair struct {
+	publicKey  ed25519.PublicKey
+	privateKey ed25519.PrivateKey
+}
+
+var tokenKeyPairs = struct {
+	keysPerUser map[string]*tokenKeyPair
+	sync.RWMutex
+}{
+	keysPerUser: map[string]*tokenKeyPair{},
+}
 
 // GenerateKeys ...
-func GenerateKeys() error {
-	var err error
-	publicKey, privateKey, err = ed25519.GenerateKey(nil)
+func GenerateKeys(username string) error {
+	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		return fmt.Errorf("error generating public and private keys (used for signing and verifying tokens): %v", err)
+		return fmt.Errorf("error generating public and private key pair for user %s: %v", username, err)
 	}
+	tokenKeyPairs.Lock()
+	defer tokenKeyPairs.Unlock()
+	tokenKeyPairs.keysPerUser[username] = &tokenKeyPair{publicKey, privateKey}
 	return nil
 }
 
-func writeKeyToFile(key []byte, fileName string) error {
-	keyHex := make([]byte, hex.EncodedLen(len(key)))
-	hex.Encode(keyHex, key)
-	return ioutil.WriteFile(fileName, keyHex, 0644)
-}
-
-func readKeyFromFile(fileName string) ([]byte, error) {
-	keyBytesRead, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		return nil, fmt.Errorf("error reading from file %s: %v", fileName, err)
-	}
-	keyBytes := make([]byte, hex.DecodedLen(len(keyBytesRead)))
-	_, err = hex.Decode(keyBytes, keyBytesRead)
-	if err != nil {
-		return nil, fmt.Errorf("error hex decoding key: %v", err)
-	}
-	return keyBytes, nil
+// DropTokenKeys ...
+func DropTokenKeys(username string) {
+	tokenKeyPairs.Lock()
+	defer tokenKeyPairs.Unlock()
+	delete(tokenKeyPairs.keysPerUser, username)
 }
 
 const footer = "immudb"
@@ -121,9 +122,14 @@ const tokenValidity = 1 * time.Hour
 
 // GenerateToken ...
 func GenerateToken(user User) (string, error) {
-	if privateKey == nil || len(privateKey) == 0 {
-		if err := GenerateKeys(); err != nil {
+	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
+	if !ok {
+		if err := GenerateKeys(user.Username); err != nil {
 			return "", err
+		}
+		keys, ok = tokenKeyPairs.keysPerUser[user.Username]
+		if !ok {
+			return "", errors.New("internal error: missing auth keys")
 		}
 	}
 	now := time.Now()
@@ -132,11 +138,10 @@ func GenerateToken(user User) (string, error) {
 		Subject:    user.Username,
 	}
 	jsonToken.Set("permissions", fmt.Sprintf("%d", user.Permissions))
-	token, err := pasetoV2.Sign(privateKey, jsonToken, footer)
+	token, err := pasetoV2.Sign(keys.privateKey, jsonToken, footer)
 	if err != nil {
 		return "", fmt.Errorf("error generating token: %v", err)
 	}
-
 	return token, nil
 }
 
@@ -147,15 +152,57 @@ type JSONToken struct {
 	Expiration  time.Time
 }
 
-func verifyToken(token string) (*JSONToken, error) {
-	if publicKey == nil || len(publicKey) == 0 {
-		if err := GenerateKeys(); err != nil {
-			return nil, err
+var tokenEncoder = base64.RawURLEncoding
+
+// parsePublicTokenPayload parses the public (unencrypted) token payload
+// works even with expired tokens (that do not pass verification)
+func parsePublicTokenPayload(token string) (*JSONToken, error) {
+	tokenPieces := strings.Split(token, ".")
+	if len(tokenPieces) < 3 {
+		// version.purpose.payload or version.purpose.payload.footer
+		// see: https://tools.ietf.org/id/draft-paragon-paseto-rfc-00.html#rfc.section.2
+		return nil, errors.New("malformed token: expected at least 3 pieces")
+	}
+	encodedPayload := []byte(tokenPieces[2])
+	payload := make([]byte, tokenEncoder.DecodedLen(len(encodedPayload)))
+	if _, err := tokenEncoder.Decode(payload, encodedPayload); err != nil {
+		return nil, fmt.Errorf("error decoding token payload: %v", err)
+	}
+	if len(payload) < ed25519.SignatureSize {
+		return nil, errors.New("malformed token: incorrect token size")
+	}
+	payloadBytes := payload[:len(payload)-ed25519.SignatureSize]
+	var jsonToken paseto.JSONToken
+	if err := json.Unmarshal(payloadBytes, &jsonToken); err != nil {
+		return nil, fmt.Errorf("error unmarshalling token payload json: %v", err)
+	}
+	var permissions byte = PermissionR
+	if p := jsonToken.Get("permissions"); p != "" {
+		pint, err := strconv.ParseUint(p, 10, 8)
+		if err == nil {
+			permissions = byte(pint)
 		}
+	}
+	return &JSONToken{
+		Username:    jsonToken.Subject,
+		Permissions: permissions,
+		Expiration:  jsonToken.Expiration,
+	}, nil
+}
+
+func verifyToken(token string) (*JSONToken, error) {
+	tokenPayload, err := parsePublicTokenPayload(token)
+	if err != nil {
+		return nil, err
+	}
+	keys, ok := tokenKeyPairs.keysPerUser[tokenPayload.Username]
+	if !ok {
+		return nil, status.Error(
+			codes.Unauthenticated, "invalid token, re-login is required")
 	}
 	var jsonToken paseto.JSONToken
 	var footer string
-	if err := pasetoV2.Verify(token, publicKey, &jsonToken, &footer); err != nil {
+	if err := pasetoV2.Verify(token, keys.publicKey, &jsonToken, &footer); err != nil {
 		return nil, err
 	}
 	if err := jsonToken.Validate(); err != nil {
@@ -187,7 +234,8 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 	token := strings.TrimPrefix(authHeader[0], "Bearer ")
 	jsonToken, err := verifyToken(token)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid token %s", token)
+		return nil, status.Error(
+			codes.Unauthenticated, "invalid token, re-login is required")
 	}
 	return jsonToken, nil
 }
@@ -310,8 +358,10 @@ func checkAuth(ctx context.Context, method string, req interface{}) error {
 			return status.Errorf(codes.PermissionDenied, errMsg)
 		}
 	}
-	isAuthEnabled := AuthEnabled || isAdminCLI
-	if method == loginMethod && isAuthEnabled && isAdminCLI {
+	if !AuthEnabled && !isAdminCLI {
+		return nil
+	}
+	if method == loginMethod && isAdminCLI {
 		lReq, ok := req.(*schema.LoginRequest)
 		// if it's the very first admin login attempt, generate admin user and password
 		if ok && string(lReq.GetUser()) == AdminUsername && len(lReq.GetPassword()) == 0 {
@@ -336,7 +386,7 @@ func checkAuth(ctx context.Context, method string, req interface{}) error {
 			return status.Errorf(codes.PermissionDenied, "permission denied")
 		}
 	}
-	if isAuthEnabled && HasAuth(method) {
+	if HasAuth(method) {
 		jsonToken, err := verifyTokenFromCtx(ctx)
 		if err != nil {
 			return err
