@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 
