@@ -7,8 +7,8 @@
 ;General
 
   ;Name and file
-  Name "CodeNotary immudb {IMMUDB_VERSION}"
-  OutFile "codenotary_immudb_{IMMUDB_VERSION}_setup.exe"
+  Name "CodeNotary {SERVICE} {IMMUDB_VERSION}"
+  OutFile "codenotary_{SERVICE}_{IMMUDB_VERSION}_setup.exe"
   Icon "immudb.ico"
   LicenseData "gpl3license.txt"
 
@@ -52,12 +52,12 @@
 ;--------------------------------
 ;Installer Sections
 
-Section "CodeNotary immudb cli tool" installation
+Section "CodeNotary immudb" installation
 
 ;Add files
   SetOutPath "$INSTDIR"
 
-  File "immudb.exe"
+  File "{SERVICE}.exe"
   File "immudb.ico"
   File "gpl3license.txt"
 

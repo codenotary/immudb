@@ -53,10 +53,10 @@ vcn n -p git://.
 In order to sign the Windows binaries with a digital certificate, you will need an `.spc` and `.pvk` files (and the password to unlook the `.pvk`).
 Make sure the path of those files is accessible.
 
-Build all dist files:
+Build all dist files. It's possible launch script on all services. Modify SERVICE_NAME according your needs:
 
 ```
-SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
+SERVICE_NAME=immudb SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
 ```
 > Distribution files will be created into the `dist` directory.
 
