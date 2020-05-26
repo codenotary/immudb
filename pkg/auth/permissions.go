@@ -18,43 +18,38 @@ package auth
 
 import "bytes"
 
-var Permissions = struct {
-	Admin byte
-	R     byte
-	W     byte
-	RW    byte
-}{
-	Admin: 255,
-	R:     1,
-	W:     2,
-	RW:    3,
-}
+const PermissionAdmin = 255
+const (
+	PermissionR = 1 << iota
+	PermissionW
+	PermissionRW
+)
 
 var methodsPermissions = map[string]byte{
 	// readwrite methods
-	"/immudb.schema.ImmuService/Set":           Permissions.RW,
-	"/immudb.schema.ImmuService/SetSV":         Permissions.RW,
-	"/immudb.schema.ImmuService/SafeSet":       Permissions.RW,
-	"/immudb.schema.ImmuService/SafeSetSV":     Permissions.RW,
-	"/immudb.schema.ImmuService/SetBatch":      Permissions.RW,
-	"/immudb.schema.ImmuService/SetBatchSV":    Permissions.RW,
-	"/immudb.schema.ImmuService/Reference":     Permissions.RW,
-	"/immudb.schema.ImmuService/SafeReference": Permissions.RW,
-	"/immudb.schema.ImmuService/ZAdd":          Permissions.RW,
-	"/immudb.schema.ImmuService/SafeZAdd":      Permissions.RW,
+	"/immudb.schema.ImmuService/Set":           PermissionRW,
+	"/immudb.schema.ImmuService/SetSV":         PermissionRW,
+	"/immudb.schema.ImmuService/SafeSet":       PermissionRW,
+	"/immudb.schema.ImmuService/SafeSetSV":     PermissionRW,
+	"/immudb.schema.ImmuService/SetBatch":      PermissionRW,
+	"/immudb.schema.ImmuService/SetBatchSV":    PermissionRW,
+	"/immudb.schema.ImmuService/Reference":     PermissionRW,
+	"/immudb.schema.ImmuService/SafeReference": PermissionRW,
+	"/immudb.schema.ImmuService/ZAdd":          PermissionRW,
+	"/immudb.schema.ImmuService/SafeZAdd":      PermissionRW,
 	// admin methods
-	"/immudb.schema.ImmuService/CreateUser":       Permissions.Admin,
-	"/immudb.schema.ImmuService/ChangePassword":   Permissions.Admin,
-	"/immudb.schema.ImmuService/SetPermission":    Permissions.Admin,
-	"/immudb.schema.ImmuService/DeleteUser":       Permissions.Admin,
-	"/immudb.schema.ImmuService/UpdateAuthConfig": Permissions.Admin,
-	"/immudb.schema.ImmuService/UpdateMTLSConfig": Permissions.Admin,
+	"/immudb.schema.ImmuService/CreateUser":       PermissionAdmin,
+	"/immudb.schema.ImmuService/ChangePassword":   PermissionAdmin,
+	"/immudb.schema.ImmuService/SetPermission":    PermissionAdmin,
+	"/immudb.schema.ImmuService/DeleteUser":       PermissionAdmin,
+	"/immudb.schema.ImmuService/UpdateAuthConfig": PermissionAdmin,
+	"/immudb.schema.ImmuService/UpdateMTLSConfig": PermissionAdmin,
 }
 
 func HasPermissionForMethod(userPermission byte, method string) bool {
 	methodPermission, ok := methodsPermissions[method]
 	if !ok {
-		methodPermission = Permissions.R
+		methodPermission = PermissionR
 	}
 	return methodPermission&userPermission == methodPermission
 }

@@ -197,7 +197,7 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err := jsonToken.Validate(); err != nil {
 		return nil, err
 	}
-	permissions := Permissions.R
+	var permissions byte = PermissionR
 	if p := jsonToken.Get("permissions"); p != "" {
 		pint, err := strconv.ParseUint(p, 10, 8)
 		if err == nil {

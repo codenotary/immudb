@@ -73,7 +73,7 @@ func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
 	}
 	for _, item := range items {
 		if !isFlaggedAsDeleted(item) &&
-			auth.HasPermissionSuffix(item.GetKey(), auth.Permissions.Admin) {
+			auth.HasPermissionSuffix(item.GetKey(), auth.PermissionAdmin) {
 			return true, nil
 		}
 	}
@@ -86,7 +86,7 @@ func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, er
 	}
 	for _, item := range items {
 		if !isFlaggedAsDeleted(item) &&
-			auth.HasPermissionSuffix(item.GetKey(), auth.Permissions.Admin) {
+			auth.HasPermissionSuffix(item.GetKey(), auth.PermissionAdmin) {
 			return true, nil
 		}
 	}
@@ -109,7 +109,7 @@ func (s *ImmuServer) createAdminUser(ctx context.Context) (string, string, error
 	}
 	kv := schema.KeyValue{
 		Key: auth.AddPermissionSuffix(
-			sysstore.AddUserPrefix([]byte(u.Username)), auth.Permissions.Admin),
+			sysstore.AddUserPrefix([]byte(u.Username)), auth.PermissionAdmin),
 		Value: u.HashedPassword,
 	}
 	if _, err := s.SysStore.Set(kv); err != nil {
