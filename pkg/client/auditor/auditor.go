@@ -48,7 +48,7 @@ type defaultAuditor struct {
 	username      []byte
 	password      []byte
 	slugifyRegExp *regexp.Regexp
-	updateMetrics func(string, string, bool, *schema.Root, *schema.Root)
+	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
 }
 
 func DefaultAuditor(
@@ -58,7 +58,7 @@ func DefaultAuditor(
 	username string,
 	password string,
 	history cache.HistoryCache,
-	updateMetrics func(string, string, bool, *schema.Root, *schema.Root),
+	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
 ) (Auditor, error) {
 	logr := logger.NewSimpleLogger("auditor", os.Stderr)
 	dt, err := timestamp.NewTdefault()
@@ -102,30 +102,43 @@ func (a *defaultAuditor) audit() error {
 	a.index++
 	a.logger.Infof("audit #%d started @ %s", a.index, start)
 
+	verified := true
+	checked := false
+	withError := false
+	serverID := "unknown"
+	var prevRoot *schema.Root
+	var root *schema.Root
+	defer func() {
+		a.updateMetrics(
+			serverID, a.serverAddress, checked, withError, verified, prevRoot, root)
+	}()
+
 	// returning an error would completely stop the auditor process
 	var noErr error
 
 	ctx := context.Background()
 	conn, err := a.connect(ctx)
 	if err != nil {
+		withError = true
 		return noErr
 	}
 	defer a.closeConnection(conn)
 	serviceClient := schema.NewImmuServiceClient(conn)
 
-	root, err := serviceClient.CurrentRoot(ctx, &empty.Empty{})
+	root, err = serviceClient.CurrentRoot(ctx, &empty.Empty{})
 	if err != nil {
 		a.logger.Errorf("error getting current root: %v", err)
+		withError = true
 		return noErr
 	}
 
 	isEmptyDB := len(root.GetRoot()) == 0 && root.GetIndex() == 0
 
-	verified := true
-	serverID := a.getServerID(ctx, serviceClient)
-	prevRoot, err := a.history.Get(serverID)
+	serverID = a.getServerID(ctx, serviceClient)
+	prevRoot, err = a.history.Get(serverID)
 	if err != nil {
 		a.logger.Errorf(err.Error())
+		withError = true
 		return noErr
 	}
 	if prevRoot != nil {
@@ -134,6 +147,7 @@ func (a *defaultAuditor) audit() error {
 				"audit #%d aborted: database is empty on server %s @ %s, "+
 					"but locally a previous root exists with hash %x at index %d",
 				a.index, serverID, a.serverAddress, prevRoot.Root, prevRoot.Index)
+			withError = true
 			return noErr
 		}
 		proof, err := serviceClient.Consistency(ctx, &schema.Index{
@@ -143,6 +157,7 @@ func (a *defaultAuditor) audit() error {
 			a.logger.Errorf(
 				"error fetching consistency proof for previous root %d: %v",
 				prevRoot.GetIndex(), err)
+			withError = true
 			return noErr
 		}
 		verified =
@@ -156,7 +171,7 @@ func (a *defaultAuditor) audit() error {
 			"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
 			a.index, verified, firstRoot, proof.First, proof.SecondRoot, proof.Second)
 		root = &schema.Root{Index: proof.Second, Root: proof.SecondRoot}
-		a.updateMetrics(serverID, a.serverAddress, verified, prevRoot, root)
+		checked = true
 	} else if isEmptyDB {
 		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",
 			a.index, serverID, a.serverAddress)
@@ -197,7 +212,7 @@ func (a *defaultAuditor) connect(ctx context.Context) (*grpc.ClientConn, error) 
 		authDisabled, ok2 := status.FromError(auth.ErrServerAuthDisabled)
 		if !ok1 || !ok2 || grpcStatus.Code() != authDisabled.Code() ||
 			grpcStatus.Message() != authDisabled.Message() {
-			a.logger.Errorf("error logging in: %v", err)
+			a.logger.Errorf("error logging in with user %s: %v", a.username, err)
 			return nil, err
 		}
 	}

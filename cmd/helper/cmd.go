@@ -66,6 +66,7 @@ func (o *Options) InitConfig(name string) {
 		viper.SetConfigName(name)
 	}
 	viper.SetEnvPrefix(strings.ToUpper(name))
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err == nil {
 		o.CfgFn = viper.ConfigFileUsed()

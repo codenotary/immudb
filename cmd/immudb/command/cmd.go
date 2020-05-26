@@ -53,6 +53,7 @@ Environment variables:
   IMMUDB_MTLS=false
   IMMUDB_AUTH=false
   IMMUDB_DETACHED=false
+  IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
@@ -127,6 +128,7 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	auth := viper.GetBool("auth")
 	noHistograms := viper.GetBool("no-histograms")
 	detached := viper.GetBool("detached")
+	consistencyCheck := viper.GetBool("consistency-check")
 	certificate := viper.GetString("certificate")
 	pkey := viper.GetString("pkey")
 	clientcas := viper.GetString("clientcas")
@@ -143,7 +145,8 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithMTLs(mtls).
 		WithAuth(auth).
 		WithNoHistograms(noHistograms).
-		WithDetached(detached)
+		WithDetached(detached).
+		WithCorruptionCheck(consistencyCheck)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = server.DefaultMTLsOptions().
@@ -165,6 +168,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
 	cmd.Flags().BoolP("auth", "s", options.MTLs, "enable auth")
 	cmd.Flags().Bool("no-histograms", options.MTLs, "disable collection of histogram metrics like query durations")
+	cmd.Flags().Bool("consistency-check", options.CorruptionCheck, "enable consistency check monitor routine. To disable: --consistency-check=false")
 	cmd.Flags().BoolP(c.DetachedFlag, c.DetachedShortFlag, options.Detached, "run immudb in background")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
@@ -199,6 +203,9 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("no-histograms", cmd.Flags().Lookup("no-histograms")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("consistency-check", cmd.Flags().Lookup("consistency-check")); err != nil {
+		return err
+	}
 	if err := viper.BindPFlag("detached", cmd.Flags().Lookup("detached")); err != nil {
 		return err
 	}
@@ -224,6 +231,7 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("mtls", options.MTLs)
 	viper.SetDefault("auth", options.Auth)
 	viper.SetDefault("no-histograms", options.NoHistograms)
+	viper.SetDefault("consistency-check", options.CorruptionCheck)
 	viper.SetDefault("detached", options.Detached)
 	viper.SetDefault("certificate", mtlsOptions.Certificate)
 	viper.SetDefault("pkey", mtlsOptions.Pkey)

@@ -31,6 +31,7 @@ type ImmuServer struct {
 	Logger     logger.Logger
 	Options    Options
 	GrpcServer *grpc.Server
+	Cc         CorruptionChecker
 	Pid        PIDFile
 	quit       chan struct{}
 }
@@ -50,6 +51,11 @@ func (s *ImmuServer) WithStore(st *store.Store) *ImmuServer {
 
 func (s *ImmuServer) WithLogger(logger logger.Logger) *ImmuServer {
 	s.Logger = logger
+	return s
+}
+
+func (s *ImmuServer) WithCC(cc CorruptionChecker) *ImmuServer {
+	s.Cc = cc
 	return s
 }
 

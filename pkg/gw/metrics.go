@@ -53,20 +53,39 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 func (mc *MetricsCollection) UpdateAuditResult(
 	serverID string,
 	serverAddress string,
+	checked bool,
+	withError bool,
 	result bool,
 	prevRoot *schema.Root,
 	currRoot *schema.Root,
 ) {
 	var r float64
-	if result {
+	if checked && result {
 		r = 1
+	} else if !checked && !withError {
+		r = -1
+	} else if withError {
+		r = -2
 	}
+	prevRootIndex := -1.
+	currRootIndex := -1.
+	if withError {
+		prevRootIndex = -2.
+		currRootIndex = -2.
+	}
+	if prevRoot != nil {
+		prevRootIndex = float64(prevRoot.GetIndex())
+	}
+	if currRoot != nil {
+		currRootIndex = float64(currRoot.GetIndex())
+	}
+
 	mc.AuditResultPerServer.
 		WithLabelValues(serverID, serverAddress).Set(r)
 	mc.AuditPrevRootPerServer.
-		WithLabelValues(serverID, serverAddress).Set(float64(prevRoot.GetIndex()))
+		WithLabelValues(serverID, serverAddress).Set(prevRootIndex)
 	mc.AuditCurrRootPerServer.
-		WithLabelValues(serverID, serverAddress).Set(float64(currRoot.GetIndex()))
+		WithLabelValues(serverID, serverAddress).Set(currRootIndex)
 	mc.AuditRunAtPerServer.
 		WithLabelValues(serverID, serverAddress).SetToCurrentTime()
 }
