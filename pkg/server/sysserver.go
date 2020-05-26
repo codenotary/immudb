@@ -213,8 +213,10 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	if item == nil {
 		return e, status.Errorf(codes.NotFound, "user not found")
 	}
-	if err = auth.ComparePasswords(item.GetValue(), r.GetOldPassword()); err != nil {
-		return e, status.Errorf(codes.PermissionDenied, "old password is incorrect")
+	if string(r.GetUser()) == auth.AdminUsername {
+		if err = auth.ComparePasswords(item.GetValue(), r.GetOldPassword()); err != nil {
+			return e, status.Errorf(codes.PermissionDenied, "old password is incorrect")
+		}
 	}
 	newPass := string(r.GetNewPassword())
 	if err = auth.IsStrongPassword(newPass); err != nil {

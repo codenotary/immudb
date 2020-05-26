@@ -185,13 +185,17 @@ func (cl *commandline) setPermissions(username string, permissions string) {
 
 func (cl *commandline) changePassword(username string) {
 	fmt.Println("NOTE:", auth.PasswordRequirementsMsg+".")
-	oldPass, err := cl.passwordReader.Read("Old password:")
-	if err != nil {
-		c.QuitToStdErr(err)
-	}
-	_, err = cl.immuClient.Login(cl.context, []byte(username), oldPass)
-	if err != nil {
-		c.QuitToStdErr(err)
+	var err error
+	oldPass := []byte{}
+	if username == auth.AdminUsername {
+		oldPass, err = cl.passwordReader.Read("Old password:")
+		if err != nil {
+			c.QuitToStdErr(err)
+		}
+		_, err = cl.immuClient.Login(cl.context, []byte(username), oldPass)
+		if err != nil {
+			c.QuitToStdErr(err)
+		}
 	}
 	pass, err := cl.passwordReader.Read("New password:")
 	if err != nil {
@@ -207,8 +211,10 @@ func (cl *commandline) changePassword(username string) {
 	if !bytes.Equal(pass, pass2) {
 		c.QuitToStdErr(errors.New("Passwords don't match"))
 	}
-	if bytes.Equal(pass, oldPass) {
-		c.QuitToStdErr(errors.New("New password is identical to the old one"))
+	if username == auth.AdminUsername {
+		if bytes.Equal(pass, oldPass) {
+			c.QuitToStdErr(errors.New("New password is identical to the old one"))
+		}
 	}
 	if err = cl.immuClient.ChangePassword(cl.context, []byte(username), oldPass, pass); err != nil {
 		c.QuitWithUserError(err)
