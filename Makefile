@@ -19,8 +19,6 @@ SHELL=/bin/bash -o pipefail
 VERSION=0.6.0
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x
 SERVICE_EXE=${SERVICE_NAME}-v${VERSION}-windows-amd64.exe
-SETUPEXE=codenotary_${SERVICE_NAME}_v${VERSION}_setup.exe
-
 
 PWD = $(shell pwd)
 GO ?= go
@@ -231,8 +229,8 @@ dist: clean/dist build/xgo
 	mv ./dist/${SERVICE_NAME}-v${VERSION}-windows-4.0-amd64.exe ./dist/${SERVICE_EXE}
 	mv ./dist/${SERVICE_NAME}-v${VERSION}-darwin-10.6-amd64 ./dist/${SERVICE_NAME}-v${VERSION}-darwin-amd64
 
-.PHONY: dist/${SERVICE_EXE} dist/${SETUPEXE}
-dist/${SERVICE_EXE} dist/${SETUPEXE}:
+.PHONY: dist/${SERVICE_EXE}
+dist/${SERVICE_EXE}:
 	echo ${SIGNCODE_PVK_PASSWORD} | $(DOCKER) run --rm -i \
 		-v ${PWD}/dist:/dist \
 		-v ${SIGNCODE_SPC}:/certs/f.spc:ro \
@@ -246,25 +244,13 @@ dist/${SERVICE_EXE} dist/${SETUPEXE}:
 		$@
 	rm -Rf $@.bak
 
-.PHONY: dist/NSIS
-dist/NSIS: build/makensis
-	mkdir -p dist/NSIS
-	cp -f ./dist/${SERVICE_EXE} ./dist/NSIS/${SERVICE_NAME}.exe
-	cp -f ./build/NSIS/* ./dist/NSIS/
-	sed -e "s/{IMMUDB_VERSION}/v${VERSION}/g" -e "s/{SERVICE}/${SERVICE_NAME}/g" ./build/NSIS/setup.nsi > ./dist/NSIS/setup.nsi
-	$(DOCKER) run --rm \
-			-v ${PWD}/dist/NSIS/:/app \
-			${SERVICE_NAME}-makensis /app/setup.nsi
-	cp ./dist/NSIS/*_setup.exe ./dist/
-	rm -Rf ./dist/NSIS
-
 .PHONY: dist/sign
 dist/sign: vendor ${SERVICE_NAME}
 	for f in ./dist/*; do vcn sign -p $$f; printf "\n\n"; done
 
 # SERVICE_NAME=immudb|immuclient|immugw SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
 .PHONY: dist/all
-dist/all: dist dist/${SERVICE_EXE} dist/NSIS dist/${SETUPEXE}
+dist/all: dist dist/${SERVICE_EXE}
 
 .PHONY: dist/binary.md
 dist/binary.md:
