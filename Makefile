@@ -17,8 +17,7 @@ export GO111MODULE=on
 SHELL=/bin/bash -o pipefail
 
 VERSION=0.6.0
-TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x linux/ppc64le linux/arm64
-#TARGETS=linux/arm-7 is not supported due to int -> maxInt64 assignment
+TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x
 IMMUDBEXE=immudb-v${VERSION}-windows-amd64.exe
 SETUPEXE=codenotary_immudb_v${VERSION}_setup.exe
 
@@ -228,7 +227,6 @@ dist: clean/dist build/xgo
 			-e PACK=cmd/immudb \
 			-e OUT=immudb-v${VERSION} \
 			immudb-xgo .
-	#mv ./dist/immudb-v${VERSION}-linux-arm-7 ./dist/immudb-v${VERSION}-linux-arm
 	mv ./dist/immudb-v${VERSION}-windows-4.0-amd64.exe ./dist/${IMMUDBEXE}
 	mv ./dist/immudb-v${VERSION}-darwin-10.6-amd64 ./dist/immudb-v${VERSION}-darwin-amd64
 
