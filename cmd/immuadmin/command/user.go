@@ -117,15 +117,15 @@ func (cl *commandline) listUsers() {
 			u := string(auth.TrimPermissionSuffix(usersList.Items[i].GetKey()))
 			permission := auth.GetPermissionFromSuffix(usersList.Items[i].GetKey())
 			row[0] = u
-			if permission == auth.Permissions.Admin {
+			if permission == auth.PermissionAdmin {
 				row[1] = "admin"
 				row[2] = "admin"
 			} else {
 				row[1] = "client"
 				switch permission {
-				case auth.Permissions.R:
+				case auth.PermissionR:
 					row[2] = "read"
-				case auth.Permissions.RW:
+				case auth.PermissionRW:
 					row[2] = "readwrite"
 				default:
 					row[2] = fmt.Sprintf("unknown: %d", permission)
@@ -155,9 +155,9 @@ func (cl *commandline) createUser(username string, permissions string) {
 	var permission []byte
 	switch permissions {
 	case "readwrite":
-		permission = []byte{auth.Permissions.RW}
+		permission = []byte{auth.PermissionRW}
 	default:
-		permission = []byte{auth.Permissions.R}
+		permission = []byte{auth.PermissionR}
 	}
 	_, err = cl.immuClient.CreateUser(cl.context, []byte(username), pass, permission)
 	if err != nil {
@@ -170,9 +170,9 @@ func (cl *commandline) setPermissions(username string, permissions string) {
 	var permission []byte
 	switch permissions {
 	case "readwrite":
-		permission = []byte{auth.Permissions.RW}
+		permission = []byte{auth.PermissionRW}
 	default:
-		permission = []byte{auth.Permissions.R}
+		permission = []byte{auth.PermissionR}
 	}
 	if err := cl.immuClient.SetPermission(
 		cl.context, []byte(username), permission); err != nil {

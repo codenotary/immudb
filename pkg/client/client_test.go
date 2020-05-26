@@ -114,14 +114,14 @@ func createAdminUser(sysStore *store.Store) {
 		log.Fatalf("error generating keys for auth token: %v", err)
 	}
 	u := auth.User{
-		Username: auth.AdminUsername, Permissions: auth.Permissions.Admin}
+		Username: auth.AdminUsername, Permissions: auth.PermissionAdmin}
 	plainPass, err = u.GenerateAndSetPassword()
 	if err != nil {
 		log.Fatalf("error generating password for admin user: %v", err)
 	}
 	kv := schema.KeyValue{
 		Key: auth.AddPermissionSuffix(
-			sysstore.AddUserPrefix([]byte(u.Username)), auth.Permissions.Admin),
+			sysstore.AddUserPrefix([]byte(u.Username)), auth.PermissionAdmin),
 		Value: u.HashedPassword,
 	}
 	if _, err := sysStore.Set(kv); err != nil {
