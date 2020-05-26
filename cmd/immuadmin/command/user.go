@@ -30,20 +30,20 @@ import (
 func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 	cmdName := "user"
 	fullCmdName := parentCmdName + " " + cmdName
-	usage := cmdName + " list|create|change-password|set-permission|delete [username] [read|readwrite]"
+	usage := cmdName + " list|create|change-password|set-permission|deactivate [username] [read|readwrite]"
 	usages := map[string][]string{
 		"list":            []string{"List users", fullCmdName + " list"},
 		"create":          []string{"Create a new user", fullCmdName + " create username read|readwrite"},
 		"change-password": []string{"Change password", fullCmdName + " change-password username"},
 		"set-permission":  []string{"Set permission", fullCmdName + " set-permission username read|readwrite"},
-		"delete":          []string{"Delete user", fullCmdName + " delete username"},
+		"deactivate":      []string{"Deactivate user", fullCmdName + " deactivate username"},
 	}
 	validCommands := map[string]struct{}{
 		"list":            struct{}{},
 		"create":          struct{}{},
 		"change-password": struct{}{},
 		"set-permission":  struct{}{},
-		"delete":          struct{}{},
+		"deactivate":      struct{}{},
 	}
 	requiredArgs := c.RequiredArgs{
 		Cmd:    fullCmdName,
@@ -52,7 +52,7 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 	}
 	ccmd := &cobra.Command{
 		Use:               usage,
-		Short:             "Perform various user-related operations: list, create, delete, change password, set permissions",
+		Short:             "Perform various user-related operations: list, create, deactivate, change password, set permissions",
 		Example:           c.UsageSprintf(usages),
 		Aliases:           []string{"u"},
 		PersistentPreRunE: cl.checkLoggedInAndConnect,
@@ -65,7 +65,7 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 			switch action {
 			case "list":
 				cl.listUsers()
-			case "create", "change-password", "set-permission", "delete":
+			case "create", "change-password", "set-permission", "deactivate":
 				username, err := requiredArgs.Require(args, 1, "a username", "", map[string]struct{}{}, action)
 				if err != nil {
 					c.QuitToStdErr(err)
@@ -90,8 +90,8 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 					}
 				case "change-password":
 					cl.changePassword(username)
-				case "delete":
-					cl.deleteUser(username)
+				case "deactivate":
+					cl.deactivateUser(username)
 				}
 			}
 			return nil
@@ -105,18 +105,17 @@ func (cl *commandline) listUsers() {
 	if err != nil {
 		c.QuitWithUserError(err)
 	}
-	if len(usersList.Items) <= 0 {
+	if len(usersList.Users) <= 0 {
 		fmt.Printf("No users found")
 	}
-	fmt.Println(len(usersList.Items), "user(s):")
+	fmt.Println(len(usersList.Users), "user(s):")
 	c.PrintTable(
 		[]string{"Username", "Role", "Permissions"},
-		len(usersList.Items),
+		len(usersList.Users),
 		func(i int) []string {
 			row := make([]string, 3)
-			u := string(auth.TrimPermissionSuffix(usersList.Items[i].GetKey()))
-			permission := auth.GetPermissionFromSuffix(usersList.Items[i].GetKey())
-			row[0] = u
+			permission := usersList.Users[i].GetPermissions()[0]
+			row[0] = string(usersList.Users[i].GetUser())
 			if permission == auth.PermissionAdmin {
 				row[1] = "admin"
 				row[2] = "admin"
@@ -222,14 +221,14 @@ func (cl *commandline) changePassword(username string) {
 	fmt.Printf("Password changed for user %s\n", username)
 }
 
-func (cl *commandline) deleteUser(username string) {
-	fmt.Printf("Are you sure you want to delete user %s? [y/N]: ", username)
+func (cl *commandline) deactivateUser(username string) {
+	fmt.Printf("Are you sure you want to deactivate user %s? [y/N]: ", username)
 	answer, err := c.ReadFromTerminalYN("N")
 	if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 		c.QuitToStdErr("Canceled")
 	}
-	if err := cl.immuClient.DeleteUser(cl.context, []byte(username)); err != nil {
+	if err := cl.immuClient.DeactivateUser(cl.context, []byte(username)); err != nil {
 		c.QuitWithUserError(err)
 	}
-	fmt.Printf("User %s has been deleted\n", username)
+	fmt.Printf("User %s has been deactivated\n", username)
 }

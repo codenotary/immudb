@@ -17,119 +17,174 @@ limitations under the License.
 package server
 
 import (
-	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/store"
 	"github.com/codenotary/immudb/pkg/store/sysstore"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-var deletedFlag = []byte("DELETED")
+var ErrUserDeactivated = errors.New("user is deactivated")
 
-func isFlaggedAsDeleted(user *schema.Item) bool {
-	return bytes.Equal(user.GetValue(), deletedFlag)
+func (s *ImmuServer) isUserDeactivated(user *schema.Item) error {
+	permission, err := s.getUserPermissions(user.GetIndex())
+	if err != nil {
+		return err
+	}
+	if permission == auth.PermissionNone {
+		return ErrUserDeactivated
+	}
+	return nil
 }
 
-func (s *ImmuServer) getUsersLatestVersions(username []byte) ([]*schema.Item, error) {
-	prefix := sysstore.UserPrefix()
-	if username != nil {
-		prefix = sysstore.AddUserPrefix(username)
-	}
-	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: prefix,
-	})
+func (s *ImmuServer) getUser(username []byte) (*schema.Item, error) {
+	key := make([]byte, 1+len(username))
+	key[0] = sysstore.KeysPrefixes.User
+	copy(key[1:], username)
+	item, err := s.SysStore.Get(schema.Key{Key: key})
 	if err != nil {
-		s.Logger.Errorf("error checking if admin user exists: %v", err)
 		return nil, err
 	}
-	if len(itemList.Items) == 0 {
-		return nil, nil
+	if err := s.isUserDeactivated(item); err != nil {
+		return nil, err
 	}
-	latestItems := map[string]*schema.Item{}
-	for _, item := range itemList.GetItems() {
-		u := string(auth.TrimPermissionSuffix(item.GetKey()))
-		prev, ok := latestItems[u]
-		if !ok || prev.GetIndex() < item.GetIndex() {
-			latestItems[u] = item
+	return item, nil
+}
+func (s *ImmuServer) getUserAttr(userIndex uint64, attrPrefix byte) ([]byte, error) {
+	key := make([]byte, 1+8)
+	key[0] = attrPrefix
+	binary.BigEndian.PutUint64(key[1:], userIndex)
+	item, err := s.SysStore.Get(schema.Key{Key: key})
+	if err != nil {
+		return nil, err
+	}
+	return item.GetValue(), nil
+}
+func (s *ImmuServer) getUserPassword(userIndex uint64) ([]byte, error) {
+	return s.getUserAttr(userIndex, sysstore.KeysPrefixes.Password)
+}
+func (s *ImmuServer) getUserPermissions(userIndex uint64) (byte, error) {
+	ps, err := s.getUserAttr(userIndex, sysstore.KeysPrefixes.Permissions)
+	if err != nil {
+		return 0, err
+	}
+	return ps[0], nil
+}
+
+func (s *ImmuServer) getUsers() (*schema.ItemList, error) {
+	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+		Prefix: []byte{sysstore.KeysPrefixes.User},
+	})
+	if err != nil {
+		s.Logger.Errorf("error getting users: %v", err)
+		return nil, err
+	}
+	for i := 0; i < len(itemList.Items); i++ {
+		if err := s.isUserDeactivated(itemList.Items[i]); err != nil {
+			continue
 		}
+		itemList.Items[i].Key = itemList.Items[i].Key[1:]
 	}
-	items := make([]*schema.Item, 0, len(latestItems))
-	for _, item := range latestItems {
-		items = append(items, item)
+	return itemList, nil
+}
+
+func (s *ImmuServer) saveUser(
+	username []byte, hashedPassword []byte, permissions byte) error {
+	// TODO OGG: check with Michele how to wrap all Sets in a transaction
+	// Set user
+	userKey := make([]byte, 1+len(username))
+	userKey[0] = sysstore.KeysPrefixes.User
+	copy(userKey[1:], username)
+	userKV := schema.KeyValue{Key: userKey, Value: username}
+	userIndex, err := s.SysStore.Set(userKV)
+	if err != nil {
+		s.Logger.Errorf("error saving user: %v", err)
+		return err
 	}
-	return items, nil
+	// Set password
+	passKey := make([]byte, 1+8)
+	passKey[0] = sysstore.KeysPrefixes.Password
+	binary.BigEndian.PutUint64(passKey[1:], userIndex.GetIndex())
+	passKV := schema.KeyValue{Key: passKey, Value: hashedPassword}
+	if _, err := s.SysStore.Set(passKV); err != nil {
+		s.Logger.Errorf("error saving user password: %v", err)
+		return err
+	}
+	// Set permissions
+	permissionsKey := make([]byte, 1+8)
+	permissionsKey[0] = sysstore.KeysPrefixes.Permissions
+	binary.BigEndian.PutUint64(permissionsKey[1:], userIndex.GetIndex())
+	permissionsKV :=
+		schema.KeyValue{Key: permissionsKey, Value: []byte{permissions}}
+	if _, err := s.SysStore.Set(permissionsKV); err != nil {
+		s.Logger.Errorf("error saving user permissions: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
-	items, err := s.getUsersLatestVersions(nil)
-	if err != nil || len(items) <= 0 {
-		return false, err
-	}
-	for _, item := range items {
-		if !isFlaggedAsDeleted(item) &&
-			auth.HasPermissionSuffix(item.GetKey(), auth.PermissionAdmin) {
-			return true, nil
-		}
-	}
-	return false, nil
+	return s.isAdminUser(ctx, []byte(auth.AdminUsername))
 }
 func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, error) {
-	items, err := s.getUsersLatestVersions(username)
-	if err != nil || len(items) <= 0 {
+	item, err := s.getUser(username)
+	if err != nil {
+		if err == store.ErrKeyNotFound {
+			return false, nil
+		}
 		return false, err
 	}
-	for _, item := range items {
-		if !isFlaggedAsDeleted(item) &&
-			auth.HasPermissionSuffix(item.GetKey(), auth.PermissionAdmin) {
-			return true, nil
-		}
+	permissions, err := s.getUserPermissions(item.GetIndex())
+	if err != nil {
+		return false, err
 	}
-	return false, nil
+	return permissions == auth.PermissionAdmin, nil
 }
 
-func (s *ImmuServer) createAdminUser(ctx context.Context) (string, string, error) {
+func (s *ImmuServer) CreateAdminUser(ctx context.Context) (string, string, error) {
 	exists, err := s.adminUserExists(ctx)
 	if err != nil {
 		return "", "", fmt.Errorf(
 			"error determining if admin user exists: %v", err)
 	}
 	if exists {
-		return "", "", errors.New("admin user already exists")
+		return "", "", status.Error(codes.AlreadyExists, "admin user already exists")
 	}
 	u := auth.User{Username: auth.AdminUsername}
 	plainPass, err := u.GenerateAndSetPassword()
 	if err != nil {
 		s.Logger.Errorf("error generating password for admin user: %v", err)
 	}
-	kv := schema.KeyValue{
-		Key: auth.AddPermissionSuffix(
-			sysstore.AddUserPrefix([]byte(u.Username)), auth.PermissionAdmin),
-		Value: u.HashedPassword,
-	}
-	if _, err := s.SysStore.Set(kv); err != nil {
-		s.Logger.Errorf("error creating admin user: %v", err)
+	if err = s.saveUser([]byte(u.Username), u.HashedPassword, auth.PermissionAdmin); err != nil {
 		return "", "", err
 	}
 	return u.Username, plainPass, nil
 }
 
-func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.ItemList, error) {
-	items, err := s.getUsersLatestVersions(nil)
+func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
+	itemList, err := s.getUsers()
 	if err != nil {
 		return nil, err
 	}
-	itemList := &schema.ItemList{Items: make([]*schema.Item, 0, len(items))}
-	for _, item := range items {
-		item.Key = sysstore.TrimUserPrefix(item.Key)
-		itemList.Items = append(itemList.Items, item)
+	users := make([]*schema.User, len(itemList.Items))
+	for i, item := range itemList.Items {
+		permissions, err := s.getUserPermissions(item.GetIndex())
+		if err != nil {
+			return nil, err
+		}
+		users[i] = &schema.User{
+			User:        item.GetKey(),
+			Permissions: []byte{permissions},
+		}
 	}
-	return itemList, nil
+	return &schema.UserList{Users: users}, nil
 }
 
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.CreateUserResponse, error) {
@@ -138,129 +193,98 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 			codes.InvalidArgument,
 			"username can only contain letters, digits and underscores")
 	}
-	items, err := s.getUsersLatestVersions(r.GetUser())
-	if err != nil {
+	if _, err := s.getUser(r.GetUser()); err != store.ErrKeyNotFound {
+		if err == nil {
+			return nil, status.Errorf(codes.AlreadyExists, "user already exists")
+		}
 		s.Logger.Errorf("error checking if user already exists: %v", err)
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
-	for _, item := range items {
-		if !isFlaggedAsDeleted(item) {
-			return nil, status.Errorf(codes.AlreadyExists, "username already exists")
-		}
-	}
-	if err = auth.IsStrongPassword(string(r.GetPassword())); err != nil {
+	if err := auth.IsStrongPassword(string(r.GetPassword())); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	hashedPassword, err := auth.HashAndSaltPassword(string(r.GetPassword()))
 	if err != nil {
 		return nil, err
 	}
-	kv := schema.KeyValue{
-		Key: auth.AddPermissionSuffix(
-			sysstore.AddUserPrefix(r.GetUser()), r.GetPermissions()[0]),
-		Value: hashedPassword,
-	}
-	if _, err := s.SysStore.Set(kv); err != nil {
-		s.Logger.Errorf("error persisting new user: %v", err)
+	if err := s.saveUser(r.GetUser(), hashedPassword, r.GetPermissions()[0]); err != nil {
 		return nil, err
 	}
-	return &schema.CreateUserResponse{
-		User: r.GetUser(),
-	}, nil
+	return &schema.CreateUserResponse{User: r.GetUser()}, nil
 }
 
 func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
-	items, err := s.getUsersLatestVersions(r.GetKey())
+	item, err := s.getUser(r.GetKey())
 	if err != nil {
-		s.Logger.Errorf("error getting user: %v", err)
-		return new(empty.Empty), status.Errorf(codes.Internal, "internal error")
-	}
-	var item *schema.Item
-	for _, currItem := range items {
-		if !isFlaggedAsDeleted(item) {
-			item = currItem
-			break
-		}
+		return new(empty.Empty), err
 	}
 	if item == nil {
 		return new(empty.Empty), status.Error(codes.NotFound, "user not fund")
 	}
-	kv := schema.KeyValue{
-		Key:   auth.ReplacePermissionSuffix(item.GetKey(), r.GetValue()[0]),
-		Value: item.GetValue(),
-	}
-	if _, err := s.SysStore.Set(kv); err != nil {
-		s.Logger.Errorf("error persisting user with updated permission: %v", err)
+	permissionsKey := make([]byte, 1+8)
+	permissionsKey[0] = sysstore.KeysPrefixes.Permissions
+	binary.BigEndian.PutUint64(permissionsKey[1:], item.GetIndex())
+	permissionsKV :=
+		schema.KeyValue{Key: permissionsKey, Value: r.GetValue()}
+	if _, err := s.SysStore.Set(permissionsKV); err != nil {
+		s.Logger.Errorf("error saving user permissions: %v", err)
 		return new(empty.Empty), err
 	}
 	return new(empty.Empty), nil
 }
 
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
-	e := new(empty.Empty)
-	items, err := s.getUsersLatestVersions(r.GetUser())
+	item, err := s.getUser(r.GetUser())
 	if err != nil {
-		s.Logger.Errorf("error getting user: %v", err)
-		return e, err
-	}
-	var item *schema.Item
-	for _, currItem := range items {
-		if !isFlaggedAsDeleted(item) {
-			item = currItem
-			break
-		}
+		return new(empty.Empty), err
 	}
 	if item == nil {
-		return e, status.Errorf(codes.NotFound, "user not found")
+		return new(empty.Empty), status.Errorf(codes.NotFound, "user not found")
+	}
+	oldHashedPassword, err := s.getUserPassword(item.GetIndex())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error getting user password: %v", err)
 	}
 	if string(r.GetUser()) == auth.AdminUsername {
-		if err = auth.ComparePasswords(item.GetValue(), r.GetOldPassword()); err != nil {
-			return e, status.Errorf(codes.PermissionDenied, "old password is incorrect")
+		if err = auth.ComparePasswords(oldHashedPassword, r.GetOldPassword()); err != nil {
+			return new(empty.Empty), status.Errorf(codes.PermissionDenied, "old password is incorrect")
 		}
 	}
 	newPass := string(r.GetNewPassword())
 	if err = auth.IsStrongPassword(newPass); err != nil {
-		return e, status.Errorf(codes.InvalidArgument, "%v", err)
+		return new(empty.Empty), status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	hashedPassword, err := auth.HashAndSaltPassword(newPass)
 	if err != nil {
-		return e, status.Errorf(codes.Internal, "%v", err)
+		return new(empty.Empty), status.Errorf(codes.Internal, "%v", err)
 	}
-	kv := schema.KeyValue{
-		Key:   item.GetKey(),
-		Value: hashedPassword,
+	passKey := make([]byte, 1+8)
+	passKey[0] = sysstore.KeysPrefixes.Password
+	binary.BigEndian.PutUint64(passKey[1:], item.GetIndex())
+	passKV := schema.KeyValue{Key: passKey, Value: hashedPassword}
+	if _, err := s.SysStore.Set(passKV); err != nil {
+		s.Logger.Errorf("error saving user password: %v", err)
+		return new(empty.Empty), err
 	}
-	if _, err := s.SysStore.Set(kv); err != nil {
-		s.Logger.Errorf("error persisting changed password: %v", err)
-		return e, err
-	}
-	return e, nil
+	return new(empty.Empty), nil
 }
 
-func (s *ImmuServer) DeleteUser(ctx context.Context, r *schema.DeleteUserRequest) (*empty.Empty, error) {
-	e := new(empty.Empty)
-	items, err := s.getUsersLatestVersions(r.GetUser())
+func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.DeactivateUserRequest) (*empty.Empty, error) {
+	item, err := s.getUser(r.GetUser())
 	if err != nil {
-		s.Logger.Errorf("error getting user: %v", err)
-		return e, err
-	}
-	var item *schema.Item
-	for _, currItem := range items {
-		if !isFlaggedAsDeleted(currItem) {
-			item = currItem
-			break
-		}
+		return new(empty.Empty), err
 	}
 	if item == nil {
-		return e, status.Errorf(codes.NotFound, "user not found")
+		return new(empty.Empty), status.Errorf(codes.NotFound, "user not found")
 	}
-	kv := schema.KeyValue{
-		Key:   item.GetKey(),
-		Value: deletedFlag,
+	permissionsKey := make([]byte, 1+8)
+	permissionsKey[0] = sysstore.KeysPrefixes.Permissions
+	binary.BigEndian.PutUint64(permissionsKey[1:], item.GetIndex())
+	permissionsKV :=
+		schema.KeyValue{Key: permissionsKey, Value: []byte{auth.PermissionNone}}
+	if _, err := s.SysStore.Set(permissionsKV); err != nil {
+		s.Logger.Errorf("error saving user permissions to deactivate user: %v", err)
+		return new(empty.Empty), err
 	}
-	if _, err := s.SysStore.Set(kv); err != nil {
-		s.Logger.Errorf("error deleting user: %v", err)
-		return e, err
-	}
-	return e, nil
+	return new(empty.Empty), nil
 }

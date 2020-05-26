@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -95,41 +94,6 @@ func GenerateKeys() error {
 	if err != nil {
 		return fmt.Errorf("error generating public and private keys (used for signing and verifying tokens): %v", err)
 	}
-	return nil
-}
-
-// GenerateOrLoadKeys ...
-func GenerateOrLoadKeys() error {
-	publicKeyFileName := "immudb_public_key"
-	_, errPublic := os.Stat(publicKeyFileName)
-	privateKeyFileName := "immudb_private_key"
-	_, errPrivate := os.Stat(privateKeyFileName)
-
-	bothExist := !os.IsNotExist(errPublic) && !os.IsNotExist(errPrivate)
-	if !bothExist {
-		if err := GenerateKeys(); err != nil {
-			return fmt.Errorf("error generating public and private keys: %v", err)
-		}
-		if err := writeKeyToFile([]byte(publicKey), publicKeyFileName); err != nil {
-			return fmt.Errorf("error writing public key to file %s: %v", publicKeyFileName, err)
-		}
-		if err := writeKeyToFile([]byte(privateKey), privateKeyFileName); err != nil {
-			return fmt.Errorf("error writing private key to file %s: %v", privateKeyFileName, err)
-		}
-		return nil
-	}
-
-	publicKeyBytes, err := readKeyFromFile(publicKeyFileName)
-	if err != nil {
-		return fmt.Errorf("error loading public key from file %s: %v", privateKeyFileName, err)
-	}
-	privateKeyBytes, err := readKeyFromFile(privateKeyFileName)
-	if err != nil {
-		return fmt.Errorf("error loading private key from file %s: %v", privateKeyFileName, err)
-	}
-	publicKey = ed25519.PublicKey(publicKeyBytes)
-	privateKey = ed25519.PrivateKey(privateKeyBytes)
-
 	return nil
 }
 

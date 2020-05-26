@@ -29,7 +29,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
-	"github.com/codenotary/immudb/pkg/store/sysstore"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -68,6 +67,8 @@ var testData = struct {
 
 var slog = logger.NewSimpleLoggerWithLevel("client_test", os.Stderr, logger.LogDebug)
 
+var plainPass string
+
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
 	is = is.WithOptions(is.Options.WithAuth(true))
@@ -90,7 +91,10 @@ func newServer() *server.ImmuServer {
 		log.Fatal(err)
 	}
 
-	createAdminUser(is.SysStore)
+	_, plainPass, err = is.CreateAdminUser(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(
@@ -104,29 +108,6 @@ func newServer() *server.ImmuServer {
 		}
 	}()
 	return is
-}
-
-var plainPass string
-
-func createAdminUser(sysStore *store.Store) {
-	var err error
-	if err = auth.GenerateKeys(); err != nil {
-		log.Fatalf("error generating keys for auth token: %v", err)
-	}
-	u := auth.User{
-		Username: auth.AdminUsername, Permissions: auth.PermissionAdmin}
-	plainPass, err = u.GenerateAndSetPassword()
-	if err != nil {
-		log.Fatalf("error generating password for admin user: %v", err)
-	}
-	kv := schema.KeyValue{
-		Key: auth.AddPermissionSuffix(
-			sysstore.AddUserPrefix([]byte(u.Username)), auth.PermissionAdmin),
-		Value: u.HashedPassword,
-	}
-	if _, err := sysStore.Set(kv); err != nil {
-		log.Fatalf("error creating admin user: %v", err)
-	}
 }
 
 func newClient(withToken bool, token string) ImmuClient {
@@ -180,6 +161,8 @@ func (n *ntpMock) Now() time.Time {
 }
 
 func init() {
+	cleanup()
+	cleanupDump()
 	immuServer = newServer()
 	nm, _ := NewNtpMock()
 	tss := NewTimestampService(nm)
