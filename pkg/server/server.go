@@ -140,17 +140,19 @@ func (s *ImmuServer) Start() error {
 	auth.IsAdminUser = s.isAdminUser
 	auth.CreateAdminUser = s.CreateAdminUser
 
-	metricsServer := StartMetrics(
-		s.Options.MetricsBind(),
-		s.Logger,
-		func() float64 { return float64(s.Store.CountAll()) },
-		func() float64 { return time.Since(startedAt).Hours() },
-	)
-	defer func() {
-		if err = metricsServer.Close(); err != nil {
-			s.Logger.Errorf("failed to shutdown metric server: %s", err)
-		}
-	}()
+	if s.Options.MetricsServer {
+		metricsServer := StartMetrics(
+			s.Options.MetricsBind(),
+			s.Logger,
+			func() float64 { return float64(s.Store.CountAll()) },
+			func() float64 { return time.Since(startedAt).Hours() },
+		)
+		defer func() {
+			if err = metricsServer.Close(); err != nil {
+				s.Logger.Errorf("failed to shutdown metric server: %s", err)
+			}
+		}()
+	}
 
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
