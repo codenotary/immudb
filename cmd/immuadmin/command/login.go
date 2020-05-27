@@ -33,6 +33,9 @@ func checkFirstAdminLogin(err error) {
 					"This looks like the very first admin login attempt, hence the following "+
 					"credentials have been generated:%s"+
 					"\nIMPORTANT: This is the only time they are shown, so make sure you remember them."+
+					"\nNOTE: You have not been automatically logged in. To login please run the command "+
+					"'immuadmin login immu' with the above-mentioned password. You can change your password "+
+					"at any time with one of your liking using the command 'immuadmin user change-password immu'"+
 					"\n===============", errMsg),
 		)
 	}
