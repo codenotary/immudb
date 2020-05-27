@@ -46,7 +46,7 @@ func (s *ImmuServer) isUserDeactivated(user *schema.Item) error {
 
 func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*schema.Item, error) {
 	key := make([]byte, 1+len(username))
-	key[0] = sysstore.KeysPrefixes.User
+	key[0] = sysstore.KeyPrefixUser
 	copy(key[1:], username)
 	item, err := s.SysStore.Get(schema.Key{Key: key})
 	if err != nil {
@@ -71,10 +71,10 @@ func (s *ImmuServer) getUserAttr(userIndex uint64, attrPrefix byte) ([]byte, err
 	return item.GetValue(), nil
 }
 func (s *ImmuServer) getUserPassword(userIndex uint64) ([]byte, error) {
-	return s.getUserAttr(userIndex, sysstore.KeysPrefixes.Password)
+	return s.getUserAttr(userIndex, sysstore.KeyPrefixPassword)
 }
 func (s *ImmuServer) getUserPermissions(userIndex uint64) (byte, error) {
-	ps, err := s.getUserAttr(userIndex, sysstore.KeysPrefixes.Permissions)
+	ps, err := s.getUserAttr(userIndex, sysstore.KeyPrefixPermissions)
 	if err != nil {
 		return 0, err
 	}
@@ -83,7 +83,7 @@ func (s *ImmuServer) getUserPermissions(userIndex uint64) (byte, error) {
 
 func (s *ImmuServer) getUsers(includeDeactivated bool) (*schema.ItemList, error) {
 	itemList, err := s.SysStore.Scan(schema.ScanOptions{
-		Prefix: []byte{sysstore.KeysPrefixes.User},
+		Prefix: []byte{sysstore.KeyPrefixUser},
 	})
 	if err != nil {
 		s.Logger.Errorf("error getting users: %v", err)
@@ -105,7 +105,7 @@ func (s *ImmuServer) saveUser(
 	// TODO OGG: check with Michele how to wrap all Sets in a transaction
 	// Set user
 	userKey := make([]byte, 1+len(username))
-	userKey[0] = sysstore.KeysPrefixes.User
+	userKey[0] = sysstore.KeyPrefixUser
 	copy(userKey[1:], username)
 	userKV := schema.KeyValue{Key: userKey, Value: username}
 	userIndex, err := s.SysStore.Set(userKV)
@@ -115,7 +115,7 @@ func (s *ImmuServer) saveUser(
 	}
 	// Set password
 	passKey := make([]byte, 1+8)
-	passKey[0] = sysstore.KeysPrefixes.Password
+	passKey[0] = sysstore.KeyPrefixPassword
 	binary.BigEndian.PutUint64(passKey[1:], userIndex.GetIndex())
 	passKV := schema.KeyValue{Key: passKey, Value: hashedPassword}
 	if _, err := s.SysStore.Set(passKV); err != nil {
@@ -124,7 +124,7 @@ func (s *ImmuServer) saveUser(
 	}
 	// Set permissions
 	permissionsKey := make([]byte, 1+8)
-	permissionsKey[0] = sysstore.KeysPrefixes.Permissions
+	permissionsKey[0] = sysstore.KeyPrefixPermissions
 	binary.BigEndian.PutUint64(permissionsKey[1:], userIndex.GetIndex())
 	permissionsKV :=
 		schema.KeyValue{Key: permissionsKey, Value: []byte{permissions}}
@@ -239,7 +239,7 @@ func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.
 		return new(empty.Empty), status.Error(codes.NotFound, "user not found")
 	}
 	permissionsKey := make([]byte, 1+8)
-	permissionsKey[0] = sysstore.KeysPrefixes.Permissions
+	permissionsKey[0] = sysstore.KeyPrefixPermissions
 	binary.BigEndian.PutUint64(permissionsKey[1:], item.GetIndex())
 	permissionsKV :=
 		schema.KeyValue{Key: permissionsKey, Value: r.GetValue()}
@@ -277,7 +277,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 		return new(empty.Empty), status.Errorf(codes.Internal, "%v", err)
 	}
 	passKey := make([]byte, 1+8)
-	passKey[0] = sysstore.KeysPrefixes.Password
+	passKey[0] = sysstore.KeyPrefixPassword
 	binary.BigEndian.PutUint64(passKey[1:], item.GetIndex())
 	passKV := schema.KeyValue{Key: passKey, Value: hashedPassword}
 	if _, err := s.SysStore.Set(passKV); err != nil {
@@ -297,7 +297,7 @@ func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) 
 			status.Errorf(codes.NotFound, "user not found or is already deactivated")
 	}
 	permissionsKey := make([]byte, 1+8)
-	permissionsKey[0] = sysstore.KeysPrefixes.Permissions
+	permissionsKey[0] = sysstore.KeyPrefixPermissions
 	binary.BigEndian.PutUint64(permissionsKey[1:], item.GetIndex())
 	permissionsKV :=
 		schema.KeyValue{Key: permissionsKey, Value: []byte{auth.PermissionNone}}
