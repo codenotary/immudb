@@ -20,7 +20,7 @@ func TestSafeZAdd(t *testing.T) {
 	setName := base64.StdEncoding.EncodeToString([]byte("Soprano"))
 	uknownKey := base64.StdEncoding.EncodeToString([]byte("Marias Callas"))
 	tcpPort := generateRandomTCPPort()
-	//MetricsServer must not be started as during tests because prometheus lib panis with: duplicate metrics collector registration attempted
+	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).WithMetricsServer(false)
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
@@ -61,7 +61,7 @@ func TestSafeZAdd(t *testing.T) {
 				}
 			}
 			`,
-			200,
+			http.StatusOK,
 			"verified",
 			true,
 		},
@@ -75,7 +75,7 @@ func TestSafeZAdd(t *testing.T) {
 				}
 			}
 			`,
-			200,
+			http.StatusOK,
 			"error",
 			"Key not found",
 		},
@@ -88,7 +88,7 @@ func TestSafeZAdd(t *testing.T) {
 					"key": "` + setName + `"
 				}
 			}`,
-			400,
+			http.StatusBadRequest,
 			"error",
 			"incorrect JSON payload",
 		},
@@ -101,7 +101,7 @@ func TestSafeZAdd(t *testing.T) {
 				}
 			}
 			`,
-			400,
+			http.StatusBadRequest,
 			"error",
 			"invalid key",
 		},
@@ -115,7 +115,7 @@ func TestSafeZAdd(t *testing.T) {
 				}
 			}
 			`,
-			400,
+			http.StatusBadRequest,
 			"error",
 			"illegal base64 data at input byte 5",
 		},
