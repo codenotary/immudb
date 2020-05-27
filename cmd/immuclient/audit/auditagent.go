@@ -74,7 +74,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 
 	if command == "install" {
 		localFile = viper.GetString("local-file")
-		if localFile, err = service.GetExecutable(localFile, os.Args[0]); err != nil {
+		if localFile, err = service.GetExecutable(localFile, name); err != nil {
 			return "", err
 		}
 	}
@@ -107,12 +107,12 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 		switch command {
 		case "install":
 			fmt.Println("installing " + localFile + "...")
-			if err = service.InstallSetup(os.Args[0]); err != nil {
+			if err = service.InstallSetup(name); err != nil {
 				return "", err
 			}
 			fmt.Println("installing " + localFile + "...")
 
-			if msg, err = a.Install("audit-mode", "--config", service.GetDefaultConfigPath(os.Args[0])); err != nil {
+			if msg, err = a.Install("audit-mode", "--config", service.GetDefaultConfigPath(name)); err != nil {
 				return "", err
 			}
 			fmt.Println(msg)
