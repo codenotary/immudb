@@ -27,7 +27,7 @@ import (
 	"runtime"
 	"strings"
 
-	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
+	service "github.com/codenotary/immudb/cmd/immuclient/service/configs"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 	"golang.org/x/sys/windows"
