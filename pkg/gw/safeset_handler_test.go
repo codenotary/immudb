@@ -32,8 +32,11 @@ func TestSafeset(t *testing.T) {
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
-	defer s.Stop()
-	defer os.RemoveAll(op.Dir)
+	defer func() {
+		s.Stop()
+		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
+		os.RemoveAll(op.Dir)
+	}()
 
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().WithPort(tcpPort))
 	if err != nil {
@@ -54,35 +57,35 @@ func TestSafeset(t *testing.T) {
 			//Picasso = UGljYXNzbw==
 			"Send correct request",
 			`{"kv": {"key": "` + key + `", "value": "` + value + `"	} }`,
-			200,
+			http.StatusOK,
 			"verified",
 			true,
 		},
 		{
 			"Missing value field",
 			`{"kv": {"key": "UGFibG8="} }`,
-			200,
+			http.StatusOK,
 			"verified",
 			true,
 		},
 		{
 			"Send incorrect json field",
 			`{"data": {"key": "` + key + `", "value": "` + value + `"} }`,
-			400,
+			http.StatusBadRequest,
 			"error",
 			"incorrect JSON payload",
 		},
 		{
 			"Send ASCII instead of base64 encoded",
 			`{"kv": {"key": "Pablo", "value": "Picasso" } }`,
-			400,
+			http.StatusBadRequest,
 			"error",
 			"illegal base64 data at input byte 4",
 		},
 		{
 			"Missing key field",
 			`{"kv": {} }`,
-			400,
+			http.StatusBadRequest,
 			"error",
 			"invalid key",
 		},
