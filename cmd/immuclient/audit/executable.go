@@ -50,7 +50,7 @@ func (e *executable) Start() {
 		for {
 			select {
 			case <-tt.C:
-				e.a.ImmuTc.Run(time.Duration(e.a.cycleFrequency)*time.Second, e.stop, e.stop)
+				e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second, e.stop, e.stop)
 			case <-e.stop:
 				return
 			}
@@ -72,5 +72,5 @@ func (e *executable) Run() {
 			fmt.Println(err.Error())
 		}
 	}()
-	e.a.ImmuTc.Run(time.Duration(e.a.cycleFrequency)*time.Second, e.stop, e.stop)
+	e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second, e.stop, e.stop)
 }
