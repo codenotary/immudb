@@ -25,10 +25,10 @@ func generateRandomTCPPort() int {
 	max := 64000
 	return rand.Intn(max - min + 1)
 }
-func insertSampleSet() (string, error) {
+func insertSampleSet(immudbTCPPort int) (string, error) {
 	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
 	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions())
+	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().WithPort(immudbTCPPort))
 	if err != nil {
 		return "", fmt.Errorf("unable to instantiate client: %s", err)
 	}
@@ -61,19 +61,20 @@ func insertSampleSet() (string, error) {
 }
 
 func TestSafeReference(t *testing.T) {
-	op := immudb.DefaultOptions().WithPort(generateRandomTCPPort()).WithDir("db_" + strconv.FormatInt(int64(generateRandomTCPPort()), 10))
+	tcpPort := generateRandomTCPPort()
+	op := immudb.DefaultOptions().WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10))
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
 	defer s.Stop()
 	defer os.RemoveAll(op.Dir)
 
-	refKey, err := insertSampleSet()
+	refKey, err := insertSampleSet(tcpPort)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
 
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions())
+	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().WithPort(tcpPort))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
