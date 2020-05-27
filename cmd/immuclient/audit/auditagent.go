@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 )
@@ -43,6 +44,7 @@ type auditAgent struct {
 	rootStorage    io.Writer
 	firstRun       bool
 	opts           *client.Options
+	logger         logger.Logger
 }
 
 func (a *auditAgent) writeRoot(root *schema.Root, t string) error {
@@ -110,6 +112,11 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			if err = service.InstallSetup(name); err != nil {
 				return "", err
 			}
+			logfile, err := os.OpenFile(viper.GetString("logfile"), os.O_APPEND, 0755)
+			if err != nil {
+				logfile = os.Stderr
+			}
+			a.logger = logger.NewSimpleLogger("immuclientd", logfile)
 			fmt.Println("installing " + localFile + "...")
 
 			if msg, err = a.Install("audit-mode", "--config", service.GetDefaultConfigPath(name)); err != nil {

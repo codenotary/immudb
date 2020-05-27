@@ -96,6 +96,13 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		}
 	}
 	cliOpts := cAgent.immuc.GetOptions()
+	ctx = context.Background()
+	if viper.GetString("audit-username") != "" || viper.GetString("audit-password") != "" {
+		_, err := cAgent.immuc.Login(ctx, []byte(viper.GetString("audit-username")), []byte(viper.GetString("audit-password")))
+		if err != nil {
+			return nil, errors.New("Invalid login operation")
+		}
+	}
 
 	cAgent.ImmuAudit, err = auditor.DefaultAuditor(time.Duration(cAgent.cycleFrequency)*time.Second,
 		fmt.Sprintf("%s:%v", options().Address, options().Port),
