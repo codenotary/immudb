@@ -47,7 +47,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	}
 	ctx := context.Background()
 	cAgent.Daemon = srv
-	freqstr := os.Getenv("trust-check-interval")
+	freqstr := os.Getenv("audit-agent-interval")
 	cAgent.cycleFrequency = 60
 	sclient := cAgent.immuc.GetServiceClient()
 	serverID, err := client.GetServerUuid(ctx, *sclient)
@@ -82,14 +82,14 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	}
 	pathstr := viper.GetString("roots-filepath")
 	if pathstr == "/tmp/" {
-		filename := fmt.Sprintf("%s/audit_roots_%s.txt", os.TempDir(), time.Now().String())
+		filename := filepath.Join(os.TempDir(), filename())
 		cAgent.rootStorage, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
 		if err != nil {
 			QuitToStdErr(err.Error())
 		}
 	} else {
 		pathstr = strings.TrimSuffix(pathstr, "/")
-		filename := fmt.Sprintf("%s/audit_roots_%s.txt", pathstr, time.Now().String())
+		filename := filepath.Join(pathstr, filename())
 		cAgent.rootStorage, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
 		if err != nil {
 			QuitToStdErr(err.Error())
@@ -97,12 +97,22 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	}
 	cliOpts := cAgent.immuc.GetOptions()
 
-	cAgent.ImmuTc, err = auditor.DefaultAuditor(time.Duration(cAgent.cycleFrequency)*time.Second,
+	cAgent.ImmuAudit, err = auditor.DefaultAuditor(time.Duration(cAgent.cycleFrequency)*time.Second,
 		fmt.Sprintf("%s:%v", options().Address, options().Port),
 		cliOpts.DialOptions,
 		viper.GetString("audit-username"),
 		viper.GetString("audit-password"),
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
 		cAgent.promot.exporter)
+	if err != nil {
+		return nil, err
+	}
 	return cAgent, nil
+}
+
+func filename() string {
+	t := time.Now().String()[:16]
+	t = strings.ReplaceAll(t, " ", "_")
+	t = fmt.Sprintf("audit_roots_%s.txt", t)
+	return t
 }

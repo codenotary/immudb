@@ -38,7 +38,7 @@ type auditAgent struct {
 	daemon.Daemon
 	cycleFrequency int
 	promot         promotheusExporter
-	ImmuTc         auditor.Auditor
+	ImmuAudit      auditor.Auditor
 	immuc          client.ImmuClient
 	rootStorage    io.Writer
 	firstRun       bool
