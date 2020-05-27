@@ -68,7 +68,10 @@ func (h *safeReferenceHandler) SafeReference(w http.ResponseWriter, req *http.Re
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", err))
 		return
 	}
-
+	if protoReq.Ro == nil {
+		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Error(codes.InvalidArgument, "incorrect JSON payload"))
+		return
+	}
 	msg, err := h.client.SafeReference(rctx, protoReq.Ro.Reference, protoReq.Ro.Key)
 	if err != nil {
 		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
