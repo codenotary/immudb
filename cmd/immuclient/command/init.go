@@ -23,7 +23,6 @@ import (
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -49,7 +48,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cl.currentRoot(cmd)
 	// get operations
 	cl.getByIndex(cmd)
-	cl.getByRawSafeIndex(cmd)
+	cl.getRawBySafeIndex(cmd)
 	cl.getKey(cmd)
 	cl.rawSafeGetKey(cmd)
 	cl.safeGetKey(cmd)
@@ -72,6 +71,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cl.consistency(cmd)
 	cl.history(cmd)
 	cl.status(cmd)
+	cl.auditmode(cmd)
 	// man file generator
 	cmd.AddCommand(man.Generate(cmd, "immuclient", "./cmd/docs/man/immuclient"))
 }
@@ -124,8 +124,8 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 }
 
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
-	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
-	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
+	cmd.PersistentFlags().IntP("immudb-port", "p", client.DefaultOptions().Port, "immudb port number")
+	cmd.PersistentFlags().StringP("immudb-address", "a", client.DefaultOptions().Address, "immudb host address")
 	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.toml)")
 	cmd.PersistentFlags().String(
 		"tokenfile",
@@ -139,13 +139,17 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")
 	cmd.PersistentFlags().String("clientcas", client.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
 	cmd.PersistentFlags().Bool("value-only", false, "returning only values for get operations")
+	cmd.PersistentFlags().String("roots-filepath", "/tmp/", "Filepath for storing root hashes after every successful audit loop. Default is tempdir of every OS.")
+	cmd.PersistentFlags().String("prometheus-port", "9477", "Returning only values for get operations")
+	cmd.PersistentFlags().String("prometheus-host", "9477", "Returning only values for get operations")
+	cmd.PersistentFlags().String("dir", os.TempDir(), "Main directory for audit process tool to initialize")
+	cmd.PersistentFlags().String("audit-username", "", "immudb username used to login during audit")
+	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit")
+
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("auth", cmd.PersistentFlags().Lookup("auth")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile")); err != nil {
@@ -169,10 +173,28 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	if err := viper.BindPFlag("value-only", cmd.PersistentFlags().Lookup("value-only")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("roots-filepath", cmd.PersistentFlags().Lookup("roots-filepath")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("prometheus-port", cmd.PersistentFlags().Lookup("prometheus-port")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("prometheus-host", cmd.PersistentFlags().Lookup("prometheus-host")); err != nil {
+		return err
+	}
 
-	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
-	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
-	viper.SetDefault("auth", client.DefaultOptions().Auth)
+	if err := viper.BindPFlag("dir", cmd.PersistentFlags().Lookup("dir")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("audit-username", cmd.PersistentFlags().Lookup("audit-username")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("audit-password", cmd.PersistentFlags().Lookup("audit-password")); err != nil {
+		return err
+	}
+
+	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
+	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
 	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
@@ -180,5 +202,12 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	viper.SetDefault("pkey", client.DefaultMTLsOptions().Pkey)
 	viper.SetDefault("clientcas", client.DefaultMTLsOptions().ClientCAs)
 	viper.SetDefault("value-only", false)
+	viper.SetDefault("prometheus-port", "9477")
+	viper.SetDefault("prometheus-host", "127.0.0.1")
+	viper.SetDefault("roots-filepath", os.TempDir())
+	viper.SetDefault("audit-password", "")
+	viper.SetDefault("audit-username", "")
+	viper.SetDefault("dir", os.TempDir())
+	o.InitConfig("")
 	return nil
 }

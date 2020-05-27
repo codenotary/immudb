@@ -19,14 +19,15 @@ package immuadmin
 import (
 	"errors"
 	"fmt"
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuadmin/command/service"
-	"github.com/spf13/cobra"
-	daem "github.com/takama/daemon"
 	"os"
 	"os/exec"
 	"strconv"
 	"time"
+
+	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/immuadmin/command/service"
+	"github.com/spf13/cobra"
+	daem "github.com/takama/daemon"
 )
 
 var installableServices = []string{"immudb", "immugw"}

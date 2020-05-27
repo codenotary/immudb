@@ -33,6 +33,7 @@ func (cli *cli) initCommands() {
 	cli.Register(&command{"safeget", "Get and verify item having the specified key", cli.safeGetKey, []string{"key"}})
 	cli.Register(&command{"get", "Get item having the specified key", cli.getKey, []string{"key"}})
 	cli.Register(&command{"getbyindex", "Return an element by index", cli.getByIndex, []string{"index"}})
+	cli.Register(&command{"getrawbysafeindex", "Return an element by index ", cli.getRawBySafeIndex, []string{"index"}})
 
 	// Set commands
 	cli.Register(&command{"set", "Add new item having the specified key and value", cli.set, []string{"key", "value"}})

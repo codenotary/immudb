@@ -245,14 +245,14 @@ func testGetByRawIndexOnSafeZAdd(ctx context.Context, t *testing.T, set []byte, 
 	require.True(t, vi2.Verified)
 	require.NoError(t, err2)
 
-	item1, err3 := client.ByRawSafeIndex(ctx, 9)
+	item1, err3 := client.RawBySafeIndex(ctx, 9)
 	require.True(t, item1.Verified)
 	require.Equal(t, []byte("val-n1"), item1.Value)
 	require.NoError(t, err3)
-	item2, err2 := client.ByRawSafeIndex(ctx, 1)
+	item2, err2 := client.RawBySafeIndex(ctx, 1)
 	require.True(t, item2.Verified)
 	require.NoError(t, err2)
-	item3, err3 := client.ByRawSafeIndex(ctx, 2)
+	item3, err3 := client.RawBySafeIndex(ctx, 2)
 	require.True(t, item3.Verified)
 	require.NoError(t, err3)
 }
@@ -264,7 +264,7 @@ func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scor
 	index, err2 := client.ZAdd(ctx, []byte("set-n11"), 98.5, []byte("key-n11"))
 	require.NoError(t, err2)
 
-	item1, err3 := client.ByRawSafeIndex(ctx, index.Index)
+	item1, err3 := client.RawBySafeIndex(ctx, index.Index)
 	require.True(t, item1.Verified)
 	require.Equal(t, []byte("key-n11"), item1.Value)
 	require.NoError(t, err3)
