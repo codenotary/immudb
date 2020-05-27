@@ -80,21 +80,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 			}
 		}
 	}
-	pathstr := viper.GetString("roots-filepath")
-	if pathstr == "/tmp/" {
-		filename := filepath.Join(os.TempDir(), filename())
-		cAgent.rootStorage, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
-		if err != nil {
-			QuitToStdErr(err.Error())
-		}
-	} else {
-		pathstr = strings.TrimSuffix(pathstr, "/")
-		filename := filepath.Join(pathstr, filename())
-		cAgent.rootStorage, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
-		if err != nil {
-			QuitToStdErr(err.Error())
-		}
-	}
+
 	cliOpts := cAgent.immuc.GetOptions()
 	ctx = context.Background()
 	if viper.GetString("audit-username") != "" || viper.GetString("audit-password") != "" {
