@@ -39,6 +39,7 @@ type Options struct {
 	NoHistograms    bool
 	Detached        bool
 	CorruptionCheck bool
+	MetricsServer   bool
 }
 
 // DefaultOptions returns default server options
@@ -59,6 +60,7 @@ func DefaultOptions() Options {
 		NoHistograms:    false,
 		Detached:        false,
 		CorruptionCheck: true,
+		MetricsServer:   true,
 	}
 }
 
@@ -169,4 +171,8 @@ func (o Options) String() string {
 		return err.Error()
 	}
 	return string(optionsJson)
+}
+func (o Options) WithMetricsServer(metricsServer bool) Options {
+	o.MetricsServer = metricsServer
+	return o
 }
