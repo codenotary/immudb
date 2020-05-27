@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/immuclient/audit"
 	"github.com/spf13/cobra"
 )
 
@@ -72,6 +73,22 @@ func (cl *commandline) status(cmd *cobra.Command) {
 			return nil
 		},
 		Args: cobra.NoArgs,
+	}
+	cmd.AddCommand(ccmd)
+}
+
+func (cl *commandline) auditmode(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:               "audit-mode command",
+		Short:             "Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' for details",
+		Aliases:           []string{"audit-mode"},
+		PersistentPostRun: cl.disconnect,
+		ValidArgs:         []string{"help", "start", "install", "uninstall", "restart", "stop", "status"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			audit.Init(args)
+			return nil
+		},
+		Args: cobra.MaximumNArgs(2),
 	}
 	cmd.AddCommand(ccmd)
 }

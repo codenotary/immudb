@@ -72,7 +72,7 @@ type ImmuClient interface {
 	Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error)
 	ZScan(ctx context.Context, set []byte) (*schema.StructuredItemList, error)
 	ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error)
-	ByRawSafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error)
+	RawBySafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error)
 	IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error)
 	Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error)
 	SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error)
@@ -810,8 +810,8 @@ func (c *immuClient) ByIndex(ctx context.Context, index uint64) (*schema.Structu
 	return result, err
 }
 
-// ByRawSafeIndex returns a verified index at specified index
-func (c *immuClient) ByRawSafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error) {
+// RawBySafeIndex returns a verified index at specified index
+func (c *immuClient) RawBySafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error) {
 	c.Lock()
 	defer c.Unlock()
 

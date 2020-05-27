@@ -21,7 +21,6 @@ import (
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -29,8 +28,8 @@ import (
 var o = c.Options{}
 
 func parseflags() error {
-	pflag.IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
-	pflag.StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
+	pflag.IntP("immudb-port", "p", client.DefaultOptions().Port, "immudb port number")
+	pflag.StringP("immudb-address", "a", client.DefaultOptions().Address, "immudb host address")
 	pflag.StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.toml)")
 	pflag.String(
 		"tokenfile",
@@ -71,11 +70,13 @@ func parseflags() error {
 	if err := viper.BindPFlag("value-only", pflag.Lookup("value-only")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("config", pflag.Lookup("config")); err != nil {
+		return err
+	}
 	pflag.Parse()
 	o.InitConfig(o.CfgFn)
-	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
-	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
-	viper.SetDefault("auth", client.DefaultOptions().Auth)
+	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
+	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
 	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
@@ -83,5 +84,7 @@ func parseflags() error {
 	viper.SetDefault("pkey", client.DefaultMTLsOptions().Pkey)
 	viper.SetDefault("clientcas", client.DefaultMTLsOptions().ClientCAs)
 	viper.SetDefault("value-only", false)
+	viper.SetDefault("config", "")
+
 	return nil
 }

@@ -106,3 +106,17 @@ func (cli *cli) safeGetKey(args []string) (string, error) {
 	}
 	return printItem([]byte(args[0]), nil, response, cli.valueOnly), nil
 }
+
+func (cli *cli) getRawBySafeIndex(args []string) (string, error) {
+	index, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
+		return "", err
+	}
+	ctx := context.Background()
+	response, err := cli.ImmuClient.RawBySafeIndex(ctx, index)
+	if err != nil {
+		return "", err
+	}
+	resp := printItem(response.Key, response.Value, response, cli.valueOnly)
+	return resp, nil
+}

@@ -41,6 +41,7 @@ func main() {
 		}
 		return
 	}
+
 	cliClient, err := cli.Init()
 	if err != nil {
 		c.QuitWithUserError(err)
@@ -58,6 +59,9 @@ func isCommand(args []string) bool {
 	if len(os.Args) < 2 {
 		return false
 	}
+	if !strings.HasPrefix(os.Args[1], "-") {
+		return true
+	}
 	for i := range args {
 		for j := range os.Args {
 			if args[i] == os.Args[j] {
@@ -66,7 +70,7 @@ func isCommand(args []string) bool {
 			}
 		}
 	}
-	return !strings.HasPrefix(os.Args[1], "-")
+	return false
 }
 
 func commandNames(cms []*cobra.Command) []string {
