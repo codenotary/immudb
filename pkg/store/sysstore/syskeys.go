@@ -18,15 +18,11 @@ package sysstore
 
 import "bytes"
 
-var KeysPrefixes = struct {
-	User        byte
-	Password    byte
-	Permissions byte
-}{
-	User:        1,
-	Password:    2,
-	Permissions: 3,
-}
+const (
+	KeyPrefixUser = iota + 1
+	KeyPrefixPassword
+	KeyPrefixPermissions
+)
 
 func AddKeyPrefix(k []byte, prefix byte) []byte {
 	return bytes.Join([][]byte{[]byte{prefix}, k}, []byte{})
