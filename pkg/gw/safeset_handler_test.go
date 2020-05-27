@@ -1,25 +1,35 @@
 package gw
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	immuclient "github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
+	immudb "github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/lithammer/shortuuid"
 )
 
+func generateRandomTCPPort() int {
+	rand.Seed(time.Now().UnixNano())
+	min := 1024
+	max := 64000
+	return rand.Intn(max - min + 1)
+}
+
 func TestSafeset(t *testing.T) {
-	op := server.DefaultOptions()
-	op.Dir = "db_" + shortuuid.New()
-	s := server.
-		DefaultServer().WithOptions(op)
+	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
+	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
+
+	op := immudb.DefaultOptions().WithPort(generateRandomTCPPort()).WithDir("db_" + strconv.FormatInt(int64(generateRandomTCPPort()), 10))
+	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
 	defer s.Stop()
@@ -42,8 +52,8 @@ func TestSafeset(t *testing.T) {
 	}{
 		{ //Pablo = UGFibG8=
 			//Picasso = UGljYXNzbw==
-			"Send corrent request",
-			`{"kv": {"key": "UGFibG8=", "value": "UGljYXNzbw=="	} }`,
+			"Send correct request",
+			`{"kv": {"key": "` + key + `", "value": "` + value + `"	} }`,
 			200,
 			"verified",
 			true,
@@ -56,8 +66,8 @@ func TestSafeset(t *testing.T) {
 			true,
 		},
 		{
-			"Send incorrent json field",
-			`{"data": {"key": "UGFibG8=", "value": "UGljYXNzbw==" } }`,
+			"Send incorrect json field",
+			`{"data": {"key": "` + key + `", "value": "` + value + `"} }`,
 			400,
 			"error",
 			"incorrect JSON payload",
@@ -105,7 +115,7 @@ func TestSafeset(t *testing.T) {
 				t.Error(body)
 				t.Error(string(w.Body.Bytes()))
 			}
-
+			// TODO gjergji this should be used once #263 is fixed
 			// if w.Code != tc.want {
 			// 	t.Errorf("handler returned wrong status code: got %v want %v",
 			// 		w.Code, tc.want)
