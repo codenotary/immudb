@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/server"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -45,6 +46,15 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		return nil, fmt.Errorf("Initialization failed: %s \n", err.Error())
 	}
 	ctx := context.Background()
+	
+	pidPath := viper.GetString("pidfile")
+	if pidPath != ""{
+		if cAgent.Pid, err = server.NewPid(pidPath); err != nil {
+			cAgent.logger.Errorf("failed to write pidfile: %s", err)
+			return nil, err
+		}
+	}
+
 	freqstr := os.Getenv("audit-agent-interval")
 	cAgent.cycleFrequency = 60
 	sclient := cAgent.immuc.GetServiceClient()
