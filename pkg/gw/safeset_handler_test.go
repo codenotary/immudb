@@ -28,7 +28,10 @@ func TestSafeset(t *testing.T) {
 	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
 	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
 	tcpPort := generateRandomTCPPort()
-	op := immudb.DefaultOptions().WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10))
+	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
+	op := immudb.DefaultOptions().
+		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
+		WithMetricsServer(false).WithCorruptionCheck(false)
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,12 +18,6 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
 
-func generateRandomTCPPort() int {
-	rand.Seed(time.Now().UnixNano())
-	min := 1024
-	max := 64000
-	return rand.Intn(max - min + 1)
-}
 func insertSampleSet(immudbTCPPort int) (string, error) {
 	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
 	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
@@ -63,7 +56,9 @@ func insertSampleSet(immudbTCPPort int) (string, error) {
 func TestSafeReference(t *testing.T) {
 	tcpPort := generateRandomTCPPort()
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
-	op := immudb.DefaultOptions().WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).WithMetricsServer(false)
+	op := immudb.DefaultOptions().
+		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
+		WithMetricsServer(false).WithCorruptionCheck(false)
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
