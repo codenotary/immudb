@@ -8,6 +8,7 @@ require (
 	github.com/codenotary/merkletree v0.1.1
 	github.com/dgraph-io/badger/v2 v2.0.0-20200408100755-2e708d968e94
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
+	github.com/fatih/color v1.9.0
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/golang/protobuf v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0

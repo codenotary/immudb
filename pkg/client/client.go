@@ -1066,18 +1066,18 @@ func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, er
 		}
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("error receiving chunk: %v", err))
-			continue
+			break
 		}
 		for _, kv := range kvList.Kv {
 			kvBytes, err := proto.Marshal(kv)
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("error marshaling key-value %+v: %v", kv, err))
-				continue
+				break
 			}
 			o, err := writeSeek(writer, kvBytes, offset)
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("error writing as bytes key-value %+v: %v", kv, err))
-				continue
+				break
 			}
 			offset = o
 			counter++
