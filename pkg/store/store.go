@@ -473,6 +473,14 @@ func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
 	t.tree.Lock()
 	t.tree.flush()
 
+	var emptyCaches = true
+	for _, c := range t.tree.caches {
+		tail := c.Tail()
+		if tail == 0 {
+			continue
+		}
+		emptyCaches = false
+	}
 	stream := t.db.NewStreamAt(t.tree.w)
 	stream.NumGo = 16
 	stream.LogPrefix = "Badger.Streaming"
@@ -481,10 +489,13 @@ func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
 		kvChan <- list
 		return nil
 	}
-
-	// Run the stream
-	if err = stream.Orchestrate(context.Background()); err != nil {
-		return err
+	//workaround possible badger bug
+	//ReadTs should not be retrieved for managed DB
+	if !emptyCaches {
+		// Run the stream
+		if err = stream.Orchestrate(context.Background()); err != nil {
+			return err
+		}
 	}
 	close(kvChan)
 	return err
