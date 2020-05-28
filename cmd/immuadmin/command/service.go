@@ -107,7 +107,9 @@ Root permission are required in order to make administrator operations.
 			}
 		}
 
-		execPath = service.GetDefaultExecPath(localFile)
+		if execPath, err = service.GetDefaultExecPath(localFile); err != nil {
+			return err
+		}
 
 		if stringInSlice("--remove-files", os.Args) {
 			if localFile, err = cmd.Flags().GetString("local-file"); err != nil {
@@ -152,7 +154,11 @@ Root permission are required in order to make administrator operations.
 			if err = service.InstallSetup(args[0]); err != nil {
 				return err
 			}
-			if msg, err = daemon.Install("--config", service.GetDefaultConfigPath(args[0])); err != nil {
+			var cp string
+			if cp, err = service.GetDefaultConfigPath(args[0]); err != nil {
+				return err
+			}
+			if msg, err = daemon.Install("--config", cp); err != nil {
 				return err
 			}
 			fmt.Println(msg)
