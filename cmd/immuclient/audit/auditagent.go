@@ -19,6 +19,7 @@ package audit
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/server"
 	"io"
 	"os"
 
@@ -46,6 +47,7 @@ type auditAgent struct {
 	firstRun       bool
 	opts           *client.Options
 	logger         logger.Logger
+	Pid            server.PIDFile
 }
 
 func (a *auditAgent) writeRoot(root *schema.Root, t string) error {

@@ -33,7 +33,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var winExecPath = os.Getenv("ProgramData") + `\immudb`
+var winExecPath = os.Getenv("ProgramFiles") + `\Immudb`
 
 func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
