@@ -23,11 +23,6 @@ import (
 	"strings"
 )
 
-var (
-	cfg_programdata  = windows.FOLDERID_ProgramData
-	cfg_programfiles = windows.FOLDERID_ProgramFiles
-)
-
 // ResolvePath
 func ResolvePath(path string, quote bool) (finalPath string, err error) {
 	var toReplace string
