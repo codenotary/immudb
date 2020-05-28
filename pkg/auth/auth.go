@@ -210,7 +210,7 @@ func verifyToken(token string) (*JSONToken, error) {
 	keys, ok := tokenKeyPairs.keysPerUser[tokenPayload.Username]
 	if !ok {
 		return nil, status.Error(
-			codes.Unauthenticated, "invalid token, re-login is required")
+			codes.Unauthenticated, "invalid token")
 	}
 	var jsonToken paseto.JSONToken
 	var footer string
@@ -247,7 +247,7 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 	jsonToken, err := verifyToken(token)
 	if err != nil {
 		return nil, status.Error(
-			codes.Unauthenticated, "invalid token, re-login is required")
+			codes.Unauthenticated, "invalid token")
 	}
 	return jsonToken, nil
 }
