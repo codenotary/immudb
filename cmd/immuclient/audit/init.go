@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/codenotary/immudb/cmd/immuclient/service"
-	"github.com/codenotary/immudb/pkg/client"
 )
 
 func Init(args []string) {
@@ -45,10 +44,12 @@ func NewAuditAgent() (AuditAgent, error) {
 	ad.firstRun = true
 	var err error
 	ad.opts = options()
-	if ad.immuc, err = client.NewImmuClient(options()); err != nil || ad.immuc == nil {
-		return nil, fmt.Errorf("Initialization failed: %s \n", err.Error())
+	srv, err := service.NewDaemon(name, description, name)
+	if err != nil {
+		return nil, err
 	}
-	return ad.InitAgent()
+	ad.Daemon = srv
+	return ad, nil
 }
 
 func IsAuditD(args []string) {
@@ -73,5 +74,4 @@ func IsAuditD(args []string) {
 	}
 	fmt.Printf("ERROR: %v is not matching with any valid arguments.\n Available list is %v \n", args[0], validargs)
 	os.Exit(0)
-	return
 }

@@ -33,7 +33,7 @@ import (
 )
 
 const linuxExecPath = "/usr/sbin/"
-const linuxConfigPath = "/etc/immuclient"
+const linuxConfigPath = "/etc/immudb"
 const linuxUser = "immu"
 const linuxGroup = "immu"
 
