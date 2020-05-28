@@ -54,6 +54,7 @@ type ImmuClient interface {
 	WaitForHealthCheck(ctx context.Context) (err error)
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
+	Logout(ctx context.Context) error
 	ListUsers(ctx context.Context) (*schema.UserList, error)
 	GetUser(ctx context.Context, user []byte) (*schema.UserResponse, error)
 	CreateUser(ctx context.Context, user []byte, pass []byte, permissions []byte) (*schema.UserResponse, error)
@@ -384,6 +385,25 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 	})
 	c.Logger.Debugf("set finished in %s", time.Since(start))
 	return result, err
+}
+
+// Logout ...
+func (c *immuClient) Logout(ctx context.Context) error {
+	start := time.Now()
+	ok, err := FileExistsInUserHomeDir(c.Options.TokenFileName)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("not logged in")
+	}
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+	DeleteFileFromUserHomeDir(c.Options.TokenFileName)
+	_, err = c.ServiceClient.Logout(ctx, new(empty.Empty))
+	c.Logger.Debugf("logout finished in %s", time.Since(start))
+	return err
 }
 
 // Get ...

@@ -52,14 +52,12 @@ func (cli *cli) login(args []string) (string, error) {
 }
 
 func (cli *cli) logout(args []string) (string, error) {
-	len, err := client.ReadFileFromUserHomeDir(cli.ImmuClient.GetOptions().TokenFileName)
-	if err != nil || len == "" {
-		return "User not logged in.", nil
+	var err error
+	if err = cli.ImmuClient.Logout(context.Background()); err != nil {
+		return "", err
 	}
-	client.DeleteFileFromUserHomeDir(cli.ImmuClient.GetOptions().TokenFileName)
 	cli.isLoggedin = false
 	cli.ImmuClient.GetOptions().Auth = false
-
 	cli.ImmuClient, err = client.NewImmuClient((cli.ImmuClient.GetOptions()))
 	if err != nil {
 		return "", err

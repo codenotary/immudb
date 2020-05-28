@@ -111,10 +111,22 @@ func GenerateKeys(username string) error {
 }
 
 // DropTokenKeys ...
-func DropTokenKeys(username string) {
+func DropTokenKeys(username string) bool {
 	tokenKeyPairs.Lock()
 	defer tokenKeyPairs.Unlock()
-	delete(tokenKeyPairs.keysPerUser, username)
+	_, ok := tokenKeyPairs.keysPerUser[username]
+	if ok {
+		delete(tokenKeyPairs.keysPerUser, username)
+	}
+	return ok
+}
+
+func DropTokenKeysForCtx(ctx context.Context) (bool, error) {
+	jsonToken, err := verifyTokenFromCtx(ctx)
+	if err != nil {
+		return false, err
+	}
+	return DropTokenKeys(jsonToken.Username), nil
 }
 
 const footer = "immudb"
