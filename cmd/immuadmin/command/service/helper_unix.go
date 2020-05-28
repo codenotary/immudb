@@ -145,13 +145,14 @@ func installConfig(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	var configDir = filepath.Dir(GetDefaultConfigPath(serviceName))
+	cp, _ := GetDefaultConfigPath(serviceName)
+	var configDir = filepath.Dir(cp)
 	err = os.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	configPath := GetDefaultConfigPath(serviceName)
+	configPath, _ := GetDefaultConfigPath(serviceName)
 
 	if err = viper.WriteConfigAs(configPath); err != nil {
 		return err
@@ -322,8 +323,8 @@ func GetDefaultExecPath(localFile string) (string, error) {
 }
 
 // GetDefaultConfigPath returns the default config path
-func GetDefaultConfigPath(serviceName string) string {
-	return filepath.Join(linuxConfigPath, serviceName+".toml")
+func GetDefaultConfigPath(serviceName string) (string, error) {
+	return filepath.Join(linuxConfigPath, serviceName+".toml"), nil
 }
 
 // IsRunning check if status derives from a running process
