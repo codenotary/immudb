@@ -63,8 +63,8 @@ func DeleteFileFromUserHomeDir(pathToFile string) {
 		hd, err := homedir.Dir()
 		if err == nil {
 			p := hd + string(os.PathSeparator) + pathToFile
-			os.Remove(p)
+			_ = os.Remove(p)
 		}
 	}
-	os.Remove(pathToFile)
+	_ = os.Remove(pathToFile)
 }

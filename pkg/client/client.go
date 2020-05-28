@@ -390,18 +390,11 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 // Logout ...
 func (c *immuClient) Logout(ctx context.Context) error {
 	start := time.Now()
-	ok, err := FileExistsInUserHomeDir(c.Options.TokenFileName)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return errors.New("not logged in")
-	}
 	if !c.IsConnected() {
 		return ErrNotConnected
 	}
 	DeleteFileFromUserHomeDir(c.Options.TokenFileName)
-	_, err = c.ServiceClient.Logout(ctx, new(empty.Empty))
+	_, err := c.ServiceClient.Logout(ctx, new(empty.Empty))
 	c.Logger.Debugf("logout finished in %s", time.Since(start))
 	return err
 }
