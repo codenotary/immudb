@@ -33,7 +33,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var winExecPath = windows.KnownFolderPath(windows.FOLDERID_ProgramFiles, windows.KF_FLAG_DEFAULT)
+var winExecPath, _ = windows.KnownFolderPath(windows.FOLDERID_ProgramFiles, windows.KF_FLAG_DEFAULT)
 
 func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
