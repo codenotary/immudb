@@ -18,6 +18,7 @@ package auditor
 
 import (
 	"context"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -59,8 +60,11 @@ func DefaultAuditor(
 	password string,
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
-) (Auditor, error) {
-	logr := logger.NewSimpleLogger("auditor", os.Stderr)
+	logoutput io.Writer) (Auditor, error) {
+	if logoutput == nil {
+		logoutput = os.Stderr
+	}
+	logr := logger.NewSimpleLogger("auditor", logoutput)
 	dt, err := timestamp.NewTdefault()
 	if err != nil {
 		return nil, err
