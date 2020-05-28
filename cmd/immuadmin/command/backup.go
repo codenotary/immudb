@@ -30,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/server"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,10 @@ func (cl *commandline) dumpToFile(cmd *cobra.Command) {
 			ctx := cl.context
 			response, err := cl.immuClient.Dump(ctx, file)
 			if err != nil {
+				color.Set(color.FgHiBlue, color.Bold)
+				fmt.Println("Backup failed.")
+				color.Unset()
+				os.Remove(filename)
 				c.QuitWithUserError(err)
 			}
 			fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response, filename)
