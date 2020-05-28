@@ -185,7 +185,7 @@ The linux service is using the following defaults:
 | ----------------------- | ------------------ |
 | all configuration files | /etc/immudb        |
 | all data files          | /var/lib/immudb    |
-| pid file                | /var/run/immdb.pid |
+| pid file                | /var/lib/immudb/immudb.pid |
 | log files               | /var/log/immudb    |
 
 
@@ -213,7 +213,7 @@ The linux service is using the following defaults:
 | File or configuration   | location           |
 | ----------------------- | ------------------ |
 | all configuration files | /etc/immudb        |
-| pid file                | /var/run/immgw.pid |
+| pid file                | /var/lib/immudb/immugw.pid |
 | log files               | /var/log/immudb    |
 
 
@@ -222,11 +222,11 @@ The linux service is using the following defaults:
 
 ##### immudb
 
-Simply run ```./immudb -d``` to start immudb locally in the background.
+Simply run `./immudb -d` to start immudb locally in the background.
 
 If you want to stop immudb în that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`.
 
-```
+```bash
 immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
@@ -240,6 +240,7 @@ Environment variables:
   IMMUDB_MTLS=false
   IMMUDB_AUTH=false
   IMMUDB_DETACHED=false
+  IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
@@ -258,6 +259,7 @@ Flags:
       --certificate string   server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
       --clientcas string     clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
       --config string        config file (default path are configs or $HOME. Default filename is immudb.ini)
+      --consistency-check    enable consistency check monitor routine. To disable: --consistency-check=false (default true)
   -n, --dbname string        db name (default "immudb")
   -d, --detached             run immudb in background
       --dir string           data folder (default "./db")
@@ -275,11 +277,11 @@ Use "immudb [command] --help" for more information about a command.
 
 ##### immugw
 
-Simply run ```./immugw -d``` to start immugw on the same machine as immudb (test or dev environment) or pointing to the remote immudb system ```./immugw --immudb-address "immudb-server"```.
+Simply run `./immugw -d` to start immugw on the same machine as immudb (test or dev environment) or pointing to the remote immudb system ```./immugw --immudb-address "immudb-server"```.
 
 If you want to stop immugw în that case you need to find the process `ps -ax | grep immugw` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immugw* | Stop-Process`.
 
-```
+```bash
 immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications.
 It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
 
@@ -307,24 +309,27 @@ Available Commands:
   version     Show the immugw version
 
 Flags:
-  -a, --address string          immugw host address (default "127.0.0.1")
-      --certificate string      server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
-      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string           config file (default path are configs or $HOME. Default filename is immugw.toml)
-  -d, --detached                run immudb in background
-      --dir string              program files folder (default ".")
-  -h, --help                    help for immugw
-  -k, --immudb-address string   immudb host address (default "127.0.0.1")
-  -j, --immudb-port int         immudb port number (default 3322)
-      --logfile string          log path with filename. E.g. /tmp/immugw/immugw.log
-  -m, --mtls                    enable mutual tls
-      --pidfile string          pid path with filename. E.g. /var/run/immugw.pid
-      --pkey string             server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
-  -p, --port int                immugw port number (default 3323)
-      --servername string       used to verify the hostname on the returned certificates (default "localhost")
+  -a, --address string            immugw host address (default "127.0.0.1")
+      --audit                     enable audit mode (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)
+      --audit-interval duration   interval at which audit should run (default 5m0s)
+      --audit-password string     immudb password used to login during audit
+      --audit-username string     immudb username used to login during audit (default "immugwauditor")
+      --certificate string        server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
+      --clientcas string          clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string             config file (default path are configs or $HOME. Default filename is immugw.toml)
+  -d, --detached                  run immudb in background
+      --dir string                program files folder (default ".")
+  -h, --help                      help for immugw
+  -k, --immudb-address string     immudb host address (default "127.0.0.1")
+  -j, --immudb-port int           immudb port number (default 3322)
+      --logfile string            log path with filename. E.g. /tmp/immugw/immugw.log
+  -m, --mtls                      enable mutual tls
+      --pidfile string            pid path with filename. E.g. /var/run/immugw.pid
+      --pkey string               server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
+  -p, --port int                  immugw port number (default 3323)
+      --servername string         used to verify the hostname on the returned certificates (default "localhost")
 
 Use "immugw [command] --help" for more information about a command.
-
 
 ```
 
@@ -333,7 +338,7 @@ Use "immugw [command] --help" for more information about a command.
 
 For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage. Simply run ```./immuadmin``` on the same machine.
 
-```
+```bash
 CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
@@ -359,7 +364,7 @@ Available Commands:
   set         Update server config items: auth (none|password|cryptosig), mtls (true|false)
   stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
   status      Show heartbeat status
-  user        Perform various user-related operations: list, create, deactivate, change password
+  user        Perform various user-related operations: list, create, deactivate, change password, set permissions
   version     Show the immuadmin version
 
 Flags:
@@ -382,7 +387,7 @@ Use "immuadmin [command] --help" for more information about a command.
 
 Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```
 
-```
+```bash
 CLI client for immudb - the lightweight, high-speed immutable database for systems and applications.
 Environment variables:
   IMMUCLIENT_IMMUDB-ADDRESS=127.0.0.1
@@ -403,6 +408,7 @@ Available Commands:
   current           Return the last merkle tree root and index stored locally
   get               Get item having the specified key
   getByIndex        Return an element by index
+  getByRawSafeIndex Return an element by index
   help              Help about any command
   history           Fetch history for the item having the specified key
   inclusion         Check if specified index is included in the current tree
@@ -519,6 +525,11 @@ As immudb is compared to Amazon QLDB as well, we compared the performance using 
 ![immudb Execution Benchmark](img/exectime.png "100 records write execution time (lower is better)")
 
 ## News
+
+`May 28, 2020` - **[immudb v0.6.0 GA released!](https://github.com/codenotary/immudb/releases)**
+
+We're thrilled to announce our GA Release v0.6.0 that contains many improvements, bug fixes and new audit features.
+
 
 `May 19, 2020` - **[immudb v0.6.0-rc2 released!](https://github.com/codenotary/immudb/releases)**
 

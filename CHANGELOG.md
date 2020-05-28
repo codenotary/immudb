@@ -4,6 +4,85 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v0.6.0"></a>
+## [v0.6.0] - 2020-05-28
+### Bug Fixes
+- use iota for permissions enum
+- readme doc, immugw start command
+- typos in immugw help
+- licence
+- modify BUILT_BY flag with user email to keep dist script functionalities in makefile
+- race condition while prefixing keys
+- various permissions-related issues
+- when fetching users, only fetch the latest version
+- admin user can change password of regular user without having to know his old password
+- immugw pid path consistency
+- SafeZAdd handler SafeZAdd tests. Fix ReferenceHandler test
+- safereference_handler, add tests [#264](https://github.com/vchain-us/vcn/issues/264)
+- safeset_handler test
+- [#260](https://github.com/vchain-us/vcn/issues/260)
+- implementation of user deactivate
+- rewrite user management to store user, password and permissions separately
+- fix bug on zadd server method
+- **cmd/helper:** fix osx build
+- **cmd/immuadmin/command/service:** fix error returned by GetDefaultConfigPath
+- **cmd/immuadmin/command/service:** fix immudb data uninstall
+- **cmd/immuclient:** Added missing documentations and renamed deprecated structures.
+- **cmd/immuclient:** Fixed wrong audit credentials error
+- **cmd/immuclient:** Added missing documentations and renamed deprecated structures.
+- **cmd/immuclient:** Fixed paths.
+- **cmd/immuclient/audit:** fix immuclient service installation
+- **cmd/immuclient/service:** fix config import
+
+### Changes
+- rename back immugw "trust checker" to "auditor"
+- improve help for immugw auditor metrics
+- rename audit(or) to trust-check(er)
+- use status.Error instead of status.Errorf for static string
+- use Sprintf instead of string concat
+- extract root service from immugw trust checker
+- rename default immudb and immugw loggers
+- turn sys keys prefixes into constants
+- remove setup release in makefile
+- service_name inside release build script  is configurable inside makefile. closes [#159](https://github.com/vchain-us/vcn/issues/159) closes [#239](https://github.com/vchain-us/vcn/issues/239)
+- remove ppc and arm target arch from makefile
+- add CD releases, certificate sign, vcn sign in makefile dist scripts
+- add dist scripts in makefile
+- fix typo in README.md
+- add changelog
+- add getByRawSafeIndex tests
+- move corruption checker inside immudb process
+- update docker files
+- immugw audit publishes -1 if empty db and -2 if error, otherwise 0 (check failed) or 1 (succeeded)
+- immugw audit publishes -1 value for result and root indexes in case the audit could not run (i.e. empty database, error etc.)
+- change immugw metrics port
+- refactoring file cache for immugw auditor
+- rename immugw trust-checker to auditor
+- move auditor package under client directory
+- **cmd:** fix corruption checker flag
+- **cmd/helper:** add path os wildcard resolver
+- **cmd/helper:** fix config path manager stub on linux
+- **cmd/helper:** remove useless var
+- **cmd/immuadmin:** path of service files and binaries are os dynamic
+- **cmd/immuclient:** add pid file management on windows
+- **immuadmin:** improve the very first login message
+
+### Code Refactoring
+- refactor safeset_handler_test
+
+### Features
+- Audit agent added to immuclient.
+- make metrics server start configurable through options to aid tests. MetricsServer must not be started as during tests because prometheus lib panis with: duplicate metrics collector registration attempted.
+- add immugw auditor
+- invalidate tokens by droping public and private keys for a specific user
+- check permissions dynamically
+- implement user permissions and admin command to set them
+- prefix user keys
+- update metrics from immugw auditor
+- **cmd/immuclient/command:** add getByRawSafeIndex method
+- **immugw:** add GET /lastaudit on metrics server
+
+
 <a name="v0.6.0-RC2"></a>
 ## [v0.6.0-RC2] - 2020-05-19
 ### Bug Fixes
@@ -560,6 +639,7 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/vcn/compare/v0.6.0-RC2...HEAD
+[Unreleased]: https://github.com/vchain-us/vcn/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/vchain-us/vcn/compare/v0.6.0-RC2...v0.6.0
 [v0.6.0-RC2]: https://github.com/vchain-us/vcn/compare/v0.6.0-RC1...v0.6.0-RC2
 [v0.6.0-RC1]: https://github.com/vchain-us/vcn/compare/v0.0.0-20200206...v0.6.0-RC1
