@@ -17,8 +17,12 @@ limitations under the License.
 package gw
 
 import (
+	"encoding/json"
 	"expvar"
+	"fmt"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -28,7 +32,23 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+type LastAuditResult struct {
+	ServerID               string
+	ServerAddress          string
+	HasRunConsistencyCheck bool
+	HasError               bool
+	ConsistencyCheckResult bool
+	PreviousRootIndex      float64
+	PreviousRoot           string
+	CurrentRootIndex       float64
+	CurrentRoot            string
+	RunAt                  time.Time
+	sync.RWMutex
+}
+
 type MetricsCollection struct {
+	lastAuditResult *LastAuditResult
+
 	AuditResultPerServer   *prometheus.GaugeVec
 	AuditPrevRootPerServer *prometheus.GaugeVec
 	AuditCurrRootPerServer *prometheus.GaugeVec
@@ -88,6 +108,19 @@ func (mc *MetricsCollection) UpdateAuditResult(
 		WithLabelValues(serverID, serverAddress).Set(currRootIndex)
 	mc.AuditRunAtPerServer.
 		WithLabelValues(serverID, serverAddress).SetToCurrentTime()
+
+	mc.lastAuditResult.Lock()
+	defer mc.lastAuditResult.Unlock()
+	mc.lastAuditResult.ServerID = serverID
+	mc.lastAuditResult.ServerAddress = serverAddress
+	mc.lastAuditResult.HasRunConsistencyCheck = checked
+	mc.lastAuditResult.HasError = withError
+	mc.lastAuditResult.ConsistencyCheckResult = checked && !withError && result
+	mc.lastAuditResult.PreviousRootIndex = prevRootIndex
+	mc.lastAuditResult.PreviousRoot = fmt.Sprintf("%x", prevRoot.GetRoot())
+	mc.lastAuditResult.CurrentRootIndex = currRootIndex
+	mc.lastAuditResult.CurrentRoot = fmt.Sprintf("%x", currRoot.GetRoot())
+	mc.lastAuditResult.RunAt = time.Now()
 }
 
 func newAuditGaugeVec(name string, help string) *prometheus.GaugeVec {
@@ -102,6 +135,7 @@ func newAuditGaugeVec(name string, help string) *prometheus.GaugeVec {
 }
 
 var Metrics = MetricsCollection{
+	lastAuditResult: &LastAuditResult{},
 	AuditResultPerServer: newAuditGaugeVec(
 		"audit_result_per_server",
 		"Latest audit result (1 = ok, 0 = tampered).",
@@ -134,6 +168,17 @@ func StartMetrics(
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/debug/vars", expvar.Handler())
+	mux.HandleFunc("/lastaudit", func(w http.ResponseWriter, req *http.Request) {
+		bs, err := json.Marshal(Metrics.lastAuditResult)
+		if err != nil {
+			l.Errorf("error marshaling to json the last audit result: %v", err)
+			http.Error(w, fmt.Sprintf("internal error: %v", err), http.StatusInternalServerError)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write(bs); err != nil {
+			l.Errorf("error writing the response with the last audit result json: %v", err)
+		}
+	})
 	server := &http.Server{Addr: addr, Handler: mux}
 	go func() {
 		if err := server.ListenAndServe(); err != nil {

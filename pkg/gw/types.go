@@ -17,10 +17,11 @@ limitations under the License.
 package gw
 
 import (
+	"os"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
-	"os"
 )
 
 type ImmuGwServer struct {
@@ -33,7 +34,7 @@ type ImmuGwServer struct {
 
 func DefaultServer() *ImmuGwServer {
 	return &ImmuGwServer{
-		Logger:  logger.NewSimpleLogger("immugw-server", os.Stderr),
+		Logger:  logger.NewSimpleLogger("immugw ", os.Stderr),
 		Options: DefaultOptions(),
 		quit:    make(chan struct{}),
 	}

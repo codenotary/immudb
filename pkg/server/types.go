@@ -38,7 +38,7 @@ type ImmuServer struct {
 
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
-		Logger:  logger.NewSimpleLogger("immu-server", os.Stderr),
+		Logger:  logger.NewSimpleLogger("immudb ", os.Stderr),
 		Options: DefaultOptions(),
 		quit:    make(chan struct{}),
 	}
