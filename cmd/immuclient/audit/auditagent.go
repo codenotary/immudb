@@ -33,6 +33,7 @@ import (
 
 type AuditAgent interface {
 	Manage(args []string) (string, error)
+	InitAgent() (AuditAgent, error)
 }
 
 type auditAgent struct {
@@ -75,6 +76,10 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 	exec := newExecutable(a)
 
 	if command == "install" {
+		_, err := a.InitAgent()
+		if err != nil {
+			QuitToStdErr(err.Error())
+		}
 		localFile = viper.GetString("local-file")
 		if localFile, err = service.GetExecutable(localFile, name); err != nil {
 			return "", err
@@ -165,6 +170,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			return fmt.Sprintf("Invalid arg %s", command), nil
 		}
 	}
+	a.InitAgent()
 	return a.Run(exec)
 }
 

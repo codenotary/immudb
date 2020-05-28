@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/cmd/immuclient/service"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
 	"github.com/codenotary/immudb/pkg/client/cache"
@@ -41,12 +40,11 @@ const (
 var ErrAgentNotActive = errors.New("agent not active")
 
 func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
-	srv, err := service.NewDaemon(name, description, name)
-	if err != nil {
-		return nil, err
+	var err error
+	if cAgent.immuc, err = client.NewImmuClient(options()); err != nil || cAgent.immuc == nil {
+		return nil, fmt.Errorf("Initialization failed: %s \n", err.Error())
 	}
 	ctx := context.Background()
-	cAgent.Daemon = srv
 	freqstr := os.Getenv("audit-agent-interval")
 	cAgent.cycleFrequency = 60
 	sclient := cAgent.immuc.GetServiceClient()
