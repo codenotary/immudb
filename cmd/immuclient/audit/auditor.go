@@ -104,7 +104,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		viper.GetString("audit-username"),
 		viper.GetString("audit-password"),
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
-		cAgent.promot.exporter)
+		cAgent.promot.exporter, cAgent.logfile)
 	if err != nil {
 		return nil, err
 	}

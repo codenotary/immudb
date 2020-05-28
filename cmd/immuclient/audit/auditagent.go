@@ -48,6 +48,7 @@ type auditAgent struct {
 	opts           *client.Options
 	logger         logger.Logger
 	Pid            server.PIDFile
+	logfile        io.Writer
 }
 
 func (a *auditAgent) writeRoot(root *schema.Root, t string) error {
@@ -123,6 +124,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			if err != nil {
 				logfile = os.Stderr
 			}
+			a.logfile = logfile
 			a.logger = logger.NewSimpleLogger("immuclientd", logfile)
 			fmt.Println("installing " + localFile + "...")
 
@@ -172,6 +174,12 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			return fmt.Sprintf("Invalid arg %s", command), nil
 		}
 	}
+	logfile, err := os.OpenFile(viper.GetString("logfile"), os.O_CREATE|os.O_APPEND, 0755)
+	if err != nil {
+		logfile = os.Stderr
+	}
+	a.logfile = logfile
+	a.logger = logger.NewSimpleLogger("immuclientd", logfile)
 	a.InitAgent()
 	return a.Run(exec)
 }
