@@ -155,7 +155,22 @@ func EraseData(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.FromSlash(viper.GetString("dir")))
+	var path string
+	if path, err = helper.ResolvePath(filepath.FromSlash(viper.GetString("dir")), false); err != nil {
+		return err
+	}
+	data := filepath.Join(path, "data")
+	if err := os.RemoveAll(data); err!=nil {
+		return err
+	}
+	immudbsys := filepath.Join(path, "immudbsys")
+	if err := os.RemoveAll(immudbsys); err!=nil {
+		return err
+	}
+	if err := os.RemoveAll(filepath.Join(path, "immudb.identifier")); err!=nil {
+		return err
+	}
+	return nil
 }
 
 // GetExecutable looks for the service executable name provided or try to use an executable presents in current folder. It returns the absolute file path
