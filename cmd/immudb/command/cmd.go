@@ -114,7 +114,10 @@ func Immudb(cmd *cobra.Command, args []string) (err error) {
 }
 
 func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
-	dir := viper.GetString("dir")
+	dir, err := c.ResolvePath(viper.GetString("dir"), true)
+	if err != nil {
+		return options, err
+	}
 	port := viper.GetInt("port")
 	address := viper.GetString("address")
 	dbName := viper.GetString("dbname")
@@ -122,16 +125,34 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return server.Options{}, err
 	}
-	pidfile := viper.GetString("pidfile")
-	logfile := viper.GetString("logfile")
+	if err != nil {
+		return options, err
+	}
+	pidfile, err := c.ResolvePath(viper.GetString("pidfile"), true)
+	if err != nil {
+		return options, err
+	}
+	logfile, err := c.ResolvePath(viper.GetString("logfile"), true)
+	if err != nil {
+		return options, err
+	}
 	mtls := viper.GetBool("mtls")
 	auth := viper.GetBool("auth")
 	noHistograms := viper.GetBool("no-histograms")
 	detached := viper.GetBool("detached")
 	consistencyCheck := viper.GetBool("consistency-check")
-	certificate := viper.GetString("certificate")
-	pkey := viper.GetString("pkey")
-	clientcas := viper.GetString("clientcas")
+	certificate, err := c.ResolvePath(viper.GetString("certificate"), true)
+	if err != nil {
+		return options, err
+	}
+	pkey, err := c.ResolvePath(viper.GetString("pkey"), true)
+	if err != nil {
+		return options, err
+	}
+	clientcas, err := c.ResolvePath(viper.GetString("clientcas"), true)
+	if err != nil {
+		return options, err
+	}
 
 	options = server.
 		DefaultOptions().
