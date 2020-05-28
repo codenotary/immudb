@@ -210,7 +210,11 @@ func RemoveProgramFiles(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	config := filepath.Dir(GetDefaultConfigPath(serviceName))
+	cp, err := GetDefaultConfigPath(serviceName)
+	if err != nil {
+		return err
+	}
+	config := filepath.Dir(cp)
 	os.RemoveAll(config)
 	return
 }
