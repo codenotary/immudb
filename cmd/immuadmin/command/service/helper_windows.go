@@ -21,6 +21,7 @@ package service
 import (
 	"bytes"
 	"fmt"
+	"github.com/codenotary/immudb/cmd/helper"
 	"io"
 	"os"
 	"path/filepath"
@@ -32,8 +33,6 @@ import (
 	"github.com/takama/daemon"
 	"golang.org/x/sys/windows"
 )
-
-const winExecPath = "C:\\Windows\\System32\\"
 
 func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
@@ -87,28 +86,68 @@ func InstallSetup(serviceName string) (err error) {
 }
 
 func UninstallSetup(serviceName string) (err error) {
-	// Useless at the moment
+	// remove ProgramFiles folder only if it is empty
+	var cep string
+	if cep, err = getCommonExecPath(); err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(cep, serviceName+".exe"))
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(cep)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		err = os.Remove(cep)
+	}
+	// remove ProgramData folder only if it is empty
+	var cepd string
+	if cepd, err = helper.ResolvePath(viper.GetString("dir"), false); err != nil {
+		return err
+	}
+	f1, err := os.Open(cepd)
+	if err != nil {
+		return err
+	}
+	defer f1.Close()
+	_, err = f1.Readdirnames(1)
+	if err == io.EOF {
+		err = os.Remove(cepd)
+	}
 	return err
 }
 
 func installConfig(serviceName string) (err error) {
+	var cp string
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	var configDir = filepath.Dir(GetDefaultConfigPath(serviceName))
+
+	if cp, err = GetDefaultConfigPath(serviceName); err != nil {
+		return err
+	}
+	var configDir = filepath.Dir(cp)
 	err = os.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
-	return viper.WriteConfigAs(GetDefaultConfigPath(serviceName))
+	return viper.WriteConfigAs(cp)
 }
 
 // RemoveProgramFiles remove all program files
 func RemoveProgramFiles(serviceName string) (err error) {
+	var path string
 	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.Join(filepath.FromSlash(viper.GetString("dir")), "config"))
+	if path, err = helper.ResolvePath(filepath.Join(filepath.FromSlash(viper.GetString("dir")), "config"), false); err != nil {
+		return err
+	}
+	return os.RemoveAll(path)
 }
 
 // EraseData erase all data
@@ -146,14 +185,27 @@ func GetExecutable(input string, serviceName string) (exec string, err error) {
 // todo @Michele use functions from the fs package?
 //CopyExecInOsDefault copy the executable in default exec folder and returns the path
 func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
+	// exec path folder install creation
+	// todo @Michele this should be move in installSetup
+	var cep string
+	if cep, err = getCommonExecPath(); err != nil {
+		return "", err
+	}
+	err = os.MkdirAll(cep, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+
 	from, err := os.Open(execPath)
 	if err != nil {
 		return "", err
 	}
 	defer from.Close()
 
-	newExecPath = GetDefaultExecPath(execPath)
-
+	newExecPath, err = GetDefaultExecPath(execPath)
+	if err != nil {
+		return "", err
+	}
 	to, err := os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return "", err
@@ -167,15 +219,33 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 }
 
 // GetDefaultExecPath returns the default exec path
-func GetDefaultExecPath(execPath string) string {
+func GetDefaultExecPath(execPath string) (string, error) {
 	execName := filepath.Base(execPath)
-	return filepath.Join(winExecPath, execName)
+	cp, err := getCommonExecPath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cp, execName), nil
+}
+
+// getCommonExecPath returns exec path for all services
+func getCommonExecPath() (string, error) {
+	pf, err := windows.KnownFolderPath(windows.FOLDERID_ProgramFiles, windows.KF_FLAG_DEFAULT)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(pf, "Immudb"), nil
 }
 
 // GetDefaultConfigPath returns the default config path
-func GetDefaultConfigPath(serviceName string) string {
-	var dataDir = filepath.FromSlash(viper.GetString("dir"))
-	return filepath.Join(strings.Title(dataDir), "config", serviceName+".toml")
+func GetDefaultConfigPath(serviceName string) (dataDir string, err error) {
+	dataDir = filepath.FromSlash(viper.GetString("dir"))
+	var pd string
+	if pd, err = windows.KnownFolderPath(windows.FOLDERID_ProgramData, windows.KF_FLAG_DEFAULT); err != nil {
+		return "", err
+	}
+	dataDir = strings.Replace(dataDir, "%programdata%", pd, -1)
+	return filepath.Join(strings.Title(dataDir), "config", serviceName+".toml"), err
 }
 
 // IsRunning check if status derives from a running process

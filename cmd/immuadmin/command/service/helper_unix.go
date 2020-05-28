@@ -263,7 +263,7 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	}
 	defer from.Close()
 
-	newExecPath = GetDefaultExecPath(execPath)
+	newExecPath, _ = GetDefaultExecPath(execPath)
 
 	to, err := os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
@@ -316,9 +316,9 @@ func uninstallExecutables(serviceName string) error {
 }
 
 // GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
-func GetDefaultExecPath(localFile string) string {
+func GetDefaultExecPath(localFile string) (string, error) {
 	execName := filepath.Base(localFile)
-	return filepath.Join(linuxExecPath, execName)
+	return filepath.Join(linuxExecPath, execName), nil
 }
 
 // GetDefaultConfigPath returns the default config path
