@@ -302,29 +302,37 @@ func (t *treeStore) worker() {
 func (t *treeStore) flush() {
 	t.log.Infof("Flushing tree caches at index %d", t.w-1)
 	var cancel bool
+	var emptyCaches bool = true
 	wb := t.db.NewWriteBatchAt(t.w)
 	defer func() {
 		if cancel {
 			wb.Cancel()
 			return
 		}
-		if err := wb.Flush(); err != nil {
-			t.log.Errorf("Tree flush error: %s", err)
-		} else {
+		advance := func() {
 			// advance cache indexes iff flushing has succeeded
 			for l, c := range t.caches {
 				t.cPos[l] = c.Tail()
 			}
 			t.lastFlushed = t.w
 		}
+		//workaround possible badger bug
+		//Commit cannot be called with managedDB=true. Use CommitAt.
+		if !emptyCaches {
+			err := wb.Flush()
+			if err != nil {
+				t.log.Errorf("Tree flush error: %s", err)
+				return
+			}
+			advance()
+		}
 	}()
-
 	for l, c := range t.caches {
 		tail := c.Tail()
 		if tail == 0 {
 			continue
 		}
-
+		emptyCaches = false
 		// fmt.Printf("Flushing [l=%d, head=%d, tail=%d] from %d to (%d-1)\n", l, c.Head(), c.Tail(), t.cPos[l], tail)
 		for i := t.cPos[l]; i < tail; i++ {
 			if h := c.Get(i); h != nil {
