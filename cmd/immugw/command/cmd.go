@@ -97,7 +97,10 @@ func Immugw(cmd *cobra.Command, args []string) (err error) {
 	return
 }
 func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
-	dir := viper.GetString("dir")
+	dir, err := c.ResolvePath(viper.GetString("dir"), true)
+	if err != nil {
+		return options, err
+	}
 	port := viper.GetInt("port")
 	address := viper.GetString("address")
 	immudbport := viper.GetInt("immudb-port")
@@ -110,14 +113,29 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	auditInterval := viper.GetDuration("audit-interval")
 	auditUsername := viper.GetString("audit-username")
 	auditPassword := viper.GetString("audit-password")
-	pidfile := viper.GetString("pidfile")
-	logfile := viper.GetString("logfile")
+	pidfile, err := c.ResolvePath(viper.GetString("pidfile"), true)
+	if err != nil {
+		return options, err
+	}
+	logfile, err := c.ResolvePath(viper.GetString("logfile"), true)
+	if err != nil {
+		return options, err
+	}
 	mtls := viper.GetBool("mtls")
 	detached := viper.GetBool("detached")
 	servername := viper.GetString("servername")
-	certificate := viper.GetString("certificate")
-	pkey := viper.GetString("pkey")
-	clientcas := viper.GetString("clientcas")
+	certificate, err := c.ResolvePath(viper.GetString("certificate"), true)
+	if err != nil {
+		return options, err
+	}
+	pkey, err := c.ResolvePath(viper.GetString("pkey"), true)
+	if err != nil {
+		return options, err
+	}
+	clientcas, err := c.ResolvePath(viper.GetString("clientcas"), true)
+	if err != nil {
+		return options, err
+	}
 
 	options = gw.DefaultOptions().
 		WithDir(dir).
