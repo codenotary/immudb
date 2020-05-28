@@ -40,6 +40,7 @@ const tokenValidity = 1 * time.Hour
 
 // GenerateToken ...
 func GenerateToken(user User) (string, error) {
+	now := time.Now()
 	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
 	if !ok {
 		if err := generateKeys(user.Username); err != nil {
@@ -49,8 +50,9 @@ func GenerateToken(user User) (string, error) {
 		if !ok {
 			return "", errors.New("internal error: missing auth keys")
 		}
+	} else {
+		updateLastTokenGeneratedAt(user.Username)
 	}
-	now := time.Now()
 	jsonToken := paseto.JSONToken{
 		Expiration: now.Add(tokenValidity),
 		Subject:    user.Username,
@@ -60,6 +62,7 @@ func GenerateToken(user User) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error generating token: %v", err)
 	}
+	go evictOldTokenKeyPairs()
 	return token, nil
 }
 
