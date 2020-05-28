@@ -21,7 +21,7 @@ func generateRandomTCPPort() int {
 	rand.Seed(time.Now().UnixNano())
 	min := 1024
 	max := 64000
-	return rand.Intn(max - min + 1)
+	return rand.Intn(max-min+1) + min
 }
 
 func TestSafeset(t *testing.T) {
