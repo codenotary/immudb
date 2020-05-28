@@ -36,7 +36,7 @@ func (w *WrappedClientStream) SendMsg(m interface{}) error {
 
 func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDesc, *grpc.ClientConn, string, grpc.Streamer, ...grpc.CallOption) (grpc.ClientStream, error) {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		if HasAuth(method) {
+		if hasAuth(method) {
 			opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
 				Token: token,
 			}))
@@ -51,11 +51,25 @@ func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDes
 
 func ClientUnaryInterceptor(token string) func(context.Context, string, interface{}, interface{}, *grpc.ClientConn, grpc.UnaryInvoker, ...grpc.CallOption) error {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		if HasAuth(method) {
+		if hasAuth(method) {
 			opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
 				Token: token,
 			}))
 		}
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
+}
+
+type TokenAuth struct {
+	Token string
+}
+
+func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
+	return map[string]string{
+		"authorization": "Bearer " + t.Token,
+	}, nil
+}
+
+func (TokenAuth) RequireTransportSecurity() bool {
+	return false
 }

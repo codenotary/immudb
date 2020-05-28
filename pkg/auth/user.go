@@ -29,17 +29,13 @@ var AdminUsername = "immu"
 
 // GenerateAndSetPassword ...
 func (u *User) GenerateAndSetPassword() (string, error) {
-	plainPassword := GeneratePassword()
+	plainPassword := generatePassword()
 	hashedPassword, err := HashAndSaltPassword(plainPassword)
 	if err != nil {
 		return "", err
 	}
-	u.SetPassword(hashedPassword)
-	return plainPassword, nil
-}
-
-func (u *User) SetPassword(hashedPassword []byte) {
 	u.HashedPassword = hashedPassword
+	return plainPassword, nil
 }
 
 // ComparePasswords ...
