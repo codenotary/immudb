@@ -30,4 +30,10 @@ detached = false
 servername = "localhost"
 pkey = "/etc/immudb/mtls/4_client/private/localhost.key.pem"
 certificate = "/etc/immudb/mtls/4_client/certs/localhost.cert.pem"
-clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"`)
+clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"
+audit = false
+# valid suffixes: "s", "m", "h", examples: 10s, 5m 1h
+audit-interval = "5m"
+audit-username = "immugwauditor"
+# password can be plaintext or base64
+audit-password = ""`)

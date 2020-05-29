@@ -18,6 +18,7 @@ package auditor
 
 import (
 	"context"
+	"encoding/base64"
 	"io"
 	"os"
 	"regexp"
@@ -57,10 +58,18 @@ func DefaultAuditor(
 	serverAddress string,
 	dialOptions *[]grpc.DialOption,
 	username string,
-	password string,
+	passwordBase64 string,
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
 	logoutput io.Writer) (Auditor, error) {
+
+	password := strings.TrimSpace(passwordBase64)
+	if password != "" {
+		passwordBytes, err := base64.StdEncoding.DecodeString(passwordBase64)
+		if err == nil {
+			password = string(passwordBytes)
+		}
+	}
 	if logoutput == nil {
 		logoutput = os.Stderr
 	}

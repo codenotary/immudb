@@ -12,6 +12,8 @@ pkey = "./tools/mtls/4_client/private/localhost.key.pem"
 certificate = "./tools/mtls/4_client/certs/localhost.cert.pem"
 clientcas = "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem"
 audit = false
-audit-interval = "5m" # suffixes: "s", "m", "h", examples: 10s, 5m 1h
+# valid suffixes: "s", "m", "h", examples: 10s, 5m 1h
+audit-interval = "5m"
 audit-username = "immugwauditor"
+# password can be plaintext or base64
 audit-password = ""
