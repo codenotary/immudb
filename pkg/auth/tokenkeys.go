@@ -62,6 +62,12 @@ func updateLastTokenGeneratedAt(username string) {
 }
 
 func evictOldTokenKeyPairs() {
+	// 1 public key = 32B, 1 private key = 64B =>
+	// 10_000 key pairs = (32 + 64) * 10_000 = 960_000B which is close to 1MB
+	// if storing keys requires less memory than that, skip eviction
+	if len(tokenKeyPairs.keysPerUser) < 10_000 {
+		return
+	}
 	tokenKeyPairs.Lock()
 	defer tokenKeyPairs.Unlock()
 	now := time.Now()
@@ -69,7 +75,11 @@ func evictOldTokenKeyPairs() {
 		return
 	}
 	for k, v := range tokenKeyPairs.keysPerUser {
-		if now.Before(v.lastTokenGeneratedAt.Add(2 * tokenValidity)) {
+		// - keys are used to generate tokens during login (and to verify them during any call with auth)
+		// - if no token was generated with a key during the last 3 days, the user would have to login
+		//   again anyway (tokens expire in a much shorter time than that), so we just evict the key
+		//   (if user logins again, a new pair will be generated and used from that point on)
+		if now.Before(v.lastTokenGeneratedAt.Add(3 * 24 * time.Hour)) {
 			continue
 		}
 		delete(tokenKeyPairs.keysPerUser, k)
