@@ -46,9 +46,6 @@ V_IMMUGW_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMM
 V_IMMUTEST_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUTEST)" $(V_LDFLAGS_COMMON)
 #<~~~
 
-TEST_FLAGS := -coverprofile=coverage.txt -covermode=atomic
-CODECOV_UUID_REPO_TOKEN := c45675a5-1e53-4de6-9ac2-8eb9d341db99
-
 .PHONY: all
 all: immudb immuclient immugw immuadmin immutest
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
@@ -103,9 +100,7 @@ vendor:
 .PHONY: test
 test:
 	$(GO) vet ./...
-	$(GO) test --race ${TEST_FLAGS} ./...
-	$(shell bash <(curl -s https://codecov.io/bash) -t $(CODECOV_UUID_REPO_TOKEN))
-
+	$(GO) test --race -coverprofile=coverage.txt -covermode=atomic ./...
 
 .PHONY: build/codegen
 build/codegen:

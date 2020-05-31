@@ -10,4 +10,6 @@ jobs:
           go-version: 1.13
       - uses: actions/checkout@v1
       - name: Test
-        run: make test
+        run: |
+          make test
+          bash <(curl -s https://codecov.io/bash) -t c1c189f5-954e-40e5-ac1f-6075df144f01
