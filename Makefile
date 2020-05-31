@@ -45,6 +45,7 @@ V_IMMUDB_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMM
 V_IMMUGW_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
 V_IMMUTEST_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUTEST)" $(V_LDFLAGS_COMMON)
 #<~~~
+
 .PHONY: all
 all: immudb immuclient immugw immuadmin immutest
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
@@ -99,7 +100,7 @@ vendor:
 .PHONY: test
 test:
 	$(GO) vet ./...
-	$(GO) test --race ${TEST_FLAGS} ./...
+	$(GO) test --race -coverprofile=coverage.txt -covermode=atomic ./...
 
 .PHONY: build/codegen
 build/codegen:
