@@ -34,8 +34,8 @@ func NewCmd() *cobra.Command {
 		Short: "CLI client for immudb - the lightweight, high-speed immutable database for systems and applications",
 		Long: `CLI client for immudb - the lightweight, high-speed immutable database for systems and applications.
 Environment variables:
-  IMMUCLIENT_IMMUDB-ADDRESS=127.0.0.1
-  IMMUCLIENT_IMMUDB-PORT=3322
+  IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
+  IMMUCLIENT_IMMUDB_PORT=3322
   IMMUCLIENT_AUTH=false
   IMMUCLIENT_MTLS=false
   IMMUCLIENT_SERVERNAME=localhost
