@@ -10,8 +10,8 @@ COPY --from=build /src/immuadmin /usr/local/bin/immuadmin
 ARG IMMU_UID="3322"
 ARG IMMU_GID="3322"
 
-ENV IMMUADMIN_IMMUDB-ADDRESS="127.0.0.1" \
-    IMMUADMIN_IMMUDB-PORT="3322" \
+ENV IMMUADMIN_IMMUDB_ADDRESS="127.0.0.1" \
+    IMMUADMIN_IMMUDB_PORT="3322" \
     IMMUADMIN_MTLS="false" \
     IMMUADMIN_TOKENFILE="/var/lib/immudb"
 
