@@ -288,8 +288,8 @@ It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoi
 Environment variables:
   IMMUGW_ADDRESS=127.0.0.1
   IMMUGW_PORT=3323
-  IMMUGW_IMMUDB-ADDRESS=127.0.0.1
-  IMMUGW_IMMUDB-PORT=3322
+  IMMUGW_IMMUDB_ADDRESS=127.0.0.1
+  IMMUGW_IMMUDB_PORT=3322
   IMMUGW_DIR=.
   IMMUGW_PIDFILE=
   IMMUGW_LOGFILE=
@@ -299,6 +299,9 @@ Environment variables:
   IMMUGW_PKEY=./tools/mtls/4_client/private/localhost.key.pem
   IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
   IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
+  IMMUGW_AUDIT="false"
+  IMMUGW_AUDIT_PASSWORD=""
+  IMMUGW_AUDIT_USERNAME="" 
 
 Usage:
   immugw [flags]
@@ -342,8 +345,8 @@ For security reasons we recommend using immuadmin only on the same system as imm
 CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
 
 Environment variables:
-  IMMUADMIN_IMMUDB-ADDRESS=127.0.0.1
-  IMMUADMIN_IMMUDB-PORT=3322
+  IMMUADMIN_IMMUDB_ADDRESS=127.0.0.1
+  IMMUADMIN_IMMUDB_PORT=3322
   IMMUADMIN_MTLS=true
   IMMUADMIN_SERVERNAME=localhost
   IMMUADMIN_PKEY=./tools/mtls/4_client/private/localhost.key.pem
@@ -390,8 +393,8 @@ Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-
 ```bash
 CLI client for immudb - the lightweight, high-speed immutable database for systems and applications.
 Environment variables:
-  IMMUCLIENT_IMMUDB-ADDRESS=127.0.0.1
-  IMMUCLIENT_IMMUDB-PORT=3322
+  IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
+  IMMUCLIENT_IMMUDB_PORT=3322
   IMMUCLIENT_AUTH=false
   IMMUCLIENT_MTLS=false
   IMMUCLIENT_SERVERNAME=localhost
@@ -467,7 +470,7 @@ docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:late
 #### Run immugw
 
 ```
-docker run -it -d -p 3323:3323 --name immugw --env IMMUGW_IMMUDB-ADDRESS=immudb codenotary/immugw:latest
+docker run -it -d -p 3323:3323 --name immugw --env IMMUGW_IMMUDB_ADDRESS=immudb codenotary/immugw:latest
 ```
 
 #### Run immuadmin
