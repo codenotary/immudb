@@ -27,7 +27,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -1058,39 +1057,34 @@ func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, er
 	defer bkpClient.CloseSend()
 
 	var offset int64
-	var errs []string
 	for {
 		kvList, err := bkpClient.Recv()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("error receiving chunk: %v", err))
+			err = fmt.Errorf("error receiving chunk: %v", err)
 			break
 		}
 		for _, kv := range kvList.Kv {
 			kvBytes, err := proto.Marshal(kv)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("error marshaling key-value %+v: %v", kv, err))
+				err = fmt.Errorf("error marshaling key-value %+v: %v", kv, err)
 				break
 			}
 			o, err := writeSeek(writer, kvBytes, offset)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("error writing as bytes key-value %+v: %v", kv, err))
+				err = fmt.Errorf("error writing as bytes key-value %+v: %v", kv, err)
 				break
 			}
 			offset = o
 			counter++
 		}
 	}
-	var errorsMerged error
-	if len(errs) > 0 {
-		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t- "))
-	}
 
 	c.Logger.Debugf("dump finished in %s", time.Since(start))
 
-	return counter, errorsMerged
+	return counter, err
 }
 
 // todo(joe-dz): Enable restore when the feature is required again.
