@@ -21,12 +21,13 @@ package service
 import (
 	"bytes"
 	"fmt"
-	"github.com/codenotary/immudb/cmd/helper"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/codenotary/immudb/cmd/helper"
 
 	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
 	"github.com/spf13/viper"
@@ -160,14 +161,14 @@ func EraseData(serviceName string) (err error) {
 		return err
 	}
 	data := filepath.Join(path, "data")
-	if err := os.RemoveAll(data); err!=nil {
+	if err := os.RemoveAll(data); err != nil {
 		return err
 	}
 	immudbsys := filepath.Join(path, "immudbsys")
-	if err := os.RemoveAll(immudbsys); err!=nil {
+	if err := os.RemoveAll(immudbsys); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(filepath.Join(path, "immudb.identifier")); err!=nil {
+	if err := os.RemoveAll(filepath.Join(path, "immudb.identifier")); err != nil {
 		return err
 	}
 	return nil
