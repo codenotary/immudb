@@ -142,6 +142,7 @@ Root permission are required in order to make administrator operations.
 		case "install":
 			if args[0] == "immugw" {
 				fmt.Printf("To provide the maximum level of security, we recommend running immugw on a different machine than immudb server. Continue ? [Y/n]")
+				configureImgwSpecificOptions(cmd)
 				if u, err = c.ReadFromTerminalYN("Y"); err != nil {
 					return err
 				}
