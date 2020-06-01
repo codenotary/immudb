@@ -26,7 +26,7 @@ immudb has 4 main benefits:
 
 1. **immudb is immutable**. You can add records, but **never change or delete records**.
 2. Data stored in immudb is **cryptographically coherent and verifiable**, like blockchains, just without all the complexity and at high speed.
-3. Anyone can get **started with immudb in minutes**. Whether you're using node.js, Java, Python, Golang, .Net, or any other language. It's very easy to use and you can have your immutable database running in just a few minutes.
+3. Anyone can get **started with immudb in minutes**. Whether you're using node.js, Java, Python, Go, .Net, or any other language. It's very easy to use and you can have your immutable database running in just a few minutes.
 4. Finally, immudb is  **Open Source**. You can run it **on premise**, or in the **cloud**. It's completely free. immudb is governed by the Apache 2.0 License.
 
 immudb can be ran on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
@@ -81,7 +81,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 | DB Model                | Key-Value store with 3D access (key-value-index)             |
 | Data scheme             | schema-free                                                  |
 | Implementation design   | LSM tree with value log and parallel Merkle Tree             |
-| Implementation language | Golang                                                       |
+| Implementation language | Go                                                           |
 | Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                           |
 | Embeddable              | Yes, optionally                                              |
 | Server APIs             | gRPC (using protocol buffers); immudb RESTful; immugw RESTful |
@@ -301,7 +301,7 @@ Environment variables:
   IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
   IMMUGW_AUDIT="false"
   IMMUGW_AUDIT_PASSWORD=""
-  IMMUGW_AUDIT_USERNAME="" 
+  IMMUGW_AUDIT_USERNAME=""
 
 Usage:
   immugw [flags]
@@ -590,7 +590,7 @@ Drivers will soon be available for:
 
 1. Java
 2. .net
-3. Golang
+3. Go
 4. Python
 5. Node.js
 
