@@ -30,4 +30,10 @@ detached = false
 servername = "localhost"
 pkey = "%programdata%\\Immugw\\config\\mtls\\4_client\\private\\localhost.key.pem"
 certificate = "%programdata%\\Immugw\\config\\mtls\\4_client\\certs\\localhost.cert.pem"
-clientcas = "%programdata%\\Immugw\\config\\mtls\\2_intermediate\\certs\\ca-chain.cert.pem"`)
+clientcas = "%programdata%\\Immugw\\config\\mtls\\2_intermediate\\certs\\ca-chain.cert.pem"
+audit = false
+# valid suffixes: "s", "m", "h", examples: 10s, 5m 1h
+audit-interval = "5m"
+audit-username = "immugwauditor"
+# password can be plaintext or base64
+audit-password = ""`)
