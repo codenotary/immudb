@@ -293,6 +293,13 @@ service ImmuService {
 		};
 	};
 
+	rpc Logout (google.protobuf.Empty) returns (google.protobuf.Empty){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/logout"
+			body: "*"
+		};
+	};
+
 	rpc Set (KeyValue) returns (Index){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/item"

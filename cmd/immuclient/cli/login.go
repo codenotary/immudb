@@ -18,9 +18,12 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/client"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (cli *cli) login(args []string) (string, error) {
@@ -52,14 +55,16 @@ func (cli *cli) login(args []string) (string, error) {
 }
 
 func (cli *cli) logout(args []string) (string, error) {
-	len, err := client.ReadFileFromUserHomeDir(cli.ImmuClient.GetOptions().TokenFileName)
-	if err != nil || len == "" {
-		return "User not logged in.", nil
+	var err error
+	if err = cli.ImmuClient.Logout(context.Background()); err != nil {
+		s, ok := status.FromError(err)
+		if ok && s.Code() == codes.Unauthenticated {
+			err = errors.New("Unauthenticated, please login")
+		}
+		return "", err
 	}
-	client.DeleteFileFromUserHomeDir(cli.ImmuClient.GetOptions().TokenFileName)
 	cli.isLoggedin = false
 	cli.ImmuClient.GetOptions().Auth = false
-
 	cli.ImmuClient, err = client.NewImmuClient((cli.ImmuClient.GetOptions()))
 	if err != nil {
 		return "", err

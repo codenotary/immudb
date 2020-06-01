@@ -250,6 +250,20 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	return &schema.LoginResponse{Token: []byte(token)}, nil
 }
 
+func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, error) {
+	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
+		return nil, auth.ErrServerAuthDisabled
+	}
+	loggedOut, err := auth.DropTokenKeysForCtx(ctx)
+	if err != nil {
+		return new(empty.Empty), err
+	}
+	if !loggedOut {
+		return new(empty.Empty), status.Error(codes.Unauthenticated, "not logged in")
+	}
+	return new(empty.Empty), nil
+}
+
 func updateConfigItem(
 	configFilepath string,
 	key string,

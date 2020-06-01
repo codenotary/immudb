@@ -85,7 +85,9 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client.DeleteFileFromUserHomeDir(cl.immuClient.GetOptions().TokenFileName)
+			if err := cl.immuClient.Logout(cl.context); err != nil {
+				c.QuitWithUserError(err)
+			}
 			fmt.Println("logged out")
 			return nil
 		},
