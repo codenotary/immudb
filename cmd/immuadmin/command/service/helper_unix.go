@@ -34,9 +34,8 @@ import (
 	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
 	immudb "github.com/codenotary/immudb/cmd/immudb/command"
 	immugw "github.com/codenotary/immudb/cmd/immugw/command"
-	"github.com/takama/daemon"
-
 	"github.com/spf13/viper"
+	"github.com/takama/daemon"
 )
 
 const linuxExecPath = "/usr/sbin/"
@@ -80,7 +79,7 @@ func CheckPrivileges() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
-func InstallSetup(serviceName string) (err error) {
+func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
 	if err = groupCreateIfNotExists(); err != nil {
 		return err
 	}
@@ -92,18 +91,18 @@ func InstallSetup(serviceName string) (err error) {
 		return err
 	}
 
-	if err = installConfig(serviceName); err != nil {
+	if err = installConfig(serviceName, vip); err != nil {
 		return err
 	}
 
-	if err = os.MkdirAll(viper.GetString("dir"), os.ModePerm); err != nil {
+	if err = os.MkdirAll(vip.GetString("dir"), os.ModePerm); err != nil {
 		return err
 	}
-	if err = setOwnership(viper.GetString("dir")); err != nil {
+	if err = setOwnership(vip.GetString("dir")); err != nil {
 		return err
 	}
 
-	logPath := filepath.Dir(viper.GetString("logfile"))
+	logPath := filepath.Dir(vip.GetString("logfile"))
 	if err = os.MkdirAll(logPath, os.ModePerm); err != nil {
 		return err
 	}
@@ -111,7 +110,7 @@ func InstallSetup(serviceName string) (err error) {
 		return err
 	}
 
-	pidPath := filepath.Dir(viper.GetString("pidfile"))
+	pidPath := filepath.Dir(vip.GetString("pidfile"))
 	if err = os.MkdirAll(pidPath, os.ModePerm); err != nil {
 		return err
 	}
@@ -127,22 +126,25 @@ func InstallSetup(serviceName string) (err error) {
 
 // @todo Michele helper unix should be refactor in order to expose an interface that every service need to implemented.
 // UninstallSetup uninstall operations
-func UninstallSetup(serviceName string) (err error) {
+func UninstallSetup(serviceName string, vip *viper.Viper) (err error) {
+	if err = readConfig(serviceName, vip); err != nil {
+		return err
+	}
 	if err = uninstallExecutables(serviceName); err != nil {
 		return err
 	}
 	if err = uninstallManPages(serviceName); err != nil {
 		return err
 	}
-	if err = os.RemoveAll(filepath.Dir(viper.GetString("logfile"))); err != nil {
+	if err = os.RemoveAll(filepath.Dir(vip.GetString("logfile"))); err != nil {
 		return err
 	}
 	return err
 }
 
 // installConfig install config in /etc folder
-func installConfig(serviceName string) (err error) {
-	if err = readConfig(serviceName); err != nil {
+func installConfig(serviceName string, vip *viper.Viper) (err error) {
+	if err = readConfig(serviceName, vip); err != nil {
 		return err
 	}
 	cp, _ := GetDefaultConfigPath(serviceName)
@@ -154,7 +156,7 @@ func installConfig(serviceName string) (err error) {
 
 	configPath, _ := GetDefaultConfigPath(serviceName)
 
-	if err = viper.WriteConfigAs(configPath); err != nil {
+	if err = vip.WriteConfigAs(configPath); err != nil {
 		return err
 	}
 
@@ -206,8 +208,8 @@ func setOwnership(path string) (err error) {
 
 // todo @Michele this should be moved in UninstallSetup
 // RemoveProgramFiles remove all program files
-func RemoveProgramFiles(serviceName string) (err error) {
-	if err = readConfig(serviceName); err != nil {
+func RemoveProgramFiles(serviceName string, vip *viper.Viper) (err error) {
+	if err = readConfig(serviceName, vip); err != nil {
 		return err
 	}
 	cp, err := GetDefaultConfigPath(serviceName)
@@ -220,11 +222,11 @@ func RemoveProgramFiles(serviceName string) (err error) {
 }
 
 // EraseData erase all service data
-func EraseData(serviceName string) (err error) {
-	if err = readConfig(serviceName); err != nil {
+func EraseData(serviceName string, vip *viper.Viper) (err error) {
+	if err = readConfig(serviceName, vip); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.FromSlash(viper.GetString("dir")))
+	return os.RemoveAll(filepath.FromSlash(vip.GetString("dir")))
 }
 
 // todo @Michele this can be simplified
@@ -337,9 +339,9 @@ func IsRunning(status string) bool {
 	return re.Match([]byte(status))
 }
 
-func readConfig(serviceName string) (err error) {
-	viper.SetConfigType("toml")
-	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
+func readConfig(serviceName string, vip *viper.Viper) (err error) {
+	vip.SetConfigType("toml")
+	return vip.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
 }
 
 var configsMap = map[string][]byte{

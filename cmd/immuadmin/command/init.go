@@ -121,12 +121,32 @@ func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string
 }
 
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
+	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
+	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
+	cmd.PersistentFlags().String(
+		"tokenfile",
+		client.DefaultOptions().TokenFileName,
+		fmt.Sprintf(
+			"authentication token file (default path is $HOME or binary location; the supplied "+
+				"value will be automatically suffixed with %s; default filename is %s%s)",
+			adminTokenFileSuffix,
+			client.DefaultOptions().TokenFileName,
+			adminTokenFileSuffix))
 	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path is configs or $HOME; default filename is immuadmin.toml)")
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
 	cmd.PersistentFlags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")
 	cmd.PersistentFlags().String("clientcas", client.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
+	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile")); err != nil {
+		return err
+	}
 	if err := viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
 		return err
 	}
@@ -142,40 +162,14 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	if err := viper.BindPFlag("clientcas", cmd.PersistentFlags().Lookup("clientcas")); err != nil {
 		return err
 	}
+	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
+	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
+	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
 	viper.SetDefault("certificate", client.DefaultMTLsOptions().Certificate)
 	viper.SetDefault("pkey", client.DefaultMTLsOptions().Pkey)
 	viper.SetDefault("clientcas", client.DefaultMTLsOptions().ClientCAs)
 
-	return nil
-}
-
-func configureImgwSpecificOptions(cmd *cobra.Command) error {
-	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
-	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
-	cmd.PersistentFlags().String(
-		"tokenfile",
-		client.DefaultOptions().TokenFileName,
-		fmt.Sprintf(
-			"authentication token file (default path is $HOME or binary location; the supplied "+
-				"value will be automatically suffixed with %s; default filename is %s%s)",
-			adminTokenFileSuffix,
-			client.DefaultOptions().TokenFileName,
-			adminTokenFileSuffix))
-
-	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile")); err != nil {
-		return err
-	}
-
-	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
-	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
-	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	return nil
 }

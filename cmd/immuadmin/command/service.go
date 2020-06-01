@@ -27,6 +27,7 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/service"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
 )
 
@@ -140,9 +141,9 @@ Root permission are required in order to make administrator operations.
 		var u string
 		switch args[1] {
 		case "install":
+			installServiceViperConfig := viper.New()
 			if args[0] == "immugw" {
 				fmt.Printf("To provide the maximum level of security, we recommend running immugw on a different machine than immudb server. Continue ? [Y/n]")
-				configureImgwSpecificOptions(cmd)
 				if u, err = c.ReadFromTerminalYN("Y"); err != nil {
 					return err
 				}
@@ -153,7 +154,7 @@ Root permission are required in order to make administrator operations.
 			}
 
 			fmt.Println("installing " + localFile + "...")
-			if err = service.InstallSetup(args[0]); err != nil {
+			if err = service.InstallSetup(args[0], installServiceViperConfig); err != nil {
 				return err
 			}
 			var cp string
@@ -172,6 +173,7 @@ Root permission are required in order to make administrator operations.
 
 			return nil
 		case "uninstall":
+			installServiceViperConfig := viper.New()
 			// check if already installed
 			var status string
 			if status, err = daemon.Status(); err != nil {
@@ -206,17 +208,17 @@ Root permission are required in order to make administrator operations.
 				if u != "y" {
 					fmt.Println("No data removed")
 				} else {
-					if err = service.EraseData(args[0]); err != nil {
+					if err = service.EraseData(args[0], installServiceViperConfig); err != nil {
 						return err
 					}
 					fmt.Println("Data folder removed")
 				}
 			}
-			if err = service.RemoveProgramFiles(args[0]); err != nil {
+			if err = service.RemoveProgramFiles(args[0], installServiceViperConfig); err != nil {
 				return err
 			}
 			fmt.Println("Program files removed")
-			if err = service.UninstallSetup(args[0]); err != nil {
+			if err = service.UninstallSetup(args[0], installServiceViperConfig); err != nil {
 				return err
 			}
 			return nil
