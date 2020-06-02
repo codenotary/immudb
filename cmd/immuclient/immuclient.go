@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuclient/cli"
 	immuclient "github.com/codenotary/immudb/cmd/immuclient/command"
 	"github.com/codenotary/immudb/cmd/version"
 	"github.com/spf13/cobra"
@@ -41,36 +40,22 @@ func main() {
 		}
 		return
 	}
-
-	cliClient, err := cli.Init()
-	if err != nil {
-		c.QuitWithUserError(err)
-	}
-	cliClient.Run()
 }
 
 func isCommand(args []string) bool {
-	hs, hl := "-h", "--help"
-	for i := range os.Args {
-		if os.Args[i] == hs || os.Args[i] == hl {
-			return true
-		}
-	}
-	if len(os.Args) < 2 {
-		return false
-	}
-	if !strings.HasPrefix(os.Args[1], "-") {
-		return true
-	}
-	for i := range args {
-		for j := range os.Args {
-			if args[i] == os.Args[j] {
-				fmt.Printf("Please sort your commands in \"immudb [command] [flags]\" order. \n")
-				return true
+	if len(os.Args) > 1 {
+		if strings.HasPrefix(os.Args[1], "-") {
+			for i := range args {
+				for j := range os.Args {
+					if args[i] == os.Args[j] {
+						fmt.Printf("Please sort your commands in \"immudb [command] [flags]\" order. \n")
+						return true
+					}
+				}
 			}
 		}
 	}
-	return false
+	return true
 }
 
 func commandNames(cms []*cobra.Command) []string {

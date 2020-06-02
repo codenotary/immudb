@@ -17,13 +17,11 @@ limitations under the License.
 package immuclient
 
 import (
-	"bytes"
-	"context"
 	"fmt"
-	"io/ioutil"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuclient/audit"
+	"github.com/codenotary/immudb/cmd/immuclient/cli"
 	"github.com/codenotary/immudb/cmd/immuclient/service"
 	"github.com/spf13/cobra"
 )
@@ -36,20 +34,11 @@ func (cl *commandline) history(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.History(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.History(ctx, key)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			for _, item := range response.Items {
-				printItem(nil, nil, item, false)
-				fmt.Println()
-			}
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -65,12 +54,11 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			ctx := context.Background()
-			if err := cl.ImmuClient.HealthCheck(ctx); err != nil {
-				c.QuitWithUserError(err)
+			resp, err := cl.immucl.HealthCheck(args)
+			if err != nil {
+				c.QuitToStdErr(err)
 			}
-			fmt.Println("Health check OK")
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.NoArgs,
@@ -81,7 +69,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 func (cl *commandline) auditmode(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "audit-mode command",
-		Short:             "Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' for details",
+		Short:             "Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' or use -h flag for details",
 		Aliases:           []string{"audit-mode"},
 		Example:           service.UsageExamples,
 		PersistentPostRun: cl.disconnect,
@@ -91,6 +79,21 @@ func (cl *commandline) auditmode(cmd *cobra.Command) {
 			return nil
 		},
 		Args: cobra.MaximumNArgs(2),
+	}
+	cmd.AddCommand(ccmd)
+}
+
+// #TODO will be new root.
+func (cl *commandline) interactiveCli(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:     "it",
+		Short:   "Starts immuclient in CLI mode. Use 'help' or -h flag on the shell for details",
+		Aliases: []string{"cli-mode"},
+		Example: cli.Init(cl.immucl).HelpMessage(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cli.Init(cl.immucl).Run()
+			return nil
+		},
 	}
 	cmd.AddCommand(ccmd)
 }

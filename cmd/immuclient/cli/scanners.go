@@ -16,108 +16,18 @@ limitations under the License.
 
 package cli
 
-import (
-	"bytes"
-	"context"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"strconv"
-	"strings"
-)
-
 func (cli *cli) zScan(args []string) (string, error) {
-	set, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := cli.ImmuClient.ZScan(ctx, set)
-	if err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-	str := strings.Builder{}
-	if len(response.Items) == 0 {
-		str.WriteString("0")
-		return str.String(), nil
-	}
-	for _, item := range response.Items {
-		str.WriteString(printItem(nil, nil, item, false))
-		str.WriteString("\n")
-	}
-	return str.String(), nil
+	return cli.immucl.ZScan(args)
 }
 
 func (cli *cli) iScan(args []string) (string, error) {
-	pageNumber, err := strconv.ParseUint(args[0], 10, 64)
-	if err != nil {
-		return "", err
-	}
-	pageSize, err := strconv.ParseUint(args[1], 10, 64)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := cli.ImmuClient.IScan(ctx, pageNumber, pageSize)
-	if err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-
-	str := strings.Builder{}
-	if len(response.Items) == 0 {
-		str.WriteString("0")
-		return str.String(), nil
-	}
-	for _, item := range response.Items {
-		str.WriteString(printItem(nil, nil, item, false))
-		str.WriteString("\n")
-	}
-	return str.String(), nil
+	return cli.immucl.IScan(args)
 }
 
 func (cli *cli) scan(args []string) (string, error) {
-	prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := cli.ImmuClient.Scan(ctx, prefix)
-	if err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-	str := strings.Builder{}
-	if len(response.Items) == 0 {
-		str.WriteString("0")
-		return str.String(), nil
-	}
-	for _, item := range response.Items {
-		str.WriteString(printItem(nil, nil, item, false))
-		str.WriteString("\n")
-	}
-	return str.String(), nil
+	return cli.immucl.Scan(args)
 }
 
 func (cli *cli) count(args []string) (string, error) {
-	prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := cli.ImmuClient.Count(ctx, prefix)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprint(response.Count), nil
+	return cli.immucl.Count(args)
 }

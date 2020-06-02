@@ -17,11 +17,9 @@ limitations under the License.
 package immuclient
 
 import (
-	"context"
 	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -33,21 +31,11 @@ func (cl *commandline) login(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			user := []byte(args[0])
-			pass, err := cl.passwordReader.Read("Password:")
+			resp, err := cl.immucl.Login(args)
 			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.Login(ctx, user, pass)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			tokenFileName := cl.ImmuClient.GetOptions().TokenFileName
-			if err := client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Printf("logged in\n")
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -62,10 +50,11 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := cl.ImmuClient.Logout(context.Background()); err != nil {
-				c.QuitWithUserError(err)
+			resp, err := cl.immucl.Logout(args)
+			if err != nil {
+				c.QuitToStdErr(err)
 			}
-			fmt.Println("Successfully logged out")
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.NoArgs,

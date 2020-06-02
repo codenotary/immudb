@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cli
+package immuc
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 	"github.com/codenotary/immudb/pkg/store"
 )
 
-func printItem(key []byte, value []byte, message interface{}, valueOnly bool) string {
+func PrintItem(key []byte, value []byte, message interface{}, valueOnly bool) string {
 	var index, ts uint64
 	var verified, isVerified bool
 	var hash []byte
@@ -83,7 +83,7 @@ func printItem(key []byte, value []byte, message interface{}, valueOnly bool) st
 	return str.String()
 }
 
-func printSetItem(set []byte, rkey []byte, score float64, message interface{}) string {
+func PrintSetItem(set []byte, rkey []byte, score float64, message interface{}) string {
 	var index uint64
 	var verified, isVerified bool
 	switch m := message.(type) {
@@ -117,14 +117,14 @@ func printSetItem(set []byte, rkey []byte, score float64, message interface{}) s
 		verified)
 }
 
-func printRoot(root *schema.Root) string {
+func PrintRoot(root *schema.Root) string {
 	if root.Root == nil {
 		return "immudb is empty\n"
 	}
 	return fmt.Sprintf("index:		%d\nhash:		%x\n", root.Index, root.Root)
 }
 
-func printByIndex(item *schema.StructuredItem, valueOnly bool) string {
+func PrintByIndex(item *schema.StructuredItem, valueOnly bool) string {
 	dig, _ := item.Hash()
 	if valueOnly {
 		return fmt.Sprintf("%s\n", item.Value)
@@ -139,7 +139,7 @@ func printByIndex(item *schema.StructuredItem, valueOnly bool) string {
 	return str.String()
 }
 
-func padRight(str, pad string, length int) string {
+func PadRight(str, pad string, length int) string {
 	for {
 		str += pad
 		if len(str) > length {

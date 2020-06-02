@@ -14,24 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cli
+package immuc
 
-func (cli *cli) rawSafeSet(args []string) (string, error) {
-	return cli.immucl.RawSafeSet(args)
-}
+import (
+	"context"
+	"strings"
+)
 
-func (cli *cli) set(args []string) (string, error) {
-	return cli.immucl.Set(args)
-}
-
-func (cli *cli) safeset(args []string) (string, error) {
-	return cli.immucl.SafeSet(args)
-}
-
-func (cli *cli) zAdd(args []string) (string, error) {
-	return cli.immucl.ZAdd(args)
-}
-
-func (cli *cli) safeZAdd(args []string) (string, error) {
-	return cli.immucl.SafeZAdd(args)
+func (i *immuc) CurrentRoot(args []string) (string, error) {
+	ctx := context.Background()
+	root, err := i.ImmuClient.CurrentRoot(ctx)
+	if err != nil {
+		rpcerrors := strings.SplitAfter(err.Error(), "=")
+		if len(rpcerrors) > 1 {
+			return rpcerrors[len(rpcerrors)-1], nil
+		}
+		return "", err
+	}
+	return PrintRoot(root), nil
 }

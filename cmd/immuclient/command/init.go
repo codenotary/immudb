@@ -22,25 +22,51 @@ import (
 
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/immuclient/cli"
+	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 type commandline struct {
-	ImmuClient     client.ImmuClient
-	passwordReader c.PasswordReader
-	valueOnly      bool
-	options        *client.Options
+	immucl immuc.Client
 }
 
-func Init(cmd *cobra.Command, o *c.Options) {
+func Init(o *c.Options) *cobra.Command {
+
+	cl := new(commandline)
+	cmd := &cobra.Command{
+		Use:   "immuclient",
+		Short: "CLI client for immudb - the lightweight, high-speed immutable database for systems and applications",
+		Long: `CLI client for immudb - the lightweight, high-speed immutable database for systems and applications.
+Environment variables:
+  IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
+  IMMUCLIENT_IMMUDB_PORT=3322
+  IMMUCLIENT_AUTH=false
+  IMMUCLIENT_MTLS=false
+  IMMUCLIENT_SERVERNAME=localhost
+  IMMUCLIENT_PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUCLIENT_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
+  IMMUCLIENT_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
+		DisableAutoGenTag: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := cl.immucl.Connect(args)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			cli.Init(cl.immucl).Run()
+			return nil
+		},
+	}
 	if err := configureOptions(cmd, o); err != nil {
 		c.QuitToStdErr(err)
 	}
-	cl := new(commandline)
-	cl.passwordReader = c.DefaultPasswordReader
-	cl.options = options()
+	var err error
+	cl.immucl, err = immuc.Init()
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
 	// login and logout
 	cl.login(cmd)
 	cl.logout(cmd)
@@ -72,52 +98,22 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cl.history(cmd)
 	cl.status(cmd)
 	cl.auditmode(cmd)
+	cl.interactiveCli(cmd)
 	// man file generator
 	cmd.AddCommand(man.Generate(cmd, "immuclient", "./cmd/docs/man/immuclient"))
-}
-
-func options() *client.Options {
-	port := viper.GetInt("immudb-port")
-	address := viper.GetString("immudb-address")
-	tokenFileName := viper.GetString("tokenfile")
-	mtls := viper.GetBool("mtls")
-	certificate := viper.GetString("certificate")
-	servername := viper.GetString("servername")
-	pkey := viper.GetString("pkey")
-	clientcas := viper.GetString("clientcas")
-	options := client.DefaultOptions().
-		WithPort(port).
-		WithAddress(address).
-		WithTokenFileName(tokenFileName).
-		WithMTLs(mtls)
-	if mtls {
-		// todo https://golang.org/src/crypto/x509/root_linux.go
-		options.MTLsOptions = client.DefaultMTLsOptions().
-			WithServername(servername).
-			WithCertificate(certificate).
-			WithPkey(pkey).
-			WithClientCAs(clientcas)
-	}
-	return options
+	return cmd
 }
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-	opts := options()
-	len, err := client.ReadFileFromUserHomeDir(opts.TokenFileName)
-	if err != nil || len == "" {
-		opts.Auth = false
-	} else {
-		opts.Auth = true
-	}
-	if cl.ImmuClient, err = client.NewImmuClient(opts); err != nil || cl.ImmuClient == nil {
+	err = cl.immucl.Connect(args)
+	if err != nil {
 		c.QuitToStdErr(err)
 	}
-	cl.valueOnly = viper.GetBool("value-only")
 	return
 }
 
 func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
-	if err := cl.ImmuClient.Disconnect(); err != nil {
+	if err := cl.immucl.Disconnect(args); err != nil {
 		c.QuitToStdErr(err)
 	}
 	os.Exit(0)
@@ -140,8 +136,8 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().String("clientcas", client.DefaultMTLsOptions().ClientCAs, "clients certificates list. Aka certificate authority")
 	cmd.PersistentFlags().Bool("value-only", false, "returning only values for get operations")
 	cmd.PersistentFlags().String("roots-filepath", "/tmp/", "Filepath for storing root hashes after every successful audit loop. Default is tempdir of every OS.")
-	cmd.PersistentFlags().String("prometheus-port", "9477", "Launch port of the Prometheus server.")
-	cmd.PersistentFlags().String("prometheus-host", "127.0.0.1", "Launch host of the Prometheus server.")
+	cmd.PersistentFlags().String("prometheus-port", "9477", "Launch port of the Prometheus exporter.")
+	cmd.PersistentFlags().String("prometheus-host", "127.0.0.1", "Launch host of the Prometheus exporter.")
 	cmd.PersistentFlags().String("dir", os.TempDir(), "Main directory for audit process tool to initialize")
 	cmd.PersistentFlags().String("audit-username", "", "immudb username used to login during audit")
 	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit")

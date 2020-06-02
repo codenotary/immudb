@@ -16,78 +16,10 @@ limitations under the License.
 
 package cli
 
-import (
-	"bufio"
-	"bytes"
-	"context"
-	"io"
-	"io/ioutil"
-	"os"
-	"strings"
-)
-
 func (cli *cli) reference(args []string) (string, error) {
-	var reader io.Reader
-	if len(args) > 1 {
-		reader = bytes.NewReader([]byte(args[1]))
-	} else {
-		reader = bufio.NewReader(os.Stdin)
-	}
-	reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
-	var buf bytes.Buffer
-	tee := io.TeeReader(reader, &buf)
-	key, err := ioutil.ReadAll(tee)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := cli.ImmuClient.Reference(ctx, reference, key)
-	if err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-	value, err := ioutil.ReadAll(&buf)
-	if err != nil {
-		return "", err
-	}
-	return printItem([]byte(args[0]), value, response, false), nil
+	return cli.immucl.Reference(args)
 }
 
 func (cli *cli) safereference(args []string) (string, error) {
-	var reader io.Reader
-	if len(args) > 1 {
-		reader = bytes.NewReader([]byte(args[1]))
-	} else {
-		reader = bufio.NewReader(os.Stdin)
-	}
-	reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
-	var buf bytes.Buffer
-	tee := io.TeeReader(reader, &buf)
-	key, err := ioutil.ReadAll(tee)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := cli.ImmuClient.SafeReference(ctx, reference, key)
-	if err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-	value, err := ioutil.ReadAll(&buf)
-	if err != nil {
-		return "", err
-	}
-	return printItem([]byte(args[0]), value, response, false), nil
+	return cli.immucl.SafeReference(args)
 }

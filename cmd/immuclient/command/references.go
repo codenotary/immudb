@@ -17,12 +17,7 @@ limitations under the License.
 package immuclient
 
 import (
-	"bufio"
-	"bytes"
-	"context"
-	"io"
-	"io/ioutil"
-	"os"
+	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
@@ -36,32 +31,11 @@ func (cl *commandline) reference(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var reader io.Reader
-			if len(args) > 1 {
-				reader = bytes.NewReader([]byte(args[1]))
-			} else {
-				reader = bufio.NewReader(os.Stdin)
-			}
-			reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.Reference(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			var buf bytes.Buffer
-			tee := io.TeeReader(reader, &buf)
-			key, err := ioutil.ReadAll(tee)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.Reference(ctx, reference, key)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			value, err := ioutil.ReadAll(&buf)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			printItem([]byte(args[0]), value, response, false)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
@@ -77,32 +51,11 @@ func (cl *commandline) safereference(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var reader io.Reader
-			if len(args) > 1 {
-				reader = bytes.NewReader([]byte(args[1]))
-			} else {
-				reader = bufio.NewReader(os.Stdin)
-			}
-			reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.SafeReference(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			var buf bytes.Buffer
-			tee := io.TeeReader(reader, &buf)
-			key, err := ioutil.ReadAll(tee)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.SafeReference(ctx, reference, key)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			value, err := ioutil.ReadAll(&buf)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			printItem([]byte(args[0]), value, response, false)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),

@@ -17,10 +17,7 @@ limitations under the License.
 package immuclient
 
 import (
-	"bytes"
-	"context"
-	"io/ioutil"
-	"strconv"
+	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
@@ -34,16 +31,11 @@ func (cl *commandline) getByIndex(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			index, err := strconv.ParseUint(args[0], 10, 64)
+			resp, err := cl.immucl.GetByIndex(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.ByIndex(ctx, index)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			printByIndex(response, cl.valueOnly)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -59,16 +51,11 @@ func (cl *commandline) getRawBySafeIndex(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			index, err := strconv.ParseUint(args[0], 10, 64)
+			resp, err := cl.immucl.GetRawBySafeIndex(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.RawBySafeIndex(ctx, index)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			printItem(response.Key, response.Value, response, cl.valueOnly)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -84,17 +71,11 @@ func (cl *commandline) getKey(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.GetKey(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.Get(ctx, key)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			printItem([]byte(args[0]), nil, response, cl.valueOnly)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -110,16 +91,11 @@ func (cl *commandline) rawSafeGetKey(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.RawSafeGetKey(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			vi, err := cl.ImmuClient.RawSafeGet(ctx, key)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			printItem(vi.Key, vi.Value, vi, cl.valueOnly)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -135,17 +111,11 @@ func (cl *commandline) safeGetKey(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.SafeGetKey(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.SafeGet(ctx, key)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			printItem([]byte(args[0]), nil, response, cl.valueOnly)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),

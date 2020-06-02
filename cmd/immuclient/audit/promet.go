@@ -29,8 +29,6 @@ import (
 type promotheusExporter struct {
 	port           string
 	address        string
-	currentroot    string
-	prevroot       string
 	server_address string
 	server_id      string
 }

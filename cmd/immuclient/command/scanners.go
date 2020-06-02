@@ -17,11 +17,7 @@ limitations under the License.
 package immuclient
 
 import (
-	"bytes"
-	"context"
 	"fmt"
-	"io/ioutil"
-	"strconv"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
@@ -35,19 +31,11 @@ func (cl *commandline) zScan(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			set, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.ZScan(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.ZScan(ctx, set)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			for _, item := range response.Items {
-				printItem(nil, nil, item, false)
-				fmt.Println()
-			}
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -63,23 +51,11 @@ func (cl *commandline) iScan(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageNumber, err := strconv.ParseUint(args[0], 10, 64)
+			resp, err := cl.immucl.IScan(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			pageSize, err := strconv.ParseUint(args[1], 10, 64)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.IScan(ctx, pageNumber, pageSize)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			for _, item := range response.Items {
-				printItem(nil, nil, item, false)
-				fmt.Println()
-			}
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(2),
@@ -95,20 +71,11 @@ func (cl *commandline) scan(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.Scan(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.Scan(ctx, prefix)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			for _, item := range response.Items {
-				printItem(nil, nil, item, false)
-				fmt.Println()
-			}
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -124,17 +91,11 @@ func (cl *commandline) count(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			prefix, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.Count(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.Count(ctx, prefix)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			fmt.Println(response.Count)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),

@@ -24,68 +24,43 @@ import (
 	"runtime"
 	"strings"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/peterh/liner"
 	"github.com/spf13/viper"
 )
 
 type cli struct {
-	commands       map[string]*command
-	ImmuClient     client.ImmuClient
-	passwordReader c.PasswordReader
-	commandsList   []*command
-	helpMessage    string
-	valueOnly      bool
-	isLoggedin     bool
+	commands     map[string]*command
+	immucl       immuc.Client
+	commandsList []*command
+	helpMessage  string
+	valueOnly    bool
+	isLoggedin   bool
 }
 
 type Cli interface {
 	Run()
+	HelpMessage() string
 }
 
-func Init() (Cli, error) {
+func Init(immucl immuc.Client) Cli {
 	cli := new(cli)
-	cli.passwordReader = c.DefaultPasswordReader
-	var err error
-	parseflags()
-	if cli.ImmuClient, err = client.NewImmuClient(options()); err != nil || cli.ImmuClient == nil {
-		return nil, fmt.Errorf("Initialization failed: %s \n", err.Error())
-	}
+	cli.immucl = immucl
 	cli.valueOnly = viper.GetBool("value-only")
 	cli.commands = make(map[string]*command)
 	cli.commandsList = make([]*command, 0)
-	return cli, nil
-}
-
-func options() *client.Options {
-	port := viper.GetInt("immudb-port")
-	address := viper.GetString("immudb-address")
-	tokenFileName := viper.GetString("tokenfile")
-	mtls := viper.GetBool("mtls")
-	certificate := viper.GetString("certificate")
-	servername := viper.GetString("servername")
-	pkey := viper.GetString("pkey")
-	clientcas := viper.GetString("clientcas")
-	options := client.DefaultOptions().
-		WithPort(port).
-		WithAddress(address).
-		WithTokenFileName(tokenFileName).
-		WithMTLs(mtls)
-	if mtls {
-		// todo https://golang.org/src/crypto/x509/root_linux.go
-		options.MTLsOptions = client.DefaultMTLsOptions().
-			WithServername(servername).
-			WithCertificate(certificate).
-			WithPkey(pkey).
-			WithClientCAs(clientcas)
-	}
-	return options
+	cli.initCommands()
+	cli.helpInit()
+	return cli
 }
 
 func (cli *cli) Register(cmd *command) {
 	cli.commandsList = append(cli.commandsList, cmd)
 	cli.commands[cmd.name] = cmd
+}
+
+func (cli *cli) HelpMessage() string {
+	return cli.helpMessage
 }
 
 func (cli *cli) helpInit() {
@@ -110,8 +85,8 @@ func (cli *cli) helpInit() {
 	}
 	str := strings.Builder{}
 	for i := range name {
-		str.WriteString(padRight(name[i], " ", namelen+2))
-		str.WriteString(padRight(short[i], " ", shortlen+2))
+		str.WriteString(immuc.PadRight(name[i], " ", namelen+2))
+		str.WriteString(immuc.PadRight(short[i], " ", shortlen+2))
 		if len(args[i]) > 0 {
 			str.WriteString("args: " + args[i])
 		}
@@ -122,8 +97,6 @@ func (cli *cli) helpInit() {
 }
 
 func (cli *cli) Run() {
-	cli.initCommands()
-	cli.helpInit()
 	l := liner.NewLiner()
 	l.SetCompleter(cli.completer)
 	defer l.Close()
@@ -252,11 +225,11 @@ func (cli *cli) runCommand(arrCommandStr []string) {
 		}
 	}
 	if valOnly {
-		cli.valueOnly = true
+		cli.immucl.SetValueOnly(true)
 	}
 	result, err := command.command(arrCommandStr[1:])
 	if valOnly {
-		cli.valueOnly = false
+		cli.immucl.SetValueOnly(false)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "ERROR: %s \n", err.Error())

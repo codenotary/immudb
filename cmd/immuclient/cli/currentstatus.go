@@ -16,20 +16,6 @@ limitations under the License.
 
 package cli
 
-import (
-	"context"
-	"strings"
-)
-
 func (cli *cli) currentRoot(args []string) (string, error) {
-	ctx := context.Background()
-	root, err := cli.ImmuClient.CurrentRoot(ctx)
-	if err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-	return printRoot(root), nil
+	return cli.immucl.CurrentRoot(args)
 }

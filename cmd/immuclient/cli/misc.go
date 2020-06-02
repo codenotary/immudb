@@ -16,47 +16,10 @@ limitations under the License.
 
 package cli
 
-import (
-	"bytes"
-	"context"
-	"io/ioutil"
-	"strings"
-)
-
 func (cli *cli) history(args []string) (string, error) {
-	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := cli.ImmuClient.History(ctx, key)
-	if err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-	str := strings.Builder{}
-	if len(response.Items) == 0 {
-		str.WriteString("No item found \n")
-		return str.String(), nil
-	}
-	for _, item := range response.Items {
-		str.WriteString(printItem(nil, nil, item, false))
-		str.WriteString("\n")
-	}
-	return str.String(), nil
+	return cli.immucl.History(args)
 }
 
 func (cli *cli) healthCheck(args []string) (string, error) {
-	ctx := context.Background()
-	if err := cli.ImmuClient.HealthCheck(ctx); err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-	return "Health check OK", nil
+	return cli.immucl.HealthCheck(args)
 }
