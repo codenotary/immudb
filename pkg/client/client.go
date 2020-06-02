@@ -27,7 +27,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -1058,52 +1057,41 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
 	start := time.Now()
 
-	var counter int64
-
 	if !c.IsConnected() {
-		return counter, ErrNotConnected
+		return 0, ErrNotConnected
 	}
 
 	bkpClient, err := c.ServiceClient.Dump(ctx, &empty.Empty{})
 	if err != nil {
-		return counter, err
+		return 0, err
 	}
 	defer bkpClient.CloseSend()
 
 	var offset int64
-	var errs []string
+	var counter int64
 	for {
 		kvList, err := bkpClient.Recv()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("error receiving chunk: %v", err))
-			break
+			return 0, fmt.Errorf("error receiving chunk: %v", err)
 		}
 		for _, kv := range kvList.Kv {
 			kvBytes, err := proto.Marshal(kv)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("error marshaling key-value %+v: %v", kv, err))
-				break
+				return 0, fmt.Errorf("error marshaling key-value %+v: %v", kv, err)
 			}
 			o, err := writeSeek(writer, kvBytes, offset)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("error writing as bytes key-value %+v: %v", kv, err))
-				break
+				return 0, fmt.Errorf("error writing as bytes key-value %+v: %v", kv, err)
 			}
 			offset = o
 			counter++
 		}
 	}
-	var errorsMerged error
-	if len(errs) > 0 {
-		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t- "))
-	}
-
 	c.Logger.Debugf("dump finished in %s", time.Since(start))
-
-	return counter, errorsMerged
+	return counter, nil
 }
 
 // todo(joe-dz): Enable restore when the feature is required again.
