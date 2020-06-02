@@ -83,6 +83,9 @@ func (cl *commandline) backup(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
+			if err = mustNotBeWorkingDir(dbDir); err != nil {
+				c.QuitToStdErr(err)
+			}
 			manualStopStart, err := cmd.Flags().GetBool("manual-stop-start")
 			if err != nil {
 				c.QuitToStdErr(err)
@@ -140,6 +143,26 @@ func (cl *commandline) restore(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
+func mustNotBeWorkingDir(p string) error {
+	currDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	pathAbs, err := filepath.Abs(p)
+	if err != nil {
+		return err
+	}
+	currDirAbs, err := filepath.Abs(currDir)
+	if err != nil {
+		return err
+	}
+	if pathAbs == currDirAbs {
+		return fmt.Errorf(
+			"cannot backup the current directory, please specify a subdirectory, for example ./db")
+	}
+	return nil
+}
+
 func (cl *commandline) askUserConfirmation(process string, manualStopStart bool) {
 	if !manualStopStart {
 		fmt.Printf("Server will be stopped and then restarted during the %s process. Are you sure you want to proceed? [y/N]: ", process)
@@ -187,23 +210,6 @@ func offlineBackup(src string, uncompressed bool, manualStopStart bool) (string,
 	}
 	if !srcInfo.IsDir() {
 		return "", fmt.Errorf("%s is not a directory", src)
-	}
-
-	currDir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	srcAbs, err := filepath.Abs(src)
-	if err != nil {
-		return "", err
-	}
-	currDirAbs, err := filepath.Abs(currDir)
-	if err != nil {
-		return "", err
-	}
-	if srcAbs == currDirAbs {
-		return "", fmt.Errorf(
-			"cannot backup the current directory, please specify a subdirectory, for example ./db")
 	}
 
 	if !manualStopStart {
