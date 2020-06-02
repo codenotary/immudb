@@ -16,84 +16,10 @@ limitations under the License.
 
 package cli
 
-import (
-	"context"
-	"encoding/hex"
-	"fmt"
-	"strconv"
-
-	"github.com/codenotary/immudb/pkg/api/schema"
-)
-
 func (cli *cli) consistency(args []string) (string, error) {
-	index, err := strconv.ParseUint(args[0], 10, 64)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	proof, err := cli.ImmuClient.Consistency(ctx, index)
-	if err != nil {
-		return "", err
-	}
-
-	var root []byte
-	src := []byte(args[1])
-	l := hex.DecodedLen(len(src))
-	if l != 32 {
-		return "", err
-	}
-	root = make([]byte, l)
-	_, err = hex.Decode(root, src)
-	if err != nil {
-		return "", err
-	}
-
-	str := fmt.Sprintf("verified: %t \nfirstRoot: %x at index: %d \nsecondRoot: %x at index: %d \n",
-		proof.Verify(schema.Root{Index: index, Root: root}),
-		proof.FirstRoot,
-		proof.First,
-		proof.SecondRoot,
-		proof.Second)
-	return str, nil
+	return cli.immucl.Consistency(args)
 }
 
 func (cli *cli) inclusion(args []string) (string, error) {
-	index, err := strconv.ParseUint(args[0], 10, 64)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	proof, err := cli.ImmuClient.Inclusion(ctx, index)
-	if err != nil {
-		return "", err
-	}
-	var hash []byte
-	if len(args) > 1 {
-		src := []byte(args[1])
-		l := hex.DecodedLen(len(src))
-		if l != 32 {
-			return "", fmt.Errorf("invalid hash length")
-		}
-		hash = make([]byte, l)
-		_, err = hex.Decode(hash, src)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		item, err := cli.ImmuClient.ByIndex(ctx, index)
-		if err != nil {
-			return "", err
-		}
-		hash, err = item.Hash()
-		if err != nil {
-			return "", err
-		}
-	}
-	str := fmt.Sprintf("verified: %t \nhash: %x at index: %d \nroot: %x at index: %d \n",
-		proof.Verify(index, hash),
-		proof.Leaf,
-		proof.Index,
-		proof.Root,
-		proof.At)
-	return str, nil
+	return cli.immucl.Inclusion(args)
 }

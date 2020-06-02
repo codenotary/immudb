@@ -17,13 +17,7 @@ limitations under the License.
 package immuclient
 
 import (
-	"bufio"
-	"bytes"
-	"context"
-	"io"
-	"io/ioutil"
-	"os"
-	"strconv"
+	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
@@ -37,28 +31,11 @@ func (cl *commandline) rawSafeSet(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.RawSafeSet(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			val, err := ioutil.ReadAll(bytes.NewReader([]byte(args[1])))
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-
-			ctx := context.Background()
-			_, err = cl.ImmuClient.RawSafeSet(ctx, key, val)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			vi, err := cl.ImmuClient.RawSafeGet(ctx, key)
-
-			printItem(vi.Key, vi.Value, vi, false)
-
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(2),
@@ -74,37 +51,11 @@ func (cl *commandline) set(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			var reader io.Reader
-			if len(args) > 1 {
-				reader = bytes.NewReader([]byte(args[1]))
-			} else {
-				reader = bufio.NewReader(os.Stdin)
-			}
-			var buf bytes.Buffer
-			tee := io.TeeReader(reader, &buf)
-			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.Set(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			value, err := ioutil.ReadAll(tee)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			ctx := context.Background()
-			_, err = cl.ImmuClient.Set(ctx, key, value)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			value2, err := ioutil.ReadAll(&buf)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			i, err := cl.ImmuClient.Get(ctx, key)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			printItem([]byte(args[0]), value2, i, false)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(2),
@@ -121,37 +72,11 @@ func (cl *commandline) safeset(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			var reader io.Reader
-			if len(args) > 1 {
-				reader = bytes.NewReader([]byte(args[1]))
-			} else {
-				reader = bufio.NewReader(os.Stdin)
-			}
-			key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+			resp, err := cl.immucl.SafeSet(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			var buf bytes.Buffer
-			tee := io.TeeReader(reader, &buf)
-			value, err := ioutil.ReadAll(tee)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			ctx := context.Background()
-			_, err = cl.ImmuClient.SafeSet(ctx, key, value)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			value2, err := ioutil.ReadAll(&buf)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			vi, err := cl.ImmuClient.SafeGet(ctx, key)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			printItem([]byte(args[0]), value2, vi, false)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(2),
@@ -166,34 +91,11 @@ func (cl *commandline) zAdd(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var setReader io.Reader
-			var scoreReader io.Reader
-			var keyReader io.Reader
-			if len(args) > 1 {
-				setReader = bytes.NewReader([]byte(args[0]))
-				scoreReader = bytes.NewReader([]byte(args[1]))
-				keyReader = bytes.NewReader([]byte(args[2]))
-			}
-
-			bs, err := ioutil.ReadAll(scoreReader)
-			score, err := strconv.ParseFloat(string(bs[:]), 64)
+			resp, err := cl.immucl.ZAdd(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			set, err := ioutil.ReadAll(setReader)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			key, err := ioutil.ReadAll(keyReader)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.ZAdd(ctx, set, score, key)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			printSetItem([]byte(args[0]), []byte(args[2]), score, response)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(3),
@@ -209,33 +111,11 @@ func (cl *commandline) safeZAdd(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var setReader io.Reader
-			var scoreReader io.Reader
-			var keyReader io.Reader
-			if len(args) > 1 {
-				setReader = bytes.NewReader([]byte(args[0]))
-				scoreReader = bytes.NewReader([]byte(args[1]))
-				keyReader = bytes.NewReader([]byte(args[2]))
-			}
-			bs, err := ioutil.ReadAll(scoreReader)
-			score, err := strconv.ParseFloat(string(bs[:]), 64)
+			resp, err := cl.immucl.SafeZAdd(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			set, err := ioutil.ReadAll(setReader)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			key, err := ioutil.ReadAll(keyReader)
-			if err != nil {
-				c.QuitToStdErr(err)
-			}
-			ctx := context.Background()
-			response, err := cl.ImmuClient.SafeZAdd(ctx, set, score, key)
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			printSetItem([]byte(args[0]), []byte(args[2]), score, response)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(3),

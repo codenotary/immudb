@@ -17,7 +17,7 @@ limitations under the License.
 package immuclient
 
 import (
-	"context"
+	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
@@ -31,12 +31,11 @@ func (cl *commandline) currentRoot(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
-			root, err := cl.ImmuClient.CurrentRoot(ctx)
+			resp, err := cl.immucl.CurrentRoot(args)
 			if err != nil {
-				c.QuitWithUserError(err)
+				c.QuitToStdErr(err)
 			}
-			printRoot(root)
+			fmt.Println(resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(0),

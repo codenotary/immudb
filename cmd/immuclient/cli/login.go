@@ -16,58 +16,10 @@ limitations under the License.
 
 package cli
 
-import (
-	"context"
-	"errors"
-	"strings"
-
-	"github.com/codenotary/immudb/pkg/client"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-)
-
 func (cli *cli) login(args []string) (string, error) {
-	user := []byte(args[0])
-	pass, err := cli.passwordReader.Read("Password:")
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := cli.ImmuClient.Login(ctx, user, pass)
-	if err != nil {
-		if strings.Contains(err.Error(), "authentication is disabled on server") {
-			return "authentication is disabled on server", nil
-		}
-		return "", err
-	}
-	tokenFileName := cli.ImmuClient.GetOptions().TokenFileName
-	if err := client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
-		return "", err
-	}
-	cli.ImmuClient.GetOptions().Auth = true
-	cli.ImmuClient, err = client.NewImmuClient((cli.ImmuClient.GetOptions()))
-	if err != nil {
-		return "", err
-	}
-	cli.isLoggedin = true
-
-	return "Successfully logged in", nil
+	return cli.immucl.Login(args)
 }
 
 func (cli *cli) logout(args []string) (string, error) {
-	var err error
-	if err = cli.ImmuClient.Logout(context.Background()); err != nil {
-		s, ok := status.FromError(err)
-		if ok && s.Code() == codes.Unauthenticated {
-			err = errors.New("Unauthenticated, please login")
-		}
-		return "", err
-	}
-	cli.isLoggedin = false
-	cli.ImmuClient.GetOptions().Auth = false
-	cli.ImmuClient, err = client.NewImmuClient((cli.ImmuClient.GetOptions()))
-	if err != nil {
-		return "", err
-	}
-	return "Successfully logged out", nil
+	return cli.immucl.Logout(args)
 }

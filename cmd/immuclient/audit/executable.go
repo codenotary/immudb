@@ -36,8 +36,6 @@ func newExecutable(a *auditAgent) *executable {
 }
 
 func (e *executable) Start() {
-	tt := time.NewTicker(time.Duration(e.a.cycleFrequency) * time.Second)
-
 	go func() {
 		go func() {
 			e.a.promot.port = viper.GetString("prometheus-port")
@@ -47,15 +45,8 @@ func (e *executable) Start() {
 				fmt.Println(err.Error())
 			}
 		}()
-		for {
-			select {
-			case <-tt.C:
-				e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second, e.stop, e.stop)
-			case <-e.stop:
-				return
-			}
-
-		}
+		fmt.Println(time.Duration(e.a.cycleFrequency) * time.Second)
+		e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second, e.stop, e.stop)
 	}()
 }
 
