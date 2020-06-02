@@ -206,6 +206,10 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
+	if s.Options.CorruptionCheck {
+		s.Cc.Stop(context.Background())
+		s.Cc = nil
+	}
 	if s.SysStore != nil {
 		defer func() { s.SysStore = nil }()
 		s.SysStore.Close()
