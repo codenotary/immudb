@@ -15,7 +15,7 @@ With immudb you can track changes in sensitive data in your transactional databa
 tamperproof immudb database. This allows you to keep an indelible history of sensitive data, for example debit/credit card transactions.
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
-Traditional transaction logs are hard to scale and are mutable. So there is no way to know for sure if your data has been compromised.
+Traditional DB transactions and logs are hard to scale and are mutable. So there is no way to know for sure if your data has been compromised.
 
 As such, immudb provides **unparalleled insights** **retroactively** of changes to your sensitive data, even
 if your perimeter has been compromised. immudb guarantees immutability by using a **Merkle tree structure** internally.
