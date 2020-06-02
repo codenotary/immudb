@@ -58,6 +58,10 @@ func (cl *commandline) dumpToFile(cmd *cobra.Command) {
 				color.Unset()
 				os.Remove(filename)
 				c.QuitWithUserError(err)
+			} else if response == 0 {
+				fmt.Println("Database is empty.")
+				os.Remove(filename)
+				return nil
 			}
 			fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response, filename)
 			return nil
