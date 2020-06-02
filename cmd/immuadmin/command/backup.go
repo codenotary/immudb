@@ -189,6 +189,23 @@ func offlineBackup(src string, uncompressed bool, manualStopStart bool) (string,
 		return "", fmt.Errorf("%s is not a directory", src)
 	}
 
+	currDir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	srcAbs, err := filepath.Abs(src)
+	if err != nil {
+		return "", err
+	}
+	currDirAbs, err := filepath.Abs(currDir)
+	if err != nil {
+		return "", err
+	}
+	if srcAbs == currDirAbs {
+		return "", fmt.Errorf(
+			"cannot backup the current directory, please specify a subdirectory, for example ./db")
+	}
+
 	if !manualStopStart {
 		startImmudbService, err := stopImmudbService()
 		if err != nil {
