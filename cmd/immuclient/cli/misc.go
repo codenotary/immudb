@@ -16,10 +16,16 @@ limitations under the License.
 
 package cli
 
+import "github.com/codenotary/immudb/cmd/version"
+
 func (cli *cli) history(args []string) (string, error) {
 	return cli.immucl.History(args)
 }
 
 func (cli *cli) healthCheck(args []string) (string, error) {
 	return cli.immucl.HealthCheck(args)
+}
+
+func (cli *cli) version(args []string) (string, error) {
+	return version.VersionStr(), nil
 }
