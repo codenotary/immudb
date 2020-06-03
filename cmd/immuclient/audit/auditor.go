@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/server"
@@ -68,7 +67,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	if serverID == "" || err != nil {
 		serverID = "unknown"
 	}
-	cAgent.promot.init(serverID)
+	cAgent.metrics.init(serverID)
 	cliOpts := cAgent.immuc.GetOptions()
 	ctx = context.Background()
 	auditUsername := []byte(viper.GetString("audit-username"))
@@ -85,16 +84,9 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		viper.GetString("audit-username"),
 		viper.GetString("audit-password"),
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
-		cAgent.promot.exporter, cAgent.logfile)
+		cAgent.metrics.updateMetrics, cAgent.logfile)
 	if err != nil {
 		return nil, err
 	}
 	return cAgent, nil
-}
-
-func filename() string {
-	t := time.Now().String()[:16]
-	t = strings.ReplaceAll(t, " ", "_")
-	t = fmt.Sprintf("audit_roots_%s.txt", t)
-	return t
 }

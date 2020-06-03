@@ -17,7 +17,6 @@ limitations under the License.
 package audit
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -25,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 
 	"github.com/codenotary/immudb/cmd/immuclient/service"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -41,31 +39,14 @@ type AuditAgent interface {
 type auditAgent struct {
 	daemon.Daemon
 	cycleFrequency int
-	promot         promotheusExporter
+	metrics        prometheusMetrics
 	ImmuAudit      auditor.Auditor
 	immuc          client.ImmuClient
-	rootStorage    io.Writer
 	firstRun       bool
 	opts           *client.Options
 	logger         logger.Logger
 	Pid            server.PIDFile
 	logfile        io.Writer
-}
-
-func (a *auditAgent) writeRoot(root *schema.Root, t string) error {
-	m := make(map[string]interface{}, 2)
-	m["root"] = root
-	m["timeStamp"] = t
-	data, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-	data = append(data, []byte("\n")...)
-	_, err = a.rootStorage.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (a *auditAgent) Manage(args []string) (string, error) {
@@ -80,8 +61,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 	exec := newExecutable(a)
 
 	if command == "install" {
-		_, err := a.InitAgent()
-		if err != nil {
+		if _, err = a.InitAgent(); err != nil {
 			QuitToStdErr(err.Error())
 		}
 		localFile = viper.GetString("local-file")
@@ -210,16 +190,4 @@ func options() *client.Options {
 			WithClientCAs(clientcas)
 	}
 	return options
-}
-
-func getCommands() string {
-	cmds := []string{"install", "uninstall", "start", "stop", "status", "restart"}
-	for i := range os.Args {
-		for j := range cmds {
-			if os.Args[i] == cmds[j] {
-				return cmds[j]
-			}
-		}
-	}
-	return ""
 }
