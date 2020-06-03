@@ -19,9 +19,10 @@ package audit
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server"
 	"io"
 	"os"
+
+	"github.com/codenotary/immudb/pkg/server"
 
 	"github.com/codenotary/immudb/cmd/immuclient/service"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -180,7 +181,9 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 	}
 	a.logfile = logfile
 	a.logger = logger.NewSimpleLogger("immuclientd", logfile)
-	a.InitAgent()
+	if _, err := a.InitAgent(); err != nil {
+		return "", err
+	}
 	return a.Run(exec)
 }
 
