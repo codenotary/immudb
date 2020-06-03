@@ -97,6 +97,7 @@ immutest-static:
 vendor:
 	$(GO) mod vendor
 
+# To view coverage as HTML run: go tool cover -html=coverage.txt
 .PHONY: test
 test:
 	$(GO) vet ./...

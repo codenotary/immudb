@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-type promotheusExporter struct {
+type prometheusMetrics struct {
 	port           string
 	address        string
 	server_address string
@@ -54,7 +54,7 @@ var (
 	)
 )
 
-func (p *promotheusExporter) init(serverid string) {
+func (p *prometheusMetrics) init(serverid string) {
 	p.server_address = fmt.Sprintf("%s:%s", viper.GetString("immudb-address"), viper.GetString("immudb-port"))
 	p.server_id = serverid
 	prometheus.MustRegister(AuditResultPerServer, AuditCurrRootPerServer, AuditRunAtPerServer, AuditPrevRootPerServer)
@@ -64,7 +64,7 @@ func (p *promotheusExporter) init(serverid string) {
 	AuditPrevRootPerServer.WithLabelValues(p.server_id, p.server_address).Set(-1)
 }
 
-func (p *promotheusExporter) startPromoExporter() error {
+func (p *prometheusMetrics) startServer() error {
 
 	http.Handle("/", promhttp.Handler())
 	fmt.Printf("Beginning to serve on port %s:%s \n", p.address, p.port)
@@ -87,7 +87,7 @@ func newAuditGaugeVec(name string, help string) *prometheus.GaugeVec {
 	)
 }
 
-func (p *promotheusExporter) exporter(
+func (p *prometheusMetrics) updateMetrics(
 	serverID string,
 	serverAddress string,
 	checked bool,

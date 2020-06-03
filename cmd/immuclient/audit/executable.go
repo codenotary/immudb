@@ -38,9 +38,9 @@ func newExecutable(a *auditAgent) *executable {
 func (e *executable) Start() {
 	go func() {
 		go func() {
-			e.a.promot.port = viper.GetString("prometheus-port")
-			e.a.promot.port = viper.GetString("prometheus-host")
-			err := e.a.promot.startPromoExporter()
+			e.a.metrics.port = viper.GetString("prometheus-port")
+			e.a.metrics.port = viper.GetString("prometheus-host")
+			err := e.a.metrics.startServer()
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -56,9 +56,9 @@ func (e *executable) Stop() {
 
 func (e *executable) Run() {
 	go func() {
-		e.a.promot.port = viper.GetString("prometheus-port")
-		e.a.promot.address = viper.GetString("prometheus-host")
-		err := e.a.promot.startPromoExporter()
+		e.a.metrics.port = viper.GetString("prometheus-port")
+		e.a.metrics.address = viper.GetString("prometheus-host")
+		err := e.a.metrics.startServer()
 		if err != nil {
 			fmt.Println(err.Error())
 		}
