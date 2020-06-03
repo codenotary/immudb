@@ -62,4 +62,5 @@ func (cli *cli) initCommands() {
 	// Misc commands
 	cli.Register(&command{"status", "", cli.healthCheck, nil})
 	cli.Register(&command{"history", "Fetch history for the item having the specified key", cli.history, []string{"key"}})
+	cli.Register(&command{"version", "Print version", cli.version, nil})
 }
