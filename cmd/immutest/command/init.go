@@ -28,11 +28,14 @@ import (
 
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/jaswdr/faker"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type commandline struct {
@@ -55,7 +58,9 @@ func Init(cmd *cobra.Command, o *c.Options) {
     IMMUTEST_IMMUDB_PORT=3322`
 	cmd.Example = "immutest 1000"
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		cl.connect(cmd, nil)
+		if err := cl.connect(cmd, nil); err != nil {
+			c.QuitToStdErr(err)
+		}
 		defer cl.disconnect(cmd, nil)
 		serverAddress := cl.immuClient.GetOptions().Address
 		if serverAddress != "127.0.0.1" && serverAddress != "localhost" {
@@ -63,6 +68,13 @@ func Init(cmd *cobra.Command, o *c.Options) {
 				"immutest is allowed to run only on the server machine (remote runs are not allowed)"))
 		}
 		checkForEmptyDB(serverAddress)
+		ctx := context.Background()
+		loginIfNeeded(ctx, cl.immuClient, func() {
+			cl.disconnect(cmd, nil)
+			if err := cl.connect(cmd, nil); err != nil {
+				c.QuitToStdErr(err)
+			}
+		})
 		nbEntries := defaultNbEntries
 		var err error
 		if len(args) > 0 {
@@ -77,10 +89,11 @@ func Init(cmd *cobra.Command, o *c.Options) {
 			}
 		}
 		fmt.Printf("Populating immudb with %d sample entries (credit cards of clients) ...\n", nbEntries)
-		took := populate(&cl.immuClient, nbEntries)
+		took := populate(ctx, &cl.immuClient, nbEntries)
 		fmt.Printf(
-			"OK: %d entries were written in %v\n"+
-				"Run './immuclient scan client:' to fetch the populated entries", nbEntries, took)
+			"OK: %d entries were written in %v\nNow you can run, for example:\n"+
+				"  ./immuclient scan client    to fetch the populated entries\n"+
+				"  ./immuclient count client   to count them", nbEntries, took)
 		return nil
 	}
 	cmd.Args = cobra.MaximumNArgs(1)
@@ -138,6 +151,31 @@ func checkForEmptyDB(serverAddress string) {
 	}
 }
 
+func loginIfNeeded(ctx context.Context, immuClient client.ImmuClient, onSuccess func()) {
+	_, err := immuClient.Get(ctx, []byte{})
+	if s, ok := status.FromError(err); ok && s.Code() == codes.Unauthenticated {
+		pass, err := c.DefaultPasswordReader.Read("Admin password:")
+		if err != nil {
+			c.QuitToStdErr(err)
+		}
+		response, err := immuClient.Login(ctx, []byte(auth.AdminUsername), pass)
+		if err != nil {
+			if s, ok := status.FromError(err); ok && s.Code() == codes.NotFound {
+				c.QuitToStdErr("Oops! It looks like the admin user has not been created yet.")
+			}
+			c.QuitWithUserError(err)
+		}
+		tokenFileName := immuClient.GetOptions().TokenFileName
+		if !strings.HasSuffix(tokenFileName, client.AdminTokenFileSuffix) {
+			tokenFileName += client.AdminTokenFileSuffix
+		}
+		if err := client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
+			c.QuitToStdErr(err)
+		}
+		onSuccess()
+	}
+}
+
 func askUserToConfirmOrCancel() {
 	var answer string
 	fmt.Printf("Are you sure you want to proceed? [y/N]: ")
@@ -147,14 +185,13 @@ func askUserToConfirmOrCancel() {
 	}
 }
 
-func populate(immuClient *client.ImmuClient, nbEntries int) time.Duration {
+func populate(ctx context.Context, immuClient *client.ImmuClient, nbEntries int) time.Duration {
 	// batchSize := 100
 	// var keyReaders []io.Reader
 	// var valueReaders []io.Reader
 	generator := faker.New()
 	p := generator.Person()
 	py := generator.Payment()
-	ctx := context.Background()
 	start := time.Now()
 	end := start
 	for i := 0; i < nbEntries; i++ {
@@ -175,6 +212,7 @@ func populate(immuClient *client.ImmuClient, nbEntries int) time.Duration {
 			c.QuitWithUserError(err)
 		}
 		end = end.Add(time.Since(itemStart))
+		fmt.Printf("%s = %s\n", key, value)
 		//<===
 		// FIXME OGG:
 		//===> Batch version: seems it doesn't work correctly: get and scan fail afterwards
@@ -203,6 +241,7 @@ func options() *client.Options {
 		WithPort(port).
 		WithAddress(address).
 		WithAuth(true)
+	options.TokenFileName += client.AdminTokenFileSuffix
 	return options
 }
 
