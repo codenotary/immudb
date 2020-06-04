@@ -554,3 +554,121 @@ func (t *Store) fetchFromDb(key []byte) (*schema.Item, error) {
 	}
 	return nil, err
 }
+
+// GetTree returns a structure that rapresents merkle tree. Every node is marked as in memory, root and with reference key.
+func (t *Store) GetTree() *schema.Tree {
+	// Build disk tree
+	disktree := &schema.Tree{}
+	t.db.View(func(txn *badger.Txn) error {
+		for l := uint8(0); l < math.MaxInt8; l++ {
+			layer := &schema.Layer{}
+			opts := badger.DefaultIteratorOptions
+			opts.PrefetchValues = false
+			opts.Reverse = false
+			it := txn.NewIterator(opts)
+
+			maxKey := []byte{tsPrefix, l}
+			for it.Seek(maxKey); it.ValidForPrefix(maxKey); it.Next() {
+				item := it.Item()
+				node := &schema.Node{}
+				node.I = item.KeyCopy(nil)
+				temp, _ := item.ValueCopy(nil)
+				var refk []byte
+				var hash [32]byte
+				hash, refk, _ = decodeRefTreeKey(temp)
+				node.H = hash[:]
+				node.Refk = refk
+				node.Cache = false
+				if len(refk) > 0 {
+					node.Ref = true
+				}
+				layer.L = append(layer.L, node)
+			}
+			it.Close()
+			if len(layer.L) > 0 {
+				disktree.T = append(disktree.T, layer)
+			}
+		}
+
+		return nil
+	})
+	t.tree.Lock()
+	defer t.tree.Unlock()
+
+	// Build cache tree
+	memtree := &schema.Tree{}
+	for l, c := range t.tree.caches {
+		tail := c.Tail()
+		if tail == 0 {
+			continue
+		}
+		memlayer := &schema.Layer{}
+		for i := t.tree.cPos[l]; i < tail; i++ {
+			if h := c.Get(i); h != nil {
+				var value []byte
+				value = h.(*[sha256.Size]byte)[:]
+				if l == 0 {
+					value = t.tree.rcaches[l].Get(i).([]byte)
+				}
+				memnode := &schema.Node{}
+				memhash, memrefk, _ := decodeRefTreeKey(value)
+
+				memnode.I = treeKey(uint8(l), i)
+				memnode.H = memhash[:]
+				memnode.Refk = memrefk
+				memnode.Cache = true
+				if len(memrefk) > 0 {
+					memnode.Ref = true
+				}
+				memlayer.L = append(memlayer.L, memnode)
+			}
+		}
+		if len(memlayer.L) > 0 {
+			memtree.T = append(memtree.T, memlayer)
+		}
+	}
+
+	// Merging disk and cache tree
+	fulltree := &schema.Tree{}
+	if len(disktree.T) > 0 && len(memtree.T) > 0 {
+		for _, diskLayer := range disktree.T {
+			fulllayer := &schema.Layer{}
+			for _, node := range diskLayer.L {
+				fulllayer.L = append(fulllayer.L, node)
+			}
+			fulltree.T = append(fulltree.T, fulllayer)
+		}
+		for _, memLayer := range memtree.T {
+			var lvlb = make([]byte, 1)
+			// here extract layer from first key found
+			copy(lvlb, memLayer.L[0].I[1:2])
+			if uint8(len(fulltree.T)-1) > lvlb[0] {
+				for _, node := range memLayer.L {
+					fulltree.T[lvlb[0]].L = append(fulltree.T[lvlb[0]].L, node)
+				}
+			} else {
+				//If mem layer is not present  in  the disk tree create create new one
+				fulllayer := &schema.Layer{}
+				for _, node := range memLayer.L {
+					fulllayer.L = append(fulllayer.L, node)
+				}
+				fulltree.T = append(fulltree.T, fulllayer)
+			}
+		}
+	}
+
+	if len(fulltree.T) > 0 {
+		fulltree.T[len(fulltree.T)-1].L[0].Root = true
+		return fulltree
+	}
+	if len(disktree.T) > 0 {
+		disktree.T[len(disktree.T)-1].L[0].Root = true
+		return disktree
+	}
+	if len(memtree.T) > 0 {
+		memtree.T[len(memtree.T)-1].L[0].Root = true
+		return memtree
+	}
+
+	return &schema.Tree{}
+}

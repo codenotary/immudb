@@ -308,3 +308,8 @@ func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) 
 	auth.DropTokenKeys(string(r.GetUser()))
 	return new(empty.Empty), nil
 }
+
+func (s *ImmuServer) PrintTree(context.Context, *empty.Empty) (*schema.Tree, error) {
+	tree := s.Store.GetTree()
+	return tree, nil
+}
