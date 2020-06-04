@@ -17,6 +17,9 @@ limitations under the License.
 package immudb
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
@@ -26,8 +29,6 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
-	"os"
-	"path/filepath"
 )
 
 var o = c.Options{}
@@ -51,7 +52,7 @@ Environment variables:
   IMMUDB_PIDFILE=
   IMMUDB_LOGFILE=
   IMMUDB_MTLS=false
-  IMMUDB_AUTH=false
+  IMMUDB_AUTH=true
   IMMUDB_DETACHED=false
   IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
