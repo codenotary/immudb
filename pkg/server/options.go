@@ -56,7 +56,7 @@ func DefaultOptions() Options {
 		Pidfile:         "",
 		Logfile:         "",
 		MTLs:            false,
-		Auth:            false,
+		Auth:            true,
 		NoHistograms:    false,
 		Detached:        false,
 		CorruptionCheck: true,
