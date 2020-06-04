@@ -55,6 +55,7 @@ func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
 	cl.serverConfig(cmd)
 	cl.backup(cmd)
 	cl.restore(cmd)
+	cl.printTree(cmd)
 
 	cld := new(commandlineDisc)
 	cld.service(cmd)
