@@ -21,7 +21,7 @@ func TestDefaultOptions(t *testing.T) {
 func TestSetOptions(t *testing.T) {
 	DbName := "Charles_Aznavour"
 	op := DefaultOption().WithDbName(DbName)
-	if op.DbName != DbName {
+	if !strings.Contains(op.DbName, DbName) {
 		t.Errorf("db name not set correctly , expected %s got %s", DbName, op.DbName)
 	}
 }
