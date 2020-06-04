@@ -900,6 +900,17 @@
         }
       }
     },
+    "schemaLayer": {
+      "type": "object",
+      "properties": {
+        "l": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaNode"
+          }
+        }
+      }
+    },
     "schemaLoginRequest": {
       "type": "object",
       "properties": {
@@ -919,6 +930,35 @@
         "token": {
           "type": "string",
           "format": "byte"
+        }
+      }
+    },
+    "schemaNode": {
+      "type": "object",
+      "properties": {
+        "i": {
+          "type": "string",
+          "format": "byte"
+        },
+        "h": {
+          "type": "string",
+          "format": "byte"
+        },
+        "refk": {
+          "type": "string",
+          "format": "byte"
+        },
+        "ref": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "cache": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "root": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
@@ -1145,6 +1185,17 @@
         },
         "value": {
           "$ref": "#/definitions/schemaContent"
+        }
+      }
+    },
+    "schemaTree": {
+      "type": "object",
+      "properties": {
+        "t": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaLayer"
+          }
         }
       }
     },
