@@ -17,11 +17,14 @@ limitations under the License.
 package db
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
+	"github.com/golang/protobuf/ptypes/empty"
 )
 
 type Db struct {
@@ -58,4 +61,48 @@ func NewDb(op *DbOptions) (*Db, error) {
 		return nil, err
 	}
 	return db, nil
+}
+func (d *Db) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
+	d.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
+	item, err := d.Store.Set(*kv)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (d *Db) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
+	item, err := d.Store.Get(*k)
+	if item == nil {
+		d.Logger.Debugf("get %s: item not found", k.Key)
+	} else {
+		d.Logger.Debugf("get %s %d bytes", k.Key, len(item.Value))
+	}
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+func (d *Db) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.Root, error) {
+	root, err := d.Store.CurrentRoot()
+	if root != nil {
+		d.Logger.Debugf("current root: %d %x", root.Index, root.Root)
+	}
+	return root, err
+}
+
+func (d *Db) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) (*schema.Index, error) {
+	kv, err := skv.ToKV()
+	if err != nil {
+		return nil, err
+	}
+	return d.Set(ctx, kv)
+}
+func (d *Db) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
+	it, err := d.Get(ctx, k)
+	si, err := it.ToSItem()
+	if err != nil {
+		return nil, err
+	}
+	return si, err
 }
