@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -88,16 +89,16 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Errorf("Immudb unable to listen: %s", err)
 		return err
 	}
-	// sysDbDir := filepath.Join(s.Options.Dir, s.Options.SysDbName)
-	// if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
-	// 	s.Logger.Errorf("Unable to create sys data folder: %s", err)
-	// 	return err
-	// }
-	// dbDir := filepath.Join(s.Options.Dir, s.Options.DbName)
-	// if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
-	// 	s.Logger.Errorf("Unable to create data folder: %s", err)
-	// 	return err
-	// }
+	sysDbDir := filepath.Join(s.Options.Dir, s.Options.SysDbName)
+	if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
+		s.Logger.Errorf("Unable to create sys data folder: %s", err)
+		return err
+	}
+	dbDir := filepath.Join(s.Options.Dir, s.Options.DbName)
+	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
+		s.Logger.Errorf("Unable to create data folder: %s", err)
+		return err
+	}
 	var uuid xid.ID
 	if uuid, err = getOrSetUuid(s.Options.Dir); err != nil {
 		return err
@@ -124,16 +125,16 @@ func (s *ImmuServer) Start() error {
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
 	)
 
-	// s.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, s.Logger))
-	// if err != nil {
-	// 	s.Logger.Errorf("Unable to open sysstore: %s", err)
-	// 	return err
-	// }
-	// s.Store, err = store.Open(store.DefaultOptions(dbDir, s.Logger))
-	// if err != nil {
-	// 	s.Logger.Errorf("Unable to open store: %s", err)
-	// 	return err
-	// }
+	s.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, s.Logger))
+	if err != nil {
+		s.Logger.Errorf("Unable to open sysstore: %s", err)
+		return err
+	}
+	s.Store, err = store.Open(store.DefaultOptions(dbDir, s.Logger))
+	if err != nil {
+		s.Logger.Errorf("Unable to open store: %s", err)
+		return err
+	}
 
 	auth.AdminUserExists = s.adminUserExists
 	auth.IsAdminUser = s.isAdminUser
