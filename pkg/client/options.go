@@ -23,6 +23,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+const AdminTokenFileSuffix = "_admin"
+
 type Options struct {
 	Dir                string
 	Address            string

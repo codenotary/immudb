@@ -62,14 +62,12 @@ func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
 	cmd.AddCommand(man.Generate(cmd, cmdName, "./cmd/docs/man/"+cmdName))
 }
 
-const adminTokenFileSuffix = "_admin"
-
 func options() *client.Options {
 	port := viper.GetInt("immudb-port")
 	address := viper.GetString("immudb-address")
 	tokenFileName := viper.GetString("tokenfile")
-	if !strings.HasSuffix(tokenFileName, adminTokenFileSuffix) {
-		tokenFileName += adminTokenFileSuffix
+	if !strings.HasSuffix(tokenFileName, client.AdminTokenFileSuffix) {
+		tokenFileName += client.AdminTokenFileSuffix
 	}
 	mtls := viper.GetBool("mtls")
 	certificate := viper.GetString("certificate")
@@ -129,9 +127,9 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 		fmt.Sprintf(
 			"authentication token file (default path is $HOME or binary location; the supplied "+
 				"value will be automatically suffixed with %s; default filename is %s%s)",
-			adminTokenFileSuffix,
+			client.AdminTokenFileSuffix,
 			client.DefaultOptions().TokenFileName,
-			adminTokenFileSuffix))
+			client.AdminTokenFileSuffix))
 	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path is configs or $HOME; default filename is immuadmin.toml)")
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
