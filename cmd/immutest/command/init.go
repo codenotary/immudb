@@ -55,7 +55,8 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cmd.Long = `Populate immudb with the (optional) number of entries (100 by default).
   Environment variables:
     IMMUTEST_IMMUDB_ADDRESS=127.0.0.1
-    IMMUTEST_IMMUDB_PORT=3322`
+    IMMUTEST_IMMUDB_PORT=3322
+    IMMUTEST_TOKENFILE=token_admin`
 	cmd.Example = "immutest 1000"
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if err := cl.connect(cmd, nil); err != nil {
@@ -166,9 +167,6 @@ func loginIfNeeded(ctx context.Context, immuClient client.ImmuClient, onSuccess 
 			c.QuitWithUserError(err)
 		}
 		tokenFileName := immuClient.GetOptions().TokenFileName
-		if !strings.HasSuffix(tokenFileName, client.AdminTokenFileSuffix) {
-			tokenFileName += client.AdminTokenFileSuffix
-		}
 		if err := client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 			c.QuitToStdErr(err)
 		}
@@ -237,11 +235,15 @@ func populate(ctx context.Context, immuClient *client.ImmuClient, nbEntries int)
 func options() *client.Options {
 	port := viper.GetInt("immudb-port")
 	address := viper.GetString("immudb-address")
+	tokenFileName := viper.GetString("tokenfile")
+	if !strings.HasSuffix(tokenFileName, client.AdminTokenFileSuffix) {
+		tokenFileName += client.AdminTokenFileSuffix
+	}
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
-		WithAuth(true)
-	options.TokenFileName += client.AdminTokenFileSuffix
+		WithAuth(true).
+		WithTokenFileName(tokenFileName)
 	return options
 }
 
