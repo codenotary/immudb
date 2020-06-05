@@ -106,3 +106,79 @@ func (d *Db) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, 
 	}
 	return si, err
 }
+
+func (d *Db) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
+	d.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
+	item, err := d.Store.SafeSet(*opts)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+func (d *Db) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
+	d.Logger.Debugf("safeget %s", opts.Key)
+	sitem, err := d.Store.SafeGet(*opts)
+	if err != nil {
+		return nil, err
+	}
+	return sitem, nil
+}
+func (d *Db) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
+	kv, err := sopts.Skv.ToKV()
+	if err != nil {
+		return nil, err
+	}
+	opts := &schema.SafeSetOptions{
+		Kv:        kv,
+		RootIndex: sopts.RootIndex,
+	}
+	return d.SafeSet(ctx, opts)
+}
+func (d *Db) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
+	it, err := d.SafeGet(ctx, opts)
+	ssitem, err := it.ToSafeSItem()
+	if err != nil {
+		return nil, err
+	}
+	return ssitem, err
+}
+
+func (d *Db) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
+	d.Logger.Debugf("set batch %d", len(kvl.KVs))
+	index, err := d.Store.SetBatch(*kvl)
+	if err != nil {
+		return nil, err
+	}
+	return index, nil
+}
+
+func (d *Db) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
+	list := &schema.ItemList{}
+	for _, key := range kl.Keys {
+		item, err := d.Store.Get(*key)
+		if err == nil || err == store.ErrKeyNotFound {
+			if item != nil {
+				list.Items = append(list.Items, item)
+			}
+		} else {
+			return nil, err
+		}
+	}
+	return list, nil
+}
+
+func (d *Db) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*schema.Index, error) {
+	kvl, err := skvl.ToKVList()
+	if err != nil {
+		return nil, err
+	}
+	return d.SetBatch(ctx, kvl)
+}
+func (d *Db) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
+	list, err := d.GetBatch(ctx, kl)
+	slist, err := list.ToSItemList()
+	if err != nil {
+		return nil, err
+	}
+	return slist, err
+}
