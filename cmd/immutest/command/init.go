@@ -94,7 +94,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 		fmt.Printf(
 			"OK: %d entries were written in %v\nNow you can run, for example:\n"+
 				"  ./immuclient scan client    to fetch the populated entries\n"+
-				"  ./immuclient count client   to count them", nbEntries, took)
+				"  ./immuclient count client   to count them\n", nbEntries, took)
 		return nil
 	}
 	cmd.Args = cobra.MaximumNArgs(1)
