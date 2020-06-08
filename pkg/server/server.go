@@ -51,8 +51,15 @@ var startedAt time.Time
 func (s *ImmuServer) Start() error {
 
 	var dirs []string
-	root := "data" //TODO
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	dataDir := "data" //TODO
+	if err := os.MkdirAll(dataDir, os.ModePerm); err != nil {
+		s.Logger.Errorf("Unable to create data folder: %s", err)
+		return err
+	}
+	err := filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if info.IsDir() && (strings.Count(path, string(filepath.Separator)) == 1) {
 			dirs = append(dirs, path)
 		}
