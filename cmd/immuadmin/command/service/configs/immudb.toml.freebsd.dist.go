@@ -1,4 +1,4 @@
-// +build linux darwin
+// +build freebsd
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -23,7 +23,7 @@ network = "tcp"
 address = "127.0.0.1"
 port = 3322
 dbname = "data"
-pidfile = "/var/lib/immudb/immudb.pid"
+pidfile = "/var/run/immudb.pid"
 logfile = "/var/log/immudb/immudb.log"
 mtls = false
 detached = false
