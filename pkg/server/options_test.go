@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package server
 
 import (
 	"strings"
@@ -23,7 +23,7 @@ import (
 
 func TestDefaultOptions(t *testing.T) {
 	op := DefaultOption()
-	if !strings.Contains(op.DbName, "db_") {
+	if !strings.Contains(op.GetDbName(), "db_") {
 		t.Errorf("default db dir non as per convention")
 	}
 	if op.GetDbDir() != "immudb" {
@@ -37,7 +37,7 @@ func TestDefaultOptions(t *testing.T) {
 func TestSetOptions(t *testing.T) {
 	DbName := "Charles_Aznavour"
 	op := DefaultOption().WithDbName(DbName)
-	if !strings.Contains(op.DbName, DbName) {
-		t.Errorf("db name not set correctly , expected %s got %s", DbName, op.DbName)
+	if !strings.Contains(op.GetDbName(), DbName) {
+		t.Errorf("db name not set correctly , expected %s got %s", DbName, op.GetDbName())
 	}
 }

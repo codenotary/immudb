@@ -49,6 +49,29 @@ import (
 var startedAt time.Time
 
 func (s *ImmuServer) Start() error {
+
+	var dirs []string
+	root := "data" //TODO
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() && (strings.Count(path, string(filepath.Separator)) == 1) {
+			dirs = append(dirs, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, val := range dirs {
+		op := DefaultOption().WithDbName(val)
+		db, err := NewDb(op)
+		if err != nil {
+			return err
+		}
+		s.Databases = append(s.Databases, db)
+	}
+	fmt.Println(len(s.Databases))
+
 	options := []grpc.ServerOption{}
 	//----------TLS Setting-----------//
 	if s.Options.MTLs {

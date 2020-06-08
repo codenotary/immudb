@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package server
 
 import (
 	"bytes"
@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 
@@ -29,8 +30,50 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+var Skv = &schema.SKVList{
+	SKVs: []*schema.StructuredKeyValue{
+		{
+			Key: []byte("Alberto"),
+			Value: &schema.Content{
+				Timestamp: uint64(1257894000),
+				Payload:   []byte("Tomba"),
+			},
+		},
+		{
+			Key: []byte("Jean-Claude"),
+			Value: &schema.Content{
+				Timestamp: uint64(1257894001),
+				Payload:   []byte("Killy"),
+			},
+		},
+		{
+			Key: []byte("Franz"),
+			Value: &schema.Content{
+				Timestamp: uint64(1257894002),
+				Payload:   []byte("Clamer"),
+			},
+		},
+	},
+}
+
+var kv = []*schema.KeyValue{
+	{
+		Key:   []byte("Alberto"),
+		Value: []byte("Tomba"),
+	},
+	{
+		Key:   []byte("Jean-Claude"),
+		Value: []byte("Killy"),
+	},
+	{
+		Key:   []byte("Franz"),
+		Value: []byte("Clamer"),
+	},
+}
+
 func makeDb() (*Db, func()) {
-	options := DefaultOption().WithDbName("EdithPiaf")
+	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	options := DefaultOption().WithDbName(dbName)
 	d, err := NewDb(options)
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
@@ -42,7 +85,7 @@ func makeDb() (*Db, func()) {
 		if err := d.SysStore.Close(); err != nil {
 			log.Fatal(err)
 		}
-		if err := os.RemoveAll(options.DbName); err != nil {
+		if err := os.RemoveAll(options.GetDbName()); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -54,18 +97,18 @@ func TestDefaultDbCreation(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error creating Db instance %s", err)
 	}
-	defer os.RemoveAll(options.DbName)
+	defer os.RemoveAll(options.GetDbName())
 
-	if _, err = os.Stat(options.DbName); os.IsNotExist(err) {
+	if _, err = os.Stat(options.GetDbName()); os.IsNotExist(err) {
 		t.Errorf("Db dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.DbName, options.GetDbDir()))
+	_, err = os.Stat(path.Join(options.GetDbName(), options.GetDbDir()))
 	if os.IsNotExist(err) {
 		t.Errorf("Data dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.DbName, options.GetSysDbDir()))
+	_, err = os.Stat(path.Join(options.GetDbName(), options.GetSysDbDir()))
 	if os.IsNotExist(err) {
 		t.Errorf("Sys dir not created")
 	}
@@ -76,18 +119,18 @@ func TestDbCreation(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error creating Db instance %s", err)
 	}
-	defer os.RemoveAll(options.DbName)
+	defer os.RemoveAll(options.GetDbName())
 
-	if _, err = os.Stat(options.DbName); os.IsNotExist(err) {
+	if _, err = os.Stat(options.GetDbName()); os.IsNotExist(err) {
 		t.Errorf("Db dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.DbName, options.GetDbDir()))
+	_, err = os.Stat(path.Join(options.GetDbName(), options.GetDbDir()))
 	if os.IsNotExist(err) {
 		t.Errorf("Data dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.DbName, options.GetSysDbDir()))
+	_, err = os.Stat(path.Join(options.GetDbName(), options.GetSysDbDir()))
 	if os.IsNotExist(err) {
 		t.Errorf("Sys dir not created")
 	}
@@ -96,20 +139,7 @@ func TestDbCreation(t *testing.T) {
 func TestDbSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	kv := []*schema.KeyValue{
-		{
-			Key:   []byte("Alberto"),
-			Value: []byte("Tomba"),
-		},
-		{
-			Key:   []byte("Jean-Claude"),
-			Value: []byte("Killy"),
-		},
-		{
-			Key:   []byte("Franz"),
-			Value: []byte("Clamer"),
-		},
-	}
+
 	for ind, val := range kv {
 		it, err := db.Set(context.Background(), val)
 		if err != nil {
@@ -139,20 +169,6 @@ func TestCurrentRoot(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	kv := []*schema.KeyValue{
-		{
-			Key:   []byte("Alberto"),
-			Value: []byte("Tomba"),
-		},
-		{
-			Key:   []byte("Jean-Claude"),
-			Value: []byte("Killy"),
-		},
-		{
-			Key:   []byte("Franz"),
-			Value: []byte("Clamer"),
-		},
-	}
 	for ind, val := range kv {
 		it, err := db.Set(context.Background(), val)
 		if err != nil {
@@ -172,30 +188,7 @@ func TestSVSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	kv := []*schema.StructuredKeyValue{
-		{
-			Key: []byte("Alberto"),
-			Value: &schema.Content{
-				Timestamp: uint64(time.Now().Unix()),
-				Payload:   []byte("Tomba"),
-			},
-		},
-		{
-			Key: []byte("Jean-Claude"),
-			Value: &schema.Content{
-				Timestamp: uint64(time.Now().Unix()),
-				Payload:   []byte("Killy"),
-			},
-		},
-		{
-			Key: []byte("Franz"),
-			Value: &schema.Content{
-				Timestamp: uint64(time.Now().Unix()),
-				Payload:   []byte("Clamer"),
-			},
-		},
-	}
-	for ind, val := range kv {
+	for ind, val := range Skv.SKVs {
 		it, err := db.SetSV(context.Background(), val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
@@ -287,7 +280,7 @@ func TestSafeSetGetSV(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	Skv := []*schema.SafeSetSVOptions{
+	SafeSkv := []*schema.SafeSetSVOptions{
 		{
 			Skv: &schema.StructuredKeyValue{
 				Key: []byte("Alberto"),
@@ -325,7 +318,7 @@ func TestSafeSetGetSV(t *testing.T) {
 			},
 		},
 	}
-	for ind, val := range Skv {
+	for ind, val := range SafeSkv {
 		proof, err := db.SafeSetSV(context.Background(), val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
@@ -401,31 +394,6 @@ func TestSetGetBatchSV(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	Skv := &schema.SKVList{
-		SKVs: []*schema.StructuredKeyValue{
-			{
-				Key: []byte("Alberto"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Tomba"),
-				},
-			},
-			{
-				Key: []byte("Jean-Claude"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Killy"),
-				},
-			},
-			{
-				Key: []byte("Franz"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Clamer"),
-				},
-			},
-		},
-	}
 	ind, err := db.SetBatchSV(context.Background(), Skv)
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
@@ -440,13 +408,13 @@ func TestSetGetBatchSV(t *testing.T) {
 	itList, err := db.GetBatchSV(context.Background(), &schema.KeyList{
 		Keys: []*schema.Key{
 			{
-				Key: []byte("Alberto"),
+				Key: Skv.SKVs[0].Key,
 			},
 			{
-				Key: []byte("Jean-Claude"),
+				Key: Skv.SKVs[1].Key,
 			},
 			{
-				Key: []byte("Franz"),
+				Key: Skv.SKVs[2].Key,
 			},
 		},
 	})
@@ -459,3 +427,179 @@ func TestSetGetBatchSV(t *testing.T) {
 		}
 	}
 }
+
+//TODO gj test count
+func TestInclusion(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	for ind, val := range kv {
+		it, err := db.Set(context.Background(), val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+		if it.GetIndex() != uint64(ind) {
+			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+		}
+	}
+	ind := uint64(1)
+	//TODO find a better way without sleep
+	time.Sleep(2 * time.Second)
+	inc, err := db.Inclusion(context.Background(), &schema.Index{Index: ind})
+	if err != nil {
+		t.Errorf("Error Inserting to db %s", err)
+	}
+	if inc.Index != ind {
+		t.Errorf("Inclusion, expected %d, got %d", inc.Index, ind)
+	}
+}
+
+func TestConsintency(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	for ind, val := range kv {
+		it, err := db.Set(context.Background(), val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+		if it.GetIndex() != uint64(ind) {
+			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+		}
+	}
+	ind := uint64(1)
+	inc, err := db.Consistency(context.Background(), &schema.Index{Index: ind})
+	if err != nil {
+		t.Errorf("Error Inserting to db %s", err)
+	}
+	if inc.First != ind {
+		t.Errorf("Consistency, expected %d, got %d", inc.First, ind)
+	}
+}
+
+func TestByIndex(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	for ind, val := range kv {
+		it, err := db.Set(context.Background(), val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+		if it.GetIndex() != uint64(ind) {
+			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+		}
+	}
+	time.Sleep(1 * time.Second)
+	ind := uint64(1)
+	inc, err := db.ByIndex(context.Background(), &schema.Index{Index: ind})
+	if err != nil {
+		t.Errorf("Error Inserting to db %s", err)
+	}
+	if !bytes.Equal(inc.Value, kv[ind].Value) {
+		t.Errorf("ByIndex, expected %s, got %d", kv[ind].Value, inc.Value)
+	}
+}
+
+func TestByIndexSV(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	for _, val := range Skv.SKVs {
+		_, err := db.SetSV(context.Background(), val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	time.Sleep(1 * time.Second)
+	ind := uint64(1)
+	inc, err := db.ByIndexSV(context.Background(), &schema.Index{Index: ind})
+	if err != nil {
+		t.Errorf("Error Inserting to db %s", err)
+	}
+	if inc.Value.Timestamp != Skv.SKVs[ind].Value.Timestamp {
+		t.Errorf("ByIndexSV, expected %d, got %d", Skv.SKVs[ind].Value.GetTimestamp(), inc.Value.GetTimestamp())
+	}
+}
+
+func TestBySafeIndex(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	for _, val := range Skv.SKVs {
+		_, err := db.SetSV(context.Background(), val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	time.Sleep(1 * time.Second)
+	ind := uint64(1)
+	inc, err := db.BySafeIndex(context.Background(), &schema.SafeIndexOptions{Index: ind})
+	if err != nil {
+		t.Errorf("Error Inserting to db %s", err)
+	}
+	if inc.Item.Index != ind {
+		t.Errorf("ByIndexSV, expected %d, got %d", ind, inc.Item.Index)
+	}
+}
+
+func TestHistory(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	for _, val := range kv {
+		_, err := db.Set(context.Background(), val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	_, err := db.Set(context.Background(), kv[0])
+	time.Sleep(1 * time.Second)
+
+	inc, err := db.History(context.Background(), &schema.Key{
+		Key: kv[0].Key,
+	})
+	if err != nil {
+		t.Errorf("Error Inserting to db %s", err)
+	}
+	for _, val := range inc.Items {
+		if !bytes.Equal(val.Value, kv[0].Value) {
+			t.Errorf("History, expected %s, got %s", kv[0].Value, val.GetValue())
+		}
+	}
+}
+
+func TestHistorySV(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	for _, val := range Skv.SKVs {
+		_, err := db.SetSV(context.Background(), val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	_, err := db.SetSV(context.Background(), Skv.SKVs[0])
+
+	k := &schema.Key{
+		Key: []byte(Skv.SKVs[0].Key),
+	}
+	items, err := db.HistorySV(context.Background(), k)
+	if err != nil {
+		t.Errorf("Error reading key %s", err)
+	}
+	for _, val := range items.Items {
+		if !bytes.Equal(val.Value.Payload, Skv.SKVs[0].Value.Payload) {
+			t.Errorf("HistorySV, expected %s, got %s", Skv.SKVs[0].Value.Payload, val.Value.Payload)
+		}
+	}
+}
+
+//TODO gj test Health
+//TODO gj test Reference
+//TODO gj test SafeReference
+//TODO gj test ZAdd
+//TODO gj test ZScan
+
+//TODO gj test ZScanSV
+//TODO gj test SafeZAdd
+//TODO gj test IScan
+//TODO gj test IScanSV
+//TODO gj test Dump

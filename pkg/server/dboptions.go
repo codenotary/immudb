@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package server
 
 import (
 	"strconv"
@@ -23,7 +23,7 @@ import (
 
 type DbOptions struct {
 	dbDir    string
-	DbName   string
+	dbName   string
 	sysDbDir string
 }
 
@@ -32,15 +32,14 @@ func DefaultOption() *DbOptions {
 	ID := strconv.FormatInt(time.Now().UnixNano(), 10)
 	return &DbOptions{
 		dbDir:    "immudb",
-		DbName:   "db_" + ID,
+		dbName:   "db_" + ID,
 		sysDbDir: "immudbsys",
 	}
 }
 
-// WithDbName sets dbName
+// WithDbName sets dbName, which is also db instance directory
 func (o *DbOptions) WithDbName(dbName string) *DbOptions {
-	ID := strconv.FormatInt(time.Now().UnixNano(), 10)
-	o.DbName = dbName + "_" + ID
+	o.dbName = dbName
 	return o
 }
 
@@ -52,4 +51,9 @@ func (o *DbOptions) GetDbDir() string {
 // GetSysDbDir Returns System Database Directory name
 func (o *DbOptions) GetSysDbDir() string {
 	return o.sysDbDir
+}
+
+// GetDbName Returns Database name which is also db instance directory
+func (o *DbOptions) GetDbName() string {
+	return o.dbName
 }
