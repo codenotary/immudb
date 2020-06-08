@@ -37,7 +37,8 @@ func (cl *commandline) printTree(cmd *cobra.Command) {
 			c.PrintfColor(c.White, "\t\t\t\t\t\t\t\tDisk elements\n")
 			c.PrintfColor(c.Green, "\tImmudb Merkle Tree\t\t\t\t\tCache elements\n")
 			c.PrintfColor(c.White, "\t\t\t\t\t\t\t\t* refKey presents\n")
-			c.PrintfColor(c.Red, "\t\t\t\t\t\t\t\tRoot\n\n")
+			c.PrintfColor(c.Red, "\t\t\t\t\t\t\t\tRoot\n")
+			c.PrintfColor(c.Purple, "\t\t\t\t\t\t\t\tCached Root\n\n")
 
 			for k, l := range tree.T {
 				c.PrintfColor(c.Yellow, "Layer %d\n", k)
@@ -48,6 +49,9 @@ func (cl *commandline) printTree(cmd *cobra.Command) {
 					}
 					if h.Root {
 						color = c.Red
+					}
+					if h.Root && h.Cache {
+						color = c.Purple
 					}
 					strp := "%x %d"
 					if h.Ref {
