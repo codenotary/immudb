@@ -1,4 +1,4 @@
-// +build linux darwin
+// +build freebsd
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -18,18 +18,22 @@ limitations under the License.
 
 package service
 
-var ConfigImmudb = []byte(`dir = "/var/lib/immudb"
-network = "tcp"
+var ConfigImmugw = []byte(`dir = "/var/lib/immudb"
 address = "127.0.0.1"
-port = 3322
-dbname = "data"
-pidfile = "/var/lib/immudb/immudb.pid"
-logfile = "/var/log/immudb/immudb.log"
+port = 3323
+immudb-address = "127.0.0.1"
+immudb-port = 3322
+pidfile = "/var/run/immugw.pid"
+logfile = "/var/log/immudb/immugw.log"
 mtls = false
 detached = false
-auth = true
-pkey = "/etc/immudb/mtls/3_application/private/localhost.key.pem"
-certificate = "/etc/immudb/mtls/3_application/certs/localhost.cert.pem"
+servername = "localhost"
+pkey = "/etc/immudb/mtls/4_client/private/localhost.key.pem"
+certificate = "/etc/immudb/mtls/4_client/certs/localhost.cert.pem"
 clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"
-devmode = true
-admin-password = "immu"`)
+audit = false
+# valid suffixes: "s", "m", "h", examples: 10s, 5m 1h
+audit-interval = "5m"
+audit-username = "immugwauditor"
+# password can be plaintext or base64
+audit-password = ""`)
