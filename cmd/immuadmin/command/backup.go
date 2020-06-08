@@ -165,7 +165,11 @@ func mustNotBeWorkingDir(p string) error {
 
 func (cl *commandline) askUserConfirmation(process string, manualStopStart bool) {
 	if !manualStopStart {
-		fmt.Printf("Server will be stopped and then restarted during the %s process. Are you sure you want to proceed? [y/N]: ", process)
+		fmt.Printf(
+			"Server will be stopped and then restarted during the %s process.\n"+
+				"NOTE: If the backup process is forcibly interrupted, a manual restart "+
+				"of the immudb service may be needed.\n"+
+				"Are you sure you want to proceed? [y/N]: ", process)
 		answer, err := c.ReadFromTerminalYN("N")
 		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
 			c.QuitToStdErr("Canceled")
