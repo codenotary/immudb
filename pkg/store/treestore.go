@@ -369,8 +369,10 @@ func (t *treeStore) Width() uint64 {
 
 func (t *treeStore) Set(layer uint8, index uint64, value [sha256.Size]byte) {
 	t.caches[layer].Set(index, &value)
+	// invalidate from `index+1` (included), if needed
+	// note that `index` is zero-indexed and `t.cPos` is not
 	if index < t.cPos[layer] {
-		t.cPos[layer] -= 1
+		t.cPos[layer] = index
 	}
 	if layer == 0 && t.w <= index {
 		t.w = index + 1
