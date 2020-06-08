@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -642,9 +643,27 @@ func (t *Store) GetTree() *schema.Tree {
 			var lvlb = make([]byte, 1)
 			// here extract layer from first key found
 			copy(lvlb, memLayer.L[0].I[1:2])
-			if uint8(len(fulltree.T)-1) > lvlb[0] {
+			if uint8(len(fulltree.T)-1) >= lvlb[0] {
 				for _, node := range memLayer.L {
-					fulltree.T[lvlb[0]].L = append(fulltree.T[lvlb[0]].L, node)
+					// if node already present in fulltree.T[lvlb[0]].L is not frozen and overwrite is needed
+					var found = false
+					var replaceId uint64
+					var inspectNode *schema.Node
+					var k int
+					for k, inspectNode = range fulltree.T[lvlb[0]].L {
+						// if node index is presents in fulltree.T[lvlb[0]].L nodes we found not frozen index
+						if bytes.Compare(node.I, inspectNode.I) == 0 {
+							found = true
+							replaceId = uint64(k)
+							break
+						}
+					}
+
+					if found {
+						fulltree.T[lvlb[0]].L[replaceId] = node
+					} else {
+						fulltree.T[lvlb[0]].L = append(fulltree.T[lvlb[0]].L, node)
+					}
 				}
 			} else {
 				//If mem layer is not present  in  the disk tree create create new one
