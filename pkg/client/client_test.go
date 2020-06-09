@@ -67,6 +67,7 @@ var testData = struct {
 
 var slog = logger.NewSimpleLoggerWithLevel("client_test", os.Stderr, logger.LogDebug)
 
+var username string
 var plainPass string
 
 func newServer() *server.ImmuServer {
@@ -91,7 +92,7 @@ func newServer() *server.ImmuServer {
 		log.Fatal(err)
 	}
 
-	_, plainPass, err = is.CreateAdminUser(context.Background())
+	username, plainPass, err = is.CreateAdminUser()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -136,7 +137,7 @@ func newClient(withToken bool, token string) ImmuClient {
 func login() string {
 	c := newClient(false, "")
 	ctx := context.Background()
-	r, err := c.Login(ctx, []byte(auth.AdminUsername), []byte(plainPass))
+	r, err := c.Login(ctx, []byte(username), []byte(plainPass))
 	if err != nil {
 		log.Fatal(err)
 	}
