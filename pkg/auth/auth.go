@@ -51,6 +51,7 @@ func hasAuth(method string) bool {
 }
 
 func checkAuth(ctx context.Context, method string, req interface{}) error {
+	fmt.Println("checkAuth", method, req)
 	isAdminCLI := IsAdminClient(ctx)
 	if !AuthEnabled || isAdminCLI {
 		if !isLocalClient(ctx) {

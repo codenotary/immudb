@@ -48,7 +48,7 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*schema.
 	key := make([]byte, 1+len(username))
 	key[0] = sysstore.KeyPrefixUser
 	copy(key[1:], username)
-	item, err := s.SysStore.Get(schema.Key{Key: key})
+	item, err := s.SystemAdminDb.SysStore.Get(schema.Key{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (s *ImmuServer) getUserAttr(userIndex uint64, attrPrefix byte) ([]byte, err
 	key := make([]byte, 1+8)
 	key[0] = attrPrefix
 	binary.BigEndian.PutUint64(key[1:], userIndex)
-	item, err := s.SysStore.Get(schema.Key{Key: key})
+	item, err := s.SystemAdminDb.SysStore.Get(schema.Key{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (s *ImmuServer) getUserPermissions(userIndex uint64) (byte, error) {
 }
 
 func (s *ImmuServer) getUsers(includeDeactivated bool) (*schema.ItemList, error) {
-	itemList, err := s.SysStore.Scan(schema.ScanOptions{
+	itemList, err := s.SystemAdminDb.SysStore.Scan(schema.ScanOptions{
 		Prefix: []byte{sysstore.KeyPrefixUser},
 	})
 	if err != nil {
@@ -108,7 +108,7 @@ func (s *ImmuServer) saveUser(
 	userKey[0] = sysstore.KeyPrefixUser
 	copy(userKey[1:], username)
 	userKV := schema.KeyValue{Key: userKey, Value: username}
-	userIndex, err := s.SysStore.Set(userKV)
+	userIndex, err := s.SystemAdminDb.SysStore.Set(userKV)
 	if err != nil {
 		s.Logger.Errorf("error saving user: %v", err)
 		return err
@@ -118,7 +118,7 @@ func (s *ImmuServer) saveUser(
 	passKey[0] = sysstore.KeyPrefixPassword
 	binary.BigEndian.PutUint64(passKey[1:], userIndex.GetIndex())
 	passKV := schema.KeyValue{Key: passKey, Value: hashedPassword}
-	if _, err := s.SysStore.Set(passKV); err != nil {
+	if _, err := s.SystemAdminDb.SysStore.Set(passKV); err != nil {
 		s.Logger.Errorf("error saving user password: %v", err)
 		return err
 	}
@@ -128,7 +128,7 @@ func (s *ImmuServer) saveUser(
 	binary.BigEndian.PutUint64(permissionsKey[1:], userIndex.GetIndex())
 	permissionsKV :=
 		schema.KeyValue{Key: permissionsKey, Value: []byte{permissions}}
-	if _, err := s.SysStore.Set(permissionsKV); err != nil {
+	if _, err := s.SystemAdminDb.SysStore.Set(permissionsKV); err != nil {
 		s.Logger.Errorf("error saving user permissions: %v", err)
 		return err
 	}
@@ -243,7 +243,7 @@ func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.
 	binary.BigEndian.PutUint64(permissionsKey[1:], item.GetIndex())
 	permissionsKV :=
 		schema.KeyValue{Key: permissionsKey, Value: r.GetValue()}
-	if _, err := s.SysStore.Set(permissionsKV); err != nil {
+	if _, err := s.SystemAdminDb.SysStore.Set(permissionsKV); err != nil {
 		s.Logger.Errorf("error saving user permissions: %v", err)
 		return new(empty.Empty), err
 	}
@@ -280,7 +280,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	passKey[0] = sysstore.KeyPrefixPassword
 	binary.BigEndian.PutUint64(passKey[1:], item.GetIndex())
 	passKV := schema.KeyValue{Key: passKey, Value: hashedPassword}
-	if _, err := s.SysStore.Set(passKV); err != nil {
+	if _, err := s.SystemAdminDb.SysStore.Set(passKV); err != nil {
 		s.Logger.Errorf("error saving user password: %v", err)
 		return new(empty.Empty), err
 	}
@@ -301,7 +301,7 @@ func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) 
 	binary.BigEndian.PutUint64(permissionsKey[1:], item.GetIndex())
 	permissionsKV :=
 		schema.KeyValue{Key: permissionsKey, Value: []byte{auth.PermissionNone}}
-	if _, err := s.SysStore.Set(permissionsKV); err != nil {
+	if _, err := s.SystemAdminDb.SysStore.Set(permissionsKV); err != nil {
 		s.Logger.Errorf("error saving user permissions to deactivate user: %v", err)
 		return new(empty.Empty), err
 	}

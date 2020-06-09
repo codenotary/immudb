@@ -22,19 +22,19 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/store"
 )
 
 type ImmuServer struct {
-	Store      *store.Store
-	SysStore   *store.Store
-	Databases  []*Db
-	Logger     logger.Logger
-	Options    Options
-	GrpcServer *grpc.Server
-	Cc         CorruptionChecker
-	Pid        PIDFile
-	quit       chan struct{}
+	// Store         *store.Store
+	// SysStore      *store.Store
+	SystemAdminDb *Db
+	Databases     []*Db
+	Logger        logger.Logger
+	Options       Options
+	GrpcServer    *grpc.Server
+	Cc            CorruptionChecker
+	Pid           PIDFile
+	quit          chan struct{}
 }
 
 func DefaultServer() *ImmuServer {
@@ -45,10 +45,10 @@ func DefaultServer() *ImmuServer {
 	}
 }
 
-func (s *ImmuServer) WithStore(st *store.Store) *ImmuServer {
-	s.Store = st
-	return s
-}
+// func (s *ImmuServer) WithStore(st *store.Store) *ImmuServer {
+// 	s.Store = st
+// 	return s
+// }
 
 func (s *ImmuServer) WithLogger(logger logger.Logger) *ImmuServer {
 	s.Logger = logger

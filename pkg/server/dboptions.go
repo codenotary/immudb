@@ -22,18 +22,20 @@ import (
 )
 
 type DbOptions struct {
-	dbDir    string
-	dbName   string
-	sysDbDir string
+	dbDir      string
+	dbName     string
+	sysDbDir   string
+	dbRootPath string
 }
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *DbOptions {
 	ID := strconv.FormatInt(time.Now().UnixNano(), 10)
 	return &DbOptions{
-		dbDir:    "immudb",
-		dbName:   "db_" + ID,
-		sysDbDir: "immudbsys",
+		dbDir:      "immudb",
+		dbName:     "db_" + ID,
+		sysDbDir:   "immudbsys",
+		dbRootPath: "",
 	}
 }
 
@@ -56,4 +58,15 @@ func (o *DbOptions) GetSysDbDir() string {
 // GetDbName Returns Database name which is also db instance directory
 func (o *DbOptions) GetDbName() string {
 	return o.dbName
+}
+
+// DbRootPath sets the directory in which this database will reside
+func (o *DbOptions) WithDbRootPath(Path string) *DbOptions {
+	o.dbRootPath = Path
+	return o
+}
+
+// GetDbRootPath returns the directory in which this database resides
+func (o *DbOptions) GetDbRootPath() string {
+	return o.dbRootPath
 }

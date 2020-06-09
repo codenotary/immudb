@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -35,18 +36,53 @@ type Db struct {
 	options  *DbOptions
 }
 
+// OpenDb Opens an existing Database from disk
+func OpenDb(op *DbOptions) (*Db, error) {
+	var err error
+	db := &Db{
+		Logger:  logger.NewSimpleLogger(op.GetDbName(), os.Stderr),
+		options: op,
+	}
+	sysDbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), op.GetSysDbDir())
+	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), op.GetDbDir())
+	_, sysDbErr := os.Stat(sysDbDir)
+	_, dbErr := os.Stat(dbDir)
+
+	if os.IsNotExist(sysDbErr) || os.IsNotExist(dbErr) {
+		return nil, fmt.Errorf("Missing database directories")
+	}
+	db.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, db.Logger))
+	if err != nil {
+		db.Logger.Errorf("Unable to open sysstore: %s", err)
+		return nil, err
+	}
+	db.Store, err = store.Open(store.DefaultOptions(dbDir, db.Logger))
+	if err != nil {
+		db.Logger.Errorf("Unable to open store: %s", err)
+		return nil, err
+	}
+	return db, nil
+}
+
+// NewDb Creates a new Database along with it's directories and files
 func NewDb(op *DbOptions) (*Db, error) {
 	var err error
 	db := &Db{
 		Logger:  logger.NewSimpleLogger(op.GetDbName()+" ", os.Stderr),
 		options: op,
 	}
-	sysDbDir := filepath.Join(op.GetDbName(), op.GetSysDbDir())
+	sysDbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), op.GetSysDbDir())
+	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), op.GetDbDir())
+	_, sysDbErr := os.Stat(sysDbDir)
+	_, dbErr := os.Stat(dbDir)
+	if os.IsExist(sysDbErr) || os.IsExist(dbErr) {
+		return nil, fmt.Errorf("Database directories already exist")
+	}
 	if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
 		db.Logger.Errorf("Unable to create sys data folder: %s", err)
 		return nil, err
 	}
-	dbDir := filepath.Join(op.GetDbName(), op.GetDbDir())
+
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		db.Logger.Errorf("Unable to create data folder: %s", err)
 		return nil, err
@@ -63,6 +99,7 @@ func NewDb(op *DbOptions) (*Db, error) {
 	}
 	return db, nil
 }
+
 func (d *Db) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
 	d.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
 	item, err := d.Store.Set(*kv)

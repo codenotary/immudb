@@ -23,44 +23,48 @@ import (
 
 // Options server options list
 type Options struct {
-	Dir             string
-	Network         string
-	Address         string
-	Port            int
-	MetricsPort     int
-	DbName          string
-	SysDbName       string
-	Config          string
-	Pidfile         string
-	Logfile         string
-	MTLs            bool
-	MTLsOptions     MTLsOptions
-	Auth            bool
-	NoHistograms    bool
-	Detached        bool
-	CorruptionCheck bool
-	MetricsServer   bool
+	Dir               string
+	Network           string
+	Address           string
+	Port              int
+	MetricsPort       int
+	DbName            string
+	SysDbName         string
+	Config            string
+	Pidfile           string
+	Logfile           string
+	MTLs              bool
+	MTLsOptions       MTLsOptions
+	Auth              bool
+	NoHistograms      bool
+	Detached          bool
+	CorruptionCheck   bool
+	MetricsServer     bool
+	dataDir           string
+	systemAdminDbName string
 }
 
 // DefaultOptions returns default server options
 func DefaultOptions() Options {
 	return Options{
-		Dir:             "./db",
-		Network:         "tcp",
-		Address:         "127.0.0.1",
-		Port:            3322,
-		MetricsPort:     9497,
-		DbName:          "immudb",
-		SysDbName:       "immudbsys",
-		Config:          "configs/immudb.toml",
-		Pidfile:         "",
-		Logfile:         "",
-		MTLs:            false,
-		Auth:            true,
-		NoHistograms:    false,
-		Detached:        false,
-		CorruptionCheck: true,
-		MetricsServer:   true,
+		Dir:               "./db",
+		Network:           "tcp",
+		Address:           "127.0.0.1",
+		Port:              3322,
+		MetricsPort:       9497,
+		DbName:            "immudb",
+		SysDbName:         "immudbsys",
+		Config:            "configs/immudb.toml",
+		Pidfile:           "",
+		Logfile:           "",
+		MTLs:              false,
+		Auth:              true,
+		NoHistograms:      false,
+		Detached:          false,
+		CorruptionCheck:   true,
+		MetricsServer:     true,
+		dataDir:           "./data",
+		systemAdminDbName: "systemdb",
 	}
 }
 
@@ -175,4 +179,14 @@ func (o Options) String() string {
 func (o Options) WithMetricsServer(metricsServer bool) Options {
 	o.MetricsServer = metricsServer
 	return o
+}
+
+//GetSystemAdminDbName returns the System database name
+func (o Options) GetSystemAdminDbName() string {
+	return o.systemAdminDbName
+}
+
+//GetDataDir returns the root directory where all databases are stored
+func (o Options) GetDataDir() string {
+	return o.dataDir
 }

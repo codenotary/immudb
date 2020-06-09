@@ -34,7 +34,6 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/store"
 	"github.com/stretchr/testify/require"
 
 	"google.golang.org/grpc"
@@ -74,22 +73,28 @@ func newServer() *server.ImmuServer {
 	is = is.WithOptions(is.Options.WithAuth(true))
 	auth.AuthEnabled = is.Options.Auth
 	var err error
-	sysDbDir := filepath.Join(is.Options.Dir, is.Options.SysDbName)
-	if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
-		log.Fatal(err)
-	}
-	is.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, slog))
+	dataDir := is.Options.GetDataDir()
+	op := server.DefaultOption().WithDbName(is.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir)
+	is.SystemAdminDb, err = server.NewDb(op)
 	if err != nil {
 		log.Fatal(err)
 	}
-	dbDir := filepath.Join(is.Options.Dir, is.Options.DbName)
-	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
-		log.Fatal(err)
-	}
-	is.Store, err = store.Open(store.DefaultOptions(dbDir, slog))
-	if err != nil {
-		log.Fatal(err)
-	}
+	// sysDbDir := filepath.Join(is.Options.Dir, is.Options.SysDbName)
+	// if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
+	// 	log.Fatal(err)
+	// }
+	// is.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, slog))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// dbDir := filepath.Join(is.Options.Dir, is.Options.DbName)
+	// if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
+	// 	log.Fatal(err)
+	// }
+	// is.Store, err = store.Open(store.DefaultOptions(dbDir, slog))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	_, plainPass, err = is.CreateAdminUser(context.Background())
 	if err != nil {
