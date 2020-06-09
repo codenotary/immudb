@@ -528,6 +528,9 @@ As immudb is compared to Amazon QLDB as well, we compared the performance using 
 ![immudb Execution Benchmark](img/exectime.png "100 records write execution time (lower is better)")
 
 ## News
+`June 9th, 2020` - **[immudb v0.6.1 released!](https://github.com/codenotary/immudb/releases)**
+
+Release v0.6.1 fixes some important bugs and has many improvements - we recommend updating to it
 
 `May 28, 2020` - **[immudb v0.6.0 GA released!](https://github.com/codenotary/immudb/releases)**
 
