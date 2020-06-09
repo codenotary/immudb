@@ -261,6 +261,11 @@ func (s *ImmuServer) Stop() error {
 			db.Store.Close()
 		}
 	}
+
+	if s.Options.CorruptionCheck {
+		s.Cc.Stop(context.Background())
+		s.Cc = nil
+	}
 	if s.SystemAdminDb.SysStore != nil {
 		defer func() { s.SystemAdminDb.SysStore = nil }()
 		s.SystemAdminDb.SysStore.Close()

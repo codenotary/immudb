@@ -72,6 +72,22 @@ message MTLSConfig {
 	bool enabled = 1;
 }
 
+message Node {
+	bytes i = 1;
+	bytes h = 2;
+	bytes refk = 3;
+	bool ref = 4;
+	bool cache = 5;
+	bool root = 6;
+}
+
+message Layer {
+	repeated Node l = 1;
+}
+
+message Tree{
+	repeated Layer t = 1;
+}
 
 message KeyValue {
 	bytes key = 1;
@@ -282,6 +298,8 @@ service ImmuService {
 
 	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){}
 	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){}
+
+	rpc PrintTree (google.protobuf.Empty) returns (Tree){}
 
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option (google.api.http) = {
