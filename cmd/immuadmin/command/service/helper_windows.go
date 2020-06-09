@@ -79,14 +79,14 @@ func CheckPrivileges() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
-func InstallSetup(serviceName string) (err error) {
-	if err = installConfig(serviceName); err != nil {
+func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
+	if err = installConfig(serviceName, vip); err != nil {
 		return err
 	}
 	return err
 }
 
-func UninstallSetup(serviceName string) (err error) {
+func UninstallSetup(serviceName string, vip *viper.Viper) (err error) {
 	// remove ProgramFiles folder only if it is empty
 	var cep string
 	if cep, err = getCommonExecPath(); err != nil {
@@ -122,9 +122,9 @@ func UninstallSetup(serviceName string) (err error) {
 	return err
 }
 
-func installConfig(serviceName string) (err error) {
+func installConfig(serviceName string, vip *viper.Viper) (err error) {
 	var cp string
-	if err = readConfig(serviceName); err != nil {
+	if err = readConfig(serviceName, vip); err != nil {
 		return err
 	}
 
@@ -140,9 +140,9 @@ func installConfig(serviceName string) (err error) {
 }
 
 // RemoveProgramFiles remove all program files
-func RemoveProgramFiles(serviceName string) (err error) {
+func RemoveProgramFiles(serviceName string, vip *viper.Viper) (err error) {
 	var path string
-	if err = readConfig(serviceName); err != nil {
+	if err = readConfig(serviceName, vip); err != nil {
 		return err
 	}
 	if path, err = helper.ResolvePath(filepath.Join(filepath.FromSlash(viper.GetString("dir")), "config"), false); err != nil {
@@ -152,8 +152,8 @@ func RemoveProgramFiles(serviceName string) (err error) {
 }
 
 // EraseData erase all data
-func EraseData(serviceName string) (err error) {
-	if err = readConfig(serviceName); err != nil {
+func EraseData(serviceName string, vip *viper.Viper) (err error) {
+	if err = readConfig(serviceName, vip); err != nil {
 		return err
 	}
 	var path string
@@ -269,7 +269,7 @@ func IsRunning(status string) bool {
 	return status == "Status: SERVICE_RUNNING"
 }
 
-func readConfig(serviceName string) (err error) {
+func readConfig(serviceName string, vip *viper.Viper) (err error) {
 	viper.SetConfigType("toml")
 	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
 }
