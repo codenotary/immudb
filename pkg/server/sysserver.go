@@ -135,10 +135,7 @@ func (s *ImmuServer) saveUser(
 	return nil
 }
 
-func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
-	return s.isAdminUser(ctx, []byte(auth.AdminUsername))
-}
-func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, error) {
+func (s *ImmuServer) isAdminUser(username []byte) (bool, error) {
 	item, err := s.getUser(username, false)
 	if err != nil {
 		if err == store.ErrKeyNotFound {
@@ -153,8 +150,8 @@ func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, er
 	return permissions == auth.PermissionAdmin, nil
 }
 
-func (s *ImmuServer) CreateAdminUser(ctx context.Context) (string, string, error) {
-	exists, err := s.adminUserExists(ctx)
+func (s *ImmuServer) CreateAdminUser() (string, string, error) {
+	exists, err := s.isAdminUser([]byte(auth.AdminUsername))
 	if err != nil {
 		return "", "", fmt.Errorf(
 			"error determining if admin user exists: %v", err)
@@ -163,7 +160,7 @@ func (s *ImmuServer) CreateAdminUser(ctx context.Context) (string, string, error
 		return "", "", status.Error(codes.AlreadyExists, "admin user already exists")
 	}
 	u := auth.User{Username: auth.AdminUsername}
-	plainPass, err := u.GenerateAndSetPassword()
+	plainPass, err := u.GenerateOrSetPassword(auth.AdminDefaultPassword)
 	if err != nil {
 		s.Logger.Errorf("error generating password for admin user: %v", err)
 	}

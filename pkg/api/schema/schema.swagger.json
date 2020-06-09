@@ -930,6 +930,10 @@
         "token": {
           "type": "string",
           "format": "byte"
+        },
+        "warning": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },

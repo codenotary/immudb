@@ -63,6 +63,7 @@ message LoginRequest {
 }
 message LoginResponse {
 	bytes token = 1;
+	bytes warning = 2;
 }
 
 message AuthConfig {
