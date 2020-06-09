@@ -236,6 +236,16 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
+	for _, db := range s.Databases {
+		if s.SysStore != nil {
+			defer func() { db.SysStore = nil }()
+			db.SysStore.Close()
+		}
+		if s.Store != nil {
+			defer func() { db.Store = nil }()
+			db.Store.Close()
+		}
+	}
 	if s.SysStore != nil {
 		defer func() { s.SysStore = nil }()
 		s.SysStore.Close()
@@ -250,6 +260,7 @@ func (s *ImmuServer) Stop() error {
 }
 
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
+	fmt.Println("Login", r.GetUser(), r.GetPassword())
 	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
 		return nil, auth.ErrServerAuthDisabled
 	}
