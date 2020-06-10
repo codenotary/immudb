@@ -47,13 +47,16 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			if err := client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
+			if err = client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 				c.QuitToStdErr(err)
 			}
 			fmt.Println("logged in")
+			if cl.immuClient, err = client.NewImmuClient(cl.immuClient.GetOptions()); err != nil {
+				c.QuitWithUserError(err)
+			}
 			if string(response.Warning) == auth.WarnDefaultAdminPassword {
-				fmt.Println("SECURITY WARNING:", response.Warning)
-				cl.changePassword(user)
+				c.PrintfColor(c.Yellow, "SECURITY WARNING: %s\n", response.Warning)
+				cl.changePassword(user, pass)
 			}
 			return nil
 		},

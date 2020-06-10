@@ -89,7 +89,7 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 						cl.setPermissions(username, permissions)
 					}
 				case "change-password":
-					cl.changePassword(username)
+					cl.changePassword(username, nil)
 				case "deactivate":
 					cl.deactivateUser(username)
 				}
@@ -197,11 +197,10 @@ func (cl *commandline) setPermissions(username string, permissions string) {
 	fmt.Printf("Permissions updated for user %s\n", username)
 }
 
-func (cl *commandline) changePassword(username string) {
+func (cl *commandline) changePassword(username string, oldPass []byte) {
 	fmt.Println("NOTE:", auth.PasswordRequirementsMsg+".")
 	var err error
-	oldPass := []byte{}
-	if username == auth.AdminUsername {
+	if username == auth.AdminUsername && len(oldPass) <= 0 {
 		oldPass, err = cl.passwordReader.Read("Old password:")
 		if err != nil {
 			c.QuitToStdErr(err)
