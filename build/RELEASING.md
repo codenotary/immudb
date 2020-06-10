@@ -84,10 +84,6 @@ Now you can edit the vX.Y.Z newly created [release on GitHub](https://github.com
 
 # Downloads
 
-**CodeNotary Chrome Extension**
-*Check the download integrity using the official CodeNotary Chrome extension*
-[<img src="https://developer.chrome.com/webstore/images/ChromeWebStore_Badge_v2_206x58.png">](https://chrome.google.com/webstore/detail/vchain-codenotary-downloa/mnloemedehacppeggbipipjlphdjpjcb)
-
 **Docker image**
 https://hub.docker.com/r/codenotary/immudb
 
