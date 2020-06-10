@@ -1,4 +1,4 @@
-// +build linux darwin
+// +build freebsd
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -23,7 +23,7 @@ address = "127.0.0.1"
 port = 3323
 immudb-address = "127.0.0.1"
 immudb-port = 3322
-pidfile = "/var/lib/immudb/immuclient.pid"
+pidfile = "/var/run/immuclient.pid"
 logfile = "/var/log/immudb/immuclient.log"
 mtls = false
 detached = false
