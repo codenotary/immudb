@@ -9,7 +9,7 @@ COPY --from=build /src/immuclient /app/immuclient
 
 ENV IMMUCLIENT_IMMUDB_ADDRESS="127.0.0.1" \
     IMMUCLIENT_IMMUDB_PORT="3322" \
-    IMMUCLIENT_AUTH="false" \
+    IMMUCLIENT_AUTH="true" \
     IMMUCLIENT_MTLS="false"
 
 RUN chmod +x /app/immuclient

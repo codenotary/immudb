@@ -34,6 +34,7 @@ const (
 // TODO OGG: in the future, after other types of auth will be implemented,
 // this will have to be of Kind (see above) type instead of bool:
 var AuthEnabled bool
+var DevMode bool
 
 var WarnDefaultAdminPassword = "admin user has the default password: please change it to ensure proper security"
 
@@ -50,21 +51,13 @@ func hasAuth(method string) bool {
 }
 
 func checkAuth(ctx context.Context, method string, req interface{}) error {
-	methodRequiresAdmin := isAdminMethod(method)
-	if !AuthEnabled || methodRequiresAdmin {
-		if !isLocalClient(ctx) {
-			var errMsg string
-			if methodRequiresAdmin {
-				errMsg = "server does not accept admin commands from remote clients"
-			} else {
-				errMsg =
-					"server has authentication disabled: only local connections are accepted"
-			}
-			return status.Errorf(codes.PermissionDenied, errMsg)
+	if !AuthEnabled {
+		if DevMode || isLocalClient(ctx) {
+			return nil
 		}
-	}
-	if !AuthEnabled && !methodRequiresAdmin {
-		return nil
+		return status.Errorf(
+			codes.PermissionDenied,
+			"server has authentication disabled: only local connections are accepted")
 	}
 	if hasAuth(method) {
 		jsonToken, err := verifyTokenFromCtx(ctx)

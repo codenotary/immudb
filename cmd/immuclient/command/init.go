@@ -43,7 +43,7 @@ func Init(o *c.Options) *cobra.Command {
 Environment variables:
   IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
   IMMUCLIENT_IMMUDB_PORT=3322
-  IMMUCLIENT_AUTH=false
+  IMMUCLIENT_AUTH=true
   IMMUCLIENT_MTLS=false
   IMMUCLIENT_SERVERNAME=localhost
   IMMUCLIENT_PKEY=./tools/mtls/4_client/private/localhost.key.pem

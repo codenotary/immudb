@@ -19,12 +19,14 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_PIDFILE="" \
     IMMUDB_LOGFILE="" \
     IMMUDB_MTLS="false" \
-    IMMUDB_AUTH="false" \
+    IMMUDB_AUTH="true" \
     IMMUDB_DETACHED="false" \
     IMMUDB_PKEY="/usr/share/immudb/mtls/3_application/private/key.pem" \
     IMMUDB_CERTIFICATE="/usr/share/immudb/mtls/3_application/certs/server.pem" \
     IMMUDB_CLIENTCAS="/usr/share/immudb/mtls/2_intermediate/certs/ca-chain.pem" \
-    IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token" 
+    IMMUDB_DEVMODE="true" \
+    IMMUDB_ADMIN_PASSWORD="immu" \
+    IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \
@@ -32,7 +34,7 @@ RUN addgroup --system --gid $IMMU_GID immu && \
     mkdir -p "$IMMUDB_DIR" && \
     chown -R immu:immu "$IMMUDB_HOME" "$IMMUDB_DIR" && \
     chmod -R 777 "$IMMUDB_HOME" "$IMMUDB_DIR" && \
-    chmod +x /usr/sbin/immudb /usr/local/bin/immuadmin 
+    chmod +x /usr/sbin/immudb /usr/local/bin/immuadmin
 
 EXPOSE 3322
 EXPOSE 9497

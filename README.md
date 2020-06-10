@@ -238,12 +238,14 @@ Environment variables:
   IMMUDB_PIDFILE=
   IMMUDB_LOGFILE=
   IMMUDB_MTLS=false
-  IMMUDB_AUTH=false
+  IMMUDB_AUTH=true
   IMMUDB_DETACHED=false
   IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
+  IMMUDB_DEVMODE=true
+  IMMUDB_ADMIN_PASSWORD=immu
 
 Usage:
   immudb [flags]
@@ -254,22 +256,24 @@ Available Commands:
   version     Show the immudb version
 
 Flags:
-  -a, --address string       bind address (default "127.0.0.1")
-  -s, --auth                 enable auth
-      --certificate string   server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
-      --clientcas string     clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string        config file (default path are configs or $HOME. Default filename is immudb.ini)
-      --consistency-check    enable consistency check monitor routine. To disable: --consistency-check=false (default true)
-  -n, --dbname string        db name (default "immudb")
-  -d, --detached             run immudb in background
-      --dir string           data folder (default "./db")
-  -h, --help                 help for immudb
-      --logfile string       log path with filename. E.g. /tmp/immudb/immudb.log
-  -m, --mtls                 enable mutual tls
-      --no-histograms        disable collection of histogram metrics like query durations
-      --pidfile string       pid path with filename. E.g. /var/run/immudb.pid
-      --pkey string          server private key path (default "./tools/mtls/3_application/private/localhost.key.pem")
-  -p, --port int             port number (default 3322)
+  -a, --address string          bind address (default "127.0.0.1")
+      --admin-password string   immudb admin password (default "immu")
+  -s, --auth                    enable auth
+      --certificate string      server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
+      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string           config file (default path are configs or $HOME. Default filename is immudb.ini)
+      --consistency-check       enable consistency check monitor routine. To disable: --consistency-check=false (default true)
+  -n, --dbname string           db name (default "immudb")
+  -d, --detached                run immudb in background
+      --devmode                 enable dev mode: accept remote connections without auth
+      --dir string              data folder (default "./db")
+  -h, --help                    help for immudb
+      --logfile string          log path with filename. E.g. /tmp/immudb/immudb.log
+  -m, --mtls                    enable mutual tls
+      --no-histograms           disable collection of histogram metrics like query durations
+      --pidfile string          pid path with filename. E.g. /var/run/immudb.pid
+      --pkey string             server private key path (default "./tools/mtls/3_application/private/localhost.key.pem")
+  -p, --port int                port number (default 3322)
 
 Use "immudb [command] --help" for more information about a command.
 
@@ -395,7 +399,7 @@ CLI client for immudb - the lightweight, high-speed immutable database for syste
 Environment variables:
   IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
   IMMUCLIENT_IMMUDB_PORT=3322
-  IMMUCLIENT_AUTH=false
+  IMMUCLIENT_AUTH=true
   IMMUCLIENT_MTLS=false
   IMMUCLIENT_SERVERNAME=localhost
   IMMUCLIENT_PKEY=./tools/mtls/4_client/private/localhost.key.pem

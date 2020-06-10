@@ -17,6 +17,9 @@ limitations under the License.
 package immudb
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
@@ -26,8 +29,6 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
-	"os"
-	"path/filepath"
 )
 
 var o = c.Options{}
@@ -51,12 +52,14 @@ Environment variables:
   IMMUDB_PIDFILE=
   IMMUDB_LOGFILE=
   IMMUDB_MTLS=false
-  IMMUDB_AUTH=false
+  IMMUDB_AUTH=true
   IMMUDB_DETACHED=false
   IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
-  IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
+  IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
+  IMMUDB_DEVMODE=true
+  IMMUDB_ADMIN_PASSWORD=immu`,
 		DisableAutoGenTag: true,
 		RunE:              Immudb,
 	}
@@ -153,6 +156,8 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	if err != nil {
 		return options, err
 	}
+	devMode := viper.GetBool("devmode")
+	adminPassword := viper.GetString("admin-password")
 
 	options = server.
 		DefaultOptions().
@@ -167,7 +172,9 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithAuth(auth).
 		WithNoHistograms(noHistograms).
 		WithDetached(detached).
-		WithCorruptionCheck(consistencyCheck)
+		WithCorruptionCheck(consistencyCheck).
+		WithDevMode(devMode).
+		WithAdminPassword(adminPassword)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = server.DefaultMTLsOptions().
@@ -194,6 +201,8 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
 	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
+	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
+	cmd.Flags().String("admin-password", options.AdminPassword, "default admin password (plain-text or base64 encoded)")
 }
 
 func bindFlags(cmd *cobra.Command) error {
@@ -239,6 +248,12 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("devmode", cmd.Flags().Lookup("devmode")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("admin-password", cmd.Flags().Lookup("admin-password")); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -257,6 +272,8 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("certificate", mtlsOptions.Certificate)
 	viper.SetDefault("pkey", mtlsOptions.Pkey)
 	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
+	viper.SetDefault("devmode", options.DevMode)
+	viper.SetDefault("admin-password", options.AdminPassword)
 }
 
 func InstallManPages() error {
