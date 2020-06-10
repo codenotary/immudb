@@ -18,7 +18,6 @@ package auditor
 
 import (
 	"context"
-	"encoding/base64"
 	"io"
 	"os"
 	"regexp"
@@ -62,13 +61,7 @@ func DefaultAuditor(
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
 	logoutput io.Writer) (Auditor, error) {
 
-	password := strings.TrimSpace(passwordBase64)
-	if password != "" {
-		passwordBytes, err := base64.StdEncoding.DecodeString(passwordBase64)
-		if err == nil {
-			password = string(passwordBytes)
-		}
-	}
+	password := auth.DecodeBase64Password(passwordBase64)
 	if logoutput == nil {
 		logoutput = os.Stderr
 	}

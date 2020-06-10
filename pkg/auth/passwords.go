@@ -17,9 +17,11 @@ limitations under the License.
 package auth
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 	"unicode"
 
@@ -94,4 +96,15 @@ func IsStrongPassword(password string) error {
 		return err
 	}
 	return nil
+}
+
+func DecodeBase64Password(passwordBase64 string) string {
+	password := strings.TrimSpace(passwordBase64)
+	if password != "" {
+		passwordBytes, err := base64.StdEncoding.DecodeString(passwordBase64)
+		if err == nil {
+			password = string(passwordBytes)
+		}
+	}
+	return password
 }
