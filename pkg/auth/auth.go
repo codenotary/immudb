@@ -52,12 +52,15 @@ func hasAuth(method string) bool {
 
 func checkAuth(ctx context.Context, method string, req interface{}) error {
 	if !AuthEnabled {
-		if DevMode || isLocalClient(ctx) {
+		isAdminMethod := methodsPermissions[method] == PermissionAdmin
+		isLocal := isLocalClient(ctx)
+		if !isAdminMethod && (DevMode || isLocal) {
 			return nil
+		} else if !isLocal {
+			return status.Errorf(
+				codes.PermissionDenied,
+				"server has authentication disabled: only local connections are accepted")
 		}
-		return status.Errorf(
-			codes.PermissionDenied,
-			"server has authentication disabled: only local connections are accepted")
 	}
 	if hasAuth(method) {
 		jsonToken, err := verifyTokenFromCtx(ctx)
