@@ -257,7 +257,7 @@ Available Commands:
 
 Flags:
   -a, --address string          bind address (default "127.0.0.1")
-      --admin-password string   admin password as plain-text or base64 encoded (default is 'immu')
+      --admin-password string   admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
   -s, --auth                    enable auth
       --certificate string      server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
       --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
@@ -319,7 +319,7 @@ Flags:
   -a, --address string            immugw host address (default "127.0.0.1")
       --audit                     enable audit mode (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)
       --audit-interval duration   interval at which audit should run (default 5m0s)
-      --audit-password string     immudb password used to login during audit
+      --audit-password string     immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
       --audit-username string     immudb username used to login during audit (default "immugwauditor")
       --certificate string        server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
       --clientcas string          clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")

@@ -15,5 +15,5 @@ audit = false
 # valid suffixes: "s", "m", "h", examples: 10s, 5m 1h
 audit-interval = "5m"
 audit-username = "immugwauditor"
-# password can be plaintext or base64
+# password can be plaintext or base64 encoded (must be prefixed with 'enc:' if it is encoded)
 audit-password = ""

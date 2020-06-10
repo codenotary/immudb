@@ -61,7 +61,10 @@ func DefaultAuditor(
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
 	logoutput io.Writer) (Auditor, error) {
 
-	password := auth.DecodeBase64Password(passwordBase64)
+	password, err := auth.DecodeBase64Password(passwordBase64)
+	if err != nil {
+		return nil, err
+	}
 	if logoutput == nil {
 		logoutput = os.Stderr
 	}
