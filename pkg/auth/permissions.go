@@ -37,6 +37,7 @@ var methodsPermissions = map[string]byte{
 	"/immudb.schema.ImmuService/ZAdd":          PermissionRW,
 	"/immudb.schema.ImmuService/SafeZAdd":      PermissionRW,
 	// admin methods
+	"/immudb.schema.ImmuService/ListUsers":        PermissionAdmin,
 	"/immudb.schema.ImmuService/CreateUser":       PermissionAdmin,
 	"/immudb.schema.ImmuService/ChangePassword":   PermissionAdmin,
 	"/immudb.schema.ImmuService/SetPermission":    PermissionAdmin,
