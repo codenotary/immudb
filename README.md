@@ -257,7 +257,7 @@ Available Commands:
 
 Flags:
   -a, --address string          bind address (default "127.0.0.1")
-      --admin-password string   immudb admin password (default "immu")
+      --admin-password string   admin password as plain-text or base64 encoded (default is 'immu')
   -s, --auth                    enable auth
       --certificate string      server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
       --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")

@@ -202,7 +202,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
 	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
-	cmd.Flags().String("admin-password", options.AdminPassword, "default admin password (plain-text or base64 encoded)")
+	cmd.Flags().String("admin-password", options.AdminPassword, "admin password as plain-text or base64 encoded (default is 'immu')")
 }
 
 func bindFlags(cmd *cobra.Command) error {
