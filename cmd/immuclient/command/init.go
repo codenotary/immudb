@@ -140,7 +140,7 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().String("prometheus-host", "127.0.0.1", "Launch host of the Prometheus exporter.")
 	cmd.PersistentFlags().String("dir", os.TempDir(), "Main directory for audit process tool to initialize")
 	cmd.PersistentFlags().String("audit-username", "", "immudb username used to login during audit")
-	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit")
+	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err

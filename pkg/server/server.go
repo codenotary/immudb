@@ -106,7 +106,12 @@ func (s *ImmuServer) Start() error {
 
 	auth.AuthEnabled = s.Options.Auth
 	auth.DevMode = s.Options.DevMode
-	auth.AdminDefaultPassword = auth.DecodeBase64Password(s.Options.AdminPassword)
+	adminDefaultPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
+	if err != nil {
+		s.Logger.Errorf(err.Error())
+		return err
+	}
+	auth.AdminDefaultPassword = adminDefaultPassword
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 
 	uuidContext := NewUuidContext(uuid)
@@ -142,8 +147,9 @@ func (s *ImmuServer) Start() error {
 	if err != nil {
 		s.Logger.Errorf(err.Error())
 		return err
+	} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
+		s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
 	}
-	s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
 
 	if s.Options.MetricsServer {
 		metricsServer := StartMetrics(

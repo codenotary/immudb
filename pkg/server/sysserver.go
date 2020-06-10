@@ -157,7 +157,7 @@ func (s *ImmuServer) CreateAdminUser() (string, string, error) {
 			"error determining if admin user exists: %v", err)
 	}
 	if exists {
-		return "", "", status.Error(codes.AlreadyExists, "admin user already exists")
+		return "", "", nil
 	}
 	u := auth.User{Username: auth.AdminUsername}
 	plainPass, err := u.GenerateOrSetPassword(auth.AdminDefaultPassword)

@@ -98,13 +98,17 @@ func IsStrongPassword(password string) error {
 	return nil
 }
 
-func DecodeBase64Password(passwordBase64 string) string {
+func DecodeBase64Password(passwordBase64 string) (string, error) {
 	password := strings.TrimSpace(passwordBase64)
-	if password != "" {
-		passwordBytes, err := base64.StdEncoding.DecodeString(passwordBase64)
-		if err == nil {
-			password = string(passwordBytes)
+	prefix := "enc:"
+	if password != "" && strings.HasPrefix(password, prefix) {
+		passwordNoPrefix := passwordBase64[4:]
+		passwordBytes, err := base64.StdEncoding.DecodeString(passwordNoPrefix)
+		if err != nil {
+			return passwordBase64, fmt.Errorf(
+				"error decoding password from base64 string %s: %v", passwordNoPrefix, err)
 		}
+		password = string(passwordBytes)
 	}
-	return password
+	return password, nil
 }
