@@ -76,23 +76,23 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 ### Tech specs
 
-| Topic                   | Description                                                  |
-| ----------------------- | ------------------------------------------------------------ |
-| DB Model                | Key-Value store with 3D access (key-value-index)             |
-| Data scheme             | schema-free                                                  |
-| Implementation design   | LSM tree with value log and parallel Merkle Tree             |
-| Implementation language | Go                                                           |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                           |
-| Embeddable              | Yes, optionally                                              |
+| Topic                   | Description                                                   |
+| ----------------------- | ------------------------------------------------------------- |
+| DB Model                | Key-Value store with 3D access (key-value-index)              |
+| Data scheme             | schema-free                                                   |
+| Implementation design   | LSM tree with value log and parallel Merkle Tree              |
+| Implementation language | Go                                                            |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                            |
+| Embeddable              | Yes, optionally                                               |
 | Server APIs             | gRPC (using protocol buffers); immudb RESTful; immugw RESTful |
-| Partition methods       | Sharding                                                     |
-| Consistency concepts    | Eventual Consistency Immediate Consistency                   |
-| Transaction concepts    | ACID with Snapshot Isolation (SSI)                           |
-| Durability              | Yes                                                          |
-| Snapshots               | Yes                                                          |
-| High Read throughput    | Yes                                                          |
-| High Write throughput   | Yes                                                          |
-| Optimized for SSD       | Yes                                                          |
+| Partition methods       | Sharding                                                      |
+| Consistency concepts    | Eventual Consistency Immediate Consistency                    |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)                            |
+| Durability              | Yes                                                           |
+| Snapshots               | Yes                                                           |
+| High Read throughput    | Yes                                                           |
+| High Write throughput   | Yes                                                           |
+| Optimized for SSD       | Yes                                                           |
 
 ## Our Userbase
 
@@ -102,11 +102,11 @@ We provide Docker images for the most common architectures. These are statistics
 
 The immudb container images can be found here:
 
-| Component | Container image                               | Pull stats                                                   |
-| --------- | --------------------------------------------- | ------------------------------------------------------------ |
-| immudb    | https://hub.docker.com/r/codenotary/immudb    | [![codenotary/immudb<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immudb.svg?label=codenotary/immudb+%28official%29)](https://hub.docker.com/r/codenotary/immudb/) |
-| immugw    | https://hub.docker.com/r/codenotary/immugw    | [![codenotary/immugw<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immugw.svg?label=codenotary/immugw+%28official%29)](https://hub.docker.com/r/codenotary/immugw/) |
-| immuadmin | https://hub.docker.com/r/codenotary/immuadmin | [![codenotary/immuadmin<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immuadmin.svg?label=codenotary/immuadmin+%28official%29)](https://hub.docker.com/r/codenotary/immuadmin/) |
+| Component  | Container image                                | Pull stats                                                                                                                                                                                           |
+| ---------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| immudb     | https://hub.docker.com/r/codenotary/immudb     | [![codenotary/immudb<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immudb.svg?label=codenotary/immudb+%28official%29)](https://hub.docker.com/r/codenotary/immudb/)                 |
+| immugw     | https://hub.docker.com/r/codenotary/immugw     | [![codenotary/immugw<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immugw.svg?label=codenotary/immugw+%28official%29)](https://hub.docker.com/r/codenotary/immugw/)                 |
+| immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  | [![codenotary/immuadmin<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immuadmin.svg?label=codenotary/immuadmin+%28official%29)](https://hub.docker.com/r/codenotary/immuadmin/)     |
 | immuclient | https://hub.docker.com/r/codenotary/immuclient | [![codenotary/immuclient<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immuclient.svg?label=codenotary/immuclient+%28official%29)](https://hub.docker.com/r/codenotary/immuclient/) |
 
 
@@ -149,6 +149,11 @@ GOOS=darwin GOARCH=amd64 make immuclient-static immuadmin-static immudb-static i
 GOOS=windows GOARCH=amd64 make immuclient-static immuadmin-static immudb-static immugw-static
 ```
 
+##### Freebsd (by component)
+
+```bash
+GOOS=freebsd GOARCH=amd64 make immuclient-static immuadmin-static immudb-static immugw-static
+```
 #### immudb first start
 
 ##### Run immudb binary
@@ -181,14 +186,21 @@ Please make sure to build or download the immudb and immuadmin component and sav
 
 The linux service is using the following defaults:
 
-| File or configuration   | location           |
-| ----------------------- | ------------------ |
-| all configuration files | /etc/immudb        |
-| all data files          | /var/lib/immudb    |
+| File or configuration   | location                   |
+| ----------------------- | -------------------------- |
+| all configuration files | /etc/immudb                |
+| all data files          | /var/lib/immudb            |
 | pid file                | /var/lib/immudb/immudb.pid |
-| log files               | /var/log/immudb    |
+| log files               | /var/log/immudb            |
 
+The FreeBSD service is using the following defaults:
 
+| File or configuration   | location            |
+| ----------------------- | ------------------- |
+| all configuration files | /etc/immudb         |
+| all data files          | /var/lib/immudb     |
+| pid file                | /var/run/immudb.pid |
+| log files               | /var/log/immudb     |
 
 ##### Run immugw as a service (using immuadmin)
 
@@ -210,13 +222,19 @@ Please make sure to build or download the immugw and immuadmin component and sav
 
 The linux service is using the following defaults:
 
-| File or configuration   | location           |
-| ----------------------- | ------------------ |
-| all configuration files | /etc/immudb        |
+| File or configuration   | location                   |
+| ----------------------- | -------------------------- |
+| all configuration files | /etc/immudb                |
 | pid file                | /var/lib/immudb/immugw.pid |
-| log files               | /var/log/immudb    |
+| log files               | /var/log/immudb            |
 
+The FreeBSD service is using the following defaults:
 
+| File or configuration   | location            |
+| ----------------------- | ------------------- |
+| all configuration files | /etc/immudb         |
+| pid file                | /var/run/immugw.pid |
+| log files               | /var/log/immudb     |
 
 #### Command reference
 
@@ -458,11 +476,11 @@ Use "immuclient [command] --help" for more information about a command.
 
 All services and cli components are also available as docker images on dockerhub.com.
 
-| Component | Container image                               |
-| --------- | --------------------------------------------- |
-| immudb    | https://hub.docker.com/r/codenotary/immudb    |
-| immugw    | https://hub.docker.com/r/codenotary/immugw    |
-| immuadmin | https://hub.docker.com/r/codenotary/immuadmin |
+| Component  | Container image                                |
+| ---------- | ---------------------------------------------- |
+| immudb     | https://hub.docker.com/r/codenotary/immudb     |
+| immugw     | https://hub.docker.com/r/codenotary/immugw     |
+| immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  |
 | immuclient | https://hub.docker.com/r/codenotary/immuclient |
 
 #### Run immudb
@@ -779,27 +797,27 @@ docker run -d -it -p 8081:8080 --name swagger-immugw -v ${PWD}/pkg/api/schema/gw
 
 ## FAQ
 
-| Question                                                     | Answer                                                       | Release date    |
-| ------------------------------------------------------------ | ------------------------------------------------------------ | --------------- |
-| Where is the Immudb data stored?                             | The data location can be defined using the directory parameter when starting immudb. By default the data is in `/var/lib/immudb` | initial release |
-| How is the data structured?                                  | Data is stored in a Key-Value fashion. Data is always appended and never overwritten, so multiple versions of the same Key-Value can exist and can be inspected (by using the History API). | initial release |
-| What kind of data can be stored?                             | Any kind of Key-Value of data, values can be json data, configuration data, etc... Clients can choose how to structure data. | initial release |
-| What happens to my data if someone tamperes with it?         | immudb is a tamper-evident history system. When data (or the data history) is being tampered, the DB will not able to produce a valid consistency proof, so each client connect to the db will be able to notice the tampering and notify the user. | initial release |
-| How can data be backed up?                                   | Currently the database needs to be stopped and the data files copied manually to backup. immudb will provide an APIs to perform online backups and restores in Q3/2020. | initial release |
-| How can data be restored?                                    | Backups files can easily restored by stopping the immudb server and replacing the data with the backed up files. If the backup data has been tampered the immudb server will detect that. API based restore is planned for Q3/2020 | initial release |
-| Is there a way to incremently backup data?                   | immudb provides stream APIs and data can be streamed in insertion order, that can be easily used to perform incremental backups and incremental restores. | Q3/2020         |
-| Is there a way to incremently restore data?                  | (see above)                                                  | Q3/2020         |
-| How can the data be replicated to other systems?             | Our goal is to provide a scalable and redundant solution for enterprises. The investigation for the best approach is ongoing and not finalized yet. Our goal is to have it ready shortly after the official enterprise version release | Q3/2020         |
-| Would replication stop, when unverifiable data is detected?  | Customers will able to configure the wanted behavior when a unverifiable state is detected across replicas. By default, all valid replicas will able to continue working and replicas with invalid states will be skipped by all clients. | Q3/2020         |
-| Somebody changes one value in the database - how can it be detected and reverted? | With replication, it's possible to detect which replica nodes are valid and which are not. If at least a replica node was not tampered data can be easily restored. | Q3/2020         |
-| Somebody changes the merkle root entry - how can I recover?  | Each client locally stores the last valid Merkle Tree Root (just 32 bytes of data). When the root of a DB instance is tampered then client will be able to mathematically proof that the provided root is not consistent with the last valid one. If an authenticated backup or a not tampered replica node is available, not-tampered data can be used to recover the Merkle Tree Root to a valid state. | Q3/2020         |
-| How is the database protected? outside probes?               | Each client helps in protecting the DB. Special clients (called "agents") can be installed on different systems and continuously monitor the DB. | Q3/2020         |
-| How can I monitor database performance?                      | immudb provides realtime metrics that can be collected using Prometheus | initial release |
-| How can I monitor database health?                           | immudb provides realtime healthcheck endpoints via API and immu client | initial release |
-| How can I monitor database integrity?                        | immudb provides proof APIs and clients and agents can ask for proof in realtime. | initial release |
-| How can I monitor database integrity for single objects or specific entries? | immu client has a functionality to authenticate a specific entry at a given point in time. So both last version and the whole history of an item can be verified. | initial release |
-| Can I build and distribute an immudb that skips the verification? If yes, how to avoid that? | [CodeNotary](https://www.codenotary.io) team notarizes sources and releases of all immudb components. Check if the release binaries are notarized by vChain.us using [authenticate.codenotary.io](https://authenticate.codenotary.io/org/vchain.us) to prove origin and detect any kind of tampering. | initial release |
-| How many databases can I run on a single immudb server?      | We currently support one database, but in future releases there will be support for many databases. | Q3/2020         |
+| Question                                                                                     | Answer                                                                                                                                                                                                                                                                                                                                                                                                    | Release date    |
+| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Where is the Immudb data stored?                                                             | The data location can be defined using the directory parameter when starting immudb. By default the data is in `/var/lib/immudb`                                                                                                                                                                                                                                                                          | initial release |
+| How is the data structured?                                                                  | Data is stored in a Key-Value fashion. Data is always appended and never overwritten, so multiple versions of the same Key-Value can exist and can be inspected (by using the History API).                                                                                                                                                                                                               | initial release |
+| What kind of data can be stored?                                                             | Any kind of Key-Value of data, values can be json data, configuration data, etc... Clients can choose how to structure data.                                                                                                                                                                                                                                                                              | initial release |
+| What happens to my data if someone tamperes with it?                                         | immudb is a tamper-evident history system. When data (or the data history) is being tampered, the DB will not able to produce a valid consistency proof, so each client connect to the db will be able to notice the tampering and notify the user.                                                                                                                                                       | initial release |
+| How can data be backed up?                                                                   | Currently the database needs to be stopped and the data files copied manually to backup. immudb will provide an APIs to perform online backups and restores in Q3/2020.                                                                                                                                                                                                                                   | initial release |
+| How can data be restored?                                                                    | Backups files can easily restored by stopping the immudb server and replacing the data with the backed up files. If the backup data has been tampered the immudb server will detect that. API based restore is planned for Q3/2020                                                                                                                                                                        | initial release |
+| Is there a way to incremently backup data?                                                   | immudb provides stream APIs and data can be streamed in insertion order, that can be easily used to perform incremental backups and incremental restores.                                                                                                                                                                                                                                                 | Q3/2020         |
+| Is there a way to incremently restore data?                                                  | (see above)                                                                                                                                                                                                                                                                                                                                                                                               | Q3/2020         |
+| How can the data be replicated to other systems?                                             | Our goal is to provide a scalable and redundant solution for enterprises. The investigation for the best approach is ongoing and not finalized yet. Our goal is to have it ready shortly after the official enterprise version release                                                                                                                                                                    | Q3/2020         |
+| Would replication stop, when unverifiable data is detected?                                  | Customers will able to configure the wanted behavior when a unverifiable state is detected across replicas. By default, all valid replicas will able to continue working and replicas with invalid states will be skipped by all clients.                                                                                                                                                                 | Q3/2020         |
+| Somebody changes one value in the database - how can it be detected and reverted?            | With replication, it's possible to detect which replica nodes are valid and which are not. If at least a replica node was not tampered data can be easily restored.                                                                                                                                                                                                                                       | Q3/2020         |
+| Somebody changes the merkle root entry - how can I recover?                                  | Each client locally stores the last valid Merkle Tree Root (just 32 bytes of data). When the root of a DB instance is tampered then client will be able to mathematically proof that the provided root is not consistent with the last valid one. If an authenticated backup or a not tampered replica node is available, not-tampered data can be used to recover the Merkle Tree Root to a valid state. | Q3/2020         |
+| How is the database protected? outside probes?                                               | Each client helps in protecting the DB. Special clients (called "agents") can be installed on different systems and continuously monitor the DB.                                                                                                                                                                                                                                                          | Q3/2020         |
+| How can I monitor database performance?                                                      | immudb provides realtime metrics that can be collected using Prometheus                                                                                                                                                                                                                                                                                                                                   | initial release |
+| How can I monitor database health?                                                           | immudb provides realtime healthcheck endpoints via API and immu client                                                                                                                                                                                                                                                                                                                                    | initial release |
+| How can I monitor database integrity?                                                        | immudb provides proof APIs and clients and agents can ask for proof in realtime.                                                                                                                                                                                                                                                                                                                          | initial release |
+| How can I monitor database integrity for single objects or specific entries?                 | immu client has a functionality to authenticate a specific entry at a given point in time. So both last version and the whole history of an item can be verified.                                                                                                                                                                                                                                         | initial release |
+| Can I build and distribute an immudb that skips the verification? If yes, how to avoid that? | [CodeNotary](https://www.codenotary.io) team notarizes sources and releases of all immudb components. Check if the release binaries are notarized by vChain.us using [authenticate.codenotary.io](https://authenticate.codenotary.io/org/vchain.us) to prove origin and detect any kind of tampering.                                                                                                     | initial release |
+| How many databases can I run on a single immudb server?                                      | We currently support one database, but in future releases there will be support for many databases.                                                                                                                                                                                                                                                                                                       | Q3/2020         |
 
 ## Community
 
