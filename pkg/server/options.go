@@ -40,6 +40,8 @@ type Options struct {
 	Detached        bool
 	CorruptionCheck bool
 	MetricsServer   bool
+	DevMode         bool
+	AdminPassword   string
 }
 
 // DefaultOptions returns default server options
@@ -56,11 +58,13 @@ func DefaultOptions() Options {
 		Pidfile:         "",
 		Logfile:         "",
 		MTLs:            false,
-		Auth:            false,
+		Auth:            true,
 		NoHistograms:    false,
 		Detached:        false,
 		CorruptionCheck: true,
 		MetricsServer:   true,
+		DevMode:         true,
+		AdminPassword:   "immu",
 	}
 }
 
@@ -174,5 +178,13 @@ func (o Options) String() string {
 }
 func (o Options) WithMetricsServer(metricsServer bool) Options {
 	o.MetricsServer = metricsServer
+	return o
+}
+func (o Options) WithDevMode(devMode bool) Options {
+	o.DevMode = devMode
+	return o
+}
+func (o Options) WithAdminPassword(adminPassword string) Options {
+	o.AdminPassword = adminPassword
 	return o
 }

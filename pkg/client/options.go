@@ -45,7 +45,7 @@ func DefaultOptions() *Options {
 		Port:               3322,
 		HealthCheckRetries: 5,
 		MTLs:               false,
-		Auth:               false,
+		Auth:               true,
 		Config:             "configs/immuclient.toml",
 		TokenFileName:      "token",
 		DialOptions:        &[]grpc.DialOption{},
