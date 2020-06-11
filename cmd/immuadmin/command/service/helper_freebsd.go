@@ -1,4 +1,4 @@
-// +build linux darwin
+// +build freebsd
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -45,26 +45,8 @@ const linuxGroup = "immu"
 
 func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
-	d.SetTemplate(systemDConfig)
 	return d, err
 }
-
-var systemDConfig = fmt.Sprintf(`[Unit]
-Description={{.Description}}
-Requires={{.Dependencies}}
-After={{.Dependencies}}
-
-[Service]
-PIDFile=/var/lib/immudb/{{.Name}}.pid
-ExecStartPre=/bin/rm -f /var/lib/immudb/{{.Name}}.pid
-ExecStart={{.Path}} {{.Args}}
-Restart=on-failure
-User=%s
-Group=%s
-
-[Install]
-WantedBy=multi-user.target
-`, linuxUser, linuxGroup)
 
 // CheckPrivileges check if current user is root
 func CheckPrivileges() (bool, error) {
@@ -75,6 +57,7 @@ func CheckPrivileges() (bool, error) {
 			}
 			return false, ErrRootPrivileges
 		}
+		fmt.Println("started msg")
 	}
 	return false, ErrUnsupportedSystem
 }
@@ -86,15 +69,12 @@ func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
 	if err = userCreateIfNotExists(); err != nil {
 		return err
 	}
-
 	if err = setOwnership(linuxExecPath); err != nil {
 		return err
 	}
-
 	if err = installConfig(serviceName, vip); err != nil {
 		return err
 	}
-
 	if err = os.MkdirAll(vip.GetString("dir"), os.ModePerm); err != nil {
 		return err
 	}
@@ -109,7 +89,6 @@ func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
 	if err = setOwnership(logPath); err != nil {
 		return err
 	}
-
 	pidPath := filepath.Dir(vip.GetString("pidfile"))
 	if err = os.MkdirAll(pidPath, os.ModePerm); err != nil {
 		return err
@@ -117,11 +96,27 @@ func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
 	if err = setOwnership(pidPath); err != nil {
 		return err
 	}
-
+	if err = enableStartOnBoot(serviceName); err != nil {
+		return err
+	}
 	if err = installManPages(serviceName); err != nil {
 		return err
 	}
 	return err
+}
+
+func enableStartOnBoot(serviceName string) error {
+	f, err := os.OpenFile("/etc/rc.conf",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	cmd := fmt.Sprintf(`%s_enable="YES"%s`, serviceName, "\n")
+	if _, err := f.WriteString(cmd); err != nil {
+		return err
+	}
+	return nil
 }
 
 // @todo Michele helper unix should be refactor in order to expose an interface that every service need to implemented.
@@ -167,7 +162,7 @@ func groupCreateIfNotExists() (err error) {
 	if _, err = user.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
 		return err
 	}
-	if err = exec.Command("addgroup", linuxGroup).Run(); err != nil {
+	if err = exec.Command("pw", "groupadd", linuxGroup).Run(); err != nil {
 		return err
 	}
 	return err
@@ -177,10 +172,9 @@ func userCreateIfNotExists() (err error) {
 	if _, err = user.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
 		return err
 	}
-	if err = exec.Command("useradd", "-g", linuxGroup, linuxUser).Run(); err != nil {
+	if err = exec.Command("pw", "useradd", linuxUser, "-G", linuxGroup).Run(); err != nil {
 		return err
 	}
-
 	return err
 }
 
@@ -271,7 +265,7 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	defer from.Close()
 
 	newExecPath, _ = GetDefaultExecPath(execPath)
-
+	fmt.Println("new exec path", newExecPath)
 	to, err := os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return "", err

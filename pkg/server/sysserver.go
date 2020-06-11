@@ -135,10 +135,7 @@ func (s *ImmuServer) saveUser(
 	return nil
 }
 
-func (s *ImmuServer) adminUserExists(ctx context.Context) (bool, error) {
-	return s.isAdminUser(ctx, []byte(auth.AdminUsername))
-}
-func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, error) {
+func (s *ImmuServer) isAdminUser(username []byte) (bool, error) {
 	item, err := s.getUser(username, false)
 	if err != nil {
 		if err == store.ErrKeyNotFound {
@@ -153,17 +150,17 @@ func (s *ImmuServer) isAdminUser(ctx context.Context, username []byte) (bool, er
 	return permissions == auth.PermissionAdmin, nil
 }
 
-func (s *ImmuServer) CreateAdminUser(ctx context.Context) (string, string, error) {
-	exists, err := s.adminUserExists(ctx)
+func (s *ImmuServer) CreateAdminUser() (string, string, error) {
+	exists, err := s.isAdminUser([]byte(auth.AdminUsername))
 	if err != nil {
 		return "", "", fmt.Errorf(
 			"error determining if admin user exists: %v", err)
 	}
 	if exists {
-		return "", "", status.Error(codes.AlreadyExists, "admin user already exists")
+		return "", "", nil
 	}
 	u := auth.User{Username: auth.AdminUsername}
-	plainPass, err := u.GenerateAndSetPassword()
+	plainPass, err := u.GenerateOrSetPassword(auth.AdminDefaultPassword)
 	if err != nil {
 		s.Logger.Errorf("error generating password for admin user: %v", err)
 	}
@@ -196,6 +193,10 @@ func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schem
 	user, err := s.getUser(r.GetUser(), true)
 	if err != nil {
 		return nil, err
+	}
+	if user == nil {
+		return nil,
+			status.Errorf(codes.NotFound, "user not found or is deactivated")
 	}
 	permissions, err := s.getUserPermissions(user.GetIndex())
 	if err != nil {
@@ -231,6 +232,14 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 }
 
 func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
+	if len(r.GetValue()) <= 0 {
+		return new(empty.Empty), status.Errorf(
+			codes.InvalidArgument, "no permission specified")
+	}
+	if int(r.GetValue()[0]) == auth.PermissionAdmin {
+		return new(empty.Empty), status.Error(
+			codes.PermissionDenied, "admin permission is not allowed to be set")
+	}
 	item, err := s.getUser(r.GetKey(), true)
 	if err != nil {
 		return new(empty.Empty), err
@@ -295,6 +304,14 @@ func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) 
 	if item == nil {
 		return new(empty.Empty),
 			status.Errorf(codes.NotFound, "user not found or is already deactivated")
+	}
+	permissions, err := s.getUserPermissions(item.GetIndex())
+	if err != nil {
+		return nil, err
+	}
+	if permissions == auth.PermissionAdmin {
+		return nil, status.Errorf(
+			codes.PermissionDenied, "deactivating admin user is not allowed")
 	}
 	permissionsKey := make([]byte, 1+8)
 	permissionsKey[0] = sysstore.KeyPrefixPermissions

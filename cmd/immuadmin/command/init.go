@@ -20,12 +20,10 @@ import (
 
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/gw"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc/metadata"
 )
 
 type commandline struct {
@@ -42,9 +40,7 @@ func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
 	}
 	cl := new(commandline)
 	cl.passwordReader = c.DefaultPasswordReader
-	cl.context = metadata.NewOutgoingContext(
-		context.Background(),
-		metadata.Pairs(auth.ClientIDMetadataKey, auth.ClientIDMetadataValueAdmin))
+	cl.context = context.Background()
 
 	cl.user(cmd, cmdName)
 	cl.login(cmd)

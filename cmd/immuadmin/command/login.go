@@ -25,22 +25,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func checkFirstAdminLogin(err error) {
-	if errMsg, matches := (&auth.ErrFirstAdminLogin{}).With("", "").Matches(err); matches {
-		c.QuitToStdErr(
-			fmt.Errorf(
-				"===============\n"+
-					"This looks like the very first admin login attempt, hence the following "+
-					"credentials have been generated:%s"+
-					"\nIMPORTANT: This is the only time they are shown, so make sure you remember them."+
-					"\nNOTE: You have not been automatically logged in. To login please run the command "+
-					"'immuadmin login immu' with the above-mentioned password. You can change your password "+
-					"at any time with one of your liking using the command 'immuadmin user change-password immu'"+
-					"\n===============", errMsg),
-		)
-	}
-}
-
 func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "login username (you will be prompted for password)",
@@ -55,22 +39,25 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			if user != auth.AdminUsername {
 				c.QuitToStdErr(fmt.Errorf("Permission denied: user %s has no admin rights", user))
 			}
-			if _, err := cl.immuClient.Login(ctx, []byte(user), []byte{}); err != nil {
-				checkFirstAdminLogin(err)
-			}
 			pass, err := cl.passwordReader.Read("Password:")
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
 			response, err := cl.immuClient.Login(ctx, []byte(user), pass)
 			if err != nil {
-				checkFirstAdminLogin(err)
 				c.QuitWithUserError(err)
 			}
-			if err := client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
+			if err = client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 				c.QuitToStdErr(err)
 			}
 			fmt.Println("logged in")
+			if cl.immuClient, err = client.NewImmuClient(cl.immuClient.GetOptions()); err != nil {
+				c.QuitWithUserError(err)
+			}
+			if string(response.Warning) == auth.WarnDefaultAdminPassword {
+				c.PrintfColor(c.Yellow, "SECURITY WARNING: %s\n", response.Warning)
+				cl.changePassword(user, pass)
+			}
 			return nil
 		},
 		Args: cobra.ExactArgs(1),

@@ -18,9 +18,7 @@ package auth
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -36,13 +34,15 @@ const (
 // TODO OGG: in the future, after other types of auth will be implemented,
 // this will have to be of Kind (see above) type instead of bool:
 var AuthEnabled bool
+var DevMode bool
 
-const loginMethod = "/immudb.schema.ImmuService/Login"
+var WarnDefaultAdminPassword = "admin user has the default password: please change it to ensure proper security"
 
-var methodsWithoutAuth = map[string]bool{
-	"/immudb.schema.ImmuService/CurrentRoot": true,
-	"/immudb.schema.ImmuService/Health":      true,
-	loginMethod:                              true,
+var emptyStruct = struct{}{}
+var methodsWithoutAuth = map[string]struct{}{
+	"/immudb.schema.ImmuService/CurrentRoot": emptyStruct,
+	"/immudb.schema.ImmuService/Health":      emptyStruct,
+	"/immudb.schema.ImmuService/Login":       emptyStruct,
 }
 
 func hasAuth(method string) bool {
@@ -51,46 +51,15 @@ func hasAuth(method string) bool {
 }
 
 func checkAuth(ctx context.Context, method string, req interface{}) error {
-	fmt.Println("checkAuth", method, req)
-	isAdminCLI := IsAdminClient(ctx)
-	if !AuthEnabled || isAdminCLI {
-		if !isLocalClient(ctx) {
-			var errMsg string
-			if isAdminCLI {
-				errMsg = "server does not accept admin commands from remote clients"
-			} else {
-				errMsg =
-					"server has authentication disabled: only local connections are accepted"
-			}
-			return status.Errorf(codes.PermissionDenied, errMsg)
-		}
-	}
-	if !AuthEnabled && !isAdminCLI {
-		return nil
-	}
-	if method == loginMethod && isAdminCLI {
-		lReq, ok := req.(*schema.LoginRequest)
-		// if it's the very first admin login attempt, generate admin user and password
-		if ok && string(lReq.GetUser()) == AdminUsername && len(lReq.GetPassword()) == 0 {
-			adminUserExists, err := AdminUserExists(ctx)
-			if err != nil {
-				return fmt.Errorf("error determining if admin user exists: %v", err)
-			}
-			if !adminUserExists {
-				firstAdminCallMsg, err := createAdminUserAndMsg(ctx)
-				if err != nil {
-					return err
-				}
-				return firstAdminCallMsg
-			}
-		}
-		// do not allow users other than admin to login from immuadmin CLI
-		isAdmin, err := IsAdminUser(ctx, lReq.GetUser())
-		if err != nil {
-			return err
-		}
-		if !isAdmin {
-			return status.Errorf(codes.PermissionDenied, "permission denied")
+	if !AuthEnabled {
+		isAdminMethod := methodsPermissions[method] == PermissionAdmin
+		isLocal := isLocalClient(ctx)
+		if !isAdminMethod && (DevMode || isLocal) {
+			return nil
+		} else if !isLocal {
+			return status.Errorf(
+				codes.PermissionDenied,
+				"server has authentication disabled: only local connections are accepted")
 		}
 	}
 	if hasAuth(method) {
@@ -98,7 +67,7 @@ func checkAuth(ctx context.Context, method string, req interface{}) error {
 		if err != nil {
 			return err
 		}
-		if !HasPermissionForMethod(jsonToken.Permissions, method) {
+		if !hasPermissionForMethod(jsonToken.Permissions, method) {
 			return status.Errorf(codes.PermissionDenied, "not enough permissions")
 		}
 	}

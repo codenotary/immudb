@@ -17,9 +17,11 @@ limitations under the License.
 package auth
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 	"unicode"
 
@@ -94,4 +96,19 @@ func IsStrongPassword(password string) error {
 		return err
 	}
 	return nil
+}
+
+func DecodeBase64Password(passwordBase64 string) (string, error) {
+	password := strings.TrimSpace(passwordBase64)
+	prefix := "enc:"
+	if password != "" && strings.HasPrefix(password, prefix) {
+		passwordNoPrefix := passwordBase64[4:]
+		passwordBytes, err := base64.StdEncoding.DecodeString(passwordNoPrefix)
+		if err != nil {
+			return passwordBase64, fmt.Errorf(
+				"error decoding password from base64 string %s: %v", passwordNoPrefix, err)
+		}
+		password = string(passwordBytes)
+	}
+	return password, nil
 }

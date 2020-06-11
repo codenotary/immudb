@@ -43,7 +43,7 @@ func Init(o *c.Options) *cobra.Command {
 Environment variables:
   IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
   IMMUCLIENT_IMMUDB_PORT=3322
-  IMMUCLIENT_AUTH=false
+  IMMUCLIENT_AUTH=true
   IMMUCLIENT_MTLS=false
   IMMUCLIENT_SERVERNAME=localhost
   IMMUCLIENT_PKEY=./tools/mtls/4_client/private/localhost.key.pem
@@ -140,7 +140,7 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	cmd.PersistentFlags().String("prometheus-host", "127.0.0.1", "Launch host of the Prometheus exporter.")
 	cmd.PersistentFlags().String("dir", os.TempDir(), "Main directory for audit process tool to initialize")
 	cmd.PersistentFlags().String("audit-username", "", "immudb username used to login during audit")
-	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit")
+	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err

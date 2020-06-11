@@ -1,14 +1,11 @@
-// +build linux darwin
+// +build freebsd
 
 /*
 Copyright 2019-2020 vChain, Inc.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
 	http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,7 +17,6 @@ package service
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -31,9 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
-	immudb "github.com/codenotary/immudb/cmd/immudb/command"
-	immugw "github.com/codenotary/immudb/cmd/immugw/command"
+	service "github.com/codenotary/immudb/cmd/immuclient/service/configs"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 )
@@ -45,26 +39,8 @@ const linuxGroup = "immu"
 
 func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
-	d.SetTemplate(systemDConfig)
 	return d, err
 }
-
-var systemDConfig = fmt.Sprintf(`[Unit]
-Description={{.Description}}
-Requires={{.Dependencies}}
-After={{.Dependencies}}
-
-[Service]
-PIDFile=/var/lib/immudb/{{.Name}}.pid
-ExecStartPre=/bin/rm -f /var/lib/immudb/{{.Name}}.pid
-ExecStart={{.Path}} {{.Args}}
-Restart=on-failure
-User=%s
-Group=%s
-
-[Install]
-WantedBy=multi-user.target
-`, linuxUser, linuxGroup)
 
 // CheckPrivileges check if current user is root
 func CheckPrivileges() (bool, error) {
@@ -79,7 +55,7 @@ func CheckPrivileges() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
-func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
+func InstallSetup(serviceName string) (err error) {
 	if err = groupCreateIfNotExists(); err != nil {
 		return err
 	}
@@ -90,19 +66,17 @@ func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
 	if err = setOwnership(linuxExecPath); err != nil {
 		return err
 	}
-
-	if err = installConfig(serviceName, vip); err != nil {
+	if err = installConfig(serviceName); err != nil {
+		return err
+	}
+	if err = os.MkdirAll(viper.GetString("dir"), os.ModePerm); err != nil {
+		return err
+	}
+	if err = setOwnership(viper.GetString("dir")); err != nil {
 		return err
 	}
 
-	if err = os.MkdirAll(vip.GetString("dir"), os.ModePerm); err != nil {
-		return err
-	}
-	if err = setOwnership(vip.GetString("dir")); err != nil {
-		return err
-	}
-
-	logPath := filepath.Dir(vip.GetString("logfile"))
+	logPath := filepath.Dir(viper.GetString("logfile"))
 	if err = os.MkdirAll(logPath, os.ModePerm); err != nil {
 		return err
 	}
@@ -110,53 +84,59 @@ func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
 		return err
 	}
 
-	pidPath := filepath.Dir(vip.GetString("pidfile"))
+	pidPath := filepath.Dir(viper.GetString("pidfile"))
 	if err = os.MkdirAll(pidPath, os.ModePerm); err != nil {
 		return err
 	}
 	if err = setOwnership(pidPath); err != nil {
 		return err
 	}
-
-	if err = installManPages(serviceName); err != nil {
+	if err = enableStartOnBoot(serviceName); err != nil {
 		return err
 	}
 	return err
 }
 
-// @todo Michele helper unix should be refactor in order to expose an interface that every service need to implemented.
-// UninstallSetup uninstall operations
-func UninstallSetup(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+func enableStartOnBoot(serviceName string) error {
+	f, err := os.OpenFile("/etc/rc.conf",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
 		return err
 	}
+	defer f.Close()
+	cmd := fmt.Sprintf(`%s_enable="YES"%s`, serviceName, "\n")
+	if _, err := f.WriteString(cmd); err != nil {
+		return err
+	}
+	return nil
+}
+
+// @todo Michele helper unix should be refactor in order to expose an interface that every service need to implemented.
+// UninstallSetup uninstall operations
+func UninstallSetup(serviceName string) (err error) {
 	if err = uninstallExecutables(serviceName); err != nil {
 		return err
 	}
-	if err = uninstallManPages(serviceName); err != nil {
-		return err
-	}
-	if err = os.RemoveAll(filepath.Dir(vip.GetString("logfile"))); err != nil {
+	if err = os.RemoveAll(filepath.Dir(viper.GetString("logfile"))); err != nil {
 		return err
 	}
 	return err
 }
 
 // installConfig install config in /etc folder
-func installConfig(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+func installConfig(serviceName string) (err error) {
+	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	cp, _ := GetDefaultConfigPath(serviceName)
-	var configDir = filepath.Dir(cp)
+	var configDir = filepath.Dir(GetDefaultConfigPath(serviceName))
 	err = os.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	configPath, _ := GetDefaultConfigPath(serviceName)
+	configPath := GetDefaultConfigPath(serviceName)
 
-	if err = vip.WriteConfigAs(configPath); err != nil {
+	if err = viper.WriteConfigAs(configPath); err != nil {
 		return err
 	}
 
@@ -167,7 +147,7 @@ func groupCreateIfNotExists() (err error) {
 	if _, err = user.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
 		return err
 	}
-	if err = exec.Command("addgroup", linuxGroup).Run(); err != nil {
+	if err = exec.Command("pw", "groupadd", linuxGroup).Run(); err != nil {
 		return err
 	}
 	return err
@@ -177,10 +157,9 @@ func userCreateIfNotExists() (err error) {
 	if _, err = user.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
 		return err
 	}
-	if err = exec.Command("useradd", "-g", linuxGroup, linuxUser).Run(); err != nil {
+	if err = exec.Command("pw", "useradd", linuxUser, "-G", linuxGroup).Run(); err != nil {
 		return err
 	}
-
 	return err
 }
 
@@ -208,25 +187,21 @@ func setOwnership(path string) (err error) {
 
 // todo @Michele this should be moved in UninstallSetup
 // RemoveProgramFiles remove all program files
-func RemoveProgramFiles(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+func RemoveProgramFiles(serviceName string) (err error) {
+	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	cp, err := GetDefaultConfigPath(serviceName)
-	if err != nil {
-		return err
-	}
-	config := filepath.Dir(cp)
+	config := filepath.Dir(GetDefaultConfigPath(serviceName))
 	os.RemoveAll(config)
 	return
 }
 
 // EraseData erase all service data
-func EraseData(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+func EraseData(serviceName string) (err error) {
+	if err = readConfig(serviceName); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.FromSlash(vip.GetString("dir")))
+	return os.RemoveAll(filepath.FromSlash(viper.GetString("dir")))
 }
 
 // todo @Michele this can be simplified
@@ -270,7 +245,7 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	}
 	defer from.Close()
 
-	newExecPath, _ = GetDefaultExecPath(execPath)
+	newExecPath = GetDefaultExecPath(execPath)
 
 	to, err := os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
@@ -289,48 +264,19 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	return newExecPath, err
 }
 
-func installManPages(serviceName string) error {
-	switch serviceName {
-	case "immudb":
-		return immudb.InstallManPages()
-	case "immugw":
-		return immugw.InstallManPages()
-	default:
-		return errors.New("invalid service name specified")
-	}
-}
-
-func uninstallManPages(serviceName string) error {
-	switch serviceName {
-	case "immudb":
-		return immudb.UnistallManPages()
-	case "immugw":
-		return immugw.UnistallManPages()
-	default:
-		return errors.New("invalid service name specified")
-	}
-}
-
 func uninstallExecutables(serviceName string) error {
-	switch serviceName {
-	case "immudb":
-		return os.Remove(filepath.Join(linuxExecPath, "immudb"))
-	case "immugw":
-		return os.Remove(filepath.Join(linuxExecPath, "immugw"))
-	default:
-		return errors.New("invalid service name specified")
-	}
+	return os.Remove(filepath.Join(linuxExecPath, serviceName))
 }
 
 // GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
-func GetDefaultExecPath(localFile string) (string, error) {
+func GetDefaultExecPath(localFile string) string {
 	execName := filepath.Base(localFile)
-	return filepath.Join(linuxExecPath, execName), nil
+	return filepath.Join(linuxExecPath, execName)
 }
 
 // GetDefaultConfigPath returns the default config path
-func GetDefaultConfigPath(serviceName string) (string, error) {
-	return filepath.Join(linuxConfigPath, serviceName+".toml"), nil
+func GetDefaultConfigPath(serviceName string) string {
+	return filepath.Join(linuxConfigPath, serviceName+".toml")
 }
 
 // IsRunning check if status derives from a running process
@@ -339,26 +285,24 @@ func IsRunning(status string) bool {
 	return re.Match([]byte(status))
 }
 
-func readConfig(serviceName string, vip *viper.Viper) (err error) {
-	vip.SetConfigType("toml")
-	return vip.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
+func readConfig(serviceName string) (err error) {
+	viper.SetConfigType("toml")
+	return viper.ReadConfig(bytes.NewBuffer(configsMap["immuclient"]))
 }
 
 var configsMap = map[string][]byte{
-	"immudb": service.ConfigImmudb,
-	"immugw": service.ConfigImmugw,
+	"immuclient": service.ConfigImmuClient,
 }
 
 // UsageDet details on config and log file on specific os
-var UsageDet = fmt.Sprintf(`Config file is present in %s. Log file is in /var/log/immudb`, linuxConfigPath)
+var UsageDet = fmt.Sprintf(`Config file is present in %s. Log file is in /var/log/immuclient`, linuxConfigPath)
 
 // UsageExamples usage examples for linux
-var UsageExamples = fmt.Sprintf(`Install the immutable database
-sudo ./immuadmin service immudb install
-Install the REST proxy client with rest interface. We discourage to install immugw in the same machine of immudb in order to respect the security model of our technology.
-This kind of istallation is suggested only for testing purpose
-sudo ./immuadmin  service immugw install
-It's possible to provide a specific executable
-sudo ./immuadmin  service immudb install --local-file immudb.exe
-Uninstall immudb after 20 second
-sudo ./immuadmin  service immudb uninstall --time 20`)
+var UsageExamples = `
+Install immudb immutable database and immuclient
+immuclient audit-mode install    -  Initializes and runs daemon
+immuclient audit-mode stop       -  Stops the daemon
+immuclient audit-mode start      -  Starts initialized daemon
+immuclient audit-mode restart    -  Restarts daemon
+immuclient audit-mode uninstall  -  Removes daemon and its setup
+`

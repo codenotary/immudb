@@ -25,26 +25,18 @@ GO ?= go
 DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
-#~~~> Binaries versions
+
 V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
 V_BUILT_BY := $(shell git config user.email)
 V_BUILT_AT := $(shell date +%s)
-V_LDFLAGS_COMMON := -X "github.com/codenotary/immudb/cmd/version.Commit=$(V_COMMIT)" -X "github.com/codenotary/immudb/cmd/version.BuiltBy=$(V_BUILT_BY)" -X "github.com/codenotary/immudb/cmd/version.BuiltAt=$(V_BUILT_AT)"
-
-V_COMMON := v$(VERSION)
-V_IMMUCLIENT := $(V_COMMON)
-V_IMMUADMIN := $(V_COMMON)
-V_IMMUDB := $(V_COMMON)
-V_IMMUGW := $(V_COMMON)
-V_IMMUTEST := $(V_COMMON)
-
-V_IMMUCLIENT_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUCLIENT)" $(V_LDFLAGS_COMMON)
-V_IMMUADMIN_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUADMIN)" $(V_LDFLAGS_COMMON)
-V_IMMUDB_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUDB)" $(V_LDFLAGS_COMMON)
-V_IMMUGW_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUGW)" $(V_LDFLAGS_COMMON)
-V_IMMUTEST_LDFLAGS := -X "github.com/codenotary/immudb/cmd/version.Version=$(V_IMMUTEST)" $(V_LDFLAGS_COMMON)
-#<~~~
+V_LDFLAGS_COMMON := -X "github.com/codenotary/immudb/cmd/version.Version=$(VERSION)" \
+					-X "github.com/codenotary/immudb/cmd/version.Commit=$(V_COMMIT)" \
+					-X "github.com/codenotary/immudb/cmd/version.BuiltBy=$(V_BUILT_BY)"\
+					-X "github.com/codenotary/immudb/cmd/version.BuiltAt=$(V_BUILT_AT)"
+V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
+				  -X github.com/codenotary/immudb/cmd/version.Static=static \
+				  -extldflags "-static"
 
 .PHONY: all
 all: immudb immuclient immugw immuadmin immutest
@@ -55,43 +47,43 @@ rebuild: clean build/codegen all
 
 .PHONY: immuclient
 immuclient:
-	$(GO) build -v -ldflags '$(V_IMMUCLIENT_LDFLAGS)' ./cmd/immuclient
+	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuclient
 
 .PHONY: immuadmin
 immuadmin:
-	$(GO) build -v -ldflags '$(V_IMMUADMIN_LDFLAGS)' ./cmd/immuadmin
+	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
 
 .PHONY: immudb
 immudb:
-	$(GO) build -v -ldflags '$(V_IMMUDB_LDFLAGS)' ./cmd/immudb
+	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
 
 .PHONY: immugw
 immugw:
-	$(GO) build -v -ldflags '$(V_IMMUGW_LDFLAGS)' ./cmd/immugw
+	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immugw
 
 .PHONY: immutest
 immutest:
-	$(GO) build -v -ldflags '$(V_IMMUTEST_LDFLAGS)' ./cmd/immutest
+	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immutest
 
 .PHONY: immuclient-static
 immuclient-static:
-	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUCLIENT_LDFLAGS) -extldflags  "-static"' ./cmd/immuclient
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '$(V_LDFLAGS_STATIC) -extldflags  "-static"' ./cmd/immuclient
 
 .PHONY: immuadmin-static
 immuadmin-static:
-	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUADMIN_LDFLAGS) -extldflags "-static"' ./cmd/immuadmin
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immuadmin
 
 .PHONY: immudb-static
 immudb-static:
-	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUDB_LDFLAGS) -extldflags "-static"' ./cmd/immudb
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immudb
 
 .PHONY: immugw-static
 immugw-static:
-	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUGW_LDFLAGS) -extldflags "-static"' ./cmd/immugw
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immugw
 
 .PHONY: immutest-static
 immutest-static:
-	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${LDFLAGS} $(V_IMMUTEST_LDFLAGS) -extldflags "-static"' ./cmd/immutest
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immutest
 
 .PHONY: vendor
 vendor:
@@ -216,7 +208,7 @@ clean/dist:
 .PHONY: dist
 dist: clean/dist build/xgo
 	mkdir -p dist
-	$(GO) build -a -tags netgo -ldflags '${LDFLAGS_STATIC}' \
+	$(GO) build -a -tags netgo -ldflags '${V_LDFLAGS_STATIC}' \
 			-o ./dist/${SERVICE_NAME}-v${VERSION}-linux-amd64-static \
      		./cmd/${SERVICE_NAME}
 	$(DOCKER) run --rm \

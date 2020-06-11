@@ -42,6 +42,8 @@ type Options struct {
 	MetricsServer     bool
 	dataDir           string
 	systemAdminDbName string
+	DevMode           bool
+	AdminPassword     string
 }
 
 // DefaultOptions returns default server options
@@ -65,6 +67,8 @@ func DefaultOptions() Options {
 		MetricsServer:     true,
 		dataDir:           "./data",
 		systemAdminDbName: "systemdb",
+		DevMode:           true,
+		AdminPassword:     "immu",
 	}
 }
 
@@ -189,4 +193,12 @@ func (o Options) GetSystemAdminDbName() string {
 //GetDataDir returns the root directory where all databases are stored
 func (o Options) GetDataDir() string {
 	return o.dataDir
+}
+func (o Options) WithDevMode(devMode bool) Options {
+	o.DevMode = devMode
+	return o
+}
+func (o Options) WithAdminPassword(adminPassword string) Options {
+	o.AdminPassword = adminPassword
+	return o
 }

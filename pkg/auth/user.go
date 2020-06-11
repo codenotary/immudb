@@ -26,10 +26,14 @@ type User struct {
 }
 
 var AdminUsername = "immu"
+var AdminDefaultPassword = "immu"
+var AdminPassword = AdminDefaultPassword
 
-// GenerateAndSetPassword ...
-func (u *User) GenerateAndSetPassword() (string, error) {
-	plainPassword := generatePassword()
+// GenerateOrSetPassword ...
+func (u *User) GenerateOrSetPassword(plainPassword string) (string, error) {
+	if plainPassword == "" {
+		plainPassword = generatePassword()
+	}
 	hashedPassword, err := HashAndSaltPassword(plainPassword)
 	if err != nil {
 		return "", err

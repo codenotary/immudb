@@ -30,6 +30,7 @@ var Version string
 var Commit string
 var BuiltBy string
 var BuiltAt string
+var Static string
 
 func VersionCmd() *cobra.Command {
 	return &cobra.Command{
@@ -72,5 +73,14 @@ func VersionStr() string {
 				fmt.Sprintf(strPattern, longestLabelLength, "Built at", builtAt))
 		}
 	}
+	if Static != "" {
+		pieces = append(
+			pieces,
+			fmt.Sprintf("%-*s: %t", longestLabelLength, "Static", StaticBuild()))
+	}
 	return fmt.Sprint(strings.Join(pieces, "\n"))
+}
+
+func StaticBuild() bool {
+	return Static == "static"
 }

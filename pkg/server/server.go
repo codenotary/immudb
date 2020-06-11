@@ -113,6 +113,13 @@ func (s *ImmuServer) Start() error {
 	}
 
 	auth.AuthEnabled = s.Options.Auth
+	auth.DevMode = s.Options.DevMode
+	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
+	if err != nil {
+		s.Logger.Errorf(err.Error())
+		return err
+	}
+	auth.AdminPassword = adminPassword
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 
 	uuidContext := NewUuidContext(uuid)
@@ -132,10 +139,6 @@ func (s *ImmuServer) Start() error {
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
 	)
-
-	auth.AdminUserExists = s.adminUserExists
-	auth.IsAdminUser = s.isAdminUser
-	auth.CreateAdminUser = s.CreateAdminUser
 
 	if s.Options.MetricsServer {
 		metricsServer := StartMetrics(
@@ -214,6 +217,13 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 			return err
 		}
 	}
+	adminUsername, adminPlainPass, err := s.CreateAdminUser()
+	if err != nil {
+		s.Logger.Errorf(err.Error())
+		return err
+	} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
+		s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
+	}
 	return nil
 }
 
@@ -280,9 +290,6 @@ func (s *ImmuServer) Stop() error {
 }
 
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
-	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
-		return nil, auth.ErrServerAuthDisabled
-	}
 	item, err := s.getUser(r.GetUser(), false)
 	if err != nil {
 		return nil, err
@@ -307,13 +314,14 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if err != nil {
 		return nil, err
 	}
-	return &schema.LoginResponse{Token: []byte(token)}, nil
+	loginResponse := &schema.LoginResponse{Token: []byte(token)}
+	if u.Username == auth.AdminUsername && string(r.GetPassword()) == auth.AdminDefaultPassword {
+		loginResponse.Warning = []byte(auth.WarnDefaultAdminPassword)
+	}
+	return loginResponse, nil
 }
 
 func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, error) {
-	if !auth.AuthEnabled && !auth.IsAdminClient(ctx) {
-		return nil, auth.ErrServerAuthDisabled
-	}
 	loggedOut, err := auth.DropTokenKeysForCtx(ctx)
 	if err != nil {
 		return new(empty.Empty), err

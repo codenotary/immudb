@@ -37,6 +37,7 @@ var methodsPermissions = map[string]byte{
 	"/immudb.schema.ImmuService/ZAdd":          PermissionRW,
 	"/immudb.schema.ImmuService/SafeZAdd":      PermissionRW,
 	// admin methods
+	"/immudb.schema.ImmuService/ListUsers":        PermissionAdmin,
 	"/immudb.schema.ImmuService/CreateUser":       PermissionAdmin,
 	"/immudb.schema.ImmuService/ChangePassword":   PermissionAdmin,
 	"/immudb.schema.ImmuService/SetPermission":    PermissionAdmin,
@@ -45,7 +46,7 @@ var methodsPermissions = map[string]byte{
 	"/immudb.schema.ImmuService/UpdateMTLSConfig": PermissionAdmin,
 }
 
-func HasPermissionForMethod(userPermission byte, method string) bool {
+func hasPermissionForMethod(userPermission byte, method string) bool {
 	methodPermission, ok := methodsPermissions[method]
 	if !ok {
 		methodPermission = PermissionR

@@ -18,7 +18,6 @@ package auditor
 
 import (
 	"context"
-	"encoding/base64"
 	"io"
 	"os"
 	"regexp"
@@ -33,7 +32,6 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 )
 
 type Auditor interface {
@@ -63,12 +61,9 @@ func DefaultAuditor(
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
 	logoutput io.Writer) (Auditor, error) {
 
-	password := strings.TrimSpace(passwordBase64)
-	if password != "" {
-		passwordBytes, err := base64.StdEncoding.DecodeString(passwordBase64)
-		if err == nil {
-			password = string(passwordBytes)
-		}
+	password, err := auth.DecodeBase64Password(passwordBase64)
+	if err != nil {
+		return nil, err
 	}
 	if logoutput == nil {
 		logoutput = os.Stderr
@@ -221,13 +216,8 @@ func (a *defaultAuditor) connect(ctx context.Context) (*grpc.ClientConn, error) 
 		Password: a.password,
 	})
 	if err != nil {
-		grpcStatus, ok1 := status.FromError(err)
-		authDisabled, ok2 := status.FromError(auth.ErrServerAuthDisabled)
-		if !ok1 || !ok2 || grpcStatus.Code() != authDisabled.Code() ||
-			grpcStatus.Message() != authDisabled.Message() {
-			a.logger.Errorf("error logging in with user %s: %v", a.username, err)
-			return nil, err
-		}
+		a.logger.Errorf("error logging in with user %s: %v", a.username, err)
+		return nil, err
 	}
 	if loginResponse != nil {
 		token := string(loginResponse.GetToken())

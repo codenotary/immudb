@@ -1,4 +1,4 @@
-// +build linux darwin freebsd
+// +build linux darwin
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -30,4 +30,6 @@ detached = false
 auth = true
 pkey = "/etc/immudb/mtls/3_application/private/localhost.key.pem"
 certificate = "/etc/immudb/mtls/3_application/certs/localhost.cert.pem"
-clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"`)
+clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"
+devmode = true
+admin-password = "immu"`)
