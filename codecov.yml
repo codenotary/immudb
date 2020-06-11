@@ -1,0 +1,8 @@
+coverage:
+  status:
+    project:
+      default:
+        # codecov docs: https://docs.codecov.io/docs/commit-status#target
+        target: auto
+        # this allows a % drop from the previous base commit coverage
+        threshold: 1%
