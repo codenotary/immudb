@@ -106,12 +106,12 @@ func (s *ImmuServer) Start() error {
 
 	auth.AuthEnabled = s.Options.Auth
 	auth.DevMode = s.Options.DevMode
-	adminDefaultPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
+	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
 	if err != nil {
 		s.Logger.Errorf(err.Error())
 		return err
 	}
-	auth.AdminDefaultPassword = adminDefaultPassword
+	auth.AdminPassword = adminPassword
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 
 	uuidContext := NewUuidContext(uuid)

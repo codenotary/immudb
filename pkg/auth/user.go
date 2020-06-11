@@ -27,6 +27,7 @@ type User struct {
 
 var AdminUsername = "immu"
 var AdminDefaultPassword = "immu"
+var AdminPassword = AdminDefaultPassword
 
 // GenerateOrSetPassword ...
 func (u *User) GenerateOrSetPassword(plainPassword string) (string, error) {

@@ -19,6 +19,8 @@ package server
 import (
 	"encoding/json"
 	"strconv"
+
+	"github.com/codenotary/immudb/pkg/auth"
 )
 
 // Options server options list
@@ -64,7 +66,7 @@ func DefaultOptions() Options {
 		CorruptionCheck: true,
 		MetricsServer:   true,
 		DevMode:         true,
-		AdminPassword:   "immu",
+		AdminPassword:   auth.AdminDefaultPassword,
 	}
 }
 
