@@ -38,6 +38,7 @@ const (
 	description = "immuclient"
 )
 
+// ErrAgentNotActive ...
 var ErrAgentNotActive = errors.New("agent not active")
 
 func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {

@@ -23,8 +23,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+// AdminTokenFileSuffix is the suffix used for the token file name
 const AdminTokenFileSuffix = "_admin"
 
+// Options client options
 type Options struct {
 	Dir                string
 	Address            string
@@ -38,6 +40,7 @@ type Options struct {
 	TokenFileName      string
 }
 
+// DefaultOptions ...
 func DefaultOptions() *Options {
 	return &Options{
 		Dir:                ".",
@@ -112,14 +115,15 @@ func (o *Options) WithDialOptions(dialOptions *[]grpc.DialOption) *Options {
 	return o
 }
 
+// Bind concatenates address and port
 func (o *Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
 }
 
 func (o *Options) String() string {
-	optionsJson, err := json.Marshal(o)
+	optionsJSON, err := json.Marshal(o)
 	if err != nil {
 		return err.Error()
 	}
-	return string(optionsJson)
+	return string(optionsJSON)
 }

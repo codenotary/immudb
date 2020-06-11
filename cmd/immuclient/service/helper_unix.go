@@ -37,6 +37,7 @@ const linuxConfigPath = "/etc/immudb"
 const linuxUser = "immu"
 const linuxGroup = "immu"
 
+// NewDaemon ...
 func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
 	err = d.SetTemplate(systemDConfig)
@@ -74,6 +75,7 @@ func CheckPrivileges() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
+// InstallSetup ...
 func InstallSetup(serviceName string) (err error) {
 	if err = groupCreateIfNotExists(); err != nil {
 		return err
@@ -117,6 +119,7 @@ func InstallSetup(serviceName string) (err error) {
 }
 
 // @todo Michele helper unix should be refactor in order to expose an interface that every service need to implemented.
+
 // UninstallSetup uninstall operations
 func UninstallSetup(serviceName string) (err error) {
 	if err = uninstallExecutables(serviceName); err != nil {
@@ -192,6 +195,7 @@ func setOwnership(path string) (err error) {
 }
 
 // todo @Michele this should be moved in UninstallSetup
+
 // RemoveProgramFiles remove all program files
 func RemoveProgramFiles(serviceName string) (err error) {
 	if err = readConfig(serviceName); err != nil {
@@ -211,6 +215,7 @@ func EraseData(serviceName string) (err error) {
 }
 
 // todo @Michele this can be simplified
+
 // GetExecutable checks for the service executable name provided.
 // If it's valid returns the absolute file path
 // If is not valid or not presents try to use an executable presents in current executable folder.
@@ -243,6 +248,7 @@ func GetExecutable(input string, serviceName string) (exec string, err error) {
 
 // todo @Michele this can be simplified -> CopyExecInOsDefault(servicename string)
 // toto @Michele use functions from the fs package?
+
 //CopyExecInOsDefault copy the executable in default exec folder and returns the path. It accepts an executable absolute path
 func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	from, err := os.Open(execPath)

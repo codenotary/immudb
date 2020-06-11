@@ -26,6 +26,7 @@ type simpleLogger struct {
 	LogLevel LogLevel
 }
 
+// NewSimpleLogger ...
 func NewSimpleLogger(name string, out io.Writer) Logger {
 	return &simpleLogger{
 		Logger:   log.New(out, name+" ", log.LstdFlags),
@@ -33,6 +34,7 @@ func NewSimpleLogger(name string, out io.Writer) Logger {
 	}
 }
 
+// NewSimpleLoggerWithLevel ...
 func NewSimpleLoggerWithLevel(name string, out io.Writer, level LogLevel) Logger {
 	return &simpleLogger{
 		Logger:   log.New(out, name+" ", log.LstdFlags),

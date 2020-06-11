@@ -28,6 +28,7 @@ func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immuclient") })
 }
 
+// NewCmd ...
 func NewCmd() *cobra.Command {
 	cmd := Init(&o)
 	cmd.AddCommand(version.VersionCmd())

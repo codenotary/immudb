@@ -87,6 +87,8 @@ func evictOldTokenKeyPairs() {
 	tokenKeyPairs.lastEvictedAt = now
 }
 
+// DropTokenKeys removes the token keys from the cache, hence invalidating
+// any token that was generated with those keys
 func DropTokenKeys(username string) bool {
 	tokenKeyPairs.Lock()
 	defer tokenKeyPairs.Unlock()
@@ -97,6 +99,8 @@ func DropTokenKeys(username string) bool {
 	return ok
 }
 
+// DropTokenKeysForCtx removes the token keys from the cache for the username of
+// the token that resides in the provided context
 func DropTokenKeysForCtx(ctx context.Context) (bool, error) {
 	jsonToken, err := verifyTokenFromCtx(ctx)
 	if err != nil {

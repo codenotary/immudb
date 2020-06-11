@@ -21,6 +21,7 @@ import (
 	"math"
 )
 
+// SetKey ...
 func SetKey(key []byte, set []byte, score float64) (ik []byte, err error) {
 	i, s, vl := len(set), binary.Size(score), len(key)
 	c := make([]byte, i+s+vl)
@@ -30,6 +31,7 @@ func SetKey(key []byte, set []byte, score float64) (ik []byte, err error) {
 	return c, nil
 }
 
+// Float642bytes ...
 func Float642bytes(float float64) []byte {
 	bits := math.Float64bits(float)
 	bytes := make([]byte, 8)
@@ -37,6 +39,7 @@ func Float642bytes(float float64) []byte {
 	return bytes
 }
 
+// Bytes2float ...
 func Bytes2float(bytes []byte) float64 {
 	bits := binary.LittleEndian.Uint64(bytes)
 	float := math.Float64frombits(bits)

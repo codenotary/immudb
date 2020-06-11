@@ -30,14 +30,15 @@ func metricsURL(serverAddress string) string {
 	return "http://" + serverAddress + ":9497/metrics"
 }
 
-func newHttpClient() *http.Client {
+func newHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: requestTimeout,
 	}
 }
 
+// ShowMetricsRaw ...
 func ShowMetricsRaw(serverAddress string) error {
-	resp, err := newHttpClient().Get(metricsURL(serverAddress))
+	resp, err := newHTTPClient().Get(metricsURL(serverAddress))
 	if err != nil {
 		return err
 	}
@@ -50,6 +51,7 @@ func ShowMetricsRaw(serverAddress string) error {
 	return nil
 }
 
+// ShowMetricsAsText ...
 func ShowMetricsAsText(serverAddress string) error {
 	loader := newMetricsLoader(metricsURL(serverAddress))
 	ms, err := loader.Load()
@@ -102,6 +104,7 @@ func ShowMetricsAsText(serverAddress string) error {
 	return nil
 }
 
+// ShowMetricsVisually ...
 func ShowMetricsVisually(serverAddress string) error {
 	return runUI(newMetricsLoader(metricsURL(serverAddress)))
 }

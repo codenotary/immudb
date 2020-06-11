@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// ErrUserDeactivated ...
 var ErrUserDeactivated = errors.New("user is deactivated")
 
 func (s *ImmuServer) isUserDeactivated(user *schema.Item) error {
@@ -150,6 +151,7 @@ func (s *ImmuServer) isAdminUser(username []byte) (bool, error) {
 	return permissions == auth.PermissionAdmin, nil
 }
 
+// CreateAdminUser ...
 func (s *ImmuServer) CreateAdminUser() (string, string, error) {
 	exists, err := s.isAdminUser([]byte(auth.AdminUsername))
 	if err != nil {
@@ -170,6 +172,7 @@ func (s *ImmuServer) CreateAdminUser() (string, string, error) {
 	return u.Username, plainPass, nil
 }
 
+// ListUsers ...
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	itemList, err := s.getUsers(true)
 	if err != nil {
@@ -189,6 +192,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	return &schema.UserList{Users: users}, nil
 }
 
+// GetUser ...
 func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
 	user, err := s.getUser(r.GetUser(), true)
 	if err != nil {
@@ -205,6 +209,7 @@ func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schem
 	return &schema.UserResponse{User: user.GetKey(), Permissions: []byte{permissions}}, nil
 }
 
+// CreateUser ...
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
 	if !auth.IsValidUsername(string(r.GetUser())) {
 		return nil, status.Errorf(
@@ -231,6 +236,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	return &schema.UserResponse{User: r.GetUser(), Permissions: r.GetPermissions()}, nil
 }
 
+// SetPermission ...
 func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
 	if len(r.GetValue()) <= 0 {
 		return new(empty.Empty), status.Errorf(
@@ -260,6 +266,7 @@ func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.
 	return new(empty.Empty), nil
 }
 
+// ChangePassword ...
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
 	item, err := s.getUser(r.GetUser(), false)
 	if err != nil {
@@ -296,6 +303,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	return new(empty.Empty), nil
 }
 
+// DeactivateUser ...
 func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) (*empty.Empty, error) {
 	item, err := s.getUser(r.GetUser(), false)
 	if err != nil {
@@ -326,6 +334,7 @@ func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) 
 	return new(empty.Empty), nil
 }
 
+// PrintTree ...
 func (s *ImmuServer) PrintTree(context.Context, *empty.Empty) (*schema.Tree, error) {
 	tree := s.Store.GetTree()
 	return tree, nil

@@ -18,6 +18,7 @@ limitations under the License.
 
 package service
 
+// ConfigImmuClient ...
 var ConfigImmuClient = []byte(`dir = "/var/lib/immuclient"
 address = "127.0.0.1"
 port = 3323

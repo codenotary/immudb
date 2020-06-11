@@ -22,6 +22,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 )
 
+// TimestampService the timestamp service interface
 type TimestampService interface {
 	GetTime() time.Time
 }
@@ -30,6 +31,7 @@ type timestampService struct {
 	ts timestamp.TsGenerator
 }
 
+// NewTimestampService ...
 func NewTimestampService(ts timestamp.TsGenerator) TimestampService {
 	return &timestampService{ts}
 }

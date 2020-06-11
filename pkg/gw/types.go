@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 )
 
+// ImmuGwServer ...
 type ImmuGwServer struct {
 	Options Options
 	quit    chan struct{}
@@ -32,6 +33,7 @@ type ImmuGwServer struct {
 	Client  schema.ImmuServiceClient
 }
 
+// DefaultServer returns a default immudb gateway server
 func DefaultServer() *ImmuGwServer {
 	return &ImmuGwServer{
 		Logger:  logger.NewSimpleLogger("immugw ", os.Stderr),
@@ -40,16 +42,19 @@ func DefaultServer() *ImmuGwServer {
 	}
 }
 
+// WithClient ...
 func (c *ImmuGwServer) WithClient(client schema.ImmuServiceClient) *ImmuGwServer {
 	c.Client = client
 	return c
 }
 
+// WithLogger ...
 func (c *ImmuGwServer) WithLogger(logger logger.Logger) *ImmuGwServer {
 	c.Logger = logger
 	return c
 }
 
+// WithOptions ...
 func (c *ImmuGwServer) WithOptions(options Options) *ImmuGwServer {
 	c.Options = options
 	return c

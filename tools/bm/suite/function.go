@@ -27,9 +27,14 @@ import (
 )
 
 var maxProcs int
+
+// Concurrency number of go parallel executions
 var Concurrency = runtime.NumCPU()
+
+// V ...
 var V = []byte{0, 1, 3, 4, 5, 6, 7}
 
+// FunctionBenchmarks ...
 var FunctionBenchmarks = []bm.Bm{
 	// {
 	// 	CreateStore: true,

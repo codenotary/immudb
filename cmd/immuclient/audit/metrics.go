@@ -35,6 +35,7 @@ type prometheusMetrics struct {
 
 var metricsNamespace = "immuclient"
 
+// Audit metrics
 var (
 	AuditResultPerServer = newAuditGaugeVec(
 		"audit_result_per_server",

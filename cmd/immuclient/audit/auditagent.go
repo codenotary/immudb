@@ -31,6 +31,7 @@ import (
 	"github.com/takama/daemon"
 )
 
+// AuditAgent ...
 type AuditAgent interface {
 	Manage(args []string) (string, error)
 	InitAgent() (AuditAgent, error)

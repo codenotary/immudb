@@ -33,6 +33,7 @@ type commandline struct {
 	immucl immuc.Client
 }
 
+// Init ...
 func Init(o *c.Options) *cobra.Command {
 
 	cl := new(commandline)

@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/store"
 )
 
+// ImmuServer ...
 type ImmuServer struct {
 	Store      *store.Store
 	SysStore   *store.Store
@@ -36,6 +37,7 @@ type ImmuServer struct {
 	quit       chan struct{}
 }
 
+// DefaultServer ...
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
 		Logger:  logger.NewSimpleLogger("immudb ", os.Stderr),
@@ -44,21 +46,25 @@ func DefaultServer() *ImmuServer {
 	}
 }
 
+// WithStore ...
 func (s *ImmuServer) WithStore(st *store.Store) *ImmuServer {
 	s.Store = st
 	return s
 }
 
+// WithLogger ...
 func (s *ImmuServer) WithLogger(logger logger.Logger) *ImmuServer {
 	s.Logger = logger
 	return s
 }
 
+// WithCC ...
 func (s *ImmuServer) WithCC(cc CorruptionChecker) *ImmuServer {
 	s.Cc = cc
 	return s
 }
 
+// WithOptions ...
 func (s *ImmuServer) WithOptions(options Options) *ImmuServer {
 	s.Options = options
 	return s

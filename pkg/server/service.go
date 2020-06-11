@@ -16,6 +16,7 @@ limitations under the License.
 
 package server
 
+// Service ...
 type Service struct {
 	ImmuServer
 }

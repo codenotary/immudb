@@ -49,6 +49,7 @@ func generatePassword() string {
 	return string(buf)
 }
 
+// HashAndSaltPassword hashes and salts the provided password
 func HashAndSaltPassword(plainPassword string) ([]byte, error) {
 	hashedPasswordBytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
 	if err != nil {
@@ -57,6 +58,7 @@ func HashAndSaltPassword(plainPassword string) ([]byte, error) {
 	return hashedPasswordBytes, nil
 }
 
+// ComparePasswords compares the provided plainPassword against the provided hashed password
 func ComparePasswords(hashedPassword []byte, plainPassword []byte) error {
 	return bcrypt.CompareHashAndPassword(hashedPassword, plainPassword)
 }
@@ -64,6 +66,7 @@ func ComparePasswords(hashedPassword []byte, plainPassword []byte) error {
 const minPasswordLen = 8
 const maxPasswordLen = 32
 
+// PasswordRequirementsMsg message used to inform the user about password strength requirements
 var PasswordRequirementsMsg = fmt.Sprintf(
 	"password must have between %d and %d letters, digits and special characters "+
 		"of which at least 1 uppercase letter, 1 digit and 1 special character",
@@ -71,6 +74,7 @@ var PasswordRequirementsMsg = fmt.Sprintf(
 	maxPasswordLen,
 )
 
+// IsStrongPassword checks if the provided password meets the strength requirements
 func IsStrongPassword(password string) error {
 	err := errors.New(PasswordRequirementsMsg)
 	if len(password) < minPasswordLen || len(password) > maxPasswordLen {
@@ -98,6 +102,8 @@ func IsStrongPassword(password string) error {
 	return nil
 }
 
+// DecodeBase64Password decodes the provided base64-encoded password if it has the
+// "enc:" prefix or returns it with leading and trailing space trimmed otherwise
 func DecodeBase64Password(passwordBase64 string) (string, error) {
 	password := strings.TrimSpace(passwordBase64)
 	prefix := "enc:"

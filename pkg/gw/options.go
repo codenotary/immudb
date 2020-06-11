@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
+// Options immudb gateway server options
 type Options struct {
 	Dir           string
 	Address       string
@@ -43,6 +44,7 @@ type Options struct {
 	Logfile       string
 }
 
+// DefaultOptions ...
 func DefaultOptions() Options {
 	return Options{
 		Dir:           ".",
@@ -153,6 +155,7 @@ func (o Options) WithLogfile(logfile string) Options {
 	return o
 }
 
+// Bind concatenates address and port
 func (o Options) Bind() string {
 	return fmt.Sprintf("%s:%d", o.Address, o.Port)
 }

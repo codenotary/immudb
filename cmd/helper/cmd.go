@@ -38,9 +38,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// DetachedFlag ...
 const DetachedFlag = "detached"
+
+// DetachedShortFlag ...
 const DetachedShortFlag = "d"
 
+// LinuxManPath ...
 const LinuxManPath = "/usr/share/man/man1/"
 
 // Options cmd options
@@ -116,6 +120,7 @@ func QuitWithUserError(err error) {
 	QuitToStdErr(err)
 }
 
+// PasswordReader ...
 type PasswordReader interface {
 	Read(string) ([]byte, error)
 }
@@ -131,6 +136,7 @@ func (pr *stdinPasswordReader) Read(msg string) ([]byte, error) {
 	return pass, nil
 }
 
+// DefaultPasswordReader ...
 var DefaultPasswordReader PasswordReader = new(stdinPasswordReader)
 
 // ReadFromTerminalYN read terminal user input from a Yes No dialog. It returns y and n only with an explicit Yy or Nn input. If no input is submitted it returns default value. If the input is different from the expected one empty string is returned.
@@ -153,6 +159,7 @@ func ReadFromTerminalYN(def string) (selected string, err error) {
 	return "", nil
 }
 
+// UsageSprintf ...
 func UsageSprintf(usages map[string][]string) string {
 	subCmds := make([]string, 0, len(usages))
 	for subCmd := range usages {
@@ -173,12 +180,14 @@ func UsageSprintf(usages map[string][]string) string {
 	return usagesBuilder.String()
 }
 
+// RequiredArgs ...
 type RequiredArgs struct {
 	Cmd    string
 	Usage  string
 	Usages map[string][]string
 }
 
+// Require ...
 func (ra *RequiredArgs) Require(
 	args []string,
 	argPos int,
@@ -216,6 +225,7 @@ func (ra *RequiredArgs) Require(
 	return args[argPos], nil
 }
 
+// PrintTable ...
 func PrintTable(cols []string, nbRows int, getRow func(int) []string) {
 	if nbRows == 0 {
 		return

@@ -23,8 +23,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Kind the authentication kind
 type Kind uint32
 
+// Authentication kinds
 const (
 	KindNone Kind = iota
 	KindPassword
@@ -33,9 +35,14 @@ const (
 
 // TODO OGG: in the future, after other types of auth will be implemented,
 // this will have to be of Kind (see above) type instead of bool:
+
+// AuthEnabled toggles authentication on or off
 var AuthEnabled bool
+
+// DevMode if set to true, remote client commands (except admin ones) will be accepted even if auth is off
 var DevMode bool
 
+// WarnDefaultAdminPassword warning user message for the case when admin uses the default password
 var WarnDefaultAdminPassword = "admin user has the default password: please change it to ensure proper security"
 
 var emptyStruct = struct{}{}

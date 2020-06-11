@@ -106,6 +106,7 @@ func (skvl *SKVList) ToKVList() (*KVList, error) {
 	return kvl, nil
 }
 
+// ToSPage converts a page of items to a page of structured items
 func (list *Page) ToSPage() (*SPage, error) {
 	slist := &SPage{}
 	for _, item := range list.Items {

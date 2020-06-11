@@ -36,7 +36,7 @@ func (i *immuc) Login(args []string) (string, error) {
 		if strings.Contains(err.Error(), "authentication is disabled on server") {
 			return "authentication is disabled on server", nil
 		}
-		return "", errors.New("Username or password is not valid.")
+		return "", errors.New("username or password is not valid")
 	}
 	tokenFileName := i.ImmuClient.GetOptions().TokenFileName
 	if err = client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {

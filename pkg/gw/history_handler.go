@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package gw
 
 import (
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// HistoryHandler ...
 type HistoryHandler interface {
 	History(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
 }
@@ -35,6 +37,7 @@ type historyHandler struct {
 	client client.ImmuClient
 }
 
+// NewHistoryHandler ...
 func NewHistoryHandler(mux *runtime.ServeMux, client client.ImmuClient) HistoryHandler {
 	return &historyHandler{
 		mux,

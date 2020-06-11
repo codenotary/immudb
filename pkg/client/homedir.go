@@ -8,6 +8,8 @@ import (
 	"github.com/mitchellh/go-homedir"
 )
 
+// WriteFileToUserHomeDir writes the provided content to the specified file path
+// or to user home dir if just a filename is provided
 func WriteFileToUserHomeDir(content []byte, pathToFile string) error {
 	p := pathToFile
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
@@ -21,6 +23,9 @@ func WriteFileToUserHomeDir(content []byte, pathToFile string) error {
 	}
 	return ioutil.WriteFile(p, content, 0644)
 }
+
+// FileExistsInUserHomeDir checks if the file at the provided path exists or, in
+// case just a filename is provided, it looks for it in the user home dir
 func FileExistsInUserHomeDir(pathToFile string) (bool, error) {
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
 		hd, err := homedir.Dir()
@@ -39,6 +44,9 @@ func FileExistsInUserHomeDir(pathToFile string) (bool, error) {
 	}
 	return true, nil
 }
+
+// ReadFileFromUserHomeDir reads the contents at the specified filepath; if just
+// a filename is specified, it looks for it in the user home dir
 func ReadFileFromUserHomeDir(pathToFile string) (string, error) {
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
 		hd, err := homedir.Dir()
@@ -58,6 +66,9 @@ func ReadFileFromUserHomeDir(pathToFile string) (string, error) {
 	}
 	return string(contentBytes), nil
 }
+
+// DeleteFileFromUserHomeDir deletes the file at the provided path or from user
+// home dir if just a filename is provided
 func DeleteFileFromUserHomeDir(pathToFile string) {
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
 		hd, err := homedir.Dir()
