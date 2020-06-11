@@ -34,7 +34,7 @@ type Options struct {
 	Audit         bool
 	AuditInterval time.Duration
 	AuditUsername string
-	AuditPassword string
+	AuditPassword string `json:"-"`
 	Detached      bool
 	MTLs          bool
 	MTLsOptions   client.MTLsOptions

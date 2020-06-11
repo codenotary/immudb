@@ -148,7 +148,11 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Errorf(err.Error())
 		return err
 	} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
-		s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
+		passType := "default"
+		if adminPlainPass != auth.AdminDefaultPassword {
+			passType = "configured"
+		}
+		s.Logger.Infof("admin user %s created with %s password", adminUsername, passType)
 	}
 
 	if s.Options.MetricsServer {

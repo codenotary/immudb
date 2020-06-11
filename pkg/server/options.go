@@ -43,7 +43,7 @@ type Options struct {
 	CorruptionCheck bool
 	MetricsServer   bool
 	DevMode         bool
-	AdminPassword   string
+	AdminPassword   string `json:"-"`
 }
 
 // DefaultOptions returns default server options
