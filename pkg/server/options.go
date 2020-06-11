@@ -19,6 +19,8 @@ package server
 import (
 	"encoding/json"
 	"strconv"
+
+	"github.com/codenotary/immudb/pkg/auth"
 )
 
 // Options server options list
@@ -40,10 +42,10 @@ type Options struct {
 	Detached          bool
 	CorruptionCheck   bool
 	MetricsServer     bool
+	DevMode           bool
+	AdminPassword     string `json:"-"`
 	dataDir           string
 	systemAdminDbName string
-	DevMode           bool
-	AdminPassword     string
 }
 
 // DefaultOptions returns default server options
@@ -65,10 +67,10 @@ func DefaultOptions() Options {
 		Detached:          false,
 		CorruptionCheck:   true,
 		MetricsServer:     true,
+		DevMode:           true,
+		AdminPassword:     auth.AdminDefaultPassword,
 		dataDir:           "./data",
 		systemAdminDbName: "systemdb",
-		DevMode:           true,
-		AdminPassword:     "immu",
 	}
 }
 

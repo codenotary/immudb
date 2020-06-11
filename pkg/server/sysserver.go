@@ -160,7 +160,7 @@ func (s *ImmuServer) CreateAdminUser() (string, string, error) {
 		return "", "", nil
 	}
 	u := auth.User{Username: auth.AdminUsername}
-	plainPass, err := u.GenerateOrSetPassword(auth.AdminDefaultPassword)
+	plainPass, err := u.GenerateOrSetPassword(auth.AdminPassword)
 	if err != nil {
 		s.Logger.Errorf("error generating password for admin user: %v", err)
 	}

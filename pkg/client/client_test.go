@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -185,11 +186,11 @@ func cleanup() {
 	if err := os.Remove(".root-"); err != nil {
 		log.Println(err)
 	}
-	dbDir := filepath.Join(server.DefaultOptions().Dir, server.DefaultOptions().DbName)
-	if err := os.RemoveAll(dbDir); err != nil {
+	//dbDir := filepath.Join(server.DefaultOptions().GetDataDir(), server.DefaultOptions().DbName)
+	if err := os.RemoveAll(server.DefaultOptions().GetDataDir()); err != nil {
 		log.Println(err)
 	}
-	sysDbDir := filepath.Join(server.DefaultOptions().Dir, server.DefaultOptions().SysDbName)
+	sysDbDir := filepath.Join(server.DefaultOptions().GetDataDir(), server.DefaultOptions().SysDbName)
 	if err := os.RemoveAll(sysDbDir); err != nil {
 		log.Println(err)
 	}
@@ -298,6 +299,7 @@ func TestImmuClient(t *testing.T) {
 	cleanupDump()
 	defer cleanup()
 	defer cleanupDump()
+	fmt.Println("sdfs")
 
 	ctx := context.Background()
 

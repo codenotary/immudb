@@ -270,6 +270,10 @@ message SafeIndexOptions {
 }
 
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+	info: {
+		title: "immudb REST API";
+		description: "<b>IMPORTANT</b>: All <code>get</code> and <code>safeget</code> functions return <u>base64-encoded</u> keys and values, while all <code>set</code> and <code>safeset</code> functions expect <u>base64-encoded</u> inputs."
+	};
 	security_definitions: {
 		security: {
 			key: "bearer"
@@ -288,6 +292,8 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	}
 };
 
+// immudb gRPC & REST service
+// IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.
 service ImmuService {
 	rpc ListUsers (google.protobuf.Empty) returns (UserList){}
 	rpc GetUser (UserRequest) returns (UserResponse){}
