@@ -48,7 +48,9 @@ Environment variables:
   IMMUCLIENT_SERVERNAME=localhost
   IMMUCLIENT_PKEY=./tools/mtls/4_client/private/localhost.key.pem
   IMMUCLIENT_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
-  IMMUCLIENT_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
+  IMMUCLIENT_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
+
+IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.`,
 		DisableAutoGenTag: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := cl.immucl.Connect(args)
