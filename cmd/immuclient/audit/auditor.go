@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/server"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -70,10 +71,13 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	cAgent.metrics.init(serverID)
 	cliOpts := cAgent.immuc.GetOptions()
 	ctx = context.Background()
-	auditUsername := []byte(viper.GetString("audit-username"))
-	auditPassword := []byte(viper.GetString("audit-password"))
+	auditUsername := viper.GetString("audit-username")
+	auditPassword, err := auth.DecodeBase64Password(viper.GetString("audit-password"))
+	if err != nil {
+		return nil, err
+	}
 	if len(auditUsername) > 0 || len(auditPassword) > 0 {
-		if _, err = cAgent.immuc.Login(ctx, auditUsername, auditPassword); err != nil {
+		if _, err = cAgent.immuc.Login(ctx, []byte(auditUsername), []byte(auditPassword)); err != nil {
 			return nil, fmt.Errorf("Invalid login operation: %v", err)
 		}
 	}
@@ -81,8 +85,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	cAgent.ImmuAudit, err = auditor.DefaultAuditor(time.Duration(cAgent.cycleFrequency)*time.Second,
 		fmt.Sprintf("%s:%v", options().Address, options().Port),
 		cliOpts.DialOptions,
-		viper.GetString("audit-username"),
-		viper.GetString("audit-password"),
+		auditUsername,
+		auditPassword,
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
 		cAgent.metrics.updateMetrics, cAgent.logfile)
 	if err != nil {
