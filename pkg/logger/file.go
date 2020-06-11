@@ -28,6 +28,7 @@ type fileLogger struct {
 	LogLevel LogLevel
 }
 
+// NewFileLogger ...
 func NewFileLogger(name string, file string) (logger Logger, out *os.File, err error) {
 	if out, err = setup(file); err != nil {
 		return nil, nil, err
@@ -39,6 +40,7 @@ func NewFileLogger(name string, file string) (logger Logger, out *os.File, err e
 	return logger, out, nil
 }
 
+// NewFileLoggerWithLevel ...
 func NewFileLoggerWithLevel(name string, file string, level LogLevel) (logger Logger, out *os.File, err error) {
 	if out, err = setup(file); err != nil {
 		return nil, nil, err

@@ -30,7 +30,10 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 )
 
+// Iterations number of iterations to perform
 const Iterations = 500_000
+
+// BatchSize batch size
 const BatchSize = 100
 
 var tmpDir, _ = ioutil.TempDir("", "immu")
@@ -41,10 +44,11 @@ var immuServer = server.DefaultServer().
 
 var immuClient, _ = client.NewImmuClient(client.DefaultOptions())
 
-var RpcBenchmarks = []bm.Bm{
-	makeRpcBenchmark("sequential write", Concurrency, Iterations, sequentialSet),
-	makeRpcBenchmark("batch write", Concurrency, Iterations, batchSet),
-	makeRpcBenchmark("batch write no concurrency", 1, Iterations, batchSet),
+// RPCBenchmarks ...
+var RPCBenchmarks = []bm.Bm{
+	makeRPCBenchmark("sequential write", Concurrency, Iterations, sequentialSet),
+	makeRPCBenchmark("batch write", Concurrency, Iterations, batchSet),
+	makeRPCBenchmark("batch write no concurrency", 1, Iterations, batchSet),
 }
 
 func sequentialSet(bm *bm.Bm, start int, end int) error {
@@ -78,7 +82,7 @@ func batchSet(bm *bm.Bm, start int, end int) error {
 	return nil
 }
 
-func makeRpcBenchmark(name string, concurrency int, iterations int,
+func makeRPCBenchmark(name string, concurrency int, iterations int,
 	work func(bm *bm.Bm, start int, end int) error) bm.Bm {
 	return bm.Bm{
 		CreateStore: false,

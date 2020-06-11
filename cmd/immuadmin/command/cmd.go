@@ -28,6 +28,7 @@ func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immuadmin") })
 }
 
+// NewCmd ...
 func NewCmd(cmdName string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   cmdName,

@@ -23,6 +23,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 )
 
+// Scan fetch the entries having the specified key prefix
 func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err error) {
 	if len(options.Prefix) > 0 && options.Prefix[0] == tsPrefix {
 		err = ErrInvalidKeyPrefix
@@ -174,6 +175,7 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 	return
 }
 
+// IScan iterates over all entries by the insertion order
 func (t *Store) IScan(options schema.IScanOptions) (list *schema.Page, err error) {
 
 	page := &schema.Page{}

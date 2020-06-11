@@ -25,6 +25,7 @@ import (
 	"strings"
 )
 
+// Zip compression levels
 const (
 	ZipNoCompression      = flate.NoCompression
 	ZipBestSpeed          = flate.BestSpeed
@@ -34,6 +35,7 @@ const (
 	ZipHuffmanOnly        = flate.HuffmanOnly
 )
 
+// ZipIt ...
 func ZipIt(src, dst string, compressionLevel int) error {
 	zipfile, err := os.Create(dst)
 	if err != nil {
@@ -99,6 +101,7 @@ func ZipIt(src, dst string, compressionLevel int) error {
 	return zipWriter.Close()
 }
 
+// UnZipIt ...
 func UnZipIt(src, dst string) error {
 	reader, err := zip.OpenReader(src)
 	if err != nil {

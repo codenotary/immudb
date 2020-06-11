@@ -16,6 +16,7 @@ limitations under the License.
 
 package gw
 
+// Service ...
 type Service struct {
 	ImmuGwServer
 }

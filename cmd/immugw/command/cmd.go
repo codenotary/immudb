@@ -22,6 +22,7 @@ func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immugw") })
 }
 
+// NewCmd creates a new immugw command
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "immugw",
@@ -59,6 +60,7 @@ Environment variables:
 	return cmd
 }
 
+// Immugw runs the immudb gateway service
 func Immugw(cmd *cobra.Command, args []string) (err error) {
 	var options gw.Options
 	if options, err = parseOptions(cmd); err != nil {
@@ -257,6 +259,7 @@ func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
 	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
 }
 
+// InstallManPages installs man pages
 func InstallManPages() error {
 	header := &doc.GenManHeader{
 		Title:   "immugw",
@@ -273,6 +276,7 @@ func InstallManPages() error {
 	return nil
 }
 
+// UnistallManPages uninstalls man pages
 func UnistallManPages() error {
 	return os.Remove(filepath.Join(c.LinuxManPath, "immugw.1"))
 }

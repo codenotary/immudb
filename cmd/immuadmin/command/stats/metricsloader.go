@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 )
 
+// MetricsLoader ...
 type MetricsLoader interface {
 	Load() (*metrics, error)
 }
@@ -31,7 +32,7 @@ type MetricsLoader interface {
 func newMetricsLoader(url string) MetricsLoader {
 	return &metricsLoader{
 		url:    url,
-		client: newHttpClient(),
+		client: newHTTPClient(),
 	}
 }
 

@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// SafegetHandler ...
 type SafegetHandler interface {
 	Safeget(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
 }
@@ -41,6 +42,7 @@ type safegetHandler struct {
 	sync.RWMutex
 }
 
+// NewSafegetHandler ...
 func NewSafegetHandler(mux *runtime.ServeMux, client client.ImmuClient) SafegetHandler {
 	return &safegetHandler{
 		mux:    mux,

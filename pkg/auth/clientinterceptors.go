@@ -22,18 +22,22 @@ import (
 	"google.golang.org/grpc"
 )
 
+// WrappedClientStream ...
 type WrappedClientStream struct {
 	grpc.ClientStream
 }
 
+// RecvMsg ...
 func (w *WrappedClientStream) RecvMsg(m interface{}) error {
 	return w.ClientStream.RecvMsg(m)
 }
 
+// SendMsg ...
 func (w *WrappedClientStream) SendMsg(m interface{}) error {
 	return w.ClientStream.SendMsg(m)
 }
 
+// ClientStreamInterceptor gRPC client interceptor for streams
 func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDesc, *grpc.ClientConn, string, grpc.Streamer, ...grpc.CallOption) (grpc.ClientStream, error) {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		if hasAuth(method) {
@@ -49,6 +53,7 @@ func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDes
 	}
 }
 
+// ClientUnaryInterceptor gRPC client interceptor for unary methods
 func ClientUnaryInterceptor(token string) func(context.Context, string, interface{}, interface{}, *grpc.ClientConn, grpc.UnaryInvoker, ...grpc.CallOption) error {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		if hasAuth(method) {
@@ -60,16 +65,19 @@ func ClientUnaryInterceptor(token string) func(context.Context, string, interfac
 	}
 }
 
+// TokenAuth authentication token data structure
 type TokenAuth struct {
 	Token string
 }
 
+// GetRequestMetadata callback which returns the Bearer token to be set in request metadata
 func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
 	return map[string]string{
 		"authorization": "Bearer " + t.Token,
 	}, nil
 }
 
+// RequireTransportSecurity callback which returns whether TLS is mandatory or not
 func (TokenAuth) RequireTransportSecurity() bool {
 	return false
 }

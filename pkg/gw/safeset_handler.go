@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// SafesetHandler ...
 type SafesetHandler interface {
 	Safeset(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
 }
@@ -39,6 +40,7 @@ type safesetHandler struct {
 	client client.ImmuClient
 }
 
+// NewSafesetHandler ...
 func NewSafesetHandler(mux *runtime.ServeMux, client client.ImmuClient) SafesetHandler {
 	return &safesetHandler{
 		mux:    mux,

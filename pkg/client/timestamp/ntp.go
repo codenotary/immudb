@@ -26,6 +26,7 @@ type ntp struct {
 	r *s.Response
 }
 
+// NewNtp ...
 func NewNtp() (TsGenerator, error) {
 	r, err := s.Query("0.beevik-ntp.pool.ntp.org")
 	if err != nil {

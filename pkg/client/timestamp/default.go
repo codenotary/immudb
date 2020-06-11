@@ -22,6 +22,7 @@ import (
 
 type tdefault struct{}
 
+// NewTdefault ...
 func NewTdefault() (TsGenerator, error) {
 	return &tdefault{}, nil
 }

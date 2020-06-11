@@ -16,6 +16,7 @@ limitations under the License.
 
 package ring
 
+// Buffer ...
 type Buffer interface {
 	Head() uint64
 	Tail() uint64
@@ -30,6 +31,7 @@ type ringBuffer struct {
 	data []interface{}
 }
 
+// NewRingBuffer ...
 func NewRingBuffer(size uint64) Buffer {
 	return &ringBuffer{
 		size: size,

@@ -35,6 +35,8 @@ func getPrevRootIdx(lastIndex uint64, rootIdx *schema.Index) (uint64, error) {
 	return 0, nil
 }
 
+// SafeSet adds an entry and returns the inclusion proof for it and
+// the consistency proof for the previous root
 func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err error) {
 	kv := options.Kv
 
@@ -89,6 +91,8 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 	return
 }
 
+// SafeGet fetches the entry having the specified key together with the inclusion proof
+// for it and the consistency proof for the current root
 func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeItem, err error) {
 	var item *schema.Item
 	var i *badger.Item
@@ -154,6 +158,8 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 	return
 }
 
+// SafeReference adds a reference entry to an existing key and returns the
+// inclusion proof for it and the consistency proof for the previous root
 func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	ro := options.Ro
 	if err = checkKey(ro.Key); err != nil {
@@ -219,6 +225,8 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 	return
 }
 
+// SafeZAdd adds the specified score and key to the specified sorted set and returns
+// the inclusion proof for it and the consistency proof for the previous root
 func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, err error) {
 
 	if err = checkKey(options.Zopts.Key); err != nil {
@@ -287,6 +295,8 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 	return
 }
 
+// BySafeIndex fetches the entry at the specified index together with the inclusion proof
+// for it and the consistency proof for the current root
 func (t *Store) BySafeIndex(options schema.SafeIndexOptions) (safeitem *schema.SafeItem, err error) {
 
 	var item *schema.Item

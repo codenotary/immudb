@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package gw
 
 import (
@@ -29,6 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// SafeReferenceHandler ...
 type SafeReferenceHandler interface {
 	SafeReference(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
 }
@@ -38,6 +40,7 @@ type safeReferenceHandler struct {
 	client client.ImmuClient
 }
 
+// NewSafeReferenceHandler ...
 func NewSafeReferenceHandler(mux *runtime.ServeMux, client client.ImmuClient) SafeReferenceHandler {
 	return &safeReferenceHandler{
 		mux:    mux,

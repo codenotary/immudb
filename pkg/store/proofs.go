@@ -21,6 +21,7 @@ import (
 	"github.com/codenotary/merkletree"
 )
 
+// InclusionProof returns the inclusion proof of the specified index in the current tree
 func (s *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, error) {
 
 	ts := s.tree
@@ -47,6 +48,7 @@ func (s *Store) InclusionProof(index schema.Index) (*schema.InclusionProof, erro
 	}, nil
 }
 
+// ConsistencyProof returns the consistency proof between the specified index and the current root
 func (s *Store) ConsistencyProof(index schema.Index) (*schema.ConsistencyProof, error) {
 
 	ts := s.tree

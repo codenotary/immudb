@@ -27,6 +27,7 @@ import (
 	"github.com/codenotary/immudb/pkg/store"
 )
 
+// PrintItem ...
 func PrintItem(key []byte, value []byte, message interface{}, valueOnly bool) string {
 	var index, ts uint64
 	var verified, isVerified bool
@@ -83,6 +84,7 @@ func PrintItem(key []byte, value []byte, message interface{}, valueOnly bool) st
 	return str.String()
 }
 
+// PrintSetItem ...
 func PrintSetItem(set []byte, rkey []byte, score float64, message interface{}) string {
 	var index uint64
 	var verified, isVerified bool
@@ -117,6 +119,7 @@ func PrintSetItem(set []byte, rkey []byte, score float64, message interface{}) s
 		verified)
 }
 
+// PrintRoot ...
 func PrintRoot(root *schema.Root) string {
 	if root.Root == nil {
 		return "immudb is empty\n"
@@ -124,6 +127,7 @@ func PrintRoot(root *schema.Root) string {
 	return fmt.Sprintf("index:		%d\nhash:		%x\n", root.Index, root.Root)
 }
 
+// PrintByIndex ...
 func PrintByIndex(item *schema.StructuredItem, valueOnly bool) string {
 	dig, _ := item.Hash()
 	if valueOnly {
@@ -139,6 +143,7 @@ func PrintByIndex(item *schema.StructuredItem, valueOnly bool) string {
 	return str.String()
 }
 
+// PadRight ...
 func PadRight(str, pad string, length int) string {
 	for {
 		str += pad

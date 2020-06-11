@@ -30,6 +30,7 @@ type immuc struct {
 	isLoggedin     bool
 }
 
+// Client ...
 type Client interface {
 	Connect(args []string) error
 	Disconnect(args []string) error
@@ -60,6 +61,7 @@ type Client interface {
 	SetValueOnly(v bool)
 }
 
+// Init ...
 func Init() (Client, error) {
 	ic := new(immuc)
 	ic.passwordReader = c.DefaultPasswordReader

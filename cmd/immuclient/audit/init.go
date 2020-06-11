@@ -23,6 +23,7 @@ import (
 	"github.com/codenotary/immudb/cmd/immuclient/service"
 )
 
+// Init ...
 func Init(args []string) {
 	IsAuditD(args)
 	auditAgent, err := NewAuditAgent()
@@ -39,6 +40,7 @@ func Init(args []string) {
 	os.Exit(0)
 }
 
+// NewAuditAgent ...
 func NewAuditAgent() (AuditAgent, error) {
 	ad := new(auditAgent)
 	ad.firstRun = true
@@ -52,6 +54,7 @@ func NewAuditAgent() (AuditAgent, error) {
 	return ad, nil
 }
 
+// IsAuditD ...
 func IsAuditD(args []string) {
 	if len(args) == 0 {
 		return

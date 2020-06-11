@@ -38,11 +38,13 @@ type cli struct {
 	isLoggedin   bool
 }
 
+// Cli ...
 type Cli interface {
 	Run()
 	HelpMessage() string
 }
 
+// Init ...
 func Init(immucl immuc.Client) Cli {
 	cli := new(cli)
 	cli.immucl = immucl
@@ -234,10 +236,9 @@ func (cli *cli) runCommand(arrCommandStr []string) {
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "ERROR: %s \n", err.Error())
 		return
-	} else {
-		fmt.Fprintf(os.Stdout, "%v \n", result)
-		return
 	}
+	fmt.Fprintf(os.Stdout, "%v \n", result)
+	return
 }
 
 func (cli *cli) singleCommandHelp(cmdName string) (string, error) {

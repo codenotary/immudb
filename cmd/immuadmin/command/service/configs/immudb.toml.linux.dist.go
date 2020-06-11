@@ -18,6 +18,7 @@ limitations under the License.
 
 package service
 
+// ConfigImmudb ...
 var ConfigImmudb = []byte(`dir = "/var/lib/immudb"
 network = "tcp"
 address = "127.0.0.1"

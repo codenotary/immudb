@@ -38,6 +38,7 @@ import (
 
 var startedAt time.Time
 
+// Start starts the immudb gateway server
 func (s *ImmuGwServer) Start() error {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -135,6 +136,7 @@ func (s *ImmuGwServer) Start() error {
 	return err
 }
 
+// Stop stops the immudb gateway server
 func (s *ImmuGwServer) Stop() error {
 	s.Logger.Infof("stopping immugw: %v", s.Options)
 	defer func() { s.quit <- struct{}{} }()

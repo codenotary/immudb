@@ -16,7 +16,10 @@ limitations under the License.
 
 package auth
 
+// PermissionAdmin the admin permission byte
 const PermissionAdmin = 255
+
+// Non-admin permissions
 const (
 	PermissionNone = iota
 	PermissionR

@@ -28,6 +28,7 @@ func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immutest") })
 }
 
+// NewCmd creates a new immutest command
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{}
 	Init(cmd, &o)

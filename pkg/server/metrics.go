@@ -30,6 +30,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// MetricsCollection immudb Prometheus metrics collection
 type MetricsCollection struct {
 	RecordsCounter               prometheus.CounterFunc
 	UptimeCounter                prometheus.CounterFunc
@@ -39,6 +40,7 @@ type MetricsCollection struct {
 
 var metricsNamespace = "immudb"
 
+// WithRecordsCounter ...
 func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
 	mc.RecordsCounter = promauto.NewCounterFunc(
 		prometheus.CounterOpts{
@@ -50,6 +52,7 @@ func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
 	)
 }
 
+// WithUptimeCounter ...
 func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 	mc.UptimeCounter = promauto.NewCounterFunc(
 		prometheus.CounterOpts{
@@ -61,6 +64,7 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 	)
 }
 
+// UpdateClientMetrics ...
 func (mc *MetricsCollection) UpdateClientMetrics(ctx context.Context) {
 	p, ok := peer.FromContext(ctx)
 	if ok && p != nil {
@@ -72,6 +76,7 @@ func (mc *MetricsCollection) UpdateClientMetrics(ctx context.Context) {
 	}
 }
 
+// Metrics immudb Prometheus metrics collection
 var Metrics = MetricsCollection{
 	RPCsPerClientCounters: promauto.NewCounterVec(
 		prometheus.CounterOpts{

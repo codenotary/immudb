@@ -26,6 +26,7 @@ import (
 	"github.com/gizak/termui/v3/widgets"
 )
 
+// Controller ...
 type Controller interface {
 	Render(*metrics)
 	Resize()
@@ -92,12 +93,12 @@ func updatePlot(
 func (p *statsController) Render(ms *metrics) {
 	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.db.uptimeHours))
 	p.SummaryTable.Rows = [][]string{
-		[]string{"[ImmuDB stats](mod:bold)", fmt.Sprintf("[ at %s](mod:bold)", time.Now().Format("15:04:05"))},
-		[]string{"Database", ms.db.name},
-		[]string{"Uptime", uptime.String()},
-		[]string{"Entries", fmt.Sprintf("%d", ms.db.nbEntries)},
-		[]string{"No. clients", fmt.Sprintf("%d", ms.nbClients)},
-		[]string{"  active < 1h ago", fmt.Sprintf("%d", len(*ms.clientsActiveDuringLastHour()))},
+		{"[ImmuDB stats](mod:bold)", fmt.Sprintf("[ at %s](mod:bold)", time.Now().Format("15:04:05"))},
+		{"Database", ms.db.name},
+		{"Uptime", uptime.String()},
+		{"Entries", fmt.Sprintf("%d", ms.db.nbEntries)},
+		{"No. clients", fmt.Sprintf("%d", ms.nbClients)},
+		{"  active < 1h ago", fmt.Sprintf("%d", len(*ms.clientsActiveDuringLastHour()))},
 	}
 
 	totalSizeS, _ := byteCountBinary(ms.db.totalBytes)

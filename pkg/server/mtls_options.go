@@ -16,12 +16,14 @@ limitations under the License.
 
 package server
 
+// MTLsOptions ...
 type MTLsOptions struct {
 	Pkey        string
 	Certificate string
 	ClientCAs   string
 }
 
+// DefaultMTLsOptions ...
 func DefaultMTLsOptions() MTLsOptions {
 	return MTLsOptions{
 		Pkey:        "./tools/mtls/3_application/private/localhost.key.pem",
@@ -30,16 +32,19 @@ func DefaultMTLsOptions() MTLsOptions {
 	}
 }
 
+// WithPkey ...
 func (o MTLsOptions) WithPkey(Pkey string) MTLsOptions {
 	o.Pkey = Pkey
 	return o
 }
 
+// WithCertificate ...
 func (o MTLsOptions) WithCertificate(Certificate string) MTLsOptions {
 	o.Certificate = Certificate
 	return o
 }
 
+// WithClientCAs ...
 func (o MTLsOptions) WithClientCAs(ClientCAs string) MTLsOptions {
 	o.ClientCAs = ClientCAs
 	return o
