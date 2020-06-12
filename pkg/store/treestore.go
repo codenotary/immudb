@@ -177,7 +177,7 @@ func (t *treeStore) makeCaches() {
 	}
 	for i := 0; i < 256; i++ {
 		t.caches[i] = ring.NewRingBuffer(size)
-		if size > 64 {
+		if size/2 > 64 {
 			size /= 2
 		} else {
 			size = 64
