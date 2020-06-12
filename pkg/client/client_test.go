@@ -22,7 +22,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -75,19 +74,14 @@ func newServer() *server.ImmuServer {
 	is = is.WithOptions(is.Options.WithAuth(true))
 	auth.AuthEnabled = is.Options.Auth
 	var err error
-	sysDbDir := filepath.Join(is.Options.Dir, is.Options.SysDbName)
-	if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
-		log.Fatal(err)
-	}
-	is.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, slog))
+
+	storeOpts := store.DefaultOptions("", slog)
+	storeOpts.Badger = storeOpts.Badger.WithInMemory(true)
+	is.SysStore, err = store.Open(storeOpts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	dbDir := filepath.Join(is.Options.Dir, is.Options.DbName)
-	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
-		log.Fatal(err)
-	}
-	is.Store, err = store.Open(store.DefaultOptions(dbDir, slog))
+	is.Store, err = store.Open(storeOpts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -178,14 +172,6 @@ func bufDialer(ctx context.Context, address string) (net.Conn, error) {
 func cleanup() {
 	// delete files and folders created by tests
 	if err := os.Remove(".root-"); err != nil {
-		log.Println(err)
-	}
-	dbDir := filepath.Join(server.DefaultOptions().Dir, server.DefaultOptions().DbName)
-	if err := os.RemoveAll(dbDir); err != nil {
-		log.Println(err)
-	}
-	sysDbDir := filepath.Join(server.DefaultOptions().Dir, server.DefaultOptions().SysDbName)
-	if err := os.RemoveAll(sysDbDir); err != nil {
 		log.Println(err)
 	}
 }
