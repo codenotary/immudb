@@ -18,15 +18,21 @@ package server
 
 import (
 	"context"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
+	"github.com/codenotary/immudb/pkg/store/sysstore"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Db struct {
@@ -395,4 +401,336 @@ func (d *Db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 
 	d.Logger.Debugf("Dump stream complete")
 	return err
+}
+func (d *Db) isUserDeactivated(user *schema.Item) error {
+	permission, err := d.getUserPermissions(user.GetIndex())
+	if err != nil {
+		return err
+	}
+	if permission == auth.PermissionNone {
+		return ErrUserDeactivated
+	}
+	return nil
+}
+func (d *Db) getUser(username []byte, includeDeactivated bool) (*schema.Item, error) {
+	key := make([]byte, 1+len(username))
+	key[0] = sysstore.KeyPrefixUser
+	copy(key[1:], username)
+	item, err := d.SysStore.Get(schema.Key{Key: key})
+	if err != nil {
+		return nil, err
+	}
+	if !includeDeactivated {
+		if err := d.isUserDeactivated(item); err != nil {
+			return nil, err
+		}
+	}
+	item.Key = item.GetKey()[1:]
+	return item, nil
+}
+func (d *Db) getUserAttr(userIndex uint64, attrPrefix byte) ([]byte, error) {
+	key := make([]byte, 1+8)
+	key[0] = attrPrefix
+	binary.BigEndian.PutUint64(key[1:], userIndex)
+	item, err := d.SysStore.Get(schema.Key{Key: key})
+	if err != nil {
+		return nil, err
+	}
+	return item.GetValue(), nil
+}
+func (d *Db) getUserPassword(userIndex uint64) ([]byte, error) {
+	return d.getUserAttr(userIndex, sysstore.KeyPrefixPassword)
+}
+func (d *Db) getUserPermissions(userIndex uint64) (byte, error) {
+	ps, err := d.getUserAttr(userIndex, sysstore.KeyPrefixPermissions)
+	if err != nil {
+		return 0, err
+	}
+	return ps[0], nil
+}
+
+// DeactivateUser ...
+func (d *Db) DeactivateUser(ctx context.Context, r *schema.UserRequest) (*empty.Empty, error) {
+	item, err := d.getUser(r.GetUser(), false)
+	if err != nil {
+		return new(empty.Empty), err
+	}
+	if item == nil {
+		return new(empty.Empty),
+			status.Errorf(codes.NotFound, "user not found or is already deactivated")
+	}
+	permissions, err := d.getUserPermissions(item.GetIndex())
+	if err != nil {
+		return nil, err
+	}
+	if permissions == auth.PermissionAdmin {
+		return nil, status.Errorf(
+			codes.PermissionDenied, "deactivating admin user is not allowed")
+	}
+	permissionsKey := make([]byte, 1+8)
+	permissionsKey[0] = sysstore.KeyPrefixPermissions
+	binary.BigEndian.PutUint64(permissionsKey[1:], item.GetIndex())
+	permissionsKV :=
+		schema.KeyValue{Key: permissionsKey, Value: []byte{auth.PermissionNone}}
+	if _, err := d.SysStore.Set(permissionsKV); err != nil {
+		d.Logger.Errorf("error saving user permissions to deactivate user: %v", err)
+		return new(empty.Empty), err
+	}
+	auth.DropTokenKeys(string(r.GetUser()))
+	return new(empty.Empty), nil
+}
+
+// ErrUserDeactivated ...
+var ErrUserDeactivated = errors.New("user is deactivated")
+
+func (d *Db) getUsers(includeDeactivated bool) (*schema.ItemList, error) {
+	itemList, err := d.SysStore.Scan(schema.ScanOptions{
+		Prefix: []byte{sysstore.KeyPrefixUser},
+	})
+	if err != nil {
+		d.Logger.Errorf("error getting users: %v", err)
+		return nil, err
+	}
+	for i := 0; i < len(itemList.Items); i++ {
+		if !includeDeactivated {
+			if err := d.isUserDeactivated(itemList.Items[i]); err != nil {
+				continue
+			}
+		}
+		itemList.Items[i].Key = itemList.Items[i].Key[1:]
+	}
+	return itemList, nil
+}
+
+func (d *Db) saveUser(
+	username []byte, hashedPassword []byte, permissions byte) error {
+	// TODO OGG: check with Michele how to wrap all Sets in a transaction
+	// Set user
+	userKey := make([]byte, 1+len(username))
+	userKey[0] = sysstore.KeyPrefixUser
+	copy(userKey[1:], username)
+	userKV := schema.KeyValue{Key: userKey, Value: username}
+	userIndex, err := d.SysStore.Set(userKV)
+	if err != nil {
+		d.Logger.Errorf("error saving user: %v", err)
+		return err
+	}
+	// Set password
+	passKey := make([]byte, 1+8)
+	passKey[0] = sysstore.KeyPrefixPassword
+	binary.BigEndian.PutUint64(passKey[1:], userIndex.GetIndex())
+	passKV := schema.KeyValue{Key: passKey, Value: hashedPassword}
+	if _, err := d.SysStore.Set(passKV); err != nil {
+		d.Logger.Errorf("error saving user password: %v", err)
+		return err
+	}
+	// Set permissions
+	permissionsKey := make([]byte, 1+8)
+	permissionsKey[0] = sysstore.KeyPrefixPermissions
+	binary.BigEndian.PutUint64(permissionsKey[1:], userIndex.GetIndex())
+	permissionsKV :=
+		schema.KeyValue{Key: permissionsKey, Value: []byte{permissions}}
+	if _, err := d.SysStore.Set(permissionsKV); err != nil {
+		d.Logger.Errorf("error saving user permissions: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (d *Db) isAdminUser(username []byte) (bool, error) {
+	item, err := d.getUser(username, false)
+	if err != nil {
+		if err == store.ErrKeyNotFound {
+			return false, nil
+		}
+		return false, err
+	}
+	permissions, err := d.getUserPermissions(item.GetIndex())
+	if err != nil {
+		return false, err
+	}
+	return permissions == auth.PermissionAdmin, nil
+}
+
+// CreateAdminUser ...
+func (d *Db) CreateAdminUser() (string, string, error) {
+	exists, err := d.isAdminUser([]byte(auth.AdminUsername))
+	if err != nil {
+		return "", "", fmt.Errorf(
+			"error determining if admin user exists: %v", err)
+	}
+	if exists {
+		return "", "", nil
+	}
+	u := auth.User{Username: auth.AdminUsername}
+	plainPass, err := u.GenerateOrSetPassword(auth.AdminPassword)
+	if err != nil {
+		d.Logger.Errorf("error generating password for admin user: %v", err)
+	}
+	if err = d.saveUser([]byte(u.Username), u.HashedPassword, auth.PermissionAdmin); err != nil {
+		return "", "", err
+	}
+	return u.Username, plainPass, nil
+}
+
+// ListUsers ...
+func (d *Db) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
+	itemList, err := d.getUsers(true)
+	if err != nil {
+		return nil, err
+	}
+	users := make([]*schema.User, len(itemList.Items))
+	for i, item := range itemList.Items {
+		permissions, err := d.getUserPermissions(item.GetIndex())
+		if err != nil {
+			return nil, err
+		}
+		users[i] = &schema.User{
+			User:        item.GetKey(),
+			Permissions: []byte{permissions},
+		}
+	}
+	return &schema.UserList{Users: users}, nil
+}
+
+// GetUser ...
+func (d *Db) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
+	user, err := d.getUser(r.GetUser(), true)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil,
+			status.Errorf(codes.NotFound, "user not found or is deactivated")
+	}
+	permissions, err := d.getUserPermissions(user.GetIndex())
+	if err != nil {
+		return nil, err
+	}
+	return &schema.UserResponse{User: user.GetKey(), Permissions: []byte{permissions}}, nil
+}
+
+// CreateUser ...
+func (d *Db) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
+	if !auth.IsValidUsername(string(r.GetUser())) {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			"username can only contain letters, digits and underscores")
+	}
+	if _, err := d.getUser(r.GetUser(), true); err != store.ErrKeyNotFound {
+		if err == nil {
+			return nil, status.Errorf(codes.AlreadyExists, "user already exists")
+		}
+		d.Logger.Errorf("error checking if user already exists: %v", err)
+		return nil, status.Errorf(codes.Internal, "internal error")
+	}
+	if err := auth.IsStrongPassword(string(r.GetPassword())); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	hashedPassword, err := auth.HashAndSaltPassword(string(r.GetPassword()))
+	if err != nil {
+		return nil, err
+	}
+	if err := d.saveUser(r.GetUser(), hashedPassword, r.GetPermissions()[0]); err != nil {
+		return nil, err
+	}
+	return &schema.UserResponse{User: r.GetUser(), Permissions: r.GetPermissions()}, nil
+}
+
+// SetPermission ...
+func (d *Db) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
+	if len(r.GetValue()) <= 0 {
+		return new(empty.Empty), status.Errorf(
+			codes.InvalidArgument, "no permission specified")
+	}
+	if int(r.GetValue()[0]) == auth.PermissionAdmin {
+		return new(empty.Empty), status.Error(
+			codes.PermissionDenied, "admin permission is not allowed to be set")
+	}
+	item, err := d.getUser(r.GetKey(), true)
+	if err != nil {
+		return new(empty.Empty), err
+	}
+	if item == nil {
+		return new(empty.Empty), status.Error(codes.NotFound, "user not found")
+	}
+	permissionsKey := make([]byte, 1+8)
+	permissionsKey[0] = sysstore.KeyPrefixPermissions
+	binary.BigEndian.PutUint64(permissionsKey[1:], item.GetIndex())
+	permissionsKV :=
+		schema.KeyValue{Key: permissionsKey, Value: r.GetValue()}
+	if _, err := d.SysStore.Set(permissionsKV); err != nil {
+		d.Logger.Errorf("error saving user permissions: %v", err)
+		return new(empty.Empty), err
+	}
+	auth.DropTokenKeys(string(r.GetKey()))
+	return new(empty.Empty), nil
+}
+
+// ChangePassword ...
+func (d *Db) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
+	item, err := d.getUser(r.GetUser(), false)
+	if err != nil {
+		return new(empty.Empty), err
+	}
+	if item == nil {
+		return new(empty.Empty), status.Errorf(codes.NotFound, "user not found")
+	}
+	oldHashedPassword, err := d.getUserPassword(item.GetIndex())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error getting user password: %v", err)
+	}
+	if string(r.GetUser()) == auth.AdminUsername {
+		if err = auth.ComparePasswords(oldHashedPassword, r.GetOldPassword()); err != nil {
+			return new(empty.Empty), status.Errorf(codes.PermissionDenied, "old password is incorrect")
+		}
+	}
+	newPass := string(r.GetNewPassword())
+	if err = auth.IsStrongPassword(newPass); err != nil {
+		return new(empty.Empty), status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	hashedPassword, err := auth.HashAndSaltPassword(newPass)
+	if err != nil {
+		return new(empty.Empty), status.Errorf(codes.Internal, "%v", err)
+	}
+	passKey := make([]byte, 1+8)
+	passKey[0] = sysstore.KeyPrefixPassword
+	binary.BigEndian.PutUint64(passKey[1:], item.GetIndex())
+	passKV := schema.KeyValue{Key: passKey, Value: hashedPassword}
+	if _, err := d.SysStore.Set(passKV); err != nil {
+		d.Logger.Errorf("error saving user password: %v", err)
+		return new(empty.Empty), err
+	}
+	return new(empty.Empty), nil
+}
+
+// PrintTree ...
+func (d *Db) PrintTree(context.Context, *empty.Empty) (*schema.Tree, error) {
+	tree := d.Store.GetTree()
+	return tree, nil
+}
+
+// Login Authenticate user
+func (d *Db) Login(ctx context.Context, username []byte, password []byte) (*auth.User, error) {
+	item, err := d.getUser(username, false)
+	if err != nil {
+		return nil, err
+	}
+	hashedPassword, err := d.getUserPassword(item.GetIndex())
+	if err != nil {
+		return nil, err
+	}
+	permissions, err := d.getUserPermissions(item.GetIndex())
+	if err != nil {
+		return nil, err
+	}
+	u := &auth.User{
+		Username:       string(item.GetKey()),
+		HashedPassword: hashedPassword,
+		Permissions:    permissions,
+	}
+	if u.ComparePasswords(password) != nil {
+		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
+	}
+	return u, nil
 }

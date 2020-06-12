@@ -47,6 +47,7 @@ var methodsPermissions = map[string]byte{
 	"/immudb.schema.ImmuService/DeactivateUser":   PermissionAdmin,
 	"/immudb.schema.ImmuService/UpdateAuthConfig": PermissionAdmin,
 	"/immudb.schema.ImmuService/UpdateMTLSConfig": PermissionAdmin,
+	"/immudb.schema.ImmuService/CreateDatabase":   PermissionAdmin,
 }
 
 func hasPermissionForMethod(userPermission byte, method string) bool {

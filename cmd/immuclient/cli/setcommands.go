@@ -35,3 +35,6 @@ func (cli *cli) zAdd(args []string) (string, error) {
 func (cli *cli) safeZAdd(args []string) (string, error) {
 	return cli.immucl.SafeZAdd(args)
 }
+func (cli *cli) CreateDatabase(args []string) (string, error) {
+	return cli.immucl.CreateDatabase(args)
+}

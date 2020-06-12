@@ -268,7 +268,16 @@ message SafeIndexOptions {
 	uint64 index = 1;
 	Index rootIndex = 2;
 }
-
+message Error {
+	int32 errorcode = 1;
+	string errormessage = 2;
+}
+message Database {
+	string databasename = 1;
+}
+message CreateDatabaseReply {
+	Error error = 1;
+}
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "immudb REST API";
@@ -498,4 +507,10 @@ service ImmuService {
 	//			body: "*"
 	//		};
 	//	}
+	rpc CreateDatabase(Database) returns (CreateDatabaseReply) {
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/createdatabase"
+			body: "*"
+		};
+	}
 }

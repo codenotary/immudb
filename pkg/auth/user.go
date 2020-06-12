@@ -34,7 +34,8 @@ var AdminDefaultPassword = "immu"
 // AdminPassword the admin password (can be default or from command flags, config or env var)
 var AdminPassword = AdminDefaultPassword
 
-// GenerateOrSetPassword ...
+// GenerateOrSetPassword Returns a generated or plainPassword if it not empty
+// Hashes and salts the password and assigns it to hashedPassword of User
 func (u *User) GenerateOrSetPassword(plainPassword string) (string, error) {
 	if plainPassword == "" {
 		plainPassword = generatePassword()

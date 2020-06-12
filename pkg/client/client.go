@@ -98,6 +98,7 @@ type ImmuClient interface {
 
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
+	CreateDatabase(ctx context.Context, d *schema.Database) (*schema.CreateDatabaseReply, error)
 }
 
 type immuClient struct {
@@ -1257,4 +1258,26 @@ func (c *immuClient) verifyAndSetRoot(result *schema.Proof, root *schema.Root, c
 		err = c.Rootservice.SetRoot(tocache)
 	}
 	return verified, err
+}
+func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) (*schema.CreateDatabaseReply, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	result, err := c.ServiceClient.CreateDatabase(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	c.Logger.Debugf("set finished in %s", time.Since(start))
+
+	fmt.Println(ctx)
+	fmt.Println(db)
+	fmt.Println(result)
+	return &schema.CreateDatabaseReply{
+		Error: &schema.Error{
+			Errorcode:    0,
+			Errormessage: "ok",
+		},
+	}, nil
 }

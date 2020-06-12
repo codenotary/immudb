@@ -59,6 +59,7 @@ type Client interface {
 	Inclusion(args []string) (string, error)
 	ValueOnly() bool
 	SetValueOnly(v bool)
+	CreateDatabase(args []string) (string, error)
 }
 
 // Init ...

@@ -106,7 +106,7 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Errorf("Immudb unable to listen: %s", err)
 		return err
 	}
-
+	//TODO gj pjesa me poshte duhet tek krijimi i db
 	systemDbRootDir := filepath.Join(dataDir, s.Options.GetSystemAdminDbName())
 	var uuid xid.ID
 	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
@@ -218,7 +218,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 			return err
 		}
 	}
-	adminUsername, adminPlainPass, err := s.CreateAdminUser()
+	adminUsername, adminPlainPass, err := s.SystemAdminDb.CreateAdminUser()
 	if err != nil {
 		s.Logger.Errorf(err.Error())
 		return err
@@ -293,27 +293,19 @@ func (s *ImmuServer) Stop() error {
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
-	item, err := s.getUser(r.GetUser(), false)
+	u, err := s.SystemAdminDb.Login(ctx, r.GetUser(), r.GetPassword())
 	if err != nil {
-		return nil, err
+		for _, d := range s.Databases {
+			u, err = d.Login(ctx, r.GetUser(), r.GetPassword())
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
-	hashedPassword, err := s.getUserPassword(item.GetIndex())
-	if err != nil {
-		return nil, err
-	}
-	permissions, err := s.getUserPermissions(item.GetIndex())
-	if err != nil {
-		return nil, err
-	}
-	u := auth.User{
-		Username:       string(item.GetKey()),
-		HashedPassword: hashedPassword,
-		Permissions:    permissions,
-	}
-	if u.ComparePasswords(r.GetPassword()) != nil {
-		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
-	}
-	token, err := auth.GenerateToken(u)
+	token, err := auth.GenerateToken(*u)
 	if err != nil {
 		return nil, err
 	}
@@ -798,4 +790,79 @@ func (s *ImmuServer) installShutdownHandler() {
 		}
 		s.Logger.Infof("shutdown completed")
 	}()
+}
+
+// ChangePassword ...
+func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
+	//TODO gj, select right db and change pass, easy no?
+	return new(empty.Empty), nil
+}
+
+// CreateDatabase Create a new database instance and asign the default user to it //TODO
+func (s *ImmuServer) CreateDatabase(ctx context.Context, opts *schema.Database) (*schema.CreateDatabaseReply, error) {
+	fmt.Println(ctx)
+	s.Logger.Debugf("createdatabase %+v", *opts)
+	dataDir := s.Options.GetDataDir()
+
+	systemDbRootDir := filepath.Join(dataDir, opts.Databasename)
+	//TODO gj kujtes kontrollin me poshte, nese eshte false exekutimi vazhdon
+	_, sysDbErr := os.Stat(systemDbRootDir)
+	if os.IsNotExist(sysDbErr) {
+		op := DefaultOption().WithDbName(opts.Databasename).WithDbRootPath(dataDir)
+		db, err := NewDb(op)
+		if err != nil {
+			return nil, err
+		}
+		adminUsername, adminPlainPass, err := db.CreateAdminUser()
+		if err != nil {
+			s.Logger.Errorf(err.Error())
+			return nil, err
+		} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
+			s.Logger.Infof("Created Newdatabase %s", opts.Databasename)
+		}
+		s.Databases = append(s.Databases, db)
+		return &schema.CreateDatabaseReply{
+			Error: &schema.Error{
+				Errorcode:    0,
+				Errormessage: "ok",
+			},
+		}, nil
+	}
+	return nil, fmt.Errorf("Could not create new database")
+}
+
+// CreateUser ...
+func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
+	//TODO gj, select right db and change pass, easy no?
+	return &schema.UserResponse{User: r.GetUser(), Permissions: r.GetPermissions()}, nil
+}
+
+// SetPermission ...
+func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
+	//TODO gj, select right db and change pass, easy no?
+	return new(empty.Empty), nil
+}
+
+// DeactivateUser ...
+func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) (*empty.Empty, error) {
+	//TODO gj, select right db and change pass, easy no?
+	return new(empty.Empty), nil
+}
+
+// GetUser ...
+func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
+	//TODO gj, select right db and change pass, easy no?
+	return &schema.UserResponse{User: []byte("user"), Permissions: []byte("permision")}, nil
+}
+
+// ListUsers ...
+func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
+	//TODO gj, select right db and change pass, easy no?
+	return &schema.UserList{Users: []*schema.User{}}, nil
+}
+
+// PrintTree ...
+func (s *ImmuServer) PrintTree(context.Context, *empty.Empty) (*schema.Tree, error) {
+	//TODO gj, select right db and change pass, easy no?
+	return nil, nil
 }

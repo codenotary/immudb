@@ -24,6 +24,8 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func (i *immuc) RawSafeSet(args []string) (string, error) {
@@ -178,4 +180,27 @@ func (i *immuc) SafeZAdd(args []string) (string, error) {
 	}
 	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response)
 	return resp, nil
+}
+
+func (i *immuc) CreateDatabase(args []string) (string, error) {
+	//TODO gj
+	dbname := []byte(args[0])
+
+	ctx := context.Background()
+	_, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
+		Databasename: string(dbname),
+	})
+	if err != nil {
+		return "", err
+	}
+	// value2, err := ioutil.ReadAll(&buf)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// scstr, err := i.ImmuClient.Get(ctx, key)
+	// if err != nil {
+	// 	return "", err
+	// }
+	//TODO gj kontrollo db error
+	return "Successfully Created Database", nil
 }
