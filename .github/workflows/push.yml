@@ -3,13 +3,24 @@ on: [push, pull_request]
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [1.13]
+        platform: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/setup-go@v1
         with:
           go-version: 1.13
       - uses: actions/checkout@v1
+
+      - name: Build
+        env:
+          GO111MODULE: "on"
+        run: make all
+
       - name: Test
         run: |
           make test
           bash <(curl -s https://codecov.io/bash) -t c1c189f5-954e-40e5-ac1f-6075df144f01
+        shell: bash
