@@ -54,6 +54,9 @@ func (r *ringBuffer) Get(i uint64) interface{} {
 	if i >= r.tail {
 		return nil
 	}
+	if r.tail-i >= r.size {
+		return nil
+	}
 	return r.data[i%r.size]
 }
 
