@@ -18,7 +18,7 @@ limitations under the License.
 
 package helper
 
-// ResolvePath
+// ResolvePath ...
 func ResolvePath(origPath string, parse bool) (finalPath string, err error) {
 	return origPath, nil
 }

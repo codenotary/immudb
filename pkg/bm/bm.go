@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/store"
 )
 
+// Bm benchmark
 type Bm struct {
 	CreateStore bool
 	Store       *store.Store
@@ -37,6 +38,7 @@ type Bm struct {
 	Work        func(bm *Bm, start int, end int) error
 }
 
+// Execute runs the benchmark
 func (b *Bm) Execute() *BmResult {
 	var wg sync.WaitGroup
 	chunkSize := b.Iterations / b.Concurrency

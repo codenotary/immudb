@@ -37,6 +37,7 @@ func init() {
 	cobra.OnInitialize(func() { o.InitConfig("immudb") })
 }
 
+// NewCmd ...
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "immudb",
@@ -77,6 +78,7 @@ Environment variables:
 	return cmd
 }
 
+// Immudb ...
 func Immudb(cmd *cobra.Command, args []string) (err error) {
 	var options server.Options
 	if options, err = parseOptions(cmd); err != nil {
@@ -276,6 +278,7 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("admin-password", options.AdminPassword)
 }
 
+// InstallManPages installs man pages
 func InstallManPages() error {
 	header := &doc.GenManHeader{
 		Title:   "immuadmin service",
@@ -292,6 +295,7 @@ func InstallManPages() error {
 	return nil
 }
 
+// UnistallManPages uninstalls man pages
 func UnistallManPages() error {
 	return os.Remove(filepath.Join(c.LinuxManPath, "immudb.1"))
 }

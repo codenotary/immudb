@@ -25,13 +25,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// App application name
 var App string
+
+// Version holds the version
 var Version string
+
+// Commit the most recent commit from which this version has been built
 var Commit string
+
+// BuiltBy built by email
 var BuiltBy string
+
+// BuiltAt date and time of the build
 var BuiltAt string
+
+// Static flags the binary as statically linked
 var Static string
 
+// VersionCmd returns a new version command
 func VersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
@@ -45,6 +57,7 @@ func VersionCmd() *cobra.Command {
 	}
 }
 
+// VersionStr formats and returns the version string
 func VersionStr() string {
 	if App == "" || Version == "" {
 		return "no version info available"
@@ -81,6 +94,7 @@ func VersionStr() string {
 	return fmt.Sprint(strings.Join(pieces, "\n"))
 }
 
+// StaticBuild set the flag which marks the binary as statically linked
 func StaticBuild() bool {
 	return Static == "static"
 }

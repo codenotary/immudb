@@ -18,6 +18,7 @@ package timestamp
 
 import "time"
 
+// TsGenerator timestamp generator interface
 type TsGenerator interface {
 	Now() time.Time
 }

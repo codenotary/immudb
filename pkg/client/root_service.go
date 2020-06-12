@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// RootService the root service interface
 type RootService interface {
 	GetRoot(ctx context.Context) (*schema.Root, error)
 	SetRoot(root *schema.Root) error
@@ -43,6 +44,7 @@ type rootservice struct {
 	sync.RWMutex
 }
 
+// NewRootService ...
 func NewRootService(immuC schema.ImmuServiceClient, cache cache.Cache, logger logger.Logger) RootService {
 	serverUuid, err := GetServerUuid(context.Background(), immuC)
 	if err != nil {
@@ -83,11 +85,14 @@ func (r *rootservice) SetRoot(root *schema.Root) error {
 	return r.cache.Set(root, r.serverUuid)
 }
 
+// ErrNoServerUuid ...
 var ErrNoServerUuid = fmt.Errorf(
 	"!IMPORTANT WARNING: %s header is not published by the immudb server; "+
 		"this client MUST NOT be used to connect to different immudb servers!",
 	server.SERVER_UUID_HEADER)
 
+// GetServerUuid issues a Health command to the server, then parses and returns
+// the server UUID from the response metadata
 func GetServerUuid(
 	ctx context.Context,
 	immuClient schema.ImmuServiceClient,

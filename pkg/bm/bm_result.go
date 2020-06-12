@@ -21,6 +21,7 @@ import (
 	"runtime"
 )
 
+// BmResult benchmark result
 type BmResult struct {
 	Bm           *Bm
 	Time         float64

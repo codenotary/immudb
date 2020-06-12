@@ -48,6 +48,7 @@ import (
 
 var startedAt time.Time
 
+// Start starts the immudb server
 func (s *ImmuServer) Start() error {
 
 	dataDir := s.Options.GetDataDir()
@@ -256,6 +257,7 @@ func (s *ImmuServer) loadDatabases(dataDir string) error {
 	return nil
 }
 
+// Stop stops the immudb server
 func (s *ImmuServer) Stop() error {
 	s.Logger.Infof("stopping immudb: %v", s.Options)
 	defer func() { s.quit <- struct{}{} }()
@@ -289,6 +291,7 @@ func (s *ImmuServer) Stop() error {
 	return nil
 }
 
+// Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
 	item, err := s.getUser(r.GetUser(), false)
 	if err != nil {
@@ -321,6 +324,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	return loginResponse, nil
 }
 
+// Logout ...
 func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, error) {
 	loggedOut, err := auth.DropTokenKeysForCtx(ctx)
 	if err != nil {
@@ -367,6 +371,7 @@ func updateConfigItem(
 	return nil
 }
 
+// UpdateAuthConfig ...
 func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfig) (*empty.Empty, error) {
 	e := new(empty.Empty)
 	s.Options.Auth = req.GetKind() > 0
@@ -386,6 +391,8 @@ func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfi
 	}
 	return e, nil
 }
+
+// UpdateMTLSConfig ...
 func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfig) (*empty.Empty, error) {
 	e := new(empty.Empty)
 	if err := updateConfigItem(
@@ -405,6 +412,7 @@ func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfi
 		req.GetEnabled())
 }
 
+// CurrentRoot ...
 func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.Root, error) {
 	root, err := s.SystemAdminDb.Store.CurrentRoot()
 	if root != nil {
@@ -413,6 +421,7 @@ func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.R
 	return root, err
 }
 
+// Set ...
 func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
 	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
 	item, err := s.SystemAdminDb.Store.Set(*kv)
@@ -422,6 +431,7 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 	return item, nil
 }
 
+// SetSV ...
 func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) (*schema.Index, error) {
 	kv, err := skv.ToKV()
 	if err != nil {
@@ -430,6 +440,7 @@ func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) 
 	return s.Set(ctx, kv)
 }
 
+// SafeSet ...
 func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
 	item, err := s.SystemAdminDb.Store.SafeSet(*opts)
@@ -439,6 +450,7 @@ func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (
 	return item, nil
 }
 
+// SafeSetSV ...
 func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
 	kv, err := sopts.Skv.ToKV()
 	if err != nil {
@@ -451,6 +463,7 @@ func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptio
 	return s.SafeSet(ctx, opts)
 }
 
+// SetBatch ...
 func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
 	s.Logger.Debugf("set batch %d", len(kvl.KVs))
 	index, err := s.SystemAdminDb.Store.SetBatch(*kvl)
@@ -460,6 +473,7 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 	return index, nil
 }
 
+// SetBatchSV ...
 func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*schema.Index, error) {
 	kvl, err := skvl.ToKVList()
 	if err != nil {
@@ -468,6 +482,7 @@ func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*sch
 	return s.SetBatch(ctx, kvl)
 }
 
+// Get ...
 func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
 	item, err := s.SystemAdminDb.Store.Get(*k)
 	if item == nil {
@@ -481,6 +496,7 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 	return item, nil
 }
 
+// GetSV ...
 func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
 	it, err := s.Get(ctx, k)
 	si, err := it.ToSItem()
@@ -490,6 +506,7 @@ func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.Structur
 	return si, err
 }
 
+// SafeGet ...
 func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("safeget %s", opts.Key)
 	sitem, err := s.SystemAdminDb.Store.SafeGet(*opts)
@@ -499,6 +516,7 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 	return sitem, nil
 }
 
+// SafeGetSV ...
 func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
 	it, err := s.SafeGet(ctx, opts)
 	ssitem, err := it.ToSafeSItem()
@@ -508,6 +526,7 @@ func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions)
 	return ssitem, err
 }
 
+// GetBatch ...
 func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
@@ -523,6 +542,7 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 	return list, nil
 }
 
+// GetBatchSV ...
 func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
 	list, err := s.GetBatch(ctx, kl)
 	slist, err := list.ToSItemList()
@@ -532,11 +552,13 @@ func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schem
 	return slist, err
 }
 
+// Scan ...
 func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
 	return s.SystemAdminDb.Store.Scan(*opts)
 }
 
+// ScanSV ...
 func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
 	list, err := s.SystemAdminDb.Store.Scan(*opts)
@@ -547,11 +569,13 @@ func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*sch
 	return slist, err
 }
 
+// Count ...
 func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	s.Logger.Debugf("count %s", prefix.Prefix)
 	return s.SystemAdminDb.Store.Count(*prefix)
 }
 
+// Inclusion ...
 func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
 	s.Logger.Debugf("inclusion for index %d ", index.Index)
 	proof, err := s.SystemAdminDb.Store.InclusionProof(*index)
@@ -561,6 +585,7 @@ func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schem
 	return proof, nil
 }
 
+// Consistency ...
 func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*schema.ConsistencyProof, error) {
 	s.Logger.Debugf("consistency for index %d ", index.Index)
 	proof, err := s.SystemAdminDb.Store.ConsistencyProof(*index)
@@ -570,6 +595,7 @@ func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*sch
 	return proof, nil
 }
 
+// ByIndex ...
 func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
 	item, err := s.SystemAdminDb.Store.ByIndex(*index)
@@ -579,6 +605,7 @@ func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.
 	return item, nil
 }
 
+// ByIndexSV ...
 func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schema.StructuredItem, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
 	item, err := s.SystemAdminDb.Store.ByIndex(*index)
@@ -592,6 +619,7 @@ func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schem
 	return sitem, nil
 }
 
+// BySafeIndex ...
 func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("get by safeIndex %d ", sio.Index)
 	item, err := s.SystemAdminDb.Store.BySafeIndex(*sio)
@@ -601,6 +629,7 @@ func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptio
 	return item, nil
 }
 
+// History ...
 func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
 	list, err := s.SystemAdminDb.Store.History(*key)
@@ -610,6 +639,7 @@ func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.Item
 	return list, nil
 }
 
+// HistorySV ...
 func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
 
@@ -625,12 +655,14 @@ func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.St
 	return slist, err
 }
 
+// Health ...
 func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
 	health := s.SystemAdminDb.Store.HealthCheck()
 	s.Logger.Debugf("health check: %v", health)
 	return &schema.HealthResponse{Status: health}, nil
 }
 
+// Reference ...
 func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
 	index, err = s.SystemAdminDb.Store.Reference(refOpts)
 	if err != nil {
@@ -640,6 +672,7 @@ func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOpt
 	return index, nil
 }
 
+// SafeReference ...
 func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	proof, err = s.SystemAdminDb.Store.SafeReference(*safeRefOpts)
 	if err != nil {
@@ -649,16 +682,19 @@ func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.Safe
 	return proof, nil
 }
 
+// ZAdd ...
 func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
 	return s.SystemAdminDb.Store.ZAdd(*opts)
 }
 
+// ZScan ...
 func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	return s.SystemAdminDb.Store.ZScan(*opts)
 }
 
+// ZScanSV ...
 func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	list, err := s.SystemAdminDb.Store.ZScan(*opts)
@@ -669,16 +705,19 @@ func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*s
 	return slist, err
 }
 
+// SafeZAdd ...
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
 	return s.SystemAdminDb.Store.SafeZAdd(*opts)
 }
 
+// IScan ...
 func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*schema.Page, error) {
 	s.Logger.Debugf("iscan %+v", *opts)
 	return s.SystemAdminDb.Store.IScan(*opts)
 }
 
+// IScanSV ...
 func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	page, err := s.SystemAdminDb.Store.IScan(*opts)
@@ -689,6 +728,7 @@ func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*s
 	return SPage, err
 }
 
+// Dump ...
 func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 	kvChan := make(chan *pb.KVList)
 	done := make(chan bool)

@@ -44,6 +44,7 @@ type commandline struct {
 
 const defaultNbEntries = 100
 
+// Init initializes the command
 func Init(cmd *cobra.Command, o *c.Options) {
 	if err := configureOptions(cmd, o); err != nil {
 		c.QuitToStdErr(err)

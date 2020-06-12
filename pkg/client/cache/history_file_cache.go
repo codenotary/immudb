@@ -30,6 +30,7 @@ type historyFileCache struct {
 	dir string
 }
 
+// NewHistoryFileCache returns a new history file cache
 func NewHistoryFileCache(dir string) HistoryCache {
 	return &historyFileCache{dir: dir}
 }

@@ -41,7 +41,7 @@ func main() {
 	cmd.AddCommand(&cobra.Command{
 		Use: "rpc",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			for _, b := range suite.RpcBenchmarks {
+			for _, b := range suite.RPCBenchmarks {
 				fmt.Println(*b.Execute())
 			}
 			return nil

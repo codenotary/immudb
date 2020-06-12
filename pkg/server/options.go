@@ -182,8 +182,22 @@ func (o Options) String() string {
 	}
 	return string(optionsJson)
 }
+
+// WithMetricsServer ...
 func (o Options) WithMetricsServer(metricsServer bool) Options {
 	o.MetricsServer = metricsServer
+	return o
+}
+
+// WithDevMode ...
+func (o Options) WithDevMode(devMode bool) Options {
+	o.DevMode = devMode
+	return o
+}
+
+// WithAdminPassword ...
+func (o Options) WithAdminPassword(adminPassword string) Options {
+	o.AdminPassword = adminPassword
 	return o
 }
 
@@ -195,12 +209,4 @@ func (o Options) GetSystemAdminDbName() string {
 //GetDataDir returns the root directory where all databases are stored
 func (o Options) GetDataDir() string {
 	return o.dataDir
-}
-func (o Options) WithDevMode(devMode bool) Options {
-	o.DevMode = devMode
-	return o
-}
-func (o Options) WithAdminPassword(adminPassword string) Options {
-	o.AdminPassword = adminPassword
-	return o
 }

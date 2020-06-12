@@ -20,6 +20,7 @@ import (
 	"errors"
 )
 
+// Errors related to Client connection and health check
 var (
 	ErrAlreadyConnected  = errors.New("already connected")
 	ErrNotConnected      = errors.New("not connected")

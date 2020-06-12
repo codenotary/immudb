@@ -31,10 +31,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// InvalidItemProof ...
 var (
 	InvalidItemProof = errors.New("proof does not match the given item")
 )
 
+// SetHandler ...
 type SetHandler interface {
 	Set(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
 }
@@ -44,6 +46,7 @@ type setHandler struct {
 	client client.ImmuClient
 }
 
+// NewSetHandler ...
 func NewSetHandler(mux *runtime.ServeMux, client client.ImmuClient) SetHandler {
 	return &setHandler{
 		mux:    mux,

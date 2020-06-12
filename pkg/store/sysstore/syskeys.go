@@ -18,12 +18,14 @@ package sysstore
 
 import "bytes"
 
+// System keys prefixes
 const (
 	KeyPrefixUser = iota + 1
 	KeyPrefixPassword
 	KeyPrefixPermissions
 )
 
+// AddKeyPrefix ...
 func AddKeyPrefix(k []byte, prefix byte) []byte {
-	return bytes.Join([][]byte{[]byte{prefix}, k}, []byte{})
+	return bytes.Join([][]byte{{prefix}, k}, []byte{})
 }

@@ -32,18 +32,18 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 	fullCmdName := parentCmdName + " " + cmdName
 	usage := cmdName + " list|create|change-password|set-permission|deactivate [username] [read|readwrite]"
 	usages := map[string][]string{
-		"list":            []string{"List users", fullCmdName + " list"},
-		"create":          []string{"Create a new user", fullCmdName + " create username read|readwrite"},
-		"change-password": []string{"Change password", fullCmdName + " change-password username"},
-		"set-permission":  []string{"Set permission", fullCmdName + " set-permission username read|readwrite"},
-		"deactivate":      []string{"Deactivate user", fullCmdName + " deactivate username"},
+		"list":            {"List users", fullCmdName + " list"},
+		"create":          {"Create a new user", fullCmdName + " create username read|readwrite"},
+		"change-password": {"Change password", fullCmdName + " change-password username"},
+		"set-permission":  {"Set permission", fullCmdName + " set-permission username read|readwrite"},
+		"deactivate":      {"Deactivate user", fullCmdName + " deactivate username"},
 	}
 	validCommands := map[string]struct{}{
-		"list":            struct{}{},
-		"create":          struct{}{},
-		"change-password": struct{}{},
-		"set-permission":  struct{}{},
-		"deactivate":      struct{}{},
+		"list":            {},
+		"create":          {},
+		"change-password": {},
+		"set-permission":  {},
+		"deactivate":      {},
 	}
 	requiredArgs := c.RequiredArgs{
 		Cmd:    fullCmdName,
@@ -77,7 +77,7 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 						2,
 						"user permissions",
 						"some valid user permissions",
-						map[string]struct{}{"read": struct{}{}, "readwrite": struct{}{}},
+						map[string]struct{}{"read": {}, "readwrite": {}},
 						action)
 					if err != nil {
 						c.QuitToStdErr(err)

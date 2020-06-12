@@ -16,6 +16,7 @@ limitations under the License.
 
 package client
 
+// MTLsOptions mTLS options
 type MTLsOptions struct {
 	Servername  string
 	Pkey        string
@@ -23,6 +24,7 @@ type MTLsOptions struct {
 	ClientCAs   string
 }
 
+// DefaultMTLsOptions returns the default mTLS options
 func DefaultMTLsOptions() MTLsOptions {
 	return MTLsOptions{
 		Servername:  "localhost",
@@ -32,21 +34,25 @@ func DefaultMTLsOptions() MTLsOptions {
 	}
 }
 
+// WithServername ...
 func (o MTLsOptions) WithServername(servername string) MTLsOptions {
 	o.Servername = servername
 	return o
 }
 
+// WithPkey ...
 func (o MTLsOptions) WithPkey(pkey string) MTLsOptions {
 	o.Pkey = pkey
 	return o
 }
 
+// WithCertificate ...
 func (o MTLsOptions) WithCertificate(certificate string) MTLsOptions {
 	o.Certificate = certificate
 	return o
 }
 
+// WithClientCAs ...
 func (o MTLsOptions) WithClientCAs(clientCAs string) MTLsOptions {
 	o.ClientCAs = clientCAs
 	return o

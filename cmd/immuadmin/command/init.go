@@ -34,6 +34,7 @@ type commandline struct {
 
 type commandlineDisc struct{}
 
+// Init ...
 func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
 	if err := configureOptions(cmd, o); err != nil {
 		c.QuitToStdErr(err)

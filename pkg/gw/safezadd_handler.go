@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// SafeZAddHandler ...
 type SafeZAddHandler interface {
 	SafeZAdd(w http.ResponseWriter, req *http.Request, pathParams map[string]string)
 }
@@ -39,6 +40,7 @@ type safeZAddHandler struct {
 	client client.ImmuClient
 }
 
+// NewSafeZAddHandler ...
 func NewSafeZAddHandler(mux *runtime.ServeMux, client client.ImmuClient) SafeZAddHandler {
 	return &safeZAddHandler{
 		mux:    mux,

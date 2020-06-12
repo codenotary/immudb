@@ -23,6 +23,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
+// BatchRequest batch request payload
 type BatchRequest struct {
 	Keys   []io.Reader
 	Values []io.Reader

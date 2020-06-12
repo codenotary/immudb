@@ -20,12 +20,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/store"
 	mrand "math/rand"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/store"
 )
 
 // ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
@@ -40,7 +41,7 @@ type corruptionChecker struct {
 	Wg         sync.WaitGroup
 }
 
-// ImmuTc trust checker interface
+// CorruptionChecker corruption checker interface
 type CorruptionChecker interface {
 	Start(context.Context) (err error)
 	Stop(context.Context)
@@ -162,10 +163,10 @@ func newCryptoRandSource() cryptoRandSource {
 	return cryptoRandSource{}
 }
 
-func (_ cryptoRandSource) Int63() int64 {
+func (cryptoRandSource) Int63() int64 {
 	var b [8]byte
 	_, _ = rand.Read(b[:])
 	return int64(binary.LittleEndian.Uint64(b[:]) & (1<<63 - 1))
 }
 
-func (_ cryptoRandSource) Seed(_ int64) {}
+func (cryptoRandSource) Seed(_ int64) {}

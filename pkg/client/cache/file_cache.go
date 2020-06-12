@@ -24,12 +24,14 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+// ROOT_FN ...
 const ROOT_FN = ".root-"
 
 type fileCache struct {
 	Dir string
 }
 
+// NewFileCache returns a new file cache
 func NewFileCache(dir string) Cache {
 	return &fileCache{Dir: dir}
 }

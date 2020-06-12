@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// LastAuditResult ...
 type LastAuditResult struct {
 	ServerID               string
 	ServerAddress          string
@@ -46,6 +47,7 @@ type LastAuditResult struct {
 	sync.RWMutex
 }
 
+// MetricsCollection the gateway metrics collection
 type MetricsCollection struct {
 	lastAuditResult *LastAuditResult
 
@@ -59,6 +61,7 @@ type MetricsCollection struct {
 
 var metricsNamespace = "immugw"
 
+// WithUptimeCounter ...
 func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 	mc.UptimeCounter = promauto.NewCounterFunc(
 		prometheus.CounterOpts{
@@ -70,6 +73,7 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 	)
 }
 
+// UpdateAuditResult updates the metrics related to audit result
 func (mc *MetricsCollection) UpdateAuditResult(
 	serverID string,
 	serverAddress string,
@@ -134,6 +138,7 @@ func newAuditGaugeVec(name string, help string) *prometheus.GaugeVec {
 	)
 }
 
+// Metrics gateway metrics collection
 var Metrics = MetricsCollection{
 	lastAuditResult: &LastAuditResult{},
 	AuditResultPerServer: newAuditGaugeVec(

@@ -25,8 +25,13 @@ type User struct {
 	Permissions    byte   `json:"permissions"`
 }
 
+// AdminUsername the admin username
 var AdminUsername = "immu"
+
+// AdminDefaultPassword the default admin password
 var AdminDefaultPassword = "immu"
+
+// AdminPassword the admin password (can be default or from command flags, config or env var)
 var AdminPassword = AdminDefaultPassword
 
 // GenerateOrSetPassword ...
@@ -47,4 +52,5 @@ func (u *User) ComparePasswords(plainPassword []byte) error {
 	return ComparePasswords(u.HashedPassword, plainPassword)
 }
 
+// IsValidUsername is a regexp function used to check username requirements
 var IsValidUsername = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString

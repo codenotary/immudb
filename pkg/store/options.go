@@ -24,10 +24,12 @@ import (
 	"runtime"
 )
 
+// Options ...
 type Options struct {
 	Badger badger.Options
 }
 
+// DefaultOptions ...
 func DefaultOptions(path string, log logger.Logger) Options {
 	opt := badger.DefaultOptions(path).
 		WithLogger(log).
@@ -50,6 +52,7 @@ func (o Options) dataStore() badger.Options {
 	return opt
 }
 
+// WriteOptions ...
 type WriteOptions struct {
 	asyncCommit bool
 }
@@ -62,8 +65,10 @@ func makeWriteOptions(opts ...WriteOption) *WriteOptions {
 	return wo
 }
 
+// WriteOption ...
 type WriteOption func(*WriteOptions)
 
+// WithAsyncCommit ...
 func WithAsyncCommit(async bool) WriteOption {
 	return func(opts *WriteOptions) {
 		opts.asyncCommit = async

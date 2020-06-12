@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Auditor the auditor interface
 type Auditor interface {
 	Run(interval time.Duration, stopc <-chan struct{}, donec chan<- struct{})
 }
@@ -51,6 +52,7 @@ type defaultAuditor struct {
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
 }
 
+// DefaultAuditor creates initializes a default auditor implementation
 func DefaultAuditor(
 	interval time.Duration,
 	serverAddress string,

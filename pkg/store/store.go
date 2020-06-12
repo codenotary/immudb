@@ -34,6 +34,7 @@ import (
 	"github.com/dgraph-io/badger/v2/pb"
 )
 
+// Store ...
 type Store struct {
 	sync.RWMutex
 	db   *badger.DB
@@ -42,6 +43,7 @@ type Store struct {
 	log  logger.Logger
 }
 
+// Open opens the store with the specified options
 func Open(options Options) (*Store, error) {
 	opt := options.dataStore()
 	opt.NumVersionsToKeep = math.MaxInt64 // immutability, always keep all data
@@ -64,6 +66,7 @@ func Open(options Options) (*Store, error) {
 	return t, nil
 }
 
+// Close closes the store
 func (t *Store) Close() error {
 	defer t.log.Infof("Store closed")
 	t.wg.Wait()
@@ -71,6 +74,7 @@ func (t *Store) Close() error {
 	return t.db.Close()
 }
 
+// Wait ...
 func (t *Store) Wait() {
 	t.wg.Wait()
 }
@@ -91,6 +95,7 @@ func (t *Store) CurrentRoot() (root *schema.Root, err error) {
 	return
 }
 
+// SetBatch adds many entries at once
 func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *schema.Index, err error) {
 	if len(list.GetKVs()) == 0 {
 		return nil, errors.New("Empty set")
@@ -144,6 +149,7 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 	return
 }
 
+// Set adds a new entry
 func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
 	if err = checkKey(kv.Key); err != nil {
@@ -186,6 +192,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 	return
 }
 
+// Get fetches the entry having the specified key
 func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	if err = checkKey(key.Key); err != nil {
 		return nil, err
@@ -212,6 +219,7 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	return itemToSchema(key.Key, i)
 }
 
+// CountAll returns the total number of entries
 func (t *Store) CountAll() (count uint64) {
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
@@ -225,6 +233,7 @@ func (t *Store) CountAll() (count uint64) {
 	return
 }
 
+// Count returns the number of entris having the specified key prefix
 func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err error) {
 	if len(prefix.Prefix) == 0 || prefix.Prefix[0] == tsPrefix {
 		err = ErrInvalidKeyPrefix
@@ -309,6 +318,7 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 	return index, item.Key, item.Value, nil
 }
 
+// ByIndex fetches the entry at the specified index
 func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 	idx, key, value, err := t.itemAt(index.Index + 1)
 	if err != nil {
@@ -320,6 +330,7 @@ func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 	return
 }
 
+// History fetches the complete history of entries for the specified key
 func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 	if len(key.Key) == 0 || key.Key[0] == tsPrefix {
 		err = ErrInvalidKey
@@ -344,6 +355,7 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 	return
 }
 
+// Reference adds a new entry who's value is an existing key
 func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
 	if len(refOpts.Key) == 0 || refOpts.Key[0] == tsPrefix {
@@ -402,6 +414,7 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 	return index, err
 }
 
+// ZAdd adds a score for an existing key in the specified sorted set
 func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
 	if err = checkKey(zaddOpts.Key); err != nil {
@@ -462,6 +475,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 	return index, err
 }
 
+// FlushToDisk flushes cached data from memory to disk
 func (t *Store) FlushToDisk() {
 	defer t.tree.Unlock()
 	t.wg.Wait()
@@ -469,6 +483,7 @@ func (t *Store) FlushToDisk() {
 	t.tree.flush()
 }
 
+// Dump returns a dump of the database
 func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
 	defer t.tree.Unlock()
 	t.tree.Lock()
@@ -502,6 +517,7 @@ func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
 	return err
 }
 
+// Restore restores a database
 func (t *Store) Restore(kvChan chan *pb.KVList) (i uint64, err error) {
 	defer t.tree.Unlock()
 	t.tree.Lock()
@@ -529,11 +545,13 @@ func (t *Store) Restore(kvChan chan *pb.KVList) (i uint64, err error) {
 	}
 }
 
+// HealthCheck ...
 func (t *Store) HealthCheck() bool {
 	_, err := t.Get(schema.Key{Key: []byte{255}})
 	return err == nil || err == ErrKeyNotFound
 }
 
+// DbSize ...
 func (t *Store) DbSize() (int64, int64) {
 	return t.db.Size()
 }

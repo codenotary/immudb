@@ -34,6 +34,7 @@ import (
 var installableServices = []string{"immudb", "immugw"}
 var availableCommands = []string{"install", "uninstall", "start", "stop", "restart", "status"}
 
+// Ccmd ...
 var Ccmd = &cobra.Command{
 	Use:   fmt.Sprintf("service %v %v", installableServices, availableCommands),
 	Short: "Manage immu services",

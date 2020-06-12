@@ -19,6 +19,7 @@ package schema
 import (
 	"encoding/json"
 	"errors"
+
 	"github.com/codenotary/immudb/pkg/api"
 )
 
@@ -31,6 +32,7 @@ func (i *Item) Hash() []byte {
 	return d[:]
 }
 
+// Hash computes and returns the hash of the structured item
 func (si *StructuredItem) Hash() ([]byte, error) {
 	if si == nil {
 		return nil, errors.New("Empty pointer receive")
@@ -43,6 +45,7 @@ func (si *StructuredItem) Hash() ([]byte, error) {
 	return d[:], nil
 }
 
+// Hash computes and returns the hash of the safe item
 func (s *SafeItem) Hash() ([]byte, error) {
 	if s == nil {
 		return nil, errors.New("Empty pointer receive")
@@ -51,6 +54,7 @@ func (s *SafeItem) Hash() ([]byte, error) {
 	return d[:], nil
 }
 
+// MarshalJSON marshals the item to JSON
 func (m *Item) MarshalJSON() ([]byte, error) {
 	type Ci Item
 	return json.Marshal(&struct {
@@ -62,6 +66,7 @@ func (m *Item) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// MarshalJSON marshals the structured item to JSON
 func (m *StructuredItem) MarshalJSON() ([]byte, error) {
 	type Ci StructuredItem
 	return json.Marshal(&struct {
