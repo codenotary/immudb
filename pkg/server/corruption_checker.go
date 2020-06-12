@@ -123,7 +123,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				s.StopImmudb()
 				return
 			}
-			time.Sleep(100)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 	s.Wg.Done()
