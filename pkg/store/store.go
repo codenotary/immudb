@@ -259,7 +259,7 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 	// cache reference lookup
 	t.tree.RLock()
 	defer t.tree.RUnlock()
-	if key := t.tree.rcaches[0].Get(index); key != nil {
+	if key := t.tree.rcache.Get(index); key != nil {
 		refkey = key.([]byte)
 	}
 
@@ -627,7 +627,7 @@ func (t *Store) GetTree() *schema.Tree {
 				var value []byte
 				value = h.(*[sha256.Size]byte)[:]
 				if l == 0 {
-					value = t.tree.rcaches[l].Get(i).([]byte)
+					value = t.tree.rcache.Get(i).([]byte)
 				}
 				memnode := &schema.Node{}
 				memhash, memrefk, _ := decodeRefTreeKey(value)
