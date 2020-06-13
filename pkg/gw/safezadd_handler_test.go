@@ -31,6 +31,8 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
 
+var safezaddHandlerTestDir = "./safezadd_handler_test"
+
 func TestSafeZAdd(t *testing.T) {
 	setName := base64.StdEncoding.EncodeToString([]byte("Soprano"))
 	uknownKey := base64.StdEncoding.EncodeToString([]byte("Marias Callas"))
@@ -46,13 +48,15 @@ func TestSafeZAdd(t *testing.T) {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
 		os.RemoveAll(op.Dir)
+		os.RemoveAll(safezaddHandlerTestDir)
 	}()
 
-	refkey, err := insertSampleSet(tcpPort)
+	refkey, err := insertSampleSet(tcpPort, safezaddHandlerTestDir)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().WithPort(tcpPort))
+	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
+		WithPort(tcpPort).WithDir(safezaddHandlerTestDir))
 
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)

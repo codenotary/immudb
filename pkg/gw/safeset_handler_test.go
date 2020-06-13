@@ -32,6 +32,8 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
 
+var safesetHandlerTestDir = "./safeset_handler_test"
+
 func generateRandomTCPPort() int {
 	rand.Seed(time.Now().UnixNano())
 	min := 1024
@@ -54,9 +56,11 @@ func TestSafeset(t *testing.T) {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
 		os.RemoveAll(op.Dir)
+		os.RemoveAll(safesetHandlerTestDir)
 	}()
 
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().WithPort(tcpPort))
+	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
+		WithPort(tcpPort).WithDir(safesetHandlerTestDir))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
