@@ -608,24 +608,17 @@ func (d *Db) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList,
 // A new password is generated automatically.
 // returns username, plain password, error
 func (d *Db) CreateAdminUser(username []byte) ([]byte, []byte, error) {
-	userdata, err := d.userExists(username, auth.PermissionAdmin, nil)
+	username, plainPass, err := d.CreateUser(username, []byte{}, auth.PermissionAdmin, false)
 	if err == nil {
 		return nil, nil, fmt.Errorf(
 			"user exists or there was an error determining if admin user exists: %v", err)
 	}
-	//Since we did not found user with that username then userdata is not initialized
-	userdata = new(auth.User)
-	plainPass, err := userdata.GenerateOrSetPassword([]byte{})
-	if err != nil {
-		d.Logger.Errorf("error generating password for admin user: %v", err)
-	}
-	if err = d.saveUser(username, userdata.HashedPassword, auth.PermissionAdmin); err != nil {
-		return nil, nil, err
-	}
-	return username, []byte(plainPass), nil
+	return username, plainPass, nil
 }
 
 // CreateUser creates a user and returns username and plain text password
+// A new password is generated automatically if passed parameter is empty
+// If enforceStrongAuth is true it checks if username and password meet security criteria
 func (d *Db) CreateUser(username []byte, password []byte, permission byte, enforceStrongAuth bool) ([]byte, []byte, error) {
 	if enforceStrongAuth {
 		if !auth.IsValidUsername(string(username)) {
@@ -646,13 +639,14 @@ func (d *Db) CreateUser(username []byte, password []byte, permission byte, enfor
 			return nil, nil, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
 	}
+	userdata = new(auth.User)
 	plainpassword, err := userdata.GenerateOrSetPassword(password)
 	if err != nil {
 		return nil, nil, err
 	}
 	//TODO gj please check that the passed permission is in our list.
 	//Someone could cause a mess with that
-	if err := d.saveUser(username, []byte(plainpassword), permission); err != nil {
+	if err := d.saveUser(username, userdata.HashedPassword, permission); err != nil {
 		return nil, nil, err
 	}
 	return username, plainpassword, nil

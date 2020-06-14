@@ -293,7 +293,6 @@ func (s *ImmuServer) Stop() error {
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
-	fmt.Println(string(r.GetUser()), string(r.GetPassword()))
 	u, err := s.SystemAdminDb.Login(ctx, r.GetUser(), r.GetPassword())
 	if err != nil {
 		for _, d := range s.Databases {
@@ -820,7 +819,6 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	op := DefaultOption().WithDbName(newdb.Databasename + "_" + GenerateDbID()).WithDbRootPath(dataDir)
 	db, err := NewDb(op)
 	if err != nil {
-		fmt.Println(err)
 		s.Logger.Errorf(err.Error())
 		return nil, fmt.Errorf("Could not create new database")
 	}
@@ -836,7 +834,6 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 
 		//userdata, err := db.getUserData(usrname) //todo get current user from
 		if err != nil {
-			fmt.Println(err)
 			return nil, fmt.Errorf("Could not create new database")
 		}
 		adminUsername, adminPlainPass, err = db.CreateAdminUser(usrname) //provide empty pass to generate one automaticallly
