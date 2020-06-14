@@ -107,7 +107,7 @@ func newServer() *server.ImmuServer {
 	// 	log.Fatal(err)
 	// }
 
-	username, plainPass, err = is.SystemAdminDb.CreateAdminUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword))
+	username, plainPass, err = is.SystemAdminDb.CreateUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword), auth.PermissionAdmin, false)
 	if err != nil {
 		log.Fatal(err)
 	}

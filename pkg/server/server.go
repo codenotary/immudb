@@ -211,7 +211,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		if err != nil {
 			return err
 		}
-		adminUsername, adminPlainPass, err := s.SystemAdminDb.CreateAdminUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword))
+		adminUsername, adminPlainPass, err := s.SystemAdminDb.CreateUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword), auth.PermissionSysAdmin, false)
 		if err != nil {
 			s.Logger.Errorf(err.Error())
 			return err
@@ -827,13 +827,14 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 
 	var adminUsername, adminPlainPass []byte
 	if jsonUser.Permissions == auth.PermissionSysAdmin {
-		adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(auth.AdminUsername)) //provide empty pass to generate one automaticallly
+		//create the dafault admin user and generate a password
+		adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(auth.AdminUsername))
 	} else {
-		//first add current user as admin
+		//first add this user as admin
 		//we're not interested to get the password back as we already know it
-		fmt.Println(jsonUser.Username)
 		usrname := []byte(jsonUser.Username)
-		userdata, err := db.getUserData(usrname) //todo get current user from
+
+		//userdata, err := db.getUserData(usrname) //todo get current user from
 		if err != nil {
 			fmt.Println(err)
 			return nil, fmt.Errorf("Could not create new database")
@@ -841,7 +842,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		adminUsername, adminPlainPass, err = db.CreateAdminUser(usrname) //provide empty pass to generate one automaticallly
 		//if username is supplied by client than add this as well as admin
 		if newdb.Adminuser != "" {
-			adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(newdb.Adminuser), []byte("")) //provide empty pass to generate one automaticallly
+			adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(newdb.Adminuser)) //provide empty pass to generate one automaticallly
 		}
 
 	}

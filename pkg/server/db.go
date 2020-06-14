@@ -539,7 +539,7 @@ func (d *Db) saveUser(
 	return nil
 }
 
-// getUserData returns only active userdata (username,hashed password, permision) and isactive from username
+// getUserData returns only active userdata (username,hashed password, permision) from username
 func (d *Db) getUserData(username []byte) (*auth.User, error) {
 	var permissions byte
 	item, err := d.getUser(username, false)
@@ -604,23 +604,6 @@ func (d *Db) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList,
 	return &schema.UserList{Users: users}, nil
 }
 
-// GetUser ... TODO, gj zevendesoje me getUserdata
-// func (d *Db) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
-// 	user, err := d.getUser(r.GetUser(), true)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if user == nil {
-// 		return nil,
-// 			status.Errorf(codes.NotFound, "user not found or is deactivated")
-// 	}
-// 	permissions, err := d.getUserPermissions(user.GetIndex())
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &schema.UserResponse{User: user.GetKey(), Permissions: []byte{permissions}}, nil
-// }
-
 // CreateAdminUser assings admin user to database.
 // A new password is generated automatically.
 // returns username, plain password, error
@@ -642,11 +625,11 @@ func (d *Db) CreateAdminUser(username []byte) ([]byte, []byte, error) {
 	return username, []byte(plainPass), nil
 }
 
-// CreateUser ...
-func (d *Db) CreateUser(ctx context.Context, username []byte, password []byte, permission byte, enforceStrongAuth bool) (*schema.UserResponse, error) {
+// CreateUser creates a user and returns username and plain text password
+func (d *Db) CreateUser(username []byte, password []byte, permission byte, enforceStrongAuth bool) ([]byte, []byte, error) {
 	if enforceStrongAuth {
 		if !auth.IsValidUsername(string(username)) {
-			return nil, status.Errorf(
+			return nil, nil, status.Errorf(
 				codes.InvalidArgument,
 				"username can only contain letters, digits and underscores")
 		}
@@ -656,23 +639,23 @@ func (d *Db) CreateUser(ctx context.Context, username []byte, password []byte, p
 		err = fmt.Errorf(
 			"user exists or there was an error determining if admin user exists: %v", err)
 		d.Logger.Errorf("error checking if user already exists: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	if enforceStrongAuth {
 		if err := auth.IsStrongPassword(string(password)); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+			return nil, nil, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
 	}
 	plainpassword, err := userdata.GenerateOrSetPassword(password)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	//TODO gj please check that the passed permission is in our list.
 	//Someone could cause a mess with that
 	if err := d.saveUser(username, []byte(plainpassword), permission); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &schema.UserResponse{User: username, Permissions: []byte{permission}}, nil
+	return username, plainpassword, nil
 }
 
 // SetPermission ...

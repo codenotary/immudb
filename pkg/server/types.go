@@ -29,7 +29,7 @@ type ImmuServer struct {
 	// Store         *store.Store
 	// SysStore      *store.Store
 	SystemAdminDb *Db
-	Databases     []*Db
+	Databases     []*Db //TODO gj slice operations protect with mutex
 	Logger        logger.Logger
 	Options       Options
 	GrpcServer    *grpc.Server
