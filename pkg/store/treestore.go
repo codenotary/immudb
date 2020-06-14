@@ -125,7 +125,7 @@ type treeStore struct {
 	db          *badger.DB
 	log         logger.Logger
 	caches      [256]ring.Buffer
-	rcaches     [256]ring.Buffer
+	rcache      ring.Buffer
 	cPos        [256]uint64
 	cSize       uint64
 	sync.RWMutex
@@ -177,13 +177,13 @@ func (t *treeStore) makeCaches() {
 	}
 	for i := 0; i < 256; i++ {
 		t.caches[i] = ring.NewRingBuffer(size)
-		if size > 64 {
+		if size/2 > 64 {
 			size /= 2
 		} else {
 			size = 64
 		}
 	}
-	t.rcaches[0] = ring.NewRingBuffer(t.cSize + 2)
+	t.rcache = ring.NewRingBuffer(t.cSize + 2)
 }
 
 // Close closes a treeStore. All pending items will be processed and flushed.
@@ -278,7 +278,7 @@ func (t *treeStore) worker() {
 			// insertion order index reference creation
 			c := refTreeKey(*item.h, *item.r)
 			// insertion order index cache save
-			t.rcaches[0].Set(item.ts-1, c)
+			t.rcache.Set(item.ts-1, c)
 
 			merkletree.AppendHash(t, item.h)
 			if t.w%2 == 0 && (t.w-t.lastFlushed) >= t.cSize/2 {
@@ -340,7 +340,7 @@ func (t *treeStore) flush() {
 				value = h.(*[sha256.Size]byte)[:]
 				// retrieving insertion order index reference from buffer ring
 				if l == 0 {
-					value = t.rcaches[l].Get(i).([]byte)
+					value = t.rcache.Get(i).([]byte)
 				}
 				// fmt.Printf("Storing [l=%d, i=%d]\n", l, i)
 				entry := badger.Entry{
