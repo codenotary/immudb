@@ -16,7 +16,9 @@ limitations under the License.
 
 package auth
 
-import "regexp"
+import (
+	"regexp"
+)
 
 // User ...
 type User struct {
@@ -36,13 +38,13 @@ var AdminPassword = AdminDefaultPassword
 
 // GenerateOrSetPassword Returns a generated or plainPassword if it not empty
 // Hashes and salts the password and assigns it to hashedPassword of User
-func (u *User) GenerateOrSetPassword(plainPassword string) (string, error) {
-	if plainPassword == "" {
-		plainPassword = generatePassword()
+func (u *User) GenerateOrSetPassword(plainPassword []byte) ([]byte, error) {
+	if len(plainPassword) == 0 {
+		plainPassword = []byte(generatePassword())
 	}
 	hashedPassword, err := HashAndSaltPassword(plainPassword)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	u.HashedPassword = hashedPassword
 	return plainPassword, nil

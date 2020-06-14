@@ -18,18 +18,17 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
+	"github.com/codenotary/immudb/pkg/store"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -67,21 +66,31 @@ var testData = struct {
 
 var slog = logger.NewSimpleLoggerWithLevel("client_test", os.Stderr, logger.LogDebug)
 
-var username string
-var plainPass string
+var username []byte
+var plainPass []byte
 
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
 	is = is.WithOptions(is.Options.WithAuth(true))
 	auth.AuthEnabled = is.Options.Auth
 	var err error
-	dataDir := is.Options.GetDataDir()
-	op := server.DefaultOption().WithDbName(is.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir)
-	is.SystemAdminDb, err = server.NewDb(op)
+
+	storeOpts := store.DefaultOptions("", slog)
+	storeOpts.Badger = storeOpts.Badger.WithInMemory(true)
+	sysStore, err := store.Open(storeOpts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// sysDbDir := filepath.Join(is.Options.Dir, is.Options.SysDbName)
+	store, err := store.Open(storeOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	is.SystemAdminDb = &server.Db{
+		Store:    store,
+		SysStore: sysStore,
+		Logger:   logger.NewSimpleLogger("immudb ", os.Stderr),
+	}
+	// sysDbDir := filimmuServer.Logger(),epath.Join(is.Options.Dir, is.Options.SysDbName)
 	// if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
 	// 	log.Fatal(err)
 	// }
@@ -98,7 +107,7 @@ func newServer() *server.ImmuServer {
 	// 	log.Fatal(err)
 	// }
 
-	username, plainPass, err = is.CreateAdminUser()
+	username, plainPass, err = is.SystemAdminDb.CreateAdminUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -184,14 +193,6 @@ func bufDialer(ctx context.Context, address string) (net.Conn, error) {
 func cleanup() {
 	// delete files and folders created by tests
 	if err := os.Remove(".root-"); err != nil {
-		log.Println(err)
-	}
-	//dbDir := filepath.Join(server.DefaultOptions().GetDataDir(), server.DefaultOptions().DbName)
-	if err := os.RemoveAll(server.DefaultOptions().GetDataDir()); err != nil {
-		log.Println(err)
-	}
-	sysDbDir := filepath.Join(server.DefaultOptions().GetDataDir(), server.DefaultOptions().SysDbName)
-	if err := os.RemoveAll(sysDbDir); err != nil {
 		log.Println(err)
 	}
 }
@@ -299,8 +300,6 @@ func TestImmuClient(t *testing.T) {
 	cleanupDump()
 	defer cleanup()
 	defer cleanupDump()
-	fmt.Println("sdfs")
-
 	ctx := context.Background()
 
 	testSafeSetAndSafeGet(ctx, t, testData.keys[0], testData.values[0])

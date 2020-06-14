@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -184,11 +185,19 @@ func (i *immuc) SafeZAdd(args []string) (string, error) {
 
 func (i *immuc) CreateDatabase(args []string) (string, error) {
 	//TODO gj
+	adminDbUser := ""
+	if len(args) < 1 {
+		return "Wrong number of commands. Provide at least database name.", nil
+	} else if len(args) == 2 {
+		adminDbUser = args[1]
+	}
 	dbname := []byte(args[0])
+	fmt.Println(args)
 
 	ctx := context.Background()
 	_, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
 		Databasename: string(dbname),
+		Adminuser:    adminDbUser,
 	})
 	if err != nil {
 		return "", err

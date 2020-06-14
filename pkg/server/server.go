@@ -211,19 +211,19 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		if err != nil {
 			return err
 		}
+		adminUsername, adminPlainPass, err := s.SystemAdminDb.CreateAdminUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword))
+		if err != nil {
+			s.Logger.Errorf(err.Error())
+			return err
+		} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
+			s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
+		}
 	} else {
 		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir)
 		s.SystemAdminDb, err = OpenDb(op)
 		if err != nil {
 			return err
 		}
-	}
-	adminUsername, adminPlainPass, err := s.SystemAdminDb.CreateAdminUser()
-	if err != nil {
-		s.Logger.Errorf(err.Error())
-		return err
-	} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
-		s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
 	}
 	return nil
 }
@@ -293,14 +293,18 @@ func (s *ImmuServer) Stop() error {
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
+	fmt.Println(string(r.GetUser()), string(r.GetPassword()))
 	u, err := s.SystemAdminDb.Login(ctx, r.GetUser(), r.GetPassword())
 	if err != nil {
 		for _, d := range s.Databases {
 			u, err = d.Login(ctx, r.GetUser(), r.GetPassword())
+			//we found the uer, let's break the loop
 			if err == nil {
 				break
 			}
 		}
+		//finished the loop
+		//let's test if we found a user or not
 		if err != nil {
 			return nil, err
 		}
@@ -313,6 +317,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if u.Username == auth.AdminUsername && string(r.GetPassword()) == auth.AdminDefaultPassword {
 		loginResponse.Warning = []byte(auth.WarnDefaultAdminPassword)
 	}
+	//TODO gj warning is not displayed to immuclient
 	return loginResponse, nil
 }
 
@@ -799,36 +804,58 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 }
 
 // CreateDatabase Create a new database instance and asign the default user to it //TODO
-func (s *ImmuServer) CreateDatabase(ctx context.Context, opts *schema.Database) (*schema.CreateDatabaseReply, error) {
-	fmt.Println(ctx)
-	s.Logger.Debugf("createdatabase %+v", *opts)
+func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database) (*schema.CreateDatabaseReply, error) {
+	jsonUser, err := auth.GetLoggedInUser(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get loggedin user data")
+	}
+	if (jsonUser.Permissions != auth.PermissionAdmin) &&
+		(jsonUser.Permissions != auth.PermissionSysAdmin) {
+		return nil, fmt.Errorf("Logged In user does not have permisions for this operation")
+	}
+
+	s.Logger.Debugf("createdatabase %+v", *newdb)
 	dataDir := s.Options.GetDataDir()
 
-	systemDbRootDir := filepath.Join(dataDir, opts.Databasename)
-	//TODO gj kujtes kontrollin me poshte, nese eshte false exekutimi vazhdon
-	_, sysDbErr := os.Stat(systemDbRootDir)
-	if os.IsNotExist(sysDbErr) {
-		op := DefaultOption().WithDbName(opts.Databasename).WithDbRootPath(dataDir)
-		db, err := NewDb(op)
-		if err != nil {
-			return nil, err
-		}
-		adminUsername, adminPlainPass, err := db.CreateAdminUser()
-		if err != nil {
-			s.Logger.Errorf(err.Error())
-			return nil, err
-		} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
-			s.Logger.Infof("Created Newdatabase %s", opts.Databasename)
-		}
-		s.Databases = append(s.Databases, db)
-		return &schema.CreateDatabaseReply{
-			Error: &schema.Error{
-				Errorcode:    0,
-				Errormessage: "ok",
-			},
-		}, nil
+	op := DefaultOption().WithDbName(newdb.Databasename + "_" + GenerateDbID()).WithDbRootPath(dataDir)
+	db, err := NewDb(op)
+	if err != nil {
+		fmt.Println(err)
+		s.Logger.Errorf(err.Error())
+		return nil, fmt.Errorf("Could not create new database")
 	}
-	return nil, fmt.Errorf("Could not create new database")
+
+	var adminUsername, adminPlainPass []byte
+	if jsonUser.Permissions == auth.PermissionSysAdmin {
+		adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(auth.AdminUsername)) //provide empty pass to generate one automaticallly
+	} else {
+		//first add current user as admin
+		//we're not interested to get the password back as we already know it
+		fmt.Println(jsonUser.Username)
+		usrname := []byte(jsonUser.Username)
+		userdata, err := db.getUserData(usrname) //todo get current user from
+		if err != nil {
+			fmt.Println(err)
+			return nil, fmt.Errorf("Could not create new database")
+		}
+		adminUsername, adminPlainPass, err = db.CreateAdminUser(usrname) //provide empty pass to generate one automaticallly
+		//if username is supplied by client than add this as well as admin
+		if newdb.Adminuser != "" {
+			adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(newdb.Adminuser), []byte("")) //provide empty pass to generate one automaticallly
+		}
+
+	}
+
+	if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
+		s.Logger.Infof("Created Newdatabase %s", newdb.Databasename)
+	}
+	s.Databases = append(s.Databases, db)
+	return &schema.CreateDatabaseReply{
+		Error: &schema.Error{
+			Errorcode:    0,
+			Errormessage: fmt.Sprintf("Created Database: %s with user: %s and password: %s", newdb.Databasename, adminUsername, adminPlainPass),
+		},
+	}, nil
 }
 
 // CreateUser ...

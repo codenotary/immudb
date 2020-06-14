@@ -27,7 +27,8 @@ func (cli *cli) initCommands() {
 	// Auth
 	cli.Register(&command{"login", "Login using the specified username and password", cli.login, []string{"username"}})
 	cli.Register(&command{"logout", "", cli.logout, nil})
-	cli.Register(&command{"createdatabase", "Create new database", cli.CreateDatabase, []string{"databasename"}})
+	cli.Register(&command{"createdatabase", "Create new database. Admin username is optional. If admin username left is empty then automatically immu user will be created and new password generated.", cli.CreateDatabase, []string{"databasename",
+		"adminusername"}})
 
 	// Get commands
 	cli.Register(&command{"rawsafeget", "Get item having the specified key, without parsing structured values", cli.rawSafeGetKey, []string{"key"}})

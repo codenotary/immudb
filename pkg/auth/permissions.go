@@ -19,6 +19,9 @@ package auth
 // PermissionAdmin the admin permission byte
 const PermissionAdmin = 255
 
+// PermissionSysAdmin the system admin permission byte
+const PermissionSysAdmin = 254
+
 // Non-admin permissions
 const (
 	PermissionNone = iota

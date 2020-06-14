@@ -1259,25 +1259,14 @@ func (c *immuClient) verifyAndSetRoot(result *schema.Proof, root *schema.Root, c
 	}
 	return verified, err
 }
+
+// CreateDatabase create a new database by making a grpc call
 func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) (*schema.CreateDatabaseReply, error) {
 	start := time.Now()
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
-
 	result, err := c.ServiceClient.CreateDatabase(ctx, db)
-	if err != nil {
-		return nil, err
-	}
 	c.Logger.Debugf("set finished in %s", time.Since(start))
-
-	fmt.Println(ctx)
-	fmt.Println(db)
-	fmt.Println(result)
-	return &schema.CreateDatabaseReply{
-		Error: &schema.Error{
-			Errorcode:    0,
-			Errormessage: "ok",
-		},
-	}, nil
+	return result, err
 }

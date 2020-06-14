@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -537,40 +539,49 @@ func (d *Db) saveUser(
 	return nil
 }
 
-func (d *Db) isAdminUser(username []byte) (bool, error) {
+// getUserData returns only active userdata (username,hashed password, permision) and isactive from username
+func (d *Db) getUserData(username []byte) (*auth.User, error) {
+	var permissions byte
 	item, err := d.getUser(username, false)
 	if err != nil {
 		if err == store.ErrKeyNotFound {
-			return false, nil
+			return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
 		}
-		return false, err
+		return nil, err
 	}
-	permissions, err := d.getUserPermissions(item.GetIndex())
+	permissions, err = d.getUserPermissions(item.GetIndex())
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return permissions == auth.PermissionAdmin, nil
+	hashedPassword, err := d.getUserPassword(item.GetIndex())
+	if err != nil {
+		return nil, err
+	}
+	return &auth.User{
+		Username:       string(item.GetKey()),
+		HashedPassword: hashedPassword,
+		Permissions:    permissions,
+	}, nil
 }
 
-// CreateAdminUser ...
-func (d *Db) CreateAdminUser() (string, string, error) {
-	exists, err := d.isAdminUser([]byte(auth.AdminUsername))
+// userExists checks if user with username exists
+// if permision != PermissionNone then it also checks the permission matches
+// if password is not empty then it also checks the password
+// Returns user object and isActive if all requested condintions match
+// Returns error if the requested conditions do not match
+func (d *Db) userExists(username []byte, permission byte, password []byte) (*auth.User, error) {
+	userdata, err := d.getUserData(username)
 	if err != nil {
-		return "", "", fmt.Errorf(
-			"error determining if admin user exists: %v", err)
+		return nil, err
 	}
-	if exists {
-		return "", "", nil
+	if (permission != auth.PermissionNone) && (userdata.Permissions != permission) {
+		return nil, fmt.Errorf("User with this permision does not exist")
 	}
-	u := auth.User{Username: auth.AdminUsername}
-	plainPass, err := u.GenerateOrSetPassword(auth.AdminPassword)
-	if err != nil {
-		d.Logger.Errorf("error generating password for admin user: %v", err)
+	err = userdata.ComparePasswords(password)
+	if (len(password) != 0) && (err != nil) {
+		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
 	}
-	if err = d.saveUser([]byte(u.Username), u.HashedPassword, auth.PermissionAdmin); err != nil {
-		return "", "", err
-	}
-	return u.Username, plainPass, nil
+	return userdata, nil
 }
 
 // ListUsers ...
@@ -593,48 +604,75 @@ func (d *Db) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList,
 	return &schema.UserList{Users: users}, nil
 }
 
-// GetUser ...
-func (d *Db) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
-	user, err := d.getUser(r.GetUser(), true)
+// GetUser ... TODO, gj zevendesoje me getUserdata
+// func (d *Db) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
+// 	user, err := d.getUser(r.GetUser(), true)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if user == nil {
+// 		return nil,
+// 			status.Errorf(codes.NotFound, "user not found or is deactivated")
+// 	}
+// 	permissions, err := d.getUserPermissions(user.GetIndex())
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &schema.UserResponse{User: user.GetKey(), Permissions: []byte{permissions}}, nil
+// }
+
+// CreateAdminUser assings admin user to database.
+// A new password is generated automatically.
+// returns username, plain password, error
+func (d *Db) CreateAdminUser(username []byte) ([]byte, []byte, error) {
+	userdata, err := d.userExists(username, auth.PermissionAdmin, nil)
+	if err == nil {
+		return nil, nil, fmt.Errorf(
+			"user exists or there was an error determining if admin user exists: %v", err)
+	}
+	//Since we did not found user with that username then userdata is not initialized
+	userdata = new(auth.User)
+	plainPass, err := userdata.GenerateOrSetPassword([]byte{})
 	if err != nil {
-		return nil, err
+		d.Logger.Errorf("error generating password for admin user: %v", err)
 	}
-	if user == nil {
-		return nil,
-			status.Errorf(codes.NotFound, "user not found or is deactivated")
+	if err = d.saveUser(username, userdata.HashedPassword, auth.PermissionAdmin); err != nil {
+		return nil, nil, err
 	}
-	permissions, err := d.getUserPermissions(user.GetIndex())
-	if err != nil {
-		return nil, err
-	}
-	return &schema.UserResponse{User: user.GetKey(), Permissions: []byte{permissions}}, nil
+	return username, []byte(plainPass), nil
 }
 
 // CreateUser ...
-func (d *Db) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
-	if !auth.IsValidUsername(string(r.GetUser())) {
-		return nil, status.Errorf(
-			codes.InvalidArgument,
-			"username can only contain letters, digits and underscores")
-	}
-	if _, err := d.getUser(r.GetUser(), true); err != store.ErrKeyNotFound {
-		if err == nil {
-			return nil, status.Errorf(codes.AlreadyExists, "user already exists")
+func (d *Db) CreateUser(ctx context.Context, username []byte, password []byte, permission byte, enforceStrongAuth bool) (*schema.UserResponse, error) {
+	if enforceStrongAuth {
+		if !auth.IsValidUsername(string(username)) {
+			return nil, status.Errorf(
+				codes.InvalidArgument,
+				"username can only contain letters, digits and underscores")
 		}
+	}
+	userdata, err := d.userExists(username, auth.PermissionNone, nil)
+	if err == nil {
+		err = fmt.Errorf(
+			"user exists or there was an error determining if admin user exists: %v", err)
 		d.Logger.Errorf("error checking if user already exists: %v", err)
-		return nil, status.Errorf(codes.Internal, "internal error")
+		return nil, err
 	}
-	if err := auth.IsStrongPassword(string(r.GetPassword())); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	if enforceStrongAuth {
+		if err := auth.IsStrongPassword(string(password)); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
 	}
-	hashedPassword, err := auth.HashAndSaltPassword(string(r.GetPassword()))
+	plainpassword, err := userdata.GenerateOrSetPassword(password)
 	if err != nil {
 		return nil, err
 	}
-	if err := d.saveUser(r.GetUser(), hashedPassword, r.GetPermissions()[0]); err != nil {
+	//TODO gj please check that the passed permission is in our list.
+	//Someone could cause a mess with that
+	if err := d.saveUser(username, []byte(plainpassword), permission); err != nil {
 		return nil, err
 	}
-	return &schema.UserResponse{User: r.GetUser(), Permissions: r.GetPermissions()}, nil
+	return &schema.UserResponse{User: username, Permissions: []byte{permission}}, nil
 }
 
 // SetPermission ...
@@ -685,8 +723,8 @@ func (d *Db) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest
 			return new(empty.Empty), status.Errorf(codes.PermissionDenied, "old password is incorrect")
 		}
 	}
-	newPass := string(r.GetNewPassword())
-	if err = auth.IsStrongPassword(newPass); err != nil {
+	newPass := r.GetNewPassword()
+	if err = auth.IsStrongPassword(string(newPass)); err != nil {
 		return new(empty.Empty), status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	hashedPassword, err := auth.HashAndSaltPassword(newPass)
@@ -712,25 +750,14 @@ func (d *Db) PrintTree(context.Context, *empty.Empty) (*schema.Tree, error) {
 
 // Login Authenticate user
 func (d *Db) Login(ctx context.Context, username []byte, password []byte) (*auth.User, error) {
-	item, err := d.getUser(username, false)
+	user, err := d.userExists(username, auth.PermissionNone, password)
 	if err != nil {
-		return nil, err
-	}
-	hashedPassword, err := d.getUserPassword(item.GetIndex())
-	if err != nil {
-		return nil, err
-	}
-	permissions, err := d.getUserPermissions(item.GetIndex())
-	if err != nil {
-		return nil, err
-	}
-	u := &auth.User{
-		Username:       string(item.GetKey()),
-		HashedPassword: hashedPassword,
-		Permissions:    permissions,
-	}
-	if u.ComparePasswords(password) != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
 	}
-	return u, nil
+	return user, nil
+}
+
+// GenerateDbID generate and ID for the database
+func GenerateDbID() string {
+	return strconv.FormatInt(time.Now().UnixNano(), 10)
 }

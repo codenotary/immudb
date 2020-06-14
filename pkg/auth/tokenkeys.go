@@ -109,13 +109,7 @@ func DropTokenKeysForCtx(ctx context.Context) (bool, error) {
 	return DropTokenKeys(jsonToken.Username), nil
 }
 
-//TODO gj me poshte
-
-// // GetLoggedInUser gets userdata from context
-// func GetLoggedInUser(ctx context.Context) (string, error) {
-// 	jsonToken, err := verifyTokenFromCtx(ctx)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return DropTokenKeys(jsonToken.Username), nil
-// }
+// GetLoggedInUser gets userdata from context
+func GetLoggedInUser(ctx context.Context) (*JSONToken, error) {
+	return verifyTokenFromCtx(ctx)
+}

@@ -274,6 +274,7 @@ message Error {
 }
 message Database {
 	string databasename = 1;
+	string adminuser = 2;
 }
 message CreateDatabaseReply {
 	Error error = 1;

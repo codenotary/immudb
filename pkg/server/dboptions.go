@@ -16,11 +16,6 @@ limitations under the License.
 
 package server
 
-import (
-	"strconv"
-	"time"
-)
-
 type DbOptions struct {
 	dbDir      string
 	dbName     string
@@ -30,10 +25,9 @@ type DbOptions struct {
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *DbOptions {
-	ID := strconv.FormatInt(time.Now().UnixNano(), 10)
 	return &DbOptions{
 		dbDir:      "immudb",
-		dbName:     "db_" + ID,
+		dbName:     "db_" + GenerateDbID(),
 		sysDbDir:   "immudbsys",
 		dbRootPath: "",
 	}
