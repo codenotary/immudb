@@ -295,13 +295,40 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 // immudb gRPC & REST service
 // IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.
 service ImmuService {
-	rpc ListUsers (google.protobuf.Empty) returns (UserList){}
-	rpc GetUser (UserRequest) returns (UserResponse){}
-	rpc CreateUser (CreateUserRequest) returns (UserResponse){}
-	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){}
-	rpc SetPermission (Item) returns (google.protobuf.Empty){}
-	rpc DeactivateUser (UserRequest) returns (google.protobuf.Empty){}
-
+	rpc ListUsers (google.protobuf.Empty) returns (UserList){
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/user/list"
+		};
+	};
+	rpc GetUser (UserRequest) returns (UserResponse){
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/user/{user}"
+		};
+	};
+	rpc CreateUser (CreateUserRequest) returns (UserResponse){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/user"
+			body: "*"
+		};
+	};
+	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/user/password/change"
+			body: "*"
+		};
+	};
+	rpc SetPermission (Item) returns (google.protobuf.Empty){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/user/permission/set"
+			body: "*"
+		};
+	};
+	rpc DeactivateUser (UserRequest) returns (google.protobuf.Empty){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/user/deactivate"
+			body: "*"
+		};
+	};
 
 	rpc UpdateAuthConfig (AuthConfig) returns (google.protobuf.Empty){}
 	rpc UpdateMTLSConfig (MTLSConfig) returns (google.protobuf.Empty){}
