@@ -50,18 +50,17 @@ var startedAt time.Time
 
 // Start starts the immudb server
 func (s *ImmuServer) Start() error {
-
 	dataDir := s.Options.GetDataDir()
 	//create root dir where all databases are stored
 	if err := os.MkdirAll(dataDir, os.ModePerm); err != nil {
 		s.Logger.Errorf("Unable to create data folder: %s", err)
 		return err
 	}
-	if err := s.loadDatabases(dataDir); err != nil {
+	if err := s.loadSystemDatabase(dataDir); err != nil {
 		s.Logger.Errorf("Unable load user databases %s", err)
 		return err
 	}
-	if err := s.loadSystemDatabase(dataDir); err != nil {
+	if err := s.loadDatabases(dataDir); err != nil {
 		s.Logger.Errorf("Unable load user databases %s", err)
 		return err
 	}
@@ -123,6 +122,7 @@ func (s *ImmuServer) Start() error {
 	auth.AdminPassword = adminPassword
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 
+	//TODO gj check why is this needed
 	uuidContext := NewUuidContext(uuid)
 
 	uis := []grpc.UnaryServerInterceptor{
@@ -293,10 +293,12 @@ func (s *ImmuServer) Stop() error {
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
-	u, err := s.SystemAdminDb.Login(ctx, r.GetUser(), r.GetPassword())
+	dbIndex := -1
+	u, err := s.SystemAdminDb.Login(r.GetUser(), r.GetPassword())
 	if err != nil {
 		for _, d := range s.Databases {
-			u, err = d.Login(ctx, r.GetUser(), r.GetPassword())
+			dbIndex++
+			u, err = d.Login(r.GetUser(), r.GetPassword())
 			//we found the uer, let's break the loop
 			if err == nil {
 				break
@@ -308,15 +310,25 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 			return nil, err
 		}
 	}
+	u.UserUUID = auth.NewStringUUID()
 	token, err := auth.GenerateToken(*u)
 	if err != nil {
 		return nil, err
 	}
 	loginResponse := &schema.LoginResponse{Token: []byte(token)}
 	if u.Username == auth.AdminUsername && string(r.GetPassword()) == auth.AdminDefaultPassword {
+		//TODO gj warning is not displayed to immuclient
 		loginResponse.Warning = []byte(auth.WarnDefaultAdminPassword)
 	}
-	//TODO gj warning is not displayed to immuclient
+
+	//associate the userUUID to userdata and db index
+	s.userDatabases.Lock()
+	defer s.userDatabases.Unlock()
+	s.userDatabases.userDatabaseID[u.UserUUID] = &userDatabasePair{
+		userUUID: u.UserUUID,
+		index:    dbIndex,
+		User:     *u,
+	}
 	return loginResponse, nil
 }
 
@@ -419,6 +431,7 @@ func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.R
 
 // Set ...
 func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
+	fmt.Println("conteeeeex", ctx.Value("userUUID"))
 	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
 	item, err := s.SystemAdminDb.Store.Set(*kv)
 	if err != nil {
@@ -816,7 +829,8 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	s.Logger.Debugf("createdatabase %+v", *newdb)
 	dataDir := s.Options.GetDataDir()
 
-	op := DefaultOption().WithDbName(newdb.Databasename + "_" + GenerateDbID()).WithDbRootPath(dataDir)
+	dbName := newdb.Databasename + "_" + GenerateDbID()
+	op := DefaultOption().WithDbName(dbName).WithDbRootPath(dataDir)
 	db, err := NewDb(op)
 	if err != nil {
 		s.Logger.Errorf(err.Error())
@@ -827,21 +841,27 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	if jsonUser.Permissions == auth.PermissionSysAdmin {
 		//create the dafault admin user and generate a password
 		adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(auth.AdminUsername))
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		//first add this user as admin
 		//we're not interested to get the password back as we already know it
-		usrname := []byte(jsonUser.Username)
-
-		//userdata, err := db.getUserData(usrname) //todo get current user from
-		if err != nil {
-			return nil, fmt.Errorf("Could not create new database")
+		s.userDatabases.Lock()
+		defer s.userDatabases.Unlock()
+		userdata, ok := s.userDatabases.userDatabaseID[jsonUser.UserUUID]
+		if !ok {
+			return nil, fmt.Errorf("Logedin user data not found")
 		}
-		adminUsername, adminPlainPass, err = db.CreateAdminUser(usrname) //provide empty pass to generate one automaticallly
+
+		adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(userdata.Username)) //provide empty pass to generate one automaticallly
+		if err != nil {
+			return nil, err
+		}
 		//if username is supplied by client than add this as well as admin
 		if newdb.Adminuser != "" {
 			adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(newdb.Adminuser)) //provide empty pass to generate one automaticallly
 		}
-
 	}
 
 	if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
@@ -851,7 +871,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	return &schema.CreateDatabaseReply{
 		Error: &schema.Error{
 			Errorcode:    0,
-			Errormessage: fmt.Sprintf("Created Database: %s with user: %s and password: %s", newdb.Databasename, adminUsername, adminPlainPass),
+			Errormessage: fmt.Sprintf("Created Database: %s with user: %s and password: %s", newdb.Databasename, string(adminUsername), string(adminPlainPass)),
 		},
 	}, nil
 }

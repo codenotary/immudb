@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -107,7 +108,7 @@ func newServer() *server.ImmuServer {
 	// 	log.Fatal(err)
 	// }
 
-	username, plainPass, err = is.SystemAdminDb.CreateUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword), auth.PermissionAdmin, false)
+	username, plainPass, err = is.SystemAdminDb.CreateUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword), auth.PermissionSysAdmin, false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -152,7 +153,8 @@ func newClient(withToken bool, token string) ImmuClient {
 func login() string {
 	c := newClient(false, "")
 	ctx := context.Background()
-	r, err := c.Login(ctx, []byte(username), []byte(plainPass))
+	fmt.Println(username, plainPass)
+	r, err := c.Login(ctx, username, plainPass)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -108,7 +108,7 @@ func NewDb(op *DbOptions) (*Db, error) {
 	return db, nil
 }
 
-func (d *Db) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
+func (d *Db) Set(kv *schema.KeyValue) (*schema.Index, error) {
 	d.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
 	item, err := d.Store.Set(*kv)
 	if err != nil {
@@ -117,7 +117,7 @@ func (d *Db) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error
 	return item, nil
 }
 
-func (d *Db) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
+func (d *Db) Get(k *schema.Key) (*schema.Item, error) {
 	item, err := d.Store.Get(*k)
 	if item == nil {
 		d.Logger.Debugf("get %s: item not found", k.Key)
@@ -129,7 +129,7 @@ func (d *Db) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
 	}
 	return item, nil
 }
-func (d *Db) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.Root, error) {
+func (d *Db) CurrentRoot(e *empty.Empty) (*schema.Root, error) {
 	root, err := d.Store.CurrentRoot()
 	if root != nil {
 		d.Logger.Debugf("current root: %d %x", root.Index, root.Root)
@@ -137,15 +137,15 @@ func (d *Db) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.Root, err
 	return root, err
 }
 
-func (d *Db) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) (*schema.Index, error) {
+func (d *Db) SetSV(skv *schema.StructuredKeyValue) (*schema.Index, error) {
 	kv, err := skv.ToKV()
 	if err != nil {
 		return nil, err
 	}
-	return d.Set(ctx, kv)
+	return d.Set(kv)
 }
-func (d *Db) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
-	it, err := d.Get(ctx, k)
+func (d *Db) GetSV(k *schema.Key) (*schema.StructuredItem, error) {
+	it, err := d.Get(k)
 	si, err := it.ToSItem()
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (d *Db) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, 
 	return si, err
 }
 
-func (d *Db) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
+func (d *Db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	d.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
 	item, err := d.Store.SafeSet(*opts)
 	if err != nil {
@@ -161,7 +161,7 @@ func (d *Db) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.
 	}
 	return item, nil
 }
-func (d *Db) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
+func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	d.Logger.Debugf("safeget %s", opts.Key)
 	sitem, err := d.Store.SafeGet(*opts)
 	if err != nil {
@@ -169,7 +169,7 @@ func (d *Db) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.
 	}
 	return sitem, nil
 }
-func (d *Db) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
+func (d *Db) SafeSetSV(sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
 	kv, err := sopts.Skv.ToKV()
 	if err != nil {
 		return nil, err
@@ -178,10 +178,10 @@ func (d *Db) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*sc
 		Kv:        kv,
 		RootIndex: sopts.RootIndex,
 	}
-	return d.SafeSet(ctx, opts)
+	return d.SafeSet(opts)
 }
-func (d *Db) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
-	it, err := d.SafeGet(ctx, opts)
+func (d *Db) SafeGetSV(opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
+	it, err := d.SafeGet(opts)
 	ssitem, err := it.ToSafeSItem()
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (d *Db) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schem
 	return ssitem, err
 }
 
-func (d *Db) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
+func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Index, error) {
 	d.Logger.Debugf("set batch %d", len(kvl.KVs))
 	index, err := d.Store.SetBatch(*kvl)
 	if err != nil {
@@ -198,7 +198,7 @@ func (d *Db) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, e
 	return index, nil
 }
 
-func (d *Db) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
+func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
 		item, err := d.Store.Get(*key)
@@ -213,15 +213,15 @@ func (d *Db) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList
 	return list, nil
 }
 
-func (d *Db) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*schema.Index, error) {
+func (d *Db) SetBatchSV(skvl *schema.SKVList) (*schema.Index, error) {
 	kvl, err := skvl.ToKVList()
 	if err != nil {
 		return nil, err
 	}
-	return d.SetBatch(ctx, kvl)
+	return d.SetBatch(kvl)
 }
-func (d *Db) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
-	list, err := d.GetBatch(ctx, kl)
+func (d *Db) GetBatchSV(kl *schema.KeyList) (*schema.StructuredItemList, error) {
+	list, err := d.GetBatch(kl)
 	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
@@ -229,7 +229,7 @@ func (d *Db) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.Struct
 	return slist, err
 }
 
-func (d *Db) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
+func (d *Db) ScanSV(opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
 	d.Logger.Debugf("scan %+v", *opts)
 	list, err := d.Store.Scan(*opts)
 	slist, err := list.ToSItemList()
@@ -239,12 +239,12 @@ func (d *Db) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.Stru
 	return slist, err
 }
 
-func (d *Db) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
+func (d *Db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	d.Logger.Debugf("count %s", prefix.Prefix)
 	return d.Store.Count(*prefix)
 }
 
-func (d *Db) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
+func (d *Db) Inclusion(index *schema.Index) (*schema.InclusionProof, error) {
 	d.Logger.Debugf("inclusion for index %d ", index.Index)
 	proof, err := d.Store.InclusionProof(*index)
 	if err != nil {
@@ -253,7 +253,7 @@ func (d *Db) Inclusion(ctx context.Context, index *schema.Index) (*schema.Inclus
 	return proof, nil
 }
 
-func (d *Db) Consistency(ctx context.Context, index *schema.Index) (*schema.ConsistencyProof, error) {
+func (d *Db) Consistency(index *schema.Index) (*schema.ConsistencyProof, error) {
 	d.Logger.Debugf("consistency for index %d ", index.Index)
 	proof, err := d.Store.ConsistencyProof(*index)
 	if err != nil {
@@ -262,7 +262,7 @@ func (d *Db) Consistency(ctx context.Context, index *schema.Index) (*schema.Cons
 	return proof, nil
 }
 
-func (d *Db) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
+func (d *Db) ByIndex(index *schema.Index) (*schema.Item, error) {
 	d.Logger.Debugf("get by index %d ", index.Index)
 	item, err := d.Store.ByIndex(*index)
 	if err != nil {
@@ -271,7 +271,7 @@ func (d *Db) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, er
 	return item, nil
 }
 
-func (d *Db) ByIndexSV(ctx context.Context, index *schema.Index) (*schema.StructuredItem, error) {
+func (d *Db) ByIndexSV(index *schema.Index) (*schema.StructuredItem, error) {
 	d.Logger.Debugf("get by index %d ", index.Index)
 	item, err := d.Store.ByIndex(*index)
 	if err != nil {
@@ -284,7 +284,7 @@ func (d *Db) ByIndexSV(ctx context.Context, index *schema.Index) (*schema.Struct
 	return sitem, nil
 }
 
-func (d *Db) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
+func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
 	d.Logger.Debugf("get by safeIndex %d ", sio.Index)
 	item, err := d.Store.BySafeIndex(*sio)
 	if err != nil {
@@ -293,7 +293,7 @@ func (d *Db) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*sc
 	return item, nil
 }
 
-func (d *Db) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
+func (d *Db) History(key *schema.Key) (*schema.ItemList, error) {
 	d.Logger.Debugf("history for key %s ", string(key.Key))
 	list, err := d.Store.History(*key)
 	if err != nil {
@@ -302,7 +302,7 @@ func (d *Db) History(ctx context.Context, key *schema.Key) (*schema.ItemList, er
 	return list, nil
 }
 
-func (d *Db) HistorySV(ctx context.Context, key *schema.Key) (*schema.StructuredItemList, error) {
+func (d *Db) HistorySV(key *schema.Key) (*schema.StructuredItemList, error) {
 	d.Logger.Debugf("history for key %s ", string(key.Key))
 
 	list, err := d.Store.History(*key)
@@ -323,7 +323,7 @@ func (d *Db) Health(context.Context, *empty.Empty) (*schema.HealthResponse, erro
 	return &schema.HealthResponse{Status: health}, nil
 }
 
-func (d *Db) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
+func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
 	index, err = d.Store.Reference(refOpts)
 	if err != nil {
 		return nil, err
@@ -332,7 +332,7 @@ func (d *Db) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (i
 	return index, nil
 }
 
-func (d *Db) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
+func (d *Db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	proof, err = d.Store.SafeReference(*safeRefOpts)
 	if err != nil {
 		return nil, err
@@ -341,17 +341,17 @@ func (d *Db) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenc
 	return proof, nil
 }
 
-func (d *Db) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
+func (d *Db) ZAdd(opts *schema.ZAddOptions) (*schema.Index, error) {
 	d.Logger.Debugf("zadd %+v", *opts)
 	return d.Store.ZAdd(*opts)
 }
 
-func (d *Db) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
+func (d *Db) ZScan(opts *schema.ZScanOptions) (*schema.ItemList, error) {
 	d.Logger.Debugf("zscan %+v", *opts)
 	return d.Store.ZScan(*opts)
 }
 
-func (d *Db) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
+func (d *Db) ZScanSV(opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
 	d.Logger.Debugf("zscan %+v", *opts)
 	list, err := d.Store.ZScan(*opts)
 	slist, err := list.ToSItemList()
@@ -361,17 +361,17 @@ func (d *Db) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.St
 	return slist, err
 }
 
-func (d *Db) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
+func (d *Db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	d.Logger.Debugf("zadd %+v", *opts)
 	return d.Store.SafeZAdd(*opts)
 }
 
-func (d *Db) IScan(ctx context.Context, opts *schema.IScanOptions) (*schema.Page, error) {
+func (d *Db) IScan(opts *schema.IScanOptions) (*schema.Page, error) {
 	d.Logger.Debugf("iscan %+v", *opts)
 	return d.Store.IScan(*opts)
 }
 
-func (d *Db) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
+func (d *Db) IScanSV(opts *schema.IScanOptions) (*schema.SPage, error) {
 	d.Logger.Debugf("zscan %+v", *opts)
 	page, err := d.Store.IScan(*opts)
 	SPage, err := page.ToSPage()
@@ -452,7 +452,7 @@ func (d *Db) getUserPermissions(userIndex uint64) (byte, error) {
 }
 
 // DeactivateUser ...
-func (d *Db) DeactivateUser(ctx context.Context, r *schema.UserRequest) (*empty.Empty, error) {
+func (d *Db) DeactivateUser(r *schema.UserRequest) (*empty.Empty, error) {
 	item, err := d.getUser(r.GetUser(), false)
 	if err != nil {
 		return new(empty.Empty), err
@@ -585,7 +585,7 @@ func (d *Db) userExists(username []byte, permission byte, password []byte) (*aut
 }
 
 // ListUsers ...
-func (d *Db) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
+func (d *Db) ListUsers(req *empty.Empty) (*schema.UserList, error) {
 	itemList, err := d.getUsers(true)
 	if err != nil {
 		return nil, err
@@ -609,7 +609,7 @@ func (d *Db) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList,
 // returns username, plain password, error
 func (d *Db) CreateAdminUser(username []byte) ([]byte, []byte, error) {
 	username, plainPass, err := d.CreateUser(username, []byte{}, auth.PermissionAdmin, false)
-	if err == nil {
+	if err != nil {
 		return nil, nil, fmt.Errorf(
 			"user exists or there was an error determining if admin user exists: %v", err)
 	}
@@ -653,7 +653,7 @@ func (d *Db) CreateUser(username []byte, password []byte, permission byte, enfor
 }
 
 // SetPermission ...
-func (d *Db) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
+func (d *Db) SetPermission(r *schema.Item) (*empty.Empty, error) {
 	if len(r.GetValue()) <= 0 {
 		return new(empty.Empty), status.Errorf(
 			codes.InvalidArgument, "no permission specified")
@@ -683,7 +683,7 @@ func (d *Db) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, e
 }
 
 // ChangePassword ...
-func (d *Db) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
+func (d *Db) ChangePassword(r *schema.ChangePasswordRequest) (*empty.Empty, error) {
 	item, err := d.getUser(r.GetUser(), false)
 	if err != nil {
 		return new(empty.Empty), err
@@ -720,13 +720,13 @@ func (d *Db) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest
 }
 
 // PrintTree ...
-func (d *Db) PrintTree(context.Context, *empty.Empty) (*schema.Tree, error) {
+func (d *Db) PrintTree() (*schema.Tree, error) {
 	tree := d.Store.GetTree()
 	return tree, nil
 }
 
 // Login Authenticate user
-func (d *Db) Login(ctx context.Context, username []byte, password []byte) (*auth.User, error) {
+func (d *Db) Login(username []byte, password []byte) (*auth.User, error) {
 	user, err := d.userExists(username, auth.PermissionNone, password)
 	if err != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")

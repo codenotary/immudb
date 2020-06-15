@@ -17,7 +17,9 @@ limitations under the License.
 package auth
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -57,26 +59,29 @@ func hasAuth(method string) bool {
 	return !noAuth
 }
 
-func checkAuth(ctx context.Context, method string, req interface{}) error {
+func checkAuth(ctx context.Context, method string, req interface{}) (context.Context, error) {
 	if !AuthEnabled {
-		isAdminMethod := methodsPermissions[method] == PermissionAdmin
+		permissions := methodsPermissions[method]
+		isSysAdminMethod := bytes.Contains(permissions, []byte{PermissionSysAdmin})
 		isLocal := isLocalClient(ctx)
-		if !isAdminMethod && (DevMode || isLocal) {
-			return nil
+		if !isSysAdminMethod && (DevMode || isLocal) {
+			return ctx, nil
 		} else if !isLocal {
-			return status.Errorf(
+			return ctx, status.Errorf(
 				codes.PermissionDenied,
 				"server has authentication disabled: only local connections are accepted")
 		}
 	}
-	if hasAuth(method) {
+	if AuthEnabled && hasAuth(method) {
+		fmt.Println("method", method)
 		jsonToken, err := verifyTokenFromCtx(ctx)
 		if err != nil {
-			return err
+			return ctx, err
 		}
 		if !hasPermissionForMethod(jsonToken.Permissions, method) {
-			return status.Errorf(codes.PermissionDenied, "not enough permissions")
+			return ctx, status.Errorf(codes.PermissionDenied, "not enough permissions")
 		}
+		ctx = context.WithValue(ctx, "userUUID", jsonToken.UserUUID)
 	}
-	return nil
+	return ctx, nil
 }

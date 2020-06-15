@@ -25,6 +25,8 @@ type User struct {
 	Username       string `json:"username"`
 	HashedPassword []byte `json:"-"`
 	Permissions    byte   `json:"permissions"`
+	//used to uniquely identify this user on every grpc call, set at login
+	UserUUID string `json:"useruuid"`
 }
 
 // AdminUsername the admin username

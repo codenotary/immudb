@@ -18,11 +18,28 @@ package server
 
 import (
 	"os"
+	"sync"
 
 	"google.golang.org/grpc"
 
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 )
+
+type userDatabasePair struct {
+	userUUID string
+	auth.User
+	//index of the db instance in the Immuserver slice
+	index int
+}
+
+// userDatabasePairs keeps an associacion of user UUID
+//    which is assigned at login and index in the databases array
+//    index 0 is always reserved for the system database
+type userDatabasePairs struct {
+	userDatabaseID map[string]*userDatabasePair
+	sync.RWMutex
+}
 
 // ImmuServer ...
 type ImmuServer struct {
@@ -36,14 +53,16 @@ type ImmuServer struct {
 	Cc            CorruptionChecker
 	Pid           PIDFile
 	quit          chan struct{}
+	userDatabases *userDatabasePairs
 }
 
 // DefaultServer ...
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
-		Logger:  logger.NewSimpleLogger("immudb ", os.Stderr),
-		Options: DefaultOptions(),
-		quit:    make(chan struct{}),
+		Logger:        logger.NewSimpleLogger("immudb ", os.Stderr),
+		Options:       DefaultOptions(),
+		quit:          make(chan struct{}),
+		userDatabases: &userDatabasePairs{userDatabaseID: make(map[string]*userDatabasePair)},
 	}
 }
 

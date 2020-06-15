@@ -18,7 +18,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"log"
 	"os"
 	"path"
@@ -141,7 +140,7 @@ func TestDbSetGet(t *testing.T) {
 	defer closer()
 
 	for ind, val := range kv {
-		it, err := db.Set(context.Background(), val)
+		it, err := db.Set(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
@@ -151,7 +150,7 @@ func TestDbSetGet(t *testing.T) {
 		k := &schema.Key{
 			Key: []byte(val.Key),
 		}
-		item, err := db.Get(context.Background(), k)
+		item, err := db.Get(k)
 		if err != nil {
 			t.Errorf("Error reading key %s", err)
 		}
@@ -170,14 +169,14 @@ func TestCurrentRoot(t *testing.T) {
 	defer closer()
 
 	for ind, val := range kv {
-		it, err := db.Set(context.Background(), val)
+		it, err := db.Set(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
 		if it.GetIndex() != uint64(ind) {
 			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
 		}
-		// root, err := db.CurrentRoot(context.Background(), &emptypb.Empty{})
+		// root, err := db.CurrentRoot(&emptypb.Empty{})
 		// if err != nil {
 		// 	t.Errorf("Error getting current root %s", err)
 		// }
@@ -189,7 +188,7 @@ func TestSVSetGet(t *testing.T) {
 	defer closer()
 
 	for ind, val := range Skv.SKVs {
-		it, err := db.SetSV(context.Background(), val)
+		it, err := db.SetSV(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
@@ -199,7 +198,7 @@ func TestSVSetGet(t *testing.T) {
 		k := &schema.Key{
 			Key: []byte(val.Key),
 		}
-		item, err := db.GetSV(context.Background(), k)
+		item, err := db.GetSV(k)
 		if err != nil {
 			t.Errorf("Error reading key %s", err)
 		}
@@ -219,7 +218,7 @@ func TestSVSetGet(t *testing.T) {
 func TestSafeSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	root, err := db.CurrentRoot(context.Background(), &emptypb.Empty{})
+	root, err := db.CurrentRoot(&emptypb.Empty{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -253,7 +252,7 @@ func TestSafeSetGet(t *testing.T) {
 		},
 	}
 	for ind, val := range kv {
-		proof, err := db.SafeSet(context.Background(), val)
+		proof, err := db.SafeSet(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
@@ -264,7 +263,7 @@ func TestSafeSetGet(t *testing.T) {
 			t.Errorf("SafeSet proof index error, expected %d, got %d", uint64(ind), proof.GetIndex())
 		}
 
-		it, err := db.SafeGet(context.Background(), &schema.SafeGetOptions{
+		it, err := db.SafeGet(&schema.SafeGetOptions{
 			Key: val.Kv.Key,
 		})
 		if it.GetItem().GetIndex() != uint64(ind) {
@@ -276,7 +275,7 @@ func TestSafeSetGet(t *testing.T) {
 func TestSafeSetGetSV(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	root, err := db.CurrentRoot(context.Background(), &emptypb.Empty{})
+	root, err := db.CurrentRoot(&emptypb.Empty{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -319,7 +318,7 @@ func TestSafeSetGetSV(t *testing.T) {
 		},
 	}
 	for ind, val := range SafeSkv {
-		proof, err := db.SafeSetSV(context.Background(), val)
+		proof, err := db.SafeSetSV(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
@@ -330,7 +329,7 @@ func TestSafeSetGetSV(t *testing.T) {
 			t.Errorf("SafeSet proof index error, expected %d, got %d", uint64(ind), proof.GetIndex())
 		}
 
-		it, err := db.SafeGetSV(context.Background(), &schema.SafeGetOptions{
+		it, err := db.SafeGetSV(&schema.SafeGetOptions{
 			Key: val.Skv.Key,
 		})
 		if it.GetItem().GetIndex() != uint64(ind) {
@@ -359,7 +358,7 @@ func TestSetGetBatch(t *testing.T) {
 			},
 		},
 	}
-	ind, err := db.SetBatch(context.Background(), Skv)
+	ind, err := db.SetBatch(Skv)
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
 	}
@@ -370,7 +369,7 @@ func TestSetGetBatch(t *testing.T) {
 		t.Errorf("SafeSet proof index error, expected %d, got %d", 2, ind.GetIndex())
 	}
 
-	itList, err := db.GetBatch(context.Background(), &schema.KeyList{
+	itList, err := db.GetBatch(&schema.KeyList{
 		Keys: []*schema.Key{
 			{
 				Key: []byte("Alberto"),
@@ -394,7 +393,7 @@ func TestSetGetBatchSV(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	ind, err := db.SetBatchSV(context.Background(), Skv)
+	ind, err := db.SetBatchSV(Skv)
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
 	}
@@ -405,7 +404,7 @@ func TestSetGetBatchSV(t *testing.T) {
 		t.Errorf("SafeSet proof index error, expected %d, got %d", 2, ind.GetIndex())
 	}
 
-	itList, err := db.GetBatchSV(context.Background(), &schema.KeyList{
+	itList, err := db.GetBatchSV(&schema.KeyList{
 		Keys: []*schema.Key{
 			{
 				Key: Skv.SKVs[0].Key,
@@ -434,7 +433,7 @@ func TestInclusion(t *testing.T) {
 	defer closer()
 
 	for ind, val := range kv {
-		it, err := db.Set(context.Background(), val)
+		it, err := db.Set(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
@@ -445,7 +444,7 @@ func TestInclusion(t *testing.T) {
 	ind := uint64(1)
 	//TODO find a better way without sleep
 	time.Sleep(2 * time.Second)
-	inc, err := db.Inclusion(context.Background(), &schema.Index{Index: ind})
+	inc, err := db.Inclusion(&schema.Index{Index: ind})
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
 	}
@@ -459,7 +458,7 @@ func TestConsintency(t *testing.T) {
 	defer closer()
 
 	for ind, val := range kv {
-		it, err := db.Set(context.Background(), val)
+		it, err := db.Set(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
@@ -468,7 +467,7 @@ func TestConsintency(t *testing.T) {
 		}
 	}
 	ind := uint64(1)
-	inc, err := db.Consistency(context.Background(), &schema.Index{Index: ind})
+	inc, err := db.Consistency(&schema.Index{Index: ind})
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
 	}
@@ -482,7 +481,7 @@ func TestByIndex(t *testing.T) {
 	defer closer()
 
 	for ind, val := range kv {
-		it, err := db.Set(context.Background(), val)
+		it, err := db.Set(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
@@ -492,7 +491,7 @@ func TestByIndex(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 	ind := uint64(1)
-	inc, err := db.ByIndex(context.Background(), &schema.Index{Index: ind})
+	inc, err := db.ByIndex(&schema.Index{Index: ind})
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
 	}
@@ -505,14 +504,14 @@ func TestByIndexSV(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 	for _, val := range Skv.SKVs {
-		_, err := db.SetSV(context.Background(), val)
+		_, err := db.SetSV(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
 	}
 	time.Sleep(1 * time.Second)
 	ind := uint64(1)
-	inc, err := db.ByIndexSV(context.Background(), &schema.Index{Index: ind})
+	inc, err := db.ByIndexSV(&schema.Index{Index: ind})
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
 	}
@@ -525,14 +524,14 @@ func TestBySafeIndex(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 	for _, val := range Skv.SKVs {
-		_, err := db.SetSV(context.Background(), val)
+		_, err := db.SetSV(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
 	}
 	time.Sleep(1 * time.Second)
 	ind := uint64(1)
-	inc, err := db.BySafeIndex(context.Background(), &schema.SafeIndexOptions{Index: ind})
+	inc, err := db.BySafeIndex(&schema.SafeIndexOptions{Index: ind})
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
 	}
@@ -545,15 +544,15 @@ func TestHistory(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 	for _, val := range kv {
-		_, err := db.Set(context.Background(), val)
+		_, err := db.Set(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
 	}
-	_, err := db.Set(context.Background(), kv[0])
+	_, err := db.Set(kv[0])
 	time.Sleep(1 * time.Second)
 
-	inc, err := db.History(context.Background(), &schema.Key{
+	inc, err := db.History(&schema.Key{
 		Key: kv[0].Key,
 	})
 	if err != nil {
@@ -571,17 +570,17 @@ func TestHistorySV(t *testing.T) {
 	defer closer()
 
 	for _, val := range Skv.SKVs {
-		_, err := db.SetSV(context.Background(), val)
+		_, err := db.SetSV(val)
 		if err != nil {
 			t.Errorf("Error Inserting to db %s", err)
 		}
 	}
-	_, err := db.SetSV(context.Background(), Skv.SKVs[0])
+	_, err := db.SetSV(Skv.SKVs[0])
 
 	k := &schema.Key{
 		Key: []byte(Skv.SKVs[0].Key),
 	}
-	items, err := db.HistorySV(context.Background(), k)
+	items, err := db.HistorySV(k)
 	if err != nil {
 		t.Errorf("Error reading key %s", err)
 	}

@@ -16,11 +16,15 @@ limitations under the License.
 
 package auth
 
+import (
+	"bytes"
+)
+
 // PermissionAdmin the admin permission byte
-const PermissionAdmin = 255
+const PermissionSysAdmin = 255
 
 // PermissionSysAdmin the system admin permission byte
-const PermissionSysAdmin = 254
+const PermissionAdmin = 254
 
 // Non-admin permissions
 const (
@@ -30,33 +34,38 @@ const (
 	PermissionRW
 )
 
-var methodsPermissions = map[string]byte{
+var methodsPermissions = map[string][]byte{
 	// readwrite methods
-	"/immudb.schema.ImmuService/Set":           PermissionRW,
-	"/immudb.schema.ImmuService/SetSV":         PermissionRW,
-	"/immudb.schema.ImmuService/SafeSet":       PermissionRW,
-	"/immudb.schema.ImmuService/SafeSetSV":     PermissionRW,
-	"/immudb.schema.ImmuService/SetBatch":      PermissionRW,
-	"/immudb.schema.ImmuService/SetBatchSV":    PermissionRW,
-	"/immudb.schema.ImmuService/Reference":     PermissionRW,
-	"/immudb.schema.ImmuService/SafeReference": PermissionRW,
-	"/immudb.schema.ImmuService/ZAdd":          PermissionRW,
-	"/immudb.schema.ImmuService/SafeZAdd":      PermissionRW,
+	"/immudb.schema.ImmuService/Set":           {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/Get":           {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/SetSV":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/SafeSet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/SafeGet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/SafeSetSV":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/SetBatch":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/SetBatchSV":    {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/Reference":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/SafeReference": {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/ZAdd":          {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/SafeZAdd":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/ZScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/BySafeIndex":   {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	// admin methods
-	"/immudb.schema.ImmuService/ListUsers":        PermissionAdmin,
-	"/immudb.schema.ImmuService/CreateUser":       PermissionAdmin,
-	"/immudb.schema.ImmuService/ChangePassword":   PermissionAdmin,
-	"/immudb.schema.ImmuService/SetPermission":    PermissionAdmin,
-	"/immudb.schema.ImmuService/DeactivateUser":   PermissionAdmin,
-	"/immudb.schema.ImmuService/UpdateAuthConfig": PermissionAdmin,
-	"/immudb.schema.ImmuService/UpdateMTLSConfig": PermissionAdmin,
-	"/immudb.schema.ImmuService/CreateDatabase":   PermissionAdmin,
+	"/immudb.schema.ImmuService/ListUsers":        {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/CreateUser":       {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/ChangePassword":   {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/SetPermission":    {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/DeactivateUser":   {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/UpdateAuthConfig": {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/UpdateMTLSConfig": {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/CreateDatabase":   {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/Dump":             {PermissionSysAdmin, PermissionAdmin},
 }
 
 func hasPermissionForMethod(userPermission byte, method string) bool {
 	methodPermission, ok := methodsPermissions[method]
 	if !ok {
-		methodPermission = PermissionR
+		return false
 	}
-	return methodPermission&userPermission == methodPermission
+	return bytes.Contains(methodPermission, []byte{userPermission})
 }

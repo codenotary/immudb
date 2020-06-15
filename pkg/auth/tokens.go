@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/o1egl/paseto"
+	"github.com/rs/xid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -41,21 +42,21 @@ const tokenValidity = 1 * time.Hour
 // GenerateToken ...
 func GenerateToken(user User) (string, error) {
 	now := time.Now()
-	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
+	keys, ok := tokenKeyPairs.keysPerUser[user.UserUUID]
 	if !ok {
-		if err := generateKeys(user.Username); err != nil {
+		if err := generateKeys(user.Username, user.UserUUID); err != nil {
 			return "", err
 		}
-		keys, ok = tokenKeyPairs.keysPerUser[user.Username]
+		keys, ok = tokenKeyPairs.keysPerUser[user.UserUUID]
 		if !ok {
 			return "", errors.New("internal error: missing auth keys")
 		}
 	} else {
-		updateLastTokenGeneratedAt(user.Username)
+		updateLastTokenGeneratedAt(user.UserUUID)
 	}
 	jsonToken := paseto.JSONToken{
 		Expiration: now.Add(tokenValidity),
-		Subject:    user.Username,
+		Subject:    user.UserUUID,
 	}
 	jsonToken.Set("permissions", fmt.Sprintf("%d", user.Permissions))
 	token, err := pasetoV2.Sign(keys.privateKey, jsonToken, footer)
@@ -68,7 +69,7 @@ func GenerateToken(user User) (string, error) {
 
 // JSONToken ...
 type JSONToken struct {
-	Username    string
+	UserUUID    string
 	Permissions byte
 	Expiration  time.Time
 }
@@ -105,7 +106,7 @@ func parsePublicTokenPayload(token string) (*JSONToken, error) {
 		}
 	}
 	return &JSONToken{
-		Username:    jsonToken.Subject,
+		UserUUID:    jsonToken.Subject,
 		Permissions: permissions,
 		Expiration:  jsonToken.Expiration,
 	}, nil
@@ -116,10 +117,10 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err != nil {
 		return nil, err
 	}
-	keys, ok := tokenKeyPairs.keysPerUser[tokenPayload.Username]
+	keys, ok := tokenKeyPairs.keysPerUser[tokenPayload.UserUUID]
 	if !ok {
 		return nil, status.Error(
-			codes.Unauthenticated, "invalid token")
+			codes.Unauthenticated, "Token data not found")
 	}
 	var jsonToken paseto.JSONToken
 	var footer string
@@ -137,9 +138,9 @@ func verifyToken(token string) (*JSONToken, error) {
 		}
 	}
 	return &JSONToken{
-		Username:    jsonToken.Subject,
-		Permissions: permissions,
+		UserUUID:    jsonToken.Subject,
 		Expiration:  jsonToken.Expiration,
+		Permissions: permissions,
 	}, nil
 }
 
@@ -159,4 +160,14 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 			codes.Unauthenticated, "invalid token")
 	}
 	return jsonToken, nil
+}
+
+//NewUUID generate uuid
+func NewUUID() xid.ID {
+	return xid.New()
+}
+
+//NewStringUUID generate uuid and return as string
+func NewStringUUID() string {
+	return xid.New().String()
 }

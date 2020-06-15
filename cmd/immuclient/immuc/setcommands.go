@@ -195,7 +195,7 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	fmt.Println(args)
 
 	ctx := context.Background()
-	_, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
+	resp, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
 		Databasename: string(dbname),
 		Adminuser:    adminDbUser,
 	})
@@ -211,5 +211,6 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	// 	return "", err
 	// }
 	//TODO gj kontrollo db error
-	return "Successfully Created Database", nil
+	return resp.Error.Errormessage, nil
+	//return "Successfully Created Database", nil
 }
