@@ -33,10 +33,13 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 )
 
-func insertSampleSet(immudbTCPPort int) (string, error) {
+var safereferenceHandlerTestDir = "./safereference_handler_test"
+
+func insertSampleSet(immudbTCPPort int, clientDir string) (string, error) {
 	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
 	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().WithPort(immudbTCPPort))
+	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
+		WithPort(immudbTCPPort).WithDir(clientDir))
 	if err != nil {
 		return "", fmt.Errorf("unable to instantiate client: %s", err)
 	}
@@ -81,14 +84,16 @@ func TestSafeReference(t *testing.T) {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
 		os.RemoveAll(op.GetDataDir())
+		os.RemoveAll(safereferenceHandlerTestDir)
 	}()
 
-	refKey, err := insertSampleSet(tcpPort)
+	refKey, err := insertSampleSet(tcpPort, safereferenceHandlerTestDir)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
 
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().WithPort(tcpPort))
+	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
+		WithPort(tcpPort).WithDir(safereferenceHandlerTestDir))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return

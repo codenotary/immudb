@@ -244,24 +244,19 @@ func (d *Db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	return d.Store.Count(*prefix)
 }
 
+// Inclusion ...
 func (d *Db) Inclusion(index *schema.Index) (*schema.InclusionProof, error) {
 	d.Logger.Debugf("inclusion for index %d ", index.Index)
-	proof, err := d.Store.InclusionProof(*index)
-	if err != nil {
-		return nil, err
-	}
-	return proof, nil
+	return d.Store.InclusionProof(*index)
 }
 
+// Consistency ...
 func (d *Db) Consistency(index *schema.Index) (*schema.ConsistencyProof, error) {
 	d.Logger.Debugf("consistency for index %d ", index.Index)
-	proof, err := d.Store.ConsistencyProof(*index)
-	if err != nil {
-		return nil, err
-	}
-	return proof, nil
+	return d.Store.ConsistencyProof(*index)
 }
 
+// ByIndex ...
 func (d *Db) ByIndex(index *schema.Index) (*schema.Item, error) {
 	d.Logger.Debugf("get by index %d ", index.Index)
 	item, err := d.Store.ByIndex(*index)

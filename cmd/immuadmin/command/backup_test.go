@@ -53,7 +53,7 @@ func TestDumpToFile(t *testing.T) {
 		os.RemoveAll(clientDir)
 	}()
 	clOp := immuclient.DefaultOptions().WithPort(tcpPort).WithDir(clientDir)
-	ic, err := immuclient.NewImmuClient(&clOp)
+	ic, err := immuclient.NewImmuClient(clOp)
 	if err != nil {
 		t.Errorf("%s", err.Error())
 	}

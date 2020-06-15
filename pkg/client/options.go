@@ -56,7 +56,7 @@ func DefaultOptions() *Options {
 }
 
 // WithDir sets program file folder
-func (o Options) WithDir(dir string) Options {
+func (o *Options) WithDir(dir string) *Options {
 	o.Dir = dir
 	return o
 }
