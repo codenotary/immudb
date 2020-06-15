@@ -4,15 +4,48 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v0.6.2"></a>
+## [v0.6.2] - 2020-06-15
+### Bug Fixes
+- require auth for admin commands even if auth is disabled on server, do not allow admin user to be deactivated
+- base64 decoding of passwords: now it requires the "enc:" prefix as base64 can not be differentiated from plain-text at runtime (e.g. "immu" is a valid base64 encode string)
+- only require admin password to be changed if it is "immu"
+- fix ldflags on dist binaries and add static compilation infos
+- **cmd/immuclient/audit:** fix base64 encoded password not working with immuclient audit-mode
+- **immuadmin:** repair password change flow right after first admin login
+- **pkg/auth:** make ListUsers require admin permissions
+- **pkg/ring:** fixes cache corruption due to a ring buffer elements overwrite  on same internal index
+- **pkg/store:** remove useless ringbuffer array
+- **pkg/store:** fix uniform cache layers size allocation with small values
+
+### Changes
+- add bug and feature request report github template
+- fix golint errors
+- githubactions add windows and build step
+- remove plain-test admin password from log outputs
+- add message (in cli help and swagger description) about base64-encoded inputs and outputs of get and set commands
+- FreeBSD section in the readme
+- fix changelog auto generation repo and releasing template
+- **pkg/server:** reduce corruption_checker resources usage
+
+### Features
+- expose through REST the following user-related actions: create, get, list, change password, set permission and deactivate
+- immuclient freebsd daemon installation
+- freebsd service install
+- read immudb default admin password from flag, config or env var
+- use immu as default admin password instead of randomly generated one
+- **immudb:** accept base64 string for admin password in flag/config/env var
+
+
 <a name="v0.6.1"></a>
 ## [v0.6.1] - 2020-06-09
 ### Bug Fixes
 - disallow running immuadmin backup with current directory as source
 - immuadmin dump hangs indefinitely if token is invalid
-- [#283](https://github.com/vchain-us/vcn/issues/283), immudb crash on dump of empty db
+- [#283](https://github.com/vchain-us/immudb/issues/283), immudb crash on dump of empty db
 - fix corruption checker crash during immudb shoutdown
 - choose correct config for immudb, immugw installation
-- update env vars in README and Docker files ([#297](https://github.com/vchain-us/vcn/issues/297))
+- update env vars in README and Docker files ([#297](https://github.com/vchain-us/immudb/issues/297))
 - **cmd/immuadmin:** inform user that manual server restart may be needed after interrupted backup
 - **cmd/immuadmin:** validate backup dir before asking password
 - **cmd/immuclient:** add version sub-command to immuclient interractive mode
@@ -23,9 +56,9 @@ All notable changes to this project will be documented in this file. This projec
 - **pkg/store/treestore:** fix overwriting on not freezes nodes
 
 ### Changes
-- add license to tests ([#288](https://github.com/vchain-us/vcn/issues/288))
+- add license to tests ([#288](https://github.com/vchain-us/immudb/issues/288))
 - update statement about traditional DBs in README
-- remove immugw configs from immudb config file [#302](https://github.com/vchain-us/vcn/issues/302)
+- remove immugw configs from immudb config file [#302](https://github.com/vchain-us/immudb/issues/302)
 - **cmd/immuadmin/command:** improve visualization ui in merkle tree print command
 - **cmd/immuadmin/command/service:** syntax error, fail build on windows
 - **cmd/immuclient/audit:** code cleanup and renaming
@@ -35,9 +68,9 @@ All notable changes to this project will be documented in this file. This projec
 - handling of failed dump
 
 ### Features
-- allow the password of immugw auditor to be base64 encoded in the config file ([#296](https://github.com/vchain-us/vcn/issues/296))
+- allow the password of immugw auditor to be base64 encoded in the config file ([#296](https://github.com/vchain-us/immudb/issues/296))
 - add auth support to immutest CLI
-- add server-side logout ([#286](https://github.com/vchain-us/vcn/issues/286))
+- add server-side logout ([#286](https://github.com/vchain-us/immudb/issues/286))
 - **cmd/helper:** add functionalities to print colored output
 - **cmd/immuadmin:** add print tree command
 - **cmd/immutest:** add env var for tokenfile
@@ -59,9 +92,9 @@ All notable changes to this project will be documented in this file. This projec
 - use iota for permissions enum
 - immugw pid path consistency
 - SafeZAdd handler SafeZAdd tests. Fix ReferenceHandler test
-- safereference_handler, add tests [#264](https://github.com/vchain-us/vcn/issues/264)
+- safereference_handler, add tests [#264](https://github.com/vchain-us/immudb/issues/264)
 - safeset_handler test
-- [#260](https://github.com/vchain-us/vcn/issues/260)
+- [#260](https://github.com/vchain-us/immudb/issues/260)
 - implementation of user deactivate
 - fix immuclient windows build
 - fix bug on zadd server method
@@ -85,7 +118,7 @@ All notable changes to this project will be documented in this file. This projec
 - rename default immudb and immugw loggers
 - turn sys keys prefixes into constants
 - remove setup release in makefile
-- service_name inside release build script  is configurable inside makefile. closes [#159](https://github.com/vchain-us/vcn/issues/159) closes [#239](https://github.com/vchain-us/vcn/issues/239)
+- service_name inside release build script  is configurable inside makefile. closes [#159](https://github.com/vchain-us/immudb/issues/159) closes [#239](https://github.com/vchain-us/immudb/issues/239)
 - remove ppc and arm target arch from makefile
 - add CD releases, certificate sign, vcn sign in makefile dist scripts
 - add dist scripts in makefile
@@ -132,7 +165,7 @@ All notable changes to this project will be documented in this file. This projec
 - **cmd/immuadmin:** old password can not be empty when changing password
 - **cmd/immuadmin/command:** remove PID by systemd directive
 - **cmd/immuadmin/command:** do not erase data without explicit consensus. closes 165
-- **cmd/immuadmin/command/service:** fix [#188](https://github.com/vchain-us/vcn/issues/188)
+- **cmd/immuadmin/command/service:** fix [#188](https://github.com/vchain-us/immudb/issues/188)
 - **cmd/immuclient:** correct argument index for value in rawsafeset
 - **cmd/immutest:** rename immutestapp files to immutest
 - **pkg/server:** fix error when unlocking unlocked stores after online db restore
@@ -140,7 +173,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changes
 - remove online backup and restore features
-- add copyrights to makefile. closes [#142](https://github.com/vchain-us/vcn/issues/142)
+- add copyrights to makefile. closes [#142](https://github.com/vchain-us/immudb/issues/142)
 - update dockerfiles
 - fix immugw dockerfile with dir property, update README
 - manage dir flag in immutc
@@ -190,7 +223,7 @@ All notable changes to this project will be documented in this file. This projec
 - disabling CGO to removes the need for the cross-compile dependencies
 - remove useless error. https://github.com/dgraph-io/badger/commit/c6c1e5ec7690b5e5d7b47f6ab913bae6f78df03b
 - return correct error in safeZAdd handler
-- upadating takama/daemon to fix freebsd compilation. closes [#160](https://github.com/vchain-us/vcn/issues/160)
+- upadating takama/daemon to fix freebsd compilation. closes [#160](https://github.com/vchain-us/immudb/issues/160)
 - split main fails in separate folders
 - fix immugw immud services in windows os
 - improving config management on linux and improved usage message
@@ -243,7 +276,7 @@ All notable changes to this project will be documented in this file. This projec
 - **pkg/store:** correct gRPC code for key not found error
 - **pkg/store:** badger's errors mapping
 - **pkg/store:** truncate set to true for windows
-- **pkg/store:** fix [#60](https://github.com/vchain-us/vcn/issues/60).
+- **pkg/store:** fix [#60](https://github.com/vchain-us/immudb/issues/60).
 
 ### Changes
 - get rid of password generating library
@@ -291,7 +324,7 @@ All notable changes to this project will be documented in this file. This projec
 - rename backup to dump, and disable restore
 - info if starting server with empty database
 - use exact number of args 2 for set and safeset
-- Set correct data folder and show usage in config. closes [#37](https://github.com/vchain-us/vcn/issues/37)
+- Set correct data folder and show usage in config. closes [#37](https://github.com/vchain-us/immudb/issues/37)
 - instructions after make
 - update default dbname in server config
 - remove immuclient from default make target
@@ -347,8 +380,8 @@ All notable changes to this project will be documented in this file. This projec
 - refactor  packages to expose commands
 - remove immuclient initialization from root level command
 - Removed needless allocations and function calls, Rewrote Immuclient package layout
-- config is managed properly with cobra and viper combo. closes [#44](https://github.com/vchain-us/vcn/issues/44)
-- Structured immugw and handling SIGTERM. closes [#33](https://github.com/vchain-us/vcn/issues/33)
+- config is managed properly with cobra and viper combo. closes [#44](https://github.com/vchain-us/immudb/issues/44)
+- Structured immugw and handling SIGTERM. closes [#33](https://github.com/vchain-us/immudb/issues/33)
 - pkg/tree got ported over to its own external repo codenotary/merkletree
 - **pkg/store:** prefix errors with Err
 
@@ -356,12 +389,12 @@ All notable changes to this project will be documented in this file. This projec
 - add safeget, safeset, safereference and safezadd to the CLI client
 - add mtls to immud
 - add version to all commands
-- Add config file. Closes [#36](https://github.com/vchain-us/vcn/issues/36) closes [#37](https://github.com/vchain-us/vcn/issues/37)
+- Add config file. Closes [#36](https://github.com/vchain-us/immudb/issues/36) closes [#37](https://github.com/vchain-us/immudb/issues/37)
 - add mtls to immugw
 - add mtls certificates generation script
 - always use the default bcrypt cost when hashing passwords
 - implement user management
-- Add capabilities to run commands in background. Closes [#136](https://github.com/vchain-us/vcn/issues/136) closes [#106](https://github.com/vchain-us/vcn/issues/106)
+- Add capabilities to run commands in background. Closes [#136](https://github.com/vchain-us/immudb/issues/136) closes [#106](https://github.com/vchain-us/immudb/issues/106)
 - hide some of the widgets in immuadmin statistics view if the server does not provide histograms
 - add --no-histograms option to server
 - complete implementation of visual statistics in immuadmin
@@ -369,17 +402,17 @@ All notable changes to this project will be documented in this file. This projec
 - add "client last active at" metric
 - add uptime to metrics
 - add immuadmin-related rules to makefile
-- create a new build process [#41](https://github.com/vchain-us/vcn/issues/41)
+- create a new build process [#41](https://github.com/vchain-us/immudb/issues/41)
 - add text and visual display options to immuadmin statistics
-- Add multiroot management, Add client mtls, client refactor. closes [#50](https://github.com/vchain-us/vcn/issues/50) closes [#80](https://github.com/vchain-us/vcn/issues/80)
+- Add multiroot management, Add client mtls, client refactor. closes [#50](https://github.com/vchain-us/immudb/issues/50) closes [#80](https://github.com/vchain-us/immudb/issues/80)
 - Add config file to immu
 - improve metrics
 - add immuadmin client (WiP)
 - add Prometheus-based metrics
 - Add raw safeset and safeget method
-- Add IScan and improve ScanByIndex command. Closes [#91](https://github.com/vchain-us/vcn/issues/91)
-- add insertion order index and tests. closes [#39](https://github.com/vchain-us/vcn/issues/39)
-- add current command. Closes [#88](https://github.com/vchain-us/vcn/issues/88)
+- Add IScan and improve ScanByIndex command. Closes [#91](https://github.com/vchain-us/immudb/issues/91)
+- add insertion order index and tests. closes [#39](https://github.com/vchain-us/immudb/issues/39)
+- add current command. Closes [#88](https://github.com/vchain-us/immudb/issues/88)
 - Add structured values components
 - structured value
 - close immuadmin visual statistics also on <Escape>
@@ -680,8 +713,9 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/vcn/compare/v0.6.1...HEAD
-[v0.6.1]: https://github.com/vchain-us/vcn/compare/v0.6.0...v0.6.1
-[v0.6.0]: https://github.com/vchain-us/vcn/compare/v0.6.0-RC2...v0.6.0
-[v0.6.0-RC2]: https://github.com/vchain-us/vcn/compare/v0.6.0-RC1...v0.6.0-RC2
-[v0.6.0-RC1]: https://github.com/vchain-us/vcn/compare/v0.0.0-20200206...v0.6.0-RC1
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.6.2...HEAD
+[v0.6.2]: https://github.com/vchain-us/immudb/compare/v0.6.1...v0.6.2
+[v0.6.1]: https://github.com/vchain-us/immudb/compare/v0.6.0...v0.6.1
+[v0.6.0]: https://github.com/vchain-us/immudb/compare/v0.6.0-RC2...v0.6.0
+[v0.6.0-RC2]: https://github.com/vchain-us/immudb/compare/v0.6.0-RC1...v0.6.0-RC2
+[v0.6.0-RC1]: https://github.com/vchain-us/immudb/compare/v0.0.0-20200206...v0.6.0-RC1
