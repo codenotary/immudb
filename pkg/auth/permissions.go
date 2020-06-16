@@ -50,6 +50,8 @@ var methodsPermissions = map[string][]byte{
 	"/immudb.schema.ImmuService/SafeZAdd":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"/immudb.schema.ImmuService/ZScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"/immudb.schema.ImmuService/BySafeIndex":   {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/IScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/History":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	// admin methods
 	"/immudb.schema.ImmuService/ListUsers":        {PermissionSysAdmin, PermissionAdmin},
 	"/immudb.schema.ImmuService/CreateUser":       {PermissionSysAdmin, PermissionAdmin},

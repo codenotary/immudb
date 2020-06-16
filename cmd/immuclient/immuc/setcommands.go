@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -192,7 +191,6 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 		adminDbUser = args[1]
 	}
 	dbname := []byte(args[0])
-	fmt.Println(args)
 
 	ctx := context.Background()
 	resp, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
@@ -202,14 +200,6 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// value2, err := ioutil.ReadAll(&buf)
-	// if err != nil {
-	// 	return "", err
-	// }
-	// scstr, err := i.ImmuClient.Get(ctx, key)
-	// if err != nil {
-	// 	return "", err
-	// }
 	//TODO gj kontrollo db error
 	return resp.Error.Errormessage, nil
 	//return "Successfully Created Database", nil

@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -306,7 +305,7 @@ func (d *Db) HistorySV(key *schema.Key) (*schema.StructuredItemList, error) {
 }
 
 //Health ...
-func (d *Db) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
+func (d *Db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 	health := d.Store.HealthCheck()
 	d.Logger.Debugf("health check: %v", health)
 	return &schema.HealthResponse{Status: health}, nil
@@ -358,6 +357,12 @@ func (d *Db) ZScanSV(opts *schema.ZScanOptions) (*schema.StructuredItemList, err
 func (d *Db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	d.Logger.Debugf("zadd %+v", *opts)
 	return d.Store.SafeZAdd(*opts)
+}
+
+//Scan ...
+func (d *Db) Scan(opts *schema.ScanOptions) (*schema.ItemList, error) {
+	d.Logger.Debugf("iscan %+v", *opts)
+	return d.Store.Scan(*opts)
 }
 
 //IScan ...

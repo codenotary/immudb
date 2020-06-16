@@ -36,7 +36,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
-	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -49,6 +48,7 @@ import (
 var startedAt time.Time
 
 // Start starts the immudb server
+// Loads a starts the System DB, and puts it in the first index
 func (s *ImmuServer) Start() error {
 	dataDir := s.Options.GetDataDir()
 	//create root dir where all databases are stored
@@ -145,7 +145,7 @@ func (s *ImmuServer) Start() error {
 		metricsServer := StartMetrics(
 			s.Options.MetricsBind(),
 			s.Logger,
-			func() float64 { return float64(s.SystemAdminDb.Store.CountAll()) },
+			func() float64 { return float64(s.databases[0].Store.CountAll()) },
 			func() float64 { return time.Since(startedAt).Hours() },
 		)
 		defer func() {
@@ -170,7 +170,7 @@ func (s *ImmuServer) Start() error {
 	//<===
 	grpc_prometheus.Register(s.GrpcServer)
 	if s.Options.CorruptionCheck {
-		s.Cc = NewCorruptionChecker(s.SystemAdminDb.Store, s.Logger, s.Stop)
+		s.Cc = NewCorruptionChecker(s.databases[0].Store, s.Logger, s.Stop)
 		go func() {
 			s.Logger.Infof("starting consistency-checker")
 			if err = s.Cc.Start(context.Background()); err != nil {
@@ -182,7 +182,7 @@ func (s *ImmuServer) Start() error {
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
 
-	dbSize, _ := s.SystemAdminDb.Store.DbSize()
+	dbSize, _ := s.databases[0].Store.DbSize()
 	if dbSize <= 0 {
 		s.Logger.Infof("Started with an empty database")
 	}
@@ -200,30 +200,37 @@ func (s *ImmuServer) Start() error {
 	<-s.quit
 	return err
 }
+
+//loadSystemDatabase it is important that is is called before loadDatabases
 func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
-	var err error
+	if len(s.databases) > 0 {
+		panic("loadSystemDatabase should be called before loadDatabases")
+	}
+
 	systemDbRootDir := filepath.Join(dataDir, s.Options.GetSystemAdminDbName())
 
 	_, sysDbErr := os.Stat(systemDbRootDir)
 	if os.IsNotExist(sysDbErr) {
 		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir)
-		s.SystemAdminDb, err = NewDb(op)
+		db, err := NewDb(op)
 		if err != nil {
 			return err
 		}
-		adminUsername, adminPlainPass, err := s.SystemAdminDb.CreateUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword), auth.PermissionSysAdmin, false)
+		adminUsername, adminPlainPass, err := db.CreateUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword), auth.PermissionSysAdmin, false)
 		if err != nil {
 			s.Logger.Errorf(err.Error())
 			return err
 		} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
 			s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
 		}
+		s.databases = append(s.databases, db)
 	} else {
 		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir)
-		s.SystemAdminDb, err = OpenDb(op)
+		db, err := OpenDb(op)
 		if err != nil {
 			return err
 		}
+		s.databases = append(s.databases, db)
 	}
 	return nil
 }
@@ -252,7 +259,7 @@ func (s *ImmuServer) loadDatabases(dataDir string) error {
 		if err != nil {
 			return err
 		}
-		s.Databases = append(s.Databases, db)
+		s.databases = append(s.databases, db)
 	}
 	return nil
 }
@@ -263,52 +270,40 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
-	for _, db := range s.Databases {
-		if db.SysStore != nil {
-			defer func() { db.SysStore = nil }()
-			db.SysStore.Close()
-		}
-		if db.Store != nil {
-			defer func() { db.Store = nil }()
-			db.Store.Close()
-		}
-	}
-
 	if s.Options.CorruptionCheck {
 		s.Cc.Stop(context.Background())
 		s.Cc = nil
 	}
-	if s.SystemAdminDb.SysStore != nil {
-		defer func() { s.SystemAdminDb.SysStore = nil }()
-		s.SystemAdminDb.SysStore.Close()
-	}
-	if s.SystemAdminDb.Store != nil {
-		defer func() {
-			s.SystemAdminDb.Store = nil
-		}()
-		return s.SystemAdminDb.Store.Close()
+	for _, db := range s.databases {
+		if db.SysStore != nil {
+			defer func() { db.SysStore = nil }()
+			db.SysStore.Close()
+		}
+		if db != nil {
+			defer func() { db.Store = nil }()
+			db.Store.Close()
+		}
 	}
 	return nil
 }
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
-	dbIndex := -1
-	u, err := s.SystemAdminDb.Login(r.GetUser(), r.GetPassword())
+	var u *auth.User
+	var err error
+	index := 0
+	for _, d := range s.databases {
+		u, err = d.Login(r.GetUser(), r.GetPassword())
+		//we found the uer, let's break the loop
+		if err == nil {
+			break
+		}
+		index++
+	}
+	//finished the loop
+	//let's test if we found a user or not
 	if err != nil {
-		for _, d := range s.Databases {
-			dbIndex++
-			u, err = d.Login(r.GetUser(), r.GetPassword())
-			//we found the uer, let's break the loop
-			if err == nil {
-				break
-			}
-		}
-		//finished the loop
-		//let's test if we found a user or not
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	u.UserUUID = auth.NewStringUUID()
 	token, err := auth.GenerateToken(*u)
@@ -326,7 +321,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	defer s.userDatabases.Unlock()
 	s.userDatabases.userDatabaseID[u.UserUUID] = &userDatabasePair{
 		userUUID: u.UserUUID,
-		index:    dbIndex,
+		index:    index,
 		User:     *u,
 	}
 	return loginResponse, nil
@@ -422,18 +417,21 @@ func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfi
 
 // CurrentRoot ...
 func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.Root, error) {
-	root, err := s.SystemAdminDb.Store.CurrentRoot()
-	if root != nil {
-		s.Logger.Debugf("current root: %d %x", root.Index, root.Root)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return root, err
+	return s.databases[ind].CurrentRoot(e)
 }
 
 // Set ...
 func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
-	fmt.Println("conteeeeex", ctx.Value("userUUID"))
 	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
-	item, err := s.SystemAdminDb.Store.Set(*kv)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.databases[ind].Set(kv)
 	if err != nil {
 		return nil, err
 	}
@@ -452,11 +450,11 @@ func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) 
 // SafeSet ...
 func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
-	item, err := s.SystemAdminDb.Store.SafeSet(*opts)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return item, nil
+	return s.databases[ind].SafeSet(opts)
 }
 
 // SafeSetSV ...
@@ -475,7 +473,11 @@ func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptio
 // SetBatch ...
 func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
 	s.Logger.Debugf("set batch %d", len(kvl.KVs))
-	index, err := s.SystemAdminDb.Store.SetBatch(*kvl)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	index, err := s.databases[ind].SetBatch(kvl)
 	if err != nil {
 		return nil, err
 	}
@@ -493,16 +495,17 @@ func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*sch
 
 // Get ...
 func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
-	item, err := s.SystemAdminDb.Store.Get(*k)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.databases[ind].Get(k)
 	if item == nil {
 		s.Logger.Debugf("get %s: item not found", k.Key)
 	} else {
 		s.Logger.Debugf("get %s %d bytes", k.Key, len(item.Value))
 	}
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	return item, err
 }
 
 // GetSV ...
@@ -518,28 +521,31 @@ func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.Structur
 // SafeGet ...
 func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("safeget %s", opts.Key)
-	sitem, err := s.SystemAdminDb.Store.SafeGet(*opts)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return sitem, nil
+	return s.databases[ind].SafeGet(opts)
 }
 
 // SafeGetSV ...
 func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
 	it, err := s.SafeGet(ctx, opts)
-	ssitem, err := it.ToSafeSItem()
 	if err != nil {
 		return nil, err
 	}
-	return ssitem, err
+	return it.ToSafeSItem()
 }
 
 // GetBatch ...
 func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
 	for _, key := range kl.Keys {
-		item, err := s.SystemAdminDb.Store.Get(*key)
+		item, err := s.databases[ind].Get(key)
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)
@@ -554,209 +560,228 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 // GetBatchSV ...
 func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
 	list, err := s.GetBatch(ctx, kl)
-	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
 	}
-	return slist, err
+	return list.ToSItemList()
 }
 
 // Scan ...
 func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
-	return s.SystemAdminDb.Store.Scan(*opts)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].Scan(opts)
 }
 
 // ScanSV ...
 func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
-	list, err := s.SystemAdminDb.Store.Scan(*opts)
-	slist, err := list.ToSItemList()
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return slist, err
+	return s.databases[ind].ScanSV(opts)
 }
 
 // Count ...
 func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	s.Logger.Debugf("count %s", prefix.Prefix)
-	return s.SystemAdminDb.Store.Count(*prefix)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].Count(prefix)
 }
 
 // Inclusion ...
 func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
-	s.Logger.Debugf("inclusion for index %d ", index.Index)
-	proof, err := s.SystemAdminDb.Store.InclusionProof(*index)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return proof, nil
+	return s.databases[ind].Inclusion(index)
 }
 
 // Consistency ...
 func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*schema.ConsistencyProof, error) {
-	s.Logger.Debugf("consistency for index %d ", index.Index)
-	proof, err := s.SystemAdminDb.Store.ConsistencyProof(*index)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return proof, nil
+	return s.databases[ind].Consistency(index)
 }
 
 // ByIndex ...
 func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
-	item, err := s.SystemAdminDb.Store.ByIndex(*index)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return item, nil
+	return s.databases[ind].ByIndex(index)
 }
 
 // ByIndexSV ...
 func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schema.StructuredItem, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
-	item, err := s.SystemAdminDb.Store.ByIndex(*index)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	sitem, err := item.ToSItem()
+	item, err := s.databases[ind].ByIndex(index)
 	if err != nil {
 		return nil, err
 	}
-	return sitem, nil
+	return item.ToSItem()
 }
 
 // BySafeIndex ...
 func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("get by safeIndex %d ", sio.Index)
-	item, err := s.SystemAdminDb.Store.BySafeIndex(*sio)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return item, nil
+	return s.databases[ind].BySafeIndex(sio)
 }
 
 // History ...
 func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
-	list, err := s.SystemAdminDb.Store.History(*key)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return list, nil
+	return s.databases[ind].History(key)
 }
 
 // HistorySV ...
 func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
-
-	list, err := s.SystemAdminDb.Store.History(*key)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	slist, err := list.ToSItemList()
+	list, err := s.databases[ind].History(key)
 	if err != nil {
 		return nil, err
 	}
-	return slist, err
+	return list.ToSItemList()
 }
 
 // Health ...
-func (s *ImmuServer) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
-	health := s.SystemAdminDb.Store.HealthCheck()
-	s.Logger.Debugf("health check: %v", health)
-	return &schema.HealthResponse{Status: health}, nil
+func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.HealthResponse, error) {
+	//s.Logger.Debugf("health check: %v", health)
+	ind, _ := s.getDbIndexFromCtx(ctx)
+
+	if ind < 0 { //probably immuclient hasn't logged in yet
+		return s.databases[0].Health(e)
+	}
+	return s.databases[ind].Health(e)
 }
 
 // Reference ...
 func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
-	index, err = s.SystemAdminDb.Store.Reference(refOpts)
+	s.Logger.Debugf("reference options: %v", refOpts)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	s.Logger.Debugf("reference options: %v", refOpts)
-	return index, nil
+	return s.databases[ind].Reference(refOpts)
 }
 
 // SafeReference ...
 func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
-	proof, err = s.SystemAdminDb.Store.SafeReference(*safeRefOpts)
+	s.Logger.Debugf("safe reference options: %v", safeRefOpts)
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	s.Logger.Debugf("safe reference options: %v", safeRefOpts)
-	return proof, nil
+	return s.databases[ind].SafeReference(safeRefOpts)
 }
 
 // ZAdd ...
 func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
-	return s.SystemAdminDb.Store.ZAdd(*opts)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].ZAdd(opts)
 }
 
 // ZScan ...
 func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
-	return s.SystemAdminDb.Store.ZScan(*opts)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].ZScan(opts)
 }
 
 // ZScanSV ...
 func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
-	list, err := s.SystemAdminDb.Store.ZScan(*opts)
-	slist, err := list.ToSItemList()
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return slist, err
+	list, err := s.databases[ind].ZScan(opts)
+	if err != nil {
+		return nil, err
+	}
+	return list.ToSItemList()
 }
 
 // SafeZAdd ...
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
-	return s.SystemAdminDb.Store.SafeZAdd(*opts)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].SafeZAdd(opts)
 }
 
 // IScan ...
 func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*schema.Page, error) {
 	s.Logger.Debugf("iscan %+v", *opts)
-	return s.SystemAdminDb.Store.IScan(*opts)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].IScan(opts)
 }
 
 // IScanSV ...
 func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
-	page, err := s.SystemAdminDb.Store.IScan(*opts)
-	SPage, err := page.ToSPage()
+	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return SPage, err
+	page, err := s.databases[ind].IScan(opts)
+	if err != nil {
+		return nil, err
+	}
+	return page.ToSPage()
 }
 
 // Dump ...
 func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
-	kvChan := make(chan *pb.KVList)
-	done := make(chan bool)
-
-	retrieveLists := func() {
-		for {
-			list, more := <-kvChan
-			if more {
-				stream.Send(list)
-			} else {
-				done <- true
-				return
-			}
-		}
+	jsonUser, err := auth.GetLoggedInUser(stream.Context())
+	if err != nil {
+		return err
 	}
-
-	go retrieveLists()
-	err := s.SystemAdminDb.Store.Dump(kvChan)
-	<-done
+	ind, err := s.getDbIndexFromUUID(jsonUser.UserUUID)
+	if err != nil {
+		return err
+	}
+	err = s.databases[ind].Dump(in, stream)
 
 	s.Logger.Debugf("Dump stream complete")
 	return err
@@ -788,7 +813,7 @@ func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer)
 //
 //	go sendLists()
 //
-//	i, err := s.SystemAdminDb.Store.Restore(kvChan)
+//	i, err := s.SystemAdminDb.Restore(kvChan)
 //
 //	ic := &schema.ItemsCount{
 //		Count: i,
@@ -866,7 +891,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
 		s.Logger.Infof("Created Newdatabase %s", newdb.Databasename)
 	}
-	s.Databases = append(s.Databases, db)
+	s.databases = append(s.databases, db)
 	return &schema.CreateDatabaseReply{
 		Error: &schema.Error{
 			Errorcode:    0,
@@ -909,4 +934,24 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 func (s *ImmuServer) PrintTree(context.Context, *empty.Empty) (*schema.Tree, error) {
 	//TODO gj, select right db and change pass, easy no?
 	return nil, nil
+}
+func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context) (int, error) {
+	//if we're in devmode just work with system db
+	if s.Options.DevMode {
+		return 0, nil
+	}
+	userUUID, ok := ctx.Value("userUUID").(string)
+	if !ok {
+		return -1, fmt.Errorf("user uuid not found")
+	}
+	return s.getDbIndexFromUUID(userUUID)
+}
+func (s *ImmuServer) getDbIndexFromUUID(userUUID string) (int, error) {
+	s.userDatabases.Lock()
+	defer s.userDatabases.Unlock()
+	userdata, ok := s.userDatabases.userDatabaseID[userUUID]
+	if !ok {
+		return -1, fmt.Errorf("Logedin user data not found")
+	}
+	return userdata.index, nil
 }

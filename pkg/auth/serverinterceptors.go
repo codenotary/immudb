@@ -64,8 +64,7 @@ func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Una
 	if err != nil {
 		return nil, err
 	}
-	m, err := handler(ctx, req)
-	return m, err
+	return handler(ctx, req)
 }
 
 var localAddress = map[string]bool{

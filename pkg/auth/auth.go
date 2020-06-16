@@ -19,7 +19,6 @@ package auth
 import (
 	"bytes"
 	"context"
-	"fmt"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -73,7 +72,6 @@ func checkAuth(ctx context.Context, method string, req interface{}) (context.Con
 		}
 	}
 	if AuthEnabled && hasAuth(method) {
-		fmt.Println("method", method)
 		jsonToken, err := verifyTokenFromCtx(ctx)
 		if err != nil {
 			return ctx, err
