@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+//Db database instance
 type Db struct {
 	Store    *store.Store
 	SysStore *store.Store
@@ -108,15 +109,13 @@ func NewDb(op *DbOptions) (*Db, error) {
 	return db, nil
 }
 
+//Set ...
 func (d *Db) Set(kv *schema.KeyValue) (*schema.Index, error) {
 	d.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
-	item, err := d.Store.Set(*kv)
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	return d.Store.Set(*kv)
 }
 
+//Get ...
 func (d *Db) Get(k *schema.Key) (*schema.Item, error) {
 	item, err := d.Store.Get(*k)
 	if item == nil {
@@ -124,11 +123,10 @@ func (d *Db) Get(k *schema.Key) (*schema.Item, error) {
 	} else {
 		d.Logger.Debugf("get %s %d bytes", k.Key, len(item.Value))
 	}
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	return item, err
 }
+
+// CurrentRoot ...
 func (d *Db) CurrentRoot(e *empty.Empty) (*schema.Root, error) {
 	root, err := d.Store.CurrentRoot()
 	if root != nil {
@@ -137,6 +135,7 @@ func (d *Db) CurrentRoot(e *empty.Empty) (*schema.Root, error) {
 	return root, err
 }
 
+// SetSV ...
 func (d *Db) SetSV(skv *schema.StructuredKeyValue) (*schema.Index, error) {
 	kv, err := skv.ToKV()
 	if err != nil {
@@ -144,31 +143,29 @@ func (d *Db) SetSV(skv *schema.StructuredKeyValue) (*schema.Index, error) {
 	}
 	return d.Set(kv)
 }
+
+//GetSV ...
 func (d *Db) GetSV(k *schema.Key) (*schema.StructuredItem, error) {
 	it, err := d.Get(k)
-	si, err := it.ToSItem()
 	if err != nil {
 		return nil, err
 	}
-	return si, err
+	return it.ToSItem()
 }
 
+//SafeSet ...
 func (d *Db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	d.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
-	item, err := d.Store.SafeSet(*opts)
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	return d.Store.SafeSet(*opts)
 }
+
+//SafeGet ...
 func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	d.Logger.Debugf("safeget %s", opts.Key)
-	sitem, err := d.Store.SafeGet(*opts)
-	if err != nil {
-		return nil, err
-	}
-	return sitem, nil
+	return d.Store.SafeGet(*opts)
 }
+
+//SafeSetSV ...
 func (d *Db) SafeSetSV(sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
 	kv, err := sopts.Skv.ToKV()
 	if err != nil {
@@ -180,6 +177,8 @@ func (d *Db) SafeSetSV(sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
 	}
 	return d.SafeSet(opts)
 }
+
+//SafeGetSV ...
 func (d *Db) SafeGetSV(opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
 	it, err := d.SafeGet(opts)
 	ssitem, err := it.ToSafeSItem()
@@ -189,15 +188,13 @@ func (d *Db) SafeGetSV(opts *schema.SafeGetOptions) (*schema.SafeStructuredItem,
 	return ssitem, err
 }
 
+// SetBatch ...
 func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Index, error) {
 	d.Logger.Debugf("set batch %d", len(kvl.KVs))
-	index, err := d.Store.SetBatch(*kvl)
-	if err != nil {
-		return nil, err
-	}
-	return index, nil
+	return d.Store.SetBatch(*kvl)
 }
 
+//GetBatch ...
 func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
@@ -213,6 +210,7 @@ func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 	return list, nil
 }
 
+//SetBatchSV ...
 func (d *Db) SetBatchSV(skvl *schema.SKVList) (*schema.Index, error) {
 	kvl, err := skvl.ToKVList()
 	if err != nil {
@@ -220,6 +218,8 @@ func (d *Db) SetBatchSV(skvl *schema.SKVList) (*schema.Index, error) {
 	}
 	return d.SetBatch(kvl)
 }
+
+//GetBatchSV ...
 func (d *Db) GetBatchSV(kl *schema.KeyList) (*schema.StructuredItemList, error) {
 	list, err := d.GetBatch(kl)
 	slist, err := list.ToSItemList()
@@ -229,16 +229,17 @@ func (d *Db) GetBatchSV(kl *schema.KeyList) (*schema.StructuredItemList, error) 
 	return slist, err
 }
 
+//ScanSV ...
 func (d *Db) ScanSV(opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
 	d.Logger.Debugf("scan %+v", *opts)
 	list, err := d.Store.Scan(*opts)
-	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
 	}
-	return slist, err
+	return list.ToSItemList()
 }
 
+//Count ...
 func (d *Db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	d.Logger.Debugf("count %s", prefix.Prefix)
 	return d.Store.Count(*prefix)
@@ -259,35 +260,26 @@ func (d *Db) Consistency(index *schema.Index) (*schema.ConsistencyProof, error) 
 // ByIndex ...
 func (d *Db) ByIndex(index *schema.Index) (*schema.Item, error) {
 	d.Logger.Debugf("get by index %d ", index.Index)
-	item, err := d.Store.ByIndex(*index)
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	return d.Store.ByIndex(*index)
 }
 
+//ByIndexSV ...
 func (d *Db) ByIndexSV(index *schema.Index) (*schema.StructuredItem, error) {
 	d.Logger.Debugf("get by index %d ", index.Index)
 	item, err := d.Store.ByIndex(*index)
 	if err != nil {
 		return nil, err
 	}
-	sitem, err := item.ToSItem()
-	if err != nil {
-		return nil, err
-	}
-	return sitem, nil
+	return item.ToSItem()
 }
 
+//BySafeIndex ...
 func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
 	d.Logger.Debugf("get by safeIndex %d ", sio.Index)
-	item, err := d.Store.BySafeIndex(*sio)
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	return d.Store.BySafeIndex(*sio)
 }
 
+//History ...
 func (d *Db) History(key *schema.Key) (*schema.ItemList, error) {
 	d.Logger.Debugf("history for key %s ", string(key.Key))
 	list, err := d.Store.History(*key)
@@ -297,6 +289,7 @@ func (d *Db) History(key *schema.Key) (*schema.ItemList, error) {
 	return list, nil
 }
 
+//HistorySV ...
 func (d *Db) HistorySV(key *schema.Key) (*schema.StructuredItemList, error) {
 	d.Logger.Debugf("history for key %s ", string(key.Key))
 
@@ -312,12 +305,14 @@ func (d *Db) HistorySV(key *schema.Key) (*schema.StructuredItemList, error) {
 	return slist, err
 }
 
+//Health ...
 func (d *Db) Health(context.Context, *empty.Empty) (*schema.HealthResponse, error) {
 	health := d.Store.HealthCheck()
 	d.Logger.Debugf("health check: %v", health)
 	return &schema.HealthResponse{Status: health}, nil
 }
 
+//Reference ...
 func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
 	index, err = d.Store.Reference(refOpts)
 	if err != nil {
@@ -327,6 +322,7 @@ func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, e
 	return index, nil
 }
 
+//SafeReference ...
 func (d *Db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	proof, err = d.Store.SafeReference(*safeRefOpts)
 	if err != nil {
@@ -336,46 +332,51 @@ func (d *Db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *sch
 	return proof, nil
 }
 
+//ZAdd ...
 func (d *Db) ZAdd(opts *schema.ZAddOptions) (*schema.Index, error) {
 	d.Logger.Debugf("zadd %+v", *opts)
 	return d.Store.ZAdd(*opts)
 }
 
+// ZScan ...
 func (d *Db) ZScan(opts *schema.ZScanOptions) (*schema.ItemList, error) {
 	d.Logger.Debugf("zscan %+v", *opts)
 	return d.Store.ZScan(*opts)
 }
 
+//ZScanSV ...
 func (d *Db) ZScanSV(opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
 	d.Logger.Debugf("zscan %+v", *opts)
 	list, err := d.Store.ZScan(*opts)
-	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
 	}
-	return slist, err
+	return list.ToSItemList()
 }
 
+//SafeZAdd ...
 func (d *Db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	d.Logger.Debugf("zadd %+v", *opts)
 	return d.Store.SafeZAdd(*opts)
 }
 
+//IScan ...
 func (d *Db) IScan(opts *schema.IScanOptions) (*schema.Page, error) {
 	d.Logger.Debugf("iscan %+v", *opts)
 	return d.Store.IScan(*opts)
 }
 
+//IScanSV ...
 func (d *Db) IScanSV(opts *schema.IScanOptions) (*schema.SPage, error) {
 	d.Logger.Debugf("zscan %+v", *opts)
 	page, err := d.Store.IScan(*opts)
-	SPage, err := page.ToSPage()
 	if err != nil {
 		return nil, err
 	}
-	return SPage, err
+	return page.ToSPage()
 }
 
+//Dump ...
 func (d *Db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 	kvChan := make(chan *pb.KVList)
 	done := make(chan bool)
@@ -614,7 +615,7 @@ func (d *Db) CreateAdminUser(username []byte) ([]byte, []byte, error) {
 // CreateUser creates a user and returns username and plain text password
 // A new password is generated automatically if passed parameter is empty
 // If enforceStrongAuth is true it checks if username and password meet security criteria
-func (d *Db) CreateUser(username []byte, password []byte, permission byte, enforceStrongAuth bool) ([]byte, []byte, error) {
+func (d *Db) CreateUser(username []byte, plainPassword []byte, permission byte, enforceStrongAuth bool) ([]byte, []byte, error) {
 	if enforceStrongAuth {
 		if !auth.IsValidUsername(string(username)) {
 			return nil, nil, status.Errorf(
@@ -630,12 +631,12 @@ func (d *Db) CreateUser(username []byte, password []byte, permission byte, enfor
 		return nil, nil, err
 	}
 	if enforceStrongAuth {
-		if err := auth.IsStrongPassword(string(password)); err != nil {
+		if err := auth.IsStrongPassword(string(plainPassword)); err != nil {
 			return nil, nil, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
 	}
 	userdata = new(auth.User)
-	plainpassword, err := userdata.GenerateOrSetPassword(password)
+	plainpassword, err := userdata.GenerateOrSetPassword(plainPassword)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -853,12 +853,11 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		if !ok {
 			return nil, fmt.Errorf("Logedin user data not found")
 		}
-
-		adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(userdata.Username)) //provide empty pass to generate one automaticallly
-		if err != nil {
+		//we are using saveUser because we do not need a new pass
+		if err := db.saveUser([]byte(userdata.Username), userdata.HashedPassword, auth.PermissionAdmin); err != nil {
 			return nil, err
 		}
-		//if username is supplied by client than add this as well as admin
+		//if username is supplied by client than add that user as well as admin and generate password
 		if newdb.Adminuser != "" {
 			adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(newdb.Adminuser)) //provide empty pass to generate one automaticallly
 		}
