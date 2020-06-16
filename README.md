@@ -8,7 +8,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 -->
 
-# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb) [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb) <img align="right" src="img/Black%20logo%20-%20no%20background.png" width="160px"/> [![Gitter](https://badges.gitter.im/immudb-chat/community.svg)](https://gitter.im/immudb-chat/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb) [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb) <img align="right" src="img/Black%20logo%20-%20no%20background.png" width="160px"/> [![Gitter](https://badges.gitter.im/immudb-chat/community.svg)](https://gitter.im/immudb-chat/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb)
 
 immudb is a **lightweight, high-speed immutable database** for systems and applications. Written in Go.
 With immudb you can track changes in sensitive data in your transactional databases and then record those changes permanently in a
@@ -36,7 +36,7 @@ other systems derived from them, such as **Kubernetes** and **Docker**.
 
 ![immudb Highlevel](img/highlevel.png "immudb highlevel overview")
 
-[We are hiring!](https://immudb.io/careers/)
+## [We are hiring!](https://immudb.io/careers/)
 
 [![Tweet about
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
@@ -550,6 +550,10 @@ As immudb is compared to Amazon QLDB as well, we compared the performance using 
 ![immudb Execution Benchmark](img/exectime.png "100 records write execution time (lower is better)")
 
 ## News
+`June 16th, 2020` - **[immudb v0.6.2 released!](https://github.com/codenotary/immudb/releases)**
+
+Release v0.6.2 Release v0.6.2 ringbuffer management fix, improved user management for automatic deployment, improved container support
+
 `June 9th, 2020` - **[immudb v0.6.1 released!](https://github.com/codenotary/immudb/releases)**
 
 Release v0.6.1 fixes some important bugs and has many improvements - we recommend updating to it
