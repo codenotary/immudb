@@ -33,12 +33,11 @@ import (
 const ErrConsistencyFail = "consistency check fail at index %d"
 
 type corruptionChecker struct {
-	store      *store.Store
-	Logger     logger.Logger
-	Exit       bool
-	StopImmudb func() error
-	Trusted    bool
-	Wg         sync.WaitGroup
+	store   *store.Store
+	Logger  logger.Logger
+	Exit    bool
+	Trusted bool
+	Wg      sync.WaitGroup
 }
 
 // CorruptionChecker corruption checker interface
@@ -50,13 +49,12 @@ type CorruptionChecker interface {
 }
 
 // NewCorruptionChecker returns new trust checker service
-func NewCorruptionChecker(s *store.Store, l logger.Logger, stopImmudb func() error) CorruptionChecker {
+func NewCorruptionChecker(s *store.Store, l logger.Logger) CorruptionChecker {
 	return &corruptionChecker{
-		store:      s,
-		Logger:     l,
-		Exit:       false,
-		StopImmudb: stopImmudb,
-		Trusted:    true}
+		store:   s,
+		Logger:  l,
+		Exit:    false,
+		Trusted: true}
 }
 
 // Start start the trust checker loop
@@ -109,7 +107,6 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				if err == store.ErrInconsistentDigest {
 					s.Logger.Errorf("insertion order index %d was tampered", id)
 					s.Wg.Done()
-					s.StopImmudb()
 					return
 				}
 				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
@@ -120,7 +117,6 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				s.Trusted = false
 				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
 				s.Wg.Done()
-				s.StopImmudb()
 				return
 			}
 			time.Sleep(100 * time.Millisecond)

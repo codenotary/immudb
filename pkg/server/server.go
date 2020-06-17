@@ -169,15 +169,6 @@ func (s *ImmuServer) Start() error {
 	}
 	//<===
 	grpc_prometheus.Register(s.GrpcServer)
-	if s.Options.CorruptionCheck {
-		s.Cc = NewCorruptionChecker(s.databases[0].Store, s.Logger, s.Stop)
-		go func() {
-			s.Logger.Infof("starting consistency-checker")
-			if err = s.Cc.Start(context.Background()); err != nil {
-				s.Logger.Errorf("unable to start consistency-checker: %s", err)
-			}
-		}()
-	}
 
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
@@ -211,7 +202,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 
 	_, sysDbErr := os.Stat(systemDbRootDir)
 	if os.IsNotExist(sysDbErr) {
-		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir)
+		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir).WithCorruptionChecker(s.Options.CorruptionCheck)
 		db, err := NewDb(op)
 		if err != nil {
 			return err
@@ -225,7 +216,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		}
 		s.databases = append(s.databases, db)
 	} else {
-		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir)
+		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir).WithCorruptionChecker(s.Options.CorruptionCheck)
 		db, err := OpenDb(op)
 		if err != nil {
 			return err
@@ -237,6 +228,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 
 func (s *ImmuServer) loadDatabases(dataDir string) error {
 	var dirs []string
+	//get first level sub directories of data dir
 	err := filepath.Walk(s.Options.dataDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -253,8 +245,9 @@ func (s *ImmuServer) loadDatabases(dataDir string) error {
 	if err != nil {
 		return err
 	}
+	//load databases that are inside each directory
 	for _, val := range dirs {
-		op := DefaultOption().WithDbName(val)
+		op := DefaultOption().WithDbName(val).WithCorruptionChecker(s.Options.CorruptionCheck)
 		db, err := OpenDb(op)
 		if err != nil {
 			return err
@@ -270,11 +263,9 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
-	if s.Options.CorruptionCheck {
-		s.Cc.Stop(context.Background())
-		s.Cc = nil
-	}
+
 	for _, db := range s.databases {
+		db.StopCorruptionChecker()
 		if db.SysStore != nil {
 			defer func() { db.SysStore = nil }()
 			db.SysStore.Close()
@@ -283,6 +274,7 @@ func (s *ImmuServer) Stop() error {
 			defer func() { db.Store = nil }()
 			db.Store.Close()
 		}
+
 	}
 	return nil
 }
@@ -431,11 +423,7 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 	if err != nil {
 		return nil, err
 	}
-	item, err := s.databases[ind].Set(kv)
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	return s.databases[ind].Set(kv)
 }
 
 // SetSV ...
@@ -855,7 +843,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	dataDir := s.Options.GetDataDir()
 
 	dbName := newdb.Databasename + "_" + GenerateDbID()
-	op := DefaultOption().WithDbName(dbName).WithDbRootPath(dataDir)
+	op := DefaultOption().WithDbName(dbName).WithDbRootPath(dataDir).WithCorruptionChecker(s.Options.CorruptionCheck)
 	db, err := NewDb(op)
 	if err != nil {
 		s.Logger.Errorf(err.Error())
@@ -936,7 +924,7 @@ func (s *ImmuServer) PrintTree(context.Context, *empty.Empty) (*schema.Tree, err
 	return nil, nil
 }
 func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context) (int, error) {
-	//if we're in devmode just work with system db
+	//if we're in devmode just work with system db, since it's just testing
 	if s.Options.DevMode {
 		return 0, nil
 	}

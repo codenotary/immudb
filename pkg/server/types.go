@@ -46,11 +46,11 @@ type ImmuServer struct {
 	// Store         *store.Store
 	// SysStore      *store.Store
 	//SystemAdminDb *Db
-	databases     []*Db //TODO gj slice operations protect with mutex
-	Logger        logger.Logger
-	Options       Options
-	GrpcServer    *grpc.Server
-	Cc            CorruptionChecker
+	databases  []*Db //TODO gj slice operations protect with mutex
+	Logger     logger.Logger
+	Options    Options
+	GrpcServer *grpc.Server
+	//Cc            CorruptionChecker
 	Pid           PIDFile
 	quit          chan struct{}
 	userDatabases *userDatabasePairs
@@ -78,10 +78,10 @@ func (s *ImmuServer) WithLogger(logger logger.Logger) *ImmuServer {
 }
 
 // WithCC ...
-func (s *ImmuServer) WithCC(cc CorruptionChecker) *ImmuServer {
-	s.Cc = cc
-	return s
-}
+// func (s *ImmuServer) WithCC(cc CorruptionChecker) *ImmuServer {
+// 	s.Cc = cc
+// 	return s
+// }
 
 // WithOptions ...
 func (s *ImmuServer) WithOptions(options Options) *ImmuServer {

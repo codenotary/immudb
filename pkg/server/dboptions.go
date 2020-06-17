@@ -16,20 +16,23 @@ limitations under the License.
 
 package server
 
+//DbOptions database instance options
 type DbOptions struct {
-	dbDir      string
-	dbName     string
-	sysDbDir   string
-	dbRootPath string
+	dbDir             string
+	dbName            string
+	sysDbDir          string
+	dbRootPath        string
+	corruptionChecker bool
 }
 
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *DbOptions {
 	return &DbOptions{
-		dbDir:      "immudb",
-		dbName:     "db_" + GenerateDbID(),
-		sysDbDir:   "immudbsys",
-		dbRootPath: "",
+		dbDir:             "immudb",
+		dbName:            "db_" + GenerateDbID(),
+		sysDbDir:          "immudbsys",
+		dbRootPath:        "",
+		corruptionChecker: true,
 	}
 }
 
@@ -54,7 +57,7 @@ func (o *DbOptions) GetDbName() string {
 	return o.dbName
 }
 
-// DbRootPath sets the directory in which this database will reside
+// WithDbRootPath sets the directory in which this database will reside
 func (o *DbOptions) WithDbRootPath(Path string) *DbOptions {
 	o.dbRootPath = Path
 	return o
@@ -63,4 +66,15 @@ func (o *DbOptions) WithDbRootPath(Path string) *DbOptions {
 // GetDbRootPath returns the directory in which this database resides
 func (o *DbOptions) GetDbRootPath() string {
 	return o.dbRootPath
+}
+
+// WithCorruptionChecker sets if corruption checker should start for this database instance
+func (o *DbOptions) WithCorruptionChecker(cc bool) *DbOptions {
+	o.corruptionChecker = cc
+	return o
+}
+
+// GetCorruptionChecker returns if corruption checker should start for this database instance
+func (o *DbOptions) GetCorruptionChecker() bool {
+	return o.corruptionChecker
 }
