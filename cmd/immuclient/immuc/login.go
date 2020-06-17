@@ -45,7 +45,7 @@ func (i *immuc) Login(args []string) (string, error) {
 	if err = i.ts.SetToken("", response.Token); err != nil {
 		return "", err
 	}
-	i.ImmuClient.GetOptions().Auth = true
+	i.ImmuClient.GetOptions().DisableAuth = false
 	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
 	if err != nil {
 		return "", err
@@ -67,7 +67,7 @@ func (i *immuc) Logout(args []string) (string, error) {
 		return "", err
 	}
 	i.isLoggedin = false
-	i.ImmuClient.GetOptions().Auth = false
+	i.ImmuClient.GetOptions().DisableAuth = true
 
 	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
 	if err != nil {

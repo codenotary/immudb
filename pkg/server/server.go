@@ -85,7 +85,7 @@ func (s *ImmuServer) Start() error {
 		return err
 	}
 	s.multidbmode = s.mandatoryAuth()
-	if !s.Options.GetAuth() && s.multidbmode {
+	if s.Options.DisableAuth && s.multidbmode {
 		s.Logger.Infof("Authentication must be on.")
 		return fmt.Errorf("auth should be on")
 	}
@@ -113,7 +113,8 @@ func (s *ImmuServer) Start() error {
 	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
 		return err
 	}
-	auth.AuthEnabled = s.Options.GetAuth()
+
+	auth.AuthEnabled = !s.Options.DisableAuth
 	auth.DevMode = s.Options.DevMode
 	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
 	if err != nil {
@@ -268,7 +269,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 
 	_, sysDbErr := s.OS.Stat(systemDbRootDir)
 	if s.OS.IsNotExist(sysDbErr) {
-		if s.Options.GetAuth() {
+		if s.Options.DisableAuth {
 			op := DefaultOption().
 				WithDbName(s.Options.GetSystemAdminDbName()).
 				WithDbRootPath(dataDir).
@@ -355,7 +356,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 			(dataDir != path) &&
 			!strings.Contains(path, s.Options.GetSystemAdminDbName()) &&
 			!strings.Contains(path, s.Options.GetDefaultDbName()) &&
-			!strings.Contains(path, "config"){
+			!strings.Contains(path, "config") {
 			dirs = append(dirs, path)
 		}
 		return nil
@@ -438,7 +439,7 @@ func (s *ImmuServer) stopCorruptionChecker() error {
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
-	if !s.Options.auth {
+	if s.Options.DisableAuth {
 		return nil, fmt.Errorf("server is running with authentication disabled, please enable authentication to login")
 	}
 	u, err := s.userExists(r.User, r.Password)
@@ -526,8 +527,8 @@ func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfi
 		return nil, err
 	}
 	e := new(empty.Empty)
-	s.Options.WithAuth(req.GetKind() > 0)
-	auth.AuthEnabled = s.Options.GetAuth()
+	s.Options.DisableAuth = !(req.GetKind() > 0)
+	auth.AuthEnabled = !s.Options.DisableAuth
 	if err := s.updateConfigItem(
 		"auth",
 		fmt.Sprintf("auth = %t", auth.AuthEnabled),
@@ -970,7 +971,7 @@ func (s *ImmuServer) installShutdownHandler() {
 // ChangePassword ...
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("ChangePassword %+v", *r)
-	if !s.Options.GetAuth() {
+	if s.Options.DisableAuth {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -1020,7 +1021,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 // CreateDatabase Create a new database instance
 func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase %+v", *newdb)
-	if !s.Options.GetAuth() {
+	if s.Options.DisableAuth {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -1067,7 +1068,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	loggedInuser := &auth.User{}
 	var err error
 	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
+		if s.Options.DisableAuth {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
 		_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
@@ -1124,7 +1125,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	var err error
 	userlist := &schema.UserList{}
 	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
+		if s.Options.DisableAuth {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
 		dbInd, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
@@ -1222,7 +1223,7 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	s.Logger.Debugf("DatabaseList")
 	loggedInuser := &auth.User{}
 	var err error
-	if !s.Options.GetAuth() {
+	if s.Options.DisableAuth {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
 	_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
@@ -1269,7 +1270,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	user := &auth.User{}
 	var err error
 	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
+		if s.Options.DisableAuth {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
 		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
@@ -1318,7 +1319,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 		return nil, fmt.Errorf("this database can not be assigned")
 	}
 	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
+		if s.Options.DisableAuth {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
 	}
@@ -1395,7 +1396,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	user := &auth.User{}
 	var err error
 	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
+		if s.Options.DisableAuth {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
 		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
@@ -1439,7 +1440,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 // returns index of database
 func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (int64, error) {
 	//if auth is disabled return index zero (defaultdb) as it is the first database created/loaded
-	if !s.Options.auth {
+	if s.Options.DisableAuth {
 		if !s.multidbmode {
 			return DefaultDbIndex, nil
 		}

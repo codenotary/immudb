@@ -55,7 +55,7 @@ Environment variables:
   IMMUDB_PIDFILE=
   IMMUDB_LOGFILE=
   IMMUDB_MTLS=false
-  IMMUDB_AUTH=true
+  IMMUDB_DISABLE_AUTH=false
   IMMUDB_DETACHED=false
   IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
@@ -143,7 +143,7 @@ func parseOptions() (options server.Options, err error) {
 		return options, err
 	}
 	mtls := viper.GetBool("mtls")
-	auth := viper.GetBool("auth")
+	disableAuth := viper.GetBool("disable-auth")
 	noHistograms := viper.GetBool("no-histograms")
 	detached := viper.GetBool("detached")
 	consistencyCheck := viper.GetBool("consistency-check")
@@ -171,7 +171,7 @@ func parseOptions() (options server.Options, err error) {
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
 		WithMTLs(mtls).
-		WithAuth(auth).
+		WithDisableAuth(disableAuth).
 		WithNoHistograms(noHistograms).
 		WithDetached(detached).
 		WithCorruptionCheck(consistencyCheck).
@@ -196,7 +196,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options server.Options, mt
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
-	cmd.Flags().BoolP("auth", "s", options.MTLs, "enable auth")
+	cmd.Flags().BoolP("disable-auth", "s", options.MTLs, "disable auth")
 	cmd.Flags().Bool("no-histograms", options.MTLs, "disable collection of histogram metrics like query durations")
 	cmd.Flags().Bool("consistency-check", options.CorruptionCheck, "enable consistency check monitor routine. To disable: --consistency-check=false")
 	cmd.Flags().BoolP(c.DetachedFlag, c.DetachedShortFlag, options.Detached, "run immudb in background")
@@ -215,7 +215,7 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("pidfile", options.Pidfile)
 	viper.SetDefault("logfile", options.Logfile)
 	viper.SetDefault("mtls", options.MTLs)
-	viper.SetDefault("auth", options.GetAuth())
+	viper.SetDefault("disable-auth", options.DisableAuth)
 	viper.SetDefault("no-histograms", options.NoHistograms)
 	viper.SetDefault("consistency-check", options.CorruptionCheck)
 	viper.SetDefault("detached", options.Detached)

@@ -82,9 +82,9 @@ func Init(opts *client.Options) (Client, error) {
 func (i *immuc) Connect(args []string) error {
 	ok, err := i.ts.IsTokenPresent()
 	if err != nil || !ok {
-		i.options.Auth = false
+		i.options.DisableAuth = true
 	} else {
-		i.options.Auth = true
+		i.options.DisableAuth = false
 	}
 
 	if i.ImmuClient, err = client.NewImmuClient(i.options); err != nil || i.ImmuClient == nil {

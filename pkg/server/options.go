@@ -40,7 +40,7 @@ type Options struct {
 	Logfile             string
 	MTLs                bool
 	MTLsOptions         MTLsOptions
-	auth                bool
+	DisableAuth         bool
 	NoHistograms        bool
 	Detached            bool
 	CorruptionCheck     bool
@@ -67,7 +67,7 @@ func DefaultOptions() Options {
 		Pidfile:             "",
 		Logfile:             "",
 		MTLs:                false,
-		auth:                true,
+		DisableAuth:         false,
 		NoHistograms:        false,
 		Detached:            false,
 		CorruptionCheck:     true,
@@ -138,18 +138,10 @@ func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
 	return o
 }
 
-// WithAuth sets auth
-func (o Options) WithAuth(authEnabled bool) Options {
-	o.auth = authEnabled
+// WithDisableAuth sets auth
+func (o Options) WithDisableAuth(disableAuth bool) Options {
+	o.DisableAuth = disableAuth
 	return o
-}
-
-// GetAuth gets auth
-func (o Options) GetAuth() bool {
-	if o.maintenance {
-		return false
-	}
-	return o.auth
 }
 
 // WithNoHistograms disables collection of histograms metrics (e.g. query durations)
@@ -202,7 +194,7 @@ func (o Options) String() string {
 		opts = append(opts, rightPad("Log file", o.Logfile))
 	}
 	opts = append(opts, rightPad("MTLS enabled", o.MTLs))
-	opts = append(opts, rightPad("Auth enabled", o.auth))
+	opts = append(opts, rightPad("Auth disabled", o.DisableAuth))
 	opts = append(opts, rightPad("Dev mode", o.DevMode))
 	opts = append(opts, rightPad("Default database", o.defaultDbName))
 	opts = append(opts, rightPad("Maintenance mode", o.maintenance))

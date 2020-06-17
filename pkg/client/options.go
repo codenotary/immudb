@@ -35,7 +35,7 @@ type Options struct {
 	HealthCheckRetries int
 	MTLs               bool
 	MTLsOptions        MTLsOptions
-	Auth               bool
+	DisableAuth        bool
 	DialOptions        *[]grpc.DialOption
 	Config             string
 	TokenFileName      string
@@ -57,7 +57,7 @@ func DefaultOptions() *Options {
 		Port:               3322,
 		HealthCheckRetries: 5,
 		MTLs:               false,
-		Auth:               true,
+		DisableAuth:        false,
 		Config:             "configs/immuclient.toml",
 		TokenFileName:      "token",
 		DialOptions:        &[]grpc.DialOption{},
@@ -133,9 +133,9 @@ func (o *Options) WithMTLs(MTLs bool) *Options {
 	return o
 }
 
-// WithAuth activate/deactivate auth
-func (o *Options) WithAuth(authEnabled bool) *Options {
-	o.Auth = authEnabled
+// WithDisableAuth activate/deactivate auth
+func (o *Options) WithDisableAuth(disableAuth bool) *Options {
+	o.DisableAuth = disableAuth
 	return o
 }
 
