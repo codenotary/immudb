@@ -850,30 +850,10 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		return nil, fmt.Errorf("Could not create new database")
 	}
 
-	var adminUsername, adminPlainPass []byte
-	if jsonUser.Permissions == auth.PermissionSysAdmin {
-		//create the dafault admin user and generate a password
-		adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(auth.AdminUsername))
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		//first add this user as admin
-		//we're not interested to get the password back as we already know it
-		s.userDatabases.Lock()
-		defer s.userDatabases.Unlock()
-		userdata, ok := s.userDatabases.userDatabaseID[jsonUser.UserUUID]
-		if !ok {
-			return nil, fmt.Errorf("Logedin user data not found")
-		}
-		//we are using saveUser because we do not need a new pass
-		if err := db.saveUser([]byte(userdata.Username), userdata.HashedPassword, auth.PermissionAdmin); err != nil {
-			return nil, err
-		}
-		//if username is supplied by client than add that user as well as admin and generate password
-		if newdb.Adminuser != "" {
-			adminUsername, adminPlainPass, err = db.CreateAdminUser([]byte(newdb.Adminuser)) //provide empty pass to generate one automaticallly
-		}
+	//create the dafault admin user and generate a password
+	adminUsername, adminPlainPass, err := db.CreateAdminUser([]byte(auth.AdminUsername))
+	if err != nil {
+		return nil, err
 	}
 
 	if len(adminUsername) > 0 && len(adminPlainPass) > 0 {

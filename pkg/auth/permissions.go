@@ -58,9 +58,9 @@ var methodsPermissions = map[string][]byte{
 	"/immudb.schema.ImmuService/ChangePassword":   {PermissionSysAdmin, PermissionAdmin},
 	"/immudb.schema.ImmuService/SetPermission":    {PermissionSysAdmin, PermissionAdmin},
 	"/immudb.schema.ImmuService/DeactivateUser":   {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/UpdateAuthConfig": {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/UpdateMTLSConfig": {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/CreateDatabase":   {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/UpdateAuthConfig": {PermissionSysAdmin},
+	"/immudb.schema.ImmuService/UpdateMTLSConfig": {PermissionSysAdmin},
+	"/immudb.schema.ImmuService/CreateDatabase":   {PermissionSysAdmin},
 	"/immudb.schema.ImmuService/Dump":             {PermissionSysAdmin, PermissionAdmin},
 }
 

@@ -39,7 +39,7 @@ coverage.txt
 # Working files
 .root*
 immudb.pid
-/db
+/data
 
 # Vendor
 vendor

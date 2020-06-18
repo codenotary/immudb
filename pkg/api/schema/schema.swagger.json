@@ -946,9 +946,6 @@
       "properties": {
         "databasename": {
           "type": "string"
-        },
-        "adminuser": {
-          "type": "string"
         }
       }
     },

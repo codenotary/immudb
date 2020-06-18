@@ -124,6 +124,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 		}
 	}
 	s.Wg.Done()
+	//TODO this is workaround because of a suspected memory leak in this code
 	debug.FreeOSMemory()
 	s.sleep()
 	if !s.Exit {
