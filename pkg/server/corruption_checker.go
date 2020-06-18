@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	mrand "math/rand"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -123,6 +124,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 		}
 	}
 	s.Wg.Done()
+	debug.FreeOSMemory()
 	s.sleep()
 	if !s.Exit {
 		if err = s.checkLevel0(ctx); err != nil {
