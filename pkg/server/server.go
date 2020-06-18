@@ -43,6 +43,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var startedAt time.Time
@@ -105,7 +106,6 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Errorf("Immudb unable to listen: %s", err)
 		return err
 	}
-	//TODO gj pjesa me poshte duhet tek krijimi i db
 	systemDbRootDir := filepath.Join(dataDir, s.Options.GetSystemAdminDbName())
 	var uuid xid.ID
 	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
@@ -824,8 +824,12 @@ func (s *ImmuServer) installShutdownHandler() {
 
 // ChangePassword ...
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
-	//TODO gj, select right db and change pass, easy no?
-	return new(empty.Empty), nil
+	s.Logger.Debugf("ChangePassword %+v", *r)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].ChangePassword(r)
 }
 
 // CreateDatabase Create a new database instance and asign the default user to it //TODO
@@ -870,38 +874,91 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 
 // CreateUser ...
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
-	//TODO gj, select right db and change pass, easy no?
-	return &schema.UserResponse{User: r.GetUser(), Permissions: r.GetPermissions()}, nil
+	s.Logger.Debugf("CreateUser %+v", *r)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.databases[ind].userExists(r.User, auth.PermissionNone, nil)
+	if err == nil {
+		return nil, fmt.Errorf("user with this username already exists")
+	}
+	username, _, err := s.databases[ind].CreateUser(r.User, r.Password, r.Permissions[0], true)
+	if err != nil {
+		return nil, err
+	}
+	return &schema.UserResponse{User: username, Permissions: r.GetPermissions()}, nil
 }
 
 // SetPermission ...
 func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
-	//TODO gj, select right db and change pass, easy no?
-	return new(empty.Empty), nil
+	s.Logger.Debugf("SetPermission %+v", *r)
+	if len(r.GetValue()) <= 0 {
+		return new(empty.Empty), status.Errorf(
+			codes.InvalidArgument, "no permission specified")
+	}
+	if (int(r.GetValue()[0]) == auth.PermissionAdmin) ||
+		(int(r.GetValue()[0]) == auth.PermissionSysAdmin) {
+		return new(empty.Empty), status.Error(
+			codes.PermissionDenied, "admin permission is not allowed to be set")
+	}
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].SetPermission(r)
 }
 
 // DeactivateUser ...
 func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) (*empty.Empty, error) {
-	//TODO gj, select right db and change pass, easy no?
-	return new(empty.Empty), nil
+	s.Logger.Debugf("DeactivateUser %+v", *r)
+	// jsonUser, err := auth.GetLoggedInUser(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if (jsonUser.Permissions != auth.PermissionAdmin) &&
+	// 	(jsonUser.Permissions != auth.PermissionSysAdmin) {
+	// 	return nil, fmt.Errorf("you do not have permision for this operation")
+	// }
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].DeactivateUser(r)
 }
 
 // GetUser ...
 func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
-	//TODO gj, select right db and change pass, easy no?
-	return &schema.UserResponse{User: []byte("user"), Permissions: []byte("permision")}, nil
+	s.Logger.Debugf("DeactivateUser %+v", *r)
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.databases[ind].getUser(r.User, true)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	return &schema.UserResponse{User: item.Key, Permissions: []byte("")}, nil
 }
 
 // ListUsers ...
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
-	//TODO gj, select right db and change pass, easy no?
-	return &schema.UserList{Users: []*schema.User{}}, nil
+	s.Logger.Debugf("ListUsers %+v")
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].ListUsers(&emptypb.Empty{})
 }
 
 // PrintTree ...
-func (s *ImmuServer) PrintTree(context.Context, *empty.Empty) (*schema.Tree, error) {
-	//TODO gj, select right db and change pass, easy no?
-	return nil, nil
+func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tree, error) {
+	s.Logger.Debugf("PrintTree %+v")
+	ind, err := s.getDbIndexFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.databases[ind].PrintTree()
 }
 func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context) (int, error) {
 	//if we're in devmode just work with system db, since it's just testing
