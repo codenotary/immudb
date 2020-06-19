@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -82,32 +83,48 @@ func NewDb(op *DbOptions) (*Db, error) {
 		Logger:  logger.NewSimpleLogger(op.GetDbName()+" ", os.Stderr),
 		options: op,
 	}
-	sysDbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), op.GetSysDbDir())
-	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), op.GetDbDir())
-	_, sysDbErr := os.Stat(sysDbDir)
-	_, dbErr := os.Stat(dbDir)
-	if os.IsExist(sysDbErr) || os.IsExist(dbErr) {
-		return nil, fmt.Errorf("Database directories already exist")
-	}
-	if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
-		db.Logger.Errorf("Unable to create sys data folder: %s", err)
-		return nil, err
+	if op.GetInMemoryStore() {
+		db.Logger.Infof("Starting with in memory store")
+		storeOpts := store.DefaultOptions("", db.Logger)
+		storeOpts.Badger = storeOpts.Badger.WithInMemory(true)
+		db.SysStore, err = store.Open(storeOpts)
+		if err != nil {
+			log.Fatal(err)
+		}
+		db.Store, err = store.Open(storeOpts)
+		if err != nil {
+			db.Logger.Errorf("Unable to open store: %s", err)
+			return nil, err
+		}
+	} else {
+		sysDbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), op.GetSysDbDir())
+		dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName(), op.GetDbDir())
+		_, sysDbErr := os.Stat(sysDbDir)
+		_, dbErr := os.Stat(dbDir)
+		if os.IsExist(sysDbErr) || os.IsExist(dbErr) {
+			return nil, fmt.Errorf("Database directories already exist")
+		}
+		if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
+			db.Logger.Errorf("Unable to create sys data folder: %s", err)
+			return nil, err
+		}
+
+		if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
+			db.Logger.Errorf("Unable to create data folder: %s", err)
+			return nil, err
+		}
+		db.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, db.Logger))
+		if err != nil {
+			db.Logger.Errorf("Unable to open sysstore: %s", err)
+			return nil, err
+		}
+		db.Store, err = store.Open(store.DefaultOptions(dbDir, db.Logger))
+		if err != nil {
+			db.Logger.Errorf("Unable to open store: %s", err)
+			return nil, err
+		}
 	}
 
-	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
-		db.Logger.Errorf("Unable to create data folder: %s", err)
-		return nil, err
-	}
-	db.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, db.Logger))
-	if err != nil {
-		db.Logger.Errorf("Unable to open sysstore: %s", err)
-		return nil, err
-	}
-	db.Store, err = store.Open(store.DefaultOptions(dbDir, db.Logger))
-	if err != nil {
-		db.Logger.Errorf("Unable to open store: %s", err)
-		return nil, err
-	}
 	db.startCorruptionChecker()
 	return db, nil
 }
@@ -347,12 +364,8 @@ func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, e
 
 //SafeReference ...
 func (d *Db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
-	proof, err = d.Store.SafeReference(*safeRefOpts)
-	if err != nil {
-		return nil, err
-	}
 	d.Logger.Debugf("safe reference options: %v", safeRefOpts)
-	return proof, nil
+	return d.Store.SafeReference(*safeRefOpts)
 }
 
 //ZAdd ...
@@ -679,14 +692,6 @@ func (d *Db) CreateUser(username []byte, plainPassword []byte, permission byte, 
 
 // SetPermission ...
 func (d *Db) SetPermission(r *schema.Item) (*empty.Empty, error) {
-	if len(r.GetValue()) <= 0 {
-		return new(empty.Empty), status.Errorf(
-			codes.InvalidArgument, "no permission specified")
-	}
-	if int(r.GetValue()[0]) == auth.PermissionAdmin {
-		return new(empty.Empty), status.Error(
-			codes.PermissionDenied, "admin permission is not allowed to be set")
-	}
 	item, err := d.getUser(r.GetKey(), true)
 	if err != nil {
 		return new(empty.Empty), err
@@ -745,9 +750,8 @@ func (d *Db) ChangePassword(r *schema.ChangePasswordRequest) (*empty.Empty, erro
 }
 
 // PrintTree ...
-func (d *Db) PrintTree() (*schema.Tree, error) {
-	tree := d.Store.GetTree()
-	return tree, nil
+func (d *Db) PrintTree() *schema.Tree {
+	return d.Store.GetTree()
 }
 
 // Login Authenticate user

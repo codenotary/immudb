@@ -23,6 +23,7 @@ type DbOptions struct {
 	sysDbDir          string
 	dbRootPath        string
 	corruptionChecker bool
+	inMemoryStore     bool
 }
 
 // DefaultOption Initialise Db Optionts to default values
@@ -33,6 +34,7 @@ func DefaultOption() *DbOptions {
 		sysDbDir:          "immudbsys",
 		dbRootPath:        "",
 		corruptionChecker: true,
+		inMemoryStore:     false,
 	}
 }
 
@@ -77,4 +79,15 @@ func (o *DbOptions) WithCorruptionChecker(cc bool) *DbOptions {
 // GetCorruptionChecker returns if corruption checker should start for this database instance
 func (o *DbOptions) GetCorruptionChecker() bool {
 	return o.corruptionChecker
+}
+
+// WithInMemoryStore use in memory database without persistence, used for testing
+func (o *DbOptions) WithInMemoryStore(inmemory bool) *DbOptions {
+	o.inMemoryStore = inmemory
+	return o
+}
+
+//GetInMemoryStore returns if we use in memory database without persistence
+func (o *DbOptions) GetInMemoryStore() bool {
+	return o.inMemoryStore
 }

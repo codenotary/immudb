@@ -16,6 +16,7 @@ limitations under the License.
 package gw
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/auth"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	immudb "github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -51,16 +53,21 @@ func TestSafeZAdd(t *testing.T) {
 		os.RemoveAll(safezaddHandlerTestDir)
 	}()
 
-	refkey, err := insertSampleSet(tcpPort, safezaddHandlerTestDir)
-	if err != nil {
-		t.Errorf("%s", err)
-	}
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
 		WithPort(tcpPort).WithDir(safezaddHandlerTestDir))
 
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
+	}
+	item, err := ic.Login(context.Background(), []byte(auth.AdminUsername), []byte(auth.AdminDefaultPassword))
+	if err != nil {
+		t.Errorf("%s", err)
+	}
+	token := item.GetToken()
+	refkey, err := insertSampleSet(ic, safezaddHandlerTestDir, token)
+	if err != nil {
+		t.Errorf("%s", err)
 	}
 	mux := runtime.NewServeMux()
 	ssh := NewSafeZAddHandler(mux, ic)

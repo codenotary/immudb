@@ -49,7 +49,7 @@ import (
 var startedAt time.Time
 
 // Start starts the immudb server
-// Loads a starts the System DB, and puts it in the first index
+// Loads and starts the System DB, and puts it in the first index
 func (s *ImmuServer) Start() error {
 	dataDir := s.Options.GetDataDir()
 	//create root dir where all databases are stored
@@ -101,11 +101,19 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
-	listener, err := net.Listen(s.Options.Network, s.Options.Bind())
-	if err != nil {
-		s.Logger.Errorf("Immudb unable to listen: %s", err)
-		return err
+	var err error
+	var listener net.Listener
+	if s.Options.usingCustomListener {
+		s.Logger.Infof("Using custom listener")
+		listener = s.Options.listener
+	} else {
+		listener, err = net.Listen(s.Options.Network, s.Options.Bind())
+		if err != nil {
+			s.Logger.Errorf("Immudb unable to listen: %s", err)
+			return err
+		}
 	}
+
 	systemDbRootDir := filepath.Join(dataDir, s.Options.GetSystemAdminDbName())
 	var uuid xid.ID
 	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
@@ -122,6 +130,44 @@ func (s *ImmuServer) Start() error {
 	auth.AdminPassword = adminPassword
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 
+	if s.Options.MetricsServer {
+		metricsServer := StartMetrics(
+			s.Options.MetricsBind(),
+			s.Logger,
+			func() float64 { return float64(s.databases[0].Store.CountAll()) },
+			func() float64 { return time.Since(startedAt).Hours() },
+		)
+		defer func() {
+			if err = metricsServer.Close(); err != nil {
+				s.Logger.Errorf("failed to shutdown metric server: %s", err)
+			}
+		}()
+	}
+	s.installShutdownHandler()
+	s.Logger.Infof("starting immudb: %v", s.Options)
+
+	dbSize, _ := s.databases[0].Store.DbSize()
+	if dbSize <= 0 {
+		s.Logger.Infof("Started with an empty database")
+	}
+
+	if s.Options.Pidfile != "" {
+		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
+			s.Logger.Errorf("failed to write pidfile: %s", err)
+			return err
+		}
+	}
+	//===> !NOTE: See Histograms section here:
+	// https://github.com/grpc-ecosystem/go-grpc-prometheus
+	// TL;DR:
+	// Prometheus histograms are a great way to measure latency distributions of
+	// your RPCs. However, since it is bad practice to have metrics of high
+	// cardinality the latency monitoring metrics are disabled by default. To
+	// enable them the following has to be called during initialization code:
+	if !s.Options.NoHistograms {
+		grpc_prometheus.EnableHandlingTimeHistogram()
+	}
+	//<===
 	//TODO gj check why is this needed
 	uuidContext := NewUuidContext(uuid)
 
@@ -140,50 +186,9 @@ func (s *ImmuServer) Start() error {
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
 	)
-
-	if s.Options.MetricsServer {
-		metricsServer := StartMetrics(
-			s.Options.MetricsBind(),
-			s.Logger,
-			func() float64 { return float64(s.databases[0].Store.CountAll()) },
-			func() float64 { return time.Since(startedAt).Hours() },
-		)
-		defer func() {
-			if err = metricsServer.Close(); err != nil {
-				s.Logger.Errorf("failed to shutdown metric server: %s", err)
-			}
-		}()
-	}
-
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
-	//===> !NOTE: See Histograms section here:
-	// https://github.com/grpc-ecosystem/go-grpc-prometheus
-	// TL;DR:
-	// Prometheus histograms are a great way to measure latency distributions of
-	// your RPCs. However, since it is bad practice to have metrics of high
-	// cardinality the latency monitoring metrics are disabled by default. To
-	// enable them the following has to be called during initialization code:
-	if !s.Options.NoHistograms {
-		grpc_prometheus.EnableHandlingTimeHistogram()
-	}
-	//<===
 	grpc_prometheus.Register(s.GrpcServer)
-
-	s.installShutdownHandler()
-	s.Logger.Infof("starting immudb: %v", s.Options)
-
-	dbSize, _ := s.databases[0].Store.DbSize()
-	if dbSize <= 0 {
-		s.Logger.Infof("Started with an empty database")
-	}
-
-	if s.Options.Pidfile != "" {
-		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
-			s.Logger.Errorf("failed to write pidfile: %s", err)
-			return err
-		}
-	}
 
 	startedAt = time.Now()
 
@@ -192,7 +197,7 @@ func (s *ImmuServer) Start() error {
 	return err
 }
 
-//loadSystemDatabase it is important that is is called before loadDatabases
+//loadSystemDatabase it is important that is is called before loadDatabases so that systemdb is at index zero of the databases array
 func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 	if len(s.databases) > 0 {
 		panic("loadSystemDatabase should be called before loadDatabases")
@@ -202,7 +207,12 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 
 	_, sysDbErr := os.Stat(systemDbRootDir)
 	if os.IsNotExist(sysDbErr) {
-		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir).WithCorruptionChecker(s.Options.CorruptionCheck)
+		//if s.Options.GetInMemoryStore()
+		op := DefaultOption().
+			WithDbName(s.Options.GetSystemAdminDbName()).
+			WithDbRootPath(dataDir).
+			WithCorruptionChecker(s.Options.CorruptionCheck).
+			WithInMemoryStore(s.Options.GetInMemoryStore())
 		db, err := NewDb(op)
 		if err != nil {
 			return err
@@ -216,7 +226,10 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		}
 		s.databases = append(s.databases, db)
 	} else {
-		op := DefaultOption().WithDbName(s.Options.GetSystemAdminDbName()).WithDbRootPath(dataDir).WithCorruptionChecker(s.Options.CorruptionCheck)
+		op := DefaultOption().
+			WithDbName(s.Options.GetSystemAdminDbName()).
+			WithDbRootPath(dataDir).
+			WithCorruptionChecker(s.Options.CorruptionCheck)
 		db, err := OpenDb(op)
 		if err != nil {
 			return err
@@ -316,6 +329,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 		index:    index,
 		User:     *u,
 	}
+	fmt.Println("userDatabaseID", s.userDatabases.userDatabaseID, index)
 	return loginResponse, nil
 }
 
@@ -437,7 +451,7 @@ func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) 
 
 // SafeSet ...
 func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
-	s.Logger.Debugf("safeset %s %d bytes", opts.Kv.Key, len(opts.Kv.Value))
+	fmt.Println("safeset")
 	ind, err := s.getDbIndexFromCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -847,7 +861,11 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	dataDir := s.Options.GetDataDir()
 
 	dbName := newdb.Databasename + "_" + GenerateDbID()
-	op := DefaultOption().WithDbName(dbName).WithDbRootPath(dataDir).WithCorruptionChecker(s.Options.CorruptionCheck)
+	op := DefaultOption().
+		WithDbName(dbName).
+		WithDbRootPath(dataDir).
+		WithCorruptionChecker(s.Options.CorruptionCheck).
+		WithInMemoryStore(s.Options.GetInMemoryStore())
 	db, err := NewDb(op)
 	if err != nil {
 		s.Logger.Errorf(err.Error())
@@ -958,7 +976,7 @@ func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tre
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].PrintTree()
+	return s.databases[ind].PrintTree(), nil
 }
 func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context) (int, error) {
 	//if we're in devmode just work with system db, since it's just testing
@@ -969,6 +987,7 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context) (int, error) {
 	if !ok {
 		return -1, fmt.Errorf("user uuid not found")
 	}
+	fmt.Println("userUUID", userUUID)
 	return s.getDbIndexFromUUID(userUUID)
 }
 func (s *ImmuServer) getDbIndexFromUUID(userUUID string) (int, error) {

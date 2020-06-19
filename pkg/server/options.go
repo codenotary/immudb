@@ -18,6 +18,7 @@ package server
 
 import (
 	"encoding/json"
+	"net"
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/auth"
@@ -25,52 +26,57 @@ import (
 
 // Options server options list
 type Options struct {
-	Dir               string
-	Network           string
-	Address           string
-	Port              int
-	MetricsPort       int
-	DbName            string
-	SysDbName         string
-	Config            string
-	Pidfile           string
-	Logfile           string
-	MTLs              bool
-	MTLsOptions       MTLsOptions
-	Auth              bool
-	NoHistograms      bool
-	Detached          bool
-	CorruptionCheck   bool
-	MetricsServer     bool
-	DevMode           bool
-	AdminPassword     string `json:"-"`
-	dataDir           string
-	systemAdminDbName string
+	Dir                 string
+	Network             string
+	Address             string
+	Port                int
+	MetricsPort         int
+	DbName              string
+	SysDbName           string
+	Config              string
+	Pidfile             string
+	Logfile             string
+	MTLs                bool
+	MTLsOptions         MTLsOptions
+	Auth                bool
+	NoHistograms        bool
+	Detached            bool
+	CorruptionCheck     bool
+	MetricsServer       bool
+	DevMode             bool
+	AdminPassword       string `json:"-"`
+	dataDir             string
+	systemAdminDbName   string
+	inMemoryStore       bool
+	listener            net.Listener
+	usingCustomListener bool
 }
 
 // DefaultOptions returns default server options
 func DefaultOptions() Options {
 	return Options{
-		Dir:               "./db",
-		Network:           "tcp",
-		Address:           "127.0.0.1",
-		Port:              3322,
-		MetricsPort:       9497,
-		DbName:            "immudb",
-		SysDbName:         "immudbsys",
-		Config:            "configs/immudb.toml",
-		Pidfile:           "",
-		Logfile:           "",
-		MTLs:              false,
-		Auth:              true,
-		NoHistograms:      false,
-		Detached:          false,
-		CorruptionCheck:   true,
-		MetricsServer:     true,
-		DevMode:           true,
-		AdminPassword:     auth.AdminDefaultPassword,
-		dataDir:           "./data",
-		systemAdminDbName: "systemdb",
+		Dir:                 "./db",
+		Network:             "tcp",
+		Address:             "127.0.0.1",
+		Port:                3322,
+		MetricsPort:         9497,
+		DbName:              "immudb",
+		SysDbName:           "immudbsys",
+		Config:              "configs/immudb.toml",
+		Pidfile:             "",
+		Logfile:             "",
+		MTLs:                false,
+		Auth:                true,
+		NoHistograms:        false,
+		Detached:            false,
+		CorruptionCheck:     true,
+		MetricsServer:       true,
+		DevMode:             true,
+		AdminPassword:       auth.AdminDefaultPassword,
+		dataDir:             "./data",
+		systemAdminDbName:   "systemdb",
+		inMemoryStore:       false,
+		usingCustomListener: false,
 	}
 }
 
@@ -176,11 +182,11 @@ func (o Options) MetricsBind() string {
 
 // String print options
 func (o Options) String() string {
-	optionsJson, err := json.Marshal(o)
+	optionsJSON, err := json.Marshal(o)
 	if err != nil {
 		return err.Error()
 	}
-	return string(optionsJson)
+	return string(optionsJSON)
 }
 
 // WithMetricsServer ...
@@ -209,4 +215,22 @@ func (o Options) GetSystemAdminDbName() string {
 //GetDataDir returns the root directory where all databases are stored
 func (o Options) GetDataDir() string {
 	return o.dataDir
+}
+
+// WithInMemoryStore use in memory database without persistence, used for tests
+func (o Options) WithInMemoryStore(inmemory bool) Options {
+	o.inMemoryStore = inmemory
+	return o
+}
+
+//GetInMemoryStore returns if we use in memory database without persistence , used for tests
+func (o Options) GetInMemoryStore() bool {
+	return o.inMemoryStore
+}
+
+// WithListener used usually to pass a bufered listener for testing purposes
+func (o Options) WithListener(lis net.Listener) Options {
+	o.listener = lis
+	o.usingCustomListener = true
+	return o
 }

@@ -20,10 +20,10 @@ import (
 	"bytes"
 )
 
-// PermissionAdmin the admin permission byte
+// PermissionSysAdmin the admin permission byte
 const PermissionSysAdmin = 255
 
-// PermissionSysAdmin the system admin permission byte
+// PermissionAdmin the system admin permission byte
 const PermissionAdmin = 254
 
 // Non-admin permissions
@@ -52,6 +52,9 @@ var methodsPermissions = map[string][]byte{
 	"/immudb.schema.ImmuService/BySafeIndex":   {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"/immudb.schema.ImmuService/IScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"/immudb.schema.ImmuService/History":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/ByIndex":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"/immudb.schema.ImmuService/Count":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+
 	// admin methods
 	"/immudb.schema.ImmuService/ListUsers":        {PermissionSysAdmin, PermissionAdmin},
 	"/immudb.schema.ImmuService/CreateUser":       {PermissionSysAdmin, PermissionAdmin},
@@ -62,6 +65,8 @@ var methodsPermissions = map[string][]byte{
 	"/immudb.schema.ImmuService/UpdateMTLSConfig": {PermissionSysAdmin},
 	"/immudb.schema.ImmuService/CreateDatabase":   {PermissionSysAdmin},
 	"/immudb.schema.ImmuService/Dump":             {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/Consistency":      {PermissionSysAdmin, PermissionAdmin},
+	"/immudb.schema.ImmuService/CurrentRoot":      {PermissionSysAdmin, PermissionAdmin},
 }
 
 func hasPermissionForMethod(userPermission byte, method string) bool {

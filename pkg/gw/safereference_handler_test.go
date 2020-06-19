@@ -16,6 +16,7 @@ limitations under the License.
 package gw
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	immudb "github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -35,20 +38,21 @@ import (
 
 var safereferenceHandlerTestDir = "./safereference_handler_test"
 
-func insertSampleSet(immudbTCPPort int, clientDir string) (string, error) {
+func insertSampleSet(ic client.ImmuClient, clientDir string, token []byte) (string, error) {
 	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
 	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
-		WithPort(immudbTCPPort).WithDir(clientDir))
-	if err != nil {
-		return "", fmt.Errorf("unable to instantiate client: %s", err)
-	}
+	// ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
+	// 	WithPort(immudbTCPPort).WithDir(clientDir))
+	// if err != nil {
+	// 	return "", fmt.Errorf("unable to instantiate client: %s", err)
+	// }
 	mux := runtime.NewServeMux()
 	ssh := NewSafesetHandler(mux, ic)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/v1/immurestproxy/item/safe", strings.NewReader(`{"kv": {"key": "`+key+`", "value": "`+value+`"} }`))
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authotization", "Bearer "+base64.StdEncoding.EncodeToString(token))
 
 	safeset := func(res http.ResponseWriter, req *http.Request) {
 		ssh.Safeset(res, req, nil)
@@ -57,7 +61,7 @@ func insertSampleSet(immudbTCPPort int, clientDir string) (string, error) {
 	handler.ServeHTTP(w, req)
 	var body map[string]interface{}
 
-	err = json.Unmarshal(w.Body.Bytes(), &body)
+	err := json.Unmarshal(w.Body.Bytes(), &body)
 	if err != nil {
 		return "", errors.New("bad reply JSON")
 	}
@@ -76,7 +80,7 @@ func TestSafeReference(t *testing.T) {
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithDevMode(true)
+		WithMetricsServer(false).WithCorruptionCheck(false).WithDevMode(false).WithAuth(false)
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
@@ -87,16 +91,21 @@ func TestSafeReference(t *testing.T) {
 		os.RemoveAll(safereferenceHandlerTestDir)
 	}()
 
-	refKey, err := insertSampleSet(tcpPort, safereferenceHandlerTestDir)
-	if err != nil {
-		t.Errorf("%s", err)
-	}
-
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
 		WithPort(tcpPort).WithDir(safereferenceHandlerTestDir))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
+	}
+	item, err := ic.Login(context.Background(), []byte(auth.AdminUsername), []byte(auth.AdminDefaultPassword))
+	if err != nil {
+		t.Errorf("%s", err)
+	}
+	token := item.GetToken()
+	fmt.Println(string(token))
+	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, token)
+	if err != nil {
+		t.Errorf("%s", err)
 	}
 	mux := runtime.NewServeMux()
 	ssh := NewSafeReferenceHandler(mux, ic)

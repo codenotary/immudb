@@ -72,7 +72,7 @@ var kv = []*schema.KeyValue{
 
 func makeDb() (*Db, func()) {
 	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	options := DefaultOption().WithDbName(dbName)
+	options := DefaultOption().WithDbName(dbName).WithInMemoryStore(true).WithCorruptionChecker(false)
 	d, err := NewDb(options)
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
@@ -591,8 +591,42 @@ func TestHistorySV(t *testing.T) {
 	}
 }
 
-//TODO gj test Health
-//TODO gj test Reference
+func TestHealth(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	h, err := db.Health(&emptypb.Empty{})
+	if err != nil {
+		t.Errorf("health error %s", err)
+	}
+	if !h.GetStatus() {
+		t.Errorf("Health, expected %v, got %v", true, h.GetStatus())
+	}
+}
+
+func TestReference(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	_, err := db.Set(kv[0])
+	if err != nil {
+		t.Errorf("Reference error %s", err)
+	}
+	ref, err := db.Reference(&schema.ReferenceOptions{
+		Reference: []byte(`tag`),
+		Key:       kv[0].Key,
+	})
+	if ref.Index != 1 {
+		t.Errorf("Reference, expected %v, got %v", 1, ref.Index)
+	}
+	item, err := db.Get(&schema.Key{Key: []byte(`tag`)})
+	if err != nil {
+		t.Errorf("Reference  Get error %s", err)
+	}
+	if !bytes.Equal(item.Value, kv[0].Value) {
+		t.Errorf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
+	}
+
+}
+
 //TODO gj test SafeReference
 //TODO gj test ZAdd
 //TODO gj test ZScan

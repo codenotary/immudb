@@ -18,7 +18,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -29,7 +28,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
-	"github.com/codenotary/immudb/pkg/store"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -72,46 +70,12 @@ var plainPass []byte
 
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
-	is = is.WithOptions(is.Options.WithAuth(true))
+	is = is.WithOptions(is.Options.WithAuth(true).WithInMemoryStore(true))
+	is.Start()
 	auth.AuthEnabled = is.Options.Auth
-	var err error
 
-	storeOpts := store.DefaultOptions("", slog)
-	storeOpts.Badger = storeOpts.Badger.WithInMemory(true)
-	sysStore, err := store.Open(storeOpts)
-	if err != nil {
-		log.Fatal(err)
-	}
-	store, err := store.Open(storeOpts)
-	if err != nil {
-		log.Fatal(err)
-	}
-	is.SystemAdminDb = &server.Db{
-		Store:    store,
-		SysStore: sysStore,
-		Logger:   logger.NewSimpleLogger("immudb ", os.Stderr),
-	}
-	// sysDbDir := filimmuServer.Logger(),epath.Join(is.Options.Dir, is.Options.SysDbName)
-	// if err = os.MkdirAll(sysDbDir, os.ModePerm); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// is.SysStore, err = store.Open(store.DefaultOptions(sysDbDir, slog))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// dbDir := filepath.Join(is.Options.Dir, is.Options.DbName)
-	// if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// is.Store, err = store.Open(store.DefaultOptions(dbDir, slog))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	username, plainPass, err = is.SystemAdminDb.CreateUser([]byte(auth.AdminUsername), []byte(auth.AdminPassword), auth.PermissionSysAdmin, false)
-	if err != nil {
-		log.Fatal(err)
-	}
+	username = []byte(auth.AdminUsername)
+	plainPass = []byte(auth.AdminPassword)
 
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(
@@ -153,7 +117,6 @@ func newClient(withToken bool, token string) ImmuClient {
 func login() string {
 	c := newClient(false, "")
 	ctx := context.Background()
-	fmt.Println(username, plainPass)
 	r, err := c.Login(ctx, username, plainPass)
 	if err != nil {
 		log.Fatal(err)
