@@ -995,12 +995,9 @@ func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schem
 // ListUsers ...
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	s.Logger.Debugf("ListUsers %+v")
-	user, err := s.getLoggedInUserdataFromCtx(ctx)
+	loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login")
-	}
-	if !user.IsSysAdmin {
-		return nil, fmt.Errorf("only system administrator can access this command")
 	}
 	itemList, err := s.databases[0].Scan(&schema.ScanOptions{
 		Prefix: []byte{sysstore.KeyPrefixUser},
@@ -1009,36 +1006,95 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		s.Logger.Errorf("error getting users: %v", err)
 		return nil, err
 	}
-
-	userlist := &schema.UserList{}
-	includeDeactivated := true
-	for i := 0; i < len(itemList.Items); i++ {
-		itemList.Items[i].Key = itemList.Items[i].Key[1:]
-		var user auth.User
-		err = json.Unmarshal(itemList.Items[i].Value, &user)
-		if !includeDeactivated {
-			if !user.Active {
-				continue
+	if loggedInuser.IsSysAdmin {
+		//return all users
+		userlist := &schema.UserList{}
+		includeDeactivated := true
+		for i := 0; i < len(itemList.Items); i++ {
+			itemList.Items[i].Key = itemList.Items[i].Key[1:]
+			var user auth.User
+			err = json.Unmarshal(itemList.Items[i].Value, &user)
+			if !includeDeactivated {
+				if !user.Active {
+					continue
+				}
+			}
+			permissions := []*schema.Permission{}
+			for _, val := range user.Permissions {
+				permissions = append(permissions, &schema.Permission{
+					Database:   val.Database,
+					Permission: val.Permission,
+				})
+			}
+			u := schema.User{
+				User:        []byte(user.Username),
+				Createdat:   user.CreatedAt.String(),
+				Createdby:   user.CreatedBy,
+				Permissions: permissions,
+				Active:      user.Active,
+			}
+			userlist.Users = append(userlist.Users, &u)
+		}
+		return userlist, nil
+	} else if loggedInuser.SelectedDbPermission == auth.PermissionAdmin {
+		//for admin users return only users for the database where that is has selected
+		selectedDbname := s.databases[loggedInuser.SelectedDbIndex].options.dbName
+		userlist := &schema.UserList{}
+		includeDeactivated := true
+		for i := 0; i < len(itemList.Items); i++ {
+			include := false
+			itemList.Items[i].Key = itemList.Items[i].Key[1:]
+			var user auth.User
+			err = json.Unmarshal(itemList.Items[i].Value, &user)
+			if !includeDeactivated {
+				if !user.Active {
+					continue
+				}
+			}
+			permissions := []*schema.Permission{}
+			for _, val := range user.Permissions {
+				//check if this user has any permission for this database
+				//include in the reply only if it has any permission for the currently selected database
+				if val.Database == selectedDbname {
+					include = true
+				}
+				permissions = append(permissions, &schema.Permission{
+					Database:   val.Database,
+					Permission: val.Permission,
+				})
+			}
+			if include {
+				u := schema.User{
+					User:        []byte(user.Username),
+					Createdat:   user.CreatedAt.String(),
+					Createdby:   user.CreatedBy,
+					Permissions: permissions,
+					Active:      user.Active,
+				}
+				userlist.Users = append(userlist.Users, &u)
 			}
 		}
+		return userlist, nil
+	} else {
+		//any other permission return only its data
+		userlist := &schema.UserList{}
 		permissions := []*schema.Permission{}
-		for _, val := range user.Permissions {
+		for _, val := range loggedInuser.Permissions {
 			permissions = append(permissions, &schema.Permission{
 				Database:   val.Database,
 				Permission: val.Permission,
 			})
 		}
 		u := schema.User{
-			User:        []byte(user.Username),
-			Createdat:   user.CreatedAt.String(),
-			Createdby:   user.CreatedBy,
+			User:        []byte(loggedInuser.Username),
+			Createdat:   loggedInuser.CreatedAt.String(),
+			Createdby:   loggedInuser.CreatedBy,
 			Permissions: permissions,
-			Active:      user.Active,
+			Active:      loggedInuser.Active,
 		}
 		userlist.Users = append(userlist.Users, &u)
+		return userlist, nil
 	}
-
-	return userlist, nil
 }
 
 // PrintTree ...

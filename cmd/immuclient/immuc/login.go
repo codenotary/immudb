@@ -53,7 +53,7 @@ func (i *immuc) Login(args []string) (string, error) {
 	}
 	i.isLoggedin = true
 
-	successMsg := "Successfully logged in."
+	successMsg := "Successfully logged in.\nSelect a database before any operation."
 	if len(response.Warning) != 0 {
 		successMsg += fmt.Sprintf("\n%s", string(response.Warning))
 	}
