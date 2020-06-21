@@ -40,11 +40,9 @@ func (w *WrappedClientStream) SendMsg(m interface{}) error {
 // ClientStreamInterceptor gRPC client interceptor for streams
 func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDesc, *grpc.ClientConn, string, grpc.Streamer, ...grpc.CallOption) (grpc.ClientStream, error) {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		if hasAuth(method) {
-			opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
-				Token: token,
-			}))
-		}
+		opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
+			Token: token,
+		}))
 		s, err := streamer(ctx, desc, cc, method, opts...)
 		if err != nil {
 			return nil, err
@@ -56,11 +54,9 @@ func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDes
 // ClientUnaryInterceptor gRPC client interceptor for unary methods
 func ClientUnaryInterceptor(token string) func(context.Context, string, interface{}, interface{}, *grpc.ClientConn, grpc.UnaryInvoker, ...grpc.CallOption) error {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		if hasAuth(method) {
-			opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
-				Token: token,
-			}))
-		}
+		opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
+			Token: token,
+		}))
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }

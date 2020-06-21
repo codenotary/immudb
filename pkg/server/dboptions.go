@@ -18,9 +18,8 @@ package server
 
 //DbOptions database instance options
 type DbOptions struct {
-	dbDir             string
+	//	dbDir             string
 	dbName            string
-	sysDbDir          string
 	dbRootPath        string
 	corruptionChecker bool
 	inMemoryStore     bool
@@ -29,10 +28,9 @@ type DbOptions struct {
 // DefaultOption Initialise Db Optionts to default values
 func DefaultOption() *DbOptions {
 	return &DbOptions{
-		dbDir:             "immudb",
-		dbName:            "db_" + GenerateDbID(),
-		sysDbDir:          "immudbsys",
-		dbRootPath:        "",
+		//		dbDir:             "immudb",
+		dbName:            "db_name",
+		dbRootPath:        "data",
 		corruptionChecker: true,
 		inMemoryStore:     false,
 	}
@@ -42,16 +40,6 @@ func DefaultOption() *DbOptions {
 func (o *DbOptions) WithDbName(dbName string) *DbOptions {
 	o.dbName = dbName
 	return o
-}
-
-// GetDbDir Returns Database Directory name
-func (o *DbOptions) GetDbDir() string {
-	return o.dbDir
-}
-
-// GetSysDbDir Returns System Database Directory name
-func (o *DbOptions) GetSysDbDir() string {
-	return o.sysDbDir
 }
 
 // GetDbName Returns Database name which is also db instance directory

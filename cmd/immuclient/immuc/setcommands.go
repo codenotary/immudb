@@ -192,7 +192,18 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	//TODO gj kontrollo db error
 	return resp.Error.Errormessage, nil
-	//return "Successfully Created Database", nil
+}
+
+func (i *immuc) UseDatabase(args []string) (string, error) {
+	dbname := []byte(args[0])
+
+	ctx := context.Background()
+	resp, err := i.ImmuClient.UseDatabase(ctx, &schema.Database{
+		Databasename: string(dbname),
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Errormessage, nil
 }

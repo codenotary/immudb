@@ -60,7 +60,7 @@ func TestSafeZAdd(t *testing.T) {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
 	}
-	item, err := ic.Login(context.Background(), []byte(auth.AdminUsername), []byte(auth.AdminDefaultPassword))
+	item, err := ic.Login(context.Background(), []byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
@@ -177,7 +177,7 @@ func TestSafeZAdd(t *testing.T) {
 				t.Error(string(w.Body.Bytes()))
 			}
 
-			// TODO gjergji this should be used once #263 is fixed
+			// TODO gj this should be used once #263 is fixed
 			// if w.Code != tc.want {
 			// 	t.Errorf("handler returned wrong status code: got %v want %v",
 			// 		w.Code, tc.want)

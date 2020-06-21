@@ -72,7 +72,7 @@ func DefaultOptions() Options {
 		CorruptionCheck:     true,
 		MetricsServer:       true,
 		DevMode:             true,
-		AdminPassword:       auth.AdminDefaultPassword,
+		AdminPassword:       auth.SysAdminPassword,
 		dataDir:             "./data",
 		systemAdminDbName:   "systemdb",
 		inMemoryStore:       false,

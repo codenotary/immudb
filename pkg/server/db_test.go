@@ -81,9 +81,6 @@ func makeDb() (*Db, func()) {
 		if err := d.Store.Close(); err != nil {
 			log.Fatal(err)
 		}
-		if err := d.SysStore.Close(); err != nil {
-			log.Fatal(err)
-		}
 		if err := os.RemoveAll(options.GetDbName()); err != nil {
 			log.Fatal(err)
 		}
@@ -102,12 +99,12 @@ func TestDefaultDbCreation(t *testing.T) {
 		t.Errorf("Db dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.GetDbName(), options.GetDbDir()))
+	_, err = os.Stat(path.Join(options.GetDbName()))
 	if os.IsNotExist(err) {
 		t.Errorf("Data dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.GetDbName(), options.GetSysDbDir()))
+	_, err = os.Stat(path.Join(options.GetDbName()))
 	if os.IsNotExist(err) {
 		t.Errorf("Sys dir not created")
 	}
@@ -124,12 +121,12 @@ func TestDbCreation(t *testing.T) {
 		t.Errorf("Db dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.GetDbName(), options.GetDbDir()))
+	_, err = os.Stat(path.Join(options.GetDbName()))
 	if os.IsNotExist(err) {
 		t.Errorf("Data dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.GetDbName(), options.GetSysDbDir()))
+	_, err = os.Stat(path.Join(options.GetDbName()))
 	if os.IsNotExist(err) {
 		t.Errorf("Sys dir not created")
 	}
@@ -176,10 +173,10 @@ func TestCurrentRoot(t *testing.T) {
 		if it.GetIndex() != uint64(ind) {
 			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
 		}
-		// root, err := db.CurrentRoot(&emptypb.Empty{})
-		// if err != nil {
-		// 	t.Errorf("Error getting current root %s", err)
-		// }
+		_, err = db.CurrentRoot(&emptypb.Empty{})
+		if err != nil {
+			t.Errorf("Error getting current root %s", err)
+		}
 	}
 }
 
@@ -624,14 +621,87 @@ func TestReference(t *testing.T) {
 	if !bytes.Equal(item.Value, kv[0].Value) {
 		t.Errorf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
 	}
-
 }
 
-//TODO gj test SafeReference
-//TODO gj test ZAdd
-//TODO gj test ZScan
+func TestZAdd(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	_, err := db.Set(kv[0])
+	if err != nil {
+		t.Errorf("Reference error %s", err)
+	}
+	ref, err := db.ZAdd(&schema.ZAddOptions{
+		Key:   kv[0].Key,
+		Score: 1,
+		Set:   kv[0].Value,
+	})
 
-//TODO gj test ZScanSV
+	if ref.Index != 1 {
+		t.Errorf("Reference, expected %v, got %v", 1, ref.Index)
+	}
+	item, err := db.ZScan(&schema.ZScanOptions{
+		Offset:  []byte(""),
+		Limit:   3,
+		Reverse: false,
+	})
+	if err != nil {
+		t.Errorf("Reference  Get error %s", err)
+	}
+	if !bytes.Equal(item.Items[0].Value, kv[0].Value) {
+		t.Errorf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
+	}
+}
+
+func TestZScanSV(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	// _, err := db.CurrentRoot(&emptypb.Empty{})
+	// if err != nil {
+	// 	t.Errorf("CurrentRoot error %s", err)
+	// }
+	// _, err = db.SafeZAdd(&schema.SafeZAddOptions{
+	// 	Zopts: &schema.ZAddOptions{
+	// 		Key:   kv[0].Key,
+	// 		Set:   kv[0].Value,
+	// 		Score: 1,
+	// 	},
+	// 	RootIndex: &schema.Index{
+	// 		Index: root.Index,
+	// 	},
+	// })
+	// if err != nil {
+	// 	t.Errorf("Reference error %s", err)
+	// }
+	_, err := db.Set(kv[0])
+	if err != nil {
+		t.Errorf("Reference error %s", err)
+	}
+	ref, err := db.ZAdd(&schema.ZAddOptions{
+		Key:   kv[0].Key,
+		Score: 1,
+		Set:   kv[0].Value,
+	})
+	if err != nil {
+		t.Errorf("Reference error %s", err)
+	}
+	if ref.Index != 1 {
+		t.Errorf("Reference, expected %v, got %v", 1, ref.Index)
+	}
+	item, err := db.ZScanSV(&schema.ZScanOptions{
+		Offset:  []byte(""),
+		Limit:   3,
+		Reverse: true,
+	})
+
+	if err != nil {
+		t.Errorf("Reference  Get error %s", err)
+	}
+	t.Fatal(item)
+	if !bytes.Equal(item.Items[0].Value.Payload, kv[0].Value) {
+		t.Errorf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value.Payload))
+	}
+}
+
 //TODO gj test SafeZAdd
 //TODO gj test IScan
 //TODO gj test IScanSV

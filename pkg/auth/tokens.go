@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -42,23 +41,22 @@ const tokenValidity = 1 * time.Hour
 // GenerateToken ...
 func GenerateToken(user User) (string, error) {
 	now := time.Now()
-	keys, ok := tokenKeyPairs.keysPerUser[user.UserUUID]
+	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
 	if !ok {
-		if err := generateKeys(user.Username, user.UserUUID); err != nil {
+		if err := generateKeys(user.Username, user.Username); err != nil {
 			return "", err
 		}
-		keys, ok = tokenKeyPairs.keysPerUser[user.UserUUID]
+		keys, ok = tokenKeyPairs.keysPerUser[user.Username]
 		if !ok {
 			return "", errors.New("internal error: missing auth keys")
 		}
 	} else {
-		updateLastTokenGeneratedAt(user.UserUUID)
+		updateLastTokenGeneratedAt(user.Username)
 	}
 	jsonToken := paseto.JSONToken{
 		Expiration: now.Add(tokenValidity),
-		Subject:    user.UserUUID,
+		Subject:    user.Username,
 	}
-	jsonToken.Set("permissions", fmt.Sprintf("%d", user.Permissions))
 	token, err := pasetoV2.Sign(keys.privateKey, jsonToken, footer)
 	if err != nil {
 		return "", fmt.Errorf("error generating token: %v", err)
@@ -69,9 +67,8 @@ func GenerateToken(user User) (string, error) {
 
 // JSONToken ...
 type JSONToken struct {
-	UserUUID    string
-	Permissions byte
-	Expiration  time.Time
+	Username   string
+	Expiration time.Time
 }
 
 var tokenEncoder = base64.RawURLEncoding
@@ -98,17 +95,9 @@ func parsePublicTokenPayload(token string) (*JSONToken, error) {
 	if err := json.Unmarshal(payloadBytes, &jsonToken); err != nil {
 		return nil, fmt.Errorf("error unmarshalling token payload json: %v", err)
 	}
-	var permissions byte = PermissionR
-	if p := jsonToken.Get("permissions"); p != "" {
-		pint, err := strconv.ParseUint(p, 10, 8)
-		if err == nil {
-			permissions = byte(pint)
-		}
-	}
 	return &JSONToken{
-		UserUUID:    jsonToken.Subject,
-		Permissions: permissions,
-		Expiration:  jsonToken.Expiration,
+		Username:   jsonToken.Subject,
+		Expiration: jsonToken.Expiration,
 	}, nil
 }
 
@@ -117,7 +106,7 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err != nil {
 		return nil, err
 	}
-	keys, ok := tokenKeyPairs.keysPerUser[tokenPayload.UserUUID]
+	keys, ok := tokenKeyPairs.keysPerUser[tokenPayload.Username]
 	if !ok {
 		return nil, status.Error(
 			codes.Unauthenticated, "Token data not found")
@@ -130,17 +119,9 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err := jsonToken.Validate(); err != nil {
 		return nil, err
 	}
-	var permissions byte = PermissionR
-	if p := jsonToken.Get("permissions"); p != "" {
-		pint, err := strconv.ParseUint(p, 10, 8)
-		if err == nil {
-			permissions = byte(pint)
-		}
-	}
 	return &JSONToken{
-		UserUUID:    jsonToken.Subject,
-		Expiration:  jsonToken.Expiration,
-		Permissions: permissions,
+		Username:   jsonToken.Subject,
+		Expiration: jsonToken.Expiration,
 	}, nil
 }
 

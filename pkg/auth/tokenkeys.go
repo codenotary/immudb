@@ -41,7 +41,7 @@ var tokenKeyPairs = struct {
 	minEvictInterval: 1 * time.Hour,
 }
 
-func generateKeys(username string, UserUUID string) error {
+func generateKeys(username string, Username string) error {
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return fmt.Errorf(
@@ -50,15 +50,15 @@ func generateKeys(username string, UserUUID string) error {
 	}
 	tokenKeyPairs.Lock()
 	defer tokenKeyPairs.Unlock()
-	tokenKeyPairs.keysPerUser[UserUUID] =
+	tokenKeyPairs.keysPerUser[Username] =
 		&tokenKeyPair{publicKey, privateKey, time.Now()}
 	return nil
 }
 
-func updateLastTokenGeneratedAt(UserUUID string) {
+func updateLastTokenGeneratedAt(Username string) {
 	tokenKeyPairs.Lock()
 	defer tokenKeyPairs.Unlock()
-	tokenKeyPairs.keysPerUser[UserUUID].lastTokenGeneratedAt = time.Now()
+	tokenKeyPairs.keysPerUser[Username].lastTokenGeneratedAt = time.Now()
 }
 
 func evictOldTokenKeyPairs() {
@@ -106,7 +106,7 @@ func DropTokenKeysForCtx(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return DropTokenKeys(jsonToken.UserUUID), nil
+	return DropTokenKeys(jsonToken.Username), nil
 }
 
 // GetLoggedInUser gets userdata from context

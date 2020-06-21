@@ -429,13 +429,13 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 	i, err := txn.Get(zaddOpts.Key)
 	if err != nil {
 		err = mapError(err)
-		return
+		return nil, err
 	}
 
 	ik, err := SetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score)
 	if err != nil {
 		err = mapError(err)
-		return
+		return nil, err
 	}
 
 	if err = txn.SetEntry(&badger.Entry{
@@ -444,7 +444,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)
-		return
+		return nil, err
 	}
 
 	tsEntry := t.tree.NewEntry(ik, i.Key())

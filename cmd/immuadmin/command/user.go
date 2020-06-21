@@ -74,8 +74,8 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 				case "create", "set-permission":
 					permissions, err := requiredArgs.Require(
 						args,
-						2,
-						"user permissions",
+						3,
+						"user permission",
 						"some valid user permissions",
 						map[string]struct{}{"read": {}, "readwrite": {}},
 						action)
@@ -84,7 +84,9 @@ func (cl *commandline) user(parentCmd *cobra.Command, parentCmdName string) {
 					}
 					switch action {
 					case "create":
-						cl.createUser(username, permissions)
+						//TODO unimplemented
+						//cl.createUser(username, permissions, databasename)
+						c.QuitWithUserError(fmt.Errorf("Unimplemented feature"))
 					default:
 						cl.setPermissions(username, permissions)
 					}
@@ -114,7 +116,7 @@ func (cl *commandline) listUsers() {
 		len(usersList.Users),
 		func(i int) []string {
 			row := make([]string, 3)
-			permission := usersList.Users[i].GetPermissions()[0]
+			permission := usersList.Users[i].GetPermission()
 			row[0] = string(usersList.Users[i].GetUser())
 			if permission == auth.PermissionAdmin {
 				row[1] = "admin"
@@ -137,7 +139,11 @@ func (cl *commandline) listUsers() {
 	)
 }
 
-func (cl *commandline) createUser(username string, permissions string) {
+func (cl *commandline) createUser(username string, permission string, databasename string) {
+	//TODO maybe this is no longer required in immuadmin since immuclient has such functionality
+	//return since this should be rewriten as immuclient
+	c.QuitToStdErr(fmt.Errorf("unimplemented feature"))
+
 	fmt.Println("NOTE:", auth.PasswordRequirementsMsg+".")
 	pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
@@ -153,14 +159,14 @@ func (cl *commandline) createUser(username string, permissions string) {
 	if !bytes.Equal(pass, pass2) {
 		c.QuitToStdErr(errors.New("Passwords don't match"))
 	}
-	var permission []byte
-	switch permissions {
+	var userpermission uint32
+	switch permission {
 	case "readwrite":
-		permission = []byte{auth.PermissionRW}
+		userpermission = auth.PermissionRW
 	default:
-		permission = []byte{auth.PermissionR}
+		userpermission = auth.PermissionR
 	}
-	_, err = cl.immuClient.CreateUser(cl.context, []byte(username), pass, permission)
+	_, err = cl.immuClient.CreateUser(cl.context, []byte(username), pass, userpermission, databasename)
 	if err != nil {
 		c.QuitWithUserError(err)
 	}
@@ -180,7 +186,7 @@ func (cl *commandline) setPermissions(username string, permissions string) {
 	if err != nil {
 		c.QuitWithUserError(err)
 	}
-	if user.Permissions[0] == auth.PermissionNone {
+	if user.Permission == auth.PermissionNone {
 		fmt.Printf(
 			"User %s is deactivated. Are you sure you want to activate it back? [y/N]: ",
 			username)
@@ -200,7 +206,7 @@ func (cl *commandline) setPermissions(username string, permissions string) {
 func (cl *commandline) changePassword(username string, oldPass []byte) {
 	fmt.Println("NOTE:", auth.PasswordRequirementsMsg+".")
 	var err error
-	if username == auth.AdminUsername && len(oldPass) <= 0 {
+	if username == auth.SysAdminUsername && len(oldPass) <= 0 {
 		oldPass, err = cl.passwordReader.Read("Old password:")
 		if err != nil {
 			c.QuitToStdErr(err)
@@ -224,7 +230,7 @@ func (cl *commandline) changePassword(username string, oldPass []byte) {
 	if !bytes.Equal(pass, pass2) {
 		c.QuitToStdErr(errors.New("Passwords don't match"))
 	}
-	if username == auth.AdminUsername {
+	if username == auth.SysAdminUsername {
 		if bytes.Equal(pass, oldPass) {
 			c.QuitToStdErr(errors.New("New password is identical to the old one"))
 		}

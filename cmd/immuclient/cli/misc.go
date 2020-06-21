@@ -29,3 +29,6 @@ func (cli *cli) healthCheck(args []string) (string, error) {
 func (cli *cli) version(args []string) (string, error) {
 	return version.VersionStr(), nil
 }
+func (cli *cli) UserOperations(args []string) (string, error) {
+	return cli.immucl.UserOperations(args)
+}

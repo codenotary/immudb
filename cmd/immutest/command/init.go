@@ -160,7 +160,7 @@ func loginIfNeeded(ctx context.Context, immuClient client.ImmuClient, onSuccess 
 		if err != nil {
 			c.QuitToStdErr(err)
 		}
-		response, err := immuClient.Login(ctx, []byte(auth.AdminUsername), pass)
+		response, err := immuClient.Login(ctx, []byte(auth.SysAdminUsername), pass)
 		if err != nil {
 			if s, ok := status.FromError(err); ok && s.Code() == codes.NotFound {
 				c.QuitToStdErr("Oops! It looks like the admin user has not been created yet.")

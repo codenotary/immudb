@@ -27,7 +27,7 @@ func (cli *cli) initCommands() {
 	// Auth
 	cli.Register(&command{"login", "Login using the specified username and password", cli.login, []string{"username"}})
 	cli.Register(&command{"logout", "", cli.logout, nil})
-	cli.Register(&command{"createdatabase", "Create new database. Automatically immu user will be created and new password generated.", cli.CreateDatabase, []string{"databasename"}})
+	cli.Register(&command{"use", "Select database", cli.UseDatabase, []string{"databasename"}})
 
 	// Get commands
 	cli.Register(&command{"rawsafeget", "Get item having the specified key, without parsing structured values", cli.rawSafeGetKey, []string{"key"}})
@@ -64,4 +64,8 @@ func (cli *cli) initCommands() {
 	cli.Register(&command{"status", "", cli.healthCheck, nil})
 	cli.Register(&command{"history", "Fetch history for the item having the specified key", cli.history, []string{"key"}})
 	cli.Register(&command{"version", "Print version", cli.version, nil})
+
+	// Admin Commands
+	cli.Register(&command{"createdatabase", "Create new database. Automatically immu user will be created and new password generated.", cli.CreateDatabase, []string{"databasename"}})
+	cli.Register(&command{"user", "User operations (help, create, list, activate/deactivate, changepassword,permission grant, permission revoke)", cli.UserOperations, nil})
 }

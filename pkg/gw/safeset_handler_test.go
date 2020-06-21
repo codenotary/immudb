@@ -140,7 +140,7 @@ func TestSafeset(t *testing.T) {
 				t.Error(body)
 				t.Error(string(w.Body.Bytes()))
 			}
-			// TODO gjergji this should be used once #263 is fixed
+			// TODO gj this should be used once #263 is fixed
 			// if w.Code != tc.want {
 			// 	t.Errorf("handler returned wrong status code: got %v want %v",
 			// 		w.Code, tc.want)

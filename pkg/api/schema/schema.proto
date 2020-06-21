@@ -28,10 +28,24 @@ option go_package = "github.com/codenotary/immudb/pkg/api/schema";
 message Key {
 	bytes key = 1;
 }
-
+enum ErrorCodes {
+    Ok = 0;
+	ERROR_SELECTING_DATABASE = 1;
+	ERROR_NO_PERMISSION_FOR_THIS_DATABASE = 2;
+	ERROR_USER_HAS_NOT_LOGGED_IN = 3;
+	ERROR_DB_DOES_NOT_EXIST = 4;
+}
+message Permission{
+	string database = 1;
+	uint32 permission = 2;
+}
 message User {
 	bytes user = 1;
-	bytes permissions = 2;
+	uint32 permission = 2;
+	repeated Permission permissions = 3;
+	string createdby = 4;
+	string createdat = 5;
+	bool active = 6;
 }
 message UserList {
 	repeated User users = 1;
@@ -40,20 +54,21 @@ message UserList {
 message CreateUserRequest {
 	bytes user = 1;
 	bytes password = 2;
-	bytes permissions = 3;
+	uint32 permission = 3;
+	string database = 4;
 }
 message UserRequest {
 	bytes user = 1;
 }
 message UserResponse {
 	bytes user = 1;
-	bytes permissions = 2;
+	uint32 permission = 2;
 }
 
 
 message ChangePasswordRequest {
 	bytes user = 1;
-	bytes oldPassword = 2;
+	bytes oldPassword = 2;//not used any more
 	bytes newPassword = 3;
 }
 
@@ -269,7 +284,7 @@ message SafeIndexOptions {
 	Index rootIndex = 2;
 }
 message Error {
-	int32 errorcode = 1;
+	ErrorCodes errorcode = 1;
 	string errormessage = 2;
 }
 message Database {
@@ -277,6 +292,20 @@ message Database {
 }
 message CreateDatabaseReply {
 	Error error = 1;
+}
+enum PermissionAction {
+	GRANT = 0;
+	REVOKE = 1;
+}
+message ChangePermissionRequest {
+	PermissionAction action = 1;
+	string username = 2;
+	string database = 3;
+	uint32 permission = 4;
+}
+message SetActiveUserRequest {
+	bool active = 1;
+	string username = 2;
 }
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
@@ -540,4 +569,21 @@ service ImmuService {
 			body: "*"
 		};
 	}
+	rpc UseDatabase(Database) returns (Error) {
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/usedatabase/{databasename}"
+		};
+	}
+	rpc ChangePermission(ChangePermissionRequest) returns (Error) {
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/changepermission"
+			body: "*"
+		};
+	}
+	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/user/SetActiveUser"
+			body: "*"
+		};
+	};
 }

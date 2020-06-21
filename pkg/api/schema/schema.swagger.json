@@ -68,6 +68,32 @@
         ]
       }
     },
+    "/v1/immurestproxy/changepermission": {
+      "post": {
+        "operationId": "ChangePermission",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaChangePermissionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/consistencyproof/{index}": {
       "get": {
         "operationId": "Consistency",
@@ -598,6 +624,30 @@
         ]
       }
     },
+    "/v1/immurestproxy/usedatabase/{databasename}": {
+      "get": {
+        "operationId": "UseDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "databasename",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/user": {
       "post": {
         "operationId": "CreateUser",
@@ -616,6 +666,32 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaCreateUserRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/user/SetActiveUser": {
+      "post": {
+        "operationId": "SetActiveUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSetActiveUserRequest"
             }
           }
         ],
@@ -875,6 +951,24 @@
         }
       }
     },
+    "schemaChangePermissionRequest": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/schemaPermissionAction"
+        },
+        "username": {
+          "type": "string"
+        },
+        "database": {
+          "type": "string"
+        },
+        "permission": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
     "schemaConsistencyProof": {
       "type": "object",
       "properties": {
@@ -935,9 +1029,12 @@
           "type": "string",
           "format": "byte"
         },
-        "permissions": {
-          "type": "string",
-          "format": "byte"
+        "permission": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "database": {
+          "type": "string"
         }
       }
     },
@@ -953,13 +1050,23 @@
       "type": "object",
       "properties": {
         "errorcode": {
-          "type": "integer",
-          "format": "int32"
+          "$ref": "#/definitions/schemaErrorCodes"
         },
         "errormessage": {
           "type": "string"
         }
       }
+    },
+    "schemaErrorCodes": {
+      "type": "string",
+      "enum": [
+        "Ok",
+        "ERROR_SELECTING_DATABASE",
+        "ERROR_NO_PERMISSION_FOR_THIS_DATABASE",
+        "ERROR_USER_HAS_NOT_LOGGED_IN",
+        "ERROR_DB_DOES_NOT_EXIST"
+      ],
+      "default": "Ok"
     },
     "schemaHealthResponse": {
       "type": "object",
@@ -1171,6 +1278,26 @@
         }
       }
     },
+    "schemaPermission": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "permission": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "schemaPermissionAction": {
+      "type": "string",
+      "enum": [
+        "GRANT",
+        "REVOKE"
+      ],
+      "default": "GRANT"
+    },
     "schemaProof": {
       "type": "object",
       "properties": {
@@ -1343,6 +1470,18 @@
         }
       }
     },
+    "schemaSetActiveUserRequest": {
+      "type": "object",
+      "properties": {
+        "active": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "username": {
+          "type": "string"
+        }
+      }
+    },
     "schemaStructuredItem": {
       "type": "object",
       "properties": {
@@ -1400,9 +1539,25 @@
           "type": "string",
           "format": "byte"
         },
+        "permission": {
+          "type": "integer",
+          "format": "int64"
+        },
         "permissions": {
-          "type": "string",
-          "format": "byte"
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaPermission"
+          }
+        },
+        "createdby": {
+          "type": "string"
+        },
+        "createdat": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
@@ -1433,9 +1588,9 @@
           "type": "string",
           "format": "byte"
         },
-        "permissions": {
-          "type": "string",
-          "format": "byte"
+        "permission": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },

@@ -48,10 +48,6 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
-	ctx, err := checkAuth(ctx, info.FullMethod, srv)
-	if err != nil {
-		return err
-	}
 	return handler(srv, &WrappedServerStream{ss})
 }
 
@@ -59,10 +55,6 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
-	}
-	ctx, err := checkAuth(ctx, info.FullMethod, req)
-	if err != nil {
-		return nil, err
 	}
 	return handler(ctx, req)
 }

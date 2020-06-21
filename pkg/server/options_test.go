@@ -26,10 +26,7 @@ func TestDefaultOptions(t *testing.T) {
 	if !strings.Contains(op.GetDbName(), "db_") {
 		t.Errorf("default db dir non as per convention")
 	}
-	if op.GetDbDir() != "immudb" {
-		t.Errorf("default db name non as per convention")
-	}
-	if op.GetSysDbDir() != "immudbsys" {
+	if op.GetDbName() != "db_name" {
 		t.Errorf("default sysdb name non as per convention")
 	}
 }

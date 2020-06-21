@@ -16,10 +16,6 @@ limitations under the License.
 
 package auth
 
-import (
-	"bytes"
-)
-
 // PermissionSysAdmin the admin permission byte
 const PermissionSysAdmin = 255
 
@@ -34,45 +30,53 @@ const (
 	PermissionRW
 )
 
-var methodsPermissions = map[string][]byte{
+var methodsPermissions = map[string][]uint32{
 	// readwrite methods
-	"/immudb.schema.ImmuService/Set":           {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/Get":           {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/SetSV":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/SafeSet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/SafeGet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/SafeSetSV":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/SetBatch":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/SetBatchSV":    {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/Reference":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/SafeReference": {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/ZAdd":          {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/SafeZAdd":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/ZScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/BySafeIndex":   {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/IScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/History":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/ByIndex":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"/immudb.schema.ImmuService/Count":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"Set":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"Get":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"SetSV":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"SafeSet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"SafeGet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"SafeSetSV":     {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"SetBatch":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"SetBatchSV":    {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"Reference":     {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"SafeReference": {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"ZAdd":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"SafeZAdd":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"ZScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"BySafeIndex":   {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"IScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"History":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"ByIndex":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"Count":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 
 	// admin methods
-	"/immudb.schema.ImmuService/ListUsers":        {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/CreateUser":       {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/ChangePassword":   {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/SetPermission":    {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/DeactivateUser":   {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/UpdateAuthConfig": {PermissionSysAdmin},
-	"/immudb.schema.ImmuService/UpdateMTLSConfig": {PermissionSysAdmin},
-	"/immudb.schema.ImmuService/CreateDatabase":   {PermissionSysAdmin},
-	"/immudb.schema.ImmuService/Dump":             {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/Consistency":      {PermissionSysAdmin, PermissionAdmin},
-	"/immudb.schema.ImmuService/CurrentRoot":      {PermissionSysAdmin, PermissionAdmin},
+	"ListUsers":        {PermissionSysAdmin, PermissionAdmin},
+	"CreateUser":       {PermissionSysAdmin, PermissionAdmin},
+	"ChangePassword":   {PermissionSysAdmin, PermissionAdmin},
+	"SetPermission":    {PermissionSysAdmin, PermissionAdmin},
+	"DeactivateUser":   {PermissionSysAdmin, PermissionAdmin},
+	"SetActiveUser":    {PermissionSysAdmin, PermissionAdmin},
+	"UpdateAuthConfig": {PermissionSysAdmin},
+	"UpdateMTLSConfig": {PermissionSysAdmin},
+	"CreateDatabase":   {PermissionSysAdmin},
+	"PrintTree":        {PermissionSysAdmin},
+	"Dump":             {PermissionSysAdmin, PermissionAdmin},
+	"Consistency":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW, PermissionR},
+	"CurrentRoot":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW, PermissionR},
 }
 
-func hasPermissionForMethod(userPermission byte, method string) bool {
-	methodPermission, ok := methodsPermissions[method]
+//HasPermissionForMethod checks if userPermission can access method name
+func HasPermissionForMethod(userPermission uint32, method string) bool {
+	methodPermissions, ok := methodsPermissions[method]
 	if !ok {
 		return false
 	}
-	return bytes.Contains(methodPermission, []byte{userPermission})
+	for _, val := range methodPermissions {
+		if val == userPermission {
+			return true
+		}
+	}
+	return false
 }

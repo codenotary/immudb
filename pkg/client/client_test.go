@@ -74,8 +74,8 @@ func newServer() *server.ImmuServer {
 	is.Start()
 	auth.AuthEnabled = is.Options.Auth
 
-	username = []byte(auth.AdminUsername)
-	plainPass = []byte(auth.AdminPassword)
+	username = []byte(auth.SysAdminUsername)
+	plainPass = []byte(auth.SysAdminPassword)
 
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(
