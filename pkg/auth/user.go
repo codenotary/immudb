@@ -81,6 +81,9 @@ func (u *User) HasPermission(database string, permission uint32) bool {
 
 //WhichPermission returns the permission that this user has on this database
 func (u *User) WhichPermission(database string) uint32 {
+	if u.IsSysAdmin {
+		return PermissionSysAdmin
+	}
 	for _, val := range u.Permissions {
 		if val.Database == database {
 			return val.Permission

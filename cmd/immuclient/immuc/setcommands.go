@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -183,16 +184,31 @@ func (i *immuc) SafeZAdd(args []string) (string, error) {
 }
 
 func (i *immuc) CreateDatabase(args []string) (string, error) {
-	dbname := []byte(args[0])
+	command := args[0]
+	switch command {
+	case "help":
+		fmt.Println("database list  -- shows databases and their details")
+		fmt.Println()
+		fmt.Println("database database_name  -- create a new database")
+		return "", nil
+	case "create":
+		if len(args) < 2 {
+			return "Incorrect number of parameters for the command. Please type 'database help' for more information.", nil
+		}
+		dbname := []byte(args[1])
 
-	ctx := context.Background()
-	resp, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
-		Databasename: string(dbname),
-	})
-	if err != nil {
-		return "", err
+		ctx := context.Background()
+		resp, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
+			Databasename: string(dbname),
+		})
+		if err != nil {
+			return "", err
+		}
+		return resp.Error.Errormessage, nil
+	case "list":
+		return "Unimplemented.", nil
 	}
-	return resp.Error.Errormessage, nil
+	return "Uknown command. Please type 'database help' for more information.", nil
 }
 
 func (i *immuc) UseDatabase(args []string) (string, error) {

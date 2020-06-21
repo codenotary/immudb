@@ -66,6 +66,6 @@ func (cli *cli) initCommands() {
 	cli.Register(&command{"version", "Print version", cli.version, nil})
 
 	// Admin Commands
-	cli.Register(&command{"createdatabase", "Create new database. Automatically immu user will be created and new password generated.", cli.CreateDatabase, []string{"databasename"}})
+	cli.Register(&command{"database", "Database operatons (help,create,list)", cli.CreateDatabase, nil})
 	cli.Register(&command{"user", "User operations (help, create, list, activate/deactivate, changepassword,permission grant, permission revoke)", cli.UserOperations, nil})
 }

@@ -69,6 +69,7 @@ var methodsPermissions = map[string][]uint32{
 
 //HasPermissionForMethod checks if userPermission can access method name
 func HasPermissionForMethod(userPermission uint32, method string) bool {
+
 	methodPermissions, ok := methodsPermissions[method]
 	if !ok {
 		return false
