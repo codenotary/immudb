@@ -1405,20 +1405,18 @@ func IsAllowedDbName(dbName string) error {
 	if len(dbName) < 1 || len(dbName) > 32 {
 		return fmt.Errorf("database name length outside of limits")
 	}
-	var hasDigit bool
 	var hasSpecial bool
 	for _, ch := range dbName {
 		switch {
 		case unicode.IsLower(ch):
 		case unicode.IsDigit(ch):
-			hasDigit = true
 		case unicode.IsPunct(ch) || unicode.IsSymbol(ch):
 			hasSpecial = true
 		default:
 			return fmt.Errorf("unrecognized character in database name")
 		}
 	}
-	if hasDigit || hasSpecial {
+	if hasSpecial {
 		return fmt.Errorf("punctuation marks, digits and symbols are not allowed in database name")
 	}
 	return nil
