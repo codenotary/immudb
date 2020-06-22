@@ -94,41 +94,49 @@ func TestDefaultDbCreation(t *testing.T) {
 		t.Errorf("Error creating Db instance %s", err)
 	}
 	defer os.RemoveAll(options.GetDbName())
-
-	if _, err = os.Stat(options.GetDbName()); os.IsNotExist(err) {
+	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
+	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
 		t.Errorf("Db dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.GetDbName()))
+	_, err = os.Stat(path.Join(options.GetDbRootPath()))
 	if os.IsNotExist(err) {
 		t.Errorf("Data dir not created")
 	}
-
-	_, err = os.Stat(path.Join(options.GetDbName()))
-	if os.IsNotExist(err) {
-		t.Errorf("Sys dir not created")
-	}
 }
 func TestDbCreation(t *testing.T) {
-	options := DefaultOption().WithDbName("EdithPiaf")
+	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
 	_, err := NewDb(options)
 	if err != nil {
 		t.Errorf("Error creating Db instance %s", err)
 	}
-	defer os.RemoveAll(options.GetDbName())
+	defer os.RemoveAll(options.GetDbRootPath())
 
-	if _, err = os.Stat(options.GetDbName()); os.IsNotExist(err) {
+	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
+	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
 		t.Errorf("Db dir not created")
 	}
 
-	_, err = os.Stat(path.Join(options.GetDbName()))
+	_, err = os.Stat(options.GetDbRootPath())
 	if os.IsNotExist(err) {
 		t.Errorf("Data dir not created")
 	}
+}
 
-	_, err = os.Stat(path.Join(options.GetDbName()))
-	if os.IsNotExist(err) {
-		t.Errorf("Sys dir not created")
+func TestOpenDb(t *testing.T) {
+	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
+	db, err := NewDb(options)
+	if err != nil {
+		t.Errorf("Error creating Db instance %s", err)
+	}
+	err = db.Store.Close()
+	if err != nil {
+		t.Errorf("Error closing store %s", err)
+	}
+
+	db, err = OpenDb(options)
+	if err != nil {
+		t.Errorf("Error opening database %s", err)
 	}
 }
 
@@ -652,57 +660,65 @@ func TestZAdd(t *testing.T) {
 	}
 }
 
-func TestZScanSV(t *testing.T) {
+func TestScan(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	// _, err := db.CurrentRoot(&emptypb.Empty{})
-	// if err != nil {
-	// 	t.Errorf("CurrentRoot error %s", err)
-	// }
-	// _, err = db.SafeZAdd(&schema.SafeZAddOptions{
-	// 	Zopts: &schema.ZAddOptions{
-	// 		Key:   kv[0].Key,
-	// 		Set:   kv[0].Value,
-	// 		Score: 1,
-	// 	},
-	// 	RootIndex: &schema.Index{
-	// 		Index: root.Index,
-	// 	},
-	// })
-	// if err != nil {
-	// 	t.Errorf("Reference error %s", err)
-	// }
+
 	_, err := db.Set(kv[0])
 	if err != nil {
-		t.Errorf("Reference error %s", err)
+		t.Errorf("set error %s", err)
 	}
 	ref, err := db.ZAdd(&schema.ZAddOptions{
 		Key:   kv[0].Key,
-		Score: 1,
+		Score: 3,
 		Set:   kv[0].Value,
 	})
 	if err != nil {
-		t.Errorf("Reference error %s", err)
+		t.Errorf("zadd error %s", err)
 	}
 	if ref.Index != 1 {
 		t.Errorf("Reference, expected %v, got %v", 1, ref.Index)
 	}
-	item, err := db.ZScanSV(&schema.ZScanOptions{
-		Offset:  []byte(""),
-		Limit:   3,
-		Reverse: true,
+
+	it, err := db.SafeZAdd(&schema.SafeZAddOptions{
+		Zopts: &schema.ZAddOptions{
+			Key:   kv[0].Key,
+			Score: 0,
+			Set:   kv[0].Value,
+		},
+		RootIndex: &schema.Index{
+			Index: 0,
+		},
+	})
+	if err != nil {
+		t.Errorf("SafeZAdd error %s", err)
+	}
+	if it.Index != 2 {
+		t.Errorf("SafeZAdd index, expected %v, got %v", 2, it.Index)
+	}
+
+	item, err := db.Scan(&schema.ScanOptions{
+		Offset: nil,
+		Deep:   false,
+		Limit:  1,
+		Prefix: kv[0].Key,
 	})
 
 	if err != nil {
-		t.Errorf("Reference  Get error %s", err)
+		t.Errorf("ZScanSV  Get error %s", err)
 	}
-	t.Fatal(item)
-	if !bytes.Equal(item.Items[0].Value.Payload, kv[0].Value) {
-		t.Errorf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value.Payload))
+	if !bytes.Equal(item.Items[0].Value, kv[0].Value) {
+		t.Errorf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
+	}
+
+	scanItem, err := db.IScan(&schema.IScanOptions{
+		PageNumber: 2,
+		PageSize:   1,
+	})
+	if err != nil {
+		t.Errorf("ZScanSV  Get error %s", err)
+	}
+	if !bytes.Equal(scanItem.Items[0].Value, kv[0].Key) {
+		t.Errorf("Reference, expected %v, got %v", string(kv[0].Key), string(scanItem.Items[0].Value))
 	}
 }
-
-//TODO gj test SafeZAdd
-//TODO gj test IScan
-//TODO gj test IScanSV
-//TODO gj test Dump

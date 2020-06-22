@@ -17,24 +17,39 @@ limitations under the License.
 package server
 
 import (
-	"strings"
 	"testing"
 )
 
 func TestDefaultOptions(t *testing.T) {
 	op := DefaultOption()
-	if !strings.Contains(op.GetDbName(), "db_") {
-		t.Errorf("default db dir non as per convention")
-	}
 	if op.GetDbName() != "db_name" {
-		t.Errorf("default sysdb name non as per convention")
+		t.Errorf("default sysdb name not what expected")
 	}
-}
+	if op.GetDbRootPath() != "data" {
+		t.Errorf("default db rootpath not what expected")
+	}
+	if !op.GetCorruptionChecker() {
+		t.Errorf("default corruption checker not what expected")
+	}
+	if op.GetInMemoryStore() {
+		t.Errorf("default in memory store not what expected")
+	}
 
-func TestSetOptions(t *testing.T) {
 	DbName := "Charles_Aznavour"
-	op := DefaultOption().WithDbName(DbName)
-	if !strings.Contains(op.GetDbName(), DbName) {
+	rootpath := "rootpath"
+	op = DefaultOption().WithDbName(DbName).
+		WithDbRootPath(rootpath).WithCorruptionChecker(false).WithInMemoryStore(true)
+	if op.GetDbName() != DbName {
 		t.Errorf("db name not set correctly , expected %s got %s", DbName, op.GetDbName())
+	}
+	if op.GetDbRootPath() != rootpath {
+		t.Errorf("rootpath not set correctly , expected %s got %s", rootpath, op.GetDbRootPath())
+	}
+
+	if op.GetCorruptionChecker() {
+		t.Errorf("coruuption checker not set correctly , expected %v got %v", false, op.GetCorruptionChecker())
+	}
+	if !op.GetInMemoryStore() {
+		t.Errorf("in  memory store not set correctly , expected %v got %v", false, op.GetInMemoryStore())
 	}
 }
