@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
@@ -38,7 +38,7 @@ import (
 
 var safereferenceHandlerTestDir = "./safereference_handler_test"
 
-func insertSampleSet(ic client.ImmuClient, clientDir string, token []byte) (string, error) {
+func insertSampleSet(ic client.ImmuClient, clientDir string, token string) (string, error) {
 	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
 	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
 	// ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
@@ -52,7 +52,7 @@ func insertSampleSet(ic client.ImmuClient, clientDir string, token []byte) (stri
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/v1/immurestproxy/item/safe", strings.NewReader(`{"kv": {"key": "`+key+`", "value": "`+value+`"} }`))
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authotization", "Bearer "+base64.StdEncoding.EncodeToString(token))
+	req.Header.Add("Authorization", "Bearer "+token)
 
 	safeset := func(res http.ResponseWriter, req *http.Request) {
 		ssh.Safeset(res, req, nil)
@@ -80,7 +80,8 @@ func TestSafeReference(t *testing.T) {
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithDevMode(false).WithAuth(false)
+		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(true)
+
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
@@ -90,20 +91,22 @@ func TestSafeReference(t *testing.T) {
 		os.RemoveAll(op.GetDataDir())
 		os.RemoveAll(safereferenceHandlerTestDir)
 	}()
-
+	ctx := context.Background()
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
 		WithPort(tcpPort).WithDir(safereferenceHandlerTestDir))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
 	}
-	item, err := ic.Login(context.Background(), []byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword))
+	item, err := ic.Login(ctx, []byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
 	token := item.GetToken()
-	fmt.Println(string(token))
-	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, token)
+
+	_, _ = ic.UseDatabase(ctx, &schema.Database{Databasename: "systemdb"})
+
+	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, string(token))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
