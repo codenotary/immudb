@@ -297,7 +297,6 @@ func (s *ImmuServer) Stop() error {
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
 	u, err := s.userExists(r.User, r.Password)
 	if err != nil {
-		s.Logger.Infof("Login", err)
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user name or password")
 	}
 	if !u.Active {
@@ -685,6 +684,7 @@ func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.Health
 	if ind < 0 { //probably immuclient hasn't logged in yet
 		return s.databases[0].Health(e)
 	}
+	fmt.Println("sdfsdfsdfsdfsdfsdfsdf", ind)
 	return s.databases[ind].Health(e)
 }
 

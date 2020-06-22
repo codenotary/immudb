@@ -65,12 +65,12 @@ func TestDumpToFile(t *testing.T) {
 	}{
 		{
 			"Backup zero records",
-			0,
+			2,
 			func() {},
 		},
 		{
 			"Backup two records",
-			5,
+			8,
 			func() {
 				ic.SafeSet(context.Background(), []byte("Jan"), []byte("ulrich"))
 				ic.SafeSet(context.Background(), []byte("Jan"), []byte("ulrich"))
