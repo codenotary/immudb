@@ -1250,12 +1250,10 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	if err != nil {
 		return nil, fmt.Errorf("please login first")
 	}
-	if user.SelectedDbIndex < 0 {
-		return nil, fmt.Errorf("please select a database first")
-	}
-	if (!user.IsSysAdmin) &&
-		(!user.HasPermission(s.databases[user.SelectedDbIndex].options.dbName, auth.PermissionAdmin)) {
-		return nil, fmt.Errorf("user does not have permission for this command on selected database")
+	if !user.IsSysAdmin {
+		if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
+			return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")
+		}
 	}
 	if len(r.Username) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
