@@ -674,6 +674,32 @@
         ]
       }
     },
+    "/v1/immurestproxy/user/DatabaseList": {
+      "post": {
+        "operationId": "DatabaseList",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaDatabaseListResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "properties": {}
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/user/SetActiveUser": {
       "post": {
         "operationId": "SetActiveUser",
@@ -1043,6 +1069,17 @@
       "properties": {
         "databasename": {
           "type": "string"
+        }
+      }
+    },
+    "schemaDatabaseListResponse": {
+      "type": "object",
+      "properties": {
+        "databases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaDatabase"
+          }
         }
       }
     },

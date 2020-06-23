@@ -102,6 +102,7 @@ type ImmuClient interface {
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.Error, error)
 	ChangePermission(ctx context.Context, d *schema.ChangePermissionRequest) (*schema.Error, error)
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error)
+	DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error)
 }
 
 type immuClient struct {
@@ -1297,5 +1298,14 @@ func (c *immuClient) SetActiveUser(ctx context.Context, u *schema.SetActiveUserR
 	}
 	result, err := c.ServiceClient.SetActiveUser(ctx, u)
 	c.Logger.Debugf("SetActiveUser finished in %s", time.Since(start))
+	return result, err
+}
+func (c *immuClient) DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.DatabaseList(ctx, d)
+	c.Logger.Debugf("DatabaseList finished in %s", time.Since(start))
 	return result, err
 }

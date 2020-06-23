@@ -50,6 +50,7 @@ var methodsPermissions = map[string][]uint32{
 	"History":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"ByIndex":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"Count":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"DatabaseList":  {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 
 	// admin methods
 	"ListUsers":        {PermissionSysAdmin, PermissionAdmin},

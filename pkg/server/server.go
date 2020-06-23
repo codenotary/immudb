@@ -989,7 +989,7 @@ func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schem
 	return nil, fmt.Errorf("deprecated method. use user list instead")
 }
 
-// ListUsers ...
+// ListUsers returns a list of users based on the requesting user permissions
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	s.Logger.Debugf("ListUsers %+v")
 	loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -1092,6 +1092,32 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		userlist.Users = append(userlist.Users, &u)
 		return userlist, nil
 	}
+}
+
+//DatabaseList returns a list of databases based on the requesting user permissins
+func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
+	s.Logger.Debugf("DatabaseList")
+	loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("please login")
+	}
+	dbList := &schema.DatabaseListResponse{}
+	if loggedInuser.IsSysAdmin {
+		for _, val := range s.databases {
+			db := &schema.Database{
+				Databasename: val.options.dbName,
+			}
+			dbList.Databases = append(dbList.Databases, db)
+		}
+	} else {
+		for _, val := range loggedInuser.Permissions {
+			db := &schema.Database{
+				Databasename: val.Database,
+			}
+			dbList.Databases = append(dbList.Databases, db)
+		}
+	}
+	return dbList, nil
 }
 
 // PrintTree ...

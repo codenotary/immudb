@@ -27,6 +27,7 @@ import (
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (i *immuc) RawSafeSet(args []string) (string, error) {
@@ -206,7 +207,14 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 		}
 		return resp.Error.Errormessage, nil
 	case "list":
-		return "Unimplemented.", nil
+		resp, err := i.ImmuClient.DatabaseList(context.Background(), &emptypb.Empty{})
+		if err != nil {
+			return "", err
+		}
+		for _, val := range resp.Databases {
+			fmt.Println(val.Databasename)
+		}
+		return "", nil
 	}
 	return "Uknown command. Please type 'database help' for more information.", nil
 }

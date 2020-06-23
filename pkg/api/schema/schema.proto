@@ -307,6 +307,9 @@ message SetActiveUserRequest {
 	bool active = 1;
 	string username = 2;
 }
+message DatabaseListResponse{
+	repeated Database databases = 1;
+}
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "immudb REST API";
@@ -583,6 +586,12 @@ service ImmuService {
 	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user/SetActiveUser"
+			body: "*"
+		};
+	};
+	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/user/DatabaseList"
 			body: "*"
 		};
 	};
