@@ -684,7 +684,6 @@ func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.Health
 	if ind < 0 { //probably immuclient hasn't logged in yet
 		return s.databases[0].Health(e)
 	}
-	fmt.Println("sdfsdfsdfsdfsdfsdfsdf", ind)
 	return s.databases[ind].Health(e)
 }
 
