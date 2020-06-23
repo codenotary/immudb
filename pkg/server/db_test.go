@@ -89,11 +89,15 @@ func makeDb() (*Db, func()) {
 
 func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
-	_, err := NewDb(options)
+	db, err := NewDb(options)
 	if err != nil {
 		t.Errorf("Error creating Db instance %s", err)
 	}
-	defer os.RemoveAll(options.GetDbName())
+	defer func() {
+		db.Store.Close()
+		time.Sleep(1 * time.Second)
+		os.RemoveAll(options.GetDbRootPath())
+	}()
 	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
 		t.Errorf("Db dir not created")
@@ -106,11 +110,15 @@ func TestDefaultDbCreation(t *testing.T) {
 }
 func TestDbCreation(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	_, err := NewDb(options)
+	db, err := NewDb(options)
 	if err != nil {
 		t.Errorf("Error creating Db instance %s", err)
 	}
-	defer os.RemoveAll(options.GetDbRootPath())
+	defer func() {
+		db.Store.Close()
+		time.Sleep(1 * time.Second)
+		os.RemoveAll(options.GetDbRootPath())
+	}()
 
 	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
