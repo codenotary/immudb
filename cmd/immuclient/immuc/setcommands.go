@@ -195,7 +195,7 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	case "help":
 		fmt.Println("database list  -- shows databases and their details")
 		fmt.Println()
-		fmt.Println("database database_name  -- create a new database")
+		fmt.Println("database create database_name  -- create a new database")
 		return "", nil
 	case "create":
 		if len(args) < 2 {

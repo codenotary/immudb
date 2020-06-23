@@ -134,7 +134,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			fmt.Println(resp)
 			return nil
 		},
-		Args: cobra.MaximumNArgs(2),
+		Args: cobra.MaximumNArgs(3),
 	}
 	cmd.AddCommand(ccmd)
 }

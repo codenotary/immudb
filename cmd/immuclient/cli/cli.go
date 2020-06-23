@@ -209,7 +209,7 @@ func (cli *cli) runCommand(arrCommandStr []string) {
 		return
 	}
 	valOnly := false
-	if len(arrCommandStr[1:]) > len(command.args) {
+	if !command.variable && len(arrCommandStr[1:]) > len(command.args) {
 		redunantArgs := make([]string, 0)
 		excessargs := arrCommandStr[len(command.args):]
 		for i := 1; i < len(excessargs); i++ {
