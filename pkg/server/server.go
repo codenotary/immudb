@@ -117,6 +117,9 @@ func (s *ImmuServer) Start() error {
 		return err
 	}
 
+	if !s.Options.Auth {
+		s.Logger.Infof("Auth is disabled. We'll be using systemdb for all set/get operations.")
+	}
 	auth.AuthEnabled = s.Options.Auth
 	auth.DevMode = s.Options.DevMode
 	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
@@ -1289,8 +1292,8 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 // getDbIndexFromCtx checks if user (loggedin from context) has access to methodname.
 // returns index of database
 func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (int, error) {
-	//if we're in devmode just work with system db, since it's just testing
-	if s.Options.DevMode {
+	//if auth is disabled just work with system db, since it's just testing
+	if !s.Options.Auth {
 		return 0, nil
 	}
 	jsUser, err := auth.GetLoggedInUser(ctx)
