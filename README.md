@@ -263,7 +263,7 @@ Environment variables:
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
   IMMUDB_DEVMODE=true
-  IMMUDB_ADMIN_PASSWORD=immu
+  IMMUDB_ADMIN_PASSWORD=immudb
 
 Usage:
   immudb [flags]

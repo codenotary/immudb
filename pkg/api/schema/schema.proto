@@ -585,13 +585,13 @@ service ImmuService {
 	}
 	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/user/SetActiveUser"
+			post: "/v1/immurestproxy/user/setactiveUser"
 			body: "*"
 		};
 	};
 	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/user/DatabaseList"
+			post: "/v1/immurestproxy/user/databaselist"
 			body: "*"
 		};
 	};

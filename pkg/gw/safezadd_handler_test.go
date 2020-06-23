@@ -19,10 +19,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -36,14 +37,19 @@ import (
 var safezaddHandlerTestDir = "./safezadd_handler_test"
 
 func TestSafeZAdd(t *testing.T) {
+	dir, err := ioutil.TempDir("", "immu")
+	if err != nil {
+		log.Fatal(err)
+	}
 	setName := base64.StdEncoding.EncodeToString([]byte("Soprano"))
 	uknownKey := base64.StdEncoding.EncodeToString([]byte("Marias Callas"))
 	tcpPort := generateRandomTCPPort()
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
-		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(true)
+		WithPort(tcpPort).WithDir(dir).
+		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
 	s := immudb.DefaultServer().WithOptions(op)
+
 	go s.Start()
 	time.Sleep(2 * time.Second)
 	defer func() {
@@ -52,7 +58,6 @@ func TestSafeZAdd(t *testing.T) {
 		os.RemoveAll(op.Dir)
 		os.RemoveAll(safezaddHandlerTestDir)
 	}()
-
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
 		WithPort(tcpPort).WithDir(safezaddHandlerTestDir))
 

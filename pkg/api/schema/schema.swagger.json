@@ -674,7 +674,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/user/DatabaseList": {
+    "/v1/immurestproxy/user/databaselist": {
       "post": {
         "operationId": "DatabaseList",
         "responses": {
@@ -692,32 +692,6 @@
             "required": true,
             "schema": {
               "properties": {}
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/user/SetActiveUser": {
-      "post": {
-        "operationId": "SetActiveUser",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaSetActiveUserRequest"
             }
           }
         ],
@@ -812,6 +786,32 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaItem"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/user/setactiveUser": {
+      "post": {
+        "operationId": "SetActiveUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSetActiveUserRequest"
             }
           }
         ],

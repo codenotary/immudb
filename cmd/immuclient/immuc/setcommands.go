@@ -199,7 +199,7 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 		return "", nil
 	case "create":
 		if len(args) < 2 {
-			return "Incorrect number of parameters for the command. Please type 'database help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'database help' for more information.", nil
 		}
 		dbname := []byte(args[1])
 

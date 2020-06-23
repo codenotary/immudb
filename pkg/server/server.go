@@ -285,9 +285,11 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	s.GrpcServer = nil
-
+	fmt.Println("stopping db")
 	for _, db := range s.databases {
+		fmt.Println("stopping CC")
 		db.StopCorruptionChecker()
+		fmt.Println("stopped CC")
 		if db != nil {
 			defer func() { db.Store = nil }()
 			db.Store.Close()
@@ -322,7 +324,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	//associate the username to userdata and db index
 	s.userdata.Lock()
 	defer s.userdata.Unlock()
-	s.userdata.Userdata[u.Username] = u
+	s.userdata.Userdata[token] = u
 	return loginResponse, nil
 }
 
@@ -897,7 +899,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 
 	//check if database exists
 	if _, ok := s.databasenameToIndex[newdb.GetDatabasename()]; ok {
-		return nil, fmt.Errorf("database %s does not exist", newdb.GetDatabasename())
+		return nil, fmt.Errorf("database %s already exists", newdb.GetDatabasename())
 	}
 
 	dataDir := s.Options.Dir
@@ -939,7 +941,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	}
 	//check if database exists
 	if _, ok := s.databasenameToIndex[r.Database]; !ok {
-		return nil, fmt.Errorf("database %s does not exist", r.Database)
+		return nil, fmt.Errorf("database %s already exists", r.Database)
 	}
 	if len(r.User) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
@@ -1159,8 +1161,8 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	if !ok {
 		return &schema.Error{
 			Errorcode:    schema.ErrorCodes_ERROR_DB_DOES_NOT_EXIST,
-			Errormessage: fmt.Sprintf("%s does not exist", db.Databasename),
-		}, fmt.Errorf("%s does not exist", db.Databasename)
+			Errormessage: fmt.Sprintf("%s already exists", db.Databasename),
+		}, fmt.Errorf("%s already exists", db.Databasename)
 	}
 	//change the index of the database for this user current this will change it in the map also
 	//index is just the place of this db in the databses array(slice)
@@ -1296,11 +1298,7 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 	if !s.Options.Auth {
 		return 0, nil
 	}
-	jsUser, err := auth.GetLoggedInUser(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("please login first")
-	}
-	usr, err := s.getLoggedInUserDataFromUsername(jsUser.Username)
+	usr, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("please login first")
 	}
@@ -1317,12 +1315,12 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (*auth.User
 	if err != nil {
 		return nil, fmt.Errorf("could not get userdata from token")
 	}
-	return s.getLoggedInUserDataFromUsername(jsUser.Username)
+	return s.getLoggedInUserDataFromUsername(jsUser.Token)
 }
-func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.User, error) {
+func (s *ImmuServer) getLoggedInUserDataFromUsername(token string) (*auth.User, error) {
 	s.userdata.Lock()
 	defer s.userdata.Unlock()
-	userdata, ok := s.userdata.Userdata[username]
+	userdata, ok := s.userdata.Userdata[token]
 	if !ok {
 		return nil, fmt.Errorf("Logedin user data not found")
 	}

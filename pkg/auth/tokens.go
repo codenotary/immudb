@@ -69,6 +69,7 @@ func GenerateToken(user User) (string, error) {
 type JSONToken struct {
 	Username   string
 	Expiration time.Time
+	Token      string
 }
 
 var tokenEncoder = base64.RawURLEncoding
@@ -122,6 +123,7 @@ func verifyToken(token string) (*JSONToken, error) {
 	return &JSONToken{
 		Username:   jsonToken.Subject,
 		Expiration: jsonToken.Expiration,
+		Token:      token,
 	}, nil
 }
 

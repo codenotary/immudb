@@ -53,7 +53,7 @@ func (i *immuc) Login(args []string) (string, error) {
 	}
 	i.isLoggedin = true
 
-	successMsg := "Successfully logged in.\nSelect a database before any operation."
+	successMsg := "Successfully logged in.\nSelect a database before for any further commands."
 	if len(response.Warning) != 0 {
 		successMsg += fmt.Sprintf("\n%s", string(response.Warning))
 	}
@@ -124,7 +124,7 @@ func (i *immuc) UserOperations(args []string) (string, error) {
 		return "", nil
 	case "create":
 		if len(args) < 4 {
-			return "Incorrect number of parameters for the command. Please type 'user help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		username := args[1]
 		permission := args[2]
@@ -162,7 +162,7 @@ func (i *immuc) UserOperations(args []string) (string, error) {
 		return fmt.Sprintf("Created user %s", string(user.GetUser())), nil
 	case "changepassword":
 		if len(args) != 2 {
-			return "Incorrect number of parameters for the command. Please type 'user help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		username := args[1]
 		newpass, err := i.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
@@ -186,7 +186,7 @@ func (i *immuc) UserOperations(args []string) (string, error) {
 		return fmt.Sprintf("Password of %s was changed successfuly", username), nil
 	case "permission":
 		if len(args) != 5 {
-			return "Incorrect number of parameters for the command. Please type 'user help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		var permissionAction schema.PermissionAction
 		switch args[1] {
@@ -224,7 +224,7 @@ func (i *immuc) UserOperations(args []string) (string, error) {
 		return resp.Errormessage, nil
 	case "activate", "deactivate":
 		if len(args) < 2 {
-			return "Incorrect number of parameters for the command. Please type 'user help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		username := args[1]
 		var active bool

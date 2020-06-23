@@ -97,7 +97,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		return "", nil
 	case "create":
 		if len(args) < 4 {
-			return "Incorrect number of parameters for the command. Please type 'user help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		username := args[1]
 		permission := args[2]
@@ -135,7 +135,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		return fmt.Sprintf("Created user %s", string(user.GetUser())), nil
 	case "changepassword":
 		if len(args) != 2 {
-			return "Incorrect number of parameters for the command. Please type 'user help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		username := args[1]
 		newpass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
@@ -159,7 +159,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		return fmt.Sprintf("Password of %s was changed successfuly", username), nil
 	case "permission":
 		if len(args) != 5 {
-			return "Incorrect number of parameters for the command. Please type 'user help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		var permissionAction schema.PermissionAction
 		switch args[1] {
@@ -197,7 +197,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		return resp.Errormessage, nil
 	case "activate", "deactivate":
 		if len(args) < 2 {
-			return "Incorrect number of parameters for the command. Please type 'user help' for more information.", nil
+			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		username := args[1]
 		var active bool
