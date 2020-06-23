@@ -79,6 +79,16 @@ func (u *User) HasPermission(database string, permission uint32) bool {
 	return false
 }
 
+//HasAtLeastOnePermission checks if user has this permission for at least one database
+func (u *User) HasAtLeastOnePermission(permission uint32) bool {
+	for _, val := range u.Permissions {
+		if val.Permission == permission {
+			return true
+		}
+	}
+	return false
+}
+
 //WhichPermission returns the permission that this user has on this database
 func (u *User) WhichPermission(database string) uint32 {
 	if u.IsSysAdmin {
