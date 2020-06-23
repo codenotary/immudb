@@ -41,7 +41,7 @@ type User struct {
 }
 
 // SysAdminUsername the system admin username
-var SysAdminUsername = "immu"
+var SysAdminUsername = "immudb"
 
 // SysAdminPassword the admin password (can be default or from command flags, config or env var)
 var SysAdminPassword = SysAdminUsername

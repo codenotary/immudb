@@ -32,4 +32,4 @@ pkey = "%programdata%a\\Immudb\\config\\mtls\\3_application\\private\\localhost.
 certificate = "%programdata%\\Immudb\\config\\mtls\\3_application\\certs\\localhost.cert.pem"
 clientcas = "%programdata%\\Immudb\\config\\mtls\\2_intermediate\\certs\\ca-chain.cert.pem"
 devmode = true
-admin-password = "immu"`)
+admin-password = "immudb"`)
