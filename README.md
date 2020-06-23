@@ -284,7 +284,7 @@ Flags:
   -n, --dbname string           db name (default "immudb")
   -d, --detached                run immudb in background
       --devmode                 enable dev mode: accept remote connections without auth
-      --dir string              data folder (default "./db")
+      --dir string              data folder (default "./data")
   -h, --help                    help for immudb
       --logfile string          log path with filename. E.g. /tmp/immudb/immudb.log
   -m, --mtls                    enable mutual tls

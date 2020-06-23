@@ -45,7 +45,6 @@ type Options struct {
 	MetricsServer       bool
 	DevMode             bool
 	AdminPassword       string `json:"-"`
-	dataDir             string
 	systemAdminDbName   string
 	inMemoryStore       bool
 	listener            net.Listener
@@ -55,7 +54,7 @@ type Options struct {
 // DefaultOptions returns default server options
 func DefaultOptions() Options {
 	return Options{
-		Dir:                 "./db",
+		Dir:                 "./data",
 		Network:             "tcp",
 		Address:             "127.0.0.1",
 		Port:                3322,
@@ -73,7 +72,6 @@ func DefaultOptions() Options {
 		MetricsServer:       true,
 		DevMode:             true,
 		AdminPassword:       auth.SysAdminPassword,
-		dataDir:             "./data",
 		systemAdminDbName:   "systemdb",
 		inMemoryStore:       false,
 		usingCustomListener: false,
@@ -210,11 +208,6 @@ func (o Options) WithAdminPassword(adminPassword string) Options {
 //GetSystemAdminDbName returns the System database name
 func (o Options) GetSystemAdminDbName() string {
 	return o.systemAdminDbName
-}
-
-//GetDataDir returns the root directory where all databases are stored
-func (o Options) GetDataDir() string {
-	return o.dataDir
 }
 
 // WithInMemoryStore use in memory database without persistence, used for tests

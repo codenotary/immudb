@@ -36,4 +36,4 @@ var AuthEnabled bool
 var DevMode bool
 
 // WarnDefaultAdminPassword warning user message for the case when admin uses the default password
-var WarnDefaultAdminPassword = "immu user has the default password: please change it to ensure proper security"
+var WarnDefaultAdminPassword = "immudb user has the default password: please change it to ensure proper security"

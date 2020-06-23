@@ -158,7 +158,7 @@ func mustNotBeWorkingDir(p string) error {
 	}
 	if pathAbs == currDirAbs {
 		return fmt.Errorf(
-			"cannot backup the current directory, please specify a subdirectory, for example ./db")
+			"cannot backup the current directory, please specify a subdirectory, for example ./data")
 	}
 	return nil
 }

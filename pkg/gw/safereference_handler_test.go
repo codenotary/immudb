@@ -88,7 +88,7 @@ func TestSafeReference(t *testing.T) {
 	defer func() {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
-		os.RemoveAll(op.GetDataDir())
+		os.RemoveAll(op.Dir)
 		os.RemoveAll(safereferenceHandlerTestDir)
 	}()
 	ctx := context.Background()

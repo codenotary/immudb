@@ -53,7 +53,7 @@ var startedAt time.Time
 // Start starts the immudb server
 // Loads and starts the System DB, and puts it in the first index
 func (s *ImmuServer) Start() error {
-	dataDir := s.Options.GetDataDir()
+	dataDir := s.Options.Dir
 	if err := s.loadSystemDatabase(dataDir); err != nil {
 		s.Logger.Errorf("Unable load user databases %s", err)
 		return err
@@ -241,7 +241,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 func (s *ImmuServer) loadDatabases(dataDir string) error {
 	var dirs []string
 	//get first level sub directories of data dir
-	err := filepath.Walk(s.Options.dataDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(s.Options.Dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -900,7 +900,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		return nil, fmt.Errorf("database %s does not exist", newdb.GetDatabasename())
 	}
 
-	dataDir := s.Options.GetDataDir()
+	dataDir := s.Options.Dir
 
 	op := DefaultOption().
 		WithDbName(newdb.Databasename).
