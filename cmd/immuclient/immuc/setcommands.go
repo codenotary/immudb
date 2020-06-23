@@ -185,7 +185,12 @@ func (i *immuc) SafeZAdd(args []string) (string, error) {
 }
 
 func (i *immuc) CreateDatabase(args []string) (string, error) {
-	command := args[0]
+	var command string
+	if len(args) == 0 {
+		command = "help"
+	} else {
+		command = args[0]
+	}
 	switch command {
 	case "help":
 		fmt.Println("database list  -- shows databases and their details")

@@ -76,7 +76,12 @@ func (i *immuc) Logout(args []string) (string, error) {
 	return "Successfully logged out", nil
 }
 func (i *immuc) UserOperations(args []string) (string, error) {
-	command := args[0]
+	var command string
+	if len(args) == 0 {
+		command = "help"
+	} else {
+		command = args[0]
+	}
 	switch command {
 	case "help":
 		fmt.Println("user list  -- shows all users and their details")
