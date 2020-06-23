@@ -146,6 +146,9 @@ func TestOpenDb(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error opening database %s", err)
 	}
+	db.Store.Close()
+	time.Sleep(1 * time.Second)
+	os.RemoveAll(options.GetDbRootPath())
 }
 
 func TestDbSetGet(t *testing.T) {
