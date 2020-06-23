@@ -120,14 +120,14 @@ func (cl *commandline) user(cmd *cobra.Command) {
 }
 func (cl *commandline) database(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:   "database",
+		Use:   "database command",
 		Short: "Issue all user commands",
 		//Aliases:           []string{"p"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"help", "list", "create databasename"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.UserOperations(args)
+			resp, err := cl.immucl.CreateDatabase(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
