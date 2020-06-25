@@ -32,6 +32,7 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Auditor the auditor interface
@@ -41,12 +42,14 @@ type Auditor interface {
 
 type defaultAuditor struct {
 	index         uint64
+	databaseIndex int
 	logger        logger.Logger
 	serverAddress string
 	dialOptions   []grpc.DialOption
 	history       cache.HistoryCache
 	ts            client.TimestampService
 	username      []byte
+	databases     []string
 	password      []byte
 	slugifyRegExp *regexp.Regexp
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
@@ -81,12 +84,14 @@ func DefaultAuditor(
 	}
 	return &defaultAuditor{
 		0,
+		0,
 		logr,
 		serverAddress,
 		*dialOptions,
 		history,
 		client.NewTimestampService(dt),
 		[]byte(username),
+		nil,
 		[]byte(password),
 		slugifyRegExp,
 		updateMetrics,
@@ -133,7 +138,33 @@ func (a *defaultAuditor) audit() error {
 		return noErr
 	}
 	defer a.closeConnection(conn)
+
 	serviceClient := schema.NewImmuServiceClient(conn)
+	//check if we have cycled through the list of databases
+	if a.databaseIndex == len(a.databases) {
+		//if we have reached the end get a fresh list of dbs that belong to the user
+		dbs, err := serviceClient.DatabaseList(ctx, &emptypb.Empty{})
+		if err != nil {
+			a.logger.Errorf("error getting a list of databases %v", a.databases[a.databaseIndex], err)
+			withError = true
+			return noErr
+		}
+		for _, val := range dbs.Databases {
+			a.databases = append(a.databases, val.Databasename)
+		}
+		a.databaseIndex = 0
+	}
+	dbName := a.databases[a.databaseIndex]
+	_, err = serviceClient.UseDatabase(ctx, &schema.Database{
+		Databasename: dbName,
+	})
+	if err != nil {
+		a.logger.Errorf("error selecting database %s: %v", dbName, err)
+		withError = true
+		return noErr
+	}
+	a.logger.Infof("Auditing database %s\n", dbName)
+	a.databaseIndex++
 
 	root, err = serviceClient.CurrentRoot(ctx, &empty.Empty{})
 	if err != nil {
@@ -145,7 +176,7 @@ func (a *defaultAuditor) audit() error {
 	isEmptyDB := len(root.GetRoot()) == 0 && root.GetIndex() == 0
 
 	serverID = a.getServerID(ctx, serviceClient)
-	prevRoot, err = a.history.Get(serverID)
+	prevRoot, err = a.history.Get(serverID, dbName)
 	if err != nil {
 		a.logger.Errorf(err.Error())
 		withError = true
@@ -194,13 +225,14 @@ func (a *defaultAuditor) audit() error {
 				"so it will not overwrite the previous local root (at index %d)",
 			a.index, root.GetIndex(), prevRoot.GetIndex())
 	} else if prevRoot == nil || root.GetIndex() != prevRoot.GetIndex() {
-		if err := a.history.Set(root, serverID); err != nil {
+		if err := a.history.Set(root, serverID, dbName); err != nil {
 			a.logger.Errorf(err.Error())
 			return noErr
 		}
 	}
 	a.logger.Infof("audit #%d finished in %s @ %s",
 		a.index, time.Since(start), time.Now().Format(time.RFC3339Nano))
+
 	return noErr
 }
 

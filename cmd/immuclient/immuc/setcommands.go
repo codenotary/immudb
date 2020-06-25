@@ -225,14 +225,17 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 }
 
 func (i *immuc) UseDatabase(args []string) (string, error) {
-	dbname := []byte(args[0])
+	dbname := args[0]
 
 	ctx := context.Background()
 	resp, err := i.ImmuClient.UseDatabase(ctx, &schema.Database{
-		Databasename: string(dbname),
+		Databasename: dbname,
 	})
 	if err != nil {
 		return "", err
+	}
+	if resp.Errorcode == schema.ErrorCodes_Ok {
+		i.ImmuClient.GetOptions().CurrentDatabase = dbname
 	}
 	return resp.Errormessage, nil
 }

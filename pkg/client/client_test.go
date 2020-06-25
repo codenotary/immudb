@@ -147,6 +147,9 @@ func init() {
 	tss := NewTimestampService(nm)
 	token := login()
 	client = newClient(true, token).WithTimestampService(tss)
+	_, _ = client.UseDatabase(context.Background(), &schema.Database{
+		Databasename: immuServer.Options.GetSystemAdminDbName(),
+	})
 }
 
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {
@@ -278,7 +281,7 @@ func TestImmuClient(t *testing.T) {
 	testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 
-	//dump companrison will not work because at start user immu is automatically created and a time stamp of creation is used which will always make dumps different
+	//dump comparison will not work because at start user immu is automatically created and a time stamp of creation is used which will always make dumps different
 	//userdata.CreatedAt = time.Now()
 	//testDump(ctx, t)
 

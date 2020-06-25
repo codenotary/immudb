@@ -216,7 +216,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		if err != nil {
 			return err
 		}
-
+		s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = len(s.databases)
 		s.databases = append(s.databases, db)
 		//sys admin can have an empty array of databases as it has full access
 		adminUsername, adminPlainPass, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword), auth.PermissionSysAdmin, "*", false, "")
@@ -284,12 +284,9 @@ func (s *ImmuServer) Stop() error {
 	s.Logger.Infof("stopping immudb: %v", s.Options)
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
-	s.GrpcServer = nil
-	fmt.Println("stopping db")
+	defer func() { s.GrpcServer = nil }()
 	for _, db := range s.databases {
-		fmt.Println("stopping CC")
 		db.StopCorruptionChecker()
-		fmt.Println("stopped CC")
 		if db != nil {
 			defer func() { db.Store = nil }()
 			db.Store.Close()
@@ -321,7 +318,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	}
 	u.SelectedDbIndex = -1 //no database yet, must exec the "use" (UseDatabase) command first
 
-	//associate the username to userdata and db index
+	//associate token to userdata and db index
 	s.userdata.Lock()
 	defer s.userdata.Unlock()
 	s.userdata.Userdata[token] = u
@@ -1161,8 +1158,8 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	if !ok {
 		return &schema.Error{
 			Errorcode:    schema.ErrorCodes_ERROR_DB_DOES_NOT_EXIST,
-			Errormessage: fmt.Sprintf("%s already exists", db.Databasename),
-		}, fmt.Errorf("%s already exists", db.Databasename)
+			Errormessage: fmt.Sprintf("%s does not exist", db.Databasename),
+		}, fmt.Errorf("%s does not exist", db.Databasename)
 	}
 	//change the index of the database for this user current this will change it in the map also
 	//index is just the place of this db in the databses array(slice)

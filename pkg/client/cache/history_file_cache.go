@@ -17,10 +17,12 @@ limitations under the License.
 package cache
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
@@ -35,7 +37,7 @@ func NewHistoryFileCache(dir string) HistoryCache {
 	return &historyFileCache{dir: dir}
 }
 
-func (history *historyFileCache) Get(serverID string) (*schema.Root, error) {
+func (history *historyFileCache) Get(serverID string, databasename string) (*schema.Root, error) {
 	rootsDir := filepath.Join(history.dir, serverID)
 	rootsFileInfos, err := history.getRootsFileInfos(rootsDir)
 	if err != nil {
@@ -46,15 +48,11 @@ func (history *historyFileCache) Get(serverID string) (*schema.Root, error) {
 	}
 	prevRootFileName := rootsFileInfos[len(rootsFileInfos)-1].Name()
 	prevRootFilePath := filepath.Join(rootsDir, prevRootFileName)
-	prevRoot := new(schema.Root)
-	if err := history.unmarshalRoot(prevRootFilePath, prevRoot); err != nil {
-		return nil, err
-	}
-	return prevRoot, nil
+	return history.unmarshalRoot(prevRootFilePath, databasename)
 }
 
 func (history *historyFileCache) Walk(
-	serverID string,
+	serverID string, databasename string,
 	f func(*schema.Root) interface{},
 ) ([]interface{}, error) {
 	rootsDir := filepath.Join(history.dir, serverID)
@@ -68,8 +66,8 @@ func (history *historyFileCache) Walk(
 	results := make([]interface{}, 0, len(rootsFileInfos))
 	for _, rootFileInfo := range rootsFileInfos {
 		rootFilePath := filepath.Join(rootsDir, rootFileInfo.Name())
-		root := new(schema.Root)
-		if err := history.unmarshalRoot(rootFilePath, root); err != nil {
+		root, err := history.unmarshalRoot(rootFilePath, databasename)
+		if err != nil {
 			return nil, err
 		}
 		results = append(results, f(root))
@@ -77,21 +75,41 @@ func (history *historyFileCache) Walk(
 	return results, nil
 }
 
-func (history *historyFileCache) Set(root *schema.Root, serverID string) error {
-	rootBytes, err := proto.Marshal(root)
-	if err != nil {
-		return fmt.Errorf("error marshaling root %d: %v", root.GetIndex(), err)
-	}
+func (history *historyFileCache) Set(root *schema.Root, serverID string, databasename string) error {
 	rootsDir := filepath.Join(history.dir, serverID)
-	if err = os.MkdirAll(rootsDir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(rootsDir, os.ModePerm); err != nil {
 		return fmt.Errorf("error ensuring roots dir %s exists: %v", rootsDir, err)
 	}
 	rootFilePath := filepath.Join(rootsDir, ".root")
-	if err = ioutil.WriteFile(rootFilePath, rootBytes, 0644); err != nil {
+
+	//at run first the file does not exist
+	input, _ := ioutil.ReadFile(rootFilePath)
+
+	lines := strings.Split(string(input), "\n")
+	raw, err := proto.Marshal(root)
+	if err != nil {
+		return err
+	}
+
+	newRoot := databasename + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
+	var exists bool
+	for i, line := range lines {
+		if strings.Contains(line, databasename+":") {
+			exists = true
+			lines[i] = newRoot
+		}
+	}
+	if !exists {
+		lines = append(lines, newRoot)
+	}
+	output := strings.Join(lines, "\n")
+
+	if err = ioutil.WriteFile(rootFilePath, []byte(output), 0644); err != nil {
 		return fmt.Errorf(
 			"error writing root %d to file %s: %v",
 			root.GetIndex(), rootFilePath, err)
 	}
+
 	return nil
 }
 
@@ -107,15 +125,30 @@ func (history *historyFileCache) getRootsFileInfos(dir string) ([]os.FileInfo, e
 	return rootsFileInfos, nil
 }
 
-func (history *historyFileCache) unmarshalRoot(fpath string, root *schema.Root) error {
-	rootBytes, err := ioutil.ReadFile(fpath)
+func (history *historyFileCache) unmarshalRoot(fpath string, databasename string) (*schema.Root, error) {
+	root := new(schema.Root)
+	raw, err := ioutil.ReadFile(fpath)
 	if err != nil {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"error reading root from %s: %v", fpath, err)
 	}
-	if err = proto.Unmarshal(rootBytes, root); err != nil {
-		return fmt.Errorf(
-			"error unmarshaling root from %s: %v", fpath, err)
+	lines := strings.Split(string(raw), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, databasename+":") {
+			r := strings.Split(line, ":")
+			if len(r) != 2 {
+				return nil, fmt.Errorf("could not find previous root")
+			}
+			oldRoot, err := base64.StdEncoding.DecodeString(r[1])
+			if err != nil {
+				return nil, fmt.Errorf("could not find previous root")
+			}
+			if err = proto.Unmarshal(oldRoot, root); err != nil {
+				return nil, fmt.Errorf(
+					"error unmarshaling root from %s: %v", fpath, err)
+			}
+			return root, nil
+		}
 	}
-	return nil
+	return nil, nil
 }

@@ -113,7 +113,7 @@ func (o Options) WithAuditUsername(auditUsername string) Options {
 	return o
 }
 
-// WithAuditPassword sets AuditPassword
+// WithAuditPassword sets AuditPasswordauditUsername
 func (o Options) WithAuditPassword(auditPassword string) Options {
 	o.AuditPassword = auditPassword
 	return o
