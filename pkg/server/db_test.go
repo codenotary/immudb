@@ -179,7 +179,6 @@ func TestDbSetGet(t *testing.T) {
 	}
 }
 
-//TODO gj unfinished
 func TestCurrentRoot(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
@@ -443,7 +442,6 @@ func TestSetGetBatchSV(t *testing.T) {
 	}
 }
 
-//TODO gj test count
 func TestInclusion(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()

@@ -33,7 +33,6 @@ type User struct {
 	HashedPassword       []byte       `json:"hashedpassword"`
 	Permissions          []Permission `json:"permissions"`
 	Active               bool         `json:"active"`
-	SelectedDbIndex      int          `json:"-"`         //at runtime denotes which database the user has selected to use
 	SelectedDbPermission uint32       `json:"-"`         //at runtime denotes what is the user permission on this db
 	IsSysAdmin           bool         `json:"-"`         //for the sysadmin we'll use this instead of adding all db and permissions to Permissions, to save some cpu cycles
 	CreatedBy            string       `json:"createdBy"` //user which created this user

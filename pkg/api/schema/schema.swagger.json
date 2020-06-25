@@ -631,7 +631,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaError"
+              "$ref": "#/definitions/schemaUseDatabaseReply"
             }
           }
         },
@@ -1111,6 +1111,9 @@
         "status": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "version": {
+          "type": "string"
         }
       }
     },
@@ -1566,6 +1569,17 @@
           "items": {
             "$ref": "#/definitions/schemaLayer"
           }
+        }
+      }
+    },
+    "schemaUseDatabaseReply": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "$ref": "#/definitions/schemaError"
+        },
+        "token": {
+          "type": "string"
         }
       }
     },

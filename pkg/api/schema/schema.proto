@@ -233,6 +233,7 @@ message SafeReferenceOptions {
 
 message HealthResponse {
 	bool status = 1;
+	string version = 2;
 }
 
 message ReferenceOptions {
@@ -289,6 +290,10 @@ message Error {
 }
 message Database {
 	string databasename = 1;
+}
+message UseDatabaseReply{
+	Error error = 1;
+	string token = 2;
 }
 message CreateDatabaseReply {
 	Error error = 1;
@@ -572,7 +577,7 @@ service ImmuService {
 			body: "*"
 		};
 	}
-	rpc UseDatabase(Database) returns (Error) {
+	rpc UseDatabase(Database) returns (UseDatabaseReply) {
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/usedatabase/{databasename}"
 		};

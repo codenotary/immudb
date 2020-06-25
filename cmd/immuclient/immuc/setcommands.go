@@ -27,6 +27,7 @@ import (
 	"strconv"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -234,8 +235,18 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if resp.Errorcode == schema.ErrorCodes_Ok {
+	if resp.Error.Errorcode == schema.ErrorCodes_Ok {
 		i.ImmuClient.GetOptions().CurrentDatabase = dbname
 	}
-	return resp.Errormessage, nil
+
+	tokenFileName := i.ImmuClient.GetOptions().TokenFileName
+	if err = client.WriteFileToUserHomeDir([]byte(resp.Token), tokenFileName); err != nil {
+		return "", err
+	}
+	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Error.Errormessage, nil
 }

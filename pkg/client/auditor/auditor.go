@@ -155,7 +155,7 @@ func (a *defaultAuditor) audit() error {
 		a.databaseIndex = 0
 	}
 	dbName := a.databases[a.databaseIndex]
-	_, err = serviceClient.UseDatabase(ctx, &schema.Database{
+	resp, err := serviceClient.UseDatabase(ctx, &schema.Database{
 		Databasename: dbName,
 	})
 	if err != nil {
@@ -163,6 +163,15 @@ func (a *defaultAuditor) audit() error {
 		withError = true
 		return noErr
 	}
+
+	conn, err = a.connectionWithToken(resp.Token)
+	if err != nil {
+		a.logger.Errorf("", err)
+		withError = true
+		return noErr
+	}
+	serviceClient = schema.NewImmuServiceClient(conn)
+
 	a.logger.Infof("Auditing database %s\n", dbName)
 	a.databaseIndex++
 
@@ -253,11 +262,26 @@ func (a *defaultAuditor) connect(ctx context.Context) (*grpc.ClientConn, error) 
 		a.logger.Errorf("error logging in with user %s: %v", a.username, err)
 		return nil, err
 	}
+	var connWithToken *grpc.ClientConn
 	if loginResponse != nil {
 		token := string(loginResponse.GetToken())
-		a.dialOptions = append(a.dialOptions,
-			grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))
+		connWithToken, err = a.connectionWithToken(token)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		connWithToken, err = a.connectionWithToken("")
+		if err != nil {
+			return nil, err
+		}
 	}
+	return connWithToken, nil
+}
+func (a *defaultAuditor) connectionWithToken(token string) (*grpc.ClientConn, error) {
+
+	a.dialOptions = append(a.dialOptions,
+		grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))
+
 	connWithToken, err := grpc.Dial(a.serverAddress, a.dialOptions...)
 	if err != nil {
 		a.logger.Errorf(
@@ -266,7 +290,6 @@ func (a *defaultAuditor) connect(ctx context.Context) (*grpc.ClientConn, error) 
 	}
 	return connWithToken, nil
 }
-
 func (a *defaultAuditor) getServerID(
 	ctx context.Context,
 	serviceClient schema.ImmuServiceClient,

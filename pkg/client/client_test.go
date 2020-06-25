@@ -147,9 +147,13 @@ func init() {
 	tss := NewTimestampService(nm)
 	token := login()
 	client = newClient(true, token).WithTimestampService(tss)
-	_, _ = client.UseDatabase(context.Background(), &schema.Database{
+	resp, err := client.UseDatabase(context.Background(), &schema.Database{
 		Databasename: immuServer.Options.GetSystemAdminDbName(),
 	})
+	if err != nil {
+		panic(err)
+	}
+	client = newClient(true, resp.Token).WithTimestampService(tss)
 }
 
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {

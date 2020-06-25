@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
@@ -298,7 +299,7 @@ func (d *Db) HistorySV(key *schema.Key) (*schema.StructuredItemList, error) {
 //Health ...
 func (d *Db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 	health := d.Store.HealthCheck()
-	return &schema.HealthResponse{Status: health}, nil
+	return &schema.HealthResponse{Status: health, Version: version.VersionStr()}, nil
 }
 
 //Reference ...

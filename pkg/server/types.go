@@ -40,7 +40,7 @@ type ImmuServer struct {
 	GrpcServer          *grpc.Server
 	Pid                 PIDFile
 	quit                chan struct{}
-	databasenameToIndex map[string]int
+	databasenameToIndex map[string]int64
 	userdata            *usernameToUserdataMap
 }
 
@@ -50,7 +50,7 @@ func DefaultServer() *ImmuServer {
 		Logger:              logger.NewSimpleLogger("immudb ", os.Stderr),
 		Options:             DefaultOptions(),
 		quit:                make(chan struct{}),
-		databasenameToIndex: make(map[string]int),
+		databasenameToIndex: make(map[string]int64),
 		userdata:            &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
 	}
 }

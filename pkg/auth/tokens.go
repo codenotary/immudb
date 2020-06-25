@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +40,7 @@ const footer = "immudb"
 const tokenValidity = 1 * time.Hour
 
 // GenerateToken ...
-func GenerateToken(user User) (string, error) {
+func GenerateToken(user User, database int64) (string, error) {
 	now := time.Now()
 	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
 	if !ok {
@@ -57,6 +58,7 @@ func GenerateToken(user User) (string, error) {
 		Expiration: now.Add(tokenValidity),
 		Subject:    user.Username,
 	}
+	jsonToken.Set("database", fmt.Sprintf("%d", database))
 	token, err := pasetoV2.Sign(keys.privateKey, jsonToken, footer)
 	if err != nil {
 		return "", fmt.Errorf("error generating token: %v", err)
@@ -67,9 +69,9 @@ func GenerateToken(user User) (string, error) {
 
 // JSONToken ...
 type JSONToken struct {
-	Username   string
-	Expiration time.Time
-	Token      string
+	Username      string
+	Expiration    time.Time
+	DatabaseIndex int64
 }
 
 var tokenEncoder = base64.RawURLEncoding
@@ -96,9 +98,17 @@ func parsePublicTokenPayload(token string) (*JSONToken, error) {
 	if err := json.Unmarshal(payloadBytes, &jsonToken); err != nil {
 		return nil, fmt.Errorf("error unmarshalling token payload json: %v", err)
 	}
+	var index int64 = -1
+	if p := jsonToken.Get("database"); p != "" {
+		pint, err := strconv.ParseInt(p, 10, 8)
+		if err == nil {
+			index = pint
+		}
+	}
 	return &JSONToken{
-		Username:   jsonToken.Subject,
-		Expiration: jsonToken.Expiration,
+		Username:      jsonToken.Subject,
+		Expiration:    jsonToken.Expiration,
+		DatabaseIndex: index,
 	}, nil
 }
 
@@ -120,10 +130,17 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err := jsonToken.Validate(); err != nil {
 		return nil, err
 	}
+	var index int64 = -1
+	if p := jsonToken.Get("database"); p != "" {
+		pint, err := strconv.ParseInt(p, 10, 8)
+		if err == nil {
+			index = pint
+		}
+	}
 	return &JSONToken{
-		Username:   jsonToken.Subject,
-		Expiration: jsonToken.Expiration,
-		Token:      token,
+		Username:      jsonToken.Subject,
+		Expiration:    jsonToken.Expiration,
+		DatabaseIndex: index,
 	}, nil
 }
 
