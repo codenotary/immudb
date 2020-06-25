@@ -18,7 +18,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -57,7 +56,6 @@ func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Una
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
-	fmt.Println("ServerUnaryInterceptor", info.FullMethod)
 	return handler(ctx, req)
 }
 
