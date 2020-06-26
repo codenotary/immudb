@@ -51,18 +51,26 @@ import (
 var startedAt time.Time
 
 // Start starts the immudb server
-// Loads and starts the System DB, and puts it in the first index
+// Loads and starts the System DB, default db and user db
 func (s *ImmuServer) Start() error {
 	dataDir := s.Options.Dir
-	if err := s.loadSystemDatabase(dataDir); err != nil {
-		s.Logger.Errorf("Unable load user databases %s", err)
+	if err := s.loadDefaultDatabase(dataDir); err != nil {
+		s.Logger.Errorf("Unable load default database %s", err)
 		return err
 	}
-	if err := s.loadDatabases(dataDir); err != nil {
-		s.Logger.Errorf("Unable load databases %s", err)
+	if err := s.loadSystemDatabase(dataDir); err != nil {
+		s.Logger.Errorf("Unable load system database %s", err)
 		return err
 	}
 
+	if err := s.loadUserDatabases(dataDir); err != nil {
+		s.Logger.Errorf("Unable load databases %s", err)
+		return err
+	}
+	if !s.Options.GetAuth() && s.mandatoryAuth() {
+		s.Logger.Infof("Authentication must be on.")
+		return fmt.Errorf("auth should be on")
+	}
 	options := []grpc.ServerOption{}
 	//----------TLS Setting-----------//
 	if s.Options.MTLs {
@@ -117,10 +125,10 @@ func (s *ImmuServer) Start() error {
 		return err
 	}
 
-	if !s.Options.Auth {
+	if !s.Options.GetAuth() {
 		s.Logger.Infof("Auth is disabled. We'll be using systemdb for all set/get operations.")
 	}
-	auth.AuthEnabled = s.Options.Auth
+	auth.AuthEnabled = s.Options.GetAuth()
 	auth.DevMode = s.Options.DevMode
 	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
 	if err != nil {
@@ -134,7 +142,7 @@ func (s *ImmuServer) Start() error {
 		metricsServer := StartMetrics(
 			s.Options.MetricsBind(),
 			s.Logger,
-			func() float64 { return float64(s.databases[0].Store.CountAll()) },
+			func() float64 { return float64(s.databases[DefaultDbIndex].Store.CountAll()) },
 			func() float64 { return time.Since(startedAt).Hours() },
 		)
 		defer func() {
@@ -146,7 +154,7 @@ func (s *ImmuServer) Start() error {
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
 
-	dbSize, _ := s.databases[0].Store.DbSize()
+	dbSize, _ := s.databases[DefaultDbIndex].Store.DbSize()
 	if dbSize <= 0 {
 		s.Logger.Infof("Started with an empty database")
 	}
@@ -197,34 +205,31 @@ func (s *ImmuServer) Start() error {
 	return err
 }
 
-//loadSystemDatabase it is important that is is called before loadDatabases so that systemdb is at index zero of the databases array
 func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
-	if len(s.databases) > 0 {
-		panic("loadSystemDatabase should be called before loadDatabases")
-	}
-
 	systemDbRootDir := filepath.Join(dataDir, s.Options.GetSystemAdminDbName())
 
 	_, sysDbErr := os.Stat(systemDbRootDir)
 	if os.IsNotExist(sysDbErr) {
-		op := DefaultOption().
-			WithDbName(s.Options.GetSystemAdminDbName()).
-			WithDbRootPath(dataDir).
-			WithCorruptionChecker(s.Options.CorruptionCheck).
-			WithInMemoryStore(s.Options.GetInMemoryStore())
-		db, err := NewDb(op)
-		if err != nil {
-			return err
-		}
-		s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(len(s.databases))
-		s.databases = append(s.databases, db)
-		//sys admin can have an empty array of databases as it has full access
-		adminUsername, adminPlainPass, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword), auth.PermissionSysAdmin, "*", false, "")
-		if err != nil {
-			s.Logger.Errorf(err.Error())
-			return err
-		} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
-			s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
+		if s.Options.GetAuth() {
+			op := DefaultOption().
+				WithDbName(s.Options.GetSystemAdminDbName()).
+				WithDbRootPath(dataDir).
+				WithCorruptionChecker(s.Options.CorruptionCheck).
+				WithInMemoryStore(s.Options.GetInMemoryStore())
+			db, err := NewDb(op)
+			if err != nil {
+				return err
+			}
+			s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(len(s.databases))
+			s.databases = append(s.databases, db)
+			//sys admin can have an empty array of databases as it has full access
+			adminUsername, adminPlainPass, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword), auth.PermissionSysAdmin, "*", false, "")
+			if err != nil {
+				s.Logger.Errorf(err.Error())
+				return err
+			} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
+				s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
+			}
 		}
 	} else {
 		op := DefaultOption().
@@ -238,10 +243,47 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(len(s.databases))
 		s.databases = append(s.databases, db)
 	}
+
 	return nil
 }
 
-func (s *ImmuServer) loadDatabases(dataDir string) error {
+//loadSystemDatabase it is important that is is called before loadDatabases so that defaultdb is at index zero of the databases array
+func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
+	if len(s.databases) > 0 {
+		panic("loadDefaultDatabase should be called before any other database loading")
+	}
+
+	defaultDbRootDir := filepath.Join(dataDir, s.Options.GetDefaultDbName())
+
+	_, defaultDbErr := os.Stat(defaultDbRootDir)
+	if os.IsNotExist(defaultDbErr) {
+		op := DefaultOption().
+			WithDbName(s.Options.GetDefaultDbName()).
+			WithDbRootPath(dataDir).
+			WithCorruptionChecker(s.Options.CorruptionCheck).
+			WithInMemoryStore(s.Options.GetInMemoryStore())
+		db, err := NewDb(op)
+		if err != nil {
+			return err
+		}
+		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(len(s.databases))
+		s.databases = append(s.databases, db)
+	} else {
+		op := DefaultOption().
+			WithDbName(s.Options.GetDefaultDbName()).
+			WithDbRootPath(dataDir).
+			WithCorruptionChecker(s.Options.CorruptionCheck)
+		db, err := OpenDb(op)
+		if err != nil {
+			return err
+		}
+		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(len(s.databases))
+		s.databases = append(s.databases, db)
+	}
+	return nil
+}
+
+func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 	var dirs []string
 	//get first level sub directories of data dir
 	err := filepath.Walk(s.Options.Dir, func(path string, info os.FileInfo, err error) error {
@@ -252,7 +294,8 @@ func (s *ImmuServer) loadDatabases(dataDir string) error {
 		if info.IsDir() &&
 			(strings.Count(path, string(filepath.Separator)) == 1) &&
 			(dataDir != path) &&
-			!strings.Contains(path, s.Options.GetSystemAdminDbName()) {
+			!strings.Contains(path, s.Options.GetSystemAdminDbName()) &&
+			!strings.Contains(path, s.Options.GetDefaultDbName()) {
 			dirs = append(dirs, path)
 		}
 		return nil
@@ -378,8 +421,8 @@ func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfi
 		return nil, err
 	}
 	e := new(empty.Empty)
-	s.Options.Auth = req.GetKind() > 0
-	auth.AuthEnabled = s.Options.Auth
+	s.Options.WithAuth(req.GetKind() > 0)
+	auth.AuthEnabled = s.Options.GetAuth()
 	if err := updateConfigItem(
 		s.Options.Config,
 		"auth",
@@ -681,7 +724,7 @@ func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.Health
 	ind, _ := s.getDbIndexFromCtx(ctx, "Health")
 
 	if ind < 0 { //probably immuclient hasn't logged in yet
-		return s.databases[0].Health(e)
+		return s.databases[DefaultDbIndex].Health(e)
 	}
 	return s.databases[ind].Health(e)
 }
@@ -835,6 +878,9 @@ func (s *ImmuServer) installShutdownHandler() {
 // ChangePassword ...
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("ChangePassword %+v", *r)
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login first")
@@ -877,6 +923,9 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 // CreateDatabase Create a new database instance
 func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database) (*schema.CreateDatabaseReply, error) {
 	s.Logger.Debugf("createdatabase %+v", *newdb)
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get loggedin user data")
@@ -919,18 +968,14 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 // CreateUser Creates a new user
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
 	s.Logger.Debugf("CreateUser %+v", *r)
-	dbInd, user, err := s.getLoggedInUserdataFromCtx(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("please login first")
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
-	if dbInd < 0 {
-		return nil, fmt.Errorf("please select a database first")
+	_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("please login")
 	}
 
-	if (!user.IsSysAdmin) &&
-		(!user.HasPermission(s.databases[dbInd].options.dbName, auth.PermissionAdmin)) {
-		return nil, fmt.Errorf("user %s does not have permission for this command on selected database", user.Username)
-	}
 	//check if database exists
 	if _, ok := s.databasenameToIndex[r.Database]; !ok {
 		return nil, fmt.Errorf("database %s already exists", r.Database)
@@ -948,8 +993,8 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		return nil, fmt.Errorf("unrecognized permission")
 	}
 	//if the requesting user has admin permission on this database
-	if (!user.IsSysAdmin) &&
-		(!user.HasPermission(r.Database, auth.PermissionAdmin)) {
+	if (!loggedInuser.IsSysAdmin) &&
+		(!loggedInuser.HasPermission(r.Database, auth.PermissionAdmin)) {
 		return nil, fmt.Errorf("you do not have permission on this database")
 	}
 
@@ -961,7 +1006,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	if err == nil {
 		return nil, fmt.Errorf("user already exists")
 	}
-	username, _, err := s.insertNewUser(r.User, r.Password, r.GetPermission(), r.Database, true, user.Username)
+	username, _, err := s.insertNewUser(r.User, r.Password, r.GetPermission(), r.Database, true, loggedInuser.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -989,11 +1034,14 @@ func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schem
 // ListUsers returns a list of users based on the requesting user permissions
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	s.Logger.Debugf("ListUsers %+v")
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
 	dbInd, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login")
 	}
-	itemList, err := s.databases[0].Scan(&schema.ScanOptions{
+	itemList, err := s.databases[SystemDbIndex].Scan(&schema.ScanOptions{
 		Prefix: []byte{sysstore.KeyPrefixUser},
 	})
 	if err != nil {
@@ -1094,6 +1142,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 //DatabaseList returns a list of databases based on the requesting user permissins
 func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
 	s.Logger.Debugf("DatabaseList")
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
 	_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login")
@@ -1130,6 +1181,9 @@ func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tre
 // UseDatabase ...
 func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
 	s.Logger.Debugf("UseDatabase %+v", db)
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return &schema.UseDatabaseReply{
@@ -1180,6 +1234,9 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 //ChangePermission grant or revoke user permissions on databases
 func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*schema.Error, error) {
 	s.Logger.Debugf("ChangePermission %+v", r)
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return &schema.Error{
@@ -1252,6 +1309,9 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 //SetActiveUser activate or deactivate a user
 func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("SetActiveUser %+v", *r)
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login first")
@@ -1293,8 +1353,8 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 // getDbIndexFromCtx checks if user (loggedin from context) has access to methodname.
 // returns index of database
 func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (int64, error) {
-	//if auth is disabled just work with system db, since it's just testing
-	if !s.Options.Auth {
+	//if auth is disabled return index zero (defaultdb) as it is the first database created/loaded
+	if !s.Options.GetAuth() {
 		return 0, nil
 	}
 	ind, usr, err := s.getLoggedInUserdataFromCtx(ctx)
@@ -1385,7 +1445,7 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.Us
 	key := make([]byte, 1+len(username))
 	key[0] = sysstore.KeyPrefixUser
 	copy(key[1:], username)
-	item, err := s.databases[0].Store.Get(schema.Key{Key: key})
+	item, err := s.databases[SystemDbIndex].Store.Get(schema.Key{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -1412,7 +1472,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.databases[0].Set(&userKV)
+	_, err = s.databases[SystemDbIndex].Set(&userKV)
 	if err != nil {
 		s.Logger.Errorf("error saving user: %v", err)
 		return err
@@ -1450,4 +1510,41 @@ func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 	s.userdata.Lock()
 	defer s.userdata.Unlock()
 	s.userdata.Userdata[u.Username] = u
+}
+
+//checkMandatoryAuth checks if auth should be madatory for immudb to start
+func (s *ImmuServer) mandatoryAuth() bool {
+	//check if there are user created databases, should be zero for auth to be off
+	for _, val := range s.databases {
+		if (val.options.dbName != s.Options.defaultDbName) &&
+			(val.options.dbName != s.Options.systemAdminDbName) {
+			return true
+		}
+	}
+	//check if there is only default database
+	if (len(s.databases) == 1) && (s.databases[DefaultDbIndex].options.dbName == s.Options.defaultDbName) {
+		return false
+	}
+	//check if there is only system database
+	if (len(s.databases) == 2) && (s.databases[SystemDbIndex].options.dbName == s.Options.systemAdminDbName) {
+		//check if there is only sysadmin on systemdb and no other user
+		itemList, err := s.databases[SystemDbIndex].Scan(&schema.ScanOptions{
+			Prefix: []byte{sysstore.KeyPrefixUser},
+		})
+		if err != nil {
+			s.Logger.Errorf("error getting users: %v", err)
+			return true
+		}
+		for _, val := range itemList.Items {
+			if len(val.Key) > 2 {
+				if auth.SysAdminUsername != string(val.Key[1:]) {
+					//another user detected
+					return true
+				}
+			}
+		}
+		//systemdb exists but there are on other users created
+		return false
+	}
+	return true
 }

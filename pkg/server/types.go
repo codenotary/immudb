@@ -32,6 +32,12 @@ type usernameToUserdataMap struct {
 	sync.RWMutex
 }
 
+//DefaultDbIndex systemdb should always be in index 0
+const DefaultDbIndex = 0
+
+//SystemDbIndex systemdb should always be in index 1, on index zero should be default db
+const SystemDbIndex = 1
+
 // ImmuServer ...
 type ImmuServer struct {
 	databases           []*Db

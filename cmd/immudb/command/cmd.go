@@ -125,7 +125,6 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	}
 	port := viper.GetInt("port")
 	address := viper.GetString("address")
-	dbName := viper.GetString("dbname")
 	// config file came only from arguments or default folder
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return server.Options{}, err
@@ -166,7 +165,6 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithDir(dir).
 		WithPort(port).
 		WithAddress(address).
-		WithDbName(dbName).
 		WithConfig(o.CfgFn).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
@@ -191,7 +189,6 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("dir", options.Dir, "data folder")
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
-	cmd.Flags().StringP("dbname", "n", options.DbName, "db name")
 	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.ini)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
@@ -263,11 +260,10 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("dir", options.Dir)
 	viper.SetDefault("port", options.Port)
 	viper.SetDefault("address", options.Address)
-	viper.SetDefault("dbname", options.DbName)
 	viper.SetDefault("pidfile", options.Pidfile)
 	viper.SetDefault("logfile", options.Logfile)
 	viper.SetDefault("mtls", options.MTLs)
-	viper.SetDefault("auth", options.Auth)
+	viper.SetDefault("auth", options.GetAuth())
 	viper.SetDefault("no-histograms", options.NoHistograms)
 	viper.SetDefault("consistency-check", options.CorruptionCheck)
 	viper.SetDefault("detached", options.Detached)

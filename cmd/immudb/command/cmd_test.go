@@ -32,7 +32,6 @@ func DefaultTestOptions() (o server.Options) {
 	o.Pidfile = "tmp/immudbtest/immudbtest.pid"
 	o.Logfile = "immudbtest.log"
 	o.Dir = "tmp/immudbtest/data"
-	o.DbName = "immudbtest"
 	o.MTLs = false
 	return o
 }

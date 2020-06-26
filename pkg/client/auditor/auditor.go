@@ -145,7 +145,7 @@ func (a *defaultAuditor) audit() error {
 		//if we have reached the end get a fresh list of dbs that belong to the user
 		dbs, err := serviceClient.DatabaseList(ctx, &emptypb.Empty{})
 		if err != nil {
-			a.logger.Errorf("error getting a list of databases %v", a.databases[a.databaseIndex], err)
+			a.logger.Errorf("error getting a list of databases %v", err)
 			withError = true
 			return noErr
 		}

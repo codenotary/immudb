@@ -31,14 +31,12 @@ type Options struct {
 	Address             string
 	Port                int
 	MetricsPort         int
-	DbName              string
-	SysDbName           string
 	Config              string
 	Pidfile             string
 	Logfile             string
 	MTLs                bool
 	MTLsOptions         MTLsOptions
-	Auth                bool
+	auth                bool
 	NoHistograms        bool
 	Detached            bool
 	CorruptionCheck     bool
@@ -46,6 +44,7 @@ type Options struct {
 	DevMode             bool
 	AdminPassword       string `json:"-"`
 	systemAdminDbName   string
+	defaultDbName       string
 	inMemoryStore       bool
 	listener            net.Listener
 	usingCustomListener bool
@@ -59,13 +58,11 @@ func DefaultOptions() Options {
 		Address:             "127.0.0.1",
 		Port:                3322,
 		MetricsPort:         9497,
-		DbName:              "immudb",
-		SysDbName:           "immudbsys",
 		Config:              "configs/immudb.toml",
 		Pidfile:             "",
 		Logfile:             "",
 		MTLs:                false,
-		Auth:                true,
+		auth:                true,
 		NoHistograms:        false,
 		Detached:            false,
 		CorruptionCheck:     true,
@@ -73,6 +70,7 @@ func DefaultOptions() Options {
 		DevMode:             true,
 		AdminPassword:       auth.SysAdminPassword,
 		systemAdminDbName:   "systemdb",
+		defaultDbName:       "defaultdb",
 		inMemoryStore:       false,
 		usingCustomListener: false,
 	}
@@ -99,18 +97,6 @@ func (o Options) WithAddress(address string) Options {
 // WithPort sets port
 func (o Options) WithPort(port int) Options {
 	o.Port = port
-	return o
-}
-
-// WithDbName sets dbName
-func (o Options) WithDbName(dbName string) Options {
-	o.DbName = dbName
-	return o
-}
-
-// WithSysDbName sets SysDbName
-func (o Options) WithSysDbName(sysDbName string) Options {
-	o.SysDbName = sysDbName
 	return o
 }
 
@@ -146,8 +132,13 @@ func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
 
 // WithAuth sets auth
 func (o Options) WithAuth(authEnabled bool) Options {
-	o.Auth = authEnabled
+	o.auth = authEnabled
 	return o
+}
+
+// GetAuth gets auth
+func (o Options) GetAuth() bool {
+	return o.auth
 }
 
 // WithNoHistograms disables collection of histograms metrics (e.g. query durations)
@@ -208,6 +199,11 @@ func (o Options) WithAdminPassword(adminPassword string) Options {
 //GetSystemAdminDbName returns the System database name
 func (o Options) GetSystemAdminDbName() string {
 	return o.systemAdminDbName
+}
+
+//GetDefaultDbName returns the default database name
+func (o Options) GetDefaultDbName() string {
+	return o.defaultDbName
 }
 
 // WithInMemoryStore use in memory database without persistence, used for tests
