@@ -976,41 +976,44 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 // CreateUser Creates a new user
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
 	s.Logger.Debugf("CreateUser %+v", *r)
-	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("this command is available only with authentication on")
-	}
-	_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("please login")
-	}
+	loggedInuser := &auth.User{}
+	if !s.Options.GetMaintenance() {
+		if !s.Options.GetAuth() {
+			return nil, fmt.Errorf("this command is available only with authentication on")
+		}
+		_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("please login")
+		}
 
-	//check if database exists
-	if _, ok := s.databasenameToIndex[r.Database]; !ok {
-		return nil, fmt.Errorf("database %s already exists", r.Database)
-	}
-	if len(r.User) == 0 {
-		return nil, fmt.Errorf("username can not be empty")
-	}
-	if len(r.Database) == 0 {
-		return nil, fmt.Errorf("database name can not be empty")
-	}
-	//check permission is a known value
-	if (r.Permission == auth.PermissionNone) ||
-		((r.Permission > auth.PermissionRW) &&
-			(r.Permission < auth.PermissionAdmin)) {
-		return nil, fmt.Errorf("unrecognized permission")
-	}
-	//if the requesting user has admin permission on this database
-	if (!loggedInuser.IsSysAdmin) &&
-		(!loggedInuser.HasPermission(r.Database, auth.PermissionAdmin)) {
-		return nil, fmt.Errorf("you do not have permission on this database")
-	}
+		//check if database exists
+		if _, ok := s.databasenameToIndex[r.Database]; !ok {
+			return nil, fmt.Errorf("database %s already exists", r.Database)
+		}
+		if len(r.User) == 0 {
+			return nil, fmt.Errorf("username can not be empty")
+		}
+		if len(r.Database) == 0 {
+			return nil, fmt.Errorf("database name can not be empty")
+		}
+		//check permission is a known value
+		if (r.Permission == auth.PermissionNone) ||
+			((r.Permission > auth.PermissionRW) &&
+				(r.Permission < auth.PermissionAdmin)) {
+			return nil, fmt.Errorf("unrecognized permission")
+		}
+		//if the requesting user has admin permission on this database
+		if (!loggedInuser.IsSysAdmin) &&
+			(!loggedInuser.HasPermission(r.Database, auth.PermissionAdmin)) {
+			return nil, fmt.Errorf("you do not have permission on this database")
+		}
 
-	//do not allow to create another system admin
-	if r.Permission == auth.PermissionSysAdmin {
-		return nil, fmt.Errorf("can not create another system admin")
+		//do not allow to create another system admin
+		if r.Permission == auth.PermissionSysAdmin {
+			return nil, fmt.Errorf("can not create another system admin")
+		}
 	}
-	_, err = s.userExists(r.User, nil)
+	_, err := s.userExists(r.User, nil)
 	if err == nil {
 		return nil, fmt.Errorf("user already exists")
 	}
@@ -1042,12 +1045,18 @@ func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schem
 // ListUsers returns a list of users based on the requesting user permissions
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	s.Logger.Debugf("ListUsers %+v")
-	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("this command is available only with authentication on")
-	}
-	dbInd, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("please login")
+	loggedInuser := &auth.User{}
+	var dbInd = int64(0)
+	var err error
+	if !s.Options.GetMaintenance() {
+		if !s.Options.GetAuth() {
+			return nil, fmt.Errorf("this command is available only with authentication on")
+		}
+		dbInd, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("please login")
+		}
+
 	}
 	itemList, err := s.databases[SystemDbIndex].Scan(&schema.ScanOptions{
 		Prefix: []byte{sysstore.KeyPrefixUser},
@@ -1056,7 +1065,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		s.Logger.Errorf("error getting users: %v", err)
 		return nil, err
 	}
-	if loggedInuser.IsSysAdmin {
+	if loggedInuser.IsSysAdmin || s.Options.GetAuth() {
 		//return all users
 		userlist := &schema.UserList{}
 		includeDeactivated := true
@@ -1150,15 +1159,19 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 //DatabaseList returns a list of databases based on the requesting user permissins
 func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
 	s.Logger.Debugf("DatabaseList")
-	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("this command is available only with authentication on")
-	}
-	_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("please login")
+	loggedInuser := &auth.User{}
+	var err error
+	if s.Options.GetAuth() {
+		if !s.Options.GetAuth() {
+			return nil, fmt.Errorf("this command is available only with authentication on")
+		}
+		_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("please login")
+		}
 	}
 	dbList := &schema.DatabaseListResponse{}
-	if loggedInuser.IsSysAdmin {
+	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		for _, val := range s.databases {
 			if val.options.dbName == SystemdbName {
 				//do not put sysemdb in the list
@@ -1193,34 +1206,46 @@ func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tre
 // UseDatabase ...
 func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
 	s.Logger.Debugf("UseDatabase %+v", db)
-	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("this command is available only with authentication on")
-	}
-	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
-	if err != nil {
-		return &schema.UseDatabaseReply{
-			Error: &schema.Error{
-				Errorcode:    schema.ErrorCodes_ERROR_USER_HAS_NOT_LOGGED_IN,
-				Errormessage: "Please login"},
-			Token: "",
-		}, err
-	}
-	if db.Databasename == SystemdbName {
-		return nil, fmt.Errorf("this database can not be selected")
-	}
-	//check if this user has permission on this database
-	//if sysadmin allow to continue
-	if (!user.IsSysAdmin) &&
-		(!user.HasPermission(db.Databasename, auth.PermissionAdmin)) &&
-		(!user.HasPermission(db.Databasename, auth.PermissionR)) &&
-		(!user.HasPermission(db.Databasename, auth.PermissionW)) &&
-		(!user.HasPermission(db.Databasename, auth.PermissionRW)) {
-		return &schema.UseDatabaseReply{Error: &schema.Error{
-			Errorcode:    schema.ErrorCodes_ERROR_NO_PERMISSION_FOR_THIS_DATABASE,
-			Errormessage: "Logged in user does not have permission on this database",
-		},
-			Token: "",
-		}, err
+	user := &auth.User{}
+	var err error
+	if !s.Options.GetMaintenance() {
+		if !s.Options.GetAuth() {
+			return nil, fmt.Errorf("this command is available only with authentication on")
+		}
+		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
+		if err != nil {
+			return &schema.UseDatabaseReply{
+				Error: &schema.Error{
+					Errorcode:    schema.ErrorCodes_ERROR_USER_HAS_NOT_LOGGED_IN,
+					Errormessage: "Please login"},
+				Token: "",
+			}, err
+		}
+		if db.Databasename == SystemdbName {
+			return nil, fmt.Errorf("this database can not be selected")
+		}
+		//check if this user has permission on this database
+		//if sysadmin allow to continue
+		if (!user.IsSysAdmin) &&
+			(!user.HasPermission(db.Databasename, auth.PermissionAdmin)) &&
+			(!user.HasPermission(db.Databasename, auth.PermissionR)) &&
+			(!user.HasPermission(db.Databasename, auth.PermissionW)) &&
+			(!user.HasPermission(db.Databasename, auth.PermissionRW)) {
+			return &schema.UseDatabaseReply{Error: &schema.Error{
+				Errorcode:    schema.ErrorCodes_ERROR_NO_PERMISSION_FOR_THIS_DATABASE,
+				Errormessage: "Logged in user does not have permission on this database",
+			},
+				Token: "",
+			}, err
+		}
+		//change the index of the database for this user current this will change it in the map also
+		//index is just the place of this db in the databses array(slice)
+		user.SelectedDbPermission = user.WhichPermission(db.Databasename)
+	} else {
+		user.IsSysAdmin = true
+		user.Username = ""
+		user.SelectedDbPermission = auth.PermissionSysAdmin
+		s.addUserToLoginList(user)
 	}
 	//check if database exists
 	ind, ok := s.databasenameToIndex[db.Databasename]
@@ -1231,9 +1256,6 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 			Token: "",
 		}, fmt.Errorf("%s does not exist", db.Databasename)
 	}
-	//change the index of the database for this user current this will change it in the map also
-	//index is just the place of this db in the databses array(slice)
-	user.SelectedDbPermission = user.WhichPermission(db.Databasename)
 	token, err := auth.GenerateToken(*user, ind)
 	if err != nil {
 		return nil, err
@@ -1254,9 +1276,10 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	if r.Database == SystemdbName {
 		return nil, fmt.Errorf("this database can not be assigned")
 	}
-
-	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("this command is available only with authentication on")
+	if !s.Options.GetMaintenance() {
+		if !s.Options.GetAuth() {
+			return nil, fmt.Errorf("this command is available only with authentication on")
+		}
 	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
@@ -1330,34 +1353,38 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 //SetActiveUser activate or deactivate a user
 func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("SetActiveUser %+v", *r)
-	if !s.Options.GetAuth() {
-		return nil, fmt.Errorf("this command is available only with authentication on")
-	}
-	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("please login first")
-	}
-	if !user.IsSysAdmin {
-		if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
-			return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")
-		}
-	}
 	if len(r.Username) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
 	}
+	user := &auth.User{}
+	if !s.Options.GetMaintenance() {
+		if !s.Options.GetAuth() {
+			return nil, fmt.Errorf("this command is available only with authentication on")
+		}
+		_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("please login first")
+		}
+		if !user.IsSysAdmin {
+			if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
+				return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")
+			}
+		}
+		if r.Username == user.Username {
+			return nil, fmt.Errorf("changing your own status is not allowed")
+		}
+	}
+
 	targetUser, err := s.userExists([]byte(r.Username), nil)
 	if err != nil {
 		return nil, fmt.Errorf("user %s not found", r.Username)
 	}
-
-	if r.Username == user.Username {
-		return nil, fmt.Errorf("changing your own status is not allowed")
-	}
-
-	//if the user is not sys admin then let's make sure the target was created from this admin
-	if !user.IsSysAdmin {
-		if user.Username != targetUser.CreatedBy {
-			return nil, fmt.Errorf("%s was not created by you", r.Username)
+	if !s.Options.GetMaintenance() {
+		//if the user is not sys admin then let's make sure the target was created from this admin
+		if !user.IsSysAdmin {
+			if user.Username != targetUser.CreatedBy {
+				return nil, fmt.Errorf("%s was not created by you", r.Username)
+			}
 		}
 	}
 	targetUser.Active = r.Active
@@ -1382,6 +1409,9 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 	}
 	ind, usr, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
+		if s.Options.GetMaintenance() {
+			return 0, fmt.Errorf("please select database first")
+		}
 		return 0, fmt.Errorf("please login first")
 	}
 	if ind < 0 {
@@ -1540,6 +1570,9 @@ func (s *ImmuServer) addUserToLoginList(u *auth.User) {
 
 //checkMandatoryAuth checks if auth should be madatory for immudb to start
 func (s *ImmuServer) mandatoryAuth() bool {
+	if s.Options.GetMaintenance() {
+		return false
+	}
 	//check if there are user created databases, should be zero for auth to be off
 	for _, val := range s.databases {
 		if (val.options.dbName != s.Options.defaultDbName) &&

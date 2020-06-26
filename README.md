@@ -264,6 +264,7 @@ Environment variables:
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
   IMMUDB_DEVMODE=true
   IMMUDB_ADMIN_PASSWORD=immudb
+  IMMUDB_MAINTENANCE=false
 
 Usage:
   immudb [flags]

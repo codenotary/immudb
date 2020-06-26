@@ -60,6 +60,7 @@ Environment variables:
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
   IMMUDB_DEVMODE=true
+  IMMUDB_MAINTENANCE=false
   IMMUDB_ADMIN_PASSWORD=immudb`,
 		DisableAutoGenTag: true,
 		RunE:              Immudb,
@@ -159,6 +160,7 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	}
 	devMode := viper.GetBool("devmode")
 	adminPassword := viper.GetString("admin-password")
+	maintenance := viper.GetBool("maintenance")
 
 	options = server.
 		DefaultOptions().
@@ -174,7 +176,8 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithDetached(detached).
 		WithCorruptionCheck(consistencyCheck).
 		WithDevMode(devMode).
-		WithAdminPassword(adminPassword)
+		WithAdminPassword(adminPassword).
+		WithMaintenance(maintenance)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = server.DefaultMTLsOptions().
@@ -202,6 +205,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
+	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
 }
 
 func bindFlags(cmd *cobra.Command) error {
@@ -253,6 +257,9 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("admin-password", cmd.Flags().Lookup("admin-password")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("maintenance", cmd.Flags().Lookup("maintenance")); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -272,6 +279,7 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
 	viper.SetDefault("devmode", options.DevMode)
 	viper.SetDefault("admin-password", options.AdminPassword)
+	viper.SetDefault("maintenance", options.GetMaintenance())
 }
 
 // InstallManPages installs man pages

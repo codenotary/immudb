@@ -51,6 +51,7 @@ type Options struct {
 	inMemoryStore       bool
 	listener            net.Listener
 	usingCustomListener bool
+	maintenance         bool
 }
 
 // DefaultOptions returns default server options
@@ -76,6 +77,7 @@ func DefaultOptions() Options {
 		defaultDbName:       DefaultdbName,
 		inMemoryStore:       false,
 		usingCustomListener: false,
+		maintenance:         false,
 	}
 }
 
@@ -141,6 +143,9 @@ func (o Options) WithAuth(authEnabled bool) Options {
 
 // GetAuth gets auth
 func (o Options) GetAuth() bool {
+	if o.maintenance {
+		return false
+	}
 	return o.auth
 }
 
@@ -225,4 +230,15 @@ func (o Options) WithListener(lis net.Listener) Options {
 	o.listener = lis
 	o.usingCustomListener = true
 	return o
+}
+
+// WithMaintenance sets maintenance mode
+func (o Options) WithMaintenance(m bool) Options {
+	o.maintenance = m
+	return o
+}
+
+// GetMaintenance gets maintenance mode
+func (o Options) GetMaintenance() bool {
+	return o.maintenance
 }
