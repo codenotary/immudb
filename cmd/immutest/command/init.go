@@ -20,22 +20,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/codenotary/immudb/pkg/server"
 	"github.com/jaswdr/faker"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type commandline struct {
@@ -46,19 +44,28 @@ const defaultNbEntries = 100
 
 // Init initializes the command
 func Init(cmd *cobra.Command, o *c.Options) {
-	if err := configureOptions(cmd, o); err != nil {
+	defaultDb := server.DefaultdbName
+	defaultUser := auth.SysAdminUsername
+	defaultPassword := auth.SysAdminPassword
+
+	if err := configureOptions(cmd, o, defaultDb, defaultUser); err != nil {
 		c.QuitToStdErr(err)
 	}
 	cl := new(commandline)
 
 	cmd.Use = "immutest [n]"
 	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
-	cmd.Long = `Populate immudb with the (optional) number of entries (100 by default).
+	cmd.Long = fmt.Sprintf(`Populate immudb with the (optional) number of entries (100 by default).
   Environment variables:
     IMMUTEST_IMMUDB_ADDRESS=127.0.0.1
     IMMUTEST_IMMUDB_PORT=3322
-    IMMUTEST_TOKENFILE=token_admin`
-	cmd.Example = "immutest 1000"
+    IMMUTEST_DATABASE=%s
+    IMMUTEST_USER=%s
+    IMMUTEST_TOKENFILE=token_admin`,
+		defaultDb, defaultUser)
+	cmd.Example = `  immutest
+  immutest 1000
+  immutest 500 --database some-database --user some-user`
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if err := cl.connect(cmd, nil); err != nil {
 			c.QuitToStdErr(err)
@@ -69,27 +76,15 @@ func Init(cmd *cobra.Command, o *c.Options) {
 			c.QuitToStdErr(errors.New(
 				"immutest is allowed to run only on the server machine (remote runs are not allowed)"))
 		}
-		checkForEmptyDB(serverAddress)
+		db := viper.GetString("database")
+		user := viper.GetString("user")
 		ctx := context.Background()
-		loginIfNeeded(ctx, cl.immuClient, func() {
-			cl.disconnect(cmd, nil)
-			if err := cl.connect(cmd, nil); err != nil {
-				c.QuitToStdErr(err)
-			}
-		})
-		nbEntries := defaultNbEntries
-		var err error
-		if len(args) > 0 {
-			nbEntries, err = strconv.Atoi(args[0])
-			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			if nbEntries <= 0 {
-				c.QuitWithUserError(fmt.Errorf(
-					"Please specify a number of entries greater than 0 or call the command without "+
-						"any argument so that the default number of %d entries will be used", defaultNbEntries))
-			}
-		}
+		onSuccess := func() { reconnect(cl, cmd) } // used to redial with new token
+		login(ctx, cl.immuClient, user, defaultUser, defaultPassword, onSuccess)
+		selectDb(ctx, cl.immuClient, db, onSuccess)
+		nbEntries := parseNbEntries(args)
+		fmt.Printf("Database %s will be populated with %d entries.\n", db, nbEntries)
+		askUserToConfirmOrCancel()
 		fmt.Printf("Populating immudb with %d sample entries (credit cards of clients) ...\n", nbEntries)
 		took := populate(ctx, &cl.immuClient, nbEntries)
 		fmt.Printf(
@@ -103,76 +98,78 @@ func Init(cmd *cobra.Command, o *c.Options) {
 	cmd.AddCommand(man.Generate(cmd, "immutest", "./cmd/docs/man/immutest"))
 }
 
-func checkForEmptyDB(serverAddress string) {
-	metricsURL := "http://" + serverAddress + ":9497/metrics"
-	httpClient := http.Client{Timeout: 3 * time.Second}
-	resp, err := httpClient.Get(metricsURL)
-	if err != nil {
-		fmt.Printf(
-			"Error determining if this is a clean run (i.e. if db is empty or not):\n%v",
-			err)
-		askUserToConfirmOrCancel()
-	}
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf(
-			"Error determining if this is a clean run (i.e. if db is empty or not):\n"+
-				"GET metrics from URL %s returned unexpected HTTP Status %d with body %s",
-			metricsURL,
-			resp.StatusCode,
-			string(body),
-		)
-		askUserToConfirmOrCancel()
-	}
-	var nbMetricsFound int
-	var dbSize uint64
-	for _, ml := range strings.Split(string(body), "\n") {
-		if (strings.Index(ml, "immudb_lsm_size_bytes") == 0 ||
-			strings.Index(ml, "immudb_vlog_size_bytes") == 0) &&
-			// ignore the size of the immudbsys
-			!strings.Contains(ml, "sys") {
-			mlPieces := strings.Split(ml, " ")
-			if len(mlPieces) > 0 {
-				s, err := strconv.ParseUint(mlPieces[len(mlPieces)-1], 10, 64)
-				if err == nil {
-					dbSize += s
-					nbMetricsFound++
-				}
-			}
-		}
-	}
-	if nbMetricsFound != 2 {
-		fmt.Println(
-			"Unable to safely determine if this is a clean run (i.e. if db is empty or not)")
-		askUserToConfirmOrCancel()
-	} else if dbSize > 0 {
-		fmt.Println(
-			"It looks like this might not be a clean run (i.e. the database might not empty)")
-		askUserToConfirmOrCancel()
+func reconnect(cl *commandline, cmd *cobra.Command) {
+	cl.disconnect(cmd, nil)
+	if err := cl.connect(cmd, nil); err != nil {
+		c.QuitToStdErr(err)
 	}
 }
 
-func loginIfNeeded(ctx context.Context, immuClient client.ImmuClient, onSuccess func()) {
-	_, err := immuClient.Get(ctx, []byte{})
-	if s, ok := status.FromError(err); ok && s.Code() == codes.Unauthenticated {
-		pass, err := c.DefaultPasswordReader.Read("Admin password:")
+func parseNbEntries(args []string) int {
+	nbEntries := defaultNbEntries
+	if len(args) > 0 {
+		var err error
+		nbEntries, err = strconv.Atoi(args[0])
 		if err != nil {
-			c.QuitToStdErr(err)
-		}
-		response, err := immuClient.Login(ctx, []byte(auth.SysAdminUsername), pass)
-		if err != nil {
-			if s, ok := status.FromError(err); ok && s.Code() == codes.NotFound {
-				c.QuitToStdErr("Oops! It looks like the admin user has not been created yet.")
-			}
 			c.QuitWithUserError(err)
 		}
-		tokenFileName := immuClient.GetOptions().TokenFileName
-		if err := client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
-			c.QuitToStdErr(err)
+		if nbEntries <= 0 {
+			c.QuitWithUserError(fmt.Errorf(
+				"Please specify a number of entries greater than 0 or call the command without "+
+					"any argument so that the default number of %d entries will be used", defaultNbEntries))
 		}
-		onSuccess()
 	}
+	return nbEntries
+}
+
+func login(
+	ctx context.Context,
+	immuClient client.ImmuClient,
+	user string,
+	defaultUser string,
+	defaultPassword string,
+	onSuccess func()) {
+	if user == defaultUser {
+		response, err := immuClient.Login(ctx, []byte(user), []byte(defaultPassword))
+		if err == nil {
+			tokenFileName := immuClient.GetOptions().TokenFileName
+			if err := client.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
+				c.QuitToStdErr(err)
+			}
+			onSuccess()
+			return
+		}
+	}
+	pass, err := c.DefaultPasswordReader.Read(fmt.Sprintf("%s's password:", user))
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
+	response, err := immuClient.Login(ctx, []byte(user), pass)
+	if err != nil {
+		c.QuitWithUserError(err)
+	}
+	tokenFileName := immuClient.GetOptions().TokenFileName
+	if err := client.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
+		c.QuitToStdErr(err)
+	}
+	onSuccess()
+}
+
+func selectDb(
+	ctx context.Context,
+	immuClient client.ImmuClient,
+	db string,
+	onSuccess func()) {
+	response, err := immuClient.UseDatabase(ctx, &schema.Database{Databasename: db})
+	if err != nil {
+		c.QuitWithUserError(err)
+	}
+	tokenFileName := immuClient.GetOptions().TokenFileName
+	token := []byte(response.GetToken())
+	if err := client.WriteFileToUserHomeDir(token, tokenFileName); err != nil {
+		c.QuitToStdErr(err)
+	}
+	onSuccess()
 }
 
 func askUserToConfirmOrCancel() {
@@ -261,17 +258,35 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	return
 }
 
-func configureOptions(cmd *cobra.Command, o *c.Options) error {
+func configureOptions(
+	cmd *cobra.Command,
+	o *c.Options,
+	defaultDb string,
+	defaultUser string,
+) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
+	cmd.PersistentFlags().StringP("database", "d", defaultDb, "database to populate")
+	cmd.PersistentFlags().StringP("user", "u", defaultUser, "database user")
 	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immutest.toml)")
+
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("database", cmd.PersistentFlags().Lookup("database")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("user", cmd.PersistentFlags().Lookup("user")); err != nil {
+		return err
+	}
+
 	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
 	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
+	viper.SetDefault("database", defaultDb)
+	viper.SetDefault("user", defaultUser)
+
 	return nil
 }
