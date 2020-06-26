@@ -94,15 +94,8 @@ func UnTarIt(src string, dst string) error {
 	if err != nil {
 		return err
 	}
-	_, err = os.Stat(dst)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if err = os.MkdirAll(dst, 0755); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+	if err = os.MkdirAll(dst, 0755); err != nil {
+		return err
 	}
 	gzr, err := gzip.NewReader(srcFile)
 	if err != nil {
@@ -113,41 +106,45 @@ func UnTarIt(src string, dst string) error {
 	for {
 		header, err := tr.Next()
 		if err != nil {
-			if err == io.EOF {
-				// no more files
+			if err == io.EOF { // no more files
 				return nil
 			}
 			return err
 		}
-		if header == nil {
-			continue
-		}
-		target := filepath.Join(dst, header.Name)
-		switch header.Typeflag { // or header.FileInfo() - same thing
-		case tar.TypeDir:
-			if _, err := os.Stat(target); err != nil {
-				if err := os.MkdirAll(target, 0755); err != nil {
-					return err
-				}
-			}
-		case tar.TypeReg:
-			dir, _ := filepath.Split(target)
-			if _, err := os.Stat(dir); err != nil {
-				if err := os.MkdirAll(dir, 0755); err != nil {
-					return err
-				}
-			}
-			f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, header.FileInfo().Mode())
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-			if _, err = io.Copy(f, tr); err != nil {
-				return err
-			}
-			if err = f.Close(); err != nil {
-				return err
-			}
+		if err = unTarEntry(dst, tr, header); err != nil {
+			return err
 		}
 	}
+}
+
+func unTarEntry(dst string, tr io.Reader, header *tar.Header) error {
+	if header == nil {
+		return nil
+	}
+	target := filepath.Join(dst, header.Name)
+	switch header.Typeflag { // or header.FileInfo() - same thing
+	case tar.TypeDir:
+		if err := os.MkdirAll(target, 0755); err != nil {
+			return err
+		}
+	case tar.TypeReg:
+		dir, _ := filepath.Split(target)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		if err := copyFile(target, tr, header.FileInfo().Mode()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyFile(dst string, src io.Reader, perm os.FileMode) error {
+	f, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, src)
+	return err
 }
