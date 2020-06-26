@@ -72,6 +72,7 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Infof("Authentication must be on.")
 		return fmt.Errorf("auth should be on")
 	}
+
 	options := []grpc.ServerOption{}
 	//----------TLS Setting-----------//
 	if s.Options.MTLs {
@@ -120,14 +121,10 @@ func (s *ImmuServer) Start() error {
 		}
 	}
 
-	systemDbRootDir := filepath.Join(dataDir, s.Options.GetSystemAdminDbName())
+	systemDbRootDir := filepath.Join(dataDir, s.Options.GetDefaultDbName())
 	var uuid xid.ID
 	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
 		return err
-	}
-
-	if !s.Options.GetAuth() {
-		s.Logger.Infof("Auth is disabled. We'll be using systemdb for all set/get operations.")
 	}
 	auth.AuthEnabled = s.Options.GetAuth()
 	auth.DevMode = s.Options.DevMode
@@ -200,7 +197,6 @@ func (s *ImmuServer) Start() error {
 	grpc_prometheus.Register(s.GrpcServer)
 
 	startedAt = time.Now()
-
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
 	return err
@@ -341,6 +337,9 @@ func (s *ImmuServer) Stop() error {
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
+	if !s.Options.auth {
+		return nil, fmt.Errorf("server is running with authentication disabled, please enable authentication to login")
+	}
 	u, err := s.userExists(r.User, r.Password)
 	if err != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user name or password")

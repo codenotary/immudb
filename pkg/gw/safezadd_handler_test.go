@@ -16,7 +16,6 @@ limitations under the License.
 package gw
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
@@ -28,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/auth"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	immudb "github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -47,7 +45,7 @@ func TestSafeZAdd(t *testing.T) {
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir(dir).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(true)
+		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
 	s := immudb.DefaultServer().WithOptions(op)
 
 	go s.Start()
@@ -65,12 +63,8 @@ func TestSafeZAdd(t *testing.T) {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
 	}
-	item, err := ic.Login(context.Background(), []byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword))
-	if err != nil {
-		t.Errorf("%s", err)
-	}
-	token := item.GetToken()
-	refkey, err := insertSampleSet(ic, safezaddHandlerTestDir, string(token))
+
+	refkey, err := insertSampleSet(ic, safezaddHandlerTestDir, "")
 	if err != nil {
 		t.Errorf("%s", err)
 	}

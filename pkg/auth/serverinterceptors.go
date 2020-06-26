@@ -50,6 +50,10 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
+	if IsTempered {
+		return status.Errorf(
+			codes.DataLoss, "the database should be checked manually as we detected possible tampering")
+	}
 	if !AuthEnabled {
 		if !DevMode {
 			if !isLocalClient(ctx) {
@@ -67,8 +71,18 @@ func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Una
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
-	if !DevMode {
-		isLocalClient(ctx)
+	if IsTempered {
+		return nil, status.Errorf(
+			codes.DataLoss, "the database should be checked manually as we detected possible tampering")
+	}
+	if !AuthEnabled {
+		if !DevMode {
+			if !isLocalClient(ctx) {
+				return nil, status.Errorf(
+					codes.PermissionDenied,
+					"server has authentication disabled: only local connections are accepted")
+			}
+		}
 	}
 	return handler(ctx, req)
 }

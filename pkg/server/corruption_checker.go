@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
 )
@@ -106,7 +107,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				},
 			}); err != nil {
 				if err == store.ErrInconsistentDigest {
-					s.store.Tampered = true
+					auth.IsTempered = true
 					s.Logger.Errorf("insertion order index %d was tampered", id)
 					s.Wg.Done()
 					return

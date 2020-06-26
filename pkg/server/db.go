@@ -116,17 +116,11 @@ func (d *Db) StopCorruptionChecker() error {
 
 //Set ...
 func (d *Db) Set(kv *schema.KeyValue) (*schema.Index, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.Set(*kv)
 }
 
 //Get ...
 func (d *Db) Get(k *schema.Key) (*schema.Item, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	item, err := d.Store.Get(*k)
 	if item == nil {
 		d.Logger.Debugf("get %s: item not found", k.Key)
@@ -138,9 +132,6 @@ func (d *Db) Get(k *schema.Key) (*schema.Item, error) {
 
 // CurrentRoot ...
 func (d *Db) CurrentRoot(e *empty.Empty) (*schema.Root, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	root, err := d.Store.CurrentRoot()
 	if root != nil {
 		d.Logger.Debugf("current root: %d %x", root.Index, root.Root)
@@ -150,9 +141,6 @@ func (d *Db) CurrentRoot(e *empty.Empty) (*schema.Root, error) {
 
 // SetSV ...
 func (d *Db) SetSV(skv *schema.StructuredKeyValue) (*schema.Index, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	kv, err := skv.ToKV()
 	if err != nil {
 		return nil, err
@@ -162,9 +150,6 @@ func (d *Db) SetSV(skv *schema.StructuredKeyValue) (*schema.Index, error) {
 
 //GetSV ...
 func (d *Db) GetSV(k *schema.Key) (*schema.StructuredItem, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	it, err := d.Get(k)
 	if err != nil {
 		return nil, err
@@ -174,25 +159,16 @@ func (d *Db) GetSV(k *schema.Key) (*schema.StructuredItem, error) {
 
 //SafeSet ...
 func (d *Db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.SafeSet(*opts)
 }
 
 //SafeGet ...
 func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.SafeGet(*opts)
 }
 
 //SafeSetSV ...
 func (d *Db) SafeSetSV(sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	kv, err := sopts.Skv.ToKV()
 	if err != nil {
 		return nil, err
@@ -206,9 +182,6 @@ func (d *Db) SafeSetSV(sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
 
 //SafeGetSV ...
 func (d *Db) SafeGetSV(opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	it, err := d.SafeGet(opts)
 	ssitem, err := it.ToSafeSItem()
 	if err != nil {
@@ -219,17 +192,11 @@ func (d *Db) SafeGetSV(opts *schema.SafeGetOptions) (*schema.SafeStructuredItem,
 
 // SetBatch ...
 func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Index, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.SetBatch(*kvl)
 }
 
 //GetBatch ...
 func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
 		item, err := d.Store.Get(*key)
@@ -246,9 +213,6 @@ func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 
 //SetBatchSV ...
 func (d *Db) SetBatchSV(skvl *schema.SKVList) (*schema.Index, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	kvl, err := skvl.ToKVList()
 	if err != nil {
 		return nil, err
@@ -258,9 +222,6 @@ func (d *Db) SetBatchSV(skvl *schema.SKVList) (*schema.Index, error) {
 
 //GetBatchSV ...
 func (d *Db) GetBatchSV(kl *schema.KeyList) (*schema.StructuredItemList, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	list, err := d.GetBatch(kl)
 	slist, err := list.ToSItemList()
 	if err != nil {
@@ -271,9 +232,6 @@ func (d *Db) GetBatchSV(kl *schema.KeyList) (*schema.StructuredItemList, error) 
 
 //ScanSV ...
 func (d *Db) ScanSV(opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	list, err := d.Store.Scan(*opts)
 	if err != nil {
 		return nil, err
@@ -283,17 +241,11 @@ func (d *Db) ScanSV(opts *schema.ScanOptions) (*schema.StructuredItemList, error
 
 //Count ...
 func (d *Db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.Count(*prefix)
 }
 
 // Inclusion ...
 func (d *Db) Inclusion(index *schema.Index) (*schema.InclusionProof, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.InclusionProof(*index)
 }
 
@@ -304,17 +256,11 @@ func (d *Db) Consistency(index *schema.Index) (*schema.ConsistencyProof, error) 
 
 // ByIndex ...
 func (d *Db) ByIndex(index *schema.Index) (*schema.Item, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.ByIndex(*index)
 }
 
 //ByIndexSV ...
 func (d *Db) ByIndexSV(index *schema.Index) (*schema.StructuredItem, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	item, err := d.Store.ByIndex(*index)
 	if err != nil {
 		return nil, err
@@ -324,17 +270,11 @@ func (d *Db) ByIndexSV(index *schema.Index) (*schema.StructuredItem, error) {
 
 //BySafeIndex ...
 func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.BySafeIndex(*sio)
 }
 
 //History ...
 func (d *Db) History(key *schema.Key) (*schema.ItemList, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	list, err := d.Store.History(*key)
 	if err != nil {
 		return nil, err
@@ -344,9 +284,6 @@ func (d *Db) History(key *schema.Key) (*schema.ItemList, error) {
 
 //HistorySV ...
 func (d *Db) HistorySV(key *schema.Key) (*schema.StructuredItemList, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	list, err := d.Store.History(*key)
 	if err != nil {
 		return nil, err
@@ -367,9 +304,6 @@ func (d *Db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 
 //Reference ...
 func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	index, err = d.Store.Reference(refOpts)
 	if err != nil {
 		return nil, err
@@ -380,33 +314,21 @@ func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, e
 
 //SafeReference ...
 func (d *Db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.SafeReference(*safeRefOpts)
 }
 
 //ZAdd ...
 func (d *Db) ZAdd(opts *schema.ZAddOptions) (*schema.Index, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.ZAdd(*opts)
 }
 
 // ZScan ...
 func (d *Db) ZScan(opts *schema.ZScanOptions) (*schema.ItemList, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.ZScan(*opts)
 }
 
 //ZScanSV ...
 func (d *Db) ZScanSV(opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	list, err := d.Store.ZScan(*opts)
 	if err != nil {
 		return nil, err
@@ -416,33 +338,21 @@ func (d *Db) ZScanSV(opts *schema.ZScanOptions) (*schema.StructuredItemList, err
 
 //SafeZAdd ...
 func (d *Db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.SafeZAdd(*opts)
 }
 
 //Scan ...
 func (d *Db) Scan(opts *schema.ScanOptions) (*schema.ItemList, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.Scan(*opts)
 }
 
 //IScan ...
 func (d *Db) IScan(opts *schema.IScanOptions) (*schema.Page, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	return d.Store.IScan(*opts)
 }
 
 //IScanSV ...
 func (d *Db) IScanSV(opts *schema.IScanOptions) (*schema.SPage, error) {
-	if d.Store.Tampered {
-		return nil, fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	page, err := d.Store.IScan(*opts)
 	if err != nil {
 		return nil, err
@@ -452,9 +362,6 @@ func (d *Db) IScanSV(opts *schema.IScanOptions) (*schema.SPage, error) {
 
 //Dump ...
 func (d *Db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
-	if d.Store.Tampered {
-		return fmt.Errorf("database %s is tampered", d.options.dbName)
-	}
 	kvChan := make(chan *pb.KVList)
 	done := make(chan bool)
 

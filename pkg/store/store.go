@@ -37,11 +37,10 @@ import (
 // Store ...
 type Store struct {
 	sync.RWMutex
-	db       *badger.DB
-	tree     *treeStore
-	wg       sync.WaitGroup
-	log      logger.Logger
-	Tampered bool
+	db   *badger.DB
+	tree *treeStore
+	wg   sync.WaitGroup
+	log  logger.Logger
 }
 
 // Open opens the store with the specified options

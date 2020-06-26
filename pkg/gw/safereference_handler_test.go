@@ -16,7 +16,6 @@ limitations under the License.
 package gw
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -28,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	immudb "github.com/codenotary/immudb/pkg/server"
@@ -79,7 +77,7 @@ func TestSafeReference(t *testing.T) {
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(true)
+		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
 
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
@@ -92,19 +90,15 @@ func TestSafeReference(t *testing.T) {
 		os.RemoveAll(safereferenceHandlerTestDir)
 	}()
 
-	ctx := context.Background()
+	//ctx := context.Background()
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
 		WithPort(tcpPort).WithDir(safereferenceHandlerTestDir))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
 	}
-	resp, err := ic.Login(ctx, []byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword))
-	if err != nil {
-		t.Errorf("%s", err)
-	}
 
-	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, string(resp.Token))
+	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, "")
 	if err != nil {
 		t.Errorf("%s", err)
 	}
