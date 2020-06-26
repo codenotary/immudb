@@ -48,6 +48,7 @@ type ImmuServer struct {
 	quit                chan struct{}
 	databasenameToIndex map[string]int64
 	userdata            *usernameToUserdataMap
+	multidbmode         bool
 }
 
 // DefaultServer ...

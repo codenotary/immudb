@@ -67,7 +67,8 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Errorf("Unable load databases %s", err)
 		return err
 	}
-	if !s.Options.GetAuth() && s.mandatoryAuth() {
+	s.multidbmode = s.mandatoryAuth()
+	if !s.Options.GetAuth() && s.multidbmode {
 		s.Logger.Infof("Authentication must be on.")
 		return fmt.Errorf("auth should be on")
 	}
@@ -349,7 +350,12 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	}
 
 	//-1 no database yet, must exec the "use" (UseDatabase) command first
-	token, err := auth.GenerateToken(*u, -1)
+	var token string
+	if s.multidbmode {
+		token, err = auth.GenerateToken(*u, -1)
+	} else {
+		token, err = auth.GenerateToken(*u, DefaultDbIndex)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -933,6 +939,9 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	if !user.IsSysAdmin {
 		return nil, fmt.Errorf("Logged In user does not have permissions for this operation")
 	}
+	if newdb.Databasename == systemdbName {
+		return nil, fmt.Errorf("this database name is reserved")
+	}
 	newdb.Databasename = strings.ToLower(newdb.Databasename)
 	if err = IsAllowedDbName(newdb.Databasename); err != nil {
 		return nil, err
@@ -1152,6 +1161,10 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	dbList := &schema.DatabaseListResponse{}
 	if loggedInuser.IsSysAdmin {
 		for _, val := range s.databases {
+			if val.options.dbName == systemdbName {
+				//do not put sysemdb in the list
+				continue
+			}
 			db := &schema.Database{
 				Databasename: val.options.dbName,
 			}
@@ -1192,6 +1205,9 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 				Errormessage: "Please login"},
 			Token: "",
 		}, err
+	}
+	if db.Databasename == systemdbName {
+		return nil, fmt.Errorf("this database can not be selected")
 	}
 	//check if this user has permission on this database
 	//if sysadmin allow to continue
@@ -1235,6 +1251,11 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 //ChangePermission grant or revoke user permissions on databases
 func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*schema.Error, error) {
 	s.Logger.Debugf("ChangePermission %+v", r)
+
+	if r.Database == systemdbName {
+		return nil, fmt.Errorf("this database can not be assigned")
+	}
+
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
@@ -1355,8 +1376,8 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 // returns index of database
 func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (int64, error) {
 	//if auth is disabled return index zero (defaultdb) as it is the first database created/loaded
-	if !s.Options.GetAuth() {
-		return 0, nil
+	if !s.multidbmode {
+		return DefaultDbIndex, nil
 	}
 	ind, usr, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
