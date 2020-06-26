@@ -63,7 +63,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		fmt.Println()
 		fmt.Println("user changepassword username  -- asks to insert the new password twice")
 		fmt.Println()
-		fmt.Println("user permission grant/revoke username permission_type database_name  -- grants or revokes the permission for the database")
+		fmt.Println("user permission grant/revoke username permission_type database_name  -- grants or revokes the permission (read,write,readwrite) for the database")
 		fmt.Println()
 		fmt.Println("user activate/deactivate username  -- activates or deactivates a user")
 		fmt.Println()
@@ -88,6 +88,8 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 					fmt.Printf("Read\n")
 				case auth.PermissionW:
 					fmt.Printf("Write\n")
+				case auth.PermissionRW:
+					fmt.Printf("Read/Write\n")
 				default:
 					return "Permission value not recognized. Allowed permissions are read,write,admin", nil
 				}
@@ -125,6 +127,8 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 			userpermission = auth.PermissionW
 		case "admin":
 			userpermission = auth.PermissionAdmin
+		case "readwrite":
+			userpermission = auth.PermissionRW
 		default:
 			return "Permission value not recognized. Allowed permissions are read,write,admin", nil
 		}
@@ -179,6 +183,8 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 			userpermission = auth.PermissionW
 		case "admin":
 			userpermission = auth.PermissionAdmin
+		case "readwrite":
+			userpermission = auth.PermissionRW
 		default:
 			return "Permission value not recognized. Allowed permissions are read,write,admin", nil
 		}

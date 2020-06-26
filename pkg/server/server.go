@@ -1198,7 +1198,8 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	if (!user.IsSysAdmin) &&
 		(!user.HasPermission(db.Databasename, auth.PermissionAdmin)) &&
 		(!user.HasPermission(db.Databasename, auth.PermissionR)) &&
-		(!user.HasPermission(db.Databasename, auth.PermissionW)) {
+		(!user.HasPermission(db.Databasename, auth.PermissionW)) &&
+		(!user.HasPermission(db.Databasename, auth.PermissionRW)) {
 		return &schema.UseDatabaseReply{Error: &schema.Error{
 			Errorcode:    schema.ErrorCodes_ERROR_NO_PERMISSION_FOR_THIS_DATABASE,
 			Errormessage: "Logged in user does not have permission on this database",
