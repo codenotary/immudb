@@ -24,8 +24,8 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 )
 
-const systemdbName = "systemdb"
-const defaultdbName = "defaultdb"
+const SystemdbName = "systemdb"
+const DefaultdbName = "defaultdb"
 
 // Options server options list
 type Options struct {
@@ -72,8 +72,8 @@ func DefaultOptions() Options {
 		MetricsServer:       true,
 		DevMode:             true,
 		AdminPassword:       auth.SysAdminPassword,
-		systemAdminDbName:   systemdbName,
-		defaultDbName:       defaultdbName,
+		systemAdminDbName:   SystemdbName,
+		defaultDbName:       DefaultdbName,
 		inMemoryStore:       false,
 		usingCustomListener: false,
 	}

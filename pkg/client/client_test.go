@@ -148,7 +148,7 @@ func init() {
 	token := login()
 	client = newClient(true, token).WithTimestampService(tss)
 	resp, err := client.UseDatabase(context.Background(), &schema.Database{
-		Databasename: immuServer.Options.GetSystemAdminDbName(),
+		Databasename: immuServer.Options.GetDefaultDbName(),
 	})
 	if err != nil {
 		panic(err)
@@ -223,7 +223,7 @@ func testGetByRawIndexOnSafeZAdd(ctx context.Context, t *testing.T, set []byte, 
 	require.True(t, vi2.Verified)
 	require.NoError(t, err2)
 
-	item1, err3 := client.RawBySafeIndex(ctx, 10)
+	item1, err3 := client.RawBySafeIndex(ctx, 9)
 	require.True(t, item1.Verified)
 	require.Equal(t, []byte("val-n1"), item1.Value)
 	require.NoError(t, err3)

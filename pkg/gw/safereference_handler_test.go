@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
@@ -80,17 +79,19 @@ func TestSafeReference(t *testing.T) {
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
+		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(true)
 
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
+
 	defer func() {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
 		os.RemoveAll(op.Dir)
 		os.RemoveAll(safereferenceHandlerTestDir)
 	}()
+
 	ctx := context.Background()
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
 		WithPort(tcpPort).WithDir(safereferenceHandlerTestDir))
@@ -98,15 +99,12 @@ func TestSafeReference(t *testing.T) {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
 	}
-	item, err := ic.Login(ctx, []byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword))
+	resp, err := ic.Login(ctx, []byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	token := item.GetToken()
 
-	_, _ = ic.UseDatabase(ctx, &schema.Database{Databasename: "systemdb"})
-
-	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, string(token))
+	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, string(resp.Token))
 	if err != nil {
 		t.Errorf("%s", err)
 	}

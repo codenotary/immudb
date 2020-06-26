@@ -47,7 +47,7 @@ func TestSafeZAdd(t *testing.T) {
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir(dir).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
+		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(true)
 	s := immudb.DefaultServer().WithOptions(op)
 
 	go s.Start()

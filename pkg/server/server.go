@@ -939,7 +939,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	if !user.IsSysAdmin {
 		return nil, fmt.Errorf("Logged In user does not have permissions for this operation")
 	}
-	if newdb.Databasename == systemdbName {
+	if newdb.Databasename == SystemdbName {
 		return nil, fmt.Errorf("this database name is reserved")
 	}
 	newdb.Databasename = strings.ToLower(newdb.Databasename)
@@ -1161,7 +1161,7 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	dbList := &schema.DatabaseListResponse{}
 	if loggedInuser.IsSysAdmin {
 		for _, val := range s.databases {
-			if val.options.dbName == systemdbName {
+			if val.options.dbName == SystemdbName {
 				//do not put sysemdb in the list
 				continue
 			}
@@ -1206,7 +1206,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 			Token: "",
 		}, err
 	}
-	if db.Databasename == systemdbName {
+	if db.Databasename == SystemdbName {
 		return nil, fmt.Errorf("this database can not be selected")
 	}
 	//check if this user has permission on this database
@@ -1252,7 +1252,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*schema.Error, error) {
 	s.Logger.Debugf("ChangePermission %+v", r)
 
-	if r.Database == systemdbName {
+	if r.Database == SystemdbName {
 		return nil, fmt.Errorf("this database can not be assigned")
 	}
 
@@ -1376,8 +1376,10 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 // returns index of database
 func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (int64, error) {
 	//if auth is disabled return index zero (defaultdb) as it is the first database created/loaded
-	if !s.multidbmode {
-		return DefaultDbIndex, nil
+	if !s.Options.auth {
+		if !s.multidbmode {
+			return DefaultDbIndex, nil
+		}
 	}
 	ind, usr, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
@@ -1385,6 +1387,9 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 	}
 	if ind < 0 {
 		return 0, fmt.Errorf("please select a database first")
+	}
+	if usr.IsSysAdmin {
+		return ind, nil
 	}
 	if ok := auth.HasPermissionForMethod(usr.SelectedDbPermission, methodname); !ok {
 		return 0, fmt.Errorf("you do not have permission for this operation")

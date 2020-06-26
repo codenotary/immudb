@@ -42,7 +42,7 @@ func TestDumpToFile(t *testing.T) {
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
-		WithCorruptionCheck(false).WithAuth(false)
+		WithCorruptionCheck(false).WithAuth(true)
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
@@ -65,12 +65,12 @@ func TestDumpToFile(t *testing.T) {
 	}{
 		{
 			"Backup zero records",
-			2,
+			0,
 			func() {},
 		},
 		{
 			"Backup two records",
-			8,
+			5,
 			func() {
 				ic.SafeSet(context.Background(), []byte("Jan"), []byte("ulrich"))
 				ic.SafeSet(context.Background(), []byte("Jan"), []byte("ulrich"))

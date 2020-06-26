@@ -48,10 +48,12 @@ func TestSafeset(t *testing.T) {
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
+		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(true)
+
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
+
 	defer func() {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
@@ -60,7 +62,7 @@ func TestSafeset(t *testing.T) {
 	}()
 
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
-		WithPort(tcpPort).WithDir(safesetHandlerTestDir))
+		WithPort(tcpPort).WithAuth(true).WithDir(safesetHandlerTestDir))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
