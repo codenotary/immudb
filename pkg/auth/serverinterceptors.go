@@ -21,7 +21,9 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
 
 // UpdateMetrics callback which will be called to update metrics
@@ -48,6 +50,15 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
+	if !AuthEnabled {
+		if !DevMode {
+			if !isLocalClient(ctx) {
+				return status.Errorf(
+					codes.PermissionDenied,
+					"server has authentication disabled: only local connections are accepted")
+			}
+		}
+	}
 	return handler(srv, &WrappedServerStream{ss})
 }
 
@@ -55,6 +66,9 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
+	}
+	if !DevMode {
+		isLocalClient(ctx)
 	}
 	return handler(ctx, req)
 }
