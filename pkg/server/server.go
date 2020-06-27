@@ -195,7 +195,7 @@ func (s *ImmuServer) Start() error {
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
-
+	s.startCorruptionChecker()
 	startedAt = time.Now()
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
@@ -325,10 +325,30 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	defer func() { s.GrpcServer = nil }()
+	s.stopCorruptionChecker()
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
-		val.StopCorruptionChecker()
 		val.Store.Close()
+	}
+	return nil
+}
+
+func (s *ImmuServer) startCorruptionChecker() {
+	if s.Options.CorruptionCheck {
+		s.Cc = NewCorruptionChecker(s.dbList, s.Logger)
+		go func() {
+			s.Logger.Infof("starting consistency-checker")
+			if err := s.Cc.Start(context.Background()); err != nil {
+				s.Logger.Errorf("unable to start consistency-checker: %s", err)
+			}
+		}()
+	}
+}
+
+//StopCorruptionChecker shutdown the corruption checkcer
+func (s *ImmuServer) stopCorruptionChecker() error {
+	if s.Options.CorruptionCheck {
+		s.Cc.Stop(context.Background())
 	}
 	return nil
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,7 +34,6 @@ type Db struct {
 	Store   *store.Store
 	Logger  logger.Logger
 	options *DbOptions
-	Cc      CorruptionChecker
 }
 
 // OpenDb Opens an existing Database from disk
@@ -55,7 +53,6 @@ func OpenDb(op *DbOptions) (*Db, error) {
 		db.Logger.Errorf("Unable to open store: %s", err)
 		return nil, err
 	}
-	db.startCorruptionChecker()
 	return db, nil
 }
 
@@ -90,28 +87,7 @@ func NewDb(op *DbOptions) (*Db, error) {
 			return nil, err
 		}
 	}
-	db.startCorruptionChecker()
 	return db, nil
-}
-
-func (d *Db) startCorruptionChecker() {
-	if d.options.GetCorruptionChecker() {
-		d.Cc = NewCorruptionChecker(d.Store, d.Logger)
-		go func() {
-			d.Logger.Infof("starting consistency-checker")
-			if err := d.Cc.Start(context.Background()); err != nil {
-				d.Logger.Errorf("unable to start consistency-checker: %s", err)
-			}
-		}()
-	}
-}
-
-//StopCorruptionChecker shutdown the corruption checkcer
-func (d *Db) StopCorruptionChecker() error {
-	if d.options.GetCorruptionChecker() {
-		d.Cc.Stop(context.Background())
-	}
-	return nil
 }
 
 //Set ...

@@ -49,6 +49,7 @@ type ImmuServer struct {
 	databasenameToIndex map[string]int64
 	userdata            *usernameToUserdataMap
 	multidbmode         bool
+	Cc                  CorruptionChecker
 }
 
 // DefaultServer ...
