@@ -140,7 +140,7 @@ func (s *ImmuServer) Start() error {
 		metricsServer := StartMetrics(
 			s.Options.MetricsBind(),
 			s.Logger,
-			func() float64 { return float64(s.databases[DefaultDbIndex].Store.CountAll()) },
+			func() float64 { return float64(s.dbList.GetByIndex(DefaultDbIndex).Store.CountAll()) },
 			func() float64 { return time.Since(startedAt).Hours() },
 		)
 		defer func() {
@@ -152,7 +152,7 @@ func (s *ImmuServer) Start() error {
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immudb: %v", s.Options)
 
-	dbSize, _ := s.databases[DefaultDbIndex].Store.DbSize()
+	dbSize, _ := s.dbList.GetByIndex(DefaultDbIndex).Store.DbSize()
 	if dbSize <= 0 {
 		s.Logger.Infof("Started with an empty database")
 	}
@@ -217,8 +217,8 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 			if err != nil {
 				return err
 			}
-			s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(len(s.databases))
-			s.databases = append(s.databases, db)
+			s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(s.dbList.Length())
+			s.dbList.Append(db)
 			//sys admin can have an empty array of databases as it has full access
 			adminUsername, adminPlainPass, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword), auth.PermissionSysAdmin, "*", false, "")
 			if err != nil {
@@ -237,8 +237,8 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		if err != nil {
 			return err
 		}
-		s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(len(s.databases))
-		s.databases = append(s.databases, db)
+		s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(s.dbList.Length())
+		s.dbList.Append(db)
 	}
 
 	return nil
@@ -246,7 +246,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 
 //loadSystemDatabase it is important that is is called before loadDatabases so that defaultdb is at index zero of the databases array
 func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
-	if len(s.databases) > 0 {
+	if s.dbList.Length() > 0 {
 		panic("loadDefaultDatabase should be called before any other database loading")
 	}
 
@@ -263,8 +263,8 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		if err != nil {
 			return err
 		}
-		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(len(s.databases))
-		s.databases = append(s.databases, db)
+		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(s.dbList.Length())
+		s.dbList.Append(db)
 	} else {
 		op := DefaultOption().
 			WithDbName(s.Options.GetDefaultDbName()).
@@ -274,8 +274,8 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		if err != nil {
 			return err
 		}
-		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(len(s.databases))
-		s.databases = append(s.databases, db)
+		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(s.dbList.Length())
+		s.dbList.Append(db)
 	}
 	return nil
 }
@@ -313,8 +313,8 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 		}
 
 		//associate this database name to it's index in the array
-		s.databasenameToIndex[dbname] = int64(len(s.databases))
-		s.databases = append(s.databases, db)
+		s.databasenameToIndex[dbname] = int64(s.dbList.Length())
+		s.dbList.Append(db)
 	}
 	return nil
 }
@@ -325,12 +325,10 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	defer func() { s.GrpcServer = nil }()
-	for _, db := range s.databases {
-		db.StopCorruptionChecker()
-		if db != nil {
-			defer func() { db.Store = nil }()
-			db.Store.Close()
-		}
+	for i := 0; i < s.dbList.Length(); i++ {
+		val := s.dbList.GetByIndex(int64(i))
+		val.StopCorruptionChecker()
+		val.Store.Close()
 	}
 	return nil
 }
@@ -474,7 +472,7 @@ func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.R
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].CurrentRoot(e)
+	return s.dbList.GetByIndex(ind).CurrentRoot(e)
 }
 
 // Set ...
@@ -484,7 +482,7 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].Set(kv)
+	return s.dbList.GetByIndex(ind).Set(kv)
 }
 
 // SetSV ...
@@ -504,7 +502,7 @@ func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].SafeSet(opts)
+	return s.dbList.GetByIndex(ind).SafeSet(opts)
 }
 
 // SafeSetSV ...
@@ -528,7 +526,7 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 	if err != nil {
 		return nil, err
 	}
-	index, err := s.databases[ind].SetBatch(kvl)
+	index, err := s.dbList.GetByIndex(ind).SetBatch(kvl)
 	if err != nil {
 		return nil, err
 	}
@@ -551,7 +549,7 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 	if err != nil {
 		return nil, err
 	}
-	item, err := s.databases[ind].Get(k)
+	item, err := s.dbList.GetByIndex(ind).Get(k)
 	if item == nil {
 		s.Logger.Debugf("get %s: item not found", k.Key)
 	} else {
@@ -577,7 +575,7 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].SafeGet(opts)
+	return s.dbList.GetByIndex(ind).SafeGet(opts)
 }
 
 // SafeGetSV ...
@@ -597,7 +595,7 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 		return nil, err
 	}
 	for _, key := range kl.Keys {
-		item, err := s.databases[ind].Get(key)
+		item, err := s.dbList.GetByIndex(ind).Get(key)
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)
@@ -625,7 +623,7 @@ func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schem
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].Scan(opts)
+	return s.dbList.GetByIndex(ind).Scan(opts)
 }
 
 // ScanSV ...
@@ -635,7 +633,7 @@ func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*sch
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].ScanSV(opts)
+	return s.dbList.GetByIndex(ind).ScanSV(opts)
 }
 
 // Count ...
@@ -645,7 +643,7 @@ func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*sche
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].Count(prefix)
+	return s.dbList.GetByIndex(ind).Count(prefix)
 }
 
 // Inclusion ...
@@ -654,7 +652,7 @@ func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schem
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].Inclusion(index)
+	return s.dbList.GetByIndex(ind).Inclusion(index)
 }
 
 // Consistency ...
@@ -663,7 +661,7 @@ func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*sch
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].Consistency(index)
+	return s.dbList.GetByIndex(ind).Consistency(index)
 }
 
 // ByIndex ...
@@ -673,7 +671,7 @@ func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].ByIndex(index)
+	return s.dbList.GetByIndex(ind).ByIndex(index)
 }
 
 // ByIndexSV ...
@@ -683,7 +681,7 @@ func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schem
 	if err != nil {
 		return nil, err
 	}
-	item, err := s.databases[ind].ByIndex(index)
+	item, err := s.dbList.GetByIndex(ind).ByIndex(index)
 	if err != nil {
 		return nil, err
 	}
@@ -697,7 +695,7 @@ func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptio
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].BySafeIndex(sio)
+	return s.dbList.GetByIndex(ind).BySafeIndex(sio)
 }
 
 // History ...
@@ -707,7 +705,7 @@ func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.Item
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].History(key)
+	return s.dbList.GetByIndex(ind).History(key)
 }
 
 // HistorySV ...
@@ -717,7 +715,7 @@ func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.St
 	if err != nil {
 		return nil, err
 	}
-	list, err := s.databases[ind].History(key)
+	list, err := s.dbList.GetByIndex(ind).History(key)
 	if err != nil {
 		return nil, err
 	}
@@ -729,9 +727,9 @@ func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.Health
 	ind, _ := s.getDbIndexFromCtx(ctx, "Health")
 
 	if ind < 0 { //probably immuclient hasn't logged in yet
-		return s.databases[DefaultDbIndex].Health(e)
+		return s.dbList.GetByIndex(DefaultDbIndex).Health(e)
 	}
-	return s.databases[ind].Health(e)
+	return s.dbList.GetByIndex(ind).Health(e)
 }
 
 // Reference ...
@@ -741,7 +739,7 @@ func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOpt
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].Reference(refOpts)
+	return s.dbList.GetByIndex(ind).Reference(refOpts)
 }
 
 // SafeReference ...
@@ -751,7 +749,7 @@ func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.Safe
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].SafeReference(safeRefOpts)
+	return s.dbList.GetByIndex(ind).SafeReference(safeRefOpts)
 }
 
 // ZAdd ...
@@ -761,7 +759,7 @@ func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schem
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].ZAdd(opts)
+	return s.dbList.GetByIndex(ind).ZAdd(opts)
 }
 
 // ZScan ...
@@ -771,7 +769,7 @@ func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*sch
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].ZScan(opts)
+	return s.dbList.GetByIndex(ind).ZScan(opts)
 }
 
 // ZScanSV ...
@@ -781,7 +779,7 @@ func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*s
 	if err != nil {
 		return nil, err
 	}
-	list, err := s.databases[ind].ZScan(opts)
+	list, err := s.dbList.GetByIndex(ind).ZScan(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -795,7 +793,7 @@ func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions)
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].SafeZAdd(opts)
+	return s.dbList.GetByIndex(ind).SafeZAdd(opts)
 }
 
 // IScan ...
@@ -805,7 +803,7 @@ func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*sch
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].IScan(opts)
+	return s.dbList.GetByIndex(ind).IScan(opts)
 }
 
 // IScanSV ...
@@ -815,7 +813,7 @@ func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*s
 	if err != nil {
 		return nil, err
 	}
-	page, err := s.databases[ind].IScan(opts)
+	page, err := s.dbList.GetByIndex(ind).IScan(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -828,7 +826,7 @@ func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer)
 	if err != nil {
 		return err
 	}
-	err = s.databases[ind].Dump(in, stream)
+	err = s.dbList.GetByIndex(ind).Dump(in, stream)
 	s.Logger.Debugf("Dump stream complete")
 	return err
 }
@@ -963,8 +961,8 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		s.Logger.Errorf(err.Error())
 		return nil, err
 	}
-	s.databasenameToIndex[newdb.Databasename] = int64(len(s.databases))
-	s.databases = append(s.databases, db)
+	s.databasenameToIndex[newdb.Databasename] = int64(s.dbList.Length())
+	s.dbList.Append(db)
 	return &schema.CreateDatabaseReply{
 		Error: &schema.Error{
 			Errorcode:    0,
@@ -1058,7 +1056,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		}
 
 	}
-	itemList, err := s.databases[SystemDbIndex].Scan(&schema.ScanOptions{
+	itemList, err := s.dbList.GetByIndex(SystemDbIndex).Scan(&schema.ScanOptions{
 		Prefix: []byte{sysstore.KeyPrefixUser},
 	})
 	if err != nil {
@@ -1097,7 +1095,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		return userlist, nil
 	} else if loggedInuser.SelectedDbPermission == auth.PermissionAdmin {
 		//for admin users return only users for the database where that is has selected
-		selectedDbname := s.databases[dbInd].options.dbName
+		selectedDbname := s.dbList.GetByIndex(dbInd).options.dbName
 		userlist := &schema.UserList{}
 		includeDeactivated := true
 		for i := 0; i < len(itemList.Items); i++ {
@@ -1172,7 +1170,8 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	}
 	dbList := &schema.DatabaseListResponse{}
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
-		for _, val := range s.databases {
+		for i := 0; i < s.dbList.Length(); i++ {
+			val := s.dbList.GetByIndex(int64(i))
 			if val.options.dbName == SystemdbName {
 				//do not put sysemdb in the list
 				continue
@@ -1200,7 +1199,7 @@ func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tre
 	if err != nil {
 		return nil, err
 	}
-	return s.databases[ind].PrintTree(), nil
+	return s.dbList.GetByIndex(ind).PrintTree(), nil
 }
 
 // UseDatabase ...
@@ -1501,7 +1500,7 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.Us
 	key := make([]byte, 1+len(username))
 	key[0] = sysstore.KeyPrefixUser
 	copy(key[1:], username)
-	item, err := s.databases[SystemDbIndex].Store.Get(schema.Key{Key: key})
+	item, err := s.dbList.GetByIndex(SystemDbIndex).Store.Get(schema.Key{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -1528,7 +1527,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.databases[SystemDbIndex].Set(&userKV)
+	_, err = s.dbList.GetByIndex(SystemDbIndex).Set(&userKV)
 	if err != nil {
 		s.Logger.Errorf("error saving user: %v", err)
 		return err
@@ -1574,20 +1573,21 @@ func (s *ImmuServer) mandatoryAuth() bool {
 		return false
 	}
 	//check if there are user created databases, should be zero for auth to be off
-	for _, val := range s.databases {
+	for i := 0; i < s.dbList.Length(); i++ {
+		val := s.dbList.GetByIndex(int64(i))
 		if (val.options.dbName != s.Options.defaultDbName) &&
 			(val.options.dbName != s.Options.systemAdminDbName) {
 			return true
 		}
 	}
 	//check if there is only default database
-	if (len(s.databases) == 1) && (s.databases[DefaultDbIndex].options.dbName == s.Options.defaultDbName) {
+	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(DefaultDbIndex).options.dbName == s.Options.defaultDbName) {
 		return false
 	}
 	//check if there is only system database
-	if (len(s.databases) == 2) && (s.databases[SystemDbIndex].options.dbName == s.Options.systemAdminDbName) {
+	if (s.dbList.Length() == 2) && (s.dbList.GetByIndex(SystemDbIndex).options.dbName == s.Options.systemAdminDbName) {
 		//check if there is only sysadmin on systemdb and no other user
-		itemList, err := s.databases[SystemDbIndex].Scan(&schema.ScanOptions{
+		itemList, err := s.dbList.GetByIndex(SystemDbIndex).Scan(&schema.ScanOptions{
 			Prefix: []byte{sysstore.KeyPrefixUser},
 		})
 		if err != nil {

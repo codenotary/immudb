@@ -40,7 +40,7 @@ const SystemDbIndex = 1
 
 // ImmuServer ...
 type ImmuServer struct {
-	databases           []*Db
+	dbList              DatabaseList
 	Logger              logger.Logger
 	Options             Options
 	GrpcServer          *grpc.Server
@@ -54,6 +54,7 @@ type ImmuServer struct {
 // DefaultServer ...
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
+		dbList:              NewDatabaseList(),
 		Logger:              logger.NewSimpleLogger("immudb ", os.Stderr),
 		Options:             DefaultOptions(),
 		quit:                make(chan struct{}),
