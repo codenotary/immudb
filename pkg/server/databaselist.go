@@ -20,13 +20,6 @@ import (
 	"sync"
 )
 
-// DatabaseList DatabaseList interface
-type DatabaseList interface {
-	Append(database *Db)
-	GetByIndex(index int64) *Db
-	Length() int
-}
-
 type databaseList struct {
 	databases []*Db
 	sync.RWMutex

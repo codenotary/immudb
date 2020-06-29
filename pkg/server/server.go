@@ -995,11 +995,12 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
 	s.Logger.Debugf("CreateUser %+v", *r)
 	loggedInuser := &auth.User{}
+	var err error
 	if !s.Options.GetMaintenance() {
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
-		_, loggedInuser, err := s.getLoggedInUserdataFromCtx(ctx)
+		_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("please login")
 		}
@@ -1031,7 +1032,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 			return nil, fmt.Errorf("can not create another system admin")
 		}
 	}
-	_, err := s.userExists(r.User, nil)
+	_, err = s.userExists(r.User, nil)
 	if err == nil {
 		return nil, fmt.Errorf("user already exists")
 	}
@@ -1067,6 +1068,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	var dbInd = int64(0)
 	var err error
 	if !s.Options.GetMaintenance() {
+		if !s.multidbmode {
+			return nil, fmt.Errorf("Single user mode")
+		}
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
@@ -1083,7 +1087,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		s.Logger.Errorf("error getting users: %v", err)
 		return nil, err
 	}
-	if loggedInuser.IsSysAdmin || s.Options.GetAuth() {
+	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		//return all users
 		userlist := &schema.UserList{}
 		includeDeactivated := true
@@ -1113,7 +1117,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 			userlist.Users = append(userlist.Users, &u)
 		}
 		return userlist, nil
-	} else if loggedInuser.SelectedDbPermission == auth.PermissionAdmin {
+	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).options.dbName) == auth.PermissionAdmin {
 		//for admin users return only users for the database where that is has selected
 		selectedDbname := s.dbList.GetByIndex(dbInd).options.dbName
 		userlist := &schema.UserList{}
@@ -1257,13 +1261,9 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 				Token: "",
 			}, err
 		}
-		//change the index of the database for this user current this will change it in the map also
-		//index is just the place of this db in the databses array(slice)
-		user.SelectedDbPermission = user.WhichPermission(db.Databasename)
 	} else {
 		user.IsSysAdmin = true
 		user.Username = ""
-		user.SelectedDbPermission = auth.PermissionSysAdmin
 		s.addUserToLoginList(user)
 	}
 	//check if database exists
@@ -1376,11 +1376,12 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		return nil, fmt.Errorf("username can not be empty")
 	}
 	user := &auth.User{}
+	var err error
 	if !s.Options.GetMaintenance() {
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
-		_, user, err := s.getLoggedInUserdataFromCtx(ctx)
+		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("please login first")
 		}
@@ -1439,7 +1440,8 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 	if usr.IsSysAdmin {
 		return ind, nil
 	}
-	if ok := auth.HasPermissionForMethod(usr.SelectedDbPermission, methodname); !ok {
+
+	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).options.dbName), methodname); !ok {
 		return 0, fmt.Errorf("you do not have permission for this operation")
 	}
 	return ind, nil
