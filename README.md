@@ -436,7 +436,7 @@ Available Commands:
   check-consistency Check consistency for the specified index and hash
   count             Count keys having the specified prefix
   current           Return the last merkle tree root and index stored locally
-  database          Issue all user commands
+  database          Issue all database commands
   get               Get item having the specified key
   getByIndex        Return an element by index
   getRawBySafeIndex Return an element by index

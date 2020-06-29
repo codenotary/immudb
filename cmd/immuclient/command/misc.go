@@ -121,7 +121,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 func (cl *commandline) database(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "database command",
-		Short:             "Issue all user commands",
+		Short:             "Issue all database commands",
 		Aliases:           []string{"d"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
