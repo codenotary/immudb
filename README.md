@@ -425,20 +425,26 @@ Environment variables:
   IMMUCLIENT_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
   IMMUCLIENT_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
 
+IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.
+
 Usage:
+  immuclient [flags]
   immuclient [command]
 
 Available Commands:
+  audit-mode        Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' or use -h flag for details
   check-consistency Check consistency for the specified index and hash
   count             Count keys having the specified prefix
   current           Return the last merkle tree root and index stored locally
+  database          Issue all user commands
   get               Get item having the specified key
   getByIndex        Return an element by index
-  getByRawSafeIndex Return an element by index
+  getRawBySafeIndex Return an element by index
   help              Help about any command
   history           Fetch history for the item having the specified key
   inclusion         Check if specified index is included in the current tree
   iscan             Iterate over all elements by insertion order
+  it                Starts immuclient in CLI mode. Use 'help' or -h flag on the shell for details
   login             Login using the specified username and password
   logout
   rawsafeget        Get item having the specified key, without parsing structured values
@@ -451,25 +457,32 @@ Available Commands:
   scan              Iterate over keys having the specified prefix
   set               Add new item having the specified key and value
   status            Ping to check if server connection is alive
+  use               select database
+  user              Issue all user commands
   version           Show the immuclient version
   zadd              Add new key with score to a new or existing sorted set
   zscan             Iterate over a sorted set
 
 Flags:
-      --certificate string      server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
-      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string           config file (default path are configs or $HOME. Default filename is immuclient.toml)
-  -h, --help                    help for immuclient
-  -a, --immudb-address string   immudb host address (default "127.0.0.1")
-  -p, --immudb-port int         immudb port number (default 3322)
-  -m, --mtls                    enable mutual tls
-      --pkey string             server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
-      --servername string       used to verify the hostname on the returned certificates (default "localhost")
-      --tokenfile string        authentication token file (default path is $HOME or binary location; default filename is token) (default "token")
-      --value-only              returning only values for get operations
+      --audit-password string    immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
+      --audit-username string    immudb username used to login during audit
+      --certificate string       server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
+      --clientcas string         clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string            config file (default path are configs or $HOME. Default filename is immuclient.toml)
+      --dir string               Main directory for audit process tool to initialize (default "/var/folders/7c/2189p7097pzgjmhz046qms940000gn/T/")
+  -h, --help                     help for immuclient
+  -a, --immudb-address string    immudb host address (default "127.0.0.1")
+  -p, --immudb-port int          immudb port number (default 3322)
+  -m, --mtls                     enable mutual tls
+      --pkey string              server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
+      --prometheus-host string   Launch host of the Prometheus exporter. (default "127.0.0.1")
+      --prometheus-port string   Launch port of the Prometheus exporter. (default "9477")
+      --roots-filepath string    Filepath for storing root hashes after every successful audit loop. Default is tempdir of every OS. (default "/tmp/")
+      --servername string        used to verify the hostname on the returned certificates (default "localhost")
+      --tokenfile string         authentication token file (default path is $HOME or binary location; default filename is token) (default "token")
+      --value-only               returning only values for get operations
 
 Use "immuclient [command] --help" for more information about a command.
-
 ```
 
 
