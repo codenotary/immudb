@@ -89,7 +89,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 				case auth.PermissionRW:
 					fmt.Printf("Read/Write\n")
 				default:
-					return "Permission value not recognized. Allowed permissions are read,write,admin", nil
+					return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
 				}
 			}
 			fmt.Println()
@@ -126,7 +126,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		case "readwrite":
 			userpermission = auth.PermissionRW
 		default:
-			return "Permission value not recognized. Allowed permissions are read,write,admin", nil
+			return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
 		}
 		user, err := cl.immuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
 		if err != nil {
@@ -178,7 +178,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		case "admin":
 			userpermission = auth.PermissionAdmin
 		default:
-			return "Permission value not recognized. Allowed permissions are read,write,admin", nil
+			return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
 		}
 
 		dbname := args[4]

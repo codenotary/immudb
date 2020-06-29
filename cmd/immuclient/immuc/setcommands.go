@@ -237,15 +237,14 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 	}
 	if resp.Error.Errorcode == schema.ErrorCodes_Ok {
 		i.ImmuClient.GetOptions().CurrentDatabase = dbname
-	}
-
-	tokenFileName := i.ImmuClient.GetOptions().TokenFileName
-	if err = client.WriteFileToUserHomeDir([]byte(resp.Token), tokenFileName); err != nil {
-		return "", err
-	}
-	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
-	if err != nil {
-		return "", err
+		tokenFileName := i.ImmuClient.GetOptions().TokenFileName
+		if err = client.WriteFileToUserHomeDir([]byte(resp.Token), tokenFileName); err != nil {
+			return "", err
+		}
+		i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return resp.Error.Errormessage, nil
