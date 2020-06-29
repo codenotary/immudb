@@ -908,6 +908,11 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	if err != nil {
 		return nil, fmt.Errorf("please login first")
 	}
+	if user.Username == auth.SysAdminUsername {
+		if err = auth.ComparePasswords(user.HashedPassword, r.OldPassword); err != nil {
+			return new(empty.Empty), status.Errorf(codes.PermissionDenied, "old password is incorrect")
+		}
+	}
 	if !user.IsSysAdmin {
 		if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
 			return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")

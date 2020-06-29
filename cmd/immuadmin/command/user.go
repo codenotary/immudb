@@ -138,6 +138,15 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 		}
 		username := args[1]
+		var oldpass []byte
+		var err error
+		if username == auth.SysAdminUsername {
+			oldpass, err = cl.passwordReader.Read("Old password:")
+			if err != nil {
+				return "Error Reading Password", nil
+			}
+		}
+
 		newpass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 		if err != nil {
 			return "Error Reading Password", nil
@@ -153,7 +162,7 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 			return "Passwords don't match", nil
 		}
 		//old pass is not required any more
-		if err := cl.immuClient.ChangePassword(context.Background(), []byte(username), []byte{}, []byte(newpass)); err != nil {
+		if err := cl.immuClient.ChangePassword(context.Background(), []byte(username), oldpass, []byte(newpass)); err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("Password of %s was changed successfuly", username), nil
