@@ -35,8 +35,8 @@ var AuthEnabled bool
 // DevMode if set to true, remote client commands (except admin ones) will be accepted even if auth is off
 var DevMode bool
 
-//IsTempered if set to true then one of the databases is tempered and the user is notified
-var IsTempered bool
+//IsTampered if set to true then one of the databases is tempered and the user is notified
+var IsTampered bool
 
 // WarnDefaultAdminPassword warning user message for the case when admin uses the default password
 var WarnDefaultAdminPassword = "immudb user has the default password: please change it to ensure proper security"

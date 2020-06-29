@@ -50,7 +50,7 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
-	if IsTempered {
+	if IsTampered {
 		return status.Errorf(
 			codes.DataLoss, "the database should be checked manually as we detected possible tampering")
 	}
@@ -71,7 +71,7 @@ func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Una
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
-	if IsTempered {
+	if IsTampered {
 		return nil, status.Errorf(
 			codes.DataLoss, "the database should be checked manually as we detected possible tampering")
 	}

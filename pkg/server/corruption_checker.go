@@ -114,7 +114,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				},
 			}); err != nil {
 				if err == store.ErrInconsistentDigest {
-					auth.IsTempered = true
+					auth.IsTampered = true
 					s.Logger.Errorf("insertion order index %d was tampered", id)
 					s.Wg.Done()
 					return
@@ -125,7 +125,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Item.Index, item.Item.Value, verified)
 			if !verified {
 				s.Trusted = false
-				auth.IsTempered = true
+				auth.IsTampered = true
 				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
 				s.Wg.Done()
 				return
