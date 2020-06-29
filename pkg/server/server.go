@@ -1578,7 +1578,7 @@ func IsAllowedDbName(dbName string) error {
 		}
 	}
 	if hasSpecial {
-		return fmt.Errorf("punctuation marks, digits and symbols are not allowed in database name")
+		return fmt.Errorf("punctuation marks and symbols are not allowed in database name")
 	}
 	return nil
 }
