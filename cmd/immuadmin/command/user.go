@@ -86,8 +86,6 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 					fmt.Printf("System Admin\n")
 				case auth.PermissionR:
 					fmt.Printf("Read\n")
-				case auth.PermissionW:
-					fmt.Printf("Write\n")
 				case auth.PermissionRW:
 					fmt.Printf("Read/Write\n")
 				default:
@@ -123,8 +121,6 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		switch permission {
 		case "read":
 			userpermission = auth.PermissionR
-		case "write":
-			userpermission = auth.PermissionW
 		case "admin":
 			userpermission = auth.PermissionAdmin
 		case "readwrite":
@@ -179,12 +175,8 @@ func (cl *commandline) UserOperations(args []string) (string, error) {
 		switch args[3] {
 		case "read":
 			userpermission = auth.PermissionR
-		case "write":
-			userpermission = auth.PermissionW
 		case "admin":
 			userpermission = auth.PermissionAdmin
-		case "readwrite":
-			userpermission = auth.PermissionRW
 		default:
 			return "Permission value not recognized. Allowed permissions are read,write,admin", nil
 		}

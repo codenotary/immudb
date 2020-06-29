@@ -26,24 +26,23 @@ const PermissionAdmin = 254
 const (
 	PermissionNone = iota
 	PermissionR
-	PermissionW
 	PermissionRW
 )
 
 var methodsPermissions = map[string][]uint32{
 	// readwrite methods
-	"Set":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"Set":           {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"Get":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
-	"SetSV":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
-	"SafeSet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"SetSV":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SafeSet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"SafeGet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
-	"SafeSetSV":     {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
-	"SetBatch":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
-	"SetBatchSV":    {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
-	"Reference":     {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
-	"SafeReference": {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
-	"ZAdd":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
-	"SafeZAdd":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW},
+	"SafeSetSV":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SetBatch":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SetBatchSV":    {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"Reference":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SafeReference": {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"ZAdd":          {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SafeZAdd":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"ZScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"BySafeIndex":   {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"IScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
@@ -64,8 +63,8 @@ var methodsPermissions = map[string][]uint32{
 	"CreateDatabase":   {PermissionSysAdmin},
 	"PrintTree":        {PermissionSysAdmin},
 	"Dump":             {PermissionSysAdmin, PermissionAdmin},
-	"Consistency":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW, PermissionR},
-	"CurrentRoot":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionW, PermissionR},
+	"Consistency":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"CurrentRoot":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 }
 
 //HasPermissionForMethod checks if userPermission can access method name
