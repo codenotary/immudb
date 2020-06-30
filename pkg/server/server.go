@@ -61,11 +61,14 @@ var immudbTextLogo = " _                               _ _     \n" +
 // Start starts the immudb server
 // Loads and starts the System DB, default db and user db
 func (s *ImmuServer) Start() error {
-	_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
-	if err != nil {
-		s.Logger.Errorf("Error printing immudb config: %v", err)
+	if s.Options.Logfile == "" {
+		_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
+		if err != nil {
+			s.Logger.Errorf("Error printing immudb config: %v", err)
+		}
+	} else {
+		s.Logger.Infof("\n%s\n%s\n\n", immudbTextLogo, s.Options)
 	}
-
 	dataDir := s.Options.Dir
 	if err := s.loadDefaultDatabase(dataDir); err != nil {
 		s.Logger.Errorf("Unable load default database %s", err)
@@ -121,6 +124,7 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
+	var err error
 	var listener net.Listener
 	if s.Options.usingCustomListener {
 		s.Logger.Infof("Using custom listener")
@@ -207,24 +211,29 @@ func (s *ImmuServer) Start() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 	s.startCorruptionChecker()
-	go printUsageCallToAction()
+	go s.printUsageCallToAction()
 	startedAt = time.Now()
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
 	return err
 }
 
-func printUsageCallToAction() {
-	immuadminCLI := helper.Blue + "immuadmin" + helper.Green
-	immuclientCLI := helper.Blue + "immuclient" + helper.Green
-	immutestCLI := helper.Blue + "immutest" + helper.Green
-	defaultUsername := helper.Blue + auth.SysAdminUsername + helper.Green
-
+func (s *ImmuServer) printUsageCallToAction() {
 	time.Sleep(200 * time.Millisecond)
-	fmt.Fprintf(os.Stdout,
-		"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start hacking immudb.\n"+
-			"To populate immudb with test data, please run %s.%s\n",
-		helper.Green, immuadminCLI, immuclientCLI, defaultUsername, immutestCLI, helper.Reset)
+	if s.Options.Logfile == "" {
+		immuadminCLI := helper.Blue + "immuadmin" + helper.Green
+		immuclientCLI := helper.Blue + "immuclient" + helper.Green
+		immutestCLI := helper.Blue + "immutest" + helper.Green
+		defaultUsername := helper.Blue + auth.SysAdminUsername + helper.Green
+		fmt.Fprintf(os.Stdout,
+			"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start hacking immudb.\n"+
+				"To populate immudb with test data, please run %s.%s\n",
+			helper.Green, immuadminCLI, immuclientCLI, defaultUsername, immutestCLI, helper.Reset)
+	} else {
+		s.Logger.Infof("You can now use immuadmin and immuclient CLIs to login with the %s superadmin user and start hacking immudb.\n"+
+			"To populate immudb with test data, please run immutest.\n",
+			auth.SysAdminUsername)
+	}
 }
 
 func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
