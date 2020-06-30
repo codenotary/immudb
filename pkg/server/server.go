@@ -346,7 +346,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 
 // Stop stops the immudb server
 func (s *ImmuServer) Stop() error {
-	s.Logger.Infof("stopping immudb:\n%v", s.Options)
+	s.Logger.Infof("Stopping immudb:\n%v", s.Options)
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	defer func() { s.GrpcServer = nil }()
