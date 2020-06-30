@@ -24,11 +24,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -95,10 +97,16 @@ func Detached() {
 	}
 
 	cmd := exec.Command(executable, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	if err = cmd.Start(); err != nil {
 		QuitToStdErr(err)
 	}
+	time.Sleep(1 * time.Second)
+	fmt.Fprintf(
+		os.Stdout, "%s%s has been started with %sPID %d%s\n",
+		Green, filepath.Base(executable), Blue, cmd.Process.Pid, Reset)
 	os.Exit(0)
 }
 

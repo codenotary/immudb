@@ -151,10 +151,10 @@ func (s *ImmuGwServer) installShutdownHandler() {
 			s.quit <- struct{}{}
 		}()
 		<-c
-		s.Logger.Debugf("caught SIGTERM")
+		s.Logger.Debugf("Caught SIGTERM")
 		if err := s.Stop(); err != nil {
-			s.Logger.Errorf("shutdown error: %v", err)
+			s.Logger.Errorf("Shutdown error: %v", err)
 		}
-		s.Logger.Infof("shutdown completed")
+		s.Logger.Infof("Shutdown completed")
 	}()
 }

@@ -17,9 +17,10 @@ limitations under the License.
 package server
 
 import (
-	"encoding/json"
+	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/codenotary/immudb/pkg/auth"
 )
@@ -179,11 +180,36 @@ func (o Options) MetricsBind() string {
 
 // String print options
 func (o Options) String() string {
-	optionsJSON, err := json.Marshal(o)
-	if err != nil {
-		return err.Error()
+	rightPad := func(k string, v interface{}) string {
+		return fmt.Sprintf("%-16s: %v", k, v)
 	}
-	return string(optionsJSON)
+	opts := make([]string, 0, 16)
+	opts = append(opts, "================ Config ================")
+	opts = append(opts, rightPad("Data dir", o.Dir))
+	opts = append(opts, rightPad("Address", fmt.Sprintf("%s:%d", o.Address, o.Port)))
+	if o.MetricsServer {
+		opts = append(opts, rightPad("Metrics address", fmt.Sprintf("%s:%d/metrics", o.Address, o.MetricsPort)))
+	}
+	if o.Config != "" {
+		opts = append(opts, rightPad("Config file", o.Config))
+	}
+	if o.Pidfile != "" {
+		opts = append(opts, rightPad("PID file", o.Pidfile))
+	}
+	if o.Logfile != "" {
+		opts = append(opts, rightPad("Log file", o.Logfile))
+	}
+	opts = append(opts, rightPad("MTLS enabled", o.MTLs))
+	opts = append(opts, rightPad("Auth enabled", o.auth))
+	opts = append(opts, rightPad("Dev mode", o.DevMode))
+	opts = append(opts, rightPad("Default database", o.defaultDbName))
+	opts = append(opts, rightPad("Maintenance mode", o.maintenance))
+	opts = append(opts, "----------------------------------------")
+	opts = append(opts, "Superadmin default credentials")
+	opts = append(opts, rightPad("   Username", auth.SysAdminUsername))
+	opts = append(opts, rightPad("   Password", auth.SysAdminPassword))
+	opts = append(opts, "========================================")
+	return strings.Join(opts, "\n")
 }
 
 // WithMetricsServer ...
