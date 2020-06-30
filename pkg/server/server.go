@@ -35,6 +35,7 @@ import (
 
 	"github.com/rs/xid"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/store"
@@ -50,9 +51,21 @@ import (
 
 var startedAt time.Time
 
+var immudbTextLogo = " _                               _ _     \n" +
+	"(_)                             | | |    \n" +
+	" _ _ __ ___  _ __ ___  _   _  __| | |__  \n" +
+	"| | '_ ` _ \\| '_ ` _ \\| | | |/ _` | '_ \\ \n" +
+	"| | | | | | | | | | | | |_| | (_| | |_) |\n" +
+	"|_|_| |_| |_|_| |_| |_|\\__,_|\\__,_|_.__/ \n"
+
 // Start starts the immudb server
 // Loads and starts the System DB, default db and user db
 func (s *ImmuServer) Start() error {
+	_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
+	if err != nil {
+		s.Logger.Errorf("Error printing immudb config: %v", err)
+	}
+
 	dataDir := s.Options.Dir
 	if err := s.loadDefaultDatabase(dataDir); err != nil {
 		s.Logger.Errorf("Unable load default database %s", err)
@@ -82,20 +95,20 @@ func (s *ImmuServer) Start() error {
 			s.Options.MTLsOptions.Pkey,
 		)
 		if err != nil {
-			s.Logger.Errorf("failed to read server key pair: %s", err)
+			s.Logger.Errorf("Failed to read server key pair: %s", err)
 			return err
 		}
 		certPool := x509.NewCertPool()
 		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
 		bs, err := ioutil.ReadFile(s.Options.MTLsOptions.ClientCAs)
 		if err != nil {
-			s.Logger.Errorf("failed to read client ca cert: %s", err)
+			s.Logger.Errorf("Failed to read client ca cert: %s", err)
 			return err
 		}
 
 		ok := certPool.AppendCertsFromPEM(bs)
 		if !ok {
-			s.Logger.Errorf("failed to append client certs")
+			s.Logger.Errorf("Failed to append client certs")
 			return err
 		}
 
@@ -108,7 +121,6 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
-	var err error
 	var listener net.Listener
 	if s.Options.usingCustomListener {
 		s.Logger.Infof("Using custom listener")
@@ -145,12 +157,11 @@ func (s *ImmuServer) Start() error {
 		)
 		defer func() {
 			if err = metricsServer.Close(); err != nil {
-				s.Logger.Errorf("failed to shutdown metric server: %s", err)
+				s.Logger.Errorf("Failed to shutdown metric server: %s", err)
 			}
 		}()
 	}
 	s.installShutdownHandler()
-	s.Logger.Infof("starting immudb: %v", s.Options)
 
 	dbSize, _ := s.dbList.GetByIndex(DefaultDbIndex).Store.DbSize()
 	if dbSize <= 0 {
@@ -159,7 +170,7 @@ func (s *ImmuServer) Start() error {
 
 	if s.Options.Pidfile != "" {
 		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
-			s.Logger.Errorf("failed to write pidfile: %s", err)
+			s.Logger.Errorf("Failed to write pidfile: %s", err)
 			return err
 		}
 	}
@@ -196,10 +207,24 @@ func (s *ImmuServer) Start() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 	s.startCorruptionChecker()
+	go printUsageCallToAction()
 	startedAt = time.Now()
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
 	return err
+}
+
+func printUsageCallToAction() {
+	immuadminCLI := helper.Blue + "immuadmin" + helper.Green
+	immuclientCLI := helper.Blue + "immuclient" + helper.Green
+	immutestCLI := helper.Blue + "immutest" + helper.Green
+	defaultUsername := helper.Blue + auth.SysAdminUsername + helper.Green
+
+	time.Sleep(200 * time.Millisecond)
+	fmt.Fprintf(os.Stdout,
+		"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start hacking immudb.\n"+
+			"To populate immudb with test data, please run %s.%s\n",
+		helper.Green, immuadminCLI, immuclientCLI, defaultUsername, immutestCLI, helper.Reset)
 }
 
 func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
@@ -225,7 +250,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 				s.Logger.Errorf(err.Error())
 				return err
 			} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
-				s.Logger.Infof("admin user %s created with password %s", adminUsername, adminPlainPass)
+				s.Logger.Infof("Admin user %s created with password %s", adminUsername, adminPlainPass)
 			}
 		}
 	} else {
@@ -321,7 +346,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 
 // Stop stops the immudb server
 func (s *ImmuServer) Stop() error {
-	s.Logger.Infof("stopping immudb: %v", s.Options)
+	s.Logger.Infof("stopping immudb:\n%v", s.Options)
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	defer func() { s.GrpcServer = nil }()
@@ -337,9 +362,9 @@ func (s *ImmuServer) startCorruptionChecker() {
 	if s.Options.CorruptionCheck {
 		s.Cc = NewCorruptionChecker(s.dbList, s.Logger)
 		go func() {
-			s.Logger.Infof("starting consistency-checker")
+			s.Logger.Infof("Starting consistency-checker")
 			if err := s.Cc.Start(context.Background()); err != nil {
-				s.Logger.Errorf("unable to start consistency-checker: %s", err)
+				s.Logger.Errorf("Unable to start consistency-checker: %s", err)
 			}
 		}()
 	}
@@ -890,11 +915,11 @@ func (s *ImmuServer) installShutdownHandler() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		s.Logger.Infof("caught SIGTERM")
+		s.Logger.Infof("Caught SIGTERM")
 		if err := s.Stop(); err != nil {
-			s.Logger.Errorf("shutdown error: %v", err)
+			s.Logger.Errorf("Shutdown error: %v", err)
 		}
-		s.Logger.Infof("shutdown completed")
+		s.Logger.Infof("Shutdown completed")
 	}()
 }
 
