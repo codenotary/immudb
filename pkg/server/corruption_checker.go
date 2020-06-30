@@ -33,7 +33,14 @@ import (
 // ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
 const ErrConsistencyFail = "consistency check fail at index %d"
 
+type CCOptions struct {
+	singleiteration    bool
+	iterationSleepTime time.Duration
+	frequencySleepTime time.Duration
+}
+
 type corruptionChecker struct {
+	options        CCOptions
 	dbList         DatabaseList
 	Logger         logger.Logger
 	Exit           bool
@@ -51,8 +58,9 @@ type CorruptionChecker interface {
 }
 
 // NewCorruptionChecker returns new trust checker service
-func NewCorruptionChecker(d DatabaseList, l logger.Logger) CorruptionChecker {
+func NewCorruptionChecker(opt CCOptions, d DatabaseList, l logger.Logger) CorruptionChecker {
 	return &corruptionChecker{
+		options:        opt,
 		dbList:         d,
 		Logger:         l,
 		Exit:           false,
@@ -130,27 +138,26 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				s.Wg.Done()
 				return
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(s.options.frequencySleepTime)
 		}
 	}
 	s.Wg.Done()
 	//TODO this is workaround because of a suspected memory leak in this code
 	//debug.FreeOSMemory()
 	s.sleep()
-	if !s.Exit {
+	if !s.Exit && !s.options.singleiteration {
 		if err = s.checkLevel0(ctx); err != nil {
 			//s.Wg.Done()
 			return err
 		}
 	}
-	// this should never happen
 	return nil
 }
 
 func (s *corruptionChecker) sleep() {
 	if !s.Exit {
 		s.Logger.Debugf("Sleeping for some seconds ...")
-		time.Sleep(5 * time.Second)
+		time.Sleep(s.options.iterationSleepTime)
 	}
 }
 

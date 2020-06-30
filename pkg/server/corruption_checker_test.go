@@ -26,16 +26,20 @@ import (
 )
 
 func TestEmptyDBCorruptionChecker(t *testing.T) {
+
 	var err error
 	dbList := NewDatabaseList()
 	db, _ := makeDb()
 	dbList.Append(db)
-	cc := NewCorruptionChecker(dbList, &mockLogger{})
-	go func() {
-		err = cc.Start(context.TODO())
-	}()
-	time.Sleep(1 * time.Second)
-	cc.Stop(context.TODO())
+
+	cco := CCOptions{}
+	cco.iterationSleepTime = 1 * time.Millisecond
+	cco.frequencySleepTime = 1 * time.Millisecond
+	cco.singleiteration = true
+
+	cc := NewCorruptionChecker(cco, dbList, &mockLogger{})
+
+	err = cc.Start(context.TODO())
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
@@ -54,12 +58,15 @@ func TestCorruptionChecker(t *testing.T) {
 	}
 	db.Set(kv)
 	dbList.Append(db)
-	cc := NewCorruptionChecker(dbList, &mockLogger{})
-	go func() {
-		err = cc.Start(context.TODO())
-	}()
-	time.Sleep(1 * time.Second)
-	cc.Stop(context.TODO())
+
+	cco := CCOptions{}
+	cco.iterationSleepTime = 1 * time.Millisecond
+	cco.frequencySleepTime = 1 * time.Millisecond
+	cco.singleiteration = true
+
+	cc := NewCorruptionChecker(cco, dbList, &mockLogger{})
+
+	err = cc.Start(context.TODO())
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
