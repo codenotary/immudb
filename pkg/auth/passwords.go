@@ -50,8 +50,8 @@ func generatePassword() string {
 }
 
 // HashAndSaltPassword hashes and salts the provided password
-func HashAndSaltPassword(plainPassword string) ([]byte, error) {
-	hashedPasswordBytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
+func HashAndSaltPassword(plainPassword []byte) ([]byte, error) {
+	hashedPasswordBytes, err := bcrypt.GenerateFromPassword(plainPassword, bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("error hashing password: %v", err)
 	}

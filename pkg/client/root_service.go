@@ -32,8 +32,8 @@ import (
 
 // RootService the root service interface
 type RootService interface {
-	GetRoot(ctx context.Context) (*schema.Root, error)
-	SetRoot(root *schema.Root) error
+	GetRoot(ctx context.Context, databasename string) (*schema.Root, error)
+	SetRoot(root *schema.Root, databasename string) error
 }
 
 type rootservice struct {
@@ -61,28 +61,28 @@ func NewRootService(immuC schema.ImmuServiceClient, cache cache.Cache, logger lo
 	}
 }
 
-func (r *rootservice) GetRoot(ctx context.Context) (*schema.Root, error) {
-	defer r.RUnlock()
-	r.RLock()
+func (r *rootservice) GetRoot(ctx context.Context, databasename string) (*schema.Root, error) {
+	defer r.Unlock()
+	r.Lock()
 	var metadata runtime.ServerMetadata
 	var protoReq empty.Empty
-	if root, err := r.cache.Get(r.serverUuid); err == nil {
+	if root, err := r.cache.Get(r.serverUuid, databasename); err == nil {
 		return root, nil
 	}
 	if root, err := r.client.CurrentRoot(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD)); err != nil {
 		return nil, err
 	} else {
-		if err := r.cache.Set(root, r.serverUuid); err != nil {
+		if err := r.cache.Set(root, r.serverUuid, databasename); err != nil {
 			return nil, err
 		}
 		return root, nil
 	}
 }
 
-func (r *rootservice) SetRoot(root *schema.Root) error {
+func (r *rootservice) SetRoot(root *schema.Root, databasename string) error {
 	defer r.Unlock()
 	r.Lock()
-	return r.cache.Set(root, r.serverUuid)
+	return r.cache.Set(root, r.serverUuid, databasename)
 }
 
 // ErrNoServerUuid ...

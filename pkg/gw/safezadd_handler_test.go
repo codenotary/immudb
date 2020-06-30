@@ -18,10 +18,11 @@ package gw
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -34,14 +35,19 @@ import (
 var safezaddHandlerTestDir = "./safezadd_handler_test"
 
 func TestSafeZAdd(t *testing.T) {
+	dir, err := ioutil.TempDir("", "immu")
+	if err != nil {
+		log.Fatal(err)
+	}
 	setName := base64.StdEncoding.EncodeToString([]byte("Soprano"))
 	uknownKey := base64.StdEncoding.EncodeToString([]byte("Marias Callas"))
 	tcpPort := generateRandomTCPPort()
 	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
 	op := immudb.DefaultOptions().
-		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
+		WithPort(tcpPort).WithDir(dir).
 		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
 	s := immudb.DefaultServer().WithOptions(op)
+
 	go s.Start()
 	time.Sleep(2 * time.Second)
 	defer func() {
@@ -50,17 +56,17 @@ func TestSafeZAdd(t *testing.T) {
 		os.RemoveAll(op.Dir)
 		os.RemoveAll(safezaddHandlerTestDir)
 	}()
-
-	refkey, err := insertSampleSet(tcpPort, safezaddHandlerTestDir)
-	if err != nil {
-		t.Errorf("%s", err)
-	}
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
 		WithPort(tcpPort).WithDir(safezaddHandlerTestDir))
 
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
+	}
+
+	refkey, err := insertSampleSet(ic, safezaddHandlerTestDir, "")
+	if err != nil {
+		t.Errorf("%s", err)
 	}
 	mux := runtime.NewServeMux()
 	ssh := NewSafeZAddHandler(mux, ic)
@@ -170,7 +176,7 @@ func TestSafeZAdd(t *testing.T) {
 				t.Error(string(w.Body.Bytes()))
 			}
 
-			// TODO gjergji this should be used once #263 is fixed
+			// TODO gj this should be used once #263 is fixed
 			// if w.Code != tc.want {
 			// 	t.Errorf("handler returned wrong status code: got %v want %v",
 			// 		w.Code, tc.want)

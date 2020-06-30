@@ -49,9 +49,11 @@ func TestSafeset(t *testing.T) {
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
 		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
+
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
+
 	defer func() {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
@@ -60,7 +62,7 @@ func TestSafeset(t *testing.T) {
 	}()
 
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
-		WithPort(tcpPort).WithDir(safesetHandlerTestDir))
+		WithPort(tcpPort).WithAuth(true).WithDir(safesetHandlerTestDir))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
@@ -140,7 +142,7 @@ func TestSafeset(t *testing.T) {
 				t.Error(body)
 				t.Error(string(w.Body.Bytes()))
 			}
-			// TODO gjergji this should be used once #263 is fixed
+			// TODO gj this should be used once #263 is fixed
 			// if w.Code != tc.want {
 			// 	t.Errorf("handler returned wrong status code: got %v want %v",
 			// 		w.Code, tc.want)

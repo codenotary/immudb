@@ -25,7 +25,8 @@ ENV IMMUDB_HOME="/usr/share/immudb" \
     IMMUDB_CERTIFICATE="/usr/share/immudb/mtls/3_application/certs/server.pem" \
     IMMUDB_CLIENTCAS="/usr/share/immudb/mtls/2_intermediate/certs/ca-chain.pem" \
     IMMUDB_DEVMODE="true" \
-    IMMUDB_ADMIN_PASSWORD="immu" \
+    IMMUDB_MAINTENANCE="false" \
+    IMMUDB_ADMIN_PASSWORD="immudb" \
     IMMUADMIN_TOKENFILE="/var/lib/immudb/admin_token"
 
 RUN addgroup --system --gid $IMMU_GID immu && \

@@ -18,49 +18,62 @@ package server
 
 import (
 	"os"
+	"sync"
 
 	"google.golang.org/grpc"
 
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/store"
 )
+
+// userDatabasePairs keeps an associacion of username to userdata
+type usernameToUserdataMap struct {
+	Userdata map[string]*auth.User
+	sync.RWMutex
+}
+
+//DefaultDbIndex systemdb should always be in index 0
+const DefaultDbIndex = 0
+
+//SystemDbIndex systemdb should always be in index 1, on index zero should be default db
+const SystemDbIndex = 1
+
+// DatabaseList DatabaseList interface
+type DatabaseList interface {
+	Append(database *Db)
+	GetByIndex(index int64) *Db
+	Length() int
+}
 
 // ImmuServer ...
 type ImmuServer struct {
-	Store      *store.Store
-	SysStore   *store.Store
-	Logger     logger.Logger
-	Options    Options
-	GrpcServer *grpc.Server
-	Cc         CorruptionChecker
-	Pid        PIDFile
-	quit       chan struct{}
+	dbList              DatabaseList
+	Logger              logger.Logger
+	Options             Options
+	GrpcServer          *grpc.Server
+	Pid                 PIDFile
+	quit                chan struct{}
+	databasenameToIndex map[string]int64
+	userdata            *usernameToUserdataMap
+	multidbmode         bool
+	Cc                  CorruptionChecker
 }
 
 // DefaultServer ...
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
-		Logger:  logger.NewSimpleLogger("immudb ", os.Stderr),
-		Options: DefaultOptions(),
-		quit:    make(chan struct{}),
+		dbList:              NewDatabaseList(),
+		Logger:              logger.NewSimpleLogger("immudb ", os.Stderr),
+		Options:             DefaultOptions(),
+		quit:                make(chan struct{}),
+		databasenameToIndex: make(map[string]int64),
+		userdata:            &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
 	}
-}
-
-// WithStore ...
-func (s *ImmuServer) WithStore(st *store.Store) *ImmuServer {
-	s.Store = st
-	return s
 }
 
 // WithLogger ...
 func (s *ImmuServer) WithLogger(logger logger.Logger) *ImmuServer {
 	s.Logger = logger
-	return s
-}
-
-// WithCC ...
-func (s *ImmuServer) WithCC(cc CorruptionChecker) *ImmuServer {
-	s.Cc = cc
 	return s
 }
 

@@ -19,7 +19,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -28,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	immudb "github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -35,20 +35,21 @@ import (
 
 var safereferenceHandlerTestDir = "./safereference_handler_test"
 
-func insertSampleSet(immudbTCPPort int, clientDir string) (string, error) {
+func insertSampleSet(ic client.ImmuClient, clientDir string, token string) (string, error) {
 	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
 	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
-		WithPort(immudbTCPPort).WithDir(clientDir))
-	if err != nil {
-		return "", fmt.Errorf("unable to instantiate client: %s", err)
-	}
+	// ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
+	// 	WithPort(immudbTCPPort).WithDir(clientDir))
+	// if err != nil {
+	// 	return "", fmt.Errorf("unable to instantiate client: %s", err)
+	// }
 	mux := runtime.NewServeMux()
 	ssh := NewSafesetHandler(mux, ic)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/v1/immurestproxy/item/safe", strings.NewReader(`{"kv": {"key": "`+key+`", "value": "`+value+`"} }`))
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+token)
 
 	safeset := func(res http.ResponseWriter, req *http.Request) {
 		ssh.Safeset(res, req, nil)
@@ -57,7 +58,7 @@ func insertSampleSet(immudbTCPPort int, clientDir string) (string, error) {
 	handler.ServeHTTP(w, req)
 	var body map[string]interface{}
 
-	err = json.Unmarshal(w.Body.Bytes(), &body)
+	err := json.Unmarshal(w.Body.Bytes(), &body)
 	if err != nil {
 		return "", errors.New("bad reply JSON")
 	}
@@ -77,9 +78,11 @@ func TestSafeReference(t *testing.T) {
 	op := immudb.DefaultOptions().
 		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
 		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
+
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
+
 	defer func() {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
@@ -87,16 +90,17 @@ func TestSafeReference(t *testing.T) {
 		os.RemoveAll(safereferenceHandlerTestDir)
 	}()
 
-	refKey, err := insertSampleSet(tcpPort, safereferenceHandlerTestDir)
-	if err != nil {
-		t.Errorf("%s", err)
-	}
-
+	//ctx := context.Background()
 	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
 		WithPort(tcpPort).WithDir(safereferenceHandlerTestDir))
 	if err != nil {
 		t.Errorf("unable to instantiate client: %s", err)
 		return
+	}
+
+	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, "")
+	if err != nil {
+		t.Errorf("%s", err)
 	}
 	mux := runtime.NewServeMux()
 	ssh := NewSafeReferenceHandler(mux, ic)
@@ -192,7 +196,7 @@ func TestSafeReference(t *testing.T) {
 				t.Error(string(w.Body.Bytes()))
 			}
 
-			// TODO gjergji this should be used once #263 is fixed
+			// TODO gj this should be used once #263 is fixed
 			// if w.Code != tc.want {
 			// 	t.Errorf("handler returned wrong status code: got %v want %v",
 			// 		w.Code, tc.want)

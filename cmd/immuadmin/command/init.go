@@ -43,7 +43,7 @@ func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
 
-	cl.user(cmd, cmdName)
+	cl.user(cmd)
 	cl.login(cmd)
 	cl.logout(cmd)
 	cl.status(cmd)

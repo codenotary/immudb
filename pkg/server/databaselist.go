@@ -14,18 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cache
+package server
 
-import "github.com/codenotary/immudb/pkg/api/schema"
+import (
+	"sync"
+)
 
-// Cache the cache interface
-type Cache interface {
-	Get(serverUuid string, databasename string) (*schema.Root, error)
-	Set(root *schema.Root, serverUuid string, databasename string) error
+type databaseList struct {
+	databases []*Db
+	sync.RWMutex
 }
 
-// HistoryCache the history cache interface
-type HistoryCache interface {
-	Cache
-	Walk(serverID string, databasename string, f func(*schema.Root) interface{}) ([]interface{}, error)
+//NewDatabaseList constructs a new database list
+func NewDatabaseList() DatabaseList {
+	return &databaseList{
+		databases: make([]*Db, 0),
+	}
+}
+func (d *databaseList) Append(database *Db) {
+	d.Lock()
+	defer d.Unlock()
+	d.databases = append(d.databases, database)
+}
+func (d *databaseList) GetByIndex(index int64) *Db {
+	d.RLock()
+	defer d.RUnlock()
+	return d.databases[index]
+}
+func (d *databaseList) Length() int {
+	d.RLock()
+	defer d.RUnlock()
+	return len(d.databases)
 }

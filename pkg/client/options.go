@@ -38,6 +38,7 @@ type Options struct {
 	DialOptions        *[]grpc.DialOption
 	Config             string
 	TokenFileName      string
+	CurrentDatabase    string
 }
 
 // DefaultOptions ...

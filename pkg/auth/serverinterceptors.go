@@ -21,7 +21,9 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
 
 // UpdateMetrics callback which will be called to update metrics
@@ -48,8 +50,18 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
-	if err := checkAuth(ctx, info.FullMethod, srv); err != nil {
-		return err
+	if IsTampered {
+		return status.Errorf(
+			codes.DataLoss, "the database should be checked manually as we detected possible tampering")
+	}
+	if !AuthEnabled {
+		if !DevMode {
+			if !isLocalClient(ctx) {
+				return status.Errorf(
+					codes.PermissionDenied,
+					"server has authentication disabled: only local connections are accepted")
+			}
+		}
 	}
 	return handler(srv, &WrappedServerStream{ss})
 }
@@ -59,11 +71,20 @@ func ServerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Una
 	if UpdateMetrics != nil {
 		UpdateMetrics(ctx)
 	}
-	if err := checkAuth(ctx, info.FullMethod, req); err != nil {
-		return nil, err
+	if IsTampered {
+		return nil, status.Errorf(
+			codes.DataLoss, "the database should be checked manually as we detected possible tampering")
 	}
-	m, err := handler(ctx, req)
-	return m, err
+	if !AuthEnabled {
+		if !DevMode {
+			if !isLocalClient(ctx) {
+				return nil, status.Errorf(
+					codes.PermissionDenied,
+					"server has authentication disabled: only local connections are accepted")
+			}
+		}
+	}
+	return handler(ctx, req)
 }
 
 var localAddress = map[string]bool{

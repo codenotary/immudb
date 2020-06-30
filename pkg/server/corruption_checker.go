@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
 )
@@ -33,12 +34,12 @@ import (
 const ErrConsistencyFail = "consistency check fail at index %d"
 
 type corruptionChecker struct {
-	store      *store.Store
-	Logger     logger.Logger
-	Exit       bool
-	StopImmudb func() error
-	Trusted    bool
-	Wg         sync.WaitGroup
+	dbList         DatabaseList
+	Logger         logger.Logger
+	Exit           bool
+	Trusted        bool
+	Wg             sync.WaitGroup
+	currentDbIndex int
 }
 
 // CorruptionChecker corruption checker interface
@@ -50,13 +51,14 @@ type CorruptionChecker interface {
 }
 
 // NewCorruptionChecker returns new trust checker service
-func NewCorruptionChecker(s *store.Store, l logger.Logger, stopImmudb func() error) CorruptionChecker {
+func NewCorruptionChecker(d DatabaseList, l logger.Logger) CorruptionChecker {
 	return &corruptionChecker{
-		store:      s,
-		Logger:     l,
-		Exit:       false,
-		StopImmudb: stopImmudb,
-		Trusted:    true}
+		dbList:         d,
+		Logger:         l,
+		Exit:           false,
+		Trusted:        true,
+		currentDbIndex: 0,
+	}
 }
 
 // Start start the trust checker loop
@@ -80,8 +82,13 @@ func (s *corruptionChecker) GetStatus(ctx context.Context) bool {
 func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	s.Wg.Add(1)
 	s.Logger.Debugf("Retrieving a fresh root ...")
+	if s.currentDbIndex == s.dbList.Length() {
+		s.currentDbIndex = 0
+	}
+	db := s.dbList.GetByIndex(int64(s.currentDbIndex))
+	s.currentDbIndex++
 	var r *schema.Root
-	if r, err = s.store.CurrentRoot(); err != nil {
+	if r, err = db.Store.CurrentRoot(); err != nil {
 		s.Logger.Errorf("Error retrieving root: %s", err)
 		return
 	}
@@ -100,16 +107,16 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				return
 			}
 			var item *schema.SafeItem
-			if item, err = s.store.BySafeIndex(schema.SafeIndexOptions{
+			if item, err = db.Store.BySafeIndex(schema.SafeIndexOptions{
 				Index: id,
 				RootIndex: &schema.Index{
 					Index: r.Index,
 				},
 			}); err != nil {
 				if err == store.ErrInconsistentDigest {
+					auth.IsTampered = true
 					s.Logger.Errorf("insertion order index %d was tampered", id)
 					s.Wg.Done()
-					s.StopImmudb()
 					return
 				}
 				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
@@ -118,19 +125,21 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Item.Index, item.Item.Value, verified)
 			if !verified {
 				s.Trusted = false
+				auth.IsTampered = true
 				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
 				s.Wg.Done()
-				s.StopImmudb()
 				return
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
 	s.Wg.Done()
+	//TODO this is workaround because of a suspected memory leak in this code
+	//debug.FreeOSMemory()
 	s.sleep()
 	if !s.Exit {
 		if err = s.checkLevel0(ctx); err != nil {
-			s.Wg.Done()
+			//s.Wg.Done()
 			return err
 		}
 	}

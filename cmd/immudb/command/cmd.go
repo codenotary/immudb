@@ -60,7 +60,8 @@ Environment variables:
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
   IMMUDB_DEVMODE=true
-  IMMUDB_ADMIN_PASSWORD=immu`,
+  IMMUDB_MAINTENANCE=false
+  IMMUDB_ADMIN_PASSWORD=immudb`,
 		DisableAutoGenTag: true,
 		RunE:              Immudb,
 	}
@@ -125,7 +126,6 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	}
 	port := viper.GetInt("port")
 	address := viper.GetString("address")
-	dbName := viper.GetString("dbname")
 	// config file came only from arguments or default folder
 	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
 		return server.Options{}, err
@@ -160,13 +160,13 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	}
 	devMode := viper.GetBool("devmode")
 	adminPassword := viper.GetString("admin-password")
+	maintenance := viper.GetBool("maintenance")
 
 	options = server.
 		DefaultOptions().
 		WithDir(dir).
 		WithPort(port).
 		WithAddress(address).
-		WithDbName(dbName).
 		WithConfig(o.CfgFn).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
@@ -176,7 +176,8 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithDetached(detached).
 		WithCorruptionCheck(consistencyCheck).
 		WithDevMode(devMode).
-		WithAdminPassword(adminPassword)
+		WithAdminPassword(adminPassword).
+		WithMaintenance(maintenance)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = server.DefaultMTLsOptions().
@@ -191,7 +192,6 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("dir", options.Dir, "data folder")
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
-	cmd.Flags().StringP("dbname", "n", options.DbName, "db name")
 	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.ini)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
@@ -205,6 +205,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
+	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
 }
 
 func bindFlags(cmd *cobra.Command) error {
@@ -256,6 +257,9 @@ func bindFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("admin-password", cmd.Flags().Lookup("admin-password")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("maintenance", cmd.Flags().Lookup("maintenance")); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -263,11 +267,10 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("dir", options.Dir)
 	viper.SetDefault("port", options.Port)
 	viper.SetDefault("address", options.Address)
-	viper.SetDefault("dbname", options.DbName)
 	viper.SetDefault("pidfile", options.Pidfile)
 	viper.SetDefault("logfile", options.Logfile)
 	viper.SetDefault("mtls", options.MTLs)
-	viper.SetDefault("auth", options.Auth)
+	viper.SetDefault("auth", options.GetAuth())
 	viper.SetDefault("no-histograms", options.NoHistograms)
 	viper.SetDefault("consistency-check", options.CorruptionCheck)
 	viper.SetDefault("detached", options.Detached)
@@ -276,6 +279,7 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
 	viper.SetDefault("devmode", options.DevMode)
 	viper.SetDefault("admin-password", options.AdminPassword)
+	viper.SetDefault("maintenance", options.GetMaintenance())
 }
 
 // InstallManPages installs man pages

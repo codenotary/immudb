@@ -46,14 +46,17 @@ func TestDumpToFile(t *testing.T) {
 	s := immudb.DefaultServer().WithOptions(op)
 	go s.Start()
 	time.Sleep(2 * time.Second)
+
 	defer func() {
 		s.Stop()
 		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
 		os.RemoveAll(op.Dir)
 		os.RemoveAll(clientDir)
 	}()
+
 	clOp := immuclient.DefaultOptions().WithPort(tcpPort).WithDir(clientDir)
 	ic, err := immuclient.NewImmuClient(clOp)
+
 	if err != nil {
 		t.Errorf("%s", err.Error())
 	}

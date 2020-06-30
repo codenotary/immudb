@@ -102,6 +102,9 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 	cl.status(cmd)
 	cl.auditmode(cmd)
 	cl.interactiveCli(cmd)
+	cl.user(cmd)
+	cl.database(cmd)
+	cl.use(cmd)
 	// man file generator
 	cmd.AddCommand(man.Generate(cmd, "immuclient", "./cmd/docs/man/immuclient"))
 	return cmd

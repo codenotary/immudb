@@ -28,7 +28,7 @@ import (
 func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "login username (you will be prompted for password)",
-		Short:             fmt.Sprintf("Login using the specified username and password (admin username is %s)", auth.AdminUsername),
+		Short:             fmt.Sprintf("Login using the specified username and password (admin username is %s)", auth.SysAdminUsername),
 		Aliases:           []string{"l"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
@@ -36,7 +36,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			tokenFileName := cl.immuClient.GetOptions().TokenFileName
 			ctx := cl.context
 			user := args[0]
-			if user != auth.AdminUsername {
+			if user != auth.SysAdminUsername {
 				c.QuitToStdErr(fmt.Errorf("Permission denied: user %s has no admin rights", user))
 			}
 			pass, err := cl.passwordReader.Read("Password:")

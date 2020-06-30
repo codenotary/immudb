@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/o1egl/paseto"
+	"github.com/rs/xid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -39,11 +40,11 @@ const footer = "immudb"
 const tokenValidity = 1 * time.Hour
 
 // GenerateToken ...
-func GenerateToken(user User) (string, error) {
+func GenerateToken(user User, database int64) (string, error) {
 	now := time.Now()
 	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
 	if !ok {
-		if err := generateKeys(user.Username); err != nil {
+		if err := generateKeys(user.Username, user.Username); err != nil {
 			return "", err
 		}
 		keys, ok = tokenKeyPairs.keysPerUser[user.Username]
@@ -57,7 +58,7 @@ func GenerateToken(user User) (string, error) {
 		Expiration: now.Add(tokenValidity),
 		Subject:    user.Username,
 	}
-	jsonToken.Set("permissions", fmt.Sprintf("%d", user.Permissions))
+	jsonToken.Set("database", fmt.Sprintf("%d", database))
 	token, err := pasetoV2.Sign(keys.privateKey, jsonToken, footer)
 	if err != nil {
 		return "", fmt.Errorf("error generating token: %v", err)
@@ -68,9 +69,9 @@ func GenerateToken(user User) (string, error) {
 
 // JSONToken ...
 type JSONToken struct {
-	Username    string
-	Permissions byte
-	Expiration  time.Time
+	Username      string
+	Expiration    time.Time
+	DatabaseIndex int64
 }
 
 var tokenEncoder = base64.RawURLEncoding
@@ -97,17 +98,17 @@ func parsePublicTokenPayload(token string) (*JSONToken, error) {
 	if err := json.Unmarshal(payloadBytes, &jsonToken); err != nil {
 		return nil, fmt.Errorf("error unmarshalling token payload json: %v", err)
 	}
-	var permissions byte = PermissionR
-	if p := jsonToken.Get("permissions"); p != "" {
-		pint, err := strconv.ParseUint(p, 10, 8)
+	var index int64 = -1
+	if p := jsonToken.Get("database"); p != "" {
+		pint, err := strconv.ParseInt(p, 10, 8)
 		if err == nil {
-			permissions = byte(pint)
+			index = pint
 		}
 	}
 	return &JSONToken{
-		Username:    jsonToken.Subject,
-		Permissions: permissions,
-		Expiration:  jsonToken.Expiration,
+		Username:      jsonToken.Subject,
+		Expiration:    jsonToken.Expiration,
+		DatabaseIndex: index,
 	}, nil
 }
 
@@ -119,7 +120,7 @@ func verifyToken(token string) (*JSONToken, error) {
 	keys, ok := tokenKeyPairs.keysPerUser[tokenPayload.Username]
 	if !ok {
 		return nil, status.Error(
-			codes.Unauthenticated, "invalid token")
+			codes.Unauthenticated, "Token data not found")
 	}
 	var jsonToken paseto.JSONToken
 	var footer string
@@ -129,17 +130,17 @@ func verifyToken(token string) (*JSONToken, error) {
 	if err := jsonToken.Validate(); err != nil {
 		return nil, err
 	}
-	var permissions byte = PermissionR
-	if p := jsonToken.Get("permissions"); p != "" {
-		pint, err := strconv.ParseUint(p, 10, 8)
+	var index int64 = -1
+	if p := jsonToken.Get("database"); p != "" {
+		pint, err := strconv.ParseInt(p, 10, 8)
 		if err == nil {
-			permissions = byte(pint)
+			index = pint
 		}
 	}
 	return &JSONToken{
-		Username:    jsonToken.Subject,
-		Permissions: permissions,
-		Expiration:  jsonToken.Expiration,
+		Username:      jsonToken.Subject,
+		Expiration:    jsonToken.Expiration,
+		DatabaseIndex: index,
 	}, nil
 }
 
@@ -159,4 +160,14 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 			codes.Unauthenticated, "invalid token")
 	}
 	return jsonToken, nil
+}
+
+//NewUUID generate uuid
+func NewUUID() xid.ID {
+	return xid.New()
+}
+
+//NewStringUUID generate uuid and return as string
+func NewStringUUID() string {
+	return xid.New().String()
 }

@@ -56,7 +56,7 @@ type ImmuClient interface {
 	Logout(ctx context.Context) error
 	ListUsers(ctx context.Context) (*schema.UserList, error)
 	GetUser(ctx context.Context, user []byte) (*schema.UserResponse, error)
-	CreateUser(ctx context.Context, user []byte, pass []byte, permissions []byte) (*schema.UserResponse, error)
+	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) (*schema.UserResponse, error)
 	DeactivateUser(ctx context.Context, user []byte) error
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	SetPermission(ctx context.Context, user []byte, permissions []byte) error
@@ -98,6 +98,11 @@ type ImmuClient interface {
 
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
+	CreateDatabase(ctx context.Context, d *schema.Database) (*schema.CreateDatabaseReply, error)
+	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
+	ChangePermission(ctx context.Context, d *schema.ChangePermissionRequest) (*schema.Error, error)
+	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error)
+	DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error)
 }
 
 type immuClient struct {
@@ -291,19 +296,16 @@ func (c *immuClient) GetUser(ctx context.Context, user []byte) (*schema.UserResp
 }
 
 // CreateUser ...
-func (c *immuClient) CreateUser(
-	ctx context.Context,
-	user []byte,
-	pass []byte,
-	permissions []byte) (*schema.UserResponse, error) {
+func (c *immuClient) CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) (*schema.UserResponse, error) {
 	start := time.Now()
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 	result, err := c.ServiceClient.CreateUser(ctx, &schema.CreateUserRequest{
-		User:        user,
-		Password:    pass,
-		Permissions: permissions,
+		User:       user,
+		Password:   pass,
+		Permission: permission,
+		Database:   databasename,
 	})
 	c.Logger.Debugf("createuser finished in %s", time.Since(start))
 	return result, err
@@ -452,7 +454,7 @@ func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx)
+	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +481,7 @@ func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 		tocache := new(schema.Root)
 		tocache.Index = safeItem.Proof.At
 		tocache.Root = safeItem.Proof.Root
-		err = c.Rootservice.SetRoot(tocache)
+		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
 		if err != nil {
 			return nil, err
 		}
@@ -511,7 +513,7 @@ func (c *immuClient) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.Ca
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx)
+	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -538,7 +540,7 @@ func (c *immuClient) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.Ca
 		tocache := new(schema.Root)
 		tocache.Index = safeItem.Proof.At
 		tocache.Root = safeItem.Proof.Root
-		err = c.Rootservice.SetRoot(tocache)
+		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
 		if err != nil {
 			return nil, err
 		}
@@ -628,7 +630,7 @@ func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*Ve
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx)
+	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -700,7 +702,7 @@ func (c *immuClient) RawSafeSet(ctx context.Context, key []byte, value []byte) (
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx)
+	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -844,7 +846,7 @@ func (c *immuClient) RawBySafeIndex(ctx context.Context, index uint64) (*Verifie
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx)
+	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -870,7 +872,7 @@ func (c *immuClient) RawBySafeIndex(ctx context.Context, index uint64) (*Verifie
 		tocache := new(schema.Root)
 		tocache.Index = safeItem.Proof.At
 		tocache.Root = safeItem.Proof.Root
-		err = c.Rootservice.SetRoot(tocache)
+		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
 		if err != nil {
 			return nil, err
 		}
@@ -932,7 +934,7 @@ func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx)
+	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -1008,7 +1010,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx)
+	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -1254,7 +1256,56 @@ func (c *immuClient) verifyAndSetRoot(result *schema.Proof, root *schema.Root, c
 		tocache := new(schema.Root)
 		tocache.Index = result.Index
 		tocache.Root = result.Root
-		err = c.Rootservice.SetRoot(tocache)
+		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
 	}
 	return verified, err
+}
+
+// CreateDatabase create a new database by making a grpc call
+func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) (*schema.CreateDatabaseReply, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.CreateDatabase(ctx, db)
+	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
+	return result, err
+}
+
+// UseDatabase create a new database by making a grpc call
+func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.UseDatabase(ctx, db)
+	c.Logger.Debugf("UseDatabase finished in %s", time.Since(start))
+	return result, err
+}
+func (c *immuClient) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*schema.Error, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.ChangePermission(ctx, r)
+	c.Logger.Debugf("ChangePermission finished in %s", time.Since(start))
+	return result, err
+}
+func (c *immuClient) SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.SetActiveUser(ctx, u)
+	c.Logger.Debugf("SetActiveUser finished in %s", time.Since(start))
+	return result, err
+}
+func (c *immuClient) DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error) {
+	start := time.Now()
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	result, err := c.ServiceClient.DatabaseList(ctx, d)
+	c.Logger.Debugf("DatabaseList finished in %s", time.Since(start))
+	return result, err
 }

@@ -16,43 +16,68 @@ limitations under the License.
 
 package auth
 
-// PermissionAdmin the admin permission byte
-const PermissionAdmin = 255
+// PermissionSysAdmin the admin permission byte
+const PermissionSysAdmin = 255
+
+// PermissionAdmin the system admin permission byte
+const PermissionAdmin = 254
 
 // Non-admin permissions
 const (
 	PermissionNone = iota
 	PermissionR
-	PermissionW
 	PermissionRW
 )
 
-var methodsPermissions = map[string]byte{
+var methodsPermissions = map[string][]uint32{
 	// readwrite methods
-	"/immudb.schema.ImmuService/Set":           PermissionRW,
-	"/immudb.schema.ImmuService/SetSV":         PermissionRW,
-	"/immudb.schema.ImmuService/SafeSet":       PermissionRW,
-	"/immudb.schema.ImmuService/SafeSetSV":     PermissionRW,
-	"/immudb.schema.ImmuService/SetBatch":      PermissionRW,
-	"/immudb.schema.ImmuService/SetBatchSV":    PermissionRW,
-	"/immudb.schema.ImmuService/Reference":     PermissionRW,
-	"/immudb.schema.ImmuService/SafeReference": PermissionRW,
-	"/immudb.schema.ImmuService/ZAdd":          PermissionRW,
-	"/immudb.schema.ImmuService/SafeZAdd":      PermissionRW,
+	"Set":           {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"Get":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"SetSV":         {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SafeSet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SafeGet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"SafeSetSV":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SetBatch":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SetBatchSV":    {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"Reference":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SafeReference": {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"ZAdd":          {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"SafeZAdd":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"ZScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"BySafeIndex":   {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"IScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"History":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"ByIndex":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"Count":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"DatabaseList":  {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+
 	// admin methods
-	"/immudb.schema.ImmuService/ListUsers":        PermissionAdmin,
-	"/immudb.schema.ImmuService/CreateUser":       PermissionAdmin,
-	"/immudb.schema.ImmuService/ChangePassword":   PermissionAdmin,
-	"/immudb.schema.ImmuService/SetPermission":    PermissionAdmin,
-	"/immudb.schema.ImmuService/DeactivateUser":   PermissionAdmin,
-	"/immudb.schema.ImmuService/UpdateAuthConfig": PermissionAdmin,
-	"/immudb.schema.ImmuService/UpdateMTLSConfig": PermissionAdmin,
+	"ListUsers":        {PermissionSysAdmin, PermissionAdmin},
+	"CreateUser":       {PermissionSysAdmin, PermissionAdmin},
+	"ChangePassword":   {PermissionSysAdmin, PermissionAdmin},
+	"SetPermission":    {PermissionSysAdmin, PermissionAdmin},
+	"DeactivateUser":   {PermissionSysAdmin, PermissionAdmin},
+	"SetActiveUser":    {PermissionSysAdmin, PermissionAdmin},
+	"UpdateAuthConfig": {PermissionSysAdmin},
+	"UpdateMTLSConfig": {PermissionSysAdmin},
+	"CreateDatabase":   {PermissionSysAdmin},
+	"PrintTree":        {PermissionSysAdmin},
+	"Dump":             {PermissionSysAdmin, PermissionAdmin},
+	"Consistency":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"CurrentRoot":      {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 }
 
-func hasPermissionForMethod(userPermission byte, method string) bool {
-	methodPermission, ok := methodsPermissions[method]
+//HasPermissionForMethod checks if userPermission can access method name
+func HasPermissionForMethod(userPermission uint32, method string) bool {
+
+	methodPermissions, ok := methodsPermissions[method]
 	if !ok {
-		methodPermission = PermissionR
+		return false
 	}
-	return methodPermission&userPermission == methodPermission
+	for _, val := range methodPermissions {
+		if val == userPermission {
+			return true
+		}
+	}
+	return false
 }

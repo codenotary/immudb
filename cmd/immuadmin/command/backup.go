@@ -158,7 +158,7 @@ func mustNotBeWorkingDir(p string) error {
 	}
 	if pathAbs == currDirAbs {
 		return fmt.Errorf(
-			"cannot backup the current directory, please specify a subdirectory, for example ./db")
+			"cannot backup the current directory, please specify a subdirectory, for example ./data")
 	}
 	return nil
 }
@@ -180,7 +180,7 @@ func (cl *commandline) askUserConfirmation(process string, manualStopStart bool)
 		}
 		_ = cl.checkLoggedInAndConnect(nil, nil)
 		defer cl.disconnect(nil, nil)
-		if _, err = cl.immuClient.Login(cl.context, []byte(auth.AdminUsername), pass); err != nil {
+		if _, err = cl.immuClient.Login(cl.context, []byte(auth.SysAdminUsername), pass); err != nil {
 			c.QuitWithUserError(err)
 		}
 	} else {

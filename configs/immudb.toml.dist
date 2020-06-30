@@ -1,4 +1,4 @@
-dir = "./db"
+dir = "./data"
 network = "tcp"
 address = "127.0.0.1"
 port = 3322
@@ -14,4 +14,5 @@ pkey = "./tools/mtls/3_application/private/localhost.key.pem"
 certificate = "./tools/mtls/3_application/certs/localhost.cert.pem"
 clientcas = "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem"
 devmode = true
-admin-password = "immu"
+admin-password = "immudb"
+maintenance = false

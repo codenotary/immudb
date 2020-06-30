@@ -1,0 +1,3 @@
+exclude_patterns:
+- "pkg/api/schema/schema.pb.go"
+- "pkg/api/schema/schema.pb.gw.go"

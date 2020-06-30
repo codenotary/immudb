@@ -16,13 +16,6 @@ limitations under the License.
 
 package auth
 
-import (
-	"context"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-)
-
 // Kind the authentication kind
 type Kind uint32
 
@@ -42,41 +35,8 @@ var AuthEnabled bool
 // DevMode if set to true, remote client commands (except admin ones) will be accepted even if auth is off
 var DevMode bool
 
+//IsTampered if set to true then one of the databases is tempered and the user is notified
+var IsTampered bool
+
 // WarnDefaultAdminPassword warning user message for the case when admin uses the default password
-var WarnDefaultAdminPassword = "admin user has the default password: please change it to ensure proper security"
-
-var emptyStruct = struct{}{}
-var methodsWithoutAuth = map[string]struct{}{
-	"/immudb.schema.ImmuService/CurrentRoot": emptyStruct,
-	"/immudb.schema.ImmuService/Health":      emptyStruct,
-	"/immudb.schema.ImmuService/Login":       emptyStruct,
-}
-
-func hasAuth(method string) bool {
-	_, noAuth := methodsWithoutAuth[method]
-	return !noAuth
-}
-
-func checkAuth(ctx context.Context, method string, req interface{}) error {
-	if !AuthEnabled {
-		isAdminMethod := methodsPermissions[method] == PermissionAdmin
-		isLocal := isLocalClient(ctx)
-		if !isAdminMethod && (DevMode || isLocal) {
-			return nil
-		} else if !isLocal {
-			return status.Errorf(
-				codes.PermissionDenied,
-				"server has authentication disabled: only local connections are accepted")
-		}
-	}
-	if hasAuth(method) {
-		jsonToken, err := verifyTokenFromCtx(ctx)
-		if err != nil {
-			return err
-		}
-		if !hasPermissionForMethod(jsonToken.Permissions, method) {
-			return status.Errorf(codes.PermissionDenied, "not enough permissions")
-		}
-	}
-	return nil
-}
+var WarnDefaultAdminPassword = "immudb user has the default password: please change it to ensure proper security"
