@@ -335,7 +335,11 @@ func (s *ImmuServer) Stop() error {
 
 func (s *ImmuServer) startCorruptionChecker() {
 	if s.Options.CorruptionCheck {
-		s.Cc = NewCorruptionChecker(s.dbList, s.Logger)
+		cco := CCOptions{}
+		cco.singleiteration = false
+		cco.iterationSleepTime = 5 * time.Second
+		cco.frequencySleepTime = 500 * time.Millisecond
+		s.Cc = NewCorruptionChecker(cco, s.dbList, s.Logger)
 		go func() {
 			s.Logger.Infof("starting consistency-checker")
 			if err := s.Cc.Start(context.Background()); err != nil {
