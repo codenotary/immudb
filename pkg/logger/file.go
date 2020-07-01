@@ -23,7 +23,8 @@ import (
 	"path/filepath"
 )
 
-type fileLogger struct {
+// FileLogger ...
+type FileLogger struct {
 	Logger   *log.Logger
 	LogLevel LogLevel
 }
@@ -33,7 +34,7 @@ func NewFileLogger(name string, file string) (logger Logger, out *os.File, err e
 	if out, err = setup(file); err != nil {
 		return nil, nil, err
 	}
-	logger = &fileLogger{
+	logger = &FileLogger{
 		Logger:   log.New(out, name, log.LstdFlags),
 		LogLevel: logLevelFromEnvironment(),
 	}
@@ -45,7 +46,7 @@ func NewFileLoggerWithLevel(name string, file string, level LogLevel) (logger Lo
 	if out, err = setup(file); err != nil {
 		return nil, nil, err
 	}
-	logger = &fileLogger{
+	logger = &FileLogger{
 		Logger:   log.New(out, name+".log", log.LstdFlags),
 		LogLevel: level,
 	}
@@ -65,25 +66,37 @@ func setup(file string) (out *os.File, err error) {
 	return out, err
 }
 
-func (l *fileLogger) Errorf(f string, v ...interface{}) {
+// CloneWithLevel ...
+func (l *FileLogger) CloneWithLevel(level LogLevel) Logger {
+	return &FileLogger{
+		Logger:   l.Logger,
+		LogLevel: level,
+	}
+}
+
+// Errorf ...
+func (l *FileLogger) Errorf(f string, v ...interface{}) {
 	if l.LogLevel <= LogError {
 		l.Logger.Printf("ERROR: "+f, v...)
 	}
 }
 
-func (l *fileLogger) Warningf(f string, v ...interface{}) {
+// Warningf ...
+func (l *FileLogger) Warningf(f string, v ...interface{}) {
 	if l.LogLevel <= LogWarn {
 		l.Logger.Printf("WARNING: "+f, v...)
 	}
 }
 
-func (l *fileLogger) Infof(f string, v ...interface{}) {
+// Infof ...
+func (l *FileLogger) Infof(f string, v ...interface{}) {
 	if l.LogLevel <= LogInfo {
 		l.Logger.Printf("INFO: "+f, v...)
 	}
 }
 
-func (l *fileLogger) Debugf(f string, v ...interface{}) {
+// Debugf ...
+func (l *FileLogger) Debugf(f string, v ...interface{}) {
 	if l.LogLevel <= LogDebug {
 		l.Logger.Printf("DEBUG: "+f, v...)
 	}

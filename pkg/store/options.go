@@ -31,8 +31,17 @@ type Options struct {
 
 // DefaultOptions ...
 func DefaultOptions(path string, log logger.Logger) Options {
+	var badgerLogger logger.Logger
+	switch log.(type) {
+	case *logger.SimpleLogger:
+		badgerLogger = log.(*logger.SimpleLogger).CloneWithLevel(logger.LogWarn)
+	case *logger.FileLogger:
+		badgerLogger = log.(*logger.FileLogger).CloneWithLevel(logger.LogWarn)
+	default:
+		badgerLogger = log
+	}
 	opt := badger.DefaultOptions(path).
-		WithLogger(log).
+		WithLogger(badgerLogger).
 		WithSyncWrites(false).
 		WithEventLogging(false)
 

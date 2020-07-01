@@ -61,12 +61,11 @@ var immudbTextLogo = " _                               _ _     \n" +
 // Start starts the immudb server
 // Loads and starts the System DB, default db and user db
 func (s *ImmuServer) Start() error {
-	if s.Options.Logfile == "" {
-		_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
-		if err != nil {
-			s.Logger.Errorf("Error printing immudb config: %v", err)
-		}
-	} else {
+	_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
+	if err != nil {
+		s.Logger.Errorf("Error printing immudb config: %v", err)
+	}
+	if s.Options.Logfile != "" {
 		s.Logger.Infof("\n%s\n%s\n\n", immudbTextLogo, s.Options)
 	}
 	dataDir := s.Options.Dir
@@ -124,7 +123,6 @@ func (s *ImmuServer) Start() error {
 		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
 	}
 
-	var err error
 	var listener net.Listener
 	if s.Options.usingCustomListener {
 		s.Logger.Infof("Using custom listener")
@@ -220,16 +218,15 @@ func (s *ImmuServer) Start() error {
 
 func (s *ImmuServer) printUsageCallToAction() {
 	time.Sleep(200 * time.Millisecond)
-	if s.Options.Logfile == "" {
-		immuadminCLI := helper.Blue + "immuadmin" + helper.Green
-		immuclientCLI := helper.Blue + "immuclient" + helper.Green
-		immutestCLI := helper.Blue + "immutest" + helper.Green
-		defaultUsername := helper.Blue + auth.SysAdminUsername + helper.Green
-		fmt.Fprintf(os.Stdout,
-			"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start hacking immudb.\n"+
-				"To populate immudb with test data, please run %s.%s\n",
-			helper.Green, immuadminCLI, immuclientCLI, defaultUsername, immutestCLI, helper.Reset)
-	} else {
+	immuadminCLI := helper.Blue + "immuadmin" + helper.Green
+	immuclientCLI := helper.Blue + "immuclient" + helper.Green
+	immutestCLI := helper.Blue + "immutest" + helper.Green
+	defaultUsername := helper.Blue + auth.SysAdminUsername + helper.Green
+	fmt.Fprintf(os.Stdout,
+		"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start hacking immudb.\n"+
+			"To populate immudb with test data, please run %s.%s\n",
+		helper.Green, immuadminCLI, immuclientCLI, defaultUsername, immutestCLI, helper.Reset)
+	if s.Options.Logfile != "" {
 		s.Logger.Infof("You can now use immuadmin and immuclient CLIs to login with the %s superadmin user and start hacking immudb.\n"+
 			"To populate immudb with test data, please run immutest.\n",
 			auth.SysAdminUsername)
@@ -247,7 +244,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 				WithDbRootPath(dataDir).
 				WithCorruptionChecker(s.Options.CorruptionCheck).
 				WithInMemoryStore(s.Options.GetInMemoryStore())
-			db, err := NewDb(op)
+			db, err := NewDb(op, s.Logger)
 			if err != nil {
 				return err
 			}
@@ -267,7 +264,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 			WithDbName(s.Options.GetSystemAdminDbName()).
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck)
-		db, err := OpenDb(op)
+		db, err := OpenDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -293,7 +290,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck).
 			WithInMemoryStore(s.Options.GetInMemoryStore())
-		db, err := NewDb(op)
+		db, err := NewDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -304,7 +301,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 			WithDbName(s.Options.GetDefaultDbName()).
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck)
-		db, err := OpenDb(op)
+		db, err := OpenDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -341,7 +338,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 		pathparts := strings.Split(val, "/")
 		dbname := pathparts[len(pathparts)-1]
 		op := DefaultOption().WithDbName(dbname).WithCorruptionChecker(s.Options.CorruptionCheck)
-		db, err := OpenDb(op)
+		db, err := OpenDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -1019,7 +1016,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		WithDbRootPath(dataDir).
 		WithCorruptionChecker(s.Options.CorruptionCheck).
 		WithInMemoryStore(s.Options.GetInMemoryStore())
-	db, err := NewDb(op)
+	db, err := NewDb(op, s.Logger)
 	if err != nil {
 		s.Logger.Errorf(err.Error())
 		return nil, err

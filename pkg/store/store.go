@@ -47,7 +47,6 @@ type Store struct {
 func Open(options Options) (*Store, error) {
 	opt := options.dataStore()
 	opt.NumVersionsToKeep = math.MaxInt64 // immutability, always keep all data
-	opt.Logger = defaultLogger
 
 	db, err := badger.OpenManaged(opt)
 	if err != nil {
