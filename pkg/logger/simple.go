@@ -21,14 +21,15 @@ import (
 	"log"
 )
 
-type simpleLogger struct {
+// SimpleLogger ...
+type SimpleLogger struct {
 	Logger   *log.Logger
 	LogLevel LogLevel
 }
 
 // NewSimpleLogger ...
 func NewSimpleLogger(name string, out io.Writer) Logger {
-	return &simpleLogger{
+	return &SimpleLogger{
 		Logger:   log.New(out, name+" ", log.LstdFlags),
 		LogLevel: logLevelFromEnvironment(),
 	}
@@ -36,31 +37,43 @@ func NewSimpleLogger(name string, out io.Writer) Logger {
 
 // NewSimpleLoggerWithLevel ...
 func NewSimpleLoggerWithLevel(name string, out io.Writer, level LogLevel) Logger {
-	return &simpleLogger{
+	return &SimpleLogger{
 		Logger:   log.New(out, name+" ", log.LstdFlags),
 		LogLevel: level,
 	}
 }
 
-func (l *simpleLogger) Errorf(f string, v ...interface{}) {
+// CloneWithLevel ...
+func (l *SimpleLogger) CloneWithLevel(level LogLevel) Logger {
+	return &SimpleLogger{
+		Logger:   l.Logger,
+		LogLevel: level,
+	}
+}
+
+// Errorf ...
+func (l *SimpleLogger) Errorf(f string, v ...interface{}) {
 	if l.LogLevel <= LogError {
 		l.Logger.Printf("ERROR: "+f, v...)
 	}
 }
 
-func (l *simpleLogger) Warningf(f string, v ...interface{}) {
+// Warningf ...
+func (l *SimpleLogger) Warningf(f string, v ...interface{}) {
 	if l.LogLevel <= LogWarn {
 		l.Logger.Printf("WARNING: "+f, v...)
 	}
 }
 
-func (l *simpleLogger) Infof(f string, v ...interface{}) {
+// Infof ...
+func (l *SimpleLogger) Infof(f string, v ...interface{}) {
 	if l.LogLevel <= LogInfo {
 		l.Logger.Printf("INFO: "+f, v...)
 	}
 }
 
-func (l *simpleLogger) Debugf(f string, v ...interface{}) {
+// Debugf ...
+func (l *SimpleLogger) Debugf(f string, v ...interface{}) {
 	if l.LogLevel <= LogDebug {
 		l.Logger.Printf("DEBUG: "+f, v...)
 	}

@@ -37,10 +37,10 @@ type Db struct {
 }
 
 // OpenDb Opens an existing Database from disk
-func OpenDb(op *DbOptions) (*Db, error) {
+func OpenDb(op *DbOptions, log logger.Logger) (*Db, error) {
 	var err error
 	db := &Db{
-		Logger:  logger.NewSimpleLogger(op.GetDbName(), os.Stderr),
+		Logger:  log,
 		options: op,
 	}
 	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
@@ -57,10 +57,10 @@ func OpenDb(op *DbOptions) (*Db, error) {
 }
 
 // NewDb Creates a new Database along with it's directories and files
-func NewDb(op *DbOptions) (*Db, error) {
+func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
 	var err error
 	db := &Db{
-		Logger:  logger.NewSimpleLogger(op.GetDbName()+" ", os.Stderr),
+		Logger:  log,
 		options: op,
 	}
 	if op.GetInMemoryStore() {

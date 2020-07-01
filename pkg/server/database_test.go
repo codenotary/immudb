@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -73,7 +74,7 @@ var kv = []*schema.KeyValue{
 func makeDb() (*Db, func()) {
 	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	options := DefaultOption().WithDbName(dbName).WithInMemoryStore(true).WithCorruptionChecker(false)
-	d, err := NewDb(options)
+	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
@@ -89,7 +90,7 @@ func makeDb() (*Db, func()) {
 
 func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
-	db, err := NewDb(options)
+	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Errorf("Error creating Db instance %s", err)
 	}
@@ -110,7 +111,7 @@ func TestDefaultDbCreation(t *testing.T) {
 }
 func TestDbCreation(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	db, err := NewDb(options)
+	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Errorf("Error creating Db instance %s", err)
 	}
@@ -133,7 +134,7 @@ func TestDbCreation(t *testing.T) {
 
 func TestOpenDb(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	db, err := NewDb(options)
+	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Errorf("Error creating Db instance %s", err)
 	}
@@ -142,7 +143,7 @@ func TestOpenDb(t *testing.T) {
 		t.Errorf("Error closing store %s", err)
 	}
 
-	db, err = OpenDb(options)
+	db, err = OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Errorf("Error opening database %s", err)
 	}
