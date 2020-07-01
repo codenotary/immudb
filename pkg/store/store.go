@@ -44,11 +44,12 @@ type Store struct {
 }
 
 // Open opens the store with the specified options
-func Open(options Options) (*Store, error) {
-	opt := options.dataStore()
-	opt.NumVersionsToKeep = math.MaxInt64 // immutability, always keep all data
+func Open(options Options, badgerOptions badger.Options) (*Store, error) {
+	badgerOpts := badgerOptions
+	badgerOpts.ValueDir = badgerOptions.Dir
+	badgerOpts.NumVersionsToKeep = math.MaxInt64 // immutability, always keep all data
 
-	db, err := badger.OpenManaged(opt)
+	db, err := badger.OpenManaged(badgerOpts)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -56,13 +57,13 @@ func Open(options Options) (*Store, error) {
 	t := &Store{
 		db: db,
 		// fixme(leogr): cache size could be calculated using db.MaxBatchCount()
-		tree: newTreeStore(db, 750_000, opt.Logger),
-		log:  opt.Logger,
+		tree: newTreeStore(db, 750_000, options.log),
+		log:  options.log,
 	}
 
 	// fixme(leogr): need to get all keys inserted after the tree width, if any, and replay
 
-	t.log.Infof("Store opened at path: %s", opt.Dir)
+	t.log.Infof("Store opened at path: %s", badgerOpts.Dir)
 	return t, nil
 }
 

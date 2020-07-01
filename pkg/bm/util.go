@@ -33,8 +33,8 @@ func makeStore() (*store.Store, func()) {
 		log.Fatal(err)
 	}
 	slog := logger.NewSimpleLoggerWithLevel("bm(immudb)", os.Stderr, logger.LogDebug)
-	opts := store.DefaultOptions(dir, slog)
-	st, err := store.Open(opts)
+	opts, badgerOpts := store.DefaultOptions(dir, slog)
+	st, err := store.Open(opts, badgerOpts)
 	if err != nil {
 		log.Fatal(err)
 	}
