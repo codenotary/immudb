@@ -62,14 +62,15 @@ func updateLastTokenGeneratedAt(Username string) {
 }
 
 func evictOldTokenKeyPairs() {
+	tokenKeyPairs.Lock()
+	defer tokenKeyPairs.Unlock()
 	// 1 public key = 32B, 1 private key = 64B =>
 	// 10_000 key pairs = (32 + 64) * 10_000 = 960_000B which is close to 1MB
 	// if storing keys requires less memory than that, skip eviction
 	if len(tokenKeyPairs.keysPerUser) < 10_000 {
 		return
 	}
-	tokenKeyPairs.Lock()
-	defer tokenKeyPairs.Unlock()
+
 	now := time.Now()
 	if now.Before(tokenKeyPairs.lastEvictedAt.Add(tokenKeyPairs.minEvictInterval)) {
 		return
