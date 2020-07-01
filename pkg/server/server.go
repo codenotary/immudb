@@ -234,6 +234,9 @@ func (s *ImmuServer) printUsageCallToAction() {
 }
 
 func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
+	if s.dbList.Length() == 0 {
+		panic("loadSystemDatabase should be called after loadDefaultDatabase as system database should be at index 1")
+	}
 	systemDbRootDir := filepath.Join(dataDir, s.Options.GetSystemAdminDbName())
 
 	_, sysDbErr := os.Stat(systemDbRootDir)
@@ -947,7 +950,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	if err != nil {
 		return nil, fmt.Errorf("please login first")
 	}
-	if user.Username == auth.SysAdminUsername {
+	if string(r.User) == auth.SysAdminUsername {
 		if err = auth.ComparePasswords(user.HashedPassword, r.OldPassword); err != nil {
 			return new(empty.Empty), status.Errorf(codes.PermissionDenied, "old password is incorrect")
 		}
@@ -1051,7 +1054,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 
 		//check if database exists
 		if _, ok := s.databasenameToIndex[r.Database]; !ok {
-			return nil, fmt.Errorf("database %s already exists", r.Database)
+			return nil, fmt.Errorf("database %s does not exist", r.Database)
 		}
 		if len(r.User) == 0 {
 			return nil, fmt.Errorf("username can not be empty")
