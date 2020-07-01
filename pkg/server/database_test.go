@@ -192,9 +192,12 @@ func TestCurrentRoot(t *testing.T) {
 		if it.GetIndex() != uint64(ind) {
 			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
 		}
-		_, err = db.CurrentRoot(&emptypb.Empty{})
+		r, err := db.CurrentRoot(&emptypb.Empty{})
 		if err != nil {
 			t.Errorf("Error getting current root %s", err)
+		}
+		if r.Index != 0 {
+			t.Errorf("root error expecting %v got %v", 0, r.Index)
 		}
 	}
 }
@@ -481,6 +484,7 @@ func TestConsintency(t *testing.T) {
 			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 	}
+	time.Sleep(1 * time.Second)
 	ind := uint64(1)
 	inc, err := db.Consistency(&schema.Index{Index: ind})
 	if err != nil {
@@ -531,7 +535,7 @@ func TestByIndexSV(t *testing.T) {
 		t.Errorf("Error Inserting to db %s", err)
 	}
 	if inc.Value.Timestamp != Skv.SKVs[ind].Value.Timestamp {
-		t.Errorf("ByIndexSV, expected %d, got %d", Skv.SKVs[ind].Value.GetTimestamp(), inc.Value.GetTimestamp())
+		t.Errorf("ByIndexSV timestamp, expected %d, got %d", Skv.SKVs[ind].Value.GetTimestamp(), inc.Value.GetTimestamp())
 	}
 }
 
