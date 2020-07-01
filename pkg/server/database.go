@@ -65,9 +65,9 @@ func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
 	}
 	if op.GetInMemoryStore() {
 		db.Logger.Infof("Starting with in memory store")
-		storeOpts := store.DefaultOptions("", db.Logger)
-		storeOpts.Badger = storeOpts.Badger.WithInMemory(true)
-		db.Store, err = store.Open(storeOpts)
+		storeOpts, badgerOpts := store.DefaultOptions("", db.Logger)
+		badgerOpts = badgerOpts.WithInMemory(true)
+		db.Store, err = store.Open(storeOpts, badgerOpts)
 		if err != nil {
 			db.Logger.Errorf("Unable to open store: %s", err)
 			return nil, err

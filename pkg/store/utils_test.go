@@ -38,16 +38,16 @@ func makeBadger() *badgerWrapper {
 		return nil
 	}
 	sLog := logger.NewSimpleLoggerWithLevel("test(immudb)", os.Stderr, logger.LogDebug)
-	opts := DefaultOptions(dir, sLog).Badger
+	_, badgerOpts := DefaultOptions(dir, sLog)
 
-	db, err := badger.OpenManaged(opts)
+	db, err := badger.OpenManaged(badgerOpts)
 	if err != nil {
 		os.RemoveAll(dir)
 		log.Fatal(err)
 		return nil
 	}
 
-	return &badgerWrapper{db, opts}
+	return &badgerWrapper{db, badgerOpts}
 }
 
 func (b *badgerWrapper) Close() {

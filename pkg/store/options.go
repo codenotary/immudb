@@ -26,39 +26,20 @@ import (
 
 // Options ...
 type Options struct {
-	Badger badger.Options
+	log logger.Logger
 }
 
 // DefaultOptions ...
-func DefaultOptions(path string, log logger.Logger) Options {
-	var badgerLogger logger.Logger
-	switch log.(type) {
-	case *logger.SimpleLogger:
-		badgerLogger = log.(*logger.SimpleLogger).CloneWithLevel(logger.LogWarn)
-	case *logger.FileLogger:
-		badgerLogger = log.(*logger.FileLogger).CloneWithLevel(logger.LogWarn)
-	default:
-		badgerLogger = log
-	}
-	opt := badger.DefaultOptions(path).
-		WithLogger(badgerLogger).
+func DefaultOptions(path string, log logger.Logger) (Options, badger.Options) {
+	badgerOptions := badger.DefaultOptions(path).
+		WithLogger(log.CloneWithLevel(logger.LogWarn)).
 		WithSyncWrites(false).
 		WithEventLogging(false)
-
 	// set Truncate to true according to https://github.com/dgraph-io/badger/issues/476#issuecomment-388122680
 	if runtime.GOOS == "windows" {
-		opt.Truncate = true
+		badgerOptions.Truncate = true
 	}
-
-	return Options{
-		Badger: opt,
-	}
-}
-
-func (o Options) dataStore() badger.Options {
-	opt := o.Badger
-	opt.ValueDir = opt.Dir
-	return opt
+	return Options{log}, badgerOptions
 }
 
 // WriteOptions ...

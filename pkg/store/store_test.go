@@ -46,9 +46,9 @@ func makeStore() (*Store, func()) {
 	}
 
 	slog := logger.NewSimpleLoggerWithLevel("bm(immudb)", os.Stderr, logger.LogDebug)
-	opts := DefaultOptions(dir, slog)
+	opts, badgerOpts := DefaultOptions(dir, slog)
 
-	st, err := Open(opts)
+	st, err := Open(opts, badgerOpts)
 	if err != nil {
 		log.Fatal(err)
 	}
