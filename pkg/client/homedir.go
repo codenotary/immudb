@@ -69,13 +69,15 @@ func ReadFileFromUserHomeDir(pathToFile string) (string, error) {
 
 // DeleteFileFromUserHomeDir deletes the file at the provided path or from user
 // home dir if just a filename is provided
-func DeleteFileFromUserHomeDir(pathToFile string) {
+func DeleteFileFromUserHomeDir(pathToFile string) error {
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
 		hd, err := homedir.Dir()
 		if err == nil {
 			p := hd + string(os.PathSeparator) + pathToFile
-			_ = os.Remove(p)
+			return os.Remove(p)
+		} else {
+			return err
 		}
 	}
-	_ = os.Remove(pathToFile)
+	return os.Remove(pathToFile)
 }
