@@ -63,13 +63,13 @@ func Open(options Options, badgerOptions badger.Options) (*Store, error) {
 
 	// fixme(leogr): need to get all keys inserted after the tree width, if any, and replay
 
-	t.log.Infof("Store opened at path: %s", badgerOpts.Dir)
+	t.log.Debugf("Store opened at path: %s", badgerOpts.Dir)
 	return t, nil
 }
 
 // Close closes the store
 func (t *Store) Close() error {
-	defer t.log.Infof("Store closed")
+	defer t.log.Debugf("Store closed")
 	t.wg.Wait()
 	t.tree.Close()
 	return t.db.Close()
