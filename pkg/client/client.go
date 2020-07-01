@@ -405,7 +405,9 @@ func (c *immuClient) Logout(ctx context.Context) error {
 	if !c.IsConnected() {
 		return ErrNotConnected
 	}
-	DeleteFileFromUserHomeDir(c.Options.TokenFileName)
+	if err := DeleteFileFromUserHomeDir(c.Options.TokenFileName); err != nil {
+		return err
+	}
 	_, err := c.ServiceClient.Logout(ctx, new(empty.Empty))
 	c.Logger.Debugf("logout finished in %s", time.Since(start))
 	return err

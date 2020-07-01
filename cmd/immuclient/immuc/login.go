@@ -65,7 +65,9 @@ func (i *immuc) Logout(args []string) (string, error) {
 	if err != nil || len == "" {
 		return "User not logged in.", nil
 	}
-	client.DeleteFileFromUserHomeDir(i.ImmuClient.GetOptions().TokenFileName)
+	if err := client.DeleteFileFromUserHomeDir(i.ImmuClient.GetOptions().TokenFileName); err != nil {
+		return "", err
+	}
 	i.isLoggedin = false
 	i.ImmuClient.GetOptions().Auth = false
 
