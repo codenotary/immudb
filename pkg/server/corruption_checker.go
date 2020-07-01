@@ -70,7 +70,7 @@ func (s *corruptionChecker) Start(ctx context.Context) (err error) {
 // Stop stop the trust checker loop
 func (s *corruptionChecker) Stop(ctx context.Context) {
 	s.Exit = true
-	s.Logger.Infof("Please wait for consistency checker shut down")
+	s.Logger.Infof("Waiting for consistency checker to shut down")
 	s.Wait()
 }
 

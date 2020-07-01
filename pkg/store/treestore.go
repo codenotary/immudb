@@ -151,7 +151,7 @@ func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore
 
 	go t.worker()
 
-	t.log.Infof("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
+	t.log.Debugf("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
 	return t
 }
 
@@ -194,7 +194,7 @@ func (t *treeStore) Close() {
 			close(t.c)
 			<-t.quit
 			t.quit = nil
-			t.log.Infof("Tree of width %d closed with root %x", t.w, merkletree.Root(t))
+			t.log.Debugf("Tree of width %d closed with root %x", t.w, merkletree.Root(t))
 		}
 	})
 }

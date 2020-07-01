@@ -136,7 +136,7 @@ func StartMetrics(
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
-				l.Infof("Metrics http server closed")
+				l.Debugf("Metrics http server closed")
 			} else {
 				l.Errorf("Metrics error: %s", err)
 			}
