@@ -28,6 +28,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -51,15 +52,20 @@ func newInmemoryAuthServer() *ImmuServer {
 	}
 	return s
 }
+
 func newAuthServer() *ImmuServer {
-	dbRootpath := DefaultOption().GetDbRootPath()
+	dbRootpath := DefaultOption().WithDbRootPath("london").GetDbRootPath()
 	s := DefaultServer()
-	s = s.WithOptions(s.Options.WithAuth(true))
+	s = s.WithOptions(s.Options.WithAuth(true).WithDir(dbRootpath).WithCorruptionCheck(false))
 	err := s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	err = s.loadSystemDatabase(dbRootpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = s.loadUserDatabases(dbRootpath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -164,7 +170,7 @@ func TestCreateDatabase(t *testing.T) {
 		t.Errorf("Login error %v", err)
 	}
 	newdb := &schema.Database{
-		Databasename: "Lisbon",
+		Databasename: "lisbon",
 	}
 	dbrepl, err := s.CreateDatabase(ctx, newdb)
 	if err != nil {
@@ -174,7 +180,30 @@ func TestCreateDatabase(t *testing.T) {
 		t.Errorf("Createdatabase error %v", dbrepl)
 	}
 }
-
+func TestLoaduserDatabase(t *testing.T) {
+	s := newAuthServer()
+	ctx, err := loginSysAdmin(s)
+	if err != nil {
+		t.Errorf("Login error %v", err)
+	}
+	defer os.RemoveAll(s.Options.Dir)
+	newdb := &schema.Database{
+		Databasename: "lisbon",
+	}
+	dbrepl, err := s.CreateDatabase(ctx, newdb)
+	if err != nil {
+		t.Errorf("Createdatabase error %v", err)
+	}
+	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
+		t.Errorf("Createdatabase error %v", dbrepl)
+	}
+	s.CloseDatabases()
+	time.Sleep(1 * time.Second)
+	s = newAuthServer()
+	if s.dbList.Length() != 3 {
+		t.Errorf("LoadUserDatabase error %d", s.dbList.Length())
+	}
+}
 func testCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 	newUser := &schema.CreateUserRequest{
 		User:       testUsername,
@@ -805,4 +834,16 @@ func TestDbOperations(t *testing.T) {
 	testReference(ctx, s, t)
 	testZAdd(ctx, s, t)
 	testScan(ctx, s, t)
+}
+func TestServer(t *testing.T) {
+	dataDir := "madrid"
+	l := bufconn.Listener{}
+	s := DefaultServer().WithOptions(DefaultOptions().WithCorruptionCheck(false).WithDir(dataDir).WithListener(&l))
+
+	go s.Start()
+	time.Sleep(1 * time.Second)
+
+	s.CloseDatabases()
+	time.Sleep(1 * time.Second)
+	os.RemoveAll(dataDir)
 }
