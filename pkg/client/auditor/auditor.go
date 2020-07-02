@@ -37,7 +37,7 @@ import (
 
 // Auditor the auditor interface
 type Auditor interface {
-	Run(interval time.Duration, stopc <-chan struct{}, donec chan<- struct{})
+	Run(interval time.Duration, singleRun bool, stopc <-chan struct{}, donec chan<- struct{}) error
 }
 
 type defaultAuditor struct {
@@ -100,16 +100,22 @@ func DefaultAuditor(
 
 func (a *defaultAuditor) Run(
 	interval time.Duration,
+	singleRun bool,
 	stopc <-chan struct{},
 	donec chan<- struct{},
-) {
+) (err error) {
 	defer func() { donec <- struct{}{} }()
 	a.logger.Infof("starting auditor with a %s interval ...", interval)
-	err := repeat(interval, stopc, a.audit)
-	if err != nil {
-		return
+	if singleRun {
+		err = a.audit()
+	} else {
+		err = repeat(interval, stopc, a.audit)
+		if err != nil {
+			return err
+		}
 	}
 	a.logger.Infof("auditor stopped")
+	return err
 }
 
 func (a *defaultAuditor) audit() error {

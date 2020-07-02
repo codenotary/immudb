@@ -46,7 +46,7 @@ func (e *executable) Start() {
 			}
 		}()
 		fmt.Println(time.Duration(e.a.cycleFrequency) * time.Second)
-		e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second, e.stop, e.stop)
+		e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second, false, e.stop, e.stop)
 	}()
 }
 
@@ -63,5 +63,5 @@ func (e *executable) Run() {
 			fmt.Println(err.Error())
 		}
 	}()
-	e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second, e.stop, e.stop)
+	e.a.ImmuAudit.Run(time.Duration(e.a.cycleFrequency)*time.Second,false, e.stop, e.stop)
 }
