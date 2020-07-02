@@ -192,12 +192,13 @@ func TestCurrentRoot(t *testing.T) {
 		if it.GetIndex() != uint64(ind) {
 			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
 		}
+		time.Sleep(1 * time.Second)
 		r, err := db.CurrentRoot(&emptypb.Empty{})
 		if err != nil {
 			t.Errorf("Error getting current root %s", err)
 		}
-		if r.Index != 0 {
-			t.Errorf("root error expecting %v got %v", 0, r.Index)
+		if r.Index != uint64(ind) {
+			t.Errorf("root error expecting %v got %v", ind, r.Index)
 		}
 	}
 }

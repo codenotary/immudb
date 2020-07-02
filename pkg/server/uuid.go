@@ -89,7 +89,6 @@ func (w *WrappedServerStream) SendMsg(m interface{}) error {
 
 // UuidStreamContextSetter set uuid header in a stream
 func (u *uuidContext) UuidStreamContextSetter(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	ss.Context()
 	header := metadata.Pairs(SERVER_UUID_HEADER, u.Uuid.String())
 	ss.SendHeader(header)
 	return handler(srv, &WrappedServerStream{ss})
