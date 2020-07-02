@@ -87,10 +87,4 @@ func (l *mockLogger) Infof(f string, v ...interface{}) {}
 
 func (l *mockLogger) Debugf(f string, v ...interface{}) {}
 
-<<<<<<< HEAD
 func (l *mockLogger) CloneWithLevel(level logger.LogLevel) logger.Logger { return l }
-=======
-func (l *mockLogger) CloneWithLevel(level logger.LogLevel) logger.Logger {
-	return &logger.FileLogger{}
-}
->>>>>>> tests(pkg/server): mtlsoptions
