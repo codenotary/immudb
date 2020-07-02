@@ -35,6 +35,10 @@ func CopyFile(src, dst string) (err error) {
 		return
 	}
 	defer in.Close()
+	fi, _ := in.Stat()
+	if fi.IsDir() {
+		return fmt.Errorf("%s is a directory", src)
+	}
 
 	out, err := os.Create(dst)
 	if err != nil {
@@ -88,7 +92,7 @@ func CopyDir(src string, dst string) (err error) {
 		return
 	}
 	if err == nil {
-		return fmt.Errorf("destination already exists")
+		return os.ErrExist
 	}
 
 	err = os.MkdirAll(dst, si.Mode())
