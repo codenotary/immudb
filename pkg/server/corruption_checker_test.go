@@ -18,11 +18,13 @@ package server
 
 import (
 	"context"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEmptyDBCorruptionChecker(t *testing.T) {
@@ -84,3 +86,5 @@ func (l *mockLogger) Warningf(f string, v ...interface{}) {}
 func (l *mockLogger) Infof(f string, v ...interface{}) {}
 
 func (l *mockLogger) Debugf(f string, v ...interface{}) {}
+
+func (l *mockLogger) CloneWithLevel(level logger.LogLevel) logger.Logger { return l }
