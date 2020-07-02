@@ -108,7 +108,7 @@ func (s *ImmuGwServer) Start() error {
 			return err
 		}
 		auditorDone := make(chan struct{})
-		go defaultAuditor.Run(s.Options.AuditInterval, ctx.Done(), auditorDone)
+		go defaultAuditor.Run(s.Options.AuditInterval, false, ctx.Done(), auditorDone)
 		defer func() { <-auditorDone }()
 	}
 
