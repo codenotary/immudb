@@ -980,7 +980,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 		}
 	}
 
-	_, err = targetUser.GenerateOrSetPassword(r.NewPassword)
+	_, err = targetUser.SetPassword(r.NewPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -1530,7 +1530,7 @@ func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permis
 		}
 	}
 	userdata := new(auth.User)
-	plainpassword, err := userdata.GenerateOrSetPassword(plainPassword)
+	plainpassword, err := userdata.SetPassword(plainPassword)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -41,12 +41,12 @@ var tokenKeyPairs = struct {
 	minEvictInterval: 1 * time.Hour,
 }
 
-func generateKeys(username string, Username string) error {
+func generateKeys(Username string) error {
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return fmt.Errorf(
 			"error generating public and private key pair for user %s: %v",
-			username, err)
+			Username, err)
 	}
 	tokenKeyPairs.Lock()
 	defer tokenKeyPairs.Unlock()

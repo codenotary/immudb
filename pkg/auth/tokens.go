@@ -44,7 +44,7 @@ func GenerateToken(user User, database int64) (string, error) {
 	now := time.Now()
 	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
 	if !ok {
-		if err := generateKeys(user.Username, user.Username); err != nil {
+		if err := generateKeys(user.Username); err != nil {
 			return "", err
 		}
 		keys, ok = tokenKeyPairs.keysPerUser[user.Username]

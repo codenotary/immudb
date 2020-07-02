@@ -103,9 +103,10 @@ func TestDefaultDatabaseLoad(t *testing.T) {
 	}
 }
 func TestSystemDatabaseLoad(t *testing.T) {
-	options := DefaultOption()
+	serverOptions := DefaultOptions().WithDir("Nice")
+	options := DefaultOption().WithDbRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDbRootPath()
-	s := DefaultServer()
+	s := DefaultServer().WithOptions(serverOptions)
 	err := s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		t.Errorf("error loading default database %v", err)
