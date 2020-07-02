@@ -25,7 +25,7 @@ func TestDefaultOptions(t *testing.T) {
 	if op.GetDbName() != "db_name" {
 		t.Errorf("default sysdb name not what expected")
 	}
-	if op.GetDbRootPath() != "data" {
+	if op.GetDbRootPath() != DefaultOptions().Dir {
 		t.Errorf("default db rootpath not what expected")
 	}
 	if !op.GetCorruptionChecker() {

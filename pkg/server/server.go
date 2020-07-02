@@ -246,7 +246,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 				WithDbName(s.Options.GetSystemAdminDbName()).
 				WithDbRootPath(dataDir).
 				WithCorruptionChecker(s.Options.CorruptionCheck).
-				WithInMemoryStore(s.Options.GetInMemoryStore())
+				WithInMemoryStore(s.Options.GetInMemoryStore()).WithDbRootPath(s.Options.Dir)
 			db, err := NewDb(op, s.Logger)
 			if err != nil {
 				return err
@@ -266,7 +266,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		op := DefaultOption().
 			WithDbName(s.Options.GetSystemAdminDbName()).
 			WithDbRootPath(dataDir).
-			WithCorruptionChecker(s.Options.CorruptionCheck)
+			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
 		db, err := OpenDb(op, s.Logger)
 		if err != nil {
 			return err
@@ -292,7 +292,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 			WithDbName(s.Options.GetDefaultDbName()).
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck).
-			WithInMemoryStore(s.Options.GetInMemoryStore())
+			WithInMemoryStore(s.Options.GetInMemoryStore()).WithDbRootPath(s.Options.Dir)
 		db, err := NewDb(op, s.Logger)
 		if err != nil {
 			return err
@@ -303,7 +303,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		op := DefaultOption().
 			WithDbName(s.Options.GetDefaultDbName()).
 			WithDbRootPath(dataDir).
-			WithCorruptionChecker(s.Options.CorruptionCheck)
+			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
 		db, err := OpenDb(op, s.Logger)
 		if err != nil {
 			return err
@@ -344,7 +344,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 		//path iteration above stores the directories as data/db_name
 		pathparts := strings.Split(val, "/")
 		dbname := pathparts[len(pathparts)-1]
-		op := DefaultOption().WithDbName(dbname).WithCorruptionChecker(s.Options.CorruptionCheck)
+		op := DefaultOption().WithDbName(dbname).WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
 		db, err := OpenDb(op, s.Logger)
 		if err != nil {
 			return err
@@ -363,6 +363,12 @@ func (s *ImmuServer) Stop() error {
 	defer func() { s.quit <- struct{}{} }()
 	s.GrpcServer.Stop()
 	defer func() { s.GrpcServer = nil }()
+	s.CloseDatabases()
+	return nil
+}
+
+//CloseDatabases closes all opened databases including the consinstency checker
+func (s *ImmuServer) CloseDatabases() error {
 	s.stopCorruptionChecker()
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
@@ -370,7 +376,6 @@ func (s *ImmuServer) Stop() error {
 	}
 	return nil
 }
-
 func (s *ImmuServer) startCorruptionChecker() {
 	if s.Options.CorruptionCheck {
 		cco := CCOptions{}
@@ -1022,7 +1027,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		WithDbName(newdb.Databasename).
 		WithDbRootPath(dataDir).
 		WithCorruptionChecker(s.Options.CorruptionCheck).
-		WithInMemoryStore(s.Options.GetInMemoryStore())
+		WithInMemoryStore(s.Options.GetInMemoryStore()).WithDbRootPath(s.Options.Dir)
 	db, err := NewDb(op, s.Logger)
 	if err != nil {
 		s.Logger.Errorf(err.Error())

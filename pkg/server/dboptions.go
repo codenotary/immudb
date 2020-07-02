@@ -30,7 +30,7 @@ func DefaultOption() *DbOptions {
 	return &DbOptions{
 		//		dbDir:             "immudb",
 		dbName:            "db_name",
-		dbRootPath:        "data",
+		dbRootPath:        DefaultOptions().Dir,
 		corruptionChecker: true,
 		inMemoryStore:     false,
 	}
