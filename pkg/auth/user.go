@@ -17,6 +17,7 @@ limitations under the License.
 package auth
 
 import (
+	"fmt"
 	"regexp"
 	"time"
 )
@@ -44,11 +45,10 @@ var SysAdminUsername = "immudb"
 // SysAdminPassword the admin password (can be default or from command flags, config or env var)
 var SysAdminPassword = SysAdminUsername
 
-// GenerateOrSetPassword Returns a generated or plainPassword if it not empty
-// Hashes and salts the password and assigns it to hashedPassword of User
-func (u *User) GenerateOrSetPassword(plainPassword []byte) ([]byte, error) {
+// SetPassword Hashes and salts the password and assigns it to hashedPassword of User
+func (u *User) SetPassword(plainPassword []byte) ([]byte, error) {
 	if len(plainPassword) == 0 {
-		plainPassword = []byte(generatePassword())
+		return nil, fmt.Errorf("password is empty")
 	}
 	hashedPassword, err := HashAndSaltPassword(plainPassword)
 	if err != nil {
