@@ -61,6 +61,7 @@ func TestCorruptionChecker(t *testing.T) {
 	db.Set(kv)
 	dbList.Append(db)
 
+	time.Sleep(500 * time.Millisecond)
 	cco := CCOptions{}
 	cco.iterationSleepTime = 1 * time.Millisecond
 	cco.frequencySleepTime = 1 * time.Millisecond
