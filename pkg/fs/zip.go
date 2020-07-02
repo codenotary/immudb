@@ -37,6 +37,18 @@ const (
 
 // ZipIt ...
 func ZipIt(src, dst string, compressionLevel int) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	var baseDir string
+	if srcInfo.IsDir() {
+		baseDir = filepath.Base(src)
+	}
+
+	if _, err = os.Stat(dst); err == nil {
+		return os.ErrExist
+	}
 	zipfile, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -49,15 +61,6 @@ func ZipIt(src, dst string, compressionLevel int) error {
 		zipWriter.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
 			return flate.NewWriter(out, flate.BestCompression)
 		})
-	}
-
-	srcInfo, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	var baseDir string
-	if srcInfo.IsDir() {
-		baseDir = filepath.Base(src)
 	}
 
 	err = filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
@@ -103,50 +106,48 @@ func ZipIt(src, dst string, compressionLevel int) error {
 
 // UnZipIt ...
 func UnZipIt(src, dst string) error {
-	reader, err := zip.OpenReader(src)
+	r, err := zip.OpenReader(src)
 	if err != nil {
 		return err
 	}
+	defer r.Close()
 
-	_, err = os.Stat(dst)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if err = os.MkdirAll(dst, 0755); err != nil {
-				return err
-			}
-		} else {
+	os.MkdirAll(dst, 0755)
+
+	for _, f := range r.File {
+		err := extractAndWriteFile(f, dst)
+		if err != nil {
 			return err
 		}
 	}
 
-	for _, file := range reader.File {
-		path := filepath.Join(dst, file.Name)
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(path, file.Mode()); err != nil {
-				return err
-			}
-			continue
-		}
-		fileReader, err := file.Open()
-		if err != nil {
-			return err
-		}
-		defer fileReader.Close()
-		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+	return nil
+}
+
+func extractAndWriteFile(fileInZip *zip.File, dst string) error {
+	rc, err := fileInZip.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	path := filepath.Join(dst, fileInZip.Name)
+
+	if fileInZip.FileInfo().IsDir() {
+		os.MkdirAll(path, 0755)
+	} else {
+		os.MkdirAll(filepath.Dir(path), 0755)
+		targetFile, err :=
+			os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileInZip.Mode())
 		if err != nil {
 			return err
 		}
 		defer targetFile.Close()
-		if _, err := io.Copy(targetFile, fileReader); err != nil {
-			return err
-		}
-		if err := fileReader.Close(); err != nil {
-			return err
-		}
-		if err := targetFile.Close(); err != nil {
+
+		_, err = io.Copy(targetFile, rc)
+		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }

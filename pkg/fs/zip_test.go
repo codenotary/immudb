@@ -26,8 +26,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTarUnTar(t *testing.T) {
-	srcDir := "test-tar-untar"
+func TestZipUnZip(t *testing.T) {
+	srcDir := "test-zip-unzip"
+
+	// TODO OGG: extract this to a function in tar_test and reuse it in both
 	require.NoError(t, os.MkdirAll(srcDir, 0755))
 	defer os.RemoveAll(srcDir)
 	srcSubDir1 := filepath.Join(srcDir, "dir1")
@@ -38,14 +40,15 @@ func TestTarUnTar(t *testing.T) {
 	file2 := [2]string{filepath.Join(srcSubDir2, "file2"), "file2\ncontent2"}
 	require.NoError(t, ioutil.WriteFile(file1[0], []byte(file1[1]), 0644))
 	require.NoError(t, ioutil.WriteFile(file2[0], []byte(file2[1]), 0644))
-	dst := srcDir + ".tar.gz"
-	require.NoError(t, TarIt(srcDir, dst))
+
+	dst := srcDir + ".zip"
+	require.NoError(t, ZipIt(srcDir, dst, ZipBestSpeed))
 	_, err := os.Stat(dst)
 	require.NoError(t, err)
 	defer os.Remove(dst)
 	require.NoError(t, os.RemoveAll(srcDir))
 
-	require.NoError(t, UnTarIt(dst, "."))
+	require.NoError(t, UnZipIt(dst, "."))
 	fileContent1, err := ioutil.ReadFile(file1[0])
 	require.NoError(t, err)
 	require.Equal(t, file1[1], string(fileContent1))
@@ -54,22 +57,22 @@ func TestTarUnTar(t *testing.T) {
 	require.Equal(t, file2[1], string(fileContent2))
 }
 
-func TestTarSrcNonExistent(t *testing.T) {
+func TestZipSrcNonExistent(t *testing.T) {
 	nonExistentSrc := "non-existent"
-	err := TarIt(nonExistentSrc, nonExistentSrc+".tar.gz")
+	err := ZipIt(nonExistentSrc, nonExistentSrc+".zip", ZipBestSpeed)
 	require.Error(t, err)
 	require.Truef(
 		t, errors.Is(err, os.ErrNotExist), "expected: ErrNotExist, actual: %v", err)
 }
 
-func TestTarDstAlreadyExists(t *testing.T) {
+func TestZipDstAlreadyExists(t *testing.T) {
 	someSrc := "some-src"
 	require.NoError(t, ioutil.WriteFile(someSrc, []byte(someSrc), 0644))
 	defer os.Remove(someSrc)
 	existingDest := "existing-dest"
 	require.NoError(t, ioutil.WriteFile(existingDest, []byte(existingDest), 0644))
 	defer os.Remove(existingDest)
-	err := TarIt(someSrc, existingDest)
+	err := ZipIt(someSrc, existingDest, ZipBestSpeed)
 	require.Error(t, err)
 	require.Truef(
 		t, errors.Is(err, os.ErrExist), "expected: ErrExist, actual: %v", err)

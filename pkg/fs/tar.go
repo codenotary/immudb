@@ -19,7 +19,6 @@ package fs
 import (
 	"archive/tar"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -40,7 +39,7 @@ func TarIt(src string, dst string) error {
 	}
 
 	if _, err = os.Stat(dst); err == nil {
-		return fmt.Errorf("file %s already exists: %v", dst, err)
+		return os.ErrExist
 	}
 	destFile, err := os.Create(dst)
 	if err != nil {
