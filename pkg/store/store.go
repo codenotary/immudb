@@ -242,12 +242,9 @@ func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err er
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
-	it := txn.NewIterator(badger.IteratorOptions{
-		PrefetchValues: false,
-		Prefix:         prefix.Prefix,
-	})
-	defer it.Close()
 	count = &schema.ItemsCount{}
+	it := txn.NewKeyIterator(prefix.Prefix, badger.IteratorOptions{})
+	defer it.Close()
 	for it.Rewind(); it.Valid(); it.Next() {
 		count.Count++
 	}
