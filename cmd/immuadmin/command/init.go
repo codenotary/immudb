@@ -27,6 +27,7 @@ import (
 )
 
 type commandline struct {
+	options        client.Options
 	immuClient     client.ImmuClient
 	passwordReader c.PasswordReader
 	context        context.Context
@@ -40,6 +41,7 @@ func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
 		c.QuitToStdErr(err)
 	}
 	cl := new(commandline)
+	cl.options = *Options()
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
 
@@ -60,7 +62,7 @@ func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
 	cmd.AddCommand(man.Generate(cmd, cmdName, "./cmd/docs/man/"+cmdName))
 }
 
-func options() *client.Options {
+func Options() *client.Options {
 	port := viper.GetInt("immudb-port")
 	address := viper.GetString("immudb-address")
 	tokenFileName := viper.GetString("tokenfile")
@@ -96,21 +98,21 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 }
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-	if cl.immuClient, err = client.NewImmuClient(options()); err != nil {
+
+	if cl.immuClient, err = client.NewImmuClient(&cl.options); err != nil {
 		c.QuitToStdErr(err)
 	}
 	return
 }
 func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
-	opts := options()
-	possiblyLoggedIn, err2 := client.FileExistsInUserHomeDir(opts.TokenFileName)
+	possiblyLoggedIn, err2 := client.FileExistsInUserHomeDir(cl.options.TokenFileName)
 	if err2 != nil {
 		fmt.Println("error checking if token file exists:", err2)
 	} else if !possiblyLoggedIn {
 		err = fmt.Errorf("please login first")
 		c.QuitToStdErr(err)
 	}
-	if cl.immuClient, err = client.NewImmuClient(opts); err != nil {
+	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
 		c.QuitToStdErr(err)
 	}
 	return
