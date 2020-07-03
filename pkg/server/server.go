@@ -1600,7 +1600,9 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.dbList.GetByIndex(SystemDbIndex).Set(&userKV)
+	_, err = s.dbList.GetByIndex(SystemDbIndex).SafeSet(&schema.SafeSetOptions{
+		Kv: &userKV,
+	})
 	if err != nil {
 		s.Logger.Errorf("error saving user: %v", err)
 		return err
