@@ -8,7 +8,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 -->
 
-# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb) [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb) <img align="right" src="img/Black%20logo%20-%20no%20background.png" width="160px"/> [![Gitter](https://badges.gitter.im/immudb-chat/community.svg)](https://gitter.im/immudb-chat/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb)
+# immudb [![Build Status](https://travis-ci.com/codenotary/immudb.svg?branch=master)](https://travis-ci.com/codenotary/immudb) [![License](https://img.shields.io/github/license/codenotary/immudb)](LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/codenotary/immudb)](https://goreportcard.com/report/github.com/codenotary/immudb) <img align="right" src="img/Black%20logo%20-%20no%20background.png" width="160px"/> [![Gitter](https://badges.gitter.im/immudb-chat/community.svg)](https://gitter.im/immudb-chat/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb) [![](https://img.shields.io/badge/Career-We%20are%20hiring!-brightgreen?style=for-the-badge)](https://immudb.io/careers/)
 
 immudb is a **lightweight, high-speed immutable database** for systems and applications. Written in Go.
 With immudb you can track changes in sensitive data in your transactional databases and then record those changes permanently in a
@@ -31,6 +31,41 @@ immudb has 4 main benefits:
 
 immudb can be ran on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
 other systems derived from them, such as **Kubernetes** and **Docker**.
+
+
+**Designed for maximum performance**
+
+* 4 CPU cores
+* Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz
+* 64 GB memory
+* SSD
+
+**sequential** *write*
+```
+Concurrency: 128
+Iterations: 1000000
+Elapsed t.: 3.06 sec
+Throughput: 326626 tx/sec
+```
+
+**batch** *write (async commit)*
+```
+Concurrency: 16
+Iterations: 1000000
+Elapsed t.: 0.36 sec
+Throughput: 2772181 tx/sec
+```
+
+As immudb is sometimes compared to Amazon QLDB, we compared the performance using a simple demo application to write data (without using any unfair optimization).
+
+![immudb throughput read Benchmark](img/throughput_read.png "Throughput read (higher is better)")
+
+![immudb Throughput write Benchmark](img/throughput_write.png "Throughput write (higher is better)")
+
+![immudb Query Benchmark](img/query_bm.png "100 records read execution time (lower is better)")
+
+![immudb Execution Benchmark](img/exectime.png "100 records write execution time (lower is better)")
+
 
 **immudb High-level**
 
@@ -546,22 +581,6 @@ You can find an example video here:
 
 [![With immudb you can track changes in sensitive data in your transactional databases and then record those changes indelibly in a the tamperproof immudb database. This allows you to keep an indelible history of, say, your debit/credit transactions.](http://img.youtube.com/vi/rQ4iZAM14m0/0.jpg)](http://www.youtube.com/watch?v=rQ4iZAM14m0 "track changes in sensitive data in your transactional databases")
 
-As immudb is compared to Amazon QLDB as well, we compared the performance using a simple demo  application to write data (without using any unfair optimization).
-
-### Benchmark
-
-* 4 CPU cores
-* Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz
-* 64 GB memory
-* SSD
-
-![immudb throughput read Benchmark](img/throughput_read.png "Throughput read (higher is better)")
-
-![immudb Throughput write Benchmark](img/throughput_write.png "Throughput write (higher is better)")
-
-![immudb Query Benchmark](img/query_bm.png "100 records read execution time (lower is better)")
-
-![immudb Execution Benchmark](img/exectime.png "100 records write execution time (lower is better)")
 
 ## News
 `June 16th, 2020` - **[immudb v0.6.2 released!](https://github.com/codenotary/immudb/releases)**
