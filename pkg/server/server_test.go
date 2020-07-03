@@ -842,8 +842,5 @@ func TestServer(t *testing.T) {
 	s := DefaultServer().WithOptions(DefaultOptions().WithCorruptionCheck(false).WithDir(dataDir).WithListener(&l).WithInMemoryStore(true))
 
 	go s.Start()
-	time.Sleep(1 * time.Second)
-
 	s.CloseDatabases()
-	time.Sleep(1 * time.Second)
 }
