@@ -280,6 +280,7 @@ func (c *immuClient) GetOptions() *Options {
 	return c.Options
 }
 
+// Deprecated: use user list instead
 func (c *immuClient) ListUsers(ctx context.Context) (*schema.UserList, error) {
 	return c.ServiceClient.ListUsers(ctx, new(empty.Empty))
 }
@@ -312,6 +313,7 @@ func (c *immuClient) CreateUser(ctx context.Context, user []byte, pass []byte, p
 }
 
 // DeactivateUser ...
+// Deprecated: use setactive instead"
 func (c *immuClient) DeactivateUser(ctx context.Context, user []byte) error {
 	start := time.Now()
 	if !c.IsConnected() {
@@ -338,6 +340,7 @@ func (c *immuClient) ChangePassword(ctx context.Context, user []byte, oldPass []
 }
 
 // SetPermission ...
+// Deprecated: use ChangePermission instead"
 func (c *immuClient) SetPermission(ctx context.Context, user []byte, permissions []byte) error {
 	start := time.Now()
 	if !c.IsConnected() {
@@ -1229,7 +1232,7 @@ func writeSeek(w io.WriteSeeker, msg []byte, offset int64) (int64, error) {
 	return offset + int64(len(buf)) + int64(len(msg)), nil
 }
 
-func readSeek(r io.ReadSeeker, offset int64) ([]byte, int64, error) {
+/*func readSeek(r io.ReadSeeker, offset int64) ([]byte, int64, error) {
 	if _, err := r.Seek(offset, io.SeekStart); err != nil {
 		return nil, offset, err
 	}
@@ -1248,7 +1251,7 @@ func readSeek(r io.ReadSeeker, offset int64) ([]byte, int64, error) {
 		return nil, o2, err
 	}
 	return msg, o2, nil
-}
+}*/
 
 func (c *immuClient) verifyAndSetRoot(result *schema.Proof, root *schema.Root, ctx context.Context) (bool, error) {
 	verified := result.Verify(result.Leaf, *root)
@@ -1293,6 +1296,7 @@ func (c *immuClient) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	c.Logger.Debugf("ChangePermission finished in %s", time.Since(start))
 	return result, err
 }
+
 func (c *immuClient) SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error) {
 	start := time.Now()
 	if !c.IsConnected() {
