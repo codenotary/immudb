@@ -594,6 +594,12 @@ func testByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 		}
 		ind = it.Index
 	}
+	s.SafeSet(ctx, &schema.SafeSetOptions{
+		Kv: &schema.KeyValue{
+			Key:   testKey,
+			Value: testValue,
+		},
+	})
 	inc, err := s.ByIndex(ctx, &schema.Index{Index: ind})
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
@@ -612,7 +618,12 @@ func testByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		}
 		ind = it.Index
 	}
-	time.Sleep(1 * time.Second)
+	s.SafeSet(ctx, &schema.SafeSetOptions{
+		Kv: &schema.KeyValue{
+			Key:   testKey,
+			Value: testValue,
+		},
+	})
 	inc, err := s.ByIndexSV(ctx, &schema.Index{Index: ind})
 	if err != nil {
 		t.Errorf("Error Inserting to db %s", err)
@@ -629,7 +640,12 @@ func testBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 			t.Errorf("Error Inserting to db %s", err)
 		}
 	}
-	time.Sleep(1 * time.Second)
+	s.SafeSet(ctx, &schema.SafeSetOptions{
+		Kv: &schema.KeyValue{
+			Key:   testKey,
+			Value: testValue,
+		},
+	})
 	ind := uint64(1)
 	inc, err := s.BySafeIndex(ctx, &schema.SafeIndexOptions{Index: ind})
 	if err != nil {
