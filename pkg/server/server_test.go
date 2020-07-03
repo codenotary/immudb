@@ -839,12 +839,11 @@ func TestDbOperations(t *testing.T) {
 func TestServer(t *testing.T) {
 	dataDir := "madrid"
 	l := bufconn.Listener{}
-	s := DefaultServer().WithOptions(DefaultOptions().WithCorruptionCheck(false).WithDir(dataDir).WithListener(&l))
+	s := DefaultServer().WithOptions(DefaultOptions().WithCorruptionCheck(false).WithDir(dataDir).WithListener(&l).WithInMemoryStore(true))
 
 	go s.Start()
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	s.CloseDatabases()
-	time.Sleep(2 * time.Second)
-	os.RemoveAll(dataDir)
+	time.Sleep(1 * time.Second)
 }
