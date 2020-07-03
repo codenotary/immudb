@@ -18,10 +18,14 @@ package client
 
 import (
 	"context"
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/stretchr/testify/assert"
+	"io"
 	"log"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,6 +143,10 @@ func (n *ntpMock) Now() time.Time {
 }
 
 func init() {
+	setup()
+}
+
+func setup() {
 	cleanup()
 	cleanupDump()
 	immuServer = newServer()
@@ -177,6 +185,30 @@ func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value 
 	require.NoError(t, err2)
 	vi, err := client.SafeGet(ctx, key)
 
+	require.NoError(t, err)
+	require.NotNil(t, vi)
+	require.Equal(t, key, vi.Key)
+	require.Equal(t, value, vi.Value)
+	require.Equal(t, uint64(1405544146), vi.Time)
+	require.True(t, vi.Verified)
+}
+
+func testRawSafeSetAndRawSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte) {
+	_, err2 := client.RawSafeSet(ctx, key, value)
+	require.NoError(t, err2)
+	vi, err := client.RawSafeGet(ctx, key)
+
+	require.NoError(t, err)
+	require.NotNil(t, vi)
+	require.Equal(t, key, vi.Key)
+	require.Equal(t, value, vi.Value)
+	require.True(t, vi.Verified)
+}
+
+func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
+	_, err2 := client.Reference(ctx, referenceKey, key)
+	require.NoError(t, err2)
+	vi, err := client.SafeGet(ctx, referenceKey)
 	require.NoError(t, err)
 	require.NotNil(t, vi)
 	require.Equal(t, key, vi.Key)
@@ -248,6 +280,22 @@ func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scor
 	require.NoError(t, err3)
 }
 
+func testGet(ctx context.Context, t *testing.T) {
+	_, _ = client.SafeSet(ctx, []byte("key-n11"), []byte("val-n11"))
+	item1, err3 := client.Get(ctx, []byte("key-n11"))
+	require.Equal(t, []byte("key-n11"), item1.Key)
+	require.NoError(t, err3)
+}
+
+func testGetByIndex(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
+	vi1, err := client.SafeSet(ctx, []byte("key-n11"), []byte("val-n11"))
+	require.NoError(t, err)
+
+	item1, err3 := client.ByIndex(ctx, vi1.Index)
+	require.Equal(t, []byte("key-n11"), item1.Key)
+	require.NoError(t, err3)
+}
+
 // func testDump(ctx context.Context, t *testing.T) {
 // 	bkpFile, err := os.Create(BkpFileName)
 // 	require.NoError(t, err)
@@ -280,10 +328,18 @@ func TestImmuClient(t *testing.T) {
 	testSafeReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
 	testSafeReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1])
 	testSafeReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2])
-
 	testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+
+	testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
+	testGetByIndex(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+
+	testRawSafeSetAndRawSafeGet(ctx, t, testData.keys[0], testData.values[0])
+	testRawSafeSetAndRawSafeGet(ctx, t, testData.keys[1], testData.values[1])
+	testRawSafeSetAndRawSafeGet(ctx, t, testData.keys[2], testData.values[2])
+
+	testGet(ctx, t)
 
 	//dump comparison will not work because at start user immu is automatically created and a time stamp of creation is used which will always make dumps different
 	//userdata.CreatedAt = time.Now()
@@ -348,3 +404,243 @@ func TestImmuClient(t *testing.T) {
 //		require.Equal(t, testData.values[i], itemList.Items[i].Value.Payload)
 //	}
 //}
+func TestImmuClientDisconnect(t *testing.T) {
+	setup()
+	err := client.Disconnect()
+	assert.Nil(t, err)
+}
+func TestImmuClientDisconnectNotConn(t *testing.T) {
+	setup()
+	client.Disconnect()
+	err := client.Disconnect()
+	assert.Error(t, err)
+	assert.Errorf(t, err, "not connected")
+}
+func TestWaitForHealthCheck(t *testing.T) {
+	setup()
+	err := client.WaitForHealthCheck(context.TODO())
+	assert.Nil(t, err)
+}
+
+func TestWaitForHealthCheckFail(t *testing.T) {
+	setup()
+	client.Disconnect()
+	err := client.WaitForHealthCheck(context.TODO())
+	assert.Error(t, err)
+}
+
+func TestDump(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`key`), []byte(`val`))
+	f, _ := os.Create("tmp")
+	i, err := client.Dump(context.TODO(), f)
+	_ = os.Remove("tmp")
+	assert.Nil(t, err)
+	assert.True(t, i > 0)
+	client.Disconnect()
+}
+
+func TestUserManagement(t *testing.T) {
+	setup()
+	_, _ = client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
+	resp2, err2 := client.CreateUser(context.TODO(), []byte(`test`), []byte(`1Password!*`), auth.PermissionRW, "test")
+	assert.Nil(t, err2)
+	assert.IsType(t, &schema.UserResponse{}, resp2)
+	// todo @Michele refactor when ChangePermission returns errors correctly
+	_, err3 := client.ChangePermission(context.TODO(), &schema.ChangePermissionRequest{
+		Action:     schema.PermissionAction_REVOKE,
+		Permission: auth.PermissionRW,
+		Database:   "test",
+		Username:   "test",
+	})
+	assert.Nil(t, err3)
+	// @todo need to be fixed
+	_, err4 := client.SetActiveUser(context.TODO(), &schema.SetActiveUserRequest{
+		Active:   true,
+		Username: "test",
+	})
+	assert.Nil(t, err4)
+
+	// @todo deprecated
+	err5 := client.SetPermission(context.TODO(), []byte(`test`), []byte(`perm`))
+	assert.Error(t, err5)
+
+	// @todo need to be fixed
+	_ = client.ChangePassword(context.TODO(), []byte(`test`), []byte(`1Password!*`), []byte(`2Password!*`))
+
+	// @todo deprecated
+	_ = client.DeactivateUser(context.TODO(), []byte(`test`))
+
+	// @todo deprecated
+	usrResp, err8 := client.GetUser(context.TODO(), []byte(`test`))
+	assert.Error(t, err8)
+	assert.IsType(t, &schema.UserResponse{}, usrResp)
+
+	// @todo need to be fixed
+	usrList, err9 := client.ListUsers(context.TODO())
+	assert.Error(t, err9)
+	assert.IsType(t, &schema.UserList{}, usrList)
+
+	client.Disconnect()
+}
+func TestDatabaseManagement(t *testing.T) {
+	setup()
+	// todo @Michele refactor when CreateDatabase returns errors correctly
+	resp1, err1 := client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
+	assert.Nil(t, err1)
+	assert.IsType(t, &schema.CreateDatabaseReply{}, resp1)
+
+	resp2, err2 := client.DatabaseList(context.TODO(), &empty.Empty{})
+
+	assert.Nil(t, err2)
+	assert.IsType(t, &schema.DatabaseListResponse{}, resp2)
+	assert.Len(t, resp2.Databases, 2)
+	client.Disconnect()
+}
+
+func TestImmuClient_Inclusion(t *testing.T) {
+	setup()
+	index, _ := client.SafeSet(context.TODO(), []byte(`key`), []byte(`val`))
+
+	proof, err := client.Inclusion(context.TODO(), index.Index)
+
+	assert.IsType(t, &schema.InclusionProof{}, proof)
+	assert.Nil(t, err)
+	client.Disconnect()
+}
+
+func TestImmuClient_Consistency(t *testing.T) {
+	setup()
+	index, _ := client.SafeSet(context.TODO(), []byte(`key`), []byte(`val`))
+
+	proof, err := client.Consistency(context.TODO(), index.Index)
+
+	assert.IsType(t, &schema.ConsistencyProof{}, proof)
+	assert.Nil(t, err)
+	client.Disconnect()
+}
+
+func TestImmuClient_History(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val2`))
+
+	sil, err := client.History(context.TODO(), []byte(`key1`))
+
+	assert.IsType(t, &schema.StructuredItemList{}, sil)
+	assert.Nil(t, err)
+	assert.Len(t, sil.Items, 2)
+	client.Disconnect()
+}
+
+func TestImmuClient_GetBatch(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`aaa`), []byte(`val`))
+
+	sil, err := client.GetBatch(context.TODO(), [][]byte{[]byte(`aaa`), []byte(`bbb`)})
+
+	assert.IsType(t, &schema.StructuredItemList{}, sil)
+	assert.Nil(t, err)
+	client.Disconnect()
+}
+
+func TestImmuClient_SetBatch(t *testing.T) {
+	setup()
+	br := BatchRequest{
+		Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2")},
+		Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2")},
+	}
+
+	// todo not working properly
+	_, err := client.SetBatch(context.TODO(), &br)
+
+	assert.Nil(t, err)
+	client.Disconnect()
+}
+
+func TestImmuClient_Count(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val2`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val3`))
+
+	ic, err := client.Count(context.TODO(), []byte(`key1`))
+
+	assert.Nil(t, err)
+	assert.IsType(t, &schema.ItemsCount{}, ic)
+	assert.True(t, ic.Count == 3)
+	client.Disconnect()
+}
+
+func TestImmuClient_Scan(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val11`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key3`), []byte(`val3`))
+
+	sil, err := client.Scan(context.TODO(), []byte(`key`))
+
+	assert.IsType(t, &schema.StructuredItemList{}, sil)
+	assert.Nil(t, err)
+	assert.Len(t, sil.Items, 2)
+	client.Disconnect()
+}
+
+func TestImmuClient_IScan(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val11`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key3`), []byte(`val3`))
+
+	p, err := client.IScan(context.TODO(), 1, 2)
+
+	assert.IsType(t, &schema.SPage{}, p)
+	assert.Nil(t, err)
+	assert.Len(t, p.Items, 2)
+	client.Disconnect()
+}
+
+func TestImmuClient_CurrentRoot(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
+
+	r, err := client.CurrentRoot(context.TODO())
+
+	assert.IsType(t, &schema.Root{}, r)
+	assert.Nil(t, err)
+	client.Disconnect()
+}
+
+func TestImmuClient_Logout(t *testing.T) {
+	setup()
+	// @todo need to be fixed
+	_ = client.Logout(context.TODO())
+	//assert.Nil(t, err)
+	client.Disconnect()
+}
+
+func TestImmuClient_PrintTree(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
+
+	tree, err := client.PrintTree(context.TODO())
+
+	assert.Nil(t, err)
+	assert.IsType(t, &schema.Tree{}, tree)
+
+	client.Disconnect()
+}
+
+func TestImmuClient_GetServiceClient(t *testing.T) {
+	setup()
+	cli := client.GetServiceClient()
+	assert.Implements(t, (*schema.ImmuServiceClient)(nil), *cli)
+	client.Disconnect()
+}
+
+func TestImmuClient_GetOptions(t *testing.T) {
+	setup()
+	op := client.GetOptions()
+	assert.IsType(t, &Options{}, op)
+	client.Disconnect()
+}
