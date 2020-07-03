@@ -166,7 +166,9 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 }
 
 func setupDialOptions(options *Options) *[]grpc.DialOption {
-	opts := []grpc.DialOption{grpc.WithInsecure()}
+
+	opts := *options.DialOptions
+	opts = append(opts, grpc.WithInsecure())
 
 	//---------- TLS Setting -----------//
 	if options.MTLs {
