@@ -17,170 +17,104 @@ package gw
 
 import (
 	"encoding/base64"
-	"encoding/json"
-	"io/ioutil"
-	"log"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"os"
-	"strings"
 	"testing"
-	"time"
 
-	immuclient "github.com/codenotary/immudb/pkg/client"
-	immudb "github.com/codenotary/immudb/pkg/server"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/stretchr/testify/require"
 )
 
-var safezaddHandlerTestDir = "./safezadd_handler_test"
+var safeZAddHandlerTestCases = []struct {
+	name     string
+	payload  string
+	testFunc func(*testing.T, string, int, map[string]interface{})
+}{
+	{
+		"Sending correct request",
+		fmt.Sprintf(
+			"{\"zopts\": {\"set\": \"%s\", \"score\": %.1f, \"key\": \"%s\"}}",
+			base64.StdEncoding.EncodeToString([]byte("safeZAddSet1")),
+			1.0,
+			base64.StdEncoding.EncodeToString([]byte("setKey1")),
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusOK, status)
+			requireResponseFieldsTrue(t, testCase, []string{"verified"}, body)
+		},
+	},
+	{
+		"Sending request with non-existent key",
+		fmt.Sprintf(
+			"{\"zopts\": {\"set\": \"%s\", \"score\": %.1f, \"key\": \"%s\"}}",
+			base64.StdEncoding.EncodeToString([]byte("safeZAddSet1")),
+			1.0,
+			base64.StdEncoding.EncodeToString([]byte("safeZAddUnknownKey")),
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusNotFound, status)
+			requireResponseFieldsEqual(
+				t, testCase, map[string]interface{}{"error": "Key not found"}, body)
+		},
+	},
+	{
+		"Sending request with incorrect JSON field",
+		fmt.Sprintf(
+			"{\"zoptsi\": {\"set\": \"%s\", \"score\": %.1f, \"key\": \"%s\"}}",
+			base64.StdEncoding.EncodeToString([]byte("safeZAddSet1")),
+			1.0,
+			base64.StdEncoding.EncodeToString([]byte("setKey1")),
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+			requireResponseFieldsEqual(
+				t, testCase, map[string]interface{}{"error": "incorrect JSON payload"}, body)
+		},
+	},
+	{
+		"Missing key field",
+		fmt.Sprintf(
+			"{\"zopts\": {\"set\": \"%s\", \"score\": %.1f}}",
+			base64.StdEncoding.EncodeToString([]byte("safeZAddSet1")),
+			1.0,
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+			requireResponseFieldsEqual(
+				t, testCase, map[string]interface{}{"error": "invalid key"}, body)
+		},
+	},
+	{
+		"Send plain text instead of base64 encoded",
+		fmt.Sprintf(
+			"{\"zopts\": {\"set\": \"%s\", \"score\": %.1f, \"key\": \"setKey1\"}}",
+			base64.StdEncoding.EncodeToString([]byte("safeZAddSet1")),
+			1.0,
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+			requireResponseFieldsEqual(
+				t, testCase, map[string]interface{}{"error": "illegal base64 data at input byte 4"}, body)
+		},
+	},
+}
 
-func TestSafeZAdd(t *testing.T) {
-	dir, err := ioutil.TempDir("", "immu")
-	if err != nil {
-		log.Fatal(err)
+func testSafeZAddHandler(t *testing.T, safeZAddHandler SafeZAddHandler) {
+	prefixPattern := "SafeZAddHandler - Test case: %s"
+	method := "POST"
+	path := "/v1/immurestproxy/safe/zadd"
+	handlerFunc := func(res http.ResponseWriter, req *http.Request) {
+		safeZAddHandler.SafeZAdd(res, req, nil)
 	}
-	setName := base64.StdEncoding.EncodeToString([]byte("Soprano"))
-	uknownKey := base64.StdEncoding.EncodeToString([]byte("Marias Callas"))
-	tcpPort := generateRandomTCPPort()
-	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
-	op := immudb.DefaultOptions().
-		WithPort(tcpPort).WithDir(dir).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
-	s := immudb.DefaultServer().WithOptions(op)
-
-	go s.Start()
-	time.Sleep(2 * time.Second)
-	defer func() {
-		s.Stop()
-		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
-		os.RemoveAll(op.Dir)
-		os.RemoveAll(safezaddHandlerTestDir)
-	}()
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
-		WithPort(tcpPort).WithDir(safezaddHandlerTestDir))
-
-	if err != nil {
-		t.Errorf("unable to instantiate client: %s", err)
-		return
-	}
-
-	refkey, err := insertSampleSet(ic, safezaddHandlerTestDir, "")
-	if err != nil {
-		t.Errorf("%s", err)
-	}
-	mux := runtime.NewServeMux()
-	ssh := NewSafeZAddHandler(mux, ic)
-
-	tt := []struct {
-		test           string
-		payload        string
-		wantStatus     int
-		wantFieldName  string
-		wantFieldValue interface{}
-	}{
-		{
-			"Send correct request",
-			`{
-				"zopts": {
-					"set":  "` + setName + `",
-					"score": 1.0,
-					"key": "` + refkey + `"
-				}
-			}
-			`,
-			http.StatusOK,
-			"verified",
-			true,
-		},
-		{
-			"Send correct requestm with oknown key",
-			`{
-				"zopts": {
-					"set":  "` + setName + `",
-					"score": 1.0,
-					"key": "` + uknownKey + `"
-				}
-			}
-			`,
-			http.StatusOK,
-			"error",
-			"Key not found",
-		},
-		{
-			"Send incorrect json field",
-			`{
-				"zoptsi": {
-					"set":  "` + setName + `",
-					"score": 1.0,
-					"key": "` + setName + `"
-				}
-			}`,
-			http.StatusBadRequest,
-			"error",
-			"incorrect JSON payload",
-		},
-		{
-			"Missing Key field",
-			`{
-				"zopts": {
-					"set":  "` + setName + `",
-					"score": 1.0
-				}
-			}
-			`,
-			http.StatusBadRequest,
-			"error",
-			"invalid key",
-		},
-		{
-			"Send ASCII instead of base64 encoded",
-			`{
-				"zopts": {
-					"set":  "` + setName + `",
-					"score": 1.0,
-					"key": "Diana Damrau"
-				}
-			}
-			`,
-			http.StatusBadRequest,
-			"error",
-			"illegal base64 data at input byte 5",
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.test, func(t *testing.T) {
-			w := httptest.NewRecorder()
-			req, _ := http.NewRequest("POST", "/v1/immurestproxy/safe/zadd", strings.NewReader(tc.payload))
-			req.Header.Add("Content-Type", "application/json")
-
-			safeset := func(res http.ResponseWriter, req *http.Request) {
-				ssh.SafeZAdd(res, req, nil)
-			}
-			handler := http.HandlerFunc(safeset)
-			handler.ServeHTTP(w, req)
-			var body map[string]interface{}
-
-			err = json.Unmarshal(w.Body.Bytes(), &body)
-			if err != nil {
-				t.Error("bad reply JSON")
-			}
-			fieldValue, ok := body[tc.wantFieldName]
-			if !ok {
-				t.Errorf("json reply required field not found")
-			}
-			if fieldValue != tc.wantFieldValue {
-				t.Errorf("handler returned wrong json reply: got %v want %v",
-					fieldValue, tc.wantFieldValue)
-				t.Error(body)
-				t.Error(string(w.Body.Bytes()))
-			}
-
-			// TODO gj this should be used once #263 is fixed
-			// if w.Code != tc.want {
-			// 	t.Errorf("handler returned wrong status code: got %v want %v",
-			// 		w.Code, tc.want)
-			// }
-		})
+	for _, tc := range safeZAddHandlerTestCases {
+		err := testHandler(
+			t,
+			fmt.Sprintf(prefixPattern, tc.name),
+			method,
+			path,
+			tc.payload,
+			handlerFunc,
+			tc.testFunc,
+		)
+		require.NoError(t, err)
 	}
 }
