@@ -17,190 +17,99 @@ package gw
 
 import (
 	"encoding/base64"
-	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"os"
-	"strconv"
-	"strings"
 	"testing"
-	"time"
 
-	"github.com/codenotary/immudb/pkg/client"
-	immuclient "github.com/codenotary/immudb/pkg/client"
-	immudb "github.com/codenotary/immudb/pkg/server"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/stretchr/testify/require"
 )
 
-var safereferenceHandlerTestDir = "./safereference_handler_test"
-
-func insertSampleSet(ic client.ImmuClient, clientDir string, token string) (string, error) {
-	key := base64.StdEncoding.EncodeToString([]byte("Pablo"))
-	value := base64.StdEncoding.EncodeToString([]byte("Picasso"))
-	// ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
-	// 	WithPort(immudbTCPPort).WithDir(clientDir))
-	// if err != nil {
-	// 	return "", fmt.Errorf("unable to instantiate client: %s", err)
-	// }
-	mux := runtime.NewServeMux()
-	ssh := NewSafesetHandler(mux, ic)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/v1/immurestproxy/item/safe", strings.NewReader(`{"kv": {"key": "`+key+`", "value": "`+value+`"} }`))
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+token)
-
-	safeset := func(res http.ResponseWriter, req *http.Request) {
-		ssh.Safeset(res, req, nil)
-	}
-	handler := http.HandlerFunc(safeset)
-	handler.ServeHTTP(w, req)
-	var body map[string]interface{}
-
-	err := json.Unmarshal(w.Body.Bytes(), &body)
-	if err != nil {
-		return "", errors.New("bad reply JSON")
-	}
-	fieldValue, ok := body["verified"]
-	if !ok {
-		return "", errors.New("json reply required field not found")
-	}
-	if fieldValue != true {
-		return "", errors.New("Error inserting key")
-	}
-	return key, nil
+var safeReferenceHandlerTestCases = []struct {
+	name     string
+	payload  string
+	testFunc func(*testing.T, string, int, map[string]interface{})
+}{
+	{
+		"Sending correct request",
+		fmt.Sprintf(
+			"{\"ro\": {\"reference\": \"%s\", \"key\": \"%s\"}}",
+			base64.StdEncoding.EncodeToString([]byte("safeReferenceKey1")),
+			base64.StdEncoding.EncodeToString([]byte("setKey1")),
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusOK, status)
+			requireResponseFieldsTrue(t, testCase, []string{"verified"}, body)
+		},
+	},
+	{
+		"Sending correct request with non-existent key",
+		fmt.Sprintf(
+			"{\"ro\": {\"reference\": \"%s\", \"key\": \"%s\"}}",
+			base64.StdEncoding.EncodeToString([]byte("safeReferenceKey1")),
+			base64.StdEncoding.EncodeToString([]byte("safeReferenceUnknownKey")),
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusNotFound, status)
+			requireResponseFieldsEqual(
+				t, testCase, map[string]interface{}{"error": "Key not found"}, body)
+		},
+	},
+	{
+		"Sending incorrect json field",
+		fmt.Sprintf(
+			"{\"data\": {\"reference\": \"%s\", \"key\": \"%s\"}}",
+			base64.StdEncoding.EncodeToString([]byte("safeReferenceKey1")),
+			base64.StdEncoding.EncodeToString([]byte("setKey1")),
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+			requireResponseFieldsEqual(
+				t, testCase, map[string]interface{}{"error": "incorrect JSON payload"}, body)
+		},
+	},
+	{
+		"Missing Key field",
+		fmt.Sprintf(
+			"{\"ro\": {\"reference\": \"%s\"}}",
+			base64.StdEncoding.EncodeToString([]byte("safeReferenceKey1")),
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+			requireResponseFieldsEqual(
+				t, testCase, map[string]interface{}{"error": "invalid key"}, body)
+		},
+	},
+	{
+		"Sending plain text instead of base64 encoded",
+		fmt.Sprintf(
+			"{\"ro\": {\"reference\": \"safeReferenceKey1\", \"key\": \"%s\"}}",
+			base64.StdEncoding.EncodeToString([]byte("setKey1")),
+		),
+		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+			requireResponseFieldsEqual(
+				t, testCase, map[string]interface{}{"error": "illegal base64 data at input byte 16"}, body)
+		},
+	},
 }
 
-func TestSafeReference(t *testing.T) {
-	tcpPort := generateRandomTCPPort()
-	//MetricsServer must not be started as during tests because prometheus lib panics with: duplicate metrics collector registration attempted
-	op := immudb.DefaultOptions().
-		WithPort(tcpPort).WithDir("db_" + strconv.FormatInt(int64(tcpPort), 10)).
-		WithMetricsServer(false).WithCorruptionCheck(false).WithAuth(false)
-
-	s := immudb.DefaultServer().WithOptions(op)
-	go s.Start()
-	time.Sleep(2 * time.Second)
-
-	defer func() {
-		s.Stop()
-		time.Sleep(2 * time.Second) //without the delay the db dir is deleted before all the data has been flushed to disk and results in crash.
-		os.RemoveAll(op.Dir)
-		os.RemoveAll(safereferenceHandlerTestDir)
-	}()
-
-	//ctx := context.Background()
-	ic, err := immuclient.NewImmuClient(immuclient.DefaultOptions().
-		WithPort(tcpPort).WithDir(safereferenceHandlerTestDir))
-	if err != nil {
-		t.Errorf("unable to instantiate client: %s", err)
-		return
+func testSafeReferenceHandler(t *testing.T, safeReferenceHandler SafeReferenceHandler) {
+	prefixPattern := "SafeReferenceHandler - Test case: %s"
+	method := "POST"
+	path := "/v1/immurestproxy/safe/reference"
+	handlerFunc := func(res http.ResponseWriter, req *http.Request) {
+		safeReferenceHandler.SafeReference(res, req, nil)
 	}
-
-	refKey, err := insertSampleSet(ic, safereferenceHandlerTestDir, "")
-	if err != nil {
-		t.Errorf("%s", err)
-	}
-	mux := runtime.NewServeMux()
-	ssh := NewSafeReferenceHandler(mux, ic)
-
-	tt := []struct {
-		test           string
-		payload        string
-		wantStatus     int
-		wantFieldName  string
-		wantFieldValue interface{}
-	}{
-		{
-			"Send correct request",
-			`{
-				"ro": {
-					"reference":  "` + refKey + `",
-					 "key": "` + refKey + `"
-				}
-			}`,
-			http.StatusOK,
-			"verified",
-			true,
-		},
-		{
-			"Send correct request, with uknown key",
-			`{
-				"ro": {
-					"reference":  "` + refKey + `",
-					 "key": "` + base64.StdEncoding.EncodeToString([]byte("The Stars Look Down")) + `"
-				}
-			}`,
-			http.StatusBadRequest,
-			"error",
-			"Key not found",
-		},
-		{
-			"Send incorrect json field",
-			`{"data": {"key": "UGFibG8=", "reference": "UGljYXNzbw==" } }`,
-			http.StatusBadRequest,
-			"error",
-			"incorrect JSON payload",
-		},
-		{
-			"Missing Key field",
-			`{
-				"ro": {
-					"reference":  "UGFibG8="
-				}
-			}`,
-			http.StatusBadRequest,
-			"error",
-			"invalid key",
-		},
-		{
-			"Send ASCII instead of base64 encoded",
-			`{
-				"ro": {
-					"reference":  "Archibald Cronin",
-					 "key": "` + refKey + `"
-				}
-			}`,
-			http.StatusBadRequest,
-			"error",
-			"illegal base64 data at input byte 9",
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.test, func(t *testing.T) {
-			w := httptest.NewRecorder()
-			req, _ := http.NewRequest("POST", "/v1/immurestproxy/safe/reference", strings.NewReader(tc.payload))
-			req.Header.Add("Content-Type", "application/json")
-
-			safeset := func(res http.ResponseWriter, req *http.Request) {
-				ssh.SafeReference(res, req, nil)
-			}
-			handler := http.HandlerFunc(safeset)
-			handler.ServeHTTP(w, req)
-			var body map[string]interface{}
-
-			err = json.Unmarshal(w.Body.Bytes(), &body)
-			if err != nil {
-				t.Error("bad reply JSON")
-			}
-			fieldValue, ok := body[tc.wantFieldName]
-			if !ok {
-				t.Errorf("json reply required field not found")
-			}
-			if fieldValue != tc.wantFieldValue {
-				t.Errorf("handler returned wrong json reply: got %v want %v",
-					fieldValue, tc.wantFieldValue)
-				t.Error(body)
-				t.Error(string(w.Body.Bytes()))
-			}
-
-			// TODO gj this should be used once #263 is fixed
-			// if w.Code != tc.want {
-			// 	t.Errorf("handler returned wrong status code: got %v want %v",
-			// 		w.Code, tc.want)
-			// }
-		})
+	for _, tc := range safeReferenceHandlerTestCases {
+		err := testHandler(
+			t,
+			fmt.Sprintf(prefixPattern, tc.name),
+			method,
+			path,
+			tc.payload,
+			handlerFunc,
+			tc.testFunc,
+		)
+		require.NoError(t, err)
 	}
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var safeSetHandlerTestCases = []struct {
+var safeGetHandlerTestCases = []struct {
 	name     string
 	payload  string
 	testFunc func(*testing.T, string, int, map[string]interface{})
@@ -32,52 +32,41 @@ var safeSetHandlerTestCases = []struct {
 	{
 		"Sending correct request",
 		fmt.Sprintf(
-			"{\"kv\": {\"key\": \"%s\", \"value\": \"%s\"}}",
-			base64.StdEncoding.EncodeToString([]byte("safeSetKey1")),
-			base64.StdEncoding.EncodeToString([]byte("safeSetValue1")),
+			"{\"key\": \"%s\"}",
+			base64.StdEncoding.EncodeToString([]byte("setKey1")),
 		),
 		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 			requireResponseStatus(t, testCase, http.StatusOK, status)
-			requireResponseFieldsTrue(t, testCase, []string{"verified"}, body)
-		},
-	},
-	{
-		"Missing value field",
-		fmt.Sprintf(
-			"{\"kv\": {\"key\": \"%s\"}}",
-			base64.StdEncoding.EncodeToString([]byte("safeSetKey1")),
-		),
-		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
-			requireResponseStatus(t, testCase, http.StatusOK, status)
+			requireResponseFields(
+				t, testCase, []string{"index", "key", "value", "time"}, body)
 			requireResponseFieldsTrue(t, testCase, []string{"verified"}, body)
 		},
 	},
 	{
 		"Sending incorrect json field",
 		fmt.Sprintf(
-			"{\"data\": {\"key\": \"%s\", \"value\": \"%s\"}}",
-			base64.StdEncoding.EncodeToString([]byte("safeSetKey1")),
-			base64.StdEncoding.EncodeToString([]byte("safeSetValue1")),
+			"{\"keyX\": \"%s\"}",
+			base64.StdEncoding.EncodeToString([]byte("setKey1")),
 		),
 		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
-			expected := map[string]interface{}{"error": "incorrect JSON payload"}
+			expected := map[string]interface{}{"error": "invalid key"}
 			requireResponseFieldsEqual(t, testCase, expected, body)
 		},
 	},
 	{
 		"Sending plain text instead of base64 encoded",
-		`{"kv": {"key": "safeSetKey1", "value": "safeSetValue1"}}`,
+		`{"key": "setKey1"}`,
 		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
 			expected :=
-				map[string]interface{}{"error": "illegal base64 data at input byte 8"}
+				map[string]interface{}{"error": "illegal base64 data at input byte 4"}
 			requireResponseFieldsEqual(t, testCase, expected, body)
 		},
 	},
 	{
 		"Missing key field",
-		`{"kv": {} }`,
+		`{}`,
 		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
 			expected := map[string]interface{}{"error": "invalid key"}
@@ -86,14 +75,14 @@ var safeSetHandlerTestCases = []struct {
 	},
 }
 
-func testSafeSetHandler(t *testing.T, safeSetHandler SafesetHandler) {
-	prefixPattern := "SafeSetHandler - Test case: %s"
+func testSafeGetHandler(t *testing.T, safeGetHandler SafegetHandler) {
+	prefixPattern := "SafeGetHandler - Test case: %s"
 	method := "POST"
-	path := "/v1/immurestproxy/item/safe"
+	path := "/v1/immurestproxy/item/safe/get"
 	handlerFunc := func(res http.ResponseWriter, req *http.Request) {
-		safeSetHandler.Safeset(res, req, nil)
+		safeGetHandler.Safeget(res, req, nil)
 	}
-	for _, tc := range safeSetHandlerTestCases {
+	for _, tc := range safeGetHandlerTestCases {
 		err := testHandler(
 			t,
 			fmt.Sprintf(prefixPattern, tc.name),
