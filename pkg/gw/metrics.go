@@ -166,25 +166,7 @@ func StartMetrics(
 	l logger.Logger,
 	uptimeCounter func() float64,
 ) *http.Server {
-	Metrics.WithUptimeCounter(uptimeCounter)
-	// expvar package adds a handler in to the default HTTP server (which has to be started explicitly),
-	// and serves up the metrics at the /debug/vars endpoint.
-	// Here we're registering both expvar and promhttp handlers in our custom server.
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.Handle("/debug/vars", expvar.Handler())
-	mux.HandleFunc("/lastaudit", func(w http.ResponseWriter, req *http.Request) {
-		bs, err := json.Marshal(Metrics.lastAuditResult)
-		if err != nil {
-			l.Errorf("error marshaling to json the last audit result: %v", err)
-			http.Error(w, fmt.Sprintf("internal error: %v", err), http.StatusInternalServerError)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if _, err := w.Write(bs); err != nil {
-			l.Errorf("error writing the response with the last audit result json: %v", err)
-		}
-	})
-	server := &http.Server{Addr: addr, Handler: mux}
+	server := newMetricsServer(addr, l, uptimeCounter)
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
@@ -192,9 +174,32 @@ func StartMetrics(
 			} else {
 				l.Errorf("Metrics error: %s", err)
 			}
-
 		}
 	}()
-
 	return server
+}
+
+func newMetricsServer(
+	addr string,
+	l logger.Logger,
+	uptimeCounter func() float64,
+) *http.Server {
+	Metrics.WithUptimeCounter(uptimeCounter)
+	// expvar package adds a handler in to the default HTTP server (which has to be started explicitly),
+	// and serves up the metrics at the /debug/vars endpoint.
+	// Here we're registering both expvar and promhttp handlers in our custom server.
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/debug/vars", expvar.Handler())
+	mux.HandleFunc("/lastaudit", lastAuditHandler)
+	return &http.Server{Addr: addr, Handler: mux}
+}
+
+func lastAuditHandler(w http.ResponseWriter, req *http.Request) {
+	bs, err := json.Marshal(Metrics.lastAuditResult)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("internal error: %v", err), http.StatusInternalServerError)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(bs)
 }
