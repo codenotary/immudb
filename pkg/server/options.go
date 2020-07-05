@@ -102,7 +102,9 @@ func (o Options) WithAddress(address string) Options {
 
 // WithPort sets port
 func (o Options) WithPort(port int) Options {
-	o.Port = port
+	if port > 0 {
+		o.Port = port
+	}
 	return o
 }
 
