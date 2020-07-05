@@ -36,7 +36,7 @@ func TestOptions(t *testing.T) {
 		op.MetricsServer != true ||
 		op.NoHistograms != false ||
 		op.AdminPassword != auth.SysAdminPassword ||
-		op.Address != "127.0.0.1" ||
+		op.Address != "0.0.0.0" ||
 		op.Network != "tcp" ||
 		op.Port != 3322 ||
 		op.MetricsPort != 9497 ||

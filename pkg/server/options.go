@@ -60,7 +60,7 @@ func DefaultOptions() Options {
 	return Options{
 		Dir:                 "./data",
 		Network:             "tcp",
-		Address:             "127.0.0.1",
+		Address:             "0.0.0.0",
 		Port:                3322,
 		MetricsPort:         9497,
 		Config:              "configs/immudb.toml",

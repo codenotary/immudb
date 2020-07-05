@@ -285,7 +285,7 @@ immudb - the lightweight, high-speed immutable database for systems and applicat
 Environment variables:
   IMMUDB_DIR=.
   IMMUDB_NETWORK=tcp
-  IMMUDB_ADDRESS=127.0.0.1
+  IMMUDB_ADDRESS=0.0.0.0
   IMMUDB_PORT=3322
   IMMUDB_DBNAME=immudb
   IMMUDB_PIDFILE=
@@ -310,7 +310,7 @@ Available Commands:
   version     Show the immudb version
 
 Flags:
-  -a, --address string          bind address (default "127.0.0.1")
+  -a, --address string          bind address (default "0.0.0.0")
       --admin-password string   admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
   -s, --auth                    enable auth
       --certificate string      server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
@@ -344,7 +344,7 @@ immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immuta
 It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
 
 Environment variables:
-  IMMUGW_ADDRESS=127.0.0.1
+  IMMUGW_ADDRESS=0.0.0.0
   IMMUGW_PORT=3323
   IMMUGW_IMMUDB_ADDRESS=127.0.0.1
   IMMUGW_IMMUDB_PORT=3322
@@ -370,7 +370,7 @@ Available Commands:
   version     Show the immugw version
 
 Flags:
-  -a, --address string            immugw host address (default "127.0.0.1")
+  -a, --address string            immugw host address (default "0.0.0.0")
       --audit                     enable audit mode (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)
       --audit-interval duration   interval at which audit should run (default 5m0s)
       --audit-password string     immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
@@ -510,7 +510,7 @@ Flags:
   -p, --immudb-port int          immudb port number (default 3322)
   -m, --mtls                     enable mutual tls
       --pkey string              server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
-      --prometheus-host string   Launch host of the Prometheus exporter. (default "127.0.0.1")
+      --prometheus-host string   Launch host of the Prometheus exporter. (default "0.0.0.0")
       --prometheus-port string   Launch port of the Prometheus exporter. (default "9477")
       --roots-filepath string    Filepath for storing root hashes after every successful audit loop. Default is tempdir of every OS. (default "/tmp/")
       --servername string        used to verify the hostname on the returned certificates (default "localhost")

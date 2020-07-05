@@ -20,7 +20,7 @@ package service
 
 var ConfigImmudb = []byte(`dir = "%programdata%\\Immudb"
 network = "tcp"
-address = "127.0.0.1"
+address = "0.0.0.0"
 port = 3322
 dbname = "data"
 pidfile = "%programdata%\\Immudb\\config\\immudb.pid"
