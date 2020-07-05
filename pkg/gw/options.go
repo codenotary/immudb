@@ -48,7 +48,7 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{
 		Dir:           ".",
-		Address:       "127.0.0.1",
+		Address:       "0.0.0.0",
 		Port:          3323,
 		MetricsPort:   9476,
 		ImmudbAddress: "127.0.0.1",

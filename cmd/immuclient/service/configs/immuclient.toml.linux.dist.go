@@ -20,7 +20,7 @@ package service
 
 // ConfigImmuClient ...
 var ConfigImmuClient = []byte(`dir = "/var/lib/immuclient"
-address = "127.0.0.1"
+address = "0.0.0.0"
 port = 3323
 immudb-address = "127.0.0.1"
 immudb-port = 3322

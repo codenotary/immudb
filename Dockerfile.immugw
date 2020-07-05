@@ -22,7 +22,7 @@ ENV IMMUGW_DIR="/var/lib/immudb" \
     IMMUGW_CLIENTCAS="/var/lib/immudb/mtls/2_intermediate/certs/ca-chain.pem" \
     IMMUGW_AUDIT="false" \
     IMMUGW_AUDIT_USERNAME="" \
-    IMMUGW_AUDIT_PASSWORD=""  
+    IMMUGW_AUDIT_PASSWORD=""
 
 RUN addgroup --system --gid $IMMU_GID immu && \
     adduser --system --uid $IMMU_UID --no-create-home --ingroup immu immu && \

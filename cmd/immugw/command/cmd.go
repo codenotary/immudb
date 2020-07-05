@@ -31,7 +31,7 @@ func NewCmd() *cobra.Command {
 It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
 
 Environment variables:
-  IMMUGW_ADDRESS=127.0.0.1
+  IMMUGW_ADDRESS=0.0.0.0
   IMMUGW_PORT=3323
   IMMUGW_IMMUDB_ADDRESS=127.0.0.1
   IMMUGW_IMMUDB_PORT=3322

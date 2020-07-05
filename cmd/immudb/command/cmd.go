@@ -47,7 +47,7 @@ func NewCmd() *cobra.Command {
 Environment variables:
   IMMUDB_DIR=.
   IMMUDB_NETWORK=tcp
-  IMMUDB_ADDRESS=127.0.0.1
+  IMMUDB_ADDRESS=0.0.0.0
   IMMUDB_PORT=3322
   IMMUDB_DBNAME=immudb
   IMMUDB_PIDFILE=
