@@ -91,7 +91,7 @@ func Immugw(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	service := gw.Service{
-		ImmuGwServer: *immuGwServer,
+		ImmuGwServer: immuGwServer,
 	}
 
 	d.Run(service)

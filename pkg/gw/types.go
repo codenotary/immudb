@@ -24,6 +24,12 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 )
 
+// ImmuGw ...
+type ImmuGw interface {
+	Start() error
+	Stop() error
+}
+
 // ImmuGwServer ...
 type ImmuGwServer struct {
 	Options Options
