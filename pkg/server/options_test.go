@@ -31,7 +31,7 @@ func TestOptions(t *testing.T) {
 		op.GetSystemAdminDbName() != SystemdbName ||
 		op.CorruptionCheck != true ||
 		op.Detached != false ||
-		op.DevMode != true ||
+		op.DevMode != false ||
 		op.MTLs != false ||
 		op.MetricsServer != true ||
 		op.NoHistograms != false ||

@@ -72,7 +72,7 @@ func DefaultOptions() Options {
 		Detached:            false,
 		CorruptionCheck:     true,
 		MetricsServer:       true,
-		DevMode:             true,
+		DevMode:             false,
 		AdminPassword:       auth.SysAdminPassword,
 		systemAdminDbName:   SystemdbName,
 		defaultDbName:       DefaultdbName,

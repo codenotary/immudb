@@ -220,15 +220,13 @@ func (s *ImmuServer) printUsageCallToAction() {
 	time.Sleep(200 * time.Millisecond)
 	immuadminCLI := helper.Blue + "immuadmin" + helper.Green
 	immuclientCLI := helper.Blue + "immuclient" + helper.Green
-	immutestCLI := helper.Blue + "immutest" + helper.Green
 	defaultUsername := helper.Blue + auth.SysAdminUsername + helper.Green
 	fmt.Fprintf(os.Stdout,
-		"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start hacking immudb.\n"+
-			"To populate immudb with test data, please run %s.%s\n",
-		helper.Green, immuadminCLI, immuclientCLI, defaultUsername, immutestCLI, helper.Reset)
+		"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start using immudb.%s\n",
+		helper.Green, immuadminCLI, immuclientCLI, defaultUsername, helper.Reset)
 	if s.Options.Logfile != "" {
-		s.Logger.Infof("You can now use immuadmin and immuclient CLIs to login with the %s superadmin user and start hacking immudb.\n"+
-			"To populate immudb with test data, please run immutest.\n",
+		s.Logger.Infof(
+			"You can now use immuadmin and immuclient CLIs to login with the %s superadmin user and start using immudb.\n",
 			auth.SysAdminUsername)
 	}
 }
