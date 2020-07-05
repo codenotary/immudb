@@ -18,7 +18,7 @@ package gw
 
 // Service ...
 type Service struct {
-	ImmuGwServer
+	ImmuGwServer ImmuGw
 }
 
 // Start - non-blocking start service
