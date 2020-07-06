@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *commandline) printTree(cmd *cobra.Command) {
+func (cl *commandline) printTree(rootCmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "print",
 		Short:             "print Merkle tree",
@@ -34,14 +34,14 @@ func (cl *commandline) printTree(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			c.PrintfColor(c.White, "\t\t\t\t\t\t\t\tDisk elements\n")
-			c.PrintfColor(c.Green, "\tImmudb Merkle Tree\t\t\t\t\tCache elements\n")
-			c.PrintfColor(c.White, "\t\t\t\t\t\t\t\t* refKey presents\n")
-			c.PrintfColor(c.Red, "\t\t\t\t\t\t\t\tRoot\n")
-			c.PrintfColor(c.Purple, "\t\t\t\t\t\t\t\tCached Root\n\n")
+			c.PrintfColorW(cmd.OutOrStdout(), c.White, "\t\t\t\t\t\t\t\tDisk elements\n")
+			c.PrintfColorW(cmd.OutOrStdout(), c.Green, "\tImmudb Merkle Tree\t\t\t\t\tCache elements\n")
+			c.PrintfColorW(cmd.OutOrStdout(), c.White, "\t\t\t\t\t\t\t\t* refKey presents\n")
+			c.PrintfColorW(cmd.OutOrStdout(), c.Red, "\t\t\t\t\t\t\t\tRoot\n")
+			c.PrintfColorW(cmd.OutOrStdout(), c.Purple, "\t\t\t\t\t\t\t\tCached Root\n\n")
 
 			for k, l := range tree.T {
-				c.PrintfColor(c.Yellow, "Layer %d\n", k)
+				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "Layer %d\n", k)
 				for _, h := range l.L {
 					color := c.White
 					if h.Cache {
@@ -58,12 +58,12 @@ func (cl *commandline) printTree(cmd *cobra.Command) {
 						strp += "*"
 					}
 					strp += "\n"
-					c.PrintfColor(color, strp, h.H, h.I)
+					c.PrintfColorW(cmd.OutOrStdout(), color, strp, h.H, h.I)
 				}
 			}
 			return nil
 		},
 		Args: cobra.NoArgs,
 	}
-	cmd.AddCommand(ccmd)
+	rootCmd.AddCommand(ccmd)
 }
