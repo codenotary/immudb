@@ -16,9 +16,9 @@ package immuadmin
 import (
 	"context"
 	"fmt"
+	"github.com/codenotary/immudb/cmd/docs/man"
 	"strings"
 
-	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/gw"
@@ -27,7 +27,7 @@ import (
 )
 
 type commandline struct {
-	options        client.Options
+	options        *client.Options
 	immuClient     client.ImmuClient
 	passwordReader c.PasswordReader
 	context        context.Context
@@ -36,30 +36,32 @@ type commandline struct {
 type commandlineDisc struct{}
 
 // Init ...
-func Init(cmd *cobra.Command, cmdName string, o *c.Options) {
-	if err := configureOptions(cmd, o); err != nil {
+func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command {
+	if err := configureFlags(rootCmd, cfgFn); err != nil {
 		c.QuitToStdErr(err)
 	}
 	cl := new(commandline)
-	cl.options = *Options()
+	cl.options = Options()
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
 
-	cl.user(cmd)
-	cl.login(cmd)
-	cl.logout(cmd)
-	cl.status(cmd)
-	cl.stats(cmd)
-	cl.dumpToFile(cmd)
-	cl.serverConfig(cmd)
-	cl.backup(cmd)
-	cl.restore(cmd)
-	cl.printTree(cmd)
+	cl.user(rootCmd)
+	cl.login(rootCmd)
+	cl.logout(rootCmd)
+	cl.status(rootCmd)
+	cl.stats(rootCmd)
+	cl.dumpToFile(rootCmd)
+	cl.serverConfig(rootCmd)
+	cl.backup(rootCmd)
+	cl.restore(rootCmd)
+	cl.printTree(rootCmd)
 
 	cld := new(commandlineDisc)
-	cld.service(cmd)
+	cld.service(rootCmd)
 
-	cmd.AddCommand(man.Generate(cmd, cmdName, "./cmd/docs/man/"+cmdName))
+	rootCmd.AddCommand(man.Generate(rootCmd, cmdName, "./cmd/docs/man/"+cmdName))
+
+	return rootCmd
 }
 
 func Options() *client.Options {
@@ -91,34 +93,7 @@ func Options() *client.Options {
 	return options
 }
 
-func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
-	if err := cl.immuClient.Disconnect(); err != nil {
-		c.QuitToStdErr(err)
-	}
-}
-
-func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-
-	if cl.immuClient, err = client.NewImmuClient(&cl.options); err != nil {
-		c.QuitToStdErr(err)
-	}
-	return
-}
-func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
-	possiblyLoggedIn, err2 := client.FileExistsInUserHomeDir(cl.options.TokenFileName)
-	if err2 != nil {
-		fmt.Println("error checking if token file exists:", err2)
-	} else if !possiblyLoggedIn {
-		err = fmt.Errorf("please login first")
-		c.QuitToStdErr(err)
-	}
-	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
-		c.QuitToStdErr(err)
-	}
-	return
-}
-
-func configureOptions(cmd *cobra.Command, o *c.Options) error {
+func configureFlags(cmd *cobra.Command, cfgFn *string) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
 	cmd.PersistentFlags().String(
@@ -130,7 +105,7 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 			client.AdminTokenFileSuffix,
 			client.DefaultOptions().TokenFileName,
 			client.AdminTokenFileSuffix))
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path is configs or $HOME; default filename is immuadmin.toml)")
+	cmd.PersistentFlags().StringVar(cfgFn, "config", "", "config file (default path is configs or $HOME; default filename is immuadmin.toml)")
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
