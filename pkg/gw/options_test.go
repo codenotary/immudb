@@ -26,7 +26,7 @@ import (
 
 func TestOptions(t *testing.T) {
 	opts := DefaultOptions()
-	require.Equal(t, "127.0.0.1", opts.Address)
+	require.Equal(t, "0.0.0.0", opts.Address)
 	require.Equal(t, 3323, opts.Port)
 	require.Equal(t, 9476, opts.MetricsPort)
 	require.Equal(t, "127.0.0.1", opts.ImmudbAddress)
@@ -65,8 +65,8 @@ func TestOptions(t *testing.T) {
 	require.Equal(
 		t, "./someLogfile.log", opts.WithLogfile("./someLogfile.log").Logfile)
 
-	require.Equal(t, "127.0.0.1:3323", opts.Bind())
-	require.Equal(t, "127.0.0.1:9476", opts.MetricsBind())
+	require.Equal(t, "0.0.0.0:3323", opts.Bind())
+	require.Equal(t, "0.0.0.0:9476", opts.MetricsBind())
 
 	optsJSONBytes, err := json.Marshal(opts)
 	require.NoError(t, err)
