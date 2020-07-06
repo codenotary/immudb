@@ -82,3 +82,30 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 	}
 	cmd.AddCommand(ccmd)
 }
+
+func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
+	if err := cl.immuClient.Disconnect(); err != nil {
+		c.QuitToStdErr(err)
+	}
+}
+
+func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
+
+	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
+		c.QuitToStdErr(err)
+	}
+	return
+}
+func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
+	possiblyLoggedIn, err2 := client.FileExistsInUserHomeDir(cl.options.TokenFileName)
+	if err2 != nil {
+		fmt.Println("error checking if token file exists:", err2)
+	} else if !possiblyLoggedIn {
+		err = fmt.Errorf("please login first")
+		c.QuitToStdErr(err)
+	}
+	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
+		c.QuitToStdErr(err)
+	}
+	return
+}
