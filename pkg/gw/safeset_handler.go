@@ -18,7 +18,6 @@ package gw
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 
@@ -36,26 +35,30 @@ type SafesetHandler interface {
 }
 
 type safesetHandler struct {
-	mux    *runtime.ServeMux
-	client client.ImmuClient
+	mux     *runtime.ServeMux
+	client  client.ImmuClient
+	runtime Runtime
+	json    JSON
 }
 
 // NewSafesetHandler ...
-func NewSafesetHandler(mux *runtime.ServeMux, client client.ImmuClient) SafesetHandler {
+func NewSafesetHandler(mux *runtime.ServeMux, client client.ImmuClient, rt Runtime, json JSON) SafesetHandler {
 	return &safesetHandler{
-		mux:    mux,
-		client: client,
+		mux:     mux,
+		client:  client,
+		runtime: rt,
+		json:    json,
 	}
 }
 
 func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
-	inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
+	inboundMarshaler, outboundMarshaler := h.runtime.MarshalerForRequest(h.mux, req)
 
-	rctx, err := runtime.AnnotateContext(ctx, h.mux, req)
+	rctx, err := h.runtime.AnnotateContext(ctx, h.mux, req)
 	if err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
 
@@ -64,34 +67,34 @@ func (h *safesetHandler) Safeset(w http.ResponseWriter, req *http.Request, pathP
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
 	if berr != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", berr))
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", berr))
 		return
 	}
 	if err = inboundMarshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", err))
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "%v", err))
 		return
 	}
 	if protoReq.Kv == nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Error(codes.InvalidArgument, "incorrect JSON payload"))
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Error(codes.InvalidArgument, "incorrect JSON payload"))
 		return
 	}
 	msg, err := h.client.SafeSet(rctx, protoReq.Kv.Key, protoReq.Kv.Value)
 	if err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
 
-	ctx = runtime.NewServerMetadataContext(ctx, metadata)
+	ctx = h.runtime.NewServerMetadataContext(ctx, metadata)
 	w.Header().Set("Content-Type", "application/json")
 
-	newData, err := json.Marshal(msg)
+	newData, err := h.json.Marshal(msg)
 	if err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
 
 	if _, err := w.Write(newData); err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
 }

@@ -18,7 +18,6 @@ package gw
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -33,25 +32,24 @@ type HistoryHandler interface {
 }
 
 type historyHandler struct {
-	mux    *runtime.ServeMux
-	client client.ImmuClient
+	mux     *runtime.ServeMux
+	client  client.ImmuClient
+	runtime Runtime
+	json    JSON
 }
 
 // NewHistoryHandler ...
-func NewHistoryHandler(mux *runtime.ServeMux, client client.ImmuClient) HistoryHandler {
-	return &historyHandler{
-		mux,
-		client,
-	}
+func NewHistoryHandler(mux *runtime.ServeMux, client client.ImmuClient, rt Runtime, json JSON) HistoryHandler {
+	return &historyHandler{mux, client, rt, json}
 }
 
 func (h *historyHandler) History(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
-	_, outboundMarshaler := runtime.MarshalerForRequest(h.mux, req)
-	rctx, err := runtime.AnnotateContext(ctx, h.mux, req)
+	_, outboundMarshaler := h.runtime.MarshalerForRequest(h.mux, req)
+	rctx, err := h.runtime.AnnotateContext(ctx, h.mux, req)
 	if err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
 	var metadata runtime.ServerMetadata
@@ -63,32 +61,32 @@ func (h *historyHandler) History(w http.ResponseWriter, req *http.Request, pathP
 
 	val, ok = pathParams["key"]
 	if !ok {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key"))
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key"))
 		return
 	}
 
-	key, err := runtime.Bytes(val)
+	key, err := h.runtime.Bytes(val)
 
 	if err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key", err))
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key", err))
 		return
 	}
 
 	msg, err := h.client.History(rctx, key)
 	if err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
 
-	ctx = runtime.NewServerMetadataContext(ctx, metadata)
+	ctx = h.runtime.NewServerMetadataContext(ctx, metadata)
 	w.Header().Set("Content-Type", "application/json")
-	newData, err := json.Marshal(msg)
+	newData, err := h.json.Marshal(msg)
 	if err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
 	if _, err := w.Write(newData); err != nil {
-		runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
+		h.runtime.HTTPError(ctx, h.mux, outboundMarshaler, w, req, err)
 		return
 	}
 }

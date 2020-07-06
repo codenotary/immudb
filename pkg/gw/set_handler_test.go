@@ -16,84 +16,28 @@ limitations under the License.
 package gw
 
 import (
+	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
+	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
 )
 
-var setHandlerTestCases = []struct {
-	name     string
-	payload  string
-	testFunc func(*testing.T, string, int, map[string]interface{})
-}{
-	{
-		"Sending correct request",
-		fmt.Sprintf(
-			"{\"key\": \"%s\", \"value\": \"%s\"}",
-			base64.StdEncoding.EncodeToString([]byte("setKey1")),
-			base64.StdEncoding.EncodeToString([]byte("setValue1")),
-		),
-		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
-			requireResponseStatus(t, testCase, http.StatusOK, status)
-			requireResponseFields(t, testCase, []string{"index"}, body)
-		},
-	},
-	{
-		"Missing value field",
-		fmt.Sprintf(
-			"{\"key\": \"%s\"}",
-			base64.StdEncoding.EncodeToString([]byte("setKey1")),
-		),
-		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
-			requireResponseStatus(t, testCase, http.StatusOK, status)
-			requireResponseFields(t, testCase, []string{"index"}, body)
-		},
-	},
-	{
-		"Sending incorrect json field",
-		fmt.Sprintf(
-			"{\"keyX\": \"%s\", \"value\": \"%s\"}",
-			base64.StdEncoding.EncodeToString([]byte("setKey1")),
-			base64.StdEncoding.EncodeToString([]byte("setValue1")),
-		),
-		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
-			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
-			expected := map[string]interface{}{"error": "invalid key"}
-			requireResponseFieldsEqual(t, testCase, expected, body)
-		},
-	},
-	{
-		"Sending plain text instead of base64 encoded",
-		`{"key": "setKey1", "value": "setValue1"}`,
-		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
-			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
-			expected :=
-				map[string]interface{}{"error": "illegal base64 data at input byte 4"}
-			requireResponseFieldsEqual(t, testCase, expected, body)
-		},
-	},
-	{
-		"Missing key field",
-		`{}`,
-		func(t *testing.T, testCase string, status int, body map[string]interface{}) {
-			requireResponseStatus(t, testCase, http.StatusBadRequest, status)
-			expected := map[string]interface{}{"error": "invalid key"}
-			requireResponseFieldsEqual(t, testCase, expected, body)
-		},
-	},
-}
-
-func testSetHandler(t *testing.T, setHandler SetHandler) {
+func testSetHandler(t *testing.T, mux *runtime.ServeMux, ic immuclient.ImmuClient) {
 	prefixPattern := "SetHandler - Test case: %s"
 	method := "POST"
 	path := "/v1/immurestproxy/item"
-	handlerFunc := func(res http.ResponseWriter, req *http.Request) {
-		setHandler.Set(res, req, nil)
-	}
-	for _, tc := range setHandlerTestCases {
+	for _, tc := range setHandlerTestCases(mux, ic) {
+		handlerFunc := func(res http.ResponseWriter, req *http.Request) {
+			tc.setHandler.Set(res, req, nil)
+		}
 		err := testHandler(
 			t,
 			fmt.Sprintf(prefixPattern, tc.name),
@@ -104,5 +48,119 @@ func testSetHandler(t *testing.T, setHandler SetHandler) {
 			tc.testFunc,
 		)
 		require.NoError(t, err)
+	}
+}
+
+type setHandlerTestCase struct {
+	name       string
+	setHandler SetHandler
+	payload    string
+	testFunc   func(*testing.T, string, int, map[string]interface{})
+}
+
+func setHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []setHandlerTestCase {
+	rt := newDefaultRuntime()
+	json := newDefaultJSON()
+	sh := NewSetHandler(mux, ic, rt, json)
+	icd := client.DefaultClient()
+	setWErr := func(context.Context, []byte, []byte) (*schema.Index, error) {
+		return nil, errors.New("set error")
+	}
+
+	validKey := base64.StdEncoding.EncodeToString([]byte("setKey1"))
+	validValue := base64.StdEncoding.EncodeToString([]byte("setValue1"))
+	validPayload := fmt.Sprintf(
+		"{\"key\": \"%s\", \"value\": \"%s\"}",
+		validKey,
+		validValue,
+	)
+
+	return []setHandlerTestCase{
+		{
+			"Sending correct request",
+			sh,
+			validPayload,
+			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+				requireResponseStatus(t, testCase, http.StatusOK, status)
+				requireResponseFields(t, testCase, []string{"index"}, body)
+			},
+		},
+		{
+			"Missing value field",
+			sh,
+			fmt.Sprintf(
+				"{\"key\": \"%s\"}",
+				validKey,
+			),
+			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+				requireResponseStatus(t, testCase, http.StatusOK, status)
+				requireResponseFields(t, testCase, []string{"index"}, body)
+			},
+		},
+		{
+			"Sending incorrect json field",
+			sh,
+			fmt.Sprintf(
+				"{\"keyX\": \"%s\", \"value\": \"%s\"}",
+				validKey,
+				validValue,
+			),
+			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+				requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+				expected := map[string]interface{}{"error": "invalid key"}
+				requireResponseFieldsEqual(t, testCase, expected, body)
+			},
+		},
+		{
+			"Sending plain text instead of base64 encoded",
+			sh,
+			`{"key": "setKey1", "value": "setValue1"}`,
+			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+				requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+				expected :=
+					map[string]interface{}{"error": "illegal base64 data at input byte 4"}
+				requireResponseFieldsEqual(t, testCase, expected, body)
+			},
+		},
+		{
+			"Missing key field",
+			sh,
+			`{}`,
+			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+				requireResponseStatus(t, testCase, http.StatusBadRequest, status)
+				expected := map[string]interface{}{"error": "invalid key"}
+				requireResponseFieldsEqual(t, testCase, expected, body)
+			},
+		},
+		{
+			"AnnotateContext error",
+			NewSetHandler(mux, ic, newTestRuntimeWithAnnotateContextErr(), json),
+			validPayload,
+			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)
+				requireResponseFieldsEqual(
+					t, testCase, map[string]interface{}{"error": "annotate context error"}, body)
+			},
+		},
+		{
+			"Set error",
+			NewSetHandler(mux, &immuClientMock{ImmuClient: icd, set: setWErr}, rt, json),
+			validPayload,
+			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)
+				requireResponseFieldsEqual(
+					t, testCase, map[string]interface{}{"error": "set error"}, body)
+			},
+		},
+		{
+			"JSON marshal error",
+			NewSetHandler(mux, ic, rt, newTestJSONWithMarshalErr()),
+			validPayload,
+			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
+				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)
+				requireResponseFieldsEqual(
+					t, testCase, map[string]interface{}{"error": "JSON marshal error"}, body)
+			},
+		},
 	}
 }

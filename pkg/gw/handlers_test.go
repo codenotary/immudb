@@ -17,15 +17,10 @@ package gw
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -158,97 +153,10 @@ func TestGw(t *testing.T) {
 	immuClient = newClient(true, resp.Token).WithTimestampService(tss)
 	require.NoError(t, immuClient.HealthCheck(context.Background()))
 	mux := runtime.NewServeMux()
-	testSafeSetHandler(t, NewSafesetHandler(mux, immuClient))
-	testSetHandler(t, NewSetHandler(mux, immuClient))
-	testSafeGetHandler(t, NewSafegetHandler(mux, immuClient))
-	testHistoryHandler(t, NewHistoryHandler(mux, immuClient))
-	testSafeReferenceHandler(t, NewSafeReferenceHandler(mux, immuClient))
-	testSafeZAddHandler(t, NewSafeZAddHandler(mux, immuClient))
-}
-
-func testHandler(
-	t *testing.T,
-	name string,
-	method string,
-	path string,
-	body string,
-	handlerFunc func(http.ResponseWriter, *http.Request),
-	testFunc func(*testing.T, string, int, map[string]interface{}),
-) error {
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Add("Content-Type", "application/json")
-	handler := http.HandlerFunc(handlerFunc)
-	handler.ServeHTTP(w, req)
-	testCase := fmt.Sprintf("%s - %s %s %s - ", name, method, path, body)
-	respBytes := w.Body.Bytes()
-	var respBody map[string]interface{}
-	if err := json.Unmarshal(respBytes, &respBody); err != nil {
-		return fmt.Errorf(
-			"%s - error unmarshaling JSON from response %s", testCase, respBytes)
-	}
-	testFunc(t, testCase, w.Code, respBody)
-	return nil
-}
-
-func requireResponseStatus(
-	t *testing.T,
-	testCase string,
-	expected int,
-	actual int,
-) {
-	require.Equal(
-		t,
-		expected,
-		actual,
-		"%sexpected HTTP status %d, actual %d", testCase, expected, actual)
-}
-
-func getMissingResponseFieldPattern(testCase string) string {
-	return testCase + "\"%s\" field is missing from response %v"
-}
-
-func requireResponseFields(
-	t *testing.T,
-	testCase string,
-	fields []string,
-	body map[string]interface{},
-) {
-	missingPattern := getMissingResponseFieldPattern(testCase)
-	for _, field := range fields {
-		_, ok := body[field]
-		require.True(t, ok, missingPattern, field, body)
-	}
-}
-
-func requireResponseFieldsTrue(
-	t *testing.T,
-	testCase string,
-	fields []string,
-	body map[string]interface{},
-) {
-	missingPattern := getMissingResponseFieldPattern(testCase)
-	isFalsePattern := testCase + "\"%s\" field is false in response %v"
-	for _, field := range fields {
-		fieldValue, ok := body[field]
-		require.True(t, ok, missingPattern, field, body)
-		require.True(t, fieldValue.(bool), isFalsePattern, field, body)
-	}
-}
-
-func requireResponseFieldsEqual(
-	t *testing.T,
-	testCase string,
-	fields map[string]interface{},
-	body map[string]interface{},
-) {
-	missingPattern := getMissingResponseFieldPattern(testCase)
-	notEqPattern := testCase +
-		"expected response %v to have field \"%s\" = \"%v\", but actual field value is \"%v\""
-	for field, expected := range fields {
-		fieldValue, ok := body[field]
-		require.True(t, ok, missingPattern, field, body)
-		require.Equal(
-			t, expected, fieldValue, notEqPattern, body, field, expected, fieldValue)
-	}
+	testSafeSetHandler(t, mux, immuClient)
+	testSetHandler(t, mux, immuClient)
+	testSafeGetHandler(t, mux, immuClient)
+	testHistoryHandler(t, mux, immuClient)
+	testSafeReferenceHandler(t, mux, immuClient)
+	testSafeZAddHandler(t, mux, immuClient)
 }
