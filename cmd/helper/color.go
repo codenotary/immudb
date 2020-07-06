@@ -18,6 +18,7 @@ package helper
 
 import (
 	"fmt"
+	"io"
 	"runtime"
 )
 
@@ -61,4 +62,9 @@ func init() {
 // PrintfColor ...
 func PrintfColor(color string, format string, args ...interface{}) {
 	fmt.Printf(color+format+Reset, args...)
+}
+
+// PrintfColorW ...
+func PrintfColorW(w io.Writer, color string, format string, args ...interface{}) {
+	fmt.Fprintf(w, color+format+Reset, args...)
 }
