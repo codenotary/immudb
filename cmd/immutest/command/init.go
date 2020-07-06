@@ -18,7 +18,6 @@ package immutest
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -71,11 +70,6 @@ func Init(cmd *cobra.Command, o *c.Options) {
 			c.QuitToStdErr(err)
 		}
 		defer cl.disconnect(cmd, nil)
-		serverAddress := cl.immuClient.GetOptions().Address
-		if serverAddress != "127.0.0.1" && serverAddress != "localhost" {
-			c.QuitToStdErr(errors.New(
-				"immutest is allowed to run only on the server machine (remote runs are not allowed)"))
-		}
 		db := viper.GetString("database")
 		user := viper.GetString("user")
 		ctx := context.Background()
