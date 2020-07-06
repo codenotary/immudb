@@ -47,7 +47,7 @@ Environment variables:
 		SilenceErrors:     true,
 		DisableAutoGenTag: true,
 	}
-	Init(cmd, cmdName, &o)
+	cmd = Init(cmd, cmdName, &o.CfgFn)
 	cmd.AddCommand(version.VersionCmd())
 
 	return cmd
