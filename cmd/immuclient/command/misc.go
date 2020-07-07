@@ -105,27 +105,137 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Aliases:           []string{"u"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"help", "list", "create", "permission grant", "permission revoke", "change password", "activate", "deactivate"},
+	}
+	userListCmd := &cobra.Command{
+		Use:               "list",
+		Short:             "List all users",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.UserOperations(args)
+			resp, err := cl.immucl.UserList(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
 			fmt.Println(resp)
 			return nil
 		},
-		Args: cobra.MaximumNArgs(5),
+		Args: cobra.MaximumNArgs(0),
 	}
+	userChangePassword := &cobra.Command{
+		Use:               "changepassword",
+		Short:             "Change user password. changepassword username",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.ChangeUserPassword(args)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Println(resp)
+			return nil
+		},
+		Args: cobra.MaximumNArgs(1),
+	}
+
+	userCreate := &cobra.Command{
+		Use:               "create",
+		Short:             "Create a new user",
+		Long:              "Create a new user. user create username",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.UserList(args)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Println(resp)
+			return nil
+		},
+		Args: cobra.MaximumNArgs(4),
+	}
+	userActivate := &cobra.Command{
+		Use:               "activate",
+		Short:             "Activate a user",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.SetActiveUser(args, true)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Println(resp)
+			return nil
+		},
+		Args: cobra.MaximumNArgs(4),
+	}
+	userDeactivate := &cobra.Command{
+		Use:               "deactivate",
+		Short:             "Deactivate a user",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.SetActiveUser(args, false)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Println(resp)
+			return nil
+		},
+		Args: cobra.MaximumNArgs(4),
+	}
+	userPermission := &cobra.Command{
+		Use:               "permission",
+		Short:             "Set user permission",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.SetUserPermission(args)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Println(resp)
+			return nil
+		},
+		Args: cobra.MaximumNArgs(4),
+	}
+
+	ccmd.AddCommand(userListCmd)
+	ccmd.AddCommand(userChangePassword)
+	ccmd.AddCommand(userCreate)
+	ccmd.AddCommand(userActivate)
+	ccmd.AddCommand(userDeactivate)
+	ccmd.AddCommand(userPermission)
 	cmd.AddCommand(ccmd)
 }
 func (cl *commandline) database(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "database command",
+		Use:               "database",
 		Short:             "Issue all database commands",
 		Aliases:           []string{"d"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"help", "list", "create databasename"},
+		ValidArgs:         []string{"list", "create"},
+	}
+	ccd := &cobra.Command{
+		Use:               "list",
+		Aliases:           []string{"d"},
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.DatabaseList(args)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Println(resp)
+			return nil
+		},
+		Args: cobra.ExactArgs(0),
+	}
+	cc := &cobra.Command{
+		Use:               "create",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		Example:           "create database_name",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.CreateDatabase(args)
 			if err != nil {
@@ -134,9 +244,13 @@ func (cl *commandline) database(cmd *cobra.Command) {
 			fmt.Println(resp)
 			return nil
 		},
-		Args: cobra.MaximumNArgs(3),
+		Args: cobra.ExactArgs(1),
 	}
+	ccmd.AddCommand(ccd)
+	ccmd.AddCommand(cc)
+
 	cmd.AddCommand(ccmd)
+
 }
 func (cl *commandline) use(cmd *cobra.Command) {
 	ccmd := &cobra.Command{

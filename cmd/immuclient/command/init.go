@@ -66,7 +66,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 		c.QuitToStdErr(err)
 	}
 	var err error
-	cl.immucl, err = immuc.Init()
+	cl.immucl, err = immuc.Init(immuc.Options())
 	if err != nil {
 		c.QuitToStdErr(err)
 	}

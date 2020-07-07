@@ -51,7 +51,6 @@ func (cl *commandline) login(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "logged in\n")
-
 			if cl.immuClient, err = client.NewImmuClient(cl.immuClient.GetOptions()); err != nil {
 				c.QuitWithUserError(err)
 			}
