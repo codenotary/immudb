@@ -19,6 +19,9 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"io/ioutil"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -26,8 +29,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"io/ioutil"
-	"testing"
 )
 
 func TestCommandLine_Connect(t *testing.T) {

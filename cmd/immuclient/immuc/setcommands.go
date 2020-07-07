@@ -186,45 +186,34 @@ func (i *immuc) SafeZAdd(args []string) (string, error) {
 }
 
 func (i *immuc) CreateDatabase(args []string) (string, error) {
-	var command string
-	if len(args) == 0 {
-		command = "help"
-	} else {
-		command = args[0]
+	if len(args) < 1 {
+		return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
 	}
-	switch command {
-	case "help":
-		fmt.Println("database list  -- shows databases and their details")
-		fmt.Println()
-		fmt.Println("database create database_name  -- create a new database")
-		return "", nil
-	case "create":
-		if len(args) < 2 {
-			return "Incorrect number of parameters for this command. Please type 'database help' for more information.", nil
-		}
-		dbname := []byte(args[1])
-
-		ctx := context.Background()
-		resp, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
-			Databasename: string(dbname),
-		})
-		if err != nil {
-			return "", err
-		}
-		return resp.Error.Errormessage, nil
-	case "list":
-		resp, err := i.ImmuClient.DatabaseList(context.Background(), &emptypb.Empty{})
-		if err != nil {
-			return "", err
-		}
-		for _, val := range resp.Databases {
-			fmt.Println(val.Databasename)
-		}
-		return "", nil
+	dbname := args[0]
+	ctx := context.Background()
+	resp, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
+		Databasename: string(dbname),
+	})
+	if err != nil {
+		return "", err
 	}
-	return "Uknown command. Please type 'database help' for more information.", nil
+	return resp.Error.Errormessage, nil
 }
+func (i *immuc) DatabaseList(args []string) (string, error) {
+	resp, err := i.ImmuClient.DatabaseList(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		return "", err
+	}
 
+	for _, val := range resp.Databases {
+		if i.options.CurrentDatabase == val.Databasename {
+			fmt.Print("*")
+		}
+		fmt.Println(val.Databasename)
+	}
+	return "", nil
+
+}
 func (i *immuc) UseDatabase(args []string) (string, error) {
 	dbname := args[0]
 

@@ -61,29 +61,36 @@ type Client interface {
 	ValueOnly() bool
 	SetValueOnly(v bool)
 	CreateDatabase(args []string) (string, error)
+	DatabaseList(args []string) (string, error)
 	UseDatabase(args []string) (string, error)
 	UserOperations(args []string) (string, error)
+	SetActiveUser(args []string, active bool) (string, error)
+	SetUserPermission(args []string) (string, error)
+	UserList(args []string) (string, error)
+	ChangeUserPassword(args []string) (string, error)
 }
 
 // Init ...
-func Init() (Client, error) {
+func Init(opts *client.Options) (Client, error) {
 	ic := new(immuc)
 	ic.passwordReader = c.DefaultPasswordReader
 	ic.hds = client.NewHomedirService()
+	ic.options = opts
 	return ic, nil
 }
 
 func (i *immuc) Connect(args []string) error {
-	i.options = options()
 	len, err := i.hds.ReadFileFromUserHomeDir(i.options.TokenFileName)
 	if err != nil || len == "" {
 		i.options.Auth = false
 	} else {
 		i.options.Auth = true
 	}
+
 	if i.ImmuClient, err = client.NewImmuClient(i.options); err != nil || i.ImmuClient == nil {
 		return err
 	}
+
 	i.valueOnly = viper.GetBool("value-only")
 	return nil
 }
@@ -95,7 +102,7 @@ func (i *immuc) Disconnect(args []string) error {
 	return nil
 }
 
-func options() *client.Options {
+func Options() *client.Options {
 	options := client.DefaultOptions().
 		WithPort(viper.GetInt("immudb-port")).
 		WithAddress(viper.GetString("immudb-address")).

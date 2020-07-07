@@ -68,7 +68,7 @@ message UserResponse {
 
 message ChangePasswordRequest {
 	bytes user = 1;
-	bytes oldPassword = 2;//not used any more
+	bytes oldPassword = 2;
 	bytes newPassword = 3;
 }
 

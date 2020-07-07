@@ -18,8 +18,6 @@ package client
 
 import (
 	"context"
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"log"
 	"net"
@@ -28,6 +26,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
@@ -478,7 +479,7 @@ func TestUserManagement(t *testing.T) {
 
 	// @todo need to be fixed
 	usrList, err9 := client.ListUsers(context.TODO())
-	assert.Error(t, err9)
+	assert.NoError(t, err9)
 	assert.IsType(t, &schema.UserList{}, usrList)
 
 	client.Disconnect()
