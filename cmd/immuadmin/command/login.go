@@ -50,12 +50,13 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			if err = client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println("logged in")
+			fmt.Fprintf(cmd.OutOrStdout(), "logged in\n")
+
 			if cl.immuClient, err = client.NewImmuClient(cl.immuClient.GetOptions()); err != nil {
 				c.QuitWithUserError(err)
 			}
 			if string(response.Warning) == auth.WarnDefaultAdminPassword {
-				c.PrintfColor(c.Yellow, "SECURITY WARNING: %s\n", response.Warning)
+				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "SECURITY WARNING: %s\n", response.Warning)
 				cl.changePassword(user, pass)
 			}
 			return nil
@@ -75,7 +76,7 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 			if err := cl.immuClient.Logout(cl.context); err != nil {
 				c.QuitWithUserError(err)
 			}
-			fmt.Println("logged out")
+			fmt.Fprintf(cmd.OutOrStdout(), "logged out\n")
 			return nil
 		},
 		Args: cobra.NoArgs,
@@ -96,6 +97,7 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	}
 	return
 }
+
 func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
 	possiblyLoggedIn, err2 := client.FileExistsInUserHomeDir(cl.options.TokenFileName)
 	if err2 != nil {
