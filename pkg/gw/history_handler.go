@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -35,11 +36,11 @@ type historyHandler struct {
 	mux     *runtime.ServeMux
 	client  client.ImmuClient
 	runtime Runtime
-	json    JSON
+	json    json.JSON
 }
 
 // NewHistoryHandler ...
-func NewHistoryHandler(mux *runtime.ServeMux, client client.ImmuClient, rt Runtime, json JSON) HistoryHandler {
+func NewHistoryHandler(mux *runtime.ServeMux, client client.ImmuClient, rt Runtime, json json.JSON) HistoryHandler {
 	return &historyHandler{mux, client, rt, json}
 }
 

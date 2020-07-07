@@ -31,6 +31,7 @@ import (
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
 	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
@@ -65,7 +66,7 @@ func (s *ImmuGwServer) Start() error {
 	handler := cors.Default().Handler(mux)
 
 	rt := DefaultRuntime()
-	json := DefaultJSON()
+	json := json.DefaultJSON()
 
 	sh := NewSetHandler(mux, ic, rt, json)
 	ssh := NewSafesetHandler(mux, ic, rt, json)

@@ -25,6 +25,8 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/clienttest"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +61,7 @@ type safeZAddHandlerTestCase struct {
 
 func safeZAddHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []safeZAddHandlerTestCase {
 	rt := newDefaultRuntime()
-	json := newDefaultJSON()
+	json := json.DefaultJSON()
 	szh := NewSafeZAddHandler(mux, ic, rt, json)
 	icd := client.DefaultClient()
 	safeZAddWErr := func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error) {
@@ -155,7 +157,7 @@ func safeZAddHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) [
 		},
 		{
 			"SafeZAdd error",
-			NewSafeZAddHandler(mux, &immuClientMock{ImmuClient: icd, safeZAdd: safeZAddWErr}, rt, json),
+			NewSafeZAddHandler(mux, &clienttest.ImmuClientMock{ImmuClient: icd, SafeZAddF: safeZAddWErr}, rt, json),
 			validPayload,
 			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)

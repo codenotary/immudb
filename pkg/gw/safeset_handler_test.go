@@ -25,6 +25,8 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/clienttest"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +61,7 @@ type safeSetHandlerTestCase struct {
 
 func safeSetHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []safeSetHandlerTestCase {
 	rt := newDefaultRuntime()
-	json := newDefaultJSON()
+	json := json.DefaultJSON()
 	ssh := NewSafesetHandler(mux, ic, rt, json)
 	icd := client.DefaultClient()
 	safeSetWErr := func(context.Context, []byte, []byte) (*client.VerifiedIndex, error) {
@@ -139,7 +141,7 @@ func safeSetHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []
 		},
 		{
 			"SafeSet error",
-			NewSafesetHandler(mux, &immuClientMock{ImmuClient: icd, safeSet: safeSetWErr}, rt, json),
+			NewSafesetHandler(mux, &clienttest.ImmuClientMock{ImmuClient: icd, SafeSetF: safeSetWErr}, rt, json),
 			validPayload,
 			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)

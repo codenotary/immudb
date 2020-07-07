@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gw
+package json
 
 import (
 	"encoding/json"
@@ -26,27 +26,26 @@ type JSON interface {
 	Unmarshal([]byte, interface{}) error
 }
 
-type defaultJSON struct {
-	marshal   func(interface{}) ([]byte, error)
-	unmarshal func([]byte, interface{}) error
+// StandardJSON ...
+type StandardJSON struct {
+	MarshalF   func(interface{}) ([]byte, error)
+	UnmarshalF func([]byte, interface{}) error
 }
 
 // DefaultJSON ...
-func DefaultJSON() JSON {
-	return newDefaultJSON()
-}
-
-func newDefaultJSON() *defaultJSON {
-	return &defaultJSON{
-		marshal:   json.Marshal,
-		unmarshal: json.Unmarshal,
+func DefaultJSON() *StandardJSON {
+	return &StandardJSON{
+		MarshalF:   json.Marshal,
+		UnmarshalF: json.Unmarshal,
 	}
 }
 
-func (dj *defaultJSON) Marshal(v interface{}) ([]byte, error) {
-	return dj.marshal(v)
+// Marshal ...
+func (sj *StandardJSON) Marshal(v interface{}) ([]byte, error) {
+	return sj.MarshalF(v)
 }
 
-func (dj *defaultJSON) Unmarshal(data []byte, v interface{}) error {
-	return dj.unmarshal(data, v)
+// Unmarshal ...
+func (sj *StandardJSON) Unmarshal(data []byte, v interface{}) error {
+	return sj.UnmarshalF(data, v)
 }

@@ -16,13 +16,14 @@ limitations under the License.
 package gw
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,12 +44,20 @@ func testHandler(
 	testCase := fmt.Sprintf("%s - %s %s %s - ", name, method, path, body)
 	respBytes := w.Body.Bytes()
 	var respBody map[string]interface{}
-	if err := json.Unmarshal(respBytes, &respBody); err != nil {
+	if err := json.DefaultJSON().Unmarshal(respBytes, &respBody); err != nil {
 		return fmt.Errorf(
 			"%s - error unmarshaling JSON from response %s", testCase, respBytes)
 	}
 	testFunc(t, testCase, w.Code, respBody)
 	return nil
+}
+
+func newTestJSONWithMarshalErr() json.JSON {
+	return &json.StandardJSON{
+		MarshalF: func(v interface{}) ([]byte, error) {
+			return nil, errors.New("JSON marshal error")
+		},
+	}
 }
 
 func requireResponseStatus(

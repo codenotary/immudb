@@ -25,6 +25,8 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/clienttest"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -60,8 +62,8 @@ type safeGetHandlerTestCase struct {
 
 func safeGetHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []safeGetHandlerTestCase {
 	rt := newDefaultRuntime()
-	json := newDefaultJSON()
-	sgh := NewSafegetHandler(mux, ic, rt, json)
+	defaultJSON := json.DefaultJSON()
+	sgh := NewSafegetHandler(mux, ic, rt, defaultJSON)
 	icd := client.DefaultClient()
 	safeGetWErr := func(context.Context, []byte, ...grpc.CallOption) (*client.VerifiedItem, error) {
 		return nil, errors.New("safeget error")
@@ -114,7 +116,7 @@ func safeGetHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []
 		},
 		{
 			"AnnotateContext error",
-			NewSafegetHandler(mux, ic, newTestRuntimeWithAnnotateContextErr(), json),
+			NewSafegetHandler(mux, ic, newTestRuntimeWithAnnotateContextErr(), defaultJSON),
 			validPayload,
 			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)
@@ -124,7 +126,7 @@ func safeGetHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []
 		},
 		{
 			"Safeget error",
-			NewSafegetHandler(mux, &immuClientMock{ImmuClient: icd, safeGet: safeGetWErr}, rt, json),
+			NewSafegetHandler(mux, &clienttest.ImmuClientMock{ImmuClient: icd, SafeGetF: safeGetWErr}, rt, defaultJSON),
 			validPayload,
 			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)
