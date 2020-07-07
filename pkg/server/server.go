@@ -1117,16 +1117,33 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	loggedInuser := &auth.User{}
 	var dbInd = int64(0)
 	var err error
+	userlist := &schema.UserList{}
 	if !s.Options.GetMaintenance() {
-		if !s.multidbmode {
-			return nil, fmt.Errorf("Single user mode")
-		}
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
 		dbInd, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("please login")
+		}
+		if !s.multidbmode {
+			//return current user which is immudb
+			permissions := []*schema.Permission{}
+			for _, val := range loggedInuser.Permissions {
+				permissions = append(permissions, &schema.Permission{
+					Database:   val.Database,
+					Permission: val.Permission,
+				})
+			}
+			u := schema.User{
+				User:        []byte(loggedInuser.Username),
+				Createdat:   loggedInuser.CreatedAt.String(),
+				Createdby:   loggedInuser.CreatedBy,
+				Permissions: permissions,
+				Active:      loggedInuser.Active,
+			}
+			userlist.Users = append(userlist.Users, &u)
+			return userlist, nil
 		}
 
 	}
@@ -1139,7 +1156,6 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	}
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		//return all users
-		userlist := &schema.UserList{}
 		includeDeactivated := true
 		for i := 0; i < len(itemList.Items); i++ {
 			itemList.Items[i].Key = itemList.Items[i].Key[1:]
