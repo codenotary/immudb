@@ -21,9 +21,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/client/cache"
-	"github.com/codenotary/immudb/pkg/client/timestamp"
-	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +28,6 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"log"
 	"net"
-	"os"
 	"testing"
 )
 
@@ -56,23 +52,6 @@ var cli client.ImmuClient
 var username string
 var plainPass string
 
-func setup() {
-	cleanup()
-	immuServer = newServer(true)
-	immuServer.Start()
-	nm, _ := timestamp.NewTdefault()
-	tss := client.NewTimestampService(nm)
-	token := login()
-	cli = newClient(true, token).WithTimestampService(tss)
-	resp, err := cli.UseDatabase(context.Background(), &schema.Database{
-		Databasename: immuServer.Options.GetDefaultDbName(),
-	})
-	if err != nil {
-		panic(err)
-	}
-	cli = newClient(true, resp.Token).WithTimestampService(tss)
-}
-
 func newServer(authRequired bool) *server.ImmuServer {
 	is := server.DefaultServer()
 	is = is.WithOptions(is.Options.WithAuth(authRequired).WithInMemoryStore(true))
@@ -94,44 +73,6 @@ func newServer(authRequired bool) *server.ImmuServer {
 	return is
 }
 
-func newClient(withToken bool, token string) client.ImmuClient {
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
-	}
-	if withToken {
-		dialOptions = append(
-			dialOptions,
-			grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)),
-			grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)),
-		)
-	}
-
-	immuclient := client.DefaultClient().WithOptions(client.DefaultOptions().WithAuth(withToken).WithDialOptions(&dialOptions))
-	clientConn, _ := immuclient.Connect(context.TODO())
-	immuclient.WithClientConn(clientConn)
-	serviceClient := schema.NewImmuServiceClient(clientConn)
-	immuclient.WithServiceClient(serviceClient)
-	rootService := client.NewRootService(serviceClient, cache.NewFileCache("."), logger.NewSimpleLogger("test", os.Stdout))
-	immuclient.WithRootService(rootService)
-
-	return immuclient
-}
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {
 	return lis.Dial()
-}
-func cleanup() {
-	// delete files and folders created by tests
-	if err := os.Remove(".root-"); err != nil {
-		log.Println(err)
-	}
-}
-
-func login() string {
-	c := newClient(false, "")
-	ctx := context.Background()
-	r, err := c.Login(ctx, []byte(username), []byte(plainPass))
-	if err != nil {
-		log.Fatal(err)
-	}
-	return string(r.GetToken())
 }
