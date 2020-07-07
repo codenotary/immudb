@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/utilities"
 	"google.golang.org/grpc/codes"
@@ -39,12 +40,12 @@ type safegetHandler struct {
 	mux     *runtime.ServeMux
 	client  client.ImmuClient
 	runtime Runtime
-	json    JSON
+	json    json.JSON
 	sync.RWMutex
 }
 
 // NewSafegetHandler ...
-func NewSafegetHandler(mux *runtime.ServeMux, client client.ImmuClient, rt Runtime, json JSON) SafegetHandler {
+func NewSafegetHandler(mux *runtime.ServeMux, client client.ImmuClient, rt Runtime, json json.JSON) SafegetHandler {
 	return &safegetHandler{
 		mux:     mux,
 		client:  client,

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gw
+package json
 
 import (
 	"errors"
@@ -23,32 +23,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestJSONWithMarshalErr() JSON {
-	j := newDefaultJSON()
-	j.marshal = func(v interface{}) ([]byte, error) {
-		return nil, errors.New("JSON marshal error")
-	}
-	return j
-}
-
 func TestJSON(t *testing.T) {
-	j := DefaultJSON()
-	dj, ok := j.(*defaultJSON)
-	require.True(t, ok)
+	sj := DefaultJSON()
 
 	marshalErr := errors.New("marshal error")
-	dj.marshal =
+	sj.MarshalF =
 		func(v interface{}) ([]byte, error) {
 			return nil, marshalErr
 		}
-	_, err := dj.Marshal(nil)
+	_, err := sj.Marshal(nil)
 	require.Equal(t, marshalErr, err)
 
 	unmarshalErr := errors.New("unmarshal error")
-	dj.unmarshal =
+	sj.UnmarshalF =
 		func(data []byte, v interface{}) error {
 			return unmarshalErr
 		}
-	err = dj.Unmarshal(nil, nil)
+	err = sj.Unmarshal(nil, nil)
 	require.Equal(t, unmarshalErr, err)
 }

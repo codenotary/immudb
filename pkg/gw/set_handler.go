@@ -24,6 +24,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/utilities"
 	"google.golang.org/grpc/codes"
@@ -44,11 +45,11 @@ type setHandler struct {
 	mux     *runtime.ServeMux
 	client  client.ImmuClient
 	runtime Runtime
-	json    JSON
+	json    json.JSON
 }
 
 // NewSetHandler ...
-func NewSetHandler(mux *runtime.ServeMux, client client.ImmuClient, rt Runtime, json JSON) SetHandler {
+func NewSetHandler(mux *runtime.ServeMux, client client.ImmuClient, rt Runtime, json json.JSON) SetHandler {
 	return &setHandler{
 		mux:     mux,
 		client:  client,

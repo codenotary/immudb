@@ -26,6 +26,8 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/clienttest"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
 )
@@ -64,8 +66,8 @@ type historyHandlerTestCase struct {
 
 func historyHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []historyHandlerTestCase {
 	rt := newDefaultRuntime()
-	json := newDefaultJSON()
-	hh := NewHistoryHandler(mux, ic, rt, json)
+	defaultJSON := json.DefaultJSON()
+	hh := NewHistoryHandler(mux, ic, rt, defaultJSON)
 	icd := client.DefaultClient()
 	historyWErr := func(context.Context, []byte) (*schema.StructuredItemList, error) {
 		return nil, errors.New("history error")
@@ -119,7 +121,7 @@ func historyHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []
 		},
 		{
 			"AnnotateContext error",
-			NewHistoryHandler(mux, ic, newTestRuntimeWithAnnotateContextErr(), json),
+			NewHistoryHandler(mux, ic, newTestRuntimeWithAnnotateContextErr(), defaultJSON),
 			validKey,
 			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)
@@ -129,7 +131,7 @@ func historyHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []
 		},
 		{
 			"History error",
-			NewHistoryHandler(mux, &immuClientMock{ImmuClient: icd, history: historyWErr}, rt, json),
+			NewHistoryHandler(mux, &clienttest.ImmuClientMock{ImmuClient: icd, HistoryF: historyWErr}, rt, defaultJSON),
 			validKey,
 			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)

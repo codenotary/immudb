@@ -25,6 +25,8 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/clienttest"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +61,7 @@ type safeReferenceHandlerTestCase struct {
 
 func safeReferenceHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClient) []safeReferenceHandlerTestCase {
 	rt := newDefaultRuntime()
-	json := newDefaultJSON()
+	json := json.DefaultJSON()
 	srh := NewSafeReferenceHandler(mux, ic, rt, json)
 	icd := client.DefaultClient()
 	safeReferenceWErr := func(context.Context, []byte, []byte) (*client.VerifiedIndex, error) {
@@ -149,7 +151,7 @@ func safeReferenceHandlerTestCases(mux *runtime.ServeMux, ic immuclient.ImmuClie
 		},
 		{
 			"SafeReference error",
-			NewSafeReferenceHandler(mux, &immuClientMock{ImmuClient: icd, safeReference: safeReferenceWErr}, rt, json),
+			NewSafeReferenceHandler(mux, &clienttest.ImmuClientMock{ImmuClient: icd, SafeReferenceF: safeReferenceWErr}, rt, json),
 			validPayload,
 			func(t *testing.T, testCase string, status int, body map[string]interface{}) {
 				requireResponseStatus(t, testCase, http.StatusInternalServerError, status)
