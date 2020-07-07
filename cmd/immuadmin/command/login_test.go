@@ -17,15 +17,19 @@ limitations under the License.
 package immuadmin
 
 import (
+	"bytes"
 	"context"
+	"github.com/prometheus/common/log"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"io/ioutil"
 	"testing"
 )
 
 func TestCommandLine_Connect(t *testing.T) {
-	immuServer = newServer(true)
+	log.Info("TestCommandLine_Connect")
+	immuServer = newServer(false)
 	immuServer.Start()
 
 	dialOptions := []grpc.DialOption{
@@ -41,25 +45,9 @@ func TestCommandLine_Connect(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestCommandLine_CheckLoggedInAndConnect(t *testing.T) {
-	immuServer = newServer(true)
-	immuServer.Start()
-
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
-	}
-	opts := Options()
-	opts.DialOptions = &dialOptions
-	cmdl := commandline{
-		context: context.Background(),
-		options: opts,
-	}
-	err := cmdl.checkLoggedInAndConnect(&cobra.Command{}, []string{})
-	assert.Nil(t, err)
-}
-
 func TestCommandLine_Disconnect(t *testing.T) {
-	immuServer = newServer(true)
+	log.Info("TestCommandLine_Disconnect")
+	immuServer = newServer(false)
 	immuServer.Start()
 
 	dialOptions := []grpc.DialOption{
@@ -77,4 +65,60 @@ func TestCommandLine_Disconnect(t *testing.T) {
 
 	err := cmdl.immuClient.Disconnect()
 	assert.Errorf(t, err, "not connected")
+}
+
+func TestCommandLine_LoginLogout(t *testing.T) {
+	immuServer = newServer(true)
+	immuServer.Start()
+
+	cmd := cobra.Command{}
+	cl := new(commandline)
+	cl.context = context.Background()
+	cl.passwordReader = &pwrMock{}
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
+	}
+
+	cl.options = Options()
+	cl.options.DialOptions = &dialOptions
+	cl.login(&cmd)
+
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{"login", "immudb"})
+	cmd.Execute()
+	out, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Contains(t, string(out), "logged in")
+
+	b1 := bytes.NewBufferString("")
+	logoutcmd := cobra.Command{}
+	logoutcmd.SetOut(b1)
+	logoutcmd.SetArgs([]string{"logout"})
+
+	cl.logout(&logoutcmd)
+
+	logoutcmd.Execute()
+	out1, err1 := ioutil.ReadAll(b1)
+	if err1 != nil {
+		t.Fatal(err1)
+	}
+	assert.Contains(t, string(out1), "logged out")
+}
+
+type pwrMock struct{}
+
+var count = 0
+
+func (pr *pwrMock) Read(msg string) ([]byte, error) {
+	var pw []byte
+	if count == 0 {
+		pw = []byte(`immudb`)
+	} else {
+		pw = []byte(`Passw0rd!-`)
+	}
+	count++
+	return pw, nil
 }
