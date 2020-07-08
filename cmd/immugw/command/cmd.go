@@ -293,8 +293,8 @@ func InstallManPages(dir string) error {
 	return nil
 }
 
-// UnistallManPages uninstalls man pages
-func UnistallManPages(dir string) error {
+// UninstallManPages uninstalls man pages
+func UninstallManPages(dir string) error {
 	err1 := os.Remove(filepath.Join(dir, "immugw-version.1"))
 	err2 := os.Remove(filepath.Join(dir, "immugw.1"))
 	switch {

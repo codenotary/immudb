@@ -39,7 +39,7 @@ func TestNewCmd(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(manFiles))
 
-	require.NoError(t, UnistallManPages(manDir))
+	require.NoError(t, UninstallManPages(manDir))
 	manFiles, err = ioutil.ReadDir(manDir)
 	require.NoError(t, err)
 	require.Empty(t, manFiles)
