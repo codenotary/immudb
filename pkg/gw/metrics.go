@@ -17,7 +17,6 @@ limitations under the License.
 package gw
 
 import (
-	"encoding/json"
 	"expvar"
 	"fmt"
 	"net/http"
@@ -27,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -191,15 +191,17 @@ func newMetricsServer(
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/debug/vars", expvar.Handler())
-	mux.HandleFunc("/lastaudit", lastAuditHandler)
+	mux.HandleFunc("/lastaudit", lastAuditHandler(json.DefaultJSON()))
 	return &http.Server{Addr: addr, Handler: mux}
 }
 
-func lastAuditHandler(w http.ResponseWriter, req *http.Request) {
-	bs, err := json.Marshal(Metrics.lastAuditResult)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("internal error: %v", err), http.StatusInternalServerError)
+func lastAuditHandler(json json.JSON) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		bs, err := json.Marshal(Metrics.lastAuditResult)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("internal error: %v", err), http.StatusInternalServerError)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(bs)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
 }

@@ -16,13 +16,13 @@ limitations under the License.
 package gw
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/json"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
@@ -39,7 +39,8 @@ func TestLastAuditHandler(t *testing.T) {
 	req, err := http.NewRequest("GET", "/lastaudit", nil)
 	require.NoError(t, err)
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(lastAuditHandler)
+
+	handler := http.HandlerFunc(lastAuditHandler(json.DefaultJSON()))
 	handler.ServeHTTP(rr, req)
 	require.Equal(
 		t,
@@ -48,14 +49,31 @@ func TestLastAuditHandler(t *testing.T) {
 		"lastAuditHandler returned wrong status code: expected %v, actual %v",
 		http.StatusOK,
 		rr.Code)
-
 	var actual LastAuditResult
 	require.NoError(
 		t,
-		json.Unmarshal(rr.Body.Bytes(), &actual),
+		json.DefaultJSON().Unmarshal(rr.Body.Bytes(), &actual),
 		"can not unmarshal to LastAuditResult the lastAuditHandler response %s",
 		rr.Body.String())
 }
+
+func TestLastAuditHandlerJSONError(t *testing.T) {
+	req, err := http.NewRequest("GET", "/lastaudit", nil)
+	require.NoError(t, err)
+	rr := httptest.NewRecorder()
+
+	handlerWithJSONErr := http.HandlerFunc(lastAuditHandler(newTestJSONWithMarshalErr()))
+	handlerWithJSONErr.ServeHTTP(rr, req)
+	require.Equal(
+		t,
+		http.StatusInternalServerError,
+		rr.Code,
+		"lastAuditHandler returned wrong status code: expected %v, actual %v",
+		http.StatusInternalServerError,
+		rr.Code)
+	require.Contains(t, rr.Body.String(), "JSON marshal error")
+}
+
 func TestUpdateAuditResult(t *testing.T) {
 	Metrics.UpdateAuditResult(
 		"server1",
