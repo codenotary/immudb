@@ -184,7 +184,6 @@ func (i *immuc) ChangeUserPassword(args []string) (string, error) {
 	if !bytes.Equal(newpass, pass2) {
 		return "Passwords don't match", nil
 	}
-	//old pass is not required any more
 	if err := i.ImmuClient.ChangePassword(context.Background(), []byte(username), oldpass, []byte(newpass)); err != nil {
 		return "", err
 	}
