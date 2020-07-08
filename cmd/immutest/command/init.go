@@ -37,6 +37,7 @@ import (
 
 type commandline struct {
 	immuClient client.ImmuClient
+	hds        client.HomedirService
 }
 
 const defaultNbEntries = 100
@@ -51,6 +52,7 @@ func Init(cmd *cobra.Command, o *c.Options) {
 		c.QuitToStdErr(err)
 	}
 	cl := new(commandline)
+	cl.hds = client.NewHomedirService()
 
 	cmd.Use = "immutest [n]"
 	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
@@ -74,8 +76,8 @@ func Init(cmd *cobra.Command, o *c.Options) {
 		user := viper.GetString("user")
 		ctx := context.Background()
 		onSuccess := func() { reconnect(cl, cmd) } // used to redial with new token
-		login(ctx, cl.immuClient, user, defaultUser, defaultPassword, onSuccess)
-		selectDb(ctx, cl.immuClient, db, onSuccess)
+		login(ctx, cl.immuClient, cl.hds, user, defaultUser, defaultPassword, onSuccess)
+		selectDb(ctx, cl.immuClient, cl.hds, db, onSuccess)
 		nbEntries := parseNbEntries(args)
 		fmt.Printf("Database %s will be populated with %d entries.\n", db, nbEntries)
 		askUserToConfirmOrCancel()
@@ -119,6 +121,7 @@ func parseNbEntries(args []string) int {
 func login(
 	ctx context.Context,
 	immuClient client.ImmuClient,
+	hds client.HomedirService,
 	user string,
 	defaultUser string,
 	defaultPassword string,
@@ -127,7 +130,7 @@ func login(
 		response, err := immuClient.Login(ctx, []byte(user), []byte(defaultPassword))
 		if err == nil {
 			tokenFileName := immuClient.GetOptions().TokenFileName
-			if err := client.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
+			if err := hds.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
 				c.QuitToStdErr(err)
 			}
 			onSuccess()
@@ -143,7 +146,7 @@ func login(
 		c.QuitWithUserError(err)
 	}
 	tokenFileName := immuClient.GetOptions().TokenFileName
-	if err := client.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
+	if err := hds.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
 		c.QuitToStdErr(err)
 	}
 	onSuccess()
@@ -152,6 +155,7 @@ func login(
 func selectDb(
 	ctx context.Context,
 	immuClient client.ImmuClient,
+	hds client.HomedirService,
 	db string,
 	onSuccess func()) {
 	response, err := immuClient.UseDatabase(ctx, &schema.Database{Databasename: db})
@@ -160,7 +164,7 @@ func selectDb(
 	}
 	tokenFileName := immuClient.GetOptions().TokenFileName
 	token := []byte(response.GetToken())
-	if err := client.WriteFileToUserHomeDir(token, tokenFileName); err != nil {
+	if err := hds.WriteFileToUserHomeDir(token, tokenFileName); err != nil {
 		c.QuitToStdErr(err)
 	}
 	onSuccess()
