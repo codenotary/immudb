@@ -18,23 +18,26 @@ package servertest
 
 import (
 	"context"
+	"log"
+	"net"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
-	"log"
-	"net"
 )
 
 const bufSize = 1024 * 1024
+
+type BuffDialer func(context.Context, string) (net.Conn, error)
 
 type bufconnServer struct {
 	Lis        *bufconn.Listener
 	Server     *server.ImmuServer
 	Options    *server.Options
 	GrpcServer *grpc.Server
-	Dialer     func(context.Context, string) (net.Conn, error)
+	Dialer     BuffDialer
 }
 
 func NewBufconnServer(options server.Options) *bufconnServer {
