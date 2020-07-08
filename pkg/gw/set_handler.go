@@ -31,9 +31,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// InvalidItemProof ...
+// ErrInvalidItemProof ...
 var (
-	InvalidItemProof = errors.New("proof does not match the given item")
+	ErrInvalidItemProof = errors.New("proof does not match the given item")
 )
 
 // SetHandler ...

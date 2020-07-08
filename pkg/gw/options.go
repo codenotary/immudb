@@ -168,9 +168,9 @@ func (o Options) MetricsBind() string {
 }
 
 func (o Options) String() string {
-	optionsJson, err := json.Marshal(o)
+	optionsJSON, err := json.Marshal(o)
 	if err != nil {
 		return err.Error()
 	}
-	return string(optionsJson)
+	return string(optionsJSON)
 }
