@@ -28,6 +28,7 @@ type immuc struct {
 	valueOnly      bool
 	options        *client.Options
 	isLoggedin     bool
+	hds            client.HomedirService
 }
 
 // Client ...
@@ -68,12 +69,13 @@ type Client interface {
 func Init() (Client, error) {
 	ic := new(immuc)
 	ic.passwordReader = c.DefaultPasswordReader
+	ic.hds = client.NewHomedirService()
 	return ic, nil
 }
 
 func (i *immuc) Connect(args []string) error {
 	i.options = options()
-	len, err := client.ReadFileFromUserHomeDir(i.options.TokenFileName)
+	len, err := i.hds.ReadFileFromUserHomeDir(i.options.TokenFileName)
 	if err != nil || len == "" {
 		i.options.Auth = false
 	} else {

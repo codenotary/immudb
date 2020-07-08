@@ -43,7 +43,7 @@ func (i *immuc) Login(args []string) (string, error) {
 		return "", errors.New("username or password is not valid")
 	}
 	tokenFileName := i.ImmuClient.GetOptions().TokenFileName
-	if err = client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
+	if err = i.hds.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 		return "", err
 	}
 	i.ImmuClient.GetOptions().Auth = true
@@ -61,11 +61,11 @@ func (i *immuc) Login(args []string) (string, error) {
 }
 
 func (i *immuc) Logout(args []string) (string, error) {
-	len, err := client.ReadFileFromUserHomeDir(i.ImmuClient.GetOptions().TokenFileName)
+	len, err := i.hds.ReadFileFromUserHomeDir(i.ImmuClient.GetOptions().TokenFileName)
 	if err != nil || len == "" {
 		return "User not logged in.", nil
 	}
-	if err := client.DeleteFileFromUserHomeDir(i.ImmuClient.GetOptions().TokenFileName); err != nil {
+	if err := i.hds.DeleteFileFromUserHomeDir(i.ImmuClient.GetOptions().TokenFileName); err != nil {
 		return "", err
 	}
 	i.isLoggedin = false
