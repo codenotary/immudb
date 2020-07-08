@@ -39,6 +39,7 @@ import (
 
 const linuxExecPath = "/usr/sbin/"
 const linuxConfigPath = "/etc/immudb"
+const linuxManPath = "/usr/share/man/man1/"
 const linuxUser = "immu"
 const linuxGroup = "immu"
 
@@ -299,7 +300,7 @@ func (ss sservice) installManPages(serviceName string) error {
 	case "immudb":
 		return immudb.InstallManPages()
 	case "immugw":
-		return immugw.InstallManPages()
+		return immugw.InstallManPages(linuxManPath)
 	default:
 		return errors.New("invalid service name specified")
 	}
@@ -310,7 +311,7 @@ func (ss sservice) uninstallManPages(serviceName string) error {
 	case "immudb":
 		return immudb.UnistallManPages()
 	case "immugw":
-		return immugw.UnistallManPages()
+		return immugw.UnistallManPages(linuxManPath)
 	default:
 		return errors.New("invalid service name specified")
 	}

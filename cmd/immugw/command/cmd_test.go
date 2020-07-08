@@ -14,26 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package immugw
 
 import (
+	"io/ioutil"
 	"os"
+	"testing"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	immugw "github.com/codenotary/immudb/cmd/immugw/command"
 	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/stretchr/testify/require"
 )
 
-func main() {
-	execute(gw.DefaultServer())
-	os.Exit(0)
-}
-
-func execute(immugwServer gw.ImmuGw) {
+func TestNewCmd(t *testing.T) {
 	version.App = "immugw"
-	cmd := immugw.NewCmd(immugwServer)
-	if err := cmd.Execute(); err != nil {
-		c.QuitWithUserError(err)
-	}
+	// viper.
+	cmd := NewCmd(new(gw.ImmuGwServerMock))
+	require.NoError(t, cmd.Execute())
+
+	manDir := "./man_dir_immugw_test"
+
+	require.NoError(t, InstallManPages(manDir))
+	manFiles, err := ioutil.ReadDir(manDir)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(manFiles))
+
+	require.NoError(t, UnistallManPages(manDir))
+	manFiles, err = ioutil.ReadDir(manDir)
+	require.NoError(t, err)
+	require.Empty(t, manFiles)
+	os.RemoveAll(manDir)
 }
