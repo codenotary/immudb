@@ -25,95 +25,103 @@ import (
 )
 
 func TestWriteFileToUserHomeDir(t *testing.T) {
+	hds := NewHomedirService()
 	content := []byte(`t`)
 	pathToFile := "testfile"
 	h, _ := homedir.Dir()
-	err := WriteFileToUserHomeDir(content, pathToFile)
+	err := hds.WriteFileToUserHomeDir(content, pathToFile)
 	assert.FileExists(t, filepath.Join(h, pathToFile))
 	assert.Nil(t, err)
 	os.RemoveAll(filepath.Join(h, pathToFile))
 }
 
 func TestFileExistsInUserHomeDir(t *testing.T) {
+	hds := NewHomedirService()
 	content := []byte(`t`)
 	pathToFile := "testfile"
 	h, _ := homedir.Dir()
-	exists, err := FileExistsInUserHomeDir(filepath.Join(h, pathToFile))
+	exists, err := hds.FileExistsInUserHomeDir(filepath.Join(h, pathToFile))
 	assert.False(t, exists)
 	assert.Nil(t, err)
-	err = WriteFileToUserHomeDir(content, pathToFile)
-	exists, err = FileExistsInUserHomeDir(pathToFile)
+	err = hds.WriteFileToUserHomeDir(content, pathToFile)
+	exists, err = hds.FileExistsInUserHomeDir(pathToFile)
 	assert.True(t, exists)
 	assert.Nil(t, err)
 	os.RemoveAll(filepath.Join(h, pathToFile))
 }
 
 func TestReadFileFromUserHomeDir(t *testing.T) {
+	hds := NewHomedirService()
 	content := []byte(`t`)
 	pathToFile := "testfile"
 	h, _ := homedir.Dir()
-	_, err := ReadFileFromUserHomeDir(pathToFile)
+	_, err := hds.ReadFileFromUserHomeDir(pathToFile)
 	assert.Error(t, err)
-	err = WriteFileToUserHomeDir(content, pathToFile)
-	strcontent, err := ReadFileFromUserHomeDir(pathToFile)
+	err = hds.WriteFileToUserHomeDir(content, pathToFile)
+	strcontent, err := hds.ReadFileFromUserHomeDir(pathToFile)
 	assert.NotEmpty(t, strcontent)
 	assert.Nil(t, err)
 	os.RemoveAll(filepath.Join(h, pathToFile))
 }
 
 func TestDeleteFileFromUserHomeDir(t *testing.T) {
+	hds := NewHomedirService()
 	content := []byte(`t`)
 	pathToFile := "testfile"
 	h, _ := homedir.Dir()
-	err := DeleteFileFromUserHomeDir(pathToFile)
+	err := hds.DeleteFileFromUserHomeDir(pathToFile)
 	assert.Error(t, err)
-	err = WriteFileToUserHomeDir(content, pathToFile)
-	err = DeleteFileFromUserHomeDir(pathToFile)
+	err = hds.WriteFileToUserHomeDir(content, pathToFile)
+	err = hds.DeleteFileFromUserHomeDir(pathToFile)
 	assert.Nil(t, err)
 	assert.NoFileExists(t, filepath.Join(h, pathToFile))
 }
 
 func TestWriteDirFileToUserHomeDir(t *testing.T) {
+	hds := NewHomedirService()
 	content := []byte(`t`)
 	pathToFile := "./testfile"
-	err := WriteFileToUserHomeDir(content, pathToFile)
+	err := hds.WriteFileToUserHomeDir(content, pathToFile)
 	assert.FileExists(t, pathToFile)
 	assert.Nil(t, err)
 	os.RemoveAll(pathToFile)
 }
 
 func TestDirFileExistsInUserHomeDir(t *testing.T) {
+	hds := NewHomedirService()
 	content := []byte(`t`)
 	pathToFile := "./testfile"
-	exists, err := FileExistsInUserHomeDir(pathToFile)
+	exists, err := hds.FileExistsInUserHomeDir(pathToFile)
 	assert.False(t, exists)
 	assert.Nil(t, err)
-	err = WriteFileToUserHomeDir(content, pathToFile)
-	exists, err = FileExistsInUserHomeDir(pathToFile)
+	err = hds.WriteFileToUserHomeDir(content, pathToFile)
+	exists, err = hds.FileExistsInUserHomeDir(pathToFile)
 	assert.True(t, exists)
 	assert.Nil(t, err)
 	os.RemoveAll(pathToFile)
 }
 
 func TestDirFileFileFromUserHomeDir(t *testing.T) {
+	hds := NewHomedirService()
 	content := []byte(`t`)
 	pathToFile := "./testfile"
-	_, err := ReadFileFromUserHomeDir(pathToFile)
+	_, err := hds.ReadFileFromUserHomeDir(pathToFile)
 	assert.Error(t, err)
-	err = WriteFileToUserHomeDir(content, pathToFile)
-	strcontent, err := ReadFileFromUserHomeDir(pathToFile)
+	err = hds.WriteFileToUserHomeDir(content, pathToFile)
+	strcontent, err := hds.ReadFileFromUserHomeDir(pathToFile)
 	assert.NotEmpty(t, strcontent)
 	assert.Nil(t, err)
 	os.RemoveAll(pathToFile)
 }
 
 func TestDeleteDirFileFromUserHomeDir(t *testing.T) {
+	hds := NewHomedirService()
 	content := []byte(`t`)
 	pathToFile := "./testfile"
-	err := DeleteFileFromUserHomeDir(pathToFile)
+	err := hds.DeleteFileFromUserHomeDir(pathToFile)
 	assert.Error(t, err)
-	err = WriteFileToUserHomeDir(content, pathToFile)
-	err = DeleteFileFromUserHomeDir(pathToFile)
+	err = hds.WriteFileToUserHomeDir(content, pathToFile)
+	err = hds.DeleteFileFromUserHomeDir(pathToFile)
 	assert.Nil(t, err)
 	assert.NoFileExists(t, pathToFile)
 }
