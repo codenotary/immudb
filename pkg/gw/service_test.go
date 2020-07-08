@@ -24,42 +24,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type immuGwServerMock struct {
-	running []bool
-	sync.RWMutex
-}
-
-func (igm *immuGwServerMock) Start() error {
-	defer igm.Unlock()
-	igm.running = append(igm.running, true)
-	return nil
-}
-func (igm *immuGwServerMock) Stop() error {
-	defer igm.Unlock()
-	igm.running = append(igm.running, false)
-	return nil
-}
-
 func TestService(t *testing.T) {
-	s := new(immuGwServerMock)
+	var running []bool
+	lock := new(sync.RWMutex)
+	s := &ImmuGwServerMock{
+		StartF: func() error {
+			defer lock.Unlock()
+			running = append(running, true)
+			return nil
+		},
+		StopF: func() error {
+			defer lock.Unlock()
+			running = append(running, false)
+			return nil
+		},
+	}
 	service := Service{s}
 
-	s.Lock()
+	lock.Lock()
 	service.Start()
-	s.Lock()
+	lock.Lock()
 	service.Stop()
-	s.Lock()
+	lock.Lock()
 	service.Run()
 
 	require.Eventually(
 		t,
 		func() bool {
-			return len(s.running) == 3 &&
-				s.running[0] == true && s.running[1] == false && s.running[2] == true
+			return len(running) == 3 &&
+				running[0] == true && running[1] == false && running[2] == true
 		},
 		1*time.Second,
 		100*time.Millisecond,
 		"expected [true, false, true], actual %v",
-		s.running,
+		running,
 	)
 }

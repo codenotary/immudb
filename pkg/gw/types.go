@@ -28,6 +28,9 @@ import (
 type ImmuGw interface {
 	Start() error
 	Stop() error
+	WithClient(schema.ImmuServiceClient) ImmuGw
+	WithLogger(logger.Logger) ImmuGw
+	WithOptions(Options) ImmuGw
 }
 
 // ImmuGwServer ...
@@ -49,19 +52,19 @@ func DefaultServer() *ImmuGwServer {
 }
 
 // WithClient ...
-func (c *ImmuGwServer) WithClient(client schema.ImmuServiceClient) *ImmuGwServer {
+func (c *ImmuGwServer) WithClient(client schema.ImmuServiceClient) ImmuGw {
 	c.Client = client
 	return c
 }
 
 // WithLogger ...
-func (c *ImmuGwServer) WithLogger(logger logger.Logger) *ImmuGwServer {
+func (c *ImmuGwServer) WithLogger(logger logger.Logger) ImmuGw {
 	c.Logger = logger
 	return c
 }
 
 // WithOptions ...
-func (c *ImmuGwServer) WithOptions(options Options) *ImmuGwServer {
+func (c *ImmuGwServer) WithOptions(options Options) ImmuGw {
 	c.Options = options
 	return c
 }
