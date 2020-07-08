@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -12,11 +14,10 @@ import (
 )
 
 func TestCommandLine_PrintTreeInit(t *testing.T) {
-	immuServer = newServer(false)
-	immuServer.Start()
-
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs.Start()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	opts := Options()
 	opts.DialOptions = &dialOptions
@@ -31,18 +32,19 @@ func TestCommandLine_PrintTreeInit(t *testing.T) {
 }
 
 func TestCommandLine_PrintTree(t *testing.T) {
-	immuServer = newServer(false)
-	immuServer.Start()
-	immuServer.Set(context.TODO(), &schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs.Start()
+	bs.Server.Set(context.TODO(), &schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
 
 	cmd := cobra.Command{}
 	cl := new(commandline)
 	cl.context = context.Background()
 	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 
 	cl.options = Options()
+	//cl.options.WithAuth(false)
 	cl.options.DialOptions = &dialOptions
 	cl.printTree(&cmd)
 
