@@ -154,14 +154,14 @@ func setup() {
 	nm, _ := NewNtpMock()
 	tss := NewTimestampService(nm)
 	token := login()
-	client = newClient(true, token).WithTimestampService(tss)
+	client = newClient(true, token).WithTimestampService(tss).WithHomedirService(NewHomedirService())
 	resp, err := client.UseDatabase(context.Background(), &schema.Database{
 		Databasename: immuServer.Options.GetDefaultDbName(),
 	})
 	if err != nil {
 		panic(err)
 	}
-	client = newClient(true, resp.Token).WithTimestampService(tss)
+	client = newClient(true, resp.Token).WithTimestampService(tss).WithHomedirService(NewHomedirService())
 }
 
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {
