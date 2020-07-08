@@ -47,7 +47,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitWithUserError(err)
 			}
-			if err = client.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
+			if err = cl.hds.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
 				c.QuitToStdErr(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "logged in\n")
@@ -98,16 +98,23 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	return
 }
 
-func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
-	possiblyLoggedIn, err2 := client.FileExistsInUserHomeDir(cl.options.TokenFileName)
+func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err error) {
+	possiblyLoggedIn, err2 := cl.hds.FileExistsInUserHomeDir(cl.options.TokenFileName)
 	if err2 != nil {
 		fmt.Println("error checking if token file exists:", err2)
 	} else if !possiblyLoggedIn {
 		err = fmt.Errorf("please login first")
 		c.QuitToStdErr(err)
 	}
-	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
-		c.QuitToStdErr(err)
+	return
+}
+
+func (cl *commandline) checkLoggedInAndConnect(cmd *cobra.Command, args []string) (err error) {
+	if err = cl.checkLoggedIn(cmd, args); err != nil {
+		return err
+	}
+	if err = cl.connect(cmd, args); err != nil {
+		return err
 	}
 	return
 }
