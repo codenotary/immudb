@@ -297,9 +297,9 @@ func (ss *sservice) installManPages(serviceName string) error {
 func (ss *sservice) uninstallManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return immudb.UnistallManPages()
+		return immudb.UninstallManPages()
 	case "immugw":
-		return immugw.UnistallManPages(linuxManPath)
+		return immugw.UninstallManPages(linuxManPath)
 	default:
 		return errors.New("invalid service name specified")
 	}

@@ -299,7 +299,7 @@ func InstallManPages() error {
 	return nil
 }
 
-// UnistallManPages uninstalls man pages
-func UnistallManPages() error {
+// UninstallManPages uninstalls man pages
+func UninstallManPages() error {
 	return os.Remove(filepath.Join(c.LinuxManPath, "immudb.1"))
 }
