@@ -92,7 +92,7 @@ func newClient(pr helper.PasswordReader) Client {
 func login(username string, password string) Client {
 	viper.Set("tokenfile", client.DefaultOptions().TokenFileName)
 	imc := newClient(&testPasswordReader{
-		pass: password,
+		pass: []string{password},
 	})
 	msg, err := imc.Login([]string{username})
 	if err != nil {
@@ -102,9 +102,6 @@ func login(username string, password string) Client {
 		log.Fatal("Login error")
 	}
 
-	// imc = newClient(&testPasswordReader{
-	// 	pass: password,
-	// })
 	return imc
 }
 
@@ -127,11 +124,14 @@ func TestConnect(t *testing.T) {
 }
 
 type testPasswordReader struct {
-	pass string
+	pass       []string
+	callNumber int
 }
 
 func (pr *testPasswordReader) Read(msg string) ([]byte, error) {
-	return []byte(pr.pass), nil
+	pass := []byte(pr.pass[pr.callNumber])
+	pr.callNumber++
+	return pass, nil
 }
 
 func TestLogin(t *testing.T) {
@@ -143,7 +143,7 @@ func TestLogin(t *testing.T) {
 		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
 	}
 	c.DefaultPasswordReader = &testPasswordReader{
-		pass: "immudb",
+		pass: []string{"immudb"},
 	}
 	imc, err := Init(Options().WithDialOptions(&dialOptions))
 	if err != nil {
@@ -171,7 +171,7 @@ func TestLogout(t *testing.T) {
 		grpc.WithContextDialer(bufDialer), grpc.WithInsecure(),
 	}
 	pr := new(testPasswordReader)
-	pr.pass = "immudb"
+	pr.pass = []string{"immudb"}
 	c.DefaultPasswordReader = pr
 
 	imc, err := Init(Options().WithDialOptions(&dialOptions))
@@ -202,15 +202,329 @@ func TestUserCreate(t *testing.T) {
 	immuServer.Start()
 	imc := login("immudb", "immudb")
 
-	imc = newClient(&testPasswordReader{
-		pass: "MyUser@9",
-	})
+	var userCreateTests = []struct {
+		name     string
+		args     []string
+		password string
+		expected string
+		test     func(*testing.T, string, []string, string)
+	}{
+		{
+			"Create user",
+			[]string{"create", "myuser", "readwrite", "defaultdb"},
+			"MyUser@9",
+			"Created user",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.UserOperations(args)
+				if err != nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", msg)
+				}
+			},
+		},
+		{
+			"Create user read",
+			[]string{"create", "myuserRead", "read", "defaultdb"},
+			"MyUser@9",
+			"Created user",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.UserOperations(args)
+				if err != nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", msg)
+				}
+			},
+		},
+		{
+			"Create user admin",
+			[]string{"create", "myuseradmin", "admin", "defaultdb"},
+			"MyUser@9",
+			"Created user",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.UserOperations(args)
+				if err != nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", msg)
+				}
+			},
+		},
+		{
+			"Create user wrong permission",
+			[]string{"create", "myuserguard", "guard", "defaultdb"},
+			"MyUser@9",
+			"Permission value not recognized.",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.UserOperations(args)
+				if err != nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", msg)
+				}
+			},
+		},
+		{
+			"Create duplicate user",
+			[]string{"create", "myuser", "readwrite", "defaultdb"},
+			"MyUser@9",
+			"user already exists",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.UserOperations(args)
+				if err == nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(err.Error(), exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", err)
+				}
+				if msg != "" {
+					t.Fatalf("TestUserCreate %s", msg)
+				}
+			},
+		},
+	}
+	for _, tt := range userCreateTests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.test(t, tt.password, tt.args, tt.expected)
+		})
+	}
+}
 
-	msg, err := imc.UserOperations([]string{"create", "myuser", "readwrite", "defaultdb"})
+func TestUserChangePassword(t *testing.T) {
+	immuServer = newServer(true)
+	immuServer.Start()
+	imc := login("immudb", "immudb")
+
+	var userCreateTests = []struct {
+		name     string
+		args     []string
+		password string
+		expected string
+		test     func(*testing.T, string, []string, string)
+	}{
+		{
+			"Change user password",
+			[]string{"immudb"},
+			"MyUser@9",
+			"Password of immudb was changed successfuly",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{"immudb", password, password},
+				})
+				msg, err := imc.ChangeUserPassword(args)
+				if err != nil {
+					t.Fatal("TestUserChangePassword fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserChangePassword failed to change password: %s", msg)
+				}
+			},
+		},
+		{
+			"Change user password wrong old password",
+			[]string{"immudb"},
+			"MyUser@9",
+			"old password is incorrect",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc := login("immudb", "MyUser@9")
+				imc = newClient(&testPasswordReader{
+					pass: []string{"immudb", password, password},
+				})
+				msg, err := imc.ChangeUserPassword(args)
+				if err == nil {
+					t.Fatal("TestUserChangePassword fail", err)
+				}
+				if !strings.Contains(err.Error(), exp) {
+					t.Fatalf("TestUserChangePassword failed to change password: %s", msg)
+				}
+			},
+		},
+	}
+	for _, tt := range userCreateTests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.test(t, tt.password, tt.args, tt.expected)
+		})
+	}
+}
+
+func TestUserSetActive(t *testing.T) {
+	immuServer = newServer(true)
+	immuServer.Start()
+	imc := login("immudb", "immudb")
+
+	imc = newClient(&testPasswordReader{
+		pass: []string{"MyUser@9", "MyUser@9"},
+	})
+	_, err := imc.UserOperations([]string{"create", "myuser", "readwrite", "defaultdb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
 	}
-	if !strings.Contains(msg, "Created user") {
-		t.Fatalf("TestUserCreate failed to create user: %s", err)
+	var userCreateTests = []struct {
+		name     string
+		args     []string
+		password string
+		expected string
+		test     func(*testing.T, string, []string, string)
+	}{
+		{
+			"SetActiveUser",
+			[]string{"myuser"},
+			"",
+			"User status changed successfully",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{"immudb", password, password},
+				})
+				msg, err := imc.SetActiveUser(args, true)
+				if err != nil {
+					t.Fatal("TestUserChangePassword fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("SetActiveUser failed to change status: %s", msg)
+				}
+			},
+		},
+		{
+			"Deactivate user",
+			[]string{"myuser"},
+			"",
+			"User status changed successfully",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{"immudb", password, password},
+				})
+				msg, err := imc.SetActiveUser(args, false)
+				if err != nil {
+					t.Fatal("TestUserChangePassword fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("SetActiveUser failed to change status: %s", msg)
+				}
+			},
+		},
+	}
+	for _, tt := range userCreateTests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.test(t, tt.password, tt.args, tt.expected)
+		})
+	}
+}
+
+func TestSetUserPermission(t *testing.T) {
+	immuServer = newServer(true)
+	immuServer.Start()
+	imc := login("immudb", "immudb")
+
+	imc = newClient(&testPasswordReader{
+		pass: []string{"MyUser@9", "MyUser@9"},
+	})
+	_, err := imc.UserOperations([]string{"create", "myuser", "readwrite", "defaultdb"})
+	if err != nil {
+		t.Fatal("TestUserCreate fail", err)
+	}
+	var userCreateTests = []struct {
+		name     string
+		args     []string
+		password string
+		expected string
+		test     func(*testing.T, string, []string, string)
+	}{
+		{
+			"SetUserPermission user",
+			[]string{"grant", "myuser", "admin", "defaultdb"},
+			"MyUser@9",
+			"Permission changed successfully",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.SetUserPermission(args)
+				if err != nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", msg)
+				}
+			},
+		},
+		{
+			"SetUserPermission user",
+			[]string{"revoke", "myuser", "admin", "defaultdb"},
+			"MyUser@9",
+			"Permission changed successfully",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.SetUserPermission(args)
+				if err != nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", msg)
+				}
+			},
+		},
+		{
+			"SetUserPermission user",
+			[]string{"grant", "myuser", "readwrite", "defaultdb"},
+			"MyUser@9",
+			"Permission changed successfully",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.SetUserPermission(args)
+				if err != nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", msg)
+				}
+			},
+		},
+		{
+			"SetUserPermission user",
+			[]string{"grant", "myuser", "read", "defaultdb"},
+			"MyUser@9",
+			"Permission changed successfully",
+			func(t *testing.T, password string, args []string, exp string) {
+				imc = newClient(&testPasswordReader{
+					pass: []string{password, password},
+				})
+				msg, err := imc.SetUserPermission(args)
+				if err != nil {
+					t.Fatal("TestUserCreate fail", err)
+				}
+				if !strings.Contains(msg, exp) {
+					t.Fatalf("TestUserCreate failed to create user: %s", msg)
+				}
+			},
+		},
+	}
+	for _, tt := range userCreateTests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.test(t, tt.password, tt.args, tt.expected)
+		})
 	}
 }
