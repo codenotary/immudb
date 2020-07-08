@@ -17,17 +17,9 @@ limitations under the License.
 package immuadmin
 
 import (
-	"context"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
-	"log"
-	"net"
 	"testing"
 )
 
@@ -41,38 +33,4 @@ func TestOptionsMtls(t *testing.T) {
 	opts := Options()
 	assert.IsType(t, &client.Options{}, opts)
 	viper.Reset()
-}
-
-const bufSize = 1024 * 1024
-
-var lis *bufconn.Listener
-
-var immuServer *server.ImmuServer
-var cli client.ImmuClient
-var username string
-var plainPass string
-
-func newServer(authRequired bool) *server.ImmuServer {
-	is := server.DefaultServer()
-	is = is.WithOptions(is.Options.WithAuth(authRequired).WithInMemoryStore(true))
-	auth.AuthEnabled = is.Options.GetAuth()
-
-	username, plainPass = auth.SysAdminUsername, auth.SysAdminPassword
-
-	lis = bufconn.Listen(bufSize)
-	s := grpc.NewServer(
-		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
-		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
-	)
-	schema.RegisterImmuServiceServer(s, is)
-	go func() {
-		if err := s.Serve(lis); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	return is
-}
-
-func bufDialer(ctx context.Context, address string) (net.Conn, error) {
-	return lis.Dial()
 }
