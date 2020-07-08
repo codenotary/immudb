@@ -31,6 +31,7 @@ type commandline struct {
 	immuClient     client.ImmuClient
 	passwordReader c.PasswordReader
 	context        context.Context
+	hds            client.HomedirService
 }
 
 type commandlineDisc struct{}
@@ -44,6 +45,7 @@ func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command 
 	cl.options = Options()
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
+	cl.hds = client.NewHomedirService()
 
 	cl.user(rootCmd)
 	cl.login(rootCmd)

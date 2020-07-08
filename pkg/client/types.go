@@ -49,6 +49,11 @@ func (c *immuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *
 	return c
 }
 
+func (c *immuClient) WithHomedirService(homedirService HomedirService) *immuClient {
+	c.hds = homedirService
+	return c
+}
+
 func (c *immuClient) WithOptions(options *Options) *immuClient {
 	c.Options = options
 	return c

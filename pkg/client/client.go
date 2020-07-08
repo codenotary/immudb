@@ -95,9 +95,11 @@ type ImmuClient interface {
 	WithTimestampService(ts TimestampService) *immuClient
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
+	WithHomedirService(homedirService HomedirService) *immuClient
 
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
+	SetupDialOptions(options *Options) *[]grpc.DialOption
 	CreateDatabase(ctx context.Context, d *schema.Database) (*schema.CreateDatabaseReply, error)
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	ChangePermission(ctx context.Context, d *schema.ChangePermissionRequest) (*schema.Error, error)
@@ -113,6 +115,7 @@ type immuClient struct {
 	ServiceClient schema.ImmuServiceClient
 	Rootservice   RootService
 	ts            TimestampService
+	hds           HomedirService
 	sync.RWMutex
 }
 
@@ -132,8 +135,9 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	c = DefaultClient()
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
 	c.WithLogger(l)
+	c.WithHomedirService(NewHomedirService())
 
-	options.DialOptions = setupDialOptions(options)
+	options.DialOptions = c.SetupDialOptions(options)
 
 	c.WithOptions(options)
 
@@ -165,7 +169,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	return c, nil
 }
 
-func setupDialOptions(options *Options) *[]grpc.DialOption {
+func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 
 	opts := *options.DialOptions
 	opts = append(opts, grpc.WithInsecure())
@@ -224,7 +228,7 @@ func setupDialOptions(options *Options) *[]grpc.DialOption {
 		opts = []grpc.DialOption{grpc.WithTransportCredentials(transportCreds)}
 	}
 	if options.Auth {
-		token, err := ReadFileFromUserHomeDir(options.TokenFileName)
+		token, err := c.hds.ReadFileFromUserHomeDir(options.TokenFileName)
 		if err == nil {
 			opts = append(opts, grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))
 			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
@@ -410,7 +414,7 @@ func (c *immuClient) Logout(ctx context.Context) error {
 	if !c.IsConnected() {
 		return ErrNotConnected
 	}
-	if err := DeleteFileFromUserHomeDir(c.Options.TokenFileName); err != nil {
+	if err := c.hds.DeleteFileFromUserHomeDir(c.Options.TokenFileName); err != nil {
 		return err
 	}
 	_, err := c.ServiceClient.Logout(ctx, new(empty.Empty))
