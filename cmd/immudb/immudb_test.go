@@ -17,22 +17,10 @@ limitations under the License.
 package main
 
 import (
-	"os"
-
-	c "github.com/codenotary/immudb/cmd/helper"
-	immudb "github.com/codenotary/immudb/cmd/immudb/command"
-	"github.com/codenotary/immudb/cmd/version"
+	"testing"
 )
 
-func main() {
-	execute()
-	os.Exit(0)
-}
-
-func execute() {
-	version.App = "immudb"
-	cmd := immudb.NewCmd()
-	if err := cmd.Execute(); err != nil {
-		c.QuitWithUserError(err)
-	}
+func TestImmudb(t *testing.T) {
+	// TODO OGG: implement
+	// execute()
 }
