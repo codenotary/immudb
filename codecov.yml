@@ -1,4 +1,8 @@
 ignore:
-  - "*windows"
-  - "*freebsd"
-  - "/**/*test"
+  - "*windows.go"
+  - "*freebsd.go"
+  - "*windows.dist.go"
+  - "*freebsd.dist.go"
+  - "*windows*"
+  - "*freebsd*"
+  - "cmd/immuadmin/command/service/servicetest"
