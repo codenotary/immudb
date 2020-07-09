@@ -23,12 +23,18 @@ import (
 
 	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewCmd(t *testing.T) {
 	version.App = "immugw"
-	// viper.
+
+	viper.Set("mtls", true)
+	logfile := "./immugw_cmd_test_logfile.log"
+	viper.Set("logfile", logfile)
+	defer os.Remove(logfile)
+
 	cmd := NewCmd(new(gw.ImmuGwServerMock))
 	require.NoError(t, cmd.Execute())
 
