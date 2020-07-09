@@ -17,7 +17,10 @@ limitations under the License.
 package immuadmin
 
 import (
+	"context"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client"
+	daem "github.com/takama/daemon"
 	"os"
 	"path"
 	"path/filepath"
@@ -26,7 +29,6 @@ import (
 	"time"
 
 	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuadmin/command/service"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/fs"
 	"github.com/codenotary/immudb/pkg/server"
@@ -34,7 +36,47 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *commandline) dumpToFile(cmd *cobra.Command) {
+type backupper struct {
+	daemon daem.Daemon
+}
+
+func NewBackupper() (*backupper, error) {
+	d, err := daem.New("immudb", "", "")
+	if err != nil {
+		return nil, err
+	}
+	return &backupper{d}, nil
+}
+
+type Backupper interface {
+	mustNotBeWorkingDir(p string) error
+	stopImmudbService() (func(), error)
+	offlineBackup(src string, uncompressed bool, manualStopStart bool) (string, error)
+	offlineRestore(src string, dst string, manualStopStart bool) (string, error)
+}
+
+type commandlineBck struct {
+	commandline
+	Backupper
+	c.TerminalReader
+}
+
+func NewCommandlineBck() (*commandlineBck, error) {
+	b, err := NewBackupper()
+	if err != nil {
+		return nil, err
+	}
+	cl := commandline{}
+	cl.options = Options()
+	cl.passwordReader = c.DefaultPasswordReader
+	cl.context = context.Background()
+	cl.hds = client.NewHomedirService()
+	tr := c.NewTerminalReader()
+
+	return &commandlineBck{cl, b, tr}, nil
+}
+
+func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "dump [file]",
 		Short:             "Dump database content to a file",
@@ -71,7 +113,7 @@ func (cl *commandline) dumpToFile(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) backup(cmd *cobra.Command) {
+func (cl *commandlineBck) backup(cmd *cobra.Command) {
 	defaultDbDir := server.DefaultOptions().Dir
 	ccmd := &cobra.Command{
 		Use:   "backup [--dbdir] [--manual-stop-start] [--uncompressed]",
@@ -83,7 +125,7 @@ func (cl *commandline) backup(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			if err = mustNotBeWorkingDir(dbDir); err != nil {
+			if err = cl.mustNotBeWorkingDir(dbDir); err != nil {
 				c.QuitToStdErr(err)
 			}
 			manualStopStart, err := cmd.Flags().GetBool("manual-stop-start")
@@ -95,7 +137,7 @@ func (cl *commandline) backup(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			cl.askUserConfirmation("backup", manualStopStart)
-			backupPath, err := offlineBackup(dbDir, uncompressed, manualStopStart)
+			backupPath, err := cl.offlineBackup(dbDir, uncompressed, manualStopStart)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
@@ -110,7 +152,7 @@ func (cl *commandline) backup(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) restore(cmd *cobra.Command) {
+func (cl *commandlineBck) restore(cmd *cobra.Command) {
 	defaultDbDir := server.DefaultOptions().Dir
 	ccmd := &cobra.Command{
 		Use:   "restore snapshot-path [--dbdir] [--manual-stop-start]",
@@ -128,7 +170,7 @@ func (cl *commandline) restore(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			cl.askUserConfirmation("restore", manualStopStart)
-			autoBackupPath, err := offlineRestore(snapshotPath, dbDir, manualStopStart)
+			autoBackupPath, err := cl.offlineRestore(snapshotPath, dbDir, manualStopStart)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
@@ -143,7 +185,36 @@ func (cl *commandline) restore(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func mustNotBeWorkingDir(p string) error {
+func (cl *commandlineBck) askUserConfirmation(process string, manualStopStart bool) {
+	if !manualStopStart {
+		fmt.Printf(
+			"Server will be stopped and then restarted during the %s process.\n"+
+				"NOTE: If the backup process is forcibly interrupted, a manual restart "+
+				"of the immudb service may be needed.\n"+
+				"Are you sure you want to proceed? [y/N]: ", process)
+		answer, err := cl.ReadFromTerminalYN("N")
+		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
+			c.QuitToStdErr("Canceled")
+		}
+		pass, err := cl.passwordReader.Read("Enter admin password:")
+		if err != nil {
+			c.QuitToStdErr(err)
+		}
+		_ = cl.checkLoggedInAndConnect(nil, nil)
+		defer cl.disconnect(nil, nil)
+		if _, err = cl.immuClient.Login(cl.context, []byte(auth.SysAdminUsername), pass); err != nil {
+			c.QuitWithUserError(err)
+		}
+	} else {
+		fmt.Print("Please make sure the immudb server is not running before proceeding. Are you sure you want to proceed? [y/N]: ")
+		answer, err := cl.ReadFromTerminalYN("N")
+		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
+			c.QuitToStdErr("Canceled")
+		}
+	}
+}
+
+func (b *backupper) mustNotBeWorkingDir(p string) error {
 	currDir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -163,51 +234,18 @@ func mustNotBeWorkingDir(p string) error {
 	return nil
 }
 
-func (cl *commandline) askUserConfirmation(process string, manualStopStart bool) {
-	if !manualStopStart {
-		fmt.Printf(
-			"Server will be stopped and then restarted during the %s process.\n"+
-				"NOTE: If the backup process is forcibly interrupted, a manual restart "+
-				"of the immudb service may be needed.\n"+
-				"Are you sure you want to proceed? [y/N]: ", process)
-		answer, err := c.ReadFromTerminalYN("N")
-		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
-			c.QuitToStdErr("Canceled")
-		}
-		pass, err := cl.passwordReader.Read("Enter admin password:")
-		if err != nil {
-			c.QuitToStdErr(err)
-		}
-		_ = cl.checkLoggedInAndConnect(nil, nil)
-		defer cl.disconnect(nil, nil)
-		if _, err = cl.immuClient.Login(cl.context, []byte(auth.SysAdminUsername), pass); err != nil {
-			c.QuitWithUserError(err)
-		}
-	} else {
-		fmt.Print("Please make sure the immudb server is not running before proceeding. Are you sure you want to proceed? [y/N]: ")
-		answer, err := c.ReadFromTerminalYN("N")
-		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
-			c.QuitToStdErr("Canceled")
-		}
-	}
-}
-
-func stopImmudbService() (func(), error) {
-	daemon, err := service.NewDaemon("immudb", "", "")
-	if err != nil {
-		return nil, fmt.Errorf("error finding immudb service: %v", err)
-	}
-	if _, err = daemon.Stop(); err != nil {
+func (b *backupper) stopImmudbService() (func(), error) {
+	if _, err := b.daemon.Stop(); err != nil {
 		return nil, fmt.Errorf("error stopping immudb server: %v", err)
 	}
 	return func() {
-		if _, err = daemon.Start(); err != nil {
+		if _, err := b.daemon.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "error restarting immudb server: %v", err)
 		}
 	}, nil
 }
 
-func offlineBackup(src string, uncompressed bool, manualStopStart bool) (string, error) {
+func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart bool) (string, error) {
 	srcInfo, err := os.Stat(src)
 	if err != nil {
 		return "", err
@@ -217,7 +255,7 @@ func offlineBackup(src string, uncompressed bool, manualStopStart bool) (string,
 	}
 
 	if !manualStopStart {
-		startImmudbService, err := stopImmudbService()
+		startImmudbService, err := b.stopImmudbService()
 		if err != nil {
 			return "", err
 		}
@@ -277,7 +315,7 @@ func offlineBackup(src string, uncompressed bool, manualStopStart bool) (string,
 	return absArchivePath, nil
 }
 
-func offlineRestore(src string, dst string, manualStopStart bool) (string, error) {
+func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool) (string, error) {
 	snapshotPath := src
 	_, err := os.Stat(snapshotPath)
 	if err != nil {
@@ -311,7 +349,7 @@ func offlineRestore(src string, dst string, manualStopStart bool) (string, error
 	}
 
 	if !manualStopStart {
-		startImmudbService, err := stopImmudbService()
+		startImmudbService, err := b.stopImmudbService()
 		if err != nil {
 			return "", err
 		}
