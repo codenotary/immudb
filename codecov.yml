@@ -6,3 +6,4 @@ ignore:
   - "*windows*"
   - "*freebsd*"
   - "cmd/immuadmin/command/service/servicetest"
+  - "cmd/immuadmin/command/service/oss_unix.go"
