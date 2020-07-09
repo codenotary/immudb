@@ -1,4 +1,4 @@
-// +build freebsd
+// +build linux darwin
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -34,7 +34,6 @@ import (
 	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
 	immudb "github.com/codenotary/immudb/cmd/immudb/command"
 	immugw "github.com/codenotary/immudb/cmd/immugw/command"
-	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 )
 
@@ -43,13 +42,32 @@ const linuxConfigPath = "/etc/immudb"
 const linuxUser = "immu"
 const linuxGroup = "immu"
 
-func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
+// NewDaemon ...
+func (ss *sservice) NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
+	d.SetTemplate(systemDConfig)
 	return d, err
 }
 
-// CheckPrivileges check if current user is root
-func CheckPrivileges() (bool, error) {
+var systemDConfig = fmt.Sprintf(`[Unit]
+Description={{.Description}}
+Requires={{.Dependencies}}
+After={{.Dependencies}}
+
+[Service]
+PIDFile=/var/lib/immudb/{{.Name}}.pid
+ExecStartPre=/bin/rm -f /var/lib/immudb/{{.Name}}.pid
+ExecStart={{.Path}} {{.Args}}
+Restart=on-failure
+User=%s
+Group=%s
+
+[Install]
+WantedBy=multi-user.target
+`, linuxUser, linuxGroup)
+
+// IsAdmin check if current user is root
+func (ss sservice) IsAdmin() (bool, error) {
 	if output, err := exec.Command("id", "-g").Output(); err == nil {
 		if gid, parseErr := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 32); parseErr == nil {
 			if gid == 0 {
@@ -57,135 +75,125 @@ func CheckPrivileges() (bool, error) {
 			}
 			return false, ErrRootPrivileges
 		}
-		fmt.Println("started msg")
 	}
 	return false, ErrUnsupportedSystem
 }
 
-func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
-	if err = groupCreateIfNotExists(); err != nil {
+// InstallSetup ...
+func (ss sservice) InstallSetup(serviceName string) (err error) {
+	if err = ss.GroupCreateIfNotExists(); err != nil {
 		return err
 	}
-	if err = userCreateIfNotExists(); err != nil {
-		return err
-	}
-	if err = setOwnership(linuxExecPath); err != nil {
-		return err
-	}
-	if err = installConfig(serviceName, vip); err != nil {
-		return err
-	}
-	if err = os.MkdirAll(vip.GetString("dir"), os.ModePerm); err != nil {
-		return err
-	}
-	if err = setOwnership(vip.GetString("dir")); err != nil {
+	if err = ss.UserCreateIfNotExists(); err != nil {
 		return err
 	}
 
-	logPath := filepath.Dir(vip.GetString("logfile"))
+	if err = ss.SetOwnership(linuxExecPath); err != nil {
+		return err
+	}
+
+	if err = ss.InstallConfig(serviceName); err != nil {
+		return err
+	}
+
+	if err = ss.oss.MkdirAll(ss.v.GetString("dir"), os.ModePerm); err != nil {
+		return err
+	}
+	if err = ss.SetOwnership(ss.v.GetString("dir")); err != nil {
+		return err
+	}
+
+	logPath := filepath.Dir(ss.v.GetString("logfile"))
 	if err = os.MkdirAll(logPath, os.ModePerm); err != nil {
 		return err
 	}
-	if err = setOwnership(logPath); err != nil {
+	if err = ss.SetOwnership(logPath); err != nil {
 		return err
 	}
-	pidPath := filepath.Dir(vip.GetString("pidfile"))
+
+	pidPath := filepath.Dir(ss.v.GetString("pidfile"))
 	if err = os.MkdirAll(pidPath, os.ModePerm); err != nil {
 		return err
 	}
-	if err = setOwnership(pidPath); err != nil {
+	if err = ss.SetOwnership(pidPath); err != nil {
 		return err
 	}
-	if err = enableStartOnBoot(serviceName); err != nil {
-		return err
-	}
-	if err = installManPages(serviceName); err != nil {
+
+	if err = ss.installManPages(serviceName); err != nil {
 		return err
 	}
 	return err
-}
-
-func enableStartOnBoot(serviceName string) error {
-	f, err := os.OpenFile("/etc/rc.conf",
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	cmd := fmt.Sprintf(`%s_enable="YES"%s`, serviceName, "\n")
-	if _, err := f.WriteString(cmd); err != nil {
-		return err
-	}
-	return nil
 }
 
 // @todo Michele helper unix should be refactor in order to expose an interface that every service need to implemented.
+
 // UninstallSetup uninstall operations
-func UninstallSetup(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+func (ss sservice) UninstallSetup(serviceName string) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
-	if err = uninstallExecutables(serviceName); err != nil {
+	if err = ss.uninstallExecutables(serviceName); err != nil {
 		return err
 	}
-	if err = uninstallManPages(serviceName); err != nil {
+	if err = ss.uninstallManPages(serviceName); err != nil {
 		return err
 	}
-	if err = os.RemoveAll(filepath.Dir(vip.GetString("logfile"))); err != nil {
+	if err = os.RemoveAll(filepath.Dir(ss.v.GetString("logfile"))); err != nil {
 		return err
 	}
 	return err
 }
 
-// installConfig install config in /etc folder
-func installConfig(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+// InstallConfig install config in /etc folder
+func (ss sservice) InstallConfig(serviceName string) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
-	cp, _ := GetDefaultConfigPath(serviceName)
+	cp, _ := ss.GetDefaultConfigPath(serviceName)
 	var configDir = filepath.Dir(cp)
-	err = os.MkdirAll(configDir, os.ModePerm)
+	err = ss.oss.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	configPath, _ := GetDefaultConfigPath(serviceName)
+	configPath, _ := ss.GetDefaultConfigPath(serviceName)
 
-	if err = vip.WriteConfigAs(configPath); err != nil {
+	if err = ss.v.WriteConfigAs(configPath); err != nil {
 		return err
 	}
 
-	return setOwnership(configPath)
+	return ss.SetOwnership(configPath)
 }
 
-func groupCreateIfNotExists() (err error) {
+func (ss sservice) GroupCreateIfNotExists() (err error) {
 	if _, err = user.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
 		return err
 	}
-	if err = exec.Command("pw", "groupadd", linuxGroup).Run(); err != nil {
+	if err = exec.Command("addgroup", linuxGroup).Run(); err != nil {
 		return err
 	}
 	return err
 }
 
-func userCreateIfNotExists() (err error) {
+func (ss sservice) UserCreateIfNotExists() (err error) {
 	if _, err = user.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
 		return err
 	}
-	if err = exec.Command("pw", "useradd", linuxUser, "-G", linuxGroup).Run(); err != nil {
+	if err = exec.Command("useradd", "-g", linuxGroup, linuxUser).Run(); err != nil {
 		return err
 	}
+
 	return err
 }
 
-func setOwnership(path string) (err error) {
+func (ss sservice) SetOwnership(path string) (err error) {
 	var g *user.Group
 	var u *user.User
 
-	if g, err = user.LookupGroup(linuxGroup); err != nil {
+	if g, err = ss.oss.LookupGroup(linuxGroup); err != nil {
 		return err
 	}
-	if u, err = user.Lookup(linuxUser); err != nil {
+	if u, err = ss.oss.Lookup(linuxUser); err != nil {
 		return err
 	}
 
@@ -194,19 +202,20 @@ func setOwnership(path string) (err error) {
 
 	return filepath.Walk(path, func(name string, info os.FileInfo, err error) error {
 		if err == nil {
-			err = os.Chown(name, uid, gid)
+			err = ss.oss.Chown(name, uid, gid)
 		}
 		return err
 	})
 }
 
 // todo @Michele this should be moved in UninstallSetup
+
 // RemoveProgramFiles remove all program files
-func RemoveProgramFiles(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+func (ss sservice) RemoveProgramFiles(serviceName string) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
-	cp, err := GetDefaultConfigPath(serviceName)
+	cp, err := ss.GetDefaultConfigPath(serviceName)
 	if err != nil {
 		return err
 	}
@@ -216,19 +225,20 @@ func RemoveProgramFiles(serviceName string, vip *viper.Viper) (err error) {
 }
 
 // EraseData erase all service data
-func EraseData(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+func (ss sservice) EraseData(serviceName string) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.FromSlash(vip.GetString("dir")))
+	return os.RemoveAll(filepath.FromSlash(ss.v.GetString("dir")))
 }
 
 // todo @Michele this can be simplified
+
 // GetExecutable checks for the service executable name provided.
 // If it's valid returns the absolute file path
 // If is not valid or not presents try to use an executable presents in current executable folder.
 // If found it returns the absolute file path
-func GetExecutable(input string, serviceName string) (exec string, err error) {
+func (ss sservice) GetExecutable(input string, serviceName string) (exec string, err error) {
 	if input == "" {
 		if current, err := os.Executable(); err == nil {
 			exec = filepath.Join(filepath.Dir(current), serviceName)
@@ -256,16 +266,17 @@ func GetExecutable(input string, serviceName string) (exec string, err error) {
 
 // todo @Michele this can be simplified -> CopyExecInOsDefault(servicename string)
 // toto @Michele use functions from the fs package?
-//CopyExecInOsDefault copy the executable in default exec folder and returns the path. It accepts an executable absolute path
-func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
+
+// CopyExecInOsDefault copy the executable in default exec folder and returns the path. It accepts an executable absolute path
+func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	from, err := os.Open(execPath)
 	if err != nil {
 		return "", err
 	}
 	defer from.Close()
 
-	newExecPath, _ = GetDefaultExecPath(execPath)
-	fmt.Println("new exec path", newExecPath)
+	newExecPath, _ = ss.GetDefaultExecPath(execPath)
+
 	to, err := os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return "", err
@@ -283,7 +294,7 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	return newExecPath, err
 }
 
-func installManPages(serviceName string) error {
+func (ss sservice) installManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
 		return immudb.InstallManPages()
@@ -294,7 +305,7 @@ func installManPages(serviceName string) error {
 	}
 }
 
-func uninstallManPages(serviceName string) error {
+func (ss sservice) uninstallManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
 		return immudb.UnistallManPages()
@@ -305,7 +316,7 @@ func uninstallManPages(serviceName string) error {
 	}
 }
 
-func uninstallExecutables(serviceName string) error {
+func (ss sservice) uninstallExecutables(serviceName string) error {
 	switch serviceName {
 	case "immudb":
 		return os.Remove(filepath.Join(linuxExecPath, "immudb"))
@@ -317,25 +328,25 @@ func uninstallExecutables(serviceName string) error {
 }
 
 // GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
-func GetDefaultExecPath(localFile string) (string, error) {
+func (ss sservice) GetDefaultExecPath(localFile string) (string, error) {
 	execName := filepath.Base(localFile)
 	return filepath.Join(linuxExecPath, execName), nil
 }
 
 // GetDefaultConfigPath returns the default config path
-func GetDefaultConfigPath(serviceName string) (string, error) {
+func (ss sservice) GetDefaultConfigPath(serviceName string) (string, error) {
 	return filepath.Join(linuxConfigPath, serviceName+".toml"), nil
 }
 
 // IsRunning check if status derives from a running process
-func IsRunning(status string) bool {
+func (ss sservice) IsRunning(status string) bool {
 	re := regexp.MustCompile(`is running`)
 	return re.Match([]byte(status))
 }
 
-func readConfig(serviceName string, vip *viper.Viper) (err error) {
-	vip.SetConfigType("toml")
-	return vip.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
+func (ss sservice) ReadConfig(serviceName string) (err error) {
+	ss.v.SetConfigType("toml")
+	return ss.v.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
 }
 
 var configsMap = map[string][]byte{

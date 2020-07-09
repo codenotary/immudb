@@ -14,27 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuadmin
+package service
 
 import (
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/cmd/immuclient/service"
 	"os"
 	"os/exec"
 	"strconv"
 	"time"
 
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuadmin/command/service"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
 )
 
 var installableServices = []string{"immudb", "immugw"}
 var availableCommands = []string{"install", "uninstall", "start", "stop", "restart", "status"}
 
-func NewServiceCmd() *cobra.Command {
+func (cl *commandline) Service(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:   fmt.Sprintf("service %v %v", installableServices, availableCommands),
 		Short: "Manage immu services",
@@ -43,7 +41,7 @@ Available services: immudb and immugw.
 Root permission are required in order to make administrator operations.
 %s`, service.UsageDet),
 		ValidArgs: availableCommands,
-		Example:   service.UsageExamples,
+		Example:   UsageExamples,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("required a service name")
@@ -64,7 +62,7 @@ Root permission are required in order to make administrator operations.
 		},
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 
-			if ok, e := service.CheckPrivileges(); !ok {
+			if ok, e := cl.sservice.IsAdmin(); !ok {
 				return e
 			}
 			// delayed operation
@@ -105,12 +103,12 @@ Root permission are required in order to make administrator operations.
 				if localFile, err = cmd.Flags().GetString("local-file"); err != nil {
 					return err
 				}
-				if localFile, err = service.GetExecutable(localFile, args[0]); err != nil {
+				if localFile, err = cl.sservice.GetExecutable(localFile, args[0]); err != nil {
 					return err
 				}
 			}
 
-			if execPath, err = service.GetDefaultExecPath(localFile); err != nil {
+			if execPath, err = cl.sservice.GetDefaultExecPath(localFile); err != nil {
 				return err
 			}
 
@@ -121,7 +119,7 @@ Root permission are required in order to make administrator operations.
 			}
 
 			if args[1] == "install" {
-				if execPath, err = service.CopyExecInOsDefault(localFile); err != nil {
+				if execPath, err = cl.sservice.CopyExecInOsDefault(localFile); err != nil {
 					return err
 				}
 			}
@@ -134,7 +132,7 @@ Root permission are required in order to make administrator operations.
 				return nil
 			}
 
-			daemon, err := service.NewDaemon(args[0], args[0], execPath)
+			daemon, err := cl.sservice.NewDaemon(args[0], args[0], execPath)
 			if err != nil {
 				return err
 			}
@@ -142,39 +140,37 @@ Root permission are required in order to make administrator operations.
 			var u string
 			switch args[1] {
 			case "install":
-				installServiceViperConfig := viper.New()
 				if args[0] == "immugw" {
-					fmt.Printf("To provide the maximum level of security, we recommend running immugw on a different machine than immudb server. Continue ? [Y/n]")
-					if u, err = c.ReadFromTerminalYN("Y"); err != nil {
+					fmt.Fprintf(cmd.OutOrStdout(), "To provide the maximum level of security, we recommend running immugw on a different machine than immudb server. Continue ? [Y/n]")
+					if u, err = cl.treader.ReadFromTerminalYN("Y"); err != nil {
 						return err
 					}
 					if u != "y" {
-						fmt.Println("No action")
+						fmt.Fprintf(cmd.OutOrStdout(), "No action\n")
 						return
 					}
 				}
 
-				fmt.Println("installing " + localFile + "...")
-				if err = service.InstallSetup(args[0], installServiceViperConfig); err != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "installing "+localFile+"...\n")
+				if err = cl.sservice.InstallSetup(args[0]); err != nil {
 					return err
 				}
 				var cp string
-				if cp, err = service.GetDefaultConfigPath(args[0]); err != nil {
+				if cp, err = cl.sservice.GetDefaultConfigPath(args[0]); err != nil {
 					return err
 				}
 				if msg, err = daemon.Install("--config", cp); err != nil {
 					return err
 				}
-				fmt.Println(msg)
+				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 
 				if msg, err = daemon.Start(); err != nil {
 					return err
 				}
-				fmt.Println(msg)
+				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 
 				return nil
 			case "uninstall":
-				installServiceViperConfig := viper.New()
 				// check if already installed
 				var status string
 				if status, err = daemon.Status(); err != nil {
@@ -187,39 +183,39 @@ Root permission are required in order to make administrator operations.
 					if msg, err = daemon.Stop(); err != nil {
 						return err
 					}
-					fmt.Println(msg)
+					fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 				}
-				fmt.Printf("Are you sure you want to uninstall %s? [y/N]", args[0])
-				if u, err = c.ReadFromTerminalYN("N"); err != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "Are you sure you want to uninstall %s? [y/N]", args[0])
+				if u, err = cl.treader.ReadFromTerminalYN("N"); err != nil {
 					return err
 				}
 				if u != "y" {
-					fmt.Println("No action")
+					fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 					return
 				}
 				if msg, err = daemon.Remove(); err != nil {
 					return err
 				}
-				fmt.Println(msg)
+				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 				if args[0] == "immudb" {
-					fmt.Printf("Erase data? [y/N]")
-					if u, err = c.ReadFromTerminalYN("N"); err != nil {
+					fmt.Fprintf(cmd.OutOrStdout(), "Erase data? [y/N]")
+					if u, err = cl.treader.ReadFromTerminalYN("N"); err != nil {
 						return err
 					}
 					if u != "y" {
-						fmt.Println("No data removed")
+						fmt.Fprintf(cmd.OutOrStdout(), "No data removed\n")
 					} else {
-						if err = service.EraseData(args[0], installServiceViperConfig); err != nil {
+						if err = cl.sservice.EraseData(args[0]); err != nil {
 							return err
 						}
-						fmt.Println("Data folder removed")
+						fmt.Fprintf(cmd.OutOrStdout(), "Data folder removed\n")
 					}
 				}
-				if err = service.RemoveProgramFiles(args[0], installServiceViperConfig); err != nil {
+				if err = cl.sservice.RemoveProgramFiles(args[0]); err != nil {
 					return err
 				}
-				fmt.Println("Program files removed")
-				if err = service.UninstallSetup(args[0], installServiceViperConfig); err != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "Program files removed\n")
+				if err = cl.sservice.UninstallSetup(args[0]); err != nil {
 					return err
 				}
 				return nil
@@ -227,39 +223,34 @@ Root permission are required in order to make administrator operations.
 				if msg, err = daemon.Start(); err != nil {
 					return err
 				}
-				fmt.Println(msg)
+				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 				return nil
 			case "stop":
 				if msg, err = daemon.Stop(); err != nil {
 					return err
 				}
-				fmt.Println(msg)
+				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 				return nil
 			case "restart":
 				if _, err = daemon.Stop(); err != nil {
 					return err
 				}
-				fmt.Println(msg)
+				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 				if msg, err = daemon.Start(); err != nil {
 					return err
 				}
-				fmt.Println(msg)
+				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 				return nil
 			case "status":
 				if msg, err = daemon.Status(); err != nil {
 					return err
 				}
-				fmt.Println(msg)
+				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 				return nil
 			}
 			return nil
 		},
 	}
-	return ccmd
-}
-
-func (cl *commandlineDisc) service(cmd *cobra.Command) {
-	ccmd := NewServiceCmd()
 	ccmd.PersistentFlags().Bool("remove-files", false, "clean up from all service files")
 	ccmd.PersistentFlags().IntP("time", "t", 0, "number of seconds to wait before stopping | restarting the service")
 	ccmd.PersistentFlags().Int("delayed", 0, "number of seconds to wait before repeat the parent command. HIDDEN")

@@ -30,17 +30,16 @@ import (
 	"github.com/codenotary/immudb/cmd/helper"
 
 	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
-	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 	"golang.org/x/sys/windows"
 )
 
-func NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
+func (ss *sservice) NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
 	return d, err
 }
 
-func CheckPrivileges() (bool, error) {
+func (ss *sservice) IsAdmin() (bool, error) {
 	if runtime.GOOS == "windows" {
 		var sid *windows.SID
 
@@ -79,17 +78,17 @@ func CheckPrivileges() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
-func InstallSetup(serviceName string, vip *viper.Viper) (err error) {
-	if err = installConfig(serviceName, vip); err != nil {
+func (ss *sservice) InstallSetup(serviceName string) (err error) {
+	if err = ss.InstallConfig(serviceName); err != nil {
 		return err
 	}
 	return err
 }
 
-func UninstallSetup(serviceName string, vip *viper.Viper) (err error) {
+func (ss *sservice) UninstallSetup(serviceName string) (err error) {
 	// remove ProgramFiles folder only if it is empty
 	var cep string
-	if cep, err = getCommonExecPath(); err != nil {
+	if cep, err = ss.getCommonExecPath(); err != nil {
 		return err
 	}
 	err = os.Remove(filepath.Join(cep, serviceName+".exe"))
@@ -107,7 +106,7 @@ func UninstallSetup(serviceName string, vip *viper.Viper) (err error) {
 	}
 	// remove ProgramData folder only if it is empty
 	var cepd string
-	if cepd, err = helper.ResolvePath(viper.GetString("dir"), false); err != nil {
+	if cepd, err = helper.ResolvePath(ss.v.GetString("dir"), false); err != nil {
 		return err
 	}
 	f1, err := os.Open(cepd)
@@ -122,13 +121,13 @@ func UninstallSetup(serviceName string, vip *viper.Viper) (err error) {
 	return err
 }
 
-func installConfig(serviceName string, vip *viper.Viper) (err error) {
+func (ss *sservice) InstallConfig(serviceName string) (err error) {
 	var cp string
-	if err = readConfig(serviceName, vip); err != nil {
+	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
 
-	if cp, err = GetDefaultConfigPath(serviceName); err != nil {
+	if cp, err = ss.GetDefaultConfigPath(serviceName); err != nil {
 		return err
 	}
 	var configDir = filepath.Dir(cp)
@@ -136,28 +135,28 @@ func installConfig(serviceName string, vip *viper.Viper) (err error) {
 	if err != nil {
 		return err
 	}
-	return viper.WriteConfigAs(cp)
+	return ss.v.WriteConfigAs(cp)
 }
 
 // RemoveProgramFiles remove all program files
-func RemoveProgramFiles(serviceName string, vip *viper.Viper) (err error) {
+func (ss *sservice) RemoveProgramFiles(serviceName string) (err error) {
 	var path string
-	if err = readConfig(serviceName, vip); err != nil {
+	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
-	if path, err = helper.ResolvePath(filepath.Join(filepath.FromSlash(viper.GetString("dir")), "config"), false); err != nil {
+	if path, err = helper.ResolvePath(filepath.Join(filepath.FromSlash(ss.v.GetString("dir")), "config"), false); err != nil {
 		return err
 	}
 	return os.RemoveAll(path)
 }
 
 // EraseData erase all data
-func EraseData(serviceName string, vip *viper.Viper) (err error) {
-	if err = readConfig(serviceName, vip); err != nil {
+func (ss *sservice) EraseData(serviceName string) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
 	var path string
-	if path, err = helper.ResolvePath(filepath.FromSlash(viper.GetString("dir")), false); err != nil {
+	if path, err = helper.ResolvePath(filepath.FromSlash(ss.v.GetString("dir")), false); err != nil {
 		return err
 	}
 	data := filepath.Join(path, "data")
@@ -175,7 +174,7 @@ func EraseData(serviceName string, vip *viper.Viper) (err error) {
 }
 
 // GetExecutable looks for the service executable name provided or try to use an executable presents in current folder. It returns the absolute file path
-func GetExecutable(input string, serviceName string) (exec string, err error) {
+func (ss *sservice) GetExecutable(input string, serviceName string) (exec string, err error) {
 	if input == "" {
 		exec = serviceName
 		exec = exec + ".exe"
@@ -200,11 +199,11 @@ func GetExecutable(input string, serviceName string) (exec string, err error) {
 
 // todo @Michele use functions from the fs package?
 //CopyExecInOsDefault copy the executable in default exec folder and returns the path
-func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
+func (ss *sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	// exec path folder install creation
 	// todo @Michele this should be move in installSetup
 	var cep string
-	if cep, err = getCommonExecPath(); err != nil {
+	if cep, err = ss.getCommonExecPath(); err != nil {
 		return "", err
 	}
 	err = os.MkdirAll(cep, os.ModePerm)
@@ -218,7 +217,7 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 	}
 	defer from.Close()
 
-	newExecPath, err = GetDefaultExecPath(execPath)
+	newExecPath, err = ss.GetDefaultExecPath(execPath)
 	if err != nil {
 		return "", err
 	}
@@ -235,9 +234,9 @@ func CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
 }
 
 // GetDefaultExecPath returns the default exec path
-func GetDefaultExecPath(execPath string) (string, error) {
+func (ss *sservice) GetDefaultExecPath(execPath string) (string, error) {
 	execName := filepath.Base(execPath)
-	cp, err := getCommonExecPath()
+	cp, err := ss.getCommonExecPath()
 	if err != nil {
 		return "", err
 	}
@@ -245,7 +244,7 @@ func GetDefaultExecPath(execPath string) (string, error) {
 }
 
 // getCommonExecPath returns exec path for all services
-func getCommonExecPath() (string, error) {
+func (ss *sservice) getCommonExecPath() (string, error) {
 	pf, err := windows.KnownFolderPath(windows.FOLDERID_ProgramFiles, windows.KF_FLAG_DEFAULT)
 	if err != nil {
 		return "", err
@@ -254,8 +253,8 @@ func getCommonExecPath() (string, error) {
 }
 
 // GetDefaultConfigPath returns the default config path
-func GetDefaultConfigPath(serviceName string) (dataDir string, err error) {
-	dataDir = filepath.FromSlash(viper.GetString("dir"))
+func (ss *sservice) GetDefaultConfigPath(serviceName string) (dataDir string, err error) {
+	dataDir = filepath.FromSlash(ss.v.GetString("dir"))
 	var pd string
 	if pd, err = windows.KnownFolderPath(windows.FOLDERID_ProgramData, windows.KF_FLAG_DEFAULT); err != nil {
 		return "", err
@@ -265,13 +264,13 @@ func GetDefaultConfigPath(serviceName string) (dataDir string, err error) {
 }
 
 // IsRunning check if status derives from a running process
-func IsRunning(status string) bool {
+func (ss *sservice) IsRunning(status string) bool {
 	return status == "Status: SERVICE_RUNNING"
 }
 
-func readConfig(serviceName string, vip *viper.Viper) (err error) {
-	viper.SetConfigType("toml")
-	return viper.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
+func (ss *sservice) ReadConfig(serviceName string) (err error) {
+	ss.v.SetConfigType("toml")
+	return ss.v.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
 }
 
 var configsMap = map[string][]byte{

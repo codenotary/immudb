@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/codenotary/immudb/cmd/docs/man"
+	"github.com/codenotary/immudb/cmd/immuadmin/command/service"
 	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -34,8 +35,6 @@ type commandline struct {
 	hds            client.HomedirService
 }
 
-type commandlineDisc struct{}
-
 // Init ...
 func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command {
 	if err := configureFlags(rootCmd, cfgFn); err != nil {
@@ -52,14 +51,19 @@ func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command 
 	cl.logout(rootCmd)
 	cl.status(rootCmd)
 	cl.stats(rootCmd)
-	cl.dumpToFile(rootCmd)
 	cl.serverConfig(rootCmd)
-	cl.backup(rootCmd)
-	cl.restore(rootCmd)
+
+	clb, err := NewCommandlineBck()
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
+	clb.dumpToFile(rootCmd)
+	clb.backup(rootCmd)
+	clb.restore(rootCmd)
 	cl.printTree(rootCmd)
 
-	cld := new(commandlineDisc)
-	cld.service(rootCmd)
+	cld := service.NewCommandLine()
+	cld.Service(rootCmd)
 
 	rootCmd.AddCommand(man.Generate(rootCmd, cmdName, "./cmd/docs/man/"+cmdName))
 
