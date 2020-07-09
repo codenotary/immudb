@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	immudb "github.com/codenotary/immudb/cmd/immudb/command"
+	immugw "github.com/codenotary/immudb/cmd/immugw/command"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 	"io"
@@ -54,7 +56,10 @@ type SserviceTOREFACTOR interface {
 }
 
 func NewSService() *sservice {
-	return &sservice{oss{}, viper.New()}
+	mpss := make([]immudb.ManpageService, 2)
+	mpss[0] = immudb.ManpageServiceImmudb{}
+	mpss[1] = immugw.ManpageServiceImmugw{}
+	return &sservice{oss{}, filepaths{}, viper.New(), mpss}
 }
 
 type ConfigService interface {
@@ -63,11 +68,10 @@ type ConfigService interface {
 	SetConfigType(in string)
 	ReadConfig(in io.Reader) error
 }
-type configService struct {
-	v *viper.Viper
-}
 
 type sservice struct {
-	oss Oss
-	v   ConfigService
+	oss  Oss
+	fps  Filepaths
+	v    ConfigService
+	mpss []immudb.ManpageService
 }
