@@ -298,7 +298,7 @@ func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err
 func (ss sservice) installManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return immudb.InstallManPages()
+		return immudb.InstallManPages(linuxManPath)
 	case "immugw":
 		return immugw.InstallManPages(linuxManPath)
 	default:
@@ -309,7 +309,7 @@ func (ss sservice) installManPages(serviceName string) error {
 func (ss sservice) uninstallManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return immudb.UninstallManPages()
+		return immudb.UninstallManPages(linuxManPath)
 	case "immugw":
 		return immugw.UninstallManPages(linuxManPath)
 	default:

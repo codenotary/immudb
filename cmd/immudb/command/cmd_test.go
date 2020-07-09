@@ -18,6 +18,7 @@ package immudb
 
 import (
 	"bytes"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func DefaultTestOptions() (o server.Options) {
@@ -109,6 +111,21 @@ func TestImmudbCommandFlagParserPriority(t *testing.T) {
 	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
 	assert.NoError(t, err)
 	assert.Equal(t, "override", options.Logfile)
+}
+
+func TestInstallUninstallManPages(t *testing.T) {
+	manDir := "./man_dir_immudb_test"
+
+	require.NoError(t, InstallManPages(manDir))
+	manFiles, err := ioutil.ReadDir(manDir)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(manFiles))
+
+	require.NoError(t, UninstallManPages(manDir))
+	manFiles, err = ioutil.ReadDir(manDir)
+	require.NoError(t, err)
+	require.Empty(t, manFiles)
+	os.RemoveAll(manDir)
 }
 
 func executeCommand(root *cobra.Command, args ...string) (output string, err error) {
