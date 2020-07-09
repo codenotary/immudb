@@ -26,6 +26,9 @@ import (
 )
 
 func (i *immuc) Consistency(args []string) (string, error) {
+	if len(args) < 2 {
+		return "", fmt.Errorf("wrong number of arguments")
+	}
 	index, err := strconv.ParseUint(args[0], 10, 64)
 	if err != nil {
 		return "", err
