@@ -31,3 +31,13 @@ type oss struct{}
 func (oss oss) MkdirAll(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
 }
+
+type Filepaths interface {
+	Walk(root string, walkFn filepath.WalkFunc) error
+}
+
+type filepaths struct{}
+
+func (fp filepaths) Walk(root string, walkFn filepath.WalkFunc) error {
+	return nil
+}

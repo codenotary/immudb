@@ -32,8 +32,6 @@ import (
 	"strings"
 
 	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
-	immudb "github.com/codenotary/immudb/cmd/immudb/command"
-	immugw "github.com/codenotary/immudb/cmd/immugw/command"
 	"github.com/takama/daemon"
 )
 
@@ -105,7 +103,7 @@ func (ss sservice) InstallSetup(serviceName string) (err error) {
 	}
 
 	logPath := filepath.Dir(ss.v.GetString("logfile"))
-	if err = os.MkdirAll(logPath, os.ModePerm); err != nil {
+	if err = ss.oss.MkdirAll(logPath, os.ModePerm); err != nil {
 		return err
 	}
 	if err = ss.SetOwnership(logPath); err != nil {
@@ -139,7 +137,7 @@ func (ss sservice) UninstallSetup(serviceName string) (err error) {
 	if err = ss.uninstallManPages(serviceName); err != nil {
 		return err
 	}
-	if err = os.RemoveAll(filepath.Dir(ss.v.GetString("logfile"))); err != nil {
+	if err = ss.oss.RemoveAll(filepath.Dir(ss.v.GetString("logfile"))); err != nil {
 		return err
 	}
 	return err
@@ -201,7 +199,7 @@ func (ss sservice) SetOwnership(path string) (err error) {
 	uid, _ := strconv.Atoi(u.Uid)
 	gid, _ := strconv.Atoi(g.Gid)
 
-	return filepath.Walk(path, func(name string, info os.FileInfo, err error) error {
+	return ss.fps.Walk(path, func(name string, info os.FileInfo, err error) error {
 		if err == nil {
 			err = ss.oss.Chown(name, uid, gid)
 		}
@@ -247,13 +245,13 @@ func (ss sservice) GetExecutable(input string, serviceName string) (exec string,
 			return exec, err
 		}
 		_, err = os.Stat(exec)
-		if os.IsNotExist(err) {
+		if ss.oss.IsNotExist(err) {
 			return exec, ErrExecNotFound
 		}
 		fmt.Printf("found an executable for the service %s on current dir\n", serviceName)
 	} else {
 		_, err = os.Stat(input)
-		if os.IsNotExist(err) {
+		if ss.oss.IsNotExist(err) {
 			return input, ErrExecNotFound
 		}
 		exec = input
@@ -270,7 +268,7 @@ func (ss sservice) GetExecutable(input string, serviceName string) (exec string,
 
 // CopyExecInOsDefault copy the executable in default exec folder and returns the path. It accepts an executable absolute path
 func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
-	from, err := os.Open(execPath)
+	from, err := ss.oss.Open(execPath)
 	if err != nil {
 		return "", err
 	}
@@ -278,7 +276,7 @@ func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err
 
 	newExecPath, _ = ss.GetDefaultExecPath(execPath)
 
-	to, err := os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
+	to, err := ss.oss.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return "", err
 	}
@@ -288,7 +286,7 @@ func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err
 		return "", err
 	}
 
-	if err = os.Chmod(newExecPath, 0775); err != nil {
+	if err = ss.oss.Chmod(newExecPath, 0775); err != nil {
 		return "", err
 	}
 
@@ -298,9 +296,9 @@ func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err
 func (ss sservice) installManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return immudb.InstallManPages(linuxManPath)
+		return ss.mpss[0].InstallManPages(linuxManPath)
 	case "immugw":
-		return immugw.InstallManPages(linuxManPath)
+		return ss.mpss[1].InstallManPages(linuxManPath)
 	default:
 		return errors.New("invalid service name specified")
 	}
@@ -309,9 +307,9 @@ func (ss sservice) installManPages(serviceName string) error {
 func (ss sservice) uninstallManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return immudb.UninstallManPages(linuxManPath)
+		return ss.mpss[0].UninstallManPages(linuxManPath)
 	case "immugw":
-		return immugw.UninstallManPages(linuxManPath)
+		return ss.mpss[1].UninstallManPages(linuxManPath)
 	default:
 		return errors.New("invalid service name specified")
 	}
@@ -320,9 +318,9 @@ func (ss sservice) uninstallManPages(serviceName string) error {
 func (ss sservice) uninstallExecutables(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return os.Remove(filepath.Join(linuxExecPath, "immudb"))
+		return ss.oss.Remove(filepath.Join(linuxExecPath, "immudb"))
 	case "immugw":
-		return os.Remove(filepath.Join(linuxExecPath, "immugw"))
+		return ss.oss.Remove(filepath.Join(linuxExecPath, "immugw"))
 	default:
 		return errors.New("invalid service name specified")
 	}
