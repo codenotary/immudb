@@ -35,6 +35,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
+	"google.golang.org/grpc"
 )
 
 var startedAt time.Time
@@ -54,6 +55,7 @@ func (s *ImmuGwServer) Start() error {
 		MTLsOptions:        s.Options.MTLsOptions,
 		Auth:               true,
 		Config:             "",
+		DialOptions:        &[]grpc.DialOption{},
 	}
 
 	ic, err := immuclient.NewImmuClient(cliOpts)
