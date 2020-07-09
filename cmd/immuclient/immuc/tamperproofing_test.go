@@ -24,58 +24,60 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestHealthCheck(t *testing.T) {
+func TestConsistency(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-
-	imc := newClient(&testPasswordReader{
-		pass: []string{},
-	}, bs.Dialer)
-	bs.GrpcServer.Stop()
-	msg, err := imc.HealthCheck([]string{})
-	if err != nil {
-		t.Fatal("HealthCheck fail stoped server", err)
-	}
-	if !strings.Contains(msg, "Error while dialing closed") {
-		t.Fatal("HealthCheck fail stoped server", msg)
-	}
-
-	bs = servertest.NewBufconnServer(options)
-	bs.Start()
-	imc = login("immudb", "immudb", bs.Dialer)
-	msg, err = imc.HealthCheck([]string{})
-	if err != nil {
-		t.Fatal("HealthCheck fail", err)
-	}
-	if !strings.Contains(msg, "Health check OK") {
-		t.Fatal("HealthCheck fail")
-	}
-}
-
-func TestHistory(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-
 	imc := login("immudb", "immudb", bs.Dialer)
-	msg, err := imc.History([]string{"key"})
+	msg, err := imc.Set([]string{"key", "val"})
 	if err != nil {
-		t.Fatal("History fail", err)
-	}
-	if !strings.Contains(msg, "No item found") {
-		t.Fatalf("History fail %s", msg)
-	}
-
-	msg, err = imc.Set([]string{"key", "value"})
-	if err != nil {
-		t.Fatal("History fail", err)
-	}
-	msg, err = imc.History([]string{"key"})
-	if err != nil {
-		t.Fatal("History fail", err)
+		t.Fatal("Set fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("History fail %s", msg)
+		t.Fatalf("Set failed: %s", msg)
+	}
+	hash := strings.Split(msg, "hash:		")[1]
+	hash = hash[:64]
+	msg, err = imc.Consistency([]string{"0", hash})
+	if err != nil {
+		t.Fatal("Consistency fail", err)
+	}
+	if !strings.Contains(msg, "secondRoot") {
+		t.Fatalf("Set failed: %s", msg)
+	}
+
+	msg, err = imc.Consistency([]string{"0"})
+	if err == nil {
+		t.Fatal("Consistency fail expected error")
+	}
+}
+func TestInclusion(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+	imc := login("immudb", "immudb", bs.Dialer)
+	msg, err := imc.Set([]string{"key", "val"})
+	if err != nil {
+		t.Fatal("Set fail", err)
+	}
+	if !strings.Contains(msg, "hash") {
+		t.Fatalf("Set failed: %s", msg)
+	}
+	hash := strings.Split(msg, "hash:		")[1]
+	hash = hash[:64]
+	msg, err = imc.Inclusion([]string{"0", hash})
+	if err != nil {
+		t.Fatal("Consistency fail", err)
+	}
+	if !strings.Contains(msg, "root") {
+		t.Fatalf("Set failed: %s", msg)
+	}
+
+	msg, err = imc.Inclusion([]string{"0"})
+	if err != nil {
+		t.Fatal("Consistency fail", err)
+	}
+	if !strings.Contains(msg, "root") {
+		t.Fatalf("Set failed: %s", msg)
 	}
 }

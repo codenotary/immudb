@@ -62,24 +62,6 @@ func login(username string, password string, dialer servertest.BuffDialer) Clien
 	return imc
 }
 
-func TestConnect(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-	}
-	imc, err := Init(Options().WithDialOptions(&dialOptions))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = imc.Connect([]string{""})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 type testPasswordReader struct {
 	pass       []string
 	callNumber int
