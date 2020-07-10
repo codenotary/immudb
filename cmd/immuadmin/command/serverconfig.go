@@ -50,7 +50,8 @@ func (cl *commandline) serverConfig(cmd *cobra.Command) {
 				if err := cl.immuClient.UpdateAuthConfig(ctx, authKind); err != nil {
 					c.QuitWithUserError(err)
 				}
-				fmt.Println("Server auth config updated")
+				fmt.Fprintf(cmd.OutOrStdout(), "Server auth config updated\n")
+
 			case "mtls":
 				enabled, err := strconv.ParseBool(v)
 				if err != nil {
@@ -59,7 +60,7 @@ func (cl *commandline) serverConfig(cmd *cobra.Command) {
 				if err := cl.immuClient.UpdateMTLSConfig(ctx, enabled); err != nil {
 					c.QuitWithUserError(err)
 				}
-				fmt.Println("Server MTLS config updated")
+				fmt.Fprintf(cmd.OutOrStdout(), "Server MTLS config updated\n")
 			default:
 				c.QuitToStdErr(fmt.Errorf(
 					"unsupported %s config item, supported config items: auth or mtls", configItem))
