@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuc
+package cli
 
 import (
 	"strings"
@@ -24,108 +24,95 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestRawSafeSet(t *testing.T) {
+func TestGetByIndex(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	msg, err := imc.RawSafeSet([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
+
+	_, _ = cli.set([]string{"key", "val"})
+	msg, err := cli.getByIndex([]string{"0"})
 	if err != nil {
-		t.Fatal("RawSafeSet fail", err)
+		t.Fatal("GetByIndex fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("RawSafeSet failed: %s", msg)
+		t.Fatalf("GetByIndex failed: %s", msg)
 	}
 }
-func TestSet(t *testing.T) {
+
+func TestGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	msg, err := imc.Set([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
 
+	_, _ = cli.set([]string{"key", "val"})
+	msg, err := cli.getKey([]string{"key"})
 	if err != nil {
-		t.Fatal("Set fail", err)
+		t.Fatal("GetKey fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("Set failed: %s", msg)
+		t.Fatalf("GetKey failed: %s", msg)
 	}
 }
-func TestSafeSet(t *testing.T) {
+func TestRawSafeGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	msg, err := imc.SafeSet([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
 
+	_, _ = cli.set([]string{"key", "val"})
+	msg, err := cli.rawSafeGetKey([]string{"key"})
 	if err != nil {
-		t.Fatal("SafeSet fail", err)
+		t.Fatal("RawSafeGetKey fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("SafeSet failed: %s", msg)
+		t.Fatalf("RawSafeGetKey failed: %s", msg)
 	}
 }
-func TestZAdd(t *testing.T) {
+func TestSafeGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	_, _ = imc.SafeSet([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
 
-	msg, err := imc.ZAdd([]string{"val", "1", "key"})
-
+	_, _ = cli.set([]string{"key", "val"})
+	msg, err := cli.safeGetKey([]string{"key"})
 	if err != nil {
-		t.Fatal("ZAdd fail", err)
+		t.Fatal("SafeGetKey fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("ZAdd failed: %s", msg)
+		t.Fatalf("SafeGetKey failed: %s", msg)
 	}
 }
-func TestSafeZAdd(t *testing.T) {
+
+func TestGetRawBySafeIndex(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	_, _ = imc.SafeSet([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
 
-	msg, err := imc.SafeZAdd([]string{"val", "1", "key"})
-
+	_, _ = cli.set([]string{"key", "val"})
+	msg, err := cli.getRawBySafeIndex([]string{"0"})
 	if err != nil {
-		t.Fatal("SafeZAdd fail", err)
+		t.Fatal("GetRawBySafeIndex fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("SafeZAdd failed: %s", msg)
-	}
-}
-func TestCreateDatabase(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
-
-	msg, err := imc.CreateDatabase([]string{"newdb"})
-	if err != nil {
-		t.Fatal("CreateDatabase fail", err)
-	}
-	if !strings.Contains(msg, "Created Database") {
-		t.Fatalf("CreateDatabase failed: %s", msg)
-	}
-
-	msg, err = imc.DatabaseList([]string{})
-	if err != nil {
-		t.Fatal("DatabaseList fail", err)
-	}
-
-	msg, err = imc.UseDatabase([]string{"newdb"})
-	if err != nil {
-		t.Fatal("UseDatabase fail", err)
-	}
-	if !strings.Contains(msg, "newdb") {
-		t.Fatalf("UseDatabase failed: %s", msg)
+		t.Fatalf("GetRawBySafeIndex failed: %s", msg)
 	}
 }
