@@ -29,6 +29,14 @@ func (oss Ossmock) LookupGroup(name string) (*user.Group, error) {
 	return &user.Group{}, nil
 }
 
+func (oss Ossmock) AddGroup(name string) error {
+	return nil
+}
+
+func (oss Ossmock) AddUser(usr string, group string) error {
+	return nil
+}
+
 func (oss Ossmock) Lookup(username string) (*user.User, error) {
 	return &user.User{}, nil
 }

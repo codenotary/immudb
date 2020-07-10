@@ -1,4 +1,4 @@
-// +build linux
+// +build linux darwin
 
 /*
 Copyright 2019-2020 vChain, Inc.
@@ -56,6 +56,9 @@ func TestSservice_InstallSetup_immudb(t *testing.T) {
 
 	ss := sservice{servicetest.Ossmock{}, servicetest.Filepathsmock{}, &servicetest.ConfigServiceMock{}, mpss}
 	err := ss.InstallSetup("immudb")
+	if err != nil {
+		t.Logf("TestSservice_InstallSetup_immudb: %s", err)
+	}
 	assert.Nil(t, err)
 }
 
@@ -66,6 +69,10 @@ func TestSservice_InstallSetup_immugw(t *testing.T) {
 
 	ss := sservice{servicetest.Ossmock{}, servicetest.Filepathsmock{}, &servicetest.ConfigServiceMock{}, mpss}
 	err := ss.InstallSetup("immugw")
+	if err != nil {
+		t.Logf("TestSservice_InstallSetup_immugw: %s", err)
+	}
+	assert.Nil(t, err)
 	assert.Nil(t, err)
 }
 
