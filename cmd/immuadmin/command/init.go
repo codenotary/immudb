@@ -27,14 +27,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type commandline struct {
-	options        *client.Options
-	immuClient     client.ImmuClient
-	passwordReader c.PasswordReader
-	context        context.Context
-	hds            client.HomedirService
-}
-
 // Init ...
 func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command {
 	if err := configureFlags(rootCmd, cfgFn); err != nil {
