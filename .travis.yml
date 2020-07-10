@@ -85,6 +85,14 @@ jobs:
       deploy:
         provider: script
         script: docker push "${DOCKER_IMAGE}:latest"
+    - stage: Coveralls
+      script:
+        - go get golang.org/x/tools/cmd/cover
+        - go get github.com/mattn/goveralls
+        - set -o pipefail
+        - go test ./... -v -covermode=count -coverprofile=coverage.out || true
+        - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+    - stage: Scan (edited)
 branches:
   only:
     - master
