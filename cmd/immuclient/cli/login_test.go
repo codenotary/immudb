@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/cmd/helper"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuclient/immuc"
+	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -49,8 +50,8 @@ func newClient(pr helper.PasswordReader, dialer servertest.BuffDialer) immuc.Cli
 }
 func login(username string, password string, dialer servertest.BuffDialer) immuc.Client {
 	viper.Set("tokenfile", client.DefaultOptions().TokenFileName)
-	imc := newClient(&testPasswordReader{
-		pass: []string{password, password},
+	imc := newClient(&immuclienttest.PasswordReader{
+		Pass: []string{password, password},
 	}, dialer)
 	msg, err := imc.Login([]string{username})
 	if err != nil {
@@ -63,16 +64,6 @@ func login(username string, password string, dialer servertest.BuffDialer) immuc
 	return imc
 }
 
-type testPasswordReader struct {
-	pass       []string
-	callNumber int
-}
-
-func (pr *testPasswordReader) Read(msg string) ([]byte, error) {
-	pass := []byte(pr.pass[pr.callNumber])
-	pr.callNumber++
-	return pass, nil
-}
 func TestLogin(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)

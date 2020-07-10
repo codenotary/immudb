@@ -102,6 +102,11 @@ func (i *immuc) Disconnect(args []string) error {
 	return nil
 }
 
+func (i *immuc) SetPasswordReader(p c.PasswordReader) error {
+	i.passwordReader = p
+	return nil
+}
+
 func Options() *client.Options {
 	options := client.DefaultOptions().
 		WithPort(viper.GetInt("immudb-port")).

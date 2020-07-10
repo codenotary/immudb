@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -28,8 +29,9 @@ func TestHealthCheckSucceeds(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := newClient(&testPasswordReader{
-		pass: []string{},
+
+	imc := newClient(&immuclienttest.PasswordReader{
+		Pass: []string{},
 	}, bs.Dialer)
 	imc = login("immudb", "immudb", bs.Dialer)
 	msg, err := imc.HealthCheck([]string{})
