@@ -18,6 +18,7 @@ package immutest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -36,23 +37,26 @@ import (
 )
 
 type commandline struct {
-	immuClient client.ImmuClient
-	hds        client.HomedirService
+	immuClient    client.ImmuClient
+	newImmuClient func(*client.Options) (client.ImmuClient, error)
+	pwr           c.PasswordReader
+	tr            c.TerminalReader
+	hds           client.HomedirService
+	onError       func(err error)
 }
 
 const defaultNbEntries = 100
 
 // Init initializes the command
-func Init(cmd *cobra.Command, o *c.Options) {
+func Init(cmd *cobra.Command, o *c.Options, cl *commandline) {
 	defaultDb := server.DefaultdbName
 	defaultUser := auth.SysAdminUsername
 	defaultPassword := auth.SysAdminPassword
 
 	if err := configureOptions(cmd, o, defaultDb, defaultUser); err != nil {
-		c.QuitToStdErr(err)
+		cl.onError(err)
+		return
 	}
-	cl := new(commandline)
-	cl.hds = client.NewHomedirService()
 
 	cmd.Use = "immutest [n]"
 	cmd.Short = "Populate immudb with the (optional) number of entries (100 by default)"
@@ -69,20 +73,21 @@ func Init(cmd *cobra.Command, o *c.Options) {
   immutest 500 --database some-database --user some-user`
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if err := cl.connect(cmd, nil); err != nil {
-			c.QuitToStdErr(err)
+			cl.onError(err)
+			return err
 		}
 		defer cl.disconnect(cmd, nil)
 		db := viper.GetString("database")
 		user := viper.GetString("user")
 		ctx := context.Background()
 		onSuccess := func() { reconnect(cl, cmd) } // used to redial with new token
-		login(ctx, cl.immuClient, cl.hds, user, defaultUser, defaultPassword, onSuccess)
-		selectDb(ctx, cl.immuClient, cl.hds, db, onSuccess)
-		nbEntries := parseNbEntries(args)
+		login(ctx, cl, cl.immuClient, cl.pwr, cl.hds, user, defaultUser, defaultPassword, onSuccess)
+		selectDb(ctx, cl, cl.immuClient, cl.hds, db, onSuccess)
+		nbEntries := parseNbEntries(args, cl)
 		fmt.Printf("Database %s will be populated with %d entries.\n", db, nbEntries)
-		askUserToConfirmOrCancel()
+		askUserToConfirmOrCancel(cl.tr, cl)
 		fmt.Printf("Populating immudb with %d sample entries (credit cards of clients) ...\n", nbEntries)
-		took := populate(ctx, &cl.immuClient, nbEntries)
+		took := populate(ctx, cl, &cl.immuClient, nbEntries)
 		fmt.Printf(
 			"OK: %d entries were written in %v\nNow you can run, for example:\n"+
 				"  ./immuclient scan client    to fetch the populated entries\n"+
@@ -97,22 +102,25 @@ func Init(cmd *cobra.Command, o *c.Options) {
 func reconnect(cl *commandline, cmd *cobra.Command) {
 	cl.disconnect(cmd, nil)
 	if err := cl.connect(cmd, nil); err != nil {
-		c.QuitToStdErr(err)
+		cl.onError(err)
+		return
 	}
 }
 
-func parseNbEntries(args []string) int {
+func parseNbEntries(args []string, cl *commandline) int {
 	nbEntries := defaultNbEntries
 	if len(args) > 0 {
 		var err error
 		nbEntries, err = strconv.Atoi(args[0])
 		if err != nil {
-			c.QuitWithUserError(err)
+			cl.onError(err)
+			return nbEntries
 		}
 		if nbEntries <= 0 {
-			c.QuitWithUserError(fmt.Errorf(
+			cl.onError(fmt.Errorf(
 				"Please specify a number of entries greater than 0 or call the command without "+
 					"any argument so that the default number of %d entries will be used", defaultNbEntries))
+			return nbEntries
 		}
 	}
 	return nbEntries
@@ -120,7 +128,9 @@ func parseNbEntries(args []string) int {
 
 func login(
 	ctx context.Context,
+	cl *commandline,
 	immuClient client.ImmuClient,
+	pwr c.PasswordReader,
 	hds client.HomedirService,
 	user string,
 	defaultUser string,
@@ -131,55 +141,62 @@ func login(
 		if err == nil {
 			tokenFileName := immuClient.GetOptions().TokenFileName
 			if err := hds.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
-				c.QuitToStdErr(err)
+				cl.onError(err)
+				return
 			}
 			onSuccess()
 			return
 		}
 	}
-	pass, err := c.DefaultPasswordReader.Read(fmt.Sprintf("%s's password:", user))
+	pass, err := pwr.Read(fmt.Sprintf("%s's password:", user))
 	if err != nil {
-		c.QuitToStdErr(err)
+		cl.onError(err)
+		return
 	}
 	response, err := immuClient.Login(ctx, []byte(user), pass)
 	if err != nil {
-		c.QuitWithUserError(err)
+		cl.onError(err)
+		return
 	}
 	tokenFileName := immuClient.GetOptions().TokenFileName
 	if err := hds.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
-		c.QuitToStdErr(err)
+		cl.onError(err)
+		return
 	}
 	onSuccess()
 }
 
 func selectDb(
 	ctx context.Context,
+	cl *commandline,
 	immuClient client.ImmuClient,
 	hds client.HomedirService,
 	db string,
 	onSuccess func()) {
 	response, err := immuClient.UseDatabase(ctx, &schema.Database{Databasename: db})
 	if err != nil {
-		c.QuitWithUserError(err)
+		cl.onError(err)
+		return
 	}
 	tokenFileName := immuClient.GetOptions().TokenFileName
 	token := []byte(response.GetToken())
 	if err := hds.WriteFileToUserHomeDir(token, tokenFileName); err != nil {
-		c.QuitToStdErr(err)
+		cl.onError(err)
+		return
 	}
 	onSuccess()
 }
 
-func askUserToConfirmOrCancel() {
-	var answer string
+func askUserToConfirmOrCancel(tr c.TerminalReader, cl *commandline) {
 	fmt.Printf("Are you sure you want to proceed? [y/N]: ")
-	if _, err := fmt.Scanln(&answer); err != nil ||
-		!(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
-		c.QuitToStdErr("Canceled")
+	answer, err := tr.ReadFromTerminalYN("N")
+	if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
+		cl.onError(errors.New("Canceled"))
+		return
 	}
 }
 
-func populate(ctx context.Context, immuClient *client.ImmuClient, nbEntries int) time.Duration {
+func populate(ctx context.Context, cl *commandline, immuClient *client.ImmuClient, nbEntries int) time.Duration {
 	// batchSize := 100
 	// var keyReaders []io.Reader
 	// var valueReaders []io.Reader
@@ -203,7 +220,8 @@ func populate(ctx context.Context, immuClient *client.ImmuClient, nbEntries int)
 		//===> simple Set-based version
 		itemStart := time.Now()
 		if _, err := (*immuClient).Set(ctx, key, value); err != nil {
-			c.QuitWithUserError(err)
+			cl.onError(err)
+			return 0
 		}
 		end = end.Add(time.Since(itemStart))
 		fmt.Printf("%s = %s\n", key, value)
@@ -217,7 +235,8 @@ func populate(ctx context.Context, immuClient *client.ImmuClient, nbEntries int)
 		// 		Keys:   keyReaders,
 		// 		Values: valueReaders,
 		// 	}); err != nil {
-		// 		c.QuitWithUserError(err)
+		// 		cl.onError(err)
+		//		return 0
 		// 	}
 		// 	end = end.Add(time.Since(batchStart))
 		// 	keyReaders = nil
@@ -245,13 +264,15 @@ func options() *client.Options {
 
 func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 	if err := cl.immuClient.Disconnect(); err != nil {
-		c.QuitToStdErr(err)
+		cl.onError(err)
+		return
 	}
 }
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-	if cl.immuClient, err = client.NewImmuClient(options()); err != nil {
-		c.QuitToStdErr(err)
+	if cl.immuClient, err = cl.newImmuClient(options()); err != nil {
+		cl.onError(err)
+		return
 	}
 	return
 }

@@ -13,6 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+// Package clienttest ...
 package clienttest
 
 import (
@@ -28,12 +30,55 @@ import (
 type ImmuClientMock struct {
 	immuclient.ImmuClient
 
-	SafeGetF       func(context.Context, []byte, ...grpc.CallOption) (*client.VerifiedItem, error)
-	SafeSetF       func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
-	SetF           func(context.Context, []byte, []byte) (*schema.Index, error)
-	SafeReferenceF func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
-	SafeZAddF      func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error)
-	HistoryF       func(context.Context, []byte) (*schema.StructuredItemList, error)
+	GetOptionsF         func() *client.Options
+	IsConnectedF        func() bool
+	WaitForHealthCheckF func(context.Context) error
+	ConnectF            func(context.Context) (*grpc.ClientConn, error)
+	DisconnectF         func() error
+	LoginF              func(context.Context, []byte, []byte) (*schema.LoginResponse, error)
+	LogoutF             func(context.Context) error
+	SafeGetF            func(context.Context, []byte, ...grpc.CallOption) (*client.VerifiedItem, error)
+	SafeSetF            func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
+	SetF                func(context.Context, []byte, []byte) (*schema.Index, error)
+	SafeReferenceF      func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
+	SafeZAddF           func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error)
+	HistoryF            func(context.Context, []byte) (*schema.StructuredItemList, error)
+	UseDatabaseF        func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
+}
+
+// GetOptions ...
+func (icm *ImmuClientMock) GetOptions() *client.Options {
+	return icm.GetOptionsF()
+}
+
+// IsConnected ...
+func (icm *ImmuClientMock) IsConnected() bool {
+	return icm.IsConnectedF()
+}
+
+// WaitForHealthCheck ...
+func (icm *ImmuClientMock) WaitForHealthCheck(ctx context.Context) (err error) {
+	return icm.WaitForHealthCheckF(ctx)
+}
+
+// Connect ...
+func (icm *ImmuClientMock) Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error) {
+	return icm.ConnectF(ctx)
+}
+
+// Disconnect ...
+func (icm *ImmuClientMock) Disconnect() error {
+	return icm.DisconnectF()
+}
+
+// Login ...
+func (icm *ImmuClientMock) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
+	return icm.LoginF(ctx, user, pass)
+}
+
+// Logout ...
+func (icm *ImmuClientMock) Logout(ctx context.Context) error {
+	return icm.LogoutF(ctx)
 }
 
 // SafeGet ...
@@ -64,4 +109,9 @@ func (icm *ImmuClientMock) SafeZAdd(ctx context.Context, set []byte, score float
 // History ...
 func (icm *ImmuClientMock) History(ctx context.Context, key []byte) (*schema.StructuredItemList, error) {
 	return icm.HistoryF(ctx, key)
+}
+
+// UseDatabase ...
+func (icm *ImmuClientMock) UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error) {
+	return icm.UseDatabaseF(ctx, d)
 }

@@ -17,17 +17,40 @@ limitations under the License.
 package main
 
 import (
+	"os"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	immutest "github.com/codenotary/immudb/cmd/immutest/command"
 	"github.com/codenotary/immudb/cmd/version"
-	"os"
+	"github.com/codenotary/immudb/pkg/client"
 )
 
 func main() {
-	version.App = "immutest"
-	cmd := immutest.NewCmd()
-	if err := cmd.Execute(); err != nil {
+	err := execute(
+		func(opts *client.Options) (client.ImmuClient, error) { return client.NewImmuClient(opts) },
+		c.DefaultPasswordReader,
+		c.NewTerminalReader(),
+		client.NewHomedirService(),
+		c.QuitWithUserError,
+		nil)
+	if err != nil {
 		c.QuitWithUserError(err)
 	}
 	os.Exit(0)
+}
+
+func execute(
+	newImmuClient func(*client.Options) (client.ImmuClient, error),
+	pwr c.PasswordReader,
+	tr c.TerminalReader,
+	hds client.HomedirService,
+	onError func(err error),
+	args []string,
+) error {
+	version.App = "immutest"
+	cmd := immutest.NewCmd(newImmuClient, pwr, tr, hds, onError)
+	if args != nil {
+		cmd.SetArgs(args)
+	}
+	return cmd.Execute()
 }
