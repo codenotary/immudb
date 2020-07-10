@@ -24,7 +24,7 @@ import (
 )
 
 func TestManpageServiceImmugw_InstallManPages(t *testing.T) {
-	mps := manpageServiceImmudb{}
+	mps := ManpageServiceImmudb{}
 
 	manDir := "./man_dir_immudb_test"
 
@@ -35,7 +35,7 @@ func TestManpageServiceImmugw_InstallManPages(t *testing.T) {
 }
 
 func TestManpageServiceImmugw_UninstallManPages(t *testing.T) {
-	mps := manpageServiceImmudb{}
+	mps := ManpageServiceImmudb{}
 
 	manDir := "./man_dir_immudb_test"
 	manFiles, err := ioutil.ReadDir(manDir)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/cobra"
@@ -37,15 +38,20 @@ func TestCommandLine_PrintTree(t *testing.T) {
 	bs.Server.Set(context.TODO(), &schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
 
 	cmd := cobra.Command{}
-	cl := new(commandline)
-	cl.context = context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
+	cliopt := Options()
+	cliopt.DialOptions = &dialOptions
+	clientb, _ := client.NewImmuClient(cliopt)
+	cl := commandline{
+		options:        cliopt,
+		immuClient:     clientb,
+		passwordReader: &pwrMock{},
+		context:        context.Background(),
+		hds:            homedirServiceMock{*new(client.HomedirService)},
+	}
 
-	cl.options = Options()
-	//cl.options.WithAuth(false)
-	cl.options.DialOptions = &dialOptions
 	cl.printTree(&cmd)
 
 	b := bytes.NewBufferString("")
