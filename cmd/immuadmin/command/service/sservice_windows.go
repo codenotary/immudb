@@ -91,32 +91,32 @@ func (ss *sservice) UninstallSetup(serviceName string) (err error) {
 	if cep, err = ss.getCommonExecPath(); err != nil {
 		return err
 	}
-	err = os.Remove(filepath.Join(cep, serviceName+".exe"))
+	err = ss.oss.Remove(filepath.Join(cep, serviceName+".exe"))
 	if err != nil {
 		return err
 	}
-	f, err := os.Open(cep)
+	f, err := ss.oss.Open(cep)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	_, err = f.Readdirnames(1)
 	if err == io.EOF {
-		err = os.Remove(cep)
+		err = ss.oss.Remove(cep)
 	}
 	// remove ProgramData folder only if it is empty
 	var cepd string
 	if cepd, err = helper.ResolvePath(ss.v.GetString("dir"), false); err != nil {
 		return err
 	}
-	f1, err := os.Open(cepd)
+	f1, err := ss.oss.Open(cepd)
 	if err != nil {
 		return err
 	}
 	defer f1.Close()
 	_, err = f1.Readdirnames(1)
 	if err == io.EOF {
-		err = os.Remove(cepd)
+		err = ss.oss.Remove(cepd)
 	}
 	return err
 }
@@ -131,7 +131,7 @@ func (ss *sservice) InstallConfig(serviceName string) (err error) {
 		return err
 	}
 	var configDir = filepath.Dir(cp)
-	err = os.MkdirAll(configDir, os.ModePerm)
+	err = ss.oss.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (ss *sservice) RemoveProgramFiles(serviceName string) (err error) {
 	if path, err = helper.ResolvePath(filepath.Join(filepath.FromSlash(ss.v.GetString("dir")), "config"), false); err != nil {
 		return err
 	}
-	return os.RemoveAll(path)
+	return ss.oss.RemoveAll(path)
 }
 
 // EraseData erase all data
@@ -160,14 +160,14 @@ func (ss *sservice) EraseData(serviceName string) (err error) {
 		return err
 	}
 	data := filepath.Join(path, "data")
-	if err := os.RemoveAll(data); err != nil {
+	if err := ss.oss.RemoveAll(data); err != nil {
 		return err
 	}
 	immudbsys := filepath.Join(path, "immudbsys")
-	if err := os.RemoveAll(immudbsys); err != nil {
+	if err := ss.oss.RemoveAll(immudbsys); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(filepath.Join(path, "immudb.identifier")); err != nil {
+	if err := ss.oss.RemoveAll(filepath.Join(path, "immudb.identifier")); err != nil {
 		return err
 	}
 	return nil
@@ -206,12 +206,12 @@ func (ss *sservice) CopyExecInOsDefault(execPath string) (newExecPath string, er
 	if cep, err = ss.getCommonExecPath(); err != nil {
 		return "", err
 	}
-	err = os.MkdirAll(cep, os.ModePerm)
+	err = ss.oss.MkdirAll(cep, os.ModePerm)
 	if err != nil {
 		return "", err
 	}
 
-	from, err := os.Open(execPath)
+	from, err := ss.oss.Open(execPath)
 	if err != nil {
 		return "", err
 	}
@@ -221,7 +221,7 @@ func (ss *sservice) CopyExecInOsDefault(execPath string) (newExecPath string, er
 	if err != nil {
 		return "", err
 	}
-	to, err := os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
+	to, err := ss.oss.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return "", err
 	}

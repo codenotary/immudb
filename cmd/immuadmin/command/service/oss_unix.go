@@ -20,13 +20,16 @@ package service
 
 import (
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 )
 
 type Oss interface {
 	LookupGroup(name string) (*user.Group, error)
+	AddGroup(name string) error
 	Lookup(username string) (*user.User, error)
+	AddUser(usr string, group string) error
 	Chown(name string, uid, gid int) error
 	MkdirAll(path string, perm os.FileMode) error
 	Remove(name string) error
@@ -42,7 +45,12 @@ type oss struct{}
 func (oss oss) LookupGroup(name string) (*user.Group, error) {
 	return user.LookupGroup(name)
 }
-
+func (oss oss) AddGroup(name string) error {
+	return exec.Command("addgroup", name).Run()
+}
+func (oss oss) AddUser(usr string, group string) error {
+	return exec.Command("useradd", "-g", usr, usr).Run()
+}
 func (oss oss) Lookup(username string) (*user.User, error) {
 	return user.Lookup(username)
 }

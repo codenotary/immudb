@@ -165,20 +165,20 @@ func (ss sservice) InstallConfig(serviceName string) (err error) {
 }
 
 func (ss sservice) GroupCreateIfNotExists() (err error) {
-	if _, err = user.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
+	if _, err = ss.oss.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
 		return err
 	}
-	if err = exec.Command("addgroup", linuxGroup).Run(); err != nil {
+	if err = ss.oss.AddGroup(linuxGroup); err != nil {
 		return err
 	}
 	return err
 }
 
 func (ss sservice) UserCreateIfNotExists() (err error) {
-	if _, err = user.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
+	if _, err = ss.oss.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
 		return err
 	}
-	if err = exec.Command("useradd", "-g", linuxGroup, linuxUser).Run(); err != nil {
+	if err = ss.oss.AddUser(linuxGroup, linuxUser); err != nil {
 		return err
 	}
 
@@ -219,7 +219,7 @@ func (ss sservice) RemoveProgramFiles(serviceName string) (err error) {
 		return err
 	}
 	config := filepath.Dir(cp)
-	os.RemoveAll(config)
+	ss.oss.RemoveAll(config)
 	return
 }
 
@@ -228,7 +228,7 @@ func (ss sservice) EraseData(serviceName string) (err error) {
 	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.FromSlash(ss.v.GetString("dir")))
+	return ss.oss.RemoveAll(filepath.FromSlash(ss.v.GetString("dir")))
 }
 
 // todo @Michele this can be simplified
