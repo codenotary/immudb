@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuc
+package cli
 
 import (
 	"strings"
@@ -23,14 +23,16 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
-
 func TestRawSafeSet(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	msg, err := imc.RawSafeSet([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
+	
+	msg, err := cli.rawSafeSet([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("RawSafeSet fail", err)
 	}
@@ -38,14 +40,17 @@ func TestRawSafeSet(t *testing.T) {
 		t.Fatalf("RawSafeSet failed: %s", msg)
 	}
 }
+
 func TestSet(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	msg, err := imc.Set([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
 
+	msg, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
 	}
@@ -53,14 +58,17 @@ func TestSet(t *testing.T) {
 		t.Fatalf("Set failed: %s", msg)
 	}
 }
+
 func TestSafeSet(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	msg, err := imc.SafeSet([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
 
+	msg, err := cli.safeset([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("SafeSet fail", err)
 	}
@@ -68,15 +76,19 @@ func TestSafeSet(t *testing.T) {
 		t.Fatalf("SafeSet failed: %s", msg)
 	}
 }
+
 func TestZAdd(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	_, _ = imc.SafeSet([]string{"key", "val"})
+	cli := new(cli)
+	cli.immucl = imc
 
-	msg, err := imc.ZAdd([]string{"val", "1", "key"})
+	_, _ = cli.safeset([]string{"key", "val"})
+
+	msg, err := cli.zAdd([]string{"val", "1", "key"})
 
 	if err != nil {
 		t.Fatal("ZAdd fail", err)
@@ -85,15 +97,19 @@ func TestZAdd(t *testing.T) {
 		t.Fatalf("ZAdd failed: %s", msg)
 	}
 }
+
 func TestSafeZAdd(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
+	
+	cli := new(cli)
+	cli.immucl = imc
 
-	_, _ = imc.SafeSet([]string{"key", "val"})
+	_, _ = cli.safeset([]string{"key", "val"})
 
-	msg, err := imc.SafeZAdd([]string{"val", "1", "key"})
+	msg, err := cli.safeZAdd([]string{"val", "1", "key"})
 
 	if err != nil {
 		t.Fatal("SafeZAdd fail", err)
@@ -102,13 +118,17 @@ func TestSafeZAdd(t *testing.T) {
 		t.Fatalf("SafeZAdd failed: %s", msg)
 	}
 }
+
 func TestCreateDatabase(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	msg, err := imc.CreateDatabase([]string{"newdb"})
+	cli := new(cli)
+	cli.immucl = imc
+
+	msg, err := cli.CreateDatabase([]string{"create","newdb"})
 	if err != nil {
 		t.Fatal("CreateDatabase fail", err)
 	}
@@ -116,12 +136,12 @@ func TestCreateDatabase(t *testing.T) {
 		t.Fatalf("CreateDatabase failed: %s", msg)
 	}
 
-	msg, err = imc.DatabaseList([]string{})
+	msg, err = cli.CreateDatabase([]string{"list"})
 	if err != nil {
 		t.Fatal("DatabaseList fail", err)
 	}
 
-	msg, err = imc.UseDatabase([]string{"newdb"})
+	msg, err = cli.UseDatabase([]string{"newdb"})
 	if err != nil {
 		t.Fatal("UseDatabase fail", err)
 	}

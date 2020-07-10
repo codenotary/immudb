@@ -46,7 +46,7 @@ func (cli *cli) UserOperations(args []string) (string, error) {
 		if len(args) < 2 {
 			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
 		}
-		return cli.immucl.ChangeUserPassword(args)
+		return cli.immucl.ChangeUserPassword(args[1:])
 	case "activate", "deactivate":
 		if len(args) < 2 {
 			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
@@ -63,7 +63,7 @@ func (cli *cli) UserOperations(args []string) (string, error) {
 		if len(args) < 5 {
 			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
 		}
-		return cli.immucl.SetUserPermission(args[2:])
+		return cli.immucl.SetUserPermission(args[1:])
 	default:
 		return "", fmt.Errorf("uknown command %s", args[0])
 	}
