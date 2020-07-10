@@ -19,6 +19,8 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"io/ioutil"
 	"testing"
 
@@ -57,18 +59,44 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	opts := Options()
-	opts.DialOptions = &dialOptions
+	cliopt := Options()
+	cliopt.DialOptions = &dialOptions
 	cmdl := commandline{
-		context: context.Background(),
-		options: opts,
+		options:        cliopt,
+		immuClient:     &scIClientMock{*new(client.ImmuClient)},
+		passwordReader: &pwrMock{},
+		context:        context.Background(),
+		hds:            homedirServiceMock{},
 	}
 	_ = cmdl.connect(&cobra.Command{}, []string{})
 
 	cmdl.disconnect(&cobra.Command{}, []string{})
 
 	err := cmdl.immuClient.Disconnect()
-	assert.Errorf(t, err, "not connected")
+	assert.Nil(t, err)
+}
+
+type scIClientInnerMock struct {
+	cliop *client.Options
+	client.ImmuClient
+}
+
+func (c scIClientInnerMock) UpdateAuthConfig(ctx context.Context, kind auth.Kind) error {
+	return nil
+}
+func (c scIClientInnerMock) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
+	return nil
+}
+func (c scIClientInnerMock) Disconnect() error {
+	return nil
+}
+
+func (c scIClientInnerMock) GetOptions() *client.Options {
+	return c.cliop
+}
+
+func (c scIClientInnerMock) Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error) {
+	return &schema.LoginResponse{}, nil
 }
 
 func TestCommandLine_LoginLogout(t *testing.T) {
@@ -77,17 +105,19 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	bs.Start()
 
 	cmd := cobra.Command{}
-	cl := new(commandline)
-	cl.context = context.Background()
-	cl.passwordReader = &pwrMock{}
-	cl.hds = client.NewHomedirService()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-
-	cl.options = Options()
-	cl.options.DialOptions = &dialOptions
-	cl.login(&cmd)
+	cliopt := Options()
+	cliopt.DialOptions = &dialOptions
+	cmdl := commandline{
+		options:        cliopt,
+		immuClient:     &scIClientInnerMock{cliopt, *new(client.ImmuClient)},
+		passwordReader: &pwrMock{},
+		context:        context.Background(),
+		hds:            homedirServiceMock{*new(client.HomedirService)},
+	}
+	cmdl.login(&cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
@@ -99,12 +129,19 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	}
 	assert.Contains(t, string(out), "logged in")
 
+	cmdlo := commandline{
+		options:        cliopt,
+		immuClient:     &scIClientMock{*new(client.ImmuClient)},
+		passwordReader: &pwrMock{},
+		context:        context.Background(),
+		hds:            homedirServiceMock{*new(client.HomedirService)},
+	}
 	b1 := bytes.NewBufferString("")
 	logoutcmd := cobra.Command{}
 	logoutcmd.SetOut(b1)
 	logoutcmd.SetArgs([]string{"logout"})
 
-	cl.logout(&logoutcmd)
+	cmdlo.logout(&logoutcmd)
 
 	logoutcmd.Execute()
 	out1, err1 := ioutil.ReadAll(b1)
@@ -153,8 +190,16 @@ type homedirServiceMock struct {
 	client.HomedirService
 }
 
-func (h *homedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
+func (h homedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
 	return true, nil
+}
+
+func (h homedirServiceMock) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
+	return nil
+}
+
+func (h homedirServiceMock) DeleteFileFromUserHomeDir(pathToFile string) error {
+	return nil
 }
 
 type pwrMock struct{}
