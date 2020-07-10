@@ -90,7 +90,7 @@ jobs:
         - go get golang.org/x/tools/cmd/cover
         - go get github.com/mattn/goveralls
         - set -o pipefail
-        - go test ./... -v -covermode=count -coverprofile=coverage.out || true
+        - go test ./... -v $(go list ./... | grep -v test) -covermode=count -coverprofile=coverage.out || true
         - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
     - stage: Scan (edited)
 branches:
