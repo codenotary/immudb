@@ -73,7 +73,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	cmdl.disconnect(&cobra.Command{}, []string{})
 
 	err := cmdl.immuClient.Disconnect()
-	assert.Nil(t, err)
+	assert.Errorf(t, err, "not connected")
 }
 
 type scIClientInnerMock struct {
@@ -115,7 +115,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 		immuClient:     &scIClientInnerMock{cliopt, *new(client.ImmuClient)},
 		passwordReader: &pwrMock{},
 		context:        context.Background(),
-		hds:            homedirServiceMock{*new(client.HomedirService)},
+		hds:            client.NewHomedirService(),
 	}
 	cmdl.login(&cmd)
 
@@ -134,7 +134,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: &pwrMock{},
 		context:        context.Background(),
-		hds:            homedirServiceMock{*new(client.HomedirService)},
+		hds:            client.NewHomedirService(),
 	}
 	b1 := bytes.NewBufferString("")
 	logoutcmd := cobra.Command{}
