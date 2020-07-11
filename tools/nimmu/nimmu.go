@@ -93,7 +93,7 @@ func main() {
 }
 
 func configureOptions(cmd *cobra.Command) {
-	cmd.Flags().StringP("dir", "d", "./data/systemdb", "immudb data directory")
+	cmd.Flags().StringP("dir", "d", "../../data/defaultdb", "immudb data directory")
 }
 
 func makeDB(dir string) *badger.DB {

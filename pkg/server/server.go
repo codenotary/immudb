@@ -380,6 +380,9 @@ func (s *ImmuServer) startCorruptionChecker() {
 		cco.singleiteration = false
 		cco.iterationSleepTime = 5 * time.Second
 		cco.frequencySleepTime = 500 * time.Millisecond
+		if s.Options.Logfile != "" {
+			cco.ToLogFile = true
+		}
 		s.Cc = NewCorruptionChecker(cco, s.dbList, s.Logger)
 		go func() {
 			s.Logger.Infof("Starting consistency-checker")

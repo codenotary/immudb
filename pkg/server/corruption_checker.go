@@ -20,10 +20,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	mrand "math/rand"
+	"os"
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -37,6 +40,7 @@ type CCOptions struct {
 	singleiteration    bool
 	iterationSleepTime time.Duration
 	frequencySleepTime time.Duration
+	ToLogFile          bool
 }
 
 type corruptionChecker struct {
@@ -123,8 +127,13 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 			}); err != nil {
 				if err == store.ErrInconsistentDigest {
 					auth.IsTampered = true
-					s.Logger.Errorf("insertion order index %d was tampered", id)
+					fmt.Fprintf(os.Stdout, "\n%simmudb  %s Error: %sinsertion order index %d was tampered%s\n\n", helper.Red, time.Now().Format("2006/01/02 3:4:5"), helper.Yellow, id, helper.Reset)
+					if s.options.ToLogFile {
+						s.Logger.Errorf("insertion order index %d was tampered", id)
+					}
 					s.Wg.Done()
+					//even though there is an inconsistency we do not want exit with an error as there was no error in CC per se
+					err = nil
 					return
 				}
 				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
@@ -136,6 +145,8 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				auth.IsTampered = true
 				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
 				s.Wg.Done()
+				//even though there is an inconsistency we do not want exit with an error as there was no error in CC per se
+				err = nil
 				return
 			}
 			time.Sleep(s.options.frequencySleepTime)
