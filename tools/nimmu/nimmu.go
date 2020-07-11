@@ -22,7 +22,9 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"time"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/dgraph-io/badger/v2"
 
 	"github.com/spf13/cobra"
@@ -64,6 +66,7 @@ func main() {
 			if err != nil {
 				return err
 			}
+
 			ts := item.Version()
 			oldValue, err := item.ValueCopy(nil)
 			if err != nil {
@@ -71,7 +74,24 @@ func main() {
 			}
 
 			fmt.Printf("index: %d\nkey: %s\nOLD value:\n%s\n", ts-1, item.Key(), oldValue)
-			if err := txn.Set(k, v); err != nil {
+
+			//immuclient safeset uses a StructuredKeyValue
+			//if we set a kv then safeget from immuclient will complain with an error
+			skv := schema.StructuredKeyValue{
+				Key: k,
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   v,
+				},
+			}
+			kv, err := skv.ToKV()
+			if err != nil {
+				return err
+			}
+			if err := txn.SetEntry(&badger.Entry{
+				Key:   kv.Key,
+				Value: kv.Value,
+			}); err != nil {
 				return err
 			}
 
@@ -79,7 +99,7 @@ func main() {
 				return err
 			}
 
-			fmt.Printf("NEW value:\n%s \nindex %d successfully overwritten.\n", v, ts-1)
+			fmt.Printf("NEW value:\n%s \nindex %d successfully overwritten.\n", kv.Value, ts-1)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
