@@ -73,8 +73,8 @@ type Client interface {
 // Init ...
 func Init(opts *client.Options) (Client, error) {
 	ic := new(immuc)
-	ic.passwordReader = c.DefaultPasswordReader
-	ic.hds = client.NewHomedirService()
+	ic.passwordReader = opts.PasswordReader
+	ic.hds = opts.HDS
 	ic.options = opts
 	return ic, nil
 }
