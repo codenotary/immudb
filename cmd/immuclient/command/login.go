@@ -35,7 +35,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.ExactArgs(1),

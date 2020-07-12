@@ -135,7 +135,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	c = DefaultClient()
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
 	c.WithLogger(l)
-	c.WithHomedirService(NewHomedirService())
+	c.WithHomedirService(options.HDS)
 
 	options.DialOptions = c.SetupDialOptions(options)
 

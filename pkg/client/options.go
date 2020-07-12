@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"strconv"
 
+	c "github.com/codenotary/immudb/cmd/helper"
 	"google.golang.org/grpc"
 )
 
@@ -39,6 +40,8 @@ type Options struct {
 	Config             string
 	TokenFileName      string
 	CurrentDatabase    string
+	PasswordReader     c.PasswordReader
+	HDS                HomedirService
 }
 
 // DefaultOptions ...
@@ -53,6 +56,8 @@ func DefaultOptions() *Options {
 		Config:             "configs/immuclient.toml",
 		TokenFileName:      "token",
 		DialOptions:        &[]grpc.DialOption{},
+		PasswordReader:     c.DefaultPasswordReader,
+		HDS:                NewHomedirService(),
 	}
 }
 
@@ -121,6 +126,18 @@ func (o *Options) WithDialOptions(dialOptions *[]grpc.DialOption) *Options {
 // Bind concatenates address and port
 func (o *Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
+}
+
+// WithPasswordReader sets the password reader for the client
+func (o *Options) WithPasswordReader(pr c.PasswordReader) *Options {
+	o.PasswordReader = pr
+	return o
+}
+
+// WithHomedirService sets the HomedirService for the client
+func (o *Options) WithHomedirService(hds HomedirService) *Options {
+	o.HDS = hds
+	return o
 }
 
 func (o *Options) String() string {
