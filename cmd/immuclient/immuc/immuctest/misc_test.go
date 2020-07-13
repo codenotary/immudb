@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuc
+package immuctest
 
 import (
 	"strings"
@@ -29,11 +29,7 @@ func TestHealthCheckSucceeds(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-
-	imc := newClient(&immuclienttest.PasswordReader{
-		Pass: []string{},
-	}, bs.Dialer)
-	imc = login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	msg, err := imc.HealthCheck([]string{})
 	if err != nil {
 		t.Fatal("HealthCheck fail", err)
@@ -47,9 +43,7 @@ func TestHealthCheckFails(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := newClient(&testPasswordReader{
-		pass: []string{},
-	}, bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	bs.GrpcServer.Stop()
 	msg, err := imc.HealthCheck([]string{})
 	if err != nil {
@@ -65,7 +59,7 @@ func TestHistory(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	msg, err := imc.History([]string{"key"})
 	if err != nil {
 		t.Fatal("History fail", err)

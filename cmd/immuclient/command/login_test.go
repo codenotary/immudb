@@ -34,7 +34,7 @@ func TestLogin(t *testing.T) {
 	bs.Start()
 
 	cmdl := commandline{
-		immucl: newClient(&immuclienttest.PasswordReader{
+		immucl: immuclienttest.NewClient(&immuclienttest.PasswordReader{
 			Pass: []string{"immudb"},
 		}, bs.Dialer, nil),
 	}

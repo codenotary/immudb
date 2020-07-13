@@ -14,30 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuc
+package immuctest
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"google.golang.org/grpc"
 )
 
-func TestConnect(t *testing.T) {
+func TestCurrentRoot(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-	}
-	imc, err := Init(Options().WithDialOptions(&dialOptions))
+	_, _ = imc.Set([]string{"key", "val"})
+	msg, err := imc.CurrentRoot([]string{""})
+
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("CurrentRoot fail", err)
 	}
-	err = imc.Connect([]string{""})
-	if err != nil {
-		t.Fatal(err)
+	if !strings.Contains(msg, "hash") {
+		t.Fatalf("CurrentRoot failed: %s", msg)
 	}
 }
