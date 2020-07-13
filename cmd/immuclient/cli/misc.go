@@ -60,10 +60,15 @@ func (cli *cli) UserOperations(args []string) (string, error) {
 		}
 		return cli.immucl.SetActiveUser(args[1:], active)
 	case "permission":
-		if len(args) < 5 {
+		if len(args) < 4 {
 			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
 		}
 		return cli.immucl.SetUserPermission(args[1:])
+	case "create":
+		if len(args) < 4 {
+			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
+		}
+		return cli.immucl.UserCreate(args[1:])
 	default:
 		return "", fmt.Errorf("uknown command %s", args[0])
 	}

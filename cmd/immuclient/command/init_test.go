@@ -53,13 +53,20 @@ func (h *homedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string,
 	return string(h.token), nil
 }
 
-func newClient(pr helper.PasswordReader, dialer servertest.BuffDialer) immuc.Client {
+func newClient(pr helper.PasswordReader, dialer servertest.BuffDialer, hds client.HomedirService) immuc.Client {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
 	}
 
-	ic, err := immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(&homedirServiceMock{}))
+	var ic immuc.Client
+	var err error
+	if hds == nil {
+		ic, err = immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
+			WithHomedirService(&homedirServiceMock{}))
+	} else {
+		ic, err = immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
+			WithHomedirService(hds))
+	}
 
 	err = ic.Connect([]string{""})
 	if err != nil {
@@ -68,7 +75,7 @@ func newClient(pr helper.PasswordReader, dialer servertest.BuffDialer) immuc.Cli
 	return ic
 }
 
-func login(dialer servertest.BuffDialer) immuc.Client {
+func login(dialer servertest.BuffDialer) (immuc.Client, client.HomedirService) {
 	viper.Set("tokenfile", client.DefaultOptions().TokenFileName)
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
@@ -76,9 +83,9 @@ func login(dialer servertest.BuffDialer) immuc.Client {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
 	}
-
+	hds := &homedirServiceMock{}
 	ic, err := immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(&homedirServiceMock{}))
+		WithHomedirService(hds))
 
 	err = ic.Connect([]string{""})
 	if err != nil {
@@ -88,7 +95,7 @@ func login(dialer servertest.BuffDialer) immuc.Client {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return ic
+	return ic, hds
 }
 
 func TestInit(t *testing.T) {
@@ -104,7 +111,7 @@ func TestConnect(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	cmd := commandline{
-		immucl: newClient(&immuclienttest.PasswordReader{}, bs.Dialer),
+		immucl: newClient(&immuclienttest.PasswordReader{}, bs.Dialer, nil),
 	}
 	_ = cmd.connect(&cobra.Command{}, []string{})
 	cmd.disconnect(&cobra.Command{}, []string{})

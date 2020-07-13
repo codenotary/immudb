@@ -32,8 +32,9 @@ func TestZScan(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.zScan(&cmd)
@@ -60,8 +61,9 @@ func TestIScan(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.iScan(&cmd)
@@ -88,8 +90,9 @@ func TestScan(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.scan(&cmd)
@@ -116,8 +119,9 @@ func TestCount(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.count(&cmd)

@@ -32,8 +32,9 @@ func TestCurrentRoot(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.currentRoot(&cmd)

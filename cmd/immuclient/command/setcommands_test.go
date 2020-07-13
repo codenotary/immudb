@@ -32,8 +32,9 @@ func TestRawSafeSet(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.rawSafeSet(&cmd)
@@ -58,8 +59,9 @@ func TestSet(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.set(&cmd)
@@ -84,8 +86,9 @@ func TestSafeset(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.safeset(&cmd)
@@ -110,8 +113,9 @@ func TestZAdd(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.zAdd(&cmd)
@@ -144,8 +148,9 @@ func TestSafeZAdd(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.safeZAdd(&cmd)
