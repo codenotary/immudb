@@ -48,7 +48,7 @@ func TestIScan(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
-	_, err := imc.Set([]string{"key", "val"})
+	_, err := imc.SafeSet([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
 	}

@@ -58,7 +58,7 @@ type PasswordReader struct {
 }
 
 func (pr *PasswordReader) Read(msg string) ([]byte, error) {
-	if len(pr.Pass) < pr.callNumber {
+	if len(pr.Pass) <= pr.callNumber {
 		log.Fatal("Application requested the password more times than number of passwords supplied")
 	}
 	pass := []byte(pr.Pass[pr.callNumber])

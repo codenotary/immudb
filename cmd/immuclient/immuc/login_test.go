@@ -260,9 +260,9 @@ func TestUserChangePassword(t *testing.T) {
 			"MyUser@9",
 			"Password of immudb was changed successfuly",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc = newClient(&immuclienttest.PasswordReader{
+				imc.passwordReader = &immuclienttest.PasswordReader{
 					Pass: []string{"immudb", password, password},
-				}, bs.Dialer)
+				}
 				msg, err := imc.ChangeUserPassword(args)
 				if err != nil {
 					t.Fatal("TestUserChangePassword fail", err)
@@ -279,9 +279,9 @@ func TestUserChangePassword(t *testing.T) {
 			"old password is incorrect",
 			func(t *testing.T, password string, args []string, exp string) {
 				imc := login("immudb", "MyUser@9", bs.Dialer)
-				imc = newClient(&immuclienttest.PasswordReader{
-					Pass: []string{"immudb", password, password},
-				}, bs.Dialer)
+				imc.passwordReader = &immuclienttest.PasswordReader{
+					Pass: []string{"pass", password, password},
+				}
 				msg, err := imc.ChangeUserPassword(args)
 				if err == nil {
 					t.Fatal("TestUserChangePassword fail", err)
@@ -305,9 +305,9 @@ func TestUserSetActive(t *testing.T) {
 	bs.Start()
 	imc := login("immudb", "immudb", bs.Dialer)
 
-	imc = newClient(&immuclienttest.PasswordReader{
+	imc.passwordReader = &immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer)
+	}
 	_, err := imc.UserOperations([]string{"create", "myuser", "readwrite", "defaultdb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
