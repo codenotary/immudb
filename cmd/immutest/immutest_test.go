@@ -28,23 +28,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type homedirServiceMock struct {
-	content []byte
-}
+var homedirContent []byte
 
-func (hsm *homedirServiceMock) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
-	hsm.content = content
-	return nil
-}
-func (hsm *homedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
-	return len(hsm.content) > 0, nil
-}
-func (hsm *homedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string, error) {
-	return string(hsm.content), nil
-}
-func (hsm *homedirServiceMock) DeleteFileFromUserHomeDir(pathToFile string) error {
-	hsm.content = nil
-	return nil
+func newHomedirServiceMock() *clienttest.HomedirServiceMock {
+	return &clienttest.HomedirServiceMock{
+		WriteFileToUserHomeDirF: func(content []byte, pathToFile string) error {
+			homedirContent = content
+			return nil
+		},
+		FileExistsInUserHomeDirF: func(pathToFile string) (bool, error) {
+			return len(homedirContent) > 0, nil
+		},
+		ReadFileFromUserHomeDirF: func(pathToFile string) (string, error) {
+			return string(homedirContent), nil
+		},
+		DeleteFileFromUserHomeDirF: func(pathToFile string) error {
+			homedirContent = nil
+			return nil
+		},
+	}
 }
 
 type pwrMock struct {
@@ -89,13 +91,15 @@ func TestImmutest(t *testing.T) {
 		readF: func(string) ([]byte, error) { return []byte("password"), nil },
 	}
 
+	hsm := newHomedirServiceMock()
+
 	execute(
 		func(opts *client.Options) (client.ImmuClient, error) {
 			return icm, nil
 		},
 		&pwrMock,
 		&trMock{},
-		&homedirServiceMock{},
+		hsm,
 		func(err error) {
 			require.NoError(t, err)
 		},
@@ -109,7 +113,7 @@ func TestImmutest(t *testing.T) {
 		},
 		&pwrMock,
 		&trMock{},
-		&homedirServiceMock{},
+		hsm,
 		func(err error) {
 			require.Error(t, err)
 			require.Equal(t, icErr, err)
