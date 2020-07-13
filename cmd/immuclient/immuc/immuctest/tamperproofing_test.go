@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuc
+package immuctest
 
 import (
 	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -28,7 +29,7 @@ func TestConsistency(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	msg, err := imc.Set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -55,7 +56,7 @@ func TestInclusion(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	msg, err := imc.Set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)

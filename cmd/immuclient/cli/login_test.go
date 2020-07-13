@@ -17,58 +17,19 @@ limitations under the License.
 package cli
 
 import (
-	"log"
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/helper"
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/viper"
-	"google.golang.org/grpc"
 )
-
-func newClient(pr helper.PasswordReader, dialer servertest.BuffDialer) immuc.Client {
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
-	}
-
-	c.DefaultPasswordReader = pr
-	imc, err := immuc.Init(immuc.Options().WithDialOptions(&dialOptions))
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = imc.Connect([]string{""})
-	if err != nil {
-		log.Fatal(err)
-	}
-	return imc
-}
-func login(username string, password string, dialer servertest.BuffDialer) immuc.Client {
-	viper.Set("tokenfile", client.DefaultOptions().TokenFileName)
-	imc := newClient(&immuclienttest.PasswordReader{
-		Pass: []string{password, password},
-	}, dialer)
-	msg, err := imc.Login([]string{username})
-	if err != nil {
-		log.Fatal(err)
-	}
-	if !strings.Contains(msg, "Successfully logged in.") {
-		log.Fatal("Login error")
-	}
-
-	return imc
-}
 
 func TestLogin(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	cli := new(cli)
 

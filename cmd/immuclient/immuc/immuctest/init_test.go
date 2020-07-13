@@ -14,45 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuc
+package immuctest
 
 import (
-	"strings"
 	"testing"
 
+	. "github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"google.golang.org/grpc"
 )
 
-func TestReference(t *testing.T) {
+func TestConnect(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
 
-	_, _ = imc.Set([]string{"key", "val"})
-
-	msg, err := imc.Reference([]string{"val", "key"})
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+	imc, err := Init(Options().WithDialOptions(&dialOptions))
 	if err != nil {
-		t.Fatal("Reference fail", err)
+		t.Fatal(err)
 	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("Reference failed: %s", msg)
-	}
-}
-func TestSafeReference(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
-
-	_, _ = imc.Set([]string{"key", "val"})
-
-	msg, err := imc.SafeReference([]string{"val", "key"})
+	err = imc.Connect([]string{""})
 	if err != nil {
-		t.Fatal("SafeReference fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("SafeReference failed: %s", msg)
+		t.Fatal(err)
 	}
 }

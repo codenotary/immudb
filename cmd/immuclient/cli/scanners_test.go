@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -28,7 +29,7 @@ func TestZScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	cli := new(cli)
 	cli.immucl = imc
@@ -51,7 +52,7 @@ func TestIScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli := new(cli)
 	cli.immucl = imc
 
@@ -75,7 +76,7 @@ func TestScan(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli := new(cli)
 	cli.immucl = imc
 	_, err := cli.set([]string{"key", "val"})
@@ -96,7 +97,7 @@ func TestCount(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli := new(cli)
 	cli.immucl = imc
 	_, err := cli.set([]string{"key", "val"})

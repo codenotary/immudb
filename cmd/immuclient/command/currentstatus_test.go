@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/cobra"
@@ -32,7 +33,7 @@ func TestCurrentRoot(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := login(bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cmdl := commandline{
 		immucl: imc,
 	}

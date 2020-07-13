@@ -22,7 +22,81 @@ import (
 	"log"
 	"os"
 	"sync"
+
+	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/immuclient/immuc"
+	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/spf13/viper"
+	"google.golang.org/grpc"
 )
+
+type homedirServiceMock struct {
+	client.HomedirService
+	token []byte
+}
+
+func (h *homedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
+	return true, nil
+}
+
+func (h *homedirServiceMock) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
+	h.token = content
+	return nil
+}
+
+func (h *homedirServiceMock) DeleteFileFromUserHomeDir(pathToFile string) error {
+	return nil
+}
+
+func (h *homedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string, error) {
+	return string(h.token), nil
+}
+
+func NewClient(pr helper.PasswordReader, dialer servertest.BuffDialer, hds client.HomedirService) immuc.Client {
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
+	}
+
+	var ic immuc.Client
+	var err error
+	if hds == nil {
+		ic, err = immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
+			WithHomedirService(&homedirServiceMock{}))
+	} else {
+		ic, err = immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
+			WithHomedirService(hds))
+	}
+
+	err = ic.Connect([]string{""})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return ic
+}
+
+func Login(username string, password string, dialer servertest.BuffDialer) (immuc.Client, client.HomedirService) {
+	viper.Set("tokenfile", client.DefaultOptions().TokenFileName)
+	pr := &PasswordReader{
+		Pass: []string{password, password},
+	}
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
+	}
+	hds := &homedirServiceMock{}
+	ic, err := immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
+		WithHomedirService(hds))
+
+	err = ic.Connect([]string{""})
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = ic.Login([]string{username})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return ic, hds
+}
 
 func CaptureStdout(f func()) string {
 	custReader, custWriter, err := os.Pipe()

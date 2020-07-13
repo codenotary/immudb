@@ -14,11 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuc
+package immuctest
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -28,7 +30,7 @@ func TestGetByIndex(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	_, _ = imc.Set([]string{"key", "val"})
 	msg, err := imc.GetByIndex([]string{"0"})
@@ -43,7 +45,7 @@ func TestGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	_, _ = imc.Set([]string{"key", "val"})
 	msg, err := imc.GetKey([]string{"key"})
@@ -58,7 +60,7 @@ func TestRawSafeGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	_, _ = imc.Set([]string{"key", "val"})
 	msg, err := imc.RawSafeGetKey([]string{"key"})
@@ -73,7 +75,7 @@ func TestSafeGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	_, _ = imc.Set([]string{"key", "val"})
 	msg, err := imc.SafeGetKey([]string{"key"})
@@ -89,7 +91,7 @@ func TestGetRawBySafeIndex(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	_, _ = imc.Set([]string{"key", "val"})
 	msg, err := imc.GetRawBySafeIndex([]string{"0"})

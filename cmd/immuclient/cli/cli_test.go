@@ -42,7 +42,7 @@ func TestRunCommand(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli.immucl = imc
 
 	msg := immuclienttest.CaptureStdout(func() {
@@ -63,7 +63,7 @@ func TestRunCommandExtraArgs(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli.immucl = imc
 
 	msg := immuclienttest.CaptureStdout(func() {
@@ -83,7 +83,7 @@ func TestRunMissingArgs(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli.immucl = imc
 
 	msg := immuclienttest.CaptureStdout(func() {
@@ -104,7 +104,7 @@ func TestRunWrongCommand(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli.immucl = imc
 
 	msg := immuclienttest.CaptureStdout(func() {
@@ -125,7 +125,7 @@ func TestCheckCommand(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli.immucl = imc
 	l := liner.NewLiner()
 	msg := immuclienttest.CaptureStdout(func() {

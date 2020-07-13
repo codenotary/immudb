@@ -29,7 +29,7 @@ func TestHealthCheck(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli := new(cli)
 	cli.immucl = imc
 	msg, err := cli.healthCheck([]string{})
@@ -46,7 +46,7 @@ func TestHistory(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	cli := new(cli)
 	cli.immucl = imc
@@ -76,7 +76,7 @@ func TestVersion(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	cli := new(cli)
 	cli.immucl = imc
@@ -93,7 +93,7 @@ func TestUserList(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	cli := new(cli)
 	cli.immucl = imc
@@ -108,7 +108,7 @@ func TestUserChangePassword(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
 	var userCreateTests = []struct {
 		name     string
@@ -123,9 +123,9 @@ func TestUserChangePassword(t *testing.T) {
 			"MyUser@9",
 			"Password of immudb was changed successfuly",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc = newClient(&immuclienttest.PasswordReader{
+				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
 					Pass: []string{"immudb", password, password},
-				}, bs.Dialer)
+				}, bs.Dialer, hds)
 				cli := new(cli)
 				cli.immucl = imc
 				msg, err := cli.UserOperations(args)
@@ -143,10 +143,10 @@ func TestUserChangePassword(t *testing.T) {
 			"MyUser@9",
 			"old password is incorrect",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc := login("immudb", "MyUser@9", bs.Dialer)
-				imc = newClient(&immuclienttest.PasswordReader{
+				imc, hds := immuclienttest.Login("immudb", "MyUser@9", bs.Dialer)
+				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
 					Pass: []string{"immudb", password, password},
-				}, bs.Dialer)
+				}, bs.Dialer, hds)
 				cli := new(cli)
 				cli.immucl = imc
 				msg, err := cli.UserOperations(args)
@@ -171,19 +171,16 @@ func TestUserSetActive(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli := new(cli)
-	imc = newClient(&immuclienttest.PasswordReader{
+	imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer)
-	_, err := imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
-
-	imc.Logout([]string{})
-	imc = login("immudb", "immudb", bs.Dialer)
-	if err != nil {
-		t.Fatal("TestUserCreate fail", err)
-	}
+	}, bs.Dialer, hds)
 	cli.immucl = imc
+	_, err := imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
+	if err != nil {
+		t.Fatal("error creating user", err)
+	}
 	var userCreateTests = []struct {
 		name     string
 		args     []string
@@ -233,11 +230,11 @@ func TestSetUserPermission(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
-	imc = newClient(&immuclienttest.PasswordReader{
+	imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer)
+	}, bs.Dialer, hds)
 
 	cli := new(cli)
 
@@ -246,7 +243,7 @@ func TestSetUserPermission(t *testing.T) {
 		t.Fatal("TestUserCreate fail", err)
 	}
 	imc.Logout([]string{})
-	imc = login("immudb", "immudb", bs.Dialer)
+	imc, _ = immuclienttest.Login("immudb", "immudb", bs.Dialer)
 	cli.immucl = imc
 	var userCreateTests = []struct {
 		name     string
@@ -327,11 +324,11 @@ func TestUserWrongCommand(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc := login("immudb", "immudb", bs.Dialer)
+	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
-	imc = newClient(&immuclienttest.PasswordReader{
+	imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer)
+	}, bs.Dialer, hds)
 
 	cli := new(cli)
 
@@ -352,9 +349,9 @@ func TestUserWrongCommand(t *testing.T) {
 			"MyUser@9",
 			"Permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc = newClient(&immuclienttest.PasswordReader{
+				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
 					Pass: []string{password, password},
-				}, bs.Dialer)
+				}, bs.Dialer, hds)
 
 				cli.immucl = imc
 				_, err := cli.UserOperations(args)
