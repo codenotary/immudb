@@ -3,6 +3,10 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"io/ioutil"
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
@@ -11,9 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"io/ioutil"
-	"os"
-	"testing"
 )
 
 func TestCommandLine_ServerconfigAuth(t *testing.T) {
@@ -38,7 +39,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: &pwrMock{},
 		context:        context.Background(),
-		hds:            homedirServiceMock{},
+		hds:            newHomedirServiceMock(),
 	}
 
 	cmdso := &cobra.Command{}
@@ -77,7 +78,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: &pwrMock{},
 		context:        context.Background(),
-		hds:            homedirServiceMock{},
+		hds:            newHomedirServiceMock(),
 	}
 
 	cmdso := &cobra.Command{}

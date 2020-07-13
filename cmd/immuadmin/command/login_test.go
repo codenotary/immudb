@@ -19,10 +19,12 @@ package immuadmin
 import (
 	"bytes"
 	"context"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
 	"io/ioutil"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client/clienttest"
 
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
@@ -66,7 +68,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: &pwrMock{},
 		context:        context.Background(),
-		hds:            homedirServiceMock{},
+		hds:            newHomedirServiceMock(),
 	}
 	_ = cmdl.connect(&cobra.Command{}, []string{})
 
@@ -175,7 +177,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cl1 := new(commandline)
 	cl1.context = context.Background()
 	cl1.passwordReader = &pwrMock{}
-	cl1.hds = &homedirServiceMock{}
+	cl1.hds = newHomedirServiceMock()
 	dialOptions1 := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
@@ -186,20 +188,12 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-type homedirServiceMock struct {
-	client.HomedirService
-}
-
-func (h homedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
-	return true, nil
-}
-
-func (h homedirServiceMock) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
-	return nil
-}
-
-func (h homedirServiceMock) DeleteFileFromUserHomeDir(pathToFile string) error {
-	return nil
+func newHomedirServiceMock() *clienttest.HomedirServiceMock {
+	h := clienttest.DefaultHomedirServiceMock()
+	h.FileExistsInUserHomeDirF = func(pathToFile string) (bool, error) {
+		return true, nil
+	}
+	return h
 }
 
 type pwrMock struct{}
