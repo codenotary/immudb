@@ -36,7 +36,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 			if err := cl.immuClient.HealthCheck(ctx); err != nil {
 				c.QuitWithUserError(err)
 			}
-			fmt.Println("OK - server is reachable and responding to queries")
+			fmt.Fprintf(cmd.OutOrStdout(), "OK - server is reachable and responding to queries\n")
 			return nil
 		},
 		Args: cobra.NoArgs,
