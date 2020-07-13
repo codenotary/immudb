@@ -36,14 +36,6 @@ func (pr *pwrMock) Read(msg string) ([]byte, error) {
 	return pr.readF(msg)
 }
 
-type trMock struct {
-	ReadFromTerminalYNF func(def string) (selected string, err error)
-}
-
-func (tr *trMock) ReadFromTerminalYN(def string) (selected string, err error) {
-	return tr.ReadFromTerminalYNF(def)
-}
-
 func TestImmutest(t *testing.T) {
 	viper.Set("database", "defaultdb")
 	viper.Set("user", "immudb")
@@ -76,7 +68,7 @@ func TestImmutest(t *testing.T) {
 		readF: func(string) ([]byte, error) { return []byte("password"), nil },
 	}
 
-	trMockOK := &trMock{
+	trMockOK := &clienttest.TerminalReaderMock{
 		ReadFromTerminalYNF: func(def string) (selected string, err error) {
 			return "Y", nil
 		},
@@ -192,7 +184,7 @@ func TestImmutest(t *testing.T) {
 	cmd10.Execute()
 
 	icm.UseDatabaseF = useDatabaseFOK
-	trErrMock := &trMock{
+	trErrMock := &clienttest.TerminalReaderMock{
 		ReadFromTerminalYNF: func(def string) (selected string, err error) {
 			return "", errors.New("some tr error")
 		},

@@ -57,12 +57,6 @@ func (pr *pwrMock) Read(msg string) ([]byte, error) {
 	return pr.readF(msg)
 }
 
-type trMock struct{}
-
-func (tr *trMock) ReadFromTerminalYN(def string) (selected string, err error) {
-	return "Y", nil
-}
-
 func TestImmutest(t *testing.T) {
 	viper.Set("database", "defaultdb")
 	viper.Set("user", "immudb")
@@ -92,13 +86,18 @@ func TestImmutest(t *testing.T) {
 	}
 
 	hsm := newHomedirServiceMock()
+	trMock := &clienttest.TerminalReaderMock{
+		ReadFromTerminalYNF: func(string) (string, error) {
+			return "Y", nil
+		},
+	}
 
 	execute(
 		func(opts *client.Options) (client.ImmuClient, error) {
 			return icm, nil
 		},
 		&pwrMock,
-		&trMock{},
+		trMock,
 		hsm,
 		func(err error) {
 			require.NoError(t, err)
@@ -112,7 +111,7 @@ func TestImmutest(t *testing.T) {
 			return nil, icErr
 		},
 		&pwrMock,
-		&trMock{},
+		trMock,
 		hsm,
 		func(err error) {
 			require.Error(t, err)
