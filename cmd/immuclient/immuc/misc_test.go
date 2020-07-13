@@ -24,11 +24,27 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestHealthCheck(t *testing.T) {
+func TestHealthCheckSucceeds(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	imc := newClient(&testPasswordReader{
+		pass: []string{},
+	}, bs.Dialer)
+	imc = login("immudb", "immudb", bs.Dialer)
+	msg, err := imc.HealthCheck([]string{})
+	if err != nil {
+		t.Fatal("HealthCheck fail", err)
+	}
+	if !strings.Contains(msg, "Health check OK") {
+		t.Fatal("HealthCheck fail")
+	}
+}
 
+func TestHealthCheckFails(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
 	imc := newClient(&testPasswordReader{
 		pass: []string{},
 	}, bs.Dialer)
@@ -39,17 +55,6 @@ func TestHealthCheck(t *testing.T) {
 	}
 	if !strings.Contains(msg, "Error while dialing closed") {
 		t.Fatal("HealthCheck fail stoped server", msg)
-	}
-
-	bs = servertest.NewBufconnServer(options)
-	bs.Start()
-	imc = login("immudb", "immudb", bs.Dialer)
-	msg, err = imc.HealthCheck([]string{})
-	if err != nil {
-		t.Fatal("HealthCheck fail", err)
-	}
-	if !strings.Contains(msg, "Health check OK") {
-		t.Fatal("HealthCheck fail")
 	}
 }
 
