@@ -63,7 +63,7 @@ type Client interface {
 	CreateDatabase(args []string) (string, error)
 	DatabaseList(args []string) (string, error)
 	UseDatabase(args []string) (string, error)
-	UserOperations(args []string) (string, error)
+	UserCreate(args []string) (string, error)
 	SetActiveUser(args []string, active bool) (string, error)
 	SetUserPermission(args []string) (string, error)
 	UserList(args []string) (string, error)

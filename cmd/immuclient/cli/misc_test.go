@@ -176,7 +176,7 @@ func TestUserSetActive(t *testing.T) {
 	imc = newClient(&immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
 	}, bs.Dialer)
-	_, err := imc.UserOperations([]string{"create", "myuser", "readwrite", "defaultdb"})
+	_, err := imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
 
 	imc.Logout([]string{})
 	imc = login("immudb", "immudb", bs.Dialer)
@@ -241,7 +241,7 @@ func TestSetUserPermission(t *testing.T) {
 
 	cli := new(cli)
 
-	_, err := imc.UserOperations([]string{"create", "myuser", "readwrite", "defaultdb"})
+	_, err := imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
 	}
@@ -335,7 +335,7 @@ func TestUserWrongCommand(t *testing.T) {
 
 	cli := new(cli)
 
-	_, err := imc.UserOperations([]string{"create", "myuser", "readwrite", "defaultdb"})
+	_, err := imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
 	}

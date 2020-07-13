@@ -76,57 +76,44 @@ func (i *immuc) Logout(args []string) (string, error) {
 	}
 	return "Successfully logged out", nil
 }
-func (i *immuc) UserOperations(args []string) (string, error) {
-	var command string
-	if len(args) == 0 {
-		command = "help"
-	} else {
-		command = args[0]
+func (i *immuc) UserCreate(args []string) (string, error) {
+	if len(args) < 3 {
+		return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
 	}
-	switch command {
+	username := args[0]
+	permission := args[1]
+	databasename := args[2]
 
-	case "create":
-		if len(args) < 4 {
-			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
-		}
-		username := args[1]
-		permission := args[2]
-		databasename := args[3]
-
-		pass, err := i.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
-		if err != nil {
-			return "Error Reading Password", nil
-		}
-		if err = auth.IsStrongPassword(string(pass)); err != nil {
-			return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
-		}
-		pass2, err := i.passwordReader.Read("Confirm password:")
-		if err != nil {
-			return "Error Reading Password", nil
-		}
-		if !bytes.Equal(pass, pass2) {
-			return "Passwords don't match", nil
-		}
-		var userpermission uint32
-		switch permission {
-		case "read":
-			userpermission = auth.PermissionR
-		case "admin":
-			userpermission = auth.PermissionAdmin
-		case "readwrite":
-			userpermission = auth.PermissionRW
-		default:
-			return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
-		}
-		user, err := i.ImmuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("Created user %s", string(user.GetUser())), nil
-	case "permission":
-
+	pass, err := i.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
+	if err != nil {
+		return "Error Reading Password", nil
 	}
-	return "", fmt.Errorf("Wrong command. Get more information with 'user help'")
+	if err = auth.IsStrongPassword(string(pass)); err != nil {
+		return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
+	}
+	pass2, err := i.passwordReader.Read("Confirm password:")
+	if err != nil {
+		return "Error Reading Password", nil
+	}
+	if !bytes.Equal(pass, pass2) {
+		return "Passwords don't match", nil
+	}
+	var userpermission uint32
+	switch permission {
+	case "read":
+		userpermission = auth.PermissionR
+	case "admin":
+		userpermission = auth.PermissionAdmin
+	case "readwrite":
+		userpermission = auth.PermissionRW
+	default:
+		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+	}
+	user, err := i.ImmuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Created user %s", string(user.GetUser())), nil
 }
 func (i *immuc) UserList(args []string) (string, error) {
 	userlist, err := i.ImmuClient.ListUsers(context.Background())

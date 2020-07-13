@@ -32,8 +32,9 @@ func TestGetByIndex(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.getByIndex(&cmd)
@@ -66,8 +67,9 @@ func TestGetRawBySafeIndex(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.getRawBySafeIndex(&cmd)
@@ -100,8 +102,9 @@ func TestGetKey(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.getKey(&cmd)
@@ -134,8 +137,9 @@ func TestSafeGetKey(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.safeGetKey(&cmd)
@@ -168,8 +172,9 @@ func TestRawSafeGetKey(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.rawSafeGetKey(&cmd)

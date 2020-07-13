@@ -144,7 +144,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.UserList(args)
+			resp, err := cl.immucl.UserCreate(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}

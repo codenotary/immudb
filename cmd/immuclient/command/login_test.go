@@ -36,7 +36,7 @@ func TestLogin(t *testing.T) {
 	cmdl := commandline{
 		immucl: newClient(&immuclienttest.PasswordReader{
 			Pass: []string{"immudb"},
-		}, bs.Dialer),
+		}, bs.Dialer, nil),
 	}
 	cmd := cobra.Command{}
 	cmdl.login(&cmd)

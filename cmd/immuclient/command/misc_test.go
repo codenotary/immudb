@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/cobra"
@@ -32,8 +33,9 @@ func TestHistory(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	imc, _ := login(bs.Dialer)
 	cmdl := commandline{
-		immucl: login(bs.Dialer),
+		immucl: imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.history(&cmd)
@@ -53,5 +55,322 @@ func TestHistory(t *testing.T) {
 	}
 	if !strings.Contains(string(msg), "hash") {
 		t.Fatal(err)
+	}
+}
+func TestStatus(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, _ := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+	cmd := cobra.Command{}
+	cmdl.status(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmdl.immucl.SafeSet([]string{"key", "value"})
+
+	cmd.SetArgs([]string{"status"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "Health check OK") {
+		t.Fatal(err)
+	}
+}
+
+func TestUserList(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, _ := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+	cmd := cobra.Command{}
+	cmdl.user(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"user", "list"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "immudb") {
+		t.Fatal(err)
+	}
+}
+func TestUserChangePassword(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, hds := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+	cmdl.immucl = newClient(&immuclienttest.PasswordReader{
+		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
+	}, bs.Dialer, hds)
+	cmd := cobra.Command{}
+	cmdl.user(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"user", "changepassword", "immudb"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "Password of immudb was changed successfuly") {
+		t.Fatal(err)
+	}
+}
+
+func TestUserCreate(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, hds := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+	cmdl.immucl = newClient(&immuclienttest.PasswordReader{
+		Pass: []string{"MyUser@9", "MyUser@9"},
+	}, bs.Dialer, hds)
+	cmd := cobra.Command{}
+	cmdl.user(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"user", "create", "newuser", "readwrite", "defaultdb"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "Password of immudb was changed successfuly") {
+		t.Fatal(err)
+	}
+}
+
+func TestUserActivate(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, hds := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+
+	imc = newClient(&immuclienttest.PasswordReader{
+		Pass: []string{"MyUser@9", "MyUser@9"},
+	}, bs.Dialer, hds)
+	_, err := imc.CreateDatabase([]string{"mydb"})
+	_, err = imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
+	if err != nil {
+		t.Fatal("TestUserCreate fail", err)
+	}
+
+	cmd := cobra.Command{}
+	cmdl.user(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"user", "activate", "myuser"})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "User status changed successfully") {
+		t.Fatal(err)
+	}
+}
+
+func TestUserDeactivate(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, hds := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+
+	imc = newClient(&immuclienttest.PasswordReader{
+		Pass: []string{"MyUser@9", "MyUser@9"},
+	}, bs.Dialer, hds)
+	_, err := imc.CreateDatabase([]string{"mydb"})
+	_, err = imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
+	if err != nil {
+		t.Fatal("TestUserCreate fail", err)
+	}
+
+	cmd := cobra.Command{}
+	cmdl.user(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"user", "deactivate", "myuser"})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "User status changed successfully") {
+		t.Fatal(err)
+	}
+}
+func TestUserPermission(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, hds := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+
+	imc = newClient(&immuclienttest.PasswordReader{
+		Pass: []string{"MyUser@9", "MyUser@9"},
+	}, bs.Dialer, hds)
+	_, err := imc.CreateDatabase([]string{"mydb"})
+	_, err = imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
+	if err != nil {
+		t.Fatal("TestUserCreate fail", err)
+	}
+
+	cmd := cobra.Command{}
+	cmdl.user(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"user", "permission", "grant", "readwrite", "myuser", "mydb"})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "User status changed successfully") {
+		t.Fatal(err)
+	}
+}
+
+func TestDatabaseList(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, _ := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+
+	cmd := cobra.Command{}
+	cmdl.database(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"database", "list"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "defaultdb") {
+		t.Fatal(err)
+	}
+}
+func TestDatabaseCreate(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, _ := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+
+	cmd := cobra.Command{}
+	cmdl.database(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"database", "create", "mynewdb"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "mynewdb") {
+		t.Fatal(string(msg))
+	}
+}
+
+func TestUseDatabase(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	imc, _ := login(bs.Dialer)
+	cmdl := commandline{
+		immucl: imc,
+	}
+	_, err := imc.CreateDatabase([]string{"mynewdb"})
+	cmd := cobra.Command{}
+	cmdl.use(&cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmd.SetArgs([]string{"use", "mynewdb"})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "mynewdb") {
+		t.Fatal(string(msg))
 	}
 }
