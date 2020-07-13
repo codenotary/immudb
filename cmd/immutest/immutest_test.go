@@ -49,14 +49,6 @@ func newHomedirServiceMock() *clienttest.HomedirServiceMock {
 	}
 }
 
-type pwrMock struct {
-	readF func(msg string) ([]byte, error)
-}
-
-func (pr *pwrMock) Read(msg string) ([]byte, error) {
-	return pr.readF(msg)
-}
-
 func TestImmutest(t *testing.T) {
 	viper.Set("database", "defaultdb")
 	viper.Set("user", "immudb")
@@ -81,9 +73,7 @@ func TestImmutest(t *testing.T) {
 		},
 	}
 
-	pwrMock := pwrMock{
-		readF: func(string) ([]byte, error) { return []byte("password"), nil },
-	}
+	pwReaderMock := &clienttest.PasswordReaderMock{}
 
 	hsm := newHomedirServiceMock()
 	trMock := &clienttest.TerminalReaderMock{
@@ -96,7 +86,7 @@ func TestImmutest(t *testing.T) {
 		func(opts *client.Options) (client.ImmuClient, error) {
 			return icm, nil
 		},
-		&pwrMock,
+		pwReaderMock,
 		trMock,
 		hsm,
 		func(err error) {
@@ -110,7 +100,7 @@ func TestImmutest(t *testing.T) {
 		func(opts *client.Options) (client.ImmuClient, error) {
 			return nil, icErr
 		},
-		&pwrMock,
+		pwReaderMock,
 		trMock,
 		hsm,
 		func(err error) {

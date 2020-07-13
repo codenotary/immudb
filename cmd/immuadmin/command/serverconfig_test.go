@@ -37,7 +37,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
-		passwordReader: &pwrMock{},
+		passwordReader: pwReaderMock,
 		context:        context.Background(),
 		hds:            newHomedirServiceMock(),
 	}
@@ -76,7 +76,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
-		passwordReader: &pwrMock{},
+		passwordReader: pwReaderMock,
 		context:        context.Background(),
 		hds:            newHomedirServiceMock(),
 	}

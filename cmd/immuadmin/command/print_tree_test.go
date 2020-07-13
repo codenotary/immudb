@@ -48,7 +48,7 @@ func TestCommandLine_PrintTree(t *testing.T) {
 	cl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
-		passwordReader: &pwrMock{},
+		passwordReader: pwReaderMock,
 		context:        context.Background(),
 		hds:            newHomedirServiceMock(),
 	}
