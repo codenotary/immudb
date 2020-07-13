@@ -35,6 +35,20 @@ import (
 	"google.golang.org/grpc"
 )
 
+var pwReaderCounter = 0
+var pwReaderMock = &clienttest.PasswordReaderMock{
+	ReadF: func(msg string) ([]byte, error) {
+		var pw []byte
+		if pwReaderCounter == 0 {
+			pw = []byte(`immudb`)
+		} else {
+			pw = []byte(`Passw0rd!-`)
+		}
+		pwReaderCounter++
+		return pw, nil
+	},
+}
+
 func TestCommandLine_Connect(t *testing.T) {
 	log.Info("TestCommandLine_Connect")
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
@@ -66,7 +80,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
-		passwordReader: &pwrMock{},
+		passwordReader: pwReaderMock,
 		context:        context.Background(),
 		hds:            newHomedirServiceMock(),
 	}
@@ -115,7 +129,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     &scIClientInnerMock{cliopt, *new(client.ImmuClient)},
-		passwordReader: &pwrMock{},
+		passwordReader: pwReaderMock,
 		context:        context.Background(),
 		hds:            client.NewHomedirService(),
 	}
@@ -134,7 +148,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	cmdlo := commandline{
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
-		passwordReader: &pwrMock{},
+		passwordReader: pwReaderMock,
 		context:        context.Background(),
 		hds:            client.NewHomedirService(),
 	}
@@ -161,7 +175,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cmd := cobra.Command{}
 	cl := new(commandline)
 	cl.context = context.Background()
-	cl.passwordReader = &pwrMock{}
+	cl.passwordReader = pwReaderMock
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
@@ -176,7 +190,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cmd1 := cobra.Command{}
 	cl1 := new(commandline)
 	cl1.context = context.Background()
-	cl1.passwordReader = &pwrMock{}
+	cl1.passwordReader = pwReaderMock
 	cl1.hds = newHomedirServiceMock()
 	dialOptions1 := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -194,19 +208,4 @@ func newHomedirServiceMock() *clienttest.HomedirServiceMock {
 		return true, nil
 	}
 	return h
-}
-
-type pwrMock struct{}
-
-var count = 0
-
-func (pr *pwrMock) Read(msg string) ([]byte, error) {
-	var pw []byte
-	if count == 0 {
-		pw = []byte(`immudb`)
-	} else {
-		pw = []byte(`Passw0rd!-`)
-	}
-	count++
-	return pw, nil
 }
