@@ -29,16 +29,16 @@ import (
 // destination file exists, all it's contents will be replaced by the contents
 // of the source file. The file mode will be copied from the source and
 // the copied data is synced/flushed to stable storage.
-func CopyFile(src, dst string) (err error) {
+func CopyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
-		return
+		return err
 	}
 	defer in.Close()
 
 	info, err := in.Stat()
 	if err != nil {
-		return
+		return err
 	}
 	if info.IsDir() {
 		return fmt.Errorf("%s is a directory", src)
@@ -46,21 +46,16 @@ func CopyFile(src, dst string) (err error) {
 
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, info.Mode())
 	if err != nil {
-		return
+		return err
 	}
-	defer func() {
-		if e := out.Close(); e != nil {
-			err = e
-		}
-	}()
+	defer out.Close()
 
 	_, err = io.Copy(out, in)
 	if err != nil {
-		return
+		return err
 	}
 
-	err = out.Sync()
-	return
+	return out.Sync()
 }
 
 // CopyDir recursively copies a directory tree, attempting to preserve permissions.
