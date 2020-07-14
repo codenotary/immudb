@@ -58,7 +58,7 @@ func (cl *commandline) stats(cmd *cobra.Command) {
 			}
 			options := cl.immuClient.GetOptions()
 			if raw {
-				if err := stats.ShowMetricsRaw(options.Address); err != nil {
+				if err := stats.ShowMetricsRaw(cmd.OutOrStderr(), options.Address); err != nil {
 					c.QuitToStdErr(err)
 				}
 				return nil
@@ -68,7 +68,7 @@ func (cl *commandline) stats(cmd *cobra.Command) {
 				c.QuitToStdErr(err)
 			}
 			if text {
-				if err := stats.ShowMetricsAsText(options.Address); err != nil {
+				if err := stats.ShowMetricsAsText(cmd.OutOrStderr(), options.Address); err != nil {
 					c.QuitToStdErr(err)
 				}
 				return nil
