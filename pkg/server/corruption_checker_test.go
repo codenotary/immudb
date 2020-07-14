@@ -77,6 +77,13 @@ func TestCorruptionChecker(t *testing.T) {
 	}
 	assert.Nil(t, err)
 }
+func TestInt63(t *testing.T) {
+	rand := newCryptoRandSource()
+	n := rand.Int63()
+	if n == 0 {
+		t.Fatal("cryptorand source faild")
+	}
+}
 
 type mockLogger struct{}
 

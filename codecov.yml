@@ -8,3 +8,4 @@ ignore:
   - "cmd/immuadmin/command/service/servicetest"
   - "pkg/client/clienttest"
   - "cmd/immuadmin/command/service/oss_unix.go"
+  - "cmd/immuclient/immuctest"

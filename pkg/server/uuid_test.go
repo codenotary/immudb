@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -27,6 +28,25 @@ import (
 )
 
 func TestNewUUID(t *testing.T) {
+	id, err := getOrSetUuid("./")
+	if err != nil {
+		t.Fatalf("error creating UUID, %v", err)
+	}
+	defer os.RemoveAll(IDENTIFIER_FNAME)
+
+	if !fileExists(IDENTIFIER_FNAME) {
+		t.Errorf("uuid file not created, %s", err)
+	}
+
+	uuid := NewUuidContext(id)
+	if id.Compare(uuid.Uuid) != 0 {
+		t.Fatalf("NewUuidContext error expected %v, got %v", id, uuid.Uuid)
+	}
+}
+
+func TestExistingUUID(t *testing.T) {
+	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
+	ioutil.WriteFile(IDENTIFIER_FNAME, x.Bytes(), os.ModePerm)
 	id, err := getOrSetUuid("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)

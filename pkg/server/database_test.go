@@ -737,3 +737,279 @@ func TestScan(t *testing.T) {
 		t.Errorf("Reference, expected %v, got %v", string(kv[0].Key), string(scanItem.Items[0].Value))
 	}
 }
+
+func TestCount(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	root, err := db.CurrentRoot(&emptypb.Empty{})
+	if err != nil {
+		t.Error(err)
+	}
+	kv := []*schema.SafeSetOptions{
+		{
+			Kv: &schema.KeyValue{
+				Key:   []byte("Alberto"),
+				Value: []byte("Tomba"),
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+		{
+			Kv: &schema.KeyValue{
+				Key:   []byte("Jean-Claude"),
+				Value: []byte("Killy"),
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+		{
+			Kv: &schema.KeyValue{
+				Key:   []byte("Franz"),
+				Value: []byte("Clamer"),
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+	}
+	for _, val := range kv {
+		_, err := db.SafeSet(val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	c, err := db.Count(&schema.KeyPrefix{
+		Prefix: []byte("Franz"),
+	})
+	if err != nil {
+		t.Errorf("Error count %s", err)
+	}
+	if c.Count != 1 {
+		t.Errorf("Error count expected %d got %d", 1, c.Count)
+	}
+}
+func TestScanSV(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	root, err := db.CurrentRoot(&emptypb.Empty{})
+	if err != nil {
+		t.Error(err)
+	}
+	SafeSkv := []*schema.SafeSetSVOptions{
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Alberto"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Tomba"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Jean-Claude"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Killy"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Franz"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Clamer"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+	}
+	for _, val := range SafeSkv {
+		_, err := db.SafeSetSV(val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	sc, err := db.ScanSV(&schema.ScanOptions{
+		Offset: []byte("Franz"),
+	})
+	if err != nil {
+		t.Errorf("ScanSV error %s", err)
+	}
+	if len(sc.Items) != 3 {
+		t.Errorf("ScanSV count expected %d got %d", 3, len(sc.Items))
+	}
+}
+func TestIscanSv(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	root, err := db.CurrentRoot(&emptypb.Empty{})
+	if err != nil {
+		t.Error(err)
+	}
+	SafeSkv := []*schema.SafeSetSVOptions{
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Alberto"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Tomba"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Jean-Claude"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Killy"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Franz"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Clamer"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+	}
+	for _, val := range SafeSkv {
+		_, err := db.SafeSetSV(val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	sc, err := db.IScanSV(&schema.IScanOptions{
+		PageNumber: 0,
+		PageSize:   1,
+	})
+	if err != nil {
+		t.Errorf("IScanSV error %s", err)
+	}
+	if len(sc.Items) != 1 {
+		t.Errorf("IScanSV count expected %d got %d", 1, len(sc.Items))
+	}
+}
+
+func TestZScanSV(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	root, err := db.CurrentRoot(&emptypb.Empty{})
+	if err != nil {
+		t.Error(err)
+	}
+	SafeSkv := []*schema.SafeSetSVOptions{
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Alberto"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Tomba"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Jean-Claude"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Killy"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+		{
+			Skv: &schema.StructuredKeyValue{
+				Key: []byte("Franz"),
+				Value: &schema.Content{
+					Timestamp: uint64(time.Now().Unix()),
+					Payload:   []byte("Clamer"),
+				},
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+	}
+	for _, val := range SafeSkv {
+		_, err := db.SafeSetSV(val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	sc, err := db.ZScanSV(&schema.ZScanOptions{
+		Offset: []byte("Franz"),
+	})
+	if err != nil {
+		t.Errorf("IScanSV error %s", err)
+	}
+	if len(sc.Items) != 3 {
+		t.Errorf("IScanSV count expected %d got %d", 3, len(sc.Items))
+	}
+}
+
+func TestSafeReference(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	root, err := db.CurrentRoot(&emptypb.Empty{})
+	if err != nil {
+		t.Error(err)
+	}
+	kv := []*schema.SafeSetOptions{
+		{
+			Kv: &schema.KeyValue{
+				Key:   []byte("Alberto"),
+				Value: []byte("Tomba"),
+			},
+			RootIndex: &schema.Index{
+				Index: root.Index,
+			},
+		},
+	}
+	for _, val := range kv {
+		_, err := db.SafeSet(val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	_, err = db.SafeReference(&schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{
+			Key:       []byte("Alberto"),
+			Reference: []byte("Skii"),
+		},
+		RootIndex: &schema.Index{
+			Index: root.Index,
+		},
+	})
+	if err != nil {
+		t.Errorf("Error count %s", err)
+	}
+}

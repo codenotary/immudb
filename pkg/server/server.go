@@ -359,8 +359,10 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 func (s *ImmuServer) Stop() error {
 	s.Logger.Infof("Stopping immudb:\n%v", s.Options)
 	defer func() { s.quit <- struct{}{} }()
-	s.GrpcServer.Stop()
-	defer func() { s.GrpcServer = nil }()
+	if !s.Options.usingCustomListener {
+		s.GrpcServer.Stop()
+		defer func() { s.GrpcServer = nil }()
+	}
 	s.CloseDatabases()
 	return nil
 }
@@ -839,7 +841,7 @@ func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*sch
 
 // ZScanSV ...
 func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
-	s.Logger.Debugf("zscan %+v", *opts)
+	s.Logger.Debugf("ZScanSV %+v", *opts)
 	ind, err := s.getDbIndexFromCtx(ctx, "ZScanSV")
 	if err != nil {
 		return nil, err
@@ -853,7 +855,7 @@ func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*s
 
 // SafeZAdd ...
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
-	s.Logger.Debugf("zadd %+v", *opts)
+	s.Logger.Debugf("SafeZAdd %+v", *opts)
 	ind, err := s.getDbIndexFromCtx(ctx, "SafeZAdd")
 	if err != nil {
 		return nil, err
@@ -873,7 +875,7 @@ func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*sch
 
 // IScanSV ...
 func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
-	s.Logger.Debugf("zscan %+v", *opts)
+	s.Logger.Debugf("IScanSV %+v", *opts)
 	ind, err := s.getDbIndexFromCtx(ctx, "IScanSV")
 	if err != nil {
 		return nil, err
