@@ -58,7 +58,7 @@ func TestHealthCheckFails(t *testing.T) {
 	if err != nil {
 		t.Fatal("HealthCheck fail stoped server", err)
 	}
-	if !strings.Contains(msg, "Error while dialing closed") {
+	if (!strings.Contains(msg, "Error while dialing closed")) && (!strings.Contains(msg, "transport is closing")) {
 		t.Fatal("HealthCheck fail stoped server", msg)
 	}
 }
