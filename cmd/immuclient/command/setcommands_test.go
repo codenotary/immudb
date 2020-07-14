@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/cobra"
@@ -33,9 +33,14 @@ func TestRawSafeSet(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.rawSafeSet(&cmd)
@@ -60,9 +65,14 @@ func TestSet(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.set(&cmd)
@@ -87,9 +97,14 @@ func TestSafeset(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.safeset(&cmd)
@@ -114,9 +129,14 @@ func TestZAdd(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.zAdd(&cmd)
@@ -149,9 +169,14 @@ func TestSafeZAdd(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.safeZAdd(&cmd)

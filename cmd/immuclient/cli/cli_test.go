@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/peterh/liner"
@@ -42,10 +42,16 @@ func TestRunCommand(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	cli.immucl = imc
 
-	msg := immuclienttest.CaptureStdout(func() {
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	cli.immucl = ic.Imc
+
+	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key", "value"})
 	})
 	if !strings.Contains(msg, "hash") {
@@ -63,10 +69,15 @@ func TestRunCommandExtraArgs(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	cli.immucl = imc
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	msg := immuclienttest.CaptureStdout(func() {
+	cli.immucl = ic.Imc
+
+	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key", "value", "value"})
 	})
 	if !strings.Contains(msg, "Redunant argument") {
@@ -83,10 +94,15 @@ func TestRunMissingArgs(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	cli.immucl = imc
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	msg := immuclienttest.CaptureStdout(func() {
+	cli.immucl = ic.Imc
+
+	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"set", "key"})
 	})
 	if !strings.Contains(msg, "Not enough arguments") {
@@ -104,10 +120,14 @@ func TestRunWrongCommand(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	cli.immucl = imc
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	msg := immuclienttest.CaptureStdout(func() {
+	cli.immucl = ic.Imc
+	msg := test.CaptureStdout(func() {
 		cli.runCommand([]string{"fet", "key"})
 	})
 	if !strings.Contains(msg, "ERROR: Unknown command") {
@@ -125,23 +145,28 @@ func TestCheckCommand(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	cli.immucl = imc
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	cli.immucl = ic.Imc
 	l := liner.NewLiner()
-	msg := immuclienttest.CaptureStdout(func() {
+	msg := test.CaptureStdout(func() {
 		cli.checkCommand([]string{"--help"}, l)
 	})
 	if len(msg) == 0 {
 		t.Fatal("Help is empty")
 	}
-	msg = immuclienttest.CaptureStdout(func() {
+	msg = test.CaptureStdout(func() {
 		cli.checkCommand([]string{"set", "-h"}, l)
 	})
 	if len(msg) == 0 {
 		t.Fatal("Help is empty")
 	}
 
-	msg = immuclienttest.CaptureStdout(func() {
+	msg = test.CaptureStdout(func() {
 		cli.checkCommand([]string{"met", "-h"}, l)
 	})
 	if !strings.Contains(msg, "Did you mean this") {

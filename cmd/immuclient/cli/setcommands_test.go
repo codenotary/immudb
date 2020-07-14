@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -29,11 +29,14 @@ func TestRawSafeSet(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	msg, err := cli.rawSafeSet([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("RawSafeSet fail", err)
@@ -47,11 +50,14 @@ func TestSet(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	msg, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -65,11 +71,14 @@ func TestSafeSet(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	msg, err := cli.safeset([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("SafeSet fail", err)
@@ -83,11 +92,14 @@ func TestZAdd(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	_, _ = cli.safeset([]string{"key", "val"})
 
 	msg, err := cli.zAdd([]string{"val", "1", "key"})
@@ -104,11 +116,14 @@ func TestSafeZAdd(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	_, _ = cli.safeset([]string{"key", "val"})
 
 	msg, err := cli.safeZAdd([]string{"val", "1", "key"})
@@ -125,11 +140,14 @@ func TestCreateDatabase(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	msg, err := cli.CreateDatabase([]string{"create", "newdb"})
 	if err != nil {
 		t.Fatal("CreateDatabase fail", err)

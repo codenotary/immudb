@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuctest
+package immuc_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -30,10 +29,14 @@ func TestGetByIndex(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	_, _ = imc.Set([]string{"key", "val"})
-	msg, err := imc.GetByIndex([]string{"0"})
+	_, _ = ic.Imc.Set([]string{"key", "val"})
+	msg, err := ic.Imc.GetByIndex([]string{"0"})
 	if err != nil {
 		t.Fatal("GetByIndex fail", err)
 	}
@@ -45,10 +48,14 @@ func TestGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	_, _ = imc.Set([]string{"key", "val"})
-	msg, err := imc.GetKey([]string{"key"})
+	_, _ = ic.Imc.Set([]string{"key", "val"})
+	msg, err := ic.Imc.GetKey([]string{"key"})
 	if err != nil {
 		t.Fatal("GetKey fail", err)
 	}
@@ -60,10 +67,14 @@ func TestRawSafeGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	_, _ = imc.Set([]string{"key", "val"})
-	msg, err := imc.RawSafeGetKey([]string{"key"})
+	_, _ = ic.Imc.Set([]string{"key", "val"})
+	msg, err := ic.Imc.RawSafeGetKey([]string{"key"})
 	if err != nil {
 		t.Fatal("RawSafeGetKey fail", err)
 	}
@@ -75,10 +86,14 @@ func TestSafeGetKey(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	_, _ = imc.Set([]string{"key", "val"})
-	msg, err := imc.SafeGetKey([]string{"key"})
+	_, _ = ic.Imc.Set([]string{"key", "val"})
+	msg, err := ic.Imc.SafeGetKey([]string{"key"})
 	if err != nil {
 		t.Fatal("SafeGetKey fail", err)
 	}
@@ -91,10 +106,14 @@ func TestGetRawBySafeIndex(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	_, _ = imc.Set([]string{"key", "val"})
-	msg, err := imc.GetRawBySafeIndex([]string{"0"})
+	_, _ = ic.Imc.Set([]string{"key", "val"})
+	msg, err := ic.Imc.GetRawBySafeIndex([]string{"0"})
 	if err != nil {
 		t.Fatal("GetRawBySafeIndex fail", err)
 	}

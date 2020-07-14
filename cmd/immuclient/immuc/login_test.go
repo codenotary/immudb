@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuctest
+package immuc_test
 
 import (
 	"strings"
@@ -23,6 +23,7 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	. "github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -90,8 +91,13 @@ func TestUserList(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	_, err := imc.UserList([]string{""})
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	_, err := ic.Imc.UserList([]string{""})
 	if err != nil {
 		t.Fatal("Userlist fail", err)
 	}
@@ -100,7 +106,12 @@ func TestUserCreate(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	var userCreateTests = []struct {
 		name     string
@@ -115,10 +126,12 @@ func TestUserCreate(t *testing.T) {
 			"MyUser@9",
 			"Created user",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, bs.Dialer, hds)
-				msg, err := imc.UserCreate(args)
+				}, ic.Hds)
+				ic.Connect(bs.Dialer)
+
+				msg, err := ic.Imc.UserCreate(args)
 				if err != nil {
 					t.Fatal("TestUserCreate fail", err)
 				}
@@ -133,11 +146,12 @@ func TestUserCreate(t *testing.T) {
 			"MyUser@9",
 			"Created user",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, bs.Dialer, hds)
-				msg, err := imc.UserCreate(args)
+				}, ic.Hds)
+				ic.Connect(bs.Dialer)
+
+				msg, err := ic.Imc.UserCreate(args)
 				if err != nil {
 					t.Fatal("TestUserCreate fail", err)
 				}
@@ -152,11 +166,12 @@ func TestUserCreate(t *testing.T) {
 			"MyUser@9",
 			"Created user",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, bs.Dialer, hds)
-				msg, err := imc.UserCreate(args)
+				}, ic.Hds)
+				ic.Connect(bs.Dialer)
+
+				msg, err := ic.Imc.UserCreate(args)
 				if err != nil {
 					t.Fatal("TestUserCreate fail", err)
 				}
@@ -171,11 +186,12 @@ func TestUserCreate(t *testing.T) {
 			"MyUser@9",
 			"Permission value not recognized.",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, bs.Dialer, hds)
-				msg, err := imc.UserCreate(args)
+				}, ic.Hds)
+				ic.Connect(bs.Dialer)
+
+				msg, err := ic.Imc.UserCreate(args)
 				if err != nil {
 					t.Fatal("TestUserCreate fail", err)
 				}
@@ -190,11 +206,12 @@ func TestUserCreate(t *testing.T) {
 			"MyUser@9",
 			"user already exists",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, bs.Dialer, hds)
-				msg, err := imc.UserCreate(args)
+				}, ic.Hds)
+				ic.Connect(bs.Dialer)
+
+				msg, err := ic.Imc.UserCreate(args)
 				if err == nil {
 					t.Fatal("TestUserCreate fail", err)
 				}
@@ -218,7 +235,12 @@ func TestUserChangePassword(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	var userCreateTests = []struct {
 		name     string
 		args     []string
@@ -232,10 +254,11 @@ func TestUserChangePassword(t *testing.T) {
 			"MyUser@9",
 			"Password of immudb was changed successfuly",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+				ic.Pr = &test.PasswordReader{
 					Pass: []string{"immudb", password, password},
-				}, bs.Dialer, hds)
-				msg, err := imc.ChangeUserPassword(args)
+				}
+				ic.Connect(bs.Dialer)
+				msg, err := ic.Imc.ChangeUserPassword(args)
 				if err != nil {
 					t.Fatal("TestUserChangePassword fail", err)
 				}
@@ -250,11 +273,17 @@ func TestUserChangePassword(t *testing.T) {
 			"MyUser@9",
 			"old password is incorrect",
 			func(t *testing.T, password string, args []string, exp string) {
-				imc, hds := immuclienttest.Login("immudb", password, bs.Dialer)
-				imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+				ic.Pr = &test.PasswordReader{
+					Pass: []string{password},
+				}
+				ic.Connect(bs.Dialer)
+				ic.Login("immudb")
+
+				ic.Pr = &test.PasswordReader{
 					Pass: []string{"pass", password, password},
-				}, bs.Dialer, hds)
-				msg, err := imc.ChangeUserPassword(args)
+				}
+				ic.Connect(bs.Dialer)
+				msg, err := ic.Imc.ChangeUserPassword(args)
 				if err == nil {
 					t.Fatal("TestUserChangePassword fail", err)
 				}
@@ -275,12 +304,18 @@ func TestUserSetActive(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
-		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer, hds)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	_, err := imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
+	ic.Pr = &test.PasswordReader{
+		Pass: []string{"MyUser@9", "MyUser@9"},
+	}
+	ic.Connect(bs.Dialer)
+
+	_, err := ic.Imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
 	}
@@ -297,7 +332,7 @@ func TestUserSetActive(t *testing.T) {
 			"",
 			"User status changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
-				msg, err := imc.SetActiveUser(args, true)
+				msg, err := ic.Imc.SetActiveUser(args, true)
 				if err != nil {
 					t.Fatal("SetActiveUser fail", err)
 				}
@@ -312,7 +347,7 @@ func TestUserSetActive(t *testing.T) {
 			"",
 			"User status changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
-				msg, err := imc.SetActiveUser(args, false)
+				msg, err := ic.Imc.SetActiveUser(args, false)
 				if err != nil {
 					t.Fatal("Deactivate fail", err)
 				}
@@ -333,12 +368,17 @@ func TestSetUserPermission(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
-	imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+	ic.Pr = &test.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer, hds)
-	_, err := imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
+	}
+	ic.Connect(bs.Dialer)
+	_, err := ic.Imc.UserCreate([]string{"myuser", "readwrite", "defaultdb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
 	}
@@ -355,7 +395,7 @@ func TestSetUserPermission(t *testing.T) {
 			"MyUser@9",
 			"Permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
-				msg, err := imc.SetUserPermission(args)
+				msg, err := ic.Imc.SetUserPermission(args)
 				if err != nil {
 					t.Fatal("SetUserPermission fail", err)
 				}
@@ -370,7 +410,7 @@ func TestSetUserPermission(t *testing.T) {
 			"MyUser@9",
 			"Permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
-				msg, err := imc.SetUserPermission(args)
+				msg, err := ic.Imc.SetUserPermission(args)
 				if err != nil {
 					t.Fatal("SetUserPermission fail", err)
 				}
@@ -385,7 +425,7 @@ func TestSetUserPermission(t *testing.T) {
 			"MyUser@9",
 			"Permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
-				msg, err := imc.SetUserPermission(args)
+				msg, err := ic.Imc.SetUserPermission(args)
 				if err != nil {
 					t.Fatal("SetUserPermission fail", err)
 				}
@@ -400,7 +440,7 @@ func TestSetUserPermission(t *testing.T) {
 			"MyUser@9",
 			"Permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
-				msg, err := imc.SetUserPermission(args)
+				msg, err := ic.Imc.SetUserPermission(args)
 				if err != nil {
 					t.Fatal("SetUserPermission fail", err)
 				}
