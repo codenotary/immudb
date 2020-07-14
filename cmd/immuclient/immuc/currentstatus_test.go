@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuctest
+package immuc_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -29,10 +29,15 @@ func TestCurrentRoot(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
 
-	_, _ = imc.Set([]string{"key", "val"})
-	msg, err := imc.CurrentRoot([]string{""})
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	_, _ = ic.Imc.Set([]string{"key", "val"})
+	msg, err := ic.Imc.CurrentRoot([]string{""})
 
 	if err != nil {
 		t.Fatal("CurrentRoot fail", err)

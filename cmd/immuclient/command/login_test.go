@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/cobra"
@@ -33,10 +33,14 @@ func TestLogin(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: immuclienttest.NewClient(&immuclienttest.PasswordReader{
-			Pass: []string{"immudb"},
-		}, bs.Dialer, nil),
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.login(&cmd)

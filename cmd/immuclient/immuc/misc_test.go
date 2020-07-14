@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuctest
+package immuc_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -29,8 +29,13 @@ func TestHealthCheckSucceeds(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	msg, err := imc.HealthCheck([]string{})
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	msg, err := ic.Imc.HealthCheck([]string{})
 	if err != nil {
 		t.Fatal("HealthCheck fail", err)
 	}
@@ -43,9 +48,13 @@ func TestHealthCheckFails(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 	bs.GrpcServer.Stop()
-	msg, err := imc.HealthCheck([]string{})
+	msg, err := ic.Imc.HealthCheck([]string{})
 	if err != nil {
 		t.Fatal("HealthCheck fail stoped server", err)
 	}
@@ -59,8 +68,13 @@ func TestHistory(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	msg, err := imc.History([]string{"key"})
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	msg, err := ic.Imc.History([]string{"key"})
 	if err != nil {
 		t.Fatal("History fail", err)
 	}
@@ -68,11 +82,11 @@ func TestHistory(t *testing.T) {
 		t.Fatalf("History fail %s", msg)
 	}
 
-	msg, err = imc.Set([]string{"key", "value"})
+	msg, err = ic.Imc.Set([]string{"key", "value"})
 	if err != nil {
 		t.Fatal("History fail", err)
 	}
-	msg, err = imc.History([]string{"key"})
+	msg, err = ic.Imc.History([]string{"key"})
 	if err != nil {
 		t.Fatal("History fail", err)
 	}

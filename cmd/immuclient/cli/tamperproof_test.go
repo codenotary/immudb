@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -29,11 +29,14 @@ func TestConsistency(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	msg, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -51,7 +54,7 @@ func TestConsistency(t *testing.T) {
 		t.Fatalf("Set failed: %s", msg)
 	}
 
-	msg, err = imc.Consistency([]string{"0"})
+	msg, err = ic.Imc.Consistency([]string{"0"})
 	if err == nil {
 		t.Fatal("Consistency fail expected error")
 	}
@@ -60,11 +63,14 @@ func TestInclusion(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	msg, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -82,7 +88,7 @@ func TestInclusion(t *testing.T) {
 		t.Fatalf("Set failed: %s", msg)
 	}
 
-	msg, err = imc.Inclusion([]string{"0"})
+	msg, err = ic.Imc.Inclusion([]string{"0"})
 	if err != nil {
 		t.Fatal("Consistency fail", err)
 	}

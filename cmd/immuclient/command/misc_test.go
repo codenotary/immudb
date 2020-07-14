@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/cobra"
@@ -33,9 +34,14 @@ func TestHistory(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.history(&cmd)
@@ -62,9 +68,14 @@ func TestStatus(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.status(&cmd)
@@ -92,9 +103,14 @@ func TestUserList(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 	cmd := cobra.Command{}
 	cmdl.user(&cmd)
@@ -119,13 +135,22 @@ func TestUserChangePassword(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
-	cmdl.immucl = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+
+	ic.Pr = &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
-	}, bs.Dialer, hds)
+	}
+	ic.Connect(bs.Dialer)
+	cmdl.immucl = ic.Imc
+
 	cmd := cobra.Command{}
 	cmdl.user(&cmd)
 	b := bytes.NewBufferString("")
@@ -150,13 +175,22 @@ func TestUserCreate(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
-	cmdl.immucl = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+
+	ic.Pr = &immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer, hds)
+	}
+	ic.Connect(bs.Dialer)
+	cmdl.immucl = ic.Imc
+
 	cmd := cobra.Command{}
 	cmdl.user(&cmd)
 	b := bytes.NewBufferString("")
@@ -181,16 +215,24 @@ func TestUserActivate(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 
-	imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+	ic.Pr = &immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer, hds)
-	_, err := imc.CreateDatabase([]string{"mydb"})
-	_, err = imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
+	}
+	ic.Connect(bs.Dialer)
+	cmdl.immucl = ic.Imc
+
+	_, err := ic.Imc.CreateDatabase([]string{"mydb"})
+	_, err = ic.Imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
 	}
@@ -219,16 +261,24 @@ func TestUserDeactivate(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 
-	imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+	ic.Pr = &immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer, hds)
-	_, err := imc.CreateDatabase([]string{"mydb"})
-	_, err = imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
+	}
+	ic.Connect(bs.Dialer)
+	cmdl.immucl = ic.Imc
+
+	_, err := ic.Imc.CreateDatabase([]string{"mydb"})
+	_, err = ic.Imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
 	}
@@ -256,16 +306,24 @@ func TestUserPermission(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, hds := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 
-	imc = immuclienttest.NewClient(&immuclienttest.PasswordReader{
+	ic.Pr = &immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
-	}, bs.Dialer, hds)
-	_, err := imc.CreateDatabase([]string{"mydb"})
-	_, err = imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
+	}
+	ic.Connect(bs.Dialer)
+	cmdl.immucl = ic.Imc
+
+	_, err := ic.Imc.CreateDatabase([]string{"mydb"})
+	_, err = ic.Imc.UserCreate([]string{"myuser", "readwrite", "mydb"})
 	if err != nil {
 		t.Fatal("TestUserCreate fail", err)
 	}
@@ -294,9 +352,14 @@ func TestDatabaseList(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 
 	cmd := cobra.Command{}
@@ -322,9 +385,14 @@ func TestDatabaseCreate(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
 
 	cmd := cobra.Command{}
@@ -351,11 +419,16 @@ func TestUseDatabase(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cmdl := commandline{
-		immucl: imc,
+		immucl: ic.Imc,
 	}
-	_, err := imc.CreateDatabase([]string{"mynewdb"})
+	_, err := ic.Imc.CreateDatabase([]string{"mynewdb"})
 	cmd := cobra.Command{}
 	cmdl.use(&cmd)
 	b := bytes.NewBufferString("")

@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -29,11 +29,14 @@ func TestZScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
 	cli := new(cli)
-	cli.immucl = imc
-
+	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -52,10 +55,14 @@ func TestIScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	cli := new(cli)
-	cli.immucl = imc
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
 
+	cli := new(cli)
+	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -76,9 +83,14 @@ func TestScan(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cli := new(cli)
-	cli.immucl = imc
+	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
@@ -97,9 +109,14 @@ func TestCount(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
 	cli := new(cli)
-	cli.immucl = imc
+	cli.immucl = ic.Imc
 	_, err := cli.set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)

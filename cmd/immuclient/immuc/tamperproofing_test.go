@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuctest
+package immuc_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
+	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
@@ -29,8 +29,13 @@ func TestConsistency(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	msg, err := imc.Set([]string{"key", "val"})
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	msg, err := ic.Imc.Set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
 	}
@@ -39,7 +44,7 @@ func TestConsistency(t *testing.T) {
 	}
 	hash := strings.Split(msg, "hash:		")[1]
 	hash = hash[:64]
-	msg, err = imc.Consistency([]string{"0", hash})
+	msg, err = ic.Imc.Consistency([]string{"0", hash})
 	if err != nil {
 		t.Fatal("Consistency fail", err)
 	}
@@ -47,7 +52,7 @@ func TestConsistency(t *testing.T) {
 		t.Fatalf("Set failed: %s", msg)
 	}
 
-	msg, err = imc.Consistency([]string{"0"})
+	msg, err = ic.Imc.Consistency([]string{"0"})
 	if err == nil {
 		t.Fatal("Consistency fail expected error")
 	}
@@ -56,8 +61,13 @@ func TestInclusion(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-	imc, _ := immuclienttest.Login("immudb", "immudb", bs.Dialer)
-	msg, err := imc.Set([]string{"key", "val"})
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, &test.HomedirServiceMock{})
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	msg, err := ic.Imc.Set([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
 	}
@@ -66,7 +76,7 @@ func TestInclusion(t *testing.T) {
 	}
 	hash := strings.Split(msg, "hash:		")[1]
 	hash = hash[:64]
-	msg, err = imc.Inclusion([]string{"0", hash})
+	msg, err = ic.Imc.Inclusion([]string{"0", hash})
 	if err != nil {
 		t.Fatal("Consistency fail", err)
 	}
@@ -74,7 +84,7 @@ func TestInclusion(t *testing.T) {
 		t.Fatalf("Set failed: %s", msg)
 	}
 
-	msg, err = imc.Inclusion([]string{"0"})
+	msg, err = ic.Imc.Inclusion([]string{"0"})
 	if err != nil {
 		t.Fatal("Consistency fail", err)
 	}

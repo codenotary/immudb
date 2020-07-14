@@ -27,75 +27,64 @@ import (
 	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
 
-type homedirServiceMock struct {
+type clientTest struct {
+	Imc     immuc.Client
+	Hds     client.HomedirService
+	Options client.Options
+	Pr      helper.PasswordReader
+}
+
+type HomedirServiceMock struct {
 	client.HomedirService
 	token []byte
 }
 
-func (h *homedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
+func (h *HomedirServiceMock) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
 	return true, nil
 }
 
-func (h *homedirServiceMock) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
+func (h *HomedirServiceMock) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
 	h.token = content
 	return nil
 }
 
-func (h *homedirServiceMock) DeleteFileFromUserHomeDir(pathToFile string) error {
+func (h *HomedirServiceMock) DeleteFileFromUserHomeDir(pathToFile string) error {
 	return nil
 }
 
-func (h *homedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string, error) {
+func (h *HomedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string, error) {
 	return string(h.token), nil
 }
 
-func NewClient(pr helper.PasswordReader, dialer servertest.BuffDialer, hds client.HomedirService) immuc.Client {
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
+func NewClientTest(pr helper.PasswordReader, hds client.HomedirService) *clientTest {
+	return &clientTest{
+		Hds: hds,
+		Pr:  pr,
 	}
-
-	var ic immuc.Client
-	var err error
-	if hds == nil {
-		ic, err = immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-			WithHomedirService(&homedirServiceMock{}))
-	} else {
-		ic, err = immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-			WithHomedirService(hds))
-	}
-
-	err = ic.Connect([]string{""})
-	if err != nil {
-		log.Fatal(err)
-	}
-	return ic
 }
 
-func Login(username string, password string, dialer servertest.BuffDialer) (immuc.Client, client.HomedirService) {
-	viper.Set("tokenfile", client.DefaultOptions().TokenFileName)
-	pr := &PasswordReader{
-		Pass: []string{password, password},
-	}
+func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
 	}
-	hds := &homedirServiceMock{}
-	ic, err := immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds))
 
+	ic, err := immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(c.Pr).
+		WithHomedirService(c.Hds))
 	err = ic.Connect([]string{""})
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = ic.Login([]string{username})
+	c.Imc = ic
+}
+
+func (c *clientTest) Login(username string) {
+	_, err := c.Imc.Login([]string{username})
 	if err != nil {
 		log.Fatal(err)
 	}
-	return ic, hds
 }
 
 func CaptureStdout(f func()) string {
