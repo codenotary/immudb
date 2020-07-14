@@ -35,12 +35,16 @@ func CopyFile(src, dst string) (err error) {
 		return
 	}
 	defer in.Close()
-	fi, _ := in.Stat()
-	if fi.IsDir() {
+
+	info, err := in.Stat()
+	if err != nil {
+		return
+	}
+	if info.IsDir() {
 		return fmt.Errorf("%s is a directory", src)
 	}
 
-	out, err := os.Create(dst)
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, info.Mode())
 	if err != nil {
 		return
 	}
@@ -56,19 +60,6 @@ func CopyFile(src, dst string) (err error) {
 	}
 
 	err = out.Sync()
-	if err != nil {
-		return
-	}
-
-	si, err := os.Stat(src)
-	if err != nil {
-		return
-	}
-	err = os.Chmod(dst, si.Mode())
-	if err != nil {
-		return
-	}
-
 	return
 }
 
