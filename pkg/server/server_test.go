@@ -19,6 +19,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -790,6 +792,102 @@ func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
+func testScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.SafeSetSV(ctx, &schema.SafeSetSVOptions{
+		Skv: Skv.SKVs[0],
+	})
+	if err != nil {
+		t.Errorf("set error %s", err)
+	}
+
+	//TODO uncomment after IScanSV is fixed
+	// item, err := s.IScanSV(ctx, &schema.IScanOptions{
+	// 	PageNumber: 0,
+	// 	PageSize:   3,
+	// })
+
+	// if err != nil {
+	// 	t.Fatalf("IScanSV  Get error %s", err)
+	// }
+	// if len(item.Items) <= 0 {
+	// 	t.Errorf("IScanSV, expected >0, got %v", len(item.Items))
+	// }
+
+	scanItem, err := s.ZScanSV(ctx, &schema.ZScanOptions{
+		Offset: []byte("Albert"),
+		Limit:  1,
+	})
+	if err != nil {
+		t.Errorf("ZScanSV  Get error %s", err)
+	}
+	if len(scanItem.Items) == 0 {
+		t.Errorf("ZScanSV, expected >0, got %v", len(scanItem.Items))
+	}
+
+	scanItem, err = s.ScanSV(ctx, &schema.ScanOptions{
+		Offset: []byte("Alb"),
+		Limit:  1,
+	})
+	if err != nil {
+		t.Errorf("ScanSV  Get error %s", err)
+	}
+	if len(scanItem.Items) == 0 {
+		t.Errorf("ScanSV, expected >0, got %v", len(scanItem.Items))
+	}
+}
+
+func testSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
+	it, err := s.SafeSet(ctx, &schema.SafeSetOptions{
+		Kv: kv[0],
+	})
+	if err != nil {
+		t.Errorf("SafeSet error %s", err)
+	}
+	it, err = s.SafeReference(ctx, &schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{
+			Key:       kv[0].Key,
+			Reference: []byte("key1"),
+		},
+		RootIndex: &schema.Index{
+			Index: it.Index,
+		},
+	})
+	if err != nil {
+		t.Errorf("SafeReference error %s", err)
+	}
+	ref, err := s.Get(ctx, &schema.Key{
+		Key: []byte("key1"),
+	})
+	if err != nil {
+		t.Errorf("get error %s", err)
+	}
+	if !bytes.Equal(ref.Value, kv[0].Value) {
+		t.Errorf("safereference error")
+	}
+}
+
+func testCount(ctx context.Context, s *ImmuServer, t *testing.T) {
+	c, err := s.Count(ctx, &schema.KeyPrefix{
+		Prefix: kv[0].Key,
+	})
+	if err != nil {
+		t.Errorf("SafeSet error %s", err)
+	}
+	if c.Count == 0 {
+		t.Errorf("Count error >0 got %d", c.Count)
+	}
+}
+
+func testPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
+	item, err := s.PrintTree(ctx, &emptypb.Empty{})
+	if err != nil {
+		t.Errorf("PrintTree  error %s", err)
+	}
+	if len(item.T) == 0 {
+		t.Errorf("PrintTree, expected > 0, got %v", len(item.T))
+	}
+}
+
 func TestUsermanagement(t *testing.T) {
 	var err error
 	s := newInmemoryAuthServer()
@@ -815,6 +913,7 @@ func TestUsermanagement(t *testing.T) {
 	testDeactivateUser(ctx, s, t)
 	testSetActiveUser(ctx, s, t)
 	testChangePassword(ctx, s, t)
+	testListUsers(ctx, s, t)
 }
 func TestDbOperations(t *testing.T) {
 	var err error
@@ -851,12 +950,87 @@ func TestDbOperations(t *testing.T) {
 	testReference(ctx, s, t)
 	testZAdd(ctx, s, t)
 	testScan(ctx, s, t)
+	testPrintTree(ctx, s, t)
+	testScanSV(ctx, s, t)
+	testSafeReference(ctx, s, t)
+	testCount(ctx, s, t)
 }
-func TestServer(t *testing.T) {
-	dataDir := "madrid"
-	l := bufconn.Listener{}
-	s := DefaultServer().WithOptions(DefaultOptions().WithCorruptionCheck(false).WithDir(dataDir).WithListener(&l).WithInMemoryStore(true))
 
-	go s.Start()
-	s.CloseDatabases()
+func TestServer(t *testing.T) {
+	bufSize := 1024 * 1024
+	l := bufconn.Listen(bufSize)
+	datadir := "madrid"
+	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(false).WithDir(datadir).WithListener(l)
+
+	server := DefaultServer().WithOptions(options)
+	lis := bufconn.Listen(bufSize)
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
+		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
+	)
+	schema.RegisterImmuServiceServer(grpcServer, server)
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	defer func() {
+		os.RemoveAll(datadir)
+	}()
+	go func(t *testing.T) {
+		if err := server.Start(); err != nil {
+			t.Fatal(err)
+		}
+	}(t)
+
+	time.Sleep(2 * time.Second)
+	if err := server.CloseDatabases(); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestUpdateAuthConfig(t *testing.T) {
+	input, _ := ioutil.ReadFile("../../test/immudb.toml")
+	err := ioutil.WriteFile("/tmp/immudb.toml", input, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	dataDir := "bratislava"
+	s := DefaultServer().WithOptions(DefaultOptions().
+		WithCorruptionCheck(false).
+		WithInMemoryStore(true).
+		WithAuth(false).
+		WithMaintenance(false).WithDir(dataDir).WithConfig("/tmp/immudb.toml"))
+
+	_, err = s.UpdateAuthConfig(context.Background(), &schema.AuthConfig{
+		Kind: 1,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	//TODO fix, after UpdateAuthConfig is fixed this should be uncommented
+	// if !s.Options.GetAuth() {
+	// 	log.Fatal("Error UpdateAuthConfig")
+	// }
+}
+
+func TestUpdateMTLSConfig(t *testing.T) {
+	input, _ := ioutil.ReadFile("../../test/immudb.toml")
+	err := ioutil.WriteFile("/tmp/immudb.toml", input, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	dataDir := "ljubljana"
+	s := DefaultServer().WithOptions(DefaultOptions().
+		WithCorruptionCheck(false).
+		WithInMemoryStore(true).
+		WithAuth(false).
+		WithMaintenance(false).WithDir(dataDir).WithMTLs(false).WithConfig("/tmp/immudb.toml"))
+	_, err = s.UpdateMTLSConfig(context.Background(), &schema.MTLSConfig{
+		Enabled: true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
