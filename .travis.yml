@@ -9,7 +9,7 @@ git:
   depth: false
 
 go:
-  - 1.14.x
+  - 1.13.x
 
 install: true
 
@@ -89,9 +89,11 @@ jobs:
       script:
         - go get golang.org/x/tools/cmd/cover
         - go get github.com/mattn/goveralls
+        - go get -u github.com/ory/go-acc
         - set -o pipefail
-        - go test ./... -covermode=atomic -coverprofile=coverage.out || true
-        - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+        - go-acc ./... --ignore test || true
+        - cat coverage.txt | grep -v "schema.pb" > cover.out
+        - $HOME/gopath/bin/goveralls -coverprofile=cover.out -service=travis-ci -repotoken $COVERALLS_TOKEN
     - stage: Scan (edited)
 branches:
   only:
