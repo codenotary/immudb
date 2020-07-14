@@ -19,6 +19,7 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -27,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"io/ioutil"
-
+	"net/http"
 	"testing"
 )
 
@@ -61,4 +62,87 @@ func TestStats_Status(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Contains(t, string(out), "OK - server is reachable and responding to queries")
+}
+
+func TestStats_StatsText(t *testing.T) {
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs.Start()
+
+	handler := http.NewServeMux()
+	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(statstest.StatsResponse)
+	})
+	server := &http.Server{Addr: ":9497", Handler: handler}
+	go server.ListenAndServe()
+	defer server.Close()
+
+	cmd := cobra.Command{}
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+	cliopt := Options()
+	cliopt.DialOptions = &dialOptions
+	cliopt.Address = "127.0.0.1"
+	clientb, _ := client.NewImmuClient(cliopt)
+	cl := commandline{
+		options:        cliopt,
+		immuClient:     clientb,
+		passwordReader: &clienttest.PasswordReaderMock{},
+		context:        context.Background(),
+		hds:            &clienttest.HomedirServiceMock{},
+	}
+
+	cl.stats(&cmd)
+
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{"stats", "--text"})
+	cmd.Execute()
+	out, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Contains(t, string(out), "Database path")
+}
+
+func TestStats_StatsRaw(t *testing.T) {
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs.Start()
+
+	handler := http.NewServeMux()
+	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(statstest.StatsResponse)
+	})
+	server := &http.Server{Addr: ":9497", Handler: handler}
+	go server.ListenAndServe()
+
+	defer server.Close()
+
+	cmd := cobra.Command{}
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+	cliopt := Options()
+	cliopt.DialOptions = &dialOptions
+	cliopt.Address = "127.0.0.1"
+	clientb, _ := client.NewImmuClient(cliopt)
+	cl := commandline{
+		options:        cliopt,
+		immuClient:     clientb,
+		passwordReader: &clienttest.PasswordReaderMock{},
+		context:        context.Background(),
+		hds:            &clienttest.HomedirServiceMock{},
+	}
+
+	cl.stats(&cmd)
+
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{"stats", "--raw"})
+	cmd.Execute()
+	out, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Contains(t, string(out), "go_gc_duration_seconds")
 }
