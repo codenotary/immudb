@@ -107,5 +107,6 @@ func ShowMetricsAsText(w io.Writer, serverAddress string) error {
 
 // ShowMetricsVisually ...
 func ShowMetricsVisually(serverAddress string) error {
-	return runUI(newMetricsLoader(metricsURL(serverAddress)))
+	su := statsui{Loader: newMetricsLoader(metricsURL(serverAddress))}
+	return su.runUI(false)
 }
