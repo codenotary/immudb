@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"testing"
 )
@@ -70,7 +71,9 @@ func TestStats_StatsText(t *testing.T) {
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(statstest.StatsResponse)
+		if _, err := w.Write(statstest.StatsResponse); err != nil {
+			log.Fatal(err)
+		}
 	})
 	server := &http.Server{Addr: ":9497", Handler: handler}
 	go server.ListenAndServe()

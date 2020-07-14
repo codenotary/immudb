@@ -1858,4 +1858,5 @@ promhttp_metric_handler_requests_in_flight 1
 # TYPE promhttp_metric_handler_requests_total counter
 promhttp_metric_handler_requests_total{code="200"} 1
 promhttp_metric_handler_requests_total{code="500"} 0
-promhttp_metric_handler_requests_total{code="503"} 0`)
+promhttp_metric_handler_requests_total{code="503"} 0
+`)

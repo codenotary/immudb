@@ -23,31 +23,40 @@ import (
 	ui "github.com/gizak/termui/v3"
 )
 
-func loadAndRender(loader MetricsLoader, cntrl Controller) error {
-	ms, err := loader.Load()
+type Statsui interface {
+}
+
+type statsui struct {
+	cntrl  Controller
+	Loader MetricsLoader
+	Tui    Tui
+}
+
+func (s statsui) loadAndRender() error {
+	ms, err := s.Loader.Load()
 	if err != nil {
 		return err
 	}
-	cntrl.Render(ms)
+	s.cntrl.Render(ms)
 	return nil
 }
 
-func runUI(loader MetricsLoader) error {
-	if err := ui.Init(); err != nil {
+func (s statsui) runUI(singleRun bool) error {
+	if err := s.Tui.Init(); err != nil {
 		return fmt.Errorf("failed to initialize termui: %v", err)
 	}
-	defer ui.Close()
+	defer s.Tui.Close()
 
-	ms, err := loader.Load()
+	ms, err := s.Loader.Load()
 	if err != nil {
 		return err
 	}
-	var controller = newStatsController(ms.isHistogramsDataAvailable())
-	if err := loadAndRender(loader, controller); err != nil {
+	s.cntrl = newStatsController(ms.isHistogramsDataAvailable(), s.Tui)
+	if err := s.loadAndRender(); err != nil {
 		return err
 	}
 
-	ev := ui.PollEvents()
+	ev := s.Tui.PollEvents()
 
 	ticker := time.NewTicker(requestTimeout)
 	defer ticker.Stop()
@@ -63,11 +72,14 @@ func runUI(loader MetricsLoader) error {
 					return nil
 				}
 			case ui.ResizeEvent:
-				controller.Resize()
+				s.cntrl.Resize()
 			}
 		case <-tick:
-			if err := loadAndRender(loader, controller); err != nil {
+			if err := s.loadAndRender(); err != nil {
 				return err
+			}
+			if singleRun {
+				return nil
 			}
 		}
 	}

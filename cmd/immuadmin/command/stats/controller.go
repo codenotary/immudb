@@ -44,15 +44,42 @@ type statsController struct {
 	AvgDurationPlotData   []*list.List
 	MemoryPlot            *widgets.Plot
 	MemoryPlotData        []*list.List
+	tui                   Tui
+}
+
+type Tui interface {
+	TerminalDimensions() (int, int)
+	Render(items ...ui.Drawable)
+	Init() error
+	Close()
+	PollEvents() <-chan ui.Event
+}
+
+type tui struct{}
+
+func (t tui) TerminalDimensions() (int, int) {
+	return ui.TerminalDimensions()
+}
+func (t tui) Render(items ...ui.Drawable) {
+	ui.Render(items...)
+}
+func (t tui) Init() error {
+	return ui.Init()
+}
+func (t tui) Close() {
+	ui.Close()
+}
+func (t tui) PollEvents() <-chan ui.Event {
+	return ui.PollEvents()
 }
 
 func (p *statsController) Resize() {
 	p.resize()
-	ui.Render(p.Grid)
+	p.tui.Render(p.Grid)
 }
 
 func (p *statsController) resize() {
-	termWidth, termHeight := ui.TerminalDimensions()
+	termWidth, termHeight := p.tui.TerminalDimensions()
 	p.Grid.SetRect(0, 0, termWidth, termHeight)
 }
 
@@ -260,7 +287,7 @@ func (p *statsController) initUI() {
 	)
 }
 
-func newStatsController(withDBHistograms bool) Controller {
+func newStatsController(withDBHistograms bool, tui Tui) Controller {
 	// xterm color reference https://jonasjacek.github.io/colors/
 	ui.Theme.Block.Title.Fg = ui.ColorGreen
 	ctl := &statsController{
@@ -269,6 +296,7 @@ func newStatsController(withDBHistograms bool) Controller {
 		SummaryTable:     widgets.NewTable(),
 		SizePlot:         widgets.NewPlot(),
 		MemoryPlot:       widgets.NewPlot(),
+		tui:              tui,
 	}
 	if withDBHistograms {
 		ctl.NbReadsWritesPlot = widgets.NewPlot()
