@@ -41,7 +41,7 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 	if info.IsDir() {
-		return fmt.Errorf("%s is a directory", src)
+		return fmt.Errorf("copy from %s: source is a directory", src)
 	}
 
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, info.Mode())
@@ -70,15 +70,14 @@ func CopyDir(src string, dst string) (err error) {
 		return err
 	}
 	if !si.IsDir() {
-		return fmt.Errorf("source is not a directory")
+		return fmt.Errorf("copy from %s: source is not a directory", src)
 	}
 
-	_, err = os.Stat(dst)
-	if err != nil && !os.IsNotExist(err) {
-		return
-	}
-	if err == nil {
-		return os.ErrExist
+	switch _, err := os.Stat(dst); {
+	case err == nil:
+		return fmt.Errorf("copy to %s: %w", dst, os.ErrExist)
+	case !os.IsNotExist(err):
+		return err
 	}
 
 	err = os.MkdirAll(dst, si.Mode())

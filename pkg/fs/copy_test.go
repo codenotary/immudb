@@ -48,11 +48,9 @@ func TestCopyFileSrcIsDir(t *testing.T) {
 	defer os.RemoveAll(src)
 	require.NoError(t, os.MkdirAll(src, 0755))
 	err := CopyFile(src, "test-copy-file-source-is-dir-dst")
-	require.Error(t, err)
-	require.True(
-		t,
-		strings.HasSuffix(err.Error(), "is a directory"),
-		"expected 'is a directory' error, actual: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "is a directory") {
+		t.Errorf("want 'is a directory' error, got %v", err)
+	}
 }
 
 func TestCopyDir(t *testing.T) {
@@ -98,8 +96,9 @@ func TestCopyDirSrcNotDir(t *testing.T) {
 	defer os.Remove(src)
 	require.NoError(t, ioutil.WriteFile(src, []byte(src), 0644))
 	err := CopyDir(src, "test-copy-dir-src-not-dir-dst")
-	require.Error(t, err)
-	require.Equal(t, "source is not a directory", err.Error())
+	if err == nil || !strings.Contains(err.Error(), "is not a directory") {
+		t.Errorf("want 'is not a directory' error, got %v", err)
+	}
 }
 
 func TestCopyDirDstAlreadyExists(t *testing.T) {
