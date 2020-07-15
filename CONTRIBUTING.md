@@ -180,14 +180,14 @@ Signed-off-by: Your Name <your.email@example.org> to the last line of each Git c
 
 Here is a non-exhaustive list of documents and articles talking about Go best practices and tips & tricks. We are continuously trying to improve our code, and taking inspiration from community works helps us grow.
 
-https://golang.org/doc/effective_go.html
-https://github.com/golang/go/wiki/CodeReviewComments
-https://go-proverbs.github.io/
-​https://the-zen-of-go.netlify.app/
-https://dave.cheney.net/practical-go/presentations/qcon-china.html
-https://github.com/bahlo/go-styleguide
-https://github.com/Pungyeon/clean-go-article
-https://github.com/dgryski/go-perfbook
+* https://golang.org/doc/effective_go.html
+* https://github.com/golang/go/wiki/CodeReviewComments
+* https://go-proverbs.github.io/
+* https://the-zen-of-go.netlify.app/
+* https://dave.cheney.net/practical-go/presentations/qcon-china.html
+* https://github.com/bahlo/go-styleguide
+* https://github.com/Pungyeon/clean-go-article
+* https://github.com/dgryski/go-perfbook
 
 Please note again that [code coverage](#testing) should no less than 80% and that we encourage you to minimize the use of 3rd party libraries.
 ​
