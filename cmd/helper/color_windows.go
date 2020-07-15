@@ -1,3 +1,5 @@
+// +build windows
+
 /*
 Copyright 2019-2020 vChain, Inc.
 
@@ -19,7 +21,6 @@ package helper
 import (
 	"fmt"
 	"io"
-	"runtime"
 )
 
 // Reset resets the color
@@ -47,21 +48,14 @@ var Cyan = "\033[36m"
 var White = "\033[37m"
 
 func init() {
-	if runtime.GOOS == "windows" {
-		Reset = ""
-		Red = ""
-		Green = ""
-		Yellow = ""
-		Blue = ""
-		Purple = ""
-		Cyan = ""
-		White = ""
-	}
-}
-
-// PrintfColor ...
-func PrintfColor(color string, format string, args ...interface{}) {
-	fmt.Printf(color+format+Reset, args...)
+	Reset = ""
+	Red = ""
+	Green = ""
+	Yellow = ""
+	Blue = ""
+	Purple = ""
+	Cyan = ""
+	White = ""
 }
 
 // PrintfColorW ...
