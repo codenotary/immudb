@@ -19,11 +19,12 @@ package service
 import (
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 func NewCommandLine() *commandline {
 	s := NewSService()
-	t := helper.NewTerminalReader()
+	t := helper.NewTerminalReader(os.Stdin)
 	return &commandline{s, t}
 }
 

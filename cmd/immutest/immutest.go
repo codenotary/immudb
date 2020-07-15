@@ -29,7 +29,7 @@ func main() {
 	err := execute(
 		func(opts *client.Options) (client.ImmuClient, error) { return client.NewImmuClient(opts) },
 		c.DefaultPasswordReader,
-		c.NewTerminalReader(),
+		c.NewTerminalReader(os.Stdin),
 		client.NewHomedirService(),
 		c.QuitWithUserError,
 		nil)
