@@ -71,7 +71,7 @@ func NewCommandlineBck() (*commandlineBck, error) {
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
 	cl.hds = client.NewHomedirService()
-	tr := c.NewTerminalReader()
+	tr := c.NewTerminalReader(os.Stdin)
 
 	return &commandlineBck{cl, b, tr}, nil
 }
