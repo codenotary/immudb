@@ -19,11 +19,13 @@ package immuadmin
 import (
 	"context"
 	"fmt"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 )
 
+// Commandline ...
 type Commandline interface {
 	user(cmd *cobra.Command)
 	login(cmd *cobra.Command)
@@ -34,6 +36,7 @@ type Commandline interface {
 	printTree(rootCmd *cobra.Command)
 }
 
+// CommandlineCli ...
 type CommandlineCli interface {
 	disconnect(cmd *cobra.Command, args []string)
 	connect(cmd *cobra.Command, args []string) (err error)
@@ -44,21 +47,35 @@ type CommandlineCli interface {
 type commandline struct {
 	options        *client.Options
 	immuClient     client.ImmuClient
+	newImmuClient  func(*client.Options) (client.ImmuClient, error)
 	passwordReader c.PasswordReader
 	context        context.Context
 	hds            client.HomedirService
+	onError        func(error)
+}
+
+func (cl *commandline) quit(err error) {
+	if cl.onError == nil {
+		c.QuitToStdErr(err)
+	}
+	cl.onError(err)
 }
 
 func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 	if err := cl.immuClient.Disconnect(); err != nil {
-		c.QuitToStdErr(err)
+		cl.quit(err)
 	}
 }
 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-
-	if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
-		c.QuitToStdErr(err)
+	if cl.newImmuClient == nil {
+		if cl.immuClient, err = client.NewImmuClient(cl.options); err != nil {
+			cl.quit(err)
+		}
+		return
+	}
+	if cl.immuClient, err = cl.newImmuClient(cl.options); err != nil {
+		cl.quit(err)
 	}
 	return
 }
@@ -69,7 +86,7 @@ func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err err
 		fmt.Println("error checking if token file exists:", err2)
 	} else if !possiblyLoggedIn {
 		err = fmt.Errorf("please login first")
-		c.QuitToStdErr(err)
+		cl.quit(err)
 	}
 	return
 }
