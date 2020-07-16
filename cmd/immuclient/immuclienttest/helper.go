@@ -59,6 +59,9 @@ func (h *HomedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string,
 	return string(h.token), nil
 }
 
+func NewDefaultClientTest() *clientTest {
+	return &clientTest{}
+}
 func NewClientTest(pr helper.PasswordReader, hds client.HomedirService) *clientTest {
 	return &clientTest{
 		Hds: hds,
