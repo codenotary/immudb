@@ -204,15 +204,14 @@ func (i *immuc) DatabaseList(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
+	var dbList string
 	for _, val := range resp.Databases {
 		if i.options.CurrentDatabase == val.Databasename {
-			fmt.Print("*")
+			dbList += fmt.Sprintf("*")
 		}
-		fmt.Println(val.Databasename)
+		dbList += fmt.Sprintf("%s\n", val.Databasename)
 	}
-	return "", nil
-
+	return dbList, nil
 }
 func (i *immuc) UseDatabase(args []string) (string, error) {
 	dbname := args[0]

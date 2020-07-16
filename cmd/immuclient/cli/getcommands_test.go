@@ -38,7 +38,7 @@ func TestGetByIndex(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 
-	_, _ = cli.set([]string{"key", "val"})
+	_, _ = cli.safeset([]string{"key", "val"})
 	msg, err := cli.getByIndex([]string{"0"})
 	if err != nil {
 		t.Fatal("GetByIndex fail", err)
