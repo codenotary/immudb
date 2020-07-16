@@ -19,7 +19,6 @@ package immuadmin
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -30,237 +29,250 @@ import (
 
 func (cl *commandline) user(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "user command",
-		Short:             "Issue all user commands",
-		Aliases:           []string{"u"},
+		Use:     "user command",
+		Short:   "Issue all user commands",
+		Aliases: []string{"u"},
+	}
+	userListCmd := &cobra.Command{
+		Use:               "list",
+		Short:             "List all users",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"help", "list", "create", "permission grant", "permission revoke", "change password", "activate", "deactivate"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.UserOperations(args)
+			resp, err := cl.userList(args)
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp)
 			return nil
 		},
-		Args: cobra.MaximumNArgs(5),
+		Args: cobra.MaximumNArgs(0),
 	}
-	cmd.AddCommand(ccmd)
-}
-func (cl *commandline) UserOperations(args []string) (string, error) {
-	var command string
-	if len(args) == 0 {
-		command = "help"
-	} else {
-		command = args[0]
+	userCreate := &cobra.Command{
+		Use:               "create",
+		Short:             "Create a new user",
+		Long:              "Create a new user. user create username",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.userCreate(args)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), resp)
+			return nil
+		},
+		Args: cobra.ExactArgs(3),
 	}
-	switch command {
-	case "help":
-		fmt.Println("user list  -- shows all users and their details")
-		fmt.Println()
-		fmt.Println("user create user_name permission database_name  -- creates a user for the database, asks twice for the password")
-		fmt.Println()
-		fmt.Println("user changepassword username  -- asks to insert the new password twice")
-		fmt.Println()
-		fmt.Println("user permission grant/revoke username permission_type database_name  -- grants or revokes the permission (read,write,readwrite) for the database")
-		fmt.Println()
-		fmt.Println("user activate/deactivate username  -- activates or deactivates a user")
-		fmt.Println()
-		return "", nil
-	case "list":
-		userlist, err := cl.immuClient.ListUsers(context.Background())
-		if err != nil {
-			return "", err
-		}
-		fmt.Println()
-		fmt.Println("User\tActive\tCreated By\tCreated At\t\t\t\t\tDatabase\tPermission")
-		for _, val := range userlist.Users {
-			fmt.Printf("%s\t%v\t%s\t\t%s\n", string(val.User), val.Active, val.Createdby, val.Createdat)
-			for _, val := range val.Permissions {
-				fmt.Printf("\t\t\t\t\t\t\t\t\t\t%s\t\t", val.Database)
-				switch val.Permission {
-				case auth.PermissionAdmin:
-					fmt.Printf("Admin\n")
-				case auth.PermissionSysAdmin:
-					fmt.Printf("System Admin\n")
-				case auth.PermissionR:
-					fmt.Printf("Read\n")
-				case auth.PermissionRW:
-					fmt.Printf("Read/Write\n")
-				default:
-					return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+	userChangePassword := &cobra.Command{
+		Use:               "changepassword",
+		Short:             "Change user password. changepassword username",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			username := args[0]
+			var oldpass []byte
+			var err error
+			if username == auth.SysAdminUsername {
+				oldpass, err = cl.passwordReader.Read("Old password:")
+				if err != nil {
+					return fmt.Errorf("Error Reading Password")
 				}
 			}
-			fmt.Println()
-		}
-		return "", nil
-	case "create":
-		if len(args) < 4 {
-			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
-		}
-		username := args[1]
-		permission := args[2]
-		databasename := args[3]
 
-		pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
-		if err != nil {
-			return "Error Reading Password", nil
-		}
-		if err = auth.IsStrongPassword(string(pass)); err != nil {
-			return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
-		}
-		pass2, err := cl.passwordReader.Read("Confirm password:")
-		if err != nil {
-			return "Error Reading Password", nil
-		}
-		if !bytes.Equal(pass, pass2) {
-			return "Passwords don't match", nil
-		}
-		var userpermission uint32
-		switch permission {
-		case "read":
-			userpermission = auth.PermissionR
-		case "admin":
-			userpermission = auth.PermissionAdmin
-		case "readwrite":
-			userpermission = auth.PermissionRW
-		default:
-			return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
-		}
-		user, err := cl.immuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("Created user %s", string(user.GetUser())), nil
-	case "changepassword":
-		if len(args) != 2 {
-			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
-		}
-		username := args[1]
-		var oldpass []byte
-		var err error
-		if username == auth.SysAdminUsername {
-			oldpass, err = cl.passwordReader.Read("Old password:")
+			resp, err := cl.changeUserPassword(username, oldpass)
 			if err != nil {
-				return "Error Reading Password", nil
+				c.QuitToStdErr(err)
 			}
-		}
-
-		newpass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
-		if err != nil {
-			return "Error Reading Password", nil
-		}
-		if err = auth.IsStrongPassword(string(newpass)); err != nil {
-			return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
-		}
-		pass2, err := cl.passwordReader.Read("Confirm password:")
-		if err != nil {
-			return "Error Reading Password", nil
-		}
-		if !bytes.Equal(newpass, pass2) {
-			return "Passwords don't match", nil
-		}
-		//old pass is not required any more
-		if err := cl.immuClient.ChangePassword(context.Background(), []byte(username), oldpass, []byte(newpass)); err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("Password of %s was changed successfuly", username), nil
-	case "permission":
-		if len(args) != 5 {
-			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
-		}
-		var permissionAction schema.PermissionAction
-		switch args[1] {
-		case "grant":
-			permissionAction = schema.PermissionAction_GRANT
-		case "revoke":
-			permissionAction = schema.PermissionAction_REVOKE
-		default:
-			return "Wrong permission action. Only grant or revoke are allowed.", nil
-		}
-		username := args[2]
-		var userpermission uint32
-		switch args[3] {
-		case "read":
-			userpermission = auth.PermissionR
-		case "admin":
-			userpermission = auth.PermissionAdmin
-		default:
-			return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
-		}
-
-		dbname := args[4]
-		req := &schema.ChangePermissionRequest{
-			Action:     permissionAction,
-			Database:   dbname,
-			Permission: userpermission,
-			Username:   username,
-		}
-		resp, err := cl.immuClient.ChangePermission(context.Background(), req)
-		if err != nil {
-			return "", err
-		}
-		return resp.Errormessage, nil
-	case "activate", "deactivate":
-		if len(args) < 2 {
-			return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
-		}
-		username := args[1]
-		var active bool
-		switch args[0] {
-		case "activate":
-			active = true
-		case "deactivate":
-			active = false
-		}
-
-		_, err := cl.immuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
-			Active:   active,
-			Username: username,
-		})
-		if err != nil {
-			return "", err
-		}
-		return "User status changed successfully", nil
+			fmt.Fprintf(cmd.OutOrStdout(), resp)
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
 	}
-	return "", fmt.Errorf("Wrong command. Get more information with 'user help'")
+	userActivate := &cobra.Command{
+		Use:               "activate",
+		Short:             "Activate a user",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.setActiveUser(args, true)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), resp)
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+	userDeactivate := &cobra.Command{
+		Use:               "deactivate",
+		Short:             "Deactivate a user",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.setActiveUser(args, false)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), resp)
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+	userPermission := &cobra.Command{
+		Use:               "permission",
+		Short:             "Set user permission",
+		PersistentPreRunE: cl.connect,
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.setUserPermission(args)
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), resp)
+			return nil
+		},
+		Args: cobra.MaximumNArgs(4),
+	}
+	ccmd.AddCommand(userListCmd)
+	ccmd.AddCommand(userCreate)
+	ccmd.AddCommand(userChangePassword)
+	ccmd.AddCommand(userActivate)
+	ccmd.AddCommand(userDeactivate)
+	ccmd.AddCommand(userPermission)
+	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) changePassword(username string, oldPass []byte) {
-	fmt.Println("NOTE:", auth.PasswordRequirementsMsg+".")
-	var err error
-	if username == auth.SysAdminUsername && len(oldPass) <= 0 {
-		oldPass, err = cl.passwordReader.Read("Old password:")
-		if err != nil {
-			c.QuitToStdErr(err)
-		}
-		_, err = cl.immuClient.Login(cl.context, []byte(username), oldPass)
-		if err != nil {
-			c.QuitToStdErr(err)
-		}
-	}
-	pass, err := cl.passwordReader.Read("New password:")
+func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (string, error) {
+	newpass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
-		c.QuitToStdErr(err)
+		return "Error Reading Password", nil
+	}
+	if err = auth.IsStrongPassword(string(newpass)); err != nil {
+		return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
+	}
+	pass2, err := cl.passwordReader.Read("Confirm password:")
+	if err != nil {
+		return "Error Reading Password", nil
+	}
+	if !bytes.Equal(newpass, pass2) {
+		return "Passwords don't match", nil
+	}
+	if err := cl.immuClient.ChangePassword(context.Background(), []byte(username), oldpassword, []byte(newpass)); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Password of %s was changed successfuly", username), nil
+}
+func (cl *commandline) userList(args []string) (string, error) {
+	userlist, err := cl.immuClient.ListUsers(context.Background())
+	if err != nil {
+		return "", err
+	}
+	var users string
+	users += fmt.Sprintf("\nUser\tActive\tCreated By\tCreated At\t\t\t\t\tDatabase\tPermission\n")
+	for _, val := range userlist.Users {
+		users += fmt.Sprintf("%s\t%v\t%s\t\t%v\n", string(val.User), val.Active, val.Createdby, val.Createdat)
+		for _, val := range val.Permissions {
+			users += fmt.Sprintf("\t\t\t\t\t\t\t\t\t\t%s\t\t", val.Database)
+			switch val.Permission {
+			case auth.PermissionAdmin:
+				users += fmt.Sprintf("Admin\n")
+			case auth.PermissionSysAdmin:
+				users += fmt.Sprintf("System Admin\n")
+			case auth.PermissionR:
+				users += fmt.Sprintf("Read\n")
+			case auth.PermissionRW:
+				users += fmt.Sprintf("Read/Write\n")
+			default:
+				return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+			}
+		}
+		users += fmt.Sprintf("\n")
+	}
+	return users, nil
+}
+func (cl *commandline) userCreate(args []string) (string, error) {
+	username := args[0]
+	permission := args[1]
+	databasename := args[2]
+
+	pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
+	if err != nil {
+		return "Error Reading Password", nil
 	}
 	if err = auth.IsStrongPassword(string(pass)); err != nil {
-		c.QuitToStdErr(err)
+		return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
 	}
-	pass2, err := cl.passwordReader.Read("Confirm new password:")
+	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {
-		c.QuitToStdErr(err)
+		return "Error Reading Password", nil
 	}
 	if !bytes.Equal(pass, pass2) {
-		c.QuitToStdErr(errors.New("Passwords don't match"))
+		return "Passwords don't match", nil
 	}
-	if username == auth.SysAdminUsername {
-		if bytes.Equal(pass, oldPass) {
-			c.QuitToStdErr(errors.New("New password is identical to the old one"))
-		}
+	var userpermission uint32
+	switch permission {
+	case "read":
+		userpermission = auth.PermissionR
+	case "admin":
+		userpermission = auth.PermissionAdmin
+	case "readwrite":
+		userpermission = auth.PermissionRW
+	default:
+		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
 	}
-	if err = cl.immuClient.ChangePassword(cl.context, []byte(username), oldPass, pass); err != nil {
-		c.QuitWithUserError(err)
+	user, err := cl.immuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
+	if err != nil {
+		return "", err
 	}
-	fmt.Printf("Password changed for user %s\n", username)
+	return fmt.Sprintf("Created user %s", string(user.GetUser())), nil
+}
+
+func (cl *commandline) setActiveUser(args []string, active bool) (string, error) {
+	username := args[0]
+	_, err := cl.immuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
+		Active:   active,
+		Username: username,
+	})
+	if err != nil {
+		return "", err
+	}
+	return "User status changed successfully", nil
+}
+
+func (cl *commandline) setUserPermission(args []string) (string, error) {
+	var permissionAction schema.PermissionAction
+	switch args[0] {
+	case "grant":
+		permissionAction = schema.PermissionAction_GRANT
+	case "revoke":
+		permissionAction = schema.PermissionAction_REVOKE
+	default:
+		return "Wrong permission action. Only grant or revoke are allowed.", nil
+	}
+	username := args[1]
+	var userpermission uint32
+	switch args[2] {
+	case "read":
+		userpermission = auth.PermissionR
+	case "admin":
+		userpermission = auth.PermissionAdmin
+	case "readwrite":
+		userpermission = auth.PermissionRW
+	default:
+		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+	}
+
+	dbname := args[3]
+	req := &schema.ChangePermissionRequest{
+		Action:     permissionAction,
+		Database:   dbname,
+		Permission: userpermission,
+		Username:   username,
+	}
+	resp, err := cl.immuClient.ChangePermission(context.Background(), req)
+	if err != nil {
+		return "", err
+	}
+	return resp.Errormessage, nil
 }

@@ -38,7 +38,7 @@ func TestCurrentRoot(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 
-	_, _ = cli.set([]string{"key", "val"})
+	_, _ = cli.safeset([]string{"key", "val"})
 	msg, err := cli.currentRoot([]string{""})
 
 	if err != nil {
