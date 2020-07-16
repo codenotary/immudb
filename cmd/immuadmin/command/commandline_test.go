@@ -51,13 +51,13 @@ func TestCommandline(t *testing.T) {
 	immuClient.DisconnectF = func() error {
 		return errDisconnect
 	}
-	cl.onError = func(err error) {
-		require.Equal(t, errDisconnect, err)
+	cl.onError = func(msg interface{}) {
+		require.Equal(t, errDisconnect, msg)
 	}
 	cl.disconnect(cmd, nil)
 
-	cl.onError = func(err error) {
-		require.NoError(t, err)
+	cl.onError = func(msg interface{}) {
+		require.Empty(t, msg)
 	}
 	require.NoError(t, cl.connect(cmd, nil))
 	errNewImmuClient := errors.New("error new immuclient")
@@ -65,15 +65,15 @@ func TestCommandline(t *testing.T) {
 	cl.newImmuClient = func(*client.Options) (client.ImmuClient, error) {
 		return nil, errNewImmuClient
 	}
-	cl.onError = func(err error) {
-		require.Equal(t, errNewImmuClient, err)
+	cl.onError = func(msg interface{}) {
+		require.Equal(t, errNewImmuClient, msg)
 	}
 	cl.connect(cmd, nil)
 	cl.newImmuClient = okNewImuClientF
 
 	errPleaseLogin := errors.New("please login first")
-	cl.onError = func(err error) {
-		require.Equal(t, errPleaseLogin, err)
+	cl.onError = func(msg interface{}) {
+		require.Equal(t, errPleaseLogin, msg)
 	}
 	require.Equal(t, errPleaseLogin, cl.checkLoggedIn(cmd, nil))
 	errFileExists := errors.New("error file exists in user home dir")
@@ -94,8 +94,8 @@ func TestCommandline(t *testing.T) {
 	cl.newImmuClient = func(*client.Options) (client.ImmuClient, error) {
 		return nil, errNewImmuClient
 	}
-	cl.onError = func(err error) {
-		require.Equal(t, errNewImmuClient, err)
+	cl.onError = func(msg interface{}) {
+		require.Equal(t, errNewImmuClient, msg)
 	}
 	require.Equal(t, errNewImmuClient, cl.checkLoggedInAndConnect(cmd, nil))
 }

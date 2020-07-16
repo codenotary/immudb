@@ -17,15 +17,13 @@ limitations under the License.
 package version
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,7 +31,7 @@ func TestVersion(t *testing.T) {
 	cmd := VersionCmd()
 
 	// no version info
-	collector := new(StdOutCollector)
+	collector := new(cmdtest.StdOutCollector)
 	require.NoError(t, collector.Start())
 	require.NoError(t, cmd.Execute())
 	noVersionOutput, err := collector.Stop()
@@ -65,45 +63,4 @@ func TestVersion(t *testing.T) {
 	versionOutput, err := collector.Stop()
 	require.NoError(t, err)
 	require.Equal(t, expectedVersionOutput, versionOutput)
-}
-
-type StdOutCollector struct {
-	realStdOut       *os.File
-	fakeStdOutReader *os.File
-	fakeStdOutWriter *os.File
-}
-
-func (c *StdOutCollector) Start() error {
-	c.realStdOut = os.Stdout // keep backup of the real stdout
-	var err error
-	c.fakeStdOutReader, c.fakeStdOutWriter, err = os.Pipe()
-	if err != nil {
-		return err
-	}
-	os.Stdout = c.fakeStdOutWriter
-	return nil
-}
-
-func (c *StdOutCollector) Stop() (string, error) {
-	outC := make(chan string)
-	outErr := make(chan error)
-	// copy the output in a separate goroutine so printing can't block indefinitely
-	go func() {
-		var buf bytes.Buffer
-		_, err := io.Copy(&buf, c.fakeStdOutReader)
-		if err != nil {
-			outErr <- err
-		}
-		outC <- buf.String()
-	}()
-
-	// back to normal state
-	c.fakeStdOutWriter.Close()
-	os.Stdout = c.realStdOut // restore the real stdout
-	select {
-	case out := <-outC:
-		return out, nil
-	case err := <-outErr:
-		return "", err
-	}
 }

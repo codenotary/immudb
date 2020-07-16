@@ -18,15 +18,17 @@ package immuadmin
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client"
-	daem "github.com/takama/daemon"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client"
+	daem "github.com/takama/daemon"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -40,7 +42,7 @@ type backupper struct {
 	daemon daem.Daemon
 }
 
-func NewBackupper() (*backupper, error) {
+func newBackupper() (*backupper, error) {
 	d, err := daem.New("immudb", "", "")
 	if err != nil {
 		return nil, err
@@ -48,6 +50,7 @@ func NewBackupper() (*backupper, error) {
 	return &backupper{d}, nil
 }
 
+// Backupper ...
 type Backupper interface {
 	mustNotBeWorkingDir(p string) error
 	stopImmudbService() (func(), error)
@@ -61,8 +64,8 @@ type commandlineBck struct {
 	c.TerminalReader
 }
 
-func NewCommandlineBck() (*commandlineBck, error) {
-	b, err := NewBackupper()
+func newCommandlineBck() (*commandlineBck, error) {
+	b, err := newBackupper()
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +93,8 @@ func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 			file, err := os.Create(filename)
 			defer file.Close()
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
 			ctx := cl.context
 			response, err := cl.immuClient.Dump(ctx, file)
@@ -99,7 +103,8 @@ func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 				fmt.Println("Backup failed.")
 				color.Unset()
 				os.Remove(filename)
-				c.QuitWithUserError(err)
+				cl.quit(err)
+				return nil
 			} else if response == 0 {
 				fmt.Println("Database is empty.")
 				os.Remove(filename)
@@ -123,23 +128,31 @@ func (cl *commandlineBck) backup(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dbDir, err := cmd.Flags().GetString("dbdir")
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
 			if err = cl.mustNotBeWorkingDir(dbDir); err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
 			manualStopStart, err := cmd.Flags().GetBool("manual-stop-start")
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
 			uncompressed, err := cmd.Flags().GetBool("uncompressed")
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
-			cl.askUserConfirmation("backup", manualStopStart)
+			if err := cl.askUserConfirmation("backup", manualStopStart); err != nil {
+				cl.quit(err)
+				return nil
+			}
 			backupPath, err := cl.offlineBackup(dbDir, uncompressed, manualStopStart)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
 			fmt.Printf("Database backup created: %s\n", backupPath)
 			return nil
@@ -163,16 +176,22 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 			snapshotPath := args[0]
 			dbDir, err := cmd.Flags().GetString("dbdir")
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
 			manualStopStart, err := cmd.Flags().GetBool("manual-stop-start")
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
-			cl.askUserConfirmation("restore", manualStopStart)
+			if err := cl.askUserConfirmation("restore", manualStopStart); err != nil {
+				cl.quit(err)
+				return nil
+			}
 			autoBackupPath, err := cl.offlineRestore(snapshotPath, dbDir, manualStopStart)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return nil
 			}
 			fmt.Printf("Database restored from backup %s\n", snapshotPath)
 			fmt.Printf("A backup of the previous database has been also created: %s\n", autoBackupPath)
@@ -185,7 +204,7 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandlineBck) askUserConfirmation(process string, manualStopStart bool) {
+func (cl *commandlineBck) askUserConfirmation(process string, manualStopStart bool) error {
 	if !manualStopStart {
 		fmt.Printf(
 			"Server will be stopped and then restarted during the %s process.\n"+
@@ -194,24 +213,26 @@ func (cl *commandlineBck) askUserConfirmation(process string, manualStopStart bo
 				"Are you sure you want to proceed? [y/N]: ", process)
 		answer, err := cl.ReadFromTerminalYN("N")
 		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
-			c.QuitToStdErr("Canceled")
+			return errors.New("Canceled")
+
 		}
 		pass, err := cl.passwordReader.Read("Enter admin password:")
 		if err != nil {
-			c.QuitToStdErr(err)
+			return err
 		}
 		_ = cl.checkLoggedInAndConnect(nil, nil)
 		defer cl.disconnect(nil, nil)
 		if _, err = cl.immuClient.Login(cl.context, []byte(auth.SysAdminUsername), pass); err != nil {
-			c.QuitWithUserError(err)
+			return err
 		}
 	} else {
 		fmt.Print("Please make sure the immudb server is not running before proceeding. Are you sure you want to proceed? [y/N]: ")
 		answer, err := cl.ReadFromTerminalYN("N")
 		if err != nil || !(strings.ToUpper("Y") == strings.TrimSpace(strings.ToUpper(answer))) {
-			c.QuitToStdErr("Canceled")
+			return errors.New("Canceled")
 		}
 	}
+	return nil
 }
 
 func (b *backupper) mustNotBeWorkingDir(p string) error {
@@ -362,10 +383,12 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 		}
 	}
 	// keep the same db identifier
-	if err = fs.CopyFile(
-		path.Join(dst, server.IDENTIFIER_FNAME),
-		path.Join(extractedSnapshotDir, server.IDENTIFIER_FNAME)); err != nil {
-		return "", err
+	serverIDSrc := path.Join(dst, server.IDENTIFIER_FNAME)
+	serverIDDst := path.Join(extractedSnapshotDir, server.IDENTIFIER_FNAME)
+	if err = fs.CopyFile(serverIDSrc, serverIDDst); err != nil {
+		fmt.Fprintf(os.Stderr,
+			"error copying immudb identifier file %s to %s: %v",
+			serverIDSrc, serverIDDst, err)
 	}
 
 	dbDirAutoBackupPath := dst + "_bkp_before_restore_" + now

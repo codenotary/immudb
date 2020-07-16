@@ -16,9 +16,10 @@ package immuadmin
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/codenotary/immudb/cmd/docs/man"
 	"github.com/codenotary/immudb/cmd/immuadmin/command/service"
-	"strings"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
@@ -45,7 +46,7 @@ func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command 
 	cl.stats(rootCmd)
 	cl.serverConfig(rootCmd)
 
-	clb, err := NewCommandlineBck()
+	clb, err := newCommandlineBck()
 	if err != nil {
 		c.QuitToStdErr(err)
 	}
