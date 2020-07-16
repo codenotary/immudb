@@ -33,7 +33,7 @@ jobs:
         - VCN_USER=$gosec_user VCN_PASSWORD=$gosec_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --attr  --silent results-${TRAVIS_BUILD_NUMBER}.json
         - /tmp/vcn logout
-        - sleep $SLEEP_TIME
+        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent results-${TRAVIS_BUILD_NUMBER}.json
         - /tmp/vcn logout
@@ -46,11 +46,11 @@ jobs:
         - GOOS=linux GOARCH=amd64 make immudb-static immugw-static immuadmin-static immuclient-static
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immudb
-        - sleep $SLEEP_TIME
+        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immugw
-        - sleep $SLEEP_TIME
+        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuadmin
-        - sleep $SLEEP_TIME
+        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuclient
         - /tmp/vcn logout
       workspaces:
@@ -76,7 +76,7 @@ jobs:
         - docker build --tag "${DOCKER_IMAGE}:latest" -f Dockerfile .
         - VCN_NOTARIZATION_PASSWORD=$immudb_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent docker://$DOCKER_IMAGE
         - /tmp/vcn logout
-        - sleep $SLEEP_TIME
+        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent docker://$DOCKER_IMAGE
         - /tmp/vcn logout
