@@ -38,7 +38,7 @@ func (cl *commandline) history(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
@@ -58,7 +58,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
 		Args: cobra.NoArgs,
@@ -116,7 +116,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
 		Args: cobra.MaximumNArgs(0),
@@ -131,7 +131,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
 		Args: cobra.MaximumNArgs(1),
@@ -148,7 +148,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
 		Args: cobra.MaximumNArgs(4),
@@ -163,7 +163,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
 		Args: cobra.MaximumNArgs(4),
@@ -178,7 +178,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
 		Args: cobra.MaximumNArgs(4),
@@ -193,7 +193,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Println(resp)
+			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
 		Args: cobra.MaximumNArgs(4),
