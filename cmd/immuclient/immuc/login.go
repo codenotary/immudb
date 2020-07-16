@@ -120,28 +120,28 @@ func (i *immuc) UserList(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println()
-	fmt.Println("User\tActive\tCreated By\tCreated At\t\t\t\t\tDatabase\tPermission")
+	ris := "\n"
+	ris += fmt.Sprint("User\tActive\tCreated By\tCreated At\t\t\t\t\tDatabase\tPermission")
 	for _, val := range userlist.Users {
-		fmt.Printf("%s\t%v\t%s\t\t%s\n", string(val.User), val.Active, val.Createdby, val.Createdat)
+		ris += fmt.Sprintf("%s\t%v\t%s\t\t%s\n", string(val.User), val.Active, val.Createdby, val.Createdat)
 		for _, val := range val.Permissions {
-			fmt.Printf("\t\t\t\t\t\t\t\t\t\t%s\t\t", val.Database)
+			ris += fmt.Sprintf("\t\t\t\t\t\t\t\t\t\t%s\t\t", val.Database)
 			switch val.Permission {
 			case auth.PermissionAdmin:
-				fmt.Printf("Admin\n")
+				ris += fmt.Sprintf("Admin\n")
 			case auth.PermissionSysAdmin:
-				fmt.Printf("System Admin\n")
+				ris += fmt.Sprintf("System Admin\n")
 			case auth.PermissionR:
-				fmt.Printf("Read\n")
+				ris += fmt.Sprintf("Read\n")
 			case auth.PermissionRW:
-				fmt.Printf("Read/Write\n")
+				ris += fmt.Sprintf("Read/Write\n")
 			default:
 				return "Permission value not recognized. Allowed permissions are read,write,admin", nil
 			}
 		}
-		fmt.Println()
+		ris += "\n"
 	}
-	return "", nil
+	return ris, nil
 }
 
 func (i *immuc) ChangeUserPassword(args []string) (string, error) {
