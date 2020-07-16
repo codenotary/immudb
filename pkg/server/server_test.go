@@ -19,6 +19,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
 	"os"
@@ -635,6 +636,27 @@ func testByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
+func testByIScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
+	for _, val := range Skv.SKVs {
+		_, err := s.SetSV(ctx, val)
+		if err != nil {
+			t.Errorf("Error Inserting to db %s", err)
+		}
+	}
+	s.SafeSet(ctx, &schema.SafeSetOptions{
+		Kv: &schema.KeyValue{
+			Key:   testKey,
+			Value: testValue,
+		},
+	})
+
+	_, err := s.IScanSV(ctx, &schema.IScanOptions{
+		PageNumber: 1,
+		PageSize:   1,
+	})
+	assert.Errorf(t, err, schema.ErrUnexpectedNotStructuredValue.Error())
+}
+
 func testBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		_, err := s.SetSV(ctx, val)
@@ -950,6 +972,7 @@ func TestDbOperations(t *testing.T) {
 	testReference(ctx, s, t)
 	testZAdd(ctx, s, t)
 	testScan(ctx, s, t)
+	testByIScanSV(ctx, s, t)
 	testPrintTree(ctx, s, t)
 	testScanSV(ctx, s, t)
 	testSafeReference(ctx, s, t)
