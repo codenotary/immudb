@@ -18,11 +18,12 @@ package immuclient
 
 import (
 	"bytes"
-	"github.com/codenotary/immudb/cmd/immuclient/immuc"
-	"google.golang.org/grpc"
 	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/immuclient/immuc"
+	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
@@ -339,7 +340,7 @@ func TestUserPermission(t *testing.T) {
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
-	cmd.SetArgs([]string{"user", "permission", "grant", "readwrite", "myuser", "mydb"})
+	cmd.SetArgs([]string{"user", "permission", "grant", "myuser", "readwrite", "mydb"})
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -348,13 +349,13 @@ func TestUserPermission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(msg), "User status changed successfully") {
+	if !strings.Contains(string(msg), "Permission changed successfully") {
 		t.Fatal(err)
 	}
 }
 
 func TestDatabaseList(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
