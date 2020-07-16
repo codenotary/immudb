@@ -18,6 +18,8 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/immuclient/immuc"
+	"google.golang.org/grpc"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -102,7 +104,7 @@ func TestUserList(t *testing.T) {
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-
+	cmd := cobra.Command{}
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, &test.HomedirServiceMock{})
@@ -112,7 +114,6 @@ func TestUserList(t *testing.T) {
 	cmdl := commandline{
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
 	cmdl.user(&cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
@@ -171,13 +172,18 @@ func TestUserChangePassword(t *testing.T) {
 }
 
 func TestUserCreate(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true).WithNetwork("tcp").WithAddress("").WithPort(50051)
+
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	ic := test.NewDefaultClientTest()
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+	ic.Options = *immuc.Options().WithDialOptions(&dialOptions).WithAddress("").WithPort(50051)
+	ic.Pr = &test.PasswordReader{Pass: []string{"immudb"}}
+	ic.Hds = &test.HomedirServiceMock{}
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -196,7 +202,7 @@ func TestUserCreate(t *testing.T) {
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
-	cmd.SetArgs([]string{"user", "create", "newuser", "readwrite", "defaultdb"})
+	cmd.SetArgs([]string{"user", "create", "newuser999", "readwrite", "defaultdb"})
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -205,7 +211,7 @@ func TestUserCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(msg), "Password of immudb was changed successfuly") {
+	if !strings.Contains(string(msg), "Created user newuser999") {
 		t.Fatal(err)
 	}
 }

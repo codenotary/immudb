@@ -37,7 +37,7 @@ func TestLogin(t *testing.T) {
 		Pass: []string{"immudb"},
 	}, &test.HomedirServiceMock{})
 	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
+	//ic.Login("immudb")
 
 	cmdl := commandline{
 		immucl: ic.Imc,
