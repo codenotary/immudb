@@ -18,6 +18,13 @@ package schema
 
 import (
 	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"strings"
+)
+
+var (
+	ErrUnexpectedNotStructuredValue = status.New(codes.FailedPrecondition, "unexpected not structured value encountered").Err()
 )
 
 // Merge return a marshalled content object
@@ -112,6 +119,9 @@ func (list *Page) ToSPage() (*SPage, error) {
 	for _, item := range list.Items {
 		i, err := item.ToSItem()
 		if err != nil {
+			if strings.Contains(err.Error(), "cannot parse reserved wire") {
+				return nil, ErrUnexpectedNotStructuredValue
+			}
 			return nil, err
 		}
 		slist.Items = append(slist.Items, i)
