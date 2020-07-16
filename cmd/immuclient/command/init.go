@@ -122,7 +122,6 @@ func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 	if err := cl.immucl.Disconnect(args); err != nil {
 		c.QuitToStdErr(err)
 	}
-	os.Exit(0)
 }
 
 func configureOptions(cmd *cobra.Command, o *c.Options) error {
