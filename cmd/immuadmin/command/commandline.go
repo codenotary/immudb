@@ -51,14 +51,14 @@ type commandline struct {
 	passwordReader c.PasswordReader
 	context        context.Context
 	hds            client.HomedirService
-	onError        func(error)
+	onError        func(msg interface{})
 }
 
-func (cl *commandline) quit(err error) {
+func (cl *commandline) quit(msg interface{}) {
 	if cl.onError == nil {
-		c.QuitToStdErr(err)
+		c.QuitToStdErr(msg)
 	}
-	cl.onError(err)
+	cl.onError(msg)
 }
 
 func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {

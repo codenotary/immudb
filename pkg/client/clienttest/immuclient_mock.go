@@ -19,6 +19,7 @@ package clienttest
 
 import (
 	"context"
+	"io"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
@@ -44,6 +45,7 @@ type ImmuClientMock struct {
 	SafeZAddF           func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error)
 	HistoryF            func(context.Context, []byte) (*schema.StructuredItemList, error)
 	UseDatabaseF        func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
+	DumpF               func(context.Context, io.WriteSeeker) (int64, error)
 }
 
 // GetOptions ...
@@ -114,4 +116,9 @@ func (icm *ImmuClientMock) History(ctx context.Context, key []byte) (*schema.Str
 // UseDatabase ...
 func (icm *ImmuClientMock) UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error) {
 	return icm.UseDatabaseF(ctx, d)
+}
+
+// Dump ...
+func (icm *ImmuClientMock) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
+	return icm.DumpF(ctx, writer)
 }
