@@ -49,9 +49,9 @@ type stdinPasswordReader struct {
 }
 
 // DefaultPasswordReader ...
-var DefaultPasswordReader PasswordReader = new(stdinPasswordReader)
+var DefaultPasswordReader PasswordReader = stdinPasswordReader{trp: terminalReadPw{}}
 
-func (pr *stdinPasswordReader) Read(msg string) ([]byte, error) {
+func (pr stdinPasswordReader) Read(msg string) ([]byte, error) {
 	fmt.Print(msg)
 	pass, err := pr.trp.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Println()
@@ -66,6 +66,6 @@ type TerminalReadPw interface {
 	ReadPassword(fd int) ([]byte, error)
 }
 
-func (trp *terminalReadPw) ReadPassword(fd int) ([]byte, error) {
+func (trp terminalReadPw) ReadPassword(fd int) ([]byte, error) {
 	return terminal.ReadPassword(fd)
 }
