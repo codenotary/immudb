@@ -22,7 +22,6 @@ import (
 	"fmt"
 	stdos "os"
 	"path"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -243,11 +242,11 @@ func (b *backupper) mustNotBeWorkingDir(p string) error {
 	if err != nil {
 		return err
 	}
-	pathAbs, err := filepath.Abs(p)
+	pathAbs, err := b.os.Abs(p)
 	if err != nil {
 		return err
 	}
-	currDirAbs, err := filepath.Abs(currDir)
+	currDirAbs, err := b.os.Abs(currDir)
 	if err != nil {
 		return err
 	}
@@ -286,7 +285,7 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 		defer startImmudbService()
 	}
 
-	srcBase := filepath.Base(src)
+	srcBase := b.os.Base(src)
 	snapshotPath := srcBase + "_bkp_" + time.Now().Format("2006-01-02_15-04-05")
 	if err = fs.CopyDir(src, snapshotPath); err != nil {
 		return "", err
@@ -298,7 +297,7 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 			server.IDENTIFIER_FNAME, snapshotPath, err)
 	}
 	if uncompressed {
-		absSnapshotPath, err := filepath.Abs(snapshotPath)
+		absSnapshotPath, err := b.os.Abs(snapshotPath)
 		if err != nil {
 			fmt.Fprintf(stdos.Stderr,
 				"error converting to absolute path the rel path %s of the uncompressed backup: %v",
@@ -328,7 +327,7 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 			snapshotPath, archivePath, err)
 	}
 
-	absArchivePath, err := filepath.Abs(archivePath)
+	absArchivePath, err := b.os.Abs(archivePath)
 	if err != nil {
 		fmt.Fprintf(stdos.Stderr,
 			"error converting to absolute path the rel path %s of the archived backup: %v",
@@ -345,14 +344,14 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 	if err != nil {
 		return "", err
 	}
-	snapshotExt := filepath.Ext(snapshotPath)
-	snapshotName := filepath.Base(snapshotPath)
+	snapshotExt := b.os.Ext(snapshotPath)
+	snapshotName := b.os.Base(snapshotPath)
 	snapshotNameNoExt := strings.TrimSuffix(snapshotName, snapshotExt)
 	if strings.ToLower(snapshotExt) == ".gz" {
-		snapshotExt = filepath.Ext(snapshotNameNoExt) + snapshotExt
+		snapshotExt = b.os.Ext(snapshotNameNoExt) + snapshotExt
 		snapshotNameNoExt = strings.TrimSuffix(snapshotName, snapshotExt)
 	}
-	dbParentDir := filepath.Dir(dst) + string(stdos.PathSeparator)
+	dbParentDir := b.os.Dir(dst) + string(stdos.PathSeparator)
 	extractedSnapshotDir := dbParentDir + snapshotNameNoExt
 	now := time.Now().Format("2006-01-02_15-04-05")
 	var extract func(string, string) error
@@ -363,7 +362,7 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 		extract = fs.UnZipIt
 	case "": // uncompressed
 		// TODO OGG: this will result in the backup being renamed directly to the db folder
-		if dbParentDir != filepath.Dir(snapshotPath)+string(stdos.PathSeparator) {
+		if dbParentDir != b.os.Dir(snapshotPath)+string(stdos.PathSeparator) {
 			extract = fs.CopyDir
 		}
 	default:
