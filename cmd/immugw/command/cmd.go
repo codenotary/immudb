@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
+	"os"
 )
 
 var o = c.Options{}
@@ -93,8 +94,11 @@ func Immugw(immugwServer gw.ImmuGw) func(*cobra.Command, []string) error {
 				return err
 			}
 		}
+		plauncher := c.NewPlauncher()
 		if options.Detached {
-			c.Detached()
+			if err := plauncher.Detached(); err == nil {
+				os.Exit(0)
+			}
 		}
 
 		var d daem.Daemon
