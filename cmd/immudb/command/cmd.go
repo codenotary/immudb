@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
+	"os"
 )
 
 var o = c.Options{}
@@ -96,9 +97,11 @@ func Immudb(cmd *cobra.Command, args []string) (err error) {
 			c.QuitToStdErr(err)
 		}
 	}
-
+	plauncher := c.NewPlauncher()
 	if options.Detached {
-		c.Detached()
+		if err := plauncher.Detached(); err == nil {
+			os.Exit(0)
+		}
 	}
 
 	var d daem.Daemon
