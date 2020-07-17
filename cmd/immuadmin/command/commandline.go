@@ -22,6 +22,7 @@ import (
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,7 @@ type commandline struct {
 	context        context.Context
 	hds            client.HomedirService
 	onError        func(msg interface{})
+	os             immuos.OS
 }
 
 func (cl *commandline) quit(msg interface{}) {

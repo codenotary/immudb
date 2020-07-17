@@ -24,6 +24,7 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -46,7 +47,8 @@ func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command 
 	cl.stats(rootCmd)
 	cl.serverConfig(rootCmd)
 
-	clb, err := newCommandlineBck()
+	os := immuos.NewStandardOS()
+	clb, err := newCommandlineBck(os)
 	if err != nil {
 		c.QuitToStdErr(err)
 	}

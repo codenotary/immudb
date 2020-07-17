@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
+	stdos "os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -33,6 +33,7 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/fs"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -40,14 +41,15 @@ import (
 
 type backupper struct {
 	daemon daem.Daemon
+	os     immuos.OS
 }
 
-func newBackupper() (*backupper, error) {
+func newBackupper(os immuos.OS) (*backupper, error) {
 	d, err := daem.New("immudb", "", "")
 	if err != nil {
 		return nil, err
 	}
-	return &backupper{d}, nil
+	return &backupper{d, os}, nil
 }
 
 // Backupper ...
@@ -64,8 +66,8 @@ type commandlineBck struct {
 	c.TerminalReader
 }
 
-func newCommandlineBck() (*commandlineBck, error) {
-	b, err := newBackupper()
+func newCommandlineBck(os immuos.OS) (*commandlineBck, error) {
+	b, err := newBackupper(os)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +76,8 @@ func newCommandlineBck() (*commandlineBck, error) {
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
 	cl.hds = client.NewHomedirService()
-	tr := c.NewTerminalReader(os.Stdin)
+	cl.os = os
+	tr := c.NewTerminalReader(stdos.Stdin)
 
 	return &commandlineBck{cl, b, tr}, nil
 }
@@ -90,7 +93,7 @@ func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 			if len(args) > 0 {
 				filename = args[0]
 			}
-			file, err := os.Create(filename)
+			file, err := cl.os.Create(filename)
 			defer file.Close()
 			if err != nil {
 				cl.quit(err)
@@ -102,12 +105,12 @@ func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 				color.Set(color.FgHiBlue, color.Bold)
 				fmt.Println("Backup failed.")
 				color.Unset()
-				os.Remove(filename)
+				cl.os.Remove(filename)
 				cl.quit(err)
 				return nil
 			} else if response == 0 {
 				fmt.Println("Database is empty.")
-				os.Remove(filename)
+				cl.os.Remove(filename)
 				return nil
 			}
 			fmt.Printf("SUCCESS: %d key-value entries were backed-up to file %s\n", response, filename)
@@ -236,7 +239,7 @@ func (cl *commandlineBck) askUserConfirmation(process string, manualStopStart bo
 }
 
 func (b *backupper) mustNotBeWorkingDir(p string) error {
-	currDir, err := os.Getwd()
+	currDir, err := b.os.Getwd()
 	if err != nil {
 		return err
 	}
@@ -261,13 +264,13 @@ func (b *backupper) stopImmudbService() (func(), error) {
 	}
 	return func() {
 		if _, err := b.daemon.Start(); err != nil {
-			fmt.Fprintf(os.Stderr, "error restarting immudb server: %v", err)
+			fmt.Fprintf(stdos.Stderr, "error restarting immudb server: %v", err)
 		}
 	}, nil
 }
 
 func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart bool) (string, error) {
-	srcInfo, err := os.Stat(src)
+	srcInfo, err := b.os.Stat(src)
 	if err != nil {
 		return "", err
 	}
@@ -289,15 +292,15 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 		return "", err
 	}
 	// remove the immudb.identifier file from the backup
-	if err = os.Remove(snapshotPath + "/" + server.IDENTIFIER_FNAME); err != nil {
-		fmt.Fprintf(os.Stderr,
+	if err = b.os.Remove(snapshotPath + "/" + server.IDENTIFIER_FNAME); err != nil {
+		fmt.Fprintf(stdos.Stderr,
 			"error removing immudb identifier file %s from db snapshot %s: %v",
 			server.IDENTIFIER_FNAME, snapshotPath, err)
 	}
 	if uncompressed {
 		absSnapshotPath, err := filepath.Abs(snapshotPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr,
+			fmt.Fprintf(stdos.Stderr,
 				"error converting to absolute path the rel path %s of the uncompressed backup: %v",
 				snapshotPath, err)
 			absSnapshotPath = snapshotPath
@@ -319,15 +322,15 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 			"database copied successfully to %s, but compression to %s failed: %v",
 			snapshotPath, archivePath, archiveErr)
 	}
-	if err = os.RemoveAll(snapshotPath); err != nil {
-		fmt.Fprintf(os.Stderr,
+	if err = b.os.RemoveAll(snapshotPath); err != nil {
+		fmt.Fprintf(stdos.Stderr,
 			"error removing db snapshot dir %s after successfully compressing it to %s: %v",
 			snapshotPath, archivePath, err)
 	}
 
 	absArchivePath, err := filepath.Abs(archivePath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr,
+		fmt.Fprintf(stdos.Stderr,
 			"error converting to absolute path the rel path %s of the archived backup: %v",
 			archivePath, err)
 		absArchivePath = archivePath
@@ -338,7 +341,7 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 
 func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool) (string, error) {
 	snapshotPath := src
-	_, err := os.Stat(snapshotPath)
+	_, err := b.os.Stat(snapshotPath)
 	if err != nil {
 		return "", err
 	}
@@ -349,7 +352,7 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 		snapshotExt = filepath.Ext(snapshotNameNoExt) + snapshotExt
 		snapshotNameNoExt = strings.TrimSuffix(snapshotName, snapshotExt)
 	}
-	dbParentDir := filepath.Dir(dst) + string(os.PathSeparator)
+	dbParentDir := filepath.Dir(dst) + string(stdos.PathSeparator)
 	extractedSnapshotDir := dbParentDir + snapshotNameNoExt
 	now := time.Now().Format("2006-01-02_15-04-05")
 	var extract func(string, string) error
@@ -360,7 +363,7 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 		extract = fs.UnZipIt
 	case "": // uncompressed
 		// TODO OGG: this will result in the backup being renamed directly to the db folder
-		if dbParentDir != filepath.Dir(snapshotPath)+string(os.PathSeparator) {
+		if dbParentDir != filepath.Dir(snapshotPath)+string(stdos.PathSeparator) {
 			extract = fs.CopyDir
 		}
 	default:
@@ -386,18 +389,18 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 	serverIDSrc := path.Join(dst, server.IDENTIFIER_FNAME)
 	serverIDDst := path.Join(extractedSnapshotDir, server.IDENTIFIER_FNAME)
 	if err = fs.CopyFile(serverIDSrc, serverIDDst); err != nil {
-		fmt.Fprintf(os.Stderr,
+		fmt.Fprintf(stdos.Stderr,
 			"error copying immudb identifier file %s to %s: %v",
 			serverIDSrc, serverIDDst, err)
 	}
 
 	dbDirAutoBackupPath := dst + "_bkp_before_restore_" + now
-	if err = os.Rename(dst, dbDirAutoBackupPath); err != nil {
+	if err = b.os.Rename(dst, dbDirAutoBackupPath); err != nil {
 		return "", fmt.Errorf(
 			"error renaming previous db dir %s to %s during restore: %v",
 			dst, dbDirAutoBackupPath, err)
 	}
-	if err = os.Rename(extractedSnapshotDir, dst); err != nil {
+	if err = b.os.Rename(extractedSnapshotDir, dst); err != nil {
 		return "", fmt.Errorf(
 			"error renaming new tmp snapshot dir %s to db dir %s during restore: %v",
 			extractedSnapshotDir, dst, err)
