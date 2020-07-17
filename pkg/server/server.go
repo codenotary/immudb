@@ -1109,7 +1109,7 @@ func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) 
 
 // GetUser ...
 func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
-	s.Logger.Debugf("DeactivateUser %+v", *r)
+	s.Logger.Debugf("GetUser %+v", *r)
 	return nil, fmt.Errorf("deprecated method. use user list instead")
 }
 
