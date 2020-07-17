@@ -56,8 +56,8 @@ func (s *ImmuGwServer) Start() error {
 		Auth:               true,
 		Config:             "",
 		DialOptions:        &[]grpc.DialOption{},
+		HDS:                immuclient.NewHomedirService(),
 	}
-
 	ic, err := immuclient.NewImmuClient(cliOpts)
 	if err != nil {
 		s.Logger.Errorf("unable to instantiate client: %s", err)
