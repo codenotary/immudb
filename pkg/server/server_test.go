@@ -19,13 +19,15 @@ package server
 import (
 	"bytes"
 	"context"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -56,8 +58,8 @@ func newInmemoryAuthServer() *ImmuServer {
 	return s
 }
 
-func newAuthServer() *ImmuServer {
-	dbRootpath := DefaultOption().WithDbRootPath("london").GetDbRootPath()
+func newAuthServer(dbroot string) *ImmuServer {
+	dbRootpath := DefaultOption().WithDbRootPath(dbroot).GetDbRootPath()
 	s := DefaultServer()
 	s = s.WithOptions(s.Options.WithAuth(true).WithDir(dbRootpath).WithCorruptionCheck(false))
 	err := s.loadDefaultDatabase(dbRootpath)
@@ -74,10 +76,10 @@ func newAuthServer() *ImmuServer {
 	}
 	return s
 }
-func loginSysAdmin(s *ImmuServer) (context.Context, error) {
+func login(s *ImmuServer, username, password string) (context.Context, error) {
 	r := &schema.LoginRequest{
-		User:     []byte(auth.SysAdminUsername),
-		Password: []byte(auth.SysAdminPassword),
+		User:     []byte(username),
+		Password: []byte(password),
 	}
 	ctx := context.Background()
 	l, err := s.Login(ctx, r)
@@ -89,20 +91,36 @@ func loginSysAdmin(s *ImmuServer) (context.Context, error) {
 	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
 	return ctx, nil
 }
+
+func usedatabase(ctx context.Context, s *ImmuServer, dbname string) (context.Context, error) {
+	token, err := s.UseDatabase(ctx, &schema.Database{
+		Databasename: dbname,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[string]string)
+	m["Authorization"] = "Bearer " + string(token.Token)
+	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
+
+	return ctx, nil
+}
+
 func TestDefaultDatabaseLoad(t *testing.T) {
 	options := DefaultOption()
 	dbRootpath := options.GetDbRootPath()
 	s := DefaultServer()
 	err := s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
-		t.Errorf("error loading default database %v", err)
+		t.Fatalf("error loading default database %v", err)
 	}
 	defer func() {
 		os.RemoveAll(dbRootpath)
 	}()
 	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultOptions().defaultDbName))
 	if os.IsNotExist(err) {
-		t.Errorf("default database directory not created")
+		t.Fatalf("default database directory not created")
 	}
 }
 func TestSystemDatabaseLoad(t *testing.T) {
@@ -112,18 +130,18 @@ func TestSystemDatabaseLoad(t *testing.T) {
 	s := DefaultServer().WithOptions(serverOptions)
 	err := s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
-		t.Errorf("error loading default database %v", err)
+		t.Fatalf("error loading default database %v", err)
 	}
 	err = s.loadSystemDatabase(dbRootpath)
 	if err != nil {
-		t.Errorf("error loading system database %v", err)
+		t.Fatalf("error loading system database %v", err)
 	}
 	defer func() {
 		os.RemoveAll(dbRootpath)
 	}()
 	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultOptions().GetSystemAdminDbName()))
 	if os.IsNotExist(err) {
-		t.Errorf("system database directory not created")
+		t.Fatalf("system database directory not created")
 	}
 }
 func TestLogin(t *testing.T) {
@@ -134,20 +152,20 @@ func TestLogin(t *testing.T) {
 	}
 	resp, err := s.Login(context.Background(), r)
 	if err != nil {
-		t.Errorf("Login error %v", err)
+		t.Fatalf("Login error %v", err)
 	}
 	if len(resp.Token) == 0 {
-		t.Errorf("login token is empty")
+		t.Fatalf("login token is empty")
 	}
 	if len(resp.Warning) == 0 {
-		t.Errorf("default immudb password missing warning")
+		t.Fatalf("default immudb password missing warning")
 	}
 }
 func TestLogout(t *testing.T) {
 	s := newInmemoryAuthServer()
 	_, err := s.Logout(context.Background(), &emptypb.Empty{})
 	if err.Error() != "rpc error: code = Internal desc = no headers found on request" {
-		t.Errorf("Logout expected error, got %v", err)
+		t.Fatalf("Logout expected error, got %v", err)
 	}
 
 	r := &schema.LoginRequest{
@@ -157,38 +175,38 @@ func TestLogout(t *testing.T) {
 	ctx := context.Background()
 	l, err := s.Login(ctx, r)
 	if err != nil {
-		t.Errorf("Login error %v", err)
+		t.Fatalf("Login error %v", err)
 	}
 	m := make(map[string]string)
 	m["Authorization"] = "Bearer " + string(l.Token)
 	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
 	_, err = s.Logout(ctx, &emptypb.Empty{})
 	if err != nil {
-		t.Errorf("Logout error %v", err)
+		t.Fatalf("Logout error %v", err)
 	}
 }
 func TestCreateDatabase(t *testing.T) {
 	s := newInmemoryAuthServer()
-	ctx, err := loginSysAdmin(s)
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
 	if err != nil {
-		t.Errorf("Login error %v", err)
+		t.Fatalf("Login error %v", err)
 	}
 	newdb := &schema.Database{
 		Databasename: "lisbon",
 	}
 	dbrepl, err := s.CreateDatabase(ctx, newdb)
 	if err != nil {
-		t.Errorf("Createdatabase error %v", err)
+		t.Fatalf("Createdatabase error %v", err)
 	}
 	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
-		t.Errorf("Createdatabase error %v", dbrepl)
+		t.Fatalf("Createdatabase error %v", dbrepl)
 	}
 }
 func TestLoaduserDatabase(t *testing.T) {
-	s := newAuthServer()
-	ctx, err := loginSysAdmin(s)
+	s := newAuthServer("loaduserdatabase")
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
 	if err != nil {
-		t.Errorf("Login error %v", err)
+		t.Fatalf("Login error %v", err)
 	}
 	defer os.RemoveAll(s.Options.Dir)
 	newdb := &schema.Database{
@@ -196,16 +214,16 @@ func TestLoaduserDatabase(t *testing.T) {
 	}
 	dbrepl, err := s.CreateDatabase(ctx, newdb)
 	if err != nil {
-		t.Errorf("Createdatabase error %v", err)
+		t.Fatalf("Createdatabase error %v", err)
 	}
 	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
-		t.Errorf("Createdatabase error %v", dbrepl)
+		t.Fatalf("Createdatabase error %v", dbrepl)
 	}
 	s.CloseDatabases()
 	time.Sleep(1 * time.Second)
-	s = newAuthServer()
+	s = newAuthServer("loaduserdatabase")
 	if s.dbList.Length() != 3 {
-		t.Errorf("LoadUserDatabase error %d", s.dbList.Length())
+		t.Fatalf("LoadUserDatabase error %d", s.dbList.Length())
 	}
 }
 func testCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -217,31 +235,113 @@ func testCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	userresp, err := s.CreateUser(ctx, newUser)
 	if err != nil {
-		t.Errorf("CreateUser error %v", err)
+		t.Fatalf("CreateUser error %v", err)
 	}
 	if !bytes.Equal(userresp.User, testUsername) {
-		t.Errorf("CreateUser error username does not match %v", userresp)
+		t.Fatalf("CreateUser error username does not match %v", userresp)
 	}
 	if userresp.Permission != auth.PermissionAdmin {
-		t.Errorf("CreateUser error permission does not match %v", userresp)
+		t.Fatalf("CreateUser error permission does not match %v", userresp)
 	}
 }
 func testListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
 	users, err := s.ListUsers(ctx, &emptypb.Empty{})
 	if err != nil {
-		t.Errorf("ListUsers error %v", err)
+		t.Fatalf("ListUsers error %v", err)
 	}
 	if len(users.Users) < 1 {
-		t.Errorf("List users, expected >1 got %v", len(users.Users))
+		t.Fatalf("List users, expected >1 got %v", len(users.Users))
 	}
 }
+
+func TestListUsersAdmin(t *testing.T) {
+	srv := newAuthServer("listusersadmin")
+	ctx, err := login(srv, auth.SysAdminUsername, auth.SysAdminPassword)
+	if err != nil {
+		t.Fatalf("login error %v", err)
+	}
+	defer os.RemoveAll("listusersadmin")
+	newdb := &schema.Database{
+		Databasename: testDatabase,
+	}
+	_, err = srv.CreateDatabase(ctx, newdb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newUser := &schema.CreateUserRequest{
+		User:       testUsername,
+		Password:   testPassword,
+		Database:   testDatabase,
+		Permission: auth.PermissionAdmin,
+	}
+	_, err = srv.CreateUser(ctx, newUser)
+	if err != nil {
+		t.Fatalf("CreateUser error %v", err)
+	}
+	srv.multidbmode = true
+	ctx, err = login(srv, string(testUsername), string(testPassword))
+	if err != nil {
+		t.Fatalf("login error %v", err)
+	}
+	ctx, err = usedatabase(ctx, srv, testDatabase)
+	if err != nil {
+		t.Fatalf("UseDatabase error %v", err)
+	}
+	users, err := srv.ListUsers(ctx, &emptypb.Empty{})
+	if err != nil {
+		t.Fatalf("ListUsers error %v", err)
+	}
+	if len(users.Users) < 1 {
+		t.Fatalf("List users, expected >1 got %v", len(users.Users))
+	}
+
+	ctx, err = login(srv, auth.SysAdminUsername, auth.SysAdminPassword)
+	if err != nil {
+		t.Fatalf("login error %v", err)
+	}
+	users, err = srv.ListUsers(ctx, &emptypb.Empty{})
+	if err != nil {
+		t.Fatalf("ListUsers error %v", err)
+	}
+	if len(users.Users) < 1 {
+		t.Fatalf("List users, expected >1 got %v", len(users.Users))
+	}
+
+	newUser = &schema.CreateUserRequest{
+		User:       []byte("rwuser"),
+		Password:   []byte("rwuserPas@1"),
+		Database:   testDatabase,
+		Permission: auth.PermissionRW,
+	}
+	_, err = srv.CreateUser(ctx, newUser)
+	if err != nil {
+		t.Fatalf("CreateUser error %v", err)
+	}
+	srv.multidbmode = true
+	ctx, err = login(srv, "rwuser", "rwuserPas@1")
+	if err != nil {
+		t.Fatalf("login error %v", err)
+	}
+	ctx, err = usedatabase(ctx, srv, testDatabase)
+	if err != nil {
+		t.Fatalf("UseDatabase error %v", err)
+	}
+	users, err = srv.ListUsers(ctx, &emptypb.Empty{})
+	if err != nil {
+		t.Fatalf("ListUsers error %v", err)
+	}
+	if len(users.Users) < 1 {
+		t.Fatalf("List users, expected >1 got %v", len(users.Users))
+	}
+}
+
 func testListDatabases(ctx context.Context, s *ImmuServer, t *testing.T) {
 	dbs, err := s.DatabaseList(ctx, &emptypb.Empty{})
 	if err != nil {
-		t.Errorf("DatabaseList error %v", err)
+		t.Fatalf("DatabaseList error %v", err)
 	}
 	if len(dbs.Databases) < 1 {
-		t.Errorf("List databases, expected >1 got %v", len(dbs.Databases))
+		t.Fatalf("List databases, expected >1 got %v", len(dbs.Databases))
 	}
 }
 func testUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -249,13 +349,13 @@ func testUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Databasename: testDatabase,
 	})
 	if err != nil {
-		t.Errorf("UseDatabase error %v", err)
+		t.Fatalf("UseDatabase error %v", err)
 	}
 	if dbs.Error.Errorcode != schema.ErrorCodes_Ok {
-		t.Errorf("Error selecting database %v", dbs)
+		t.Fatalf("Error selecting database %v", dbs)
 	}
 	if len(dbs.Token) == 0 {
-		t.Errorf("Expected token, got %v", dbs.Token)
+		t.Fatalf("Expected token, got %v", dbs.Token)
 	}
 	m := make(map[string]string)
 	m["Authorization"] = "Bearer " + string(dbs.Token)
@@ -269,10 +369,10 @@ func testChangePermission(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Username:   string(testUsername),
 	})
 	if err != nil {
-		t.Errorf("DatabaseList error %v", err)
+		t.Fatalf("DatabaseList error %v", err)
 	}
 	if perm.Errorcode != schema.ErrorCodes_Ok {
-		t.Errorf("error changing permission, got %v", perm)
+		t.Fatalf("error changing permission, got %v", perm)
 	}
 }
 func testDeactivateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -281,7 +381,7 @@ func testDeactivateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Username: string(testUsername),
 	})
 	if err != nil {
-		t.Errorf("DeactivateUser error %v", err)
+		t.Fatalf("DeactivateUser error %v", err)
 	}
 }
 func testSetActiveUser(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -290,7 +390,7 @@ func testSetActiveUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Username: string(testUsername),
 	})
 	if err != nil {
-		t.Errorf("SetActiveUser error %v", err)
+		t.Fatalf("SetActiveUser error %v", err)
 	}
 }
 func testChangePassword(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -300,7 +400,7 @@ func testChangePassword(ctx context.Context, s *ImmuServer, t *testing.T) {
 		User:        testUsername,
 	})
 	if err != nil {
-		t.Errorf("ChangePassword error %v", err)
+		t.Fatalf("ChangePassword error %v", err)
 	}
 }
 
@@ -310,23 +410,23 @@ func testSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Value: testValue,
 	})
 	if err != nil {
-		t.Errorf("set error %v", err)
+		t.Fatalf("set error %v", err)
 	}
 
 	it, err := s.Get(ctx, &schema.Key{
 		Key: testKey,
 	})
 	if err != nil {
-		t.Errorf("Get error %v", err)
+		t.Fatalf("Get error %v", err)
 	}
 	if it.Index != ind.Index {
-		t.Errorf("set.get index missmatch expected %v got %v", ind, it.Index)
+		t.Fatalf("set.get index missmatch expected %v got %v", ind, it.Index)
 	}
 	if !bytes.Equal(it.Key, testKey) {
-		t.Errorf("get key missmatch expected %v got %v", string(testKey), string(it.Key))
+		t.Fatalf("get key missmatch expected %v got %v", string(testKey), string(it.Key))
 	}
 	if !bytes.Equal(it.Value, testValue) {
-		t.Errorf("get key missmatch expected %v got %v", string(testValue), string(it.Value))
+		t.Fatalf("get key missmatch expected %v got %v", string(testValue), string(it.Value))
 	}
 }
 func testSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -366,16 +466,16 @@ func testSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		proof, err := s.SafeSet(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if proof == nil {
-			t.Errorf("Nil proof after SafeSet")
+			t.Fatalf("Nil proof after SafeSet")
 		}
 		it, err := s.SafeGet(ctx, &schema.SafeGetOptions{
 			Key: val.Kv.Key,
 		})
 		if it.GetItem().GetIndex() != proof.Index {
-			t.Errorf("SafeGet index error, expected %d, got %d", proof.Index, it.GetItem().GetIndex())
+			t.Fatalf("SafeGet index error, expected %d, got %d", proof.Index, it.GetItem().GetIndex())
 		}
 	}
 }
@@ -384,11 +484,11 @@ func testCurrentRoot(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		_, err = s.CurrentRoot(ctx, &emptypb.Empty{})
 		if err != nil {
-			t.Errorf("Error getting current root %s", err)
+			t.Fatalf("Error getting current root %s", err)
 		}
 	}
 }
@@ -396,28 +496,28 @@ func testSVSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		it, err := s.SetSV(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		k := &schema.Key{
 			Key: []byte(val.Key),
 		}
 		item, err := s.GetSV(ctx, k)
 		if err != nil {
-			t.Errorf("Error reading key %s", err)
+			t.Fatalf("Error reading key %s", err)
 		}
 
 		if it.GetIndex() != item.Index {
-			t.Errorf("index error expecting %v got %v", item.Index, it.GetIndex())
+			t.Fatalf("index error expecting %v got %v", item.Index, it.GetIndex())
 		}
 		if !bytes.Equal(item.GetKey(), val.Key) {
-			t.Errorf("Inserted Key not equal to read Key")
+			t.Fatalf("Inserted Key not equal to read Key")
 		}
 		sk := item.GetValue()
 		if sk.GetTimestamp() != val.GetValue().GetTimestamp() {
-			t.Errorf("Inserted value not equal to read value")
+			t.Fatalf("Inserted value not equal to read value")
 		}
 		if !bytes.Equal(sk.GetPayload(), val.GetValue().Payload) {
-			t.Errorf("Inserted Payload not equal to read value")
+			t.Fatalf("Inserted Payload not equal to read value")
 		}
 	}
 }
@@ -467,16 +567,16 @@ func testSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range SafeSkv {
 		proof, err := s.SafeSetSV(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if proof == nil {
-			t.Errorf("Nil proof after SafeSet")
+			t.Fatalf("Nil proof after SafeSet")
 		}
 		it, err := s.SafeGetSV(ctx, &schema.SafeGetOptions{
 			Key: val.Skv.Key,
 		})
 		if it.GetItem().GetIndex() != proof.Index {
-			t.Errorf("SafeGet index error, expected %d, got %d", proof.Index, it.GetItem().GetIndex())
+			t.Fatalf("SafeGet index error, expected %d, got %d", proof.Index, it.GetItem().GetIndex())
 		}
 	}
 }
@@ -499,10 +599,10 @@ func testSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	ind, err := s.SetBatch(ctx, Skv)
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if ind == nil {
-		t.Errorf("Nil index after Setbatch")
+		t.Fatalf("Nil index after Setbatch")
 	}
 
 	itList, err := s.GetBatch(ctx, &schema.KeyList{
@@ -520,17 +620,17 @@ func testSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	for ind, val := range itList.Items {
 		if !bytes.Equal(val.Value, Skv.KVs[ind].Value) {
-			t.Errorf("BatchSet value not equal to BatchGet value, expected %s, got %s", string(Skv.KVs[ind].Value), string(val.Value))
+			t.Fatalf("BatchSet value not equal to BatchGet value, expected %s, got %s", string(Skv.KVs[ind].Value), string(val.Value))
 		}
 	}
 }
 func testSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind, err := s.SetBatchSV(ctx, Skv)
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if ind == nil {
-		t.Errorf("Nil index after Setbatch")
+		t.Fatalf("Nil index after Setbatch")
 	}
 	itList, err := s.GetBatchSV(ctx, &schema.KeyList{
 		Keys: []*schema.Key{
@@ -547,10 +647,10 @@ func testSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	for ind, val := range itList.Items {
 		if !bytes.Equal(val.Value.Payload, Skv.SKVs[ind].Value.Payload) {
-			t.Errorf("BatchSetSV value not equal to BatchGetSV value, expected %s, got %s", string(Skv.SKVs[ind].Value.Payload), string(val.Value.Payload))
+			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %s, got %s", string(Skv.SKVs[ind].Value.Payload), string(val.Value.Payload))
 		}
 		if val.Value.Timestamp != Skv.SKVs[ind].Value.Timestamp {
-			t.Errorf("BatchSetSV value not equal to BatchGetSV value, expected %d, got %d", Skv.SKVs[ind].Value.Timestamp, val.Value.Timestamp)
+			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %d, got %d", Skv.SKVs[ind].Value.Timestamp, val.Value.Timestamp)
 		}
 	}
 }
@@ -558,32 +658,32 @@ func testInclusion(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	ind := uint64(1)
 	inc, err := s.Inclusion(ctx, &schema.Index{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if inc.Index != ind {
-		t.Errorf("Inclusion, expected %d, got %d", inc.Index, ind)
+		t.Fatalf("Inclusion, expected %d, got %d", inc.Index, ind)
 	}
 }
 func testConsintency(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	ind := uint64(1)
 	inc, err := s.Consistency(ctx, &schema.Index{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if inc.First != ind {
-		t.Errorf("Consistency, expected %d, got %d", inc.First, ind)
+		t.Fatalf("Consistency, expected %d, got %d", inc.First, ind)
 	}
 }
 
@@ -593,7 +693,7 @@ func testByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		it, err := s.Set(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		ind = it.Index
 	}
@@ -605,10 +705,10 @@ func testByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	inc, err := s.ByIndex(ctx, &schema.Index{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if !bytes.Equal(inc.Value, kv[len(kv)-1].Value) {
-		t.Errorf("ByIndex, expected %s, got %d", kv[ind].Value, inc.Value)
+		t.Fatalf("ByIndex, expected %s, got %d", kv[ind].Value, inc.Value)
 	}
 }
 
@@ -617,7 +717,7 @@ func testByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		it, err := s.SetSV(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		ind = it.Index
 	}
@@ -629,10 +729,10 @@ func testByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	inc, err := s.ByIndexSV(ctx, &schema.Index{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if !bytes.Equal(inc.Value.Payload, Skv.SKVs[len(Skv.SKVs)-1].Value.Payload) {
-		t.Errorf("ByIndexSV, expected %s, got %s", string(Skv.SKVs[len(Skv.SKVs)-1].Value.Payload), string(inc.Value.Payload))
+		t.Fatalf("ByIndexSV, expected %s, got %s", string(Skv.SKVs[len(Skv.SKVs)-1].Value.Payload), string(inc.Value.Payload))
 	}
 }
 
@@ -640,7 +740,7 @@ func testByIScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		_, err := s.SetSV(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	s.SafeSet(ctx, &schema.SafeSetOptions{
@@ -661,7 +761,7 @@ func testBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		_, err := s.SetSV(ctx, val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	s.SafeSet(ctx, &schema.SafeSetOptions{
@@ -673,10 +773,10 @@ func testBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind := uint64(1)
 	inc, err := s.BySafeIndex(ctx, &schema.SafeIndexOptions{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if inc.Item.Index != ind {
-		t.Errorf("ByIndexSV, expected %d, got %d", ind, inc.Item.Index)
+		t.Fatalf("ByIndexSV, expected %d, got %d", ind, inc.Item.Index)
 	}
 }
 
@@ -685,11 +785,11 @@ func testHistory(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Key: testKey,
 	})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	for _, val := range inc.Items {
 		if !bytes.Equal(val.Value, testValue) {
-			t.Errorf("History, expected %s, got %s", val.Value, testValue)
+			t.Fatalf("History, expected %s, got %s", val.Value, testValue)
 		}
 	}
 }
@@ -700,11 +800,11 @@ func testHistorySV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	items, err := s.HistorySV(ctx, k)
 	if err != nil {
-		t.Errorf("Error reading key %s", err)
+		t.Fatalf("Error reading key %s", err)
 	}
 	for _, val := range items.Items {
 		if !bytes.Equal(val.Value.Payload, testValue) {
-			t.Errorf("HistorySV, expected %s, got %s", testValue, val.Value.Payload)
+			t.Fatalf("HistorySV, expected %s, got %s", testValue, val.Value.Payload)
 		}
 	}
 }
@@ -712,17 +812,17 @@ func testHistorySV(ctx context.Context, s *ImmuServer, t *testing.T) {
 func testHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
 	h, err := s.Health(ctx, &emptypb.Empty{})
 	if err != nil {
-		t.Errorf("health error %s", err)
+		t.Fatalf("health error %s", err)
 	}
 	if !h.GetStatus() {
-		t.Errorf("Health, expected %v, got %v", true, h.GetStatus())
+		t.Fatalf("Health, expected %v, got %v", true, h.GetStatus())
 	}
 }
 
 func testReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(ctx, kv[0])
 	if err != nil {
-		t.Errorf("Reference error %s", err)
+		t.Fatalf("Reference error %s", err)
 	}
 	_, err = s.Reference(ctx, &schema.ReferenceOptions{
 		Reference: []byte(`tag`),
@@ -730,17 +830,17 @@ func testReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	item, err := s.Get(ctx, &schema.Key{Key: []byte(`tag`)})
 	if err != nil {
-		t.Errorf("Reference  Get error %s", err)
+		t.Fatalf("Reference  Get error %s", err)
 	}
 	if !bytes.Equal(item.Value, kv[0].Value) {
-		t.Errorf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
+		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
 	}
 }
 
 func testZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(ctx, kv[0])
 	if err != nil {
-		t.Errorf("Reference error %s", err)
+		t.Fatalf("Reference error %s", err)
 	}
 	_, err = s.ZAdd(ctx, &schema.ZAddOptions{
 		Key:   kv[0].Key,
@@ -753,17 +853,17 @@ func testZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Reverse: false,
 	})
 	if err != nil {
-		t.Errorf("Reference  Get error %s", err)
+		t.Fatalf("Reference  Get error %s", err)
 	}
 	if !bytes.Equal(item.Items[0].Value, kv[0].Value) {
-		t.Errorf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
+		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
 	}
 }
 
 func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(ctx, kv[0])
 	if err != nil {
-		t.Errorf("set error %s", err)
+		t.Fatalf("set error %s", err)
 	}
 	_, err = s.ZAdd(ctx, &schema.ZAddOptions{
 		Key:   kv[0].Key,
@@ -771,7 +871,7 @@ func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Set:   kv[0].Value,
 	})
 	if err != nil {
-		t.Errorf("zadd error %s", err)
+		t.Fatalf("zadd error %s", err)
 	}
 
 	_, err = s.SafeZAdd(ctx, &schema.SafeZAddOptions{
@@ -785,7 +885,7 @@ func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Errorf("SafeZAdd error %s", err)
+		t.Fatalf("SafeZAdd error %s", err)
 	}
 
 	item, err := s.Scan(ctx, &schema.ScanOptions{
@@ -796,10 +896,10 @@ func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 
 	if err != nil {
-		t.Errorf("ZScanSV  Get error %s", err)
+		t.Fatalf("ZScanSV  Get error %s", err)
 	}
 	if !bytes.Equal(item.Items[0].Key, kv[0].Key) {
-		t.Errorf("Reference, expected %v, got %v", string(kv[0].Key), string(item.Items[0].Key))
+		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Key), string(item.Items[0].Key))
 	}
 
 	scanItem, err := s.IScan(ctx, &schema.IScanOptions{
@@ -807,10 +907,10 @@ func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 		PageSize:   1,
 	})
 	if err != nil {
-		t.Errorf("ZScanSV  Get error %s", err)
+		t.Fatalf("ZScanSV  Get error %s", err)
 	}
 	if !bytes.Equal(scanItem.Items[0].Key, kv[0].Key) {
-		t.Errorf("Reference, expected %v, got %v", string(kv[0].Key), string(scanItem.Items[0].Value))
+		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Key), string(scanItem.Items[0].Value))
 	}
 }
 
@@ -819,31 +919,18 @@ func testScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Skv: Skv.SKVs[0],
 	})
 	if err != nil {
-		t.Errorf("set error %s", err)
+		t.Fatalf("set error %s", err)
 	}
-
-	//TODO uncomment after IScanSV is fixed
-	// item, err := s.IScanSV(ctx, &schema.IScanOptions{
-	// 	PageNumber: 0,
-	// 	PageSize:   3,
-	// })
-
-	// if err != nil {
-	// 	t.Fatalf("IScanSV  Get error %s", err)
-	// }
-	// if len(item.Items) <= 0 {
-	// 	t.Errorf("IScanSV, expected >0, got %v", len(item.Items))
-	// }
 
 	scanItem, err := s.ZScanSV(ctx, &schema.ZScanOptions{
 		Offset: []byte("Albert"),
 		Limit:  1,
 	})
 	if err != nil {
-		t.Errorf("ZScanSV  Get error %s", err)
+		t.Fatalf("ZScanSV  Get error %s", err)
 	}
 	if len(scanItem.Items) == 0 {
-		t.Errorf("ZScanSV, expected >0, got %v", len(scanItem.Items))
+		t.Fatalf("ZScanSV, expected >0, got %v", len(scanItem.Items))
 	}
 
 	scanItem, err = s.ScanSV(ctx, &schema.ScanOptions{
@@ -851,10 +938,10 @@ func testScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Limit:  1,
 	})
 	if err != nil {
-		t.Errorf("ScanSV  Get error %s", err)
+		t.Fatalf("ScanSV  Get error %s", err)
 	}
 	if len(scanItem.Items) == 0 {
-		t.Errorf("ScanSV, expected >0, got %v", len(scanItem.Items))
+		t.Fatalf("ScanSV, expected >0, got %v", len(scanItem.Items))
 	}
 }
 
@@ -863,7 +950,7 @@ func testSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Kv: kv[0],
 	})
 	if err != nil {
-		t.Errorf("SafeSet error %s", err)
+		t.Fatalf("SafeSet error %s", err)
 	}
 	it, err = s.SafeReference(ctx, &schema.SafeReferenceOptions{
 		Ro: &schema.ReferenceOptions{
@@ -875,16 +962,16 @@ func testSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Errorf("SafeReference error %s", err)
+		t.Fatalf("SafeReference error %s", err)
 	}
 	ref, err := s.Get(ctx, &schema.Key{
 		Key: []byte("key1"),
 	})
 	if err != nil {
-		t.Errorf("get error %s", err)
+		t.Fatalf("get error %s", err)
 	}
 	if !bytes.Equal(ref.Value, kv[0].Value) {
-		t.Errorf("safereference error")
+		t.Fatalf("safereference error")
 	}
 }
 
@@ -893,27 +980,65 @@ func testCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Prefix: kv[0].Key,
 	})
 	if err != nil {
-		t.Errorf("SafeSet error %s", err)
+		t.Fatalf("SafeSet error %s", err)
 	}
 	if c.Count == 0 {
-		t.Errorf("Count error >0 got %d", c.Count)
+		t.Fatalf("Count error >0 got %d", c.Count)
 	}
 }
 
 func testPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
 	item, err := s.PrintTree(ctx, &emptypb.Empty{})
 	if err != nil {
-		t.Errorf("PrintTree  error %s", err)
+		t.Fatalf("PrintTree  error %s", err)
 	}
 	if len(item.T) == 0 {
-		t.Errorf("PrintTree, expected > 0, got %v", len(item.T))
+		t.Fatalf("PrintTree, expected > 0, got %v", len(item.T))
+	}
+}
+
+func testSetPermission(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.SetPermission(ctx, &schema.Item{
+		Key:   []byte("key"),
+		Value: []byte("val"),
+		Index: 1,
+	})
+	if err == nil {
+		t.Fatalf("SetPermission  fail")
+	}
+	if !strings.Contains(err.Error(), "deprecated method. use change permission instead") {
+		t.Fatalf("SetPermission  unexpected error: %s", err)
+	}
+}
+
+func testDeactivateUserDepricated(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.DeactivateUser(ctx, &schema.UserRequest{
+		User: []byte("gerard"),
+	})
+	if err == nil {
+		t.Fatalf("DeactivateUserDepricated  fail")
+	}
+	if !strings.Contains(err.Error(), "deprecated method. use setactive instead") {
+		t.Fatalf("DeactivateUserDepricated  unexpected error: %s", err)
+	}
+}
+
+func testGetUser(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.GetUser(ctx, &schema.UserRequest{
+		User: []byte("gerard"),
+	})
+	if err == nil {
+		t.Fatalf("GetUser  fail")
+	}
+	if !strings.Contains(err.Error(), "deprecated method. use user list instead") {
+		t.Fatalf("GetUser  unexpected error: %s", err)
 	}
 }
 
 func TestUsermanagement(t *testing.T) {
 	var err error
 	s := newInmemoryAuthServer()
-	ctx, err := loginSysAdmin(s)
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -936,11 +1061,14 @@ func TestUsermanagement(t *testing.T) {
 	testSetActiveUser(ctx, s, t)
 	testChangePassword(ctx, s, t)
 	testListUsers(ctx, s, t)
+	testSetPermission(ctx, s, t)
+	testDeactivateUserDepricated(ctx, s, t)
+	testGetUser(ctx, s, t)
 }
 func TestDbOperations(t *testing.T) {
 	var err error
 	s := newInmemoryAuthServer()
-	ctx, err := loginSysAdmin(s)
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
 	if err != nil {
 		log.Fatal(err)
 	}

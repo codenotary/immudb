@@ -49,8 +49,9 @@ func TestOptions(t *testing.T) {
 func TestSetOptions(t *testing.T) {
 	op := DefaultOptions().WithDir("immudb_dir").WithNetwork("udp").
 		WithAddress("localhost").WithPort(2048).WithConfig("immudb.toml").
-		WithPidfile("immu.pid").WithMTLs(true).WithAuth(false)
-
+		WithPidfile("immu.pid").WithMTLs(true).WithAuth(false).
+		WithDetached(true).WithNoHistograms(true).WithMetricsServer(false).
+		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin")
 	if op.GetAuth() != false ||
 		op.Dir != "immudb_dir" ||
 		op.Network != "udp" ||
@@ -59,7 +60,14 @@ func TestSetOptions(t *testing.T) {
 		op.Config != "immudb.toml" ||
 		op.Pidfile != "immu.pid" ||
 		op.MTLs != true ||
-		op.GetAuth() != false {
+		op.GetAuth() != false ||
+		op.Detached != true ||
+		op.NoHistograms != true ||
+		op.MetricsServer != false ||
+		op.DevMode != true ||
+		op.Logfile != "logfile" ||
+		op.AdminPassword != "admin" ||
+		op.Bind() != "localhost:2048" {
 		t.Errorf("database default options mismatch")
 	}
 }
