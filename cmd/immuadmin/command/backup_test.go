@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
+	stdos "os"
 	"path/filepath"
 	"testing"
 
@@ -31,6 +31,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/fs"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
@@ -128,7 +129,8 @@ func defaultDaemonMock() *daemonMock {
 }
 
 func TestDumpToFile(t *testing.T) {
-	clb, err := newCommandlineBck()
+	os := immuos.NewStandardOS()
+	clb, err := newCommandlineBck(os)
 	require.NoError(t, err)
 	clb.options = client.DefaultOptions()
 
@@ -151,7 +153,7 @@ func TestDumpToFile(t *testing.T) {
 	clb.hds = hds
 
 	daemMock := defaultDaemonMock()
-	clb.Backupper = &backupper{daemMock}
+	clb.Backupper = &backupper{daemMock, os}
 
 	termReaderMock := &clienttest.TerminalReaderMock{
 		ReadFromTerminalYNF: func(def string) (selected string, err error) {
@@ -161,7 +163,7 @@ func TestDumpToFile(t *testing.T) {
 	clb.TerminalReader = termReaderMock
 
 	dumpFile := "backup_test_dump_output.bkp"
-	defer os.Remove(dumpFile)
+	defer stdos.Remove(dumpFile)
 	errDump := errors.New("dump error")
 	immuClientMock.DumpF = func(ctx context.Context, f io.WriteSeeker) (int64, error) {
 		return 0, errDump
@@ -204,12 +206,13 @@ func TestDumpToFile(t *testing.T) {
 func deleteBackupFiles(prefix string) {
 	files, _ := filepath.Glob(fmt.Sprintf("./%s_bkp_*", prefix))
 	for _, f := range files {
-		os.RemoveAll(f)
+		stdos.RemoveAll(f)
 	}
 }
 
 func TestBackup(t *testing.T) {
-	clb, err := newCommandlineBck()
+	os := immuos.NewStandardOS()
+	clb, err := newCommandlineBck(os)
 	require.NoError(t, err)
 	clb.options = client.DefaultOptions()
 
@@ -238,7 +241,7 @@ func TestBackup(t *testing.T) {
 	clb.hds = hds
 
 	daemMock := defaultDaemonMock()
-	clb.Backupper = &backupper{daemMock}
+	clb.Backupper = &backupper{daemMock, os}
 
 	okReadFromTerminalYNF := func(def string) (selected string, err error) {
 		return "Y", nil
@@ -249,8 +252,8 @@ func TestBackup(t *testing.T) {
 	clb.TerminalReader = termReaderMock
 
 	dbDir := "backup_test_db_dir"
-	require.NoError(t, os.Mkdir(dbDir, 0755))
-	defer os.Remove(dbDir)
+	require.NoError(t, stdos.Mkdir(dbDir, 0755))
+	defer stdos.Remove(dbDir)
 
 	collector := new(cmdtest.StdOutCollector)
 	clb.onError = func(msg interface{}) {
@@ -352,9 +355,9 @@ func TestBackup(t *testing.T) {
 		require.Equal(t, expectedErrMsg, msg.(error).Error())
 	}
 	require.NoError(t, cmd.Execute())
-	_, err = os.Create(notADir)
+	_, err = stdos.Create(notADir)
 	require.NoError(t, err)
-	defer os.Remove(notADir)
+	defer stdos.Remove(notADir)
 	expectedErrMsg =
 		"backup_test_db_dir_not_a_dir is not a directory"
 	clb.onError = func(msg interface{}) {
@@ -393,7 +396,8 @@ func TestBackup(t *testing.T) {
 }
 
 func TestRestore(t *testing.T) {
-	clb, err := newCommandlineBck()
+	os := immuos.NewStandardOS()
+	clb, err := newCommandlineBck(os)
 	require.NoError(t, err)
 	clb.options = client.DefaultOptions()
 
@@ -422,7 +426,7 @@ func TestRestore(t *testing.T) {
 	clb.hds = hds
 
 	daemMock := defaultDaemonMock()
-	clb.Backupper = &backupper{daemMock}
+	clb.Backupper = &backupper{daemMock, os}
 
 	okReadFromTerminalYNF := func(def string) (selected string, err error) {
 		return "Y", nil
@@ -434,15 +438,15 @@ func TestRestore(t *testing.T) {
 
 	dbDirSrc := "restore_test_db_dir_src_bkp_1"
 	dbDirDst := "restore_test_db_dir_dst"
-	os.RemoveAll(dbDirSrc)
-	os.RemoveAll(dbDirDst)
+	stdos.RemoveAll(dbDirSrc)
+	stdos.RemoveAll(dbDirDst)
 	deleteBackupFiles(dbDirDst)
-	defer os.RemoveAll(dbDirSrc)
-	defer os.RemoveAll(dbDirDst)
+	defer stdos.RemoveAll(dbDirSrc)
+	defer stdos.RemoveAll(dbDirDst)
 	defer deleteBackupFiles(dbDirDst)
-	require.NoError(t, os.Mkdir(dbDirSrc, 0755))
+	require.NoError(t, stdos.Mkdir(dbDirSrc, 0755))
 	ioutil.WriteFile(filepath.Join(dbDirSrc, server.IDENTIFIER_FNAME), []byte("src"), 0644)
-	require.NoError(t, os.Mkdir(dbDirDst, 0755))
+	require.NoError(t, stdos.Mkdir(dbDirDst, 0755))
 	ioutil.WriteFile(filepath.Join(dbDirDst, server.IDENTIFIER_FNAME), []byte("dst"), 0644)
 
 	// collector := new(cmdtest.StdOutCollector)
@@ -451,14 +455,14 @@ func TestRestore(t *testing.T) {
 	}
 
 	backupFile := dbDirSrc + ".tar.gz"
-	os.Remove(backupFile)
+	stdos.Remove(backupFile)
 	require.NoError(t, fs.TarIt(dbDirSrc, backupFile))
-	defer os.Remove(backupFile)
+	defer stdos.Remove(backupFile)
 
 	backupFile2 := dbDirSrc + ".zip"
-	os.Remove(backupFile2)
+	stdos.Remove(backupFile2)
 	require.NoError(t, fs.ZipIt(dbDirSrc, backupFile2, fs.ZipNoCompression))
-	defer os.Remove(backupFile2)
+	defer stdos.Remove(backupFile2)
 
 	cmd := &cobra.Command{}
 	cmd.SetArgs([]string{
