@@ -44,6 +44,4 @@ immudb uses the following amazing open source projects. Copyright by their respe
 | [gotenv](https://github.com/subosito/gotenv)                 | [MIT](https://github.com/subosito/gotenv/blob/master/LICENSE) |
 | [poly1305](https://github.com/aead/poly1305)                 | [MIT](https://github.com/aead/poly1305/blob/master/LICENSE)  |
 | [Go CORS handler](https://github.com/rs/cors)                | [MIT](https://github.com/rs/cors/blob/master/LICENSE)        |
-| [ntp](https://github.com/beevik/ntp)                         | [BSD 2-Clause "Simplified" License](https://github.com/beevik/ntp/blob/master/LICENSE) |
-
 

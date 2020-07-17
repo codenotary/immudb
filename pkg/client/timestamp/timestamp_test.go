@@ -29,11 +29,3 @@ func TestDefault(t *testing.T) {
 	ts := def.Now()
 	assert.IsType(t, ts, time.Time{})
 }
-
-func TestNtp(t *testing.T) {
-	nt, err := NewNtp()
-	assert.Nil(t, err)
-	assert.IsType(t, nt, &ntp{})
-	ts := nt.Now()
-	assert.IsType(t, ts, time.Time{})
-}
