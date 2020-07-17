@@ -260,6 +260,7 @@ func TestBackup(t *testing.T) {
 		require.Empty(t, msg.(error))
 	}
 
+	// success
 	cmd := &cobra.Command{}
 	cmd.SetArgs([]string{
 		"backup",
@@ -287,6 +288,113 @@ func TestBackup(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, backupLog, "Database backup created: ")
 
+	// Abs error (uncompressed backup)
+	deleteBackupFiles(dbDir)
+	absFOK := os.AbsF
+	errAbsUncompressed := "Abs error uncompressed"
+	nbAbsCalls := 0
+	os.AbsF = func(path string) (string, error) {
+		nbAbsCalls++
+		if nbAbsCalls > 2 {
+			return "", errors.New(errAbsUncompressed)
+		}
+		return absFOK(path)
+	}
+	collector.CaptureStderr = true
+	require.NoError(t, collector.Start())
+	require.NoError(t, cmd.Execute())
+	backupLog, err = collector.Stop()
+	require.NoError(t, err)
+	require.Contains(t, backupLog, errAbsUncompressed)
+	collector.CaptureStderr = false
+	os.AbsF = absFOK
+
+	// reset command
+	deleteBackupFiles(dbDir)
+	cmd = &cobra.Command{}
+	cmd.SetArgs([]string{
+		"backup",
+		fmt.Sprintf("--dbdir=%s", dbDir),
+	})
+	clb.backup(cmd)
+
+	// Getwd error
+	getwdFOK := os.GetwdF
+	errGetwd := errors.New("Getwd error")
+	os.GetwdF = func() (string, error) {
+		return "", errGetwd
+	}
+	clb.onError = func(msg interface{}) {
+		require.Equal(t, errGetwd, msg)
+	}
+	require.NoError(t, cmd.Execute())
+	os.GetwdF = getwdFOK
+
+	// Abs error
+	errAbs1 := errors.New("Abs error 1")
+	os.AbsF = func(path string) (string, error) {
+		return "", errAbs1
+	}
+	clb.onError = func(msg interface{}) {
+		require.Equal(t, errAbs1, msg)
+	}
+	require.NoError(t, cmd.Execute())
+
+	errAbs2 := errors.New("Abs error 2")
+	nbAbsCalls = 0
+	os.AbsF = func(path string) (string, error) {
+		nbAbsCalls++
+		if nbAbsCalls == 1 {
+			return absFOK(path)
+		}
+		return "", errAbs2
+	}
+	clb.onError = func(msg interface{}) {
+		require.Equal(t, errAbs2, msg)
+	}
+	require.NoError(t, cmd.Execute())
+
+	os.AbsF = absFOK
+
+	// RemoveAll error
+	removeAllFOK := os.RemoveAllF
+	errRemoveAll := "RemoveAll error"
+	os.RemoveAllF = func(path string) error {
+		return errors.New(errRemoveAll)
+	}
+	clb.onError = func(msg interface{}) {
+		require.Empty(t, msg)
+	}
+	collector.CaptureStderr = true
+	require.NoError(t, collector.Start())
+	require.NoError(t, cmd.Execute())
+	backupLog, err = collector.Stop()
+	require.NoError(t, err)
+	require.Contains(t, backupLog, errRemoveAll)
+	collector.CaptureStderr = false
+	os.RemoveAllF = removeAllFOK
+
+	// Abs error again
+	deleteBackupFiles(dbDir)
+	errAbs3 := "Abs error 3"
+	nbAbsCalls = 0
+	os.AbsF = func(path string) (string, error) {
+		nbAbsCalls++
+		if nbAbsCalls <= 2 {
+			return absFOK(path)
+		}
+		return "", errors.New(errAbs3)
+	}
+	collector.CaptureStderr = true
+	require.NoError(t, collector.Start())
+	require.NoError(t, cmd.Execute())
+	backupLog, err = collector.Stop()
+	require.NoError(t, err)
+	require.Contains(t, backupLog, errAbs3)
+	collector.CaptureStderr = false
+	os.AbsF = absFOK
+
+	// canceled
 	nokReadFromTerminalYNF := func(def string) (selected string, err error) {
 		return "N", nil
 	}
@@ -306,6 +414,7 @@ func TestBackup(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	termReaderMock.ReadFromTerminalYNF = okReadFromTerminalYNF
 
+	// password read error
 	cmd = &cobra.Command{}
 	cmd.SetArgs([]string{
 		"backup",
@@ -323,6 +432,7 @@ func TestBackup(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	pwReaderMock.ReadF = nil
 
+	// login error
 	errLogin := errors.New("login error")
 	immuClientMock.LoginF = func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
 		return nil, errLogin
@@ -344,6 +454,7 @@ func TestBackup(t *testing.T) {
 	}
 	require.NoError(t, cmd.Execute())
 
+	// dbdir not exists
 	notADir := dbDir + "_not_a_dir"
 	cmd.SetArgs([]string{
 		"backup",
@@ -355,6 +466,8 @@ func TestBackup(t *testing.T) {
 		require.Equal(t, expectedErrMsg, msg.(error).Error())
 	}
 	require.NoError(t, cmd.Execute())
+
+	// dbdir not a dir
 	_, err = stdos.Create(notADir)
 	require.NoError(t, err)
 	defer stdos.Remove(notADir)
@@ -365,6 +478,7 @@ func TestBackup(t *testing.T) {
 	}
 	require.NoError(t, cmd.Execute())
 
+	// daemon stop error
 	cmd.SetArgs([]string{
 		"backup",
 		fmt.Sprintf("--dbdir=%s", dbDir),
@@ -379,6 +493,7 @@ func TestBackup(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	daemMock.StopF = nil
 
+	// daemon start error
 	daemMock.StartF = func() (string, error) {
 		return "", errors.New("daemon start error")
 	}
@@ -449,7 +564,6 @@ func TestRestore(t *testing.T) {
 	require.NoError(t, stdos.Mkdir(dbDirDst, 0755))
 	ioutil.WriteFile(filepath.Join(dbDirDst, server.IDENTIFIER_FNAME), []byte("dst"), 0644)
 
-	// collector := new(cmdtest.StdOutCollector)
 	clb.onError = func(msg interface{}) {
 		require.Empty(t, msg.(error))
 	}
@@ -464,6 +578,7 @@ func TestRestore(t *testing.T) {
 	require.NoError(t, fs.ZipIt(dbDirSrc, backupFile2, fs.ZipNoCompression))
 	defer stdos.Remove(backupFile2)
 
+	// from .tar.gz
 	cmd := &cobra.Command{}
 	cmd.SetArgs([]string{
 		"restore",
@@ -474,6 +589,7 @@ func TestRestore(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	deleteBackupFiles(dbDirDst)
 
+	// from .zip
 	cmd.SetArgs([]string{
 		"restore",
 		backupFile2,
@@ -481,4 +597,52 @@ func TestRestore(t *testing.T) {
 	})
 	clb.restore(cmd)
 	require.NoError(t, cmd.Execute())
+
+	// stat error
+	statFOK := os.StatF
+	errStat := errors.New("Stat error")
+	os.StatF = func(name string) (stdos.FileInfo, error) {
+		return nil, errStat
+	}
+	clb.onError = func(msg interface{}) {
+		require.Equal(t, errStat, msg)
+	}
+	require.NoError(t, cmd.Execute())
+	os.StatF = statFOK
+
+	// daemon stop error
+	daemMock.StopF = func() (string, error) {
+		return "", errors.New("daemon stop error")
+	}
+	clb.onError = func(msg interface{}) {
+		require.Equal(t, "error stopping immudb server: daemon stop error", fmt.Sprintf("%v", msg))
+	}
+	require.NoError(t, cmd.Execute())
+	daemMock.StopF = nil
+
+	// Rename errors
+	renameFOK := os.RenameF
+
+	os.RenameF = func(oldpath, newpath string) error {
+		return errors.New("Rename error 1")
+	}
+	clb.onError = func(msg interface{}) {
+		require.Contains(t, msg.(error).Error(), "Rename error 1")
+	}
+	require.NoError(t, cmd.Execute())
+
+	nbCalls := 0
+	os.RenameF = func(oldpath, newpath string) error {
+		nbCalls++
+		if nbCalls == 1 {
+			return nil
+		}
+		return errors.New("Rename error 2")
+	}
+	clb.onError = func(msg interface{}) {
+		require.Contains(t, msg.(error).Error(), "Rename error 2")
+	}
+	require.NoError(t, cmd.Execute())
+
+	os.RenameF = renameFOK
 }
