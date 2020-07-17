@@ -30,14 +30,36 @@ const DetachedFlag = "detached"
 // DetachedShortFlag ...
 const DetachedShortFlag = "d"
 
+type Execs interface {
+	Command(name string, arg ...string) *exec.Cmd
+}
+
+type execs struct{}
+
+func (e execs) Command(name string, arg ...string) *exec.Cmd {
+	return exec.Command(name, arg...)
+}
+
+type Plauncher interface {
+	Detached() error
+}
+
+type plauncher struct {
+	e Execs
+}
+
+func NewPlauncher() *plauncher {
+	return &plauncher{execs{}}
+}
+
 // Detached launch command in background
-func Detached() {
+func (pl plauncher) Detached() error {
 	var err error
 	var executable string
 	var args []string
 
 	if executable, err = os.Executable(); err != nil {
-		QuitToStdErr(err)
+		return err
 	}
 
 	for i, k := range os.Args {
@@ -46,16 +68,16 @@ func Detached() {
 		}
 	}
 
-	cmd := exec.Command(executable, args...)
+	cmd := pl.e.Command(executable, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err = cmd.Start(); err != nil {
-		QuitToStdErr(err)
+		return err
 	}
 	time.Sleep(1 * time.Second)
 	fmt.Fprintf(
 		os.Stdout, "%s%s has been started with %sPID %d%s\n",
 		Green, filepath.Base(executable), Blue, cmd.Process.Pid, Reset)
-	os.Exit(0)
+	return nil
 }
