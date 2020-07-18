@@ -210,7 +210,7 @@ func TestLoaduserDatabase(t *testing.T) {
 	}
 	defer os.RemoveAll(s.Options.Dir)
 	newdb := &schema.Database{
-		Databasename: "lisbon",
+		Databasename: testDatabase,
 	}
 	dbrepl, err := s.CreateDatabase(ctx, newdb)
 	if err != nil {
@@ -219,10 +219,13 @@ func TestLoaduserDatabase(t *testing.T) {
 	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
 		t.Fatalf("Createdatabase error %v", dbrepl)
 	}
-	s.CloseDatabases()
+	err = s.CloseDatabases()
+	if err != nil {
+		t.Fatalf("closedatabases error %v", err)
+	}
 	time.Sleep(1 * time.Second)
 	s = newAuthServer("loaduserdatabase")
-	if s.dbList.Length() != 3 {
+	if s.dbList.Length() != 2 {
 		t.Fatalf("LoadUserDatabase error %d", s.dbList.Length())
 	}
 }
@@ -429,6 +432,24 @@ func testSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("get key missmatch expected %v got %v", string(testValue), string(it.Value))
 	}
 }
+
+func testSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.Set(context.Background(), &schema.KeyValue{
+		Key:   testKey,
+		Value: testValue,
+	})
+	if err == nil {
+		t.Fatalf("set expected error")
+	}
+
+	_, err = s.Get(context.Background(), &schema.Key{
+		Key: testKey,
+	})
+	if err == nil {
+		t.Fatalf("get expected error")
+	}
+}
+
 func testSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	root, err := s.CurrentRoot(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -484,26 +505,32 @@ func testCurrentRoot(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
 		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
+			t.Fatalf("CurrentRoot Error Inserting to db %s", err)
 		}
 		_, err = s.CurrentRoot(ctx, &emptypb.Empty{})
 		if err != nil {
-			t.Fatalf("Error getting current root %s", err)
+			t.Fatalf("CurrentRoot Error getting current root %s", err)
 		}
+	}
+}
+func testCurrentRootError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.CurrentRoot(context.Background(), &emptypb.Empty{})
+	if err == nil {
+		t.Fatalf("CurrentRoot expected Error")
 	}
 }
 func testSVSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		it, err := s.SetSV(ctx, val)
 		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
+			t.Fatalf("SetSV Error Inserting to db %s", err)
 		}
 		k := &schema.Key{
 			Key: []byte(val.Key),
 		}
 		item, err := s.GetSV(ctx, k)
 		if err != nil {
-			t.Fatalf("Error reading key %s", err)
+			t.Fatalf("GetSV Error reading key %s", err)
 		}
 
 		if it.GetIndex() != item.Index {
@@ -521,6 +548,21 @@ func testSVSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 		}
 	}
 }
+
+func testSVSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.SetSV(context.Background(), Skv.SKVs[0])
+	if err == nil {
+		t.Fatalf("SetSV expected error Inserting to db")
+	}
+	k := &schema.Key{
+		Key: []byte(Skv.SKVs[0].Key),
+	}
+	_, err = s.GetSV(context.Background(), k)
+	if err == nil {
+		t.Fatalf("GetSV error reading key")
+	}
+}
+
 func testSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	root, err := s.CurrentRoot(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -580,6 +622,29 @@ func testSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		}
 	}
 }
+func testSafeSetGetSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	Skv := schema.SafeSetSVOptions{
+		Skv: &schema.StructuredKeyValue{
+			Key: []byte("Alberto"),
+			Value: &schema.Content{
+				Timestamp: uint64(time.Now().Unix()),
+				Payload:   []byte("Tomba"),
+			},
+		},
+		RootIndex: &schema.Index{
+			Index: 0,
+		}}
+	_, err := s.SafeSetSV(context.Background(), &Skv)
+	if err == nil {
+		t.Fatalf("SafeSetSV expected error")
+	}
+	_, err = s.SafeGetSV(context.Background(), &schema.SafeGetOptions{
+		Key: Skv.Skv.Key,
+	})
+	if err == nil {
+		t.Fatalf("SafeGetSV expected error")
+	}
+}
 func testSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	Skv := &schema.KVList{
 		KVs: []*schema.KeyValue{
@@ -624,6 +689,32 @@ func testSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 		}
 	}
 }
+
+func testSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	Skv := &schema.KVList{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("Alberto"),
+				Value: []byte("Tomba"),
+			},
+		},
+	}
+	_, err := s.SetBatch(context.Background(), Skv)
+	if err == nil {
+		t.Fatalf("SetBatch expected Error")
+	}
+	_, err = s.GetBatch(context.Background(), &schema.KeyList{
+		Keys: []*schema.Key{
+			{
+				Key: []byte("Alberto"),
+			},
+		},
+	})
+	if err == nil {
+		t.Fatalf("GetBatch expected Error")
+	}
+}
+
 func testSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind, err := s.SetBatchSV(ctx, Skv)
 	if err != nil {
@@ -654,6 +745,24 @@ func testSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		}
 	}
 }
+
+func testSetGetBatchSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.SetBatchSV(context.Background(), Skv)
+	if err == nil {
+		t.Fatalf("SetBatchSV expected error")
+	}
+	_, err = s.GetBatchSV(context.Background(), &schema.KeyList{
+		Keys: []*schema.Key{
+			{
+				Key: Skv.SKVs[0].Key,
+			},
+		},
+	})
+	if err == nil {
+		t.Fatalf("GetBatchSV expected error")
+	}
+}
+
 func testInclusion(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
@@ -664,12 +773,20 @@ func testInclusion(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind := uint64(1)
 	inc, err := s.Inclusion(ctx, &schema.Index{Index: ind})
 	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
+		t.Fatalf("Inclusion Error to db %s", err)
 	}
 	if inc.Index != ind {
 		t.Fatalf("Inclusion, expected %d, got %d", inc.Index, ind)
 	}
 }
+
+func testInclusionError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.Inclusion(context.Background(), &schema.Index{Index: 0})
+	if err == nil {
+		t.Fatalf("Inclusion expected error")
+	}
+}
+
 func testConsintency(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
@@ -680,13 +797,18 @@ func testConsintency(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind := uint64(1)
 	inc, err := s.Consistency(ctx, &schema.Index{Index: ind})
 	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
+		t.Fatalf("Consistency Error %s", err)
 	}
 	if inc.First != ind {
 		t.Fatalf("Consistency, expected %d, got %d", inc.First, ind)
 	}
 }
-
+func testConsintencyError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.Consistency(context.Background(), &schema.Index{Index: 0})
+	if err == nil {
+		t.Fatalf("Consistency expected error")
+	}
+}
 func testByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 	ind := uint64(1)
@@ -705,13 +827,18 @@ func testByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	inc, err := s.ByIndex(ctx, &schema.Index{Index: ind})
 	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
+		t.Fatalf("ByIndex Error %s", err)
 	}
 	if !bytes.Equal(inc.Value, kv[len(kv)-1].Value) {
 		t.Fatalf("ByIndex, expected %s, got %d", kv[ind].Value, inc.Value)
 	}
 }
-
+func testByIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.ByIndex(context.Background(), &schema.Index{Index: 0})
+	if err == nil {
+		t.Fatal("ByIndex exptected error")
+	}
+}
 func testByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind := uint64(2)
 	for _, val := range Skv.SKVs {
@@ -729,10 +856,17 @@ func testByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	inc, err := s.ByIndexSV(ctx, &schema.Index{Index: ind})
 	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
+		t.Fatalf("ByIndexSV Error %s", err)
 	}
 	if !bytes.Equal(inc.Value.Payload, Skv.SKVs[len(Skv.SKVs)-1].Value.Payload) {
 		t.Fatalf("ByIndexSV, expected %s, got %s", string(Skv.SKVs[len(Skv.SKVs)-1].Value.Payload), string(inc.Value.Payload))
+	}
+}
+
+func testByIndexSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.ByIndexSV(context.Background(), &schema.Index{Index: 0})
+	if err == nil {
+		t.Fatalf("ByIndexSV exptected error")
 	}
 }
 
@@ -755,6 +889,13 @@ func testByIScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		PageSize:   1,
 	})
 	assert.Errorf(t, err, schema.ErrUnexpectedNotStructuredValue.Error())
+}
+func testByIScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.IScanSV(context.Background(), &schema.IScanOptions{
+		PageNumber: 1,
+		PageSize:   1,
+	})
+	assert.Error(t, err)
 }
 
 func testBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -780,17 +921,33 @@ func testBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
+func testBySafeIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.BySafeIndex(context.Background(), &schema.SafeIndexOptions{Index: 0})
+	if err == nil {
+		t.Fatalf("BySafeIndex exptected error")
+	}
+}
+
 func testHistory(ctx context.Context, s *ImmuServer, t *testing.T) {
 	inc, err := s.History(ctx, &schema.Key{
 		Key: testKey,
 	})
 	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
+		t.Fatalf("History Error %s", err)
 	}
 	for _, val := range inc.Items {
 		if !bytes.Equal(val.Value, testValue) {
 			t.Fatalf("History, expected %s, got %s", val.Value, testValue)
 		}
+	}
+}
+
+func testHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.History(context.Background(), &schema.Key{
+		Key: testKey,
+	})
+	if err == nil {
+		t.Fatalf("History exptected error")
 	}
 }
 
@@ -809,6 +966,16 @@ func testHistorySV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
+func testHistorySVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	k := &schema.Key{
+		Key: testValue,
+	}
+	_, err := s.HistorySV(context.Background(), k)
+	if err == nil {
+		t.Fatalf("HistorySV ecptected Error")
+	}
+}
+
 func testHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
 	h, err := s.Health(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -816,6 +983,12 @@ func testHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	if !h.GetStatus() {
 		t.Fatalf("Health, expected %v, got %v", true, h.GetStatus())
+	}
+}
+func testHealthError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.Health(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		t.Fatalf("health exptected error")
 	}
 }
 
@@ -834,6 +1007,16 @@ func testReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	if !bytes.Equal(item.Value, kv[0].Value) {
 		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
+	}
+}
+
+func testReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.Reference(ctx, &schema.ReferenceOptions{
+		Reference: []byte(`tag`),
+		Key:       kv[0].Key,
+	})
+	if err != nil {
+		t.Fatalf("Reference  exptected  error")
 	}
 }
 
@@ -857,6 +1040,24 @@ func testZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	if !bytes.Equal(item.Items[0].Value, kv[0].Value) {
 		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
+	}
+}
+func testZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.ZAdd(context.Background(), &schema.ZAddOptions{
+		Key:   kv[0].Key,
+		Score: 1,
+		Set:   kv[0].Value,
+	})
+	if err == nil {
+		t.Fatalf("ZAdd expected errr")
+	}
+	_, err = s.ZScan(context.Background(), &schema.ZScanOptions{
+		Offset:  []byte(""),
+		Limit:   3,
+		Reverse: false,
+	})
+	if err == nil {
+		t.Fatalf("ZScan expected errr")
 	}
 }
 
@@ -896,7 +1097,7 @@ func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatalf("ZScanSV  Get error %s", err)
+		t.Fatalf("Scan  Get error %s", err)
 	}
 	if !bytes.Equal(item.Items[0].Key, kv[0].Key) {
 		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Key), string(item.Items[0].Key))
@@ -907,10 +1108,29 @@ func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 		PageSize:   1,
 	})
 	if err != nil {
-		t.Fatalf("ZScanSV  Get error %s", err)
+		t.Fatalf("IScan  Get error %s", err)
 	}
 	if !bytes.Equal(scanItem.Items[0].Key, kv[0].Key) {
 		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Key), string(scanItem.Items[0].Value))
+	}
+}
+
+func testScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.Scan(context.Background(), &schema.ScanOptions{
+		Offset: nil,
+		Deep:   false,
+		Limit:  1,
+		Prefix: kv[0].Key,
+	})
+	if err == nil {
+		t.Fatalf("Scan exptected error")
+	}
+	_, err = s.IScan(context.Background(), &schema.IScanOptions{
+		PageNumber: 2,
+		PageSize:   1,
+	})
+	if err == nil {
+		t.Fatalf("IScan  exptected error")
 	}
 }
 
@@ -945,6 +1165,16 @@ func testScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
+func testScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.ScanSV(context.Background(), &schema.ScanOptions{
+		Offset: []byte("Alb"),
+		Limit:  1,
+	})
+	if err == nil {
+		t.Fatalf("ScanSV  exptected error")
+	}
+}
+
 func testSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	it, err := s.SafeSet(ctx, &schema.SafeSetOptions{
 		Kv: kv[0],
@@ -975,18 +1205,40 @@ func testSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
+func testSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.SafeReference(context.Background(), &schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{
+			Key:       kv[0].Key,
+			Reference: []byte("key1"),
+		},
+		RootIndex: &schema.Index{
+			Index: 0,
+		},
+	})
+	if err == nil {
+		t.Fatalf("SafeReference exptected error")
+	}
+}
+
 func testCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 	c, err := s.Count(ctx, &schema.KeyPrefix{
 		Prefix: kv[0].Key,
 	})
 	if err != nil {
-		t.Fatalf("SafeSet error %s", err)
+		t.Fatalf("Count error %s", err)
 	}
 	if c.Count == 0 {
 		t.Fatalf("Count error >0 got %d", c.Count)
 	}
 }
-
+func testCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.Count(context.Background(), &schema.KeyPrefix{
+		Prefix: kv[0].Key,
+	})
+	if err == nil {
+		t.Fatalf("Count expected error")
+	}
+}
 func testPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
 	item, err := s.PrintTree(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -994,6 +1246,12 @@ func testPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	if len(item.T) == 0 {
 		t.Fatalf("PrintTree, expected > 0, got %v", len(item.T))
+	}
+}
+func testPrintTreeError(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.PrintTree(context.Background(), &emptypb.Empty{})
+	if err == nil {
+		t.Fatalf("PrintTree exptected error")
 	}
 }
 
@@ -1083,28 +1341,50 @@ func TestDbOperations(t *testing.T) {
 		log.Fatalf("error creating test database %v", dbrepl)
 	}
 	testSetGet(ctx, s, t)
+	testSetGetError(ctx, s, t)
 	testSVSetGet(ctx, s, t)
+	testSVSetGetError(ctx, s, t)
 	testCurrentRoot(ctx, s, t)
+	testCurrentRootError(ctx, s, t)
 	testSafeSetGet(ctx, s, t)
 	testSafeSetGetSV(ctx, s, t)
+	testSafeSetGetSVError(ctx, s, t)
 	testSetGetBatch(ctx, s, t)
+	testSetGetBatchError(ctx, s, t)
 	testSetGetBatchSV(ctx, s, t)
+	testSetGetBatchSVError(ctx, s, t)
 	testInclusion(ctx, s, t)
+	testInclusionError(ctx, s, t)
 	testConsintency(ctx, s, t)
+	testConsintencyError(ctx, s, t)
 	testByIndexSV(ctx, s, t)
+	testByIndexSVError(ctx, s, t)
 	testByIndex(ctx, s, t)
+	testByIndexError(ctx, s, t)
 	testHistory(ctx, s, t)
+	testHistoryError(ctx, s, t)
 	testBySafeIndex(ctx, s, t)
+	testBySafeIndexError(ctx, s, t)
 	testHealth(ctx, s, t)
+	testHealthError(ctx, s, t)
 	testHistorySV(ctx, s, t)
+	testHistorySVError(ctx, s, t)
 	testReference(ctx, s, t)
+	testReferenceError(ctx, s, t)
 	testZAdd(ctx, s, t)
+	testZAddError(ctx, s, t)
 	testScan(ctx, s, t)
+	testScanError(ctx, s, t)
 	testByIScanSV(ctx, s, t)
+	testByIScanSVError(ctx, s, t)
 	testPrintTree(ctx, s, t)
+	testPrintTreeError(ctx, s, t)
 	testScanSV(ctx, s, t)
+	testScanSVError(ctx, s, t)
 	testSafeReference(ctx, s, t)
+	testSafeReferenceError(ctx, s, t)
 	testCount(ctx, s, t)
+	testCountError(ctx, s, t)
 }
 
 func TestServer(t *testing.T) {
@@ -1130,7 +1410,6 @@ func TestServer(t *testing.T) {
 	}()
 	go func(t *testing.T) {
 		if err := server.Start(); err != nil {
-			t.Fatal(err)
 		}
 	}(t)
 
