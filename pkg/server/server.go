@@ -249,8 +249,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 			if err != nil {
 				return err
 			}
-			s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(s.dbList.Length())
-			s.dbList.Append(db)
+			s.sysDb = db
 			//sys admin can have an empty array of databases as it has full access
 			adminUsername, adminPlainPass, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword), auth.PermissionSysAdmin, "*", false, "")
 			if err != nil {
@@ -269,8 +268,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 		if err != nil {
 			return err
 		}
-		s.databasenameToIndex[s.Options.GetSystemAdminDbName()] = int64(s.dbList.Length())
-		s.dbList.Append(db)
+		s.sysDb = db
 	}
 
 	return nil
@@ -370,6 +368,9 @@ func (s *ImmuServer) Stop() error {
 //CloseDatabases closes all opened databases including the consinstency checker
 func (s *ImmuServer) CloseDatabases() error {
 	s.stopCorruptionChecker()
+	if s.sysDb != nil {
+		s.sysDb.Store.Close()
+	}
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
 		val.Store.Close()
@@ -438,7 +439,6 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 
 // Logout ...
 func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, error) {
-	//TODO
 	loggedOut, err := auth.DropTokenKeysForCtx(ctx)
 	if err != nil {
 		return new(empty.Empty), err
@@ -628,11 +628,10 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 // GetSV ...
 func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
 	it, err := s.Get(ctx, k)
-	si, err := it.ToSItem()
 	if err != nil {
 		return nil, err
 	}
-	return si, err
+	return it.ToSItem()
 }
 
 // SafeGet ...
@@ -1149,7 +1148,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		}
 
 	}
-	itemList, err := s.dbList.GetByIndex(SystemDbIndex).Scan(&schema.ScanOptions{
+	itemList, err := s.sysDb.Scan(&schema.ScanOptions{
 		Prefix: []byte{sysstore.KeyPrefixUser},
 	})
 	if err != nil {
@@ -1589,7 +1588,7 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.Us
 	key := make([]byte, 1+len(username))
 	key[0] = sysstore.KeyPrefixUser
 	copy(key[1:], username)
-	item, err := s.dbList.GetByIndex(SystemDbIndex).Store.Get(schema.Key{Key: key})
+	item, err := s.sysDb.Store.Get(schema.Key{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -1616,7 +1615,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.dbList.GetByIndex(SystemDbIndex).SafeSet(&schema.SafeSetOptions{
+	_, err = s.sysDb.SafeSet(&schema.SafeSetOptions{
 		Kv: &userKV,
 	})
 	if err != nil {
@@ -1675,10 +1674,9 @@ func (s *ImmuServer) mandatoryAuth() bool {
 	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(DefaultDbIndex).options.dbName == s.Options.defaultDbName) {
 		return false
 	}
-	//check if there is only system database
-	if (s.dbList.Length() == 2) && (s.dbList.GetByIndex(SystemDbIndex).options.dbName == s.Options.systemAdminDbName) {
+	if s.sysDb != nil {
 		//check if there is only sysadmin on systemdb and no other user
-		itemList, err := s.dbList.GetByIndex(SystemDbIndex).Scan(&schema.ScanOptions{
+		itemList, err := s.sysDb.Scan(&schema.ScanOptions{
 			Prefix: []byte{sysstore.KeyPrefixUser},
 		})
 		if err != nil {

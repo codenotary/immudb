@@ -92,7 +92,7 @@ func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
 	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
-		t.Errorf("Error creating Db instance %s", err)
+		t.Fatalf("Error creating Db instance %s", err)
 	}
 	defer func() {
 		db.Store.Close()
@@ -101,19 +101,19 @@ func TestDefaultDbCreation(t *testing.T) {
 	}()
 	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
-		t.Errorf("Db dir not created")
+		t.Fatalf("Db dir not created")
 	}
 
 	_, err = os.Stat(path.Join(options.GetDbRootPath()))
 	if os.IsNotExist(err) {
-		t.Errorf("Data dir not created")
+		t.Fatalf("Data dir not created")
 	}
 }
 func TestDbCreation(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
 	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
-		t.Errorf("Error creating Db instance %s", err)
+		t.Fatalf("Error creating Db instance %s", err)
 	}
 	defer func() {
 		db.Store.Close()
@@ -123,12 +123,12 @@ func TestDbCreation(t *testing.T) {
 
 	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
-		t.Errorf("Db dir not created")
+		t.Fatalf("Db dir not created")
 	}
 
 	_, err = os.Stat(options.GetDbRootPath())
 	if os.IsNotExist(err) {
-		t.Errorf("Data dir not created")
+		t.Fatalf("Data dir not created")
 	}
 }
 
@@ -136,16 +136,16 @@ func TestOpenDb(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
 	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
-		t.Errorf("Error creating Db instance %s", err)
+		t.Fatalf("Error creating Db instance %s", err)
 	}
 	err = db.Store.Close()
 	if err != nil {
-		t.Errorf("Error closing store %s", err)
+		t.Fatalf("Error closing store %s", err)
 	}
 
 	db, err = OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
-		t.Errorf("Error opening database %s", err)
+		t.Fatalf("Error opening database %s", err)
 	}
 	db.Store.Close()
 	time.Sleep(1 * time.Second)
@@ -159,24 +159,32 @@ func TestDbSetGet(t *testing.T) {
 	for ind, val := range kv {
 		it, err := db.Set(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if it.GetIndex() != uint64(ind) {
-			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 		k := &schema.Key{
 			Key: []byte(val.Key),
 		}
 		item, err := db.Get(k)
 		if err != nil {
-			t.Errorf("Error reading key %s", err)
+			t.Fatalf("Error reading key %s", err)
 		}
 		if !bytes.Equal(item.Key, val.Key) {
-			t.Errorf("Inserted Key not equal to read Key")
+			t.Fatalf("Inserted Key not equal to read Key")
 		}
 		if !bytes.Equal(item.Value, val.Value) {
-			t.Errorf("Inserted value not equal to read value")
+			t.Fatalf("Inserted value not equal to read value")
 		}
+	}
+
+	k := &schema.Key{
+		Key: []byte{},
+	}
+	_, err := db.Get(k)
+	if err == nil {
+		t.Fatalf("Get error expected")
 	}
 }
 
@@ -187,18 +195,18 @@ func TestCurrentRoot(t *testing.T) {
 	for ind, val := range kv {
 		it, err := db.Set(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if it.GetIndex() != uint64(ind) {
-			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 		time.Sleep(1 * time.Second)
 		r, err := db.CurrentRoot(&emptypb.Empty{})
 		if err != nil {
-			t.Errorf("Error getting current root %s", err)
+			t.Fatalf("Error getting current root %s", err)
 		}
 		if r.Index != uint64(ind) {
-			t.Errorf("root error expecting %v got %v", ind, r.Index)
+			t.Fatalf("root error expecting %v got %v", ind, r.Index)
 		}
 	}
 }
@@ -210,28 +218,40 @@ func TestSVSetGet(t *testing.T) {
 	for ind, val := range Skv.SKVs {
 		it, err := db.SetSV(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if it.GetIndex() != uint64(ind) {
-			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 		k := &schema.Key{
 			Key: []byte(val.Key),
 		}
 		item, err := db.GetSV(k)
 		if err != nil {
-			t.Errorf("Error reading key %s", err)
+			t.Fatalf("Error reading key %s", err)
 		}
 		if !bytes.Equal(item.GetKey(), val.Key) {
-			t.Errorf("Inserted Key not equal to read Key")
+			t.Fatalf("Inserted Key not equal to read Key")
 		}
 		sk := item.GetValue()
 		if sk.GetTimestamp() != val.GetValue().GetTimestamp() {
-			t.Errorf("Inserted value not equal to read value")
+			t.Fatalf("Inserted value not equal to read value")
 		}
 		if !bytes.Equal(sk.GetPayload(), val.GetValue().Payload) {
-			t.Errorf("Inserted Payload not equal to read value")
+			t.Fatalf("Inserted Payload not equal to read value")
 		}
+	}
+	_, err := db.SetSV(&schema.StructuredKeyValue{
+		Key: []byte{},
+	})
+	if err == nil {
+		t.Fatalf("SetSV error exptected")
+	}
+	_, err = db.GetSV(&schema.Key{
+		Key: []byte{},
+	})
+	if err == nil {
+		t.Fatalf("GetSV error exptected")
 	}
 }
 
@@ -274,20 +294,20 @@ func TestSafeSetGet(t *testing.T) {
 	for ind, val := range kv {
 		proof, err := db.SafeSet(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if proof == nil {
-			t.Errorf("Nil proof after SafeSet")
+			t.Fatalf("Nil proof after SafeSet")
 		}
 		if proof.GetIndex() != uint64(ind) {
-			t.Errorf("SafeSet proof index error, expected %d, got %d", uint64(ind), proof.GetIndex())
+			t.Fatalf("SafeSet proof index error, expected %d, got %d", uint64(ind), proof.GetIndex())
 		}
 
 		it, err := db.SafeGet(&schema.SafeGetOptions{
 			Key: val.Kv.Key,
 		})
 		if it.GetItem().GetIndex() != uint64(ind) {
-			t.Errorf("SafeGet index error, expected %d, got %d", uint64(ind), it.GetItem().GetIndex())
+			t.Fatalf("SafeGet index error, expected %d, got %d", uint64(ind), it.GetItem().GetIndex())
 		}
 	}
 }
@@ -340,21 +360,42 @@ func TestSafeSetGetSV(t *testing.T) {
 	for ind, val := range SafeSkv {
 		proof, err := db.SafeSetSV(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if proof == nil {
-			t.Errorf("Nil proof after SafeSet")
+			t.Fatalf("Nil proof after SafeSet")
 		}
 		if proof.GetIndex() != uint64(ind) {
-			t.Errorf("SafeSet proof index error, expected %d, got %d", uint64(ind), proof.GetIndex())
+			t.Fatalf("SafeSet proof index error, expected %d, got %d", uint64(ind), proof.GetIndex())
 		}
 
 		it, err := db.SafeGetSV(&schema.SafeGetOptions{
 			Key: val.Skv.Key,
 		})
 		if it.GetItem().GetIndex() != uint64(ind) {
-			t.Errorf("SafeGet index error, expected %d, got %d", uint64(ind), it.GetItem().GetIndex())
+			t.Fatalf("SafeGet index error, expected %d, got %d", uint64(ind), it.GetItem().GetIndex())
 		}
+	}
+	_, err = db.SafeSetSV(&schema.SafeSetSVOptions{
+		Skv: &schema.StructuredKeyValue{
+			Key: []byte{},
+		},
+	})
+	if err == nil {
+		t.Fatalf("SafeSetSV expected error")
+	}
+	_, err = db.Set(&schema.KeyValue{
+		Key:   []byte("pc"),
+		Value: []byte("x86"),
+	})
+	if err != nil {
+		t.Fatalf("Error Inserting to db %s", err)
+	}
+	_, err = db.SafeGetSV(&schema.SafeGetOptions{
+		Key: []byte("pc"),
+	})
+	if err == nil {
+		t.Fatalf("SafeGetSV expected error")
 	}
 }
 
@@ -380,13 +421,13 @@ func TestSetGetBatch(t *testing.T) {
 	}
 	ind, err := db.SetBatch(Skv)
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if ind == nil {
-		t.Errorf("Nil index after Setbatch")
+		t.Fatalf("Nil index after Setbatch")
 	}
 	if ind.GetIndex() != 2 {
-		t.Errorf("SafeSet proof index error, expected %d, got %d", 2, ind.GetIndex())
+		t.Fatalf("SafeSet proof index error, expected %d, got %d", 2, ind.GetIndex())
 	}
 
 	itList, err := db.GetBatch(&schema.KeyList{
@@ -404,7 +445,7 @@ func TestSetGetBatch(t *testing.T) {
 	})
 	for ind, val := range itList.Items {
 		if !bytes.Equal(val.Value, Skv.KVs[ind].Value) {
-			t.Errorf("BatchSet value not equal to BatchGet value, expected %s, got %s", string(Skv.KVs[ind].Value), string(val.Value))
+			t.Fatalf("BatchSet value not equal to BatchGet value, expected %s, got %s", string(Skv.KVs[ind].Value), string(val.Value))
 		}
 	}
 }
@@ -415,13 +456,13 @@ func TestSetGetBatchSV(t *testing.T) {
 
 	ind, err := db.SetBatchSV(Skv)
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("SetBatchSV Error Inserting to db %s", err)
 	}
 	if ind == nil {
-		t.Errorf("Nil index after Setbatch")
+		t.Fatalf("Nil index after Setbatch")
 	}
 	if ind.GetIndex() != 2 {
-		t.Errorf("SafeSet proof index error, expected %d, got %d", 2, ind.GetIndex())
+		t.Fatalf("SetBatchSV error, expected %d, got %d", 2, ind.GetIndex())
 	}
 
 	itList, err := db.GetBatchSV(&schema.KeyList{
@@ -439,11 +480,29 @@ func TestSetGetBatchSV(t *testing.T) {
 	})
 	for ind, val := range itList.Items {
 		if !bytes.Equal(val.Value.Payload, Skv.SKVs[ind].Value.Payload) {
-			t.Errorf("BatchSetSV value not equal to BatchGetSV value, expected %s, got %s", string(Skv.SKVs[ind].Value.Payload), string(val.Value.Payload))
+			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %s, got %s", string(Skv.SKVs[ind].Value.Payload), string(val.Value.Payload))
 		}
 		if val.Value.Timestamp != Skv.SKVs[ind].Value.Timestamp {
-			t.Errorf("BatchSetSV value not equal to BatchGetSV value, expected %d, got %d", Skv.SKVs[ind].Value.Timestamp, val.Value.Timestamp)
+			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %d, got %d", Skv.SKVs[ind].Value.Timestamp, val.Value.Timestamp)
 		}
+	}
+
+	_, err = db.SetBatchSV(&schema.SKVList{
+		SKVs: nil,
+	})
+	if err == nil {
+		t.Fatalf("SetBatchSV expected error")
+	}
+
+	_, err = db.SetBatchSV(&schema.SKVList{
+		SKVs: []*schema.StructuredKeyValue{
+			{
+				Key: []byte{},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatalf("SetBatchSV expected error %s", err)
 	}
 }
 
@@ -454,10 +513,10 @@ func TestInclusion(t *testing.T) {
 	for ind, val := range kv {
 		it, err := db.Set(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if it.GetIndex() != uint64(ind) {
-			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 	}
 	ind := uint64(1)
@@ -465,10 +524,10 @@ func TestInclusion(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	inc, err := db.Inclusion(&schema.Index{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if inc.Index != ind {
-		t.Errorf("Inclusion, expected %d, got %d", inc.Index, ind)
+		t.Fatalf("Inclusion, expected %d, got %d", inc.Index, ind)
 	}
 }
 
@@ -479,20 +538,20 @@ func TestConsintency(t *testing.T) {
 	for ind, val := range kv {
 		it, err := db.Set(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if it.GetIndex() != uint64(ind) {
-			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 	}
 	time.Sleep(1 * time.Second)
 	ind := uint64(1)
 	inc, err := db.Consistency(&schema.Index{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if inc.First != ind {
-		t.Errorf("Consistency, expected %d, got %d", inc.First, ind)
+		t.Fatalf("Consistency, expected %d, got %d", inc.First, ind)
 	}
 }
 
@@ -503,20 +562,20 @@ func TestByIndex(t *testing.T) {
 	for ind, val := range kv {
 		it, err := db.Set(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 		if it.GetIndex() != uint64(ind) {
-			t.Errorf("index error expecting %v got %v", ind, it.GetIndex())
+			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 	}
 	time.Sleep(1 * time.Second)
 	ind := uint64(1)
 	inc, err := db.ByIndex(&schema.Index{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if !bytes.Equal(inc.Value, kv[ind].Value) {
-		t.Errorf("ByIndex, expected %s, got %d", kv[ind].Value, inc.Value)
+		t.Fatalf("ByIndex, expected %s, got %d", kv[ind].Value, inc.Value)
 	}
 }
 
@@ -526,17 +585,17 @@ func TestByIndexSV(t *testing.T) {
 	for _, val := range Skv.SKVs {
 		_, err := db.SetSV(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	time.Sleep(1 * time.Second)
 	ind := uint64(1)
 	inc, err := db.ByIndexSV(&schema.Index{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if inc.Value.Timestamp != Skv.SKVs[ind].Value.Timestamp {
-		t.Errorf("ByIndexSV timestamp, expected %d, got %d", Skv.SKVs[ind].Value.GetTimestamp(), inc.Value.GetTimestamp())
+		t.Fatalf("ByIndexSV timestamp, expected %d, got %d", Skv.SKVs[ind].Value.GetTimestamp(), inc.Value.GetTimestamp())
 	}
 }
 
@@ -546,17 +605,17 @@ func TestBySafeIndex(t *testing.T) {
 	for _, val := range Skv.SKVs {
 		_, err := db.SetSV(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	time.Sleep(1 * time.Second)
 	ind := uint64(1)
 	inc, err := db.BySafeIndex(&schema.SafeIndexOptions{Index: ind})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	if inc.Item.Index != ind {
-		t.Errorf("ByIndexSV, expected %d, got %d", ind, inc.Item.Index)
+		t.Fatalf("ByIndexSV, expected %d, got %d", ind, inc.Item.Index)
 	}
 }
 
@@ -566,7 +625,7 @@ func TestHistory(t *testing.T) {
 	for _, val := range kv {
 		_, err := db.Set(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	_, err := db.Set(kv[0])
@@ -576,11 +635,11 @@ func TestHistory(t *testing.T) {
 		Key: kv[0].Key,
 	})
 	if err != nil {
-		t.Errorf("Error Inserting to db %s", err)
+		t.Fatalf("Error Inserting to db %s", err)
 	}
 	for _, val := range inc.Items {
 		if !bytes.Equal(val.Value, kv[0].Value) {
-			t.Errorf("History, expected %s, got %s", kv[0].Value, val.GetValue())
+			t.Fatalf("History, expected %s, got %s", kv[0].Value, val.GetValue())
 		}
 	}
 }
@@ -592,7 +651,7 @@ func TestHistorySV(t *testing.T) {
 	for _, val := range Skv.SKVs {
 		_, err := db.SetSV(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	_, err := db.SetSV(Skv.SKVs[0])
@@ -602,11 +661,11 @@ func TestHistorySV(t *testing.T) {
 	}
 	items, err := db.HistorySV(k)
 	if err != nil {
-		t.Errorf("Error reading key %s", err)
+		t.Fatalf("Error reading key %s", err)
 	}
 	for _, val := range items.Items {
 		if !bytes.Equal(val.Value.Payload, Skv.SKVs[0].Value.Payload) {
-			t.Errorf("HistorySV, expected %s, got %s", Skv.SKVs[0].Value.Payload, val.Value.Payload)
+			t.Fatalf("HistorySV, expected %s, got %s", Skv.SKVs[0].Value.Payload, val.Value.Payload)
 		}
 	}
 }
@@ -616,10 +675,10 @@ func TestHealth(t *testing.T) {
 	defer closer()
 	h, err := db.Health(&emptypb.Empty{})
 	if err != nil {
-		t.Errorf("health error %s", err)
+		t.Fatalf("health error %s", err)
 	}
 	if !h.GetStatus() {
-		t.Errorf("Health, expected %v, got %v", true, h.GetStatus())
+		t.Fatalf("Health, expected %v, got %v", true, h.GetStatus())
 	}
 }
 
@@ -628,21 +687,21 @@ func TestReference(t *testing.T) {
 	defer closer()
 	_, err := db.Set(kv[0])
 	if err != nil {
-		t.Errorf("Reference error %s", err)
+		t.Fatalf("Reference error %s", err)
 	}
 	ref, err := db.Reference(&schema.ReferenceOptions{
 		Reference: []byte(`tag`),
 		Key:       kv[0].Key,
 	})
 	if ref.Index != 1 {
-		t.Errorf("Reference, expected %v, got %v", 1, ref.Index)
+		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
 	item, err := db.Get(&schema.Key{Key: []byte(`tag`)})
 	if err != nil {
-		t.Errorf("Reference  Get error %s", err)
+		t.Fatalf("Reference  Get error %s", err)
 	}
 	if !bytes.Equal(item.Value, kv[0].Value) {
-		t.Errorf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
+		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
 	}
 }
 
@@ -651,7 +710,7 @@ func TestZAdd(t *testing.T) {
 	defer closer()
 	_, err := db.Set(kv[0])
 	if err != nil {
-		t.Errorf("Reference error %s", err)
+		t.Fatalf("Reference error %s", err)
 	}
 	ref, err := db.ZAdd(&schema.ZAddOptions{
 		Key:   kv[0].Key,
@@ -660,7 +719,7 @@ func TestZAdd(t *testing.T) {
 	})
 
 	if ref.Index != 1 {
-		t.Errorf("Reference, expected %v, got %v", 1, ref.Index)
+		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
 	item, err := db.ZScan(&schema.ZScanOptions{
 		Offset:  []byte(""),
@@ -668,10 +727,10 @@ func TestZAdd(t *testing.T) {
 		Reverse: false,
 	})
 	if err != nil {
-		t.Errorf("Reference  Get error %s", err)
+		t.Fatalf("Reference  Get error %s", err)
 	}
 	if !bytes.Equal(item.Items[0].Value, kv[0].Value) {
-		t.Errorf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
+		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
 	}
 }
 
@@ -681,7 +740,7 @@ func TestScan(t *testing.T) {
 
 	_, err := db.Set(kv[0])
 	if err != nil {
-		t.Errorf("set error %s", err)
+		t.Fatalf("set error %s", err)
 	}
 	ref, err := db.ZAdd(&schema.ZAddOptions{
 		Key:   kv[0].Key,
@@ -689,10 +748,10 @@ func TestScan(t *testing.T) {
 		Set:   kv[0].Value,
 	})
 	if err != nil {
-		t.Errorf("zadd error %s", err)
+		t.Fatalf("zadd error %s", err)
 	}
 	if ref.Index != 1 {
-		t.Errorf("Reference, expected %v, got %v", 1, ref.Index)
+		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
 
 	it, err := db.SafeZAdd(&schema.SafeZAddOptions{
@@ -706,10 +765,10 @@ func TestScan(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Errorf("SafeZAdd error %s", err)
+		t.Fatalf("SafeZAdd error %s", err)
 	}
 	if it.Index != 2 {
-		t.Errorf("SafeZAdd index, expected %v, got %v", 2, it.Index)
+		t.Fatalf("SafeZAdd index, expected %v, got %v", 2, it.Index)
 	}
 
 	item, err := db.Scan(&schema.ScanOptions{
@@ -720,10 +779,10 @@ func TestScan(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Errorf("ZScanSV  Get error %s", err)
+		t.Fatalf("ZScanSV  Get error %s", err)
 	}
 	if !bytes.Equal(item.Items[0].Value, kv[0].Value) {
-		t.Errorf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
+		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
 	}
 
 	scanItem, err := db.IScan(&schema.IScanOptions{
@@ -731,10 +790,10 @@ func TestScan(t *testing.T) {
 		PageSize:   1,
 	})
 	if err != nil {
-		t.Errorf("ZScanSV  Get error %s", err)
+		t.Fatalf("ZScanSV  Get error %s", err)
 	}
 	if !bytes.Equal(scanItem.Items[0].Value, kv[0].Key) {
-		t.Errorf("Reference, expected %v, got %v", string(kv[0].Key), string(scanItem.Items[0].Value))
+		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Key), string(scanItem.Items[0].Value))
 	}
 }
 
@@ -777,17 +836,17 @@ func TestCount(t *testing.T) {
 	for _, val := range kv {
 		_, err := db.SafeSet(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	c, err := db.Count(&schema.KeyPrefix{
 		Prefix: []byte("Franz"),
 	})
 	if err != nil {
-		t.Errorf("Error count %s", err)
+		t.Fatalf("Error count %s", err)
 	}
 	if c.Count != 1 {
-		t.Errorf("Error count expected %d got %d", 1, c.Count)
+		t.Fatalf("Error count expected %d got %d", 1, c.Count)
 	}
 }
 func TestScanSV(t *testing.T) {
@@ -838,17 +897,17 @@ func TestScanSV(t *testing.T) {
 	for _, val := range SafeSkv {
 		_, err := db.SafeSetSV(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	sc, err := db.ScanSV(&schema.ScanOptions{
 		Offset: []byte("Franz"),
 	})
 	if err != nil {
-		t.Errorf("ScanSV error %s", err)
+		t.Fatalf("ScanSV error %s", err)
 	}
 	if len(sc.Items) != 3 {
-		t.Errorf("ScanSV count expected %d got %d", 3, len(sc.Items))
+		t.Fatalf("ScanSV count expected %d got %d", 3, len(sc.Items))
 	}
 }
 func TestIscanSv(t *testing.T) {
@@ -899,7 +958,7 @@ func TestIscanSv(t *testing.T) {
 	for _, val := range SafeSkv {
 		_, err := db.SafeSetSV(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	sc, err := db.IScanSV(&schema.IScanOptions{
@@ -907,10 +966,18 @@ func TestIscanSv(t *testing.T) {
 		PageSize:   1,
 	})
 	if err != nil {
-		t.Errorf("IScanSV error %s", err)
+		t.Fatalf("IScanSV error %s", err)
 	}
 	if len(sc.Items) != 1 {
-		t.Errorf("IScanSV count expected %d got %d", 1, len(sc.Items))
+		t.Fatalf("IScanSV count expected %d got %d", 1, len(sc.Items))
+	}
+
+	_, err = db.IScanSV(&schema.IScanOptions{
+		PageNumber: 111111111,
+		PageSize:   111111111,
+	})
+	if err == nil {
+		t.Fatalf("IScanSV expected error")
 	}
 }
 
@@ -962,17 +1029,32 @@ func TestZScanSV(t *testing.T) {
 	for _, val := range SafeSkv {
 		_, err := db.SafeSetSV(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	sc, err := db.ZScanSV(&schema.ZScanOptions{
 		Offset: []byte("Franz"),
 	})
 	if err != nil {
-		t.Errorf("IScanSV error %s", err)
+		t.Fatalf("ZScanSV error %s", err)
 	}
 	if len(sc.Items) != 3 {
-		t.Errorf("IScanSV count expected %d got %d", 3, len(sc.Items))
+		t.Fatalf("ZScanSV count expected %d got %d", 3, len(sc.Items))
+	}
+
+	_, err = db.Set(&schema.KeyValue{
+		Key:   []byte("keyboard"),
+		Value: []byte("qwerty"),
+	})
+	if err != nil {
+		t.Fatalf("ZScanSV expected error %s", err)
+	}
+
+	_, err = db.ZScanSV(&schema.ZScanOptions{
+		Offset: []byte("keyboard"),
+	})
+	if err == nil {
+		t.Fatalf("ZScanSV expected error %s", err)
 	}
 }
 
@@ -997,7 +1079,7 @@ func TestSafeReference(t *testing.T) {
 	for _, val := range kv {
 		_, err := db.SafeSet(val)
 		if err != nil {
-			t.Errorf("Error Inserting to db %s", err)
+			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
 	_, err = db.SafeReference(&schema.SafeReferenceOptions{
@@ -1010,6 +1092,16 @@ func TestSafeReference(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Errorf("Error count %s", err)
+		t.Fatalf("SafeReference Error %s", err)
+	}
+
+	_, err = db.SafeReference(&schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{
+			Key:       []byte{},
+			Reference: []byte{},
+		},
+	})
+	if err == nil {
+		t.Fatalf("SafeReference expected error %s", err)
 	}
 }

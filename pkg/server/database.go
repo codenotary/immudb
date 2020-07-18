@@ -199,11 +199,10 @@ func (d *Db) SetBatchSV(skvl *schema.SKVList) (*schema.Index, error) {
 //GetBatchSV ...
 func (d *Db) GetBatchSV(kl *schema.KeyList) (*schema.StructuredItemList, error) {
 	list, err := d.GetBatch(kl)
-	slist, err := list.ToSItemList()
 	if err != nil {
 		return nil, err
 	}
-	return slist, err
+	return list.ToSItemList()
 }
 
 //ScanSV ...

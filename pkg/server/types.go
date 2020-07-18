@@ -35,9 +35,6 @@ type usernameToUserdataMap struct {
 //DefaultDbIndex systemdb should always be in index 0
 const DefaultDbIndex = 0
 
-//SystemDbIndex systemdb should always be in index 1, on index zero should be default db
-const SystemDbIndex = 1
-
 // DatabaseList DatabaseList interface
 type DatabaseList interface {
 	Append(database *Db)
@@ -57,6 +54,7 @@ type ImmuServer struct {
 	userdata            *usernameToUserdataMap
 	multidbmode         bool
 	Cc                  CorruptionChecker
+	sysDb               *Db
 }
 
 // DefaultServer ...
