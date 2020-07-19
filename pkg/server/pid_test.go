@@ -36,6 +36,11 @@ func TestPid(t *testing.T) {
 		t.Errorf("Error creating pid file %v", err)
 	}
 	defer pid.Remove()
+	//TODO uncomment once checkPIDFileAlreadyExists is cross platform
+	// err = checkPIDFileAlreadyExists(pidFilename)
+	// if err == nil {
+	// 	t.Errorf("checkPIDFileAlreadyExists expected error")
+	// }
 	_, err = os.Stat(pidFilename)
 	if os.IsNotExist(err) {
 		t.Errorf("pid file not created")

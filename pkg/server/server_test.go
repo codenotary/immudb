@@ -31,9 +31,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -245,6 +243,10 @@ func testCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	if userresp.Permission != auth.PermissionAdmin {
 		t.Fatalf("CreateUser error permission does not match %v", userresp)
+	}
+
+	if !s.mandatoryAuth() {
+		t.Fatalf("mandatoryAuth expected true")
 	}
 }
 func testListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -1386,38 +1388,6 @@ func TestDbOperations(t *testing.T) {
 	testCount(ctx, s, t)
 	testCountError(ctx, s, t)
 }
-
-func TestServer(t *testing.T) {
-	bufSize := 1024 * 1024
-	l := bufconn.Listen(bufSize)
-	datadir := "madrid"
-	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(false).WithDir(datadir).WithListener(l)
-
-	server := DefaultServer().WithOptions(options)
-	lis := bufconn.Listen(bufSize)
-	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
-		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
-	)
-	schema.RegisterImmuServiceServer(grpcServer, server)
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	defer func() {
-		os.RemoveAll(datadir)
-	}()
-	go func(t *testing.T) {
-		if err := server.Start(); err != nil {
-		}
-	}(t)
-
-	time.Sleep(2 * time.Second)
-	if err := server.CloseDatabases(); err != nil {
-		t.Fatal(err)
-	}
-}
 func TestUpdateAuthConfig(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../test/immudb.toml")
 	err := ioutil.WriteFile("/tmp/immudb.toml", input, 0644)
@@ -1460,6 +1430,41 @@ func TestUpdateMTLSConfig(t *testing.T) {
 	_, err = s.UpdateMTLSConfig(context.Background(), &schema.MTLSConfig{
 		Enabled: true,
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func TestMtls(t *testing.T) {
+	mtlsopts := MTLsOptions{
+		Pkey:        "./../../test/mtls_certs/ca.key.pem",
+		Certificate: "./../../test/mtls_certs/ca.cert.pem",
+		ClientCAs:   "./../../test/mtls_certs/ca-chain.cert.pem",
+	}
+	op := DefaultOptions().
+		WithCorruptionCheck(false).
+		WithInMemoryStore(true).
+		WithAuth(false).
+		WithMaintenance(false).WithMTLs(true).WithMTLsOptions(mtlsopts)
+	s := DefaultServer().WithOptions(op)
+	ops, err := s.setUpMTLS()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(ops) == 0 {
+		log.Fatal("setUpMTLS expected options > 0")
+	}
+}
+
+func TestPID(t *testing.T) {
+	op := DefaultOptions().
+		WithCorruptionCheck(false).
+		WithInMemoryStore(true).
+		WithAuth(false).
+		WithMaintenance(false).WithPidfile("pidfile")
+	s := DefaultServer().WithOptions(op)
+	defer os.Remove("pidfile")
+	err := s.setupPidFile()
 	if err != nil {
 		log.Fatal(err)
 	}
