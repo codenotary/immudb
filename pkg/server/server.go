@@ -88,39 +88,10 @@ func (s *ImmuServer) Start() error {
 		return fmt.Errorf("auth should be on")
 	}
 
-	options := []grpc.ServerOption{}
-	//----------TLS Setting-----------//
-	if s.Options.MTLs {
-		// credentials needed to communicate with client
-		certificate, err := tls.LoadX509KeyPair(
-			s.Options.MTLsOptions.Certificate,
-			s.Options.MTLsOptions.Pkey,
-		)
-		if err != nil {
-			s.Logger.Errorf("Failed to read server key pair: %s", err)
-			return err
-		}
-		certPool := x509.NewCertPool()
-		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
-		bs, err := ioutil.ReadFile(s.Options.MTLsOptions.ClientCAs)
-		if err != nil {
-			s.Logger.Errorf("Failed to read client ca cert: %s", err)
-			return err
-		}
-
-		ok := certPool.AppendCertsFromPEM(bs)
-		if !ok {
-			s.Logger.Errorf("Failed to append client certs")
-			return err
-		}
-
-		tlsConfig := &tls.Config{
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			Certificates: []tls.Certificate{certificate},
-			ClientCAs:    certPool,
-		}
-
-		options = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}
+	options, err := s.setUpMTLS()
+	if err != nil {
+		s.Logger.Errorf("error setting up MTLS: %s", err)
+		return err
 	}
 
 	var listener net.Listener
@@ -151,14 +122,11 @@ func (s *ImmuServer) Start() error {
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 
 	if s.Options.MetricsServer {
-		metricsServer := StartMetrics(
-			s.Options.MetricsBind(),
-			s.Logger,
-			func() float64 { return float64(s.dbList.GetByIndex(DefaultDbIndex).Store.CountAll()) },
-			func() float64 { return time.Since(startedAt).Hours() },
-		)
+		if err := s.setUpMetricsServer(); err != nil {
+			return err
+		}
 		defer func() {
-			if err = metricsServer.Close(); err != nil {
+			if err := s.metricsServer.Close(); err != nil {
 				s.Logger.Errorf("Failed to shutdown metric server: %s", err)
 			}
 		}()
@@ -170,11 +138,8 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Infof("Started with an empty database")
 	}
 
-	if s.Options.Pidfile != "" {
-		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
-			s.Logger.Errorf("Failed to write pidfile: %s", err)
-			return err
-		}
+	if err = s.setupPidFile(); err != nil {
+		return err
 	}
 	//===> !NOTE: See Histograms section here:
 	// https://github.com/grpc-ecosystem/go-grpc-prometheus
@@ -214,6 +179,63 @@ func (s *ImmuServer) Start() error {
 	err = s.GrpcServer.Serve(listener)
 	<-s.quit
 	return err
+}
+
+func (s *ImmuServer) setupPidFile() error {
+	var err error
+	if s.Options.Pidfile != "" {
+		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
+			s.Logger.Errorf("Failed to write pidfile: %s", err)
+			return err
+		}
+	}
+	return err
+}
+
+func (s *ImmuServer) setUpMetricsServer() error {
+	s.metricsServer = StartMetrics(
+		s.Options.MetricsBind(),
+		s.Logger,
+		func() float64 { return float64(s.dbList.GetByIndex(DefaultDbIndex).Store.CountAll()) },
+		func() float64 { return time.Since(startedAt).Hours() },
+	)
+	return nil
+}
+
+func (s *ImmuServer) setUpMTLS() ([]grpc.ServerOption, error) {
+	if s.Options.MTLs {
+		// credentials needed to communicate with client
+		certificate, err := tls.LoadX509KeyPair(
+			s.Options.MTLsOptions.Certificate,
+			s.Options.MTLsOptions.Pkey,
+		)
+		if err != nil {
+			s.Logger.Errorf("Failed to read server key pair: %s", err)
+			return nil, err
+		}
+		certPool := x509.NewCertPool()
+		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
+		bs, err := ioutil.ReadFile(s.Options.MTLsOptions.ClientCAs)
+		if err != nil {
+			s.Logger.Errorf("Failed to read client ca cert: %s", err)
+			return nil, err
+		}
+
+		ok := certPool.AppendCertsFromPEM(bs)
+		if !ok {
+			s.Logger.Errorf("Failed to append client certs")
+			return nil, err
+		}
+
+		tlsConfig := &tls.Config{
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			Certificates: []tls.Certificate{certificate},
+			ClientCAs:    certPool,
+		}
+
+		return []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}, nil
+	}
+	return []grpc.ServerOption{}, nil
 }
 
 func (s *ImmuServer) printUsageCallToAction() {

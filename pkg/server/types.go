@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"net/http"
 	"os"
 	"sync"
 
@@ -55,6 +56,7 @@ type ImmuServer struct {
 	multidbmode         bool
 	Cc                  CorruptionChecker
 	sysDb               *Db
+	metricsServer       *http.Server
 }
 
 // DefaultServer ...

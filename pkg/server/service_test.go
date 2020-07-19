@@ -32,7 +32,7 @@ func TestService(t *testing.T) {
 	bufSize := 1024 * 1024
 	l := bufconn.Listen(bufSize)
 	datadir := "rome"
-	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(false).WithDir(datadir).WithListener(l).WithMetricsServer(false)
+	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(true).WithDir(datadir).WithListener(l).WithPort(22222).WithMetricsServer(false)
 
 	server := DefaultServer().WithOptions(options)
 	lis := bufconn.Listen(bufSize)
@@ -53,6 +53,7 @@ func TestService(t *testing.T) {
 		ImmuServer: *server,
 	}
 	srvc.Start()
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second)
 	srvc.Stop()
+	time.Sleep(1 * time.Second)
 }
