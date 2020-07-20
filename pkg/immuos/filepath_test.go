@@ -18,6 +18,7 @@ package immuos
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -75,4 +76,33 @@ func TestStandardFilepath(t *testing.T) {
 	}
 	require.Equal(t, otherPathToDir, fp.Dir(pathToFile))
 	fp.DirF = dirFOK
+
+	// Walk
+	walkFOK := fp.WalkF
+	errWalk := errors.New("Walk error")
+	fp.WalkF = func(root string, walkFn filepath.WalkFunc) error {
+		return errWalk
+	}
+	require.Equal(t,
+		errWalk,
+		fp.Walk(
+			"root",
+			func(path string, info os.FileInfo, err error) error { return nil }))
+	fp.WalkF = walkFOK
+
+	// FromSlash ...
+	fromSlashFOK := fp.FromSlashF
+	fp.FromSlashF = func(path string) string {
+		return "fromslash"
+	}
+	require.Equal(t, "fromslash", fp.FromSlash("slash"))
+	fp.FromSlashF = fromSlashFOK
+
+	// Join ...
+	joinFOK := fp.JoinF
+	fp.JoinF = func(elem ...string) string {
+		return "joined"
+	}
+	require.Equal(t, "joined", fp.Join("pie", "ces"))
+	fp.JoinF = joinFOK
 }

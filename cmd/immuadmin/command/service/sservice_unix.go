@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -95,23 +94,23 @@ func (ss sservice) InstallSetup(serviceName string) (err error) {
 		return err
 	}
 
-	if err = ss.oss.MkdirAll(ss.v.GetString("dir"), os.ModePerm); err != nil {
+	if err = ss.os.MkdirAll(ss.v.GetString("dir"), os.ModePerm); err != nil {
 		return err
 	}
 	if err = ss.SetOwnership(ss.v.GetString("dir")); err != nil {
 		return err
 	}
 
-	logPath := filepath.Dir(ss.v.GetString("logfile"))
-	if err = ss.oss.MkdirAll(logPath, os.ModePerm); err != nil {
+	logPath := ss.os.Dir(ss.v.GetString("logfile"))
+	if err = ss.os.MkdirAll(logPath, os.ModePerm); err != nil {
 		return err
 	}
 	if err = ss.SetOwnership(logPath); err != nil {
 		return err
 	}
 
-	pidPath := filepath.Dir(ss.v.GetString("pidfile"))
-	if err = os.MkdirAll(pidPath, os.ModePerm); err != nil {
+	pidPath := ss.os.Dir(ss.v.GetString("pidfile"))
+	if err = ss.os.MkdirAll(pidPath, os.ModePerm); err != nil {
 		return err
 	}
 	if err = ss.SetOwnership(pidPath); err != nil {
@@ -137,7 +136,7 @@ func (ss sservice) UninstallSetup(serviceName string) (err error) {
 	if err = ss.uninstallManPages(serviceName); err != nil {
 		return err
 	}
-	if err = ss.oss.RemoveAll(filepath.Dir(ss.v.GetString("logfile"))); err != nil {
+	if err = ss.os.RemoveAll(ss.os.Dir(ss.v.GetString("logfile"))); err != nil {
 		return err
 	}
 	return err
@@ -149,8 +148,8 @@ func (ss sservice) InstallConfig(serviceName string) (err error) {
 		return err
 	}
 	cp, _ := ss.GetDefaultConfigPath(serviceName)
-	var configDir = filepath.Dir(cp)
-	err = ss.oss.MkdirAll(configDir, os.ModePerm)
+	var configDir = ss.os.Dir(cp)
+	err = ss.os.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -165,20 +164,20 @@ func (ss sservice) InstallConfig(serviceName string) (err error) {
 }
 
 func (ss sservice) GroupCreateIfNotExists() (err error) {
-	if _, err = ss.oss.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
+	if _, err = ss.os.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
 		return err
 	}
-	if err = ss.oss.AddGroup(linuxGroup); err != nil {
+	if err = ss.os.AddGroup(linuxGroup); err != nil {
 		return err
 	}
 	return err
 }
 
 func (ss sservice) UserCreateIfNotExists() (err error) {
-	if _, err = ss.oss.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
+	if _, err = ss.os.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
 		return err
 	}
-	if err = ss.oss.AddUser(linuxGroup, linuxUser); err != nil {
+	if err = ss.os.AddUser(linuxGroup, linuxUser); err != nil {
 		return err
 	}
 
@@ -189,19 +188,19 @@ func (ss sservice) SetOwnership(path string) (err error) {
 	var g *user.Group
 	var u *user.User
 
-	if g, err = ss.oss.LookupGroup(linuxGroup); err != nil {
+	if g, err = ss.os.LookupGroup(linuxGroup); err != nil {
 		return err
 	}
-	if u, err = ss.oss.Lookup(linuxUser); err != nil {
+	if u, err = ss.os.Lookup(linuxUser); err != nil {
 		return err
 	}
 
 	uid, _ := strconv.Atoi(u.Uid)
 	gid, _ := strconv.Atoi(g.Gid)
 
-	return ss.fps.Walk(path, func(name string, info os.FileInfo, err error) error {
+	return ss.os.Walk(path, func(name string, info os.FileInfo, err error) error {
 		if err == nil {
-			err = ss.oss.Chown(name, uid, gid)
+			err = ss.os.Chown(name, uid, gid)
 		}
 		return err
 	})
@@ -218,8 +217,8 @@ func (ss sservice) RemoveProgramFiles(serviceName string) (err error) {
 	if err != nil {
 		return err
 	}
-	config := filepath.Dir(cp)
-	ss.oss.RemoveAll(config)
+	config := ss.os.Dir(cp)
+	ss.os.RemoveAll(config)
 	return
 }
 
@@ -228,7 +227,7 @@ func (ss sservice) EraseData(serviceName string) (err error) {
 	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
-	return ss.oss.RemoveAll(filepath.FromSlash(ss.v.GetString("dir")))
+	return ss.os.RemoveAll(ss.os.FromSlash(ss.v.GetString("dir")))
 }
 
 // todo @Michele this can be simplified
@@ -239,25 +238,25 @@ func (ss sservice) EraseData(serviceName string) (err error) {
 // If found it returns the absolute file path
 func (ss sservice) GetExecutable(input string, serviceName string) (exec string, err error) {
 	if input == "" {
-		if current, err := os.Executable(); err == nil {
-			exec = filepath.Join(filepath.Dir(current), serviceName)
+		if current, err := ss.os.Executable(); err == nil {
+			exec = ss.os.Join(ss.os.Dir(current), serviceName)
 		} else {
 			return exec, err
 		}
-		_, err = os.Stat(exec)
-		if ss.oss.IsNotExist(err) {
+		_, err = ss.os.Stat(exec)
+		if ss.os.IsNotExist(err) {
 			return exec, ErrExecNotFound
 		}
 		fmt.Printf("found an executable for the service %s on current dir\n", serviceName)
 	} else {
-		_, err = os.Stat(input)
-		if ss.oss.IsNotExist(err) {
+		_, err = ss.os.Stat(input)
+		if ss.os.IsNotExist(err) {
 			return input, ErrExecNotFound
 		}
 		exec = input
 		fmt.Printf("using provided executable for the service %s\n", serviceName)
 	}
-	if exec, err = filepath.Abs(exec); err != nil {
+	if exec, err = ss.os.Abs(exec); err != nil {
 		return exec, err
 	}
 	return exec, err
@@ -268,7 +267,7 @@ func (ss sservice) GetExecutable(input string, serviceName string) (exec string,
 
 // CopyExecInOsDefault copy the executable in default exec folder and returns the path. It accepts an executable absolute path
 func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
-	from, err := ss.oss.Open(execPath)
+	from, err := ss.os.Open(execPath)
 	if err != nil {
 		return "", err
 	}
@@ -276,7 +275,7 @@ func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err
 
 	newExecPath, _ = ss.GetDefaultExecPath(execPath)
 
-	to, err := ss.oss.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
+	to, err := ss.os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return "", err
 	}
@@ -286,7 +285,7 @@ func (ss sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err
 		return "", err
 	}
 
-	if err = ss.oss.Chmod(newExecPath, 0775); err != nil {
+	if err = ss.os.Chmod(newExecPath, 0775); err != nil {
 		return "", err
 	}
 
@@ -318,9 +317,9 @@ func (ss sservice) uninstallManPages(serviceName string) error {
 func (ss sservice) uninstallExecutables(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return ss.oss.Remove(filepath.Join(linuxExecPath, "immudb"))
+		return ss.os.Remove(ss.os.Join(linuxExecPath, "immudb"))
 	case "immugw":
-		return ss.oss.Remove(filepath.Join(linuxExecPath, "immugw"))
+		return ss.os.Remove(ss.os.Join(linuxExecPath, "immugw"))
 	default:
 		return errors.New("invalid service name specified")
 	}
@@ -328,13 +327,13 @@ func (ss sservice) uninstallExecutables(serviceName string) error {
 
 // GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
 func (ss sservice) GetDefaultExecPath(localFile string) (string, error) {
-	execName := filepath.Base(localFile)
-	return filepath.Join(linuxExecPath, execName), nil
+	execName := ss.os.Base(localFile)
+	return ss.os.Join(linuxExecPath, execName), nil
 }
 
 // GetDefaultConfigPath returns the default config path
 func (ss sservice) GetDefaultConfigPath(serviceName string) (string, error) {
-	return filepath.Join(linuxConfigPath, serviceName+".toml"), nil
+	return ss.os.Join(linuxConfigPath, serviceName+".toml"), nil
 }
 
 // IsRunning check if status derives from a running process

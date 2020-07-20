@@ -18,6 +18,7 @@ package immuos
 
 import (
 	"errors"
+	"os/user"
 	"path/filepath"
 	"testing"
 
@@ -125,6 +126,62 @@ func TestStandardOS(t *testing.T) {
 	}
 	require.Equal(t, errRemoveAll, os.RemoveAll(filename2))
 	os.RemoveAllF = removeAllFOK
+
+	// Chown
+	chownFOK := os.ChownF
+	errChown := errors.New("Chown error")
+	os.ChownF = func(name string, uid, gid int) error {
+		return errChown
+	}
+	require.Equal(t, errChown, os.Chown("name", 1, 2))
+	os.ChownF = chownFOK
+
+	// Chmod
+	chmodFOK := os.ChmodF
+	errChmod := errors.New("Chmod error")
+	os.ChmodF = func(name string, mode stdos.FileMode) error {
+		return errChmod
+	}
+	require.Equal(t, errChmod, os.Chmod("name", 0644))
+	os.ChmodF = chmodFOK
+
+	// IsNotExist
+	isNotExistFOK := os.IsNotExistF
+	os.IsNotExistF = func(err error) bool {
+		return true
+	}
+	require.True(t, os.IsNotExist(nil))
+	os.IsNotExistF = isNotExistFOK
+
+	// Open
+	openFOK := os.OpenF
+	errOpen := errors.New("Open error")
+	os.OpenF = func(name string) (*stdos.File, error) {
+		return nil, errOpen
+	}
+	_, err = os.Open("name")
+	require.Equal(t, errOpen, err)
+	os.OpenF = openFOK
+
+	// OpenFile
+	openFileFOK := os.OpenFileF
+	errOpenFile := errors.New("OpenFile error")
+	os.OpenFileF = func(name string, flag int, perm stdos.FileMode) (*stdos.File, error) {
+		return nil, errOpenFile
+	}
+	_, err = os.OpenFile("name", 1, 0644)
+	require.Equal(t, errOpenFile, err)
+	os.OpenFileF = openFileFOK
+
+	// Executable
+	executableFOK := os.ExecutableF
+	errExecutable := errors.New("Executable error")
+	os.ExecutableF = func() (string, error) {
+		return "", errExecutable
+	}
+	_, err = os.Executable()
+	require.Equal(t, errExecutable, err)
+	os.ExecutableF = executableFOK
 }
 
 func TestStandardFilepathEmbedded(t *testing.T) {
@@ -144,4 +201,18 @@ func TestStandardFilepathEmbedded(t *testing.T) {
 	_, err = os.Abs(relPath)
 	require.Equal(t, errAbs, err)
 	os.AbsF = absFOK
+}
+
+func TestStandardUserEmbedded(t *testing.T) {
+	os := NewStandardOS()
+
+	// Lookup ...
+	lookupFOK := os.LookupF
+	errLookup := errors.New("Lookup error")
+	os.LookupF = func(username string) (*user.User, error) {
+		return nil, errLookup
+	}
+	_, err := os.Lookup("username")
+	require.Equal(t, errLookup, err)
+	os.LookupF = lookupFOK
 }

@@ -21,6 +21,7 @@ import "os"
 // OS ...
 type OS interface {
 	Filepath
+	User
 	Create(name string) (*os.File, error)
 	Getwd() (string, error)
 	Mkdir(name string, perm os.FileMode) error
@@ -29,25 +30,39 @@ type OS interface {
 	RemoveAll(path string) error
 	Rename(oldpath, newpath string) error
 	Stat(name string) (os.FileInfo, error)
+	Chown(name string, uid, gid int) error
+	Chmod(name string, mode os.FileMode) error
+	IsNotExist(err error) bool
+	Open(name string) (*os.File, error)
+	OpenFile(name string, flag int, perm os.FileMode) (*os.File, error)
+	Executable() (string, error)
 }
 
 // StandardOS ...
 type StandardOS struct {
 	*StandardFilepath
-	CreateF    func(name string) (*os.File, error)
-	GetwdF     func() (string, error)
-	MkdirF     func(name string, perm os.FileMode) error
-	MkdirAllF  func(path string, perm os.FileMode) error
-	RemoveF    func(name string) error
-	RemoveAllF func(path string) error
-	RenameF    func(oldpath, newpath string) error
-	StatF      func(name string) (os.FileInfo, error)
+	*StandardUser
+	CreateF     func(name string) (*os.File, error)
+	GetwdF      func() (string, error)
+	MkdirF      func(name string, perm os.FileMode) error
+	MkdirAllF   func(path string, perm os.FileMode) error
+	RemoveF     func(name string) error
+	RemoveAllF  func(path string) error
+	RenameF     func(oldpath, newpath string) error
+	StatF       func(name string) (os.FileInfo, error)
+	ChownF      func(name string, uid, gid int) error
+	ChmodF      func(name string, mode os.FileMode) error
+	IsNotExistF func(err error) bool
+	OpenF       func(name string) (*os.File, error)
+	OpenFileF   func(name string, flag int, perm os.FileMode) (*os.File, error)
+	ExecutableF func() (string, error)
 }
 
 // NewStandardOS ...
 func NewStandardOS() *StandardOS {
 	return &StandardOS{
 		StandardFilepath: NewStandardFilepath(),
+		StandardUser:     NewStandardUser(),
 		CreateF:          os.Create,
 		GetwdF:           os.Getwd,
 		MkdirF:           os.Mkdir,
@@ -56,6 +71,12 @@ func NewStandardOS() *StandardOS {
 		RemoveAllF:       os.RemoveAll,
 		RenameF:          os.Rename,
 		StatF:            os.Stat,
+		ChownF:           os.Chown,
+		ChmodF:           os.Chmod,
+		IsNotExistF:      os.IsNotExist,
+		OpenF:            os.Open,
+		OpenFileF:        os.OpenFile,
+		ExecutableF:      os.Executable,
 	}
 }
 
@@ -97,4 +118,34 @@ func (sos *StandardOS) Rename(oldpath, newpath string) error {
 // Stat ...
 func (sos *StandardOS) Stat(name string) (os.FileInfo, error) {
 	return sos.StatF(name)
+}
+
+// Chown ...
+func (sos *StandardOS) Chown(name string, uid, gid int) error {
+	return sos.ChownF(name, uid, gid)
+}
+
+// Chmod ...
+func (sos *StandardOS) Chmod(name string, mode os.FileMode) error {
+	return sos.ChmodF(name, mode)
+}
+
+// IsNotExist ...
+func (sos *StandardOS) IsNotExist(err error) bool {
+	return sos.IsNotExistF(err)
+}
+
+// Open ...
+func (sos *StandardOS) Open(name string) (*os.File, error) {
+	return sos.OpenF(name)
+}
+
+// OpenFile ...
+func (sos *StandardOS) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
+	return sos.OpenFileF(name, flag, perm)
+}
+
+// Executable ...
+func (sos *StandardOS) Executable() (string, error) {
+	return sos.ExecutableF()
 }

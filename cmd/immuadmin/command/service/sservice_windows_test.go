@@ -19,9 +19,10 @@ limitations under the License.
 package service
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	daem "github.com/takama/daemon"
-	"testing"
 )
 
 func TestSservice_NewDaemon(t *testing.T) {

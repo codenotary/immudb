@@ -17,13 +17,16 @@ limitations under the License.
 package service
 
 import (
+	"io"
+
 	immudb "github.com/codenotary/immudb/cmd/immudb/command"
 	immugw "github.com/codenotary/immudb/cmd/immugw/command"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
-	"io"
 )
 
+// Sservice ...
 type Sservice interface {
 	NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error)
 	IsAdmin() (bool, error)
@@ -40,28 +43,33 @@ type Sservice interface {
 	ReadConfig(serviceName string) (err error)
 }
 
+// SserviceManPages ...
 type SserviceManPages interface {
 	installManPages(serviceName string) error
 	uninstallManPages(serviceName string) error
 }
 
+// SservicePermissions ...
 type SservicePermissions interface {
 	GroupCreateIfNotExists() (err error)
 	UserCreateIfNotExists() (err error)
 	SetOwnership(path string) (err error)
 }
 
+// SserviceTOREFACTOR ...
 type SserviceTOREFACTOR interface {
 	uninstallExecutables(serviceName string) error
 }
 
+// NewSService ...
 func NewSService() *sservice {
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudb.ManpageServiceImmudb{}
 	mpss[1] = immugw.ManpageServiceImmugw{}
-	return &sservice{oss{}, filepaths{}, viper.New(), mpss}
+	return &sservice{immuos.NewStandardOS(), viper.New(), mpss}
 }
 
+// ConfigService ...
 type ConfigService interface {
 	WriteConfigAs(filename string) error
 	GetString(key string) string
@@ -70,8 +78,7 @@ type ConfigService interface {
 }
 
 type sservice struct {
-	oss  Oss
-	fps  Filepaths
+	os   immuos.OS
 	v    ConfigService
 	mpss []immudb.ManpageService
 }
