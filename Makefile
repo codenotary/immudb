@@ -116,7 +116,14 @@ build/codegen:
 	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
 	-I${GOPATH}/pkg/mod/github.com/dgraph-io/badger/v2@v2.0.0-20200408100755-2e708d968e94 \
 	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
-  	--swagger_out=logtostderr=true:pkg/api/schema \
+  	--swagger_out=logtostderr=true:pkg/api/schema
+
+	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
+	-I${GOPATH}/pkg/mod \
+	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
+	-I${GOPATH}/pkg/mod/github.com/dgraph-io/badger/v2@v2.0.0-20200408100755-2e708d968e94 \
+	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	--doc_out=pkg/api/schema --doc_opt=markdown,docs.md \
 
 .PHONY: clean
 clean:
@@ -176,6 +183,7 @@ prerequisites:
 	go get -u github.com/golang/protobuf/
 	go get -u github.com/golang/protobuf/proto
 	go get -u github.com/golang/protobuf/protoc-gen-go
+	go get -u github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc
 
 ########################## releases scripts ############################################################################
 .PHONY: CHANGELOG.md
