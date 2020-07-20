@@ -24,23 +24,32 @@ type Filepath interface {
 	Base(path string) string
 	Ext(path string) string
 	Dir(path string) string
+	Walk(root string, walkFn filepath.WalkFunc) error
+	FromSlash(path string) string
+	Join(elem ...string) string
 }
 
 // StandardFilepath ...
 type StandardFilepath struct {
-	AbsF  func(path string) (string, error)
-	BaseF func(path string) string
-	ExtF  func(path string) string
-	DirF  func(path string) string
+	AbsF       func(path string) (string, error)
+	BaseF      func(path string) string
+	ExtF       func(path string) string
+	DirF       func(path string) string
+	WalkF      func(root string, walkFn filepath.WalkFunc) error
+	FromSlashF func(path string) string
+	JoinF      func(elem ...string) string
 }
 
 // NewStandardFilepath ...
 func NewStandardFilepath() *StandardFilepath {
 	return &StandardFilepath{
-		AbsF:  filepath.Abs,
-		BaseF: filepath.Base,
-		ExtF:  filepath.Ext,
-		DirF:  filepath.Dir,
+		AbsF:       filepath.Abs,
+		BaseF:      filepath.Base,
+		ExtF:       filepath.Ext,
+		DirF:       filepath.Dir,
+		WalkF:      filepath.Walk,
+		FromSlashF: filepath.FromSlash,
+		JoinF:      filepath.Join,
 	}
 }
 
@@ -62,4 +71,19 @@ func (sf *StandardFilepath) Ext(path string) string {
 // Dir ...
 func (sf *StandardFilepath) Dir(path string) string {
 	return sf.DirF(path)
+}
+
+// Walk ...
+func (sf *StandardFilepath) Walk(root string, walkFn filepath.WalkFunc) error {
+	return sf.WalkF(root, walkFn)
+}
+
+// FromSlash ...
+func (sf *StandardFilepath) FromSlash(path string) string {
+	return sf.FromSlashF(path)
+}
+
+// Join ...
+func (sf *StandardFilepath) Join(elem ...string) string {
+	return sf.JoinF(elem...)
 }
