@@ -21,8 +21,9 @@ import (
 	"compress/flate"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/immuos"
 )
 
 // Zip compression levels
@@ -35,21 +36,54 @@ const (
 	ZipHuffmanOnly        = flate.HuffmanOnly
 )
 
+// Ziper ...
+type Ziper interface {
+	ZipIt(src, dst string, compressionLevel int) error
+	UnZipIt(src, dst string) error
+}
+
+// StandardZiper ...
+type StandardZiper struct {
+	OS       immuos.OS
+	ZipItF   func(src, dst string, compressionLevel int) error
+	UnZipItF func(src, dst string) error
+}
+
+// NewStandardZiper ...
+func NewStandardZiper() *StandardZiper {
+	sz := &StandardZiper{
+		OS: immuos.NewStandardOS(),
+	}
+	sz.ZipItF = sz.zipIt
+	sz.UnZipItF = sz.unZipIt
+	return sz
+}
+
 // ZipIt ...
-func ZipIt(src, dst string, compressionLevel int) error {
-	srcInfo, err := os.Stat(src)
+func (sz *StandardZiper) ZipIt(src, dst string, compressionLevel int) error {
+	return sz.ZipItF(src, dst, compressionLevel)
+}
+
+// UnZipIt ...
+func (sz *StandardZiper) UnZipIt(src, dst string) error {
+	return sz.UnZipItF(src, dst)
+}
+
+// zipIt ...
+func (sz *StandardZiper) zipIt(src, dst string, compressionLevel int) error {
+	srcInfo, err := sz.OS.Stat(src)
 	if err != nil {
 		return err
 	}
 	var baseDir string
 	if srcInfo.IsDir() {
-		baseDir = filepath.Base(src)
+		baseDir = sz.OS.Base(src)
 	}
 
-	if _, err = os.Stat(dst); err == nil {
+	if _, err = sz.OS.Stat(dst); err == nil {
 		return os.ErrExist
 	}
-	zipfile, err := os.Create(dst)
+	zipfile, err := sz.OS.Create(dst)
 	if err != nil {
 		return err
 	}
@@ -63,7 +97,7 @@ func ZipIt(src, dst string, compressionLevel int) error {
 		})
 	}
 
-	err = filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	err = sz.OS.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -75,7 +109,7 @@ func ZipIt(src, dst string, compressionLevel int) error {
 			return err
 		}
 		if baseDir != "" {
-			header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, src))
+			header.Name = sz.OS.Join(baseDir, strings.TrimPrefix(path, src))
 		}
 		if info.IsDir() {
 			header.Name += "/"
@@ -89,7 +123,7 @@ func ZipIt(src, dst string, compressionLevel int) error {
 		if info.IsDir() {
 			return nil
 		}
-		file, err := os.Open(path)
+		file, err := sz.OS.Open(path)
 		if err != nil {
 			return err
 		}
@@ -104,18 +138,18 @@ func ZipIt(src, dst string, compressionLevel int) error {
 	return zipWriter.Close()
 }
 
-// UnZipIt ...
-func UnZipIt(src, dst string) error {
+// unZipIt ...
+func (sz *StandardZiper) unZipIt(src, dst string) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	os.MkdirAll(dst, 0755)
+	sz.OS.MkdirAll(dst, 0755)
 
 	for _, f := range r.File {
-		err := extractAndWriteFile(f, dst)
+		err := sz.extractAndWriteFile(f, dst)
 		if err != nil {
 			return err
 		}
@@ -124,21 +158,23 @@ func UnZipIt(src, dst string) error {
 	return nil
 }
 
-func extractAndWriteFile(fileInZip *zip.File, dst string) error {
+func (sz *StandardZiper) extractAndWriteFile(fileInZip *zip.File, dst string) error {
 	rc, err := fileInZip.Open()
 	if err != nil {
 		return err
 	}
 	defer rc.Close()
 
-	path := filepath.Join(dst, fileInZip.Name)
+	path := sz.OS.Join(dst, fileInZip.Name)
 
 	if fileInZip.FileInfo().IsDir() {
-		os.MkdirAll(path, 0755)
+		sz.OS.MkdirAll(path, 0755)
 	} else {
-		os.MkdirAll(filepath.Dir(path), 0755)
+		if err := sz.OS.MkdirAll(sz.OS.Dir(path), 0755); err != nil {
+			return err
+		}
 		targetFile, err :=
-			os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileInZip.Mode())
+			sz.OS.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileInZip.Mode())
 		if err != nil {
 			return err
 		}

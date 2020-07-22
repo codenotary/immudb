@@ -41,6 +41,9 @@ import (
 type backupper struct {
 	daemon daem.Daemon
 	os     immuos.OS
+	copier fs.Copier
+	tarer  fs.Tarer
+	ziper  fs.Ziper
 }
 
 func newBackupper(os immuos.OS) (*backupper, error) {
@@ -48,7 +51,13 @@ func newBackupper(os immuos.OS) (*backupper, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &backupper{d, os}, nil
+	return &backupper{
+			daemon: d,
+			os:     os,
+			copier: fs.NewStandardCopier(),
+			tarer:  fs.NewStandardTarer(),
+			ziper:  fs.NewStandardZiper()},
+		nil
 }
 
 // Backupper ...
@@ -287,7 +296,7 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 
 	srcBase := b.os.Base(src)
 	snapshotPath := srcBase + "_bkp_" + time.Now().Format("2006-01-02_15-04-05")
-	if err = fs.CopyDir(src, snapshotPath); err != nil {
+	if err = b.copier.CopyDir(src, snapshotPath); err != nil {
 		return "", err
 	}
 	// remove the immudb.identifier file from the backup
@@ -311,10 +320,10 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 	var archiveErr error
 	if runtime.GOOS != "windows" {
 		archivePath = snapshotPath + ".tar.gz"
-		archiveErr = fs.TarIt(snapshotPath, archivePath)
+		archiveErr = b.tarer.TarIt(snapshotPath, archivePath)
 	} else {
 		archivePath = snapshotPath + ".zip"
-		archiveErr = fs.ZipIt(snapshotPath, archivePath, fs.ZipDefaultCompression)
+		archiveErr = b.ziper.ZipIt(snapshotPath, archivePath, fs.ZipDefaultCompression)
 	}
 	if archiveErr != nil {
 		return "", fmt.Errorf(
@@ -357,13 +366,13 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 	var extract func(string, string) error
 	switch snapshotExt {
 	case ".tar.gz":
-		extract = fs.UnTarIt
+		extract = b.tarer.UnTarIt
 	case ".zip":
-		extract = fs.UnZipIt
+		extract = b.ziper.UnZipIt
 	case "": // uncompressed
 		// TODO OGG: this will result in the backup being renamed directly to the db folder
 		if dbParentDir != b.os.Dir(snapshotPath)+string(stdos.PathSeparator) {
-			extract = fs.CopyDir
+			extract = b.copier.CopyDir
 		}
 	default:
 		return "", fmt.Errorf(
@@ -387,7 +396,7 @@ func (b *backupper) offlineRestore(src string, dst string, manualStopStart bool)
 	// keep the same db identifier
 	serverIDSrc := path.Join(dst, server.IDENTIFIER_FNAME)
 	serverIDDst := path.Join(extractedSnapshotDir, server.IDENTIFIER_FNAME)
-	if err = fs.CopyFile(serverIDSrc, serverIDDst); err != nil {
+	if err = b.copier.CopyFile(serverIDSrc, serverIDDst); err != nil {
 		fmt.Fprintf(stdos.Stderr,
 			"error copying immudb identifier file %s to %s: %v",
 			serverIDSrc, serverIDDst, err)

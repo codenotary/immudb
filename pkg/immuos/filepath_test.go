@@ -105,4 +105,24 @@ func TestStandardFilepath(t *testing.T) {
 	}
 	require.Equal(t, "joined", fp.Join("pie", "ces"))
 	fp.JoinF = joinFOK
+
+	// Clean ...
+	cleanFOK := fp.CleanF
+	fp.CleanF = func(path string) string {
+		return "path"
+	}
+	require.Equal(t, "path", fp.Clean("/../path"))
+	fp.CleanF = cleanFOK
+
+	// Split ...
+	splitFOK := fp.SplitF
+	fp.SplitF = func(path string) (dir, file string) {
+		dir = "someDir"
+		file = "someFile.txt"
+		return
+	}
+	splitDir, splitFile := fp.Split("a/b.txt")
+	require.Equal(t, "someDir", splitDir)
+	require.Equal(t, "someFile.txt", splitFile)
+	fp.SplitF = splitFOK
 }

@@ -27,6 +27,8 @@ type Filepath interface {
 	Walk(root string, walkFn filepath.WalkFunc) error
 	FromSlash(path string) string
 	Join(elem ...string) string
+	Clean(path string) string
+	Split(path string) (dir, file string)
 }
 
 // StandardFilepath ...
@@ -38,6 +40,8 @@ type StandardFilepath struct {
 	WalkF      func(root string, walkFn filepath.WalkFunc) error
 	FromSlashF func(path string) string
 	JoinF      func(elem ...string) string
+	CleanF     func(path string) string
+	SplitF     func(path string) (dir, file string)
 }
 
 // NewStandardFilepath ...
@@ -50,6 +54,8 @@ func NewStandardFilepath() *StandardFilepath {
 		WalkF:      filepath.Walk,
 		FromSlashF: filepath.FromSlash,
 		JoinF:      filepath.Join,
+		CleanF:     filepath.Clean,
+		SplitF:     filepath.Split,
 	}
 }
 
@@ -86,4 +92,14 @@ func (sf *StandardFilepath) FromSlash(path string) string {
 // Join ...
 func (sf *StandardFilepath) Join(elem ...string) string {
 	return sf.JoinF(elem...)
+}
+
+// Clean ...
+func (sf *StandardFilepath) Clean(path string) string {
+	return sf.CleanF(path)
+}
+
+// Split ...
+func (sf *StandardFilepath) Split(path string) (dir, file string) {
+	return sf.SplitF(path)
 }
