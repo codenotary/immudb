@@ -153,7 +153,13 @@ func TestDumpToFile(t *testing.T) {
 	clb.hds = hds
 
 	daemMock := defaultDaemonMock()
-	clb.Backupper = &backupper{daemMock, os}
+	clb.Backupper = &backupper{
+		daemon: daemMock,
+		os:     os,
+		copier: fs.NewStandardCopier(),
+		tarer:  fs.NewStandardTarer(),
+		ziper:  fs.NewStandardZiper(),
+	}
 
 	termReaderMock := &clienttest.TerminalReaderMock{
 		ReadFromTerminalYNF: func(def string) (selected string, err error) {
@@ -241,7 +247,13 @@ func TestBackup(t *testing.T) {
 	clb.hds = hds
 
 	daemMock := defaultDaemonMock()
-	clb.Backupper = &backupper{daemMock, os}
+	clb.Backupper = &backupper{
+		daemon: daemMock,
+		os:     os,
+		copier: fs.NewStandardCopier(),
+		tarer:  fs.NewStandardTarer(),
+		ziper:  fs.NewStandardZiper(),
+	}
 
 	okReadFromTerminalYNF := func(def string) (selected string, err error) {
 		return "Y", nil
@@ -541,7 +553,14 @@ func TestRestore(t *testing.T) {
 	clb.hds = hds
 
 	daemMock := defaultDaemonMock()
-	clb.Backupper = &backupper{daemMock, os}
+	bckpr := &backupper{
+		daemon: daemMock,
+		os:     os,
+		copier: fs.NewStandardCopier(),
+		tarer:  fs.NewStandardTarer(),
+		ziper:  fs.NewStandardZiper(),
+	}
+	clb.Backupper = bckpr
 
 	okReadFromTerminalYNF := func(def string) (selected string, err error) {
 		return "Y", nil
@@ -570,12 +589,12 @@ func TestRestore(t *testing.T) {
 
 	backupFile := dbDirSrc + ".tar.gz"
 	stdos.Remove(backupFile)
-	require.NoError(t, fs.TarIt(dbDirSrc, backupFile))
+	require.NoError(t, bckpr.tarer.TarIt(dbDirSrc, backupFile))
 	defer stdos.Remove(backupFile)
 
 	backupFile2 := dbDirSrc + ".zip"
 	stdos.Remove(backupFile2)
-	require.NoError(t, fs.ZipIt(dbDirSrc, backupFile2, fs.ZipNoCompression))
+	require.NoError(t, bckpr.ziper.ZipIt(dbDirSrc, backupFile2, fs.ZipNoCompression))
 	defer stdos.Remove(backupFile2)
 
 	// from .tar.gz

@@ -21,27 +21,61 @@ import (
 	"compress/gzip"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/immuos"
 )
 
-// TarIt takes a source and variable writers and walks 'source' writing each file
+// Tarer ...
+type Tarer interface {
+	TarIt(src string, dst string) error
+	UnTarIt(src string, dst string) error
+}
+
+// StandardTarer ...
+type StandardTarer struct {
+	OS       immuos.OS
+	TarItF   func(src string, dst string) error
+	UnTarItF func(src string, dst string) error
+}
+
+// NewStandardTarer ...
+func NewStandardTarer() *StandardTarer {
+	st := &StandardTarer{
+		OS: immuos.NewStandardOS(),
+	}
+	st.TarItF = st.tarIt
+	st.UnTarItF = st.unTarIt
+	return st
+}
+
+// TarIt ...
+func (st *StandardTarer) TarIt(src string, dst string) error {
+	return st.TarItF(src, dst)
+}
+
+// UnTarIt ...
+func (st *StandardTarer) UnTarIt(src string, dst string) error {
+	return st.UnTarItF(src, dst)
+}
+
+// tarIt takes a source and variable writers and walks 'source' writing each file
 // found to the tar writer; the purpose for accepting multiple writers is to allow
 // for multiple outputs (for example a file, or md5 hash)
-func TarIt(src string, dst string) error {
-	info, err := os.Stat(src)
+func (st *StandardTarer) tarIt(src string, dst string) error {
+	info, err := st.OS.Stat(src)
 	if err != nil {
 		return err
 	}
 	var baseDir string
 	if info.IsDir() {
-		baseDir = filepath.Base(src)
+		baseDir = st.OS.Base(src)
 	}
 
-	if _, err = os.Stat(dst); err == nil {
+	if _, err = st.OS.Stat(dst); err == nil {
 		return os.ErrExist
 	}
-	destFile, err := os.Create(dst)
+	destFile, err := st.OS.Create(dst)
 	if err != nil {
 		return err
 	}
@@ -53,7 +87,7 @@ func TarIt(src string, dst string) error {
 	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	return st.OS.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -65,7 +99,7 @@ func TarIt(src string, dst string) error {
 			return err
 		}
 		if baseDir != "" {
-			header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, src))
+			header.Name = st.OS.Join(baseDir, strings.TrimPrefix(path, src))
 		}
 		if info.IsDir() {
 			header.Name += "/"
@@ -76,7 +110,7 @@ func TarIt(src string, dst string) error {
 		if info.IsDir() {
 			return nil
 		}
-		f, err := os.Open(path)
+		f, err := st.OS.Open(path)
 		if err != nil {
 			return err
 		}
@@ -86,14 +120,14 @@ func TarIt(src string, dst string) error {
 	})
 }
 
-// UnTarIt takes a destination path and a reader; a tar reader loops over the tarfile
+// unTarIt takes a destination path and a reader; a tar reader loops over the tarfile
 // creating the file structure at 'dst' along the way, and writing any files
-func UnTarIt(src string, dst string) error {
-	srcFile, err := os.Open(src)
+func (st *StandardTarer) unTarIt(src string, dst string) error {
+	srcFile, err := st.OS.Open(src)
 	if err != nil {
 		return err
 	}
-	if err = os.MkdirAll(dst, 0755); err != nil {
+	if err = st.OS.MkdirAll(dst, 0755); err != nil {
 		return err
 	}
 	gzr, err := gzip.NewReader(srcFile)
@@ -110,36 +144,36 @@ func UnTarIt(src string, dst string) error {
 			}
 			return err
 		}
-		if err = unTarEntry(dst, tr, header); err != nil {
+		if err = st.unTarEntry(dst, tr, header); err != nil {
 			return err
 		}
 	}
 }
 
-func unTarEntry(dst string, tr io.Reader, header *tar.Header) error {
+func (st *StandardTarer) unTarEntry(dst string, tr io.Reader, header *tar.Header) error {
 	if header == nil {
 		return nil
 	}
-	target := filepath.Join(dst, header.Name)
+	target := st.OS.Join(dst, header.Name)
 	switch header.Typeflag { // or header.FileInfo() - same thing
 	case tar.TypeDir:
-		if err := os.MkdirAll(target, 0755); err != nil {
+		if err := st.OS.MkdirAll(target, 0755); err != nil {
 			return err
 		}
 	case tar.TypeReg:
-		dir, _ := filepath.Split(target)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		dir, _ := st.OS.Split(target)
+		if err := st.OS.MkdirAll(dir, 0755); err != nil {
 			return err
 		}
-		if err := copyFile(target, tr, header.FileInfo().Mode()); err != nil {
+		if err := st.copyFile(target, tr, header.FileInfo().Mode()); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func copyFile(dst string, src io.Reader, perm os.FileMode) error {
-	f, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+func (st *StandardTarer) copyFile(dst string, src io.Reader, perm os.FileMode) error {
+	f, err := st.OS.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
 	if err != nil {
 		return err
 	}

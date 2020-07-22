@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/immuos"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -79,19 +81,21 @@ func testDstAlreadyExists(t *testing.T, src string, dst string, writeDst func() 
 func TestTarUnTar(t *testing.T) {
 	src := "test-tar-untar"
 	dst := src + ".tar.gz"
+	tarer := NewStandardTarer()
 	testArchiveUnarchive(
 		t,
 		src,
 		dst,
-		func() error { return TarIt(src, dst) },
-		func() error { return UnTarIt(dst, ".") },
+		func() error { return tarer.TarIt(src, dst) },
+		func() error { return tarer.UnTarIt(dst, ".") },
 	)
 }
 
 func TestTarSrcNonExistent(t *testing.T) {
 	src := "non-existent-tar-src"
 	testSrcNonExistent(t, func() error {
-		return TarIt(src, src+".tar.gz")
+		tarer := NewStandardTarer()
+		return tarer.TarIt(src, src+".tar.gz")
 	})
 }
 
@@ -99,6 +103,119 @@ func TestTarDstAlreadyExists(t *testing.T) {
 	src := "some-tar-src"
 	dst := "existing-tar-dest"
 	testDstAlreadyExists(t, src, dst, func() error {
-		return TarIt(src, dst)
+		tarer := NewStandardTarer()
+		return tarer.TarIt(src, dst)
 	})
+}
+
+func TestTarDstCreateErr(t *testing.T) {
+	src := "some-tar-src"
+	require.NoError(t, os.MkdirAll(src, 0755))
+	defer os.RemoveAll(src)
+	dst := "some-tar-dst"
+	tarer := NewStandardTarer()
+	errCreate := errors.New("Create error")
+	tarer.OS.(*immuos.StandardOS).CreateF = func(name string) (*os.File, error) {
+		return nil, errCreate
+	}
+	require.Equal(t, errCreate, tarer.TarIt(src, dst))
+}
+
+func TestTarWalkError(t *testing.T) {
+	src := "some-tar-src"
+	srcSub := filepath.Join(src, "subdir")
+	require.NoError(t, os.MkdirAll(srcSub, 0755))
+	defer os.RemoveAll(src)
+	dst := "some-tar-dst"
+	defer os.RemoveAll(dst)
+	tarer := NewStandardTarer()
+	errWalk := errors.New("Walk error")
+	tarer.OS.(*immuos.StandardOS).WalkF = func(root string, walkFn filepath.WalkFunc) error {
+		return walkFn("", nil, errWalk)
+	}
+	require.Equal(t, errWalk, tarer.TarIt(src, dst))
+}
+
+func TestTarWalkOpenError(t *testing.T) {
+	src := "some-tar-src"
+	require.NoError(t, os.MkdirAll(src, 0755))
+	defer os.RemoveAll(src)
+	srcFile := filepath.Join(src, "f.txt")
+	ioutil.WriteFile(srcFile, []byte("f content"), 0644)
+	dst := "some-tar-dst"
+	defer os.RemoveAll(dst)
+	tarer := NewStandardTarer()
+	errWalkOpen := errors.New("Walk open error")
+	tarer.OS.(*immuos.StandardOS).OpenF = func(name string) (*os.File, error) {
+		return nil, errWalkOpen
+	}
+	require.Equal(t, errWalkOpen, tarer.TarIt(src, dst))
+}
+
+func TestUnTarOpenError(t *testing.T) {
+	tarer := NewStandardTarer()
+	require.Error(t, tarer.UnTarIt("src", "dst"))
+}
+
+func TestUnTarMdkirDst(t *testing.T) {
+	src := "some-tar-src"
+	require.NoError(t, os.MkdirAll(src, 0755))
+	defer os.Remove(src)
+	tarer := NewStandardTarer()
+	errMkdirAll := errors.New("MkdirAll error")
+	tarer.OS.(*immuos.StandardOS).MkdirAllF = func(path string, perm os.FileMode) error {
+		return errMkdirAll
+	}
+	require.Equal(t, errMkdirAll, tarer.UnTarIt(src, "dst"))
+}
+
+func TestUnTarNonArchiveSrc(t *testing.T) {
+	src := "some-file.txt"
+	require.NoError(t, ioutil.WriteFile(src, []byte("content"), 0644))
+	defer os.Remove(src)
+	tarer := NewStandardTarer()
+	dst := "dst"
+	defer os.Remove(dst)
+	require.Error(t, tarer.UnTarIt(src, dst))
+}
+
+func TestUnTarMkdirAllSubDirError(t *testing.T) {
+	src := "some-tar-src"
+	srcSub := filepath.Join(src, "subdir")
+	require.NoError(t, os.MkdirAll(srcSub, 0755))
+	defer os.RemoveAll(src)
+	ioutil.WriteFile(filepath.Join(srcSub, "some-file.txt"), []byte("content"), 0644)
+	tarer := NewStandardTarer()
+	dst := "some-tar-dst.tar.gz"
+	require.NoError(t, tarer.TarIt(src, dst))
+	defer os.Remove(dst)
+	errMkdirAll := errors.New("MkdirAll subdir error")
+	counter := 0
+	tarer.OS.(*immuos.StandardOS).MkdirAllF = func(path string, perm os.FileMode) error {
+		counter++
+		if counter == 2 {
+			return errMkdirAll
+		}
+		return os.MkdirAll(path, perm)
+	}
+	defer os.RemoveAll("dst2")
+	require.Equal(t, errMkdirAll, tarer.UnTarIt(dst, "dst2"))
+}
+
+func TestUnTarOpenFileError(t *testing.T) {
+	src := "some-tar-src"
+	srcSub := filepath.Join(src, "subdir")
+	require.NoError(t, os.MkdirAll(srcSub, 0755))
+	defer os.RemoveAll(src)
+	ioutil.WriteFile(filepath.Join(srcSub, "some-file.txt"), []byte("content"), 0644)
+	tarer := NewStandardTarer()
+	dst := "some-tar-dst.tar.gz"
+	require.NoError(t, tarer.TarIt(src, dst))
+	defer os.Remove(dst)
+	errOpenFile := errors.New("OpenFile error")
+	tarer.OS.(*immuos.StandardOS).OpenFileF = func(name string, flag int, perm os.FileMode) (*os.File, error) {
+		return nil, errOpenFile
+	}
+	defer os.RemoveAll("dst2")
+	require.Equal(t, errOpenFile, tarer.UnTarIt(dst, "dst2"))
 }
