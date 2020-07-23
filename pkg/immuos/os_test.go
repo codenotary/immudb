@@ -18,8 +18,10 @@ package immuos
 
 import (
 	"errors"
+	"io/ioutil"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	stdos "os"
@@ -184,7 +186,7 @@ func TestStandardOS(t *testing.T) {
 	os.ExecutableF = executableFOK
 }
 
-func TestStandardFilepathEmbedded(t *testing.T) {
+func TestStandardOSFilepathEmbedded(t *testing.T) {
 	os := NewStandardOS()
 
 	// Abs
@@ -203,7 +205,7 @@ func TestStandardFilepathEmbedded(t *testing.T) {
 	os.AbsF = absFOK
 }
 
-func TestStandardUserEmbedded(t *testing.T) {
+func TestStandardOSUserEmbedded(t *testing.T) {
 	os := NewStandardOS()
 
 	// Lookup ...
@@ -215,4 +217,17 @@ func TestStandardUserEmbedded(t *testing.T) {
 	_, err := os.Lookup("username")
 	require.Equal(t, errLookup, err)
 	os.LookupF = lookupFOK
+}
+
+func TestStandardOSIoutilEmbedded(t *testing.T) {
+	os := NewStandardOS()
+
+	// ReadFile ...
+	filename := "test-standard-os-ioutil-embedded-readfile"
+	content := strings.ReplaceAll(filename, "-", " ")
+	require.NoError(t, ioutil.WriteFile(filename, []byte(content), 0644))
+	defer os.Remove(filename)
+	readBytes, err := os.ReadFile(filename)
+	require.NoError(t, err)
+	require.Equal(t, content, string(readBytes))
 }
