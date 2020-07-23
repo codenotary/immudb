@@ -19,18 +19,23 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -105,7 +110,7 @@ func usedatabase(ctx context.Context, s *ImmuServer, dbname string) (context.Con
 	return ctx, nil
 }
 
-func TestDefaultDatabaseLoad(t *testing.T) {
+func TestServerDefaultDatabaseLoad(t *testing.T) {
 	options := DefaultOption()
 	dbRootpath := options.GetDbRootPath()
 	s := DefaultServer()
@@ -121,7 +126,7 @@ func TestDefaultDatabaseLoad(t *testing.T) {
 		t.Fatalf("default database directory not created")
 	}
 }
-func TestSystemDatabaseLoad(t *testing.T) {
+func TestServerSystemDatabaseLoad(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir("Nice")
 	options := DefaultOption().WithDbRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDbRootPath()
@@ -142,7 +147,7 @@ func TestSystemDatabaseLoad(t *testing.T) {
 		t.Fatalf("system database directory not created")
 	}
 }
-func TestLogin(t *testing.T) {
+func TestServerLogin(t *testing.T) {
 	s := newInmemoryAuthServer()
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
@@ -159,10 +164,10 @@ func TestLogin(t *testing.T) {
 		t.Fatalf("default immudb password missing warning")
 	}
 }
-func TestLogout(t *testing.T) {
+func TestServerLogout(t *testing.T) {
 	s := newInmemoryAuthServer()
 	_, err := s.Logout(context.Background(), &emptypb.Empty{})
-	if err.Error() != "rpc error: code = Internal desc = no headers found on request" {
+	if err == nil || err.Error() != "rpc error: code = Internal desc = no headers found on request" {
 		t.Fatalf("Logout expected error, got %v", err)
 	}
 
@@ -183,7 +188,7 @@ func TestLogout(t *testing.T) {
 		t.Fatalf("Logout error %v", err)
 	}
 }
-func TestCreateDatabase(t *testing.T) {
+func TestServerCreateDatabase(t *testing.T) {
 	s := newInmemoryAuthServer()
 	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
 	if err != nil {
@@ -200,7 +205,7 @@ func TestCreateDatabase(t *testing.T) {
 		t.Fatalf("Createdatabase error %v", dbrepl)
 	}
 }
-func TestLoaduserDatabase(t *testing.T) {
+func TestServerLoaduserDatabase(t *testing.T) {
 	s := newAuthServer("loaduserdatabase")
 	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
 	if err != nil {
@@ -226,8 +231,15 @@ func TestLoaduserDatabase(t *testing.T) {
 	if s.dbList.Length() != 2 {
 		t.Fatalf("LoadUserDatabase error %d", s.dbList.Length())
 	}
+
+	// Walk error
+	errWalk := errors.New("Walk error")
+	s.OS.(*immuos.StandardOS).WalkF = func(root string, walkFn filepath.WalkFunc) error {
+		return walkFn("", nil, errWalk)
+	}
+	require.Equal(t, errWalk, s.loadUserDatabases("loaduserdatabase"))
 }
-func testCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 	newUser := &schema.CreateUserRequest{
 		User:       testUsername,
 		Password:   testPassword,
@@ -249,7 +261,7 @@ func testCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("mandatoryAuth expected true")
 	}
 }
-func testListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
 	users, err := s.ListUsers(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("ListUsers error %v", err)
@@ -259,7 +271,7 @@ func testListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func TestListUsersAdmin(t *testing.T) {
+func TestServerListUsersAdmin(t *testing.T) {
 	srv := newAuthServer("listusersadmin")
 	ctx, err := login(srv, auth.SysAdminUsername, auth.SysAdminPassword)
 	if err != nil {
@@ -340,7 +352,7 @@ func TestListUsersAdmin(t *testing.T) {
 	}
 }
 
-func testListDatabases(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerListDatabases(ctx context.Context, s *ImmuServer, t *testing.T) {
 	dbs, err := s.DatabaseList(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("DatabaseList error %v", err)
@@ -349,7 +361,7 @@ func testListDatabases(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("List databases, expected >1 got %v", len(dbs.Databases))
 	}
 }
-func testUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 	dbs, err := s.UseDatabase(ctx, &schema.Database{
 		Databasename: testDatabase,
 	})
@@ -366,7 +378,7 @@ func testUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 	m["Authorization"] = "Bearer " + string(dbs.Token)
 	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
 }
-func testChangePermission(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerChangePermission(ctx context.Context, s *ImmuServer, t *testing.T) {
 	perm, err := s.ChangePermission(ctx, &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
 		Database:   testDatabase,
@@ -380,7 +392,7 @@ func testChangePermission(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("error changing permission, got %v", perm)
 	}
 }
-func testDeactivateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerDeactivateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SetActiveUser(ctx, &schema.SetActiveUserRequest{
 		Active:   false,
 		Username: string(testUsername),
@@ -389,7 +401,7 @@ func testDeactivateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("DeactivateUser error %v", err)
 	}
 }
-func testSetActiveUser(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSetActiveUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SetActiveUser(ctx, &schema.SetActiveUserRequest{
 		Active:   true,
 		Username: string(testUsername),
@@ -398,7 +410,7 @@ func testSetActiveUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("SetActiveUser error %v", err)
 	}
 }
-func testChangePassword(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerChangePassword(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ChangePassword(ctx, &schema.ChangePasswordRequest{
 		NewPassword: testPassword,
 		OldPassword: testPassword,
@@ -409,7 +421,7 @@ func testChangePassword(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind, err := s.Set(ctx, &schema.KeyValue{
 		Key:   testKey,
 		Value: testValue,
@@ -435,7 +447,7 @@ func testSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(context.Background(), &schema.KeyValue{
 		Key:   testKey,
 		Value: testValue,
@@ -452,7 +464,7 @@ func testSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	root, err := s.CurrentRoot(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Error(err)
@@ -503,7 +515,7 @@ func testSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testCurrentRoot(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerCurrentRoot(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
 		if err != nil {
@@ -515,13 +527,13 @@ func testCurrentRoot(ctx context.Context, s *ImmuServer, t *testing.T) {
 		}
 	}
 }
-func testCurrentRootError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerCurrentRootError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.CurrentRoot(context.Background(), &emptypb.Empty{})
 	if err == nil {
 		t.Fatalf("CurrentRoot expected Error")
 	}
 }
-func testSVSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSVSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		it, err := s.SetSV(ctx, val)
 		if err != nil {
@@ -551,7 +563,7 @@ func testSVSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSVSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSVSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SetSV(context.Background(), Skv.SKVs[0])
 	if err == nil {
 		t.Fatalf("SetSV expected error Inserting to db")
@@ -565,7 +577,7 @@ func testSVSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	root, err := s.CurrentRoot(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Error(err)
@@ -624,7 +636,7 @@ func testSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		}
 	}
 }
-func testSafeSetGetSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSafeSetGetSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	Skv := schema.SafeSetSVOptions{
 		Skv: &schema.StructuredKeyValue{
 			Key: []byte("Alberto"),
@@ -647,7 +659,7 @@ func testSafeSetGetSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("SafeGetSV expected error")
 	}
 }
-func testSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	Skv := &schema.KVList{
 		KVs: []*schema.KeyValue{
 			{
@@ -692,7 +704,7 @@ func testSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	Skv := &schema.KVList{
 		KVs: []*schema.KeyValue{
 			{
@@ -717,7 +729,7 @@ func testSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind, err := s.SetBatchSV(ctx, Skv)
 	if err != nil {
 		t.Fatalf("Error Inserting to db %s", err)
@@ -748,7 +760,7 @@ func testSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSetGetBatchSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSetGetBatchSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SetBatchSV(context.Background(), Skv)
 	if err == nil {
 		t.Fatalf("SetBatchSV expected error")
@@ -765,7 +777,7 @@ func testSetGetBatchSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testInclusion(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerInclusion(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
 		if err != nil {
@@ -782,14 +794,14 @@ func testInclusion(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testInclusionError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerInclusionError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Inclusion(context.Background(), &schema.Index{Index: 0})
 	if err == nil {
 		t.Fatalf("Inclusion expected error")
 	}
 }
 
-func testConsintency(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerConsintency(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range kv {
 		_, err := s.Set(ctx, val)
 		if err != nil {
@@ -805,13 +817,13 @@ func testConsintency(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Consistency, expected %d, got %d", inc.First, ind)
 	}
 }
-func testConsintencyError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerConsintencyError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Consistency(context.Background(), &schema.Index{Index: 0})
 	if err == nil {
 		t.Fatalf("Consistency expected error")
 	}
 }
-func testByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 	ind := uint64(1)
 	for _, val := range kv {
@@ -835,13 +847,13 @@ func testByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("ByIndex, expected %s, got %d", kv[ind].Value, inc.Value)
 	}
 }
-func testByIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerByIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ByIndex(context.Background(), &schema.Index{Index: 0})
 	if err == nil {
 		t.Fatal("ByIndex exptected error")
 	}
 }
-func testByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ind := uint64(2)
 	for _, val := range Skv.SKVs {
 		it, err := s.SetSV(ctx, val)
@@ -865,14 +877,14 @@ func testByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testByIndexSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerByIndexSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ByIndexSV(context.Background(), &schema.Index{Index: 0})
 	if err == nil {
 		t.Fatalf("ByIndexSV exptected error")
 	}
 }
 
-func testByIScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerByIScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		_, err := s.SetSV(ctx, val)
 		if err != nil {
@@ -892,7 +904,7 @@ func testByIScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	assert.Errorf(t, err, schema.ErrUnexpectedNotStructuredValue.Error())
 }
-func testByIScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerByIScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.IScanSV(context.Background(), &schema.IScanOptions{
 		PageNumber: 1,
 		PageSize:   1,
@@ -900,7 +912,7 @@ func testByIScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	assert.Error(t, err)
 }
 
-func testBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	for _, val := range Skv.SKVs {
 		_, err := s.SetSV(ctx, val)
 		if err != nil {
@@ -923,14 +935,14 @@ func testBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testBySafeIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerBySafeIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.BySafeIndex(context.Background(), &schema.SafeIndexOptions{Index: 0})
 	if err == nil {
 		t.Fatalf("BySafeIndex exptected error")
 	}
 }
 
-func testHistory(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerHistory(ctx context.Context, s *ImmuServer, t *testing.T) {
 	inc, err := s.History(ctx, &schema.Key{
 		Key: testKey,
 	})
@@ -944,7 +956,7 @@ func testHistory(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.History(context.Background(), &schema.Key{
 		Key: testKey,
 	})
@@ -953,7 +965,7 @@ func testHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testHistorySV(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerHistorySV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	k := &schema.Key{
 		Key: testValue,
 	}
@@ -968,7 +980,7 @@ func testHistorySV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testHistorySVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerHistorySVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	k := &schema.Key{
 		Key: testValue,
 	}
@@ -978,7 +990,7 @@ func testHistorySVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
 	h, err := s.Health(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("health error %s", err)
@@ -987,14 +999,14 @@ func testHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Health, expected %v, got %v", true, h.GetStatus())
 	}
 }
-func testHealthError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerHealthError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Health(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("health exptected error")
 	}
 }
 
-func testReference(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(ctx, kv[0])
 	if err != nil {
 		t.Fatalf("Reference error %s", err)
@@ -1012,7 +1024,7 @@ func testReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Reference(ctx, &schema.ReferenceOptions{
 		Reference: []byte(`tag`),
 		Key:       kv[0].Key,
@@ -1022,7 +1034,7 @@ func testReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(ctx, kv[0])
 	if err != nil {
 		t.Fatalf("Reference error %s", err)
@@ -1044,7 +1056,7 @@ func testZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
 	}
 }
-func testZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ZAdd(context.Background(), &schema.ZAddOptions{
 		Key:   kv[0].Key,
 		Score: 1,
@@ -1063,7 +1075,7 @@ func testZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(ctx, kv[0])
 	if err != nil {
 		t.Fatalf("set error %s", err)
@@ -1117,7 +1129,7 @@ func testScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Scan(context.Background(), &schema.ScanOptions{
 		Offset: nil,
 		Deep:   false,
@@ -1136,7 +1148,7 @@ func testScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SafeSetSV(ctx, &schema.SafeSetSVOptions{
 		Skv: Skv.SKVs[0],
 	})
@@ -1167,7 +1179,7 @@ func testScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ScanSV(context.Background(), &schema.ScanOptions{
 		Offset: []byte("Alb"),
 		Limit:  1,
@@ -1177,7 +1189,7 @@ func testScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	it, err := s.SafeSet(ctx, &schema.SafeSetOptions{
 		Kv: kv[0],
 	})
@@ -1207,7 +1219,7 @@ func testSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SafeReference(context.Background(), &schema.SafeReferenceOptions{
 		Ro: &schema.ReferenceOptions{
 			Key:       kv[0].Key,
@@ -1222,7 +1234,7 @@ func testSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testCount(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 	c, err := s.Count(ctx, &schema.KeyPrefix{
 		Prefix: kv[0].Key,
 	})
@@ -1233,7 +1245,7 @@ func testCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Count error >0 got %d", c.Count)
 	}
 }
-func testCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Count(context.Background(), &schema.KeyPrefix{
 		Prefix: kv[0].Key,
 	})
@@ -1241,7 +1253,7 @@ func testCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Count expected error")
 	}
 }
-func testPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
 	item, err := s.PrintTree(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("PrintTree  error %s", err)
@@ -1250,14 +1262,14 @@ func testPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("PrintTree, expected > 0, got %v", len(item.T))
 	}
 }
-func testPrintTreeError(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerPrintTreeError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.PrintTree(context.Background(), &emptypb.Empty{})
 	if err == nil {
 		t.Fatalf("PrintTree exptected error")
 	}
 }
 
-func testSetPermission(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerSetPermission(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SetPermission(ctx, &schema.Item{
 		Key:   []byte("key"),
 		Value: []byte("val"),
@@ -1266,36 +1278,36 @@ func testSetPermission(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if err == nil {
 		t.Fatalf("SetPermission  fail")
 	}
-	if !strings.Contains(err.Error(), "deprecated method. use change permission instead") {
+	if err == nil || !strings.Contains(err.Error(), "deprecated method. use change permission instead") {
 		t.Fatalf("SetPermission  unexpected error: %s", err)
 	}
 }
 
-func testDeactivateUserDepricated(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerDeactivateUserDeprecated(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.DeactivateUser(ctx, &schema.UserRequest{
 		User: []byte("gerard"),
 	})
 	if err == nil {
 		t.Fatalf("DeactivateUserDepricated  fail")
 	}
-	if !strings.Contains(err.Error(), "deprecated method. use setactive instead") {
+	if err == nil || !strings.Contains(err.Error(), "deprecated method. use setactive instead") {
 		t.Fatalf("DeactivateUserDepricated  unexpected error: %s", err)
 	}
 }
 
-func testGetUser(ctx context.Context, s *ImmuServer, t *testing.T) {
+func testServerGetUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.GetUser(ctx, &schema.UserRequest{
 		User: []byte("gerard"),
 	})
 	if err == nil {
 		t.Fatalf("GetUser  fail")
 	}
-	if !strings.Contains(err.Error(), "deprecated method. use user list instead") {
+	if err == nil || !strings.Contains(err.Error(), "deprecated method. use user list instead") {
 		t.Fatalf("GetUser  unexpected error: %s", err)
 	}
 }
 
-func TestUsermanagement(t *testing.T) {
+func TestServerUsermanagement(t *testing.T) {
 	var err error
 	s := newInmemoryAuthServer()
 	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
@@ -1313,19 +1325,19 @@ func TestUsermanagement(t *testing.T) {
 		log.Fatalf("error creating test database %v", dbrepl)
 	}
 
-	testCreateUser(ctx, s, t)
-	testListDatabases(ctx, s, t)
-	testUseDatabase(ctx, s, t)
-	testChangePermission(ctx, s, t)
-	testDeactivateUser(ctx, s, t)
-	testSetActiveUser(ctx, s, t)
-	testChangePassword(ctx, s, t)
-	testListUsers(ctx, s, t)
-	testSetPermission(ctx, s, t)
-	testDeactivateUserDepricated(ctx, s, t)
-	testGetUser(ctx, s, t)
+	testServerCreateUser(ctx, s, t)
+	testServerListDatabases(ctx, s, t)
+	testServerUseDatabase(ctx, s, t)
+	testServerChangePermission(ctx, s, t)
+	testServerDeactivateUser(ctx, s, t)
+	testServerSetActiveUser(ctx, s, t)
+	testServerChangePassword(ctx, s, t)
+	testServerListUsers(ctx, s, t)
+	testServerSetPermission(ctx, s, t)
+	testServerDeactivateUserDeprecated(ctx, s, t)
+	testServerGetUser(ctx, s, t)
 }
-func TestDbOperations(t *testing.T) {
+func TestServerDbOperations(t *testing.T) {
 	var err error
 	s := newInmemoryAuthServer()
 	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
@@ -1342,53 +1354,111 @@ func TestDbOperations(t *testing.T) {
 	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
 		log.Fatalf("error creating test database %v", dbrepl)
 	}
-	testSetGet(ctx, s, t)
-	testSetGetError(ctx, s, t)
-	testSVSetGet(ctx, s, t)
-	testSVSetGetError(ctx, s, t)
-	testCurrentRoot(ctx, s, t)
-	testCurrentRootError(ctx, s, t)
-	testSafeSetGet(ctx, s, t)
-	testSafeSetGetSV(ctx, s, t)
-	testSafeSetGetSVError(ctx, s, t)
-	testSetGetBatch(ctx, s, t)
-	testSetGetBatchError(ctx, s, t)
-	testSetGetBatchSV(ctx, s, t)
-	testSetGetBatchSVError(ctx, s, t)
-	testInclusion(ctx, s, t)
-	testInclusionError(ctx, s, t)
-	testConsintency(ctx, s, t)
-	testConsintencyError(ctx, s, t)
-	testByIndexSV(ctx, s, t)
-	testByIndexSVError(ctx, s, t)
-	testByIndex(ctx, s, t)
-	testByIndexError(ctx, s, t)
-	testHistory(ctx, s, t)
-	testHistoryError(ctx, s, t)
-	testBySafeIndex(ctx, s, t)
-	testBySafeIndexError(ctx, s, t)
-	testHealth(ctx, s, t)
-	testHealthError(ctx, s, t)
-	testHistorySV(ctx, s, t)
-	testHistorySVError(ctx, s, t)
-	testReference(ctx, s, t)
-	testReferenceError(ctx, s, t)
-	testZAdd(ctx, s, t)
-	testZAddError(ctx, s, t)
-	testScan(ctx, s, t)
-	testScanError(ctx, s, t)
-	testByIScanSV(ctx, s, t)
-	testByIScanSVError(ctx, s, t)
-	testPrintTree(ctx, s, t)
-	testPrintTreeError(ctx, s, t)
-	testScanSV(ctx, s, t)
-	testScanSVError(ctx, s, t)
-	testSafeReference(ctx, s, t)
-	testSafeReferenceError(ctx, s, t)
-	testCount(ctx, s, t)
-	testCountError(ctx, s, t)
+	testServerSetGet(ctx, s, t)
+	testServerSetGetError(ctx, s, t)
+	testServerSVSetGet(ctx, s, t)
+	testServerSVSetGetError(ctx, s, t)
+	testServerCurrentRoot(ctx, s, t)
+	testServerCurrentRootError(ctx, s, t)
+	testServerSafeSetGet(ctx, s, t)
+	testServerSafeSetGetSV(ctx, s, t)
+	testServerSafeSetGetSVError(ctx, s, t)
+	testServerSetGetBatch(ctx, s, t)
+	testServerSetGetBatchError(ctx, s, t)
+	testServerSetGetBatchSV(ctx, s, t)
+	testServerSetGetBatchSVError(ctx, s, t)
+	testServerInclusion(ctx, s, t)
+	testServerInclusionError(ctx, s, t)
+	testServerConsintency(ctx, s, t)
+	testServerConsintencyError(ctx, s, t)
+	testServerByIndexSV(ctx, s, t)
+	testServerByIndexSVError(ctx, s, t)
+	testServerByIndex(ctx, s, t)
+	testServerByIndexError(ctx, s, t)
+	testServerHistory(ctx, s, t)
+	testServerHistoryError(ctx, s, t)
+	testServerBySafeIndex(ctx, s, t)
+	testServerBySafeIndexError(ctx, s, t)
+	testServerHealth(ctx, s, t)
+	testServerHealthError(ctx, s, t)
+	testServerHistorySV(ctx, s, t)
+	testServerHistorySVError(ctx, s, t)
+	testServerReference(ctx, s, t)
+	testServerReferenceError(ctx, s, t)
+	testServerZAdd(ctx, s, t)
+	testServerZAddError(ctx, s, t)
+	testServerScan(ctx, s, t)
+	testServerScanError(ctx, s, t)
+	testServerByIScanSV(ctx, s, t)
+	testServerByIScanSVError(ctx, s, t)
+	testServerPrintTree(ctx, s, t)
+	testServerPrintTreeError(ctx, s, t)
+	testServerScanSV(ctx, s, t)
+	testServerScanSVError(ctx, s, t)
+	testServerSafeReference(ctx, s, t)
+	testServerSafeReferenceError(ctx, s, t)
+	testServerCount(ctx, s, t)
+	testServerCountError(ctx, s, t)
 }
-func TestUpdateAuthConfig(t *testing.T) {
+
+func TestServerUpdateConfigItem(t *testing.T) {
+	dataDir := "test-server-update-config-item-config"
+	configFile := fmt.Sprintf("%s.toml", dataDir)
+	s := DefaultServer().WithOptions(DefaultOptions().
+		WithCorruptionCheck(false).
+		WithInMemoryStore(true).
+		WithAuth(false).
+		WithMaintenance(false).
+		WithDir(dataDir).
+		WithConfig(configFile))
+	defer func() {
+		os.RemoveAll(dataDir)
+		os.Remove(configFile)
+	}()
+
+	// Config file path empty
+	s.Options.Config = ""
+	expectedErr := "config file does not exist"
+	err := s.updateConfigItem("key", "key = value", func(string) bool { return false })
+	require.Error(t, err)
+	require.Equal(t, expectedErr, err.Error())
+	s.Options.Config = configFile
+
+	// ReadFile error
+	immuOS := s.OS.(*immuos.StandardOS)
+	readFileOK := immuOS.ReadFileF
+	errReadFile := "ReadFile error"
+	immuOS.ReadFileF = func(filename string) ([]byte, error) {
+		return nil, errors.New(errReadFile)
+	}
+	expectedErr =
+		fmt.Sprintf("error reading config file %s: %s", configFile, errReadFile)
+	err = s.updateConfigItem("key", "key = value", func(string) bool { return false })
+	require.Error(t, err)
+	require.Equal(t, expectedErr, err.Error())
+	immuOS.ReadFileF = readFileOK
+
+	// Config already having the specified item
+	ioutil.WriteFile(configFile, []byte("key = value"), 0644)
+	expectedErr = "Server config already has key = value"
+	err = s.updateConfigItem("key", "key = value", func(string) bool { return true })
+	require.Error(t, err)
+	require.Equal(t, expectedErr, err.Error())
+
+	// Add new config item
+	err = s.updateConfigItem("key2", "key2 = value2", func(string) bool { return false })
+	require.NoError(t, err)
+
+	// WriteFile error
+	errWriteFile := errors.New("WriteFile error")
+	immuOS.WriteFileF = func(filename string, data []byte, perm os.FileMode) error {
+		return errWriteFile
+	}
+	err = s.updateConfigItem("key3", "key3 = value3", func(string) bool { return false })
+	require.Equal(t, err, errWriteFile)
+}
+
+func TestServerUpdateAuthConfig(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../test/immudb.toml")
 	err := ioutil.WriteFile("/tmp/immudb.toml", input, 0644)
 	if err != nil {
@@ -1414,7 +1484,7 @@ func TestUpdateAuthConfig(t *testing.T) {
 	// }
 }
 
-func TestUpdateMTLSConfig(t *testing.T) {
+func TestServerUpdateMTLSConfig(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../test/immudb.toml")
 	err := ioutil.WriteFile("/tmp/immudb.toml", input, 0644)
 	if err != nil {
@@ -1435,7 +1505,7 @@ func TestUpdateMTLSConfig(t *testing.T) {
 	}
 }
 
-func TestMtls(t *testing.T) {
+func TestServerMtls(t *testing.T) {
 	mtlsopts := MTLsOptions{
 		Pkey:        "./../../test/mtls_certs/ca.key.pem",
 		Certificate: "./../../test/mtls_certs/ca.cert.pem",
@@ -1454,9 +1524,17 @@ func TestMtls(t *testing.T) {
 	if len(ops) == 0 {
 		log.Fatal("setUpMTLS expected options > 0")
 	}
+
+	// ReadFile error
+	errReadFile := errors.New("ReadFile error")
+	s.OS.(*immuos.StandardOS).ReadFileF = func(filename string) ([]byte, error) {
+		return nil, errReadFile
+	}
+	_, err = s.setUpMTLS()
+	require.Equal(t, errReadFile, err)
 }
 
-func TestPID(t *testing.T) {
+func TestServerPID(t *testing.T) {
 	op := DefaultOptions().
 		WithCorruptionCheck(false).
 		WithInMemoryStore(true).
@@ -1468,4 +1546,157 @@ func TestPID(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func TestInsertNewUserAndOtherUserOperations(t *testing.T) {
+	dataDir := "TestInsertNewUserAndOtherUserOperations"
+	s := newAuthServer(dataDir)
+	defer os.RemoveAll(dataDir)
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	require.NoError(t, err)
+
+	// insertNewUser errors
+	_, _, err = s.insertNewUser([]byte("%"), nil, 1, DefaultdbName, true, auth.SysAdminUsername)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "username can only contain letters, digits and underscores")
+
+	username := "someusername"
+	usernameBytes := []byte(username)
+	password := "$omePassword1"
+	passwordBytes := []byte(password)
+	_, _, err = s.insertNewUser(usernameBytes, []byte("a"), 1, DefaultdbName, true, auth.SysAdminUsername)
+	require.Error(t, err)
+	require.Contains(
+		t,
+		err.Error(),
+		"password must have between 8 and 32 letters, digits and special characters "+
+			"of which at least 1 uppercase letter, 1 digit and 1 special character")
+
+	_, _, err = s.insertNewUser(usernameBytes, passwordBytes, 99, DefaultdbName, false, auth.SysAdminUsername)
+	require.Error(t, err)
+	require.Equal(t, err.Error(), "unknown permission")
+
+	// getLoggedInUserDataFromUsername errors
+	userdata := s.userdata.Userdata[username]
+	delete(s.userdata.Userdata, username)
+	_, err = s.getLoggedInUserDataFromUsername(username)
+	require.Error(t, err)
+	require.Equal(t, "Logedin user data not found", err.Error())
+	s.userdata.Userdata[username] = userdata
+
+	// getDbIndexFromCtx errors
+	adminUserdata := s.userdata.Userdata[auth.SysAdminUsername]
+	delete(s.userdata.Userdata, auth.SysAdminUsername)
+	s.Options.maintenance = true
+	_, err = s.getDbIndexFromCtx(ctx, "ListUsers")
+	require.Error(t, err)
+	require.Equal(t, "please select database first", err.Error())
+	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
+	s.Options.maintenance = false
+
+	// SetActiveUser errors
+	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: "", Active: false})
+	require.Error(t, err)
+	require.Equal(t, "username can not be empty", err.Error())
+
+	s.Options.auth = false
+	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: username, Active: false})
+	require.Error(t, err)
+	require.Equal(t, "this command is available only with authentication on", err.Error())
+	s.Options.auth = true
+
+	delete(s.userdata.Userdata, auth.SysAdminUsername)
+	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: username, Active: false})
+	require.Error(t, err)
+	require.Equal(t, "please login first", err.Error())
+	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
+
+	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
+	require.Error(t, err)
+	require.Equal(t, "changing your own status is not allowed", err.Error())
+
+	_, err = s.CreateUser(ctx, &schema.CreateUserRequest{
+		User:       usernameBytes,
+		Password:   passwordBytes,
+		Permission: 1,
+		Database:   DefaultdbName,
+	})
+	require.NoError(t, err)
+	ctx2, err := login(s, username, password)
+	require.NoError(t, err)
+	_, err = s.SetActiveUser(ctx2, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
+	require.Error(t, err)
+	require.Equal(t, "user is not system admin nor admin in any of the databases", err.Error())
+
+	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Username: "nonexistentuser", Active: false})
+	require.Error(t, err)
+	require.Equal(t, "user nonexistentuser not found", err.Error())
+}
+
+func TestGetUserAndUserExists(t *testing.T) {
+	dataDir := "Test-Get-User"
+	s := newAuthServer(dataDir)
+	defer os.RemoveAll(dataDir)
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	require.NoError(t, err)
+	username := "someuser"
+	_, err = s.CreateUser(ctx, &schema.CreateUserRequest{
+		User:       []byte(username),
+		Password:   []byte("Somepass1$"),
+		Permission: 1,
+		Database:   DefaultdbName})
+	require.NoError(t, err)
+	require.NoError(t, err)
+	_, err = s.getUser([]byte(username), false)
+	require.Error(t, err)
+	require.Equal(t, "user not found", err.Error())
+
+	_, err = s.userExists([]byte(username), []byte("wrongpass"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid user or password")
+}
+
+func TestIsAllowedDbName(t *testing.T) {
+	err := IsAllowedDbName("")
+	require.Error(t, err)
+	require.Equal(t, "database name length outside of limits", err.Error())
+
+	err = IsAllowedDbName(strings.Repeat("a", 33))
+	require.Error(t, err)
+	require.Equal(t, "database name length outside of limits", err.Error())
+
+	err = IsAllowedDbName(" ")
+	require.Error(t, err)
+	require.Equal(t, "unrecognized character in database name", err.Error())
+
+	err = IsAllowedDbName("-")
+	require.Error(t, err)
+	require.Equal(t, "punctuation marks and symbols are not allowed in database name", err.Error())
+
+	err = IsAllowedDbName(strings.Repeat("a", 32))
+	require.NoError(t, err)
+}
+
+func TestServerMandatoryAuth(t *testing.T) {
+	dataDir := "Test-Server-Mandatory-Auth"
+	s := newAuthServer(dataDir)
+	defer os.RemoveAll(dataDir)
+	s.Options.maintenance = true
+	require.False(t, s.mandatoryAuth())
+
+	s.Options.maintenance = false
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	require.NoError(t, err)
+	_, err = s.CreateUser(ctx, &schema.CreateUserRequest{
+		User:       []byte("someuser"),
+		Password:   []byte("Somepass1$"),
+		Permission: 1,
+		Database:   DefaultdbName,
+	})
+	require.NoError(t, err)
+	s.dbList.Append(s.dbList.GetByIndex(0))
+	require.True(t, s.mandatoryAuth())
+
+	s.sysDb = nil
+	require.True(t, s.mandatoryAuth())
 }

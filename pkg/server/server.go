@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
@@ -106,7 +105,7 @@ func (s *ImmuServer) Start() error {
 		}
 	}
 
-	systemDbRootDir := filepath.Join(dataDir, s.Options.GetDefaultDbName())
+	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
 	var uuid xid.ID
 	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
 		return err
@@ -215,7 +214,7 @@ func (s *ImmuServer) setUpMTLS() ([]grpc.ServerOption, error) {
 		}
 		certPool := x509.NewCertPool()
 		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
-		bs, err := ioutil.ReadFile(s.Options.MTLsOptions.ClientCAs)
+		bs, err := s.OS.ReadFile(s.Options.MTLsOptions.ClientCAs)
 		if err != nil {
 			s.Logger.Errorf("Failed to read client ca cert: %s", err)
 			return nil, err
@@ -257,10 +256,10 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 	if s.dbList.Length() == 0 {
 		panic("loadSystemDatabase should be called after loadDefaultDatabase as system database should be at index 1")
 	}
-	systemDbRootDir := filepath.Join(dataDir, s.Options.GetSystemAdminDbName())
+	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDbName())
 
-	_, sysDbErr := os.Stat(systemDbRootDir)
-	if os.IsNotExist(sysDbErr) {
+	_, sysDbErr := s.OS.Stat(systemDbRootDir)
+	if s.OS.IsNotExist(sysDbErr) {
 		if s.Options.GetAuth() {
 			op := DefaultOption().
 				WithDbName(s.Options.GetSystemAdminDbName()).
@@ -302,10 +301,10 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		panic("loadDefaultDatabase should be called before any other database loading")
 	}
 
-	defaultDbRootDir := filepath.Join(dataDir, s.Options.GetDefaultDbName())
+	defaultDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
 
-	_, defaultDbErr := os.Stat(defaultDbRootDir)
-	if os.IsNotExist(defaultDbErr) {
+	_, defaultDbErr := s.OS.Stat(defaultDbRootDir)
+	if s.OS.IsNotExist(defaultDbErr) {
 		op := DefaultOption().
 			WithDbName(s.Options.GetDefaultDbName()).
 			WithDbRootPath(dataDir).
@@ -339,7 +338,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 	}
 	var dirs []string
 	//get first level sub directories of data dir
-	err := filepath.Walk(s.Options.Dir, func(path string, info os.FileInfo, err error) error {
+	err := s.OS.Walk(s.Options.Dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -471,15 +470,15 @@ func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, 
 	return new(empty.Empty), nil
 }
 
-func updateConfigItem(
-	configFilepath string,
+func (s *ImmuServer) updateConfigItem(
 	key string,
 	newOrUpdatedLine string,
 	unchanged func(string) bool) error {
+	configFilepath := s.Options.Config
 	if strings.TrimSpace(configFilepath) == "" {
 		return fmt.Errorf("config file does not exist")
 	}
-	configBytes, err := ioutil.ReadFile(configFilepath)
+	configBytes, err := s.OS.ReadFile(configFilepath)
 	if err != nil {
 		return fmt.Errorf("error reading config file %s: %v", configFilepath, err)
 	}
@@ -500,7 +499,7 @@ func updateConfigItem(
 	if !write {
 		configLines = append(configLines, newOrUpdatedLine)
 	}
-	if err := ioutil.WriteFile(configFilepath, []byte(strings.Join(configLines, "\n")), 0644); err != nil {
+	if err := s.OS.WriteFile(configFilepath, []byte(strings.Join(configLines, "\n")), 0644); err != nil {
 		return err
 	}
 	return nil
@@ -515,8 +514,7 @@ func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfi
 	e := new(empty.Empty)
 	s.Options.WithAuth(req.GetKind() > 0)
 	auth.AuthEnabled = s.Options.GetAuth()
-	if err := updateConfigItem(
-		s.Options.Config,
+	if err := s.updateConfigItem(
 		"auth",
 		fmt.Sprintf("auth = %t", auth.AuthEnabled),
 		func(currValue string) bool {
@@ -538,8 +536,7 @@ func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfi
 		return nil, err
 	}
 	e := new(empty.Empty)
-	if err := updateConfigItem(
-		s.Options.Config,
+	if err := s.updateConfigItem(
 		"mtls",
 		fmt.Sprintf("mtls = %t", req.GetEnabled()),
 		func(currValue string) bool {
@@ -615,11 +612,7 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 	if err != nil {
 		return nil, err
 	}
-	index, err := s.dbList.GetByIndex(ind).SetBatch(kvl)
-	if err != nil {
-		return nil, err
-	}
-	return index, nil
+	return s.dbList.GetByIndex(ind).SetBatch(kvl)
 }
 
 // SetBatchSV ...
@@ -638,13 +631,7 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 	if err != nil {
 		return nil, err
 	}
-	item, err := s.dbList.GetByIndex(ind).Get(k)
-	if item == nil {
-		s.Logger.Debugf("get %s: item not found", k.Key)
-	} else {
-		s.Logger.Debugf("get %s %d bytes", k.Key, len(item.Value))
-	}
-	return item, err
+	return s.dbList.GetByIndex(ind).Get(k)
 }
 
 // GetSV ...
@@ -1581,7 +1568,7 @@ func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permis
 	}
 
 	if (permission > auth.PermissionRW) && (permission < auth.PermissionAdmin) {
-		return nil, nil, fmt.Errorf("uknown permission")
+		return nil, nil, fmt.Errorf("unknown permission")
 	}
 	if err := s.saveUser(userdata); err != nil {
 		return nil, nil, err
@@ -1713,7 +1700,7 @@ func (s *ImmuServer) mandatoryAuth() bool {
 				}
 			}
 		}
-		//systemdb exists but there are on other users created
+		//systemdb exists but there are no other users created
 		return false
 	}
 	return true

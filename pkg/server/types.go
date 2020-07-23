@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
@@ -45,6 +46,7 @@ type DatabaseList interface {
 
 // ImmuServer ...
 type ImmuServer struct {
+	OS                  immuos.OS
 	dbList              DatabaseList
 	Logger              logger.Logger
 	Options             Options
@@ -62,6 +64,7 @@ type ImmuServer struct {
 // DefaultServer ...
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
+		OS:                  immuos.NewStandardOS(),
 		dbList:              NewDatabaseList(),
 		Logger:              logger.NewSimpleLogger("immudb ", os.Stderr),
 		Options:             DefaultOptions(),

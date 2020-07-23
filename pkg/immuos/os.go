@@ -22,6 +22,7 @@ import "os"
 type OS interface {
 	Filepath
 	User
+	Ioutil
 	Create(name string) (*os.File, error)
 	Getwd() (string, error)
 	Mkdir(name string, perm os.FileMode) error
@@ -42,6 +43,7 @@ type OS interface {
 type StandardOS struct {
 	*StandardFilepath
 	*StandardUser
+	*StandardIoutil
 	CreateF     func(name string) (*os.File, error)
 	GetwdF      func() (string, error)
 	MkdirF      func(name string, perm os.FileMode) error
@@ -63,6 +65,7 @@ func NewStandardOS() *StandardOS {
 	return &StandardOS{
 		StandardFilepath: NewStandardFilepath(),
 		StandardUser:     NewStandardUser(),
+		StandardIoutil:   NewStandardIoutil(),
 		CreateF:          os.Create,
 		GetwdF:           os.Getwd,
 		MkdirF:           os.Mkdir,
