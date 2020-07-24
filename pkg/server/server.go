@@ -404,7 +404,7 @@ func (s *ImmuServer) startCorruptionChecker() {
 		cco.singleiteration = false
 		cco.iterationSleepTime = 5 * time.Second
 		cco.frequencySleepTime = 500 * time.Millisecond
-		s.Cc = NewCorruptionChecker(cco, s.dbList, s.Logger)
+		s.Cc = NewCorruptionChecker(cco, s.dbList, s.Logger, randomGenerator{})
 		go func() {
 			s.Logger.Infof("Starting consistency-checker")
 			if err := s.Cc.Start(context.Background()); err != nil {
@@ -417,7 +417,7 @@ func (s *ImmuServer) startCorruptionChecker() {
 //StopCorruptionChecker shutdown the corruption checkcer
 func (s *ImmuServer) stopCorruptionChecker() error {
 	if s.Options.CorruptionCheck {
-		s.Cc.Stop(context.Background())
+		s.Cc.Stop()
 	}
 	return nil
 }
