@@ -47,18 +47,21 @@ type corruptionChecker struct {
 	Trusted        bool
 	Wg             sync.WaitGroup
 	currentDbIndex int
+	rg             RandomGenerator
 }
 
 // CorruptionChecker corruption checker interface
 type CorruptionChecker interface {
 	Start(context.Context) (err error)
-	Stop(context.Context)
-	GetStatus(context.Context) bool
+	Stop()
+	GetStatus() bool
+	GetExit() bool
+	SetExit(bool)
 	Wait()
 }
 
 // NewCorruptionChecker returns new trust checker service
-func NewCorruptionChecker(opt CCOptions, d DatabaseList, l logger.Logger) CorruptionChecker {
+func NewCorruptionChecker(opt CCOptions, d DatabaseList, l logger.Logger, rg RandomGenerator) CorruptionChecker {
 	return &corruptionChecker{
 		options:        opt,
 		dbList:         d,
@@ -66,6 +69,7 @@ func NewCorruptionChecker(opt CCOptions, d DatabaseList, l logger.Logger) Corrup
 		Exit:           false,
 		Trusted:        true,
 		currentDbIndex: 0,
+		rg:             rg,
 	}
 }
 
@@ -76,26 +80,21 @@ func (s *corruptionChecker) Start(ctx context.Context) (err error) {
 }
 
 // Stop stop the trust checker loop
-func (s *corruptionChecker) Stop(ctx context.Context) {
+func (s *corruptionChecker) Stop() {
 	s.Exit = true
 	s.Logger.Infof("Waiting for consistency checker to shut down")
 	s.Wait()
 }
 
-// GetStatus return status of the trust checker. False means that a consistency checks was failed
-func (s *corruptionChecker) GetStatus(ctx context.Context) bool {
-	return s.Trusted
-}
-
 func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	s.Wg.Add(1)
-	s.Logger.Debugf("Retrieving a fresh root ...")
 	if s.currentDbIndex == s.dbList.Length() {
 		s.currentDbIndex = 0
 	}
 	db := s.dbList.GetByIndex(int64(s.currentDbIndex))
 	s.currentDbIndex++
 	var r *schema.Root
+	s.Logger.Debugf("Retrieving a fresh root ...")
 	if r, err = db.Store.CurrentRoot(); err != nil {
 		s.Logger.Errorf("Error retrieving root: %s", err)
 		return
@@ -103,11 +102,8 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	if r.Root == nil {
 		s.Logger.Debugf("Immudb is empty ...")
 	} else {
-		// create a range with all index presents in immudb
-		ids := makeRange(0, r.Index)
-		rn := mrand.New(newCryptoRandSource())
-		// shuffle indexes
-		rn.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
+		// create a shuffle range with all indexes presents in immudb
+		ids := s.rg.getList(0, r.Index)
 		s.Logger.Debugf("Start scanning %d elements", len(ids))
 		for _, id := range ids {
 			if s.Exit {
@@ -128,6 +124,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 					return
 				}
 				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
+				return
 			}
 			verified := item.Proof.Verify(item.Proof.Leaf, *r)
 			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Item.Index, item.Item.Value, verified)
@@ -158,16 +155,23 @@ func (s *corruptionChecker) sleep() {
 	}
 }
 
-func makeRange(min, max uint64) []uint64 {
-	a := make([]uint64, max-min+1)
-	var i uint64
-	for i = min; i <= max; i++ {
-		a[i] = i
-	}
-	return a
-}
 func (s *corruptionChecker) Wait() {
 	s.Wg.Wait()
+}
+
+// GetStatus return status of the trust checker. False means that a consistency checks was failed
+func (s *corruptionChecker) GetStatus() bool {
+	return s.Trusted
+}
+
+// GetExit return exit flag
+func (s *corruptionChecker) GetExit() bool {
+	return s.Exit
+}
+
+// SetExit set exit flag
+func (s *corruptionChecker) SetExit(exit bool) {
+	s.Exit = exit
 }
 
 type cryptoRandSource struct{}
@@ -183,3 +187,21 @@ func (cryptoRandSource) Int63() int64 {
 }
 
 func (cryptoRandSource) Seed(_ int64) {}
+
+type randomGenerator struct{}
+
+type RandomGenerator interface {
+	getList(uint64, uint64) []uint64
+}
+
+func (rg randomGenerator) getList(start, end uint64) []uint64 {
+	ids := make([]uint64, end-start+1)
+	var i uint64
+	for i = start; i <= end; i++ {
+		ids[i] = i
+	}
+	rn := mrand.New(newCryptoRandSource())
+	// shuffle indexes
+	rn.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
+	return ids
+}
