@@ -16,15 +16,8 @@ limitations under the License.
 
 package sysstore
 
-import "bytes"
-
 // System keys prefixes
 const (
-	//All user keys in the key/value store are prefixed by this keys to distinguish them from keys that have other purposes
+	//KeyPrefixUser All user keys in the key/value store are prefixed by this keys to distinguish them from keys that have other purposes
 	KeyPrefixUser = iota + 1
 )
-
-// AddKeyPrefix ...
-func AddKeyPrefix(k []byte, prefix byte) []byte {
-	return bytes.Join([][]byte{{prefix}, k}, []byte{})
-}
