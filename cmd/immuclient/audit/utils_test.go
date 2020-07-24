@@ -1,5 +1,3 @@
-// +build linux darwin freebsd
-
 /*
 Copyright 2019-2020 vChain, Inc.
 
@@ -16,38 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helper
+package audit
 
 import (
-	"fmt"
-	"io"
+	"testing"
 )
 
-// Reset resets the color
-var Reset = "\033[0m"
-
-// Red ...
-var Red = "\033[31m"
-
-// Green ...
-var Green = "\033[32m"
-
-// Yellow ...
-var Yellow = "\033[33m"
-
-// Blue ...
-var Blue = "\033[34m"
-
-// Purple ...
-var Purple = "\033[35m"
-
-// Cyan ...
-var Cyan = "\033[36m"
-
-// White ...
-var White = "\033[37m"
-
-// PrintfColorW ...
-func PrintfColorW(w io.Writer, color string, format string, args ...interface{}) {
-	fmt.Fprintf(w, color+format+Reset, args...)
+func TestStringInSlice(t *testing.T) {
+	myslice := []string{"app1", "app2", "app3"}
+	if !stringInSlice("app1", myslice) {
+		t.Fatal("stringInSlice failed, expected true, returned false")
+	}
+	if stringInSlice("app5", myslice) {
+		t.Fatal("stringInSlice failed, expected false, returned true")
+	}
 }

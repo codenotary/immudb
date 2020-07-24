@@ -22,8 +22,8 @@ import (
 	"os"
 
 	"github.com/codenotary/immudb/pkg/server"
+	immusrvc "github.com/codenotary/immudb/pkg/service"
 
-	"github.com/codenotary/immudb/cmd/immuclient/service"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -38,7 +38,8 @@ type AuditAgent interface {
 }
 
 type auditAgent struct {
-	daemon.Daemon
+	service        immusrvc.Sservice
+	Daemon         daemon.Daemon
 	cycleFrequency int
 	metrics        prometheusMetrics
 	ImmuAudit      auditor.Auditor
@@ -66,19 +67,19 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			QuitToStdErr(err.Error())
 		}
 		localFile = viper.GetString("local-file")
-		if localFile, err = service.GetExecutable(localFile, name); err != nil {
+		if localFile, err = a.service.GetExecutable(localFile, name); err != nil {
 			return "", err
 		}
 	}
 
-	execPath = service.GetDefaultExecPath(localFile)
+	execPath, err = a.service.GetDefaultExecPath(localFile)
 
 	if stringInSlice("--remove-files", os.Args) {
 		localFile = viper.GetString("local-file")
 	}
 
 	if command == "install" {
-		if execPath, err = service.CopyExecInOsDefault(localFile); err != nil {
+		if execPath, err = a.service.CopyExecInOsDefault(localFile); err != nil {
 			return "", err
 		}
 	}
@@ -91,7 +92,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 		return "", nil
 	}
 
-	a.Daemon, err = service.NewDaemon(name, name, execPath)
+	a.Daemon, err = a.service.NewDaemon(name, name, execPath)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +100,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 		switch command {
 		case "install":
 			fmt.Println("installing " + localFile + "...")
-			if err = service.InstallSetup(name); err != nil {
+			if err = a.service.InstallSetup(name); err != nil {
 				return "", err
 			}
 			logfile, err := os.OpenFile(viper.GetString("logfile"), os.O_APPEND, 0755)
@@ -109,49 +110,52 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			a.logfile = logfile
 			a.logger = logger.NewSimpleLogger("immuclientd", logfile)
 			fmt.Println("installing " + localFile + "...")
-
-			if msg, err = a.Install("audit-mode", "--config", service.GetDefaultConfigPath(name)); err != nil {
+			configpath, err := a.service.GetDefaultConfigPath(name)
+			if err != nil {
+				return "", err
+			}
+			if msg, err = a.Daemon.Install("audit-mode", "--config", configpath); err != nil {
 				return "", err
 			}
 			fmt.Println(msg)
 
-			if msg, err = a.Start(); err != nil {
+			if msg, err = a.Daemon.Start(); err != nil {
 				return "", err
 			}
 			return msg, nil
 		case "uninstall":
 			var status string
-			if status, err = a.Status(); err != nil {
+			if status, err = a.Daemon.Status(); err != nil {
 				if err == daemon.ErrNotInstalled {
 					return "", err
 				}
 			}
 			// stopping service first
-			if service.IsRunning(status) {
-				if msg, err = a.Stop(); err != nil {
+			if a.service.IsRunning(status) {
+				if msg, err = a.Daemon.Stop(); err != nil {
 					return "", err
 				}
 				fmt.Println(msg)
 			}
-			return a.Remove()
+			return a.Daemon.Remove()
 		case "start":
-			if msg, err = a.Start(); err != nil {
+			if msg, err = a.Daemon.Start(); err != nil {
 				return "", err
 			}
 			return msg, nil
 		case "restart":
-			if msg, err = a.Stop(); err != nil {
+			if msg, err = a.Daemon.Stop(); err != nil {
 				return "", err
 			}
 			fmt.Println(msg)
-			if msg, err = a.Start(); err != nil {
+			if msg, err = a.Daemon.Start(); err != nil {
 				return "", err
 			}
 			return msg, nil
 		case "stop":
-			return a.Stop()
+			return a.Daemon.Stop()
 		case "status":
-			return a.Status()
+			return a.Daemon.Status()
 		default:
 			return fmt.Sprintf("Invalid arg %s", command), nil
 		}
@@ -165,7 +169,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 	if _, err := a.InitAgent(); err != nil {
 		return "", err
 	}
-	return a.Run(exec)
+	return a.Daemon.Run(exec)
 }
 
 func options() *client.Options {

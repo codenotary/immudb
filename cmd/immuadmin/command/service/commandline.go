@@ -17,13 +17,31 @@ limitations under the License.
 package service
 
 import (
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/codenotary/immudb/cmd/helper"
+	srvc "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
+	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/constants"
+	immusrvc "github.com/codenotary/immudb/pkg/service"
+	"github.com/spf13/cobra"
 )
 
 func NewCommandLine() *commandline {
-	s := NewSService()
+	op := immusrvc.Option{
+		ExecPath:      service.ExecPath,
+		ConfigPath:    service.ConfigPath,
+		ManPath:       service.ManPath,
+		User:          service.OSUser,
+		Group:         service.OSGroup,
+		StartUpConfig: service.StartUpConfig,
+		UsageDetails:  service.UsageDet,
+		UsageExamples: service.UsageExamples,
+		Config: map[string][]byte{
+			"immudb": srvc.ConfigImmudb,
+			"immugw": srvc.ConfigImmugw,
+		},
+	}
+	s := immusrvc.NewSService(&op)
 	t := helper.NewTerminalReader(os.Stdin)
 	return &commandline{s, t}
 }
@@ -33,6 +51,6 @@ type Commandline interface {
 }
 
 type commandline struct {
-	sservice Sservice
+	sservice immusrvc.Sservice
 	treader  helper.TerminalReader
 }

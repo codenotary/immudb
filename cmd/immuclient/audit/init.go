@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/codenotary/immudb/cmd/immuclient/service"
+	srvc "github.com/codenotary/immudb/cmd/immuclient/service/configs"
+	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
+	immusrvc "github.com/codenotary/immudb/pkg/service"
 )
 
 // Init ...
@@ -44,13 +46,27 @@ func Init(args []string) {
 func NewAuditAgent() (AuditAgent, error) {
 	ad := new(auditAgent)
 	ad.firstRun = true
+	op := immusrvc.Option{
+		ExecPath:      service.ExecPath,
+		ConfigPath:    service.ConfigPath,
+		ManPath:       service.ManPath,
+		User:          service.OSUser,
+		Group:         service.OSGroup,
+		StartUpConfig: service.StartUpConfig,
+		UsageDetails:  service.UsageDet,
+		UsageExamples: service.UsageExamples,
+		Config: map[string][]byte{
+			"immuclient": srvc.ConfigImmuClient,
+		},
+	}
+	ad.service = immusrvc.NewSService(&op)
 	var err error
 	ad.opts = options()
-	srv, err := service.NewDaemon(name, description, name)
+	daemon, err := ad.service.NewDaemon(name, description, name)
 	if err != nil {
 		return nil, err
 	}
-	ad.Daemon = srv
+	ad.Daemon = daemon
 	return ad, nil
 }
 

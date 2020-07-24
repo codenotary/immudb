@@ -30,15 +30,8 @@ import (
 	"strconv"
 	"strings"
 
-	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
 	"github.com/takama/daemon"
 )
-
-const linuxExecPath = "/usr/sbin/"
-const linuxConfigPath = "/etc/immudb"
-const linuxManPath = "/usr/share/man/man1/"
-const linuxUser = "immu"
-const linuxGroup = "immu"
 
 func (ss *sservice) NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
 	d, err = daemon.New(name, description, execStartPath, dependencies...)
@@ -54,7 +47,6 @@ func (ss *sservice) IsAdmin() (bool, error) {
 			}
 			return false, ErrRootPrivileges
 		}
-		fmt.Println("started msg")
 	}
 	return false, ErrUnsupportedSystem
 }
@@ -66,7 +58,7 @@ func (ss *sservice) InstallSetup(serviceName string) (err error) {
 	if err = ss.UserCreateIfNotExists(); err != nil {
 		return err
 	}
-	if err = ss.SetOwnership(linuxExecPath); err != nil {
+	if err = ss.SetOwnership(ss.options.ExecPath); err != nil {
 		return err
 	}
 	if err = ss.InstallConfig(serviceName); err != nil {
@@ -96,8 +88,10 @@ func (ss *sservice) InstallSetup(serviceName string) (err error) {
 	if err = ss.enableStartOnBoot(serviceName); err != nil {
 		return err
 	}
-	if err = ss.installManPages(serviceName); err != nil {
-		return err
+	if ss.options.ManPath == "" {
+		if err = ss.installManPages(serviceName); err != nil {
+			return err
+		}
 	}
 	return err
 }
@@ -125,8 +119,10 @@ func (ss *sservice) UninstallSetup(serviceName string) (err error) {
 	if err = ss.uninstallExecutables(serviceName); err != nil {
 		return err
 	}
-	if err = ss.uninstallManPages(serviceName); err != nil {
-		return err
+	if ss.options.ManPath == "" {
+		if err = ss.uninstallManPages(serviceName); err != nil {
+			return err
+		}
 	}
 	if err = ss.os.RemoveAll(ss.os.Dir(ss.v.GetString("logfile"))); err != nil {
 		return err
@@ -156,20 +152,20 @@ func (ss *sservice) InstallConfig(serviceName string) (err error) {
 }
 
 func (ss *sservice) groupCreateIfNotExists() (err error) {
-	if _, err = user.LookupGroup(linuxGroup); err != user.UnknownGroupError(linuxGroup) {
+	if _, err = user.LookupGroup(ss.options.Group); err != user.UnknownGroupError(ss.options.Group) {
 		return err
 	}
-	if err = exec.Command("pw", "groupadd", linuxGroup).Run(); err != nil {
+	if err = exec.Command("pw", "groupadd", ss.options.Group).Run(); err != nil {
 		return err
 	}
 	return err
 }
 
 func (ss *sservice) UserCreateIfNotExists() (err error) {
-	if _, err = user.Lookup(linuxUser); err != user.UnknownUserError(linuxUser) {
+	if _, err = user.Lookup(ss.options.User); err != user.UnknownUserError(ss.options.User) {
 		return err
 	}
-	if err = exec.Command("pw", "useradd", linuxUser, "-G", linuxGroup).Run(); err != nil {
+	if err = exec.Command("pw", "useradd", ss.options.User, "-G", ss.options.Group).Run(); err != nil {
 		return err
 	}
 	return err
@@ -179,10 +175,10 @@ func (ss *sservice) SetOwnership(path string) (err error) {
 	var g *user.Group
 	var u *user.User
 
-	if g, err = user.LookupGroup(linuxGroup); err != nil {
+	if g, err = user.LookupGroup(ss.options.Group); err != nil {
 		return err
 	}
-	if u, err = user.Lookup(linuxUser); err != nil {
+	if u, err = user.Lookup(ss.options.User); err != nil {
 		return err
 	}
 
@@ -283,9 +279,9 @@ func (ss *sservice) CopyExecInOsDefault(execPath string) (newExecPath string, er
 func (ss sservice) installManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return ss.mpss[0].InstallManPages(linuxManPath)
+		return ss.mpss[0].InstallManPages(ss.options.ManPath)
 	case "immugw":
-		return ss.mpss[1].InstallManPages(linuxManPath)
+		return ss.mpss[1].InstallManPages(ss.options.ManPath)
 	default:
 		return errors.New("invalid service name specified")
 	}
@@ -294,9 +290,9 @@ func (ss sservice) installManPages(serviceName string) error {
 func (ss sservice) uninstallManPages(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return ss.mpss[0].UninstallManPages(linuxManPath)
+		return ss.mpss[0].UninstallManPages(ss.options.ManPath)
 	case "immugw":
-		return ss.mpss[1].UninstallManPages(linuxManPath)
+		return ss.mpss[1].UninstallManPages(ss.options.ManPath)
 	default:
 		return errors.New("invalid service name specified")
 	}
@@ -305,9 +301,11 @@ func (ss sservice) uninstallManPages(serviceName string) error {
 func (ss *sservice) uninstallExecutables(serviceName string) error {
 	switch serviceName {
 	case "immudb":
-		return ss.os.Remove(ss.os.Join(linuxExecPath, "immudb"))
+		return ss.os.Remove(ss.os.Join(ss.options.ExecPath, "immudb"))
 	case "immugw":
-		return ss.os.Remove(ss.os.Join(linuxExecPath, "immugw"))
+		return ss.os.Remove(ss.os.Join(ss.options.ExecPath, "immugw"))
+	case "immuclient":
+		return ss.os.Remove(ss.os.Join(ss.options.ExecPath, "immuclient"))
 	default:
 		return errors.New("invalid service name specified")
 	}
@@ -316,12 +314,12 @@ func (ss *sservice) uninstallExecutables(serviceName string) error {
 // GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
 func (ss *sservice) GetDefaultExecPath(localFile string) (string, error) {
 	execName := ss.os.Base(localFile)
-	return ss.os.Join(linuxExecPath, execName), nil
+	return ss.os.Join(ss.options.ExecPath, execName), nil
 }
 
 // GetDefaultConfigPath returns the default config path
 func (ss *sservice) GetDefaultConfigPath(serviceName string) (string, error) {
-	return ss.os.Join(linuxConfigPath, serviceName+".toml"), nil
+	return ss.os.Join(ss.options.ConfigPath, serviceName+".toml"), nil
 }
 
 // IsRunning check if status derives from a running process
@@ -332,24 +330,5 @@ func (ss *sservice) IsRunning(status string) bool {
 
 func (ss *sservice) ReadConfig(serviceName string) (err error) {
 	ss.v.SetConfigType("toml")
-	return ss.v.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
+	return ss.v.ReadConfig(bytes.NewBuffer([]byte(ss.options.Config[serviceName])))
 }
-
-var configsMap = map[string][]byte{
-	"immudb": service.ConfigImmudb,
-	"immugw": service.ConfigImmugw,
-}
-
-// UsageDet details on config and log file on specific os
-var UsageDet = fmt.Sprintf(`Config file is present in %s. Log file is in /var/log/immudb`, linuxConfigPath)
-
-// UsageExamples usage examples for linux
-var UsageExamples = fmt.Sprintf(`Install the immutable database
-sudo ./immuadmin service immudb install
-Install the REST proxy client with rest interface. We discourage to install immugw in the same machine of immudb in order to respect the security model of our technology.
-This kind of istallation is suggested only for testing purpose
-sudo ./immuadmin  service immugw install
-It's possible to provide a specific executable
-sudo ./immuadmin  service immudb install --local-file immudb.exe
-Uninstall immudb after 20 second
-sudo ./immuadmin  service immudb uninstall --time 20`)

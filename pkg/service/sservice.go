@@ -62,11 +62,11 @@ type SserviceTOREFACTOR interface {
 }
 
 // NewSService ...
-func NewSService() *sservice {
+func NewSService(options *Option) *sservice {
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudb.ManpageServiceImmudb{}
 	mpss[1] = immugw.ManpageServiceImmugw{}
-	return &sservice{immuos.NewStandardOS(), viper.New(), mpss}
+	return &sservice{immuos.NewStandardOS(), viper.New(), mpss, *options}
 }
 
 // ConfigService ...
@@ -78,7 +78,8 @@ type ConfigService interface {
 }
 
 type sservice struct {
-	os   immuos.OS
-	v    ConfigService
-	mpss []immudb.ManpageService
+	os      immuos.OS
+	v       ConfigService
+	mpss    []immudb.ManpageService
+	options Option
 }

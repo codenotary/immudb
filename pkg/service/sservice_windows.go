@@ -29,7 +29,6 @@ import (
 
 	"github.com/codenotary/immudb/cmd/helper"
 
-	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
 	"github.com/takama/daemon"
 	"golang.org/x/sys/windows"
 )
@@ -86,6 +85,9 @@ func (ss *sservice) InstallSetup(serviceName string) (err error) {
 }
 
 func (ss *sservice) UninstallSetup(serviceName string) (err error) {
+	if serviceName == "immuclient" {
+		return err
+	}
 	// remove ProgramFiles folder only if it is empty
 	var cep string
 	if cep, err = ss.getCommonExecPath(); err != nil {
@@ -270,25 +272,5 @@ func (ss *sservice) IsRunning(status string) bool {
 
 func (ss *sservice) ReadConfig(serviceName string) (err error) {
 	ss.v.SetConfigType("toml")
-	return ss.v.ReadConfig(bytes.NewBuffer(configsMap[serviceName]))
+	return ss.v.ReadConfig(bytes.NewBuffer([]byte(ss.options.Config[serviceName])))
 }
-
-var configsMap = map[string][]byte{
-	"immudb": service.ConfigImmudb,
-	"immugw": service.ConfigImmugw,
-}
-
-// UsageDet details on config and log file on specific os
-var UsageDet = fmt.Sprintf(`Config and log files are present in C:\ProgramData\Immudb folder`)
-
-// UsageExamples examples
-var UsageExamples = fmt.Sprintf(`Install the immutable database
-immuadmin.exe service immudb install
-Install the REST proxy client with rest interface. We discourage to install immugw in the same machine of immudb in order to respect the security model of our technology.
-This kind of istallation is suggested only for testing purpose
-immuadmin.exe service immugw install
-It's possible to provide a specific executable
-immuadmin.exe service immudb install --local-file immudb.exe
-Uninstall immudb after 20 second
-immuadmin.exe service immudb uninstall --time 20
-`)
