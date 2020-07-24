@@ -22,7 +22,7 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuclient/audit"
 	"github.com/codenotary/immudb/cmd/immuclient/cli"
-	"github.com/codenotary/immudb/cmd/immuclient/service"
+	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
 	"github.com/spf13/cobra"
 )
 

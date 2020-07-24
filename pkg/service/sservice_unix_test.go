@@ -79,11 +79,12 @@ func init() {
 }
 
 func TestSservice_NewDaemon(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	d, err := ss.NewDaemon("test", "", "")
 	assert.Nil(t, err)
 	dc, _ := daem.New("test", "", "")
@@ -91,21 +92,23 @@ func TestSservice_NewDaemon(t *testing.T) {
 }
 
 func TestSservice_IsAdmin(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	_, err := ss.IsAdmin()
 	assert.Errorf(t, err, "you must have root user privileges. Possibly using 'sudo' command should help")
 }
 
 func TestSservice_InstallSetup_immudb(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	err := ss.InstallSetup("immudb")
 	if err != nil {
 		t.Logf("TestSservice_InstallSetup_immudb: %s", err)
@@ -114,11 +117,12 @@ func TestSservice_InstallSetup_immudb(t *testing.T) {
 }
 
 func TestSservice_InstallSetup_immugw(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	err := ss.InstallSetup("immugw")
 	if err != nil {
 		t.Logf("TestSservice_InstallSetup_immugw: %s", err)
@@ -128,71 +132,78 @@ func TestSservice_InstallSetup_immugw(t *testing.T) {
 }
 
 func TestSservice_UninstallSetup_immudb(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	err := ss.UninstallSetup("immudb")
 	assert.Nil(t, err)
 }
 
 func TestSservice_UninstallSetup_immugw(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	err := ss.UninstallSetup("immugw")
 	assert.Nil(t, err)
 }
 
 func TestSservice_RemoveProgramFiles_immudb(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	err := ss.RemoveProgramFiles("immudb")
 	assert.Nil(t, err)
 }
 
 func TestSservice_EraseData_immudb(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	err := ss.EraseData("immudb")
 	assert.Nil(t, err)
 }
 
 func TestSservice_GetExecutable(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	_, err := ss.GetExecutable("immudb", "immudb")
 	assert.Nil(t, err)
 }
 
 func TestSservice_GetExecutable_emptyInput(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	_, err := ss.GetExecutable("", "immudb")
 	assert.Nil(t, err)
 }
 
 func TestSservice_CopyExecInOsDefault(t *testing.T) {
+	op := Option{}
 	mpss := make([]immudb.ManpageService, 2)
 	mpss[0] = immudbcmdtest.ManpageServiceMock{}
 	mpss[1] = immudbcmdtest.ManpageServiceMock{}
 
-	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss}
+	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, mpss, op}
 	_, err := ss.CopyExecInOsDefault("immudb")
 	assert.Nil(t, err)
 }

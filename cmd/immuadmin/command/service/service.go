@@ -19,11 +19,12 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/cmd/immuclient/service"
 	"os"
 	"os/exec"
 	"strconv"
 	"time"
+
+	srvc "github.com/codenotary/immudb/cmd/immuadmin/command/service/constants"
 
 	"github.com/spf13/cobra"
 	daem "github.com/takama/daemon"
@@ -39,9 +40,9 @@ func (cl *commandline) Service(cmd *cobra.Command) {
 		Long: fmt.Sprintf(`Manage immudb related services.
 Available services: immudb and immugw.
 Root permission are required in order to make administrator operations.
-%s`, service.UsageDet),
+%s`, srvc.UsageDet),
 		ValidArgs: availableCommands,
-		Example:   UsageExamples,
+		Example:   srvc.UsageExamples,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("required a service name")
@@ -179,7 +180,7 @@ Root permission are required in order to make administrator operations.
 					}
 				}
 				// stopping service first
-				if service.IsRunning(status) {
+				if cl.sservice.IsRunning(status) {
 					if msg, err = daemon.Stop(); err != nil {
 						return err
 					}
