@@ -43,6 +43,10 @@ type Options struct {
 	PasswordReader     c.PasswordReader
 	HDS                HomedirService
 	Metrics            bool
+	PidPath            string
+	PrometheusHost     string
+	PrometheusPort     string
+	LogFileName        string
 }
 
 // DefaultOptions ...
@@ -60,7 +64,35 @@ func DefaultOptions() *Options {
 		PasswordReader:     c.DefaultPasswordReader,
 		HDS:                NewHomedirService(),
 		Metrics:            true,
+		PidPath:            "",
+		PrometheusHost:     "",
+		PrometheusPort:     "",
+		LogFileName:        "",
 	}
+}
+
+// WithLogFileName set log file name
+func (o *Options) WithLogFileName(filename string) *Options {
+	o.LogFileName = filename
+	return o
+}
+
+// WithPrometheusHost set prometheus host
+func (o *Options) WithPrometheusHost(host string) *Options {
+	o.PrometheusHost = host
+	return o
+}
+
+// WithPrometheusPort set prometheus port
+func (o *Options) WithPrometheusPort(port string) *Options {
+	o.PrometheusPort = port
+	return o
+}
+
+// WithPidPath set pid file path
+func (o *Options) WithPidPath(path string) *Options {
+	o.PidPath = path
+	return o
 }
 
 // WithMetrics set if metrics should start
