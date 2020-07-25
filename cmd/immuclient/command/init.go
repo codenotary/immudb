@@ -30,7 +30,8 @@ import (
 )
 
 type commandline struct {
-	immucl immuc.Client
+	immucl  immuc.Client
+	onError func(msg interface{})
 }
 
 // Init ...
@@ -56,19 +57,19 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := cl.immucl.Connect(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			cli.Init(cl.immucl).Run()
 			return nil
 		},
 	}
 	if err := configureOptions(cmd, o); err != nil {
-		c.QuitToStdErr(err)
+		cl.quit(err)
 	}
 	var err error
 	cl.immucl, err = immuc.Init(immuc.Options())
 	if err != nil {
-		c.QuitToStdErr(err)
+		cl.quit(err)
 	}
 	// login and logout
 	cl.login(cmd)
@@ -113,15 +114,22 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	err = cl.immucl.Connect(args)
 	if err != nil {
-		c.QuitToStdErr(err)
+		cl.quit(err)
 	}
 	return
 }
 
 func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
 	if err := cl.immucl.Disconnect(args); err != nil {
-		c.QuitToStdErr(err)
+		cl.quit(err)
 	}
+}
+
+func (cl *commandline) quit(msg interface{}) {
+	if cl.onError == nil {
+		c.QuitToStdErr(msg)
+	}
+	cl.onError(msg)
 }
 
 func configureOptions(cmd *cobra.Command, o *c.Options) error {

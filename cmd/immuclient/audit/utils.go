@@ -16,17 +16,6 @@ limitations under the License.
 
 package audit
 
-import (
-	"fmt"
-	"os"
-)
-
-// QuitToStdErr prints an error on stderr and closes
-func QuitToStdErr(msg interface{}) {
-	_, _ = fmt.Fprintln(os.Stderr, msg)
-	os.Exit(1)
-}
-
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {

@@ -19,7 +19,6 @@ package immuclient
 import (
 	"fmt"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/immuclient/audit"
 	"github.com/codenotary/immudb/cmd/immuclient/cli"
 	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
@@ -36,7 +35,7 @@ func (cl *commandline) history(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.History(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -56,7 +55,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.HealthCheck(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -75,10 +74,12 @@ func (cl *commandline) auditmode(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"help", "start", "install", "uninstall", "restart", "stop", "status"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			audit.Init(args)
+			if err := audit.Init(args); err != nil {
+				cl.quit(err)
+			}
 			return nil
 		},
-		Args: cobra.MaximumNArgs(2),
+		Args: cobra.ExactArgs(1),
 	}
 	cmd.AddCommand(ccmd)
 }
@@ -114,7 +115,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.UserList(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -129,7 +130,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.ChangeUserPassword(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -146,7 +147,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.UserCreate(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -161,7 +162,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SetActiveUser(args, true)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -176,7 +177,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SetActiveUser(args, false)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -191,7 +192,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SetUserPermission(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -224,7 +225,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.DatabaseList(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -239,7 +240,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.CreateDatabase(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -262,7 +263,7 @@ func (cl *commandline) use(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.UseDatabase(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil

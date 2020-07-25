@@ -19,7 +19,6 @@ package immuclient
 import (
 	"fmt"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +32,7 @@ func (cl *commandline) getByIndex(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.GetByIndex(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -53,7 +52,7 @@ func (cl *commandline) getRawBySafeIndex(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.GetRawBySafeIndex(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -73,7 +72,7 @@ func (cl *commandline) getKey(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.GetKey(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -93,7 +92,7 @@ func (cl *commandline) rawSafeGetKey(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.RawSafeGetKey(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -113,7 +112,7 @@ func (cl *commandline) safeGetKey(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SafeGetKey(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil

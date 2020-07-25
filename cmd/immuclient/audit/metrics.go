@@ -23,7 +23,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spf13/viper"
 )
 
 type prometheusMetrics struct {
@@ -55,8 +54,8 @@ var (
 	)
 )
 
-func (p *prometheusMetrics) init(serverid string) {
-	p.server_address = fmt.Sprintf("%s:%s", viper.GetString("immudb-address"), viper.GetString("immudb-port"))
+func (p *prometheusMetrics) init(serverid string, immudbAddress, immudbPort string) {
+	p.server_address = fmt.Sprintf("%s:%s", immudbAddress, immudbPort)
 	p.server_id = serverid
 	prometheus.MustRegister(AuditResultPerServer, AuditCurrRootPerServer, AuditRunAtPerServer, AuditPrevRootPerServer)
 	AuditResultPerServer.WithLabelValues(p.server_id, p.server_address).Set(-1)

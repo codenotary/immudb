@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/auth"
@@ -43,7 +44,7 @@ var ErrAgentNotActive = errors.New("agent not active")
 
 func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	var err error
-	if cAgent.immuc, err = client.NewImmuClient(options()); err != nil || cAgent.immuc == nil {
+	if cAgent.immuc, err = client.NewImmuClient(cAgent.opts); err != nil || cAgent.immuc == nil {
 		return nil, fmt.Errorf("Initialization failed: %s \n", err.Error())
 	}
 	ctx := context.Background()
@@ -69,7 +70,9 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	if serverID == "" || err != nil {
 		serverID = "unknown"
 	}
-	cAgent.metrics.init(serverID)
+	if cAgent.opts.Metrics {
+		cAgent.metrics.init(serverID, cAgent.opts.Address, strconv.Itoa(cAgent.opts.Port))
+	}
 	cliOpts := cAgent.immuc.GetOptions()
 	ctx = context.Background()
 	auditUsername := viper.GetString("audit-username")

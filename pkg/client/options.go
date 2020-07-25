@@ -42,6 +42,7 @@ type Options struct {
 	CurrentDatabase    string
 	PasswordReader     c.PasswordReader
 	HDS                HomedirService
+	Metrics            bool
 }
 
 // DefaultOptions ...
@@ -58,7 +59,14 @@ func DefaultOptions() *Options {
 		DialOptions:        &[]grpc.DialOption{},
 		PasswordReader:     c.DefaultPasswordReader,
 		HDS:                NewHomedirService(),
+		Metrics:            true,
 	}
+}
+
+// WithMetrics set if metrics should start
+func (o *Options) WithMetrics(start bool) *Options {
+	o.Metrics = start
+	return o
 }
 
 // WithDir sets program file folder

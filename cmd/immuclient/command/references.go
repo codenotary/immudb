@@ -19,7 +19,6 @@ package immuclient
 import (
 	"fmt"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +32,7 @@ func (cl *commandline) reference(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Reference(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -53,7 +52,7 @@ func (cl *commandline) safereference(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SafeReference(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
