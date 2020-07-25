@@ -49,9 +49,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	}
 	ctx := context.Background()
 
-	pidPath := viper.GetString("pidfile")
-	if pidPath != "" {
-		if cAgent.Pid, err = server.NewPid(pidPath); err != nil {
+	if cAgent.opts.PidPath != "" {
+		if cAgent.Pid, err = server.NewPid(cAgent.opts.PidPath); err != nil {
 			cAgent.logger.Errorf("failed to write pidfile: %s", err)
 			return nil, err
 		}

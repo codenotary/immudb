@@ -104,7 +104,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			if err = a.service.InstallSetup(name); err != nil {
 				return "", err
 			}
-			logfile, err := os.OpenFile(viper.GetString("logfile"), os.O_APPEND, 0755)
+			logfile, err := os.OpenFile(a.opts.LogFileName, os.O_APPEND, 0755)
 			if err != nil {
 				logfile = os.Stderr
 			}
@@ -161,7 +161,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			return fmt.Sprintf("Invalid arg %s", command), nil
 		}
 	}
-	logfile, err := os.OpenFile(viper.GetString("logfile"), os.O_CREATE|os.O_APPEND, 0755)
+	logfile, err := os.OpenFile(a.opts.LogFileName, os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
 		logfile = os.Stderr
 	}
@@ -182,11 +182,18 @@ func options() *client.Options {
 	servername := viper.GetString("servername")
 	pkey := viper.GetString("pkey")
 	clientcas := viper.GetString("clientcas")
+	pidpath := viper.GetString("pidfile")
+	prometheusPort := viper.GetString("prometheus-port")
+	prometheusHost := viper.GetString("prometheus-host")
+	logfilename := viper.GetString("logfile")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
 		WithTokenFileName(tokenFileName).
-		WithMTLs(mtls)
+		WithMTLs(mtls).WithPidPath(pidpath).
+		WithPrometheusPort(prometheusPort).
+		WithPrometheusHost(prometheusHost).
+		WithLogFileName(logfilename)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = client.DefaultMTLsOptions().

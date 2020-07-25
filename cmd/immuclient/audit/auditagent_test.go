@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/immuadmin/command/service/servicetest"
 	srvc "github.com/codenotary/immudb/cmd/immuclient/service/configs"
 	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -31,14 +32,13 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestManage(t *testing.T) {
+func TestManageNotRoot(t *testing.T) {
 	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
 
 	os.Setenv("audit-agent-interval", "1s")
 	pidPath := "pid_path"
-	viper.Set("pidfile", pidPath)
 
 	ad := new(auditAgent)
 	ad.firstRun = true
@@ -68,17 +68,12 @@ func TestManage(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false)
+	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false).WithPidPath(pidPath)
 	_, err = ad.InitAgent()
 	if err != nil {
 		t.Fatal("InitAgent", err)
 	}
 	defer func() { os.RemoveAll(pidPath); os.RemoveAll(logfilename) }()
-
-	// _, err = ad.Manage([]string{"install"})
-	// if err == nil || !strings.Contains(err.Error(), "You must have root user privileges. Possibly using 'sudo' command should help") {
-	// 	t.Fatal("Manage fail, expected error")
-	// }
 
 	_, err = ad.Manage([]string{"uninstall"})
 	if err == nil || !strings.Contains(err.Error(), "You must have root user privileges. Possibly using 'sudo' command should help") {
@@ -104,6 +99,80 @@ func TestManage(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "You must have root user privileges. Possibly using 'sudo' command should help") {
 		t.Fatal("Manage fail, expected error")
 	}
+}
+
+func TestManage(t *testing.T) {
+	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(srvoptions)
+	bs.Start()
+
+	os.Setenv("audit-agent-interval", "1s")
+	pidPath := "pid_path_2"
+
+	ad := new(auditAgent)
+	ad.firstRun = true
+
+	ad.service = servicetest.Sservicemock{}
+
+	logfilename := "logfile"
+	logfile, err := os.OpenFile(logfilename, os.O_APPEND, 0755)
+	if err != nil {
+		logfile = os.Stderr
+	}
+	ad.logfile = logfile
+	ad.logger = logger.NewSimpleLogger("immuclientd", logfile)
+
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false).WithPidPath(pidPath)
+	_, err = ad.InitAgent()
+	if err != nil {
+		t.Fatal("InitAgent", err)
+	}
+	os.RemoveAll(pidPath)
+	defer func() { os.RemoveAll(pidPath); os.RemoveAll(logfilename) }()
+
+	_, err = ad.Manage([]string{})
+	if err != nil {
+		t.Fatal("Manage start audit fail", err)
+	}
+	os.RemoveAll(pidPath)
+
+	_, err = ad.Manage([]string{"install"})
+	if err != nil {
+		t.Fatal("Manage install audit fail", err)
+	}
+	os.RemoveAll(pidPath)
+
+	_, err = ad.Manage([]string{"uninstall"})
+	if err != nil {
+		t.Fatal("Manage uninstall fail", err)
+	}
+	os.RemoveAll(pidPath)
+
+	_, err = ad.Manage([]string{"start"})
+	if err != nil {
+		t.Fatal("Manage start fail", err)
+	}
+	os.RemoveAll(pidPath)
+
+	_, err = ad.Manage([]string{"restart"})
+	if err != nil {
+		t.Fatal("Manage restart fail", err)
+	}
+	os.RemoveAll(pidPath)
+
+	_, err = ad.Manage([]string{"stop"})
+	if err != nil {
+		t.Fatal("Manage restart", err)
+	}
+	os.RemoveAll(pidPath)
+
+	_, err = ad.Manage([]string{"status"})
+	if err != nil {
+		t.Fatal("Manage status", err)
+	}
 
 }
 
@@ -116,6 +185,8 @@ func TestOptions(t *testing.T) {
 	viper.Set("servername", "myservername")
 	viper.Set("pkey", "pkey")
 	viper.Set("clientcas", "clientcas")
+	viper.Set("pidfile", "pidfilename")
+	viper.Set("logfile", "logfilename")
 	op := options()
 	if op.Address != "127.0.0.1" ||
 		op.Port != 30000 ||
@@ -124,7 +195,9 @@ func TestOptions(t *testing.T) {
 		op.MTLsOptions.Certificate != "cert" ||
 		op.MTLsOptions.ClientCAs != "clientcas" ||
 		op.MTLsOptions.Pkey != "pkey" ||
-		op.MTLsOptions.Servername != "myservername" {
+		op.MTLsOptions.Servername != "myservername" ||
+		op.PidPath != "pidfilename" ||
+		op.LogFileName != "logfilename" {
 		t.Fatal("Options fail")
 	}
 }

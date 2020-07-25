@@ -19,30 +19,33 @@ package audit
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
 
-func TestInitAgent(t *testing.T) {
+func TestExecutableRun(t *testing.T) {
 	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
 
-	os.Setenv("audit-agent-interval", "1s")
-	pidPath := "pid_path"
-	viper.Set("pidfile", pidPath)
-
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
+	pidpath := "my_pid"
 	ad := new(auditAgent)
-	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false)
+	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false).WithPidPath(pidpath)
 	_, err := ad.InitAgent()
 	if err != nil {
 		t.Fatal("InitAgent", err)
 	}
-	os.RemoveAll(pidPath)
+	exec := newExecutable(ad)
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		exec.Stop()
+	}()
+	exec.Run()
+	os.RemoveAll(pidpath)
 }
