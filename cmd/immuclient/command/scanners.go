@@ -19,7 +19,6 @@ package immuclient
 import (
 	"fmt"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +32,7 @@ func (cl *commandline) zScan(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.ZScan(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -53,7 +52,7 @@ func (cl *commandline) iScan(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.IScan(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -73,7 +72,7 @@ func (cl *commandline) scan(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Scan(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
@@ -93,7 +92,7 @@ func (cl *commandline) count(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Count(args)
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil

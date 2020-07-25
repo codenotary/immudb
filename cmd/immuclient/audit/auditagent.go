@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 
+	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/server"
 	immusrvc "github.com/codenotary/immudb/pkg/service"
 
@@ -64,7 +65,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 
 	if command == "install" {
 		if _, err = a.InitAgent(); err != nil {
-			QuitToStdErr(err.Error())
+			c.QuitToStdErr(err)
 		}
 		localFile = viper.GetString("local-file")
 		if localFile, err = a.service.GetExecutable(localFile, name); err != nil {

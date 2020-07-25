@@ -93,8 +93,10 @@ func (ss sservice) InstallSetup(serviceName string) (err error) {
 		return err
 	}
 
-	if err = ss.installManPages(serviceName); err != nil {
-		return err
+	if ss.options.ManPath != "" {
+		if err = ss.installManPages(serviceName); err != nil {
+			return err
+		}
 	}
 	return err
 }
