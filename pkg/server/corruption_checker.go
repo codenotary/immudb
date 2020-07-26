@@ -76,7 +76,16 @@ func NewCorruptionChecker(opt CCOptions, d DatabaseList, l logger.Logger, rg Ran
 // Start start the trust checker loop
 func (s *corruptionChecker) Start(ctx context.Context) (err error) {
 	s.Logger.Debugf("Start scanning ...")
-	return s.checkLevel0(ctx)
+
+	for {
+		err = s.checkLevel0(ctx)
+
+		if err != nil || s.Exit || s.options.singleiteration {
+			return err
+		}
+
+		s.sleep()
+	}
 }
 
 // Stop stop the trust checker loop
@@ -139,12 +148,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 		}
 	}
 	s.Wg.Done()
-	s.sleep()
-	if !s.Exit && !s.options.singleiteration {
-		if err = s.checkLevel0(ctx); err != nil {
-			return err
-		}
-	}
+
 	return nil
 }
 
