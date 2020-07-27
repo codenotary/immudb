@@ -16,6 +16,7 @@ limitations under the License.
 package gw
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -40,7 +41,12 @@ func TestLastAuditHandler(t *testing.T) {
 	require.NoError(t, err)
 	rr := httptest.NewRecorder()
 
-	handler := http.HandlerFunc(lastAuditHandler(json.DefaultJSON()))
+	ms := metricServer{
+		mc:  &MetricsCollection{},
+		srv: nil,
+	}
+
+	handler := http.HandlerFunc(ms.lastAuditHandler(json.DefaultJSON()))
 	handler.ServeHTTP(rr, req)
 	require.Equal(
 		t,
@@ -62,7 +68,12 @@ func TestLastAuditHandlerJSONError(t *testing.T) {
 	require.NoError(t, err)
 	rr := httptest.NewRecorder()
 
-	handlerWithJSONErr := http.HandlerFunc(lastAuditHandler(newTestJSONWithMarshalErr()))
+	ms := metricServer{
+		mc:  &MetricsCollection{},
+		srv: nil,
+	}
+
+	handlerWithJSONErr := http.HandlerFunc(ms.lastAuditHandler(newTestJSONWithMarshalErr()))
 	handlerWithJSONErr.ServeHTTP(rr, req)
 	require.Equal(
 		t,
@@ -75,7 +86,36 @@ func TestLastAuditHandlerJSONError(t *testing.T) {
 }
 
 func TestUpdateAuditResult(t *testing.T) {
-	Metrics.UpdateAuditResult(
+	reg := prometheus.NewRegistry()
+
+	ms := metricServer{
+		mc: &MetricsCollection{
+			lastAuditResult: &LastAuditResult{},
+			AuditResultPerServer: newAuditGaugeVec(
+				reg,
+				"audit_result_per_server",
+				"Latest audit result (1 = ok, 0 = tampered).",
+			),
+			AuditPrevRootPerServer: newAuditGaugeVec(
+				reg,
+				"audit_prev_root_per_server",
+				"Previous root index used for the latest audit.",
+			),
+			AuditCurrRootPerServer: newAuditGaugeVec(
+				reg,
+				"audit_curr_root_per_server",
+				"Current root index used for the latest audit.",
+			),
+			AuditRunAtPerServer: newAuditGaugeVec(
+				reg,
+				"audit_run_at_per_server",
+				"Timestamp in unix seconds at which latest audit run.",
+			),
+		},
+		srv: nil,
+	}
+
+	ms.mc.UpdateAuditResult(
 		"server1",
 		"127.0.0.1",
 		true,
@@ -84,19 +124,19 @@ func TestUpdateAuditResult(t *testing.T) {
 		&schema.Root{Index: 0, Root: []byte{1}},
 		&schema.Root{Index: 1, Root: []byte{2}},
 	)
-	require.Equal(t, 0., Metrics.lastAuditResult.PreviousRootIndex)
-	require.Equal(t, 1., Metrics.lastAuditResult.CurrentRootIndex)
-	require.Equal(t, "server1", Metrics.lastAuditResult.ServerID)
-	require.Equal(t, "127.0.0.1", Metrics.lastAuditResult.ServerAddress)
-	require.True(t, Metrics.lastAuditResult.HasRunConsistencyCheck)
-	require.False(t, Metrics.lastAuditResult.HasError)
-	require.True(t, Metrics.lastAuditResult.ConsistencyCheckResult)
+	require.Equal(t, 0., ms.mc.lastAuditResult.PreviousRootIndex)
+	require.Equal(t, 1., ms.mc.lastAuditResult.CurrentRootIndex)
+	require.Equal(t, "server1", ms.mc.lastAuditResult.ServerID)
+	require.Equal(t, "127.0.0.1", ms.mc.lastAuditResult.ServerAddress)
+	require.True(t, ms.mc.lastAuditResult.HasRunConsistencyCheck)
+	require.False(t, ms.mc.lastAuditResult.HasError)
+	require.True(t, ms.mc.lastAuditResult.ConsistencyCheckResult)
 
-	Metrics.UpdateAuditResult("server1", "127.0.0.1", false, false, true, nil, nil)
-	require.Equal(t, -1., Metrics.lastAuditResult.PreviousRootIndex)
-	require.Equal(t, -1., Metrics.lastAuditResult.CurrentRootIndex)
+	ms.mc.UpdateAuditResult("server1", "127.0.0.1", false, false, true, nil, nil)
+	require.Equal(t, -1., ms.mc.lastAuditResult.PreviousRootIndex)
+	require.Equal(t, -1., ms.mc.lastAuditResult.CurrentRootIndex)
 
-	Metrics.UpdateAuditResult("server1", "127.0.0.1", false, true, false, nil, nil)
-	require.Equal(t, -2., Metrics.lastAuditResult.PreviousRootIndex)
-	require.Equal(t, -2., Metrics.lastAuditResult.CurrentRootIndex)
+	ms.mc.UpdateAuditResult("server1", "127.0.0.1", false, true, false, nil, nil)
+	require.Equal(t, -2., ms.mc.lastAuditResult.PreviousRootIndex)
+	require.Equal(t, -2., ms.mc.lastAuditResult.CurrentRootIndex)
 }
