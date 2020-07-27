@@ -35,7 +35,6 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
-	"google.golang.org/grpc"
 )
 
 var startedAt time.Time
@@ -46,19 +45,7 @@ func (s *ImmuGwServer) Start() error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	cliOpts := &immuclient.Options{
-		Dir:                s.Options.Dir,
-		Address:            s.Options.ImmudbAddress,
-		Port:               s.Options.ImmudbPort,
-		HealthCheckRetries: 1,
-		MTLs:               s.Options.MTLs,
-		MTLsOptions:        s.Options.MTLsOptions,
-		Auth:               true,
-		Config:             "",
-		DialOptions:        &[]grpc.DialOption{},
-		HDS:                immuclient.NewHomedirService(),
-	}
-	ic, err := immuclient.NewImmuClient(cliOpts)
+	ic, err := immuclient.NewImmuClient(&s.CliOptions)
 	if err != nil {
 		s.Logger.Errorf("unable to instantiate client: %s", err)
 		return err
@@ -103,19 +90,18 @@ func (s *ImmuGwServer) Start() error {
 		defaultAuditor, err := auditor.DefaultAuditor(
 			s.Options.AuditInterval,
 			fmt.Sprintf("%s:%d", s.Options.ImmudbAddress, s.Options.ImmudbPort),
-			cliOpts.DialOptions,
+			s.CliOptions.DialOptions,
 			s.Options.AuditUsername,
 			s.Options.AuditPassword,
-			cache.NewHistoryFileCache(filepath.Join(cliOpts.Dir, "auditor")),
-			Metrics.UpdateAuditResult,
+			cache.NewHistoryFileCache(filepath.Join(s.CliOptions.Dir, "auditor")),
+			s.MetricServer.mc.UpdateAuditResult,
 			nil)
 		if err != nil {
 			s.Logger.Errorf("unable to create auditor: %s", err)
 			return err
 		}
-		auditorDone := make(chan struct{})
-		go defaultAuditor.Run(s.Options.AuditInterval, false, ctx.Done(), auditorDone)
-		defer func() { <-auditorDone }()
+		go defaultAuditor.Run(s.Options.AuditInterval, false, ctx.Done(), s.auditorDone)
+		defer func() { <-s.auditorDone }()
 	}
 
 	go func() {
@@ -124,11 +110,7 @@ func (s *ImmuGwServer) Start() error {
 		}
 	}()
 
-	metricsServer := StartMetrics(
-		s.Options.MetricsBind(),
-		s.Logger,
-		func() float64 { return time.Since(startedAt).Hours() },
-	)
+	metricsServer := s.MetricServer.StartMetrics()
 	defer func() {
 		if err = metricsServer.Close(); err != nil {
 			s.Logger.Errorf("failed to shutdown metric server: %s", err)
