@@ -18,6 +18,7 @@ package gw
 
 import (
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
@@ -26,11 +27,12 @@ import (
 
 // ImmuGwServerMock ...
 type ImmuGwServerMock struct {
-	StartF       func() error
-	StopF        func() error
-	WithClientF  func(schema.ImmuServiceClient) ImmuGw
-	WithLoggerF  func(logger.Logger) ImmuGw
-	WithOptionsF func(Options) ImmuGw
+	StartF          func() error
+	StopF           func() error
+	WithClientF     func(schema.ImmuServiceClient) ImmuGw
+	WithLoggerF     func(logger.Logger) ImmuGw
+	WithOptionsF    func(Options) ImmuGw
+	WithCliOptionsF func(client.Options) ImmuGw
 }
 
 // Start ...
@@ -69,6 +71,14 @@ func (igm *ImmuGwServerMock) WithLogger(logger logger.Logger) ImmuGw {
 func (igm *ImmuGwServerMock) WithOptions(options Options) ImmuGw {
 	if igm.WithOptionsF != nil {
 		return igm.WithOptionsF(options)
+	}
+	return igm
+}
+
+// WithCliOptions ...
+func (igm *ImmuGwServerMock) WithCliOptions(options client.Options) ImmuGw {
+	if igm.WithCliOptionsF != nil {
+		return igm.WithCliOptionsF(options)
 	}
 	return igm
 }

@@ -19,6 +19,7 @@ package gw
 import (
 	"expvar"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"sync"
 	"time"
@@ -29,7 +30,6 @@ import (
 	"github.com/codenotary/immudb/pkg/json"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // LastAuditResult ...
@@ -62,8 +62,8 @@ type MetricsCollection struct {
 var metricsNamespace = "immugw"
 
 // WithUptimeCounter ...
-func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
-	mc.UptimeCounter = promauto.NewCounterFunc(
+func (mc MetricsCollection) WithUptimeCounter(reg *prometheus.Registry, f func() float64) {
+	mc.UptimeCounter = promauto.With(reg).NewCounterFunc(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Name:      "uptime_hours",
@@ -74,7 +74,7 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 }
 
 // UpdateAuditResult updates the metrics related to audit result
-func (mc *MetricsCollection) UpdateAuditResult(
+func (mc MetricsCollection) UpdateAuditResult(
 	serverID string,
 	serverAddress string,
 	checked bool,
@@ -127,8 +127,8 @@ func (mc *MetricsCollection) UpdateAuditResult(
 	mc.lastAuditResult.RunAt = time.Now()
 }
 
-func newAuditGaugeVec(name string, help string) *prometheus.GaugeVec {
-	return promauto.NewGaugeVec(
+func newAuditGaugeVec(reg *prometheus.Registry, name string, help string) *prometheus.GaugeVec {
+	return promauto.With(reg).NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      name,
@@ -138,66 +138,82 @@ func newAuditGaugeVec(name string, help string) *prometheus.GaugeVec {
 	)
 }
 
-// Metrics gateway metrics collection
-var Metrics = MetricsCollection{
-	lastAuditResult: &LastAuditResult{},
-	AuditResultPerServer: newAuditGaugeVec(
-		"audit_result_per_server",
-		"Latest audit result (1 = ok, 0 = tampered).",
-	),
-	AuditPrevRootPerServer: newAuditGaugeVec(
-		"audit_prev_root_per_server",
-		"Previous root index used for the latest audit.",
-	),
-	AuditCurrRootPerServer: newAuditGaugeVec(
-		"audit_curr_root_per_server",
-		"Current root index used for the latest audit.",
-	),
-	AuditRunAtPerServer: newAuditGaugeVec(
-		"audit_run_at_per_server",
-		"Timestamp in unix seconds at which latest audit run.",
-	),
-}
-
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
 // The server is then returned and can be stopped using Close().
-func StartMetrics(
-	addr string,
-	l logger.Logger,
-	uptimeCounter func() float64,
-) *http.Server {
-	server := newMetricsServer(addr, l, uptimeCounter)
+func (m metricServer) StartMetrics() *http.Server {
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
+		if err := m.srv.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
-				l.Debugf("Metrics http server closed")
+				m.l.Debugf("Metrics http server closed")
 			} else {
-				l.Errorf("Metrics error: %s", err)
+				m.l.Errorf("Metrics error: %s", err)
 			}
 		}
 	}()
-	return server
+	return m.srv
+}
+
+type metricServer struct {
+	addr          string
+	l             logger.Logger
+	uptimeCounter func() float64
+	mc            *MetricsCollection
+	srv           *http.Server
 }
 
 func newMetricsServer(
 	addr string,
-	l logger.Logger,
+	log logger.Logger,
 	uptimeCounter func() float64,
-) *http.Server {
-	Metrics.WithUptimeCounter(uptimeCounter)
+) *metricServer {
+	reg := prometheus.NewRegistry()
+
+	// Metrics gateway metrics collection
+	mcoll := &MetricsCollection{
+		lastAuditResult: &LastAuditResult{},
+		AuditResultPerServer: newAuditGaugeVec(
+			reg,
+			"audit_result_per_server",
+			"Latest audit result (1 = ok, 0 = tampered).",
+		),
+		AuditPrevRootPerServer: newAuditGaugeVec(
+			reg,
+			"audit_prev_root_per_server",
+			"Previous root index used for the latest audit.",
+		),
+		AuditCurrRootPerServer: newAuditGaugeVec(
+			reg,
+			"audit_curr_root_per_server",
+			"Current root index used for the latest audit.",
+		),
+		AuditRunAtPerServer: newAuditGaugeVec(
+			reg,
+			"audit_run_at_per_server",
+			"Timestamp in unix seconds at which latest audit run.",
+		),
+	}
+	mcoll.WithUptimeCounter(reg, uptimeCounter)
+
 	// expvar package adds a handler in to the default HTTP server (which has to be started explicitly),
 	// and serves up the metrics at the /debug/vars endpoint.
 	// Here we're registering both expvar and promhttp handlers in our custom server.
 	mux := http.NewServeMux()
+	ms := metricServer{
+		mc:  mcoll,
+		srv: &http.Server{Addr: addr, Handler: mux},
+		l:   log,
+	}
+
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/debug/vars", expvar.Handler())
-	mux.HandleFunc("/lastaudit", lastAuditHandler(json.DefaultJSON()))
-	return &http.Server{Addr: addr, Handler: mux}
+	mux.HandleFunc("/lastaudit", ms.lastAuditHandler(json.DefaultJSON()))
+
+	return &ms
 }
 
-func lastAuditHandler(json json.JSON) func(http.ResponseWriter, *http.Request) {
+func (m metricServer) lastAuditHandler(json json.JSON) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
-		bs, err := json.Marshal(Metrics.lastAuditResult)
+		bs, err := json.Marshal(m.mc.lastAuditResult)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("internal error: %v", err), http.StatusInternalServerError)
 		}

@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
+	"google.golang.org/grpc"
 	"os"
 )
 
@@ -80,8 +81,21 @@ func Immugw(immugwServer gw.ImmuGw) func(*cobra.Command, []string) error {
 		if options, err = parseOptions(cmd); err != nil {
 			return err
 		}
+		cliOpts := client.Options{
+			Dir:                options.Dir,
+			Address:            options.ImmudbAddress,
+			Port:               options.ImmudbPort,
+			HealthCheckRetries: 1,
+			MTLs:               options.MTLs,
+			MTLsOptions:        options.MTLsOptions,
+			Auth:               true,
+			Config:             "",
+			DialOptions:        &[]grpc.DialOption{},
+			HDS:                client.NewHomedirService(),
+		}
+
 		immuGwServer := immugwServer.
-			WithOptions(options)
+			WithOptions(options).WithCliOptions(cliOpts)
 		if options.Logfile != "" {
 			if flogger, file, err := logger.NewFileLogger("immugw ", options.Logfile); err == nil {
 				defer func() {

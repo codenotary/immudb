@@ -17,7 +17,9 @@ limitations under the License.
 package gw
 
 import (
+	"github.com/codenotary/immudb/pkg/client"
 	"os"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -31,23 +33,30 @@ type ImmuGw interface {
 	WithClient(schema.ImmuServiceClient) ImmuGw
 	WithLogger(logger.Logger) ImmuGw
 	WithOptions(Options) ImmuGw
+	WithCliOptions(client.Options) ImmuGw
 }
 
 // ImmuGwServer ...
 type ImmuGwServer struct {
-	Options Options
-	quit    chan struct{}
-	Logger  logger.Logger
-	Pid     server.PIDFile
-	Client  schema.ImmuServiceClient
+	Options      Options
+	CliOptions   client.Options
+	quit         chan struct{}
+	auditorDone  chan struct{}
+	Logger       logger.Logger
+	Pid          server.PIDFile
+	Client       schema.ImmuServiceClient
+	MetricServer *metricServer
 }
 
 // DefaultServer returns a default immudb gateway server
 func DefaultServer() *ImmuGwServer {
+	l := logger.NewSimpleLogger("immugw ", os.Stderr)
 	return &ImmuGwServer{
-		Logger:  logger.NewSimpleLogger("immugw ", os.Stderr),
-		Options: DefaultOptions(),
-		quit:    make(chan struct{}),
+		Logger:       l,
+		Options:      DefaultOptions(),
+		quit:         make(chan struct{}),
+		auditorDone:  make(chan struct{}),
+		MetricServer: newMetricsServer(DefaultOptions().MetricsBind(), l, func() float64 { return time.Since(startedAt).Hours() }),
 	}
 }
 
@@ -66,5 +75,11 @@ func (c *ImmuGwServer) WithLogger(logger logger.Logger) ImmuGw {
 // WithOptions ...
 func (c *ImmuGwServer) WithOptions(options Options) ImmuGw {
 	c.Options = options
+	return c
+}
+
+// WithCliOptions ...
+func (c *ImmuGwServer) WithCliOptions(cliOptions client.Options) ImmuGw {
+	c.CliOptions = cliOptions
 	return c
 }
