@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/peterh/liner"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInit(t *testing.T) {
@@ -172,4 +173,13 @@ func TestCheckCommand(t *testing.T) {
 	if !strings.Contains(msg, "Did you mean this") {
 		t.Fatal("Help is empty")
 	}
+}
+
+func TestCheckCommandErrors(t *testing.T) {
+	cli := new(cli)
+	require.False(t, cli.checkCommand([]string{"--help"}, nil))
+	require.False(t, cli.checkCommand([]string{"help"}, nil))
+	require.False(t, cli.checkCommand([]string{"-h"}, nil))
+	require.False(t, cli.checkCommand([]string{"clear"}, nil))
+	require.True(t, cli.checkCommand([]string{"unknown"}, nil))
 }
