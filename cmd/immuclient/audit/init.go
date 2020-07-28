@@ -25,20 +25,20 @@ import (
 )
 
 // Init ...
-func Init(args []string) error {
+func Init(args []string) (err error) {
+	var auditAgent AuditAgent
 	validargs := []string{"start", "install", "uninstall", "restart", "stop", "status", "help"}
 	if !stringInSlice(args[0], validargs) {
 		return fmt.Errorf("ERROR: %v is not matching with any valid arguments.\n Available list is %v \n", args[0], validargs)
 	}
-	auditAgent, err := NewAuditAgent()
-	if err != nil {
+	if auditAgent, err = NewAuditAgent(); err != nil {
 		return err
 	}
-	msg, err := auditAgent.Manage(args)
-	if err != nil {
+	if msg, err := auditAgent.Manage(args); err != nil {
 		return err
+	} else {
+		fmt.Println(msg)
 	}
-	fmt.Println(msg)
 	return nil
 }
 
