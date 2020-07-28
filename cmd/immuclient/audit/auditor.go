@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/server"
 
 	"github.com/codenotary/immudb/pkg/client"
@@ -50,7 +51,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	ctx := context.Background()
 
 	if cAgent.opts.PidPath != "" {
-		if cAgent.Pid, err = server.NewPid(cAgent.opts.PidPath); err != nil {
+		if cAgent.Pid, err = server.NewPid(cAgent.opts.PidPath, immuos.NewStandardOS()); err != nil {
 			cAgent.logger.Errorf("failed to write pidfile: %s", err)
 			return nil, err
 		}

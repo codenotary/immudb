@@ -183,7 +183,7 @@ func (s *ImmuServer) Start() error {
 func (s *ImmuServer) setupPidFile() error {
 	var err error
 	if s.Options.Pidfile != "" {
-		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
+		if s.Pid, err = NewPid(s.Options.Pidfile, s.OS); err != nil {
 			s.Logger.Errorf("Failed to write pidfile: %s", err)
 			return err
 		}
@@ -1065,15 +1065,15 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 			return nil, fmt.Errorf("please login")
 		}
 
-		//check if database exists
-		if _, ok := s.databasenameToIndex[r.Database]; !ok {
-			return nil, fmt.Errorf("database %s does not exist", r.Database)
-		}
 		if len(r.User) == 0 {
 			return nil, fmt.Errorf("username can not be empty")
 		}
 		if len(r.Database) == 0 {
 			return nil, fmt.Errorf("database name can not be empty")
+		}
+		//check if database exists
+		if _, ok := s.databasenameToIndex[r.Database]; !ok {
+			return nil, fmt.Errorf("database %s does not exist", r.Database)
 		}
 		//check permission is a known value
 		if (r.Permission == auth.PermissionNone) ||
@@ -1165,17 +1165,11 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		return nil, err
 	}
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
-		//return all users
-		includeDeactivated := true
+		// return all users, including the deactivated ones
 		for i := 0; i < len(itemList.Items); i++ {
 			itemList.Items[i].Key = itemList.Items[i].Key[1:]
 			var user auth.User
 			err = json.Unmarshal(itemList.Items[i].Value, &user)
-			if !includeDeactivated {
-				if !user.Active {
-					continue
-				}
-			}
 			permissions := []*schema.Permission{}
 			for _, val := range user.Permissions {
 				permissions = append(permissions, &schema.Permission{
@@ -1194,20 +1188,14 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		}
 		return userlist, nil
 	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).options.dbName) == auth.PermissionAdmin {
-		//for admin users return only users for the database where that is has selected
+		// for admin users return only users for the database where that is has selected
 		selectedDbname := s.dbList.GetByIndex(dbInd).options.dbName
 		userlist := &schema.UserList{}
-		includeDeactivated := true
 		for i := 0; i < len(itemList.Items); i++ {
 			include := false
 			itemList.Items[i].Key = itemList.Items[i].Key[1:]
 			var user auth.User
 			err = json.Unmarshal(itemList.Items[i].Value, &user)
-			if !includeDeactivated {
-				if !user.Active {
-					continue
-				}
-			}
 			permissions := []*schema.Permission{}
 			for _, val := range user.Permissions {
 				//check if this user has any permission for this database
@@ -1233,7 +1221,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		}
 		return userlist, nil
 	} else {
-		//any other permission return only its data
+		// any other permission return only its data
 		userlist := &schema.UserList{}
 		permissions := []*schema.Permission{}
 		for _, val := range loggedInuser.Permissions {
@@ -1259,14 +1247,12 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	s.Logger.Debugf("DatabaseList")
 	loggedInuser := &auth.User{}
 	var err error
-	if s.Options.GetAuth() {
-		if !s.Options.GetAuth() {
-			return nil, fmt.Errorf("this command is available only with authentication on")
-		}
-		_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("please login")
-		}
+	if !s.Options.GetAuth() {
+		return nil, fmt.Errorf("this command is available only with authentication on")
+	}
+	_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("please login")
 	}
 	dbList := &schema.DatabaseListResponse{}
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {

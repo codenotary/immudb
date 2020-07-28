@@ -37,6 +37,7 @@ type OS interface {
 	Open(name string) (*os.File, error)
 	OpenFile(name string, flag int, perm os.FileMode) (*os.File, error)
 	Executable() (string, error)
+	Getpid() int
 }
 
 // StandardOS ...
@@ -58,6 +59,7 @@ type StandardOS struct {
 	OpenF       func(name string) (*os.File, error)
 	OpenFileF   func(name string, flag int, perm os.FileMode) (*os.File, error)
 	ExecutableF func() (string, error)
+	GetpidF     func() int
 }
 
 // NewStandardOS ...
@@ -80,6 +82,7 @@ func NewStandardOS() *StandardOS {
 		OpenF:            os.Open,
 		OpenFileF:        os.OpenFile,
 		ExecutableF:      os.Executable,
+		GetpidF:          os.Getpid,
 	}
 }
 
@@ -151,4 +154,9 @@ func (sos *StandardOS) OpenFile(name string, flag int, perm os.FileMode) (*os.Fi
 // Executable ...
 func (sos *StandardOS) Executable() (string, error) {
 	return sos.ExecutableF()
+}
+
+// Getpid ...
+func (sos *StandardOS) Getpid() int {
+	return sos.GetpidF()
 }

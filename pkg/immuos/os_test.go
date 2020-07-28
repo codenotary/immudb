@@ -19,6 +19,7 @@ package immuos
 import (
 	"errors"
 	"io/ioutil"
+	"math"
 	"os/user"
 	"path/filepath"
 	"strings"
@@ -184,6 +185,14 @@ func TestStandardOS(t *testing.T) {
 	_, err = os.Executable()
 	require.Equal(t, errExecutable, err)
 	os.ExecutableF = executableFOK
+
+	// Getpid
+	getpidFOK := os.GetpidF
+	os.GetpidF = func() int {
+		return math.MinInt32
+	}
+	require.Equal(t, math.MinInt32, os.Getpid())
+	os.GetpidF = getpidFOK
 }
 
 func TestStandardOSFilepathEmbedded(t *testing.T) {
