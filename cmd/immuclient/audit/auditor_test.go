@@ -23,6 +23,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
 
@@ -33,6 +34,7 @@ func TestInitAgent(t *testing.T) {
 
 	os.Setenv("audit-agent-interval", "1s")
 	pidPath := "pid_path"
+	defer os.RemoveAll(pidPath)
 	viper.Set("pidfile", pidPath)
 
 	dialOptions := []grpc.DialOption{
@@ -44,5 +46,17 @@ func TestInitAgent(t *testing.T) {
 	if err != nil {
 		t.Fatal("InitAgent", err)
 	}
-	os.RemoveAll(pidPath)
+
+	os.Setenv("audit-agent-interval", "X")
+	_, err = ad.InitAgent()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid duration X")
+	os.Unsetenv("audit-agent-interval")
+
+	auditPassword := viper.GetString("audit-password")
+	viper.Set("audit-password", "X")
+	_, err = ad.InitAgent()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Invalid login operation")
+	viper.Set("audit-password", auditPassword)
 }
