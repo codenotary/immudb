@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -24,6 +25,7 @@ import (
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHealthCheck(t *testing.T) {
@@ -414,4 +416,24 @@ func TestUserWrongCommand(t *testing.T) {
 			tt.test(t, tt.password, tt.args, tt.expected)
 		})
 	}
+}
+
+func TestUserOperationsErrors(t *testing.T) {
+	cli := new(cli)
+	_, err := cli.UserOperations(nil)
+	errNotEnoughArgs :=
+		errors.New("ERROR: Not enough arguments. Use [command] --help for documentation ")
+	require.Equal(t, errNotEnoughArgs, err)
+
+	_, err = cli.UserOperations([]string{"changepassword"})
+	require.Equal(t, errNotEnoughArgs, err)
+
+	_, err = cli.UserOperations([]string{"activate"})
+	require.Equal(t, errNotEnoughArgs, err)
+
+	_, err = cli.UserOperations([]string{"permission"})
+	require.Equal(t, errNotEnoughArgs, err)
+
+	_, err = cli.UserOperations([]string{"create"})
+	require.Equal(t, errNotEnoughArgs, err)
 }
