@@ -17,32 +17,78 @@ limitations under the License.
 package server
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPid(t *testing.T) {
-	pidFilename := "pid_file"
-	_, err := NewPid("./")
-	if err == nil {
-		t.Errorf("PID failed test of ./ filename ")
+	OS := immuos.NewStandardOS()
+	OS.ReadFileF = func(string) ([]byte, error) {
+		return []byte("1"), nil
 	}
-	_, err = NewPid("")
-	if err == nil {
-		t.Errorf("PID failed test of empty filename ")
+
+	OS.StatF = func(name string) (os.FileInfo, error) {
+		return nil, nil
 	}
-	pid, err := NewPid(pidFilename)
-	if err != nil {
-		t.Errorf("Error creating pid file %v", err)
+	pidPath := "somepath"
+	_, err := NewPid(pidPath, OS)
+	require.Equal(
+		t,
+		fmt.Errorf("pid file found, ensure immudb is not running or delete %s", pidPath),
+		err)
+
+	OS.StatF = func(name string) (os.FileInfo, error) {
+		return nil, errors.New("")
 	}
-	defer pid.Remove()
-	//TODO uncomment once checkPIDFileAlreadyExists is cross platform
-	// err = checkPIDFileAlreadyExists(pidFilename)
-	// if err == nil {
-	// 	t.Errorf("checkPIDFileAlreadyExists expected error")
-	// }
-	_, err = os.Stat(pidFilename)
-	if os.IsNotExist(err) {
-		t.Errorf("pid file not created")
+	OS.BaseF = func(string) string {
+		return "."
 	}
+	_, err = NewPid(pidPath, OS)
+	require.Equal(
+		t,
+		fmt.Errorf("Pid filename is invalid: %s", pidPath),
+		err)
+	OS.BaseF = func(path string) string {
+		return path
+	}
+
+	statCounter := 0
+	statFOK := OS.StatF
+	OS.StatF = func(name string) (os.FileInfo, error) {
+		statCounter++
+		if statCounter == 1 {
+			return nil, errors.New("")
+		}
+		return nil, os.ErrNotExist
+	}
+	errMkdir := errors.New("Mkdir error")
+	OS.MkdirF = func(name string, perm os.FileMode) error {
+		return errMkdir
+	}
+	_, err = NewPid(pidPath, OS)
+	require.Equal(t, errMkdir, err)
+	OS.StatF = statFOK
+
+	errWriteFile := errors.New("WriteFile error")
+	OS.WriteFileF = func(filename string, data []byte, perm os.FileMode) error {
+		return errWriteFile
+	}
+	_, err = NewPid(pidPath, OS)
+	require.Equal(t, errWriteFile, err)
+
+	OS.WriteFileF = func(filename string, data []byte, perm os.FileMode) error {
+		return nil
+	}
+	pid, err := NewPid(pidPath, OS)
+	require.NoError(t, err)
+	errRemove := errors.New("Remove error")
+	OS.RemoveF = func(name string) error {
+		return errRemove
+	}
+	require.Equal(t, errRemove, pid.Remove())
 }

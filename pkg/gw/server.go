@@ -31,6 +31,7 @@ import (
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
 	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/json"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -80,7 +81,7 @@ func (s *ImmuGwServer) Start() error {
 	s.installShutdownHandler()
 	s.Logger.Infof("starting immugw: %v", s.Options)
 	if s.Options.Pidfile != "" {
-		if s.Pid, err = server.NewPid(s.Options.Pidfile); err != nil {
+		if s.Pid, err = server.NewPid(s.Options.Pidfile, immuos.NewStandardOS()); err != nil {
 			s.Logger.Errorf("failed to write pidfile: %s", err)
 			return err
 		}

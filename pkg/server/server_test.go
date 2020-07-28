@@ -1544,7 +1544,7 @@ func TestServerPID(t *testing.T) {
 	}
 }
 
-func TestServerUserAndDatabaseOperations(t *testing.T) {
+func TestServerErrors(t *testing.T) {
 	dataDir := "TestInsertNewUserAndOtherUserOperations"
 	s := newAuthServer(dataDir)
 	defer os.RemoveAll(dataDir)
@@ -1934,6 +1934,18 @@ func TestServerUserAndDatabaseOperations(t *testing.T) {
 	require.Error(t, err)
 	s.Options.MTLs = false
 
+	// setup PID
+	OS := s.OS.(*immuos.StandardOS)
+	baseFOK := OS.BaseF
+	OS.BaseF = func(path string) string {
+		return "."
+	}
+	s.Options.Pidfile = "pidfile"
+	defer os.Remove(s.Options.Pidfile)
+	require.Equal(t, fmt.Errorf("Pid filename is invalid: %s", s.Options.Pidfile), s.setupPidFile())
+	OS.BaseF = baseFOK
+
+	// print usage call-to-action
 	s.Options.Logfile = "TestUserAndDatabaseOperations.log"
 	s.printUsageCallToAction()
 }

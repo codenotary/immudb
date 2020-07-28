@@ -18,23 +18,23 @@ package server
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/immuos"
 )
 
 // PIDFile contains path of pid file
 type PIDFile struct {
 	path string
+	OS   immuos.OS
 }
 
-func checkPIDFileAlreadyExists(path string) error {
-	if pidByte, err := ioutil.ReadFile(path); err == nil {
+func checkPIDFileAlreadyExists(path string, OS immuos.OS) error {
+	if pidByte, err := OS.ReadFile(path); err == nil {
 		pidString := strings.TrimSpace(string(pidByte))
 		if pid, err := strconv.Atoi(pidString); err == nil {
-			if processExists(pid) {
+			if processExists(pid, OS) {
 				return fmt.Errorf("pid file found, ensure immudb is not running or delete %s", path)
 			}
 		}
@@ -43,31 +43,31 @@ func checkPIDFileAlreadyExists(path string) error {
 }
 
 // NewPid returns a new PIDFile or an error
-func NewPid(path string) (PIDFile, error) {
-	if err := checkPIDFileAlreadyExists(path); err != nil {
+func NewPid(path string, OS immuos.OS) (PIDFile, error) {
+	if err := checkPIDFileAlreadyExists(path, OS); err != nil {
 		return PIDFile{}, err
 	}
-	if fn := filepath.Base(path); fn == "." {
+	if fn := OS.Base(path); fn == "." {
 		return PIDFile{}, fmt.Errorf("Pid filename is invalid: %s", path)
 	}
-	if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
-		if err := os.Mkdir(filepath.Dir(path), os.FileMode(0755)); err != nil {
+	if _, err := OS.Stat(OS.Dir(path)); OS.IsNotExist(err) {
+		if err := OS.Mkdir(OS.Dir(path), 0755); err != nil {
 			return PIDFile{}, err
 		}
 	}
-	if err := ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {
+	if err := OS.WriteFile(path, []byte(fmt.Sprintf("%d", OS.Getpid())), 0644); err != nil {
 		return PIDFile{}, err
 	}
-	return PIDFile{path: path}, nil
+	return PIDFile{path: path, OS: OS}, nil
 }
 
 // Remove remove the pid file
 func (file PIDFile) Remove() error {
-	return os.Remove(file.path)
+	return file.OS.Remove(file.path)
 }
 
-func processExists(pid int) bool {
-	if _, err := os.Stat(filepath.Join("/proc", strconv.Itoa(pid))); err == nil {
+func processExists(pid int, OS immuos.OS) bool {
+	if _, err := OS.Stat(OS.Join("/proc", strconv.Itoa(pid))); err == nil {
 		return true
 	}
 	return false

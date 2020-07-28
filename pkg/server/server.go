@@ -183,7 +183,7 @@ func (s *ImmuServer) Start() error {
 func (s *ImmuServer) setupPidFile() error {
 	var err error
 	if s.Options.Pidfile != "" {
-		if s.Pid, err = NewPid(s.Options.Pidfile); err != nil {
+		if s.Pid, err = NewPid(s.Options.Pidfile, s.OS); err != nil {
 			s.Logger.Errorf("Failed to write pidfile: %s", err)
 			return err
 		}
