@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
@@ -33,7 +32,7 @@ func Generate(cmd *cobra.Command, title string, defaultDir string) *cobra.Comman
 		Short:  "Generate man files in the specified directory",
 		Hidden: true,
 		Args:   cobra.MinimumNArgs(0),
-		RunE: func(mangenCmd *cobra.Command, args []string) error {
+		RunE: func(mangenCmd *cobra.Command, args []string) (err error) {
 			header := &doc.GenManHeader{
 				Title:   title,
 				Section: "1",
@@ -43,12 +42,10 @@ func Generate(cmd *cobra.Command, title string, defaultDir string) *cobra.Comman
 				dir = args[0]
 			}
 			_ = os.Mkdir(dir, os.ModePerm)
-			err := doc.GenManTree(cmd, header, dir)
-			if err != nil {
-				c.QuitToStdErr(err)
+			if err := doc.GenManTree(cmd, header, dir); err == nil {
+				fmt.Printf("SUCCESS: man files generated in the %s directory\n", dir)
 			}
-			fmt.Printf("SUCCESS: man files generated in the %s directory\n", dir)
-			return nil
+			return err
 		},
 		DisableAutoGenTag: false,
 	}

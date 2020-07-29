@@ -69,23 +69,20 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Short:             "Change user password. changepassword username",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			username := args[0]
+			var resp = ""
 			var oldpass []byte
-			var err error
 			if username == auth.SysAdminUsername {
 				oldpass, err = cl.passwordReader.Read("Old password:")
 				if err != nil {
 					return fmt.Errorf("Error Reading Password")
 				}
 			}
-
-			resp, err := cl.changeUserPassword(username, oldpass)
-			if err != nil {
-				c.QuitToStdErr(err)
+			if resp, err = cl.changeUserPassword(username, oldpass); err == nil {
+				fmt.Fprintf(cmd.OutOrStdout(), resp)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp)
-			return nil
+			return err
 		},
 		Args: cobra.ExactArgs(1),
 	}
@@ -94,13 +91,12 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Short:             "Activate a user",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.setActiveUser(args, true)
-			if err != nil {
-				c.QuitToStdErr(err)
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			var resp = ""
+			if resp, err = cl.setActiveUser(args, true); err == nil {
+				fmt.Fprintf(cmd.OutOrStdout(), resp)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp)
-			return nil
+			return err
 		},
 		Args: cobra.ExactArgs(1),
 	}
@@ -109,13 +105,12 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Short:             "Deactivate a user",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.setActiveUser(args, false)
-			if err != nil {
-				c.QuitToStdErr(err)
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			var resp = ""
+			if resp, err = cl.setActiveUser(args, false); err == nil {
+				fmt.Fprintf(cmd.OutOrStdout(), resp)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp)
-			return nil
+			return err
 		},
 		Args: cobra.ExactArgs(1),
 	}
@@ -124,13 +119,12 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Short:             "Set user permission",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.setUserPermission(args)
-			if err != nil {
-				c.QuitToStdErr(err)
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			var resp = ""
+			if resp, err = cl.setUserPermission(args); err == nil {
+				fmt.Fprintf(cmd.OutOrStdout(), resp)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp)
-			return nil
+			return err
 		},
 		Args: cobra.MaximumNArgs(4),
 	}
@@ -240,7 +234,7 @@ func (cl *commandline) setActiveUser(args []string, active bool) (string, error)
 	return "User status changed successfully", nil
 }
 
-func (cl *commandline) setUserPermission(args []string) (string, error) {
+func (cl *commandline) setUserPermission(args []string) (resp string, err error) {
 	var permissionAction schema.PermissionAction
 	switch args[0] {
 	case "grant":
@@ -262,7 +256,6 @@ func (cl *commandline) setUserPermission(args []string) (string, error) {
 	default:
 		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
 	}
-
 	dbname := args[3]
 	req := &schema.ChangePermissionRequest{
 		Action:     permissionAction,
@@ -270,9 +263,9 @@ func (cl *commandline) setUserPermission(args []string) (string, error) {
 		Permission: userpermission,
 		Username:   username,
 	}
-	resp, err := cl.immuClient.ChangePermission(context.Background(), req)
-	if err != nil {
-		return "", err
+	if errResp, err := cl.immuClient.ChangePermission(context.Background(), req); err == nil {
+		return errResp.Errormessage, nil
 	}
-	return resp.Errormessage, nil
+
+	return "", err
 }
