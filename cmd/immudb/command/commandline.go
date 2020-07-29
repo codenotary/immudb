@@ -14,22 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package immudb
 
 import (
 	c "github.com/codenotary/immudb/cmd/helper"
-	immudb "github.com/codenotary/immudb/cmd/immudb/command"
-	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/server"
 )
 
-func main() {
-	execute(server.DefaultServer())
-}
-
-func execute(immudbServer server.ImmuServerIf) error {
-	version.App = "immudb"
-	cl := immudb.Commandline{P: c.NewPlauncher()}
-	cmd := cl.NewCmd(immudbServer)
-	return cmd.Execute()
+// Commandline ...
+type Commandline struct {
+	P c.Plauncher
 }
