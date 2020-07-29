@@ -20,6 +20,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/logger"
+
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/spf13/viper"
@@ -34,6 +36,7 @@ func TestInitAgent(t *testing.T) {
 
 	os.Setenv("audit-agent-interval", "1s")
 	pidPath := "pid_path"
+	os.RemoveAll(pidPath)
 	defer os.RemoveAll(pidPath)
 	viper.Set("pidfile", pidPath)
 
@@ -41,6 +44,7 @@ func TestInitAgent(t *testing.T) {
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
 	ad := new(auditAgent)
+	ad.logger = logger.NewSimpleLogger("TestInitAgent", os.Stderr)
 	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false)
 	_, err := ad.InitAgent()
 	if err != nil {
