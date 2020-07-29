@@ -18,6 +18,7 @@ package immudb
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/immudb/command/immudbcmdtest"
 	"os"
 	"testing"
 
@@ -52,7 +53,10 @@ func TestImmudbCommandFlagParser(t *testing.T) {
 		},
 	}
 	setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
-	bindFlags(cmd)
+
+	err = viper.BindPFlags(cmd.Flags())
+	assert.Nil(t, err)
+
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
 
 	_, err = executeCommand(cmd, "--logfile="+o.Logfile)
@@ -81,7 +85,10 @@ func TestImmudbCommandFlagParserPriority(t *testing.T) {
 		},
 	}
 	setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
-	bindFlags(cmd)
+
+	err = viper.BindPFlags(cmd.Flags())
+	assert.Nil(t, err)
+
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
 
 	// 4. config file
@@ -127,4 +134,20 @@ func executeCommandC(root *cobra.Command, args ...string) (c *cobra.Command, out
 
 func tearDown() {
 	os.Unsetenv("IMMUDB_LOGFILE")
+}
+
+func TestNewCmd(t *testing.T) {
+	cmd := NewCmd(server.DefaultServer())
+	assert.IsType(t, &cobra.Command{}, cmd)
+}
+
+func TestImmudb(t *testing.T) {
+	var config string
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&config, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.ini)")
+
+	immudb := Immudb(immudbcmdtest.ImmuServerMock{})
+	err := immudb(cmd, nil)
+	assert.Nil(t, err)
+
 }

@@ -14,15 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package immudbcmdtest
 
 import (
-	"github.com/codenotary/immudb/cmd/immudb/command/immudbcmdtest"
-	"github.com/stretchr/testify/assert"
-	"testing"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/server"
 )
 
-func TestImmudb(t *testing.T) {
-	err := execute(immudbcmdtest.ImmuServerMock{})
-	assert.Nil(t, err)
+type ImmuServerMock struct {
+	Options server.Options
+	Logger  logger.Logger
+}
+
+func (s ImmuServerMock) WithOptions(options server.Options) server.ImmuServerIf {
+	s.Options = options
+	return s
+}
+func (s ImmuServerMock) WithLogger(logger logger.Logger) server.ImmuServerIf {
+	s.Logger = logger
+	return s
+}
+
+func (s ImmuServerMock) Start() error {
+	return nil
+}
+
+func (s ImmuServerMock) Stop() error {
+	return nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"github.com/codenotary/immudb/pkg/server"
 	"os"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -25,14 +26,14 @@ import (
 )
 
 func main() {
-	execute()
+	if err := execute(server.DefaultServer()); err != nil {
+		c.QuitWithUserError(err)
+	}
 	os.Exit(0)
 }
 
-func execute() {
+func execute(immudbServer server.ImmuServerIf) error {
 	version.App = "immudb"
-	cmd := immudb.NewCmd()
-	if err := cmd.Execute(); err != nil {
-		c.QuitWithUserError(err)
-	}
+	cmd := immudb.NewCmd(immudbServer)
+	return cmd.Execute()
 }
