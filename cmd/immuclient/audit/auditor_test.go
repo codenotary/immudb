@@ -47,12 +47,14 @@ func TestInitAgent(t *testing.T) {
 	ad.logger = logger.NewSimpleLogger("TestInitAgent", os.Stderr)
 	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false)
 	_, err := ad.InitAgent()
+	os.RemoveAll(pidPath)
 	if err != nil {
 		t.Fatal("InitAgent", err)
 	}
 
 	os.Setenv("audit-agent-interval", "X")
 	_, err = ad.InitAgent()
+	os.RemoveAll(pidPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid duration X")
 	os.Unsetenv("audit-agent-interval")
@@ -60,6 +62,7 @@ func TestInitAgent(t *testing.T) {
 	auditPassword := viper.GetString("audit-password")
 	viper.Set("audit-password", "X")
 	_, err = ad.InitAgent()
+	os.RemoveAll(pidPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Invalid login operation")
 	viper.Set("audit-password", auditPassword)
