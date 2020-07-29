@@ -36,7 +36,7 @@ func (i *immuc) RawSafeSet(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	val, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+	val, err := ioutil.ReadAll(bytes.NewReader([]byte(args[1])))
 	if err != nil {
 		return "", err
 	}

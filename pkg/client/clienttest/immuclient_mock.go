@@ -34,6 +34,7 @@ type ImmuClientMock struct {
 
 	GetOptionsF         func() *client.Options
 	IsConnectedF        func() bool
+	HealthCheckF        func(context.Context) error
 	WaitForHealthCheckF func(context.Context) error
 	ConnectF            func(context.Context) (*grpc.ClientConn, error)
 	DisconnectF         func() error
@@ -42,7 +43,9 @@ type ImmuClientMock struct {
 	SafeGetF            func(context.Context, []byte, ...grpc.CallOption) (*client.VerifiedItem, error)
 	SafeSetF            func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
 	SetF                func(context.Context, []byte, []byte) (*schema.Index, error)
+	ReferenceF          func(context.Context, []byte, []byte) (*schema.Index, error)
 	SafeReferenceF      func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
+	ZAddF               func(context.Context, []byte, float64, []byte) (*schema.Index, error)
 	SafeZAddF           func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error)
 	HistoryF            func(context.Context, []byte) (*schema.StructuredItemList, error)
 	UseDatabaseF        func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
@@ -55,6 +58,13 @@ type ImmuClientMock struct {
 	ListUsersF          func(context.Context) (*schema.UserList, error)
 	SetActiveUserF      func(context.Context, *schema.SetActiveUserRequest) (*empty.Empty, error)
 	ChangePermissionF   func(context.Context, *schema.ChangePermissionRequest) (*schema.Error, error)
+	ZScanF              func(context.Context, []byte) (*schema.StructuredItemList, error)
+	IScanF              func(context.Context, uint64, uint64) (*schema.SPage, error)
+	ScanF               func(context.Context, []byte) (*schema.StructuredItemList, error)
+	CountF              func(context.Context, []byte) (*schema.ItemsCount, error)
+	RawSafeSetF         func(context.Context, []byte, []byte) (vi *client.VerifiedIndex, err error)
+	CreateDatabaseF     func(context.Context, *schema.Database) (*schema.CreateDatabaseReply, error)
+	DatabaseListF       func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error)
 }
 
 // GetOptions ...
@@ -65,6 +75,11 @@ func (icm *ImmuClientMock) GetOptions() *client.Options {
 // IsConnected ...
 func (icm *ImmuClientMock) IsConnected() bool {
 	return icm.IsConnectedF()
+}
+
+// HealthCheck ...
+func (icm *ImmuClientMock) HealthCheck(ctx context.Context) error {
+	return icm.HealthCheckF(ctx)
 }
 
 // WaitForHealthCheck ...
@@ -107,9 +122,19 @@ func (icm *ImmuClientMock) Set(ctx context.Context, key []byte, value []byte) (*
 	return icm.SetF(ctx, key, value)
 }
 
+// Reference ...
+func (icm *ImmuClientMock) Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error) {
+	return icm.ReferenceF(ctx, reference, key)
+}
+
 // SafeReference ...
 func (icm *ImmuClientMock) SafeReference(ctx context.Context, reference []byte, key []byte) (*client.VerifiedIndex, error) {
 	return icm.SafeReferenceF(ctx, reference, key)
+}
+
+// ZAdd ...
+func (icm *ImmuClientMock) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error) {
+	return icm.ZAddF(ctx, set, score, key)
 }
 
 // SafeZAdd ...
@@ -170,4 +195,39 @@ func (icm *ImmuClientMock) SetActiveUser(ctx context.Context, u *schema.SetActiv
 // ChangePermission ...
 func (icm *ImmuClientMock) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*schema.Error, error) {
 	return icm.ChangePermissionF(ctx, r)
+}
+
+// ZScan ...
+func (icm *ImmuClientMock) ZScan(ctx context.Context, set []byte) (*schema.StructuredItemList, error) {
+	return icm.ZScanF(ctx, set)
+}
+
+// IScan ...
+func (icm *ImmuClientMock) IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error) {
+	return icm.IScanF(ctx, pageNumber, pageSize)
+}
+
+// Scan ...
+func (icm *ImmuClientMock) Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error) {
+	return icm.ScanF(ctx, prefix)
+}
+
+// Count ...
+func (icm *ImmuClientMock) Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error) {
+	return icm.CountF(ctx, prefix)
+}
+
+// RawSafeSet ...
+func (icm *ImmuClientMock) RawSafeSet(ctx context.Context, key []byte, value []byte) (vi *client.VerifiedIndex, err error) {
+	return icm.RawSafeSetF(ctx, key, value)
+}
+
+// CreateDatabase ...
+func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.Database) (*schema.CreateDatabaseReply, error) {
+	return icm.CreateDatabaseF(ctx, db)
+}
+
+// DatabaseList ...
+func (icm *ImmuClientMock) DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error) {
+	return icm.DatabaseListF(ctx, d)
 }
