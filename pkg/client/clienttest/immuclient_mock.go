@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
+	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 )
 
@@ -51,6 +52,9 @@ type ImmuClientMock struct {
 	GetF                func(context.Context, []byte) (*schema.StructuredItem, error)
 	RawSafeGetF         func(context.Context, []byte, ...grpc.CallOption) (vi *client.VerifiedItem, err error)
 	RawBySafeIndexF     func(context.Context, uint64) (*client.VerifiedItem, error)
+	ListUsersF          func(context.Context) (*schema.UserList, error)
+	SetActiveUserF      func(context.Context, *schema.SetActiveUserRequest) (*empty.Empty, error)
+	ChangePermissionF   func(context.Context, *schema.ChangePermissionRequest) (*schema.Error, error)
 }
 
 // GetOptions ...
@@ -151,4 +155,19 @@ func (icm *ImmuClientMock) RawSafeGet(ctx context.Context, key []byte, opts ...g
 // RawBySafeIndex ...
 func (icm *ImmuClientMock) RawBySafeIndex(ctx context.Context, index uint64) (*client.VerifiedItem, error) {
 	return icm.RawBySafeIndexF(ctx, index)
+}
+
+// ListUsers ...
+func (icm *ImmuClientMock) ListUsers(ctx context.Context) (*schema.UserList, error) {
+	return icm.ListUsersF(ctx)
+}
+
+// SetActiveUser ...
+func (icm *ImmuClientMock) SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error) {
+	return icm.SetActiveUserF(ctx, u)
+}
+
+// ChangePermission ...
+func (icm *ImmuClientMock) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*schema.Error, error) {
+	return icm.ChangePermissionF(ctx, r)
 }
