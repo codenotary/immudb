@@ -18,13 +18,14 @@ package immudb
 
 import (
 	"bytes"
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/immudb/command/immudbcmdtest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func DefaultTestOptions() (o server.Options) {
@@ -188,6 +189,7 @@ func TestImmudbLogFile(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
 	viper.Set("logfile", "override")
+	defer os.Remove("override")
 
 	cl := Commandline{}
 
