@@ -46,6 +46,11 @@ type ImmuClientMock struct {
 	HistoryF            func(context.Context, []byte) (*schema.StructuredItemList, error)
 	UseDatabaseF        func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
 	DumpF               func(context.Context, io.WriteSeeker) (int64, error)
+	CurrentRootF        func(context.Context) (*schema.Root, error)
+	ByIndexF            func(context.Context, uint64) (*schema.StructuredItem, error)
+	GetF                func(context.Context, []byte) (*schema.StructuredItem, error)
+	RawSafeGetF         func(context.Context, []byte, ...grpc.CallOption) (vi *client.VerifiedItem, err error)
+	RawBySafeIndexF     func(context.Context, uint64) (*client.VerifiedItem, error)
 }
 
 // GetOptions ...
@@ -121,4 +126,29 @@ func (icm *ImmuClientMock) UseDatabase(ctx context.Context, d *schema.Database) 
 // Dump ...
 func (icm *ImmuClientMock) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
 	return icm.DumpF(ctx, writer)
+}
+
+// CurrentRoot ...
+func (icm *ImmuClientMock) CurrentRoot(ctx context.Context) (*schema.Root, error) {
+	return icm.CurrentRootF(ctx)
+}
+
+// ByIndex ...
+func (icm *ImmuClientMock) ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error) {
+	return icm.ByIndexF(ctx, index)
+}
+
+// Get ...
+func (icm *ImmuClientMock) Get(ctx context.Context, key []byte) (*schema.StructuredItem, error) {
+	return icm.GetF(ctx, key)
+}
+
+// RawSafeGet ...
+func (icm *ImmuClientMock) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *client.VerifiedItem, err error) {
+	return icm.RawSafeGetF(ctx, key, opts...)
+}
+
+// RawBySafeIndex ...
+func (icm *ImmuClientMock) RawBySafeIndex(ctx context.Context, index uint64) (*client.VerifiedItem, error) {
+	return icm.RawBySafeIndexF(ctx, index)
 }
