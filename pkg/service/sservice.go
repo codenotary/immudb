@@ -64,7 +64,7 @@ type SserviceTOREFACTOR interface {
 // NewSService ...
 func NewSService(options *Option) *sservice {
 	mpss := make([]immudb.ManpageService, 2)
-	mpss[0] = immudb.ManpageServiceImmudb{}
+	mpss[0] = immudb.ManpageServiceImmudb{Cl: immudb.Commandline{}}
 	mpss[1] = immugw.ManpageServiceImmugw{}
 	return &sservice{immuos.NewStandardOS(), viper.New(), mpss, *options}
 }

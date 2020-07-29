@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	daem "github.com/takama/daemon"
-	"os"
 )
 
 var o = c.Options{}
@@ -35,7 +34,7 @@ func init() {
 }
 
 // NewCmd ...
-func NewCmd(immudbServer server.ImmuServerIf) *cobra.Command {
+func (cl *Commandline) NewCmd(immudbServer server.ImmuServerIf) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "immudb",
 		Short: "immudb - the lightweight, high-speed immutable database for systems and applications",
@@ -60,7 +59,7 @@ Environment variables:
   IMMUDB_MAINTENANCE=false
   IMMUDB_ADMIN_PASSWORD=immudb`,
 		DisableAutoGenTag: true,
-		RunE:              Immudb(immudbServer),
+		RunE:              cl.Immudb(immudbServer),
 	}
 
 	setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
@@ -78,7 +77,7 @@ Environment variables:
 }
 
 // Immudb ...
-func Immudb(immudbServer server.ImmuServerIf) func(*cobra.Command, []string) error {
+func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		var options server.Options
 		if options, err = parseOptions(cmd); err != nil {
@@ -97,10 +96,9 @@ func Immudb(immudbServer server.ImmuServerIf) func(*cobra.Command, []string) err
 				c.QuitToStdErr(err)
 			}
 		}
-		plauncher := c.NewPlauncher()
 		if options.Detached {
-			if err := plauncher.Detached(); err == nil {
-				os.Exit(0)
+			if err := cl.P.Detached(); err == nil {
+				return nil
 			}
 		}
 

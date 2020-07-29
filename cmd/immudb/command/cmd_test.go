@@ -19,13 +19,12 @@ package immudb
 import (
 	"bytes"
 	"github.com/codenotary/immudb/cmd/immudb/command/immudbcmdtest"
-	"os"
-	"testing"
-
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"testing"
 )
 
 func DefaultTestOptions() (o server.Options) {
@@ -137,17 +136,68 @@ func tearDown() {
 }
 
 func TestNewCmd(t *testing.T) {
-	cmd := NewCmd(server.DefaultServer())
+	cl := Commandline{}
+
+	cmd := cl.NewCmd(server.DefaultServer())
 	assert.IsType(t, &cobra.Command{}, cmd)
 }
 
 func TestImmudb(t *testing.T) {
 	var config string
 	cmd := &cobra.Command{}
-	cmd.Flags().StringVar(&config, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.ini)")
+	cmd.Flags().StringVar(&config, "config", "", "test")
 
-	immudb := Immudb(immudbcmdtest.ImmuServerMock{})
+	cl := Commandline{}
+
+	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)
 	assert.Nil(t, err)
 
+}
+
+func TestImmudbDetached(t *testing.T) {
+	var config string
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&config, "config", "", "test")
+	viper.Set("detached", true)
+
+	cl := Commandline{plauncherMock{}}
+
+	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
+	err := immudb(cmd, nil)
+	assert.Nil(t, err)
+	viper.Set("detached", false)
+}
+
+func TestImmudbMtls(t *testing.T) {
+	var config string
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&config, "config", "", "test")
+	viper.Set("mtls", true)
+
+	cl := Commandline{}
+
+	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
+	err := immudb(cmd, nil)
+	assert.Nil(t, err)
+	viper.Set("mtls", false)
+}
+
+func TestImmudbLogFile(t *testing.T) {
+	var config string
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&config, "config", "", "test")
+	viper.Set("logfile", "override")
+
+	cl := Commandline{}
+
+	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
+	err := immudb(cmd, nil)
+	assert.Nil(t, err)
+}
+
+type plauncherMock struct{}
+
+func (pl plauncherMock) Detached() error {
+	return nil
 }
