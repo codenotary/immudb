@@ -74,7 +74,7 @@ var plainPass string
 
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
-	is = is.WithOptions(is.Options.WithAuth(true).WithInMemoryStore(true))
+	is = is.WithOptions(is.Options.WithAuth(true).WithInMemoryStore(true)).(*server.ImmuServer)
 	auth.AuthEnabled = is.Options.GetAuth()
 
 	username, plainPass = auth.SysAdminUsername, auth.SysAdminPassword

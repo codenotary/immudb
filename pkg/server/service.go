@@ -18,7 +18,7 @@ package server
 
 // Service ...
 type Service struct {
-	ImmuServer
+	ImmuServerIf
 }
 
 // Start - non-blocking start service
@@ -28,10 +28,10 @@ func (s Service) Start() {
 
 // Stop - non-blocking stop service
 func (s Service) Stop() {
-	go s.ImmuServer.Stop()
+	go s.ImmuServerIf.Stop()
 }
 
 // Run - blocking run service
 func (s Service) Run() {
-	s.ImmuServer.Start()
+	s.ImmuServerIf.Start()
 }
