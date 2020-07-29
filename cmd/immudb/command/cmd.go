@@ -35,7 +35,7 @@ func init() {
 }
 
 // NewCmd ...
-func NewCmd() *cobra.Command {
+func NewCmd(immudbServer server.ImmuServerIf) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "immudb",
 		Short: "immudb - the lightweight, high-speed immutable database for systems and applications",
@@ -60,14 +60,15 @@ Environment variables:
   IMMUDB_MAINTENANCE=false
   IMMUDB_ADMIN_PASSWORD=immudb`,
 		DisableAutoGenTag: true,
-		RunE:              Immudb,
+		RunE:              Immudb(immudbServer),
 	}
 
 	setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
 
-	if err := bindFlags(cmd); err != nil {
+	if err := viper.BindPFlags(cmd.Flags()); err != nil {
 		c.QuitToStdErr(err)
 	}
+
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
 
 	cmd.AddCommand(man.Generate(cmd, "immudb", "./cmd/docs/man/immudb"))
@@ -77,45 +78,45 @@ Environment variables:
 }
 
 // Immudb ...
-func Immudb(cmd *cobra.Command, args []string) (err error) {
-	var options server.Options
-	if options, err = parseOptions(cmd); err != nil {
-		return err
-	}
-	immuServer := server.
-		DefaultServer().
-		WithOptions(options)
-	if options.Logfile != "" {
-		if flogger, file, err := logger.NewFileLogger("immudb ", options.Logfile); err == nil {
-			defer func() {
-				if err = file.Close(); err != nil {
-					c.QuitToStdErr(err)
-				}
-			}()
-			immuServer.WithLogger(flogger)
-		} else {
+func Immudb(immudbServer server.ImmuServerIf) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) (err error) {
+		var options server.Options
+		if options, err = parseOptions(cmd); err != nil {
+			return err
+		}
+		immudbServer := immudbServer.WithOptions(options)
+		if options.Logfile != "" {
+			if flogger, file, err := logger.NewFileLogger("immudb ", options.Logfile); err == nil {
+				defer func() {
+					if err = file.Close(); err != nil {
+						c.QuitToStdErr(err)
+					}
+				}()
+				immudbServer.WithLogger(flogger)
+			} else {
+				c.QuitToStdErr(err)
+			}
+		}
+		plauncher := c.NewPlauncher()
+		if options.Detached {
+			if err := plauncher.Detached(); err == nil {
+				os.Exit(0)
+			}
+		}
+
+		var d daem.Daemon
+		if d, err = daem.New("immudb", "immudb", "immudb"); err != nil {
 			c.QuitToStdErr(err)
 		}
-	}
-	plauncher := c.NewPlauncher()
-	if options.Detached {
-		if err := plauncher.Detached(); err == nil {
-			os.Exit(0)
+
+		service := server.Service{
+			ImmuServerIf: immudbServer,
 		}
+
+		d.Run(service)
+
+		return nil
 	}
-
-	var d daem.Daemon
-	if d, err = daem.New("immudb", "immudb", "immudb"); err != nil {
-		c.QuitToStdErr(err)
-	}
-
-	service := server.Service{
-		ImmuServer: *immuServer,
-	}
-
-	d.Run(service)
-
-	return nil
 }
 
 func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
@@ -205,61 +206,6 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
-}
-
-func bindFlags(cmd *cobra.Command) error {
-	if err := viper.BindPFlag("dir", cmd.Flags().Lookup("dir")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("port", cmd.Flags().Lookup("port")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("address", cmd.Flags().Lookup("address")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("dbname", cmd.Flags().Lookup("dbname")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("logfile", cmd.Flags().Lookup("logfile")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("mtls", cmd.Flags().Lookup("mtls")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("auth", cmd.Flags().Lookup("auth")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("no-histograms", cmd.Flags().Lookup("no-histograms")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("consistency-check", cmd.Flags().Lookup("consistency-check")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("detached", cmd.Flags().Lookup("detached")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("certificate", cmd.Flags().Lookup("certificate")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("pkey", cmd.Flags().Lookup("pkey")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("devmode", cmd.Flags().Lookup("devmode")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("admin-password", cmd.Flags().Lookup("admin-password")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("maintenance", cmd.Flags().Lookup("maintenance")); err != nil {
-		return err
-	}
-	return nil
 }
 
 func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
