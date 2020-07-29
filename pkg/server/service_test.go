@@ -19,13 +19,13 @@ package server
 import (
 	"log"
 	"os"
-	"testing"
-	"time"
+	"sync"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+	"testing"
 )
 
 func TestService(t *testing.T) {
@@ -41,6 +41,7 @@ func TestService(t *testing.T) {
 		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
 	)
 	schema.RegisterImmuServiceServer(grpcServer, server)
+
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			log.Fatal(err)
@@ -52,8 +53,14 @@ func TestService(t *testing.T) {
 	srvc := Service{
 		ImmuServerIf: server,
 	}
-	srvc.Start()
-	time.Sleep(1 * time.Second)
-	srvc.Stop()
-	time.Sleep(1 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		srvc.Start()
+		wg.Done()
+	}()
+	go func() {
+		srvc.Stop()
+		wg.Done()
+	}()
 }
