@@ -63,9 +63,10 @@ Environment variables:
 
 	setupFlags(cmd, gw.DefaultOptions(), client.DefaultMTLsOptions())
 
-	if err := bindFlags(cmd); err != nil {
+	if err := viper.BindPFlags(cmd.Flags()); err != nil {
 		c.QuitToStdErr(err)
 	}
+
 	setupDefaults(gw.DefaultOptions(), client.DefaultMTLsOptions())
 	cmd.AddCommand(man.Generate(cmd, "immugw", "./cmd/docs/man/immugw"))
 
@@ -215,61 +216,6 @@ func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsO
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
 	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
-}
-
-func bindFlags(cmd *cobra.Command) error {
-	if err := viper.BindPFlag("dir", cmd.Flags().Lookup("dir")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("port", cmd.Flags().Lookup("port")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("address", cmd.Flags().Lookup("address")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("immudb-port", cmd.Flags().Lookup("immudb-port")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("immudb-address", cmd.Flags().Lookup("immudb-address")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("audit", cmd.Flags().Lookup("audit")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("audit-interval", cmd.Flags().Lookup("audit-interval")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("audit-username", cmd.Flags().Lookup("audit-username")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("audit-password", cmd.Flags().Lookup("audit-password")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("pidfile", cmd.Flags().Lookup("pidfile")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("logfile", cmd.Flags().Lookup("logfile")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("mtls", cmd.Flags().Lookup("mtls")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("detached", cmd.Flags().Lookup("detached")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("servername", cmd.Flags().Lookup("servername")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("certificate", cmd.Flags().Lookup("certificate")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("pkey", cmd.Flags().Lookup("pkey")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("clientcas", cmd.Flags().Lookup("clientcas")); err != nil {
-		return err
-	}
-	return nil
 }
 
 func setupDefaults(options gw.Options, mtlsOptions client.MTLsOptions) {
