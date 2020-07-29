@@ -53,7 +53,7 @@ func NewBufconnServer(options server.Options) *bufconnServer {
 }
 
 func (bs *bufconnServer) Start() {
-	bs.Server = server.DefaultServer().WithOptions(*bs.Options)
+	bs.Server = server.DefaultServer().WithOptions(*bs.Options).(*server.ImmuServer)
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
 	}

@@ -74,14 +74,21 @@ func DefaultServer() *ImmuServer {
 	}
 }
 
+type ImmuServerIf interface {
+	Start() error
+	Stop() error
+	WithOptions(options Options) ImmuServerIf
+	WithLogger(logger.Logger) ImmuServerIf
+}
+
 // WithLogger ...
-func (s *ImmuServer) WithLogger(logger logger.Logger) *ImmuServer {
+func (s *ImmuServer) WithLogger(logger logger.Logger) ImmuServerIf {
 	s.Logger = logger
 	return s
 }
 
 // WithOptions ...
-func (s *ImmuServer) WithOptions(options Options) *ImmuServer {
+func (s *ImmuServer) WithOptions(options Options) ImmuServerIf {
 	s.Options = options
 	return s
 }

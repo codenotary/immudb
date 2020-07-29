@@ -34,7 +34,7 @@ func TestService(t *testing.T) {
 	datadir := "rome"
 	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(true).WithDir(datadir).WithListener(l).WithPort(22222).WithMetricsServer(false)
 
-	server := DefaultServer().WithOptions(options)
+	server := DefaultServer().WithOptions(options).(*ImmuServer)
 	lis := bufconn.Listen(bufSize)
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
@@ -50,7 +50,7 @@ func TestService(t *testing.T) {
 		os.RemoveAll(datadir)
 	}()
 	srvc := Service{
-		ImmuServer: *server,
+		ImmuServerIf: server,
 	}
 	srvc.Start()
 	time.Sleep(1 * time.Second)

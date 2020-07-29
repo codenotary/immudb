@@ -49,7 +49,7 @@ var testValue = []byte("Gaudí")
 func newInmemoryAuthServer() *ImmuServer {
 	dbRootpath := DefaultOption().GetDbRootPath()
 	s := DefaultServer()
-	s = s.WithOptions(s.Options.WithAuth(true).WithInMemoryStore(true))
+	s = s.WithOptions(s.Options.WithAuth(true).WithInMemoryStore(true)).(*ImmuServer)
 	err := s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		log.Fatal(err)
@@ -64,7 +64,7 @@ func newInmemoryAuthServer() *ImmuServer {
 func newAuthServer(dbroot string) *ImmuServer {
 	dbRootpath := DefaultOption().WithDbRootPath(dbroot).GetDbRootPath()
 	s := DefaultServer()
-	s = s.WithOptions(s.Options.WithAuth(true).WithDir(dbRootpath).WithCorruptionCheck(false))
+	s = s.WithOptions(s.Options.WithAuth(true).WithDir(dbRootpath).WithCorruptionCheck(false)).(*ImmuServer)
 	err := s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		log.Fatal(err)
@@ -130,7 +130,7 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir("Nice")
 	options := DefaultOption().WithDbRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDbRootPath()
-	s := DefaultServer().WithOptions(serverOptions)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	err := s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
@@ -1410,7 +1410,7 @@ func TestServerUpdateConfigItem(t *testing.T) {
 		WithAuth(false).
 		WithMaintenance(false).
 		WithDir(dataDir).
-		WithConfig(configFile))
+		WithConfig(configFile)).(*ImmuServer)
 	defer func() {
 		os.RemoveAll(dataDir)
 		os.Remove(configFile)
@@ -1466,7 +1466,7 @@ func TestServerUpdateAuthConfig(t *testing.T) {
 		WithCorruptionCheck(false).
 		WithInMemoryStore(true).
 		WithAuth(false).
-		WithMaintenance(false).WithDir(dataDir).WithConfig("/tmp/immudb.toml"))
+		WithMaintenance(false).WithDir(dataDir).WithConfig("/tmp/immudb.toml")).(*ImmuServer)
 
 	_, err = s.UpdateAuthConfig(context.Background(), &schema.AuthConfig{
 		Kind: 1,
@@ -1492,7 +1492,7 @@ func TestServerUpdateMTLSConfig(t *testing.T) {
 		WithCorruptionCheck(false).
 		WithInMemoryStore(true).
 		WithAuth(false).
-		WithMaintenance(false).WithDir(dataDir).WithMTLs(false).WithConfig("/tmp/immudb.toml"))
+		WithMaintenance(false).WithDir(dataDir).WithMTLs(false).WithConfig("/tmp/immudb.toml")).(*ImmuServer)
 	_, err = s.UpdateMTLSConfig(context.Background(), &schema.MTLSConfig{
 		Enabled: true,
 	})
@@ -1512,7 +1512,7 @@ func TestServerMtls(t *testing.T) {
 		WithInMemoryStore(true).
 		WithAuth(false).
 		WithMaintenance(false).WithMTLs(true).WithMTLsOptions(mtlsopts)
-	s := DefaultServer().WithOptions(op)
+	s := DefaultServer().WithOptions(op).(*ImmuServer)
 	ops, err := s.setUpMTLS()
 	if err != nil {
 		log.Fatal(err)
@@ -1536,7 +1536,7 @@ func TestServerPID(t *testing.T) {
 		WithInMemoryStore(true).
 		WithAuth(false).
 		WithMaintenance(false).WithPidfile("pidfile")
-	s := DefaultServer().WithOptions(op)
+	s := DefaultServer().WithOptions(op).(*ImmuServer)
 	defer os.Remove("pidfile")
 	err := s.setupPidFile()
 	if err != nil {

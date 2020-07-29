@@ -102,7 +102,7 @@ func makeAuditor() (Auditor, error) {
 
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
-	is = is.WithOptions(is.Options.WithAuth(true).WithInMemoryStore(true))
+	is = is.WithOptions(is.Options.WithAuth(true).WithInMemoryStore(true)).(*server.ImmuServer)
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),

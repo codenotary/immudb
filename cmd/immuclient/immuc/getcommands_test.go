@@ -35,7 +35,7 @@ func TestGetByIndex(t *testing.T) {
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.Set([]string{"key", "val"})
+	_, _ = ic.Imc.SafeSet([]string{"key", "val"})
 	msg, err := ic.Imc.GetByIndex([]string{"0"})
 	if err != nil {
 		t.Fatal("GetByIndex fail", err)
