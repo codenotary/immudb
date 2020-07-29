@@ -17,15 +17,14 @@ limitations under the License.
 package server
 
 import (
-	"log"
-	"os"
-	"sync"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+	"log"
+	"os"
 	"testing"
+	"time"
 )
 
 func TestService(t *testing.T) {
@@ -47,20 +46,21 @@ func TestService(t *testing.T) {
 			log.Fatal(err)
 		}
 	}()
-	defer func() {
-		os.RemoveAll(datadir)
-	}()
+
 	srvc := Service{
 		ImmuServerIf: server,
 	}
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		srvc.Start()
-		wg.Done()
+	srvc.Start()
+	time.Sleep(1 * time.Second)
+	defer func() {
+		os.RemoveAll(datadir)
 	}()
-	go func() {
-		srvc.Stop()
-		wg.Done()
-	}()
+}
+
+func TestServiceStop(t *testing.T) {
+	server := DefaultServer()
+	srvc := Service{
+		ImmuServerIf: server,
+	}
+	srvc.Stop()
 }
