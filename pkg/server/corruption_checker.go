@@ -18,144 +18,128 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
-	mrand "math/rand"
-	"sync"
-	"time"
-
+	"crypto/sha256"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
+	"github.com/codenotary/merkletree"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 // ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
 const ErrConsistencyFail = "consistency check fail at index %d"
 
-type CCOptions struct {
-	singleiteration    bool
-	iterationSleepTime time.Duration
-	frequencySleepTime time.Duration
+type corruptionChecker struct {
+	options    CCOptions
+	store      *store.Store
+	Logger     logger.Logger
+	Exit       bool
+	StopImmudb func() error
+	Trusted    bool
+	Wg         sync.WaitGroup
 }
 
-type corruptionChecker struct {
-	options        CCOptions
-	dbList         DatabaseList
-	Logger         logger.Logger
-	Exit           bool
-	Trusted        bool
-	Wg             sync.WaitGroup
-	currentDbIndex int
-	rg             RandomGenerator
+type CCOptions struct {
+	iterationSleepTime time.Duration
+	frequencySleepTime time.Duration
 }
 
 // CorruptionChecker corruption checker interface
 type CorruptionChecker interface {
 	Start(context.Context) (err error)
-	Stop()
-	GetStatus() bool
-	GetExit() bool
-	SetExit(bool)
+	Stop(context.Context)
+	GetStatus(context.Context) bool
 	Wait()
 }
 
 // NewCorruptionChecker returns new trust checker service
-func NewCorruptionChecker(opt CCOptions, d DatabaseList, l logger.Logger, rg RandomGenerator) CorruptionChecker {
+func NewCorruptionChecker(cco CCOptions, s *store.Store, l logger.Logger, stopImmudb func() error) CorruptionChecker {
 	return &corruptionChecker{
-		options:        opt,
-		dbList:         d,
-		Logger:         l,
-		Exit:           false,
-		Trusted:        true,
-		currentDbIndex: 0,
-		rg:             rg,
-	}
+		options:    cco,
+		store:      s,
+		Logger:     l,
+		Exit:       false,
+		StopImmudb: stopImmudb,
+		Trusted:    true}
 }
 
 // Start start the trust checker loop
 func (s *corruptionChecker) Start(ctx context.Context) (err error) {
 	s.Logger.Debugf("Start scanning ...")
-
-	for {
-		err = s.checkLevel0(ctx)
-
-		if err != nil || s.Exit || s.options.singleiteration {
+	for !s.Exit {
+		if err = s.checkLevel0(ctx); err != nil {
+			s.Wg.Done()
 			return err
 		}
-
+		//runtime.GC()
 		s.sleep()
 	}
+	return err
 }
 
 // Stop stop the trust checker loop
-func (s *corruptionChecker) Stop() {
+func (s *corruptionChecker) Stop(ctx context.Context) {
 	s.Exit = true
-	s.Logger.Infof("Waiting for consistency checker to shut down")
+	s.Logger.Infof("Please wait for consistency checker shut down")
 	s.Wait()
+}
+
+// GetStatus return status of the trust checker. False means that a consistency checks was failed
+func (s *corruptionChecker) GetStatus(ctx context.Context) bool {
+	return s.Trusted
 }
 
 func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	s.Wg.Add(1)
-	if s.currentDbIndex == s.dbList.Length() {
-		s.currentDbIndex = 0
-	}
-	db := s.dbList.GetByIndex(int64(s.currentDbIndex))
-	s.currentDbIndex++
-	var r *schema.Root
+	s.store.RLock()
+	defer s.store.RUnlock()
 	s.Logger.Debugf("Retrieving a fresh root ...")
-	if r, err = db.Store.CurrentRoot(); err != nil {
-		s.Logger.Errorf("Error retrieving root: %s", err)
-		return
-	}
+	var r *schema.Root
 	if r.Root == nil {
 		s.Logger.Debugf("Immudb is empty ...")
 	} else {
-		// create a shuffle range with all indexes presents in immudb
-		ids := s.rg.getList(0, r.Index)
-		s.Logger.Debugf("Start scanning %d elements", len(ids))
-		for _, id := range ids {
-			if s.Exit {
-				s.Wg.Done()
-				return
-			}
-			var item *schema.SafeItem
-			if item, err = db.Store.BySafeIndex(schema.SafeIndexOptions{
-				Index: id,
-				RootIndex: &schema.Index{
-					Index: r.Index,
-				},
-			}); err != nil {
-				if err == store.ErrInconsistentDigest {
-					auth.IsTampered = true
-					s.Logger.Errorf("insertion order index %d was tampered", id)
-					s.Wg.Done()
-					return
-				}
-				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
-				return
-			}
-			verified := item.Proof.Verify(item.Proof.Leaf, *r)
-			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Item.Index, item.Item.Value, verified)
-			if !verified {
-				s.Trusted = false
-				auth.IsTampered = true
-				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
-				s.Wg.Done()
-				return
-			}
-			time.Sleep(s.options.frequencySleepTime)
+		rand.Seed(time.Now().UnixNano())
+		id := random(0, r.Index)
+		if s.Exit {
+			s.Wg.Done()
+			return
 		}
-	}
-	s.Wg.Done()
 
+		var ip *schema.InclusionProof
+		ip, err = s.store.InclusionProof(schema.Index{Index: id})
+		if err != nil {
+			s.Logger.Errorf("Error fetching proof at element %d: %s", id, err)
+			return
+		}
+
+		var path merkletree.Path
+		path.FromSlice(ip.Path)
+		var lf [sha256.Size]byte
+		copy(lf[:], ip.Leaf)
+
+		var root32 [32]byte
+		copy(root32[:], r.Root[:32])
+		verified := path.VerifyInclusion(r.Index, id, root32, lf)
+
+		s.Logger.Debugf("Item index %d, verified %t", id, verified)
+		if !verified {
+			s.Trusted = false
+			s.Logger.Errorf(ErrConsistencyFail, id)
+			s.Wg.Done()
+			s.StopImmudb()
+			return
+		}
+		s.Wg.Done()
+	}
 	return nil
 }
 
 func (s *corruptionChecker) sleep() {
 	if !s.Exit {
 		s.Logger.Debugf("Sleeping for some seconds ...")
-		time.Sleep(s.options.iterationSleepTime)
+		time.Sleep(s.options.frequencySleepTime)
 	}
 }
 
@@ -163,49 +147,19 @@ func (s *corruptionChecker) Wait() {
 	s.Wg.Wait()
 }
 
-// GetStatus return status of the trust checker. False means that a consistency checks was failed
-func (s *corruptionChecker) GetStatus() bool {
-	return s.Trusted
+const maxInt64 uint64 = 1<<63 - 1
+
+func random(min, max uint64) uint64 {
+	return randomHelper(max-min) + min
 }
 
-// GetExit return exit flag
-func (s *corruptionChecker) GetExit() bool {
-	return s.Exit
-}
-
-// SetExit set exit flag
-func (s *corruptionChecker) SetExit(exit bool) {
-	s.Exit = exit
-}
-
-type cryptoRandSource struct{}
-
-func newCryptoRandSource() cryptoRandSource {
-	return cryptoRandSource{}
-}
-
-func (cryptoRandSource) Int63() int64 {
-	var b [8]byte
-	_, _ = rand.Read(b[:])
-	return int64(binary.LittleEndian.Uint64(b[:]) & (1<<63 - 1))
-}
-
-func (cryptoRandSource) Seed(_ int64) {}
-
-type randomGenerator struct{}
-
-type RandomGenerator interface {
-	getList(uint64, uint64) []uint64
-}
-
-func (rg randomGenerator) getList(start, end uint64) []uint64 {
-	ids := make([]uint64, end-start+1)
-	var i uint64
-	for i = start; i <= end; i++ {
-		ids[i] = i
+func randomHelper(n uint64) uint64 {
+	if n < maxInt64 {
+		return uint64(rand.Int63n(int64(n + 1)))
 	}
-	rn := mrand.New(newCryptoRandSource())
-	// shuffle indexes
-	rn.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
-	return ids
+	x := rand.Uint64()
+	for x > n {
+		x = rand.Uint64()
+	}
+	return x
 }
