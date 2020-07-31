@@ -346,32 +346,17 @@ service ImmuService {
 			get: "/v1/immurestproxy/user/list"
 		};
 	};
-	rpc GetUser (UserRequest) returns (UserResponse){
-		option (google.api.http) = {
-			get: "/v1/immurestproxy/user/{user}"
-		};
-	};
+
 	rpc CreateUser (CreateUserRequest) returns (UserResponse){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user"
 			body: "*"
 		};
 	};
+
 	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user/password/change"
-			body: "*"
-		};
-	};
-	rpc SetPermission (Item) returns (google.protobuf.Empty){
-		option (google.api.http) = {
-			post: "/v1/immurestproxy/user/permission/set"
-			body: "*"
-		};
-	};
-	rpc DeactivateUser (UserRequest) returns (google.protobuf.Empty){
-		option (google.api.http) = {
-			post: "/v1/immurestproxy/user/deactivate"
 			body: "*"
 		};
 	};
@@ -582,7 +567,7 @@ service ImmuService {
 			get: "/v1/immurestproxy/usedatabase/{databasename}"
 		};
 	}
-	rpc ChangePermission(ChangePermissionRequest) returns (Error) {
+	rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/changepermission"
 			body: "*"

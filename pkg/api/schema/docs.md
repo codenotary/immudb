@@ -938,7 +938,9 @@
 <a name="immudb.schema.ZAddOptions"></a>
 
 ### ZAddOptions
-
+Why use double as score type?
+Because it is not purely about the storage size, but also use cases.
+64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer.
 
 
 | Field | Type | Label | Description |
@@ -1011,6 +1013,14 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
+| ListUsers | [.google.protobuf.Empty](#google.protobuf.Empty) | [UserList](#immudb.schema.UserList) |  |
+| CreateUser | [CreateUserRequest](#immudb.schema.CreateUserRequest) | [UserResponse](#immudb.schema.UserResponse) |  |
+| ChangePassword | [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| UpdateAuthConfig | [AuthConfig](#immudb.schema.AuthConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| UpdateMTLSConfig | [MTLSConfig](#immudb.schema.MTLSConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| PrintTree | [.google.protobuf.Empty](#google.protobuf.Empty) | [Tree](#immudb.schema.Tree) |  |
+| Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
+| Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | Set | [KeyValue](#immudb.schema.KeyValue) | [Index](#immudb.schema.Index) |  |
 | SetSV | [StructuredKeyValue](#immudb.schema.StructuredKeyValue) | [Index](#immudb.schema.Index) |  |
 | SafeSet | [SafeSetOptions](#immudb.schema.SafeSetOptions) | [Proof](#immudb.schema.Proof) |  |
@@ -1043,21 +1053,10 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | SafeZAdd | [SafeZAddOptions](#immudb.schema.SafeZAddOptions) | [Proof](#immudb.schema.Proof) |  |
 | IScan | [IScanOptions](#immudb.schema.IScanOptions) | [Page](#immudb.schema.Page) |  |
 | IScanSV | [IScanOptions](#immudb.schema.IScanOptions) | [SPage](#immudb.schema.SPage) |  |
-| ListUsers | [.google.protobuf.Empty](#google.protobuf.Empty) | [UserList](#immudb.schema.UserList) |  |
-| GetUser | [UserRequest](#immudb.schema.UserRequest) | [UserResponse](#immudb.schema.UserResponse) |  |
-| CreateUser | [CreateUserRequest](#immudb.schema.CreateUserRequest) | [UserResponse](#immudb.schema.UserResponse) |  |
-| ChangePassword | [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| SetPermission | [Item](#immudb.schema.Item) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| DeactivateUser | [UserRequest](#immudb.schema.UserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| UpdateAuthConfig | [AuthConfig](#immudb.schema.AuthConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| UpdateMTLSConfig | [MTLSConfig](#immudb.schema.MTLSConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| PrintTree | [.google.protobuf.Empty](#google.protobuf.Empty) | [Tree](#immudb.schema.Tree) |  |
-| Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
-| Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | Dump | [.google.protobuf.Empty](#google.protobuf.Empty) | [.pb.KVList](#pb.KVList) stream |  |
 | CreateDatabase | [Database](#immudb.schema.Database) | [CreateDatabaseReply](#immudb.schema.CreateDatabaseReply) | todo(joe-dz): Enable restore when the feature is required again 	rpc Restore(stream pb.KVList) returns (ItemsCount) { 		option (google.api.http) = { 			post: &#34;/v1/immurestproxy/restore&#34; 			body: &#34;*&#34; 		}; 	} |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
-| ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [Error](#immudb.schema.Error) |  |
+| ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 

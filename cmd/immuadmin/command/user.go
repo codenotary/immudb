@@ -120,9 +120,8 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			var resp = ""
-			if resp, err = cl.setUserPermission(args); err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), resp)
+			if _, err = cl.setUserPermission(args); err == nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "Permission changed successfully")
 			}
 			return err
 		},
@@ -257,15 +256,6 @@ func (cl *commandline) setUserPermission(args []string) (resp string, err error)
 		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
 	}
 	dbname := args[3]
-	req := &schema.ChangePermissionRequest{
-		Action:     permissionAction,
-		Database:   dbname,
-		Permission: userpermission,
-		Username:   username,
-	}
-	if errResp, err := cl.immuClient.ChangePermission(context.Background(), req); err == nil {
-		return errResp.Errormessage, nil
-	}
 
-	return "", err
+	return "", cl.immuClient.ChangePermission(context.Background(), permissionAction, username, dbname, userpermission)
 }

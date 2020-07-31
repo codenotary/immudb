@@ -1103,24 +1103,6 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	return &schema.UserResponse{User: username, Permission: r.GetPermission()}, nil
 }
 
-// SetPermission ...
-func (s *ImmuServer) SetPermission(ctx context.Context, r *schema.Item) (*empty.Empty, error) {
-	s.Logger.Debugf("SetPermission %+v", *r)
-	return nil, fmt.Errorf("deprecated method. use change permission instead")
-}
-
-// DeactivateUser .."".
-func (s *ImmuServer) DeactivateUser(ctx context.Context, r *schema.UserRequest) (*empty.Empty, error) {
-	s.Logger.Debugf("DeactivateUser %+v", *r)
-	return nil, fmt.Errorf("deprecated method. use setactive instead")
-}
-
-// GetUser ...
-func (s *ImmuServer) GetUser(ctx context.Context, r *schema.UserRequest) (*schema.UserResponse, error) {
-	s.Logger.Debugf("GetUser %+v", *r)
-	return nil, fmt.Errorf("deprecated method. use user list instead")
-}
-
 // ListUsers returns a list of users based on the requesting user permissions
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	s.Logger.Debugf("ListUsers %+v")
@@ -1350,7 +1332,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 }
 
 //ChangePermission grant or revoke user permissions on databases
-func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*schema.Error, error) {
+func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("ChangePermission %+v", r)
 
 	if r.Database == SystemdbName {
@@ -1363,50 +1345,48 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return &schema.Error{
-			Errorcode:    schema.ErrorCodes_ERROR_USER_HAS_NOT_LOGGED_IN,
-			Errormessage: "Please login",
-		}, err
+		return nil, status.Errorf(codes.Unauthenticated,
+			"Please login")
 	}
 
 	//sanitize input
 	{
 		if len(r.Username) == 0 {
-			return nil, fmt.Errorf("username can not be empty")
+			return nil, status.Errorf(codes.InvalidArgument, "username can not be empty")
 		}
 		if len(r.Database) == 0 {
-			return nil, fmt.Errorf("Database can not be empty")
+			return nil, status.Errorf(codes.InvalidArgument, "database can not be empty")
 		}
 		if (r.Action != schema.PermissionAction_GRANT) &&
 			(r.Action != schema.PermissionAction_REVOKE) {
-			return nil, fmt.Errorf("action not recognized")
+			return nil, status.Errorf(codes.InvalidArgument, "action not recognized")
 		}
 		if (r.Permission == auth.PermissionNone) ||
 			((r.Permission > auth.PermissionRW) &&
 				(r.Permission < auth.PermissionAdmin)) {
-			return nil, fmt.Errorf("unrecognized permission")
+			return nil, status.Errorf(codes.InvalidArgument, "unrecognized permission")
 		}
 	}
 
 	//do not allow to change own permissions, user can lock itsself out
 	if r.Username == user.Username {
-		return nil, fmt.Errorf("changing you own permissions is not allowed")
+		return nil, status.Errorf(codes.InvalidArgument, "changing you own permissions is not allowed")
 	}
 
 	//check if user exists
 	targetUser, err := s.userExists([]byte(r.Username), nil)
 	if err != nil {
-		return nil, fmt.Errorf("user %s not found", string(r.Username))
+		return nil, status.Errorf(codes.NotFound, "user %s not found", string(r.Username))
 	}
 	//target user should be active
 	if !targetUser.Active {
-		return nil, fmt.Errorf("user %s is not active", string(r.Username))
+		return nil, status.Errorf(codes.FailedPrecondition, "user %s is not active", string(r.Username))
 	}
 
 	//check if requesting user has permission on this database
 	if !user.IsSysAdmin {
 		if !user.HasPermission(r.Database, auth.PermissionAdmin) {
-			return nil, fmt.Errorf("you do not have permission on this database")
+			return nil, status.Errorf(codes.PermissionDenied, "you do not have permission on this database")
 		}
 	}
 
@@ -1424,10 +1404,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
 
-	return &schema.Error{
-		Errorcode:    schema.ErrorCodes_Ok,
-		Errormessage: "Permission changed successfully",
-	}, nil
+	return new(empty.Empty), nil
 }
 
 //SetActiveUser activate or deactivate a user
@@ -1518,7 +1495,7 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *au
 func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.User, error) {
 	userdata, ok := s.userdata.Userdata[username]
 	if !ok {
-		return nil, fmt.Errorf("Logedin user data not found")
+		return nil, fmt.Errorf("logged in user data not found")
 	}
 	return userdata, nil
 }

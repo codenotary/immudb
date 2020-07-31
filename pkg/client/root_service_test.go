@@ -205,8 +205,8 @@ func (m *immuServiceClientMock) CreateDatabase(ctx context.Context, in *schema.D
 func (m *immuServiceClientMock) UseDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
 	return &schema.UseDatabaseReply{}, nil
 }
-func (m *immuServiceClientMock) ChangePermission(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*schema.Error, error) {
-	return &schema.Error{}, nil
+func (m *immuServiceClientMock) ChangePermission(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return &empty.Empty{}, nil
 }
 func (m *immuServiceClientMock) SetActiveUser(ctx context.Context, in *schema.SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return &empty.Empty{}, nil

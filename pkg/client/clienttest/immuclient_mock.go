@@ -57,7 +57,7 @@ type ImmuClientMock struct {
 	RawBySafeIndexF     func(context.Context, uint64) (*client.VerifiedItem, error)
 	ListUsersF          func(context.Context) (*schema.UserList, error)
 	SetActiveUserF      func(context.Context, *schema.SetActiveUserRequest) (*empty.Empty, error)
-	ChangePermissionF   func(context.Context, *schema.ChangePermissionRequest) (*schema.Error, error)
+	ChangePermissionF   func(context.Context, schema.PermissionAction, string, string, uint32) error
 	ZScanF              func(context.Context, []byte) (*schema.StructuredItemList, error)
 	IScanF              func(context.Context, uint64, uint64) (*schema.SPage, error)
 	ScanF               func(context.Context, []byte) (*schema.StructuredItemList, error)
@@ -193,8 +193,8 @@ func (icm *ImmuClientMock) SetActiveUser(ctx context.Context, u *schema.SetActiv
 }
 
 // ChangePermission ...
-func (icm *ImmuClientMock) ChangePermission(ctx context.Context, r *schema.ChangePermissionRequest) (*schema.Error, error) {
-	return icm.ChangePermissionF(ctx, r)
+func (icm *ImmuClientMock) ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error {
+	return icm.ChangePermissionF(ctx, action, username, database, permissions)
 }
 
 // ZScan ...
