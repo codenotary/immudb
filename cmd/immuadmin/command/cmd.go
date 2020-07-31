@@ -43,8 +43,8 @@ Environment variables:
   IMMUADMIN_PKEY=./tools/mtls/4_client/private/localhost.key.pem
   IMMUADMIN_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
   IMMUADMIN_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
-		SilenceUsage:      true,
-		SilenceErrors:     true,
+		SilenceUsage:      false,
+		SilenceErrors:     false,
 		DisableAutoGenTag: true,
 	}
 	cmd = Init(cmd, cmdName, &o.CfgFn)
