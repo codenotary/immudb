@@ -98,7 +98,7 @@ type ImmuClient interface {
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
 	SetupDialOptions(options *Options) *[]grpc.DialOption
-	CreateDatabase(ctx context.Context, d *schema.Database) (*schema.CreateDatabaseReply, error)
+	CreateDatabase(ctx context.Context, d *schema.Database) error
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error)
 	DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error)
@@ -1232,14 +1232,14 @@ func (c *immuClient) verifyAndSetRoot(result *schema.Proof, root *schema.Root, c
 }
 
 // CreateDatabase create a new database by making a grpc call
-func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) (*schema.CreateDatabaseReply, error) {
+func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) error {
 	start := time.Now()
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return ErrNotConnected
 	}
-	result, err := c.ServiceClient.CreateDatabase(ctx, db)
+	_, err := c.ServiceClient.CreateDatabase(ctx, db)
 	c.Logger.Debugf("CreateDatabase finished in %s", time.Since(start))
-	return result, err
+	return err
 }
 
 // UseDatabase create a new database by making a grpc call

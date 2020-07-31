@@ -28,13 +28,7 @@ option go_package = "github.com/codenotary/immudb/pkg/api/schema";
 message Key {
 	bytes key = 1;
 }
-enum ErrorCodes {
-    Ok = 0;
-	ERROR_SELECTING_DATABASE = 1;
-	ERROR_NO_PERMISSION_FOR_THIS_DATABASE = 2;
-	ERROR_USER_HAS_NOT_LOGGED_IN = 3;
-	ERROR_DB_DOES_NOT_EXIST = 4;
-}
+
 message Permission{
 	string database = 1;
 	uint32 permission = 2;
@@ -57,14 +51,15 @@ message CreateUserRequest {
 	uint32 permission = 3;
 	string database = 4;
 }
+
 message UserRequest {
 	bytes user = 1;
 }
+
 message UserResponse {
 	bytes user = 1;
 	uint32 permission = 2;
 }
-
 
 message ChangePasswordRequest {
 	bytes user = 1;
@@ -284,34 +279,31 @@ message SafeIndexOptions {
 	uint64 index = 1;
 	Index rootIndex = 2;
 }
-message Error {
-	ErrorCodes errorcode = 1;
-	string errormessage = 2;
-}
+
 message Database {
 	string databasename = 1;
 }
 message UseDatabaseReply{
-	Error error = 1;
-	string token = 2;
+	string token = 1;
 }
-message CreateDatabaseReply {
-	Error error = 1;
-}
+
 enum PermissionAction {
 	GRANT = 0;
 	REVOKE = 1;
 }
+
 message ChangePermissionRequest {
 	PermissionAction action = 1;
 	string username = 2;
 	string database = 3;
 	uint32 permission = 4;
 }
+
 message SetActiveUserRequest {
 	bool active = 1;
 	string username = 2;
 }
+
 message DatabaseListResponse{
 	repeated Database databases = 1;
 }
@@ -556,7 +548,7 @@ service ImmuService {
 	//			body: "*"
 	//		};
 	//	}
-	rpc CreateDatabase(Database) returns (CreateDatabaseReply) {
+	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/createdatabase"
 			body: "*"

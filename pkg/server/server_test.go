@@ -199,12 +199,9 @@ func TestServerCreateDatabase(t *testing.T) {
 	newdb := &schema.Database{
 		Databasename: "lisbon",
 	}
-	dbrepl, err := s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
 		t.Fatalf("Createdatabase error %v", err)
-	}
-	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
-		t.Fatalf("Createdatabase error %v", dbrepl)
 	}
 }
 func TestServerLoaduserDatabase(t *testing.T) {
@@ -217,12 +214,9 @@ func TestServerLoaduserDatabase(t *testing.T) {
 	newdb := &schema.Database{
 		Databasename: testDatabase,
 	}
-	dbrepl, err := s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
 		t.Fatalf("Createdatabase error %v", err)
-	}
-	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
-		t.Fatalf("Createdatabase error %v", dbrepl)
 	}
 	err = s.CloseDatabases()
 	if err != nil {
@@ -369,9 +363,6 @@ func testServerUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("UseDatabase error %v", err)
-	}
-	if dbs.Error.Errorcode != schema.ErrorCodes_Ok {
-		t.Fatalf("Error selecting database %v", dbs)
 	}
 	if len(dbs.Token) == 0 {
 		t.Fatalf("Expected token, got %v", dbs.Token)
@@ -1283,12 +1274,9 @@ func TestServerUsermanagement(t *testing.T) {
 	newdb := &schema.Database{
 		Databasename: testDatabase,
 	}
-	dbrepl, err := s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
 		log.Fatal(err)
-	}
-	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
-		log.Fatalf("error creating test database %v", dbrepl)
 	}
 
 	testServerCreateUser(ctx, s, t)
@@ -1310,13 +1298,11 @@ func TestServerDbOperations(t *testing.T) {
 	newdb := &schema.Database{
 		Databasename: testDatabase,
 	}
-	dbrepl, err := s.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if dbrepl.Error.Errorcode != schema.ErrorCodes_Ok {
-		log.Fatalf("error creating test database %v", dbrepl)
-	}
+
 	testServerSetGet(ctx, s, t)
 	testServerSetGetError(ctx, s, t)
 	testServerSVSetGet(ctx, s, t)
@@ -1678,12 +1664,11 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
-	useDbReply, err := s.UseDatabase(ctx2, &schema.Database{Databasename: DefaultdbName})
-	require.NotNil(t, useDbReply)
-	require.NotNil(t, useDbReply.Error)
-	require.Equal(t, schema.ErrorCodes_ERROR_USER_HAS_NOT_LOGGED_IN, useDbReply.Error.Errorcode)
-	require.Equal(t, "Please login", useDbReply.Error.Errormessage)
-	require.Equal(t, errors.New("logged in user data not found"), err)
+	_, err = s.UseDatabase(ctx2, &schema.Database{Databasename: DefaultdbName})
+
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.Unauthenticated, errStatus.Code())
+	require.Equal(t, "Please login", errStatus.Message())
 
 	_, err = s.UseDatabase(ctx, &schema.Database{Databasename: SystemdbName})
 	require.Equal(t, errors.New("this database can not be selected"), err)
@@ -1693,24 +1678,22 @@ func TestServerErrors(t *testing.T) {
 	someDb1 := "somedatabase1"
 	_, err = s.CreateDatabase(ctx, &schema.Database{Databasename: someDb1})
 	require.NoError(t, err)
-	useDbReply, err = s.UseDatabase(ctx2, &schema.Database{Databasename: someDb1})
-	require.NoError(t, err)
-	require.NotNil(t, useDbReply)
-	require.NotNil(t, useDbReply.Error)
-	require.Equal(t, schema.ErrorCodes_ERROR_NO_PERMISSION_FOR_THIS_DATABASE, useDbReply.Error.Errorcode)
-	require.Equal(t, "Logged in user does not have permission on this database", useDbReply.Error.Errormessage)
+	_, err = s.UseDatabase(ctx2, &schema.Database{Databasename: someDb1})
+
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.PermissionDenied, errStatus.Code())
+	require.Equal(t, "Logged in user does not have permission on this database", errStatus.Message())
 
 	s.Options.maintenance = true
-	useDbReply, err = s.UseDatabase(ctx2, &schema.Database{Databasename: DefaultdbName})
+	_, err = s.UseDatabase(ctx2, &schema.Database{Databasename: DefaultdbName})
 	require.NoError(t, err)
 	s.Options.maintenance = false
 
-	useDbReply, err = s.UseDatabase(ctx, &schema.Database{Databasename: "nonexistentdb"})
-	require.NotNil(t, useDbReply)
-	require.NotNil(t, useDbReply.Error)
-	require.Equal(t, schema.ErrorCodes_ERROR_DB_DOES_NOT_EXIST, useDbReply.Error.Errorcode)
-	require.Equal(t, "nonexistentdb does not exist", useDbReply.Error.Errormessage)
-	require.Equal(t, errors.New("nonexistentdb does not exist"), err)
+	_, err = s.UseDatabase(ctx, &schema.Database{Databasename: "nonexistentdb"})
+
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.NotFound, errStatus.Code())
+	require.Equal(t, "nonexistentdb does not exist", errStatus.Message())
 
 	// DatabaseList errors
 	s.Options.auth = false

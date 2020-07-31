@@ -191,13 +191,13 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	}
 	dbname := args[0]
 	ctx := context.Background()
-	resp, err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
+	err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
 		Databasename: string(dbname),
 	})
 	if err != nil {
 		return "", err
 	}
-	return resp.Error.Errormessage, nil
+	return "database successfully created", nil
 }
 func (i *immuc) DatabaseList(args []string) (string, error) {
 	resp, err := i.ImmuClient.DatabaseList(context.Background(), &emptypb.Empty{})
@@ -223,17 +223,14 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if resp.Error.Errorcode == schema.ErrorCodes_Ok {
-		i.ImmuClient.GetOptions().CurrentDatabase = dbname
-		tokenFileName := i.ImmuClient.GetOptions().TokenFileName
-		if err = i.hds.WriteFileToUserHomeDir([]byte(resp.Token), tokenFileName); err != nil {
-			return "", err
-		}
-		i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
-		if err != nil {
-			return "", err
-		}
+	i.ImmuClient.GetOptions().CurrentDatabase = dbname
+	tokenFileName := i.ImmuClient.GetOptions().TokenFileName
+	if err = i.hds.WriteFileToUserHomeDir([]byte(resp.Token), tokenFileName); err != nil {
+		return "", err
 	}
-
-	return resp.Error.Errormessage, nil
+	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Now using %s", dbname), nil
 }

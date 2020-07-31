@@ -123,7 +123,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaCreateDatabaseReply"
+              "properties": {}
             }
           }
         },
@@ -1004,14 +1004,6 @@
         }
       }
     },
-    "schemaCreateDatabaseReply": {
-      "type": "object",
-      "properties": {
-        "error": {
-          "$ref": "#/definitions/schemaError"
-        }
-      }
-    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1050,28 +1042,6 @@
           }
         }
       }
-    },
-    "schemaError": {
-      "type": "object",
-      "properties": {
-        "errorcode": {
-          "$ref": "#/definitions/schemaErrorCodes"
-        },
-        "errormessage": {
-          "type": "string"
-        }
-      }
-    },
-    "schemaErrorCodes": {
-      "type": "string",
-      "enum": [
-        "Ok",
-        "ERROR_SELECTING_DATABASE",
-        "ERROR_NO_PERMISSION_FOR_THIS_DATABASE",
-        "ERROR_USER_HAS_NOT_LOGGED_IN",
-        "ERROR_DB_DOES_NOT_EXIST"
-      ],
-      "default": "Ok"
     },
     "schemaHealthResponse": {
       "type": "object",
@@ -1543,9 +1513,6 @@
     "schemaUseDatabaseReply": {
       "type": "object",
       "properties": {
-        "error": {
-          "$ref": "#/definitions/schemaError"
-        },
         "token": {
           "type": "string"
         }

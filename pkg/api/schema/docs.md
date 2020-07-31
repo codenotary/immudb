@@ -9,11 +9,9 @@
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [ConsistencyProof](#immudb.schema.ConsistencyProof)
     - [Content](#immudb.schema.Content)
-    - [CreateDatabaseReply](#immudb.schema.CreateDatabaseReply)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
-    - [Error](#immudb.schema.Error)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [IScanOptions](#immudb.schema.IScanOptions)
     - [InclusionProof](#immudb.schema.InclusionProof)
@@ -60,7 +58,6 @@
     - [ZAddOptions](#immudb.schema.ZAddOptions)
     - [ZScanOptions](#immudb.schema.ZScanOptions)
 
-    - [ErrorCodes](#immudb.schema.ErrorCodes)
     - [PermissionAction](#immudb.schema.PermissionAction)
 
     - [ImmuService](#immudb.schema.ImmuService)
@@ -161,21 +158,6 @@
 
 
 
-<a name="immudb.schema.CreateDatabaseReply"></a>
-
-### CreateDatabaseReply
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| error | [Error](#immudb.schema.Error) |  |  |
-
-
-
-
-
-
 <a name="immudb.schema.CreateUserRequest"></a>
 
 ### CreateUserRequest
@@ -218,22 +200,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | databases | [Database](#immudb.schema.Database) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.Error"></a>
-
-### Error
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| errorcode | [ErrorCodes](#immudb.schema.ErrorCodes) |  |  |
-| errormessage | [string](#string) |  |  |
 
 
 
@@ -861,7 +827,6 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| error | [Error](#immudb.schema.Error) |  |  |
 | token | [string](#string) |  |  |
 
 
@@ -974,21 +939,6 @@ Because it is not purely about the storage size, but also use cases.
 
 
 
-<a name="immudb.schema.ErrorCodes"></a>
-
-### ErrorCodes
-
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| Ok | 0 |  |
-| ERROR_SELECTING_DATABASE | 1 |  |
-| ERROR_NO_PERMISSION_FOR_THIS_DATABASE | 2 |  |
-| ERROR_USER_HAS_NOT_LOGGED_IN | 3 |  |
-| ERROR_DB_DOES_NOT_EXIST | 4 |  |
-
-
-
 <a name="immudb.schema.PermissionAction"></a>
 
 ### PermissionAction
@@ -1054,7 +1004,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | IScan | [IScanOptions](#immudb.schema.IScanOptions) | [Page](#immudb.schema.Page) |  |
 | IScanSV | [IScanOptions](#immudb.schema.IScanOptions) | [SPage](#immudb.schema.SPage) |  |
 | Dump | [.google.protobuf.Empty](#google.protobuf.Empty) | [.pb.KVList](#pb.KVList) stream |  |
-| CreateDatabase | [Database](#immudb.schema.Database) | [CreateDatabaseReply](#immudb.schema.CreateDatabaseReply) | todo(joe-dz): Enable restore when the feature is required again 	rpc Restore(stream pb.KVList) returns (ItemsCount) { 		option (google.api.http) = { 			post: &#34;/v1/immurestproxy/restore&#34; 			body: &#34;*&#34; 		}; 	} |
+| CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | todo(joe-dz): Enable restore when the feature is required again 	rpc Restore(stream pb.KVList) returns (ItemsCount) { 		option (google.api.http) = { 			post: &#34;/v1/immurestproxy/restore&#34; 			body: &#34;*&#34; 		}; 	} |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

@@ -63,7 +63,7 @@ type ImmuClientMock struct {
 	ScanF               func(context.Context, []byte) (*schema.StructuredItemList, error)
 	CountF              func(context.Context, []byte) (*schema.ItemsCount, error)
 	RawSafeSetF         func(context.Context, []byte, []byte) (vi *client.VerifiedIndex, err error)
-	CreateDatabaseF     func(context.Context, *schema.Database) (*schema.CreateDatabaseReply, error)
+	CreateDatabaseF     func(context.Context, *schema.Database) error
 	DatabaseListF       func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error)
 }
 
@@ -223,7 +223,7 @@ func (icm *ImmuClientMock) RawSafeSet(ctx context.Context, key []byte, value []b
 }
 
 // CreateDatabase ...
-func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.Database) (*schema.CreateDatabaseReply, error) {
+func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.Database) error {
 	return icm.CreateDatabaseF(ctx, db)
 }
 
