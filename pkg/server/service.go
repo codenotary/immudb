@@ -26,9 +26,9 @@ func (s Service) Start() {
 	go s.Run()
 }
 
-// Stop - non-blocking stop service
+// Stop - blocking stop service
 func (s Service) Stop() {
-	go s.ImmuServerIf.Stop()
+	s.ImmuServerIf.Stop()
 }
 
 // Run - blocking run service
