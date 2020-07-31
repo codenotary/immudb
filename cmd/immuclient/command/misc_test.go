@@ -416,7 +416,7 @@ func TestDatabaseCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(msg), "mynewdb") {
+	if !strings.Contains(string(msg), "database successfully created") {
 		t.Fatal(string(msg))
 	}
 }

@@ -443,7 +443,7 @@ func TestDump(t *testing.T) {
 
 func TestUserManagement(t *testing.T) {
 	setup()
-	_, _ = client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
+	_ = client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
 	resp2, err2 := client.CreateUser(context.TODO(), []byte(`test`), []byte(`1Password!*`), auth.PermissionRW, "test")
 	assert.Nil(t, err2)
 	assert.IsType(t, &schema.UserResponse{}, resp2)
@@ -469,10 +469,8 @@ func TestUserManagement(t *testing.T) {
 }
 func TestDatabaseManagement(t *testing.T) {
 	setup()
-	// todo @Michele refactor when CreateDatabase returns errors correctly
-	resp1, err1 := client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
+	err1 := client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
 	assert.Nil(t, err1)
-	assert.IsType(t, &schema.CreateDatabaseReply{}, resp1)
 
 	resp2, err2 := client.DatabaseList(context.TODO(), &empty.Empty{})
 

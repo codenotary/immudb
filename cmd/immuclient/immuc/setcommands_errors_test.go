@@ -118,8 +118,8 @@ func TestSetCommandsErrors(t *testing.T) {
 		err)
 
 	errCreateDb := errors.New("create database error")
-	immuClientMock.CreateDatabaseF = func(context.Context, *schema.Database) (*schema.CreateDatabaseReply, error) {
-		return nil, errCreateDb
+	immuClientMock.CreateDatabaseF = func(context.Context, *schema.Database) error {
+		return errCreateDb
 	}
 	_, err = ic.CreateDatabase([]string{"db1"})
 	require.Equal(t, errCreateDb, err)
@@ -157,7 +157,6 @@ func TestSetCommandsErrors(t *testing.T) {
 
 	immuClientMock.UseDatabaseF = func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error) {
 		return &schema.UseDatabaseReply{
-			Error: &schema.Error{Errorcode: schema.ErrorCodes_Ok},
 			Token: "sometoken",
 		}, nil
 	}

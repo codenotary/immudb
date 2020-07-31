@@ -137,7 +137,7 @@ func TestCreateDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal("CreateDatabase fail", err)
 	}
-	if !strings.Contains(msg, "Created Database") {
+	if !strings.Contains(msg, "database successfully created") {
 		t.Fatalf("CreateDatabase failed: %s", msg)
 	}
 

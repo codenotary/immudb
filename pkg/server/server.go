@@ -1004,7 +1004,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 }
 
 // CreateDatabase Create a new database instance
-func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database) (*schema.CreateDatabaseReply, error) {
+func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database) (*empty.Empty, error) {
 	s.Logger.Debugf("createdatabase %+v", *newdb)
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
@@ -1043,12 +1043,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	}
 	s.databasenameToIndex[newdb.Databasename] = int64(s.dbList.Length())
 	s.dbList.Append(db)
-	return &schema.CreateDatabaseReply{
-		Error: &schema.Error{
-			Errorcode:    0,
-			Errormessage: fmt.Sprintf("Created Database: %s", newdb.Databasename),
-		},
-	}, nil
+	return &empty.Empty{}, nil
 }
 
 // CreateUser Creates a new user
@@ -1281,12 +1276,8 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 		}
 		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
-			return &schema.UseDatabaseReply{
-				Error: &schema.Error{
-					Errorcode:    schema.ErrorCodes_ERROR_USER_HAS_NOT_LOGGED_IN,
-					Errormessage: "Please login"},
-				Token: "",
-			}, err
+			return nil, status.Errorf(codes.Unauthenticated,
+				"Please login")
 		}
 		if db.Databasename == SystemdbName {
 			return nil, fmt.Errorf("this database can not be selected")
@@ -1297,12 +1288,9 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 			(!user.HasPermission(db.Databasename, auth.PermissionAdmin)) &&
 			(!user.HasPermission(db.Databasename, auth.PermissionR)) &&
 			(!user.HasPermission(db.Databasename, auth.PermissionRW)) {
-			return &schema.UseDatabaseReply{Error: &schema.Error{
-				Errorcode:    schema.ErrorCodes_ERROR_NO_PERMISSION_FOR_THIS_DATABASE,
-				Errormessage: "Logged in user does not have permission on this database",
-			},
-				Token: "",
-			}, err
+
+			return nil, status.Errorf(codes.PermissionDenied,
+				"Logged in user does not have permission on this database")
 		}
 	} else {
 		user.IsSysAdmin = true
@@ -1312,21 +1300,14 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	//check if database exists
 	ind, ok := s.databasenameToIndex[db.Databasename]
 	if !ok {
-		return &schema.UseDatabaseReply{Error: &schema.Error{
-			Errorcode:    schema.ErrorCodes_ERROR_DB_DOES_NOT_EXIST,
-			Errormessage: fmt.Sprintf("%s does not exist", db.Databasename)},
-			Token: "",
-		}, fmt.Errorf("%s does not exist", db.Databasename)
+		return nil, status.Errorf(codes.NotFound,
+			fmt.Sprintf("%s does not exist", db.Databasename))
 	}
 	token, err := auth.GenerateToken(*user, ind)
 	if err != nil {
 		return nil, err
 	}
-
 	return &schema.UseDatabaseReply{
-		Error: &schema.Error{
-			Errorcode:    schema.ErrorCodes_Ok,
-			Errormessage: fmt.Sprintf("Using %s", db.Databasename)},
 		Token: token,
 	}, nil
 }

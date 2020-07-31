@@ -199,8 +199,8 @@ func (m *immuServiceClientMock) IScanSV(ctx context.Context, in *schema.IScanOpt
 func (m *immuServiceClientMock) Dump(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (schema.ImmuService_DumpClient, error) {
 	return nil, nil
 }
-func (m *immuServiceClientMock) CreateDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.CreateDatabaseReply, error) {
-	return &schema.CreateDatabaseReply{}, nil
+func (m *immuServiceClientMock) CreateDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return &empty.Empty{}, nil
 }
 func (m *immuServiceClientMock) UseDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
 	return &schema.UseDatabaseReply{}, nil

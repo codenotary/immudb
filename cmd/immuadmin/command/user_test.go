@@ -220,7 +220,7 @@ func TestUserActivate(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientb, _ = client.NewImmuClient(cliopt)
-	_, err = clientb.CreateDatabase(ctx, &schema.Database{
+	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
 	})
 	if err != nil {
@@ -283,7 +283,7 @@ func TestUserDeactivate(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientb, _ = client.NewImmuClient(cliopt)
-	_, err = clientb.CreateDatabase(ctx, &schema.Database{
+	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
 	})
 	if err != nil {
@@ -346,7 +346,7 @@ func TestUserPermission(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientb, _ = client.NewImmuClient(cliopt)
-	_, err = clientb.CreateDatabase(ctx, &schema.Database{
+	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
 	})
 	if err != nil {
