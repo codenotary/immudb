@@ -448,12 +448,7 @@ func TestUserManagement(t *testing.T) {
 	assert.Nil(t, err2)
 	assert.IsType(t, &schema.UserResponse{}, resp2)
 	// todo @Michele refactor when ChangePermission returns errors correctly
-	_, err3 := client.ChangePermission(context.TODO(), &schema.ChangePermissionRequest{
-		Action:     schema.PermissionAction_REVOKE,
-		Permission: auth.PermissionRW,
-		Database:   "test",
-		Username:   "test",
-	})
+	err3 := client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "test", "test", auth.PermissionRW)
 	assert.Nil(t, err3)
 	// @todo need to be fixed
 	_, err4 := client.SetActiveUser(context.TODO(), &schema.SetActiveUserRequest{
@@ -462,20 +457,8 @@ func TestUserManagement(t *testing.T) {
 	})
 	assert.Nil(t, err4)
 
-	// @todo deprecated
-	err5 := client.SetPermission(context.TODO(), []byte(`test`), []byte(`perm`))
-	assert.Error(t, err5)
-
 	// @todo need to be fixed
 	_ = client.ChangePassword(context.TODO(), []byte(`test`), []byte(`1Password!*`), []byte(`2Password!*`))
-
-	// @todo deprecated
-	_ = client.DeactivateUser(context.TODO(), []byte(`test`))
-
-	// @todo deprecated
-	usrResp, err8 := client.GetUser(context.TODO(), []byte(`test`))
-	assert.Error(t, err8)
-	assert.IsType(t, &schema.UserResponse{}, usrResp)
 
 	// @todo need to be fixed
 	usrList, err9 := client.ListUsers(context.TODO())

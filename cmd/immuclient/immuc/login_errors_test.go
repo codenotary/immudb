@@ -292,8 +292,8 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 
 	args[2] = "readwrite"
 	errChangePermission := errors.New("change permission error")
-	immuClientMock.ChangePermissionF = func(context.Context, *schema.ChangePermissionRequest) (*schema.Error, error) {
-		return nil, errChangePermission
+	immuClientMock.ChangePermissionF = func(context.Context, schema.PermissionAction, string, string, uint32) error {
+		return errChangePermission
 	}
 	resp, err = ic.SetUserPermission(args)
 	require.Equal(t, errChangePermission, err)

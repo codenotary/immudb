@@ -218,15 +218,10 @@ func (i *immuc) SetUserPermission(args []string) (string, error) {
 	}
 
 	dbname := args[3]
-	req := &schema.ChangePermissionRequest{
-		Action:     permissionAction,
-		Database:   dbname,
-		Permission: userpermission,
-		Username:   username,
-	}
-	resp, err := i.ImmuClient.ChangePermission(context.Background(), req)
+
+	err := i.ImmuClient.ChangePermission(context.Background(), permissionAction, username, dbname, userpermission)
 	if err != nil {
 		return "", err
 	}
-	return resp.Errormessage, nil
+	return "Permission changed successfully", nil
 }

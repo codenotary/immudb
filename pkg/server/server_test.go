@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io/ioutil"
 	"log"
 	"os"
@@ -379,18 +381,17 @@ func testServerUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
 }
 func testServerChangePermission(ctx context.Context, s *ImmuServer, t *testing.T) {
-	perm, err := s.ChangePermission(ctx, &schema.ChangePermissionRequest{
+	_, err := s.ChangePermission(ctx, &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
 		Database:   testDatabase,
 		Permission: auth.PermissionR,
 		Username:   string(testUsername),
 	})
+
 	if err != nil {
-		t.Fatalf("DatabaseList error %v", err)
+		t.Fatalf("error changing permission, got %v", err.Error())
 	}
-	if perm.Errorcode != schema.ErrorCodes_Ok {
-		t.Fatalf("error changing permission, got %v", perm)
-	}
+	require.Nil(t, err)
 }
 func testServerDeactivateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SetActiveUser(ctx, &schema.SetActiveUserRequest{
@@ -1245,6 +1246,7 @@ func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Count error >0 got %d", c.Count)
 	}
 }
+
 func testServerCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Count(context.Background(), &schema.KeyPrefix{
 		Prefix: kv[0].Key,
@@ -1253,6 +1255,7 @@ func testServerCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Count expected error")
 	}
 }
+
 func testServerPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
 	item, err := s.PrintTree(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -1262,48 +1265,11 @@ func testServerPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("PrintTree, expected > 0, got %v", len(item.T))
 	}
 }
+
 func testServerPrintTreeError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.PrintTree(context.Background(), &emptypb.Empty{})
 	if err == nil {
 		t.Fatalf("PrintTree exptected error")
-	}
-}
-
-func testServerSetPermission(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.SetPermission(ctx, &schema.Item{
-		Key:   []byte("key"),
-		Value: []byte("val"),
-		Index: 1,
-	})
-	if err == nil {
-		t.Fatalf("SetPermission  fail")
-	}
-	if err == nil || !strings.Contains(err.Error(), "deprecated method. use change permission instead") {
-		t.Fatalf("SetPermission  unexpected error: %s", err)
-	}
-}
-
-func testServerDeactivateUserDeprecated(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.DeactivateUser(ctx, &schema.UserRequest{
-		User: []byte("gerard"),
-	})
-	if err == nil {
-		t.Fatalf("DeactivateUserDepricated  fail")
-	}
-	if err == nil || !strings.Contains(err.Error(), "deprecated method. use setactive instead") {
-		t.Fatalf("DeactivateUserDepricated  unexpected error: %s", err)
-	}
-}
-
-func testServerGetUser(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.GetUser(ctx, &schema.UserRequest{
-		User: []byte("gerard"),
-	})
-	if err == nil {
-		t.Fatalf("GetUser  fail")
-	}
-	if err == nil || !strings.Contains(err.Error(), "deprecated method. use user list instead") {
-		t.Fatalf("GetUser  unexpected error: %s", err)
 	}
 }
 
@@ -1333,9 +1299,6 @@ func TestServerUsermanagement(t *testing.T) {
 	testServerSetActiveUser(ctx, s, t)
 	testServerChangePassword(ctx, s, t)
 	testServerListUsers(ctx, s, t)
-	testServerSetPermission(ctx, s, t)
-	testServerDeactivateUserDeprecated(ctx, s, t)
-	testServerGetUser(ctx, s, t)
 }
 func TestServerDbOperations(t *testing.T) {
 	var err error
@@ -1575,7 +1538,7 @@ func TestServerErrors(t *testing.T) {
 	userdata := s.userdata.Userdata[username]
 	delete(s.userdata.Userdata, username)
 	_, err = s.getLoggedInUserDataFromUsername(username)
-	require.Equal(t, errors.New("Logedin user data not found"), err)
+	require.Equal(t, errors.New("logged in user data not found"), err)
 	s.userdata.Userdata[username] = userdata
 
 	// getDbIndexFromCtx errors
@@ -1636,45 +1599,62 @@ func TestServerErrors(t *testing.T) {
 	s.Options.auth = true
 
 	delete(s.userdata.Userdata, auth.SysAdminUsername)
-	resp, err := s.ChangePermission(ctx, cpr)
-	require.NotNil(t, resp)
-	require.Equal(t, schema.ErrorCodes_ERROR_USER_HAS_NOT_LOGGED_IN, resp.Errorcode)
-	require.Equal(t, "Please login", resp.Errormessage)
-	require.Equal(t, errors.New("Logedin user data not found"), err)
+	_, err = s.ChangePermission(ctx, cpr)
+	errStatus, _ := status.FromError(err)
+	require.Equal(t, codes.Unauthenticated, errStatus.Code())
+	require.Equal(t, "Please login", errStatus.Message())
 	s.userdata.Userdata[auth.SysAdminUsername] = adminUserdata
 
 	cpr.Username = ""
 	_, err = s.ChangePermission(ctx, cpr)
-	require.Equal(t, errors.New("username can not be empty"), err)
+
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.InvalidArgument, errStatus.Code())
+	require.Equal(t, "username can not be empty", errStatus.Message())
 
 	cpr.Username = username
 	cpr.Database = ""
 	_, err = s.ChangePermission(ctx, cpr)
-	require.Equal(t, errors.New("Database can not be empty"), err)
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.InvalidArgument, errStatus.Code())
+	require.Equal(t, "database can not be empty", errStatus.Message())
 
 	cpr.Database = DefaultdbName
 	cpr.Action = 99
 	_, err = s.ChangePermission(ctx, cpr)
-	require.Equal(t, errors.New("action not recognized"), err)
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.InvalidArgument, errStatus.Code())
+	require.Equal(t, "action not recognized", errStatus.Message())
 	cpr.Action = schema.PermissionAction_GRANT
 
 	cpr.Permission = 99
 	_, err = s.ChangePermission(ctx, cpr)
-	require.Equal(t, errors.New("unrecognized permission"), err)
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.InvalidArgument, errStatus.Code())
+	require.Equal(t, "unrecognized permission", errStatus.Message())
+
 	cpr.Permission = auth.PermissionRW
 
 	cpr.Username = auth.SysAdminUsername
 	_, err = s.ChangePermission(ctx, cpr)
-	require.Equal(t, errors.New("changing you own permissions is not allowed"), err)
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.InvalidArgument, errStatus.Code())
+	require.Equal(t, "changing you own permissions is not allowed", errStatus.Message())
 
 	cpr.Username = "nonexistentuser"
 	_, err = s.ChangePermission(ctx, cpr)
-	require.Equal(t, fmt.Errorf("user %s not found", cpr.Username), err)
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.NotFound, errStatus.Code())
+	require.Equal(t, fmt.Sprintf("user %s not found", cpr.Username), errStatus.Message())
+
 	cpr.Username = username
 
 	cpr.Username = auth.SysAdminUsername
 	_, err = s.ChangePermission(ctx2, cpr)
-	require.Equal(t, errors.New("you do not have permission on this database"), err)
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.PermissionDenied, errStatus.Code())
+	require.Equal(t, "you do not have permission on this database", errStatus.Message())
+
 	cpr.Username = username
 
 	cpr.Action = schema.PermissionAction_REVOKE
@@ -1685,7 +1665,10 @@ func TestServerErrors(t *testing.T) {
 	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: false, Username: username})
 	require.NoError(t, err)
 	_, err = s.ChangePermission(ctx, cpr)
-	require.Equal(t, fmt.Errorf("user %s is not active", username), err)
+	errStatus, _ = status.FromError(err)
+	require.Equal(t, codes.FailedPrecondition, errStatus.Code())
+	require.Equal(t, fmt.Sprintf("user %s is not active", username), errStatus.Message())
+
 	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: true, Username: username})
 	require.NoError(t, err)
 
@@ -1700,7 +1683,7 @@ func TestServerErrors(t *testing.T) {
 	require.NotNil(t, useDbReply.Error)
 	require.Equal(t, schema.ErrorCodes_ERROR_USER_HAS_NOT_LOGGED_IN, useDbReply.Error.Errorcode)
 	require.Equal(t, "Please login", useDbReply.Error.Errormessage)
-	require.Equal(t, errors.New("Logedin user data not found"), err)
+	require.Equal(t, errors.New("logged in user data not found"), err)
 
 	_, err = s.UseDatabase(ctx, &schema.Database{Databasename: SystemdbName})
 	require.Equal(t, errors.New("this database can not be selected"), err)
