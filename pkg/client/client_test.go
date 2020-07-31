@@ -447,18 +447,18 @@ func TestUserManagement(t *testing.T) {
 	resp2, err2 := client.CreateUser(context.TODO(), []byte(`test`), []byte(`1Password!*`), auth.PermissionRW, "test")
 	assert.Nil(t, err2)
 	assert.IsType(t, &schema.UserResponse{}, resp2)
-	// todo @Michele refactor when ChangePermission returns errors correctly
+
 	err3 := client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "test", "test", auth.PermissionRW)
 	assert.Nil(t, err3)
-	// @todo need to be fixed
+
 	_, err4 := client.SetActiveUser(context.TODO(), &schema.SetActiveUserRequest{
 		Active:   true,
 		Username: "test",
 	})
 	assert.Nil(t, err4)
 
-	// @todo need to be fixed
-	_ = client.ChangePassword(context.TODO(), []byte(`test`), []byte(`1Password!*`), []byte(`2Password!*`))
+	err5 := client.ChangePassword(context.TODO(), []byte(`test`), []byte(`1Password!*`), []byte(`2Password!*`))
+	assert.Nil(t, err5)
 
 	// @todo need to be fixed
 	usrList, err9 := client.ListUsers(context.TODO())

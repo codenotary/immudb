@@ -51,7 +51,8 @@ func (cl *commandline) user(cmd *cobra.Command) {
 	userCreate := &cobra.Command{
 		Use:               "create",
 		Short:             "Create a new user",
-		Long:              "Create a new user. user create username",
+		Long:              "Create a new user inside a database with permissions",
+		Example:           "immuadmin user create michele read mydb",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -66,7 +67,8 @@ func (cl *commandline) user(cmd *cobra.Command) {
 	}
 	userChangePassword := &cobra.Command{
 		Use:               "changepassword",
-		Short:             "Change user password. changepassword username",
+		Short:             "Change user password",
+		Example:           "immuadmin user changepassword michele",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -115,8 +117,9 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Args: cobra.ExactArgs(1),
 	}
 	userPermission := &cobra.Command{
-		Use:               "permission",
+		Use:               "permission [grant|revoke] {username} [read|readwrite|admin] {database}",
 		Short:             "Set user permission",
+		Example:           "immuadmin user permission grant michele readwrite mydb",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -125,7 +128,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			}
 			return err
 		},
-		Args: cobra.MaximumNArgs(4),
+		Args: cobra.ExactValidArgs(4),
 	}
 	ccmd.AddCommand(userListCmd)
 	ccmd.AddCommand(userCreate)
@@ -142,14 +145,14 @@ func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (
 		return "Error Reading Password", nil
 	}
 	if err = auth.IsStrongPassword(string(newpass)); err != nil {
-		return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
+		return "", fmt.Errorf("Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.")
 	}
 	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {
-		return "Error Reading Password", nil
+		return "", fmt.Errorf("Error Reading Password")
 	}
 	if !bytes.Equal(newpass, pass2) {
-		return "Passwords don't match", nil
+		return "", fmt.Errorf("Passwords don't match")
 	}
 	if err := cl.immuClient.ChangePassword(context.Background(), []byte(username), oldpassword, []byte(newpass)); err != nil {
 		return "", err
@@ -177,7 +180,7 @@ func (cl *commandline) userList(args []string) (string, error) {
 			case auth.PermissionRW:
 				users += fmt.Sprintf("Read/Write\n")
 			default:
-				return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+				return "", fmt.Errorf("Permission value not recognized. Allowed permissions are read,readwrite,admin")
 			}
 		}
 		users += fmt.Sprintf("\n")
@@ -191,17 +194,17 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 
 	pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
-		return "Error Reading Password", nil
+		return "", fmt.Errorf("Error Reading Password")
 	}
 	if err = auth.IsStrongPassword(string(pass)); err != nil {
-		return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
+		return "", fmt.Errorf("Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.")
 	}
 	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {
-		return "Error Reading Password", nil
+		return "", fmt.Errorf("Error Reading Password")
 	}
 	if !bytes.Equal(pass, pass2) {
-		return "Passwords don't match", nil
+		return "", fmt.Errorf("Passwords don't match")
 	}
 	var userpermission uint32
 	switch permission {
@@ -212,7 +215,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 	case "readwrite":
 		userpermission = auth.PermissionRW
 	default:
-		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+		return "", fmt.Errorf("Permission value not recognized. Allowed permissions are read,readwrite,admin")
 	}
 	user, err := cl.immuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
 	if err != nil {
@@ -241,7 +244,7 @@ func (cl *commandline) setUserPermission(args []string) (resp string, err error)
 	case "revoke":
 		permissionAction = schema.PermissionAction_REVOKE
 	default:
-		return "Wrong permission action. Only grant or revoke are allowed.", nil
+		return "", fmt.Errorf("Wrong permission action. Only grant or revoke are allowed. Provided: %s", args[0])
 	}
 	username := args[1]
 	var userpermission uint32
@@ -253,7 +256,7 @@ func (cl *commandline) setUserPermission(args []string) (resp string, err error)
 	case "readwrite":
 		userpermission = auth.PermissionRW
 	default:
-		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+		return "", fmt.Errorf("Permission value not recognized. Allowed permissions are read,readwrite,admin. Provided: %s", args[2])
 	}
 	dbname := args[3]
 
