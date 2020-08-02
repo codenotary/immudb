@@ -184,7 +184,7 @@ func TestUserCreate(t *testing.T) {
 			"Create user wrong permission",
 			[]string{"myuserguard", "guard", "defaultdb"},
 			"MyUser@9",
-			"Permission value not recognized.",
+			"permission value not recognized.",
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
@@ -330,7 +330,7 @@ func TestUserSetActive(t *testing.T) {
 			"SetActiveUser",
 			[]string{"myuser"},
 			"",
-			"User status changed successfully",
+			"user status changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetActiveUser(args, true)
 				if err != nil {
@@ -345,7 +345,7 @@ func TestUserSetActive(t *testing.T) {
 			"Deactivate user",
 			[]string{"myuser"},
 			"",
-			"User status changed successfully",
+			"user status changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetActiveUser(args, false)
 				if err != nil {
@@ -393,7 +393,7 @@ func TestSetUserPermission(t *testing.T) {
 			"SetUserPermission user",
 			[]string{"grant", "myuser", "admin", "defaultdb"},
 			"MyUser@9",
-			"Permission changed successfully",
+			"permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetUserPermission(args)
 				if err != nil {
@@ -408,7 +408,7 @@ func TestSetUserPermission(t *testing.T) {
 			"SetUserPermission user",
 			[]string{"revoke", "myuser", "admin", "defaultdb"},
 			"MyUser@9",
-			"Permission changed successfully",
+			"permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetUserPermission(args)
 				if err != nil {
@@ -423,7 +423,7 @@ func TestSetUserPermission(t *testing.T) {
 			"SetUserPermission user",
 			[]string{"grant", "myuser", "readwrite", "defaultdb"},
 			"MyUser@9",
-			"Permission changed successfully",
+			"permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetUserPermission(args)
 				if err != nil {
@@ -438,7 +438,7 @@ func TestSetUserPermission(t *testing.T) {
 			"SetUserPermission user",
 			[]string{"grant", "myuser", "read", "defaultdb"},
 			"MyUser@9",
-			"Permission changed successfully",
+			"permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := ic.Imc.SetUserPermission(args)
 				if err != nil {

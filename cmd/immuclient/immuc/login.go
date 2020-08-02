@@ -78,7 +78,7 @@ func (i *immuc) Logout(args []string) (string, error) {
 }
 func (i *immuc) UserCreate(args []string) (string, error) {
 	if len(args) < 3 {
-		return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
+		return "incorrect number of parameters for this command. Please type 'user help' for more information", nil
 	}
 	username := args[0]
 	permission := args[1]
@@ -89,7 +89,7 @@ func (i *immuc) UserCreate(args []string) (string, error) {
 		return "Error Reading Password", nil
 	}
 	if err = auth.IsStrongPassword(string(pass)); err != nil {
-		return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
+		return "password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol", nil
 	}
 	pass2, err := i.passwordReader.Read("Confirm password:")
 	if err != nil {
@@ -107,7 +107,7 @@ func (i *immuc) UserCreate(args []string) (string, error) {
 	case "readwrite":
 		userpermission = auth.PermissionRW
 	default:
-		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+		return "permission value not recognized. Allowed permissions are read, readwrite, admin", nil
 	}
 	user, err := i.ImmuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
 	if err != nil {
@@ -136,7 +136,7 @@ func (i *immuc) UserList(args []string) (string, error) {
 			case auth.PermissionRW:
 				ris += fmt.Sprintf("Read/Write\n")
 			default:
-				return "Permission value not recognized. Allowed permissions are read,write,admin", nil
+				return "permission value not recognized. Allowed permissions are read, write, admin", nil
 			}
 		}
 		ris += "\n"
@@ -162,7 +162,7 @@ func (i *immuc) ChangeUserPassword(args []string) (string, error) {
 		return "Error Reading Password", nil
 	}
 	if err = auth.IsStrongPassword(string(newpass)); err != nil {
-		return "Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.", nil
+		return "password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol", nil
 	}
 	pass2, err := i.passwordReader.Read("Confirm password:")
 	if err != nil {
@@ -178,7 +178,7 @@ func (i *immuc) ChangeUserPassword(args []string) (string, error) {
 }
 func (i *immuc) SetActiveUser(args []string, active bool) (string, error) {
 	if len(args) < 1 {
-		return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
+		return "incorrect number of parameters for this command. Please type 'user help' for more information", nil
 	}
 	username := args[0]
 	_, err := i.ImmuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
@@ -188,12 +188,12 @@ func (i *immuc) SetActiveUser(args []string, active bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "User status changed successfully", nil
+	return "user status changed successfully", nil
 }
 
 func (i *immuc) SetUserPermission(args []string) (string, error) {
 	if len(args) != 4 {
-		return "Incorrect number of parameters for this command. Please type 'user help' for more information.", nil
+		return "incorrect number of parameters for this command. Please type 'user help' for more information", nil
 	}
 	var permissionAction schema.PermissionAction
 	switch args[0] {
@@ -202,7 +202,7 @@ func (i *immuc) SetUserPermission(args []string) (string, error) {
 	case "revoke":
 		permissionAction = schema.PermissionAction_REVOKE
 	default:
-		return "Wrong permission action. Only grant or revoke are allowed.", nil
+		return "wrong permission action. Only grant or revoke are allowed", nil
 	}
 	username := args[1]
 	var userpermission uint32
@@ -214,7 +214,7 @@ func (i *immuc) SetUserPermission(args []string) (string, error) {
 	case "readwrite":
 		userpermission = auth.PermissionRW
 	default:
-		return "Permission value not recognized. Allowed permissions are read,readwrite,admin", nil
+		return "permission value not recognized. Allowed permissions are read, readwrite, admin", nil
 	}
 
 	dbname := args[3]
@@ -223,5 +223,5 @@ func (i *immuc) SetUserPermission(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "Permission changed successfully", nil
+	return "permission changed successfully", nil
 }

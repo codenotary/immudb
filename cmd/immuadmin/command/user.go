@@ -145,7 +145,7 @@ func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (
 		return "Error Reading Password", nil
 	}
 	if err = auth.IsStrongPassword(string(newpass)); err != nil {
-		return "", fmt.Errorf("Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.")
+		return "", fmt.Errorf("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
 	}
 	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {
@@ -180,7 +180,7 @@ func (cl *commandline) userList(args []string) (string, error) {
 			case auth.PermissionRW:
 				users += fmt.Sprintf("Read/Write\n")
 			default:
-				return "", fmt.Errorf("Permission value not recognized. Allowed permissions are read,readwrite,admin")
+				return "", fmt.Errorf("permission value not recognized. Allowed permissions are read, readwrite, admin")
 			}
 		}
 		users += fmt.Sprintf("\n")
@@ -197,7 +197,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 		return "", fmt.Errorf("Error Reading Password")
 	}
 	if err = auth.IsStrongPassword(string(pass)); err != nil {
-		return "", fmt.Errorf("Password does not meet the requirements. It must contain upper and lower case letter, digits, numbers, puntcuation mark or symbol.")
+		return "", fmt.Errorf("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
 	}
 	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {
@@ -215,7 +215,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 	case "readwrite":
 		userpermission = auth.PermissionRW
 	default:
-		return "", fmt.Errorf("Permission value not recognized. Allowed permissions are read,readwrite,admin")
+		return "", fmt.Errorf("permission value not recognized. Allowed permissions are read, readwrite, admin")
 	}
 	user, err := cl.immuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
 	if err != nil {
@@ -244,7 +244,7 @@ func (cl *commandline) setUserPermission(args []string) (resp string, err error)
 	case "revoke":
 		permissionAction = schema.PermissionAction_REVOKE
 	default:
-		return "", fmt.Errorf("Wrong permission action. Only grant or revoke are allowed. Provided: %s", args[0])
+		return "", fmt.Errorf("wrong permission action. Only grant or revoke are allowed. Provided: %s", args[0])
 	}
 	username := args[1]
 	var userpermission uint32
@@ -256,7 +256,7 @@ func (cl *commandline) setUserPermission(args []string) (resp string, err error)
 	case "readwrite":
 		userpermission = auth.PermissionRW
 	default:
-		return "", fmt.Errorf("Permission value not recognized. Allowed permissions are read,readwrite,admin. Provided: %s", args[2])
+		return "", fmt.Errorf("permission value not recognized. Allowed permissions are read, readwrite, admin. Provided: %s", args[2])
 	}
 	dbname := args[3]
 
