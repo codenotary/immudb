@@ -258,7 +258,7 @@ func TestUserActivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(msg), "User status changed successfully") {
+	if !strings.Contains(string(msg), "user status changed successfully") {
 		t.Fatal(err)
 	}
 }
@@ -304,7 +304,7 @@ func TestUserDeactivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(msg), "User status changed successfully") {
+	if !strings.Contains(string(msg), "user status changed successfully") {
 		t.Fatal(err)
 	}
 }
@@ -349,7 +349,7 @@ func TestUserPermission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(msg), "Permission changed successfully") {
+	if !strings.Contains(string(msg), "permission changed successfully") {
 		t.Fatal(err)
 	}
 }

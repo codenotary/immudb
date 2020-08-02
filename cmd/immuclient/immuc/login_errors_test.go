@@ -96,7 +96,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	// UserCreate errors
 	resp, err = ic.UserCreate(nil)
 	require.NoError(t, err)
-	require.Equal(t, "Incorrect number of parameters for this command. Please type 'user help' for more information.", resp)
+	require.Equal(t, "incorrect number of parameters for this command. Please type 'user help' for more information", resp)
 
 	args = []string{"user1", "readwrite", "db1"}
 	passwordReaderMock.ReadF = func(msg string) ([]byte, error) {
@@ -113,8 +113,8 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		"Password does not meet the requirements. It must contain upper and lower "+
-			"case letter, digits, numbers, puntcuation mark or symbol.",
+		"password does not meet the requirements. It must contain upper and lower "+
+			"case letters, digits, punctuation mark or symbol",
 		resp)
 	passwordReadCounter := 0
 	passwordReaderMock.ReadF = func(msg string) ([]byte, error) {
@@ -186,7 +186,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	}
 	resp, err = ic.UserList(nil)
 	require.NoError(t, err)
-	require.Equal(t, "Permission value not recognized. Allowed permissions are read,write,admin", resp)
+	require.Equal(t, "permission value not recognized. Allowed permissions are read, write, admin", resp)
 
 	userList.Users[0].Permissions = userList.Users[0].Permissions[0:4]
 	resp, err = ic.UserList(nil)
@@ -228,8 +228,8 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		"Password does not meet the requirements. It must contain upper and lower "+
-			"case letter, digits, numbers, puntcuation mark or symbol.",
+		"password does not meet the requirements. It must contain upper and lower "+
+			"case letters, digits, punctuation mark or symbol",
 		resp)
 
 	passwordReadCounter = 0
@@ -261,7 +261,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		"Incorrect number of parameters for this command. Please type 'user help' for more information.",
+		"incorrect number of parameters for this command. Please type 'user help' for more information",
 		resp)
 
 	errSetActiveUser := errors.New("set active user error")
@@ -276,19 +276,19 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		"Incorrect number of parameters for this command. Please type 'user help' for more information.",
+		"incorrect number of parameters for this command. Please type 'user help' for more information",
 		resp)
 
 	args = []string{"default", "user1", "readwrite", "db1"}
 	resp, err = ic.SetUserPermission(args)
 	require.NoError(t, err)
-	require.Equal(t, "Wrong permission action. Only grant or revoke are allowed.", resp)
+	require.Equal(t, "wrong permission action. Only grant or revoke are allowed", resp)
 
 	args[0] = "revoke"
 	args[2] = "default"
 	resp, err = ic.SetUserPermission(args)
 	require.NoError(t, err)
-	require.Equal(t, "Permission value not recognized. Allowed permissions are read,readwrite,admin", resp)
+	require.Equal(t, "permission value not recognized. Allowed permissions are read, readwrite, admin", resp)
 
 	args[2] = "readwrite"
 	errChangePermission := errors.New("change permission error")

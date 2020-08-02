@@ -232,7 +232,7 @@ func TestUserSetActive(t *testing.T) {
 			"SetActiveUser",
 			[]string{"activate", "myuser"},
 			"",
-			"User status changed successfully",
+			"user status changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := cli.UserOperations(args)
 				if err != nil {
@@ -247,7 +247,7 @@ func TestUserSetActive(t *testing.T) {
 			"Deactivate user",
 			[]string{"deactivate", "myuser"},
 			"",
-			"User status changed successfully",
+			"user status changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := cli.UserOperations(args)
 				if err != nil {
@@ -306,7 +306,7 @@ func TestSetUserPermission(t *testing.T) {
 			"SetUserPermission user",
 			[]string{"permission", "grant", "myuser", "admin", "defaultdb"},
 			"MyUser@9",
-			"Permission changed successfully",
+			"permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := cli.UserOperations(args)
 				if err != nil {
@@ -321,7 +321,7 @@ func TestSetUserPermission(t *testing.T) {
 			"SetUserPermission user",
 			[]string{"permission", "revoke", "myuser", "admin", "defaultdb"},
 			"MyUser@9",
-			"Permission changed successfully",
+			"permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := cli.UserOperations(args)
 				if err != nil {
@@ -336,7 +336,7 @@ func TestSetUserPermission(t *testing.T) {
 			"SetUserPermission user",
 			[]string{"permission", "grant", "myuser", "readwrite", "defaultdb"},
 			"MyUser@9",
-			"Permission changed successfully",
+			"permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := cli.UserOperations(args)
 				if err != nil {
@@ -351,7 +351,7 @@ func TestSetUserPermission(t *testing.T) {
 			"SetUserPermission user",
 			[]string{"permission", "grant", "myuser", "read", "defaultdb"},
 			"MyUser@9",
-			"Permission changed successfully",
+			"permission changed successfully",
 			func(t *testing.T, password string, args []string, exp string) {
 				msg, err := cli.UserOperations(args)
 				if err != nil {
