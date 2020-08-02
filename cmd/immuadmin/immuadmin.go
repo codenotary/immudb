@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	c "github.com/codenotary/immudb/cmd/helper"
 	immuadmin "github.com/codenotary/immudb/cmd/immuadmin/command"
 	"github.com/codenotary/immudb/cmd/version"
 )
@@ -25,5 +26,7 @@ func main() {
 	cmdName := "immuadmin"
 	version.App = cmdName
 	cmd := immuadmin.NewCmd(cmdName)
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		c.QuitWithUserError(err)
+	}
 }

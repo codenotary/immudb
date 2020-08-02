@@ -24,7 +24,9 @@ import (
 )
 
 func main() {
-	execute(server.DefaultServer())
+	if err := execute(server.DefaultServer()); err != nil {
+		c.QuitWithUserError(err)
+	}
 }
 
 func execute(immudbServer server.ImmuServerIf) error {
