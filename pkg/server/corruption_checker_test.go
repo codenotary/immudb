@@ -331,8 +331,8 @@ func TestCorruptionChecker_ExitImmediatly(t *testing.T) {
 	cco.singleiteration = true
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
-	cc.Stop()
 	err = cc.Start(context.TODO())
+	cc.Stop()
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
