@@ -314,7 +314,7 @@ func (ss *sservice) uninstallExecutables(serviceName string) error {
 // GetDefaultExecPath returns the default exec path. It accepts an executable or the absolute path of an executable and returns the default exec path using the exec name provided
 func (ss *sservice) GetDefaultExecPath(localFile string) (string, error) {
 	execName := ss.os.Base(localFile)
-	return ss.os.Join(ss.options.ExecPath, execName), nil
+	return ss.os.Join(ss.options.ConfigPath, execName), nil
 }
 
 // GetDefaultConfigPath returns the default config path

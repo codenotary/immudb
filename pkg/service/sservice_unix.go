@@ -315,7 +315,7 @@ func (ss sservice) GetDefaultExecPath(localFile string) (string, error) {
 
 // GetDefaultConfigPath returns the default config path
 func (ss sservice) GetDefaultConfigPath(serviceName string) (string, error) {
-	return ss.os.Join(ss.options.ExecPath, serviceName+".toml"), nil
+	return ss.os.Join(ss.options.ConfigPath, serviceName+".toml"), nil
 }
 
 // IsRunning check if status derives from a running process
