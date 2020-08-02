@@ -17,50 +17,29 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
-	"log"
 	"os"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/test/bufconn"
 )
 
 func TestService(t *testing.T) {
 	bufSize := 1024 * 1024
 	l := bufconn.Listen(bufSize)
 	datadir := "rome"
-	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(true).WithDir(datadir).WithListener(l).WithPort(22222).WithMetricsServer(false)
-
-	server := DefaultServer().WithOptions(options).(*ImmuServer)
-	lis := bufconn.Listen(bufSize)
-	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
-		grpc.StreamInterceptor(auth.ServerStreamInterceptor),
-	)
-	schema.RegisterImmuServiceServer(grpcServer, server)
-
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	srvc := Service{
-		ImmuServerIf: server,
-	}
-	srvc.Start()
-	time.Sleep(1 * time.Second)
 	defer func() {
 		os.RemoveAll(datadir)
 	}()
-}
+	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(true).WithDir(datadir).WithListener(l).WithPort(22222).WithMetricsServer(false)
 
-func TestServiceStop(t *testing.T) {
-	server := DefaultServer()
-	srvc := Service{
+	server := DefaultServer().WithOptions(options).(*ImmuServer)
+
+	srvc := &Service{
 		ImmuServerIf: server,
 	}
+
+	srvc.Start()
+	time.Sleep(1 * time.Second)
 	srvc.Stop()
 }

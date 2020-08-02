@@ -20,13 +20,14 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/dgraph-io/badger/v2"
 	"log"
 	"math"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/dgraph-io/badger/v2"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -330,23 +331,14 @@ func TestCorruptionChecker_ExitImmediatly(t *testing.T) {
 	cco.singleiteration = true
 
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
-	cc.SetExit(true)
 	err = cc.Start(context.TODO())
+	cc.Stop()
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
 		val.Store.Close()
 	}
 	assert.Nil(t, err)
-}
-
-func TestCorruptionChecker_GetExit(t *testing.T) {
-	dbList := NewDatabaseList()
-	cco := CCOptions{}
-	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGenerator{})
-	exit := cc.GetExit()
-	assert.False(t, exit)
-
 }
 
 func treeKey(layer uint8, index uint64) []byte {
