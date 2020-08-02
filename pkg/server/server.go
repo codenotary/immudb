@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -175,7 +176,11 @@ func (s *ImmuServer) Start() error {
 	s.startCorruptionChecker()
 	go s.printUsageCallToAction()
 	startedAt = time.Now()
-	err = s.GrpcServer.Serve(listener)
+	go func() {
+		if err = s.GrpcServer.Serve(listener); err != nil {
+			log.Fatal(err)
+		}
+	}()
 	<-s.quit
 	return err
 }
