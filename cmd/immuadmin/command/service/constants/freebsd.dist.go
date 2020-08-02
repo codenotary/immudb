@@ -21,7 +21,7 @@ package service
 import "fmt"
 
 const ExecPath = "/usr/sbin/"
-const ConfigPath = "/etc/immudb"
+const ConfigPath = "/etc/"
 const ManPath = "/usr/share/man/man1/"
 const OSUser = "immu"
 const OSGroup = "immu"
