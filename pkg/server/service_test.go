@@ -28,6 +28,9 @@ func TestService(t *testing.T) {
 	bufSize := 1024 * 1024
 	l := bufconn.Listen(bufSize)
 	datadir := "rome"
+	defer func() {
+		os.RemoveAll(datadir)
+	}()
 	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(true).WithDir(datadir).WithListener(l).WithPort(22222).WithMetricsServer(false)
 
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
@@ -39,7 +42,4 @@ func TestService(t *testing.T) {
 	srvc.Start()
 	time.Sleep(1 * time.Second)
 	srvc.Stop()
-	defer func() {
-		os.RemoveAll(datadir)
-	}()
 }

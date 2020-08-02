@@ -59,6 +59,7 @@ type ImmuServer struct {
 	Cc                  CorruptionChecker
 	sysDb               *Db
 	metricsServer       *http.Server
+	mux                 sync.Mutex
 }
 
 // DefaultServer ...

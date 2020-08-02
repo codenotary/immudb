@@ -61,6 +61,8 @@ var immudbTextLogo = " _                               _ _     \n" +
 // Start starts the immudb server
 // Loads and starts the System DB, default db and user db
 func (s *ImmuServer) Start() error {
+	s.mux.Lock()
+
 	_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
 	if err != nil {
 		s.Logger.Errorf("Error printing immudb config: %v", err)
@@ -177,10 +179,11 @@ func (s *ImmuServer) Start() error {
 	go s.printUsageCallToAction()
 	startedAt = time.Now()
 	go func() {
-		if err = s.GrpcServer.Serve(listener); err != nil {
+		if err := s.GrpcServer.Serve(listener); err != nil {
 			log.Fatal(err)
 		}
 	}()
+	s.mux.Unlock()
 	<-s.quit
 	return err
 }
@@ -381,14 +384,19 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 
 // Stop stops the immudb server
 func (s *ImmuServer) Stop() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	s.Logger.Infof("Stopping immudb:\n%v", s.Options)
+
 	defer func() { s.quit <- struct{}{} }()
+
 	if !s.Options.usingCustomListener {
 		s.GrpcServer.Stop()
 		defer func() { s.GrpcServer = nil }()
 	}
-	s.CloseDatabases()
-	return nil
+
+	return s.CloseDatabases()
 }
 
 //CloseDatabases closes all opened databases including the consinstency checker

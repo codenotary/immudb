@@ -43,7 +43,8 @@ type corruptionChecker struct {
 	options        CCOptions
 	dbList         DatabaseList
 	Logger         logger.Logger
-	Exit           bool
+	exit           bool
+	muxit          sync.Mutex
 	Trusted        bool
 	Wg             sync.WaitGroup
 	currentDbIndex int
@@ -55,8 +56,6 @@ type CorruptionChecker interface {
 	Start(context.Context) (err error)
 	Stop()
 	GetStatus() bool
-	GetExit() bool
-	SetExit(bool)
 	Wait()
 }
 
@@ -66,7 +65,7 @@ func NewCorruptionChecker(opt CCOptions, d DatabaseList, l logger.Logger, rg Ran
 		options:        opt,
 		dbList:         d,
 		Logger:         l,
-		Exit:           false,
+		exit:           false,
 		Trusted:        true,
 		currentDbIndex: 0,
 		rg:             rg,
@@ -80,17 +79,25 @@ func (s *corruptionChecker) Start(ctx context.Context) (err error) {
 	for {
 		err = s.checkLevel0(ctx)
 
-		if err != nil || s.Exit || s.options.singleiteration {
+		if err != nil || s.isTerminated() || s.options.singleiteration {
 			return err
 		}
 
-		s.sleep()
+		time.Sleep(s.options.iterationSleepTime)
 	}
+}
+
+func (s *corruptionChecker) isTerminated() bool {
+	s.muxit.Lock()
+	defer s.muxit.Unlock()
+	return s.exit
 }
 
 // Stop stop the trust checker loop
 func (s *corruptionChecker) Stop() {
-	s.Exit = true
+	s.muxit.Lock()
+	s.exit = true
+	s.muxit.Unlock()
 	s.Logger.Infof("Waiting for consistency checker to shut down")
 	s.Wait()
 }
@@ -115,7 +122,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 		ids := s.rg.getList(0, r.Index)
 		s.Logger.Debugf("Start scanning %d elements", len(ids))
 		for _, id := range ids {
-			if s.Exit {
+			if s.isTerminated() {
 				s.Wg.Done()
 				return
 			}
@@ -152,13 +159,6 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	return nil
 }
 
-func (s *corruptionChecker) sleep() {
-	if !s.Exit {
-		s.Logger.Debugf("Sleeping for some seconds ...")
-		time.Sleep(s.options.iterationSleepTime)
-	}
-}
-
 func (s *corruptionChecker) Wait() {
 	s.Wg.Wait()
 }
@@ -166,16 +166,6 @@ func (s *corruptionChecker) Wait() {
 // GetStatus return status of the trust checker. False means that a consistency checks was failed
 func (s *corruptionChecker) GetStatus() bool {
 	return s.Trusted
-}
-
-// GetExit return exit flag
-func (s *corruptionChecker) GetExit() bool {
-	return s.Exit
-}
-
-// SetExit set exit flag
-func (s *corruptionChecker) SetExit(exit bool) {
-	s.Exit = exit
 }
 
 type cryptoRandSource struct{}
