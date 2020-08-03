@@ -65,6 +65,8 @@ type ImmuClientMock struct {
 	RawSafeSetF         func(context.Context, []byte, []byte) (vi *client.VerifiedIndex, err error)
 	CreateDatabaseF     func(context.Context, *schema.Database) error
 	DatabaseListF       func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error)
+	ChangePasswordF     func(context.Context, []byte, []byte, []byte) error
+	CreateUserF         func(context.Context, []byte, []byte, uint32, string) (*schema.UserResponse, error)
 }
 
 // GetOptions ...
@@ -230,4 +232,14 @@ func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.Databa
 // DatabaseList ...
 func (icm *ImmuClientMock) DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error) {
 	return icm.DatabaseListF(ctx, d)
+}
+
+// ChangePassword ...
+func (icm *ImmuClientMock) ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error {
+	return icm.ChangePasswordF(ctx, user, oldPass, newPass)
+}
+
+// CreateUser ...
+func (icm *ImmuClientMock) CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) (*schema.UserResponse, error) {
+	return icm.CreateUserF(ctx, user, pass, permission, databasename)
 }
