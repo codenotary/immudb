@@ -1056,6 +1056,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	}
 	s.databasenameToIndex[newdb.Databasename] = int64(s.dbList.Length())
 	s.dbList.Append(db)
+	s.multidbmode = true
 	return &empty.Empty{}, nil
 }
 
@@ -1076,8 +1077,11 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		if len(r.User) == 0 {
 			return nil, fmt.Errorf("username can not be empty")
 		}
-		if len(r.Database) == 0 {
-			return nil, fmt.Errorf("database name can not be empty")
+		if (len(r.Database) == 0) && s.multidbmode {
+			return nil, fmt.Errorf("database name can not be empty when there are multiple databases")
+		}
+		if (len(r.Database) == 0) && !s.multidbmode {
+			r.Database = DefaultdbName
 		}
 		//check if database exists
 		if _, ok := s.databasenameToIndex[r.Database]; !ok {

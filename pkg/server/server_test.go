@@ -21,8 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io/ioutil"
 	"log"
 	"os"
@@ -31,6 +29,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -123,7 +124,7 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 	defer func() {
 		os.RemoveAll(dbRootpath)
 	}()
-	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultOptions().defaultDbName))
+	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultdbName))
 	if os.IsNotExist(err) {
 		t.Fatalf("default database directory not created")
 	}
@@ -1752,7 +1753,7 @@ func TestServerErrors(t *testing.T) {
 	createUser2Req.User = username2Bytes
 	createUser2Req.Database = ""
 	_, err = s.CreateUser(ctx, createUser2Req)
-	require.Equal(t, errors.New("database name can not be empty"), err)
+	require.Equal(t, errors.New("database name can not be empty when there are multiple databases"), err)
 
 	createUser2Req.Database = "nonexistentdb"
 	_, err = s.CreateUser(ctx, createUser2Req)
