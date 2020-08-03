@@ -460,10 +460,32 @@ func TestUserManagement(t *testing.T) {
 	err5 := client.ChangePassword(context.TODO(), []byte(`test`), []byte(`1Password!*`), []byte(`2Password!*`))
 	assert.Nil(t, err5)
 
-	// @todo need to be fixed
 	usrList, err9 := client.ListUsers(context.TODO())
-	assert.NoError(t, err9)
-	assert.IsType(t, &schema.UserList{}, usrList)
+	require.NoError(t, err9)
+	require.NotNil(t, usrList)
+	require.Len(t, usrList.Users, 2)
+	var immudbUser *schema.User
+	var testUser *schema.User
+	for _, usr := range usrList.Users {
+		switch string(usr.User) {
+		case "immudb":
+			immudbUser = usr
+		case "test":
+			testUser = usr
+		}
+	}
+	require.NotNil(t, immudbUser)
+	require.Equal(t, "immudb", string(immudbUser.User))
+	require.Len(t, immudbUser.Permissions, 1)
+	require.Equal(t, "*", immudbUser.Permissions[0].GetDatabase())
+	require.Equal(t, uint32(auth.PermissionSysAdmin), immudbUser.Permissions[0].GetPermission())
+	require.True(t, immudbUser.Active)
+
+	require.NotNil(t, testUser)
+	require.Equal(t, "test", string(testUser.User))
+	require.Len(t, testUser.Permissions, 0)
+	require.Equal(t, "immudb", testUser.Createdby)
+	require.True(t, testUser.Active)
 
 	client.Disconnect()
 }
