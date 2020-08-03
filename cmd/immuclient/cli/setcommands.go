@@ -16,8 +16,6 @@ limitations under the License.
 
 package cli
 
-import "fmt"
-
 func (cli *cli) rawSafeSet(args []string) (string, error) {
 	return cli.immucl.RawSafeSet(args)
 }
@@ -37,17 +35,7 @@ func (cli *cli) zAdd(args []string) (string, error) {
 func (cli *cli) safeZAdd(args []string) (string, error) {
 	return cli.immucl.SafeZAdd(args)
 }
-func (cli *cli) CreateDatabase(args []string) (string, error) {
-	if len(args) < 1 {
-		return "", fmt.Errorf("wrong number of parameters")
-	}
-	if args[0] == "list" {
-		return cli.immucl.DatabaseList(args)
-	} else if args[0] == "create" {
-		return cli.immucl.CreateDatabase(args[1:])
-	}
-	return "", fmt.Errorf("wrong number of arguments")
-}
+
 func (cli *cli) UseDatabase(args []string) (string, error) {
 	return cli.immucl.UseDatabase(args)
 }

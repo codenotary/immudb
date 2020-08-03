@@ -46,6 +46,7 @@ func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command 
 	cl.status(rootCmd)
 	cl.stats(rootCmd)
 	cl.serverConfig(rootCmd)
+	cl.database(rootCmd)
 
 	os := immuos.NewStandardOS()
 	clb, err := newCommandlineBck(os)

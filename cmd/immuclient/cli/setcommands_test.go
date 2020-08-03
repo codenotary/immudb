@@ -135,37 +135,3 @@ func TestSafeZAdd(t *testing.T) {
 		t.Fatalf("SafeZAdd failed: %s", msg)
 	}
 }
-
-func TestCreateDatabase(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli := new(cli)
-	cli.immucl = ic.Imc
-	msg, err := cli.CreateDatabase([]string{"create", "newdb"})
-	if err != nil {
-		t.Fatal("CreateDatabase fail", err)
-	}
-	if !strings.Contains(msg, "database successfully created") {
-		t.Fatalf("CreateDatabase failed: %s", msg)
-	}
-
-	msg, err = cli.CreateDatabase([]string{"list"})
-	if err != nil {
-		t.Fatal("DatabaseList fail", err)
-	}
-
-	msg, err = cli.UseDatabase([]string{"newdb"})
-	if err != nil {
-		t.Fatal("UseDatabase fail", err)
-	}
-	if !strings.Contains(msg, "newdb") {
-		t.Fatalf("UseDatabase failed: %s", msg)
-	}
-}
