@@ -27,5 +27,5 @@ func TestInitCommands(t *testing.T) {
 	cli.commands = make(map[string]*command)
 	cli.commandsList = make([]*command, 0)
 	cli.initCommands()
-	assert.EqualValues(t, 27, len(cli.commands))
+	assert.EqualValues(t, 26, len(cli.commands))
 }

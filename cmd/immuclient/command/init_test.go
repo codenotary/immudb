@@ -29,8 +29,8 @@ import (
 func TestInit(t *testing.T) {
 	opts := helper.Options{}
 	cm := Init(&opts)
-	if len(cm.Commands()) != 29 {
-		t.Fatal("fail immuclient commands, wrong number of expected commanfs")
+	if len(cm.Commands()) != 28 {
+		t.Fatal("fail immuclient commands, wrong number of expected commands")
 	}
 }
 

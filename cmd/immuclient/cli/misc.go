@@ -17,8 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"fmt"
-
 	"github.com/codenotary/immudb/cmd/version"
 )
 
@@ -32,45 +30,4 @@ func (cli *cli) healthCheck(args []string) (string, error) {
 
 func (cli *cli) version(args []string) (string, error) {
 	return version.VersionStr(), nil
-}
-
-func (cli *cli) UserOperations(args []string) (string, error) {
-	if len(args) < 1 {
-		return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
-	}
-	switch args[0] {
-	case "list":
-		fmt.Printf("Admin\n")
-		return cli.immucl.UserList(args[1:])
-	case "changepassword":
-		if len(args) < 2 {
-			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
-		}
-		return cli.immucl.ChangeUserPassword(args[1:])
-	case "activate", "deactivate":
-		if len(args) < 2 {
-			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
-		}
-		var active bool
-		switch args[0] {
-		case "activate":
-			active = true
-		case "deactivate":
-			active = false
-		}
-		return cli.immucl.SetActiveUser(args[1:], active)
-	case "permission":
-		if len(args) < 4 {
-			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
-		}
-		return cli.immucl.SetUserPermission(args[1:])
-	case "create":
-		if len(args) < 4 {
-			return "", fmt.Errorf("ERROR: Not enough arguments. Use [command] --help for documentation ")
-		}
-		return cli.immucl.UserCreate(args[1:])
-	default:
-		return "", fmt.Errorf("uknown command %s", args[0])
-	}
-
 }

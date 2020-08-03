@@ -68,5 +68,4 @@ func (cli *cli) initCommands() {
 
 	// Admin Commands
 	cli.Register(&command{"database", "Database operatons (help,create,list)", cli.CreateDatabase, nil, true})
-	cli.Register(&command{"user", "User operations (help, create, list, activate/deactivate, changepassword,permission grant, permission revoke)", cli.UserOperations, nil, true})
 }
