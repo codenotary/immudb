@@ -19,11 +19,14 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/spf13/cobra"
 )
 
@@ -142,7 +145,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (string, error) {
 	newpass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
-		return "Error Reading Password", nil
+		return "", errors.New("Error Reading Password")
 	}
 	if err = auth.IsStrongPassword(string(newpass)); err != nil {
 		return "", fmt.Errorf("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
@@ -189,10 +192,33 @@ func (cl *commandline) userList(args []string) (string, error) {
 }
 func (cl *commandline) userCreate(args []string) (string, error) {
 	username := args[0]
-	permission := args[1]
+	permissionStr := args[1]
 	var databasename string
 	if len(args) == 3 {
 		databasename = args[2]
+	}
+
+	// validations
+	ctx := context.Background()
+	usernameTaken, err := userExists(ctx, cl.immuClient, username)
+	if err != nil {
+		return "", err
+	}
+	if usernameTaken {
+		return "", fmt.Errorf("User %s already exists", username)
+	}
+	if databasename != "" {
+		existingDb, err := dbExists(ctx, cl.immuClient, databasename)
+		if err != nil {
+			return "", err
+		}
+		if !existingDb {
+			return "", fmt.Errorf("Database %s does not exist", databasename)
+		}
+	}
+	permission, err := permissionFromString(permissionStr)
+	if err != nil {
+		return "", err
 	}
 
 	pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
@@ -200,7 +226,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 		return "", fmt.Errorf("Error Reading Password")
 	}
 	if err = auth.IsStrongPassword(string(pass)); err != nil {
-		return "", fmt.Errorf("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
+		return "", fmt.Errorf("Password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
 	}
 	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {
@@ -209,18 +235,8 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 	if !bytes.Equal(pass, pass2) {
 		return "", fmt.Errorf("Passwords don't match")
 	}
-	var userpermission uint32
-	switch permission {
-	case "read":
-		userpermission = auth.PermissionR
-	case "admin":
-		userpermission = auth.PermissionAdmin
-	case "readwrite":
-		userpermission = auth.PermissionRW
-	default:
-		return "", fmt.Errorf("permission value not recognized. Allowed permissions are read, readwrite, admin")
-	}
-	user, err := cl.immuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
+
+	user, err := cl.immuClient.CreateUser(ctx, []byte(username), pass, permission, databasename)
 	if err != nil {
 		return "", err
 	}
@@ -250,18 +266,61 @@ func (cl *commandline) setUserPermission(args []string) (resp string, err error)
 		return "", fmt.Errorf("wrong permission action. Only grant or revoke are allowed. Provided: %s", args[0])
 	}
 	username := args[1]
-	var userpermission uint32
-	switch args[2] {
-	case "read":
-		userpermission = auth.PermissionR
-	case "admin":
-		userpermission = auth.PermissionAdmin
-	case "readwrite":
-		userpermission = auth.PermissionRW
-	default:
-		return "", fmt.Errorf("permission value not recognized. Allowed permissions are read, readwrite, admin. Provided: %s", args[2])
+	permission, err := permissionFromString(args[2])
+	if err != nil {
+		return "", err
 	}
 	dbname := args[3]
+	return "", cl.immuClient.ChangePermission(context.Background(), permissionAction, username, dbname, permission)
+}
 
-	return "", cl.immuClient.ChangePermission(context.Background(), permissionAction, username, dbname, userpermission)
+func userExists(
+	ctx context.Context,
+	immuClient client.ImmuClient,
+	username string,
+) (bool, error) {
+	existingUsers, err := immuClient.ListUsers(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, eu := range existingUsers.GetUsers() {
+		if string(eu.GetUser()) == username {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func dbExists(
+	ctx context.Context,
+	immuClient client.ImmuClient,
+	dbName string,
+) (bool, error) {
+	existingDBs, err := immuClient.DatabaseList(ctx, &empty.Empty{})
+	if err != nil {
+		return false, err
+	}
+	for _, db := range existingDBs.GetDatabases() {
+		if db.GetDatabasename() == dbName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func permissionFromString(permissionStr string) (uint32, error) {
+	var permission uint32
+	switch permissionStr {
+	case "read":
+		permission = auth.PermissionR
+	case "admin":
+		permission = auth.PermissionAdmin
+	case "readwrite":
+		permission = auth.PermissionRW
+	default:
+		return 0, fmt.Errorf(
+			"Permission %s not recognized: allowed permissions are read, readwrite, admin",
+			permissionStr)
+	}
+	return permission, nil
 }

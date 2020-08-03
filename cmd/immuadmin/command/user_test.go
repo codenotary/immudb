@@ -19,17 +19,23 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
 
@@ -86,6 +92,52 @@ func TestUserList(t *testing.T) {
 	}
 }
 
+func TestUserListErrors(t *testing.T) {
+	immuClientMock := &clienttest.ImmuClientMock{}
+	cl := &commandline{
+		immuClient: immuClientMock,
+	}
+
+	errListUsers := errors.New("list users error")
+	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
+		return nil, errListUsers
+	}
+	_, err := cl.userList(nil)
+	require.Equal(t, errListUsers, err)
+
+	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
+		return &schema.UserList{
+			Users: []*schema.User{
+				&schema.User{
+					User:       []byte("immudb"),
+					Permission: auth.PermissionSysAdmin,
+					Permissions: []*schema.Permission{
+						&schema.Permission{Database: "*", Permission: auth.PermissionSysAdmin},
+					},
+					Createdby: "immudb",
+					Createdat: time.Now().String(),
+					Active:    true,
+				},
+				&schema.User{
+					User:       []byte("user1"),
+					Permission: auth.PermissionAdmin,
+					Permissions: []*schema.Permission{
+						&schema.Permission{Database: "db2", Permission: auth.PermissionAdmin},
+						&schema.Permission{Database: "db3", Permission: auth.PermissionR},
+						&schema.Permission{Database: "db4", Permission: auth.PermissionRW},
+						&schema.Permission{Database: "db5", Permission: 999},
+					},
+					Createdby: "immudb",
+					Createdat: time.Now().String(),
+					Active:    true,
+				},
+			},
+		}, nil
+	}
+	_, err = cl.userList(nil)
+	require.Equal(t, errors.New("permission value not recognized. Allowed permissions are read, readwrite, admin"), err)
+}
+
 func TestUserChangePassword(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
@@ -137,6 +189,72 @@ func TestUserChangePassword(t *testing.T) {
 	if !strings.Contains(string(msg), "Password of immudb was changed successfuly") {
 		t.Fatal(msg)
 	}
+}
+
+func TestUserChangePasswordErrors(t *testing.T) {
+	pwReaderMock := &clienttest.PasswordReaderMock{}
+	immuClientMock := &clienttest.ImmuClientMock{}
+	cl := &commandline{
+		passwordReader: pwReaderMock,
+		immuClient:     immuClientMock,
+	}
+
+	username := "user1"
+	oldPass := []byte("Oldpa$$1")
+
+	pwReaderMock.ReadF = func(string) ([]byte, error) {
+		return nil, errors.New("password read error")
+	}
+	_, err := cl.changeUserPassword(username, oldPass)
+	require.Equal(t, errors.New("Error Reading Password"), err)
+
+	pwReaderMock.ReadF = func(string) ([]byte, error) {
+		return []byte("weakpass"), nil
+	}
+	_, err = cl.changeUserPassword(username, oldPass)
+	require.Equal(
+		t,
+		errors.New("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol"),
+		err)
+
+	pwReadCounter := 0
+	pwReaderMock.ReadF = func(string) ([]byte, error) {
+		pwReadCounter++
+		if pwReadCounter == 1 {
+			return []byte("GoodPass1!"), nil
+		}
+		return nil, errors.New("password read 2 error")
+	}
+	_, err = cl.changeUserPassword(username, oldPass)
+	require.Equal(t, errors.New("Error Reading Password"), err)
+
+	pwReadCounter = 0
+	pwReaderMock.ReadF = func(string) ([]byte, error) {
+		pwReadCounter++
+		if pwReadCounter == 1 {
+			return []byte("GoodPass1!"), nil
+		}
+		return []byte("GoodPass2!"), nil
+	}
+	_, err = cl.changeUserPassword(username, oldPass)
+	require.Equal(t, errors.New("Passwords don't match"), err)
+
+	pwReaderMock.ReadF = func(string) ([]byte, error) {
+		return []byte("GoodPass1!"), nil
+	}
+	errChangePass := errors.New("Change password error")
+	immuClientMock.ChangePasswordF = func(context.Context, []byte, []byte, []byte) error {
+		return errChangePass
+	}
+	_, err = cl.changeUserPassword(username, oldPass)
+	require.Equal(t, errChangePass, err)
+
+	immuClientMock.ChangePasswordF = func(context.Context, []byte, []byte, []byte) error {
+		return nil
+	}
+	resp, err := cl.changeUserPassword(username, oldPass)
+	require.NoError(t, err)
+	require.Equal(t, fmt.Sprintf("Password of %s was changed successfuly", username), resp)
 }
 
 func TestUserCreate(t *testing.T) {
@@ -193,6 +311,120 @@ func TestUserCreate(t *testing.T) {
 	if !strings.Contains(string(msg), "Created user newuser") {
 		t.Fatal(msg)
 	}
+}
+
+func TestUserCreateErrors(t *testing.T) {
+	pwReaderMock := &clienttest.PasswordReaderMock{}
+	immuClientMock := &clienttest.ImmuClientMock{}
+	cl := &commandline{
+		passwordReader: pwReaderMock,
+		immuClient:     immuClientMock,
+	}
+
+	errListUsers := errors.New("list users error")
+	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
+		return nil, errListUsers
+	}
+	username := "user1"
+	databasename := "defaultdb"
+	permission := "admin"
+	args := []string{username, permission, databasename}
+	_, err := cl.userCreate(args)
+	require.Equal(t, errListUsers, err)
+
+	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
+		return &schema.UserList{
+			Users: []*schema.User{&schema.User{User: []byte(username)}},
+		}, nil
+	}
+	_, err = cl.userCreate(args)
+	require.Equal(t, fmt.Errorf("User %s already exists", username), err)
+
+	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
+		return nil, nil
+	}
+	errListDatabases := errors.New("list databases error")
+	immuClientMock.DatabaseListF = func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error) {
+		return nil, errListDatabases
+	}
+	_, err = cl.userCreate(args)
+	require.Equal(t, errListDatabases, err)
+
+	immuClientMock.DatabaseListF = func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error) {
+		return &schema.DatabaseListResponse{
+			Databases: []*schema.Database{&schema.Database{Databasename: "sysdb"}},
+		}, nil
+	}
+	_, err = cl.userCreate(args)
+	require.Equal(t, fmt.Errorf("Database %s does not exist", databasename), err)
+
+	immuClientMock.DatabaseListF = func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error) {
+		return &schema.DatabaseListResponse{
+			Databases: []*schema.Database{
+				&schema.Database{Databasename: "sysdb"},
+				&schema.Database{Databasename: databasename},
+			},
+		}, nil
+	}
+	args[1] = "UnknownPermission"
+	_, err = cl.userCreate(args)
+	require.Equal(
+		t,
+		fmt.Errorf(
+			"Permission %s not recognized: allowed permissions are read, readwrite, admin",
+			args[1]), err)
+
+	args[1] = permission
+	pwReaderMock.ReadF = func(msg string) ([]byte, error) {
+		return nil, errors.New("password reading error")
+	}
+	_, err = cl.userCreate(args)
+	require.Equal(t, errors.New("Error Reading Password"), err)
+
+	pwReaderMock.ReadF = func(msg string) ([]byte, error) {
+		return []byte("weakpassword"), nil
+	}
+	_, err = cl.userCreate(args)
+	require.Equal(
+		t,
+		errors.New("Password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol"),
+		err)
+
+	pwReadCounter := 0
+	pwReaderMock.ReadF = func(msg string) ([]byte, error) {
+		pwReadCounter++
+		if pwReadCounter == 1 {
+			return []byte("$trongPass1!"), nil
+		}
+		return nil, errors.New("password reading error 2")
+	}
+	_, err = cl.userCreate(args)
+	require.Equal(t, errors.New("Error Reading Password"), err)
+
+	pwReadCounter = 0
+	pwReaderMock.ReadF = func(msg string) ([]byte, error) {
+		pwReadCounter++
+		if pwReadCounter == 1 {
+			return []byte("$trongPass1!"), nil
+		}
+		return []byte("$trongPass2!"), nil
+	}
+	_, err = cl.userCreate(args)
+	require.Equal(t, errors.New("Passwords don't match"), err)
+
+	errCreateUser := errors.New("create user error")
+	immuClientMock.CreateUserF = func(context.Context, []byte, []byte, uint32, string) (*schema.UserResponse, error) {
+		return nil, errCreateUser
+	}
+	_, err = cl.userCreate(args)
+	require.Equal(t, errCreateUser, err)
+
+	immuClientMock.CreateUserF = func(context.Context, []byte, []byte, uint32, string) (*schema.UserResponse, error) {
+		return &schema.UserResponse{User: []byte(username)}, nil
+	}
+	resp, err := cl.userCreate(args)
+	require.NoError(t, err)
+	require.Equal(t, fmt.Sprintf("Created user %s", username), resp)
 }
 
 func TestUserActivate(t *testing.T) {
@@ -321,6 +553,20 @@ func TestUserDeactivate(t *testing.T) {
 	}
 }
 
+func TestUserActivateErrors(t *testing.T) {
+	immuClientMock := &clienttest.ImmuClientMock{}
+	cl := &commandline{
+		immuClient: immuClientMock,
+	}
+
+	errSetActiveUser := errors.New("set active user error")
+	immuClientMock.SetActiveUserF = func(context.Context, *schema.SetActiveUserRequest) (*empty.Empty, error) {
+		return nil, errSetActiveUser
+	}
+	_, err := cl.setActiveUser([]string{"user1"}, true)
+	require.Equal(t, errSetActiveUser, err)
+}
+
 func TestUserPermission(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
@@ -382,4 +628,36 @@ func TestUserPermission(t *testing.T) {
 	if !strings.Contains(string(msg), "Permission changed successfully") {
 		t.Fatal(string(msg))
 	}
+}
+
+func TestUserPermissionErrors(t *testing.T) {
+	immuClientMock := &clienttest.ImmuClientMock{}
+	cl := &commandline{
+		immuClient: immuClientMock,
+	}
+
+	args := []string{"UnknownPermissionAction", "user1", "read", "db1"}
+	_, err := cl.setUserPermission(args)
+	require.Equal(
+		t,
+		fmt.Errorf("wrong permission action. Only grant or revoke are allowed. Provided: %s", args[0]),
+		err)
+
+	args[0] = "revoke"
+	args[2] = "UnknownPermission"
+	_, err = cl.setUserPermission(args)
+	require.Equal(
+		t,
+		fmt.Errorf(
+			"Permission %s not recognized: allowed permissions are read, readwrite, admin",
+			args[2]),
+		err)
+
+	args[2] = "read"
+	errChangePermission := errors.New("change permission error")
+	immuClientMock.ChangePermissionF = func(context.Context, schema.PermissionAction, string, string, uint32) error {
+		return errChangePermission
+	}
+	_, err = cl.setUserPermission(args)
+	require.Equal(t, errChangePermission, err)
 }
