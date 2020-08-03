@@ -208,55 +208,12 @@ func (cl *commandline) user(cmd *cobra.Command) {
 	ccmd.AddCommand(userPermission)
 	cmd.AddCommand(ccmd)
 }
-func (cl *commandline) database(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:               "database",
-		Short:             "Issue all database commands",
-		Aliases:           []string{"d"},
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"list", "create"},
-	}
-	ccd := &cobra.Command{
-		Use:               "list",
-		Aliases:           []string{"d"},
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.DatabaseList(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.ExactArgs(0),
-	}
-	cc := &cobra.Command{
-		Use:               "create",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		Example:           "create database_name",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.CreateDatabase(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.ExactArgs(1),
-	}
-	ccmd.AddCommand(ccd)
-	ccmd.AddCommand(cc)
 
-	cmd.AddCommand(ccmd)
-
-}
 func (cl *commandline) use(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "use command",
-		Short:             "select database",
+		Short:             "Select database",
+		Example:           "use {database_name}",
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"databasename"},
