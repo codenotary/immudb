@@ -1126,26 +1126,6 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		if err != nil {
 			return nil, fmt.Errorf("please login")
 		}
-		if !s.multidbmode {
-			//return current user which is immudb
-			permissions := []*schema.Permission{}
-			for _, val := range loggedInuser.Permissions {
-				permissions = append(permissions, &schema.Permission{
-					Database:   val.Database,
-					Permission: val.Permission,
-				})
-			}
-			u := schema.User{
-				User:        []byte(loggedInuser.Username),
-				Createdat:   loggedInuser.CreatedAt.String(),
-				Createdby:   loggedInuser.CreatedBy,
-				Permissions: permissions,
-				Active:      loggedInuser.Active,
-			}
-			userlist.Users = append(userlist.Users, &u)
-			return userlist, nil
-		}
-
 	}
 	itemList, err := s.sysDb.Scan(&schema.ScanOptions{
 		Prefix: []byte{sysstore.KeyPrefixUser},
@@ -1178,7 +1158,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		}
 		return userlist, nil
 	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).options.dbName) == auth.PermissionAdmin {
-		// for admin users return only users for the database where that is has selected
+		// for admin users return only users for the database that is has selected
 		selectedDbname := s.dbList.GetByIndex(dbInd).options.dbName
 		userlist := &schema.UserList{}
 		for i := 0; i < len(itemList.Items); i++ {
