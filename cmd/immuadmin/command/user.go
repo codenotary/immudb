@@ -63,7 +63,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			fmt.Fprintf(cmd.OutOrStdout(), resp)
 			return nil
 		},
-		Args: cobra.ExactArgs(3),
+		Args: cobra.RangeArgs(2, 3),
 	}
 	userChangePassword := &cobra.Command{
 		Use:               "changepassword",
@@ -190,7 +190,10 @@ func (cl *commandline) userList(args []string) (string, error) {
 func (cl *commandline) userCreate(args []string) (string, error) {
 	username := args[0]
 	permission := args[1]
-	databasename := args[2]
+	var databasename string
+	if len(args) == 3 {
+		databasename = args[2]
+	}
 
 	pass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
