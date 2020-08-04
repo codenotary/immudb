@@ -209,6 +209,7 @@ func (cl *commandline) userList(args []string) (string, error) {
 		},
 		len(usersAndPermissions),
 		func(i int) []string { return usersAndPermissions[i] },
+		fmt.Sprintf("%d user(s)", len(users)),
 	)
 	w.Flush()
 	return b.String(), nil

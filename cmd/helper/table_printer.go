@@ -25,7 +25,13 @@ import (
 )
 
 // PrintTable prints data (string arrays) in a tabular format
-func PrintTable(w io.Writer, cols []string, nbRows int, getRow func(int) []string) {
+func PrintTable(
+	w io.Writer,
+	cols []string,
+	nbRows int,
+	getRow func(int) []string,
+	caption string,
+) {
 	if nbRows == 0 {
 		return
 	}
@@ -52,7 +58,10 @@ func PrintTable(w io.Writer, cols []string, nbRows int, getRow func(int) []strin
 	}
 	borderBottom := sb.String()
 	sb.Reset()
-	fmt.Fprintf(w, "%d element(s)\n", nbRows)
+	if len(caption) <= 0 {
+		caption = fmt.Sprintf("%d row(s)", nbRows)
+	}
+	fmt.Fprint(w, caption+"\n")
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, borderBottom)
