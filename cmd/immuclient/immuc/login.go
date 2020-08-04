@@ -109,11 +109,11 @@ func (i *immuc) UserCreate(args []string) (string, error) {
 	default:
 		return "permission value not recognized. Allowed permissions are read, readwrite, admin", nil
 	}
-	user, err := i.ImmuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
+	err = i.ImmuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("Created user %s", string(user.GetUser())), nil
+	return fmt.Sprintf("Created user %s", username), nil
 }
 func (i *immuc) UserList(args []string) (string, error) {
 	userlist, err := i.ImmuClient.ListUsers(context.Background())
@@ -181,7 +181,7 @@ func (i *immuc) SetActiveUser(args []string, active bool) (string, error) {
 		return "incorrect number of parameters for this command. Please type 'user help' for more information", nil
 	}
 	username := args[0]
-	_, err := i.ImmuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
+	err := i.ImmuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
 		Active:   active,
 		Username: username,
 	})

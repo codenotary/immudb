@@ -54,7 +54,6 @@
     - [User](#immudb.schema.User)
     - [UserList](#immudb.schema.UserList)
     - [UserRequest](#immudb.schema.UserRequest)
-    - [UserResponse](#immudb.schema.UserResponse)
     - [ZAddOptions](#immudb.schema.ZAddOptions)
     - [ZScanOptions](#immudb.schema.ZScanOptions)
 
@@ -843,7 +842,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | user | [bytes](#bytes) |  |  |
-| permission | [uint32](#uint32) |  |  |
 | permissions | [Permission](#immudb.schema.Permission) | repeated |  |
 | createdby | [string](#string) |  |  |
 | createdat | [string](#string) |  |  |
@@ -878,22 +876,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | user | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.UserResponse"></a>
-
-### UserResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| user | [bytes](#bytes) |  |  |
-| permission | [uint32](#uint32) |  |  |
 
 
 
@@ -964,7 +946,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | ListUsers | [.google.protobuf.Empty](#google.protobuf.Empty) | [UserList](#immudb.schema.UserList) |  |
-| CreateUser | [CreateUserRequest](#immudb.schema.CreateUserRequest) | [UserResponse](#immudb.schema.UserResponse) |  |
+| CreateUser | [CreateUserRequest](#immudb.schema.CreateUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePassword | [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateAuthConfig | [AuthConfig](#immudb.schema.AuthConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateMTLSConfig | [MTLSConfig](#immudb.schema.MTLSConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

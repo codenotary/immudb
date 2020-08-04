@@ -24,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	immuclient "github.com/codenotary/immudb/pkg/client"
-	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 )
 
@@ -56,7 +55,7 @@ type ImmuClientMock struct {
 	RawSafeGetF         func(context.Context, []byte, ...grpc.CallOption) (vi *client.VerifiedItem, err error)
 	RawBySafeIndexF     func(context.Context, uint64) (*client.VerifiedItem, error)
 	ListUsersF          func(context.Context) (*schema.UserList, error)
-	SetActiveUserF      func(context.Context, *schema.SetActiveUserRequest) (*empty.Empty, error)
+	SetActiveUserF      func(context.Context, *schema.SetActiveUserRequest) error
 	ChangePermissionF   func(context.Context, schema.PermissionAction, string, string, uint32) error
 	ZScanF              func(context.Context, []byte) (*schema.StructuredItemList, error)
 	IScanF              func(context.Context, uint64, uint64) (*schema.SPage, error)
@@ -64,9 +63,9 @@ type ImmuClientMock struct {
 	CountF              func(context.Context, []byte) (*schema.ItemsCount, error)
 	RawSafeSetF         func(context.Context, []byte, []byte) (vi *client.VerifiedIndex, err error)
 	CreateDatabaseF     func(context.Context, *schema.Database) error
-	DatabaseListF       func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error)
+	DatabaseListF       func(context.Context) (*schema.DatabaseListResponse, error)
 	ChangePasswordF     func(context.Context, []byte, []byte, []byte) error
-	CreateUserF         func(context.Context, []byte, []byte, uint32, string) (*schema.UserResponse, error)
+	CreateUserF         func(context.Context, []byte, []byte, uint32, string) error
 }
 
 // GetOptions ...
@@ -190,7 +189,7 @@ func (icm *ImmuClientMock) ListUsers(ctx context.Context) (*schema.UserList, err
 }
 
 // SetActiveUser ...
-func (icm *ImmuClientMock) SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error) {
+func (icm *ImmuClientMock) SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error {
 	return icm.SetActiveUserF(ctx, u)
 }
 
@@ -230,8 +229,8 @@ func (icm *ImmuClientMock) CreateDatabase(ctx context.Context, db *schema.Databa
 }
 
 // DatabaseList ...
-func (icm *ImmuClientMock) DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error) {
-	return icm.DatabaseListF(ctx, d)
+func (icm *ImmuClientMock) DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error) {
+	return icm.DatabaseListF(ctx)
 }
 
 // ChangePassword ...
@@ -240,6 +239,6 @@ func (icm *ImmuClientMock) ChangePassword(ctx context.Context, user []byte, oldP
 }
 
 // CreateUser ...
-func (icm *ImmuClientMock) CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) (*schema.UserResponse, error) {
+func (icm *ImmuClientMock) CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error {
 	return icm.CreateUserF(ctx, user, pass, permission, databasename)
 }

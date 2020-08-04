@@ -70,11 +70,11 @@ type immuServiceClientMock struct{}
 func (m *immuServiceClientMock) ListUsers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.UserList, error) {
 	return &schema.UserList{}, nil
 }
-func (m *immuServiceClientMock) GetUser(ctx context.Context, in *schema.UserRequest, opts ...grpc.CallOption) (*schema.UserResponse, error) {
-	return &schema.UserResponse{}, nil
+func (m *immuServiceClientMock) GetUser(ctx context.Context, in *schema.UserRequest, opts ...grpc.CallOption) error {
+	return nil
 }
-func (m *immuServiceClientMock) CreateUser(ctx context.Context, in *schema.CreateUserRequest, opts ...grpc.CallOption) (*schema.UserResponse, error) {
-	return &schema.UserResponse{}, nil
+func (m *immuServiceClientMock) CreateUser(ctx context.Context, in *schema.CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return &empty.Empty{}, nil
 }
 func (m *immuServiceClientMock) ChangePassword(ctx context.Context, in *schema.ChangePasswordRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return &empty.Empty{}, nil

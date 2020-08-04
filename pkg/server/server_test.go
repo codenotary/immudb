@@ -243,15 +243,9 @@ func testServerCreateUser(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Database:   testDatabase,
 		Permission: auth.PermissionAdmin,
 	}
-	userresp, err := s.CreateUser(ctx, newUser)
+	_, err := s.CreateUser(ctx, newUser)
 	if err != nil {
 		t.Fatalf("CreateUser error %v", err)
-	}
-	if !bytes.Equal(userresp.User, testUsername) {
-		t.Fatalf("CreateUser error username does not match %v", userresp)
-	}
-	if userresp.Permission != auth.PermissionAdmin {
-		t.Fatalf("CreateUser error permission does not match %v", userresp)
 	}
 
 	if !s.mandatoryAuth() {

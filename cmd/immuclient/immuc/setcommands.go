@@ -28,7 +28,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (i *immuc) RawSafeSet(args []string) (string, error) {
@@ -200,7 +199,7 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	return "database successfully created", nil
 }
 func (i *immuc) DatabaseList(args []string) (string, error) {
-	resp, err := i.ImmuClient.DatabaseList(context.Background(), &emptypb.Empty{})
+	resp, err := i.ImmuClient.DatabaseList(context.Background())
 	if err != nil {
 		return "", err
 	}
