@@ -1038,6 +1038,7 @@ func testServerZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Set:   kv[0].Value,
 	})
 	item, err := s.ZScan(ctx, &schema.ZScanOptions{
+		Set:     kv[0].Value,
 		Offset:  []byte(""),
 		Limit:   3,
 		Reverse: false,
@@ -1059,6 +1060,7 @@ func testServerZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("ZAdd expected errr")
 	}
 	_, err = s.ZScan(context.Background(), &schema.ZScanOptions{
+		Set:     kv[0].Value,
 		Offset:  []byte(""),
 		Limit:   3,
 		Reverse: false,
@@ -1149,7 +1151,14 @@ func testServerScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("set error %s", err)
 	}
 
+	_, err = s.ZAdd(ctx, &schema.ZAddOptions{
+		Key:   Skv.SKVs[0].Key,
+		Score: 1,
+		Set:   []byte("test-set"),
+	})
+
 	scanItem, err := s.ZScanSV(ctx, &schema.ZScanOptions{
+		Set:    []byte("test-set"),
 		Offset: []byte("Albert"),
 		Limit:  1,
 	})
