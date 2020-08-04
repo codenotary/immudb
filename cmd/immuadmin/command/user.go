@@ -170,18 +170,18 @@ func (cl *commandline) userList(args []string) (string, error) {
 	var users string
 	users += fmt.Sprintf("\nUser\tActive\tCreated By\tCreated At\t\t\t\t\tDatabase\tPermission\n")
 	for _, val := range userlist.Users {
-		users += fmt.Sprintf("%s\t%v\t%s\t\t%v\n", string(val.User), val.Active, val.Createdby, val.Createdat)
+		users += fmt.Sprintf("%s\t%v\t%s\t\t%v", string(val.User), val.Active, val.Createdby, val.Createdat)
 		for _, val := range val.Permissions {
-			users += fmt.Sprintf("\t\t\t\t\t\t\t\t\t\t%s\t\t", val.Database)
+			users += fmt.Sprintf("\t%s\t\t", val.Database)
 			switch val.Permission {
 			case auth.PermissionAdmin:
-				users += fmt.Sprintf("Admin\n")
+				users += fmt.Sprintf("Admin")
 			case auth.PermissionSysAdmin:
-				users += fmt.Sprintf("System Admin\n")
+				users += fmt.Sprintf("System Admin")
 			case auth.PermissionR:
-				users += fmt.Sprintf("Read\n")
+				users += fmt.Sprintf("Read")
 			case auth.PermissionRW:
-				users += fmt.Sprintf("Read/Write\n")
+				users += fmt.Sprintf("Read/Write")
 			default:
 				return "", fmt.Errorf("permission value not recognized. Allowed permissions are read, readwrite, admin")
 			}
