@@ -132,6 +132,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
 		hds:            client.NewHomedirService(),
+		newImmuClient:  client.NewImmuClient,
 	}
 	cmdl.login(&cmd)
 

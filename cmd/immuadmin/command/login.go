@@ -17,11 +17,11 @@ limitations under the License.
 package immuadmin
 
 import (
+	"context"
 	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -33,36 +33,62 @@ func (cl *commandline) login(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tokenFileName := cl.immuClient.GetOptions().TokenFileName
 			ctx := cl.context
-			user := args[0]
-			if user != auth.SysAdminUsername {
-				c.QuitToStdErr(fmt.Errorf("Permission denied: user %s has no admin rights", user))
+			userStr := args[0]
+			if userStr != auth.SysAdminUsername {
+				err := fmt.Errorf("Permission denied: user %s has no admin rights", userStr)
+				cl.quit(err)
+				return err
 			}
+			user := []byte(userStr)
 			pass, err := cl.passwordReader.Read("Password:")
 			if err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return err
 			}
-			response, err := cl.immuClient.Login(ctx, []byte(user), pass)
+			responseWarning, err := cl.loginAndRenewClient(ctx, user, pass)
 			if err != nil {
-				c.QuitWithUserError(err)
-			}
-			if err = cl.hds.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
-				c.QuitToStdErr(err)
+				cl.quit(err)
+				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "logged in\n")
-			if cl.immuClient, err = client.NewImmuClient(cl.immuClient.GetOptions()); err != nil {
-				c.QuitWithUserError(err)
-			}
-			if string(response.Warning) == auth.WarnDefaultAdminPassword {
-				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "SECURITY WARNING: %s\n", response.Warning)
-				cl.changeUserPassword(user, pass)
+			if string(responseWarning) == auth.WarnDefaultAdminPassword {
+				c.PrintfColorW(cmd.OutOrStdout(), c.Yellow, "SECURITY WARNING: %s\n", responseWarning)
+				changedPassMsg, newPass, err := cl.changeUserPassword(userStr, pass)
+				if err != nil {
+					cl.quit(err)
+					return err
+				}
+				if _, err := cl.loginAndRenewClient(ctx, user, newPass); err != nil {
+					cl.quit(err)
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), changedPassMsg)
 			}
 			return nil
 		},
 		Args: cobra.ExactArgs(1),
 	}
 	cmd.AddCommand(ccmd)
+}
+
+func (cl *commandline) loginAndRenewClient(
+	ctx context.Context,
+	user []byte,
+	pass []byte,
+) (string, error) {
+	response, err := cl.immuClient.Login(ctx, user, pass)
+	if err != nil {
+		return "", err
+	}
+	tokenFileName := cl.immuClient.GetOptions().TokenFileName
+	if err = cl.hds.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
+		return "", err
+	}
+	if cl.immuClient, err = cl.newImmuClient(cl.immuClient.GetOptions()); err != nil {
+		return "", err
+	}
+	return string(response.GetWarning()), nil
 }
 
 func (cl *commandline) logout(cmd *cobra.Command) {
@@ -73,7 +99,8 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := cl.immuClient.Logout(cl.context); err != nil {
-				c.QuitWithUserError(err)
+				cl.quit(err)
+				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "logged out\n")
 			return nil

@@ -84,7 +84,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 					return fmt.Errorf("Error Reading Password")
 				}
 			}
-			if resp, err = cl.changeUserPassword(username, oldpass); err == nil {
+			if resp, _, err = cl.changeUserPassword(username, oldpass); err == nil {
 				fmt.Fprintf(cmd.OutOrStdout(), resp)
 			}
 			return err
@@ -142,26 +142,27 @@ func (cl *commandline) user(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (string, error) {
+func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (string, []byte, error) {
 	newpass, err := cl.passwordReader.Read(fmt.Sprintf("Choose a password for %s:", username))
 	if err != nil {
-		return "", errors.New("Error Reading Password")
+		return "", nil, errors.New("Error Reading Password")
 	}
 	if err = auth.IsStrongPassword(string(newpass)); err != nil {
-		return "", fmt.Errorf("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
+		return "", nil, errors.New("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol")
 	}
 	pass2, err := cl.passwordReader.Read("Confirm password:")
 	if err != nil {
-		return "", fmt.Errorf("Error Reading Password")
+		return "", nil, errors.New("Error Reading Password")
 	}
 	if !bytes.Equal(newpass, pass2) {
-		return "", fmt.Errorf("Passwords don't match")
+		return "", nil, errors.New("Passwords don't match")
 	}
-	if err := cl.immuClient.ChangePassword(context.Background(), []byte(username), oldpassword, []byte(newpass)); err != nil {
-		return "", err
+	if err := cl.immuClient.ChangePassword(context.Background(), []byte(username), oldpassword, newpass); err != nil {
+		return "", nil, err
 	}
-	return fmt.Sprintf("Password of %s was changed successfuly", username), nil
+	return fmt.Sprintf("%s's password has been changed", username), newpass, nil
 }
+
 func (cl *commandline) userList(args []string) (string, error) {
 	userlist, err := cl.immuClient.ListUsers(context.Background())
 	if err != nil {
