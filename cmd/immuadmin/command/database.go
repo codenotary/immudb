@@ -22,7 +22,6 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (cl *commandline) database(cmd *cobra.Command) {
@@ -41,7 +40,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immuClient.DatabaseList(cl.context, &emptypb.Empty{})
+			resp, err := cl.immuClient.DatabaseList(cl.context)
 			if err != nil {
 				return err
 			}

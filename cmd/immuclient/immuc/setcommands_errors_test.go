@@ -24,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -126,14 +125,14 @@ func TestSetCommandsErrors(t *testing.T) {
 
 	// DatabaseList errors
 	errDbList := errors.New("database list error")
-	immuClientMock.DatabaseListF = func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error) {
+	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return nil, errDbList
 	}
 	_, err = ic.DatabaseList(nil)
 	require.Equal(t, errDbList, err)
 
 	ic.options = &client.Options{CurrentDatabase: "db2"}
-	immuClientMock.DatabaseListF = func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error) {
+	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
 			Databases: []*schema.Database{
 				&schema.Database{Databasename: "db1"},

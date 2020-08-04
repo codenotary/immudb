@@ -33,7 +33,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -109,8 +108,7 @@ func TestUserListErrors(t *testing.T) {
 		return &schema.UserList{
 			Users: []*schema.User{
 				&schema.User{
-					User:       []byte("immudb"),
-					Permission: auth.PermissionSysAdmin,
+					User: []byte("immudb"),
 					Permissions: []*schema.Permission{
 						&schema.Permission{Database: "*", Permission: auth.PermissionSysAdmin},
 					},
@@ -119,8 +117,7 @@ func TestUserListErrors(t *testing.T) {
 					Active:    true,
 				},
 				&schema.User{
-					User:       []byte("user1"),
-					Permission: auth.PermissionAdmin,
+					User: []byte("user1"),
 					Permissions: []*schema.Permission{
 						&schema.Permission{Database: "db2", Permission: auth.PermissionAdmin},
 						&schema.Permission{Database: "db3", Permission: auth.PermissionR},
@@ -345,13 +342,13 @@ func TestUserCreateErrors(t *testing.T) {
 		return nil, nil
 	}
 	errListDatabases := errors.New("list databases error")
-	immuClientMock.DatabaseListF = func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error) {
+	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return nil, errListDatabases
 	}
 	_, err = cl.userCreate(args)
 	require.Equal(t, errListDatabases, err)
 
-	immuClientMock.DatabaseListF = func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error) {
+	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
 			Databases: []*schema.Database{&schema.Database{Databasename: "sysdb"}},
 		}, nil
@@ -359,7 +356,7 @@ func TestUserCreateErrors(t *testing.T) {
 	_, err = cl.userCreate(args)
 	require.Equal(t, fmt.Errorf("Database %s does not exist", databasename), err)
 
-	immuClientMock.DatabaseListF = func(context.Context, *empty.Empty) (*schema.DatabaseListResponse, error) {
+	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
 			Databases: []*schema.Database{
 				&schema.Database{Databasename: "sysdb"},
@@ -414,14 +411,14 @@ func TestUserCreateErrors(t *testing.T) {
 	require.Equal(t, errors.New("Passwords don't match"), err)
 
 	errCreateUser := errors.New("create user error")
-	immuClientMock.CreateUserF = func(context.Context, []byte, []byte, uint32, string) (*schema.UserResponse, error) {
-		return nil, errCreateUser
+	immuClientMock.CreateUserF = func(context.Context, []byte, []byte, uint32, string) error {
+		return errCreateUser
 	}
 	_, err = cl.userCreate(args)
 	require.Equal(t, errCreateUser, err)
 
-	immuClientMock.CreateUserF = func(context.Context, []byte, []byte, uint32, string) (*schema.UserResponse, error) {
-		return &schema.UserResponse{User: []byte(username)}, nil
+	immuClientMock.CreateUserF = func(context.Context, []byte, []byte, uint32, string) error {
+		return nil
 	}
 	resp, err := cl.userCreate(args)
 	require.NoError(t, err)
@@ -459,7 +456,7 @@ func TestUserActivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
+	err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -522,7 +519,7 @@ func TestUserDeactivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
+	err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -561,8 +558,8 @@ func TestUserActivateErrors(t *testing.T) {
 	}
 
 	errSetActiveUser := errors.New("set active user error")
-	immuClientMock.SetActiveUserF = func(context.Context, *schema.SetActiveUserRequest) (*empty.Empty, error) {
-		return nil, errSetActiveUser
+	immuClientMock.SetActiveUserF = func(context.Context, *schema.SetActiveUserRequest) error {
+		return errSetActiveUser
 	}
 	_, err := cl.setActiveUser([]string{"user1"}, true)
 	require.Equal(t, errSetActiveUser, err)
@@ -599,7 +596,7 @@ func TestUserPermission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
+	err = clientb.CreateUser(ctx, []byte("myuser"), []byte("MyUser@9"), auth.PermissionAdmin, "defaultdb")
 	if err != nil {
 		t.Fatal(err)
 	}

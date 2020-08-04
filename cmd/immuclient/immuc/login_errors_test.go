@@ -25,7 +25,6 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/require"
 )
 
@@ -151,8 +150,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	userList := &schema.UserList{
 		Users: []*schema.User{
 			&schema.User{
-				User:       []byte("user1"),
-				Permission: auth.PermissionNone,
+				User: []byte("user1"),
 				Permissions: []*schema.Permission{
 					&schema.Permission{
 						Database:   "db1",
@@ -265,8 +263,8 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 		resp)
 
 	errSetActiveUser := errors.New("set active user error")
-	immuClientMock.SetActiveUserF = func(context.Context, *schema.SetActiveUserRequest) (*empty.Empty, error) {
-		return nil, errSetActiveUser
+	immuClientMock.SetActiveUserF = func(context.Context, *schema.SetActiveUserRequest) error {
+		return errSetActiveUser
 	}
 	resp, err = ic.SetActiveUser([]string{"user1"}, true)
 	require.Equal(t, errSetActiveUser, err)

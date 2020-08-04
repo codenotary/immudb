@@ -35,7 +35,6 @@ message Permission{
 }
 message User {
 	bytes user = 1;
-	uint32 permission = 2;
 	repeated Permission permissions = 3;
 	string createdby = 4;
 	string createdat = 5;
@@ -54,11 +53,6 @@ message CreateUserRequest {
 
 message UserRequest {
 	bytes user = 1;
-}
-
-message UserResponse {
-	bytes user = 1;
-	uint32 permission = 2;
 }
 
 message ChangePasswordRequest {
@@ -339,7 +333,7 @@ service ImmuService {
 		};
 	};
 
-	rpc CreateUser (CreateUserRequest) returns (UserResponse){
+	rpc CreateUser (CreateUserRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user"
 			body: "*"

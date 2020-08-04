@@ -1061,7 +1061,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 }
 
 // CreateUser Creates a new user
-func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*schema.UserResponse, error) {
+func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("CreateUser %+v", *r)
 	loggedInuser := &auth.User{}
 	var err error
@@ -1108,11 +1108,11 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 	if err == nil {
 		return nil, fmt.Errorf("user already exists")
 	}
-	username, _, err := s.insertNewUser(r.User, r.Password, r.GetPermission(), r.Database, true, loggedInuser.Username)
+	_, _, err = s.insertNewUser(r.User, r.Password, r.GetPermission(), r.Database, true, loggedInuser.Username)
 	if err != nil {
 		return nil, err
 	}
-	return &schema.UserResponse{User: username, Permission: r.GetPermission()}, nil
+	return &empty.Empty{}, nil
 }
 
 // ListUsers returns a list of users based on the requesting user permissions

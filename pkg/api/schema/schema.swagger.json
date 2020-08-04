@@ -660,7 +660,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaUserResponse"
+              "properties": {}
             }
           }
         },
@@ -1525,10 +1525,6 @@
           "type": "string",
           "format": "byte"
         },
-        "permission": {
-          "type": "integer",
-          "format": "int64"
-        },
         "permissions": {
           "type": "array",
           "items": {
@@ -1555,19 +1551,6 @@
           "items": {
             "$ref": "#/definitions/schemaUser"
           }
-        }
-      }
-    },
-    "schemaUserResponse": {
-      "type": "object",
-      "properties": {
-        "user": {
-          "type": "string",
-          "format": "byte"
-        },
-        "permission": {
-          "type": "integer",
-          "format": "int64"
         }
       }
     },

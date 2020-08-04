@@ -27,7 +27,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/spf13/cobra"
 )
 
@@ -284,16 +283,16 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 		return "", fmt.Errorf("Passwords don't match")
 	}
 
-	user, err := cl.immuClient.CreateUser(ctx, []byte(username), pass, permission, databasename)
+	err = cl.immuClient.CreateUser(ctx, []byte(username), pass, permission, databasename)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("Created user %s", string(user.GetUser())), nil
+	return fmt.Sprintf("Created user %s", username), nil
 }
 
 func (cl *commandline) setActiveUser(args []string, active bool) (string, error) {
 	username := args[0]
-	_, err := cl.immuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
+	err := cl.immuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
 		Active:   active,
 		Username: username,
 	})
@@ -344,7 +343,7 @@ func dbExists(
 	immuClient client.ImmuClient,
 	dbName string,
 ) (bool, error) {
-	existingDBs, err := immuClient.DatabaseList(ctx, &empty.Empty{})
+	existingDBs, err := immuClient.DatabaseList(ctx)
 	if err != nil {
 		return false, err
 	}

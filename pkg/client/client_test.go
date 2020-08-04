@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/codenotary/immudb/pkg/client/cache"
@@ -444,14 +443,13 @@ func TestDump(t *testing.T) {
 func TestUserManagement(t *testing.T) {
 	setup()
 	_ = client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
-	resp2, err2 := client.CreateUser(context.TODO(), []byte(`test`), []byte(`1Password!*`), auth.PermissionRW, "test")
+	err2 := client.CreateUser(context.TODO(), []byte(`test`), []byte(`1Password!*`), auth.PermissionRW, "test")
 	assert.Nil(t, err2)
-	assert.IsType(t, &schema.UserResponse{}, resp2)
 
 	err3 := client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "test", "test", auth.PermissionRW)
 	assert.Nil(t, err3)
 
-	_, err4 := client.SetActiveUser(context.TODO(), &schema.SetActiveUserRequest{
+	err4 := client.SetActiveUser(context.TODO(), &schema.SetActiveUserRequest{
 		Active:   true,
 		Username: "test",
 	})
@@ -494,7 +492,7 @@ func TestDatabaseManagement(t *testing.T) {
 	err1 := client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
 	assert.Nil(t, err1)
 
-	resp2, err2 := client.DatabaseList(context.TODO(), &empty.Empty{})
+	resp2, err2 := client.DatabaseList(context.TODO())
 
 	assert.Nil(t, err2)
 	assert.IsType(t, &schema.DatabaseListResponse{}, resp2)

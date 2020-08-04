@@ -54,7 +54,7 @@ type ImmuClient interface {
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
 	Logout(ctx context.Context) error
-	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) (*schema.UserResponse, error)
+	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
 	ListUsers(ctx context.Context) (*schema.UserList, error)
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
 	ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error
@@ -100,8 +100,8 @@ type ImmuClient interface {
 	SetupDialOptions(options *Options) *[]grpc.DialOption
 	CreateDatabase(ctx context.Context, d *schema.Database) error
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
-	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error)
-	DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error)
+	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
+	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
 }
 
 type immuClient struct {
@@ -289,19 +289,19 @@ func (c *immuClient) ListUsers(ctx context.Context) (*schema.UserList, error) {
 }
 
 // CreateUser ...
-func (c *immuClient) CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) (*schema.UserResponse, error) {
+func (c *immuClient) CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error {
 	start := time.Now()
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return ErrNotConnected
 	}
-	result, err := c.ServiceClient.CreateUser(ctx, &schema.CreateUserRequest{
+	_, err := c.ServiceClient.CreateUser(ctx, &schema.CreateUserRequest{
 		User:       user,
 		Password:   pass,
 		Permission: permission,
 		Database:   databasename,
 	})
 	c.Logger.Debugf("createuser finished in %s", time.Since(start))
-	return result, err
+	return err
 }
 
 // ChangePassword ...
@@ -1268,22 +1268,22 @@ func (c *immuClient) ChangePermission(ctx context.Context, action schema.Permiss
 	return err
 }
 
-func (c *immuClient) SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) (*empty.Empty, error) {
+func (c *immuClient) SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error {
 	start := time.Now()
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return ErrNotConnected
 	}
-	result, err := c.ServiceClient.SetActiveUser(ctx, u)
+	_, err := c.ServiceClient.SetActiveUser(ctx, u)
 	c.Logger.Debugf("SetActiveUser finished in %s", time.Since(start))
-	return result, err
+	return err
 }
 
-func (c *immuClient) DatabaseList(ctx context.Context, d *empty.Empty) (*schema.DatabaseListResponse, error) {
+func (c *immuClient) DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error) {
 	start := time.Now()
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
-	result, err := c.ServiceClient.DatabaseList(ctx, d)
+	result, err := c.ServiceClient.DatabaseList(ctx, &empty.Empty{})
 	c.Logger.Debugf("DatabaseList finished in %s", time.Since(start))
 	return result, err
 }
