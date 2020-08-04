@@ -24,6 +24,7 @@ import (
 	"text/tabwriter"
 )
 
+// PrintTable prints data (string arrays) in a tabular format
 func PrintTable(w io.Writer, cols []string, nbRows int, getRow func(int) []string) {
 	if nbRows == 0 {
 		return
