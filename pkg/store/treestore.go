@@ -39,8 +39,19 @@ import (
 )
 
 const tsPrefix = byte(0)
+const metaPrefix = byte(128)
+
 const bitReferenceEntry = byte(1)
 const bitTreeEntry = byte(255)
+
+const lastFlushedMetaKey = "lastFlushed"
+
+func metaKey(k []byte) []byte {
+	mk := make([]byte, 1+8)
+	mk[0] = metaPrefix
+	copy(mk[1:], k)
+	return mk
+}
 
 func treeKey(layer uint8, index uint64) []byte {
 	k := make([]byte, 1+1+8)
@@ -151,9 +162,14 @@ func newTreeStore(db *badger.DB, cacheSize uint64, flushLeaves bool, log logger.
 	// load tree state
 	t.loadTreeState()
 
+	if t.w > t.lastFlushed {
+		panic("Entries replay needed")
+	}
+
 	go t.worker()
 
 	t.log.Debugf("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
+
 	return t
 }
 
@@ -168,7 +184,24 @@ func (t *treeStore) loadTreeState() {
 		}
 		t.w = t.cPos[0]
 		t.ts = t.w
-		return nil
+
+		i, err := txn.Get(metaKey([]byte(lastFlushedMetaKey)))
+
+		if err == nil {
+			bs, err := i.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			t.lastFlushed = binary.BigEndian.Uint64(bs)
+			return nil
+		}
+
+		if err == badger.ErrKeyNotFound {
+			t.lastFlushed = 0
+			return nil
+		}
+
+		return err
 	})
 }
 
@@ -364,6 +397,25 @@ func (t *treeStore) flush() {
 					return
 				}
 			}
+		}
+	}
+
+	if !cancel && !emptyCaches {
+		sw := make([]byte, 8)
+		binary.BigEndian.PutUint64(sw, t.w)
+
+		entry := badger.Entry{
+			Key:   metaKey([]byte(lastFlushedMetaKey)),
+			Value: sw,
+		}
+		// only latest value is needed to replay entries
+		entry.WithDiscard()
+
+		if err := wb.SetEntry(&entry); err != nil {
+			t.log.Errorf("Cannot flush tree item: %v", err)
+			t.log.Warningf("Tree flush canceled")
+			cancel = true
+			return
 		}
 	}
 }

@@ -255,7 +255,7 @@ func (t *Store) CountAll() (count uint64) {
 
 // Count returns the number of entris having the specified key prefix
 func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err error) {
-	if len(prefix.Prefix) == 0 || prefix.Prefix[0] == tsPrefix {
+	if len(prefix.Prefix) == 0 || prefix.Prefix[0] == tsPrefix || prefix.Prefix[0] == metaPrefix {
 		err = ErrInvalidKeyPrefix
 		return
 	}
@@ -349,7 +349,7 @@ func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 
 // History fetches the complete history of entries for the specified key
 func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
-	if len(key.Key) == 0 || key.Key[0] == tsPrefix {
+	if len(key.Key) == 0 || key.Key[0] == tsPrefix || key.Key[0] == metaPrefix {
 		err = ErrInvalidKey
 		return
 	}
@@ -375,11 +375,11 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 // Reference adds a new entry who's value is an existing key
 func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	if len(refOpts.Key) == 0 || refOpts.Key[0] == tsPrefix {
+	if len(refOpts.Key) == 0 || refOpts.Key[0] == tsPrefix || refOpts.Key[0] == metaPrefix {
 		err = ErrInvalidKey
 		return
 	}
-	if len(refOpts.Reference) == 0 || refOpts.Reference[0] == tsPrefix {
+	if len(refOpts.Reference) == 0 || refOpts.Reference[0] == tsPrefix || refOpts.Reference[0] == metaPrefix {
 		err = ErrInvalidReference
 		return
 	}
