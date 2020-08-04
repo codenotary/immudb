@@ -168,38 +168,73 @@ func (cl *commandline) userList(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	users := userlist.GetUsers()
+	usersAndPermissions := make([][]string, 0, len(users))
+	maxColWidths := make([]int, 6)
+	for _, user := range users {
+		row := make([]string, 6)
+		permissions := user.GetPermissions()
+		row[0] = string(user.GetUser())
+		row[1] = fmt.Sprintf("%t", user.GetActive())
+		if len(permissions) > 0 {
+			row[2] = permissions[0].Database
+			row[3] = permissionToString(permissions[0].Permission)
+		}
+		row[4] = user.Createdby
+		row[5] = user.Createdat
+		updateMaxLen(maxColWidths, row)
+		usersAndPermissions = append(usersAndPermissions, row)
+		// extra rows for other dbs and permissions
+		if len(permissions) > 1 {
+			for i := 1; i < len(permissions); i++ {
+				row := make([]string, 6)
+				row[2] = permissions[i].Database
+				row[3] = permissionToString(permissions[i].Permission)
+				usersAndPermissions = append(usersAndPermissions, row)
+				updateMaxLen(maxColWidths, row)
+			}
+		}
+	}
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
 	c.PrintTable(
 		w,
-		[]string{"User", "Active", "Database", "Permission", "Created By", "Created At                              "},
-		len(userlist.Users),
-		func(i int) []string {
-			row := make([]string, 6)
-			user := userlist.Users[i]
-			p := user.GetPermissions()[0]
-			row[0] = string(user.GetUser())
-			row[1] = fmt.Sprintf("%v", user.Active)
-			row[2] = p.Database
-			switch p.Permission {
-			case auth.PermissionAdmin:
-				row[3] += fmt.Sprintf("Admin")
-			case auth.PermissionSysAdmin:
-				row[3] += fmt.Sprintf("System Admin")
-			case auth.PermissionR:
-				row[3] += fmt.Sprintf("Read")
-			case auth.PermissionRW:
-				row[3] += fmt.Sprintf("Read/Write")
-			default:
-				row[3] = fmt.Sprintf("unknown: %d", p.Permission)
-			}
-			row[4] = user.Createdby
-			row[5] = user.Createdat
-			return row
+		[]string{
+			fmt.Sprintf("% -*s", maxColWidths[0], "User"),
+			fmt.Sprintf("% -*s", maxColWidths[1], "Active"),
+			fmt.Sprintf("% -*s", maxColWidths[2], "Database"),
+			fmt.Sprintf("% -*s", maxColWidths[3], "Permission"),
+			fmt.Sprintf("% -*s", maxColWidths[4], "Created By"),
+			fmt.Sprintf("% -*s", maxColWidths[5], "Created At"),
 		},
+		len(usersAndPermissions),
+		func(i int) []string { return usersAndPermissions[i] },
 	)
 	w.Flush()
 	return b.String(), nil
+}
+
+func updateMaxLen(maxs []int, strs []string) {
+	for i, str := range strs {
+		if len(str) > maxs[i] {
+			maxs[i] = len(str)
+		}
+	}
+}
+
+func permissionToString(permission uint32) string {
+	switch permission {
+	case auth.PermissionAdmin:
+		return fmt.Sprintf("Admin")
+	case auth.PermissionSysAdmin:
+		return fmt.Sprintf("System Admin")
+	case auth.PermissionR:
+		return fmt.Sprintf("Read")
+	case auth.PermissionRW:
+		return fmt.Sprintf("Read/Write")
+	default:
+		return fmt.Sprintf("unknown: %d", permission)
+	}
 }
 
 func (cl *commandline) userCreate(args []string) (string, error) {

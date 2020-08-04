@@ -134,8 +134,9 @@ func TestUserListErrors(t *testing.T) {
 			},
 		}, nil
 	}
-	_, err = cl.userList(nil)
-	require.Equal(t, errors.New("permission value not recognized. Allowed permissions are read, readwrite, admin"), err)
+	resp, err := cl.userList(nil)
+	require.NoError(t, err)
+	require.Contains(t, resp, "unknown: 999")
 }
 
 func TestUserChangePassword(t *testing.T) {
