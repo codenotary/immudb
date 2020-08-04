@@ -17,10 +17,11 @@ limitations under the License.
 package helper
 
 import (
-	"github.com/codenotary/immudb/cmd/cmdtest"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/cmdtest"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPrintTable(t *testing.T) {
@@ -38,10 +39,30 @@ func TestPrintTable(t *testing.T) {
 			row[0] = elements[i]
 			return row
 		},
+		"",
 	)
 	ris, _ := collector.Stop()
 	assert.Contains(t, ris, "one")
 	assert.Contains(t, ris, "two")
+	assert.Contains(t, ris, "2 row(s)")
+
+	// custom table caption
+	elements[1] = "three"
+	collector.Start()
+	PrintTable(
+		os.Stdout,
+		[]string{"Database Name"},
+		len(elements),
+		func(i int) []string {
+			row := make([]string, 1)
+			row[0] = elements[i]
+			return row
+		},
+		"2 numbers",
+	)
+	ris, _ = collector.Stop()
+	assert.Contains(t, ris, "three")
+	assert.Contains(t, ris, "2 numbers")
 }
 
 func TestPrintTableZeroEle(t *testing.T) {
@@ -57,6 +78,7 @@ func TestPrintTableZeroEle(t *testing.T) {
 			row[0] = elements[i]
 			return row
 		},
+		"",
 	)
 	ris, _ := collector.Stop()
 	assert.Equal(t, "", ris)
@@ -77,6 +99,7 @@ func TestPrintTableZeroCol(t *testing.T) {
 			row[0] = elements[i]
 			return row
 		},
+		"",
 	)
 	ris, _ := collector.Stop()
 	assert.Equal(t, "", ris)

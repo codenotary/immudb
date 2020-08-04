@@ -18,6 +18,7 @@ package immuadmin
 
 import (
 	"fmt"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/spf13/cobra"
@@ -56,6 +57,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 					row[0] += fmt.Sprintf("%s", resp.Databases[i].Databasename)
 					return row
 				},
+				fmt.Sprintf("%d database(s)", len(resp.Databases)),
 			)
 			return nil
 		},
