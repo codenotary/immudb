@@ -722,6 +722,7 @@ func TestZAdd(t *testing.T) {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
 	item, err := db.ZScan(&schema.ZScanOptions{
+		Set:     kv[0].Value,
 		Offset:  []byte(""),
 		Limit:   3,
 		Reverse: false,
@@ -1031,8 +1032,19 @@ func TestZScanSV(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error Inserting to db %s", err)
 		}
+
+		_, err = db.ZAdd(&schema.ZAddOptions{
+			Set:   []byte("test-set"),
+			Key:   val.Skv.Key,
+			Score: 1,
+		})
+		if err != nil {
+			t.Fatalf("Error Inserting to db %s", err)
+		}
 	}
+
 	sc, err := db.ZScanSV(&schema.ZScanOptions{
+		Set:    []byte("test-set"),
 		Offset: []byte("Franz"),
 	})
 	if err != nil {
@@ -1049,8 +1061,17 @@ func TestZScanSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ZScanSV expected error %s", err)
 	}
+	_, err = db.ZAdd(&schema.ZAddOptions{
+		Set:   []byte("test-set"),
+		Key:   []byte("keyboard"),
+		Score: 1,
+	})
+	if err != nil {
+		t.Fatalf("Error Inserting to db %s", err)
+	}
 
 	_, err = db.ZScanSV(&schema.ZScanOptions{
+		Set:    []byte("test-set"),
 		Offset: []byte("keyboard"),
 	})
 	if err == nil {
