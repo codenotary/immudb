@@ -122,6 +122,7 @@ type treeStore struct {
 	c           chan *treeStoreEntry
 	quit        chan struct{}
 	lastFlushed uint64
+	flushLeaves bool
 	db          *badger.DB
 	log         logger.Logger
 	caches      [256]ring.Buffer
@@ -132,16 +133,17 @@ type treeStore struct {
 	closeOnce sync.Once
 }
 
-func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore {
+func newTreeStore(db *badger.DB, cacheSize uint64, flushLeaves bool, log logger.Logger) *treeStore {
 
 	t := &treeStore{
-		db:     db,
-		log:    log,
-		c:      make(chan *treeStoreEntry, cacheSize),
-		quit:   make(chan struct{}),
-		caches: [256]ring.Buffer{},
-		cPos:   [256]uint64{},
-		cSize:  cacheSize,
+		db:          db,
+		log:         log,
+		c:           make(chan *treeStoreEntry, cacheSize),
+		quit:        make(chan struct{}),
+		caches:      [256]ring.Buffer{},
+		flushLeaves: flushLeaves,
+		cPos:        [256]uint64{},
+		cSize:       cacheSize,
 	}
 
 	t.makeCaches()
@@ -334,6 +336,9 @@ func (t *treeStore) flush() {
 		}
 		emptyCaches = false
 		// fmt.Printf("Flushing [l=%d, head=%d, tail=%d] from %d to (%d-1)\n", l, c.Head(), c.Tail(), t.cPos[l], tail)
+		if !t.flushLeaves && l == 0 {
+			continue
+		}
 		for i := t.cPos[l]; i < tail; i++ {
 			if h := c.Get(i); h != nil {
 				var value []byte

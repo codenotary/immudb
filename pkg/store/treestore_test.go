@@ -31,7 +31,7 @@ func TestNewTreeStore(t *testing.T) {
 	defer db.Close()
 	log := logger.NewSimpleLoggerWithLevel("test", os.Stderr, logger.LogDebug)
 
-	ts := newTreeStore(db.DB, 1000, log)
+	ts := newTreeStore(db.DB, 1000, true, log)
 	assert.Zero(t, ts.Width())
 
 	// add two items
@@ -45,7 +45,7 @@ func TestNewTreeStore(t *testing.T) {
 	ts.Close()
 	db.Restart()
 
-	ts = newTreeStore(db.DB, 1000, log)
+	ts = newTreeStore(db.DB, 1000, true, log)
 	assert.Equal(t, uint64(2), ts.Width())
 
 	ts.Close()

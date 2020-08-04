@@ -57,11 +57,9 @@ func Open(options Options, badgerOptions badger.Options) (*Store, error) {
 	t := &Store{
 		db: db,
 		// fixme(leogr): cache size could be calculated using db.MaxBatchCount()
-		tree: newTreeStore(db, 750_000, options.log),
+		tree: newTreeStore(db, 750_000, false, options.log),
 		log:  options.log,
 	}
-
-	// fixme(leogr): need to get all keys inserted after the tree width, if any, and replay
 
 	t.log.Debugf("Store opened at path: %s", badgerOpts.Dir)
 	return t, nil
@@ -124,6 +122,17 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 		Index: ts - 1,
 	}
 
+	for _, leafEntry := range tsEntries {
+		if err = txn.SetEntry(&badger.Entry{
+			Key:      treeKey(uint8(0), leafEntry.ts-1),
+			Value:    refTreeKey(*leafEntry.h, *leafEntry.r),
+			UserMeta: bitTreeEntry,
+		}); err != nil {
+			err = mapError(err)
+			return
+		}
+	}
+
 	cb := func(err error) {
 		if err == nil {
 			for _, entry := range tsEntries {
@@ -158,6 +167,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
+
 	if err = txn.SetEntry(&badger.Entry{
 		Key:   kv.Key,
 		Value: kv.Value,
@@ -169,6 +179,15 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 	tsEntry := t.tree.NewEntry(kv.Key, kv.Value)
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      treeKey(uint8(0), tsEntry.ts-1),
+		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
+		UserMeta: bitTreeEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
 	}
 
 	cb := func(err error) {
@@ -390,6 +409,15 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 		Index: tsEntry.ts - 1,
 	}
 
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      treeKey(uint8(0), tsEntry.ts-1),
+		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
+		UserMeta: bitTreeEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
+	}
+
 	cb := func(err error) {
 		if err == nil {
 			t.tree.Commit(tsEntry)
@@ -449,6 +477,15 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      treeKey(uint8(0), tsEntry.ts-1),
+		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
+		UserMeta: bitTreeEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
 	}
 
 	cb := func(err error) {
