@@ -184,7 +184,7 @@ func TestUserChangePassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(msg), "Password of immudb was changed successfuly") {
+	if !strings.Contains(string(msg), "immudb's password has been changed") {
 		t.Fatal(msg)
 	}
 }
@@ -203,56 +203,58 @@ func TestUserChangePasswordErrors(t *testing.T) {
 	pwReaderMock.ReadF = func(string) ([]byte, error) {
 		return nil, errors.New("password read error")
 	}
-	_, err := cl.changeUserPassword(username, oldPass)
+	_, _, err := cl.changeUserPassword(username, oldPass)
 	require.Equal(t, errors.New("Error Reading Password"), err)
 
 	pwReaderMock.ReadF = func(string) ([]byte, error) {
 		return []byte("weakpass"), nil
 	}
-	_, err = cl.changeUserPassword(username, oldPass)
+	_, _, err = cl.changeUserPassword(username, oldPass)
 	require.Equal(
 		t,
 		errors.New("password does not meet the requirements. It must contain upper and lower case letters, digits, punctuation mark or symbol"),
 		err)
 
 	pwReadCounter := 0
+	goodPass1 := []byte("GoodPass1!")
 	pwReaderMock.ReadF = func(string) ([]byte, error) {
 		pwReadCounter++
 		if pwReadCounter == 1 {
-			return []byte("GoodPass1!"), nil
+			return goodPass1, nil
 		}
 		return nil, errors.New("password read 2 error")
 	}
-	_, err = cl.changeUserPassword(username, oldPass)
+	_, _, err = cl.changeUserPassword(username, oldPass)
 	require.Equal(t, errors.New("Error Reading Password"), err)
 
 	pwReadCounter = 0
 	pwReaderMock.ReadF = func(string) ([]byte, error) {
 		pwReadCounter++
 		if pwReadCounter == 1 {
-			return []byte("GoodPass1!"), nil
+			return goodPass1, nil
 		}
 		return []byte("GoodPass2!"), nil
 	}
-	_, err = cl.changeUserPassword(username, oldPass)
+	_, _, err = cl.changeUserPassword(username, oldPass)
 	require.Equal(t, errors.New("Passwords don't match"), err)
 
 	pwReaderMock.ReadF = func(string) ([]byte, error) {
-		return []byte("GoodPass1!"), nil
+		return goodPass1, nil
 	}
 	errChangePass := errors.New("Change password error")
 	immuClientMock.ChangePasswordF = func(context.Context, []byte, []byte, []byte) error {
 		return errChangePass
 	}
-	_, err = cl.changeUserPassword(username, oldPass)
+	_, _, err = cl.changeUserPassword(username, oldPass)
 	require.Equal(t, errChangePass, err)
 
 	immuClientMock.ChangePasswordF = func(context.Context, []byte, []byte, []byte) error {
 		return nil
 	}
-	resp, err := cl.changeUserPassword(username, oldPass)
+	resp, newPass, err := cl.changeUserPassword(username, oldPass)
 	require.NoError(t, err)
-	require.Equal(t, fmt.Sprintf("Password of %s was changed successfuly", username), resp)
+	require.Equal(t, fmt.Sprintf("%s's password has been changed", username), resp)
+	require.Equal(t, string(goodPass1), string(newPass))
 }
 
 func TestUserCreate(t *testing.T) {

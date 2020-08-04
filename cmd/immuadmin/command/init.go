@@ -36,6 +36,7 @@ func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command 
 	}
 	cl := new(commandline)
 	cl.options = Options()
+	cl.newImmuClient = client.NewImmuClient
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
 	cl.hds = client.NewHomedirService()
