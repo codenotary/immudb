@@ -24,7 +24,7 @@ import (
 func (cl *commandline) printTree(rootCmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "print",
-		Short:             "print Merkle tree",
+		Short:             "Print merkle tree",
 		Aliases:           []string{"prt"},
 		PersistentPreRunE: cl.connect,
 		PersistentPostRun: cl.disconnect,
