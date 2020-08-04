@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"container/heap"
 	"crypto/sha256"
 	"encoding/binary"
@@ -39,18 +40,14 @@ import (
 )
 
 const tsPrefix = byte(0)
-const metaPrefix = byte(128)
 
 const bitReferenceEntry = byte(1)
 const bitTreeEntry = byte(255)
 
-const lastFlushedMetaKey = "lastFlushed"
+const lastFlushedMetaKey = "IMMUDB.METADATA.LAST_FLUSHED_LEAF"
 
-func metaKey(k []byte) []byte {
-	mk := make([]byte, 1+8)
-	mk[0] = metaPrefix
-	copy(mk[1:], k)
-	return mk
+func isReservedKey(key []byte) bool {
+	return len(key) > 0 && (key[0] == tsPrefix || bytes.Equal(key, []byte(lastFlushedMetaKey)))
 }
 
 func treeKey(layer uint8, index uint64) []byte {
@@ -165,11 +162,6 @@ func newTreeStore(db *badger.DB, cacheSize uint64, flushLeaves bool, log logger.
 		return nil, err
 	}
 
-	err = t.commitPendingTreeEntries()
-	if err != nil {
-		return nil, err
-	}
-
 	go t.worker()
 
 	t.log.Debugf("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
@@ -189,7 +181,7 @@ func (t *treeStore) loadTreeState() error {
 		t.w = t.cPos[0]
 		t.ts = t.w
 
-		i, err := txn.Get(metaKey([]byte(lastFlushedMetaKey)))
+		i, err := txn.Get([]byte(lastFlushedMetaKey))
 
 		if err == nil {
 			bs, err := i.ValueCopy(nil)
@@ -207,14 +199,6 @@ func (t *treeStore) loadTreeState() error {
 
 		return err
 	})
-}
-
-func (t *treeStore) commitPendingTreeEntries() error {
-	if t.w > t.lastFlushed {
-		panic("replay not yet supported")
-	}
-
-	return nil
 }
 
 func (t *treeStore) makeCaches() {
@@ -417,7 +401,7 @@ func (t *treeStore) flush() {
 		binary.BigEndian.PutUint64(sw, t.w)
 
 		entry := badger.Entry{
-			Key:   metaKey([]byte(lastFlushedMetaKey)),
+			Key:   []byte(lastFlushedMetaKey),
 			Value: sw,
 		}
 		// only latest value is needed to replay entries

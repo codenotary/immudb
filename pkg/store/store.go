@@ -66,8 +66,37 @@ func Open(options Options, badgerOptions badger.Options) (*Store, error) {
 		log:  options.log,
 	}
 
+	if t.tree.lastFlushed < t.tree.w {
+		t.log.Infof("Replaying %d missing entries...", t.tree.w-t.tree.lastFlushed)
+		err = t.commitPendingTreeEntries()
+		if err != nil {
+			return nil, err
+		}
+		t.log.Infof("All missing entries had been successfully applied!")
+	}
+
 	t.log.Debugf("Store opened at path: %s", badgerOpts.Dir)
 	return t, nil
+}
+
+func (t *Store) commitPendingTreeEntries() error {
+	w := t.tree.w
+	t.tree.w = t.tree.lastFlushed
+
+	for i := t.tree.lastFlushed; i < w; i++ {
+		idx, key, value, err := t.itemAt(i + 1)
+		if err != nil {
+			return err
+		}
+		h := api.Digest(idx, key, value)
+		tsEntry := &treeStoreEntry{
+			ts: i + 1,
+			h:  &h,
+			r:  &key,
+		}
+		t.tree.Commit(tsEntry)
+	}
+	return nil
 }
 
 // Close closes the store
@@ -260,7 +289,7 @@ func (t *Store) CountAll() (count uint64) {
 
 // Count returns the number of entris having the specified key prefix
 func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err error) {
-	if len(prefix.Prefix) == 0 || prefix.Prefix[0] == tsPrefix || prefix.Prefix[0] == metaPrefix {
+	if isReservedKey(prefix.Prefix) {
 		err = ErrInvalidKeyPrefix
 		return
 	}
@@ -354,7 +383,7 @@ func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 
 // History fetches the complete history of entries for the specified key
 func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
-	if len(key.Key) == 0 || key.Key[0] == tsPrefix || key.Key[0] == metaPrefix {
+	if isReservedKey(key.Key) {
 		err = ErrInvalidKey
 		return
 	}
@@ -380,11 +409,11 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 // Reference adds a new entry who's value is an existing key
 func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	if len(refOpts.Key) == 0 || refOpts.Key[0] == tsPrefix || refOpts.Key[0] == metaPrefix {
+	if isReservedKey(refOpts.Key) {
 		err = ErrInvalidKey
 		return
 	}
-	if len(refOpts.Reference) == 0 || refOpts.Reference[0] == tsPrefix || refOpts.Reference[0] == metaPrefix {
+	if isReservedKey(refOpts.Reference) {
 		err = ErrInvalidReference
 		return
 	}

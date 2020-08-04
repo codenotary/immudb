@@ -25,11 +25,11 @@ import (
 
 // Scan fetch the entries having the specified key prefix
 func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err error) {
-	if len(options.Prefix) > 0 && (options.Prefix[0] == tsPrefix || options.Prefix[0] == metaPrefix) {
+	if isReservedKey(options.Prefix) {
 		err = ErrInvalidKeyPrefix
 		return
 	}
-	if len(options.Offset) > 0 && (options.Offset[0] == tsPrefix || options.Offset[0] == metaPrefix) {
+	if isReservedKey(options.Offset) {
 		err = ErrInvalidOffset
 		return
 	}
@@ -103,8 +103,11 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 
 // ZScan The SCAN command is used in order to incrementally iterate over a collection of elements.
 func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err error) {
-
-	if len(options.Offset) > 0 && (options.Offset[0] == tsPrefix || options.Offset[0] == metaPrefix) {
+	if len(options.Set) == 0 || isReservedKey(options.Set) {
+		err = ErrInvalidSet
+		return
+	}
+	if isReservedKey(options.Offset) {
 		err = ErrInvalidOffset
 		return
 	}
