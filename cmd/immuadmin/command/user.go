@@ -17,6 +17,7 @@ limitations under the License.
 package immuadmin
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -167,29 +168,40 @@ func (cl *commandline) userList(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var users string
-	users += fmt.Sprintf("\nUser\tActive\tCreated By\tCreated At\t\t\t\t\tDatabase\tPermission\n")
-	for _, val := range userlist.Users {
-		users += fmt.Sprintf("%s\t%v\t%s\t\t%v", string(val.User), val.Active, val.Createdby, val.Createdat)
-		for _, val := range val.Permissions {
-			users += fmt.Sprintf("\t%s\t\t", val.Database)
-			switch val.Permission {
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+	c.PrintTable(
+		w,
+		[]string{"User", "Active", "Database", "Permission", "Created By", "Created At                              "},
+		len(userlist.Users),
+		func(i int) []string {
+			row := make([]string, 6)
+			user := userlist.Users[i]
+			p := user.GetPermissions()[0]
+			row[0] = string(user.GetUser())
+			row[1] = fmt.Sprintf("%v", user.Active)
+			row[2] = p.Database
+			switch p.Permission {
 			case auth.PermissionAdmin:
-				users += fmt.Sprintf("Admin")
+				row[3] += fmt.Sprintf("Admin")
 			case auth.PermissionSysAdmin:
-				users += fmt.Sprintf("System Admin")
+				row[3] += fmt.Sprintf("System Admin")
 			case auth.PermissionR:
-				users += fmt.Sprintf("Read")
+				row[3] += fmt.Sprintf("Read")
 			case auth.PermissionRW:
-				users += fmt.Sprintf("Read/Write")
+				row[3] += fmt.Sprintf("Read/Write")
 			default:
-				return "", fmt.Errorf("permission value not recognized. Allowed permissions are read, readwrite, admin")
+				row[3] = fmt.Sprintf("unknown: %d", p.Permission)
 			}
-		}
-		users += fmt.Sprintf("\n")
-	}
-	return users, nil
+			row[4] = user.Createdby
+			row[5] = user.Createdat
+			return row
+		},
+	)
+	w.Flush()
+	return b.String(), nil
 }
+
 func (cl *commandline) userCreate(args []string) (string, error) {
 	username := args[0]
 	permissionStr := args[1]
