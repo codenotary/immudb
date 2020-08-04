@@ -18,6 +18,7 @@ package immuadmin
 
 import (
 	"fmt"
+	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -41,17 +42,21 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immuClient.DatabaseList(cl.context, &emptypb.Empty{})
 			if err != nil {
-				cl.quit(err)
+				return err
 			}
-			var dbList string
-			for _, val := range resp.Databases {
-				if cl.options.CurrentDatabase == val.Databasename {
-					dbList += fmt.Sprintf("*")
-				}
-				dbList += fmt.Sprintf("%s\n", val.Databasename)
-
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), dbList+"\n")
+			c.PrintTable(
+				cmd.OutOrStdout(),
+				[]string{"Database Name"},
+				len(resp.Databases),
+				func(i int) []string {
+					row := make([]string, 1)
+					if cl.options.CurrentDatabase == resp.Databases[i].Databasename {
+						row[0] += fmt.Sprintf("*")
+					}
+					row[0] += fmt.Sprintf("%s", resp.Databases[i].Databasename)
+					return row
+				},
+			)
 			return nil
 		},
 		Args: cobra.ExactArgs(0),
