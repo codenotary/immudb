@@ -144,7 +144,7 @@ type treeStore struct {
 	closeOnce sync.Once
 }
 
-func newTreeStore(db *badger.DB, cacheSize uint64, flushLeaves bool, log logger.Logger) *treeStore {
+func newTreeStore(db *badger.DB, cacheSize uint64, flushLeaves bool, log logger.Logger) (*treeStore, error) {
 
 	t := &treeStore{
 		db:          db,
@@ -160,21 +160,25 @@ func newTreeStore(db *badger.DB, cacheSize uint64, flushLeaves bool, log logger.
 	t.makeCaches()
 
 	// load tree state
-	t.loadTreeState()
+	err := t.loadTreeState()
+	if err != nil {
+		return nil, err
+	}
 
-	if t.w > t.lastFlushed {
-		panic("Entries replay needed")
+	err = t.commitPendingTreeEntries()
+	if err != nil {
+		return nil, err
 	}
 
 	go t.worker()
 
 	t.log.Debugf("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
 
-	return t
+	return t, nil
 }
 
-func (t *treeStore) loadTreeState() {
-	t.db.View(func(txn *badger.Txn) error {
+func (t *treeStore) loadTreeState() error {
+	return t.db.View(func(txn *badger.Txn) error {
 		for l := 0; l < 256; l++ {
 			w := treeLayerWidth(uint8(l), txn)
 			if w == 0 {
@@ -203,6 +207,14 @@ func (t *treeStore) loadTreeState() {
 
 		return err
 	})
+}
+
+func (t *treeStore) commitPendingTreeEntries() error {
+	if t.w > t.lastFlushed {
+		panic("replay not yet supported")
+	}
+
+	return nil
 }
 
 func (t *treeStore) makeCaches() {

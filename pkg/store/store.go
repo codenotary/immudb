@@ -54,10 +54,15 @@ func Open(options Options, badgerOptions badger.Options) (*Store, error) {
 		return nil, mapError(err)
 	}
 
+	// fixme(leogr): cache size could be calculated using db.MaxBatchCount()
+	tstore, err := newTreeStore(db, 750_000, false, options.log)
+	if err != nil {
+		return nil, err
+	}
+
 	t := &Store{
-		db: db,
-		// fixme(leogr): cache size could be calculated using db.MaxBatchCount()
-		tree: newTreeStore(db, 750_000, false, options.log),
+		db:   db,
+		tree: tstore,
 		log:  options.log,
 	}
 
