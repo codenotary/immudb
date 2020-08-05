@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"container/heap"
 	"crypto/sha256"
 	"encoding/binary"
@@ -39,8 +40,15 @@ import (
 )
 
 const tsPrefix = byte(0)
+
 const bitReferenceEntry = byte(1)
 const bitTreeEntry = byte(255)
+
+const lastFlushedMetaKey = "IMMUDB.METADATA.LAST_FLUSHED_LEAF"
+
+func isReservedKey(key []byte) bool {
+	return len(key) > 0 && (key[0] == tsPrefix || bytes.Equal(key, []byte(lastFlushedMetaKey)))
+}
 
 func treeKey(layer uint8, index uint64) []byte {
 	k := make([]byte, 1+1+8)
@@ -122,6 +130,7 @@ type treeStore struct {
 	c           chan *treeStoreEntry
 	quit        chan struct{}
 	lastFlushed uint64
+	flushLeaves bool
 	db          *badger.DB
 	log         logger.Logger
 	caches      [256]ring.Buffer
@@ -132,31 +141,36 @@ type treeStore struct {
 	closeOnce sync.Once
 }
 
-func newTreeStore(db *badger.DB, cacheSize uint64, log logger.Logger) *treeStore {
+func newTreeStore(db *badger.DB, cacheSize uint64, flushLeaves bool, log logger.Logger) (*treeStore, error) {
 
 	t := &treeStore{
-		db:     db,
-		log:    log,
-		c:      make(chan *treeStoreEntry, cacheSize),
-		quit:   make(chan struct{}),
-		caches: [256]ring.Buffer{},
-		cPos:   [256]uint64{},
-		cSize:  cacheSize,
+		db:          db,
+		log:         log,
+		c:           make(chan *treeStoreEntry, cacheSize),
+		quit:        make(chan struct{}),
+		caches:      [256]ring.Buffer{},
+		flushLeaves: flushLeaves,
+		cPos:        [256]uint64{},
+		cSize:       cacheSize,
 	}
 
 	t.makeCaches()
 
 	// load tree state
-	t.loadTreeState()
+	err := t.loadTreeState()
+	if err != nil {
+		return nil, err
+	}
 
 	go t.worker()
 
 	t.log.Debugf("Tree of width %d ready with root %x", t.w, merkletree.Root(t))
-	return t
+
+	return t, nil
 }
 
-func (t *treeStore) loadTreeState() {
-	t.db.View(func(txn *badger.Txn) error {
+func (t *treeStore) loadTreeState() error {
+	return t.db.View(func(txn *badger.Txn) error {
 		for l := 0; l < 256; l++ {
 			w := treeLayerWidth(uint8(l), txn)
 			if w == 0 {
@@ -166,7 +180,24 @@ func (t *treeStore) loadTreeState() {
 		}
 		t.w = t.cPos[0]
 		t.ts = t.w
-		return nil
+
+		i, err := txn.Get([]byte(lastFlushedMetaKey))
+
+		if err == nil {
+			bs, err := i.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			t.lastFlushed = binary.BigEndian.Uint64(bs)
+			return nil
+		}
+
+		if err == badger.ErrKeyNotFound {
+			t.lastFlushed = 0
+			return nil
+		}
+
+		return err
 	})
 }
 
@@ -334,6 +365,9 @@ func (t *treeStore) flush() {
 		}
 		emptyCaches = false
 		// fmt.Printf("Flushing [l=%d, head=%d, tail=%d] from %d to (%d-1)\n", l, c.Head(), c.Tail(), t.cPos[l], tail)
+		if !t.flushLeaves && l == 0 {
+			continue
+		}
 		for i := t.cPos[l]; i < tail; i++ {
 			if h := c.Get(i); h != nil {
 				var value []byte
@@ -359,6 +393,25 @@ func (t *treeStore) flush() {
 					return
 				}
 			}
+		}
+	}
+
+	if !cancel && !emptyCaches {
+		sw := make([]byte, 8)
+		binary.BigEndian.PutUint64(sw, t.w)
+
+		entry := badger.Entry{
+			Key:   []byte(lastFlushedMetaKey),
+			Value: sw,
+		}
+		// only latest value is needed to replay entries
+		entry.WithDiscard()
+
+		if err := wb.SetEntry(&entry); err != nil {
+			t.log.Errorf("Cannot flush tree item: %v", err)
+			t.log.Warningf("Tree flush canceled")
+			cancel = true
+			return
 		}
 	}
 }

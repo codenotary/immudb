@@ -54,17 +54,49 @@ func Open(options Options, badgerOptions badger.Options) (*Store, error) {
 		return nil, mapError(err)
 	}
 
+	// fixme(leogr): cache size could be calculated using db.MaxBatchCount()
+	tstore, err := newTreeStore(db, 750_000, false, options.log)
+	if err != nil {
+		return nil, err
+	}
+
 	t := &Store{
-		db: db,
-		// fixme(leogr): cache size could be calculated using db.MaxBatchCount()
-		tree: newTreeStore(db, 750_000, options.log),
+		db:   db,
+		tree: tstore,
 		log:  options.log,
 	}
 
-	// fixme(leogr): need to get all keys inserted after the tree width, if any, and replay
+	if t.tree.lastFlushed < t.tree.w {
+		t.log.Infof("Replaying %d missing entries...", t.tree.w-t.tree.lastFlushed)
+		err = t.commitPendingTreeEntries()
+		if err != nil {
+			return nil, err
+		}
+		t.log.Infof("All missing entries had been successfully applied!")
+	}
 
 	t.log.Debugf("Store opened at path: %s", badgerOpts.Dir)
 	return t, nil
+}
+
+func (t *Store) commitPendingTreeEntries() error {
+	w := t.tree.w
+	t.tree.w = t.tree.lastFlushed
+
+	for i := t.tree.lastFlushed; i < w; i++ {
+		idx, key, value, err := t.itemAt(i + 1)
+		if err != nil {
+			return err
+		}
+		h := api.Digest(idx, key, value)
+		tsEntry := &treeStoreEntry{
+			ts: i + 1,
+			h:  &h,
+			r:  &key,
+		}
+		t.tree.Commit(tsEntry)
+	}
+	return nil
 }
 
 // Close closes the store
@@ -124,6 +156,17 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 		Index: ts - 1,
 	}
 
+	for _, leafEntry := range tsEntries {
+		if err = txn.SetEntry(&badger.Entry{
+			Key:      treeKey(uint8(0), leafEntry.ts-1),
+			Value:    refTreeKey(*leafEntry.h, *leafEntry.r),
+			UserMeta: bitTreeEntry,
+		}); err != nil {
+			err = mapError(err)
+			return
+		}
+	}
+
 	cb := func(err error) {
 		if err == nil {
 			for _, entry := range tsEntries {
@@ -158,6 +201,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 	}
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
+
 	if err = txn.SetEntry(&badger.Entry{
 		Key:   kv.Key,
 		Value: kv.Value,
@@ -169,6 +213,15 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 	tsEntry := t.tree.NewEntry(kv.Key, kv.Value)
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      treeKey(uint8(0), tsEntry.ts-1),
+		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
+		UserMeta: bitTreeEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
 	}
 
 	cb := func(err error) {
@@ -236,7 +289,7 @@ func (t *Store) CountAll() (count uint64) {
 
 // Count returns the number of entris having the specified key prefix
 func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err error) {
-	if len(prefix.Prefix) == 0 || prefix.Prefix[0] == tsPrefix {
+	if isReservedKey(prefix.Prefix) {
 		err = ErrInvalidKeyPrefix
 		return
 	}
@@ -330,7 +383,7 @@ func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 
 // History fetches the complete history of entries for the specified key
 func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
-	if len(key.Key) == 0 || key.Key[0] == tsPrefix {
+	if isReservedKey(key.Key) {
 		err = ErrInvalidKey
 		return
 	}
@@ -356,11 +409,11 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 // Reference adds a new entry who's value is an existing key
 func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	if len(refOpts.Key) == 0 || refOpts.Key[0] == tsPrefix {
+	if isReservedKey(refOpts.Key) {
 		err = ErrInvalidKey
 		return
 	}
-	if len(refOpts.Reference) == 0 || refOpts.Reference[0] == tsPrefix {
+	if isReservedKey(refOpts.Reference) {
 		err = ErrInvalidReference
 		return
 	}
@@ -388,6 +441,15 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 	tsEntry := t.tree.NewEntry(refOpts.Reference, i.Key())
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      treeKey(uint8(0), tsEntry.ts-1),
+		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
+		UserMeta: bitTreeEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
 	}
 
 	cb := func(err error) {
@@ -449,6 +511,15 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
+	}
+
+	if err = txn.SetEntry(&badger.Entry{
+		Key:      treeKey(uint8(0), tsEntry.ts-1),
+		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
+		UserMeta: bitTreeEntry,
+	}); err != nil {
+		err = mapError(err)
+		return
 	}
 
 	cb := func(err error) {

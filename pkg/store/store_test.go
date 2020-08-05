@@ -183,7 +183,7 @@ func TestDump(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(lists))
-	assert.Equal(t, 17, len(lists[0].Kv), "All keys was retrieved")
+	assert.Equal(t, 18, len(lists[0].Kv), "All keys was retrieved")
 }
 
 func TestLargeDump(t *testing.T) {
