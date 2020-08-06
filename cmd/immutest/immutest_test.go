@@ -30,25 +30,6 @@ import (
 
 var homedirContent []byte
 
-func newHomedirServiceMock() *clienttest.HomedirServiceMock {
-	return &clienttest.HomedirServiceMock{
-		WriteFileToUserHomeDirF: func(content []byte, pathToFile string) error {
-			homedirContent = content
-			return nil
-		},
-		FileExistsInUserHomeDirF: func(pathToFile string) (bool, error) {
-			return len(homedirContent) > 0, nil
-		},
-		ReadFileFromUserHomeDirF: func(pathToFile string) (string, error) {
-			return string(homedirContent), nil
-		},
-		DeleteFileFromUserHomeDirF: func(pathToFile string) error {
-			homedirContent = nil
-			return nil
-		},
-	}
-}
-
 func TestImmutest(t *testing.T) {
 	viper.Set("database", "defaultdb")
 	viper.Set("user", "immudb")
@@ -59,7 +40,7 @@ func TestImmutest(t *testing.T) {
 			return client.DefaultOptions()
 		},
 		LoginF: func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
-			return &schema.LoginResponse{Token: []byte("token")}, nil
+			return &schema.LoginResponse{Token: "token"}, nil
 		},
 		DisconnectF: func() error { return nil },
 		UseDatabaseF: func(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error) {
@@ -108,4 +89,23 @@ func TestImmutest(t *testing.T) {
 			require.Equal(t, icErr, err)
 		},
 		[]string{"3"})
+}
+
+func newHomedirServiceMock() *clienttest.HomedirServiceMock {
+	return &clienttest.HomedirServiceMock{
+		WriteFileToUserHomeDirF: func(content []byte, pathToFile string) error {
+			homedirContent = content
+			return nil
+		},
+		FileExistsInUserHomeDirF: func(pathToFile string) (bool, error) {
+			return len(homedirContent) > 0, nil
+		},
+		ReadFileFromUserHomeDirF: func(pathToFile string) (string, error) {
+			return string(homedirContent), nil
+		},
+		DeleteFileFromUserHomeDirF: func(pathToFile string) error {
+			homedirContent = nil
+			return nil
+		},
+	}
 }

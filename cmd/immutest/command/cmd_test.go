@@ -34,7 +34,7 @@ func TestImmutest(t *testing.T) {
 	data := map[string]string{}
 	var index uint64
 	loginFOK := func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
-		return &schema.LoginResponse{Token: []byte("token")}, nil
+		return &schema.LoginResponse{Token: "token"}, nil
 	}
 	disconnectFOK := func() error { return nil }
 	useDatabaseFOK := func(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error) {

@@ -57,7 +57,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	require.Equal(t, "authentication is disabled on server", resp)
 
 	immuClientMock.LoginF = func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
-		return &schema.LoginResponse{Token: []byte("token1")}, nil
+		return &schema.LoginResponse{Token: "token1"}, nil
 	}
 	immuClientMock.GetOptionsF = func() *client.Options {
 		return &client.Options{TokenFileName: "TestLoginErrors_token"}

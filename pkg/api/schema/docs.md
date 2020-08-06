@@ -433,7 +433,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| token | [bytes](#bytes) |  |  |
+| token | [string](#string) |  |  |
 | warning | [bytes](#bytes) |  |  |
 
 

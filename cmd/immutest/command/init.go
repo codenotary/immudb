@@ -140,7 +140,7 @@ func login(
 		response, err := immuClient.Login(ctx, []byte(user), []byte(defaultPassword))
 		if err == nil {
 			tokenFileName := immuClient.GetOptions().TokenFileName
-			if err := hds.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
+			if err := hds.WriteFileToUserHomeDir([]byte(response.GetToken()), tokenFileName); err != nil {
 				cl.onError(err)
 				return
 			}
@@ -159,7 +159,7 @@ func login(
 		return
 	}
 	tokenFileName := immuClient.GetOptions().TokenFileName
-	if err := hds.WriteFileToUserHomeDir(response.GetToken(), tokenFileName); err != nil {
+	if err := hds.WriteFileToUserHomeDir([]byte(response.GetToken()), tokenFileName); err != nil {
 		cl.onError(err)
 		return
 	}

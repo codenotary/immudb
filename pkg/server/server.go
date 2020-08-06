@@ -458,7 +458,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if err != nil {
 		return nil, err
 	}
-	loginResponse := &schema.LoginResponse{Token: []byte(token)}
+	loginResponse := &schema.LoginResponse{Token: token}
 	if u.Username == auth.SysAdminUsername && string(r.GetPassword()) == auth.SysAdminPassword {
 		loginResponse.Warning = []byte(auth.WarnDefaultAdminPassword)
 	}

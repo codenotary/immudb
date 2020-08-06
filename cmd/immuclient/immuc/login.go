@@ -43,7 +43,7 @@ func (i *immuc) Login(args []string) (string, error) {
 		return "", errors.New("username or password is not valid")
 	}
 	tokenFileName := i.ImmuClient.GetOptions().TokenFileName
-	if err = i.hds.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
+	if err = i.hds.WriteFileToUserHomeDir([]byte(response.Token), tokenFileName); err != nil {
 		return "", err
 	}
 	i.ImmuClient.GetOptions().Auth = true
