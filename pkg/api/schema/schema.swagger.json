@@ -1203,8 +1203,7 @@
       "type": "object",
       "properties": {
         "token": {
-          "type": "string",
-          "format": "byte"
+          "type": "string"
         },
         "warning": {
           "type": "string",

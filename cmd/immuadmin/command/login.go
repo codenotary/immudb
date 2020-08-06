@@ -82,7 +82,7 @@ func (cl *commandline) loginAndRenewClient(
 		return "", err
 	}
 	tokenFileName := cl.immuClient.GetOptions().TokenFileName
-	if err = cl.hds.WriteFileToUserHomeDir(response.Token, tokenFileName); err != nil {
+	if err = cl.hds.WriteFileToUserHomeDir([]byte(response.Token), tokenFileName); err != nil {
 		return "", err
 	}
 	if cl.immuClient, err = cl.newImmuClient(cl.immuClient.GetOptions()); err != nil {

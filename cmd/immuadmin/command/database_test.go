@@ -35,7 +35,7 @@ func TestDatabaseList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir(token.Token, ""); err != nil {
+	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,7 +88,7 @@ func TestDatabaseCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir(token.Token, ""); err != nil {
+	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
 		t.Fatal(err)
 	}
 

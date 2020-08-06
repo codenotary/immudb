@@ -223,7 +223,7 @@ func TestBackup(t *testing.T) {
 	clb.options = client.DefaultOptions()
 
 	loginFOK := func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
-		return &schema.LoginResponse{Token: []byte("token")}, nil
+		return &schema.LoginResponse{Token: "token"}, nil
 	}
 	immuClientMock := &clienttest.ImmuClientMock{
 		LoginF: loginFOK,
@@ -529,7 +529,7 @@ func TestRestore(t *testing.T) {
 	clb.options = client.DefaultOptions()
 
 	loginFOK := func(context.Context, []byte, []byte) (*schema.LoginResponse, error) {
-		return &schema.LoginResponse{Token: []byte("token")}, nil
+		return &schema.LoginResponse{Token: "token"}, nil
 	}
 	immuClientMock := &clienttest.ImmuClientMock{
 		LoginF: loginFOK,
