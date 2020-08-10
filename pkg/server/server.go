@@ -367,9 +367,10 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 	for _, val := range dirs {
 		//dbname is the directory name where it is stored
 		//path iteration above stores the directories as data/db_name
-		pathparts := strings.Split(val, "/")
+		pathparts := strings.Split(val, string(filepath.Separator))
 		dbname := pathparts[len(pathparts)-1]
-		op := DefaultOption().WithDbName(dbname).WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
+		op := DefaultOption().WithDbName(dbname).WithDbRootPath(dataDir).
+			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
 		db, err := OpenDb(op, s.Logger)
 		if err != nil {
 			return err
