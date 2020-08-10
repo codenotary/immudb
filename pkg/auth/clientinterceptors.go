@@ -18,6 +18,7 @@ package auth
 
 import (
 	"context"
+	"google.golang.org/grpc/metadata"
 
 	"google.golang.org/grpc"
 )
@@ -68,8 +69,14 @@ type TokenAuth struct {
 
 // GetRequestMetadata callback which returns the Bearer token to be set in request metadata
 func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
+	var token string
+	if md, ok := metadata.FromOutgoingContext(ctx); ok && len(md.Get("authorization")) > 0 {
+		token = md.Get("authorization")[0]
+	} else {
+		token = t.Token
+	}
 	return map[string]string{
-		"authorization": "Bearer " + t.Token,
+		"authorization": "Bearer " + token,
 	}, nil
 }
 
