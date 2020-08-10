@@ -591,25 +591,29 @@ You can find an example video here:
 
 
 ## News
-`June 16th, 2020` - **[immudb v0.6.2 released!](https://github.com/codenotary/immudb/releases)**
+`August 10th, 2020` - **[immudb v0.7.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.7.0)**
 
-Release v0.6.2 Release v0.6.2 ringbuffer management fix, improved user management for automatic deployment, improved container support
+Release v0.7.0 multi-database support, more resilience, even better performance, improved documentation
 
-`June 9th, 2020` - **[immudb v0.6.1 released!](https://github.com/codenotary/immudb/releases)**
+`June 16th, 2020` - **[immudb v0.6.2 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.2)**
+
+Release v0.6.2 ringbuffer management fix, improved user management for automatic deployment, improved container support
+
+`June 9th, 2020` - **[immudb v0.6.1 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.1)**
 
 Release v0.6.1 fixes some important bugs and has many improvements - we recommend updating to it
 
-`May 28, 2020` - **[immudb v0.6.0 GA released!](https://github.com/codenotary/immudb/releases)**
+`May 28, 2020` - **[immudb v0.6.0 GA released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0)**
 
 We're thrilled to announce our GA Release v0.6.0 that contains many improvements, bug fixes and new audit features.
 
 
-`May 19, 2020` - **[immudb v0.6.0-rc2 released!](https://github.com/codenotary/immudb/releases)**
+`May 19, 2020` - **[immudb v0.6.0-rc2 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0-RC2)**
 
 Release v0.6.0-rc2 is our second public release and contains an all new immuclient CLI as well as a built-in Trust Checker that does a server based continous consistency check.
 
 
-`May 11, 2020` - **[immudb v0.6.0-rc1 released!](https://github.com/codenotary/immudb/releases)**
+`May 11, 2020` - **[immudb v0.6.0-rc1 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0-RC1)**
 
 Release v0.6.0-rc1 is our first release to the public. While we were using immudb for quite some time in the [codenotary.io](https://www.codenotary.io) platform, we're thrilled to finally release it to the Open Source community (Apache 2 license).
 
