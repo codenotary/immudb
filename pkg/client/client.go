@@ -135,6 +135,9 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	c.WithTokenService(options.Tkns.WithTokenFileName(options.TokenFileName))
 
 	options.DialOptions = c.SetupDialOptions(options)
+	if db, err := options.Tkns.GetDatabase(); err == nil && len(db) > 0 {
+		options.CurrentDatabase = db
+	}
 
 	c.WithOptions(options)
 
@@ -1249,6 +1252,9 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 		return nil, ErrNotConnected
 	}
 	result, err := c.ServiceClient.UseDatabase(ctx, db)
+
+	c.Options.CurrentDatabase = db.Databasename
+
 	c.Logger.Debugf("UseDatabase finished in %s", time.Since(start))
 	return result, err
 }
