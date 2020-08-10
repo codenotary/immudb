@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/metadata"
 	"log"
 	"net"
 	"net/http"
@@ -89,6 +90,39 @@ func TestGw(t *testing.T) {
 	testHistoryHandler(t, mux, immuClient)
 	testSafeReferenceHandler(t, mux, immuClient)
 	testSafeZAddHandler(t, mux, immuClient)
+}
+
+func TestAuthGw(t *testing.T) {
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true))
+	bs.Start()
+	nm, _ := newNtpMock()
+	immuClient := newClient(bs.Dialer).WithTimestampService(client.NewTimestampService(nm))
+
+	ctx := context.Background()
+
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+	pr := &PasswordReader{
+		Pass: []string{"immudb"},
+	}
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(client.NewHomedirService())
+	cliopt := client.DefaultOptions().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+	cliopt.PasswordReader = pr
+	cliopt.DialOptions = &dialOptions
+
+	cli, _ := client.NewImmuClient(cliopt)
+	lresp, err := cli.Login(ctx, []byte("immudb"), []byte("immudb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	md := metadata.Pairs("authorization", lresp.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	require.NoError(t, immuClient.HealthCheck(ctx))
+	mux := runtime.NewServeMux()
+	testUseDatabaseHandler(t, ctx, mux, immuClient)
 }
 
 func testHandler(
@@ -184,4 +218,18 @@ func requireResponseFieldsEqual(
 		require.Equal(
 			t, expected, fieldValue, notEqPattern, body, field, expected, fieldValue)
 	}
+}
+
+type PasswordReader struct {
+	Pass       []string
+	callNumber int
+}
+
+func (pr *PasswordReader) Read(msg string) ([]byte, error) {
+	if len(pr.Pass) <= pr.callNumber {
+		log.Fatal("Application requested the password more times than number of passwords supplied")
+	}
+	pass := []byte(pr.Pass[pr.callNumber])
+	pr.callNumber++
+	return pass, nil
 }
