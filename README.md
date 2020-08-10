@@ -446,7 +446,7 @@ Flags:
   -m, --mtls                    enable mutual tls
       --pkey string             server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
       --servername string       used to verify the hostname on the returned certificates (default "localhost")
-      --tokenfile string        authentication token file (default path is $HOME or binary location; the supplied value will be automatically suffixed with _admin; default filename is token_admin) (default "token")
+      --tokenfile string        authentication token file (default path is $HOME or binary location; the supplied value will be automatically suffixed with _admin; default filename is token_admin) (default "token-0.7.0")
 
 Use "immuadmin [command] --help" for more information about a command.
 

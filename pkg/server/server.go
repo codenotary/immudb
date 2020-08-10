@@ -352,10 +352,10 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 		}
 		//get only first child directories, exclude datadir, exclude systemdb dir
 		if info.IsDir() &&
-			(strings.Count(path, string(filepath.Separator)) == 1) &&
 			(dataDir != path) &&
 			!strings.Contains(path, s.Options.GetSystemAdminDbName()) &&
-			!strings.Contains(path, s.Options.GetDefaultDbName()) {
+			!strings.Contains(path, s.Options.GetDefaultDbName()) &&
+			!strings.Contains(path, "config"){
 			dirs = append(dirs, path)
 		}
 		return nil
