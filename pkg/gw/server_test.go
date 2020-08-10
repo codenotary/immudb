@@ -45,7 +45,7 @@ func TestImmuGwServer_Start(t *testing.T) {
 		DialOptions: &[]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 		},
-		HDS: clienttest.DefaultHomedirServiceMock(),
+		Tkns: client.NewTokenService().WithTokenFileName("tokenFileName").WithHds(clienttest.DefaultHomedirServiceMock()),
 	}
 
 	l := logger.NewSimpleLogger("test", os.Stdout)
@@ -81,7 +81,7 @@ func TestImmuGwServer_StartWithAuditor(t *testing.T) {
 		DialOptions: &[]grpc.DialOption{
 			grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 		},
-		HDS: clienttest.DefaultHomedirServiceMock(),
+		Tkns: client.NewTokenService().WithTokenFileName("tokenFileName").WithHds(clienttest.DefaultHomedirServiceMock()),
 	}
 
 	l := logger.NewSimpleLogger("test", os.Stdout)

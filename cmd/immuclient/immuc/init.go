@@ -28,7 +28,7 @@ type immuc struct {
 	valueOnly      bool
 	options        *client.Options
 	isLoggedin     bool
-	hds            client.HomedirService
+	ts             client.Token_service
 }
 
 // Client ...
@@ -74,14 +74,14 @@ type Client interface {
 func Init(opts *client.Options) (Client, error) {
 	ic := new(immuc)
 	ic.passwordReader = opts.PasswordReader
-	ic.hds = opts.HDS
+	ic.ts = opts.Tkns
 	ic.options = opts
 	return ic, nil
 }
 
 func (i *immuc) Connect(args []string) error {
-	len, err := i.hds.ReadFileFromUserHomeDir(i.options.TokenFileName)
-	if err != nil || len == "" {
+	ok, err := i.ts.IsTokenPresent()
+	if err != nil || !ok {
 		i.options.Auth = false
 	} else {
 		i.options.Auth = true

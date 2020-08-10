@@ -49,8 +49,8 @@ func (c *immuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *
 	return c
 }
 
-func (c *immuClient) WithHomedirService(homedirService HomedirService) *immuClient {
-	c.hds = homedirService
+func (c *immuClient) WithTokenService(tokenService Token_service) *immuClient {
+	c.Tkns = tokenService
 	return c
 }
 

@@ -41,7 +41,7 @@ type Options struct {
 	TokenFileName      string
 	CurrentDatabase    string
 	PasswordReader     c.PasswordReader
-	HDS                HomedirService
+	Tkns               Token_service
 	Metrics            bool
 	PidPath            string
 	PrometheusHost     string
@@ -62,7 +62,7 @@ func DefaultOptions() *Options {
 		TokenFileName:      "token",
 		DialOptions:        &[]grpc.DialOption{},
 		PasswordReader:     c.DefaultPasswordReader,
-		HDS:                NewHomedirService(),
+		Tkns:               NewTokenService().WithTokenFileName("token").WithHds(NewHomedirService()),
 		Metrics:            true,
 		PidPath:            "",
 		PrometheusHost:     "",
@@ -174,9 +174,9 @@ func (o *Options) WithPasswordReader(pr c.PasswordReader) *Options {
 	return o
 }
 
-// WithHomedirService sets the HomedirService for the client
-func (o *Options) WithHomedirService(hds HomedirService) *Options {
-	o.HDS = hds
+// WithTokenService sets the TokenService for the client
+func (o *Options) WithTokenService(tkns Token_service) *Options {
+	o.Tkns = tkns
 	return o
 }
 

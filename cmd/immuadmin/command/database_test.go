@@ -26,8 +26,8 @@ func TestDatabaseList(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds)
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -35,7 +35,7 @@ func TestDatabaseList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
+	if err = ts.SetToken("", token.Token); err != nil {
 		t.Fatal(err)
 	}
 
@@ -44,7 +44,7 @@ func TestDatabaseList(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		hds:            hds,
+		ts:             ts,
 	}
 
 	cmd := cobra.Command{}
@@ -75,12 +75,13 @@ func TestDatabaseCreate(t *testing.T) {
 		Pass: []string{"immudb"},
 	}
 	hds := &immuclienttest.HomedirServiceMock{}
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -88,7 +89,7 @@ func TestDatabaseCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
+	if err = ts.SetToken("", token.Token); err != nil {
 		t.Fatal(err)
 	}
 
@@ -97,7 +98,7 @@ func TestDatabaseCreate(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		hds:            hds,
+		ts:             ts,
 	}
 
 	cmd := cobra.Command{}

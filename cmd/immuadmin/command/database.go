@@ -98,8 +98,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 			cl.immuClient.GetOptions().CurrentDatabase = args[0]
-			tokenFileName := cl.immuClient.GetOptions().TokenFileName
-			if err = cl.hds.WriteFileToUserHomeDir([]byte(resp.Token), tokenFileName); err != nil {
+			if err = cl.ts.SetToken("", resp.Token); err != nil {
 				return err
 			}
 

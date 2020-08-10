@@ -39,7 +39,7 @@ func Init(rootCmd *cobra.Command, cmdName string, cfgFn *string) *cobra.Command 
 	cl.newImmuClient = client.NewImmuClient
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
-	cl.hds = client.NewHomedirService()
+	cl.ts = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
 
 	cl.user(rootCmd)
 	cl.login(rootCmd)

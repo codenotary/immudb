@@ -55,7 +55,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		hds:            newHomedirServiceMock(),
+		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName"),
 	}
 
 	cmdso := &cobra.Command{}
@@ -94,7 +94,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		hds:            newHomedirServiceMock(),
+		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName"),
 	}
 
 	cmdso := &cobra.Command{}

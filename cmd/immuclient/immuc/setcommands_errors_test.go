@@ -163,7 +163,7 @@ func TestSetCommandsErrors(t *testing.T) {
 		return &client.Options{TokenFileName: "sometokenfile"}
 	}
 	hdsMock := clienttest.DefaultHomedirServiceMock()
-	ic.hds = hdsMock
+	ic.ts = client.NewTokenService().WithHds(hdsMock)
 	errWriteFileToHomeDir := errors.New("write file to home dir errror")
 	hdsMock.WriteFileToUserHomeDirF = func(content []byte, pathToFile string) error {
 		return errWriteFileToHomeDir

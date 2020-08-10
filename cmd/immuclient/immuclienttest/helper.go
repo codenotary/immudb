@@ -32,7 +32,7 @@ import (
 
 type clientTest struct {
 	Imc     immuc.Client
-	Hds     client.HomedirService
+	Ts      client.Token_service
 	Options client.Options
 	Pr      helper.PasswordReader
 }
@@ -62,10 +62,10 @@ func (h *HomedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string,
 func NewDefaultClientTest() *clientTest {
 	return &clientTest{}
 }
-func NewClientTest(pr helper.PasswordReader, hds client.HomedirService) *clientTest {
+func NewClientTest(pr helper.PasswordReader, tkns client.Token_service) *clientTest {
 	return &clientTest{
-		Hds: hds,
-		Pr:  pr,
+		Ts: tkns,
+		Pr: pr,
 	}
 }
 
@@ -75,7 +75,7 @@ func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 	}
 
 	ic, err := immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(c.Pr).
-		WithHomedirService(c.Hds))
+		WithTokenService(c.Ts))
 	err = ic.Connect([]string{""})
 	if err != nil {
 		log.Fatal(err)

@@ -92,11 +92,10 @@ func Immugw(immugwServer gw.ImmuGw) func(*cobra.Command, []string) error {
 			Auth:               true,
 			Config:             "",
 			DialOptions:        &[]grpc.DialOption{},
-			HDS:                client.NewHomedirService(),
 		}
 
 		immuGwServer := immugwServer.
-			WithOptions(options).WithCliOptions(cliOpts)
+			WithOptions(options).WithCliOptions(*cliOpts.WithTokenService(client.NewTokenService().WithHds(client.NewHomedirService())))
 		if options.Logfile != "" {
 			if flogger, file, err := logger.NewFileLogger("immugw ", options.Logfile); err == nil {
 				defer func() {

@@ -49,7 +49,7 @@ func TestStats_Status(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		hds:            &clienttest.HomedirServiceMock{},
+		ts:             client.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
 	}
 
 	cl.status(&cmd)
@@ -92,7 +92,7 @@ func TestStats_StatsText(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		hds:            &clienttest.HomedirServiceMock{},
+		ts:             client.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
 	}
 
 	cl.stats(&cmd)
@@ -134,7 +134,7 @@ func TestStats_StatsRaw(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: &clienttest.PasswordReaderMock{},
 		context:        context.Background(),
-		hds:            &clienttest.HomedirServiceMock{},
+		ts:             client.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
 	}
 
 	cl.stats(&cmd)
