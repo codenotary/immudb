@@ -17,6 +17,7 @@ limitations under the License.
 package immuc_test
 
 import (
+	"github.com/codenotary/immudb/pkg/client"
 	"strings"
 	"testing"
 
@@ -29,9 +30,10 @@ func TestZScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -53,9 +55,10 @@ func TestIScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 	_, err := ic.Imc.SafeSet([]string{"key", "val"})
@@ -77,9 +80,10 @@ func TestScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 	_, err := ic.Imc.Set([]string{"key", "val"})
@@ -100,9 +104,10 @@ func TestCount(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 

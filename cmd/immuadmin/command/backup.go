@@ -83,7 +83,7 @@ func newCommandlineBck(os immuos.OS) (*commandlineBck, error) {
 	cl.options = Options()
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
-	cl.hds = client.NewHomedirService()
+	cl.ts = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
 	cl.os = os
 	tr := c.NewTerminalReader(stdos.Stdin)
 

@@ -50,7 +50,7 @@ func TestCommandLine_PrintTree(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		hds:            newHomedirServiceMock(),
+		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName"),
 	}
 
 	cl.printTree(&cmd)

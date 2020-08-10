@@ -35,7 +35,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	ic := new(immuc)
 	ic.ImmuClient = immuClientMock
 	ic.passwordReader = passwordReaderMock
-	ic.hds = homedirServiceMock
+	ic.ts = client.NewTokenService().WithHds(homedirServiceMock)
 
 	// Login errors
 	passwordReadErr := errors.New("Password read error")
@@ -82,12 +82,15 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "User not logged in.", resp)
 	homedirServiceMock.ReadFileFromUserHomeDirF = func(string) (string, error) {
-		return "token1", nil
+		return string(client.BuildToken("", "token1")), nil
 	}
 
 	errDeleteFileFromHomeDir := errors.New("delete file from home dir error")
 	homedirServiceMock.DeleteFileFromUserHomeDirF = func(string) error {
 		return errDeleteFileFromHomeDir
+	}
+	homedirServiceMock.FileExistsInUserHomeDirF = func(string) (bool, error) {
+		return true, nil
 	}
 	_, err = ic.Logout(nil)
 	require.Equal(t, errDeleteFileFromHomeDir, err)

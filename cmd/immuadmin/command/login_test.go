@@ -82,7 +82,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		hds:            newHomedirServiceMock(),
+		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName"),
 	}
 	_ = cmdl.connect(&cobra.Command{}, []string{})
 
@@ -126,12 +126,13 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	}
 	cliopt := Options()
 	cliopt.DialOptions = &dialOptions
+	cliopt.Tkns = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("_admin")
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     &scIClientInnerMock{cliopt, *new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		hds:            client.NewHomedirService(),
+		ts:             client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("_admin"),
 		newImmuClient:  client.NewImmuClient,
 	}
 	cmdl.login(&cmd)
@@ -151,7 +152,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		hds:            client.NewHomedirService(),
+		ts:             client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("_admin"),
 	}
 	b1 := bytes.NewBufferString("")
 	logoutcmd := cobra.Command{}
@@ -192,7 +193,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	cl1 := new(commandline)
 	cl1.context = context.Background()
 	cl1.passwordReader = pwReaderMock
-	cl1.hds = newHomedirServiceMock()
+	cl1.ts = client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName")
 	dialOptions1 := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}

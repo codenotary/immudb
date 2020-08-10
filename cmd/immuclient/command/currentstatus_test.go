@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/pkg/client"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -32,10 +33,10 @@ func TestCurrentRoot(t *testing.T) {
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
-
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 

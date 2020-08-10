@@ -223,8 +223,8 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 		return "", err
 	}
 	i.ImmuClient.GetOptions().CurrentDatabase = dbname
-	tokenFileName := i.ImmuClient.GetOptions().TokenFileName
-	if err = i.hds.WriteFileToUserHomeDir([]byte(resp.Token), tokenFileName); err != nil {
+
+	if err = i.ts.SetToken(dbname, resp.Token); err != nil {
 		return "", err
 	}
 	i.ImmuClient, err = client.NewImmuClient((i.ImmuClient.GetOptions()))

@@ -17,6 +17,7 @@ limitations under the License.
 package immuclient
 
 import (
+	"github.com/codenotary/immudb/pkg/client"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/helper"
@@ -39,9 +40,10 @@ func TestConnect(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 

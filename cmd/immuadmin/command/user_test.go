@@ -50,8 +50,10 @@ func TestUserList(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds)
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -59,7 +61,7 @@ func TestUserList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
+	if err = ts.SetToken("", token.Token); err != nil {
 		t.Fatal(err)
 	}
 
@@ -68,7 +70,7 @@ func TestUserList(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		hds:            hds,
+		ts:             ts,
 	}
 
 	cmd := cobra.Command{}
@@ -148,8 +150,10 @@ func TestUserChangePassword(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds)
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -157,7 +161,7 @@ func TestUserChangePassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
+	if err = ts.SetToken("", token.Token); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,7 +170,7 @@ func TestUserChangePassword(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		hds:            hds,
+		ts:             ts,
 	}
 
 	cmd := cobra.Command{}
@@ -269,8 +273,8 @@ func TestUserCreate(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds)
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -278,7 +282,7 @@ func TestUserCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
+	if err = ts.SetToken("", token.Token); err != nil {
 		t.Fatal(err)
 	}
 
@@ -290,7 +294,7 @@ func TestUserCreate(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		hds:            hds,
+		ts:             ts,
 	}
 
 	cmd := cobra.Command{}
@@ -439,8 +443,8 @@ func TestUserActivate(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds)
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -448,7 +452,7 @@ func TestUserActivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
+	if err = ts.SetToken("", token.Token); err != nil {
 		t.Fatal(err)
 	}
 	clientb, _ = client.NewImmuClient(cliopt)
@@ -467,7 +471,7 @@ func TestUserActivate(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		hds:            hds,
+		ts:             ts,
 	}
 
 	cmd := cobra.Command{}
@@ -502,8 +506,8 @@ func TestUserDeactivate(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds)
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -511,7 +515,7 @@ func TestUserDeactivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
+	if err = ts.SetToken("", token.Token); err != nil {
 		t.Fatal(err)
 	}
 	clientb, _ = client.NewImmuClient(cliopt)
@@ -530,7 +534,7 @@ func TestUserDeactivate(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		hds:            hds,
+		ts:             ts,
 	}
 
 	cmd := cobra.Command{}
@@ -579,8 +583,8 @@ func TestUserPermission(t *testing.T) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).
-		WithHomedirService(hds)
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -588,7 +592,7 @@ func TestUserPermission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = hds.WriteFileToUserHomeDir([]byte(token.Token), ""); err != nil {
+	if err = ts.SetToken("", token.Token); err != nil {
 		t.Fatal(err)
 	}
 	clientb, _ = client.NewImmuClient(cliopt)
@@ -607,7 +611,7 @@ func TestUserPermission(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		hds:            hds,
+		ts:             ts,
 	}
 
 	cmd := cobra.Command{}

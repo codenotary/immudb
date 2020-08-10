@@ -91,9 +91,11 @@ func TestUserList(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -107,9 +109,10 @@ func TestUserCreate(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -128,7 +131,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Hds)
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -148,7 +151,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Hds)
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -168,7 +171,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Hds)
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -188,7 +191,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Hds)
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -208,7 +211,7 @@ func TestUserCreate(t *testing.T) {
 			func(t *testing.T, password string, args []string, exp string) {
 				ic := test.NewClientTest(&test.PasswordReader{
 					Pass: []string{password, password},
-				}, ic.Hds)
+				}, ic.Ts)
 				ic.Connect(bs.Dialer)
 
 				msg, err := ic.Imc.UserCreate(args)
@@ -235,9 +238,11 @@ func TestUserChangePassword(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -304,9 +309,10 @@ func TestUserSetActive(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -368,9 +374,10 @@ func TestSetUserPermission(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 

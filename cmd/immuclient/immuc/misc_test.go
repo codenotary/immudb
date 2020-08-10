@@ -17,6 +17,7 @@ limitations under the License.
 package immuc_test
 
 import (
+	"github.com/codenotary/immudb/pkg/client"
 	"strings"
 	"testing"
 
@@ -29,9 +30,10 @@ func TestHealthCheckSucceeds(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -48,9 +50,10 @@ func TestHealthCheckFails(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 	bs.GrpcServer.Stop()
@@ -68,9 +71,10 @@ func TestHistory(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, &test.HomedirServiceMock{})
+	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 

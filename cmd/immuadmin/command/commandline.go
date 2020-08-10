@@ -51,7 +51,7 @@ type commandline struct {
 	newImmuClient  func(*client.Options) (client.ImmuClient, error)
 	passwordReader c.PasswordReader
 	context        context.Context
-	hds            client.HomedirService
+	ts             client.Token_service
 	onError        func(msg interface{})
 	os             immuos.OS
 }
@@ -83,7 +83,7 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 }
 
 func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err error) {
-	possiblyLoggedIn, err2 := cl.hds.FileExistsInUserHomeDir(cl.options.TokenFileName)
+	possiblyLoggedIn, err2 := cl.ts.IsTokenPresent()
 	if err2 != nil {
 		fmt.Println("error checking if token file exists:", err2)
 	} else if !possiblyLoggedIn {
