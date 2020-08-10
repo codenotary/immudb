@@ -32,7 +32,7 @@ import (
 
 type clientTest struct {
 	Imc     immuc.Client
-	Ts      client.Token_service
+	Ts      client.TokenService
 	Options client.Options
 	Pr      helper.PasswordReader
 }
@@ -62,7 +62,7 @@ func (h *HomedirServiceMock) ReadFileFromUserHomeDir(pathToFile string) (string,
 func NewDefaultClientTest() *clientTest {
 	return &clientTest{}
 }
-func NewClientTest(pr helper.PasswordReader, tkns client.Token_service) *clientTest {
+func NewClientTest(pr helper.PasswordReader, tkns client.TokenService) *clientTest {
 	return &clientTest{
 		Ts: tkns,
 		Pr: pr,

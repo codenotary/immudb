@@ -28,7 +28,7 @@ type immuc struct {
 	valueOnly      bool
 	options        *client.Options
 	isLoggedin     bool
-	ts             client.Token_service
+	ts             client.TokenService
 }
 
 // Client ...

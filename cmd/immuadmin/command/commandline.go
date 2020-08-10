@@ -51,7 +51,7 @@ type commandline struct {
 	newImmuClient  func(*client.Options) (client.ImmuClient, error)
 	passwordReader c.PasswordReader
 	context        context.Context
-	ts             client.Token_service
+	ts             client.TokenService
 	onError        func(msg interface{})
 	os             immuos.OS
 }

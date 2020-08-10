@@ -41,7 +41,7 @@ type Options struct {
 	TokenFileName      string
 	CurrentDatabase    string
 	PasswordReader     c.PasswordReader
-	Tkns               Token_service
+	Tkns               TokenService
 	Metrics            bool
 	PidPath            string
 	PrometheusHost     string
@@ -175,7 +175,7 @@ func (o *Options) WithPasswordReader(pr c.PasswordReader) *Options {
 }
 
 // WithTokenService sets the TokenService for the client
-func (o *Options) WithTokenService(tkns Token_service) *Options {
+func (o *Options) WithTokenService(tkns TokenService) *Options {
 	o.Tkns = tkns
 	return o
 }
