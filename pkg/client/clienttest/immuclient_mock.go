@@ -63,6 +63,7 @@ type ImmuClientMock struct {
 	CountF              func(context.Context, []byte) (*schema.ItemsCount, error)
 	RawSafeSetF         func(context.Context, []byte, []byte) (vi *client.VerifiedIndex, err error)
 	CreateDatabaseF     func(context.Context, *schema.Database) error
+	USeDatabaseF        func(context.Context, *schema.Database) error
 	DatabaseListF       func(context.Context) (*schema.DatabaseListResponse, error)
 	ChangePasswordF     func(context.Context, []byte, []byte, []byte) error
 	CreateUserF         func(context.Context, []byte, []byte, uint32, string) error

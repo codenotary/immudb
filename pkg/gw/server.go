@@ -64,6 +64,7 @@ func (s *ImmuGwServer) Start() error {
 	hh := NewHistoryHandler(mux, ic, rt, json)
 	sr := NewSafeReferenceHandler(mux, ic, rt, json)
 	sza := NewSafeZAddHandler(mux, ic, rt, json)
+	udb := NewUseDatabaseHandler(mux, ic, rt, json)
 
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_Set_0(), sh.Set)
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeSet_0(), ssh.Safeset)
@@ -71,6 +72,8 @@ func (s *ImmuGwServer) Start() error {
 	mux.Handle(http.MethodGet, schema.Pattern_ImmuService_History_0(), hh.History)
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeReference_0(), sr.SafeReference)
 	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeZAdd_0(), sza.SafeZAdd)
+	mux.Handle(http.MethodPost, schema.Pattern_ImmuService_SafeZAdd_0(), sza.SafeZAdd)
+	mux.Handle(http.MethodGet, schema.Pattern_ImmuService_UseDatabase_0(), udb.UseDatabase)
 
 	err = schema.RegisterImmuServiceHandlerClient(ctx, mux, *ic.GetServiceClient())
 	if err != nil {
