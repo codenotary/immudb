@@ -21,27 +21,27 @@ import (
 	"errors"
 )
 
-type Token_service interface {
+type TokenService interface {
 	SetToken(database string, token string) error
-	WithHds(hds HomedirService) Token_service
-	WithTokenFileName(tfn string) Token_service
+	WithHds(hds HomedirService) TokenService
+	WithTokenFileName(tfn string) TokenService
 	IsTokenPresent() (bool, error)
 	DeleteToken() error
 	GetToken() (string, error)
 	GetDatabase() (string, error)
 }
 
-type token_service struct {
+type tokenService struct {
 	tokenFileName string
 	hds           HomedirService
 }
 
 //NewTokenService ...
-func NewTokenService() Token_service {
-	return token_service{}
+func NewTokenService() TokenService {
+	return tokenService{}
 }
 
-func (ts token_service) GetToken() (string, error) {
+func (ts tokenService) GetToken() (string, error) {
 	_, token, err := ts.parseContent()
 	if err != nil {
 		return "", err
@@ -50,7 +50,7 @@ func (ts token_service) GetToken() (string, error) {
 }
 
 //SetToken ...
-func (ts token_service) SetToken(database string, token string) error {
+func (ts tokenService) SetToken(database string, token string) error {
 	return ts.hds.WriteFileToUserHomeDir(BuildToken(database, token), ts.tokenFileName)
 }
 
@@ -66,21 +66,21 @@ func BuildToken(database string, token string) []byte {
 	return cnt
 }
 
-func (ts token_service) DeleteToken() error {
+func (ts tokenService) DeleteToken() error {
 	return ts.hds.DeleteFileFromUserHomeDir(ts.tokenFileName)
 }
 
 //IsTokenPresent ...
-func (ts token_service) IsTokenPresent() (bool, error) {
+func (ts tokenService) IsTokenPresent() (bool, error) {
 	return ts.hds.FileExistsInUserHomeDir(ts.tokenFileName)
 }
 
-func (ts token_service) GetDatabase() (string, error) {
+func (ts tokenService) GetDatabase() (string, error) {
 	dbname, _, err := ts.parseContent()
 	return dbname, err
 }
 
-func (ts token_service) parseContent() (string, string, error) {
+func (ts tokenService) parseContent() (string, string, error) {
 	content, err := ts.hds.ReadFileFromUserHomeDir(ts.tokenFileName)
 	if err != nil {
 		return "", "", err
@@ -101,13 +101,13 @@ func (ts token_service) parseContent() (string, string, error) {
 }
 
 // WithHds ...
-func (ts token_service) WithHds(hds HomedirService) Token_service {
+func (ts tokenService) WithHds(hds HomedirService) TokenService {
 	ts.hds = hds
 	return ts
 }
 
 // WithTokenFileName ...
-func (ts token_service) WithTokenFileName(tfn string) Token_service {
+func (ts tokenService) WithTokenFileName(tfn string) TokenService {
 	ts.tokenFileName = tfn
 	return ts
 }

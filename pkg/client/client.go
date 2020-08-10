@@ -93,7 +93,7 @@ type ImmuClient interface {
 	WithTimestampService(ts TimestampService) *immuClient
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
-	WithTokenService(tokenService Token_service) *immuClient
+	WithTokenService(tokenService TokenService) *immuClient
 
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
@@ -112,7 +112,7 @@ type immuClient struct {
 	ServiceClient schema.ImmuServiceClient
 	Rootservice   RootService
 	ts            TimestampService
-	Tkns          Token_service
+	Tkns          TokenService
 	sync.RWMutex
 }
 

@@ -25,7 +25,7 @@ import (
 
 func TestTokenSevice_setToken(t *testing.T) {
 	fn := "deleteme"
-	ts := token_service{tokenFileName: fn, hds: NewHomedirService()}
+	ts := tokenService{tokenFileName: fn, hds: NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
 	assert.Nil(t, err)
 	database, err := ts.GetDatabase()
@@ -37,18 +37,18 @@ func TestTokenSevice_setToken(t *testing.T) {
 	os.Remove(fn)
 }
 
-func TestToken_service_IsTokenPresent(t *testing.T) {
+func TestTokenService_IsTokenPresent(t *testing.T) {
 	fn := "deleteme"
-	ts := token_service{tokenFileName: fn, hds: NewHomedirService()}
+	ts := tokenService{tokenFileName: fn, hds: NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
 	require.Nil(t, err)
 	ok, err := ts.IsTokenPresent()
 	assert.True(t, ok)
 }
 
-func TestToken_service_DeleteToken(t *testing.T) {
+func TestTokenService_DeleteToken(t *testing.T) {
 	fn := "deleteme"
-	ts := token_service{tokenFileName: fn, hds: NewHomedirService()}
+	ts := tokenService{tokenFileName: fn, hds: NewHomedirService()}
 	err := ts.SetToken("db1", "toooooken")
 	require.Nil(t, err)
 	err = ts.DeleteToken()

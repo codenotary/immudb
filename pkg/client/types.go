@@ -49,7 +49,7 @@ func (c *immuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *
 	return c
 }
 
-func (c *immuClient) WithTokenService(tokenService Token_service) *immuClient {
+func (c *immuClient) WithTokenService(tokenService TokenService) *immuClient {
 	c.Tkns = tokenService
 	return c
 }
