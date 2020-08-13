@@ -26,10 +26,10 @@ import (
 
 func (cl *commandline) database(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "database",
-		Short:             "Issue all database commands",
-		Aliases:           []string{"d"},
-		PersistentPreRunE: cl.connect,
+		Use:     "database",
+		Short:   "Issue all database commands",
+		Aliases: []string{"d"},
+		//PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"list", "create", "use"},
 	}
@@ -37,7 +37,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Use:               "list",
 		Short:             "List all databases",
 		Aliases:           []string{"l"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immuClient.DatabaseList(cl.context)
@@ -65,7 +65,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 	cc := &cobra.Command{
 		Use:               "create",
 		Short:             "Create a new database",
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		Example:           "create {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -84,7 +84,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Use:               "use command",
 		Short:             "Select database",
 		Example:           "use {database_name}",
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"databasename"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -30,7 +30,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 		Use:               "login username (you will be prompted for password)",
 		Short:             fmt.Sprintf("Login using the specified username and password (admin username is %s)", auth.SysAdminUsername),
 		Aliases:           []string{"l"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
@@ -94,7 +94,7 @@ func (cl *commandline) logout(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "logout",
 		Aliases:           []string{"x"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := cl.immuClient.Logout(cl.context); err != nil {

@@ -27,7 +27,7 @@ func (cl *commandline) zScan(cmd *cobra.Command) {
 		Use:               "zscan setname",
 		Short:             "Iterate over a sorted set",
 		Aliases:           []string{"zscn"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.ZScan(args)
@@ -47,7 +47,7 @@ func (cl *commandline) iScan(cmd *cobra.Command) {
 		Use:               "iscan pagenumber pagesize",
 		Short:             "Iterate over all elements by insertion order",
 		Aliases:           []string{"iscn"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.IScan(args)
@@ -67,7 +67,7 @@ func (cl *commandline) scan(cmd *cobra.Command) {
 		Use:               "scan prefix",
 		Short:             "Iterate over keys having the specified prefix",
 		Aliases:           []string{"scn"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Scan(args)
@@ -84,10 +84,10 @@ func (cl *commandline) scan(cmd *cobra.Command) {
 
 func (cl *commandline) count(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "count prefix",
-		Short:             "Count keys having the specified prefix",
+		Use:               "count keys",
+		Short:             "Count keys having the specified value",
 		Aliases:           []string{"cnt"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Count(args)

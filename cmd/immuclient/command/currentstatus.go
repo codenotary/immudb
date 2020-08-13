@@ -27,7 +27,7 @@ func (cl *commandline) currentRoot(cmd *cobra.Command) {
 		Use:               "current",
 		Short:             "Return the last merkle tree root and index stored locally",
 		Aliases:           []string{"crt"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.CurrentRoot(args)

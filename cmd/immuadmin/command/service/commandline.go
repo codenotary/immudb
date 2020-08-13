@@ -43,7 +43,8 @@ func NewCommandLine() *commandline {
 	}
 	s := immusrvc.NewSService(&op)
 	t := helper.NewTerminalReader(os.Stdin)
-	return &commandline{s, t}
+	c := helper.Config{Name: "immuadmin"}
+	return &commandline{c, s, t}
 }
 
 type Commandline interface {
@@ -51,6 +52,12 @@ type Commandline interface {
 }
 
 type commandline struct {
+	config   helper.Config
 	sservice immusrvc.Sservice
 	treader  helper.TerminalReader
+}
+
+func (cld *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
+	cld.Service(rootCmd)
+	return rootCmd
 }

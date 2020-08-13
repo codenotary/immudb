@@ -23,28 +23,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var o = c.Options{}
-
-func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immutest") })
-}
-
 // NewCmd creates a new immutest command
 func NewCmd(
 	newImmuClient func(*client.Options) (client.ImmuClient, error),
 	pwr c.PasswordReader,
 	tr c.TerminalReader,
-	hds client.HomedirService,
+	ts client.TokenService,
 	onError func(err error)) *cobra.Command {
 	cmd := &cobra.Command{}
 	Init(cmd,
-		&o,
 		&commandline{
 			newImmuClient: newImmuClient,
 			pwr:           pwr,
 			tr:            tr,
-			hds:           hds,
+			tkns:          ts,
 			onError:       onError,
+			config:        c.Config{Name: "immutest"},
 		})
 	cmd.AddCommand(version.VersionCmd())
 	return cmd

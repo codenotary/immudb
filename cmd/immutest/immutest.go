@@ -30,7 +30,7 @@ func main() {
 		func(opts *client.Options) (client.ImmuClient, error) { return client.NewImmuClient(opts) },
 		c.DefaultPasswordReader,
 		c.NewTerminalReader(os.Stdin),
-		client.NewHomedirService(),
+		client.NewTokenService(),
 		c.QuitWithUserError,
 		nil)
 	if err != nil {
@@ -43,12 +43,12 @@ func execute(
 	newImmuClient func(*client.Options) (client.ImmuClient, error),
 	pwr c.PasswordReader,
 	tr c.TerminalReader,
-	hds client.HomedirService,
+	ts client.TokenService,
 	onError func(err error),
 	args []string,
 ) error {
 	version.App = "immutest"
-	cmd := immutest.NewCmd(newImmuClient, pwr, tr, hds, onError)
+	cmd := immutest.NewCmd(newImmuClient, pwr, tr, ts, onError)
 	if args != nil {
 		cmd.SetArgs(args)
 	}

@@ -27,7 +27,7 @@ func (cl *commandline) reference(cmd *cobra.Command) {
 		Use:               "reference refkey key",
 		Short:             "Add new reference to an existing key",
 		Aliases:           []string{"r"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Reference(args)
@@ -47,7 +47,7 @@ func (cl *commandline) safereference(cmd *cobra.Command) {
 		Use:               "safereference refkey key",
 		Short:             "Add and verify new reference to an existing key",
 		Aliases:           []string{"sr"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SafeReference(args)

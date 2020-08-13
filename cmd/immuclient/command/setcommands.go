@@ -27,7 +27,7 @@ func (cl *commandline) rawSafeSet(cmd *cobra.Command) {
 		Use:               "rawsafeset key value",
 		Short:             "Set a value for the item having the specified key, without setup structured values",
 		Aliases:           []string{"rs"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.RawSafeSet(args)
@@ -47,7 +47,7 @@ func (cl *commandline) set(cmd *cobra.Command) {
 		Use:               "set key value",
 		Short:             "Add new item having the specified key and value",
 		Aliases:           []string{"s"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Set(args)
@@ -68,7 +68,7 @@ func (cl *commandline) safeset(cmd *cobra.Command) {
 		Use:               "safeset key value",
 		Short:             "Add and verify new item having the specified key and value",
 		Aliases:           []string{"ss"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SafeSet(args)
@@ -87,7 +87,7 @@ func (cl *commandline) zAdd(cmd *cobra.Command) {
 		Use:               "zadd setname score key",
 		Short:             "Add new key with score to a new or existing sorted set",
 		Aliases:           []string{"za"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.ZAdd(args)
@@ -107,7 +107,7 @@ func (cl *commandline) safeZAdd(cmd *cobra.Command) {
 		Use:               "safezadd setname score key",
 		Short:             "Add and verify new key with score to a new or existing sorted set",
 		Aliases:           []string{"sza"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SafeZAdd(args)

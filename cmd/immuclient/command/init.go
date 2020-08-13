@@ -20,121 +20,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/codenotary/immudb/cmd/docs/man"
-	c "github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/cmd/immuclient/cli"
-	"github.com/codenotary/immudb/cmd/immuclient/immuc"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-type commandline struct {
-	immucl  immuc.Client
-	onError func(msg interface{})
-}
-
-// Init ...
-func Init(o *c.Options) *cobra.Command {
-
-	cl := new(commandline)
-	cmd := &cobra.Command{
-		Use:   "immuclient",
-		Short: "CLI client for immudb - the lightweight, high-speed immutable database for systems and applications",
-		Long: `CLI client for immudb - the lightweight, high-speed immutable database for systems and applications.
-Environment variables:
-  IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
-  IMMUCLIENT_IMMUDB_PORT=3322
-  IMMUCLIENT_AUTH=true
-  IMMUCLIENT_MTLS=false
-  IMMUCLIENT_SERVERNAME=localhost
-  IMMUCLIENT_PKEY=./tools/mtls/4_client/private/localhost.key.pem
-  IMMUCLIENT_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
-  IMMUCLIENT_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
-
-IMPORTANT: All get and safeget functions return base64-encoded keys and values, while all set and safeset functions expect base64-encoded inputs.`,
-		DisableAutoGenTag: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			err := cl.immucl.Connect(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			cli.Init(cl.immucl).Run()
-			return nil
-		},
-	}
-	if err := configureOptions(cmd, o); err != nil {
-		cl.quit(err)
-	}
-	var err error
-	cl.immucl, err = immuc.Init(immuc.Options())
-	if err != nil {
-		cl.quit(err)
-	}
-	// login and logout
-	cl.login(cmd)
-	cl.logout(cmd)
-	// current status
-	cl.currentRoot(cmd)
-	// get operations
-	cl.getByIndex(cmd)
-	cl.getRawBySafeIndex(cmd)
-	cl.getKey(cmd)
-	cl.rawSafeGetKey(cmd)
-	cl.safeGetKey(cmd)
-	// set operations
-	cl.rawSafeSet(cmd)
-	cl.set(cmd)
-	cl.safeset(cmd)
-	cl.zAdd(cmd)
-	cl.safeZAdd(cmd)
-	// scanners
-	cl.zScan(cmd)
-	cl.iScan(cmd)
-	cl.scan(cmd)
-	cl.count(cmd)
-	// references
-	cl.reference(cmd)
-	cl.safereference(cmd)
-	// misc
-	cl.inclusion(cmd)
-	cl.consistency(cmd)
-	cl.history(cmd)
-	cl.status(cmd)
-	cl.auditmode(cmd)
-	cl.interactiveCli(cmd)
-	cl.user(cmd)
-	cl.use(cmd)
-	// man file generator
-	cmd.AddCommand(man.Generate(cmd, "immuclient", "./cmd/docs/man/immuclient"))
-	return cmd
-}
-
-func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
-	err = cl.immucl.Connect(args)
-	if err != nil {
-		cl.quit(err)
-	}
-	return
-}
-
-func (cl *commandline) disconnect(cmd *cobra.Command, args []string) {
-	if err := cl.immucl.Disconnect(args); err != nil {
-		cl.quit(err)
-	}
-}
-
-func (cl *commandline) quit(msg interface{}) {
-	if cl.onError == nil {
-		c.QuitToStdErr(msg)
-	}
-	cl.onError(msg)
-}
-
-func configureOptions(cmd *cobra.Command, o *c.Options) error {
+func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", client.DefaultOptions().Port, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", client.DefaultOptions().Address, "immudb host address")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.toml)")
+	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.toml)")
 	cmd.PersistentFlags().String(
 		"tokenfile",
 		client.DefaultOptions().TokenFileName,
@@ -216,6 +110,5 @@ func configureOptions(cmd *cobra.Command, o *c.Options) error {
 	viper.SetDefault("audit-password", "")
 	viper.SetDefault("audit-username", "")
 	viper.SetDefault("dir", os.TempDir())
-	o.InitConfig("")
 	return nil
 }

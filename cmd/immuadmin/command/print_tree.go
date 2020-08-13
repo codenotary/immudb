@@ -26,7 +26,7 @@ func (cl *commandline) printTree(rootCmd *cobra.Command) {
 		Use:               "print",
 		Short:             "Print merkle tree",
 		Aliases:           []string{"prt"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
