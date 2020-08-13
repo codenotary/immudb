@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	stdos "os"
@@ -813,4 +815,44 @@ func TestRestore(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 
 	os.RenameF = renameFOK
+}
+
+func TestCommandlineBck_Register(t *testing.T) {
+	c := commandlineBck{}
+	cmd := c.Register(&cobra.Command{})
+	assert.IsType(t, &cobra.Command{}, cmd)
+}
+
+func TestNewCommandLineBck(t *testing.T) {
+	cml, err := newCommandlineBck(immuos.NewStandardOS())
+	assert.IsType(t, &commandlineBck{}, cml)
+	assert.Nil(t, err)
+}
+
+func TestCommandlineBck_ConfigChain(t *testing.T) {
+	cmd := &cobra.Command{}
+	c := commandlineBck{
+		commandline: commandline{config: helper.Config{Name: "test"}},
+	}
+	f := func(cmd *cobra.Command, args []string) error {
+		return nil
+	}
+	cmd.Flags().StringVar(&c.config.CfgFn, "config", "", "config file")
+	cc := c.ConfigChain(f)
+	err := cc(cmd, []string{})
+	assert.Nil(t, err)
+}
+
+func TestCommandlineBck_ConfigChainErr(t *testing.T) {
+	cmd := &cobra.Command{}
+
+	c := commandlineBck{}
+	f := func(cmd *cobra.Command, args []string) error {
+		return nil
+	}
+
+	cc := c.ConfigChain(f)
+
+	err := cc(cmd, []string{})
+	assert.Error(t, err)
 }

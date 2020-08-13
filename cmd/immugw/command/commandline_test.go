@@ -14,26 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immudb
+package immugw
 
 import (
 	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"testing"
-)
 
-func TestCommandline_Immudb(t *testing.T) {
-	c := Commandline{
-		P: plauncherMock{},
-	}
-	assert.IsType(t, Commandline{}, c)
-}
+	"github.com/spf13/cobra"
+)
 
 func TestCommandline_ConfigChain(t *testing.T) {
 	cmd := &cobra.Command{}
 	c := Commandline{
-		P:      plauncherMock{},
 		config: helper.Config{Name: "test"},
 	}
 	f := func(cmd *cobra.Command, args []string) error {
@@ -48,9 +41,7 @@ func TestCommandline_ConfigChain(t *testing.T) {
 func TestCommandline_ConfigChainErr(t *testing.T) {
 	cmd := &cobra.Command{}
 
-	c := Commandline{
-		P: plauncherMock{},
-	}
+	c := Commandline{}
 	f := func(cmd *cobra.Command, args []string) error {
 		return nil
 	}
