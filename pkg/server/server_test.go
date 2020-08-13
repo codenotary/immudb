@@ -1362,8 +1362,7 @@ func TestServerUpdateConfigItem(t *testing.T) {
 		WithInMemoryStore(true).
 		WithAuth(false).
 		WithMaintenance(false).
-		WithDir(dataDir).
-		WithConfig(configFile)).(*ImmuServer)
+		WithDir(dataDir)).(*ImmuServer)
 	defer func() {
 		os.RemoveAll(dataDir)
 		os.Remove(configFile)

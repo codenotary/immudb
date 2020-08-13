@@ -18,6 +18,7 @@ package service
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/helper"
 	"io/ioutil"
 	"testing"
 
@@ -30,7 +31,7 @@ import (
 func TestCommandLine_ServiceImmudbInstall(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 
 	cld.Service(cmd)
 	b := bytes.NewBufferString("")
@@ -50,7 +51,7 @@ func TestCommandLine_ServiceImmugwInstall(t *testing.T) {
 	tr := &clienttest.TerminalReaderMock{}
 	tr.Responses = []string{"y"}
 
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 
 	cld.Service(cmd)
 	b := bytes.NewBufferString("")
@@ -69,7 +70,7 @@ func TestCommandLine_ServiceImmudbUninstallAbortUnintall(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
 	tr.Responses = []string{"n"}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immudb", "uninstall"})
@@ -81,7 +82,7 @@ func TestCommandLine_ServiceImmudbUninstallRemovingData(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
 	tr.Responses = []string{"y", "y"}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 
 	cld.Service(cmd)
 	b := bytes.NewBufferString("")
@@ -100,7 +101,7 @@ func TestCommandLine_ServiceImmudbUninstallWithoutRemoveData(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
 	tr.Responses = []string{"y", "n"}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 
 	cld.Service(cmd)
 	b := bytes.NewBufferString("")
@@ -119,7 +120,7 @@ func TestCommandLine_ServiceImmugwUninstall(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
 	tr.Responses = []string{"y"}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 
 	cld.Service(cmd)
 	b := bytes.NewBufferString("")
@@ -137,7 +138,7 @@ func TestCommandLine_ServiceImmugwUninstall(t *testing.T) {
 func TestCommandLine_ServiceImmudbStop(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immudb", "stop"})
 	err := cmd.Execute()
@@ -147,7 +148,7 @@ func TestCommandLine_ServiceImmudbStop(t *testing.T) {
 func TestCommandLine_ServiceImmudbStart(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immudb", "start"})
 	err := cmd.Execute()
@@ -157,7 +158,7 @@ func TestCommandLine_ServiceImmudbStart(t *testing.T) {
 func TestCommandLine_ServiceImmugwStop(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immugw", "stop"})
 	err := cmd.Execute()
@@ -167,7 +168,7 @@ func TestCommandLine_ServiceImmugwStop(t *testing.T) {
 func TestCommandLine_ServiceImmugwStart(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immugw", "start"})
 	err := cmd.Execute()
@@ -177,7 +178,7 @@ func TestCommandLine_ServiceImmugwStart(t *testing.T) {
 func TestCommandLine_ServiceImmudbDelayed(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immudb", "stop", "--time", "20"})
 	err := cmd.Execute()
@@ -187,7 +188,7 @@ func TestCommandLine_ServiceImmudbDelayed(t *testing.T) {
 func TestCommandLine_ServiceImmugwDelayed(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immugw", "stop", "--time", "20"})
 	err := cmd.Execute()
@@ -197,7 +198,7 @@ func TestCommandLine_ServiceImmugwDelayed(t *testing.T) {
 func TestCommandLine_ServiceImmudbRestart(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immudb", "restart"})
 	err := cmd.Execute()
@@ -207,7 +208,7 @@ func TestCommandLine_ServiceImmudbRestart(t *testing.T) {
 func TestCommandLine_ServiceImmugwRestart(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immugw", "restart"})
 	err := cmd.Execute()
@@ -217,7 +218,7 @@ func TestCommandLine_ServiceImmugwRestart(t *testing.T) {
 func TestCommandLine_ServiceImmudbStatus(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immudb", "status"})
 	err := cmd.Execute()
@@ -227,7 +228,7 @@ func TestCommandLine_ServiceImmudbStatus(t *testing.T) {
 func TestCommandLine_ServiceImmugwStatus(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{servicetest.Sservicemock{}, tr}
+	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "immugw", "status"})
 	err := cmd.Execute()

@@ -17,6 +17,7 @@ limitations under the License.
 package immugw
 
 import (
+	"github.com/codenotary/immudb/cmd/helper"
 	"os"
 	"testing"
 
@@ -32,8 +33,13 @@ func TestNewCmd(t *testing.T) {
 	viper.Set("mtls", true)
 	logfile := "./immugw_cmd_test_logfile.log"
 	viper.Set("logfile", logfile)
-	defer os.Remove(logfile)
+	viper.Set("config", "../../src/configs/immugw.toml")
 
-	cmd := NewCmd(new(gw.ImmuGwServerMock))
+	defer os.Remove(logfile)
+	cl := Commandline{
+		config: helper.Config{Name: "immugw"},
+	}
+	cmd, err := cl.NewCmd(new(gw.ImmuGwServerMock))
+	require.NoError(t, err)
 	require.NoError(t, cmd.Execute())
 }

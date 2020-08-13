@@ -21,8 +21,8 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	cmd := NewCmd()
-	if len(cmd.Commands()) != 29 {
-		t.Fatalf("error initialising command expected %d, got %d", 30, len(cmd.Commands()))
+	cmd := newCommand()
+	if len(cmd.Commands()) != 28 {
+		t.Fatalf("error initialising command expected %d, got %d", 28, len(cmd.Commands()))
 	}
 }

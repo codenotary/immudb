@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/metadata"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -33,7 +34,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -45,41 +45,40 @@ func TestUserList(t *testing.T) {
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
 	}
-	hds := &immuclienttest.HomedirServiceMock{}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
 
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
-
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ts.SetToken("", token.Token); err != nil {
-		t.Fatal(err)
-	}
+	md := metadata.Pairs("authorization", token.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		ts:             ts,
 	}
 
-	cmd := cobra.Command{}
-	cmdl.user(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.user(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"user", "list"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	usrcmd := cmd.Commands()[0]
+	usrcmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -145,41 +144,42 @@ func TestUserChangePassword(t *testing.T) {
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
 	}
-	hds := &immuclienttest.HomedirServiceMock{}
+
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
 
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
 
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ts.SetToken("", token.Token); err != nil {
-		t.Fatal(err)
-	}
+	md := metadata.Pairs("authorization", token.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		ts:             ts,
 	}
 
-	cmd := cobra.Command{}
-	cmdl.user(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.user(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"user", "changepassword", "immudb"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	usrcmd := cmd.Commands()[0]
+	usrcmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -268,23 +268,21 @@ func TestUserCreate(t *testing.T) {
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
 	}
-	hds := &immuclienttest.HomedirServiceMock{}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
+
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
+
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ts.SetToken("", token.Token); err != nil {
-		t.Fatal(err)
-	}
+
+	md := metadata.Pairs("authorization", token.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	pr = &immuclienttest.PasswordReader{
 		Pass: []string{"MyUser@9", "MyUser@9"},
@@ -294,16 +292,21 @@ func TestUserCreate(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		ts:             ts,
 	}
 
-	cmd := cobra.Command{}
-	cmdl.user(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.user(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"user", "create", "newuser", "readwrite", "defaultdb"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	usrcmd := cmd.Commands()[0]
+	usrcmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -438,23 +441,22 @@ func TestUserActivate(t *testing.T) {
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
 	}
-	hds := &immuclienttest.HomedirServiceMock{}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
+
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
+
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ts.SetToken("", token.Token); err != nil {
-		t.Fatal(err)
-	}
+
+	md := metadata.Pairs("authorization", token.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
 	clientb, _ = client.NewImmuClient(cliopt)
 	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
@@ -471,16 +473,21 @@ func TestUserActivate(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		ts:             ts,
 	}
 
-	cmd := cobra.Command{}
-	cmdl.user(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.user(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"user", "activate", "myuser"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	usrcmd := cmd.Commands()[0]
+	usrcmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -501,23 +508,23 @@ func TestUserDeactivate(t *testing.T) {
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
 	}
-	hds := &immuclienttest.HomedirServiceMock{}
+
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
+
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
+
 	clientb, _ := client.NewImmuClient(cliopt)
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ts.SetToken("", token.Token); err != nil {
-		t.Fatal(err)
-	}
+
+	md := metadata.Pairs("authorization", token.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
 	clientb, _ = client.NewImmuClient(cliopt)
 	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
@@ -534,16 +541,21 @@ func TestUserDeactivate(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		ts:             ts,
 	}
 
-	cmd := cobra.Command{}
-	cmdl.user(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.user(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"user", "deactivate", "myuser"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	usrcmd := cmd.Commands()[0]
+	usrcmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -578,23 +590,24 @@ func TestUserPermission(t *testing.T) {
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
 	}
-	hds := &immuclienttest.HomedirServiceMock{}
+
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
+
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
+
 	clientb, _ := client.NewImmuClient(cliopt)
+
 	token, err := clientb.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ts.SetToken("", token.Token); err != nil {
-		t.Fatal(err)
-	}
+
+	md := metadata.Pairs("authorization", token.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
 	clientb, _ = client.NewImmuClient(cliopt)
 	err = clientb.CreateDatabase(ctx, &schema.Database{
 		Databasename: "mydb",
@@ -611,17 +624,23 @@ func TestUserPermission(t *testing.T) {
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		ts:             ts,
 	}
 
-	cmd := cobra.Command{}
-	cmdl.user(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.user(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"user", "permission", "grant", "myuser", "readwrite", "mydb"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	usrcmd := cmd.Commands()[0]
+	usrcmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}

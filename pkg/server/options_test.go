@@ -48,7 +48,7 @@ func TestOptions(t *testing.T) {
 }
 func TestSetOptions(t *testing.T) {
 	op := DefaultOptions().WithDir("immudb_dir").WithNetwork("udp").
-		WithAddress("localhost").WithPort(2048).WithConfig("immudb.toml").
+		WithAddress("localhost").WithPort(2048).
 		WithPidfile("immu.pid").WithMTLs(true).WithAuth(false).
 		WithDetached(true).WithNoHistograms(true).WithMetricsServer(false).
 		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin")
@@ -57,7 +57,7 @@ func TestSetOptions(t *testing.T) {
 		op.Network != "udp" ||
 		op.Address != "localhost" ||
 		op.Port != 2048 ||
-		op.Config != "immudb.toml" ||
+		op.Config != "configs/immudb.toml" ||
 		op.Pidfile != "immu.pid" ||
 		op.MTLs != true ||
 		op.GetAuth() != false ||

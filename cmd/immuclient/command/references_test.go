@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"io/ioutil"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 )
 
 func TestReference(t *testing.T) {
@@ -42,17 +42,25 @@ func TestReference(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.reference(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.reference(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmdl.immucl.SafeSet([]string{"key", "value"})
 
 	cmd.SetArgs([]string{"reference", "key1", "key"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}

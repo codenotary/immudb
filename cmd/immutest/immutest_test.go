@@ -56,7 +56,7 @@ func TestImmutest(t *testing.T) {
 
 	pwReaderMock := &clienttest.PasswordReaderMock{}
 
-	hsm := newHomedirServiceMock()
+	ts := clienttest.TokenServiceMock{}
 	trMock := &clienttest.TerminalReaderMock{
 		ReadFromTerminalYNF: func(string) (string, error) {
 			return "Y", nil
@@ -69,7 +69,7 @@ func TestImmutest(t *testing.T) {
 		},
 		pwReaderMock,
 		trMock,
-		hsm,
+		ts,
 		func(err error) {
 			require.NoError(t, err)
 		},
@@ -83,29 +83,10 @@ func TestImmutest(t *testing.T) {
 		},
 		pwReaderMock,
 		trMock,
-		hsm,
+		ts,
 		func(err error) {
 			require.Error(t, err)
 			require.Equal(t, icErr, err)
 		},
 		[]string{"3"})
-}
-
-func newHomedirServiceMock() *clienttest.HomedirServiceMock {
-	return &clienttest.HomedirServiceMock{
-		WriteFileToUserHomeDirF: func(content []byte, pathToFile string) error {
-			homedirContent = content
-			return nil
-		},
-		FileExistsInUserHomeDirF: func(pathToFile string) (bool, error) {
-			return len(homedirContent) > 0, nil
-		},
-		ReadFileFromUserHomeDirF: func(pathToFile string) (string, error) {
-			return string(homedirContent), nil
-		},
-		DeleteFileFromUserHomeDirF: func(pathToFile string) error {
-			homedirContent = nil
-			return nil
-		},
-	}
 }
