@@ -19,6 +19,8 @@ package immuadmin
 import (
 	"context"
 	"errors"
+	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/client/clienttest"
@@ -98,4 +100,43 @@ func TestCommandline(t *testing.T) {
 		require.Equal(t, errNewImmuClient, msg)
 	}
 	require.Equal(t, errNewImmuClient, cl.checkLoggedInAndConnect(cmd, nil))
+}
+
+func TestCommandline_Register(t *testing.T) {
+	c := commandline{}
+	cmd := c.Register(&cobra.Command{})
+	assert.IsType(t, &cobra.Command{}, cmd)
+}
+
+func TestNewCommandLine(t *testing.T) {
+	cml := NewCommandLine()
+	assert.IsType(t, &commandline{}, cml)
+}
+
+func TestCommandline_ConfigChain(t *testing.T) {
+	cmd := &cobra.Command{}
+	c := commandline{
+		config: helper.Config{Name: "test"},
+	}
+	f := func(cmd *cobra.Command, args []string) error {
+		return nil
+	}
+	cmd.Flags().StringVar(&c.config.CfgFn, "config", "", "config file")
+	cc := c.ConfigChain(f)
+	err := cc(cmd, []string{})
+	assert.Nil(t, err)
+}
+
+func TestCommandline_ConfigChainErr(t *testing.T) {
+	cmd := &cobra.Command{}
+
+	c := commandline{}
+	f := func(cmd *cobra.Command, args []string) error {
+		return nil
+	}
+
+	cc := c.ConfigChain(f)
+
+	err := cc(cmd, []string{})
+	assert.Error(t, err)
 }

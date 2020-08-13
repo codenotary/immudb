@@ -18,6 +18,7 @@ package helper
 
 import (
 	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -40,6 +41,7 @@ func TestOptions_InitConfig(t *testing.T) {
 	address := viper.GetString("address")
 	assert.NotNil(t, address)
 }
+
 func TestOptions_InitConfigWithCfFn(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../test/immudb.toml")
 	fn := "/tmp/immudbtest9991.toml"
@@ -51,4 +53,51 @@ func TestOptions_InitConfigWithCfFn(t *testing.T) {
 	o.Init("test")
 	address := viper.GetString("address")
 	assert.NotNil(t, address)
+}
+
+func TestConfig_Load(t *testing.T) {
+	input, _ := ioutil.ReadFile("../../test/immudb.toml")
+	fn := "/tmp/immudbtest9991.toml"
+	_ = ioutil.WriteFile(fn, input, 0644)
+	defer os.RemoveAll(fn)
+	o := Config{
+		CfgFn: fn,
+	}
+	o.Init("test")
+	address := viper.GetString("address")
+	assert.NotNil(t, address)
+	cmd := cobra.Command{}
+	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file")
+	err := o.LoadConfig(&cmd)
+	assert.Nil(t, err)
+}
+
+func TestConfig_LoadError(t *testing.T) {
+	input, _ := ioutil.ReadFile("../../test/immudb.toml")
+	fn := "/tmp/immudbtest9991.toml"
+	_ = ioutil.WriteFile(fn, input, 0644)
+	defer os.RemoveAll(fn)
+	o := Config{
+		CfgFn: fn,
+	}
+	o.Init("test")
+	address := viper.GetString("address")
+	assert.NotNil(t, address)
+	cmd := cobra.Command{}
+	err := o.LoadConfig(&cmd)
+	assert.Error(t, err)
+}
+
+func TestConfig_LoadError2(t *testing.T) {
+	fn := "/tmp/immudbtest9991.toml"
+	o := Config{
+		CfgFn: fn,
+	}
+	o.Init("test")
+	address := viper.GetString("address")
+	assert.NotNil(t, address)
+	cmd := cobra.Command{}
+	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file")
+	err := o.LoadConfig(&cmd)
+	assert.Error(t, err)
 }
