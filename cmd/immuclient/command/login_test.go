@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"io/ioutil"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 )
 
 func TestLogin(t *testing.T) {
@@ -41,14 +41,24 @@ func TestLogin(t *testing.T) {
 	ic.Connect(bs.Dialer)
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.login(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.login(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"login", "immudb"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+	// since we issue two commands we need to remove PersistentPostRun ( disconnect )
+	innercmd.PersistentPostRun = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,9 +70,15 @@ func TestLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmdl.logout(&cmd)
+	cmdl.logout(cmd)
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"logout"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd = cmd.Commands()[2]
+	innercmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)

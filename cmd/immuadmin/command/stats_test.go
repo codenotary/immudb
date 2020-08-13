@@ -24,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"io/ioutil"
@@ -37,7 +36,6 @@ func TestStats_Status(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
 	bs.Start()
 
-	cmd := cobra.Command{}
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
@@ -51,12 +49,19 @@ func TestStats_Status(t *testing.T) {
 		context:        context.Background(),
 		ts:             client.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
 	}
+	cmd, _ := cl.NewCmd()
 
-	cl.status(&cmd)
+	cl.status(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"status"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	statcmd := cmd.Commands()[0]
+	statcmd.PersistentPreRunE = nil
+
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
 	if err != nil {
@@ -79,7 +84,6 @@ func TestStats_StatsText(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	cmd := cobra.Command{}
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
@@ -94,12 +98,19 @@ func TestStats_StatsText(t *testing.T) {
 		context:        context.Background(),
 		ts:             client.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
 	}
+	cmd, _ := cl.NewCmd()
 
-	cl.stats(&cmd)
+	cl.stats(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"stats", "--text"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	statcmd := cmd.Commands()[0]
+	statcmd.PersistentPreRunE = nil
+
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
 	if err != nil {
@@ -121,7 +132,6 @@ func TestStats_StatsRaw(t *testing.T) {
 
 	defer server.Close()
 
-	cmd := cobra.Command{}
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
@@ -136,12 +146,18 @@ func TestStats_StatsRaw(t *testing.T) {
 		context:        context.Background(),
 		ts:             client.NewTokenService().WithHds(&clienttest.HomedirServiceMock{}).WithTokenFileName("tokenFileName"),
 	}
-
-	cl.stats(&cmd)
+	cmd, _ := cl.NewCmd()
+	cl.stats(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"stats", "--raw"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	statcmd := cmd.Commands()[0]
+	statcmd.PersistentPreRunE = nil
+
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
 	if err != nil {

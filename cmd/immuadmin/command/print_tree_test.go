@@ -38,7 +38,6 @@ func TestCommandLine_PrintTree(t *testing.T) {
 	bs.Start()
 	bs.Server.Set(context.TODO(), &schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
 
-	cmd := cobra.Command{}
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
@@ -52,12 +51,18 @@ func TestCommandLine_PrintTree(t *testing.T) {
 		context:        context.Background(),
 		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName"),
 	}
-
-	cl.printTree(&cmd)
+	cmd, _ := cl.NewCmd()
+	cl.printTree(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"print"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	printcmd := cmd.Commands()[0]
+	printcmd.PersistentPreRunE = nil
+
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
 	if err != nil {

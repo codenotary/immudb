@@ -35,8 +35,8 @@ func TestOptions_InitConfig(t *testing.T) {
 	fn := home + "/immudbtest9990.toml"
 	_ = ioutil.WriteFile(fn, input, 0644)
 	defer os.RemoveAll(fn)
-	o := Options{}
-	o.InitConfig("test")
+	o := Config{}
+	o.Init("test")
 	address := viper.GetString("address")
 	assert.NotNil(t, address)
 }
@@ -45,10 +45,10 @@ func TestOptions_InitConfigWithCfFn(t *testing.T) {
 	fn := "/tmp/immudbtest9991.toml"
 	_ = ioutil.WriteFile(fn, input, 0644)
 	defer os.RemoveAll(fn)
-	o := Options{
+	o := Config{
 		CfgFn: fn,
 	}
-	o.InitConfig("test")
+	o.Init("test")
 	address := viper.GetString("address")
 	assert.NotNil(t, address)
 }

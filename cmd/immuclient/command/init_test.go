@@ -17,10 +17,11 @@ limitations under the License.
 package immuclient
 
 import (
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/stretchr/testify/require"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/helper"
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -28,11 +29,8 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	opts := helper.Options{}
-	cm := Init(&opts)
-	if len(cm.Commands()) != 28 {
-		t.Fatal("fail immuclient commands, wrong number of expected commands")
-	}
+	cm := newCommand()
+	require.Len(t, cm.Commands(), 28, "fail immuclient commands, wrong number of expected commands")
 }
 
 func TestConnect(t *testing.T) {
@@ -48,6 +46,7 @@ func TestConnect(t *testing.T) {
 	ic.Login("immudb")
 
 	cmd := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
 	_ = cmd.connect(&cobra.Command{}, []string{})

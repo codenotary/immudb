@@ -17,11 +17,10 @@ limitations under the License.
 package main
 
 import (
+	immugw "github.com/codenotary/immudb/cmd/immugw/command"
 	"testing"
-
-	"github.com/codenotary/immudb/pkg/gw"
 )
 
 func TestImmuGw(t *testing.T) {
-	execute(new(gw.ImmuGwServerMock))
+	immugw.Execute()
 }

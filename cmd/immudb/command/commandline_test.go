@@ -23,7 +23,7 @@ import (
 
 func TestCommandline_Immudb(t *testing.T) {
 	c := Commandline{
-		plauncherMock{},
+		P: plauncherMock{},
 	}
 	assert.IsType(t, Commandline{}, c)
 }

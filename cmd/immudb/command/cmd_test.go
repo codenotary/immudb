@@ -45,14 +45,15 @@ func TestImmudbCommandFlagParser(t *testing.T) {
 	cmd := &cobra.Command{
 		Use: "immudb",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			options, err = parseOptions(cmd)
+			options, err = parseOptions()
 			if err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-	setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
+	cl := Commandline{}
+	cl.setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
 	assert.Nil(t, err)
@@ -74,17 +75,21 @@ func TestImmudbCommandFlagParserPriority(t *testing.T) {
 	o := DefaultTestOptions()
 	var options server.Options
 	var err error
+	cl := Commandline{}
+	cl.config.Name = "immudb"
+
 	cmd := &cobra.Command{
-		Use: "immudb",
+		Use:               "immudb",
+		PersistentPreRunE: cl.ConfigChain(nil),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			options, err = parseOptions(cmd)
+			options, err = parseOptions()
 			if err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-	setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
+	cl.setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
 
 	err = viper.BindPFlags(cmd.Flags())
 	assert.Nil(t, err)
@@ -139,7 +144,8 @@ func tearDown() {
 func TestNewCmd(t *testing.T) {
 	cl := Commandline{}
 
-	cmd := cl.NewCmd(server.DefaultServer())
+	cmd, err := cl.NewCmd(server.DefaultServer())
+	assert.Nil(t, err)
 	assert.IsType(t, &cobra.Command{}, cmd)
 }
 
@@ -162,7 +168,7 @@ func TestImmudbDetached(t *testing.T) {
 	cmd.Flags().StringVar(&config, "config", "", "test")
 	viper.Set("detached", true)
 
-	cl := Commandline{plauncherMock{}}
+	cl := Commandline{P: plauncherMock{}}
 
 	immudb := cl.Immudb(immudbcmdtest.ImmuServerMock{})
 	err := immudb(cmd, nil)

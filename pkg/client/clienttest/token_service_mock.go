@@ -16,5 +16,37 @@ limitations under the License.
 
 package clienttest
 
-type tokenServiceMock struct {
+import (
+	"github.com/codenotary/immudb/pkg/client"
+)
+
+type TokenServiceMock struct {
+}
+
+func (ts TokenServiceMock) GetToken() (string, error) {
+	return "", nil
+}
+
+func (ts TokenServiceMock) SetToken(database string, token string) error {
+	return nil
+}
+
+func (ts TokenServiceMock) DeleteToken() error {
+	return nil
+}
+
+func (ts TokenServiceMock) IsTokenPresent() (bool, error) {
+	return true, nil
+}
+
+func (ts TokenServiceMock) GetDatabase() (string, error) {
+	return "", nil
+}
+
+func (ts TokenServiceMock) WithHds(hds client.HomedirService) client.TokenService {
+	return ts
+}
+
+func (ts TokenServiceMock) WithTokenFileName(tfn string) client.TokenService {
+	return ts
 }

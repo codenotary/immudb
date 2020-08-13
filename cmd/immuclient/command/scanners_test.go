@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"io/ioutil"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 )
 
 func TestZScan(t *testing.T) {
@@ -42,16 +42,24 @@ func TestZScan(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.zScan(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.zScan(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmdl.immucl.SafeSet([]string{"key", "value"})
 
 	cmd.SetArgs([]string{"zscan", "key"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,16 +85,24 @@ func TestIScan(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.iScan(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.iScan(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmdl.immucl.SafeSet([]string{"key", "value"})
 
 	cmd.SetArgs([]string{"iscan", "0", "1"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,17 +128,25 @@ func TestScan(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
 
-	cmd := cobra.Command{}
-	cmdl.scan(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.scan(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmdl.immucl.SafeSet([]string{"key", "value"})
 
 	cmd.SetArgs([]string{"scan", "k"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,17 +172,25 @@ func TestCount(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
 
-	cmd := cobra.Command{}
-	cmdl.count(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.count(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmdl.immucl.SafeSet([]string{"key", "value"})
 
 	cmd.SetArgs([]string{"count", "key"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}

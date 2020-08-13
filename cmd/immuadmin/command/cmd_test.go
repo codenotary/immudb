@@ -23,6 +23,8 @@ import (
 )
 
 func TestNewCmd(t *testing.T) {
-	cmd := NewCmd("test")
+	cl := commandline{}
+	cmd, err := cl.NewCmd()
+	assert.Nil(t, err)
 	assert.IsType(t, cobra.Command{}, *cmd)
 }

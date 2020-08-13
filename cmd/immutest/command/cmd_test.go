@@ -69,12 +69,12 @@ func TestImmutest(t *testing.T) {
 	}
 
 	hds := clienttest.DefaultHomedirServiceMock()
-
+	ts := clienttest.TokenServiceMock{}.WithHds(hds).WithTokenFileName("test")
 	errFunc := func(err error) {
 		require.NoError(t, err)
 	}
 
-	cmd1 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd1 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd1.SetArgs([]string{"3"})
 	cmd1.Execute()
 	require.Equal(t, 3, len(data))
@@ -88,12 +88,12 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, hdsWriteErr, err)
 	}
-	cmd2 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, &hds2, errFunc)
+	cmd2 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, clienttest.TokenServiceMock{}.WithHds(&hds2).WithTokenFileName("test"), errFunc)
 	cmd2.SetArgs([]string{"3"})
 	cmd2.Execute()
 
 	viper.Set("user", "someuser")
-	cmd3 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd3 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd3.SetArgs([]string{"3"})
 	cmd3.Execute()
 
@@ -105,7 +105,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, icErr, err)
 	}
-	cmd4 := NewCmd(newClientErrFunc, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd4 := NewCmd(newClientErrFunc, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd4.SetArgs([]string{"3"})
 	cmd4.Execute()
 
@@ -113,7 +113,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, `strconv.Atoi: parsing "a": invalid syntax`, err.Error())
 	}
-	cmd5 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd5 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd5.SetArgs([]string{"a"})
 	cmd5.Execute()
 
@@ -124,7 +124,7 @@ func TestImmutest(t *testing.T) {
 			`Please specify a number of entries greater than 0 or call the command without any argument so that the default number of 100 entries will be used`,
 			err.Error())
 	}
-	cmd6 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd6 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd6.SetArgs([]string{"0"})
 	cmd6.Execute()
 
@@ -136,7 +136,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, pwrErr, err)
 	}
-	cmd7 := NewCmd(newClient, pwReaderMockErr, termReaderMockOK, hds, errFunc)
+	cmd7 := NewCmd(newClient, pwReaderMockErr, termReaderMockOK, ts, errFunc)
 	cmd7.SetArgs([]string{"1"})
 	cmd7.Execute()
 
@@ -148,7 +148,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, loginErr, err)
 	}
-	cmd8 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd8 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd8.SetArgs([]string{"1"})
 	cmd8.Execute()
 
@@ -157,7 +157,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, hdsWriteErr, err)
 	}
-	cmd9 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, &hds2, errFunc)
+	cmd9 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, clienttest.TokenServiceMock{}.WithHds(&hds2).WithTokenFileName("test"), errFunc)
 	cmd9.SetArgs([]string{"1"})
 	cmd9.Execute()
 
@@ -169,7 +169,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, errUseDb, err)
 	}
-	cmd10 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd10 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd10.SetArgs([]string{"1"})
 	cmd10.Execute()
 
@@ -183,7 +183,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "Canceled", err.Error())
 	}
-	cmd11 := NewCmd(newClient, pwReaderMockOK, termReaderMockErr, hds, errFunc)
+	cmd11 := NewCmd(newClient, pwReaderMockOK, termReaderMockErr, ts, errFunc)
 	cmd11.SetArgs([]string{"1"})
 	cmd11.Execute()
 
@@ -195,7 +195,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, errSet, err)
 	}
-	cmd12 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd12 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd12.SetArgs([]string{"1"})
 	cmd12.Execute()
 
@@ -206,7 +206,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, errDisconnect, err)
 	}
-	cmd13 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, hds, errFunc)
+	cmd13 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts, errFunc)
 	cmd13.SetArgs([]string{"1"})
 	cmd13.Execute()
 }

@@ -19,6 +19,8 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/pkg/client/clienttest"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -28,7 +30,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 )
@@ -50,20 +51,32 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 	cliopt := Options()
 	cliopt.DialOptions = &dialOptions
 
-	cl := commandline{
+	hds := clienttest.DefaultHomedirServiceMock()
+	hds.FileExistsInUserHomeDirF = func(string) (bool, error) {
+		return true, nil
+	}
+
+	cl := &commandline{
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName"),
+		ts:             client.NewTokenService().WithHds(hds).WithTokenFileName("tokenFileName"),
 	}
 
-	cmdso := &cobra.Command{}
+	cmdso, err := cl.NewCmd()
+	require.Nil(t, err)
 	cl.serverConfig(cmdso)
 
 	b := bytes.NewBufferString("")
 	cmdso.SetOut(b)
 	cmdso.SetArgs([]string{"set", "auth", "password"})
+
+	// remove ConfigChain method to avoid override options
+	cmdso.PersistentPreRunE = nil
+	sccmd := cmdso.Commands()[0]
+	sccmd.PersistentPreRunE = nil
+
 	cmdso.Execute()
 	out, err := ioutil.ReadAll(b)
 	if err != nil {
@@ -97,12 +110,18 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName"),
 	}
 
-	cmdso := &cobra.Command{}
+	cmdso, _ := cl.NewCmd()
 	cl.serverConfig(cmdso)
 
 	b := bytes.NewBufferString("")
 	cmdso.SetOut(b)
 	cmdso.SetArgs([]string{"set", "mtls", "false"})
+
+	// remove ConfigChain method to avoid override options
+	cmdso.PersistentPreRunE = nil
+	sccmd := cmdso.Commands()[0]
+	sccmd.PersistentPreRunE = nil
+
 	cmdso.Execute()
 	out, err := ioutil.ReadAll(b)
 	if err != nil {

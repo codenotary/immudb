@@ -30,7 +30,7 @@ func (cl *commandline) history(cmd *cobra.Command) {
 		Use:               "history key",
 		Short:             "Fetch history for the item having the specified key",
 		Aliases:           []string{"h"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.History(args)
@@ -50,7 +50,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		Use:               "status",
 		Short:             "Ping to check if server connection is alive",
 		Aliases:           []string{"p"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.HealthCheck(args)
@@ -67,12 +67,11 @@ func (cl *commandline) status(cmd *cobra.Command) {
 
 func (cl *commandline) auditmode(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "audit-mode command",
-		Short:             "Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' or use -h flag for details",
-		Aliases:           []string{"audit-mode"},
-		Example:           service.UsageExamples,
-		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"help", "start", "install", "uninstall", "restart", "stop", "status"},
+		Use:       "audit-mode command",
+		Short:     "Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' or use -h flag for details",
+		Aliases:   []string{"audit-mode"},
+		Example:   service.UsageExamples,
+		ValidArgs: []string{"help", "start", "install", "uninstall", "restart", "stop", "status"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := audit.Init(args); err != nil {
 				cl.quit(err)
@@ -99,122 +98,12 @@ func (cl *commandline) interactiveCli(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) user(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:               "user command",
-		Short:             "Issue all user commands",
-		Aliases:           []string{"u"},
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-	}
-	userListCmd := &cobra.Command{
-		Use:               "list",
-		Short:             "List all users",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.UserList(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.MaximumNArgs(0),
-	}
-	userChangePassword := &cobra.Command{
-		Use:               "changepassword",
-		Short:             "Change user password. changepassword username",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.ChangeUserPassword(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.MaximumNArgs(1),
-	}
-
-	userCreate := &cobra.Command{
-		Use:               "create",
-		Short:             "Create a new user",
-		Long:              "Create a new user. user create username",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.UserCreate(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.MaximumNArgs(4),
-	}
-	userActivate := &cobra.Command{
-		Use:               "activate",
-		Short:             "Activate a user",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.SetActiveUser(args, true)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.MaximumNArgs(4),
-	}
-	userDeactivate := &cobra.Command{
-		Use:               "deactivate",
-		Short:             "Deactivate a user",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.SetActiveUser(args, false)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.MaximumNArgs(4),
-	}
-	userPermission := &cobra.Command{
-		Use:               "permission",
-		Short:             "Set user permission",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.SetUserPermission(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.MaximumNArgs(4),
-	}
-
-	ccmd.AddCommand(userListCmd)
-	ccmd.AddCommand(userChangePassword)
-	ccmd.AddCommand(userCreate)
-	ccmd.AddCommand(userActivate)
-	ccmd.AddCommand(userDeactivate)
-	ccmd.AddCommand(userPermission)
-	cmd.AddCommand(ccmd)
-}
-
 func (cl *commandline) use(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "use command",
 		Short:             "Select database",
 		Example:           "use {database_name}",
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		ValidArgs:         []string{"databasename"},
 		RunE: func(cmd *cobra.Command, args []string) error {

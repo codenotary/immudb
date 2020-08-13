@@ -19,6 +19,7 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/cmd/helper"
 	"io/ioutil"
 	"testing"
 
@@ -82,7 +83,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName"),
+		ts:             client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("token_admin"),
 	}
 	_ = cmdl.connect(&cobra.Command{}, []string{})
 
@@ -120,26 +121,34 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	cmd := cobra.Command{}
+	cl := commandline{}
+	cmd, _ := cl.NewCmd()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options()
-	cliopt.DialOptions = &dialOptions
-	cliopt.Tkns = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("_admin")
+	cliopt := Options().WithDialOptions(&dialOptions)
+
+	cliopt.Tkns = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("token_admin")
 	cmdl := commandline{
+		config:         helper.Config{Name: "immuadmin"},
 		options:        cliopt,
 		immuClient:     &scIClientInnerMock{cliopt, *new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("_admin"),
+		ts:             client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("token_admin"),
 		newImmuClient:  client.NewImmuClient,
 	}
-	cmdl.login(&cmd)
+	cmdl.login(cmd)
 
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"login", "immudb"})
+
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	logincmd := cmd.Commands()[0]
+	logincmd.PersistentPreRunE = nil
+
 	cmd.Execute()
 	out, err := ioutil.ReadAll(b)
 	if err != nil {
@@ -148,18 +157,25 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	assert.Contains(t, string(out), "logged in")
 
 	cmdlo := commandline{
+		config:         helper.Config{Name: "immuadmin"},
 		options:        cliopt,
 		immuClient:     &scIClientMock{*new(client.ImmuClient)},
 		passwordReader: pwReaderMock,
 		context:        context.Background(),
-		ts:             client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("_admin"),
+		ts:             client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName("token_admin"),
 	}
 	b1 := bytes.NewBufferString("")
-	logoutcmd := cobra.Command{}
+	cl = commandline{}
+	logoutcmd, _ := cl.NewCmd()
 	logoutcmd.SetOut(b1)
 	logoutcmd.SetArgs([]string{"logout"})
 
-	cmdlo.logout(&logoutcmd)
+	cmdlo.logout(logoutcmd)
+
+	// remove ConfigChain method to avoid override options
+	logoutcmd.PersistentPreRunE = nil
+	logoutcmdin := logoutcmd.Commands()[0]
+	logoutcmdin.PersistentPreRunE = nil
 
 	logoutcmd.Execute()
 	out1, err1 := ioutil.ReadAll(b1)
@@ -174,8 +190,8 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
-	cmd := cobra.Command{}
-	cl := new(commandline)
+	cl := commandline{}
+	cmd, _ := cl.NewCmd()
 	cl.context = context.Background()
 	cl.passwordReader = pwReaderMock
 	dialOptions := []grpc.DialOption{
@@ -187,13 +203,13 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 
 	cl.options = Options()
 	cl.options.DialOptions = &dialOptions
-	cl.login(&cmd)
+	cl.login(cmd)
 
 	cmd1 := cobra.Command{}
 	cl1 := new(commandline)
 	cl1.context = context.Background()
 	cl1.passwordReader = pwReaderMock
-	cl1.ts = client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("tokenFileName")
+	cl1.ts = client.NewTokenService().WithHds(newHomedirServiceMock()).WithTokenFileName("token_admin")
 	dialOptions1 := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}

@@ -7,8 +7,8 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -21,13 +21,11 @@ func TestDatabaseList(t *testing.T) {
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
 	}
-	hds := &immuclienttest.HomedirServiceMock{}
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -35,21 +33,24 @@ func TestDatabaseList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ts.SetToken("", token.Token); err != nil {
-		t.Fatal(err)
-	}
+
+	md := metadata.Pairs("authorization", token.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		ts:             ts,
 	}
 
-	cmd := cobra.Command{}
+	cmd, _ := cmdl.NewCmd()
+	cmdl.database(cmd)
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	cmdlist := cmd.Commands()[0].Commands()[1]
+	cmdlist.PersistentPreRunE = nil
 
-	cmdl.database(&cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
@@ -74,14 +75,11 @@ func TestDatabaseCreate(t *testing.T) {
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
 	}
-	hds := &immuclienttest.HomedirServiceMock{}
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(hds)
-
 	ctx := context.Background()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
-	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+	cliopt := Options().WithDialOptions(&dialOptions).WithPasswordReader(pr)
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 	clientb, _ := client.NewImmuClient(cliopt)
@@ -89,21 +87,25 @@ func TestDatabaseCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ts.SetToken("", token.Token); err != nil {
-		t.Fatal(err)
-	}
+
+	md := metadata.Pairs("authorization", token.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	cmdl := commandline{
 		options:        cliopt,
 		immuClient:     clientb,
 		passwordReader: pr,
 		context:        ctx,
-		ts:             ts,
 	}
 
-	cmd := cobra.Command{}
+	cmd, _ := cmdl.NewCmd()
 
-	cmdl.database(&cmd)
+	cmdl.database(cmd)
+	// remove ConfigChain method to avoid override options
+	cmd.PersistentPreRunE = nil
+	cmdlist := cmd.Commands()[0].Commands()[0]
+	cmdlist.PersistentPreRunE = nil
+
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 

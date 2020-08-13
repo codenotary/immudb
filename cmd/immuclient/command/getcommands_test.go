@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"io/ioutil"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 )
 
 func TestGetByIndex(t *testing.T) {
@@ -42,21 +42,37 @@ func TestGetByIndex(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.getByIndex(&cmd)
-	cmdl.safeset(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.getByIndex(cmd)
+	cmdl.safeset(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"safeset", "key", "value"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[1]
+	innercmd.PersistentPreRunE = nil
+	// since we issue two commands we need to remove PersistentPostRun ( disconnect )
+	cmd.Commands()[1].PersistentPostRun = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cmd.SetArgs([]string{"getByIndex", "0"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd = cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -83,16 +99,26 @@ func TestGetRawBySafeIndex(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.getRawBySafeIndex(&cmd)
-	cmdl.safeset(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.getRawBySafeIndex(cmd)
+	cmdl.safeset(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"safeset", "key", "value"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	cmd.Commands()[0].PersistentPreRunE = nil
+	cmd.Commands()[1].PersistentPreRunE = nil
+	// since we issue two commands we need to remove PersistentPostRun ( disconnect )
+	cmd.Commands()[1].PersistentPostRun = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,21 +150,32 @@ func TestGetKey(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.getKey(&cmd)
-	cmdl.safeset(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.getKey(cmd)
+	cmdl.safeset(cmd)
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	cmd.Commands()[0].PersistentPreRunE = nil
+	cmd.Commands()[1].PersistentPreRunE = nil
+	// since we issue two commands we need to remove PersistentPostRun ( disconnect )
+	cmd.Commands()[1].PersistentPostRun = nil
+
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"safeset", "key", "value"})
+
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cmd.SetArgs([]string{"get", "key"})
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -165,16 +202,32 @@ func TestSafeGetKey(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.safeGetKey(&cmd)
-	cmdl.safeset(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.safeGetKey(cmd)
+	cmdl.safeset(cmd)
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	cmd.Commands()[0].PersistentPreRunE = nil
+	cmd.Commands()[1].PersistentPreRunE = nil
+	// since we issue two commands we need to remove PersistentPostRun ( disconnect )
+	cmd.Commands()[1].PersistentPostRun = nil
+
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"safeset", "key", "value"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,16 +259,26 @@ func TestRawSafeGetKey(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.rawSafeGetKey(&cmd)
-	cmdl.safeset(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.rawSafeGetKey(cmd)
+	cmdl.safeset(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 
 	cmd.SetArgs([]string{"safeset", "key", "value"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	cmd.Commands()[0].PersistentPreRunE = nil
+	cmd.Commands()[1].PersistentPreRunE = nil
+	// since we issue two commands we need to remove PersistentPostRun ( disconnect )
+	cmd.Commands()[1].PersistentPostRun = nil
+
 	err := cmd.Execute()
+
 	if err != nil {
 		t.Fatal(err)
 	}

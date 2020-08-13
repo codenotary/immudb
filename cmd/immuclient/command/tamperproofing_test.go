@@ -18,6 +18,7 @@ package immuclient
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"io/ioutil"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/spf13/cobra"
 )
 
 func TestConsistency(t *testing.T) {
@@ -42,10 +42,11 @@ func TestConsistency(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.consistency(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.consistency(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	setmsg, err := cmdl.immucl.SafeSet([]string{"key", "value"})
@@ -53,6 +54,12 @@ func TestConsistency(t *testing.T) {
 	hash = hash[:64]
 
 	cmd.SetArgs([]string{"check-consistency", "0", hash})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -78,10 +85,11 @@ func TestInclusion(t *testing.T) {
 	ic.Login("immudb")
 
 	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
 		immucl: ic.Imc,
 	}
-	cmd := cobra.Command{}
-	cmdl.inclusion(&cmd)
+	cmd, _ := cmdl.NewCmd()
+	cmdl.inclusion(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	setmsg, err := cmdl.immucl.SafeSet([]string{"key", "value"})
@@ -89,6 +97,12 @@ func TestInclusion(t *testing.T) {
 	hash = hash[:64]
 
 	cmd.SetArgs([]string{"inclusion", "0"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
