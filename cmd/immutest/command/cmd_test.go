@@ -68,8 +68,7 @@ func TestImmutest(t *testing.T) {
 		return icm, nil
 	}
 
-	hds := clienttest.DefaultHomedirServiceMock()
-	ts := clienttest.TokenServiceMock{}.WithHds(hds).WithTokenFileName("test")
+	ts := clienttest.DefaultTokenServiceMock()
 	errFunc := func(err error) {
 		require.NoError(t, err)
 	}
@@ -79,16 +78,17 @@ func TestImmutest(t *testing.T) {
 	cmd1.Execute()
 	require.Equal(t, 3, len(data))
 
-	hds2 := *hds
+	ts2 := clienttest.DefaultTokenServiceMock()
 	hdsWriteErr := errors.New("hds write error")
-	hds2.WriteFileToUserHomeDirF = func(content []byte, pathToFile string) error {
+	ts2.SetTokenF = func(db string, content string) error {
 		return hdsWriteErr
 	}
+
 	errFunc = func(err error) {
 		require.Error(t, err)
 		require.Equal(t, hdsWriteErr, err)
 	}
-	cmd2 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, clienttest.TokenServiceMock{}.WithHds(&hds2).WithTokenFileName("test"), errFunc)
+	cmd2 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts2, errFunc)
 	cmd2.SetArgs([]string{"3"})
 	cmd2.Execute()
 
@@ -157,7 +157,7 @@ func TestImmutest(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, hdsWriteErr, err)
 	}
-	cmd9 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, clienttest.TokenServiceMock{}.WithHds(&hds2).WithTokenFileName("test"), errFunc)
+	cmd9 := NewCmd(newClient, pwReaderMockOK, termReaderMockOK, ts2, errFunc)
 	cmd9.SetArgs([]string{"1"})
 	cmd9.Execute()
 

@@ -56,7 +56,7 @@ func TestImmutest(t *testing.T) {
 
 	pwReaderMock := &clienttest.PasswordReaderMock{}
 
-	ts := clienttest.TokenServiceMock{}
+	ts := clienttest.DefaultTokenServiceMock()
 	trMock := &clienttest.TerminalReaderMock{
 		ReadFromTerminalYNF: func(string) (string, error) {
 			return "Y", nil

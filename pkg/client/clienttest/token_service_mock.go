@@ -21,22 +21,27 @@ import (
 )
 
 type TokenServiceMock struct {
+	client.TokenService
+	GetTokenF       func() (string, error)
+	SetTokenF       func(database string, token string) error
+	IsTokenPresentF func() (bool, error)
+	DeleteTokenF    func() error
 }
 
 func (ts TokenServiceMock) GetToken() (string, error) {
-	return "", nil
+	return ts.GetTokenF()
 }
 
 func (ts TokenServiceMock) SetToken(database string, token string) error {
-	return nil
+	return ts.SetTokenF(database, token)
 }
 
 func (ts TokenServiceMock) DeleteToken() error {
-	return nil
+	return ts.DeleteTokenF()
 }
 
 func (ts TokenServiceMock) IsTokenPresent() (bool, error) {
-	return true, nil
+	return ts.IsTokenPresentF()
 }
 
 func (ts TokenServiceMock) GetDatabase() (string, error) {
@@ -49,4 +54,22 @@ func (ts TokenServiceMock) WithHds(hds client.HomedirService) client.TokenServic
 
 func (ts TokenServiceMock) WithTokenFileName(tfn string) client.TokenService {
 	return ts
+}
+
+// DefaultHomedirServiceMock ...
+func DefaultTokenServiceMock() *TokenServiceMock {
+	return &TokenServiceMock{
+		GetTokenF: func() (string, error) {
+			return "", nil
+		},
+		SetTokenF: func(database string, token string) error {
+			return nil
+		},
+		IsTokenPresentF: func() (bool, error) {
+			return true, nil
+		},
+		DeleteTokenF: func() error {
+			return nil
+		},
+	}
 }
