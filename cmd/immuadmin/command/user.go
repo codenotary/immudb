@@ -32,15 +32,16 @@ import (
 
 func (cl *commandline) user(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "user command",
-		Short:   "Issue all user commands",
-		Aliases: []string{"u"},
+		Use:               "user command",
+		Short:             "Issue all user commands",
+		Aliases:           []string{"u"},
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
 	}
 	userListCmd := &cobra.Command{
-		Use:               "list",
-		Short:             "List all users",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
+		Use:   "list",
+		Short: "List all users",
+
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.userList(args)
 			if err != nil {
@@ -52,12 +53,10 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Args: cobra.MaximumNArgs(0),
 	}
 	userCreate := &cobra.Command{
-		Use:               "create",
-		Short:             "Create a new user",
-		Long:              "Create a new user inside a database with permissions",
-		Example:           "immuadmin user create michele read mydb",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
+		Use:     "create",
+		Short:   "Create a new user",
+		Long:    "Create a new user inside a database with permissions",
+		Example: "immuadmin user create michele read mydb",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.userCreate(args)
 			if err != nil {
@@ -69,11 +68,9 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Args: cobra.RangeArgs(2, 3),
 	}
 	userChangePassword := &cobra.Command{
-		Use:               "changepassword",
-		Short:             "Change user password",
-		Example:           "immuadmin user changepassword michele",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
+		Use:     "changepassword",
+		Short:   "Change user password",
+		Example: "immuadmin user changepassword michele",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			username := args[0]
 			var resp = ""
@@ -92,10 +89,8 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Args: cobra.ExactArgs(1),
 	}
 	userActivate := &cobra.Command{
-		Use:               "activate",
-		Short:             "Activate a user",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
+		Use:   "activate",
+		Short: "Activate a user",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var resp = ""
 			if resp, err = cl.setActiveUser(args, true); err == nil {
@@ -106,10 +101,8 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Args: cobra.ExactArgs(1),
 	}
 	userDeactivate := &cobra.Command{
-		Use:               "deactivate",
-		Short:             "Deactivate a user",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
+		Use:   "deactivate",
+		Short: "Deactivate a user",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var resp = ""
 			if resp, err = cl.setActiveUser(args, false); err == nil {
@@ -120,11 +113,9 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Args: cobra.ExactArgs(1),
 	}
 	userPermission := &cobra.Command{
-		Use:               "permission [grant|revoke] {username} [read|readwrite|admin] {database}",
-		Short:             "Set user permission",
-		Example:           "immuadmin user permission grant michele readwrite mydb",
-		PersistentPreRunE: cl.connect,
-		PersistentPostRun: cl.disconnect,
+		Use:     "permission [grant|revoke] {username} [read|readwrite|admin] {database}",
+		Short:   "Set user permission",
+		Example: "immuadmin user permission grant michele readwrite mydb",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			if _, err = cl.setUserPermission(args); err == nil {
 				fmt.Fprintf(cmd.OutOrStdout(), "Permission changed successfully")
@@ -157,14 +148,14 @@ func (cl *commandline) changeUserPassword(username string, oldpassword []byte) (
 	if !bytes.Equal(newpass, pass2) {
 		return "", nil, errors.New("Passwords don't match")
 	}
-	if err := cl.immuClient.ChangePassword(context.Background(), []byte(username), oldpassword, newpass); err != nil {
+	if err := cl.immuClient.ChangePassword(cl.context, []byte(username), oldpassword, newpass); err != nil {
 		return "", nil, err
 	}
 	return fmt.Sprintf("%s's password has been changed", username), newpass, nil
 }
 
 func (cl *commandline) userList(args []string) (string, error) {
-	userlist, err := cl.immuClient.ListUsers(context.Background())
+	userlist, err := cl.immuClient.ListUsers(cl.context)
 	if err != nil {
 		return "", err
 	}
@@ -247,8 +238,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 	}
 
 	// validations
-	ctx := context.Background()
-	usernameTaken, err := userExists(ctx, cl.immuClient, username)
+	usernameTaken, err := userExists(cl.context, cl.immuClient, username)
 	if err != nil {
 		return "", err
 	}
@@ -256,7 +246,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 		return "", fmt.Errorf("User %s already exists", username)
 	}
 	if databasename != "" {
-		existingDb, err := dbExists(ctx, cl.immuClient, databasename)
+		existingDb, err := dbExists(cl.context, cl.immuClient, databasename)
 		if err != nil {
 			return "", err
 		}
@@ -284,7 +274,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 		return "", fmt.Errorf("Passwords don't match")
 	}
 
-	err = cl.immuClient.CreateUser(ctx, []byte(username), pass, permission, databasename)
+	err = cl.immuClient.CreateUser(cl.context, []byte(username), pass, permission, databasename)
 	if err != nil {
 		return "", err
 	}
@@ -293,7 +283,7 @@ func (cl *commandline) userCreate(args []string) (string, error) {
 
 func (cl *commandline) setActiveUser(args []string, active bool) (string, error) {
 	username := args[0]
-	err := cl.immuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
+	err := cl.immuClient.SetActiveUser(cl.context, &schema.SetActiveUserRequest{
 		Active:   active,
 		Username: username,
 	})
@@ -319,7 +309,7 @@ func (cl *commandline) setUserPermission(args []string) (resp string, err error)
 		return "", err
 	}
 	dbname := args[3]
-	return "", cl.immuClient.ChangePermission(context.Background(), permissionAction, username, dbname, permission)
+	return "", cl.immuClient.ChangePermission(cl.context, permissionAction, username, dbname, permission)
 }
 
 func userExists(

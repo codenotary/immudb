@@ -17,37 +17,42 @@ limitations under the License.
 package immuadmin
 
 import (
+	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/immuadmin/command/service"
 	"github.com/codenotary/immudb/cmd/version"
+	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/spf13/cobra"
 )
 
-var o = c.Options{}
-
-func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immuadmin") })
+func Execute() {
+	if err := newCommand().Execute(); err != nil {
+		c.QuitWithUserError(err)
+	}
 }
 
-// NewCmd ...
-func NewCmd(cmdName string) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   cmdName,
-		Short: "CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications",
-		Long: `CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
-
-Environment variables:
-  IMMUADMIN_IMMUDB_ADDRESS=127.0.0.1
-  IMMUADMIN_IMMUDB_PORT=3322
-  IMMUADMIN_MTLS=true
-  IMMUADMIN_SERVERNAME=localhost
-  IMMUADMIN_PKEY=./tools/mtls/4_client/private/localhost.key.pem
-  IMMUADMIN_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
-  IMMUADMIN_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
-		SilenceUsage:      false,
-		SilenceErrors:     false,
-		DisableAutoGenTag: true,
+func newCommand() *cobra.Command {
+	version.App = "immuadmin"
+	// register admin commands
+	cml := NewCommandLine()
+	cmd, err := cml.NewCmd()
+	if err != nil {
+		c.QuitToStdErr(err)
 	}
-	cmd = Init(cmd, cmdName, &o.CfgFn)
+
+	cmd = cml.Register(cmd)
+	// register backup related commands
+	os := immuos.NewStandardOS()
+	clb, err := newCommandlineBck(os)
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
+	cmd = clb.Register(cmd)
+	// register services related commands
+	cld := service.NewCommandLine()
+	cld.Register(cmd)
+
+	cmd.AddCommand(man.Generate(cmd, "immuadmin", "./cmd/docs/man/"+version.App))
 	cmd.AddCommand(version.VersionCmd())
 
 	return cmd

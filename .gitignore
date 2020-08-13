@@ -44,14 +44,6 @@ immudb.pid
 # Vendor
 vendor
 
-# Config
-configs/immuadmin.toml
-configs/immuclient.toml
-configs/immudb.toml
-configs/immugw.toml
-configs/immutest.toml
-configs/immutc.toml
-
 # immudb auth
 immudb_pwd
 token

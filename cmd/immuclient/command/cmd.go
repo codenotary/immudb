@@ -17,21 +17,66 @@ limitations under the License.
 package immuclient
 
 import (
+	"fmt"
+	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
 	"github.com/spf13/cobra"
+	"os"
+	"strings"
 )
 
-var o = c.Options{}
-
-func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immuclient") })
+func Execute() {
+	cmd := newCommand()
+	if isCommand(commandNames(cmd.Commands())) {
+		if err := cmd.Execute(); err != nil {
+			fmt.Println(cmd.Aliases)
+			if strings.HasPrefix(err.Error(), "unknown command") {
+				os.Exit(0)
+			}
+			c.QuitWithUserError(err)
+		}
+		return
+	}
 }
 
-// NewCmd ...
-func NewCmd() *cobra.Command {
-	cmd := Init(&o)
-	cmd.AddCommand(version.VersionCmd())
+func newCommand() *cobra.Command {
+	version.App = "immuclient"
+	cl := NewCommandLine()
+	cmd, err := cl.NewCmd()
+	if err != nil {
+		c.QuitToStdErr(err)
+	}
 
+	// login and logout
+	cl.Register(cmd)
+	// man file generator
+	cmd.AddCommand(man.Generate(cmd, "immuclient", "./cmd/docs/man/immuclient"))
+	cmd.AddCommand(version.VersionCmd())
 	return cmd
+}
+
+func isCommand(args []string) bool {
+	if len(os.Args) > 1 {
+		if strings.HasPrefix(os.Args[1], "-") {
+			for i := range args {
+				for j := range os.Args {
+					if args[i] == os.Args[j] {
+						fmt.Printf("Please sort your commands in \"immudb [command] [flags]\" order. \n")
+						return true
+					}
+				}
+			}
+		}
+	}
+	return true
+}
+
+func commandNames(cms []*cobra.Command) []string {
+	args := make([]string, 0)
+	for i := range cms {
+		arg := strings.Split(cms[i].Use, " ")[0]
+		args = append(args, arg)
+	}
+	return args
 }

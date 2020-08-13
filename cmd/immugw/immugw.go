@@ -17,20 +17,9 @@ limitations under the License.
 package main
 
 import (
-	c "github.com/codenotary/immudb/cmd/helper"
 	immugw "github.com/codenotary/immudb/cmd/immugw/command"
-	"github.com/codenotary/immudb/cmd/version"
-	"github.com/codenotary/immudb/pkg/gw"
 )
 
 func main() {
-	execute(gw.DefaultServer())
-}
-
-func execute(immugwServer gw.ImmuGw) {
-	version.App = "immugw"
-	cmd := immugw.NewCmd(immugwServer)
-	if err := cmd.Execute(); err != nil {
-		c.QuitWithUserError(err)
-	}
+	immugw.Execute()
 }

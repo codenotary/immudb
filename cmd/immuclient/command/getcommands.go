@@ -27,7 +27,7 @@ func (cl *commandline) getByIndex(cmd *cobra.Command) {
 		Use:               "getByIndex",
 		Short:             "Return an element by index",
 		Aliases:           []string{"bi"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.GetByIndex(args)
@@ -47,7 +47,7 @@ func (cl *commandline) getRawBySafeIndex(cmd *cobra.Command) {
 		Use:               "getRawBySafeIndex",
 		Short:             "Return an element by index",
 		Aliases:           []string{"brsi"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.GetRawBySafeIndex(args)
@@ -67,7 +67,7 @@ func (cl *commandline) getKey(cmd *cobra.Command) {
 		Use:               "get key",
 		Short:             "Get item having the specified key",
 		Aliases:           []string{"g"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.GetKey(args)
@@ -87,7 +87,7 @@ func (cl *commandline) rawSafeGetKey(cmd *cobra.Command) {
 		Use:               "rawsafeget key",
 		Short:             "Get item having the specified key, without parsing structured values",
 		Aliases:           []string{"rg"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.RawSafeGetKey(args)
@@ -107,7 +107,7 @@ func (cl *commandline) safeGetKey(cmd *cobra.Command) {
 		Use:               "safeget key",
 		Short:             "Get and verify item having the specified key",
 		Aliases:           []string{"sg"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.SafeGetKey(args)

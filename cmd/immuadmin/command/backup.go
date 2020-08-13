@@ -20,13 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client"
 	stdos "os"
 	"path"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client"
 	daem "github.com/takama/daemon"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -80,21 +80,42 @@ func newCommandlineBck(os immuos.OS) (*commandlineBck, error) {
 		return nil, err
 	}
 	cl := commandline{}
-	cl.options = Options()
+	cl.config.Name = "immuadmin"
 	cl.passwordReader = c.DefaultPasswordReader
 	cl.context = context.Background()
-	cl.ts = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
 	cl.os = os
 	tr := c.NewTerminalReader(stdos.Stdin)
 
 	return &commandlineBck{cl, b, tr}, nil
 }
 
+func (clb *commandlineBck) Register(rootCmd *cobra.Command) *cobra.Command {
+	clb.dumpToFile(rootCmd)
+	clb.backup(rootCmd)
+	clb.restore(rootCmd)
+	return rootCmd
+}
+
+func (cl *commandlineBck) ConfigChain(post func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) (err error) {
+	return func(cmd *cobra.Command, args []string) (err error) {
+		if err = cl.config.LoadConfig(cmd); err != nil {
+			return err
+		}
+		// here all command line options and services need to be configured by options retrieved from viper
+		cl.options = Options()
+		cl.ts = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
+		if post != nil {
+			return post(cmd, args)
+		}
+		return nil
+	}
+}
+
 func (cl *commandlineBck) dumpToFile(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "dump [file]",
 		Short:             "Dump database content to a file",
-		PersistentPreRunE: cl.checkLoggedInAndConnect,
+		PersistentPreRunE: cl.ConfigChain(cl.checkLoggedInAndConnect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filename := fmt.Sprint("immudb_" + time.Now().Format("2006-01-02_15-04-05") + ".bkp")
@@ -136,6 +157,7 @@ func (cl *commandlineBck) backup(cmd *cobra.Command) {
 		Short: "Make a copy of the database files and folders",
 		Long: "Pause the immudb server, create and save on the server machine a snapshot " +
 			"of the database files and folders (zip on Windows, tar.gz on Linux or uncompressed).",
+		PersistentPreRunE: cl.ConfigChain(nil),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dbDir, err := cmd.Flags().GetString("dbdir")
 			if err != nil {
@@ -183,6 +205,7 @@ func (cl *commandlineBck) restore(cmd *cobra.Command) {
 		Short: "Restore the database from a snapshot archive or folder",
 		Long: "Pause the immudb server and restore the database files and folders from a snapshot " +
 			"file (zip or tar.gz) or folder (uncompressed) residing on the server machine.",
+		PersistentPreRunE: cl.ConfigChain(nil),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapshotPath := args[0]
 			dbDir, err := cmd.Flags().GetString("dbdir")

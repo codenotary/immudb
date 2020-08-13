@@ -35,6 +35,8 @@ type Commandline interface {
 	stats(cmd *cobra.Command)
 	serverConfig(cmd *cobra.Command)
 	printTree(rootCmd *cobra.Command)
+	database(cmd *cobra.Command)
+	ConfigChain(post func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) (err error)
 }
 
 // CommandlineCli ...
@@ -47,6 +49,7 @@ type CommandlineCli interface {
 
 type commandline struct {
 	options        *client.Options
+	config         c.Config
 	immuClient     client.ImmuClient
 	newImmuClient  func(*client.Options) (client.ImmuClient, error)
 	passwordReader c.PasswordReader
@@ -54,6 +57,43 @@ type commandline struct {
 	ts             client.TokenService
 	onError        func(msg interface{})
 	os             immuos.OS
+}
+
+func NewCommandLine() *commandline {
+	cl := &commandline{}
+	cl.config.Name = "immuadmin"
+	cl.newImmuClient = client.NewImmuClient
+	cl.passwordReader = c.DefaultPasswordReader
+	cl.context = context.Background()
+	//
+	return cl
+}
+
+func (cl *commandline) ConfigChain(post func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) (err error) {
+	return func(cmd *cobra.Command, args []string) (err error) {
+		if err = cl.config.LoadConfig(cmd); err != nil {
+			return err
+		}
+		// here all command line options and services need to be configured by options retrieved from viper
+		cl.options = Options()
+		cl.ts = client.NewTokenService().WithHds(client.NewHomedirService()).WithTokenFileName(cl.options.TokenFileName)
+		if post != nil {
+			return post(cmd, args)
+		}
+		return nil
+	}
+}
+
+func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
+	cl.user(rootCmd)
+	cl.login(rootCmd)
+	cl.logout(rootCmd)
+	cl.status(rootCmd)
+	cl.stats(rootCmd)
+	cl.serverConfig(rootCmd)
+	cl.database(rootCmd)
+	cl.printTree(rootCmd)
+	return rootCmd
 }
 
 func (cl *commandline) quit(msg interface{}) {

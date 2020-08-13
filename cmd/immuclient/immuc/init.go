@@ -107,12 +107,22 @@ func (i *immuc) SetPasswordReader(p c.PasswordReader) error {
 	return nil
 }
 
+func (i *immuc) ValueOnly() bool {
+	return i.isLoggedin
+}
+
+func (i *immuc) SetValueOnly(v bool) {
+	i.isLoggedin = v
+	return
+}
+
 func Options() *client.Options {
 	options := client.DefaultOptions().
 		WithPort(viper.GetInt("immudb-port")).
 		WithAddress(viper.GetString("immudb-address")).
 		WithTokenFileName(viper.GetString("tokenfile")).
-		WithMTLs(viper.GetBool("mtls"))
+		WithMTLs(viper.GetBool("mtls")).
+		WithTokenService(client.NewTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(client.NewHomedirService()))
 	if viper.GetBool("mtls") {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = client.DefaultMTLsOptions().
@@ -122,13 +132,4 @@ func Options() *client.Options {
 			WithClientCAs(viper.GetString("clientcas"))
 	}
 	return options
-}
-
-func (i *immuc) ValueOnly() bool {
-	return i.isLoggedin
-}
-
-func (i *immuc) SetValueOnly(v bool) {
-	i.isLoggedin = v
-	return
 }

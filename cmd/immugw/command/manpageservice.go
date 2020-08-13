@@ -34,8 +34,12 @@ func (mps ManpageServiceImmugw) InstallManPages(dir string) error {
 	}
 
 	_ = os.Mkdir(dir, os.ModePerm)
-	err := doc.GenManTree(NewCmd(gw.DefaultServer()), header, dir)
+	cl := Commandline{}
+	cmd, err := cl.NewCmd(gw.DefaultServer())
 	if err != nil {
+		return err
+	}
+	if err = doc.GenManTree(cmd, header, dir); err != nil {
 		return err
 	}
 	return nil

@@ -17,41 +17,56 @@ limitations under the License.
 package helper
 
 import (
-	"fmt"
+	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
 	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
-	"runtime"
 	"strings"
 )
 
 // Options cmd options
-type Options struct {
-	CfgFn string
+type Config struct {
+	Name  string // default config file name
+	CfgFn string // bind with flag config (config file submitted by user, it overrides default)
 }
 
-// InitConfig initializes config
-func (o *Options) InitConfig(name string) {
-	if o.CfgFn != "" {
-		viper.SetConfigFile(o.CfgFn)
+// Init initializes config
+func (c *Config) Init(name string) error {
+	if c.CfgFn != "" {
+		viper.SetConfigFile(c.CfgFn)
 	} else {
-		home, err := homedir.Dir()
-		if err != nil {
-			QuitToStdErr(err)
+		if home, err := homedir.Dir(); err != nil {
+			return err
+		} else {
+			viper.AddConfigPath(home)
 		}
-		viper.AddConfigPath("configs")
+		viper.AddConfigPath("../src/configs")
 		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
-		if runtime.GOOS != "windows" {
-			viper.AddConfigPath("/etc/immudb")
+		if path, _ := os.Executable(); path == service.ExecPath {
+			viper.AddConfigPath("/etc/" + name)
 		}
-		viper.AddConfigPath(home)
 		viper.SetConfigName(name)
 	}
 	viper.SetEnvPrefix(strings.ToUpper(name))
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err == nil {
-		o.CfgFn = viper.ConfigFileUsed()
-		fmt.Println("Using config file:", o.CfgFn)
+		c.CfgFn = viper.ConfigFileUsed()
+	} else {
+		return err
 	}
+	return nil
+}
+
+func (c *Config) LoadConfig(cmd *cobra.Command) (err error) {
+	if c.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
+		return err
+	}
+	if err = c.Init(c.Name); err != nil {
+		if !strings.Contains(err.Error(), "Not Found") {
+			return err
+		}
+	}
+	return nil
 }

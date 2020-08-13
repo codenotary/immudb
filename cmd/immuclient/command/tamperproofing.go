@@ -27,7 +27,7 @@ func (cl *commandline) consistency(cmd *cobra.Command) {
 		Use:               "check-consistency index hash",
 		Short:             "Check consistency for the specified index and hash",
 		Aliases:           []string{"c"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Consistency(args)
@@ -47,7 +47,7 @@ func (cl *commandline) inclusion(cmd *cobra.Command) {
 		Use:               "inclusion index",
 		Short:             "Check if specified index is included in the current tree",
 		Aliases:           []string{"i"},
-		PersistentPreRunE: cl.connect,
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immucl.Inclusion(args)

@@ -41,19 +41,20 @@ type commandline struct {
 	newImmuClient func(*client.Options) (client.ImmuClient, error)
 	pwr           c.PasswordReader
 	tr            c.TerminalReader
-	hds           client.HomedirService
+	tkns          client.TokenService
+	config        c.Config
 	onError       func(err error)
 }
 
 const defaultNbEntries = 100
 
 // Init initializes the command
-func Init(cmd *cobra.Command, o *c.Options, cl *commandline) {
+func Init(cmd *cobra.Command, cl *commandline) {
 	defaultDb := server.DefaultdbName
 	defaultUser := auth.SysAdminUsername
 	defaultPassword := auth.SysAdminPassword
 
-	if err := configureOptions(cmd, o, defaultDb, defaultUser); err != nil {
+	if err := cl.configureFlags(cmd, defaultDb, defaultUser); err != nil {
 		cl.onError(err)
 		return
 	}
@@ -71,6 +72,9 @@ func Init(cmd *cobra.Command, o *c.Options, cl *commandline) {
 	cmd.Example = `  immutest
   immutest 1000
   immutest 500 --database some-database --user some-user`
+	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		return cl.config.LoadConfig(cmd)
+	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if err := cl.connect(cmd, nil); err != nil {
 			cl.onError(err)
@@ -81,8 +85,8 @@ func Init(cmd *cobra.Command, o *c.Options, cl *commandline) {
 		user := viper.GetString("user")
 		ctx := context.Background()
 		onSuccess := func() { reconnect(cl, cmd) } // used to redial with new token
-		login(ctx, cl, cl.immuClient, cl.pwr, cl.hds, user, defaultUser, defaultPassword, onSuccess)
-		selectDb(ctx, cl, cl.immuClient, cl.hds, db, onSuccess)
+		login(ctx, cl, cl.immuClient, cl.pwr, cl.tkns.WithHds(client.NewHomedirService()).WithTokenFileName(viper.GetString("tokenfile")), user, defaultUser, defaultPassword, onSuccess)
+		selectDb(ctx, cl, cl.immuClient, cl.tkns.WithHds(client.NewHomedirService()).WithTokenFileName(viper.GetString("tokenfile")), db, onSuccess)
 		nbEntries := parseNbEntries(args, cl)
 		fmt.Printf("Database %s will be populated with %d entries.\n", db, nbEntries)
 		askUserToConfirmOrCancel(cl.tr, cl)
@@ -131,7 +135,7 @@ func login(
 	cl *commandline,
 	immuClient client.ImmuClient,
 	pwr c.PasswordReader,
-	hds client.HomedirService,
+	tkns client.TokenService,
 	user string,
 	defaultUser string,
 	defaultPassword string,
@@ -139,8 +143,7 @@ func login(
 	if user == defaultUser {
 		response, err := immuClient.Login(ctx, []byte(user), []byte(defaultPassword))
 		if err == nil {
-			tokenFileName := immuClient.GetOptions().TokenFileName
-			if err := hds.WriteFileToUserHomeDir([]byte(response.GetToken()), tokenFileName); err != nil {
+			if err := tkns.SetToken("", response.GetToken()); err != nil {
 				cl.onError(err)
 				return
 			}
@@ -158,8 +161,7 @@ func login(
 		cl.onError(err)
 		return
 	}
-	tokenFileName := immuClient.GetOptions().TokenFileName
-	if err := hds.WriteFileToUserHomeDir([]byte(response.GetToken()), tokenFileName); err != nil {
+	if err := tkns.SetToken("", response.GetToken()); err != nil {
 		cl.onError(err)
 		return
 	}
@@ -170,7 +172,7 @@ func selectDb(
 	ctx context.Context,
 	cl *commandline,
 	immuClient client.ImmuClient,
-	hds client.HomedirService,
+	tkns client.TokenService,
 	db string,
 	onSuccess func()) {
 	response, err := immuClient.UseDatabase(ctx, &schema.Database{Databasename: db})
@@ -178,9 +180,7 @@ func selectDb(
 		cl.onError(err)
 		return
 	}
-	tokenFileName := immuClient.GetOptions().TokenFileName
-	token := []byte(response.GetToken())
-	if err := hds.WriteFileToUserHomeDir(token, tokenFileName); err != nil {
+	if err := tkns.SetToken(db, response.GetToken()); err != nil {
 		cl.onError(err)
 		return
 	}
@@ -277,9 +277,8 @@ func (cl *commandline) connect(cmd *cobra.Command, args []string) (err error) {
 	return
 }
 
-func configureOptions(
+func (cl *commandline) configureFlags(
 	cmd *cobra.Command,
-	o *c.Options,
 	defaultDb string,
 	defaultUser string,
 ) error {
@@ -287,7 +286,7 @@ func configureOptions(
 	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
 	cmd.PersistentFlags().StringP("database", "d", defaultDb, "database to populate")
 	cmd.PersistentFlags().StringP("user", "u", defaultUser, "database user")
-	cmd.PersistentFlags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immutest.toml)")
+	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immutest.toml)")
 
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err

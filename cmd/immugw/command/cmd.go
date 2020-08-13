@@ -30,14 +30,20 @@ import (
 	"os"
 )
 
-var o = c.Options{}
-
-func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immugw") })
+func Execute() {
+	version.App = "immugw"
+	cl := Commandline{P: c.NewPlauncher(), config: c.Config{Name: "immugw"}}
+	cmd, err := cl.NewCmd(gw.DefaultServer())
+	if err != nil {
+		c.QuitWithUserError(err)
+	}
+	if err = cmd.Execute(); err != nil {
+		c.QuitWithUserError(err)
+	}
 }
 
 // NewCmd creates a new immugw command
-func NewCmd(immugwServer gw.ImmuGw) *cobra.Command {
+func (cl *Commandline) NewCmd(immugwServer gw.ImmuGw) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:   "immugw",
 		Short: "immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications",
@@ -55,16 +61,21 @@ Environment variables:
   IMMUGW_DETACHED=false
   IMMUGW_MTLS=false
   IMMUGW_SERVERNAME=localhost
+  IMMUGW_AUDIT=false
+  IMMUGW_AUDIT_INTERVAL=5m
+  IMMUGW_AUDIT_USERNAME=immugwauditor
+  IMMUGW_AUDIT_PASSWORD=
   IMMUGW_PKEY=./tools/mtls/4_client/private/localhost.key.pem
   IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
   IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem`,
-		RunE: Immugw(immugwServer),
+		RunE:              cl.Immugw(immugwServer),
+		PersistentPreRunE: cl.ConfigChain(nil),
 	}
 
-	setupFlags(cmd, gw.DefaultOptions(), client.DefaultMTLsOptions())
+	cl.setupFlags(cmd, gw.DefaultOptions(), client.DefaultMTLsOptions())
 
 	if err := viper.BindPFlags(cmd.Flags()); err != nil {
-		c.QuitToStdErr(err)
+		return nil, err
 	}
 
 	setupDefaults(gw.DefaultOptions(), client.DefaultMTLsOptions())
@@ -72,11 +83,11 @@ Environment variables:
 
 	cmd.AddCommand(version.VersionCmd())
 
-	return cmd
+	return cmd, nil
 }
 
 // Immugw returns a new immudb gateway service
-func Immugw(immugwServer gw.ImmuGw) func(*cobra.Command, []string) error {
+func (cl *Commandline) Immugw(immugwServer gw.ImmuGw) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		var options gw.Options
 		if options, err = parseOptions(cmd); err != nil {
@@ -139,10 +150,6 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	address := viper.GetString("address")
 	immudbport := viper.GetInt("immudb-port")
 	immudbAddress := viper.GetString("immudb-address")
-	// config file came only from arguments or default folder
-	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
-		return gw.Options{}, err
-	}
 	audit := viper.GetBool("audit")
 	auditInterval := viper.GetDuration("audit-interval")
 	auditUsername := viper.GetString("audit-username")
@@ -196,13 +203,13 @@ func parseOptions(cmd *cobra.Command) (options gw.Options, err error) {
 	return options, nil
 }
 
-func setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsOptions) {
+func (cl *Commandline) setupFlags(cmd *cobra.Command, options gw.Options, mtlsOptions client.MTLsOptions) {
 	cmd.Flags().String("dir", options.Dir, "program files folder")
 	cmd.Flags().IntP("port", "p", options.Port, "immugw port number")
 	cmd.Flags().StringP("address", "a", options.Address, "immugw host address")
 	cmd.Flags().IntP("immudb-port", "j", options.ImmudbPort, "immudb port number")
 	cmd.Flags().StringP("immudb-address", "k", options.ImmudbAddress, "immudb host address")
-	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.toml)")
+	cmd.Flags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.toml)")
 	cmd.Flags().Bool("audit", options.Audit, "enable audit mode (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)")
 	cmd.Flags().Duration("audit-interval", options.AuditInterval, "interval at which audit should run")
 	cmd.Flags().String("audit-username", options.AuditUsername, "immudb username used to login during audit")

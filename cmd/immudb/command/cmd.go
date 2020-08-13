@@ -27,14 +27,20 @@ import (
 	daem "github.com/takama/daemon"
 )
 
-var o = c.Options{}
-
-func init() {
-	cobra.OnInitialize(func() { o.InitConfig("immudb") })
+func Execute() {
+	version.App = "immudb"
+	cl := Commandline{P: c.NewPlauncher(), config: c.Config{Name: "immudb"}}
+	cmd, err := cl.NewCmd(server.DefaultServer())
+	if err != nil {
+		c.QuitWithUserError(err)
+	}
+	if err := cmd.Execute(); err != nil {
+		c.QuitWithUserError(err)
+	}
 }
 
 // NewCmd ...
-func (cl *Commandline) NewCmd(immudbServer server.ImmuServerIf) *cobra.Command {
+func (cl *Commandline) NewCmd(immudbServer server.ImmuServerIf) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:   "immudb",
 		Short: "immudb - the lightweight, high-speed immutable database for systems and applications",
@@ -60,12 +66,13 @@ Environment variables:
   IMMUDB_ADMIN_PASSWORD=immudb`,
 		DisableAutoGenTag: true,
 		RunE:              cl.Immudb(immudbServer),
+		PersistentPreRunE: cl.ConfigChain(nil),
 	}
 
-	setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
+	cl.setupFlags(cmd, server.DefaultOptions(), server.DefaultMTLsOptions())
 
 	if err := viper.BindPFlags(cmd.Flags()); err != nil {
-		c.QuitToStdErr(err)
+		return nil, err
 	}
 
 	setupDefaults(server.DefaultOptions(), server.DefaultMTLsOptions())
@@ -73,14 +80,14 @@ Environment variables:
 	cmd.AddCommand(man.Generate(cmd, "immudb", "./cmd/docs/man/immudb"))
 	cmd.AddCommand(version.VersionCmd())
 
-	return cmd
+	return cmd, nil
 }
 
 // Immudb ...
 func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		var options server.Options
-		if options, err = parseOptions(cmd); err != nil {
+		if options, err = parseOptions(); err != nil {
 			return err
 		}
 		immudbServer := immudbServer.WithOptions(options)
@@ -117,17 +124,13 @@ func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Comm
 	}
 }
 
-func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
+func parseOptions() (options server.Options, err error) {
 	dir, err := c.ResolvePath(viper.GetString("dir"), true)
 	if err != nil {
 		return options, err
 	}
 	port := viper.GetInt("port")
 	address := viper.GetString("address")
-	// config file came only from arguments or default folder
-	if o.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
-		return server.Options{}, err
-	}
 	if err != nil {
 		return options, err
 	}
@@ -165,7 +168,6 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 		WithDir(dir).
 		WithPort(port).
 		WithAddress(address).
-		WithConfig(o.CfgFn).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
 		WithMTLs(mtls).
@@ -186,11 +188,11 @@ func parseOptions(cmd *cobra.Command) (options server.Options, err error) {
 	return options, nil
 }
 
-func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.MTLsOptions) {
+func (cl *Commandline) setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.MTLsOptions) {
 	cmd.Flags().String("dir", options.Dir, "data folder")
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
-	cmd.Flags().StringVar(&o.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.ini)")
+	cmd.Flags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
 	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
@@ -202,7 +204,7 @@ func setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.M
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
 	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
-	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
+	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
 }
 

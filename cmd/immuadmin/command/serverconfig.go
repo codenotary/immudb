@@ -20,12 +20,11 @@ import (
 	"fmt"
 	"strconv"
 
-	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/spf13/cobra"
 )
 
-func (cl *commandline) serverConfig(cmd *cobra.Command) {
+func (cl commandline) serverConfig(cmd *cobra.Command) {
 	authKinds := map[string]auth.Kind{
 		"none":     auth.KindNone,
 		"password": auth.KindPassword,
@@ -34,7 +33,7 @@ func (cl *commandline) serverConfig(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "set auth|mtls value",
 		Short:             "Update server config items: auth (none|password|cryptosig), mtls (true|false)",
-		PersistentPreRunE: cl.checkLoggedInAndConnect,
+		PersistentPreRunE: cl.ConfigChain(cl.checkLoggedInAndConnect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cl.context
@@ -44,26 +43,26 @@ func (cl *commandline) serverConfig(cmd *cobra.Command) {
 			case "auth":
 				authKind, ok := authKinds[v]
 				if !ok {
-					c.QuitToStdErr(fmt.Errorf(
-						"unsupported %s auth mode, only none and password are currently supported", v))
+					return fmt.Errorf(
+						"unsupported %s auth mode, only none and password are currently supported", v)
 				}
 				if err := cl.immuClient.UpdateAuthConfig(ctx, authKind); err != nil {
-					c.QuitWithUserError(err)
+					return err
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "Server auth config updated\n")
 
 			case "mtls":
 				enabled, err := strconv.ParseBool(v)
 				if err != nil {
-					c.QuitToStdErr(fmt.Errorf("unsupported value %s, server MTLS can be set to true or false", v))
+					return fmt.Errorf("unsupported value %s, server MTLS can be set to true or false", v)
 				}
 				if err := cl.immuClient.UpdateMTLSConfig(ctx, enabled); err != nil {
-					c.QuitWithUserError(err)
+					return err
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "Server MTLS config updated\n")
 			default:
-				c.QuitToStdErr(fmt.Errorf(
-					"unsupported %s config item, supported config items: auth or mtls", configItem))
+				return fmt.Errorf(
+					"unsupported %s config item, supported config items: auth or mtls", configItem)
 			}
 			return nil
 		},
