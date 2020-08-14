@@ -90,7 +90,7 @@ func login(s *ImmuServer, username, password string) (context.Context, error) {
 	ctx := context.Background()
 	l, err := s.Login(ctx, r)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	m := make(map[string]string)
 	m["Authorization"] = "Bearer " + string(l.Token)
@@ -1837,7 +1837,7 @@ func TestServerErrors(t *testing.T) {
 
 	changePassReq.User = []byte("nonexistent")
 	_, err = s.ChangePassword(ctx, changePassReq)
-	require.Equal(t, fmt.Errorf("user %s not found", changePassReq.User), err)
+	require.Equal(t, fmt.Errorf("user %s was not found or it was not created by you", changePassReq.User), err)
 
 	_, err = s.ChangePermission(ctx, &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
@@ -1862,7 +1862,7 @@ func TestServerErrors(t *testing.T) {
 	password2NewBytes := []byte(password2New)
 	changePassReq.NewPassword = password2NewBytes
 	_, err = s.ChangePassword(ctx2, changePassReq)
-	require.Equal(t, fmt.Errorf("%s was not created by you", changePassReq.User), err)
+	require.Equal(t, fmt.Errorf("user %s was not found or it was not created by you", changePassReq.User), err)
 
 	// Not logged in errors on DB operations
 	emptyCtx := context.Background()
@@ -1890,7 +1890,7 @@ func TestServerErrors(t *testing.T) {
 
 	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: false, Username: username})
 	require.NoError(t, err)
-	_, err = s.Login(emptyCtx, &schema.LoginRequest{User: usernameBytes})
+	_, err = s.Login(emptyCtx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
 	require.Equal(t, errors.New("user is not active"), err)
 	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: true, Username: username})
 	require.NoError(t, err)
@@ -1936,7 +1936,15 @@ func TestServerGetUserAndUserExists(t *testing.T) {
 	_, err = s.getUser([]byte(username), false)
 	require.Equal(t, errors.New("user not found"), err)
 
-	_, err = s.userExists([]byte(username), []byte("wrongpass"))
+	_, err = s.getValidatedUser([]byte(username), []byte("wrongpass"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid user or password")
+
+	_, err = s.getValidatedUser([]byte(username), nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid user or password")
+
+	_, err = s.getValidatedUser([]byte(username), []byte{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid user or password")
 }
@@ -1980,4 +1988,14 @@ func TestServerMandatoryAuth(t *testing.T) {
 
 	s.sysDb = nil
 	require.True(t, s.mandatoryAuth())
+}
+
+func TestServerLoginAttempWithEmptyPassword(t *testing.T) {
+	dataDir := "TestServerLoginAttempWithEmptyPassword"
+	s := newAuthServer(dataDir)
+	defer os.RemoveAll(dataDir)
+
+	_, err := login(s, auth.SysAdminUsername, "")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid user name or password")
 }
