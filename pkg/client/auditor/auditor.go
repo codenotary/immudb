@@ -18,8 +18,6 @@ package auditor
 
 import (
 	"context"
-	"io"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -64,28 +62,25 @@ func DefaultAuditor(
 	passwordBase64 string,
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
-	logoutput io.Writer) (Auditor, error) {
+	log logger.Logger) (Auditor, error) {
 
 	password, err := auth.DecodeBase64Password(passwordBase64)
 	if err != nil {
 		return nil, err
 	}
-	if logoutput == nil {
-		logoutput = os.Stderr
-	}
-	logr := logger.NewSimpleLogger("auditor", logoutput)
+
 	dt, err := timestamp.NewTdefault()
 	if err != nil {
 		return nil, err
 	}
 	slugifyRegExp, err := regexp.Compile(`[^a-zA-Z0-9\-_]+`)
 	if err != nil {
-		logr.Warningf("error compiling regex for slugifier: %v", err)
+		log.Warningf("error compiling regex for slugifier: %v", err)
 	}
 	return &defaultAuditor{
 		0,
 		0,
-		logr,
+		log,
 		serverAddress,
 		*dialOptions,
 		history,

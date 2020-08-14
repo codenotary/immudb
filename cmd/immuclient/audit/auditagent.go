@@ -18,7 +18,6 @@ package audit
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -49,7 +48,7 @@ type auditAgent struct {
 	opts           *client.Options
 	logger         logger.Logger
 	Pid            server.PIDFile
-	logfile        io.Writer
+	logfile        *os.File
 }
 
 func (a *auditAgent) Manage(args []string) (string, error) {
@@ -161,12 +160,15 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 			return fmt.Sprintf("Invalid arg %s", command), nil
 		}
 	}
-	logfile, err := os.OpenFile(a.opts.LogFileName, os.O_CREATE|os.O_APPEND, 0755)
-	if err != nil {
-		logfile = os.Stderr
+
+	a.logger = logger.NewSimpleLogger("immuclientd", os.Stdout)
+	if a.opts.LogFileName != "" {
+		a.logger, a.logfile, err = logger.NewFileLogger("immuclientd", a.opts.LogFileName)
+		defer a.logfile.Close()
+		if err != nil {
+			return "", err
+		}
 	}
-	a.logfile = logfile
-	a.logger = logger.NewSimpleLogger("immuclientd", logfile)
 	if _, err := a.InitAgent(); err != nil {
 		return "", err
 	}

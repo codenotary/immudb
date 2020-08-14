@@ -99,7 +99,7 @@ func (s *ImmuGwServer) Start() error {
 			s.Options.AuditPassword,
 			cache.NewHistoryFileCache(filepath.Join(s.CliOptions.Dir, "auditor")),
 			s.MetricServer.mc.UpdateAuditResult,
-			nil)
+			s.Logger)
 		if err != nil {
 			s.Logger.Errorf("unable to create auditor: %s", err)
 			return err

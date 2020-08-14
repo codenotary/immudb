@@ -28,7 +28,7 @@ import (
 func Init(args []string) (err error) {
 	var auditAgent AuditAgent
 	validargs := []string{"start", "install", "uninstall", "restart", "stop", "status", "help"}
-	if !stringInSlice(args[0], validargs) {
+	if len(args) > 0 && !stringInSlice(args[0], validargs) {
 		return fmt.Errorf("ERROR: %v is not matching with any valid arguments.\n Available list is %v \n", args[0], validargs)
 	}
 	if auditAgent, err = NewAuditAgent(); err != nil {

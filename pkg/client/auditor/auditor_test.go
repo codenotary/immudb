@@ -96,7 +96,7 @@ func makeAuditor() (Auditor, error) {
 		"immudb",
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
-		nil)
+		logger.NewSimpleLogger("test", os.Stdout))
 	return da, err
 }
 
