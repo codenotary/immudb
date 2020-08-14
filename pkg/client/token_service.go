@@ -19,6 +19,7 @@ package client
 import (
 	"encoding/binary"
 	"errors"
+	"strings"
 )
 
 type TokenService interface {
@@ -87,6 +88,10 @@ func (ts tokenService) parseContent() (string, string, error) {
 	}
 	if len(content) <= 8 {
 		return "", "", errors.New("token content not present")
+	}
+	// token prefix is hardcoded into library. Please modify in case of changes in paseto library
+	if strings.HasPrefix(content, "v2.public.") {
+		return "", "", errors.New("old token format. Please remove old token located in your default home dir")
 	}
 	databasel := make([]byte, 8)
 	copy(databasel, content[:8])
