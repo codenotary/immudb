@@ -285,7 +285,7 @@ The FreeBSD service is using the following defaults:
 
 Simply run `./immudb -d` to start immudb locally in the background.
 
-If you want to stop immudb în that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`.
+If you want to stop immudb in that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`.
 
 ```bash
 immudb - the lightweight, high-speed immutable database for systems and applications.
