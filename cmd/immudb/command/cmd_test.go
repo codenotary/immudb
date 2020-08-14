@@ -18,6 +18,7 @@ package immudb
 
 import (
 	"bytes"
+	"github.com/mitchellh/go-ps"
 	"os"
 	"testing"
 
@@ -208,4 +209,8 @@ type plauncherMock struct{}
 
 func (pl plauncherMock) Detached() error {
 	return nil
+}
+
+func (pl plauncherMock) Process(processName string) (found bool, p ps.Process, err error) {
+	return false, nil, nil
 }

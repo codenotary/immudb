@@ -18,9 +18,12 @@ package helper
 
 import (
 	"fmt"
+	"github.com/codenotary/immudb/cmd/version"
+	"github.com/mitchellh/go-ps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -42,6 +45,7 @@ func (e execs) Command(name string, arg ...string) *exec.Cmd {
 
 type Plauncher interface {
 	Detached() error
+	Process(processName string) (found bool, p ps.Process, err error)
 }
 
 type plauncher struct {
@@ -62,6 +66,10 @@ func (pl plauncher) Detached() error {
 		return err
 	}
 
+	if exists, p, _ := pl.Process(version.App); exists {
+		return fmt.Errorf("%s is already running. Pid %d", version.App, p.Pid())
+	}
+
 	for i, k := range os.Args {
 		if k != "--"+DetachedFlag && k != "-"+DetachedShortFlag && i != 0 {
 			args = append(args, k)
@@ -80,4 +88,18 @@ func (pl plauncher) Detached() error {
 		os.Stdout, "%s%s has been started with %sPID %d%s\n",
 		Green, filepath.Base(executable), Blue, cmd.Process.Pid, Reset)
 	return nil
+}
+
+//Process find a process with the given name
+func (pl plauncher) Process(processName string) (found bool, p ps.Process, err error) {
+	ps, err := ps.Processes()
+	if err != nil {
+		return false, p, err
+	}
+	for _, p1 := range ps {
+		if strings.Contains(p1.Executable(), processName) {
+			return true, p1, nil
+		}
+	}
+	return false, nil, nil
 }

@@ -34,8 +34,6 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/codenotary/daemon v0.0.0-20200507161650-3d4bcb5230f4 h1:5mhTmqO2f6QXPlIAGCEtCYR2MHNDLVkwaGWiSbffeQU=
 github.com/codenotary/daemon v0.0.0-20200507161650-3d4bcb5230f4/go.mod h1:PFDPquCi+3LI5PpAKS/8LvJBHTfkdsEXfGtANGx9hH4=
-github.com/codenotary/merkletree v0.1.1 h1:m9tL6XpqeAoQe6bdJTEe2xQ/I5DEPBBnof6+gzhyS00=
-github.com/codenotary/merkletree v0.1.1/go.mod h1:RkIGSuQ3nHZbE0rH21aYxyqlrI/2eICNOOIanDbzZPg=
 github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656 h1:Rp8hZs7t0fNLlfLj9PzEmW/W7X+nSp0vpu5CB0ba0jM=
 github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656/go.mod h1:RkIGSuQ3nHZbE0rH21aYxyqlrI/2eICNOOIanDbzZPg=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
@@ -159,6 +157,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0j
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/mitchellh/go-homedir v1.1.0 h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
+github.com/mitchellh/go-ps v1.0.0 h1:i6ampVEEF4wQFF+bkYfwYgY+F/uYJDktmvLPf7qIgjc=
+github.com/mitchellh/go-ps v1.0.0/go.mod h1:J4lOc8z8yJs6vUwklHw2XEIiT4z4C40KtWVN3nvg8Pg=
 github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 h1:DpOJ2HYzCv8LZP15IdmG+YdwD2luVPHITV96TkirNBM=
 github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7/go.mod h1:ZXFpozHsX6DPmq2I0TCekCxypsnAUbP2oI0UX1GXzOo=
 github.com/mitchellh/go-wordwrap v1.0.0 h1:6GlHJ/LTGMrIJbwgdqdl2eEH8o+Exx/0m8ir9Gns0u4=
