@@ -85,14 +85,13 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 			return nil, fmt.Errorf("Invalid login operation: %v", err)
 		}
 	}
-
 	cAgent.ImmuAudit, err = auditor.DefaultAuditor(time.Duration(cAgent.cycleFrequency)*time.Second,
 		fmt.Sprintf("%s:%v", options().Address, options().Port),
 		cliOpts.DialOptions,
 		auditUsername,
 		auditPassword,
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
-		cAgent.metrics.updateMetrics, cAgent.logfile)
+		cAgent.metrics.updateMetrics, cAgent.logger)
 	if err != nil {
 		return nil, err
 	}

@@ -78,7 +78,6 @@ func (cl *commandline) auditmode(cmd *cobra.Command) {
 			}
 			return nil
 		},
-		Args: cobra.ExactArgs(1),
 	}
 	cmd.AddCommand(ccmd)
 }
