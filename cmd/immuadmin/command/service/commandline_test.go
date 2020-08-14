@@ -14,17 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immuadmin
+package service
 
 import (
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
-func TestNewCmd(t *testing.T) {
-	cmd := newCommand()
-	assert.IsType(t, cobra.Command{}, *cmd)
+
+func TestCommandline_Register(t *testing.T) {
+	c := commandline{}
+	cmd := c.Register(&cobra.Command{})
+	assert.IsType(t, &cobra.Command{}, cmd)
 }
 
-
+func TestNewCommandLine(t *testing.T) {
+	cml := NewCommandLine()
+	assert.IsType(t, &commandline{}, cml)
+}
