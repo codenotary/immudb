@@ -98,7 +98,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				return err
 			}
 			cl.immuClient.GetOptions().CurrentDatabase = args[0]
-			if err = cl.ts.SetToken("", resp.Token); err != nil {
+			if err = cl.ts.SetToken(args[0], resp.Token); err != nil {
 				return err
 			}
 
