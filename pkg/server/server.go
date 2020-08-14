@@ -355,7 +355,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 			(dataDir != path) &&
 			!strings.Contains(path, s.Options.GetSystemAdminDbName()) &&
 			!strings.Contains(path, s.Options.GetDefaultDbName()) &&
-			!strings.Contains(path, "config"){
+			!strings.Contains(path, "config") {
 			dirs = append(dirs, path)
 		}
 		return nil
@@ -441,7 +441,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if !s.Options.auth {
 		return nil, fmt.Errorf("server is running with authentication disabled, please enable authentication to login")
 	}
-	u, err := s.userExists(r.User, r.Password)
+	u, err := s.getValidatedUser(r.User, r.Password)
 	if err != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user name or password")
 	}
@@ -990,15 +990,15 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	if len(r.User) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
 	}
-	targetUser, err := s.userExists(r.User, nil)
+	targetUser, err := s.getUser(r.User, true)
 	if err != nil {
-		return nil, fmt.Errorf("user %s not found", string(r.User))
+		return nil, fmt.Errorf("user %s was not found or it was not created by you", string(r.User))
 	}
 
 	//if the user is not sys admin then let's make sure the target was created from this admin
 	if !user.IsSysAdmin {
 		if user.Username != targetUser.CreatedBy {
-			return nil, fmt.Errorf("%s was not created by you", string(r.User))
+			return nil, fmt.Errorf("user %s was not found or it was not created by you", string(r.User))
 		}
 	}
 
@@ -1105,7 +1105,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 			return nil, fmt.Errorf("can not create another system admin")
 		}
 	}
-	_, err = s.userExists(r.User, nil)
+	_, err = s.getUser(r.User, true)
 	if err == nil {
 		return nil, fmt.Errorf("user already exists")
 	}
@@ -1353,7 +1353,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	}
 
 	//check if user exists
-	targetUser, err := s.userExists([]byte(r.Username), nil)
+	targetUser, err := s.getUser([]byte(r.Username), true)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "user %s not found", string(r.Username))
 	}
@@ -1412,7 +1412,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		}
 	}
 
-	targetUser, err := s.userExists([]byte(r.Username), nil)
+	targetUser, err := s.getUser([]byte(r.Username), true)
 	if err != nil {
 		return nil, fmt.Errorf("user %s not found", r.Username)
 	}
@@ -1518,17 +1518,13 @@ func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permis
 	return username, plainpassword, nil
 }
 
-// userExists checks if user with username exists
-// if password is not empty then it also checks the password
-// Returns user object if all requested condintions match
-// Returns error if the requested conditions do not match
-func (s *ImmuServer) userExists(username []byte, password []byte) (*auth.User, error) {
+func (s *ImmuServer) getValidatedUser(username []byte, password []byte) (*auth.User, error) {
 	userdata, err := s.getUser(username, true)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
 	}
 	err = userdata.ComparePasswords(password)
-	if (len(password) != 0) && (err != nil) {
+	if err != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
 	}
 	return userdata, nil
