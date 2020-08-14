@@ -46,7 +46,7 @@ type corruptionChecker struct {
 	exit           bool
 	muxit          sync.Mutex
 	Trusted        bool
-	Wg             sync.WaitGroup
+	mux            sync.Mutex
 	currentDbIndex int
 	rg             RandomGenerator
 }
@@ -56,7 +56,6 @@ type CorruptionChecker interface {
 	Start(context.Context) (err error)
 	Stop()
 	GetStatus() bool
-	Wait()
 }
 
 // NewCorruptionChecker returns new trust checker service
@@ -77,7 +76,9 @@ func (s *corruptionChecker) Start(ctx context.Context) (err error) {
 	s.Logger.Debugf("Start scanning ...")
 
 	for {
+		s.mux.Lock()
 		err = s.checkLevel0(ctx)
+		s.mux.Unlock()
 
 		if err != nil || s.isTerminated() || s.options.singleiteration {
 			return err
@@ -99,11 +100,10 @@ func (s *corruptionChecker) Stop() {
 	s.exit = true
 	s.muxit.Unlock()
 	s.Logger.Infof("Waiting for consistency checker to shut down")
-	s.Wait()
+	s.mux.Lock()
 }
 
 func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
-	s.Wg.Add(1)
 	if s.currentDbIndex == s.dbList.Length() {
 		s.currentDbIndex = 0
 	}
@@ -123,7 +123,6 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 		s.Logger.Debugf("Start scanning %d elements", len(ids))
 		for _, id := range ids {
 			if s.isTerminated() {
-				s.Wg.Done()
 				return
 			}
 			var item *schema.SafeItem
@@ -136,7 +135,6 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				if err == store.ErrInconsistentDigest {
 					auth.IsTampered = true
 					s.Logger.Errorf("insertion order index %d was tampered", id)
-					s.Wg.Done()
 					return
 				}
 				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
@@ -148,19 +146,13 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				s.Trusted = false
 				auth.IsTampered = true
 				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
-				s.Wg.Done()
 				return
 			}
 			time.Sleep(s.options.frequencySleepTime)
 		}
 	}
-	s.Wg.Done()
 
 	return nil
-}
-
-func (s *corruptionChecker) Wait() {
-	s.Wg.Wait()
 }
 
 // GetStatus return status of the trust checker. False means that a consistency checks was failed
