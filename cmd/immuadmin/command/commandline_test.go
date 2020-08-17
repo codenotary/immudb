@@ -19,9 +19,10 @@ package immuadmin
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/stretchr/testify/assert"
-	"testing"
 
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/stretchr/testify/require"
@@ -138,5 +139,5 @@ func TestCommandline_ConfigChainErr(t *testing.T) {
 	cc := c.ConfigChain(f)
 
 	err := cc(cmd, []string{})
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }

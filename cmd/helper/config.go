@@ -17,12 +17,13 @@ limitations under the License.
 package helper
 
 import (
+	"os"
+	"strings"
+
 	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
-	"strings"
 )
 
 // Options cmd options
@@ -59,10 +60,9 @@ func (c *Config) Init(name string) error {
 	return nil
 }
 
+// LoadConfig loads the config file (if any) and initializes the config
 func (c *Config) LoadConfig(cmd *cobra.Command) (err error) {
-	if c.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
-		return err
-	}
+	c.CfgFn, _ = cmd.Flags().GetString("config")
 	if err = c.Init(c.Name); err != nil {
 		if !strings.Contains(err.Error(), "Not Found") {
 			return err
