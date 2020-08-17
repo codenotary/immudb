@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v0.7.1"></a>
+## [v0.7.1] - 2020-08-14
+### Bug Fixes
+- fix immuclient audit-mode
+- fix corruptionchecker datarace
+- **cmd/immuadmin/command:** fix immuadmin dbswitch
+- **pkg/client:** token service manages old token format
+
+### Code Refactoring
+- configs file are loaded in viper preRun method
+
+### Features
+- **cmd:** process launcher check if are present another istances. fixes [#168](https://github.com/vchain-us/immudb/issues/168)
+
+
 <a name="v0.7.0"></a>
 ## [v0.7.0] - 2020-08-10
 ### Bug Fixes
@@ -840,7 +855,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.7.1...HEAD
+[v0.7.1]: https://github.com/vchain-us/immudb/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/vchain-us/immudb/compare/v0.6.2...v0.7.0
 [v0.6.2]: https://github.com/vchain-us/immudb/compare/v0.6.1...v0.6.2
 [v0.6.1]: https://github.com/vchain-us/immudb/compare/v0.6.0...v0.6.1
