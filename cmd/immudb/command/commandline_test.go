@@ -17,10 +17,11 @@ limitations under the License.
 package immudb
 
 import (
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestCommandline_Immudb(t *testing.T) {
@@ -58,5 +59,5 @@ func TestCommandline_ConfigChainErr(t *testing.T) {
 	cc := c.ConfigChain(f)
 
 	err := cc(cmd, []string{})
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }

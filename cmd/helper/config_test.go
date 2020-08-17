@@ -17,14 +17,15 @@ limitations under the License.
 package helper
 
 import (
-	"github.com/mitchellh/go-homedir"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
 	"os"
 	"testing"
+
+	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOptions_InitConfig(t *testing.T) {
@@ -85,7 +86,7 @@ func TestConfig_LoadError(t *testing.T) {
 	assert.NotNil(t, address)
 	cmd := cobra.Command{}
 	err := o.LoadConfig(&cmd)
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 func TestConfig_LoadError2(t *testing.T) {

@@ -20,13 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	stdos "os"
 	"path/filepath"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/codenotary/immudb/cmd/cmdtest"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -854,5 +855,5 @@ func TestCommandlineBck_ConfigChainErr(t *testing.T) {
 	cc := c.ConfigChain(f)
 
 	err := cc(cmd, []string{})
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }

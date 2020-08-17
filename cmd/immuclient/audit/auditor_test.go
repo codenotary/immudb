@@ -56,7 +56,7 @@ func TestInitAgent(t *testing.T) {
 	_, err = ad.InitAgent()
 	os.RemoveAll(pidPath)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid duration X")
+	require.Contains(t, err.Error(), "invalid duration")
 	os.Unsetenv("audit-agent-interval")
 
 	auditPassword := viper.GetString("audit-password")

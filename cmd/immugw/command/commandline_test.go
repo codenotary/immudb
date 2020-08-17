@@ -17,9 +17,10 @@ limitations under the License.
 package immugw
 
 import (
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/stretchr/testify/assert"
-	"testing"
 
 	"github.com/spf13/cobra"
 )
@@ -49,5 +50,5 @@ func TestCommandline_ConfigChainErr(t *testing.T) {
 	cc := c.ConfigChain(f)
 
 	err := cc(cmd, []string{})
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
