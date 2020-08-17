@@ -34,8 +34,6 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/codenotary/daemon v0.0.0-20200507161650-3d4bcb5230f4 h1:5mhTmqO2f6QXPlIAGCEtCYR2MHNDLVkwaGWiSbffeQU=
 github.com/codenotary/daemon v0.0.0-20200507161650-3d4bcb5230f4/go.mod h1:PFDPquCi+3LI5PpAKS/8LvJBHTfkdsEXfGtANGx9hH4=
-github.com/codenotary/merkletree v0.1.1 h1:m9tL6XpqeAoQe6bdJTEe2xQ/I5DEPBBnof6+gzhyS00=
-github.com/codenotary/merkletree v0.1.1/go.mod h1:RkIGSuQ3nHZbE0rH21aYxyqlrI/2eICNOOIanDbzZPg=
 github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656 h1:Rp8hZs7t0fNLlfLj9PzEmW/W7X+nSp0vpu5CB0ba0jM=
 github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656/go.mod h1:RkIGSuQ3nHZbE0rH21aYxyqlrI/2eICNOOIanDbzZPg=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
