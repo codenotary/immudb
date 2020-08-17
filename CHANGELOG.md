@@ -5,8 +5,9 @@ All notable changes to this project will be documented in this file. This projec
 
 
 <a name="v0.7.1"></a>
-## [v0.7.1] - 2020-08-14
+## [v0.7.1] - 2020-08-17
 ### Bug Fixes
+- fix immudb and immugw version and mangen commands errors
 - fix immuclient audit-mode
 - fix corruptionchecker datarace
 - **cmd/immuadmin/command:** fix immuadmin dbswitch
