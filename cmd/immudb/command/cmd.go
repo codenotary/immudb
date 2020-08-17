@@ -106,8 +106,6 @@ func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Comm
 		if options.Detached {
 			if err := cl.P.Detached(); err == nil {
 				return nil
-			} else {
-				c.QuitToStdErr(err)
 			}
 		}
 

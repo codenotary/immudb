@@ -18,7 +18,6 @@ package helper
 
 import (
 	"bytes"
-	"github.com/codenotary/immudb/cmd/version"
 	"github.com/stretchr/testify/assert"
 	"os/exec"
 	"strings"
@@ -36,8 +35,7 @@ func (e execsmock) Command(name string, arg ...string) *exec.Cmd {
 }
 
 func TestDetached(t *testing.T) {
-	version.App = "notexists"
-	pl := plauncher{e: execsmock{}}
+	pl := plauncher{execsmock{}}
 	err := pl.Detached()
 	assert.Nil(t, err)
 }

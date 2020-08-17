@@ -16,7 +16,6 @@ require (
 	github.com/jaswdr/faker v1.0.2
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1 // indirect
 	github.com/o1egl/paseto v1.0.0
@@ -32,7 +31,7 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/takama/daemon v0.12.0
 	golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
-	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0 // indirect
+	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	golang.org/x/text v0.3.2 // indirect
 	google.golang.org/genproto v0.0.0-20200424135956-bca184e23272
