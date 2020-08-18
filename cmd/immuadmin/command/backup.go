@@ -308,11 +308,12 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 		srcInfo stdos.FileInfo
 		err     error
 	)
-	dirs := map[string]bool{
-		server.DefaultOptions().Dir: true,
-		service.DirPath:             true,
-	}
+	dirs := map[string]bool{}
 	dirs[src] = true
+	if src == server.DefaultOptions().Dir {
+		dirs[service.DirPath] = true
+	}
+
 	for k := range dirs {
 		srcInfo, err = b.os.Stat(k)
 		if err == nil {
