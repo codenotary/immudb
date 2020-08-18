@@ -25,6 +25,7 @@ const ConfigPath = ""
 const ManPath = ""
 const OSUser = ""
 const OSGroup = ""
+const DirPath = "%programdata%\\Immudb"
 
 var StartUpConfig = ""
 

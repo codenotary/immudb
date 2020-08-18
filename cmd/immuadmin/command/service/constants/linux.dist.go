@@ -25,6 +25,7 @@ const ConfigPath = "/etc/"
 const ManPath = "/usr/share/man/man1/"
 const OSUser = "immu"
 const OSGroup = "immu"
+const DirPath = "/var/lib/immudb"
 
 var StartUpConfig = fmt.Sprintf(`[Unit]
 Description={{.Description}}

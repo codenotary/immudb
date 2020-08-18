@@ -37,11 +37,14 @@ func (c *Config) Init(name string) error {
 	if c.CfgFn != "" {
 		viper.SetConfigFile(c.CfgFn)
 	} else {
-		if home, err := homedir.Dir(); err != nil {
+		var (
+			home string
+			err  error
+		)
+		if home, err = homedir.Dir(); err != nil {
 			return err
-		} else {
-			viper.AddConfigPath(home)
 		}
+		viper.AddConfigPath(home)
 		viper.AddConfigPath("../src/configs")
 		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
 		if path, _ := os.Executable(); path == service.ExecPath {

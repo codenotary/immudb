@@ -20,10 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/immuos"
-	"github.com/spf13/cobra"
 )
 
 // Commandline ...
@@ -59,7 +60,8 @@ type commandline struct {
 	os             immuos.OS
 }
 
-func NewCommandLine() *commandline {
+// newCommandLine returns a immuadmin commandLine object
+func newCommandLine() *commandline {
 	cl := &commandline{}
 	cl.config.Name = "immuadmin"
 	cl.newImmuClient = client.NewImmuClient
