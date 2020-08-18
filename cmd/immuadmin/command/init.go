@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Options return default client options
 func Options() *client.Options {
 	port := viper.GetInt("immudb-port")
 	address := viper.GetString("immudb-address")

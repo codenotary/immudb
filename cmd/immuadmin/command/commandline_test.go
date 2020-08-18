@@ -110,7 +110,7 @@ func TestCommandline_Register(t *testing.T) {
 }
 
 func TestNewCommandLine(t *testing.T) {
-	cml := NewCommandLine()
+	cml := newCommandLine()
 	assert.IsType(t, &commandline{}, cml)
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Execute triggers the execution of the specified command
 func Execute() {
 	if err := newCommand().Execute(); err != nil {
 		c.QuitWithUserError(err)
@@ -34,7 +35,7 @@ func Execute() {
 func newCommand() *cobra.Command {
 	version.App = "immuadmin"
 	// register admin commands
-	cml := NewCommandLine()
+	cml := newCommandLine()
 	cmd, err := cml.NewCmd()
 	if err != nil {
 		c.QuitToStdErr(err)
