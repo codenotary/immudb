@@ -315,7 +315,6 @@ func (b *backupper) offlineBackup(src string, uncompressed bool, manualStopStart
 	dirs[src] = true
 	for k := range dirs {
 		srcInfo, err = b.os.Stat(k)
-		fmt.Println("err    : ", err)
 		if err == nil {
 			src = k
 			break
