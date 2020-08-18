@@ -18,6 +18,7 @@ package store
 
 import (
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api"
@@ -67,6 +68,44 @@ func TestStoreSafeSet(t *testing.T) {
 	}
 
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
+}
+
+func TestStoreMultithreadSafeSet(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			root, err := st.CurrentRoot()
+			assert.NotNil(t, root)
+			assert.NoError(t, err)
+
+			for n := uint64(0); n <= 1024; n++ {
+				opts := schema.SafeSetOptions{
+					Kv: &schema.KeyValue{
+						Key:   []byte(strconv.FormatUint(n, 10)),
+						Value: []byte(strconv.FormatUint(n, 10)),
+					},
+					RootIndex: &schema.Index{
+						Index: root.Index,
+					},
+				}
+				proof, err := st.SafeSet(opts)
+				assert.NoError(t, err, "n=%d", n)
+				assert.NotNil(t, proof, "n=%d", n)
+
+				leaf := api.Digest(proof.Index, opts.Kv.Key, opts.Kv.Value)
+				verified := proof.Verify(leaf[:], *root)
+				assert.True(t, verified, "n=%d", n)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }
 
 func TestStoreSafeGet(t *testing.T) {
@@ -333,11 +372,11 @@ func TestStoreBySafeIndex(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	_ , err := st.Set(schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
+	_, err := st.Set(schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
 	assert.NoError(t, err)
-	_ , err = st.Set(schema.KeyValue{Key: []byte(`mySecondElementKey`), Value: []byte(`secondValue`)})
+	_, err = st.Set(schema.KeyValue{Key: []byte(`mySecondElementKey`), Value: []byte(`secondValue`)})
 	assert.NoError(t, err)
-	_ , err = st.Set(schema.KeyValue{Key: []byte(`myThirdElementKey`), Value: []byte(`thirdValue`)})
+	_, err = st.Set(schema.KeyValue{Key: []byte(`myThirdElementKey`), Value: []byte(`thirdValue`)})
 	assert.NoError(t, err)
 
 	sio1 := schema.SafeIndexOptions{
