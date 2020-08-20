@@ -369,7 +369,7 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 	}
 
 	// this guard ensure that the insertion order index was not tampered.
-	realHash := api.Digest(item.Index, key, item.Value)
+	realHash := api.Digest(index, key, item.Value)
 	if hash != realHash {
 		return 0, nil, nil, ErrInconsistentDigest
 	}
