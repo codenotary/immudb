@@ -351,14 +351,21 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 	defer it.Close()
 	var item *schema.Item
 	for it.Rewind(); it.Valid(); it.Next() {
-		item, err = itemToSchema(key, it.Item())
+		i, err := itemToSchema(key, it.Item())
 		if err != nil {
 			return 0, nil, nil, err
 		}
 		// there are multiple possible versions of a key. Here we retrieve the one with the correct timestamp
-		if item.Index == index {
+		if i.Index >= index {
+			item = i
+		} else {
 			break
 		}
+	}
+
+	if item == nil {
+		// this shouldn't happen
+		return 0, nil, nil, ErrKeyNotFound
 	}
 
 	// this guard ensure that the insertion order index was not tampered.
