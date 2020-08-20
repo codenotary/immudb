@@ -102,7 +102,7 @@ func TestStoreMultithreadSafeSetWithKeyOverlap(t *testing.T) {
 				assert.True(t, verified, "n=%d", n)
 
 				root = &schema.Root{
-					Index: proof.Index,
+					Index: proof.At,
 					Root:  proof.Root,
 				}
 			}
@@ -136,6 +136,7 @@ func TestStoreMultithreadSafeSetWithoutKeyOverlap(t *testing.T) {
 						Index: root.Index,
 					},
 				}
+
 				proof, err := st.SafeSet(opts)
 				assert.NoError(t, err, "n=%d", n)
 				assert.NotNil(t, proof, "n=%d", n)
@@ -145,7 +146,7 @@ func TestStoreMultithreadSafeSetWithoutKeyOverlap(t *testing.T) {
 				assert.True(t, verified, "n=%d", n)
 
 				root = &schema.Root{
-					Index: proof.Index,
+					Index: proof.At,
 					Root:  proof.Root,
 				}
 			}
