@@ -445,28 +445,59 @@ func TestDump(t *testing.T) {
 
 func TestUserManagement(t *testing.T) {
 	setup()
-	_ = client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
-	err2 := client.CreateUser(context.TODO(), []byte(`test`), []byte(`1Password!*`), auth.PermissionRW, "test")
-	assert.Nil(t, err2)
+	var (
+		userName        = "test"
+		userPassword    = "1Password!*"
+		userNewPassword = "2Password!*"
+		testDBName      = "test"
+		testDB          = &schema.Database{Databasename: testDBName}
+		err             error
+		usrList         *schema.UserList
+		immudbUser      *schema.User
+		testUser        *schema.User
+	)
+	err = client.CreateDatabase(context.TODO(), testDB)
+	assert.Nil(t, err)
 
-	err3 := client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "test", "test", auth.PermissionRW)
-	assert.Nil(t, err3)
+	err = client.CreateUser(
+		context.TODO(),
+		[]byte(userName),
+		[]byte(userPassword),
+		auth.PermissionRW,
+		testDBName,
+	)
+	assert.Nil(t, err)
 
-	err4 := client.SetActiveUser(context.TODO(), &schema.SetActiveUserRequest{
-		Active:   true,
-		Username: "test",
-	})
-	assert.Nil(t, err4)
+	err = client.ChangePermission(
+		context.TODO(),
+		schema.PermissionAction_REVOKE,
+		userName,
+		testDBName,
+		auth.PermissionRW,
+	)
+	assert.Nil(t, err)
 
-	err5 := client.ChangePassword(context.TODO(), []byte(`test`), []byte(`1Password!*`), []byte(`2Password!*`))
-	assert.Nil(t, err5)
+	err = client.SetActiveUser(
+		context.TODO(),
+		&schema.SetActiveUserRequest{
+			Active:   true,
+			Username: userName,
+		})
+	assert.Nil(t, err)
 
-	usrList, err9 := client.ListUsers(context.TODO())
-	require.NoError(t, err9)
+	err = client.ChangePassword(
+		context.TODO(),
+		[]byte(userName),
+		[]byte(userPassword),
+		[]byte(userNewPassword),
+	)
+	assert.Nil(t, err)
+
+	usrList, err = client.ListUsers(context.TODO())
+	require.NoError(t, err)
 	require.NotNil(t, usrList)
 	require.Len(t, usrList.Users, 2)
-	var immudbUser *schema.User
-	var testUser *schema.User
+
 	for _, usr := range usrList.Users {
 		switch string(usr.User) {
 		case "immudb":
@@ -735,4 +766,83 @@ func TestImmuClient_GetOptions(t *testing.T) {
 	op := client.GetOptions()
 	assert.IsType(t, &Options{}, op)
 	client.Disconnect()
+}
+
+func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
+	setup()
+	var (
+		userName        = "test"
+		userPassword    = "1Password!*"
+		userNewPassword = "2Password!*"
+		testDBName      = "test"
+		testDB          = &schema.Database{Databasename: testDBName}
+		err             error
+		testUserClient  ImmuClient
+		testUserContext = context.TODO()
+	)
+	// step 1: create test database
+	err = client.CreateDatabase(context.TODO(), testDB)
+	assert.Nil(t, err)
+
+	// step 2: create test user with read write permissions to the test db
+	err = client.CreateUser(
+		context.TODO(),
+		[]byte(userName),
+		[]byte(userPassword),
+		auth.PermissionRW,
+		testDBName,
+	)
+	assert.Nil(t, err)
+
+	// setp 3: create test client and context
+	nm, _ := NewNtpMock()
+	tss := NewTimestampService(nm)
+	testUserClient = newClient(false, "").WithTimestampService(tss)
+
+	// step 4: test user login using the test context and test client
+	resp, err := testUserClient.Login(
+		testUserContext,
+		[]byte(userName),
+		[]byte(userPassword),
+	)
+	assert.Nil(t, err)
+	testUserClient = newClient(true, resp.Token).WithTimestampService(tss)
+	dbResp, err := testUserClient.UseDatabase(testUserContext, testDB)
+	assert.Nil(t, err)
+	testUserClient = newClient(true, dbResp.Token).WithTimestampService(tss)
+
+	// step 5: successfully access the test db using the test client
+	_, err = testUserClient.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
+	assert.Nil(t, err)
+
+	// step 6: using admin client change the test user password
+	err = client.ChangePassword(
+		context.TODO(),
+		[]byte(userName),
+		[]byte(userPassword),
+		[]byte(userNewPassword),
+	)
+	assert.Nil(t, err)
+
+	// step 7: access the test db again using the test client which should give an error
+	_, err = testUserClient.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
+	assert.NotNil(t, err)
+
+	// step 8: repeat 4 and 5
+	resp, err = testUserClient.Login(
+		testUserContext,
+		[]byte(userName),
+		[]byte(userNewPassword),
+	)
+	assert.Nil(t, err)
+	testUserClient = newClient(true, resp.Token).WithTimestampService(tss)
+	dbResp, err = testUserClient.UseDatabase(testUserContext, testDB)
+	assert.Nil(t, err)
+	testUserClient = newClient(true, dbResp.Token).WithTimestampService(tss)
+
+	_, err = testUserClient.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
+	assert.Nil(t, err)
+
+	client.Disconnect()
+	testUserClient.Disconnect()
 }
