@@ -70,7 +70,7 @@ func TestStoreSafeSet(t *testing.T) {
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
 }
 
-func TestStoreMultithreadSafeSet(t *testing.T) {
+func TestStoreMultithreadSafeSetWithKeyOverlap(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -78,16 +78,16 @@ func TestStoreMultithreadSafeSet(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func() {
+		go func(tid int) {
 			root, err := st.CurrentRoot()
 			assert.NotNil(t, root)
 			assert.NoError(t, err)
 
-			for n := uint64(0); n <= 1024; n++ {
+			for n := uint64(0); n < 256; n++ {
 				opts := schema.SafeSetOptions{
 					Kv: &schema.KeyValue{
 						Key:   []byte(strconv.FormatUint(n, 10)),
-						Value: []byte(strconv.FormatUint(n, 10)),
+						Value: []byte(strconv.FormatUint(uint64(tid), 10)),
 					},
 					RootIndex: &schema.Index{
 						Index: root.Index,
@@ -100,9 +100,58 @@ func TestStoreMultithreadSafeSet(t *testing.T) {
 				leaf := api.Digest(proof.Index, opts.Kv.Key, opts.Kv.Value)
 				verified := proof.Verify(leaf[:], *root)
 				assert.True(t, verified, "n=%d", n)
+
+				root = &schema.Root{
+					Index: proof.At,
+					Root:  proof.Root,
+				}
 			}
 			wg.Done()
-		}()
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+func TestStoreMultithreadSafeSetWithoutKeyOverlap(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(tid int) {
+			root, err := st.CurrentRoot()
+			assert.NotNil(t, root)
+			assert.NoError(t, err)
+
+			for n := uint64(0); n < 256; n++ {
+				opts := schema.SafeSetOptions{
+					Kv: &schema.KeyValue{
+						Key:   []byte(strconv.FormatUint(uint64(tid<<10)+n, 10)),
+						Value: []byte(strconv.FormatUint(uint64(tid), 10)),
+					},
+					RootIndex: &schema.Index{
+						Index: root.Index,
+					},
+				}
+
+				proof, err := st.SafeSet(opts)
+				assert.NoError(t, err, "n=%d", n)
+				assert.NotNil(t, proof, "n=%d", n)
+
+				leaf := api.Digest(proof.Index, opts.Kv.Key, opts.Kv.Value)
+				verified := proof.Verify(leaf[:], *root)
+				assert.True(t, verified, "n=%d", n)
+
+				root = &schema.Root{
+					Index: proof.At,
+					Root:  proof.Root,
+				}
+			}
+			wg.Done()
+		}(i)
 	}
 
 	wg.Wait()
