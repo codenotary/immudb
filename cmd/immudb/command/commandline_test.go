@@ -59,5 +59,5 @@ func TestCommandline_ConfigChainErr(t *testing.T) {
 	cc := c.ConfigChain(f)
 
 	err := cc(cmd, []string{})
-	assert.NoError(t, err)
+	assert.Error(t, err)
 }

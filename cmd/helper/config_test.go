@@ -86,7 +86,7 @@ func TestConfig_LoadError(t *testing.T) {
 	assert.NotNil(t, address)
 	cmd := cobra.Command{}
 	err := o.LoadConfig(&cmd)
-	assert.NoError(t, err)
+	assert.Error(t, err)
 }
 
 func TestConfig_LoadError2(t *testing.T) {

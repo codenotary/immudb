@@ -209,7 +209,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options gw.Options, mtlsOp
 	cmd.Flags().StringP("address", "a", options.Address, "immugw host address")
 	cmd.Flags().IntP("immudb-port", "j", options.ImmudbPort, "immudb port number")
 	cmd.Flags().StringP("immudb-address", "k", options.ImmudbAddress, "immudb host address")
-	cmd.Flags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.toml)")
+	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immugw.toml)")
 	cmd.Flags().Bool("audit", options.Audit, "enable audit mode (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)")
 	cmd.Flags().Duration("audit-interval", options.AuditInterval, "interval at which audit should run")
 	cmd.Flags().String("audit-username", options.AuditUsername, "immudb username used to login during audit")

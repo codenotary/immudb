@@ -62,7 +62,9 @@ func (c *Config) Init(name string) error {
 
 // LoadConfig loads the config file (if any) and initializes the config
 func (c *Config) LoadConfig(cmd *cobra.Command) (err error) {
-	c.CfgFn, _ = cmd.Flags().GetString("config")
+	if c.CfgFn, err = cmd.Flags().GetString("config"); err != nil {
+		return err
+	}
 	if err = c.Init(c.Name); err != nil {
 		if !strings.Contains(err.Error(), "Not Found") {
 			return err
