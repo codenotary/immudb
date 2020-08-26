@@ -26,6 +26,9 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 
 	root, err := tbtree.Root()
 	assert.NotNil(t, root)
+	assert.NoError(t, err)
+
+	_, err = root.Reader(&ReaderSpec{prefix: []byte{0, 0, 0, 0}, ascOrder: true})
 	assert.Equal(t, ErrKeyNotFound, err)
 }
 
