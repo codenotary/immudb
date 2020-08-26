@@ -31,7 +31,6 @@ coverage.txt
 /immudb
 /nimmu
 /bm
-/immugw
 /immutc
 
 /dist
