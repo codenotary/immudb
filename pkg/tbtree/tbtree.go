@@ -53,26 +53,10 @@ func (opt *Options) setMaxNodeSize(maxNodeSize int) *Options {
 	return opt
 }
 
-type QueryNode interface {
-	Get(key []byte) (value []byte, ts uint64, err error)
-	Ts() uint64
-}
-
-type nodeWrapper struct {
-	node
-}
-
-func (n nodeWrapper) Get(key []byte) (value []byte, ts uint64, err error) {
-	return n.get(key)
-}
-
-func (n nodeWrapper) Ts() uint64 {
-	return n.ts()
-}
-
 type node interface {
 	insertAt(key []byte, value []byte, ts uint64) (node, node, error)
 	get(key []byte) (value []byte, ts uint64, err error)
+	findLeafNode(keyPrefix []byte, ascOrder bool) (*leafNode, int, error)
 	maxKey() []byte
 	ts() uint64
 }
@@ -265,6 +249,25 @@ func (n *innerNode) get(key []byte) (value []byte, ts uint64, err error) {
 	return n.nodes[i].node.get(key)
 }
 
+func (n *innerNode) findLeafNode(keyPrefix []byte, ascOrder bool) (*leafNode, int, error) {
+	if ascOrder {
+		for i := 0; i < len(n.nodes); i++ {
+			if bytes.Compare(keyPrefix, n.nodes[i].key) < 1 {
+				return n.nodes[i].node.findLeafNode(keyPrefix, ascOrder)
+			}
+		}
+		return nil, 0, ErrKeyNotFound
+	}
+
+	for i := len(n.nodes); i > 0; i-- {
+		if bytes.Compare(keyPrefix, n.nodes[i].key) < 1 {
+			return n.nodes[i].node.findLeafNode(keyPrefix, ascOrder)
+		}
+	}
+
+	return nil, 0, ErrKeyNotFound
+}
+
 func (n *innerNode) ts() uint64 {
 	return n.cts
 }
@@ -404,12 +407,26 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, err error) {
 	return leafValue.value, leafValue.ts, nil
 }
 
-func (l *leafNode) indexOf(key []byte) (index int, found bool) {
-	// TODO: jeroiraz dicothomic search on l.values
-	if len(l.values) == 0 {
-		return 0, false
+func (l *leafNode) findLeafNode(keyPrefix []byte, ascOrder bool) (*leafNode, int, error) {
+	if ascOrder {
+		for i := 0; i < len(l.values); i++ {
+			if bytes.Compare(keyPrefix, l.values[i].key) < 1 {
+				return l, i, nil
+			}
+		}
+		return nil, 0, ErrKeyNotFound
 	}
 
+	for i := len(l.values); i > 0; i-- {
+		if bytes.Compare(keyPrefix, l.values[i].key) < 1 {
+			return l, i, nil
+		}
+	}
+
+	return nil, 0, ErrKeyNotFound
+}
+
+func (l *leafNode) indexOf(key []byte) (index int, found bool) {
 	for i := 0; i < len(l.values); i++ {
 		if bytes.Equal(l.values[i].key, key) {
 			return i, true
