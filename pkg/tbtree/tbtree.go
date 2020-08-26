@@ -78,6 +78,7 @@ type node interface {
 }
 
 type innerNode struct {
+	parent   node
 	prevNode node
 	nodes    []*childRef
 	cts      uint64
@@ -87,6 +88,7 @@ type innerNode struct {
 }
 
 type leafNode struct {
+	parent   node
 	tree     *TBtree
 	prevNode node
 	values   []*leafValue
@@ -209,6 +211,7 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 
 	if c2 == nil {
 		newNode := &innerNode{
+			parent:   n.parent,
 			prevNode: n,
 			maxSize:  n.maxSize,
 			nodes:    make([]*childRef, len(n.nodes)),
@@ -229,6 +232,7 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 	}
 
 	newNode := &innerNode{
+		parent:   n.parent,
 		prevNode: n,
 		maxSize:  n.maxSize,
 		nodes:    make([]*childRef, len(n.nodes)+1),
@@ -294,6 +298,7 @@ func (n *innerNode) split() (node, error) {
 	splitIndex, splitSize := n.splitInfo()
 
 	newNode := &innerNode{
+		parent:  n.parent,
 		maxSize: n.maxSize,
 		nodes:   n.nodes[splitIndex:],
 		csize:   n.csize - splitSize,
@@ -335,6 +340,7 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 
 	if found {
 		newLeaf := &leafNode{
+			parent:   l.parent,
 			prevNode: l,
 			maxSize:  l.maxSize,
 			cts:      ts,
@@ -366,6 +372,7 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 	}
 
 	newLeaf := &leafNode{
+		parent:   l.parent,
 		prevNode: l,
 		maxSize:  l.maxSize,
 		cts:      ts,
@@ -432,6 +439,7 @@ func (l *leafNode) split() (node, error) {
 	splitIndex, splitSize := l.splitInfo()
 
 	newLeaf := &leafNode{
+		parent:  l.parent,
 		maxSize: l.maxSize,
 		values:  l.values[splitIndex:],
 		csize:   l.csize - splitSize,
