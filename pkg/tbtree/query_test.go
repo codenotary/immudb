@@ -35,7 +35,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 func TestReaderForNonEmptyTree(t *testing.T) {
 	tbtree, _ := NewWith(DefaultOptions().setMaxNodeSize(256))
 
-	monotonicInsertions(t, tbtree, 1, 16, true)
+	monotonicInsertions(t, tbtree, 1, 10000, true)
 
 	root, err := tbtree.Root()
 	assert.NotNil(t, root)

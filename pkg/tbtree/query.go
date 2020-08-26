@@ -50,7 +50,7 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 		return nil, ErrIllegalArgument
 	}
 
-	startingLeaf, startingOffset, err := n.findLeafNode(spec.prefix, spec.ascOrder)
+	startingLeaf, startingOffset, err := n.findLeafNode(spec.prefix, nil, spec.ascOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -67,16 +67,28 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 
 func (c *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 	if (c.ascOrder && len(c.leafNode.values) == c.offset) || (!c.ascOrder && c.offset < 0) {
-		if c.leafNode.parent == nil {
-			return nil, nil, 0, ErrKeyNotFound
-		}
+		parent := c.leafNode.parent
 
-		leaf, off, err := c.leafNode.parent.findLeafNode(c.prefix, c.ascOrder)
-		if err != nil {
-			return nil, nil, 0, err
+		for {
+			if parent == nil {
+				return nil, nil, 0, ErrKeyNotFound
+			}
+
+			leaf, off, err := parent.findLeafNode(c.prefix, c.leafNode.maxKey(), c.ascOrder)
+
+			if err == ErrKeyNotFound {
+				parent = parent.parent
+				continue
+			}
+
+			if err != nil {
+				return nil, nil, 0, err
+			}
+
+			c.leafNode = leaf
+			c.offset = off
+			break
 		}
-		c.leafNode = leaf
-		c.offset = off
 	}
 
 	leafValue := c.leafNode.values[c.offset]
