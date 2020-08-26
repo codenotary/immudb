@@ -93,11 +93,6 @@ File | SHA256
 ------------- | -------------
 <!-- use `make dist/binary.md` to generate the downloads links and checksums -->
 
-**Immugw Binaries**
-
-File | SHA256
-------------- | -------------
-<!-- use `make dist/binary.md` to generate the downloads links and checksums -->
 
 **Immucli Binaries**
 

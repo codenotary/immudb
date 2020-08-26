@@ -127,7 +127,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 | Implementation language | Go                                                            |
 | Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                            |
 | Embeddable              | Yes, optionally                                               |
-| Server APIs             | gRPC (using protocol buffers); immudb RESTful; immugw RESTful |
+| Server APIs             | gRPC (using protocol buffers); immudb RESTful;                |
 | Partition methods       | Sharding                                                      |
 | Consistency concepts    | Eventual Consistency Immediate Consistency                    |
 | Transaction concepts    | ACID with Snapshot Isolation (SSI)                            |
@@ -148,7 +148,6 @@ The immudb container images can be found here:
 | Component  | Container image                                | Pull stats                                                                                                                                                                                           |
 | ---------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | immudb     | https://hub.docker.com/r/codenotary/immudb     | [![codenotary/immudb<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immudb.svg?label=codenotary/immudb+%28official%29)](https://hub.docker.com/r/codenotary/immudb/)                 |
-| immugw     | https://hub.docker.com/r/codenotary/immugw     | [![codenotary/immugw<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immugw.svg?label=codenotary/immugw+%28official%29)](https://hub.docker.com/r/codenotary/immugw/)                 |
 | immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  | [![codenotary/immuadmin<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immuadmin.svg?label=codenotary/immuadmin+%28official%29)](https://hub.docker.com/r/codenotary/immuadmin/)     |
 | immuclient | https://hub.docker.com/r/codenotary/immuclient | [![codenotary/immuclient<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immuclient.svg?label=codenotary/immuclient+%28official%29)](https://hub.docker.com/r/codenotary/immuclient/) |
 
@@ -158,7 +157,6 @@ The immudb container images can be found here:
 ### Components
 
 - **immudb** is the server binary that listens on port 3322 on localhost and provides a gRPC interface
-- **immugw** is the intelligent REST proxy that connects to immudb and provides a RESTful interface for applications. We recommend to run immudb and immugw on separate machines to enhance security
 - **immuadmin** is the admin CLI for immudb and immugw. You can install and manage the service installation for both components and get statistics as well as runtime information.
 - **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
 
@@ -177,25 +175,25 @@ make all
 ##### Linux (by component)
 
 ```bash
-GOOS=linux GOARCH=amd64 make immuclient-static immuadmin-static immudb-static immugw-static
+GOOS=linux GOARCH=amd64 make immuclient-static immuadmin-static immudb-static
 ```
 
 ##### MacOS (by component)
 
 ```bash
-GOOS=darwin GOARCH=amd64 make immuclient-static immuadmin-static immudb-static immugw-static
+GOOS=darwin GOARCH=amd64 make immuclient-static immuadmin-static immudb-static
 ```
 
 ##### Windows (by component)
 
 ```bash
-GOOS=windows GOARCH=amd64 make immuclient-static immuadmin-static immudb-static immugw-static
+GOOS=windows GOARCH=amd64 make immuclient-static immuadmin-static immudb-static
 ```
 
 ##### Freebsd (by component)
 
 ```bash
-GOOS=freebsd GOARCH=amd64 make immuclient-static immuadmin-static immudb-static immugw-static
+GOOS=freebsd GOARCH=amd64 make immuclient-static immuadmin-static immudb-static
 ```
 #### immudb first start
 
@@ -243,40 +241,6 @@ The FreeBSD service is using the following defaults:
 | all configuration files | /etc/immudb         |
 | all data files          | /var/lib/immudb     |
 | pid file                | /var/run/immudb.pid |
-| log files               | /var/log/immudb     |
-
-##### Run immugw as a service (using immuadmin)
-
-Please make sure to build or download the immugw and immuadmin component and save them in the same work directory when installing the service.
-
-```
-# install immugw service
-./immuadmin service immugw install
-
-# check current immugw service status
-./immuadmin service immugw status
-
-# stop immugw service
-./immuadmin service immugw stop
-
-# start immugw service
-./immuadmin service immugw start
-```
-
-The linux service is using the following defaults:
-
-| File or configuration   | location                   |
-| ----------------------- | -------------------------- |
-| all configuration files | /etc/immudb                |
-| pid file                | /var/lib/immudb/immugw.pid |
-| log files               | /var/log/immudb            |
-
-The FreeBSD service is using the following defaults:
-
-| File or configuration   | location            |
-| ----------------------- | ------------------- |
-| all configuration files | /etc/immudb         |
-| pid file                | /var/run/immugw.pid |
 | log files               | /var/log/immudb     |
 
 #### Command reference
@@ -340,68 +304,6 @@ Flags:
 Use "immudb [command] --help" for more information about a command.
 
 ```
-
-##### immugw
-
-Simply run `./immugw -d` to start immugw on the same machine as immudb (test or dev environment) or pointing to the remote immudb system ```./immugw --immudb-address "immudb-server"```.
-
-If you want to stop immugw în that case you need to find the process `ps -ax | grep immugw` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immugw* | Stop-Process`.
-
-```bash
-immu gateway: a smart REST proxy for immudb - the lightweight, high-speed immutable database for systems and applications.
-It exposes all gRPC methods with a REST interface while wrapping all SAFE endpoints with a verification service.
-
-Environment variables:
-  IMMUGW_ADDRESS=0.0.0.0
-  IMMUGW_PORT=3323
-  IMMUGW_IMMUDB_ADDRESS=127.0.0.1
-  IMMUGW_IMMUDB_PORT=3322
-  IMMUGW_DIR=.
-  IMMUGW_PIDFILE=
-  IMMUGW_LOGFILE=
-  IMMUGW_DETACHED=false
-  IMMUGW_MTLS=false
-  IMMUGW_SERVERNAME=localhost
-  IMMUGW_PKEY=./tools/mtls/4_client/private/localhost.key.pem
-  IMMUGW_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
-  IMMUGW_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
-  IMMUGW_AUDIT="false"
-  IMMUGW_AUDIT_PASSWORD=""
-  IMMUGW_AUDIT_USERNAME=""
-
-Usage:
-  immugw [flags]
-  immugw [command]
-
-Available Commands:
-  help        Help about any command
-  version     Show the immugw version
-
-Flags:
-  -a, --address string            immugw host address (default "0.0.0.0")
-      --audit                     enable audit mode (continuously fetches latest root from server, checks consistency against a local root and saves the latest root locally)
-      --audit-interval duration   interval at which audit should run (default 5m0s)
-      --audit-password string     immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
-      --audit-username string     immudb username used to login during audit (default "immugwauditor")
-      --certificate string        server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
-      --clientcas string          clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string             config file (default path are configs or $HOME. Default filename is immugw.toml)
-  -d, --detached                  run immudb in background
-      --dir string                program files folder (default ".")
-  -h, --help                      help for immugw
-  -k, --immudb-address string     immudb host address (default "127.0.0.1")
-  -j, --immudb-port int           immudb port number (default 3322)
-      --logfile string            log path with filename. E.g. /tmp/immugw/immugw.log
-  -m, --mtls                      enable mutual tls
-      --pidfile string            pid path with filename. E.g. /var/run/immugw.pid
-      --pkey string               server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
-  -p, --port int                  immugw port number (default 3323)
-      --servername string         used to verify the hostname on the returned certificates (default "localhost")
-
-Use "immugw [command] --help" for more information about a command.
-
-```
-
 
 ##### immuadmin
 
@@ -536,7 +438,6 @@ All services and cli components are also available as docker images on dockerhub
 | Component  | Container image                                |
 | ---------- | ---------------------------------------------- |
 | immudb     | https://hub.docker.com/r/codenotary/immudb     |
-| immugw     | https://hub.docker.com/r/codenotary/immugw     |
 | immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  |
 | immuclient | https://hub.docker.com/r/codenotary/immuclient |
 
@@ -544,12 +445,6 @@ All services and cli components are also available as docker images on dockerhub
 
 ```bash
 docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:latest
-```
-
-#### Run immugw
-
-```
-docker run -it -d -p 3323:3323 --name immugw --env IMMUGW_IMMUDB_ADDRESS=immudb codenotary/immugw:latest
 ```
 
 #### Run immuadmin
@@ -574,7 +469,6 @@ If you want to build the container images yourself, simply clone this repo and r
 
 ```
 docker build -t myown/immudb:latest -f Dockerfile .
-docker build -t myown/immugw:latest -f Dockerfile.immugw .
 docker build -t myown/immuadmin:latest -f Dockerfile.immuadmin .
 docker build -t myown/immuclient:latest -f Dockerfile.immuclient .
 ```
@@ -617,7 +511,7 @@ Release v0.6.0-rc2 is our second public release and contains an all new immuclie
 
 Release v0.6.0-rc1 is our first release to the public. While we were using immudb for quite some time in the [codenotary.io](https://www.codenotary.io) platform, we're thrilled to finally release it to the Open Source community (Apache 2 license).
 
-The release contains 3 components, the main immutable database immudb, a RESTful proxy called immugw and the admin CLI tool immuadmin. immudb is ready to be used on Linux as well as Microsoft Windows.
+The release contains 2 components, the main immutable database immudb and the admin CLI tool immuadmin. immudb is ready to be used on Linux as well as Microsoft Windows.
 
 
 
@@ -635,28 +529,6 @@ The following diagram explains how data is inserted, verified and consistency ch
 
 ![How immudb data consistency works](img/immudb-consistency-diagram.png)
 
-
-
-#### immugw communication
-
-immugw proxies REST client communication and gRPC server interface. For security purposes immugw should not run on the same server as immudb. The following diagram shows how the communication works:
-
-![immugw communication explained](img/immugw-diagram.png)
-
-## Features
-
-#### Simplified API for safe SET/GET
-
-single API call that performs all steps and returns the proofs directly.
-
-#### REST gateway (for legacy systems)
-
-A gRPC REST gateway is a reverse proxy that sits in the middle between the gRPC API and the application.
-
-Other than simply converting the gRPC API to a REST interface, this component will have a built-in verification on query results and will return the verification result directly.
-
-This solution is completely transparent: the client application can use just one endpoint (the REST interface) to perform all operations.
-The REST gateway can be also embedded into the immudb binary directly.
 
 #### Drivers for Common Languages
 
@@ -829,20 +701,6 @@ docker run -d -it -p 8080:8080 --name swagger-immudb -v ${PWD}/pkg/api/schema/sc
 ### immudb gRPC API reference
 
 coming soon
-
-### immugw RESTful API reference
-
-You can find the swagger schema here:
-
-https://github.com/codenotary/immudb/blob/master/pkg/api/schema/gw.schema.swagger.json
-
-If you want to run the Swagger UI, simply run the following docker command after you cloned this repo:
-
-```
-docker run -d -it -p 8081:8080 --name swagger-immugw -v ${PWD}/pkg/api/schema/gw.schema.swagger.json:/openapi.json -e SWAGGER_JSON=/openapi.json  swaggerapi/swagger-ui
-```
-
-
 
 ## FAQ
 

@@ -20,8 +20,8 @@ import (
 	"io"
 
 	immudb "github.com/codenotary/immudb/cmd/immudb/command"
-	immugw "github.com/codenotary/immudb/cmd/immugw/command"
 	"github.com/codenotary/immudb/pkg/immuos"
+	immugw "github.com/codenotary/immugw/cmd/immugw/command"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
 )

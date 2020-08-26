@@ -18,7 +18,7 @@ import (
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/gw"
+	"github.com/codenotary/immugw/pkg/gw"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

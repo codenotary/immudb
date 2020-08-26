@@ -43,11 +43,9 @@ jobs:
       arch:
         - amd64
       script:
-        - GOOS=linux GOARCH=amd64 make immudb-static immugw-static immuadmin-static immuclient-static
+        - GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immudb
-        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
-        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immugw
         - sleep $[ ( $RANDOM % 10 ) + 1 ]s
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuadmin
         - sleep $[ ( $RANDOM % 10 ) + 1 ]s
@@ -60,7 +58,6 @@ jobs:
             - immudb
             - immuadmin
             - immuclient
-            - immugw
 
     - stage: Image
       env:
@@ -71,7 +68,7 @@ jobs:
         use:
           - bins
       script:
-        - /tmp/vcn authenticate immudb immugw immuadmin immuclient
+        - /tmp/vcn authenticate immudb immuadmin immuclient
         - VCN_USER=$immudb_user VCN_PASSWORD=$immudb_pass /tmp/vcn login
         - docker build --tag "${DOCKER_IMAGE}:latest" -f Dockerfile .
         - VCN_NOTARIZATION_PASSWORD=$immudb_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent docker://$DOCKER_IMAGE

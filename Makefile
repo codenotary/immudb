@@ -39,7 +39,7 @@ V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
 				  -extldflags "-static"
 
 .PHONY: all
-all: immudb immuclient immugw immuadmin immutest
+all: immudb immuclient immuadmin immutest
 	@echo 'Build successful, now you can make the manuals or check the status of the database with immuadmin.'
 
 .PHONY: rebuild
@@ -57,10 +57,6 @@ immuadmin:
 immudb:
 	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
 
-.PHONY: immugw
-immugw:
-	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immugw
-
 .PHONY: immutest
 immutest:
 	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immutest
@@ -76,10 +72,6 @@ immuadmin-static:
 .PHONY: immudb-static
 immudb-static:
 	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immudb
-
-.PHONY: immugw-static
-immugw-static:
-	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immugw
 
 .PHONY: immutest-static
 immutest-static:
@@ -127,7 +119,7 @@ build/codegen:
 
 .PHONY: clean
 clean:
-	rm -f immudb immuclient immugw immuadmin immutest
+	rm -f immudb immuclient immuadmin immutest
 
 .PHONY: nimmu
 nimmu:
@@ -166,7 +158,6 @@ man:
 	$(GO) run ./cmd/immuclient mangen ./cmd/docs/man/immuclient
 	$(GO) run ./cmd/immuadmin mangen ./cmd/docs/man/immuadmin
 	$(GO) run ./cmd/immudb mangen ./cmd/docs/man/immudb
-	$(GO) run ./cmd/immugw mangen ./cmd/docs/man/immugw
 	$(GO) run ./cmd/immutest mangen ./cmd/docs/man/immutest
 
 .PHONY: prerequisites
@@ -250,7 +241,7 @@ dist/${SERVICE_EXE}:
 dist/sign: vendor ${SERVICE_NAME}
 	for f in ./dist/*; do vcn sign -p $$f; printf "\n\n"; done
 
-# SERVICE_NAME=immudb|immuclient|immugw SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
+# SERVICE_NAME=immudb|immuclient|immuadmin SIGNCODE_PVK_PASSWORD=<pvk password> SIGNCODE_PVK=<path to vchain.pvk> SIGNCODE_SPC=<path to vchain.spc> make dist/all
 .PHONY: dist/all
 dist/all: dist dist/${SERVICE_EXE}
 
