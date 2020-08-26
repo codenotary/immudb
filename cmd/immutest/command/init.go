@@ -30,7 +30,6 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immugw/pkg/gw"
 	"github.com/jaswdr/faker"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -282,8 +281,8 @@ func (cl *commandline) configureFlags(
 	defaultDb string,
 	defaultUser string,
 ) error {
-	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
-	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
+	cmd.PersistentFlags().IntP("immudb-port", "p", client.DefaultOptions().Port, "immudb port number")
+	cmd.PersistentFlags().StringP("immudb-address", "a", client.DefaultOptions().Address, "immudb host address")
 	cmd.PersistentFlags().StringP("database", "d", defaultDb, "database to populate")
 	cmd.PersistentFlags().StringP("user", "u", defaultUser, "database user")
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immutest.toml)")
@@ -301,8 +300,8 @@ func (cl *commandline) configureFlags(
 		return err
 	}
 
-	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
-	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
+	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
+	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
 	viper.SetDefault("database", defaultDb)
 	viper.SetDefault("user", defaultUser)
 
