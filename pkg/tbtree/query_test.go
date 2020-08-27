@@ -16,6 +16,7 @@ limitations under the License.
 package tbtree
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,11 +33,11 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	assert.Equal(t, ErrNoMoreEntries, err)
 }
 
-func TestReaderForNonEmptyTree(t *testing.T) {
+func TestReaderAscendingScan(t *testing.T) {
 	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
 
-	monotonicInsertions(t, tbtree, 1, 257, true)
+	monotonicInsertions(t, tbtree, 1, 1000, true)
 
 	root, err := tbtree.Root()
 	assert.NotNil(t, root)
@@ -51,11 +52,13 @@ func TestReaderForNonEmptyTree(t *testing.T) {
 	assert.NoError(t, err)
 
 	for {
-		_, _, _, err := reader.Read()
+		k, _, _, err := reader.Read()
 		if err != nil {
 			assert.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
+
+		assert.True(t, bytes.Compare(reader.prefix, k) < 1)
 	}
 }
 
@@ -70,7 +73,7 @@ func TestReaderDescendingScan(t *testing.T) {
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:      []byte{0, 0, 0, 5},
+		prefix:      []byte{0, 0, 0, 100},
 		matchPrefix: false,
 		ascOrder:    false,
 	}
@@ -78,10 +81,12 @@ func TestReaderDescendingScan(t *testing.T) {
 	assert.NoError(t, err)
 
 	for {
-		_, _, _, err := reader.Read()
+		k, _, _, err := reader.Read()
 		if err != nil {
 			assert.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
+
+		assert.True(t, bytes.Compare(k, reader.prefix) < 1)
 	}
 }
