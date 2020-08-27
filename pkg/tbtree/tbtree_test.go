@@ -73,13 +73,27 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 	}
 }
 
-func randomInsertions(t *testing.T, tbtree *TBtree, kCount int) {
+func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
 
 	for i := 0; i < kCount; i++ {
 		k := make([]byte, 4)
 		binary.BigEndian.PutUint32(k, rnd.Uint32())
+
+		if !override {
+			root, err := tbtree.Root()
+			assert.NoError(t, err)
+
+			for {
+				_, _, err = root.Get(k)
+				if err == ErrKeyNotFound {
+					break
+				}
+				binary.BigEndian.PutUint32(k, rnd.Uint32())
+			}
+
+		}
 
 		v := make([]byte, 8)
 		binary.BigEndian.PutUint64(v, uint64(i))
@@ -115,5 +129,5 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
 	tbtree, _ := NewWith(DefaultOptions().setMaxNodeSize(DefaultMaxNodeSize))
 
-	randomInsertions(t, tbtree, 1000)
+	randomInsertions(t, tbtree, 1000, true)
 }

@@ -96,7 +96,7 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	assert.NoError(t, err)
 
 	keyCount := 10000
-	randomInsertions(t, tbtree, keyCount)
+	randomInsertions(t, tbtree, keyCount, false)
 
 	root, err := tbtree.Root()
 	assert.NotNil(t, root)
@@ -131,7 +131,7 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	assert.NoError(t, err)
 
 	keyCount := 10000
-	randomInsertions(t, tbtree, keyCount)
+	randomInsertions(t, tbtree, keyCount, false)
 
 	root, err := tbtree.Root()
 	assert.NotNil(t, root)
