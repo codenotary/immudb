@@ -73,11 +73,11 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	tbtree, _ := NewWith(DefaultOptions().setMaxNodeSize(256))
 
-	monotonicInsertions(t, tbtree, 10, 10000, true)
+	monotonicInsertions(t, tbtree, 10, 1000, true)
 }
 
 func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	tbtree, _ := NewWith(DefaultOptions().setMaxNodeSize(256))
 
-	monotonicInsertions(t, tbtree, 10, 10000, false)
+	monotonicInsertions(t, tbtree, 10, 1000, false)
 }
