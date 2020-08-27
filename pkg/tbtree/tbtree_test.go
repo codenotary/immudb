@@ -73,32 +73,30 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 	}
 }
 
-func randomInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int) {
+func randomInsertions(t *testing.T, tbtree *TBtree, kCount int) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
 
-	for i := 0; i < itCount; i++ {
-		for j := 0; j < kCount; j++ {
-			k := make([]byte, 4)
-			binary.BigEndian.PutUint32(k, rnd.Uint32())
+	for i := 0; i < kCount; i++ {
+		k := make([]byte, 4)
+		binary.BigEndian.PutUint32(k, rnd.Uint32())
 
-			v := make([]byte, 8)
-			binary.BigEndian.PutUint64(v, uint64(i<<4+j))
+		v := make([]byte, 8)
+		binary.BigEndian.PutUint64(v, uint64(i))
 
-			ts := uint64(i*kCount+j) + 1
+		ts := uint64(i + 1)
 
-			err := tbtree.Insert(k, v, uint64(ts))
-			assert.NoError(t, err)
+		err := tbtree.Insert(k, v, uint64(ts))
+		assert.NoError(t, err)
 
-			root, err := tbtree.Root()
-			assert.NoError(t, err)
-			assert.Equal(t, ts, root.Ts())
+		root, err := tbtree.Root()
+		assert.NoError(t, err)
+		assert.Equal(t, ts, root.Ts())
 
-			v1, ts1, err := root.Get(k)
-			assert.NoError(t, err)
-			assert.Equal(t, v, v1)
-			assert.Equal(t, ts, ts1)
-		}
+		v1, ts1, err := root.Get(k)
+		assert.NoError(t, err)
+		assert.Equal(t, v, v1)
+		assert.Equal(t, ts, ts1)
 	}
 }
 
@@ -115,7 +113,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
-	tbtree, _ := NewWith(DefaultOptions().setMaxNodeSize(256))
+	tbtree, _ := NewWith(DefaultOptions().setMaxNodeSize(DefaultMaxNodeSize))
 
-	randomInsertions(t, tbtree, 10, 1000)
+	randomInsertions(t, tbtree, 1000)
 }

@@ -31,11 +31,9 @@ const DefaultMaxNodeSize = 4096
 type TBtree struct {
 	root        node
 	maxNodeSize int
-	//mux  sync.Mutex
 	// file
-	// bloom filter
 	// node manager
-	//lastFlushed uint64
+	// lastFlushed uint64
 }
 
 type Options struct {
