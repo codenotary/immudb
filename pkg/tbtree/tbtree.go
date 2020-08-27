@@ -255,8 +255,8 @@ func (n *innerNode) findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []b
 	}
 
 	for i := len(n.nodes); i > 0; i-- {
-		if bytes.Compare(keyPrefix, n.nodes[i].key) < 1 && bytes.Compare(n.nodes[i].key, neqKey) < 0 {
-			return n.nodes[i].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
+		if bytes.Compare(keyPrefix, n.nodes[i-1].key) < 1 && (neqKey == nil || bytes.Compare(n.nodes[i-1].key, neqKey) < 0) {
+			return n.nodes[i-1].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
 		}
 	}
 
@@ -410,8 +410,8 @@ func (l *leafNode) findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []by
 	}
 
 	for i := len(l.values); i > 0; i-- {
-		if bytes.Compare(keyPrefix, l.values[i].key) < 1 && bytes.Compare(l.values[i].key, neqKey) < 0 {
-			return path, l, i, nil
+		if bytes.Compare(keyPrefix, l.values[i-1].key) < 1 && (neqKey == nil || bytes.Compare(l.values[i-1].key, neqKey) < 0) {
+			return path, l, i - 1, nil
 		}
 	}
 

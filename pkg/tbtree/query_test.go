@@ -43,9 +43,36 @@ func TestReaderForNonEmptyTree(t *testing.T) {
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:      []byte{0, 0, 1, 250},
+		prefix:      []byte{0, 0, 1},
 		matchPrefix: true,
 		ascOrder:    true,
+	}
+	reader, err := root.Reader(rspec)
+	assert.NoError(t, err)
+
+	for {
+		_, _, _, err := reader.Read()
+		if err != nil {
+			assert.Equal(t, ErrKeyNotFound, err)
+			break
+		}
+	}
+}
+
+func TestReaderDescendingScan(t *testing.T) {
+	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(MinNodeSize))
+	assert.NoError(t, err)
+
+	monotonicInsertions(t, tbtree, 1, 1000, true)
+
+	root, err := tbtree.Root()
+	assert.NotNil(t, root)
+	assert.NoError(t, err)
+
+	rspec := &ReaderSpec{
+		prefix:      []byte{0, 0, 0, 10},
+		matchPrefix: false,
+		ascOrder:    false,
 	}
 	reader, err := root.Reader(rspec)
 	assert.NoError(t, err)
