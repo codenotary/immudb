@@ -15,6 +15,8 @@ limitations under the License.
 */
 package tbtree
 
+import "bytes"
+
 type QueryNode interface {
 	Get(key []byte) (value []byte, ts uint64, err error)
 	Ts() uint64
@@ -22,16 +24,18 @@ type QueryNode interface {
 }
 
 type Reader struct {
-	prefix   []byte
-	ascOrder bool
-	path     []*innerNode
-	leafNode *leafNode
-	offset   int
+	prefix      []byte
+	matchPrefix bool
+	ascOrder    bool
+	path        []*innerNode
+	leafNode    *leafNode
+	offset      int
 }
 
 type ReaderSpec struct {
-	prefix   []byte
-	ascOrder bool
+	prefix      []byte
+	matchPrefix bool
+	ascOrder    bool
 }
 
 type nodeWrapper struct {
@@ -57,51 +61,58 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	reader := &Reader{
-		prefix:   spec.prefix,
-		ascOrder: spec.ascOrder,
-		path:     path,
-		leafNode: startingLeaf,
-		offset:   startingOffset,
+		prefix:      spec.prefix,
+		matchPrefix: spec.matchPrefix,
+		ascOrder:    spec.ascOrder,
+		path:        path,
+		leafNode:    startingLeaf,
+		offset:      startingOffset,
 	}
 
 	return reader, nil
 }
 
-func (c *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
-	if (c.ascOrder && len(c.leafNode.values) == c.offset) || (!c.ascOrder && c.offset < 0) {
-		c.path = c.path[:len(c.path)-1]
+func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
+	for {
+		if (r.ascOrder && len(r.leafNode.values) == r.offset) || (!r.ascOrder && r.offset < 0) {
+			r.path = r.path[:len(r.path)-1]
 
-		for {
-			if len(c.path) == 0 {
-				return nil, nil, 0, ErrKeyNotFound
+			for {
+				if len(r.path) == 0 {
+					return nil, nil, 0, ErrKeyNotFound
+				}
+
+				parent := r.path[len(r.path)-1]
+				path, leaf, off, err := parent.findLeafNode(r.prefix, r.path, r.leafNode.maxKey(), r.ascOrder)
+
+				if err == ErrKeyNotFound {
+					r.path = r.path[:len(r.path)-1]
+					continue
+				}
+
+				if err != nil {
+					return nil, nil, 0, err
+				}
+
+				r.path = path
+				r.leafNode = leaf
+				r.offset = off
+				break
 			}
-
-			parent := c.path[len(c.path)-1]
-			path, leaf, off, err := parent.findLeafNode(c.prefix, c.path, c.leafNode.maxKey(), c.ascOrder)
-
-			if err == ErrKeyNotFound {
-				c.path = c.path[:len(c.path)-1]
-				continue
-			}
-
-			if err != nil {
-				return nil, nil, 0, err
-			}
-
-			c.path = path
-			c.leafNode = leaf
-			c.offset = off
-			break
 		}
+
+		leafValue := r.leafNode.values[r.offset]
+
+		if r.ascOrder {
+			r.offset++
+		} else {
+			r.offset--
+		}
+
+		if r.matchPrefix && !bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)]) {
+			return nil, nil, 0, ErrKeyNotFound
+		}
+
+		return leafValue.key, leafValue.value, leafValue.ts, nil
 	}
-
-	leafValue := c.leafNode.values[c.offset]
-
-	if c.ascOrder {
-		c.offset++
-	} else {
-		c.offset--
-	}
-
-	return leafValue.key, leafValue.value, leafValue.ts, nil
 }

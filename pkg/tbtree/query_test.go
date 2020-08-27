@@ -43,8 +43,9 @@ func TestReaderForNonEmptyTree(t *testing.T) {
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:   []byte{0, 0, 1, 250},
-		ascOrder: true,
+		prefix:      []byte{0, 0, 1, 250},
+		matchPrefix: true,
+		ascOrder:    true,
 	}
 	reader, err := root.Reader(rspec)
 	assert.NoError(t, err)
