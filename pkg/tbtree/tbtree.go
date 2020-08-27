@@ -251,7 +251,12 @@ func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, asc
 				return n.nodes[i].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
 			}
 		}
-		return nil, nil, 0, ErrKeyNotFound
+
+		if ascOrder {
+			return nil, nil, 0, ErrKeyNotFound
+		}
+
+		return n.nodes[len(n.nodes)-1].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
 	}
 
 	for i := len(n.nodes); i > 0; i-- {
@@ -406,7 +411,12 @@ func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascO
 				return path, l, i, nil
 			}
 		}
-		return nil, nil, 0, ErrKeyNotFound
+
+		if ascOrder || len(l.values) == 0 {
+			return nil, nil, 0, ErrKeyNotFound
+		}
+
+		return path, l, len(l.values) - 1, nil
 	}
 
 	for i := len(l.values); i > 0; i-- {

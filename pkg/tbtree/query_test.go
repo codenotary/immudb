@@ -125,3 +125,38 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	}
 	assert.Equal(t, keyCount, i)
 }
+
+func TestFullScanDescendingOrder(t *testing.T) {
+	tbtree, err := NewWith(DefaultOptions())
+	assert.NoError(t, err)
+
+	keyCount := 10000
+	randomInsertions(t, tbtree, keyCount)
+
+	root, err := tbtree.Root()
+	assert.NotNil(t, root)
+	assert.NoError(t, err)
+
+	rspec := &ReaderSpec{
+		prefix:      []byte{255, 255, 255, 255},
+		matchPrefix: false,
+		ascOrder:    false,
+	}
+	reader, err := root.Reader(rspec)
+	assert.NoError(t, err)
+
+	i := 0
+	prevk := reader.prefix
+	for {
+		k, _, _, err := reader.Read()
+		if err != nil {
+			assert.Equal(t, ErrNoMoreEntries, err)
+			break
+		}
+
+		assert.True(t, bytes.Compare(k, prevk) < 1)
+		prevk = k
+		i++
+	}
+	assert.Equal(t, keyCount, i)
+}
