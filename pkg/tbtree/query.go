@@ -24,6 +24,7 @@ type QueryNode interface {
 type Reader struct {
 	prefix   []byte
 	ascOrder bool
+	path     []*innerNode
 	leafNode *leafNode
 	offset   int
 }
@@ -50,7 +51,7 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 		return nil, ErrIllegalArgument
 	}
 
-	startingLeaf, startingOffset, err := n.findLeafNode(spec.prefix, nil, spec.ascOrder)
+	path, startingLeaf, startingOffset, err := n.findLeafNode(spec.prefix, nil, nil, spec.ascOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +59,7 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 	reader := &Reader{
 		prefix:   spec.prefix,
 		ascOrder: spec.ascOrder,
+		path:     path,
 		leafNode: startingLeaf,
 		offset:   startingOffset,
 	}
@@ -67,17 +69,18 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 
 func (c *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 	if (c.ascOrder && len(c.leafNode.values) == c.offset) || (!c.ascOrder && c.offset < 0) {
-		parent := c.leafNode.parent
+		c.path = c.path[:len(c.path)-1]
 
 		for {
-			if parent == nil {
+			if len(c.path) == 0 {
 				return nil, nil, 0, ErrKeyNotFound
 			}
 
-			leaf, off, err := parent.findLeafNode(c.prefix, c.leafNode.maxKey(), c.ascOrder)
+			parent := c.path[len(c.path)-1]
+			path, leaf, off, err := parent.findLeafNode(c.prefix, c.path, c.leafNode.maxKey(), c.ascOrder)
 
 			if err == ErrKeyNotFound {
-				parent = parent.parent
+				c.path = c.path[:len(c.path)-1]
 				continue
 			}
 
@@ -85,6 +88,7 @@ func (c *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 				return nil, nil, 0, err
 			}
 
+			c.path = path
 			c.leafNode = leaf
 			c.offset = off
 			break
