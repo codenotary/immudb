@@ -53,10 +53,12 @@ func (opt *Options) setMaxNodeSize(maxNodeSize int) *Options {
 	return opt
 }
 
+type path []*innerNode
+
 type node interface {
 	insertAt(key []byte, value []byte, ts uint64) (node, node, error)
 	get(key []byte) (value []byte, ts uint64, err error)
-	findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []byte, ascOrder bool) ([]*innerNode, *leafNode, int, error)
+	findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error)
 	maxKey() []byte
 	ts() uint64
 }
@@ -244,7 +246,7 @@ func (n *innerNode) get(key []byte) (value []byte, ts uint64, err error) {
 	return n.nodes[i].node.get(key)
 }
 
-func (n *innerNode) findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []byte, ascOrder bool) ([]*innerNode, *leafNode, int, error) {
+func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
 	if ascOrder || neqKey == nil {
 		for i := 0; i < len(n.nodes); i++ {
 			if bytes.Compare(keyPrefix, n.nodes[i].key) < 1 && bytes.Compare(n.nodes[i].key, neqKey) == 1 {
@@ -399,7 +401,7 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, err error) {
 	return leafValue.value, leafValue.ts, nil
 }
 
-func (l *leafNode) findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []byte, ascOrder bool) ([]*innerNode, *leafNode, int, error) {
+func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
 	if ascOrder || neqKey == nil {
 		for i := 0; i < len(l.values); i++ {
 			if bytes.Compare(keyPrefix, l.values[i].key) < 1 && bytes.Compare(l.values[i].key, neqKey) == 1 {

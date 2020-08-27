@@ -27,7 +27,7 @@ type Reader struct {
 	prefix      []byte
 	matchPrefix bool
 	ascOrder    bool
-	path        []*innerNode
+	path        path
 	leafNode    *leafNode
 	offset      int
 }
