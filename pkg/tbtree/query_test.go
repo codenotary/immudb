@@ -36,14 +36,14 @@ func TestReaderForNonEmptyTree(t *testing.T) {
 	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
 
-	monotonicInsertions(t, tbtree, 1, 1000, true)
+	monotonicInsertions(t, tbtree, 1, 257, true)
 
 	root, err := tbtree.Root()
 	assert.NotNil(t, root)
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:      []byte{0, 0, 1},
+		prefix:      []byte{0, 0, 0, 250},
 		matchPrefix: true,
 		ascOrder:    true,
 	}
@@ -63,14 +63,14 @@ func TestReaderDescendingScan(t *testing.T) {
 	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
 
-	monotonicInsertions(t, tbtree, 1, 1000, true)
+	monotonicInsertions(t, tbtree, 1, 257, true)
 
 	root, err := tbtree.Root()
 	assert.NotNil(t, root)
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:      []byte{0, 0, 0, 10},
+		prefix:      []byte{0, 0, 0, 5},
 		matchPrefix: false,
 		ascOrder:    false,
 	}

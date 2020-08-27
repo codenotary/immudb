@@ -245,7 +245,7 @@ func (n *innerNode) get(key []byte) (value []byte, ts uint64, err error) {
 }
 
 func (n *innerNode) findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []byte, ascOrder bool) ([]*innerNode, *leafNode, int, error) {
-	if ascOrder {
+	if ascOrder || neqKey == nil {
 		for i := 0; i < len(n.nodes); i++ {
 			if bytes.Compare(keyPrefix, n.nodes[i].key) < 1 && bytes.Compare(n.nodes[i].key, neqKey) == 1 {
 				return n.nodes[i].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
@@ -255,7 +255,7 @@ func (n *innerNode) findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []b
 	}
 
 	for i := len(n.nodes); i > 0; i-- {
-		if bytes.Compare(keyPrefix, n.nodes[i-1].key) < 1 && (neqKey == nil || bytes.Compare(n.nodes[i-1].key, neqKey) < 0) {
+		if bytes.Compare(n.nodes[i-1].key, keyPrefix) < 1 && bytes.Compare(n.nodes[i-1].key, neqKey) < 0 {
 			return n.nodes[i-1].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
 		}
 	}
@@ -400,7 +400,7 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, err error) {
 }
 
 func (l *leafNode) findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []byte, ascOrder bool) ([]*innerNode, *leafNode, int, error) {
-	if ascOrder {
+	if ascOrder || neqKey == nil {
 		for i := 0; i < len(l.values); i++ {
 			if bytes.Compare(keyPrefix, l.values[i].key) < 1 && bytes.Compare(l.values[i].key, neqKey) == 1 {
 				return path, l, i, nil
@@ -410,7 +410,7 @@ func (l *leafNode) findLeafNode(keyPrefix []byte, path []*innerNode, neqKey []by
 	}
 
 	for i := len(l.values); i > 0; i-- {
-		if bytes.Compare(keyPrefix, l.values[i-1].key) < 1 && (neqKey == nil || bytes.Compare(l.values[i-1].key, neqKey) < 0) {
+		if bytes.Compare(l.values[i-1].key, keyPrefix) < 1 && bytes.Compare(l.values[i-1].key, neqKey) < 0 {
 			return path, l, i - 1, nil
 		}
 	}

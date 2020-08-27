@@ -75,15 +75,19 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 	for {
 		if (r.ascOrder && len(r.leafNode.values) == r.offset) || (!r.ascOrder && r.offset < 0) {
-			r.path = r.path[:len(r.path)-1]
-
 			for {
 				if len(r.path) == 0 {
 					return nil, nil, 0, ErrKeyNotFound
 				}
 
 				parent := r.path[len(r.path)-1]
-				path, leaf, off, err := parent.findLeafNode(r.prefix, r.path, r.leafNode.maxKey(), r.ascOrder)
+
+				var parentPath []*innerNode
+				if len(r.path) > 1 {
+					parentPath = r.path[:len(r.path)-1]
+				}
+
+				path, leaf, off, err := parent.findLeafNode(r.prefix, parentPath, r.leafNode.maxKey(), r.ascOrder)
 
 				if err == ErrKeyNotFound {
 					r.path = r.path[:len(r.path)-1]
@@ -109,10 +113,8 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 			r.offset--
 		}
 
-		if r.matchPrefix && !bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)]) {
-			return nil, nil, 0, ErrKeyNotFound
+		if !r.matchPrefix || bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)]) {
+			return leafValue.key, leafValue.value, leafValue.ts, nil
 		}
-
-		return leafValue.key, leafValue.value, leafValue.ts, nil
 	}
 }
