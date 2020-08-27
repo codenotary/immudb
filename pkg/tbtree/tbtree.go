@@ -55,7 +55,6 @@ func (opt *Options) setMaxNodeSize(maxNodeSize int) *Options {
 
 type node interface {
 	insertAt(key []byte, value []byte, ts uint64) (node, node, error)
-	setParent(parent *innerNode)
 	get(key []byte) (value []byte, ts uint64, err error)
 	findLeafNode(keyPrefix []byte, neqKey []byte, ascOrder bool) (*leafNode, int, error)
 	maxKey() []byte
@@ -63,7 +62,6 @@ type node interface {
 }
 
 type innerNode struct {
-	parent   *innerNode
 	prevNode node
 	nodes    []*childRef
 	cts      uint64
@@ -73,7 +71,6 @@ type innerNode struct {
 }
 
 type leafNode struct {
-	parent   *innerNode
 	prevNode node
 	values   []*leafValue
 	cts      uint64
@@ -136,9 +133,6 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 	ns := make([]*childRef, 2)
 	newRoot := &innerNode{prevNode: t.root, maxSize: t.maxNodeSize, nodes: ns, cts: ts}
 
-	n1.setParent(newRoot)
-	n2.setParent(newRoot)
-
 	ns[0] = &childRef{key: n1.maxKey(), cts: n1.ts(), node: n1}
 	ns[1] = &childRef{key: n2.maxKey(), cts: n2.ts(), node: n2}
 
@@ -198,7 +192,6 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 
 	if c2 == nil {
 		newNode := &innerNode{
-			parent:   n.parent,
 			prevNode: n,
 			maxSize:  n.maxSize,
 			nodes:    make([]*childRef, len(n.nodes)),
@@ -219,7 +212,6 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 	}
 
 	newNode := &innerNode{
-		parent:   n.parent,
 		prevNode: n,
 		maxSize:  n.maxSize,
 		nodes:    make([]*childRef, len(n.nodes)+1),
@@ -240,10 +232,6 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 	n2, err = newNode.split()
 
 	return newNode, n2, err
-}
-
-func (n *innerNode) setParent(parent *innerNode) {
-	n.parent = parent
 }
 
 func (n *innerNode) get(key []byte) (value []byte, ts uint64, err error) {
@@ -308,7 +296,6 @@ func (n *innerNode) split() (node, error) {
 	splitIndex, splitSize := n.splitInfo()
 
 	newNode := &innerNode{
-		parent:  n.parent,
 		maxSize: n.maxSize,
 		nodes:   n.nodes[splitIndex:],
 		csize:   n.csize - splitSize,
@@ -350,7 +337,6 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 
 	if found {
 		newLeaf := &leafNode{
-			parent:   l.parent,
 			prevNode: l,
 			maxSize:  l.maxSize,
 			cts:      ts,
@@ -382,7 +368,6 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 	}
 
 	newLeaf := &leafNode{
-		parent:   l.parent,
 		prevNode: l,
 		maxSize:  l.maxSize,
 		cts:      ts,
@@ -401,10 +386,6 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 	n2, err = newLeaf.split()
 
 	return newLeaf, n2, err
-}
-
-func (l *leafNode) setParent(parent *innerNode) {
-	l.parent = parent
 }
 
 func (l *leafNode) get(key []byte) (value []byte, ts uint64, err error) {
@@ -467,7 +448,6 @@ func (l *leafNode) split() (node, error) {
 	splitIndex, splitSize := l.splitInfo()
 
 	newLeaf := &leafNode{
-		parent:  l.parent,
 		maxSize: l.maxSize,
 		values:  l.values[splitIndex:],
 		csize:   l.csize - splitSize,
