@@ -29,7 +29,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = root.Reader(&ReaderSpec{prefix: []byte{0, 0, 0, 0}, ascOrder: true})
-	assert.Equal(t, ErrKeyNotFound, err)
+	assert.Equal(t, ErrNoMoreEntries, err)
 }
 
 func TestReaderForNonEmptyTree(t *testing.T) {
@@ -53,7 +53,7 @@ func TestReaderForNonEmptyTree(t *testing.T) {
 	for {
 		_, _, _, err := reader.Read()
 		if err != nil {
-			assert.Equal(t, ErrKeyNotFound, err)
+			assert.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
 	}
@@ -80,7 +80,7 @@ func TestReaderDescendingScan(t *testing.T) {
 	for {
 		_, _, _, err := reader.Read()
 		if err != nil {
-			assert.Equal(t, ErrKeyNotFound, err)
+			assert.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
 	}

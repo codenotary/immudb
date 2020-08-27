@@ -15,7 +15,12 @@ limitations under the License.
 */
 package tbtree
 
-import "bytes"
+import (
+	"bytes"
+	"errors"
+)
+
+var ErrNoMoreEntries = errors.New("no more entries")
 
 type QueryNode interface {
 	Get(key []byte) (value []byte, ts uint64, err error)
@@ -56,6 +61,9 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	path, startingLeaf, startingOffset, err := n.findLeafNode(spec.prefix, nil, nil, spec.ascOrder)
+	if err == ErrKeyNotFound {
+		return nil, ErrNoMoreEntries
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +85,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 		if (r.ascOrder && len(r.leafNode.values) == r.offset) || (!r.ascOrder && r.offset < 0) {
 			for {
 				if len(r.path) == 0 {
-					return nil, nil, 0, ErrKeyNotFound
+					return nil, nil, 0, ErrNoMoreEntries
 				}
 
 				parent := r.path[len(r.path)-1]
