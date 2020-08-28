@@ -146,6 +146,56 @@ Download latest release binaries from [here](https://github.com/codenotary/immud
 
 To stop immudb în that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`.
 
+Using non-default configuration:
+
+```bash
+immudb - the lightweight, high-speed immutable database for systems and applications.
+Environment variables:
+  IMMUDB_DIR=.
+  IMMUDB_NETWORK=tcp
+  IMMUDB_ADDRESS=0.0.0.0
+  IMMUDB_PORT=3322
+  IMMUDB_DBNAME=immudb
+  IMMUDB_PIDFILE=
+  IMMUDB_LOGFILE=
+  IMMUDB_MTLS=false
+  IMMUDB_AUTH=true
+  IMMUDB_DETACHED=false
+  IMMUDB_CONSISTENCY_CHECK=true
+  IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
+  IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
+  IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
+  IMMUDB_DEVMODE=true
+  IMMUDB_ADMIN_PASSWORD=immudb
+  IMMUDB_MAINTENANCE=false
+Usage:
+  immudb [flags]
+  immudb [command]
+Available Commands:
+  help        Help about any command
+  version     Show the immudb version
+Flags:
+  -a, --address string          bind address (default "0.0.0.0")
+      --admin-password string   admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
+  -s, --auth                    enable auth
+      --certificate string      server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
+      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string           config file (default path are configs or $HOME. Default filename is immudb.ini)
+      --consistency-check       enable consistency check monitor routine. To disable: --consistency-check=false (default true)
+  -n, --dbname string           db name (default "immudb")
+  -d, --detached                run immudb in background
+      --devmode                 enable dev mode: accept remote connections without auth
+      --dir string              data folder (default "./data")
+  -h, --help                    help for immudb
+      --logfile string          log path with filename. E.g. /tmp/immudb/immudb.log
+  -m, --mtls                    enable mutual tls
+      --no-histograms           disable collection of histogram metrics like query durations
+      --pidfile string          pid path with filename. E.g. /var/run/immudb.pid
+      --pkey string             server private key path (default "./tools/mtls/3_application/private/localhost.key.pem")
+  -p, --port int                port number (default 3322)
+Use "immudb [command] --help" for more information about a command.
+```
+
 ### Build the binaries yourself
 
 To build the binaries yourself, simply clone this repo and run
