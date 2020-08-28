@@ -90,9 +90,10 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 1.  [Quickstart](#quickstart) - Get `immudb` up and running in seconds
 2.  [Using `immudb`](#using-immudb) - Official SDKs and REST-based client
-3.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
+1.  [CLI tools](#cli-tools) - Using `immuadmin` and `immuclient`
 4.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
 5.  [News](#news) - The latest news about immudb
+3.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
 6.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
 7.  [Features](#features) - How you'll use immudb on your systems
 8.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
@@ -250,125 +251,17 @@ We've developed a "language-agnostic SDK" which exposes a REST API for easy cons
 [immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
 
-## Tech specs
-
-| Topic                   | Description                                                   |
-| ----------------------- | ------------------------------------------------------------- |
-| DB Model                | Key-Value store with 3D access (key-value-index)              |
-| Data scheme             | schema-free                                                   |
-| Implementation design   | LSM tree with value log and parallel Merkle Tree              |
-| Implementation language | Go                                                            |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                            |
-| Embeddable              | Yes, optionally                                               |
-| Server APIs             | gRPC (using protocol buffers); immudb RESTful;                |
-| Partition methods       | Sharding                                                      |
-| Consistency concepts    | Eventual Consistency Immediate Consistency                    |
-| Transaction concepts    | ACID with Snapshot Isolation (SSI)                            |
-| Durability              | Yes                                                           |
-| Snapshots               | Yes                                                           |
-| High Read throughput    | Yes                                                           |
-| High Write throughput   | Yes                                                           |
-| Optimized for SSD       | Yes                                                           |
+For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
 
 ## CLI tools
 
-- **immuadmin** is the admin CLI for `immudb` and `immugw`. You can install and manage the service installation for both components and get statistics as well as runtime information.
 - **immuclient** is the CLI client for `immudb`. You can read, write data into immudb from the commandline using direct or interactive mode.
+- **immuadmin** is the admin CLI for `immudb` and `immugw`. You can install and manage the service installation for both components and get statistics as well as runtime information.
 
 The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases)
 
-**immuadmin performance view**
 
-![immudb statistics](img/stats-v.png "immudb statistics view")
-
-##### Run immudb as a service (using immuadmin)
-
-Please make sure to build or download the `immudb` and `immuadmin` component and save them in the same work directory when installing the service.
-
-```
-# install immudb service
-./immuadmin service immudb install
-
-# check current immudb service status
-./immuadmin service immudb status
-
-# stop immudb service
-./immuadmin service immudb stop
-
-# start immudb service
-./immuadmin service immudb start
-```
-
-The linux service is using the following defaults:
-
-| File or configuration   | location                   |
-| ----------------------- | -------------------------- |
-| all configuration files | /etc/immudb                |
-| all data files          | /var/lib/immudb            |
-| pid file                | /var/lib/immudb/immudb.pid |
-| log files               | /var/log/immudb            |
-
-The FreeBSD service is using the following defaults:
-
-| File or configuration   | location            |
-| ----------------------- | ------------------- |
-| all configuration files | /etc/immudb         |
-| all data files          | /var/lib/immudb     |
-| pid file                | /var/run/immudb.pid |
-| log files               | /var/log/immudb     |
-
-#### Command reference
-
-##### immuadmin
-
-For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage. Simply run ```./immuadmin``` on the same machine.
-
-```bash
-CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
-
-Environment variables:
-  IMMUADMIN_IMMUDB_ADDRESS=127.0.0.1
-  IMMUADMIN_IMMUDB_PORT=3322
-  IMMUADMIN_MTLS=true
-  IMMUADMIN_SERVERNAME=localhost
-  IMMUADMIN_PKEY=./tools/mtls/4_client/private/localhost.key.pem
-  IMMUADMIN_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
-  IMMUADMIN_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
-
-Usage:
-  immuadmin [command]
-
-Available Commands:
-  backup      Make a copy of the database files and folders
-  dump        Dump database content to a file
-  help        Help about any command
-  login       Login using the specified username and password (admin username is immu)
-  logout
-  restore     Restore the database from a snapshot archive or folder
-  service     Manage immu services
-  set         Update server config items: auth (none|password|cryptosig), mtls (true|false)
-  stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
-  status      Show heartbeat status
-  user        Perform various user-related operations: list, create, deactivate, change password, set permissions
-  version     Show the immuadmin version
-
-Flags:
-      --certificate string      server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
-      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string           config file (default path is configs or $HOME; default filename is immuadmin.toml)
-  -h, --help                    help for immuadmin
-  -a, --immudb-address string   immudb host address (default "127.0.0.1")
-  -p, --immudb-port int         immudb port number (default 3322)
-  -m, --mtls                    enable mutual tls
-      --pkey string             server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
-      --servername string       used to verify the hostname on the returned certificates (default "localhost")
-      --tokenfile string        authentication token file (default path is $HOME or binary location; the supplied value will be automatically suffixed with _admin; default filename is token_admin) (default "token-0.7.0")
-
-Use "immuadmin [command] --help" for more information about a command.
-
-```
-
-##### immuclient
+### immuclient
 
 Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```
 
@@ -444,6 +337,92 @@ Flags:
 Use "immuclient [command] --help" for more information about a command.
 ```
 
+### immuadmin
+
+For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage. Simply run ```./immuadmin``` on the same machine.
+
+```bash
+CLI admin client for immudb - the lightweight, high-speed immutable database for systems and applications.
+
+Environment variables:
+  IMMUADMIN_IMMUDB_ADDRESS=127.0.0.1
+  IMMUADMIN_IMMUDB_PORT=3322
+  IMMUADMIN_MTLS=true
+  IMMUADMIN_SERVERNAME=localhost
+  IMMUADMIN_PKEY=./tools/mtls/4_client/private/localhost.key.pem
+  IMMUADMIN_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
+  IMMUADMIN_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
+
+Usage:
+  immuadmin [command]
+
+Available Commands:
+  backup      Make a copy of the database files and folders
+  dump        Dump database content to a file
+  help        Help about any command
+  login       Login using the specified username and password (admin username is immu)
+  logout
+  restore     Restore the database from a snapshot archive or folder
+  service     Manage immu services
+  set         Update server config items: auth (none|password|cryptosig), mtls (true|false)
+  stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
+  status      Show heartbeat status
+  user        Perform various user-related operations: list, create, deactivate, change password, set permissions
+  version     Show the immuadmin version
+
+Flags:
+      --certificate string      server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
+      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
+      --config string           config file (default path is configs or $HOME; default filename is immuadmin.toml)
+  -h, --help                    help for immuadmin
+  -a, --immudb-address string   immudb host address (default "127.0.0.1")
+  -p, --immudb-port int         immudb port number (default 3322)
+  -m, --mtls                    enable mutual tls
+      --pkey string             server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
+      --servername string       used to verify the hostname on the returned certificates (default "localhost")
+      --tokenfile string        authentication token file (default path is $HOME or binary location; the supplied value will be automatically suffixed with _admin; default filename is token_admin) (default "token-0.7.0")
+
+Use "immuadmin [command] --help" for more information about a command.
+
+```
+
+### Run immudb as a service (using immuadmin)
+
+Please make sure to build or download the `immudb` and `immuadmin` component and save them in the same work directory when installing the service.
+
+```
+# install immudb service
+./immuadmin service immudb install
+
+# check current immudb service status
+./immuadmin service immudb status
+
+# stop immudb service
+./immuadmin service immudb stop
+
+# start immudb service
+./immuadmin service immudb start
+```
+
+The linux service is using the following defaults:
+
+| File or configuration   | location                   |
+| ----------------------- | -------------------------- |
+| all configuration files | /etc/immudb                |
+| all data files          | /var/lib/immudb            |
+| pid file                | /var/lib/immudb/immudb.pid |
+| log files               | /var/log/immudb            |
+
+The FreeBSD service is using the following defaults:
+
+| File or configuration   | location            |
+| ----------------------- | ------------------- |
+| all configuration files | /etc/immudb         |
+| all data files          | /var/lib/immudb     |
+| pid file                | /var/run/immudb.pid |
+| log files               | /var/log/immudb     |
+
+
 ### Docker
 
 All cli components are also available as docker images on dockerhub.com.
@@ -490,6 +469,10 @@ You can find an example video here:
 
 
 ## News
+`August 17th, 2020` - **[immudb v0.7.1 released!](https://github.com/codenotary/immudb/releases/tag/v0.7.1)**
+
+Release v0.7.1 Bug Fixes & Enhancements
+
 `August 10th, 2020` - **[immudb v0.7.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.7.0)**
 
 Release v0.7.0 multi-database support, more resilience, even better performance, improved documentation
@@ -518,8 +501,29 @@ Release v0.6.0-rc1 is our first release to the public. While we were using immud
 
 The release contains 2 components, the main immutable database immudb and the admin CLI tool immuadmin. immudb is ready to be used on Linux as well as Microsoft Windows.
 
+## Tech specs
+
+| Topic                   | Description                                                   |
+| ----------------------- | ------------------------------------------------------------- |
+| DB Model                | Key-Value store with 3D access (key-value-index)              |
+| Data scheme             | schema-free                                                   |
+| Implementation design   | LSM tree with value log and parallel Merkle Tree              |
+| Implementation language | Go                                                            |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                            |
+| Embeddable              | Yes, optionally                                               |
+| Server APIs             | gRPC (using protocol buffers); immudb RESTful;                |
+| Partition methods       | Sharding                                                      |
+| Consistency concepts    | Eventual Consistency Immediate Consistency                    |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)                            |
+| Durability              | Yes                                                           |
+| Snapshots               | Yes                                                           |
+| High Read throughput    | Yes                                                           |
+| High Write throughput   | Yes                                                           |
+| Optimized for SSD       | Yes                                                           |
 
 ## How immudb works
+
+Download [immmudb short research paper](https://codenotary.io/technologies/immudb/) to have a conceptual understanding of the technical foundations of `immudb`.
 
 #### adding data
 
@@ -653,7 +657,6 @@ There is a Grafana dashboard available as well: https://grafana.com/grafana/dash
 ![immudb Grafana dashboard](img/grafana-dashboard.png "immudb Performance dashboard")
 
 
-
 ## Real world examples
 
 We already learned about the following use cases from users:
@@ -677,24 +680,9 @@ We already learned about the following use cases from users:
 [tinaba](https://www.tinaba.bancaprofilo.it/)
 
 
-
 ## Documentation
 
-### immudb RESTful API reference
-
-You can find the swagger schema here:
-
-https://github.com/codenotary/immudb/blob/master/pkg/api/schema/schema.swagger.json
-
-If you want to run the Swagger UI, simply run the following docker command after you cloned this repo:
-
-```
-docker run -d -it -p 8080:8080 --name swagger-immudb -v ${PWD}/pkg/api/schema/schema.swagger.json:/openapi.json -e SWAGGER_JSON=/openapi.json  swaggerapi/swagger-ui
-```
-
-### immudb gRPC API reference
-
-coming soon
+Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
 
 ## FAQ
 
