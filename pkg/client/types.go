@@ -17,11 +17,10 @@ limitations under the License.
 package client
 
 import (
-	"github.com/golang/protobuf/proto"
-	"google.golang.org/grpc"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc"
 )
 
 func (c *immuClient) WithLogger(logger logger.Logger) *immuClient {
@@ -67,6 +66,20 @@ func (c *immuClient) NewSKV(key []byte, value []byte) *schema.StructuredKeyValue
 			Payload:   value,
 		},
 	}
+}
+
+func (c *immuClient) NewSKVList(list *schema.KVList) *schema.SKVList {
+	slist := &schema.SKVList{}
+	for _, kv := range list.KVs {
+		slist.SKVs = append(slist.SKVs, &schema.StructuredKeyValue{
+			Key: kv.Key,
+			Value: &schema.Content{
+				Timestamp: uint64(c.ts.GetTime().Unix()),
+				Payload:   kv.Value,
+			},
+		})
+	}
+	return slist
 }
 
 // VerifiedItem ...

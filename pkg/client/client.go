@@ -736,10 +736,11 @@ func (c *immuClient) SetBatch(ctx context.Context, request *BatchRequest) (*sche
 		return nil, ErrNotConnected
 	}
 	list, err := request.toKVList()
+	slist := c.NewSKVList(list)
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.ServiceClient.SetBatch(ctx, list)
+	result, err := c.ServiceClient.SetBatchSV(ctx, slist)
 	c.Logger.Debugf("set-batch finished in %s", time.Since(start))
 	return result, err
 }
