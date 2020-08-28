@@ -17,13 +17,16 @@ limitations under the License.
 package client
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -549,16 +552,103 @@ func TestImmuClient_GetBatch(t *testing.T) {
 func TestImmuClient_SetBatch(t *testing.T) {
 	setup()
 	br := BatchRequest{
-		Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2")},
-		Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2")},
+		Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2"), strings.NewReader("key3")},
+		Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2"), strings.NewReader("val3")},
 	}
-
-	// todo not working properly
-	_, err := client.SetBatch(context.TODO(), &br)
-
+	ris, err := client.SetBatch(context.TODO(), &br)
+	assert.Equal(t, uint64(2), ris.Index)
 	assert.Nil(t, err)
 	client.Disconnect()
 }
+
+func TestImmuClient_SetBatchConcurrent(t *testing.T) {
+	setup()
+	var wg sync.WaitGroup
+	var ris = make(chan int, 5)
+	wg.Add(5)
+	for i := 0; i < 5; i++ {
+		go func() {
+			defer wg.Done()
+			br := BatchRequest{
+				Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2"), strings.NewReader("key3")},
+				Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2"), strings.NewReader("val3")},
+			}
+			idx, err := client.SetBatch(context.TODO(), &br)
+			assert.NoError(t, err)
+			ris <- int(idx.Index)
+		}()
+	}
+	wg.Wait()
+	close(ris)
+	client.Disconnect()
+	s := make([]int, 0)
+	for i := range ris {
+		s = append(s, i)
+	}
+	sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })
+	assert.Equal(t, 2, s[0])
+	assert.Equal(t, 5, s[1])
+	assert.Equal(t, 8, s[2])
+	assert.Equal(t, 11, s[3])
+	assert.Equal(t, 14, s[4])
+}
+
+func TestImmuClient_GetBatchConcurrent(t *testing.T) {
+	setup()
+	var wg sync.WaitGroup
+	wg.Add(5)
+	for i := 0; i < 5; i++ {
+		go func() {
+			defer wg.Done()
+			br := BatchRequest{
+				Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2"), strings.NewReader("key3")},
+				Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2"), strings.NewReader("val3")},
+			}
+			_, err := client.SetBatch(context.TODO(), &br)
+			assert.NoError(t, err)
+		}()
+	}
+	wg.Wait()
+
+	var wg1 sync.WaitGroup
+	var sils = make(chan *schema.StructuredItemList, 2)
+	wg1.Add(1)
+	go func() {
+		defer wg1.Done()
+		sil, err := client.GetBatch(context.TODO(), [][]byte{[]byte(`key1`), []byte(`key2`)})
+		assert.NoError(t, err)
+		sils <- sil
+	}()
+	wg1.Add(1)
+	go func() {
+		defer wg1.Done()
+		sil, err := client.GetBatch(context.TODO(), [][]byte{[]byte(`key3`)})
+		assert.NoError(t, err)
+		sils <- sil
+	}()
+
+	wg1.Wait()
+	close(sils)
+
+	values := BytesSlice{}
+	for sil := range sils {
+		for _, val := range sil.Items {
+			values = append(values, val.Value.Payload)
+		}
+	}
+	sort.Sort(values)
+	assert.Equal(t, []byte(`val1`), values[0])
+	assert.Equal(t, []byte(`val2`), values[1])
+	assert.Equal(t, []byte(`val3`), values[2])
+	client.Disconnect()
+
+}
+
+type BytesSlice [][]byte
+
+func (p BytesSlice) Len() int           { return len(p) }
+func (p BytesSlice) Less(i, j int) bool { return bytes.Compare(p[i], p[j]) == -1 }
+func (p BytesSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func TestImmuClient_Count(t *testing.T) {
 	setup()
