@@ -29,18 +29,18 @@ type QueryNode interface {
 }
 
 type Reader struct {
-	prefix      []byte
-	matchPrefix bool
-	ascOrder    bool
-	path        path
-	leafNode    *leafNode
-	offset      int
+	initialKey []byte
+	isPrefix   bool
+	ascOrder   bool
+	path       path
+	leafNode   *leafNode
+	offset     int
 }
 
 type ReaderSpec struct {
-	prefix      []byte
-	matchPrefix bool
-	ascOrder    bool
+	initialKey []byte
+	isPrefix   bool
+	ascOrder   bool
 }
 
 type nodeWrapper struct {
@@ -60,7 +60,7 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 		return nil, ErrIllegalArgument
 	}
 
-	path, startingLeaf, startingOffset, err := n.findLeafNode(spec.prefix, nil, nil, spec.ascOrder)
+	path, startingLeaf, startingOffset, err := n.findLeafNode(spec.initialKey, nil, nil, spec.ascOrder)
 	if err == ErrKeyNotFound {
 		return nil, ErrNoMoreEntries
 	}
@@ -69,12 +69,12 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	reader := &Reader{
-		prefix:      spec.prefix,
-		matchPrefix: spec.matchPrefix,
-		ascOrder:    spec.ascOrder,
-		path:        path,
-		leafNode:    startingLeaf,
-		offset:      startingOffset,
+		initialKey: spec.initialKey,
+		isPrefix:   spec.isPrefix,
+		ascOrder:   spec.ascOrder,
+		path:       path,
+		leafNode:   startingLeaf,
+		offset:     startingOffset,
 	}
 
 	return reader, nil
@@ -95,7 +95,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				path, leaf, off, err := parent.findLeafNode(r.prefix, parentPath, r.leafNode.maxKey(), r.ascOrder)
+				path, leaf, off, err := parent.findLeafNode(r.initialKey, parentPath, r.leafNode.maxKey(), r.ascOrder)
 
 				if err == ErrKeyNotFound {
 					r.path = r.path[:len(r.path)-1]
@@ -121,7 +121,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 			r.offset--
 		}
 
-		if !r.matchPrefix || bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)]) {
+		if !r.isPrefix || bytes.Equal(r.initialKey, leafValue.key[:len(r.initialKey)]) {
 			return leafValue.key, leafValue.value, leafValue.ts, nil
 		}
 	}

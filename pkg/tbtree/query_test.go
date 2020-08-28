@@ -29,7 +29,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	assert.NotNil(t, root)
 	assert.NoError(t, err)
 
-	_, err = root.Reader(&ReaderSpec{prefix: []byte{0, 0, 0, 0}, ascOrder: true})
+	_, err = root.Reader(&ReaderSpec{initialKey: []byte{0, 0, 0, 0}, ascOrder: true})
 	assert.Equal(t, ErrNoMoreEntries, err)
 }
 
@@ -44,9 +44,9 @@ func TestReaderAscendingScan(t *testing.T) {
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:      []byte{0, 0, 0, 250},
-		matchPrefix: true,
-		ascOrder:    true,
+		initialKey: []byte{0, 0, 0, 250},
+		isPrefix:   true,
+		ascOrder:   true,
 	}
 	reader, err := root.Reader(rspec)
 	assert.NoError(t, err)
@@ -58,7 +58,7 @@ func TestReaderAscendingScan(t *testing.T) {
 			break
 		}
 
-		assert.True(t, bytes.Compare(reader.prefix, k) < 1)
+		assert.True(t, bytes.Compare(reader.initialKey, k) < 1)
 	}
 }
 
@@ -73,9 +73,9 @@ func TestReaderDescendingScan(t *testing.T) {
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:      []byte{0, 0, 0, 100},
-		matchPrefix: false,
-		ascOrder:    false,
+		initialKey: []byte{0, 0, 0, 100},
+		isPrefix:   false,
+		ascOrder:   false,
 	}
 	reader, err := root.Reader(rspec)
 	assert.NoError(t, err)
@@ -87,7 +87,7 @@ func TestReaderDescendingScan(t *testing.T) {
 			break
 		}
 
-		assert.True(t, bytes.Compare(k, reader.prefix) < 1)
+		assert.True(t, bytes.Compare(k, reader.initialKey) < 1)
 	}
 }
 
@@ -103,15 +103,15 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:      nil,
-		matchPrefix: false,
-		ascOrder:    true,
+		initialKey: nil,
+		isPrefix:   false,
+		ascOrder:   true,
 	}
 	reader, err := root.Reader(rspec)
 	assert.NoError(t, err)
 
 	i := 0
-	prevk := reader.prefix
+	prevk := reader.initialKey
 	for {
 		k, _, _, err := reader.Read()
 		if err != nil {
@@ -138,15 +138,15 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	assert.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		prefix:      []byte{255, 255, 255, 255},
-		matchPrefix: false,
-		ascOrder:    false,
+		initialKey: []byte{255, 255, 255, 255},
+		isPrefix:   false,
+		ascOrder:   false,
 	}
 	reader, err := root.Reader(rspec)
 	assert.NoError(t, err)
 
 	i := 0
-	prevk := reader.prefix
+	prevk := reader.initialKey
 	for {
 		k, _, _, err := reader.Read()
 		if err != nil {
