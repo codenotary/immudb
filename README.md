@@ -88,9 +88,9 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 ## Contents
 
-1.  [What does it look like?](#what-does-it-look-like) - Take a quick tour through the project
-2.  [Our userbase](#user-base) - Our userbase
-3.  [Quickstart](#quickstart) - How to try it now on your systems, get a Docker container running in seconds
+1.  [Quickstart](#quickstart) - Get `immudb` up and running in seconds
+2.  [Using `immudb`](#using-immudb) - Official SDKs and REST-based client
+3.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
 4.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
 5.  [News](#news) - The latest news about immudb
 6.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
@@ -104,73 +104,55 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 14.  [Is it awesome?](#is-it-awesome) - Yes.
 
 
-
-## What does it look like?
-
-**First Start**
-
-![immudb first start](img/immudb-start.png "immudb start foreground")
-
-**immuadmin performance view**
-
-![immudb statistics](img/stats-v.png "immudb statistics view")
-
-
-
-### Tech specs
-
-| Topic                   | Description                                                   |
-| ----------------------- | ------------------------------------------------------------- |
-| DB Model                | Key-Value store with 3D access (key-value-index)              |
-| Data scheme             | schema-free                                                   |
-| Implementation design   | LSM tree with value log and parallel Merkle Tree              |
-| Implementation language | Go                                                            |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                            |
-| Embeddable              | Yes, optionally                                               |
-| Server APIs             | gRPC (using protocol buffers); immudb RESTful;                |
-| Partition methods       | Sharding                                                      |
-| Consistency concepts    | Eventual Consistency Immediate Consistency                    |
-| Transaction concepts    | ACID with Snapshot Isolation (SSI)                            |
-| Durability              | Yes                                                           |
-| Snapshots               | Yes                                                           |
-| High Read throughput    | Yes                                                           |
-| High Write throughput   | Yes                                                           |
-| Optimized for SSD       | Yes                                                           |
-
-## Our Userbase
-
-### Docker pulls
-
-We provide Docker images for the most common architectures. These are statistics reported by Docker Hub:
-
-The immudb container images can be found here:
-
-| Component  | Container image                                | Pull stats                                                                                                                                                                                           |
-| ---------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| immudb     | https://hub.docker.com/r/codenotary/immudb     | [![codenotary/immudb<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immudb.svg?label=codenotary/immudb+%28official%29)](https://hub.docker.com/r/codenotary/immudb/)                 |
-| immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  | [![codenotary/immuadmin<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immuadmin.svg?label=codenotary/immuadmin+%28official%29)](https://hub.docker.com/r/codenotary/immuadmin/)     |
-| immuclient | https://hub.docker.com/r/codenotary/immuclient | [![codenotary/immuclient<br/>(official)](https://img.shields.io/docker/pulls/codenotary/immuclient.svg?label=codenotary/immuclient+%28official%29)](https://hub.docker.com/r/codenotary/immuclient/) |
-
-
 ## Quickstart
 
-### Components
+Getting `immudb` up and running is quite simple. Choose any of following options:
 
-- **immudb** is the server binary that listens on port 3322 on localhost and provides a gRPC interface
-- **immuadmin** is the admin CLI for immudb and immugw. You can install and manage the service installation for both components and get statistics as well as runtime information.
-- **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
+1. [Running `immudb` in Docker](#immudb-docker)
+2. [Download `immudb` release binary](#immudb-binary)
+3. [Build `immudb` by yourself](#immudb-build-from-source)
 
-The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases )
+### Running `immudb` in Docker
 
-#### Build the binaries yourself
+1. Pull `immudb` Docker Image from Docker Hub:
+
+```bash
+docker pull codenotary/immudb:latest
+```
+
+2. Run `immudb` in a container:
+
+```bash
+docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:latest
+```
+
+`immudb` should be up and running, you can check the container logs:
+
+```bash
+docker logs immudb
+```
+
+### Download `immudb` release binary
+
+Download latest release binaries from [here](https://github.com/codenotary/immudb/releases). Then just run `immudb` as follows:
+
+```bash
+# run immudb in the foreground
+./immudb
+
+# run immudb in the background
+./immudb -d
+```
+
+To stop immudb în that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`.
+
+### Build the binaries yourself
 
 To build the binaries yourself, simply clone this repo and run
 
 ```
 make all
 ```
-
-
 
 ##### Linux (by component)
 
@@ -195,21 +177,63 @@ GOOS=windows GOARCH=amd64 make immuclient-static immuadmin-static immudb-static
 ```bash
 GOOS=freebsd GOARCH=amd64 make immuclient-static immuadmin-static immudb-static
 ```
-#### immudb first start
 
-##### Run immudb binary
+If you want to build the container images yourself, simply clone this repo and run
 
-```bash
-# run immudb in the foreground
-./immudb
-
-# run immudb in the background
-./immudb -d
 ```
+docker build -t myown/immudb:latest -f Dockerfile .
+```
+
+And then run `immudb` as described when pulling official `immudb` Docker image.
+
+## Using `immudb`
+
+Integrate `immudb` into your application using official SDKs already available for the following programming languages:
+
+1. Java [immudb4j](https://github.com/codenotary/immudb4j)
+3. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
+2. .net (in progress)
+4. Python (planned)
+5. Node.js (planned)
+
+We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
+[immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
+programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
+
+## Tech specs
+
+| Topic                   | Description                                                   |
+| ----------------------- | ------------------------------------------------------------- |
+| DB Model                | Key-Value store with 3D access (key-value-index)              |
+| Data scheme             | schema-free                                                   |
+| Implementation design   | LSM tree with value log and parallel Merkle Tree              |
+| Implementation language | Go                                                            |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                            |
+| Embeddable              | Yes, optionally                                               |
+| Server APIs             | gRPC (using protocol buffers); immudb RESTful;                |
+| Partition methods       | Sharding                                                      |
+| Consistency concepts    | Eventual Consistency Immediate Consistency                    |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)                            |
+| Durability              | Yes                                                           |
+| Snapshots               | Yes                                                           |
+| High Read throughput    | Yes                                                           |
+| High Write throughput   | Yes                                                           |
+| Optimized for SSD       | Yes                                                           |
+
+## CLI tools
+
+- **immuadmin** is the admin CLI for `immudb` and `immugw`. You can install and manage the service installation for both components and get statistics as well as runtime information.
+- **immuclient** is the CLI client for `immudb`. You can read, write data into immudb from the commandline using direct or interactive mode.
+
+The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases)
+
+**immuadmin performance view**
+
+![immudb statistics](img/stats-v.png "immudb statistics view")
 
 ##### Run immudb as a service (using immuadmin)
 
-Please make sure to build or download the immudb and immuadmin component and save them in the same work directory when installing the service.
+Please make sure to build or download the `immudb` and `immuadmin` component and save them in the same work directory when installing the service.
 
 ```
 # install immudb service
@@ -244,66 +268,6 @@ The FreeBSD service is using the following defaults:
 | log files               | /var/log/immudb     |
 
 #### Command reference
-
-##### immudb
-
-Simply run `./immudb -d` to start immudb locally in the background.
-
-If you want to stop immudb în that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`.
-
-```bash
-immudb - the lightweight, high-speed immutable database for systems and applications.
-
-Environment variables:
-  IMMUDB_DIR=.
-  IMMUDB_NETWORK=tcp
-  IMMUDB_ADDRESS=0.0.0.0
-  IMMUDB_PORT=3322
-  IMMUDB_DBNAME=immudb
-  IMMUDB_PIDFILE=
-  IMMUDB_LOGFILE=
-  IMMUDB_MTLS=false
-  IMMUDB_AUTH=true
-  IMMUDB_DETACHED=false
-  IMMUDB_CONSISTENCY_CHECK=true
-  IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
-  IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
-  IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
-  IMMUDB_DEVMODE=true
-  IMMUDB_ADMIN_PASSWORD=immudb
-  IMMUDB_MAINTENANCE=false
-
-Usage:
-  immudb [flags]
-  immudb [command]
-
-Available Commands:
-  help        Help about any command
-  version     Show the immudb version
-
-Flags:
-  -a, --address string          bind address (default "0.0.0.0")
-      --admin-password string   admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
-  -s, --auth                    enable auth
-      --certificate string      server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
-      --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string           config file (default path are configs or $HOME. Default filename is immudb.ini)
-      --consistency-check       enable consistency check monitor routine. To disable: --consistency-check=false (default true)
-  -n, --dbname string           db name (default "immudb")
-  -d, --detached                run immudb in background
-      --devmode                 enable dev mode: accept remote connections without auth
-      --dir string              data folder (default "./data")
-  -h, --help                    help for immudb
-      --logfile string          log path with filename. E.g. /tmp/immudb/immudb.log
-  -m, --mtls                    enable mutual tls
-      --no-histograms           disable collection of histogram metrics like query durations
-      --pidfile string          pid path with filename. E.g. /var/run/immudb.pid
-      --pkey string             server private key path (default "./tools/mtls/3_application/private/localhost.key.pem")
-  -p, --port int                port number (default 3322)
-
-Use "immudb [command] --help" for more information about a command.
-
-```
 
 ##### immuadmin
 
@@ -430,22 +394,14 @@ Flags:
 Use "immuclient [command] --help" for more information about a command.
 ```
 
-
 ### Docker
 
-All services and cli components are also available as docker images on dockerhub.com.
+All cli components are also available as docker images on dockerhub.com.
 
 | Component  | Container image                                |
 | ---------- | ---------------------------------------------- |
-| immudb     | https://hub.docker.com/r/codenotary/immudb     |
 | immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  |
 | immuclient | https://hub.docker.com/r/codenotary/immuclient |
-
-#### Run immudb
-
-```bash
-docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:latest
-```
 
 #### Run immuadmin
 
@@ -468,7 +424,6 @@ docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-ho
 If you want to build the container images yourself, simply clone this repo and run
 
 ```
-docker build -t myown/immudb:latest -f Dockerfile .
 docker build -t myown/immuadmin:latest -f Dockerfile.immuadmin .
 docker build -t myown/immuclient:latest -f Dockerfile.immuclient .
 ```
@@ -514,7 +469,6 @@ Release v0.6.0-rc1 is our first release to the public. While we were using immud
 The release contains 2 components, the main immutable database immudb and the admin CLI tool immuadmin. immudb is ready to be used on Linux as well as Microsoft Windows.
 
 
-
 ## How immudb works
 
 #### adding data
@@ -529,16 +483,6 @@ The following diagram explains how data is inserted, verified and consistency ch
 
 ![How immudb data consistency works](img/immudb-consistency-diagram.png)
 
-
-#### Drivers for Common Languages
-
-Drivers will soon be available for:
-
-1. Java
-2. .net
-3. Go
-4. Python
-5. Node.js
 
 #### Structured value
 
@@ -724,7 +668,7 @@ coming soon
 | How can I monitor database integrity?                                                        | immudb provides proof APIs and clients and agents can ask for proof in realtime.                                                                                                                                                                                                                                                                                                                          | initial release |
 | How can I monitor database integrity for single objects or specific entries?                 | immu client has a functionality to authenticate a specific entry at a given point in time. So both last version and the whole history of an item can be verified.                                                                                                                                                                                                                                         | initial release |
 | Can I build and distribute an immudb that skips the verification? If yes, how to avoid that? | [CodeNotary](https://www.codenotary.io) team notarizes sources and releases of all immudb components. Check if the release binaries are notarized by vChain.us using [authenticate.codenotary.io](https://authenticate.codenotary.io/org/vchain.us) to prove origin and detect any kind of tampering.                                                                                                     | initial release |
-| How many databases can I run on a single immudb server?                                      | We currently support one database, but in future releases there will be support for many databases.                                                                                                                                                                                                                                                                                                       | Q3/2020         |
+| How many databases can I run on a single immudb server?                                      | Multi-database support was incorporated since release v0.7.0.                                                                                                                                                                                                                                                                                                       | Q3/2020         |
 
 ## Community
 
