@@ -143,7 +143,7 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 	return nil
 }
 
-func (t *TBtree) Root() (QueryNode, error) {
+func (t *TBtree) Snapshot() (Snapshot, error) {
 	//t.mux.Lock()
 	//t.mux.Unlock()
 

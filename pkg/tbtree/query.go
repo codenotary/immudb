@@ -22,10 +22,11 @@ import (
 
 var ErrNoMoreEntries = errors.New("no more entries")
 
-type QueryNode interface {
+type Snapshot interface {
 	Get(key []byte) (value []byte, ts uint64, err error)
 	Ts() uint64
 	Reader(spec *ReaderSpec) (*Reader, error)
+	Close()
 }
 
 type Reader struct {
@@ -78,6 +79,10 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	return reader, nil
+}
+
+func (n nodeWrapper) Close() {
+
 }
 
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {

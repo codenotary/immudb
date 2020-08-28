@@ -39,11 +39,13 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 
 			ts := uint64(i*kCount+j) + 1
 
-			root, err := tbtree.Root()
+			snapshot, err := tbtree.Snapshot()
 			assert.NoError(t, err)
-			assert.Equal(t, ts-1, root.Ts())
+			assert.Equal(t, ts-1, snapshot.Ts())
 
-			v1, ts1, err := root.Get(k)
+			defer snapshot.Close()
+
+			v1, ts1, err := snapshot.Get(k)
 
 			if i == 0 {
 				assert.Equal(t, ErrKeyNotFound, err)
@@ -61,11 +63,13 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			err = tbtree.Insert(k, v, uint64(ts))
 			assert.NoError(t, err)
 
-			root, err = tbtree.Root()
+			snapshot, err = tbtree.Snapshot()
 			assert.NoError(t, err)
-			assert.Equal(t, ts, root.Ts())
+			assert.Equal(t, ts, snapshot.Ts())
 
-			v1, ts1, err = root.Get(k)
+			defer snapshot.Close()
+
+			v1, ts1, err = snapshot.Get(k)
 			assert.NoError(t, err)
 			assert.Equal(t, v, v1)
 			assert.Equal(t, ts, ts1)
@@ -82,11 +86,13 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		binary.BigEndian.PutUint32(k, rnd.Uint32())
 
 		if !override {
-			root, err := tbtree.Root()
+			snapshot, err := tbtree.Snapshot()
 			assert.NoError(t, err)
 
+			defer snapshot.Close()
+
 			for {
-				_, _, err = root.Get(k)
+				_, _, err = snapshot.Get(k)
 				if err == ErrKeyNotFound {
 					break
 				}
@@ -103,11 +109,13 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		err := tbtree.Insert(k, v, uint64(ts))
 		assert.NoError(t, err)
 
-		root, err := tbtree.Root()
+		snapshot, err := tbtree.Snapshot()
 		assert.NoError(t, err)
-		assert.Equal(t, ts, root.Ts())
+		assert.Equal(t, ts, snapshot.Ts())
 
-		v1, ts1, err := root.Get(k)
+		defer snapshot.Close()
+
+		v1, ts1, err := snapshot.Get(k)
 		assert.NoError(t, err)
 		assert.Equal(t, v, v1)
 		assert.Equal(t, ts, ts1)

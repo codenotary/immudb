@@ -25,11 +25,13 @@ import (
 func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	tbtree, _ := New()
 
-	root, err := tbtree.Root()
-	assert.NotNil(t, root)
+	snapshot, err := tbtree.Snapshot()
+	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
 
-	_, err = root.Reader(&ReaderSpec{initialKey: []byte{0, 0, 0, 0}, ascOrder: true})
+	defer snapshot.Close()
+
+	_, err = snapshot.Reader(&ReaderSpec{initialKey: []byte{0, 0, 0, 0}, ascOrder: true})
 	assert.Equal(t, ErrNoMoreEntries, err)
 }
 
@@ -39,16 +41,18 @@ func TestReaderAscendingScan(t *testing.T) {
 
 	monotonicInsertions(t, tbtree, 1, 1000, true)
 
-	root, err := tbtree.Root()
-	assert.NotNil(t, root)
+	snapshot, err := tbtree.Snapshot()
+	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
+
+	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
 		initialKey: []byte{0, 0, 0, 250},
 		isPrefix:   true,
 		ascOrder:   true,
 	}
-	reader, err := root.Reader(rspec)
+	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
 
 	for {
@@ -68,16 +72,18 @@ func TestReaderDescendingScan(t *testing.T) {
 
 	monotonicInsertions(t, tbtree, 1, 257, true)
 
-	root, err := tbtree.Root()
-	assert.NotNil(t, root)
+	snapshot, err := tbtree.Snapshot()
+	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
+
+	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
 		initialKey: []byte{0, 0, 0, 100},
 		isPrefix:   false,
 		ascOrder:   false,
 	}
-	reader, err := root.Reader(rspec)
+	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
 
 	for {
@@ -98,16 +104,18 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	keyCount := 10000
 	randomInsertions(t, tbtree, keyCount, false)
 
-	root, err := tbtree.Root()
-	assert.NotNil(t, root)
+	snapshot, err := tbtree.Snapshot()
+	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
+
+	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
 		initialKey: nil,
 		isPrefix:   false,
 		ascOrder:   true,
 	}
-	reader, err := root.Reader(rspec)
+	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
 
 	i := 0
@@ -133,16 +141,18 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	keyCount := 10000
 	randomInsertions(t, tbtree, keyCount, false)
 
-	root, err := tbtree.Root()
-	assert.NotNil(t, root)
+	snapshot, err := tbtree.Snapshot()
+	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
+
+	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
 		initialKey: []byte{255, 255, 255, 255},
 		isPrefix:   false,
 		ascOrder:   false,
 	}
-	reader, err := root.Reader(rspec)
+	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
 
 	i := 0
