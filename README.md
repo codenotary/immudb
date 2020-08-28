@@ -90,19 +90,19 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 1.  [Quickstart](#quickstart) - Get `immudb` up and running in seconds
 2.  [Using `immudb`](#using-immudb) - Official SDKs and REST-based client
-1.  [CLI tools](#cli-tools) - Using `immuadmin` and `immuclient`
+3.  [CLI tools](#cli-tools) - Using `immuadmin` and `immuclient`
 4.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
 5.  [News](#news) - The latest news about immudb
-3.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
-6.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
-7.  [Features](#features) - How you'll use immudb on your systems
-8.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
-9.  [Real world examples](#real-world-examples) - Read about how others use immudb
-10.  [Documentation](#documentation) - Read the documentation
-11.  [FAQ](#faq) - Frequently asked questions
-12.  [Community](#community) - Discuss immudb with others and get support
-13.  [License](#license) - Check immudb's licencing
-14.  [Is it awesome?](#is-it-awesome) - Yes.
+6.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
+7.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
+8.  [Features](#features) - How you'll use immudb on your systems
+9.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
+10.  [Real world examples](#real-world-examples) - Read about how others use immudb
+11.  [Documentation](#documentation) - Read the documentation
+12.  [FAQ](#faq) - Frequently asked questions
+13.  [Community](#community) - Discuss immudb with others and get support
+14.  [License](#license) - Check immudb's licencing
+15.  [Is it awesome?](#is-it-awesome) - Yes.
 
 
 ## Quickstart
