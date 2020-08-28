@@ -176,7 +176,7 @@ Available Commands:
   version     Show the immudb version
 Flags:
   -a, --address string          bind address (default "0.0.0.0")
-      --admin-password string   admin password (default is 'immu') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
+      --admin-password string   admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
   -s, --auth                    enable auth
       --certificate string      server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
       --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
