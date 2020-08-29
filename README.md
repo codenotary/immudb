@@ -88,8 +88,8 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 ## Contents
 
-1.  [Quickstart](#quickstart) - Get `immudb` up and running in seconds
-2.  [Using `immudb`](#using-immudb) - Official SDKs and REST-based client
+1.  [Quickstart](#quickstart) - Get immudb up and running in seconds
+2.  [Using immudb](#using-immudb) - Official SDKs and REST-based client
 3.  [CLI tools](#cli-tools) - Using `immuadmin` and `immuclient`
 4.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
 5.  [News](#news) - The latest news about immudb
@@ -107,35 +107,35 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 ## Quickstart
 
-Getting `immudb` up and running is quite simple. Choose any of following options:
+Getting immudb up and running is quite simple. Choose any of following options:
 
-1. [Running `immudb` in Docker](#immudb-docker)
-2. [Download `immudb` release binary](#immudb-binary)
-3. [Build `immudb` by yourself](#immudb-build-from-source)
+1. [Running immudb in Docker](#immudb-docker)
+2. [Download immudb release binary](#immudb-binary)
+3. [Build immudb by yourself](#immudb-build-from-source)
 
-### Running `immudb` in Docker
+### Running immudb in Docker
 
-1. Pull `immudb` Docker Image from Docker Hub:
+1. Pull immudb Docker Image from Docker Hub:
 
 ```bash
 docker pull codenotary/immudb:latest
 ```
 
-2. Run `immudb` in a container:
+2. Run immudb in a container:
 
 ```bash
 docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:latest
 ```
 
-`immudb` should be up and running, you can check the container logs:
+immudb should be up and running, you can check the container logs:
 
 ```bash
 docker logs immudb
 ```
 
-### Download `immudb` release binary
+### Download immudb release binary
 
-Download latest release binaries from [here](https://github.com/codenotary/immudb/releases). Then just run `immudb` as follows:
+Download latest release binaries from [here](https://github.com/codenotary/immudb/releases). Then just run immudb as follows:
 
 ```bash
 # run immudb in the foreground
@@ -235,11 +235,11 @@ If you want to build the container images yourself, simply clone this repo and r
 docker build -t myown/immudb:latest -f Dockerfile .
 ```
 
-And then run `immudb` as described when pulling official `immudb` Docker image.
+And then run immudb as described when pulling official immudb Docker image.
 
-## Using `immudb`
+## Using immudb
 
-Integrate `immudb` into your application using official SDKs already available for the following programming languages:
+Integrate immudb into your application using official SDKs already available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
 3. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
@@ -255,8 +255,8 @@ For a super quick start, please follow step by step guides for each SDK or pick 
 
 ## CLI tools
 
-- **immuclient** is the CLI client for `immudb`. You can read, write data into immudb from the commandline using direct or interactive mode.
-- **immuadmin** is the admin CLI for `immudb` and `immugw`. You can install and manage the service installation for both components and get statistics as well as runtime information.
+- **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
+- **immuadmin** is the admin CLI for immudb and `immugw`. You can install and manage the service installation for both components and get statistics as well as runtime information.
 
 The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases)
 
@@ -388,7 +388,7 @@ Use "immuadmin [command] --help" for more information about a command.
 
 ### Run immudb as a service (using immuadmin)
 
-Please make sure to build or download the `immudb` and `immuadmin` component and save them in the same work directory when installing the service.
+Please make sure to build or download the immudb and `immuadmin` component and save them in the same work directory when installing the service.
 
 ```
 # install immudb service
@@ -469,6 +469,10 @@ You can find an example video here:
 
 
 ## News
+`August 20th, 2020` - **[immudb4j v0.1.7 in GitHub Packages!](https://github.com/codenotary/immudb4j)**
+
+immudb4j v0.1.7 Token-based authentication, multi-database and transactional support. Compatible with latest immudb release v0.7.1
+
 `August 17th, 2020` - **[immudb v0.7.1 released!](https://github.com/codenotary/immudb/releases/tag/v0.7.1)**
 
 Release v0.7.1 Bug Fixes & Enhancements
@@ -523,7 +527,7 @@ The release contains 2 components, the main immutable database immudb and the ad
 
 ## How immudb works
 
-Download [immmudb short research paper](https://codenotary.io/technologies/immudb/) to have a conceptual understanding of the technical foundations of `immudb`.
+Download [immmudb short research paper](https://codenotary.io/technologies/immudb/) to have a conceptual understanding of the technical foundations of immudb.
 
 #### adding data
 
