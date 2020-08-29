@@ -1013,6 +1013,8 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	}
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
+	// invalidate the token for this user
+	auth.DropTokenKeys(targetUser.Username)
 
 	return new(empty.Empty), nil
 }

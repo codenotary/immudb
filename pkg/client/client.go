@@ -366,7 +366,7 @@ func (c *immuClient) Login(ctx context.Context, user []byte, pass []byte) (*sche
 		User:     user,
 		Password: pass,
 	})
-	c.Logger.Debugf("set finished in %s", time.Since(start))
+	c.Logger.Debugf("login finished in %s", time.Since(start))
 	return result, err
 }
 
