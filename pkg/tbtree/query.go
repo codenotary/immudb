@@ -26,9 +26,9 @@ var ErrAlreadyClosed = errors.New("snapshot already closed")
 var ErrReadersNotClosed = errors.New("readers not closed")
 
 type Snapshot struct {
-	tbtree  *TBtree
+	t       *TBtree
 	root    node
-	readers []*Reader
+	readers map[int]*Reader
 	closed  bool
 	rwmutex sync.RWMutex
 }
@@ -50,6 +50,10 @@ type ReaderSpec struct {
 	initialKey []byte
 	isPrefix   bool
 	ascOrder   bool
+}
+
+func NewSnapshot(t *TBtree) *Snapshot {
+	return &Snapshot{t: t, root: t.root, readers: make(map[int]*Reader)}
 }
 
 func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
@@ -106,7 +110,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 		closed:     false,
 	}
 
-	s.readers = append(s.readers, reader)
+	s.readers[reader.id] = reader
 
 	return reader, nil
 }
@@ -136,11 +140,7 @@ func (s *Snapshot) closedReader(r *Reader) error {
 		return ErrAlreadyClosed
 	}
 
-	if r.id == len(s.readers) {
-		s.readers = s.readers[:r.id]
-	} else {
-		s.readers = append(s.readers[:r.id], s.readers[r.id+1:]...)
-	}
+	delete(s.readers, r.id)
 
 	return nil
 }

@@ -43,7 +43,10 @@ func TestReaderAscendingScan(t *testing.T) {
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
-	defer snapshot.Close()
+	defer func() {
+		err := snapshot.Close()
+		assert.NoError(t, err)
+	}()
 
 	rspec := &ReaderSpec{
 		initialKey: []byte{0, 0, 0, 250},
@@ -52,7 +55,9 @@ func TestReaderAscendingScan(t *testing.T) {
 	}
 	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
-	defer reader.Close()
+
+	err = snapshot.Close()
+	assert.Equal(t, ErrReadersNotClosed, err)
 
 	for {
 		k, _, _, err := reader.Read()
@@ -63,6 +68,12 @@ func TestReaderAscendingScan(t *testing.T) {
 
 		assert.True(t, bytes.Compare(reader.initialKey, k) < 1)
 	}
+
+	err = reader.Close()
+	assert.NoError(t, err)
+
+	err = reader.Close()
+	assert.Equal(t, ErrAlreadyClosed, err)
 }
 
 func TestReaderDescendingScan(t *testing.T) {

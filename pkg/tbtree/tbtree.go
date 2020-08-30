@@ -147,7 +147,7 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 	//t.mux.Lock()
 	//t.mux.Unlock()
 
-	return &Snapshot{tbtree: t, root: t.root, readers: nil}, nil
+	return NewSnapshot(t), nil
 }
 
 /*
