@@ -22,7 +22,7 @@ import (
 )
 
 var ErrNoMoreEntries = errors.New("no more entries")
-var ErrAlreadyClosed = errors.New("snapshot already closed")
+var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadersNotClosed = errors.New("readers not closed")
 
 type Snapshot struct {
