@@ -45,8 +45,6 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			assert.NoError(t, err)
 			assert.Equal(t, ts-1, snapshotTs)
 
-			defer snapshot.Close()
-
 			v1, ts1, err := snapshot.Get(k)
 
 			if i == 0 {
@@ -62,6 +60,9 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 				assert.Equal(t, expectedTs, ts1)
 			}
 
+			err = snapshot.Close()
+			assert.NoError(t, err)
+
 			err = tbtree.Insert(k, v, uint64(ts))
 			assert.NoError(t, err)
 
@@ -71,12 +72,13 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			assert.NoError(t, err)
 			assert.Equal(t, ts, snapshotTs)
 
-			defer snapshot.Close()
-
 			v1, ts1, err = snapshot.Get(k)
 			assert.NoError(t, err)
 			assert.Equal(t, v, v1)
 			assert.Equal(t, ts, ts1)
+
+			err = snapshot.Close()
+			assert.NoError(t, err)
 		}
 	}
 }
@@ -93,8 +95,6 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 			snapshot, err := tbtree.Snapshot()
 			assert.NoError(t, err)
 
-			defer snapshot.Close()
-
 			for {
 				_, _, err = snapshot.Get(k)
 				if err == ErrKeyNotFound {
@@ -103,6 +103,8 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 				binary.BigEndian.PutUint32(k, rnd.Uint32())
 			}
 
+			err = snapshot.Close()
+			assert.NoError(t, err)
 		}
 
 		v := make([]byte, 8)
@@ -119,12 +121,13 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		assert.NoError(t, err)
 		assert.Equal(t, ts, snapshotTs)
 
-		defer snapshot.Close()
-
 		v1, ts1, err := snapshot.Get(k)
 		assert.NoError(t, err)
 		assert.Equal(t, v, v1)
 		assert.Equal(t, ts, ts1)
+
+		err = snapshot.Close()
+		assert.NoError(t, err)
 	}
 }
 
