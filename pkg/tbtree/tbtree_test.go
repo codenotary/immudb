@@ -41,7 +41,9 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 
 			snapshot, err := tbtree.Snapshot()
 			assert.NoError(t, err)
-			assert.Equal(t, ts-1, snapshot.Ts())
+			snapshotTs, err := snapshot.Ts()
+			assert.NoError(t, err)
+			assert.Equal(t, ts-1, snapshotTs)
 
 			defer snapshot.Close()
 
@@ -65,7 +67,9 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 
 			snapshot, err = tbtree.Snapshot()
 			assert.NoError(t, err)
-			assert.Equal(t, ts, snapshot.Ts())
+			snapshotTs, err = snapshot.Ts()
+			assert.NoError(t, err)
+			assert.Equal(t, ts, snapshotTs)
 
 			defer snapshot.Close()
 
@@ -111,7 +115,9 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 
 		snapshot, err := tbtree.Snapshot()
 		assert.NoError(t, err)
-		assert.Equal(t, ts, snapshot.Ts())
+		snapshotTs, err := snapshot.Ts()
+		assert.NoError(t, err)
+		assert.Equal(t, ts, snapshotTs)
 
 		defer snapshot.Close()
 

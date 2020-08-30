@@ -143,11 +143,11 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 	return nil
 }
 
-func (t *TBtree) Snapshot() (Snapshot, error) {
+func (t *TBtree) Snapshot() (*Snapshot, error) {
 	//t.mux.Lock()
 	//t.mux.Unlock()
 
-	return &nodeWrapper{t.root}, nil
+	return &Snapshot{tbtree: t, root: t.root, readers: nil}, nil
 }
 
 /*

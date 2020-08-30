@@ -18,24 +18,32 @@ package tbtree
 import (
 	"bytes"
 	"errors"
+	"sync"
 )
 
 var ErrNoMoreEntries = errors.New("no more entries")
+var ErrAlreadyClosed = errors.New("snapshot already closed")
+var ErrReadersNotClosed = errors.New("readers not closed")
 
-type Snapshot interface {
-	Get(key []byte) (value []byte, ts uint64, err error)
-	Ts() uint64
-	Reader(spec *ReaderSpec) (*Reader, error)
-	Close()
+type Snapshot struct {
+	tbtree  *TBtree
+	root    node
+	readers []*Reader
+	closed  bool
+	rwmutex sync.RWMutex
 }
 
 type Reader struct {
+	snapshot   *Snapshot
+	id         int
 	initialKey []byte
 	isPrefix   bool
 	ascOrder   bool
 	path       path
 	leafNode   *leafNode
 	offset     int
+	closed     bool
+	rwmutex    sync.RWMutex
 }
 
 type ReaderSpec struct {
@@ -44,24 +52,41 @@ type ReaderSpec struct {
 	ascOrder   bool
 }
 
-type nodeWrapper struct {
-	node
+func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
+	s.rwmutex.RLock()
+	defer s.rwmutex.RUnlock()
+
+	if s.closed {
+		return nil, 0, ErrAlreadyClosed
+	}
+
+	return s.root.get(key)
 }
 
-func (n nodeWrapper) Get(key []byte) (value []byte, ts uint64, err error) {
-	return n.get(key)
+func (s *Snapshot) Ts() (uint64, error) {
+	s.rwmutex.RLock()
+	defer s.rwmutex.RUnlock()
+
+	if s.closed {
+		return 0, ErrAlreadyClosed
+	}
+
+	return s.root.ts(), nil
 }
 
-func (n nodeWrapper) Ts() uint64 {
-	return n.ts()
-}
+func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
+	s.rwmutex.RLock()
+	defer s.rwmutex.RUnlock()
 
-func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
+	if s.closed {
+		return nil, ErrAlreadyClosed
+	}
+
 	if spec == nil {
 		return nil, ErrIllegalArgument
 	}
 
-	path, startingLeaf, startingOffset, err := n.findLeafNode(spec.initialKey, nil, nil, spec.ascOrder)
+	path, startingLeaf, startingOffset, err := s.root.findLeafNode(spec.initialKey, nil, nil, spec.ascOrder)
 	if err == ErrKeyNotFound {
 		return nil, ErrNoMoreEntries
 	}
@@ -70,22 +95,64 @@ func (n nodeWrapper) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	reader := &Reader{
+		snapshot:   s,
+		id:         len(s.readers),
 		initialKey: spec.initialKey,
 		isPrefix:   spec.isPrefix,
 		ascOrder:   spec.ascOrder,
 		path:       path,
 		leafNode:   startingLeaf,
 		offset:     startingOffset,
+		closed:     false,
 	}
+
+	s.readers = append(s.readers, reader)
 
 	return reader, nil
 }
 
-func (n nodeWrapper) Close() {
+func (s *Snapshot) Close() error {
+	s.rwmutex.Lock()
+	defer s.rwmutex.Unlock()
 
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	if len(s.readers) > 0 {
+		return ErrReadersNotClosed
+	}
+
+	s.closed = true
+
+	return nil
+}
+
+func (s *Snapshot) closedReader(r *Reader) error {
+	s.rwmutex.Lock()
+	defer s.rwmutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	if r.id == len(s.readers) {
+		s.readers = s.readers[:r.id]
+	} else {
+		s.readers = append(s.readers[:r.id], s.readers[r.id+1:]...)
+	}
+
+	return nil
 }
 
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
+	r.rwmutex.RLock()
+	defer r.rwmutex.RUnlock()
+
+	if r.closed {
+		return nil, nil, 0, ErrAlreadyClosed
+	}
+
 	for {
 		if (r.ascOrder && len(r.leafNode.values) == r.offset) || (!r.ascOrder && r.offset < 0) {
 			for {
@@ -130,4 +197,18 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 			return leafValue.key, leafValue.value, leafValue.ts, nil
 		}
 	}
+}
+
+func (r *Reader) Close() error {
+	r.rwmutex.Lock()
+	defer r.rwmutex.Unlock()
+
+	if r.closed {
+		return ErrAlreadyClosed
+	}
+
+	r.snapshot.closedReader(r)
+	r.closed = true
+
+	return nil
 }
