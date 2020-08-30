@@ -28,7 +28,6 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
-
 	defer snapshot.Close()
 
 	_, err = snapshot.Reader(&ReaderSpec{initialKey: []byte{0, 0, 0, 0}, ascOrder: true})
@@ -44,7 +43,6 @@ func TestReaderAscendingScan(t *testing.T) {
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
-
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
@@ -54,6 +52,7 @@ func TestReaderAscendingScan(t *testing.T) {
 	}
 	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
+	defer reader.Close()
 
 	for {
 		k, _, _, err := reader.Read()
@@ -75,7 +74,6 @@ func TestReaderDescendingScan(t *testing.T) {
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
-
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
@@ -85,6 +83,7 @@ func TestReaderDescendingScan(t *testing.T) {
 	}
 	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
+	defer reader.Close()
 
 	for {
 		k, _, _, err := reader.Read()
@@ -107,7 +106,6 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
-
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
@@ -117,6 +115,7 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	}
 	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
+	defer reader.Close()
 
 	i := 0
 	prevk := reader.initialKey
@@ -144,7 +143,6 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
-
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
@@ -154,6 +152,7 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	}
 	reader, err := snapshot.Reader(rspec)
 	assert.NoError(t, err)
+	defer reader.Close()
 
 	i := 0
 	prevk := reader.initialKey
