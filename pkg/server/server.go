@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/signer"
 	"log"
 	"net"
 	"os"
@@ -172,6 +173,15 @@ func (s *ImmuServer) Start() error {
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
 	)
+
+	if s.Options.SignaturePrivateKey != "" {
+		if signer, err := signer.NewSigner(s.Options.SignaturePrivateKey); err == nil {
+			s.RootSigner = NewRootSigner(signer)
+		} else {
+			return err
+		}
+	}
+
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
@@ -567,12 +577,18 @@ func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfi
 }
 
 // CurrentRoot ...
-func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (*schema.Root, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "CurrentRoot")
-	if err != nil {
+func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (root *schema.Root, err error) {
+	var ind int64
+	if ind, err = s.getDbIndexFromCtx(ctx, "CurrentRoot"); err != nil {
 		return nil, err
 	}
-	return s.dbList.GetByIndex(ind).CurrentRoot(e)
+	if root, err = s.dbList.GetByIndex(ind).CurrentRoot(e); err != nil {
+		return nil, err
+	}
+	if s.Options.SignaturePrivateKey != "" {
+		return s.RootSigner.Sign(root)
+	}
+	return root, err
 }
 
 // Set ...
