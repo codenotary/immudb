@@ -29,7 +29,7 @@ type Snapshot struct {
 	id          uint64
 	root        node
 	readers     map[int]*Reader
-	maxReaderId int
+	maxReaderID int
 	closed      bool
 	rwmutex     sync.RWMutex
 }
@@ -97,7 +97,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 
 	reader := &Reader{
 		snapshot:   s,
-		id:         s.maxReaderId,
+		id:         s.maxReaderID,
 		initialKey: spec.initialKey,
 		isPrefix:   spec.isPrefix,
 		ascOrder:   spec.ascOrder,
@@ -109,7 +109,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 
 	s.readers[reader.id] = reader
 
-	s.maxReaderId++
+	s.maxReaderID++
 
 	return reader, nil
 }

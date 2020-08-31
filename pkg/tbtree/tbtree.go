@@ -44,7 +44,7 @@ type TBtree struct {
 	// node manager
 	lastFlushedTs uint64
 	snapshots     map[uint64]*Snapshot
-	maxSnapshotId uint64
+	maxSnapshotID uint64
 	closed        bool
 	rwmutex       sync.RWMutex
 }
@@ -219,7 +219,7 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 	if len(t.snapshots) > 0 &&
 		(t.insertionCount <= t.insertionCountThreshold ||
 			len(t.snapshots) == t.maxActiveSnapshots) {
-		return t.snapshots[t.maxSnapshotId], nil
+		return t.snapshots[t.maxSnapshotID], nil
 	}
 
 	return t.newSnapshot(), nil
@@ -228,14 +228,14 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 func (t *TBtree) newSnapshot() *Snapshot {
 	snapshot := &Snapshot{
 		t:       t,
-		id:      t.maxSnapshotId,
+		id:      t.maxSnapshotID,
 		root:    t.root,
 		readers: make(map[int]*Reader),
 	}
 
 	t.snapshots[snapshot.id] = snapshot
 
-	t.maxSnapshotId++
+	t.maxSnapshotID++
 	t.insertionCount = 0
 
 	return snapshot
