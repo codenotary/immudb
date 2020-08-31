@@ -18,22 +18,30 @@ package tbtree
 import (
 	"bytes"
 	"errors"
+	"sync"
 )
 
-var ErrIllegalArgument = errors.New("Illegal arguments")
+var ErrIllegalArgument = errors.New("illegal arguments")
 var ErrKeyNotFound = errors.New("key not found")
 var ErrIllegalState = errors.New("illegal state")
+var ErrAlreadyClosed = errors.New("already closed")
+var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
 
 const MinNodeSize = 64
 const DefaultMaxNodeSize = 4096
 
 // TBTree implements a timed-btree
 type TBtree struct {
-	root        node
-	maxNodeSize int
+	root           node
+	insertionCount uint64
+	maxNodeSize    int
+	// bloom filter
 	// file
 	// node manager
-	// lastFlushed uint64
+	lastFlushedTs uint64
+	snapshots     map[int]*Snapshot
+	closed        bool
+	rwmutex       sync.RWMutex
 }
 
 type Options struct {
@@ -113,9 +121,39 @@ func NewWith(opt *Options) (*TBtree, error) {
 	return tbtree, nil
 }
 
+func (t *TBtree) Close() error {
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
+
+	if t.closed {
+		return ErrAlreadyClosed
+	}
+
+	if len(t.snapshots) > 0 {
+		return ErrSnapshotsNotClosed
+	}
+
+	if t.insertionCount > 0 {
+		_, err := t.Snapshot()
+		if err != nil {
+			return err
+		}
+		// TODO: last snapshot must be flushed
+	}
+
+	t.closed = true
+
+	return nil
+}
+
 func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
-	//t.mux.Lock()
-	//t.mux.Unlock()
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
+
+	if t.closed {
+		return ErrAlreadyClosed
+	}
+
 	if key == nil || t.root.ts() >= ts {
 		return ErrIllegalArgument
 	}
@@ -124,6 +162,8 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 	if err != nil {
 		return err
 	}
+
+	t.insertionCount++
 
 	if n2 == nil {
 		t.root = n1
@@ -144,8 +184,15 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
-	//t.mux.Lock()
-	//t.mux.Unlock()
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
+
+	if t.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	//TODO: crear un nuevo root, y resetear el insertionCount
+	// Si es que no se toma de la lista de snapshots
 
 	return NewSnapshot(t), nil
 }
