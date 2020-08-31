@@ -119,7 +119,7 @@ func New() (*TBtree, error) {
 }
 
 func NewWith(opt *Options) (*TBtree, error) {
-	if opt == nil || opt.maxNodeSize < MinNodeSize {
+	if opt == nil || opt.maxNodeSize < MinNodeSize || opt.insertionCountThreshold < 1 {
 		return nil, ErrIllegalArgument
 	}
 
@@ -150,7 +150,7 @@ func (t *TBtree) Close() error {
 		if err != nil {
 			return err
 		}
-		// TODO: last snapshot must be flushed
+		// TODO: lastest snapshot must be flushed
 	}
 
 	t.closed = true
@@ -211,8 +211,6 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 }
 
 func (t *TBtree) newSnapshot() *Snapshot {
-	//TODO: create new root and reset insertionCount
-
 	snapshot := &Snapshot{
 		t:       t,
 		id:      t.maxSnapshotId,
@@ -223,6 +221,7 @@ func (t *TBtree) newSnapshot() *Snapshot {
 	t.snapshots[snapshot.id] = snapshot
 
 	t.maxSnapshotId++
+	t.insertionCount = 0
 
 	return snapshot
 }
@@ -237,36 +236,10 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 
 	delete(t.snapshots, snapshot.id)
 
-	return nil
-}
-
-/*
-func (t *TBtree) Flush() error {
-	//t.mux.Lock()
-	//t.mux.Unlock()
+	// recycle allocations : node manager
 
 	return nil
 }
-*/
-
-/*
-func (t *btree) rootAt(ts uint64) (node, error) {
-	if t.root == nil {
-		return nil, 0, ErrIllegalState
-	}
-
-	if t.root.ts() < ts {
-		return nil, 0, ErrIllegalArgument
-	}
-
-	//TODO jeroiraz not yet implemented, will be used to calculate History of a key
-	return nil, nil
-}
-*/
-
-// Scan operation
-
-// History of a key
 
 func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	insertAt := n.indexOf(key)
