@@ -29,33 +29,43 @@ var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
 
 const MinNodeSize = 64
 const DefaultMaxNodeSize = 4096
+const DefaultInsertionCountThreshold = 100000
 
 // TBTree implements a timed-btree
 type TBtree struct {
-	root           node
-	insertionCount uint64
-	maxNodeSize    int
+	root                    node
+	maxNodeSize             int
+	insertionCount          uint64
+	insertionCountThreshold uint64
 	// bloom filter
 	// file
 	// node manager
 	lastFlushedTs uint64
-	snapshots     map[int]*Snapshot
+	snapshots     map[uint64]*Snapshot
+	maxSnapshotId uint64
 	closed        bool
 	rwmutex       sync.RWMutex
 }
 
 type Options struct {
-	maxNodeSize int
+	maxNodeSize             int
+	insertionCountThreshold uint64
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		maxNodeSize: DefaultMaxNodeSize,
+		maxNodeSize:             DefaultMaxNodeSize,
+		insertionCountThreshold: DefaultInsertionCountThreshold,
 	}
 }
 
 func (opt *Options) setMaxNodeSize(maxNodeSize int) *Options {
 	opt.maxNodeSize = maxNodeSize
+	return opt
+}
+
+func (opt *Options) setInsertionCountThreshold(insertionCountThreshold uint64) *Options {
+	opt.insertionCountThreshold = insertionCountThreshold
 	return opt
 }
 
@@ -114,8 +124,10 @@ func NewWith(opt *Options) (*TBtree, error) {
 	}
 
 	tbtree := &TBtree{
-		maxNodeSize: opt.maxNodeSize,
-		root:        &leafNode{maxSize: opt.maxNodeSize},
+		maxNodeSize:             opt.maxNodeSize,
+		insertionCountThreshold: opt.insertionCountThreshold,
+		root:                    &leafNode{maxSize: opt.maxNodeSize},
+		snapshots:               make(map[uint64]*Snapshot),
 	}
 
 	return tbtree, nil
@@ -191,10 +203,41 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	//TODO: crear un nuevo root, y resetear el insertionCount
-	// Si es que no se toma de la lista de snapshots
+	if len(t.snapshots) > 0 && t.insertionCount <= t.insertionCountThreshold {
+		return t.snapshots[t.maxSnapshotId], nil
+	}
 
-	return NewSnapshot(t), nil
+	return t.newSnapshot(), nil
+}
+
+func (t *TBtree) newSnapshot() *Snapshot {
+	//TODO: create new root and reset insertionCount
+
+	snapshot := &Snapshot{
+		t:       t,
+		id:      t.maxSnapshotId,
+		root:    t.root,
+		readers: make(map[int]*Reader),
+	}
+
+	t.snapshots[snapshot.id] = snapshot
+
+	t.maxSnapshotId++
+
+	return snapshot
+}
+
+func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
+
+	if t.closed {
+		return ErrAlreadyClosed
+	}
+
+	delete(t.snapshots, snapshot.id)
+
+	return nil
 }
 
 /*

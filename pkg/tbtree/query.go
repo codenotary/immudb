@@ -26,6 +26,7 @@ var ErrReadersNotClosed = errors.New("readers not closed")
 
 type Snapshot struct {
 	t       *TBtree
+	id      uint64
 	root    node
 	readers map[int]*Reader
 	closed  bool
@@ -49,10 +50,6 @@ type ReaderSpec struct {
 	initialKey []byte
 	isPrefix   bool
 	ascOrder   bool
-}
-
-func NewSnapshot(t *TBtree) *Snapshot {
-	return &Snapshot{t: t, root: t.root, readers: make(map[int]*Reader)}
 }
 
 func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
@@ -124,6 +121,11 @@ func (s *Snapshot) Close() error {
 
 	if len(s.readers) > 0 {
 		return ErrReadersNotClosed
+	}
+
+	err := s.t.snapshotClosed(s)
+	if err != nil {
+		return err
 	}
 
 	s.closed = true
