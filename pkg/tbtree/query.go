@@ -25,12 +25,13 @@ var ErrNoMoreEntries = errors.New("no more entries")
 var ErrReadersNotClosed = errors.New("readers not closed")
 
 type Snapshot struct {
-	t       *TBtree
-	id      uint64
-	root    node
-	readers map[int]*Reader
-	closed  bool
-	rwmutex sync.RWMutex
+	t           *TBtree
+	id          uint64
+	root        node
+	readers     map[int]*Reader
+	maxReaderId int
+	closed      bool
+	rwmutex     sync.RWMutex
 }
 
 type Reader struct {
@@ -96,7 +97,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 
 	reader := &Reader{
 		snapshot:   s,
-		id:         len(s.readers),
+		id:         s.maxReaderId,
 		initialKey: spec.initialKey,
 		isPrefix:   spec.isPrefix,
 		ascOrder:   spec.ascOrder,
@@ -107,6 +108,8 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	s.readers[reader.id] = reader
+
+	s.maxReaderId++
 
 	return reader, nil
 }
