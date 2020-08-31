@@ -16,3 +16,4 @@ clientcas = "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem"
 devmode = true
 admin-password = "immudb"
 maintenance = false
+signaturePrivateKey = "./test/signer/ec3.key"

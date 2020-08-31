@@ -63,7 +63,8 @@ Environment variables:
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
   IMMUDB_DEVMODE=true
   IMMUDB_MAINTENANCE=false
-  IMMUDB_ADMIN_PASSWORD=immudb`,
+  IMMUDB_ADMIN_PASSWORD=immudb,
+  IMMUDB_SIGNATUREPRIVATEKEY=./test/signer/ec3.key`,
 		DisableAutoGenTag: true,
 		RunE:              cl.Immudb(immudbServer),
 		PersistentPreRunE: cl.ConfigChain(nil),
@@ -162,7 +163,7 @@ func parseOptions() (options server.Options, err error) {
 	devMode := viper.GetBool("devmode")
 	adminPassword := viper.GetString("admin-password")
 	maintenance := viper.GetBool("maintenance")
-
+	signaturePrivateKey := viper.GetString("signaturePrivateKey")
 	options = server.
 		DefaultOptions().
 		WithDir(dir).
@@ -177,7 +178,8 @@ func parseOptions() (options server.Options, err error) {
 		WithCorruptionCheck(consistencyCheck).
 		WithDevMode(devMode).
 		WithAdminPassword(adminPassword).
-		WithMaintenance(maintenance)
+		WithMaintenance(maintenance).
+		WithSignaturePrivateKey(signaturePrivateKey)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = server.DefaultMTLsOptions().
@@ -206,6 +208,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options server.Options, mt
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
+	cmd.Flags().String("signaturePrivateKey", options.SignaturePrivateKey, "signature private key. If not empty, it enables the cryptographic signature of the root")
 }
 
 func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
