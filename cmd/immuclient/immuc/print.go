@@ -121,10 +121,10 @@ func PrintSetItem(set []byte, rkey []byte, score float64, message interface{}) s
 
 // PrintRoot ...
 func PrintRoot(root *schema.Root) string {
-	if root.Root == nil {
+	if root.Payload.Root == nil {
 		return "immudb is empty\n"
 	}
-	return fmt.Sprintf("index:		%d\nhash:		%x\n", root.Index, root.Root)
+	return fmt.Sprintf("index:		%d\nhash:		%x\n", root.Payload.Index, root.Payload.Root)
 }
 
 // PrintByIndex ...

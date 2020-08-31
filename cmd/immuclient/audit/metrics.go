@@ -111,10 +111,10 @@ func (p *prometheusMetrics) updateMetrics(
 		currRootIndex = -2.
 	}
 	if prevRoot != nil {
-		prevRootIndex = float64(prevRoot.GetIndex())
+		prevRootIndex = float64(prevRoot.Payload.GetIndex())
 	}
 	if currRoot != nil {
-		currRootIndex = float64(currRoot.GetIndex())
+		currRootIndex = float64(currRoot.Payload.GetIndex())
 	}
 
 	AuditResultPerServer.

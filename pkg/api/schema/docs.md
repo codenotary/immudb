@@ -34,6 +34,7 @@
     - [Proof](#immudb.schema.Proof)
     - [ReferenceOptions](#immudb.schema.ReferenceOptions)
     - [Root](#immudb.schema.Root)
+    - [RootIndex](#immudb.schema.RootIndex)
     - [SKVList](#immudb.schema.SKVList)
     - [SPage](#immudb.schema.SPage)
     - [SafeGetOptions](#immudb.schema.SafeGetOptions)
@@ -46,6 +47,7 @@
     - [SafeZAddOptions](#immudb.schema.SafeZAddOptions)
     - [ScanOptions](#immudb.schema.ScanOptions)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
+    - [Signature](#immudb.schema.Signature)
     - [StructuredItem](#immudb.schema.StructuredItem)
     - [StructuredItemList](#immudb.schema.StructuredItemList)
     - [StructuredKeyValue](#immudb.schema.StructuredKeyValue)
@@ -552,6 +554,22 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| payload | [RootIndex](#immudb.schema.RootIndex) |  |  |
+| signature | [Signature](#immudb.schema.Signature) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.RootIndex"></a>
+
+### RootIndex
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
 | index | [uint64](#uint64) |  |  |
 | root | [bytes](#bytes) |  |  |
 
@@ -749,6 +767,22 @@
 | ----- | ---- | ----- | ----------- |
 | active | [bool](#bool) |  |  |
 | username | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Signature"></a>
+
+### Signature
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| signature | [bytes](#bytes) |  |  |
+| publicKey | [bytes](#bytes) |  |  |
 
 
 

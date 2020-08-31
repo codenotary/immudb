@@ -107,7 +107,7 @@ func (history *historyFileCache) Set(root *schema.Root, serverID string, databas
 	if err = ioutil.WriteFile(rootFilePath, []byte(output), 0644); err != nil {
 		return fmt.Errorf(
 			"error writing root %d to file %s: %v",
-			root.GetIndex(), rootFilePath, err)
+			root.Payload.GetIndex(), rootFilePath, err)
 	}
 
 	return nil
@@ -126,7 +126,7 @@ func (history *historyFileCache) getRootsFileInfos(dir string) ([]os.FileInfo, e
 }
 
 func (history *historyFileCache) unmarshalRoot(fpath string, databasename string) (*schema.Root, error) {
-	root := new(schema.Root)
+	root := schema.NewRoot()
 	raw, err := ioutil.ReadFile(fpath)
 	if err != nil {
 		return nil, fmt.Errorf(

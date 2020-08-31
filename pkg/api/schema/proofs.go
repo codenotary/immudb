@@ -44,7 +44,7 @@ func (i *InclusionProof) Verify(index uint64, leaf []byte) bool {
 // Verify returns true iff the _ConsistencyProof_ proves that _c.SecondRoot_'s history is including the history of
 // the provided _prevRoot_ up to the position _c.First_.
 func (c *ConsistencyProof) Verify(prevRoot Root) bool {
-	if c == nil || c.First != prevRoot.Index {
+	if c == nil || c.First != prevRoot.Payload.Index {
 		return false
 	}
 
@@ -52,10 +52,10 @@ func (c *ConsistencyProof) Verify(prevRoot Root) bool {
 	path.FromSlice(c.Path)
 
 	var firstRoot, secondRoot [sha256.Size]byte
-	copy(firstRoot[:], prevRoot.Root)
+	copy(firstRoot[:], prevRoot.Payload.Root)
 	copy(secondRoot[:], c.SecondRoot)
 	if path.VerifyConsistency(c.Second, c.First, secondRoot, firstRoot) {
-		c.FirstRoot = prevRoot.Root
+		c.FirstRoot = prevRoot.Payload.Root
 		return true
 	}
 	return false
@@ -81,24 +81,26 @@ func (p *Proof) Verify(leaf []byte, prevRoot Root) bool {
 	}
 
 	// we cannot check consistency when the previous root is not provided
-	if prevRoot.Index == 0 && len(prevRoot.Root) == 0 {
+	if prevRoot.Payload.Index == 0 && len(prevRoot.Payload.Root) == 0 {
 		return true
 	}
 
 	path.FromSlice(p.ConsistencyPath)
 
 	var firstRoot, secondRoot [sha256.Size]byte
-	copy(firstRoot[:], prevRoot.Root)
+	copy(firstRoot[:], prevRoot.Payload.Root)
 	copy(secondRoot[:], p.Root)
-	return path.VerifyConsistency(p.At, prevRoot.Index, secondRoot, firstRoot)
+	return path.VerifyConsistency(p.At, prevRoot.Payload.Index, secondRoot, firstRoot)
 }
 
 // NewRoot returns a new _Root_ object which holds values referenced by the proof _p_.
 func (p *Proof) NewRoot() *Root {
 	if p != nil {
 		return &Root{
-			Root:  append([]byte{}, p.Root...),
-			Index: p.At,
+			Payload: &RootIndex{
+				Root:  append([]byte{}, p.Root...),
+				Index: p.At,
+			},
 		}
 	}
 	return nil

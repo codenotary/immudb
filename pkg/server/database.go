@@ -110,7 +110,7 @@ func (d *Db) Get(k *schema.Key) (*schema.Item, error) {
 func (d *Db) CurrentRoot(e *empty.Empty) (*schema.Root, error) {
 	root, err := d.Store.CurrentRoot()
 	if root != nil {
-		d.Logger.Debugf("current root: %d %x", root.Index, root.Root)
+		d.Logger.Debugf("current root: %d %x", root.Payload.Index, root.Payload.Root)
 	}
 	return root, err
 }

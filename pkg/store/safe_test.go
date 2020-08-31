@@ -42,7 +42,7 @@ func TestStoreSafeSet(t *testing.T) {
 				Value: []byte(strconv.FormatUint(n, 10)),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.Payload.Index,
 			},
 		}
 		proof, err := st.SafeSet(opts)
@@ -54,8 +54,8 @@ func TestStoreSafeSet(t *testing.T) {
 		verified := proof.Verify(leaf[:], *root)
 		assert.True(t, verified, "n=%d", n)
 
-		root.Index = proof.At
-		root.Root = proof.Root
+		root.Payload.Index = proof.At
+		root.Payload.Root = proof.Root
 	}
 
 	for n := uint64(0); n <= 64; n++ {
@@ -90,7 +90,7 @@ func TestStoreMultithreadSafeSetWithKeyOverlap(t *testing.T) {
 						Value: []byte(strconv.FormatUint(uint64(tid), 10)),
 					},
 					RootIndex: &schema.Index{
-						Index: root.Index,
+						Index: root.Payload.Index,
 					},
 				}
 				proof, err := st.SafeSet(opts)
@@ -102,8 +102,10 @@ func TestStoreMultithreadSafeSetWithKeyOverlap(t *testing.T) {
 				assert.True(t, verified, "n=%d", n)
 
 				root = &schema.Root{
-					Index: proof.At,
-					Root:  proof.Root,
+					Payload: &schema.RootIndex{
+						Index: proof.At,
+						Root:  proof.Root,
+					},
 				}
 			}
 			wg.Done()
@@ -133,7 +135,7 @@ func TestStoreMultithreadSafeSetWithoutKeyOverlap(t *testing.T) {
 						Value: []byte(strconv.FormatUint(uint64(tid), 10)),
 					},
 					RootIndex: &schema.Index{
-						Index: root.Index,
+						Index: root.Payload.Index,
 					},
 				}
 
@@ -146,8 +148,10 @@ func TestStoreMultithreadSafeSetWithoutKeyOverlap(t *testing.T) {
 				assert.True(t, verified, "n=%d", n)
 
 				root = &schema.Root{
-					Index: proof.At,
-					Root:  proof.Root,
+					Payload: &schema.RootIndex{
+						Index: proof.At,
+						Root:  proof.Root,
+					},
 				}
 			}
 			wg.Done()
@@ -178,7 +182,7 @@ func TestStoreSafeGet(t *testing.T) {
 	assert.Equal(t, firstItem.Index, safeItem.Item.Index)
 	assert.True(t, safeItem.Proof.Verify(
 		safeItem.Item.Hash(),
-		schema.Root{}, // zerovalue signals no prev root
+		schema.Root{Payload: &schema.RootIndex{}}, // zerovalue signals no prev root
 	))
 
 	// second item with prev root
@@ -186,7 +190,7 @@ func TestStoreSafeGet(t *testing.T) {
 	safeItem, err = st.SafeGet(schema.SafeGetOptions{
 		Key: []byte(`second`),
 		RootIndex: &schema.Index{
-			Index: prevRoot.Index,
+			Index: prevRoot.Payload.Index,
 		},
 	})
 	assert.NoError(t, err)
@@ -202,7 +206,7 @@ func TestStoreSafeGet(t *testing.T) {
 	lastRoot, err := st.CurrentRoot()
 	assert.NoError(t, err)
 	assert.NotNil(t, lastRoot)
-	assert.Equal(t, *lastRoot, *safeItem.Proof.NewRoot())
+	assert.Equal(t, *lastRoot.Payload, *safeItem.Proof.NewRoot().Payload)
 
 }
 
@@ -244,7 +248,7 @@ func TestStoreSafeReference(t *testing.T) {
 				Key:       firstKey,
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.Payload.Index,
 			},
 		}
 		proof, err := st.SafeReference(opts)
@@ -256,8 +260,8 @@ func TestStoreSafeReference(t *testing.T) {
 		verified := proof.Verify(leaf[:], *root)
 		assert.True(t, verified, "n=%d", n)
 
-		root.Index = proof.At
-		root.Root = proof.Root
+		root.Payload.Index = proof.At
+		root.Payload.Root = proof.Root
 	}
 
 	for n := uint64(0); n <= 64; n++ {
@@ -295,7 +299,7 @@ func TestStoreSafeGetOnSafeReference(t *testing.T) {
 
 	leaf := api.Digest(proof.Index, firstTag, firstKey)
 	// Here verify if first reference was correctly inserted. We have no root yet.
-	verified := proof.Verify(leaf[:], schema.Root{})
+	verified := proof.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
 	assert.True(t, verified)
 
 	ref2 := schema.SafeReferenceOptions{
@@ -356,7 +360,7 @@ func TestStoreSafeGetOnSafeReference(t *testing.T) {
 	lastRoot, err := st.CurrentRoot()
 	assert.NoError(t, err)
 	assert.NotNil(t, lastRoot)
-	assert.Equal(t, *lastRoot, *firstItem2.Proof.NewRoot())
+	assert.Equal(t, *lastRoot.Payload, *firstItem2.Proof.NewRoot().Payload)
 }
 
 func TestStoreSafeZAdd(t *testing.T) {
@@ -385,12 +389,14 @@ func TestStoreSafeZAdd(t *testing.T) {
 
 	leaf := api.Digest(proof1.Index, key, safeZAddOptions1.Zopts.Key)
 	// Here verify if first reference was correctly inserted. We have no root yet.
-	verified := proof1.Verify(leaf[:], schema.Root{})
+	verified := proof1.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
 	assert.True(t, verified)
 
 	root := schema.Root{
-		Index: proof1.Index,
-		Root:  proof1.Root,
+		Payload: &schema.RootIndex{
+			Index: proof1.Index,
+			Root:  proof1.Root,
+		},
 	}
 	safeZAddOptions2 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
@@ -443,7 +449,7 @@ func TestStoreBySafeIndex(t *testing.T) {
 	assert.Equal(t, uint64(1), safeItem.Item.Index)
 	assert.True(t, safeItem.Proof.Verify(
 		safeItem.Item.Hash(),
-		schema.Root{}, // zerovalue signals no prev root
+		schema.Root{Payload: &schema.RootIndex{}}, // zerovalue signals no prev root
 	))
 
 	// second item with prev root
@@ -451,7 +457,7 @@ func TestStoreBySafeIndex(t *testing.T) {
 	sio2 := schema.SafeIndexOptions{
 		Index: uint64(2),
 		RootIndex: &schema.Index{
-			Index: prevRoot.Index,
+			Index: prevRoot.Payload.Index,
 		},
 	}
 
@@ -470,7 +476,7 @@ func TestStoreBySafeIndex(t *testing.T) {
 	lastRoot, err := st.CurrentRoot()
 	assert.NoError(t, err)
 	assert.NotNil(t, lastRoot)
-	assert.Equal(t, *lastRoot, *safeItem2.Proof.NewRoot())
+	assert.Equal(t, *lastRoot.Payload, *safeItem2.Proof.NewRoot().Payload)
 }
 
 func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
@@ -499,12 +505,14 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 
 	leaf := api.Digest(proof1.Index, key, safeZAddOptions1.Zopts.Key)
 	// Here verify if first reference was correctly inserted. We have no root yet.
-	verified := proof1.Verify(leaf[:], schema.Root{})
+	verified := proof1.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
 	assert.True(t, verified)
 
 	root := schema.Root{
-		Index: proof1.Index,
-		Root:  proof1.Root,
+		Payload: &schema.RootIndex{
+			Index: proof1.Index,
+			Root:  proof1.Root,
+		},
 	}
 	safeZAddOptions2 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
@@ -532,13 +540,15 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 
 	// second item with prev root
 	prevRoot := schema.Root{
-		Index: proof2.Index,
-		Root:  proof2.Root,
+		Payload: &schema.RootIndex{
+			Index: proof2.Index,
+			Root:  proof2.Root,
+		},
 	}
 	sio2 := schema.SafeIndexOptions{
 		Index: uint64(2),
 		RootIndex: &schema.Index{
-			Index: prevRoot.Index,
+			Index: prevRoot.Payload.Index,
 		},
 	}
 

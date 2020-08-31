@@ -1326,6 +1326,17 @@
     "schemaRoot": {
       "type": "object",
       "properties": {
+        "payload": {
+          "$ref": "#/definitions/schemaRootIndex"
+        },
+        "signature": {
+          "$ref": "#/definitions/schemaSignature"
+        }
+      }
+    },
+    "schemaRootIndex": {
+      "type": "object",
+      "properties": {
         "index": {
           "type": "string",
           "format": "uint64"
@@ -1456,6 +1467,19 @@
         },
         "username": {
           "type": "string"
+        }
+      }
+    },
+    "schemaSignature": {
+      "type": "object",
+      "properties": {
+        "signature": {
+          "type": "string",
+          "format": "byte"
+        },
+        "publicKey": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },

@@ -183,7 +183,7 @@ func (a *defaultAuditor) audit() error {
 		return noErr
 	}
 
-	isEmptyDB := len(root.GetRoot()) == 0 && root.GetIndex() == 0
+	isEmptyDB := len(root.Payload.GetRoot()) == 0 && root.Payload.GetIndex() == 0
 
 	serverID = a.getServerID(ctx, serviceClient)
 	prevRoot, err = a.history.Get(serverID, dbName)
@@ -197,31 +197,31 @@ func (a *defaultAuditor) audit() error {
 			a.logger.Errorf(
 				"audit #%d aborted: database is empty on server %s @ %s, "+
 					"but locally a previous root exists with hash %x at index %d",
-				a.index, serverID, a.serverAddress, prevRoot.Root, prevRoot.Index)
+				a.index, serverID, a.serverAddress, prevRoot.Payload.Root, prevRoot.Payload.Index)
 			withError = true
 			return noErr
 		}
 		proof, err := serviceClient.Consistency(ctx, &schema.Index{
-			Index: prevRoot.GetIndex(),
+			Index: prevRoot.Payload.GetIndex(),
 		})
 		if err != nil {
 			a.logger.Errorf(
 				"error fetching consistency proof for previous root %d: %v",
-				prevRoot.GetIndex(), err)
+				prevRoot.Payload.GetIndex(), err)
 			withError = true
 			return noErr
 		}
 		verified =
-			proof.Verify(schema.Root{Index: prevRoot.Index, Root: prevRoot.Root})
+			proof.Verify(schema.Root{Payload: &schema.RootIndex{Index: prevRoot.Payload.Index, Root: prevRoot.Payload.Root}})
 		firstRoot := proof.FirstRoot
 		// TODO OGG: clarify with team: why proof.FirstRoot is empty if check fails
 		if !verified && len(firstRoot) == 0 {
-			firstRoot = prevRoot.GetRoot()
+			firstRoot = prevRoot.Payload.GetRoot()
 		}
 		a.logger.Infof("audit #%d result:\n  consistent:	%t\n"+
 			"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
 			a.index, verified, firstRoot, proof.First, proof.SecondRoot, proof.Second)
-		root = &schema.Root{Index: proof.Second, Root: proof.SecondRoot}
+		root = &schema.Root{Payload: &schema.RootIndex{Index: proof.Second, Root: proof.SecondRoot}}
 		checked = true
 	} else if isEmptyDB {
 		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",
@@ -233,8 +233,8 @@ func (a *defaultAuditor) audit() error {
 		a.logger.Warningf(
 			"audit #%d detected possible tampering of remote root (at index %d) "+
 				"so it will not overwrite the previous local root (at index %d)",
-			a.index, root.GetIndex(), prevRoot.GetIndex())
-	} else if prevRoot == nil || root.GetIndex() != prevRoot.GetIndex() {
+			a.index, root.Payload.GetIndex(), prevRoot.Payload.GetIndex())
+	} else if prevRoot == nil || root.Payload.GetIndex() != prevRoot.Payload.GetIndex() {
 		if err := a.history.Set(root, serverID, dbName); err != nil {
 			a.logger.Errorf(err.Error())
 			return noErr
