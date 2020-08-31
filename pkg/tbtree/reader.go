@@ -22,17 +22,6 @@ import (
 )
 
 var ErrNoMoreEntries = errors.New("no more entries")
-var ErrReadersNotClosed = errors.New("readers not closed")
-
-type Snapshot struct {
-	t           *TBtree
-	id          uint64
-	root        node
-	readers     map[int]*Reader
-	maxReaderID int
-	closed      bool
-	rwmutex     sync.RWMutex
-}
 
 type Reader struct {
 	snapshot   *Snapshot
@@ -51,102 +40,6 @@ type ReaderSpec struct {
 	initialKey []byte
 	isPrefix   bool
 	ascOrder   bool
-}
-
-func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
-	s.rwmutex.RLock()
-	defer s.rwmutex.RUnlock()
-
-	if s.closed {
-		return nil, 0, ErrAlreadyClosed
-	}
-
-	return s.root.get(key)
-}
-
-func (s *Snapshot) Ts() (uint64, error) {
-	s.rwmutex.RLock()
-	defer s.rwmutex.RUnlock()
-
-	if s.closed {
-		return 0, ErrAlreadyClosed
-	}
-
-	return s.root.ts(), nil
-}
-
-func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
-	s.rwmutex.RLock()
-	defer s.rwmutex.RUnlock()
-
-	if s.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	if spec == nil {
-		return nil, ErrIllegalArgument
-	}
-
-	path, startingLeaf, startingOffset, err := s.root.findLeafNode(spec.initialKey, nil, nil, spec.ascOrder)
-	if err == ErrKeyNotFound {
-		return nil, ErrNoMoreEntries
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	reader := &Reader{
-		snapshot:   s,
-		id:         s.maxReaderID,
-		initialKey: spec.initialKey,
-		isPrefix:   spec.isPrefix,
-		ascOrder:   spec.ascOrder,
-		path:       path,
-		leafNode:   startingLeaf,
-		offset:     startingOffset,
-		closed:     false,
-	}
-
-	s.readers[reader.id] = reader
-
-	s.maxReaderID++
-
-	return reader, nil
-}
-
-func (s *Snapshot) Close() error {
-	s.rwmutex.Lock()
-	defer s.rwmutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
-
-	if len(s.readers) > 0 {
-		return ErrReadersNotClosed
-	}
-
-	err := s.t.snapshotClosed(s)
-	if err != nil {
-		return err
-	}
-
-	s.closed = true
-
-	return nil
-}
-
-func (s *Snapshot) closedReader(r *Reader) error {
-	s.rwmutex.Lock()
-	defer s.rwmutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
-
-	delete(s.readers, r.id)
-
-	return nil
 }
 
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
