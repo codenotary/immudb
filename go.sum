@@ -35,10 +35,8 @@ github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGX
 github.com/codenotary/daemon v0.0.0-20200507161650-3d4bcb5230f4 h1:5mhTmqO2f6QXPlIAGCEtCYR2MHNDLVkwaGWiSbffeQU=
 github.com/codenotary/daemon v0.0.0-20200507161650-3d4bcb5230f4/go.mod h1:PFDPquCi+3LI5PpAKS/8LvJBHTfkdsEXfGtANGx9hH4=
 github.com/codenotary/immudb v0.7.1/go.mod h1:CxQ0pzmSzIEzETCq3NIjRwBxHKr5na146co4cleUOxE=
-github.com/codenotary/immugw v0.0.0-20200825105546-b0cdc5e80b2a h1:sDDsGV5ZVFSO+oPrwGmlOmS4NPnZvtwzlVD4F8bor2w=
-github.com/codenotary/immugw v0.0.0-20200825105546-b0cdc5e80b2a/go.mod h1:UQiXAxQaYBLMFpNj7XWt6yxOKurmXIxGzdgEp+BqK0c=
-github.com/codenotary/immugw v0.0.0-20200825141010-b6326c81edf2 h1:+IKgiw8QEV92YFXkB3Wb784V3vKZwBOoP8cxsixz+RM=
-github.com/codenotary/immugw v0.0.0-20200825141010-b6326c81edf2/go.mod h1:UQiXAxQaYBLMFpNj7XWt6yxOKurmXIxGzdgEp+BqK0c=
+github.com/codenotary/immugw v0.0.0-20200828165640-ce49b70a5bfd h1:/vHXbW2bpSTogWQT9OtoM9u+6qPXpfnAKIKG09daMdM=
+github.com/codenotary/immugw v0.0.0-20200828165640-ce49b70a5bfd/go.mod h1:UZsHN4Jv0QH9xOW3l8qMUcowrKr7XfLt8L5PAv5KngY=
 github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656 h1:Rp8hZs7t0fNLlfLj9PzEmW/W7X+nSp0vpu5CB0ba0jM=
 github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656/go.mod h1:RkIGSuQ3nHZbE0rH21aYxyqlrI/2eICNOOIanDbzZPg=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=

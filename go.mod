@@ -3,7 +3,7 @@ module github.com/codenotary/immudb
 go 1.13
 
 require (
-	github.com/codenotary/immugw v0.0.0-20200825141010-b6326c81edf2
+	github.com/codenotary/immugw v0.0.0-20200828165640-ce49b70a5bfd
 	github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656
 	github.com/dgraph-io/badger/v2 v2.0.0-20200408100755-2e708d968e94
 	github.com/fatih/color v1.9.0
