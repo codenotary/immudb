@@ -30,6 +30,7 @@ var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
 const MinNodeSize = 64
 const DefaultMaxNodeSize = 4096
 const DefaultInsertionCountThreshold = 100000
+const DefaultMaxActiveSnapshots = 100
 
 // TBTree implements a timed-btree
 type TBtree struct {
@@ -37,6 +38,7 @@ type TBtree struct {
 	maxNodeSize             int
 	insertionCount          uint64
 	insertionCountThreshold uint64
+	maxActiveSnapshots      int
 	// bloom filter
 	// file
 	// node manager
@@ -50,12 +52,14 @@ type TBtree struct {
 type Options struct {
 	maxNodeSize             int
 	insertionCountThreshold uint64
+	maxActiveSnapshots      int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
 		maxNodeSize:             DefaultMaxNodeSize,
 		insertionCountThreshold: DefaultInsertionCountThreshold,
+		maxActiveSnapshots:      DefaultMaxActiveSnapshots,
 	}
 }
 
@@ -66,6 +70,11 @@ func (opt *Options) setMaxNodeSize(maxNodeSize int) *Options {
 
 func (opt *Options) setInsertionCountThreshold(insertionCountThreshold uint64) *Options {
 	opt.insertionCountThreshold = insertionCountThreshold
+	return opt
+}
+
+func (opt *Options) setMaxActiveSnapshots(maxActiveSnapshots int) *Options {
+	opt.maxActiveSnapshots = maxActiveSnapshots
 	return opt
 }
 
@@ -119,13 +128,17 @@ func New() (*TBtree, error) {
 }
 
 func NewWith(opt *Options) (*TBtree, error) {
-	if opt == nil || opt.maxNodeSize < MinNodeSize || opt.insertionCountThreshold < 1 {
+	if opt == nil ||
+		opt.maxNodeSize < MinNodeSize ||
+		opt.insertionCountThreshold < 1 ||
+		opt.maxActiveSnapshots < 1 {
 		return nil, ErrIllegalArgument
 	}
 
 	tbtree := &TBtree{
 		maxNodeSize:             opt.maxNodeSize,
 		insertionCountThreshold: opt.insertionCountThreshold,
+		maxActiveSnapshots:      opt.maxActiveSnapshots,
 		root:                    &leafNode{maxSize: opt.maxNodeSize},
 		snapshots:               make(map[uint64]*Snapshot),
 	}
@@ -203,7 +216,9 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	if len(t.snapshots) > 0 && t.insertionCount <= t.insertionCountThreshold {
+	if len(t.snapshots) > 0 &&
+		(t.insertionCount <= t.insertionCountThreshold ||
+			len(t.snapshots) == t.maxActiveSnapshots) {
 		return t.snapshots[t.maxSnapshotId], nil
 	}
 
@@ -235,8 +250,6 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	}
 
 	delete(t.snapshots, snapshot.id)
-
-	// recycle allocations : node manager
 
 	return nil
 }
