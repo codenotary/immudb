@@ -115,11 +115,11 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 		s.Logger.Errorf("Error retrieving root: %s", err)
 		return
 	}
-	if r.Root == nil {
+	if r.GetRoot() == nil {
 		s.Logger.Debugf("Immudb is empty ...")
 	} else {
 		// create a shuffle range with all indexes presents in immudb
-		ids := s.rg.getList(0, r.Index)
+		ids := s.rg.getList(0, r.GetIndex())
 		s.Logger.Debugf("Start scanning %d elements", len(ids))
 		for _, id := range ids {
 			if s.isTerminated() {
@@ -129,7 +129,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 			if item, err = db.Store.BySafeIndex(schema.SafeIndexOptions{
 				Index: id,
 				RootIndex: &schema.Index{
-					Index: r.Index,
+					Index: r.GetIndex(),
 				},
 			}); err != nil {
 				if err == store.ErrInconsistentDigest {

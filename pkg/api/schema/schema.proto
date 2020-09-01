@@ -145,8 +145,18 @@ message StructuredItemList {
 }
 
 message Root {
+	RootIndex payload = 1;
+	Signature signature = 2;
+}
+
+message RootIndex {
 	uint64 index = 1;
 	bytes root = 2;
+}
+
+message Signature {
+	bytes signature = 1;
+	bytes publicKey = 2;
 }
 
 message ScanOptions {

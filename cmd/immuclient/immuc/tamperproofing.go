@@ -52,7 +52,7 @@ func (i *immuc) Consistency(args []string) (string, error) {
 	}
 
 	str := fmt.Sprintf("verified: %t \nfirstRoot: %x at index: %d \nsecondRoot: %x at index: %d \n",
-		proof.Verify(schema.Root{Index: index, Root: root}),
+		proof.Verify(schema.Root{Payload: &schema.RootIndex{Index: index, Root: root}}),
 		proof.FirstRoot,
 		proof.First,
 		proof.SecondRoot,

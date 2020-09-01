@@ -435,7 +435,7 @@ func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 	sgOpts := &schema.SafeGetOptions{
 		Key: key,
 		RootIndex: &schema.Index{
-			Index: root.Index,
+			Index: root.GetIndex(),
 		},
 	}
 
@@ -451,9 +451,9 @@ func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 	verified := safeItem.Proof.Verify(h, *root)
 	if verified {
 		// saving a fresh root
-		tocache := new(schema.Root)
-		tocache.Index = safeItem.Proof.At
-		tocache.Root = safeItem.Proof.Root
+		tocache := schema.NewRoot()
+		tocache.SetIndex(safeItem.Proof.At)
+		tocache.SetRoot(safeItem.Proof.Root)
 		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
 		if err != nil {
 			return nil, err
@@ -494,7 +494,7 @@ func (c *immuClient) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.Ca
 	sgOpts := &schema.SafeGetOptions{
 		Key: key,
 		RootIndex: &schema.Index{
-			Index: root.Index,
+			Index: root.GetIndex(),
 		},
 	}
 
@@ -510,9 +510,9 @@ func (c *immuClient) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.Ca
 	verified := safeItem.Proof.Verify(h, *root)
 	if verified {
 		// saving a fresh root
-		tocache := new(schema.Root)
-		tocache.Index = safeItem.Proof.At
-		tocache.Root = safeItem.Proof.Root
+		tocache := schema.NewRoot()
+		tocache.SetIndex(safeItem.Proof.At)
+		tocache.SetRoot(safeItem.Proof.Root)
 		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
 		if err != nil {
 			return nil, err
@@ -616,7 +616,7 @@ func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*Ve
 	opts := &schema.SafeSetOptions{
 		Kv: kv,
 		RootIndex: &schema.Index{
-			Index: root.Index,
+			Index: root.GetIndex(),
 		},
 	}
 
@@ -686,7 +686,7 @@ func (c *immuClient) RawSafeSet(ctx context.Context, key []byte, value []byte) (
 			Value: value,
 		},
 		RootIndex: &schema.Index{
-			Index: root.Index,
+			Index: root.GetIndex(),
 		},
 	}
 
@@ -828,7 +828,7 @@ func (c *immuClient) RawBySafeIndex(ctx context.Context, index uint64) (*Verifie
 	safeItem, err := c.ServiceClient.BySafeIndex(ctx, &schema.SafeIndexOptions{
 		Index: index,
 		RootIndex: &schema.Index{
-			Index: root.Index,
+			Index: root.GetIndex(),
 		},
 	})
 
@@ -843,9 +843,9 @@ func (c *immuClient) RawBySafeIndex(ctx context.Context, index uint64) (*Verifie
 	verified := safeItem.Proof.Verify(h, *root)
 	if verified {
 		// saving a fresh root
-		tocache := new(schema.Root)
-		tocache.Index = safeItem.Proof.At
-		tocache.Root = safeItem.Proof.Root
+		tocache := schema.NewRoot()
+		tocache.SetIndex(safeItem.Proof.At)
+		tocache.SetRoot(safeItem.Proof.Root)
 		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
 		if err != nil {
 			return nil, err
@@ -919,7 +919,7 @@ func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []
 			Key:       key,
 		},
 		RootIndex: &schema.Index{
-			Index: root.Index,
+			Index: root.GetIndex(),
 		},
 	}
 
@@ -996,7 +996,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 			Key:   key,
 		},
 		RootIndex: &schema.Index{
-			Index: root.Index,
+			Index: root.GetIndex(),
 		},
 	}
 
@@ -1227,9 +1227,9 @@ func (c *immuClient) verifyAndSetRoot(result *schema.Proof, root *schema.Root, c
 	var err error
 	if verified {
 		//saving a fresh root
-		tocache := new(schema.Root)
-		tocache.Index = result.Index
-		tocache.Root = result.Root
+		tocache := schema.NewRoot()
+		tocache.SetIndex(result.Index)
+		tocache.SetRoot(result.Root)
 		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
 	}
 	return verified, err
