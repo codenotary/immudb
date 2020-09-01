@@ -60,6 +60,7 @@ type ImmuServer struct {
 	sysDb               *Db
 	metricsServer       *http.Server
 	mux                 sync.Mutex
+	RootSigner          RootSigner
 }
 
 // DefaultServer ...
@@ -80,11 +81,18 @@ type ImmuServerIf interface {
 	Stop() error
 	WithOptions(options Options) ImmuServerIf
 	WithLogger(logger.Logger) ImmuServerIf
+	WithRootSigner(rootSigner RootSigner) ImmuServerIf
 }
 
 // WithLogger ...
 func (s *ImmuServer) WithLogger(logger logger.Logger) ImmuServerIf {
 	s.Logger = logger
+	return s
+}
+
+// WithRootSigner ...
+func (s *ImmuServer) WithRootSigner(rootSigner RootSigner) ImmuServerIf {
+	s.RootSigner = rootSigner
 	return s
 }
 
