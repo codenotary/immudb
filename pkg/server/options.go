@@ -53,6 +53,7 @@ type Options struct {
 	listener            net.Listener
 	usingCustomListener bool
 	maintenance         bool
+	SigningKey          string
 }
 
 // DefaultOptions returns default server options
@@ -269,4 +270,10 @@ func (o Options) WithMaintenance(m bool) Options {
 // GetMaintenance gets maintenance mode
 func (o Options) GetMaintenance() bool {
 	return o.maintenance
+}
+
+// WithSigningKey sets signature private key
+func (o Options) WithSigningKey(signingKey string) Options {
+	o.SigningKey = signingKey
+	return o
 }
