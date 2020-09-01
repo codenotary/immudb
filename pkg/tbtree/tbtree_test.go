@@ -132,7 +132,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
-	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(256))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
 	assert.NoError(t, err)
 
 	monotonicInsertions(t, tbtree, 10, 1000, true)
@@ -145,7 +145,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
-	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(256))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
 	assert.NoError(t, err)
 
 	defer tbtree.Close()
@@ -154,7 +154,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
-	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(DefaultMaxNodeSize))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(DefaultMaxNodeSize))
 	assert.NoError(t, err)
 
 	defer tbtree.Close()

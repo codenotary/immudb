@@ -17,12 +17,15 @@ package tbtree
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"io"
+	"os"
 	"sync"
 )
 
 var ErrIllegalArgument = errors.New("illegal arguments")
+var ErrReadingRequiredFileContent = errors.New("error reading required file content")
 var ErrKeyNotFound = errors.New("key not found")
 var ErrIllegalState = errors.New("illegal state")
 var ErrAlreadyClosed = errors.New("already closed")
@@ -32,28 +35,32 @@ const MinNodeSize = 64
 const DefaultMaxNodeSize = 4096
 const DefaultInsertionCountThreshold = 100000
 const DefaultMaxActiveSnapshots = 100
+const DefaultFileMode = 0644
 
 // TBTree implements a timed-btree
 type TBtree struct {
+	f *os.File
+	// node manager
+	// bloom filter
 	root                    node
 	maxNodeSize             int
-	insertionCount          uint64
-	insertionCountThreshold uint64
+	insertionCount          int
+	insertionCountThreshold int
 	maxActiveSnapshots      int
-	// bloom filter
-	// file
-	// node manager
-	lastFlushedTs uint64
-	snapshots     map[uint64]*Snapshot
-	maxSnapshotID uint64
-	closed        bool
-	rwmutex       sync.RWMutex
+	readOnly                bool
+	lastFlushedTs           uint64
+	snapshots               map[uint64]*Snapshot
+	maxSnapshotID           uint64
+	closed                  bool
+	rwmutex                 sync.RWMutex
 }
 
 type Options struct {
 	maxNodeSize             int
-	insertionCountThreshold uint64
+	insertionCountThreshold int
 	maxActiveSnapshots      int
+	readOnly                bool
+	fileMode                os.FileMode
 }
 
 func DefaultOptions() *Options {
@@ -61,6 +68,8 @@ func DefaultOptions() *Options {
 		maxNodeSize:             DefaultMaxNodeSize,
 		insertionCountThreshold: DefaultInsertionCountThreshold,
 		maxActiveSnapshots:      DefaultMaxActiveSnapshots,
+		readOnly:                false,
+		fileMode:                DefaultFileMode,
 	}
 }
 
@@ -69,13 +78,23 @@ func (opt *Options) setMaxNodeSize(maxNodeSize int) *Options {
 	return opt
 }
 
-func (opt *Options) setInsertionCountThreshold(insertionCountThreshold uint64) *Options {
+func (opt *Options) setInsertionCountThreshold(insertionCountThreshold int) *Options {
 	opt.insertionCountThreshold = insertionCountThreshold
 	return opt
 }
 
 func (opt *Options) setMaxActiveSnapshots(maxActiveSnapshots int) *Options {
 	opt.maxActiveSnapshots = maxActiveSnapshots
+	return opt
+}
+
+func (opt *Options) setReadOnly(readOnly bool) *Options {
+	opt.readOnly = readOnly
+	return opt
+}
+
+func (opt *Options) setFileMode(fileMode os.FileMode) *Options {
+	opt.fileMode = fileMode
 	return opt
 }
 
@@ -89,28 +108,34 @@ type node interface {
 	ts() uint64
 	size() int
 	mutated() bool
-	offset() uint64
-	writeTo(w io.Writer, onlyMutated bool, onlyLatest bool) error
+	offset() int64
+	writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLatest bool) error
 }
 
 type innerNode struct {
 	prevNode node
-	nodes    []*childRef
-	cts      uint64
+	nodes    []node
+	_maxKey  []byte
+	_ts      uint64
 	maxSize  int
-	off      uint64
+	off      int64
 }
 
 type leafNode struct {
 	prevNode node
 	values   []*leafValue
-	cts      uint64
+	_maxKey  []byte
+	_ts      uint64
 	maxSize  int
-	off      uint64
+	off      int64
 }
 
 type nodeRef struct {
-	off uint64
+	t       *TBtree
+	_maxKey []byte
+	_ts     uint64
+	_size   int
+	off     int64
 }
 
 type leafValue struct {
@@ -120,17 +145,7 @@ type leafValue struct {
 	value  []byte
 }
 
-type childRef struct {
-	key  []byte
-	cts  uint64
-	node node
-}
-
-func New() (*TBtree, error) {
-	return NewWith(DefaultOptions())
-}
-
-func NewWith(opt *Options) (*TBtree, error) {
+func Open(fileName string, opt *Options) (*TBtree, error) {
 	if opt == nil ||
 		opt.maxNodeSize < MinNodeSize ||
 		opt.insertionCountThreshold < 1 ||
@@ -138,15 +153,233 @@ func NewWith(opt *Options) (*TBtree, error) {
 		return nil, ErrIllegalArgument
 	}
 
-	tbtree := &TBtree{
+	var flag int
+
+	if opt.readOnly {
+		flag = os.O_RDONLY
+	} else {
+		flag = os.O_CREATE | os.O_RDWR | os.O_APPEND
+	}
+
+	f, err := os.OpenFile(fileName, flag, opt.fileMode)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: read maxNodeSize and other immutable settings from file
+
+	t := &TBtree{
+		f:                       f,
 		maxNodeSize:             opt.maxNodeSize,
 		insertionCountThreshold: opt.insertionCountThreshold,
 		maxActiveSnapshots:      opt.maxActiveSnapshots,
-		root:                    &leafNode{maxSize: opt.maxNodeSize},
+		readOnly:                opt.readOnly,
 		snapshots:               make(map[uint64]*Snapshot),
 	}
 
-	return tbtree, nil
+	var root node
+
+	ret, err := f.Seek(4, io.SeekEnd)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	if err == io.EOF {
+		root = &leafNode{maxSize: opt.maxNodeSize}
+	} else {
+		bs := make([]byte, 4)
+		n, err := f.Read(bs)
+		if err != nil {
+			return nil, err
+		}
+		if n < len(bs) {
+			return nil, ErrReadingRequiredFileContent
+		}
+
+		rootSize := int(binary.BigEndian.Uint32(bs))
+		rootOffset := ret - int64(rootSize)
+		root = &nodeRef{t: t, off: rootOffset}
+	}
+
+	t.root = root
+
+	return t, nil
+}
+
+func (t *TBtree) readNodeAt(offset int64) (node, error) {
+	_, err := t.f.Seek(offset, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := make([]byte, t.maxNodeSize)
+	n, err := t.f.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	if n < 4 {
+		return nil, ErrReadingRequiredFileContent
+	}
+
+	i := 1
+	size := int(binary.BigEndian.Uint32(buf[i:]))
+	i += 4
+
+	if n < size-i {
+		return nil, ErrReadingRequiredFileContent
+	}
+
+	switch buf[0] {
+	case InnerNodeType:
+		return t.readInnerNodeFrom(buf[i:], false, offset)
+	case RootInnerNodeType:
+		return t.readInnerNodeFrom(buf[i:], true, offset)
+	case LeafNodeType:
+		return t.readLeafNodeFrom(buf[i:], false, offset)
+	case RootLeafNodeType:
+		return t.readLeafNodeFrom(buf[i:], true, offset)
+	}
+
+	return nil, ErrReadingRequiredFileContent
+}
+
+func (t *TBtree) readInnerNodeFrom(buf []byte, asRoot bool, offset int64) (*innerNode, error) {
+	i := 0
+
+	var prevNode node
+
+	if asRoot {
+		hasPrevNode := buf[i]
+		i++
+
+		if hasPrevNode > 0 {
+			nref, sz := t.readNodeRefFrom(buf[i:])
+			i += sz
+			prevNode = nref
+		}
+	}
+
+	childCount := int(binary.BigEndian.Uint32(buf[i:]))
+	i += 4
+
+	n := &innerNode{
+		prevNode: prevNode,
+		nodes:    make([]node, childCount),
+		_maxKey:  nil,
+		_ts:      0,
+		maxSize:  t.maxNodeSize,
+		off:      offset,
+	}
+
+	for c := 0; c < childCount; c++ {
+		nref, sz := t.readNodeRefFrom(buf[i:])
+		n.nodes[c] = nref
+		i += sz
+
+		if bytes.Compare(n._maxKey, nref._maxKey) == 1 {
+			n._maxKey = nref._maxKey
+		}
+
+		if n._ts < nref._ts {
+			n._ts = nref._ts
+		}
+	}
+
+	return n, nil
+}
+
+func (t *TBtree) readNodeRefFrom(buf []byte) (*nodeRef, int) {
+	i := 0
+	ksize := int(binary.BigEndian.Uint32(buf[i:]))
+	i += 4
+
+	key := make([]byte, ksize)
+	copy(key, buf[i:ksize])
+	i += ksize
+
+	ts := binary.BigEndian.Uint64(buf[i:])
+	i += 8
+
+	size := int(binary.BigEndian.Uint32(buf[i:]))
+	i += 4
+
+	off := int64(binary.BigEndian.Uint64(buf[i:]))
+	i += 8
+
+	return &nodeRef{
+		t:       t,
+		_maxKey: key,
+		_ts:     ts,
+		_size:   size,
+		off:     off,
+	}, i
+}
+
+func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafNode, error) {
+	i := 0
+
+	var prevNode node
+
+	if asRoot {
+		hasPrevNode := buf[i]
+		i++
+
+		if hasPrevNode > 0 {
+			nref, sz := t.readNodeRefFrom(buf[i:])
+			i += sz
+			prevNode = nref
+		}
+	}
+
+	valueCount := int(binary.BigEndian.Uint32(buf[i:]))
+	i += 4
+
+	l := &leafNode{
+		prevNode: prevNode,
+		values:   make([]*leafValue, valueCount),
+		_maxKey:  nil,
+		_ts:      0,
+		maxSize:  t.maxNodeSize,
+		off:      offset,
+	}
+
+	for c := 0; c < valueCount; c++ {
+		ksize := int(binary.BigEndian.Uint32(buf[i:]))
+		i += 4
+
+		key := make([]byte, ksize)
+		copy(key, buf[i:ksize])
+		i += ksize
+
+		vsize := int(binary.BigEndian.Uint32(buf[i:]))
+		i += 4
+
+		value := make([]byte, vsize)
+		copy(value, buf[i:ksize])
+		i += ksize
+
+		ts := binary.BigEndian.Uint64(buf[i:])
+		i += 8
+
+		prevTs := binary.BigEndian.Uint64(buf[i:])
+		i += 8
+
+		leafValue := &leafValue{
+			key:    key,
+			value:  value,
+			ts:     ts,
+			prevTs: prevTs,
+		}
+
+		if bytes.Compare(l._maxKey, leafValue.key) == 1 {
+			l._maxKey = leafValue.key
+		}
+
+		if l._ts < leafValue.ts {
+			l._ts = leafValue.ts
+		}
+	}
+
+	return l, nil
 }
 
 func (t *TBtree) Close() error {
@@ -167,6 +400,11 @@ func (t *TBtree) Close() error {
 			return err
 		}
 		// TODO: lastest snapshot must be flushed
+	}
+
+	err := t.f.Close()
+	if err != nil {
+		return err
 	}
 
 	t.closed = true
@@ -198,11 +436,17 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 		return nil
 	}
 
-	ns := make([]*childRef, 2)
-	newRoot := &innerNode{prevNode: t.root, maxSize: t.maxNodeSize, nodes: ns, cts: ts}
+	ns := make([]node, 2)
+	newRoot := &innerNode{
+		prevNode: t.root,
+		nodes:    ns,
+		_maxKey:  n2.maxKey(),
+		_ts:      ts,
+		maxSize:  t.maxNodeSize,
+	}
 
-	ns[0] = &childRef{key: n1.maxKey(), cts: n1.ts(), node: n1}
-	ns[1] = &childRef{key: n2.maxKey(), cts: n2.ts(), node: n2}
+	ns[0] = n1
+	ns[1] = n2
 
 	t.root = newRoot
 
@@ -258,11 +502,11 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	insertAt := n.indexOf(key)
 
-	cRef := n.nodes[insertAt]
+	c := n.nodes[insertAt]
 
 	// TODO: jeroiraz it's possible that childRef is not loaded into main mem yet
 
-	c1, c2, err := cRef.node.insertAt(key, value, ts)
+	c1, c2, err := c.insertAt(key, value, ts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -270,14 +514,15 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 	if c2 == nil {
 		newNode := &innerNode{
 			prevNode: n,
+			nodes:    make([]node, len(n.nodes)),
+			_maxKey:  c1.maxKey(),
+			_ts:      ts,
 			maxSize:  n.maxSize,
-			nodes:    make([]*childRef, len(n.nodes)),
-			cts:      ts,
 		}
 
 		copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
 
-		newNode.nodes[insertAt] = &childRef{key: c1.maxKey(), cts: c1.ts(), node: c1}
+		newNode.nodes[insertAt] = c1
 
 		if insertAt+1 < len(newNode.nodes) {
 			copy(newNode.nodes[insertAt+1:], n.nodes[insertAt+1:])
@@ -287,15 +532,16 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 	}
 
 	newNode := &innerNode{
+		nodes:   make([]node, len(n.nodes)+1),
+		_maxKey: c2.maxKey(),
+		_ts:     ts,
 		maxSize: n.maxSize,
-		nodes:   make([]*childRef, len(n.nodes)+1),
-		cts:     ts,
 	}
 
 	copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
 
-	newNode.nodes[insertAt] = &childRef{key: c1.maxKey(), cts: c1.ts(), node: c1}
-	newNode.nodes[insertAt+1] = &childRef{key: c2.maxKey(), cts: c2.ts(), node: c2}
+	newNode.nodes[insertAt] = c1
+	newNode.nodes[insertAt+1] = c2
 
 	if insertAt+2 < len(newNode.nodes) {
 		copy(newNode.nodes[insertAt+2:], n.nodes[insertAt+1:])
@@ -309,18 +555,18 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 func (n *innerNode) get(key []byte) (value []byte, ts uint64, err error) {
 	i := n.indexOf(key)
 
-	if bytes.Compare(key, n.nodes[i].key) == 1 {
+	if bytes.Compare(key, n.nodes[i].maxKey()) == 1 {
 		return nil, 0, ErrKeyNotFound
 	}
 
-	return n.nodes[i].node.get(key)
+	return n.nodes[i].get(key)
 }
 
 func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
 	if ascOrder || neqKey == nil {
 		for i := 0; i < len(n.nodes); i++ {
-			if bytes.Compare(keyPrefix, n.nodes[i].key) < 1 && bytes.Compare(n.nodes[i].key, neqKey) == 1 {
-				return n.nodes[i].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
+			if bytes.Compare(keyPrefix, n.nodes[i].maxKey()) < 1 && bytes.Compare(n.nodes[i].maxKey(), neqKey) == 1 {
+				return n.nodes[i].findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
 			}
 		}
 
@@ -328,12 +574,12 @@ func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, asc
 			return nil, nil, 0, ErrKeyNotFound
 		}
 
-		return n.nodes[len(n.nodes)-1].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
+		return n.nodes[len(n.nodes)-1].findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
 	}
 
 	for i := len(n.nodes); i > 0; i-- {
-		if bytes.Compare(n.nodes[i-1].key, keyPrefix) < 1 && bytes.Compare(n.nodes[i-1].key, neqKey) < 0 {
-			return n.nodes[i-1].node.findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
+		if bytes.Compare(n.nodes[i-1].maxKey(), keyPrefix) < 1 && bytes.Compare(n.nodes[i-1].maxKey(), neqKey) < 0 {
+			return n.nodes[i-1].findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
 		}
 	}
 
@@ -341,7 +587,7 @@ func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, asc
 }
 
 func (n *innerNode) ts() uint64 {
-	return n.cts
+	return n._ts
 }
 
 func (n *innerNode) size() int {
@@ -350,21 +596,26 @@ func (n *innerNode) size() int {
 	if n.prevNode == nil {
 		size += 4 // Size
 	} else {
-		size += 8 // Prev root offset
+		size++                           // has previous node
+		size += 4                        // Key length
+		size += len(n.prevNode.maxKey()) // Key
+		size += 8                        // Ts
+		size += 4                        // Size
+		size += 8                        // Offset
 	}
 
 	size += 4 // Child count
 
 	for _, c := range n.nodes {
-		size += 4          // Key length
-		size += len(c.key) // Key
-		size += 8          // Ts
-		size += 8          // Offset
+		size += 4               // Key length
+		size += len(c.maxKey()) // Key
+		size += 8               // Ts
+		size += 4               // Size
+		size += 8               // Offset
 	}
 
 	if n.prevNode != nil {
-		size += 4  // Size
-		size += 32 // sha256
+		size += 4 // Size
 	}
 
 	return size
@@ -374,17 +625,17 @@ func (n *innerNode) mutated() bool {
 	return n.off == 0
 }
 
-func (n *innerNode) offset() uint64 {
+func (n *innerNode) offset() int64 {
 	return n.off
 }
 
 func (n *innerNode) maxKey() []byte {
-	return n.nodes[len(n.nodes)-1].key
+	return n._maxKey
 }
 
 func (n *innerNode) indexOf(key []byte) int {
 	for i := 0; i < len(n.nodes); i++ {
-		if bytes.Compare(key, n.nodes[i].key) < 1 {
+		if bytes.Compare(key, n.nodes[i].maxKey()) < 1 {
 			return i
 		}
 	}
@@ -413,22 +664,71 @@ func (n *innerNode) split() (node, error) {
 func (n *innerNode) splitInfo() (splitIndex int, splitSize int) {
 	for i := 0; i < len(n.nodes); i++ {
 		splitIndex = i
-		if splitSize+len(n.nodes[i].key) > n.maxSize {
+		if splitSize+len(n.nodes[i].maxKey()) > n.maxSize {
 			break
 		}
-		splitSize += len(n.nodes[i].key)
+		splitSize += len(n.nodes[i].maxKey())
 	}
 	return
 }
 
 func (n *innerNode) updateTs() {
-	n.cts = 0
+	n._ts = 0
 	for i := 0; i < len(n.nodes); i++ {
-		if n.cts < n.nodes[i].cts {
-			n.cts = n.nodes[i].cts
+		if n.ts() < n.nodes[i].ts() {
+			n._ts = n.nodes[i].ts()
 		}
 	}
 	return
+}
+
+////////////////////////////////////////////////////////////
+func (r *nodeRef) resolve() (node, error) {
+	return r.t.readNodeAt(r.off)
+}
+
+func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	n, err := r.resolve()
+	if err != nil {
+		return nil, nil, err
+	}
+	return n.insertAt(key, value, ts)
+}
+
+func (r *nodeRef) get(key []byte) (value []byte, ts uint64, err error) {
+	n, err := r.resolve()
+	if err != nil {
+		return nil, 0, err
+	}
+	return n.get(key)
+}
+
+func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
+	n, err := r.resolve()
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return n.findLeafNode(keyPrefix, path, neqKey, ascOrder)
+}
+
+func (r *nodeRef) maxKey() []byte {
+	return r._maxKey
+}
+
+func (r *nodeRef) ts() uint64 {
+	return r._ts
+}
+
+func (r *nodeRef) size() int {
+	return r._size
+}
+
+func (r *nodeRef) mutated() bool {
+	return false
+}
+
+func (r *nodeRef) offset() int64 {
+	return r.off
 }
 
 ////////////////////////////////////////////////////////////
@@ -439,9 +739,10 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 	if found {
 		newLeaf := &leafNode{
 			prevNode: l,
-			maxSize:  l.maxSize,
-			cts:      ts,
 			values:   make([]*leafValue, len(l.values)),
+			_maxKey:  l._maxKey,
+			_ts:      ts,
+			maxSize:  l.maxSize,
 		}
 
 		copy(newLeaf.values[:i], l.values[:i])
@@ -467,10 +768,16 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 		value:  value,
 	}
 
+	maxKey := l._maxKey
+	if bytes.Compare(maxKey, key) == 1 {
+		maxKey = key
+	}
+
 	newLeaf := &leafNode{
-		maxSize: l.maxSize,
-		cts:     ts,
 		values:  make([]*leafValue, len(l.values)+1),
+		_maxKey: maxKey,
+		_ts:     ts,
+		maxSize: l.maxSize,
 	}
 
 	copy(newLeaf.values[:i], l.values[:i])
@@ -536,18 +843,25 @@ func (l *leafNode) indexOf(key []byte) (index int, found bool) {
 }
 
 func (l *leafNode) maxKey() []byte {
-	return l.values[len(l.values)-1].key
+	return l._maxKey
 }
 
 func (l *leafNode) ts() uint64 {
-	return l.cts
+	return l._ts
 }
 
 func (l *leafNode) size() int {
 	size := 1 // Node type
 
-	if l.prevNode != nil {
-		size += 8 // Prev root offset
+	if l.prevNode == nil {
+		size += 4 // Size
+	} else {
+		size += 1                        // has previous node
+		size += 4                        // Key length
+		size += len(l.prevNode.maxKey()) // Key
+		size += 8                        // Ts
+		size += 4                        // Size
+		size += 8                        // Offset
 	}
 
 	size += 4 // kv count
@@ -562,10 +876,8 @@ func (l *leafNode) size() int {
 	}
 
 	if l.prevNode != nil {
-		size += 32 // sha256
+		size += 4 // Size
 	}
-
-	size += 4 // Size
 
 	return size
 }
@@ -574,7 +886,7 @@ func (l *leafNode) mutated() bool {
 	return l.off == 0
 }
 
-func (l *leafNode) offset() uint64 {
+func (l *leafNode) offset() int64 {
 	return l.off
 }
 
@@ -610,11 +922,11 @@ func (l *leafNode) splitInfo() (splitIndex int, splitSize int) {
 }
 
 func (l *leafNode) updateTs() {
-	l.cts = 0
+	l._ts = 0
 
 	for i := 0; i < len(l.values); i++ {
-		if l.cts < l.values[i].ts {
-			l.cts = l.values[i].ts
+		if l._ts < l.values[i].ts {
+			l._ts = l.values[i].ts
 		}
 	}
 

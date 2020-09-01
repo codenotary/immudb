@@ -23,10 +23,10 @@ import (
 )
 
 func TestSnapshotSerialization(t *testing.T) {
-	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(MinNodeSize))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
 
-	monotonicInsertions(t, tbtree, 1, 257, true)
+	monotonicInsertions(t, tbtree, 1, 1, true)
 
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)

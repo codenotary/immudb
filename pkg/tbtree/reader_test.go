@@ -23,7 +23,8 @@ import (
 )
 
 func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
-	tbtree, _ := New()
+	tbtree, err := Open("tbtree.idb", DefaultOptions())
+	assert.NoError(t, err)
 
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
@@ -35,7 +36,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 }
 
 func TestReaderAscendingScan(t *testing.T) {
-	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(MinNodeSize))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
 
 	monotonicInsertions(t, tbtree, 1, 1000, true)
@@ -77,7 +78,7 @@ func TestReaderAscendingScan(t *testing.T) {
 }
 
 func TestReaderDescendingScan(t *testing.T) {
-	tbtree, err := NewWith(DefaultOptions().setMaxNodeSize(MinNodeSize))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
 
 	monotonicInsertions(t, tbtree, 1, 257, true)
@@ -108,7 +109,7 @@ func TestReaderDescendingScan(t *testing.T) {
 }
 
 func TestFullScanAscendingOrder(t *testing.T) {
-	tbtree, err := NewWith(DefaultOptions())
+	tbtree, err := Open("tbtree.idb", DefaultOptions())
 	assert.NoError(t, err)
 
 	keyCount := 10000
@@ -145,7 +146,7 @@ func TestFullScanAscendingOrder(t *testing.T) {
 }
 
 func TestFullScanDescendingOrder(t *testing.T) {
-	tbtree, err := NewWith(DefaultOptions())
+	tbtree, err := Open("tbtree.idb", DefaultOptions())
 	assert.NoError(t, err)
 
 	keyCount := 10000
