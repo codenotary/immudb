@@ -347,7 +347,9 @@ func (n *innerNode) ts() uint64 {
 func (n *innerNode) size() int {
 	size := 1 // Node type
 
-	if n.prevNode != nil {
+	if n.prevNode == nil {
+		size += 4 // Size
+	} else {
 		size += 8 // Prev root offset
 	}
 
@@ -357,13 +359,13 @@ func (n *innerNode) size() int {
 		size += 4          // Key length
 		size += len(c.key) // Key
 		size += 8          // Ts
+		size += 8          // Offset
 	}
 
 	if n.prevNode != nil {
+		size += 4  // Size
 		size += 32 // sha256
 	}
-
-	size += 4 // Size
 
 	return size
 }
