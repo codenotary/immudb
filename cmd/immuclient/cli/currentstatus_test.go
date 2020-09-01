@@ -18,6 +18,7 @@ package cli
 
 import (
 	"github.com/codenotary/immudb/pkg/client"
+	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
 
@@ -40,7 +41,8 @@ func TestCurrentRoot(t *testing.T) {
 	cli := new(cli)
 	cli.immucl = ic.Imc
 
-	_, _ = cli.safeset([]string{"key", "val"})
+	_, err := cli.safeset([]string{"key", "val"})
+	assert.NoError(t, err)
 	msg, err := cli.currentRoot([]string{""})
 
 	if err != nil {
