@@ -47,6 +47,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().String("dir", os.TempDir(), "Main directory for audit process tool to initialize")
 	cmd.PersistentFlags().String("audit-username", "", "immudb username used to login during audit")
 	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
+	cmd.PersistentFlags().String("audit-signature", "", "audit signature mode. ignore|validate. If 'ignore' is set auditor doesn't check for the root server signature. If 'validate' is set auditor verify that the root is signed properly by immudb server. Default value is 'ignore'")
 
 	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
 		return err
@@ -94,6 +95,9 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("audit-password", cmd.PersistentFlags().Lookup("audit-password")); err != nil {
 		return err
 	}
+	if err := viper.BindPFlag("audit-signature", cmd.PersistentFlags().Lookup("audit-signature")); err != nil {
+		return err
+	}
 
 	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
 	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
@@ -109,6 +113,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.SetDefault("roots-filepath", os.TempDir())
 	viper.SetDefault("audit-password", "")
 	viper.SetDefault("audit-username", "")
+	viper.SetDefault("audit-signature", "ignore")
 	viper.SetDefault("dir", os.TempDir())
 	return nil
 }
