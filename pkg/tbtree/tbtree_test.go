@@ -135,7 +135,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
 	assert.NoError(t, err)
 
-	monotonicInsertions(t, tbtree, 10, 1000, true)
+	monotonicInsertions(t, tbtree, 1, 100, true)
 
 	err = tbtree.Close()
 	assert.NoError(t, err)
