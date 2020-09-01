@@ -126,7 +126,7 @@ func (history *historyFileCache) getRootsFileInfos(dir string) ([]os.FileInfo, e
 }
 
 func (history *historyFileCache) unmarshalRoot(fpath string, databasename string) (*schema.Root, error) {
-	root := new(schema.Root)
+	root := schema.NewRoot()
 	raw, err := ioutil.ReadFile(fpath)
 	if err != nil {
 		return nil, fmt.Errorf(

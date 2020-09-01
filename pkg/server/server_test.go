@@ -463,7 +463,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 				Value: []byte("Tomba"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -472,7 +472,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 				Value: []byte("Killy"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -481,7 +481,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 				Value: []byte("Clamer"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}
@@ -579,7 +579,7 @@ func testServerSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -591,7 +591,7 @@ func testServerSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -603,7 +603,7 @@ func testServerSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}

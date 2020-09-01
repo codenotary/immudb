@@ -197,7 +197,7 @@ func (a *defaultAuditor) audit() error {
 			a.logger.Errorf(
 				"audit #%d aborted: database is empty on server %s @ %s, "+
 					"but locally a previous root exists with hash %x at index %d",
-				a.index, serverID, a.serverAddress, prevRoot.Root, prevRoot.Index)
+				a.index, serverID, a.serverAddress, prevRoot.GetRoot(), prevRoot.GetIndex())
 			withError = true
 			return noErr
 		}
@@ -212,7 +212,7 @@ func (a *defaultAuditor) audit() error {
 			return noErr
 		}
 		verified =
-			proof.Verify(schema.Root{Index: prevRoot.Index, Root: prevRoot.Root})
+			proof.Verify(schema.Root{Payload: &schema.RootIndex{Index: prevRoot.GetIndex(), Root: prevRoot.GetRoot()}})
 		firstRoot := proof.FirstRoot
 		// TODO OGG: clarify with team: why proof.FirstRoot is empty if check fails
 		if !verified && len(firstRoot) == 0 {
@@ -221,7 +221,7 @@ func (a *defaultAuditor) audit() error {
 		a.logger.Infof("audit #%d result:\n  consistent:	%t\n"+
 			"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
 			a.index, verified, firstRoot, proof.First, proof.SecondRoot, proof.Second)
-		root = &schema.Root{Index: proof.Second, Root: proof.SecondRoot}
+		root = &schema.Root{Payload: &schema.RootIndex{Index: proof.Second, Root: proof.SecondRoot}}
 		checked = true
 	} else if isEmptyDB {
 		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",

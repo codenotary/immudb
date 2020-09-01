@@ -205,8 +205,8 @@ func TestCurrentRoot(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error getting current root %s", err)
 		}
-		if r.Index != uint64(ind) {
-			t.Fatalf("root error expecting %v got %v", ind, r.Index)
+		if r.GetIndex() != uint64(ind) {
+			t.Fatalf("root error expecting %v got %v", ind, r.GetIndex())
 		}
 	}
 }
@@ -269,7 +269,7 @@ func TestSafeSetGet(t *testing.T) {
 				Value: []byte("Tomba"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -278,7 +278,7 @@ func TestSafeSetGet(t *testing.T) {
 				Value: []byte("Killy"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -287,7 +287,7 @@ func TestSafeSetGet(t *testing.T) {
 				Value: []byte("Clamer"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}
@@ -329,7 +329,7 @@ func TestSafeSetGetSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -341,7 +341,7 @@ func TestSafeSetGetSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -353,7 +353,7 @@ func TestSafeSetGetSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}
@@ -812,7 +812,7 @@ func TestCount(t *testing.T) {
 				Value: []byte("Tomba"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -821,7 +821,7 @@ func TestCount(t *testing.T) {
 				Value: []byte("Killy"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -830,7 +830,7 @@ func TestCount(t *testing.T) {
 				Value: []byte("Clamer"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}
@@ -867,7 +867,7 @@ func TestScanSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -879,7 +879,7 @@ func TestScanSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -891,7 +891,7 @@ func TestScanSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}
@@ -928,7 +928,7 @@ func TestIscanSv(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -940,7 +940,7 @@ func TestIscanSv(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -952,7 +952,7 @@ func TestIscanSv(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}
@@ -999,7 +999,7 @@ func TestZScanSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -1011,7 +1011,7 @@ func TestZScanSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 		{
@@ -1023,7 +1023,7 @@ func TestZScanSV(t *testing.T) {
 				},
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}
@@ -1093,7 +1093,7 @@ func TestSafeReference(t *testing.T) {
 				Value: []byte("Tomba"),
 			},
 			RootIndex: &schema.Index{
-				Index: root.Index,
+				Index: root.GetIndex(),
 			},
 		},
 	}
@@ -1109,7 +1109,7 @@ func TestSafeReference(t *testing.T) {
 			Reference: []byte("Skii"),
 		},
 		RootIndex: &schema.Index{
-			Index: root.Index,
+			Index: root.GetIndex(),
 		},
 	})
 	if err != nil {

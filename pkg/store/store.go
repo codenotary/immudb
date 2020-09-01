@@ -115,14 +115,14 @@ func (t *Store) Wait() {
 // CurrentRoot returns the index and the hash of the current tree root, if any.
 // When the tree is empty and no root is available then the zerovalue for _schema.Root_ is returned instead.
 func (t *Store) CurrentRoot() (root *schema.Root, err error) {
-	root = &schema.Root{}
+	root = schema.NewRoot()
 
 	t.tree.RLock()
 	defer t.tree.RUnlock()
 	if w := t.tree.Width(); w > 0 {
 		r := merkletree.Root(t.tree)
-		root.Root = r[:]
-		root.Index = w - 1
+		root.SetRoot(r[:])
+		root.SetIndex(w - 1)
 	}
 
 	return

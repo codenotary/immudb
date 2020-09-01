@@ -92,6 +92,6 @@ func TestConsistency(t *testing.T) {
 	assert.Equal(t, index, proof.First)
 	assert.Equal(t, at, proof.Second)
 	assert.Equal(t, root64th[:], proof.SecondRoot)
-	assert.True(t, proof.Verify(schema.Root{Index: index, Root: root5th[:]}))
+	assert.True(t, proof.Verify(schema.Root{Payload: &schema.RootIndex{Index: index, Root: root5th[:]}}))
 	assert.Equal(t, root5th[:], proof.FirstRoot)
 }
