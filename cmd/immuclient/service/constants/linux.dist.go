@@ -47,7 +47,8 @@ var UsageDet = fmt.Sprintf(`Config file is present in %s. Log file is in /var/lo
 // UsageExamples usage examples for linux
 var UsageExamples = `
 Install immudb immutable database and immuclient
-immuclient audit-mode install    -  Initializes and runs daemon
+immuclient audit-mode            -  Run a foreground auditor
+immuclient audit-mode install    -  Install and runs daemon
 immuclient audit-mode stop       -  Stops the daemon
 immuclient audit-mode start      -  Starts initialized daemon
 immuclient audit-mode restart    -  Restarts daemon
