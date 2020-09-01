@@ -77,6 +77,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	ctx = context.Background()
 	auditUsername := viper.GetString("audit-username")
 	auditPassword, err := auth.DecodeBase64Password(viper.GetString("audit-password"))
+	auditSignature := viper.GetString("audit-signature")
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +91,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		cliOpts.DialOptions,
 		auditUsername,
 		auditPassword,
+		auditSignature,
+		*sclient,
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
 		cAgent.metrics.updateMetrics, cAgent.logger)
 	if err != nil {

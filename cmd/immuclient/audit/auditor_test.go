@@ -67,3 +67,27 @@ func TestInitAgent(t *testing.T) {
 	require.Contains(t, err.Error(), "Invalid login operation")
 	viper.Set("audit-password", auditPassword)
 }
+
+/*func TestValidateSignatureAgentError(t *testing.T) {
+	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	bs := servertest.NewBufconnServer(srvoptions)
+	bs.Start()
+
+	os.Setenv("audit-agent-interval", "1s")
+	pidPath := "pid_path"
+	os.RemoveAll(pidPath)
+	defer os.RemoveAll(pidPath)
+	viper.Set("pidfile", pidPath)
+	viper.Set("audit-signature", "validate")
+
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+	ad := new(auditAgent)
+	ad.logger = logger.NewSimpleLogger("ValidateSignatureAgent", os.Stderr)
+	ad.opts = options().WithMetrics(false).WithDialOptions(&dialOptions).WithMTLs(false)
+	_, err := ad.InitAgent()
+
+	require.Error(t, err)
+	os.RemoveAll(pidPath)
+}*/

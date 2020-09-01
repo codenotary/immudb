@@ -18,6 +18,8 @@ package auditor
 
 import (
 	"context"
+	"errors"
+	"google.golang.org/grpc/metadata"
 	"regexp"
 	"strings"
 	"time"
@@ -39,18 +41,20 @@ type Auditor interface {
 }
 
 type defaultAuditor struct {
-	index         uint64
-	databaseIndex int
-	logger        logger.Logger
-	serverAddress string
-	dialOptions   []grpc.DialOption
-	history       cache.HistoryCache
-	ts            client.TimestampService
-	username      []byte
-	databases     []string
-	password      []byte
-	slugifyRegExp *regexp.Regexp
-	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
+	index          uint64
+	databaseIndex  int
+	logger         logger.Logger
+	serverAddress  string
+	dialOptions    []grpc.DialOption
+	history        cache.HistoryCache
+	ts             client.TimestampService
+	username       []byte
+	databases      []string
+	password       []byte
+	auditSignature string
+	serviceClient  schema.ImmuServiceClient
+	slugifyRegExp  *regexp.Regexp
+	updateMetrics  func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
 }
 
 // DefaultAuditor creates initializes a default auditor implementation
@@ -60,9 +64,19 @@ func DefaultAuditor(
 	dialOptions *[]grpc.DialOption,
 	username string,
 	passwordBase64 string,
+	auditSignature string,
+	serviceClient schema.ImmuServiceClient,
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
 	log logger.Logger) (Auditor, error) {
+
+	switch auditSignature {
+	case "validate":
+	case "ignore":
+	case "":
+	default:
+		return nil, errors.New("auditSignature allowed values are 'validate' or 'ignore'")
+	}
 
 	password, err := auth.DecodeBase64Password(passwordBase64)
 	if err != nil {
@@ -88,6 +102,8 @@ func DefaultAuditor(
 		[]byte(username),
 		nil,
 		[]byte(password),
+		auditSignature,
+		serviceClient,
 		slugifyRegExp,
 		updateMetrics,
 	}, nil
@@ -99,7 +115,9 @@ func (a *defaultAuditor) Run(
 	stopc <-chan struct{},
 	donec chan<- struct{},
 ) (err error) {
-	defer func() { donec <- struct{}{} }()
+	defer func() {
+		donec <- struct{}{}
+	}()
 	a.logger.Infof("starting auditor with a %s interval ...", interval)
 	if singleRun {
 		err = a.audit()
@@ -133,18 +151,23 @@ func (a *defaultAuditor) audit() error {
 	var noErr error
 
 	ctx := context.Background()
-	conn, err := a.connect(ctx)
+	loginResponse, err := a.serviceClient.Login(ctx, &schema.LoginRequest{
+		User:     a.username,
+		Password: a.password,
+	})
 	if err != nil {
-		withError = true
-		return noErr
+		a.logger.Errorf("error logging in with user %s: %v", a.username, err)
+		return err
 	}
-	defer a.closeConnection(conn)
+	defer a.serviceClient.Logout(ctx, &empty.Empty{})
 
-	serviceClient := schema.NewImmuServiceClient(conn)
+	md := metadata.Pairs("authorization", loginResponse.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
 	//check if we have cycled through the list of databases
 	if a.databaseIndex == len(a.databases) {
 		//if we have reached the end get a fresh list of dbs that belong to the user
-		dbs, err := serviceClient.DatabaseList(ctx, &emptypb.Empty{})
+		dbs, err := a.serviceClient.DatabaseList(ctx, &emptypb.Empty{})
 		if err != nil {
 			a.logger.Errorf("error getting a list of databases %v", err)
 			withError = true
@@ -156,7 +179,7 @@ func (a *defaultAuditor) audit() error {
 		a.databaseIndex = 0
 	}
 	dbName := a.databases[a.databaseIndex]
-	resp, err := serviceClient.UseDatabase(ctx, &schema.Database{
+	resp, err := a.serviceClient.UseDatabase(ctx, &schema.Database{
 		Databasename: dbName,
 	})
 	if err != nil {
@@ -165,27 +188,32 @@ func (a *defaultAuditor) audit() error {
 		return noErr
 	}
 
-	conn, err = a.connectionWithToken(resp.Token)
-	if err != nil {
-		a.logger.Errorf("", err)
-		withError = true
-		return noErr
-	}
-	serviceClient = schema.NewImmuServiceClient(conn)
+	md = metadata.Pairs("authorization", resp.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	a.logger.Infof("Auditing database %s\n", dbName)
 	a.databaseIndex++
 
-	root, err = serviceClient.CurrentRoot(ctx, &empty.Empty{})
+	root, err = a.serviceClient.CurrentRoot(ctx, &empty.Empty{})
 	if err != nil {
 		a.logger.Errorf("error getting current root: %v", err)
 		withError = true
 		return noErr
 	}
 
+	if a.auditSignature == "validate" {
+		if okSig, err := root.CheckSignature(); err != nil || !okSig {
+			a.logger.Errorf(
+				"audit #%d aborted: could not verify signature on server root at %s @ %s",
+				a.index, serverID, a.serverAddress)
+			withError = true
+			return noErr
+		}
+	}
+
 	isEmptyDB := len(root.Payload.GetRoot()) == 0 && root.Payload.GetIndex() == 0
 
-	serverID = a.getServerID(ctx, serviceClient)
+	serverID = a.getServerID(ctx, a.serviceClient)
 	prevRoot, err = a.history.Get(serverID, dbName)
 	if err != nil {
 		a.logger.Errorf(err.Error())
@@ -201,7 +229,7 @@ func (a *defaultAuditor) audit() error {
 			withError = true
 			return noErr
 		}
-		proof, err := serviceClient.Consistency(ctx, &schema.Index{
+		proof, err := a.serviceClient.Consistency(ctx, &schema.Index{
 			Index: prevRoot.Payload.GetIndex(),
 		})
 		if err != nil {
@@ -246,51 +274,6 @@ func (a *defaultAuditor) audit() error {
 	return noErr
 }
 
-func (a *defaultAuditor) connect(ctx context.Context) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(a.serverAddress, a.dialOptions...)
-	if err != nil {
-		a.logger.Errorf(
-			"error dialing (pre-login) to immudb @ %s: %v", a.serverAddress, err)
-		return nil, err
-	}
-	defer a.closeConnection(conn)
-	serviceClient := schema.NewImmuServiceClient(conn)
-	loginResponse, err := serviceClient.Login(ctx, &schema.LoginRequest{
-		User:     a.username,
-		Password: a.password,
-	})
-	if err != nil {
-		a.logger.Errorf("error logging in with user %s: %v", a.username, err)
-		return nil, err
-	}
-	var connWithToken *grpc.ClientConn
-	if loginResponse != nil {
-		token := string(loginResponse.GetToken())
-		connWithToken, err = a.connectionWithToken(token)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		connWithToken, err = a.connectionWithToken("")
-		if err != nil {
-			return nil, err
-		}
-	}
-	return connWithToken, nil
-}
-func (a *defaultAuditor) connectionWithToken(token string) (*grpc.ClientConn, error) {
-
-	a.dialOptions = append(a.dialOptions,
-		grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))
-
-	connWithToken, err := grpc.Dial(a.serverAddress, a.dialOptions...)
-	if err != nil {
-		a.logger.Errorf(
-			"error dialing to immudb @ %s: %v", a.serverAddress, err)
-		return nil, err
-	}
-	return connWithToken, nil
-}
 func (a *defaultAuditor) getServerID(
 	ctx context.Context,
 	serviceClient schema.ImmuServiceClient,

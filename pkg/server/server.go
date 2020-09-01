@@ -97,6 +97,14 @@ func (s *ImmuServer) Start() error {
 		return err
 	}
 
+	if s.Options.SignaturePrivateKey != "" {
+		if signer, err := signer.NewSigner(s.Options.SignaturePrivateKey); err == nil {
+			s.RootSigner = NewRootSigner(signer)
+		} else {
+			return err
+		}
+	}
+
 	var listener net.Listener
 	if s.Options.usingCustomListener {
 		s.Logger.Infof("Using custom listener")
@@ -114,6 +122,7 @@ func (s *ImmuServer) Start() error {
 	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
 		return err
 	}
+
 	auth.AuthEnabled = s.Options.GetAuth()
 	auth.DevMode = s.Options.DevMode
 	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
@@ -173,14 +182,6 @@ func (s *ImmuServer) Start() error {
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
 	)
-
-	if s.Options.SignaturePrivateKey != "" {
-		if signer, err := signer.NewSigner(s.Options.SignaturePrivateKey); err == nil {
-			s.RootSigner = NewRootSigner(signer)
-		} else {
-			return err
-		}
-	}
 
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)

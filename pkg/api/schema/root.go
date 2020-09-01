@@ -16,6 +16,27 @@ limitations under the License.
 
 package schema
 
+import (
+	"errors"
+	"github.com/codenotary/immudb/pkg/signer"
+	"github.com/golang/protobuf/proto"
+)
+
 func NewRoot() *Root {
 	return &Root{Payload: &RootIndex{}, Signature: &Signature{}}
+}
+
+//CheckSignature
+func (r *Root) CheckSignature() (ok bool, err error) {
+	if r.Signature.PublicKey == nil {
+		return false, errors.New("no public key found")
+	}
+	if r.Signature.Signature == nil {
+		return false, errors.New("no signature found")
+	}
+	var m []byte
+	if m, err = proto.Marshal(r.Payload); err != nil {
+		return ok, err
+	}
+	return signer.Verify(m, r.Signature.Signature, r.Signature.PublicKey)
 }
