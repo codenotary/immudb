@@ -16,11 +16,20 @@ limitations under the License.
 package tbtree
 
 import (
+	"encoding/binary"
 	"errors"
+	"io"
 	"sync"
 )
 
 var ErrReadersNotClosed = errors.New("readers not closed")
+
+const (
+	InnerNodeType = iota
+	RootInnerNodeType
+	LeafNodeType
+	RootLeafNodeType
+)
 
 type Snapshot struct {
 	t           *TBtree
@@ -93,6 +102,19 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 	return reader, nil
 }
 
+func (s *Snapshot) closedReader(r *Reader) error {
+	s.rwmutex.Lock()
+	defer s.rwmutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	delete(s.readers, r.id)
+
+	return nil
+}
+
 func (s *Snapshot) Close() error {
 	s.rwmutex.Lock()
 	defer s.rwmutex.Unlock()
@@ -115,15 +137,173 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) closedReader(r *Reader) error {
-	s.rwmutex.Lock()
-	defer s.rwmutex.Unlock()
+func (s *Snapshot) WriteTo(w io.Writer, onlyMutated bool, onlyLatest bool) error {
+	return s.root.writeTo(w, onlyMutated, onlyLatest)
+}
 
-	if s.closed {
-		return ErrAlreadyClosed
+func (n *innerNode) writeTo(w io.Writer, onlyMutated bool, onlyLatest bool) error {
+	if onlyMutated && n.off > 0 {
+		//TODO: let node manager know this node can be recycled
+		return nil
 	}
 
-	delete(s.readers, r.id)
+	if !onlyLatest && n.prevNode != nil {
+		err := n.prevNode.writeTo(w, onlyMutated, onlyLatest)
+		if err != nil {
+			return err
+		}
+	}
 
+	for _, c := range n.nodes {
+		if onlyMutated && !c.node.mutated() {
+			continue
+		}
+
+		err := c.node.writeTo(w, onlyMutated, onlyLatest)
+		if err != nil {
+			return err
+		}
+	}
+
+	buf := make([]byte, n.size())
+	i := 0
+
+	if n.prevNode == nil {
+		buf[i] = InnerNodeType
+		i++
+
+		binary.LittleEndian.PutUint32(buf[i:], uint32(len(buf))) // Size
+		i += 4
+	} else {
+		buf[i] = RootInnerNodeType
+		i++
+	}
+
+	if !onlyLatest && n.prevNode != nil {
+		binary.LittleEndian.PutUint64(buf[i:], n.prevNode.offset())
+		i += 8
+	}
+
+	binary.LittleEndian.PutUint32(buf[i:], uint32(len(n.nodes)))
+	i += 4
+
+	for _, c := range n.nodes {
+		binary.LittleEndian.PutUint32(buf[i:], uint32(len(c.key)))
+		i += 4
+
+		copy(buf[i:], c.key)
+		i += len(c.key)
+
+		binary.LittleEndian.PutUint64(buf[i:], c.cts)
+		i += 8
+
+		binary.LittleEndian.PutUint64(buf[i:], c.node.offset())
+		i += 8
+	}
+
+	if n.prevNode != nil {
+		binary.LittleEndian.PutUint32(buf[i:], uint32(len(buf))) // Size
+		i += 4
+
+		// TODO: calculate hash
+		i += 32
+	}
+
+	//TODO: let node manager know this node can be recycled
+
+	return writeTo(buf, w)
+}
+
+func (l *leafNode) writeTo(w io.Writer, onlyMutated bool, onlyLatest bool) error {
+	if onlyMutated && l.off > 0 {
+		//TODO: let node manager know this node can be recycled
+		return nil
+	}
+
+	if !onlyLatest && l.prevNode != nil {
+		err := l.prevNode.writeTo(w, onlyMutated, onlyLatest)
+		if err != nil {
+			return err
+		}
+	}
+
+	buf := make([]byte, l.size())
+	i := 0
+
+	if l.prevNode == nil {
+		buf[i] = LeafNodeType
+		i++
+
+		binary.LittleEndian.PutUint32(buf[i:], uint32(len(buf))) // Size
+		i += 4
+	} else {
+		buf[i] = RootLeafNodeType
+		i++
+	}
+
+	if !onlyLatest && l.prevNode != nil {
+		binary.LittleEndian.PutUint64(buf[i:], l.prevNode.offset())
+		i += 8
+	}
+
+	binary.LittleEndian.PutUint32(buf[i:], uint32(len(l.values)))
+	i += 4
+
+	for _, v := range l.values {
+		binary.LittleEndian.PutUint32(buf[i:], uint32(len(v.key)))
+		i += 4
+
+		copy(buf[i:], v.key)
+		i += len(v.key)
+
+		binary.LittleEndian.PutUint32(buf[i:], uint32(len(v.value)))
+		i += 4
+
+		copy(buf[i:], v.value)
+		i += len(v.value)
+
+		binary.LittleEndian.PutUint64(buf[i:], v.ts)
+		i += 8
+
+		binary.LittleEndian.PutUint64(buf[i:], v.prevTs)
+		i += 8
+	}
+
+	if l.prevNode != nil {
+		binary.LittleEndian.PutUint32(buf[i:], uint32(len(buf))) // Size
+		i += 4
+
+		// TODO: calculate hash
+		i += 32
+	}
+
+	//TODO: let node manager know this node can be recycled
+
+	return writeTo(buf, w)
+}
+
+func (n *nodeRef) writeTo(w io.Writer, onlyMutated bool, onlyLatest bool) error {
+	if !onlyMutated {
+		return nil
+	}
+
+	//TODO: load from nodeManager and call writeTo
+
+	return nil
+}
+
+func writeTo(buf []byte, w io.Writer) error {
+	wn := 0
+	for {
+		n, err := w.Write(buf)
+		if err != nil {
+			return err
+		}
+		wn += n
+
+		if len(buf) == wn {
+			break
+		}
+	}
 	return nil
 }

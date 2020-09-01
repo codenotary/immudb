@@ -18,6 +18,7 @@ package tbtree
 import (
 	"bytes"
 	"errors"
+	"io"
 	"sync"
 )
 
@@ -86,28 +87,30 @@ type node interface {
 	findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error)
 	maxKey() []byte
 	ts() uint64
+	size() int
+	mutated() bool
+	offset() uint64
+	writeTo(w io.Writer, onlyMutated bool, onlyLatest bool) error
 }
 
 type innerNode struct {
 	prevNode node
 	nodes    []*childRef
 	cts      uint64
-	csize    int
 	maxSize  int
-	offset   uint64
+	off      uint64
 }
 
 type leafNode struct {
 	prevNode node
 	values   []*leafValue
 	cts      uint64
-	csize    int
 	maxSize  int
-	offset   uint64
+	off      uint64
 }
 
 type nodeRef struct {
-	offset uint64
+	off uint64
 }
 
 type leafValue struct {
@@ -201,8 +204,6 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 	ns[0] = &childRef{key: n1.maxKey(), cts: n1.ts(), node: n1}
 	ns[1] = &childRef{key: n2.maxKey(), cts: n2.ts(), node: n2}
 
-	newRoot.updateSize()
-
 	t.root = newRoot
 
 	return nil
@@ -282,16 +283,13 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 			copy(newNode.nodes[insertAt+1:], n.nodes[insertAt+1:])
 		}
 
-		newNode.updateSize()
-
 		return newNode, nil, nil
 	}
 
 	newNode := &innerNode{
-		prevNode: n,
-		maxSize:  n.maxSize,
-		nodes:    make([]*childRef, len(n.nodes)+1),
-		cts:      ts,
+		maxSize: n.maxSize,
+		nodes:   make([]*childRef, len(n.nodes)+1),
+		cts:     ts,
 	}
 
 	copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
@@ -302,8 +300,6 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 	if insertAt+2 < len(newNode.nodes) {
 		copy(newNode.nodes[insertAt+2:], n.nodes[insertAt+1:])
 	}
-
-	newNode.updateSize()
 
 	n2, err = newNode.split()
 
@@ -348,12 +344,36 @@ func (n *innerNode) ts() uint64 {
 	return n.cts
 }
 
-func (n *innerNode) updateSize() {
-	n.csize = 0
+func (n *innerNode) size() int {
+	size := 1 // Node type
 
-	for i := 0; i < len(n.nodes); i++ {
-		n.csize += len(n.nodes[i].key)
+	if n.prevNode != nil {
+		size += 8 // Prev root offset
 	}
+
+	size += 4 // Child count
+
+	for _, c := range n.nodes {
+		size += 4          // Key length
+		size += len(c.key) // Key
+		size += 8          // Ts
+	}
+
+	if n.prevNode != nil {
+		size += 32 // sha256
+	}
+
+	size += 4 // Size
+
+	return size
+}
+
+func (n *innerNode) mutated() bool {
+	return n.off == 0
+}
+
+func (n *innerNode) offset() uint64 {
+	return n.off
 }
 
 func (n *innerNode) maxKey() []byte {
@@ -370,21 +390,19 @@ func (n *innerNode) indexOf(key []byte) int {
 }
 
 func (n *innerNode) split() (node, error) {
-	if n.csize <= n.maxSize {
+	if n.size() <= n.maxSize {
 		return nil, nil
 	}
 
-	splitIndex, splitSize := n.splitInfo()
+	splitIndex, _ := n.splitInfo()
 
 	newNode := &innerNode{
 		maxSize: n.maxSize,
 		nodes:   n.nodes[splitIndex:],
-		csize:   n.csize - splitSize,
 	}
 	newNode.updateTs()
 
 	n.nodes = n.nodes[:splitIndex]
-	n.csize = splitSize
 	n.updateTs()
 
 	return newNode, nil
@@ -422,7 +440,6 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 			maxSize:  l.maxSize,
 			cts:      ts,
 			values:   make([]*leafValue, len(l.values)),
-			csize:    l.csize,
 		}
 
 		copy(newLeaf.values[:i], l.values[:i])
@@ -449,11 +466,9 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 	}
 
 	newLeaf := &leafNode{
-		prevNode: l,
-		maxSize:  l.maxSize,
-		cts:      ts,
-		values:   make([]*leafValue, len(l.values)+1),
-		csize:    l.csize + lv.size(),
+		maxSize: l.maxSize,
+		cts:     ts,
+		values:  make([]*leafValue, len(l.values)+1),
 	}
 
 	copy(newLeaf.values[:i], l.values[:i])
@@ -526,22 +541,55 @@ func (l *leafNode) ts() uint64 {
 	return l.cts
 }
 
+func (l *leafNode) size() int {
+	size := 1 // Node type
+
+	if l.prevNode != nil {
+		size += 8 // Prev root offset
+	}
+
+	size += 4 // kv count
+
+	for _, kv := range l.values {
+		size += 4             // Key length
+		size += len(kv.key)   // Key
+		size += 4             // Value length
+		size += len(kv.value) // Value
+		size += 8             // Ts
+		size += 8             // Prev Ts
+	}
+
+	if l.prevNode != nil {
+		size += 32 // sha256
+	}
+
+	size += 4 // Size
+
+	return size
+}
+
+func (l *leafNode) mutated() bool {
+	return l.off == 0
+}
+
+func (l *leafNode) offset() uint64 {
+	return l.off
+}
+
 func (l *leafNode) split() (node, error) {
-	if l.csize <= l.maxSize {
+	if l.size() <= l.maxSize {
 		return nil, nil
 	}
 
-	splitIndex, splitSize := l.splitInfo()
+	splitIndex, _ := l.splitInfo()
 
 	newLeaf := &leafNode{
 		maxSize: l.maxSize,
 		values:  l.values[splitIndex:],
-		csize:   l.csize - splitSize,
 	}
 	newLeaf.updateTs()
 
 	l.values = l.values[:splitIndex]
-	l.csize = splitSize
 	l.updateTs()
 
 	return newLeaf, nil
