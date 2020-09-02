@@ -137,28 +137,31 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) WriteTo(w io.Writer, onlyMutated bool) error {
-	return s.root.writeTo(w, true, onlyMutated)
+func (s *Snapshot) WriteTo(w io.Writer, onlyMutated bool, baseOffset int64) (int64, error) {
+	return s.root.writeTo(w, true, onlyMutated, baseOffset)
 }
 
-func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
+func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffset int64) (int64, error) {
 	if onlyMutated && n.off > 0 {
 		//TODO: let node manager know this node can be recycled
-		return nil
+		return 0, nil
 	}
+
+	var cw int64
 
 	for _, c := range n.nodes {
 		if onlyMutated && !c.mutated() {
 			continue
 		}
 
-		err := c.writeTo(w, false, onlyMutated)
+		w, err := c.writeTo(w, false, onlyMutated, baseOffset+cw)
 		if err != nil {
-			return err
+			return 0, err
 		}
+		cw += w
 	}
 
-	size := uint32(n.size())
+	size := n.size()
 
 	buf := make([]byte, size+4)
 	i := 0
@@ -170,7 +173,7 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
 	}
 	i++
 
-	binary.BigEndian.PutUint32(buf[i:], size) // Size
+	binary.BigEndian.PutUint32(buf[i:], uint32(size)) // Size
 	i += 4
 
 	binary.BigEndian.PutUint32(buf[i:], uint32(len(n.nodes)))
@@ -182,27 +185,35 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
 	}
 
 	if asRoot {
-		binary.BigEndian.PutUint32(buf[i:], size) // Size
+		binary.BigEndian.PutUint32(buf[i:], uint32(size)) // Size
 		i += 4
 	}
 
 	err := writeTo(buf[:i], w)
 	if err != nil {
-		return err
+		return 0, err
+	}
+
+	n.off = baseOffset + cw
+
+	tw := cw + int64(size)
+
+	if asRoot {
+		tw += 4
 	}
 
 	//TODO: let node manager know this node can be recycled
 
-	return nil
+	return tw, nil
 }
 
-func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
+func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffset int64) (int64, error) {
 	if onlyMutated && l.off > 0 {
 		//TODO: let node manager know this node can be recycled
-		return nil
+		return 0, nil
 	}
 
-	size := uint32(l.size())
+	size := l.size()
 	buf := make([]byte, size+4)
 	i := 0
 
@@ -213,7 +224,7 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
 	}
 	i++
 
-	binary.BigEndian.PutUint32(buf[i:], size) // Size
+	binary.BigEndian.PutUint32(buf[i:], uint32(size)) // Size
 	i += 4
 
 	binary.BigEndian.PutUint32(buf[i:], uint32(len(l.values)))
@@ -240,31 +251,39 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
 	}
 
 	if asRoot {
-		binary.BigEndian.PutUint32(buf[i:], size) // Size
+		binary.BigEndian.PutUint32(buf[i:], uint32(size)) // Size
 		i += 4
 	}
 
 	err := writeTo(buf[:i], w)
 	if err != nil {
-		return err
+		return 0, err
+	}
+
+	l.off = baseOffset
+
+	tw := int64(size)
+
+	if asRoot {
+		tw += 4
 	}
 
 	//TODO: let node manager know this node can be recycled
 
-	return nil
+	return tw, nil
 }
 
-func (n *nodeRef) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
+func (n *nodeRef) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffset int64) (int64, error) {
 	if !onlyMutated {
-		return nil
+		return 0, nil
 	}
 
 	node, err := n.resolve()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return node.writeTo(w, asRoot, onlyMutated)
+	return node.writeTo(w, asRoot, onlyMutated, baseOffset)
 }
 
 func writeNodeRefTo(n node, buf []byte) int {

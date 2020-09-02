@@ -48,9 +48,9 @@ type TBtree struct {
 	insertionCountThreshold int
 	maxActiveSnapshots      int
 	readOnly                bool
-	lastFlushedTs           uint64
 	snapshots               map[uint64]*Snapshot
 	maxSnapshotID           uint64
+	currentOffset           int64
 	closed                  bool
 	rwmutex                 sync.RWMutex
 }
@@ -109,7 +109,7 @@ type node interface {
 	size() int
 	mutated() bool
 	offset() int64
-	writeTo(w io.Writer, asRoot bool, onlyMutated bool) error
+	writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffset int64) (int64, error)
 }
 
 type innerNode struct {
@@ -198,6 +198,8 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		t.currentOffset = stat.Size()
 	}
 
 	t.root = root
@@ -279,7 +281,7 @@ func (t *TBtree) readNodeRefFrom(buf []byte) (*nodeRef, int) {
 	i += 4
 
 	key := make([]byte, ksize)
-	copy(key, buf[i:ksize])
+	copy(key, buf[i:i+ksize])
 	i += ksize
 
 	ts := binary.BigEndian.Uint64(buf[i:])
@@ -319,15 +321,15 @@ func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafN
 		i += 4
 
 		key := make([]byte, ksize)
-		copy(key, buf[i:ksize])
+		copy(key, buf[i:i+ksize])
 		i += ksize
 
 		vsize := int(binary.BigEndian.Uint32(buf[i:]))
 		i += 4
 
 		value := make([]byte, vsize)
-		copy(value, buf[i:ksize])
-		i += ksize
+		copy(value, buf[i:i+vsize])
+		i += vsize
 
 		ts := binary.BigEndian.Uint64(buf[i:])
 		i += 8
@@ -341,6 +343,8 @@ func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafN
 			ts:     ts,
 			prevTs: prevTs,
 		}
+
+		l.values[c] = leafValue
 
 		if bytes.Compare(l._maxKey, leafValue.key) < 0 {
 			l._maxKey = leafValue.key
