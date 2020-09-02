@@ -137,21 +137,14 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) WriteTo(w io.Writer, onlyMutated bool, onlyLatest bool) error {
-	return s.root.writeTo(w, true, onlyMutated, onlyLatest)
+func (s *Snapshot) WriteTo(w io.Writer, onlyMutated bool) error {
+	return s.root.writeTo(w, true, onlyMutated)
 }
 
-func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLatest bool) error {
+func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
 	if onlyMutated && n.off > 0 {
 		//TODO: let node manager know this node can be recycled
 		return nil
-	}
-
-	if !onlyLatest && n.prevNode != nil {
-		err := n.prevNode.writeTo(w, asRoot, onlyMutated, onlyLatest)
-		if err != nil {
-			return err
-		}
 	}
 
 	for _, c := range n.nodes {
@@ -159,7 +152,7 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLate
 			continue
 		}
 
-		err := c.writeTo(w, false, onlyMutated, onlyLatest)
+		err := c.writeTo(w, false, onlyMutated)
 		if err != nil {
 			return err
 		}
@@ -179,17 +172,6 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLate
 
 	binary.BigEndian.PutUint32(buf[i:], size) // Size
 	i += 4
-
-	if !onlyLatest && asRoot && n.prevNode != nil {
-		buf[i] = 1
-		i++
-
-		n := writeNodeRefTo(n.prevNode, buf[i:])
-		i += n
-	} else {
-		buf[i] = 0
-		i++
-	}
 
 	binary.BigEndian.PutUint32(buf[i:], uint32(len(n.nodes)))
 	i += 4
@@ -214,17 +196,10 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLate
 	return nil
 }
 
-func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLatest bool) error {
+func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
 	if onlyMutated && l.off > 0 {
 		//TODO: let node manager know this node can be recycled
 		return nil
-	}
-
-	if !onlyLatest && l.prevNode != nil {
-		err := l.prevNode.writeTo(w, asRoot, onlyMutated, onlyLatest)
-		if err != nil {
-			return err
-		}
 	}
 
 	size := uint32(l.size())
@@ -240,19 +215,6 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLates
 
 	binary.BigEndian.PutUint32(buf[i:], size) // Size
 	i += 4
-
-	if !onlyLatest && asRoot {
-		if l.prevNode == nil {
-			buf[i] = 0
-			i++
-		} else {
-			buf[i] = 1
-			i++
-
-			n := writeNodeRefTo(l.prevNode, buf[i:])
-			i += n
-		}
-	}
 
 	binary.BigEndian.PutUint32(buf[i:], uint32(len(l.values)))
 	i += 4
@@ -292,7 +254,7 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLates
 	return nil
 }
 
-func (n *nodeRef) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLatest bool) error {
+func (n *nodeRef) writeTo(w io.Writer, asRoot bool, onlyMutated bool) error {
 	if !onlyMutated {
 		return nil
 	}
@@ -302,7 +264,7 @@ func (n *nodeRef) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLatest
 		return err
 	}
 
-	return node.writeTo(w, asRoot, onlyMutated, onlyLatest)
+	return node.writeTo(w, asRoot, onlyMutated)
 }
 
 func writeNodeRefTo(n node, buf []byte) int {

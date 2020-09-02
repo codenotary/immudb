@@ -16,7 +16,6 @@ limitations under the License.
 package tbtree
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +24,7 @@ import (
 func TestSnapshotSerialization(t *testing.T) {
 	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
-	defer os.Remove("tbtree.idb")
+	//defer os.Remove("tbtree.idb")
 
 	//randomInsertions(t, tbtree, 10, true)
 	monotonicInsertions(t, tbtree, 1, 10, true)
@@ -34,7 +33,7 @@ func TestSnapshotSerialization(t *testing.T) {
 	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
 
-	err = snapshot.WriteTo(tbtree.f, true, true)
+	err = snapshot.WriteTo(tbtree.f, true)
 	assert.NoError(t, err)
 
 	err = snapshot.Close()

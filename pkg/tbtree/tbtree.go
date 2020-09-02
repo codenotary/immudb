@@ -109,25 +109,23 @@ type node interface {
 	size() int
 	mutated() bool
 	offset() int64
-	writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLatest bool) error
+	writeTo(w io.Writer, asRoot bool, onlyMutated bool) error
 }
 
 type innerNode struct {
-	prevNode node
-	nodes    []node
-	_maxKey  []byte
-	_ts      uint64
-	maxSize  int
-	off      int64
+	nodes   []node
+	_maxKey []byte
+	_ts     uint64
+	maxSize int
+	off     int64
 }
 
 type leafNode struct {
-	prevNode node
-	values   []*leafValue
-	_maxKey  []byte
-	_ts      uint64
-	maxSize  int
-	off      int64
+	values  []*leafValue
+	_maxKey []byte
+	_ts     uint64
+	maxSize int
+	off     int64
 }
 
 type nodeRef struct {
@@ -247,29 +245,15 @@ func (t *TBtree) readNodeAt(offset int64) (node, error) {
 func (t *TBtree) readInnerNodeFrom(buf []byte, asRoot bool, offset int64) (*innerNode, error) {
 	i := 0
 
-	var prevNode node
-
-	if asRoot {
-		hasPrevNode := buf[i]
-		i++
-
-		if hasPrevNode > 0 {
-			nref, sz := t.readNodeRefFrom(buf[i:])
-			i += sz
-			prevNode = nref
-		}
-	}
-
 	childCount := int(binary.BigEndian.Uint32(buf[i:]))
 	i += 4
 
 	n := &innerNode{
-		prevNode: prevNode,
-		nodes:    make([]node, childCount),
-		_maxKey:  nil,
-		_ts:      0,
-		maxSize:  t.maxNodeSize,
-		off:      offset,
+		nodes:   make([]node, childCount),
+		_maxKey: nil,
+		_ts:     0,
+		maxSize: t.maxNodeSize,
+		off:     offset,
 	}
 
 	for c := 0; c < childCount; c++ {
@@ -319,29 +303,15 @@ func (t *TBtree) readNodeRefFrom(buf []byte) (*nodeRef, int) {
 func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafNode, error) {
 	i := 0
 
-	var prevNode node
-
-	if asRoot {
-		hasPrevNode := buf[i]
-		i++
-
-		if hasPrevNode > 0 {
-			nref, sz := t.readNodeRefFrom(buf[i:])
-			i += sz
-			prevNode = nref
-		}
-	}
-
 	valueCount := int(binary.BigEndian.Uint32(buf[i:]))
 	i += 4
 
 	l := &leafNode{
-		prevNode: prevNode,
-		values:   make([]*leafValue, valueCount),
-		_maxKey:  nil,
-		_ts:      0,
-		maxSize:  t.maxNodeSize,
-		off:      offset,
+		values:  make([]*leafValue, valueCount),
+		_maxKey: nil,
+		_ts:     0,
+		maxSize: t.maxNodeSize,
+		off:     offset,
 	}
 
 	for c := 0; c < valueCount; c++ {
@@ -439,11 +409,10 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 	}
 
 	newRoot := &innerNode{
-		prevNode: t.root,
-		nodes:    []node{n1, n2},
-		_maxKey:  n2.maxKey(),
-		_ts:      ts,
-		maxSize:  t.maxNodeSize,
+		nodes:   []node{n1, n2},
+		_maxKey: n2.maxKey(),
+		_ts:     ts,
+		maxSize: t.maxNodeSize,
 	}
 
 	t.root = newRoot
@@ -516,11 +485,10 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 		}
 
 		newNode := &innerNode{
-			prevNode: n,
-			nodes:    make([]node, len(n.nodes)),
-			_maxKey:  maxKey,
-			_ts:      ts,
-			maxSize:  n.maxSize,
+			nodes:   make([]node, len(n.nodes)),
+			_maxKey: maxKey,
+			_ts:     ts,
+			maxSize: n.maxSize,
 		}
 
 		copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
@@ -602,16 +570,6 @@ func (n *innerNode) size() int {
 	size := 1 // Node type
 
 	size += 4 // Size
-
-	size++ // has previous node
-
-	if n.prevNode != nil {
-		size += 4                        // Key length
-		size += len(n.prevNode.maxKey()) // Key
-		size += 8                        // Ts
-		size += 4                        // Size
-		size += 8                        // Offset
-	}
 
 	size += 4 // Child count
 
@@ -745,11 +703,10 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 
 	if found {
 		newLeaf := &leafNode{
-			prevNode: l,
-			values:   make([]*leafValue, len(l.values)),
-			_maxKey:  l._maxKey,
-			_ts:      ts,
-			maxSize:  l.maxSize,
+			values:  make([]*leafValue, len(l.values)),
+			_maxKey: l._maxKey,
+			_ts:     ts,
+			maxSize: l.maxSize,
 		}
 
 		copy(newLeaf.values[:i], l.values[:i])
@@ -861,16 +818,6 @@ func (l *leafNode) size() int {
 	size := 1 // Node type
 
 	size += 4 // Size
-
-	size++ // has previous node
-
-	if l.prevNode != nil {
-		size += 4                        // Key length
-		size += len(l.prevNode.maxKey()) // Key
-		size += 8                        // Ts
-		size += 4                        // Size
-		size += 8                        // Offset
-	}
 
 	size += 4 // kv count
 
