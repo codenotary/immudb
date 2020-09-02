@@ -18,6 +18,7 @@ package tbtree
 import (
 	"encoding/binary"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -134,8 +135,9 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
 	assert.NoError(t, err)
+	defer os.Remove("tbtree.idb")
 
-	monotonicInsertions(t, tbtree, 1, 100, true)
+	monotonicInsertions(t, tbtree, 2, 100, true)
 
 	err = tbtree.Close()
 	assert.NoError(t, err)
@@ -147,17 +149,19 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
 	assert.NoError(t, err)
-
-	defer tbtree.Close()
+	defer os.Remove("tbtree.idb")
 
 	monotonicInsertions(t, tbtree, 10, 1000, false)
+
+	tbtree.Close()
 }
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
 	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(DefaultMaxNodeSize))
 	assert.NoError(t, err)
-
-	defer tbtree.Close()
+	defer os.Remove("tbtree.idb")
 
 	randomInsertions(t, tbtree, 1000, true)
+
+	tbtree.Close()
 }

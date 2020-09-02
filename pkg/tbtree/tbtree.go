@@ -510,10 +510,15 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 	}
 
 	if c2 == nil {
+		maxKey := n._maxKey
+		if bytes.Compare(maxKey, c1.maxKey()) < 0 {
+			maxKey = c1.maxKey()
+		}
+
 		newNode := &innerNode{
 			prevNode: n,
 			nodes:    make([]node, len(n.nodes)),
-			_maxKey:  c1.maxKey(),
+			_maxKey:  maxKey,
 			_ts:      ts,
 			maxSize:  n.maxSize,
 		}
@@ -529,9 +534,14 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 		return newNode, nil, nil
 	}
 
+	maxKey := n._maxKey
+	if bytes.Compare(maxKey, c2.maxKey()) < 0 {
+		maxKey = c2.maxKey()
+	}
+
 	newNode := &innerNode{
 		nodes:   make([]node, len(n.nodes)+1),
-		_maxKey: c2.maxKey(),
+		_maxKey: maxKey,
 		_ts:     ts,
 		maxSize: n.maxSize,
 	}
