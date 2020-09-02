@@ -31,7 +31,7 @@ var ErrIllegalState = errors.New("illegal state")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
 
-const MinNodeSize = 64
+const MinNodeSize = 96
 const DefaultMaxNodeSize = 4096
 const DefaultInsertionCountThreshold = 100000
 const DefaultMaxActiveSnapshots = 100
@@ -601,10 +601,11 @@ func (n *innerNode) ts() uint64 {
 func (n *innerNode) size() int {
 	size := 1 // Node type
 
-	if n.prevNode == nil {
-		size += 4 // Size
-	} else {
-		size++                           // has previous node
+	size += 4 // Size
+
+	size++ // has previous node
+
+	if n.prevNode != nil {
 		size += 4                        // Key length
 		size += len(n.prevNode.maxKey()) // Key
 		size += 8                        // Ts
@@ -620,10 +621,6 @@ func (n *innerNode) size() int {
 		size += 8               // Ts
 		size += 4               // Size
 		size += 8               // Offset
-	}
-
-	if n.prevNode != nil {
-		size += 4 // Size
 	}
 
 	return size
@@ -863,10 +860,11 @@ func (l *leafNode) ts() uint64 {
 func (l *leafNode) size() int {
 	size := 1 // Node type
 
-	if l.prevNode == nil {
-		size += 4 // Size
-	} else {
-		size++                           // has previous node
+	size += 4 // Size
+
+	size++ // has previous node
+
+	if l.prevNode != nil {
 		size += 4                        // Key length
 		size += len(l.prevNode.maxKey()) // Key
 		size += 8                        // Ts
@@ -883,10 +881,6 @@ func (l *leafNode) size() int {
 		size += len(kv.value) // Value
 		size += 8             // Ts
 		size += 8             // Prev Ts
-	}
-
-	if l.prevNode != nil {
-		size += 4 // Size
 	}
 
 	return size

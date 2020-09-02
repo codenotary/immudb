@@ -165,7 +165,9 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLate
 		}
 	}
 
-	buf := make([]byte, n.size())
+	size := uint32(n.size())
+
+	buf := make([]byte, size+4)
 	i := 0
 
 	if asRoot {
@@ -175,20 +177,18 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLate
 	}
 	i++
 
-	binary.BigEndian.PutUint32(buf[i:], uint32(len(buf))) // Size
+	binary.BigEndian.PutUint32(buf[i:], size) // Size
 	i += 4
 
-	if !onlyLatest && asRoot {
-		if n.prevNode == nil {
-			buf[i] = 0
-			i++
-		} else {
-			buf[i] = 1
-			i++
+	if !onlyLatest && asRoot && n.prevNode != nil {
+		buf[i] = 1
+		i++
 
-			n := writeNodeRefTo(n.prevNode, buf[i:])
-			i += n
-		}
+		n := writeNodeRefTo(n.prevNode, buf[i:])
+		i += n
+	} else {
+		buf[i] = 0
+		i++
 	}
 
 	binary.BigEndian.PutUint32(buf[i:], uint32(len(n.nodes)))
@@ -200,7 +200,7 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLate
 	}
 
 	if asRoot {
-		binary.BigEndian.PutUint32(buf[i:], uint32(len(buf))) // Size
+		binary.BigEndian.PutUint32(buf[i:], size) // Size
 		i += 4
 	}
 
@@ -227,7 +227,8 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLates
 		}
 	}
 
-	buf := make([]byte, l.size())
+	size := uint32(l.size())
+	buf := make([]byte, size+4)
 	i := 0
 
 	if asRoot {
@@ -237,7 +238,7 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLates
 	}
 	i++
 
-	binary.BigEndian.PutUint32(buf[i:], uint32(len(buf))) // Size
+	binary.BigEndian.PutUint32(buf[i:], size) // Size
 	i += 4
 
 	if !onlyLatest && asRoot {
@@ -277,7 +278,7 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, onlyLates
 	}
 
 	if asRoot {
-		binary.BigEndian.PutUint32(buf[i:], uint32(len(buf))) // Size
+		binary.BigEndian.PutUint32(buf[i:], size) // Size
 		i += 4
 	}
 

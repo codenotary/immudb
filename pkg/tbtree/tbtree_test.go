@@ -137,7 +137,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
-	monotonicInsertions(t, tbtree, 2, 100, true)
+	monotonicInsertions(t, tbtree, 10, 1000, true)
 
 	err = tbtree.Close()
 	assert.NoError(t, err)
