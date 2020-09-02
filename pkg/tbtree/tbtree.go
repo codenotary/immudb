@@ -130,6 +130,7 @@ type leafNode struct {
 
 type nodeRef struct {
 	t       *TBtree
+	node    node
 	_maxKey []byte
 	_ts     uint64
 	_size   int
@@ -653,7 +654,14 @@ func (n *innerNode) updateTs() {
 
 ////////////////////////////////////////////////////////////
 func (r *nodeRef) resolve() (node, error) {
-	return r.t.readNodeAt(r.off)
+	if r.node == nil {
+		n, err := r.t.readNodeAt(r.off)
+		if err != nil {
+			return nil, err
+		}
+		r.node = n
+	}
+	return r.node, nil
 }
 
 func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
