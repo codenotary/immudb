@@ -208,7 +208,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options server.Options, mt
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
-	cmd.Flags().String("signingKey", options.SigningKey, "signature private key. If not empty, it enables the cryptographic signature of the root")
+	cmd.Flags().String("signingKey", options.SigningKey, "signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. E.g. \"./../test/signer/ec3.key\"")
 }
 
 func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {

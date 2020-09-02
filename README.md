@@ -167,33 +167,39 @@ Environment variables:
   IMMUDB_CERTIFICATE=./tools/mtls/3_application/certs/localhost.cert.pem
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
   IMMUDB_DEVMODE=true
-  IMMUDB_ADMIN_PASSWORD=immudb
   IMMUDB_MAINTENANCE=false
+  IMMUDB_ADMIN_PASSWORD=immudb,
+  IMMUDB_SIGNING_KEY=
 Usage:
   immudb [flags]
   immudb [command]
+
 Available Commands:
   help        Help about any command
   version     Show the immudb version
+
 Flags:
   -a, --address string          bind address (default "0.0.0.0")
-      --admin-password string   admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
+      --admin-password string   admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded) (default "immudb")
   -s, --auth                    enable auth
       --certificate string      server certificate file path (default "./tools/mtls/3_application/certs/localhost.cert.pem")
       --clientcas string        clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
-      --config string           config file (default path are configs or $HOME. Default filename is immudb.ini)
+      --config string           config file (default path are configs or $HOME. Default filename is immudb.toml)
       --consistency-check       enable consistency check monitor routine. To disable: --consistency-check=false (default true)
-  -n, --dbname string           db name (default "immudb")
   -d, --detached                run immudb in background
       --devmode                 enable dev mode: accept remote connections without auth
       --dir string              data folder (default "./data")
   -h, --help                    help for immudb
       --logfile string          log path with filename. E.g. /tmp/immudb/immudb.log
+      --maintenance             override the authentication flag
   -m, --mtls                    enable mutual tls
       --no-histograms           disable collection of histogram metrics like query durations
       --pidfile string          pid path with filename. E.g. /var/run/immudb.pid
       --pkey string             server private key path (default "./tools/mtls/3_application/private/localhost.key.pem")
   -p, --port int                port number (default 3322)
+      --signingKey string       signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. E.g. "./../test/signer/ec3.key"
+
+
 Use "immudb [command] --help" for more information about a command.
 ```
 
@@ -286,9 +292,8 @@ Usage:
 Available Commands:
   audit-mode        Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' or use -h flag for details
   check-consistency Check consistency for the specified index and hash
-  count             Count keys having the specified prefix
+  count             Count keys having the specified value
   current           Return the last merkle tree root and index stored locally
-  database          Issue all database commands
   get               Get item having the specified key
   getByIndex        Return an element by index
   getRawBySafeIndex Return an element by index
@@ -309,19 +314,19 @@ Available Commands:
   scan              Iterate over keys having the specified prefix
   set               Add new item having the specified key and value
   status            Ping to check if server connection is alive
-  use               select database
-  user              Issue all user commands
+  use               Select database
   version           Show the immuclient version
   zadd              Add new key with score to a new or existing sorted set
   zscan             Iterate over a sorted set
 
 Flags:
       --audit-password string    immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
+      --audit-signature string   audit signature mode. ignore|validate. If 'ignore' is set auditor doesn't check for the root server signature. If 'validate' is set auditor verify that the root is signed properly by immudb server. Default value is 'ignore'
       --audit-username string    immudb username used to login during audit
       --certificate string       server certificate file path (default "./tools/mtls/4_client/certs/localhost.cert.pem")
       --clientcas string         clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
       --config string            config file (default path are configs or $HOME. Default filename is immuclient.toml)
-      --dir string               Main directory for audit process tool to initialize (default "/var/folders/7c/2189p7097pzgjmhz046qms940000gn/T/")
+      --dir string               Main directory for audit process tool to initialize (default "/tmp")
   -h, --help                     help for immuclient
   -a, --immudb-address string    immudb host address (default "127.0.0.1")
   -p, --immudb-port int          immudb port number (default 3322)
@@ -358,16 +363,18 @@ Usage:
 
 Available Commands:
   backup      Make a copy of the database files and folders
+  database    Issue all database commands
   dump        Dump database content to a file
   help        Help about any command
-  login       Login using the specified username and password (admin username is immu)
+  login       Login using the specified username and password (admin username is immudb)
   logout
+  print       Print merkle tree
   restore     Restore the database from a snapshot archive or folder
   service     Manage immu services
   set         Update server config items: auth (none|password|cryptosig), mtls (true|false)
   stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
   status      Show heartbeat status
-  user        Perform various user-related operations: list, create, deactivate, change password, set permissions
+  user        Issue all user commands
   version     Show the immuadmin version
 
 Flags:
@@ -380,7 +387,7 @@ Flags:
   -m, --mtls                    enable mutual tls
       --pkey string             server private key path (default "./tools/mtls/4_client/private/localhost.key.pem")
       --servername string       used to verify the hostname on the returned certificates (default "localhost")
-      --tokenfile string        authentication token file (default path is $HOME or binary location; the supplied value will be automatically suffixed with _admin; default filename is token_admin) (default "token-0.7.0")
+      --tokenfile string        authentication token file (default path is $HOME or binary location; the supplied value will be automatically suffixed with _admin; default filename is token_admin) (default "token")
 
 Use "immuadmin [command] --help" for more information about a command.
 
@@ -544,16 +551,53 @@ The following diagram explains how data is inserted, verified and consistency ch
 
 #### Structured value
 
-Protobuf's [Any](https://developers.google.com/protocol-buffers/docs/proto3#any) message type allows callers to use
-messages as embedded types without having their .proto definition. Thus, it will soon be possible to decouple and extend
+The messages structure allows callers to use key value pairs as embedded payload. Thus, it will soon be possible to decouple and extend
 the value structure. The value, currently a stream of bytes, can be augmented with some client provided metadata.
 This also permits use of an on-demand serialization/deserialization strategy.
 
-The payload includes a timestamp and a value at the moment. In the near future cryptographic signatures will be added as well.
-It will be possible to decouple and extend this in the future. The entire payload contribute to hash generation and is inserted in
+The payload includes a timestamp and a value at the moment. In the near future cryptographic signatures will be added as well, but it's
+possible to decouple and extend. The entire payload contribute to hash generation and is inserted in
 the merkle tree.
 
 All the complexity is hidden by the SDK.
+
+#### Root signature
+
+Providing `immudb` with a signing key enables the cryptographic root signature.
+In this way an auditor for instance or a third party client could verify the authenticity of the returned root hash / index pair after calling `currentRoot` gRPC method.
+Here the gRPC message definitions:
+```proto
+message Root {
+	RootIndex payload = 1;
+	Signature signature = 2;
+}
+
+message RootIndex {
+	uint64 index = 1;
+	bytes root = 2;
+}
+
+message Signature {
+	bytes signature = 1;
+	bytes publicKey = 2;
+}
+```
+It's possible to use the environment `IMMUDB_SIGNING_KEY` or `--signingKey` immudb flag.
+
+To generate a valid key it's possible to use `openssl` tool:
+```.bash
+openssl ecparam -name prime256v1 -genkey -noout -out my.key
+```
+Immuclient and immugw are shipped with auditor capabilities.
+To obtain the advantages of using the signed root in combination with the auditor it's possible to launch:
+* immuclient with auditor capabilities:
+```bash
+immuclient audit-mode --audit-username {immudb-username} --audit-password {immudb-pw} --audit-signature validate
+```
+* with immugw with auditor capabilities:
+```bash
+./immugw --audit --audit-username {immudb-username} --audit-password {immudb-pw} --audit-signature validate
+```
 
 #### Item References
 
