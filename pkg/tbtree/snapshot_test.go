@@ -16,6 +16,7 @@ limitations under the License.
 package tbtree
 
 import (
+	"bytes"
 	"os"
 	"testing"
 
@@ -47,4 +48,35 @@ func TestSnapshotSerialization(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, tbtree.root.ts(), uint64(keyCount))
+
+	snapshot, err = tbtree.Snapshot()
+	assert.NotNil(t, snapshot)
+	assert.NoError(t, err)
+
+	rspec := &ReaderSpec{
+		initialKey: nil,
+		isPrefix:   false,
+		ascOrder:   true,
+	}
+	reader, err := snapshot.Reader(rspec)
+	assert.NoError(t, err)
+
+	i := 0
+	prevk := reader.initialKey
+	for {
+		k, _, _, err := reader.Read()
+		if err != nil {
+			assert.Equal(t, ErrNoMoreEntries, err)
+			break
+		}
+
+		assert.True(t, bytes.Compare(prevk, k) < 1)
+		prevk = k
+		i++
+	}
+	assert.Equal(t, keyCount, i)
+
+	reader.Close()
+
+	snapshot.Close()
 }
