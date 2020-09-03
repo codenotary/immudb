@@ -18,7 +18,6 @@ package tbtree
 import (
 	"bytes"
 	"errors"
-	"sync"
 )
 
 var ErrNoMoreEntries = errors.New("no more entries")
@@ -33,7 +32,6 @@ type Reader struct {
 	leafNode   *leafNode
 	offset     int
 	closed     bool
-	rwmutex    sync.RWMutex
 }
 
 type ReaderSpec struct {
@@ -43,9 +41,6 @@ type ReaderSpec struct {
 }
 
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
-	r.rwmutex.RLock()
-	defer r.rwmutex.RUnlock()
-
 	if r.closed {
 		return nil, nil, 0, ErrAlreadyClosed
 	}
@@ -97,9 +92,6 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 }
 
 func (r *Reader) Close() error {
-	r.rwmutex.Lock()
-	defer r.rwmutex.Unlock()
-
 	if r.closed {
 		return ErrAlreadyClosed
 	}

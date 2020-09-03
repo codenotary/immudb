@@ -19,7 +19,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"sync"
 )
 
 var ErrReadersNotClosed = errors.New("readers not closed")
@@ -38,13 +37,9 @@ type Snapshot struct {
 	readers     map[int]*Reader
 	maxReaderID int
 	closed      bool
-	rwmutex     sync.RWMutex
 }
 
 func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
-	s.rwmutex.RLock()
-	defer s.rwmutex.RUnlock()
-
 	if s.closed {
 		return nil, 0, ErrAlreadyClosed
 	}
@@ -53,9 +48,6 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
 }
 
 func (s *Snapshot) Ts() (uint64, error) {
-	s.rwmutex.RLock()
-	defer s.rwmutex.RUnlock()
-
 	if s.closed {
 		return 0, ErrAlreadyClosed
 	}
@@ -64,9 +56,6 @@ func (s *Snapshot) Ts() (uint64, error) {
 }
 
 func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
-	s.rwmutex.RLock()
-	defer s.rwmutex.RUnlock()
-
 	if s.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -103,9 +92,6 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 }
 
 func (s *Snapshot) closedReader(r *Reader) error {
-	s.rwmutex.Lock()
-	defer s.rwmutex.Unlock()
-
 	if s.closed {
 		return ErrAlreadyClosed
 	}
@@ -116,9 +102,6 @@ func (s *Snapshot) closedReader(r *Reader) error {
 }
 
 func (s *Snapshot) Close() error {
-	s.rwmutex.Lock()
-	defer s.rwmutex.Unlock()
-
 	if s.closed {
 		return ErrAlreadyClosed
 	}
