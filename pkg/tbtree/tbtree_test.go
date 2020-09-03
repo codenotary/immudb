@@ -277,3 +277,30 @@ func TestTBTreeInsertionInRandomOrder(t *testing.T) {
 	err = tbtree.Close()
 	assert.NoError(t, err)
 }
+
+func BenchmarkRandomInsertion(b *testing.B) {
+	seed := rand.NewSource(time.Now().UnixNano())
+	rnd := rand.New(seed)
+
+	for i := 0; i < b.N; i++ {
+		tbtree, _ := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(DefaultMaxNodeSize))
+
+		kCount := 1_000_000
+
+		for i := 0; i < kCount; i++ {
+			k := make([]byte, 4)
+			binary.BigEndian.PutUint32(k, rnd.Uint32())
+
+			v := make([]byte, 8)
+			binary.BigEndian.PutUint64(v, uint64(i))
+
+			ts := uint64(i + 1)
+
+			tbtree.Insert(k, v, uint64(ts))
+		}
+
+		tbtree.Close()
+
+		os.Remove("tbtree.idb")
+	}
+}
