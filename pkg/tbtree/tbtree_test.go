@@ -85,6 +85,39 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 	}
 }
 
+func checkAfterMonotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, ascMode bool) {
+	snapshot, err := tbtree.Snapshot()
+	assert.NoError(t, err)
+
+	i := itCount
+
+	for j := 0; j < kCount; j++ {
+		k := make([]byte, 4)
+		if ascMode {
+			binary.BigEndian.PutUint32(k, uint32(j))
+		} else {
+			binary.BigEndian.PutUint32(k, uint32(kCount-j))
+		}
+
+		v := make([]byte, 8)
+		binary.BigEndian.PutUint64(v, uint64(i<<4+j))
+
+		v1, ts1, err := snapshot.Get(k)
+
+		assert.NoError(t, err)
+
+		expectedV := make([]byte, 8)
+		binary.BigEndian.PutUint64(expectedV, uint64((i-1)<<4+j))
+		assert.Equal(t, expectedV, v1)
+
+		expectedTs := uint64((i-1)*kCount+j) + 1
+		assert.Equal(t, expectedTs, ts1)
+	}
+
+	err = snapshot.Close()
+	assert.NoError(t, err)
+}
+
 func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
@@ -142,7 +175,9 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), n)
 
-	monotonicInsertions(t, tbtree, 10, 1000, true)
+	itCount := 10
+	keyCount := 1000
+	monotonicInsertions(t, tbtree, itCount, keyCount, true)
 
 	n, err = tbtree.Flush()
 	assert.NoError(t, err)
@@ -157,6 +192,13 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 
 	err = tbtree.Close()
 	assert.Equal(t, err, ErrAlreadyClosed)
+
+	tbtree, err = Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
+	assert.NoError(t, err)
+
+	assert.Equal(t, tbtree.root.ts(), uint64(itCount*keyCount))
+
+	checkAfterMonotonicInsertions(t, tbtree, itCount, keyCount, true)
 }
 
 func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
@@ -176,6 +218,8 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, tbtree.root.ts(), uint64(itCount*keyCount))
+
+	checkAfterMonotonicInsertions(t, tbtree, itCount, keyCount, false)
 
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
@@ -227,7 +271,8 @@ func TestTBTreeInsertionInRandomOrder(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
-	randomInsertions(t, tbtree, 1000, true)
+	randomInsertions(t, tbtree, 1_000_000, true)
 
-	tbtree.Close()
+	err = tbtree.Close()
+	assert.NoError(t, err)
 }
