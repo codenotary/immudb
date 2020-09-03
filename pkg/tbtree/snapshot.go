@@ -270,7 +270,7 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 }
 
 func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64, int64, error) {
-	if !writeOpts.OnlyMutated {
+	if writeOpts.OnlyMutated && (n.node == nil || n.node.offset() > 0) {
 		return n.off, 0, nil
 	}
 

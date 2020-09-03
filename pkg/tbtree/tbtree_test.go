@@ -167,7 +167,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256).setInsertionCountThreshold(100))
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 

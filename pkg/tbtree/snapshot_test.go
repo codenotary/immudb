@@ -48,6 +48,25 @@ func TestSnapshotSerialization(t *testing.T) {
 	err = snapshot.Close()
 	assert.NoError(t, err)
 
+	_, err = tbtree.Flush()
+	assert.NoError(t, err)
+
+	snapshot, err = tbtree.Snapshot()
+	assert.NoError(t, err)
+
+	fulldumpBuf := new(bytes.Buffer)
+	wopts = &WriteOpts{
+		OnlyMutated: false,
+		BaseOffset:  0,
+		CommitLog:   false,
+	}
+	_, err = snapshot.WriteTo(fulldumpBuf, wopts)
+	assert.NoError(t, err)
+	assert.True(t, fulldumpBuf.Len() > 0)
+
+	err = snapshot.Close()
+	assert.NoError(t, err)
+
 	err = tbtree.Close()
 	assert.NoError(t, err)
 }
