@@ -30,6 +30,7 @@ var ErrKeyNotFound = errors.New("key not found")
 var ErrIllegalState = errors.New("illegal state")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
+var ErrorMaxActiveSnapshotLimitReached = errors.New("max active snapshots limit reached")
 
 const MinNodeSize = 96
 const DefaultMaxNodeSize = 4096
@@ -359,6 +360,26 @@ func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafN
 	return l, nil
 }
 
+func (t *TBtree) Flush() (int64, error) {
+	t.rwmutex.Lock()
+	defer t.rwmutex.Unlock()
+
+	return t.flushTree()
+}
+
+func (t *TBtree) flushTree() (int64, error) {
+	snapshot := t.newSnapshot()
+
+	n, err := snapshot.WriteTo(t.f, true, t.currentOffset)
+	if err != nil {
+		return 0, err
+	}
+
+	t.insertionCount = 0
+
+	return n, nil
+}
+
 func (t *TBtree) Close() error {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
@@ -372,11 +393,10 @@ func (t *TBtree) Close() error {
 	}
 
 	if t.insertionCount > 0 {
-		_, err := t.Snapshot()
+		_, err := t.flushTree()
 		if err != nil {
 			return err
 		}
-		// TODO: lastest snapshot must be flushed
 	}
 
 	err := t.f.Close()
@@ -433,10 +453,8 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	if len(t.snapshots) > 0 &&
-		(t.insertionCount <= t.insertionCountThreshold ||
-			len(t.snapshots) == t.maxActiveSnapshots) {
-		return t.snapshots[t.maxSnapshotID], nil
+	if len(t.snapshots) == t.maxActiveSnapshots {
+		return nil, ErrorMaxActiveSnapshotLimitReached
 	}
 
 	return t.newSnapshot(), nil
@@ -451,9 +469,7 @@ func (t *TBtree) newSnapshot() *Snapshot {
 	}
 
 	t.snapshots[snapshot.id] = snapshot
-
 	t.maxSnapshotID++
-	t.insertionCount = 0
 
 	return snapshot
 }

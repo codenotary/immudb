@@ -28,15 +28,18 @@ func TestSnapshotSerialization(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
-	keyCount := 100_000
+	keyCount := 1_000_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
 	snapshot, err := tbtree.Snapshot()
 	assert.NotNil(t, snapshot)
 	assert.NoError(t, err)
 
-	_, err = snapshot.WriteTo(tbtree.f, true, tbtree.currentOffset)
+	/*dumpBuf := new(bytes.Buffer)
+	_, err = snapshot.WriteTo(dumpBuf, true, tbtree.currentOffset)
 	assert.NoError(t, err)
+	assert.True(t, dumpBuf.Len() > 0)
+	*/
 
 	err = snapshot.Close()
 	assert.NoError(t, err)
