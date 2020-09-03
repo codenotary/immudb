@@ -120,27 +120,36 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) WriteTo(w io.Writer, onlyMutated bool, baseOffset int64) (int64, error) {
-	return s.root.writeTo(w, true, onlyMutated, baseOffset)
+func (s *Snapshot) WriteTo(w io.Writer, writeOpts *WriteOpts) (int64, error) {
+	_, n, err := s.root.writeTo(w, true, writeOpts)
+	return n, err
 }
 
-func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffset int64) (int64, error) {
-	if onlyMutated && n.off > 0 {
+func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off int64, tw int64, err error) {
+	if writeOpts.OnlyMutated && n.off > 0 {
 		//TODO: let node manager know this node can be recycled
-		return 0, nil
+		return n.off, 0, nil
 	}
 
 	var cw int64
 
-	for _, c := range n.nodes {
-		if onlyMutated && !c.mutated() {
+	offsets := make([]int64, len(n.nodes))
+
+	for i, c := range n.nodes {
+		if writeOpts.OnlyMutated && !c.mutated() {
 			continue
 		}
 
-		w, err := c.writeTo(w, false, onlyMutated, baseOffset+cw)
-		if err != nil {
-			return 0, err
+		wopts := &WriteOpts{
+			OnlyMutated: writeOpts.OnlyMutated,
+			BaseOffset:  writeOpts.BaseOffset + cw,
+			CommitLog:   writeOpts.CommitLog,
 		}
+		o, w, err := c.writeTo(w, false, wopts)
+		if err != nil {
+			return 0, 0, err
+		}
+		offsets[i] = o
 		cw += w
 	}
 
@@ -172,14 +181,16 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffs
 		i += 4
 	}
 
-	err := writeTo(buf[:i], w)
+	err = writeTo(buf[:i], w)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	n.off = baseOffset + cw
+	if writeOpts.CommitLog {
+		n.off = writeOpts.BaseOffset + cw
+	}
 
-	tw := cw + int64(size)
+	tw = cw + int64(size)
 
 	if asRoot {
 		tw += 4
@@ -187,13 +198,13 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffs
 
 	//TODO: let node manager know this node can be recycled
 
-	return tw, nil
+	return writeOpts.BaseOffset + cw, tw, nil
 }
 
-func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffset int64) (int64, error) {
-	if onlyMutated && l.off > 0 {
+func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off int64, tw int64, err error) {
+	if writeOpts.OnlyMutated && l.off > 0 {
 		//TODO: let node manager know this node can be recycled
-		return 0, nil
+		return l.off, 0, nil
 	}
 
 	size := l.size()
@@ -238,14 +249,16 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffse
 		i += 4
 	}
 
-	err := writeTo(buf[:i], w)
+	err = writeTo(buf[:i], w)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	l.off = baseOffset
+	if writeOpts.CommitLog {
+		l.off = writeOpts.BaseOffset
+	}
 
-	tw := int64(size)
+	tw = int64(size)
 
 	if asRoot {
 		tw += 4
@@ -253,20 +266,20 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffse
 
 	//TODO: let node manager know this node can be recycled
 
-	return tw, nil
+	return writeOpts.BaseOffset, tw, nil
 }
 
-func (n *nodeRef) writeTo(w io.Writer, asRoot bool, onlyMutated bool, baseOffset int64) (int64, error) {
-	if !onlyMutated {
-		return 0, nil
+func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64, int64, error) {
+	if !writeOpts.OnlyMutated {
+		return n.off, 0, nil
 	}
 
 	node, err := n.resolve()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return node.writeTo(w, asRoot, onlyMutated, baseOffset)
+	return node.writeTo(w, asRoot, writeOpts)
 }
 
 func writeNodeRefTo(n node, buf []byte) int {
