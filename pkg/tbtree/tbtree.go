@@ -374,26 +374,7 @@ func (t *TBtree) Flush() (int64, error) {
 		return 0, ErrAlreadyClosed
 	}
 
-	if t.insertionCount == 0 {
-		return 0, nil
-	}
-
-	n, err := t.flushTree()
-	if err != nil {
-		return 0, err
-	}
-
-	root := &nodeRef{
-		t:       t,
-		_maxKey: t.root.maxKey(),
-		_ts:     t.root.ts(),
-		_size:   t.root.size(),
-		off:     t.root.offset(),
-	}
-
-	t.root = root
-
-	return n, nil
+	return t.flushTree()
 }
 
 func (t *TBtree) flushTree() (int64, error) {
@@ -415,6 +396,14 @@ func (t *TBtree) flushTree() (int64, error) {
 
 	t.insertionCount = 0
 	t.currentOffset += n
+
+	t.root = &nodeRef{
+		t:       t,
+		_maxKey: t.root.maxKey(),
+		_ts:     t.root.ts(),
+		_size:   t.root.size(),
+		off:     t.root.offset(),
+	}
 
 	return n, nil
 }
