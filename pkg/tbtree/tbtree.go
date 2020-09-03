@@ -387,6 +387,7 @@ func (t *TBtree) flushTree() (int64, error) {
 	}
 
 	t.insertionCount = 0
+	t.currentOffset += n
 
 	return n, nil
 }

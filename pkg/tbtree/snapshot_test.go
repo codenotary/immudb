@@ -50,40 +50,4 @@ func TestSnapshotSerialization(t *testing.T) {
 
 	err = tbtree.Close()
 	assert.NoError(t, err)
-
-	tbtree, err = Open("tbtree.idb", DefaultOptions().setMaxNodeSize(MinNodeSize))
-	assert.NoError(t, err)
-
-	assert.Equal(t, tbtree.root.ts(), uint64(keyCount))
-
-	snapshot, err = tbtree.Snapshot()
-	assert.NotNil(t, snapshot)
-	assert.NoError(t, err)
-
-	rspec := &ReaderSpec{
-		initialKey: nil,
-		isPrefix:   false,
-		ascOrder:   true,
-	}
-	reader, err := snapshot.Reader(rspec)
-	assert.NoError(t, err)
-
-	i := 0
-	prevk := reader.initialKey
-	for {
-		k, _, _, err := reader.Read()
-		if err != nil {
-			assert.Equal(t, ErrNoMoreEntries, err)
-			break
-		}
-
-		assert.True(t, bytes.Compare(prevk, k) < 1)
-		prevk = k
-		i++
-	}
-	assert.Equal(t, keyCount, i)
-
-	reader.Close()
-
-	snapshot.Close()
 }
