@@ -370,7 +370,30 @@ func (t *TBtree) Flush() (int64, error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
-	return t.flushTree()
+	if t.closed {
+		return 0, ErrAlreadyClosed
+	}
+
+	if t.insertionCount == 0 {
+		return 0, nil
+	}
+
+	n, err := t.flushTree()
+	if err != nil {
+		return 0, err
+	}
+
+	root := &nodeRef{
+		t:       t,
+		_maxKey: t.root.maxKey(),
+		_ts:     t.root.ts(),
+		_size:   t.root.size(),
+		off:     t.root.offset(),
+	}
+
+	t.root = root
+
+	return n, nil
 }
 
 func (t *TBtree) flushTree() (int64, error) {
