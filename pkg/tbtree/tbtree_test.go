@@ -138,10 +138,22 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
+	n, err := tbtree.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), n)
+
 	monotonicInsertions(t, tbtree, 10, 1000, true)
+
+	n, err = tbtree.Flush()
+	assert.NoError(t, err)
+	assert.True(t, n > 0)
 
 	err = tbtree.Close()
 	assert.NoError(t, err)
+
+	n, err = tbtree.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), n)
 
 	err = tbtree.Close()
 	assert.Equal(t, err, ErrAlreadyClosed)
@@ -193,6 +205,19 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	assert.Equal(t, keyCount, i)
 
 	reader.Close()
+
+	snapshot.Close()
+
+	err = tbtree.Insert(prevk, prevk, uint64(itCount*keyCount+1))
+	assert.NoError(t, err)
+
+	snapshot, err = tbtree.Snapshot()
+	assert.NoError(t, err)
+
+	v, ts, err := snapshot.Get(prevk)
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(itCount*keyCount+1), ts)
+	assert.Equal(t, prevk, v)
 
 	snapshot.Close()
 }

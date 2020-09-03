@@ -374,6 +374,10 @@ func (t *TBtree) Flush() (int64, error) {
 }
 
 func (t *TBtree) flushTree() (int64, error) {
+	if t.insertionCount == 0 {
+		return 0, nil
+	}
+
 	snapshot := t.newSnapshot()
 
 	wopts := &WriteOpts{
@@ -404,14 +408,12 @@ func (t *TBtree) Close() error {
 		return ErrSnapshotsNotClosed
 	}
 
-	if t.insertionCount > 0 {
-		_, err := t.flushTree()
-		if err != nil {
-			return err
-		}
+	_, err := t.flushTree()
+	if err != nil {
+		return err
 	}
 
-	err := t.f.Close()
+	err = t.f.Close()
 	if err != nil {
 		return err
 	}
@@ -442,17 +444,21 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 
 	if n2 == nil {
 		t.root = n1
-		return nil
+	} else {
+		newRoot := &innerNode{
+			nodes:   []node{n1, n2},
+			_maxKey: n2.maxKey(),
+			_ts:     ts,
+			maxSize: t.maxNodeSize,
+		}
+
+		t.root = newRoot
 	}
 
-	newRoot := &innerNode{
-		nodes:   []node{n1, n2},
-		_maxKey: n2.maxKey(),
-		_ts:     ts,
-		maxSize: t.maxNodeSize,
+	if t.insertionCount > t.insertionCountThreshold {
+		_, err := t.flushTree()
+		return err
 	}
-
-	t.root = newRoot
 
 	return nil
 }
@@ -469,21 +475,21 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 		return nil, ErrorMaxActiveSnapshotLimitReached
 	}
 
-	return t.newSnapshot(), nil
+	snapshot := t.newSnapshot()
+
+	t.snapshots[snapshot.id] = snapshot
+	t.maxSnapshotID++
+
+	return snapshot, nil
 }
 
 func (t *TBtree) newSnapshot() *Snapshot {
-	snapshot := &Snapshot{
+	return &Snapshot{
 		t:       t,
 		id:      t.maxSnapshotID,
 		root:    t.root,
 		readers: make(map[int]*Reader),
 	}
-
-	t.snapshots[snapshot.id] = snapshot
-	t.maxSnapshotID++
-
-	return snapshot
 }
 
 func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
