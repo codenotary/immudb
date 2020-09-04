@@ -467,7 +467,7 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 		t.root = newRoot
 	}
 
-	if t.insertionCount > t.insertionCountThreshold {
+	if t.insertionCount == t.insertionCountThreshold {
 		_, err := t.flushTree()
 		return err
 	}
