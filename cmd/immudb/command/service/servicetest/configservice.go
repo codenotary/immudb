@@ -14,18 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immudbcmdtest
+package servicetest
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/viper"
+	"io"
+)
 
-type ManpageServiceMock struct{}
-
-// InstallManPages installs man pages
-func (ms ManpageServiceMock) InstallManPages(dir string, serviceName string, cmd *cobra.Command) error {
-	return nil
+type ConfigServiceMock struct {
+	*viper.Viper
 }
 
-// UninstallManPages uninstalls man pages
-func (ms ManpageServiceMock) UninstallManPages(dir string, serviceName string) error {
+func (v *ConfigServiceMock) WriteConfigAs(filename string) error {
+	return nil
+}
+func (v *ConfigServiceMock) GetString(key string) string {
+	return ""
+}
+func (v *ConfigServiceMock) SetConfigType(in string) {}
+
+func (v *ConfigServiceMock) ReadConfig(in io.Reader) error {
 	return nil
 }

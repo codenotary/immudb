@@ -14,18 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immudbcmdtest
+package service
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
 
-type ManpageServiceMock struct{}
+	"github.com/spf13/cobra"
+)
 
-// InstallManPages installs man pages
-func (ms ManpageServiceMock) InstallManPages(dir string, serviceName string, cmd *cobra.Command) error {
-	return nil
+func TestCommandline_Register(t *testing.T) {
+	c := commandline{}
+	cmd := c.Register(&cobra.Command{})
+	assert.IsType(t, &cobra.Command{}, cmd)
 }
 
-// UninstallManPages uninstalls man pages
-func (ms ManpageServiceMock) UninstallManPages(dir string, serviceName string) error {
-	return nil
+func TestNewCommandLine(t *testing.T) {
+	cml := NewCommandLine()
+	assert.IsType(t, &commandline{}, cml)
 }

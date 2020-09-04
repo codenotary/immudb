@@ -1,3 +1,5 @@
+// +build freebsd
+
 /*
 Copyright 2019-2020 vChain, Inc.
 
@@ -14,18 +16,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immudbcmdtest
+package config
 
-import "github.com/spf13/cobra"
-
-type ManpageServiceMock struct{}
-
-// InstallManPages installs man pages
-func (ms ManpageServiceMock) InstallManPages(dir string, serviceName string, cmd *cobra.Command) error {
-	return nil
-}
-
-// UninstallManPages uninstalls man pages
-func (ms ManpageServiceMock) UninstallManPages(dir string, serviceName string) error {
-	return nil
-}
+var ConfigImmudb = []byte(`dir = "/var/lib/immudb"
+network = "tcp"
+address = "0.0.0.0"
+port = 3322
+dbname = "data"
+pidfile = "/var/run/immudb.pid"
+logfile = "/var/log/immudb/immudb.log"
+mtls = false
+detached = false
+auth = false
+pkey = ""
+certificate = ""
+clientcas = ""`)
