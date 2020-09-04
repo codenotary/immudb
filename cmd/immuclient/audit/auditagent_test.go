@@ -17,17 +17,18 @@ limitations under the License.
 package audit
 
 import (
+	"github.com/codenotary/immudb/cmd/immudb/command/service/servicetest"
+	"github.com/spf13/cobra"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuadmin/command/service/servicetest"
 	srvc "github.com/codenotary/immudb/cmd/immuclient/service/configs"
-	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
+	"github.com/codenotary/immudb/cmd/immuclient/service/constants"
+	immusrvc "github.com/codenotary/immudb/cmd/sservice"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
-	immusrvc "github.com/codenotary/immudb/pkg/service"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
@@ -43,17 +44,14 @@ func TestManageNotRoot(t *testing.T) {
 	ad := new(auditAgent)
 	ad.firstRun = true
 	op := immusrvc.Option{
-		ExecPath:      service.ExecPath,
-		ConfigPath:    service.ConfigPath,
-		ManPath:       service.ManPath,
-		User:          service.OSUser,
-		Group:         service.OSGroup,
-		StartUpConfig: service.StartUpConfig,
-		UsageDetails:  service.UsageDet,
-		UsageExamples: service.UsageExamples,
-		Config: map[string][]byte{
-			"immuclient": srvc.ConfigImmuClient,
-		},
+		ExecPath:      constants.ExecPath,
+		ConfigPath:    constants.ConfigPath,
+		User:          constants.OSUser,
+		Group:         constants.OSGroup,
+		StartUpConfig: constants.StartUpConfig,
+		UsageDetails:  constants.UsageDet,
+		UsageExamples: constants.UsageExamples,
+		Config:        srvc.ConfigImmuClient,
 	}
 	ad.service = immusrvc.NewSService(&op)
 
@@ -75,27 +73,27 @@ func TestManageNotRoot(t *testing.T) {
 	}
 	defer func() { os.RemoveAll(pidPath); os.RemoveAll(logfilename) }()
 
-	_, err = ad.Manage([]string{"uninstall"})
+	_, err = ad.Manage([]string{"uninstall"}, &cobra.Command{})
 	if err == nil || !strings.Contains(err.Error(), "You must have root user privileges. Possibly using 'sudo' command should help") {
 		t.Fatal("Manage fail, expected error")
 	}
 
-	_, err = ad.Manage([]string{"start"})
+	_, err = ad.Manage([]string{"start"}, &cobra.Command{})
 	if err == nil || !strings.Contains(err.Error(), "You must have root user privileges. Possibly using 'sudo' command should help") {
 		t.Fatal("Manage fail, expected error")
 	}
 
-	_, err = ad.Manage([]string{"restart"})
+	_, err = ad.Manage([]string{"restart"}, &cobra.Command{})
 	if err == nil || !strings.Contains(err.Error(), "You must have root user privileges. Possibly using 'sudo' command should help") {
 		t.Fatal("Manage fail, expected error")
 	}
 
-	_, err = ad.Manage([]string{"stop"})
+	_, err = ad.Manage([]string{"stop"}, &cobra.Command{})
 	if err == nil || !strings.Contains(err.Error(), "You must have root user privileges. Possibly using 'sudo' command should help") {
 		t.Fatal("Manage fail, expected error")
 	}
 
-	_, err = ad.Manage([]string{"status"})
+	_, err = ad.Manage([]string{"status"}, &cobra.Command{})
 	if err == nil || !strings.Contains(err.Error(), "You must have root user privileges. Possibly using 'sudo' command should help") {
 		t.Fatal("Manage fail, expected error")
 	}
@@ -133,43 +131,43 @@ func TestManage(t *testing.T) {
 	os.RemoveAll(pidPath)
 	defer func() { os.RemoveAll(pidPath); os.RemoveAll(logfilename) }()
 
-	_, err = ad.Manage([]string{})
+	_, err = ad.Manage([]string{}, &cobra.Command{})
 	if err != nil {
 		t.Fatal("Manage start audit fail", err)
 	}
 	os.RemoveAll(pidPath)
 
-	_, err = ad.Manage([]string{"install"})
+	_, err = ad.Manage([]string{"install"}, &cobra.Command{})
 	if err != nil {
 		t.Fatal("Manage install audit fail", err)
 	}
 	os.RemoveAll(pidPath)
 
-	_, err = ad.Manage([]string{"uninstall"})
+	_, err = ad.Manage([]string{"uninstall"}, &cobra.Command{})
 	if err != nil {
 		t.Fatal("Manage uninstall fail", err)
 	}
 	os.RemoveAll(pidPath)
 
-	_, err = ad.Manage([]string{"start"})
+	_, err = ad.Manage([]string{"start"}, &cobra.Command{})
 	if err != nil {
 		t.Fatal("Manage start fail", err)
 	}
 	os.RemoveAll(pidPath)
 
-	_, err = ad.Manage([]string{"restart"})
+	_, err = ad.Manage([]string{"restart"}, &cobra.Command{})
 	if err != nil {
 		t.Fatal("Manage restart fail", err)
 	}
 	os.RemoveAll(pidPath)
 
-	_, err = ad.Manage([]string{"stop"})
+	_, err = ad.Manage([]string{"stop"}, &cobra.Command{})
 	if err != nil {
 		t.Fatal("Manage restart", err)
 	}
 	os.RemoveAll(pidPath)
 
-	_, err = ad.Manage([]string{"status"})
+	_, err = ad.Manage([]string{"status"}, &cobra.Command{})
 	if err != nil {
 		t.Fatal("Manage status", err)
 	}

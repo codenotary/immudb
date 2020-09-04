@@ -18,11 +18,12 @@ package audit
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
 	"os"
 
 	c "github.com/codenotary/immudb/cmd/helper"
+	immusrvc "github.com/codenotary/immudb/cmd/sservice"
 	"github.com/codenotary/immudb/pkg/server"
-	immusrvc "github.com/codenotary/immudb/pkg/service"
 
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
@@ -33,7 +34,7 @@ import (
 
 // AuditAgent ...
 type AuditAgent interface {
-	Manage(args []string) (string, error)
+	Manage(args []string, cmd *cobra.Command) (string, error)
 	InitAgent() (AuditAgent, error)
 }
 
@@ -51,7 +52,7 @@ type auditAgent struct {
 	logfile        *os.File
 }
 
-func (a *auditAgent) Manage(args []string) (string, error) {
+func (a *auditAgent) Manage(args []string, cmd *cobra.Command) (string, error) {
 	var err error
 	var msg string
 	var localFile string
@@ -66,30 +67,6 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 		if _, err = a.InitAgent(); err != nil {
 			c.QuitToStdErr(err)
 		}
-		localFile = viper.GetString("local-file")
-		if localFile, err = a.service.GetExecutable(localFile, name); err != nil {
-			return "", err
-		}
-	}
-
-	execPath, err = a.service.GetDefaultExecPath(localFile)
-
-	if stringInSlice("--remove-files", os.Args) {
-		localFile = viper.GetString("local-file")
-	}
-
-	if command == "install" {
-		if execPath, err = a.service.CopyExecInOsDefault(localFile); err != nil {
-			return "", err
-		}
-	}
-
-	// todo remove all involved files
-	if remove := viper.GetBool("remove-files"); remove {
-		if err = os.Remove(execPath); err != nil {
-			return "", err
-		}
-		return "", nil
 	}
 
 	a.Daemon, err = a.service.NewDaemon(name, name, execPath)
@@ -100,7 +77,7 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 		switch command {
 		case "install":
 			fmt.Println("installing " + localFile + "...")
-			if err = a.service.InstallSetup(name); err != nil {
+			if err = a.service.InstallSetup(name, cmd); err != nil {
 				return "", err
 			}
 			logfile, err := os.OpenFile(a.opts.LogFileName, os.O_APPEND, 0755)
@@ -137,7 +114,14 @@ func (a *auditAgent) Manage(args []string) (string, error) {
 				}
 				fmt.Println(msg)
 			}
-			return a.Daemon.Remove()
+			if msg, err = a.Daemon.Remove(); err != nil {
+				return "", err
+			}
+			if err = a.service.UninstallSetup(name); err != nil {
+				return "", err
+			}
+			return msg, nil
+
 		case "start":
 			if msg, err = a.Daemon.Start(); err != nil {
 				return "", err

@@ -18,14 +18,15 @@ package audit
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
 
 	srvc "github.com/codenotary/immudb/cmd/immuclient/service/configs"
 	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
-	immusrvc "github.com/codenotary/immudb/pkg/service"
+	immusrvc "github.com/codenotary/immudb/cmd/sservice"
 )
 
 // Init ...
-func Init(args []string) (err error) {
+func Init(args []string, cmd *cobra.Command) (err error) {
 	var auditAgent AuditAgent
 	validargs := []string{"start", "install", "uninstall", "restart", "stop", "status", "help"}
 	if len(args) > 0 && !stringInSlice(args[0], validargs) {
@@ -34,7 +35,7 @@ func Init(args []string) (err error) {
 	if auditAgent, err = NewAuditAgent(); err != nil {
 		return err
 	}
-	if msg, err := auditAgent.Manage(args); err != nil {
+	if msg, err := auditAgent.Manage(args, cmd); err != nil {
 		return err
 	} else {
 		fmt.Println(msg)
@@ -49,15 +50,12 @@ func NewAuditAgent() (AuditAgent, error) {
 	op := immusrvc.Option{
 		ExecPath:      service.ExecPath,
 		ConfigPath:    service.ConfigPath,
-		ManPath:       service.ManPath,
 		User:          service.OSUser,
 		Group:         service.OSGroup,
 		StartUpConfig: service.StartUpConfig,
 		UsageDetails:  service.UsageDet,
 		UsageExamples: service.UsageExamples,
-		Config: map[string][]byte{
-			"immuclient": srvc.ConfigImmuClient,
-		},
+		Config:        srvc.ConfigImmuClient,
 	}
 	ad.service = immusrvc.NewSService(&op)
 	var err error

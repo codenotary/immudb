@@ -73,7 +73,7 @@ func (cl *commandline) auditmode(cmd *cobra.Command) {
 		Example:   service.UsageExamples,
 		ValidArgs: []string{"help", "start", "install", "uninstall", "restart", "stop", "status"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := audit.Init(args); err != nil {
+			if err := audit.Init(args, cmd.Parent()); err != nil {
 				cl.quit(err)
 			}
 			return nil

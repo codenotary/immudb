@@ -18,16 +18,16 @@ limitations under the License.
 
 package service
 
-var ConfigImmuClient = []byte(`dir = "C:\\ProgramData\\ImmuClient"
+var ConfigImmuClient = []byte(`dir = "%programdata%\\ImmuClient"
 address = "0.0.0.0"
 port = 3323
 immudb-address = "127.0.0.1"
 immudb-port = 3322
-pidfile = "C:\\ProgramData\\ImmuClient\\config\\immuclient.pid"
-logfile = "C:\\ProgramData\\ImmuClient\\config\\immuclient.log"
+pidfile = "%programdata%\\ImmuClient\\config\\immuclient.pid"
+logfile = "%programdata%\\ImmuClient\\config\\immuclient.log"
 mtls = false
 detached = false
 servername = "localhost"
-pkey = "C:\\ProgramData\\ImmuClient\\config\\mtls\\4_client\\private\\localhost.key.pem"
-certificate = "C:\\ProgramData\\ImmuClient\\config\\mtls\\4_client\\certs\\localhost.cert.pem"
-clientcas = "C:\\ProgramData\\ImmuClient\\config\\mtls\\2_intermediate\\certs\\ca-chain.cert.pem"`)
+pkey = ""
+certificate = ""
+clientcas = ""`)
