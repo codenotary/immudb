@@ -139,7 +139,7 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 		wopts := &WriteOpts{
 			OnlyMutated: writeOpts.OnlyMutated,
 			BaseOffset:  writeOpts.BaseOffset + cw,
-			CommitLog:   writeOpts.CommitLog,
+			commitLog:   writeOpts.commitLog,
 		}
 
 		o, w, err := c.writeTo(w, false, wopts)
@@ -184,7 +184,7 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 		return 0, 0, err
 	}
 
-	if writeOpts.CommitLog {
+	if writeOpts.commitLog {
 		n.off = writeOpts.BaseOffset + cw
 	}
 
@@ -252,7 +252,7 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 		return 0, 0, err
 	}
 
-	if writeOpts.CommitLog {
+	if writeOpts.commitLog {
 		l.off = writeOpts.BaseOffset
 	}
 
@@ -282,7 +282,7 @@ func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64
 		return 0, 0, err
 	}
 
-	if writeOpts.CommitLog {
+	if writeOpts.commitLog {
 		n.off = off
 	}
 

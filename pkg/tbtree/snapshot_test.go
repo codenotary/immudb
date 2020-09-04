@@ -44,7 +44,6 @@ func TestSnapshotSerialization(t *testing.T) {
 	wopts := &WriteOpts{
 		OnlyMutated: true,
 		BaseOffset:  0,
-		CommitLog:   false,
 	}
 	_, err = snapshot.WriteTo(dumpBuf, wopts)
 	assert.NoError(t, err)
@@ -63,7 +62,6 @@ func TestSnapshotSerialization(t *testing.T) {
 	wopts = &WriteOpts{
 		OnlyMutated: false,
 		BaseOffset:  0,
-		CommitLog:   false,
 	}
 	_, err = snapshot.WriteTo(fulldumpBuf, wopts)
 	assert.NoError(t, err)
@@ -118,7 +116,6 @@ func fullDumpTo(tbtree *TBtree, filename string) error {
 	wopts := &WriteOpts{
 		OnlyMutated: false,
 		BaseOffset:  0,
-		CommitLog:   false,
 	}
 
 	snapshot, err := tbtree.Snapshot()

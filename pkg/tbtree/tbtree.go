@@ -116,7 +116,7 @@ type node interface {
 type WriteOpts struct {
 	OnlyMutated bool
 	BaseOffset  int64
-	CommitLog   bool
+	commitLog   bool
 }
 
 type innerNode struct {
@@ -387,7 +387,7 @@ func (t *TBtree) flushTree() (int64, error) {
 	wopts := &WriteOpts{
 		OnlyMutated: true,
 		BaseOffset:  t.currentOffset,
-		CommitLog:   true,
+		commitLog:   true,
 	}
 	n, err := snapshot.WriteTo(t.f, wopts)
 	if err != nil {
