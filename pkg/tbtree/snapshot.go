@@ -156,32 +156,32 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 	size := n.size()
 
 	buf := make([]byte, size+4)
-	i := 0
+	bi := 0
 
 	if asRoot {
-		buf[i] = RootInnerNodeType
+		buf[bi] = RootInnerNodeType
 	} else {
-		buf[i] = InnerNodeType
+		buf[bi] = InnerNodeType
 	}
-	i++
+	bi++
 
-	binary.BigEndian.PutUint32(buf[i:], uint32(size)) // Size
-	i += 4
+	binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
+	bi += 4
 
-	binary.BigEndian.PutUint32(buf[i:], uint32(len(n.nodes)))
-	i += 4
+	binary.BigEndian.PutUint32(buf[bi:], uint32(len(n.nodes)))
+	bi += 4
 
-	for _, c := range n.nodes {
-		n := writeNodeRefTo(c, buf[i:])
-		i += n
+	for i, c := range n.nodes {
+		n := writeNodeRefToWithOffset(c, offsets[i], buf[bi:])
+		bi += n
 	}
 
 	if asRoot {
-		binary.BigEndian.PutUint32(buf[i:], uint32(size)) // Size
-		i += 4
+		binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
+		bi += 4
 	}
 
-	err = writeTo(buf[:i], w)
+	err = writeTo(buf[:bi], w)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -209,47 +209,47 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 
 	size := l.size()
 	buf := make([]byte, size+4)
-	i := 0
+	bi := 0
 
 	if asRoot {
-		buf[i] = RootLeafNodeType
+		buf[bi] = RootLeafNodeType
 	} else {
-		buf[i] = LeafNodeType
+		buf[bi] = LeafNodeType
 	}
-	i++
+	bi++
 
-	binary.BigEndian.PutUint32(buf[i:], uint32(size)) // Size
-	i += 4
+	binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
+	bi += 4
 
-	binary.BigEndian.PutUint32(buf[i:], uint32(len(l.values)))
-	i += 4
+	binary.BigEndian.PutUint32(buf[bi:], uint32(len(l.values)))
+	bi += 4
 
 	for _, v := range l.values {
-		binary.BigEndian.PutUint32(buf[i:], uint32(len(v.key)))
-		i += 4
+		binary.BigEndian.PutUint32(buf[bi:], uint32(len(v.key)))
+		bi += 4
 
-		copy(buf[i:], v.key)
-		i += len(v.key)
+		copy(buf[bi:], v.key)
+		bi += len(v.key)
 
-		binary.BigEndian.PutUint32(buf[i:], uint32(len(v.value)))
-		i += 4
+		binary.BigEndian.PutUint32(buf[bi:], uint32(len(v.value)))
+		bi += 4
 
-		copy(buf[i:], v.value)
-		i += len(v.value)
+		copy(buf[bi:], v.value)
+		bi += len(v.value)
 
-		binary.BigEndian.PutUint64(buf[i:], v.ts)
-		i += 8
+		binary.BigEndian.PutUint64(buf[bi:], v.ts)
+		bi += 8
 
-		binary.BigEndian.PutUint64(buf[i:], v.prevTs)
-		i += 8
+		binary.BigEndian.PutUint64(buf[bi:], v.prevTs)
+		bi += 8
 	}
 
 	if asRoot {
-		binary.BigEndian.PutUint32(buf[i:], uint32(size)) // Size
-		i += 4
+		binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
+		bi += 4
 	}
 
-	err = writeTo(buf[:i], w)
+	err = writeTo(buf[:bi], w)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -279,10 +279,19 @@ func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64
 		return 0, 0, err
 	}
 
-	return node.writeTo(w, asRoot, writeOpts)
+	off, tw, err := node.writeTo(w, asRoot, writeOpts)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if writeOpts.CommitLog {
+		n.off = off
+	}
+
+	return off, tw, nil
 }
 
-func writeNodeRefTo(n node, buf []byte) int {
+func writeNodeRefToWithOffset(n node, offset int64, buf []byte) int {
 	i := 0
 
 	maxKey := n.maxKey()
@@ -298,7 +307,7 @@ func writeNodeRefTo(n node, buf []byte) int {
 	binary.BigEndian.PutUint32(buf[i:], uint32(n.size()))
 	i += 4
 
-	binary.BigEndian.PutUint64(buf[i:], uint64(n.offset()))
+	binary.BigEndian.PutUint64(buf[i:], uint64(offset))
 	i += 8
 
 	return i

@@ -70,3 +70,66 @@ func TestSnapshotSerialization(t *testing.T) {
 	err = tbtree.Close()
 	assert.NoError(t, err)
 }
+
+func TestSnapshotLoadFromFullDump(t *testing.T) {
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
+	assert.NoError(t, err)
+	defer os.Remove("tbtree.idb")
+
+	keyCount := 100_000
+	monotonicInsertions(t, tbtree, 1, keyCount, true)
+
+	err = fullDumpTo(tbtree, "dumped_tbtree.idb")
+	assert.NoError(t, err)
+	defer os.Remove("dumped_tbtree.idb")
+
+	err = tbtree.Close()
+	assert.NoError(t, err)
+
+	tbtree, err = Open("dumped_tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
+	assert.NoError(t, err)
+
+	err = fullDumpTo(tbtree, "dumped_tbtree1.idb")
+	assert.NoError(t, err)
+	defer os.Remove("dumped_tbtree1.idb")
+
+	dumpInfo1, err := os.Stat("dumped_tbtree.idb")
+	assert.NoError(t, err)
+	dumpInfo2, err := os.Stat("dumped_tbtree1.idb")
+	assert.NoError(t, err)
+
+	assert.Equal(t, dumpInfo1.Size(), dumpInfo2.Size())
+
+	err = tbtree.Close()
+	assert.NoError(t, err)
+}
+
+func fullDumpTo(tbtree *TBtree, filename string) error {
+	dumpFile, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+
+	wopts := &WriteOpts{
+		OnlyMutated: false,
+		BaseOffset:  0,
+		CommitLog:   false,
+	}
+
+	snapshot, err := tbtree.Snapshot()
+	if err != nil {
+		return err
+	}
+
+	_, err = snapshot.WriteTo(dumpFile, wopts)
+	if err != nil {
+		return err
+	}
+
+	err = snapshot.Close()
+	if err != nil {
+		return err
+	}
+
+	return dumpFile.Close()
+}
