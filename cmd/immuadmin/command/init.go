@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immugw/pkg/gw"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -53,8 +52,8 @@ func Options() *client.Options {
 }
 
 func (cl *commandline) configureFlags(cmd *cobra.Command) error {
-	cmd.PersistentFlags().IntP("immudb-port", "p", gw.DefaultOptions().ImmudbPort, "immudb port number")
-	cmd.PersistentFlags().StringP("immudb-address", "a", gw.DefaultOptions().ImmudbAddress, "immudb host address")
+	cmd.PersistentFlags().IntP("immudb-port", "p", client.DefaultOptions().Port, "immudb port number")
+	cmd.PersistentFlags().StringP("immudb-address", "a", client.DefaultOptions().Address, "immudb host address")
 	cmd.PersistentFlags().String(
 		"tokenfile",
 		client.DefaultOptions().TokenFileName,
@@ -94,8 +93,8 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	if err := viper.BindPFlag("clientcas", cmd.PersistentFlags().Lookup("clientcas")); err != nil {
 		return err
 	}
-	viper.SetDefault("immudb-port", gw.DefaultOptions().ImmudbPort)
-	viper.SetDefault("immudb-address", gw.DefaultOptions().ImmudbAddress)
+	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
+	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
 	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName+client.AdminTokenFileSuffix)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
