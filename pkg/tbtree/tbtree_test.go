@@ -179,9 +179,8 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	keyCount := 1000
 	monotonicInsertions(t, tbtree, itCount, keyCount, true)
 
-	n, err = tbtree.Flush()
+	_, err = tbtree.Flush()
 	assert.NoError(t, err)
-	assert.True(t, n > 0)
 
 	err = tbtree.Close()
 	assert.NoError(t, err)

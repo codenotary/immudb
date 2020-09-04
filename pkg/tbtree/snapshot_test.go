@@ -24,11 +24,16 @@ import (
 )
 
 func TestSnapshotSerialization(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
+	insertionCountThreshold := 100_000
+
+	tbtree, err := Open("tbtree.idb", DefaultOptions().
+		SetMaxNodeSize(MinNodeSize).
+		SetInsertionCountThreshold(insertionCountThreshold))
+
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
-	keyCount := 100_000
+	keyCount := insertionCountThreshold
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
 	snapshot, err := tbtree.Snapshot()
@@ -43,7 +48,7 @@ func TestSnapshotSerialization(t *testing.T) {
 	}
 	_, err = snapshot.WriteTo(dumpBuf, wopts)
 	assert.NoError(t, err)
-	assert.True(t, dumpBuf.Len() > 0)
+	assert.True(t, dumpBuf.Len() == 0)
 
 	err = snapshot.Close()
 	assert.NoError(t, err)
