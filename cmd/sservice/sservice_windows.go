@@ -16,11 +16,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package sservice
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
+	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"io"
 	"os"
 	"path/filepath"
@@ -33,8 +36,23 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func (ss *sservice) NewDaemon(name, description, execStartPath string, dependencies ...string) (d daemon.Daemon, err error) {
-	d, err = daemon.New(name, description, execStartPath, dependencies...)
+type sservice struct {
+	os      immuos.OS
+	v       ConfigService
+	options Option
+}
+
+// NewSService ...
+func NewSService(options *Option) *sservice {
+	return &sservice{immuos.NewStandardOS(), viper.New(), *options}
+}
+
+func (ss *sservice) NewDaemon(serviceName, description string, dependencies ...string) (d daemon.Daemon, err error) {
+	var ep string
+	if ep, err = ss.GetDefaultExecPath(serviceName); err != nil {
+		return nil, err
+	}
+	d, err = daemon.New(serviceName, description, ep, dependencies...)
 	return d, err
 }
 
@@ -77,7 +95,7 @@ func (ss *sservice) IsAdmin() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
-func (ss *sservice) InstallSetup(serviceName string) (err error) {
+func (ss *sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err error) {
 	if err = ss.InstallConfig(serviceName); err != nil {
 		return err
 	}
@@ -90,11 +108,7 @@ func (ss *sservice) UninstallSetup(serviceName string) (err error) {
 	}
 	// remove ProgramFiles folder only if it is empty
 	var cep string
-	if cep, err = ss.getCommonExecPath(); err != nil {
-		return err
-	}
-	err = ss.os.Remove(filepath.Join(cep, serviceName+".exe"))
-	if err != nil {
+	if err = ss.UninstallExecutables(serviceName); err != nil {
 		return err
 	}
 	f, err := ss.os.Open(cep)
@@ -104,7 +118,7 @@ func (ss *sservice) UninstallSetup(serviceName string) (err error) {
 	defer f.Close()
 	_, err = f.Readdirnames(1)
 	if err == io.EOF {
-		err = ss.os.Remove(cep)
+		err = ss.osRemove(cep)
 	}
 	// remove ProgramData folder only if it is empty
 	var cepd string
@@ -118,9 +132,53 @@ func (ss *sservice) UninstallSetup(serviceName string) (err error) {
 	defer f1.Close()
 	_, err = f1.Readdirnames(1)
 	if err == io.EOF {
-		err = ss.os.Remove(cepd)
+		err = ss.osRemove(cepd)
 	}
 	return err
+}
+
+// EraseData erase all data
+func (ss *sservice) EraseData(serviceName string) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
+		return err
+	}
+	var path string
+	if path, err = helper.ResolvePath(filepath.FromSlash(ss.v.GetString("dir")), false); err != nil {
+		return err
+	}
+	data := filepath.Join(path, "data")
+	if err := ss.osRemoveAll(data); err != nil {
+		return err
+	}
+	immudbsys := filepath.Join(path, "immudbsys")
+	if err := ss.osRemoveAll(immudbsys); err != nil {
+		return err
+	}
+	if err := ss.osRemoveAll(filepath.Join(path, "immudb.identifier")); err != nil {
+		return err
+	}
+	return nil
+}
+
+// IsRunning check if status derives from a running process
+func (ss *sservice) IsRunning(status string) bool {
+	return status == "Status: SERVICE_RUNNING"
+}
+
+// GetDefaultConfigPath returns the default config path
+func (ss *sservice) GetDefaultConfigPath(serviceName string) (dataDir string, err error) {
+	dataDir = filepath.FromSlash(ss.v.GetString("dir"))
+	var pd string
+	if pd, err = windows.KnownFolderPath(windows.FOLDERID_ProgramData, windows.KF_FLAG_DEFAULT); err != nil {
+		return "", err
+	}
+	dataDir = strings.Replace(dataDir, "%programdata%", pd, -1)
+	return filepath.Join(strings.Title(dataDir), "config", serviceName+".toml"), err
+}
+
+func (ss *sservice) ReadConfig(serviceName string) (err error) {
+	ss.v.SetConfigType("toml")
+	return ss.v.ReadConfig(bytes.NewBuffer(ss.options.Config))
 }
 
 func (ss *sservice) InstallConfig(serviceName string) (err error) {
@@ -138,65 +196,6 @@ func (ss *sservice) InstallConfig(serviceName string) (err error) {
 		return err
 	}
 	return ss.v.WriteConfigAs(cp)
-}
-
-// RemoveProgramFiles remove all program files
-func (ss *sservice) RemoveProgramFiles(serviceName string) (err error) {
-	var path string
-	if err = ss.ReadConfig(serviceName); err != nil {
-		return err
-	}
-	if path, err = helper.ResolvePath(filepath.Join(filepath.FromSlash(ss.v.GetString("dir")), "config"), false); err != nil {
-		return err
-	}
-	return ss.os.RemoveAll(path)
-}
-
-// EraseData erase all data
-func (ss *sservice) EraseData(serviceName string) (err error) {
-	if err = ss.ReadConfig(serviceName); err != nil {
-		return err
-	}
-	var path string
-	if path, err = helper.ResolvePath(filepath.FromSlash(ss.v.GetString("dir")), false); err != nil {
-		return err
-	}
-	data := filepath.Join(path, "data")
-	if err := ss.os.RemoveAll(data); err != nil {
-		return err
-	}
-	immudbsys := filepath.Join(path, "immudbsys")
-	if err := ss.os.RemoveAll(immudbsys); err != nil {
-		return err
-	}
-	if err := ss.os.RemoveAll(filepath.Join(path, "immudb.identifier")); err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetExecutable looks for the service executable name provided or try to use an executable presents in current folder. It returns the absolute file path
-func (ss *sservice) GetExecutable(input string, serviceName string) (exec string, err error) {
-	if input == "" {
-		exec = serviceName
-		exec = exec + ".exe"
-		_, err = os.Stat(exec)
-		if os.IsNotExist(err) {
-			return exec, ErrExecNotFound
-		}
-		fmt.Printf("found an executable for the service %s on current dir\n", serviceName)
-	} else {
-		_, err = os.Stat(input)
-		if os.IsNotExist(err) {
-			return input, ErrExecNotFound
-		}
-		exec = input
-		fmt.Printf("using provided executable for the service %s\n", serviceName)
-	}
-	if exec, err = filepath.Abs(exec); err != nil {
-		return exec, err
-	}
-	return exec, err
 }
 
 // todo @Michele use functions from the fs package?
@@ -235,14 +234,32 @@ func (ss *sservice) CopyExecInOsDefault(execPath string) (newExecPath string, er
 	return newExecPath, err
 }
 
+// RemoveProgramFiles remove all program files
+func (ss *sservice) RemoveProgramFiles(serviceName string) (err error) {
+	var path string
+	if err = ss.ReadConfig(serviceName); err != nil {
+		return err
+	}
+	if path, err = helper.ResolvePath(filepath.Join(filepath.FromSlash(ss.v.GetString("dir")), "config"), false); err != nil {
+		return err
+	}
+	return ss.osRemoveAll(path)
+}
+
+func (ss sservice) UninstallExecutables(serviceName string) (err error) {
+	var ep string
+	if ep, err = ss.GetDefaultExecPath(serviceName); err != nil {
+		return err
+	}
+	return ss.osRemove(filepath.Join(ep, serviceName+".exe"))
+}
+
 // GetDefaultExecPath returns the default exec path
-func (ss *sservice) GetDefaultExecPath(execPath string) (string, error) {
-	execName := filepath.Base(execPath)
-	cp, err := ss.getCommonExecPath()
-	if err != nil {
+func (ss sservice) GetDefaultExecPath(serviceName string) (ep string, err error) {
+	if ep, err = ss.getCommonExecPath(); err != nil {
 		return "", err
 	}
-	return filepath.Join(cp, execName), nil
+	return ss.os.Join(ep, serviceName), nil
 }
 
 // getCommonExecPath returns exec path for all services
@@ -251,26 +268,39 @@ func (ss *sservice) getCommonExecPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(pf, "Immudb"), nil
+	return pf, nil
 }
 
-// GetDefaultConfigPath returns the default config path
-func (ss *sservice) GetDefaultConfigPath(serviceName string) (dataDir string, err error) {
-	dataDir = filepath.FromSlash(ss.v.GetString("dir"))
-	var pd string
-	if pd, err = windows.KnownFolderPath(windows.FOLDERID_ProgramData, windows.KF_FLAG_DEFAULT); err != nil {
-		return "", err
+var whitelist = []string{"%programdata%\\\\Immudb", "%programfile%\\\\Immudb"}
+
+func (ss sservice) osRemove(folder string) error {
+	if err := deletionGuard(folder); err != nil {
+		return err
 	}
-	dataDir = strings.Replace(dataDir, "%programdata%", pd, -1)
-	return filepath.Join(strings.Title(dataDir), "config", serviceName+".toml"), err
+	return ss.os.Remove(folder)
 }
 
-// IsRunning check if status derives from a running process
-func (ss *sservice) IsRunning(status string) bool {
-	return status == "Status: SERVICE_RUNNING"
+func (ss sservice) osRemoveAll(folder string) error {
+	if err := deletionGuard(folder); err != nil {
+		return err
+	}
+	return ss.os.RemoveAll(folder)
 }
 
-func (ss *sservice) ReadConfig(serviceName string) (err error) {
-	ss.v.SetConfigType("toml")
-	return ss.v.ReadConfig(bytes.NewBuffer([]byte(ss.options.Config[serviceName])))
+func deletionGuard(path string) (err error) {
+	found := false
+	for _, v := range whitelist {
+		var vr string
+		if vr, err = helper.ResolvePath(v, false); err != nil {
+			return err
+		}
+		if strings.HasPrefix(path, vr) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		errors.New("os system file or folder protected item deletion not allowed. Check immu* service configuration")
+	}
+	return nil
 }

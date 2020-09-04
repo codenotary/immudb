@@ -14,19 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package sservice
 
 //Option service instance options
 type Option struct {
 	ExecPath      string
 	ConfigPath    string
-	ManPath       string
 	User          string
 	Group         string
 	UsageExamples string
 	UsageDetails  string
 	StartUpConfig string
-	Config        map[string][]byte
+	Config        []byte
 }
 
 //WithExecPath sets the exec path
@@ -38,12 +37,6 @@ func (o *Option) WithExecPath(path string) *Option {
 //WithConfigPath sets the config path
 func (o *Option) WithConfigPath(path string) *Option {
 	o.ConfigPath = path
-	return o
-}
-
-//WithManPath sets the man path
-func (o *Option) WithManPath(path string) *Option {
-	o.ManPath = path
 	return o
 }
 
@@ -78,7 +71,7 @@ func (o *Option) WithStartUpConfig(config string) *Option {
 }
 
 //WithConfig sets the startup configurations
-func (o *Option) WithConfig(config map[string][]byte) *Option {
+func (o *Option) WithConfig(config []byte) *Option {
 	o.Config = config
 	return o
 }
