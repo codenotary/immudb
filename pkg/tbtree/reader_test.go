@@ -38,7 +38,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 }
 
 func TestReaderAscendingScan(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(MinNodeSize))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
@@ -81,7 +81,7 @@ func TestReaderAscendingScan(t *testing.T) {
 }
 
 func TestReaderDescendingScan(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(MinNodeSize))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 

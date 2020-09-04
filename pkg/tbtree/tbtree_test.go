@@ -167,7 +167,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256).setInsertionCountThreshold(100))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(256).SetInsertionCountThreshold(100))
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
@@ -192,7 +192,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	err = tbtree.Close()
 	assert.Equal(t, err, ErrAlreadyClosed)
 
-	tbtree, err = Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
+	tbtree, err = Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(256))
 	assert.NoError(t, err)
 
 	assert.Equal(t, tbtree.root.ts(), uint64(itCount*keyCount))
@@ -201,7 +201,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(256))
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
@@ -213,7 +213,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	err = tbtree.Close()
 	assert.NoError(t, err)
 
-	tbtree, err = Open("tbtree.idb", DefaultOptions().setMaxNodeSize(256))
+	tbtree, err = Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(256))
 	assert.NoError(t, err)
 
 	assert.Equal(t, tbtree.root.ts(), uint64(itCount*keyCount))
@@ -268,7 +268,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(DefaultMaxNodeSize))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(DefaultMaxNodeSize))
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
@@ -283,7 +283,7 @@ func BenchmarkRandomInsertion(b *testing.B) {
 	rnd := rand.New(seed)
 
 	for i := 0; i < b.N; i++ {
-		tbtree, _ := Open("tbtree.idb", DefaultOptions().setMaxNodeSize(DefaultMaxNodeSize))
+		tbtree, _ := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(DefaultMaxNodeSize))
 
 		kCount := 1_000_000
 
