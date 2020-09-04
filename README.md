@@ -416,6 +416,7 @@ The linux service is using the following defaults:
 
 | File or configuration   | location                   |
 | ----------------------- | -------------------------- |
+| executable              | /usr/sbin/immudb           |
 | configuration file      | /etc/immudb/immudb.toml    |
 | all data files          | /var/lib/immudb            |
 | pid file                | /var/lib/immudb/immudb.pid |
@@ -425,6 +426,7 @@ The FreeBSD service is using the following defaults:
 
 | File or configuration   | location                   |
 | ----------------------- | -------------------------- |
+| executable              | /usr/sbin/immudb           |
 | configuration file      | /etc/immudb/immudb.toml    |
 | all data files          | /var/lib/immudb            |
 | pid file                | /var/lib/immudb/immudb.pid |
@@ -433,7 +435,8 @@ The FreeBSD service is using the following defaults:
 The Windows service is using the following defaults:
 
 | File or configuration   | location                             |
-| ----------------------- | ------------------------------------ |
+| ----------------------- | ------------------------------------
+| executable              | Program Files\Immudb\immudb.exe      |
 | configuration file      | ProgramData\Immudb\config\immudb.toml|
 | all data files          | ProgramData\Immudb\                  |
 | pid file                | ProgramData\Immudb\config\immudb.pid |

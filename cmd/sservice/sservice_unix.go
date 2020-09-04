@@ -132,15 +132,24 @@ func (ss sservice) UninstallSetup(serviceName string) (err error) {
 	if err = ss.osRemoveAll(ss.os.Dir(ss.v.GetString("logfile"))); err != nil {
 		return err
 	}
-
-	if err = ss.ReadConfig(serviceName); err != nil {
-		return err
-	}
-	cp, err := ss.GetDefaultConfigPath(serviceName)
+	err = ss.UninstallManPages(serviceName)
 	if err != nil {
 		return err
 	}
-	err = ss.UninstallManPages(serviceName)
+	// remove dir data folder only if it is empty
+	cepd := ss.v.GetString("dir")
+	if _, err := os.Stat(cepd); !os.IsNotExist(err) {
+		f1, err := ss.os.Open(cepd)
+		if err != nil {
+			return err
+		}
+		defer f1.Close()
+		_, err = f1.Readdirnames(1)
+		if err == io.EOF {
+			err = ss.osRemove(cepd)
+		}
+	}
+	cp, err := ss.GetDefaultConfigPath(serviceName)
 	if err != nil {
 		return err
 	}

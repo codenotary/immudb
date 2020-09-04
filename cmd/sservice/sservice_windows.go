@@ -96,6 +96,10 @@ func (ss *sservice) IsAdmin() (bool, error) {
 }
 
 func (ss *sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err error) {
+	_, err = ss.CopyExecInOsDefault(serviceName)
+	if err != nil {
+		return err
+	}
 	if err = ss.InstallConfig(serviceName); err != nil {
 		return err
 	}
@@ -103,36 +107,29 @@ func (ss *sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err er
 }
 
 func (ss *sservice) UninstallSetup(serviceName string) (err error) {
-	if serviceName == "immuclient" {
-		return err
-	}
-	// remove ProgramFiles folder only if it is empty
-	var cep string
+	//  Program Files\{ServiceName}\{serviceName}.exe
 	if err = ss.UninstallExecutables(serviceName); err != nil {
 		return err
 	}
-	f, err := ss.os.Open(cep)
-	if err != nil {
+	// config, pid and log in ProgramData\{ServiceName}\config
+	if err = ss.RemoveProgramFiles(serviceName); err != nil {
 		return err
-	}
-	defer f.Close()
-	_, err = f.Readdirnames(1)
-	if err == io.EOF {
-		err = ss.osRemove(cep)
 	}
 	// remove ProgramData folder only if it is empty
 	var cepd string
 	if cepd, err = helper.ResolvePath(ss.v.GetString("dir"), false); err != nil {
 		return err
 	}
-	f1, err := ss.os.Open(cepd)
-	if err != nil {
-		return err
-	}
-	defer f1.Close()
-	_, err = f1.Readdirnames(1)
-	if err == io.EOF {
-		err = ss.osRemove(cepd)
+	if _, err := os.Stat(cepd); !os.IsNotExist(err) {
+		f1, err := ss.os.Open(cepd)
+		if err != nil {
+			return err
+		}
+		defer f1.Close()
+		_, err = f1.Readdirnames(1)
+		if err == io.EOF {
+			err = ss.osRemove(cepd)
+		}
 	}
 	return err
 }
@@ -146,15 +143,7 @@ func (ss *sservice) EraseData(serviceName string) (err error) {
 	if path, err = helper.ResolvePath(filepath.FromSlash(ss.v.GetString("dir")), false); err != nil {
 		return err
 	}
-	data := filepath.Join(path, "data")
-	if err := ss.osRemoveAll(data); err != nil {
-		return err
-	}
-	immudbsys := filepath.Join(path, "immudbsys")
-	if err := ss.osRemoveAll(immudbsys); err != nil {
-		return err
-	}
-	if err := ss.osRemoveAll(filepath.Join(path, "immudb.identifier")); err != nil {
+	if err := ss.osRemoveAll(path); err != nil {
 		return err
 	}
 	return nil
@@ -178,7 +167,12 @@ func (ss *sservice) GetDefaultConfigPath(serviceName string) (dataDir string, er
 
 func (ss *sservice) ReadConfig(serviceName string) (err error) {
 	ss.v.SetConfigType("toml")
-	return ss.v.ReadConfig(bytes.NewBuffer(ss.options.Config))
+	var pc string
+
+	if pc, err = helper.ResolvePath(bytes.NewBuffer(ss.options.Config).String(), true); err != nil {
+		return err
+	}
+	return ss.v.ReadConfig(strings.NewReader(pc))
 }
 
 func (ss *sservice) InstallConfig(serviceName string) (err error) {
@@ -198,31 +192,25 @@ func (ss *sservice) InstallConfig(serviceName string) (err error) {
 	return ss.v.WriteConfigAs(cp)
 }
 
-// todo @Michele use functions from the fs package?
 //CopyExecInOsDefault copy the executable in default exec folder and returns the path
-func (ss *sservice) CopyExecInOsDefault(execPath string) (newExecPath string, err error) {
-	// exec path folder install creation
-	// todo @Michele this should be move in installSetup
-	var cep string
-	if cep, err = ss.getCommonExecPath(); err != nil {
-		return "", err
-	}
-	err = ss.os.MkdirAll(cep, os.ModePerm)
+func (ss *sservice) CopyExecInOsDefault(serviceName string) (path string, err error) {
+	currentExec, err := os.Executable()
 	if err != nil {
 		return "", err
 	}
-
-	from, err := ss.os.Open(execPath)
+	from, err := ss.os.Open(currentExec)
 	if err != nil {
 		return "", err
 	}
 	defer from.Close()
 
-	newExecPath, err = ss.GetDefaultExecPath(execPath)
+	path, _ = ss.GetDefaultExecPath(serviceName)
+	err = ss.os.MkdirAll(filepath.Dir(path), os.ModePerm)
 	if err != nil {
 		return "", err
 	}
-	to, err := ss.os.OpenFile(newExecPath, os.O_RDWR|os.O_CREATE, 0666)
+
+	to, err := ss.os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return "", err
 	}
@@ -231,7 +219,7 @@ func (ss *sservice) CopyExecInOsDefault(execPath string) (newExecPath string, er
 	if _, err = io.Copy(to, from); err != nil {
 		return "", err
 	}
-	return newExecPath, err
+	return path, err
 }
 
 // RemoveProgramFiles remove all program files
@@ -251,15 +239,15 @@ func (ss sservice) UninstallExecutables(serviceName string) (err error) {
 	if ep, err = ss.GetDefaultExecPath(serviceName); err != nil {
 		return err
 	}
-	return ss.osRemove(filepath.Join(ep, serviceName+".exe"))
+	return ss.osRemoveAll(filepath.Dir(ep))
 }
 
-// GetDefaultExecPath returns the default exec path
+// GetDefaultExecPath returns the default executable file  path
 func (ss sservice) GetDefaultExecPath(serviceName string) (ep string, err error) {
 	if ep, err = ss.getCommonExecPath(); err != nil {
 		return "", err
 	}
-	return ss.os.Join(ep, serviceName), nil
+	return ss.os.Join(ep, strings.Title(serviceName), serviceName+".exe"), nil
 }
 
 // getCommonExecPath returns exec path for all services
@@ -271,7 +259,7 @@ func (ss *sservice) getCommonExecPath() (string, error) {
 	return pf, nil
 }
 
-var whitelist = []string{"%programdata%\\\\Immudb", "%programfile%\\\\Immudb"}
+var whitelist = []string{"%programdata%\\Immu", "%programfile%\\Immu"}
 
 func (ss sservice) osRemove(folder string) error {
 	if err := deletionGuard(folder); err != nil {

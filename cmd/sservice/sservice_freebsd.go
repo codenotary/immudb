@@ -20,7 +20,7 @@ package sservice
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -50,7 +50,8 @@ type sservice struct {
 
 // NewDaemon ...
 func (ss *sservice) NewDaemon(serviceName string, description string, dependencies ...string) (d daemon.Daemon, err error) {
-	d, err = daemon.New(serviceName, description, ss.GetDefaultExecPath(serviceName), dependencies...)
+	ep, _ := ss.GetDefaultExecPath(serviceName)
+	d, err = daemon.New(serviceName, description, ep, dependencies...)
 	d.SetTemplate(ss.options.StartUpConfig)
 	return d, err
 }
@@ -131,15 +132,24 @@ func (ss sservice) UninstallSetup(serviceName string) (err error) {
 	if err = ss.osRemoveAll(ss.os.Dir(ss.v.GetString("logfile"))); err != nil {
 		return err
 	}
-
-	if err = ss.ReadConfig(serviceName); err != nil {
-		return err
-	}
-	cp, err := ss.GetDefaultConfigPath(serviceName)
+	err = ss.UninstallManPages(serviceName)
 	if err != nil {
 		return err
 	}
-	err = ss.UninstallManPages(serviceName)
+	// remove dir data folder only if it is empty
+	cepd := ss.v.GetString("dir")
+	if _, err := os.Stat(cepd); !os.IsNotExist(err) {
+		f1, err := ss.os.Open(cepd)
+		if err != nil {
+			return err
+		}
+		defer f1.Close()
+		_, err = f1.Readdirnames(1)
+		if err == io.EOF {
+			err = ss.osRemove(cepd)
+		}
+	}
+	cp, err := ss.GetDefaultConfigPath(serviceName)
 	if err != nil {
 		return err
 	}
@@ -242,7 +252,7 @@ func (ss sservice) CopyExecInOsDefault(serviceName string) (string, error) {
 	}
 	defer from.Close()
 
-	path := ss.GetDefaultExecPath(serviceName)
+	path, _ := ss.GetDefaultExecPath(serviceName)
 
 	to, err := ss.os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
@@ -261,12 +271,13 @@ func (ss sservice) CopyExecInOsDefault(serviceName string) (string, error) {
 	return path, err
 }
 
-func (ss sservice) GetDefaultExecPath(serviceName string) string {
-	return ss.os.Join(ss.options.ExecPath, serviceName)
+func (ss sservice) GetDefaultExecPath(serviceName string) (string, error) {
+	return ss.os.Join(ss.options.ExecPath, serviceName), nil
 }
 
 func (ss sservice) UninstallExecutables(serviceName string) error {
-	return ss.osRemove(ss.GetDefaultExecPath(serviceName))
+	ep, _ := ss.GetDefaultExecPath(serviceName)
+	return ss.osRemove(ep)
 }
 
 func (ss sservice) InstallManPages(serviceName string, cmd *cobra.Command) error {
@@ -302,15 +313,16 @@ func (ss sservice) osRemoveAll(folder string) error {
 }
 
 func deletionGuard(path string) error {
+	var v string
 	found := false
-	for _, v := range whitelist {
+	for _, v = range whitelist {
 		if strings.HasPrefix(path, v) {
 			found = true
 			break
 		}
 	}
 	if !found {
-		errors.New("os system file or folder protected item deletion not allowed. Check immu* service configuration")
+		return fmt.Errorf("os system file or folder protected item deletion not allowed. Check immu* service configuration: %s", path)
 	}
 	return nil
 }

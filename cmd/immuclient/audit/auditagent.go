@@ -55,8 +55,6 @@ type auditAgent struct {
 func (a *auditAgent) Manage(args []string, cmd *cobra.Command) (string, error) {
 	var err error
 	var msg string
-	var localFile string
-	var execPath string
 	var command string
 	if len(args) > 0 {
 		command = args[0]
@@ -69,14 +67,13 @@ func (a *auditAgent) Manage(args []string, cmd *cobra.Command) (string, error) {
 		}
 	}
 
-	a.Daemon, err = a.service.NewDaemon(name, name, execPath)
+	a.Daemon, err = a.service.NewDaemon(name, name)
 	if err != nil {
 		return "", err
 	}
 	if len(command) > 0 {
 		switch command {
 		case "install":
-			fmt.Println("installing " + localFile + "...")
 			if err = a.service.InstallSetup(name, cmd); err != nil {
 				return "", err
 			}
@@ -86,7 +83,6 @@ func (a *auditAgent) Manage(args []string, cmd *cobra.Command) (string, error) {
 			}
 			a.logfile = logfile
 			a.logger = logger.NewSimpleLogger("immuclientd", logfile)
-			fmt.Println("installing " + localFile + "...")
 			configpath, err := a.service.GetDefaultConfigPath(name)
 			if err != nil {
 				return "", err

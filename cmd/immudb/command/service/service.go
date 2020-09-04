@@ -94,17 +94,6 @@ Currently working on linux, windows and freebsd operating systems.
 			var u string
 			switch args[0] {
 			case "install":
-				/*if args[0] == "immugw" {
-					fmt.Fprintf(cmd.OutOrStdout(), "To provide the maximum level of security, we recommend running immugw on a different machine than immudb server. Continue ? [Y/n]")
-					if u, err = cl.treader.ReadFromTerminalYN("Y"); err != nil {
-						return err
-					}
-					if u != "y" {
-						fmt.Fprintf(cmd.OutOrStdout(), "No action\n")
-						return
-					}
-				}*/
-
 				if err = cl.sservice.InstallSetup("immudb", cmd.Parent()); err != nil {
 					return err
 				}
@@ -163,11 +152,11 @@ Currently working on linux, windows and freebsd operating systems.
 					}
 					fmt.Fprintf(cmd.OutOrStdout(), "Data folder removed\n")
 				}
-
-				fmt.Fprintf(cmd.OutOrStdout(), "Program files removed\n")
 				if err = cl.sservice.UninstallSetup("immudb"); err != nil {
 					return err
 				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Program files removed\n")
+
 				return nil
 			case "start":
 				if msg, err = daemon.Start(); err != nil {
