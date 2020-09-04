@@ -74,27 +74,27 @@ func DefaultOptions() *Options {
 	}
 }
 
-func (opt *Options) setMaxNodeSize(maxNodeSize int) *Options {
+func (opt *Options) SetMaxNodeSize(maxNodeSize int) *Options {
 	opt.maxNodeSize = maxNodeSize
 	return opt
 }
 
-func (opt *Options) setInsertionCountThreshold(insertionCountThreshold int) *Options {
+func (opt *Options) SetInsertionCountThreshold(insertionCountThreshold int) *Options {
 	opt.insertionCountThreshold = insertionCountThreshold
 	return opt
 }
 
-func (opt *Options) setMaxActiveSnapshots(maxActiveSnapshots int) *Options {
+func (opt *Options) SetMaxActiveSnapshots(maxActiveSnapshots int) *Options {
 	opt.maxActiveSnapshots = maxActiveSnapshots
 	return opt
 }
 
-func (opt *Options) setReadOnly(readOnly bool) *Options {
+func (opt *Options) SetReadOnly(readOnly bool) *Options {
 	opt.readOnly = readOnly
 	return opt
 }
 
-func (opt *Options) setFileMode(fileMode os.FileMode) *Options {
+func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
 	opt.fileMode = fileMode
 	return opt
 }
