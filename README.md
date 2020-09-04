@@ -262,7 +262,7 @@ For a super quick start, please follow step by step guides for each SDK or pick 
 ## CLI tools
 
 - **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
-- **immuadmin** is the admin CLI for immudb and `immugw`. You can install and manage the service installation for both components and get statistics as well as runtime information.
+- **immuadmin** is the admin CLI for immudb. You can manage the immudb and get statistics as well as runtime information.
 
 The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases)
 
@@ -370,7 +370,6 @@ Available Commands:
   logout
   print       Print merkle tree
   restore     Restore the database from a snapshot archive or folder
-  service     Manage immu services
   set         Update server config items: auth (none|password|cryptosig), mtls (true|false)
   stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
   status      Show heartbeat status
@@ -393,42 +392,52 @@ Use "immuadmin [command] --help" for more information about a command.
 
 ```
 
-### Run immudb as a service (using immuadmin)
+### Run immudb as a service
 
-Please make sure to build or download the immudb and `immuadmin` component and save them in the same work directory when installing the service.
-
+Service installation and management is supported for Linux, Windows and FreeBSD operating systems.
 ```
 # install immudb service
-./immuadmin service immudb install
+sudo ./immudb service install
+
+# uninstall immudb service
+sudo ./immudb service uninstall
 
 # check current immudb service status
-./immuadmin service immudb status
+sudo ./immudb service  status
 
 # stop immudb service
-./immuadmin service immudb stop
+sudo ./immudb service  stop
 
 # start immudb service
-./immuadmin service immudb start
+sudo ./immudb service start
 ```
 
 The linux service is using the following defaults:
 
 | File or configuration   | location                   |
 | ----------------------- | -------------------------- |
-| all configuration files | /etc/immudb                |
+| configuration file      | /etc/immudb/immudb.toml    |
 | all data files          | /var/lib/immudb            |
 | pid file                | /var/lib/immudb/immudb.pid |
-| log files               | /var/log/immudb            |
+| log file                | /var/log/immudb/immudb.log |
 
 The FreeBSD service is using the following defaults:
 
-| File or configuration   | location            |
-| ----------------------- | ------------------- |
-| all configuration files | /etc/immudb         |
-| all data files          | /var/lib/immudb     |
-| pid file                | /var/run/immudb.pid |
-| log files               | /var/log/immudb     |
+| File or configuration   | location                   |
+| ----------------------- | -------------------------- |
+| configuration file      | /etc/immudb/immudb.toml    |
+| all data files          | /var/lib/immudb            |
+| pid file                | /var/lib/immudb/immudb.pid |
+| log file                | /var/log/immudb/immudb.log |
 
+The Windows service is using the following defaults:
+
+| File or configuration   | location                             |
+| ----------------------- | ------------------------------------ |
+| configuration file      | ProgramData\Immudb\config\immudb.toml|
+| all data files          | ProgramData\Immudb\                  |
+| pid file                | ProgramData\Immudb\config\immudb.pid |
+| log file                | ProgramData\Immudb\config\immudb.log |
 
 ### Docker
 
