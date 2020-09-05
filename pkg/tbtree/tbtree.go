@@ -128,6 +128,7 @@ type innerNode struct {
 }
 
 type leafNode struct {
+	t       *TBtree
 	values  []*leafValue
 	_maxKey []byte
 	_ts     uint64
@@ -191,7 +192,7 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 	var root node
 
 	if stat.Size() == 0 {
-		root = &leafNode{maxSize: opt.maxNodeSize}
+		root = &leafNode{t: t, maxSize: opt.maxNodeSize}
 	} else {
 		bs := make([]byte, 4)
 		_, err := f.ReadAt(bs, stat.Size()-4)
@@ -317,6 +318,7 @@ func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafN
 	i += 4
 
 	l := &leafNode{
+		t:       t,
 		values:  make([]*leafValue, valueCount),
 		_maxKey: nil,
 		_ts:     0,
@@ -755,12 +757,72 @@ func (r *nodeRef) offset() int64 {
 }
 
 ////////////////////////////////////////////////////////////
+func (t *TBtree) readingAt(ts uint64) bool {
+	for k := range t.snapshots {
+		s, ok := t.snapshots[k]
+		if ok && s.Ts() == ts {
+			return true
+		}
+	}
+	return false
+}
 
 func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	if l.t.readingAt(ts) {
+		return l.copyOnInsertAt(key, value, ts)
+	}
+	return l.updateOnInsertAt(key, value, ts)
+}
+
+func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	i, found := l.indexOf(key)
+
+	l._ts = ts
+	l.off = 0
+
+	if found {
+		leafValue := l.values[i]
+
+		leafValue.key = key
+		leafValue.ts = ts
+		leafValue.prevTs = l.values[i].ts
+		leafValue.value = value
+
+		return l, nil, nil
+	}
+
+	if bytes.Compare(l._maxKey, key) < 0 {
+		l._maxKey = key
+	}
+
+	values := make([]*leafValue, len(l.values)+1)
+
+	copy(values[:i], l.values[:i])
+
+	values[i] = &leafValue{
+		key:    key,
+		ts:     ts,
+		prevTs: 0,
+		value:  value,
+	}
+
+	if i+1 < len(values) {
+		copy(values[i+1:], l.values[i:])
+	}
+
+	l.values = values
+
+	n2, err = l.split()
+
+	return l, n2, err
+}
+
+func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	i, found := l.indexOf(key)
 
 	if found {
 		newLeaf := &leafNode{
+			t:       l.t,
 			values:  make([]*leafValue, len(l.values)),
 			_maxKey: l._maxKey,
 			_ts:     ts,
@@ -796,6 +858,7 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 	}
 
 	newLeaf := &leafNode{
+		t:       l.t,
 		values:  make([]*leafValue, len(l.values)+1),
 		_maxKey: maxKey,
 		_ts:     ts,
@@ -907,6 +970,7 @@ func (l *leafNode) split() (node, error) {
 	splitIndex, _ := l.splitInfo()
 
 	newLeaf := &leafNode{
+		t:       l.t,
 		values:  l.values[splitIndex:],
 		_maxKey: l._maxKey,
 		maxSize: l.maxSize,

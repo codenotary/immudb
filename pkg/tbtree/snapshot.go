@@ -47,12 +47,8 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
 	return s.root.get(key)
 }
 
-func (s *Snapshot) Ts() (uint64, error) {
-	if s.closed {
-		return 0, ErrAlreadyClosed
-	}
-
-	return s.root.ts(), nil
+func (s *Snapshot) Ts() uint64 {
+	return s.root.ts()
 }
 
 func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
