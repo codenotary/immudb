@@ -120,6 +120,7 @@ type WriteOpts struct {
 }
 
 type innerNode struct {
+	t       *TBtree
 	nodes   []node
 	_maxKey []byte
 	_ts     uint64
@@ -260,6 +261,7 @@ func (t *TBtree) readInnerNodeFrom(buf []byte, asRoot bool, offset int64) (*inne
 	i += 4
 
 	n := &innerNode{
+		t:       t,
 		nodes:   make([]node, childCount),
 		_maxKey: nil,
 		_ts:     0,
@@ -460,6 +462,7 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 		t.root = n1
 	} else {
 		newRoot := &innerNode{
+			t:       t,
 			nodes:   []node{n1, n2},
 			_maxKey: n2.maxKey(),
 			_ts:     ts,
@@ -519,12 +522,72 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	return nil
 }
 
+func (t *TBtree) readingAt(ts uint64) bool {
+	for k := range t.snapshots {
+		s, ok := t.snapshots[k]
+		if ok && s.Ts() == ts {
+			return true
+		}
+	}
+	return false
+}
+
 func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	if n.t.readingAt(ts) {
+		return n.copyOnInsertAt(key, value, ts)
+	}
+	return n.updateOnInsertAt(key, value, ts)
+}
+
+func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	insertAt := n.indexOf(key)
 
 	c := n.nodes[insertAt]
 
-	// TODO: jeroiraz it's possible that childRef is not loaded into main mem yet
+	c1, c2, err := c.insertAt(key, value, ts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	n._ts = ts
+	n.off = 0
+
+	if c2 == nil {
+		if bytes.Compare(n._maxKey, c1.maxKey()) < 0 {
+			n._maxKey = c1.maxKey()
+		}
+
+		n.nodes[insertAt] = c1
+
+		return n, nil, nil
+	}
+
+	if bytes.Compare(n._maxKey, c2.maxKey()) < 0 {
+		n._maxKey = c2.maxKey()
+	}
+
+	nodes := make([]node, len(n.nodes)+1)
+
+	copy(nodes[:insertAt], n.nodes[:insertAt])
+
+	nodes[insertAt] = c1
+	nodes[insertAt+1] = c2
+
+	if insertAt+2 < len(nodes) {
+		copy(nodes[insertAt+2:], n.nodes[insertAt+1:])
+	}
+
+	n.nodes = nodes
+
+	n2, err = n.split()
+
+	return n, n2, err
+}
+
+func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	insertAt := n.indexOf(key)
+
+	c := n.nodes[insertAt]
 
 	c1, c2, err := c.insertAt(key, value, ts)
 	if err != nil {
@@ -538,6 +601,7 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 		}
 
 		newNode := &innerNode{
+			t:       n.t,
 			nodes:   make([]node, len(n.nodes)),
 			_maxKey: maxKey,
 			_ts:     ts,
@@ -561,6 +625,7 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 	}
 
 	newNode := &innerNode{
+		t:       n.t,
 		nodes:   make([]node, len(n.nodes)+1),
 		_maxKey: maxKey,
 		_ts:     ts,
@@ -666,6 +731,7 @@ func (n *innerNode) split() (node, error) {
 	splitIndex, _ := n.splitInfo()
 
 	newNode := &innerNode{
+		t:       n.t,
 		nodes:   n.nodes[splitIndex:],
 		_maxKey: n._maxKey,
 		maxSize: n.maxSize,
@@ -757,15 +823,6 @@ func (r *nodeRef) offset() int64 {
 }
 
 ////////////////////////////////////////////////////////////
-func (t *TBtree) readingAt(ts uint64) bool {
-	for k := range t.snapshots {
-		s, ok := t.snapshots[k]
-		if ok && s.Ts() == ts {
-			return true
-		}
-	}
-	return false
-}
 
 func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	if l.t.readingAt(ts) {
