@@ -61,11 +61,18 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 				assert.Equal(t, expectedTs, ts1)
 			}
 
-			err = snapshot.Close()
-			assert.NoError(t, err)
+			if i%2 == 1 {
+				err = snapshot.Close()
+				assert.NoError(t, err)
+			}
 
 			err = tbtree.Insert(k, v, uint64(ts))
 			assert.NoError(t, err)
+
+			if i%2 == 0 {
+				err = snapshot.Close()
+				assert.NoError(t, err)
+			}
 
 			snapshot, err = tbtree.Snapshot()
 			assert.NoError(t, err)
