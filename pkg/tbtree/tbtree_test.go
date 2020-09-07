@@ -264,7 +264,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(DefaultMaxNodeSize))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(DefaultMaxNodeSize).SetCacheSize(100_000))
 	assert.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
@@ -279,7 +279,12 @@ func BenchmarkRandomInsertion(b *testing.B) {
 	rnd := rand.New(seed)
 
 	for i := 0; i < b.N; i++ {
-		tbtree, _ := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(DefaultMaxNodeSize))
+		opts := DefaultOptions().
+			SetMaxNodeSize(DefaultMaxNodeSize).
+			SetCacheSize(10_000).
+			SetInsertionCountThreshold(100_000)
+
+		tbtree, _ := Open("tbtree.idb", opts)
 
 		kCount := 1_000_000
 

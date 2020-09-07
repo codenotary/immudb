@@ -33,15 +33,17 @@ var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
 var ErrorMaxActiveSnapshotLimitReached = errors.New("max active snapshots limit reached")
 
 const MinNodeSize = 96
+const MinCacheSize = 1
 const DefaultMaxNodeSize = 4096
 const DefaultInsertionCountThreshold = 100000
 const DefaultMaxActiveSnapshots = 100
+const DefaultCacheSize = 10000
 const DefaultFileMode = 0644
 
 // TBTree implements a timed-btree
 type TBtree struct {
-	f *os.File
-	// node manager
+	f     *os.File
+	cache *LRUCache
 	// bloom filter
 	root                    node
 	maxNodeSize             int
@@ -60,6 +62,7 @@ type Options struct {
 	maxNodeSize             int
 	insertionCountThreshold int
 	maxActiveSnapshots      int
+	cacheSize               int
 	readOnly                bool
 	fileMode                os.FileMode
 }
@@ -69,6 +72,7 @@ func DefaultOptions() *Options {
 		maxNodeSize:             DefaultMaxNodeSize,
 		insertionCountThreshold: DefaultInsertionCountThreshold,
 		maxActiveSnapshots:      DefaultMaxActiveSnapshots,
+		cacheSize:               DefaultCacheSize,
 		readOnly:                false,
 		fileMode:                DefaultFileMode,
 	}
@@ -86,6 +90,11 @@ func (opt *Options) SetInsertionCountThreshold(insertionCountThreshold int) *Opt
 
 func (opt *Options) SetMaxActiveSnapshots(maxActiveSnapshots int) *Options {
 	opt.maxActiveSnapshots = maxActiveSnapshots
+	return opt
+}
+
+func (opt *Options) SetCacheSize(cacheSize int) *Options {
+	opt.cacheSize = cacheSize
 	return opt
 }
 
@@ -139,7 +148,6 @@ type leafNode struct {
 
 type nodeRef struct {
 	t       *TBtree
-	node    node
 	_maxKey []byte
 	_ts     uint64
 	_size   int
@@ -157,7 +165,8 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 	if opt == nil ||
 		opt.maxNodeSize < MinNodeSize ||
 		opt.insertionCountThreshold < 1 ||
-		opt.maxActiveSnapshots < 1 {
+		opt.maxActiveSnapshots < 1 ||
+		opt.cacheSize < MinCacheSize {
 		return nil, ErrIllegalArgument
 	}
 
@@ -176,8 +185,14 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 
 	// TODO: read maxNodeSize and other immutable settings from file
 
+	cache, err := NewLRUCache(opt.cacheSize)
+	if err != nil {
+		return nil, err
+	}
+
 	t := &TBtree{
 		f:                       f,
+		cache:                   cache,
 		maxNodeSize:             opt.maxNodeSize,
 		insertionCountThreshold: opt.insertionCountThreshold,
 		maxActiveSnapshots:      opt.maxActiveSnapshots,
@@ -215,6 +230,26 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 	t.root = root
 
 	return t, nil
+}
+
+func (t *TBtree) nodeAt(offset int64) (node, error) {
+	v, err := t.cache.Get(offset)
+	if err == nil {
+		return v.(node), nil
+	}
+
+	if err == ErrKeyNotFound {
+		n, err := t.readNodeAt(offset)
+		if err != nil {
+			return nil, err
+		}
+
+		t.cache.Put(n.offset(), n)
+
+		return n, nil
+	}
+
+	return nil, err
 }
 
 func (t *TBtree) readNodeAt(offset int64) (node, error) {
@@ -533,7 +568,7 @@ func (t *TBtree) readingAt(ts uint64) bool {
 }
 
 func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
-	if n.t.readingAt(ts) {
+	if n.t.readingAt(n._ts) {
 		return n.copyOnInsertAt(key, value, ts)
 	}
 	return n.updateOnInsertAt(key, value, ts)
@@ -767,19 +802,9 @@ func (n *innerNode) updateTs() {
 }
 
 ////////////////////////////////////////////////////////////
-func (r *nodeRef) resolve() (node, error) {
-	if r.node == nil {
-		n, err := r.t.readNodeAt(r.off)
-		if err != nil {
-			return nil, err
-		}
-		r.node = n
-	}
-	return r.node, nil
-}
 
 func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
-	n, err := r.resolve()
+	n, err := r.t.nodeAt(r.off)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -787,7 +812,7 @@ func (r *nodeRef) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 nod
 }
 
 func (r *nodeRef) get(key []byte) (value []byte, ts uint64, err error) {
-	n, err := r.resolve()
+	n, err := r.t.nodeAt(r.off)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -795,7 +820,7 @@ func (r *nodeRef) get(key []byte) (value []byte, ts uint64, err error) {
 }
 
 func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
-	n, err := r.resolve()
+	n, err := r.t.nodeAt(r.off)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -825,7 +850,7 @@ func (r *nodeRef) offset() int64 {
 ////////////////////////////////////////////////////////////
 
 func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
-	if l.t.readingAt(ts) {
+	if l.t.readingAt(l._ts) {
 		return l.copyOnInsertAt(key, value, ts)
 	}
 	return l.updateOnInsertAt(key, value, ts)

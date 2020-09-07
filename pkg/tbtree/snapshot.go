@@ -123,7 +123,6 @@ func (s *Snapshot) WriteTo(w io.Writer, writeOpts *WriteOpts) (int64, error) {
 
 func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off int64, tw int64, err error) {
 	if writeOpts.OnlyMutated && !n.mutated() {
-		//TODO: let node manager know this node can be recycled
 		return n.off, 0, nil
 	}
 
@@ -190,14 +189,11 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 		tw += 4
 	}
 
-	//TODO: let node manager know this node can be recycled
-
 	return writeOpts.BaseOffset + cw, tw, nil
 }
 
 func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off int64, tw int64, err error) {
 	if writeOpts.OnlyMutated && !l.mutated() {
-		//TODO: let node manager know this node can be recycled
 		return l.off, 0, nil
 	}
 
@@ -258,8 +254,6 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 		tw += 4
 	}
 
-	//TODO: let node manager know this node can be recycled
-
 	return writeOpts.BaseOffset, tw, nil
 }
 
@@ -268,7 +262,7 @@ func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64
 		return n.off, 0, nil
 	}
 
-	node, err := n.resolve()
+	node, err := n.t.nodeAt(n.off)
 	if err != nil {
 		return 0, 0, err
 	}
