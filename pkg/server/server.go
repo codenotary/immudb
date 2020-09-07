@@ -72,16 +72,16 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Infof("\n%s\n%s\n\n", immudbTextLogo, s.Options)
 	}
 	dataDir := s.Options.Dir
-	if err := s.loadDefaultDatabase(dataDir); err != nil {
+	if err = s.loadDefaultDatabase(dataDir); err != nil {
 		s.Logger.Errorf("Unable load default database %s", err)
 		return err
 	}
-	if err := s.loadSystemDatabase(dataDir); err != nil {
+	if err = s.loadSystemDatabase(dataDir); err != nil {
 		s.Logger.Errorf("Unable load system database %s", err)
 		return err
 	}
 
-	if err := s.loadUserDatabases(dataDir); err != nil {
+	if err = s.loadUserDatabases(dataDir); err != nil {
 		s.Logger.Errorf("Unable load databases %s", err)
 		return err
 	}
@@ -121,6 +121,7 @@ func (s *ImmuServer) Start() error {
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
 	var uuid xid.ID
 	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
+		s.Logger.Errorf("unable to get or set uuid: %s", err)
 		return err
 	}
 
