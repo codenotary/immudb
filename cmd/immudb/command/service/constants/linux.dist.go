@@ -47,7 +47,7 @@ var UsageDet = fmt.Sprintf(`Config file is present in %s. Log file is in /var/lo
 
 // UsageExamples usage examples for linux
 var UsageExamples = fmt.Sprintf(`Install the immutable database
-sudo ./immudb service            -  Installs the daemon
+sudo ./immudb service install    -  Installs the daemon
 sudo ./immudb service stop       -  Stops the daemon
 sudo ./immudb service start      -  Starts initialized daemon
 sudo ./immudb service restart    -  Restarts daemon
