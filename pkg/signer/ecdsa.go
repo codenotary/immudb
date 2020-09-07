@@ -48,7 +48,7 @@ func NewSigner(privateKeyPath string) (Signer, error) {
 	}
 	privateKeyBlock, _ := pem.Decode(privateKeyBytes)
 	if privateKeyBlock == nil {
-		return nil, errors.New("no key found in provided file")
+		return nil, errors.New("no ecdsa key found in provided signing key file")
 	}
 	privateKey, err := x509.ParseECPrivateKey(privateKeyBlock.Bytes)
 	if err != nil {

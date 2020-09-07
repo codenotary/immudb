@@ -101,6 +101,7 @@ func (s *ImmuServer) Start() error {
 		if signer, err := signer.NewSigner(s.Options.SigningKey); err == nil {
 			s.RootSigner = NewRootSigner(signer)
 		} else {
+			s.Logger.Errorf("unable to configure the cryptographic signer: %s", err)
 			return err
 		}
 	}
