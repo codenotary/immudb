@@ -65,6 +65,13 @@ func makeStore() (*Store, func()) {
 
 func TestStore(t *testing.T) {
 	st, closer := makeStore()
+
+	assert.Equal(t, uint64(0), st.CountAll())
+
+	count, err := st.Count(schema.KeyPrefix{Prefix: nil})
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(0), count.GetCount())
+
 	defer closer()
 
 	for n := uint64(0); n <= 64; n++ {
@@ -85,7 +92,13 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, n, item.Index, "n=%d", n)
 		assert.Equal(t, key, item.Value, "n=%d", n)
 		assert.Equal(t, key, item.Key, "n=%d", n)
+
+		count, err = st.Count(schema.KeyPrefix{Prefix: key})
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(1), count.GetCount())
 	}
+
+	assert.True(t, uint64(64) <= st.CountAll())
 
 	st.tree.WaitUntil(64)
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
