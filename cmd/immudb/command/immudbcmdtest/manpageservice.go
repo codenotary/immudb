@@ -16,14 +16,16 @@ limitations under the License.
 
 package immudbcmdtest
 
+import "github.com/spf13/cobra"
+
 type ManpageServiceMock struct{}
 
 // InstallManPages installs man pages
-func (ms ManpageServiceMock) InstallManPages(dir string) error {
+func (ms ManpageServiceMock) InstallManPages(dir string, serviceName string, cmd *cobra.Command) error {
 	return nil
 }
 
 // UninstallManPages uninstalls man pages
-func (ms ManpageServiceMock) UninstallManPages(dir string) error {
+func (ms ManpageServiceMock) UninstallManPages(dir string, serviceName string) error {
 	return nil
 }

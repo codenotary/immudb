@@ -19,45 +19,34 @@ package service
 import (
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/cmd/immudb/command/service/constants"
 	"os"
 	"os/exec"
 	"strconv"
 	"time"
 
-	srvc "github.com/codenotary/immudb/cmd/immuadmin/command/service/constants"
-
 	"github.com/spf13/cobra"
 	daem "github.com/takama/daemon"
 )
 
-var installableServices = []string{"immudb", "immugw"}
 var availableCommands = []string{"install", "uninstall", "start", "stop", "restart", "status"}
 
 func (cl *commandline) Service(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:   fmt.Sprintf("service %v %v", installableServices, availableCommands),
-		Short: "Manage immu services",
-		Long: fmt.Sprintf(`Manage immudb related services.
-Available services: immudb and immugw.
+		Use:   fmt.Sprintf("service %v", availableCommands),
+		Short: "Immudb service management tool",
+		Long: fmt.Sprintf(`Manage immudb service.
 Root permission are required in order to make administrator operations.
-%s`, srvc.UsageDet),
+Currently working on linux, windows and freebsd operating systems.
+`),
 		ValidArgs: availableCommands,
-		Example:   srvc.UsageExamples,
+		Example:   constants.UsageExamples,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return errors.New("required a service name")
-			}
-			if stringInSlice("--remove-files", os.Args) {
-				return nil
-			}
-			if len(args) < 2 {
 				return errors.New("required a command name")
 			}
-			if !stringInSlice(args[0], installableServices) {
-				return fmt.Errorf("invalid service argument specified: %s. Available list is %v", args[0], installableServices)
-			}
-			if !stringInSlice(args[1], availableCommands) {
-				return fmt.Errorf("invalid command argument specified: %s. Available list is %v", args[1], availableCommands)
+			if !stringInSlice(args[0], availableCommands) {
+				return fmt.Errorf("invalid command argument specified: %s. Available list is %v", args[0], availableCommands)
 			}
 			return nil
 		},
@@ -68,7 +57,6 @@ Root permission are required in order to make administrator operations.
 			}
 			// delayed operation
 			t, _ := cmd.Flags().GetInt("time")
-
 			if t > 0 {
 				// if t is present we relaunch same command with --delayed flag set
 				var argi []string
@@ -97,67 +85,20 @@ Root permission are required in order to make administrator operations.
 			}
 
 			var msg string
-			var localFile string
-			var execPath string
 
-			if args[1] == "install" {
-				if localFile, err = cmd.Flags().GetString("local-file"); err != nil {
-					return err
-				}
-				if localFile, err = cl.sservice.GetExecutable(localFile, args[0]); err != nil {
-					return err
-				}
-			}
-
-			if execPath, err = cl.sservice.GetDefaultExecPath(localFile); err != nil {
-				return err
-			}
-
-			if stringInSlice("--remove-files", os.Args) {
-				if localFile, err = cmd.Flags().GetString("local-file"); err != nil {
-					return err
-				}
-			}
-
-			if args[1] == "install" {
-				if execPath, err = cl.sservice.CopyExecInOsDefault(localFile); err != nil {
-					return err
-				}
-			}
-
-			// todo remove all involved files
-			if remove, _ := cmd.Flags().GetBool("remove-files"); remove {
-				if err = os.Remove(execPath); err != nil {
-					return err
-				}
-				return nil
-			}
-
-			daemon, err := cl.sservice.NewDaemon(args[0], args[0], execPath)
+			daemon, err := cl.sservice.NewDaemon("immudb", "immudb - the immutable database")
 			if err != nil {
 				return err
 			}
 
 			var u string
-			switch args[1] {
+			switch args[0] {
 			case "install":
-				if args[0] == "immugw" {
-					fmt.Fprintf(cmd.OutOrStdout(), "To provide the maximum level of security, we recommend running immugw on a different machine than immudb server. Continue ? [Y/n]")
-					if u, err = cl.treader.ReadFromTerminalYN("Y"); err != nil {
-						return err
-					}
-					if u != "y" {
-						fmt.Fprintf(cmd.OutOrStdout(), "No action\n")
-						return
-					}
-				}
-
-				fmt.Fprintf(cmd.OutOrStdout(), "installing "+localFile+"...\n")
-				if err = cl.sservice.InstallSetup(args[0]); err != nil {
+				if err = cl.sservice.InstallSetup("immudb", cmd.Parent()); err != nil {
 					return err
 				}
 				var cp string
-				if cp, err = cl.sservice.GetDefaultConfigPath(args[0]); err != nil {
+				if cp, err = cl.sservice.GetDefaultConfigPath("immudb"); err != nil {
 					return err
 				}
 				if msg, err = daemon.Install("--config", cp); err != nil {
@@ -179,14 +120,7 @@ Root permission are required in order to make administrator operations.
 						return err
 					}
 				}
-				// stopping service first
-				if cl.sservice.IsRunning(status) {
-					if msg, err = daemon.Stop(); err != nil {
-						return err
-					}
-					fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Are you sure you want to uninstall %s? [y/N]", args[0])
+				fmt.Fprintf(cmd.OutOrStdout(), "Are you sure you want to uninstall %s? [y/N]", "immudb")
 				if u, err = cl.treader.ReadFromTerminalYN("N"); err != nil {
 					return err
 				}
@@ -194,31 +128,35 @@ Root permission are required in order to make administrator operations.
 					fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
 					return
 				}
+				// stopping service first
+				if cl.sservice.IsRunning(status) {
+					if msg, err = daemon.Stop(); err != nil {
+						return err
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
+				}
 				if msg, err = daemon.Remove(); err != nil {
 					return err
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), msg+"\n")
-				if args[0] == "immudb" {
-					fmt.Fprintf(cmd.OutOrStdout(), "Erase data? [y/N]")
-					if u, err = cl.treader.ReadFromTerminalYN("N"); err != nil {
+
+				fmt.Fprintf(cmd.OutOrStdout(), "Erase data? [y/N]")
+				if u, err = cl.treader.ReadFromTerminalYN("N"); err != nil {
+					return err
+				}
+				if u != "y" {
+					fmt.Fprintf(cmd.OutOrStdout(), "No data removed\n")
+				} else {
+					if err = cl.sservice.EraseData("immudb"); err != nil {
 						return err
 					}
-					if u != "y" {
-						fmt.Fprintf(cmd.OutOrStdout(), "No data removed\n")
-					} else {
-						if err = cl.sservice.EraseData(args[0]); err != nil {
-							return err
-						}
-						fmt.Fprintf(cmd.OutOrStdout(), "Data folder removed\n")
-					}
+					fmt.Fprintf(cmd.OutOrStdout(), "Data folder removed\n")
 				}
-				if err = cl.sservice.RemoveProgramFiles(args[0]); err != nil {
+				if err = cl.sservice.UninstallSetup("immudb"); err != nil {
 					return err
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "Program files removed\n")
-				if err = cl.sservice.UninstallSetup(args[0]); err != nil {
-					return err
-				}
+
 				return nil
 			case "start":
 				if msg, err = daemon.Start(); err != nil {
@@ -252,11 +190,9 @@ Root permission are required in order to make administrator operations.
 			return nil
 		},
 	}
-	ccmd.PersistentFlags().Bool("remove-files", false, "clean up from all service files")
 	ccmd.PersistentFlags().IntP("time", "t", 0, "number of seconds to wait before stopping | restarting the service")
 	ccmd.PersistentFlags().Int("delayed", 0, "number of seconds to wait before repeat the parent command. HIDDEN")
 	ccmd.PersistentFlags().MarkHidden("delayed")
-	ccmd.PersistentFlags().String("local-file", "", "local executable file name")
 	cmd.AddCommand(ccmd)
 }
 

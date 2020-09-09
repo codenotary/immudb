@@ -16,13 +16,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package constants
 
 import "fmt"
 
 const ExecPath = ""
 const ConfigPath = ""
-const ManPath = ""
 const OSUser = ""
 const OSGroup = ""
 
@@ -31,14 +30,12 @@ var StartUpConfig = ""
 // UsageDet details on config and log file on specific os
 var UsageDet = fmt.Sprintf(`Config and log files are present in C:\ProgramData\Immudb folder`)
 
-// UsageExamples examples
+// UsageExamples usage examples for linux
 var UsageExamples = fmt.Sprintf(`Install the immutable database
-immuadmin.exe service immudb install
-Install the REST proxy client with rest interface. We discourage to install immugw in the same machine of immudb in order to respect the security model of our technology.
-This kind of istallation is suggested only for testing purpose
-immuadmin.exe service immugw install
-It's possible to provide a specific executable
-immuadmin.exe service immudb install --local-file immudb.exe
+immudb.exe  service install    -  Initializes and runs daemon
+immudb.exe  service stop       -  Stops the daemon
+immudb.exe  service start      -  Starts initialized daemon
+immudb.exe  service restart    -  Restarts daemon
+immudb.exe  service uninstall  -  Removes daemon and its setup
 Uninstall immudb after 20 second
-immuadmin.exe service immudb uninstall --time 20
-`)
+immudb.exe  service uninstall --time 20 immudb.exe`)

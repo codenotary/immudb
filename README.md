@@ -109,9 +109,11 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 
 Getting immudb up and running is quite simple. Choose any of following options:
 
-1. [Running immudb in Docker](#immudb-docker)
-2. [Download immudb release binary](#immudb-binary)
-3. [Build immudb by yourself](#immudb-build-from-source)
+1. [Running immudb in Docker](#running-immudb-in-docker)
+2. [Download immudb release binary](#download-immudb-release-binary)
+3. [Build immudb by yourself](#build-the-binaries-yourself)
+4. [Running as a service](#run-immudb-as-a-service)
+
 
 ### Running immudb in Docker
 
@@ -243,6 +245,57 @@ docker build -t myown/immudb:latest -f Dockerfile .
 
 And then run immudb as described when pulling official immudb Docker image.
 
+
+### Run immudb as a service
+
+Service installation and management are supported on Linux, Windows, OSX and FreeBSD operating systems.
+```
+# install immudb service
+sudo ./immudb service install
+
+# uninstall immudb service
+sudo ./immudb service uninstall
+
+# check current immudb service status
+sudo ./immudb service  status
+
+# stop immudb service
+sudo ./immudb service  stop
+
+# start immudb service
+sudo ./immudb service start
+```
+
+The linux service is using the following defaults:
+
+| File or configuration   | location                   |
+| ----------------------- | -------------------------- |
+| executable              | /usr/sbin/immudb           |
+| configuration file      | /etc/immudb/immudb.toml    |
+| all data files          | /var/lib/immudb            |
+| pid file                | /var/lib/immudb/immudb.pid |
+| log file                | /var/log/immudb/immudb.log |
+
+The FreeBSD service is using the following defaults:
+
+| File or configuration   | location                   |
+| ----------------------- | -------------------------- |
+| executable              | /usr/sbin/immudb           |
+| configuration file      | /etc/immudb/immudb.toml    |
+| all data files          | /var/lib/immudb            |
+| pid file                | /var/lib/immudb/immudb.pid |
+| log file                | /var/log/immudb/immudb.log |
+
+The Windows service is using the following defaults:
+
+| File or configuration   | location                             |
+| ----------------------- | ------------------------------------
+| executable              | Program Files\Immudb\immudb.exe      |
+| configuration file      | ProgramData\Immudb\config\immudb.toml|
+| all data files          | ProgramData\Immudb\                  |
+| pid file                | ProgramData\Immudb\config\immudb.pid |
+| log file                | ProgramData\Immudb\config\immudb.log |
+
 ## Using immudb
 
 Integrate immudb into your application using official SDKs already available for the following programming languages:
@@ -262,7 +315,7 @@ For a super quick start, please follow step by step guides for each SDK or pick 
 ## CLI tools
 
 - **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
-- **immuadmin** is the admin CLI for immudb and `immugw`. You can install and manage the service installation for both components and get statistics as well as runtime information.
+- **immuadmin** is the admin CLI for immudb. You can manage immudb and get statistics as well as runtime information.
 
 The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases)
 
@@ -370,7 +423,6 @@ Available Commands:
   logout
   print       Print merkle tree
   restore     Restore the database from a snapshot archive or folder
-  service     Manage immu services
   set         Update server config items: auth (none|password|cryptosig), mtls (true|false)
   stats       Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details.
   status      Show heartbeat status
@@ -392,43 +444,6 @@ Flags:
 Use "immuadmin [command] --help" for more information about a command.
 
 ```
-
-### Run immudb as a service (using immuadmin)
-
-Please make sure to build or download the immudb and `immuadmin` component and save them in the same work directory when installing the service.
-
-```
-# install immudb service
-./immuadmin service immudb install
-
-# check current immudb service status
-./immuadmin service immudb status
-
-# stop immudb service
-./immuadmin service immudb stop
-
-# start immudb service
-./immuadmin service immudb start
-```
-
-The linux service is using the following defaults:
-
-| File or configuration   | location                   |
-| ----------------------- | -------------------------- |
-| all configuration files | /etc/immudb                |
-| all data files          | /var/lib/immudb            |
-| pid file                | /var/lib/immudb/immudb.pid |
-| log files               | /var/log/immudb            |
-
-The FreeBSD service is using the following defaults:
-
-| File or configuration   | location            |
-| ----------------------- | ------------------- |
-| all configuration files | /etc/immudb         |
-| all data files          | /var/lib/immudb     |
-| pid file                | /var/run/immudb.pid |
-| log files               | /var/log/immudb     |
-
 
 ### Docker
 
@@ -588,13 +603,13 @@ To generate a valid key it's possible to use `openssl` tool:
 ```.bash
 openssl ecparam -name prime256v1 -genkey -noout -out my.key
 ```
-Immuclient and immugw are shipped with auditor capabilities.
+Immuclient and [immugw](https://github.com/codenotary/immugw) are shipped with auditor capabilities.
 To obtain the advantages of using the signed root in combination with the auditor it's possible to launch:
 * immuclient with auditor capabilities:
 ```bash
 immuclient audit-mode --audit-username {immudb-username} --audit-password {immudb-pw} --audit-signature validate
 ```
-* with immugw with auditor capabilities:
+* with [immugw](https://github.com/codenotary/immugw) with auditor capabilities:
 ```bash
 ./immugw --audit --audit-username {immudb-username} --audit-password {immudb-pw} --audit-signature validate
 ```

@@ -17,18 +17,19 @@ limitations under the License.
 package audit
 
 import (
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestInit(t *testing.T) {
 	args := []string{"help"}
-	err := Init(args)
+	err := Init(args, &cobra.Command{})
 	assert.Nil(t, err)
 }
 
 func TestInitWrongArg(t *testing.T) {
 	args := []string{"wrong"}
-	err := Init(args)
+	err := Init(args, &cobra.Command{})
 	assert.Error(t, err)
 }

@@ -16,25 +16,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package config
 
-// ConfigImmugw ...
-var ConfigImmugw = []byte(`dir = "/var/lib/immudb"
+// ConfigImmudb ...
+var ConfigImmudb = []byte(`dir = "/var/lib/immudb"
+network = "tcp"
 address = "0.0.0.0"
-port = 3323
-immudb-address = "127.0.0.1"
-immudb-port = 3322
-pidfile = "/var/lib/immudb/immugw.pid"
-logfile = "/var/log/immudb/immugw.log"
+port = 3322
+dbname = "data"
+pidfile = "/var/lib/immudb/immudb.pid"
+logfile = "/var/log/immudb/immudb.log"
 mtls = false
 detached = false
-servername = "localhost"
-pkey = "/etc/immudb/mtls/4_client/private/localhost.key.pem"
-certificate = "/etc/immudb/mtls/4_client/certs/localhost.cert.pem"
-clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"
-audit = false
-# valid suffixes: "s", "m", "h", examples: 10s, 5m 1h
-audit-interval = "5m"
-audit-username = "immugwauditor"
-# password can be plaintext or base64
-audit-password = ""`)
+auth = true
+pkey = ""
+certificate = ""
+clientcas = ""
+devmode = true
+admin-password = "immudb"`)

@@ -14,33 +14,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package immudb
+package sservice
 
 import (
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"testing"
 )
 
-func TestManpageServiceImmugw_InstallManPages(t *testing.T) {
-	mps := ManpageServiceImmudb{}
+func TestManpageService_InstallManPages(t *testing.T) {
+	rootCmd := &cobra.Command{Use: "test"}
+	versionCmd := &cobra.Command{Use: "version", Run: func(cmd *cobra.Command, args []string) {}}
+	rootCmd.AddCommand(versionCmd)
 
-	manDir := "./man_dir_immudb_test"
+	mps := manpageService{}
 
-	require.NoError(t, mps.InstallManPages(manDir))
+	manDir := "./man_dir_test"
+
+	require.NoError(t, mps.InstallManPages(manDir, "test", rootCmd))
 	manFiles, err := ioutil.ReadDir(manDir)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(manFiles))
 }
 
-func TestManpageServiceImmugw_UninstallManPages(t *testing.T) {
-	mps := ManpageServiceImmudb{}
+func TestManpageService_UninstallManPages(t *testing.T) {
+	mps := manpageService{}
 
-	manDir := "./man_dir_immudb_test"
+	manDir := "./man_dir_test"
 	manFiles, err := ioutil.ReadDir(manDir)
 
-	require.NoError(t, mps.UninstallManPages(manDir))
+	require.NoError(t, mps.UninstallManPages(manDir, "test"))
 	manFiles, err = ioutil.ReadDir(manDir)
 	require.NoError(t, err)
 	require.Empty(t, manFiles)

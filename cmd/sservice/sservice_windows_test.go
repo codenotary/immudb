@@ -1,3 +1,5 @@
+// +build windows
+
 /*
 Copyright 2019-2020 vChain, Inc.
 
@@ -14,23 +16,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package sservice
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 
-	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	daem "github.com/takama/daemon"
 )
 
-
-func TestCommandline_Register(t *testing.T) {
-	c := commandline{}
-	cmd := c.Register(&cobra.Command{})
-	assert.IsType(t, &cobra.Command{}, cmd)
-}
-
-func TestNewCommandLine(t *testing.T) {
-	cml := NewCommandLine()
-	assert.IsType(t, &commandline{}, cml)
+func TestSservice_NewDaemon(t *testing.T) {
+	ss := NewSService()
+	d, err := ss.NewDaemon("test", "", "")
+	assert.Nil(t, err)
+	dc, _ := daem.New("test", "", "")
+	assert.IsType(t, d, dc)
 }

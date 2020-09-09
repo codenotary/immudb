@@ -1,5 +1,3 @@
-// +build windows
-
 /*
 Copyright 2019-2020 vChain, Inc.
 
@@ -16,19 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package immudb
 
 import (
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/server"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
-	daem "github.com/takama/daemon"
 )
 
-func TestSservice_NewDaemon(t *testing.T) {
-	ss := NewSService()
-	d, err := ss.NewDaemon("test", "", "")
+func TestNewCmd(t *testing.T) {
+	cl := Commandline{}
+
+	cmd, err := cl.NewRootCmd(server.DefaultServer())
 	assert.Nil(t, err)
-	dc, _ := daem.New("test", "", "")
-	assert.IsType(t, d, dc)
+	assert.IsType(t, &cobra.Command{}, cmd)
 }

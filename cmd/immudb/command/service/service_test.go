@@ -19,10 +19,10 @@ package service
 import (
 	"bytes"
 	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/immudb/command/service/servicetest"
 	"io/ioutil"
 	"testing"
 
-	"github.com/codenotary/immudb/cmd/immuadmin/command/service/servicetest"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -36,34 +36,9 @@ func TestCommandLine_ServiceImmudbInstall(t *testing.T) {
 	cld.Service(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
-	cmd.SetArgs([]string{"service", "immudb", "install"})
+	cmd.SetArgs([]string{"service", "install"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
-	out, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Contains(t, string(out), "installing")
-}
-
-func TestCommandLine_ServiceImmugwInstall(t *testing.T) {
-	cmd := &cobra.Command{}
-	tr := &clienttest.TerminalReaderMock{}
-	tr.Responses = []string{"y"}
-
-	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
-
-	cld.Service(cmd)
-	b := bytes.NewBufferString("")
-	cmd.SetOut(b)
-	cmd.SetArgs([]string{"service", "immugw", "install"})
-	err := cmd.Execute()
-	assert.Nil(t, err)
-	out, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Contains(t, string(out), "installing")
 }
 
 func TestCommandLine_ServiceImmudbUninstallAbortUnintall(t *testing.T) {
@@ -73,7 +48,7 @@ func TestCommandLine_ServiceImmudbUninstallAbortUnintall(t *testing.T) {
 	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 
 	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immudb", "uninstall"})
+	cmd.SetArgs([]string{"service", "uninstall"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
 }
@@ -87,7 +62,7 @@ func TestCommandLine_ServiceImmudbUninstallRemovingData(t *testing.T) {
 	cld.Service(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
-	cmd.SetArgs([]string{"service", "immudb", "uninstall"})
+	cmd.SetArgs([]string{"service", "uninstall"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
 	out, err := ioutil.ReadAll(b)
@@ -106,26 +81,7 @@ func TestCommandLine_ServiceImmudbUninstallWithoutRemoveData(t *testing.T) {
 	cld.Service(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
-	cmd.SetArgs([]string{"service", "immudb", "uninstall"})
-	err := cmd.Execute()
-	assert.Nil(t, err)
-	out, err := ioutil.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Contains(t, string(out), "uninstall")
-}
-
-func TestCommandLine_ServiceImmugwUninstall(t *testing.T) {
-	cmd := &cobra.Command{}
-	tr := &clienttest.TerminalReaderMock{}
-	tr.Responses = []string{"y"}
-	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
-
-	cld.Service(cmd)
-	b := bytes.NewBufferString("")
-	cmd.SetOut(b)
-	cmd.SetArgs([]string{"service", "immugw", "uninstall"})
+	cmd.SetArgs([]string{"service", "uninstall"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
 	out, err := ioutil.ReadAll(b)
@@ -140,7 +96,7 @@ func TestCommandLine_ServiceImmudbStop(t *testing.T) {
 	tr := &clienttest.TerminalReaderMock{}
 	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immudb", "stop"})
+	cmd.SetArgs([]string{"service", "stop"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
 }
@@ -150,27 +106,7 @@ func TestCommandLine_ServiceImmudbStart(t *testing.T) {
 	tr := &clienttest.TerminalReaderMock{}
 	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immudb", "start"})
-	err := cmd.Execute()
-	assert.Nil(t, err)
-}
-
-func TestCommandLine_ServiceImmugwStop(t *testing.T) {
-	cmd := &cobra.Command{}
-	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
-	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immugw", "stop"})
-	err := cmd.Execute()
-	assert.Nil(t, err)
-}
-
-func TestCommandLine_ServiceImmugwStart(t *testing.T) {
-	cmd := &cobra.Command{}
-	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
-	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immugw", "start"})
+	cmd.SetArgs([]string{"service", "start"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
 }
@@ -180,17 +116,7 @@ func TestCommandLine_ServiceImmudbDelayed(t *testing.T) {
 	tr := &clienttest.TerminalReaderMock{}
 	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immudb", "stop", "--time", "20"})
-	err := cmd.Execute()
-	assert.Nil(t, err)
-}
-
-func TestCommandLine_ServiceImmugwDelayed(t *testing.T) {
-	cmd := &cobra.Command{}
-	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
-	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immugw", "stop", "--time", "20"})
+	cmd.SetArgs([]string{"service", "stop", "--time", "20"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
 }
@@ -200,17 +126,7 @@ func TestCommandLine_ServiceImmudbRestart(t *testing.T) {
 	tr := &clienttest.TerminalReaderMock{}
 	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immudb", "restart"})
-	err := cmd.Execute()
-	assert.Nil(t, err)
-}
-
-func TestCommandLine_ServiceImmugwRestart(t *testing.T) {
-	cmd := &cobra.Command{}
-	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
-	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immugw", "restart"})
+	cmd.SetArgs([]string{"service", "restart"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
 }
@@ -220,17 +136,7 @@ func TestCommandLine_ServiceImmudbStatus(t *testing.T) {
 	tr := &clienttest.TerminalReaderMock{}
 	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
 	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immudb", "status"})
-	err := cmd.Execute()
-	assert.Nil(t, err)
-}
-
-func TestCommandLine_ServiceImmugwStatus(t *testing.T) {
-	cmd := &cobra.Command{}
-	tr := &clienttest.TerminalReaderMock{}
-	cld := commandline{helper.Config{}, servicetest.Sservicemock{}, tr}
-	cld.Service(cmd)
-	cmd.SetArgs([]string{"service", "immugw", "status"})
+	cmd.SetArgs([]string{"service", "status"})
 	err := cmd.Execute()
 	assert.Nil(t, err)
 }

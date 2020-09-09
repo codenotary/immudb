@@ -16,13 +16,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package constants
 
 import "fmt"
 
 const ExecPath = ""
 const ConfigPath = ""
-const ManPath = ""
 const OSUser = ""
 const OSGroup = ""
 
@@ -33,7 +32,7 @@ var UsageDet = fmt.Sprintf(`Config and log files are present in C:\ProgramData\I
 
 // UsageExamples examples
 var UsageExamples = `
-Install immudb immutable dtabase and immuclient.exe.
+Install immudb auditor
 immuclient.exe audit-mode install    -  Initializes and runs daemon
 immuclient.exe audit-mode stop       -  Stops the daemon
 immuclient.exe audit-mode start      -  Starts initialized daemon

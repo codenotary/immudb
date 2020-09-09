@@ -17,44 +17,51 @@ limitations under the License.
 package service
 
 import (
+	"github.com/codenotary/immudb/cmd/immudb/command/service/config"
+	"github.com/codenotary/immudb/cmd/immudb/command/service/constants"
+	"github.com/codenotary/immudb/cmd/sservice"
 	"os"
 
 	"github.com/codenotary/immudb/cmd/helper"
-	srvc "github.com/codenotary/immudb/cmd/immuadmin/command/service/configs"
-	service "github.com/codenotary/immudb/cmd/immuadmin/command/service/constants"
-	immusrvc "github.com/codenotary/immudb/pkg/service"
 	"github.com/spf13/cobra"
 )
 
 func NewCommandLine() *commandline {
-	op := immusrvc.Option{
-		ExecPath:      service.ExecPath,
-		ConfigPath:    service.ConfigPath,
-		ManPath:       service.ManPath,
-		User:          service.OSUser,
-		Group:         service.OSGroup,
-		StartUpConfig: service.StartUpConfig,
-		UsageDetails:  service.UsageDet,
-		UsageExamples: service.UsageExamples,
-		Config: map[string][]byte{
-			"immudb": srvc.ConfigImmudb,
-			"immugw": srvc.ConfigImmugw,
-		},
+	op := sservice.Option{
+		ExecPath:      constants.ExecPath,
+		ConfigPath:    constants.ConfigPath,
+		User:          constants.OSUser,
+		Group:         constants.OSGroup,
+		StartUpConfig: constants.StartUpConfig,
+		UsageDetails:  constants.UsageDet,
+		UsageExamples: constants.UsageExamples,
+		Config:        config.ConfigImmudb,
 	}
-	s := immusrvc.NewSService(&op)
+
+	s := sservice.NewSService(&op)
 	t := helper.NewTerminalReader(os.Stdin)
 	c := helper.Config{Name: "immuadmin"}
 	return &commandline{c, s, t}
 }
 
-type Commandline interface {
-	Service(cmd *cobra.Command)
-}
-
 type commandline struct {
 	config   helper.Config
-	sservice immusrvc.Sservice
+	sservice sservice.Sservice
 	treader  helper.TerminalReader
+}
+
+/*type sserviceImmudb struct {
+	sservice.Sservice
+}*/
+
+// NewSService ...
+/*func NewImmudbSService(options *sservice.Option) sservice.Sservice {
+	mps := immudb.NewManpageService()
+	return sserviceImmudb{ sservice.Sservice{immuos.NewStandardOS(), viper.New(), mps, *options}}
+}*/
+
+type Commandline interface {
+	Service(cmd *cobra.Command)
 }
 
 func (cld *commandline) Register(rootCmd *cobra.Command) *cobra.Command {

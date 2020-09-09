@@ -141,14 +141,6 @@ func tearDown() {
 	os.Unsetenv("IMMUDB_LOGFILE")
 }
 
-func TestNewCmd(t *testing.T) {
-	cl := Commandline{}
-
-	cmd, err := cl.NewCmd(server.DefaultServer())
-	assert.Nil(t, err)
-	assert.IsType(t, &cobra.Command{}, cmd)
-}
-
 func TestImmudb(t *testing.T) {
 	var config string
 	cmd := &cobra.Command{}

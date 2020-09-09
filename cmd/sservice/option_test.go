@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package sservice
 
 import (
 	"bytes"
@@ -26,21 +26,19 @@ func TestOption(t *testing.T) {
 	op = op.WithConfigPath("/configpath").
 		WithExecPath("/execpath").
 		WithGroup("groupname").
-		WithManPath("/manpath").
 		WithUsageDetails("service usage details").
 		WithUsageExamples("service usage examples").
 		WithUser("/user").
 		WithStartUpConfig("startupconfig").
-		WithConfig(map[string][]byte{"immuclient": []byte("immuclientconfig")})
+		WithConfig([]byte("immuclientconfig"))
 	if (op.ConfigPath != "/configpath") ||
 		(op.ExecPath != "/execpath") ||
 		(op.Group != "groupname") ||
-		(op.ManPath != "/manpath") ||
 		(op.UsageDetails != "service usage details") ||
 		(op.UsageExamples != "service usage examples") ||
 		(op.User != "/user") ||
 		(op.StartUpConfig != "startupconfig") ||
-		(!bytes.Equal(op.Config["immuclient"], []byte("immuclientconfig"))) {
+		(!bytes.Equal(op.Config, []byte("immuclientconfig"))) {
 		t.Fatal("service option fail")
 	}
 }

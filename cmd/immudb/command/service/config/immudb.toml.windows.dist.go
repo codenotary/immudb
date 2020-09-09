@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package config
 
 var ConfigImmudb = []byte(`dir = "%programdata%\\Immudb"
 network = "tcp"
@@ -28,8 +28,8 @@ logfile = "%programdata%\\Immudb\\config\\immudb.log"
 mtls = false
 detached = false
 auth = true
-pkey = "%programdata%a\\Immudb\\config\\mtls\\3_application\\private\\localhost.key.pem"
-certificate = "%programdata%\\Immudb\\config\\mtls\\3_application\\certs\\localhost.cert.pem"
-clientcas = "%programdata%\\Immudb\\config\\mtls\\2_intermediate\\certs\\ca-chain.cert.pem"
+pkey = ""
+certificate = ""
+clientcas = ""
 devmode = true
 admin-password = "immudb"`)

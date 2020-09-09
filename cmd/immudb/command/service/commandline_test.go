@@ -1,5 +1,3 @@
-// +build freebsd
-
 /*
 Copyright 2019-2020 vChain, Inc.
 
@@ -18,16 +16,20 @@ limitations under the License.
 
 package service
 
-var ConfigImmudb = []byte(`dir = "/var/lib/immudb"
-network = "tcp"
-address = "0.0.0.0"
-port = 3322
-dbname = "data"
-pidfile = "/var/run/immudb.pid"
-logfile = "/var/log/immudb/immudb.log"
-mtls = false
-detached = false
-auth = false
-pkey = "/etc/immudb/mtls/3_application/private/localhost.key.pem"
-certificate = "/etc/immudb/mtls/3_application/certs/localhost.cert.pem"
-clientcas = "/etc/immudb/mtls/2_intermediate/certs/ca-chain.cert.pem"`)
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+
+	"github.com/spf13/cobra"
+)
+
+func TestCommandline_Register(t *testing.T) {
+	c := commandline{}
+	cmd := c.Register(&cobra.Command{})
+	assert.IsType(t, &cobra.Command{}, cmd)
+}
+
+func TestNewCommandLine(t *testing.T) {
+	cml := NewCommandLine()
+	assert.IsType(t, &commandline{}, cml)
+}
