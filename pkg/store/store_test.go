@@ -157,28 +157,31 @@ func TestSetBatch(t *testing.T) {
 	defer closer()
 
 	batchSize := 100
-	kvList := make([]*schema.KeyValue, batchSize)
 
-	for i := 0; i < batchSize; i++ {
-		key := []byte(strconv.FormatUint(uint64(i), 10))
-		value := []byte(strconv.FormatUint(uint64(batchSize+i), 10))
-		kvList[i] = &schema.KeyValue{
-			Key:   key,
-			Value: value,
+	for b := 0; b < 10; b++ {
+		kvList := make([]*schema.KeyValue, batchSize)
+
+		for i := 0; i < batchSize; i++ {
+			key := []byte(strconv.FormatUint(uint64(i), 10))
+			value := []byte(strconv.FormatUint(uint64(b*batchSize+batchSize+i), 10))
+			kvList[i] = &schema.KeyValue{
+				Key:   key,
+				Value: value,
+			}
 		}
-	}
 
-	index, err := st.SetBatch(schema.KVList{KVs: kvList})
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(batchSize), index.GetIndex()+1)
-
-	for i := 0; i < batchSize; i++ {
-		key := []byte(strconv.FormatUint(uint64(i), 10))
-		value := []byte(strconv.FormatUint(uint64(batchSize+i), 10))
-		item, err := st.Get(schema.Key{Key: key})
+		index, err := st.SetBatch(schema.KVList{KVs: kvList})
 		assert.NoError(t, err)
-		assert.Equal(t, value, item.Value)
-		assert.Equal(t, uint64(i), item.Index)
+		assert.Equal(t, uint64((b+1)*batchSize), index.GetIndex()+1)
+
+		for i := 0; i < batchSize; i++ {
+			key := []byte(strconv.FormatUint(uint64(i), 10))
+			value := []byte(strconv.FormatUint(uint64(b*batchSize+batchSize+i), 10))
+			item, err := st.Get(schema.Key{Key: key})
+			assert.NoError(t, err)
+			assert.Equal(t, value, item.Value)
+			assert.Equal(t, uint64(b*batchSize+i), item.Index)
+		}
 	}
 }
 
