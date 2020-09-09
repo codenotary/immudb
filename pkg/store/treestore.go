@@ -95,6 +95,20 @@ func decodeRefTreeKey(rtk []byte) ([sha256.Size]byte, []byte, error) {
 	return hArray, reference, nil
 }
 
+func wrapValueWithTS(v []byte, ts uint64) []byte {
+	tsv := make([]byte, len(v)+8)
+	binary.BigEndian.PutUint64(tsv, ts)
+	copy(tsv[8:], v)
+	return tsv
+}
+
+func unwrapValueWithTS(tsv []byte) ([]byte, uint64) {
+	v := make([]byte, len(tsv)-8)
+	ts := binary.BigEndian.Uint64(tsv[:8])
+	copy(v, tsv[8:])
+	return v, ts
+}
+
 func treeLayerWidth(layer uint8, txn *badger.Txn) uint64 {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false

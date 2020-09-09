@@ -29,10 +29,13 @@ func itemToSchema(key []byte, item *badger.Item) (*schema.Item, error) {
 	if key == nil || len(key) == 0 {
 		key = item.KeyCopy(key)
 	}
+
+	v, ts := unwrapValueWithTS(value)
+
 	return &schema.Item{
 		Key:   key,
-		Value: value,
-		Index: item.Version() - 1,
+		Value: v,
+		Index: ts - 1,
 	}, nil
 }
 

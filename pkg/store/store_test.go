@@ -39,12 +39,10 @@ import (
 var root64th = [sha256.Size]byte{0xb1, 0xbe, 0x73, 0xef, 0x38, 0x8e, 0x7e, 0xd3, 0x79, 0x71, 0x7, 0x26, 0xd1, 0x19, 0xa5, 0x35, 0xb8, 0x67, 0x24, 0x12, 0x48, 0x25, 0x7a, 0x7e, 0x2e, 0x34, 0x32, 0x29, 0x65, 0x60, 0xdf, 0xf9}
 
 func makeStore() (*Store, func()) {
+	return makeStoreAt(tmpDir())
+}
 
-	dir, err := ioutil.TempDir("", "immu")
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func makeStoreAt(dir string) (*Store, func()) {
 	slog := logger.NewSimpleLoggerWithLevel("bm(immudb)", os.Stderr, logger.LogDebug)
 	opts, badgerOpts := DefaultOptions(dir, slog)
 
@@ -61,6 +59,14 @@ func makeStore() (*Store, func()) {
 			log.Fatal(err)
 		}
 	}
+}
+
+func tmpDir() string {
+	dir, err := ioutil.TempDir("", "immu")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return dir
 }
 
 func TestStore(t *testing.T) {
@@ -144,6 +150,36 @@ func TestStoreAsyncCommit(t *testing.T) {
 
 	st.tree.makeCaches() // with empty cache, next call should fetch from DB
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
+}
+
+func TestSetBatch(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	batchSize := 100
+	kvList := make([]*schema.KeyValue, batchSize)
+
+	for i := 0; i < batchSize; i++ {
+		key := []byte(strconv.FormatUint(uint64(i), 10))
+		value := []byte(strconv.FormatUint(uint64(batchSize+i), 10))
+		kvList[i] = &schema.KeyValue{
+			Key:   key,
+			Value: value,
+		}
+	}
+
+	index, err := st.SetBatch(schema.KVList{KVs: kvList})
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(batchSize), index.GetIndex()+1)
+
+	for i := 0; i < batchSize; i++ {
+		key := []byte(strconv.FormatUint(uint64(i), 10))
+		value := []byte(strconv.FormatUint(uint64(batchSize+i), 10))
+		item, err := st.Get(schema.Key{Key: key})
+		assert.NoError(t, err)
+		assert.Equal(t, value, item.Value)
+		assert.Equal(t, uint64(i), item.Index)
+	}
 }
 
 func TestDump(t *testing.T) {
@@ -641,6 +677,14 @@ func TestInsertionOrderIndexMix(t *testing.T) {
 		Index: 99,
 	})
 	assert.Error(t, err, ErrIndexNotFound)
+}
+
+func TestGetTree(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	tree := st.GetTree()
+	assert.NotNil(t, tree)
 }
 
 func BenchmarkStoreSet(b *testing.B) {

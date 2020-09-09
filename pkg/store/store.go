@@ -137,20 +137,21 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
-	for _, kv := range list.KVs {
+	tsEntries := t.tree.NewBatch(&list)
+
+	for i, kv := range list.KVs {
 		if err = checkKey(kv.Key); err != nil {
 			return nil, err
 		}
 		if err = txn.SetEntry(&badger.Entry{
 			Key:   kv.Key,
-			Value: kv.Value,
+			Value: wrapValueWithTS(kv.Value, tsEntries[i].ts),
 		}); err != nil {
 			err = mapError(err)
 			return
 		}
 	}
 
-	tsEntries := t.tree.NewBatch(&list)
 	ts := tsEntries[len(tsEntries)-1].ts
 	index = &schema.Index{
 		Index: ts - 1,
@@ -202,15 +203,16 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
+	tsEntry := t.tree.NewEntry(kv.Key, kv.Value)
+
 	if err = txn.SetEntry(&badger.Entry{
 		Key:   kv.Key,
-		Value: kv.Value,
+		Value: wrapValueWithTS(kv.Value, tsEntry.ts),
 	}); err != nil {
 		err = mapError(err)
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(kv.Key, kv.Value)
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
 	}
@@ -258,7 +260,7 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
 		var refkey []byte
 		err = i.Value(func(val []byte) error {
-			refkey = append([]byte{}, val...)
+			refkey, _ = unwrapValueWithTS(val)
 			return nil
 		})
 		if ref, err := txn.Get(refkey); err == nil {
@@ -436,16 +438,17 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 		return
 	}
 
+	tsEntry := t.tree.NewEntry(refOpts.Reference, i.Key())
+
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      refOpts.Reference,
-		Value:    i.Key(),
+		Value:    wrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(refOpts.Reference, i.Key())
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
 	}
@@ -505,16 +508,16 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		return nil, err
 	}
 
+	tsEntry := t.tree.NewEntry(ik, i.Key())
+
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ik,
-		Value:    i.Key(),
+		Value:    wrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)
 		return nil, err
 	}
-
-	tsEntry := t.tree.NewEntry(ik, i.Key())
 
 	index = &schema.Index{
 		Index: tsEntry.ts - 1,
@@ -640,7 +643,7 @@ func (t *Store) fetchFromDb(key []byte) (*schema.Item, error) {
 	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
 		var refkey []byte
 		err = i.Value(func(val []byte) error {
-			refkey = append([]byte{}, val...)
+			refkey, _ = unwrapValueWithTS(val)
 			return nil
 		})
 		if ref, err := txn.Get(refkey); err == nil {

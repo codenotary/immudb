@@ -72,7 +72,7 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 			}
 			var refKey []byte
 			err = it.Item().Value(func(val []byte) error {
-				refKey = append([]byte{}, val...)
+				refKey, _ = unwrapValueWithTS(val)
 				return nil
 			})
 			if err != nil {
@@ -149,7 +149,7 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 		if it.Item().UserMeta()&bitReferenceEntry == bitReferenceEntry {
 			var refKey []byte
 			err = it.Item().Value(func(val []byte) error {
-				refKey = append([]byte{}, val...)
+				refKey, _ = unwrapValueWithTS(val)
 				return nil
 			})
 			if err != nil {

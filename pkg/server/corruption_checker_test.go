@@ -116,8 +116,12 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ts := item.Version()
-	v1 := []byte(strconv.FormatUint(3, 10))
+	value, err := item.ValueCopy(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ts := binary.BigEndian.Uint64(value[:8])
+	v1 := append(value[:8], []byte(strconv.FormatUint(3, 10))...)
 	if err := txn.Set(k, v1); err != nil {
 		log.Fatal(err)
 	}
