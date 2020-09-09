@@ -685,6 +685,26 @@ func TestGetTree(t *testing.T) {
 
 	tree := st.GetTree()
 	assert.NotNil(t, tree)
+	assert.Nil(t, tree.T)
+
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: key,
+		}
+		index, err := st.Set(kv)
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index.Index, "n=%d", n)
+	}
+
+	tree1 := st.GetTree()
+	assert.NotNil(t, tree1)
+	assert.Equal(t, 8, len(tree1.T))
+	assert.Equal(t, 65, len(tree1.T[0].L))
+	root, err := st.CurrentRoot()
+	assert.NoError(t, err)
+	assert.Equal(t, root.Payload.Root, tree1.T[7].L[0].H)
 }
 
 func BenchmarkStoreSet(b *testing.B) {
