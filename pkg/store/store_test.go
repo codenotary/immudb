@@ -93,6 +93,8 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, n, index.Index, "n=%d", n)
 	}
 
+	assert.True(t, uint64(64) <= st.CountAll())
+
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
 		item, err := st.Get(schema.Key{Key: key})
@@ -105,8 +107,6 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(1), count.GetCount())
 	}
-
-	assert.True(t, uint64(64) <= st.CountAll())
 
 	st.tree.WaitUntil(64)
 
@@ -123,6 +123,53 @@ func TestStore(t *testing.T) {
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
 
 	assert.True(t, st.HealthCheck())
+}
+
+func TestStoreMissingEntriesReplay(t *testing.T) {
+	dbDir := tmpDir()
+
+	st, _ := makeStoreAt(dbDir)
+
+	assert.True(t, st.HealthCheck())
+
+	assert.Equal(t, uint64(0), st.CountAll())
+
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: key,
+		}
+		index, err := st.Set(kv)
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index.Index, "n=%d", n)
+	}
+
+	st.tree.makeCaches() // empty cache
+
+	st.Close()
+
+	st, closer := makeStoreAt(dbDir)
+	defer closer()
+
+	st.tree.WaitUntil(64)
+
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
+
+	st.FlushToDisk()
+
+	assert.True(t, st.tree.w == st.tree.lastFlushed)
+
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
+
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		item, err := st.Get(schema.Key{Key: key})
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, item.Index, "n=%d", n)
+		assert.Equal(t, key, item.Value, "n=%d", n)
+		assert.Equal(t, key, item.Key, "n=%d", n)
+	}
 }
 
 func TestStoreAsyncCommit(t *testing.T) {
