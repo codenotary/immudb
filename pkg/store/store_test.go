@@ -72,6 +72,8 @@ func tmpDir() string {
 func TestStore(t *testing.T) {
 	st, closer := makeStore()
 
+	assert.True(t, st.HealthCheck())
+
 	assert.Equal(t, uint64(0), st.CountAll())
 
 	count, err := st.Count(schema.KeyPrefix{Prefix: nil})
@@ -107,6 +109,11 @@ func TestStore(t *testing.T) {
 	assert.True(t, uint64(64) <= st.CountAll())
 
 	st.tree.WaitUntil(64)
+
+	st.FlushToDisk()
+
+	assert.True(t, st.tree.w == st.tree.lastFlushed)
+
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
 
 	st.tree.Close()
@@ -114,6 +121,8 @@ func TestStore(t *testing.T) {
 
 	st.tree.makeCaches() // with empty cache, next call should fetch from DB
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
+
+	assert.True(t, st.HealthCheck())
 }
 
 func TestStoreAsyncCommit(t *testing.T) {
