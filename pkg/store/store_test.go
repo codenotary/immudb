@@ -145,7 +145,7 @@ func TestStoreMissingEntriesReplay(t *testing.T) {
 		assert.Equal(t, n, index.Index, "n=%d", n)
 	}
 
-	st.tree.makeCaches() // empty cache
+	st.tree.close(false)
 
 	st.Close()
 
