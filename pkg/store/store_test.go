@@ -767,6 +767,8 @@ func TestGetTree(t *testing.T) {
 		assert.Equal(t, n, index.Index, "n=%d", n)
 	}
 
+	st.tree.WaitUntil(64)
+
 	tree1 := st.GetTree()
 	assert.NotNil(t, tree1)
 	assert.Equal(t, 8, len(tree1.T))
