@@ -237,6 +237,16 @@ func TestSetBatch(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, value, item.Value)
 			assert.Equal(t, uint64(b*batchSize+i), item.Index)
+
+			safeItem, err := st.SafeGet(schema.SafeGetOptions{Key: key}) //no prev root
+			assert.NoError(t, err)
+			assert.Equal(t, key, safeItem.Item.Key)
+			assert.Equal(t, value, safeItem.Item.Value)
+			assert.Equal(t, item.Index, safeItem.Item.Index)
+			assert.True(t, safeItem.Proof.Verify(
+				safeItem.Item.Hash(),
+				schema.Root{Payload: &schema.RootIndex{}}, // zerovalue signals no prev root
+			))
 		}
 	}
 }
