@@ -39,8 +39,6 @@ const lastFlushedMetaKey = "IMMUDB.METADATA.LAST_FLUSHED_LEAF"
 const bitTreeEntry = byte(255)
 const tsPrefix = byte(0)
 
-const defaultMaxNumberOfEntriesPerTx = 100_000
-
 /*
 As for release 0.8 of immudb, which includes multi-key insertions, kv data needs to be univocally referenced
 by a monotonic increasing index i.e. internally reffered as `ts`.
@@ -51,7 +49,6 @@ This migration utility can be used to migrate any immudb database created with o
 func main() {
 	sourceDataDir := flag.String("sourceDataDir", "data_v0.7", "immudb data directory to migrate e.g. ./data_v0.7")
 	targetDataDir := flag.String("targetDataDir", "data_v0.8", "immudb data directory where migrated immudb databases will be stored e.g. ./data_v0.8")
-	maxNumberOfEntriesPerTx := flag.Int("maxNumberOfEntriesPerTx", defaultMaxNumberOfEntriesPerTx, "max number of entries per transaction")
 
 	flag.Parse()
 
@@ -91,7 +88,7 @@ func main() {
 
 		start := time.Now()
 
-		err = migrateDB(sourcePath, targetPath, *maxNumberOfEntriesPerTx)
+		err = migrateDB(sourcePath, targetPath)
 
 		elapsed := time.Since(start)
 
@@ -126,7 +123,7 @@ func dbList(dataDir string) ([]string, error) {
 	return dirs, err
 }
 
-func migrateDB(sourceDir, targetDir string, maxNumberOfEntriesPerTx int) error {
+func migrateDB(sourceDir, targetDir string) error {
 	slog := logger.NewSimpleLoggerWithLevel("migration(immudb)", os.Stderr, logger.LogError)
 
 	_, badgerOpts := store.DefaultOptions(sourceDir, slog)
@@ -160,7 +157,7 @@ func migrateDB(sourceDir, targetDir string, maxNumberOfEntriesPerTx int) error {
 	defer it.Close()
 
 	for it.Rewind(); it.Valid(); it.Next() {
-		err = migrateKey(it.Item().Key(), txn, targetdb, entries, maxNumberOfEntriesPerTx)
+		err = migrateKey(it.Item().Key(), txn, targetdb, entries)
 
 		if err != nil {
 			break
@@ -170,7 +167,7 @@ func migrateDB(sourceDir, targetDir string, maxNumberOfEntriesPerTx int) error {
 	return err
 }
 
-func migrateKey(key []byte, txn *badger.Txn, targetdb *badger.DB, entries uint64, maxNumberOfEntriesPerTx int) error {
+func migrateKey(key []byte, txn *badger.Txn, targetdb *badger.DB, entries uint64) error {
 	i := uint64(0)
 	lasti := uint64(0)
 	lastP := 1
@@ -191,7 +188,7 @@ func migrateKey(key []byte, txn *badger.Txn, targetdb *badger.DB, entries uint64
 		if (kit.Item().UserMeta()&bitTreeEntry != bitTreeEntry) &&
 			!bytes.Equal([]byte(lastFlushedMetaKey), kit.Item().Key()) {
 
-			ts, err := findTS(key, value, kit.Item().Version(), maxNumberOfEntriesPerTx, txn)
+			ts, err := findTS(key, value, kit.Item().Version(), txn)
 
 			if err != nil {
 				itx.Discard()
@@ -231,9 +228,7 @@ func migrateKey(key []byte, txn *badger.Txn, targetdb *badger.DB, entries uint64
 	return nil
 }
 
-func findTS(key []byte, value []byte, ts uint64, maxNumberOfEntriesPerTx int, txn *badger.Txn) (uint64, error) {
-	entriesInTx := 0
-
+func findTS(key []byte, value []byte, ts uint64, txn *badger.Txn) (uint64, error) {
 	maxKey := treeKey(0, ts-1)
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = true
@@ -262,12 +257,6 @@ func findTS(key []byte, value []byte, ts uint64, maxNumberOfEntriesPerTx int, tx
 			}
 
 			return ts, nil
-		}
-
-		entriesInTx++
-
-		if entriesInTx > maxNumberOfEntriesPerTx {
-			return 0, fmt.Errorf("Could not find associated tree leaf for key %v, reached max number of entries per tx: %d", key, maxNumberOfEntriesPerTx)
 		}
 
 		ts--
