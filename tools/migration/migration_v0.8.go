@@ -79,6 +79,7 @@ func main() {
 			fmt.Println("COMPLETED!")
 		} else {
 			fmt.Printf("ERROR migrating: %s to %s\r\n", sourcePath, targetPath)
+			panic(err)
 		}
 	}
 	fmt.Println("\r\nAll databases have been successfully migrated!")
