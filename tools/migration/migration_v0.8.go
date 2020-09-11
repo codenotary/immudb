@@ -17,14 +17,18 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"flag"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"unsafe"
 
+	"github.com/codenotary/immudb/pkg/api"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/store"
 	"github.com/dgraph-io/badger/v2"
@@ -32,6 +36,7 @@ import (
 
 const lastFlushedMetaKey = "IMMUDB.METADATA.LAST_FLUSHED_LEAF"
 const bitTreeEntry = byte(255)
+const tsPrefix = byte(0)
 
 /*
 As for release 0.8 of immudb, which includes multi-key insertions, kv data needs to be univocally referenced
@@ -149,7 +154,40 @@ func migrateDB(sourceDir, targetDir string) error {
 
 			if (kit.Item().UserMeta()&bitTreeEntry != bitTreeEntry) &&
 				!bytes.Equal([]byte(lastFlushedMetaKey), kit.Item().Key()) {
-				newValue = wrapValueWithTS(v, kit.Item().Version())
+
+				ts := kit.Item().Version()
+
+				for {
+					leafItem, err := txn.Get(treeKey(0, ts-1))
+					if err != nil {
+						return err
+					}
+
+					var refkey []byte
+
+					if refkey, err = leafItem.ValueCopy(nil); err != nil {
+						return err
+					}
+
+					var hash [32]byte
+					var key []byte
+
+					if hash, key, err = decodeRefTreeKey(refkey); err != nil {
+						return err
+					}
+
+					if bytes.Equal(kit.Item().Key(), key) {
+						realHash := api.Digest(ts-1, key, v)
+						if hash != realHash {
+							return err
+						}
+
+						newValue = wrapValueWithTS(v, ts)
+						break
+					}
+
+					ts--
+				}
 			}
 
 			err = itx.SetEntry(&badger.Entry{
@@ -182,4 +220,34 @@ func wrapValueWithTS(v []byte, ts uint64) []byte {
 	binary.BigEndian.PutUint64(tsv, ts)
 	copy(tsv[8:], v)
 	return tsv
+}
+
+func treeKey(layer uint8, index uint64) []byte {
+	k := make([]byte, 1+1+8)
+	k[0] = tsPrefix
+	k[1] = layer
+	binary.BigEndian.PutUint64(k[2:], index)
+	return k
+}
+
+// refTreeKey split a value of a badger item in an the hash array and slice reference key
+func decodeRefTreeKey(rtk []byte) ([sha256.Size]byte, []byte, error) {
+	lrtk := len(rtk)
+
+	if lrtk < sha256.Size {
+		// this should not happen
+		return [sha256.Size]byte{}, nil, store.ErrInconsistentState
+	}
+	hash := make([]byte, sha256.Size)
+	reference := make([]byte, lrtk-sha256.Size)
+	copy(hash, rtk[:sha256.Size])
+	copy(reference, rtk[sha256.Size:][:])
+
+	var hArray [sha256.Size]byte
+	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&hash))
+	hArray = *(*[sha256.Size]byte)(unsafe.Pointer(hdr.Data))
+	if lrtk == sha256.Size {
+		return hArray, nil, store.ErrObsoleteDataFormat
+	}
+	return hArray, reference, nil
 }
