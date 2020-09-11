@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 	"unsafe"
 
 	"github.com/codenotary/immudb/pkg/api"
@@ -38,6 +39,8 @@ const lastFlushedMetaKey = "IMMUDB.METADATA.LAST_FLUSHED_LEAF"
 const bitTreeEntry = byte(255)
 const tsPrefix = byte(0)
 
+const defaultMaxNumberOfEntriesPerTx = 100_000
+
 /*
 As for release 0.8 of immudb, which includes multi-key insertions, kv data needs to be univocally referenced
 by a monotonic increasing index i.e. internally reffered as `ts`.
@@ -48,11 +51,17 @@ This migration utility can be used to migrate any immudb database created with o
 func main() {
 	sourceDataDir := flag.String("sourceDataDir", "data_v0.7", "immudb data directory to migrate e.g. ./data_v0.7")
 	targetDataDir := flag.String("targetDataDir", "data_v0.8", "immudb data directory where migrated immudb databases will be stored e.g. ./data_v0.8")
+	maxNumberOfEntriesPerTx := flag.Int("maxNumberOfEntriesPerTx", defaultMaxNumberOfEntriesPerTx, "max number of entries per transaction")
 
 	flag.Parse()
 
 	if *sourceDataDir == *targetDataDir || *sourceDataDir == "" || *targetDataDir == "" {
 		panic(fmt.Errorf("Illegal arguments. Source and target dirs must be provided and can not be the same"))
+	}
+
+	_, err := os.Stat(*sourceDataDir)
+	if os.IsNotExist(err) {
+		panic(fmt.Errorf("Source data dir %s does not exist", *sourceDataDir))
 	}
 
 	dirs, err := dbList(*sourceDataDir)
@@ -70,24 +79,35 @@ func main() {
 		}
 	}
 
+	migrationStart := time.Now()
+
 	for _, sourcePath := range dirs {
 		pathParts := strings.Split(sourcePath, string(filepath.Separator))
 		dbname := pathParts[len(pathParts)-1]
 
 		targetPath := *targetDataDir + string(filepath.Separator) + dbname
 
-		fmt.Printf("\r\nStarted migration of %s to %s...", sourcePath, targetPath)
+		fmt.Printf("\r\nStarted migration of %s to %s\r\n", sourcePath, targetPath)
 
-		err = migrateDB(sourcePath, targetPath)
+		start := time.Now()
+
+		err = migrateDB(sourcePath, targetPath, *maxNumberOfEntriesPerTx)
+
+		elapsed := time.Since(start)
+
+		fmt.Println()
 
 		if err == nil {
-			fmt.Println("COMPLETED!")
+			fmt.Printf("Migration successfully completed in %s\r\n", elapsed)
 		} else {
 			fmt.Printf("ERROR migrating: %s to %s\r\n", sourcePath, targetPath)
 			panic(err)
 		}
 	}
-	fmt.Println("\r\nAll databases have been successfully migrated!")
+
+	totalElapsed := time.Since(migrationStart)
+
+	fmt.Println("\r\nAll databases have been successfully migrated in %s", totalElapsed)
 }
 
 func dbList(dataDir string) ([]string, error) {
@@ -106,7 +126,7 @@ func dbList(dataDir string) ([]string, error) {
 	return dirs, err
 }
 
-func migrateDB(sourceDir, targetDir string) error {
+func migrateDB(sourceDir, targetDir string, maxNumberOfEntriesPerTx int) error {
 	slog := logger.NewSimpleLoggerWithLevel("migration(immudb)", os.Stderr, logger.LogError)
 
 	_, badgerOpts := store.DefaultOptions(sourceDir, slog)
@@ -130,6 +150,10 @@ func migrateDB(sourceDir, targetDir string) error {
 	txn := sourcedb.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 
+	entries := treeLayerWidth(uint8(0), txn)
+
+	fmt.Printf("Number of entries: %v\r\n", entries)
+
 	it := txn.NewIterator(badger.IteratorOptions{
 		PrefetchValues: true,
 	})
@@ -137,6 +161,8 @@ func migrateDB(sourceDir, targetDir string) error {
 	defer it.Close()
 
 	i := uint64(0)
+	lasti := uint64(0)
+	lastP := 1
 
 	for it.Rewind(); it.Valid(); it.Next() {
 
@@ -156,6 +182,8 @@ func migrateDB(sourceDir, targetDir string) error {
 				!bytes.Equal([]byte(lastFlushedMetaKey), kit.Item().Key()) {
 
 				ts := kit.Item().Version()
+
+				entriesInTx := 0
 
 				for {
 					leafItem, err := txn.Get(treeKey(0, ts-1))
@@ -186,8 +214,15 @@ func migrateDB(sourceDir, targetDir string) error {
 						break
 					}
 
+					entriesInTx++
+
+					if entriesInTx > maxNumberOfEntriesPerTx {
+						return fmt.Errorf("Could not find associated tree leaf for key %v, reached max number of entries per tx: %d", key, maxNumberOfEntriesPerTx)
+					}
+
 					ts--
 				}
+				i++
 			}
 
 			err = itx.SetEntry(&badger.Entry{
@@ -203,10 +238,15 @@ func migrateDB(sourceDir, targetDir string) error {
 
 			itx.Discard()
 
-			if i%10_000 == 0 {
-				fmt.Printf(".")
+			if i > lasti && i%1000 == 0 {
+				fmt.Print(".")
 			}
-			i++
+
+			p := int((i * 100) / entries)
+			if p > lastP && p%10 == 0 {
+				fmt.Printf("(%d)%%", p)
+				lastP = p
+			}
 		}
 
 		kit.Close()
@@ -250,4 +290,18 @@ func decodeRefTreeKey(rtk []byte) ([sha256.Size]byte, []byte, error) {
 		return hArray, nil, store.ErrObsoleteDataFormat
 	}
 	return hArray, reference, nil
+}
+
+func treeLayerWidth(layer uint8, txn *badger.Txn) uint64 {
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = false
+	opts.Reverse = true
+	it := txn.NewIterator(opts)
+	defer it.Close()
+
+	maxKey := []byte{tsPrefix, layer, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	for it.Seek(maxKey); it.ValidForPrefix(maxKey[:2]); it.Next() {
+		return binary.BigEndian.Uint64(it.Item().Key()[2:]) + 1
+	}
+	return 0
 }
