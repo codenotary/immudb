@@ -91,18 +91,19 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 1.  [Quickstart](#quickstart) - Get immudb up and running in seconds
 2.  [Using immudb](#using-immudb) - Official SDKs and REST-based client
 3.  [CLI tools](#cli-tools) - Using `immuadmin` and `immuclient`
-4.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
-5.  [News](#news) - The latest news about immudb
-6.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
-7.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
-8.  [Features](#features) - How you'll use immudb on your systems
-9.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
-10.  [Real world examples](#real-world-examples) - Read about how others use immudb
-11.  [Documentation](#documentation) - Read the documentation
-12.  [FAQ](#faq) - Frequently asked questions
-13.  [Community](#community) - Discuss immudb with others and get support
-14.  [License](#license) - Check immudb's licencing
-15.  [Is it awesome?](#is-it-awesome) - Yes.
+4.  [Migration from older releases](#migration-from-older-releases) - Easily migrate your existent database to latest release
+5.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
+6.  [News](#news) - The latest news about immudb
+7.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
+8.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
+9.  [Features](#features) - How you'll use immudb on your systems
+10.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
+11.  [Real world examples](#real-world-examples) - Read about how others use immudb
+12.  [Documentation](#documentation) - Read the documentation
+13.  [FAQ](#faq) - Frequently asked questions
+14.  [Community](#community) - Discuss immudb with others and get support
+15.  [License](#license) - Check immudb's licencing
+16.  [Is it awesome?](#is-it-awesome) - Yes.
 
 
 ## Quickstart
@@ -478,6 +479,50 @@ If you want to build the container images yourself, simply clone this repo and r
 docker build -t myown/immuadmin:latest -f Dockerfile.immuadmin .
 docker build -t myown/immuclient:latest -f Dockerfile.immuclient .
 ```
+
+## Migration from older releases
+
+As for release 0.8 of immudb, which includes multi-key insertions, key-value data needs to be univocally referenced by a monotonic increasing index i.e. internally referred as `ts`. Values are prefixed with the uniquely assigned `ts` value for the entry. Thus, databases created before release 0.8 needs to be migrated.
+Under tools folder you will find a simple migration tool which will format data according to the new structure.
+
+### Building migration tool binary
+
+Building migration tool binary is as simple as:
+
+```
+go build tools/migration/migration_v0.8.go
+```
+
+### How to use migration tool
+
+```
+./migration_v0.8 --help
+```
+
+```
+Usage of ./migration_v0.8:
+  -sourceDataDir string
+    	immudb data directory to migrate e.g. ./data_v0.7 (default "data_v0.7")
+  -targetDataDir string
+    	immudb data directory where migrated immudb databases will be stored e.g. ./data_v0.8 (default "data_v0.8")
+```
+
+### Migrating existent databases
+
+The migration tool builds new databases by doing a full scan of existent ones. While it's a read-only process for existent databases, doing a backup is always a safe recommendation.
+
+```
+./migration_v0.8 -sourceDataDir ./data_v0.7 -targetDataDir ./data_v0.8
+
+2 databases will be migrated
+
+Started migration of data_v0.7/defaultdb to ./data_v0.8/defaultdb.................................................................................COMPLETED!
+
+Started migration of data_v0.7/systemdb to ./data_v0.8/systemdb........COMPLETED!
+
+All databases have been successfully migrated!
+```
+
 
 ## Why immudb
 
