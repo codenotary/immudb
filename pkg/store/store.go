@@ -358,9 +358,8 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 			return 0, nil, nil, err
 		}
 		// there are multiple possible versions of a key. Here we retrieve the one with the correct timestamp
-		if i.Index >= index {
+		if i.Index == index {
 			item = i
-		} else {
 			break
 		}
 	}
