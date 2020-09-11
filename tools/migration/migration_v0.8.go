@@ -107,7 +107,7 @@ func main() {
 
 	totalElapsed := time.Since(migrationStart)
 
-	fmt.Println("\r\nAll databases have been successfully migrated in %s", totalElapsed)
+	fmt.Println("\r\nAll databases have been successfully migrated in %v", totalElapsed)
 }
 
 func dbList(dataDir string) ([]string, error) {
