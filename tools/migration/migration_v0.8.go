@@ -127,42 +127,50 @@ func migrateDB(sourceDir, targetDir string) error {
 	it := txn.NewIterator(badger.IteratorOptions{
 		PrefetchValues: true,
 	})
+
 	defer it.Close()
 
 	i := uint64(0)
 
 	for it.Rewind(); it.Valid(); it.Next() {
-		itx := targetdb.NewTransactionAt(math.MaxUint64, true)
 
-		v, err := it.Item().ValueCopy(nil)
-		if err != nil {
-			return err
+		kit := txn.NewKeyIterator(it.Item().Key(), badger.IteratorOptions{})
+
+		for kit.Rewind(); kit.Valid(); kit.Next() {
+			itx := targetdb.NewTransactionAt(math.MaxUint64, true)
+
+			v, err := kit.Item().ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+
+			newValue := v
+
+			if (kit.Item().UserMeta()&bitTreeEntry != bitTreeEntry) &&
+				!bytes.Equal([]byte(lastFlushedMetaKey), kit.Item().Key()) {
+				newValue = wrapValueWithTS(v, kit.Item().Version())
+			}
+
+			err = itx.SetEntry(&badger.Entry{
+				Key:      kit.Item().Key(),
+				Value:    newValue,
+				UserMeta: kit.Item().UserMeta(),
+			})
+			if err != nil {
+				return err
+			}
+
+			itx.CommitAt(kit.Item().Version(), nil)
+
+			itx.Discard()
+
+			if i%10_000 == 0 {
+				fmt.Printf(".")
+			}
+			i++
 		}
 
-		newValue := v
-
-		if (it.Item().UserMeta()&bitTreeEntry != bitTreeEntry) &&
-			!bytes.Equal([]byte(lastFlushedMetaKey), it.Item().Key()) {
-			newValue = wrapValueWithTS(v, it.Item().Version())
-		}
-
-		err = itx.SetEntry(&badger.Entry{
-			Key:      it.Item().Key(),
-			Value:    newValue,
-			UserMeta: it.Item().UserMeta(),
-		})
-		if err != nil {
-			return err
-		}
-
-		itx.CommitAt(it.Item().Version(), nil)
-
-		itx.Discard()
-
-		if i%10_000 == 0 {
-			fmt.Printf(".")
-		}
-		i++
+		kit.Close()
 	}
 
 	return nil
