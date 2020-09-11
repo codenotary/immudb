@@ -107,7 +107,7 @@ func main() {
 
 	totalElapsed := time.Since(migrationStart)
 
-	fmt.Printf("\r\nAll databases have been successfully migrated in %s", totalElapsed)
+	fmt.Printf("\r\nAll databases have been successfully migrated in %s\r\n", totalElapsed)
 }
 
 func dbList(dataDir string) ([]string, error) {
@@ -157,102 +157,122 @@ func migrateDB(sourceDir, targetDir string, maxNumberOfEntriesPerTx int) error {
 	it := txn.NewIterator(badger.IteratorOptions{
 		PrefetchValues: true,
 	})
-
 	defer it.Close()
 
+	for it.Rewind(); it.Valid(); it.Next() {
+		err = migrateKey(it.Item().Key(), txn, targetdb, entries, maxNumberOfEntriesPerTx)
+
+		if err != nil {
+			break
+		}
+	}
+
+	return err
+}
+
+func migrateKey(key []byte, txn *badger.Txn, targetdb *badger.DB, entries uint64, maxNumberOfEntriesPerTx int) error {
 	i := uint64(0)
 	lasti := uint64(0)
 	lastP := 1
 
-	for it.Rewind(); it.Valid(); it.Next() {
+	kit := txn.NewKeyIterator(key, badger.IteratorOptions{})
+	defer kit.Close()
 
-		kit := txn.NewKeyIterator(it.Item().Key(), badger.IteratorOptions{})
-
-		for kit.Rewind(); kit.Valid(); kit.Next() {
-			itx := targetdb.NewTransactionAt(math.MaxUint64, true)
-
-			v, err := kit.Item().ValueCopy(nil)
-			if err != nil {
-				return err
-			}
-
-			newValue := v
-
-			if (kit.Item().UserMeta()&bitTreeEntry != bitTreeEntry) &&
-				!bytes.Equal([]byte(lastFlushedMetaKey), kit.Item().Key()) {
-
-				ts := kit.Item().Version()
-
-				entriesInTx := 0
-
-				for {
-					leafItem, err := txn.Get(treeKey(0, ts-1))
-					if err != nil {
-						return err
-					}
-
-					var refkey []byte
-
-					if refkey, err = leafItem.ValueCopy(nil); err != nil {
-						return err
-					}
-
-					var hash [32]byte
-					var key []byte
-
-					if hash, key, err = decodeRefTreeKey(refkey); err != nil {
-						return err
-					}
-
-					if bytes.Equal(kit.Item().Key(), key) {
-						realHash := api.Digest(ts-1, key, v)
-						if hash != realHash {
-							return err
-						}
-
-						newValue = wrapValueWithTS(v, ts)
-						break
-					}
-
-					entriesInTx++
-
-					if entriesInTx > maxNumberOfEntriesPerTx {
-						return fmt.Errorf("Could not find associated tree leaf for key %v, reached max number of entries per tx: %d", key, maxNumberOfEntriesPerTx)
-					}
-
-					ts--
-				}
-				i++
-			}
-
-			err = itx.SetEntry(&badger.Entry{
-				Key:      kit.Item().Key(),
-				Value:    newValue,
-				UserMeta: kit.Item().UserMeta(),
-			})
-			if err != nil {
-				return err
-			}
-
-			itx.CommitAt(kit.Item().Version(), nil)
-
-			itx.Discard()
-
-			if i > lasti && i%1000 == 0 {
-				fmt.Print(".")
-			}
-
-			p := int((i * 100) / entries)
-			if p > lastP && p%10 == 0 {
-				fmt.Printf("(%d)%%", p)
-				lastP = p
-			}
+	for kit.Rewind(); kit.Valid(); kit.Next() {
+		value, err := kit.Item().ValueCopy(nil)
+		if err != nil {
+			return err
 		}
 
-		kit.Close()
+		itx := targetdb.NewTransactionAt(math.MaxUint64, true)
+
+		newValue := value
+
+		if (kit.Item().UserMeta()&bitTreeEntry != bitTreeEntry) &&
+			!bytes.Equal([]byte(lastFlushedMetaKey), kit.Item().Key()) {
+
+			ts, err := findTS(key, value, kit.Item().Version(), maxNumberOfEntriesPerTx, txn)
+
+			if err != nil {
+				itx.Discard()
+				return err
+			}
+
+			newValue = wrapValueWithTS(value, ts)
+
+			i++
+		}
+
+		err = itx.SetEntry(&badger.Entry{
+			Key:      kit.Item().Key(),
+			Value:    newValue,
+			UserMeta: kit.Item().UserMeta(),
+		})
+
+		if err != nil {
+			itx.Discard()
+			return err
+		}
+
+		itx.CommitAt(kit.Item().Version(), nil)
+		itx.Discard()
+
+		if i > lasti && i%1000 == 0 {
+			fmt.Print(".")
+		}
+
+		p := int((i * 100) / entries)
+		if p > lastP && p%10 == 0 {
+			fmt.Printf("(%d)%%", p)
+			lastP = p
+		}
 	}
 
 	return nil
+}
+
+func findTS(key []byte, value []byte, ts uint64, maxNumberOfEntriesPerTx int, txn *badger.Txn) (uint64, error) {
+	entriesInTx := 0
+
+	maxKey := treeKey(0, ts-1)
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = true
+	opts.Reverse = true
+	lit := txn.NewIterator(opts)
+	defer lit.Close()
+
+	for lit.Seek(maxKey); lit.ValidForPrefix(maxKey[:2]); lit.Next() {
+
+		refkey, err := lit.Item().ValueCopy(nil)
+
+		if err != nil {
+			return 0, err
+		}
+
+		hash, k, err := decodeRefTreeKey(refkey)
+
+		if err != nil {
+			return 0, err
+		}
+
+		if bytes.Equal(key, k) {
+			realHash := api.Digest(ts-1, key, value)
+			if hash != realHash {
+				return 0, fmt.Errorf("Error for key %v, %v", key, store.ErrInconsistentDigest)
+			}
+
+			return ts, nil
+		}
+
+		entriesInTx++
+
+		if entriesInTx > maxNumberOfEntriesPerTx {
+			return 0, fmt.Errorf("Could not find associated tree leaf for key %v, reached max number of entries per tx: %d", key, maxNumberOfEntriesPerTx)
+		}
+
+		ts--
+	}
+	return 0, fmt.Errorf("Could not find associated tree leaf for key %v", key)
 }
 
 func wrapValueWithTS(v []byte, ts uint64) []byte {
