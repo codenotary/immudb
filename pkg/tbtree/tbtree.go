@@ -35,8 +35,9 @@ var ErrorMaxActiveSnapshotLimitReached = errors.New("max active snapshots limit 
 const MinNodeSize = 96
 const MinCacheSize = 1
 const DefaultMaxNodeSize = 4096
-const DefaultInsertionCountThreshold = 100000
+const DefaultInsertionCountThreshold = 100_000
 const DefaultMaxActiveSnapshots = 100
+const DefaultReuseSnapshotThreshold = 1_000_000
 const DefaultCacheSize = 10000
 const DefaultFileMode = 0644
 
@@ -50,9 +51,11 @@ type TBtree struct {
 	insertionCount          int
 	insertionCountThreshold int
 	maxActiveSnapshots      int
+	reuseSnapshotThreshold  int
 	readOnly                bool
 	snapshots               map[uint64]*Snapshot
 	maxSnapshotID           uint64
+	lastSnapshotRoot        node
 	currentOffset           int64
 	closed                  bool
 	rwmutex                 sync.RWMutex
@@ -62,6 +65,7 @@ type Options struct {
 	maxNodeSize             int
 	insertionCountThreshold int
 	maxActiveSnapshots      int
+	reuseSnapshotThreshold  int
 	cacheSize               int
 	readOnly                bool
 	fileMode                os.FileMode
@@ -72,6 +76,7 @@ func DefaultOptions() *Options {
 		maxNodeSize:             DefaultMaxNodeSize,
 		insertionCountThreshold: DefaultInsertionCountThreshold,
 		maxActiveSnapshots:      DefaultMaxActiveSnapshots,
+		reuseSnapshotThreshold:  DefaultReuseSnapshotThreshold,
 		cacheSize:               DefaultCacheSize,
 		readOnly:                false,
 		fileMode:                DefaultFileMode,
@@ -90,6 +95,11 @@ func (opt *Options) SetInsertionCountThreshold(insertionCountThreshold int) *Opt
 
 func (opt *Options) SetMaxActiveSnapshots(maxActiveSnapshots int) *Options {
 	opt.maxActiveSnapshots = maxActiveSnapshots
+	return opt
+}
+
+func (opt *Options) SetReuseSnapshotThreshold(reuseSnapshotThreshold int) *Options {
+	opt.reuseSnapshotThreshold = reuseSnapshotThreshold
 	return opt
 }
 
@@ -421,7 +431,7 @@ func (t *TBtree) flushTree() (int64, error) {
 		return 0, nil
 	}
 
-	snapshot := t.newSnapshot()
+	snapshot := t.newSnapshot(0, t.root)
 
 	wopts := &WriteOpts{
 		OnlyMutated: true,
@@ -527,19 +537,24 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 		return nil, ErrorMaxActiveSnapshotLimitReached
 	}
 
-	snapshot := t.newSnapshot()
+	if t.lastSnapshotRoot == nil || t.root.ts()-t.lastSnapshotRoot.ts() >= uint64(t.reuseSnapshotThreshold) {
+		t.lastSnapshotRoot = t.root
+	}
+
+	t.maxSnapshotID++
+
+	snapshot := t.newSnapshot(t.maxSnapshotID, t.lastSnapshotRoot)
 
 	t.snapshots[snapshot.id] = snapshot
-	t.maxSnapshotID++
 
 	return snapshot, nil
 }
 
-func (t *TBtree) newSnapshot() *Snapshot {
+func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 	return &Snapshot{
 		t:       t,
-		id:      t.maxSnapshotID,
-		root:    t.root,
+		id:      snapshotID,
+		root:    root,
 		readers: make(map[int]*Reader),
 	}
 }
