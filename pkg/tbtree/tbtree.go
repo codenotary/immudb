@@ -176,6 +176,7 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 		opt.maxNodeSize < MinNodeSize ||
 		opt.insertionCountThreshold < 1 ||
 		opt.maxActiveSnapshots < 1 ||
+		opt.reuseSnapshotThreshold < 0 ||
 		opt.cacheSize < MinCacheSize {
 		return nil, ErrIllegalArgument
 	}
