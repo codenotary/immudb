@@ -213,6 +213,9 @@ func (i *immuc) DatabaseList(args []string) (string, error) {
 	return dbList, nil
 }
 func (i *immuc) UseDatabase(args []string) (string, error) {
+	if len(args) < 1 {
+		return "", fmt.Errorf("database name not specified")
+	}
 	dbname := args[0]
 
 	ctx := context.Background()
