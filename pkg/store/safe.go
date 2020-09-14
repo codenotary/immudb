@@ -52,15 +52,16 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
+	tsEntry := t.tree.NewEntry(kv.Key, kv.Value)
+
 	if err = txn.SetEntry(&badger.Entry{
 		Key:   kv.Key,
-		Value: kv.Value,
+		Value: wrapValueWithTS(kv.Value, tsEntry.ts),
 	}); err != nil {
 		err = mapError(err)
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(kv.Key, kv.Value)
 	index := tsEntry.Index()
 	leaf := tsEntry.HashCopy()
 
@@ -128,7 +129,7 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
 		var refKey []byte
 		err = i.Value(func(val []byte) error {
-			refKey = append([]byte{}, val...)
+			refKey, _ = unwrapValueWithTS(val)
 			return nil
 		})
 		if err != nil {
@@ -193,16 +194,17 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 		return
 	}
 
+	tsEntry := t.tree.NewEntry(ro.Reference, i.Key())
+
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ro.Reference,
-		Value:    i.Key(),
+		Value:    wrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(ro.Reference, i.Key())
 	index := tsEntry.Index()
 	leaf := tsEntry.HashCopy()
 
@@ -273,16 +275,17 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		return
 	}
 
+	tsEntry := t.tree.NewEntry(ik, i.Key())
+
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ik,
-		Value:    i.Key(),
+		Value:    wrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(ik, i.Key())
 	index := tsEntry.Index()
 	leaf := tsEntry.HashCopy()
 

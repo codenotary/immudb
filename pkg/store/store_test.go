@@ -39,12 +39,10 @@ import (
 var root64th = [sha256.Size]byte{0xb1, 0xbe, 0x73, 0xef, 0x38, 0x8e, 0x7e, 0xd3, 0x79, 0x71, 0x7, 0x26, 0xd1, 0x19, 0xa5, 0x35, 0xb8, 0x67, 0x24, 0x12, 0x48, 0x25, 0x7a, 0x7e, 0x2e, 0x34, 0x32, 0x29, 0x65, 0x60, 0xdf, 0xf9}
 
 func makeStore() (*Store, func()) {
+	return makeStoreAt(tmpDir())
+}
 
-	dir, err := ioutil.TempDir("", "immu")
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func makeStoreAt(dir string) (*Store, func()) {
 	slog := logger.NewSimpleLoggerWithLevel("bm(immudb)", os.Stderr, logger.LogDebug)
 	opts, badgerOpts := DefaultOptions(dir, slog)
 
@@ -63,8 +61,25 @@ func makeStore() (*Store, func()) {
 	}
 }
 
+func tmpDir() string {
+	dir, err := ioutil.TempDir("", "immu")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return dir
+}
+
 func TestStore(t *testing.T) {
 	st, closer := makeStore()
+
+	assert.True(t, st.HealthCheck())
+
+	assert.Equal(t, uint64(0), st.CountAll())
+
+	count, err := st.Count(schema.KeyPrefix{Prefix: nil})
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(0), count.GetCount())
+
 	defer closer()
 
 	for n := uint64(0); n <= 64; n++ {
@@ -78,6 +93,75 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, n, index.Index, "n=%d", n)
 	}
 
+	assert.True(t, uint64(64) <= st.CountAll())
+
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		item, err := st.Get(schema.Key{Key: key})
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, item.Index, "n=%d", n)
+		assert.Equal(t, key, item.Value, "n=%d", n)
+		assert.Equal(t, key, item.Key, "n=%d", n)
+
+		count, err = st.Count(schema.KeyPrefix{Prefix: key})
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(1), count.GetCount())
+	}
+
+	st.tree.WaitUntil(64)
+
+	st.FlushToDisk()
+
+	assert.True(t, st.tree.w == st.tree.lastFlushed)
+
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
+
+	st.tree.Close()
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
+
+	st.tree.makeCaches() // with empty cache, next call should fetch from DB
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
+
+	assert.True(t, st.HealthCheck())
+}
+
+func TestStoreMissingEntriesReplay(t *testing.T) {
+	dbDir := tmpDir()
+
+	st, _ := makeStoreAt(dbDir)
+
+	assert.True(t, st.HealthCheck())
+
+	assert.Equal(t, uint64(0), st.CountAll())
+
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: key,
+		}
+		index, err := st.Set(kv)
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index.Index, "n=%d", n)
+	}
+
+	st.tree.close(false)
+
+	st.Close()
+
+	st, closer := makeStoreAt(dbDir)
+	defer closer()
+
+	st.tree.WaitUntil(64)
+
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
+
+	st.FlushToDisk()
+
+	assert.True(t, st.tree.w == st.tree.lastFlushed)
+
+	assert.Equal(t, root64th, merkletree.Root(st.tree))
+
 	for n := uint64(0); n <= 64; n++ {
 		key := []byte(strconv.FormatUint(n, 10))
 		item, err := st.Get(schema.Key{Key: key})
@@ -86,15 +170,6 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, key, item.Value, "n=%d", n)
 		assert.Equal(t, key, item.Key, "n=%d", n)
 	}
-
-	st.tree.WaitUntil(64)
-	assert.Equal(t, root64th, merkletree.Root(st.tree))
-
-	st.tree.Close()
-	assert.Equal(t, root64th, merkletree.Root(st.tree))
-
-	st.tree.makeCaches() // with empty cache, next call should fetch from DB
-	assert.Equal(t, root64th, merkletree.Root(st.tree))
 }
 
 func TestStoreAsyncCommit(t *testing.T) {
@@ -131,6 +206,49 @@ func TestStoreAsyncCommit(t *testing.T) {
 
 	st.tree.makeCaches() // with empty cache, next call should fetch from DB
 	assert.Equal(t, root64th, merkletree.Root(st.tree))
+}
+
+func TestSetBatch(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	batchSize := 100
+
+	for b := 0; b < 10; b++ {
+		kvList := make([]*schema.KeyValue, batchSize)
+
+		for i := 0; i < batchSize; i++ {
+			key := []byte(strconv.FormatUint(uint64(i), 10))
+			value := []byte(strconv.FormatUint(uint64(b*batchSize+batchSize+i), 10))
+			kvList[i] = &schema.KeyValue{
+				Key:   key,
+				Value: value,
+			}
+		}
+
+		index, err := st.SetBatch(schema.KVList{KVs: kvList})
+		assert.NoError(t, err)
+		assert.Equal(t, uint64((b+1)*batchSize), index.GetIndex()+1)
+
+		for i := 0; i < batchSize; i++ {
+			key := []byte(strconv.FormatUint(uint64(i), 10))
+			value := []byte(strconv.FormatUint(uint64(b*batchSize+batchSize+i), 10))
+			item, err := st.Get(schema.Key{Key: key})
+			assert.NoError(t, err)
+			assert.Equal(t, value, item.Value)
+			assert.Equal(t, uint64(b*batchSize+i), item.Index)
+
+			safeItem, err := st.SafeGet(schema.SafeGetOptions{Key: key}) //no prev root
+			assert.NoError(t, err)
+			assert.Equal(t, key, safeItem.Item.Key)
+			assert.Equal(t, value, safeItem.Item.Value)
+			assert.Equal(t, item.Index, safeItem.Item.Index)
+			assert.True(t, safeItem.Proof.Verify(
+				safeItem.Item.Hash(),
+				schema.Root{Payload: &schema.RootIndex{}}, // zerovalue signals no prev root
+			))
+		}
+	}
 }
 
 func TestDump(t *testing.T) {
@@ -628,6 +746,36 @@ func TestInsertionOrderIndexMix(t *testing.T) {
 		Index: 99,
 	})
 	assert.Error(t, err, ErrIndexNotFound)
+}
+
+func TestGetTree(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	tree := st.GetTree()
+	assert.NotNil(t, tree)
+	assert.Nil(t, tree.T)
+
+	for n := uint64(0); n <= 64; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: key,
+		}
+		index, err := st.Set(kv)
+		assert.NoError(t, err, "n=%d", n)
+		assert.Equal(t, n, index.Index, "n=%d", n)
+	}
+
+	st.tree.WaitUntil(64)
+
+	tree1 := st.GetTree()
+	assert.NotNil(t, tree1)
+	assert.Equal(t, 8, len(tree1.T))
+	assert.Equal(t, 65, len(tree1.T[0].L))
+	root, err := st.CurrentRoot()
+	assert.NoError(t, err)
+	assert.Equal(t, root.Payload.Root, tree1.T[7].L[0].H)
 }
 
 func BenchmarkStoreSet(b *testing.B) {

@@ -95,6 +95,20 @@ func decodeRefTreeKey(rtk []byte) ([sha256.Size]byte, []byte, error) {
 	return hArray, reference, nil
 }
 
+func wrapValueWithTS(v []byte, ts uint64) []byte {
+	tsv := make([]byte, len(v)+8)
+	binary.BigEndian.PutUint64(tsv, ts)
+	copy(tsv[8:], v)
+	return tsv
+}
+
+func unwrapValueWithTS(tsv []byte) ([]byte, uint64) {
+	v := make([]byte, len(tsv)-8)
+	ts := binary.BigEndian.Uint64(tsv[:8])
+	copy(v, tsv[8:])
+	return v, ts
+}
+
 func treeLayerWidth(layer uint8, txn *badger.Txn) uint64 {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false
@@ -125,18 +139,19 @@ func (t treeStoreEntry) HashCopy() []byte {
 
 type treeStore struct {
 	// A 64-bit integer must be at the top for memory alignment
-	ts          uint64 // badger timestamp
-	w           uint64 // width of computed tree
-	c           chan *treeStoreEntry
-	quit        chan struct{}
-	lastFlushed uint64
-	flushLeaves bool
-	db          *badger.DB
-	log         logger.Logger
-	caches      [256]ring.Buffer
-	rcache      ring.Buffer
-	cPos        [256]uint64
-	cSize       uint64
+	ts           uint64 // badger timestamp
+	w            uint64 // width of computed tree
+	c            chan *treeStoreEntry
+	quit         chan struct{}
+	lastFlushed  uint64
+	flushLeaves  bool
+	flushOnClose bool
+	db           *badger.DB
+	log          logger.Logger
+	caches       [256]ring.Buffer
+	rcache       ring.Buffer
+	cPos         [256]uint64
+	cSize        uint64
 	sync.RWMutex
 	closeOnce sync.Once
 }
@@ -220,8 +235,13 @@ func (t *treeStore) makeCaches() {
 // Close closes a treeStore. All pending items will be processed and flushed.
 // Calling treeStore.Close() multiple times would still only close the treeStore once.
 func (t *treeStore) Close() {
+	t.close(true)
+}
+
+func (t *treeStore) close(flushPending bool) {
 	t.closeOnce.Do(func() {
 		if t.quit != nil {
+			t.flushOnClose = flushPending
 			close(t.c)
 			<-t.quit
 			t.quit = nil
@@ -319,7 +339,7 @@ func (t *treeStore) worker() {
 		t.Unlock()
 	}
 
-	if t.w > 0 {
+	if t.w > 0 && t.flushOnClose {
 		t.Lock()
 		t.flush()
 		t.Unlock()

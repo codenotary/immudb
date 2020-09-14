@@ -17,10 +17,11 @@ limitations under the License.
 package store
 
 import (
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestStoreScan(t *testing.T) {
