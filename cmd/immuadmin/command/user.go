@@ -53,10 +53,12 @@ func (cl *commandline) user(cmd *cobra.Command) {
 		Args: cobra.MaximumNArgs(0),
 	}
 	userCreate := &cobra.Command{
-		Use:     "create",
-		Short:   "Create a new user",
-		Long:    "Create a new user inside a database with permissions",
-		Example: "immuadmin user create michele read mydb",
+		Use:   "create",
+		Short: "Create a new user",
+		Long:  "Create a new user inside a database with permissions",
+		Example: `immuadmin user create user1 read mydb
+immuadmin user create user1 readwrite mydb
+immuadmin user create user1 admin mydb`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.userCreate(args)
 			if err != nil {
@@ -70,7 +72,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 	userChangePassword := &cobra.Command{
 		Use:     "changepassword",
 		Short:   "Change user password",
-		Example: "immuadmin user changepassword michele",
+		Example: "immuadmin user changepassword user1",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			username := args[0]
 			var resp = ""
@@ -115,7 +117,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 	userPermission := &cobra.Command{
 		Use:     "permission [grant|revoke] {username} [read|readwrite|admin] {database}",
 		Short:   "Set user permission",
-		Example: "immuadmin user permission grant michele readwrite mydb",
+		Example: "immuadmin user permission grant user1 readwrite mydb",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			if _, err = cl.setUserPermission(args); err == nil {
 				fmt.Fprintf(cmd.OutOrStdout(), "Permission changed successfully")

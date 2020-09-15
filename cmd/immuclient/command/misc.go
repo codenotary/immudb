@@ -99,7 +99,7 @@ func (cl *commandline) interactiveCli(cmd *cobra.Command) {
 
 func (cl *commandline) use(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "use command",
+		Use:               "use",
 		Short:             "Select database",
 		Example:           "use {database_name}",
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
@@ -113,7 +113,7 @@ func (cl *commandline) use(cmd *cobra.Command) {
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
-		Args: cobra.MaximumNArgs(2),
+		Args: cobra.MinimumNArgs(1),
 	}
 	cmd.AddCommand(ccmd)
 }
