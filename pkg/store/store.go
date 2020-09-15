@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"errors"
 	"math"
 	"sync"
 
@@ -130,8 +129,8 @@ func (t *Store) CurrentRoot() (root *schema.Root, err error) {
 
 // SetBatch adds many entries at once
 func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *schema.Index, err error) {
-	if len(list.GetKVs()) == 0 {
-		return nil, errors.New("Empty set")
+	if err = list.Validate(); err != nil {
+		return nil, err
 	}
 	opts := makeWriteOptions(options...)
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
