@@ -17,9 +17,12 @@ limitations under the License.
 package store
 
 import (
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestStoreIndexExists(t *testing.T) {
@@ -91,4 +94,18 @@ func TestStoreIndexExists(t *testing.T) {
 	assert.Equal(t, []byte(`myFirstElementKey`), itemList2.Items[0].Key)
 	assert.Equal(t, []byte(`myThirdElementKey`), itemList2.Items[1].Key)
 	assert.Equal(t, []byte(`mySecondElementKey`), itemList2.Items[2].Key)
+}
+
+func TestFloat(t *testing.T) {
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
+	for i := 0; i < 100; i++ {
+		n := r.Float64()
+		bs := Float642bytes(n)
+		assert.NotNil(t, bs)
+		assert.True(t, len(bs) == 8)
+		assert.Equal(t, n, Bytes2float(bs))
+	}
+
 }
