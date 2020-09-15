@@ -4,20 +4,38 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
-<a name="v0.7.1"></a>
-## [v0.7.1] - 2020-08-17
+<a name="v0.8.0"></a>
+## [v0.8.0] - 2020-09-15
 ### Bug Fixes
-- fix immudb and immugw version and mangen commands errors
+- fix immudb and immugw version and mangen commands errors Without this change, while immuclient and immuadmin still worked as expected, immudb and immugw version and mangen commands were throwing the following error: ./immugw version Error: flag accessed but not defined: config Usage:   immugw version [flags]
 - fix immuclient audit-mode
-- fix corruptionchecker datarace
 - **cmd/immuadmin/command:** fix immuadmin dbswitch
+- **pkg/client:** setBatch creates structured values
 - **pkg/client:** token service manages old token format
 
+### Changes
+- update README file ([#487](https://github.com/vchain-us/immudb/issues/487))
+- switching README.md end lines to LF
+- fix immugw dependency to support new root structure
+- update readme, add immudb4j news ([#488](https://github.com/vchain-us/immudb/issues/488))
+- **cmd:** add signingKey flag
+- **cmd:** remove error suppression in config loader
+- **cmd/immutest/command:** remove immugw dependency from immutest
+- **pkg:** add kvlist validator ([#498](https://github.com/vchain-us/immudb/issues/498))
+- **pkg/server:** log uuid set and get error
+- **pkg/server:** log signer initialization in immudb start
+
 ### Code Refactoring
+- wrap root hash and index in a new structure to support signature
+- move immugw in a separate repository
 - configs file are loaded in viper preRun method
+- **pkg/server:** inject root signer service inside immudb server
 
 ### Features
+- auditor verifies root signature
 - **cmd:** process launcher check if are present another istances. fixes [#168](https://github.com/vchain-us/immudb/issues/168)
+- **pkg:** add root signer service
+- **pkg/signer:** add ecdsa signer
 
 
 <a name="v0.7.0"></a>
@@ -856,8 +874,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.7.1...HEAD
-[v0.7.1]: https://github.com/vchain-us/immudb/compare/v0.7.0...v0.7.1
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.8.0...HEAD
+[v0.8.0]: https://github.com/vchain-us/immudb/compare/v0.7.0...v0.8.0
 [v0.7.0]: https://github.com/vchain-us/immudb/compare/v0.6.2...v0.7.0
 [v0.6.2]: https://github.com/vchain-us/immudb/compare/v0.6.1...v0.6.2
 [v0.6.1]: https://github.com/vchain-us/immudb/compare/v0.6.0...v0.6.1
