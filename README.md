@@ -536,9 +536,9 @@ You can find an example video here:
 
 
 ## News
-`september 15th, 2020` - **[immudb v0.8.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.8.0)**
+`September 15th, 2020` - **[immudb v0.8.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.8.0)**
 
-Release v0.8.0 Multi-key insertion, crypto signature, bug fixes & enhancements
+Release v0.8.0 Multi-key insertion, crypto signature, immugw moved to a [separate repository](https://github.com/codenotary/immugw), bug fixes & enhancements
 
 `August 20th, 2020` - **[immudb4j v0.1.7 in GitHub Packages!](https://github.com/codenotary/immudb4j)**
 
