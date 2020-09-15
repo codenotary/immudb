@@ -41,7 +41,7 @@ func Float642bytes(float float64) []byte {
 
 // Bytes2float ...
 func Bytes2float(bytes []byte) float64 {
-	bits := binary.LittleEndian.Uint64(bytes)
+	bits := binary.BigEndian.Uint64(bytes)
 	float := math.Float64frombits(bits)
 	return float
 }
