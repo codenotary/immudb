@@ -46,6 +46,7 @@ var methodsPermissions = map[string][]uint32{
 	"ZScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"BySafeIndex":   {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"IScan":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"Scan":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"History":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"ByIndex":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"Count":         {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
