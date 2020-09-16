@@ -20,6 +20,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/codenotary/immudb/pkg/server"
@@ -30,7 +31,7 @@ import (
 )
 
 func TestInitAgent(t *testing.T) {
-	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
 

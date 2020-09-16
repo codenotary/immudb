@@ -18,11 +18,13 @@ package immuclient
 
 import (
 	"bytes"
-	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/client"
 	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/client"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -30,7 +32,7 @@ import (
 )
 
 func TestHistory(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
@@ -73,7 +75,7 @@ func TestHistory(t *testing.T) {
 	}
 }
 func TestStatus(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
@@ -117,7 +119,7 @@ func TestStatus(t *testing.T) {
 }
 
 func TestUseDatabase(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 

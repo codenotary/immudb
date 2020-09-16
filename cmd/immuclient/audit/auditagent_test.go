@@ -17,15 +17,17 @@ limitations under the License.
 package audit
 
 import (
-	"github.com/codenotary/immudb/cmd/immudb/command/service/servicetest"
-	"github.com/spf13/cobra"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/codenotary/immudb/cmd/immudb/command/service/servicetest"
+	"github.com/spf13/cobra"
+
 	srvc "github.com/codenotary/immudb/cmd/immuclient/service/configs"
 	"github.com/codenotary/immudb/cmd/immuclient/service/constants"
 	immusrvc "github.com/codenotary/immudb/cmd/sservice"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -34,7 +36,7 @@ import (
 )
 
 func TestManageNotRoot(t *testing.T) {
-	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
 
@@ -100,7 +102,7 @@ func TestManageNotRoot(t *testing.T) {
 }
 
 func TestManage(t *testing.T) {
-	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
 

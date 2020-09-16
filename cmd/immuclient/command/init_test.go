@@ -17,10 +17,12 @@ limitations under the License.
 package immuclient
 
 import (
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/stretchr/testify/require"
-	"testing"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -34,7 +36,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestConnect(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 

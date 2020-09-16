@@ -19,9 +19,10 @@ package immuadmin
 import (
 	"bytes"
 	"context"
-	"github.com/codenotary/immudb/cmd/helper"
 	"io/ioutil"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/helper"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -52,7 +53,7 @@ var pwReaderMock = &clienttest.PasswordReaderMock{
 
 func TestCommandLine_Connect(t *testing.T) {
 	log.Info("TestCommandLine_Connect")
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
 	dialOptions := []grpc.DialOption{
@@ -70,7 +71,7 @@ func TestCommandLine_Connect(t *testing.T) {
 
 func TestCommandLine_Disconnect(t *testing.T) {
 	log.Info("TestCommandLine_Disconnect")
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
 	dialOptions := []grpc.DialOption{
@@ -117,7 +118,7 @@ func (c scIClientInnerMock) Login(ctx context.Context, user []byte, pass []byte)
 }
 
 func TestCommandLine_LoginLogout(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
@@ -186,7 +187,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 }
 
 func TestCommandLine_CheckLoggedIn(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 

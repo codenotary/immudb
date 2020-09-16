@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -16,7 +17,7 @@ import (
 )
 
 func TestCommandLine_PrintTreeInit(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -34,7 +35,7 @@ func TestCommandLine_PrintTreeInit(t *testing.T) {
 }
 
 func TestCommandLine_PrintTree(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 	bs.Server.Set(context.TODO(), &schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
 
