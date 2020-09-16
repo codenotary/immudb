@@ -152,14 +152,14 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 }
 
 func TestServerWithEmptyAdminPassword(t *testing.T) {
-	serverOptions := DefaultOptions().WithInMemoryStore(true).WithAdminPassword("")
+	serverOptions := DefaultOptions().WithInMemoryStore(true).WithMetricsServer(false).WithAdminPassword("")
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	err := s.Start()
 	assert.Equal(t, ErrEmptyAdminPassword, err)
 }
 
 func TestServerWithNonEmptyAdminPassword(t *testing.T) {
-	serverOptions := DefaultOptions().WithAuth(true).WithAdminPassword("non-default-password")
+	serverOptions := DefaultOptions().WithAuth(true).WithMetricsServer(false).WithAdminPassword("non-default-password")
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	err := s.Start()
 	assert.NoError(t, err)
