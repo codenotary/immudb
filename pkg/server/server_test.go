@@ -158,22 +158,6 @@ func TestServerWithEmptyAdminPassword(t *testing.T) {
 	assert.Equal(t, ErrEmptyAdminPassword, err)
 }
 
-func TestServerWithNonEmptyAdminPassword(t *testing.T) {
-	serverOptions := DefaultOptions().WithAuth(true).WithMetricsServer(false).WithAdminPassword("non-default-password")
-	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	err := s.Start()
-	assert.NoError(t, err)
-	defer os.RemoveAll(s.Options.Dir)
-
-	r := &schema.LoginRequest{
-		User:     []byte(auth.SysAdminUsername),
-		Password: []byte("non-default-password"),
-	}
-	_, err = s.Login(context.Background(), r)
-	assert.NoError(t, err)
-	s.Stop()
-}
-
 func TestServerLogin(t *testing.T) {
 	s := newInmemoryAuthServer()
 	r := &schema.LoginRequest{
