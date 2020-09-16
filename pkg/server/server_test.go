@@ -57,7 +57,7 @@ func newInmemoryAuthServer() *ImmuServer {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = s.loadSystemDatabase(dbRootpath)
+	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func newAuthServer(dbroot string) *ImmuServer {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = s.loadSystemDatabase(dbRootpath)
+	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
 	}
-	err = s.loadSystemDatabase(dbRootpath)
+	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
 	}
@@ -150,6 +150,14 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 		t.Fatalf("system database directory not created")
 	}
 }
+
+func TestServerWithEmptyAdminPassword(t *testing.T) {
+	serverOptions := DefaultOptions().WithInMemoryStore(true).WithAdminPassword("")
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	err := s.Start()
+	assert.Equal(t, ErrEmptyAdminPassword, err)
+}
+
 func TestServerLogin(t *testing.T) {
 	s := newInmemoryAuthServer()
 	r := &schema.LoginRequest{
