@@ -1,0 +1,6 @@
+#!/usr/bin/expect -f
+set PASSWD [lindex $argv 0]
+spawn ../../immuclient login immudb
+expect "Password:"
+send -- "$PASSWD\r"
+expect eof
