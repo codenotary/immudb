@@ -19,21 +19,23 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"testing"
 )
 
 func TestStats_Status(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
 	dialOptions := []grpc.DialOption{
@@ -71,7 +73,7 @@ func TestStats_Status(t *testing.T) {
 }
 
 func TestStats_StatsText(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
 	handler := http.NewServeMux()
@@ -120,7 +122,7 @@ func TestStats_StatsText(t *testing.T) {
 }
 
 func TestStats_StatsRaw(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
 	handler := http.NewServeMux()

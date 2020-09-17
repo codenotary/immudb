@@ -17,10 +17,12 @@ limitations under the License.
 package audit
 
 import (
-	"github.com/codenotary/immudb/pkg/logger"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
@@ -28,7 +30,7 @@ import (
 )
 
 func TestExecutableRun(t *testing.T) {
-	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true)
+	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
 

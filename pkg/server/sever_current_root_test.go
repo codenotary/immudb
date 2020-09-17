@@ -18,13 +18,14 @@ package server
 
 import (
 	"context"
+	"log"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"log"
-	"testing"
 )
 
 func TestServerCurrentRootSigned(t *testing.T) {
@@ -40,7 +41,7 @@ func TestServerCurrentRootSigned(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = s.loadSystemDatabase(dbRootpath)
+	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		log.Fatal(err)
 	}

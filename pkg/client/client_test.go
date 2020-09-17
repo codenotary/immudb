@@ -76,10 +76,10 @@ var plainPass string
 
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
-	is = is.WithOptions(is.Options.WithAuth(true).WithInMemoryStore(true)).(*server.ImmuServer)
+	is = is.WithOptions(is.Options.WithAuth(true).WithInMemoryStore(true).WithAdminPassword("non-default-admin-password")).(*server.ImmuServer)
 	auth.AuthEnabled = is.Options.GetAuth()
 
-	username, plainPass = auth.SysAdminUsername, auth.SysAdminPassword
+	username, plainPass = auth.SysAdminUsername, "non-default-admin-password"
 
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(

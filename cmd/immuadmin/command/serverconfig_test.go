@@ -19,11 +19,12 @@ package immuadmin
 import (
 	"bytes"
 	"context"
-	"github.com/codenotary/immudb/pkg/client/clienttest"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/client/clienttest"
+	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -41,7 +42,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 		panic(err)
 	}
 
-	options := server.Options{}.WithAuth(false).WithInMemoryStore(true).WithConfig("/tmp/immudb.toml")
+	options := server.Options{}.WithAuth(false).WithInMemoryStore(true).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 
@@ -92,7 +93,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	options := server.Options{}.WithAuth(false).WithInMemoryStore(true).WithConfig("/tmp/immudb.toml")
+	options := server.Options{}.WithAuth(false).WithInMemoryStore(true).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
 

@@ -19,7 +19,13 @@ package auditor
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
@@ -32,10 +38,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
-	"log"
-	"os"
-	"testing"
-	"time"
 )
 
 const bufSize = 1024 * 1024
@@ -62,7 +64,7 @@ func TestDefaultAuditor(t *testing.T) {
 }
 
 func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
 	ds := []grpc.DialOption{
@@ -92,7 +94,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 }
 
 func TestDefaultAuditorRunOnDb(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true))
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
 	ctx := context.Background()
@@ -150,7 +152,12 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 
 func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 	pkey_path := "./../../../test/signer/ec3.key"
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithSigningKey(pkey_path))
+	bs := servertest.NewBufconnServer(
+		server.Options{}.
+			WithAuth(true).
+			WithInMemoryStore(true).
+			WithSigningKey(pkey_path).
+			WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
 	ctx := context.Background()

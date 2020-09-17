@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/signer"
 	"log"
 	"net"
 	"os"
@@ -33,6 +32,8 @@ import (
 	"syscall"
 	"time"
 	"unicode"
+
+	"github.com/codenotary/immudb/pkg/signer"
 
 	"github.com/rs/xid"
 
@@ -49,6 +50,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
+
+var ErrEmptyAdminPassword = fmt.Errorf("Admin password cannot be empty")
 
 var startedAt time.Time
 
@@ -76,7 +79,18 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Errorf("Unable load default database %s", err)
 		return err
 	}
-	if err = s.loadSystemDatabase(dataDir); err != nil {
+
+	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
+	if err != nil {
+		s.Logger.Errorf(err.Error())
+		return err
+	}
+	if len(adminPassword) == 0 {
+		s.Logger.Errorf(ErrEmptyAdminPassword.Error())
+		return ErrEmptyAdminPassword
+	}
+
+	if err = s.loadSystemDatabase(dataDir, adminPassword); err != nil {
 		s.Logger.Errorf("Unable load system database %s", err)
 		return err
 	}
@@ -127,12 +141,6 @@ func (s *ImmuServer) Start() error {
 
 	auth.AuthEnabled = s.Options.GetAuth()
 	auth.DevMode = s.Options.DevMode
-	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
-	if err != nil {
-		s.Logger.Errorf(err.Error())
-		return err
-	}
-	auth.SysAdminPassword = adminPassword
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 
 	if s.Options.MetricsServer {
@@ -273,7 +281,7 @@ func (s *ImmuServer) printUsageCallToAction() {
 	}
 }
 
-func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
+func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) error {
 	if s.dbList.Length() == 0 {
 		panic("loadSystemDatabase should be called after loadDefaultDatabase as system database should be at index 1")
 	}
@@ -293,13 +301,12 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string) error {
 			}
 			s.sysDb = db
 			//sys admin can have an empty array of databases as it has full access
-			adminUsername, adminPlainPass, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(auth.SysAdminPassword), auth.PermissionSysAdmin, "*", false, "")
+			adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
 			if err != nil {
 				s.Logger.Errorf(err.Error())
 				return err
-			} else if len(adminUsername) > 0 && len(adminPlainPass) > 0 {
-				s.Logger.Infof("Admin user %s created with password %s", adminUsername, adminPlainPass)
 			}
+			s.Logger.Infof("Admin user %s successfully created", adminUsername)
 		}
 	} else {
 		op := DefaultOption().
