@@ -1,0 +1,10 @@
+#!/usr/bin/expect -f
+set PASSWD [lindex $argv 0]
+set timeout 1
+
+spawn ../../immuadmin login immudb
+expect -exact "Password:"
+send -- "$PASSWD\r"
+expect -exact "logged in"
+expect eof
+

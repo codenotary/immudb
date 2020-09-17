@@ -1,0 +1,17 @@
+#!/usr/bin/expect -f
+set PASSWD [lindex $argv 0]
+set timeout 1
+
+spawn ../../immuadmin login immudb
+expect -exact "Password:"
+send -- "immudb\r"
+expect -exact "\r
+logged in\r
+\[33mSECURITY WARNING: immudb user has the default password: please change it to ensure proper security\r
+\[0mChoose a password for immudb:"
+send -- "$PASSWD\r"
+expect -exact "\r
+Confirm password:"
+send -- "$PASSWD\r"
+expect eof
+
