@@ -158,6 +158,13 @@ func TestServerWithEmptyAdminPassword(t *testing.T) {
 	assert.Equal(t, ErrEmptyAdminPassword, err)
 }
 
+func TestServerWithInvalidAdminPassword(t *testing.T) {
+	serverOptions := DefaultOptions().WithInMemoryStore(true).WithMetricsServer(false).WithAdminPassword("enc:*")
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	err := s.Start()
+	assert.Error(t, err)
+}
+
 func TestServerLogin(t *testing.T) {
 	s := newInmemoryAuthServer()
 	r := &schema.LoginRequest{
