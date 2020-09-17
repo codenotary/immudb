@@ -86,7 +86,7 @@ func (s *ImmuServer) Start() error {
 		return err
 	}
 	if len(adminPassword) == 0 {
-		s.Logger.Errorf("Admin password cannot be empty")
+		s.Logger.Errorf(ErrEmptyAdminPassword.Error())
 		return ErrEmptyAdminPassword
 	}
 
