@@ -16,6 +16,7 @@ limitations under the License.
 package tbtree
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -439,7 +440,15 @@ func (t *TBtree) flushTree() (int64, error) {
 		BaseOffset:  t.currentOffset,
 		commitLog:   true,
 	}
-	n, err := snapshot.WriteTo(t.f, wopts)
+
+	w := bufio.NewWriter(t.f)
+
+	n, err := snapshot.WriteTo(w, wopts)
+	if err != nil {
+		return 0, err
+	}
+
+	err = w.Flush()
 	if err != nil {
 		return 0, err
 	}
