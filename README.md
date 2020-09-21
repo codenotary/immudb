@@ -302,10 +302,10 @@ The Windows service is using the following defaults:
 Integrate immudb into your application using official SDKs already available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
-3. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
-2. .net (in progress)
-4. Python (planned)
-5. Node.js (planned)
+2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
+3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
+4. Python [immudb-py](https://github.com/codenotary/immudb-py)
+5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
 
 We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
 [immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
@@ -536,6 +536,17 @@ You can find an example video here:
 
 
 ## News
+`August 21th, 2020` - **Updated and New SDKs!**
+
+SDKs for Java, Golang, .net, Python and Node are fully compatible with latest immudb release v0.8.0:
+
+1. immudb4j [immudb4j](https://github.com/codenotary/immudb4j)
+2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
+3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
+4. Python [immudb-py](https://github.com/codenotary/immudb-py)
+5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
+
+
 `September 15th, 2020` - **[immudb v0.8.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.8.0)**
 
 Release v0.8.0 Multi-key insertion, crypto signature, immugw moved to a [separate repository](https://github.com/codenotary/immugw), bug fixes & enhancements
