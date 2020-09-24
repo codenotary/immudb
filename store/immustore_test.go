@@ -315,7 +315,7 @@ func BenchmarkAppend(b *testing.B) {
 
 			for j := 0; j < eCount; j++ {
 				k := make([]byte, 8)
-				binary.BigEndian.PutUint32(k, uint32(i<<4+j))
+				binary.BigEndian.PutUint64(k, uint64(i<<4+j))
 
 				v := make([]byte, 8)
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
