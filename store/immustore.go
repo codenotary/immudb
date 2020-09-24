@@ -801,6 +801,11 @@ func (s *ImmuStore) Close() error {
 		return err
 	}
 
+	err = s.cLog.Close()
+	if err != nil {
+		return err
+	}
+
 	s.closed = true
 	return nil
 }
