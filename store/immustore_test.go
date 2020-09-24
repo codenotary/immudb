@@ -283,6 +283,8 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	_, err = r.Read()
 	require.Equal(t, io.EOF, err)
 
+	require.Equal(t, uint64(txCount-emulatedFailures), immuStore.TxCount())
+
 	err = immuStore.Close()
 	require.NoError(t, err)
 }

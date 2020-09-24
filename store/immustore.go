@@ -466,6 +466,13 @@ func maxTxSize(maxTxEntries, maxKeyLen int) int {
 	return 2*8 + 2*sha256.Size + 4 + maxTxEntries*(4+maxKeyLen+4+sha256.Size) + 4
 }
 
+func (s *ImmuStore) TxCount() uint64 {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.committedTxID
+}
+
 func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
