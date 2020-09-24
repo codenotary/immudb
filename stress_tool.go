@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"io"
 	"time"
 
 	"codenotary.io/immudb-v2/store"
@@ -31,6 +32,7 @@ func main() {
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
 	printAfter := flag.Int("printAfter", 100, "print a dot '.' after specified number of committed txs")
 	synced := flag.Bool("synced", true, "strict sync mode - no data lost")
+	txLinking := flag.Bool("txLinking", false, "full scan to verify linear cryptographic linking between txs")
 
 	flag.Parse()
 
@@ -41,7 +43,7 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("Immutable transactional log openned!")
+	fmt.Printf("Immutable Transactional Key-Value Log with %d Txs successfully openned!\r\n", immuStore.TxCount())
 
 	fmt.Println("Committing transactions...")
 
@@ -73,7 +75,35 @@ func main() {
 	}
 
 	elapsed := time.Since(start)
+	fmt.Printf("\r\nAll transactions successfully committed in %s!\r\n", elapsed)
 
-	fmt.Println()
-	fmt.Printf("All transactions successfully committed in %s!\r\n", elapsed)
+	if *txLinking {
+		fmt.Println("Starting full scan to verify linear cryptographic linking between transactions...")
+		start := time.Now()
+
+		txReader, err := immuStore.NewTxReader(0, 4096)
+		if err != nil {
+			panic(err)
+		}
+
+		verifiedTxs := 0
+
+		for {
+			_, err := txReader.Read()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				panic(err)
+			}
+			verifiedTxs++
+
+			if verifiedTxs%*printAfter == 0 {
+				fmt.Print(".")
+			}
+		}
+
+		elapsed := time.Since(start)
+		fmt.Printf("\r\nAll transactions %d successfully verified in %s!\r\n", verifiedTxs, elapsed)
+	}
 }
