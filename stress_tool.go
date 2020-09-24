@@ -45,6 +45,8 @@ func main() {
 
 	fmt.Println("Committing transactions...")
 
+	start := time.Now()
+
 	for t := 0; t < *txCount; t++ {
 		kvs := make([]*store.KV, *kvCount)
 
@@ -70,6 +72,8 @@ func main() {
 		time.Sleep(time.Duration(*txDelay) * time.Millisecond)
 	}
 
+	elapsed := time.Since(start)
+
 	fmt.Println()
-	fmt.Println("All transactions successfully committed!")
+	fmt.Printf("All transactions successfully committed in %s!\r\n", elapsed)
 }

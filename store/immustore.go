@@ -301,6 +301,7 @@ type ImmuStore struct {
 	committedTxLogSize int64
 
 	readOnly          bool
+	synced            bool
 	maxTxEntries      int
 	maxKeyLen         int
 	maxValueLen       int
@@ -449,6 +450,7 @@ func open(txLog, vLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, e
 		committedTxID:      committedTxID,
 		committedAlh:       committedAlh,
 		readOnly:           opts.readOnly,
+		synced:             opts.synced,
 		maxTxEntries:       opts.maxTxEntries,
 		maxKeyLen:          opts.maxKeyLen,
 		maxValueLen:        opts.maxValueLen,

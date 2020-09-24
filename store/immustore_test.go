@@ -302,13 +302,42 @@ func (la *FailingAppendable) Append(bs []byte) (off int64, n int, err error) {
 	return la.AppendableFile.Append(bs)
 }
 
-func BenchmarkAppend(b *testing.B) {
+func BenchmarkSyncedAppend(b *testing.B) {
 	immuStore, _ := Open("data", DefaultOptions())
 	defer os.RemoveAll("data")
 
 	for i := 0; i < b.N; i++ {
-		txCount := 100
-		eCount := 1000
+		txCount := 1000
+		eCount := 100
+
+		for i := 0; i < txCount; i++ {
+			kvs := make([]*KV, eCount)
+
+			for j := 0; j < eCount; j++ {
+				k := make([]byte, 8)
+				binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+				kvs[j] = &KV{Key: k, Value: v}
+			}
+
+			_, _, _, _, err := immuStore.Commit(kvs)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+func BenchmarkAppend(b *testing.B) {
+	immuStore, _ := Open("data", DefaultOptions().SetSynced(false))
+	defer os.RemoveAll("data")
+
+	for i := 0; i < b.N; i++ {
+		txCount := 1000
+		eCount := 100
 
 		for i := 0; i < txCount; i++ {
 			kvs := make([]*KV, eCount)
