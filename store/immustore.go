@@ -236,6 +236,7 @@ func (hts *txHashTree) Get(layer uint8, index uint64) *[sha256.Size]byte {
 
 type Options struct {
 	readOnly          bool
+	synced            bool
 	fileMode          os.FileMode
 	maxTxEntries      int
 	maxKeyLen         int
@@ -246,6 +247,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		readOnly:          false,
+		synced:            true,
 		fileMode:          DefaultFileMode,
 		maxTxEntries:      DefaultMaxTxEntries,
 		maxKeyLen:         DefaultMaxKeyLen,
@@ -256,6 +258,11 @@ func DefaultOptions() *Options {
 
 func (opt *Options) SetReadOnly(readOnly bool) *Options {
 	opt.readOnly = readOnly
+	return opt
+}
+
+func (opt *Options) SetSynced(synced bool) *Options {
+	opt.synced = synced
 	return opt
 }
 
@@ -345,7 +352,10 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, ErrorPathIsNotADirectory
 	}
 
-	appendableOpts := appendable.DefaultOptions().SetReadOnly(opts.readOnly).SetFileMode(opts.fileMode)
+	appendableOpts := appendable.DefaultOptions().
+		SetReadOnly(opts.readOnly).
+		SetSynced(opts.synced).
+		SetFileMode(opts.fileMode)
 
 	txLogFilename := filepath.Join(path, "immudb.itx")
 	txLog, err := appendable.Open(txLogFilename, appendableOpts)

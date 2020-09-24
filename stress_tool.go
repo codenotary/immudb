@@ -30,11 +30,12 @@ func main() {
 	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
 	printAfter := flag.Int("printAfter", 100, "print a dot '.' after specified number of committed txs")
+	synced := flag.Bool("synced", true, "strict sync mode - no data lost")
 
 	flag.Parse()
 
 	fmt.Println("Openning immutable transactional log...")
-	immuStore, err := store.Open(*dataDir, store.DefaultOptions())
+	immuStore, err := store.Open(*dataDir, store.DefaultOptions().SetSynced(*synced))
 
 	if err != nil {
 		panic(err)
