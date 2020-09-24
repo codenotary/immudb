@@ -36,7 +36,7 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Println("Openning immutable transactional log...")
+	fmt.Println("Opening Immutable Transactional Key-Value Log...")
 	immuStore, err := store.Open(*dataDir, store.DefaultOptions().SetSynced(*synced))
 
 	if err != nil {
@@ -45,7 +45,7 @@ func main() {
 
 	fmt.Printf("Immutable Transactional Key-Value Log with %d Txs successfully openned!\r\n", immuStore.TxCount())
 
-	fmt.Println("Committing transactions...")
+	fmt.Printf("Committing %d transactions...\r\n", *txCount)
 
 	start := time.Now()
 
@@ -78,7 +78,7 @@ func main() {
 	fmt.Printf("\r\nAll transactions successfully committed in %s!\r\n", elapsed)
 
 	if *txLinking {
-		fmt.Println("Starting full scan to verify linear cryptographic linking between transactions...")
+		fmt.Println("Starting full scan to verify linear cryptographic linking...")
 		start := time.Now()
 
 		txReader, err := immuStore.NewTxReader(0, 4096)
