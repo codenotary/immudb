@@ -44,7 +44,7 @@ func TestImmudbStore(t *testing.T) {
 	require.Equal(t, ErrorNoEntriesProvided, err)
 
 	for i := 0; i < txCount; i++ {
-		kvs := make([]*kv, eCount)
+		kvs := make([]*KV, eCount)
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 8)
@@ -53,7 +53,7 @@ func TestImmudbStore(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			kvs[j] = &kv{key: k, value: v}
+			kvs[j] = &KV{Key: k, Value: v}
 		}
 
 		id, _, _, _, err := immuStore.Commit(kvs)
@@ -64,7 +64,7 @@ func TestImmudbStore(t *testing.T) {
 	err = immuStore.Close()
 	require.NoError(t, err)
 
-	_, _, _, _, err = immuStore.Commit([]*kv{{key: nil, value: nil}})
+	_, _, _, _, err = immuStore.Commit([]*KV{{Key: nil, Value: nil}})
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	immuStore, err = Open("data", DefaultOptions())
@@ -87,9 +87,9 @@ func TestImmudbStore(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-			kv := &kv{key: k, value: v}
+			kv := &KV{Key: k, Value: v}
 
-			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), merkletree.Root(tx.htree), kv.digest())
+			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), merkletree.Root(tx.htree), kv.Digest())
 			require.True(t, verifies)
 
 			value := make([]byte, tx.es[j].valueLen)
@@ -168,7 +168,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < txCount; i++ {
-			kvs := make([]*kv, eCount)
+			kvs := make([]*KV, eCount)
 
 			for j := 0; j < eCount; j++ {
 				k := make([]byte, 8)
@@ -177,7 +177,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 				v := make([]byte, 8)
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-				kvs[j] = &kv{key: k, value: v}
+				kvs[j] = &KV{Key: k, Value: v}
 			}
 
 			id, _, _, _, err := immuStore.Commit(kvs)
@@ -224,7 +224,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	emulatedFailures := 0
 
 	for i := 0; i < txCount; i++ {
-		kvs := make([]*kv, eCount)
+		kvs := make([]*KV, eCount)
 
 		for j := 0; j < eCount; j++ {
 			k := make([]byte, 4)
@@ -233,7 +233,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(j+1))
 
-			kvs[j] = &kv{key: k, value: v}
+			kvs[j] = &KV{Key: k, Value: v}
 		}
 
 		id, _, _, _, err := immuStore.Commit(kvs)
@@ -268,9 +268,9 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(j+1))
 
-			kv := &kv{key: k, value: v}
+			kv := &KV{Key: k, Value: v}
 
-			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), merkletree.Root(tx.htree), kv.digest())
+			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), merkletree.Root(tx.htree), kv.Digest())
 			require.True(t, verifies)
 
 			value := make([]byte, tx.es[j].valueLen)
@@ -307,11 +307,11 @@ func BenchmarkAppend(b *testing.B) {
 	defer os.RemoveAll("data")
 
 	for i := 0; i < b.N; i++ {
-		kCount := 100
+		txCount := 100
 		eCount := 1000
 
-		for i := 0; i < kCount; i++ {
-			kvs := make([]*kv, eCount)
+		for i := 0; i < txCount; i++ {
+			kvs := make([]*KV, eCount)
 
 			for j := 0; j < eCount; j++ {
 				k := make([]byte, 8)
@@ -320,7 +320,7 @@ func BenchmarkAppend(b *testing.B) {
 				v := make([]byte, 8)
 				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
 
-				kvs[j] = &kv{key: k, value: v}
+				kvs[j] = &KV{Key: k, Value: v}
 			}
 
 			_, _, _, _, err := immuStore.Commit(kvs)

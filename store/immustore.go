@@ -309,16 +309,16 @@ type ImmuStore struct {
 	closed bool
 }
 
-type kv struct {
-	key   []byte
-	value []byte
+type KV struct {
+	Key   []byte
+	Value []byte
 }
 
-func (kv *kv) digest() [sha256.Size]byte {
+func (kv *KV) Digest() [sha256.Size]byte {
 	hash := sha256.New()
 
-	hash.Write(kv.key)
-	hvalue := sha256.Sum256(kv.value)
+	hash.Write(kv.Key)
+	hvalue := sha256.Sum256(kv.Value)
 	hash.Write(hvalue[:])
 
 	var eh [sha256.Size]byte
@@ -454,7 +454,7 @@ func maxTxSize(maxTxEntries, maxKeyLen int) int {
 	return 2*8 + 2*sha256.Size + 4 + maxTxEntries*(4+maxKeyLen+4+sha256.Size) + 4
 }
 
-func (s *ImmuStore) Commit(entries []*kv) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
+func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -492,11 +492,11 @@ func (s *ImmuStore) Commit(entries []*kv) (id uint64, ts int64, alh [sha256.Size
 	for i, e := range entries {
 		//kv serialization into pre-allocated buffer
 		kvSize := 0
-		binary.BigEndian.PutUint32(s._b[kvSize:], uint32(len(e.key)))
+		binary.BigEndian.PutUint32(s._b[kvSize:], uint32(len(e.Key)))
 		kvSize += 4
-		copy(s._b[kvSize:], e.key)
-		kvSize += len(e.key)
-		binary.BigEndian.PutUint32(s._b[kvSize:], uint32(len(e.value)))
+		copy(s._b[kvSize:], e.Key)
+		kvSize += len(e.Key)
+		binary.BigEndian.PutUint32(s._b[kvSize:], uint32(len(e.Value)))
 		kvSize += 4
 
 		kvoff, _, aErr := s.vLog.Append(s._b[:kvSize])
@@ -505,17 +505,17 @@ func (s *ImmuStore) Commit(entries []*kv) (id uint64, ts int64, alh [sha256.Size
 			return
 		}
 
-		_, _, aErr = s.vLog.Append(e.value)
+		_, _, aErr = s.vLog.Append(e.Value)
 		if aErr != nil {
 			err = aErr
 			return
 		}
 
 		txe := s._tx.es[i]
-		txe.keyLen = len(e.key)
-		txe.key = e.key
-		txe.valueLen = len(e.value)
-		txe.hvalue = sha256.Sum256(e.value)
+		txe.keyLen = len(e.Key)
+		txe.key = e.Key
+		txe.valueLen = len(e.Value)
+		txe.hvalue = sha256.Sum256(e.Value)
 		txe.voff = kvoff
 
 		eh := txe.digest()
@@ -523,11 +523,11 @@ func (s *ImmuStore) Commit(entries []*kv) (id uint64, ts int64, alh [sha256.Size
 		s._tx.htree.width++
 
 		// tx serialization into pre-allocated buffer
-		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.key)))
+		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.Key)))
 		txSize += 4
-		copy(s._txbs[txSize:], e.key)
-		txSize += len(e.key)
-		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.value)))
+		copy(s._txbs[txSize:], e.Key)
+		txSize += len(e.Key)
+		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.Value)))
 		txSize += 4
 		copy(s._txbs[txSize:], txe.hvalue[:])
 		txSize += sha256.Size
@@ -743,7 +743,7 @@ func (r *syncedReader) ReadAt(bs []byte, off int64) (int, error) {
 	return r.wr.ReadAt(bs[:available], off)
 }
 
-func (s *ImmuStore) validateEntries(entries []*kv) error {
+func (s *ImmuStore) validateEntries(entries []*KV) error {
 	if len(entries) == 0 {
 		return ErrorNoEntriesProvided
 	}
@@ -752,10 +752,10 @@ func (s *ImmuStore) validateEntries(entries []*kv) error {
 	}
 
 	for _, kv := range entries {
-		if len(kv.key) > s.maxKeyLen {
+		if len(kv.Key) > s.maxKeyLen {
 			return ErrorMaxKeyLenExceeded
 		}
-		if len(kv.value) > s.maxValueLen {
+		if len(kv.Value) > s.maxValueLen {
 			return ErrorMaxValueLenExceeded
 		}
 	}
