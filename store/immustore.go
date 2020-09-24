@@ -752,7 +752,16 @@ func (r *syncedReader) ReadAt(bs []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
-	return r.wr.ReadAt(bs[:available], off)
+	n, err := r.wr.ReadAt(bs[:available], off)
+	if err != nil {
+		return n, err
+	}
+
+	if n < available {
+		return n, io.EOF
+	}
+
+	return n, nil
 }
 
 func (s *ImmuStore) validateEntries(entries []*KV) error {
