@@ -129,7 +129,7 @@ func main() {
 
 					verifies := path.VerifyInclusion(uint64(len(txEntries)-1), uint64(i), tx.Eh(), kv.Digest())
 					if !verifies {
-						panic("kv does not verifies")
+						panic("kv does not verify")
 					}
 				}
 			}
