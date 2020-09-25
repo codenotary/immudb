@@ -474,36 +474,61 @@ func (s *ImmuStore) TxCount() uint64 {
 }
 
 func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		err = ErrAlreadyClosed
-		return
-	}
-
 	err = s.validateEntries(entries)
 	if err != nil {
 		return
 	}
 
+	tx := s._tx
+
+	tx.nentries = len(entries)
+	tx.htree.width = 0
+
+	for i, e := range entries {
+		txe := tx.es[i]
+		txe.keyLen = len(e.Key)
+		txe.key = e.Key
+		txe.valueLen = len(e.Value)
+		txe.hvalue = sha256.Sum256(e.Value)
+
+		eh := txe.digest() //TODO: a buffer may be used to avoid allocations
+		merkletree.AppendHash(tx.htree, &eh)
+		tx.htree.width++
+	}
+
+	eh := merkletree.Root(tx.htree)
+
+	err = s.commit(entries, eh, tx)
+	if err != nil {
+		return
+	}
+
+	return tx.id, tx.ts, tx.alh, tx.txh, nil
+}
+
+func (s *ImmuStore) commit(entries []*KV, eh [sha256.Size]byte, tx *Tx) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
 	// will overrite partially written and uncommitted data
 	s.txLog.SetOffset(s.committedTxLogSize)
 
-	s._tx.id = s.committedTxID + 1
-	s._tx.ts = time.Now().Unix()
-	s._tx.alh = s.committedAlh
-	s._tx.nentries = len(entries)
-	s._tx.htree.width = 0
+	tx.id = s.committedTxID + 1
+	tx.ts = time.Now().Unix()
+	tx.alh = s.committedAlh
 
 	txSize := 0
 
 	// tx serialization into pre-allocated buffer
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(s._tx.id))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.id))
 	txSize += 8
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(s._tx.ts))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.ts))
 	txSize += 8
-	copy(s._txbs[txSize:], s._tx.alh[:])
+	copy(s._txbs[txSize:], tx.alh[:])
 	txSize += sha256.Size
 	binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(entries)))
 	txSize += 4
@@ -518,28 +543,18 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		binary.BigEndian.PutUint32(s._b[kvSize:], uint32(len(e.Value)))
 		kvSize += 4
 
-		kvoff, _, aErr := s.vLog.Append(s._b[:kvSize])
-		if aErr != nil {
-			err = aErr
-			return
+		kvoff, _, err := s.vLog.Append(s._b[:kvSize])
+		if err != nil {
+			return err
 		}
 
-		_, _, aErr = s.vLog.Append(e.Value)
-		if aErr != nil {
-			err = aErr
-			return
+		_, _, err = s.vLog.Append(e.Value)
+		if err != nil {
+			return err
 		}
 
-		txe := s._tx.es[i]
-		txe.keyLen = len(e.Key)
-		txe.key = e.Key
-		txe.valueLen = len(e.Value)
-		txe.hvalue = sha256.Sum256(e.Value)
+		txe := tx.es[i]
 		txe.voff = kvoff
-
-		eh := txe.digest()
-		merkletree.AppendHash(s._tx.htree, &eh)
-		s._tx.htree.width++
 
 		// tx serialization into pre-allocated buffer
 		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.Key)))
@@ -554,49 +569,48 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		txSize += 8
 	}
 
-	root := merkletree.Root(s._tx.htree)
-	binary.BigEndian.PutUint64(s._b, s._tx.id)
-	binary.BigEndian.PutUint64(s._b[8:], uint64(s._tx.ts))
-	binary.BigEndian.PutUint32(s._b[16:], uint32(len(s._tx.es)))
-	copy(s._b[20:], root[:])
-	s._tx.txh = sha256.Sum256(s._b[:bufLenTxh])
+	binary.BigEndian.PutUint64(s._b, tx.id)
+	binary.BigEndian.PutUint64(s._b[8:], uint64(tx.ts))
+	binary.BigEndian.PutUint32(s._b[16:], uint32(len(tx.es)))
+	copy(s._b[20:], eh[:])
+	tx.txh = sha256.Sum256(s._b[:bufLenTxh])
 
 	// tx serialization into pre-allocated buffer
-	copy(s._txbs[txSize:], s._tx.txh[:])
+	copy(s._txbs[txSize:], tx.txh[:])
 	txSize += sha256.Size
 
 	txOff, _, err := s.txLog.Append(s._txbs[:txSize])
 	if err != nil {
-		return
+		return err
 	}
 
 	err = s.vLog.Flush()
 	if err != nil {
-		return
+		return err
 	}
 
 	err = s.txLog.Flush()
 	if err != nil {
-		return
+		return err
 	}
 
 	binary.BigEndian.PutUint64(s._b, uint64(txOff))
 	binary.BigEndian.PutUint32(s._b[8:], uint32(txSize))
 	_, _, err = s.cLog.Append(s._b[:cLogEntrySize])
 	if err != nil {
-		return
+		return err
 	}
 
 	err = s.cLog.Flush()
 	if err != nil {
-		return
+		return err
 	}
 
 	s.committedTxID++
-	s.committedAlh = s._tx.Alh()
+	s.committedAlh = tx.Alh()
 	s.committedTxLogSize += int64(txSize)
 
-	return s._tx.id, s._tx.ts, s._tx.alh, s._tx.txh, nil
+	return nil
 }
 
 func (s *ImmuStore) LinearProof(trustedTxID, txID uint64) (path [][sha256.Size]byte, err error) {
