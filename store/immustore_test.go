@@ -26,7 +26,7 @@ import (
 	"testing"
 
 	"codenotary.io/immudb-v2/appendable"
-	"github.com/codenotary/merkletree"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +38,7 @@ func TestImmudbStore(t *testing.T) {
 	require.NotNil(t, immuStore)
 
 	txCount := 32
-	eCount := 100
+	eCount := 64
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
@@ -78,24 +78,22 @@ func TestImmudbStore(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 
+		txEntries := tx.Entries()
+		assert.Equal(t, eCount, len(txEntries))
+
 		for j := 0; j < eCount; j++ {
 			path := tx.Proof(j)
 
-			k := make([]byte, 8)
-			binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+			key := txEntries[j].Key()
 
-			v := make([]byte, 8)
-			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
-
-			kv := &KV{Key: k, Value: v}
-
-			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), merkletree.Root(tx.htree), kv.Digest())
-			require.True(t, verifies)
-
-			value := make([]byte, tx.es[j].valueLen)
-			n, err := immuStore.ReadValueAt(value, tx.es[j].voff)
+			value := make([]byte, txEntries[j].ValueLen)
+			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff)
 			require.NoError(t, err)
-			require.Equal(t, tx.es[j].valueLen, n)
+
+			kv := &KV{Key: key, Value: value}
+
+			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), tx.Eh(), kv.Digest())
+			require.True(t, verifies)
 		}
 	}
 
@@ -108,7 +106,7 @@ func TestImmudbStore(t *testing.T) {
 
 		txi, err := ri.Read()
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), txi.id)
+		require.Equal(t, uint64(i+1), txi.ID)
 	}
 
 	trustedTx := mallocTx(immuStore.maxTxEntries, immuStore.maxKeyLen)
@@ -119,14 +117,14 @@ func TestImmudbStore(t *testing.T) {
 
 		err := immuStore.ReadTx(trustedTxID, trustedTx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), trustedTx.id)
+		require.Equal(t, uint64(i+1), trustedTx.ID)
 
 		for j := i + 1; j < txCount; j++ {
 			targetTxID := uint64(j + 1)
 
 			err := immuStore.ReadTx(targetTxID, targetTx)
 			require.NoError(t, err)
-			require.Equal(t, uint64(j+1), targetTx.id)
+			require.Equal(t, uint64(j+1), targetTx.ID)
 
 			p, err := immuStore.LinearProof(trustedTxID, targetTxID)
 			require.NoError(t, err)
@@ -134,7 +132,7 @@ func TestImmudbStore(t *testing.T) {
 			calculatedAlh := evalLinearProof(p)
 
 			require.Equal(t, trustedTx.Alh(), p[0])
-			require.Equal(t, targetTx.alh, calculatedAlh)
+			require.Equal(t, targetTx.PrevAlh, calculatedAlh)
 		}
 	}
 
@@ -160,7 +158,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 	defer os.RemoveAll("data")
 
 	itCount := 10
-	txCount := 50
+	txCount := 32
 	eCount := 10
 
 	for it := 0; it < itCount; it++ {
@@ -218,8 +216,8 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	immuStore, err := open(failingTxLog, failingVLog, failingCLog, opts)
 	require.NoError(t, err)
 
-	txCount := 1000
-	eCount := 100
+	txCount := 100
+	eCount := 64
 
 	emulatedFailures := 0
 
@@ -259,24 +257,22 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 
+		txEntries := tx.Entries()
+		assert.Equal(t, eCount, len(txEntries))
+
 		for j := 0; j < eCount; j++ {
 			path := tx.Proof(j)
 
-			k := make([]byte, 4)
-			binary.BigEndian.PutUint32(k, uint32(j))
+			key := txEntries[j].Key()
 
-			v := make([]byte, 8)
-			binary.BigEndian.PutUint64(v, uint64(j+1))
-
-			kv := &KV{Key: k, Value: v}
-
-			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), merkletree.Root(tx.htree), kv.Digest())
-			require.True(t, verifies)
-
-			value := make([]byte, tx.es[j].valueLen)
-			n, err := immuStore.ReadValueAt(value, tx.es[j].voff)
+			value := make([]byte, txEntries[j].ValueLen)
+			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff)
 			require.NoError(t, err)
-			require.Equal(t, tx.es[j].valueLen, n)
+
+			kv := &KV{Key: key, Value: value}
+
+			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), tx.Eh(), kv.Digest())
+			require.True(t, verifies)
 		}
 	}
 

@@ -16,6 +16,7 @@ limitations under the License.
 package store
 
 import (
+	"container/list"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -36,14 +37,17 @@ var ErrorNoEntriesProvided = errors.New("No entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("Max number of entries per tx exceeded")
 var ErrorMaxKeyLenExceeded = errors.New("Max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("Max value length exceeded")
+var ErrMaxConcurrencyLimitExceeded = errors.New("Max concurrency limit exceeded")
 var ErrorPathIsNotADirectory = errors.New("Path is not a directory")
 var ErrorCorruptedTxData = errors.New("Tx data is corrupted")
 var ErrCorruptedCLog = errors.New("Commit log is corrupted")
+var ErrCorruptedVLog = errors.New("Value log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("Tx size greater than max tx size")
 
 var ErrTrustedTxNotOlderThanTargetTx = errors.New("Trusted tx is not older than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("Max linear proof length limit exceeded")
 
+const DefaultMaxConcurrency = 100
 const DefaultMaxTxEntries = 1 << 16 // 65536
 const DefaultMaxKeyLen = 256
 const DefaultMaxValueLen = 1 << 20 // 1 Mb
@@ -57,34 +61,42 @@ const bufLenTxh = 2*8 + 4 + sha256.Size
 const cLogEntrySize = 12 // tx offset & size
 
 type Tx struct {
-	id       uint64
-	ts       int64
-	alh      [sha256.Size]byte
+	ID       uint64
+	Ts       int64
+	PrevAlh  [sha256.Size]byte
 	nentries int
-	es       []*txe
-	txh      [sha256.Size]byte
+	entries  []*Txe
+	Txh      [sha256.Size]byte
 	htree    *txHashTree
 }
 
 func mallocTx(nentries int, maxKeyLen int) *Tx {
 	tx := &Tx{
-		id:    0,
-		es:    make([]*txe, nentries),
-		htree: mallocTxHashTree(nentries),
+		ID:      0,
+		entries: make([]*Txe, nentries),
+		htree:   mallocTxHashTree(nentries),
 	}
 
 	for i := 0; i < nentries; i++ {
-		tx.es[i] = &txe{key: make([]byte, maxKeyLen)}
+		tx.entries[i] = &Txe{key: make([]byte, maxKeyLen)}
 	}
 
 	return tx
 }
 
+func (tx *Tx) Entries() []*Txe {
+	return tx.entries[:tx.nentries]
+}
+
 func (tx *Tx) Alh() [sha256.Size]byte {
 	bs := make([]byte, 2*sha256.Size)
-	copy(bs, tx.alh[:])
-	copy(bs[sha256.Size:], tx.txh[:])
+	copy(bs, tx.PrevAlh[:])
+	copy(bs[sha256.Size:], tx.Txh[:])
 	return sha256.Sum256(bs)
+}
+
+func (tx *Tx) Eh() [sha256.Size]byte {
+	return merkletree.Root(tx.htree)
 }
 
 func (tx *Tx) Proof(kindex int) merkletree.Path {
@@ -96,15 +108,15 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 	if err != nil {
 		return err
 	}
-	tx.id = id
+	tx.ID = id
 
 	ts, err := ReadUint64(r, b)
 	if err != nil {
 		return err
 	}
-	tx.ts = int64(ts)
+	tx.Ts = int64(ts)
 
-	_, err = r.Read(tx.alh[:])
+	_, err = r.Read(tx.PrevAlh[:])
 	if err != nil {
 		return err
 	}
@@ -122,9 +134,9 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 		if err != nil {
 			return err
 		}
-		tx.es[i].keyLen = int(klen)
+		tx.entries[i].keyLen = int(klen)
 
-		_, err = r.Read(tx.es[i].key[:klen])
+		_, err = r.Read(tx.entries[i].key[:klen])
 		if err != nil {
 			return err
 		}
@@ -133,9 +145,9 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 		if err != nil {
 			return err
 		}
-		tx.es[i].valueLen = int(vlen)
+		tx.entries[i].ValueLen = int(vlen)
 
-		_, err = r.Read(tx.es[i].hvalue[:])
+		_, err = r.Read(tx.entries[i].HValue[:])
 		if err != nil {
 			return err
 		}
@@ -144,23 +156,23 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 		if err != nil {
 			return err
 		}
-		tx.es[i].voff = int64(voff)
+		tx.entries[i].VOff = int64(voff)
 
-		eh := tx.es[i].digest()
+		eh := tx.entries[i].digest()
 		merkletree.AppendHash(tx.htree, &eh)
 		tx.htree.width++
 	}
 
-	_, err = r.Read(tx.txh[:])
+	_, err = r.Read(tx.Txh[:])
 
 	root := merkletree.Root(tx.htree)
 
-	binary.BigEndian.PutUint64(b, tx.id)
-	binary.BigEndian.PutUint64(b[8:], uint64(tx.ts))
-	binary.BigEndian.PutUint32(b[16:], uint32(len(tx.es)))
+	binary.BigEndian.PutUint64(b, tx.ID)
+	binary.BigEndian.PutUint64(b[8:], uint64(tx.Ts))
+	binary.BigEndian.PutUint32(b[16:], uint32(len(tx.entries)))
 	copy(b[20:], root[:])
 
-	if tx.txh != sha256.Sum256(b[:bufLenTxh]) {
+	if tx.Txh != sha256.Sum256(b[:bufLenTxh]) {
 		return ErrorCorruptedTxData
 	}
 
@@ -183,19 +195,23 @@ func ReadUint32(r io.Reader, b []byte) (uint32, error) {
 	return binary.BigEndian.Uint32(b), nil
 }
 
-type txe struct {
+type Txe struct {
 	keyLen   int
 	key      []byte
-	valueLen int
-	hvalue   [sha256.Size]byte
-	voff     int64
+	ValueLen int
+	HValue   [sha256.Size]byte
+	VOff     int64
 }
 
-func (e *txe) digest() [sha256.Size]byte {
+func (e *Txe) Key() []byte {
+	return e.key[:e.keyLen]
+}
+
+func (e *Txe) digest() [sha256.Size]byte {
 	hash := sha256.New()
 
-	hash.Write(e.key[:e.keyLen])
-	hash.Write(e.hvalue[:])
+	hash.Write(e.Key())
+	hash.Write(e.HValue[:])
 
 	var eh [sha256.Size]byte
 	copy(eh[:], hash.Sum(nil))
@@ -238,6 +254,7 @@ type Options struct {
 	readOnly          bool
 	synced            bool
 	fileMode          os.FileMode
+	maxConcurrency    int
 	maxTxEntries      int
 	maxKeyLen         int
 	maxValueLen       int
@@ -249,6 +266,7 @@ func DefaultOptions() *Options {
 		readOnly:          false,
 		synced:            true,
 		fileMode:          DefaultFileMode,
+		maxConcurrency:    DefaultMaxConcurrency,
 		maxTxEntries:      DefaultMaxTxEntries,
 		maxKeyLen:         DefaultMaxKeyLen,
 		maxValueLen:       DefaultMaxValueLen,
@@ -268,6 +286,11 @@ func (opt *Options) SetSynced(synced bool) *Options {
 
 func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
 	opt.fileMode = fileMode
+	return opt
+}
+
+func (opt *Options) SetConcurrency(maxConcurrency int) *Options {
+	opt.maxConcurrency = maxConcurrency
 	return opt
 }
 
@@ -302,15 +325,19 @@ type ImmuStore struct {
 
 	readOnly          bool
 	synced            bool
+	maxConcurrency    int
 	maxTxEntries      int
 	maxKeyLen         int
 	maxValueLen       int
 	maxLinearProofLen int
 
 	maxTxSize int
-	_tx       *Tx    // pre-allocated tx
-	_txbs     []byte // pre-allocated buffer to support tx serialization
-	_b        []byte // pre-allocated general purpose buffer
+
+	_txs     *list.List // pre-allocated txs
+	_txsLock sync.Mutex
+
+	_txbs []byte // pre-allocated buffer to support tx serialization
+	_b    []byte // pre-allocated general purpose buffer
 
 	mutex sync.Mutex
 
@@ -335,7 +362,7 @@ func (kv *KV) Digest() [sha256.Size]byte {
 }
 
 func Open(path string, opts *Options) (*ImmuStore, error) {
-	if opts == nil || opts.maxKeyLen > MaxKeyLen {
+	if opts == nil || opts.maxKeyLen > MaxKeyLen || opts.maxConcurrency < 1 {
 		return nil, ErrIllegalArgument
 	}
 
@@ -426,7 +453,13 @@ func open(txLog, vLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, e
 	// TODO: based on file config or opts if fresh created
 	maxTxSize := maxTxSize(opts.maxTxEntries, opts.maxKeyLen)
 
-	tx := mallocTx(opts.maxTxEntries, opts.maxKeyLen)
+	txs := list.New()
+
+	for i := 0; i < opts.maxConcurrency; i++ {
+		tx := mallocTx(opts.maxTxEntries, opts.maxKeyLen)
+		txs.PushBack(tx)
+	}
+
 	txbs := make([]byte, maxTxSize)
 
 	committedAlh := sha256.Sum256(nil)
@@ -434,6 +467,7 @@ func open(txLog, vLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, e
 	if cLogSize > 0 {
 		txReader := appendable.NewReaderFrom(txLog, committedTxOffset, committedTxSize)
 
+		tx := txs.Front().Value.(*Tx)
 		err = tx.readFrom(txReader, make([]byte, maxInt(MaxKeyLen, bufLenTxh)))
 		if err != nil {
 			return nil, err
@@ -456,14 +490,34 @@ func open(txLog, vLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, e
 		maxValueLen:        opts.maxValueLen,
 		maxLinearProofLen:  opts.maxLinearProofLen,
 		maxTxSize:          maxTxSize,
-		_tx:                tx,
+		_txs:               txs,
 		_txbs:              txbs,
-		_b:                 make([]byte, maxInt(4+opts.maxKeyLen+4, bufLenTxh)),
+		_b:                 make([]byte, bufLenTxh),
 	}, nil
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
 	return 2*8 + 2*sha256.Size + 4 + maxTxEntries*(4+maxKeyLen+4+sha256.Size) + 4
+}
+
+func (s *ImmuStore) MaxValueLen() int {
+	return s.maxValueLen
+}
+
+func (s *ImmuStore) MaxKeyLen() int {
+	return s.maxKeyLen
+}
+
+func (s *ImmuStore) MaxConcurrency() int {
+	return s.maxConcurrency
+}
+
+func (s *ImmuStore) MaxLinearProofLen() int {
+	return s.maxLinearProofLen
+}
+
+func (s *ImmuStore) MaxTxEntries() int {
+	return s.maxTxEntries
 }
 
 func (s *ImmuStore) TxCount() uint64 {
@@ -473,25 +527,47 @@ func (s *ImmuStore) TxCount() uint64 {
 	return s.committedTxID
 }
 
+func (s *ImmuStore) fetchAllocTx() (*Tx, error) {
+	s._txsLock.Lock()
+	defer s._txsLock.Unlock()
+
+	if s._txs.Len() == 0 {
+		return nil, ErrMaxConcurrencyLimitExceeded
+	}
+
+	return s._txs.Remove(s._txs.Front()).(*Tx), nil
+}
+
+func (s *ImmuStore) releaseAllocTx(tx *Tx) {
+	s._txsLock.Lock()
+	defer s._txsLock.Unlock()
+
+	s._txs.PushBack(tx)
+}
+
 func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
 	err = s.validateEntries(entries)
 	if err != nil {
 		return
 	}
 
-	tx := s._tx
+	tx, err := s.fetchAllocTx()
+	if err != nil {
+		return
+	}
+	defer s.releaseAllocTx(tx)
 
 	tx.nentries = len(entries)
 	tx.htree.width = 0
 
 	for i, e := range entries {
-		txe := tx.es[i]
+		txe := tx.entries[i]
 		txe.keyLen = len(e.Key)
-		txe.key = e.Key
-		txe.valueLen = len(e.Value)
-		txe.hvalue = sha256.Sum256(e.Value)
+		copy(txe.key, e.Key)
+		txe.ValueLen = len(e.Value)
+		txe.HValue = sha256.Sum256(e.Value)
 
-		eh := txe.digest() //TODO: a buffer may be used to avoid allocations
+		eh := txe.digest()
 		merkletree.AppendHash(tx.htree, &eh)
 		tx.htree.width++
 	}
@@ -503,7 +579,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		return
 	}
 
-	return tx.id, tx.ts, tx.alh, tx.txh, nil
+	return tx.ID, tx.Ts, tx.PrevAlh, tx.Txh, nil
 }
 
 func (s *ImmuStore) commit(entries []*KV, eh [sha256.Size]byte, tx *Tx) error {
@@ -517,44 +593,31 @@ func (s *ImmuStore) commit(entries []*KV, eh [sha256.Size]byte, tx *Tx) error {
 	// will overrite partially written and uncommitted data
 	s.txLog.SetOffset(s.committedTxLogSize)
 
-	tx.id = s.committedTxID + 1
-	tx.ts = time.Now().Unix()
-	tx.alh = s.committedAlh
+	tx.ID = s.committedTxID + 1
+	tx.Ts = time.Now().Unix()
+	tx.PrevAlh = s.committedAlh
 
 	txSize := 0
 
 	// tx serialization into pre-allocated buffer
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.id))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.ID))
 	txSize += 8
-	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.ts))
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.Ts))
 	txSize += 8
-	copy(s._txbs[txSize:], tx.alh[:])
+	copy(s._txbs[txSize:], tx.PrevAlh[:])
 	txSize += sha256.Size
 	binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(entries)))
 	txSize += 4
 
 	for i, e := range entries {
 		//kv serialization into pre-allocated buffer
-		kvSize := 0
-		binary.BigEndian.PutUint32(s._b[kvSize:], uint32(len(e.Key)))
-		kvSize += 4
-		copy(s._b[kvSize:], e.Key)
-		kvSize += len(e.Key)
-		binary.BigEndian.PutUint32(s._b[kvSize:], uint32(len(e.Value)))
-		kvSize += 4
-
-		kvoff, _, err := s.vLog.Append(s._b[:kvSize])
+		voff, _, err := s.vLog.Append(e.Value)
 		if err != nil {
 			return err
 		}
 
-		_, _, err = s.vLog.Append(e.Value)
-		if err != nil {
-			return err
-		}
-
-		txe := tx.es[i]
-		txe.voff = kvoff
+		txe := tx.entries[i]
+		txe.VOff = voff
 
 		// tx serialization into pre-allocated buffer
 		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.Key)))
@@ -563,20 +626,20 @@ func (s *ImmuStore) commit(entries []*KV, eh [sha256.Size]byte, tx *Tx) error {
 		txSize += len(e.Key)
 		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.Value)))
 		txSize += 4
-		copy(s._txbs[txSize:], txe.hvalue[:])
+		copy(s._txbs[txSize:], txe.HValue[:])
 		txSize += sha256.Size
-		binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(txe.voff))
+		binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(txe.VOff))
 		txSize += 8
 	}
 
-	binary.BigEndian.PutUint64(s._b, tx.id)
-	binary.BigEndian.PutUint64(s._b[8:], uint64(tx.ts))
-	binary.BigEndian.PutUint32(s._b[16:], uint32(len(tx.es)))
+	binary.BigEndian.PutUint64(s._b, tx.ID)
+	binary.BigEndian.PutUint64(s._b[8:], uint64(tx.Ts))
+	binary.BigEndian.PutUint32(s._b[16:], uint32(len(tx.entries)))
 	copy(s._b[20:], eh[:])
-	tx.txh = sha256.Sum256(s._b[:bufLenTxh])
+	tx.Txh = sha256.Sum256(s._b[:bufLenTxh])
 
 	// tx serialization into pre-allocated buffer
-	copy(s._txbs[txSize:], tx.txh[:])
+	copy(s._txbs[txSize:], tx.Txh[:])
 	txSize += sha256.Size
 
 	txOff, _, err := s.txLog.Append(s._txbs[:txSize])
@@ -643,11 +706,11 @@ func (s *ImmuStore) LinearProof(trustedTxID, txID uint64) (path [][sha256.Size]b
 			return nil, err
 		}
 
-		if tx.id == txID {
+		if tx.ID == txID {
 			return path, nil
 		}
 
-		path = append(path, tx.alh, tx.txh)
+		path = append(path, tx.PrevAlh, tx.Txh)
 	}
 }
 
@@ -746,12 +809,12 @@ func (txr *TxReader) Read() (*Tx, error) {
 		return nil, err
 	}
 
-	if txr.alreadyRead && (txr.txID != txr._tx.id-1 || txr.alh != txr._tx.alh) {
+	if txr.alreadyRead && (txr.txID != txr._tx.ID-1 || txr.alh != txr._tx.PrevAlh) {
 		return nil, ErrorCorruptedTxData
 	}
 
 	txr.alreadyRead = true
-	txr.txID = txr._tx.id
+	txr.txID = txr._tx.ID
 	txr.alh = txr._tx.Alh()
 
 	return txr._tx, nil

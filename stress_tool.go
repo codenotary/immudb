@@ -28,13 +28,14 @@ import (
 
 func main() {
 	dataDir := flag.String("dataDir", "data", "data directory")
-	committers := flag.Int("committers", 1, "number of concurrent committers")
+	committers := flag.Int("committers", 10, "number of concurrent committers")
 	txCount := flag.Int("txCount", 1_000, "number of tx to commit")
 	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
 	printAfter := flag.Int("printAfter", 100, "print a dot '.' after specified number of committed txs")
 	synced := flag.Bool("synced", true, "strict sync mode - no data lost")
-	txLinking := flag.Bool("txLinking", false, "full scan to verify linear cryptographic linking between txs")
+	txLinking := flag.Bool("txLinking", true, "full scan to verify linear cryptographic linking between txs")
+	kvInclusion := flag.Bool("kvInclusion", false, "validate kv data of every tx as part of the linear verification. txLinking must be enabled")
 
 	flag.Parse()
 
@@ -102,14 +103,37 @@ func main() {
 
 		verifiedTxs := 0
 
+		b := make([]byte, immuStore.MaxValueLen())
+
 		for {
-			_, err := txReader.Read()
+			tx, err := txReader.Read()
 			if err != nil {
 				if err == io.EOF {
 					break
 				}
 				panic(err)
 			}
+
+			txEntries := tx.Entries()
+
+			if *kvInclusion {
+				for i := 0; i < len(txEntries); i++ {
+					path := tx.Proof(i)
+
+					_, err = immuStore.ReadValueAt(b[:txEntries[i].ValueLen], txEntries[i].VOff)
+					if err != nil {
+						panic(err)
+					}
+
+					kv := &store.KV{Key: txEntries[i].Key(), Value: b[:txEntries[i].ValueLen]}
+
+					verifies := path.VerifyInclusion(uint64(len(txEntries)-1), uint64(i), tx.Eh(), kv.Digest())
+					if !verifies {
+						panic("kv does not verifies")
+					}
+				}
+			}
+
 			verifiedTxs++
 
 			if verifiedTxs%*printAfter == 0 {
