@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"codenotary.io/immudb-v2/store"
@@ -27,6 +28,7 @@ import (
 
 func main() {
 	dataDir := flag.String("dataDir", "data", "data directory")
+	committers := flag.Int("committers", 1, "number of concurrent committers")
 	txCount := flag.Int("txCount", 1_000, "number of tx to commit")
 	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
@@ -49,33 +51,45 @@ func main() {
 
 	start := time.Now()
 
-	for t := 0; t < *txCount; t++ {
-		kvs := make([]*store.KV, *kvCount)
+	wg := &sync.WaitGroup{}
+	wg.Add(*committers)
 
-		for i := 0; i < *kvCount; i++ {
-			k := make([]byte, 8)
-			binary.BigEndian.PutUint64(k, uint64(t*(*kvCount)+i))
+	for c := 0; c < *committers; c++ {
+		go func(id int) {
+			fmt.Printf("\r\nCommitter %d is running...\r\n", id)
+			for t := 0; t < *txCount; t++ {
+				kvs := make([]*store.KV, *kvCount)
 
-			v := make([]byte, 8)
-			binary.BigEndian.PutUint64(v, uint64(t*(*kvCount)+i))
+				for i := 0; i < *kvCount; i++ {
+					k := make([]byte, 8)
+					binary.BigEndian.PutUint64(k, uint64(t*(*kvCount)+i))
 
-			kvs[i] = &store.KV{Key: k, Value: v}
-		}
+					v := make([]byte, 8)
+					binary.BigEndian.PutUint64(v, uint64(t*(*kvCount)+i))
 
-		_, _, _, _, err := immuStore.Commit(kvs)
-		if err != nil {
-			panic(err)
-		}
+					kvs[i] = &store.KV{Key: k, Value: v}
+				}
 
-		if t%*printAfter == 0 {
-			fmt.Print(".")
-		}
+				_, _, _, _, err := immuStore.Commit(kvs)
+				if err != nil {
+					panic(err)
+				}
 
-		time.Sleep(time.Duration(*txDelay) * time.Millisecond)
+				if t%*printAfter == 0 {
+					fmt.Print(".")
+				}
+
+				time.Sleep(time.Duration(*txDelay) * time.Millisecond)
+			}
+			wg.Done()
+			fmt.Printf("\r\nCommitter %d done!\r\n", id)
+		}(c)
 	}
 
+	wg.Wait()
+
 	elapsed := time.Since(start)
-	fmt.Printf("\r\nAll transactions successfully committed in %s!\r\n", elapsed)
+	fmt.Printf("\r\nAll committers %d have successfully completed their work within %s!\r\n", *committers, elapsed)
 
 	if *txLinking {
 		fmt.Println("Starting full scan to verify linear cryptographic linking...")
