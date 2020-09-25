@@ -19,6 +19,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"io"
 	"log"
 	"net"
@@ -112,7 +113,9 @@ func newClient(withToken bool, token string) ImmuClient {
 	immuclient.WithClientConn(clientConn)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 	immuclient.WithServiceClient(serviceClient)
-	rootService := NewRootService(serviceClient, cache.NewFileCache("."), logger.NewSimpleLogger("test", os.Stdout))
+	immudbRootProvider := rootservice.NewImmudbRootProvider(serviceClient)
+	immudbUuidProvider := rootservice.NewImmudbUuidProvider(serviceClient)
+	rootService := rootservice.NewRootService(cache.NewFileCache("."), logger.NewSimpleLogger("test", os.Stdout), immudbRootProvider, immudbUuidProvider)
 	immuclient.WithRootService(rootService)
 
 	return immuclient

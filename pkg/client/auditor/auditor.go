@@ -19,6 +19,7 @@ package auditor
 import (
 	"context"
 	"errors"
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"google.golang.org/grpc/metadata"
 	"regexp"
 	"strings"
@@ -53,8 +54,10 @@ type defaultAuditor struct {
 	password       []byte
 	auditSignature string
 	serviceClient  schema.ImmuServiceClient
-	slugifyRegExp  *regexp.Regexp
-	updateMetrics  func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
+	uuidProvider   rootservice.UuidProvider
+
+	slugifyRegExp *regexp.Regexp
+	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
 }
 
 // DefaultAuditor creates initializes a default auditor implementation
@@ -66,6 +69,7 @@ func DefaultAuditor(
 	passwordBase64 string,
 	auditSignature string,
 	serviceClient schema.ImmuServiceClient,
+	uuidProvider rootservice.UuidProvider,
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
 	log logger.Logger) (Auditor, error) {
@@ -104,6 +108,7 @@ func DefaultAuditor(
 		[]byte(password),
 		auditSignature,
 		serviceClient,
+		uuidProvider,
 		slugifyRegExp,
 		updateMetrics,
 	}, nil
@@ -211,7 +216,7 @@ func (a *defaultAuditor) audit() error {
 
 	isEmptyDB := len(root.GetRoot()) == 0 && root.GetIndex() == 0
 
-	serverID = a.getServerID(ctx, a.serviceClient)
+	serverID = a.getServerID(ctx)
 	prevRoot, err = a.history.Get(serverID, dbName)
 	if err != nil {
 		a.logger.Errorf(err.Error())
@@ -274,11 +279,10 @@ func (a *defaultAuditor) audit() error {
 
 func (a *defaultAuditor) getServerID(
 	ctx context.Context,
-	serviceClient schema.ImmuServiceClient,
 ) string {
-	serverID, err := client.GetServerUuid(ctx, serviceClient)
+	serverID, err := a.uuidProvider.CurrentUuid(ctx)
 	if err != nil {
-		if err != client.ErrNoServerUuid {
+		if err != rootservice.ErrNoServerUuid {
 			a.logger.Errorf("error getting server UUID: %v", err)
 		} else {
 			a.logger.Warningf(err.Error())

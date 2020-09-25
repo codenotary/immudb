@@ -18,6 +18,7 @@ package client
 
 import (
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
@@ -28,7 +29,7 @@ func (c *immuClient) WithLogger(logger logger.Logger) *immuClient {
 	return c
 }
 
-func (c *immuClient) WithRootService(rs RootService) *immuClient {
+func (c *immuClient) WithRootService(rs rootservice.RootService) *immuClient {
 	c.Rootservice = rs
 	return c
 }

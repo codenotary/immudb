@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package rootservice
 
 import (
 	"context"
@@ -34,7 +34,9 @@ func TestRootService(t *testing.T) {
 
 	logger := &mockLogger{}
 
-	rs := NewRootService(ic, cache, logger)
+	immudbRootProvider := NewImmudbRootProvider(ic)
+	immudbUuidProvider := NewImmudbUuidProvider(ic)
+	rs := NewRootService(cache, logger, immudbRootProvider, immudbUuidProvider)
 
 	root, err := rs.GetRoot(context.TODO(), "uuid")
 	assert.Nil(t, err)

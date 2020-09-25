@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -49,7 +50,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		return nil, fmt.Errorf("Initialization failed: %s \n", err.Error())
 	}
 	ctx := context.Background()
-
+	sclient := cAgent.immuc.GetServiceClient()
+	cAgent.uuidProvider = rootservice.NewImmudbUuidProvider(*sclient)
 	if cAgent.opts.PidPath != "" {
 		if cAgent.Pid, err = server.NewPid(cAgent.opts.PidPath, immuos.NewStandardOS()); err != nil {
 			cAgent.logger.Errorf("failed to write pidfile: %s", err)
@@ -65,8 +67,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		}
 		cAgent.cycleFrequency = int(d.Seconds())
 	}
-	sclient := cAgent.immuc.GetServiceClient()
-	serverID, err := client.GetServerUuid(ctx, *sclient)
+
+	serverID, err := cAgent.uuidProvider.CurrentUuid(ctx)
 	if serverID == "" || err != nil {
 		serverID = "unknown"
 	}
@@ -92,7 +94,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		auditUsername,
 		auditPassword,
 		auditSignature,
-		*sclient,
+		*cAgent.immuc.GetServiceClient(),
+		cAgent.uuidProvider,
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
 		cAgent.metrics.updateMetrics, cAgent.logger)
 	if err != nil {

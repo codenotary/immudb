@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"io"
 	"io/ioutil"
 	"os"
@@ -89,7 +90,7 @@ type ImmuClient interface {
 
 	WithOptions(options *Options) *immuClient
 	WithLogger(logger logger.Logger) *immuClient
-	WithRootService(rs RootService) *immuClient
+	WithRootService(rs rootservice.RootService) *immuClient
 	WithTimestampService(ts TimestampService) *immuClient
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
@@ -110,7 +111,7 @@ type immuClient struct {
 	Options       *Options
 	clientConn    *grpc.ClientConn
 	ServiceClient schema.ImmuServiceClient
-	Rootservice   RootService
+	Rootservice   rootservice.RootService
 	ts            TimestampService
 	Tkns          TokenService
 	sync.RWMutex
@@ -157,7 +158,10 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 		return nil, err
 	}
 
-	rootService := NewRootService(serviceClient, cache.NewFileCache(options.Dir), l)
+	immudbRootProvider := rootservice.NewImmudbRootProvider(serviceClient)
+	immudbUuidProvider := rootservice.NewImmudbUuidProvider(serviceClient)
+	rootService := rootservice.NewRootService(cache.NewFileCache(options.Dir), l, immudbRootProvider, immudbUuidProvider)
+
 	dt, err := timestamp.NewTdefault()
 	if err != nil {
 		return nil, err
