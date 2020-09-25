@@ -159,7 +159,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	}
 
 	immudbRootProvider := rootservice.NewImmudbRootProvider(serviceClient)
-	immudbUuidProvider := rootservice.NewImmudbUuidProvider(serviceClient)
+	immudbUuidProvider := rootservice.NewImmudbUUIDProvider(serviceClient)
 	rootService := rootservice.NewRootService(cache.NewFileCache(options.Dir), l, immudbRootProvider, immudbUuidProvider)
 
 	dt, err := timestamp.NewTdefault()

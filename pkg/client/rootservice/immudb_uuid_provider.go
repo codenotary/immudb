@@ -32,17 +32,17 @@ var ErrNoServerUuid = fmt.Errorf(
 		"this client MUST NOT be used to connect to different immudb servers!",
 	server.SERVER_UUID_HEADER)
 
-type ImmudbUuidProvider struct {
+type ImmudbUUIDProvider struct {
 	client schema.ImmuServiceClient
 }
 
-func NewImmudbUuidProvider(client schema.ImmuServiceClient) *ImmudbUuidProvider {
-	return &ImmudbUuidProvider{client}
+func NewImmudbUUIDProvider(client schema.ImmuServiceClient) *ImmudbUUIDProvider {
+	return &ImmudbUUIDProvider{client}
 }
 
-// CurrentUuid issues a Health command to the server, then parses and returns
+// CurrentUUID issues a Health command to the server, then parses and returns
 // the server UUID from the response metadata
-func (r ImmudbUuidProvider) CurrentUuid(ctx context.Context) (string, error) {
+func (r ImmudbUUIDProvider) CurrentUUID(ctx context.Context) (string, error) {
 	var metadata runtime.ServerMetadata
 	if _, err := r.client.Health(
 		ctx,
@@ -51,12 +51,12 @@ func (r ImmudbUuidProvider) CurrentUuid(ctx context.Context) (string, error) {
 	); err != nil {
 		return "", err
 	}
-	var serverUuid string
+	var serverUUID string
 	if len(metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)) > 0 {
-		serverUuid = metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)[0]
+		serverUUID = metadata.HeaderMD.Get(server.SERVER_UUID_HEADER)[0]
 	}
-	if serverUuid == "" {
+	if serverUUID == "" {
 		return "", ErrNoServerUuid
 	}
-	return serverUuid, nil
+	return serverUUID, nil
 }

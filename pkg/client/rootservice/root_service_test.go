@@ -35,7 +35,7 @@ func TestRootService(t *testing.T) {
 	logger := &mockLogger{}
 
 	immudbRootProvider := NewImmudbRootProvider(ic)
-	immudbUuidProvider := NewImmudbUuidProvider(ic)
+	immudbUuidProvider := NewImmudbUUIDProvider(ic)
 	rs := NewRootService(cache, logger, immudbRootProvider, immudbUuidProvider)
 
 	root, err := rs.GetRoot(context.TODO(), "uuid")

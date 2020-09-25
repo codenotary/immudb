@@ -28,7 +28,7 @@ import (
 	"testing"
 )
 
-func TestImmudbUuidProvider_CurrentUuidNotFound(t *testing.T) {
+func TestImmudbUUIDProvider_CurrentUuidNotFound(t *testing.T) {
 	cli := &clienttest.ImmuServiceClientMock{}
 	cli.HealthF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {
 		return &schema.HealthResponse{
@@ -36,19 +36,19 @@ func TestImmudbUuidProvider_CurrentUuidNotFound(t *testing.T) {
 			Version: "mock",
 		}, nil
 	}
-	uuidp := rootservice.NewImmudbUuidProvider(cli)
-	uuid, err := uuidp.CurrentUuid(context.Background())
+	uuidp := rootservice.NewImmudbUUIDProvider(cli)
+	uuid, err := uuidp.CurrentUUID(context.Background())
 	assert.EqualError(t, err, "!IMPORTANT WARNING: immudb-uuid header is not published by the immudb server; this client MUST NOT be used to connect to different immudb servers!")
 	assert.Equal(t, "", uuid)
 }
 
-func TestImmudbUuidProvider_CurrentHealtError(t *testing.T) {
+func TestImmudbUUIDProvider_CurrentHealthError(t *testing.T) {
 	cli := &clienttest.ImmuServiceClientMock{}
 	cli.HealthF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {
 		return nil, errors.New("mock")
 	}
-	uuidp := rootservice.NewImmudbUuidProvider(cli)
-	uuid, err := uuidp.CurrentUuid(context.Background())
+	uuidp := rootservice.NewImmudbUUIDProvider(cli)
+	uuid, err := uuidp.CurrentUUID(context.Background())
 	assert.Error(t, err)
 	assert.Equal(t, "", uuid)
 }

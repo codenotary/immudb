@@ -51,7 +51,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	}
 	ctx := context.Background()
 	sclient := cAgent.immuc.GetServiceClient()
-	cAgent.uuidProvider = rootservice.NewImmudbUuidProvider(*sclient)
+	cAgent.uuidProvider = rootservice.NewImmudbUUIDProvider(*sclient)
 	if cAgent.opts.PidPath != "" {
 		if cAgent.Pid, err = server.NewPid(cAgent.opts.PidPath, immuos.NewStandardOS()); err != nil {
 			cAgent.logger.Errorf("failed to write pidfile: %s", err)
@@ -68,7 +68,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		cAgent.cycleFrequency = int(d.Seconds())
 	}
 
-	serverID, err := cAgent.uuidProvider.CurrentUuid(ctx)
+	serverID, err := cAgent.uuidProvider.CurrentUUID(ctx)
 	if serverID == "" || err != nil {
 		serverID = "unknown"
 	}

@@ -86,7 +86,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		"immudb",
 		"ignore",
 		serviceClient,
-		rootservice.NewImmudbUuidProvider(serviceClient),
+		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
@@ -141,7 +141,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		"immudb",
 		"ignore",
 		serviceClient,
-		rootservice.NewImmudbUuidProvider(serviceClient),
+		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
@@ -205,7 +205,7 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 		"immudb",
 		"validate",
 		serviceClient,
-		rootservice.NewImmudbUuidProvider(serviceClient),
+		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
@@ -252,7 +252,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		"immudb",
 		"validate",
 		serviceClient,
-		rootservice.NewImmudbUuidProvider(serviceClient),
+		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
@@ -277,7 +277,7 @@ func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
 		"immudb",
 		"wrong",
 		serviceClient,
-		rootservice.NewImmudbUuidProvider(serviceClient),
+		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
