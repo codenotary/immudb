@@ -33,7 +33,7 @@ type RootService interface {
 
 type rootservice struct {
 	rootProvider RootProvider
-	uuidProvider UuidProvider
+	uuidProvider UUIDProvider
 	cache        cache.Cache
 	serverUuid   string
 	logger       logger.Logger
@@ -44,9 +44,9 @@ type rootservice struct {
 func NewRootService(cache cache.Cache,
 	logger logger.Logger,
 	rootProvider RootProvider,
-	uuidProvider UuidProvider) RootService {
+	uuidProvider UUIDProvider) RootService {
 
-	serverUuid, err := uuidProvider.CurrentUuid(context.Background())
+	serverUuid, err := uuidProvider.CurrentUUID(context.Background())
 	if err != nil {
 		if err != ErrNoServerUuid {
 			return nil // TODO OGG: check with Michele if this was intended or a mistake

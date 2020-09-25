@@ -41,7 +41,7 @@ type AuditAgent interface {
 
 type auditAgent struct {
 	service        immusrvc.Sservice
-	uuidProvider   rootservice.UuidProvider
+	uuidProvider   rootservice.UUIDProvider
 	Daemon         daemon.Daemon
 	cycleFrequency int
 	metrics        prometheusMetrics

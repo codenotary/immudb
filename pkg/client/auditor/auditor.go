@@ -54,7 +54,7 @@ type defaultAuditor struct {
 	password       []byte
 	auditSignature string
 	serviceClient  schema.ImmuServiceClient
-	uuidProvider   rootservice.UuidProvider
+	uuidProvider   rootservice.UUIDProvider
 
 	slugifyRegExp *regexp.Regexp
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
@@ -69,7 +69,7 @@ func DefaultAuditor(
 	passwordBase64 string,
 	auditSignature string,
 	serviceClient schema.ImmuServiceClient,
-	uuidProvider rootservice.UuidProvider,
+	uuidProvider rootservice.UUIDProvider,
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
 	log logger.Logger) (Auditor, error) {
@@ -280,7 +280,7 @@ func (a *defaultAuditor) audit() error {
 func (a *defaultAuditor) getServerID(
 	ctx context.Context,
 ) string {
-	serverID, err := a.uuidProvider.CurrentUuid(ctx)
+	serverID, err := a.uuidProvider.CurrentUUID(ctx)
 	if err != nil {
 		if err != rootservice.ErrNoServerUuid {
 			a.logger.Errorf("error getting server UUID: %v", err)

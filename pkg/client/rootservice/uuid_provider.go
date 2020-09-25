@@ -20,6 +20,6 @@ import (
 	"context"
 )
 
-type UuidProvider interface {
-	CurrentUuid(ctx context.Context) (string, error)
+type UUIDProvider interface {
+	CurrentUUID(ctx context.Context) (string, error)
 }
