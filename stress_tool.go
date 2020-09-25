@@ -76,7 +76,7 @@ func main() {
 					panic(err)
 				}
 
-				if t%*printAfter == 0 {
+				if *printAfter > 0 && t%*printAfter == 0 {
 					fmt.Print(".")
 				}
 
