@@ -136,7 +136,7 @@ func main() {
 
 			verifiedTxs++
 
-			if verifiedTxs%*printAfter == 0 {
+			if *printAfter > 0 && verifiedTxs%*printAfter == 0 {
 				fmt.Print(".")
 			}
 		}
