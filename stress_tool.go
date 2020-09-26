@@ -50,8 +50,14 @@ func main() {
 
 	fmt.Printf("Committing %d transactions...\r\n", *txCount)
 
-	wg := &sync.WaitGroup{}
-	wg.Add(*committers)
+	wgInit := &sync.WaitGroup{}
+	wgInit.Add(*committers)
+
+	wgWork := &sync.WaitGroup{}
+	wgWork.Add(*committers)
+
+	wgStart := &sync.WaitGroup{}
+	wgStart.Add(1)
 
 	for c := 0; c < *committers; c++ {
 		go func(id int) {
@@ -70,7 +76,9 @@ func main() {
 
 			fmt.Printf("\r\nCommitter %d is running...\r\n", id)
 
-			wg.Done()
+			wgInit.Done()
+
+			wgStart.Wait()
 
 			for t := 0; t < *txCount; t++ {
 				_, _, _, _, err := immuStore.Commit(kvs)
@@ -85,17 +93,17 @@ func main() {
 				time.Sleep(time.Duration(*txDelay) * time.Millisecond)
 			}
 
-			wg.Done()
+			wgWork.Done()
 			fmt.Printf("\r\nCommitter %d done!\r\n", id)
 		}(c)
 	}
 
-	wg.Wait()
+	wgInit.Wait()
 
-	wg.Add(*committers)
+	wgStart.Done()
 
 	start := time.Now()
-	wg.Wait()
+	wgWork.Wait()
 	elapsed := time.Since(start)
 
 	fmt.Printf("\r\nAll committers %d have successfully completed their work within %s!\r\n", *committers, elapsed)
