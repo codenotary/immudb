@@ -67,21 +67,69 @@ type Tx struct {
 	nentries int
 	entries  []*Txe
 	Txh      [sha256.Size]byte
-	htree    *txHashTree
+	htree    [][][sha256.Size]byte
+	Eh       [sha256.Size]byte
 }
 
 func mallocTx(nentries int, maxKeyLen int) *Tx {
-	tx := &Tx{
-		ID:      0,
-		entries: make([]*Txe, nentries),
-		htree:   mallocTxHashTree(nentries),
-	}
-
+	entries := make([]*Txe, nentries)
 	for i := 0; i < nentries; i++ {
-		tx.entries[i] = &Txe{key: make([]byte, maxKeyLen)}
+		entries[i] = &Txe{key: make([]byte, maxKeyLen)}
 	}
 
-	return tx
+	layers := bits.Len64(uint64(nentries-1)) + 1
+	htree := make([][][sha256.Size]byte, layers)
+	for l := 0; l < layers; l++ {
+		htree[l] = make([][sha256.Size]byte, nentries>>l)
+	}
+
+	return &Tx{
+		ID:      0,
+		entries: entries,
+		htree:   htree,
+	}
+}
+
+const NodePrefix = byte(1)
+
+func (tx *Tx) buildHashTree() {
+	l := 0
+	w := tx.nentries
+
+	p := [sha256.Size*2 + 1]byte{NodePrefix}
+
+	for w > 1 {
+		wn := 0
+
+		for i := 0; i+1 < w; i += 2 {
+			copy(p[1:sha256.Size+1], tx.htree[l][i][:])
+			copy(p[sha256.Size+1:], tx.htree[l][i+1][:])
+			tx.htree[l+1][wn] = sha256.Sum256(p[:])
+			wn++
+		}
+
+		if w%2 == 1 {
+			tx.htree[l+1][wn] = tx.htree[l][w-1]
+			wn++
+		}
+
+		l++
+		w = wn
+	}
+
+	tx.Eh = tx.htree[l][0]
+}
+
+func (tx *Tx) Width() uint64 {
+	return uint64(tx.nentries)
+}
+
+func (tx *Tx) Set(layer uint8, index uint64, value [sha256.Size]byte) {
+	tx.htree[layer][index] = value
+}
+
+func (tx *Tx) Get(layer uint8, index uint64) *[sha256.Size]byte {
+	return &tx.htree[layer][index]
 }
 
 func (tx *Tx) Entries() []*Txe {
@@ -95,12 +143,8 @@ func (tx *Tx) Alh() [sha256.Size]byte {
 	return sha256.Sum256(bs)
 }
 
-func (tx *Tx) Eh() [sha256.Size]byte {
-	return merkletree.Root(tx.htree)
-}
-
 func (tx *Tx) Proof(kindex int) merkletree.Path {
-	return merkletree.InclusionProof(tx.htree, uint64(tx.htree.width-1), uint64(kindex))
+	return merkletree.InclusionProof(tx, uint64(tx.nentries-1), uint64(kindex))
 }
 
 func (tx *Tx) readFrom(r io.Reader, b []byte) error {
@@ -126,8 +170,6 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 		return err
 	}
 	tx.nentries = int(nentries)
-
-	tx.htree.width = 0
 
 	for i := 0; i < int(nentries); i++ {
 		klen, err := ReadUint32(r, b)
@@ -158,19 +200,17 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 		}
 		tx.entries[i].VOff = int64(voff)
 
-		eh := tx.entries[i].digest()
-		merkletree.AppendHash(tx.htree, &eh)
-		tx.htree.width++
+		tx.htree[0][i] = tx.entries[i].digest()
 	}
 
 	_, err = r.Read(tx.Txh[:])
 
-	root := merkletree.Root(tx.htree)
+	tx.buildHashTree()
 
 	binary.BigEndian.PutUint64(b, tx.ID)
 	binary.BigEndian.PutUint64(b[8:], uint64(tx.Ts))
 	binary.BigEndian.PutUint32(b[16:], uint32(len(tx.entries)))
-	copy(b[20:], root[:])
+	copy(b[20:], tx.Eh[:])
 
 	if tx.Txh != sha256.Sum256(b[:bufLenTxh]) {
 		return ErrorCorruptedTxData
@@ -216,38 +256,6 @@ func (e *Txe) digest() [sha256.Size]byte {
 	var eh [sha256.Size]byte
 	copy(eh[:], hash.Sum(nil))
 	return eh
-}
-
-type txHashTree struct {
-	data  [][][sha256.Size]byte
-	width int
-}
-
-func mallocTxHashTree(maxWidth int) *txHashTree {
-	layers := bits.Len64(uint64(maxWidth-1)) + 1
-
-	hts := &txHashTree{
-		data:  make([][][sha256.Size]byte, layers),
-		width: 0,
-	}
-
-	for l := 0; l < layers; l++ {
-		hts.data[l] = make([][sha256.Size]byte, maxWidth>>l)
-	}
-
-	return hts
-}
-
-func (hts *txHashTree) Width() uint64 {
-	return uint64(hts.width)
-}
-
-func (hts *txHashTree) Set(layer uint8, index uint64, value [sha256.Size]byte) {
-	hts.data[layer][index] = value
-}
-
-func (hts *txHashTree) Get(layer uint8, index uint64) *[sha256.Size]byte {
-	return &hts.data[layer][index]
 }
 
 type Options struct {
@@ -558,7 +566,6 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 	defer s.releaseAllocTx(tx)
 
 	tx.nentries = len(entries)
-	tx.htree.width = 0
 
 	for i, e := range entries {
 		txe := tx.entries[i]
@@ -567,10 +574,10 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		txe.ValueLen = len(e.Value)
 		txe.HValue = sha256.Sum256(e.Value)
 
-		eh := txe.digest()
-		merkletree.AppendHash(tx.htree, &eh)
-		tx.htree.width++
+		tx.htree[0][i] = txe.digest()
 	}
+
+	tx.buildHashTree()
 
 	err = s.commit(tx, entries)
 	if err != nil {
@@ -632,12 +639,10 @@ func (s *ImmuStore) commit(tx *Tx, entries []*KV) error {
 		txSize += 8
 	}
 
-	eh := merkletree.Root(tx.htree)
-
 	binary.BigEndian.PutUint64(s._b, tx.ID)
 	binary.BigEndian.PutUint64(s._b[8:], uint64(tx.Ts))
 	binary.BigEndian.PutUint32(s._b[16:], uint32(len(tx.entries)))
-	copy(s._b[20:], eh[:])
+	copy(s._b[20:], tx.Eh[:])
 	tx.Txh = sha256.Sum256(s._b[:bufLenTxh])
 
 	// tx serialization into pre-allocated buffer

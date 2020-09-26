@@ -101,7 +101,7 @@ func TestImmudbStore(t *testing.T) {
 
 			kv := &KV{Key: key, Value: value}
 
-			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), tx.Eh(), kv.Digest())
+			verifies := path.VerifyInclusion(uint64(tx.nentries-1), uint64(j), tx.Eh, kv.Digest())
 			require.True(t, verifies)
 		}
 	}
@@ -280,7 +280,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 
 			kv := &KV{Key: key, Value: value}
 
-			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), tx.Eh(), kv.Digest())
+			verifies := path.VerifyInclusion(uint64(tx.nentries-1), uint64(j), tx.Eh, kv.Digest())
 			require.True(t, verifies)
 		}
 	}
