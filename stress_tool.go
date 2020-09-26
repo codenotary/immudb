@@ -50,27 +50,29 @@ func main() {
 
 	fmt.Printf("Committing %d transactions...\r\n", *txCount)
 
-	start := time.Now()
-
 	wg := &sync.WaitGroup{}
 	wg.Add(*committers)
 
 	for c := 0; c < *committers; c++ {
 		go func(id int) {
+
+			kvs := make([]*store.KV, *kvCount)
+			k := make([]byte, 8)
+			v := make([]byte, 8)
+
+			for i := 0; i < *kvCount; i++ {
+
+				binary.BigEndian.PutUint64(k, uint64(id*(*kvCount)+i))
+				binary.BigEndian.PutUint64(v, uint64(id*(*kvCount)+i))
+
+				kvs[i] = &store.KV{Key: k, Value: v}
+			}
+
 			fmt.Printf("\r\nCommitter %d is running...\r\n", id)
+
+			wg.Done()
+
 			for t := 0; t < *txCount; t++ {
-				kvs := make([]*store.KV, *kvCount)
-
-				for i := 0; i < *kvCount; i++ {
-					k := make([]byte, 8)
-					binary.BigEndian.PutUint64(k, uint64(t*(*kvCount)+i))
-
-					v := make([]byte, 8)
-					binary.BigEndian.PutUint64(v, uint64(t*(*kvCount)+i))
-
-					kvs[i] = &store.KV{Key: k, Value: v}
-				}
-
 				_, _, _, _, err := immuStore.Commit(kvs)
 				if err != nil {
 					panic(err)
@@ -82,6 +84,7 @@ func main() {
 
 				time.Sleep(time.Duration(*txDelay) * time.Millisecond)
 			}
+
 			wg.Done()
 			fmt.Printf("\r\nCommitter %d done!\r\n", id)
 		}(c)
@@ -89,7 +92,12 @@ func main() {
 
 	wg.Wait()
 
+	wg.Add(*committers)
+
+	start := time.Now()
+	wg.Wait()
 	elapsed := time.Since(start)
+
 	fmt.Printf("\r\nAll committers %d have successfully completed their work within %s!\r\n", *committers, elapsed)
 
 	if *txLinking {
