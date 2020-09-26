@@ -572,9 +572,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		tx.htree.width++
 	}
 
-	eh := merkletree.Root(tx.htree)
-
-	err = s.commit(entries, eh, tx)
+	err = s.commit(tx, entries)
 	if err != nil {
 		return
 	}
@@ -582,7 +580,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 	return tx.ID, tx.Ts, tx.PrevAlh, tx.Txh, nil
 }
 
-func (s *ImmuStore) commit(entries []*KV, eh [sha256.Size]byte, tx *Tx) error {
+func (s *ImmuStore) commit(tx *Tx, entries []*KV) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -606,12 +604,14 @@ func (s *ImmuStore) commit(entries []*KV, eh [sha256.Size]byte, tx *Tx) error {
 	txSize += 8
 	copy(s._txbs[txSize:], tx.PrevAlh[:])
 	txSize += sha256.Size
-	binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(entries)))
+	binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(tx.nentries))
 	txSize += 4
 
-	for i, e := range entries {
+	for i := 0; i < tx.nentries; i++ {
+		e := tx.entries[i]
+
 		//kv serialization into pre-allocated buffer
-		voff, _, err := s.vLog.Append(e.Value)
+		voff, _, err := s.vLog.Append(entries[i].Value)
 		if err != nil {
 			return err
 		}
@@ -620,17 +620,19 @@ func (s *ImmuStore) commit(entries []*KV, eh [sha256.Size]byte, tx *Tx) error {
 		txe.VOff = voff
 
 		// tx serialization into pre-allocated buffer
-		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.Key)))
+		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.keyLen))
 		txSize += 4
-		copy(s._txbs[txSize:], e.Key)
-		txSize += len(e.Key)
-		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(len(e.Value)))
+		copy(s._txbs[txSize:], e.key[:e.keyLen])
+		txSize += e.keyLen
+		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.ValueLen))
 		txSize += 4
 		copy(s._txbs[txSize:], txe.HValue[:])
 		txSize += sha256.Size
 		binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(txe.VOff))
 		txSize += 8
 	}
+
+	eh := merkletree.Root(tx.htree)
 
 	binary.BigEndian.PutUint64(s._b, tx.ID)
 	binary.BigEndian.PutUint64(s._b[8:], uint64(tx.Ts))
