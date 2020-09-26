@@ -90,6 +90,15 @@ func TestImmudbStore(t *testing.T) {
 			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff)
 			require.NoError(t, err)
 
+			k := make([]byte, 8)
+			binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+			v := make([]byte, 8)
+			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+			require.Equal(t, k, key)
+			require.Equal(t, v, value)
+
 			kv := &KV{Key: key, Value: value}
 
 			verifies := path.VerifyInclusion(uint64(tx.htree.width-1), uint64(j), tx.Eh(), kv.Digest())
