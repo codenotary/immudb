@@ -36,7 +36,8 @@ func TestRootService(t *testing.T) {
 
 	immudbRootProvider := NewImmudbRootProvider(ic)
 	immudbUuidProvider := NewImmudbUUIDProvider(ic)
-	rs := NewRootService(cache, logger, immudbRootProvider, immudbUuidProvider)
+	rs, err := NewRootService(cache, logger, immudbRootProvider, immudbUuidProvider)
+	assert.Nil(t, err)
 
 	root, err := rs.GetRoot(context.TODO(), "uuid")
 	assert.Nil(t, err)

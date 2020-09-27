@@ -115,7 +115,10 @@ func newClient(withToken bool, token string) ImmuClient {
 	immuclient.WithServiceClient(serviceClient)
 	immudbRootProvider := rootservice.NewImmudbRootProvider(serviceClient)
 	immudbUuidProvider := rootservice.NewImmudbUUIDProvider(serviceClient)
-	rootService := rootservice.NewRootService(cache.NewFileCache("."), logger.NewSimpleLogger("test", os.Stdout), immudbRootProvider, immudbUuidProvider)
+	rootService, err := rootservice.NewRootService(cache.NewFileCache("."), logger.NewSimpleLogger("test", os.Stdout), immudbRootProvider, immudbUuidProvider)
+	if err != nil {
+		log.Fatal(err)
+	}
 	immuclient.WithRootService(rootService)
 
 	return immuclient

@@ -44,12 +44,12 @@ type rootservice struct {
 func NewRootService(cache cache.Cache,
 	logger logger.Logger,
 	rootProvider RootProvider,
-	uuidProvider UUIDProvider) RootService {
+	uuidProvider UUIDProvider) (RootService, error) {
 
 	serverUuid, err := uuidProvider.CurrentUUID(context.Background())
 	if err != nil {
 		if err != ErrNoServerUuid {
-			return nil // TODO OGG: check with Michele if this was intended or a mistake
+			return nil, err
 		}
 		logger.Warningf(err.Error())
 	}
@@ -59,7 +59,7 @@ func NewRootService(cache cache.Cache,
 		cache:        cache,
 		logger:       logger,
 		serverUuid:   serverUuid,
-	}
+	}, nil
 }
 
 func (r *rootservice) GetRoot(ctx context.Context, databasename string) (*schema.Root, error) {
