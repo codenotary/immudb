@@ -160,8 +160,11 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 
 	immudbRootProvider := rootservice.NewImmudbRootProvider(serviceClient)
 	immudbUuidProvider := rootservice.NewImmudbUUIDProvider(serviceClient)
-	rootService := rootservice.NewRootService(cache.NewFileCache(options.Dir), l, immudbRootProvider, immudbUuidProvider)
-
+	rootService, err := rootservice.NewRootService(cache.NewFileCache(options.Dir), l, immudbRootProvider, immudbUuidProvider)
+	if err != nil {
+		l.Errorf("unable to create root service: %s", err)
+		return nil, err
+	}
 	dt, err := timestamp.NewTdefault()
 	if err != nil {
 		return nil, err
