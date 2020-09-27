@@ -48,6 +48,7 @@ var ErrTrustedTxNotOlderThanTargetTx = errors.New("Trusted tx is not older than 
 var ErrLinearProofMaxLenExceeded = errors.New("Max linear proof length limit exceeded")
 
 const DefaultMaxConcurrency = 100
+const DefaultMaxIOConcurrency = 1
 const DefaultMaxTxEntries = 1 << 16 // 65536
 const DefaultMaxKeyLen = 256
 const DefaultMaxValueLen = 1 << 20 // 1 Mb
@@ -263,6 +264,7 @@ type Options struct {
 	synced            bool
 	fileMode          os.FileMode
 	maxConcurrency    int
+	maxIOConcurrency  int
 	maxTxEntries      int
 	maxKeyLen         int
 	maxValueLen       int
@@ -275,6 +277,7 @@ func DefaultOptions() *Options {
 		synced:            true,
 		fileMode:          DefaultFileMode,
 		maxConcurrency:    DefaultMaxConcurrency,
+		maxIOConcurrency:  DefaultMaxIOConcurrency,
 		maxTxEntries:      DefaultMaxTxEntries,
 		maxKeyLen:         DefaultMaxKeyLen,
 		maxValueLen:       DefaultMaxValueLen,
@@ -302,6 +305,11 @@ func (opt *Options) SetConcurrency(maxConcurrency int) *Options {
 	return opt
 }
 
+func (opt *Options) SetIOConcurrency(maxIOConcurrency int) *Options {
+	opt.maxIOConcurrency = maxIOConcurrency
+	return opt
+}
+
 func (opt *Options) SetMaxTxEntries(maxTxEntries int) *Options {
 	opt.maxTxEntries = maxTxEntries
 	return opt
@@ -323,8 +331,10 @@ func (opt *Options) SetMaxLinearProofLen(maxLinearProofLen int) *Options {
 }
 
 type ImmuStore struct {
+	vLogList  *list.List
+	vLogsCond *sync.Cond
+
 	txLog appendable.Appendable
-	vLog  appendable.Appendable
 	cLog  appendable.Appendable
 
 	committedTxID      uint64
@@ -334,6 +344,7 @@ type ImmuStore struct {
 	readOnly          bool
 	synced            bool
 	maxConcurrency    int
+	maxIOConcurrency  int
 	maxTxEntries      int
 	maxKeyLen         int
 	maxValueLen       int
@@ -370,7 +381,8 @@ func (kv *KV) Digest() [sha256.Size]byte {
 }
 
 func Open(path string, opts *Options) (*ImmuStore, error) {
-	if opts == nil || opts.maxKeyLen > MaxKeyLen || opts.maxConcurrency < 1 {
+	if opts == nil || opts.maxKeyLen > MaxKeyLen ||
+		opts.maxConcurrency < 1 || opts.maxIOConcurrency < 1 {
 		return nil, ErrIllegalArgument
 	}
 
@@ -393,14 +405,17 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		SetSynced(opts.synced).
 		SetFileMode(opts.fileMode)
 
-	txLogFilename := filepath.Join(path, "immudb.itx")
-	txLog, err := appendable.Open(txLogFilename, appendableOpts)
+	// TODO: appendables with folders not files
+
+	// TODO: create several vLog appendables
+	vLogFilename := filepath.Join(path, "immudb.val")
+	vLog, err := appendable.Open(vLogFilename, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	vLogFilename := filepath.Join(path, "immudb.val")
-	vLog, err := appendable.Open(vLogFilename, appendableOpts)
+	txLogFilename := filepath.Join(path, "immudb.itx")
+	txLog, err := appendable.Open(txLogFilename, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -411,10 +426,10 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, err
 	}
 
-	return open(txLog, vLog, cLog, opts)
+	return open([]appendable.Appendable{vLog}, txLog, cLog, opts)
 }
 
-func open(txLog, vLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
+func open(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
 	cLogSize, err := cLog.Size()
 	if err != nil {
 		return nil, err
@@ -484,9 +499,15 @@ func open(txLog, vLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, e
 		committedAlh = tx.Alh()
 	}
 
+	vLogList := list.New()
+	for _, vLog := range vLogs {
+		vLogList.PushBack(vLog)
+	}
+
 	return &ImmuStore{
 		txLog:              txLog,
-		vLog:               vLog,
+		vLogList:           vLogList,
+		vLogsCond:          sync.NewCond(&sync.Mutex{}),
 		cLog:               cLog,
 		committedTxLogSize: committedTxLogSize,
 		committedTxID:      committedTxID,
@@ -559,6 +580,45 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		return
 	}
 
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
+	offsets := make([]int64, len(entries))
+	var appendableErr error
+
+	go func() {
+		s.vLogsCond.L.Lock()
+		for s.vLogList.Len() == 0 {
+			s.vLogsCond.Wait()
+		}
+		vLog := s.vLogList.Remove(s.vLogList.Front()).(appendable.Appendable)
+		s.vLogsCond.L.Unlock()
+
+		defer func() {
+			s.vLogsCond.L.Lock()
+			s.vLogList.PushBack(vLog)
+			s.vLogsCond.L.Unlock()
+
+			s.vLogsCond.Signal()
+
+			wg.Done()
+		}()
+
+		for i := 0; i < len(offsets); i++ {
+			voff, _, err := vLog.Append(entries[i].Value)
+			if err != nil {
+				appendableErr = err
+				return
+			}
+			offsets[i] = voff
+		}
+
+		err := vLog.Flush()
+		if err != nil {
+			appendableErr = err
+		}
+	}()
+
 	tx, err := s.fetchAllocTx()
 	if err != nil {
 		return
@@ -579,7 +639,14 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 
 	tx.buildHashTree()
 
-	err = s.commit(tx, entries)
+	wg.Wait() // wait for data to be writen
+
+	if appendableErr != nil {
+		err = appendableErr
+		return
+	}
+
+	err = s.commit(tx, offsets)
 	if err != nil {
 		return
 	}
@@ -587,7 +654,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 	return tx.ID, tx.Ts, tx.PrevAlh, tx.Txh, nil
 }
 
-func (s *ImmuStore) commit(tx *Tx, entries []*KV) error {
+func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -617,16 +684,10 @@ func (s *ImmuStore) commit(tx *Tx, entries []*KV) error {
 	for i := 0; i < tx.nentries; i++ {
 		e := tx.entries[i]
 
-		//kv serialization into pre-allocated buffer
-		voff, _, err := s.vLog.Append(entries[i].Value)
-		if err != nil {
-			return err
-		}
-
 		txe := tx.entries[i]
-		txe.VOff = voff
+		txe.VOff = offsets[i]
 
-		// tx serialization into pre-allocated buffer
+		// tx serialization using pre-allocated buffer
 		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.keyLen))
 		txSize += 4
 		copy(s._txbs[txSize:], e.key[:e.keyLen])
@@ -645,16 +706,11 @@ func (s *ImmuStore) commit(tx *Tx, entries []*KV) error {
 	copy(s._b[20:], tx.Eh[:])
 	tx.Txh = sha256.Sum256(s._b[:bufLenTxh])
 
-	// tx serialization into pre-allocated buffer
+	// tx serialization using pre-allocated buffer
 	copy(s._txbs[txSize:], tx.Txh[:])
 	txSize += sha256.Size
 
 	txOff, _, err := s.txLog.Append(s._txbs[:txSize])
-	if err != nil {
-		return err
-	}
-
-	err = s.vLog.Flush()
 	if err != nil {
 		return err
 	}
@@ -780,7 +836,10 @@ func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
 		return 0, ErrAlreadyClosed
 	}
 
-	return s.vLog.ReadAt(b, off)
+	// los offsets tienen que estar acompañados para saber  que vlog se refieren
+	vLog := s.vLogList.Front().Value.(appendable.Appendable)
+
+	return vLog.ReadAt(b, off) //TODO parallel IO
 }
 
 type TxReader struct {
@@ -882,12 +941,14 @@ func (s *ImmuStore) Close() error {
 		return ErrAlreadyClosed
 	}
 
-	err := s.vLog.Close()
-	if err != nil {
-		return err
+	for le := s.vLogList.Front(); le != nil; le = le.Next() {
+		err := le.Value.(appendable.Appendable).Close()
+		if err != nil {
+			return err
+		}
 	}
 
-	err = s.txLog.Close()
+	err := s.txLog.Close()
 	if err != nil {
 		return err
 	}
