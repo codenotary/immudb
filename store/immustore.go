@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"math/bits"
 	"os"
@@ -56,6 +57,8 @@ const DefaultFileMode = 0644
 const DefaultMaxLinearProofLen = 1 << 10
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
+
+const MaxParallelIO = 127
 
 const bufLenTxh = 2*8 + 4 + sha256.Size
 
@@ -330,9 +333,15 @@ func (opt *Options) SetMaxLinearProofLen(maxLinearProofLen int) *Options {
 	return opt
 }
 
+type refVLog struct {
+	vLog        appendable.Appendable
+	unlockedRef *list.Element
+}
+
 type ImmuStore struct {
-	vLogList  *list.List
-	vLogsCond *sync.Cond
+	vLogs            map[byte]*refVLog
+	vLogUnlockedList *list.List
+	vLogsCond        *sync.Cond
 
 	txLog appendable.Appendable
 	cLog  appendable.Appendable
@@ -382,7 +391,8 @@ func (kv *KV) Digest() [sha256.Size]byte {
 
 func Open(path string, opts *Options) (*ImmuStore, error) {
 	if opts == nil || opts.maxKeyLen > MaxKeyLen ||
-		opts.maxConcurrency < 1 || opts.maxIOConcurrency < 1 {
+		opts.maxConcurrency < 1 ||
+		opts.maxIOConcurrency < 1 || opts.maxIOConcurrency > MaxParallelIO {
 		return nil, ErrIllegalArgument
 	}
 
@@ -405,28 +415,29 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		SetSynced(opts.synced).
 		SetFileMode(opts.fileMode)
 
-	// TODO: appendables with folders not files
+	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
+	for i := 0; i < opts.maxIOConcurrency; i++ {
+		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
+		vLog, err := appendable.Open(vLogPath, appendableOpts)
+		if err != nil {
+			return nil, err
+		}
+		vLogs[i] = vLog
+	}
 
-	// TODO: create several vLog appendables
-	vLogFilename := filepath.Join(path, "immudb.val")
-	vLog, err := appendable.Open(vLogFilename, appendableOpts)
+	txLogPath := filepath.Join(path, "tx")
+	txLog, err := appendable.Open(txLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	txLogFilename := filepath.Join(path, "immudb.itx")
-	txLog, err := appendable.Open(txLogFilename, appendableOpts)
+	cLogPath := filepath.Join(path, "commit")
+	cLog, err := appendable.Open(cLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	cLogFilename := filepath.Join(path, "immudb.ctx")
-	cLog, err := appendable.Open(cLogFilename, appendableOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	return open([]appendable.Appendable{vLog}, txLog, cLog, opts)
+	return open(vLogs, txLog, cLog, opts)
 }
 
 func open(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
@@ -499,14 +510,18 @@ func open(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts
 		committedAlh = tx.Alh()
 	}
 
-	vLogList := list.New()
-	for _, vLog := range vLogs {
-		vLogList.PushBack(vLog)
+	vLogsMap := make(map[byte]*refVLog, len(vLogs))
+	vLogUnlockedList := list.New()
+
+	for i, vLog := range vLogs {
+		e := vLogUnlockedList.PushBack(byte(i))
+		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
 	return &ImmuStore{
 		txLog:              txLog,
-		vLogList:           vLogList,
+		vLogs:              vLogsMap,
+		vLogUnlockedList:   vLogUnlockedList,
 		vLogsCond:          sync.NewCond(&sync.Mutex{}),
 		cLog:               cLog,
 		committedTxLogSize: committedTxLogSize,
@@ -574,6 +589,54 @@ func (s *ImmuStore) releaseAllocTx(tx *Tx) {
 	s._txs.PushBack(tx)
 }
 
+func encodeOffset(offset int64, vLogID byte) int64 {
+	return int64(vLogID)<<56 | offset
+}
+
+func decodeOffset(offset int64) (byte, int64) {
+	return byte(offset >> 56), offset & ^(0xff << 55)
+}
+
+func (s *ImmuStore) fetchAnyVLog() (byte, appendable.Appendable) {
+	s.vLogsCond.L.Lock()
+
+	for s.vLogUnlockedList.Len() == 0 {
+		s.vLogsCond.Wait()
+	}
+
+	e := s.vLogUnlockedList.Front()
+	s.vLogUnlockedList.Remove(e)
+
+	s.vLogsCond.L.Unlock()
+
+	vLogID := e.Value.(byte)
+	s.vLogs[vLogID].unlockedRef = nil
+
+	return vLogID, s.vLogs[vLogID].vLog
+}
+
+func (s *ImmuStore) fetchVLog(vLogID byte) appendable.Appendable {
+	s.vLogsCond.L.Lock()
+
+	for s.vLogs[vLogID].unlockedRef == nil {
+		s.vLogsCond.Wait()
+	}
+
+	e := s.vLogUnlockedList.Front()
+	s.vLogUnlockedList.Remove(e)
+
+	s.vLogsCond.L.Unlock()
+
+	return s.vLogs[vLogID].vLog
+}
+
+func (s *ImmuStore) releaseVLog(vLogID byte) {
+	s.vLogsCond.L.Lock()
+	s.vLogs[vLogID].unlockedRef = s.vLogUnlockedList.PushBack(vLogID)
+	s.vLogsCond.L.Unlock()
+	s.vLogsCond.Signal()
+}
+
 func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
 	err = s.validateEntries(entries)
 	if err != nil {
@@ -587,22 +650,10 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 	var appendableErr error
 
 	go func() {
-		s.vLogsCond.L.Lock()
-		for s.vLogList.Len() == 0 {
-			s.vLogsCond.Wait()
-		}
-		vLog := s.vLogList.Remove(s.vLogList.Front()).(appendable.Appendable)
-		s.vLogsCond.L.Unlock()
+		defer wg.Done()
 
-		defer func() {
-			s.vLogsCond.L.Lock()
-			s.vLogList.PushBack(vLog)
-			s.vLogsCond.L.Unlock()
-
-			s.vLogsCond.Signal()
-
-			wg.Done()
-		}()
+		vLogID, vLog := s.fetchAnyVLog()
+		defer s.releaseVLog(vLogID)
 
 		for i := 0; i < len(offsets); i++ {
 			voff, _, err := vLog.Append(entries[i].Value)
@@ -610,7 +661,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 				appendableErr = err
 				return
 			}
-			offsets[i] = voff
+			offsets[i] = encodeOffset(voff, vLogID)
 		}
 
 		err := vLog.Flush()
@@ -836,10 +887,12 @@ func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
 		return 0, ErrAlreadyClosed
 	}
 
-	// los offsets tienen que estar acompañados para saber  que vlog se refieren
-	vLog := s.vLogList.Front().Value.(appendable.Appendable)
+	vLogID, offset := decodeOffset(off)
 
-	return vLog.ReadAt(b, off) //TODO parallel IO
+	vLog := s.fetchVLog(vLogID)
+	defer s.releaseVLog(vLogID)
+
+	return vLog.ReadAt(b, offset)
 }
 
 type TxReader struct {
@@ -941,8 +994,8 @@ func (s *ImmuStore) Close() error {
 		return ErrAlreadyClosed
 	}
 
-	for le := s.vLogList.Front(); le != nil; le = le.Next() {
-		err := le.Value.(appendable.Appendable).Close()
+	for _, lvLog := range s.vLogs {
+		err := lvLog.vLog.Close()
 		if err != nil {
 			return err
 		}

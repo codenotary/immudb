@@ -206,16 +206,16 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	opts := DefaultOptions()
 	appendableOpts := appendable.DefaultOptions().SetReadOnly(opts.readOnly).SetFileMode(opts.fileMode)
 
-	txLogFilename := filepath.Join(path, "immudb.itx")
-	txLog, err := appendable.Open(txLogFilename, appendableOpts)
+	vLogPath := filepath.Join(path, "val_0")
+	vLog, err := appendable.Open(vLogPath, appendableOpts)
 	require.NoError(t, err)
 
-	vLogFilename := filepath.Join(path, "immudb.val")
-	vLog, err := appendable.Open(vLogFilename, appendableOpts)
+	txLogPath := filepath.Join(path, "tx")
+	txLog, err := appendable.Open(txLogPath, appendableOpts)
 	require.NoError(t, err)
 
-	cLogFilename := filepath.Join(path, "immudb.ctx")
-	cLog, err := appendable.Open(cLogFilename, appendableOpts)
+	cLogPath := filepath.Join(path, "commit")
+	cLog, err := appendable.Open(cLogPath, appendableOpts)
 	require.NoError(t, err)
 
 	failingVLog := &FailingAppendable{vLog, 2}
