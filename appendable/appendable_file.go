@@ -19,8 +19,10 @@ import (
 	"bufio"
 	"errors"
 	"os"
+	"path/filepath"
 )
 
+var ErrorPathIsNotADirectory = errors.New("Path is not a directory")
 var ErrIllegalArgument = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
@@ -69,9 +71,23 @@ func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
 	return opt
 }
 
-func Open(fileName string, opts *Options) (*AppendableFile, error) {
+func Open(path string, opts *Options) (*AppendableFile, error) {
 	if opts == nil {
 		return nil, ErrIllegalArgument
+	}
+
+	finfo, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.Mkdir(path, 0700)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	} else if !finfo.IsDir() {
+		return nil, ErrorPathIsNotADirectory
 	}
 
 	var flag int
@@ -81,6 +97,8 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 	} else {
 		flag = os.O_CREATE | os.O_RDWR
 	}
+
+	fileName := filepath.Join(path, "00000000001.aof")
 
 	f, err := os.OpenFile(fileName, flag, opts.fileMode)
 	if err != nil {
