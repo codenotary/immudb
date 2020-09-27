@@ -222,7 +222,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	failingTxLog := &FailingAppendable{txLog, 5}
 	failingCLog := &FailingAppendable{cLog, 5}
 
-	immuStore, err := open([]appendable.Appendable{failingVLog}, failingTxLog, failingCLog, opts)
+	immuStore, err := OpenWith([]appendable.Appendable{failingVLog}, failingTxLog, failingCLog, opts)
 	require.NoError(t, err)
 
 	txCount := 100

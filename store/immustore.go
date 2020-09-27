@@ -437,10 +437,10 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, err
 	}
 
-	return open(vLogs, txLog, cLog, opts)
+	return OpenWith(vLogs, txLog, cLog, opts)
 }
 
-func open(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
+func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
 	cLogSize, err := cLog.Size()
 	if err != nil {
 		return nil, err
