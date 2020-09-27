@@ -29,6 +29,7 @@ import (
 func main() {
 	dataDir := flag.String("dataDir", "data", "data directory")
 	committers := flag.Int("committers", 10, "number of concurrent committers")
+	parallelIO := flag.Int("parallelIO", 1, "number of parallel IO")
 	txCount := flag.Int("txCount", 1_000, "number of tx to commit")
 	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
@@ -40,7 +41,7 @@ func main() {
 	flag.Parse()
 
 	fmt.Println("Opening Immutable Transactional Key-Value Log...")
-	immuStore, err := store.Open(*dataDir, store.DefaultOptions().SetSynced(*synced))
+	immuStore, err := store.Open(*dataDir, store.DefaultOptions().SetSynced(*synced).SetIOConcurrency(*parallelIO))
 
 	if err != nil {
 		panic(err)
