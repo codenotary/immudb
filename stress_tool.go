@@ -32,6 +32,8 @@ func main() {
 	parallelIO := flag.Int("parallelIO", 1, "number of parallel IO")
 	txCount := flag.Int("txCount", 1_000, "number of tx to commit")
 	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
+	kLen := flag.Int("kLen", 32, "key length (bytes)")
+	vLen := flag.Int("vLen", 32, "value length (bytes)")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
 	printAfter := flag.Int("printAfter", 100, "print a dot '.' after specified number of committed txs")
 	synced := flag.Bool("synced", true, "strict sync mode - no data lost")
@@ -63,8 +65,8 @@ func main() {
 	for c := 0; c < *committers; c++ {
 		go func(id int) {
 			kvs := make([]*store.KV, *kvCount)
-			k := make([]byte, 8)
-			v := make([]byte, 8)
+			k := make([]byte, *kLen)
+			v := make([]byte, *vLen)
 
 			for i := 0; i < *kvCount; i++ {
 				binary.BigEndian.PutUint64(k, uint64(id*(*kvCount)+i))
