@@ -49,6 +49,15 @@ func main() {
 		panic(err)
 	}
 
+	defer func() {
+		err := immuStore.Close()
+		if err != nil {
+			fmt.Printf("\r\nImmutable Transactional Key-Value Log closed with error: %v\r\n", err)
+			return
+		}
+		fmt.Printf("\r\nImmutable Transactional Key-Value Log successfully closed!\r\n")
+	}()
+
 	fmt.Printf("Immutable Transactional Key-Value Log with %d Txs successfully openned!\r\n", immuStore.TxCount())
 
 	fmt.Printf("Committing %d transactions...\r\n", *txCount)
