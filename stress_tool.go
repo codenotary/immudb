@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -36,7 +37,8 @@ func main() {
 	vLen := flag.Int("vLen", 32, "value length (bytes)")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
 	printAfter := flag.Int("printAfter", 100, "print a dot '.' after specified number of committed txs")
-	synced := flag.Bool("synced", true, "strict sync mode - no data lost")
+	synced := flag.Bool("synced", false, "strict sync mode - no data lost")
+	txRead := flag.Bool("txRead", false, "validate committed txs against input kv data")
 	txLinking := flag.Bool("txLinking", true, "full scan to verify linear cryptographic linking between txs")
 	kvInclusion := flag.Bool("kvInclusion", false, "validate kv data of every tx as part of the linear verification. txLinking must be enabled")
 
@@ -68,23 +70,30 @@ func main() {
 	wgWork := &sync.WaitGroup{}
 	wgWork.Add(*committers)
 
+	wgEnded := &sync.WaitGroup{}
+	wgEnded.Add(*committers)
+
 	wgStart := &sync.WaitGroup{}
 	wgStart.Add(1)
 
 	for c := 0; c < *committers; c++ {
 		go func(id int) {
-			kvs := make([]*store.KV, *kvCount)
+			txs := make([][]*store.KV, *txCount)
 
-			rand.Seed(time.Now().UnixNano())
+			for t := 0; t < *txCount; t++ {
+				txs[t] = make([]*store.KV, *kvCount)
 
-			for i := 0; i < *kvCount; i++ {
-				k := make([]byte, *kLen)
-				v := make([]byte, *vLen)
+				rand.Seed(time.Now().UnixNano())
 
-				rand.Read(k)
-				rand.Read(v)
+				for i := 0; i < *kvCount; i++ {
+					k := make([]byte, *kLen)
+					v := make([]byte, *vLen)
 
-				kvs[i] = &store.KV{Key: k, Value: v}
+					rand.Read(k)
+					rand.Read(v)
+
+					txs[t][i] = &store.KV{Key: k, Value: v}
+				}
 			}
 
 			fmt.Printf("\r\nCommitter %d is running...\r\n", id)
@@ -93,11 +102,15 @@ func main() {
 
 			wgStart.Wait()
 
+			ids := make([]uint64, *txCount)
+
 			for t := 0; t < *txCount; t++ {
-				_, _, _, _, err := immuStore.Commit(kvs)
+				txid, _, _, _, err := immuStore.Commit(txs[t])
 				if err != nil {
 					panic(err)
 				}
+
+				ids[t] = txid
 
 				if *printAfter > 0 && t%*printAfter == 0 {
 					fmt.Print(".")
@@ -107,7 +120,39 @@ func main() {
 			}
 
 			wgWork.Done()
-			fmt.Printf("\r\nCommitter %d done!\r\n", id)
+			fmt.Printf("\r\nCommitter %d done with commits!\r\n", id)
+
+			if *txRead {
+				fmt.Printf("Starting committed tx against input kv data by committer %d...\r\n", id)
+
+				tx := store.NewTx(*kvCount, *kLen)
+				b := make([]byte, *vLen)
+
+				for i := range ids {
+					immuStore.ReadTx(ids[i], tx)
+
+					for ei, e := range tx.Entries() {
+						if !bytes.Equal(e.Key(), txs[i][ei].Key) {
+							panic(fmt.Errorf("committed tx data does not match input values"))
+						}
+
+						_, err = immuStore.ReadValueAt(b, e.VOff)
+						if err != nil {
+							panic(err)
+						}
+
+						if !bytes.Equal(b, txs[i][ei].Value) {
+							panic(fmt.Errorf("committed tx data does not match input values"))
+						}
+					}
+				}
+
+				fmt.Printf("All committed txs successfully verified against input kv data by committer %d!\r\n", id)
+			}
+
+			wgEnded.Done()
+
+			fmt.Printf("Committer %d sucessfully ended!\r\n", id)
 		}(c)
 	}
 
@@ -120,6 +165,8 @@ func main() {
 	elapsed := time.Since(start)
 
 	fmt.Printf("\r\nAll committers %d have successfully completed their work within %s!\r\n", *committers, elapsed)
+
+	wgEnded.Wait()
 
 	if *txLinking {
 		fmt.Println("Starting full scan to verify linear cryptographic linking...")

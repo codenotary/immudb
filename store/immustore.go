@@ -75,16 +75,21 @@ type Tx struct {
 	Eh       [sha256.Size]byte
 }
 
-func mallocTx(nentries int, maxKeyLen int) *Tx {
+func NewTx(nentries int, maxKeyLen int) *Tx {
 	entries := make([]*Txe, nentries)
 	for i := 0; i < nentries; i++ {
 		entries[i] = &Txe{key: make([]byte, maxKeyLen)}
 	}
 
+	w := 1
+	for w < nentries {
+		w = w << 1
+	}
+
 	layers := bits.Len64(uint64(nentries-1)) + 1
 	htree := make([][][sha256.Size]byte, layers)
 	for l := 0; l < layers; l++ {
-		htree[l] = make([][sha256.Size]byte, nentries>>l)
+		htree[l] = make([][sha256.Size]byte, w>>l)
 	}
 
 	return &Tx{
@@ -490,7 +495,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	txs := list.New()
 
 	for i := 0; i < opts.maxConcurrency; i++ {
-		tx := mallocTx(opts.maxTxEntries, opts.maxKeyLen)
+		tx := NewTx(opts.maxTxEntries, opts.maxKeyLen)
 		txs.PushBack(tx)
 	}
 
@@ -932,7 +937,7 @@ func (s *ImmuStore) NewTxReader(offset int64, bufSize int) (*TxReader, error) {
 
 	r := appendable.NewReaderFrom(syncedReader, offset, bufSize)
 
-	tx := mallocTx(s.maxTxEntries, s.maxKeyLen)
+	tx := NewTx(s.maxTxEntries, s.maxKeyLen)
 	b := make([]byte, maxInt(MaxKeyLen, bufLenTxh))
 
 	return &TxReader{r: r, _tx: tx, _b: b}, nil
