@@ -16,10 +16,10 @@ limitations under the License.
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -66,12 +66,14 @@ func main() {
 		go func(id int) {
 			kvs := make([]*store.KV, *kvCount)
 
+			rand.Seed(time.Now().UnixNano())
+
 			for i := 0; i < *kvCount; i++ {
 				k := make([]byte, *kLen)
 				v := make([]byte, *vLen)
 
-				binary.BigEndian.PutUint64(k, uint64(id*(*kvCount)+i))
-				binary.BigEndian.PutUint64(v, uint64(id*(*kvCount)+i))
+				rand.Read(k)
+				rand.Read(v)
 
 				kvs[i] = &store.KV{Key: k, Value: v}
 			}
