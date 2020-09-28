@@ -662,43 +662,47 @@ func (s *ImmuStore) releaseVLog(vLogID byte) {
 	s.vLogsCond.Signal()
 }
 
+type appendableResult struct {
+	offsets []int64
+	err     error
+}
+
+func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
+	offsets := make([]int64, len(entries))
+
+	vLogID, vLog, err := s.fetchAnyVLog()
+	if err != nil {
+		donec <- appendableResult{nil, err}
+		return
+	}
+
+	defer s.releaseVLog(vLogID)
+
+	for i := 0; i < len(offsets); i++ {
+		voff, _, err := vLog.Append(entries[i].Value)
+		if err != nil {
+			donec <- appendableResult{nil, err}
+			return
+		}
+		offsets[i] = encodeOffset(voff, vLogID)
+	}
+
+	err = vLog.Flush()
+	if err != nil {
+		donec <- appendableResult{nil, err}
+	}
+
+	donec <- appendableResult{offsets, nil}
+}
+
 func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
 	err = s.validateEntries(entries)
 	if err != nil {
 		return
 	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-
-	offsets := make([]int64, len(entries))
-	var appendableErr error
-
-	go func() {
-		defer wg.Done()
-
-		vLogID, vLog, err := s.fetchAnyVLog()
-		if err != nil {
-			appendableErr = err
-			return
-		}
-
-		defer s.releaseVLog(vLogID)
-
-		for i := 0; i < len(offsets); i++ {
-			voff, _, err := vLog.Append(entries[i].Value)
-			if err != nil {
-				appendableErr = err
-				return
-			}
-			offsets[i] = encodeOffset(voff, vLogID)
-		}
-
-		err = vLog.Flush()
-		if err != nil {
-			appendableErr = err
-		}
-	}()
+	appendableCh := make(chan appendableResult)
+	go s.appendData(entries, appendableCh)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
@@ -720,14 +724,13 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 
 	tx.buildHashTree()
 
-	wg.Wait() // wait for data to be writen
-
-	if appendableErr != nil {
-		err = appendableErr
+	r := <-appendableCh // wait for data to be writen
+	err = r.err
+	if err != nil {
 		return
 	}
 
-	err = s.commit(tx, offsets)
+	err = s.commit(tx, r.offsets)
 	if err != nil {
 		return
 	}
