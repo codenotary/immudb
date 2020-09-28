@@ -65,10 +65,11 @@ func main() {
 	for c := 0; c < *committers; c++ {
 		go func(id int) {
 			kvs := make([]*store.KV, *kvCount)
-			k := make([]byte, *kLen)
-			v := make([]byte, *vLen)
 
 			for i := 0; i < *kvCount; i++ {
+				k := make([]byte, *kLen)
+				v := make([]byte, *vLen)
+
 				binary.BigEndian.PutUint64(k, uint64(id*(*kvCount)+i))
 				binary.BigEndian.PutUint64(v, uint64(id*(*kvCount)+i))
 
