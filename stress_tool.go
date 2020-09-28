@@ -60,7 +60,7 @@ func main() {
 		fmt.Printf("\r\nImmutable Transactional Key-Value Log successfully closed!\r\n")
 	}()
 
-	fmt.Printf("Immutable Transactional Key-Value Log with %d Txs successfully openned!\r\n", immuStore.TxCount())
+	fmt.Printf("Immutable Transactional Key-Value Log with %d Txs successfully opened!\r\n", immuStore.TxCount())
 
 	fmt.Printf("Committing %d transactions...\r\n", *txCount)
 
@@ -133,7 +133,7 @@ func main() {
 
 					for ei, e := range tx.Entries() {
 						if !bytes.Equal(e.Key(), txs[i][ei].Key) {
-							panic(fmt.Errorf("committed tx data does not match input values"))
+							panic(fmt.Errorf("committed tx key does not match input values"))
 						}
 
 						_, err = immuStore.ReadValueAt(b, e.VOff)
@@ -142,7 +142,7 @@ func main() {
 						}
 
 						if !bytes.Equal(b, txs[i][ei].Value) {
-							panic(fmt.Errorf("committed tx data does not match input values"))
+							panic(fmt.Errorf("committed tx value does not match input values"))
 						}
 					}
 				}

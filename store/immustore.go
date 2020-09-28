@@ -340,7 +340,7 @@ func (opt *Options) SetMaxLinearProofLen(maxLinearProofLen int) *Options {
 
 type refVLog struct {
 	vLog        appendable.Appendable
-	unlockedRef *list.Element
+	unlockedRef *list.Element // unlockedRef == nil <-> vLog is locked
 }
 
 type ImmuStore struct {
@@ -619,35 +619,45 @@ func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable, err
 		s.vLogsCond.Wait()
 	}
 
-	e := s.vLogUnlockedList.Front()
-	s.vLogUnlockedList.Remove(e)
+	vLogID := s.vLogUnlockedList.Remove(s.vLogUnlockedList.Front()).(byte)
+
+	s.vLogs[vLogID].unlockedRef = nil // locked
 
 	s.vLogsCond.L.Unlock()
-
-	vLogID := e.Value.(byte)
-	s.vLogs[vLogID].unlockedRef = nil
 
 	return vLogID, s.vLogs[vLogID].vLog, nil
 }
 
-func (s *ImmuStore) fetchVLog(vLogID byte) appendable.Appendable {
+func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
 	s.vLogsCond.L.Lock()
 
 	for s.vLogs[vLogID].unlockedRef == nil {
+		if checkClosed {
+			s.mutex.Lock()
+			if s.closed {
+				err = ErrAlreadyClosed
+			}
+			s.mutex.Unlock()
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
 		s.vLogsCond.Wait()
 	}
 
-	e := s.vLogUnlockedList.Front()
-	s.vLogUnlockedList.Remove(e)
+	s.vLogUnlockedList.Remove(s.vLogs[vLogID].unlockedRef)
+	s.vLogs[vLogID].unlockedRef = nil // locked
 
 	s.vLogsCond.L.Unlock()
 
-	return s.vLogs[vLogID].vLog
+	return s.vLogs[vLogID].vLog, nil
 }
 
 func (s *ImmuStore) releaseVLog(vLogID byte) {
 	s.vLogsCond.L.Lock()
-	s.vLogs[vLogID].unlockedRef = s.vLogUnlockedList.PushBack(vLogID)
+	s.vLogs[vLogID].unlockedRef = s.vLogUnlockedList.PushBack(vLogID) // unlocked
 	s.vLogsCond.L.Unlock()
 	s.vLogsCond.Signal()
 }
@@ -900,18 +910,13 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 }
 
 func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
-	s.mutex.Lock()
-
-	if s.closed {
-		return 0, ErrAlreadyClosed
-	}
-
 	vLogID, offset := decodeOffset(off)
 
-	vLog := s.fetchVLog(vLogID)
+	vLog, err := s.fetchVLog(vLogID, true)
+	if err != nil {
+		return 0, err
+	}
 	defer s.releaseVLog(vLogID)
-
-	s.mutex.Unlock()
 
 	return vLog.ReadAt(b, offset)
 }
@@ -1016,7 +1021,7 @@ func (s *ImmuStore) Close() error {
 	}
 
 	for vLogID := range s.vLogs {
-		vLog := s.fetchVLog(vLogID)
+		vLog, _ := s.fetchVLog(vLogID, false)
 
 		err := vLog.Close()
 		if err != nil {
