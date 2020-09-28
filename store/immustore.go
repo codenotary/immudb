@@ -597,10 +597,20 @@ func decodeOffset(offset int64) (byte, int64) {
 	return byte(offset >> 56), offset & ^(0xff << 55)
 }
 
-func (s *ImmuStore) fetchAnyVLog() (byte, appendable.Appendable) {
+func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable, err error) {
 	s.vLogsCond.L.Lock()
 
 	for s.vLogUnlockedList.Len() == 0 {
+		s.mutex.Lock()
+		if s.closed {
+			err = ErrAlreadyClosed
+		}
+		s.mutex.Unlock()
+
+		if err != nil {
+			return 0, nil, err
+		}
+
 		s.vLogsCond.Wait()
 	}
 
@@ -612,7 +622,7 @@ func (s *ImmuStore) fetchAnyVLog() (byte, appendable.Appendable) {
 	vLogID := e.Value.(byte)
 	s.vLogs[vLogID].unlockedRef = nil
 
-	return vLogID, s.vLogs[vLogID].vLog
+	return vLogID, s.vLogs[vLogID].vLog, nil
 }
 
 func (s *ImmuStore) fetchVLog(vLogID byte) appendable.Appendable {
@@ -652,7 +662,12 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 	go func() {
 		defer wg.Done()
 
-		vLogID, vLog := s.fetchAnyVLog()
+		vLogID, vLog, err := s.fetchAnyVLog()
+		if err != nil {
+			appendableErr = err
+			return
+		}
+
 		defer s.releaseVLog(vLogID)
 
 		for i := 0; i < len(offsets); i++ {
@@ -664,7 +679,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 			offsets[i] = encodeOffset(voff, vLogID)
 		}
 
-		err := vLog.Flush()
+		err = vLog.Flush()
 		if err != nil {
 			appendableErr = err
 		}
@@ -881,7 +896,6 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 
 func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	if s.closed {
 		return 0, ErrAlreadyClosed
@@ -891,6 +905,8 @@ func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
 
 	vLog := s.fetchVLog(vLogID)
 	defer s.releaseVLog(vLogID)
+
+	s.mutex.Unlock()
 
 	return vLog.ReadAt(b, offset)
 }
@@ -994,12 +1010,15 @@ func (s *ImmuStore) Close() error {
 		return ErrAlreadyClosed
 	}
 
-	for _, lvLog := range s.vLogs {
-		err := lvLog.vLog.Close()
+	for vLogID := range s.vLogs {
+		vLog := s.fetchVLog(vLogID)
+
+		err := vLog.Close()
 		if err != nil {
 			return err
 		}
 	}
+	s.vLogsCond.Broadcast()
 
 	err := s.txLog.Close()
 	if err != nil {
