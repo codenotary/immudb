@@ -2008,7 +2008,7 @@ func TestServerIsAllowedDbName(t *testing.T) {
 	err := IsAllowedDbName("")
 	require.Equal(t, errors.New("database name length outside of limits"), err)
 
-	err = IsAllowedDbName(strings.Repeat("a", 33))
+	err = IsAllowedDbName(strings.Repeat("a", 129))
 	require.Equal(t, errors.New("database name length outside of limits"), err)
 
 	err = IsAllowedDbName(" ")
