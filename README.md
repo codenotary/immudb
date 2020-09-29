@@ -104,7 +104,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 14.  [Community](#community) - Discuss immudb with others and get support
 15.  [License](#license) - Check immudb's licencing
 16.  [Is it awesome?](#is-it-awesome) - Yes.
-
+17. [Stargazers over time](#stargazers-over-time) - GitHub stars over time!
 
 ## Quickstart
 
@@ -848,3 +848,7 @@ immudb re-distributes other open-source tools and libraries - [Acknowledgements]
 ## Is it awesome?
 
 Yes.
+
+
+## Stargazers over time
+[![Stargazers over time](https://starchart.cc/codenotary/immudb.svg)](https://starchart.cc/codenotary/immudb)
