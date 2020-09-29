@@ -132,7 +132,7 @@ func verifyToken(token string) (*JSONToken, error) {
 	}
 	var index int64 = -1
 	if p := jsonToken.Get("database"); p != "" {
-		pint, err := strconv.ParseInt(p, 10, 8)
+		pint, err := strconv.ParseInt(p, 10, 64)
 		if err == nil {
 			index = pint
 		}
