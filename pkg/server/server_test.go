@@ -220,6 +220,46 @@ func TestServerCreateDatabase(t *testing.T) {
 		t.Fatalf("Createdatabase error %v", err)
 	}
 }
+
+func TestServerCreateMultipleDatabases(t *testing.T) {
+	s := newAuthServer("multipledbs")
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+	defer os.RemoveAll(s.Options.Dir)
+
+	for i := 0; i < 128; i++ {
+		dbname := fmt.Sprintf("db%d", i)
+
+		db := &schema.Database{
+			Databasename: dbname,
+		}
+		_, err = s.CreateDatabase(ctx, db)
+		if err != nil {
+			t.Fatalf("Createdatabase error %v", err)
+		}
+
+		ctx, err = usedatabase(ctx, s, dbname)
+		if err != nil {
+			t.Fatalf("UseDatabase error %v", err)
+		}
+
+		_, err := s.Set(ctx, &schema.KeyValue{
+			Key:   testKey,
+			Value: testValue,
+		})
+		if err != nil {
+			t.Fatalf("set error %v", err)
+		}
+	}
+
+	err = s.CloseDatabases()
+	if err != nil {
+		t.Fatalf("closedatabases error %v", err)
+	}
+}
+
 func TestServerLoaduserDatabase(t *testing.T) {
 	s := newAuthServer("loaduserdatabase")
 	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
