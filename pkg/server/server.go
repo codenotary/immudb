@@ -1602,7 +1602,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 
 // IsAllowedDbName checks if the provided database name meets the requirements
 func IsAllowedDbName(dbName string) error {
-	if len(dbName) < 1 || len(dbName) > 32 {
+	if len(dbName) < 1 || len(dbName) > 128 {
 		return fmt.Errorf("database name length outside of limits")
 	}
 	var hasSpecial bool
