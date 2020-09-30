@@ -447,6 +447,12 @@ service ImmuService {
 		};
 	};
 
+	rpc CountAll(google.protobuf.Empty) returns (ItemsCount){
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/item/countall"
+		};
+	};
+
 	rpc CurrentRoot(google.protobuf.Empty) returns (Root) {
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/root"

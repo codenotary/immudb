@@ -24,12 +24,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"io"
 	"io/ioutil"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/cache"
@@ -75,6 +76,7 @@ type ImmuClient interface {
 	RawBySafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error)
 	IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error)
 	Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error)
+	CountAll(ctx context.Context) (*schema.ItemsCount, error)
 	SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error)
 	GetBatch(ctx context.Context, keys [][]byte) (*schema.StructuredItemList, error)
 	Inclusion(ctx context.Context, index uint64) (*schema.InclusionProof, error)
@@ -579,6 +581,14 @@ func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCou
 		return nil, ErrNotConnected
 	}
 	return c.ServiceClient.Count(ctx, &schema.KeyPrefix{Prefix: prefix})
+}
+
+// CountAll ...
+func (c *immuClient) CountAll(ctx context.Context) (*schema.ItemsCount, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	return c.ServiceClient.CountAll(ctx, new(empty.Empty))
 }
 
 // Set ...

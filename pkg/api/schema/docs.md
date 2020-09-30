@@ -58,11 +58,11 @@
     - [UserRequest](#immudb.schema.UserRequest)
     - [ZAddOptions](#immudb.schema.ZAddOptions)
     - [ZScanOptions](#immudb.schema.ZScanOptions)
-
+  
     - [PermissionAction](#immudb.schema.PermissionAction)
-
+  
     - [ImmuService](#immudb.schema.ImmuService)
-
+  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -952,7 +952,7 @@ Because it is not purely about the storage size, but also use cases.
 
 
 
-
+ 
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -966,9 +966,9 @@ Because it is not purely about the storage size, but also use cases.
 | REVOKE | 1 |  |
 
 
+ 
 
-
-
+ 
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -1002,6 +1002,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | Scan | [ScanOptions](#immudb.schema.ScanOptions) | [ItemList](#immudb.schema.ItemList) |  |
 | ScanSV | [ScanOptions](#immudb.schema.ScanOptions) | [StructuredItemList](#immudb.schema.StructuredItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
+| CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CurrentRoot | [.google.protobuf.Empty](#google.protobuf.Empty) | [Root](#immudb.schema.Root) |  |
 | Inclusion | [Index](#immudb.schema.Index) | [InclusionProof](#immudb.schema.InclusionProof) |  |
 | Consistency | [Index](#immudb.schema.Index) | [ConsistencyProof](#immudb.schema.ConsistencyProof) |  |
@@ -1026,7 +1027,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 
-
+ 
 
 
 
@@ -1049,3 +1050,4 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
+

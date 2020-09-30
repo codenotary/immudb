@@ -219,6 +219,11 @@ func (d *Db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	return d.Store.Count(*prefix)
 }
 
+// CountAll ...
+func (d *Db) CountAll() *schema.ItemsCount {
+	return &schema.ItemsCount{Count: d.Store.CountAll()}
+}
+
 // Inclusion ...
 func (d *Db) Inclusion(index *schema.Index) (*schema.InclusionProof, error) {
 	return d.Store.InclusionProof(*index)

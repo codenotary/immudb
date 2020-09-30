@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1286,6 +1287,7 @@ func testServerSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing
 }
 
 func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
+	// Count
 	c, err := s.Count(ctx, &schema.KeyPrefix{
 		Prefix: kv[0].Key,
 	})
@@ -1294,6 +1296,14 @@ func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	if c.Count == 0 {
 		t.Fatalf("Count error >0 got %d", c.Count)
+	}
+	// CountAll
+	countAll, err := s.CountAll(ctx, new(empty.Empty))
+	if err != nil {
+		t.Fatalf("CountAll error %s", err)
+	}
+	if countAll.Count != 63 {
+		t.Fatalf("CountAll error: expected %d, got %d", 63, countAll.Count)
 	}
 }
 
