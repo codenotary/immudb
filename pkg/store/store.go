@@ -30,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 
 	"github.com/dgraph-io/badger/v2"
+	bops "github.com/dgraph-io/badger/v2/options"
 	"github.com/dgraph-io/badger/v2/pb"
 )
 
@@ -46,8 +47,8 @@ type Store struct {
 func Open(options Options, badgerOptions badger.Options) (*Store, error) {
 	badgerOpts := badgerOptions
 	badgerOpts.ValueDir = badgerOptions.Dir
-	badgerOpts.NumVersionsToKeep = math.MaxInt64 // immutability, always keep all data
-
+	badgerOpts.NumVersionsToKeep = math.MaxInt32 // immutability, always keep all data
+	badgerOpts.ValueLogLoadingMode = bops.FileIO
 	db, err := badger.OpenManaged(badgerOpts)
 	if err != nil {
 		return nil, mapError(err)
