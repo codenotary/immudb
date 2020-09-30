@@ -204,7 +204,10 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	defer os.RemoveAll("data")
 
 	opts := DefaultOptions()
-	appendableOpts := appendable.DefaultOptions().SetReadOnly(opts.readOnly).SetFileMode(opts.fileMode)
+	appendableOpts := appendable.DefaultOptions().
+		SetReadOnly(opts.readOnly).
+		SetFileMode(opts.fileMode).
+		SetFilename("single-log-file.aof")
 
 	vLogPath := filepath.Join(path, "val_0")
 	vLog, err := appendable.Open(vLogPath, appendableOpts)

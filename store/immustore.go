@@ -418,7 +418,8 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts := appendable.DefaultOptions().
 		SetReadOnly(opts.readOnly).
 		SetSynced(opts.synced).
-		SetFileMode(opts.fileMode)
+		SetFileMode(opts.fileMode).
+		SetFilename("single-log-file.aof")
 
 	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
 	for i := 0; i < opts.maxIOConcurrency; i++ {

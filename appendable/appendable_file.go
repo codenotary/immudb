@@ -17,9 +17,12 @@ package appendable
 
 import (
 	"bufio"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 var ErrorPathIsNotADirectory = errors.New("Path is not a directory")
@@ -29,8 +32,12 @@ var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 
 const DefaultFileMode = 0644
 
+const metadataLenLen = 4
+
 type AppendableFile struct {
 	f *os.File
+
+	metadata []byte
 
 	readOnly bool
 	synced   bool
@@ -46,6 +53,8 @@ type Options struct {
 	readOnly bool
 	synced   bool
 	fileMode os.FileMode
+	filename string
+	metadata []byte
 }
 
 func DefaultOptions() *Options {
@@ -71,6 +80,16 @@ func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
 	return opt
 }
 
+func (opt *Options) SetFilename(filename string) *Options {
+	opt.filename = filename
+	return opt
+}
+
+func (opt *Options) SetMetadata(metadata []byte) *Options {
+	opt.metadata = metadata
+	return opt
+}
+
 func Open(path string, opts *Options) (*AppendableFile, error) {
 	if opts == nil {
 		return nil, ErrIllegalArgument
@@ -78,12 +97,12 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 
 	finfo, err := os.Stat(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = os.Mkdir(path, 0700)
-			if err != nil {
-				return nil, err
-			}
-		} else {
+		if !os.IsNotExist(err) || opts.readOnly {
+			return nil, err
+		}
+
+		err = os.Mkdir(path, 0700)
+		if err != nil {
 			return nil, err
 		}
 	} else if !finfo.IsDir() {
@@ -98,14 +117,20 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		flag = os.O_CREATE | os.O_RDWR
 	}
 
-	fileName := filepath.Join(path, "00000000001.aof")
+	name := opts.filename
+	if name == "" {
+		name = fmt.Sprintf("%d.aof", time.Now().Unix())
+	}
+	fileName := filepath.Join(path, name)
 
-	f, err := os.OpenFile(fileName, flag, opts.fileMode)
-	if err != nil {
+	finfo, err = os.Stat(fileName)
+	notExist := os.IsNotExist(err)
+
+	if err != nil && ((opts.readOnly && notExist) || !notExist) {
 		return nil, err
 	}
 
-	off, err := f.Seek(0, os.SEEK_END)
+	f, err := os.OpenFile(fileName, flag, opts.fileMode)
 	if err != nil {
 		return nil, err
 	}
@@ -115,14 +140,63 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		w = bufio.NewWriter(f)
 	}
 
+	metadata := opts.metadata
+
+	b := make([]byte, 4) // buff for metatada len
+
+	if notExist {
+		binary.BigEndian.PutUint32(b, uint32(len(metadata)))
+		_, err := w.Write(b)
+		if err != nil {
+			return nil, err
+		}
+
+		if opts.metadata != nil {
+			_, err = w.Write(opts.metadata)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		err = w.Flush()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		r := bufio.NewReader(f)
+
+		_, err := r.Read(b)
+		if err != nil {
+			return nil, err
+		}
+
+		metadataLen := binary.BigEndian.Uint32(b)
+		metadata = make([]byte, metadataLen)
+
+		_, err = r.Read(metadata)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	off, err := f.Seek(0, os.SEEK_END)
+	if err != nil {
+		return nil, err
+	}
+
 	return &AppendableFile{
 		f:        f,
+		metadata: metadata,
 		readOnly: opts.readOnly,
 		synced:   opts.synced,
 		w:        w,
-		offset:   off,
+		offset:   off - metadataLenLen - int64(len(metadata)),
 		closed:   false,
 	}, nil
+}
+
+func (aof *AppendableFile) Metadata() []byte {
+	return aof.metadata
 }
 
 func (aof *AppendableFile) Size() (int64, error) {
@@ -130,11 +204,11 @@ func (aof *AppendableFile) Size() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return stat.Size(), nil
+	return stat.Size() - int64(metadataLenLen+len(aof.metadata)), nil
 }
 
 func (aof *AppendableFile) SetOffset(off int64) error {
-	_, err := aof.f.Seek(off, os.SEEK_SET)
+	_, err := aof.f.Seek(off+int64(metadataLenLen+len(aof.metadata)), os.SEEK_SET)
 	if err != nil {
 		return err
 	}
@@ -158,7 +232,7 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
-	return aof.f.ReadAt(bs, off)
+	return aof.f.ReadAt(bs, off+int64(metadataLenLen+len(aof.metadata)))
 }
 
 func (aof *AppendableFile) Flush() error {
