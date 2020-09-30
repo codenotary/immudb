@@ -19,6 +19,7 @@ package clienttest
 
 import (
 	"context"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
@@ -54,6 +55,7 @@ type ImmuServiceClientMock struct {
 	ScanF             func(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error)
 	ScanSVF           func(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error)
 	CountF            func(ctx context.Context, in *schema.KeyPrefix, opts ...grpc.CallOption) (*schema.ItemsCount, error)
+	CountAllF         func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ItemsCount, error)
 	CurrentRootF      func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error)
 	InclusionF        func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.InclusionProof, error)
 	ConsistencyF      func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.ConsistencyProof, error)

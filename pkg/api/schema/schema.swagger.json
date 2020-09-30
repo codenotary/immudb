@@ -321,6 +321,22 @@
         ]
       }
     },
+    "/v1/immurestproxy/item/countall": {
+      "get": {
+        "operationId": "CountAll",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItemsCount"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/item/index/{index}": {
       "get": {
         "operationId": "ByIndex",
