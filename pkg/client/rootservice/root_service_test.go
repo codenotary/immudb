@@ -18,12 +18,13 @@ package rootservice
 
 import (
 	"context"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"testing"
 )
 
 func TestRootService(t *testing.T) {
@@ -146,6 +147,9 @@ func (m *immuServiceClientMock) ScanSV(ctx context.Context, in *schema.ScanOptio
 	return &schema.StructuredItemList{}, nil
 }
 func (m *immuServiceClientMock) Count(ctx context.Context, in *schema.KeyPrefix, opts ...grpc.CallOption) (*schema.ItemsCount, error) {
+	return &schema.ItemsCount{}, nil
+}
+func (m *immuServiceClientMock) CountAll(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ItemsCount, error) {
 	return &schema.ItemsCount{}, nil
 }
 func (m *immuServiceClientMock) CurrentRoot(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {

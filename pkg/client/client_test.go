@@ -19,7 +19,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"io"
 	"log"
 	"net"
@@ -30,6 +29,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 
 	"github.com/stretchr/testify/assert"
 
@@ -698,6 +699,23 @@ func TestImmuClient_Count(t *testing.T) {
 	assert.Nil(t, err)
 	assert.IsType(t, &schema.ItemsCount{}, ic)
 	assert.True(t, ic.Count == 3)
+	client.Disconnect()
+}
+
+func TestImmuClient_CountAll(t *testing.T) {
+	setup()
+	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val11`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key2`), []byte(`val21`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key2`), []byte(`val22`))
+	_, _ = client.SafeSet(context.TODO(), []byte(`key3`), []byte(`val31`))
+
+	ic, err := client.CountAll(context.TODO())
+
+	assert.Nil(t, err)
+	assert.IsType(t, &schema.ItemsCount{}, ic)
+	// for each key there's an extra entry in the db:
+	// 4 entries (2 of them have the same key) + 3 extra = 7 entries in total
+	assert.Equal(t, 7, int(ic.Count))
 	client.Disconnect()
 }
 

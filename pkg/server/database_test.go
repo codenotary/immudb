@@ -840,6 +840,8 @@ func TestCount(t *testing.T) {
 			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
+
+	// Count
 	c, err := db.Count(&schema.KeyPrefix{
 		Prefix: []byte("Franz"),
 	})
@@ -848,6 +850,14 @@ func TestCount(t *testing.T) {
 	}
 	if c.Count != 1 {
 		t.Fatalf("Error count expected %d got %d", 1, c.Count)
+	}
+
+	// CountAll
+	// for each key there's an extra entry in the db:
+	// 3 entries (with different keys) + 3 extra = 6 entries in total
+	countAll := db.CountAll().Count
+	if countAll != 6 {
+		t.Fatalf("Error CountAll expected %d got %d", 6, countAll)
 	}
 }
 func TestScanSV(t *testing.T) {

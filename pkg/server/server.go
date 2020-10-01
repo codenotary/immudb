@@ -761,6 +761,16 @@ func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*sche
 	return s.dbList.GetByIndex(ind).Count(prefix)
 }
 
+// CountAll ...
+func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.ItemsCount, error) {
+	ind, err := s.getDbIndexFromCtx(ctx, "CountAll")
+	s.Logger.Debugf("count all for db index %d", ind)
+	if err != nil {
+		return nil, err
+	}
+	return s.dbList.GetByIndex(ind).CountAll(), nil
+}
+
 // Inclusion ...
 func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "Inclusion")
