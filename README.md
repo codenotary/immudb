@@ -99,7 +99,7 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 9.  [Features](#features) - How you'll use immudb on your systems
 10.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
 11.  [Real world examples](#real-world-examples) - Read about how others use immudb
-12.  [System limits](#limits) - System Limits
+12.  [Multiple databases](#multiple-databases) - Multiple databases
 13.  [Documentation](#documentation) - Read the documentation
 14.  [FAQ](#faq) - Frequently asked questions
 15.  [Community](#community) - Discuss immudb with others and get support
@@ -803,18 +803,15 @@ We already learned about the following use cases from users:
 
 [tinaba](https://www.tinaba.bancaprofilo.it/)
 
-## Limits
+## Multiple databases
 
-Immudb has this limitations:
- - database name must be shorter than 128 characters
- - for every database created, 4 more file descriptor will be used
- - it is quite addictive!
+It is possible to create and use many databases. There is no hardcoded limit on the number of database immudb can handle, but keep in mind that for every database created, 4 more file descriptor will be used. Also, the database name must be shorter that 128 bytes, in order to comply with filesystem limitations.
 
-The default number of open file per process on modern linux systems is usually 1024. Thats mean that without increasing that number, immudb is limited to about 250 databases. Is it easy to increase that limit.
+The default number of open file per process on modern linux systems is usually 1024. Thats mean that without increasing that number, immudb is limited to about 250 databases. It's easy to increase that limit.
 
-You you are using systemd services, you only need to set `LimitNOFILE=65536` in the service file, and restart the service.
+If you are using systemd services, you only need to set `LimitNOFILE=65536` in the service file, and restart the service.
 
-With systemV init, you have to put `ulimit -n` in your init file, before launching immudb.
+With systemV init, you have to put `ulimit -n 65536` in your init file, before launching immudb.
 
 It is also possible to modify `/etc/security/limits.conf`, which sets the system defaults.
 
