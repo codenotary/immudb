@@ -99,12 +99,13 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 9.  [Features](#features) - How you'll use immudb on your systems
 10.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
 11.  [Real world examples](#real-world-examples) - Read about how others use immudb
-12.  [Documentation](#documentation) - Read the documentation
-13.  [FAQ](#faq) - Frequently asked questions
-14.  [Community](#community) - Discuss immudb with others and get support
-15.  [License](#license) - Check immudb's licencing
-16.  [Is it awesome?](#is-it-awesome) - Yes.
-17. [Stargazers over time](#stargazers-over-time) - GitHub stars over time!
+12.  [Multiple databases](#multiple-databases) - Multiple databases
+13.  [Documentation](#documentation) - Read the documentation
+14.  [FAQ](#faq) - Frequently asked questions
+15.  [Community](#community) - Discuss immudb with others and get support
+16.  [License](#license) - Check immudb's licencing
+17.  [Is it awesome?](#is-it-awesome) - Yes.
+18. [Stargazers over time](#stargazers-over-time) - GitHub stars over time!
 
 ## Quickstart
 
@@ -802,6 +803,24 @@ We already learned about the following use cases from users:
 
 [tinaba](https://www.tinaba.bancaprofilo.it/)
 
+## Multiple databases
+
+It is possible to create and use many databases. There is no hardcoded limit on the number of database immudb can handle, but keep in mind that for every database created, 4 more file descriptor will be used. Also, the database name must be shorter that 128 bytes, in order to comply with filesystem limitations. This is because every database is stored in a directory which has the same name of the database. For the same reason, special characters (such as `/`) in the database name must be avoided.
+
+The default number of open file per process on modern linux systems is usually 1024. Thats mean that without increasing that number, immudb is limited to about 250 databases. It's easy to increase that limit.
+
+If you are using systemd services, you only need to set `LimitNOFILE=65536` in the service file, and restart the service.
+
+With systemV init, you have to put `ulimit -n 65536` in your init file, before launching immudb.
+
+It is also possible to modify `/etc/security/limits.conf`, which sets the system defaults.
+
+If you are using a dedicated immudb user, just add:
+```
+# /etc/security/limits.conf
+immudb    hard    nofile      65536
+immudb    soft    nofile      65536
+```
 
 ## Documentation
 
@@ -829,7 +848,7 @@ Lot of useful documentation and step by step guides can be found at https://docs
 | How can I monitor database integrity?                                                        | immudb provides proof APIs and clients and agents can ask for proof in realtime.                                                                                                                                                                                                                                                                                                                          | initial release |
 | How can I monitor database integrity for single objects or specific entries?                 | immu client has a functionality to authenticate a specific entry at a given point in time. So both last version and the whole history of an item can be verified.                                                                                                                                                                                                                                         | initial release |
 | Can I build and distribute an immudb that skips the verification? If yes, how to avoid that? | [CodeNotary](https://www.codenotary.io) team notarizes sources and releases of all immudb components. Check if the release binaries are notarized by vChain.us using [authenticate.codenotary.io](https://authenticate.codenotary.io/org/vchain.us) to prove origin and detect any kind of tampering.                                                                                                     | initial release |
-| How many databases can I run on a single immudb server?                                      | Multi-database support was incorporated since release v0.7.0.                                                                                                                                                                                                                                                                                                       | Q3/2020         |
+| How many databases can I run on a single immudb server?                                      | Multi-database support was incorporated since release v0.7.0. There is no hard limit on how many databases you can use; however, keep in mind that immudb uses 4 file descriptors per existing database, so with a very high number of databases you can reach the open file quota limit for the process.                                                                                                                                                                                                                                                   | Q3/2020         |
 
 ## Community
 
