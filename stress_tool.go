@@ -42,7 +42,7 @@ func main() {
 	txLinking := flag.Bool("txLinking", true, "full scan to verify linear cryptographic linking between txs")
 	kvInclusion := flag.Bool("kvInclusion", false, "validate kv data of every tx as part of the linear verification. txLinking must be enabled")
 	logFileSize := flag.Int("logFileSize", 1<<26, "log file size up to which a new log file is created")
-	opennedLogFiles := flag.Int("opennedLogFiles", 10, "number of maximun number of openned files per each log type")
+	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
 
 	flag.Parse()
 
@@ -54,9 +54,9 @@ func main() {
 		SetVLogFileSize(*logFileSize).
 		SetTxLogFileSize(*logFileSize).
 		SetCommitLogFileSize(*logFileSize).
-		SetVLogMaxOpennedFiles(*opennedLogFiles).
-		SetTxLogMaxOpennedFiles(*opennedLogFiles).
-		SetCommitLogMaxOpennedFiles(*opennedLogFiles)
+		SetVLogMaxOpenedFiles(*openedLogFiles).
+		SetTxLogMaxOpenedFiles(*openedLogFiles).
+		SetCommitLogMaxOpenedFiles(*openedLogFiles)
 
 	immuStore, err := store.Open(*dataDir, opts)
 

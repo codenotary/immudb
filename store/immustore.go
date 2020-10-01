@@ -279,12 +279,12 @@ type Options struct {
 	maxValueLen       int
 	maxLinearProofLen int
 
-	vLogFileSize             int
-	txLogFileSize            int
-	commitLogFileSize        int
-	vLogMaxOpennedFiles      int
-	txLogMaxOpennedFiles     int
-	commitLogMaxOpennedFiles int
+	vLogFileSize            int
+	txLogFileSize           int
+	commitLogFileSize       int
+	vLogMaxOpenedFiles      int
+	txLogMaxOpenedFiles     int
+	commitLogMaxOpenedFiles int
 }
 
 func DefaultOptions() *Options {
@@ -300,12 +300,12 @@ func DefaultOptions() *Options {
 		maxValueLen:       DefaultMaxValueLen,
 		maxLinearProofLen: DefaultMaxLinearProofLen,
 
-		vLogFileSize:             appendable.DefaultFileSize,
-		txLogFileSize:            appendable.DefaultFileSize,
-		commitLogFileSize:        appendable.DefaultFileSize,
-		vLogMaxOpennedFiles:      10,
-		txLogMaxOpennedFiles:     10,
-		commitLogMaxOpennedFiles: 1,
+		vLogFileSize:            appendable.DefaultFileSize,
+		txLogFileSize:           appendable.DefaultFileSize,
+		commitLogFileSize:       appendable.DefaultFileSize,
+		vLogMaxOpenedFiles:      10,
+		txLogMaxOpenedFiles:     10,
+		commitLogMaxOpenedFiles: 1,
 	}
 }
 
@@ -369,18 +369,18 @@ func (opt *Options) SetCommitLogFileSize(commitLogFileSize int) *Options {
 	return opt
 }
 
-func (opt *Options) SetVLogMaxOpennedFiles(vLogMaxOpennedFiles int) *Options {
-	opt.vLogMaxOpennedFiles = vLogMaxOpennedFiles
+func (opt *Options) SetVLogMaxOpenedFiles(vLogMaxOpenedFiles int) *Options {
+	opt.vLogMaxOpenedFiles = vLogMaxOpenedFiles
 	return opt
 }
 
-func (opt *Options) SetTxLogMaxOpennedFiles(txLogMaxOpennedFiles int) *Options {
-	opt.txLogMaxOpennedFiles = txLogMaxOpennedFiles
+func (opt *Options) SetTxLogMaxOpenedFiles(txLogMaxOpenedFiles int) *Options {
+	opt.txLogMaxOpenedFiles = txLogMaxOpenedFiles
 	return opt
 }
 
-func (opt *Options) SetCommitLogMaxOpennedFiles(commitLogMaxOpennedFiles int) *Options {
-	opt.commitLogMaxOpennedFiles = commitLogMaxOpennedFiles
+func (opt *Options) SetCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
+	opt.commitLogMaxOpenedFiles = commitLogMaxOpenedFiles
 	return opt
 }
 
@@ -471,7 +471,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	for i := 0; i < opts.maxIOConcurrency; i++ {
 		appendableOpts.SetFileExt("val")
 		appendableOpts.SetFileSize(opts.vLogFileSize)
-		appendableOpts.SetMaxOpenedFiles(opts.vLogMaxOpennedFiles)
+		appendableOpts.SetMaxOpenedFiles(opts.vLogMaxOpenedFiles)
 		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
 		vLog, err := appendable.Open(vLogPath, appendableOpts)
 		if err != nil {
@@ -482,7 +482,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	appendableOpts.SetFileExt("tx")
 	appendableOpts.SetFileSize(opts.txLogFileSize)
-	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpennedFiles)
+	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpenedFiles)
 	txLogPath := filepath.Join(path, "tx")
 	txLog, err := appendable.Open(txLogPath, appendableOpts)
 	if err != nil {
@@ -491,7 +491,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	appendableOpts.SetFileExt("idb")
 	appendableOpts.SetFileSize(opts.commitLogFileSize)
-	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpennedFiles)
+	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := appendable.Open(cLogPath, appendableOpts)
 	if err != nil {
