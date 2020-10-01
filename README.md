@@ -99,12 +99,13 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 9.  [Features](#features) - How you'll use immudb on your systems
 10.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
 11.  [Real world examples](#real-world-examples) - Read about how others use immudb
-12.  [Documentation](#documentation) - Read the documentation
-13.  [FAQ](#faq) - Frequently asked questions
-14.  [Community](#community) - Discuss immudb with others and get support
-15.  [License](#license) - Check immudb's licencing
-16.  [Is it awesome?](#is-it-awesome) - Yes.
-17. [Stargazers over time](#stargazers-over-time) - GitHub stars over time!
+12.  [System limits](#limits) - System Limits
+13.  [Documentation](#documentation) - Read the documentation
+14.  [FAQ](#faq) - Frequently asked questions
+15.  [Community](#community) - Discuss immudb with others and get support
+16.  [License](#license) - Check immudb's licencing
+17.  [Is it awesome?](#is-it-awesome) - Yes.
+18. [Stargazers over time](#stargazers-over-time) - GitHub stars over time!
 
 ## Quickstart
 
@@ -802,6 +803,27 @@ We already learned about the following use cases from users:
 
 [tinaba](https://www.tinaba.bancaprofilo.it/)
 
+## Limits
+
+Immudb has this limitations:
+ - database name must be shorter than 128 characters
+ - for every database created, 4 more file descriptor will be used
+ - it is quite addictive!
+
+The default number of open file per process on modern linux systems is usually 1024. Thats mean that without increasing that number, immudb is limited to about 250 databases. Is it easy to increase that limit.
+
+You you are using systemd services, you only need to set `LimitNOFILE=65536` in the service file, and restart the service.
+
+With systemV init, you have to put `ulimit -n` in your init file, before launching immudb.
+
+It is also possible to modify `/etc/security/limits.conf`, which sets the system defaults.
+
+If you are using a dedicated immudb user, just add:
+```
+# /etc/security/limits.conf
+immudb    hard    nofile      65536
+immudb    soft    nofile      65536
+```
 
 ## Documentation
 
