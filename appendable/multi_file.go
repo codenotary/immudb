@@ -295,6 +295,7 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 			}
 		}
 
+		mf.currAppID = appID
 		mf.currApp = app
 	}
 
