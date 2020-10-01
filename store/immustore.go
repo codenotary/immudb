@@ -469,7 +469,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
 	for i := 0; i < opts.maxIOConcurrency; i++ {
-		appendableOpts.SetFileExt(".val")
+		appendableOpts.SetFileExt("val")
 		appendableOpts.SetFileSize(opts.vLogFileSize)
 		appendableOpts.SetMaxOpenedFiles(opts.vLogMaxOpennedFiles)
 		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
@@ -480,7 +480,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		vLogs[i] = vLog
 	}
 
-	appendableOpts.SetFileExt(".tx")
+	appendableOpts.SetFileExt("tx")
 	appendableOpts.SetFileSize(opts.txLogFileSize)
 	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpennedFiles)
 	txLogPath := filepath.Join(path, "tx")
@@ -489,7 +489,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, err
 	}
 
-	appendableOpts.SetFileExt(".idb")
+	appendableOpts.SetFileExt("idb")
 	appendableOpts.SetFileSize(opts.commitLogFileSize)
 	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpennedFiles)
 	cLogPath := filepath.Join(path, "commit")
