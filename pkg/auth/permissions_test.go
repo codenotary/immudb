@@ -30,4 +30,11 @@ func TestHasPermissionForMethod(t *testing.T) {
 	if HasPermissionForMethod(PermissionNone, "DeactivateUser") {
 		t.Errorf("HasPermissionForMethod error")
 	}
+
+	if !HasPermissionForMethod(PermissionR, "CountAll") {
+		t.Errorf("expected PermissionR to be sufficient for CountAll")
+	}
+	if HasPermissionForMethod(PermissionNone, "CountAll") {
+		t.Errorf("expected PermissionNone to be insufficient for CountAll")
+	}
 }
