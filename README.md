@@ -805,7 +805,7 @@ We already learned about the following use cases from users:
 
 ## Multiple databases
 
-It is possible to create and use many databases. There is no hardcoded limit on the number of database immudb can handle, but keep in mind that for every database created, 4 more file descriptor will be used. Also, the database name must be shorter that 128 bytes, in order to comply with filesystem limitations.
+It is possible to create and use many databases. There is no hardcoded limit on the number of database immudb can handle, but keep in mind that for every database created, 4 more file descriptor will be used. Also, the database name must be shorter that 128 bytes, in order to comply with filesystem limitations. This is because every database is stored in a directory which has the same name of the database. For the same reason, special characters (such as `/`) in the database name must be avoided.
 
 The default number of open file per process on modern linux systems is usually 1024. Thats mean that without increasing that number, immudb is limited to about 250 databases. It's easy to increase that limit.
 
