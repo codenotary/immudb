@@ -53,7 +53,7 @@ const DefaultMaxIOConcurrency = 1
 const DefaultMaxTxEntries = 1 << 16 // 65536
 const DefaultMaxKeyLen = 256
 const DefaultMaxValueLen = 1 << 20 // 1 Mb
-const DefaultFileMode = 0644
+const DefaultFileMode = 0755
 const DefaultMaxLinearProofLen = 1 << 10
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
@@ -404,7 +404,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	finfo, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.Mkdir(path, 0700)
+			err = os.Mkdir(path, opts.fileMode)
 			if err != nil {
 				return nil, err
 			}
@@ -418,8 +418,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts := appendable.DefaultOptions().
 		SetReadOnly(opts.readOnly).
 		SetSynced(opts.synced).
-		SetFileMode(opts.fileMode).
-		SetFilename("single-log-file.aof")
+		SetFileMode(opts.fileMode)
 
 	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
 	for i := 0; i < opts.maxIOConcurrency; i++ {

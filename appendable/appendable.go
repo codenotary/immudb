@@ -18,6 +18,7 @@ package appendable
 type Appendable interface {
 	Metadata() []byte
 	Size() (int64, error)
+	Offset() int64
 	SetOffset(off int64) error
 	Append(bs []byte) (off int64, n int, err error)
 	Flush() error

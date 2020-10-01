@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package appendable
+package singleapp
 
 import (
 	"bufio"
@@ -101,7 +101,7 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 			return nil, err
 		}
 
-		err = os.Mkdir(path, 0700)
+		err = os.Mkdir(path, opts.fileMode)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 
 	name := opts.filename
 	if name == "" {
-		name = fmt.Sprintf("%d.aof", time.Now().Unix())
+		name = fmt.Sprintf("%d.idb", time.Now().Unix())
 	}
 	fileName := filepath.Join(path, name)
 
@@ -190,9 +190,13 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		readOnly: opts.readOnly,
 		synced:   opts.synced,
 		w:        w,
-		offset:   off - metadataLenLen - int64(len(metadata)),
+		offset:   off - baseOffset(len(metadata)),
 		closed:   false,
 	}, nil
+}
+
+func baseOffset(metadataLen int) int64 {
+	return int64(metadataLenLen + metadataLen)
 }
 
 func (aof *AppendableFile) Metadata() []byte {
@@ -204,11 +208,15 @@ func (aof *AppendableFile) Size() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return stat.Size() - int64(metadataLenLen+len(aof.metadata)), nil
+	return stat.Size() - baseOffset(len(aof.metadata)), nil
+}
+
+func (aof *AppendableFile) Offset() int64 {
+	return aof.offset
 }
 
 func (aof *AppendableFile) SetOffset(off int64) error {
-	_, err := aof.f.Seek(off+int64(metadataLenLen+len(aof.metadata)), os.SEEK_SET)
+	_, err := aof.f.Seek(off+baseOffset(len(aof.metadata)), os.SEEK_SET)
 	if err != nil {
 		return err
 	}
@@ -222,6 +230,10 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 		return 0, 0, ErrReadOnly
 	}
 
+	if bs == nil {
+		return 0, 0, ErrIllegalArgument
+	}
+
 	n, err = aof.w.Write(bs)
 
 	off = aof.offset
@@ -232,7 +244,7 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
-	return aof.f.ReadAt(bs, off+int64(metadataLenLen+len(aof.metadata)))
+	return aof.f.ReadAt(bs, off+baseOffset(len(aof.metadata)))
 }
 
 func (aof *AppendableFile) Flush() error {
@@ -274,5 +286,5 @@ func (aof *AppendableFile) Close() error {
 
 	aof.closed = true
 
-	return nil
+	return aof.f.Close()
 }

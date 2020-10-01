@@ -206,8 +206,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	opts := DefaultOptions()
 	appendableOpts := appendable.DefaultOptions().
 		SetReadOnly(opts.readOnly).
-		SetFileMode(opts.fileMode).
-		SetFilename("single-log-file.aof")
+		SetFileMode(opts.fileMode)
 
 	vLogPath := filepath.Join(path, "val_0")
 	vLog, err := appendable.Open(vLogPath, appendableOpts)
@@ -300,7 +299,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 var errEmulatedAppendableError = errors.New("emulated appendable error")
 
 type FailingAppendable struct {
-	*appendable.AppendableFile
+	appendable.Appendable
 	errorRate int
 }
 
@@ -309,7 +308,7 @@ func (la *FailingAppendable) Append(bs []byte) (off int64, n int, err error) {
 		return 0, 0, errEmulatedAppendableError
 	}
 
-	return la.AppendableFile.Append(bs)
+	return la.Appendable.Append(bs)
 }
 
 func BenchmarkSyncedAppend(b *testing.B) {
