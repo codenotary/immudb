@@ -41,11 +41,24 @@ func main() {
 	txRead := flag.Bool("txRead", false, "validate committed txs against input kv data")
 	txLinking := flag.Bool("txLinking", true, "full scan to verify linear cryptographic linking between txs")
 	kvInclusion := flag.Bool("kvInclusion", false, "validate kv data of every tx as part of the linear verification. txLinking must be enabled")
+	logFileSize := flag.Int("logFileSize", 1<<26, "log file size up to which a new log file is created")
+	opennedLogFiles := flag.Int("opennedLogFiles", 10, "number of maximun number of openned files per each log type")
 
 	flag.Parse()
 
 	fmt.Println("Opening Immutable Transactional Key-Value Log...")
-	immuStore, err := store.Open(*dataDir, store.DefaultOptions().SetSynced(*synced).SetIOConcurrency(*parallelIO))
+
+	opts := store.DefaultOptions().
+		SetSynced(*synced).
+		SetIOConcurrency(*parallelIO).
+		SetVLogFileSize(*logFileSize).
+		SetTxLogFileSize(*logFileSize).
+		SetCommitLogFileSize(*logFileSize).
+		SetVLogMaxOpennedFiles(*opennedLogFiles).
+		SetTxLogMaxOpennedFiles(*opennedLogFiles).
+		SetCommitLogMaxOpennedFiles(*opennedLogFiles)
+
+	immuStore, err := store.Open(*dataDir, opts)
 
 	if err != nil {
 		panic(err)
