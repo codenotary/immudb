@@ -144,7 +144,11 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 	if len(fis) > 0 {
 		filename := fis[len(fis)-1].Name()
 		appendableOpts.SetFilename(filename)
-		currAppID, err = strconv.ParseInt(strings.TrimSuffix(filename, filepath.Ext(filename)), 10, 64)
+		ext := filepath.Ext(filename)
+		if len(ext) > 0 {
+			ext = "." + ext
+		}
+		currAppID, err = strconv.ParseInt(strings.TrimSuffix(filename, ext), 10, 64)
 		if err != nil {
 			return nil, err
 		}
