@@ -268,28 +268,44 @@ func (e *Txe) digest() [sha256.Size]byte {
 }
 
 type Options struct {
-	readOnly          bool
-	synced            bool
-	fileMode          os.FileMode
+	readOnly bool
+	synced   bool
+	fileMode os.FileMode
+
 	maxConcurrency    int
 	maxIOConcurrency  int
 	maxTxEntries      int
 	maxKeyLen         int
 	maxValueLen       int
 	maxLinearProofLen int
+
+	vLogFileSize             int
+	txLogFileSize            int
+	commitLogFileSize        int
+	vLogMaxOpennedFiles      int
+	txLogMaxOpennedFiles     int
+	commitLogMaxOpennedFiles int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		readOnly:          false,
-		synced:            true,
-		fileMode:          DefaultFileMode,
+		readOnly: false,
+		synced:   true,
+		fileMode: DefaultFileMode,
+
 		maxConcurrency:    DefaultMaxConcurrency,
 		maxIOConcurrency:  DefaultMaxIOConcurrency,
 		maxTxEntries:      DefaultMaxTxEntries,
 		maxKeyLen:         DefaultMaxKeyLen,
 		maxValueLen:       DefaultMaxValueLen,
 		maxLinearProofLen: DefaultMaxLinearProofLen,
+
+		vLogFileSize:             appendable.DefaultFileSize,
+		txLogFileSize:            appendable.DefaultFileSize,
+		commitLogFileSize:        appendable.DefaultFileSize,
+		vLogMaxOpennedFiles:      10,
+		txLogMaxOpennedFiles:     10,
+		commitLogMaxOpennedFiles: 1,
 	}
 }
 
@@ -335,6 +351,36 @@ func (opt *Options) SetMaxValueLen(maxValueLen int) *Options {
 
 func (opt *Options) SetMaxLinearProofLen(maxLinearProofLen int) *Options {
 	opt.maxLinearProofLen = maxLinearProofLen
+	return opt
+}
+
+func (opt *Options) SetVLogFileSize(vLogFileSize int) *Options {
+	opt.vLogFileSize = vLogFileSize
+	return opt
+}
+
+func (opt *Options) SetTxLogFileSize(txLogFileSize int) *Options {
+	opt.txLogFileSize = txLogFileSize
+	return opt
+}
+
+func (opt *Options) SetCommitLogFileSize(commitLogFileSize int) *Options {
+	opt.commitLogFileSize = commitLogFileSize
+	return opt
+}
+
+func (opt *Options) SetVLogMaxOpennedFiles(vLogMaxOpennedFiles int) *Options {
+	opt.vLogMaxOpennedFiles = vLogMaxOpennedFiles
+	return opt
+}
+
+func (opt *Options) SetTxLogMaxOpennedFiles(txLogMaxOpennedFiles int) *Options {
+	opt.txLogMaxOpennedFiles = txLogMaxOpennedFiles
+	return opt
+}
+
+func (opt *Options) SetCommitLogMaxOpennedFiles(commitLogMaxOpennedFiles int) *Options {
+	opt.commitLogMaxOpennedFiles = commitLogMaxOpennedFiles
 	return opt
 }
 
@@ -397,7 +443,8 @@ func (kv *KV) Digest() [sha256.Size]byte {
 func Open(path string, opts *Options) (*ImmuStore, error) {
 	if opts == nil || opts.maxKeyLen > MaxKeyLen ||
 		opts.maxConcurrency < 1 ||
-		opts.maxIOConcurrency < 1 || opts.maxIOConcurrency > MaxParallelIO {
+		opts.maxIOConcurrency < 1 ||
+		opts.maxIOConcurrency > MaxParallelIO {
 		return nil, ErrIllegalArgument
 	}
 
@@ -422,6 +469,9 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
 	for i := 0; i < opts.maxIOConcurrency; i++ {
+		appendableOpts.SetFileExt(".val")
+		appendableOpts.SetFileSize(opts.vLogFileSize)
+		appendableOpts.SetMaxOpenedFiles(opts.vLogMaxOpennedFiles)
 		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
 		vLog, err := appendable.Open(vLogPath, appendableOpts)
 		if err != nil {
@@ -430,12 +480,18 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		vLogs[i] = vLog
 	}
 
+	appendableOpts.SetFileExt(".tx")
+	appendableOpts.SetFileSize(opts.txLogFileSize)
+	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpennedFiles)
 	txLogPath := filepath.Join(path, "tx")
 	txLog, err := appendable.Open(txLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
+	appendableOpts.SetFileExt(".idb")
+	appendableOpts.SetFileSize(opts.commitLogFileSize)
+	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpennedFiles)
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := appendable.Open(cLogPath, appendableOpts)
 	if err != nil {
