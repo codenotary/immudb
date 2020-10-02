@@ -314,7 +314,7 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 
 		if err != nil {
 			if err != cache.ErrKeyNotFound {
-				return 0, err
+				return r, err
 			}
 
 			app, err = mf.openAppendable(appendableName(appID, mf.fileExt))
@@ -338,7 +338,11 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 		rn, err := app.(*singleapp.AppendableFile).ReadAt(bs[r:], offr%int64(mf.fileSize))
 		r += rn
 
-		if err != nil && err != io.EOF {
+		if err == io.EOF && rn > 0 {
+			continue
+		}
+
+		if err != nil {
 			return r, err
 		}
 	}
