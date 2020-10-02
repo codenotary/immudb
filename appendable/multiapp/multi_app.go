@@ -216,20 +216,20 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 		if available == 0 {
 			_, ejectedApp, err := mf.appendables.Put(mf.currAppID, mf.currApp)
 			if err != nil {
-				return 0, 0, err
+				return off, n, err
 			}
 
 			if ejectedApp != nil {
 				err = ejectedApp.(*singleapp.AppendableFile).Close()
 				if err != nil {
-					return 0, 0, err
+					return off, n, err
 				}
 			}
 
 			mf.currAppID++
 			currApp, err := mf.openAppendable(appendableName(mf.currAppID, mf.fileExt))
 			if err != nil {
-				return 0, 0, err
+				return off, n, err
 			}
 			currApp.SetOffset(0)
 
@@ -242,7 +242,7 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 
 		offn, _, err := mf.currApp.Append(bs[n : n+d])
 		if err != nil {
-			return 0, 0, err
+			return off, n, err
 		}
 
 		if n == 0 {
