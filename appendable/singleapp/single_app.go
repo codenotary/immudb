@@ -23,6 +23,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"codenotary.io/immudb-v2/appendable"
 )
 
 var ErrorPathIsNotADirectory = errors.New("Path is not a directory")
@@ -32,12 +34,19 @@ var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 
 const DefaultFileMode = 0644
 
+const (
+	metaCompressionFormat = "COMPRESSION_FORMAT"
+	metaCompressionLevel  = "COMPRESSION_LEVEL"
+	metaWrappedMeta       = "WRAPPED_METADATA"
+)
+
 const metadataLenLen = 4
 
 type AppendableFile struct {
 	f *os.File
 
-	metadata []byte
+	metadata    *appendable.Metadata
+	metadataLen int
 
 	readOnly bool
 	synced   bool
@@ -54,14 +63,20 @@ type Options struct {
 	synced   bool
 	fileMode os.FileMode
 	filename string
+
+	compressionFormat int
+	compressionLevel  int
+
 	metadata []byte
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		readOnly: false,
-		synced:   true,
-		fileMode: DefaultFileMode,
+		readOnly:          false,
+		synced:            true,
+		fileMode:          DefaultFileMode,
+		compressionFormat: appendable.DefaultCompressionFormat,
+		compressionLevel:  appendable.DefaultCompressionLevel,
 	}
 }
 
@@ -82,6 +97,16 @@ func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
 
 func (opt *Options) SetFilename(filename string) *Options {
 	opt.filename = filename
+	return opt
+}
+
+func (opt *Options) SetCompressionFormat(compressionFormat int) *Options {
+	opt.compressionFormat = compressionFormat
+	return opt
+}
+
+func (opt *Options) SetCompresionLevel(compressionLevel int) *Options {
+	opt.compressionLevel = compressionLevel
 	return opt
 }
 
@@ -140,22 +165,28 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		w = bufio.NewWriter(f)
 	}
 
-	metadata := opts.metadata
-
-	b := make([]byte, 4) // buff for metatada len
+	var metadata *appendable.Metadata
+	var metadataLen int
 
 	if notExist {
-		binary.BigEndian.PutUint32(b, uint32(len(metadata)))
-		_, err := w.Write(b)
+		metadata = appendable.NewMetadata(nil)
+		metadata.PutInt(metaCompressionFormat, int(opts.compressionFormat))
+		metadata.PutInt(metaCompressionLevel, int(opts.compressionLevel))
+		metadata.Put(metaWrappedMeta, opts.metadata)
+
+		metadataBs := metadata.Bytes()
+		metadataLen = len(metadataBs)
+
+		metaLenBs := make([]byte, 4)
+		binary.BigEndian.PutUint32(metaLenBs, uint32(metadataLen))
+		_, err := w.Write(metaLenBs)
 		if err != nil {
 			return nil, err
 		}
 
-		if opts.metadata != nil {
-			_, err = w.Write(opts.metadata)
-			if err != nil {
-				return nil, err
-			}
+		_, err = w.Write(metadataBs)
+		if err != nil {
+			return nil, err
 		}
 
 		err = w.Flush()
@@ -165,18 +196,20 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 	} else {
 		r := bufio.NewReader(f)
 
-		_, err := r.Read(b)
+		metaLenBs := make([]byte, 4)
+		_, err := r.Read(metaLenBs)
 		if err != nil {
 			return nil, err
 		}
 
-		metadataLen := binary.BigEndian.Uint32(b)
-		metadata = make([]byte, metadataLen)
-
-		_, err = r.Read(metadata)
+		metadataBs := make([]byte, binary.BigEndian.Uint32(metaLenBs))
+		_, err = r.Read(metadataBs)
 		if err != nil {
 			return nil, err
 		}
+
+		metadata = appendable.NewMetadata(metadataBs)
+		metadataLen = len(metadataBs)
 	}
 
 	off, err := f.Seek(0, os.SEEK_END)
@@ -185,13 +218,14 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 	}
 
 	return &AppendableFile{
-		f:        f,
-		metadata: metadata,
-		readOnly: opts.readOnly,
-		synced:   opts.synced,
-		w:        w,
-		offset:   off - baseOffset(len(metadata)),
-		closed:   false,
+		f:           f,
+		metadata:    metadata,
+		metadataLen: metadataLen,
+		readOnly:    opts.readOnly,
+		synced:      opts.synced,
+		w:           w,
+		offset:      off - baseOffset(metadataLen),
+		closed:      false,
 	}, nil
 }
 
@@ -200,7 +234,8 @@ func baseOffset(metadataLen int) int64 {
 }
 
 func (aof *AppendableFile) Metadata() []byte {
-	return aof.metadata
+	m, _ := aof.metadata.Get(metaWrappedMeta)
+	return m
 }
 
 func (aof *AppendableFile) Size() (int64, error) {
@@ -208,7 +243,7 @@ func (aof *AppendableFile) Size() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return stat.Size() - baseOffset(len(aof.metadata)), nil
+	return stat.Size() - baseOffset(aof.metadataLen), nil
 }
 
 func (aof *AppendableFile) Offset() int64 {
@@ -216,7 +251,7 @@ func (aof *AppendableFile) Offset() int64 {
 }
 
 func (aof *AppendableFile) SetOffset(off int64) error {
-	_, err := aof.f.Seek(off+baseOffset(len(aof.metadata)), os.SEEK_SET)
+	_, err := aof.f.Seek(off+baseOffset(aof.metadataLen), os.SEEK_SET)
 	if err != nil {
 		return err
 	}
@@ -244,7 +279,7 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
-	return aof.f.ReadAt(bs, off+baseOffset(len(aof.metadata)))
+	return aof.f.ReadAt(bs, off+baseOffset(aof.metadataLen))
 }
 
 func (aof *AppendableFile) Flush() error {

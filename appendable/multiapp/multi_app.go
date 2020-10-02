@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/singleapp"
 	"codenotary.io/immudb-v2/cache"
 )
@@ -39,23 +40,27 @@ const DefaultMaxOpenedFiles = 10
 const DefaultFileMode = 0755
 
 type Options struct {
-	readOnly       bool
-	synced         bool
-	fileMode       os.FileMode
-	fileSize       int
-	fileExt        string
-	metadata       []byte
-	maxOpenedFiles int
+	readOnly          bool
+	synced            bool
+	fileMode          os.FileMode
+	fileSize          int
+	fileExt           string
+	metadata          []byte
+	maxOpenedFiles    int
+	compressionFormat int
+	compressionLevel  int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		readOnly:       false,
-		synced:         true,
-		fileMode:       DefaultFileMode,
-		fileSize:       DefaultFileSize,
-		fileExt:        "aof",
-		maxOpenedFiles: DefaultMaxOpenedFiles,
+		readOnly:          false,
+		synced:            true,
+		fileMode:          DefaultFileMode,
+		fileSize:          DefaultFileSize,
+		fileExt:           "aof",
+		maxOpenedFiles:    DefaultMaxOpenedFiles,
+		compressionFormat: appendable.DefaultCompressionFormat,
+		compressionLevel:  appendable.DefaultCompressionLevel,
 	}
 }
 
@@ -91,6 +96,16 @@ func (opt *Options) SetFileExt(fileExt string) *Options {
 
 func (opt *Options) SetMaxOpenedFiles(maxOpenedFiles int) *Options {
 	opt.maxOpenedFiles = maxOpenedFiles
+	return opt
+}
+
+func (opt *Options) SetCompressionFormat(compressionFormat int) *Options {
+	opt.compressionFormat = compressionFormat
+	return opt
+}
+
+func (opt *Options) SetCompresionLevel(compressionLevel int) *Options {
+	opt.compressionLevel = compressionLevel
 	return opt
 }
 
@@ -139,7 +154,9 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 	appendableOpts := singleapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
 		SetSynced(opts.synced).
-		SetFileMode(opts.fileMode)
+		SetFileMode(opts.fileMode).
+		SetCompressionFormat(opts.compressionFormat).
+		SetCompresionLevel(opts.compressionLevel)
 
 	if len(fis) > 0 {
 		filename := fis[len(fis)-1].Name()

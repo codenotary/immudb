@@ -269,10 +269,10 @@ func (e *Txe) digest() [sha256.Size]byte {
 }
 
 const (
-	MetadataKeyMaxTxEntries = "MAX_TX_ENTRIES"
-	MetadataKeyMaxKeyLen    = "MAX_KEY_LEN"
-	MetadataKeyMaxValueLen  = "MAX_VALUE_LEN"
-	MetadataKeyFileSize     = "FILE_SIZE"
+	MetaMaxTxEntries = "MAX_TX_ENTRIES"
+	MetaMaxKeyLen    = "MAX_KEY_LEN"
+	MetaMaxValueLen  = "MAX_VALUE_LEN"
+	MetaFileSize     = "FILE_SIZE"
 )
 
 type Options struct {
@@ -289,10 +289,12 @@ type Options struct {
 	commitLogMaxOpenedFiles int
 
 	// options below are only set during initialization and stored as metadata
-	maxTxEntries int
-	maxKeyLen    int
-	maxValueLen  int
-	fileSize     int
+	maxTxEntries      int
+	maxKeyLen         int
+	maxValueLen       int
+	fileSize          int
+	compressionFormat int
+	compressionLevel  int
 }
 
 func DefaultOptions() *Options {
@@ -310,10 +312,12 @@ func DefaultOptions() *Options {
 		commitLogMaxOpenedFiles: 1,
 
 		// options below are only set during initialization and stored as metadata
-		maxTxEntries: DefaultMaxTxEntries,
-		maxKeyLen:    DefaultMaxKeyLen,
-		maxValueLen:  DefaultMaxValueLen,
-		fileSize:     multiapp.DefaultFileSize,
+		maxTxEntries:      DefaultMaxTxEntries,
+		maxKeyLen:         DefaultMaxKeyLen,
+		maxValueLen:       DefaultMaxValueLen,
+		fileSize:          multiapp.DefaultFileSize,
+		compressionFormat: appendable.DefaultCompressionFormat,
+		compressionLevel:  appendable.DefaultCompressionLevel,
 	}
 }
 
@@ -379,6 +383,16 @@ func (opt *Options) SetTxLogMaxOpenedFiles(txLogMaxOpenedFiles int) *Options {
 
 func (opt *Options) SetCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
 	opt.commitLogMaxOpenedFiles = commitLogMaxOpenedFiles
+	return opt
+}
+
+func (opt *Options) SetCompressionFormat(compressionFormat int) *Options {
+	opt.compressionFormat = compressionFormat
+	return opt
+}
+
+func (opt *Options) SetCompresionLevel(compressionLevel int) *Options {
+	opt.compressionLevel = compressionLevel
 	return opt
 }
 
@@ -461,10 +475,10 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	metadata := appendable.NewMetadata(nil)
-	metadata.PutInt(MetadataKeyFileSize, opts.fileSize)
-	metadata.PutInt(MetadataKeyMaxTxEntries, opts.maxTxEntries)
-	metadata.PutInt(MetadataKeyMaxKeyLen, opts.maxKeyLen)
-	metadata.PutInt(MetadataKeyMaxValueLen, opts.maxValueLen)
+	metadata.PutInt(MetaFileSize, opts.fileSize)
+	metadata.PutInt(MetaMaxTxEntries, opts.maxTxEntries)
+	metadata.PutInt(MetaMaxKeyLen, opts.maxKeyLen)
+	metadata.PutInt(MetaMaxValueLen, opts.maxValueLen)
 
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
@@ -542,15 +556,15 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
 
-	maxTxEntries, ok := metadata.GetInt(MetadataKeyMaxTxEntries)
+	maxTxEntries, ok := metadata.GetInt(MetaMaxTxEntries)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
-	maxKeyLen, ok := metadata.GetInt(MetadataKeyMaxKeyLen)
+	maxKeyLen, ok := metadata.GetInt(MetaMaxKeyLen)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
-	maxValueLen, ok := metadata.GetInt(MetadataKeyMaxValueLen)
+	maxValueLen, ok := metadata.GetInt(MetaMaxValueLen)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}

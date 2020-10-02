@@ -207,10 +207,10 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	opts := DefaultOptions()
 
 	metadata := appendable.NewMetadata(nil)
-	metadata.PutInt(MetadataKeyFileSize, opts.fileSize)
-	metadata.PutInt(MetadataKeyMaxTxEntries, opts.maxTxEntries)
-	metadata.PutInt(MetadataKeyMaxKeyLen, opts.maxKeyLen)
-	metadata.PutInt(MetadataKeyMaxValueLen, opts.maxValueLen)
+	metadata.PutInt(MetaFileSize, opts.fileSize)
+	metadata.PutInt(MetaMaxTxEntries, opts.maxTxEntries)
+	metadata.PutInt(MetaMaxKeyLen, opts.maxKeyLen)
+	metadata.PutInt(MetaMaxValueLen, opts.maxValueLen)
 
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).

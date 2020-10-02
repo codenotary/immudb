@@ -15,6 +15,28 @@ limitations under the License.
 */
 package appendable
 
+import "compress/flate"
+
+const DefaultCompressionFormat = RawNoCompression
+const DefaultCompressionLevel = NoCompression
+
+const (
+	RawNoCompression = iota
+	BZip2Compression
+	FlateCompression
+	GZipCompression
+	LZWCompression
+	ZLibCompression
+)
+
+const (
+	NoCompression      = flate.NoCompression
+	BestSpeed          = flate.BestSpeed
+	BestCompression    = flate.BestCompression
+	DefaultCompression = flate.DefaultCompression
+	HuffmanOnly        = flate.HuffmanOnly
+)
+
 type Appendable interface {
 	Metadata() []byte
 	Size() (int64, error)
