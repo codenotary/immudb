@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"codenotary.io/immudb-v2/appendable"
+	"codenotary.io/immudb-v2/appendable/multiapp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -211,7 +212,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	metadata.PutInt(MetadataKeyMaxKeyLen, opts.maxKeyLen)
 	metadata.PutInt(MetadataKeyMaxValueLen, opts.maxValueLen)
 
-	appendableOpts := appendable.DefaultOptions().
+	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
 		SetSynced(opts.synced).
 		SetFileMode(opts.fileMode).
@@ -219,17 +220,17 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 
 	vLogPath := filepath.Join(path, "val_0")
 	appendableOpts.SetFileExt("val")
-	vLog, err := appendable.Open(vLogPath, appendableOpts)
+	vLog, err := multiapp.Open(vLogPath, appendableOpts)
 	require.NoError(t, err)
 
 	txLogPath := filepath.Join(path, "tx")
 	appendableOpts.SetFileExt("tx")
-	txLog, err := appendable.Open(txLogPath, appendableOpts)
+	txLog, err := multiapp.Open(txLogPath, appendableOpts)
 	require.NoError(t, err)
 
 	cLogPath := filepath.Join(path, "commit")
 	appendableOpts.SetFileExt("idb")
-	cLog, err := appendable.Open(cLogPath, appendableOpts)
+	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	require.NoError(t, err)
 
 	failingVLog := &FailingAppendable{vLog, 2}

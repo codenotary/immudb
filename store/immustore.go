@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"codenotary.io/immudb-v2/appendable"
+	"codenotary.io/immudb-v2/appendable/multiapp"
 	"github.com/codenotary/merkletree"
 )
 
@@ -312,7 +313,7 @@ func DefaultOptions() *Options {
 		maxTxEntries: DefaultMaxTxEntries,
 		maxKeyLen:    DefaultMaxKeyLen,
 		maxValueLen:  DefaultMaxValueLen,
-		fileSize:     appendable.DefaultFileSize,
+		fileSize:     multiapp.DefaultFileSize,
 	}
 }
 
@@ -465,7 +466,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	metadata.PutInt(MetadataKeyMaxKeyLen, opts.maxKeyLen)
 	metadata.PutInt(MetadataKeyMaxValueLen, opts.maxValueLen)
 
-	appendableOpts := appendable.DefaultOptions().
+	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
 		SetSynced(opts.synced).
 		SetFileMode(opts.fileMode).
@@ -476,7 +477,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		appendableOpts.SetFileExt("val")
 		appendableOpts.SetMaxOpenedFiles(opts.vLogMaxOpenedFiles)
 		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
-		vLog, err := appendable.Open(vLogPath, appendableOpts)
+		vLog, err := multiapp.Open(vLogPath, appendableOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -486,7 +487,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts.SetFileExt("tx")
 	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpenedFiles)
 	txLogPath := filepath.Join(path, "tx")
-	txLog, err := appendable.Open(txLogPath, appendableOpts)
+	txLog, err := multiapp.Open(txLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +495,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts.SetFileExt("idb")
 	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 	cLogPath := filepath.Join(path, "commit")
-	cLog, err := appendable.Open(cLogPath, appendableOpts)
+	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
