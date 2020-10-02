@@ -267,6 +267,13 @@ func (e *Txe) digest() [sha256.Size]byte {
 	return eh
 }
 
+const (
+	MetadataKeyMaxTxEntries = "MAX_TX_ENTRIES"
+	MetadataKeyMaxKeyLen    = "MAX_KEY_LEN"
+	MetadataKeyMaxValueLen  = "MAX_VALUE_LEN"
+	MetadataKeyFileSize     = "FILE_SIZE"
+)
+
 type Options struct {
 	readOnly bool
 	synced   bool
@@ -274,17 +281,17 @@ type Options struct {
 
 	maxConcurrency    int
 	maxIOConcurrency  int
-	maxTxEntries      int
-	maxKeyLen         int
-	maxValueLen       int
 	maxLinearProofLen int
 
-	vLogFileSize            int
-	txLogFileSize           int
-	commitLogFileSize       int
 	vLogMaxOpenedFiles      int
 	txLogMaxOpenedFiles     int
 	commitLogMaxOpenedFiles int
+
+	// options below are only set during initialization and stored as metadata
+	maxTxEntries int
+	maxKeyLen    int
+	maxValueLen  int
+	fileSize     int
 }
 
 func DefaultOptions() *Options {
@@ -295,17 +302,17 @@ func DefaultOptions() *Options {
 
 		maxConcurrency:    DefaultMaxConcurrency,
 		maxIOConcurrency:  DefaultMaxIOConcurrency,
-		maxTxEntries:      DefaultMaxTxEntries,
-		maxKeyLen:         DefaultMaxKeyLen,
-		maxValueLen:       DefaultMaxValueLen,
 		maxLinearProofLen: DefaultMaxLinearProofLen,
 
-		vLogFileSize:            appendable.DefaultFileSize,
-		txLogFileSize:           appendable.DefaultFileSize,
-		commitLogFileSize:       appendable.DefaultFileSize,
 		vLogMaxOpenedFiles:      10,
 		txLogMaxOpenedFiles:     10,
 		commitLogMaxOpenedFiles: 1,
+
+		// options below are only set during initialization and stored as metadata
+		maxTxEntries: DefaultMaxTxEntries,
+		maxKeyLen:    DefaultMaxKeyLen,
+		maxValueLen:  DefaultMaxValueLen,
+		fileSize:     appendable.DefaultFileSize,
 	}
 }
 
@@ -354,18 +361,8 @@ func (opt *Options) SetMaxLinearProofLen(maxLinearProofLen int) *Options {
 	return opt
 }
 
-func (opt *Options) SetVLogFileSize(vLogFileSize int) *Options {
-	opt.vLogFileSize = vLogFileSize
-	return opt
-}
-
-func (opt *Options) SetTxLogFileSize(txLogFileSize int) *Options {
-	opt.txLogFileSize = txLogFileSize
-	return opt
-}
-
-func (opt *Options) SetCommitLogFileSize(commitLogFileSize int) *Options {
-	opt.commitLogFileSize = commitLogFileSize
+func (opt *Options) SetFileSize(fileSize int) *Options {
+	opt.fileSize = fileSize
 	return opt
 }
 
@@ -462,15 +459,21 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, ErrorPathIsNotADirectory
 	}
 
+	metadata := appendable.NewMetadata(nil)
+	metadata.PutInt(MetadataKeyFileSize, opts.fileSize)
+	metadata.PutInt(MetadataKeyMaxTxEntries, opts.maxTxEntries)
+	metadata.PutInt(MetadataKeyMaxKeyLen, opts.maxKeyLen)
+	metadata.PutInt(MetadataKeyMaxValueLen, opts.maxValueLen)
+
 	appendableOpts := appendable.DefaultOptions().
 		SetReadOnly(opts.readOnly).
 		SetSynced(opts.synced).
-		SetFileMode(opts.fileMode)
+		SetFileMode(opts.fileMode).
+		SetMetadata(metadata.Bytes())
 
 	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
 	for i := 0; i < opts.maxIOConcurrency; i++ {
 		appendableOpts.SetFileExt("val")
-		appendableOpts.SetFileSize(opts.vLogFileSize)
 		appendableOpts.SetMaxOpenedFiles(opts.vLogMaxOpenedFiles)
 		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
 		vLog, err := appendable.Open(vLogPath, appendableOpts)
@@ -481,7 +484,6 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.SetFileExt("tx")
-	appendableOpts.SetFileSize(opts.txLogFileSize)
 	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpenedFiles)
 	txLogPath := filepath.Join(path, "tx")
 	txLog, err := appendable.Open(txLogPath, appendableOpts)
@@ -490,7 +492,6 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.SetFileExt("idb")
-	appendableOpts.SetFileSize(opts.commitLogFileSize)
 	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := appendable.Open(cLogPath, appendableOpts)
@@ -538,20 +539,27 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		return nil, ErrorCorruptedTxData
 	}
 
-	// TODO: take into account initial baseoffset for metadata
-	if txLogFileSize == 0 {
-		// TODO:  write config parameters and other metadata
-	} else {
-		// TODO:  read from files config parameters (from beginning of file)
+	metadata := appendable.NewMetadata(cLog.Metadata())
+
+	maxTxEntries, ok := metadata.GetInt(MetadataKeyMaxTxEntries)
+	if !ok {
+		return nil, ErrCorruptedCLog
+	}
+	maxKeyLen, ok := metadata.GetInt(MetadataKeyMaxKeyLen)
+	if !ok {
+		return nil, ErrCorruptedCLog
+	}
+	maxValueLen, ok := metadata.GetInt(MetadataKeyMaxValueLen)
+	if !ok {
+		return nil, ErrCorruptedCLog
 	}
 
-	// TODO: based on file config or opts if fresh created
-	maxTxSize := maxTxSize(opts.maxTxEntries, opts.maxKeyLen)
+	maxTxSize := maxTxSize(maxTxEntries, maxKeyLen)
 
 	txs := list.New()
 
 	for i := 0; i < opts.maxConcurrency; i++ {
-		tx := NewTx(opts.maxTxEntries, opts.maxKeyLen)
+		tx := NewTx(maxTxEntries, maxKeyLen)
 		txs.PushBack(tx)
 	}
 
@@ -590,9 +598,9 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		committedAlh:       committedAlh,
 		readOnly:           opts.readOnly,
 		synced:             opts.synced,
-		maxTxEntries:       opts.maxTxEntries,
-		maxKeyLen:          opts.maxKeyLen,
-		maxValueLen:        opts.maxValueLen,
+		maxTxEntries:       maxTxEntries,
+		maxKeyLen:          maxKeyLen,
+		maxValueLen:        maxValueLen,
 		maxLinearProofLen:  opts.maxLinearProofLen,
 		maxTxSize:          maxTxSize,
 		_txs:               txs,

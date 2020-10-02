@@ -51,9 +51,7 @@ func main() {
 	opts := store.DefaultOptions().
 		SetSynced(*synced).
 		SetIOConcurrency(*parallelIO).
-		SetVLogFileSize(*logFileSize).
-		SetTxLogFileSize(*logFileSize).
-		SetCommitLogFileSize(*logFileSize).
+		SetFileSize(*logFileSize).
 		SetVLogMaxOpenedFiles(*openedLogFiles).
 		SetTxLogMaxOpenedFiles(*openedLogFiles).
 		SetCommitLogMaxOpenedFiles(*openedLogFiles)

@@ -204,19 +204,31 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	defer os.RemoveAll("data")
 
 	opts := DefaultOptions()
+
+	metadata := appendable.NewMetadata(nil)
+	metadata.PutInt(MetadataKeyFileSize, opts.fileSize)
+	metadata.PutInt(MetadataKeyMaxTxEntries, opts.maxTxEntries)
+	metadata.PutInt(MetadataKeyMaxKeyLen, opts.maxKeyLen)
+	metadata.PutInt(MetadataKeyMaxValueLen, opts.maxValueLen)
+
 	appendableOpts := appendable.DefaultOptions().
 		SetReadOnly(opts.readOnly).
-		SetFileMode(opts.fileMode)
+		SetSynced(opts.synced).
+		SetFileMode(opts.fileMode).
+		SetMetadata(metadata.Bytes())
 
 	vLogPath := filepath.Join(path, "val_0")
+	appendableOpts.SetFileExt("val")
 	vLog, err := appendable.Open(vLogPath, appendableOpts)
 	require.NoError(t, err)
 
 	txLogPath := filepath.Join(path, "tx")
+	appendableOpts.SetFileExt("tx")
 	txLog, err := appendable.Open(txLogPath, appendableOpts)
 	require.NoError(t, err)
 
 	cLogPath := filepath.Join(path, "commit")
+	appendableOpts.SetFileExt("idb")
 	cLog, err := appendable.Open(cLogPath, appendableOpts)
 	require.NoError(t, err)
 
