@@ -41,7 +41,7 @@ func main() {
 	txRead := flag.Bool("txRead", false, "validate committed txs against input kv data")
 	txLinking := flag.Bool("txLinking", true, "full scan to verify linear cryptographic linking between txs")
 	kvInclusion := flag.Bool("kvInclusion", false, "validate kv data of every tx as part of the linear verification. txLinking must be enabled")
-	logFileSize := flag.Int("logFileSize", 1<<26, "log file size up to which a new log file is created")
+	fileSize := flag.Int("fileSize", 1<<26, "file size up to which a new ones are created")
 	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
 
 	flag.Parse()
@@ -51,7 +51,7 @@ func main() {
 	opts := store.DefaultOptions().
 		SetSynced(*synced).
 		SetIOConcurrency(*parallelIO).
-		SetFileSize(*logFileSize).
+		SetFileSize(*fileSize).
 		SetVLogMaxOpenedFiles(*openedLogFiles).
 		SetTxLogMaxOpenedFiles(*openedLogFiles).
 		SetCommitLogMaxOpenedFiles(*openedLogFiles)
