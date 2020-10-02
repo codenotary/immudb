@@ -489,6 +489,8 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
 	for i := 0; i < opts.maxIOConcurrency; i++ {
 		appendableOpts.SetFileExt("val")
+		appendableOpts.SetCompressionFormat(opts.compressionFormat)
+		appendableOpts.SetCompresionLevel(opts.compressionLevel)
 		appendableOpts.SetMaxOpenedFiles(opts.vLogMaxOpenedFiles)
 		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
 		vLog, err := multiapp.Open(vLogPath, appendableOpts)
@@ -499,6 +501,8 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.SetFileExt("tx")
+	appendableOpts.SetCompressionFormat(appendable.RawNoCompression)
+	appendableOpts.SetCompresionLevel(appendable.NoCompression)
 	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpenedFiles)
 	txLogPath := filepath.Join(path, "tx")
 	txLog, err := multiapp.Open(txLogPath, appendableOpts)
@@ -507,6 +511,8 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.SetFileExt("idb")
+	appendableOpts.SetCompressionFormat(appendable.RawNoCompression)
+	appendableOpts.SetCompresionLevel(appendable.NoCompression)
 	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
