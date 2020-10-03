@@ -327,7 +327,7 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 
 	off = aof.offset
 
-	if aof.compressionFormat == appendable.RawNoCompression {
+	if aof.compressionFormat == appendable.NoCompression {
 		n, err = aof.w.Write(bs)
 		aof.offset += int64(n)
 		return
@@ -361,7 +361,7 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
-	if aof.compressionFormat == appendable.RawNoCompression {
+	if aof.compressionFormat == appendable.NoCompression {
 		return aof.f.ReadAt(bs, off+aof.baseOffset)
 	}
 

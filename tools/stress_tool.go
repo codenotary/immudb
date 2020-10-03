@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/store"
 )
 
@@ -43,10 +44,41 @@ func main() {
 	kvInclusion := flag.Bool("kvInclusion", false, "validate kv data of every tx as part of the linear verification. txLinking must be enabled")
 	fileSize := flag.Int("fileSize", 1<<26, "file size up to which a new ones are created")
 	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
+	cFormat := flag.String("compressionFormat", "no-compression", "one of: no-compression, flate, gzip, zlib")
+	cLevel := flag.String("compressionLevel", "best-speed", "one of: best-speed, best-compression, default-compression, huffman-only")
 
 	flag.Parse()
 
 	fmt.Println("Opening Immutable Transactional Key-Value Log...")
+
+	var compressionFormat int
+	var compressionLevel int
+
+	switch *cFormat {
+	case "no-compression":
+		compressionFormat = appendable.NoCompression
+	case "flate":
+		compressionFormat = appendable.FlateCompression
+	case "gzip":
+		compressionFormat = appendable.GZipCompression
+	case "zlib":
+		compressionFormat = appendable.ZLibCompression
+	default:
+		panic("invalid compression format")
+	}
+
+	switch *cLevel {
+	case "best-speed":
+		compressionLevel = appendable.BestSpeed
+	case "best-compression":
+		compressionLevel = appendable.BestCompression
+	case "default-compression":
+		compressionLevel = appendable.DefaultCompression
+	case "huffman-only":
+		compressionLevel = appendable.HuffmanOnly
+	default:
+		panic("invalid compression level")
+	}
 
 	opts := store.DefaultOptions().
 		SetSynced(*synced).
@@ -54,7 +86,9 @@ func main() {
 		SetFileSize(*fileSize).
 		SetVLogMaxOpenedFiles(*openedLogFiles).
 		SetTxLogMaxOpenedFiles(*openedLogFiles).
-		SetCommitLogMaxOpenedFiles(*openedLogFiles)
+		SetCommitLogMaxOpenedFiles(*openedLogFiles).
+		SetCompressionFormat(compressionFormat).
+		SetCompresionLevel(compressionLevel)
 
 	immuStore, err := store.Open(*dataDir, opts)
 

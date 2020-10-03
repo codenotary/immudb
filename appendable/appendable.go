@@ -17,18 +17,17 @@ package appendable
 
 import "compress/flate"
 
-const DefaultCompressionFormat = RawNoCompression
-const DefaultCompressionLevel = NoCompression
+const DefaultCompressionFormat = NoCompression
+const DefaultCompressionLevel = BestSpeed
 
 const (
-	RawNoCompression = iota
+	NoCompression = iota
 	FlateCompression
 	GZipCompression
 	ZLibCompression
 )
 
 const (
-	NoCompression      = flate.NoCompression
 	BestSpeed          = flate.BestSpeed
 	BestCompression    = flate.BestCompression
 	DefaultCompression = flate.DefaultCompression

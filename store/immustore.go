@@ -501,8 +501,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.SetFileExt("tx")
-	appendableOpts.SetCompressionFormat(appendable.RawNoCompression)
-	appendableOpts.SetCompresionLevel(appendable.NoCompression)
+	appendableOpts.SetCompressionFormat(appendable.NoCompression)
 	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpenedFiles)
 	txLogPath := filepath.Join(path, "tx")
 	txLog, err := multiapp.Open(txLogPath, appendableOpts)
@@ -511,8 +510,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	appendableOpts.SetFileExt("idb")
-	appendableOpts.SetCompressionFormat(appendable.RawNoCompression)
-	appendableOpts.SetCompresionLevel(appendable.NoCompression)
+	appendableOpts.SetCompressionFormat(appendable.NoCompression)
 	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
