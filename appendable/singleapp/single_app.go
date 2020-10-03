@@ -37,6 +37,7 @@ var ErrIllegalArgument = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
+var ErrUnexpectedRead = errors.New("read less or more data than expected")
 
 const DefaultFileMode = 0644
 
@@ -291,14 +292,14 @@ func (aof *AppendableFile) SetOffset(off int64) error {
 	return nil
 }
 
-func (aof *AppendableFile) writer() (w io.Writer, err error) {
+func (aof *AppendableFile) writer(w io.Writer) (cw io.Writer, err error) {
 	switch aof.compressionFormat {
 	case appendable.FlateCompression:
-		w, err = flate.NewWriter(aof.w, aof.compressionLevel)
+		cw, err = flate.NewWriter(w, aof.compressionLevel)
 	case appendable.GZipCompression:
-		w, err = gzip.NewWriterLevel(aof.w, aof.compressionLevel)
+		cw, err = gzip.NewWriterLevel(w, aof.compressionLevel)
 	case appendable.ZLibCompression:
-		w, err = zlib.NewWriterLevel(aof.w, aof.compressionLevel)
+		cw, err = zlib.NewWriterLevel(w, aof.compressionLevel)
 	}
 	return
 }
@@ -324,24 +325,37 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 		return 0, 0, ErrIllegalArgument
 	}
 
-	var w io.Writer
-
-	if aof.compressionFormat == appendable.RawNoCompression {
-		w = aof.w
-	} else {
-		w, err = aof.writer()
-		if err != nil {
-			return 0, 0, err
-		}
-
-		defer w.(io.Closer).Close()
-	}
-
-	n, err = w.Write(bs)
-
 	off = aof.offset
 
-	aof.offset += int64(n)
+	if aof.compressionFormat == appendable.RawNoCompression {
+		n, err = aof.w.Write(bs)
+		aof.offset += int64(n)
+		return
+	}
+
+	var b bytes.Buffer
+
+	w, err := aof.writer(&b)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	_, err = w.Write(bs)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	w.(io.Closer).Close()
+
+	bb := b.Bytes()
+
+	bbLenBs := make([]byte, 4)
+	binary.BigEndian.PutUint32(bbLenBs, uint32(len(bb)))
+
+	aof.w.Write(bbLenBs)
+	aof.w.Write(bb)
+
+	aof.offset += int64(4 + len(bb))
 
 	return
 }
@@ -351,23 +365,42 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
 		return aof.f.ReadAt(bs, off+aof.baseOffset)
 	}
 
-	b := make([]byte, len(bs))
-
-	n, err := aof.f.ReadAt(b, off+aof.baseOffset)
+	_, err := aof.f.Seek(off+aof.baseOffset, os.SEEK_SET)
 	if err != nil {
-		return n, err
+		return 0, err
 	}
 
-	r, err := aof.reader(bytes.NewReader(b))
+	br := bufio.NewReader(aof.f)
+
+	clenBs := make([]byte, 4)
+	_, err = br.Read(clenBs)
 	if err != nil {
-		return n, err
+		return 0, err
 	}
+
+	cBs := make([]byte, binary.BigEndian.Uint32(clenBs))
+	_, err = br.Read(cBs)
+	if err != nil {
+		return 0, err
+	}
+
+	r, err := aof.reader(bytes.NewReader(cBs))
+	if err != nil {
+		return 0, err
+	}
+	defer r.Close()
 
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
-	copy(bs, buf.Bytes())
+	rbs := buf.Bytes()
 
-	return n, err
+	copy(bs, rbs[:len(bs)])
+
+	if len(bs) != len(rbs) {
+		return len(rbs), ErrUnexpectedRead
+	}
+
+	return len(rbs), err
 }
 
 func (aof *AppendableFile) Flush() error {
