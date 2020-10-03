@@ -22,10 +22,8 @@ const DefaultCompressionLevel = NoCompression
 
 const (
 	RawNoCompression = iota
-	BZip2Compression
 	FlateCompression
 	GZipCompression
-	LZWCompression
 	ZLibCompression
 )
 

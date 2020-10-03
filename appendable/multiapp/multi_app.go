@@ -30,7 +30,7 @@ import (
 	"codenotary.io/immudb-v2/cache"
 )
 
-var ErrorPathIsNotADirectory = errors.New("Path is not a directory")
+var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrIllegalArgument = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")

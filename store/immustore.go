@@ -35,19 +35,19 @@ import (
 
 var ErrIllegalArgument = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
-var ErrorNoEntriesProvided = errors.New("No entries provided")
-var ErrorMaxTxEntriesLimitExceeded = errors.New("Max number of entries per tx exceeded")
-var ErrorMaxKeyLenExceeded = errors.New("Max key length exceeded")
-var ErrorMaxValueLenExceeded = errors.New("Max value length exceeded")
-var ErrMaxConcurrencyLimitExceeded = errors.New("Max concurrency limit exceeded")
-var ErrorPathIsNotADirectory = errors.New("Path is not a directory")
-var ErrorCorruptedTxData = errors.New("Tx data is corrupted")
-var ErrCorruptedCLog = errors.New("Commit log is corrupted")
-var ErrCorruptedVLog = errors.New("Value log is corrupted")
-var ErrTxSizeGreaterThanMaxTxSize = errors.New("Tx size greater than max tx size")
+var ErrorNoEntriesProvided = errors.New("no entries provided")
+var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
+var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
+var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
+var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
+var ErrorPathIsNotADirectory = errors.New("path is not a directory")
+var ErrorCorruptedTxData = errors.New("tx data is corrupted")
+var ErrCorruptedCLog = errors.New("commit log is corrupted")
+var ErrCorruptedVLog = errors.New("value log is corrupted")
+var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 
-var ErrTrustedTxNotOlderThanTargetTx = errors.New("Trusted tx is not older than target tx")
-var ErrLinearProofMaxLenExceeded = errors.New("Max linear proof length limit exceeded")
+var ErrTrustedTxNotOlderThanTargetTx = errors.New("trusted tx is not older than target tx")
+var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
 const DefaultMaxConcurrency = 100
 const DefaultMaxIOConcurrency = 1

@@ -17,9 +17,14 @@ package singleapp
 
 import (
 	"bufio"
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
+	"compress/zlib"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,10 +32,11 @@ import (
 	"codenotary.io/immudb-v2/appendable"
 )
 
-var ErrorPathIsNotADirectory = errors.New("Path is not a directory")
+var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrIllegalArgument = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
+var ErrCorruptedMetadata = errors.New("corrupted metadata")
 
 const DefaultFileMode = 0644
 
@@ -40,13 +46,13 @@ const (
 	metaWrappedMeta       = "WRAPPED_METADATA"
 )
 
-const metadataLenLen = 4
-
 type AppendableFile struct {
 	f *os.File
 
-	metadata    *appendable.Metadata
-	metadataLen int
+	compressionFormat int
+	compressionLevel  int
+
+	metadata []byte
 
 	readOnly bool
 	synced   bool
@@ -55,7 +61,8 @@ type AppendableFile struct {
 
 	w *bufio.Writer
 
-	offset int64
+	baseOffset int64
+	offset     int64
 }
 
 type Options struct {
@@ -160,31 +167,29 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		return nil, err
 	}
 
-	var w *bufio.Writer
-	if !opts.readOnly {
-		w = bufio.NewWriter(f)
-	}
-
-	var metadata *appendable.Metadata
-	var metadataLen int
+	var metadata []byte
+	var compressionFormat int
+	var compressionLevel int
+	var baseOffset int64
 
 	if notExist {
-		metadata = appendable.NewMetadata(nil)
-		metadata.PutInt(metaCompressionFormat, int(opts.compressionFormat))
-		metadata.PutInt(metaCompressionLevel, int(opts.compressionLevel))
-		metadata.Put(metaWrappedMeta, opts.metadata)
+		m := appendable.NewMetadata(nil)
+		m.PutInt(metaCompressionFormat, opts.compressionFormat)
+		m.PutInt(metaCompressionLevel, opts.compressionLevel)
+		m.Put(metaWrappedMeta, opts.metadata)
 
-		metadataBs := metadata.Bytes()
-		metadataLen = len(metadataBs)
+		mBs := m.Bytes()
+		mLenBs := make([]byte, 4)
+		binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)))
 
-		metaLenBs := make([]byte, 4)
-		binary.BigEndian.PutUint32(metaLenBs, uint32(metadataLen))
-		_, err := w.Write(metaLenBs)
+		w := bufio.NewWriter(f)
+
+		_, err := w.Write(mLenBs)
 		if err != nil {
 			return nil, err
 		}
 
-		_, err = w.Write(metadataBs)
+		_, err = w.Write(mBs)
 		if err != nil {
 			return nil, err
 		}
@@ -193,23 +198,47 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		compressionFormat = opts.compressionFormat
+		compressionLevel = opts.compressionLevel
+		metadata = opts.metadata
+
+		baseOffset = int64(4 + len(mBs))
 	} else {
 		r := bufio.NewReader(f)
 
-		metaLenBs := make([]byte, 4)
-		_, err := r.Read(metaLenBs)
+		mLenBs := make([]byte, 4)
+		_, err := r.Read(mLenBs)
 		if err != nil {
 			return nil, err
 		}
 
-		metadataBs := make([]byte, binary.BigEndian.Uint32(metaLenBs))
-		_, err = r.Read(metadataBs)
+		mBs := make([]byte, binary.BigEndian.Uint32(mLenBs))
+		_, err = r.Read(mBs)
 		if err != nil {
 			return nil, err
 		}
 
-		metadata = appendable.NewMetadata(metadataBs)
-		metadataLen = len(metadataBs)
+		m := appendable.NewMetadata(mBs)
+
+		cf, ok := m.GetInt(metaCompressionFormat)
+		if !ok {
+			return nil, ErrCorruptedMetadata
+		}
+		compressionFormat = cf
+
+		cl, ok := m.GetInt(metaCompressionLevel)
+		if !ok {
+			return nil, ErrCorruptedMetadata
+		}
+		compressionLevel = cl
+
+		metadata, ok = m.Get(metaWrappedMeta)
+		if !ok {
+			return nil, ErrCorruptedMetadata
+		}
+
+		baseOffset = int64(4 + len(mBs))
 	}
 
 	off, err := f.Seek(0, os.SEEK_END)
@@ -217,25 +246,27 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		return nil, err
 	}
 
+	var w *bufio.Writer
+	if !opts.readOnly {
+		w = bufio.NewWriter(f)
+	}
+
 	return &AppendableFile{
-		f:           f,
-		metadata:    metadata,
-		metadataLen: metadataLen,
-		readOnly:    opts.readOnly,
-		synced:      opts.synced,
-		w:           w,
-		offset:      off - baseOffset(metadataLen),
-		closed:      false,
+		f:                 f,
+		compressionFormat: compressionFormat,
+		compressionLevel:  compressionLevel,
+		metadata:          metadata,
+		readOnly:          opts.readOnly,
+		synced:            opts.synced,
+		w:                 w,
+		baseOffset:        baseOffset,
+		offset:            off - baseOffset,
+		closed:            false,
 	}, nil
 }
 
-func baseOffset(metadataLen int) int64 {
-	return int64(metadataLenLen + metadataLen)
-}
-
 func (aof *AppendableFile) Metadata() []byte {
-	m, _ := aof.metadata.Get(metaWrappedMeta)
-	return m
+	return aof.metadata
 }
 
 func (aof *AppendableFile) Size() (int64, error) {
@@ -243,7 +274,7 @@ func (aof *AppendableFile) Size() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return stat.Size() - baseOffset(aof.metadataLen), nil
+	return stat.Size() - aof.baseOffset, nil
 }
 
 func (aof *AppendableFile) Offset() int64 {
@@ -251,13 +282,37 @@ func (aof *AppendableFile) Offset() int64 {
 }
 
 func (aof *AppendableFile) SetOffset(off int64) error {
-	_, err := aof.f.Seek(off+baseOffset(aof.metadataLen), os.SEEK_SET)
+	_, err := aof.f.Seek(off+aof.baseOffset, os.SEEK_SET)
 	if err != nil {
 		return err
 	}
 
 	aof.offset = off
 	return nil
+}
+
+func (aof *AppendableFile) writer() (w io.Writer, err error) {
+	switch aof.compressionFormat {
+	case appendable.FlateCompression:
+		w, err = flate.NewWriter(aof.w, aof.compressionLevel)
+	case appendable.GZipCompression:
+		w, err = gzip.NewWriterLevel(aof.w, aof.compressionLevel)
+	case appendable.ZLibCompression:
+		w, err = zlib.NewWriterLevel(aof.w, aof.compressionLevel)
+	}
+	return
+}
+
+func (aof *AppendableFile) reader(r io.Reader) (reader io.ReadCloser, err error) {
+	switch aof.compressionFormat {
+	case appendable.FlateCompression:
+		reader = flate.NewReader(r)
+	case appendable.GZipCompression:
+		reader, err = gzip.NewReader(r)
+	case appendable.ZLibCompression:
+		reader, err = zlib.NewReader(r)
+	}
+	return
 }
 
 func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
@@ -269,7 +324,20 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 		return 0, 0, ErrIllegalArgument
 	}
 
-	n, err = aof.w.Write(bs)
+	var w io.Writer
+
+	if aof.compressionFormat == appendable.RawNoCompression {
+		w = aof.w
+	} else {
+		w, err = aof.writer()
+		if err != nil {
+			return 0, 0, err
+		}
+
+		defer w.(io.Closer).Close()
+	}
+
+	n, err = w.Write(bs)
 
 	off = aof.offset
 
@@ -279,7 +347,27 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
-	return aof.f.ReadAt(bs, off+baseOffset(aof.metadataLen))
+	if aof.compressionFormat == appendable.RawNoCompression {
+		return aof.f.ReadAt(bs, off+aof.baseOffset)
+	}
+
+	b := make([]byte, len(bs))
+
+	n, err := aof.f.ReadAt(b, off+aof.baseOffset)
+	if err != nil {
+		return n, err
+	}
+
+	r, err := aof.reader(bytes.NewReader(b))
+	if err != nil {
+		return n, err
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	copy(bs, buf.Bytes())
+
+	return n, err
 }
 
 func (aof *AppendableFile) Flush() error {
