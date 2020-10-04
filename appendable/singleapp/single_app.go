@@ -38,7 +38,6 @@ var ErrIllegalArgument = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
-var ErrUnexpectedRead = errors.New("read less or more data than expected")
 
 const DefaultFileMode = 0644
 
@@ -357,8 +356,15 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 	bbLenBs := make([]byte, 4)
 	binary.BigEndian.PutUint32(bbLenBs, uint32(len(bb)))
 
-	aof.w.Write(bbLenBs)
-	aof.w.Write(bb)
+	n, err = aof.w.Write(bbLenBs)
+	if err != nil {
+		return
+	}
+
+	n, err = aof.w.Write(bb)
+	if err != nil {
+		return off, 4 + n, err
+	}
 
 	n = 4 + len(bb)
 	aof.offset += int64(n)
@@ -366,12 +372,12 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 	return
 }
 
-func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
+func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 	if aof.compressionFormat == appendable.NoCompression {
 		return aof.f.ReadAt(bs, off+aof.baseOffset)
 	}
 
-	_, err := aof.f.Seek(off+aof.baseOffset, os.SEEK_SET)
+	_, err = aof.f.Seek(off+aof.baseOffset, os.SEEK_SET)
 	if err != nil {
 		return 0, err
 	}
@@ -385,7 +391,7 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
 	}
 
 	cBs := make([]byte, binary.BigEndian.Uint32(clenBs))
-	_, err = br.Read(cBs)
+	_, err = io.ReadFull(br, cBs)
 	if err != nil {
 		return 0, err
 	}
@@ -400,13 +406,15 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (int, error) {
 	buf.ReadFrom(r)
 	rbs := buf.Bytes()
 
-	copy(bs, rbs[:len(bs)])
+	n = minInt(len(rbs), len(bs))
 
-	if len(bs) != len(rbs) {
-		return len(rbs), ErrUnexpectedRead
+	copy(bs, rbs[:n])
+
+	if n < len(bs) {
+		err = io.EOF
 	}
 
-	return len(rbs), err
+	return
 }
 
 func (aof *AppendableFile) Flush() error {
@@ -449,4 +457,11 @@ func (aof *AppendableFile) Close() error {
 	aof.closed = true
 
 	return aof.f.Close()
+}
+
+func minInt(a, b int) int {
+	if a <= b {
+		return a
+	}
+	return b
 }
