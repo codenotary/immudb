@@ -360,7 +360,8 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 	aof.w.Write(bbLenBs)
 	aof.w.Write(bb)
 
-	aof.offset += int64(4 + len(bb))
+	n = 4 + len(bb)
+	aof.offset += int64(n)
 
 	return
 }

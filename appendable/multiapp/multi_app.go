@@ -230,7 +230,7 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 	for n < len(bs) {
 		available := mf.fileSize - int(mf.currApp.Offset())
 
-		if available == 0 {
+		if available <= 0 {
 			_, ejectedApp, err := mf.appendables.Put(mf.currAppID, mf.currApp)
 			if err != nil {
 				return off, n, err
