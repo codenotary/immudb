@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"compress/lzw"
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
@@ -298,6 +299,8 @@ func (aof *AppendableFile) writer(w io.Writer) (cw io.Writer, err error) {
 		cw, err = flate.NewWriter(w, aof.compressionLevel)
 	case appendable.GZipCompression:
 		cw, err = gzip.NewWriterLevel(w, aof.compressionLevel)
+	case appendable.LZWCompression:
+		cw = lzw.NewWriter(w, lzw.MSB, 8)
 	case appendable.ZLibCompression:
 		cw, err = zlib.NewWriterLevel(w, aof.compressionLevel)
 	}
@@ -310,6 +313,8 @@ func (aof *AppendableFile) reader(r io.Reader) (reader io.ReadCloser, err error)
 		reader = flate.NewReader(r)
 	case appendable.GZipCompression:
 		reader, err = gzip.NewReader(r)
+	case appendable.LZWCompression:
+		reader = lzw.NewReader(r, lzw.MSB, 8)
 	case appendable.ZLibCompression:
 		reader, err = zlib.NewReader(r)
 	}

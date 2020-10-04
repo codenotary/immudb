@@ -44,7 +44,7 @@ func main() {
 	kvInclusion := flag.Bool("kvInclusion", false, "validate kv data of every tx as part of the linear verification. txLinking must be enabled")
 	fileSize := flag.Int("fileSize", 1<<26, "file size up to which a new ones are created")
 	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
-	cFormat := flag.String("compressionFormat", "no-compression", "one of: no-compression, flate, gzip, zlib")
+	cFormat := flag.String("compressionFormat", "no-compression", "one of: no-compression, flate, gzip, lzw, zlib")
 	cLevel := flag.String("compressionLevel", "best-speed", "one of: best-speed, best-compression, default-compression, huffman-only")
 
 	flag.Parse()
@@ -61,6 +61,8 @@ func main() {
 		compressionFormat = appendable.FlateCompression
 	case "gzip":
 		compressionFormat = appendable.GZipCompression
+	case "lzw":
+		compressionFormat = appendable.LZWCompression
 	case "zlib":
 		compressionFormat = appendable.ZLibCompression
 	default:

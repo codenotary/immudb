@@ -24,6 +24,7 @@ const (
 	NoCompression = iota
 	FlateCompression
 	GZipCompression
+	LZWCompression
 	ZLibCompression
 )
 
