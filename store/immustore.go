@@ -532,6 +532,25 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		return nil, ErrCorruptedCLog
 	}
 
+	metadata := appendable.NewMetadata(cLog.Metadata())
+
+	fileSize, ok := metadata.GetInt(MetaFileSize)
+	if !ok {
+		return nil, ErrCorruptedCLog
+	}
+	maxTxEntries, ok := metadata.GetInt(MetaMaxTxEntries)
+	if !ok {
+		return nil, ErrCorruptedCLog
+	}
+	maxKeyLen, ok := metadata.GetInt(MetaMaxKeyLen)
+	if !ok {
+		return nil, ErrCorruptedCLog
+	}
+	maxValueLen, ok := metadata.GetInt(MetaMaxValueLen)
+	if !ok {
+		return nil, ErrCorruptedCLog
+	}
+
 	var committedTxLogSize int64
 	var committedTxOffset int64
 	var committedTxSize int
@@ -557,25 +576,6 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 
 	if txLogFileSize < committedTxLogSize {
 		return nil, ErrorCorruptedTxData
-	}
-
-	metadata := appendable.NewMetadata(cLog.Metadata())
-
-	fileSize, ok := metadata.GetInt(MetaFileSize)
-	if !ok {
-		return nil, ErrCorruptedCLog
-	}
-	maxTxEntries, ok := metadata.GetInt(MetaMaxTxEntries)
-	if !ok {
-		return nil, ErrCorruptedCLog
-	}
-	maxKeyLen, ok := metadata.GetInt(MetaMaxKeyLen)
-	if !ok {
-		return nil, ErrCorruptedCLog
-	}
-	maxValueLen, ok := metadata.GetInt(MetaMaxValueLen)
-	if !ok {
-		return nil, ErrCorruptedCLog
 	}
 
 	mapp, ok := txLog.(*multiapp.MultiFileAppendable)
