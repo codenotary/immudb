@@ -264,7 +264,7 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 		if mf.currApp.CompressionFormat() == appendable.NoCompression {
 			d = minInt(available, len(bs)-n)
 		} else {
-			d = len(bs)
+			d = len(bs) - n
 		}
 
 		offn, _, err := mf.currApp.Append(bs[n : n+d])
@@ -288,6 +288,8 @@ func (mf *MultiFileAppendable) openAppendable(appname string) (*singleapp.Append
 		SetSynced(mf.synced).
 		SetFileMode(mf.fileMode).
 		SetFilename(appname).
+		SetCompressionFormat(mf.currApp.CompressionFormat()).
+		SetCompresionLevel(mf.currApp.CompressionLevel()).
 		SetMetadata(mf.currApp.Metadata())
 
 	return singleapp.Open(mf.path, appendableOpts)
