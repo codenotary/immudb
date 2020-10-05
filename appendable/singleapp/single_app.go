@@ -266,6 +266,14 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 	}, nil
 }
 
+func (aof *AppendableFile) CompressionFormat() int {
+	return aof.compressionFormat
+}
+
+func (aof *AppendableFile) CompressionLevel() int {
+	return aof.compressionLevel
+}
+
 func (aof *AppendableFile) Metadata() []byte {
 	return aof.metadata
 }
@@ -366,7 +374,7 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 		return off, 4 + n, err
 	}
 
-	n = 4 + len(bb)
+	n += 4
 	aof.offset += int64(n)
 
 	return

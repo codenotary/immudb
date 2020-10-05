@@ -259,7 +259,13 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 			available = mf.fileSize
 		}
 
-		d := minInt(available, len(bs)-n)
+		var d int
+
+		if mf.currApp.CompressionFormat() == appendable.NoCompression {
+			d = minInt(available, len(bs)-n)
+		} else {
+			d = len(bs)
+		}
 
 		offn, _, err := mf.currApp.Append(bs[n : n+d])
 		if err != nil {
