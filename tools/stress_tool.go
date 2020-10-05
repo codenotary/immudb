@@ -36,6 +36,7 @@ func main() {
 	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
 	kLen := flag.Int("kLen", 32, "key length (bytes)")
 	vLen := flag.Int("vLen", 32, "value length (bytes)")
+	rndValues := flag.Bool("rndValues", true, "is values are randomly generated")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
 	printAfter := flag.Int("printAfter", 100, "print a dot '.' after specified number of committed txs")
 	synced := flag.Bool("synced", false, "strict sync mode - no data lost")
@@ -126,6 +127,8 @@ func main() {
 
 	for c := 0; c < *committers; c++ {
 		go func(id int) {
+			fmt.Printf("\r\nCommitter %d is generating kv data...\r\n", id)
+
 			txs := make([][]*store.KV, *txCount)
 
 			for t := 0; t < *txCount; t++ {
@@ -138,7 +141,10 @@ func main() {
 					v := make([]byte, *vLen)
 
 					rand.Read(k)
-					rand.Read(v)
+
+					if *rndValues {
+						rand.Read(v)
+					}
 
 					txs[t][i] = &store.KV{Key: k, Value: v}
 				}
