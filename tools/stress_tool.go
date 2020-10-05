@@ -90,7 +90,8 @@ func main() {
 		SetTxLogMaxOpenedFiles(*openedLogFiles).
 		SetCommitLogMaxOpenedFiles(*openedLogFiles).
 		SetCompressionFormat(compressionFormat).
-		SetCompresionLevel(compressionLevel)
+		SetCompresionLevel(compressionLevel).
+		SetMaxValueLen(1 << 26) // 64Mb
 
 	immuStore, err := store.Open(*dataDir, opts)
 
