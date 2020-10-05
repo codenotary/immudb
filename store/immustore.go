@@ -483,6 +483,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
 		SetSynced(opts.synced).
+		SetFileSize(opts.fileSize).
 		SetFileMode(opts.fileMode).
 		SetMetadata(metadata.Bytes())
 
@@ -560,6 +561,10 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
 
+	fileSize, ok := metadata.GetInt(MetaFileSize)
+	if !ok {
+		return nil, ErrCorruptedCLog
+	}
 	maxTxEntries, ok := metadata.GetInt(MetaMaxTxEntries)
 	if !ok {
 		return nil, ErrCorruptedCLog
@@ -571,6 +576,16 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	maxValueLen, ok := metadata.GetInt(MetaMaxValueLen)
 	if !ok {
 		return nil, ErrCorruptedCLog
+	}
+
+	mapp, ok := txLog.(*multiapp.MultiFileAppendable)
+	if ok {
+		mapp.SetFileSize(fileSize)
+	}
+
+	mapp, ok = cLog.(*multiapp.MultiFileAppendable)
+	if ok {
+		mapp.SetFileSize(fileSize)
 	}
 
 	maxTxSize := maxTxSize(maxTxEntries, maxKeyLen)
@@ -602,6 +617,11 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	vLogUnlockedList := list.New()
 
 	for i, vLog := range vLogs {
+		mapp, ok = vLog.(*multiapp.MultiFileAppendable)
+		if ok {
+			mapp.SetFileSize(fileSize)
+		}
+
 		e := vLogUnlockedList.PushBack(byte(i))
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}

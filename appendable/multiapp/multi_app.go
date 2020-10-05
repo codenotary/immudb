@@ -218,6 +218,10 @@ func (mf *MultiFileAppendable) Size() (int64, error) {
 	return mf.currAppID*int64(mf.fileSize) + currSize, nil
 }
 
+func (mf *MultiFileAppendable) SetFileSize(fileSize int) {
+	mf.fileSize = fileSize
+}
+
 func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 	if mf.closed {
 		return 0, 0, ErrAlreadyClosed
