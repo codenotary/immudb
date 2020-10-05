@@ -551,6 +551,16 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		return nil, ErrCorruptedCLog
 	}
 
+	mapp, ok := txLog.(*multiapp.MultiFileAppendable)
+	if ok {
+		mapp.SetFileSize(fileSize)
+	}
+
+	mapp, ok = cLog.(*multiapp.MultiFileAppendable)
+	if ok {
+		mapp.SetFileSize(fileSize)
+	}
+
 	var committedTxLogSize int64
 	var committedTxOffset int64
 	var committedTxSize int
@@ -576,16 +586,6 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 
 	if txLogFileSize < committedTxLogSize {
 		return nil, ErrorCorruptedTxData
-	}
-
-	mapp, ok := txLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
-	}
-
-	mapp, ok = cLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
 	}
 
 	maxTxSize := maxTxSize(maxTxEntries, maxKeyLen)
@@ -617,7 +617,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	vLogUnlockedList := list.New()
 
 	for i, vLog := range vLogs {
-		mapp, ok = vLog.(*multiapp.MultiFileAppendable)
+		mapp, ok := vLog.(*multiapp.MultiFileAppendable)
 		if ok {
 			mapp.SetFileSize(fileSize)
 		}
