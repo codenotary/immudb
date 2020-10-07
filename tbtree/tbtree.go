@@ -508,7 +508,13 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 		return ErrIllegalArgument
 	}
 
-	n1, n2, err := t.root.insertAt(key, value, ts)
+	k := make([]byte, len(key))
+	v := make([]byte, len(value))
+
+	copy(k, key)
+	copy(v, value)
+
+	n1, n2, err := t.root.insertAt(k, v, ts)
 	if err != nil {
 		return err
 	}
@@ -538,6 +544,14 @@ func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
+	return t.snapshot(true)
+}
+
+func (t *TBtree) FreshSnapshot() (*Snapshot, error) {
+	return t.snapshot(false)
+}
+
+func (t *TBtree) snapshot(attemptReuse bool) (*Snapshot, error) {
 	t.rwmutex.Lock()
 	defer t.rwmutex.Unlock()
 
@@ -549,7 +563,7 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 		return nil, ErrorMaxActiveSnapshotLimitReached
 	}
 
-	if t.lastSnapshotRoot == nil || t.root.ts()-t.lastSnapshotRoot.ts() >= uint64(t.reuseSnapshotThreshold) {
+	if !attemptReuse || t.lastSnapshotRoot == nil || t.root.ts()-t.lastSnapshotRoot.ts() >= uint64(t.reuseSnapshotThreshold) {
 		t.lastSnapshotRoot = t.root
 	}
 
