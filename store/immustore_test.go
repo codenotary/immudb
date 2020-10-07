@@ -24,12 +24,92 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/multiapp"
+	"codenotary.io/immudb-v2/tbtree"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestImmudbStoreIndexing(t *testing.T) {
+	immuStore, err := Open("data", DefaultOptions().SetSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("data")
+
+	require.NotNil(t, immuStore)
+
+	txCount := 100
+	eCount := 1
+
+	_, _, _, _, err = immuStore.Commit(nil)
+	require.Equal(t, ErrorNoEntriesProvided, err)
+
+	for i := 0; i < txCount; i++ {
+		kvs := make([]*KV, eCount)
+
+		for j := 0; j < eCount; j++ {
+			k := make([]byte, 8)
+			binary.BigEndian.PutUint64(k, uint64(j))
+
+			v := make([]byte, 8)
+			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+			kvs[j] = &KV{Key: k, Value: v}
+		}
+
+		id, _, _, _, err := immuStore.Commit(kvs)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i+1), id)
+	}
+
+	for {
+		snap, err := immuStore.Snapshot()
+		require.NoError(t, err)
+
+		for i := 0; i < int(snap.Ts()); i++ {
+			for j := 0; j < eCount; j++ {
+				k := make([]byte, 8)
+				binary.BigEndian.PutUint64(k, uint64(j))
+
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+				wv, _, err := snap.Get(k)
+
+				if err != nil {
+					require.Equal(t, tbtree.ErrKeyNotFound, err)
+				}
+
+				if err == nil {
+					require.NotNil(t, wv)
+
+					//hvalue := b[:sha256.Size]
+					valLen := binary.BigEndian.Uint32(wv[sha256.Size:])
+
+					vOff := binary.BigEndian.Uint64(wv[sha256.Size+4:])
+
+					val := make([]byte, valLen)
+					_, err := immuStore.ReadValueAt(val, int64(vOff))
+					require.NoError(t, err)
+
+					require.Equal(t, v, val)
+				}
+			}
+		}
+
+		snap.Close()
+
+		if snap.Ts() == uint64(txCount) {
+			break
+		}
+
+		time.Sleep(time.Duration(100) * time.Millisecond)
+	}
+
+	immuStore.Close()
+}
 
 func TestImmudbStore(t *testing.T) {
 	immuStore, err := Open("data", DefaultOptions())
@@ -38,8 +118,8 @@ func TestImmudbStore(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 32
-	eCount := 64
+	txCount := 1
+	eCount := 1
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)

@@ -30,6 +30,7 @@ import (
 
 	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/multiapp"
+	"codenotary.io/immudb-v2/tbtree"
 	"github.com/codenotary/merkletree"
 )
 
@@ -430,6 +431,9 @@ type ImmuStore struct {
 	_txbs []byte // pre-allocated buffer to support tx serialization
 	_b    []byte // pre-allocated general purpose buffer
 
+	index       *tbtree.TBtree
+	indexingErr error
+
 	mutex sync.Mutex
 
 	closed bool
@@ -626,7 +630,12 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	return &ImmuStore{
+	index, err := tbtree.Open("index.idx", tbtree.DefaultOptions())
+	if err != nil {
+		return nil, err
+	}
+
+	store := &ImmuStore{
 		txLog:              txLog,
 		vLogs:              vLogsMap,
 		vLogUnlockedList:   vLogUnlockedList,
@@ -642,10 +651,82 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		maxValueLen:        maxValueLen,
 		maxLinearProofLen:  opts.maxLinearProofLen,
 		maxTxSize:          maxTxSize,
+		index:              index,
 		_txs:               txs,
 		_txbs:              txbs,
 		_b:                 make([]byte, bufLenTxh),
-	}, nil
+	}
+
+	go store.indexer()
+
+	return store, nil
+}
+
+func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
+	return s.index.Snapshot()
+}
+
+func (s *ImmuStore) indexer() {
+	for {
+		time.Sleep(time.Duration(100) * time.Millisecond) // TODO: use sync for waking up
+
+		err := s.doIndexing()
+
+		if err != nil && err != io.EOF {
+			if err != ErrAlreadyClosed {
+				s.indexingErr = err
+			}
+
+			return
+		}
+	}
+}
+
+func (s *ImmuStore) doIndexing() error {
+	snap, err := s.index.FreshSnapshot()
+	if err != nil {
+		return err
+	}
+	defer snap.Close()
+
+	txID := snap.Ts() + 1
+
+	txOff, _, err := s.txOffsetAndSize(txID)
+	if err != nil {
+		return err
+	}
+
+	txReader, err := s.NewTxReader(txOff, s.maxTxSize)
+	if err != nil {
+		return err
+	}
+
+	for {
+		tx, err := txReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		txEntries := tx.Entries()
+
+		for _, e := range txEntries {
+			var b [sha256.Size + 4 + 8]byte
+			copy(b[:], e.HValue[:])
+			binary.BigEndian.PutUint32(b[sha256.Size:], uint32(e.ValueLen))
+			binary.BigEndian.PutUint64(b[sha256.Size+4:], uint64(e.VOff))
+
+			err = s.index.Insert(e.Key(), b[:], tx.ID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err = s.index.Flush()
+	return err
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
