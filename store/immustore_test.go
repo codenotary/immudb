@@ -43,7 +43,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 100
+	txCount := 1000
 	eCount := 1000
 
 	var wg sync.WaitGroup
@@ -131,7 +131,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	require.NotNil(t, immuStore)
 
 	txCount := 1000
-	eCount := 100
+	eCount := 1000
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
@@ -155,9 +155,9 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(2)
 
-	for f := 0; f < 3; f++ {
+	for f := 0; f < 2; f++ {
 		go func() {
 			for {
 				snap, err := immuStore.Snapshot()

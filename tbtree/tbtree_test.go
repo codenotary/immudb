@@ -172,7 +172,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(256).SetInsertionCountThreshold(100))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(256).SetInsertionCountThld(100))
 	require.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
@@ -281,6 +281,59 @@ func TestTBTreeInsertionInRandomOrder(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(DefaultMaxNodeSize).SetCacheSize(100_000))
+	require.NoError(t, err)
+	defer os.Remove("tbtree.idb")
+
+	keyCount := 10_000
+
+	go randomInsertions(t, tbtree, keyCount, true)
+
+	for {
+		snapshot, err := tbtree.Snapshot()
+		require.NotNil(t, snapshot)
+		require.NoError(t, err)
+
+		rspec := &ReaderSpec{
+			initialKey: nil,
+			isPrefix:   false,
+			ascOrder:   true,
+		}
+
+		reader, err := snapshot.Reader(rspec)
+		if err != nil {
+			require.Equal(t, ErrNoMoreEntries, err)
+			snapshot.Close()
+			continue
+		}
+
+		i := 0
+		prevk := reader.initialKey
+		for {
+			k, _, _, err := reader.Read()
+			if err != nil {
+				require.Equal(t, ErrNoMoreEntries, err)
+				break
+			}
+
+			require.True(t, bytes.Compare(prevk, k) < 1)
+			prevk = k
+			i++
+		}
+
+		reader.Close()
+		snapshot.Close()
+
+		if keyCount == i {
+			break
+		}
+	}
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+}
+
 func BenchmarkRandomInsertion(b *testing.B) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(seed)
@@ -289,7 +342,7 @@ func BenchmarkRandomInsertion(b *testing.B) {
 		opts := DefaultOptions().
 			SetMaxNodeSize(DefaultMaxNodeSize).
 			SetCacheSize(10_000).
-			SetInsertionCountThreshold(100_000)
+			SetInsertionCountThld(100_000)
 
 		tbtree, _ := Open("tbtree.idb", opts)
 

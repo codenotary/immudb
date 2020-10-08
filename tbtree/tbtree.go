@@ -38,9 +38,9 @@ var ErrorToManyActiveSnapshots = errors.New("max active snapshots limit reached"
 const MinNodeSize = 96
 const MinCacheSize = 1
 const DefaultMaxNodeSize = 4096
-const DefaultInsertionCountThreshold = 100_000
+const DefaultInsertionCountThld = 100_000
 const DefaultMaxActiveSnapshots = 100
-const DefaultReuseSnapshotThreshold = 1_000_000
+const DefaultReuseSnapshotThld = 1_000_000
 const DefaultCacheSize = 10000
 const DefaultFileMode = 0644
 
@@ -52,40 +52,40 @@ type TBtree struct {
 
 	// bloom filter
 
-	root                    node
-	maxNodeSize             int
-	insertionCount          int
-	insertionCountThreshold int
-	maxActiveSnapshots      int
-	reuseSnapshotThreshold  int
-	readOnly                bool
-	snapshots               map[uint64]*Snapshot
-	maxSnapshotID           uint64
-	lastSnapshotRoot        node
-	currentOffset           int64
-	closed                  bool
-	mutex                   sync.Mutex
+	root               node
+	maxNodeSize        int
+	insertionCount     int
+	insertionCountThld int
+	maxActiveSnapshots int
+	reuseSnapThld      int
+	readOnly           bool
+	snapshots          map[uint64]*Snapshot
+	maxSnapshotID      uint64
+	lastSnapRoot       node
+	currentOffset      int64
+	closed             bool
+	mutex              sync.Mutex
 }
 
 type Options struct {
-	maxNodeSize             int
-	insertionCountThreshold int
-	maxActiveSnapshots      int
-	reuseSnapshotThreshold  int
-	cacheSize               int
-	readOnly                bool
-	fileMode                os.FileMode
+	maxNodeSize        int
+	insertionCountThld int
+	maxActiveSnapshots int
+	reuseSnapshotThld  int
+	cacheSize          int
+	readOnly           bool
+	fileMode           os.FileMode
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		maxNodeSize:             DefaultMaxNodeSize,
-		insertionCountThreshold: DefaultInsertionCountThreshold,
-		maxActiveSnapshots:      DefaultMaxActiveSnapshots,
-		reuseSnapshotThreshold:  DefaultReuseSnapshotThreshold,
-		cacheSize:               DefaultCacheSize,
-		readOnly:                false,
-		fileMode:                DefaultFileMode,
+		maxNodeSize:        DefaultMaxNodeSize,
+		insertionCountThld: DefaultInsertionCountThld,
+		maxActiveSnapshots: DefaultMaxActiveSnapshots,
+		reuseSnapshotThld:  DefaultReuseSnapshotThld,
+		cacheSize:          DefaultCacheSize,
+		readOnly:           false,
+		fileMode:           DefaultFileMode,
 	}
 }
 
@@ -94,8 +94,8 @@ func (opt *Options) SetMaxNodeSize(maxNodeSize int) *Options {
 	return opt
 }
 
-func (opt *Options) SetInsertionCountThreshold(insertionCountThreshold int) *Options {
-	opt.insertionCountThreshold = insertionCountThreshold
+func (opt *Options) SetInsertionCountThld(insertionCountThld int) *Options {
+	opt.insertionCountThld = insertionCountThld
 	return opt
 }
 
@@ -104,8 +104,8 @@ func (opt *Options) SetMaxActiveSnapshots(maxActiveSnapshots int) *Options {
 	return opt
 }
 
-func (opt *Options) SetReuseSnapshotThreshold(reuseSnapshotThreshold int) *Options {
-	opt.reuseSnapshotThreshold = reuseSnapshotThreshold
+func (opt *Options) SetReuseSnapshotThld(reuseSnapshotThld int) *Options {
+	opt.reuseSnapshotThld = reuseSnapshotThld
 	return opt
 }
 
@@ -182,9 +182,9 @@ type leafValue struct {
 func Open(fileName string, opt *Options) (*TBtree, error) {
 	if opt == nil ||
 		opt.maxNodeSize < MinNodeSize ||
-		opt.insertionCountThreshold < 1 ||
+		opt.insertionCountThld < 1 ||
 		opt.maxActiveSnapshots < 1 ||
-		opt.reuseSnapshotThreshold < 0 ||
+		opt.reuseSnapshotThld < 0 ||
 		opt.cacheSize < MinCacheSize {
 		return nil, ErrIllegalArgument
 	}
@@ -210,13 +210,13 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 	}
 
 	t := &TBtree{
-		f:                       f,
-		cache:                   cache,
-		maxNodeSize:             opt.maxNodeSize,
-		insertionCountThreshold: opt.insertionCountThreshold,
-		maxActiveSnapshots:      opt.maxActiveSnapshots,
-		readOnly:                opt.readOnly,
-		snapshots:               make(map[uint64]*Snapshot),
+		f:                  f,
+		cache:              cache,
+		maxNodeSize:        opt.maxNodeSize,
+		insertionCountThld: opt.insertionCountThld,
+		maxActiveSnapshots: opt.maxActiveSnapshots,
+		readOnly:           opt.readOnly,
+		snapshots:          make(map[uint64]*Snapshot),
 	}
 
 	stat, err := os.Stat(fileName)
@@ -561,7 +561,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 	t.insertionCount++
 
-	if t.insertionCount == t.insertionCountThreshold {
+	if t.insertionCount == t.insertionCountThld {
 		_, err := t.flushTree()
 		return err
 	}
@@ -569,15 +569,14 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	return nil
 }
 
+func (t *TBtree) Ts() uint64 {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	return t.root.ts()
+}
+
 func (t *TBtree) Snapshot() (*Snapshot, error) {
-	return t.snapshot(true)
-}
-
-func (t *TBtree) FreshSnapshot() (*Snapshot, error) {
-	return t.snapshot(false)
-}
-
-func (t *TBtree) snapshot(attemptReuse bool) (*Snapshot, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -589,20 +588,18 @@ func (t *TBtree) snapshot(attemptReuse bool) (*Snapshot, error) {
 		return nil, ErrorToManyActiveSnapshots
 	}
 
-	if !attemptReuse || t.lastSnapshotRoot == nil ||
-		t.root.ts()-t.lastSnapshotRoot.ts() >= uint64(t.reuseSnapshotThreshold) {
-
+	if t.lastSnapRoot == nil || t.root.ts()-t.lastSnapRoot.ts() >= uint64(t.reuseSnapThld) {
 		_, err := t.flushTree()
 		if err != nil {
 			return nil, err
 		}
 
-		t.lastSnapshotRoot = t.root
+		t.lastSnapRoot = t.root
 	}
 
 	t.maxSnapshotID++
 
-	snapshot := t.newSnapshot(t.maxSnapshotID, t.lastSnapshotRoot)
+	snapshot := t.newSnapshot(t.maxSnapshotID, t.lastSnapRoot)
 
 	t.snapshots[snapshot.id] = snapshot
 
@@ -628,8 +625,8 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 
 	delete(t.snapshots, snapshot.id)
 
-	if t.lastSnapshotRoot != nil && t.lastSnapshotRoot.ts() == snapshot.Ts() {
-		t.lastSnapshotRoot = nil
+	if t.lastSnapRoot != nil && t.lastSnapRoot.ts() == snapshot.Ts() {
+		t.lastSnapRoot = nil
 	}
 
 	return nil
@@ -934,12 +931,14 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 	l.mut = true
 
 	if found {
-		leafValue := l.values[i]
+		prevTs := l.values[i].ts
 
-		leafValue.key = key
-		leafValue.ts = ts
-		leafValue.prevTs = l.values[i].ts
-		leafValue.value = value
+		l.values[i] = &leafValue{
+			key:    key,
+			ts:     ts,
+			prevTs: prevTs,
+			value:  value,
+		}
 
 		return l, nil, nil
 	}

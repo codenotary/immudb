@@ -24,16 +24,16 @@ import (
 )
 
 func TestSnapshotSerialization(t *testing.T) {
-	insertionCountThreshold := 100_000
+	insertionCountThld := 100_000
 
 	tbtree, err := Open("tbtree.idb", DefaultOptions().
 		SetMaxNodeSize(MinNodeSize).
-		SetInsertionCountThreshold(insertionCountThreshold))
+		SetInsertionCountThld(insertionCountThld))
 
 	require.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
-	keyCount := insertionCountThreshold
+	keyCount := insertionCountThld
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
 	snapshot, err := tbtree.Snapshot()

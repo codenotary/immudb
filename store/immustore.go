@@ -681,7 +681,7 @@ func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
 
 func (s *ImmuStore) indexer() {
 	for {
-		time.Sleep(time.Duration(100) * time.Millisecond) // TODO: use sync for waking up
+		time.Sleep(time.Duration(100) * time.Millisecond) // TODO: use sync for waking up (ideally, would index from rotated file)
 
 		err := s.doIndexing()
 
@@ -703,13 +703,7 @@ func (s *ImmuStore) indexerStatus() error {
 }
 
 func (s *ImmuStore) doIndexing() error {
-	snap, err := s.index.FreshSnapshot()
-	if err != nil {
-		return err
-	}
-	defer snap.Close()
-
-	txID := snap.Ts() + 1
+	txID := s.index.Ts() + 1
 
 	txOff, _, err := s.TxOffsetAndSize(txID)
 	if err != nil {
@@ -761,8 +755,6 @@ func (s *ImmuStore) doIndexing() error {
 			return err
 		}
 	}
-
-	_, err = s.index.Flush()
 
 	return err
 }
