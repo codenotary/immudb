@@ -16,13 +16,16 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -33,7 +36,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestImmudbStoreIndexing(t *testing.T) {
+func TestImmudbStoreConcurrency(t *testing.T) {
 	immuStore, err := Open("data", DefaultOptions().SetSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("data")
@@ -41,7 +44,94 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	require.NotNil(t, immuStore)
 
 	txCount := 100
-	eCount := 1
+	eCount := 1000
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		for i := 0; i < txCount; i++ {
+			kvs := make([]*KV, eCount)
+
+			for j := 0; j < eCount; j++ {
+				k := make([]byte, 8)
+				binary.BigEndian.PutUint64(k, uint64(j))
+
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v, uint64(i))
+
+				kvs[j] = &KV{Key: k, Value: v}
+			}
+
+			id, _, _, _, err := immuStore.Commit(kvs)
+			if err != nil {
+				panic(err)
+			}
+
+			if uint64(i+1) != id {
+				panic(fmt.Errorf("expected %v but actual %v", uint64(i+1), id))
+			}
+		}
+
+		wg.Done()
+	}()
+
+	go func() {
+
+		txID := uint64(1)
+
+		for {
+			time.Sleep(time.Duration(100) * time.Millisecond)
+
+			txOff, _, err := immuStore.TxOffsetAndSize(txID)
+			if err != nil {
+				if err == io.EOF {
+					continue
+				}
+				panic(err)
+			}
+
+			txReader, err := immuStore.NewTxReader(txOff, 4096)
+			if err != nil {
+				panic(err)
+			}
+
+			for {
+				time.Sleep(time.Duration(10) * time.Millisecond)
+
+				tx, err := txReader.Read()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					panic(err)
+				}
+
+				if tx.ID == uint64(txCount) {
+					wg.Done()
+					return
+				}
+
+				txID = tx.ID
+			}
+		}
+	}()
+
+	wg.Wait()
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+}
+
+func TestImmudbStoreIndexing(t *testing.T) {
+	immuStore, err := Open("data", DefaultOptions().SetSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("data")
+
+	require.NotNil(t, immuStore)
+
+	txCount := 1000
+	eCount := 100
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
@@ -54,7 +144,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 			binary.BigEndian.PutUint64(k, uint64(j))
 
 			v := make([]byte, 8)
-			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+			binary.BigEndian.PutUint64(v, uint64(i))
 
 			kvs[j] = &KV{Key: k, Value: v}
 		}
@@ -64,51 +154,81 @@ func TestImmudbStoreIndexing(t *testing.T) {
 		require.Equal(t, uint64(i+1), id)
 	}
 
-	for {
-		snap, err := immuStore.Snapshot()
-		require.NoError(t, err)
+	var wg sync.WaitGroup
+	wg.Add(3)
 
-		for i := 0; i < int(snap.Ts()); i++ {
-			for j := 0; j < eCount; j++ {
-				k := make([]byte, 8)
-				binary.BigEndian.PutUint64(k, uint64(j))
-
-				v := make([]byte, 8)
-				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
-
-				wv, _, err := snap.Get(k)
-
+	for f := 0; f < 3; f++ {
+		go func() {
+			for {
+				snap, err := immuStore.Snapshot()
 				if err != nil {
-					require.Equal(t, tbtree.ErrKeyNotFound, err)
+					panic(err)
 				}
 
-				if err == nil {
-					require.NotNil(t, wv)
+				for i := 0; i < int(snap.Ts()); i++ {
+					for j := 0; j < eCount; j++ {
+						k := make([]byte, 8)
+						binary.BigEndian.PutUint64(k, uint64(j))
 
-					//hvalue := b[:sha256.Size]
-					valLen := binary.BigEndian.Uint32(wv[sha256.Size:])
+						v := make([]byte, 8)
+						binary.BigEndian.PutUint64(v, snap.Ts()-1)
 
-					vOff := binary.BigEndian.Uint64(wv[sha256.Size+4:])
+						wv, _, err := snap.Get(k)
 
-					val := make([]byte, valLen)
-					_, err := immuStore.ReadValueAt(val, int64(vOff))
-					require.NoError(t, err)
+						if err != nil {
+							if err != tbtree.ErrKeyNotFound {
+								panic(err)
+							}
+						}
 
-					require.Equal(t, v, val)
+						if err == nil {
+							if wv == nil {
+								panic("expected not nil")
+							}
+
+							hvalue := wv[:sha256.Size]
+							valLen := binary.BigEndian.Uint32(wv[sha256.Size:])
+							vOff := binary.BigEndian.Uint64(wv[sha256.Size+4:])
+
+							val := make([]byte, valLen)
+							_, err := immuStore.ReadValueAt(val, int64(vOff))
+
+							if err != nil {
+								panic(err)
+							}
+
+							hval := sha256.Sum256(val)
+
+							if !bytes.Equal(hvalue[:], hval[:]) {
+								panic(fmt.Errorf("expected %v actual %v", hvalue, hval))
+							}
+
+							if !bytes.Equal(v, val) {
+								panic(fmt.Errorf("expected %v actual %v", v, val))
+							}
+						}
+					}
 				}
+
+				snap.Close()
+
+				if snap.Ts() == uint64(txCount) {
+					break
+				}
+
+				time.Sleep(time.Duration(100) * time.Millisecond)
 			}
-		}
-
-		snap.Close()
-
-		if snap.Ts() == uint64(txCount) {
-			break
-		}
-
-		time.Sleep(time.Duration(100) * time.Millisecond)
+			wg.Done()
+		}()
 	}
 
-	immuStore.Close()
+	wg.Wait()
+
+	err = immuStore.indexerStatus()
+	require.NoError(t, err)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
 }
 
 func TestImmudbStore(t *testing.T) {
@@ -118,8 +238,8 @@ func TestImmudbStore(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 1
-	eCount := 1
+	txCount := 10
+	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
@@ -247,12 +367,12 @@ func evalLinearProof(proof [][sha256.Size]byte) (r [sha256.Size]byte) {
 func TestReOpenningImmudbStore(t *testing.T) {
 	defer os.RemoveAll("data")
 
-	itCount := 10
-	txCount := 32
+	itCount := 3
+	txCount := 100
 	eCount := 10
 
 	for it := 0; it < itCount; it++ {
-		immuStore, err := Open("data", DefaultOptions())
+		immuStore, err := Open("data", DefaultOptions().SetSynced(false))
 		require.NoError(t, err)
 
 		for i := 0; i < txCount; i++ {

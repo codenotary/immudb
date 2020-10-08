@@ -46,9 +46,12 @@ const DefaultFileMode = 0644
 
 // TBTree implements a timed-btree
 type TBtree struct {
-	f     *os.File
-	cache *cache.LRUCache
+	f      *os.File
+	cache  *cache.LRUCache
+	nmutex sync.Mutex // mutex for cache and file reading
+
 	// bloom filter
+
 	root                    node
 	maxNodeSize             int
 	insertionCount          int
@@ -61,7 +64,7 @@ type TBtree struct {
 	lastSnapshotRoot        node
 	currentOffset           int64
 	closed                  bool
-	rwmutex                 sync.RWMutex
+	mutex                   sync.Mutex
 }
 
 type Options struct {
@@ -247,6 +250,9 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 }
 
 func (t *TBtree) nodeAt(offset int64) (node, error) {
+	t.nmutex.Lock()
+	defer t.nmutex.Unlock()
+
 	v, err := t.cache.Get(offset)
 	if err == nil {
 		return v.(node), nil
@@ -420,8 +426,8 @@ func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafN
 }
 
 func (t *TBtree) Flush() (int64, error) {
-	t.rwmutex.Lock()
-	defer t.rwmutex.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	if t.closed {
 		return 0, ErrAlreadyClosed
@@ -470,8 +476,8 @@ func (t *TBtree) flushTree() (int64, error) {
 }
 
 func (t *TBtree) Close() error {
-	t.rwmutex.Lock()
-	defer t.rwmutex.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	if t.closed {
 		return ErrAlreadyClosed
@@ -496,44 +502,61 @@ func (t *TBtree) Close() error {
 	return nil
 }
 
-func (t *TBtree) Insert(key []byte, value []byte, ts uint64) error {
-	t.rwmutex.Lock()
-	defer t.rwmutex.Unlock()
+type KV struct {
+	K []byte
+	V []byte
+}
+
+func (t *TBtree) Insert(key []byte, value []byte) error {
+	return t.BulkInsert([]*KV{{K: key, V: value}})
+}
+
+func (t *TBtree) BulkInsert(kvs []*KV) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	if t.closed {
 		return ErrAlreadyClosed
 	}
 
-	if key == nil || t.root.ts() >= ts {
+	ts := t.root.ts() + 1
+
+	if len(kvs) == 0 {
 		return ErrIllegalArgument
 	}
 
-	k := make([]byte, len(key))
-	v := make([]byte, len(value))
+	for _, kv := range kvs {
+		if kv.K == nil {
+			return ErrIllegalArgument
+		}
 
-	copy(k, key)
-	copy(v, value)
+		k := make([]byte, len(kv.K))
+		v := make([]byte, len(kv.V))
 
-	n1, n2, err := t.root.insertAt(k, v, ts)
-	if err != nil {
-		return err
+		copy(k, kv.K)
+		copy(v, kv.V)
+
+		n1, n2, err := t.root.insertAt(k, v, ts)
+		if err != nil {
+			return err
+		}
+
+		if n2 == nil {
+			t.root = n1
+		} else {
+			newRoot := &innerNode{
+				t:       t,
+				nodes:   []node{n1, n2},
+				_maxKey: n2.maxKey(),
+				_ts:     ts,
+				maxSize: t.maxNodeSize,
+			}
+
+			t.root = newRoot
+		}
 	}
 
 	t.insertionCount++
-
-	if n2 == nil {
-		t.root = n1
-	} else {
-		newRoot := &innerNode{
-			t:       t,
-			nodes:   []node{n1, n2},
-			_maxKey: n2.maxKey(),
-			_ts:     ts,
-			maxSize: t.maxNodeSize,
-		}
-
-		t.root = newRoot
-	}
 
 	if t.insertionCount == t.insertionCountThreshold {
 		_, err := t.flushTree()
@@ -552,8 +575,8 @@ func (t *TBtree) FreshSnapshot() (*Snapshot, error) {
 }
 
 func (t *TBtree) snapshot(attemptReuse bool) (*Snapshot, error) {
-	t.rwmutex.Lock()
-	defer t.rwmutex.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	if t.closed {
 		return nil, ErrAlreadyClosed
@@ -563,7 +586,8 @@ func (t *TBtree) snapshot(attemptReuse bool) (*Snapshot, error) {
 		return nil, ErrorMaxActiveSnapshotLimitReached
 	}
 
-	if !attemptReuse || t.lastSnapshotRoot == nil || t.root.ts()-t.lastSnapshotRoot.ts() >= uint64(t.reuseSnapshotThreshold) {
+	if !attemptReuse || t.lastSnapshotRoot == nil ||
+		t.root.ts()-t.lastSnapshotRoot.ts() >= uint64(t.reuseSnapshotThreshold) {
 		t.lastSnapshotRoot = t.root
 	}
 
@@ -586,8 +610,8 @@ func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 }
 
 func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
-	t.rwmutex.Lock()
-	defer t.rwmutex.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	if t.closed {
 		return ErrAlreadyClosed
@@ -595,72 +619,14 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 
 	delete(t.snapshots, snapshot.id)
 
+	if t.lastSnapshotRoot != nil && t.lastSnapshotRoot.ts() == snapshot.Ts() {
+		t.lastSnapshotRoot = nil
+	}
+
 	return nil
 }
 
-func (t *TBtree) readingAt(ts uint64) bool {
-	for k := range t.snapshots {
-		s, ok := t.snapshots[k]
-		if ok && s.Ts() == ts {
-			return true
-		}
-	}
-	return false
-}
-
 func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
-	if n.t.readingAt(n._ts) {
-		return n.copyOnInsertAt(key, value, ts)
-	}
-	return n.updateOnInsertAt(key, value, ts)
-}
-
-func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
-	insertAt := n.indexOf(key)
-
-	c := n.nodes[insertAt]
-
-	c1, c2, err := c.insertAt(key, value, ts)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	n._ts = ts
-	n.off = 0
-
-	if c2 == nil {
-		if bytes.Compare(n._maxKey, c1.maxKey()) < 0 {
-			n._maxKey = c1.maxKey()
-		}
-
-		n.nodes[insertAt] = c1
-
-		return n, nil, nil
-	}
-
-	if bytes.Compare(n._maxKey, c2.maxKey()) < 0 {
-		n._maxKey = c2.maxKey()
-	}
-
-	nodes := make([]node, len(n.nodes)+1)
-
-	copy(nodes[:insertAt], n.nodes[:insertAt])
-
-	nodes[insertAt] = c1
-	nodes[insertAt+1] = c2
-
-	if insertAt+2 < len(nodes) {
-		copy(nodes[insertAt+2:], n.nodes[insertAt+1:])
-	}
-
-	n.nodes = nodes
-
-	n2, err = n.split()
-
-	return n, n2, err
-}
-
-func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	insertAt := n.indexOf(key)
 
 	c := n.nodes[insertAt]
@@ -891,56 +857,6 @@ func (r *nodeRef) offset() int64 {
 ////////////////////////////////////////////////////////////
 
 func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
-	if l.t.readingAt(l._ts) {
-		return l.copyOnInsertAt(key, value, ts)
-	}
-	return l.updateOnInsertAt(key, value, ts)
-}
-
-func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
-	i, found := l.indexOf(key)
-
-	l._ts = ts
-	l.off = 0
-
-	if found {
-		leafValue := l.values[i]
-
-		leafValue.key = key
-		leafValue.ts = ts
-		leafValue.prevTs = l.values[i].ts
-		leafValue.value = value
-
-		return l, nil, nil
-	}
-
-	if bytes.Compare(l._maxKey, key) < 0 {
-		l._maxKey = key
-	}
-
-	values := make([]*leafValue, len(l.values)+1)
-
-	copy(values[:i], l.values[:i])
-
-	values[i] = &leafValue{
-		key:    key,
-		ts:     ts,
-		prevTs: 0,
-		value:  value,
-	}
-
-	if i+1 < len(values) {
-		copy(values[i+1:], l.values[i:])
-	}
-
-	l.values = values
-
-	n2, err = l.split()
-
-	return l, n2, err
-}
-
-func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	i, found := l.indexOf(key)
 
 	if found {

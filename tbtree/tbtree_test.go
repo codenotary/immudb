@@ -66,7 +66,7 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 				require.NoError(t, err)
 			}
 
-			err = tbtree.Insert(k, v, uint64(ts))
+			err = tbtree.Insert(k, v)
 			require.NoError(t, err)
 
 			if i%2 == 0 {
@@ -152,7 +152,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 
 		ts := uint64(i + 1)
 
-		err := tbtree.Insert(k, v, uint64(ts))
+		err := tbtree.Insert(k, v)
 		require.NoError(t, err)
 
 		snapshot, err := tbtree.Snapshot()
@@ -256,7 +256,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	err = snapshot.Close()
 	require.NoError(t, err)
 
-	err = tbtree.Insert(prevk, prevk, uint64(itCount*keyCount+1))
+	err = tbtree.Insert(prevk, prevk)
 	require.NoError(t, err)
 
 	snapshot, err = tbtree.Snapshot()
@@ -302,9 +302,7 @@ func BenchmarkRandomInsertion(b *testing.B) {
 			v := make([]byte, 8)
 			binary.BigEndian.PutUint64(v, uint64(i))
 
-			ts := uint64(i + 1)
-
-			tbtree.Insert(k, v, uint64(ts))
+			tbtree.Insert(k, v)
 		}
 
 		tbtree.Close()

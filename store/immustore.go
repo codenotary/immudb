@@ -66,6 +66,8 @@ const bufLenTxh = 2*8 + 4 + sha256.Size
 
 const cLogEntrySize = 12 // tx offset & size
 
+const verifyOnIndexing = false
+
 type Tx struct {
 	ID       uint64
 	Ts       int64
@@ -431,8 +433,11 @@ type ImmuStore struct {
 	_txbs []byte // pre-allocated buffer to support tx serialization
 	_b    []byte // pre-allocated general purpose buffer
 
-	index       *tbtree.TBtree
-	indexingErr error
+	_kvs []*tbtree.KV //pre-allocated for indexing
+
+	index        *tbtree.TBtree
+	indexerErr   error
+	indexerMutex sync.Mutex
 
 	mutex sync.Mutex
 
@@ -630,9 +635,16 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	index, err := tbtree.Open("index.idx", tbtree.DefaultOptions())
+	indexPath := filepath.Join("data", "index.idx") //TODO change for appendable
+
+	index, err := tbtree.Open(indexPath, tbtree.DefaultOptions())
 	if err != nil {
 		return nil, err
+	}
+
+	kvs := make([]*tbtree.KV, maxTxEntries)
+	for i := range kvs {
+		kvs[i] = &tbtree.KV{K: make([]byte, maxKeyLen), V: make([]byte, sha256.Size+4+8)}
 	}
 
 	store := &ImmuStore{
@@ -652,6 +664,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		maxLinearProofLen:  opts.maxLinearProofLen,
 		maxTxSize:          maxTxSize,
 		index:              index,
+		_kvs:               kvs,
 		_txs:               txs,
 		_txbs:              txbs,
 		_b:                 make([]byte, bufLenTxh),
@@ -674,12 +687,19 @@ func (s *ImmuStore) indexer() {
 
 		if err != nil && err != io.EOF {
 			if err != ErrAlreadyClosed {
-				s.indexingErr = err
+				s.indexerMutex.Lock()
+				s.indexerErr = err
+				s.indexerMutex.Unlock()
 			}
-
 			return
 		}
 	}
+}
+
+func (s *ImmuStore) indexerStatus() error {
+	s.indexerMutex.Lock()
+	defer s.indexerMutex.Unlock()
+	return s.indexerErr
 }
 
 func (s *ImmuStore) doIndexing() error {
@@ -691,7 +711,7 @@ func (s *ImmuStore) doIndexing() error {
 
 	txID := snap.Ts() + 1
 
-	txOff, _, err := s.txOffsetAndSize(txID)
+	txOff, _, err := s.TxOffsetAndSize(txID)
 	if err != nil {
 		return err
 	}
@@ -712,20 +732,38 @@ func (s *ImmuStore) doIndexing() error {
 
 		txEntries := tx.Entries()
 
-		for _, e := range txEntries {
+		for i, e := range txEntries {
+			if verifyOnIndexing {
+				path := tx.Proof(i)
+				be := make([]byte, s.maxValueLen)
+				_, err = s.ReadValueAt(be[:txEntries[i].ValueLen], txEntries[i].VOff)
+				if err != nil {
+					return err
+				}
+				kv := &KV{Key: txEntries[i].Key(), Value: be[:txEntries[i].ValueLen]}
+				verifies := path.VerifyInclusion(uint64(len(txEntries)-1), uint64(i), tx.Eh, kv.Digest())
+				if !verifies {
+					return ErrorCorruptedTxData
+				}
+			}
+
 			var b [sha256.Size + 4 + 8]byte
 			copy(b[:], e.HValue[:])
 			binary.BigEndian.PutUint32(b[sha256.Size:], uint32(e.ValueLen))
 			binary.BigEndian.PutUint64(b[sha256.Size+4:], uint64(e.VOff))
 
-			err = s.index.Insert(e.Key(), b[:], tx.ID)
-			if err != nil {
-				return err
-			}
+			s._kvs[i].K = e.Key()
+			s._kvs[i].V = b[:]
+		}
+
+		err = s.index.BulkInsert(s._kvs[:len(txEntries)])
+		if err != nil {
+			return err
 		}
 	}
 
 	_, err = s.index.Flush()
+
 	return err
 }
 
@@ -926,6 +964,12 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	if onPrivateSection {
+		panic("commiting")
+	}
+	onPrivateSection = true
+	defer func() { onPrivateSection = false }()
+
 	if s.closed {
 		return ErrAlreadyClosed
 	}
@@ -1057,6 +1101,10 @@ func (s *ImmuStore) TxOffsetAndSize(txID uint64) (int64, int, error) {
 }
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
+	if txID == 0 {
+		return 0, 0, ErrIllegalArgument
+	}
+
 	off := (txID - 1) * cLogEntrySize
 
 	_, err := s.cLog.ReadAt(s._b[:cLogEntrySize], int64(off))
@@ -1158,9 +1206,21 @@ type syncedReader struct {
 	mutex   *sync.Mutex
 }
 
+var onPrivateSection = false
+
 func (r *syncedReader) ReadAt(bs []byte, off int64) (int, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+
+	if onPrivateSection {
+		panic("commiting")
+	}
+	onPrivateSection = true
+	defer func() { onPrivateSection = false }()
+
+	if len(bs) == 0 {
+		return 0, nil
+	}
 
 	available := minInt(len(bs), int(r.maxSize-off))
 
@@ -1168,16 +1228,7 @@ func (r *syncedReader) ReadAt(bs []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
-	n, err := r.wr.ReadAt(bs[:available], off)
-	if err != nil {
-		return n, err
-	}
-
-	if n < available {
-		return n, io.EOF
-	}
-
-	return n, nil
+	return r.wr.ReadAt(bs[:available], off)
 }
 
 func (s *ImmuStore) validateEntries(entries []*KV) error {
