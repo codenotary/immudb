@@ -28,12 +28,12 @@ import (
 )
 
 var ErrIllegalArgument = errors.New("illegal arguments")
-var ErrReadingRequiredFileContent = errors.New("error reading required file content")
+var ErrReadingFileContent = errors.New("error reading required file content")
 var ErrKeyNotFound = errors.New("key not found")
 var ErrIllegalState = errors.New("illegal state")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
-var ErrorMaxActiveSnapshotLimitReached = errors.New("max active snapshots limit reached")
+var ErrorToManyActiveSnapshots = errors.New("max active snapshots limit reached")
 
 const MinNodeSize = 96
 const MinCacheSize = 1
@@ -151,6 +151,7 @@ type innerNode struct {
 	_ts     uint64
 	maxSize int
 	off     int64
+	mut     bool
 }
 
 type leafNode struct {
@@ -160,6 +161,7 @@ type leafNode struct {
 	_ts     uint64
 	maxSize int
 	off     int64
+	mut     bool
 }
 
 type nodeRef struct {
@@ -225,7 +227,7 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 	var root node
 
 	if stat.Size() == 0 {
-		root = &leafNode{t: t, maxSize: opt.maxNodeSize}
+		root = &leafNode{t: t, maxSize: opt.maxNodeSize, mut: true}
 	} else {
 		bs := make([]byte, 4)
 		_, err := f.ReadAt(bs, stat.Size()-4)
@@ -249,6 +251,13 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 	return t, nil
 }
 
+func (t *TBtree) cachePut(n node) {
+	t.nmutex.Lock()
+	defer t.nmutex.Unlock()
+
+	t.cache.Put(n.offset(), n)
+}
+
 func (t *TBtree) nodeAt(offset int64) (node, error) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
@@ -260,6 +269,7 @@ func (t *TBtree) nodeAt(offset int64) (node, error) {
 
 	if err == cache.ErrKeyNotFound {
 		n, err := t.readNodeAt(offset)
+
 		if err != nil {
 			return nil, err
 		}
@@ -284,7 +294,7 @@ func (t *TBtree) readNodeAt(offset int64) (node, error) {
 		return nil, err
 	}
 	if n < 4 {
-		return nil, ErrReadingRequiredFileContent
+		return nil, ErrReadingFileContent
 	}
 
 	i := 1
@@ -292,7 +302,7 @@ func (t *TBtree) readNodeAt(offset int64) (node, error) {
 	i += 4
 
 	if n < size-i {
-		return nil, ErrReadingRequiredFileContent
+		return nil, ErrReadingFileContent
 	}
 
 	switch buf[0] {
@@ -306,7 +316,7 @@ func (t *TBtree) readNodeAt(offset int64) (node, error) {
 		return t.readLeafNodeFrom(buf[i:], true, offset)
 	}
 
-	return nil, ErrReadingRequiredFileContent
+	return nil, ErrReadingFileContent
 }
 
 func (t *TBtree) readInnerNodeFrom(buf []byte, asRoot bool, offset int64) (*innerNode, error) {
@@ -437,7 +447,7 @@ func (t *TBtree) Flush() (int64, error) {
 }
 
 func (t *TBtree) flushTree() (int64, error) {
-	if t.insertionCount == 0 {
+	if !t.root.mutated() {
 		return 0, nil
 	}
 
@@ -463,14 +473,6 @@ func (t *TBtree) flushTree() (int64, error) {
 
 	t.insertionCount = 0
 	t.currentOffset += n
-
-	t.root = &nodeRef{
-		t:       t,
-		_maxKey: t.root.maxKey(),
-		_ts:     t.root.ts(),
-		_size:   t.root.size(),
-		off:     t.root.offset(),
-	}
 
 	return n, nil
 }
@@ -550,6 +552,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 				_maxKey: n2.maxKey(),
 				_ts:     ts,
 				maxSize: t.maxNodeSize,
+				mut:     true,
 			}
 
 			t.root = newRoot
@@ -583,11 +586,17 @@ func (t *TBtree) snapshot(attemptReuse bool) (*Snapshot, error) {
 	}
 
 	if len(t.snapshots) == t.maxActiveSnapshots {
-		return nil, ErrorMaxActiveSnapshotLimitReached
+		return nil, ErrorToManyActiveSnapshots
 	}
 
 	if !attemptReuse || t.lastSnapshotRoot == nil ||
 		t.root.ts()-t.lastSnapshotRoot.ts() >= uint64(t.reuseSnapshotThreshold) {
+
+		_, err := t.flushTree()
+		if err != nil {
+			return nil, err
+		}
+
 		t.lastSnapshotRoot = t.root
 	}
 
@@ -627,6 +636,58 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 }
 
 func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	if !n.mut {
+		return n.copyOnInsertAt(key, value, ts)
+	}
+	return n.updateOnInsertAt(key, value, ts)
+}
+
+func (n *innerNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	insertAt := n.indexOf(key)
+
+	c := n.nodes[insertAt]
+
+	c1, c2, err := c.insertAt(key, value, ts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	n._ts = ts
+	n.mut = true
+
+	if c2 == nil {
+		if bytes.Compare(n._maxKey, c1.maxKey()) < 0 {
+			n._maxKey = c1.maxKey()
+		}
+
+		n.nodes[insertAt] = c1
+
+		return n, nil, nil
+	}
+
+	if bytes.Compare(n._maxKey, c2.maxKey()) < 0 {
+		n._maxKey = c2.maxKey()
+	}
+
+	nodes := make([]node, len(n.nodes)+1)
+
+	copy(nodes[:insertAt], n.nodes[:insertAt])
+
+	nodes[insertAt] = c1
+	nodes[insertAt+1] = c2
+
+	if insertAt+2 < len(nodes) {
+		copy(nodes[insertAt+2:], n.nodes[insertAt+1:])
+	}
+
+	n.nodes = nodes
+
+	n2, err = n.split()
+
+	return n, n2, err
+}
+
+func (n *innerNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	insertAt := n.indexOf(key)
 
 	c := n.nodes[insertAt]
@@ -648,6 +709,7 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 			_maxKey: maxKey,
 			_ts:     ts,
 			maxSize: n.maxSize,
+			mut:     true,
 		}
 
 		copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
@@ -672,6 +734,7 @@ func (n *innerNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 n
 		_maxKey: maxKey,
 		_ts:     ts,
 		maxSize: n.maxSize,
+		mut:     true,
 	}
 
 	copy(newNode.nodes[:insertAt], n.nodes[:insertAt])
@@ -745,7 +808,7 @@ func (n *innerNode) size() int {
 }
 
 func (n *innerNode) mutated() bool {
-	return n.off == 0
+	return n.mut
 }
 
 func (n *innerNode) offset() int64 {
@@ -777,6 +840,7 @@ func (n *innerNode) split() (node, error) {
 		nodes:   n.nodes[splitIndex:],
 		_maxKey: n._maxKey,
 		maxSize: n.maxSize,
+		mut:     true,
 	}
 	newNode.updateTs()
 
@@ -857,6 +921,56 @@ func (r *nodeRef) offset() int64 {
 ////////////////////////////////////////////////////////////
 
 func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	if !l.mut {
+		return l.copyOnInsertAt(key, value, ts)
+	}
+	return l.updateOnInsertAt(key, value, ts)
+}
+
+func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
+	i, found := l.indexOf(key)
+
+	l._ts = ts
+	l.mut = true
+
+	if found {
+		leafValue := l.values[i]
+
+		leafValue.key = key
+		leafValue.ts = ts
+		leafValue.prevTs = l.values[i].ts
+		leafValue.value = value
+
+		return l, nil, nil
+	}
+
+	if bytes.Compare(l._maxKey, key) < 0 {
+		l._maxKey = key
+	}
+
+	values := make([]*leafValue, len(l.values)+1)
+
+	copy(values[:i], l.values[:i])
+
+	values[i] = &leafValue{
+		key:    key,
+		ts:     ts,
+		prevTs: 0,
+		value:  value,
+	}
+
+	if i+1 < len(values) {
+		copy(values[i+1:], l.values[i:])
+	}
+
+	l.values = values
+
+	n2, err = l.split()
+
+	return l, n2, err
+}
+
+func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	i, found := l.indexOf(key)
 
 	if found {
@@ -866,6 +980,7 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 			_maxKey: l._maxKey,
 			_ts:     ts,
 			maxSize: l.maxSize,
+			mut:     true,
 		}
 
 		copy(newLeaf.values[:i], l.values[:i])
@@ -902,6 +1017,7 @@ func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 no
 		_maxKey: maxKey,
 		_ts:     ts,
 		maxSize: l.maxSize,
+		mut:     true,
 	}
 
 	copy(newLeaf.values[:i], l.values[:i])
@@ -994,7 +1110,7 @@ func (l *leafNode) size() int {
 }
 
 func (l *leafNode) mutated() bool {
-	return l.off == 0
+	return l.mut
 }
 
 func (l *leafNode) offset() int64 {
@@ -1013,6 +1129,7 @@ func (l *leafNode) split() (node, error) {
 		values:  l.values[splitIndex:],
 		_maxKey: l._maxKey,
 		maxSize: l.maxSize,
+		mut:     true,
 	}
 	newLeaf.updateTs()
 

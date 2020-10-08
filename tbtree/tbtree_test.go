@@ -80,6 +80,7 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			require.Equal(t, ts, snapshotTs)
 
 			v1, ts1, err = snapshot.Get(k)
+
 			require.NoError(t, err)
 			require.Equal(t, v, v1)
 			require.Equal(t, ts, ts1)
@@ -175,11 +176,10 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
-	n, err := tbtree.Flush()
+	_, err = tbtree.Flush()
 	require.NoError(t, err)
-	require.Equal(t, int64(0), n)
 
-	itCount := 10
+	itCount := 100
 	keyCount := 1000
 	monotonicInsertions(t, tbtree, itCount, keyCount, true)
 
@@ -189,7 +189,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	n, err = tbtree.Flush()
+	_, err = tbtree.Flush()
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Close()

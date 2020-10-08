@@ -181,11 +181,8 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 
 	if writeOpts.commitLog {
 		n.off = writeOpts.BaseOffset + cw
-
-		_, _, err = n.t.cache.Put(n.off, n)
-		if err != nil {
-			return 0, 0, err
-		}
+		n.mut = false
+		n.t.cachePut(n)
 	}
 
 	tw = cw + int64(size)
@@ -251,11 +248,8 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 
 	if writeOpts.commitLog {
 		l.off = writeOpts.BaseOffset
-
-		_, _, err = l.t.cache.Put(l.off, l)
-		if err != nil {
-			return 0, 0, err
-		}
+		l.mut = false
+		l.t.cachePut(l)
 	}
 
 	tw = int64(size)
