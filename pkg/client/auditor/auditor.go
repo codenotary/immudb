@@ -87,7 +87,7 @@ func DefaultAuditor(
 		return nil, err
 	}
 
-	dt, err := timestamp.NewTdefault()
+	dt, err := timestamp.NewDefaultTimestamp()
 	if err != nil {
 		return nil, err
 	}

@@ -23,9 +23,9 @@ import (
 )
 
 func TestDefault(t *testing.T) {
-	def, err := NewTdefault()
+	def, err := NewDefaultTimestamp()
 	assert.Nil(t, err)
-	assert.IsType(t, def, &tdefault{})
+	assert.IsType(t, def, &timestampDefault{})
 	ts := def.Now()
 	assert.IsType(t, ts, time.Time{})
 }
