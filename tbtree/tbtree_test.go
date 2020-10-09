@@ -69,6 +69,9 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			err = tbtree.Insert(k, v)
 			require.NoError(t, err)
 
+			_, err = tbtree.Flush()
+			require.NoError(t, err)
+
 			if i%2 == 0 {
 				err = snapshot.Close()
 				require.NoError(t, err)
@@ -156,6 +159,9 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		err := tbtree.Insert(k, v)
 		require.NoError(t, err)
 
+		_, err = tbtree.Flush()
+		require.NoError(t, err)
+
 		snapshot, err := tbtree.Snapshot()
 		require.NoError(t, err)
 		snapshotTs := snapshot.Ts()
@@ -172,7 +178,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(256).SetInsertionCountThld(100))
+	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(256).SetFlushThld(100))
 	require.NoError(t, err)
 	defer os.Remove("tbtree.idb")
 
@@ -259,6 +265,9 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	err = tbtree.Insert(prevk, prevk)
 	require.NoError(t, err)
 
+	_, err = tbtree.Flush()
+	require.NoError(t, err)
+
 	snapshot, err = tbtree.Snapshot()
 	require.NoError(t, err)
 
@@ -342,7 +351,7 @@ func BenchmarkRandomInsertion(b *testing.B) {
 		opts := DefaultOptions().
 			SetMaxNodeSize(DefaultMaxNodeSize).
 			SetCacheSize(10_000).
-			SetInsertionCountThld(100_000)
+			SetFlushThld(100_000)
 
 		tbtree, _ := Open("tbtree.idb", opts)
 

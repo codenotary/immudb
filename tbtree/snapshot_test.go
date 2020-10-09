@@ -28,7 +28,7 @@ func TestSnapshotSerialization(t *testing.T) {
 
 	tbtree, err := Open("tbtree.idb", DefaultOptions().
 		SetMaxNodeSize(MinNodeSize).
-		SetInsertionCountThld(insertionCountThld))
+		SetFlushThld(insertionCountThld))
 
 	require.NoError(t, err)
 	defer os.Remove("tbtree.idb")

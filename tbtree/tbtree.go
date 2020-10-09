@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"codenotary.io/immudb-v2/cache"
 )
@@ -38,9 +39,9 @@ var ErrorToManyActiveSnapshots = errors.New("max active snapshots limit reached"
 const MinNodeSize = 96
 const MinCacheSize = 1
 const DefaultMaxNodeSize = 4096
-const DefaultInsertionCountThld = 100_000
+const DefaultFlushThld = 100_000
 const DefaultMaxActiveSnapshots = 100
-const DefaultReuseSnapshotThld = 1_000_000
+const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 10000
 const DefaultFileMode = 0644
 
@@ -55,13 +56,14 @@ type TBtree struct {
 	root               node
 	maxNodeSize        int
 	insertionCount     int
-	insertionCountThld int
+	flushThld          int
 	maxActiveSnapshots int
-	reuseSnapThld      int
+	renewSnapRootAfter time.Duration
 	readOnly           bool
 	snapshots          map[uint64]*Snapshot
 	maxSnapshotID      uint64
 	lastSnapRoot       node
+	lastSnapRootAt     time.Time
 	currentOffset      int64
 	closed             bool
 	mutex              sync.Mutex
@@ -69,9 +71,9 @@ type TBtree struct {
 
 type Options struct {
 	maxNodeSize        int
-	insertionCountThld int
+	flushThld          int
 	maxActiveSnapshots int
-	reuseSnapshotThld  int
+	renewSnapRootAfter time.Duration
 	cacheSize          int
 	readOnly           bool
 	fileMode           os.FileMode
@@ -80,9 +82,9 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		maxNodeSize:        DefaultMaxNodeSize,
-		insertionCountThld: DefaultInsertionCountThld,
+		flushThld:          DefaultFlushThld,
 		maxActiveSnapshots: DefaultMaxActiveSnapshots,
-		reuseSnapshotThld:  DefaultReuseSnapshotThld,
+		renewSnapRootAfter: DefaultRenewSnapRootAfter,
 		cacheSize:          DefaultCacheSize,
 		readOnly:           false,
 		fileMode:           DefaultFileMode,
@@ -94,8 +96,8 @@ func (opt *Options) SetMaxNodeSize(maxNodeSize int) *Options {
 	return opt
 }
 
-func (opt *Options) SetInsertionCountThld(insertionCountThld int) *Options {
-	opt.insertionCountThld = insertionCountThld
+func (opt *Options) SetFlushThld(flushThld int) *Options {
+	opt.flushThld = flushThld
 	return opt
 }
 
@@ -104,8 +106,8 @@ func (opt *Options) SetMaxActiveSnapshots(maxActiveSnapshots int) *Options {
 	return opt
 }
 
-func (opt *Options) SetReuseSnapshotThld(reuseSnapshotThld int) *Options {
-	opt.reuseSnapshotThld = reuseSnapshotThld
+func (opt *Options) SetRenewSnapRootAfter(renewSnapRootAfter time.Duration) *Options {
+	opt.renewSnapRootAfter = renewSnapRootAfter
 	return opt
 }
 
@@ -182,9 +184,9 @@ type leafValue struct {
 func Open(fileName string, opt *Options) (*TBtree, error) {
 	if opt == nil ||
 		opt.maxNodeSize < MinNodeSize ||
-		opt.insertionCountThld < 1 ||
+		opt.flushThld < 1 ||
 		opt.maxActiveSnapshots < 1 ||
-		opt.reuseSnapshotThld < 0 ||
+		opt.renewSnapRootAfter < 0 ||
 		opt.cacheSize < MinCacheSize {
 		return nil, ErrIllegalArgument
 	}
@@ -213,7 +215,8 @@ func Open(fileName string, opt *Options) (*TBtree, error) {
 		f:                  f,
 		cache:              cache,
 		maxNodeSize:        opt.maxNodeSize,
-		insertionCountThld: opt.insertionCountThld,
+		flushThld:          opt.flushThld,
+		renewSnapRootAfter: opt.renewSnapRootAfter,
 		maxActiveSnapshots: opt.maxActiveSnapshots,
 		readOnly:           opt.readOnly,
 		snapshots:          make(map[uint64]*Snapshot),
@@ -561,7 +564,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 	t.insertionCount++
 
-	if t.insertionCount == t.insertionCountThld {
+	if t.insertionCount == t.flushThld {
 		_, err := t.flushTree()
 		return err
 	}
@@ -588,13 +591,16 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 		return nil, ErrorToManyActiveSnapshots
 	}
 
-	if t.lastSnapRoot == nil || t.root.ts()-t.lastSnapRoot.ts() >= uint64(t.reuseSnapThld) {
+	if t.lastSnapRoot == nil || time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter {
 		_, err := t.flushTree()
 		if err != nil {
 			return nil, err
 		}
+	}
 
+	if !t.root.mutated() {
 		t.lastSnapRoot = t.root
+		t.lastSnapRootAt = time.Now()
 	}
 
 	t.maxSnapshotID++
@@ -624,10 +630,6 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	}
 
 	delete(t.snapshots, snapshot.id)
-
-	if t.lastSnapRoot != nil && t.lastSnapRoot.ts() == snapshot.Ts() {
-		t.lastSnapRoot = nil
-	}
 
 	return nil
 }
