@@ -15,7 +15,10 @@ limitations under the License.
 */
 package appendable
 
-import "io"
+import (
+	"encoding/binary"
+	"io"
+)
 
 type Reader struct {
 	rAt       io.ReaderAt
@@ -43,6 +46,10 @@ func (r *Reader) Reset(off int64) {
 	r.eof = false
 	r.readIndex = 0
 	r.offset = off
+}
+
+func (r *Reader) Offset() int64 {
+	return r.offset
 }
 
 func (r *Reader) Read(bs []byte) (n int, err error) {
@@ -81,6 +88,33 @@ func (r *Reader) Read(bs []byte) (n int, err error) {
 	}
 
 	return l, nil
+}
+
+func (r *Reader) ReadByte() (byte, error) {
+	var b [1]byte
+	_, err := r.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	return b[0], nil
+}
+
+func (r *Reader) ReadUint64() (uint64, error) {
+	var b [8]byte
+	_, err := r.Read(b[:8])
+	if err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint64(b[:]), nil
+}
+
+func (r *Reader) ReadUint32() (uint32, error) {
+	var b [4]byte
+	_, err := r.Read(b[:4])
+	if err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint32(b[:]), nil
 }
 
 func min(a, b int) int {
