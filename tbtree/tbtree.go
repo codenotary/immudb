@@ -16,7 +16,6 @@ limitations under the License.
 package tbtree
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -25,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"codenotary.io/immudb-v2/appendable"
+	"codenotary.io/immudb-v2/appendable/multiapp"
 	"codenotary.io/immudb-v2/cache"
 )
 
@@ -35,6 +36,7 @@ var ErrIllegalState = errors.New("illegal state")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
 var ErrorToManyActiveSnapshots = errors.New("max active snapshots limit reached")
+var ErrCorruptedFile = errors.New("file is corrupted")
 
 const MinNodeSize = 96
 const MinCacheSize = 1
@@ -43,11 +45,19 @@ const DefaultFlushThld = 100_000
 const DefaultMaxActiveSnapshots = 100
 const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 10000
-const DefaultFileMode = 0644
+const DefaultFileMode = 0755
+
+const Version = 1
+
+const (
+	MetaVersion     = "VERSION"
+	MetaMaxNodeSize = "MAX_NODE_SIZE"
+	MetaFileSize    = "FILE_SIZE"
+)
 
 // TBTree implements a timed-btree
 type TBtree struct {
-	f      *os.File
+	aof    appendable.Appendable
 	cache  *cache.LRUCache
 	nmutex sync.Mutex // mutex for cache and file reading
 
@@ -70,30 +80,33 @@ type TBtree struct {
 }
 
 type Options struct {
-	maxNodeSize        int
 	flushThld          int
 	maxActiveSnapshots int
 	renewSnapRootAfter time.Duration
 	cacheSize          int
 	readOnly           bool
+	synced             bool
 	fileMode           os.FileMode
+
+	// options below are only set during initialization and stored as metadata
+	maxNodeSize int
+	fileSize    int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		maxNodeSize:        DefaultMaxNodeSize,
 		flushThld:          DefaultFlushThld,
 		maxActiveSnapshots: DefaultMaxActiveSnapshots,
 		renewSnapRootAfter: DefaultRenewSnapRootAfter,
 		cacheSize:          DefaultCacheSize,
 		readOnly:           false,
+		synced:             false,
 		fileMode:           DefaultFileMode,
-	}
-}
 
-func (opt *Options) SetMaxNodeSize(maxNodeSize int) *Options {
-	opt.maxNodeSize = maxNodeSize
-	return opt
+		// options below are only set during initialization and stored as metadata
+		maxNodeSize: DefaultMaxNodeSize,
+		fileSize:    multiapp.DefaultFileSize,
+	}
 }
 
 func (opt *Options) SetFlushThld(flushThld int) *Options {
@@ -121,8 +134,23 @@ func (opt *Options) SetReadOnly(readOnly bool) *Options {
 	return opt
 }
 
+func (opt *Options) SetSynced(synced bool) *Options {
+	opt.synced = synced
+	return opt
+}
+
 func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
 	opt.fileMode = fileMode
+	return opt
+}
+
+func (opt *Options) SetMaxNodeSize(maxNodeSize int) *Options {
+	opt.maxNodeSize = maxNodeSize
+	return opt
+}
+
+func (opt *Options) SetFileSize(fileSize int) *Options {
+	opt.fileSize = fileSize
 	return opt
 }
 
@@ -181,72 +209,104 @@ type leafValue struct {
 	value  []byte
 }
 
-func Open(fileName string, opt *Options) (*TBtree, error) {
-	if opt == nil ||
-		opt.maxNodeSize < MinNodeSize ||
-		opt.flushThld < 1 ||
-		opt.maxActiveSnapshots < 1 ||
-		opt.renewSnapRootAfter < 0 ||
-		opt.cacheSize < MinCacheSize {
+func validOptions(opts *Options) bool {
+	return opts != nil &&
+		opts.maxNodeSize >= MinNodeSize &&
+		opts.flushThld > 0 &&
+		opts.maxActiveSnapshots > 0 &&
+		opts.renewSnapRootAfter > 0 &&
+		opts.cacheSize >= MinCacheSize
+}
+
+func Open(path string, opts *Options) (*TBtree, error) {
+	if !validOptions(opts) {
 		return nil, ErrIllegalArgument
 	}
 
-	var flag int
+	metadata := appendable.NewMetadata(nil)
+	metadata.PutInt(MetaVersion, Version)
+	metadata.PutInt(MetaMaxNodeSize, opts.maxNodeSize)
+	metadata.PutInt(MetaFileSize, opts.fileSize)
 
-	if opt.readOnly {
-		flag = os.O_RDONLY
-	} else {
-		flag = os.O_CREATE | os.O_RDWR | os.O_APPEND
-	}
+	appendableOpts := multiapp.DefaultOptions().
+		SetReadOnly(opts.readOnly).
+		SetSynced(opts.synced).
+		SetFileSize(opts.fileSize).
+		SetFileMode(opts.fileMode).
+		SetFileExt("idb").
+		SetMetadata(metadata.Bytes())
 
-	f, err := os.OpenFile(fileName, flag, opt.fileMode)
+	aof, err := multiapp.Open(path, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: read maxNodeSize and other immutable settings from file
+	return OpenWith(aof, opts)
+}
 
-	cache, err := cache.NewLRUCache(opt.cacheSize)
+func OpenWith(aof appendable.Appendable, opts *Options) (*TBtree, error) {
+	if !validOptions(opts) {
+		return nil, ErrIllegalArgument
+	}
+
+	metadata := appendable.NewMetadata(aof.Metadata())
+
+	fileSize, ok := metadata.GetInt(MetaFileSize)
+	if !ok {
+		return nil, ErrCorruptedFile
+	}
+
+	maxNodeSize, ok := metadata.GetInt(MetaMaxNodeSize)
+	if !ok {
+		return nil, ErrCorruptedFile
+	}
+
+	mapp, ok := aof.(*multiapp.MultiFileAppendable)
+	if ok {
+		mapp.SetFileSize(fileSize)
+	}
+
+	cache, err := cache.NewLRUCache(opts.cacheSize)
 	if err != nil {
 		return nil, err
 	}
 
 	t := &TBtree{
-		f:                  f,
+		aof:                aof,
 		cache:              cache,
-		maxNodeSize:        opt.maxNodeSize,
-		flushThld:          opt.flushThld,
-		renewSnapRootAfter: opt.renewSnapRootAfter,
-		maxActiveSnapshots: opt.maxActiveSnapshots,
-		readOnly:           opt.readOnly,
+		maxNodeSize:        maxNodeSize,
+		flushThld:          opts.flushThld,
+		renewSnapRootAfter: opts.renewSnapRootAfter,
+		maxActiveSnapshots: opts.maxActiveSnapshots,
+		readOnly:           opts.readOnly,
 		snapshots:          make(map[uint64]*Snapshot),
 	}
 
-	stat, err := os.Stat(fileName)
+	aofSize, err := aof.Size()
 	if err != nil {
 		return nil, err
 	}
 
 	var root node
 
-	if stat.Size() == 0 {
-		root = &leafNode{t: t, maxSize: opt.maxNodeSize, mut: true}
+	if aofSize == 0 {
+		root = &leafNode{t: t, maxSize: maxNodeSize, mut: true}
 	} else {
 		bs := make([]byte, 4)
-		_, err := f.ReadAt(bs, stat.Size()-4)
+		_, err := aof.ReadAt(bs, aofSize-4)
 		if err != nil {
 			return nil, err
 		}
 
 		rootSize := int(binary.BigEndian.Uint32(bs))
-		rootOffset := stat.Size() - 4 - int64(rootSize)
+		rootOffset := aofSize - 4 - int64(rootSize)
 
 		root, err = t.readNodeAt(rootOffset)
 		if err != nil {
 			return nil, err
 		}
 
-		t.currentOffset = stat.Size()
+		t.currentOffset = aofSize
 	}
 
 	t.root = root
@@ -285,48 +345,43 @@ func (t *TBtree) nodeAt(offset int64) (node, error) {
 	return nil, err
 }
 
-func (t *TBtree) readNodeAt(offset int64) (node, error) {
-	_, err := t.f.Seek(offset, io.SeekStart)
+func (t *TBtree) readNodeAt(off int64) (node, error) {
+	r := appendable.NewReaderFrom(t.aof, off, t.maxNodeSize)
+	return t.readNodeFrom(r)
+}
+
+func (t *TBtree) readNodeFrom(r *appendable.Reader) (node, error) {
+	b, err := r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
 
-	buf := make([]byte, t.maxNodeSize)
-	n, err := t.f.Read(buf)
+	_, err = r.ReadUint32() // size is not currently used
 	if err != nil {
 		return nil, err
 	}
-	if n < 4 {
-		return nil, ErrReadingFileContent
-	}
 
-	i := 1
-	size := int(binary.BigEndian.Uint32(buf[i:]))
-	i += 4
-
-	if n < size-i {
-		return nil, ErrReadingFileContent
-	}
-
-	switch buf[0] {
+	switch b {
 	case InnerNodeType:
-		return t.readInnerNodeFrom(buf[i:], false, offset)
+		return t.readInnerNodeFrom(r, false)
 	case RootInnerNodeType:
-		return t.readInnerNodeFrom(buf[i:], true, offset)
+		return t.readInnerNodeFrom(r, true)
 	case LeafNodeType:
-		return t.readLeafNodeFrom(buf[i:], false, offset)
+		return t.readLeafNodeFrom(r, false)
 	case RootLeafNodeType:
-		return t.readLeafNodeFrom(buf[i:], true, offset)
+		return t.readLeafNodeFrom(r, true)
 	}
 
 	return nil, ErrReadingFileContent
 }
 
-func (t *TBtree) readInnerNodeFrom(buf []byte, asRoot bool, offset int64) (*innerNode, error) {
-	i := 0
+func (t *TBtree) readInnerNodeFrom(r *appendable.Reader, asRoot bool) (*innerNode, error) {
+	off := r.Offset()
 
-	childCount := int(binary.BigEndian.Uint32(buf[i:]))
-	i += 4
+	childCount, err := r.ReadUint32()
+	if err != nil {
+		return nil, err
+	}
 
 	n := &innerNode{
 		t:       t,
@@ -334,13 +389,16 @@ func (t *TBtree) readInnerNodeFrom(buf []byte, asRoot bool, offset int64) (*inne
 		_maxKey: nil,
 		_ts:     0,
 		maxSize: t.maxNodeSize,
-		off:     offset,
+		off:     off,
 	}
 
-	for c := 0; c < childCount; c++ {
-		nref, sz := t.readNodeRefFrom(buf[i:])
+	for c := 0; c < int(childCount); c++ {
+		nref, err := t.readNodeRefFrom(r)
+		if err != nil {
+			return nil, err
+		}
+
 		n.nodes[c] = nref
-		i += sz
 
 		if bytes.Compare(n._maxKey, nref._maxKey) < 0 {
 			n._maxKey = nref._maxKey
@@ -354,38 +412,49 @@ func (t *TBtree) readInnerNodeFrom(buf []byte, asRoot bool, offset int64) (*inne
 	return n, nil
 }
 
-func (t *TBtree) readNodeRefFrom(buf []byte) (*nodeRef, int) {
-	i := 0
-	ksize := int(binary.BigEndian.Uint32(buf[i:]))
-	i += 4
+func (t *TBtree) readNodeRefFrom(r *appendable.Reader) (*nodeRef, error) {
+	ksize, err := r.ReadUint32()
+	if err != nil {
+		return nil, err
+	}
 
 	key := make([]byte, ksize)
-	copy(key, buf[i:i+ksize])
-	i += ksize
+	_, err = r.Read(key)
+	if err != nil {
+		return nil, err
+	}
 
-	ts := binary.BigEndian.Uint64(buf[i:])
-	i += 8
+	ts, err := r.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
 
-	size := int(binary.BigEndian.Uint32(buf[i:]))
-	i += 4
+	size, err := r.ReadUint32()
+	if err != nil {
+		return nil, err
+	}
 
-	off := int64(binary.BigEndian.Uint64(buf[i:]))
-	i += 8
+	off, err := r.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
 
 	return &nodeRef{
 		t:       t,
 		_maxKey: key,
 		_ts:     ts,
-		_size:   size,
-		off:     off,
-	}, i
+		_size:   int(size),
+		off:     int64(off),
+	}, nil
 }
 
-func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafNode, error) {
-	i := 0
+func (t *TBtree) readLeafNodeFrom(r *appendable.Reader, asRoot bool) (*leafNode, error) {
+	off := r.Offset()
 
-	valueCount := int(binary.BigEndian.Uint32(buf[i:]))
-	i += 4
+	valueCount, err := r.ReadUint32()
+	if err != nil {
+		return nil, err
+	}
 
 	l := &leafNode{
 		t:       t,
@@ -393,29 +462,41 @@ func (t *TBtree) readLeafNodeFrom(buf []byte, asRoot bool, offset int64) (*leafN
 		_maxKey: nil,
 		_ts:     0,
 		maxSize: t.maxNodeSize,
-		off:     offset,
+		off:     off,
 	}
 
-	for c := 0; c < valueCount; c++ {
-		ksize := int(binary.BigEndian.Uint32(buf[i:]))
-		i += 4
+	for c := 0; c < int(valueCount); c++ {
+		ksize, err := r.ReadUint32()
+		if err != nil {
+			return nil, err
+		}
 
 		key := make([]byte, ksize)
-		copy(key, buf[i:i+ksize])
-		i += ksize
+		_, err = r.Read(key)
+		if err != nil {
+			return nil, err
+		}
 
-		vsize := int(binary.BigEndian.Uint32(buf[i:]))
-		i += 4
+		vsize, err := r.ReadUint32()
+		if err != nil {
+			return nil, err
+		}
 
 		value := make([]byte, vsize)
-		copy(value, buf[i:i+vsize])
-		i += vsize
+		_, err = r.Read(value)
+		if err != nil {
+			return nil, err
+		}
 
-		ts := binary.BigEndian.Uint64(buf[i:])
-		i += 8
+		ts, err := r.ReadUint64()
+		if err != nil {
+			return nil, err
+		}
 
-		prevTs := binary.BigEndian.Uint64(buf[i:])
-		i += 8
+		prevTs, err := r.ReadUint64()
+		if err != nil {
+			return nil, err
+		}
 
 		leafValue := &leafValue{
 			key:    key,
@@ -449,6 +530,15 @@ func (t *TBtree) Flush() (int64, error) {
 	return t.flushTree()
 }
 
+type appendableWriter struct {
+	appendable.Appendable
+}
+
+func (aw *appendableWriter) Write(b []byte) (int, error) {
+	_, n, err := aw.Append(b)
+	return n, err
+}
+
 func (t *TBtree) flushTree() (int64, error) {
 	if !t.root.mutated() {
 		return 0, nil
@@ -462,14 +552,12 @@ func (t *TBtree) flushTree() (int64, error) {
 		commitLog:   true,
 	}
 
-	w := bufio.NewWriter(t.f)
-
-	n, err := snapshot.WriteTo(w, wopts)
+	n, err := snapshot.WriteTo(&appendableWriter{t.aof}, wopts)
 	if err != nil {
 		return 0, err
 	}
 
-	err = w.Flush()
+	err = t.aof.Flush()
 	if err != nil {
 		return 0, err
 	}
@@ -497,7 +585,7 @@ func (t *TBtree) Close() error {
 		return err
 	}
 
-	err = t.f.Close()
+	err = t.aof.Close()
 	if err != nil {
 		return err
 	}

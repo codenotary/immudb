@@ -20,18 +20,20 @@ import (
 	"os"
 	"testing"
 
+	"codenotary.io/immudb-v2/appendable"
+	"codenotary.io/immudb-v2/appendable/multiapp"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSnapshotSerialization(t *testing.T) {
 	insertionCountThld := 100_000
 
-	tbtree, err := Open("tbtree.idb", DefaultOptions().
+	tbtree, err := Open("testree", DefaultOptions().
 		SetMaxNodeSize(MinNodeSize).
 		SetFlushThld(insertionCountThld))
 
 	require.NoError(t, err)
-	defer os.Remove("tbtree.idb")
+	defer os.RemoveAll("testree")
 
 	keyCount := insertionCountThld
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
@@ -75,40 +77,46 @@ func TestSnapshotSerialization(t *testing.T) {
 }
 
 func TestSnapshotLoadFromFullDump(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
+	tbtree, err := Open("testree", DefaultOptions())
 	require.NoError(t, err)
-	defer os.Remove("tbtree.idb")
+	defer os.RemoveAll("testree")
 
 	keyCount := 100_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
-	err = fullDumpTo(tbtree, "dumped_tbtree.idb")
+	err = fullDumpTo(tbtree, "dump")
 	require.NoError(t, err)
-	defer os.Remove("dumped_tbtree.idb")
+	defer os.RemoveAll("dump")
 
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("dumped_tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
+	tbtree, err = Open("dump", DefaultOptions())
 	require.NoError(t, err)
 
-	err = fullDumpTo(tbtree, "dumped_tbtree1.idb")
-	require.NoError(t, err)
-	defer os.Remove("dumped_tbtree1.idb")
-
-	dumpInfo1, err := os.Stat("dumped_tbtree.idb")
-	require.NoError(t, err)
-	dumpInfo2, err := os.Stat("dumped_tbtree1.idb")
-	require.NoError(t, err)
-
-	require.Equal(t, dumpInfo1.Size(), dumpInfo2.Size())
+	checkAfterMonotonicInsertions(t, tbtree, 1, keyCount, true)
 
 	err = tbtree.Close()
 	require.NoError(t, err)
 }
 
-func fullDumpTo(tbtree *TBtree, filename string) error {
-	dumpFile, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+func fullDumpTo(tbtree *TBtree, path string) error {
+	opts := DefaultOptions()
+
+	metadata := appendable.NewMetadata(nil)
+	metadata.PutInt(MetaVersion, Version)
+	metadata.PutInt(MetaMaxNodeSize, opts.maxNodeSize)
+	metadata.PutInt(MetaFileSize, opts.fileSize)
+
+	appendableOpts := multiapp.DefaultOptions().
+		SetReadOnly(opts.readOnly).
+		SetSynced(opts.synced).
+		SetFileSize(opts.fileSize).
+		SetFileMode(opts.fileMode).
+		SetFileExt("idb").
+		SetMetadata(metadata.Bytes())
+
+	multiapp, err := multiapp.Open(path, appendableOpts)
 	if err != nil {
 		return err
 	}
@@ -123,7 +131,7 @@ func fullDumpTo(tbtree *TBtree, filename string) error {
 		return err
 	}
 
-	_, err = snapshot.WriteTo(dumpFile, wopts)
+	_, err = snapshot.WriteTo(&appendableWriter{multiapp}, wopts)
 	if err != nil {
 		return err
 	}
@@ -133,5 +141,5 @@ func fullDumpTo(tbtree *TBtree, filename string) error {
 		return err
 	}
 
-	return dumpFile.Close()
+	return multiapp.Close()
 }

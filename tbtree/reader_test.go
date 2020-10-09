@@ -24,9 +24,9 @@ import (
 )
 
 func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions())
+	tbtree, err := Open("testree", DefaultOptions())
 	require.NoError(t, err)
-	defer os.Remove("tbtree.idb")
+	defer os.RemoveAll("testree")
 
 	snapshot, err := tbtree.Snapshot()
 	require.NotNil(t, snapshot)
@@ -38,9 +38,9 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 }
 
 func TestReaderAscendingScan(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
+	tbtree, err := Open("testree", DefaultOptions().SetMaxNodeSize(MinNodeSize))
 	require.NoError(t, err)
-	defer os.Remove("tbtree.idb")
+	defer os.RemoveAll("testree")
 
 	monotonicInsertions(t, tbtree, 1, 1000, true)
 
@@ -81,9 +81,9 @@ func TestReaderAscendingScan(t *testing.T) {
 }
 
 func TestReaderDescendingScan(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions().SetMaxNodeSize(MinNodeSize))
+	tbtree, err := Open("testree", DefaultOptions().SetMaxNodeSize(MinNodeSize))
 	require.NoError(t, err)
-	defer os.Remove("tbtree.idb")
+	defer os.RemoveAll("testree")
 
 	monotonicInsertions(t, tbtree, 1, 257, true)
 
@@ -113,9 +113,9 @@ func TestReaderDescendingScan(t *testing.T) {
 }
 
 func TestFullScanAscendingOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions())
+	tbtree, err := Open("testree", DefaultOptions())
 	require.NoError(t, err)
-	defer os.Remove("tbtree.idb")
+	defer os.RemoveAll("testree")
 
 	keyCount := 10000
 	randomInsertions(t, tbtree, keyCount, false)
@@ -151,9 +151,9 @@ func TestFullScanAscendingOrder(t *testing.T) {
 }
 
 func TestFullScanDescendingOrder(t *testing.T) {
-	tbtree, err := Open("tbtree.idb", DefaultOptions())
+	tbtree, err := Open("testree", DefaultOptions())
 	require.NoError(t, err)
-	defer os.Remove("tbtree.idb")
+	defer os.RemoveAll("testree")
 
 	keyCount := 10000
 	randomInsertions(t, tbtree, keyCount, false)

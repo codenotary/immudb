@@ -552,7 +552,7 @@ func BenchmarkAppend(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		txCount := 1000
-		eCount := 100
+		eCount := 1000
 
 		for i := 0; i < txCount; i++ {
 			kvs := make([]*KV, eCount)

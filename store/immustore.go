@@ -44,7 +44,6 @@ var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded"
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrorCorruptedTxData = errors.New("tx data is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
-var ErrCorruptedVLog = errors.New("value log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 
 var ErrTrustedTxNotOlderThanTargetTx = errors.New("trusted tx is not older than target tx")
@@ -61,8 +60,6 @@ const DefaultMaxLinearProofLen = 1 << 10
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 
 const MaxParallelIO = 127
-
-const bufLenTxh = 2*8 + 4 + sha256.Size
 
 const cLogEntrySize = 12 // tx offset & size
 
@@ -160,14 +157,14 @@ func (tx *Tx) Proof(kindex int) merkletree.Path {
 	return merkletree.InclusionProof(tx, uint64(tx.nentries-1), uint64(kindex))
 }
 
-func (tx *Tx) readFrom(r io.Reader, b []byte) error {
-	id, err := ReadUint64(r, b)
+func (tx *Tx) readFrom(r *appendable.Reader) error {
+	id, err := r.ReadUint64()
 	if err != nil {
 		return err
 	}
 	tx.ID = id
 
-	ts, err := ReadUint64(r, b)
+	ts, err := r.ReadUint64()
 	if err != nil {
 		return err
 	}
@@ -178,14 +175,14 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 		return err
 	}
 
-	nentries, err := ReadUint32(r, b)
+	nentries, err := r.ReadUint32()
 	if err != nil {
 		return err
 	}
 	tx.nentries = int(nentries)
 
 	for i := 0; i < int(nentries); i++ {
-		klen, err := ReadUint32(r, b)
+		klen, err := r.ReadUint32()
 		if err != nil {
 			return err
 		}
@@ -196,7 +193,7 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 			return err
 		}
 
-		vlen, err := ReadUint32(r, b)
+		vlen, err := r.ReadUint32()
 		if err != nil {
 			return err
 		}
@@ -207,7 +204,7 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 			return err
 		}
 
-		voff, err := ReadUint64(r, b)
+		voff, err := r.ReadUint64()
 		if err != nil {
 			return err
 		}
@@ -220,32 +217,17 @@ func (tx *Tx) readFrom(r io.Reader, b []byte) error {
 
 	tx.buildHashTree()
 
-	binary.BigEndian.PutUint64(b, tx.ID)
+	var b [52]byte
+	binary.BigEndian.PutUint64(b[:], tx.ID)
 	binary.BigEndian.PutUint64(b[8:], uint64(tx.Ts))
 	binary.BigEndian.PutUint32(b[16:], uint32(len(tx.entries)))
 	copy(b[20:], tx.Eh[:])
 
-	if tx.Txh != sha256.Sum256(b[:bufLenTxh]) {
+	if tx.Txh != sha256.Sum256(b[:]) {
 		return ErrorCorruptedTxData
 	}
 
 	return nil
-}
-
-func ReadUint64(r io.Reader, b []byte) (uint64, error) {
-	_, err := r.Read(b[:8])
-	if err != nil {
-		return 0, err
-	}
-	return binary.BigEndian.Uint64(b), nil
-}
-
-func ReadUint32(r io.Reader, b []byte) (uint32, error) {
-	_, err := r.Read(b[:4])
-	if err != nil {
-		return 0, err
-	}
-	return binary.BigEndian.Uint32(b), nil
 }
 
 type Txe struct {
@@ -434,7 +416,6 @@ type ImmuStore struct {
 	_txsLock sync.Mutex
 
 	_txbs []byte // pre-allocated buffer to support tx serialization
-	_b    []byte // pre-allocated general purpose buffer
 
 	_kvs []*tbtree.KV //pre-allocated for indexing
 
@@ -627,7 +608,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		txReader := appendable.NewReaderFrom(txLog, committedTxOffset, committedTxSize)
 
 		tx := txs.Front().Value.(*Tx)
-		err = tx.readFrom(txReader, make([]byte, maxInt(MaxKeyLen, bufLenTxh)))
+		err = tx.readFrom(txReader)
 		if err != nil {
 			return nil, err
 		}
@@ -648,9 +629,20 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	indexPath := filepath.Join("data", "index.idx") //TODO change for appendable
+	indexPath := filepath.Join("data", "k-index")
 
-	index, err := tbtree.Open(indexPath, tbtree.DefaultOptions())
+	indexOpts := tbtree.DefaultOptions().
+		SetReadOnly(opts.readOnly).
+		SetFileMode(opts.fileMode).
+		SetFileSize(fileSize).
+		SetSynced(false).                                        // index is built from derived data
+		SetCacheSize(tbtree.DefaultCacheSize).                   // TODO: from opts
+		SetFlushThld(tbtree.DefaultFlushThld).                   // TODO: from opts
+		SetMaxActiveSnapshots(tbtree.DefaultMaxActiveSnapshots). // TODO: from opts
+		SetMaxNodeSize(tbtree.DefaultMaxNodeSize).               // TODO: from opts
+		SetRenewSnapRootAfter(time.Duration(1000) * time.Millisecond)
+
+	index, err := tbtree.Open(indexPath, indexOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -680,7 +672,6 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		_kvs:               kvs,
 		_txs:               txs,
 		_txbs:              txbs,
-		_b:                 make([]byte, bufLenTxh),
 	}
 
 	go store.indexer()
@@ -1016,11 +1007,12 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		txSize += 8
 	}
 
-	binary.BigEndian.PutUint64(s._b, tx.ID)
-	binary.BigEndian.PutUint64(s._b[8:], uint64(tx.Ts))
-	binary.BigEndian.PutUint32(s._b[16:], uint32(len(tx.entries)))
-	copy(s._b[20:], tx.Eh[:])
-	tx.Txh = sha256.Sum256(s._b[:bufLenTxh])
+	var b [52]byte
+	binary.BigEndian.PutUint64(b[:], tx.ID)
+	binary.BigEndian.PutUint64(b[8:], uint64(tx.Ts))
+	binary.BigEndian.PutUint32(b[16:], uint32(len(tx.entries)))
+	copy(b[20:], tx.Eh[:])
+	tx.Txh = sha256.Sum256(b[:])
 
 	// tx serialization using pre-allocated buffer
 	copy(s._txbs[txSize:], tx.Txh[:])
@@ -1036,9 +1028,10 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
-	binary.BigEndian.PutUint64(s._b, uint64(txOff))
-	binary.BigEndian.PutUint32(s._b[8:], uint32(txSize))
-	_, _, err = s.cLog.Append(s._b[:cLogEntrySize])
+	var cb [cLogEntrySize]byte
+	binary.BigEndian.PutUint64(cb[:], uint64(txOff))
+	binary.BigEndian.PutUint32(cb[8:], uint32(txSize))
+	_, _, err = s.cLog.Append(cb[:])
 	if err != nil {
 		return err
 	}
@@ -1111,13 +1104,15 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 
 	off := (txID - 1) * cLogEntrySize
 
-	_, err := s.cLog.ReadAt(s._b[:cLogEntrySize], int64(off))
+	var cb [cLogEntrySize]byte
+
+	_, err := s.cLog.ReadAt(cb[:], int64(off))
 	if err != nil {
 		return 0, 0, err
 	}
 
-	txOffset := int64(binary.BigEndian.Uint64(s._b))
-	txSize := int(binary.BigEndian.Uint32(s._b[8:]))
+	txOffset := int64(binary.BigEndian.Uint64(cb[:]))
+	txSize := int(binary.BigEndian.Uint32(cb[8:]))
 
 	if txOffset > s.committedTxLogSize {
 		return 0, 0, ErrorCorruptedTxData
@@ -1145,7 +1140,7 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 
 	txReader := appendable.NewReaderFrom(s.txLog, txOff, txSize)
 
-	return tx.readFrom(txReader, make([]byte, maxInt(MaxKeyLen, bufLenTxh)))
+	return tx.readFrom(txReader)
 }
 
 func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
@@ -1161,9 +1156,8 @@ func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
 }
 
 type TxReader struct {
-	r           io.Reader
+	r           *appendable.Reader
 	_tx         *Tx
-	_b          []byte
 	alreadyRead bool
 	txID        uint64
 	alh         [sha256.Size]byte
@@ -1182,13 +1176,12 @@ func (s *ImmuStore) NewTxReader(offset int64, bufSize int) (*TxReader, error) {
 	r := appendable.NewReaderFrom(syncedReader, offset, bufSize)
 
 	tx := NewTx(s.maxTxEntries, s.maxKeyLen)
-	b := make([]byte, maxInt(MaxKeyLen, bufLenTxh))
 
-	return &TxReader{r: r, _tx: tx, _b: b}, nil
+	return &TxReader{r: r, _tx: tx}, nil
 }
 
 func (txr *TxReader) Read() (*Tx, error) {
-	err := txr._tx.readFrom(txr.r, txr._b)
+	err := txr._tx.readFrom(txr.r)
 	if err != nil {
 		return nil, err
 	}
