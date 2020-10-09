@@ -219,7 +219,7 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 }
 
 func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
-	serviceClient := clienttest.ImmuServiceClientMock{}
+	serviceClient := clienttest.NewImmuServiceClientMock()
 	serviceClient.CurrentRootF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
 		return schema.NewRoot(), nil
 	}
@@ -276,8 +276,8 @@ func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
 		"immudb",
 		"immudb",
 		"wrong",
-		serviceClient,
-		rootservice.NewImmudbUUIDProvider(serviceClient),
+		&serviceClient,
+		rootservice.NewImmudbUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
