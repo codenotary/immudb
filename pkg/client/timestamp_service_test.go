@@ -24,7 +24,7 @@ import (
 )
 
 func TestTimestampService(t *testing.T) {
-	tg, _ := timestamp.NewTdefault()
+	tg, _ := timestamp.NewDefaultTimestamp()
 	tss := NewTimestampService(tg)
 	tim := tss.GetTime()
 	assert.IsType(t, tim, time.Time{})

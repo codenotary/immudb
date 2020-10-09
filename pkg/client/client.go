@@ -167,7 +167,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 		l.Errorf("unable to create root service: %s", err)
 		return nil, err
 	}
-	dt, err := timestamp.NewTdefault()
+	dt, err := timestamp.NewDefaultTimestamp()
 	if err != nil {
 		return nil, err
 	}
