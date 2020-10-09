@@ -271,7 +271,10 @@ func (e *Txe) digest() [sha256.Size]byte {
 	return eh
 }
 
+const Version = 1
+
 const (
+	MetaVersion      = "VERSION"
 	MetaMaxTxEntries = "MAX_TX_ENTRIES"
 	MetaMaxKeyLen    = "MAX_KEY_LEN"
 	MetaMaxValueLen  = "MAX_VALUE_LEN"
@@ -484,10 +487,11 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	metadata := appendable.NewMetadata(nil)
-	metadata.PutInt(MetaFileSize, opts.fileSize)
+	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxTxEntries, opts.maxTxEntries)
 	metadata.PutInt(MetaMaxKeyLen, opts.maxKeyLen)
 	metadata.PutInt(MetaMaxValueLen, opts.maxValueLen)
+	metadata.PutInt(MetaFileSize, opts.fileSize)
 
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
