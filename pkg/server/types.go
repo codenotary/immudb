@@ -73,6 +73,7 @@ func DefaultServer() *ImmuServer {
 		quit:                make(chan struct{}),
 		databasenameToIndex: make(map[string]int64),
 		userdata:            &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
+		GrpcServer:          grpc.NewServer(),
 	}
 }
 
