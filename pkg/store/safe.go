@@ -56,7 +56,7 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:   kv.Key,
-		Value: wrapValueWithTS(kv.Value, tsEntry.ts),
+		Value: WrapValueWithTS(kv.Value, tsEntry.ts),
 	}); err != nil {
 		err = mapError(err)
 		return
@@ -129,7 +129,7 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
 		var refKey []byte
 		err = i.Value(func(val []byte) error {
-			refKey, _ = unwrapValueWithTS(val)
+			refKey, _ = UnwrapValueWithTS(val)
 			return nil
 		})
 		if err != nil {
@@ -198,7 +198,7 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ro.Reference,
-		Value:    wrapValueWithTS(i.Key(), tsEntry.ts),
+		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)
@@ -279,7 +279,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ik,
-		Value:    wrapValueWithTS(i.Key(), tsEntry.ts),
+		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)

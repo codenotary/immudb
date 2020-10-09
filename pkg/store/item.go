@@ -30,7 +30,7 @@ func itemToSchema(key []byte, item *badger.Item) (*schema.Item, error) {
 		key = item.KeyCopy(key)
 	}
 
-	v, ts := unwrapValueWithTS(value)
+	v, ts := UnwrapValueWithTS(value)
 
 	return &schema.Item{
 		Key:   key,

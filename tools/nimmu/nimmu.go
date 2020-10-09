@@ -19,12 +19,15 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
+	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"io/ioutil"
 	"math"
 	"os"
 
+	"github.com/codenotary/immudb/pkg/store"
 	"github.com/dgraph-io/badger/v2"
-
 	"github.com/spf13/cobra"
 )
 
@@ -65,13 +68,22 @@ func main() {
 				return err
 			}
 			ts := item.Version()
+
 			oldValue, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
 
 			fmt.Printf("index: %d\nkey: %s\nOLD value:\n%s\n", ts-1, item.Key(), oldValue)
-			if err := txn.Set(k, v); err != nil {
+
+			si := NewSKV(k, v)
+			kv, err := si.ToKV()
+			if err != nil {
+				return err
+			}
+			wv := store.WrapValueWithTS(kv.Value, ts)
+
+			if err := txn.Set(kv.Key, wv); err != nil {
 				return err
 			}
 
@@ -79,7 +91,7 @@ func main() {
 				return err
 			}
 
-			fmt.Printf("NEW value:\n%s \nindex %d successfully overwritten.\n", v, ts-1)
+			fmt.Printf("NEW value:\n%s \nindex %d successfully overwritten.\n", wv, ts-1)
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
@@ -106,4 +118,16 @@ func makeDB(dir string) *badger.DB {
 		os.Exit(1)
 	}
 	return db
+}
+
+func NewSKV(key []byte, value []byte) *schema.StructuredKeyValue {
+	tsg, _ := timestamp.NewDefaultTimestamp()
+	ts := client.NewTimestampService(tsg)
+	return &schema.StructuredKeyValue{
+		Key: key,
+		Value: &schema.Content{
+			Timestamp: uint64(ts.GetTime().Unix()),
+			Payload:   value,
+		},
+	}
 }
