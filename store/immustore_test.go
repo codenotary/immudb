@@ -186,21 +186,14 @@ func TestImmudbStoreIndexing(t *testing.T) {
 								panic("expected not nil")
 							}
 
-							hvalue := wv[:sha256.Size]
-							valLen := binary.BigEndian.Uint32(wv[sha256.Size:])
-							vOff := binary.BigEndian.Uint64(wv[sha256.Size+4:])
+							valLen := binary.BigEndian.Uint32(wv)
+							vOff := binary.BigEndian.Uint64(wv[4:])
 
 							val := make([]byte, valLen)
 							_, err := immuStore.ReadValueAt(val, int64(vOff))
 
 							if err != nil {
 								panic(err)
-							}
-
-							hval := sha256.Sum256(val)
-
-							if !bytes.Equal(hvalue[:], hval[:]) {
-								panic(fmt.Errorf("expected %v actual %v", hvalue, hval))
 							}
 
 							if !bytes.Equal(v, val) {

@@ -741,10 +741,9 @@ func (s *ImmuStore) doIndexing() error {
 				}
 			}
 
-			var b [sha256.Size + 4 + 8]byte
-			copy(b[:], e.HValue[:])
-			binary.BigEndian.PutUint32(b[sha256.Size:], uint32(e.ValueLen))
-			binary.BigEndian.PutUint64(b[sha256.Size+4:], uint64(e.VOff))
+			var b [4 + 8]byte
+			binary.BigEndian.PutUint32(b[:], uint32(e.ValueLen))
+			binary.BigEndian.PutUint64(b[4:], uint64(e.VOff))
 
 			s._kvs[i].K = e.Key()
 			s._kvs[i].V = b[:]
