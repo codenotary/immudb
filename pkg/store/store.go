@@ -144,7 +144,7 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 		}
 		if err = txn.SetEntry(&badger.Entry{
 			Key:   kv.Key,
-			Value: wrapValueWithTS(kv.Value, tsEntries[i].ts),
+			Value: WrapValueWithTS(kv.Value, tsEntries[i].ts),
 		}); err != nil {
 			err = mapError(err)
 			return
@@ -206,7 +206,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:   kv.Key,
-		Value: wrapValueWithTS(kv.Value, tsEntry.ts),
+		Value: WrapValueWithTS(kv.Value, tsEntry.ts),
 	}); err != nil {
 		err = mapError(err)
 		return
@@ -259,7 +259,7 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
 		var refkey []byte
 		err = i.Value(func(val []byte) error {
-			refkey, _ = unwrapValueWithTS(val)
+			refkey, _ = UnwrapValueWithTS(val)
 			return nil
 		})
 		if ref, err := txn.Get(refkey); err == nil {
@@ -440,7 +440,7 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      refOpts.Reference,
-		Value:    wrapValueWithTS(i.Key(), tsEntry.ts),
+		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)
@@ -510,7 +510,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ik,
-		Value:    wrapValueWithTS(i.Key(), tsEntry.ts),
+		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)

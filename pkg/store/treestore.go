@@ -95,14 +95,14 @@ func decodeRefTreeKey(rtk []byte) ([sha256.Size]byte, []byte, error) {
 	return hArray, reference, nil
 }
 
-func wrapValueWithTS(v []byte, ts uint64) []byte {
+func WrapValueWithTS(v []byte, ts uint64) []byte {
 	tsv := make([]byte, len(v)+8)
 	binary.BigEndian.PutUint64(tsv, ts)
 	copy(tsv[8:], v)
 	return tsv
 }
 
-func unwrapValueWithTS(tsv []byte) ([]byte, uint64) {
+func UnwrapValueWithTS(tsv []byte) ([]byte, uint64) {
 	v := make([]byte, len(tsv)-8)
 	ts := binary.BigEndian.Uint64(tsv[:8])
 	copy(v, tsv[8:])
