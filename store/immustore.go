@@ -464,11 +464,16 @@ func (kv *KV) Digest() [sha256.Size]byte {
 	return eh
 }
 
+func validOptions(opts *Options) bool {
+	return opts != nil &&
+		opts.maxKeyLen <= MaxKeyLen &&
+		opts.maxConcurrency > 0 &&
+		opts.maxIOConcurrency > 0 &&
+		opts.maxIOConcurrency <= MaxParallelIO
+}
+
 func Open(path string, opts *Options) (*ImmuStore, error) {
-	if opts == nil || opts.maxKeyLen > MaxKeyLen ||
-		opts.maxConcurrency < 1 ||
-		opts.maxIOConcurrency < 1 ||
-		opts.maxIOConcurrency > MaxParallelIO {
+	if !validOptions(opts) {
 		return nil, ErrIllegalArgument
 	}
 
@@ -536,6 +541,10 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 }
 
 func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
+	if !validOptions(opts) {
+		return nil, ErrIllegalArgument
+	}
+
 	cLogSize, err := cLog.Size()
 	if err != nil {
 		return nil, err
