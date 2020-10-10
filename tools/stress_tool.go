@@ -222,7 +222,7 @@ func main() {
 
 	wgEnded.Wait()
 
-	if *txLinking {
+	if *txLinking || *kvInclusion {
 		fmt.Println("Starting full scan to verify linear cryptographic linking...")
 		start := time.Now()
 
