@@ -18,6 +18,7 @@ package store
 import (
 	"container/list"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -40,6 +41,7 @@ var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
+var ErrDuplicatedKey = errors.New("duplicated key")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrorCorruptedTxData = errors.New("tx data is corrupted")
@@ -1236,6 +1238,8 @@ func (s *ImmuStore) validateEntries(entries []*KV) error {
 		return ErrorMaxTxEntriesLimitExceeded
 	}
 
+	m := make(map[string]struct{}, len(entries))
+
 	for _, kv := range entries {
 		if len(kv.Key) > s.maxKeyLen {
 			return ErrorMaxKeyLenExceeded
@@ -1243,6 +1247,12 @@ func (s *ImmuStore) validateEntries(entries []*KV) error {
 		if len(kv.Value) > s.maxValueLen {
 			return ErrorMaxValueLenExceeded
 		}
+
+		b64k := base64.StdEncoding.EncodeToString(kv.Key)
+		if _, ok := m[b64k]; ok {
+			return ErrDuplicatedKey
+		}
+		m[b64k] = struct{}{}
 	}
 	return nil
 }

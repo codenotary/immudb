@@ -136,6 +136,12 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
 
+	_, _, _, _, err = immuStore.Commit([]*KV{
+		{Key: []byte("key"), Value: []byte("value")},
+		{Key: []byte("key"), Value: []byte("value")},
+	})
+	require.Equal(t, ErrDuplicatedKey, err)
+
 	for i := 0; i < txCount; i++ {
 		kvs := make([]*KV, eCount)
 

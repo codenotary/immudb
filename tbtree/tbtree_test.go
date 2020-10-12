@@ -172,6 +172,10 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		require.Equal(t, v, v1)
 		require.Equal(t, ts, ts1)
 
+		tss, err := snapshot.GetTs(k, 1)
+		require.NoError(t, err)
+		require.Equal(t, ts, tss[0])
+
 		err = snapshot.Close()
 		require.NoError(t, err)
 	}
