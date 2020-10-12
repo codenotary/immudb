@@ -161,6 +161,7 @@ type path []*innerNode
 type node interface {
 	insertAt(key []byte, value []byte, ts uint64) (node, node, error)
 	get(key []byte) (value []byte, ts uint64, err error)
+	getTs(key []byte, limit int64) ([]uint64, error)
 	findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error)
 	maxKey() []byte
 	ts() uint64
@@ -870,6 +871,16 @@ func (n *innerNode) get(key []byte) (value []byte, ts uint64, err error) {
 	return n.nodes[i].get(key)
 }
 
+func (n *innerNode) getTs(key []byte, limit int64) ([]uint64, error) {
+	i := n.indexOf(key)
+
+	if bytes.Compare(key, n.nodes[i].maxKey()) == 1 {
+		return nil, ErrKeyNotFound
+	}
+
+	return n.nodes[i].getTs(key, limit)
+}
+
 func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
 	if ascOrder || neqKey == nil {
 		for i := 0; i < len(n.nodes); i++ {
@@ -997,6 +1008,14 @@ func (r *nodeRef) get(key []byte) (value []byte, ts uint64, err error) {
 		return nil, 0, err
 	}
 	return n.get(key)
+}
+
+func (r *nodeRef) getTs(key []byte, limit int64) ([]uint64, error) {
+	n, err := r.t.nodeAt(r.off)
+	if err != nil {
+		return nil, err
+	}
+	return n.getTs(key, limit)
 }
 
 func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
@@ -1156,6 +1175,36 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, err error) {
 
 	leafValue := l.values[i]
 	return leafValue.value, leafValue.ts[leafValue.tsLen-1], nil
+}
+
+func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
+	i, found := l.indexOf(key)
+
+	if !found {
+		return nil, ErrKeyNotFound
+	}
+
+	leafValue := l.values[i]
+
+	iTsLen := len(leafValue.ts)
+	if int64(iTsLen) > limit {
+		iTsLen = int(limit)
+	}
+
+	ts := make([]uint64, iTsLen)
+	for i := 0; i < iTsLen; i++ {
+		ts[i] = leafValue.ts[len(leafValue.ts)-1-i]
+	}
+
+	if int64(iTsLen) < limit && l.prevNode != nil {
+		pts, err := l.prevNode.getTs(key, limit-int64(iTsLen))
+		if err != nil {
+			return nil, err
+		}
+		ts = append(ts, pts...)
+	}
+
+	return ts, nil
 }
 
 func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {

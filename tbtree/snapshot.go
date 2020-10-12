@@ -47,6 +47,18 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
 	return s.root.get(key)
 }
 
+func (s *Snapshot) GetTs(key []byte, limit int64) (ts []uint64, err error) {
+	if s.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	if limit < 1 {
+		return nil, ErrIllegalArgument
+	}
+
+	return s.root.getTs(key, limit)
+}
+
 func (s *Snapshot) Ts() uint64 {
 	return s.root.ts()
 }
