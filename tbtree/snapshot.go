@@ -139,7 +139,7 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 
 		o, w, err := c.writeTo(w, false, wopts)
 		if err != nil {
-			return 0, 0, err
+			return 0, w, err
 		}
 
 		offsets[i] = o
@@ -174,9 +174,9 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 		bi += 4
 	}
 
-	err = writeTo(buf[:bi], w)
+	wn, err := w.Write(buf[:bi])
 	if err != nil {
-		return 0, 0, err
+		return 0, int64(wn), err
 	}
 
 	if writeOpts.commitLog {
@@ -213,6 +213,25 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 	binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
 	bi += 4
 
+	var cw int64
+	var prevNodeOff int64
+
+	if l.prevNode != nil {
+		if l.prevNode.mutated() {
+			o, w, err := l.prevNode.writeTo(w, false, writeOpts)
+			if err != nil {
+				return 0, w, err
+			}
+			prevNodeOff = o
+			cw = w
+		} else {
+			prevNodeOff = l.prevNode.offset()
+		}
+	}
+
+	binary.BigEndian.PutUint64(buf[bi:], uint64(prevNodeOff))
+	bi += 8
+
 	binary.BigEndian.PutUint32(buf[bi:], uint32(len(l.values)))
 	bi += 4
 
@@ -229,11 +248,13 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 		copy(buf[bi:], v.value)
 		bi += len(v.value)
 
-		binary.BigEndian.PutUint64(buf[bi:], v.ts)
-		bi += 8
+		binary.BigEndian.PutUint32(buf[bi:], uint32(v.tsLen))
+		bi += 4
 
-		binary.BigEndian.PutUint64(buf[bi:], v.prevTs)
-		bi += 8
+		for i := 0; i < v.tsLen; i++ {
+			binary.BigEndian.PutUint64(buf[bi:], v.ts[i])
+			bi += 8
+		}
 	}
 
 	if asRoot {
@@ -241,24 +262,24 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 		bi += 4
 	}
 
-	err = writeTo(buf[:bi], w)
+	n, err := w.Write(buf[:bi])
 	if err != nil {
-		return 0, 0, err
+		return 0, int64(n), err
 	}
 
 	if writeOpts.commitLog {
-		l.off = writeOpts.BaseOffset
+		l.off = writeOpts.BaseOffset + cw
 		l.mut = false
 		l.t.cachePut(l)
 	}
 
-	tw = int64(size)
+	tw = cw + int64(size)
 
 	if asRoot {
 		tw += 4
 	}
 
-	return writeOpts.BaseOffset, tw, nil
+	return writeOpts.BaseOffset + cw, tw, nil
 }
 
 func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64, int64, error) {
@@ -273,7 +294,7 @@ func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64
 
 	off, tw, err := node.writeTo(w, asRoot, writeOpts)
 	if err != nil {
-		return 0, 0, err
+		return 0, tw, err
 	}
 
 	if writeOpts.commitLog {
@@ -303,20 +324,4 @@ func writeNodeRefToWithOffset(n node, offset int64, buf []byte) int {
 	i += 8
 
 	return i
-}
-
-func writeTo(buf []byte, w io.Writer) error {
-	wn := 0
-	for {
-		n, err := w.Write(buf)
-		if err != nil {
-			return err
-		}
-		wn += n
-
-		if len(buf) == wn {
-			break
-		}
-	}
-	return nil
 }
