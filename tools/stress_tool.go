@@ -179,7 +179,7 @@ func main() {
 			if *txRead {
 				fmt.Printf("Starting committed tx against input kv data by committer %d...\r\n", id)
 
-				tx := store.NewTx(*kvCount, *kLen)
+				tx := immuStore.NewTx()
 				b := make([]byte, *vLen)
 
 				for i := range ids {

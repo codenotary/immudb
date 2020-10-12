@@ -318,8 +318,8 @@ func TestImmudbStore(t *testing.T) {
 		require.Equal(t, uint64(i+1), txi.ID)
 	}
 
-	trustedTx := NewTx(immuStore.maxTxEntries, immuStore.maxKeyLen)
-	targetTx := NewTx(immuStore.maxTxEntries, immuStore.maxKeyLen)
+	trustedTx := immuStore.NewTx()
+	targetTx := immuStore.NewTx()
 
 	for i := 0; i < txCount; i++ {
 		trustedTxID := uint64(i + 1)

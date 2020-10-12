@@ -78,7 +78,7 @@ type Tx struct {
 	Eh       [sha256.Size]byte
 }
 
-func NewTx(nentries int, maxKeyLen int) *Tx {
+func newTx(nentries int, maxKeyLen int) *Tx {
 	entries := make([]*Txe, nentries)
 	for i := 0; i < nentries; i++ {
 		entries[i] = &Txe{key: make([]byte, maxKeyLen)}
@@ -598,7 +598,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	txs := list.New()
 
 	for i := 0; i < opts.maxConcurrency; i++ {
-		tx := NewTx(maxTxEntries, maxKeyLen)
+		tx := newTx(maxTxEntries, maxKeyLen)
 		txs.PushBack(tx)
 	}
 
@@ -679,6 +679,10 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	go store.indexer()
 
 	return store, nil
+}
+
+func (s *ImmuStore) NewTx() *Tx {
+	return newTx(s.maxTxEntries, s.maxKeyLen)
 }
 
 func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
@@ -1177,7 +1181,7 @@ func (s *ImmuStore) NewTxReader(offset int64, bufSize int) (*TxReader, error) {
 
 	r := appendable.NewReaderFrom(syncedReader, offset, bufSize)
 
-	tx := NewTx(s.maxTxEntries, s.maxKeyLen)
+	tx := s.NewTx()
 
 	return &TxReader{r: r, _tx: tx}, nil
 }
