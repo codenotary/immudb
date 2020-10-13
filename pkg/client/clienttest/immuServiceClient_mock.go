@@ -180,7 +180,7 @@ func NewImmuServiceClientMock() *ImmuServiceClientMock {
 			return &schema.UseDatabaseReply{}, nil
 		},
 		CreateDatabaseF: func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error) {
-			return nil, nil
+			return &empty.Empty{}, nil
 		},
 		CurrentRootF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
 			return &schema.Root{}, nil
@@ -202,6 +202,9 @@ func NewImmuServiceClientMock() *ImmuServiceClientMock {
 		},
 		ZScanF: func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
 			return &schema.ItemList{}, nil
+		},
+		CreateUserF: func(ctx context.Context, in *schema.CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+			return &empty.Empty{}, nil
 		},
 	}
 	return bs
