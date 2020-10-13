@@ -190,7 +190,7 @@ func main() {
 							panic(fmt.Errorf("committed tx key does not match input values"))
 						}
 
-						_, err = immuStore.ReadValueAt(b, e.VOff)
+						_, err = immuStore.ReadValueAt(b, e.VOff, e.HValue)
 						if err != nil {
 							panic(err)
 						}
@@ -250,7 +250,7 @@ func main() {
 				for i := 0; i < len(txEntries); i++ {
 					path := tx.Proof(i)
 
-					_, err = immuStore.ReadValueAt(b[:txEntries[i].ValueLen], txEntries[i].VOff)
+					_, err = immuStore.ReadValueAt(b[:txEntries[i].ValueLen], txEntries[i].VOff, txEntries[i].HValue)
 					if err != nil {
 						panic(err)
 					}

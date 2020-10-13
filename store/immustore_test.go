@@ -209,6 +209,32 @@ func TestImmudbStoreIndexing(t *testing.T) {
 								panic(fmt.Errorf("expected %v actual %v", v, val))
 							}
 						}
+
+						txIDs, err := snap.GetTs(k, int64(txCount))
+						if err != nil {
+							panic(err)
+						}
+						if int(snap.Ts()) != len(txIDs) {
+							panic(fmt.Errorf("expected %v actual %v", int(snap.Ts()), len(txIDs)))
+						}
+
+						tx := immuStore.NewTx()
+
+						for _, txID := range txIDs {
+							v := make([]byte, 8)
+							binary.BigEndian.PutUint64(v, txID-1)
+
+							immuStore.ReadTx(txID, tx)
+
+							val, err := immuStore.ReadValue(tx, k)
+							if err != nil {
+								panic(err)
+							}
+
+							if !bytes.Equal(v, val) {
+								panic(fmt.Errorf("expected %v actual %v", v, val))
+							}
+						}
 					}
 				}
 
@@ -241,7 +267,7 @@ func TestImmudbStore(t *testing.T) {
 	require.NotNil(t, immuStore)
 
 	txCount := 10
-	eCount := 10
+	eCount := 1000
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
