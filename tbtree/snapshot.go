@@ -226,7 +226,7 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 	bi += 4
 
 	var cw int64
-	var prevNodeOff int64
+	prevNodeOff := int64(-1)
 
 	if l.prevNode != nil {
 		if l.prevNode.mutated() {
@@ -260,11 +260,14 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 		copy(buf[bi:], v.value)
 		bi += len(v.value)
 
-		binary.BigEndian.PutUint32(buf[bi:], uint32(v.tsLen))
+		binary.BigEndian.PutUint64(buf[bi:], v.ts)
+		bi += 8
+
+		binary.BigEndian.PutUint32(buf[bi:], uint32(len(v.tss)))
 		bi += 4
 
-		for i := 0; i < v.tsLen; i++ {
-			binary.BigEndian.PutUint64(buf[bi:], v.ts[i])
+		for i := 0; i < len(v.tss); i++ {
+			binary.BigEndian.PutUint64(buf[bi:], v.tss[i])
 			bi += 8
 		}
 	}

@@ -209,8 +209,8 @@ type nodeRef struct {
 type leafValue struct {
 	key   []byte
 	value []byte
-	ts    []uint64
-	tsLen int
+	ts    uint64
+	tss   []uint64
 }
 
 func validOptions(opts *Options) bool {
@@ -506,26 +506,31 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader, asRoot bool) (*leafNode,
 			return nil, err
 		}
 
+		ts, err := r.ReadUint64()
+		if err != nil {
+			return nil, err
+		}
+
 		tsLen, err := r.ReadUint32()
 		if err != nil {
 			return nil, err
 		}
 
-		ts := make([]uint64, KeySpace)
+		tss := make([]uint64, tsLen)
 
 		for i := 0; i < int(tsLen); i++ {
 			t, err := r.ReadUint64()
 			if err != nil {
 				return nil, err
 			}
-			ts[i] = t
+			tss[i] = t
 		}
 
 		leafValue := &leafValue{
 			key:   key,
 			value: value,
+			tss:   tss,
 			ts:    ts,
-			tsLen: int(tsLen),
 		}
 
 		l.values[c] = leafValue
@@ -534,8 +539,8 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader, asRoot bool) (*leafNode,
 			l._maxKey = leafValue.key
 		}
 
-		if l._ts < leafValue.ts[leafValue.tsLen-1] {
-			l._ts = leafValue.ts[leafValue.tsLen-1]
+		if l._ts < leafValue.ts {
+			l._ts = leafValue.ts
 		}
 	}
 
@@ -1050,7 +1055,7 @@ func (r *nodeRef) offset() int64 {
 
 func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
 	i, found := l.indexOf(key) // TODO: avoid calling indexOf twice
-	enoughKeySpace := !found || l.values[i].tsLen+1 < KeySpace
+	enoughKeySpace := !found || len(l.values[i].tss)+1 < KeySpace
 
 	if !l.mut || !enoughKeySpace {
 		return l.copyOnInsertAt(key, value, ts)
@@ -1065,12 +1070,9 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 	l.mut = true
 
 	if found {
-		l.values[i] = &leafValue{
-			key:   key,
-			value: value,
-			ts:    append(l.values[i].ts, ts),
-			tsLen: l.values[i].tsLen + 1,
-		}
+		l.values[i].value = value
+		l.values[i].ts = ts
+		l.values[i].tss = append(l.values[i].tss, ts)
 
 		return l, nil, nil
 	}
@@ -1086,8 +1088,8 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 	values[i] = &leafValue{
 		key:   key,
 		value: value,
-		ts:    []uint64{ts},
-		tsLen: 1,
+		ts:    ts,
+		tss:   []uint64{ts},
 	}
 
 	if i+1 < len(values) {
@@ -1115,27 +1117,32 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 			mut:      true,
 		}
 
-		copy(newLeaf.values[:i], l.values[:i])
+		for pi := 0; pi < i; pi++ {
+			newLeaf.values[pi] = &leafValue{
+				key:   l.values[pi].key,
+				value: l.values[pi].value,
+				ts:    l.values[pi].ts,
+				tss:   nil,
+			}
+		}
 
 		newLeaf.values[i] = &leafValue{
 			key:   key,
 			value: value,
-			ts:    []uint64{l._ts, ts},
-			tsLen: 2,
+			ts:    ts,
+			tss:   []uint64{ts},
 		}
 
-		if i+1 < len(newLeaf.values) {
-			copy(newLeaf.values[i+1:], l.values[i+1:])
+		for pi := i + 1; pi < len(newLeaf.values); pi++ {
+			newLeaf.values[pi] = &leafValue{
+				key:   l.values[pi].key,
+				value: l.values[pi].value,
+				ts:    l.values[pi].ts,
+				tss:   nil,
+			}
 		}
 
 		return newLeaf, nil, nil
-	}
-
-	lv := &leafValue{
-		key:   key,
-		value: value,
-		ts:    []uint64{ts},
-		tsLen: 1,
 	}
 
 	maxKey := l._maxKey
@@ -1153,12 +1160,29 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 		mut:      true,
 	}
 
-	copy(newLeaf.values[:i], l.values[:i])
+	for pi := 0; pi < i; pi++ {
+		newLeaf.values[pi] = &leafValue{
+			key:   l.values[pi].key,
+			value: l.values[pi].value,
+			ts:    l.values[pi].ts,
+			tss:   nil,
+		}
+	}
 
-	newLeaf.values[i] = lv
+	newLeaf.values[i] = &leafValue{
+		key:   key,
+		value: value,
+		ts:    ts,
+		tss:   []uint64{ts},
+	}
 
-	if i+1 < len(newLeaf.values) {
-		copy(newLeaf.values[i+1:], l.values[i:])
+	for pi := i + 1; pi < len(newLeaf.values); pi++ {
+		newLeaf.values[pi] = &leafValue{
+			key:   l.values[pi-1].key,
+			value: l.values[pi-1].value,
+			ts:    l.values[pi-1].ts,
+			tss:   nil,
+		}
 	}
 
 	n2, err = newLeaf.split()
@@ -1174,7 +1198,7 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, err error) {
 	}
 
 	leafValue := l.values[i]
-	return leafValue.value, leafValue.ts[leafValue.tsLen-1], nil
+	return leafValue.value, leafValue.ts, nil
 }
 
 func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
@@ -1186,25 +1210,25 @@ func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
 
 	leafValue := l.values[i]
 
-	iTsLen := len(leafValue.ts)
-	if int64(iTsLen) > limit {
-		iTsLen = int(limit)
+	tsLen := len(leafValue.tss)
+	if limit < int64(tsLen) {
+		tsLen = int(limit)
 	}
 
-	ts := make([]uint64, iTsLen)
-	for i := 0; i < iTsLen; i++ {
-		ts[i] = leafValue.ts[len(leafValue.ts)-1-i]
+	tss := make([]uint64, tsLen)
+	for i := 0; i < tsLen; i++ {
+		tss[i] = leafValue.tss[len(leafValue.tss)-1-i]
 	}
 
-	if int64(iTsLen) < limit && l.prevNode != nil {
-		pts, err := l.prevNode.getTs(key, limit-int64(iTsLen))
+	if int64(tsLen) < limit && l.prevNode != nil {
+		pts, err := l.prevNode.getTs(key, limit-int64(tsLen))
 		if err != nil {
 			return nil, err
 		}
-		ts = append(ts, pts...)
+		tss = append(tss, pts...)
 	}
 
-	return ts, nil
+	return tss, nil
 }
 
 func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
@@ -1263,12 +1287,13 @@ func (l *leafNode) size() int {
 	size += 4 // kv count
 
 	for _, kv := range l.values {
-		size += 4             // Key length
-		size += len(kv.key)   // Key
-		size += 4             // Value length
-		size += len(kv.value) // Value
-		size += 4             // ts length
-		size += 8 * kv.tsLen  // Ts
+		size += 4               // Key length
+		size += len(kv.key)     // Key
+		size += 4               // Value length
+		size += len(kv.value)   // Value
+		size += 8               // Ts
+		size += 4               // ts length
+		size += 8 * len(kv.tss) // Tss
 	}
 
 	return size
@@ -1290,11 +1315,12 @@ func (l *leafNode) split() (node, error) {
 	splitIndex, _ := l.splitInfo()
 
 	newLeaf := &leafNode{
-		t:       l.t,
-		values:  l.values[splitIndex:],
-		_maxKey: l._maxKey,
-		maxSize: l.maxSize,
-		mut:     true,
+		t:        l.t,
+		prevNode: l.prevNode,
+		values:   l.values[splitIndex:],
+		_maxKey:  l._maxKey,
+		maxSize:  l.maxSize,
+		mut:      true,
 	}
 	newLeaf.updateTs()
 
@@ -1321,8 +1347,8 @@ func (l *leafNode) updateTs() {
 	l._ts = 0
 
 	for i := 0; i < len(l.values); i++ {
-		if l._ts < l.values[i].ts[l.values[i].tsLen-1] {
-			l._ts = l.values[i].ts[l.values[i].tsLen-1]
+		if l._ts < l.values[i].ts {
+			l._ts = l.values[i].ts
 		}
 	}
 
