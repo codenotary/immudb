@@ -16,6 +16,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"container/list"
 	"crypto/sha256"
 	"encoding/base64"
@@ -47,6 +48,8 @@ var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrorCorruptedTxData = errors.New("tx data is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
+
+var ErrKeyNotFound = errors.New("key not found")
 
 var ErrTrustedTxNotOlderThanTargetTx = errors.New("trusted tx is not older than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
@@ -1147,6 +1150,20 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	txReader := appendable.NewReaderFrom(s.txLog, txOff, txSize)
 
 	return tx.readFrom(txReader)
+}
+
+func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
+	for _, e := range tx.Entries() {
+		if bytes.Equal(e.Key(), key) {
+			v := make([]byte, e.ValueLen)
+			_, err := s.ReadValueAt(v, e.VOff)
+			if err != nil {
+				return nil, err
+			}
+			return v, nil
+		}
+	}
+	return nil, ErrKeyNotFound
 }
 
 func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {

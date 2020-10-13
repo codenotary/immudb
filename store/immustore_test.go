@@ -303,6 +303,9 @@ func TestImmudbStore(t *testing.T) {
 
 			verifies := path.VerifyInclusion(uint64(tx.nentries-1), uint64(j), tx.Eh, kv.Digest())
 			require.True(t, verifies)
+
+			v, err = immuStore.ReadValue(tx, key)
+			require.Equal(t, value, v)
 		}
 	}
 
