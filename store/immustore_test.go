@@ -195,8 +195,11 @@ func TestImmudbStoreIndexing(t *testing.T) {
 							valLen := binary.BigEndian.Uint32(wv)
 							vOff := binary.BigEndian.Uint64(wv[4:])
 
+							var hVal [sha256.Size]byte
+							copy(hVal[:], wv[4+8:])
+
 							val := make([]byte, valLen)
-							_, err := immuStore.ReadValueAt(val, int64(vOff))
+							_, err := immuStore.ReadValueAt(val, int64(vOff), hVal)
 
 							if err != nil {
 								panic(err)
@@ -287,7 +290,7 @@ func TestImmudbStore(t *testing.T) {
 			key := txEntries[j].Key()
 
 			value := make([]byte, txEntries[j].ValueLen)
-			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff)
+			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
 			require.NoError(t, err)
 
 			k := make([]byte, 8)
@@ -492,7 +495,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 			key := txEntries[j].Key()
 
 			value := make([]byte, txEntries[j].ValueLen)
-			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff)
+			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
 			require.NoError(t, err)
 
 			kv := &KV{Key: key, Value: value}

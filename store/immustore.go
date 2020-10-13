@@ -46,6 +46,7 @@ var ErrDuplicatedKey = errors.New("duplicated key")
 var ErrMaxConcurrencyLimitExceeded = errors.New("max concurrency limit exceeded")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrorCorruptedTxData = errors.New("tx data is corrupted")
+var ErrCorruptedData = errors.New("data is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 
@@ -743,7 +744,7 @@ func (s *ImmuStore) doIndexing() error {
 			if verifyOnIndexing {
 				path := tx.Proof(i)
 				be := make([]byte, s.maxValueLen)
-				_, err = s.ReadValueAt(be[:txEntries[i].ValueLen], txEntries[i].VOff)
+				_, err = s.ReadValueAt(be[:txEntries[i].ValueLen], txEntries[i].VOff, txEntries[i].HValue)
 				if err != nil {
 					return err
 				}
@@ -754,9 +755,10 @@ func (s *ImmuStore) doIndexing() error {
 				}
 			}
 
-			var b [4 + 8]byte
+			var b [4 + 8 + sha256.Size]byte
 			binary.BigEndian.PutUint32(b[:], uint32(e.ValueLen))
 			binary.BigEndian.PutUint64(b[4:], uint64(e.VOff))
+			copy(b[4+8:], e.HValue[:])
 
 			s._kvs[i].K = e.Key()
 			s._kvs[i].V = b[:]
@@ -1156,7 +1158,7 @@ func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
 	for _, e := range tx.Entries() {
 		if bytes.Equal(e.Key(), key) {
 			v := make([]byte, e.ValueLen)
-			_, err := s.ReadValueAt(v, e.VOff)
+			_, err := s.ReadValueAt(v, e.VOff, e.HValue)
 			if err != nil {
 				return nil, err
 			}
@@ -1166,7 +1168,7 @@ func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
 	return nil, ErrKeyNotFound
 }
 
-func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
+func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
 	vLogID, offset := decodeOffset(off)
 
 	vLog, err := s.fetchVLog(vLogID, true)
@@ -1175,7 +1177,16 @@ func (s *ImmuStore) ReadValueAt(b []byte, off int64) (int, error) {
 	}
 	defer s.releaseVLog(vLogID)
 
-	return vLog.ReadAt(b, offset)
+	n, err := vLog.ReadAt(b, offset)
+	if err != nil {
+		return n, err
+	}
+
+	if hvalue != sha256.Sum256(b) {
+		return n, ErrCorruptedData
+	}
+
+	return n, nil
 }
 
 type TxReader struct {
