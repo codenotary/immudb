@@ -1312,6 +1312,10 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 		}
 		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
+			if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
+				return nil, status.Error(
+					codes.PermissionDenied, err.Error())
+			}
 			return nil, status.Errorf(codes.Unauthenticated,
 				"Please login")
 		}
@@ -1484,6 +1488,10 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 	}
 	ind, usr, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
+		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
+			return 0, status.Error(
+				codes.PermissionDenied, err.Error())
+		}
 		if s.Options.GetMaintenance() {
 			return 0, fmt.Errorf("please select database first")
 		}
@@ -1504,6 +1512,9 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *auth.User, error) {
 	jsUser, err := auth.GetLoggedInUser(ctx)
 	if err != nil {
+		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
+			return -1, nil, err
+		}
 		return -1, nil, fmt.Errorf("could not get userdata from token")
 	}
 	u, err := s.getLoggedInUserDataFromUsername(jsUser.Username)
