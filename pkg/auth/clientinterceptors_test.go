@@ -18,6 +18,8 @@ package auth
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 	"testing"
 )
 
@@ -39,4 +41,22 @@ func TestTokenAuth(t *testing.T) {
 	if token.RequireTransportSecurity() {
 		t.Errorf("Error RequireTransportSecurity expected to return false")
 	}
+}
+
+func TestClientUnaryInterceptor(t *testing.T) {
+	f := ClientUnaryInterceptor("token")
+	invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+		return nil
+	}
+	err := f(context.Background(), "", "", "", nil, invoker)
+	assert.Nil(t, err)
+}
+
+func TestClientStreamInterceptor(t *testing.T) {
+	f := ClientStreamInterceptor("token")
+	streamer := func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		return nil, nil
+	}
+	_, err := f(context.Background(), nil, nil, "", streamer)
+	assert.Nil(t, err)
 }
