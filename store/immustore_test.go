@@ -43,7 +43,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 1000
+	txCount := 100
 	eCount := 1000
 
 	var wg sync.WaitGroup
@@ -161,9 +161,9 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 
-	for f := 0; f < 2; f++ {
+	for f := 0; f < 1; f++ {
 		go func() {
 			for {
 				snap, err := immuStore.Snapshot()
@@ -209,6 +209,84 @@ func TestImmudbStoreIndexing(t *testing.T) {
 								panic(fmt.Errorf("expected %v actual %v", v, val))
 							}
 						}
+					}
+				}
+
+				snap.Close()
+
+				if snap.Ts() == uint64(txCount) {
+					break
+				}
+
+				time.Sleep(time.Duration(100) * time.Millisecond)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	err = immuStore.indexerStatus()
+	require.NoError(t, err)
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+}
+
+func TestImmudbStoreHistoricalValues(t *testing.T) {
+	immuStore, err := Open("data", DefaultOptions().SetSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("data")
+
+	require.NotNil(t, immuStore)
+
+	txCount := 10
+	eCount := 100
+
+	_, _, _, _, err = immuStore.Commit(nil)
+	require.Equal(t, ErrorNoEntriesProvided, err)
+
+	_, _, _, _, err = immuStore.Commit([]*KV{
+		{Key: []byte("key"), Value: []byte("value")},
+		{Key: []byte("key"), Value: []byte("value")},
+	})
+	require.Equal(t, ErrDuplicatedKey, err)
+
+	for i := 0; i < txCount; i++ {
+		kvs := make([]*KV, eCount)
+
+		for j := 0; j < eCount; j++ {
+			k := make([]byte, 8)
+			binary.BigEndian.PutUint64(k, uint64(j))
+
+			v := make([]byte, 8)
+			binary.BigEndian.PutUint64(v, uint64(i))
+
+			kvs[j] = &KV{Key: k, Value: v}
+		}
+
+		id, _, _, _, err := immuStore.Commit(kvs)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i+1), id)
+	}
+
+	time.Sleep(time.Duration(1000) * time.Millisecond)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	for f := 0; f < 1; f++ {
+		go func() {
+			for {
+				snap, err := immuStore.Snapshot()
+				if err != nil {
+					panic(err)
+				}
+
+				for i := 0; i < int(snap.Ts()); i++ {
+					for j := 0; j < eCount; j++ {
+						k := make([]byte, 8)
+						binary.BigEndian.PutUint64(k, uint64(j))
 
 						txIDs, err := snap.GetTs(k, int64(txCount))
 						if err != nil {
