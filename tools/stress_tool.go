@@ -41,7 +41,7 @@ func main() {
 	synced := flag.Bool("synced", false, "strict sync mode - no data lost")
 	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
 
-	mode := flag.String("mode", "interactive", "interactive|auto")
+	mode := flag.String("mode", "", "interactive|auto")
 
 	action := flag.String("action", "get", "get|set")
 	waitForIndexing := flag.Int("waitForIndexing", 1000, "amount of millis waiting for indexing entries")
@@ -157,183 +157,187 @@ func main() {
 		panic("invalid action")
 	}
 
-	fmt.Printf("Committing %d transactions...\r\n", *txCount)
+	if *mode == "auto" {
+		fmt.Printf("Committing %d transactions...\r\n", *txCount)
 
-	wgInit := &sync.WaitGroup{}
-	wgInit.Add(*committers)
+		wgInit := &sync.WaitGroup{}
+		wgInit.Add(*committers)
 
-	wgWork := &sync.WaitGroup{}
-	wgWork.Add(*committers)
+		wgWork := &sync.WaitGroup{}
+		wgWork.Add(*committers)
 
-	wgEnded := &sync.WaitGroup{}
-	wgEnded.Add(*committers)
+		wgEnded := &sync.WaitGroup{}
+		wgEnded.Add(*committers)
 
-	wgStart := &sync.WaitGroup{}
-	wgStart.Add(1)
+		wgStart := &sync.WaitGroup{}
+		wgStart.Add(1)
 
-	for c := 0; c < *committers; c++ {
-		go func(id int) {
-			fmt.Printf("\r\nCommitter %d is generating kv data...\r\n", id)
+		for c := 0; c < *committers; c++ {
+			go func(id int) {
+				fmt.Printf("\r\nCommitter %d is generating kv data...\r\n", id)
 
-			txs := make([][]*store.KV, *txCount)
+				txs := make([][]*store.KV, *txCount)
 
-			for t := 0; t < *txCount; t++ {
-				txs[t] = make([]*store.KV, *kvCount)
+				for t := 0; t < *txCount; t++ {
+					txs[t] = make([]*store.KV, *kvCount)
 
-				rand.Seed(time.Now().UnixNano())
+					rand.Seed(time.Now().UnixNano())
 
-				for i := 0; i < *kvCount; i++ {
-					k := make([]byte, *kLen)
-					v := make([]byte, *vLen)
+					for i := 0; i < *kvCount; i++ {
+						k := make([]byte, *kLen)
+						v := make([]byte, *vLen)
 
-					if *rndKeys {
-						rand.Read(k)
-					} else {
-						if *kLen < 2 {
-							k[0] = byte(i)
+						if *rndKeys {
+							rand.Read(k)
+						} else {
+							if *kLen < 2 {
+								k[0] = byte(i)
+							}
+
+							if *kLen > 1 && *kLen < 4 {
+								binary.BigEndian.PutUint16(k, uint16(i))
+							}
+							if *kLen > 3 && *kLen < 8 {
+								binary.BigEndian.PutUint32(k, uint32(i))
+							}
+							if *kLen > 7 {
+								binary.BigEndian.PutUint64(k, uint64(i))
+							}
 						}
 
-						if *kLen > 1 && *kLen < 4 {
-							binary.BigEndian.PutUint16(k, uint16(i))
-						}
-						if *kLen > 3 && *kLen < 8 {
-							binary.BigEndian.PutUint32(k, uint32(i))
-						}
-						if *kLen > 7 {
-							binary.BigEndian.PutUint64(k, uint64(i))
-						}
-					}
-
-					if *rndValues {
-						rand.Read(v)
-					}
-
-					txs[t][i] = &store.KV{Key: k, Value: v}
-				}
-			}
-
-			fmt.Printf("\r\nCommitter %d is running...\r\n", id)
-
-			wgInit.Done()
-
-			wgStart.Wait()
-
-			ids := make([]uint64, *txCount)
-
-			for t := 0; t < *txCount; t++ {
-				txid, _, _, _, err := immuStore.Commit(txs[t])
-				if err != nil {
-					panic(err)
-				}
-
-				ids[t] = txid
-
-				if *printAfter > 0 && t%*printAfter == 0 {
-					fmt.Print(".")
-				}
-
-				time.Sleep(time.Duration(*txDelay) * time.Millisecond)
-			}
-
-			wgWork.Done()
-			fmt.Printf("\r\nCommitter %d done with commits!\r\n", id)
-
-			if *txRead {
-				fmt.Printf("Starting committed tx against input kv data by committer %d...\r\n", id)
-
-				tx := immuStore.NewTx()
-				b := make([]byte, *vLen)
-
-				for i := range ids {
-					immuStore.ReadTx(ids[i], tx)
-
-					for ei, e := range tx.Entries() {
-						if !bytes.Equal(e.Key(), txs[i][ei].Key) {
-							panic(fmt.Errorf("committed tx key does not match input values"))
+						if *rndValues {
+							rand.Read(v)
 						}
 
-						_, err = immuStore.ReadValueAt(b, e.VOff, e.HValue)
-						if err != nil {
-							panic(err)
-						}
-
-						if !bytes.Equal(b, txs[i][ei].Value) {
-							panic(fmt.Errorf("committed tx value does not match input values"))
-						}
+						txs[t][i] = &store.KV{Key: k, Value: v}
 					}
 				}
 
-				fmt.Printf("All committed txs successfully verified against input kv data by committer %d!\r\n", id)
-			}
+				fmt.Printf("\r\nCommitter %d is running...\r\n", id)
 
-			wgEnded.Done()
+				wgInit.Done()
 
-			fmt.Printf("Committer %d sucessfully ended!\r\n", id)
-		}(c)
-	}
+				wgStart.Wait()
 
-	wgInit.Wait()
+				ids := make([]uint64, *txCount)
 
-	wgStart.Done()
-
-	start := time.Now()
-	wgWork.Wait()
-	elapsed := time.Since(start)
-
-	fmt.Printf("\r\nAll committers %d have successfully completed their work within %s!\r\n", *committers, elapsed)
-
-	wgEnded.Wait()
-
-	if *txLinking || *kvInclusion {
-		fmt.Println("Starting full scan to verify linear cryptographic linking...")
-		start := time.Now()
-
-		txReader, err := immuStore.NewTxReader(1, 4096)
-		if err != nil {
-			panic(err)
-		}
-
-		verifiedTxs := 0
-
-		b := make([]byte, immuStore.MaxValueLen())
-
-		for {
-			tx, err := txReader.Read()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				panic(err)
-			}
-
-			txEntries := tx.Entries()
-
-			if *kvInclusion {
-				for i := 0; i < len(txEntries); i++ {
-					path := tx.Proof(i)
-
-					_, err = immuStore.ReadValueAt(b[:txEntries[i].ValueLen], txEntries[i].VOff, txEntries[i].HValue)
+				for t := 0; t < *txCount; t++ {
+					txid, _, _, _, err := immuStore.Commit(txs[t])
 					if err != nil {
 						panic(err)
 					}
 
-					kv := &store.KV{Key: txEntries[i].Key(), Value: b[:txEntries[i].ValueLen]}
+					ids[t] = txid
 
-					verifies := path.VerifyInclusion(uint64(len(txEntries)-1), uint64(i), tx.Eh, kv.Digest())
-					if !verifies {
-						panic("kv does not verify")
+					if *printAfter > 0 && t%*printAfter == 0 {
+						fmt.Print(".")
 					}
+
+					time.Sleep(time.Duration(*txDelay) * time.Millisecond)
+				}
+
+				wgWork.Done()
+				fmt.Printf("\r\nCommitter %d done with commits!\r\n", id)
+
+				if *txRead {
+					fmt.Printf("Starting committed tx against input kv data by committer %d...\r\n", id)
+
+					tx := immuStore.NewTx()
+					b := make([]byte, *vLen)
+
+					for i := range ids {
+						immuStore.ReadTx(ids[i], tx)
+
+						for ei, e := range tx.Entries() {
+							if !bytes.Equal(e.Key(), txs[i][ei].Key) {
+								panic(fmt.Errorf("committed tx key does not match input values"))
+							}
+
+							_, err = immuStore.ReadValueAt(b, e.VOff, e.HValue)
+							if err != nil {
+								panic(err)
+							}
+
+							if !bytes.Equal(b, txs[i][ei].Value) {
+								panic(fmt.Errorf("committed tx value does not match input values"))
+							}
+						}
+					}
+
+					fmt.Printf("All committed txs successfully verified against input kv data by committer %d!\r\n", id)
+				}
+
+				wgEnded.Done()
+
+				fmt.Printf("Committer %d sucessfully ended!\r\n", id)
+			}(c)
+		}
+
+		wgInit.Wait()
+
+		wgStart.Done()
+
+		start := time.Now()
+		wgWork.Wait()
+		elapsed := time.Since(start)
+
+		fmt.Printf("\r\nAll committers %d have successfully completed their work within %s!\r\n", *committers, elapsed)
+
+		wgEnded.Wait()
+
+		if *txLinking || *kvInclusion {
+			fmt.Println("Starting full scan to verify linear cryptographic linking...")
+			start := time.Now()
+
+			txReader, err := immuStore.NewTxReader(1, 4096)
+			if err != nil {
+				panic(err)
+			}
+
+			verifiedTxs := 0
+
+			b := make([]byte, immuStore.MaxValueLen())
+
+			for {
+				tx, err := txReader.Read()
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					panic(err)
+				}
+
+				txEntries := tx.Entries()
+
+				if *kvInclusion {
+					for i := 0; i < len(txEntries); i++ {
+						path := tx.Proof(i)
+
+						_, err = immuStore.ReadValueAt(b[:txEntries[i].ValueLen], txEntries[i].VOff, txEntries[i].HValue)
+						if err != nil {
+							panic(err)
+						}
+
+						kv := &store.KV{Key: txEntries[i].Key(), Value: b[:txEntries[i].ValueLen]}
+
+						verifies := path.VerifyInclusion(uint64(len(txEntries)-1), uint64(i), tx.Eh, kv.Digest())
+						if !verifies {
+							panic("kv does not verify")
+						}
+					}
+				}
+
+				verifiedTxs++
+
+				if *printAfter > 0 && verifiedTxs%*printAfter == 0 {
+					fmt.Print(".")
 				}
 			}
 
-			verifiedTxs++
-
-			if *printAfter > 0 && verifiedTxs%*printAfter == 0 {
-				fmt.Print(".")
-			}
+			elapsed := time.Since(start)
+			fmt.Printf("\r\nAll transactions %d successfully verified in %s!\r\n", verifiedTxs, elapsed)
 		}
-
-		elapsed := time.Since(start)
-		fmt.Printf("\r\nAll transactions %d successfully verified in %s!\r\n", verifiedTxs, elapsed)
 	}
+
+	panic("please specify a valid mode of operation: interactive|auto")
 }
