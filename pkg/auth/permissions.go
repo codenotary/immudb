@@ -38,6 +38,7 @@ var methodsPermissions = map[string][]uint32{
 	"SafeGet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"SafeSetSV":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"SetBatch":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"GetBatch":      {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"SetBatchSV":    {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"Reference":     {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"SafeReference": {PermissionSysAdmin, PermissionAdmin, PermissionRW},
