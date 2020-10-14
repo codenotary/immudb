@@ -409,12 +409,7 @@ func (s *ImmuStore) IndexInfo() (uint64, error) {
 func (s *ImmuStore) doIndexing() error {
 	txID := s.index.Ts() + 1
 
-	txOff, _, err := s.TxOffsetAndSize(txID)
-	if err != nil {
-		return err
-	}
-
-	txReader, err := s.NewTxReader(txOff, s.maxTxSize)
+	txReader, err := s.NewTxReader(txID, s.maxTxSize)
 	if err != nil {
 		return err
 	}
@@ -758,12 +753,7 @@ func (s *ImmuStore) LinearProof(trustedTxID, txID uint64) (path [][sha256.Size]b
 		return nil, ErrLinearProofMaxLenExceeded
 	}
 
-	trustedTxOffset, _, err := s.TxOffsetAndSize(trustedTxID)
-	if err != nil {
-		return nil, err
-	}
-
-	r, err := s.NewTxReader(trustedTxOffset, s.maxTxSize)
+	r, err := s.NewTxReader(trustedTxID, s.maxTxSize)
 
 	tx, err := r.Read()
 	if err != nil {
@@ -785,17 +775,6 @@ func (s *ImmuStore) LinearProof(trustedTxID, txID uint64) (path [][sha256.Size]b
 
 		path = append(path, tx.PrevAlh, tx.Txh)
 	}
-}
-
-func (s *ImmuStore) TxOffsetAndSize(txID uint64) (int64, int, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return 0, 0, ErrAlreadyClosed
-	}
-
-	return s.txOffsetAndSize(txID)
 }
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
@@ -887,7 +866,7 @@ type TxReader struct {
 	alh         [sha256.Size]byte
 }
 
-func (s *ImmuStore) NewTxReader(offset int64, bufSize int) (*TxReader, error) {
+func (s *ImmuStore) NewTxReader(txID uint64, bufSize int) (*TxReader, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -897,7 +876,12 @@ func (s *ImmuStore) NewTxReader(offset int64, bufSize int) (*TxReader, error) {
 
 	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
 
-	r := appendable.NewReaderFrom(syncedReader, offset, bufSize)
+	txOff, _, err := s.txOffsetAndSize(txID)
+	if err != nil {
+		return nil, err
+	}
+
+	r := appendable.NewReaderFrom(syncedReader, txOff, bufSize)
 
 	tx := s.NewTx()
 

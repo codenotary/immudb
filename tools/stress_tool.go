@@ -288,7 +288,7 @@ func main() {
 		fmt.Println("Starting full scan to verify linear cryptographic linking...")
 		start := time.Now()
 
-		txReader, err := immuStore.NewTxReader(0, 4096)
+		txReader, err := immuStore.NewTxReader(1, 4096)
 		if err != nil {
 			panic(err)
 		}
