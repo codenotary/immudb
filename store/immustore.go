@@ -399,7 +399,7 @@ func (s *ImmuStore) indexer() {
 	}
 }
 
-func (s *ImmuStore) IndexerInfo() (uint64, error) {
+func (s *ImmuStore) IndexInfo() (uint64, error) {
 	s.indexerMutex.Lock()
 	defer s.indexerMutex.Unlock()
 

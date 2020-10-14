@@ -226,7 +226,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 
 	wg.Wait()
 
-	_, err = immuStore.IndexerInfo()
+	_, err = immuStore.IndexInfo()
 	require.NoError(t, err)
 
 	err = immuStore.Close()
@@ -330,7 +330,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 
 	wg.Wait()
 
-	_, err = immuStore.IndexerInfo()
+	_, err = immuStore.IndexInfo()
 	require.NoError(t, err)
 
 	err = immuStore.Close()
