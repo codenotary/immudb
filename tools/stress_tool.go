@@ -17,6 +17,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"flag"
 	"fmt"
@@ -31,8 +32,23 @@ import (
 
 func main() {
 	dataDir := flag.String("dataDir", "data", "data directory")
-	committers := flag.Int("committers", 10, "number of concurrent committers")
+
 	parallelIO := flag.Int("parallelIO", 1, "number of parallel IO")
+	fileSize := flag.Int("fileSize", 1<<26, "file size up to which a new ones are created")
+	cFormat := flag.String("compressionFormat", "no-compression", "one of: no-compression, flate, gzip, lzw, zlib")
+	cLevel := flag.String("compressionLevel", "best-speed", "one of: best-speed, best-compression, default-compression, huffman-only")
+
+	synced := flag.Bool("synced", false, "strict sync mode - no data lost")
+	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
+
+	mode := flag.String("mode", "interactive", "interactive|auto")
+
+	action := flag.String("action", "get", "get|set")
+	waitForIndexing := flag.Int("waitForIndexing", 1000, "amount of millis waiting for indexing entries")
+	key := flag.String("key", "", "key to look for")
+	value := flag.String("value", "", "value to be associated to key")
+
+	committers := flag.Int("committers", 10, "number of concurrent committers")
 	txCount := flag.Int("txCount", 1_000, "number of tx to commit")
 	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
 	kLen := flag.Int("kLen", 32, "key length (bytes)")
@@ -41,14 +57,9 @@ func main() {
 	rndValues := flag.Bool("rndValues", true, "values are randomly generated")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
 	printAfter := flag.Int("printAfter", 100, "print a dot '.' after specified number of committed txs")
-	synced := flag.Bool("synced", false, "strict sync mode - no data lost")
 	txRead := flag.Bool("txRead", false, "validate committed txs against input kv data")
 	txLinking := flag.Bool("txLinking", true, "full scan to verify linear cryptographic linking between txs")
 	kvInclusion := flag.Bool("kvInclusion", false, "validate kv data of every tx as part of the linear verification. txLinking must be enabled")
-	fileSize := flag.Int("fileSize", 1<<26, "file size up to which a new ones are created")
-	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
-	cFormat := flag.String("compressionFormat", "no-compression", "one of: no-compression, flate, gzip, lzw, zlib")
-	cLevel := flag.String("compressionLevel", "best-speed", "one of: best-speed, best-compression, default-compression, huffman-only")
 
 	flag.Parse()
 
@@ -112,6 +123,36 @@ func main() {
 	}()
 
 	fmt.Printf("Immutable Transactional Key-Value Log with %d Txs successfully opened!\r\n", immuStore.TxCount())
+
+	if *mode == "interactive" {
+		if *action == "get" {
+			time.Sleep(time.Duration(*waitForIndexing) * time.Millisecond)
+
+			snap, err := immuStore.Snapshot()
+			if err != nil {
+				panic(err)
+			}
+			defer snap.Close()
+
+			v, ts, err := snap.Get([]byte(*key))
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Printf("key: %s, value: %s, ts: %d\r\n", *key, base64.StdEncoding.EncodeToString(v), ts)
+			return
+		}
+
+		if *action == "set" {
+			immuStore.Commit([]*store.KV{
+				{Key: []byte(*key), Value: []byte(*value)},
+			})
+
+			return
+		}
+
+		panic("invalid action")
+	}
 
 	fmt.Printf("Committing %d transactions...\r\n", *txCount)
 
