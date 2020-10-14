@@ -399,10 +399,11 @@ func (s *ImmuStore) indexer() {
 	}
 }
 
-func (s *ImmuStore) indexerStatus() error {
+func (s *ImmuStore) IndexerInfo() (uint64, error) {
 	s.indexerMutex.Lock()
 	defer s.indexerMutex.Unlock()
-	return s.indexerErr
+
+	return s.index.Ts(), s.indexerErr
 }
 
 func (s *ImmuStore) doIndexing() error {

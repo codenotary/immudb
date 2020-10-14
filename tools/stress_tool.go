@@ -128,6 +128,9 @@ func main() {
 		if *action == "get" {
 			time.Sleep(time.Duration(*waitForIndexing) * time.Millisecond)
 
+			ts, err := immuStore.IndexerInfo()
+			fmt.Printf("Index up to %d, error: %v\r\n", ts, err)
+
 			snap, err := immuStore.Snapshot()
 			if err != nil {
 				panic(err)
