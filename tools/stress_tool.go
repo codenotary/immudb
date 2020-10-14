@@ -17,6 +17,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
@@ -36,7 +37,8 @@ func main() {
 	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
 	kLen := flag.Int("kLen", 32, "key length (bytes)")
 	vLen := flag.Int("vLen", 32, "value length (bytes)")
-	rndValues := flag.Bool("rndValues", true, "is values are randomly generated")
+	rndKeys := flag.Bool("rndKeys", false, "keys are randomly generated")
+	rndValues := flag.Bool("rndValues", true, "values are randomly generated")
 	txDelay := flag.Int("txDelay", 10, "delay (millis) between txs")
 	printAfter := flag.Int("printAfter", 100, "print a dot '.' after specified number of committed txs")
 	synced := flag.Bool("synced", false, "strict sync mode - no data lost")
@@ -140,7 +142,23 @@ func main() {
 					k := make([]byte, *kLen)
 					v := make([]byte, *vLen)
 
-					rand.Read(k)
+					if *rndKeys {
+						rand.Read(k)
+					} else {
+						if *kLen < 2 {
+							k[0] = byte(i)
+						}
+
+						if *kLen > 1 && *kLen < 4 {
+							binary.BigEndian.PutUint16(k, uint16(i))
+						}
+						if *kLen > 3 && *kLen < 8 {
+							binary.BigEndian.PutUint32(k, uint32(i))
+						}
+						if *kLen > 7 {
+							binary.BigEndian.PutUint64(k, uint64(i))
+						}
+					}
 
 					if *rndValues {
 						rand.Read(v)
