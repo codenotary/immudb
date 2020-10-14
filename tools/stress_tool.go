@@ -337,6 +337,8 @@ func main() {
 			elapsed := time.Since(start)
 			fmt.Printf("\r\nAll transactions %d successfully verified in %s!\r\n", verifiedTxs, elapsed)
 		}
+
+		return
 	}
 
 	panic("please specify a valid mode of operation: interactive|auto")
