@@ -1222,7 +1222,7 @@ func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
 
 	if int64(tsLen) < limit && l.prevNode != nil {
 		pts, err := l.prevNode.getTs(key, limit-int64(tsLen))
-		if err != nil {
+		if err != nil && err != ErrKeyNotFound {
 			return nil, err
 		}
 		tss = append(tss, pts...)
