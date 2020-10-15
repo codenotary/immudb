@@ -1513,7 +1513,7 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *au
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
 			return -1, nil, err
 		}
-		return -1, nil, fmt.Errorf("could not get userdata from token")
+		return -1, nil, err
 	}
 	u, err := s.getLoggedInUserDataFromUsername(jsUser.Username)
 	return jsUser.DatabaseIndex, u, err
