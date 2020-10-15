@@ -147,9 +147,12 @@ func main() {
 		}
 
 		if *action == "set" {
-			immuStore.Commit([]*store.KV{
+			_, _, _, _, err := immuStore.Commit([]*store.KV{
 				{Key: []byte(*key), Value: []byte(*value)},
 			})
+			if err != nil {
+				panic(err)
+			}
 
 			return
 		}
