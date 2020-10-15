@@ -249,6 +249,7 @@ message ZAddOptions {
 	bytes set = 1;
 	double score = 2;
 	bytes key = 3;
+	Index index = 4;
 }
 
 message ZScanOptions {

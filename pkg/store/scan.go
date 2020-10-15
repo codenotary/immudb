@@ -155,12 +155,27 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 			if err != nil {
 				return nil, err
 			}
-			if ref, err := txn.Get(refKey); err == nil {
-				item, err = itemToSchema(refKey, ref)
+			refKey, flag, refIndex := UnwrapZIndexReference(refKey)
+			// here check for index reference, if present we resolve reference with itemAt
+			if flag == byte(1) {
+				idx, key, val, err := t.itemAt(refIndex + 1)
 				if err != nil {
 					return nil, err
 				}
+				item = &schema.Item{
+					Key:   key,
+					Value: val,
+					Index: idx - 1,
+				}
+			} else {
+				if ref, err := txn.Get(refKey); err == nil {
+					item, err = itemToSchema(refKey, ref)
+					if err != nil {
+						return nil, err
+					}
+				}
 			}
+
 		} else {
 			item, err = itemToSchema(nil, it.Item())
 			if err != nil {

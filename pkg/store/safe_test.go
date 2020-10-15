@@ -386,8 +386,7 @@ func TestStoreSafeZAdd(t *testing.T) {
 	assert.Equal(t, uint64(3), proof1.Index)
 
 	key, _ := SetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score)
-
-	leaf := api.Digest(proof1.Index, key, safeZAddOptions1.Zopts.Key)
+	leaf := api.Digest(proof1.Index, key, WrapZIndexReference(safeZAddOptions1.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
 	verified := proof1.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
 	assert.True(t, verified)
@@ -417,7 +416,7 @@ func TestStoreSafeZAdd(t *testing.T) {
 
 	key2, _ := SetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score)
 
-	leaf2 := api.Digest(proof2.Index, key2, safeZAddOptions2.Zopts.Key)
+	leaf2 := api.Digest(proof2.Index, key2, WrapZIndexReference(safeZAddOptions2.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
 	verified2 := proof2.Verify(leaf2[:], root)
 	assert.True(t, verified2)
@@ -503,7 +502,7 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 
 	key, _ := SetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score)
 
-	leaf := api.Digest(proof1.Index, key, safeZAddOptions1.Zopts.Key)
+	leaf := api.Digest(proof1.Index, key, WrapZIndexReference(safeZAddOptions1.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
 	verified := proof1.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
 	assert.True(t, verified)
@@ -533,7 +532,7 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 
 	key2, _ := SetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score)
 
-	leaf2 := api.Digest(proof2.Index, key2, safeZAddOptions2.Zopts.Key)
+	leaf2 := api.Digest(proof2.Index, key2, WrapZIndexReference(safeZAddOptions2.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
 	verified2 := proof2.Verify(leaf2[:], root)
 	assert.True(t, verified2)

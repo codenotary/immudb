@@ -1031,7 +1031,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 		return nil, err
 	}
 
-	key2, err := store.SetKey(key, set, score)
+	keySet, err := store.SetKey(key, set, score)
 	if err != nil {
 		return nil, err
 	}
@@ -1039,8 +1039,8 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 	// This guard ensures that result.Leaf is equal to the item's hash computed
 	// from request values. From now on, result.Leaf can be trusted.
 	item := schema.Item{
-		Key:   key2,
-		Value: key,
+		Key:   keySet,
+		Value: store.WrapZIndexReference(key, nil),
 		Index: result.Index,
 	}
 	if !bytes.Equal(item.Hash(), result.Leaf) {

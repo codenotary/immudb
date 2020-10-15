@@ -1607,6 +1607,9 @@
         "key": {
           "type": "string",
           "format": "byte"
+        },
+        "index": {
+          "$ref": "#/definitions/schemaIndex"
         }
       },
       "description": "Why use double as score type?\nBecause it is not purely about the storage size, but also use cases.\n64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer."

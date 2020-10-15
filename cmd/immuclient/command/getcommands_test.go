@@ -19,6 +19,7 @@ package immuclient
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -32,6 +33,7 @@ import (
 )
 
 func TestGetByIndex(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -89,6 +91,7 @@ func TestGetByIndex(t *testing.T) {
 }
 
 func TestGetRawBySafeIndex(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -140,6 +143,7 @@ func TestGetRawBySafeIndex(t *testing.T) {
 }
 
 func TestGetKey(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -192,6 +196,7 @@ func TestGetKey(t *testing.T) {
 }
 
 func TestSafeGetKey(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -249,6 +254,7 @@ func TestSafeGetKey(t *testing.T) {
 }
 
 func TestRawSafeGetKey(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()

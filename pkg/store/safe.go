@@ -245,8 +245,10 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 	return
 }
 
-// SafeZAdd adds the specified score and key to the specified sorted set and returns
+// SafeZAdd adds the specified score and key to a sorted set and returns
 // the inclusion proof for it and the consistency proof for the previous root
+// As a parameter of SafeZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
+// If the index is not provided the resolution will use only the key and last version of the item will be returned
 func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, err error) {
 
 	if err = checkKey(options.Zopts.Key); err != nil {
@@ -263,10 +265,26 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
-	i, err := txn.Get(options.Zopts.Key)
-	if err != nil {
-		err = mapError(err)
-		return
+	var referenceValue []byte
+	if options.Zopts.Index != nil {
+		// convert to internal timestamp for itemAt
+		_, key, _, err := t.itemAt(options.Zopts.Index.Index + 1)
+		if err != nil {
+			err = mapError(err)
+			return nil, err
+		}
+		// here we append the index to the reference value
+		referenceValue = WrapZIndexReference(key, options.Zopts.Index)
+
+	} else {
+		var i *badger.Item
+		i, err = txn.Get(options.Zopts.Key)
+		if err != nil {
+			err = mapError(err)
+			return nil, err
+		}
+		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
+		referenceValue = WrapZIndexReference(i.Key(), nil)
 	}
 
 	ik, err := SetKey(options.Zopts.Key, options.Zopts.Set, options.Zopts.Score)
@@ -275,11 +293,11 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		return
 	}
 
-	tsEntry := t.tree.NewEntry(ik, i.Key())
+	tsEntry := t.tree.NewEntry(ik, referenceValue)
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ik,
-		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
+		Value:    WrapValueWithTS(referenceValue, tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)
