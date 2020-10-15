@@ -17,7 +17,6 @@ limitations under the License.
 package helper
 
 import (
-	"errors"
 	"fmt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -37,7 +36,7 @@ func QuitWithUserError(err error) {
 		QuitToStdErr(err)
 	}
 	if s.Code() == codes.Unauthenticated {
-		QuitToStdErr(errors.New("unauthenticated, please login"))
+		QuitToStdErr(err)
 	}
 	QuitToStdErr(err)
 }

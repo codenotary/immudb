@@ -1011,7 +1011,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("please login first")
+		return nil,err
 	}
 	if string(r.User) == auth.SysAdminUsername {
 		if err = auth.ComparePasswords(user.HashedPassword, r.OldPassword); err != nil {
@@ -1110,7 +1110,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		}
 		_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("please login")
+			return nil, err
 		}
 
 		if len(r.User) == 0 {
@@ -1167,7 +1167,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		}
 		dbInd, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("please login")
+			return nil, err
 		}
 	}
 	itemList, err := s.sysDb.Scan(&schema.ScanOptions{
@@ -1265,7 +1265,7 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	}
 	_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("please login")
+		return nil, err
 	}
 	dbList := &schema.DatabaseListResponse{}
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
@@ -1442,7 +1442,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 		}
 		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("please login first")
+			return nil, err
 		}
 		if !user.IsSysAdmin {
 			if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
@@ -1495,7 +1495,7 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 		if s.Options.GetMaintenance() {
 			return 0, fmt.Errorf("please select database first")
 		}
-		return 0, fmt.Errorf("please login first")
+		return 0, err
 	}
 	if ind < 0 {
 		return 0, fmt.Errorf("please select a database first")
