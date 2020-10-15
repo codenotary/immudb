@@ -360,6 +360,8 @@ func TestImmudbStore(t *testing.T) {
 		require.Equal(t, uint64(i+1), id)
 	}
 
+	err = immuStore.Sync()
+
 	err = immuStore.Close()
 	require.NoError(t, err)
 

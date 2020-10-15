@@ -963,6 +963,36 @@ func (s *ImmuStore) validateEntries(entries []*KV) error {
 	return nil
 }
 
+func (s *ImmuStore) Sync() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
+	for vLogID := range s.vLogs {
+		vLog, _ := s.fetchVLog(vLogID, false)
+		err := vLog.Sync()
+		if err != nil {
+			return err
+		}
+		s.releaseVLog(vLogID)
+	}
+
+	err := s.txLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = s.cLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *ImmuStore) Close() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
