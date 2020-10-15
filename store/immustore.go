@@ -204,7 +204,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, err
 	}
 
-	appendableOpts.SetFileExt("idb")
+	appendableOpts.SetFileExt("txi")
 	appendableOpts.SetCompressionFormat(appendable.NoCompression)
 	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 	cLogPath := filepath.Join(path, "commit")

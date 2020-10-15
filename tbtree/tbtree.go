@@ -237,7 +237,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		SetSynced(opts.synced).
 		SetFileSize(opts.fileSize).
 		SetFileMode(opts.fileMode).
-		SetFileExt("idb").
+		SetFileExt("ki").
 		SetMetadata(metadata.Bytes())
 
 	aof, err := multiapp.Open(path, appendableOpts)
