@@ -156,7 +156,8 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 		SetSynced(opts.synced).
 		SetFileMode(opts.fileMode).
 		SetCompressionFormat(opts.compressionFormat).
-		SetCompresionLevel(opts.compressionLevel)
+		SetCompresionLevel(opts.compressionLevel).
+		SetMetadata(opts.metadata)
 
 	if len(fis) > 0 {
 		filename := fis[len(fis)-1].Name()
@@ -167,7 +168,6 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 		}
 	} else {
 		appendableOpts.SetFilename(appendableName(appendableID(0, opts.fileSize), opts.fileExt))
-		appendableOpts.SetMetadata(opts.metadata)
 	}
 
 	currApp, err := singleapp.Open(path, appendableOpts)

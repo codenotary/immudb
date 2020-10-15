@@ -221,15 +221,6 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		return nil, ErrIllegalArgument
 	}
 
-	cLogSize, err := cLog.Size()
-	if err != nil {
-		return nil, err
-	}
-
-	if cLogSize%cLogEntrySize > 0 {
-		return nil, ErrCorruptedCLog
-	}
-
 	metadata := appendable.NewMetadata(cLog.Metadata())
 
 	fileSize, ok := metadata.GetInt(MetaFileSize)
@@ -257,6 +248,15 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	mapp, ok = cLog.(*multiapp.MultiFileAppendable)
 	if ok {
 		mapp.SetFileSize(fileSize)
+	}
+
+	cLogSize, err := cLog.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	if cLogSize%cLogEntrySize > 0 {
+		return nil, ErrCorruptedCLog
 	}
 
 	var committedTxLogSize int64
