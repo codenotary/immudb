@@ -127,7 +127,7 @@ func (cl *commandline) checkLoggedIn(cmd *cobra.Command, args []string) (err err
 	if err2 != nil {
 		fmt.Println("error checking if token file exists:", err2)
 	} else if !possiblyLoggedIn {
-		err = fmt.Errorf("please login first")
+		err = fmt.Errorf("aaaaaaaaa")
 		cl.quit(err)
 	}
 	return

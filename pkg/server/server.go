@@ -1011,7 +1011,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	if string(r.User) == auth.SysAdminUsername {
 		if err = auth.ComparePasswords(user.HashedPassword, r.OldPassword); err != nil {
