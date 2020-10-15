@@ -1316,8 +1316,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 				return nil, status.Error(
 					codes.PermissionDenied, err.Error())
 			}
-			return nil, status.Errorf(codes.Unauthenticated,
-				"Please login")
+			return nil, err
 		}
 		if db.Databasename == SystemdbName {
 			return nil, fmt.Errorf("this database can not be selected")
@@ -1366,8 +1365,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	}
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated,
-			"Please login")
+		return nil, err
 	}
 
 	//sanitize input
