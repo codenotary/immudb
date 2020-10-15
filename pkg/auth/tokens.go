@@ -159,8 +159,7 @@ func verifyTokenFromCtx(ctx context.Context) (*JSONToken, error) {
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
 			return nil, err
 		}
-		return nil, status.Error(
-			codes.Unauthenticated, "invalid token")
+		return nil, err
 	}
 	return jsonToken, nil
 }
