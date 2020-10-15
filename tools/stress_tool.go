@@ -117,7 +117,7 @@ func main() {
 		err := immuStore.Close()
 		if err != nil {
 			fmt.Printf("\r\nImmutable Transactional Key-Value Log closed with error: %v\r\n", err)
-			return
+			panic(err)
 		}
 		fmt.Printf("\r\nImmutable Transactional Key-Value Log successfully closed!\r\n")
 	}()
