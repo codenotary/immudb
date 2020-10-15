@@ -99,8 +99,8 @@ func (m *Metadata) WriteTo(w io.Writer) (n int, err error) {
 }
 
 func (m *Metadata) PutInt(key string, n int) {
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(n))
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(n))
 	m.Put(key, b)
 }
 
@@ -109,7 +109,7 @@ func (m *Metadata) GetInt(key string) (int, bool) {
 	if !ok {
 		return 0, ok
 	}
-	return int(binary.BigEndian.Uint32(v)), true
+	return int(binary.BigEndian.Uint64(v)), true
 }
 
 func (m *Metadata) Put(key string, value []byte) {

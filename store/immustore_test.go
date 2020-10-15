@@ -500,6 +500,45 @@ func TestReOpenningImmudbStore(t *testing.T) {
 	}
 }
 
+func TestReOpenningWithCompressionEnabledImmudbStore(t *testing.T) {
+	defer os.RemoveAll("data")
+
+	itCount := 3
+	txCount := 100
+	eCount := 10
+
+	for it := 0; it < itCount; it++ {
+		opts := DefaultOptions().
+			SetSynced(false).
+			SetCompressionFormat(appendable.GZipCompression).
+			SetCompresionLevel(appendable.DefaultCompression)
+
+		immuStore, err := Open("data", opts)
+		require.NoError(t, err)
+
+		for i := 0; i < txCount; i++ {
+			kvs := make([]*KV, eCount)
+
+			for j := 0; j < eCount; j++ {
+				k := make([]byte, 8)
+				binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+				kvs[j] = &KV{Key: k, Value: v}
+			}
+
+			id, _, _, _, err := immuStore.Commit(kvs)
+			require.NoError(t, err)
+			require.Equal(t, uint64(it*txCount+i+1), id)
+		}
+
+		err = immuStore.Close()
+		require.NoError(t, err)
+	}
+}
+
 func TestUncommittedTxOverwriting(t *testing.T) {
 	path := "data"
 	err := os.Mkdir(path, 0700)
