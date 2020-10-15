@@ -482,7 +482,9 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 	return index, err
 }
 
-// ZAdd adds a score for an existing key in the specified sorted set
+// ZAdd adds a score for an existing key in a sorted set
+// As a parameter of ZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
+// If the index is not provided the resolution will use only the key and last version of the item will be returned
 func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
 	if err = checkKey(zaddOpts.Key); err != nil {
@@ -494,10 +496,25 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
-	i, err := txn.Get(zaddOpts.Key)
-	if err != nil {
-		err = mapError(err)
-		return nil, err
+	var referenceValue []byte
+	if zaddOpts.Index != nil {
+		// convert to internal timestamp for itemAt, that returns the index
+		_, key, _, err := t.itemAt(zaddOpts.Index.Index + 1)
+		if err != nil {
+			err = mapError(err)
+			return nil, err
+		}
+		// here we append the index to the reference value
+		referenceValue = WrapZIndexReference(key, zaddOpts.Index)
+	} else {
+		var i *badger.Item
+		i, err = txn.Get(zaddOpts.Key)
+		if err != nil {
+			err = mapError(err)
+			return nil, err
+		}
+		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
+		referenceValue = WrapZIndexReference(i.Key(), nil)
 	}
 
 	ik, err := SetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score)
@@ -506,11 +523,11 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		return nil, err
 	}
 
-	tsEntry := t.tree.NewEntry(ik, i.Key())
+	tsEntry := t.tree.NewEntry(ik, referenceValue)
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ik,
-		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
+		Value:    WrapValueWithTS(referenceValue, tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		err = mapError(err)

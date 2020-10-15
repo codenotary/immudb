@@ -18,6 +18,7 @@ package cli
 
 import (
 	"github.com/codenotary/immudb/pkg/client"
+	"os"
 	"strings"
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 )
 
 func TestRawSafeSet(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -50,6 +52,7 @@ func TestRawSafeSet(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -73,6 +76,7 @@ func TestSet(t *testing.T) {
 }
 
 func TestSafeSet(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -96,6 +100,7 @@ func TestSafeSet(t *testing.T) {
 }
 
 func TestZAdd(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -122,6 +127,7 @@ func TestZAdd(t *testing.T) {
 }
 
 func TestSafeZAdd(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()

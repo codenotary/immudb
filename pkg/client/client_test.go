@@ -19,6 +19,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"github.com/codenotary/immudb/pkg/store"
 	"io"
 	"log"
 	"net"
@@ -286,7 +287,8 @@ func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scor
 
 	item1, err3 := client.RawBySafeIndex(ctx, index.Index)
 	require.True(t, item1.Verified)
-	require.Equal(t, []byte("key-n11"), item1.Value)
+	key, _, _ := store.UnwrapZIndexReference(item1.Value)
+	require.Equal(t, []byte("key-n11"), key, nil)
 	require.NoError(t, err3)
 }
 

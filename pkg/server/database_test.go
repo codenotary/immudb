@@ -18,6 +18,7 @@ package server
 
 import (
 	"bytes"
+	"github.com/codenotary/immudb/pkg/store"
 	"log"
 	"os"
 	"path"
@@ -818,9 +819,11 @@ func TestScan(t *testing.T) {
 		PageSize:   1,
 	})
 	if err != nil {
-		t.Fatalf("ZScanSV  Get error %s", err)
+		t.Fatalf("IScan  Get error %s", err)
 	}
-	if !bytes.Equal(scanItem.Items[0].Value, kv[0].Key) {
+	// reference contains also the timestamp
+	key, _, _ := store.UnwrapZIndexReference(scanItem.Items[0].Value)
+	if !bytes.Equal(key, kv[0].Key) {
 		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Key), string(scanItem.Items[0].Value))
 	}
 }
