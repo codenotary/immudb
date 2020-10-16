@@ -173,7 +173,7 @@ func (i *immuc) ChangeUserPassword(args []string) (string, error) {
 	if err := i.ImmuClient.ChangePassword(context.Background(), []byte(username), oldpass, []byte(newpass)); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("Password of %s was changed successfuly", username), nil
+	return fmt.Sprintf("Password of %s was successfully changed", username), nil
 }
 func (i *immuc) SetActiveUser(args []string, active bool) (string, error) {
 	if len(args) < 1 {

@@ -41,7 +41,7 @@ const tsPrefix = byte(0)
 
 /*
 As for release 0.8 of immudb, which includes multi-key insertions, kv data needs to be univocally referenced
-by a monotonic increasing index i.e. internally reffered as `ts`.
+by a monotonic increasing index i.e. internally referred as `ts`.
 Values are prefixed with the assigned `ts`value for the entry. Thus, databases created before release 0.8 needs to
 be migrated for it's manipulation from immudb v0.8.
 This migration utility can be used to migrate any immudb database created with older releases to be fully operative on v0.8

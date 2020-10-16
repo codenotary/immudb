@@ -257,7 +257,7 @@ func TestUserChangePassword(t *testing.T) {
 			"Change user password",
 			[]string{"immudb"},
 			"MyUser@9",
-			"Password of immudb was changed successfuly",
+			"Password of immudb was successfully changed",
 			func(t *testing.T, password string, args []string, exp string) {
 				ic.Pr = &test.PasswordReader{
 					Pass: []string{"immudb", password, password},
