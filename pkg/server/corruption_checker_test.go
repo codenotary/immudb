@@ -131,6 +131,7 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 	dbb.Close()
 	// End Tampering
 	db1, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	assert.NoError(t, err)
 	dbList.Append(db1)
 
 	time.Sleep(500 * time.Millisecond)
@@ -193,6 +194,7 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 	dbb.Close()
 	// End Tampering
 	db1, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	assert.NoError(t, err)
 	dbList.Append(db1)
 
 	time.Sleep(500 * time.Millisecond)
@@ -264,6 +266,7 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 	dbb.Close()
 	// End Tampering
 	db1, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	assert.NoError(t, err)
 	dbList.Append(db1)
 
 	time.Sleep(500 * time.Millisecond)
@@ -275,6 +278,7 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 	cc := NewCorruptionChecker(cco, dbList, &mockLogger{}, randomGeneratorMock{})
 
 	err = cc.Start(context.TODO())
+	assert.NoError(t, err)
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))

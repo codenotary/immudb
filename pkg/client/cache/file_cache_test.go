@@ -28,6 +28,7 @@ func TestFileCacheGet(t *testing.T) {
 	os.Mkdir(dirname, os.ModePerm)
 	fc := NewFileCache(dirname)
 	err := fc.Set(&schema.Root{}, "uuid", "dbName")
+	assert.Nil(t, err)
 	root, err := fc.Get("uuid", "dbName")
 	assert.Nil(t, err)
 	assert.IsType(t, &schema.Root{}, root)

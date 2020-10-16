@@ -269,7 +269,7 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	immuClientMock.SetActiveUserF = func(context.Context, *schema.SetActiveUserRequest) error {
 		return errSetActiveUser
 	}
-	resp, err = ic.SetActiveUser([]string{"user1"}, true)
+	_, err = ic.SetActiveUser([]string{"user1"}, true)
 	require.Equal(t, errSetActiveUser, err)
 
 	// SetUserPermission errors
@@ -296,6 +296,6 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	immuClientMock.ChangePermissionF = func(context.Context, schema.PermissionAction, string, string, uint32) error {
 		return errChangePermission
 	}
-	resp, err = ic.SetUserPermission(args)
+	_, err = ic.SetUserPermission(args)
 	require.Equal(t, errChangePermission, err)
 }

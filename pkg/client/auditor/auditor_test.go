@@ -90,6 +90,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
+	assert.Nil(t, err)
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
 	assert.Nil(t, err)
@@ -145,6 +146,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
+	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
@@ -209,6 +211,7 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
+	assert.Nil(t, err)
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
@@ -256,6 +259,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		cache.NewHistoryFileCache(dirname),
 		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
 		logger.NewSimpleLogger("test", os.Stdout))
+	assert.Nil(t, err)
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)

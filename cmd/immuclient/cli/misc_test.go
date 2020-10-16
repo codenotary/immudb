@@ -71,7 +71,7 @@ func TestHistory(t *testing.T) {
 		t.Fatalf("History fail %s", msg)
 	}
 
-	msg, err = cli.set([]string{"key", "value"})
+	_, err = cli.set([]string{"key", "value"})
 	if err != nil {
 		t.Fatal("History fail", err)
 	}

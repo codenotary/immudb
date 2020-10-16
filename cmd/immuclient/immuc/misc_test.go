@@ -86,7 +86,7 @@ func TestHistory(t *testing.T) {
 		t.Fatalf("History fail %s", msg)
 	}
 
-	msg, err = ic.Imc.Set([]string{"key", "value"})
+	_, err = ic.Imc.Set([]string{"key", "value"})
 	if err != nil {
 		t.Fatal("History fail", err)
 	}

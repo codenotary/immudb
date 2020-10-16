@@ -57,7 +57,7 @@ func TestConsistency(t *testing.T) {
 		t.Fatalf("Set failed: %s", msg)
 	}
 
-	msg, err = ic.Imc.Consistency([]string{"0"})
+	_, err = ic.Imc.Consistency([]string{"0"})
 	if err == nil {
 		t.Fatal("Consistency fail expected error")
 	}

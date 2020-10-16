@@ -43,6 +43,7 @@ func TestTokenService_IsTokenPresent(t *testing.T) {
 	err := ts.SetToken("db1", "toooooken")
 	require.Nil(t, err)
 	ok, err := ts.IsTokenPresent()
+	require.Nil(t, err)
 	assert.True(t, ok)
 }
 

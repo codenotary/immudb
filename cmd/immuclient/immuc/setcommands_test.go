@@ -148,7 +148,7 @@ func TestCreateDatabase(t *testing.T) {
 		t.Fatalf("CreateDatabase failed: %s", msg)
 	}
 
-	msg, err = ic.Imc.DatabaseList([]string{})
+	_, err = ic.Imc.DatabaseList([]string{})
 	if err != nil {
 		t.Fatal("DatabaseList fail", err)
 	}

@@ -60,6 +60,6 @@ func TestMiscErrors(t *testing.T) {
 	immuClientMock.HealthCheckF = func(context.Context) error {
 		return errHealthCheck
 	}
-	resp, err = ic.HealthCheck(nil)
+	_, err = ic.HealthCheck(nil)
 	require.Equal(t, errHealthCheck, err)
 }

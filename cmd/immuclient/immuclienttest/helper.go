@@ -76,6 +76,9 @@ func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 
 	ic, err := immuc.Init(immuc.Options().WithDialOptions(&dialOptions).WithPasswordReader(c.Pr).
 		WithTokenService(c.Ts))
+	if err != nil {
+		log.Fatal(err)
+	}
 	err = ic.Connect([]string{""})
 	if err != nil {
 		log.Fatal(err)

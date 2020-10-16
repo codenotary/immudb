@@ -67,6 +67,7 @@ func TestNewSignerKeyUnparsable(t *testing.T) {
 
 func TestSignature_Sign(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
+	assert.NoError(t, err)
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	_, _, err = s.Sign(rawMessage[:])
 	assert.NoError(t, err)
@@ -85,6 +86,7 @@ func TestSignature_SignError(t *testing.T) {
 
 func TestSignature_Verify(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
+	assert.NoError(t, err)
 
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	signature, publicKey, _ := s.Sign(rawMessage[:])
@@ -95,6 +97,7 @@ func TestSignature_Verify(t *testing.T) {
 
 func TestSignature_VerifyError(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
+	assert.NoError(t, err)
 
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	_, publicKey, _ := s.Sign(rawMessage[:])
@@ -105,6 +108,7 @@ func TestSignature_VerifyError(t *testing.T) {
 
 func TestSignature_VerifyFalse(t *testing.T) {
 	s, err := NewSigner("./../../test/signer/ec3.key")
+	assert.NoError(t, err)
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	_, publicKey, _ := s.Sign(rawMessage[:])
 	sigToMarshal := ecdsaSignature{R: &big.Int{}, S: &big.Int{}}

@@ -418,9 +418,6 @@ func testServerUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if len(dbs.Token) == 0 {
 		t.Fatalf("Expected token, got %v", dbs.Token)
 	}
-	m := make(map[string]string)
-	m["Authorization"] = "Bearer " + string(dbs.Token)
-	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
 }
 func testServerChangePermission(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ChangePermission(ctx, &schema.ChangePermissionRequest{
@@ -552,6 +549,9 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 		it, err := s.SafeGet(ctx, &schema.SafeGetOptions{
 			Key: val.Kv.Key,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		if it.GetItem().GetIndex() != proof.Index {
 			t.Fatalf("SafeGet index error, expected %d, got %d", proof.Index, it.GetItem().GetIndex())
 		}
@@ -674,6 +674,9 @@ func testServerSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		it, err := s.SafeGetSV(ctx, &schema.SafeGetOptions{
 			Key: val.Skv.Key,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		if it.GetItem().GetIndex() != proof.Index {
 			t.Fatalf("SafeGet index error, expected %d, got %d", proof.Index, it.GetItem().GetIndex())
 		}
@@ -740,6 +743,9 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 			},
 		},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for ind, val := range itList.Items {
 		if !bytes.Equal(val.Value, Skv.KVs[ind].Value) {
 			t.Fatalf("BatchSet value not equal to BatchGet value, expected %s, got %s", string(Skv.KVs[ind].Value), string(val.Value))
@@ -793,6 +799,9 @@ func testServerSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 			},
 		},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for ind, val := range itList.Items {
 		if !bytes.Equal(val.Value.Payload, Skv.SKVs[ind].Value.Payload) {
 			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %s, got %s", string(Skv.SKVs[ind].Value.Payload), string(val.Value.Payload))
@@ -1058,6 +1067,9 @@ func testServerReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Reference: []byte(`tag`),
 		Key:       kv[0].Key,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	item, err := s.Get(ctx, &schema.Key{Key: []byte(`tag`)})
 	if err != nil {
 		t.Fatalf("Reference  Get error %s", err)
@@ -1087,6 +1099,9 @@ func testServerZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Score: 1,
 		Set:   kv[0].Value,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	item, err := s.ZScan(ctx, &schema.ZScanOptions{
 		Set:     kv[0].Value,
 		Offset:  []byte(""),
@@ -1206,6 +1221,9 @@ func testServerScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Score: 1,
 		Set:   []byte("test-set"),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	scanItem, err := s.ZScanSV(ctx, &schema.ZScanOptions{
 		Set:    []byte("test-set"),
@@ -1959,7 +1977,7 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, errors.New("user is not active"), err)
 	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: true, Username: username})
 	require.NoError(t, err)
-	ctx2, err = login(s, username, password)
+	_, err = login(s, username, password)
 	require.NoError(t, err)
 
 	// setup MTL errors

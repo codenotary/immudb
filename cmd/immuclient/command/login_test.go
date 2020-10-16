@@ -85,7 +85,7 @@ func TestLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	msg, err = ioutil.ReadAll(b)
+	_, err = ioutil.ReadAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}

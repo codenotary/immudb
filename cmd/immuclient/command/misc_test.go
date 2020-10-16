@@ -135,6 +135,9 @@ func TestUseDatabase(t *testing.T) {
 		immucl: ic.Imc,
 	}
 	_, err := ic.Imc.CreateDatabase([]string{"mynewdb"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	cmd, _ := cmdl.NewCmd()
 	cmdl.use(cmd)
 	b := bytes.NewBufferString("")

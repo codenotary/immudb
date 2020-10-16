@@ -306,6 +306,9 @@ func TestSafeSetGet(t *testing.T) {
 		it, err := db.SafeGet(&schema.SafeGetOptions{
 			Key: val.Kv.Key,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		if it.GetItem().GetIndex() != uint64(ind) {
 			t.Fatalf("SafeGet index error, expected %d, got %d", uint64(ind), it.GetItem().GetIndex())
 		}
@@ -372,6 +375,9 @@ func TestSafeSetGetSV(t *testing.T) {
 		it, err := db.SafeGetSV(&schema.SafeGetOptions{
 			Key: val.Skv.Key,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		if it.GetItem().GetIndex() != uint64(ind) {
 			t.Fatalf("SafeGet index error, expected %d, got %d", uint64(ind), it.GetItem().GetIndex())
 		}
@@ -443,6 +449,9 @@ func TestSetGetBatch(t *testing.T) {
 			},
 		},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for ind, val := range itList.Items {
 		if !bytes.Equal(val.Value, Skv.KVs[ind].Value) {
 			t.Fatalf("BatchSet value not equal to BatchGet value, expected %s, got %s", string(Skv.KVs[ind].Value), string(val.Value))
@@ -478,6 +487,9 @@ func TestSetGetBatchSV(t *testing.T) {
 			},
 		},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for ind, val := range itList.Items {
 		if !bytes.Equal(val.Value.Payload, Skv.SKVs[ind].Value.Payload) {
 			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %s, got %s", string(Skv.SKVs[ind].Value.Payload), string(val.Value.Payload))
@@ -629,6 +641,9 @@ func TestHistory(t *testing.T) {
 		}
 	}
 	_, err := db.Set(kv[0])
+	if err != nil {
+		t.Fatal(err)
+	}
 	time.Sleep(1 * time.Second)
 
 	inc, err := db.History(&schema.Key{
@@ -655,6 +670,9 @@ func TestHistorySV(t *testing.T) {
 		}
 	}
 	_, err := db.SetSV(Skv.SKVs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	k := &schema.Key{
 		Key: []byte(Skv.SKVs[0].Key),
@@ -693,6 +711,9 @@ func TestReference(t *testing.T) {
 		Reference: []byte(`tag`),
 		Key:       kv[0].Key,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if ref.Index != 1 {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
@@ -717,6 +738,9 @@ func TestZAdd(t *testing.T) {
 		Score: 1,
 		Set:   kv[0].Value,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if ref.Index != 1 {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
