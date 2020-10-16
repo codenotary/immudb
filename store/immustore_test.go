@@ -572,7 +572,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	require.NoError(t, err)
 
 	cLogPath := filepath.Join(path, "commit")
-	appendableOpts.SetFileExt("idb")
+	appendableOpts.SetFileExt("txi")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	require.NoError(t, err)
 
