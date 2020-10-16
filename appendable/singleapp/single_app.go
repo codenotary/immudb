@@ -152,7 +152,7 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 
 	name := opts.filename
 	if name == "" {
-		name = fmt.Sprintf("%d.idb", time.Now().Unix())
+		name = fmt.Sprintf("%d.aof", time.Now().Unix())
 	}
 	fileName := filepath.Join(path, name)
 
