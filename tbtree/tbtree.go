@@ -547,6 +547,17 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader, asRoot bool) (*leafNode,
 	return l, nil
 }
 
+func (t *TBtree) Sync() error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		return ErrAlreadyClosed
+	}
+
+	return t.aof.Sync()
+}
+
 func (t *TBtree) Flush() (int64, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()

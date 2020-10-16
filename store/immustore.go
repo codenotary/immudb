@@ -990,7 +990,7 @@ func (s *ImmuStore) Sync() error {
 		return err
 	}
 
-	return nil
+	return s.index.Sync()
 }
 
 func (s *ImmuStore) Close() error {
