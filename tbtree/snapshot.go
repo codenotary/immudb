@@ -25,9 +25,7 @@ var ErrReadersNotClosed = errors.New("readers not closed")
 
 const (
 	InnerNodeType = iota
-	RootInnerNodeType
 	LeafNodeType
-	RootLeafNodeType
 )
 
 type Snapshot struct {
@@ -128,12 +126,11 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) WriteTo(w io.Writer, writeOpts *WriteOpts) (int64, error) {
-	_, n, err := s.root.writeTo(w, true, writeOpts)
-	return n, err
+func (s *Snapshot) WriteTo(w io.Writer, writeOpts *WriteOpts) (off int64, tw int64, err error) {
+	return s.root.writeTo(w, writeOpts, make(map[node]int64))
 }
 
-func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off int64, tw int64, err error) {
+func (n *innerNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) (off int64, tw int64, err error) {
 	if writeOpts.OnlyMutated && !n.mutated() {
 		return n.off, 0, nil
 	}
@@ -149,7 +146,7 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 			commitLog:   writeOpts.commitLog,
 		}
 
-		o, w, err := c.writeTo(w, false, wopts)
+		o, w, err := c.writeTo(w, wopts, m)
 		if err != nil {
 			return 0, w, err
 		}
@@ -160,14 +157,10 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 
 	size := n.size()
 
-	buf := make([]byte, size+4)
+	buf := make([]byte, size)
 	bi := 0
 
-	if asRoot {
-		buf[bi] = RootInnerNodeType
-	} else {
-		buf[bi] = InnerNodeType
-	}
+	buf[bi] = InnerNodeType
 	bi++
 
 	binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
@@ -179,11 +172,6 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 	for i, c := range n.nodes {
 		n := writeNodeRefToWithOffset(c, offsets[i], buf[bi:])
 		bi += n
-	}
-
-	if asRoot {
-		binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
-		bi += 4
 	}
 
 	wn, err := w.Write(buf[:bi])
@@ -198,28 +186,23 @@ func (n *innerNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off
 	}
 
 	tw = cw + int64(size)
+	off = writeOpts.BaseOffset + cw
 
-	if asRoot {
-		tw += 4
-	}
+	m[n] = off
 
-	return writeOpts.BaseOffset + cw, tw, nil
+	return off, tw, nil
 }
 
-func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off int64, tw int64, err error) {
+func (l *leafNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) (off int64, tw int64, err error) {
 	if writeOpts.OnlyMutated && !l.mutated() {
 		return l.off, 0, nil
 	}
 
 	size := l.size()
-	buf := make([]byte, size+4)
+	buf := make([]byte, size)
 	bi := 0
 
-	if asRoot {
-		buf[bi] = RootLeafNodeType
-	} else {
-		buf[bi] = LeafNodeType
-	}
+	buf[bi] = LeafNodeType
 	bi++
 
 	binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
@@ -229,15 +212,21 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 	prevNodeOff := int64(-1)
 
 	if l.prevNode != nil {
-		if l.prevNode.mutated() {
-			o, w, err := l.prevNode.writeTo(w, false, writeOpts)
-			if err != nil {
-				return 0, w, err
-			}
-			prevNodeOff = o
-			cw = w
+		prevOff, written := m[l.prevNode]
+
+		if written {
+			prevNodeOff = prevOff
 		} else {
-			prevNodeOff = l.prevNode.offset()
+			if l.prevNode.mutated() || !writeOpts.OnlyMutated {
+				o, w, err := l.prevNode.writeTo(w, writeOpts, m)
+				if err != nil {
+					return 0, w, err
+				}
+				prevNodeOff = o
+				cw = w
+			} else {
+				prevNodeOff = l.prevNode.offset()
+			}
 		}
 	}
 
@@ -272,11 +261,6 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 		}
 	}
 
-	if asRoot {
-		binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
-		bi += 4
-	}
-
 	n, err := w.Write(buf[:bi])
 	if err != nil {
 		return 0, int64(n), err
@@ -289,15 +273,14 @@ func (l *leafNode) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (off 
 	}
 
 	tw = cw + int64(size)
+	off = writeOpts.BaseOffset + cw
 
-	if asRoot {
-		tw += 4
-	}
+	m[l] = off
 
-	return writeOpts.BaseOffset + cw, tw, nil
+	return off, tw, nil
 }
 
-func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64, int64, error) {
+func (n *nodeRef) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) (int64, int64, error) {
 	if writeOpts.OnlyMutated {
 		return n.off, 0, nil
 	}
@@ -307,7 +290,7 @@ func (n *nodeRef) writeTo(w io.Writer, asRoot bool, writeOpts *WriteOpts) (int64
 		return 0, 0, err
 	}
 
-	off, tw, err := node.writeTo(w, asRoot, writeOpts)
+	off, tw, err := node.writeTo(w, writeOpts, m)
 	if err != nil {
 		return 0, tw, err
 	}
