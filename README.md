@@ -165,6 +165,7 @@ Environment variables:
   IMMUDB_LOGFILE=
   IMMUDB_MTLS=false
   IMMUDB_AUTH=true
+  IMMUDB_MAX_RECV_MSG_SIZE=4194304
   IMMUDB_DETACHED=false
   IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
@@ -193,6 +194,7 @@ Flags:
   -d, --detached                run immudb in background
       --devmode                 enable dev mode: accept remote connections without auth
       --dir string              data folder (default "./data")
+      --max-recv-msg-size       max message size in bytes the server can receive
   -h, --help                    help for immudb
       --logfile string          log path with filename. E.g. /tmp/immudb/immudb.log
       --maintenance             override the authentication flag

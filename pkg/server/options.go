@@ -41,6 +41,7 @@ type Options struct {
 	MTLs                bool
 	MTLsOptions         MTLsOptions
 	auth                bool
+	MaxRecvMsgSize      int
 	NoHistograms        bool
 	Detached            bool
 	CorruptionCheck     bool
@@ -69,6 +70,7 @@ func DefaultOptions() Options {
 		Logfile:             "",
 		MTLs:                false,
 		auth:                true,
+		MaxRecvMsgSize:      1024 * 1024 * 4, // 4Mb
 		NoHistograms:        false,
 		Detached:            false,
 		CorruptionCheck:     true,
@@ -145,6 +147,11 @@ func (o Options) WithAuth(authEnabled bool) Options {
 	return o
 }
 
+func (o Options) WithMaxRecvMsgSize(maxRecvMsgSize int) Options {
+	o.MaxRecvMsgSize = maxRecvMsgSize
+	return o
+}
+
 // GetAuth gets auth
 func (o Options) GetAuth() bool {
 	if o.maintenance {
@@ -184,9 +191,9 @@ func (o Options) MetricsBind() string {
 // String print options
 func (o Options) String() string {
 	rightPad := func(k string, v interface{}) string {
-		return fmt.Sprintf("%-16s: %v", k, v)
+		return fmt.Sprintf("%-17s: %v", k, v)
 	}
-	opts := make([]string, 0, 16)
+	opts := make([]string, 0, 17)
 	opts = append(opts, "================ Config ================")
 	opts = append(opts, rightPad("Data dir", o.Dir))
 	opts = append(opts, rightPad("Address", fmt.Sprintf("%s:%d", o.Address, o.Port)))
@@ -203,6 +210,7 @@ func (o Options) String() string {
 		opts = append(opts, rightPad("Log file", o.Logfile))
 	}
 	opts = append(opts, rightPad("MTLS enabled", o.MTLs))
+	opts = append(opts, rightPad("Max recv msg size", o.MaxRecvMsgSize))
 	opts = append(opts, rightPad("Auth enabled", o.auth))
 	opts = append(opts, rightPad("Dev mode", o.DevMode))
 	opts = append(opts, rightPad("Default database", o.defaultDbName))
