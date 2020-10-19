@@ -18,29 +18,25 @@ package immuclient
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/codenotary/immudb/cmd/docs/man"
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/cmd/version"
 	"github.com/spf13/cobra"
-	"os"
-	"strings"
 )
 
-func Execute() {
-	cmd := newCommand()
+func Execute(cmd *cobra.Command) error {
 	if isCommand(commandNames(cmd.Commands())) {
 		if err := cmd.Execute(); err != nil {
-			fmt.Println(cmd.Aliases)
-			if strings.HasPrefix(err.Error(), "unknown command") {
-				os.Exit(0)
-			}
-			c.QuitWithUserError(err)
+			return err
 		}
-		return
 	}
+	return nil
 }
 
-func newCommand() *cobra.Command {
+func NewCommand() *cobra.Command {
 	version.App = "immuclient"
 	cl := NewCommandLine()
 	cmd, err := cl.NewCmd()

@@ -17,9 +17,22 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
+	c "github.com/codenotary/immudb/cmd/helper"
 	immuclient "github.com/codenotary/immudb/cmd/immuclient/command"
 )
 
 func main() {
-	immuclient.Execute()
+	cmd := immuclient.NewCommand()
+	err := immuclient.Execute(cmd)
+	if err != nil {
+		fmt.Println(cmd.Aliases)
+		if strings.HasPrefix(err.Error(), "unknown command") {
+			os.Exit(0)
+		}
+		c.QuitWithUserError(err)
+	}
 }

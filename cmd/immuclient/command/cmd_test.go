@@ -18,11 +18,17 @@ package immuclient
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
-	cmd := newCommand()
+	cmd := NewCommand()
 	if len(cmd.Commands()) != 28 {
 		t.Fatalf("error initialising command expected %d, got %d", 28, len(cmd.Commands()))
 	}
+	cmd.SetArgs([]string{"--help"})
+
+	err := Execute(cmd)
+	require.NoError(t, err)
 }
