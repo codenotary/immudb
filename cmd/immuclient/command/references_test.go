@@ -74,3 +74,47 @@ func TestReference(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSafeReference(t *testing.T) {
+	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
+	bs := servertest.NewBufconnServer(options)
+	bs.Start()
+
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, ts)
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	cmdl := commandline{
+		config: helper.Config{Name: "immuclient"},
+		immucl: ic.Imc,
+	}
+	cmd, _ := cmdl.NewCmd()
+	cmdl.safereference(cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+
+	cmdl.immucl.SafeSet([]string{"key", "value"})
+
+	cmd.SetArgs([]string{"safereference", "key1", "key"})
+
+	// remove ConfigChain method to avoid options override
+	cmd.PersistentPreRunE = nil
+	innercmd := cmd.Commands()[0]
+	innercmd.PersistentPreRunE = nil
+
+	err := cmd.Execute()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ioutil.ReadAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msg), "hash") {
+		t.Fatal(err)
+	}
+}

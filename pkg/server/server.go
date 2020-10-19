@@ -191,6 +191,7 @@ func (s *ImmuServer) Start() error {
 		options,
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
+		grpc.MaxRecvMsgSize(s.Options.MaxRecvMsgSize),
 	)
 
 	s.GrpcServer = grpc.NewServer(options...)

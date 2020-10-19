@@ -36,6 +36,7 @@ type Options struct {
 	MTLs               bool
 	MTLsOptions        MTLsOptions
 	Auth               bool
+	MaxRecvMsgSize     int
 	DialOptions        *[]grpc.DialOption
 	Config             string
 	TokenFileName      string
@@ -58,6 +59,7 @@ func DefaultOptions() *Options {
 		HealthCheckRetries: 5,
 		MTLs:               false,
 		Auth:               true,
+		MaxRecvMsgSize:     4 * 1024 * 1024, //4Mb
 		Config:             "configs/immuclient.toml",
 		TokenFileName:      "token",
 		DialOptions:        &[]grpc.DialOption{},
@@ -136,6 +138,12 @@ func (o *Options) WithMTLs(MTLs bool) *Options {
 // WithAuth activate/deactivate auth
 func (o *Options) WithAuth(authEnabled bool) *Options {
 	o.Auth = authEnabled
+	return o
+}
+
+// MaxRecvMsgSize max recv msg size in bytes
+func (o *Options) WithMaxRecvMsgSize(maxRecvMsgSize int) *Options {
+	o.MaxRecvMsgSize = maxRecvMsgSize
 	return o
 }
 

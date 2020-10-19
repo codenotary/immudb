@@ -41,6 +41,7 @@ Environment variables:
   IMMUDB_LOGFILE=
   IMMUDB_MTLS=false
   IMMUDB_AUTH=true
+  IMMUDB_MAX_RECV_MSG_SIZE=4194304
   IMMUDB_DETACHED=false
   IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem

@@ -36,6 +36,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 			"authentication token file (default path is $HOME or binary location; default filename is %s)",
 			client.DefaultOptions().TokenFileName))
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
+	cmd.PersistentFlags().Int("max-recv-msg-size", client.DefaultOptions().MaxRecvMsgSize, "max message size in bytes the client can receive")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
 	cmd.PersistentFlags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")
@@ -49,60 +50,29 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 	cmd.PersistentFlags().String("audit-signature", "", "audit signature mode. ignore|validate. If 'ignore' is set auditor doesn't check for the root server signature. If 'validate' is set auditor verify that the root is signed properly by immudb server. Default value is 'ignore'")
 
-	if err := viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("servername", cmd.PersistentFlags().Lookup("servername")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("certificate", cmd.PersistentFlags().Lookup("certificate")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("pkey", cmd.PersistentFlags().Lookup("pkey")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("clientcas", cmd.PersistentFlags().Lookup("clientcas")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("value-only", cmd.PersistentFlags().Lookup("value-only")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("roots-filepath", cmd.PersistentFlags().Lookup("roots-filepath")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("prometheus-port", cmd.PersistentFlags().Lookup("prometheus-port")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("prometheus-host", cmd.PersistentFlags().Lookup("prometheus-host")); err != nil {
-		return err
-	}
-
-	if err := viper.BindPFlag("dir", cmd.PersistentFlags().Lookup("dir")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("audit-username", cmd.PersistentFlags().Lookup("audit-username")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("audit-password", cmd.PersistentFlags().Lookup("audit-password")); err != nil {
-		return err
-	}
-	if err := viper.BindPFlag("audit-signature", cmd.PersistentFlags().Lookup("audit-signature")); err != nil {
-		return err
-	}
+	viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port"))
+	viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address"))
+	viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile"))
+	viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls"))
+	viper.BindPFlag("max-recv-msg-size", cmd.PersistentFlags().Lookup("max-recv-msg-size"))
+	viper.BindPFlag("servername", cmd.PersistentFlags().Lookup("servername"))
+	viper.BindPFlag("certificate", cmd.PersistentFlags().Lookup("certificate"))
+	viper.BindPFlag("pkey", cmd.PersistentFlags().Lookup("pkey"))
+	viper.BindPFlag("clientcas", cmd.PersistentFlags().Lookup("clientcas"))
+	viper.BindPFlag("value-only", cmd.PersistentFlags().Lookup("value-only"))
+	viper.BindPFlag("roots-filepath", cmd.PersistentFlags().Lookup("roots-filepath"))
+	viper.BindPFlag("prometheus-port", cmd.PersistentFlags().Lookup("prometheus-port"))
+	viper.BindPFlag("prometheus-host", cmd.PersistentFlags().Lookup("prometheus-host"))
+	viper.BindPFlag("dir", cmd.PersistentFlags().Lookup("dir"))
+	viper.BindPFlag("audit-username", cmd.PersistentFlags().Lookup("audit-username"))
+	viper.BindPFlag("audit-password", cmd.PersistentFlags().Lookup("audit-password"))
+	viper.BindPFlag("audit-signature", cmd.PersistentFlags().Lookup("audit-signature"))
 
 	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
 	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
 	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
+	viper.SetDefault("max-recv-msg-size", client.DefaultOptions().MaxRecvMsgSize)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
 	viper.SetDefault("certificate", client.DefaultMTLsOptions().Certificate)
 	viper.SetDefault("pkey", client.DefaultMTLsOptions().Pkey)

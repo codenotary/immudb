@@ -31,7 +31,7 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	cm := newCommand()
+	cm := NewCommand()
 	require.Len(t, cm.Commands(), 28, "fail immuclient commands, wrong number of expected commands")
 }
 

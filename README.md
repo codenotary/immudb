@@ -165,6 +165,7 @@ Environment variables:
   IMMUDB_LOGFILE=
   IMMUDB_MTLS=false
   IMMUDB_AUTH=true
+  IMMUDB_MAX_RECV_MSG_SIZE=4194304
   IMMUDB_DETACHED=false
   IMMUDB_CONSISTENCY_CHECK=true
   IMMUDB_PKEY=./tools/mtls/3_application/private/localhost.key.pem
@@ -193,6 +194,7 @@ Flags:
   -d, --detached                run immudb in background
       --devmode                 enable dev mode: accept remote connections without auth
       --dir string              data folder (default "./data")
+      --max-recv-msg-size       max message size in bytes the server can receive
   -h, --help                    help for immudb
       --logfile string          log path with filename. E.g. /tmp/immudb/immudb.log
       --maintenance             override the authentication flag
@@ -333,6 +335,7 @@ Environment variables:
   IMMUCLIENT_IMMUDB_PORT=3322
   IMMUCLIENT_AUTH=true
   IMMUCLIENT_MTLS=false
+  IMMUCLIENT_MAX_RECV_MSG_SIZE=4194304
   IMMUCLIENT_SERVERNAME=localhost
   IMMUCLIENT_PKEY=./tools/mtls/4_client/private/localhost.key.pem
   IMMUCLIENT_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem
@@ -382,6 +385,7 @@ Flags:
       --clientcas string         clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
       --config string            config file (default path are configs or $HOME. Default filename is immuclient.toml)
       --dir string               Main directory for audit process tool to initialize (default "/tmp")
+      --max-recv-msg-size        max message size in bytes the client can receive
   -h, --help                     help for immuclient
   -a, --immudb-address string    immudb host address (default "127.0.0.1")
   -p, --immudb-port int          immudb port number (default 3322)
