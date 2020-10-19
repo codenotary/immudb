@@ -36,7 +36,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 			"authentication token file (default path is $HOME or binary location; default filename is %s)",
 			client.DefaultOptions().TokenFileName))
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
-	cmd.PersistentFlags().Int("max-recv-msg-size", client.DefaultOptions().MaxRecvMsgSize, "max message size in bytes the server can receive")
+	cmd.PersistentFlags().Int("max-recv-msg-size", client.DefaultOptions().MaxRecvMsgSize, "max message size in bytes the client can receive")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
 	cmd.PersistentFlags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")

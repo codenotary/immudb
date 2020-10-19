@@ -385,7 +385,7 @@ Flags:
       --clientcas string         clients certificates list. Aka certificate authority (default "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem")
       --config string            config file (default path are configs or $HOME. Default filename is immuclient.toml)
       --dir string               Main directory for audit process tool to initialize (default "/tmp")
-      --max-recv-msg-size        max message size in bytes the server can receive
+      --max-recv-msg-size        max message size in bytes the client can receive
   -h, --help                     help for immuclient
   -a, --immudb-address string    immudb host address (default "127.0.0.1")
   -p, --immudb-port int          immudb port number (default 3322)
