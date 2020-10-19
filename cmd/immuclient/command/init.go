@@ -36,6 +36,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 			"authentication token file (default path is $HOME or binary location; default filename is %s)",
 			client.DefaultOptions().TokenFileName))
 	cmd.PersistentFlags().BoolP("mtls", "m", client.DefaultOptions().MTLs, "enable mutual tls")
+	cmd.PersistentFlags().Int("max-recv-msg-size", client.DefaultOptions().MaxRecvMsgSize, "max message size in bytes the server can receive")
 	cmd.PersistentFlags().String("servername", client.DefaultMTLsOptions().Servername, "used to verify the hostname on the returned certificates")
 	cmd.PersistentFlags().String("certificate", client.DefaultMTLsOptions().Certificate, "server certificate file path")
 	cmd.PersistentFlags().String("pkey", client.DefaultMTLsOptions().Pkey, "server private key path")
@@ -59,6 +60,9 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 		return err
 	}
 	if err := viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls")); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag("max-recv-msg-size", cmd.PersistentFlags().Lookup("max-recv-msg-size")); err != nil {
 		return err
 	}
 	if err := viper.BindPFlag("servername", cmd.PersistentFlags().Lookup("servername")); err != nil {
@@ -103,6 +107,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
 	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
+	viper.SetDefault("max-recv-msg-size", client.DefaultOptions().MaxRecvMsgSize)
 	viper.SetDefault("servername", client.DefaultMTLsOptions().Servername)
 	viper.SetDefault("certificate", client.DefaultMTLsOptions().Certificate)
 	viper.SetDefault("pkey", client.DefaultMTLsOptions().Pkey)

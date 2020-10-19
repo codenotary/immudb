@@ -32,6 +32,7 @@ Environment variables:
   IMMUCLIENT_IMMUDB_PORT=3322
   IMMUCLIENT_AUTH=true
   IMMUCLIENT_MTLS=false
+  IMMUCLIENT_MAX_RECV_MSG_SIZE=4194304
   IMMUCLIENT_SERVERNAME=localhost
   IMMUCLIENT_PKEY=./tools/mtls/4_client/private/localhost.key.pem
   IMMUCLIENT_CERTIFICATE=./tools/mtls/4_client/certs/localhost.cert.pem

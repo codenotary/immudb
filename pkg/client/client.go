@@ -236,6 +236,7 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 		})
 		opts = []grpc.DialOption{grpc.WithTransportCredentials(transportCreds)}
 	}
+
 	if options.Auth {
 		token, err := c.Tkns.GetToken()
 		if err == nil {
@@ -243,6 +244,9 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
 		}
 	}
+
+	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
+
 	return &opts
 }
 
