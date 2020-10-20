@@ -27,6 +27,9 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/dgraph-io/badger/v2/pb"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -1159,4 +1162,65 @@ func TestSafeReference(t *testing.T) {
 	if err == nil {
 		t.Fatalf("SafeReference expected error %s", err)
 	}
+}
+
+func TestDump(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	root, err := db.CurrentRoot(&emptypb.Empty{})
+	if err != nil {
+		t.Error(err)
+	}
+
+	kvs := []*schema.SafeSetOptions{
+		{
+			Kv: &schema.KeyValue{
+				Key:   []byte("Alberto"),
+				Value: []byte("Tomba"),
+			},
+			RootIndex: &schema.Index{
+				Index: root.GetIndex(),
+			},
+		},
+		{
+			Kv: &schema.KeyValue{
+				Key:   []byte("Jean-Claude"),
+				Value: []byte("Killy"),
+			},
+			RootIndex: &schema.Index{
+				Index: root.GetIndex(),
+			},
+		},
+		{
+			Kv: &schema.KeyValue{
+				Key:   []byte("Franz"),
+				Value: []byte("Clamer"),
+			},
+			RootIndex: &schema.Index{
+				Index: root.GetIndex(),
+			},
+		},
+	}
+	for _, val := range kvs {
+		_, err := db.SafeSet(val)
+		if err != nil {
+			t.Fatalf("Error Inserting to db %s", err)
+		}
+	}
+
+	dump := &mockImmuService_DumpServer{}
+	err = db.Dump(&emptypb.Empty{}, dump)
+	require.NoError(t, err)
+	require.Less(t, 0, len(dump.results))
+}
+
+type mockImmuService_DumpServer struct {
+	grpc.ServerStream
+	results []*pb.KVList
+}
+
+func (_m *mockImmuService_DumpServer) Send(kvs *pb.KVList) error {
+	_m.results = append(_m.results, kvs)
+	return nil
 }
