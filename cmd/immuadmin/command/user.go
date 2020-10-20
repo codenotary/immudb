@@ -75,7 +75,7 @@ immuadmin user create user1 admin mydb`,
 		Example: "immuadmin user changepassword user1",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			username := args[0]
-			var resp = ""
+			var resp string
 			var oldpass []byte
 			if username == auth.SysAdminUsername {
 				oldpass, err = cl.passwordReader.Read("Old password:")
@@ -94,7 +94,7 @@ immuadmin user create user1 admin mydb`,
 		Use:   "activate",
 		Short: "Activate a user",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			var resp = ""
+			var resp string
 			if resp, err = cl.setActiveUser(args, true); err == nil {
 				fmt.Fprintf(cmd.OutOrStdout(), resp)
 			}
@@ -106,7 +106,7 @@ immuadmin user create user1 admin mydb`,
 		Use:   "deactivate",
 		Short: "Deactivate a user",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			var resp = ""
+			var resp string
 			if resp, err = cl.setActiveUser(args, false); err == nil {
 				fmt.Fprintf(cmd.OutOrStdout(), resp)
 			}

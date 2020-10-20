@@ -657,6 +657,7 @@ func TestInsertionOrderIndexMix(t *testing.T) {
 	}
 
 	proof, err := st.SafeReference(ref1)
+	assert.NoError(t, err)
 
 	ref2 := schema.SafeReferenceOptions{
 		Ro: &schema.ReferenceOptions{

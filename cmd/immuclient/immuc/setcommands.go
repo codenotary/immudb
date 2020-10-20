@@ -132,6 +132,9 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 	}
 
 	bs, err := ioutil.ReadAll(scoreReader)
+	if err != nil {
+		return "", err
+	}
 	score, err := strconv.ParseFloat(string(bs), 64)
 	if err != nil {
 		return "", err
@@ -163,6 +166,9 @@ func (i *immuc) SafeZAdd(args []string) (string, error) {
 		keyReader = bytes.NewReader([]byte(args[2]))
 	}
 	bs, err := ioutil.ReadAll(scoreReader)
+	if err != nil {
+		return "", err
+	}
 	score, err := strconv.ParseFloat(string(bs), 64)
 	if err != nil {
 		return "", err

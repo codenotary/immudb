@@ -159,6 +159,9 @@ func (d *Db) SafeSetSV(sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
 //SafeGetSV ...
 func (d *Db) SafeGetSV(opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
 	it, err := d.SafeGet(opts)
+	if err != nil {
+		return nil, err
+	}
 	ssitem, err := it.ToSafeSItem()
 	if err != nil {
 		return nil, err

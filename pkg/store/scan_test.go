@@ -124,16 +124,17 @@ func TestIScan(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	var zero []byte
-	zero = append(zero, byte(0))
-	idx, err := st.Set(schema.KeyValue{Key: zero, Value: []byte(`item0`)})
-	idx, err = st.Set(schema.KeyValue{Key: []byte(`0`), Value: []byte(`itemZERO`)})
+	idx, err := st.Set(schema.KeyValue{Key: []byte(`0`), Value: []byte(`itemZERO`)})
+	require.NoError(t, err)
 	idx, err = st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	require.NoError(t, err)
 	idx, err = st.Set(schema.KeyValue{Key: []byte(`bbb`), Value: []byte(`item2`)})
+	require.NoError(t, err)
 	idx, err = st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`aab`)})
+	require.NoError(t, err)
 	idx, err = st.Reference(&schema.ReferenceOptions{Key: []byte(`bbb`), Reference: []byte(`abb`)})
+	require.NoError(t, err)
 	idx, err = st.Set(schema.KeyValue{Key: []byte(`zzz`), Value: []byte(`itemzzz`)})
-
 	require.NoError(t, err)
 	require.IsType(t, uint64(0), idx.Index)
 

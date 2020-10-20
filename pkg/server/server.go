@@ -1184,6 +1184,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 			itemList.Items[i].Key = itemList.Items[i].Key[1:]
 			var user auth.User
 			err = json.Unmarshal(itemList.Items[i].Value, &user)
+			if err != nil {
+				return nil, err
+			}
 			permissions := []*schema.Permission{}
 			for _, val := range user.Permissions {
 				permissions = append(permissions, &schema.Permission{
@@ -1210,6 +1213,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 			itemList.Items[i].Key = itemList.Items[i].Key[1:]
 			var user auth.User
 			err = json.Unmarshal(itemList.Items[i].Value, &user)
+			if err != nil {
+				return nil, err
+			}
 			permissions := []*schema.Permission{}
 			for _, val := range user.Permissions {
 				//check if this user has any permission for this database

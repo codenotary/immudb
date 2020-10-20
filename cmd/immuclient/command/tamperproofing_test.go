@@ -52,6 +52,9 @@ func TestConsistency(t *testing.T) {
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	setmsg, err := cmdl.immucl.SafeSet([]string{"key", "value"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	hash := strings.Split(setmsg, "hash:		")[1]
 	hash = hash[:64]
 
@@ -95,6 +98,9 @@ func TestInclusion(t *testing.T) {
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	setmsg, err := cmdl.immucl.SafeSet([]string{"key", "value"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	hash := strings.Split(setmsg, "hash:		")[1]
 	hash = hash[:64]
 

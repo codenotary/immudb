@@ -41,6 +41,9 @@ func (rs *rootSigner) Sign(root *schema.Root) (*schema.Root, error) {
 		return nil, err
 	} else {
 		root.Signature.Signature, root.Signature.PublicKey, err = rs.Signer.Sign(m)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return root, nil
 }

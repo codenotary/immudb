@@ -147,6 +147,9 @@ func (ss sservice) UninstallSetup(serviceName string) (err error) {
 		_, err = f1.Readdirnames(1)
 		if err == io.EOF {
 			err = ss.osRemove(cepd)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	cp, err := ss.GetDefaultConfigPath(serviceName)

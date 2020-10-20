@@ -43,10 +43,10 @@ func TestManpageService_UninstallManPages(t *testing.T) {
 	mps := manpageService{}
 
 	manDir := "./man_dir_test"
-	manFiles, err := ioutil.ReadDir(manDir)
+	_, err := ioutil.ReadDir(manDir)
 
 	require.NoError(t, mps.UninstallManPages(manDir, "test"))
-	manFiles, err = ioutil.ReadDir(manDir)
+	manFiles, err := ioutil.ReadDir(manDir)
 	require.NoError(t, err)
 	require.Empty(t, manFiles)
 	os.RemoveAll(manDir)
