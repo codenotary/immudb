@@ -84,7 +84,7 @@ func TestUuidContextSetter(t *testing.T) {
 			t.Fatalf("error initializing xid from string %s", ctxUUID[0])
 		}
 		if uuid.Uuid.Compare(x) != 0 {
-			t.Fatalf("set uuid does is not equal to transmited uuid")
+			t.Fatalf("set uuid does is not equal to transmitted uuid")
 		}
 		return req, nil
 	}
@@ -114,7 +114,7 @@ func TestUuidStreamContextSetter(t *testing.T) {
 			t.Fatalf("error initializing xid from string %s", ctxUUID[0])
 		}
 		if uuid.Uuid.Compare(x) != 0 {
-			t.Fatalf("set uuid does is not equal to transmited uuid")
+			t.Fatalf("set uuid does is not equal to transmitted uuid")
 		}
 		return nil
 	}
