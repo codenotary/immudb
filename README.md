@@ -18,6 +18,10 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Coverage](https://coveralls.io/repos/github/codenotary/immudb/badge.svg?branch=master)](https://coveralls.io/github/codenotary/immudb?branch=master)
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://immudb.io/careers/)
 
+### **New**: immudb Coding Challenge - Winter 2020 Edition [#immuchallenge](https://github.com/codenotary/immuchallenge)
+
+---
+
 immudb is a **lightweight, high-speed immutable database** for systems and applications. Written in Go.
 With immudb you can track changes in sensitive data in your transactional databases and then record those changes permanently in a
 tamperproof immudb database. This allows you to keep an indelible history of sensitive data, for example debit/credit card transactions.
