@@ -33,7 +33,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	require.NoError(t, err)
 	defer snapshot.Close()
 
-	_, err = snapshot.Reader(&ReaderSpec{initialKey: []byte{0, 0, 0, 0}, ascOrder: true})
+	_, err = snapshot.Reader(&ReaderSpec{InitialKey: []byte{0, 0, 0, 0}, AscOrder: true})
 	require.Equal(t, ErrNoMoreEntries, err)
 }
 
@@ -53,9 +53,9 @@ func TestReaderAscendingScan(t *testing.T) {
 	}()
 
 	rspec := &ReaderSpec{
-		initialKey: []byte{0, 0, 0, 250},
-		isPrefix:   true,
-		ascOrder:   true,
+		InitialKey: []byte{0, 0, 0, 250},
+		IsPrefix:   true,
+		AscOrder:   true,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
@@ -93,9 +93,9 @@ func TestReaderDescendingScan(t *testing.T) {
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
-		initialKey: []byte{0, 0, 0, 100},
-		isPrefix:   false,
-		ascOrder:   false,
+		InitialKey: []byte{0, 0, 0, 100},
+		IsPrefix:   false,
+		AscOrder:   false,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
@@ -131,9 +131,9 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
-		initialKey: nil,
-		isPrefix:   false,
-		ascOrder:   true,
+		InitialKey: nil,
+		IsPrefix:   false,
+		AscOrder:   true,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
@@ -169,9 +169,9 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
-		initialKey: []byte{255, 255, 255, 255},
-		isPrefix:   false,
-		ascOrder:   false,
+		InitialKey: []byte{255, 255, 255, 255},
+		IsPrefix:   false,
+		AscOrder:   false,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)

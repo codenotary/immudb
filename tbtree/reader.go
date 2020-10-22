@@ -35,9 +35,9 @@ type Reader struct {
 }
 
 type ReaderSpec struct {
-	initialKey []byte
-	isPrefix   bool
-	ascOrder   bool
+	InitialKey []byte
+	IsPrefix   bool
+	AscOrder   bool
 }
 
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
