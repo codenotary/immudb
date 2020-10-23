@@ -52,6 +52,8 @@ func TestAHtree(t *testing.T) {
 	for _, tt := range nodesUptoTests {
 		actual := nodesUpto(tt.n)
 		require.Equal(t, tt.expected, actual)
+
+		require.Equal(t, tt.expected, nodesUntil(tt.n)+uint64(1+levelsAt(tt.n)))
 	}
 
 	N := 16
@@ -59,6 +61,11 @@ func TestAHtree(t *testing.T) {
 	for i := 1; i <= N; i++ {
 		_, _, err := tree.Append([]byte{byte(i)})
 		require.NoError(t, err)
+
+		ri, _ := tree.RootAt(uint64(i))
+		r, err := tree.Root()
+		require.NoError(t, err)
+		require.Equal(t, r, ri)
 	}
 
 	for i := 1; i <= N; i++ {
