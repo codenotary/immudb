@@ -77,7 +77,7 @@ func TestAHtree(t *testing.T) {
 
 			h := sha256.Sum256([]byte{byte(i)})
 
-			verifies := merkletree.Path(proof).VerifyInclusion(uint64(j), uint64(i), root, h)
+			verifies := merkletree.Path(proof).VerifyInclusion(uint64(j)-1, uint64(i)-1, root, h)
 			require.True(t, verifies)
 		}
 	}

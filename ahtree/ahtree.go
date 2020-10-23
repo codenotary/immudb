@@ -19,6 +19,7 @@ package ahtree
 import (
 	"crypto/sha256"
 	"errors"
+	"math/bits"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -114,7 +115,37 @@ func (t *AHtree) InclusionProof(i, j uint64) ([][sha256.Size]byte, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	return nil, nil
+	return t.inclusionProof(i, j, bits.Len64(j-1))
+}
+
+func (t *AHtree) inclusionProof(i, j uint64, level int) ([][sha256.Size]byte, error) {
+	k := j - 1
+
+	var proof [][sha256.Size]byte
+
+	w := uint64(1)
+
+	for l := level; l > 0; l-- {
+		if (j-1)&w == 1 {
+			if i <= k {
+				p, err := t.inclusionProof(i, k, l-1)
+				if err != nil {
+					return nil, err
+				}
+
+				p = append([][sha256.Size]byte{t.node(j, l-1)}, p...)
+				return p, nil
+			}
+
+			proof = append([][sha256.Size]byte{t.node(k, l-1)}, proof...)
+
+		}
+
+		k = k &^ uint64(1<<l)
+		w = w << 1
+	}
+
+	return proof, nil
 }
 
 func (t *AHtree) Size() (uint64, error) {
