@@ -48,34 +48,13 @@ func TestAHtree(t *testing.T) {
 	}
 
 	for _, tt := range nodesUptoTests {
-		actual := tree.nodesUpto(tt.n)
+		actual := nodesUpto(tt.n)
 		require.Equal(t, tt.expected, actual)
 	}
 
-	_, _, err := tree.Append([]byte{1})
-	require.NoError(t, err)
+	for i := 1; i <= 16; i++ {
+		_, _, err := tree.Append([]byte{byte(i)})
+		require.NoError(t, err)
+	}
 
-	_, _, err = tree.Append([]byte{2})
-	require.NoError(t, err)
-
-	_, _, err = tree.Append([]byte{3})
-	require.NoError(t, err)
-
-	_, _, err = tree.Append([]byte{4})
-	require.NoError(t, err)
-
-	_, _, err = tree.Append([]byte{5})
-	require.NoError(t, err)
-
-	_, _, err = tree.Append([]byte{6})
-	require.NoError(t, err)
-
-	_, _, err = tree.Append([]byte{7})
-	require.NoError(t, err)
-
-	_, _, err = tree.Append([]byte{8})
-	require.NoError(t, err)
-
-	_, _, err = tree.Append([]byte{9})
-	require.NoError(t, err)
 }

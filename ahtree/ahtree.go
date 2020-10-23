@@ -38,21 +38,20 @@ func (t *AHtree) Append(d []byte) (n int64, r [sha256.Size]byte, err error) {
 	t.digests = append(t.digests, h)
 
 	w := n - 1
-	o := int64(0)
 	l := int64(0)
 
 	for w > 0 {
 		if w%2 == 1 {
 			var b [sha256.Size * 2]byte // add Node prefix for compatibility with sdks
 
-			off := nodesUntil(n-(1<<o)) + l // when working with appendable offsets will be * sha256.Size
+			k := (n - 1) >> l << l // can be done with the iteration, setting 1 bit to low at a time
+
+			off := nodesUntil(k) + l // when working with appendable offsets will be * sha256.Size
 
 			copy(b[:], t.digests[int(off)][:])
 			copy(b[sha256.Size:], h[:])
 
 			t.digests = append(t.digests, sha256.Sum256(b[:]))
-
-			o++
 		}
 		l++
 		w = w >> 1
@@ -118,12 +117,13 @@ func (t *AHtree) InclusionProof(i, j uint64) ([][sha256.Size]byte, error) {
 			if i < n {
 
 				//append current hash level
+			} else {
+
 			}
 			// off := (t.nodesUntil(j-(1<<o)) + l) // when working with appendable offsets will be * sha256.Size
 
 			o++
 		}
-
 		l++
 		w = w >> 1
 	}
