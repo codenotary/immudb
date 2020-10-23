@@ -16,12 +16,17 @@ limitations under the License.
 
 package ahtree
 
-import "crypto/sha256"
+import (
+	"crypto/sha256"
+	"errors"
+)
+
+var ErrIllegalArguments = errors.New("illegal arguments")
 
 //AHtree stands for Appendable Hash Tree
 type AHtree struct {
-	data    [][]byte            // reemplazar por appendable
-	digests [][sha256.Size]byte // reemplazar por appendable
+	data    [][]byte            // TODO appendable
+	digests [][sha256.Size]byte // TODO appendable
 }
 
 func (t *AHtree) Append(d []byte) (n int64, r [sha256.Size]byte, err error) {
@@ -33,21 +38,19 @@ func (t *AHtree) Append(d []byte) (n int64, r [sha256.Size]byte, err error) {
 	t.digests = append(t.digests, h)
 
 	w := n - 1
-	o := int64(1)
+	o := int64(0)
 	l := int64(0)
 
 	for w > 0 {
 		if w%2 == 1 {
 			var b [sha256.Size * 2]byte // add Node prefix for compatibility with sdks
 
-			off := (t.nodesUntil(n-o) + l) // when working with appendable offsets will be * sha256.Size
+			off := nodesUntil(n-(1<<o)) + l // when working with appendable offsets will be * sha256.Size
 
 			copy(b[:], t.digests[int(off)][:])
 			copy(b[sha256.Size:], h[:])
 
-			h = sha256.Sum256(b[:]) //with the other value
-
-			t.digests = append(t.digests, h)
+			t.digests = append(t.digests, sha256.Sum256(b[:]))
 
 			o++
 		}
@@ -58,14 +61,14 @@ func (t *AHtree) Append(d []byte) (n int64, r [sha256.Size]byte, err error) {
 	return int64(len(t.data)), t.digests[len(t.digests)-1], nil
 }
 
-func (t *AHtree) nodesUntil(n int64) int64 {
+func nodesUntil(n int64) int64 {
 	if n == 1 {
 		return 0
 	}
-	return t.nodesUpto(n - 1)
+	return nodesUpto(n - 1)
 }
 
-func (t *AHtree) nodesUpto(n int64) int64 {
+func nodesUpto(n int64) int64 {
 	o := n
 	l := 0
 
@@ -86,11 +89,45 @@ func (t *AHtree) nodesUpto(n int64) int64 {
 	return o
 }
 
-func (t *AHtree) InclusionProof(i, j uint64) ([][sha256.Size]byte, error) {
-	return nil, nil
+func levelsAt(n int64) int {
+	w := n - 1
+	l := 0
+	for w > 0 {
+		if w%2 == 1 {
+			l++
+		}
+		w = w >> 1
+	}
+	return l
 }
 
-func (t *AHtree) ConsistencyProof(i, j uint64) ([][sha256.Size]byte, error) {
+func (t *AHtree) InclusionProof(i, j uint64) ([][sha256.Size]byte, error) {
+	if i > j {
+		return nil, ErrIllegalArguments
+	}
+
+	w := j - 1
+	o := int64(1)
+	l := int64(0)
+
+	for w > 0 {
+		if w%2 == 1 {
+
+			n := j - (1 << o)
+
+			if i < n {
+
+				//append current hash level
+			}
+			// off := (t.nodesUntil(j-(1<<o)) + l) // when working with appendable offsets will be * sha256.Size
+
+			o++
+		}
+
+		l++
+		w = w >> 1
+	}
+
 	return nil, nil
 }
 
@@ -100,6 +137,11 @@ func (t *AHtree) Size() (int64, error) {
 
 func (t *AHtree) Root() ([sha256.Size]byte, error) {
 	return t.digests[len(t.digests)-1], nil
+}
+
+func (t *AHtree) RootAt(n int64) ([sha256.Size]byte, error) {
+	off := nodesUntil(n) + int64(levelsAt(n))
+	return t.digests[off], nil
 }
 
 func (t *AHtree) Flush() error {

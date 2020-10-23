@@ -64,4 +64,18 @@ func TestAHtree(t *testing.T) {
 	_, _, err = tree.Append([]byte{4})
 	require.NoError(t, err)
 
+	_, _, err = tree.Append([]byte{5})
+	require.NoError(t, err)
+
+	_, _, err = tree.Append([]byte{6})
+	require.NoError(t, err)
+
+	_, _, err = tree.Append([]byte{7})
+	require.NoError(t, err)
+
+	_, _, err = tree.Append([]byte{8})
+	require.NoError(t, err)
+
+	_, _, err = tree.Append([]byte{9})
+	require.NoError(t, err)
 }
