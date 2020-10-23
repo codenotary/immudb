@@ -17,8 +17,10 @@ limitations under the License.
 package ahtree
 
 import (
+	"crypto/sha256"
 	"testing"
 
+	"github.com/codenotary/merkletree"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,8 +28,8 @@ func TestAHtree(t *testing.T) {
 	tree := &AHtree{}
 
 	var nodesUptoTests = []struct {
-		n        int64
-		expected int64
+		n        uint64
+		expected uint64
 	}{
 		{1, 1},
 		{2, 3},
@@ -52,9 +54,25 @@ func TestAHtree(t *testing.T) {
 		require.Equal(t, tt.expected, actual)
 	}
 
-	for i := 1; i <= 16; i++ {
+	N := 16
+
+	for i := 1; i <= N; i++ {
 		_, _, err := tree.Append([]byte{byte(i)})
 		require.NoError(t, err)
+	}
+
+	for i := 1; i <= N; i++ {
+		for j := i; i <= N; j++ {
+			proof, err := tree.InclusionProof(uint64(i), uint64(j))
+			require.NoError(t, err)
+
+			root, _ := tree.RootAt(uint64(j))
+
+			h := sha256.Sum256([]byte{byte(i)})
+
+			verifies := merkletree.Path(proof).VerifyInclusion(uint64(j), uint64(i), root, h)
+			require.True(t, verifies)
+		}
 	}
 
 }

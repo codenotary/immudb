@@ -29,45 +29,54 @@ type AHtree struct {
 	digests [][sha256.Size]byte // TODO appendable
 }
 
-func (t *AHtree) Append(d []byte) (n int64, r [sha256.Size]byte, err error) {
+const NodePrefix = byte(1)
+
+func (t *AHtree) Append(d []byte) (n uint64, r [sha256.Size]byte, err error) {
 	t.data = append(t.data, d)
 
-	n = int64(len(t.data))
+	n = uint64(len(t.data))
 
 	h := sha256.Sum256(d)
 	t.digests = append(t.digests, h)
 
 	w := n - 1
-	l := int64(0)
+	l := 0
+
+	k := n - 1
 
 	for w > 0 {
 		if w%2 == 1 {
-			var b [sha256.Size * 2]byte // add Node prefix for compatibility with sdks
+			b := [1 + sha256.Size*2]byte{NodePrefix}
 
-			k := (n - 1) >> l << l // can be done with the iteration, setting 1 bit to low at a time
+			hkl := t.node(k, l)
 
-			off := nodesUntil(k) + l // when working with appendable offsets will be * sha256.Size
-
-			copy(b[:], t.digests[int(off)][:])
-			copy(b[sha256.Size:], h[:])
+			copy(b[1:], hkl[:])
+			copy(b[1+sha256.Size:], h[:])
 
 			t.digests = append(t.digests, sha256.Sum256(b[:]))
 		}
-		l++
+
+		k = k &^ uint64(1<<l)
 		w = w >> 1
+		l++
 	}
 
-	return int64(len(t.data)), t.digests[len(t.digests)-1], nil
+	return n, t.digests[len(t.digests)-1], nil
 }
 
-func nodesUntil(n int64) int64 {
+func (t *AHtree) node(n uint64, l int) [sha256.Size]byte {
+	off := nodesUntil(n) + uint64(l) // when working with appendable offsets will be * sha256.Size
+	return t.digests[int(off)]
+}
+
+func nodesUntil(n uint64) uint64 {
 	if n == 1 {
 		return 0
 	}
 	return nodesUpto(n - 1)
 }
 
-func nodesUpto(n int64) int64 {
+func nodesUpto(n uint64) uint64 {
 	o := n
 	l := 0
 
@@ -88,7 +97,7 @@ func nodesUpto(n int64) int64 {
 	return o
 }
 
-func levelsAt(n int64) int {
+func levelsAt(n uint64) int {
 	w := n - 1
 	l := 0
 	for w > 0 {
@@ -105,42 +114,19 @@ func (t *AHtree) InclusionProof(i, j uint64) ([][sha256.Size]byte, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	w := j - 1
-	o := int64(1)
-	l := int64(0)
-
-	for w > 0 {
-		if w%2 == 1 {
-
-			n := j - (1 << o)
-
-			if i < n {
-
-				//append current hash level
-			} else {
-
-			}
-			// off := (t.nodesUntil(j-(1<<o)) + l) // when working with appendable offsets will be * sha256.Size
-
-			o++
-		}
-		l++
-		w = w >> 1
-	}
-
 	return nil, nil
 }
 
-func (t *AHtree) Size() (int64, error) {
-	return int64(len(t.data)), nil
+func (t *AHtree) Size() (uint64, error) {
+	return uint64(len(t.data)), nil
 }
 
 func (t *AHtree) Root() ([sha256.Size]byte, error) {
 	return t.digests[len(t.digests)-1], nil
 }
 
-func (t *AHtree) RootAt(n int64) ([sha256.Size]byte, error) {
-	off := nodesUntil(n) + int64(levelsAt(n))
+func (t *AHtree) RootAt(n uint64) ([sha256.Size]byte, error) {
+	off := nodesUntil(n) + uint64(levelsAt(n))
 	return t.digests[off], nil
 }
 
