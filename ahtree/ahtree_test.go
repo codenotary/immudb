@@ -56,7 +56,7 @@ func TestAHtree(t *testing.T) {
 		require.Equal(t, tt.expected, nodesUntil(tt.n)+uint64(levelsAt(tt.n))+1)
 	}
 
-	N := 64
+	N := 1024
 
 	for i := 1; i <= N; i++ {
 		_, _, err := tree.Append([]byte{byte(i)})
@@ -79,11 +79,6 @@ func TestAHtree(t *testing.T) {
 
 			verifies := merkletree.Path(proof).VerifyInclusion(uint64(j)-1, uint64(i)-1, root, h)
 			require.True(t, verifies)
-			/*if !verifies {
-				fmt.Println("not verifies")
-
-				merkletree.Path(proof).VerifyInclusion(uint64(j)-1, uint64(i)-1, root, h)
-			}*/
 		}
 	}
 
