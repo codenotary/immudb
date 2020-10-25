@@ -54,7 +54,7 @@ func TestAHtree(t *testing.T) {
 		actual := nodesUpto(tt.n)
 		require.Equal(t, tt.expected, actual)
 
-		require.Equal(t, tt.expected, nodesUntil(tt.n)+uint64(levelsAt(tt.n)))
+		require.Equal(t, tt.expected, nodesUntil(tt.n)+uint64(levelsAt(tt.n))+1)
 	}
 
 	N := 7
@@ -70,7 +70,7 @@ func TestAHtree(t *testing.T) {
 	}
 
 	for i := 1; i <= N; i++ {
-		for j := 7; j <= N; j++ {
+		for j := i; j <= N; j++ {
 			proof, err := tree.InclusionProof(uint64(i), uint64(j))
 			require.NoError(t, err)
 

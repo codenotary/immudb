@@ -109,7 +109,7 @@ func levelsAt(n uint64) int {
 		}
 		w = w >> 1
 	}
-	return 1 + l
+	return l
 }
 
 func (t *AHtree) InclusionProof(i, j uint64) ([][sha256.Size]byte, error) {
@@ -123,15 +123,14 @@ func (t *AHtree) InclusionProof(i, j uint64) ([][sha256.Size]byte, error) {
 func (t *AHtree) inclusionProof(i, j uint64, level int) ([][sha256.Size]byte, error) {
 	var proof [][sha256.Size]byte
 
-	//l := levelsAt(j)
+	rl := levelsAt(j) - 1
 
 	for l := level - 1; l >= 0; l-- {
 		if (j-1)&(1<<l) > 0 {
-
 			k := (j - 1) >> l << l
 
 			if i <= k {
-				proof = append([][sha256.Size]byte{t.node(j, l)}, proof...)
+				proof = append([][sha256.Size]byte{t.node(j, rl)}, proof...)
 
 				p, err := t.inclusionProof(i, k, l)
 				if err != nil {
@@ -145,18 +144,21 @@ func (t *AHtree) inclusionProof(i, j uint64, level int) ([][sha256.Size]byte, er
 
 			proof = append([][sha256.Size]byte{t.node(k, l)}, proof...)
 
+			rl--
 		}
 	}
 
 	return proof, nil
 }
 
+/*
 func (t *AHtree) highestNode(i uint64, l int) [sha256.Size]byte {
 	for l > 0 && (i-1)&(1<<l) == 0 {
 		l--
 	}
 	return t.node(i, l)
 }
+*/
 
 func (t *AHtree) Size() (uint64, error) {
 	return uint64(len(t.data)), nil
@@ -168,7 +170,7 @@ func (t *AHtree) Root() ([sha256.Size]byte, error) {
 
 func (t *AHtree) RootAt(n uint64) ([sha256.Size]byte, error) {
 	off := nodesUntil(n) + uint64(levelsAt(n))
-	return t.digests[off-1], nil
+	return t.digests[off], nil
 }
 
 func (t *AHtree) Flush() error {
