@@ -32,17 +32,16 @@ type AHtree struct {
 
 const NodePrefix = byte(1)
 
-func (t *AHtree) Append(d []byte) (n uint64, r [sha256.Size]byte, err error) {
+func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	t.data = append(t.data, d)
 
 	n = uint64(len(t.data))
 
-	h := sha256.Sum256(d)
+	h = sha256.Sum256(d)
 	t.digests = append(t.digests, h)
 
 	w := n - 1
 	l := 0
-
 	k := n - 1
 
 	for w > 0 {
@@ -64,7 +63,7 @@ func (t *AHtree) Append(d []byte) (n uint64, r [sha256.Size]byte, err error) {
 		l++
 	}
 
-	return n, t.digests[len(t.digests)-1], nil
+	return
 }
 
 func (t *AHtree) node(n uint64, l int) [sha256.Size]byte {
