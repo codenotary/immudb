@@ -66,7 +66,14 @@ func TestAHtree(t *testing.T) {
 		r, err := tree.Root()
 		require.NoError(t, err)
 		require.Equal(t, r, ri)
+
+		sz, err := tree.Size()
+		require.NoError(t, err)
+		require.Equal(t, uint64(i), sz)
 	}
+
+	_, err := tree.InclusionProof(2, 1)
+	require.Error(t, ErrIllegalArguments, err)
 
 	for i := 1; i <= N; i++ {
 		for j := i; j <= N; j++ {
@@ -81,5 +88,4 @@ func TestAHtree(t *testing.T) {
 			require.True(t, verifies)
 		}
 	}
-
 }
