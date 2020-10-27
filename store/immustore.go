@@ -34,7 +34,7 @@ import (
 	"codenotary.io/immudb-v2/tbtree"
 )
 
-var ErrIllegalArgument = errors.New("illegal arguments")
+var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
@@ -142,7 +142,7 @@ func (kv *KV) Digest() [sha256.Size]byte {
 
 func Open(path string, opts *Options) (*ImmuStore, error) {
 	if !validOptions(opts) {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	finfo, err := os.Stat(path)
@@ -210,7 +210,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
 	if !validOptions(opts) {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
@@ -771,7 +771,7 @@ func (s *ImmuStore) LinearProof(trustedTxID, txID uint64) (path [][sha256.Size]b
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	if txID == 0 {
-		return 0, 0, ErrIllegalArgument
+		return 0, 0, ErrIllegalArguments
 	}
 
 	off := (txID - 1) * cLogEntrySize
