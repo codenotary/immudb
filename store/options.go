@@ -93,112 +93,112 @@ func DefaultIndexOptions() *IndexOptions {
 	}
 }
 
-func validOptions(opts *Options) bool {
-	return opts != nil &&
-		opts.maxKeyLen <= MaxKeyLen &&
-		opts.maxConcurrency > 0 &&
-		opts.maxIOConcurrency > 0 &&
-		opts.maxIOConcurrency <= MaxParallelIO
+func validOptions(optss *Options) bool {
+	return optss != nil &&
+		optss.maxKeyLen <= MaxKeyLen &&
+		optss.maxConcurrency > 0 &&
+		optss.maxIOConcurrency > 0 &&
+		optss.maxIOConcurrency <= MaxParallelIO
 }
 
-func (opt *Options) SetReadOnly(readOnly bool) *Options {
-	opt.readOnly = readOnly
-	return opt
+func (opts *Options) SetReadOnly(readOnly bool) *Options {
+	opts.readOnly = readOnly
+	return opts
 }
 
-func (opt *Options) SetSynced(synced bool) *Options {
-	opt.synced = synced
-	return opt
+func (opts *Options) SetSynced(synced bool) *Options {
+	opts.synced = synced
+	return opts
 }
 
-func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
-	opt.fileMode = fileMode
-	return opt
+func (opts *Options) SetFileMode(fileMode os.FileMode) *Options {
+	opts.fileMode = fileMode
+	return opts
 }
 
-func (opt *Options) SetConcurrency(maxConcurrency int) *Options {
-	opt.maxConcurrency = maxConcurrency
-	return opt
+func (opts *Options) SetConcurrency(maxConcurrency int) *Options {
+	opts.maxConcurrency = maxConcurrency
+	return opts
 }
 
-func (opt *Options) SetIOConcurrency(maxIOConcurrency int) *Options {
-	opt.maxIOConcurrency = maxIOConcurrency
-	return opt
+func (opts *Options) SetIOConcurrency(maxIOConcurrency int) *Options {
+	opts.maxIOConcurrency = maxIOConcurrency
+	return opts
 }
 
-func (opt *Options) SetMaxTxEntries(maxTxEntries int) *Options {
-	opt.maxTxEntries = maxTxEntries
-	return opt
+func (opts *Options) SetMaxTxEntries(maxTxEntries int) *Options {
+	opts.maxTxEntries = maxTxEntries
+	return opts
 }
 
-func (opt *Options) SetMaxKeyLen(maxKeyLen int) *Options {
-	opt.maxKeyLen = maxKeyLen
-	return opt
+func (opts *Options) SetMaxKeyLen(maxKeyLen int) *Options {
+	opts.maxKeyLen = maxKeyLen
+	return opts
 }
 
-func (opt *Options) SetMaxValueLen(maxValueLen int) *Options {
-	opt.maxValueLen = maxValueLen
-	return opt
+func (opts *Options) SetMaxValueLen(maxValueLen int) *Options {
+	opts.maxValueLen = maxValueLen
+	return opts
 }
 
-func (opt *Options) SetMaxLinearProofLen(maxLinearProofLen int) *Options {
-	opt.maxLinearProofLen = maxLinearProofLen
-	return opt
+func (opts *Options) SetMaxLinearProofLen(maxLinearProofLen int) *Options {
+	opts.maxLinearProofLen = maxLinearProofLen
+	return opts
 }
 
-func (opt *Options) SetFileSize(fileSize int) *Options {
-	opt.fileSize = fileSize
-	return opt
+func (opts *Options) SetFileSize(fileSize int) *Options {
+	opts.fileSize = fileSize
+	return opts
 }
 
-func (opt *Options) SetVLogMaxOpenedFiles(vLogMaxOpenedFiles int) *Options {
-	opt.vLogMaxOpenedFiles = vLogMaxOpenedFiles
-	return opt
+func (opts *Options) SetVLogMaxOpenedFiles(vLogMaxOpenedFiles int) *Options {
+	opts.vLogMaxOpenedFiles = vLogMaxOpenedFiles
+	return opts
 }
 
-func (opt *Options) SetTxLogMaxOpenedFiles(txLogMaxOpenedFiles int) *Options {
-	opt.txLogMaxOpenedFiles = txLogMaxOpenedFiles
-	return opt
+func (opts *Options) SetTxLogMaxOpenedFiles(txLogMaxOpenedFiles int) *Options {
+	opts.txLogMaxOpenedFiles = txLogMaxOpenedFiles
+	return opts
 }
 
-func (opt *Options) SetCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
-	opt.commitLogMaxOpenedFiles = commitLogMaxOpenedFiles
-	return opt
+func (opts *Options) SetCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
+	opts.commitLogMaxOpenedFiles = commitLogMaxOpenedFiles
+	return opts
 }
 
-func (opt *Options) SetCompressionFormat(compressionFormat int) *Options {
-	opt.compressionFormat = compressionFormat
-	return opt
+func (opts *Options) SetCompressionFormat(compressionFormat int) *Options {
+	opts.compressionFormat = compressionFormat
+	return opts
 }
 
-func (opt *Options) SetCompresionLevel(compressionLevel int) *Options {
-	opt.compressionLevel = compressionLevel
-	return opt
+func (opts *Options) SetCompresionLevel(compressionLevel int) *Options {
+	opts.compressionLevel = compressionLevel
+	return opts
 }
 
 // IndexOptions
 
-func (opt *IndexOptions) SetCacheSize(cacheSize int) *IndexOptions {
-	opt.cacheSize = cacheSize
-	return opt
+func (opts *IndexOptions) SetCacheSize(cacheSize int) *IndexOptions {
+	opts.cacheSize = cacheSize
+	return opts
 }
 
-func (opt *IndexOptions) SetFlushThld(flushThld int) *IndexOptions {
-	opt.flushThld = flushThld
-	return opt
+func (opts *IndexOptions) SetFlushThld(flushThld int) *IndexOptions {
+	opts.flushThld = flushThld
+	return opts
 }
 
-func (opt *IndexOptions) SetMaxActiveSnapshots(maxActiveSnapshots int) *IndexOptions {
-	opt.maxActiveSnapshots = maxActiveSnapshots
-	return opt
+func (opts *IndexOptions) SetMaxActiveSnapshots(maxActiveSnapshots int) *IndexOptions {
+	opts.maxActiveSnapshots = maxActiveSnapshots
+	return opts
 }
 
-func (opt *IndexOptions) SetMaxNodeSize(maxNodeSize int) *IndexOptions {
-	opt.maxNodeSize = maxNodeSize
-	return opt
+func (opts *IndexOptions) SetMaxNodeSize(maxNodeSize int) *IndexOptions {
+	opts.maxNodeSize = maxNodeSize
+	return opts
 }
 
-func (opt *IndexOptions) SetRenewSnapRootAfter(renewSnapRootAfter time.Duration) *IndexOptions {
-	opt.renewSnapRootAfter = renewSnapRootAfter
-	return opt
+func (opts *IndexOptions) SetRenewSnapRootAfter(renewSnapRootAfter time.Duration) *IndexOptions {
+	opts.renewSnapRootAfter = renewSnapRootAfter
+	return opts
 }

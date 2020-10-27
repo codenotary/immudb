@@ -39,7 +39,7 @@ type Options struct {
 	synced             bool
 	fileMode           os.FileMode
 
-	// optsions below are only set during initialization and stored as metadata
+	// options below are only set during initialization and stored as metadata
 	maxNodeSize     int
 	keyHistorySpace int
 	fileSize        int
@@ -55,7 +55,7 @@ func DefaultOptions() *Options {
 		synced:             false,
 		fileMode:           DefaultFileMode,
 
-		// optsions below are only set during initialization and stored as metadata
+		// options below are only set during initialization and stored as metadata
 		maxNodeSize:     DefaultMaxNodeSize,
 		keyHistorySpace: DefaultKeyHistorySpace,
 		fileSize:        DefaultFileSize,
