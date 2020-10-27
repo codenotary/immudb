@@ -242,7 +242,7 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		baseOffset = int64(4 + len(mBs))
 	}
 
-	off, err := f.Seek(0, os.SEEK_END)
+	off, err := f.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func (aof *AppendableFile) Offset() int64 {
 }
 
 func (aof *AppendableFile) SetOffset(off int64) error {
-	_, err := aof.f.Seek(off+aof.baseOffset, os.SEEK_SET)
+	_, err := aof.f.Seek(off+aof.baseOffset, io.SeekStart)
 	if err != nil {
 		return err
 	}
@@ -385,7 +385,13 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 		return aof.f.ReadAt(bs, off+aof.baseOffset)
 	}
 
-	_, err = aof.f.Seek(off+aof.baseOffset, os.SEEK_SET)
+	cOff, err := aof.f.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0, err
+	}
+	defer aof.f.Seek(cOff, io.SeekStart)
+
+	_, err = aof.f.Seek(off+aof.baseOffset, io.SeekStart)
 	if err != nil {
 		return 0, err
 	}

@@ -41,19 +41,10 @@ var ErrorToManyActiveSnapshots = errors.New("max active snapshots limit reached"
 var ErrCorruptedFile = errors.New("file is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 
-const MinNodeSize = 96
-const MinCacheSize = 1
-const DefaultMaxNodeSize = 4096
-const DefaultFlushThld = 100_000
-const DefaultMaxActiveSnapshots = 100
-const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
-const DefaultCacheSize = 10000
-const DefaultFileMode = 0755
-const DefaultFileSize = 1 << 26 // 64Mb
-
 const Version = 1
 
-const DefaultKeyHistorySpace = 32 // ts trace len per key, number of key updates traced within a same key and leaf node
+const MinNodeSize = 96
+const MinCacheSize = 1
 
 const cLogEntrySize = 8 // root node offset
 
@@ -91,88 +82,6 @@ type TBtree struct {
 
 	closed bool
 	mutex  sync.Mutex
-}
-
-type Options struct {
-	flushThld          int
-	maxActiveSnapshots int
-	renewSnapRootAfter time.Duration
-	cacheSize          int
-	readOnly           bool
-	synced             bool
-	fileMode           os.FileMode
-
-	// options below are only set during initialization and stored as metadata
-	maxNodeSize     int
-	keyHistorySpace int
-	fileSize        int
-}
-
-func DefaultOptions() *Options {
-	return &Options{
-		flushThld:          DefaultFlushThld,
-		maxActiveSnapshots: DefaultMaxActiveSnapshots,
-		renewSnapRootAfter: DefaultRenewSnapRootAfter,
-		cacheSize:          DefaultCacheSize,
-		readOnly:           false,
-		synced:             false,
-		fileMode:           DefaultFileMode,
-
-		// options below are only set during initialization and stored as metadata
-		maxNodeSize:     DefaultMaxNodeSize,
-		keyHistorySpace: DefaultKeyHistorySpace,
-		fileSize:        DefaultFileSize,
-	}
-}
-
-func (opt *Options) SetFlushThld(flushThld int) *Options {
-	opt.flushThld = flushThld
-	return opt
-}
-
-func (opt *Options) SetMaxActiveSnapshots(maxActiveSnapshots int) *Options {
-	opt.maxActiveSnapshots = maxActiveSnapshots
-	return opt
-}
-
-func (opt *Options) SetRenewSnapRootAfter(renewSnapRootAfter time.Duration) *Options {
-	opt.renewSnapRootAfter = renewSnapRootAfter
-	return opt
-}
-
-func (opt *Options) SetCacheSize(cacheSize int) *Options {
-	opt.cacheSize = cacheSize
-	return opt
-}
-
-func (opt *Options) SetReadOnly(readOnly bool) *Options {
-	opt.readOnly = readOnly
-	return opt
-}
-
-func (opt *Options) SetSynced(synced bool) *Options {
-	opt.synced = synced
-	return opt
-}
-
-func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
-	opt.fileMode = fileMode
-	return opt
-}
-
-func (opt *Options) SetMaxNodeSize(maxNodeSize int) *Options {
-	opt.maxNodeSize = maxNodeSize
-	return opt
-}
-
-func (opt *Options) SetKeyHistorySpace(keyHistorySpace int) *Options {
-	opt.keyHistorySpace = keyHistorySpace
-	return opt
-}
-
-func (opt *Options) SetFileSize(fileSize int) *Options {
-	opt.fileSize = fileSize
-	return opt
 }
 
 type path []*innerNode
