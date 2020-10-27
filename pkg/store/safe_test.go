@@ -563,3 +563,67 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 		prevRoot,
 	))
 }
+
+func TestStore_SafeZAddIndexEqualKeysMismatchError(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)})
+
+	zaddOpts1 := schema.SafeZAddOptions{
+		Zopts: &schema.ZAddOptions{
+			Set:   []byte(`hashA`),
+			Score: float64(1),
+			Key:   []byte(`WrongKey`),
+			Index: i1,
+		},
+	}
+
+	_, err := st.SafeZAdd(zaddOpts1)
+
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrIndexKeyMismatch)
+
+}
+
+func TestStore_SafeZAddWrongKey(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`val1`), Value: []byte(`val2`)})
+
+	zaddOpts1 := schema.SafeZAddOptions{
+		Zopts: &schema.ZAddOptions{
+			Set:   []byte(`set`),
+			Score: float64(1),
+			Key:   []byte{tsPrefix},
+			Index: i1,
+		},
+	}
+
+	_, err := st.SafeZAdd(zaddOpts1)
+
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrInvalidKey)
+}
+
+func TestStore_SafeZAddWrongSet(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`val1`), Value: []byte(`val2`)})
+
+	zaddOpts1 := schema.SafeZAddOptions{
+		Zopts: &schema.ZAddOptions{
+			Set:   []byte{tsPrefix},
+			Score: float64(1),
+			Key:   []byte(`key`),
+			Index: i1,
+		},
+	}
+
+	_, err := st.SafeZAdd(zaddOpts1)
+
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrInvalidSet)
+}

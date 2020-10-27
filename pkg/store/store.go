@@ -504,6 +504,9 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 			err = mapError(err)
 			return nil, err
 		}
+		if bytes.Compare(key, zaddOpts.Key) != 0 {
+			return nil, ErrIndexKeyMismatch
+		}
 		// here we append the index to the reference value
 		referenceValue = WrapZIndexReference(key, zaddOpts.Index)
 	} else {
