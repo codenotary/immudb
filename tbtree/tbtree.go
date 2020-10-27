@@ -142,16 +142,6 @@ type leafValue struct {
 	tss   []uint64
 }
 
-func validOptions(opts *Options) bool {
-	return opts != nil &&
-		opts.maxNodeSize >= MinNodeSize &&
-		opts.keyHistorySpace >= 0 &&
-		opts.flushThld > 0 &&
-		opts.maxActiveSnapshots > 0 &&
-		opts.renewSnapRootAfter > 0 &&
-		opts.cacheSize >= MinCacheSize
-}
-
 func Open(path string, opts *Options) (*TBtree, error) {
 	if !validOptions(opts) {
 		return nil, ErrIllegalArgument

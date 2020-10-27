@@ -140,14 +140,6 @@ func (kv *KV) Digest() [sha256.Size]byte {
 	return eh
 }
 
-func validOptions(opts *Options) bool {
-	return opts != nil &&
-		opts.maxKeyLen <= MaxKeyLen &&
-		opts.maxConcurrency > 0 &&
-		opts.maxIOConcurrency > 0 &&
-		opts.maxIOConcurrency <= MaxParallelIO
-}
-
 func Open(path string, opts *Options) (*ImmuStore, error) {
 	if !validOptions(opts) {
 		return nil, ErrIllegalArgument

@@ -93,6 +93,14 @@ func DefaultIndexOptions() *IndexOptions {
 	}
 }
 
+func validOptions(opts *Options) bool {
+	return opts != nil &&
+		opts.maxKeyLen <= MaxKeyLen &&
+		opts.maxConcurrency > 0 &&
+		opts.maxIOConcurrency > 0 &&
+		opts.maxIOConcurrency <= MaxParallelIO
+}
+
 func (opt *Options) SetReadOnly(readOnly bool) *Options {
 	opt.readOnly = readOnly
 	return opt
