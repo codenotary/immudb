@@ -30,7 +30,7 @@ import (
 	"codenotary.io/immudb-v2/cache"
 )
 
-var ErrIllegalArgument = errors.New("illegal arguments")
+var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrReadingFileContent = errors.New("error reading required file content")
 var ErrKeyNotFound = errors.New("key not found")
@@ -144,7 +144,7 @@ type leafValue struct {
 
 func Open(path string, opts *Options) (*TBtree, error) {
 	if !validOptions(opts) {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	finfo, err := os.Stat(path)
@@ -193,7 +193,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 
 func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
 	if !validOptions(opts) {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
@@ -717,12 +717,12 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	ts := t.root.ts() + 1
 
 	if len(kvs) == 0 {
-		return ErrIllegalArgument
+		return ErrIllegalArguments
 	}
 
 	for _, kv := range kvs {
 		if kv.K == nil {
-			return ErrIllegalArgument
+			return ErrIllegalArguments
 		}
 
 		k := make([]byte, len(kv.K))

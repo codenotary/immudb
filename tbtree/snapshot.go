@@ -51,7 +51,7 @@ func (s *Snapshot) GetTs(key []byte, limit int64) (ts []uint64, err error) {
 	}
 
 	if limit < 1 {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	return s.root.getTs(key, limit)
@@ -67,7 +67,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	if spec == nil {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	path, startingLeaf, startingOffset, err := s.root.findLeafNode(spec.InitialKey, nil, nil, spec.AscOrder)
