@@ -35,80 +35,6 @@ var ErrIllegalArgument = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 
-const DefaultFileSize = 1 << 26 // 64Mb
-const DefaultMaxOpenedFiles = 10
-const DefaultFileMode = 0755
-
-type Options struct {
-	readOnly          bool
-	synced            bool
-	fileMode          os.FileMode
-	fileSize          int
-	fileExt           string
-	metadata          []byte
-	maxOpenedFiles    int
-	compressionFormat int
-	compressionLevel  int
-}
-
-func DefaultOptions() *Options {
-	return &Options{
-		readOnly:          false,
-		synced:            true,
-		fileMode:          DefaultFileMode,
-		fileSize:          DefaultFileSize,
-		fileExt:           "aof",
-		maxOpenedFiles:    DefaultMaxOpenedFiles,
-		compressionFormat: appendable.DefaultCompressionFormat,
-		compressionLevel:  appendable.DefaultCompressionLevel,
-	}
-}
-
-func (opt *Options) SetReadOnly(readOnly bool) *Options {
-	opt.readOnly = readOnly
-	return opt
-}
-
-func (opt *Options) SetSynced(synced bool) *Options {
-	opt.synced = synced
-	return opt
-}
-
-func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
-	opt.fileMode = fileMode
-	return opt
-}
-
-func (opt *Options) SetMetadata(metadata []byte) *Options {
-	opt.metadata = metadata
-	return opt
-}
-
-func (opt *Options) SetFileSize(fileSize int) *Options {
-	opt.fileSize = fileSize
-	return opt
-}
-
-func (opt *Options) SetFileExt(fileExt string) *Options {
-	opt.fileExt = fileExt
-	return opt
-}
-
-func (opt *Options) SetMaxOpenedFiles(maxOpenedFiles int) *Options {
-	opt.maxOpenedFiles = maxOpenedFiles
-	return opt
-}
-
-func (opt *Options) SetCompressionFormat(compressionFormat int) *Options {
-	opt.compressionFormat = compressionFormat
-	return opt
-}
-
-func (opt *Options) SetCompresionLevel(compressionLevel int) *Options {
-	opt.compressionLevel = compressionLevel
-	return opt
-}
-
 type MultiFileAppendable struct {
 	appendables *cache.LRUCache
 
@@ -126,7 +52,7 @@ type MultiFileAppendable struct {
 }
 
 func Open(path string, opts *Options) (*MultiFileAppendable, error) {
-	if opts == nil || opts.fileSize < 1 || opts.maxOpenedFiles < 1 || opts.fileExt == "" {
+	if !validOptions(opts) {
 		return nil, ErrIllegalArgument
 	}
 

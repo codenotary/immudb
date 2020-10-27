@@ -39,8 +39,6 @@ var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
 
-const DefaultFileMode = 0644
-
 const (
 	metaCompressionFormat = "COMPRESSION_FORMAT"
 	metaCompressionLevel  = "COMPRESSION_LEVEL"
@@ -66,65 +64,8 @@ type AppendableFile struct {
 	offset     int64
 }
 
-type Options struct {
-	readOnly bool
-	synced   bool
-	fileMode os.FileMode
-	filename string
-
-	compressionFormat int
-	compressionLevel  int
-
-	metadata []byte
-}
-
-func DefaultOptions() *Options {
-	return &Options{
-		readOnly:          false,
-		synced:            true,
-		fileMode:          DefaultFileMode,
-		compressionFormat: appendable.DefaultCompressionFormat,
-		compressionLevel:  appendable.DefaultCompressionLevel,
-	}
-}
-
-func (opt *Options) SetReadOnly(readOnly bool) *Options {
-	opt.readOnly = readOnly
-	return opt
-}
-
-func (opt *Options) SetSynced(synced bool) *Options {
-	opt.synced = synced
-	return opt
-}
-
-func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
-	opt.fileMode = fileMode
-	return opt
-}
-
-func (opt *Options) SetFilename(filename string) *Options {
-	opt.filename = filename
-	return opt
-}
-
-func (opt *Options) SetCompressionFormat(compressionFormat int) *Options {
-	opt.compressionFormat = compressionFormat
-	return opt
-}
-
-func (opt *Options) SetCompresionLevel(compressionLevel int) *Options {
-	opt.compressionLevel = compressionLevel
-	return opt
-}
-
-func (opt *Options) SetMetadata(metadata []byte) *Options {
-	opt.metadata = metadata
-	return opt
-}
-
 func Open(path string, opts *Options) (*AppendableFile, error) {
-	if opts == nil {
+	if !validOptions(opts) {
 		return nil, ErrIllegalArgument
 	}
 
