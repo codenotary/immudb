@@ -18,6 +18,7 @@ package ahtree
 
 import (
 	"crypto/sha256"
+	"os"
 	"testing"
 
 	"github.com/codenotary/merkletree"
@@ -25,7 +26,9 @@ import (
 )
 
 func TestAHtree(t *testing.T) {
-	tree := &AHtree{}
+	tree, err := Open("ahtree_test", DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("ahtree_test")
 
 	var nodesUptoTests = []struct {
 		n        uint64
@@ -62,7 +65,9 @@ func TestAHtree(t *testing.T) {
 		_, _, err := tree.Append([]byte{byte(i)})
 		require.NoError(t, err)
 
-		ri, _ := tree.RootAt(uint64(i))
+		ri, err := tree.RootAt(uint64(i))
+		require.NoError(t, err)
+
 		r, err := tree.Root()
 		require.NoError(t, err)
 		require.Equal(t, r, ri)
@@ -72,7 +77,7 @@ func TestAHtree(t *testing.T) {
 		require.Equal(t, uint64(i), sz)
 	}
 
-	_, err := tree.InclusionProof(2, 1)
+	_, err = tree.InclusionProof(2, 1)
 	require.Error(t, ErrIllegalArguments, err)
 
 	for i := 1; i <= N; i++ {
