@@ -17,6 +17,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"math"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -272,6 +273,9 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		if err != nil {
 			err = mapError(err)
 			return nil, err
+		}
+		if bytes.Compare(key, options.Zopts.Key) != 0 {
+			return nil, ErrIndexKeyMismatch
 		}
 		// here we append the index to the reference value
 		referenceValue = WrapZIndexReference(key, options.Zopts.Index)

@@ -794,6 +794,42 @@ func BenchmarkStoreSet(b *testing.B) {
 	b.StopTimer()
 }
 
+func TestStore_ZAddWrongKey(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`val1`), Value: []byte(`val2`)})
+
+	zaddOpts1 := schema.ZAddOptions{
+		Set:   []byte(`set`),
+		Score: float64(1),
+		Key:   []byte{tsPrefix},
+		Index: i1,
+	}
+	_, err := st.ZAdd(zaddOpts1)
+
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrInvalidKey)
+}
+
+func TestStore_ZAddWrongSet(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`val1`), Value: []byte(`val2`)})
+
+	zaddOpts1 := schema.ZAddOptions{
+		Set:   []byte{tsPrefix},
+		Score: float64(1),
+		Key:   []byte(`key`),
+		Index: i1,
+	}
+	_, err := st.ZAdd(zaddOpts1)
+
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrInvalidSet)
+}
+
 var largeItem = []byte(`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce non odio sed tellus rutrum suscipit. Aliquam nisl libero, porta in augue at, laoreet fringilla mi. Aliquam metus dolor, tincidunt eget nibh at, tempus malesuada odio. Suspendisse ex nisl, pretium ac lacinia et, efficitur sed ipsum. In porttitor cursus sem, ac aliquet ante tristique nec. Donec interdum nulla enim, ac maximus urna molestie ut. Ut ornare mi et dolor pretium semper. Donec facilisis vitae massa in faucibus. Suspendisse potenti.
 Etiam fringilla risus quam, vel ornare ligula vestibulum ac. In tristique ut diam ut dictum. Nulla vitae condimentum ante. Curabitur elementum lacus nibh. Donec vitae tortor porttitor, efficitur felis eu, facilisis libero. Nulla sit amet egestas neque. Nullam eleifend lobortis erat. Donec vehicula erat vitae mi rutrum, vel tempus sem volutpat. Aenean sem urna, dapibus sit amet justo vitae, consequat molestie enim. Maecenas venenatis, risus eget semper faucibus, erat risus feugiat nulla, id tincidunt risus tellus ut elit.
 Cras elementum ipsum ullamcorper, blandit magna sit amet, scelerisque lectus. Pellentesque ut egestas libero. Sed aliquet scelerisque tortor, ut consequat mi vehicula id. Aliquam gravida, quam eget pharetra commodo, elit nisi aliquam ante, non egestas ex lectus at lorem. Suspendisse semper, enim eget semper vehicula, sapien ipsum lacinia eros, eget ullamcorper elit nunc sed leo. Nam consequat ligula non mi iaculis, vitae dignissim augue posuere. Nunc varius risus non libero ultricies venenatis eu et ex. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi mattis tristique nunc, pharetra aliquet mauris eleifend vitae.

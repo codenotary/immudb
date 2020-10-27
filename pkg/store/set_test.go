@@ -131,7 +131,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	assert.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts3 := schema.ZAddOptions{
-		Key:   []byte(`hashA.SignerId2`),
+		Key:   []byte(`SignerId2`),
 		Set:   []byte(`hashA`),
 		Score: float64(3),
 		Index: i3,
@@ -156,6 +156,25 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	assert.Equal(t, []byte(`SignerId1`), itemList1.Items[1].Key)
 	assert.Equal(t, []byte(`SignerId2`), itemList1.Items[2].Key)
 
+}
+
+func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)})
+
+	zaddOpts1 := schema.ZAddOptions{
+		Set:   []byte(`hashA`),
+		Score: float64(1),
+		Key:   []byte(`WrongKey`),
+		Index: i1,
+	}
+
+	_, err := st.ZAdd(zaddOpts1)
+
+	assert.Error(t, err)
+	assert.Equal(t, err, ErrIndexKeyMismatch)
 }
 
 func TestFloat(t *testing.T) {
