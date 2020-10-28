@@ -48,7 +48,10 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().String("dir", os.TempDir(), "Main directory for audit process tool to initialize")
 	cmd.PersistentFlags().String("audit-username", "", "immudb username used to login during audit")
 	cmd.PersistentFlags().String("audit-password", "", "immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
-	cmd.PersistentFlags().String("audit-signature", "", "audit signature mode. ignore|validate. If 'ignore' is set auditor doesn't check for the root server signature. If 'validate' is set auditor verify that the root is signed properly by immudb server. Default value is 'ignore'")
+	cmd.PersistentFlags().String("audit-signature", "", "Audit signature mode. ignore|validate. If 'ignore' is set auditor doesn't check for the root server signature. If 'validate' is set auditor verify that the root is signed properly by immudb server. Default value is 'ignore'")
+	cmd.PersistentFlags().String("audit-alert-url", "", "If set and tampering has been detected, auditor will issue a POST request at this URL with tampering details.")
+	cmd.PersistentFlags().String("audit-alert-username", "", "Username used to authenticate when publishing tampering alert to 'audit-alert-url'.")
+	cmd.PersistentFlags().String("audit-alert-password", "", "Password used to authenticate when publishing tampering alert to 'audit-alert-url'.")
 
 	viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port"))
 	viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address"))
@@ -67,6 +70,9 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.BindPFlag("audit-username", cmd.PersistentFlags().Lookup("audit-username"))
 	viper.BindPFlag("audit-password", cmd.PersistentFlags().Lookup("audit-password"))
 	viper.BindPFlag("audit-signature", cmd.PersistentFlags().Lookup("audit-signature"))
+	viper.BindPFlag("audit-alert-url", cmd.PersistentFlags().Lookup("audit-alert-url"))
+	viper.BindPFlag("audit-alert-username", cmd.PersistentFlags().Lookup("audit-alert-username"))
+	viper.BindPFlag("audit-alert-password", cmd.PersistentFlags().Lookup("audit-alert-password"))
 
 	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
 	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
@@ -84,6 +90,9 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.SetDefault("audit-password", "")
 	viper.SetDefault("audit-username", "")
 	viper.SetDefault("audit-signature", "ignore")
+	viper.SetDefault("audit-alert-url", "")
+	viper.SetDefault("audit-alert-username", "")
+	viper.SetDefault("audit-alert-password", "")
 	viper.SetDefault("dir", os.TempDir())
 	return nil
 }

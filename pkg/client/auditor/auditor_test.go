@@ -19,11 +19,15 @@ package auditor
 import (
 	"context"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/rootservice"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -55,6 +59,7 @@ func TestDefaultAuditor(t *testing.T) {
 		"immudb",
 		"immudb",
 		"ignore",
+		TamperingAlertConfig{},
 		nil,
 		nil,
 		cache.NewHistoryFileCache(dirname),
@@ -85,6 +90,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		"immudb",
 		"immudb",
 		"ignore",
+		TamperingAlertConfig{},
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -141,6 +147,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		"immudb",
 		"immudb",
 		"ignore",
+		TamperingAlertConfig{},
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -206,6 +213,7 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 		"immudb",
 		"immudb",
 		"validate",
+		TamperingAlertConfig{},
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -233,7 +241,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 	}
 	serviceClient.DatabaseListF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
-			Databases: []*schema.Database{&schema.Database{Databasename: "sysdb"}},
+			Databases: []*schema.Database{{Databasename: "sysdb"}},
 		}, nil
 	}
 	serviceClient.UseDatabaseF = func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
@@ -254,6 +262,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		"immudb",
 		"immudb",
 		"validate",
+		TamperingAlertConfig{},
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -280,6 +289,7 @@ func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
 		"immudb",
 		"immudb",
 		"wrong",
+		TamperingAlertConfig{},
 		&serviceClient,
 		rootservice.NewImmudbUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -300,4 +310,83 @@ func (pr *PasswordReader) Read(msg string) ([]byte, error) {
 	pass := []byte(pr.Pass[pr.callNumber])
 	pr.callNumber++
 	return pass, nil
+}
+
+func TestPublishTamperingAlert(t *testing.T) {
+	a := &defaultAuditor{
+		alertConfig: TamperingAlertConfig{
+			URL:      "http://some-non-existent-url.com",
+			Username: "some-username",
+			Password: "some-password",
+			Client:   &http.Client{},
+			PublishFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					Status:     http.StatusText(http.StatusNoContent),
+					StatusCode: http.StatusNoContent,
+					Body:       ioutil.NopCloser(strings.NewReader("All good")),
+				}, nil
+			},
+		},
+	}
+	// test happy path
+	err := a.publishTamperingAlert(
+		"some-db",
+		Root{Index: 1, Hash: "root-hash-1"},
+		Root{Index: 2, Hash: "root-hash-2"},
+	)
+	require.NoError(t, err)
+
+	// test unexpected HTTP status code
+	a.alertConfig.PublishFunc = func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			Status:     http.StatusText(http.StatusInternalServerError),
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(strings.NewReader("Some error")),
+		}, nil
+	}
+	err = a.publishTamperingAlert(
+		"some-db2",
+		Root{
+			Index:     11,
+			Hash:      "root-hash-11",
+			Signature: Signature{Signature: "sig11", PublicKey: "pk11"}},
+		Root{
+			Index:     22,
+			Hash:      "root-hash-22",
+			Signature: Signature{Signature: "sig22", PublicKey: "pk22"}},
+	)
+	require.Error(t, err)
+	require.Equal(
+		t,
+		"POST http://some-non-existent-url.com request with body "+
+			`{"username":"some-username","password":"some-password",`+
+			`"db":"some-db2","previous_root":{"index":11,"hash":"root-hash-11",`+
+			`"signature":{"signature":"sig11","public_key":"pk11"}},`+
+			`"current_root":{"index":22,"hash":"root-hash-22",`+
+			`"signature":{"signature":"sig22","public_key":"pk22"}}}: got unexpected `+
+			"response status Internal Server Error with response body Some error",
+		err.Error())
+
+	// test error sending request (real HTTP request)
+	a.alertConfig.Client = nil
+	a.alertConfig.RequestTimeout = 1 * time.Second
+	err = a.publishTamperingAlert(
+		"some-db3",
+		Root{Index: 111, Hash: "root-hash-111"},
+		Root{Index: 222, Hash: "root-hash-222"},
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no such host")
+
+	// test error creating request
+	a.alertConfig.Client = nil
+	a.alertConfig.RequestTimeout = 1 * time.Second
+	a.alertConfig.URL = string([]byte{0})
+	err = a.publishTamperingAlert(
+		"some-db4",
+		Root{Index: 1111, Hash: "root-hash-1111"},
+		Root{Index: 2222, Hash: "root-hash-2222"},
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid control character in URL")
 }

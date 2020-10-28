@@ -17,13 +17,20 @@ limitations under the License.
 package auditor
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
-	"github.com/codenotary/immudb/pkg/client/rootservice"
-	"google.golang.org/grpc/metadata"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/rootservice"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -41,6 +48,18 @@ type Auditor interface {
 	Run(interval time.Duration, singleRun bool, stopc <-chan struct{}, donec chan<- struct{}) error
 }
 
+// TamperingAlertConfig holds the URL and credentials used to publish tampering
+// details if tampering is detected.
+type TamperingAlertConfig struct {
+	URL            string
+	Username       string
+	Password       string
+	RequestTimeout time.Duration
+
+	Client      *http.Client
+	PublishFunc func(*http.Request) (*http.Response, error)
+}
+
 type defaultAuditor struct {
 	index          uint64
 	databaseIndex  int
@@ -53,6 +72,7 @@ type defaultAuditor struct {
 	databases      []string
 	password       []byte
 	auditSignature string
+	alertConfig    TamperingAlertConfig
 	serviceClient  schema.ImmuServiceClient
 	uuidProvider   rootservice.UUIDProvider
 
@@ -68,6 +88,7 @@ func DefaultAuditor(
 	username string,
 	passwordBase64 string,
 	auditSignature string,
+	alertConfig TamperingAlertConfig,
 	serviceClient schema.ImmuServiceClient,
 	uuidProvider rootservice.UUIDProvider,
 	history cache.HistoryCache,
@@ -107,6 +128,7 @@ func DefaultAuditor(
 		nil,
 		[]byte(password),
 		auditSignature,
+		alertConfig,
 		serviceClient,
 		uuidProvider,
 		slugifyRegExp,
@@ -245,15 +267,53 @@ func (a *defaultAuditor) audit() error {
 		verified =
 			proof.Verify(schema.Root{Payload: &schema.RootIndex{Index: prevRoot.GetIndex(), Root: prevRoot.GetRoot()}})
 		firstRoot := proof.FirstRoot
-		// TODO OGG: clarify with team: why proof.FirstRoot is empty if check fails
+		// proof.FirstRoot is empty if check fails
 		if !verified && len(firstRoot) == 0 {
 			firstRoot = prevRoot.GetRoot()
 		}
-		a.logger.Infof("audit #%d result:\n  consistent:	%t\n"+
+		a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t\n"+
 			"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
-			a.index, verified, firstRoot, proof.First, proof.SecondRoot, proof.Second)
-		root = &schema.Root{Payload: &schema.RootIndex{Index: proof.Second, Root: proof.SecondRoot}}
+			a.index, dbName, verified,
+			firstRoot, proof.First, proof.SecondRoot, proof.Second)
+		root = &schema.Root{
+			Payload: &schema.RootIndex{Index: proof.Second, Root: proof.SecondRoot},
+			// TODO OGG: here the signature from proof should be set, but proof
+			// does not have roots Signatures yet.
+			// NOTE: the signature from the root obtained with CurrentRoot call above
+			// might belong to an older root if the server root changed between the
+			// CurrentRoot and Consistency calls above, that's why we don't set that.
+			Signature: nil,
+		}
 		checked = true
+		if !verified && len(a.alertConfig.URL) > 0 {
+			err := a.publishTamperingAlert(
+				dbName,
+				Root{
+					Index: proof.First,
+					Hash:  fmt.Sprintf("%x", firstRoot),
+					Signature: Signature{
+						Signature: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetSignature()),
+						PublicKey: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetPublicKey()),
+					},
+				},
+				Root{
+					Index: proof.Second,
+					Hash:  fmt.Sprintf("%x", proof.SecondRoot),
+					Signature: Signature{
+						Signature: base64.StdEncoding.EncodeToString(root.GetSignature().GetSignature()),
+						PublicKey: base64.StdEncoding.EncodeToString(root.GetSignature().GetPublicKey()),
+					},
+				},
+			)
+			if err != nil {
+				a.logger.Errorf(
+					"error publishing tammpering alert for db %s: %v", dbName, err)
+			} else {
+				a.logger.Infof(
+					"a tampering alert for db %s has been published at %s",
+					dbName, a.alertConfig.URL)
+			}
+		}
 	} else if isEmptyDB {
 		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",
 			a.index, serverID, a.serverAddress)
@@ -262,9 +322,9 @@ func (a *defaultAuditor) audit() error {
 
 	if !verified {
 		a.logger.Warningf(
-			"audit #%d detected possible tampering of remote root (at index %d) "+
+			"audit #%d detected possible tampering of db %s remote root (at index %d) "+
 				"so it will not overwrite the previous local root (at index %d)",
-			a.index, root.GetIndex(), prevRoot.GetIndex())
+			a.index, dbName, root.GetIndex(), prevRoot.GetIndex())
 	} else if prevRoot == nil || root.GetIndex() != prevRoot.GetIndex() {
 		if err := a.history.Set(root, serverID, dbName); err != nil {
 			a.logger.Errorf(err.Error())
@@ -275,6 +335,74 @@ func (a *defaultAuditor) audit() error {
 		a.index, time.Since(start), time.Now().Format(time.RFC3339Nano))
 
 	return noErr
+}
+
+// Signature ...
+type Signature struct {
+	Signature string `json:"signature"`
+	PublicKey string `json:"public_key"`
+}
+
+// Root ...
+type Root struct {
+	Index     uint64    `json:"index"`
+	Hash      string    `json:"hash" validate:"required"`
+	Signature Signature `json:"signature"`
+}
+
+// TamperingAlert ...
+type TamperingAlert struct {
+	Username     string `json:"username" validate:"required"`
+	Password     string `json:"password" validate:"required"`
+	DB           string `json:"db" validate:"required"`
+	PreviousRoot Root   `json:"previous_root" validate:"required"`
+	CurrentRoot  Root   `json:"current_root" validate:"required"`
+}
+
+func (a *defaultAuditor) publishTamperingAlert(
+	db string,
+	prevRoot Root,
+	currRoot Root) error {
+
+	payload := TamperingAlert{
+		Username:     a.alertConfig.Username,
+		Password:     a.alertConfig.Password,
+		DB:           db,
+		PreviousRoot: prevRoot,
+		CurrentRoot:  currRoot,
+	}
+	reqBody, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", a.alertConfig.URL, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if a.alertConfig.Client == nil {
+		a.alertConfig.Client = &http.Client{Timeout: 5 * time.Second}
+		if a.alertConfig.RequestTimeout > 0 {
+			a.alertConfig.Client.Timeout = a.alertConfig.RequestTimeout
+		}
+		a.alertConfig.PublishFunc = a.alertConfig.Client.Do
+	}
+	resp, err := a.alertConfig.PublishFunc(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated, http.StatusAccepted, http.StatusNoContent:
+	default:
+		respBody, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf(
+			"POST %s request with body %s: "+
+				"got unexpected response status %s with response body %s",
+			a.alertConfig.URL, reqBody,
+			resp.Status, respBody)
+	}
+	return nil
 }
 
 func (a *defaultAuditor) getServerID(

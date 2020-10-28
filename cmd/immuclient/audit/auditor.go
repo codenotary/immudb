@@ -20,11 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/client/rootservice"
 
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/immuos"
@@ -80,6 +81,9 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	auditUsername := viper.GetString("audit-username")
 	auditPassword, err := auth.DecodeBase64Password(viper.GetString("audit-password"))
 	auditSignature := viper.GetString("audit-signature")
+	auditAlertURL := viper.GetString("audit-alert-url")
+	auditAlertUsername := viper.GetString("audit-alert-username")
+	auditAlertPassword := viper.GetString("audit-alert-password")
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +98,11 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		auditUsername,
 		auditPassword,
 		auditSignature,
+		auditor.TamperingAlertConfig{
+			URL:      auditAlertURL,
+			Username: auditAlertUsername,
+			Password: auditAlertPassword,
+		},
 		*cAgent.immuc.GetServiceClient(),
 		cAgent.uuidProvider,
 		cache.NewHistoryFileCache(filepath.Join(os.TempDir(), "auditor")),
