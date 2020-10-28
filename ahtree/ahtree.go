@@ -259,7 +259,7 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		}
 
 		k = k &^ uint64(1<<l)
-		w = w >> 1
+		w >>= 1
 		l++
 	}
 
@@ -348,7 +348,7 @@ func levelsAt(n uint64) int {
 		if w%2 == 1 {
 			l++
 		}
-		w = w >> 1
+		w >>= 1
 	}
 	return l
 }
