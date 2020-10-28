@@ -28,6 +28,7 @@ import (
 	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/multiapp"
 	"codenotary.io/immudb-v2/cache"
+	"codenotary.io/immudb-v2/multierr"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -682,17 +683,23 @@ func (t *TBtree) Close() error {
 		return err
 	}
 
-	err = t.nLog.Close()
-	if err != nil {
-		return err
-	}
-
-	err = t.cLog.Close()
-	if err != nil {
-		return err
-	}
-
 	t.closed = true
+
+	errors := make([]error, 0)
+
+	nErr := t.nLog.Close()
+	if nErr != nil {
+		errors = append(errors, nErr)
+	}
+
+	cErr := t.cLog.Close()
+	if cErr != nil {
+		errors = append(errors, cErr)
+	}
+
+	if len(errors) > 0 {
+		return &multierr.MultiErr{Errors: errors}
+	}
 
 	return nil
 }
