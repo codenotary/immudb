@@ -36,6 +36,8 @@ var ErrorCorruptedData = errors.New("data log is corrupted")
 var ErrorCorruptedDigests = errors.New("hash log is corrupted")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrEmptyTree = errors.New("empty tree")
+var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
+var ErrUnexistentData = errors.New("attempt to read unexistent data")
 
 const NodePrefix = byte(1)
 
@@ -50,7 +52,7 @@ const cLogEntrySize = 12 // data offset and size
 
 //AHtree stands for Appendable Hash Tree
 type AHtree struct {
-	pLog appendable.Appendable // len + payload
+	pLog appendable.Appendable
 	dLog appendable.Appendable
 	cLog appendable.Appendable
 
@@ -60,8 +62,8 @@ type AHtree struct {
 
 	readOnly bool
 
-	closed  bool
-	rwMutex sync.RWMutex
+	closed bool
+	mutex  sync.Mutex
 
 	_digests [256 * sha256.Size]byte // pre-allocated array for writing digests
 }
@@ -172,16 +174,16 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 	}
 
 	if cLogSize > 0 {
-		b := make([]byte, cLogEntrySize)
-		_, err := cLog.ReadAt(b, cLogSize-cLogEntrySize)
+		var b [cLogEntrySize]byte
+		_, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
 		if err != nil {
 			return nil, err
 		}
 
-		payloadOff := int64(binary.BigEndian.Uint64(b))
-		payloadSize := int64(binary.BigEndian.Uint64(b[8:]))
+		pOff := binary.BigEndian.Uint64(b[:])
+		pSize := binary.BigEndian.Uint32(b[8:])
 
-		t.pLogSize = payloadOff + payloadSize
+		t.pLogSize = int64(pOff) + int64(pSize)
 	}
 
 	pLogFileSize, err := pLog.Size()
@@ -201,11 +203,16 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 }
 
 func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
-	t.rwMutex.Lock()
-	defer t.rwMutex.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	if t.closed {
 		err = ErrAlreadyClosed
+		return
+	}
+
+	if t.readOnly {
+		err = ErrReadOnly
 		return
 	}
 
@@ -297,6 +304,8 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 func (t *AHtree) node(n uint64, l int) [sha256.Size]byte {
 	hCount := nodesUntil(n) + uint64(l)
 
+	//TODO: cache
+
 	var h [sha256.Size]byte
 	t.dLog.ReadAt(h[:], int64(hCount*sha256.Size))
 
@@ -343,10 +352,23 @@ func levelsAt(n uint64) int {
 	return l
 }
 
-func (t *AHtree) InclusionProof(i, j uint64) ([][sha256.Size]byte, error) {
+func (t *AHtree) InclusionProof(i, j uint64) (p [][sha256.Size]byte, err error) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		err = ErrAlreadyClosed
+		return
+	}
+
 	if i > j {
 		return nil, ErrIllegalArguments
 	}
+
+	if j > uint64(t.cLogSize/cLogEntrySize) {
+		return nil, ErrUnexistentData
+	}
+
 	return t.inclusionProof(i, j, bits.Len64(j-1))
 }
 
@@ -391,36 +413,124 @@ func (t *AHtree) Size() (uint64, error) {
 }
 
 func (t *AHtree) DataAt(n uint64) ([]byte, error) {
-	// como las data pueden tener distintos len, tengo que usar el cLog como indice
-	// cLog tienen tamaño fijo, de ahi obtengo el offset, pero para leer el dato,
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
-	return nil, nil
+	if t.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	if n < 1 {
+		return nil, ErrIllegalArguments
+	}
+
+	if n > uint64(t.cLogSize/cLogEntrySize) {
+		return nil, ErrUnexistentData
+	}
+
+	// TODO: cache directly on dLog  n->value ?
+
+	var b [cLogEntrySize]byte
+	_, err := t.cLog.ReadAt(b[:], int64((n-1)*cLogEntrySize))
+	if err != nil {
+		return nil, err
+	}
+
+	pOff := binary.BigEndian.Uint64(b[:])
+	pSize := binary.BigEndian.Uint32(b[8:])
+
+	p := make([]byte, pSize)
+	_, err = t.pLog.ReadAt(p[:], int64(pOff+4))
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func (t *AHtree) Root() (r [sha256.Size]byte, err error) {
-	if t.cLogSize == 0 {
-		return r, ErrEmptyTree
-	}
-
 	return t.RootAt(uint64(t.cLogSize / cLogEntrySize))
 }
 
 func (t *AHtree) RootAt(n uint64) (r [sha256.Size]byte, err error) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		err = ErrAlreadyClosed
+		return
+	}
+
+	if t.cLogSize == 0 {
+		err = ErrEmptyTree
+		return
+	}
+
+	if n > uint64(t.cLogSize/cLogEntrySize) {
+		err = ErrUnexistentData
+		return
+	}
+
 	hCount := nodesUntil(n) + uint64(levelsAt(n))
 
+	// TODO: cache
 	_, err = t.dLog.ReadAt(r[:], int64(hCount*sha256.Size))
 
 	return
 }
 
-func (t *AHtree) Flush() error {
-	return nil
-}
-
 func (t *AHtree) Sync() error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		return ErrAlreadyClosed
+	}
+
+	if t.readOnly {
+		return ErrReadOnly
+	}
+
+	if t.cLogSize == 0 {
+		return nil
+	}
+
+	err := t.pLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = t.dLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = t.cLog.Sync()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (t *AHtree) Close() error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		return ErrAlreadyClosed
+	}
+
+	t.closed = true
+
+	/*
+		pErr := t.pLog.Close()
+		dErr := t.dLog.Close()
+		cErr := t.cLog.Close()
+
+		if pErr != nil {
+
+		}*/
+
 	return nil
 }

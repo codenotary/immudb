@@ -26,7 +26,7 @@ import (
 )
 
 func TestAHtree(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions())
+	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
@@ -62,7 +62,9 @@ func TestAHtree(t *testing.T) {
 	N := 1024
 
 	for i := 1; i <= N; i++ {
-		_, _, err := tree.Append([]byte{byte(i)})
+		p := []byte{byte(i)}
+
+		_, _, err := tree.Append(p)
 		require.NoError(t, err)
 
 		ri, err := tree.RootAt(uint64(i))
@@ -75,6 +77,10 @@ func TestAHtree(t *testing.T) {
 		sz, err := tree.Size()
 		require.NoError(t, err)
 		require.Equal(t, uint64(i), sz)
+
+		rp, err := tree.DataAt(uint64(i))
+		require.NoError(t, err)
+		require.Equal(t, p, rp)
 	}
 
 	_, err = tree.InclusionProof(2, 1)
@@ -91,6 +97,30 @@ func TestAHtree(t *testing.T) {
 
 			verifies := merkletree.Path(proof).VerifyInclusion(uint64(j)-1, uint64(i)-1, root, h)
 			require.True(t, verifies)
+		}
+	}
+
+	err = tree.Sync()
+	require.NoError(t, err)
+
+	err = tree.Close()
+	require.NoError(t, err)
+
+	err = tree.Sync()
+	require.Error(t, ErrAlreadyClosed, err)
+
+	err = tree.Close()
+	require.Error(t, ErrAlreadyClosed, err)
+}
+
+func BenchmarkAppend(b *testing.B) {
+	tree, _ := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	defer os.RemoveAll("ahtree_test")
+
+	for i := 0; i < b.N; i++ {
+		_, _, err := tree.Append([]byte{byte(i)})
+		if err != nil {
+			panic(err)
 		}
 	}
 }
