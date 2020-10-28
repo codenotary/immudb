@@ -21,15 +21,12 @@ import (
 	"os"
 	"testing"
 
+	"codenotary.io/immudb-v2/appendable"
 	"github.com/codenotary/merkletree"
 	"github.com/stretchr/testify/require"
 )
 
-func TestAHtree(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
-	require.NoError(t, err)
-	defer os.RemoveAll("ahtree_test")
-
+func TestNodeNumberCalculation(t *testing.T) {
 	var nodesUptoTests = []struct {
 		n        uint64
 		expected uint64
@@ -58,6 +55,65 @@ func TestAHtree(t *testing.T) {
 
 		require.Equal(t, tt.expected, nodesUntil(tt.n)+uint64(levelsAt(tt.n))+1)
 	}
+}
+
+func TestEdgeCases(t *testing.T) {
+	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("ahtree_test")
+
+	_, err = tree.Root()
+	require.Error(t, ErrEmptyTree, err)
+
+	_, err = tree.DataAt(0)
+	require.Error(t, ErrIllegalArguments, err)
+
+	err = tree.Sync()
+	require.NoError(t, err)
+
+	err = tree.Close()
+	require.NoError(t, err)
+
+	_, _, err = tree.Append(nil)
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, err = tree.Root()
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, err = tree.DataAt(1)
+	require.Error(t, ErrAlreadyClosed, err)
+
+	err = tree.Sync()
+	require.Error(t, ErrAlreadyClosed, err)
+
+	err = tree.Close()
+	require.Error(t, ErrAlreadyClosed, err)
+}
+
+func TestOptions(t *testing.T) {
+	opts := &Options{}
+
+	defaultOpts := DefaultOptions()
+
+	opts.SetSynced(!defaultOpts.synced)
+	opts.SetReadOnly(!defaultOpts.readOnly)
+	opts.SetFileSize(defaultOpts.fileSize * 10)
+	opts.SetFileMode(defaultOpts.fileMode & 0xFF)
+	opts.SetCompressionFormat(appendable.ZLibCompression)
+	opts.SetCompresionLevel(appendable.BestCompression)
+
+	require.Equal(t, defaultOpts.synced, !opts.synced)
+	require.Equal(t, defaultOpts.readOnly, !opts.readOnly)
+	require.Equal(t, defaultOpts.fileSize*10, opts.fileSize)
+	require.Equal(t, defaultOpts.fileMode&0xFF, opts.fileMode)
+	require.Equal(t, appendable.ZLibCompression, opts.compressionFormat)
+	require.Equal(t, appendable.BestCompression, opts.compressionLevel)
+}
+
+func TestAppend(t *testing.T) {
+	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("ahtree_test")
 
 	N := 1024
 
@@ -81,6 +137,31 @@ func TestAHtree(t *testing.T) {
 		rp, err := tree.DataAt(uint64(i))
 		require.NoError(t, err)
 		require.Equal(t, p, rp)
+
+		_, err = tree.RootAt(uint64(i) + 1)
+		require.Error(t, ErrUnexistentData, err)
+
+		_, err = tree.DataAt(uint64(i) + 1)
+		require.Error(t, ErrUnexistentData, err)
+	}
+
+	err = tree.Sync()
+	require.NoError(t, err)
+
+	err = tree.Close()
+	require.NoError(t, err)
+}
+
+func TestInclusionProof(t *testing.T) {
+	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("ahtree_test")
+
+	N := 1024
+
+	for i := 1; i <= N; i++ {
+		_, _, err := tree.Append([]byte{byte(i)})
+		require.NoError(t, err)
 	}
 
 	_, err = tree.InclusionProof(2, 1)
@@ -100,17 +181,51 @@ func TestAHtree(t *testing.T) {
 		}
 	}
 
-	err = tree.Sync()
+	err = tree.Close()
 	require.NoError(t, err)
+}
+
+func TestReOpenningImmudbStore(t *testing.T) {
+	defer os.RemoveAll("ahtree_test")
+
+	ItCount := 5
+	ACount := 100
+
+	for it := 0; it < ItCount; it++ {
+		tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+		require.NoError(t, err)
+
+		for i := 0; i < ACount; i++ {
+			p := []byte{byte(i)}
+
+			_, _, err := tree.Append(p)
+			require.NoError(t, err)
+		}
+
+		err = tree.Close()
+		require.NoError(t, err)
+	}
+
+	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	require.NoError(t, err)
+
+	for i := 1; i <= ItCount*ACount; i++ {
+		for j := i; j <= ItCount*ACount; j++ {
+			proof, err := tree.InclusionProof(uint64(i), uint64(j))
+			require.NoError(t, err)
+
+			root, _ := tree.RootAt(uint64(j))
+
+			h := sha256.Sum256([]byte{byte((i - 1) % ACount)})
+
+			verifies := merkletree.Path(proof).VerifyInclusion(uint64(j)-1, uint64(i)-1, root, h)
+
+			require.True(t, verifies)
+		}
+	}
 
 	err = tree.Close()
 	require.NoError(t, err)
-
-	err = tree.Sync()
-	require.Error(t, ErrAlreadyClosed, err)
-
-	err = tree.Close()
-	require.Error(t, ErrAlreadyClosed, err)
 }
 
 func BenchmarkAppend(b *testing.B) {
