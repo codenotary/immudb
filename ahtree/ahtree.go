@@ -27,6 +27,7 @@ import (
 
 	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/multiapp"
+	"codenotary.io/immudb-v2/multierr"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -523,14 +524,26 @@ func (t *AHtree) Close() error {
 
 	t.closed = true
 
-	/*
-		pErr := t.pLog.Close()
-		dErr := t.dLog.Close()
-		cErr := t.cLog.Close()
+	errors := make([]error, 0)
 
-		if pErr != nil {
+	pErr := t.pLog.Close()
+	if pErr != nil {
+		errors = append(errors, pErr)
+	}
 
-		}*/
+	dErr := t.dLog.Close()
+	if dErr != nil {
+		errors = append(errors, dErr)
+	}
+
+	cErr := t.cLog.Close()
+	if cErr != nil {
+		errors = append(errors, cErr)
+	}
+
+	if len(errors) > 0 {
+		return &multierr.MultiErr{Errors: errors}
+	}
 
 	return nil
 }
