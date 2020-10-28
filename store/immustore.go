@@ -31,6 +31,7 @@ import (
 
 	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/multiapp"
+	"codenotary.io/immudb-v2/multierr"
 	"codenotary.io/immudb-v2/tbtree"
 )
 
@@ -1003,22 +1004,29 @@ func (s *ImmuStore) Close() error {
 	}
 	s.vLogsCond.Broadcast()
 
-	err := s.txLog.Close()
-	if err != nil {
-		return err
-	}
-
-	err = s.cLog.Close()
-	if err != nil {
-		return err
-	}
-
-	err = s.index.Close()
-	if err != nil {
-		return err
-	}
-
 	s.closed = true
+
+	errors := make([]error, 0)
+
+	txErr := s.txLog.Close()
+	if txErr != nil {
+		errors = append(errors, txErr)
+	}
+
+	cErr := s.cLog.Close()
+	if cErr != nil {
+		errors = append(errors, cErr)
+	}
+
+	iErr := s.index.Close()
+	if iErr != nil {
+		errors = append(errors, iErr)
+	}
+
+	if len(errors) > 0 {
+		return &multierr.MultiErr{Errors: errors}
+	}
+
 	return nil
 }
 
