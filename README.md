@@ -22,7 +22,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 ---
 
-immudb is a **lightweight, high-speed immutable database** for systems and applications. Written in Go.
+immudb is not a blockchain, immudb is the **lightweight, high-speed immutable database** with built-in cryptographic proof and verification.
 With immudb you can track changes in sensitive data in your transactional databases and then record those changes permanently in a
 tamperproof immudb database. This allows you to keep an indelible history of sensitive data, for example debit/credit card transactions.
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
