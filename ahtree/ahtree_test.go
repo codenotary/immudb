@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package ahtree
 
 import (
@@ -22,7 +21,6 @@ import (
 	"testing"
 
 	"codenotary.io/immudb-v2/appendable"
-	"github.com/codenotary/merkletree"
 	"github.com/stretchr/testify/require"
 )
 
@@ -152,7 +150,7 @@ func TestAppend(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestInclusionProof(t *testing.T) {
+func TestInclusionAndConsistencyProofs(t *testing.T) {
 	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
@@ -167,16 +165,28 @@ func TestInclusionProof(t *testing.T) {
 	_, err = tree.InclusionProof(2, 1)
 	require.Error(t, ErrIllegalArguments, err)
 
+	_, err = tree.ConsistencyProof(2, 1)
+	require.Error(t, ErrIllegalArguments, err)
+
 	for i := 1; i <= N; i++ {
 		for j := i; j <= N; j++ {
-			proof, err := tree.InclusionProof(uint64(i), uint64(j))
+			iproof, err := tree.InclusionProof(uint64(i), uint64(j))
 			require.NoError(t, err)
 
-			root, _ := tree.RootAt(uint64(j))
+			jroot, _ := tree.RootAt(uint64(j))
 
 			h := sha256.Sum256([]byte{byte(i)})
 
-			verifies := merkletree.Path(proof).VerifyInclusion(uint64(j)-1, uint64(i)-1, root, h)
+			verifies := VerifyInclusion(iproof, uint64(i), uint64(j), h, jroot)
+			require.True(t, verifies)
+
+			cproof, err := tree.ConsistencyProof(uint64(i), uint64(j))
+			require.NoError(t, err)
+
+			iroot, _ := tree.RootAt(uint64(i))
+
+			verifies = VerifyConsistency(cproof, uint64(i), uint64(j), iroot, jroot)
+
 			require.True(t, verifies)
 		}
 	}
@@ -218,8 +228,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 
 			h := sha256.Sum256([]byte{byte((i - 1) % ACount)})
 
-			verifies := merkletree.Path(proof).VerifyInclusion(uint64(j)-1, uint64(i)-1, root, h)
-
+			verifies := VerifyInclusion(proof, uint64(i), uint64(j), h, root)
 			require.True(t, verifies)
 		}
 	}

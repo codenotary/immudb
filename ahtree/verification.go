@@ -1,0 +1,96 @@
+/*
+Copyright 2019-2020 vChain, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package ahtree
+
+import "crypto/sha256"
+
+func VerifyInclusion(iproof [][sha256.Size]byte, i, j uint64, iLeaf, jRoot [sha256.Size]byte) bool {
+	if i > j || i == 0 {
+		return false
+	}
+
+	i1 := i - 1
+	j1 := j - 1
+
+	ciRoot := iLeaf
+
+	b := [1 + sha256.Size*2]byte{NodePrefix}
+
+	for _, h := range iproof {
+
+		if i1%2 == 0 && i1 != j1 {
+			copy(b[1:], ciRoot[:])
+			copy(b[sha256.Size+1:], h[:])
+		} else {
+			copy(b[1:], h[:])
+			copy(b[sha256.Size+1:], ciRoot[:])
+		}
+
+		ciRoot = sha256.Sum256(b[:])
+
+		i1 >>= 1
+		j1 >>= 1
+	}
+
+	return jRoot == ciRoot
+}
+
+func VerifyConsistency(cproof [][sha256.Size]byte, i, j uint64, iRoot, jRoot [sha256.Size]byte) bool {
+	if i > j || i == 0 {
+		return false
+	}
+
+	if i == j && len(cproof) == 0 {
+		return iRoot == jRoot
+	}
+
+	fn := i - 1
+	sn := j - 1
+
+	for fn%2 == 1 {
+		fn >>= 1
+		sn >>= 1
+	}
+
+	ciRoot, cjRoot := cproof[0], cproof[0]
+
+	b := [1 + sha256.Size*2]byte{NodePrefix}
+
+	for _, h := range cproof[1:] {
+		if fn%2 == 1 || fn == sn {
+			copy(b[1:], h[:])
+
+			copy(b[1+sha256.Size:], ciRoot[:])
+			ciRoot = sha256.Sum256(b[:])
+
+			copy(b[1+sha256.Size:], cjRoot[:])
+			cjRoot = sha256.Sum256(b[:])
+
+			for fn%2 == 0 && fn != 0 {
+				fn >>= 1
+				sn >>= 1
+			}
+		} else {
+			copy(b[1:], cjRoot[:])
+			copy(b[1+sha256.Size:], h[:])
+			cjRoot = sha256.Sum256(b[:])
+		}
+		fn >>= 1
+		sn >>= 1
+	}
+
+	return iRoot == ciRoot && jRoot == cjRoot
+}

@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package ahtree
 
 import (
@@ -446,6 +445,11 @@ func (t *AHtree) consistencyProof(i, j uint64, height int) ([][sha256.Size]byte,
 			}
 
 			proof = append([][sha256.Size]byte{t.node(k, h)}, proof...)
+
+			if i == j {
+				proof = append([][sha256.Size]byte{t.highestNode(i, h)}, proof...)
+				return proof, nil
+			}
 		}
 	}
 
