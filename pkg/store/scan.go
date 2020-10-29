@@ -158,14 +158,14 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 			refKey, flag, refIndex := UnwrapZIndexReference(refKey)
 			// here check for index reference, if present we resolve reference with itemAt
 			if flag == byte(1) {
-				idx, key, val, err := t.itemAt(refIndex + 1)
+				idx, key, val, err := t.itemAt(refIndex + 1) // itemAt returns index
 				if err != nil {
 					return nil, err
 				}
 				item = &schema.Item{
 					Key:   key,
 					Value: val,
-					Index: idx - 1,
+					Index: idx,
 				}
 			} else {
 				if ref, err := txn.Get(refKey); err == nil {
