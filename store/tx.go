@@ -106,10 +106,10 @@ func (tx *Tx) Entries() []*Txe {
 }
 
 func (tx *Tx) Alh() [sha256.Size]byte {
-	bs := make([]byte, 2*sha256.Size)
-	copy(bs, tx.PrevAlh[:])
+	var bs [2 * sha256.Size]byte
+	copy(bs[:], tx.PrevAlh[:])
 	copy(bs[sha256.Size:], tx.Txh[:])
-	return sha256.Sum256(bs)
+	return sha256.Sum256(bs[:])
 }
 
 func (tx *Tx) Proof(kindex int) merkletree.Path {
@@ -158,16 +158,16 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		}
 		tx.entries[i].ValueLen = int(vlen)
 
-		_, err = r.Read(tx.entries[i].HValue[:])
-		if err != nil {
-			return err
-		}
-
 		voff, err := r.ReadUint64()
 		if err != nil {
 			return err
 		}
 		tx.entries[i].VOff = int64(voff)
+
+		_, err = r.Read(tx.entries[i].HValue[:])
+		if err != nil {
+			return err
+		}
 
 		tx.htree[0][i] = tx.entries[i].digest()
 	}
@@ -176,11 +176,12 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 
 	tx.buildHashTree()
 
-	var b [52]byte
+	var b [txIDSize + tsSize + sha256.Size + szSize + sha256.Size]byte
 	binary.BigEndian.PutUint64(b[:], tx.ID)
-	binary.BigEndian.PutUint64(b[8:], uint64(tx.Ts))
-	binary.BigEndian.PutUint32(b[16:], uint32(len(tx.entries)))
-	copy(b[20:], tx.Eh[:])
+	binary.BigEndian.PutUint64(b[txIDSize:], uint64(tx.Ts))
+	copy(b[txIDSize+tsSize:], tx.PrevAlh[:])
+	binary.BigEndian.PutUint32(b[txIDSize+tsSize+sha256.Size:], uint32(len(tx.entries)))
+	copy(b[txIDSize+tsSize+sha256.Size+szSize:], tx.Eh[:])
 
 	if tx.Txh != sha256.Sum256(b[:]) {
 		return ErrorCorruptedTxData

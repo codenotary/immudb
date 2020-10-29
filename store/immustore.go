@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"codenotary.io/immudb-v2/ahtree"
 	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/multiapp"
 	"codenotary.io/immudb-v2/multierr"
@@ -48,7 +49,7 @@ var ErrorCorruptedTxData = errors.New("tx data is corrupted")
 var ErrCorruptedData = errors.New("data is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
-
+var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = errors.New("key not found")
 
 var ErrTrustedTxNotOlderThanTargetTx = errors.New("trusted tx is not older than target tx")
@@ -68,6 +69,12 @@ const MaxParallelIO = 127
 
 const cLogEntrySize = 12 // tx offset & size
 
+const txIDSize = 8
+const tsSize = 8
+const szSize = 4
+const offsetSize = 8
+
+const linkedLeafSize = txIDSize + tsSize + txIDSize + 3*sha256.Size
 const verifyOnIndexing = false
 
 const Version = 1
@@ -89,7 +96,7 @@ type ImmuStore struct {
 	cLog  appendable.Appendable
 
 	committedTxID      uint64
-	committedAlh       [32]byte
+	committedAlh       [sha256.Size]byte
 	committedTxLogSize int64
 
 	readOnly          bool
@@ -110,7 +117,13 @@ type ImmuStore struct {
 
 	_kvs []*tbtree.KV //pre-allocated for indexing
 
-	index        *tbtree.TBtree
+	index *tbtree.TBtree
+
+	aht     *ahtree.AHtree
+	blmutex sync.Mutex
+	blTxID  uint64
+	blRoot  [sha256.Size]byte
+
 	indexerErr   error
 	indexerMutex sync.Mutex
 
@@ -265,7 +278,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 			return nil, err
 		}
 		committedTxOffset = int64(binary.BigEndian.Uint64(b))
-		committedTxSize = int(binary.BigEndian.Uint32(b[8:]))
+		committedTxSize = int(binary.BigEndian.Uint32(b[txIDSize:]))
 		committedTxLogSize = committedTxOffset + int64(committedTxSize)
 		committedTxID = uint64(cLogSize) / cLogEntrySize
 	}
@@ -335,9 +348,22 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		return nil, err
 	}
 
+	ahtPath := filepath.Join("data", "aht")
+
+	ahtOpts := ahtree.DefaultOptions().
+		SetReadOnly(opts.readOnly).
+		SetFileMode(opts.fileMode).
+		SetFileSize(fileSize).
+		SetSynced(false) // index is built from derived data
+
+	aht, err := ahtree.Open(ahtPath, ahtOpts)
+	if err != nil {
+		return nil, err
+	}
+
 	kvs := make([]*tbtree.KV, maxTxEntries)
 	for i := range kvs {
-		kvs[i] = &tbtree.KV{K: make([]byte, maxKeyLen), V: make([]byte, sha256.Size+4+8)}
+		kvs[i] = &tbtree.KV{K: make([]byte, maxKeyLen), V: make([]byte, sha256.Size+szSize+offsetSize)}
 	}
 
 	store := &ImmuStore{
@@ -357,6 +383,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		maxLinearProofLen:  opts.maxLinearProofLen,
 		maxTxSize:          maxTxSize,
 		index:              index,
+		aht:                aht,
 		_kvs:               kvs,
 		_txs:               txs,
 		_txbs:              txbs,
@@ -433,14 +460,30 @@ func (s *ImmuStore) doIndexing() error {
 				}
 			}
 
-			var b [4 + 8 + sha256.Size]byte
+			var b [szSize + offsetSize + sha256.Size]byte
 			binary.BigEndian.PutUint32(b[:], uint32(e.ValueLen))
-			binary.BigEndian.PutUint64(b[4:], uint64(e.VOff))
-			copy(b[4+8:], e.HValue[:])
+			binary.BigEndian.PutUint64(b[szSize:], uint64(e.VOff))
+			copy(b[szSize+offsetSize:], e.HValue[:])
 
 			s._kvs[i].K = e.Key()
 			s._kvs[i].V = b[:]
 		}
+
+		var linkedLeaf [linkedLeafSize]byte
+		// TODO: built linkedLeaf from tx
+
+		n, h, err := s.aht.Append(linkedLeaf[:])
+		if err != nil {
+			return err
+		}
+		if tx.ID != n {
+			return ErrCorruptedAHtree
+		}
+
+		s.blmutex.Lock()
+		s.blTxID = n
+		s.blRoot = h
+		s.blmutex.Unlock()
 
 		err = s.index.BulkInsert(s._kvs[:len(txEntries)])
 		if err != nil {
@@ -451,8 +494,15 @@ func (s *ImmuStore) doIndexing() error {
 	return err
 }
 
+func (s *ImmuStore) blInfo() (uint64, [sha256.Size]byte) {
+	s.blmutex.Lock()
+	defer s.blmutex.Unlock()
+
+	return s.blTxID, s.blRoot
+}
+
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
-	return 2*8 + 2*sha256.Size + 4 + maxTxEntries*(4+maxKeyLen+4+sha256.Size) + 4
+	return txIDSize + tsSize + sha256.Size + szSize + maxTxEntries*(szSize+maxKeyLen+szSize+offsetSize+sha256.Size) + sha256.Size
 }
 
 func (s *ImmuStore) MaxValueLen() int {
@@ -669,13 +719,13 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 
 	// tx serialization into pre-allocated buffer
 	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.ID))
-	txSize += 8
+	txSize += txIDSize
 	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.Ts))
-	txSize += 8
+	txSize += tsSize
 	copy(s._txbs[txSize:], tx.PrevAlh[:])
 	txSize += sha256.Size
 	binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(tx.nentries))
-	txSize += 4
+	txSize += szSize
 
 	for i := 0; i < tx.nentries; i++ {
 		e := tx.entries[i]
@@ -685,22 +735,23 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 
 		// tx serialization using pre-allocated buffer
 		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.keyLen))
-		txSize += 4
+		txSize += szSize
 		copy(s._txbs[txSize:], e.key[:e.keyLen])
 		txSize += e.keyLen
 		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.ValueLen))
-		txSize += 4
+		txSize += szSize
+		binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(txe.VOff))
+		txSize += offsetSize
 		copy(s._txbs[txSize:], txe.HValue[:])
 		txSize += sha256.Size
-		binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(txe.VOff))
-		txSize += 8
 	}
 
-	var b [52]byte
+	var b [txIDSize + tsSize + sha256.Size + szSize + sha256.Size]byte
 	binary.BigEndian.PutUint64(b[:], tx.ID)
-	binary.BigEndian.PutUint64(b[8:], uint64(tx.Ts))
-	binary.BigEndian.PutUint32(b[16:], uint32(len(tx.entries)))
-	copy(b[20:], tx.Eh[:])
+	binary.BigEndian.PutUint64(b[txIDSize:], uint64(tx.Ts))
+	copy(b[txIDSize+tsSize:], tx.PrevAlh[:])
+	binary.BigEndian.PutUint32(b[txIDSize+tsSize+sha256.Size:], uint32(len(tx.entries)))
+	copy(b[txIDSize+tsSize+sha256.Size+szSize:], tx.Eh[:])
 	tx.Txh = sha256.Sum256(b[:])
 
 	// tx serialization using pre-allocated buffer
@@ -719,7 +770,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(txOff))
-	binary.BigEndian.PutUint32(cb[8:], uint32(txSize))
+	binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
 	_, _, err = s.cLog.Append(cb[:])
 	if err != nil {
 		return err
@@ -785,7 +836,7 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	}
 
 	txOffset := int64(binary.BigEndian.Uint64(cb[:]))
-	txSize := int(binary.BigEndian.Uint32(cb[8:]))
+	txSize := int(binary.BigEndian.Uint32(cb[offsetSize:]))
 
 	if txOffset > s.committedTxLogSize {
 		return 0, 0, ErrorCorruptedTxData

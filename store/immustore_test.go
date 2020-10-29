@@ -123,7 +123,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	require.NotNil(t, immuStore)
 
 	txCount := 1000
-	eCount := 1000
+	eCount := 100
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
@@ -158,6 +158,11 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	for f := 0; f < 1; f++ {
 		go func() {
 			for {
+				_, err := immuStore.IndexInfo()
+				if err != nil {
+					panic(err)
+				}
+
 				snap, err := immuStore.Snapshot()
 				if err != nil {
 					panic(err)
