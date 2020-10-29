@@ -227,9 +227,11 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		return
 	}
 
-	_, _, err = t.pLog.Append(d)
-	if err != nil {
-		return
+	if len(d) > 0 {
+		_, _, err = t.pLog.Append(d)
+		if err != nil {
+			return
+		}
 	}
 
 	n = uint64(t.cLogSize/cLogEntrySize) + 1
