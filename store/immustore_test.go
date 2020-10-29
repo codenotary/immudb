@@ -443,29 +443,14 @@ func TestImmudbStore(t *testing.T) {
 			p, err := immuStore.LinearProof(trustedTxID, targetTxID)
 			require.NoError(t, err)
 
-			calculatedAlh := evalLinearProof(p)
+			verifies := VerifyLinearProof(p, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.PrevAlh)
 
-			require.Equal(t, trustedTx.Alh(), p[0])
-			require.Equal(t, targetTx.PrevAlh, calculatedAlh)
+			require.True(t, verifies)
 		}
 	}
 
 	err = immuStore.Close()
 	require.NoError(t, err)
-}
-
-func evalLinearProof(proof [][sha256.Size]byte) (r [sha256.Size]byte) {
-	bs := make([]byte, 2*sha256.Size)
-
-	r = proof[0]
-
-	for i := 1; i < len(proof); i += 2 {
-		copy(bs, proof[i][:])
-		copy(bs[sha256.Size:], proof[i+1][:])
-		r = sha256.Sum256(bs)
-	}
-
-	return
 }
 
 func TestReOpenningImmudbStore(t *testing.T) {
