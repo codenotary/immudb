@@ -399,6 +399,59 @@ func (t *AHtree) inclusionProof(i, j uint64, height int) ([][sha256.Size]byte, e
 	return proof, nil
 }
 
+func (t *AHtree) ConsistencyProof(i, j uint64) (p [][sha256.Size]byte, err error) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		err = ErrAlreadyClosed
+		return
+	}
+
+	if i > j {
+		return nil, ErrIllegalArguments
+	}
+
+	if j > uint64(t.cLogSize/cLogEntrySize) {
+		return nil, ErrUnexistentData
+	}
+
+	return t.consistencyProof(i, j, bits.Len64(j-1))
+}
+
+func (t *AHtree) consistencyProof(i, j uint64, height int) ([][sha256.Size]byte, error) {
+	var proof [][sha256.Size]byte
+
+	for h := height - 1; h >= 0; h-- {
+		if (j-1)&(1<<h) > 0 {
+			k := (j - 1) >> h << h
+
+			if i <= k {
+				proof = append([][sha256.Size]byte{t.highestNode(j, h)}, proof...)
+
+				if i < k {
+					p, err := t.consistencyProof(i, k, h)
+					if err != nil {
+						return nil, err
+					}
+
+					proof = append(p, proof...)
+				}
+
+				if i == k {
+					proof = append([][sha256.Size]byte{t.highestNode(i, h)}, proof...)
+				}
+
+				return proof, nil
+			}
+
+			proof = append([][sha256.Size]byte{t.node(k, h)}, proof...)
+		}
+	}
+
+	return proof, nil
+}
+
 func (t *AHtree) highestNode(i uint64, d int) [sha256.Size]byte {
 	l := 0
 	for r := d - 1; r >= 0; r-- {
