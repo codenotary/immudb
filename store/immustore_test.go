@@ -123,7 +123,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	require.NotNil(t, immuStore)
 
 	txCount := 1000
-	eCount := 100
+	eCount := 1000
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)

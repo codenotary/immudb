@@ -75,7 +75,6 @@ const szSize = 4
 const offsetSize = 8
 
 const linkedLeafSize = txIDSize + tsSize + txIDSize + 3*sha256.Size
-const verifyOnIndexing = false
 
 const Version = 1
 
@@ -445,20 +444,6 @@ func (s *ImmuStore) doIndexing() error {
 		txEntries := tx.Entries()
 
 		for i, e := range txEntries {
-			if verifyOnIndexing {
-				path := tx.Proof(i)
-				be := make([]byte, s.maxValueLen)
-				_, err = s.ReadValueAt(be[:txEntries[i].ValueLen], txEntries[i].VOff, txEntries[i].HValue)
-				if err != nil {
-					return err
-				}
-				kv := &KV{Key: txEntries[i].Key(), Value: be[:txEntries[i].ValueLen]}
-				verifies := path.VerifyInclusion(uint64(len(txEntries)-1), uint64(i), tx.Eh, kv.Digest())
-				if !verifies {
-					return ErrorCorruptedTxData
-				}
-			}
-
 			var b [szSize + offsetSize + sha256.Size]byte
 			binary.BigEndian.PutUint32(b[:], uint32(e.ValueLen))
 			binary.BigEndian.PutUint64(b[szSize:], uint64(e.VOff))
