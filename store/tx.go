@@ -27,6 +27,8 @@ import (
 type Tx struct {
 	ID       uint64
 	Ts       int64
+	BlTxID   uint64
+	BlRoot   [sha256.Size]byte
 	PrevAlh  [sha256.Size]byte
 	nentries int
 	entries  []*Txe
@@ -106,13 +108,28 @@ func (tx *Tx) Entries() []*Txe {
 }
 
 func (tx *Tx) Alh() [sha256.Size]byte {
-	var bs [txIDSize + 2*sha256.Size]byte
+	var bi [txIDSize + 2*sha256.Size]byte
+	i := 0
 
-	binary.BigEndian.PutUint64(bs[:], tx.ID)
-	copy(bs[txIDSize:], tx.PrevAlh[:])
-	copy(bs[txIDSize+sha256.Size:], tx.Txh[:])
+	binary.BigEndian.PutUint64(bi[:], tx.ID)
+	i += txIDSize
+	copy(bi[i:], tx.PrevAlh[:])
+	i += sha256.Size
 
-	return sha256.Sum256(bs[:])
+	var bj [txIDSize + 2*sha256.Size]byte
+	j := 0
+
+	binary.BigEndian.PutUint64(bj[j:], tx.BlTxID)
+	j += txIDSize
+	copy(bj[j:], tx.BlRoot[:])
+	j += sha256.Size
+	copy(bj[j:], tx.Txh[:])
+
+	bhash := sha256.Sum256(bj[:])
+
+	copy(bi[i:], bhash[:])
+
+	return sha256.Sum256(bi[:])
 }
 
 func (tx *Tx) Proof(kindex int) merkletree.Path {
@@ -131,6 +148,17 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		return err
 	}
 	tx.Ts = int64(ts)
+
+	blTxID, err := r.ReadUint64()
+	if err != nil {
+		return err
+	}
+	tx.BlTxID = blTxID
+
+	_, err = r.Read(tx.BlRoot[:])
+	if err != nil {
+		return err
+	}
 
 	_, err = r.Read(tx.PrevAlh[:])
 	if err != nil {
@@ -179,13 +207,22 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 
 	tx.buildHashTree()
 
-	var b [txIDSize + tsSize + sha256.Size + szSize + sha256.Size]byte
+	var b [txIDSize + tsSize + txIDSize + 2*sha256.Size + szSize + sha256.Size]byte
+	bi := 0
 
 	binary.BigEndian.PutUint64(b[:], tx.ID)
-	binary.BigEndian.PutUint64(b[txIDSize:], uint64(tx.Ts))
-	copy(b[txIDSize+tsSize:], tx.PrevAlh[:])
-	binary.BigEndian.PutUint32(b[txIDSize+tsSize+sha256.Size:], uint32(len(tx.entries)))
-	copy(b[txIDSize+tsSize+sha256.Size+szSize:], tx.Eh[:])
+	bi += txIDSize
+	binary.BigEndian.PutUint64(b[bi:], uint64(tx.Ts))
+	bi += tsSize
+	binary.BigEndian.PutUint64(b[bi:], tx.BlTxID)
+	bi += txIDSize
+	copy(b[bi:], tx.BlRoot[:])
+	bi += sha256.Size
+	copy(b[bi:], tx.PrevAlh[:])
+	bi += sha256.Size
+	binary.BigEndian.PutUint32(b[bi:], uint32(len(tx.entries)))
+	bi += szSize
+	copy(b[bi:], tx.Eh[:])
 
 	if tx.Txh != sha256.Sum256(b[:]) {
 		return ErrorCorruptedTxData

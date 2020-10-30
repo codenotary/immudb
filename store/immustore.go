@@ -487,6 +487,8 @@ func (s *ImmuStore) blInfo() (uint64, [sha256.Size]byte) {
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
 	return txIDSize /*txID*/ +
 		tsSize /*ts*/ +
+		txIDSize /*blTxID*/ +
+		sha256.Size /*blRoot*/ +
 		sha256.Size /*prevAlh*/ +
 		szSize /*|entries|*/ +
 		maxTxEntries*(szSize /*kLen*/ +maxKeyLen /*key*/ +szSize /*vLen*/ +offsetSize /*vOff*/ +sha256.Size /*hValue*/) +
@@ -702,6 +704,12 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 
 	tx.ID = s.committedTxID + 1
 	tx.Ts = time.Now().Unix()
+
+	blTxID, blRoot := s.blInfo()
+
+	tx.BlTxID = blTxID
+	tx.BlRoot = blRoot
+
 	tx.PrevAlh = s.committedAlh
 
 	txSize := 0
@@ -711,6 +719,10 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	txSize += txIDSize
 	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.Ts))
 	txSize += tsSize
+	binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(tx.BlTxID))
+	txSize += txIDSize
+	copy(s._txbs[txSize:], tx.BlRoot[:])
+	txSize += sha256.Size
 	copy(s._txbs[txSize:], tx.PrevAlh[:])
 	txSize += sha256.Size
 	binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(tx.nentries))
@@ -735,12 +747,23 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		txSize += sha256.Size
 	}
 
-	var b [txIDSize + tsSize + sha256.Size + szSize + sha256.Size]byte
+	var b [txIDSize + tsSize + txIDSize + 2*sha256.Size + szSize + sha256.Size]byte
+	bi := 0
+
 	binary.BigEndian.PutUint64(b[:], tx.ID)
-	binary.BigEndian.PutUint64(b[txIDSize:], uint64(tx.Ts))
-	copy(b[txIDSize+tsSize:], tx.PrevAlh[:])
-	binary.BigEndian.PutUint32(b[txIDSize+tsSize+sha256.Size:], uint32(len(tx.entries)))
-	copy(b[txIDSize+tsSize+sha256.Size+szSize:], tx.Eh[:])
+	bi += txIDSize
+	binary.BigEndian.PutUint64(b[bi:], uint64(tx.Ts))
+	bi += tsSize
+	binary.BigEndian.PutUint64(b[bi:], tx.BlTxID)
+	bi += txIDSize
+	copy(b[bi:], tx.BlRoot[:])
+	bi += sha256.Size
+	copy(b[bi:], tx.PrevAlh[:])
+	bi += sha256.Size
+	binary.BigEndian.PutUint32(b[bi:], uint32(len(tx.entries)))
+	bi += szSize
+	copy(b[bi:], tx.Eh[:])
+
 	tx.Txh = sha256.Sum256(b[:])
 
 	// tx serialization using pre-allocated buffer
@@ -796,13 +819,19 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (proof [][sha256
 	proof = make([][sha256.Size]byte, targetTxID-trustedTxID)
 	proof[0] = tx.Alh()
 
+	var b [txIDSize + 2*sha256.Size]byte
+
 	for i := 1; i < len(proof); i++ {
 		tx, err := r.Read()
 		if err != nil {
 			return nil, err
 		}
 
-		proof[i] = tx.Txh
+		binary.BigEndian.PutUint64(b[:], tx.BlTxID)
+		copy(b[txIDSize:], tx.BlRoot[:])
+		copy(b[txIDSize+sha256.Size:], tx.Txh[:])
+
+		proof[i] = sha256.Sum256(b[:])
 	}
 
 	return proof, nil
