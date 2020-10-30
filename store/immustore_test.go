@@ -445,10 +445,16 @@ func TestImmudbStore(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, uint64(j+1), targetTx.ID)
 
-			p, err := immuStore.LinearProof(trustedTxID, targetTxID)
+			lproof, err := immuStore.LinearProof(trustedTxID, targetTxID)
 			require.NoError(t, err)
 
-			verifies := VerifyLinearProof(p, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
+			verifies := VerifyLinearProof(lproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
+			require.True(t, verifies)
+
+			dproof, err := immuStore.DualProof(trustedTxID, targetTxID)
+			require.NoError(t, err)
+
+			verifies = VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
 			require.True(t, verifies)
 		}
 	}

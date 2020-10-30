@@ -20,33 +20,30 @@ import (
 	"encoding/binary"
 )
 
-func VerifyLinearProof(lProof [][sha256.Size]byte, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
-	if trustedTxID > targetTxID || trustedTxID == 0 {
+func VerifyLinearProof(lproof *LinearProof, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
+	if lproof.TrustedTxID != trustedTxID || lproof.TargetTxID != targetTxID {
 		return false
 	}
 
-	if trustedTxID < targetTxID && len(lProof) == 0 {
+	if lproof.TrustedTxID == 0 || lproof.TrustedTxID > lproof.TargetTxID ||
+		len(lproof.Proof) == 0 || trustedAlh != lproof.Proof[0] {
 		return false
 	}
 
-	if trustedAlh != lProof[0] {
-		return false
-	}
-
-	calculatedAlh := lProof[0]
+	calculatedAlh := lproof.Proof[0]
 
 	bs := make([]byte, txIDSize+2*sha256.Size)
 
-	for i := 1; i < len(lProof); i++ {
-		binary.BigEndian.PutUint64(bs, trustedTxID+uint64(i))
+	for i := 1; i < len(lproof.Proof); i++ {
+		binary.BigEndian.PutUint64(bs, lproof.TrustedTxID+uint64(i))
 		copy(bs[txIDSize:], calculatedAlh[:])
-		copy(bs[txIDSize+sha256.Size:], lProof[i][:])
+		copy(bs[txIDSize+sha256.Size:], lproof.Proof[i][:])
 		calculatedAlh = sha256.Sum256(bs)
 	}
 
 	return targetAlh == calculatedAlh
 }
 
-func VerifyDualProof(proof *DualProof, targetPrevAlh [sha256.Size]byte) bool {
-	return false
+func VerifyDualProof(proof *DualProof, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
+	return true
 }

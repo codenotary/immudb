@@ -820,8 +820,8 @@ type DualProof struct {
 	BinaryConsistencyProof [][sha256.Size]byte
 	JointTxID              uint64
 	JointPrevAlh           [sha256.Size]byte
-	JointEh                [sha256.Size]byte
-	LinearProof            [][sha256.Size]byte
+	JointTxH               [sha256.Size]byte
+	LinearProof            *LinearProof
 }
 
 func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof, err error) {
@@ -841,7 +841,15 @@ func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof,
 	}
 
 	if targetTx.BlTxID > trustedTxID {
-		proof.JointTxID = targetTx.BlTxID
+		jointTx := s.NewTx()
+		err = s.ReadTx(targetTx.BlTxID, jointTx)
+		if err != nil {
+			return nil, err
+		}
+
+		proof.JointTxID = jointTx.ID
+		proof.JointPrevAlh = jointTx.PrevAlh
+		proof.JointTxH = jointTx.Txh
 
 		binInclusionProof, err := s.aht.InclusionProof(trustedTxID, targetTx.BlTxID)
 		if err != nil {
@@ -856,17 +864,23 @@ func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof,
 		proof.BinaryConsistencyProof = binConsistencyProof
 	}
 
-	linearProof, err := s.LinearProof(maxUint64(trustedTxID, targetTx.BlTxID), targetTxID)
+	lproof, err := s.LinearProof(maxUint64(trustedTxID, targetTx.BlTxID), targetTxID)
 	if err != nil {
 		return nil, err
 	}
 
-	proof.LinearProof = linearProof
+	proof.LinearProof = lproof
 
 	return
 }
 
-func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (proof [][sha256.Size]byte, err error) {
+type LinearProof struct {
+	TrustedTxID uint64
+	TargetTxID  uint64
+	Proof       [][sha256.Size]byte
+}
+
+func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, error) {
 	if trustedTxID >= targetTxID {
 		return nil, ErrTrustedTxNotOlderThanTargetTx
 	}
@@ -882,7 +896,7 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (proof [][sha256
 		return nil, err
 	}
 
-	proof = make([][sha256.Size]byte, targetTxID-trustedTxID+1)
+	proof := make([][sha256.Size]byte, targetTxID-trustedTxID+1)
 	proof[0] = tx.Alh()
 
 	var b [txIDSize + 2*sha256.Size]byte
@@ -900,7 +914,11 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (proof [][sha256
 		proof[i] = sha256.Sum256(b[:])
 	}
 
-	return proof, nil
+	return &LinearProof{
+		TrustedTxID: trustedTxID,
+		TargetTxID:  targetTxID,
+		Proof:       proof,
+	}, nil
 }
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
