@@ -143,15 +143,14 @@ type KV struct {
 }
 
 func (kv *KV) Digest() [sha256.Size]byte {
-	hash := sha256.New()
+	b := make([]byte, len(kv.Key)+sha256.Size)
 
-	hash.Write(kv.Key)
+	copy(b, kv.Key)
+
 	hvalue := sha256.Sum256(kv.Value)
-	hash.Write(hvalue[:])
+	copy(b[len(kv.Key):], hvalue[:])
 
-	var eh [sha256.Size]byte
-	copy(eh[:], hash.Sum(nil))
-	return eh
+	return sha256.Sum256(b)
 }
 
 func Open(path string, opts *Options) (*ImmuStore, error) {

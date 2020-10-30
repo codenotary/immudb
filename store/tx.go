@@ -177,6 +177,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	tx.buildHashTree()
 
 	var b [txIDSize + tsSize + sha256.Size + szSize + sha256.Size]byte
+
 	binary.BigEndian.PutUint64(b[:], tx.ID)
 	binary.BigEndian.PutUint64(b[txIDSize:], uint64(tx.Ts))
 	copy(b[txIDSize+tsSize:], tx.PrevAlh[:])
@@ -203,12 +204,10 @@ func (e *Txe) Key() []byte {
 }
 
 func (e *Txe) digest() [sha256.Size]byte {
-	hash := sha256.New()
+	b := make([]byte, e.keyLen+sha256.Size)
 
-	hash.Write(e.Key())
-	hash.Write(e.HValue[:])
+	copy(b, e.key[:e.keyLen])
+	copy(b[e.keyLen:], e.HValue[:])
 
-	var eh [sha256.Size]byte
-	copy(eh[:], hash.Sum(nil))
-	return eh
+	return sha256.Sum256(b)
 }
