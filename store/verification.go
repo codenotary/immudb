@@ -17,6 +17,7 @@ package store
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 )
 
 func VerifyLinearProof(lProof [][sha256.Size]byte, trustedTxID, targetTxID uint64, trustedAlh, targetPrevAlh [sha256.Size]byte) bool {
@@ -32,13 +33,14 @@ func VerifyLinearProof(lProof [][sha256.Size]byte, trustedTxID, targetTxID uint6
 		return false
 	}
 
-	bs := make([]byte, 2*sha256.Size)
-
 	calculatedAlh := lProof[0]
 
-	for i := 1; i < len(lProof); i += 2 {
-		copy(bs, lProof[i][:])
-		copy(bs[sha256.Size:], lProof[i+1][:])
+	bs := make([]byte, txIDSize+2*sha256.Size)
+
+	for i := 1; i < len(lProof); i++ {
+		binary.BigEndian.PutUint64(bs, trustedTxID+uint64(i))
+		copy(bs[txIDSize:], calculatedAlh[:])
+		copy(bs[txIDSize+sha256.Size:], lProof[i][:])
 		calculatedAlh = sha256.Sum256(bs)
 	}
 

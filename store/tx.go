@@ -106,9 +106,12 @@ func (tx *Tx) Entries() []*Txe {
 }
 
 func (tx *Tx) Alh() [sha256.Size]byte {
-	var bs [2 * sha256.Size]byte
-	copy(bs[:], tx.PrevAlh[:])
-	copy(bs[sha256.Size:], tx.Txh[:])
+	var bs [txIDSize + 2*sha256.Size]byte
+
+	binary.BigEndian.PutUint64(bs[:], tx.ID)
+	copy(bs[txIDSize:], tx.PrevAlh[:])
+	copy(bs[txIDSize+sha256.Size:], tx.Txh[:])
+
 	return sha256.Sum256(bs[:])
 }
 

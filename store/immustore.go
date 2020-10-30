@@ -486,7 +486,13 @@ func (s *ImmuStore) blInfo() (uint64, [sha256.Size]byte) {
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
-	return txIDSize + tsSize + sha256.Size + szSize + maxTxEntries*(szSize+maxKeyLen+szSize+offsetSize+sha256.Size) + sha256.Size
+	return txIDSize /*txID*/ +
+		tsSize /*ts*/ +
+		sha256.Size /*prevAlh*/ +
+		szSize /*|entries|*/ +
+		maxTxEntries*(szSize /*kLen*/ +maxKeyLen /*key*/ +szSize /*vLen*/ +offsetSize /*vOff*/ +sha256.Size /*hValue*/) +
+		sha256.Size /*eH*/ +
+		sha256.Size /*txH*/
 }
 
 func (s *ImmuStore) MaxValueLen() int {
@@ -772,12 +778,12 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	return nil
 }
 
-func (s *ImmuStore) LinearProof(trustedTxID, txID uint64) (path [][sha256.Size]byte, err error) {
-	if trustedTxID >= txID {
+func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (proof [][sha256.Size]byte, err error) {
+	if trustedTxID >= targetTxID {
 		return nil, ErrTrustedTxNotOlderThanTargetTx
 	}
 
-	if int(txID-trustedTxID) > s.maxLinearProofLen {
+	if int(targetTxID-trustedTxID) > s.maxLinearProofLen {
 		return nil, ErrLinearProofMaxLenExceeded
 	}
 
@@ -788,21 +794,23 @@ func (s *ImmuStore) LinearProof(trustedTxID, txID uint64) (path [][sha256.Size]b
 		return nil, err
 	}
 
-	path = make([][sha256.Size]byte, 1+(txID-1-trustedTxID)*2)
-	path[0] = tx.Alh()
+	proof = make([][sha256.Size]byte, targetTxID-trustedTxID)
+	proof[0] = tx.Alh()
 
-	for {
+	for i := 1; i < len(proof); i++ {
 		tx, err := r.Read()
 		if err != nil {
 			return nil, err
 		}
 
-		if tx.ID == txID {
-			return path, nil
+		if tx.ID == targetTxID {
+			return proof, nil
 		}
 
-		path = append(path, tx.PrevAlh, tx.Txh)
+		proof[i] = tx.Txh
 	}
+
+	return proof, nil
 }
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {

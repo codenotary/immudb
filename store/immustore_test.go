@@ -449,7 +449,6 @@ func TestImmudbStore(t *testing.T) {
 			require.NoError(t, err)
 
 			verifies := VerifyLinearProof(p, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.PrevAlh)
-
 			require.True(t, verifies)
 		}
 	}
