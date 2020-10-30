@@ -803,10 +803,6 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (proof [][sha256
 			return nil, err
 		}
 
-		if tx.ID == targetTxID {
-			return proof, nil
-		}
-
 		proof[i] = tx.Txh
 	}
 
