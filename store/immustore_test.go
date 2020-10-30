@@ -448,7 +448,7 @@ func TestImmudbStore(t *testing.T) {
 			p, err := immuStore.LinearProof(trustedTxID, targetTxID)
 			require.NoError(t, err)
 
-			verifies := VerifyLinearProof(p, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.PrevAlh)
+			verifies := VerifyLinearProof(p, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
 			require.True(t, verifies)
 		}
 	}

@@ -364,6 +364,21 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		kvs[i] = &tbtree.KV{K: make([]byte, maxKeyLen), V: make([]byte, sha256.Size+szSize+offsetSize)}
 	}
 
+	var blTxID uint64
+	var blRoot [sha256.Size]byte
+
+	blTxID, err = aht.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	if blTxID > 0 {
+		blRoot, err = aht.Root()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	store := &ImmuStore{
 		txLog:              txLog,
 		vLogs:              vLogsMap,
@@ -382,6 +397,8 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		maxTxSize:          maxTxSize,
 		index:              index,
 		aht:                aht,
+		blTxID:             blTxID,
+		blRoot:             blRoot,
 		_kvs:               kvs,
 		_txs:               txs,
 		_txbs:              txbs,
@@ -452,21 +469,6 @@ func (s *ImmuStore) doIndexing() error {
 			s._kvs[i].K = e.Key()
 			s._kvs[i].V = b[:]
 		}
-
-		alh := tx.Alh()
-
-		n, h, err := s.aht.Append(alh[:])
-		if err != nil {
-			return err
-		}
-		if tx.ID != n {
-			return ErrCorruptedAHtree
-		}
-
-		s.blmutex.Lock()
-		s.blTxID = n
-		s.blRoot = h
-		s.blmutex.Unlock()
 
 		err = s.index.BulkInsert(s._kvs[:len(txEntries)])
 		if err != nil {
@@ -689,12 +691,6 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if onPrivateSection {
-		panic("commiting")
-	}
-	onPrivateSection = true
-	defer func() { onPrivateSection = false }()
-
 	if s.closed {
 		return ErrAlreadyClosed
 	}
@@ -793,6 +789,23 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
+	/////// TODO: ASYNC
+	alh := tx.Alh()
+
+	blTxID, blRoot, err = s.aht.Append(alh[:])
+	if err != nil {
+		return err
+	}
+	if tx.ID != blTxID {
+		return ErrCorruptedAHtree
+	}
+
+	s.blmutex.Lock()
+	s.blTxID = blTxID
+	s.blRoot = blRoot
+	s.blmutex.Unlock()
+	///////
+
 	s.committedTxID++
 	s.committedAlh = tx.Alh()
 	s.committedTxLogSize += int64(txSize)
@@ -800,12 +813,65 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	return nil
 }
 
+type DualProof struct {
+	TrustedTxID            uint64
+	TargetTxID             uint64
+	BinaryInclusionProof   [][sha256.Size]byte
+	BinaryConsistencyProof [][sha256.Size]byte
+	JointTxID              uint64
+	JointPrevAlh           [sha256.Size]byte
+	JointEh                [sha256.Size]byte
+	LinearProof            [][sha256.Size]byte
+}
+
+func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof, err error) {
+	if trustedTxID >= targetTxID {
+		return nil, ErrTrustedTxNotOlderThanTargetTx
+	}
+
+	targetTx := s.NewTx()
+	err = s.ReadTx(targetTxID, targetTx)
+	if err != nil {
+		return nil, err
+	}
+
+	proof = &DualProof{
+		TrustedTxID: trustedTxID,
+		TargetTxID:  targetTxID,
+	}
+
+	if targetTx.BlTxID > trustedTxID {
+		proof.JointTxID = targetTx.BlTxID
+
+		binInclusionProof, err := s.aht.InclusionProof(trustedTxID, targetTx.BlTxID)
+		if err != nil {
+			return nil, err
+		}
+		proof.BinaryInclusionProof = binInclusionProof
+
+		binConsistencyProof, err := s.aht.ConsistencyProof(trustedTxID, targetTx.BlTxID)
+		if err != nil {
+			return nil, err
+		}
+		proof.BinaryConsistencyProof = binConsistencyProof
+	}
+
+	linearProof, err := s.LinearProof(maxUint64(trustedTxID, targetTx.BlTxID), targetTxID)
+	if err != nil {
+		return nil, err
+	}
+
+	proof.LinearProof = linearProof
+
+	return
+}
+
 func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (proof [][sha256.Size]byte, err error) {
 	if trustedTxID >= targetTxID {
 		return nil, ErrTrustedTxNotOlderThanTargetTx
 	}
 
-	if int(targetTxID-trustedTxID) > s.maxLinearProofLen {
+	if int(targetTxID-trustedTxID+1) > s.maxLinearProofLen {
 		return nil, ErrLinearProofMaxLenExceeded
 	}
 
@@ -816,7 +882,7 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (proof [][sha256
 		return nil, err
 	}
 
-	proof = make([][sha256.Size]byte, targetTxID-trustedTxID)
+	proof = make([][sha256.Size]byte, targetTxID-trustedTxID+1)
 	proof[0] = tx.Alh()
 
 	var b [txIDSize + 2*sha256.Size]byte
@@ -971,17 +1037,9 @@ type syncedReader struct {
 	mutex   *sync.Mutex
 }
 
-var onPrivateSection = false
-
 func (r *syncedReader) ReadAt(bs []byte, off int64) (int, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-
-	if onPrivateSection {
-		panic("commiting")
-	}
-	onPrivateSection = true
-	defer func() { onPrivateSection = false }()
 
 	if len(bs) == 0 {
 		return 0, nil
@@ -1102,4 +1160,11 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func maxUint64(a, b uint64) uint64 {
+	if a <= b {
+		return b
+	}
+	return a
 }

@@ -20,7 +20,7 @@ import (
 	"encoding/binary"
 )
 
-func VerifyLinearProof(lProof [][sha256.Size]byte, trustedTxID, targetTxID uint64, trustedAlh, targetPrevAlh [sha256.Size]byte) bool {
+func VerifyLinearProof(lProof [][sha256.Size]byte, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
 	if trustedTxID > targetTxID || trustedTxID == 0 {
 		return false
 	}
@@ -44,5 +44,9 @@ func VerifyLinearProof(lProof [][sha256.Size]byte, trustedTxID, targetTxID uint6
 		calculatedAlh = sha256.Sum256(bs)
 	}
 
-	return targetPrevAlh == calculatedAlh
+	return targetAlh == calculatedAlh
+}
+
+func VerifyDualProof(proof *DualProof, targetPrevAlh [sha256.Size]byte) bool {
+	return false
 }
