@@ -453,10 +453,9 @@ func (s *ImmuStore) doIndexing() error {
 			s._kvs[i].V = b[:]
 		}
 
-		var linkedLeaf [linkedLeafSize]byte
-		// TODO: built linkedLeaf from tx
+		alh := tx.Alh()
 
-		n, h, err := s.aht.Append(linkedLeaf[:])
+		n, h, err := s.aht.Append(alh[:])
 		if err != nil {
 			return err
 		}
