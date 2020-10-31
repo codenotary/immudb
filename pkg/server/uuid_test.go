@@ -28,7 +28,7 @@ import (
 )
 
 func TestNewUUID(t *testing.T) {
-	id, err := getOrSetUuid("./")
+	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -47,7 +47,7 @@ func TestNewUUID(t *testing.T) {
 func TestExistingUUID(t *testing.T) {
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
 	ioutil.WriteFile(IDENTIFIER_FNAME, x.Bytes(), os.ModePerm)
-	id, err := getOrSetUuid("./")
+	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -64,7 +64,7 @@ func TestExistingUUID(t *testing.T) {
 }
 
 func TestUuidContextSetter(t *testing.T) {
-	id, err := getOrSetUuid("./")
+	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -96,7 +96,7 @@ func TestUuidContextSetter(t *testing.T) {
 	}
 }
 func TestUuidStreamContextSetter(t *testing.T) {
-	id, err := getOrSetUuid("./")
+	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}

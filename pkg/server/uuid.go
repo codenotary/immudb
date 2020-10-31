@@ -43,12 +43,12 @@ type UUIDContext interface {
 	UuidContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error)
 }
 
-// NewUuidContext return a new UUId context servive
+// NewUuidContext return a new UUID context servive
 func NewUuidContext(id xid.ID) uuidContext {
 	return uuidContext{id}
 }
 
-func getOrSetUuid(dir string) (xid.ID, error) {
+func getOrSetUUID(dir string) (xid.ID, error) {
 	fname := path.Join(dir, IDENTIFIER_FNAME)
 	if fileExists(fname) {
 		b, err := ioutil.ReadFile(fname)

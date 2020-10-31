@@ -152,26 +152,26 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 
 	userList := &schema.UserList{
 		Users: []*schema.User{
-			&schema.User{
+			{
 				User: []byte("user1"),
 				Permissions: []*schema.Permission{
-					&schema.Permission{
+					{
 						Database:   "db1",
 						Permission: auth.PermissionAdmin,
 					},
-					&schema.Permission{
+					{
 						Database:   "db2",
 						Permission: auth.PermissionSysAdmin,
 					},
-					&schema.Permission{
+					{
 						Database:   "db3",
 						Permission: auth.PermissionR,
 					},
-					&schema.Permission{
+					{
 						Database:   "db4",
 						Permission: auth.PermissionRW,
 					},
-					&schema.Permission{
+					{
 						Database:   "db5",
 						Permission: auth.PermissionNone,
 					},

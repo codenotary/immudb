@@ -137,8 +137,8 @@ func TestSetCommandsErrors(t *testing.T) {
 	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
 			Databases: []*schema.Database{
-				&schema.Database{Databasename: "db1"},
-				&schema.Database{Databasename: "db2"},
+				{Databasename: "db1"},
+				{Databasename: "db2"},
 			},
 		}, nil
 	}

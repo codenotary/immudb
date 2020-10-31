@@ -108,22 +108,22 @@ func TestUserListErrors(t *testing.T) {
 	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
 		return &schema.UserList{
 			Users: []*schema.User{
-				&schema.User{
+				{
 					User: []byte("immudb"),
 					Permissions: []*schema.Permission{
-						&schema.Permission{Database: "*", Permission: auth.PermissionSysAdmin},
+						{Database: "*", Permission: auth.PermissionSysAdmin},
 					},
 					Createdby: "immudb",
 					Createdat: time.Now().String(),
 					Active:    true,
 				},
-				&schema.User{
+				{
 					User: []byte("user1"),
 					Permissions: []*schema.Permission{
-						&schema.Permission{Database: "db2", Permission: auth.PermissionAdmin},
-						&schema.Permission{Database: "db3", Permission: auth.PermissionR},
-						&schema.Permission{Database: "db4", Permission: auth.PermissionRW},
-						&schema.Permission{Database: "db5", Permission: 999},
+						{Database: "db2", Permission: auth.PermissionAdmin},
+						{Database: "db3", Permission: auth.PermissionR},
+						{Database: "db4", Permission: auth.PermissionRW},
+						{Database: "db5", Permission: 999},
 					},
 					Createdby: "immudb",
 					Createdat: time.Now().String(),
@@ -341,7 +341,7 @@ func TestUserCreateErrors(t *testing.T) {
 
 	immuClientMock.ListUsersF = func(context.Context) (*schema.UserList, error) {
 		return &schema.UserList{
-			Users: []*schema.User{&schema.User{User: []byte(username)}},
+			Users: []*schema.User{{User: []byte(username)}},
 		}, nil
 	}
 	_, err = cl.userCreate(args)
@@ -359,7 +359,7 @@ func TestUserCreateErrors(t *testing.T) {
 
 	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
-			Databases: []*schema.Database{&schema.Database{Databasename: "sysdb"}},
+			Databases: []*schema.Database{{Databasename: "sysdb"}},
 		}, nil
 	}
 	_, err = cl.userCreate(args)
@@ -368,8 +368,8 @@ func TestUserCreateErrors(t *testing.T) {
 	immuClientMock.DatabaseListF = func(context.Context) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
 			Databases: []*schema.Database{
-				&schema.Database{Databasename: "sysdb"},
-				&schema.Database{Databasename: databasename},
+				{Databasename: "sysdb"},
+				{Databasename: databasename},
 			},
 		}, nil
 	}

@@ -26,5 +26,3 @@ func TestNewCmd(t *testing.T) {
 	cmd := newCommand()
 	assert.IsType(t, cobra.Command{}, *cmd)
 }
-
-

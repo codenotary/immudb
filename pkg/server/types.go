@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -61,6 +62,8 @@ type ImmuServer struct {
 	metricsServer       *http.Server
 	mux                 sync.Mutex
 	RootSigner          RootSigner
+	startedAt           time.Time
+	ReadyChan           chan bool
 }
 
 // DefaultServer ...

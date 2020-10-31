@@ -51,16 +51,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var ErrEmptyAdminPassword = fmt.Errorf("Admin password cannot be empty")
+var ErrEmptyAdminPassword = fmt.Errorf("admin password cannot be empty")
 
-var startedAt time.Time
-
-var immudbTextLogo = " _                               _ _     \n" +
-	"(_)                             | | |    \n" +
-	" _ _ __ ___  _ __ ___  _   _  __| | |__  \n" +
-	"| | '_ ` _ \\| '_ ` _ \\| | | |/ _` | '_ \\ \n" +
-	"| | | | | | | | | | | | |_| | (_| | |_) |\n" +
-	"|_|_| |_| |_|_| |_| |_|\\__,_|\\__,_|_.__/ \n"
+const immudbTextLogo = ` _                               _ _
+(_)                             | | |
+ _ _ __ ___  _ __ ___  _   _  __| | |__
+| | '_ ` + "`" + ` _ \| '_ ` + "`" + ` _ \| | | |/ _` + "`" + ` | '_ \
+| | | | | | | | | | | | |_| | (_| | |_) |
+|_|_| |_| |_|_| |_| |_|\__,_|\__,_|_.__/
+`
 
 // Start starts the immudb server
 // Loads and starts the System DB, default db and user db
@@ -71,9 +70,11 @@ func (s *ImmuServer) Start() error {
 	if err != nil {
 		s.Logger.Errorf("Error printing immudb config: %v", err)
 	}
+
 	if s.Options.Logfile != "" {
 		s.Logger.Infof("\n%s\n%s\n\n", immudbTextLogo, s.Options)
 	}
+
 	dataDir := s.Options.Dir
 	if err = s.loadDefaultDatabase(dataDir); err != nil {
 		s.Logger.Errorf("Unable load default database %s", err)
@@ -99,6 +100,7 @@ func (s *ImmuServer) Start() error {
 		s.Logger.Errorf("Unable load databases %s", err)
 		return err
 	}
+
 	s.multidbmode = s.mandatoryAuth()
 	if !s.Options.GetAuth() && s.multidbmode {
 		s.Logger.Infof("Authentication must be on.")
@@ -134,7 +136,7 @@ func (s *ImmuServer) Start() error {
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
 	var uuid xid.ID
-	if uuid, err = getOrSetUuid(systemDbRootDir); err != nil {
+	if uuid, err = getOrSetUUID(systemDbRootDir); err != nil {
 		s.Logger.Errorf("unable to get or set uuid: %s", err)
 		return err
 	}
@@ -199,25 +201,33 @@ func (s *ImmuServer) Start() error {
 	grpc_prometheus.Register(s.GrpcServer)
 	s.startCorruptionChecker()
 	go s.printUsageCallToAction()
-	startedAt = time.Now()
+	s.startedAt = time.Now()
+
 	go func() {
 		if err := s.GrpcServer.Serve(listener); err != nil {
 			log.Fatal(err)
 		}
 	}()
 	s.mux.Unlock()
+
+	if s.ReadyChan != nil {
+		s.ReadyChan <- true
+	}
+
 	<-s.quit
 	return err
 }
 
 func (s *ImmuServer) setupPidFile() error {
 	var err error
+
 	if s.Options.Pidfile != "" {
 		if s.Pid, err = NewPid(s.Options.Pidfile, s.OS); err != nil {
 			s.Logger.Errorf("Failed to write pidfile: %s", err)
 			return err
 		}
 	}
+
 	return err
 }
 
@@ -226,7 +236,7 @@ func (s *ImmuServer) setUpMetricsServer() error {
 		s.Options.MetricsBind(),
 		s.Logger,
 		func() float64 { return float64(s.dbList.GetByIndex(DefaultDbIndex).Store.CountAll()) },
-		func() float64 { return time.Since(startedAt).Hours() },
+		func() float64 { return time.Since(s.startedAt).Hours() },
 	)
 	return nil
 }
@@ -238,11 +248,13 @@ func (s *ImmuServer) setUpMTLS() ([]grpc.ServerOption, error) {
 			s.Options.MTLsOptions.Certificate,
 			s.Options.MTLsOptions.Pkey,
 		)
+
 		if err != nil {
 			s.Logger.Errorf("Failed to read server key pair: %s", err)
 			return nil, err
 		}
 		certPool := x509.NewCertPool()
+
 		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
 		bs, err := s.OS.ReadFile(s.Options.MTLsOptions.ClientCAs)
 		if err != nil {
@@ -264,21 +276,26 @@ func (s *ImmuServer) setUpMTLS() ([]grpc.ServerOption, error) {
 
 		return []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}, nil
 	}
+
 	return []grpc.ServerOption{}, nil
 }
 
 func (s *ImmuServer) printUsageCallToAction() {
 	time.Sleep(200 * time.Millisecond)
+
 	immuadminCLI := helper.Blue + "immuadmin" + helper.Green
 	immuclientCLI := helper.Blue + "immuclient" + helper.Green
 	defaultUsername := helper.Blue + auth.SysAdminUsername + helper.Green
 	fmt.Fprintf(os.Stdout,
 		"%sYou can now use %s and %s CLIs to login with the %s superadmin user and start using immudb.%s\n",
-		helper.Green, immuadminCLI, immuclientCLI, defaultUsername, helper.Reset)
+		helper.Green, immuadminCLI, immuclientCLI, defaultUsername, helper.Reset,
+	)
+
 	if s.Options.Logfile != "" {
 		s.Logger.Infof(
 			"You can now use immuadmin and immuclient CLIs to login with the %s superadmin user and start using immudb.\n",
-			auth.SysAdminUsername)
+			auth.SysAdminUsername,
+		)
 	}
 }
 
@@ -296,17 +313,20 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 				WithDbRootPath(dataDir).
 				WithCorruptionChecker(s.Options.CorruptionCheck).
 				WithInMemoryStore(s.Options.GetInMemoryStore()).WithDbRootPath(s.Options.Dir)
+
 			db, err := NewDb(op, s.Logger)
 			if err != nil {
 				return err
 			}
 			s.sysDb = db
+
 			//sys admin can have an empty array of databases as it has full access
 			adminUsername, _, err := s.insertNewUser([]byte(auth.SysAdminUsername), []byte(adminPassword), auth.PermissionSysAdmin, "*", false, "")
 			if err != nil {
 				s.Logger.Errorf(err.Error())
 				return err
 			}
+
 			s.Logger.Infof("Admin user %s successfully created", adminUsername)
 		}
 	} else {
@@ -314,10 +334,12 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 			WithDbName(s.Options.GetSystemAdminDbName()).
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
+
 		db, err := OpenDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
+
 		s.sysDb = db
 	}
 
@@ -357,6 +379,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(s.dbList.Length())
 		s.dbList.Append(db)
 	}
+
 	return nil
 }
 
@@ -365,9 +388,10 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 	if s.Options.GetInMemoryStore() {
 		return nil
 	}
+
 	var dirs []string
 	//get first level sub directories of data dir
-	err := s.OS.Walk(s.Options.Dir, func(path string, info os.FileInfo, err error) error {
+	if err := s.OS.Walk(s.Options.Dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -380,10 +404,10 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 			dirs = append(dirs, path)
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
+
 	//load databases that are inside each directory
 	for _, val := range dirs {
 		//dbname is the directory name where it is stored
@@ -401,6 +425,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 		s.databasenameToIndex[dbname] = int64(s.dbList.Length())
 		s.dbList.Append(db)
 	}
+
 	return nil
 }
 
@@ -427,12 +452,15 @@ func (s *ImmuServer) CloseDatabases() error {
 	if s.sysDb != nil {
 		s.sysDb.Store.Close()
 	}
+
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
 		val.Store.Close()
 	}
+
 	return nil
 }
+
 func (s *ImmuServer) startCorruptionChecker() {
 	if s.Options.CorruptionCheck {
 		cco := CCOptions{}
@@ -462,10 +490,12 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if !s.Options.auth {
 		return nil, fmt.Errorf("server is running with authentication disabled, please enable authentication to login")
 	}
+
 	u, err := s.getValidatedUser(r.User, r.Password)
 	if err != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user name or password")
 	}
+
 	if !u.Active {
 		return nil, fmt.Errorf("user is not active")
 	}
@@ -480,6 +510,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	if err != nil {
 		return nil, err
 	}
+
 	loginResponse := &schema.LoginResponse{Token: token}
 	if u.Username == auth.SysAdminUsername && string(r.GetPassword()) == auth.SysAdminPassword {
 		loginResponse.Warning = []byte(auth.WarnDefaultAdminPassword)
@@ -490,6 +521,7 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 
 	//add user to loggedin list
 	s.addUserToLoginList(u)
+
 	return loginResponse, nil
 }
 
@@ -499,25 +531,26 @@ func (s *ImmuServer) Logout(ctx context.Context, r *empty.Empty) (*empty.Empty, 
 	if err != nil {
 		return new(empty.Empty), err
 	}
+
 	if !loggedOut {
 		return new(empty.Empty), status.Error(codes.Unauthenticated, "not logged in")
 	}
+
 	return new(empty.Empty), nil
 }
 
-func (s *ImmuServer) updateConfigItem(
-	key string,
-	newOrUpdatedLine string,
-	unchanged func(string) bool) error {
+func (s *ImmuServer) updateConfigItem(key string, newOrUpdatedLine string, unchanged func(string) bool) error {
 	configFilepath := s.Options.Config
 	if strings.TrimSpace(configFilepath) == "" {
 		return fmt.Errorf("config file does not exist")
 	}
 	configBytes, err := s.OS.ReadFile(configFilepath)
+
 	if err != nil {
 		return fmt.Errorf("error reading config file %s: %v", configFilepath, err)
 	}
 	configLines := strings.Split(string(configBytes), "\n")
+
 	write := false
 	for i, l := range configLines {
 		l = strings.TrimSpace(l)
@@ -534,21 +567,24 @@ func (s *ImmuServer) updateConfigItem(
 	if !write {
 		configLines = append(configLines, newOrUpdatedLine)
 	}
+
 	if err := s.OS.WriteFile(configFilepath, []byte(strings.Join(configLines, "\n")), 0644); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 // UpdateAuthConfig ...
 func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfig) (*empty.Empty, error) {
-	_, err := s.getDbIndexFromCtx(ctx, "UpdateAuthConfig")
-	if err != nil {
+	if _, err := s.getDbIndexFromCtx(ctx, "UpdateAuthConfig"); err != nil {
 		return nil, err
 	}
+
 	e := new(empty.Empty)
 	s.Options.WithAuth(req.GetKind() > 0)
 	auth.AuthEnabled = s.Options.GetAuth()
+
 	if err := s.updateConfigItem(
 		"auth",
 		fmt.Sprintf("auth = %t", auth.AuthEnabled),
@@ -559,17 +595,20 @@ func (s *ImmuServer) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfi
 	); err != nil {
 		return e, fmt.Errorf(
 			"auth set to %t, but config file could not be updated: %v",
-			auth.AuthEnabled, err)
+			auth.AuthEnabled,
+			err,
+		)
 	}
+
 	return e, nil
 }
 
 // UpdateMTLSConfig ...
 func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfig) (*empty.Empty, error) {
-	_, err := s.getDbIndexFromCtx(ctx, "UpdateMTLSConfig")
-	if err != nil {
+	if _, err := s.getDbIndexFromCtx(ctx, "UpdateMTLSConfig"); err != nil {
 		return nil, err
 	}
+
 	e := new(empty.Empty)
 	if err := s.updateConfigItem(
 		"mtls",
@@ -581,88 +620,107 @@ func (s *ImmuServer) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfi
 	); err != nil {
 		return e, fmt.Errorf("MTLS could not be set to %t: %v", req.GetEnabled(), err)
 	}
+
 	return e, status.Errorf(
 		codes.OK,
 		"MTLS set to %t in server config, but server restart is required for it to take effect.",
-		req.GetEnabled())
+		req.GetEnabled(),
+	)
 }
 
 // CurrentRoot ...
 func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (root *schema.Root, err error) {
 	var ind int64
+
 	if ind, err = s.getDbIndexFromCtx(ctx, "CurrentRoot"); err != nil {
 		return nil, err
 	}
+
 	if root, err = s.dbList.GetByIndex(ind).CurrentRoot(e); err != nil {
 		return nil, err
 	}
+
 	if s.Options.SigningKey != "" {
 		return s.RootSigner.Sign(root)
 	}
+
 	return root, err
 }
 
 // Set ...
 func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
 	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
+
 	ind, err := s.getDbIndexFromCtx(ctx, "Set")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).Set(kv)
 }
 
 // SetSV ...
 func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) (*schema.Index, error) {
 	s.Logger.Debugf("SetSV %+v", skv)
+
 	kv, err := skv.ToKV()
 	if err != nil {
 		return nil, err
 	}
+
 	return s.Set(ctx, kv)
 }
 
 // SafeSet ...
 func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("SafeSet %+v", opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "SafeSet")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).SafeSet(opts)
 }
 
 // SafeSetSV ...
 func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("SafeSetSV %+v", sopts)
+
 	kv, err := sopts.Skv.ToKV()
 	if err != nil {
 		return nil, err
 	}
+
 	opts := &schema.SafeSetOptions{
 		Kv:        kv,
 		RootIndex: sopts.RootIndex,
 	}
+
 	return s.SafeSet(ctx, opts)
 }
 
 // SetBatch ...
 func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
 	s.Logger.Debugf("set batch %d", len(kvl.KVs))
+
 	ind, err := s.getDbIndexFromCtx(ctx, "SetBatch")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).SetBatch(kvl)
 }
 
 // SetBatchSV ...
 func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*schema.Index, error) {
 	s.Logger.Debugf("SetBatchSV %+v", skvl)
+
 	kvl, err := skvl.ToKVList()
 	if err != nil {
 		return nil, err
 	}
+
 	return s.SetBatch(ctx, kvl)
 }
 
@@ -672,6 +730,7 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).Get(k)
 }
 
@@ -681,16 +740,19 @@ func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.Structur
 	if err != nil {
 		return nil, err
 	}
+
 	return it.ToSItem()
 }
 
 // SafeGet ...
 func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("safeget %s", opts.Key)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "SafeGet")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).SafeGet(opts)
 }
 
@@ -700,16 +762,19 @@ func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions)
 	if err != nil {
 		return nil, err
 	}
+
 	return it.ToSafeSItem()
 }
 
 // GetBatch ...
 func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
+
 	ind, err := s.getDbIndexFromCtx(ctx, "GetBatch")
 	if err != nil {
 		return nil, err
 	}
+
 	for _, key := range kl.Keys {
 		item, err := s.dbList.GetByIndex(ind).Get(key)
 		if err == nil || err == store.ErrKeyNotFound {
@@ -720,6 +785,7 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 			return nil, err
 		}
 	}
+
 	return list, nil
 }
 
@@ -729,46 +795,55 @@ func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schem
 	if err != nil {
 		return nil, err
 	}
+
 	return list.ToSItemList()
 }
 
 // Scan ...
 func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "Scan")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).Scan(opts)
 }
 
 // ScanSV ...
 func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "ScanSV")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).ScanSV(opts)
 }
 
 // Count ...
 func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	s.Logger.Debugf("count %s", prefix.Prefix)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "Count")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).Count(prefix)
 }
 
 // CountAll ...
 func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.ItemsCount, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "CountAll")
+
 	s.Logger.Debugf("count all for db index %d", ind)
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).CountAll(), nil
 }
 
@@ -778,6 +853,7 @@ func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schem
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).Inclusion(index)
 }
 
@@ -787,64 +863,77 @@ func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*sch
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).Consistency(index)
 }
 
 // ByIndex ...
 func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "ByIndex")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).ByIndex(index)
 }
 
 // ByIndexSV ...
 func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schema.StructuredItem, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "ByIndexSV")
 	if err != nil {
 		return nil, err
 	}
+
 	item, err := s.dbList.GetByIndex(ind).ByIndex(index)
 	if err != nil {
 		return nil, err
 	}
+
 	return item.ToSItem()
 }
 
 // BySafeIndex ...
 func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("get by safeIndex %d ", sio.Index)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "BySafeIndex")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).BySafeIndex(sio)
 }
 
 // History ...
 func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
+
 	ind, err := s.getDbIndexFromCtx(ctx, "History")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).History(key)
 }
 
 // HistorySV ...
 func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("history for key %s ", string(key.Key))
+
 	ind, err := s.getDbIndexFromCtx(ctx, "HistorySV")
 	if err != nil {
 		return nil, err
 	}
+
 	list, err := s.dbList.GetByIndex(ind).History(key)
 	if err != nil {
 		return nil, err
 	}
+
 	return list.ToSItemList()
 }
 
@@ -855,94 +944,113 @@ func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.Health
 	if ind < 0 { //probably immuclient hasn't logged in yet
 		return s.dbList.GetByIndex(DefaultDbIndex).Health(e)
 	}
+
 	return s.dbList.GetByIndex(ind).Health(e)
 }
 
 // Reference ...
 func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
 	s.Logger.Debugf("reference options: %v", refOpts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "Reference")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).Reference(refOpts)
 }
 
 // SafeReference ...
 func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	s.Logger.Debugf("safe reference options: %v", safeRefOpts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "SafeReference")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).SafeReference(safeRefOpts)
 }
 
 // ZAdd ...
 func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "ZAdd")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).ZAdd(opts)
 }
 
 // ZScan ...
 func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "ZScan")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).ZScan(opts)
 }
 
 // ZScanSV ...
 func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
 	s.Logger.Debugf("ZScanSV %+v", *opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "ZScanSV")
 	if err != nil {
 		return nil, err
 	}
+
 	list, err := s.dbList.GetByIndex(ind).ZScan(opts)
 	if err != nil {
 		return nil, err
 	}
+
 	return list.ToSItemList()
 }
 
 // SafeZAdd ...
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("SafeZAdd %+v", *opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "SafeZAdd")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).SafeZAdd(opts)
 }
 
 // IScan ...
 func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*schema.Page, error) {
 	s.Logger.Debugf("iscan %+v", *opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "IScan")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).IScan(opts)
 }
 
 // IScanSV ...
 func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
 	s.Logger.Debugf("IScanSV %+v", *opts)
+
 	ind, err := s.getDbIndexFromCtx(ctx, "IScanSV")
 	if err != nil {
 		return nil, err
 	}
+
 	page, err := s.dbList.GetByIndex(ind).IScan(opts)
 	if err != nil {
 		return nil, err
 	}
+
 	return page.ToSPage()
 }
 
@@ -952,8 +1060,10 @@ func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer)
 	if err != nil {
 		return err
 	}
+
 	err = s.dbList.GetByIndex(ind).Dump(in, stream)
 	s.Logger.Debugf("Dump stream complete")
+
 	return err
 }
 
@@ -1010,23 +1120,28 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
+
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("please login first")
 	}
+
 	if string(r.User) == auth.SysAdminUsername {
 		if err = auth.ComparePasswords(user.HashedPassword, r.OldPassword); err != nil {
 			return new(empty.Empty), status.Errorf(codes.PermissionDenied, "old password is incorrect")
 		}
 	}
+
 	if !user.IsSysAdmin {
 		if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
 			return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")
 		}
 	}
+
 	if len(r.User) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
 	}
+
 	targetUser, err := s.getUser(r.User, true)
 	if err != nil {
 		return nil, fmt.Errorf("user %s was not found or it was not created by you", string(r.User))
@@ -1043,13 +1158,16 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 	if err != nil {
 		return nil, err
 	}
+
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
 	if err := s.saveUser(targetUser); err != nil {
 		return nil, err
 	}
+
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
+
 	// invalidate the token for this user
 	auth.DropTokenKeys(targetUser.Username)
 
@@ -1062,16 +1180,20 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
 	}
+
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get loggedin user data")
 	}
+
 	if !user.IsSysAdmin {
 		return nil, fmt.Errorf("Logged In user does not have permissions for this operation")
 	}
+
 	if newdb.Databasename == SystemdbName {
 		return nil, fmt.Errorf("this database name is reserved")
 	}
+
 	newdb.Databasename = strings.ToLower(newdb.Databasename)
 	if err = IsAllowedDbName(newdb.Databasename); err != nil {
 		return nil, err
@@ -1089,14 +1211,17 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		WithDbRootPath(dataDir).
 		WithCorruptionChecker(s.Options.CorruptionCheck).
 		WithInMemoryStore(s.Options.GetInMemoryStore()).WithDbRootPath(s.Options.Dir)
+
 	db, err := NewDb(op, s.Logger)
 	if err != nil {
 		s.Logger.Errorf(err.Error())
 		return nil, err
 	}
+
 	s.databasenameToIndex[newdb.Databasename] = int64(s.dbList.Length())
 	s.dbList.Append(db)
 	s.multidbmode = true
+
 	return &empty.Empty{}, nil
 }
 
@@ -1104,11 +1229,12 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*empty.Empty, error) {
 	s.Logger.Debugf("CreateUser %+v", *r)
 	loggedInuser := &auth.User{}
-	var err error
 	if !s.Options.GetMaintenance() {
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
+
+		var err error
 		_, loggedInuser, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("please login")
@@ -1117,22 +1243,27 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		if len(r.User) == 0 {
 			return nil, fmt.Errorf("username can not be empty")
 		}
+
 		if (len(r.Database) == 0) && s.multidbmode {
 			return nil, fmt.Errorf("database name can not be empty when there are multiple databases")
 		}
+
 		if (len(r.Database) == 0) && !s.multidbmode {
 			r.Database = DefaultdbName
 		}
+
 		//check if database exists
 		if _, ok := s.databasenameToIndex[r.Database]; !ok {
 			return nil, fmt.Errorf("database %s does not exist", r.Database)
 		}
+
 		//check permission is a known value
 		if (r.Permission == auth.PermissionNone) ||
 			((r.Permission > auth.PermissionRW) &&
 				(r.Permission < auth.PermissionAdmin)) {
 			return nil, fmt.Errorf("unrecognized permission")
 		}
+
 		//if the requesting user has admin permission on this database
 		if (!loggedInuser.IsSysAdmin) &&
 			(!loggedInuser.HasPermission(r.Database, auth.PermissionAdmin)) {
@@ -1144,12 +1275,12 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 			return nil, fmt.Errorf("can not create another system admin")
 		}
 	}
-	_, err = s.getUser(r.User, true)
-	if err == nil {
+
+	if _, err := s.getUser(r.User, true); err == nil {
 		return nil, fmt.Errorf("user already exists")
 	}
-	_, _, err = s.insertNewUser(r.User, r.Password, r.GetPermission(), r.Database, true, loggedInuser.Username)
-	if err != nil {
+
+	if _, _, err := s.insertNewUser(r.User, r.Password, r.GetPermission(), r.Database, true, loggedInuser.Username); err != nil {
 		return nil, err
 	}
 	return &empty.Empty{}, nil
@@ -1157,10 +1288,14 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 
 // ListUsers returns a list of users based on the requesting user permissions
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
-	s.Logger.Debugf("ListUsers %+v")
+	s.Logger.Debugf("ListUsers invoked")
 	loggedInuser := &auth.User{}
-	var dbInd = int64(0)
-	var err error
+
+	var (
+		dbInd = int64(0)
+		err   error
+	)
+
 	userlist := &schema.UserList{}
 	if !s.Options.GetMaintenance() {
 		if !s.Options.GetAuth() {
@@ -1171,6 +1306,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 			return nil, fmt.Errorf("please login")
 		}
 	}
+
 	itemList, err := s.sysDb.Scan(&schema.ScanOptions{
 		Prefix: []byte{sysstore.KeyPrefixUser},
 	})
@@ -1178,15 +1314,17 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		s.Logger.Errorf("error getting users: %v", err)
 		return nil, err
 	}
+
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		// return all users, including the deactivated ones
 		for i := 0; i < len(itemList.Items); i++ {
 			itemList.Items[i].Key = itemList.Items[i].Key[1:]
+
 			var user auth.User
-			err = json.Unmarshal(itemList.Items[i].Value, &user)
-			if err != nil {
+			if err := json.Unmarshal(itemList.Items[i].Value, &user); err != nil {
 				return nil, err
 			}
+
 			permissions := []*schema.Permission{}
 			for _, val := range user.Permissions {
 				permissions = append(permissions, &schema.Permission{
@@ -1194,6 +1332,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 					Permission: val.Permission,
 				})
 			}
+
 			u := schema.User{
 				User:        []byte(user.Username),
 				Createdat:   user.CreatedAt.String(),
@@ -1209,13 +1348,14 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		selectedDbname := s.dbList.GetByIndex(dbInd).options.dbName
 		userlist := &schema.UserList{}
 		for i := 0; i < len(itemList.Items); i++ {
-			include := false
+			var include bool
 			itemList.Items[i].Key = itemList.Items[i].Key[1:]
+
 			var user auth.User
-			err = json.Unmarshal(itemList.Items[i].Value, &user)
-			if err != nil {
+			if err := json.Unmarshal(itemList.Items[i].Value, &user); err != nil {
 				return nil, err
 			}
+
 			permissions := []*schema.Permission{}
 			for _, val := range user.Permissions {
 				//check if this user has any permission for this database
@@ -1228,6 +1368,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 					Permission: val.Permission,
 				})
 			}
+
 			if include {
 				u := schema.User{
 					User:        []byte(user.Username),
@@ -1244,12 +1385,14 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		// any other permission return only its data
 		userlist := &schema.UserList{}
 		permissions := []*schema.Permission{}
+
 		for _, val := range loggedInuser.Permissions {
 			permissions = append(permissions, &schema.Permission{
 				Database:   val.Database,
 				Permission: val.Permission,
 			})
 		}
+
 		u := schema.User{
 			User:        []byte(loggedInuser.Username),
 			Createdat:   loggedInuser.CreatedAt.String(),
@@ -1258,6 +1401,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 			Active:      loggedInuser.Active,
 		}
 		userlist.Users = append(userlist.Users, &u)
+
 		return userlist, nil
 	}
 }
@@ -1266,6 +1410,7 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
 	s.Logger.Debugf("DatabaseList")
 	loggedInuser := &auth.User{}
+
 	var err error
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
@@ -1274,6 +1419,7 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	if err != nil {
 		return nil, fmt.Errorf("please login")
 	}
+
 	dbList := &schema.DatabaseListResponse{}
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		for i := 0; i < s.dbList.Length(); i++ {
@@ -1295,16 +1441,19 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 			dbList.Databases = append(dbList.Databases, db)
 		}
 	}
+
 	return dbList, nil
 }
 
 // PrintTree ...
 func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tree, error) {
 	s.Logger.Debugf("PrintTree")
+
 	ind, err := s.getDbIndexFromCtx(ctx, "PrintTree")
 	if err != nil {
 		return nil, err
 	}
+
 	return s.dbList.GetByIndex(ind).PrintTree(), nil
 }
 
@@ -1312,6 +1461,7 @@ func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tre
 func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
 	s.Logger.Debugf("UseDatabase %+v", db)
 	user := &auth.User{}
+
 	var err error
 	if !s.Options.GetMaintenance() {
 		if !s.Options.GetAuth() {
@@ -1336,27 +1486,27 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 			(!user.HasPermission(db.Databasename, auth.PermissionR)) &&
 			(!user.HasPermission(db.Databasename, auth.PermissionRW)) {
 
-			return nil, status.Errorf(codes.PermissionDenied,
-				"Logged in user does not have permission on this database")
+			return nil, status.Errorf(codes.PermissionDenied, "Logged in user does not have permission on this database")
 		}
 	} else {
 		user.IsSysAdmin = true
 		user.Username = ""
 		s.addUserToLoginList(user)
 	}
+
 	//check if database exists
 	ind, ok := s.databasenameToIndex[db.Databasename]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound,
 			fmt.Sprintf("%s does not exist", db.Databasename))
 	}
+
 	token, err := auth.GenerateToken(*user, ind)
 	if err != nil {
 		return nil, err
 	}
-	return &schema.UseDatabaseReply{
-		Token: token,
-	}, nil
+
+	return &schema.UseDatabaseReply{Token: token}, nil
 }
 
 //ChangePermission grant or revoke user permissions on databases
@@ -1366,15 +1516,16 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	if r.Database == SystemdbName {
 		return nil, fmt.Errorf("this database can not be assigned")
 	}
+
 	if !s.Options.GetMaintenance() {
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
 	}
+
 	_, user, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated,
-			"Please login")
+		return nil, status.Errorf(codes.Unauthenticated, "Please login")
 	}
 
 	//sanitize input
@@ -1382,16 +1533,16 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 		if len(r.Username) == 0 {
 			return nil, status.Errorf(codes.InvalidArgument, "username can not be empty")
 		}
+
 		if len(r.Database) == 0 {
 			return nil, status.Errorf(codes.InvalidArgument, "database can not be empty")
 		}
-		if (r.Action != schema.PermissionAction_GRANT) &&
-			(r.Action != schema.PermissionAction_REVOKE) {
+
+		if r.Action != schema.PermissionAction_GRANT && r.Action != schema.PermissionAction_REVOKE {
 			return nil, status.Errorf(codes.InvalidArgument, "action not recognized")
 		}
-		if (r.Permission == auth.PermissionNone) ||
-			((r.Permission > auth.PermissionRW) &&
-				(r.Permission < auth.PermissionAdmin)) {
+
+		if (r.Permission == auth.PermissionNone) || ((r.Permission > auth.PermissionRW) && (r.Permission < auth.PermissionAdmin)) {
 			return nil, status.Errorf(codes.InvalidArgument, "unrecognized permission")
 		}
 	}
@@ -1406,6 +1557,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "user %s not found", string(r.Username))
 	}
+
 	//target user should be active
 	if !targetUser.Active {
 		return nil, status.Errorf(codes.FailedPrecondition, "user %s is not active", string(r.Username))
@@ -1429,6 +1581,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 	if err := s.saveUser(targetUser); err != nil {
 		return nil, err
 	}
+
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
 
@@ -1441,21 +1594,25 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	if len(r.Username) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
 	}
+
 	user := &auth.User{}
-	var err error
 	if !s.Options.GetMaintenance() {
 		if !s.Options.GetAuth() {
 			return nil, fmt.Errorf("this command is available only with authentication on")
 		}
+
+		var err error
 		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("please login first")
 		}
+
 		if !user.IsSysAdmin {
 			if !user.HasAtLeastOnePermission(auth.PermissionAdmin) {
 				return nil, fmt.Errorf("user is not system admin nor admin in any of the databases")
 			}
 		}
+
 		if r.Username == user.Username {
 			return nil, fmt.Errorf("changing your own status is not allowed")
 		}
@@ -1465,6 +1622,7 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 	if err != nil {
 		return nil, fmt.Errorf("user %s not found", r.Username)
 	}
+
 	if !s.Options.GetMaintenance() {
 		//if the user is not sys admin then let's make sure the target was created from this admin
 		if !user.IsSysAdmin {
@@ -1473,12 +1631,14 @@ func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserR
 			}
 		}
 	}
+
 	targetUser.Active = r.Active
 	targetUser.CreatedBy = user.Username
 	targetUser.CreatedAt = time.Now()
 	if err := s.saveUser(targetUser); err != nil {
 		return nil, err
 	}
+
 	//remove user from loggedin users
 	s.removeUserFromLoginList(targetUser.Username)
 	return new(empty.Empty), nil
@@ -1493,6 +1653,7 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 			return DefaultDbIndex, nil
 		}
 	}
+
 	ind, usr, err := s.getLoggedInUserdataFromCtx(ctx)
 	if err != nil {
 		if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
@@ -1504,9 +1665,11 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 		}
 		return 0, fmt.Errorf("please login first")
 	}
+
 	if ind < 0 {
 		return 0, fmt.Errorf("please select a database first")
 	}
+
 	if usr.IsSysAdmin {
 		return ind, nil
 	}
@@ -1514,6 +1677,7 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).options.dbName), methodname); !ok {
 		return 0, fmt.Errorf("you do not have permission for this operation")
 	}
+
 	return ind, nil
 }
 func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *auth.User, error) {
@@ -1524,6 +1688,7 @@ func (s *ImmuServer) getLoggedInUserdataFromCtx(ctx context.Context) (int64, *au
 		}
 		return -1, nil, fmt.Errorf("could not get userdata from token")
 	}
+
 	u, err := s.getLoggedInUserDataFromUsername(jsUser.Username)
 	return jsUser.DatabaseIndex, u, err
 }
@@ -1541,21 +1706,19 @@ func (s *ImmuServer) getLoggedInUserDataFromUsername(username string) (*auth.Use
 func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permission uint32, database string, enforceStrongAuth bool, createdBy string) ([]byte, []byte, error) {
 	if enforceStrongAuth {
 		if !auth.IsValidUsername(string(username)) {
-			return nil, nil, status.Errorf(
-				codes.InvalidArgument,
-				"username can only contain letters, digits and underscores")
+			return nil, nil, status.Errorf(codes.InvalidArgument, "username can only contain letters, digits and underscores")
 		}
-	}
-	if enforceStrongAuth {
 		if err := auth.IsStrongPassword(string(plainPassword)); err != nil {
 			return nil, nil, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
 	}
+
 	userdata := new(auth.User)
 	plainpassword, err := userdata.SetPassword(plainPassword)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	userdata.Active = true
 	userdata.Username = string(username)
 	userdata.Permissions = append(userdata.Permissions, auth.Permission{Permission: permission, Database: database})
@@ -1568,9 +1731,11 @@ func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permis
 	if (permission > auth.PermissionRW) && (permission < auth.PermissionAdmin) {
 		return nil, nil, fmt.Errorf("unknown permission")
 	}
+
 	if err := s.saveUser(userdata); err != nil {
 		return nil, nil, err
 	}
+
 	return username, plainpassword, nil
 }
 
@@ -1579,10 +1744,11 @@ func (s *ImmuServer) getValidatedUser(username []byte, password []byte) (*auth.U
 	if err != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
 	}
-	err = userdata.ComparePasswords(password)
-	if err != nil {
+
+	if err := userdata.ComparePasswords(password); err != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "invalid user or password")
 	}
+
 	return userdata, nil
 }
 
@@ -1591,20 +1757,23 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.Us
 	key := make([]byte, 1+len(username))
 	key[0] = sysstore.KeyPrefixUser
 	copy(key[1:], username)
+
 	item, err := s.sysDb.Store.Get(schema.Key{Key: key})
 	if err != nil {
 		return nil, err
 	}
+
 	var usr auth.User
-	err = json.Unmarshal(item.Value, &usr)
-	if err != nil {
+	if err := json.Unmarshal(item.Value, &usr); err != nil {
 		return nil, err
 	}
+
 	if !includeDeactivated {
 		if usr.Active {
 			return nil, fmt.Errorf("user not found")
 		}
 	}
+
 	return &usr, nil
 }
 func (s *ImmuServer) saveUser(user *auth.User) error {
@@ -1613,6 +1782,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 		s.Logger.Errorf("error saving user: %v", err)
 		return err
 	}
+
 	userKey := make([]byte, 1+len(user.Username))
 	userKey[0] = sysstore.KeyPrefixUser
 	copy(userKey[1:], []byte(user.Username))
@@ -1621,10 +1791,12 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	_, err = s.sysDb.SafeSet(&schema.SafeSetOptions{
 		Kv: &userKV,
 	})
+
 	if err != nil {
 		s.Logger.Errorf("error saving user: %v", err)
 		return err
 	}
+
 	return nil
 }
 
@@ -1633,6 +1805,7 @@ func IsAllowedDbName(dbName string) error {
 	if len(dbName) < 1 || len(dbName) > 128 {
 		return fmt.Errorf("database name length outside of limits")
 	}
+
 	var hasSpecial bool
 	for _, ch := range dbName {
 		switch {
@@ -1644,9 +1817,11 @@ func IsAllowedDbName(dbName string) error {
 			return fmt.Errorf("unrecognized character in database name")
 		}
 	}
+
 	if hasSpecial {
 		return fmt.Errorf("punctuation marks and symbols are not allowed in database name")
 	}
+
 	return nil
 }
 func (s *ImmuServer) removeUserFromLoginList(username string) {
@@ -1665,6 +1840,7 @@ func (s *ImmuServer) mandatoryAuth() bool {
 	if s.Options.GetMaintenance() {
 		return false
 	}
+
 	//check if there are user created databases, should be zero for auth to be off
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
@@ -1673,10 +1849,12 @@ func (s *ImmuServer) mandatoryAuth() bool {
 			return true
 		}
 	}
+
 	//check if there is only default database
 	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(DefaultDbIndex).options.dbName == s.Options.defaultDbName) {
 		return false
 	}
+
 	if s.sysDb != nil {
 		//check if there is only sysadmin on systemdb and no other user
 		itemList, err := s.sysDb.Scan(&schema.ScanOptions{
@@ -1697,5 +1875,6 @@ func (s *ImmuServer) mandatoryAuth() bool {
 		//systemdb exists but there are no other users created
 		return false
 	}
+
 	return true
 }

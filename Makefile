@@ -25,6 +25,7 @@ GO ?= go
 DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
+GO_FORMAT := gofmt -s -w
 
 V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
@@ -82,6 +83,20 @@ vendor:
 	$(GO) mod vendor
 
 # To view coverage as HTML run: go tool cover -html=coverage.txt
+.PHONY: lint
+lint:
+	@docker pull golangci/golangci-lint:latest
+	docker run \
+		--rm \
+		--volume `pwd`:`pwd` \
+		--workdir=`pwd` \
+		--env=GO111MODULE=on \
+		golangci/golangci-lint:latest golangci-lint run --config=.golangci.yml ./...
+
+.PHONY: format
+format:
+	for file in `find $(PWD) -name '*.go'`; do $(GO_FORMAT) $$file; done
+
 .PHONY: test
 test:
 	$(GO) vet ./...
