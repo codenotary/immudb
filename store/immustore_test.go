@@ -341,8 +341,8 @@ func TestImmudbStore(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 10
-	eCount := 1000
+	txCount := 32
+	eCount := 100
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)

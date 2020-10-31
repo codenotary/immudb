@@ -684,7 +684,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		return
 	}
 
-	return tx.ID, tx.Ts, tx.PrevAlh, tx.Txh, nil
+	return tx.ID, tx.Ts, tx.PrevAlh, tx.TxH, nil
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
@@ -760,10 +760,10 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	bi += szSize
 	copy(b[bi:], tx.Eh[:])
 
-	tx.Txh = sha256.Sum256(b[:])
+	tx.TxH = sha256.Sum256(b[:])
 
 	// tx serialization using pre-allocated buffer
-	copy(s._txbs[txSize:], tx.Txh[:])
+	copy(s._txbs[txSize:], tx.TxH[:])
 	txSize += sha256.Size
 
 	txOff, _, err := s.txLog.Append(s._txbs[:txSize])
@@ -818,6 +818,8 @@ type DualProof struct {
 	TargetTxID             uint64
 	BinaryInclusionProof   [][sha256.Size]byte
 	BinaryConsistencyProof [][sha256.Size]byte
+	TrustedPrevAlh         [sha256.Size]byte
+	TrustedTxH             [sha256.Size]byte
 	JointTxID              uint64
 	JointPrevAlh           [sha256.Size]byte
 	JointTxH               [sha256.Size]byte
@@ -829,6 +831,12 @@ func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof,
 		return nil, ErrTrustedTxNotOlderThanTargetTx
 	}
 
+	trustedTx := s.NewTx()
+	err = s.ReadTx(trustedTxID, trustedTx)
+	if err != nil {
+		return nil, err
+	}
+
 	targetTx := s.NewTx()
 	err = s.ReadTx(targetTxID, targetTx)
 	if err != nil {
@@ -836,20 +844,22 @@ func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof,
 	}
 
 	proof = &DualProof{
-		TrustedTxID: trustedTxID,
-		TargetTxID:  targetTxID,
+		TrustedTxID:    trustedTxID,
+		TargetTxID:     targetTxID,
+		TrustedPrevAlh: trustedTx.PrevAlh,
+		TrustedTxH:     trustedTx.TxH,
 	}
 
 	if targetTx.BlTxID > trustedTxID {
 		jointTx := s.NewTx()
-		err = s.ReadTx(targetTx.BlTxID, jointTx)
+		err = s.ReadTx(targetTx.BlTxID+1, jointTx)
 		if err != nil {
 			return nil, err
 		}
 
 		proof.JointTxID = jointTx.ID
 		proof.JointPrevAlh = jointTx.PrevAlh
-		proof.JointTxH = jointTx.Txh
+		proof.JointTxH = jointTx.TxH
 
 		binInclusionProof, err := s.aht.InclusionProof(trustedTxID, targetTx.BlTxID)
 		if err != nil {
@@ -857,19 +867,23 @@ func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof,
 		}
 		proof.BinaryInclusionProof = binInclusionProof
 
-		binConsistencyProof, err := s.aht.ConsistencyProof(trustedTxID, targetTx.BlTxID)
+		if trustedTxID > 1 {
+			binConsistencyProof, err := s.aht.ConsistencyProof(trustedTxID-1, jointTx.BlTxID)
+			if err != nil {
+				return nil, err
+			}
+			proof.BinaryConsistencyProof = binConsistencyProof
+		}
+	}
+
+	if proof.JointTxID < targetTxID {
+		lproof, err := s.LinearProof(maxUint64(trustedTxID, proof.JointTxID), targetTxID)
 		if err != nil {
 			return nil, err
 		}
-		proof.BinaryConsistencyProof = binConsistencyProof
-	}
 
-	lproof, err := s.LinearProof(maxUint64(trustedTxID, targetTx.BlTxID), targetTxID)
-	if err != nil {
-		return nil, err
+		proof.LinearProof = lproof
 	}
-
-	proof.LinearProof = lproof
 
 	return
 }
@@ -899,7 +913,7 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, e
 	proof := make([][sha256.Size]byte, targetTxID-trustedTxID+1)
 	proof[0] = tx.Alh()
 
-	var b [txIDSize + 2*sha256.Size]byte
+	var b [2 * sha256.Size]byte
 
 	for i := 1; i < len(proof); i++ {
 		tx, err := r.Read()
@@ -907,9 +921,8 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, e
 			return nil, err
 		}
 
-		binary.BigEndian.PutUint64(b[:], tx.BlTxID)
-		copy(b[txIDSize:], tx.BlRoot[:])
-		copy(b[txIDSize+sha256.Size:], tx.Txh[:])
+		copy(b[:], tx.BlRoot[:])
+		copy(b[sha256.Size:], tx.TxH[:])
 
 		proof[i] = sha256.Sum256(b[:])
 	}

@@ -18,26 +18,28 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/binary"
+
+	"codenotary.io/immudb-v2/ahtree"
 )
 
-func VerifyLinearProof(lproof *LinearProof, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
-	if lproof.TrustedTxID != trustedTxID || lproof.TargetTxID != targetTxID {
+func VerifyLinearProof(proof *LinearProof, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
+	if proof.TrustedTxID != trustedTxID || proof.TargetTxID != targetTxID {
 		return false
 	}
 
-	if lproof.TrustedTxID == 0 || lproof.TrustedTxID > lproof.TargetTxID ||
-		len(lproof.Proof) == 0 || trustedAlh != lproof.Proof[0] {
+	if proof.TrustedTxID == 0 || proof.TrustedTxID > proof.TargetTxID ||
+		len(proof.Proof) == 0 || trustedAlh != proof.Proof[0] {
 		return false
 	}
 
-	calculatedAlh := lproof.Proof[0]
+	calculatedAlh := proof.Proof[0]
 
 	bs := make([]byte, txIDSize+2*sha256.Size)
 
-	for i := 1; i < len(lproof.Proof); i++ {
-		binary.BigEndian.PutUint64(bs, lproof.TrustedTxID+uint64(i))
+	for i := 1; i < len(proof.Proof); i++ {
+		binary.BigEndian.PutUint64(bs, proof.TrustedTxID+uint64(i))
 		copy(bs[txIDSize:], calculatedAlh[:])
-		copy(bs[txIDSize+sha256.Size:], lproof.Proof[i][:])
+		copy(bs[txIDSize+sha256.Size:], proof.Proof[i][:])
 		calculatedAlh = sha256.Sum256(bs)
 	}
 
@@ -45,5 +47,63 @@ func VerifyLinearProof(lproof *LinearProof, trustedTxID, targetTxID uint64, trus
 }
 
 func VerifyDualProof(proof *DualProof, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
-	return true
+	if proof.TrustedTxID != trustedTxID || proof.TargetTxID != targetTxID {
+		return false
+	}
+
+	if proof.TrustedTxID == 0 || proof.TrustedTxID > proof.TargetTxID {
+		return false
+	}
+
+	if proof.JointTxID == 0 {
+		return VerifyLinearProof(proof.LinearProof, proof.TrustedTxID, proof.TargetTxID, trustedAlh, targetAlh)
+	}
+
+	trustedLeaf := sha256.Sum256(trustedAlh[:])
+	jointBlRoot := ahtree.EvalInclusion(proof.BinaryInclusionProof, proof.TrustedTxID, proof.JointTxID-1, trustedLeaf)
+
+	if trustedTxID > 1 {
+		cTrustedBlRoot, cJointBlRoot := ahtree.EvalConsistency(proof.BinaryConsistencyProof, proof.TrustedTxID-1, proof.JointTxID-1)
+
+		if jointBlRoot != cJointBlRoot {
+			return false
+		}
+
+		cTrustedAlh := alh(trustedTxID, proof.TrustedPrevAlh, cTrustedBlRoot, proof.TrustedTxH)
+
+		if trustedAlh != cTrustedAlh {
+			return false
+		}
+	}
+
+	jointAlh := alh(proof.JointTxID, proof.JointPrevAlh, jointBlRoot, proof.JointTxH)
+
+	if proof.JointTxID == targetTxID {
+		return targetAlh == jointAlh
+	}
+
+	return VerifyLinearProof(proof.LinearProof, proof.JointTxID, proof.TargetTxID, jointAlh, targetAlh)
+}
+
+func alh(txID uint64, prevAlh [sha256.Size]byte, blRoot, txH [sha256.Size]byte) [sha256.Size]byte {
+	var bi [txIDSize + 2*sha256.Size]byte
+	i := 0
+
+	binary.BigEndian.PutUint64(bi[:], txID)
+	i += txIDSize
+	copy(bi[i:], prevAlh[:])
+	i += sha256.Size
+
+	var bj [2 * sha256.Size]byte
+	j := 0
+
+	copy(bj[:], blRoot[:])
+	j += sha256.Size
+	copy(bj[j:], txH[:])
+
+	bhash := sha256.Sum256(bj[:])
+
+	copy(bi[i:], bhash[:])
+
+	return sha256.Sum256(bi[:])
 }

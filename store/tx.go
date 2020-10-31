@@ -32,7 +32,7 @@ type Tx struct {
 	PrevAlh  [sha256.Size]byte
 	nentries int
 	entries  []*Txe
-	Txh      [sha256.Size]byte
+	TxH      [sha256.Size]byte
 	htree    [][][sha256.Size]byte
 	Eh       [sha256.Size]byte
 }
@@ -116,14 +116,12 @@ func (tx *Tx) Alh() [sha256.Size]byte {
 	copy(bi[i:], tx.PrevAlh[:])
 	i += sha256.Size
 
-	var bj [txIDSize + 2*sha256.Size]byte
+	var bj [2 * sha256.Size]byte
 	j := 0
 
-	binary.BigEndian.PutUint64(bj[j:], tx.BlTxID)
-	j += txIDSize
-	copy(bj[j:], tx.BlRoot[:])
+	copy(bj[:], tx.BlRoot[:])
 	j += sha256.Size
-	copy(bj[j:], tx.Txh[:])
+	copy(bj[j:], tx.TxH[:])
 
 	bhash := sha256.Sum256(bj[:])
 
@@ -203,7 +201,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		tx.htree[0][i] = tx.entries[i].digest()
 	}
 
-	_, err = r.Read(tx.Txh[:])
+	_, err = r.Read(tx.TxH[:])
 
 	tx.buildHashTree()
 
@@ -224,7 +222,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	bi += szSize
 	copy(b[bi:], tx.Eh[:])
 
-	if tx.Txh != sha256.Sum256(b[:]) {
+	if tx.TxH != sha256.Sum256(b[:]) {
 		return ErrorCorruptedTxData
 	}
 

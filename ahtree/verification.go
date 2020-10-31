@@ -22,6 +22,12 @@ func VerifyInclusion(iproof [][sha256.Size]byte, i, j uint64, iLeaf, jRoot [sha2
 		return false
 	}
 
+	ciRoot := EvalInclusion(iproof, i, j, iLeaf)
+
+	return jRoot == ciRoot
+}
+
+func EvalInclusion(iproof [][sha256.Size]byte, i, j uint64, iLeaf [sha256.Size]byte) [sha256.Size]byte {
 	i1 := i - 1
 	j1 := j - 1
 
@@ -45,7 +51,7 @@ func VerifyInclusion(iproof [][sha256.Size]byte, i, j uint64, iLeaf, jRoot [sha2
 		j1 >>= 1
 	}
 
-	return jRoot == ciRoot
+	return ciRoot
 }
 
 func VerifyConsistency(cproof [][sha256.Size]byte, i, j uint64, iRoot, jRoot [sha256.Size]byte) bool {
@@ -57,6 +63,12 @@ func VerifyConsistency(cproof [][sha256.Size]byte, i, j uint64, iRoot, jRoot [sh
 		return iRoot == jRoot
 	}
 
+	ciRoot, cjRoot := EvalConsistency(cproof, i, j)
+
+	return iRoot == ciRoot && jRoot == cjRoot
+}
+
+func EvalConsistency(cproof [][sha256.Size]byte, i, j uint64) ([sha256.Size]byte, [sha256.Size]byte) {
 	fn := i - 1
 	sn := j - 1
 
@@ -92,5 +104,5 @@ func VerifyConsistency(cproof [][sha256.Size]byte, i, j uint64, iRoot, jRoot [sh
 		sn >>= 1
 	}
 
-	return iRoot == ciRoot && jRoot == cjRoot
+	return ciRoot, cjRoot
 }
