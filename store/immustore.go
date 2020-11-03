@@ -1231,6 +1231,11 @@ func (s *ImmuStore) Close() error {
 		errors = append(errors, cErr)
 	}
 
+	tErr := s.aht.Close()
+	if tErr != nil {
+		errors = append(errors, tErr)
+	}
+
 	iErr := s.index.Close()
 	if iErr != nil {
 		errors = append(errors, iErr)
