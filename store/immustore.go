@@ -32,12 +32,14 @@ import (
 	"codenotary.io/immudb-v2/ahtree"
 	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/multiapp"
+	"codenotary.io/immudb-v2/cbuffer"
 	"codenotary.io/immudb-v2/multierr"
 	"codenotary.io/immudb-v2/tbtree"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
+var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
@@ -67,7 +69,7 @@ const MaxKeyLen = 1024 // assumed to be not lower than hash size
 
 const MaxParallelIO = 127
 
-const cLogEntrySize = 12 // tx offset & size
+const cLogEntrySize = offsetSize + szSize // tx offset & size
 
 const txIDSize = 8
 const tsSize = 8
@@ -116,13 +118,12 @@ type ImmuStore struct {
 
 	_kvs []*tbtree.KV //pre-allocated for indexing
 
-	index *tbtree.TBtree
+	blBuffer *cbuffer.CHBuffer
+	blErr    error
+	blMutex  sync.Mutex
+	aht      *ahtree.AHtree
 
-	aht     *ahtree.AHtree
-	blmutex sync.Mutex
-	blTxID  uint64
-	blRoot  [sha256.Size]byte
-
+	index        *tbtree.TBtree
 	indexerErr   error
 	indexerMutex sync.Mutex
 
@@ -352,7 +353,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		SetReadOnly(opts.readOnly).
 		SetFileMode(opts.fileMode).
 		SetFileSize(fileSize).
-		SetSynced(false) // index is built from derived data
+		SetSynced(false) // built from derived data
 
 	aht, err := ahtree.Open(ahtPath, ahtOpts)
 	if err != nil {
@@ -364,19 +365,9 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		kvs[i] = &tbtree.KV{K: make([]byte, maxKeyLen), V: make([]byte, sha256.Size+szSize+offsetSize)}
 	}
 
-	var blTxID uint64
-	var blRoot [sha256.Size]byte
-
-	blTxID, err = aht.Size()
-	if err != nil {
-		return nil, err
-	}
-
-	if blTxID > 0 {
-		blRoot, err = aht.Root()
-		if err != nil {
-			return nil, err
-		}
+	var blBuffer *cbuffer.CHBuffer
+	if opts.maxLinearProofLen > 0 {
+		blBuffer = cbuffer.New(opts.maxLinearProofLen)
 	}
 
 	store := &ImmuStore{
@@ -396,12 +387,17 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		maxLinearProofLen:  opts.maxLinearProofLen,
 		maxTxSize:          maxTxSize,
 		index:              index,
+		blBuffer:           blBuffer,
 		aht:                aht,
-		blTxID:             blTxID,
-		blRoot:             blRoot,
 		_kvs:               kvs,
 		_txs:               txs,
 		_txbs:              txbs,
+	}
+
+	//TODO: replay missing entries from commit to alh directly
+
+	if store.blBuffer != nil {
+		go store.binaryLinking()
 	}
 
 	go store.indexer()
@@ -415,6 +411,35 @@ func (s *ImmuStore) NewTx() *Tx {
 
 func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
 	return s.index.Snapshot()
+}
+
+func (s *ImmuStore) binaryLinking() {
+	for {
+		alh, err := s.blBuffer.Get()
+		if err == cbuffer.ErrBufferIsEmpty {
+			time.Sleep(time.Duration(10) * time.Millisecond)
+			continue
+		} else if err != nil {
+			s.blMutex.Lock()
+			s.blErr = err
+			s.blMutex.Unlock()
+			return
+		}
+		_, _, err = s.aht.Append(alh[:])
+		if err != nil {
+			s.blMutex.Lock()
+			s.blErr = err
+			s.blMutex.Unlock()
+			return
+		}
+	}
+}
+
+func (s *ImmuStore) BlInfo() (uint64, error) {
+	s.blMutex.Lock()
+	defer s.blMutex.Unlock()
+
+	return s.aht.Size(), s.blErr
 }
 
 func (s *ImmuStore) indexer() {
@@ -477,13 +502,6 @@ func (s *ImmuStore) doIndexing() error {
 	}
 
 	return err
-}
-
-func (s *ImmuStore) blInfo() (uint64, [sha256.Size]byte) {
-	s.blmutex.Lock()
-	defer s.blmutex.Unlock()
-
-	return s.blTxID, s.blRoot
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
@@ -701,10 +719,17 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	tx.ID = s.committedTxID + 1
 	tx.Ts = time.Now().Unix()
 
-	blTxID, blRoot := s.blInfo()
+	blTxID, blRoot, err := s.aht.Root()
+	if err != nil && err != ahtree.ErrEmptyTree {
+		return err
+	}
 
 	tx.BlTxID = blTxID
 	tx.BlRoot = blRoot
+
+	if tx.ID <= tx.BlTxID {
+		return ErrUnexpectedLinkingError
+	}
 
 	tx.PrevAlh = s.committedAlh
 
@@ -776,6 +801,23 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
+	alh := tx.Alh()
+
+	if s.blBuffer == nil {
+		_, _, err := s.aht.Append(alh[:])
+		if err != nil {
+			return err
+		}
+	} else {
+		err = s.blBuffer.Put(alh)
+		if err != nil {
+			if err == cbuffer.ErrBufferIsFull {
+				return ErrLinearProofMaxLenExceeded
+			}
+			return err
+		}
+	}
+
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(txOff))
 	binary.BigEndian.PutUint32(cb[offsetSize:], uint32(txSize))
@@ -789,25 +831,8 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
-	/////// TODO: ASYNC
-	alh := tx.Alh()
-
-	blTxID, blRoot, err = s.aht.Append(alh[:])
-	if err != nil {
-		return err
-	}
-	if tx.ID != blTxID {
-		return ErrCorruptedAHtree
-	}
-
-	s.blmutex.Lock()
-	s.blTxID = blTxID
-	s.blRoot = blRoot
-	s.blmutex.Unlock()
-	///////
-
 	s.committedTxID++
-	s.committedAlh = tx.Alh()
+	s.committedAlh = alh
 	s.committedTxLogSize += int64(txSize)
 
 	return nil
