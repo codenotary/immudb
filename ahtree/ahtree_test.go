@@ -60,7 +60,7 @@ func TestEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
-	_, err = tree.Root()
+	_, _, err = tree.Root()
 	require.Error(t, ErrEmptyTree, err)
 
 	_, err = tree.DataAt(0)
@@ -75,7 +75,7 @@ func TestEdgeCases(t *testing.T) {
 	_, _, err = tree.Append(nil)
 	require.Error(t, ErrAlreadyClosed, err)
 
-	_, err = tree.Root()
+	_, _, err = tree.Root()
 	require.Error(t, ErrAlreadyClosed, err)
 
 	_, err = tree.DataAt(1)
@@ -124,8 +124,9 @@ func TestAppend(t *testing.T) {
 		ri, err := tree.RootAt(uint64(i))
 		require.NoError(t, err)
 
-		r, err := tree.Root()
+		n, r, err := tree.Root()
 		require.NoError(t, err)
+		require.Equal(t, uint64(i), n)
 		require.Equal(t, r, ri)
 
 		sz, err := tree.Size()

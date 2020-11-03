@@ -510,8 +510,10 @@ func (t *AHtree) DataAt(n uint64) ([]byte, error) {
 	return p, nil
 }
 
-func (t *AHtree) Root() (r [sha256.Size]byte, err error) {
-	return t.RootAt(uint64(t.cLogSize / cLogEntrySize))
+func (t *AHtree) Root() (n uint64, r [sha256.Size]byte, err error) {
+	n = uint64(t.cLogSize / cLogEntrySize)
+	r, err = t.RootAt(n)
+	return
 }
 
 func (t *AHtree) RootAt(n uint64) (r [sha256.Size]byte, err error) {
