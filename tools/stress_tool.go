@@ -216,11 +216,11 @@ func main() {
 					}
 				}
 
-				fmt.Printf("\r\nCommitter %d is running...\r\n", id)
-
 				wgInit.Done()
 
 				wgStart.Wait()
+
+				fmt.Printf("\r\nCommitter %d is running...\r\n", id)
 
 				ids := make([]uint64, *txCount)
 
