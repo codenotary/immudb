@@ -394,7 +394,10 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		_txbs:              txbs,
 	}
 
-	//TODO: replay missing entries from commit to alh directly
+	err = store.syncBinaryLinking()
+	if err != nil {
+		return nil, err
+	}
 
 	if store.blBuffer != nil {
 		go store.binaryLinking()
@@ -440,6 +443,35 @@ func (s *ImmuStore) BlInfo() (uint64, error) {
 	defer s.blMutex.Unlock()
 
 	return s.aht.Size(), s.blErr
+}
+
+func (s *ImmuStore) syncBinaryLinking() error {
+	if s.aht.Size() > s.committedTxID {
+		return ErrUnexpectedLinkingError
+	}
+
+	if s.aht.Size() == s.committedTxID {
+		return nil
+	}
+
+	txReader, err := s.NewTxReader(s.aht.Size()+1, s.maxTxSize)
+	if err != nil {
+		return err
+	}
+
+	for {
+		tx, err := txReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		alh := tx.Alh()
+		s.aht.Append(alh[:])
+	}
+
+	return nil
 }
 
 func (s *ImmuStore) indexer() {
