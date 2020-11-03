@@ -26,6 +26,7 @@ import (
 
 	"codenotary.io/immudb-v2/appendable"
 	"codenotary.io/immudb-v2/appendable/multiapp"
+	"codenotary.io/immudb-v2/cache"
 	"codenotary.io/immudb-v2/multierr"
 )
 
@@ -61,6 +62,9 @@ type AHtree struct {
 	pLogSize int64
 	dLogSize int64
 	cLogSize int64
+
+	pCache *cache.LRUCache
+	dCache *cache.LRUCache
 
 	readOnly bool
 
@@ -165,6 +169,16 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		return nil, err
 	}
 
+	pCache, err := cache.NewLRUCache(opts.dataCacheSlots)
+	if err != nil {
+		return nil, err
+	}
+
+	dCache, err := cache.NewLRUCache(opts.digestsCacheSlots)
+	if err != nil {
+		return nil, err
+	}
+
 	t := &AHtree{
 		pLog:     pLog,
 		dLog:     dLog,
@@ -172,6 +186,8 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		pLogSize: 0,
 		dLogSize: dLogSize,
 		cLogSize: cLogSize,
+		pCache:   pCache,
+		dCache:   dCache,
 		readOnly: opts.readOnly,
 	}
 
@@ -250,7 +266,11 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		if w%2 == 1 {
 			b := [1 + sha256.Size*2]byte{NodePrefix}
 
-			hkl := t.node(k, l)
+			hkl, nErr := t.node(k, l)
+			if nErr != nil {
+				err = nErr
+				return
+			}
 
 			copy(b[1:], hkl[:])
 			copy(b[1+sha256.Size:], h[:])
@@ -305,15 +325,22 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	return
 }
 
-func (t *AHtree) node(n uint64, l int) [sha256.Size]byte {
-	hCount := nodesUntil(n) + uint64(l)
+func (t *AHtree) node(n uint64, l int) (h [sha256.Size]byte, err error) {
+	return t.nodeAt(nodesUntil(n) + uint64(l))
+}
 
-	//TODO: cache
+func (t *AHtree) nodeAt(i uint64) (h [sha256.Size]byte, err error) {
+	v, cErr := t.dCache.Get(i)
+	if cErr == cache.ErrKeyNotFound {
+		_, err = t.dLog.ReadAt(h[:], int64(i*sha256.Size))
+		if err != nil {
+			return
+		}
+		t.dCache.Put(i, h)
+		return
+	}
 
-	var h [sha256.Size]byte
-	t.dLog.ReadAt(h[:], int64(hCount*sha256.Size))
-
-	return h
+	return v.([sha256.Size]byte), nil
 }
 
 func nodesUntil(n uint64) uint64 {
@@ -384,7 +411,11 @@ func (t *AHtree) inclusionProof(i, j uint64, height int) ([][sha256.Size]byte, e
 			k := (j - 1) >> h << h
 
 			if i <= k {
-				proof = append([][sha256.Size]byte{t.highestNode(j, h)}, proof...)
+				hNode, err := t.highestNode(j, h)
+				if err != nil {
+					return nil, err
+				}
+				proof = append([][sha256.Size]byte{hNode}, proof...)
 
 				p, err := t.inclusionProof(i, k, h)
 				if err != nil {
@@ -395,7 +426,11 @@ func (t *AHtree) inclusionProof(i, j uint64, height int) ([][sha256.Size]byte, e
 				return proof, nil
 			}
 
-			proof = append([][sha256.Size]byte{t.node(k, h)}, proof...)
+			n, err := t.node(k, h)
+			if err != nil {
+				return nil, err
+			}
+			proof = append([][sha256.Size]byte{n}, proof...)
 		}
 	}
 
@@ -430,7 +465,11 @@ func (t *AHtree) consistencyProof(i, j uint64, height int) ([][sha256.Size]byte,
 			k := (j - 1) >> h << h
 
 			if i <= k {
-				proof = append([][sha256.Size]byte{t.highestNode(j, h)}, proof...)
+				hNode, err := t.highestNode(j, h)
+				if err != nil {
+					return nil, err
+				}
+				proof = append([][sha256.Size]byte{hNode}, proof...)
 
 				if i < k {
 					p, err := t.consistencyProof(i, k, h)
@@ -442,16 +481,28 @@ func (t *AHtree) consistencyProof(i, j uint64, height int) ([][sha256.Size]byte,
 				}
 
 				if i == k {
-					proof = append([][sha256.Size]byte{t.highestNode(i, h)}, proof...)
+					hNode, err := t.highestNode(i, h)
+					if err != nil {
+						return nil, err
+					}
+					proof = append([][sha256.Size]byte{hNode}, proof...)
 				}
 
 				return proof, nil
 			}
 
-			proof = append([][sha256.Size]byte{t.node(k, h)}, proof...)
+			n, err := t.node(k, h)
+			if err != nil {
+				return nil, err
+			}
+			proof = append([][sha256.Size]byte{n}, proof...)
 
 			if i == j {
-				proof = append([][sha256.Size]byte{t.highestNode(i, h)}, proof...)
+				hNode, err := t.highestNode(i, h)
+				if err != nil {
+					return nil, err
+				}
+				proof = append([][sha256.Size]byte{hNode}, proof...)
 				return proof, nil
 			}
 		}
@@ -460,7 +511,7 @@ func (t *AHtree) consistencyProof(i, j uint64, height int) ([][sha256.Size]byte,
 	return proof, nil
 }
 
-func (t *AHtree) highestNode(i uint64, d int) [sha256.Size]byte {
+func (t *AHtree) highestNode(i uint64, d int) ([sha256.Size]byte, error) {
 	l := 0
 	for r := d - 1; r >= 0; r-- {
 		if (i-1)&(1<<r) > 0 {
@@ -490,24 +541,27 @@ func (t *AHtree) DataAt(n uint64) ([]byte, error) {
 		return nil, ErrUnexistentData
 	}
 
-	// TODO: cache directly on dLog  n->value ?
+	v, err := t.pCache.Get(n)
+	if err == cache.ErrKeyNotFound {
+		var b [cLogEntrySize]byte
+		_, err := t.cLog.ReadAt(b[:], int64((n-1)*cLogEntrySize))
+		if err != nil {
+			return nil, err
+		}
 
-	var b [cLogEntrySize]byte
-	_, err := t.cLog.ReadAt(b[:], int64((n-1)*cLogEntrySize))
-	if err != nil {
-		return nil, err
+		pOff := binary.BigEndian.Uint64(b[:])
+		pSize := binary.BigEndian.Uint32(b[offsetSize:])
+
+		p := make([]byte, pSize)
+		_, err = t.pLog.ReadAt(p[:], int64(pOff+szSize))
+		if err != nil {
+			return nil, err
+		}
+
+		t.pCache.Put(n, p)
+		return p, nil
 	}
-
-	pOff := binary.BigEndian.Uint64(b[:])
-	pSize := binary.BigEndian.Uint32(b[offsetSize:])
-
-	p := make([]byte, pSize)
-	_, err = t.pLog.ReadAt(p[:], int64(pOff+szSize))
-	if err != nil {
-		return nil, err
-	}
-
-	return p, nil
+	return v.([]byte), nil
 }
 
 func (t *AHtree) Root() (n uint64, r [sha256.Size]byte, err error) {
@@ -553,12 +607,7 @@ func (t *AHtree) rootAt(n uint64) (r [sha256.Size]byte, err error) {
 		return
 	}
 
-	hCount := nodesUntil(n) + uint64(levelsAt(n))
-
-	// TODO: cache
-	_, err = t.dLog.ReadAt(r[:], int64(hCount*sha256.Size))
-
-	return
+	return t.nodeAt(nodesUntil(n) + uint64(levelsAt(n)))
 }
 
 func (t *AHtree) Sync() error {

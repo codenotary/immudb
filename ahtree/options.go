@@ -23,11 +23,16 @@ import (
 )
 
 const DefaultFileMode = 0755
+const DefaultDataCacheSlots = 1_000
+const DefaultDigestsCacheSlots = 100_000
 
 type Options struct {
 	readOnly bool
 	synced   bool
 	fileMode os.FileMode
+
+	dataCacheSlots    int
+	digestsCacheSlots int
 
 	// Options below are only set during initialization and stored as metadata
 	fileSize          int
@@ -37,9 +42,11 @@ type Options struct {
 
 func DefaultOptions() *Options {
 	return &Options{
-		readOnly: false,
-		synced:   true,
-		fileMode: DefaultFileMode,
+		readOnly:          false,
+		synced:            false,
+		fileMode:          DefaultFileMode,
+		dataCacheSlots:    DefaultDataCacheSlots,
+		digestsCacheSlots: DefaultDigestsCacheSlots,
 
 		// Options below are only set during initialization and stored as metadata
 		fileSize:          multiapp.DefaultFileSize,
@@ -49,7 +56,10 @@ func DefaultOptions() *Options {
 }
 
 func validOptions(opts *Options) bool {
-	return opts != nil && opts.fileSize > 0
+	return opts != nil &&
+		opts.fileSize > 0 &&
+		opts.dataCacheSlots > 0 &&
+		opts.digestsCacheSlots > 0
 }
 
 func (opts *Options) SetReadOnly(readOnly bool) *Options {
@@ -64,6 +74,16 @@ func (opts *Options) SetSynced(synced bool) *Options {
 
 func (opts *Options) SetFileMode(fileMode os.FileMode) *Options {
 	opts.fileMode = fileMode
+	return opts
+}
+
+func (opts *Options) SetDataCacheSlots(cacheSlots int) *Options {
+	opts.dataCacheSlots = cacheSlots
+	return opts
+}
+
+func (opts *Options) SetDigestsCacheSlots(cacheSlots int) *Options {
+	opts.digestsCacheSlots = cacheSlots
 	return opts
 }
 
