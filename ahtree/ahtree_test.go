@@ -129,8 +129,7 @@ func TestAppend(t *testing.T) {
 		require.Equal(t, uint64(i), n)
 		require.Equal(t, r, ri)
 
-		sz, err := tree.Size()
-		require.NoError(t, err)
+		sz := tree.Size()
 		require.Equal(t, uint64(i), sz)
 
 		rp, err := tree.DataAt(uint64(i))

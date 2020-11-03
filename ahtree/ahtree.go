@@ -470,8 +470,8 @@ func (t *AHtree) highestNode(i uint64, d int) [sha256.Size]byte {
 	return t.node(i, l)
 }
 
-func (t *AHtree) Size() (uint64, error) {
-	return uint64(t.cLogSize / cLogEntrySize), nil
+func (t *AHtree) Size() uint64 {
+	return uint64(t.cLogSize / cLogEntrySize)
 }
 
 func (t *AHtree) DataAt(n uint64) ([]byte, error) {
@@ -511,8 +511,17 @@ func (t *AHtree) DataAt(n uint64) ([]byte, error) {
 }
 
 func (t *AHtree) Root() (n uint64, r [sha256.Size]byte, err error) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.cLogSize == 0 {
+		err = ErrEmptyTree
+		return
+	}
+
 	n = uint64(t.cLogSize / cLogEntrySize)
-	r, err = t.RootAt(n)
+	r, err = t.rootAt(n)
+
 	return
 }
 
@@ -520,8 +529,17 @@ func (t *AHtree) RootAt(n uint64) (r [sha256.Size]byte, err error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
+	return t.rootAt(n)
+}
+
+func (t *AHtree) rootAt(n uint64) (r [sha256.Size]byte, err error) {
 	if t.closed {
 		err = ErrAlreadyClosed
+		return
+	}
+
+	if n == 0 {
+		err = ErrIllegalArguments
 		return
 	}
 
