@@ -48,7 +48,9 @@ const (
 	MetaFileSize = "FILE_SIZE"
 )
 
-const cLogEntrySize = 12 // data offset and size
+const cLogEntrySize = offsetSize + szSize
+const offsetSize = 8
+const szSize = 4
 
 //AHtree stands for Appendable Hash Tree
 type AHtree struct {
@@ -181,7 +183,7 @@ func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, e
 		}
 
 		pOff := binary.BigEndian.Uint64(b[:])
-		pSize := binary.BigEndian.Uint32(b[8:])
+		pSize := binary.BigEndian.Uint32(b[offsetSize:])
 
 		t.pLogSize = int64(pOff) + int64(pSize)
 	}
@@ -219,7 +221,7 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 	// will overrite partially written and uncommitted data
 	t.pLog.SetOffset(t.pLogSize)
 
-	var dLenBs [4]byte
+	var dLenBs [szSize]byte
 	binary.BigEndian.PutUint32(dLenBs[:], uint32(len(d)))
 	poff, _, perr := t.pLog.Append(dLenBs[:])
 	if perr != nil {
@@ -284,7 +286,7 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 
 	var cLogEntry [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cLogEntry[:], uint64(poff))
-	binary.BigEndian.PutUint32(cLogEntry[8:], uint32(len(d)))
+	binary.BigEndian.PutUint32(cLogEntry[offsetSize:], uint32(len(d)))
 
 	_, _, err = t.cLog.Append(cLogEntry[:])
 	if err != nil {
@@ -296,7 +298,7 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		return
 	}
 
-	t.pLogSize += int64(4 + len(d))
+	t.pLogSize += int64(szSize + len(d))
 	t.dLogSize += int64(dCount * sha256.Size)
 	t.cLogSize += cLogEntrySize
 
@@ -497,10 +499,10 @@ func (t *AHtree) DataAt(n uint64) ([]byte, error) {
 	}
 
 	pOff := binary.BigEndian.Uint64(b[:])
-	pSize := binary.BigEndian.Uint32(b[8:])
+	pSize := binary.BigEndian.Uint32(b[offsetSize:])
 
 	p := make([]byte, pSize)
-	_, err = t.pLog.ReadAt(p[:], int64(pOff+4))
+	_, err = t.pLog.ReadAt(p[:], int64(pOff+szSize))
 	if err != nil {
 		return nil, err
 	}
