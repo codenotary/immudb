@@ -130,7 +130,7 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 	}
 	dbb.Close()
 	// End Tampering
-	db1, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db1, err := OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	assert.NoError(t, err)
 	dbList.Append(db1)
 
@@ -193,7 +193,7 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 	}
 	dbb.Close()
 	// End Tampering
-	db1, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db1, err := OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	assert.NoError(t, err)
 	dbList.Append(db1)
 
@@ -265,7 +265,7 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 	}
 	dbb.Close()
 	// End Tampering
-	db1, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db1, err := OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	assert.NoError(t, err)
 	dbList.Append(db1)
 
@@ -299,7 +299,7 @@ func TestCorruptionChecker_Stop(t *testing.T) {
 	defer os.RemoveAll("test")
 	dbList := NewDatabaseList()
 	options := DefaultOption().WithDbName("test").WithDbRootPath("test")
-	// End Tampering
+
 	db1, _ := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	dbList.Append(db1)
 

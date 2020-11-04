@@ -84,13 +84,12 @@ func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
 
 	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
 
-	if _, dbErr := os.Stat(dbDir); os.IsExist(dbErr) {
+	if _, dbErr := os.Stat(dbDir); dbErr == nil {
 		return nil, fmt.Errorf("Database directories already exist")
 	}
 
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
-		db.Logger.Errorf("Unable to create data folder: %s", err)
-		return nil, err
+		return nil, logErr(db.Logger, "Unable to create data folder: %s", err)
 	}
 
 	db.Store, err = store.Open(store.DefaultOptions(dbDir, db.Logger))
