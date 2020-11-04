@@ -40,6 +40,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -83,6 +84,16 @@ func newAuthServer(dbroot string) *ImmuServer {
 	}
 	return s
 }
+
+func TestLogErr(t *testing.T) {
+	logger := logger.NewSimpleLogger("immudb ", os.Stderr)
+
+	require.Nil(t, logErr(logger, "error: %v", nil))
+
+	err := fmt.Errorf("expected error")
+	require.Error(t, logErr(logger, "error: %v", err))
+}
+
 func login(s *ImmuServer, username, password string) (context.Context, error) {
 	r := &schema.LoginRequest{
 		User:     []byte(username),

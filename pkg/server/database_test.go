@@ -18,7 +18,6 @@ package server
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -93,15 +92,6 @@ func makeDb() (*Db, func()) {
 			log.Fatal(err)
 		}
 	}
-}
-
-func TestLogErr(t *testing.T) {
-	logger := logger.NewSimpleLogger("immudb ", os.Stderr)
-
-	require.Nil(t, logErr(logger, "error: %v", nil))
-
-	err := fmt.Errorf("expected error")
-	require.Error(t, logErr(logger, "error: %v", err))
 }
 
 func TestDefaultDbCreation(t *testing.T) {

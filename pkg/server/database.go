@@ -57,14 +57,6 @@ func OpenDb(op *DbOptions, log logger.Logger) (*Db, error) {
 	return db, logErr(db.Logger, "Unable to open store: %s", err)
 }
 
-func logErr(log logger.Logger, formattedMessage string, err error) error {
-	if err != nil {
-		log.Errorf(formattedMessage, err)
-		return fmt.Errorf(formattedMessage, err)
-	}
-	return nil
-}
-
 // NewDb Creates a new Database along with it's directories and files
 func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
 	var err error
