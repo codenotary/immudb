@@ -39,55 +39,62 @@ type Db struct {
 // OpenDb Opens an existing Database from disk
 func OpenDb(op *DbOptions, log logger.Logger) (*Db, error) {
 	var err error
+
 	db := &Db{
 		Logger:  log,
 		options: op,
 	}
+
 	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
 	_, dbErr := os.Stat(dbDir)
+
 	if os.IsNotExist(dbErr) {
 		return nil, fmt.Errorf("Missing database directories")
 	}
+
 	db.Store, err = store.Open(store.DefaultOptions(dbDir, db.Logger))
+
+	return db, logErr(db.Logger, "Unable to open store: %s", err)
+}
+
+func logErr(log logger.Logger, formattedMessage string, err error) error {
 	if err != nil {
-		db.Logger.Errorf("Unable to open store: %s", err)
-		return nil, err
+		log.Errorf(formattedMessage, err)
+		return fmt.Errorf(formattedMessage, err)
 	}
-	return db, nil
+	return nil
 }
 
 // NewDb Creates a new Database along with it's directories and files
 func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
 	var err error
+
 	db := &Db{
 		Logger:  log,
 		options: op,
 	}
+
 	if op.GetInMemoryStore() {
 		db.Logger.Infof("Starting with in memory store")
 		storeOpts, badgerOpts := store.DefaultOptions("", db.Logger)
 		badgerOpts = badgerOpts.WithInMemory(true)
 		db.Store, err = store.Open(storeOpts, badgerOpts)
-		if err != nil {
-			db.Logger.Errorf("Unable to open store: %s", err)
-			return nil, err
-		}
-	} else {
-		dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
-		if _, dbErr := os.Stat(dbDir); os.IsExist(dbErr) {
-			return nil, fmt.Errorf("Database directories already exist")
-		}
-		if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
-			db.Logger.Errorf("Unable to create data folder: %s", err)
-			return nil, err
-		}
-		db.Store, err = store.Open(store.DefaultOptions(dbDir, db.Logger))
-		if err != nil {
-			db.Logger.Errorf("Unable to open store: %s", err)
-			return nil, err
-		}
+		return db, logErr(db.Logger, "Unable to open store: %s", err)
 	}
-	return db, nil
+
+	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
+
+	if _, dbErr := os.Stat(dbDir); os.IsExist(dbErr) {
+		return nil, fmt.Errorf("Database directories already exist")
+	}
+
+	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
+		db.Logger.Errorf("Unable to create data folder: %s", err)
+		return nil, err
+	}
+
+	db.Store, err = store.Open(store.DefaultOptions(dbDir, db.Logger))
+	return db, logErr(db.Logger, "Unable to open store: %s", err)
 }
 
 //Set ...

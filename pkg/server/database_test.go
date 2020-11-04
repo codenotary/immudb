@@ -18,13 +18,15 @@ package server
 
 import (
 	"bytes"
-	"github.com/codenotary/immudb/pkg/store"
+	"fmt"
 	"log"
 	"os"
 	"path"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/store"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -92,6 +94,15 @@ func makeDb() (*Db, func()) {
 	}
 }
 
+func TestLogErr(t *testing.T) {
+	logger := logger.NewSimpleLogger("immudb ", os.Stderr)
+
+	require.Nil(t, logErr(logger, "error: %v", nil))
+
+	err := fmt.Errorf("expected error")
+	require.Error(t, logErr(logger, "error: %v", err))
+}
+
 func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
 	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
@@ -113,6 +124,7 @@ func TestDefaultDbCreation(t *testing.T) {
 		t.Fatalf("Data dir not created")
 	}
 }
+
 func TestDbCreation(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
 	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
@@ -134,6 +146,12 @@ func TestDbCreation(t *testing.T) {
 	if os.IsNotExist(err) {
 		t.Fatalf("Data dir not created")
 	}
+}
+
+func TestOpenWithMissingDBDirectories(t *testing.T) {
+	options := DefaultOption().WithDbRootPath("Paris")
+	_, err := OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	require.Error(t, err)
 }
 
 func TestOpenDb(t *testing.T) {
