@@ -31,7 +31,9 @@ func TestOptions(t *testing.T) {
 		WithPort(4321).
 		WithHealthCheckRetries(3).
 		WithMTLs(true).
+		WithMTLsOptions(DefaultMTLsOptions()).
 		WithAuth(true).
+		WithMaxRecvMsgSize(1 << 20).
 		WithConfig("configfile").
 		WithTokenFileName("tokenfile")
 	if op.LogFileName != "logfilename" ||
@@ -44,7 +46,9 @@ func TestOptions(t *testing.T) {
 		op.Port != 4321 ||
 		op.HealthCheckRetries != 3 ||
 		!op.MTLs ||
+		op.MTLsOptions.Servername != "localhost" ||
 		!op.Auth ||
+		op.MaxRecvMsgSize != 1<<20 ||
 		op.Config != "configfile" ||
 		op.TokenFileName != "tokenfile" ||
 		op.Bind() != "127.0.0.1:4321" ||
