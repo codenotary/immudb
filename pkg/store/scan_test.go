@@ -176,3 +176,99 @@ func TestIScan(t *testing.T) {
 	_, err2 := st.IScan(deepScanOptions2)
 	assert.Error(t, ErrIndexNotFound, err2)
 }
+
+func TestStoreScanPagination(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	st.Set(schema.KeyValue{Key: []byte(`bbb`), Value: []byte(`item2`)})
+	st.Set(schema.KeyValue{Key: []byte(`abc`), Value: []byte(`item3`)})
+	st.Set(schema.KeyValue{Key: []byte(`acc`), Value: []byte(`item4`)})
+	st.Set(schema.KeyValue{Key: []byte(`acd`), Value: []byte(`item5`)})
+
+	scanOptions := schema.ScanOptions{
+		Prefix:  []byte(`a`),
+		Offset:  []byte(`ab`),
+		Limit:   1,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list, err := st.Scan(scanOptions)
+
+	assert.NoError(t, err)
+	assert.Exactly(t, 1, len(list.Items))
+	assert.Equal(t, list.Items[0].Key, []byte(`acc`))
+	assert.Equal(t, list.Items[0].Value, []byte(`item4`))
+
+}
+
+func TestStoreScanPagination2(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	st.Set(schema.KeyValue{Key: []byte(`bbb`), Value: []byte(`item2`)})
+	st.Set(schema.KeyValue{Key: []byte(`abc`), Value: []byte(`item3`)})
+	st.Set(schema.KeyValue{Key: []byte(`acc`), Value: []byte(`item4`)})
+	st.Set(schema.KeyValue{Key: []byte(`acd`), Value: []byte(`item5`)})
+	st.Set(schema.KeyValue{Key: []byte(`ace`), Value: []byte(`item6`)})
+	st.Set(schema.KeyValue{Key: []byte(`acf`), Value: []byte(`item7`)})
+	st.Set(schema.KeyValue{Key: []byte(`acg`), Value: []byte(`item8`)})
+	st.Set(schema.KeyValue{Key: []byte(`ach`), Value: []byte(`item9`)})
+	st.Set(schema.KeyValue{Key: []byte(`aci`), Value: []byte(`item10`)})
+
+	scanOptionsP1 := schema.ScanOptions{
+		Prefix:  []byte(`a`),
+		Offset:  []byte(`ab`),
+		Limit:   2,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list1, err := st.Scan(scanOptionsP1)
+
+	assert.NoError(t, err)
+	assert.Exactly(t, 2, len(list1.Items))
+	assert.Equal(t, list1.Items[0].Key, []byte(`acc`))
+	assert.Equal(t, list1.Items[0].Value, []byte(`item4`))
+	assert.Equal(t, list1.Items[1].Key, []byte(`acd`))
+	assert.Equal(t, list1.Items[1].Value, []byte(`item5`))
+
+	scanOptionsP2 := schema.ScanOptions{
+		Prefix:  []byte(`a`),
+		Offset:  list1.Items[len(list1.Items)-1].Key,
+		Limit:   2,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list2, err := st.Scan(scanOptionsP2)
+
+	assert.NoError(t, err)
+	assert.Exactly(t, 2, len(list2.Items))
+	assert.Equal(t, list2.Items[0].Key, []byte(`ace`))
+	assert.Equal(t, list2.Items[0].Value, []byte(`item6`))
+	assert.Equal(t, list2.Items[1].Key, []byte(`acf`))
+	assert.Equal(t, list2.Items[1].Value, []byte(`item7`))
+
+	scanOptionsP3 := schema.ScanOptions{
+		Prefix:  []byte(`a`),
+		Offset:  list2.Items[len(list2.Items)-1].Key,
+		Limit:   3,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list3, err := st.Scan(scanOptionsP3)
+
+	assert.NoError(t, err)
+	assert.Exactly(t, 3, len(list3.Items))
+	assert.Equal(t, list3.Items[0].Key, []byte(`acg`))
+	assert.Equal(t, list3.Items[0].Value, []byte(`item8`))
+	assert.Equal(t, list3.Items[1].Key, []byte(`ach`))
+	assert.Equal(t, list3.Items[1].Value, []byte(`item9`))
+	assert.Equal(t, list3.Items[2].Key, []byte(`aci`))
+	assert.Equal(t, list3.Items[2].Value, []byte(`item10`))
+}

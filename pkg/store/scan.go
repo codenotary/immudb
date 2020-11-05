@@ -36,9 +36,9 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 
-	seek := options.Prefix
+	offsetKey := options.Prefix
 	if options.Reverse {
-		seek = append(options.Prefix, 0xFF)
+		offsetKey = append(options.Prefix, 0xFF)
 	}
 
 	it := txn.NewIterator(badger.IteratorOptions{
@@ -55,6 +55,7 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 		it.Seek(options.Offset)
 		if it.Valid() {
 			it.Next() // skip the offset item
+			offsetKey = it.Item().Key()
 		}
 	}
 
@@ -67,8 +68,7 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	var items []*schema.Item
 
 	i := uint64(0)
-
-	for it.Seek(seek); it.Valid(); it.Next() {
+	for it.Seek(offsetKey); it.Valid(); it.Next() {
 		var item *schema.Item
 
 		if it.Item().UserMeta()&bitReferenceEntry == bitReferenceEntry {
