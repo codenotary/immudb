@@ -97,6 +97,8 @@ func TestOptions(t *testing.T) {
 	opts.SetReadOnly(!defaultOpts.readOnly)
 	opts.SetFileSize(defaultOpts.fileSize * 10)
 	opts.SetFileMode(defaultOpts.fileMode & 0xFF)
+	opts.SetDataCacheSlots(defaultOpts.dataCacheSlots * 10)
+	opts.SetDigestsCacheSlots(defaultOpts.digestsCacheSlots * 10)
 	opts.SetCompressionFormat(appendable.ZLibCompression)
 	opts.SetCompresionLevel(appendable.BestCompression)
 
@@ -104,6 +106,8 @@ func TestOptions(t *testing.T) {
 	require.Equal(t, defaultOpts.readOnly, !opts.readOnly)
 	require.Equal(t, defaultOpts.fileSize*10, opts.fileSize)
 	require.Equal(t, defaultOpts.fileMode&0xFF, opts.fileMode)
+	require.Equal(t, defaultOpts.dataCacheSlots*10, opts.dataCacheSlots)
+	require.Equal(t, defaultOpts.digestsCacheSlots*10, opts.digestsCacheSlots)
 	require.Equal(t, appendable.ZLibCompression, opts.compressionFormat)
 	require.Equal(t, appendable.BestCompression, opts.compressionLevel)
 }

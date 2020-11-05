@@ -18,7 +18,7 @@ package ahtree
 import "crypto/sha256"
 
 func VerifyInclusion(iproof [][sha256.Size]byte, i, j uint64, iLeaf, jRoot [sha256.Size]byte) bool {
-	if i > j || i == 0 {
+	if i > j || i == 0 || (i < j && len(iproof) == 0) {
 		return false
 	}
 
@@ -55,7 +55,7 @@ func EvalInclusion(iproof [][sha256.Size]byte, i, j uint64, iLeaf [sha256.Size]b
 }
 
 func VerifyConsistency(cproof [][sha256.Size]byte, i, j uint64, iRoot, jRoot [sha256.Size]byte) bool {
-	if i > j || i == 0 {
+	if i > j || i == 0 || (i < j && len(cproof) == 0) {
 		return false
 	}
 
