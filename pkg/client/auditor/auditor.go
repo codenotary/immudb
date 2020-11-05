@@ -56,8 +56,7 @@ type TamperingAlertConfig struct {
 	Password       string
 	RequestTimeout time.Duration
 
-	Client      *http.Client
-	PublishFunc func(*http.Request) (*http.Response, error)
+	publishFunc func(*http.Request) (*http.Response, error)
 }
 
 type defaultAuditor struct {
@@ -116,6 +115,10 @@ func DefaultAuditor(
 	if err != nil {
 		log.Warningf("error compiling regex for slugifier: %v", err)
 	}
+
+	httpClient := &http.Client{Timeout: alertConfig.RequestTimeout}
+	alertConfig.publishFunc = httpClient.Do
+
 	return &defaultAuditor{
 		0,
 		0,
@@ -144,6 +147,7 @@ func (a *defaultAuditor) Run(
 ) (err error) {
 	defer func() { donec <- struct{}{} }()
 	a.logger.Infof("starting auditor with a %s interval ...", interval)
+
 	if singleRun {
 		err = a.audit()
 	} else {
@@ -371,27 +375,25 @@ func (a *defaultAuditor) publishTamperingAlert(
 		PreviousRoot: prevRoot,
 		CurrentRoot:  currRoot,
 	}
+
 	reqBody, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
+
 	req, err := http.NewRequest("POST", a.alertConfig.URL, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return err
 	}
+
 	req.Header.Set("Content-Type", "application/json")
-	if a.alertConfig.Client == nil {
-		a.alertConfig.Client = &http.Client{Timeout: 5 * time.Second}
-		if a.alertConfig.RequestTimeout > 0 {
-			a.alertConfig.Client.Timeout = a.alertConfig.RequestTimeout
-		}
-		a.alertConfig.PublishFunc = a.alertConfig.Client.Do
-	}
-	resp, err := a.alertConfig.PublishFunc(req)
+
+	resp, err := a.alertConfig.publishFunc(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusCreated, http.StatusAccepted, http.StatusNoContent:
 	default:
@@ -402,6 +404,7 @@ func (a *defaultAuditor) publishTamperingAlert(
 			a.alertConfig.URL, reqBody,
 			resp.Status, respBody)
 	}
+
 	return nil
 }
 

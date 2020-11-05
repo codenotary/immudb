@@ -85,7 +85,7 @@ func newServer() *server.ImmuServer {
 		WithAuth(true).
 		WithInMemoryStore(true).
 		WithAdminPassword("non-default-admin-password").
-		WithConfig("/tmp/immudb.toml")).(*server.ImmuServer)
+		WithConfig("../../test/immudb.toml")).(*server.ImmuServer)
 
 	auth.AuthEnabled = is.Options.GetAuth()
 
@@ -484,10 +484,10 @@ func TestUserManagement(t *testing.T) {
 		testUser        *schema.User
 	)
 	err = client.CreateDatabase(context.TODO(), testDB)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	err = client.UpdateAuthConfig(context.Background(), auth.KindPassword)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	err = client.UpdateMTLSConfig(context.Background(), false)
 	assert.Nil(t, err)

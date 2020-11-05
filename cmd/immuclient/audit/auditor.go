@@ -99,9 +99,10 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		auditPassword,
 		auditSignature,
 		auditor.TamperingAlertConfig{
-			URL:      auditAlertURL,
-			Username: auditAlertUsername,
-			Password: auditAlertPassword,
+			URL:            auditAlertURL,
+			Username:       auditAlertUsername,
+			Password:       auditAlertPassword,
+			RequestTimeout: time.Duration(5) * time.Second,
 		},
 		*cAgent.immuc.GetServiceClient(),
 		cAgent.uuidProvider,
