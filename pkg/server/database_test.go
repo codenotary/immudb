@@ -978,8 +978,8 @@ func TestScanSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ScanSV error %s", err)
 	}
-	if len(sc.Items) != 3 {
-		t.Fatalf("ScanSV count expected %d got %d", 3, len(sc.Items))
+	if len(sc.Items) != 1 {
+		t.Fatalf("ScanSV count expected %d got %d", 1, len(sc.Items))
 	}
 }
 func TestIscanSv(t *testing.T) {
