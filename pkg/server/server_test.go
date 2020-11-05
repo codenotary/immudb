@@ -1219,47 +1219,6 @@ func testServerScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testServerScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.SafeSetSV(ctx, &schema.SafeSetSVOptions{
-		Skv: Skv.SKVs[0],
-	})
-	if err != nil {
-		t.Fatalf("set error %s", err)
-	}
-
-	_, err = s.ZAdd(ctx, &schema.ZAddOptions{
-		Key:   Skv.SKVs[0].Key,
-		Score: 1,
-		Set:   []byte("test-set"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	scanItem, err := s.ZScanSV(ctx, &schema.ZScanOptions{
-		Set:    []byte("test-set"),
-		Offset: []byte("Albert"),
-		Limit:  1,
-	})
-	if err != nil {
-		t.Fatalf("ZScanSV  Get error %s", err)
-	}
-	if len(scanItem.Items) == 0 {
-		t.Fatalf("ZScanSV, expected >0, got %v", len(scanItem.Items))
-	}
-
-	scanItem, err = s.ScanSV(ctx, &schema.ScanOptions{
-		Offset: []byte("Alb"),
-		Limit:  1,
-	})
-	if err != nil {
-		t.Fatalf("ScanSV  Get error %s", err)
-	}
-	if len(scanItem.Items) == 0 {
-		t.Fatalf("ScanSV, expected >0, got %v", len(scanItem.Items))
-	}
-}
-
 func testServerScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ScanSV(context.Background(), &schema.ScanOptions{
 		Offset: []byte("Alb"),
@@ -1331,8 +1290,8 @@ func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if err != nil {
 		t.Fatalf("CountAll error %s", err)
 	}
-	if countAll.Count != 63 {
-		t.Fatalf("CountAll error: expected %d, got %d", 63, countAll.Count)
+	if countAll.Count != 60 {
+		t.Fatalf("CountAll error: expected %d, got %d", 60, countAll.Count)
 	}
 }
 
@@ -1440,7 +1399,6 @@ func TestServerDbOperations(t *testing.T) {
 	testServerByIScanSVError(ctx, s, t)
 	testServerPrintTree(ctx, s, t)
 	testServerPrintTreeError(ctx, s, t)
-	testServerScanSV(ctx, s, t)
 	testServerScanSVError(ctx, s, t)
 	testServerSafeReference(ctx, s, t)
 	testServerSafeReferenceError(ctx, s, t)
