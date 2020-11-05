@@ -37,13 +37,11 @@ func NewRootSigner(signer signer.Signer) *rootSigner {
 }
 
 func (rs *rootSigner) Sign(root *schema.Root) (*schema.Root, error) {
-	if m, err := proto.Marshal(root.Payload); err != nil {
+	m, err := proto.Marshal(root.Payload)
+	if err != nil {
 		return nil, err
-	} else {
-		root.Signature.Signature, root.Signature.PublicKey, err = rs.Signer.Sign(m)
-		if err != nil {
-			return nil, err
-		}
 	}
-	return root, nil
+
+	root.Signature.Signature, root.Signature.PublicKey, err = rs.Signer.Sign(m)
+	return root, err
 }

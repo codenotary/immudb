@@ -19,7 +19,7 @@ package client
 import (
 	"bytes"
 	"context"
-	"github.com/codenotary/immudb/pkg/store"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -30,6 +30,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/store"
 
 	"github.com/codenotary/immudb/pkg/client/rootservice"
 
@@ -79,7 +81,12 @@ var plainPass string
 
 func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
-	is = is.WithOptions(is.Options.WithAuth(true).WithInMemoryStore(true).WithAdminPassword("non-default-admin-password")).(*server.ImmuServer)
+	is = is.WithOptions(is.Options.
+		WithAuth(true).
+		WithInMemoryStore(true).
+		WithAdminPassword("non-default-admin-password").
+		WithConfig("../../test/immudb.toml")).(*server.ImmuServer)
+
 	auth.AuthEnabled = is.Options.GetAuth()
 
 	username, plainPass = auth.SysAdminUsername, "non-default-admin-password"
@@ -124,6 +131,15 @@ func newClient(withToken bool, token string) ImmuClient {
 	immuclient.WithRootService(rootService)
 
 	return immuclient
+}
+
+func TestLogErr(t *testing.T) {
+	logger := logger.NewSimpleLogger("client_test", os.Stderr)
+
+	require.Nil(t, logErr(logger, "error: %v", nil))
+
+	err := fmt.Errorf("expected error")
+	require.Error(t, logErr(logger, "error: %v", err))
 }
 
 func login() string {
@@ -173,6 +189,8 @@ func setup() {
 		panic(err)
 	}
 	client = newClient(true, resp.Token).WithTimestampService(tss).WithTokenService(NewTokenService().WithHds(NewHomedirService()).WithTokenFileName("testTokenFile"))
+
+	err = client.UpdateMTLSConfig(context.Background(), false)
 }
 
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {
@@ -466,6 +484,12 @@ func TestUserManagement(t *testing.T) {
 		testUser        *schema.User
 	)
 	err = client.CreateDatabase(context.TODO(), testDB)
+	require.NoError(t, err)
+
+	err = client.UpdateAuthConfig(context.Background(), auth.KindPassword)
+	require.NoError(t, err)
+
+	err = client.UpdateMTLSConfig(context.Background(), false)
 	assert.Nil(t, err)
 
 	err = client.CreateUser(

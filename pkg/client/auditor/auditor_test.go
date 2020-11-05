@@ -318,8 +318,7 @@ func TestPublishTamperingAlert(t *testing.T) {
 			URL:      "http://some-non-existent-url.com",
 			Username: "some-username",
 			Password: "some-password",
-			Client:   &http.Client{},
-			PublishFunc: func(req *http.Request) (*http.Response, error) {
+			publishFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     http.StatusText(http.StatusNoContent),
 					StatusCode: http.StatusNoContent,
@@ -337,7 +336,7 @@ func TestPublishTamperingAlert(t *testing.T) {
 	require.NoError(t, err)
 
 	// test unexpected HTTP status code
-	a.alertConfig.PublishFunc = func(req *http.Request) (*http.Response, error) {
+	a.alertConfig.publishFunc = func(req *http.Request) (*http.Response, error) {
 		return &http.Response{
 			Status:     http.StatusText(http.StatusInternalServerError),
 			StatusCode: http.StatusInternalServerError,
@@ -367,19 +366,7 @@ func TestPublishTamperingAlert(t *testing.T) {
 			"response status Internal Server Error with response body Some error",
 		err.Error())
 
-	// test error sending request (real HTTP request)
-	a.alertConfig.Client = nil
-	a.alertConfig.RequestTimeout = 1 * time.Second
-	err = a.publishTamperingAlert(
-		"some-db3",
-		Root{Index: 111, Hash: "root-hash-111"},
-		Root{Index: 222, Hash: "root-hash-222"},
-	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no such host")
-
 	// test error creating request
-	a.alertConfig.Client = nil
 	a.alertConfig.RequestTimeout = 1 * time.Second
 	a.alertConfig.URL = string([]byte{0})
 	err = a.publishTamperingAlert(

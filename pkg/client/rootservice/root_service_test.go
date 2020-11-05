@@ -18,6 +18,7 @@ package rootservice
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -31,29 +32,42 @@ func TestRootService(t *testing.T) {
 
 	ic := &immuServiceClientMock{}
 
-	cache := &cacheMock{}
+	cache := &cacheMock{data: make(map[string]*schema.Root)}
 
 	logger := &mockLogger{}
 
 	immudbRootProvider := NewImmudbRootProvider(ic)
-	immudbUuidProvider := NewImmudbUUIDProvider(ic)
-	rs, err := NewRootService(cache, logger, immudbRootProvider, immudbUuidProvider)
+	immudbUUIDProvider := NewImmudbUUIDProvider(ic)
+
+	rs, err := NewRootService(cache, logger, immudbRootProvider, immudbUUIDProvider)
 	assert.Nil(t, err)
 
-	root, err := rs.GetRoot(context.TODO(), "uuid")
+	root, err := rs.GetRoot(context.TODO(), "db1")
 	assert.Nil(t, err)
 	assert.IsType(t, &schema.Root{}, root)
 
-	err = rs.SetRoot(&schema.Root{}, "uuid")
+	err = rs.SetRoot(&schema.Root{}, "db1")
 	assert.Nil(t, err)
+
+	root, err = rs.GetRoot(context.TODO(), "db1")
+	assert.Nil(t, err)
+	assert.IsType(t, &schema.Root{}, root)
 }
 
-type cacheMock struct{}
-
-func (m *cacheMock) Get(serverUuid string, databasename string) (*schema.Root, error) {
-	return nil, nil
+type cacheMock struct {
+	data map[string]*schema.Root
 }
-func (m *cacheMock) Set(root *schema.Root, serverUuid string, databasename string) error {
+
+func (m *cacheMock) Get(serverUUID string, databasename string) (*schema.Root, error) {
+	r, ok := m.data[serverUUID+databasename]
+	if ok {
+		return r, nil
+	}
+	return nil, errors.New("not found")
+}
+
+func (m *cacheMock) Set(root *schema.Root, serverUUID string, databasename string) error {
+	m.data[serverUUID+databasename] = root
 	return nil
 }
 

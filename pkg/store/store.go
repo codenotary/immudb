@@ -146,8 +146,7 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 			Key:   kv.Key,
 			Value: WrapValueWithTS(kv.Value, tsEntries[i].ts),
 		}); err != nil {
-			err = mapError(err)
-			return
+			return nil, mapError(err)
 		}
 	}
 
@@ -162,8 +161,7 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 			Value:    refTreeKey(*leafEntry.h, *leafEntry.r),
 			UserMeta: bitTreeEntry,
 		}); err != nil {
-			err = mapError(err)
-			return
+			return nil, mapError(err)
 		}
 	}
 
@@ -208,8 +206,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 		Key:   kv.Key,
 		Value: WrapValueWithTS(kv.Value, tsEntry.ts),
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	index = &schema.Index{
@@ -221,8 +218,7 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
 		UserMeta: bitTreeEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	cb := func(err error) {
@@ -291,26 +287,31 @@ func (t *Store) CountAll() (count uint64) {
 // Count returns the number of entris having the specified key prefix
 func (t *Store) Count(prefix schema.KeyPrefix) (count *schema.ItemsCount, err error) {
 	if isReservedKey(prefix.Prefix) {
-		err = ErrInvalidKeyPrefix
-		return
+		return nil, ErrInvalidKeyPrefix
 	}
+
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
+
 	count = &schema.ItemsCount{}
 	it := txn.NewKeyIterator(prefix.Prefix, badger.IteratorOptions{})
 	defer it.Close()
+
 	for it.Rewind(); it.Valid(); it.Next() {
 		count.Count++
 	}
+
 	return
 }
 
 func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err error) {
 	index = readTs - 1
 	var refkey []byte
+
 	// cache reference lookup
 	t.tree.RLock()
 	defer t.tree.RUnlock()
+
 	if key := t.tree.rcache.Get(index); key != nil {
 		refkey = key.([]byte)
 	}
@@ -348,8 +349,10 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 	// disk value lookup
 	txn := t.db.NewTransactionAt(math.MaxInt64, false)
 	defer txn.Discard()
+
 	it := txn.NewKeyIterator(key, badger.IteratorOptions{})
 	defer it.Close()
+
 	var item *schema.Item
 	for it.Rewind(); it.Valid(); it.Next() {
 		i, err := itemToSchema(key, it.Item())
@@ -417,23 +420,18 @@ func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
 func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
 	if isReservedKey(refOpts.Key) {
-		err = ErrInvalidKey
-		return
+		return nil, ErrInvalidKey
 	}
 	if isReservedKey(refOpts.Reference) {
-		err = ErrInvalidReference
-		return
+		return nil, ErrInvalidReference
 	}
-	if err != nil {
-		return
-	}
+
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
 	i, err := txn.Get(refOpts.Key)
 	if err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	tsEntry := t.tree.NewEntry(refOpts.Reference, i.Key())
@@ -443,8 +441,7 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	index = &schema.Index{
@@ -456,8 +453,7 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
 		UserMeta: bitTreeEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	cb := func(err error) {
@@ -501,8 +497,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		// convert to internal timestamp for itemAt, that returns the index
 		_, key, _, err := t.itemAt(zaddOpts.Index.Index + 1)
 		if err != nil {
-			err = mapError(err)
-			return nil, err
+			return nil, mapError(err)
 		}
 		if bytes.Compare(key, zaddOpts.Key) != 0 {
 			return nil, ErrIndexKeyMismatch
@@ -513,8 +508,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		var i *badger.Item
 		i, err = txn.Get(zaddOpts.Key)
 		if err != nil {
-			err = mapError(err)
-			return nil, err
+			return nil, mapError(err)
 		}
 		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
 		referenceValue = WrapZIndexReference(i.Key(), nil)
@@ -522,8 +516,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 
 	ik, err := SetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score)
 	if err != nil {
-		err = mapError(err)
-		return nil, err
+		return nil, mapError(err)
 	}
 
 	tsEntry := t.tree.NewEntry(ik, referenceValue)
@@ -533,8 +526,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		Value:    WrapValueWithTS(referenceValue, tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
-		err = mapError(err)
-		return nil, err
+		return nil, mapError(err)
 	}
 
 	index = &schema.Index{
@@ -546,8 +538,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
 		UserMeta: bitTreeEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	cb := func(err error) {
