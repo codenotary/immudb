@@ -21,6 +21,12 @@ import (
 )
 
 func TestOptions(t *testing.T) {
+	mtlsOpts := DefaultMTLsOptions().
+		WithServername("localhost").
+		WithCertificate("no-certificate").
+		WithClientCAs("no-client-ca").
+		WithPkey("no-pkey")
+
 	op := DefaultOptions().WithLogFileName("logfilename").
 		WithPrometheusHost("localhost").
 		WithPrometheusPort("1234").
@@ -31,7 +37,7 @@ func TestOptions(t *testing.T) {
 		WithPort(4321).
 		WithHealthCheckRetries(3).
 		WithMTLs(true).
-		WithMTLsOptions(DefaultMTLsOptions()).
+		WithMTLsOptions(mtlsOpts).
 		WithAuth(true).
 		WithMaxRecvMsgSize(1 << 20).
 		WithConfig("configfile").
@@ -47,6 +53,9 @@ func TestOptions(t *testing.T) {
 		op.HealthCheckRetries != 3 ||
 		!op.MTLs ||
 		op.MTLsOptions.Servername != "localhost" ||
+		op.MTLsOptions.Certificate != "no-certificate" ||
+		op.MTLsOptions.ClientCAs != "no-client-ca" ||
+		op.MTLsOptions.Pkey != "no-pkey" ||
 		!op.Auth ||
 		op.MaxRecvMsgSize != 1<<20 ||
 		op.Config != "configfile" ||
