@@ -17,10 +17,11 @@ limitations under the License.
 package cache
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/stretchr/testify/assert"
 )
 
 var dirnamehfc = "./test"
@@ -48,11 +49,22 @@ func TestNewHistoryFileCacheGet(t *testing.T) {
 
 func TestNewHistoryFileCacheWalk(t *testing.T) {
 	os.Mkdir(dirnamehfc, os.ModePerm)
+	defer os.RemoveAll(dirnamehfc)
+
 	fc := NewHistoryFileCache(dirnamehfc)
+
 	iface, err := fc.Walk("uuid", "dbName", func(root *schema.Root) interface{} {
 		return nil
 	})
 	assert.Nil(t, err)
 	assert.IsType(t, []interface{}{interface{}(nil)}, iface)
-	os.RemoveAll(dirnamehfc)
+
+	err = fc.Set(&schema.Root{}, "uuid", "dbName")
+	assert.Nil(t, err)
+
+	iface, err = fc.Walk("uuid", "dbName", func(root *schema.Root) interface{} {
+		return nil
+	})
+	assert.Nil(t, err)
+	assert.IsType(t, []interface{}{interface{}(nil)}, iface)
 }
