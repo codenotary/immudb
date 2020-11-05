@@ -53,6 +53,7 @@ func NewRootService(cache cache.Cache,
 		}
 		logger.Warningf(err.Error())
 	}
+
 	return &rootservice{
 		rootProvider: rootProvider,
 		uuidProvider: uuidProvider,
@@ -65,9 +66,11 @@ func NewRootService(cache cache.Cache,
 func (r *rootservice) GetRoot(ctx context.Context, databasename string) (*schema.Root, error) {
 	defer r.Unlock()
 	r.Lock()
+
 	if root, err := r.cache.Get(r.serverUuid, databasename); err == nil {
 		return root, nil
 	}
+
 	if root, err := r.rootProvider.CurrentRoot(ctx); err != nil {
 		return nil, err
 	} else {
@@ -81,5 +84,6 @@ func (r *rootservice) GetRoot(ctx context.Context, databasename string) (*schema
 func (r *rootservice) SetRoot(root *schema.Root, databasename string) error {
 	defer r.Unlock()
 	r.Lock()
+
 	return r.cache.Set(root, r.serverUuid, databasename)
 }
