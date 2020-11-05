@@ -19,7 +19,7 @@ package client
 import (
 	"bytes"
 	"context"
-	"github.com/codenotary/immudb/pkg/store"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -30,6 +30,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/store"
 
 	"github.com/codenotary/immudb/pkg/client/rootservice"
 
@@ -124,6 +126,15 @@ func newClient(withToken bool, token string) ImmuClient {
 	immuclient.WithRootService(rootService)
 
 	return immuclient
+}
+
+func TestLogErr(t *testing.T) {
+	logger := logger.NewSimpleLogger("client_test", os.Stderr)
+
+	require.Nil(t, logErr(logger, "error: %v", nil))
+
+	err := fmt.Errorf("expected error")
+	require.Error(t, logErr(logger, "error: %v", err))
 }
 
 func login() string {
