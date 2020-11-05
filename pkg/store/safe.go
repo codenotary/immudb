@@ -59,8 +59,7 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 		Key:   kv.Key,
 		Value: WrapValueWithTS(kv.Value, tsEntry.ts),
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	index := tsEntry.Index()
@@ -71,15 +70,13 @@ func (t *Store) SafeSet(options schema.SafeSetOptions) (proof *schema.Proof, err
 		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
 		UserMeta: bitTreeEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	err = txn.CommitAt(tsEntry.ts, nil)
 	if err != nil {
 		t.tree.Discard(tsEntry)
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	t.tree.Commit(tsEntry)
@@ -123,8 +120,7 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 	defer txn.Discard()
 	i, err = txn.Get(key)
 	if err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
@@ -191,8 +187,7 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 
 	i, err := txn.Get(ro.Key)
 	if err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	tsEntry := t.tree.NewEntry(ro.Reference, i.Key())
@@ -202,8 +197,7 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	index := tsEntry.Index()
@@ -214,15 +208,13 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
 		UserMeta: bitTreeEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	err = txn.CommitAt(tsEntry.ts, nil)
 	if err != nil {
 		t.tree.Discard(tsEntry)
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	t.tree.Commit(tsEntry)
@@ -271,8 +263,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		// convert to internal timestamp for itemAt
 		_, key, _, err := t.itemAt(options.Zopts.Index.Index + 1)
 		if err != nil {
-			err = mapError(err)
-			return nil, err
+			return nil, mapError(err)
 		}
 		if bytes.Compare(key, options.Zopts.Key) != 0 {
 			return nil, ErrIndexKeyMismatch
@@ -284,8 +275,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		var i *badger.Item
 		i, err = txn.Get(options.Zopts.Key)
 		if err != nil {
-			err = mapError(err)
-			return nil, err
+			return nil, mapError(err)
 		}
 		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
 		referenceValue = WrapZIndexReference(i.Key(), nil)
@@ -293,8 +283,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 
 	ik, err := SetKey(options.Zopts.Key, options.Zopts.Set, options.Zopts.Score)
 	if err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	tsEntry := t.tree.NewEntry(ik, referenceValue)
@@ -304,8 +293,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		Value:    WrapValueWithTS(referenceValue, tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	index := tsEntry.Index()
@@ -316,15 +304,13 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
 		UserMeta: bitTreeEntry,
 	}); err != nil {
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	err = txn.CommitAt(tsEntry.ts, nil)
 	if err != nil {
 		t.tree.Discard(tsEntry)
-		err = mapError(err)
-		return
+		return nil, mapError(err)
 	}
 
 	t.tree.Commit(tsEntry)
