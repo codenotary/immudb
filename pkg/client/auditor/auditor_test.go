@@ -327,11 +327,16 @@ func TestPublishTamperingAlert(t *testing.T) {
 			},
 		},
 	}
+	runAt, err := time.Parse(time.RFC3339, "2020-11-13T00:53:42+01:00")
+	require.NoError(t, err)
+
 	// test happy path
-	err := a.publishTamperingAlert(
+	err = a.publishAuditNotification(
 		"some-db",
-		Root{Index: 1, Hash: "root-hash-1"},
-		Root{Index: 2, Hash: "root-hash-2"},
+		runAt,
+		true,
+		&Root{Index: 1, Hash: "root-hash-1"},
+		&Root{Index: 2, Hash: "root-hash-2"},
 	)
 	require.NoError(t, err)
 
@@ -343,13 +348,15 @@ func TestPublishTamperingAlert(t *testing.T) {
 			Body:       ioutil.NopCloser(strings.NewReader("Some error")),
 		}, nil
 	}
-	err = a.publishTamperingAlert(
+	err = a.publishAuditNotification(
 		"some-db2",
-		Root{
+		runAt,
+		false,
+		&Root{
 			Index:     11,
 			Hash:      "root-hash-11",
 			Signature: Signature{Signature: "sig11", PublicKey: "pk11"}},
-		Root{
+		&Root{
 			Index:     22,
 			Hash:      "root-hash-22",
 			Signature: Signature{Signature: "sig22", PublicKey: "pk22"}},
@@ -359,7 +366,8 @@ func TestPublishTamperingAlert(t *testing.T) {
 		t,
 		"POST http://some-non-existent-url.com request with body "+
 			`{"username":"some-username","password":"some-password",`+
-			`"db":"some-db2","previous_root":{"index":11,"hash":"root-hash-11",`+
+			`"db":"some-db2","run_at":"2020-11-13T00:53:42+01:00",`+
+			`"tampered":false,"previous_root":{"index":11,"hash":"root-hash-11",`+
 			`"signature":{"signature":"sig11","public_key":"pk11"}},`+
 			`"current_root":{"index":22,"hash":"root-hash-22",`+
 			`"signature":{"signature":"sig22","public_key":"pk22"}}}: got unexpected `+
@@ -369,10 +377,12 @@ func TestPublishTamperingAlert(t *testing.T) {
 	// test error creating request
 	a.alertConfig.RequestTimeout = 1 * time.Second
 	a.alertConfig.URL = string([]byte{0})
-	err = a.publishTamperingAlert(
+	err = a.publishAuditNotification(
 		"some-db4",
-		Root{Index: 1111, Hash: "root-hash-1111"},
-		Root{Index: 2222, Hash: "root-hash-2222"},
+		runAt,
+		true,
+		&Root{Index: 1111, Hash: "root-hash-1111"},
+		&Root{Index: 2222, Hash: "root-hash-2222"},
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid control character in URL")
