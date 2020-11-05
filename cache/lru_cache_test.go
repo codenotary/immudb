@@ -16,17 +16,25 @@ limitations under the License.
 package cache
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCacheCreation(t *testing.T) {
+	_, err := NewLRUCache(0)
+	assert.Error(t, ErrIllegalArgument, err)
+
 	cacheSize := 10
 	cache, err := NewLRUCache(cacheSize)
 	assert.NoError(t, err)
 	assert.NotNil(t, cache)
 	assert.Equal(t, cacheSize, cache.Size())
+
+	_, err = cache.Get(nil)
+	assert.Equal(t, ErrIllegalArgument, err)
 
 	_, _, err = cache.Put(nil, nil)
 	assert.Equal(t, ErrIllegalArgument, err)
@@ -43,6 +51,9 @@ func TestCacheCreation(t *testing.T) {
 	}
 
 	for i := cacheSize; i < cacheSize+cacheSize/2; i++ {
+		_, _, err = cache.Put(i, 10*i)
+		assert.NoError(t, err)
+
 		_, _, err = cache.Put(i, 10*i)
 		assert.NoError(t, err)
 	}
@@ -63,4 +74,30 @@ func TestCacheCreation(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, v, 10*i)
 	}
+}
+
+func TestApply(t *testing.T) {
+	cacheSize := 10
+	cache, err := NewLRUCache(cacheSize)
+	assert.NoError(t, err)
+	assert.NotNil(t, cache)
+	assert.Equal(t, cacheSize, cache.Size())
+
+	for i := 0; i < cacheSize; i++ {
+		_, _, err = cache.Put(i, 10*i)
+		assert.NoError(t, err)
+	}
+
+	c := 0
+	err = cache.Apply(func(k, v interface{}) error {
+		c++
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, cacheSize, c)
+
+	err = cache.Apply(func(k, v interface{}) error {
+		return errors.New("expected error")
+	})
+	require.Error(t, err)
 }
