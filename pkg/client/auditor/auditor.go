@@ -289,10 +289,13 @@ func (a *defaultAuditor) audit() error {
 			Signature: nil,
 		}
 		checked = true
-		if !verified && len(a.alertConfig.URL) > 0 {
-			err := a.publishTamperingAlert(
+		// publish audit notification
+		if len(a.alertConfig.URL) > 0 {
+			err := a.publishAuditNotification(
 				dbName,
-				Root{
+				time.Now(),
+				!verified,
+				&Root{
 					Index: proof.First,
 					Hash:  fmt.Sprintf("%x", firstRoot),
 					Signature: Signature{
@@ -300,7 +303,7 @@ func (a *defaultAuditor) audit() error {
 						PublicKey: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetPublicKey()),
 					},
 				},
-				Root{
+				&Root{
 					Index: proof.Second,
 					Hash:  fmt.Sprintf("%x", proof.SecondRoot),
 					Signature: Signature{
@@ -311,10 +314,10 @@ func (a *defaultAuditor) audit() error {
 			)
 			if err != nil {
 				a.logger.Errorf(
-					"error publishing tammpering alert for db %s: %v", dbName, err)
+					"error publishing audit notification for db %s: %v", dbName, err)
 			} else {
 				a.logger.Infof(
-					"a tampering alert for db %s has been published at %s",
+					"audit notification for db %s has been published at %s",
 					dbName, a.alertConfig.URL)
 			}
 		}
@@ -349,29 +352,35 @@ type Signature struct {
 
 // Root ...
 type Root struct {
-	Index     uint64    `json:"index"`
+	Index     uint64    `json:"index" validate:"required"`
 	Hash      string    `json:"hash" validate:"required"`
-	Signature Signature `json:"signature"`
+	Signature Signature `json:"signature" validate:"required"`
 }
 
-// TamperingAlert ...
-type TamperingAlert struct {
-	Username     string `json:"username" validate:"required"`
-	Password     string `json:"password" validate:"required"`
-	DB           string `json:"db" validate:"required"`
-	PreviousRoot Root   `json:"previous_root" validate:"required"`
-	CurrentRoot  Root   `json:"current_root" validate:"required"`
+// AuditNotificationRequest ...
+type AuditNotificationRequest struct {
+	Username     string    `json:"username" validate:"required"`
+	Password     string    `json:"password" validate:"required"`
+	DB           string    `json:"db" validate:"required"`
+	RunAt        time.Time `json:"run_at" validate:"required" example:"2020-11-13T00:53:42+01:00"`
+	Tampered     bool      `json:"tampered"`
+	PreviousRoot *Root     `json:"previous_root"`
+	CurrentRoot  *Root     `json:"current_root"`
 }
 
-func (a *defaultAuditor) publishTamperingAlert(
+func (a *defaultAuditor) publishAuditNotification(
 	db string,
-	prevRoot Root,
-	currRoot Root) error {
+	runAt time.Time,
+	tampered bool,
+	prevRoot *Root,
+	currRoot *Root) error {
 
-	payload := TamperingAlert{
+	payload := AuditNotificationRequest{
 		Username:     a.alertConfig.Username,
 		Password:     a.alertConfig.Password,
 		DB:           db,
+		RunAt:        runAt,
+		Tampered:     tampered,
 		PreviousRoot: prevRoot,
 		CurrentRoot:  currRoot,
 	}
