@@ -25,7 +25,7 @@ import (
 
 func TestCacheCreation(t *testing.T) {
 	_, err := NewLRUCache(0)
-	assert.Error(t, ErrIllegalArgument, err)
+	assert.Error(t, ErrIllegalArguments, err)
 
 	cacheSize := 10
 	cache, err := NewLRUCache(cacheSize)
@@ -34,10 +34,10 @@ func TestCacheCreation(t *testing.T) {
 	assert.Equal(t, cacheSize, cache.Size())
 
 	_, err = cache.Get(nil)
-	assert.Equal(t, ErrIllegalArgument, err)
+	assert.Equal(t, ErrIllegalArguments, err)
 
 	_, _, err = cache.Put(nil, nil)
-	assert.Equal(t, ErrIllegalArgument, err)
+	assert.Equal(t, ErrIllegalArguments, err)
 
 	for i := 0; i < cacheSize; i++ {
 		_, _, err = cache.Put(i, 10*i)

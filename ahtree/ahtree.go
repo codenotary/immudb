@@ -129,7 +129,7 @@ func Open(path string, opts *Options) (*AHtree, error) {
 }
 
 func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, error) {
-	if !validOptions(opts) {
+	if !validOptions(opts) || pLog == nil || dLog == nil || cLog == nil {
 		return nil, ErrIllegalArguments
 	}
 

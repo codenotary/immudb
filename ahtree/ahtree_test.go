@@ -17,6 +17,7 @@ package ahtree
 
 import (
 	"crypto/sha256"
+	"errors"
 	"os"
 	"testing"
 
@@ -56,12 +57,84 @@ func TestNodeNumberCalculation(t *testing.T) {
 }
 
 func TestEdgeCases(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	_, err := Open("ahtree_test", nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = OpenWith(nil, nil, nil, nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = OpenWith(nil, nil, nil, DefaultOptions())
+	require.Error(t, ErrIllegalArguments, err)
+
+	metadata := appendable.NewMetadata(nil)
+	metadata.PutInt(MetaVersion, Version)
+	metadata.PutInt(MetaFileSize, DefaultOptions().fileSize)
+
+	pLog := &MockedAppendable{metadata: metadata.Bytes()}
+	dLog := &MockedAppendable{metadata: metadata.Bytes()}
+	cLog := &MockedAppendable{}
+
+	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.Error(t, ErrCorruptedCLog, err)
+
+	cLog.metadata = metadata.Bytes()
+
+	cLog.szErr = errors.New("error")
+	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.Error(t, ErrCorruptedCLog, err)
+
+	cLog.sz = cLogEntrySize + 1
+	cLog.szErr = nil
+	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.Error(t, ErrCorruptedCLog, err)
+
+	cLog.sz = 0
+	dLog.szErr = errors.New("error")
+	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.Error(t, ErrCorruptedCLog, err)
+
+	dLog.szErr = nil
+	pLog.appendErr = errors.New("error")
+	tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.NoError(t, err)
+	_, _, err = tree.Append(nil)
+	require.Error(t, err)
+
+	pLog.appendErr = nil
+	dLog.appendErr = errors.New("error")
+	tree, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.NoError(t, err)
+	_, _, err = tree.Append(nil)
+	require.Error(t, err)
+
+	dLog.appendErr = nil
+	cLog.appendErr = errors.New("error")
+	tree, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.NoError(t, err)
+	_, _, err = tree.Append(nil)
+	require.Error(t, err)
+
+	_, err = Open("options.go", DefaultOptions())
+	require.Error(t, ErrorPathIsNotADirectory, err)
+
+	_, err = Open("ahtree_test", DefaultOptions().SetDataCacheSlots(-1))
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = Open("ahtree_test", DefaultOptions().SetDigestsCacheSlots(-1))
+	require.Error(t, ErrIllegalArguments, err)
+
+	tree, err = Open("ahtree_test", DefaultOptions().SetSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
 	_, _, err = tree.Root()
 	require.Error(t, ErrEmptyTree, err)
+
+	_, err = tree.rootAt(1)
+	require.Error(t, ErrEmptyTree, err)
+
+	_, err = tree.rootAt(0)
+	require.Error(t, ErrIllegalArguments, err)
 
 	_, err = tree.DataAt(0)
 	require.Error(t, ErrIllegalArguments, err)
@@ -75,7 +148,16 @@ func TestEdgeCases(t *testing.T) {
 	_, _, err = tree.Append(nil)
 	require.Error(t, ErrAlreadyClosed, err)
 
+	_, err = tree.InclusionProof(1, 2)
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, err = tree.ConsistencyProof(1, 2)
+	require.Error(t, ErrAlreadyClosed, err)
+
 	_, _, err = tree.Root()
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, err = tree.rootAt(1)
 	require.Error(t, ErrAlreadyClosed, err)
 
 	_, err = tree.DataAt(1)
@@ -86,6 +168,88 @@ func TestEdgeCases(t *testing.T) {
 
 	err = tree.Close()
 	require.Error(t, ErrAlreadyClosed, err)
+}
+
+func TestReadOnly(t *testing.T) {
+	_, err := Open("ahtree_test", DefaultOptions().SetReadOnly(true))
+	defer os.RemoveAll("ahtree_test")
+	require.Error(t, err)
+
+	tree, err := Open("ahtree_test", DefaultOptions().SetReadOnly(false))
+	require.NoError(t, err)
+	err = tree.Close()
+	require.NoError(t, err)
+
+	tree, err = Open("ahtree_test", DefaultOptions().SetReadOnly(true))
+	require.NoError(t, err)
+
+	_, _, err = tree.Append(nil)
+	require.Error(t, ErrReadOnly, err)
+
+	err = tree.Sync()
+	require.Error(t, ErrReadOnly, err)
+
+	err = tree.Close()
+	require.NoError(t, err)
+}
+
+type MockedAppendable struct {
+	metadata []byte
+
+	sz    int64
+	szErr error
+
+	offset    int64
+	offsetErr error
+
+	appendOff int64
+	appendN   int
+	appendErr error
+
+	flushErr error
+
+	syncErr error
+
+	readAtN   int
+	readAtErr error
+
+	closeErr error
+}
+
+func (a *MockedAppendable) Metadata() []byte {
+	return a.metadata
+}
+
+func (a *MockedAppendable) Size() (int64, error) {
+	return a.sz, a.szErr
+}
+
+func (a *MockedAppendable) Offset() int64 {
+	return a.offset
+}
+
+func (a *MockedAppendable) SetOffset(off int64) error {
+	return a.offsetErr
+}
+
+func (a *MockedAppendable) Append(bs []byte) (off int64, n int, err error) {
+	return a.appendOff, a.appendN, a.appendErr
+}
+
+func (a *MockedAppendable) Flush() error {
+	return a.flushErr
+}
+
+func (a *MockedAppendable) Sync() error {
+	return a.syncErr
+}
+
+func (a *MockedAppendable) ReadAt(bs []byte, off int64) (int, error) {
+	return a.readAtN, a.readAtErr
+}
+
+func (a *MockedAppendable) Close() error {
+	return a.closeErr
 }
 
 func TestOptions(t *testing.T) {

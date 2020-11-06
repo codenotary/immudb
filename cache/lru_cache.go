@@ -20,7 +20,7 @@ import (
 	"errors"
 )
 
-var ErrIllegalArgument = errors.New("illegal arguments")
+var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrKeyNotFound = errors.New("key not found")
 
 type LRUCache struct {
@@ -36,7 +36,7 @@ type entry struct {
 
 func NewLRUCache(size int) (*LRUCache, error) {
 	if size < 1 {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	return &LRUCache{
@@ -48,7 +48,7 @@ func NewLRUCache(size int) (*LRUCache, error) {
 
 func (c *LRUCache) Put(key interface{}, value interface{}) (rkey interface{}, rvalue interface{}, err error) {
 	if key == nil || value == nil {
-		return nil, nil, ErrIllegalArgument
+		return nil, nil, ErrIllegalArguments
 	}
 
 	e, ok := c.data[key]
@@ -79,7 +79,7 @@ func (c *LRUCache) Put(key interface{}, value interface{}) (rkey interface{}, rv
 
 func (c *LRUCache) Get(key interface{}) (interface{}, error) {
 	if key == nil {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	e, ok := c.data[key]
