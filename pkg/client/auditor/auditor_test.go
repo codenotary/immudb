@@ -200,6 +200,19 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 
+	alertConfig := TamperingAlertConfig{
+		URL:      "http://some-non-existent-url.com",
+		Username: "some-username",
+		Password: "some-password",
+		publishFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				Status:     http.StatusText(http.StatusNoContent),
+				StatusCode: http.StatusNoContent,
+				Body:       ioutil.NopCloser(strings.NewReader("All good")),
+			}, nil
+		},
+	}
+
 	da, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
@@ -207,7 +220,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		"immudb",
 		"immudb",
 		"ignore",
-		TamperingAlertConfig{},
+		alertConfig,
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
