@@ -304,6 +304,12 @@ message SPage {
 	bool more = 3;
 }
 
+message HistoryOptions {
+	bytes key = 1;
+	uint64 offset = 2;
+	uint64 limit = 3;
+}
+
 message SafeZAddOptions {
 	ZAddOptions zopts = 1;
 	Index rootIndex = 2;
@@ -516,13 +522,14 @@ service ImmuService {
 
 	rpc ByIndexSV(Index) returns (StructuredItem){};
 
-	rpc History(Key) returns (ItemList){
+	rpc History(HistoryOptions) returns (ItemList){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/history/{key}"
+			post: "/v1/immurestproxy/history"
+			body: "*"
 		};
 	};
 
-	rpc HistorySV(Key) returns (StructuredItemList){};
+	rpc HistorySV(HistoryOptions) returns (StructuredItemList){};
 
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {

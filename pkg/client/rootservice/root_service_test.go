@@ -184,10 +184,10 @@ func (m *immuServiceClientMock) BySafeIndex(ctx context.Context, in *schema.Safe
 func (m *immuServiceClientMock) ByIndexSV(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.StructuredItem, error) {
 	return &schema.StructuredItem{}, nil
 }
-func (m *immuServiceClientMock) History(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.ItemList, error) {
+func (m *immuServiceClientMock) History(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
 	return &schema.ItemList{}, nil
 }
-func (m *immuServiceClientMock) HistorySV(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.StructuredItemList, error) {
+func (m *immuServiceClientMock) HistorySV(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error) {
 	return &schema.StructuredItemList{}, nil
 }
 func (m *immuServiceClientMock) Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {

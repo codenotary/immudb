@@ -13,6 +13,7 @@
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
     - [HealthResponse](#immudb.schema.HealthResponse)
+    - [HistoryOptions](#immudb.schema.HistoryOptions)
     - [IScanOptions](#immudb.schema.IScanOptions)
     - [InclusionProof](#immudb.schema.InclusionProof)
     - [Index](#immudb.schema.Index)
@@ -222,6 +223,23 @@
 | ----- | ---- | ----- | ----------- |
 | status | [bool](#bool) |  |  |
 | version | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.HistoryOptions"></a>
+
+### HistoryOptions
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+| offset | [uint64](#uint64) |  |  |
+| limit | [uint64](#uint64) |  |  |
 
 
 
@@ -1098,8 +1116,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | ByIndex | [Index](#immudb.schema.Index) | [Item](#immudb.schema.Item) |  |
 | BySafeIndex | [SafeIndexOptions](#immudb.schema.SafeIndexOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
 | ByIndexSV | [Index](#immudb.schema.Index) | [StructuredItem](#immudb.schema.StructuredItem) |  |
-| History | [Key](#immudb.schema.Key) | [ItemList](#immudb.schema.ItemList) |  |
-| HistorySV | [Key](#immudb.schema.Key) | [StructuredItemList](#immudb.schema.StructuredItemList) |  |
+| History | [HistoryOptions](#immudb.schema.HistoryOptions) | [ItemList](#immudb.schema.ItemList) |  |
+| HistorySV | [HistoryOptions](#immudb.schema.HistoryOptions) | [StructuredItemList](#immudb.schema.StructuredItemList) |  |
 | Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
 | Reference | [ReferenceOptions](#immudb.schema.ReferenceOptions) | [Index](#immudb.schema.Index) |  |
 | SafeReference | [SafeReferenceOptions](#immudb.schema.SafeReferenceOptions) | [Proof](#immudb.schema.Proof) |  |
