@@ -681,7 +681,7 @@ func TestHistory(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 
-	inc, err := db.History(&schema.Key{
+	inc, err := db.History(&schema.HistoryOptions{
 		Key: kv[0].Key,
 	})
 	if err != nil {
@@ -690,35 +690,6 @@ func TestHistory(t *testing.T) {
 	for _, val := range inc.Items {
 		if !bytes.Equal(val.Value, kv[0].Value) {
 			t.Fatalf("History, expected %s, got %s", kv[0].Value, val.GetValue())
-		}
-	}
-}
-
-func TestHistorySV(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-
-	for _, val := range Skv.SKVs {
-		_, err := db.SetSV(val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-	}
-	_, err := db.SetSV(Skv.SKVs[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	k := &schema.Key{
-		Key: []byte(Skv.SKVs[0].Key),
-	}
-	items, err := db.HistorySV(k)
-	if err != nil {
-		t.Fatalf("Error reading key %s", err)
-	}
-	for _, val := range items.Items {
-		if !bytes.Equal(val.Value.Payload, Skv.SKVs[0].Value.Payload) {
-			t.Fatalf("HistorySV, expected %s, got %s", Skv.SKVs[0].Value.Payload, val.Value.Payload)
 		}
 	}
 }

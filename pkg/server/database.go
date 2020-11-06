@@ -255,26 +255,12 @@ func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.SafeItem, error)
 }
 
 //History ...
-func (d *Db) History(key *schema.Key) (*schema.ItemList, error) {
-	list, err := d.Store.History(*key)
+func (d *Db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
+	list, err := d.Store.History(options)
 	if err != nil {
 		return nil, err
 	}
 	return list, nil
-}
-
-//HistorySV ...
-func (d *Db) HistorySV(key *schema.Key) (*schema.StructuredItemList, error) {
-	list, err := d.Store.History(*key)
-	if err != nil {
-		return nil, err
-	}
-
-	slist, err := list.ToSItemList()
-	if err != nil {
-		return nil, err
-	}
-	return slist, err
 }
 
 //Health ...

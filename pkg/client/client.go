@@ -992,7 +992,7 @@ func (c *immuClient) History(ctx context.Context, key []byte) (sl *schema.Struct
 		return nil, ErrNotConnected
 	}
 
-	list, err := c.ServiceClient.History(ctx, &schema.Key{
+	list, err := c.ServiceClient.History(ctx, &schema.HistoryOptions{
 		Key: key,
 	})
 	if err != nil {

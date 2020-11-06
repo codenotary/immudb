@@ -272,3 +272,49 @@ func TestStoreScanPagination2(t *testing.T) {
 	assert.Equal(t, list3.Items[2].Key, []byte(`aci`))
 	assert.Equal(t, list3.Items[2].Value, []byte(`item10`))
 }
+
+func TestStore_ScanInvalidKey(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	opt := schema.ScanOptions{
+		Prefix: []byte{tsPrefix},
+	}
+	_, err := st.Scan(opt)
+	assert.Error(t, err, ErrInvalidKey)
+}
+
+func TestStore_ZScanInvalidSet(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	opt := schema.ZScanOptions{
+		Set: []byte{tsPrefix},
+	}
+	_, err := st.ZScan(opt)
+	assert.Error(t, err, ErrInvalidSet)
+}
+
+func TestStore_ZScanInvalidOffset(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	opt := schema.ZScanOptions{
+		Set:    []byte(`set`),
+		Offset: []byte{tsPrefix},
+	}
+	_, err := st.ZScan(opt)
+	assert.Error(t, err, ErrInvalidOffset)
+}
+
+func TestStore_ScanInvalidOffset(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	opt := schema.ScanOptions{
+		Prefix: []byte(`prefix`),
+		Offset: []byte{tsPrefix},
+	}
+	_, err := st.Scan(opt)
+	assert.Error(t, err, ErrInvalidOffset)
+}

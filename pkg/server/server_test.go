@@ -1006,7 +1006,7 @@ func testServerBySafeIndexError(ctx context.Context, s *ImmuServer, t *testing.T
 }
 
 func testServerHistory(ctx context.Context, s *ImmuServer, t *testing.T) {
-	inc, err := s.History(ctx, &schema.Key{
+	inc, err := s.History(ctx, &schema.HistoryOptions{
 		Key: testKey,
 	})
 	if err != nil {
@@ -1020,7 +1020,7 @@ func testServerHistory(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.History(context.Background(), &schema.Key{
+	_, err := s.History(context.Background(), &schema.HistoryOptions{
 		Key: testKey,
 	})
 	if err == nil {
@@ -1028,29 +1028,10 @@ func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testServerHistorySV(ctx context.Context, s *ImmuServer, t *testing.T) {
-	k := &schema.Key{
-		Key: testValue,
-	}
-	items, err := s.HistorySV(ctx, k)
-	if err != nil {
-		t.Fatalf("Error reading key %s", err)
-	}
-	for _, val := range items.Items {
-		if !bytes.Equal(val.Value.Payload, testValue) {
-			t.Fatalf("HistorySV, expected %s, got %s", testValue, val.Value.Payload)
-		}
-	}
-}
-
 func testServerHistorySVError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	k := &schema.Key{
-		Key: testValue,
-	}
+	k := &schema.HistoryOptions{}
 	_, err := s.HistorySV(context.Background(), k)
-	if err == nil {
-		t.Fatalf("HistorySV ecptected Error")
-	}
+	require.Equal(t, status.Error(codes.Unimplemented, "not implemented"), err)
 }
 
 func testServerHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -1387,7 +1368,6 @@ func TestServerDbOperations(t *testing.T) {
 	testServerBySafeIndexError(ctx, s, t)
 	testServerHealth(ctx, s, t)
 	testServerHealthError(ctx, s, t)
-	testServerHistorySV(ctx, s, t)
 	testServerHistorySVError(ctx, s, t)
 	testServerReference(ctx, s, t)
 	testServerReferenceError(ctx, s, t)
