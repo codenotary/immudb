@@ -516,15 +516,69 @@ func TestRestoreHistoryCheck(t *testing.T) {
 		assert.Equal(t, k, item.Key, "n=%d", n)
 	}
 
-	key := schema.Key{
+	options := &schema.HistoryOptions{
 		Key: []byte(strconv.FormatUint(13, 10)),
 	}
 
-	il, err := st2.History(key)
+	il, err := st2.History(options)
 	assert.NoError(t, err)
 	assert.Equal(t, il.Items[0].Value, []byte(`secondval`))
 	assert.Equal(t, il.Items[1].Value, []byte(strconv.FormatUint(13, 10)))
 
+}
+
+func TestStore_HistoryPagination(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val1`)})
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val2`)})
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val3`)})
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val4`)})
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val5`)})
+
+	hOpts1 := &schema.HistoryOptions{
+		Key:   []byte(`key`),
+		Limit: 2,
+	}
+	list1, err := st.History(hOpts1)
+	assert.NoError(t, err)
+	assert.Len(t, list1.Items, 2)
+	assert.Equal(t, list1.Items[0].Value, []byte(`val5`))
+	assert.Equal(t, list1.Items[1].Value, []byte(`val4`))
+
+	hOpts2 := &schema.HistoryOptions{
+		Key:    []byte(`key`),
+		Offset: list1.Items[len(list1.Items)-1].Index,
+		Limit:  2,
+	}
+	list2, err := st.History(hOpts2)
+	assert.NoError(t, err)
+	assert.Len(t, list2.Items, 2)
+	assert.Equal(t, list2.Items[0].Value, []byte(`val3`))
+	assert.Equal(t, list2.Items[1].Value, []byte(`val2`))
+
+	hOpts3 := &schema.HistoryOptions{
+		Key:    []byte(`key`),
+		Offset: list2.Items[len(list2.Items)-1].Index,
+		Limit:  2,
+	}
+	list3, err := st.History(hOpts3)
+	assert.NoError(t, err)
+	assert.Len(t, list3.Items, 1)
+	assert.Equal(t, list3.Items[0].Value, []byte(`val1`))
+
+}
+
+func TestStore_HistoryInvalidKey(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	hOpts1 := &schema.HistoryOptions{
+		Key: []byte{tsPrefix},
+	}
+	_, err := st.History(hOpts1)
+	assert.Error(t, err, ErrInvalidKey)
 }
 
 func TestInsertionOrderIndex(t *testing.T) {

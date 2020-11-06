@@ -906,27 +906,18 @@ func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptio
 }
 
 // History ...
-func (s *ImmuServer) History(ctx context.Context, key *schema.Key) (*schema.ItemList, error) {
-	s.Logger.Debugf("history for key %s ", string(key.Key))
+func (s *ImmuServer) History(ctx context.Context, options *schema.HistoryOptions) (*schema.ItemList, error) {
+	s.Logger.Debugf("history for key %s ", string(options.Key))
 	ind, err := s.getDbIndexFromCtx(ctx, "History")
 	if err != nil {
 		return nil, err
 	}
-	return s.dbList.GetByIndex(ind).History(key)
+	return s.dbList.GetByIndex(ind).History(options)
 }
 
 // HistorySV ...
-func (s *ImmuServer) HistorySV(ctx context.Context, key *schema.Key) (*schema.StructuredItemList, error) {
-	s.Logger.Debugf("history for key %s ", string(key.Key))
-	ind, err := s.getDbIndexFromCtx(ctx, "HistorySV")
-	if err != nil {
-		return nil, err
-	}
-	list, err := s.dbList.GetByIndex(ind).History(key)
-	if err != nil {
-		return nil, err
-	}
-	return list.ToSItemList()
+func (s *ImmuServer) HistorySV(ctx context.Context, options *schema.HistoryOptions) (*schema.StructuredItemList, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 // Health ...

@@ -392,21 +392,28 @@ func (t *Store) ByIndex(index schema.Index) (item *schema.Item, err error) {
 }
 
 // History fetches the complete history of entries for the specified key
-func (t *Store) History(key schema.Key) (list *schema.ItemList, err error) {
-	if isReservedKey(key.Key) {
+func (t *Store) History(options *schema.HistoryOptions) (list *schema.ItemList, err error) {
+	if isReservedKey(options.Key) {
 		err = ErrInvalidKey
 		return
 	}
 	txn := t.db.NewTransactionAt(math.MaxInt64, false)
 	defer txn.Discard()
-	it := txn.NewKeyIterator(key.Key, badger.IteratorOptions{})
+	it := txn.NewKeyIterator(options.Key, badger.IteratorOptions{})
 	defer it.Close()
 
 	var items []*schema.Item
 	for it.Rewind(); it.Valid(); it.Next() {
-		item, err := itemToSchema(key.Key, it.Item())
+		item, err := itemToSchema(options.Key, it.Item())
 		if err != nil {
 			return nil, err
+		}
+		if options.Offset != 0 && options.Offset <= item.Index {
+			continue
+		}
+
+		if items != nil && uint64(len(items)) == options.Limit {
+			break
 		}
 		items = append(items, item)
 	}

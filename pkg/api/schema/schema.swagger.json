@@ -194,8 +194,8 @@
         "security": []
       }
     },
-    "/v1/immurestproxy/history/{key}": {
-      "get": {
+    "/v1/immurestproxy/history": {
+      "post": {
         "operationId": "History",
         "responses": {
           "200": {
@@ -207,11 +207,12 @@
         },
         "parameters": [
           {
-            "name": "key",
-            "in": "path",
+            "name": "body",
+            "in": "body",
             "required": true,
-            "type": "string",
-            "format": "byte"
+            "schema": {
+              "$ref": "#/definitions/schemaHistoryOptions"
+            }
           }
         ],
         "tags": [
@@ -1068,6 +1069,23 @@
         },
         "version": {
           "type": "string"
+        }
+      }
+    },
+    "schemaHistoryOptions": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "offset": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "limit": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },

@@ -61,8 +61,8 @@ type ImmuServiceClientMock struct {
 	ByIndexF          func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.Item, error)
 	BySafeIndexF      func(ctx context.Context, in *schema.SafeIndexOptions, opts ...grpc.CallOption) (*schema.SafeItem, error)
 	ByIndexSVF        func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.StructuredItem, error)
-	HistoryF          func(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.ItemList, error)
-	HistorySVF        func(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.StructuredItemList, error)
+	HistoryF          func(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error)
+	HistorySVF        func(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error)
 	HealthF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error)
 	ReferenceF        func(ctx context.Context, in *schema.ReferenceOptions, opts ...grpc.CallOption) (*schema.Index, error)
 	SafeReferenceF    func(ctx context.Context, in *schema.SafeReferenceOptions, opts ...grpc.CallOption) (*schema.Proof, error)
@@ -130,7 +130,7 @@ func (icm *ImmuServiceClientMock) SafeZAdd(ctx context.Context, in *schema.SafeZ
 }
 
 // History ...
-func (icm *ImmuServiceClientMock) History(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.ItemList, error) {
+func (icm *ImmuServiceClientMock) History(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
 	return icm.HistoryF(ctx, in, opts...)
 }
 
@@ -191,7 +191,7 @@ func NewImmuServiceClientMock() *ImmuServiceClientMock {
 		ScanF: func(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
 			return &schema.ItemList{}, nil
 		},
-		HistoryF: func(ctx context.Context, key *schema.Key, opts ...grpc.CallOption) (*schema.ItemList, error) {
+		HistoryF: func(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
 			return &schema.ItemList{}, nil
 		},
 		ZAddF: func(ctx context.Context, in *schema.ZAddOptions, opts ...grpc.CallOption) (*schema.Index, error) {
