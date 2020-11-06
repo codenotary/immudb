@@ -17,19 +17,41 @@ limitations under the License.
 package client
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
+	"errors"
 	"io"
+	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBatchRequest(t *testing.T) {
+	defer func() {
+		readAllFn = ioutil.ReadAll
+	}()
+
+	readAllFn = func(r io.Reader) ([]byte, error) {
+		return ioutil.ReadAll(r)
+	}
+
 	br := BatchRequest{
 		Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2")},
 		Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2")},
 	}
 	kvl, err := br.toKVList()
-	assert.Nil(t, err)
-	assert.IsType(t, kvl, &schema.KVList{})
+	require.NoError(t, err)
+	require.IsType(t, kvl, &schema.KVList{})
+
+	readAllFn = func(r io.Reader) ([]byte, error) {
+		return nil, errors.New("error reading data")
+	}
+
+	br = BatchRequest{
+		Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2")},
+		Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2")},
+	}
+	_, err = br.toKVList()
+	require.Error(t, err)
 }
