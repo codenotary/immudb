@@ -113,7 +113,7 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 }
 
 // ZScan The SCAN command is used in order to incrementally iterate over a collection of elements.
-func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err error) {
+func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ZItemList, err error) {
 	if len(options.Set) == 0 || isReservedKey(options.Set) {
 		return nil, ErrInvalidSet
 	}
@@ -125,13 +125,27 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 
+	set := AppendSeparatorToSet(options.Set)
+
+	offsetKey := set
+
 	it := txn.NewIterator(badger.IteratorOptions{
 		PrefetchValues: true,
 		PrefetchSize:   int(options.Limit),
-		Prefix:         options.Set,
+		Prefix:         set,
 		Reverse:        options.Reverse,
 	})
 	defer it.Close()
+
+	// here we compose the offset if Min score filter is provided
+	if options.Min != nil {
+		offsetKey = AppendScoreToSet(options.Set, options.Min.Score)
+	}
+
+	// if offset is provided by client it takes precedence
+	if len(options.Offset) > 0 {
+		offsetKey = options.Offset
+	}
 
 	if len(options.Offset) == 0 {
 		it.Rewind()
@@ -139,13 +153,8 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 		it.Seek(options.Offset)
 		if it.Valid() {
 			it.Next() // skip the offset item
+			offsetKey = it.Item().KeyCopy(nil)
 		}
-	}
-
-	seek := options.Set
-	if options.Reverse {
-		// https://github.com/dgraph-io/badger#frequently-asked-questions
-		seek = append(options.Set, 0xFF)
 	}
 
 	var limit = options.Limit
@@ -154,17 +163,28 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 		limit = uint64(t.db.MaxBatchCount())
 	}
 
-	var items []*schema.Item
+	if options.Reverse {
+		// https://github.com/dgraph-io/badger#frequently-asked-questions
+		offsetKey = append(offsetKey, 0xFF)
+	}
+
+	var items []*schema.ZItem
 	i := uint64(0)
 
-	for it.Seek(seek); it.Valid(); it.Next() {
+	for it.Seek(offsetKey); it.Valid(); it.Next() {
+
+		var zitem *schema.ZItem
 		var item *schema.Item
+		var sortedSetItemKey []byte
+		var sortedSetItemIndex uint64
 
 		if it.Item().UserMeta()&bitReferenceEntry == bitReferenceEntry {
 			var refKey []byte
 
 			err = it.Item().Value(func(val []byte) error {
 				refKey, _ = UnwrapValueWithTS(val)
+				sortedSetItemKey = it.Item().KeyCopy(nil)
+				sortedSetItemIndex = it.Item().Version() - 1
 				return nil
 			})
 			if err != nil {
@@ -193,20 +213,31 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ItemList, err e
 					}
 				}
 			}
-		} else {
-			item, err = itemToSchema(nil, it.Item())
-			if err != nil {
-				return nil, err
+		}
+
+		if item != nil {
+			zitem = &schema.ZItem{
+				Item:          item,
+				Score:         SetKeyScore(sortedSetItemKey, options.Set),
+				CurrentOffset: sortedSetItemKey,
+				Index:         sortedSetItemIndex,
 			}
 		}
 
-		items = append(items, item)
+		// Guard to ensure that score match the filter range if filter is provided
+		if options.Min != nil && zitem.Score < options.Min.Score {
+			continue
+		}
+		if options.Max != nil && zitem.Score > options.Max.Score {
+			continue
+		}
+
+		items = append(items, zitem)
 		if i++; i == limit {
 			break
 		}
 	}
-
-	list = &schema.ItemList{
+	list = &schema.ZItemList{
 		Items: items,
 	}
 

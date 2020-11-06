@@ -46,6 +46,7 @@
     - [SafeStructuredItem](#immudb.schema.SafeStructuredItem)
     - [SafeZAddOptions](#immudb.schema.SafeZAddOptions)
     - [ScanOptions](#immudb.schema.ScanOptions)
+    - [Score](#immudb.schema.Score)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
     - [Signature](#immudb.schema.Signature)
     - [StructuredItem](#immudb.schema.StructuredItem)
@@ -57,7 +58,11 @@
     - [UserList](#immudb.schema.UserList)
     - [UserRequest](#immudb.schema.UserRequest)
     - [ZAddOptions](#immudb.schema.ZAddOptions)
+    - [ZItem](#immudb.schema.ZItem)
+    - [ZItemList](#immudb.schema.ZItemList)
     - [ZScanOptions](#immudb.schema.ZScanOptions)
+    - [ZStructuredItem](#immudb.schema.ZStructuredItem)
+    - [ZStructuredItemList](#immudb.schema.ZStructuredItemList)
 
     - [PermissionAction](#immudb.schema.PermissionAction)
 
@@ -757,6 +762,21 @@
 
 
 
+<a name="immudb.schema.Score"></a>
+
+### Score
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| score | [double](#double) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.SetActiveUserRequest"></a>
 
 ### SetActiveUserRequest
@@ -927,9 +947,42 @@ Because it is not purely about the storage size, but also use cases.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | set | [bytes](#bytes) |  |  |
-| score | [double](#double) |  |  |
+| score | [Score](#immudb.schema.Score) |  |  |
 | key | [bytes](#bytes) |  |  |
 | index | [Index](#immudb.schema.Index) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ZItem"></a>
+
+### ZItem
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| item | [Item](#immudb.schema.Item) |  |  |
+| score | [double](#double) |  |  |
+| currentOffset | [bytes](#bytes) |  |  |
+| index | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ZItemList"></a>
+
+### ZItemList
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| items | [ZItem](#immudb.schema.ZItem) | repeated |  |
 
 
 
@@ -948,6 +1001,41 @@ Because it is not purely about the storage size, but also use cases.
 | offset | [bytes](#bytes) |  |  |
 | limit | [uint64](#uint64) |  |  |
 | reverse | [bool](#bool) |  |  |
+| min | [Score](#immudb.schema.Score) |  |  |
+| max | [Score](#immudb.schema.Score) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ZStructuredItem"></a>
+
+### ZStructuredItem
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| item | [StructuredItem](#immudb.schema.StructuredItem) |  |  |
+| score | [double](#double) |  |  |
+| currentOffset | [bytes](#bytes) |  |  |
+| index | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ZStructuredItemList"></a>
+
+### ZStructuredItemList
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| items | [ZStructuredItem](#immudb.schema.ZStructuredItem) | repeated |  |
 
 
 
@@ -1016,8 +1104,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | Reference | [ReferenceOptions](#immudb.schema.ReferenceOptions) | [Index](#immudb.schema.Index) |  |
 | SafeReference | [SafeReferenceOptions](#immudb.schema.SafeReferenceOptions) | [Proof](#immudb.schema.Proof) |  |
 | ZAdd | [ZAddOptions](#immudb.schema.ZAddOptions) | [Index](#immudb.schema.Index) |  |
-| ZScan | [ZScanOptions](#immudb.schema.ZScanOptions) | [ItemList](#immudb.schema.ItemList) |  |
-| ZScanSV | [ZScanOptions](#immudb.schema.ZScanOptions) | [StructuredItemList](#immudb.schema.StructuredItemList) |  |
+| ZScan | [ZScanOptions](#immudb.schema.ZScanOptions) | [ZItemList](#immudb.schema.ZItemList) |  |
+| ZScanSV | [ZScanOptions](#immudb.schema.ZScanOptions) | [ZStructuredItemList](#immudb.schema.ZStructuredItemList) |  |
 | SafeZAdd | [SafeZAddOptions](#immudb.schema.SafeZAddOptions) | [Proof](#immudb.schema.Proof) |  |
 | IScan | [IScanOptions](#immudb.schema.IScanOptions) | [Page](#immudb.schema.Page) |  |
 | IScanSV | [IScanOptions](#immudb.schema.IScanOptions) | [SPage](#immudb.schema.SPage) |  |

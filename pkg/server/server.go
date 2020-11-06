@@ -970,7 +970,7 @@ func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schem
 }
 
 // ZScan ...
-func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ItemList, error) {
+func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*schema.ZItemList, error) {
 	s.Logger.Debugf("zscan %+v", *opts)
 	ind, err := s.getDbIndexFromCtx(ctx, "ZScan")
 	if err != nil {
@@ -980,17 +980,8 @@ func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*sch
 }
 
 // ZScanSV ...
-func (s *ImmuServer) ZScanSV(ctx context.Context, opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
-	s.Logger.Debugf("ZScanSV %+v", *opts)
-	ind, err := s.getDbIndexFromCtx(ctx, "ZScanSV")
-	if err != nil {
-		return nil, err
-	}
-	list, err := s.dbList.GetByIndex(ind).ZScan(opts)
-	if err != nil {
-		return nil, err
-	}
-	return list.ToSItemList()
+func (s *ImmuServer) ZScanSV(_ context.Context, _ *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 // SafeZAdd ...

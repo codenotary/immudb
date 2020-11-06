@@ -66,7 +66,7 @@ var (
 	// note(leogr): special case, we reuse the immudb's ErrInvalidKey
 	// // ErrInvalidKey is returned if the key has a special !badger! prefix,
 	// // reserved for internal usage.
-	// ErrInvalidKey = status.New(codes.Unknown, badger.// ErrInvalidKey.Error()).Err() "Key is using a reserved !badger! prefix")
+	// ErrInvalidKey = status.New(codes.Unknown, badger.// ErrInvalidKey.Error()).Err() "CurrentOffset is using a reserved !badger! prefix")
 
 	// ErrRetry is returned when a log file containing the value is not found.
 	// This usually indicates that it may have been garbage collected, and the

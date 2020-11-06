@@ -207,7 +207,7 @@ func TestDbSetGet(t *testing.T) {
 			t.Fatalf("Error reading key %s", err)
 		}
 		if !bytes.Equal(item.Key, val.Key) {
-			t.Fatalf("Inserted Key not equal to read Key")
+			t.Fatalf("Inserted CurrentOffset not equal to read CurrentOffset")
 		}
 		if !bytes.Equal(item.Value, val.Value) {
 			t.Fatalf("Inserted value not equal to read value")
@@ -266,7 +266,7 @@ func TestSVSetGet(t *testing.T) {
 			t.Fatalf("Error reading key %s", err)
 		}
 		if !bytes.Equal(item.GetKey(), val.Key) {
-			t.Fatalf("Inserted Key not equal to read Key")
+			t.Fatalf("Inserted CurrentOffset not equal to read CurrentOffset")
 		}
 		sk := item.GetValue()
 		if sk.GetTimestamp() != val.GetValue().GetTimestamp() {
@@ -770,7 +770,7 @@ func TestZAdd(t *testing.T) {
 	}
 	ref, err := db.ZAdd(&schema.ZAddOptions{
 		Key:   kv[0].Key,
-		Score: 1,
+		Score: &schema.Score{Score: float64(1)},
 		Set:   kv[0].Value,
 	})
 	if err != nil {
@@ -789,8 +789,8 @@ func TestZAdd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reference  Get error %s", err)
 	}
-	if !bytes.Equal(item.Items[0].Value, kv[0].Value) {
-		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
+	if !bytes.Equal(item.Items[0].Item.Value, kv[0].Value) {
+		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Item.Value))
 	}
 }
 
@@ -804,7 +804,7 @@ func TestScan(t *testing.T) {
 	}
 	ref, err := db.ZAdd(&schema.ZAddOptions{
 		Key:   kv[0].Key,
-		Score: 3,
+		Score: &schema.Score{Score: float64(3)},
 		Set:   kv[0].Value,
 	})
 	if err != nil {
@@ -817,7 +817,7 @@ func TestScan(t *testing.T) {
 	it, err := db.SafeZAdd(&schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Key:   kv[0].Key,
-			Score: 0,
+			Score: &schema.Score{Score: float64(0)},
 			Set:   kv[0].Value,
 		},
 		RootIndex: &schema.Index{
@@ -1050,103 +1050,6 @@ func TestIscanSv(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("IScanSV expected error")
-	}
-}
-
-func TestZScanSV(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-	root, err := db.CurrentRoot(&emptypb.Empty{})
-	if err != nil {
-		t.Error(err)
-	}
-	SafeSkv := []*schema.SafeSetSVOptions{
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Alberto"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Tomba"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Jean-Claude"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Killy"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Franz"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Clamer"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-	}
-	for _, val := range SafeSkv {
-		_, err := db.SafeSetSV(val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-
-		_, err = db.ZAdd(&schema.ZAddOptions{
-			Set:   []byte("test-set"),
-			Key:   val.Skv.Key,
-			Score: 1,
-		})
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-	}
-
-	sc, err := db.ZScanSV(&schema.ZScanOptions{
-		Set:    []byte("test-set"),
-		Offset: []byte("Franz"),
-	})
-	if err != nil {
-		t.Fatalf("ZScanSV error %s", err)
-	}
-	if len(sc.Items) != 3 {
-		t.Fatalf("ZScanSV count expected %d got %d", 3, len(sc.Items))
-	}
-
-	_, err = db.Set(&schema.KeyValue{
-		Key:   []byte("keyboard"),
-		Value: []byte("qwerty"),
-	})
-	if err != nil {
-		t.Fatalf("ZScanSV expected error %s", err)
-	}
-	_, err = db.ZAdd(&schema.ZAddOptions{
-		Set:   []byte("test-set"),
-		Key:   []byte("keyboard"),
-		Score: 1,
-	})
-	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
-	}
-
-	_, err = db.ZScanSV(&schema.ZScanOptions{
-		Set:    []byte("test-set"),
-		Offset: []byte("keyboard"),
-	})
-	if err == nil {
-		t.Fatalf("ZScanSV expected error %s", err)
 	}
 }
 

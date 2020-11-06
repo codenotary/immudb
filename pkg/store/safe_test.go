@@ -374,7 +374,7 @@ func TestStoreSafeZAdd(t *testing.T) {
 	safeZAddOptions1 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   []byte(`FirstSet`),
-			Score: float64(43),
+			Score: &schema.Score{Score: float64(43)},
 			Key:   []byte(`mySecondElementKey`),
 		},
 	}
@@ -385,7 +385,7 @@ func TestStoreSafeZAdd(t *testing.T) {
 	assert.NotNil(t, proof1)
 	assert.Equal(t, uint64(3), proof1.Index)
 
-	key, _ := SetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score)
+	key := SetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score.Score)
 	leaf := api.Digest(proof1.Index, key, WrapZIndexReference(safeZAddOptions1.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
 	verified := proof1.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
@@ -400,7 +400,7 @@ func TestStoreSafeZAdd(t *testing.T) {
 	safeZAddOptions2 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   []byte(`FirstSet`),
-			Score: float64(43.548),
+			Score: &schema.Score{Score: float64(43.548)},
 			Key:   []byte(`myThirdElementKey`),
 		},
 		RootIndex: &schema.Index{
@@ -414,7 +414,7 @@ func TestStoreSafeZAdd(t *testing.T) {
 	assert.NotNil(t, proof2)
 	assert.Equal(t, uint64(4), proof2.Index)
 
-	key2, _ := SetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score)
+	key2 := SetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score.Score)
 
 	leaf2 := api.Digest(proof2.Index, key2, WrapZIndexReference(safeZAddOptions2.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
@@ -489,7 +489,7 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 	safeZAddOptions1 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   []byte(`FirstSet`),
-			Score: float64(43),
+			Score: &schema.Score{Score: float64(43)},
 			Key:   []byte(`mySecondElementKey`),
 		},
 	}
@@ -500,7 +500,7 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 	assert.NotNil(t, proof1)
 	assert.Equal(t, uint64(3), proof1.Index)
 
-	key, _ := SetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score)
+	key := SetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score.Score)
 
 	leaf := api.Digest(proof1.Index, key, WrapZIndexReference(safeZAddOptions1.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
@@ -516,7 +516,7 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 	safeZAddOptions2 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   []byte(`FirstSet`),
-			Score: float64(43.548),
+			Score: &schema.Score{Score: float64(43.548)},
 			Key:   []byte(`myThirdElementKey`),
 		},
 		RootIndex: &schema.Index{
@@ -530,7 +530,7 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 	assert.NotNil(t, proof2)
 	assert.Equal(t, uint64(4), proof2.Index)
 
-	key2, _ := SetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score)
+	key2 := SetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score.Score)
 
 	leaf2 := api.Digest(proof2.Index, key2, WrapZIndexReference(safeZAddOptions2.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
@@ -573,7 +573,7 @@ func TestStore_SafeZAddIndexEqualKeysMismatchError(t *testing.T) {
 	zaddOpts1 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   []byte(`hashA`),
-			Score: float64(1),
+			Score: &schema.Score{Score: float64(1)},
 			Key:   []byte(`WrongKey`),
 			Index: i1,
 		},
@@ -595,7 +595,7 @@ func TestStore_SafeZAddWrongKey(t *testing.T) {
 	zaddOpts1 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   []byte(`set`),
-			Score: float64(1),
+			Score: &schema.Score{Score: float64(1)},
 			Key:   []byte{tsPrefix},
 			Index: i1,
 		},
@@ -616,7 +616,7 @@ func TestStore_SafeZAddWrongSet(t *testing.T) {
 	zaddOpts1 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   []byte{tsPrefix},
-			Score: float64(1),
+			Score: &schema.Score{Score: float64(1)},
 			Key:   []byte(`key`),
 			Index: i1,
 		},

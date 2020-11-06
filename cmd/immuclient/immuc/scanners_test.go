@@ -42,7 +42,12 @@ func TestZScan(t *testing.T) {
 		t.Fatal("Set fail", err)
 	}
 
-	msg, err := ic.Imc.ZScan([]string{"key"})
+	_, err = ic.Imc.ZAdd([]string{"set", "10.5", "key"})
+	if err != nil {
+		t.Fatal("ZAdd fail", err)
+	}
+
+	msg, err := ic.Imc.ZScan([]string{"set"})
 	if err != nil {
 		t.Fatal("ZScan fail", err)
 	}
