@@ -163,6 +163,84 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	os.RemoveAll(dirname)
 }
 
+func TestRepeatedAuditorRunOnDb(t *testing.T) {
+	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
+	bs.Start()
+
+	ctx := context.Background()
+	pr := &PasswordReader{
+		Pass: []string{"immudb"},
+	}
+
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(client.NewHomedirService())
+	cliopt := client.DefaultOptions().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
+
+	cliopt.PasswordReader = pr
+	cliopt.DialOptions = &dialOptions
+
+	cli, _ := client.NewImmuClient(cliopt)
+	lresp, err := cli.Login(ctx, []byte("immudb"), []byte("immudb"))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lresp.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = cli.Set(ctx, []byte(`key`), []byte(`val`))
+	require.NoError(t, err)
+
+	ds := []grpc.DialOption{
+		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
+	}
+
+	var clientConn *grpc.ClientConn
+	clientConn, err = grpc.Dial("add", ds...)
+	require.NoError(t, err)
+	serviceClient := schema.NewImmuServiceClient(clientConn)
+
+	alertConfig := TamperingAlertConfig{
+		URL:      "http://some-non-existent-url.com",
+		Username: "some-username",
+		Password: "some-password",
+		publishFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				Status:     http.StatusText(http.StatusNoContent),
+				StatusCode: http.StatusNoContent,
+				Body:       ioutil.NopCloser(strings.NewReader("All good")),
+			}, nil
+		},
+	}
+
+	da, err := DefaultAuditor(
+		time.Duration(0),
+		fmt.Sprintf("%s:%d", "address", 0),
+		&ds,
+		"immudb",
+		"immudb",
+		"ignore",
+		alertConfig,
+		serviceClient,
+		rootservice.NewImmudbUUIDProvider(serviceClient),
+		cache.NewHistoryFileCache(dirname),
+		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		logger.NewSimpleLogger("test", os.Stdout))
+	require.NoError(t, err)
+
+	auditorStop := make(chan struct{}, 1)
+	auditorDone := make(chan struct{}, 1)
+
+	go da.Run(time.Duration(100)*time.Millisecond, false, auditorStop, auditorDone)
+
+	time.Sleep(time.Duration(2) * time.Second)
+
+	auditorStop <- struct{}{}
+	<-auditorDone
+
+	os.RemoveAll(dirname)
+}
+
 func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 	pkey_path := "./../../../test/signer/ec3.key"
 	bs := servertest.NewBufconnServer(

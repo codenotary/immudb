@@ -29,14 +29,16 @@ type BatchRequest struct {
 	Values []io.Reader
 }
 
+var readAllFn = ioutil.ReadAll
+
 func (b *BatchRequest) toKVList() (*schema.KVList, error) {
 	list := &schema.KVList{}
 	for i := range b.Keys {
-		key, err := ioutil.ReadAll(b.Keys[i])
+		key, err := readAllFn(b.Keys[i])
 		if err != nil {
 			return nil, err
 		}
-		value, err := ioutil.ReadAll(b.Values[i])
+		value, err := readAllFn(b.Values[i])
 		if err != nil {
 			return nil, err
 		}

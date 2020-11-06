@@ -107,14 +107,9 @@ func DefaultAuditor(
 		return nil, err
 	}
 
-	dt, err := timestamp.NewDefaultTimestamp()
-	if err != nil {
-		return nil, err
-	}
-	slugifyRegExp, err := regexp.Compile(`[^a-zA-Z0-9\-_]+`)
-	if err != nil {
-		log.Warningf("error compiling regex for slugifier: %v", err)
-	}
+	dt, _ := timestamp.NewDefaultTimestamp()
+
+	slugifyRegExp, _ := regexp.Compile(`[^a-zA-Z0-9\-_]+`)
 
 	httpClient := &http.Client{Timeout: alertConfig.RequestTimeout}
 	alertConfig.publishFunc = httpClient.Do
@@ -438,12 +433,6 @@ func (a *defaultAuditor) getServerID(
 			a.serverAddress, serverID)
 	}
 	return serverID
-}
-
-func (a *defaultAuditor) closeConnection(conn *grpc.ClientConn) {
-	if err := conn.Close(); err != nil {
-		a.logger.Errorf("error closing connection: %v", err)
-	}
 }
 
 // repeat executes f every interval until stopc is closed or f returns an error.

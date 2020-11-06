@@ -49,6 +49,9 @@ func TestInclusion(t *testing.T) {
 
 	st.tree.WaitUntil(at)
 
+	_, err := st.InclusionProof(schema.Index{Index: at + 1})
+	assert.Error(t, ErrIndexNotFound, err)
+
 	proof, err := st.InclusionProof(schema.Index{Index: index})
 	leaf := st.tree.Get(0, index)
 	assert.NoError(t, err)
@@ -86,6 +89,9 @@ func TestConsistency(t *testing.T) {
 	at := n - 1
 
 	st.tree.WaitUntil(at)
+
+	_, err := st.ConsistencyProof(schema.Index{Index: at + 1})
+	assert.Error(t, ErrIndexNotFound, err)
 
 	proof, err := st.ConsistencyProof(schema.Index{Index: index})
 	assert.NoError(t, err)
