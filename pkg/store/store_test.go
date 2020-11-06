@@ -802,7 +802,7 @@ func TestStore_ZAddWrongKey(t *testing.T) {
 
 	zaddOpts1 := schema.ZAddOptions{
 		Set:   []byte(`set`),
-		Score: float64(1),
+		Score: &schema.Score{Score: float64(1)},
 		Key:   []byte{tsPrefix},
 		Index: i1,
 	}
@@ -820,7 +820,7 @@ func TestStore_ZAddWrongSet(t *testing.T) {
 
 	zaddOpts1 := schema.ZAddOptions{
 		Set:   []byte{tsPrefix},
-		Score: float64(1),
+		Score: &schema.Score{Score: float64(1)},
 		Key:   []byte(`key`),
 		Index: i1,
 	}

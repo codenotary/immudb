@@ -269,9 +269,9 @@ func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float6
 	require.Len(t, itemList.Items, len(keys))
 
 	for i := 0; i < len(keys); i++ {
-		require.Equal(t, keys[i], itemList.Items[i].Key)
-		require.Equal(t, values[i], itemList.Items[i].Value.Payload)
-		require.Equal(t, uint64(1405544146), itemList.Items[i].Value.Timestamp)
+		require.Equal(t, keys[i], itemList.Items[i].Item.Key)
+		require.Equal(t, values[i], itemList.Items[i].Item.Value.Payload)
+		require.Equal(t, uint64(1405544146), itemList.Items[i].Item.Value.Timestamp)
 	}
 }
 
@@ -407,7 +407,7 @@ func TestImmuClient(t *testing.T) {
 //	require.NoError(t, err)
 //	require.NotNil(t, r3)
 //	vi := r3.(*VerifiedItem)
-//	require.Equal(t, testData.keys[1], vi.Key)
+//	require.Equal(t, testData.keys[1], vi.CurrentOffset)
 //	require.Equal(t, testData.values[1], vi.Value)
 //	require.True(t, vi.Verified)
 //
@@ -417,7 +417,7 @@ func TestImmuClient(t *testing.T) {
 //	require.NoError(t, err)
 //	require.NotNil(t, r4)
 //	viFromRef := r4.(*VerifiedItem)
-//	require.Equal(t, testData.keys[2], viFromRef.Key)
+//	require.Equal(t, testData.keys[2], viFromRef.CurrentOffset)
 //	require.Equal(t, testData.values[2], viFromRef.Value)
 //	require.True(t, viFromRef.Verified)
 //
@@ -430,7 +430,7 @@ func TestImmuClient(t *testing.T) {
 //	require.Len(t, itemList.Items, len(testData.keys))
 //
 //	for i := 0; i < len(testData.keys); i++ {
-//		require.Equal(t, testData.keys[i], itemList.Items[i].Key)
+//		require.Equal(t, testData.keys[i], itemList.Items[i].CurrentOffset)
 //		require.Equal(t, testData.values[i], itemList.Items[i].Value.Payload)
 //	}
 //}

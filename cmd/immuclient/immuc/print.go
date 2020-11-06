@@ -96,10 +96,8 @@ func PrintSetItem(set []byte, rkey []byte, score float64, message interface{}) s
 		verified = m.Verified
 		isVerified = true
 	}
-	key, err := store.SetKey(rkey, set, score)
-	if err != nil {
-		return fmt.Sprint(err.Error())
-	}
+	key := store.SetKey(rkey, set, score)
+
 	if !isVerified {
 		return fmt.Sprintf("index:		%d\nset:		%s \nkey:		%s \nscore:		%f \nvalue:		%s \nhash:		%x \n",
 			index,

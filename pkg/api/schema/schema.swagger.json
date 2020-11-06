@@ -822,7 +822,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaZItemList"
             }
           }
         },
@@ -1474,6 +1474,15 @@
         }
       }
     },
+    "schemaScore": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
     "schemaSetActiveUserRequest": {
       "type": "object",
       "properties": {
@@ -1601,8 +1610,7 @@
           "format": "byte"
         },
         "score": {
-          "type": "number",
-          "format": "double"
+          "$ref": "#/definitions/schemaScore"
         },
         "key": {
           "type": "string",
@@ -1613,6 +1621,37 @@
         }
       },
       "description": "Why use double as score type?\nBecause it is not purely about the storage size, but also use cases.\n64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer."
+    },
+    "schemaZItem": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/schemaItem"
+        },
+        "score": {
+          "type": "number",
+          "format": "double"
+        },
+        "currentOffset": {
+          "type": "string",
+          "format": "byte"
+        },
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaZItemList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaZItem"
+          }
+        }
+      }
     },
     "schemaZScanOptions": {
       "type": "object",
@@ -1632,6 +1671,43 @@
         "reverse": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "min": {
+          "$ref": "#/definitions/schemaScore"
+        },
+        "max": {
+          "$ref": "#/definitions/schemaScore"
+        }
+      }
+    },
+    "schemaZStructuredItem": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/schemaStructuredItem"
+        },
+        "score": {
+          "type": "number",
+          "format": "double"
+        },
+        "currentOffset": {
+          "type": "string",
+          "format": "byte"
+        },
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaZStructuredItemList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaZStructuredItem"
+          }
         }
       }
     }

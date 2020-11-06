@@ -202,11 +202,11 @@ func (m *immuServiceClientMock) SafeReference(ctx context.Context, in *schema.Sa
 func (m *immuServiceClientMock) ZAdd(ctx context.Context, in *schema.ZAddOptions, opts ...grpc.CallOption) (*schema.Index, error) {
 	return &schema.Index{}, nil
 }
-func (m *immuServiceClientMock) ZScan(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
-	return &schema.ItemList{}, nil
+func (m *immuServiceClientMock) ZScan(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error) {
+	return &schema.ZItemList{}, nil
 }
-func (m *immuServiceClientMock) ZScanSV(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error) {
-	return &schema.StructuredItemList{}, nil
+func (m *immuServiceClientMock) ZScanSV(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZStructuredItemList, error) {
+	return &schema.ZStructuredItemList{}, nil
 }
 func (m *immuServiceClientMock) SafeZAdd(ctx context.Context, in *schema.SafeZAddOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
 	return &schema.Proof{}, nil

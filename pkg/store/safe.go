@@ -281,10 +281,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		referenceValue = WrapZIndexReference(i.Key(), nil)
 	}
 
-	ik, err := SetKey(options.Zopts.Key, options.Zopts.Set, options.Zopts.Score)
-	if err != nil {
-		return nil, mapError(err)
-	}
+	ik := SetKey(options.Zopts.Key, options.Zopts.Set, options.Zopts.Score.Score)
 
 	tsEntry := t.tree.NewEntry(ik, referenceValue)
 

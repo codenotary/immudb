@@ -53,7 +53,9 @@ func TestZScan(t *testing.T) {
 	cmd.SetOut(b)
 	cmdl.immucl.SafeSet([]string{"key", "value"})
 
-	cmd.SetArgs([]string{"zscan", "key"})
+	cmdl.immucl.ZAdd([]string{"set", "10.5", "key"})
+
+	cmd.SetArgs([]string{"zscan", "set"})
 
 	// remove ConfigChain method to avoid options override
 	cmd.PersistentPreRunE = nil

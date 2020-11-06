@@ -67,7 +67,7 @@ type ImmuServiceClientMock struct {
 	ReferenceF        func(ctx context.Context, in *schema.ReferenceOptions, opts ...grpc.CallOption) (*schema.Index, error)
 	SafeReferenceF    func(ctx context.Context, in *schema.SafeReferenceOptions, opts ...grpc.CallOption) (*schema.Proof, error)
 	ZAddF             func(ctx context.Context, in *schema.ZAddOptions, opts ...grpc.CallOption) (*schema.Index, error)
-	ZScanF            func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error)
+	ZScanF            func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error)
 	ZScanSVF          func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error)
 	SafeZAddF         func(ctx context.Context, in *schema.SafeZAddOptions, opts ...grpc.CallOption) (*schema.Proof, error)
 	IScanF            func(ctx context.Context, in *schema.IScanOptions, opts ...grpc.CallOption) (*schema.Page, error)
@@ -140,7 +140,7 @@ func (icm *ImmuServiceClientMock) Get(ctx context.Context, in *schema.Key, opts 
 }
 
 // ZScan ...
-func (icm *ImmuServiceClientMock) ZScan(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
+func (icm *ImmuServiceClientMock) ZScan(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error) {
 	return icm.ZScanF(ctx, in, opts...)
 }
 
@@ -200,8 +200,8 @@ func NewImmuServiceClientMock() *ImmuServiceClientMock {
 		SafeZAddF: func(ctx context.Context, in *schema.SafeZAddOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
 			return &schema.Proof{}, nil
 		},
-		ZScanF: func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
-			return &schema.ItemList{}, nil
+		ZScanF: func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error) {
+			return &schema.ZItemList{}, nil
 		},
 		CreateUserF: func(ctx context.Context, in *schema.CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 			return &empty.Empty{}, nil

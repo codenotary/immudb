@@ -57,7 +57,7 @@ type ImmuClientMock struct {
 	ListUsersF          func(context.Context) (*schema.UserList, error)
 	SetActiveUserF      func(context.Context, *schema.SetActiveUserRequest) error
 	ChangePermissionF   func(context.Context, schema.PermissionAction, string, string, uint32) error
-	ZScanF              func(context.Context, []byte) (*schema.StructuredItemList, error)
+	ZScanF              func(context.Context, []byte) (*schema.ZStructuredItemList, error)
 	IScanF              func(context.Context, uint64, uint64) (*schema.SPage, error)
 	ScanF               func(context.Context, []byte) (*schema.StructuredItemList, error)
 	CountF              func(context.Context, []byte) (*schema.ItemsCount, error)
@@ -199,7 +199,7 @@ func (icm *ImmuClientMock) ChangePermission(ctx context.Context, action schema.P
 }
 
 // ZScan ...
-func (icm *ImmuClientMock) ZScan(ctx context.Context, set []byte) (*schema.StructuredItemList, error) {
+func (icm *ImmuClientMock) ZScan(ctx context.Context, set []byte) (*schema.ZStructuredItemList, error) {
 	return icm.ZScanF(ctx, set)
 }
 

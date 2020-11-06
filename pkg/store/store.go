@@ -514,10 +514,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		referenceValue = WrapZIndexReference(i.Key(), nil)
 	}
 
-	ik, err := SetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score)
-	if err != nil {
-		return nil, mapError(err)
-	}
+	ik := SetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score.Score)
 
 	tsEntry := t.tree.NewEntry(ik, referenceValue)
 
