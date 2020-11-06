@@ -71,7 +71,7 @@ type ImmuClient interface {
 	SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error)
 	RawSafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error)
 	Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error)
-	ZScan(ctx context.Context, set []byte) (*schema.StructuredItemList, error)
+	ZScan(ctx context.Context, set []byte) (*schema.ZStructuredItemList, error)
 	ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error)
 	RawBySafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error)
 	IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error)
@@ -618,7 +618,7 @@ func (c *immuClient) Scan(ctx context.Context, prefix []byte) (*schema.Structure
 }
 
 // ZScan ...
-func (c *immuClient) ZScan(ctx context.Context, set []byte) (*schema.StructuredItemList, error) {
+func (c *immuClient) ZScan(ctx context.Context, set []byte) (*schema.ZStructuredItemList, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -628,7 +628,7 @@ func (c *immuClient) ZScan(ctx context.Context, set []byte) (*schema.StructuredI
 		return nil, err
 	}
 
-	return list.ToSItemList()
+	return list.ToZSItemList()
 }
 
 // IScan ...
@@ -1099,7 +1099,7 @@ func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []
 
 	result, err := c.ServiceClient.ZAdd(ctx, &schema.ZAddOptions{
 		Set:   set,
-		Score: score,
+		Score: &schema.Score{Score: score},
 		Key:   key,
 	})
 
@@ -1127,7 +1127,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 	opts := &schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   set,
-			Score: score,
+			Score: &schema.Score{Score: score},
 			Key:   key,
 		},
 		RootIndex: &schema.Index{
@@ -1146,10 +1146,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 		return nil, err
 	}
 
-	keySet, err := store.SetKey(key, set, score)
-	if err != nil {
-		return nil, err
-	}
+	keySet := store.SetKey(key, set, score)
 
 	// This guard ensures that result.Leaf is equal to the item's hash computed
 	// from request values. From now on, result.Leaf can be trusted.

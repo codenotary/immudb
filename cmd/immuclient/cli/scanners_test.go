@@ -45,7 +45,12 @@ func TestZScan(t *testing.T) {
 		t.Fatal("Set fail", err)
 	}
 
-	msg, err := cli.zScan([]string{"key"})
+	_, err = cli.zAdd([]string{"set", "445.3", "key"})
+	if err != nil {
+		t.Fatal("ZAdd fail", err)
+	}
+
+	msg, err := cli.zScan([]string{"set"})
 	if err != nil {
 		t.Fatal("ZScan fail", err)
 	}

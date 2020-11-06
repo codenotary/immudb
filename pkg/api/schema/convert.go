@@ -88,6 +88,25 @@ func (list *ItemList) ToSItemList() (*StructuredItemList, error) {
 	return slist, nil
 }
 
+// ToZSItemList return a ZStructuredItemList from the receiver
+func (list *ZItemList) ToZSItemList() (*ZStructuredItemList, error) {
+	slist := &ZStructuredItemList{}
+	for _, item := range list.Items {
+		i, err := item.Item.ToSItem()
+		if err != nil {
+			return nil, err
+		}
+		zi := &ZStructuredItem{
+			Item:          i,
+			Score:         item.Score,
+			CurrentOffset: item.CurrentOffset,
+			Index:         item.Index,
+		}
+		slist.Items = append(slist.Items, zi)
+	}
+	return slist, nil
+}
+
 // ToKV return a KeyValue from the receiver
 func (skv *StructuredKeyValue) ToKV() (*KeyValue, error) {
 	m, err := proto.Marshal(skv.Value)

@@ -49,7 +49,7 @@ var FunctionBenchmarks = []bm.Bm{
 	// 	},
 	// 	Work: func(bm *bm.Bm, start int, end int) error {
 	// 		for i := start; i < end; i++ {
-	// 			kv := schema.KeyValue{Key:[]byte(strconv.FormatUint(uint64(i), 10)), Value: V}
+	// 			kv := schema.KeyValue{CurrentOffset:[]byte(strconv.FormatUint(uint64(i), 10)), Value: V}
 	// 			if _, err := bm.Store.Set(kv); err != nil {
 	// 				return err
 	// 			}

@@ -140,9 +140,32 @@ message ItemList {
 	repeated Item items = 1;
 }
 
+message ZItem {
+	Item item = 1;
+	double score = 2;
+	bytes currentOffset = 3;
+	uint64 index = 4;
+}
+
+message ZItemList {
+	repeated ZItem items = 1;
+}
+
 message StructuredItemList {
 	repeated StructuredItem items = 1;
 }
+
+message ZStructuredItemList {
+	repeated ZStructuredItem items = 1;
+}
+
+message ZStructuredItem {
+	StructuredItem item = 1;
+	double score = 2;
+	bytes currentOffset = 3;
+	uint64 index = 4;
+}
+
 
 message Root {
 	RootIndex payload = 1;
@@ -247,7 +270,7 @@ Because it is not purely about the storage size, but also use cases.
 */
 message ZAddOptions {
 	bytes set = 1;
-	double score = 2;
+	Score score = 2;
 	bytes key = 3;
 	Index index = 4;
 }
@@ -257,6 +280,12 @@ message ZScanOptions {
 	bytes offset = 2;
 	uint64 limit = 3;
 	bool reverse = 4;
+	Score min = 5;
+	Score max = 6;
+}
+
+message Score {
+	double score = 1;
 }
 
 message IScanOptions {
@@ -521,14 +550,14 @@ service ImmuService {
 			body: "*"
 		};
 	};
-	rpc ZScan (ZScanOptions) returns (ItemList){
+	rpc ZScan (ZScanOptions) returns (ZItemList){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/zscan"
 			body: "*"
 		};
 	};
 
-	rpc ZScanSV (ZScanOptions) returns (StructuredItemList){};
+	rpc ZScanSV (ZScanOptions) returns (ZStructuredItemList){};
 
 	rpc SafeZAdd (SafeZAddOptions) returns (Proof){
 		option (google.api.http) = {

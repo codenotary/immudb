@@ -35,7 +35,7 @@ func TestScannersErrors(t *testing.T) {
 
 	// ZScan errors
 	args := []string{"set1"}
-	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.StructuredItemList, error) {
+	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.ZStructuredItemList, error) {
 		return nil, status.New(codes.Internal, "zscan RPC error").Err()
 	}
 	resp, err := ic.ZScan(args)
@@ -43,14 +43,14 @@ func TestScannersErrors(t *testing.T) {
 	require.Equal(t, " zscan RPC error", resp)
 
 	errZScan := errors.New("zscan error")
-	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.StructuredItemList, error) {
+	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.ZStructuredItemList, error) {
 		return nil, errZScan
 	}
 	_, err = ic.ZScan(args)
 	require.Equal(t, errZScan, err)
 
-	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.StructuredItemList, error) {
-		return &schema.StructuredItemList{}, nil
+	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.ZStructuredItemList, error) {
+		return &schema.ZStructuredItemList{}, nil
 	}
 	resp, err = ic.ZScan(args)
 	require.NoError(t, err)

@@ -304,17 +304,8 @@ func (d *Db) ZAdd(opts *schema.ZAddOptions) (*schema.Index, error) {
 }
 
 // ZScan ...
-func (d *Db) ZScan(opts *schema.ZScanOptions) (*schema.ItemList, error) {
+func (d *Db) ZScan(opts *schema.ZScanOptions) (*schema.ZItemList, error) {
 	return d.Store.ZScan(*opts)
-}
-
-//ZScanSV ...
-func (d *Db) ZScanSV(opts *schema.ZScanOptions) (*schema.StructuredItemList, error) {
-	list, err := d.Store.ZScan(*opts)
-	if err != nil {
-		return nil, err
-	}
-	return list.ToSItemList()
 }
 
 //SafeZAdd ...

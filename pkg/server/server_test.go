@@ -605,7 +605,7 @@ func testServerSVSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 			t.Fatalf("index error expecting %v got %v", item.Index, it.GetIndex())
 		}
 		if !bytes.Equal(item.GetKey(), val.Key) {
-			t.Fatalf("Inserted Key not equal to read Key")
+			t.Fatalf("Inserted CurrentOffset not equal to read CurrentOffset")
 		}
 		sk := item.GetValue()
 		if sk.GetTimestamp() != val.GetValue().GetTimestamp() {
@@ -1107,7 +1107,7 @@ func testServerZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	_, err = s.ZAdd(ctx, &schema.ZAddOptions{
 		Key:   kv[0].Key,
-		Score: 1,
+		Score: &schema.Score{Score: 1},
 		Set:   kv[0].Value,
 	})
 	if err != nil {
@@ -1122,14 +1122,14 @@ func testServerZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reference  Get error %s", err)
 	}
-	if !bytes.Equal(item.Items[0].Value, kv[0].Value) {
-		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Value))
+	if !bytes.Equal(item.Items[0].Item.Value, kv[0].Value) {
+		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Item.Value))
 	}
 }
 func testServerZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ZAdd(context.Background(), &schema.ZAddOptions{
 		Key:   kv[0].Key,
-		Score: 1,
+		Score: &schema.Score{Score: 1},
 		Set:   kv[0].Value,
 	})
 	if err == nil {
@@ -1153,7 +1153,7 @@ func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	_, err = s.ZAdd(ctx, &schema.ZAddOptions{
 		Key:   kv[0].Key,
-		Score: 3,
+		Score: &schema.Score{Score: 3},
 		Set:   kv[0].Value,
 	})
 	if err != nil {
@@ -1163,7 +1163,7 @@ func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err = s.SafeZAdd(ctx, &schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Key:   kv[0].Key,
-			Score: 0,
+			Score: &schema.Score{Score: 0},
 			Set:   kv[0].Value,
 		},
 		RootIndex: &schema.Index{
@@ -1922,7 +1922,7 @@ func TestServerErrors(t *testing.T) {
 	_, err = s.SafeZAdd(emptyCtx, &schema.SafeZAddOptions{})
 	require.Equal(t, plsLoginErr, err)
 	_, err = s.ZScanSV(emptyCtx, &schema.ZScanOptions{})
-	require.Equal(t, plsLoginErr, err)
+	require.Equal(t, status.Error(codes.Unimplemented, "not implemented"), err)
 	_, err = s.Reference(emptyCtx, &schema.ReferenceOptions{})
 	require.Equal(t, plsLoginErr, err)
 	_, err = s.UpdateMTLSConfig(emptyCtx, &schema.MTLSConfig{})
