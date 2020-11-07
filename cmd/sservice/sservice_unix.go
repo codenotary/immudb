@@ -21,9 +21,6 @@ package sservice
 import (
 	"bytes"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/immuos"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"io"
 	"os"
 	"os/exec"
@@ -31,6 +28,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/immuos"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/takama/daemon"
 )
@@ -69,12 +70,33 @@ func (ss sservice) IsAdmin() (bool, error) {
 	return false, ErrUnsupportedSystem
 }
 
+type delayedTasks struct {
+	fns []func() error
+}
+
+func (dt *delayedTasks) delay(f func() error) {
+	dt.fns = append(dt.fns, f)
+}
+
+func (dt *delayedTasks) do() error {
+	for _, f := range dt.fns {
+		err := f()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // InstallSetup ...
 func (ss sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err error) {
-	if err = ss.GroupCreateIfNotExists(); err != nil {
-		return err
-	}
-	if err = ss.UserCreateIfNotExists(); err != nil {
+	tasks := &delayedTasks{}
+
+	tasks.delay(ss.GroupCreateIfNotExists)
+	tasks.delay(ss.UserCreateIfNotExists)
+
+	err = tasks.do()
+	if err != nil {
 		return err
 	}
 
@@ -83,81 +105,56 @@ func (ss sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err err
 		return err
 	}
 
-	if err = ss.SetOwnership(execPath); err != nil {
-		return err
-	}
+	tasks = &delayedTasks{}
 
-	if err = ss.InstallConfig(serviceName); err != nil {
-		return err
-	}
-
-	if err = ss.os.MkdirAll(ss.v.GetString("dir"), os.ModePerm); err != nil {
-		return err
-	}
-	if err = ss.SetOwnership(ss.v.GetString("dir")); err != nil {
-		return err
-	}
+	tasks.delay(func() error { return ss.SetOwnership(execPath) })
+	tasks.delay(func() error { return ss.InstallConfig(serviceName) })
+	tasks.delay(func() error { return ss.os.MkdirAll(ss.v.GetString("dir"), os.ModePerm) })
+	tasks.delay(func() error { return ss.SetOwnership(ss.v.GetString("dir")) })
 
 	logPath := ss.os.Dir(ss.v.GetString("logfile"))
-	if err = ss.os.MkdirAll(logPath, os.ModePerm); err != nil {
-		return err
-	}
-	if err = ss.SetOwnership(logPath); err != nil {
-		return err
-	}
+
+	tasks.delay(func() error { return ss.os.MkdirAll(logPath, os.ModePerm) })
+	tasks.delay(func() error { return ss.SetOwnership(logPath) })
 
 	pidPath := ss.os.Dir(ss.v.GetString("pidfile"))
-	if err = ss.os.MkdirAll(pidPath, os.ModePerm); err != nil {
-		return err
-	}
-	if err = ss.SetOwnership(pidPath); err != nil {
-		return err
-	}
 
-	if err = ss.InstallManPages(serviceName, cmd); err != nil {
-		return err
-	}
+	tasks.delay(func() error { return ss.os.MkdirAll(pidPath, os.ModePerm) })
+	tasks.delay(func() error { return ss.SetOwnership(pidPath) })
 
-	return err
+	tasks.delay(func() error { return ss.InstallManPages(serviceName, cmd) })
+
+	return tasks.do()
 }
 
 // UninstallSetup uninstall operations
 func (ss sservice) UninstallSetup(serviceName string) (err error) {
-	if err = ss.ReadConfig(serviceName); err != nil {
-		return err
-	}
-	if err = ss.UninstallExecutables(serviceName); err != nil {
-		return err
-	}
-	if err = ss.osRemoveAll(ss.os.Dir(ss.v.GetString("logfile"))); err != nil {
-		return err
-	}
-	err = ss.UninstallManPages(serviceName)
-	if err != nil {
-		return err
-	}
-	// remove dir data folder only if it is empty
-	cepd := ss.v.GetString("dir")
-	if _, err := os.Stat(cepd); !os.IsNotExist(err) {
-		f1, err := ss.os.Open(cepd)
+	tasks := &delayedTasks{}
+
+	tasks.delay(func() error { return ss.ReadConfig(serviceName) })
+	tasks.delay(func() error { return ss.UninstallExecutables(serviceName) })
+
+	tasks.delay(func() error { return ss.osRemoveAll(ss.os.Dir(ss.v.GetString("logfile"))) })
+
+	tasks.delay(func() error { return ss.UninstallManPages(serviceName) })
+
+	tasks.delay(func() error {
+		cepd := ss.v.GetString("dir")
+		return ss.removeFolderIfEmpty(cepd)
+	})
+
+	tasks.delay(func() error {
+		cp, err := ss.GetDefaultConfigPath(serviceName)
 		if err != nil {
 			return err
 		}
-		defer f1.Close()
-		_, err = f1.Readdirnames(1)
-		if err == io.EOF {
-			err = ss.osRemove(cepd)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	cp, err := ss.GetDefaultConfigPath(serviceName)
-	if err != nil {
-		return err
-	}
-	config := ss.os.Dir(cp)
-	return ss.osRemoveAll(config)
+
+		config := ss.os.Dir(cp)
+
+		return ss.osRemoveAll(config)
+	})
+
+	return tasks.do()
 }
 
 // installConfig install config in /etc folder
@@ -165,8 +162,11 @@ func (ss sservice) InstallConfig(serviceName string) (err error) {
 	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
+
 	cp, _ := ss.GetDefaultConfigPath(serviceName)
+
 	var configDir = ss.os.Dir(cp)
+
 	err = ss.os.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
@@ -185,21 +185,14 @@ func (ss sservice) GroupCreateIfNotExists() (err error) {
 	if _, err = ss.os.LookupGroup(ss.options.Group); err != user.UnknownGroupError(ss.options.Group) {
 		return err
 	}
-	if err = ss.os.AddGroup(ss.options.Group); err != nil {
-		return err
-	}
-	return err
+	return ss.os.AddGroup(ss.options.Group)
 }
 
 func (ss sservice) UserCreateIfNotExists() (err error) {
 	if _, err = ss.os.Lookup(ss.options.User); err != user.UnknownUserError(ss.options.User) {
 		return err
 	}
-	if err = ss.os.AddUser(ss.options.Group, ss.options.User); err != nil {
-		return err
-	}
-
-	return err
+	return ss.os.AddUser(ss.options.Group, ss.options.User)
 }
 
 func (ss sservice) SetOwnership(path string) (err error) {
@@ -209,6 +202,7 @@ func (ss sservice) SetOwnership(path string) (err error) {
 	if g, err = ss.os.LookupGroup(ss.options.Group); err != nil {
 		return err
 	}
+
 	if u, err = ss.os.Lookup(ss.options.User); err != nil {
 		return err
 	}
@@ -249,6 +243,7 @@ func (ss sservice) CopyExecInOsDefault(serviceName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	from, err := ss.os.Open(currentExec)
 	if err != nil {
 		return "", err
@@ -301,6 +296,22 @@ func (ss sservice) GetDefaultConfigPath(serviceName string) (string, error) {
 
 var whitelist = []string{"/etc/immu", "/usr/sbin/immu", "/var/log/immu", "/var/lib/immu"}
 
+func (ss sservice) removeFolderIfEmpty(folder string) error {
+	if _, err := os.Stat(folder); !os.IsNotExist(err) {
+		f1, err := ss.os.Open(folder)
+		if err != nil {
+			return err
+		}
+		defer f1.Close()
+
+		_, err = f1.Readdirnames(1)
+		if err == io.EOF {
+			return ss.osRemove(folder)
+		}
+	}
+	return nil
+}
+
 func (ss sservice) osRemove(folder string) error {
 	if err := deletionGuard(folder); err != nil {
 		return err
@@ -318,14 +329,17 @@ func (ss sservice) osRemoveAll(folder string) error {
 func deletionGuard(path string) error {
 	var v string
 	found := false
+
 	for _, v = range whitelist {
 		if strings.HasPrefix(path, v) {
 			found = true
 			break
 		}
 	}
+
 	if !found {
 		return fmt.Errorf("os system file or folder protected item deletion not allowed. Check immu* service configuration: %s", path)
 	}
+
 	return nil
 }
