@@ -437,8 +437,111 @@ func TestImmuClient(t *testing.T) {
 func TestImmuClientDisconnect(t *testing.T) {
 	setup()
 	err := client.Disconnect()
-	assert.Nil(t, err)
+	require.Nil(t, err)
+
+	require.False(t, client.IsConnected())
+
+	require.Error(t, ErrNotConnected, client.CreateUser(context.TODO(), []byte("user"), []byte("passwd"), 1, "db"))
+	require.Error(t, ErrNotConnected, client.ChangePassword(context.TODO(), []byte("user"), []byte("oldPasswd"), []byte("newPasswd")))
+	require.Error(t, ErrNotConnected, client.UpdateAuthConfig(context.TODO(), auth.KindPassword))
+	require.Error(t, ErrNotConnected, client.UpdateMTLSConfig(context.TODO(), false))
+
+	_, err = client.PrintTree(context.TODO())
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
+	require.Error(t, ErrNotConnected, err)
+
+	require.Error(t, ErrNotConnected, client.Logout(context.TODO()))
+
+	_, err = client.Get(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.CurrentRoot(context.TODO())
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SafeGet(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.RawSafeGet(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.Scan(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.ZScan(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.IScan(context.TODO(), 1, 1)
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.Count(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.CountAll(context.TODO())
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.Set(context.TODO(), []byte("key"), []byte("value"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SafeSet(context.TODO(), []byte("key"), []byte("value"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.RawSafeSet(context.TODO(), []byte("key"), []byte("value"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SetBatch(context.TODO(), nil)
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.GetBatch(context.TODO(), nil)
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.Inclusion(context.TODO(), 1)
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.Consistency(context.TODO(), 1)
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.ByIndex(context.TODO(), 1)
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.RawBySafeIndex(context.TODO(), 1)
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.History(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.Reference(context.TODO(), []byte("ref"), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SafeReference(context.TODO(), []byte("ref"), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SafeZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.Dump(context.TODO(), nil)
+	require.Error(t, ErrNotConnected, err)
+
+	require.Error(t, ErrNotConnected, client.HealthCheck(context.TODO()))
+
+	require.Error(t, ErrNotConnected, client.CreateDatabase(context.TODO(), nil))
+
+	_, err = client.UseDatabase(context.TODO(), nil)
+	require.Error(t, ErrNotConnected, err)
+
+	err = client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "userName", "testDBName", auth.PermissionRW)
+	require.Error(t, ErrNotConnected, err)
+
+	require.Error(t, ErrNotConnected, client.SetActiveUser(context.TODO(), nil))
+
+	_, err = client.DatabaseList(context.TODO())
+	require.Error(t, ErrNotConnected, err)
 }
+
 func TestImmuClientDisconnectNotConn(t *testing.T) {
 	setup()
 	client.Disconnect()
@@ -468,6 +571,12 @@ func TestDump(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, i > 0)
 	client.Disconnect()
+}
+
+func TestSetupDialOptions(t *testing.T) {
+	setup()
+	dialOpts := client.SetupDialOptions(DefaultOptions().WithMTLs(true))
+	require.NotNil(t, dialOpts)
 }
 
 func TestUserManagement(t *testing.T) {
