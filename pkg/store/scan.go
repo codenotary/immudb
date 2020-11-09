@@ -137,11 +137,14 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ZItemList, err 
 	})
 	defer it.Close()
 
-	// here we compose the offset if Min score filter is provided
-	if options.Min != nil {
+	// here we compose the offset if Min score filter is provided only if is not reversed order
+	if options.Min != nil && !options.Reverse {
 		offsetKey = AppendScoreToSet(options.Set, options.Min.Score)
 	}
-
+	// here we compose the offset if Max score filter is provided only if is reversed order
+	if options.Max != nil && options.Reverse {
+		offsetKey = AppendScoreToSet(options.Set, options.Max.Score)
+	}
 	// if offset is provided by client it takes precedence
 	if len(options.Offset) > 0 {
 		offsetKey = options.Offset

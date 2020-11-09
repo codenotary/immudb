@@ -272,6 +272,101 @@ func TestStore_ZScanPagination(t *testing.T) {
 	assert.Equal(t, list.Items[1].Item.Key, []byte(`key6`))
 }
 
+// TestStore_ZScanMinMax
+// set1
+// key: key1, score: 1
+// key: key2, score: 1
+// key: key3, score: 2
+// key: key4, score: 2
+// key: key5, score: 2
+// key: key6, score: 3
+func TestStore_ZScanReversePagination(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	setName := []byte(`set1`)
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`key1`), Value: []byte(`val1`)})
+	i2, _ := st.Set(schema.KeyValue{Key: []byte(`key2`), Value: []byte(`val2`)})
+	i3, _ := st.Set(schema.KeyValue{Key: []byte(`key3`), Value: []byte(`val3`)})
+	i4, _ := st.Set(schema.KeyValue{Key: []byte(`key4`), Value: []byte(`val4`)})
+	i5, _ := st.Set(schema.KeyValue{Key: []byte(`key5`), Value: []byte(`val5`)})
+	i6, _ := st.Set(schema.KeyValue{Key: []byte(`key6`), Value: []byte(`val6`)})
+
+	zaddOpts1 := schema.ZAddOptions{
+		Set:   setName,
+		Score: &schema.Score{Score: float64(1)},
+		Key:   []byte(`key1`),
+		Index: i1,
+	}
+	zaddOpts2 := schema.ZAddOptions{
+		Set:   setName,
+		Score: &schema.Score{Score: float64(1)},
+		Key:   []byte(`key2`),
+		Index: i2,
+	}
+	zaddOpts3 := schema.ZAddOptions{
+		Set:   setName,
+		Score: &schema.Score{Score: float64(2)},
+		Key:   []byte(`key3`),
+		Index: i3,
+	}
+	zaddOpts4 := schema.ZAddOptions{
+		Set:   setName,
+		Score: &schema.Score{Score: float64(2)},
+		Key:   []byte(`key4`),
+		Index: i4,
+	}
+	zaddOpts5 := schema.ZAddOptions{
+		Set:   setName,
+		Score: &schema.Score{Score: float64(2)},
+		Key:   []byte(`key5`),
+		Index: i5,
+	}
+	zaddOpts6 := schema.ZAddOptions{
+		Set:   setName,
+		Score: &schema.Score{Score: float64(3)},
+		Key:   []byte(`key6`),
+		Index: i6,
+	}
+
+	st.ZAdd(zaddOpts1)
+	st.ZAdd(zaddOpts2)
+	st.ZAdd(zaddOpts3)
+	st.ZAdd(zaddOpts4)
+	st.ZAdd(zaddOpts5)
+	st.ZAdd(zaddOpts6)
+
+	zScanOption1 := schema.ZScanOptions{
+		Set:     setName,
+		Offset:  nil,
+		Limit:   2,
+		Reverse: true,
+		Min:     &schema.Score{Score: 2},
+		Max:     &schema.Score{Score: 3},
+	}
+
+	list1, err := st.ZScan(zScanOption1)
+	assert.NoError(t, err)
+	assert.Len(t, list1.Items, 2)
+	assert.Equal(t, list1.Items[0].Item.Key, []byte(`key6`))
+	assert.Equal(t, list1.Items[1].Item.Key, []byte(`key5`))
+
+	zScanOption2 := schema.ZScanOptions{
+		Set:     setName,
+		Offset:  list1.Items[len(list1.Items)-1].CurrentOffset,
+		Limit:   2,
+		Reverse: true,
+		Min:     &schema.Score{Score: 2},
+		Max:     &schema.Score{Score: 3},
+	}
+
+	list2, err := st.ZScan(zScanOption2)
+	assert.NoError(t, err)
+	assert.Len(t, list2.Items, 2)
+	assert.Equal(t, list2.Items[0].Item.Key, []byte(`key4`))
+	assert.Equal(t, list2.Items[1].Item.Key, []byte(`key3`))
+}
+
 func TestFloat(t *testing.T) {
 	s := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(s)

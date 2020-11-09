@@ -570,6 +570,52 @@ func TestStore_HistoryPagination(t *testing.T) {
 
 }
 
+func TestStore_HistoryReversePagination(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val1`)})
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val2`)})
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val3`)})
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val4`)})
+	st.Set(schema.KeyValue{Key: []byte(`key`), Value: []byte(`val5`)})
+
+	hOpts1 := &schema.HistoryOptions{
+		Key:     []byte(`key`),
+		Limit:   2,
+		Reverse: true,
+	}
+	list1, err := st.History(hOpts1)
+	assert.NoError(t, err)
+	assert.Len(t, list1.Items, 2)
+	assert.Equal(t, list1.Items[0].Value, []byte(`val1`))
+	assert.Equal(t, list1.Items[1].Value, []byte(`val2`))
+
+	hOpts2 := &schema.HistoryOptions{
+		Key:     []byte(`key`),
+		Offset:  list1.Items[len(list1.Items)-1].Index,
+		Limit:   2,
+		Reverse: true,
+	}
+	list2, err := st.History(hOpts2)
+	assert.NoError(t, err)
+	assert.Len(t, list2.Items, 2)
+	assert.Equal(t, list2.Items[0].Value, []byte(`val3`))
+	assert.Equal(t, list2.Items[1].Value, []byte(`val4`))
+
+	hOpts3 := &schema.HistoryOptions{
+		Key:     []byte(`key`),
+		Offset:  list2.Items[len(list2.Items)-1].Index,
+		Limit:   2,
+		Reverse: true,
+	}
+	list3, err := st.History(hOpts3)
+	assert.NoError(t, err)
+	assert.Len(t, list3.Items, 1)
+	assert.Equal(t, list3.Items[0].Value, []byte(`val5`))
+
+}
+
 func TestStore_HistoryInvalidKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
