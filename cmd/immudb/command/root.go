@@ -49,7 +49,7 @@ Environment variables:
   IMMUDB_CLIENTCAS=./tools/mtls/2_intermediate/certs/ca-chain.cert.pem
   IMMUDB_DEVMODE=true
   IMMUDB_MAINTENANCE=false
-  IMMUDB_ADMIN_PASSWORD=immudb,
+  IMMUDB_ADMIN_PASSWORD=immudb
   IMMUDB_SIGNING_KEY=`,
 		DisableAutoGenTag: true,
 		RunE:              cl.Immudb(immudbServer),
