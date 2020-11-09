@@ -25,7 +25,7 @@ import (
 
 func TestSingleApp(t *testing.T) {
 	a, err := Open("testdata.aof", DefaultOptions())
-	defer os.RemoveAll("testdata.aof")
+	defer os.Remove("testdata.aof")
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -83,7 +83,7 @@ func TestSingleApp(t *testing.T) {
 
 func TestSingleAppReOpening(t *testing.T) {
 	a, err := Open("testdata.aof", DefaultOptions())
-	defer os.RemoveAll("testdata.aof")
+	defer os.Remove("testdata.aof")
 	require.NoError(t, err)
 
 	off, n, err := a.Append([]byte{1, 2, 3})
@@ -154,7 +154,7 @@ func TestSingleAppEdgeCases(t *testing.T) {
 
 func TestSingleAppCompression(t *testing.T) {
 	a, err := Open("testdata.aof", DefaultOptions().SetCompressionFormat(appendable.ZLibCompression))
-	defer os.RemoveAll("testdata.aof")
+	defer os.Remove("testdata.aof")
 	require.NoError(t, err)
 
 	off, _, err := a.Append([]byte{1, 2, 3})
