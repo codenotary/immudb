@@ -240,6 +240,7 @@
 | key | [bytes](#bytes) |  |  |
 | offset | [uint64](#uint64) |  |  |
 | limit | [uint64](#uint64) |  |  |
+| reverse | [bool](#bool) |  |  |
 
 
 

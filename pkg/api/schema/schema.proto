@@ -308,6 +308,7 @@ message HistoryOptions {
 	bytes key = 1;
 	uint64 offset = 2;
 	uint64 limit = 3;
+	bool reverse = 4;
 }
 
 message SafeZAddOptions {

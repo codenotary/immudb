@@ -399,8 +399,24 @@ func (t *Store) History(options *schema.HistoryOptions) (list *schema.ItemList, 
 	}
 	txn := t.db.NewTransactionAt(math.MaxInt64, false)
 	defer txn.Discard()
-	it := txn.NewKeyIterator(options.Key, badger.IteratorOptions{})
+
+	it := txn.NewKeyIterator(options.Key, badger.IteratorOptions{
+		Reverse: options.Reverse,
+	})
 	defer it.Close()
+
+	/*opt := badger.IteratorOptions{
+		PrefetchValues: true,
+		PrefetchSize:   int(options.Limit),
+		Prefix:         options.Key,
+		Reverse:        options.Reverse,
+		prefixIsKey: true,
+		AllVersions: true,
+	}
+
+	opt.
+	it := txn.NewIterator()
+	defer it.Close()*/
 
 	var items []*schema.Item
 	for it.Rewind(); it.Valid(); it.Next() {
@@ -408,10 +424,9 @@ func (t *Store) History(options *schema.HistoryOptions) (list *schema.ItemList, 
 		if err != nil {
 			return nil, err
 		}
-		if options.Offset != 0 && options.Offset <= item.Index {
+		if options.Offset != 0 && options.Offset >= item.Index {
 			continue
 		}
-
 		if items != nil && uint64(len(items)) == options.Limit {
 			break
 		}

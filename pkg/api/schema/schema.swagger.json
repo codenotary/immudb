@@ -1086,6 +1086,10 @@
         "limit": {
           "type": "string",
           "format": "uint64"
+        },
+        "reverse": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
