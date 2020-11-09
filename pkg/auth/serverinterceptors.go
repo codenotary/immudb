@@ -29,21 +29,6 @@ import (
 // UpdateMetrics callback which will be called to update metrics
 var UpdateMetrics func(context.Context)
 
-// WrappedServerStream ...
-type WrappedServerStream struct {
-	grpc.ServerStream
-}
-
-// RecvMsg ...
-func (w *WrappedServerStream) RecvMsg(m interface{}) error {
-	return w.ServerStream.RecvMsg(m)
-}
-
-// SendMsg ...
-func (w *WrappedServerStream) SendMsg(m interface{}) error {
-	return w.ServerStream.SendMsg(m)
-}
-
 // ServerStreamInterceptor gRPC server interceptor for streams
 func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	ctx := ss.Context()
@@ -63,7 +48,7 @@ func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 			}
 		}
 	}
-	return handler(srv, &WrappedServerStream{ss})
+	return handler(srv, ss)
 }
 
 // ServerUnaryInterceptor gRPC server interceptor for unary methods
