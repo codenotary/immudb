@@ -125,7 +125,7 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ZItemList, err 
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 
-	set := AppendSeparatorToSet(options.Set)
+	set := WrapSeparatorToSet(options.Set)
 
 	offsetKey := set
 

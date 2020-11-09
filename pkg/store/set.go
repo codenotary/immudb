@@ -24,21 +24,22 @@ import (
 
 var _SetSeparator = []byte(`_~|IMMU|~_`)
 
-// SetKey composes the key of the set {set}{separator}{score}{key}
+// SetKey composes the key of the set {separator}{set}{score}{key}
 func SetKey(key []byte, set []byte, score float64) (ik []byte) {
 	i, s, vl, sl := len(set), binary.Size(score), len(key), len(_SetSeparator)
 	c := make([]byte, i+s+vl+sl)
-	copy(c, set)
-	copy(c[i:], _SetSeparator)
-	copy(c[i+sl:], Float642bytes(score))
-	copy(c[i+sl+s:], key[:]) // array to slice conversion. shorthand for x[0:len(x)]
+
+	copy(c, _SetSeparator)
+	copy(c[sl:], set)
+	copy(c[sl+i:], Float642bytes(score))
+	copy(c[sl+i+s:], key[:]) // array to slice conversion. shorthand for x[0:len(x)]
 	return c
 }
 
 // SetKeyScore return the score of an item given key ans set name
 func SetKeyScore(key []byte, set []byte) (score float64) {
 	c := make([]byte, 8)
-	copy(c, key[len(set)+len(_SetSeparator):len(set)+len(_SetSeparator)+8])
+	copy(c, key[len(_SetSeparator)+len(set):len(set)+len(_SetSeparator)+8])
 	return Bytes2float(c)
 }
 
@@ -46,18 +47,18 @@ func SetKeyScore(key []byte, set []byte) (score float64) {
 func AppendScoreToSet(set []byte, score float64) []byte {
 	i, s, sl := len(set), binary.Size(score), len(_SetSeparator)
 	c := make([]byte, i+s+sl)
-	copy(c, set)
-	copy(c[i:], _SetSeparator)
-	copy(c[i+sl:], Float642bytes(score))
+	copy(c, _SetSeparator)
+	copy(c[sl:], set)
+	copy(c[sl+i:], Float642bytes(score))
 	return c
 }
 
-// AppendSeparatorToSet
-func AppendSeparatorToSet(set []byte) []byte {
+// WrapSeparatorToSet
+func WrapSeparatorToSet(set []byte) []byte {
 	i, sl := len(set), len(_SetSeparator)
 	c := make([]byte, i+sl)
-	copy(c, set)
-	copy(c[i:], _SetSeparator)
+	copy(c, _SetSeparator)
+	copy(c[sl:], set)
 	return c
 }
 
