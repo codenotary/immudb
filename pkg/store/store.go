@@ -405,28 +405,22 @@ func (t *Store) History(options *schema.HistoryOptions) (list *schema.ItemList, 
 	})
 	defer it.Close()
 
-	/*opt := badger.IteratorOptions{
-		PrefetchValues: true,
-		PrefetchSize:   int(options.Limit),
-		Prefix:         options.Key,
-		Reverse:        options.Reverse,
-		prefixIsKey: true,
-		AllVersions: true,
-	}
-
-	opt.
-	it := txn.NewIterator()
-	defer it.Close()*/
-
 	var items []*schema.Item
 	for it.Rewind(); it.Valid(); it.Next() {
 		item, err := itemToSchema(options.Key, it.Item())
 		if err != nil {
 			return nil, err
 		}
-		if options.Offset != 0 && options.Offset >= item.Index {
-			continue
+		if options.Reverse {
+			if options.Offset != 0 && options.Offset >= item.Index {
+				continue
+			}
+		}else{
+			if options.Offset != 0 && options.Offset <= item.Index {
+				continue
+			}
 		}
+
 		if items != nil && uint64(len(items)) == options.Limit {
 			break
 		}
