@@ -18,25 +18,11 @@ package auth
 
 import (
 	"context"
+
 	"google.golang.org/grpc/metadata"
 
 	"google.golang.org/grpc"
 )
-
-// WrappedClientStream ...
-type WrappedClientStream struct {
-	grpc.ClientStream
-}
-
-// RecvMsg ...
-func (w *WrappedClientStream) RecvMsg(m interface{}) error {
-	return w.ClientStream.RecvMsg(m)
-}
-
-// SendMsg ...
-func (w *WrappedClientStream) SendMsg(m interface{}) error {
-	return w.ClientStream.SendMsg(m)
-}
 
 // ClientStreamInterceptor gRPC client interceptor for streams
 func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDesc, *grpc.ClientConn, string, grpc.Streamer, ...grpc.CallOption) (grpc.ClientStream, error) {
@@ -44,11 +30,7 @@ func ClientStreamInterceptor(token string) func(context.Context, *grpc.StreamDes
 		opts = append(opts, grpc.PerRPCCredentials(TokenAuth{
 			Token: token,
 		}))
-		s, err := streamer(ctx, desc, cc, method, opts...)
-		if err != nil {
-			return nil, err
-		}
-		return &WrappedClientStream{s}, nil
+		return streamer(ctx, desc, cc, method, opts...)
 	}
 }
 

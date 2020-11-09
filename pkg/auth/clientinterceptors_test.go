@@ -18,9 +18,10 @@ package auth
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"testing"
 )
 
 func TestTokenAuth(t *testing.T) {
@@ -45,6 +46,7 @@ func TestTokenAuth(t *testing.T) {
 
 func TestClientUnaryInterceptor(t *testing.T) {
 	f := ClientUnaryInterceptor("token")
+
 	invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return nil
 	}
