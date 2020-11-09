@@ -24,8 +24,8 @@ import (
 
 var _SetSeparator = []byte(`_~|IMMU|~_`)
 
-// SetKey composes the key of the set {separator}{set}{score}{key}
-func SetKey(key []byte, set []byte, score float64) (ik []byte) {
+// BuildSetKey composes the key of the set {separator}{set}{score}{key}
+func BuildSetKey(key []byte, set []byte, score float64) (ik []byte) {
 	i, s, vl, sl := len(set), binary.Size(score), len(key), len(_SetSeparator)
 	c := make([]byte, i+s+vl+sl)
 
