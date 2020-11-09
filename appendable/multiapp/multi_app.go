@@ -85,18 +85,20 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 		SetCompresionLevel(opts.compressionLevel).
 		SetMetadata(opts.metadata)
 
+	var filename string
+
 	if len(fis) > 0 {
-		filename := fis[len(fis)-1].Name()
-		appendableOpts.SetFilename(filename)
+		filename = fis[len(fis)-1].Name()
+
 		currAppID, err = strconv.ParseInt(strings.TrimSuffix(filename, filepath.Ext(filename)), 10, 64)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		appendableOpts.SetFilename(appendableName(appendableID(0, opts.fileSize), opts.fileExt))
+		filename = appendableName(appendableID(0, opts.fileSize), opts.fileExt)
 	}
 
-	currApp, err := singleapp.Open(path, appendableOpts)
+	currApp, err := singleapp.Open(filepath.Join(path, filename), appendableOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -213,12 +215,11 @@ func (mf *MultiFileAppendable) openAppendable(appname string) (*singleapp.Append
 		SetReadOnly(mf.readOnly).
 		SetSynced(mf.synced).
 		SetFileMode(mf.fileMode).
-		SetFilename(appname).
 		SetCompressionFormat(mf.currApp.CompressionFormat()).
 		SetCompresionLevel(mf.currApp.CompressionLevel()).
 		SetMetadata(mf.currApp.Metadata())
 
-	return singleapp.Open(mf.path, appendableOpts)
+	return singleapp.Open(filepath.Join(mf.path, appname), appendableOpts)
 }
 
 func (mf *MultiFileAppendable) Offset() int64 {

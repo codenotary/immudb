@@ -24,17 +24,14 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"time"
 
 	"codenotary.io/immudb-v2/appendable"
 )
 
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
-var ErrIllegalArgument = errors.New("illegal arguments")
+var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
@@ -64,23 +61,9 @@ type AppendableFile struct {
 	offset     int64
 }
 
-func Open(path string, opts *Options) (*AppendableFile, error) {
+func Open(fileName string, opts *Options) (*AppendableFile, error) {
 	if !validOptions(opts) {
-		return nil, ErrIllegalArgument
-	}
-
-	finfo, err := os.Stat(path)
-	if err != nil {
-		if !os.IsNotExist(err) || opts.readOnly {
-			return nil, err
-		}
-
-		err = os.Mkdir(path, opts.fileMode)
-		if err != nil {
-			return nil, err
-		}
-	} else if !finfo.IsDir() {
-		return nil, ErrorPathIsNotADirectory
+		return nil, ErrIllegalArguments
 	}
 
 	var flag int
@@ -91,13 +74,7 @@ func Open(path string, opts *Options) (*AppendableFile, error) {
 		flag = os.O_CREATE | os.O_RDWR
 	}
 
-	name := opts.filename
-	if name == "" {
-		name = fmt.Sprintf("%d.aof", time.Now().Unix())
-	}
-	fileName := filepath.Join(path, name)
-
-	finfo, err = os.Stat(fileName)
+	_, err := os.Stat(fileName)
 	notExist := os.IsNotExist(err)
 
 	if err != nil && ((opts.readOnly && notExist) || !notExist) {
@@ -275,7 +252,7 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 	}
 
 	if bs == nil {
-		return 0, 0, ErrIllegalArgument
+		return 0, 0, ErrIllegalArguments
 	}
 
 	off = aof.offset
@@ -322,6 +299,14 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
+	if aof.closed {
+		return 0, ErrAlreadyClosed
+	}
+
+	if bs == nil {
+		return 0, ErrIllegalArguments
+	}
+
 	if aof.compressionFormat == appendable.NoCompression {
 		return aof.f.ReadAt(bs, off+aof.baseOffset)
 	}
@@ -394,6 +379,14 @@ func (aof *AppendableFile) Flush() error {
 }
 
 func (aof *AppendableFile) Sync() error {
+	if aof.closed {
+		return ErrAlreadyClosed
+	}
+
+	if aof.readOnly {
+		return ErrReadOnly
+	}
+
 	return aof.f.Sync()
 }
 

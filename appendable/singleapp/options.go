@@ -21,13 +21,12 @@ import (
 	"codenotary.io/immudb-v2/appendable"
 )
 
-const DefaultFileMode = 0644
+const DefaultFileMode = os.FileMode(0644)
 
 type Options struct {
 	readOnly bool
 	synced   bool
 	fileMode os.FileMode
-	filename string
 
 	compressionFormat int
 	compressionLevel  int
@@ -61,11 +60,6 @@ func (opts *Options) SetSynced(synced bool) *Options {
 
 func (opts *Options) SetFileMode(fileMode os.FileMode) *Options {
 	opts.fileMode = fileMode
-	return opts
-}
-
-func (opts *Options) SetFilename(filename string) *Options {
-	opts.filename = filename
 	return opts
 }
 

@@ -95,9 +95,7 @@ func (tx *Tx) Width() uint64 {
 	return uint64(tx.nentries)
 }
 
-func (tx *Tx) Set(layer uint8, index uint64, value [sha256.Size]byte) {
-	tx.htree[layer][index] = value
-}
+func (tx *Tx) Set(layer uint8, index uint64, value [sha256.Size]byte) { /* not used */ }
 
 func (tx *Tx) Get(layer uint8, index uint64) *[sha256.Size]byte {
 	return &tx.htree[layer][index]
