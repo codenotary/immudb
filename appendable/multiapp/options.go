@@ -23,7 +23,7 @@ import (
 
 const DefaultFileSize = 1 << 26 // 64Mb
 const DefaultMaxOpenedFiles = 10
-const DefaultFileMode = 0755
+const DefaultFileMode = os.FileMode(0755)
 
 type Options struct {
 	readOnly          bool

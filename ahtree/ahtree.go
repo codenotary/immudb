@@ -45,8 +45,7 @@ const NodePrefix = byte(1)
 const Version = 1
 
 const (
-	MetaVersion  = "VERSION"
-	MetaFileSize = "FILE_SIZE"
+	MetaVersion = "VERSION"
 )
 
 const cLogEntrySize = offsetSize + szSize
@@ -95,7 +94,6 @@ func Open(path string, opts *Options) (*AHtree, error) {
 
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
-	metadata.PutInt(MetaFileSize, opts.fileSize)
 
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
@@ -131,28 +129,6 @@ func Open(path string, opts *Options) (*AHtree, error) {
 func OpenWith(pLog, dLog, cLog appendable.Appendable, opts *Options) (*AHtree, error) {
 	if !validOptions(opts) || pLog == nil || dLog == nil || cLog == nil {
 		return nil, ErrIllegalArguments
-	}
-
-	metadata := appendable.NewMetadata(cLog.Metadata())
-
-	fileSize, ok := metadata.GetInt(MetaFileSize)
-	if !ok {
-		return nil, ErrCorruptedCLog
-	}
-
-	mapp, ok := pLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
-	}
-
-	mapp, ok = dLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
-	}
-
-	mapp, ok = cLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
 	}
 
 	cLogSize, err := cLog.Size()

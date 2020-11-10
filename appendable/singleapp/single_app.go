@@ -197,6 +197,10 @@ func (aof *AppendableFile) Metadata() []byte {
 }
 
 func (aof *AppendableFile) Size() (int64, error) {
+	if aof.closed {
+		return 0, ErrAlreadyClosed
+	}
+
 	stat, err := aof.f.Stat()
 	if err != nil {
 		return 0, err
@@ -209,6 +213,10 @@ func (aof *AppendableFile) Offset() int64 {
 }
 
 func (aof *AppendableFile) SetOffset(off int64) error {
+	if aof.closed {
+		return ErrAlreadyClosed
+	}
+
 	_, err := aof.f.Seek(off+aof.baseOffset, io.SeekStart)
 	if err != nil {
 		return err

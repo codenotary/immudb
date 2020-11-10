@@ -31,9 +31,14 @@ import (
 )
 
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
-var ErrIllegalArgument = errors.New("illegal arguments")
+var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
+
+const (
+	metaFileSize    = "FILE_SIZE"
+	metaWrappedMeta = "WRAPPED_METADATA"
+)
 
 type MultiFileAppendable struct {
 	appendables *cache.LRUCache
@@ -53,7 +58,7 @@ type MultiFileAppendable struct {
 
 func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 	if !validOptions(opts) {
-		return nil, ErrIllegalArgument
+		return nil, ErrIllegalArguments
 	}
 
 	finfo, err := os.Stat(path)
@@ -77,13 +82,17 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 
 	var currAppID int64
 
+	m := appendable.NewMetadata(nil)
+	m.PutInt(metaFileSize, opts.fileSize)
+	m.Put(metaWrappedMeta, opts.metadata)
+
 	appendableOpts := singleapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
 		SetSynced(opts.synced).
 		SetFileMode(opts.fileMode).
 		SetCompressionFormat(opts.compressionFormat).
 		SetCompresionLevel(opts.compressionLevel).
-		SetMetadata(opts.metadata)
+		SetMetadata(m.Bytes())
 
 	var filename string
 
@@ -108,6 +117,8 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 		return nil, err
 	}
 
+	fileSize, _ := appendable.NewMetadata(currApp.Metadata()).GetInt(metaFileSize)
+
 	return &MultiFileAppendable{
 		appendables: cache,
 		currAppID:   currAppID,
@@ -116,7 +127,7 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 		readOnly:    opts.readOnly,
 		synced:      opts.synced,
 		fileMode:    opts.fileMode,
-		fileSize:    opts.fileSize,
+		fileSize:    fileSize,
 		fileExt:     opts.fileExt,
 		closed:      false,
 	}, nil
@@ -130,8 +141,17 @@ func appendableID(off int64, fileSize int) int64 {
 	return off / int64(fileSize)
 }
 
+func (mf *MultiFileAppendable) CompressionFormat() int {
+	return mf.currApp.CompressionFormat()
+}
+
+func (mf *MultiFileAppendable) CompressionLevel() int {
+	return mf.currApp.CompressionLevel()
+}
+
 func (mf *MultiFileAppendable) Metadata() []byte {
-	return mf.currApp.Metadata()
+	bs, _ := appendable.NewMetadata(mf.currApp.Metadata()).Get(metaWrappedMeta)
+	return bs
 }
 
 func (mf *MultiFileAppendable) Size() (int64, error) {
@@ -146,17 +166,13 @@ func (mf *MultiFileAppendable) Size() (int64, error) {
 	return mf.currAppID*int64(mf.fileSize) + currSize, nil
 }
 
-func (mf *MultiFileAppendable) SetFileSize(fileSize int) {
-	mf.fileSize = fileSize
-}
-
 func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 	if mf.closed {
 		return 0, 0, ErrAlreadyClosed
 	}
 
 	if bs == nil {
-		return 0, 0, ErrIllegalArgument
+		return 0, 0, ErrIllegalArguments
 	}
 
 	for n < len(bs) {

@@ -81,11 +81,11 @@ const linkedLeafSize = txIDSize + tsSize + txIDSize + 3*sha256.Size
 const Version = 1
 
 const (
-	MetaVersion      = "VERSION"
-	MetaMaxTxEntries = "MAX_TX_ENTRIES"
-	MetaMaxKeyLen    = "MAX_KEY_LEN"
-	MetaMaxValueLen  = "MAX_VALUE_LEN"
-	MetaFileSize     = "FILE_SIZE"
+	metaVersion      = "VERSION"
+	metaMaxTxEntries = "MAX_TX_ENTRIES"
+	metaMaxKeyLen    = "MAX_KEY_LEN"
+	metaMaxValueLen  = "MAX_VALUE_LEN"
+	metaFileSize     = "FILE_SIZE"
 )
 
 type ImmuStore struct {
@@ -173,11 +173,11 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	}
 
 	metadata := appendable.NewMetadata(nil)
-	metadata.PutInt(MetaVersion, Version)
-	metadata.PutInt(MetaMaxTxEntries, opts.maxTxEntries)
-	metadata.PutInt(MetaMaxKeyLen, opts.maxKeyLen)
-	metadata.PutInt(MetaMaxValueLen, opts.maxValueLen)
-	metadata.PutInt(MetaFileSize, opts.fileSize)
+	metadata.PutInt(metaVersion, Version)
+	metadata.PutInt(metaMaxTxEntries, opts.maxTxEntries)
+	metadata.PutInt(metaMaxKeyLen, opts.maxKeyLen)
+	metadata.PutInt(metaMaxValueLen, opts.maxValueLen)
+	metadata.PutInt(metaFileSize, opts.fileSize)
 
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
@@ -228,31 +228,21 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
 
-	fileSize, ok := metadata.GetInt(MetaFileSize)
+	fileSize, ok := metadata.GetInt(metaFileSize)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
-	maxTxEntries, ok := metadata.GetInt(MetaMaxTxEntries)
+	maxTxEntries, ok := metadata.GetInt(metaMaxTxEntries)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
-	maxKeyLen, ok := metadata.GetInt(MetaMaxKeyLen)
+	maxKeyLen, ok := metadata.GetInt(metaMaxKeyLen)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
-	maxValueLen, ok := metadata.GetInt(MetaMaxValueLen)
+	maxValueLen, ok := metadata.GetInt(metaMaxValueLen)
 	if !ok {
 		return nil, ErrCorruptedCLog
-	}
-
-	mapp, ok := txLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
-	}
-
-	mapp, ok = cLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
 	}
 
 	cLogSize, err := cLog.Size()
@@ -320,11 +310,6 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	vLogUnlockedList := list.New()
 
 	for i, vLog := range vLogs {
-		mapp, ok := vLog.(*multiapp.MultiFileAppendable)
-		if ok {
-			mapp.SetFileSize(fileSize)
-		}
-
 		e := vLogUnlockedList.PushBack(byte(i))
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}

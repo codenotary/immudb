@@ -53,7 +53,6 @@ const (
 	MetaVersion        = "VERSION"
 	MetaMaxNodeSize    = "MAX_NODE_SIZE"
 	MetaKeyHistorySize = "KEY_HISTORY_SPACE"
-	MetaFileSize       = "FILE_SIZE"
 )
 
 // TBTree implements a timed-btree
@@ -166,7 +165,6 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, opts.maxNodeSize)
 	metadata.PutInt(MetaKeyHistorySize, opts.keyHistorySpace)
-	metadata.PutInt(MetaFileSize, opts.fileSize)
 
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
@@ -199,11 +197,6 @@ func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) 
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
 
-	fileSize, ok := metadata.GetInt(MetaFileSize)
-	if !ok {
-		return nil, ErrCorruptedCLog
-	}
-
 	maxNodeSize, ok := metadata.GetInt(MetaMaxNodeSize)
 	if !ok {
 		return nil, ErrCorruptedCLog
@@ -212,16 +205,6 @@ func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) 
 	keyHistorySpace, ok := metadata.GetInt(MetaKeyHistorySize)
 	if !ok {
 		return nil, ErrCorruptedCLog
-	}
-
-	mapp, ok := nLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
-	}
-
-	mapp, ok = cLog.(*multiapp.MultiFileAppendable)
-	if ok {
-		mapp.SetFileSize(fileSize)
 	}
 
 	cLogSize, err := cLog.Size()
@@ -616,7 +599,6 @@ func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, t.maxNodeSize)
 	metadata.PutInt(MetaKeyHistorySize, t.keyHistorySpace)
-	metadata.PutInt(MetaFileSize, fileSize)
 
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(false).

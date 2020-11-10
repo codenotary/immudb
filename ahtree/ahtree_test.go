@@ -68,7 +68,6 @@ func TestEdgeCases(t *testing.T) {
 
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
-	metadata.PutInt(MetaFileSize, DefaultOptions().fileSize)
 
 	pLog := &MockedAppendable{metadata: metadata.Bytes()}
 	dLog := &MockedAppendable{metadata: metadata.Bytes()}

@@ -365,9 +365,8 @@ func TestImmudbStore(t *testing.T) {
 		require.Equal(t, uint64(i+1), id)
 	}
 
-	time.Sleep(time.Duration(100) * time.Millisecond)
-
 	err = immuStore.Sync()
+	require.NoError(t, err)
 
 	err = immuStore.Close()
 	require.NoError(t, err)
@@ -545,10 +544,10 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	opts := DefaultOptions()
 
 	metadata := appendable.NewMetadata(nil)
-	metadata.PutInt(MetaFileSize, opts.fileSize)
-	metadata.PutInt(MetaMaxTxEntries, opts.maxTxEntries)
-	metadata.PutInt(MetaMaxKeyLen, opts.maxKeyLen)
-	metadata.PutInt(MetaMaxValueLen, opts.maxValueLen)
+	metadata.PutInt(metaFileSize, opts.fileSize)
+	metadata.PutInt(metaMaxTxEntries, opts.maxTxEntries)
+	metadata.PutInt(metaMaxKeyLen, opts.maxKeyLen)
+	metadata.PutInt(metaMaxValueLen, opts.maxValueLen)
 
 	appendableOpts := multiapp.DefaultOptions().
 		SetReadOnly(opts.readOnly).
