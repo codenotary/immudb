@@ -25,7 +25,7 @@ const DefaultFlushThld = 100_000
 const DefaultMaxActiveSnapshots = 100
 const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 10000
-const DefaultFileMode = 0755
+const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
 
 const DefaultKeyHistorySpace = 32 // ts trace len per key, number of key updates traced within a same key and leaf node
@@ -72,52 +72,52 @@ func validOptions(opts *Options) bool {
 		opts.cacheSize >= MinCacheSize
 }
 
-func (opts *Options) SetFlushThld(flushThld int) *Options {
+func (opts *Options) WithFlushThld(flushThld int) *Options {
 	opts.flushThld = flushThld
 	return opts
 }
 
-func (opts *Options) SetMaxActiveSnapshots(maxActiveSnapshots int) *Options {
+func (opts *Options) WithMaxActiveSnapshots(maxActiveSnapshots int) *Options {
 	opts.maxActiveSnapshots = maxActiveSnapshots
 	return opts
 }
 
-func (opts *Options) SetRenewSnapRootAfter(renewSnapRootAfter time.Duration) *Options {
+func (opts *Options) WithRenewSnapRootAfter(renewSnapRootAfter time.Duration) *Options {
 	opts.renewSnapRootAfter = renewSnapRootAfter
 	return opts
 }
 
-func (opts *Options) SetCacheSize(cacheSize int) *Options {
+func (opts *Options) WithCacheSize(cacheSize int) *Options {
 	opts.cacheSize = cacheSize
 	return opts
 }
 
-func (opts *Options) SetReadOnly(readOnly bool) *Options {
+func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	opts.readOnly = readOnly
 	return opts
 }
 
-func (opts *Options) SetSynced(synced bool) *Options {
+func (opts *Options) WithSynced(synced bool) *Options {
 	opts.synced = synced
 	return opts
 }
 
-func (opts *Options) SetFileMode(fileMode os.FileMode) *Options {
+func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opts.fileMode = fileMode
 	return opts
 }
 
-func (opts *Options) SetMaxNodeSize(maxNodeSize int) *Options {
+func (opts *Options) WithMaxNodeSize(maxNodeSize int) *Options {
 	opts.maxNodeSize = maxNodeSize
 	return opts
 }
 
-func (opts *Options) SetKeyHistorySpace(keyHistorySpace int) *Options {
+func (opts *Options) WithKeyHistorySpace(keyHistorySpace int) *Options {
 	opts.keyHistorySpace = keyHistorySpace
 	return opts
 }
 
-func (opts *Options) SetFileSize(fileSize int) *Options {
+func (opts *Options) WithFileSize(fileSize int) *Options {
 	opts.fileSize = fileSize
 	return opts
 }

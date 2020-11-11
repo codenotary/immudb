@@ -27,8 +27,8 @@ func TestSnapshotSerialization(t *testing.T) {
 	insertionCountThld := 100_000
 
 	tbtree, err := Open("test_tree", DefaultOptions().
-		SetMaxNodeSize(MinNodeSize).
-		SetFlushThld(insertionCountThld))
+		WithMaxNodeSize(MinNodeSize).
+		WithFlushThld(insertionCountThld))
 
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree")

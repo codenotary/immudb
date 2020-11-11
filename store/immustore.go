@@ -317,15 +317,15 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	indexPath := filepath.Join("data", "index")
 
 	indexOpts := tbtree.DefaultOptions().
-		SetReadOnly(opts.readOnly).
-		SetFileMode(opts.fileMode).
-		SetFileSize(fileSize).
-		SetSynced(false). // index is built from derived data
-		SetCacheSize(opts.indexOpts.cacheSize).
-		SetFlushThld(opts.indexOpts.flushThld).
-		SetMaxActiveSnapshots(opts.indexOpts.maxActiveSnapshots).
-		SetMaxNodeSize(opts.indexOpts.maxNodeSize).
-		SetRenewSnapRootAfter(opts.indexOpts.renewSnapRootAfter)
+		WithReadOnly(opts.readOnly).
+		WithFileMode(opts.fileMode).
+		WithFileSize(fileSize).
+		WithSynced(false). // index is built from derived data
+		WithCacheSize(opts.indexOpts.cacheSize).
+		WithFlushThld(opts.indexOpts.flushThld).
+		WithMaxActiveSnapshots(opts.indexOpts.maxActiveSnapshots).
+		WithMaxNodeSize(opts.indexOpts.maxNodeSize).
+		WithRenewSnapRootAfter(opts.indexOpts.renewSnapRootAfter)
 
 	index, err := tbtree.Open(indexPath, indexOpts)
 	if err != nil {

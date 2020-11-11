@@ -182,7 +182,8 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
-	tbtree, err := Open("test_tree", DefaultOptions().SetSynced(false).SetMaxNodeSize(256).SetFlushThld(100))
+	opts := DefaultOptions().WithSynced(false).WithMaxNodeSize(256).WithFlushThld(100)
+	tbtree, err := Open("test_tree", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree")
 
@@ -205,7 +206,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	err = tbtree.Close()
 	require.Equal(t, err, ErrAlreadyClosed)
 
-	tbtree, err = Open("test_tree", DefaultOptions().SetMaxNodeSize(256))
+	tbtree, err = Open("test_tree", DefaultOptions().WithMaxNodeSize(256))
 	require.NoError(t, err)
 
 	require.Equal(t, tbtree.root.ts(), uint64(itCount*keyCount))
@@ -214,7 +215,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
-	tbtree, err := Open("test_tree", DefaultOptions().SetMaxNodeSize(256))
+	tbtree, err := Open("test_tree", DefaultOptions().WithMaxNodeSize(256))
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree")
 
@@ -226,7 +227,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("test_tree", DefaultOptions().SetMaxNodeSize(256))
+	tbtree, err = Open("test_tree", DefaultOptions().WithMaxNodeSize(256))
 	require.NoError(t, err)
 
 	require.Equal(t, tbtree.root.ts(), uint64(itCount*keyCount))
@@ -284,7 +285,8 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
-	tbtree, err := Open("test_tree", DefaultOptions().SetMaxNodeSize(DefaultMaxNodeSize).SetCacheSize(100_000).SetSynced(false))
+	opts := DefaultOptions().WithMaxNodeSize(DefaultMaxNodeSize).WithCacheSize(100_000).WithSynced(false)
+	tbtree, err := Open("test_tree", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree")
 
@@ -295,7 +297,8 @@ func TestTBTreeInsertionInRandomOrder(t *testing.T) {
 }
 
 func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
-	tbtree, err := Open("test_tree", DefaultOptions().SetMaxNodeSize(DefaultMaxNodeSize).SetCacheSize(100_000))
+	opts := DefaultOptions().WithMaxNodeSize(DefaultMaxNodeSize).WithCacheSize(100_000)
+	tbtree, err := Open("test_tree", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree")
 
@@ -353,10 +356,10 @@ func BenchmarkRandomInsertion(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		opts := DefaultOptions().
-			SetMaxNodeSize(DefaultMaxNodeSize).
-			SetCacheSize(10_000).
-			SetSynced(false).
-			SetFlushThld(100_000)
+			WithMaxNodeSize(DefaultMaxNodeSize).
+			WithCacheSize(10_000).
+			WithSynced(false).
+			WithFlushThld(100_000)
 
 		tbtree, _ := Open("test_tree", opts)
 
