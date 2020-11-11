@@ -561,6 +561,14 @@ func (t *TBtree) flushTree() (int64, error) {
 	t.insertionCount = 0
 	t.committedNLogSize += n
 
+	t.root = &nodeRef{
+		t:       t,
+		_maxKey: t.root.maxKey(),
+		_ts:     t.root.ts(),
+		_size:   t.root.size(),
+		off:     t.root.offset(),
+	}
+
 	return n, nil
 }
 
