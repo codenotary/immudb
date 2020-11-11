@@ -554,23 +554,23 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	metadata.PutInt(metaMaxValueLen, opts.maxValueLen)
 
 	appendableOpts := multiapp.DefaultOptions().
-		SetReadOnly(opts.readOnly).
-		SetSynced(opts.synced).
-		SetFileMode(opts.fileMode).
-		SetMetadata(metadata.Bytes())
+		WithReadOnly(opts.readOnly).
+		WithSynced(opts.synced).
+		WithFileMode(opts.fileMode).
+		WithMetadata(metadata.Bytes())
 
 	vLogPath := filepath.Join(path, "val_0")
-	appendableOpts.SetFileExt("val")
+	appendableOpts.WithFileExt("val")
 	vLog, err := multiapp.Open(vLogPath, appendableOpts)
 	require.NoError(t, err)
 
 	txLogPath := filepath.Join(path, "tx")
-	appendableOpts.SetFileExt("tx")
+	appendableOpts.WithFileExt("tx")
 	txLog, err := multiapp.Open(txLogPath, appendableOpts)
 	require.NoError(t, err)
 
 	cLogPath := filepath.Join(path, "commit")
-	appendableOpts.SetFileExt("txi")
+	appendableOpts.WithFileExt("txi")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	require.NoError(t, err)
 

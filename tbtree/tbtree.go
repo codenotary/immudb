@@ -167,20 +167,20 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	metadata.PutInt(MetaKeyHistorySize, opts.keyHistorySpace)
 
 	appendableOpts := multiapp.DefaultOptions().
-		SetReadOnly(opts.readOnly).
-		SetSynced(opts.synced).
-		SetFileSize(opts.fileSize).
-		SetFileMode(opts.fileMode).
-		SetMetadata(metadata.Bytes())
+		WithReadOnly(opts.readOnly).
+		WithSynced(opts.synced).
+		WithFileSize(opts.fileSize).
+		WithFileMode(opts.fileMode).
+		WithMetadata(metadata.Bytes())
 
-	appendableOpts.SetFileExt("n")
+	appendableOpts.WithFileExt("n")
 	nLogPath := filepath.Join(path, "nodes")
 	nLog, err := multiapp.Open(nLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	appendableOpts.SetFileExt("ri")
+	appendableOpts.WithFileExt("ri")
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
@@ -601,13 +601,13 @@ func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os
 	metadata.PutInt(MetaKeyHistorySize, t.keyHistorySpace)
 
 	appendableOpts := multiapp.DefaultOptions().
-		SetReadOnly(false).
-		SetSynced(false).
-		SetFileSize(fileSize).
-		SetFileMode(fileMode).
-		SetMetadata(t.cLog.Metadata())
+		WithReadOnly(false).
+		WithSynced(false).
+		WithFileSize(fileSize).
+		WithFileMode(fileMode).
+		WithMetadata(t.cLog.Metadata())
 
-	appendableOpts.SetFileExt("n")
+	appendableOpts.WithFileExt("n")
 	nLogPath := filepath.Join(path, "nodes")
 	nLog, err := multiapp.Open(nLogPath, appendableOpts)
 	if err != nil {
@@ -630,7 +630,7 @@ func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os
 		return err
 	}
 
-	appendableOpts.SetFileExt("ri")
+	appendableOpts.WithFileExt("ri")
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {

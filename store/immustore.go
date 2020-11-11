@@ -172,18 +172,18 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	metadata.PutInt(metaFileSize, opts.fileSize)
 
 	appendableOpts := multiapp.DefaultOptions().
-		SetReadOnly(opts.readOnly).
-		SetSynced(opts.synced).
-		SetFileSize(opts.fileSize).
-		SetFileMode(opts.fileMode).
-		SetMetadata(metadata.Bytes())
+		WithReadOnly(opts.readOnly).
+		WithSynced(opts.synced).
+		WithFileSize(opts.fileSize).
+		WithFileMode(opts.fileMode).
+		WithMetadata(metadata.Bytes())
 
 	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
 	for i := 0; i < opts.maxIOConcurrency; i++ {
-		appendableOpts.SetFileExt("val")
-		appendableOpts.SetCompressionFormat(opts.compressionFormat)
-		appendableOpts.SetCompresionLevel(opts.compressionLevel)
-		appendableOpts.SetMaxOpenedFiles(opts.vLogMaxOpenedFiles)
+		appendableOpts.WithFileExt("val")
+		appendableOpts.WithCompressionFormat(opts.compressionFormat)
+		appendableOpts.WithCompresionLevel(opts.compressionLevel)
+		appendableOpts.WithMaxOpenedFiles(opts.vLogMaxOpenedFiles)
 		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
 		vLog, err := multiapp.Open(vLogPath, appendableOpts)
 		if err != nil {
@@ -192,18 +192,18 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		vLogs[i] = vLog
 	}
 
-	appendableOpts.SetFileExt("tx")
-	appendableOpts.SetCompressionFormat(appendable.NoCompression)
-	appendableOpts.SetMaxOpenedFiles(opts.txLogMaxOpenedFiles)
+	appendableOpts.WithFileExt("tx")
+	appendableOpts.WithCompressionFormat(appendable.NoCompression)
+	appendableOpts.WithMaxOpenedFiles(opts.txLogMaxOpenedFiles)
 	txLogPath := filepath.Join(path, "tx")
 	txLog, err := multiapp.Open(txLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	appendableOpts.SetFileExt("txi")
-	appendableOpts.SetCompressionFormat(appendable.NoCompression)
-	appendableOpts.SetMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
+	appendableOpts.WithFileExt("txi")
+	appendableOpts.WithCompressionFormat(appendable.NoCompression)
+	appendableOpts.WithMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {

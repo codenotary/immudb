@@ -96,27 +96,27 @@ func Open(path string, opts *Options) (*AHtree, error) {
 	metadata.PutInt(MetaVersion, Version)
 
 	appendableOpts := multiapp.DefaultOptions().
-		SetReadOnly(opts.readOnly).
-		SetSynced(opts.synced).
-		SetFileSize(opts.fileSize).
-		SetFileMode(opts.fileMode).
-		SetMetadata(metadata.Bytes())
+		WithReadOnly(opts.readOnly).
+		WithSynced(opts.synced).
+		WithFileSize(opts.fileSize).
+		WithFileMode(opts.fileMode).
+		WithMetadata(metadata.Bytes())
 
-	appendableOpts.SetFileExt("dat")
+	appendableOpts.WithFileExt("dat")
 	pLogPath := filepath.Join(path, "data")
 	pLog, err := multiapp.Open(pLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	appendableOpts.SetFileExt("sha")
+	appendableOpts.WithFileExt("sha")
 	dLogPath := filepath.Join(path, "tree")
 	dLog, err := multiapp.Open(dLogPath, appendableOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	appendableOpts.SetFileExt("di")
+	appendableOpts.WithFileExt("di")
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
