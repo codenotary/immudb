@@ -42,12 +42,20 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
 		return nil, 0, ErrAlreadyClosed
 	}
 
+	if key == nil {
+		return nil, 0, ErrIllegalArguments
+	}
+
 	return s.root.get(key)
 }
 
 func (s *Snapshot) GetTs(key []byte, limit int64) (ts []uint64, err error) {
 	if s.closed {
 		return nil, ErrAlreadyClosed
+	}
+
+	if key == nil {
+		return nil, ErrIllegalArguments
 	}
 
 	if limit < 1 {
@@ -66,7 +74,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	if spec == nil {
+	if !validReaderSpec(spec) {
 		return nil, ErrIllegalArguments
 	}
 

@@ -210,6 +210,11 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		return
 	}
 
+	if d == nil {
+		err = ErrIllegalArguments
+		return
+	}
+
 	// will overrite partially written and uncommitted data
 	t.pLog.SetOffset(t.pLogSize)
 

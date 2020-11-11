@@ -42,6 +42,7 @@ var ErrAlreadyClosed = errors.New("already closed")
 var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
+var ErrNullKeyOrValue = errors.New("null key or value")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
 var ErrDuplicatedKey = errors.New("duplicated key")
@@ -1130,6 +1131,10 @@ func (s *ImmuStore) validateEntries(entries []*KV) error {
 	m := make(map[string]struct{}, len(entries))
 
 	for _, kv := range entries {
+		if kv.Key == nil || kv.Value == nil {
+			return ErrNullKeyOrValue
+		}
+
 		if len(kv.Key) > s.maxKeyLen {
 			return ErrorMaxKeyLenExceeded
 		}

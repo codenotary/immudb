@@ -52,6 +52,9 @@ func TestSnapshotSerialization(t *testing.T) {
 	err = snapshot.Close()
 	require.NoError(t, err)
 
+	_, _, err = snapshot.Get([]byte{})
+	require.Error(t, ErrAlreadyClosed, err)
+
 	_, err = tbtree.Flush()
 	require.NoError(t, err)
 

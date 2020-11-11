@@ -710,7 +710,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	}
 
 	for _, kv := range kvs {
-		if kv.K == nil {
+		if kv.K == nil || kv.V == nil {
 			return ErrIllegalArguments
 		}
 
