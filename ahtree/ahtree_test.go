@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"codenotary.io/immudb-v2/appendable"
+	"codenotary.io/immudb-v2/appendable/mocked"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,48 +67,114 @@ func TestEdgeCases(t *testing.T) {
 	_, err = OpenWith(nil, nil, nil, DefaultOptions())
 	require.Error(t, ErrIllegalArguments, err)
 
+	pLog := &mocked.MockedAppendable{}
+	dLog := &mocked.MockedAppendable{}
+	cLog := &mocked.MockedAppendable{}
+
+	cLog.SizeFn = func() (int64, error) {
+		return 0, errors.New("error")
+	}
+	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize + 1, nil
+	}
+	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.Error(t, ErrCorruptedCLog, err)
+
+	cLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	dLog.SizeFn = func() (int64, error) {
+		return 0, errors.New("error")
+	}
+	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	cLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	dLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	pLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 
-	pLog := &MockedAppendable{metadata: metadata.Bytes()}
-	dLog := &MockedAppendable{metadata: metadata.Bytes()}
-	cLog := &MockedAppendable{}
+	pLog.MetadataFn = func() []byte {
+		return metadata.Bytes()
+	}
+	dLog.MetadataFn = func() []byte {
+		return metadata.Bytes()
+	}
+	cLog.MetadataFn = func() []byte {
+		return metadata.Bytes()
+	}
+
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize, nil
+	}
+
+	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		return 0, errors.New("error")
+	}
 
 	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, ErrCorruptedCLog, err)
-
-	cLog.metadata = metadata.Bytes()
-
-	cLog.szErr = errors.New("error")
-	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, ErrCorruptedCLog, err)
-
-	cLog.sz = cLogEntrySize + 1
-	cLog.szErr = nil
-	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, ErrCorruptedCLog, err)
-
-	cLog.sz = 0
-	dLog.szErr = errors.New("error")
-	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, ErrCorruptedCLog, err)
-
-	dLog.szErr = nil
-	pLog.appendErr = errors.New("error")
-	tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.NoError(t, err)
-	_, _, err = tree.Append(nil)
 	require.Error(t, err)
 
-	pLog.appendErr = nil
-	dLog.appendErr = errors.New("error")
+	cLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	pLog.SizeFn = func() (int64, error) {
+		return 0, errors.New("error")
+	}
+	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	pLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	tree, err := OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.NoError(t, err)
+
+	pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, errors.New("error")
+	}
+	pLog.SetOffsetFn = func(off int64) error {
+		return nil
+	}
+	_, _, err = tree.Append([]byte{})
+	require.Error(t, err)
+
+	pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, nil
+	}
+	dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, errors.New("error")
+	}
 	tree, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 	require.NoError(t, err)
 	_, _, err = tree.Append(nil)
 	require.Error(t, err)
 
-	dLog.appendErr = nil
-	cLog.appendErr = errors.New("error")
+	pLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, errors.New("error")
+	}
+	tree, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
+	require.NoError(t, err)
+	_, _, err = tree.Append(nil)
+	require.Error(t, err)
+
+	dLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, nil
+	}
+	cLog.AppendFn = func(bs []byte) (off int64, n int, err error) {
+		return 0, 0, errors.New("error")
+	}
 	tree, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
 	require.NoError(t, err)
 	_, _, err = tree.Append(nil)
@@ -190,65 +257,6 @@ func TestReadOnly(t *testing.T) {
 
 	err = tree.Close()
 	require.NoError(t, err)
-}
-
-type MockedAppendable struct {
-	metadata []byte
-
-	sz    int64
-	szErr error
-
-	offset    int64
-	offsetErr error
-
-	appendOff int64
-	appendN   int
-	appendErr error
-
-	flushErr error
-
-	syncErr error
-
-	readAtN   int
-	readAtErr error
-
-	closeErr error
-}
-
-func (a *MockedAppendable) Metadata() []byte {
-	return a.metadata
-}
-
-func (a *MockedAppendable) Size() (int64, error) {
-	return a.sz, a.szErr
-}
-
-func (a *MockedAppendable) Offset() int64 {
-	return a.offset
-}
-
-func (a *MockedAppendable) SetOffset(off int64) error {
-	return a.offsetErr
-}
-
-func (a *MockedAppendable) Append(bs []byte) (off int64, n int, err error) {
-	return a.appendOff, a.appendN, a.appendErr
-}
-
-func (a *MockedAppendable) Flush() error {
-	return a.flushErr
-}
-
-func (a *MockedAppendable) Sync() error {
-	return a.syncErr
-}
-
-func (a *MockedAppendable) ReadAt(bs []byte, off int64) (int, error) {
-	return a.readAtN, a.readAtErr
-}
-
-func (a *MockedAppendable) Close() error {
-	return a.closeErr
 }
 
 func TestAppend(t *testing.T) {

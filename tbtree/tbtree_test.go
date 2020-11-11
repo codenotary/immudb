@@ -181,6 +181,17 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 	}
 }
 
+func TestInvalidOpening(t *testing.T) {
+	_, err := Open("", nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = Open("tbtree_test.go", DefaultOptions())
+	require.Error(t, ErrorPathIsNotADirectory, err)
+
+	_, err = OpenWith(nil, nil, nil)
+	require.Error(t, ErrIllegalArguments, err)
+}
+
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxNodeSize(256).WithFlushThld(100)
 	tbtree, err := Open("test_tree_iasc", opts)

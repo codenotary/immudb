@@ -20,82 +20,25 @@ import (
 	"errors"
 	"testing"
 
+	"codenotary.io/immudb-v2/appendable/mocked"
 	"github.com/stretchr/testify/require"
 )
 
-type MockedAppendable struct {
-	metadata []byte
-
-	sz    int64
-	szErr error
-
-	offset    int64
-	offsetErr error
-
-	appendOff int64
-	appendN   int
-	appendErr error
-
-	flushErr error
-
-	syncErr error
-
-	readAt func(bs []byte, off int64) (int, error)
-
-	closeErr error
-}
-
-func (a *MockedAppendable) Metadata() []byte {
-	return a.metadata
-}
-
-func (a *MockedAppendable) Size() (int64, error) {
-	return a.sz, a.szErr
-}
-
-func (a *MockedAppendable) Offset() int64 {
-	return a.offset
-}
-
-func (a *MockedAppendable) SetOffset(off int64) error {
-	return a.offsetErr
-}
-
-func (a *MockedAppendable) Append(bs []byte) (off int64, n int, err error) {
-	return a.appendOff, a.appendN, a.appendErr
-}
-
-func (a *MockedAppendable) Flush() error {
-	return a.flushErr
-}
-
-func (a *MockedAppendable) Sync() error {
-	return a.syncErr
-}
-
-func (a *MockedAppendable) ReadAt(bs []byte, off int64) (int, error) {
-	return a.readAt(bs, off)
-}
-
-func (a *MockedAppendable) Close() error {
-	return a.closeErr
-}
-
 func TestReader(t *testing.T) {
-	a := &MockedAppendable{}
+	a := &mocked.MockedAppendable{}
 
 	r := NewReaderFrom(a, 0, 1024)
 	require.NotNil(t, r)
 
 	require.Equal(t, int64(0), r.Offset())
 
-	a.readAt = func(bs []byte, off int64) (int, error) {
+	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		return 0, errors.New("error")
 	}
 	_, err := r.Read([]byte{0})
 	require.Error(t, err)
 
-	a.readAt = func(bs []byte, off int64) (int, error) {
+	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		bs[0] = 127
 		return 1, nil
 	}
@@ -103,7 +46,7 @@ func TestReader(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, byte(127), b)
 
-	a.readAt = func(bs []byte, off int64) (int, error) {
+	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		binary.BigEndian.PutUint32(bs, 256)
 		return 4, nil
 	}
@@ -111,7 +54,7 @@ func TestReader(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(256), n32)
 
-	a.readAt = func(bs []byte, off int64) (int, error) {
+	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		binary.BigEndian.PutUint64(bs, 1024)
 		return 8, nil
 	}

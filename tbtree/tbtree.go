@@ -191,7 +191,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 }
 
 func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
-	if !validOptions(opts) {
+	if nLog == nil || cLog == nil || !validOptions(opts) {
 		return nil, ErrIllegalArguments
 	}
 
