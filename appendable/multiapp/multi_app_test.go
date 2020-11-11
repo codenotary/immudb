@@ -27,7 +27,7 @@ func TestMultiApp(t *testing.T) {
 	md := appendable.NewMetadata(nil)
 	md.PutInt("mkey1", 1)
 
-	a, err := Open("testdata", DefaultOptions().SetMetadata(md.Bytes()))
+	a, err := Open("testdata", DefaultOptions().WithMetadata(md.Bytes()))
 	defer os.RemoveAll("testdata")
 	require.NoError(t, err)
 
@@ -86,7 +86,7 @@ func TestMultiApp(t *testing.T) {
 }
 
 func TestMultiAppReOpening(t *testing.T) {
-	a, err := Open("testdata", DefaultOptions().SetFileSize(1))
+	a, err := Open("testdata", DefaultOptions().WithFileSize(1))
 	defer os.RemoveAll("testdata")
 	require.NoError(t, err)
 
@@ -103,7 +103,7 @@ func TestMultiAppReOpening(t *testing.T) {
 	err = a.Close()
 	require.NoError(t, err)
 
-	a, err = Open("testdata", DefaultOptions().SetReadOnly(true))
+	a, err = Open("testdata", DefaultOptions().WithReadOnly(true))
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -135,7 +135,7 @@ func TestMultiAppEdgeCases(t *testing.T) {
 	_, err = Open("multi_app_test.go", DefaultOptions())
 	require.Error(t, ErrorPathIsNotADirectory, err)
 
-	_, err = Open("testdata", DefaultOptions().SetReadOnly(true))
+	_, err = Open("testdata", DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
 
 	a, err := Open("testdata", DefaultOptions())
@@ -171,7 +171,7 @@ func TestMultiAppEdgeCases(t *testing.T) {
 }
 
 func TestMultiAppCompression(t *testing.T) {
-	a, err := Open("testdata", DefaultOptions().SetCompressionFormat(appendable.ZLibCompression))
+	a, err := Open("testdata", DefaultOptions().WithCompressionFormat(appendable.ZLibCompression))
 	defer os.RemoveAll("testdata")
 	require.NoError(t, err)
 
@@ -189,17 +189,4 @@ func TestMultiAppCompression(t *testing.T) {
 
 	err = a.Close()
 	require.NoError(t, err)
-}
-
-func TestOptions(t *testing.T) {
-	opts := &Options{}
-	require.True(t, opts.SetReadOnly(true).readOnly)
-	require.True(t, opts.SetSynced(true).synced)
-	require.Equal(t, DefaultFileMode, opts.SetFileMode(DefaultFileMode).fileMode)
-	require.Equal(t, appendable.DefaultCompressionFormat, opts.SetCompressionFormat(appendable.DefaultCompressionFormat).compressionFormat)
-	require.Equal(t, appendable.DefaultCompressionLevel, opts.SetCompresionLevel(appendable.DefaultCompressionLevel).compressionLevel)
-	require.Equal(t, []byte{1, 2, 3, 4}, opts.SetMetadata([]byte{1, 2, 3, 4}).metadata)
-	require.Equal(t, DefaultFileSize, opts.SetFileSize(DefaultFileSize).fileSize)
-	require.Equal(t, "aof", opts.SetFileExt("aof").fileExt)
-	require.Equal(t, DefaultMaxOpenedFiles, opts.SetMaxOpenedFiles(DefaultMaxOpenedFiles).maxOpenedFiles)
 }

@@ -24,6 +24,8 @@ import (
 const DefaultFileSize = 1 << 26 // 64Mb
 const DefaultMaxOpenedFiles = 10
 const DefaultFileMode = os.FileMode(0755)
+const DefaultCompressionFormat = appendable.DefaultCompressionFormat
+const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 
 type Options struct {
 	readOnly          bool
@@ -45,8 +47,8 @@ func DefaultOptions() *Options {
 		fileSize:          DefaultFileSize,
 		fileExt:           "aof",
 		maxOpenedFiles:    DefaultMaxOpenedFiles,
-		compressionFormat: appendable.DefaultCompressionFormat,
-		compressionLevel:  appendable.DefaultCompressionLevel,
+		compressionFormat: DefaultCompressionFormat,
+		compressionLevel:  DefaultCompressionLevel,
 	}
 }
 
@@ -57,47 +59,47 @@ func validOptions(opts *Options) bool {
 		opts.fileExt != ""
 }
 
-func (opt *Options) SetReadOnly(readOnly bool) *Options {
+func (opt *Options) WithReadOnly(readOnly bool) *Options {
 	opt.readOnly = readOnly
 	return opt
 }
 
-func (opt *Options) SetSynced(synced bool) *Options {
+func (opt *Options) WithSynced(synced bool) *Options {
 	opt.synced = synced
 	return opt
 }
 
-func (opt *Options) SetFileMode(fileMode os.FileMode) *Options {
+func (opt *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opt.fileMode = fileMode
 	return opt
 }
 
-func (opt *Options) SetMetadata(metadata []byte) *Options {
+func (opt *Options) WithMetadata(metadata []byte) *Options {
 	opt.metadata = metadata
 	return opt
 }
 
-func (opt *Options) SetFileSize(fileSize int) *Options {
+func (opt *Options) WithFileSize(fileSize int) *Options {
 	opt.fileSize = fileSize
 	return opt
 }
 
-func (opt *Options) SetFileExt(fileExt string) *Options {
+func (opt *Options) WithFileExt(fileExt string) *Options {
 	opt.fileExt = fileExt
 	return opt
 }
 
-func (opt *Options) SetMaxOpenedFiles(maxOpenedFiles int) *Options {
+func (opt *Options) WithMaxOpenedFiles(maxOpenedFiles int) *Options {
 	opt.maxOpenedFiles = maxOpenedFiles
 	return opt
 }
 
-func (opt *Options) SetCompressionFormat(compressionFormat int) *Options {
+func (opt *Options) WithCompressionFormat(compressionFormat int) *Options {
 	opt.compressionFormat = compressionFormat
 	return opt
 }
 
-func (opt *Options) SetCompresionLevel(compressionLevel int) *Options {
+func (opt *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opt.compressionLevel = compressionLevel
 	return opt
 }
