@@ -1096,19 +1096,12 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
 | Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | Set | [KeyValue](#immudb.schema.KeyValue) | [Index](#immudb.schema.Index) |  |
-| SetSV | [StructuredKeyValue](#immudb.schema.StructuredKeyValue) | [Index](#immudb.schema.Index) |  |
 | SafeSet | [SafeSetOptions](#immudb.schema.SafeSetOptions) | [Proof](#immudb.schema.Proof) |  |
-| SafeSetSV | [SafeSetSVOptions](#immudb.schema.SafeSetSVOptions) | [Proof](#immudb.schema.Proof) |  |
 | Get | [Key](#immudb.schema.Key) | [Item](#immudb.schema.Item) |  |
-| GetSV | [Key](#immudb.schema.Key) | [StructuredItem](#immudb.schema.StructuredItem) |  |
 | SafeGet | [SafeGetOptions](#immudb.schema.SafeGetOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
-| SafeGetSV | [SafeGetOptions](#immudb.schema.SafeGetOptions) | [SafeStructuredItem](#immudb.schema.SafeStructuredItem) |  |
 | SetBatch | [KVList](#immudb.schema.KVList) | [Index](#immudb.schema.Index) |  |
-| SetBatchSV | [SKVList](#immudb.schema.SKVList) | [Index](#immudb.schema.Index) |  |
 | GetBatch | [KeyList](#immudb.schema.KeyList) | [ItemList](#immudb.schema.ItemList) |  |
-| GetBatchSV | [KeyList](#immudb.schema.KeyList) | [StructuredItemList](#immudb.schema.StructuredItemList) |  |
 | Scan | [ScanOptions](#immudb.schema.ScanOptions) | [ItemList](#immudb.schema.ItemList) |  |
-| ScanSV | [ScanOptions](#immudb.schema.ScanOptions) | [StructuredItemList](#immudb.schema.StructuredItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CurrentRoot | [.google.protobuf.Empty](#google.protobuf.Empty) | [Root](#immudb.schema.Root) |  |
@@ -1116,18 +1109,14 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | Consistency | [Index](#immudb.schema.Index) | [ConsistencyProof](#immudb.schema.ConsistencyProof) |  |
 | ByIndex | [Index](#immudb.schema.Index) | [Item](#immudb.schema.Item) |  |
 | BySafeIndex | [SafeIndexOptions](#immudb.schema.SafeIndexOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
-| ByIndexSV | [Index](#immudb.schema.Index) | [StructuredItem](#immudb.schema.StructuredItem) |  |
 | History | [HistoryOptions](#immudb.schema.HistoryOptions) | [ItemList](#immudb.schema.ItemList) |  |
-| HistorySV | [HistoryOptions](#immudb.schema.HistoryOptions) | [StructuredItemList](#immudb.schema.StructuredItemList) |  |
 | Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
 | Reference | [ReferenceOptions](#immudb.schema.ReferenceOptions) | [Index](#immudb.schema.Index) |  |
 | SafeReference | [SafeReferenceOptions](#immudb.schema.SafeReferenceOptions) | [Proof](#immudb.schema.Proof) |  |
 | ZAdd | [ZAddOptions](#immudb.schema.ZAddOptions) | [Index](#immudb.schema.Index) |  |
 | ZScan | [ZScanOptions](#immudb.schema.ZScanOptions) | [ZItemList](#immudb.schema.ZItemList) |  |
-| ZScanSV | [ZScanOptions](#immudb.schema.ZScanOptions) | [ZStructuredItemList](#immudb.schema.ZStructuredItemList) |  |
 | SafeZAdd | [SafeZAddOptions](#immudb.schema.SafeZAddOptions) | [Proof](#immudb.schema.Proof) |  |
 | IScan | [IScanOptions](#immudb.schema.IScanOptions) | [Page](#immudb.schema.Page) |  |
-| IScanSV | [IScanOptions](#immudb.schema.IScanOptions) | [SPage](#immudb.schema.SPage) |  |
 | Dump | [.google.protobuf.Empty](#google.protobuf.Empty) | [.pb.KVList](#pb.KVList) stream |  |
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | todo(joe-dz): Enable restore when the feature is required again 	rpc Restore(stream pb.KVList) returns (ItemsCount) { 		option (google.api.http) = { 			post: &#34;/v1/immurestproxy/restore&#34; 			body: &#34;*&#34; 		}; 	} |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |

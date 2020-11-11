@@ -113,24 +113,6 @@ func (d *Db) CurrentRoot(e *empty.Empty) (*schema.Root, error) {
 	return root, err
 }
 
-// SetSV ...
-func (d *Db) SetSV(skv *schema.StructuredKeyValue) (*schema.Index, error) {
-	kv, err := skv.ToKV()
-	if err != nil {
-		return nil, err
-	}
-	return d.Set(kv)
-}
-
-//GetSV ...
-func (d *Db) GetSV(k *schema.Key) (*schema.StructuredItem, error) {
-	it, err := d.Get(k)
-	if err != nil {
-		return nil, err
-	}
-	return it.ToSItem()
-}
-
 //SafeSet ...
 func (d *Db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	return d.Store.SafeSet(*opts)
@@ -139,32 +121,6 @@ func (d *Db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 //SafeGet ...
 func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	return d.Store.SafeGet(*opts)
-}
-
-//SafeSetSV ...
-func (d *Db) SafeSetSV(sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
-	kv, err := sopts.Skv.ToKV()
-	if err != nil {
-		return nil, err
-	}
-	opts := &schema.SafeSetOptions{
-		Kv:        kv,
-		RootIndex: sopts.RootIndex,
-	}
-	return d.SafeSet(opts)
-}
-
-//SafeGetSV ...
-func (d *Db) SafeGetSV(opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
-	it, err := d.SafeGet(opts)
-	if err != nil {
-		return nil, err
-	}
-	ssitem, err := it.ToSafeSItem()
-	if err != nil {
-		return nil, err
-	}
-	return ssitem, err
 }
 
 // SetBatch ...
@@ -186,33 +142,6 @@ func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 		}
 	}
 	return list, nil
-}
-
-//SetBatchSV ...
-func (d *Db) SetBatchSV(skvl *schema.SKVList) (*schema.Index, error) {
-	kvl, err := skvl.ToKVList()
-	if err != nil {
-		return nil, err
-	}
-	return d.SetBatch(kvl)
-}
-
-//GetBatchSV ...
-func (d *Db) GetBatchSV(kl *schema.KeyList) (*schema.StructuredItemList, error) {
-	list, err := d.GetBatch(kl)
-	if err != nil {
-		return nil, err
-	}
-	return list.ToSItemList()
-}
-
-//ScanSV ...
-func (d *Db) ScanSV(opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
-	list, err := d.Store.Scan(*opts)
-	if err != nil {
-		return nil, err
-	}
-	return list.ToSItemList()
 }
 
 //Count ...
@@ -238,15 +167,6 @@ func (d *Db) Consistency(index *schema.Index) (*schema.ConsistencyProof, error) 
 // ByIndex ...
 func (d *Db) ByIndex(index *schema.Index) (*schema.Item, error) {
 	return d.Store.ByIndex(*index)
-}
-
-//ByIndexSV ...
-func (d *Db) ByIndexSV(index *schema.Index) (*schema.StructuredItem, error) {
-	item, err := d.Store.ByIndex(*index)
-	if err != nil {
-		return nil, err
-	}
-	return item.ToSItem()
 }
 
 //BySafeIndex ...
@@ -307,15 +227,6 @@ func (d *Db) Scan(opts *schema.ScanOptions) (*schema.ItemList, error) {
 //IScan ...
 func (d *Db) IScan(opts *schema.IScanOptions) (*schema.Page, error) {
 	return d.Store.IScan(*opts)
-}
-
-//IScanSV ...
-func (d *Db) IScanSV(opts *schema.IScanOptions) (*schema.SPage, error) {
-	page, err := d.Store.IScan(*opts)
-	if err != nil {
-		return nil, err
-	}
-	return page.ToSPage()
 }
 
 //Dump ...

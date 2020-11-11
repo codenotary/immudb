@@ -246,50 +246,6 @@ func TestCurrentRoot(t *testing.T) {
 	}
 }
 
-func TestSVSetGet(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-
-	for ind, val := range Skv.SKVs {
-		it, err := db.SetSV(val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-		if it.GetIndex() != uint64(ind) {
-			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
-		}
-		k := &schema.Key{
-			Key: []byte(val.Key),
-		}
-		item, err := db.GetSV(k)
-		if err != nil {
-			t.Fatalf("Error reading key %s", err)
-		}
-		if !bytes.Equal(item.GetKey(), val.Key) {
-			t.Fatalf("Inserted CurrentOffset not equal to read CurrentOffset")
-		}
-		sk := item.GetValue()
-		if sk.GetTimestamp() != val.GetValue().GetTimestamp() {
-			t.Fatalf("Inserted value not equal to read value")
-		}
-		if !bytes.Equal(sk.GetPayload(), val.GetValue().Payload) {
-			t.Fatalf("Inserted Payload not equal to read value")
-		}
-	}
-	_, err := db.SetSV(&schema.StructuredKeyValue{
-		Key: []byte{},
-	})
-	if err == nil {
-		t.Fatalf("SetSV error exptected")
-	}
-	_, err = db.GetSV(&schema.Key{
-		Key: []byte{},
-	})
-	if err == nil {
-		t.Fatalf("GetSV error exptected")
-	}
-}
-
 func TestSafeSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
@@ -350,96 +306,6 @@ func TestSafeSetGet(t *testing.T) {
 	}
 }
 
-func TestSafeSetGetSV(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-	root, err := db.CurrentRoot(&emptypb.Empty{})
-	if err != nil {
-		t.Error(err)
-	}
-	SafeSkv := []*schema.SafeSetSVOptions{
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Alberto"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Tomba"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Jean-Claude"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Killy"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Franz"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Clamer"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-	}
-	for ind, val := range SafeSkv {
-		proof, err := db.SafeSetSV(val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-		if proof == nil {
-			t.Fatalf("Nil proof after SafeSet")
-		}
-		if proof.GetIndex() != uint64(ind) {
-			t.Fatalf("SafeSet proof index error, expected %d, got %d", uint64(ind), proof.GetIndex())
-		}
-
-		it, err := db.SafeGetSV(&schema.SafeGetOptions{
-			Key: val.Skv.Key,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if it.GetItem().GetIndex() != uint64(ind) {
-			t.Fatalf("SafeGet index error, expected %d, got %d", uint64(ind), it.GetItem().GetIndex())
-		}
-	}
-	_, err = db.SafeSetSV(&schema.SafeSetSVOptions{
-		Skv: &schema.StructuredKeyValue{
-			Key: []byte{},
-		},
-	})
-	if err == nil {
-		t.Fatalf("SafeSetSV expected error")
-	}
-	_, err = db.Set(&schema.KeyValue{
-		Key:   []byte("pc"),
-		Value: []byte("x86"),
-	})
-	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
-	}
-	_, err = db.SafeGetSV(&schema.SafeGetOptions{
-		Key: []byte("pc"),
-	})
-	if err == nil {
-		t.Fatalf("SafeGetSV expected error")
-	}
-}
-
 func TestSetGetBatch(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
@@ -491,65 +357,6 @@ func TestSetGetBatch(t *testing.T) {
 		if !bytes.Equal(val.Value, Skv.KVs[ind].Value) {
 			t.Fatalf("BatchSet value not equal to BatchGet value, expected %s, got %s", string(Skv.KVs[ind].Value), string(val.Value))
 		}
-	}
-}
-
-func TestSetGetBatchSV(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-
-	ind, err := db.SetBatchSV(Skv)
-	if err != nil {
-		t.Fatalf("SetBatchSV Error Inserting to db %s", err)
-	}
-	if ind == nil {
-		t.Fatalf("Nil index after Setbatch")
-	}
-	if ind.GetIndex() != 2 {
-		t.Fatalf("SetBatchSV error, expected %d, got %d", 2, ind.GetIndex())
-	}
-
-	itList, err := db.GetBatchSV(&schema.KeyList{
-		Keys: []*schema.Key{
-			{
-				Key: Skv.SKVs[0].Key,
-			},
-			{
-				Key: Skv.SKVs[1].Key,
-			},
-			{
-				Key: Skv.SKVs[2].Key,
-			},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for ind, val := range itList.Items {
-		if !bytes.Equal(val.Value.Payload, Skv.SKVs[ind].Value.Payload) {
-			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %s, got %s", string(Skv.SKVs[ind].Value.Payload), string(val.Value.Payload))
-		}
-		if val.Value.Timestamp != Skv.SKVs[ind].Value.Timestamp {
-			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %d, got %d", Skv.SKVs[ind].Value.Timestamp, val.Value.Timestamp)
-		}
-	}
-
-	_, err = db.SetBatchSV(&schema.SKVList{
-		SKVs: nil,
-	})
-	if err == nil {
-		t.Fatalf("SetBatchSV expected error")
-	}
-
-	_, err = db.SetBatchSV(&schema.SKVList{
-		SKVs: []*schema.StructuredKeyValue{
-			{
-				Key: []byte{},
-			},
-		},
-	})
-	if err == nil {
-		t.Fatalf("SetBatchSV expected error %s", err)
 	}
 }
 
@@ -626,31 +433,11 @@ func TestByIndex(t *testing.T) {
 	}
 }
 
-func TestByIndexSV(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-	for _, val := range Skv.SKVs {
-		_, err := db.SetSV(val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-	}
-	time.Sleep(1 * time.Second)
-	ind := uint64(1)
-	inc, err := db.ByIndexSV(&schema.Index{Index: ind})
-	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
-	}
-	if inc.Value.Timestamp != Skv.SKVs[ind].Value.Timestamp {
-		t.Fatalf("ByIndexSV timestamp, expected %d, got %d", Skv.SKVs[ind].Value.GetTimestamp(), inc.Value.GetTimestamp())
-	}
-}
-
 func TestBySafeIndex(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	for _, val := range Skv.SKVs {
-		_, err := db.SetSV(val)
+	for _, val := range kv {
+		_, err := db.Set(val)
 		if err != nil {
 			t.Fatalf("Error Inserting to db %s", err)
 		}
@@ -890,137 +677,6 @@ func TestCount(t *testing.T) {
 	countAll := db.CountAll().Count
 	if countAll != 6 {
 		t.Fatalf("Error CountAll expected %d got %d", 6, countAll)
-	}
-}
-func TestScanSV(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-	root, err := db.CurrentRoot(&emptypb.Empty{})
-	if err != nil {
-		t.Error(err)
-	}
-	SafeSkv := []*schema.SafeSetSVOptions{
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Alberto"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Tomba"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Jean-Claude"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Killy"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Franz"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Clamer"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-	}
-	for _, val := range SafeSkv {
-		_, err := db.SafeSetSV(val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-	}
-	sc, err := db.ScanSV(&schema.ScanOptions{
-		Offset: []byte("Franz"),
-	})
-	if err != nil {
-		t.Fatalf("ScanSV error %s", err)
-	}
-	if len(sc.Items) != 1 {
-		t.Fatalf("ScanSV count expected %d got %d", 1, len(sc.Items))
-	}
-}
-func TestIscanSv(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-	root, err := db.CurrentRoot(&emptypb.Empty{})
-	if err != nil {
-		t.Error(err)
-	}
-	SafeSkv := []*schema.SafeSetSVOptions{
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Alberto"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Tomba"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Jean-Claude"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Killy"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Franz"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Clamer"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-	}
-	for _, val := range SafeSkv {
-		_, err := db.SafeSetSV(val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-	}
-	sc, err := db.IScanSV(&schema.IScanOptions{
-		PageNumber: 0,
-		PageSize:   1,
-	})
-	if err != nil {
-		t.Fatalf("IScanSV error %s", err)
-	}
-	if len(sc.Items) != 1 {
-		t.Fatalf("IScanSV count expected %d got %d", 1, len(sc.Items))
-	}
-
-	_, err = db.IScanSV(&schema.IScanOptions{
-		PageNumber: 111111111,
-		PageSize:   111111111,
-	})
-	if err == nil {
-		t.Fatalf("IScanSV expected error")
 	}
 }
 

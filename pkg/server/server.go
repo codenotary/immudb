@@ -667,18 +667,6 @@ func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Inde
 	return s.dbList.GetByIndex(ind).Set(kv)
 }
 
-// SetSV ...
-func (s *ImmuServer) SetSV(ctx context.Context, skv *schema.StructuredKeyValue) (*schema.Index, error) {
-	s.Logger.Debugf("SetSV %+v", skv)
-
-	kv, err := skv.ToKV()
-	if err != nil {
-		return nil, err
-	}
-
-	return s.Set(ctx, kv)
-}
-
 // SafeSet ...
 func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("SafeSet %+v", opts)
@@ -689,23 +677,6 @@ func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (
 	}
 
 	return s.dbList.GetByIndex(ind).SafeSet(opts)
-}
-
-// SafeSetSV ...
-func (s *ImmuServer) SafeSetSV(ctx context.Context, sopts *schema.SafeSetSVOptions) (*schema.Proof, error) {
-	s.Logger.Debugf("SafeSetSV %+v", sopts)
-
-	kv, err := sopts.Skv.ToKV()
-	if err != nil {
-		return nil, err
-	}
-
-	opts := &schema.SafeSetOptions{
-		Kv:        kv,
-		RootIndex: sopts.RootIndex,
-	}
-
-	return s.SafeSet(ctx, opts)
 }
 
 // SetBatch ...
@@ -720,18 +691,6 @@ func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.
 	return s.dbList.GetByIndex(ind).SetBatch(kvl)
 }
 
-// SetBatchSV ...
-func (s *ImmuServer) SetBatchSV(ctx context.Context, skvl *schema.SKVList) (*schema.Index, error) {
-	s.Logger.Debugf("SetBatchSV %+v", skvl)
-
-	kvl, err := skvl.ToKVList()
-	if err != nil {
-		return nil, err
-	}
-
-	return s.SetBatch(ctx, kvl)
-}
-
 // Get ...
 func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "Get")
@@ -741,17 +700,6 @@ func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, erro
 	}
 
 	return s.dbList.GetByIndex(ind).Get(k)
-}
-
-// GetSV ...
-func (s *ImmuServer) GetSV(ctx context.Context, k *schema.Key) (*schema.StructuredItem, error) {
-	it, err := s.Get(ctx, k)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return it.ToSItem()
 }
 
 // SafeGet ...
@@ -764,17 +712,6 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 	}
 
 	return s.dbList.GetByIndex(ind).SafeGet(opts)
-}
-
-// SafeGetSV ...
-func (s *ImmuServer) SafeGetSV(ctx context.Context, opts *schema.SafeGetOptions) (*schema.SafeStructuredItem, error) {
-	it, err := s.SafeGet(ctx, opts)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return it.ToSafeSItem()
 }
 
 // GetBatch ...
@@ -799,15 +736,6 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 	return list, nil
 }
 
-// GetBatchSV ...
-func (s *ImmuServer) GetBatchSV(ctx context.Context, kl *schema.KeyList) (*schema.StructuredItemList, error) {
-	list, err := s.GetBatch(ctx, kl)
-	if err != nil {
-		return nil, err
-	}
-	return list.ToSItemList()
-}
-
 // Scan ...
 func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schema.ItemList, error) {
 	s.Logger.Debugf("scan %+v", *opts)
@@ -816,16 +744,6 @@ func (s *ImmuServer) Scan(ctx context.Context, opts *schema.ScanOptions) (*schem
 		return nil, err
 	}
 	return s.dbList.GetByIndex(ind).Scan(opts)
-}
-
-// ScanSV ...
-func (s *ImmuServer) ScanSV(ctx context.Context, opts *schema.ScanOptions) (*schema.StructuredItemList, error) {
-	s.Logger.Debugf("scan %+v", *opts)
-	ind, err := s.getDbIndexFromCtx(ctx, "ScanSV")
-	if err != nil {
-		return nil, err
-	}
-	return s.dbList.GetByIndex(ind).ScanSV(opts)
 }
 
 // Count ...
@@ -880,21 +798,6 @@ func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.
 	return s.dbList.GetByIndex(ind).ByIndex(index)
 }
 
-// ByIndexSV ...
-func (s *ImmuServer) ByIndexSV(ctx context.Context, index *schema.Index) (*schema.StructuredItem, error) {
-	s.Logger.Debugf("get by index %d ", index.Index)
-
-	ind, err := s.getDbIndexFromCtx(ctx, "ByIndexSV")
-	if err != nil {
-		return nil, err
-	}
-	item, err := s.dbList.GetByIndex(ind).ByIndex(index)
-	if err != nil {
-		return nil, err
-	}
-	return item.ToSItem()
-}
-
 // BySafeIndex ...
 func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
 	s.Logger.Debugf("get by safeIndex %d ", sio.Index)
@@ -913,11 +816,6 @@ func (s *ImmuServer) History(ctx context.Context, options *schema.HistoryOptions
 		return nil, err
 	}
 	return s.dbList.GetByIndex(ind).History(options)
-}
-
-// HistorySV ...
-func (s *ImmuServer) HistorySV(ctx context.Context, options *schema.HistoryOptions) (*schema.StructuredItemList, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 // Health ...
@@ -970,11 +868,6 @@ func (s *ImmuServer) ZScan(ctx context.Context, opts *schema.ZScanOptions) (*sch
 	return s.dbList.GetByIndex(ind).ZScan(opts)
 }
 
-// ZScanSV ...
-func (s *ImmuServer) ZScanSV(_ context.Context, _ *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
-}
-
 // SafeZAdd ...
 func (s *ImmuServer) SafeZAdd(ctx context.Context, opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	s.Logger.Debugf("SafeZAdd %+v", *opts)
@@ -993,20 +886,6 @@ func (s *ImmuServer) IScan(ctx context.Context, opts *schema.IScanOptions) (*sch
 		return nil, err
 	}
 	return s.dbList.GetByIndex(ind).IScan(opts)
-}
-
-// IScanSV ...
-func (s *ImmuServer) IScanSV(ctx context.Context, opts *schema.IScanOptions) (*schema.SPage, error) {
-	s.Logger.Debugf("IScanSV %+v", *opts)
-	ind, err := s.getDbIndexFromCtx(ctx, "IScanSV")
-	if err != nil {
-		return nil, err
-	}
-	page, err := s.dbList.GetByIndex(ind).IScan(opts)
-	if err != nil {
-		return nil, err
-	}
-	return page.ToSPage()
 }
 
 // Dump ...

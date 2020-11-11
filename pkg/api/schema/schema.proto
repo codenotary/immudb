@@ -423,8 +423,6 @@ service ImmuService {
 		};
 	};
 
-	rpc SetSV (StructuredKeyValue) returns (Index){};
-
 	rpc SafeSet(SafeSetOptions) returns (Proof){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/item/safe"
@@ -432,15 +430,11 @@ service ImmuService {
 		};
 	}
 
-	rpc SafeSetSV(SafeSetSVOptions) returns (Proof){}
-
 	rpc Get (Key) returns (Item){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/{key}"
 		};
 	};
-
-	rpc GetSV (Key) returns (StructuredItem){};
 
 	rpc SafeGet(SafeGetOptions) returns (SafeItem){
 		option (google.api.http) = {
@@ -449,16 +443,12 @@ service ImmuService {
 		};
 	};
 
-	rpc SafeGetSV(SafeGetOptions) returns (SafeStructuredItem){};
-
 	rpc SetBatch (KVList) returns (Index){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/set"
 			body: "*"
 		};
 	};
-
-	rpc SetBatchSV (SKVList) returns (Index){};
 
 	rpc GetBatch (KeyList) returns (ItemList){
 		option (google.api.http) = {
@@ -467,16 +457,12 @@ service ImmuService {
 		};
 	};
 
-	rpc GetBatchSV (KeyList) returns (StructuredItemList){};
-
 	rpc Scan(ScanOptions) returns (ItemList){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/item/scan"
 			body: "*"
 		};
 	};
-
-	rpc ScanSV(ScanOptions) returns (StructuredItemList){};
 
 	rpc Count(KeyPrefix) returns (ItemsCount){
 		option (google.api.http) = {
@@ -521,16 +507,12 @@ service ImmuService {
 		};
 	};
 
-	rpc ByIndexSV(Index) returns (StructuredItem){};
-
 	rpc History(HistoryOptions) returns (ItemList){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/history"
 			body: "*"
 		};
 	};
-
-	rpc HistorySV(HistoryOptions) returns (StructuredItemList){};
 
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
@@ -565,8 +547,6 @@ service ImmuService {
 		};
 	};
 
-	rpc ZScanSV (ZScanOptions) returns (ZStructuredItemList){};
-
 	rpc SafeZAdd (SafeZAddOptions) returns (Proof){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/safe/zadd"
@@ -580,8 +560,6 @@ service ImmuService {
 			body: "*"
 		};
 	};
-
-	rpc IScanSV (IScanOptions) returns (SPage){};
 
 	rpc Dump(google.protobuf.Empty) returns (stream pb.KVList) {
 		option (google.api.http) = {

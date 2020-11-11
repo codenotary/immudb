@@ -587,135 +587,7 @@ func testServerCurrentRootError(ctx context.Context, s *ImmuServer, t *testing.T
 		t.Fatalf("CurrentRoot expected Error")
 	}
 }
-func testServerSVSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
-	for _, val := range Skv.SKVs {
-		it, err := s.SetSV(ctx, val)
-		if err != nil {
-			t.Fatalf("SetSV Error Inserting to db %s", err)
-		}
-		k := &schema.Key{
-			Key: []byte(val.Key),
-		}
-		item, err := s.GetSV(ctx, k)
-		if err != nil {
-			t.Fatalf("GetSV Error reading key %s", err)
-		}
 
-		if it.GetIndex() != item.Index {
-			t.Fatalf("index error expecting %v got %v", item.Index, it.GetIndex())
-		}
-		if !bytes.Equal(item.GetKey(), val.Key) {
-			t.Fatalf("Inserted CurrentOffset not equal to read CurrentOffset")
-		}
-		sk := item.GetValue()
-		if sk.GetTimestamp() != val.GetValue().GetTimestamp() {
-			t.Fatalf("Inserted value not equal to read value")
-		}
-		if !bytes.Equal(sk.GetPayload(), val.GetValue().Payload) {
-			t.Fatalf("Inserted Payload not equal to read value")
-		}
-	}
-}
-
-func testServerSVSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.SetSV(context.Background(), Skv.SKVs[0])
-	if err == nil {
-		t.Fatalf("SetSV expected error Inserting to db")
-	}
-	k := &schema.Key{
-		Key: []byte(Skv.SKVs[0].Key),
-	}
-	_, err = s.GetSV(context.Background(), k)
-	if err == nil {
-		t.Fatalf("GetSV error reading key")
-	}
-}
-
-func testServerSafeSetGetSV(ctx context.Context, s *ImmuServer, t *testing.T) {
-	root, err := s.CurrentRoot(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Error(err)
-	}
-	SafeSkv := []*schema.SafeSetSVOptions{
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Alberto"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Tomba"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Jean-Claude"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Killy"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-		{
-			Skv: &schema.StructuredKeyValue{
-				Key: []byte("Franz"),
-				Value: &schema.Content{
-					Timestamp: uint64(time.Now().Unix()),
-					Payload:   []byte("Clamer"),
-				},
-			},
-			RootIndex: &schema.Index{
-				Index: root.GetIndex(),
-			},
-		},
-	}
-	for _, val := range SafeSkv {
-		proof, err := s.SafeSetSV(ctx, val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-		if proof == nil {
-			t.Fatalf("Nil proof after SafeSet")
-		}
-		it, err := s.SafeGetSV(ctx, &schema.SafeGetOptions{
-			Key: val.Skv.Key,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if it.GetItem().GetIndex() != proof.Index {
-			t.Fatalf("SafeGet index error, expected %d, got %d", proof.Index, it.GetItem().GetIndex())
-		}
-	}
-}
-func testServerSafeSetGetSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	Skv := schema.SafeSetSVOptions{
-		Skv: &schema.StructuredKeyValue{
-			Key: []byte("Alberto"),
-			Value: &schema.Content{
-				Timestamp: uint64(time.Now().Unix()),
-				Payload:   []byte("Tomba"),
-			},
-		},
-		RootIndex: &schema.Index{
-			Index: 0,
-		}}
-	_, err := s.SafeSetSV(context.Background(), &Skv)
-	if err == nil {
-		t.Fatalf("SafeSetSV expected error")
-	}
-	_, err = s.SafeGetSV(context.Background(), &schema.SafeGetOptions{
-		Key: Skv.Skv.Key,
-	})
-	if err == nil {
-		t.Fatalf("SafeGetSV expected error")
-	}
-}
 func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	Skv := &schema.KVList{
 		KVs: []*schema.KeyValue{
@@ -786,57 +658,6 @@ func testServerSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T
 	})
 	if err == nil {
 		t.Fatalf("GetBatch expected Error")
-	}
-}
-
-func testServerSetGetBatchSV(ctx context.Context, s *ImmuServer, t *testing.T) {
-	ind, err := s.SetBatchSV(ctx, Skv)
-	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
-	}
-	if ind == nil {
-		t.Fatalf("Nil index after Setbatch")
-	}
-	itList, err := s.GetBatchSV(ctx, &schema.KeyList{
-		Keys: []*schema.Key{
-			{
-				Key: Skv.SKVs[0].Key,
-			},
-			{
-				Key: Skv.SKVs[1].Key,
-			},
-			{
-				Key: Skv.SKVs[2].Key,
-			},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for ind, val := range itList.Items {
-		if !bytes.Equal(val.Value.Payload, Skv.SKVs[ind].Value.Payload) {
-			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %s, got %s", string(Skv.SKVs[ind].Value.Payload), string(val.Value.Payload))
-		}
-		if val.Value.Timestamp != Skv.SKVs[ind].Value.Timestamp {
-			t.Fatalf("BatchSetSV value not equal to BatchGetSV value, expected %d, got %d", Skv.SKVs[ind].Value.Timestamp, val.Value.Timestamp)
-		}
-	}
-}
-
-func testServerSetGetBatchSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.SetBatchSV(context.Background(), Skv)
-	if err == nil {
-		t.Fatalf("SetBatchSV expected error")
-	}
-	_, err = s.GetBatchSV(context.Background(), &schema.KeyList{
-		Keys: []*schema.Key{
-			{
-				Key: Skv.SKVs[0].Key,
-			},
-		},
-	})
-	if err == nil {
-		t.Fatalf("GetBatchSV expected error")
 	}
 }
 
@@ -916,68 +737,10 @@ func testServerByIndexError(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatal("ByIndex exptected error")
 	}
 }
-func testServerByIndexSV(ctx context.Context, s *ImmuServer, t *testing.T) {
-	ind := uint64(2)
-	for _, val := range Skv.SKVs {
-		it, err := s.SetSV(ctx, val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-		ind = it.Index
-	}
-	s.SafeSet(ctx, &schema.SafeSetOptions{
-		Kv: &schema.KeyValue{
-			Key:   testKey,
-			Value: testValue,
-		},
-	})
-	inc, err := s.ByIndexSV(ctx, &schema.Index{Index: ind})
-	if err != nil {
-		t.Fatalf("ByIndexSV Error %s", err)
-	}
-	if !bytes.Equal(inc.Value.Payload, Skv.SKVs[len(Skv.SKVs)-1].Value.Payload) {
-		t.Fatalf("ByIndexSV, expected %s, got %s", string(Skv.SKVs[len(Skv.SKVs)-1].Value.Payload), string(inc.Value.Payload))
-	}
-}
-
-func testServerByIndexSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.ByIndexSV(context.Background(), &schema.Index{Index: 0})
-	if err == nil {
-		t.Fatalf("ByIndexSV exptected error")
-	}
-}
-
-func testServerByIScanSV(ctx context.Context, s *ImmuServer, t *testing.T) {
-	for _, val := range Skv.SKVs {
-		_, err := s.SetSV(ctx, val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-	}
-	s.SafeSet(ctx, &schema.SafeSetOptions{
-		Kv: &schema.KeyValue{
-			Key:   testKey,
-			Value: testValue,
-		},
-	})
-
-	_, err := s.IScanSV(ctx, &schema.IScanOptions{
-		PageNumber: 1,
-		PageSize:   1,
-	})
-	assert.Errorf(t, err, schema.ErrUnexpectedNotStructuredValue.Error())
-}
-func testServerByIScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.IScanSV(context.Background(), &schema.IScanOptions{
-		PageNumber: 1,
-		PageSize:   1,
-	})
-	assert.Error(t, err)
-}
 
 func testServerBySafeIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
-	for _, val := range Skv.SKVs {
-		_, err := s.SetSV(ctx, val)
+	for _, val := range kv {
+		_, err := s.Set(ctx, val)
 		if err != nil {
 			t.Fatalf("Error Inserting to db %s", err)
 		}
@@ -1026,12 +789,6 @@ func testServerHistoryError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if err == nil {
 		t.Fatalf("History exptected error")
 	}
-}
-
-func testServerHistorySVError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	k := &schema.HistoryOptions{}
-	_, err := s.HistorySV(context.Background(), k)
-	require.Equal(t, status.Error(codes.Unimplemented, "not implemented"), err)
 }
 
 func testServerHealth(ctx context.Context, s *ImmuServer, t *testing.T) {
@@ -1200,16 +957,6 @@ func testServerScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-func testServerScanSVError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.ScanSV(context.Background(), &schema.ScanOptions{
-		Offset: []byte("Alb"),
-		Limit:  1,
-	})
-	if err == nil {
-		t.Fatalf("ScanSV  exptected error")
-	}
-}
-
 func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	it, err := s.SafeSet(ctx, &schema.SafeSetOptions{
 		Kv: kv[0],
@@ -1271,8 +1018,8 @@ func testServerCount(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if err != nil {
 		t.Fatalf("CountAll error %s", err)
 	}
-	if countAll.Count != 60 {
-		t.Fatalf("CountAll error: expected %d, got %d", 60, countAll.Count)
+	if countAll.Count != 43 {
+		t.Fatalf("CountAll error: expected %d, got %d", 43, countAll.Count)
 	}
 }
 
@@ -1343,23 +1090,15 @@ func TestServerDbOperations(t *testing.T) {
 
 	testServerSetGet(ctx, s, t)
 	testServerSetGetError(ctx, s, t)
-	testServerSVSetGet(ctx, s, t)
-	testServerSVSetGetError(ctx, s, t)
 	testServerCurrentRoot(ctx, s, t)
 	testServerCurrentRootError(ctx, s, t)
 	testServerSafeSetGet(ctx, s, t)
-	testServerSafeSetGetSV(ctx, s, t)
-	testServerSafeSetGetSVError(ctx, s, t)
 	testServerSetGetBatch(ctx, s, t)
 	testServerSetGetBatchError(ctx, s, t)
-	testServerSetGetBatchSV(ctx, s, t)
-	testServerSetGetBatchSVError(ctx, s, t)
 	testServerInclusion(ctx, s, t)
 	testServerInclusionError(ctx, s, t)
 	testServerConsintency(ctx, s, t)
 	testServerConsintencyError(ctx, s, t)
-	testServerByIndexSV(ctx, s, t)
-	testServerByIndexSVError(ctx, s, t)
 	testServerByIndex(ctx, s, t)
 	testServerByIndexError(ctx, s, t)
 	testServerHistory(ctx, s, t)
@@ -1368,18 +1107,14 @@ func TestServerDbOperations(t *testing.T) {
 	testServerBySafeIndexError(ctx, s, t)
 	testServerHealth(ctx, s, t)
 	testServerHealthError(ctx, s, t)
-	testServerHistorySVError(ctx, s, t)
 	testServerReference(ctx, s, t)
 	testServerReferenceError(ctx, s, t)
 	testServerZAdd(ctx, s, t)
 	testServerZAddError(ctx, s, t)
 	testServerScan(ctx, s, t)
 	testServerScanError(ctx, s, t)
-	testServerByIScanSV(ctx, s, t)
-	testServerByIScanSVError(ctx, s, t)
 	testServerPrintTree(ctx, s, t)
 	testServerPrintTreeError(ctx, s, t)
-	testServerScanSVError(ctx, s, t)
 	testServerSafeReference(ctx, s, t)
 	testServerSafeReferenceError(ctx, s, t)
 	testServerCount(ctx, s, t)
@@ -1901,8 +1636,6 @@ func TestServerErrors(t *testing.T) {
 	plsLoginErr := errors.New("please login first")
 	_, err = s.SafeZAdd(emptyCtx, &schema.SafeZAddOptions{})
 	require.Equal(t, plsLoginErr, err)
-	_, err = s.ZScanSV(emptyCtx, &schema.ZScanOptions{})
-	require.Equal(t, status.Error(codes.Unimplemented, "not implemented"), err)
 	_, err = s.Reference(emptyCtx, &schema.ReferenceOptions{})
 	require.Equal(t, plsLoginErr, err)
 	_, err = s.UpdateMTLSConfig(emptyCtx, &schema.MTLSConfig{})
