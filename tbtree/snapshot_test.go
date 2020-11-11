@@ -26,12 +26,12 @@ import (
 func TestSnapshotSerialization(t *testing.T) {
 	insertionCountThld := 100_000
 
-	tbtree, err := Open("test_tree", DefaultOptions().
+	tbtree, err := Open("test_tree_w", DefaultOptions().
 		WithMaxNodeSize(MinNodeSize).
 		WithFlushThld(insertionCountThld))
 
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree")
+	defer os.RemoveAll("test_tree_w")
 
 	keyCount := insertionCountThld
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
@@ -49,11 +49,17 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, dumpBuf.Len() == 0)
 
+	_, _, err = snapshot.Get(nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = snapshot.GetTs(nil, 1)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = snapshot.GetTs([]byte{}, 0)
+	require.Error(t, ErrIllegalArguments, err)
+
 	err = snapshot.Close()
 	require.NoError(t, err)
-
-	_, _, err = snapshot.Get([]byte{})
-	require.Error(t, ErrAlreadyClosed, err)
 
 	_, err = tbtree.Flush()
 	require.NoError(t, err)
@@ -77,22 +83,52 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSnapshotLoadFromFullDump(t *testing.T) {
-	tbtree, err := Open("test_tree", DefaultOptions())
+func TestSnapshotClosing(t *testing.T) {
+	tbtree, err := Open("test_tree_closing", DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("test_tree")
+	defer os.RemoveAll("test_tree_closing")
+
+	snapshot, err := tbtree.Snapshot()
+	require.NoError(t, err)
+
+	_, err = snapshot.Reader(nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	err = snapshot.Close()
+	require.NoError(t, err)
+
+	err = snapshot.Close()
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, _, err = snapshot.Get([]byte{})
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, err = snapshot.GetTs([]byte{}, 1)
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, err = snapshot.Reader(nil)
+	require.Error(t, ErrAlreadyClosed, err)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+}
+
+func TestSnapshotLoadFromFullDump(t *testing.T) {
+	tbtree, err := Open("test_tree_r", DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("test_tree_r")
 
 	keyCount := 10_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
-	err = tbtree.DumpTo("dump", false, DefaultFileSize, DefaultFileMode)
+	err = tbtree.DumpTo("test_tree_dump", false, DefaultFileSize, DefaultFileMode)
 	require.NoError(t, err)
-	defer os.RemoveAll("dump")
+	defer os.RemoveAll("test_tree_dump")
 
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	tbtree, err = Open("dump", DefaultOptions())
+	tbtree, err = Open("test_tree_dump", DefaultOptions())
 	require.NoError(t, err)
 
 	checkAfterMonotonicInsertions(t, tbtree, 1, keyCount, true)

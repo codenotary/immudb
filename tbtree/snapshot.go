@@ -106,12 +106,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 }
 
 func (s *Snapshot) closedReader(r *Reader) error {
-	if s.closed {
-		return ErrAlreadyClosed
-	}
-
 	delete(s.readers, r.id)
-
 	return nil
 }
 
