@@ -22,6 +22,8 @@ import (
 )
 
 const DefaultFileMode = os.FileMode(0644)
+const DefaultCompressionFormat = appendable.DefaultCompressionFormat
+const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 
 type Options struct {
 	readOnly bool
@@ -39,8 +41,8 @@ func DefaultOptions() *Options {
 		readOnly:          false,
 		synced:            true,
 		fileMode:          DefaultFileMode,
-		compressionFormat: appendable.DefaultCompressionFormat,
-		compressionLevel:  appendable.DefaultCompressionLevel,
+		compressionFormat: DefaultCompressionFormat,
+		compressionLevel:  DefaultCompressionLevel,
 	}
 }
 
@@ -48,32 +50,32 @@ func validOptions(opts *Options) bool {
 	return opts != nil
 }
 
-func (opts *Options) SetReadOnly(readOnly bool) *Options {
+func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	opts.readOnly = readOnly
 	return opts
 }
 
-func (opts *Options) SetSynced(synced bool) *Options {
+func (opts *Options) WithSynced(synced bool) *Options {
 	opts.synced = synced
 	return opts
 }
 
-func (opts *Options) SetFileMode(fileMode os.FileMode) *Options {
+func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opts.fileMode = fileMode
 	return opts
 }
 
-func (opts *Options) SetCompressionFormat(compressionFormat int) *Options {
+func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
 	opts.compressionFormat = compressionFormat
 	return opts
 }
 
-func (opts *Options) SetCompresionLevel(compressionLevel int) *Options {
+func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opts.compressionLevel = compressionLevel
 	return opts
 }
 
-func (opts *Options) SetMetadata(metadata []byte) *Options {
+func (opts *Options) WithMetadata(metadata []byte) *Options {
 	opts.metadata = metadata
 	return opts
 }

@@ -87,12 +87,12 @@ func Open(path string, opts *Options) (*MultiFileAppendable, error) {
 	m.Put(metaWrappedMeta, opts.metadata)
 
 	appendableOpts := singleapp.DefaultOptions().
-		SetReadOnly(opts.readOnly).
-		SetSynced(opts.synced).
-		SetFileMode(opts.fileMode).
-		SetCompressionFormat(opts.compressionFormat).
-		SetCompresionLevel(opts.compressionLevel).
-		SetMetadata(m.Bytes())
+		WithReadOnly(opts.readOnly).
+		WithSynced(opts.synced).
+		WithFileMode(opts.fileMode).
+		WithCompressionFormat(opts.compressionFormat).
+		WithCompresionLevel(opts.compressionLevel).
+		WithMetadata(m.Bytes())
 
 	var filename string
 
@@ -228,12 +228,12 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 
 func (mf *MultiFileAppendable) openAppendable(appname string) (*singleapp.AppendableFile, error) {
 	appendableOpts := singleapp.DefaultOptions().
-		SetReadOnly(mf.readOnly).
-		SetSynced(mf.synced).
-		SetFileMode(mf.fileMode).
-		SetCompressionFormat(mf.currApp.CompressionFormat()).
-		SetCompresionLevel(mf.currApp.CompressionLevel()).
-		SetMetadata(mf.currApp.Metadata())
+		WithReadOnly(mf.readOnly).
+		WithSynced(mf.synced).
+		WithFileMode(mf.fileMode).
+		WithCompressionFormat(mf.currApp.CompressionFormat()).
+		WithCompresionLevel(mf.currApp.CompressionLevel()).
+		WithMetadata(mf.currApp.Metadata())
 
 	return singleapp.Open(filepath.Join(mf.path, appname), appendableOpts)
 }
