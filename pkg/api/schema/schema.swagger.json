@@ -1008,19 +1008,6 @@
         }
       }
     },
-    "schemaContent": {
-      "type": "object",
-      "properties": {
-        "timestamp": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "payload": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1385,25 +1372,6 @@
         }
       }
     },
-    "schemaSPage": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaStructuredItem"
-          }
-        },
-        "pageNum": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "more": {
-          "type": "boolean",
-          "format": "boolean"
-        }
-      }
-    },
     "schemaSafeGetOptions": {
       "type": "object",
       "properties": {
@@ -1446,17 +1414,6 @@
         },
         "rootIndex": {
           "$ref": "#/definitions/schemaIndex"
-        }
-      }
-    },
-    "schemaSafeStructuredItem": {
-      "type": "object",
-      "properties": {
-        "item": {
-          "$ref": "#/definitions/schemaStructuredItem"
-        },
-        "proof": {
-          "$ref": "#/definitions/schemaProof"
         }
       }
     },
@@ -1527,45 +1484,6 @@
         "publicKey": {
           "type": "string",
           "format": "byte"
-        }
-      }
-    },
-    "schemaStructuredItem": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "format": "byte"
-        },
-        "value": {
-          "$ref": "#/definitions/schemaContent"
-        },
-        "index": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
-    "schemaStructuredItemList": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaStructuredItem"
-          }
-        }
-      }
-    },
-    "schemaStructuredKeyValue": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "format": "byte"
-        },
-        "value": {
-          "$ref": "#/definitions/schemaContent"
         }
       }
     },
@@ -1699,37 +1617,6 @@
         },
         "max": {
           "$ref": "#/definitions/schemaScore"
-        }
-      }
-    },
-    "schemaZStructuredItem": {
-      "type": "object",
-      "properties": {
-        "item": {
-          "$ref": "#/definitions/schemaStructuredItem"
-        },
-        "score": {
-          "type": "number",
-          "format": "double"
-        },
-        "currentOffset": {
-          "type": "string",
-          "format": "byte"
-        },
-        "index": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
-    "schemaZStructuredItemList": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaZStructuredItem"
-          }
         }
       }
     }
