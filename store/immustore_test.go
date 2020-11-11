@@ -37,7 +37,8 @@ import (
 )
 
 func TestImmudbStoreConcurrency(t *testing.T) {
-	immuStore, err := Open("data", DefaultOptions().SetSynced(false))
+	opts := DefaultOptions().WithSynced(false)
+	immuStore, err := Open("data", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data")
 
@@ -116,7 +117,8 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 }
 
 func TestImmudbStoreIndexing(t *testing.T) {
-	immuStore, err := Open("data", DefaultOptions().SetSynced(false))
+	opts := DefaultOptions().WithSynced(false)
+	immuStore, err := Open("data", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data")
 
@@ -231,7 +233,8 @@ func TestImmudbStoreIndexing(t *testing.T) {
 }
 
 func TestImmudbStoreHistoricalValues(t *testing.T) {
-	immuStore, err := Open("data", DefaultOptions().SetSynced(false))
+	opts := DefaultOptions().WithSynced(false)
+	immuStore, err := Open("data", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data")
 
@@ -470,7 +473,8 @@ func TestReOpenningImmudbStore(t *testing.T) {
 	eCount := 10
 
 	for it := 0; it < itCount; it++ {
-		immuStore, err := Open("data", DefaultOptions().SetSynced(false))
+		opts := DefaultOptions().WithSynced(false)
+		immuStore, err := Open("data", opts)
 		require.NoError(t, err)
 
 		for i := 0; i < txCount; i++ {
@@ -505,9 +509,9 @@ func TestReOpenningWithCompressionEnabledImmudbStore(t *testing.T) {
 
 	for it := 0; it < itCount; it++ {
 		opts := DefaultOptions().
-			SetSynced(false).
-			SetCompressionFormat(appendable.GZipCompression).
-			SetCompresionLevel(appendable.DefaultCompression)
+			WithSynced(false).
+			WithCompressionFormat(appendable.GZipCompression).
+			WithCompresionLevel(appendable.DefaultCompression)
 
 		immuStore, err := Open("data", opts)
 		require.NoError(t, err)
@@ -691,7 +695,8 @@ func BenchmarkSyncedAppend(b *testing.B) {
 }
 
 func BenchmarkAppend(b *testing.B) {
-	immuStore, _ := Open("data", DefaultOptions().SetSynced(false))
+	opts := DefaultOptions().WithSynced(false)
+	immuStore, _ := Open("data", opts)
 	defer os.RemoveAll("data")
 
 	for i := 0; i < b.N; i++ {

@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package tbtree
+package store
 
 import (
 	"testing"
@@ -33,14 +33,20 @@ func TestDefaultOptions(t *testing.T) {
 func TestValidOptions(t *testing.T) {
 	opts := &Options{}
 
-	require.Equal(t, DefaultCacheSize, opts.WithCacheSize(DefaultCacheSize).cacheSize)
+	require.Equal(t, 1, opts.WithCommitLogMaxOpenedFiles(1).commitLogMaxOpenedFiles)
+	require.Equal(t, DefaultCompressionLevel, opts.WithCompresionLevel(DefaultCompressionLevel).compressionLevel)
+	require.Equal(t, DefaultCompressionFormat, opts.WithCompressionFormat(DefaultCompressionFormat).compressionFormat)
+	require.Equal(t, DefaultMaxConcurrency, opts.WithMaxConcurrency(DefaultMaxConcurrency).maxConcurrency)
 	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).fileMode)
 	require.Equal(t, DefaultFileSize, opts.WithFileSize(DefaultFileSize).fileSize)
-	require.Equal(t, DefaultFlushThld, opts.WithFlushThld(DefaultFlushThld).flushThld)
-	require.Equal(t, DefaultKeyHistorySpace, opts.WithKeyHistorySpace(DefaultKeyHistorySpace).keyHistorySpace)
-	require.Equal(t, DefaultMaxActiveSnapshots, opts.WithMaxActiveSnapshots(DefaultMaxActiveSnapshots).maxActiveSnapshots)
-	require.Equal(t, DefaultMaxNodeSize, opts.WithMaxNodeSize(DefaultMaxNodeSize).maxNodeSize)
-	require.Equal(t, DefaultRenewSnapRootAfter, opts.WithRenewSnapRootAfter(DefaultRenewSnapRootAfter).renewSnapRootAfter)
+	require.Equal(t, DefaultMaxIOConcurrency, opts.WithMaxIOConcurrency(DefaultMaxIOConcurrency).maxIOConcurrency)
+	require.Equal(t, DefaultMaxKeyLen, opts.WithMaxKeyLen(DefaultMaxKeyLen).maxKeyLen)
+	require.Equal(t, DefaultMaxLinearProofLen, opts.WithMaxLinearProofLen(DefaultMaxLinearProofLen).maxLinearProofLen)
+	require.Equal(t, DefaultMaxTxEntries, opts.WithMaxTxEntries(DefaultMaxTxEntries).maxTxEntries)
+	require.Equal(t, DefaultMaxValueLen, opts.WithMaxValueLen(DefaultMaxValueLen).maxValueLen)
+	require.Equal(t, 2, opts.WithTxLogMaxOpenedFiles(2).txLogMaxOpenedFiles)
+	require.Equal(t, 3, opts.WithVLogMaxOpenedFiles(3).vLogMaxOpenedFiles)
+
 	require.True(t, opts.WithSynced(true).synced)
 
 	require.False(t, opts.WithReadOnly(false).readOnly)

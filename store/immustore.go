@@ -57,14 +57,6 @@ var ErrKeyNotFound = errors.New("key not found")
 var ErrTrustedTxNotOlderThanTargetTx = errors.New("trusted tx is not older than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
-const DefaultMaxConcurrency = 100
-const DefaultMaxIOConcurrency = 1
-const DefaultMaxTxEntries = 1 << 16 // 65536
-const DefaultMaxKeyLen = 256
-const DefaultMaxValueLen = 1 << 20 // 1 Mb
-const DefaultFileMode = 0755
-const DefaultMaxLinearProofLen = 1 << 10
-
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
 
 const MaxParallelIO = 127

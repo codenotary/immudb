@@ -97,15 +97,15 @@ func main() {
 	}
 
 	opts := store.DefaultOptions().
-		SetSynced(*synced).
-		SetIOConcurrency(*parallelIO).
-		SetFileSize(*fileSize).
-		SetVLogMaxOpenedFiles(*openedLogFiles).
-		SetTxLogMaxOpenedFiles(*openedLogFiles).
-		SetCommitLogMaxOpenedFiles(*openedLogFiles).
-		SetCompressionFormat(compressionFormat).
-		SetCompresionLevel(compressionLevel).
-		SetMaxValueLen(1 << 26) // 64Mb
+		WithSynced(*synced).
+		WithMaxIOConcurrency(*parallelIO).
+		WithFileSize(*fileSize).
+		WithVLogMaxOpenedFiles(*openedLogFiles).
+		WithTxLogMaxOpenedFiles(*openedLogFiles).
+		WithCommitLogMaxOpenedFiles(*openedLogFiles).
+		WithCompressionFormat(compressionFormat).
+		WithCompresionLevel(compressionLevel).
+		WithMaxValueLen(1 << 26) // 64Mb
 
 	immuStore, err := store.Open(*dataDir, opts)
 
