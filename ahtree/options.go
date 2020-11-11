@@ -22,9 +22,12 @@ import (
 	"codenotary.io/immudb-v2/appendable/multiapp"
 )
 
-const DefaultFileMode = 0755
+const DefaultFileSize = multiapp.DefaultFileSize
+const DefaultFileMode = os.FileMode(0755)
 const DefaultDataCacheSlots = 1_000
 const DefaultDigestsCacheSlots = 100_000
+const DefaultCompressionFormat = appendable.DefaultCompressionFormat
+const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 
 type Options struct {
 	readOnly bool
@@ -49,9 +52,9 @@ func DefaultOptions() *Options {
 		digestsCacheSlots: DefaultDigestsCacheSlots,
 
 		// Options below are only set during initialization and stored as metadata
-		fileSize:          multiapp.DefaultFileSize,
-		compressionFormat: appendable.DefaultCompressionFormat,
-		compressionLevel:  appendable.DefaultCompressionLevel,
+		fileSize:          DefaultFileSize,
+		compressionFormat: DefaultCompressionFormat,
+		compressionLevel:  DefaultCompressionLevel,
 	}
 }
 
@@ -62,42 +65,42 @@ func validOptions(opts *Options) bool {
 		opts.digestsCacheSlots > 0
 }
 
-func (opts *Options) SetReadOnly(readOnly bool) *Options {
+func (opts *Options) WithReadOnly(readOnly bool) *Options {
 	opts.readOnly = readOnly
 	return opts
 }
 
-func (opts *Options) SetSynced(synced bool) *Options {
+func (opts *Options) WithSynced(synced bool) *Options {
 	opts.synced = synced
 	return opts
 }
 
-func (opts *Options) SetFileMode(fileMode os.FileMode) *Options {
+func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opts.fileMode = fileMode
 	return opts
 }
 
-func (opts *Options) SetDataCacheSlots(cacheSlots int) *Options {
+func (opts *Options) WithDataCacheSlots(cacheSlots int) *Options {
 	opts.dataCacheSlots = cacheSlots
 	return opts
 }
 
-func (opts *Options) SetDigestsCacheSlots(cacheSlots int) *Options {
+func (opts *Options) WithDigestsCacheSlots(cacheSlots int) *Options {
 	opts.digestsCacheSlots = cacheSlots
 	return opts
 }
 
-func (opts *Options) SetFileSize(fileSize int) *Options {
+func (opts *Options) WithFileSize(fileSize int) *Options {
 	opts.fileSize = fileSize
 	return opts
 }
 
-func (opts *Options) SetCompressionFormat(compressionFormat int) *Options {
+func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
 	opts.compressionFormat = compressionFormat
 	return opts
 }
 
-func (opts *Options) SetCompresionLevel(compressionLevel int) *Options {
+func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opts.compressionLevel = compressionLevel
 	return opts
 }

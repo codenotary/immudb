@@ -327,10 +327,10 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 	ahtPath := filepath.Join("data", "aht")
 
 	ahtOpts := ahtree.DefaultOptions().
-		SetReadOnly(opts.readOnly).
-		SetFileMode(opts.fileMode).
-		SetFileSize(fileSize).
-		SetSynced(false) // built from derived data
+		WithReadOnly(opts.readOnly).
+		WithFileMode(opts.fileMode).
+		WithFileSize(fileSize).
+		WithSynced(false) // built from derived data
 
 	aht, err := ahtree.Open(ahtPath, ahtOpts)
 	if err != nil {

@@ -116,13 +116,13 @@ func TestEdgeCases(t *testing.T) {
 	_, err = Open("options.go", DefaultOptions())
 	require.Error(t, ErrorPathIsNotADirectory, err)
 
-	_, err = Open("ahtree_test", DefaultOptions().SetDataCacheSlots(-1))
+	_, err = Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
 	require.Error(t, ErrIllegalArguments, err)
 
-	_, err = Open("ahtree_test", DefaultOptions().SetDigestsCacheSlots(-1))
+	_, err = Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
 	require.Error(t, ErrIllegalArguments, err)
 
-	tree, err = Open("ahtree_test", DefaultOptions().SetSynced(false))
+	tree, err = Open("ahtree_test", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
@@ -170,16 +170,16 @@ func TestEdgeCases(t *testing.T) {
 }
 
 func TestReadOnly(t *testing.T) {
-	_, err := Open("ahtree_test", DefaultOptions().SetReadOnly(true))
+	_, err := Open("ahtree_test", DefaultOptions().WithReadOnly(true))
 	defer os.RemoveAll("ahtree_test")
 	require.Error(t, err)
 
-	tree, err := Open("ahtree_test", DefaultOptions().SetReadOnly(false))
+	tree, err := Open("ahtree_test", DefaultOptions().WithReadOnly(false))
 	require.NoError(t, err)
 	err = tree.Close()
 	require.NoError(t, err)
 
-	tree, err = Open("ahtree_test", DefaultOptions().SetReadOnly(true))
+	tree, err = Open("ahtree_test", DefaultOptions().WithReadOnly(true))
 	require.NoError(t, err)
 
 	_, _, err = tree.Append(nil)
@@ -251,32 +251,8 @@ func (a *MockedAppendable) Close() error {
 	return a.closeErr
 }
 
-func TestOptions(t *testing.T) {
-	opts := &Options{}
-
-	defaultOpts := DefaultOptions()
-
-	opts.SetSynced(!defaultOpts.synced)
-	opts.SetReadOnly(!defaultOpts.readOnly)
-	opts.SetFileSize(defaultOpts.fileSize * 10)
-	opts.SetFileMode(defaultOpts.fileMode & 0xFF)
-	opts.SetDataCacheSlots(defaultOpts.dataCacheSlots * 10)
-	opts.SetDigestsCacheSlots(defaultOpts.digestsCacheSlots * 10)
-	opts.SetCompressionFormat(appendable.ZLibCompression)
-	opts.SetCompresionLevel(appendable.BestCompression)
-
-	require.Equal(t, defaultOpts.synced, !opts.synced)
-	require.Equal(t, defaultOpts.readOnly, !opts.readOnly)
-	require.Equal(t, defaultOpts.fileSize*10, opts.fileSize)
-	require.Equal(t, defaultOpts.fileMode&0xFF, opts.fileMode)
-	require.Equal(t, defaultOpts.dataCacheSlots*10, opts.dataCacheSlots)
-	require.Equal(t, defaultOpts.digestsCacheSlots*10, opts.digestsCacheSlots)
-	require.Equal(t, appendable.ZLibCompression, opts.compressionFormat)
-	require.Equal(t, appendable.BestCompression, opts.compressionLevel)
-}
-
 func TestAppend(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
@@ -318,7 +294,7 @@ func TestAppend(t *testing.T) {
 }
 
 func TestInclusionAndConsistencyProofs(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
@@ -369,7 +345,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 	ACount := 100
 
 	for it := 0; it < ItCount; it++ {
-		tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+		tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
 		require.NoError(t, err)
 
 		for i := 0; i < ACount; i++ {
@@ -383,7 +359,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tree, err := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 
 	for i := 1; i <= ItCount*ACount; i++ {
@@ -405,7 +381,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 }
 
 func BenchmarkAppend(b *testing.B) {
-	tree, _ := Open("ahtree_test", DefaultOptions().SetSynced(false))
+	tree, _ := Open("ahtree_test", DefaultOptions().WithSynced(false))
 	defer os.RemoveAll("ahtree_test")
 
 	for i := 0; i < b.N; i++ {
