@@ -81,9 +81,9 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	auditUsername := viper.GetString("audit-username")
 	auditPassword, err := auth.DecodeBase64Password(viper.GetString("audit-password"))
 	auditSignature := viper.GetString("audit-signature")
-	auditAlertURL := viper.GetString("audit-alert-url")
-	auditAlertUsername := viper.GetString("audit-alert-username")
-	auditAlertPassword := viper.GetString("audit-alert-password")
+	auditNotificationURL := viper.GetString("audit-notification-url")
+	auditNotificationUsername := viper.GetString("audit-notification-username")
+	auditNotificationPassword := viper.GetString("audit-notification-password")
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +98,10 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		auditUsername,
 		auditPassword,
 		auditSignature,
-		auditor.TamperingAlertConfig{
-			URL:            auditAlertURL,
-			Username:       auditAlertUsername,
-			Password:       auditAlertPassword,
+		auditor.AuditNotificationConfig{
+			URL:            auditNotificationURL,
+			Username:       auditNotificationUsername,
+			Password:       auditNotificationPassword,
 			RequestTimeout: time.Duration(5) * time.Second,
 		},
 		*cAgent.immuc.GetServiceClient(),
