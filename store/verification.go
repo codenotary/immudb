@@ -23,7 +23,7 @@ import (
 )
 
 func VerifyLinearProof(proof *LinearProof, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
-	if proof.TrustedTxID != trustedTxID || proof.TargetTxID != targetTxID {
+	if proof == nil || proof.TrustedTxID != trustedTxID || proof.TargetTxID != targetTxID {
 		return false
 	}
 
@@ -47,7 +47,7 @@ func VerifyLinearProof(proof *LinearProof, trustedTxID, targetTxID uint64, trust
 }
 
 func VerifyDualProof(proof *DualProof, trustedTxID, targetTxID uint64, trustedAlh, targetAlh [sha256.Size]byte) bool {
-	if proof.TrustedTxID != trustedTxID || proof.TargetTxID != targetTxID {
+	if proof == nil || proof.TrustedTxID != trustedTxID || proof.TargetTxID != targetTxID {
 		return false
 	}
 

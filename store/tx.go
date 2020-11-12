@@ -35,6 +35,9 @@ type Tx struct {
 	TxH      [sha256.Size]byte
 	htree    [][][sha256.Size]byte
 	Eh       [sha256.Size]byte
+
+	_alh     [sha256.Size]byte
+	_alhTxID uint64
 }
 
 func newTx(nentries int, maxKeyLen int) *Tx {
@@ -106,6 +109,10 @@ func (tx *Tx) Entries() []*Txe {
 }
 
 func (tx *Tx) Alh() [sha256.Size]byte {
+	if tx.ID == tx._alhTxID {
+		return tx._alh
+	}
+
 	var bi [txIDSize + 2*sha256.Size]byte
 	i := 0
 
@@ -125,7 +132,10 @@ func (tx *Tx) Alh() [sha256.Size]byte {
 
 	copy(bi[i:], bhash[:])
 
-	return sha256.Sum256(bi[:])
+	tx._alh = sha256.Sum256(bi[:])
+	tx._alhTxID = tx.ID
+
+	return tx._alh
 }
 
 func (tx *Tx) Proof(kindex int) merkletree.Path {
@@ -223,6 +233,8 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	if tx.TxH != sha256.Sum256(b[:]) {
 		return ErrorCorruptedTxData
 	}
+
+	tx._alhTxID = 0
 
 	return nil
 }

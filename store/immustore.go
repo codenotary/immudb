@@ -211,10 +211,10 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 		return nil, err
 	}
 
-	return OpenWith(vLogs, txLog, cLog, opts)
+	return OpenWith(path, vLogs, txLog, cLog, opts)
 }
 
-func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
+func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
 	if !validOptions(opts) {
 		return nil, ErrIllegalArguments
 	}
@@ -307,7 +307,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	indexPath := filepath.Join("data", "index")
+	indexPath := filepath.Join(path, "index")
 
 	indexOpts := tbtree.DefaultOptions().
 		WithReadOnly(opts.readOnly).
@@ -325,7 +325,7 @@ func OpenWith(vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, 
 		return nil, err
 	}
 
-	ahtPath := filepath.Join("data", "aht")
+	ahtPath := filepath.Join(path, "aht")
 
 	ahtOpts := ahtree.DefaultOptions().
 		WithReadOnly(opts.readOnly).
@@ -673,6 +673,14 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 }
 
 func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
+	s.mutex.Lock()
+	if s.closed {
+		s.mutex.Unlock()
+		err = ErrAlreadyClosed
+		return
+	}
+	s.mutex.Unlock()
+
 	err = s.validateEntries(entries)
 	if err != nil {
 		return
@@ -861,31 +869,23 @@ type DualProof struct {
 	LinearProof            *LinearProof
 }
 
-func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof, err error) {
-	if trustedTxID >= targetTxID {
+func (s *ImmuStore) DualProof(trustedTx, targetTx *Tx) (proof *DualProof, err error) {
+	if trustedTx == nil || targetTx == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if trustedTx.ID >= targetTx.ID {
 		return nil, ErrTrustedTxNotOlderThanTargetTx
 	}
 
-	trustedTx := s.NewTx()
-	err = s.ReadTx(trustedTxID, trustedTx)
-	if err != nil {
-		return nil, err
-	}
-
-	targetTx := s.NewTx()
-	err = s.ReadTx(targetTxID, targetTx)
-	if err != nil {
-		return nil, err
-	}
-
 	proof = &DualProof{
-		TrustedTxID:    trustedTxID,
-		TargetTxID:     targetTxID,
+		TrustedTxID:    trustedTx.ID,
+		TargetTxID:     targetTx.ID,
 		TrustedPrevAlh: trustedTx.PrevAlh,
 		TrustedTxH:     trustedTx.TxH,
 	}
 
-	if targetTx.BlTxID > trustedTxID {
+	if targetTx.BlTxID > trustedTx.ID {
 		jointTx := s.NewTx()
 		err = s.ReadTx(targetTx.BlTxID+1, jointTx)
 		if err != nil {
@@ -896,14 +896,14 @@ func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof,
 		proof.JointPrevAlh = jointTx.PrevAlh
 		proof.JointTxH = jointTx.TxH
 
-		binInclusionProof, err := s.aht.InclusionProof(trustedTxID, targetTx.BlTxID)
+		binInclusionProof, err := s.aht.InclusionProof(trustedTx.ID, targetTx.BlTxID)
 		if err != nil {
 			return nil, err
 		}
 		proof.BinaryInclusionProof = binInclusionProof
 
-		if trustedTxID > 1 {
-			binConsistencyProof, err := s.aht.ConsistencyProof(trustedTxID-1, jointTx.BlTxID)
+		if trustedTx.ID > 1 {
+			binConsistencyProof, err := s.aht.ConsistencyProof(trustedTx.ID-1, jointTx.BlTxID)
 			if err != nil {
 				return nil, err
 			}
@@ -911,8 +911,8 @@ func (s *ImmuStore) DualProof(trustedTxID, targetTxID uint64) (proof *DualProof,
 		}
 	}
 
-	if proof.JointTxID < targetTxID {
-		lproof, err := s.LinearProof(maxUint64(trustedTxID, proof.JointTxID), targetTxID)
+	if proof.JointTxID < targetTx.ID {
+		lproof, err := s.LinearProof(maxUint64(trustedTx.ID, proof.JointTxID), targetTx.ID)
 		if err != nil {
 			return nil, err
 		}
