@@ -260,7 +260,8 @@ func TestReadOnly(t *testing.T) {
 }
 
 func TestAppend(t *testing.T) {
-	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
+	opts := DefaultOptions().WithSynced(false).WithDigestsCacheSlots(100).WithDataCacheSlots(100)
+	tree, err := Open("ahtree_test", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
@@ -293,6 +294,10 @@ func TestAppend(t *testing.T) {
 		_, err = tree.DataAt(uint64(i) + 1)
 		require.Error(t, ErrUnexistentData, err)
 	}
+
+	rp, err := tree.DataAt(uint64(1))
+	require.NoError(t, err)
+	require.Equal(t, []byte{byte(1)}, rp)
 
 	err = tree.Sync()
 	require.NoError(t, err)

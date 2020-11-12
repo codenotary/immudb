@@ -299,6 +299,26 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		return
 	}
 
+	b := make([]byte, len(d))
+	copy(b, d)
+	_, _, err = t.pCache.Put(n, b)
+	if err != nil {
+		return
+	}
+
+	for i := 0; i < dCount; i++ {
+		var hb [sha256.Size]byte
+
+		hbase := i * sha256.Size
+		copy(hb[:], t._digests[hbase:hbase+sha256.Size])
+
+		np := uint64(t.dLogSize/sha256.Size) + uint64(i)
+		_, _, err = t.dCache.Put(np, hb)
+		if err != nil {
+			return
+		}
+	}
+
 	t.pLogSize += int64(szSize + len(d))
 	t.dLogSize += int64(dCount * sha256.Size)
 	t.cLogSize += cLogEntrySize
