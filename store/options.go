@@ -110,7 +110,17 @@ func validOptions(opts *Options) bool {
 		opts.maxConcurrency > 0 &&
 		opts.maxIOConcurrency > 0 &&
 		opts.maxIOConcurrency <= MaxParallelIO &&
-		opts.maxLinearProofLen >= 0
+		opts.maxLinearProofLen >= 0 &&
+		validIndexOptions(opts.indexOpts)
+}
+
+func validIndexOptions(opts *IndexOptions) bool {
+	return opts != nil &&
+		opts.cacheSize > 0 &&
+		opts.flushThld > 0 &&
+		opts.maxActiveSnapshots > 0 &&
+		opts.maxNodeSize > 0 &&
+		opts.renewSnapRootAfter > 0
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
@@ -185,6 +195,11 @@ func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
 
 func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
 	opts.compressionLevel = compressionLevel
+	return opts
+}
+
+func (opts *Options) WithIndexOptions(indexOptions *IndexOptions) *Options {
+	opts.indexOpts = indexOptions
 	return opts
 }
 

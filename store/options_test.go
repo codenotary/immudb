@@ -17,6 +17,7 @@ package store
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -49,9 +50,26 @@ func TestValidOptions(t *testing.T) {
 
 	require.True(t, opts.WithSynced(true).synced)
 
+	require.NotNil(t, opts.WithIndexOptions(DefaultIndexOptions()).indexOpts)
+
 	require.False(t, opts.WithReadOnly(false).readOnly)
 	require.True(t, validOptions(opts))
 
 	require.True(t, opts.WithReadOnly(true).readOnly)
+	require.True(t, validOptions(opts))
+
+	require.Nil(t, opts.WithIndexOptions(nil).indexOpts)
+	require.False(t, validOptions(opts))
+
+	indexOpts := &IndexOptions{}
+	opts.WithIndexOptions(indexOpts)
+	require.False(t, validOptions(opts))
+
+	require.Equal(t, 100, indexOpts.WithCacheSize(100).cacheSize)
+	require.Equal(t, 1000, indexOpts.WithFlushThld(1000).flushThld)
+	require.Equal(t, 10, indexOpts.WithMaxActiveSnapshots(10).maxActiveSnapshots)
+	require.Equal(t, 4096, indexOpts.WithMaxNodeSize(4096).maxNodeSize)
+	require.Equal(t, time.Duration(1000)*time.Millisecond,
+		indexOpts.WithRenewSnapRootAfter(time.Duration(1000)*time.Millisecond).renewSnapRootAfter)
 	require.True(t, validOptions(opts))
 }
