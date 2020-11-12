@@ -59,7 +59,7 @@ func TestDefaultAuditor(t *testing.T) {
 		"immudb",
 		"immudb",
 		"ignore",
-		TamperingAlertConfig{},
+		AuditNotificationConfig{},
 		nil,
 		nil,
 		cache.NewHistoryFileCache(dirname),
@@ -90,7 +90,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		"immudb",
 		"immudb",
 		"ignore",
-		TamperingAlertConfig{},
+		AuditNotificationConfig{},
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -147,7 +147,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		"immudb",
 		"immudb",
 		"ignore",
-		TamperingAlertConfig{},
+		AuditNotificationConfig{},
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -200,7 +200,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 
-	alertConfig := TamperingAlertConfig{
+	alertConfig := AuditNotificationConfig{
 		URL:      "http://some-non-existent-url.com",
 		Username: "some-username",
 		Password: "some-password",
@@ -291,7 +291,7 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 		"immudb",
 		"immudb",
 		"validate",
-		TamperingAlertConfig{},
+		AuditNotificationConfig{},
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -340,7 +340,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		"immudb",
 		"immudb",
 		"validate",
-		TamperingAlertConfig{},
+		AuditNotificationConfig{},
 		serviceClient,
 		rootservice.NewImmudbUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -367,7 +367,7 @@ func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
 		"immudb",
 		"immudb",
 		"wrong",
-		TamperingAlertConfig{},
+		AuditNotificationConfig{},
 		&serviceClient,
 		rootservice.NewImmudbUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
@@ -390,9 +390,9 @@ func (pr *PasswordReader) Read(msg string) ([]byte, error) {
 	return pass, nil
 }
 
-func TestPublishTamperingAlert(t *testing.T) {
+func TestPublishAuditNotification(t *testing.T) {
 	a := &defaultAuditor{
-		alertConfig: TamperingAlertConfig{
+		notificationConfig: AuditNotificationConfig{
 			URL:      "http://some-non-existent-url.com",
 			Username: "some-username",
 			Password: "some-password",
@@ -419,7 +419,7 @@ func TestPublishTamperingAlert(t *testing.T) {
 	require.NoError(t, err)
 
 	// test unexpected HTTP status code
-	a.alertConfig.publishFunc = func(req *http.Request) (*http.Response, error) {
+	a.notificationConfig.publishFunc = func(req *http.Request) (*http.Response, error) {
 		return &http.Response{
 			Status:     http.StatusText(http.StatusInternalServerError),
 			StatusCode: http.StatusInternalServerError,
@@ -453,8 +453,8 @@ func TestPublishTamperingAlert(t *testing.T) {
 		err.Error())
 
 	// test error creating request
-	a.alertConfig.RequestTimeout = 1 * time.Second
-	a.alertConfig.URL = string([]byte{0})
+	a.notificationConfig.RequestTimeout = 1 * time.Second
+	a.notificationConfig.URL = string([]byte{0})
 	err = a.publishAuditNotification(
 		"some-db4",
 		runAt,

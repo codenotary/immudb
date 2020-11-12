@@ -48,9 +48,9 @@ type Auditor interface {
 	Run(interval time.Duration, singleRun bool, stopc <-chan struct{}, donec chan<- struct{}) error
 }
 
-// TamperingAlertConfig holds the URL and credentials used to publish tampering
-// details if tampering is detected.
-type TamperingAlertConfig struct {
+// AuditNotificationConfig holds the URL and credentials used to publish audit
+// result to ledger compliance.
+type AuditNotificationConfig struct {
 	URL            string
 	Username       string
 	Password       string
@@ -60,20 +60,20 @@ type TamperingAlertConfig struct {
 }
 
 type defaultAuditor struct {
-	index          uint64
-	databaseIndex  int
-	logger         logger.Logger
-	serverAddress  string
-	dialOptions    []grpc.DialOption
-	history        cache.HistoryCache
-	ts             client.TimestampService
-	username       []byte
-	databases      []string
-	password       []byte
-	auditSignature string
-	alertConfig    TamperingAlertConfig
-	serviceClient  schema.ImmuServiceClient
-	uuidProvider   rootservice.UUIDProvider
+	index              uint64
+	databaseIndex      int
+	logger             logger.Logger
+	serverAddress      string
+	dialOptions        []grpc.DialOption
+	history            cache.HistoryCache
+	ts                 client.TimestampService
+	username           []byte
+	databases          []string
+	password           []byte
+	auditSignature     string
+	notificationConfig AuditNotificationConfig
+	serviceClient      schema.ImmuServiceClient
+	uuidProvider       rootservice.UUIDProvider
 
 	slugifyRegExp *regexp.Regexp
 	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
@@ -87,7 +87,7 @@ func DefaultAuditor(
 	username string,
 	passwordBase64 string,
 	auditSignature string,
-	alertConfig TamperingAlertConfig,
+	notificationConfig AuditNotificationConfig,
 	serviceClient schema.ImmuServiceClient,
 	uuidProvider rootservice.UUIDProvider,
 	history cache.HistoryCache,
@@ -111,8 +111,8 @@ func DefaultAuditor(
 
 	slugifyRegExp, _ := regexp.Compile(`[^a-zA-Z0-9\-_]+`)
 
-	httpClient := &http.Client{Timeout: alertConfig.RequestTimeout}
-	alertConfig.publishFunc = httpClient.Do
+	httpClient := &http.Client{Timeout: notificationConfig.RequestTimeout}
+	notificationConfig.publishFunc = httpClient.Do
 
 	return &defaultAuditor{
 		0,
@@ -126,7 +126,7 @@ func DefaultAuditor(
 		nil,
 		[]byte(password),
 		auditSignature,
-		alertConfig,
+		notificationConfig,
 		serviceClient,
 		uuidProvider,
 		slugifyRegExp,
@@ -285,7 +285,7 @@ func (a *defaultAuditor) audit() error {
 		}
 		checked = true
 		// publish audit notification
-		if len(a.alertConfig.URL) > 0 {
+		if len(a.notificationConfig.URL) > 0 {
 			err := a.publishAuditNotification(
 				dbName,
 				time.Now(),
@@ -313,7 +313,7 @@ func (a *defaultAuditor) audit() error {
 			} else {
 				a.logger.Infof(
 					"audit notification for db %s has been published at %s",
-					dbName, a.alertConfig.URL)
+					dbName, a.notificationConfig.URL)
 			}
 		}
 	} else if isEmptyDB {
@@ -371,8 +371,8 @@ func (a *defaultAuditor) publishAuditNotification(
 	currRoot *Root) error {
 
 	payload := AuditNotificationRequest{
-		Username:     a.alertConfig.Username,
-		Password:     a.alertConfig.Password,
+		Username:     a.notificationConfig.Username,
+		Password:     a.notificationConfig.Password,
 		DB:           db,
 		RunAt:        runAt,
 		Tampered:     tampered,
@@ -385,14 +385,14 @@ func (a *defaultAuditor) publishAuditNotification(
 		return err
 	}
 
-	req, err := http.NewRequest("POST", a.alertConfig.URL, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequest("POST", a.notificationConfig.URL, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := a.alertConfig.publishFunc(req)
+	resp, err := a.notificationConfig.publishFunc(req)
 	if err != nil {
 		return err
 	}
@@ -405,7 +405,7 @@ func (a *defaultAuditor) publishAuditNotification(
 		return fmt.Errorf(
 			"POST %s request with body %s: "+
 				"got unexpected response status %s with response body %s",
-			a.alertConfig.URL, reqBody,
+			a.notificationConfig.URL, reqBody,
 			resp.Status, respBody)
 	}
 
