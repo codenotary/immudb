@@ -4,6 +4,8 @@
 ## Table of Contents
 
 - [schema.proto](#schema.proto)
+    - [AtomicOperation](#immudb.schema.AtomicOperation)
+    - [AtomicOperations](#immudb.schema.AtomicOperations)
     - [AuthConfig](#immudb.schema.AuthConfig)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
@@ -77,6 +79,37 @@
 <p align="right"><a href="#top">Top</a></p>
 
 ## schema.proto
+
+
+
+<a name="immudb.schema.AtomicOperation"></a>
+
+### AtomicOperation
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| KVs | [KeyValue](#immudb.schema.KeyValue) |  |  |
+| ZOpts | [ZAddOptions](#immudb.schema.ZAddOptions) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.AtomicOperations"></a>
+
+### AtomicOperations
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| Operations | [AtomicOperation](#immudb.schema.AtomicOperation) | repeated |  |
+
+
+
 
 
 
@@ -1101,6 +1134,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | SafeGet | [SafeGetOptions](#immudb.schema.SafeGetOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
 | SetBatch | [KVList](#immudb.schema.KVList) | [Index](#immudb.schema.Index) |  |
 | GetBatch | [KeyList](#immudb.schema.KeyList) | [ItemList](#immudb.schema.ItemList) |  |
+| SetBatchAtomicOperations | [AtomicOperations](#immudb.schema.AtomicOperations) | [Index](#immudb.schema.Index) |  |
 | Scan | [ScanOptions](#immudb.schema.ScanOptions) | [ItemList](#immudb.schema.ItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |

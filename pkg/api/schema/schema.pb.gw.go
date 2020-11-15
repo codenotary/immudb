@@ -410,6 +410,40 @@ func local_request_ImmuService_GetBatch_0(ctx context.Context, marshaler runtime
 
 }
 
+func request_ImmuService_SetBatchAtomicOperations_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq AtomicOperations
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.SetBatchAtomicOperations(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_ImmuService_SetBatchAtomicOperations_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq AtomicOperations
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := server.SetBatchAtomicOperations(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
 func request_ImmuService_Scan_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq ScanOptions
 	var metadata runtime.ServerMetadata
@@ -1461,6 +1495,26 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
+	mux.Handle("POST", pattern_ImmuService_SetBatchAtomicOperations_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_ImmuService_SetBatchAtomicOperations_0(rctx, inboundMarshaler, server, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ImmuService_SetBatchAtomicOperations_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("POST", pattern_ImmuService_Scan_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -2149,6 +2203,26 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
+	mux.Handle("POST", pattern_ImmuService_SetBatchAtomicOperations_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_ImmuService_SetBatchAtomicOperations_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ImmuService_SetBatchAtomicOperations_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("POST", pattern_ImmuService_Scan_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -2615,6 +2689,8 @@ var (
 
 	pattern_ImmuService_GetBatch_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "batch", "get"}, "", runtime.AssumeColonVerbOpt(true)))
 
+	pattern_ImmuService_SetBatchAtomicOperations_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"v1", "immurestproxy", "batch", "atomic", "set"}, "", runtime.AssumeColonVerbOpt(true)))
+
 	pattern_ImmuService_Scan_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "item", "scan"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_Count_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"v1", "immurestproxy", "item", "count", "prefix"}, "", runtime.AssumeColonVerbOpt(true)))
@@ -2682,6 +2758,8 @@ var (
 	forward_ImmuService_SetBatch_0 = runtime.ForwardResponseMessage
 
 	forward_ImmuService_GetBatch_0 = runtime.ForwardResponseMessage
+
+	forward_ImmuService_SetBatchAtomicOperations_0 = runtime.ForwardResponseMessage
 
 	forward_ImmuService_Scan_0 = runtime.ForwardResponseMessage
 

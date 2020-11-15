@@ -18,13 +18,7 @@ package schema
 
 import (
 	"github.com/golang/protobuf/proto"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"strings"
-)
-
-var (
-	ErrUnexpectedNotStructuredValue = status.New(codes.FailedPrecondition, "unexpected not structured value encountered").Err()
 )
 
 // Merge return a marshalled content object

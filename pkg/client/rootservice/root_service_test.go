@@ -121,44 +121,26 @@ func (m *immuServiceClientMock) Logout(ctx context.Context, in *empty.Empty, opt
 func (m *immuServiceClientMock) Set(ctx context.Context, in *schema.KeyValue, opts ...grpc.CallOption) (*schema.Index, error) {
 	return &schema.Index{}, nil
 }
-func (m *immuServiceClientMock) SetSV(ctx context.Context, in *schema.StructuredKeyValue, opts ...grpc.CallOption) (*schema.Index, error) {
-	return &schema.Index{}, nil
-}
 func (m *immuServiceClientMock) SafeSet(ctx context.Context, in *schema.SafeSetOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
-	return &schema.Proof{}, nil
-}
-func (m *immuServiceClientMock) SafeSetSV(ctx context.Context, in *schema.SafeSetSVOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
 	return &schema.Proof{}, nil
 }
 func (m *immuServiceClientMock) Get(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.Item, error) {
 	return &schema.Item{}, nil
 }
-func (m *immuServiceClientMock) GetSV(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.StructuredItem, error) {
-	return &schema.StructuredItem{}, nil
-}
 func (m *immuServiceClientMock) SafeGet(ctx context.Context, in *schema.SafeGetOptions, opts ...grpc.CallOption) (*schema.SafeItem, error) {
 	return &schema.SafeItem{}, nil
 }
-func (m *immuServiceClientMock) SafeGetSV(ctx context.Context, in *schema.SafeGetOptions, opts ...grpc.CallOption) (*schema.SafeStructuredItem, error) {
-	return &schema.SafeStructuredItem{}, nil
-}
 func (m *immuServiceClientMock) SetBatch(ctx context.Context, in *schema.KVList, opts ...grpc.CallOption) (*schema.Index, error) {
-	return &schema.Index{}, nil
-}
-func (m *immuServiceClientMock) SetBatchSV(ctx context.Context, in *schema.SKVList, opts ...grpc.CallOption) (*schema.Index, error) {
 	return &schema.Index{}, nil
 }
 func (m *immuServiceClientMock) GetBatch(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error) {
 	return &schema.ItemList{}, nil
 }
-func (m *immuServiceClientMock) GetBatchSV(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.StructuredItemList, error) {
-	return &schema.StructuredItemList{}, nil
+func (m *immuServiceClientMock) SetBatchAtomicOperations(ctx context.Context, in *schema.AtomicOperations, opts ...grpc.CallOption) (*schema.Index, error) {
+	return &schema.Index{}, nil
 }
 func (m *immuServiceClientMock) Scan(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
 	return &schema.ItemList{}, nil
-}
-func (m *immuServiceClientMock) ScanSV(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error) {
-	return &schema.StructuredItemList{}, nil
 }
 func (m *immuServiceClientMock) Count(ctx context.Context, in *schema.KeyPrefix, opts ...grpc.CallOption) (*schema.ItemsCount, error) {
 	return &schema.ItemsCount{}, nil
@@ -181,14 +163,8 @@ func (m *immuServiceClientMock) ByIndex(ctx context.Context, in *schema.Index, o
 func (m *immuServiceClientMock) BySafeIndex(ctx context.Context, in *schema.SafeIndexOptions, opts ...grpc.CallOption) (*schema.SafeItem, error) {
 	return &schema.SafeItem{}, nil
 }
-func (m *immuServiceClientMock) ByIndexSV(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.StructuredItem, error) {
-	return &schema.StructuredItem{}, nil
-}
 func (m *immuServiceClientMock) History(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
 	return &schema.ItemList{}, nil
-}
-func (m *immuServiceClientMock) HistorySV(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error) {
-	return &schema.StructuredItemList{}, nil
 }
 func (m *immuServiceClientMock) Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {
 	return &schema.HealthResponse{}, nil
@@ -205,17 +181,11 @@ func (m *immuServiceClientMock) ZAdd(ctx context.Context, in *schema.ZAddOptions
 func (m *immuServiceClientMock) ZScan(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error) {
 	return &schema.ZItemList{}, nil
 }
-func (m *immuServiceClientMock) ZScanSV(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZStructuredItemList, error) {
-	return &schema.ZStructuredItemList{}, nil
-}
 func (m *immuServiceClientMock) SafeZAdd(ctx context.Context, in *schema.SafeZAddOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
 	return &schema.Proof{}, nil
 }
 func (m *immuServiceClientMock) IScan(ctx context.Context, in *schema.IScanOptions, opts ...grpc.CallOption) (*schema.Page, error) {
 	return &schema.Page{}, nil
-}
-func (m *immuServiceClientMock) IScanSV(ctx context.Context, in *schema.IScanOptions, opts ...grpc.CallOption) (*schema.SPage, error) {
-	return &schema.SPage{}, nil
 }
 func (m *immuServiceClientMock) Dump(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (schema.ImmuService_DumpClient, error) {
 	return nil, nil

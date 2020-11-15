@@ -18,6 +18,7 @@ package server
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"os"
 	"path"
@@ -522,14 +523,15 @@ func TestReference(t *testing.T) {
 func TestZAdd(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	_, err := db.Set(kv[0])
-	if err != nil {
-		t.Fatalf("Reference error %s", err)
-	}
+	_, _ = db.Set(&schema.KeyValue{
+		Key:   []byte(`key`),
+		Value: []byte(`val`),
+	})
+
 	ref, err := db.ZAdd(&schema.ZAddOptions{
-		Key:   kv[0].Key,
+		Key:   []byte(`key`),
 		Score: &schema.Score{Score: float64(1)},
-		Set:   kv[0].Value,
+		Set:   []byte(`mySet`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -539,7 +541,7 @@ func TestZAdd(t *testing.T) {
 		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
 	}
 	item, err := db.ZScan(&schema.ZScanOptions{
-		Set:     kv[0].Value,
+		Set:     []byte(`mySet`),
 		Offset:  []byte(""),
 		Limit:   3,
 		Reverse: false,
@@ -547,9 +549,8 @@ func TestZAdd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reference  Get error %s", err)
 	}
-	if !bytes.Equal(item.Items[0].Item.Value, kv[0].Value) {
-		t.Fatalf("Reference, expected %v, got %v", string(kv[0].Value), string(item.Items[0].Item.Value))
-	}
+
+	assert.Equal(t, item.Items[0].Item.Value, []byte(`val`))
 }
 
 func TestScan(t *testing.T) {
@@ -787,4 +788,26 @@ type mockImmuService_DumpServer struct {
 func (_m *mockImmuService_DumpServer) Send(kvs *pb.KVList) error {
 	_m.results = append(_m.results, kvs)
 	return nil
+}
+
+func TestDb_SetBatchAtomicOperations(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	aOps := &schema.AtomicOperations{
+		Operations: []*schema.AtomicOperation{
+			{
+				Operation: &schema.AtomicOperation_KVs{
+					KVs: &schema.KeyValue{
+						Key:   []byte(`key`),
+						Value: []byte(`val`),
+					},
+				},
+			},
+		},
+	}
+
+	_, err := db.SetBatchAtomicOperations(aOps)
+
+	require.NoError(t, err)
 }

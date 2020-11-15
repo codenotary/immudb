@@ -144,6 +144,11 @@ func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 	return list, nil
 }
 
+// SetBatchAtomicOperations ...
+func (d *Db) SetBatchAtomicOperations(operations *schema.AtomicOperations) (*schema.Index, error) {
+	return d.Store.SetBatchAtomicOperations(operations)
+}
+
 //Count ...
 func (d *Db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	return d.Store.Count(*prefix)
@@ -176,11 +181,7 @@ func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.SafeItem, error)
 
 //History ...
 func (d *Db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
-	list, err := d.Store.History(options)
-	if err != nil {
-		return nil, err
-	}
-	return list, nil
+	return d.Store.History(options)
 }
 
 //Health ...
@@ -191,12 +192,8 @@ func (d *Db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 
 //Reference ...
 func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
-	index, err = d.Store.Reference(refOpts)
-	if err != nil {
-		return nil, err
-	}
 	d.Logger.Debugf("reference options: %v", refOpts)
-	return index, nil
+	return d.Store.Reference(refOpts)
 }
 
 //SafeReference ...

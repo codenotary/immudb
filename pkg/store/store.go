@@ -434,6 +434,9 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 // As a parameter of ZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
 func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index *schema.Index, err error) {
+	txn := t.db.NewTransactionAt(math.MaxUint64, true)
+	defer txn.Discard()
+
 	opts := makeWriteOptions(options...)
 	if err = checkKey(zaddOpts.Key); err != nil {
 		return nil, err
@@ -441,32 +444,11 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 	if err = checkSet(zaddOpts.Set); err != nil {
 		return nil, err
 	}
-	txn := t.db.NewTransactionAt(math.MaxUint64, true)
-	defer txn.Discard()
 
-	var referenceValue []byte
-	if zaddOpts.Index != nil {
-		// convert to internal timestamp for itemAt, that returns the index
-		_, key, _, err := t.itemAt(zaddOpts.Index.Index + 1)
-		if err != nil {
-			return nil, mapError(err)
-		}
-		if bytes.Compare(key, zaddOpts.Key) != 0 {
-			return nil, ErrIndexKeyMismatch
-		}
-		// here we append the index to the reference value
-		referenceValue = WrapZIndexReference(key, zaddOpts.Index)
-	} else {
-		var i *badger.Item
-		i, err = txn.Get(zaddOpts.Key)
-		if err != nil {
-			return nil, mapError(err)
-		}
-		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
-		referenceValue = WrapZIndexReference(i.Key(), nil)
+	ik, referenceValue, err := t.getSortedSetKeyVal(txn, &zaddOpts, false)
+	if err != nil {
+		return nil, err
 	}
-
-	ik := BuildSetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score.Score)
 
 	tsEntry := t.tree.NewEntry(ik, referenceValue)
 
@@ -508,8 +490,53 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 		err = mapError(txn.CommitAt(tsEntry.ts, nil))
 		cb(err)
 	}
-
 	return index, err
+}
+
+// getSortedSetKeyVal return a key value pair that represent a sorted set entry.
+// If skipPersistenceCheck is true and index is not provided reference lookup is disabled.
+// This is used in batchAtomicOperation, to enable an key value creation with index insertion in the same transaction.
+func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions, skipPersistenceCheck bool) (k, v []byte, err error) {
+
+	var referenceValue []byte
+	if zaddOpts.Index != nil {
+		var key []byte
+		if !skipPersistenceCheck {
+			// convert to internal timestamp for itemAt, that returns the index
+			_, key, _, err = t.itemAt(zaddOpts.Index.Index + 1)
+			if err != nil {
+				return nil, nil, mapError(err)
+			}
+			if bytes.Compare(key, zaddOpts.Key) != 0 {
+				return nil, nil, ErrIndexKeyMismatch
+			}
+		} else {
+			key = zaddOpts.Key
+		}
+		// here we append the index to the reference value
+		referenceValue = WrapZIndexReference(key, zaddOpts.Index)
+	} else {
+		var key []byte
+		if !skipPersistenceCheck {
+			var i *badger.Item
+			i, err = txn.Get(zaddOpts.Key)
+			if err != nil {
+				return nil, nil, mapError(err)
+			}
+			key = i.KeyCopy(nil)
+			if bytes.Compare(key, zaddOpts.Key) != 0 {
+				return nil, nil, ErrIndexKeyMismatch
+			}
+		} else {
+			key = zaddOpts.Key
+		}
+		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
+		referenceValue = WrapZIndexReference(key, nil)
+	}
+
+	ik := BuildSetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score.Score)
+
+	return ik, referenceValue, err
 }
 
 // FlushToDisk flushes cached data from memory to disk

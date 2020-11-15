@@ -41,5 +41,12 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 }
 
 func (s *ImmuServer) SetBatchAtomicOperations(ctx context.Context, operations *schema.AtomicOperations) (*schema.Index, error) {
-	panic("implement me")
+	s.Logger.Debugf("set batch atomic operations")
+
+	ind, err := s.getDbIndexFromCtx(ctx, "SetBatchAtomicOperations")
+	if err != nil {
+		return nil, err
+	}
+
+	return s.dbList.GetByIndex(ind).SetBatchAtomicOperations(operations)
 }
