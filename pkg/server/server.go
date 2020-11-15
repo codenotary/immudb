@@ -41,7 +41,6 @@ import (
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
-	"github.com/codenotary/immudb/pkg/store"
 	"github.com/codenotary/immudb/pkg/store/sysstore"
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -679,18 +678,6 @@ func (s *ImmuServer) SafeSet(ctx context.Context, opts *schema.SafeSetOptions) (
 	return s.dbList.GetByIndex(ind).SafeSet(opts)
 }
 
-// SetBatch ...
-func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
-	s.Logger.Debugf("set batch %d", len(kvl.KVs))
-
-	ind, err := s.getDbIndexFromCtx(ctx, "SetBatch")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).SetBatch(kvl)
-}
-
 // Get ...
 func (s *ImmuServer) Get(ctx context.Context, k *schema.Key) (*schema.Item, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "Get")
@@ -712,28 +699,6 @@ func (s *ImmuServer) SafeGet(ctx context.Context, opts *schema.SafeGetOptions) (
 	}
 
 	return s.dbList.GetByIndex(ind).SafeGet(opts)
-}
-
-// GetBatch ...
-func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
-	list := &schema.ItemList{}
-	ind, err := s.getDbIndexFromCtx(ctx, "GetBatch")
-	if err != nil {
-		return nil, err
-	}
-
-	for _, key := range kl.Keys {
-		item, err := s.dbList.GetByIndex(ind).Get(key)
-		if err == nil || err == store.ErrKeyNotFound {
-			if item != nil {
-				list.Items = append(list.Items, item)
-			}
-		} else {
-			return nil, err
-		}
-	}
-
-	return list, nil
 }
 
 // Scan ...
