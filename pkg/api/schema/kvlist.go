@@ -18,19 +18,18 @@ package schema
 
 import (
 	"encoding/base64"
-	"errors"
 )
 
 // Validate checks for duplicated keys values that are not supported at the moment.
 func (l KVList) Validate() error {
 	if len(l.GetKVs()) == 0 {
-		return errors.New("empty set")
+		return ErrEmptySet
 	}
 	m := make(map[string]struct{}, len(l.GetKVs()))
 	for _, k := range l.GetKVs() {
 		b64k := base64.StdEncoding.EncodeToString(k.Key)
 		if _, ok := m[b64k]; ok {
-			return errors.New("duplicate keys are not supported in single batch transaction")
+			return ErrDuplicateKeysNotSupported
 		}
 		m[b64k] = struct{}{}
 	}

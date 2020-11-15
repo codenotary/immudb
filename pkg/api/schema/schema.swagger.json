@@ -12,6 +12,32 @@
     "application/json"
   ],
   "paths": {
+    "/v1/immurestproxy/batch/atomic/set": {
+      "post": {
+        "operationId": "SetBatchAtomicOperations",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaIndex"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaAtomicOperations"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/batch/get": {
       "post": {
         "operationId": "GetBatch",
@@ -941,6 +967,28 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "schemaAtomicOperation": {
+      "type": "object",
+      "properties": {
+        "KVs": {
+          "$ref": "#/definitions/schemaKeyValue"
+        },
+        "ZOpts": {
+          "$ref": "#/definitions/schemaZAddOptions"
+        }
+      }
+    },
+    "schemaAtomicOperations": {
+      "type": "object",
+      "properties": {
+        "Operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaAtomicOperation"
           }
         }
       }

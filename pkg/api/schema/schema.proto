@@ -99,10 +99,22 @@ message KeyValue {
 	bytes value = 2;
 }
 
+message AtomicOperation{
+	oneof operation {
+		KeyValue KVs = 1;
+		ZAddOptions ZOpts = 2;
+	}
+}
+
+message AtomicOperations{
+	repeated AtomicOperation Operations = 1;
+}
+
 message StructuredKeyValue {
 	bytes key = 1;
 	Content value = 2;
 }
+
 message Content {
 	uint64 timestamp = 1;
 	bytes payload = 2;
@@ -453,6 +465,13 @@ service ImmuService {
 	rpc GetBatch (KeyList) returns (ItemList){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/get"
+			body: "*"
+		};
+	};
+
+	rpc SetBatchAtomicOperations (AtomicOperations) returns (Index){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/batch/atomic/set"
 			body: "*"
 		};
 	};
