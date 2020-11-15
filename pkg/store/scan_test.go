@@ -66,6 +66,120 @@ func TestStoreScan(t *testing.T) {
 	assert.Equal(t, list1.Items[1].Value, []byte(`item1`))
 }
 
+func TestStoreScanOffsetted(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	st.Set(schema.KeyValue{Key: []byte(`bbb`), Value: []byte(`item2`)})
+	st.Set(schema.KeyValue{Key: []byte(`bcc`), Value: []byte(`item3`)})
+
+	scanOptions := schema.ScanOptions{
+		Prefix:  []byte(``),
+		Offset:  []byte(``),
+		Limit:   0,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list, err := st.Scan(scanOptions)
+	assert.NoError(t, err)
+	assert.Exactly(t, 3, len(list.Items))
+	assert.Equal(t, list.Items[0].Key, []byte(`aaa`))
+	assert.Equal(t, list.Items[0].Value, []byte(`item1`))
+
+	scanOptions = schema.ScanOptions{
+		Prefix:  []byte(``),
+		Offset:  []byte(`bbb`),
+		Limit:   0,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list, err = st.Scan(scanOptions)
+	assert.NoError(t, err)
+	assert.Exactly(t, 1, len(list.Items))
+	assert.Equal(t, list.Items[0].Key, []byte(`bcc`))
+	assert.Equal(t, list.Items[0].Value, []byte(`item3`))
+
+	scanOptions = schema.ScanOptions{
+		Prefix:  []byte(`b`),
+		Offset:  []byte(`bbb`),
+		Limit:   0,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list, err = st.Scan(scanOptions)
+	assert.NoError(t, err)
+	assert.Exactly(t, 1, len(list.Items))
+	assert.Equal(t, list.Items[0].Key, []byte(`bcc`))
+	assert.Equal(t, list.Items[0].Value, []byte(`item3`))
+
+	scanOptions = schema.ScanOptions{
+		Prefix:  []byte(`a`),
+		Offset:  []byte(`a`),
+		Limit:   0,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list, err = st.Scan(scanOptions)
+	assert.NoError(t, err)
+	assert.Exactly(t, 0, len(list.Items))
+}
+
+func TestStoreScanReverseOffsetted(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	st.Set(schema.KeyValue{Key: []byte(`bbb`), Value: []byte(`item2`)})
+	st.Set(schema.KeyValue{Key: []byte(`bcc`), Value: []byte(`item3`)})
+
+	scanOptions := schema.ScanOptions{
+		Prefix:  []byte(``),
+		Offset:  []byte(``),
+		Limit:   0,
+		Reverse: true,
+		Deep:    false,
+	}
+
+	list, err := st.Scan(scanOptions)
+	assert.NoError(t, err)
+	assert.Exactly(t, 3, len(list.Items))
+	assert.Equal(t, list.Items[0].Key, []byte(`bcc`))
+	assert.Equal(t, list.Items[0].Value, []byte(`item3`))
+
+	scanOptions = schema.ScanOptions{
+		Prefix:  []byte(``),
+		Offset:  []byte(`bbb`),
+		Limit:   0,
+		Reverse: true,
+		Deep:    false,
+	}
+
+	list, err = st.Scan(scanOptions)
+	assert.NoError(t, err)
+	assert.Exactly(t, 1, len(list.Items))
+	assert.Equal(t, list.Items[0].Key, []byte(`aaa`))
+	assert.Equal(t, list.Items[0].Value, []byte(`item1`))
+
+	scanOptions = schema.ScanOptions{
+		Prefix:  []byte(`b`),
+		Offset:  []byte(`b`),
+		Limit:   0,
+		Reverse: true,
+		Deep:    false,
+	}
+
+	list, err = st.Scan(scanOptions)
+	assert.NoError(t, err)
+	assert.Exactly(t, 1, len(list.Items))
+	assert.Equal(t, list.Items[0].Key, []byte(`bbb`))
+	assert.Equal(t, list.Items[0].Value, []byte(`item2`))
+}
+
 func TestStoreReferenceScan(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()

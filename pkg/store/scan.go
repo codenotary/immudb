@@ -36,11 +36,6 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
 
-	offsetKey := options.Prefix
-	if options.Reverse {
-		offsetKey = append(options.Prefix, 0xFF)
-	}
-
 	it := txn.NewIterator(badger.IteratorOptions{
 		PrefetchValues: true,
 		PrefetchSize:   int(options.Limit),
@@ -48,16 +43,6 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 		Reverse:        options.Reverse,
 	})
 	defer it.Close()
-
-	if len(options.Offset) == 0 {
-		it.Rewind()
-	} else {
-		it.Seek(options.Offset)
-		if it.Valid() {
-			it.Next() // skip the offset item
-			offsetKey = it.Item().Key()
-		}
-	}
 
 	var limit = options.Limit
 	if limit == 0 {
@@ -68,7 +53,24 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	var items []*schema.Item
 
 	i := uint64(0)
-	for it.Seek(offsetKey); it.Valid(); it.Next() {
+
+	offsettedKey := options.Prefix
+
+	if len(options.Offset) > 0 {
+		offsettedKey = options.Offset
+	}
+
+	if options.Reverse {
+		offsettedKey = append(offsettedKey, 0xFF)
+	}
+
+	it.Seek(offsettedKey)
+
+	if len(options.Offset) > 0 && it.Valid() {
+		it.Next() // skip the offset item
+	}
+
+	for ; it.Valid(); it.Next() {
 		var item *schema.Item
 
 		if it.Item().UserMeta()&bitReferenceEntry == bitReferenceEntry {
