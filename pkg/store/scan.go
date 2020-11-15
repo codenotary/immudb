@@ -44,16 +44,6 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	})
 	defer it.Close()
 
-	var limit = options.Limit
-	if limit == 0 {
-		// we're reusing max batch count to enforce the default scan limit
-		limit = uint64(t.db.MaxBatchCount())
-	}
-
-	var items []*schema.Item
-
-	i := uint64(0)
-
 	offsettedKey := options.Prefix
 
 	if len(options.Offset) > 0 {
@@ -69,6 +59,15 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 	if len(options.Offset) > 0 && it.Valid() {
 		it.Next() // skip the offset item
 	}
+
+	var limit = options.Limit
+	if limit == 0 {
+		// we're reusing max batch count to enforce the default scan limit
+		limit = uint64(t.db.MaxBatchCount())
+	}
+
+	var items []*schema.Item
+	i := uint64(0)
 
 	for ; it.Valid(); it.Next() {
 		var item *schema.Item
@@ -152,14 +151,14 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ZItemList, err 
 		offsetKey = options.Offset
 	}
 
-	if len(options.Offset) == 0 {
-		it.Rewind()
-	} else {
-		it.Seek(options.Offset)
-		if it.Valid() {
-			it.Next() // skip the offset item
-			offsetKey = it.Item().KeyCopy(nil)
-		}
+	if options.Reverse {
+		offsetKey = append(offsetKey, 0xFF)
+	}
+
+	it.Seek(offsetKey)
+
+	if len(options.Offset) > 0 && it.Valid() {
+		it.Next() // skip the offset item
 	}
 
 	var limit = options.Limit
@@ -168,15 +167,10 @@ func (t *Store) ZScan(options schema.ZScanOptions) (list *schema.ZItemList, err 
 		limit = uint64(t.db.MaxBatchCount())
 	}
 
-	if options.Reverse {
-		// https://github.com/dgraph-io/badger#frequently-asked-questions
-		offsetKey = append(offsetKey, 0xFF)
-	}
-
 	var items []*schema.ZItem
 	i := uint64(0)
 
-	for it.Seek(offsetKey); it.Valid(); it.Next() {
+	for ; it.Valid(); it.Next() {
 
 		var zitem *schema.ZItem
 		var item *schema.Item
