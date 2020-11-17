@@ -794,10 +794,10 @@ func TestDb_SetBatchAtomicOperations(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.AtomicOperation_KVs{
+				Operation: &schema.BatchOp_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -807,7 +807,7 @@ func TestDb_SetBatchAtomicOperations(t *testing.T) {
 		},
 	}
 
-	_, err := db.SetBatchAtomicOperations(aOps)
+	_, err := db.SetBatchOps(aOps)
 
 	require.NoError(t, err)
 }

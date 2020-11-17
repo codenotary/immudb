@@ -99,15 +99,15 @@ message KeyValue {
 	bytes value = 2;
 }
 
-message AtomicOperation{
+message BatchOp{
 	oneof operation {
 		KeyValue KVs = 1;
 		ZAddOptions ZOpts = 2;
 	}
 }
 
-message AtomicOperations{
-	repeated AtomicOperation Operations = 1;
+message BatchOps{
+	repeated BatchOp Operations = 1;
 }
 
 message StructuredKeyValue {
@@ -469,7 +469,7 @@ service ImmuService {
 		};
 	};
 
-	rpc SetBatchAtomicOperations (AtomicOperations) returns (Index){
+	rpc SetBatchOps (BatchOps) returns (Index){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/atomic/set"
 			body: "*"

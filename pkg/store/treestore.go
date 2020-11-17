@@ -297,6 +297,14 @@ func (t *treeStore) NewBatch(kvPairs *schema.KVList) []*treeStoreEntry {
 	return batch
 }
 
+// NewBatchOpsStartTs return the initial ts to be used inside batch ops
+// It's thread-safe.
+func (t *treeStore) NewBatchOpsStartTs(ops *schema.BatchOps) uint64 {
+	size := uint64(len(ops.Operations))
+	lease := atomic.AddUint64(&t.ts, size)
+	return lease - size
+}
+
 // Commit enqueues the given entry to be included in the merkletree.
 // The value of _entry_ might change once Discard() or Commit() is called,
 // so it must not be used later.

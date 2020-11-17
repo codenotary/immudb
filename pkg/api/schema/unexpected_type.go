@@ -1,7 +1,7 @@
 package schema
 
-type AtomicOperation_Unexpected struct {
+type Op_Unexpected struct {
 	myStruct *struct{}
 }
 
-func (*AtomicOperation_Unexpected) isAtomicOperation_Operation() {}
+func (*Op_Unexpected) isBatchOp_Operation() {}

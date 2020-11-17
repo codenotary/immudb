@@ -4,9 +4,9 @@
 ## Table of Contents
 
 - [schema.proto](#schema.proto)
-    - [AtomicOperation](#immudb.schema.AtomicOperation)
-    - [AtomicOperations](#immudb.schema.AtomicOperations)
     - [AuthConfig](#immudb.schema.AuthConfig)
+    - [BatchOp](#immudb.schema.BatchOp)
+    - [BatchOps](#immudb.schema.BatchOps)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [ConsistencyProof](#immudb.schema.ConsistencyProof)
@@ -82,9 +82,24 @@
 
 
 
-<a name="immudb.schema.AtomicOperation"></a>
+<a name="immudb.schema.AuthConfig"></a>
 
-### AtomicOperation
+### AuthConfig
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| kind | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.BatchOp"></a>
+
+### BatchOp
 
 
 
@@ -98,30 +113,15 @@
 
 
 
-<a name="immudb.schema.AtomicOperations"></a>
+<a name="immudb.schema.BatchOps"></a>
 
-### AtomicOperations
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| Operations | [AtomicOperation](#immudb.schema.AtomicOperation) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.AuthConfig"></a>
-
-### AuthConfig
+### BatchOps
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| kind | [uint32](#uint32) |  |  |
+| Operations | [BatchOp](#immudb.schema.BatchOp) | repeated |  |
 
 
 
@@ -1134,7 +1134,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | SafeGet | [SafeGetOptions](#immudb.schema.SafeGetOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
 | SetBatch | [KVList](#immudb.schema.KVList) | [Index](#immudb.schema.Index) |  |
 | GetBatch | [KeyList](#immudb.schema.KeyList) | [ItemList](#immudb.schema.ItemList) |  |
-| SetBatchAtomicOperations | [AtomicOperations](#immudb.schema.AtomicOperations) | [Index](#immudb.schema.Index) |  |
+| SetBatchOps | [BatchOps](#immudb.schema.BatchOps) | [Index](#immudb.schema.Index) |  |
 | Scan | [ScanOptions](#immudb.schema.ScanOptions) | [ItemList](#immudb.schema.ItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |
