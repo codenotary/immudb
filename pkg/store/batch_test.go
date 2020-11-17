@@ -1,11 +1,14 @@
 package store
 
 import (
+	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"log"
 	"strconv"
+	"sync"
 	"testing"
 )
 
@@ -334,6 +337,46 @@ func TestSetBatchAtomicOperationsDuplicatedKey(t *testing.T) {
 	assert.Equal(t, schema.ErrDuplicateKeysNotSupported, err)
 }
 
+func TestSetBatchAtomicOperationsDuplicatedKeyZAdd(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
+			{
+				Operation: &schema.BatchOp_KVs{
+					KVs: &schema.KeyValue{
+						Key:   []byte(`key`),
+						Value: []byte(`val`),
+					},
+				},
+			},
+			{
+				Operation: &schema.BatchOp_ZOpts{
+					ZOpts: &schema.ZAddOptions{
+						Key: []byte(`key`),
+						Score: &schema.Score{
+							Score: 5.6,
+						},
+					},
+				},
+			},
+			{
+				Operation: &schema.BatchOp_ZOpts{
+					ZOpts: &schema.ZAddOptions{
+						Key: []byte(`key`),
+						Score: &schema.Score{
+							Score: 5.6,
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := st.SetBatchOps(aOps)
+
+	assert.Equal(t, schema.ErrDuplicateZAddNotSupported, err)
+}
+
 func TestSetBatchAtomicOperationsAsynch(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
@@ -386,11 +429,10 @@ func TestBatchOps_ValidateErrZAddIndexMissing(t *testing.T) {
 	aOps := &schema.BatchOps{
 		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.BatchOp_ZOpts{
-					ZOpts: &schema.ZAddOptions{
-						Set:   []byte(`mySet`),
-						Score: &schema.Score{Score: 0.6},
-						Key:   []byte(`persistedKey`),
+				Operation: &schema.BatchOp_KVs{
+					KVs: &schema.KeyValue{
+						Key:   []byte(`key1`),
+						Value: []byte(`val1`),
 					},
 				},
 			},
@@ -398,4 +440,246 @@ func TestBatchOps_ValidateErrZAddIndexMissing(t *testing.T) {
 	}
 	_, err := st.SetBatchOps(aOps)
 	assert.Equal(t, err, ErrZAddIndexMissing)
+}
+
+func TestStore_SetBatchOpsConcurrent(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+	for i := 1; i <= 10; i++ {
+		aOps := &schema.BatchOps{
+			Operations: []*schema.BatchOp{},
+		}
+		for j := 1; j <= 10; j++ {
+			key := strconv.FormatUint(uint64(j), 10)
+			val := strconv.FormatUint(uint64(i), 10)
+			aOp := &schema.BatchOp{
+				Operation: &schema.BatchOp_KVs{
+					KVs: &schema.KeyValue{
+						Key:   []byte(key),
+						Value: []byte(key),
+					},
+				},
+			}
+			aOps.Operations = append(aOps.Operations, aOp)
+			float, err := strconv.ParseFloat(fmt.Sprintf("%d", j), 64)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			set := val
+			refKey := key
+			aOp = &schema.BatchOp{
+				Operation: &schema.BatchOp_ZOpts{
+					ZOpts: &schema.ZAddOptions{
+						Set: []byte(set),
+						Key: []byte(refKey),
+						Score: &schema.Score{
+							Score: float,
+						},
+					},
+				},
+			}
+			aOps.Operations = append(aOps.Operations, aOp)
+		}
+		go func() {
+			idx, err := st.SetBatchOps(aOps)
+			assert.NoError(t, err)
+			assert.NotNil(t, idx)
+			wg.Done()
+		}()
+
+	}
+	wg.Wait()
+	for i := 1; i <= 10; i++ {
+		set := strconv.FormatUint(uint64(i), 10)
+
+		zList, err := st.ZScan(schema.ZScanOptions{
+			Set: []byte(set),
+		})
+		assert.NoError(t, err)
+		assert.Len(t, zList.Items, 10)
+		assert.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
+
+	}
+}
+
+func TestStore_SetBatchOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
+	dbDir := tmpDir()
+
+	st, _ := makeStoreAt(dbDir)
+
+	for i := 1; i <= 10; i++ {
+		for j := 1; j <= 10; j++ {
+			key := strconv.FormatUint(uint64(j), 10)
+			_, _ = st.Set(schema.KeyValue{
+				Key:   []byte(key),
+				Value: []byte(key),
+			})
+		}
+	}
+
+	st.tree.close(true)
+	st.Close()
+
+	st, closer := makeStoreAt(dbDir)
+	defer closer()
+
+	st.tree.WaitUntil(99)
+
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+
+	gIdx := uint64(0)
+	for i := 1; i <= 10; i++ {
+		aOps := &schema.BatchOps{
+			Operations: []*schema.BatchOp{},
+		}
+		for j := 1; j <= 10; j++ {
+			key := strconv.FormatUint(uint64(j), 10)
+			val := strconv.FormatUint(uint64(i), 10)
+
+			float, err := strconv.ParseFloat(fmt.Sprintf("%d", j), 64)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			set := val
+			refKey := key
+			aOp := &schema.BatchOp{
+				Operation: &schema.BatchOp_ZOpts{
+					ZOpts: &schema.ZAddOptions{
+						Set: []byte(set),
+						Key: []byte(refKey),
+						Score: &schema.Score{
+							Score: float,
+						},
+						Index: &schema.Index{Index: gIdx},
+					},
+				},
+			}
+			aOps.Operations = append(aOps.Operations, aOp)
+			gIdx++
+		}
+		go func() {
+			idx, err := st.SetBatchOps(aOps)
+			assert.NoError(t, err)
+			assert.NotNil(t, idx)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	for i := 1; i <= 10; i++ {
+		set := strconv.FormatUint(uint64(i), 10)
+
+		zList, err := st.ZScan(schema.ZScanOptions{
+			Set: []byte(set),
+		})
+		assert.NoError(t, err)
+		assert.Len(t, zList.Items, 10)
+		assert.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
+	}
+}
+
+func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
+	// even items are stored on disk with regular sets
+	// odd ones are stored inside batch operations
+	// zAdd references all items
+
+	dbDir := tmpDir()
+
+	st, _ := makeStoreAt(dbDir)
+
+	for i := 1; i <= 10; i++ {
+		for j := 1; j <= 10; j++ {
+			// even
+			if j%2 == 0 {
+				key := strconv.FormatUint(uint64(j), 10)
+				_, _ = st.Set(schema.KeyValue{
+					Key:   []byte(key),
+					Value: []byte(key),
+				})
+			}
+		}
+	}
+
+	st.tree.close(true)
+	st.Close()
+
+	st, closer := makeStoreAt(dbDir)
+	defer closer()
+
+	st.tree.WaitUntil(49)
+
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+
+	gIdx := uint64(0)
+	for i := 1; i <= 10; i++ {
+		aOps := &schema.BatchOps{
+			Operations: []*schema.BatchOp{},
+		}
+		for j := 1; j <= 10; j++ {
+			key := strconv.FormatUint(uint64(j), 10)
+			val := strconv.FormatUint(uint64(i), 10)
+			var index *schema.Index
+
+			// odd
+			if j%2 != 0 {
+				aOp := &schema.BatchOp{
+					Operation: &schema.BatchOp_KVs{
+						KVs: &schema.KeyValue{
+							Key:   []byte(key),
+							Value: []byte(key),
+						},
+					},
+				}
+				aOps.Operations = append(aOps.Operations, aOp)
+				index = nil
+			} else {
+				index = &schema.Index{Index: gIdx}
+				gIdx++
+			}
+			float, err := strconv.ParseFloat(fmt.Sprintf("%d", j), 64)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			set := val
+			refKey := key
+			aOp := &schema.BatchOp{
+				Operation: &schema.BatchOp_ZOpts{
+					ZOpts: &schema.ZAddOptions{
+						Set: []byte(set),
+						Key: []byte(refKey),
+						Score: &schema.Score{
+							Score: float,
+						},
+						Index: index,
+					},
+				},
+			}
+			aOps.Operations = append(aOps.Operations, aOp)
+		}
+		go func() {
+			idx, err := st.SetBatchOps(aOps)
+			assert.NoError(t, err)
+			assert.NotNil(t, idx)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	for i := 1; i <= 10; i++ {
+		set := strconv.FormatUint(uint64(i), 10)
+		zList, err := st.ZScan(schema.ZScanOptions{
+			Set: []byte(set),
+		})
+		assert.NoError(t, err)
+		assert.Len(t, zList.Items, 10)
+		assert.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
+	}
 }
