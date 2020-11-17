@@ -14,7 +14,7 @@
   "paths": {
     "/v1/immurestproxy/batch/atomic/set": {
       "post": {
-        "operationId": "SetBatchAtomicOperations",
+        "operationId": "SetBatchOps",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -29,7 +29,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaAtomicOperations"
+              "$ref": "#/definitions/schemaBatchOps"
             }
           }
         ],
@@ -971,7 +971,7 @@
         }
       }
     },
-    "schemaAtomicOperation": {
+    "schemaBatchOp": {
       "type": "object",
       "properties": {
         "KVs": {
@@ -982,13 +982,13 @@
         }
       }
     },
-    "schemaAtomicOperations": {
+    "schemaBatchOps": {
       "type": "object",
       "properties": {
         "Operations": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaAtomicOperation"
+            "$ref": "#/definitions/schemaBatchOp"
           }
         }
       }

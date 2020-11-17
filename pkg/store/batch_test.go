@@ -1,9 +1,10 @@
 package store
 
 import (
-	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"strconv"
 	"testing"
 )
@@ -111,13 +112,13 @@ func TestSetBatchAtomicOperations(t *testing.T) {
 	batchSize := 100
 
 	for b := 0; b < 10; b++ {
-		atomicOps := make([]*schema.AtomicOperation, batchSize*2)
+		atomicOps := make([]*schema.BatchOp, batchSize*2)
 
 		for i := 0; i < batchSize; i++ {
 			key := []byte(strconv.FormatUint(uint64(i), 10))
 			value := []byte(strconv.FormatUint(uint64(b*batchSize+batchSize+i), 10))
-			atomicOps[i] = &schema.AtomicOperation{
-				Operation: &schema.AtomicOperation_KVs{
+			atomicOps[i] = &schema.BatchOp{
+				Operation: &schema.BatchOp_KVs{
 					KVs: &schema.KeyValue{
 						Key:   key,
 						Value: value,
@@ -128,19 +129,19 @@ func TestSetBatchAtomicOperations(t *testing.T) {
 
 		for i := 0; i < batchSize; i++ {
 
-			atomicOps[i+batchSize] = &schema.AtomicOperation{
-				Operation: &schema.AtomicOperation_ZOpts{
+			atomicOps[i+batchSize] = &schema.BatchOp{
+				Operation: &schema.BatchOp_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set:   []byte(`mySet`),
 						Score: &schema.Score{Score: 0.6},
-						Key:   atomicOps[i].Operation.(*schema.AtomicOperation_KVs).KVs.Key,
+						Key:   atomicOps[i].Operation.(*schema.BatchOp_KVs).KVs.Key,
 						Index: nil,
 					},
 				},
 			}
 		}
 
-		idx, err := st.SetBatchAtomicOperations(&schema.AtomicOperations{Operations: atomicOps})
+		idx, err := st.SetBatchOps(&schema.BatchOps{Operations: atomicOps})
 		assert.NoError(t, err)
 		assert.Equal(t, uint64((b+1)*batchSize*2), idx.GetIndex()+1)
 	}
@@ -158,16 +159,16 @@ func TestSetBatchAtomicOperationsZAddOnMixedAlreadyPersitedNotPersistedItems(t *
 
 	st, _ := makeStoreAt(dbDir)
 
-	_, _ = st.Set(schema.KeyValue{
+	idx, _ := st.Set(schema.KeyValue{
 		Key:   []byte(`persistedKey`),
 		Value: []byte(`persistedVal`),
 	})
 
-	// AtomicOperations payload
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{
+	// BatchOps payload
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.AtomicOperation_KVs{
+				Operation: &schema.BatchOp_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`notPersistedKey`),
 						Value: []byte(`notPersistedVal`),
@@ -175,26 +176,26 @@ func TestSetBatchAtomicOperationsZAddOnMixedAlreadyPersitedNotPersistedItems(t *
 				},
 			},
 			{
-				Operation: &schema.AtomicOperation_ZOpts{
+				Operation: &schema.BatchOp_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set:   []byte(`mySet`),
 						Score: &schema.Score{Score: 0.6},
-						Key:   []byte(`notPersistedKey`),
-					},
+						Key:   []byte(`notPersistedKey`)},
 				},
 			},
 			{
-				Operation: &schema.AtomicOperation_ZOpts{
+				Operation: &schema.BatchOp_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set:   []byte(`mySet`),
 						Score: &schema.Score{Score: 0.6},
 						Key:   []byte(`persistedKey`),
+						Index: idx,
 					},
 				},
 			},
 		},
 	}
-	index, err := st.SetBatchAtomicOperations(aOps)
+	index, err := st.SetBatchOps(aOps)
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(3), index.Index)
 
@@ -217,20 +218,20 @@ func TestSetBatchAtomicOperationsZAddOnMixedAlreadyPersitedNotPersistedItems(t *
 func TestSetBatchAtomicOperationsEmptyList(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{},
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{},
 	}
-	_, err := st.SetBatchAtomicOperations(aOps)
+	_, err := st.SetBatchOps(aOps)
 	assert.Equal(t, schema.ErrEmptySet, err)
 }
 
 func TestSetBatchAtomicOperationsInvalidKvKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.AtomicOperation_KVs{
+				Operation: &schema.BatchOp_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte{0},
 						Value: []byte(`val`),
@@ -239,66 +240,69 @@ func TestSetBatchAtomicOperationsInvalidKvKey(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchAtomicOperations(aOps)
+	_, err := st.SetBatchOps(aOps)
 	assert.Equal(t, ErrInvalidKey, err)
 }
 
 func TestSetBatchAtomicOperationsZAddKeyNotFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.AtomicOperation_ZOpts{
+				Operation: &schema.BatchOp_ZOpts{
 					ZOpts: &schema.ZAddOptions{
-						Key: []byte{0},
+						Key: []byte(`key`),
 						Score: &schema.Score{
 							Score: 5.6,
+						},
+						Index: &schema.Index{
+							Index: 4,
 						},
 					},
 				},
 			},
 		},
 	}
-	_, err := st.SetBatchAtomicOperations(aOps)
-	assert.Equal(t, ErrKeyNotFound, err)
+	_, err := st.SetBatchOps(aOps)
+	assert.Equal(t, ErrIndexNotFound, err)
 }
 
 func TestSetBatchAtomicOperationsNilElementFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
 			{
 				Operation: nil,
 			},
 		},
 	}
-	_, err := st.SetBatchAtomicOperations(aOps)
-	assert.Equal(t, schema.ErrEmptySet, err)
+	_, err := st.SetBatchOps(aOps)
+	assert.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation is not set"))
 }
 
 func TestSetBatchAtomicOperationsUnexpectedType(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.AtomicOperation_Unexpected{},
+				Operation: &schema.Op_Unexpected{},
 			},
 		},
 	}
-	_, err := st.SetBatchAtomicOperations(aOps)
-	assert.Equal(t, fmt.Errorf("batch operation has unexpected type *schema.AtomicOperation_Unexpected"), err)
+	_, err := st.SetBatchOps(aOps)
+	assert.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation has unexpected type *schema.Op_Unexpected"))
 }
 
 func TestSetBatchAtomicOperationsDuplicatedKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.AtomicOperation_KVs{
+				Operation: &schema.BatchOp_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -306,7 +310,7 @@ func TestSetBatchAtomicOperationsDuplicatedKey(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.AtomicOperation_KVs{
+				Operation: &schema.BatchOp_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -314,7 +318,7 @@ func TestSetBatchAtomicOperationsDuplicatedKey(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.AtomicOperation_ZOpts{
+				Operation: &schema.BatchOp_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Key: []byte(`key`),
 						Score: &schema.Score{
@@ -325,7 +329,7 @@ func TestSetBatchAtomicOperationsDuplicatedKey(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchAtomicOperations(aOps)
+	_, err := st.SetBatchOps(aOps)
 
 	assert.Equal(t, schema.ErrDuplicateKeysNotSupported, err)
 }
@@ -334,10 +338,10 @@ func TestSetBatchAtomicOperationsAsynch(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	aOps := &schema.AtomicOperations{
-		Operations: []*schema.AtomicOperation{
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.AtomicOperation_KVs{
+				Operation: &schema.BatchOp_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -345,7 +349,7 @@ func TestSetBatchAtomicOperationsAsynch(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.AtomicOperation_KVs{
+				Operation: &schema.BatchOp_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key1`),
 						Value: []byte(`val1`),
@@ -353,7 +357,7 @@ func TestSetBatchAtomicOperationsAsynch(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.AtomicOperation_ZOpts{
+				Operation: &schema.BatchOp_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Key: []byte(`key`),
 						Score: &schema.Score{
@@ -364,7 +368,34 @@ func TestSetBatchAtomicOperationsAsynch(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchAtomicOperations(aOps, WithAsyncCommit(true))
+	_, err := st.SetBatchOps(aOps, WithAsyncCommit(true))
 
 	assert.NoError(t, err)
+}
+
+func TestBatchOps_ValidateErrZAddIndexMissing(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	_, _ = st.Set(schema.KeyValue{
+		Key:   []byte(`persistedKey`),
+		Value: []byte(`persistedVal`),
+	})
+
+	// BatchOps payload
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
+			{
+				Operation: &schema.BatchOp_ZOpts{
+					ZOpts: &schema.ZAddOptions{
+						Set:   []byte(`mySet`),
+						Score: &schema.Score{Score: 0.6},
+						Key:   []byte(`persistedKey`),
+					},
+				},
+			},
+		},
+	}
+	_, err := st.SetBatchOps(aOps)
+	assert.Equal(t, err, ErrZAddIndexMissing)
 }

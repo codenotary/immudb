@@ -136,7 +136,7 @@ func (m *immuServiceClientMock) SetBatch(ctx context.Context, in *schema.KVList,
 func (m *immuServiceClientMock) GetBatch(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error) {
 	return &schema.ItemList{}, nil
 }
-func (m *immuServiceClientMock) SetBatchAtomicOperations(ctx context.Context, in *schema.AtomicOperations, opts ...grpc.CallOption) (*schema.Index, error) {
+func (m *immuServiceClientMock) SetBatchOps(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error) {
 	return &schema.Index{}, nil
 }
 func (m *immuServiceClientMock) Scan(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {

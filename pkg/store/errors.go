@@ -36,6 +36,7 @@ var (
 	ErrObsoleteDataFormat = status.New(codes.Unknown, "data format in which elements are written on disk is not up to date to the current version of immudb server. Please upgrade to access to complete functionalities").Err()
 	ErrInconsistentDigest = status.New(codes.Unknown, "insertion order index hash is not equal to the digest of the related value").Err()
 	ErrIndexKeyMismatch   = status.New(codes.InvalidArgument, "mismatch between provided index and key").Err()
+	ErrZAddIndexMissing   = status.New(codes.InvalidArgument, "zAdd index not provided").Err()
 )
 
 // fixme(leogr): review codes and fix/remove errors which do not make sense in this context, finally correct comments accordingly.
@@ -170,6 +171,10 @@ func mapError(err error) error {
 	// Is err a badger's error?
 	if e, ok := badgerErrorsMap[err]; ok {
 		return e
+	}
+
+	if _, ok := status.FromError(err); ok {
+		return err
 	}
 
 	// otherwise just wrap it as unknown
