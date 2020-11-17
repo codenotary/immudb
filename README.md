@@ -618,7 +618,7 @@ The release contains 2 components, the main immutable database immudb and the ad
 
 ## How immudb works
 
-Download [immmudb short research paper](https://codenotary.io/technologies/immudb/) to have a conceptual understanding of the technical foundations of immudb.
+Download [immudb short research paper](https://codenotary.io/technologies/immudb/) to have a conceptual understanding of the technical foundations of immudb.
 
 #### adding data
 
