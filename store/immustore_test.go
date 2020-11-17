@@ -650,18 +650,6 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 		require.NoError(t, err)
 
 		verifies := VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
-
-		if !verifies {
-			lproof, err := immuStore.LinearProof(trustedTxID, targetTxID)
-			require.NoError(t, err)
-			verifies = VerifyLinearProof(lproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
-			require.True(t, verifies)
-
-			dproof, err = immuStore.DualProof(trustedTx, targetTx)
-			require.NoError(t, err)
-			verifies = VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
-		}
-
 		require.True(t, verifies)
 	}
 
