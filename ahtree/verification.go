@@ -106,3 +106,31 @@ func EvalConsistency(cproof [][sha256.Size]byte, i, j uint64) ([sha256.Size]byte
 
 	return ciRoot, cjRoot
 }
+
+func VerifyLastInclusion(iproof [][sha256.Size]byte, i uint64, leaf, root [sha256.Size]byte) bool {
+	if i == 0 {
+		return false
+	}
+
+	return root == EvalLastInclusion(iproof, i, leaf)
+}
+
+func EvalLastInclusion(iproof [][sha256.Size]byte, i uint64, leaf [sha256.Size]byte) [sha256.Size]byte {
+	i1 := i - 1
+
+	root := leaf
+
+	b := [1 + sha256.Size*2]byte{NodePrefix}
+
+	for _, h := range iproof {
+
+		copy(b[1:], h[:])
+		copy(b[sha256.Size+1:], root[:])
+
+		root = sha256.Sum256(b[:])
+
+		i1 >>= 1
+	}
+
+	return root
+}

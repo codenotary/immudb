@@ -105,6 +105,7 @@ func main() {
 		WithCommitLogMaxOpenedFiles(*openedLogFiles).
 		WithCompressionFormat(compressionFormat).
 		WithCompresionLevel(compressionLevel).
+		WithMaxLinearProofLen(0).
 		WithMaxValueLen(1 << 26) // 64Mb
 
 	immuStore, err := store.Open(*dataDir, opts)
@@ -340,6 +341,10 @@ func main() {
 			elapsed := time.Since(start)
 			fmt.Printf("\r\nAll transactions %d successfully verified in %s!\r\n", verifiedTxs, elapsed)
 		}
+
+		fmt.Println("Waiting for indexing...")
+		time.Sleep(time.Duration(*waitForIndexing) * time.Millisecond)
+		fmt.Println("Done")
 
 		return
 	}

@@ -397,15 +397,19 @@ func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
 func (s *ImmuStore) binaryLinking() {
 	for {
 		alh, err := s.blBuffer.Get()
+
 		if err == cbuffer.ErrBufferIsEmpty {
 			time.Sleep(time.Duration(10) * time.Millisecond)
 			continue
-		} else if err != nil {
+		}
+
+		if err != nil {
 			s.blMutex.Lock()
 			s.blErr = err
 			s.blMutex.Unlock()
 			return
 		}
+
 		_, _, err = s.aht.Append(alh[:])
 		if err != nil {
 			s.blMutex.Lock()
@@ -445,6 +449,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 		if err != nil {
 			return err
 		}
+
 		alh := tx.Alh()
 		s.aht.Append(alh[:])
 	}
@@ -857,16 +862,21 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 }
 
 type DualProof struct {
-	TrustedTxID            uint64
-	TargetTxID             uint64
-	BinaryInclusionProof   [][sha256.Size]byte
-	BinaryConsistencyProof [][sha256.Size]byte
-	TrustedPrevAlh         [sha256.Size]byte
-	TrustedTxH             [sha256.Size]byte
-	JointTxID              uint64
-	JointPrevAlh           [sha256.Size]byte
-	JointTxH               [sha256.Size]byte
-	LinearProof            *LinearProof
+	TrustedTxID              uint64
+	TargetTxID               uint64
+	BinaryInclusionProof     [][sha256.Size]byte
+	BinaryConsistencyProof   [][sha256.Size]byte
+	BinaryLastInclusionProof [][sha256.Size]byte
+	TrustedPrevAlh           [sha256.Size]byte
+	TrustedTxH               [sha256.Size]byte
+	TrustedBlTxID            uint64
+	TrustedBlRoot            [sha256.Size]byte
+	TargetBlTxID             uint64
+	TargetBlRoot             [sha256.Size]byte
+	TargetPrevAlh            [sha256.Size]byte
+	TargetTxH                [sha256.Size]byte
+	JointTxAlh               [sha256.Size]byte
+	LinearProof              *LinearProof
 }
 
 func (s *ImmuStore) DualProof(trustedTx, targetTx *Tx) (proof *DualProof, err error) {
@@ -883,42 +893,52 @@ func (s *ImmuStore) DualProof(trustedTx, targetTx *Tx) (proof *DualProof, err er
 		TargetTxID:     targetTx.ID,
 		TrustedPrevAlh: trustedTx.PrevAlh,
 		TrustedTxH:     trustedTx.TxH,
+		TrustedBlTxID:  trustedTx.BlTxID,
+		TrustedBlRoot:  trustedTx.BlRoot,
+		TargetBlTxID:   targetTx.BlTxID,
+		TargetBlRoot:   targetTx.BlRoot,
+		TargetPrevAlh:  targetTx.PrevAlh,
+		TargetTxH:      targetTx.TxH,
 	}
 
-	if targetTx.BlTxID > trustedTx.ID {
-		jointTx := s.NewTx()
-		err = s.ReadTx(targetTx.BlTxID+1, jointTx)
-		if err != nil {
-			return nil, err
-		}
-
-		proof.JointTxID = jointTx.ID
-		proof.JointPrevAlh = jointTx.PrevAlh
-		proof.JointTxH = jointTx.TxH
-
-		binInclusionProof, err := s.aht.InclusionProof(trustedTx.ID, targetTx.BlTxID)
+	if proof.TrustedTxID < proof.TargetBlTxID {
+		binInclusionProof, err := s.aht.InclusionProof(proof.TrustedTxID, proof.TargetBlTxID) // should match blRoot of TargetTx
 		if err != nil {
 			return nil, err
 		}
 		proof.BinaryInclusionProof = binInclusionProof
-
-		if trustedTx.ID > 1 {
-			binConsistencyProof, err := s.aht.ConsistencyProof(trustedTx.ID-1, jointTx.BlTxID)
-			if err != nil {
-				return nil, err
-			}
-			proof.BinaryConsistencyProof = binConsistencyProof
-		}
 	}
 
-	if proof.JointTxID < targetTx.ID {
-		lproof, err := s.LinearProof(maxUint64(trustedTx.ID, proof.JointTxID), targetTx.ID)
+	if proof.TrustedBlTxID > 0 {
+		binConsistencyProof, err := s.aht.ConsistencyProof(proof.TrustedBlTxID, proof.TargetBlTxID) // first root TrustedTxBlRoot, second one TargetTxBlRoot
+		if err != nil {
+			return nil, err
+		}
+		proof.BinaryConsistencyProof = binConsistencyProof
+	}
+
+	if proof.TargetBlTxID > 0 {
+		jointTx := s.NewTx()
+		err = s.ReadTx(proof.TargetBlTxID, jointTx)
 		if err != nil {
 			return nil, err
 		}
 
-		proof.LinearProof = lproof
+		proof.JointTxAlh = jointTx.Alh()
+
+		// Validate blRoot of TargetTx is calculated with alh of targetTx.BlTxID as last leaf
+		binLastInclusionProof, err := s.aht.InclusionProof(proof.TargetBlTxID, proof.TargetBlTxID) // should match blRoot of TargetTx
+		if err != nil {
+			return nil, err
+		}
+		proof.BinaryLastInclusionProof = binLastInclusionProof
 	}
+
+	lproof, err := s.LinearProof(maxUint64(trustedTx.ID, proof.TargetBlTxID), targetTx.ID)
+	if err != nil {
+		return nil, err
+	}
+	proof.LinearProof = lproof
 
 	return
 }
@@ -948,7 +968,7 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, e
 	proof := make([][sha256.Size]byte, targetTxID-trustedTxID+1)
 	proof[0] = tx.Alh()
 
-	var b [2 * sha256.Size]byte
+	var b [txIDSize + 2*sha256.Size]byte
 
 	for i := 1; i < len(proof); i++ {
 		tx, err := r.Read()
@@ -956,8 +976,9 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, e
 			return nil, err
 		}
 
-		copy(b[:], tx.BlRoot[:])
-		copy(b[sha256.Size:], tx.TxH[:])
+		binary.BigEndian.PutUint64(b[:], tx.BlTxID)
+		copy(b[txIDSize:], tx.BlRoot[:])
+		copy(b[txIDSize+sha256.Size:], tx.TxH[:])
 
 		proof[i] = sha256.Sum256(b[:])
 	}

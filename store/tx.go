@@ -121,10 +121,12 @@ func (tx *Tx) Alh() [sha256.Size]byte {
 	copy(bi[i:], tx.PrevAlh[:])
 	i += sha256.Size
 
-	var bj [2 * sha256.Size]byte
+	var bj [txIDSize + 2*sha256.Size]byte
 	j := 0
 
-	copy(bj[:], tx.BlRoot[:])
+	binary.BigEndian.PutUint64(bj[:], tx.BlTxID)
+	j += txIDSize
+	copy(bj[j:], tx.BlRoot[:])
 	j += sha256.Size
 	copy(bj[j:], tx.TxH[:])
 

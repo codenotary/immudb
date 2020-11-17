@@ -338,7 +338,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 }
 
 func TestImmudbStoreInclusionProof(t *testing.T) {
-	immuStore, err := Open("data_inclusion_proof", DefaultOptions())
+	immuStore, err := Open("data_inclusion_proof", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("data_inclusion_proof")
 
@@ -423,15 +423,123 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestLeavesMatchesAHTSync(t *testing.T) {
+	immuStore, err := Open("data_leaves_alh", DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0))
+	require.NoError(t, err)
+	defer os.RemoveAll("data_leaves_alh")
+
+	require.NotNil(t, immuStore)
+
+	txCount := 1000
+	eCount := 10
+
+	_, _, _, _, err = immuStore.Commit(nil)
+	require.Equal(t, ErrorNoEntriesProvided, err)
+
+	for i := 0; i < txCount; i++ {
+		kvs := make([]*KV, eCount)
+
+		for j := 0; j < eCount; j++ {
+			k := make([]byte, 8)
+			binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+			v := make([]byte, 8)
+			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+			kvs[j] = &KV{Key: k, Value: v}
+		}
+
+		id, _, _, _, err := immuStore.Commit(kvs)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i+1), id)
+	}
+
+	for {
+		n, err := immuStore.BlInfo()
+		require.NoError(t, err)
+		if n == uint64(txCount) {
+			break
+		}
+		time.Sleep(time.Duration(10) * time.Millisecond)
+	}
+
+	tx := immuStore.NewTx()
+	for i := 0; i < txCount; i++ {
+		err := immuStore.ReadTx(uint64(i+1), tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i+1), tx.ID)
+
+		p, err := immuStore.aht.DataAt(uint64(i + 1))
+		require.NoError(t, err)
+
+		alh := tx.Alh()
+		require.Equal(t, alh[:], p)
+	}
+}
+
+func TestLeavesMatchesAHTASync(t *testing.T) {
+	immuStore, err := Open("data_leaves_alh_async", DefaultOptions().WithSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("data_leaves_alh_async")
+
+	require.NotNil(t, immuStore)
+
+	txCount := 1000
+	eCount := 10
+
+	_, _, _, _, err = immuStore.Commit(nil)
+	require.Equal(t, ErrorNoEntriesProvided, err)
+
+	for i := 0; i < txCount; i++ {
+		kvs := make([]*KV, eCount)
+
+		for j := 0; j < eCount; j++ {
+			k := make([]byte, 8)
+			binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+			v := make([]byte, 8)
+			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+			kvs[j] = &KV{Key: k, Value: v}
+		}
+
+		id, _, _, _, err := immuStore.Commit(kvs)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i+1), id)
+	}
+
+	for {
+		n, err := immuStore.BlInfo()
+		require.NoError(t, err)
+		if n == uint64(txCount) {
+			break
+		}
+		time.Sleep(time.Duration(10) * time.Millisecond)
+	}
+
+	tx := immuStore.NewTx()
+	for i := 0; i < txCount; i++ {
+		err := immuStore.ReadTx(uint64(i+1), tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i+1), tx.ID)
+
+		p, err := immuStore.aht.DataAt(uint64(i + 1))
+		require.NoError(t, err)
+
+		alh := tx.Alh()
+		require.Equal(t, alh[:], p)
+	}
+}
+
 func TestImmudbStoreConsistencyProof(t *testing.T) {
-	immuStore, err := Open("data_consistency_proof", DefaultOptions())
+	immuStore, err := Open("data_consistency_proof", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("data_consistency_proof")
 
 	require.NotNil(t, immuStore)
 
 	txCount := 32
-	eCount := 100
+	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
@@ -484,13 +592,13 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
-	immuStore, err := Open("data_consistency_proof_latest", DefaultOptions())
+	immuStore, err := Open("data_consistency_proof_latest", DefaultOptions().WithSynced(false)) /*.WithMaxLinearProofLen(0)*/
 	require.NoError(t, err)
 	defer os.RemoveAll("data_consistency_proof_latest")
 
 	require.NotNil(t, immuStore)
 
-	txCount := 1000
+	txCount := 66
 	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
@@ -514,6 +622,15 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 		require.Equal(t, uint64(i+1), id)
 	}
 
+	for {
+		n, err := immuStore.BlInfo()
+		require.NoError(t, err)
+		if n == uint64(txCount) {
+			break
+		}
+		time.Sleep(time.Duration(10) * time.Millisecond)
+	}
+
 	trustedTx := immuStore.NewTx()
 	targetTx := immuStore.NewTx()
 
@@ -535,8 +652,14 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 		verifies := VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
 
 		if !verifies {
-			verifies = VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
+			lproof, err := immuStore.LinearProof(trustedTxID, targetTxID)
+			require.NoError(t, err)
+			verifies = VerifyLinearProof(lproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
 			require.True(t, verifies)
+
+			dproof, err = immuStore.DualProof(trustedTx, targetTx)
+			require.NoError(t, err)
+			verifies = VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
 		}
 
 		require.True(t, verifies)
@@ -547,7 +670,7 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
-	immuStore, err := Open("data_consistency_proof_reopen", DefaultOptions())
+	immuStore, err := Open("data_consistency_proof_reopen", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("data_consistency_proof_reopen")
 

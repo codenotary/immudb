@@ -329,7 +329,8 @@ func TestInclusionAndConsistencyProofs(t *testing.T) {
 			iproof, err := tree.InclusionProof(uint64(i), uint64(j))
 			require.NoError(t, err)
 
-			jroot, _ := tree.RootAt(uint64(j))
+			jroot, err := tree.RootAt(uint64(j))
+			require.NoError(t, err)
 
 			h := sha256.Sum256([]byte{byte(i)})
 
@@ -339,10 +340,27 @@ func TestInclusionAndConsistencyProofs(t *testing.T) {
 			cproof, err := tree.ConsistencyProof(uint64(i), uint64(j))
 			require.NoError(t, err)
 
-			iroot, _ := tree.RootAt(uint64(i))
+			iroot, err := tree.RootAt(uint64(i))
+			require.NoError(t, err)
 
 			verifies = VerifyConsistency(cproof, uint64(i), uint64(j), iroot, jroot)
+			require.True(t, verifies)
+		}
+	}
 
+	for i := 1; i <= N; i++ {
+		iproof, err := tree.InclusionProof(uint64(i), uint64(N))
+		require.NoError(t, err)
+
+		h := sha256.Sum256([]byte{byte(i)})
+		root, err := tree.RootAt(uint64(i))
+		require.NoError(t, err)
+
+		verifies := VerifyLastInclusion(iproof, uint64(i), h, root)
+
+		if i < N {
+			require.False(t, verifies)
+		} else {
 			require.True(t, verifies)
 		}
 	}

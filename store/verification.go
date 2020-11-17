@@ -55,37 +55,47 @@ func VerifyDualProof(proof *DualProof, trustedTxID, targetTxID uint64, trustedAl
 		return false
 	}
 
-	if proof.JointTxID == 0 {
-		return VerifyLinearProof(proof.LinearProof, proof.TrustedTxID, proof.TargetTxID, trustedAlh, targetAlh)
+	cTrustedAlh := alh(proof.TrustedTxID, proof.TrustedPrevAlh, proof.TrustedBlTxID, proof.TrustedBlRoot, proof.TrustedTxH)
+	if trustedAlh != cTrustedAlh {
+		return false
 	}
 
-	trustedLeaf := sha256.Sum256(trustedAlh[:])
-	jointBlRoot := ahtree.EvalInclusion(proof.BinaryInclusionProof, proof.TrustedTxID, proof.JointTxID-1, trustedLeaf)
+	cTargetAlh := alh(proof.TargetTxID, proof.TargetPrevAlh, proof.TargetBlTxID, proof.TargetBlRoot, proof.TargetTxH)
+	if targetAlh != cTargetAlh {
+		return false
+	}
 
-	if trustedTxID > 1 {
-		cTrustedBlRoot, cJointBlRoot := ahtree.EvalConsistency(proof.BinaryConsistencyProof, proof.TrustedTxID-1, proof.JointTxID-1)
-
-		if jointBlRoot != cJointBlRoot {
-			return false
-		}
-
-		cTrustedAlh := alh(trustedTxID, proof.TrustedPrevAlh, cTrustedBlRoot, proof.TrustedTxH)
-
-		if trustedAlh != cTrustedAlh {
+	if proof.TrustedTxID < proof.TargetBlTxID {
+		cTargetBlRoot := ahtree.EvalInclusion(proof.BinaryInclusionProof, trustedTxID, proof.TargetBlTxID, sha256.Sum256(trustedAlh[:]))
+		if proof.TargetBlRoot != cTargetBlRoot {
 			return false
 		}
 	}
 
-	jointAlh := alh(proof.JointTxID, proof.JointPrevAlh, jointBlRoot, proof.JointTxH)
+	if proof.TrustedBlTxID > 0 {
+		cTrustedBlRoot, c2TargetBlRoot := ahtree.EvalConsistency(proof.BinaryConsistencyProof, proof.TrustedBlTxID, proof.TargetBlTxID)
 
-	if proof.JointTxID == targetTxID {
-		return targetAlh == jointAlh
+		if proof.TrustedBlRoot != cTrustedBlRoot || proof.TargetBlRoot != c2TargetBlRoot {
+			return false
+		}
 	}
 
-	return VerifyLinearProof(proof.LinearProof, proof.JointTxID, proof.TargetTxID, jointAlh, targetAlh)
+	if proof.TargetBlTxID > 0 {
+		c2TargetBlRoot := ahtree.EvalLastInclusion(proof.BinaryLastInclusionProof, proof.TargetBlTxID, sha256.Sum256(proof.JointTxAlh[:]))
+
+		if proof.TargetBlRoot != c2TargetBlRoot {
+			return false
+		}
+	}
+
+	if proof.TrustedTxID < proof.TargetBlTxID {
+		return VerifyLinearProof(proof.LinearProof, proof.TargetBlTxID, targetTxID, proof.JointTxAlh, targetAlh)
+	}
+
+	return VerifyLinearProof(proof.LinearProof, trustedTxID, targetTxID, trustedAlh, targetAlh)
 }
 
-func alh(txID uint64, prevAlh [sha256.Size]byte, blRoot, txH [sha256.Size]byte) [sha256.Size]byte {
+func alh(txID uint64, prevAlh [sha256.Size]byte, blTxID uint64, blRoot, txH [sha256.Size]byte) [sha256.Size]byte {
 	var bi [txIDSize + 2*sha256.Size]byte
 	i := 0
 
@@ -94,10 +104,12 @@ func alh(txID uint64, prevAlh [sha256.Size]byte, blRoot, txH [sha256.Size]byte) 
 	copy(bi[i:], prevAlh[:])
 	i += sha256.Size
 
-	var bj [2 * sha256.Size]byte
+	var bj [txIDSize + 2*sha256.Size]byte
 	j := 0
 
-	copy(bj[:], blRoot[:])
+	binary.BigEndian.PutUint64(bj[:], blTxID)
+	j += txIDSize
+	copy(bj[j:], blRoot[:])
 	j += sha256.Size
 	copy(bj[j:], txH[:])
 
