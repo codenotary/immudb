@@ -297,9 +297,9 @@ func (t *treeStore) NewBatch(kvPairs *schema.KVList) []*treeStoreEntry {
 	return batch
 }
 
-// NewBatchOpsStartTs return the initial ts to be used inside batch ops
+// NewBatchOpsTsRange return the initial ts to be used inside batch ops
 // It's thread-safe.
-func (t *treeStore) NewBatchOpsStartTs(ops *schema.BatchOps) uint64 {
+func (t *treeStore) NewBatchOpsTsRange(ops *schema.BatchOps) uint64 {
 	size := uint64(len(ops.Operations))
 	lease := atomic.AddUint64(&t.ts, size)
 	return lease - size

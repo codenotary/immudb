@@ -29,7 +29,7 @@ func (l KVList) Validate() error {
 	for _, k := range l.GetKVs() {
 		b64k := base64.StdEncoding.EncodeToString(k.Key)
 		if _, ok := m[b64k]; ok {
-			return ErrDuplicateKeysNotSupported
+			return ErrDuplicatedKeysNotSupported
 		}
 		m[b64k] = struct{}{}
 	}

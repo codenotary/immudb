@@ -8,6 +8,6 @@ import (
 var (
 	ErrUnexpectedNotStructuredValue = status.New(codes.FailedPrecondition, "unexpected not structured value encountered").Err()
 	ErrEmptySet                     = status.New(codes.InvalidArgument, "empty set").Err()
-	ErrDuplicateKeysNotSupported    = status.New(codes.InvalidArgument, "duplicate keys are not supported in single batch transaction").Err()
-	ErrDuplicateZAddNotSupported    = status.New(codes.InvalidArgument, "duplicate zAdd insertions are not supported in single batch transaction").Err()
+	ErrDuplicatedKeysNotSupported   = status.New(codes.InvalidArgument, "duplicated keys are not supported in single batch transaction").Err()
+	ErrDuplicatedZAddNotSupported   = status.New(codes.InvalidArgument, "duplicated zAdd insertions are not supported in single batch transaction").Err()
 )

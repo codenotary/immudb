@@ -94,10 +94,10 @@ func (t *Store) SetBatchOps(ops *schema.BatchOps, options ...WriteOption) (index
 	// we build a map in which we store sha256 sum as key and the index as value
 	kmap := make(map[[32]byte]uint64)
 
-	// in order to get a monotone sequence of ts here is obtained a sequence lease
-	lease := t.tree.NewBatchOpsStartTs(ops)
+	// in order to get a monotone sequence of ts here is obtained a ts range
+	tsRange := t.tree.NewBatchOpsTsRange(ops)
 	for i, op := range ops.Operations {
-		ats := lease + uint64(i) + 1
+		ats := tsRange + uint64(i) + 1
 		switch x := op.Operation.(type) {
 		case *schema.BatchOp_KVs:
 			kvList.KVs = append(kvList.KVs, x.KVs)
