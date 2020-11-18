@@ -683,3 +683,120 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 		assert.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
 	}
 }
+
+func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualScore(t *testing.T) {
+	// Inserting 100 items:
+	// even items are stored on disk with regular sets
+	// odd ones are stored inside batch operations
+	// there are 50 batch Ops with zAdd operation for reference even items already stored
+	// and in addition 50 batch Ops with 1 kv operation for odd items and zAdd operation for reference them onFly
+
+	// items have same score. They will be returned in insertion order since key is composed by:
+	// {separator}{set}{separator}{score}{key}{bit index presence flag}{index}
+
+	dbDir := tmpDir()
+
+	st, _ := makeStoreAt(dbDir)
+
+	keyA := "A"
+
+	var index *schema.Index
+
+	for i := 1; i <= 10; i++ {
+		for j := 1; j <= 10; j++ {
+			// even
+			if j%2 == 0 {
+				val := fmt.Sprintf("%d,%d", i, j)
+				index, _ = st.Set(schema.KeyValue{
+					Key:   []byte(keyA),
+					Value: []byte(val),
+				})
+				assert.NotNil(t, index)
+			}
+		}
+	}
+
+	st.tree.close(true)
+	st.Close()
+
+	st, closer := makeStoreAt(dbDir)
+	defer closer()
+
+	st.tree.WaitUntil(49)
+
+	wg := sync.WaitGroup{}
+	wg.Add(100)
+
+	gIdx := uint64(0)
+
+	for i := 1; i <= 10; i++ {
+		for j := 1; j <= 10; j++ {
+			aOps := &schema.BatchOps{
+				Operations: []*schema.BatchOp{},
+			}
+
+			// odd
+			if j%2 != 0 {
+				val := fmt.Sprintf("%d,%d", i, j)
+				aOp := &schema.BatchOp{
+					Operation: &schema.BatchOp_KVs{
+						KVs: &schema.KeyValue{
+							Key:   []byte(keyA),
+							Value: []byte(val),
+						},
+					},
+				}
+				aOps.Operations = append(aOps.Operations, aOp)
+				index = nil
+			} else {
+				index = &schema.Index{Index: gIdx}
+				gIdx++
+			}
+
+			float, err := strconv.ParseFloat(fmt.Sprintf("%d", j), 64)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			refKey := keyA
+			set := strconv.FormatUint(uint64(j), 10)
+			aOp := &schema.BatchOp{
+				Operation: &schema.BatchOp_ZOpts{
+					ZOpts: &schema.ZAddOptions{
+						Set: []byte(set),
+						Key: []byte(refKey),
+						Score: &schema.Score{
+							Score: float,
+						},
+						Index: index,
+					},
+				},
+			}
+			aOps.Operations = append(aOps.Operations, aOp)
+			go func() {
+				idx, err := st.SetBatchOps(aOps)
+				assert.NoError(t, err)
+				assert.NotNil(t, idx)
+				wg.Done()
+			}()
+		}
+
+	}
+	wg.Wait()
+
+	history, err := st.History(&schema.HistoryOptions{
+		Key: []byte(keyA),
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, history)
+	for i := 1; i <= 10; i++ {
+		set := strconv.FormatUint(uint64(i), 10)
+		zList, err := st.ZScan(schema.ZScanOptions{
+			Set: []byte(set),
+		})
+		assert.NoError(t, err)
+		assert.NoError(t, err)
+		// item are returned in insertion order since they have same score
+		assert.Len(t, zList.Items, 10)
+	}
+}

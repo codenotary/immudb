@@ -259,9 +259,12 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 	defer txn.Discard()
 
 	var referenceValue []byte
+	var index *schema.Index
+	var key []byte
+
 	if options.Zopts.Index != nil {
 		// convert to internal timestamp for itemAt
-		_, key, _, err := t.itemAt(options.Zopts.Index.Index + 1)
+		_, key, _, err = t.itemAt(options.Zopts.Index.Index + 1)
 		if err != nil {
 			return nil, mapError(err)
 		}
@@ -269,8 +272,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 			return nil, ErrIndexKeyMismatch
 		}
 		// here we append the index to the reference value
-		referenceValue = WrapZIndexReference(key, options.Zopts.Index)
-
+		index = options.Zopts.Index
 	} else {
 		var i *badger.Item
 		i, err = txn.Get(options.Zopts.Key)
@@ -278,10 +280,12 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 			return nil, mapError(err)
 		}
 		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
-		referenceValue = WrapZIndexReference(i.Key(), nil)
+		key = i.KeyCopy(nil)
+		index = nil
 	}
 
-	ik := BuildSetKey(options.Zopts.Key, options.Zopts.Set, options.Zopts.Score.Score)
+	ik := BuildSetKey(options.Zopts.Key, options.Zopts.Set, options.Zopts.Score.Score, index)
+	referenceValue = WrapZIndexReference(key, index)
 
 	tsEntry := t.tree.NewEntry(ik, referenceValue)
 
@@ -293,7 +297,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 		return nil, mapError(err)
 	}
 
-	index := tsEntry.Index()
+	idx := tsEntry.Index()
 	leaf := tsEntry.HashCopy()
 
 	if err = txn.SetEntry(&badger.Entry{
@@ -311,7 +315,7 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 	}
 
 	t.tree.Commit(tsEntry)
-	t.tree.WaitUntil(index)
+	t.tree.WaitUntil(idx)
 
 	t.tree.RLock()
 	defer t.tree.RUnlock()
@@ -321,10 +325,10 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 
 	proof = &schema.Proof{
 		Leaf:            leaf,
-		Index:           index,
+		Index:           idx,
 		Root:            root[:],
 		At:              at,
-		InclusionPath:   merkletree.InclusionProof(t.tree, at, index).ToSlice(),
+		InclusionPath:   merkletree.InclusionProof(t.tree, at, idx).ToSlice(),
 		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
 	}
 

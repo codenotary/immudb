@@ -24,8 +24,8 @@ import (
 
 var _SetSeparator = []byte(`_~|IMMU|~_`)
 
-// BuildSetKey composes the key of the set {separator}{set}{separator}{score}{key}
-func BuildSetKey(key []byte, set []byte, score float64) (ik []byte) {
+// BuildSetKey composes the key of the set {separator}{set}{separator}{score}{key}{bit index presence flag}{index}
+func BuildSetKey(key []byte, set []byte, score float64, index *schema.Index) (ik []byte) {
 	i, s, vl, sl := len(set), binary.Size(score), len(key), len(_SetSeparator)
 	c := make([]byte, i+s+vl+sl+sl)
 
@@ -34,10 +34,11 @@ func BuildSetKey(key []byte, set []byte, score float64) (ik []byte) {
 	copy(c[sl+i:], _SetSeparator)
 	copy(c[sl+i+sl:], Float642bytes(score))
 	copy(c[sl+i+sl+s:], key[:]) // array to slice conversion. shorthand for x[0:len(x)]
-	return c
+
+	return WrapZIndexReference(c, index)
 }
 
-// SetKeyScore return the score of an item given key ans set name
+// SetKeyScore return the score of an item given key and set name
 func SetKeyScore(key []byte, set []byte) (score float64) {
 	c := make([]byte, 8)
 	copy(c, key[len(_SetSeparator)+len(set)+len(_SetSeparator):len(_SetSeparator)+len(set)+len(_SetSeparator)+8])
