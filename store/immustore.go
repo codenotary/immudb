@@ -55,7 +55,7 @@ var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = errors.New("key not found")
 
-var ErrTrustedTxNotOlderThanTargetTx = errors.New("trusted tx is not older than target tx")
+var ErrSourceTxNotOlderThanTargetTx = errors.New("source tx is not older than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
@@ -861,65 +861,69 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	return nil
 }
 
+type TxMetadata struct {
+	ID      uint64
+	PrevAlh [sha256.Size]byte
+	TxH     [sha256.Size]byte
+	BlTxID  uint64
+	BlRoot  [sha256.Size]byte
+}
+
 type DualProof struct {
-	TrustedTxID              uint64
-	TargetTxID               uint64
+	SourceTxMetadata         TxMetadata
+	TargetTxMetadata         TxMetadata
 	BinaryInclusionProof     [][sha256.Size]byte
 	BinaryConsistencyProof   [][sha256.Size]byte
-	BinaryLastInclusionProof [][sha256.Size]byte
-	TrustedPrevAlh           [sha256.Size]byte
-	TrustedTxH               [sha256.Size]byte
-	TrustedBlTxID            uint64
-	TrustedBlRoot            [sha256.Size]byte
-	TargetPrevAlh            [sha256.Size]byte
-	TargetTxH                [sha256.Size]byte
-	TargetBlTxID             uint64
-	TargetBlRoot             [sha256.Size]byte
 	TargetBlTxAlh            [sha256.Size]byte
+	BinaryLastInclusionProof [][sha256.Size]byte
 	LinearProof              *LinearProof
 }
 
-func (s *ImmuStore) DualProof(trustedTx, targetTx *Tx) (proof *DualProof, err error) {
-	if trustedTx == nil || targetTx == nil {
+func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err error) {
+	if sourceTx == nil || targetTx == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	if trustedTx.ID >= targetTx.ID {
-		return nil, ErrTrustedTxNotOlderThanTargetTx
+	if sourceTx.ID >= targetTx.ID {
+		return nil, ErrSourceTxNotOlderThanTargetTx
 	}
 
 	proof = &DualProof{
-		TrustedTxID:    trustedTx.ID,
-		TargetTxID:     targetTx.ID,
-		TrustedPrevAlh: trustedTx.PrevAlh,
-		TrustedTxH:     trustedTx.TxH,
-		TrustedBlTxID:  trustedTx.BlTxID,
-		TrustedBlRoot:  trustedTx.BlRoot,
-		TargetPrevAlh:  targetTx.PrevAlh,
-		TargetTxH:      targetTx.TxH,
-		TargetBlTxID:   targetTx.BlTxID,
-		TargetBlRoot:   targetTx.BlRoot,
+		SourceTxMetadata: TxMetadata{
+			ID:      sourceTx.ID,
+			PrevAlh: sourceTx.PrevAlh,
+			TxH:     sourceTx.TxH,
+			BlTxID:  sourceTx.BlTxID,
+			BlRoot:  sourceTx.BlRoot,
+		},
+		TargetTxMetadata: TxMetadata{
+			ID:      targetTx.ID,
+			PrevAlh: targetTx.PrevAlh,
+			TxH:     targetTx.TxH,
+			BlTxID:  targetTx.BlTxID,
+			BlRoot:  targetTx.BlRoot,
+		},
 	}
 
-	if proof.TrustedTxID < proof.TargetBlTxID {
-		binInclusionProof, err := s.aht.InclusionProof(proof.TrustedTxID, proof.TargetBlTxID) // should match blRoot of TargetTx
+	if sourceTx.ID < targetTx.BlTxID {
+		binInclusionProof, err := s.aht.InclusionProof(sourceTx.ID, targetTx.BlTxID) // should match blRoot of TargetTx
 		if err != nil {
 			return nil, err
 		}
 		proof.BinaryInclusionProof = binInclusionProof
 	}
 
-	if proof.TrustedBlTxID > 0 {
-		binConsistencyProof, err := s.aht.ConsistencyProof(proof.TrustedBlTxID, proof.TargetBlTxID) // first root TrustedTxBlRoot, second one TargetTxBlRoot
+	if sourceTx.BlTxID > 0 {
+		binConsistencyProof, err := s.aht.ConsistencyProof(sourceTx.BlTxID, targetTx.BlTxID) // first root SourceTxBlRoot, second one TargetTxBlRoot
 		if err != nil {
 			return nil, err
 		}
 		proof.BinaryConsistencyProof = binConsistencyProof
 	}
 
-	if proof.TargetBlTxID > 0 {
+	if targetTx.BlTxID > 0 {
 		targetBlTx := s.NewTx()
-		err = s.ReadTx(proof.TargetBlTxID, targetBlTx)
+		err = s.ReadTx(targetTx.BlTxID, targetBlTx)
 		if err != nil {
 			return nil, err
 		}
@@ -927,14 +931,14 @@ func (s *ImmuStore) DualProof(trustedTx, targetTx *Tx) (proof *DualProof, err er
 		proof.TargetBlTxAlh = targetBlTx.Alh()
 
 		// Validate blRoot of TargetTx is calculated with alh of targetTx.BlTxID as last leaf
-		binLastInclusionProof, err := s.aht.InclusionProof(proof.TargetBlTxID, proof.TargetBlTxID) // should match blRoot of TargetTx
+		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.BlTxID, targetTx.BlTxID) // should match blRoot of TargetTx
 		if err != nil {
 			return nil, err
 		}
 		proof.BinaryLastInclusionProof = binLastInclusionProof
 	}
 
-	lproof, err := s.LinearProof(maxUint64(trustedTx.ID, proof.TargetBlTxID), targetTx.ID)
+	lproof, err := s.LinearProof(maxUint64(sourceTx.ID, targetTx.BlTxID), targetTx.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -944,29 +948,29 @@ func (s *ImmuStore) DualProof(trustedTx, targetTx *Tx) (proof *DualProof, err er
 }
 
 type LinearProof struct {
-	TrustedTxID uint64
-	TargetTxID  uint64
-	Proof       [][sha256.Size]byte
+	SourceTxID uint64
+	TargetTxID uint64
+	Proof      [][sha256.Size]byte
 }
 
-// LinearProof returns a list of hashes to calculate Alh@targetTxID from Alh@trustedTxID
-func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, error) {
-	if trustedTxID >= targetTxID {
-		return nil, ErrTrustedTxNotOlderThanTargetTx
+// LinearProof returns a list of hashes to calculate Alh@targetTxID from Alh@sourceTxID
+func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, error) {
+	if sourceTxID >= targetTxID {
+		return nil, ErrSourceTxNotOlderThanTargetTx
 	}
 
-	if int(targetTxID-trustedTxID+1) > s.maxLinearProofLen {
+	if int(targetTxID-sourceTxID+1) > s.maxLinearProofLen {
 		return nil, ErrLinearProofMaxLenExceeded
 	}
 
-	r, err := s.NewTxReader(trustedTxID, s.maxTxSize)
+	r, err := s.NewTxReader(sourceTxID, s.maxTxSize)
 
 	tx, err := r.Read()
 	if err != nil {
 		return nil, err
 	}
 
-	proof := make([][sha256.Size]byte, targetTxID-trustedTxID+1)
+	proof := make([][sha256.Size]byte, targetTxID-sourceTxID+1)
 	proof[0] = tx.Alh()
 
 	for i := 1; i < len(proof); i++ {
@@ -984,9 +988,9 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, e
 	}
 
 	return &LinearProof{
-		TrustedTxID: trustedTxID,
-		TargetTxID:  targetTxID,
-		Proof:       proof,
+		SourceTxID: sourceTxID,
+		TargetTxID: targetTxID,
+		Proof:      proof,
 	}, nil
 }
 
