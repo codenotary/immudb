@@ -74,7 +74,6 @@ func VerifyDualProof(proof *DualProof, trustedTxID, targetTxID uint64, trustedAl
 
 	if proof.TrustedBlTxID > 0 {
 		cTrustedBlRoot, c2TargetBlRoot := ahtree.EvalConsistency(proof.BinaryConsistencyProof, proof.TrustedBlTxID, proof.TargetBlTxID)
-
 		if proof.TrustedBlRoot != cTrustedBlRoot || proof.TargetBlRoot != c2TargetBlRoot {
 			return false
 		}
@@ -82,7 +81,6 @@ func VerifyDualProof(proof *DualProof, trustedTxID, targetTxID uint64, trustedAl
 
 	if proof.TargetBlTxID > 0 {
 		c2TargetBlRoot := ahtree.EvalLastInclusion(proof.BinaryLastInclusionProof, proof.TargetBlTxID, sha256.Sum256(proof.JointTxAlh[:]))
-
 		if proof.TargetBlRoot != c2TargetBlRoot {
 			return false
 		}
@@ -97,25 +95,17 @@ func VerifyDualProof(proof *DualProof, trustedTxID, targetTxID uint64, trustedAl
 
 func alh(txID uint64, prevAlh [sha256.Size]byte, blTxID uint64, blRoot, txH [sha256.Size]byte) [sha256.Size]byte {
 	var bi [txIDSize + 2*sha256.Size]byte
-	i := 0
 
 	binary.BigEndian.PutUint64(bi[:], txID)
-	i += txIDSize
-	copy(bi[i:], prevAlh[:])
-	i += sha256.Size
+	copy(bi[txIDSize:], prevAlh[:])
 
 	var bj [txIDSize + 2*sha256.Size]byte
-	j := 0
-
 	binary.BigEndian.PutUint64(bj[:], blTxID)
-	j += txIDSize
-	copy(bj[j:], blRoot[:])
-	j += sha256.Size
-	copy(bj[j:], txH[:])
+	copy(bj[txIDSize:], blRoot[:])
+	copy(bj[txIDSize+sha256.Size:], txH[:])
+	innerHash := sha256.Sum256(bj[:]) // hash(blTxID + blRoot + txH)
 
-	bhash := sha256.Sum256(bj[:])
-
-	copy(bi[i:], bhash[:])
+	copy(bi[txIDSize+sha256.Size:], innerHash[:]) // hash(txID + prevAlh + innerHash)
 
 	return sha256.Sum256(bi[:])
 }

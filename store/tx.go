@@ -108,33 +108,27 @@ func (tx *Tx) Entries() []*Txe {
 	return tx.entries[:tx.nentries]
 }
 
+// Alh calculates the Accumulative Linear Hash up to this transaction
+// Alh is calculated as hash(txID + prevAlh + hash(blTxID + blRoot + txH))
+// Inner hash is calculated so to reduce the length of linear proofs
 func (tx *Tx) Alh() [sha256.Size]byte {
 	if tx.ID == tx._alhTxID {
 		return tx._alh
 	}
 
 	var bi [txIDSize + 2*sha256.Size]byte
-	i := 0
-
 	binary.BigEndian.PutUint64(bi[:], tx.ID)
-	i += txIDSize
-	copy(bi[i:], tx.PrevAlh[:])
-	i += sha256.Size
+	copy(bi[txIDSize:], tx.PrevAlh[:])
 
 	var bj [txIDSize + 2*sha256.Size]byte
-	j := 0
-
 	binary.BigEndian.PutUint64(bj[:], tx.BlTxID)
-	j += txIDSize
-	copy(bj[j:], tx.BlRoot[:])
-	j += sha256.Size
-	copy(bj[j:], tx.TxH[:])
+	copy(bj[txIDSize:], tx.BlRoot[:])
+	copy(bj[txIDSize+sha256.Size:], tx.TxH[:])
+	innerHash := sha256.Sum256(bj[:]) // hash(blTxID + blRoot + txH)
 
-	bhash := sha256.Sum256(bj[:])
+	copy(bi[txIDSize+sha256.Size:], innerHash[:])
 
-	copy(bi[i:], bhash[:])
-
-	tx._alh = sha256.Sum256(bi[:])
+	tx._alh = sha256.Sum256(bi[:]) // hash(txID + prevAlh + innerHash)
 	tx._alhTxID = tx.ID
 
 	return tx._alh

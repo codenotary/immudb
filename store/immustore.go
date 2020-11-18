@@ -949,6 +949,7 @@ type LinearProof struct {
 	Proof       [][sha256.Size]byte
 }
 
+// LinearProof returns a list of hashes to calculate Alh@targetTxID from Alh@trustedTxID
 func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, error) {
 	if trustedTxID >= targetTxID {
 		return nil, ErrTrustedTxNotOlderThanTargetTx
@@ -968,19 +969,18 @@ func (s *ImmuStore) LinearProof(trustedTxID, targetTxID uint64) (*LinearProof, e
 	proof := make([][sha256.Size]byte, targetTxID-trustedTxID+1)
 	proof[0] = tx.Alh()
 
-	var b [txIDSize + 2*sha256.Size]byte
-
 	for i := 1; i < len(proof); i++ {
 		tx, err := r.Read()
 		if err != nil {
 			return nil, err
 		}
 
+		var b [txIDSize + 2*sha256.Size]byte
 		binary.BigEndian.PutUint64(b[:], tx.BlTxID)
 		copy(b[txIDSize:], tx.BlRoot[:])
 		copy(b[txIDSize+sha256.Size:], tx.TxH[:])
 
-		proof[i] = sha256.Sum256(b[:])
+		proof[i] = sha256.Sum256(b[:]) // hash(blTxID + blRoot + txH)
 	}
 
 	return &LinearProof{
