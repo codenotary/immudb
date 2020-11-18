@@ -930,7 +930,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 
 		proof.TargetBlTxAlh = targetBlTx.Alh()
 
-		// Validate blRoot of TargetTx is calculated with alh of targetTx.BlTxID as last leaf
+		// Used to validate blRoot of TargetTx is calculated with alh@targetTx.BlTxID as last leaf
 		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.BlTxID, targetTx.BlTxID) // should match blRoot of TargetTx
 		if err != nil {
 			return nil, err
