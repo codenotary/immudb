@@ -871,11 +871,11 @@ type DualProof struct {
 	TrustedTxH               [sha256.Size]byte
 	TrustedBlTxID            uint64
 	TrustedBlRoot            [sha256.Size]byte
-	TargetBlTxID             uint64
-	TargetBlRoot             [sha256.Size]byte
 	TargetPrevAlh            [sha256.Size]byte
 	TargetTxH                [sha256.Size]byte
-	JointTxAlh               [sha256.Size]byte
+	TargetBlTxID             uint64
+	TargetBlRoot             [sha256.Size]byte
+	TargetBlTxAlh            [sha256.Size]byte
 	LinearProof              *LinearProof
 }
 
@@ -895,10 +895,10 @@ func (s *ImmuStore) DualProof(trustedTx, targetTx *Tx) (proof *DualProof, err er
 		TrustedTxH:     trustedTx.TxH,
 		TrustedBlTxID:  trustedTx.BlTxID,
 		TrustedBlRoot:  trustedTx.BlRoot,
-		TargetBlTxID:   targetTx.BlTxID,
-		TargetBlRoot:   targetTx.BlRoot,
 		TargetPrevAlh:  targetTx.PrevAlh,
 		TargetTxH:      targetTx.TxH,
+		TargetBlTxID:   targetTx.BlTxID,
+		TargetBlRoot:   targetTx.BlRoot,
 	}
 
 	if proof.TrustedTxID < proof.TargetBlTxID {
@@ -918,13 +918,13 @@ func (s *ImmuStore) DualProof(trustedTx, targetTx *Tx) (proof *DualProof, err er
 	}
 
 	if proof.TargetBlTxID > 0 {
-		jointTx := s.NewTx()
-		err = s.ReadTx(proof.TargetBlTxID, jointTx)
+		targetBlTx := s.NewTx()
+		err = s.ReadTx(proof.TargetBlTxID, targetBlTx)
 		if err != nil {
 			return nil, err
 		}
 
-		proof.JointTxAlh = jointTx.Alh()
+		proof.TargetBlTxAlh = targetBlTx.Alh()
 
 		// Validate blRoot of TargetTx is calculated with alh of targetTx.BlTxID as last leaf
 		binLastInclusionProof, err := s.aht.InclusionProof(proof.TargetBlTxID, proof.TargetBlTxID) // should match blRoot of TargetTx

@@ -80,14 +80,14 @@ func VerifyDualProof(proof *DualProof, trustedTxID, targetTxID uint64, trustedAl
 	}
 
 	if proof.TargetBlTxID > 0 {
-		c2TargetBlRoot := ahtree.EvalLastInclusion(proof.BinaryLastInclusionProof, proof.TargetBlTxID, sha256.Sum256(proof.JointTxAlh[:]))
+		c2TargetBlRoot := ahtree.EvalLastInclusion(proof.BinaryLastInclusionProof, proof.TargetBlTxID, sha256.Sum256(proof.TargetBlTxAlh[:]))
 		if proof.TargetBlRoot != c2TargetBlRoot {
 			return false
 		}
 	}
 
 	if proof.TrustedTxID < proof.TargetBlTxID {
-		return VerifyLinearProof(proof.LinearProof, proof.TargetBlTxID, targetTxID, proof.JointTxAlh, targetAlh)
+		return VerifyLinearProof(proof.LinearProof, proof.TargetBlTxID, targetTxID, proof.TargetBlTxAlh, targetAlh)
 	}
 
 	return VerifyLinearProof(proof.LinearProof, trustedTxID, targetTxID, trustedAlh, targetAlh)
