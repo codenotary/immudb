@@ -495,7 +495,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 
 // getSortedSetKeyVal return a key value pair that represent a sorted set entry.
 // If skipPersistenceCheck is true and index is not provided reference lookup is disabled.
-// This is used in batchAtomicOperation, to enable an key value creation with index insertion in the same transaction.
+// This is used in batchOps, to enable an key value creation with reference insertion in the same transaction.
 func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions, skipPersistenceCheck bool) (k, v []byte, err error) {
 
 	var referenceValue []byte

@@ -3,7 +3,6 @@ package schema
 import (
 	"bytes"
 	"crypto/sha256"
-	"strconv"
 )
 
 func (m *BatchOps) Validate() error {
@@ -21,7 +20,7 @@ func (m *BatchOps) Validate() error {
 			}
 			mops[mk] = struct{}{}
 		case *BatchOp_ZOpts:
-			mk := sha256.Sum256(bytes.Join([][]byte{x.ZOpts.Set, x.ZOpts.Key, []byte(x.ZOpts.Index.String()), []byte(strconv.FormatFloat(x.ZOpts.Score.Score, 'f', -1, 64))}, nil))
+			mk := sha256.Sum256(bytes.Join([][]byte{x.ZOpts.Set, x.ZOpts.Key, []byte(x.ZOpts.Index.String())}, nil))
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedZAddNotSupported
 			}
