@@ -592,7 +592,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
-	immuStore, err := Open("data_consistency_proof_latest", DefaultOptions().WithSynced(false)) /*.WithMaxLinearProofLen(0)*/
+	immuStore, err := Open("data_consistency_proof_latest", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("data_consistency_proof_latest")
 

@@ -964,7 +964,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 		return nil, ErrSourceTxNewerThanTargetTx
 	}
 
-	if int(targetTxID-sourceTxID+1) > s.maxLinearProofLen {
+	if s.maxLinearProofLen > 0 && int(targetTxID-sourceTxID+1) > s.maxLinearProofLen {
 		return nil, ErrLinearProofMaxLenExceeded
 	}
 
