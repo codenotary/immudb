@@ -154,7 +154,8 @@ func TestSetBatchAtomicOperations(t *testing.T) {
 	}
 	zList, err := st.ZScan(zScanOpt)
 	assert.NoError(t, err)
-	assert.Len(t, zList.Items, batchSize)
+	println(len(zList.Items))
+	assert.Len(t, zList.Items, batchSize*10)
 }
 
 func TestSetBatchAtomicOperationsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
@@ -429,10 +430,12 @@ func TestBatchOps_ValidateErrZAddIndexMissing(t *testing.T) {
 	aOps := &schema.BatchOps{
 		Operations: []*schema.BatchOp{
 			{
-				Operation: &schema.BatchOp_KVs{
-					KVs: &schema.KeyValue{
-						Key:   []byte(`key1`),
-						Value: []byte(`val1`),
+				Operation: &schema.BatchOp_ZOpts{
+					ZOpts: &schema.ZAddOptions{
+						Key: []byte(`persistedKey`),
+						Score: &schema.Score{
+							Score: 5.6,
+						},
 					},
 				},
 			},
