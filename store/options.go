@@ -35,6 +35,8 @@ const DefaultFileSize = multiapp.DefaultFileSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 
+const MaxFileSize = 1 << 50 // 1 Pb
+
 type Options struct {
 	readOnly bool
 	synced   bool
@@ -106,11 +108,22 @@ func DefaultIndexOptions() *IndexOptions {
 
 func validOptions(opts *Options) bool {
 	return opts != nil &&
-		opts.maxKeyLen <= MaxKeyLen &&
 		opts.maxConcurrency > 0 &&
 		opts.maxIOConcurrency > 0 &&
 		opts.maxIOConcurrency <= MaxParallelIO &&
 		opts.maxLinearProofLen >= 0 &&
+
+		opts.vLogMaxOpenedFiles > 0 &&
+		opts.txLogMaxOpenedFiles > 0 &&
+		opts.commitLogMaxOpenedFiles > 0 &&
+
+		// options below are only set during initialization and stored as metadata
+		opts.maxTxEntries > 0 &&
+		opts.maxKeyLen > 0 &&
+		opts.maxKeyLen <= MaxKeyLen &&
+		opts.maxValueLen > 0 &&
+		opts.fileSize > 0 &&
+		opts.fileSize < MaxFileSize &&
 		validIndexOptions(opts.indexOpts)
 }
 
