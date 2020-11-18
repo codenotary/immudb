@@ -17,6 +17,8 @@ package store
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,4 +42,69 @@ func TestVerifyLinearProofEdgeCases(t *testing.T) {
 func TestVerifyDualProofEdgeCases(t *testing.T) {
 	require.False(t, VerifyDualProof(nil, 0, 0, sha256.Sum256(nil), sha256.Sum256(nil)))
 	require.False(t, VerifyDualProof(&DualProof{}, 0, 0, sha256.Sum256(nil), sha256.Sum256(nil)))
+
+	immuStore, err := Open("data_dualproof_edge_cases", DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0))
+	require.NoError(t, err)
+	defer os.RemoveAll("data_dualproof_edge_cases")
+
+	require.NotNil(t, immuStore)
+
+	txCount := 10
+	eCount := 4
+
+	for i := 0; i < txCount; i++ {
+		kvs := make([]*KV, eCount)
+
+		for j := 0; j < eCount; j++ {
+			k := make([]byte, 8)
+			binary.BigEndian.PutUint64(k, uint64(i<<4+j))
+
+			v := make([]byte, 8)
+			binary.BigEndian.PutUint64(v, uint64(i<<4+(eCount-j)))
+
+			kvs[j] = &KV{Key: k, Value: v}
+		}
+
+		id, _, _, _, err := immuStore.Commit(kvs)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i+1), id)
+	}
+
+	sourceTx := immuStore.NewTx()
+	targetTx := immuStore.NewTx()
+
+	targetTxID := uint64(txCount)
+	err = immuStore.ReadTx(targetTxID, targetTx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(txCount), targetTx.ID)
+
+	for i := 0; i < txCount-1; i++ {
+		sourceTxID := uint64(i + 1)
+
+		err := immuStore.ReadTx(sourceTxID, sourceTx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i+1), sourceTx.ID)
+
+		dproof, err := immuStore.DualProof(sourceTx, targetTx)
+		require.NoError(t, err)
+
+		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+		require.True(t, verifies)
+
+		// Alter proof
+		dproof.SourceTxMetadata.BlTxID++
+		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+		require.False(t, verifies)
+
+		// Restore proof
+		dproof.SourceTxMetadata.BlTxID--
+
+		// Alter proof
+		dproof.TargetTxMetadata.BlTxID++
+		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+		require.False(t, verifies)
+	}
+
+	err = immuStore.Close()
+	require.NoError(t, err)
 }
