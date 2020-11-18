@@ -158,6 +158,73 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 
 }
 
+func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)})
+	i2, _ := st.Set(schema.KeyValue{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)})
+	i3, _ := st.Set(schema.KeyValue{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)})
+
+	score := float64(1.1)
+
+	zaddOpts1 := schema.ZAddOptions{
+		Set:   []byte(`hashA`),
+		Score: &schema.Score{Score: score},
+		Key:   []byte(`SignerId1`),
+		Index: i1,
+	}
+
+	reference1, err1 := st.ZAdd(zaddOpts1)
+
+	assert.NoError(t, err1)
+	assert.Exactly(t, reference1.Index, uint64(3))
+	assert.NotEmptyf(t, reference1, "Should not be empty")
+
+	zaddOpts2 := schema.ZAddOptions{
+		Key:   []byte(`SignerId1`),
+		Set:   []byte(`hashA`),
+		Score: &schema.Score{Score: score},
+		Index: i2,
+	}
+
+	reference2, err2 := st.ZAdd(zaddOpts2)
+
+	assert.NoError(t, err2)
+	assert.Exactly(t, reference2.Index, uint64(4))
+	assert.NotEmptyf(t, reference2, "Should not be empty")
+
+	zaddOpts3 := schema.ZAddOptions{
+		Key:   []byte(`SignerId2`),
+		Set:   []byte(`hashA`),
+		Score: &schema.Score{Score: score},
+		Index: i3,
+	}
+
+	reference3, err3 := st.ZAdd(zaddOpts3)
+
+	assert.NoError(t, err3)
+	assert.Exactly(t, reference3.Index, uint64(5))
+	assert.NotEmptyf(t, reference3, "Should not be empty")
+
+	zscanOpts1 := schema.ZScanOptions{
+		Set:     []byte(`hashA`),
+		Reverse: false,
+	}
+
+	itemList1, err := st.ZScan(zscanOpts1)
+
+	assert.NoError(t, err)
+	assert.Len(t, itemList1.Items, 3)
+	assert.Equal(t, []byte(`SignerId1`), itemList1.Items[0].Item.Key)
+	assert.Equal(t, []byte(`firstValue`), itemList1.Items[0].Item.Value)
+	assert.Equal(t, []byte(`SignerId1`), itemList1.Items[1].Item.Key)
+	assert.Equal(t, []byte(`secondValue`), itemList1.Items[1].Item.Value)
+	assert.Equal(t, []byte(`SignerId2`), itemList1.Items[2].Item.Key)
+	assert.Equal(t, []byte(`thirdValue`), itemList1.Items[2].Item.Value)
+
+}
+
 func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()

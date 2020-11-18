@@ -385,7 +385,7 @@ func TestStoreSafeZAdd(t *testing.T) {
 	assert.NotNil(t, proof1)
 	assert.Equal(t, uint64(3), proof1.Index)
 
-	key := BuildSetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score.Score)
+	key := BuildSetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score.Score, nil)
 	leaf := api.Digest(proof1.Index, key, WrapZIndexReference(safeZAddOptions1.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
 	verified := proof1.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
@@ -414,7 +414,7 @@ func TestStoreSafeZAdd(t *testing.T) {
 	assert.NotNil(t, proof2)
 	assert.Equal(t, uint64(4), proof2.Index)
 
-	key2 := BuildSetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score.Score)
+	key2 := BuildSetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score.Score, nil)
 
 	leaf2 := api.Digest(proof2.Index, key2, WrapZIndexReference(safeZAddOptions2.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
@@ -500,7 +500,7 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 	assert.NotNil(t, proof1)
 	assert.Equal(t, uint64(3), proof1.Index)
 
-	key := BuildSetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score.Score)
+	key := BuildSetKey(safeZAddOptions1.Zopts.Key, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score.Score, nil)
 
 	leaf := api.Digest(proof1.Index, key, WrapZIndexReference(safeZAddOptions1.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
@@ -530,7 +530,7 @@ func TestStoreBySafeIndexOnSafeZAdd(t *testing.T) {
 	assert.NotNil(t, proof2)
 	assert.Equal(t, uint64(4), proof2.Index)
 
-	key2 := BuildSetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score.Score)
+	key2 := BuildSetKey(safeZAddOptions2.Zopts.Key, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score.Score, nil)
 
 	leaf2 := api.Digest(proof2.Index, key2, WrapZIndexReference(safeZAddOptions2.Zopts.Key, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.

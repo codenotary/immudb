@@ -499,8 +499,9 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions, skipPersistenceCheck bool) (k, v []byte, err error) {
 
 	var referenceValue []byte
+	var index *schema.Index
+	var key []byte
 	if zaddOpts.Index != nil {
-		var key []byte
 		if !skipPersistenceCheck {
 			// convert to internal timestamp for itemAt, that returns the index
 			_, key, _, err = t.itemAt(zaddOpts.Index.Index + 1)
@@ -514,9 +515,8 @@ func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions
 			key = zaddOpts.Key
 		}
 		// here we append the index to the reference value
-		referenceValue = WrapZIndexReference(key, zaddOpts.Index)
+		index = zaddOpts.Index
 	} else {
-		var key []byte
 		if !skipPersistenceCheck {
 			var i *badger.Item
 			i, err = txn.Get(zaddOpts.Key)
@@ -531,10 +531,11 @@ func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions
 			key = zaddOpts.Key
 		}
 		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
-		referenceValue = WrapZIndexReference(key, nil)
+		index = nil
 	}
+	ik := BuildSetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score.Score, index)
 
-	ik := BuildSetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score.Score)
+	referenceValue = WrapZIndexReference(key, index)
 
 	return ik, referenceValue, err
 }
