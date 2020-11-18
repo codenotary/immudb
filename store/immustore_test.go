@@ -562,27 +562,27 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 		require.Equal(t, uint64(i+1), id)
 	}
 
-	trustedTx := immuStore.NewTx()
+	sourceTx := immuStore.NewTx()
 	targetTx := immuStore.NewTx()
 
 	for i := 0; i < txCount; i++ {
-		trustedTxID := uint64(i + 1)
+		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(trustedTxID, trustedTx)
+		err := immuStore.ReadTx(sourceTxID, sourceTx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), trustedTx.ID)
+		require.Equal(t, uint64(i+1), sourceTx.ID)
 
-		for j := i + 1; j < txCount; j++ {
+		for j := i; j < txCount; j++ {
 			targetTxID := uint64(j + 1)
 
 			err := immuStore.ReadTx(targetTxID, targetTx)
 			require.NoError(t, err)
 			require.Equal(t, uint64(j+1), targetTx.ID)
 
-			dproof, err := immuStore.DualProof(trustedTx, targetTx)
+			dproof, err := immuStore.DualProof(sourceTx, targetTx)
 			require.NoError(t, err)
 
-			verifies := VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
+			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
 			require.True(t, verifies)
 		}
 	}
@@ -631,7 +631,7 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
 
-	trustedTx := immuStore.NewTx()
+	sourceTx := immuStore.NewTx()
 	targetTx := immuStore.NewTx()
 
 	targetTxID := uint64(txCount)
@@ -640,16 +640,16 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 	require.Equal(t, uint64(txCount), targetTx.ID)
 
 	for i := 0; i < txCount-1; i++ {
-		trustedTxID := uint64(i + 1)
+		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(trustedTxID, trustedTx)
+		err := immuStore.ReadTx(sourceTxID, sourceTx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), trustedTx.ID)
+		require.Equal(t, uint64(i+1), sourceTx.ID)
 
-		dproof, err := immuStore.DualProof(trustedTx, targetTx)
+		dproof, err := immuStore.DualProof(sourceTx, targetTx)
 		require.NoError(t, err)
 
-		verifies := VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
+		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
 		require.True(t, verifies)
 	}
 
@@ -711,15 +711,15 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 		require.Equal(t, uint64(i+1), txi.ID)
 	}
 
-	trustedTx := immuStore.NewTx()
+	sourceTx := immuStore.NewTx()
 	targetTx := immuStore.NewTx()
 
 	for i := 0; i < txCount; i++ {
-		trustedTxID := uint64(i + 1)
+		sourceTxID := uint64(i + 1)
 
-		err := immuStore.ReadTx(trustedTxID, trustedTx)
+		err := immuStore.ReadTx(sourceTxID, sourceTx)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), trustedTx.ID)
+		require.Equal(t, uint64(i+1), sourceTx.ID)
 
 		for j := i + 1; j < txCount; j++ {
 			targetTxID := uint64(j + 1)
@@ -728,16 +728,16 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, uint64(j+1), targetTx.ID)
 
-			lproof, err := immuStore.LinearProof(trustedTxID, targetTxID)
+			lproof, err := immuStore.LinearProof(sourceTxID, targetTxID)
 			require.NoError(t, err)
 
-			verifies := VerifyLinearProof(lproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
+			verifies := VerifyLinearProof(lproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
 			require.True(t, verifies)
 
-			dproof, err := immuStore.DualProof(trustedTx, targetTx)
+			dproof, err := immuStore.DualProof(sourceTx, targetTx)
 			require.NoError(t, err)
 
-			verifies = VerifyDualProof(dproof, trustedTxID, targetTxID, trustedTx.Alh(), targetTx.Alh())
+			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
 			require.True(t, verifies)
 		}
 	}

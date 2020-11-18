@@ -55,7 +55,7 @@ var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = errors.New("key not found")
 
-var ErrSourceTxNotOlderThanTargetTx = errors.New("source tx is not older than target tx")
+var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
 
 const MaxKeyLen = 1024 // assumed to be not lower than hash size
@@ -884,8 +884,8 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		return nil, ErrIllegalArguments
 	}
 
-	if sourceTx.ID >= targetTx.ID {
-		return nil, ErrSourceTxNotOlderThanTargetTx
+	if sourceTx.ID > targetTx.ID {
+		return nil, ErrSourceTxNewerThanTargetTx
 	}
 
 	proof = &DualProof{
@@ -955,8 +955,8 @@ type LinearProof struct {
 
 // LinearProof returns a list of hashes to calculate Alh@targetTxID from Alh@sourceTxID
 func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, error) {
-	if sourceTxID >= targetTxID {
-		return nil, ErrSourceTxNotOlderThanTargetTx
+	if sourceTxID > targetTxID {
+		return nil, ErrSourceTxNewerThanTargetTx
 	}
 
 	if int(targetTxID-sourceTxID+1) > s.maxLinearProofLen {
