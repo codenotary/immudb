@@ -40,19 +40,12 @@ type ImmuServiceClientMock struct {
 	LoginF            func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error)
 	LogoutF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	SetF              func(ctx context.Context, in *schema.KeyValue, opts ...grpc.CallOption) (*schema.Index, error)
-	SetSVF            func(ctx context.Context, in *schema.StructuredKeyValue, opts ...grpc.CallOption) (*schema.Index, error)
 	SafeSetF          func(ctx context.Context, in *schema.SafeSetOptions, opts ...grpc.CallOption) (*schema.Proof, error)
-	SafeSetSVF        func(ctx context.Context, in *schema.SafeSetSVOptions, opts ...grpc.CallOption) (*schema.Proof, error)
 	GetF              func(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.Item, error)
-	GetSVF            func(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.StructuredItem, error)
 	SafeGetF          func(ctx context.Context, in *schema.SafeGetOptions, opts ...grpc.CallOption) (*schema.SafeItem, error)
-	SafeGetSVF        func(ctx context.Context, in *schema.SafeGetOptions, opts ...grpc.CallOption) (*schema.SafeStructuredItem, error)
 	SetBatchF         func(ctx context.Context, in *schema.KVList, opts ...grpc.CallOption) (*schema.Index, error)
-	SetBatchSVF       func(ctx context.Context, in *schema.SKVList, opts ...grpc.CallOption) (*schema.Index, error)
 	GetBatchF         func(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error)
-	GetBatchSVF       func(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.StructuredItemList, error)
 	ScanF             func(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error)
-	ScanSVF           func(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error)
 	CountF            func(ctx context.Context, in *schema.KeyPrefix, opts ...grpc.CallOption) (*schema.ItemsCount, error)
 	CountAllF         func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ItemsCount, error)
 	CurrentRootF      func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error)
@@ -60,24 +53,21 @@ type ImmuServiceClientMock struct {
 	ConsistencyF      func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.ConsistencyProof, error)
 	ByIndexF          func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.Item, error)
 	BySafeIndexF      func(ctx context.Context, in *schema.SafeIndexOptions, opts ...grpc.CallOption) (*schema.SafeItem, error)
-	ByIndexSVF        func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.StructuredItem, error)
 	HistoryF          func(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error)
-	HistorySVF        func(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error)
 	HealthF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error)
 	ReferenceF        func(ctx context.Context, in *schema.ReferenceOptions, opts ...grpc.CallOption) (*schema.Index, error)
 	SafeReferenceF    func(ctx context.Context, in *schema.SafeReferenceOptions, opts ...grpc.CallOption) (*schema.Proof, error)
 	ZAddF             func(ctx context.Context, in *schema.ZAddOptions, opts ...grpc.CallOption) (*schema.Index, error)
 	ZScanF            func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error)
-	ZScanSVF          func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.StructuredItemList, error)
 	SafeZAddF         func(ctx context.Context, in *schema.SafeZAddOptions, opts ...grpc.CallOption) (*schema.Proof, error)
 	IScanF            func(ctx context.Context, in *schema.IScanOptions, opts ...grpc.CallOption) (*schema.Page, error)
-	IScanSVF          func(ctx context.Context, in *schema.IScanOptions, opts ...grpc.CallOption) (*schema.SPage, error)
 	DumpF             func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (schema.ImmuService_DumpClient, error)
 	CreateDatabaseF   func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error)
 	UseDatabaseF      func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error)
 	ChangePermissionF func(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SetActiveUserF    func(ctx context.Context, in *schema.SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	DatabaseListF     func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error)
+	SetBatchOpsF      func(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error)
 }
 
 func (iscm *ImmuServiceClientMock) CurrentRoot(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
@@ -159,6 +149,16 @@ func (icm *ImmuServiceClientMock) CreateUser(ctx context.Context, in *schema.Cre
 	return icm.CreateUserF(ctx, in, opts...)
 }
 
+func (icm *ImmuServiceClientMock) SetBatch(ctx context.Context, in *schema.KVList, opts ...grpc.CallOption) (*schema.Index, error) {
+	return icm.SetBatchF(ctx, in, opts...)
+}
+func (icm *ImmuServiceClientMock) GetBatch(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error) {
+	return icm.GetBatchF(ctx, in, opts...)
+}
+func (icm *ImmuServiceClientMock) SetBatchOps(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error) {
+	return icm.SetBatchOpsF(ctx, in, opts...)
+}
+
 func NewImmuServiceClientMock() *ImmuServiceClientMock {
 	bs := &ImmuServiceClientMock{
 		HealthF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {
@@ -205,6 +205,15 @@ func NewImmuServiceClientMock() *ImmuServiceClientMock {
 		},
 		CreateUserF: func(ctx context.Context, in *schema.CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 			return &empty.Empty{}, nil
+		},
+		SetBatchF: func(ctx context.Context, in *schema.KVList, opts ...grpc.CallOption) (*schema.Index, error) {
+			return &schema.Index{}, nil
+		},
+		GetBatchF: func(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error) {
+			return &schema.ItemList{}, nil
+		},
+		SetBatchOpsF: func(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error) {
+			return &schema.Index{}, nil
 		},
 	}
 	return bs
