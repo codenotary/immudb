@@ -1149,7 +1149,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 		return nil, err
 	}
 
-	keySet := store.BuildSetKey(key, set, score)
+	keySet := store.BuildSetKey(key, set, score, nil)
 
 	// This guard ensures that result.Leaf is equal to the item's hash computed
 	// from request values. From now on, result.Leaf can be trusted.
