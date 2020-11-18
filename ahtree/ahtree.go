@@ -331,17 +331,24 @@ func (t *AHtree) node(n uint64, l int) (h [sha256.Size]byte, err error) {
 }
 
 func (t *AHtree) nodeAt(i uint64) (h [sha256.Size]byte, err error) {
-	v, cErr := t.dCache.Get(i)
-	if cErr == cache.ErrKeyNotFound {
-		_, err = t.dLog.ReadAt(h[:], int64(i*sha256.Size))
-		if err != nil {
-			return
-		}
-		t.dCache.Put(i, h)
+	v, err := t.dCache.Get(i)
+
+	if err == nil {
+		return v.([sha256.Size]byte), nil
+	}
+
+	if err != cache.ErrKeyNotFound {
 		return
 	}
 
-	return v.([sha256.Size]byte), nil
+	_, err = t.dLog.ReadAt(h[:], int64(i*sha256.Size))
+	if err != nil {
+		return
+	}
+
+	_, _, err = t.dCache.Put(i, h)
+
+	return h, err
 }
 
 func nodesUntil(n uint64) uint64 {
@@ -543,26 +550,33 @@ func (t *AHtree) DataAt(n uint64) ([]byte, error) {
 	}
 
 	v, err := t.pCache.Get(n)
-	if err == cache.ErrKeyNotFound {
-		var b [cLogEntrySize]byte
-		_, err := t.cLog.ReadAt(b[:], int64((n-1)*cLogEntrySize))
-		if err != nil {
-			return nil, err
-		}
 
-		pOff := binary.BigEndian.Uint64(b[:])
-		pSize := binary.BigEndian.Uint32(b[offsetSize:])
-
-		p := make([]byte, pSize)
-		_, err = t.pLog.ReadAt(p[:], int64(pOff+szSize))
-		if err != nil {
-			return nil, err
-		}
-
-		t.pCache.Put(n, p)
-		return p, nil
+	if err == nil {
+		return v.([]byte), nil
 	}
-	return v.([]byte), nil
+
+	if err != cache.ErrKeyNotFound {
+		return nil, err
+	}
+
+	var b [cLogEntrySize]byte
+	_, err = t.cLog.ReadAt(b[:], int64((n-1)*cLogEntrySize))
+	if err != nil {
+		return nil, err
+	}
+
+	pOff := binary.BigEndian.Uint64(b[:])
+	pSize := binary.BigEndian.Uint32(b[offsetSize:])
+
+	p := make([]byte, pSize)
+	_, err = t.pLog.ReadAt(p[:], int64(pOff+szSize))
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, err = t.pCache.Put(n, p)
+
+	return p, err
 }
 
 func (t *AHtree) Root() (n uint64, r [sha256.Size]byte, err error) {
