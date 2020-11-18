@@ -85,7 +85,7 @@ func TestSetBatchDuplicatedKey(t *testing.T) {
 			},
 		}},
 	)
-	assert.Equal(t, schema.ErrDuplicateKeysNotSupported, err)
+	assert.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
 }
 
 func TestSetBatchAsynch(t *testing.T) {
@@ -335,7 +335,7 @@ func TestSetBatchAtomicOperationsDuplicatedKey(t *testing.T) {
 	}
 	_, err := st.SetBatchOps(aOps)
 
-	assert.Equal(t, schema.ErrDuplicateKeysNotSupported, err)
+	assert.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
 }
 
 func TestSetBatchAtomicOperationsDuplicatedKeyZAdd(t *testing.T) {
@@ -375,7 +375,7 @@ func TestSetBatchAtomicOperationsDuplicatedKeyZAdd(t *testing.T) {
 	}
 	_, err := st.SetBatchOps(aOps)
 
-	assert.Equal(t, schema.ErrDuplicateZAddNotSupported, err)
+	assert.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
 }
 
 func TestSetBatchAtomicOperationsAsynch(t *testing.T) {

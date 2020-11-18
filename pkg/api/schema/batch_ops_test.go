@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestBatchOps_ValidateErrDuplicateKeysNotSupported(t *testing.T) {
+func TestBatchOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 	aOps := &BatchOps{
 		Operations: []*BatchOp{
 			{
@@ -37,7 +37,7 @@ func TestBatchOps_ValidateErrDuplicateKeysNotSupported(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	assert.Equal(t, err, ErrDuplicateKeysNotSupported)
+	assert.Equal(t, err, ErrDuplicatedKeysNotSupported)
 
 }
 
@@ -81,7 +81,7 @@ func TestBatchOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	assert.Equal(t, err, ErrDuplicateZAddNotSupported)
+	assert.Equal(t, err, ErrDuplicatedZAddNotSupported)
 }
 
 func TestBatchOps_ValidateErrEmptySet(t *testing.T) {
