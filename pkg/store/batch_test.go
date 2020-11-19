@@ -275,6 +275,29 @@ func TestSetBatchOpsZAddKeyNotFound(t *testing.T) {
 func TestSetBatchOpsNilElementFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
+	bOps := make([]*schema.BatchOp, 2)
+	op := &schema.BatchOp{
+		Operation: &schema.BatchOp_ZOpts{
+			ZOpts: &schema.ZAddOptions{
+				Key: []byte(`key`),
+				Score: &schema.Score{
+					Score: 5.6,
+				},
+				Index: &schema.Index{
+					Index: 4,
+				},
+			},
+		},
+	}
+	bOps[1] = op
+	aOps := &schema.BatchOps{Operations: bOps}
+	_, err := st.SetBatchOps(aOps)
+	assert.Equal(t, status.Error(codes.InvalidArgument, "batchOp is not set"), err)
+}
+
+func TestSetOperationNilElementFound(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
 	aOps := &schema.BatchOps{
 		Operations: []*schema.BatchOp{
 			{
@@ -283,7 +306,7 @@ func TestSetBatchOpsNilElementFound(t *testing.T) {
 		},
 	}
 	_, err := st.SetBatchOps(aOps)
-	assert.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation is not set"))
+	assert.Equal(t, err, status.Error(codes.InvalidArgument, "operation is not set"))
 }
 
 func TestSetBatchOpsUnexpectedType(t *testing.T) {
