@@ -152,11 +152,24 @@ func (icm *ImmuServiceClientMock) CreateUser(ctx context.Context, in *schema.Cre
 func (icm *ImmuServiceClientMock) SetBatch(ctx context.Context, in *schema.KVList, opts ...grpc.CallOption) (*schema.Index, error) {
 	return icm.SetBatchF(ctx, in, opts...)
 }
+
 func (icm *ImmuServiceClientMock) GetBatch(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error) {
 	return icm.GetBatchF(ctx, in, opts...)
 }
+
 func (icm *ImmuServiceClientMock) SetBatchOps(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error) {
 	return icm.SetBatchOpsF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) Inclusion(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.InclusionProof, error) {
+	return icm.InclusionF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) Consistency(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.ConsistencyProof, error) {
+	return icm.ConsistencyF(ctx, in, opts...)
+}
+func (icm *ImmuServiceClientMock) ByIndex(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.Item, error) {
+	return icm.ByIndexF(ctx, in, opts...)
 }
 
 func NewImmuServiceClientMock() *ImmuServiceClientMock {
@@ -214,6 +227,15 @@ func NewImmuServiceClientMock() *ImmuServiceClientMock {
 		},
 		SetBatchOpsF: func(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error) {
 			return &schema.Index{}, nil
+		},
+		InclusionF: func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.InclusionProof, error) {
+			return &schema.InclusionProof{}, nil
+		},
+		ConsistencyF: func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.ConsistencyProof, error) {
+			return &schema.ConsistencyProof{}, nil
+		},
+		ByIndexF: func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.Item, error) {
+			return &schema.Item{}, nil
 		},
 	}
 	return bs
