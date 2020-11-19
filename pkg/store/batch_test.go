@@ -108,7 +108,7 @@ func TestSetBatchAsynch(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSetBatchAtomicOperations(t *testing.T) {
+func TestSetBatchOps(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -158,7 +158,7 @@ func TestSetBatchAtomicOperations(t *testing.T) {
 	assert.Len(t, zList.Items, batchSize*10)
 }
 
-func TestSetBatchAtomicOperationsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
+func TestSetBatchOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 	dbDir := tmpDir()
 
 	st, _ := makeStoreAt(dbDir)
@@ -219,7 +219,7 @@ func TestSetBatchAtomicOperationsZAddOnMixedAlreadyPersitedNotPersistedItems(t *
 	assert.Equal(t, []byte(`persistedKey`), list.Items[1].Item.Key)
 }
 
-func TestSetBatchAtomicOperationsEmptyList(t *testing.T) {
+func TestSetBatchOpsEmptyList(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 	aOps := &schema.BatchOps{
@@ -229,7 +229,7 @@ func TestSetBatchAtomicOperationsEmptyList(t *testing.T) {
 	assert.Equal(t, schema.ErrEmptySet, err)
 }
 
-func TestSetBatchAtomicOperationsInvalidKvKey(t *testing.T) {
+func TestSetBatchOpsInvalidKvKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 	aOps := &schema.BatchOps{
@@ -248,7 +248,7 @@ func TestSetBatchAtomicOperationsInvalidKvKey(t *testing.T) {
 	assert.Equal(t, ErrInvalidKey, err)
 }
 
-func TestSetBatchAtomicOperationsZAddKeyNotFound(t *testing.T) {
+func TestSetBatchOpsZAddKeyNotFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 	aOps := &schema.BatchOps{
@@ -272,7 +272,7 @@ func TestSetBatchAtomicOperationsZAddKeyNotFound(t *testing.T) {
 	assert.Equal(t, ErrIndexNotFound, err)
 }
 
-func TestSetBatchAtomicOperationsNilElementFound(t *testing.T) {
+func TestSetBatchOpsNilElementFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 	aOps := &schema.BatchOps{
@@ -286,7 +286,7 @@ func TestSetBatchAtomicOperationsNilElementFound(t *testing.T) {
 	assert.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation is not set"))
 }
 
-func TestSetBatchAtomicOperationsUnexpectedType(t *testing.T) {
+func TestSetBatchOpsUnexpectedType(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 	aOps := &schema.BatchOps{
@@ -300,7 +300,7 @@ func TestSetBatchAtomicOperationsUnexpectedType(t *testing.T) {
 	assert.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation has unexpected type *schema.Op_Unexpected"))
 }
 
-func TestSetBatchAtomicOperationsDuplicatedKey(t *testing.T) {
+func TestSetBatchOpsDuplicatedKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 	aOps := &schema.BatchOps{
@@ -338,7 +338,7 @@ func TestSetBatchAtomicOperationsDuplicatedKey(t *testing.T) {
 	assert.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
 }
 
-func TestSetBatchAtomicOperationsDuplicatedKeyZAdd(t *testing.T) {
+func TestSetBatchOpsDuplicatedKeyZAdd(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 	aOps := &schema.BatchOps{
@@ -378,7 +378,7 @@ func TestSetBatchAtomicOperationsDuplicatedKeyZAdd(t *testing.T) {
 	assert.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
 }
 
-func TestSetBatchAtomicOperationsAsynch(t *testing.T) {
+func TestSetBatchOpsAsynch(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -801,5 +801,39 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualSco
 		assert.NoError(t, err)
 		// item are returned in insertion order since they have same score
 		assert.Len(t, zList.Items, 10)
+	}
+}
+
+func TestSetBatchOpsMonotoneTsRange(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	batchSize := 100
+
+	atomicOps := make([]*schema.BatchOp, batchSize)
+
+	for i := 0; i < batchSize; i++ {
+		key := []byte(strconv.FormatUint(uint64(i), 10))
+		value := []byte(strconv.FormatUint(uint64(batchSize+batchSize+i), 10))
+		atomicOps[i] = &schema.BatchOp{
+			Operation: &schema.BatchOp_KVs{
+				KVs: &schema.KeyValue{
+					Key:   key,
+					Value: value,
+				},
+			},
+		}
+	}
+	idx, err := st.SetBatchOps(&schema.BatchOps{Operations: atomicOps})
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(batchSize), idx.GetIndex()+1)
+
+	for i := 0; i < batchSize; i++ {
+		item, err := st.ByIndex(schema.Index{
+			Index: uint64(i),
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, []byte(strconv.FormatUint(uint64(batchSize+batchSize+i), 10)), item.Value)
+		assert.Equal(t, uint64(i), item.Index)
 	}
 }
