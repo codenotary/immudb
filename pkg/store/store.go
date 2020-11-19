@@ -553,6 +553,12 @@ func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
 	t.tree.Lock()
 	defer t.tree.Unlock()
 
+	defer close(kvChan)
+
+	if t.tree.w == 0 {
+		return nil
+	}
+
 	t.tree.flush()
 
 	stream := t.db.NewStreamAt(t.tree.w)
@@ -563,8 +569,6 @@ func (t *Store) Dump(kvChan chan *pb.KVList) (err error) {
 		kvChan <- list
 		return nil
 	}
-
-	defer close(kvChan)
 
 	// Run the stream
 	return stream.Orchestrate(context.Background())

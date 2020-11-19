@@ -262,6 +262,37 @@ func TestDump(t *testing.T) {
 	assert.Equal(t, 18, len(lists[0].Kv), "All keys was retrieved")
 }
 
+func TestDumpEmptyDB(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	done := make(chan bool)
+	kvChan := make(chan *pb.KVList, 1)
+
+	var lists []*pb.KVList
+	retrieveLists := func() {
+		for {
+			list, more := <-kvChan
+			if more {
+				lists = append(lists, list)
+				fmt.Println("send kv:" + strconv.Itoa(len(lists)))
+				fmt.Println("len list kv:" + strconv.Itoa(len(list.Kv)))
+			} else {
+				fmt.Println("received all lists")
+				done <- true
+				return
+			}
+		}
+	}
+
+	go retrieveLists()
+	err := st.Dump(kvChan)
+	<-done
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(lists))
+}
+
 func TestDumpAfterOpening(t *testing.T) {
 	dbDir := tmpDir()
 	st, _ := makeStoreAt(dbDir)
