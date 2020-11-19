@@ -206,6 +206,9 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	}
 
 	_, err = r.Read(tx.TxH[:])
+	if err != nil {
+		return err
+	}
 
 	tx.buildHashTree()
 

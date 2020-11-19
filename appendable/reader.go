@@ -40,6 +40,13 @@ func NewReaderFrom(rAt io.ReaderAt, off int64, size int) *Reader {
 	}
 }
 
+func (r *Reader) Reset() {
+	r.dataIndex = 0
+	r.eof = false
+	r.readIndex = 0
+	r.offset = 0
+}
+
 func (r *Reader) Offset() int64 {
 	return r.offset
 }

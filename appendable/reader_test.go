@@ -30,6 +30,8 @@ func TestReader(t *testing.T) {
 	r := NewReaderFrom(a, 0, 1024)
 	require.NotNil(t, r)
 
+	r.Reset()
+
 	require.Equal(t, int64(0), r.Offset())
 
 	a.ReadAtFn = func(bs []byte, off int64) (int, error) {
