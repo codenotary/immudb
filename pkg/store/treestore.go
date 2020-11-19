@@ -375,8 +375,7 @@ func (t *treeStore) flush() {
 			}
 			t.lastFlushed = t.w
 		}
-		//workaround possible badger bug
-		//Commit cannot be called with managedDB=true. Use CommitAt.
+
 		if !emptyCaches {
 			err := wb.Flush()
 			if err != nil {
@@ -392,7 +391,6 @@ func (t *treeStore) flush() {
 			continue
 		}
 		emptyCaches = false
-		// fmt.Printf("Flushing [l=%d, head=%d, tail=%d] from %d to (%d-1)\n", l, c.Head(), c.Tail(), t.cPos[l], tail)
 		if !t.flushLeaves && l == 0 {
 			continue
 		}
@@ -404,7 +402,6 @@ func (t *treeStore) flush() {
 				if l == 0 {
 					value = t.rcache.Get(i).([]byte)
 				}
-				// fmt.Printf("Storing [l=%d, i=%d]\n", l, i)
 				entry := badger.Entry{
 					Key:      treeKey(uint8(l), i),
 					Value:    value,

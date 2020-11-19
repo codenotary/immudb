@@ -34,6 +34,7 @@ import (
 	"github.com/codenotary/merkletree"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var root64th = [sha256.Size]byte{0xb1, 0xbe, 0x73, 0xef, 0x38, 0x8e, 0x7e, 0xd3, 0x79, 0x71, 0x7, 0x26, 0xd1, 0x19, 0xa5, 0x35, 0xb8, 0x67, 0x24, 0x12, 0x48, 0x25, 0x7a, 0x7e, 0x2e, 0x34, 0x32, 0x29, 0x65, 0x60, 0xdf, 0xf9}
@@ -259,6 +260,62 @@ func TestDump(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(lists))
 	assert.Equal(t, 18, len(lists[0].Kv), "All keys was retrieved")
+}
+
+func TestDumpAfterOpening(t *testing.T) {
+	dbDir := tmpDir()
+	st, _ := makeStoreAt(dbDir)
+
+	for n := uint64(0); n <= 4; n++ {
+		key := []byte(strconv.FormatUint(n, 10))
+		kv := schema.KeyValue{
+			Key:   key,
+			Value: largeItem,
+		}
+		index, err := st.Set(kv)
+		require.NoError(t, err, "n=%d", n)
+		require.Equal(t, n, index.Index, "n=%d", n)
+	}
+
+	kv2 := schema.KeyValue{
+		Key:   []byte(strconv.FormatUint(1, 10)),
+		Value: []byte(`secondval`),
+	}
+	_, err := st.Set(kv2)
+	require.NoError(t, err)
+
+	err = st.Close()
+	require.NoError(t, err)
+
+	st, closer := makeStoreAt(dbDir)
+	defer closer()
+
+	done := make(chan bool)
+	kvChan := make(chan *pb.KVList, 1)
+
+	var lists []*pb.KVList
+	retrieveLists := func() {
+		for {
+			list, more := <-kvChan
+			if more {
+				lists = append(lists, list)
+				fmt.Println("send kv:" + strconv.Itoa(len(lists)))
+				fmt.Println("len list kv:" + strconv.Itoa(len(list.Kv)))
+			} else {
+				fmt.Println("received all lists")
+				done <- true
+				return
+			}
+		}
+	}
+
+	go retrieveLists()
+	err = st.Dump(kvChan)
+	<-done
+
+	require.NoError(t, err)
+	require.Equal(t, 1, len(lists))
+	require.Equal(t, 18, len(lists[0].Kv), "All keys was retrieved")
 }
 
 func TestLargeDump(t *testing.T) {
