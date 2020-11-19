@@ -14,6 +14,6 @@ pkey = "./tools/mtls/3_application/private/localhost.key.pem"
 certificate = "./tools/mtls/3_application/certs/localhost.cert.pem"
 clientcas = "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem"
 devmode = true
-admin-password = "immudb"
+admin-password = "immudb" # this password is only used once to initialize immudb and can be ignored
 maintenance = false
 signingKey = ""
