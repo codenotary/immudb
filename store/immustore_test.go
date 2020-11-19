@@ -116,6 +116,50 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestImmudbStoreOpenWithInvalidPath(t *testing.T) {
+	_, err := Open("immustore_test.go", DefaultOptions())
+	require.Error(t, ErrorPathIsNotADirectory, err)
+}
+
+func TestImmudbStoreOnClosedStore(t *testing.T) {
+	immuStore, err := Open("closed_store", DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("closed_store")
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+
+	err = immuStore.Close()
+	require.Error(t, ErrAlreadyClosed, err)
+
+	err = immuStore.Sync()
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, _, _, _, err = immuStore.Commit(nil)
+	require.Error(t, ErrAlreadyClosed, err)
+
+	err = immuStore.ReadTx(1, nil)
+	require.Error(t, ErrAlreadyClosed, err)
+
+	_, err = immuStore.NewTxReader(1, 1024)
+	require.Error(t, ErrAlreadyClosed, err)
+}
+
+func TestImmudbStoreSettings(t *testing.T) {
+	immuStore, err := Open("store_settings", DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("store_settings")
+
+	require.Equal(t, DefaultOptions().readOnly, immuStore.ReadOnly())
+	require.Equal(t, DefaultOptions().synced, immuStore.Synced())
+	require.Equal(t, DefaultOptions().maxConcurrency, immuStore.MaxConcurrency())
+	require.Equal(t, DefaultOptions().maxIOConcurrency, immuStore.MaxIOConcurrency())
+	require.Equal(t, DefaultOptions().maxTxEntries, immuStore.MaxTxEntries())
+	require.Equal(t, DefaultOptions().maxKeyLen, immuStore.MaxKeyLen())
+	require.Equal(t, DefaultOptions().maxValueLen, immuStore.MaxValueLen())
+	require.Equal(t, DefaultOptions().maxLinearProofLen, immuStore.MaxLinearProofLen())
+}
+
 func TestImmudbStoreIndexing(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false)
 	immuStore, err := Open("data_indexing", opts)

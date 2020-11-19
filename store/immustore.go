@@ -357,19 +357,25 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		committedTxLogSize: committedTxLogSize,
 		committedTxID:      committedTxID,
 		committedAlh:       committedAlh,
-		readOnly:           opts.readOnly,
-		synced:             opts.synced,
-		maxTxEntries:       maxTxEntries,
-		maxKeyLen:          maxKeyLen,
-		maxValueLen:        maxValueLen,
-		maxLinearProofLen:  opts.maxLinearProofLen,
-		maxTxSize:          maxTxSize,
-		index:              index,
-		blBuffer:           blBuffer,
-		aht:                aht,
-		_kvs:               kvs,
-		_txs:               txs,
-		_txbs:              txbs,
+
+		readOnly:          opts.readOnly,
+		synced:            opts.synced,
+		maxConcurrency:    opts.maxConcurrency,
+		maxIOConcurrency:  opts.maxIOConcurrency,
+		maxTxEntries:      maxTxEntries,
+		maxKeyLen:         maxKeyLen,
+		maxValueLen:       maxValueLen,
+		maxLinearProofLen: opts.maxLinearProofLen,
+
+		maxTxSize: maxTxSize,
+
+		index:    index,
+		blBuffer: blBuffer,
+		aht:      aht,
+
+		_kvs:  kvs,
+		_txs:  txs,
+		_txbs: txbs,
 	}
 
 	err = store.syncBinaryLinking()
@@ -531,24 +537,36 @@ func maxTxSize(maxTxEntries, maxKeyLen int) int {
 		sha256.Size /*txH*/
 }
 
-func (s *ImmuStore) MaxValueLen() int {
-	return s.maxValueLen
+func (s *ImmuStore) ReadOnly() bool {
+	return s.readOnly
 }
 
-func (s *ImmuStore) MaxKeyLen() int {
-	return s.maxKeyLen
+func (s *ImmuStore) Synced() bool {
+	return s.synced
 }
 
 func (s *ImmuStore) MaxConcurrency() int {
 	return s.maxConcurrency
 }
 
-func (s *ImmuStore) MaxLinearProofLen() int {
-	return s.maxLinearProofLen
+func (s *ImmuStore) MaxIOConcurrency() int {
+	return s.maxIOConcurrency
 }
 
 func (s *ImmuStore) MaxTxEntries() int {
 	return s.maxTxEntries
+}
+
+func (s *ImmuStore) MaxKeyLen() int {
+	return s.maxKeyLen
+}
+
+func (s *ImmuStore) MaxValueLen() int {
+	return s.maxValueLen
+}
+
+func (s *ImmuStore) MaxLinearProofLen() int {
+	return s.maxLinearProofLen
 }
 
 func (s *ImmuStore) TxCount() uint64 {
