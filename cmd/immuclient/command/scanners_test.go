@@ -19,6 +19,7 @@ package immuclient
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -32,6 +33,7 @@ import (
 )
 
 func TestZScan(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -77,6 +79,7 @@ func TestZScan(t *testing.T) {
 }
 
 func TestIScan(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -120,6 +123,7 @@ func TestIScan(t *testing.T) {
 }
 
 func TestScan(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -164,6 +168,7 @@ func TestScan(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
