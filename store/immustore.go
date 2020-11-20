@@ -412,21 +412,25 @@ func (s *ImmuStore) binaryLinking() {
 			continue
 		}
 
-		if err != nil {
-			s.blMutex.Lock()
-			s.blErr = err
-			s.blMutex.Unlock()
-			return
+		if err == nil {
+			_, _, err = s.aht.Append(alh[:])
+			if err == ErrAlreadyClosed {
+				return
+			}
 		}
 
-		_, _, err = s.aht.Append(alh[:])
 		if err != nil {
-			s.blMutex.Lock()
-			s.blErr = err
-			s.blMutex.Unlock()
+			s.SetBlErr(err)
 			return
 		}
 	}
+}
+
+func (s *ImmuStore) SetBlErr(err error) {
+	s.blMutex.Lock()
+	defer s.blMutex.Unlock()
+
+	s.blErr = err
 }
 
 func (s *ImmuStore) BlInfo() (uint64, error) {

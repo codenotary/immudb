@@ -273,6 +273,17 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestImmudbSetBlErr(t *testing.T) {
+	immuStore, err := Open("data_bl_err", DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("data_bl_err")
+
+	immuStore.SetBlErr(errors.New("error"))
+
+	_, err = immuStore.BlInfo()
+	require.Error(t, err)
+}
+
 func TestImmudbStoreIndexing(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false)
 	immuStore, err := Open("data_indexing", opts)
