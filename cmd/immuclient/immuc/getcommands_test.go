@@ -17,9 +17,11 @@ limitations under the License.
 package immuc_test
 
 import (
-	"github.com/codenotary/immudb/pkg/client"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/client"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestGetByIndex(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -69,6 +72,7 @@ func TestGetKey(t *testing.T) {
 	}
 }
 func TestRawSafeGetKey(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -90,6 +94,7 @@ func TestRawSafeGetKey(t *testing.T) {
 	}
 }
 func TestSafeGetKey(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -112,6 +117,7 @@ func TestSafeGetKey(t *testing.T) {
 }
 
 func TestGetRawBySafeIndex(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()

@@ -19,6 +19,7 @@ package immuc
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -31,6 +32,7 @@ import (
 )
 
 func TestGetCommandsErrors(t *testing.T) {
+	defer os.Remove(".root-")
 	immuClientMock := &clienttest.ImmuClientMock{}
 	ic := new(immuc)
 	ic.ImmuClient = immuClientMock
