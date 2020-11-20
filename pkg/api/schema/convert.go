@@ -35,28 +35,21 @@ func Merge(payload []byte, timestamp uint64) (merged []byte, err error) {
 func (item *Item) ToSItem() (*StructuredItem, error) {
 	c := Content{}
 	err := proto.Unmarshal(item.Value, &c)
-	if err != nil {
-		return nil, err
-	}
-
 	return &StructuredItem{
 		Index: item.Index,
 		Key:   item.Key,
 		Value: &c,
-	}, nil
+	}, err
 }
 
 // ToItem return Item from the receiver
 func (item *StructuredItem) ToItem() (*Item, error) {
 	m, err := Merge(item.Value.Payload, item.Value.Timestamp)
-	if err != nil {
-		return nil, err
-	}
 	return &Item{
 		Key:   item.Key,
 		Value: m,
 		Index: item.Index,
-	}, nil
+	}, err
 }
 
 // ToSafeSItem return a SafeStructuredItem from the receiver
@@ -104,13 +97,10 @@ func (list *ZItemList) ToZSItemList() (*ZStructuredItemList, error) {
 // ToKV return a KeyValue from the receiver
 func (skv *StructuredKeyValue) ToKV() (*KeyValue, error) {
 	m, err := proto.Marshal(skv.Value)
-	if err != nil {
-		return nil, err
-	}
 	return &KeyValue{
 		Key:   skv.Key,
 		Value: m,
-	}, nil
+	}, err
 }
 
 // ToKVList return a KVList from the receiver

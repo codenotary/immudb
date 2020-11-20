@@ -49,3 +49,8 @@ func TestPattern_ImmuService_History_0(t *testing.T) {
 	p := Pattern_ImmuService_History_0()
 	assert.IsType(t, runtime.Pattern{}, p)
 }
+
+func TestPattern_ImmuService_UseDatabase_0(t *testing.T) {
+	p := Pattern_ImmuService_UseDatabase_0()
+	assert.IsType(t, runtime.Pattern{}, p)
+}
