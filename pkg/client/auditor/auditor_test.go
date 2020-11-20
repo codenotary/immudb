@@ -58,6 +58,7 @@ func TestDefaultAuditor(t *testing.T) {
 		&[]grpc.DialOption{},
 		"immudb",
 		"immudb",
+		nil,
 		"ignore",
 		AuditNotificationConfig{},
 		nil,
@@ -89,6 +90,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		&ds,
 		"immudb",
 		"immudb",
+		nil,
 		"ignore",
 		AuditNotificationConfig{},
 		serviceClient,
@@ -146,6 +148,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		&ds,
 		"immudb",
 		"immudb",
+		nil,
 		"ignore",
 		AuditNotificationConfig{},
 		serviceClient,
@@ -219,6 +222,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		&ds,
 		"immudb",
 		"immudb",
+		[]string{"SomeNonExistentDb", ""},
 		"ignore",
 		alertConfig,
 		serviceClient,
@@ -242,12 +246,12 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 }
 
 func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
-	pkey_path := "./../../../test/signer/ec3.key"
+	pKeyPath := "./../../../test/signer/ec3.key"
 	bs := servertest.NewBufconnServer(
 		server.Options{}.
 			WithAuth(true).
 			WithInMemoryStore(true).
-			WithSigningKey(pkey_path).
+			WithSigningKey(pKeyPath).
 			WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
@@ -290,6 +294,7 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 		&ds,
 		"immudb",
 		"immudb",
+		nil,
 		"validate",
 		AuditNotificationConfig{},
 		serviceClient,
@@ -339,6 +344,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		},
 		"immudb",
 		"immudb",
+		nil,
 		"validate",
 		AuditNotificationConfig{},
 		serviceClient,
@@ -366,6 +372,7 @@ func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
 		},
 		"immudb",
 		"immudb",
+		nil,
 		"wrong",
 		AuditNotificationConfig{},
 		&serviceClient,
