@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"codenotary.io/immudb-v2/appendable"
+	"codenotary.io/immudb-v2/appendable/mocked"
 	"codenotary.io/immudb-v2/appendable/multiapp"
 	"codenotary.io/immudb-v2/tbtree"
 	"github.com/stretchr/testify/assert"
@@ -158,6 +159,118 @@ func TestImmudbStoreSettings(t *testing.T) {
 	require.Equal(t, DefaultOptions().maxKeyLen, immuStore.MaxKeyLen())
 	require.Equal(t, DefaultOptions().maxValueLen, immuStore.MaxValueLen())
 	require.Equal(t, DefaultOptions().maxLinearProofLen, immuStore.MaxLinearProofLen())
+}
+
+func TestImmudbStoreEdgeCases(t *testing.T) {
+	_, err := Open("edge_cases", nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = OpenWith("edge_cases", nil, nil, nil, nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = OpenWith("edge_cases", nil, nil, nil, DefaultOptions())
+	require.Error(t, ErrIllegalArguments, err)
+
+	vLog := &mocked.MockedAppendable{}
+	vLogs := []appendable.Appendable{vLog}
+	txLog := &mocked.MockedAppendable{}
+	cLog := &mocked.MockedAppendable{}
+
+	// Should fail reading fileSize from metadata
+	cLog.MetadataFn = func() []byte {
+		return nil
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail reading maxTxEntries from metadata
+	cLog.MetadataFn = func() []byte {
+		md := appendable.NewMetadata(nil)
+		md.PutInt(metaFileSize, 1)
+		return md.Bytes()
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail reading maxKeyLen from metadata
+	cLog.MetadataFn = func() []byte {
+		md := appendable.NewMetadata(nil)
+		md.PutInt(metaFileSize, 1)
+		md.PutInt(metaMaxTxEntries, 4)
+		return md.Bytes()
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail reading maxKeyLen from metadata
+	cLog.MetadataFn = func() []byte {
+		md := appendable.NewMetadata(nil)
+		md.PutInt(metaFileSize, 1)
+		md.PutInt(metaMaxTxEntries, 4)
+		md.PutInt(metaMaxKeyLen, 8)
+		return md.Bytes()
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	cLog.MetadataFn = func() []byte {
+		md := appendable.NewMetadata(nil)
+		md.PutInt(metaFileSize, 1)
+		md.PutInt(metaMaxTxEntries, 4)
+		md.PutInt(metaMaxKeyLen, 8)
+		md.PutInt(metaMaxValueLen, 16)
+		return md.Bytes()
+	}
+
+	// Should fail reading cLogSize
+	cLog.SizeFn = func() (int64, error) {
+		return 0, errors.New("error")
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail validating cLogSize
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize + 1, nil
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail reading cLog
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize, nil
+	}
+	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		return 0, errors.New("error")
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail reading txLogSize
+	cLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	txLog.SizeFn = func() (int64, error) {
+		return 0, errors.New("error")
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail validating txLogSize
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize, nil
+	}
+	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		for i := 0; i < len(bs); i++ {
+			bs[i]++
+		}
+		return minInt(len(bs), 8+4+8+8), nil
+	}
+	txLog.SizeFn = func() (int64, error) {
+		return 0, nil
+	}
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	require.Error(t, err)
 }
 
 func TestImmudbStoreIndexing(t *testing.T) {

@@ -215,7 +215,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 }
 
 func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable.Appendable, opts *Options) (*ImmuStore, error) {
-	if !validOptions(opts) {
+	if !validOptions(opts) || len(vLogs) == 0 || txLog == nil || cLog == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -225,14 +225,17 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
+
 	maxTxEntries, ok := metadata.GetInt(metaMaxTxEntries)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
+
 	maxKeyLen, ok := metadata.GetInt(metaMaxKeyLen)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
+
 	maxValueLen, ok := metadata.GetInt(metaMaxValueLen)
 	if !ok {
 		return nil, ErrCorruptedCLog
