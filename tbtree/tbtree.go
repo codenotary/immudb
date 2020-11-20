@@ -35,6 +35,7 @@ var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrReadingFileContent = errors.New("error reading required file content")
 var ErrKeyNotFound = errors.New("key not found")
+var ErrorMaxKVLenExceeded = errors.New("max kv length exceeded")
 var ErrIllegalState = errors.New("illegal state")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
@@ -43,9 +44,6 @@ var ErrCorruptedFile = errors.New("file is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 
 const Version = 1
-
-const MinNodeSize = 96
-const MinCacheSize = 1
 
 const cLogEntrySize = 8 // root node offset
 
@@ -720,6 +718,10 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	for _, kv := range kvs {
 		if kv.K == nil || kv.V == nil {
 			return ErrIllegalArguments
+		}
+
+		if len(kv.K)+len(kv.V)+45 > t.maxNodeSize {
+			return ErrorMaxKVLenExceeded
 		}
 
 		k := make([]byte, len(kv.K))

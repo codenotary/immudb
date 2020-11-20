@@ -83,30 +83,54 @@ func TestEdgeCases(t *testing.T) {
 	_, err = OpenWith(nLog, cLog, DefaultOptions())
 	require.Error(t, err)
 
-	tree, err := Open("edge_cases", DefaultOptions().WithMaxActiveSnapshots(1))
+	opts := DefaultOptions().
+		WithMaxActiveSnapshots(1).
+		WithMaxNodeSize(MinNodeSize).
+		WithFlushThld(50)
+	tree, err := Open("edge_cases", opts)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tree.Ts())
 
-	for i := 0; i < 10_000; i++ {
-		err = tree.Insert([]byte{1}, []byte{2})
+	err = tree.Insert(make([]byte, tree.maxNodeSize), []byte{})
+	require.Error(t, ErrorMaxKVLenExceeded, err)
+
+	for i := 0; i < 100; i++ {
+		err = tree.Insert(make([]byte, 1), []byte{2})
 		require.NoError(t, err)
 	}
 
 	s1, err := tree.Snapshot()
 	require.NoError(t, err)
 
-	_, err = s1.GetTs([]byte{2}, 1)
-	require.Error(t, ErrKeyNotFound, err)
-
-	_, err = s1.GetTs([]byte{1}, 1000)
-	require.Error(t, ErrKeyNotFound, err)
+	_, err = s1.GetTs(make([]byte, 1), 100)
+	require.NoError(t, err)
 
 	_, err = tree.Snapshot()
 	require.Error(t, ErrorToManyActiveSnapshots, err)
 
-	require.Error(t, ErrSnapshotsNotClosed, tree.Close())
+	err = tree.Close()
+	require.Error(t, ErrSnapshotsNotClosed, err)
 
-	require.NoError(t, s1.Close())
+	err = s1.Close()
+	require.NoError(t, err)
+
+	for i := 1; i < 100; i++ {
+		var k [4]byte
+		binary.BigEndian.PutUint32(k[:], uint32(i))
+
+		s1, err := tree.Snapshot()
+		require.NoError(t, err)
+
+		_, err = s1.GetTs([]byte{2}, 1)
+		require.Error(t, ErrKeyNotFound, err)
+
+		err = s1.Close()
+		require.NoError(t, err)
+
+		err = tree.Insert(k[:], []byte{2})
+		require.NoError(t, err)
+	}
+
 	require.NoError(t, tree.Close())
 }
 

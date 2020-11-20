@@ -30,6 +30,9 @@ const DefaultFileSize = 1 << 26 // 64Mb
 
 const DefaultKeyHistorySpace = 32 // ts trace len per key, number of key updates traced within a same key and leaf node
 
+const MinNodeSize = 96
+const MinCacheSize = 1
+
 type Options struct {
 	flushThld          int
 	maxActiveSnapshots int
