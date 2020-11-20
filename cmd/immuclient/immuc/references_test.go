@@ -17,9 +17,11 @@ limitations under the License.
 package immuc_test
 
 import (
-	"github.com/codenotary/immudb/pkg/client"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/client"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -48,6 +50,7 @@ func TestReference(t *testing.T) {
 	}
 }
 func TestSafeReference(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()

@@ -17,6 +17,7 @@ limitations under the License.
 package immuc_test
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 )
 
 func TestCurrentRoot(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
