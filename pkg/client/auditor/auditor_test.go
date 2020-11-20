@@ -18,6 +18,7 @@ package auditor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -52,6 +53,7 @@ var lis *bufconn.Listener
 var dirname = "./test"
 
 func TestDefaultAuditor(t *testing.T) {
+	defer os.RemoveAll(dirname)
 	da, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
@@ -68,10 +70,236 @@ func TestDefaultAuditor(t *testing.T) {
 		logger.NewSimpleLogger("test", os.Stdout))
 	assert.Nil(t, err)
 	assert.IsType(t, &defaultAuditor{}, da)
-	os.RemoveAll(dirname)
+}
+
+type writerMock struct {
+	written []string
+}
+
+func (wm *writerMock) Write(bs []byte) (n int, err error) {
+	wm.written = append(wm.written, string(bs))
+	return len(bs), nil
+}
+
+func TestDefaultAuditorPasswordDecodeErr(t *testing.T) {
+	defer os.RemoveAll(dirname)
+	_, err := DefaultAuditor(
+		time.Duration(0),
+		fmt.Sprintf("%s:%d", "address", 0),
+		&[]grpc.DialOption{},
+		"immudb",
+		"enc:"+string([]byte{0}),
+		nil,
+		"ignore",
+		AuditNotificationConfig{},
+		nil,
+		nil,
+		cache.NewHistoryFileCache(dirname),
+		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		logger.NewSimpleLogger("test", os.Stdout))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "illegal base64 data at input byte 0")
+}
+
+func TestDefaultAuditorLoginErr(t *testing.T) {
+	defer os.RemoveAll(dirname)
+	serviceClient := clienttest.ImmuServiceClientMock{
+		LoginF: func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
+			return nil, errors.New("some login error")
+		},
+		LogoutF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+			return new(empty.Empty), nil
+		},
+	}
+	wm := writerMock{}
+	auditor, err := DefaultAuditor(
+		time.Duration(0),
+		fmt.Sprintf("%s:%d", "address", 0),
+		&[]grpc.DialOption{
+			grpc.WithInsecure(),
+		},
+		"immudb",
+		"immudb",
+		nil,
+		"ignore",
+		AuditNotificationConfig{},
+		&serviceClient,
+		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		cache.NewHistoryFileCache(dirname),
+		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		logger.NewSimpleLogger("test", &wm))
+	assert.NoError(t, err)
+	err = auditor.(*defaultAuditor).audit()
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(wm.written), 1)
+	assert.Contains(t, wm.written[len(wm.written)-1], "some login error")
+}
+
+func TestDefaultAuditorDatabaseListErr(t *testing.T) {
+	defer os.RemoveAll(dirname)
+	serviceClient := clienttest.ImmuServiceClientMock{
+		LoginF: func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
+			return &schema.LoginResponse{Token: ""}, nil
+		},
+		LogoutF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+			return new(empty.Empty), nil
+		},
+		DatabaseListF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
+			return nil, errors.New("some database list error")
+		},
+	}
+	wm := writerMock{}
+	auditor, err := DefaultAuditor(
+		time.Duration(0),
+		fmt.Sprintf("%s:%d", "address", 0),
+		&[]grpc.DialOption{
+			grpc.WithInsecure(),
+		},
+		"immudb",
+		"immudb",
+		nil,
+		"ignore",
+		AuditNotificationConfig{},
+		&serviceClient,
+		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		cache.NewHistoryFileCache(dirname),
+		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		logger.NewSimpleLogger("test", &wm))
+	assert.NoError(t, err)
+	err = auditor.(*defaultAuditor).audit()
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(wm.written), 1)
+	assert.Contains(t, wm.written[len(wm.written)-1], "some database list error")
+}
+
+func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
+	defer os.RemoveAll(dirname)
+	serviceClient := clienttest.ImmuServiceClientMock{
+		LoginF: func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
+			return &schema.LoginResponse{Token: ""}, nil
+		},
+		LogoutF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+			return new(empty.Empty), nil
+		},
+		DatabaseListF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
+			return &schema.DatabaseListResponse{
+				Databases: nil,
+			}, nil
+		},
+	}
+	wm := writerMock{}
+	auditor, err := DefaultAuditor(
+		time.Duration(0),
+		fmt.Sprintf("%s:%d", "address", 0),
+		&[]grpc.DialOption{
+			grpc.WithInsecure(),
+		},
+		"immudb",
+		"immudb",
+		nil,
+		"ignore",
+		AuditNotificationConfig{},
+		&serviceClient,
+		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		cache.NewHistoryFileCache(dirname),
+		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		logger.NewSimpleLogger("test", &wm))
+	assert.NoError(t, err)
+	err = auditor.(*defaultAuditor).audit()
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(wm.written), 1)
+	assert.Contains(t, wm.written[len(wm.written)-1], "no databases to audit found")
+}
+
+func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
+	defer os.RemoveAll(dirname)
+	serviceClient := clienttest.ImmuServiceClientMock{
+		LoginF: func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
+			return &schema.LoginResponse{Token: ""}, nil
+		},
+		LogoutF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+			return new(empty.Empty), nil
+		},
+		DatabaseListF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
+			return &schema.DatabaseListResponse{
+				Databases: []*schema.Database{{Databasename: "someDB"}},
+			}, nil
+		},
+		UseDatabaseF: func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
+			return nil, errors.New("some use database error")
+		},
+	}
+	wm := writerMock{}
+	auditor, err := DefaultAuditor(
+		time.Duration(0),
+		fmt.Sprintf("%s:%d", "address", 0),
+		&[]grpc.DialOption{
+			grpc.WithInsecure(),
+		},
+		"immudb",
+		"immudb",
+		nil,
+		"ignore",
+		AuditNotificationConfig{},
+		&serviceClient,
+		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		cache.NewHistoryFileCache(dirname),
+		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		logger.NewSimpleLogger("test", &wm))
+	assert.NoError(t, err)
+	err = auditor.(*defaultAuditor).audit()
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(wm.written), 1)
+	assert.Contains(t, wm.written[len(wm.written)-1], "some use database error")
+}
+
+func TestDefaultAuditorCurrentRootErr(t *testing.T) {
+	defer os.RemoveAll(dirname)
+	serviceClient := clienttest.ImmuServiceClientMock{
+		LoginF: func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
+			return &schema.LoginResponse{Token: ""}, nil
+		},
+		LogoutF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+			return new(empty.Empty), nil
+		},
+		DatabaseListF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
+			return &schema.DatabaseListResponse{
+				Databases: []*schema.Database{{Databasename: "someDB"}},
+			}, nil
+		},
+		UseDatabaseF: func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
+			return &schema.UseDatabaseReply{Token: ""}, nil
+		},
+		CurrentRootF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
+			return nil, errors.New("some current root error")
+		},
+	}
+	wm := writerMock{}
+	auditor, err := DefaultAuditor(
+		time.Duration(0),
+		fmt.Sprintf("%s:%d", "address", 0),
+		&[]grpc.DialOption{
+			grpc.WithInsecure(),
+		},
+		"immudb",
+		"immudb",
+		nil,
+		"ignore",
+		AuditNotificationConfig{},
+		&serviceClient,
+		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		cache.NewHistoryFileCache(dirname),
+		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		logger.NewSimpleLogger("test", &wm))
+	assert.NoError(t, err)
+	err = auditor.(*defaultAuditor).audit()
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(wm.written), 1)
+	assert.Contains(t, wm.written[len(wm.written)-1], "some current root error")
 }
 
 func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
+	defer os.RemoveAll(dirname)
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
@@ -102,10 +330,10 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
 	assert.Nil(t, err)
-	os.RemoveAll(dirname)
 }
 
 func TestDefaultAuditorRunOnDb(t *testing.T) {
+	defer os.RemoveAll(dirname)
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
@@ -163,10 +391,10 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	assert.Nil(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
 	assert.Nil(t, err)
-	os.RemoveAll(dirname)
 }
 
 func TestRepeatedAuditorRunOnDb(t *testing.T) {
+	defer os.RemoveAll(dirname)
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
 
@@ -241,11 +469,10 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 
 	auditorStop <- struct{}{}
 	<-auditorDone
-
-	os.RemoveAll(dirname)
 }
 
 func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
+	defer os.RemoveAll(dirname)
 	pKeyPath := "./../../../test/signer/ec3.key"
 	bs := servertest.NewBufconnServer(
 		server.Options{}.
@@ -309,10 +536,10 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 	assert.Nil(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
 	assert.Nil(t, err)
-	os.RemoveAll(dirname)
 }
 
 func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
+	defer os.RemoveAll(dirname)
 	serviceClient := clienttest.NewImmuServiceClientMock()
 	serviceClient.CurrentRootF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
 		return schema.NewRoot(), nil
@@ -359,7 +586,6 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 	assert.Nil(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
 	assert.Nil(t, err)
-	os.RemoveAll(dirname)
 }
 
 func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
