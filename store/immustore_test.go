@@ -162,6 +162,8 @@ func TestImmudbStoreSettings(t *testing.T) {
 }
 
 func TestImmudbStoreEdgeCases(t *testing.T) {
+	defer os.RemoveAll("edge_cases")
+
 	_, err := Open("edge_cases", nil)
 	require.Error(t, ErrIllegalArguments, err)
 
@@ -271,6 +273,46 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	}
 	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
 	require.Error(t, err)
+
+	immuStore, err := Open("edge_cases", DefaultOptions())
+	require.NoError(t, err)
+
+	_, err = immuStore.DualProof(nil, nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	sourceTx := newTx(1, 1)
+	sourceTx.ID = 2
+	targetTx := newTx(1, 1)
+	targetTx.ID = 1
+	_, err = immuStore.DualProof(sourceTx, targetTx)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = immuStore.LinearProof(2, 1)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = immuStore.LinearProof(1, uint64(1+immuStore.maxLinearProofLen))
+	require.Error(t, ErrLinearProofMaxLenExceeded, err)
+
+	_, err = immuStore.ReadValue(sourceTx, []byte{1, 2, 3})
+	require.Error(t, ErrKeyNotFound, err)
+
+	err = immuStore.validateEntries(nil)
+	require.Error(t, ErrorNoEntriesProvided, err)
+
+	err = immuStore.validateEntries(make([]*KV, immuStore.maxTxEntries+1))
+	require.Error(t, ErrorMaxTxEntriesLimitExceeded, err)
+
+	entry := &KV{Key: nil, Value: nil}
+	err = immuStore.validateEntries([]*KV{entry})
+	require.Error(t, ErrNullKeyOrValue, err)
+
+	entry = &KV{Key: make([]byte, immuStore.maxKeyLen+1), Value: make([]byte, 1)}
+	err = immuStore.validateEntries([]*KV{entry})
+	require.Error(t, ErrorMaxKeyLenExceeded, err)
+
+	entry = &KV{Key: make([]byte, 1), Value: make([]byte, immuStore.maxValueLen+1)}
+	err = immuStore.validateEntries([]*KV{entry})
+	require.Error(t, ErrorMaxValueLenExceeded, err)
 }
 
 func TestImmudbSetBlErr(t *testing.T) {
@@ -282,6 +324,26 @@ func TestImmudbSetBlErr(t *testing.T) {
 
 	_, err = immuStore.BlInfo()
 	require.Error(t, err)
+}
+
+func TestImmudbTxOffsetAndSize(t *testing.T) {
+	immuStore, err := Open("data_tx_off_sz", DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("data_tx_off_sz")
+
+	_, _, err = immuStore.txOffsetAndSize(0)
+	require.Error(t, ErrIllegalArguments, err)
+
+	mockedCLog := &mocked.MockedAppendable{}
+	mockedCLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
+		binary.BigEndian.PutUint64(bs, uint64(immuStore.committedTxLogSize+1))
+		binary.BigEndian.PutUint32(bs[8:], uint32(immuStore.maxTxSize+1))
+		return 12, nil
+	}
+	immuStore.cLog = mockedCLog
+
+	_, _, err = immuStore.txOffsetAndSize(1)
+	require.Error(t, ErrorCorruptedTxData, err)
 }
 
 func TestImmudbStoreIndexing(t *testing.T) {
@@ -375,6 +437,12 @@ func TestImmudbStoreIndexing(t *testing.T) {
 							if !bytes.Equal(v, val) {
 								panic(fmt.Errorf("expected %v actual %v", v, val))
 							}
+
+							_, err = immuStore.ReadValueAt(val, int64(vOff), sha256.Sum256(hVal[:]))
+							if err != ErrCorruptedData {
+								panic(err)
+							}
+
 						}
 					}
 				}

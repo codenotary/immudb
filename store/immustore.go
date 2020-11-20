@@ -985,7 +985,7 @@ type LinearProof struct {
 
 // LinearProof returns a list of hashes to calculate Alh@targetTxID from Alh@sourceTxID
 func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, error) {
-	if sourceTxID > targetTxID {
+	if sourceTxID == 0 || sourceTxID > targetTxID {
 		return nil, ErrSourceTxNewerThanTargetTx
 	}
 
@@ -1041,12 +1041,8 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	txOffset := int64(binary.BigEndian.Uint64(cb[:]))
 	txSize := int(binary.BigEndian.Uint32(cb[offsetSize:]))
 
-	if txOffset > s.committedTxLogSize {
+	if txOffset > s.committedTxLogSize || txSize > s.maxTxSize {
 		return 0, 0, ErrorCorruptedTxData
-	}
-
-	if txSize > s.maxTxSize {
-		return 0, 0, ErrTxSizeGreaterThanMaxTxSize
 	}
 
 	return txOffset, txSize, nil
@@ -1244,19 +1240,19 @@ func (s *ImmuStore) Close() error {
 		return ErrAlreadyClosed
 	}
 
+	s.closed = true
+
+	errors := make([]error, 0)
+
 	for vLogID := range s.vLogs {
 		vLog, _ := s.fetchVLog(vLogID, false)
 
 		err := vLog.Close()
 		if err != nil {
-			return err
+			errors = append(errors, err)
 		}
 	}
 	s.vLogsCond.Broadcast()
-
-	s.closed = true
-
-	errors := make([]error, 0)
 
 	txErr := s.txLog.Close()
 	if txErr != nil {
