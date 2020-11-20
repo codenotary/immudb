@@ -184,7 +184,8 @@ func (a *defaultAuditor) audit() error {
 	})
 	if err != nil {
 		a.logger.Errorf("error logging in with user %s: %v", a.username, err)
-		return err
+		withError = true
+		return noErr
 	}
 	defer a.serviceClient.Logout(ctx, &empty.Empty{})
 
