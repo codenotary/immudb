@@ -18,13 +18,97 @@ package tbtree
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
 
+	"codenotary.io/immudb-v2/appendable"
+	"codenotary.io/immudb-v2/appendable/mocked"
 	"github.com/stretchr/testify/require"
 )
+
+func TestEdgeCases(t *testing.T) {
+	defer os.RemoveAll("edge_cases")
+
+	_, err := Open("edge_cases", nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	_, err = OpenWith(nil, nil, nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	nLog := &mocked.MockedAppendable{}
+	cLog := &mocked.MockedAppendable{}
+
+	// Should fail reading maxNodeSize from metadata
+	cLog.MetadataFn = func() []byte {
+		return nil
+	}
+	_, err = OpenWith(nLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail reading keyHistorySpace from metadata
+	cLog.MetadataFn = func() []byte {
+		md := appendable.NewMetadata(nil)
+		md.PutInt(MetaMaxNodeSize, 1)
+		return md.Bytes()
+	}
+	_, err = OpenWith(nLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail reading cLogSize
+	cLog.MetadataFn = func() []byte {
+		md := appendable.NewMetadata(nil)
+		md.PutInt(MetaMaxNodeSize, 1)
+		md.PutInt(MetaKeyHistorySize, 1)
+		return md.Bytes()
+	}
+	cLog.SizeFn = func() (int64, error) {
+		return 0, errors.New("error")
+	}
+	_, err = OpenWith(nLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	// Should fail validating cLogSize
+	cLog.MetadataFn = func() []byte {
+		md := appendable.NewMetadata(nil)
+		md.PutInt(MetaMaxNodeSize, 1)
+		md.PutInt(MetaKeyHistorySize, 1)
+		return md.Bytes()
+	}
+	cLog.SizeFn = func() (int64, error) {
+		return cLogEntrySize + 1, nil
+	}
+	_, err = OpenWith(nLog, cLog, DefaultOptions())
+	require.Error(t, err)
+
+	tree, err := Open("edge_cases", DefaultOptions().WithMaxActiveSnapshots(1))
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), tree.Ts())
+
+	for i := 0; i < 10_000; i++ {
+		err = tree.Insert([]byte{1}, []byte{2})
+		require.NoError(t, err)
+	}
+
+	s1, err := tree.Snapshot()
+	require.NoError(t, err)
+
+	_, err = s1.GetTs([]byte{2}, 1)
+	require.Error(t, ErrKeyNotFound, err)
+
+	_, err = s1.GetTs([]byte{1}, 1000)
+	require.Error(t, ErrKeyNotFound, err)
+
+	_, err = tree.Snapshot()
+	require.Error(t, ErrorToManyActiveSnapshots, err)
+
+	require.Error(t, ErrSnapshotsNotClosed, tree.Close())
+
+	require.NoError(t, s1.Close())
+	require.NoError(t, tree.Close())
+}
 
 func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, ascMode bool) {
 	for i := 0; i < itCount; i++ {
@@ -205,6 +289,12 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	keyCount := 100
 	monotonicInsertions(t, tbtree, itCount, keyCount, true)
 
+	err = tbtree.BulkInsert(nil)
+	require.Equal(t, err, ErrIllegalArguments)
+
+	err = tbtree.BulkInsert([]*KV{{}})
+	require.Equal(t, err, ErrIllegalArguments)
+
 	_, err = tbtree.Flush()
 	require.NoError(t, err)
 
@@ -215,6 +305,15 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Close()
+	require.Equal(t, err, ErrAlreadyClosed)
+
+	err = tbtree.Sync()
+	require.Equal(t, err, ErrAlreadyClosed)
+
+	err = tbtree.Insert(nil, nil)
+	require.Equal(t, err, ErrAlreadyClosed)
+
+	_, err = tbtree.Snapshot()
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	tbtree, err = Open("test_tree_iasc", DefaultOptions().WithMaxNodeSize(256))

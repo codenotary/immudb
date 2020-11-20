@@ -812,10 +812,6 @@ func (t *TBtree) snapshotClosed(snapshot *Snapshot) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if t.closed {
-		return ErrAlreadyClosed
-	}
-
 	delete(t.snapshots, snapshot.id)
 
 	return nil

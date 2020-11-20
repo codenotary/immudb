@@ -285,7 +285,7 @@ func (l *leafNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) 
 
 func (n *nodeRef) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) (int64, int64, error) {
 	if writeOpts.OnlyMutated {
-		return n.off, 0, nil
+		return n.offset(), 0, nil
 	}
 
 	node, err := n.t.nodeAt(n.off)
