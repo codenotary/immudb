@@ -19,6 +19,7 @@ package immuclient
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -76,6 +77,7 @@ func TestReference(t *testing.T) {
 }
 
 func TestSafeReference(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()

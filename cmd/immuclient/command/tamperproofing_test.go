@@ -19,6 +19,7 @@ package immuclient
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -32,6 +33,7 @@ import (
 )
 
 func TestConsistency(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
@@ -78,6 +80,7 @@ func TestConsistency(t *testing.T) {
 	}
 }
 func TestInclusion(t *testing.T) {
+	defer os.Remove(".root-")
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
