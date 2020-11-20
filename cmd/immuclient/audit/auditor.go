@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/client/rootservice"
@@ -80,13 +81,22 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	ctx = context.Background()
 	auditUsername := viper.GetString("audit-username")
 	auditPassword, err := auth.DecodeBase64Password(viper.GetString("audit-password"))
+	if err != nil {
+		return nil, err
+	}
+	auditDatabasesStr := viper.GetString("audit-databases")
+	auditDatabasesArr := strings.Split(auditDatabasesStr, ",")
+	var auditDatabases []string
+	for _, dbPrefix := range auditDatabasesArr {
+		dbPrefix = strings.TrimSpace(dbPrefix)
+		if len(dbPrefix) > 0 {
+			auditDatabases = append(auditDatabases, dbPrefix)
+		}
+	}
 	auditSignature := viper.GetString("audit-signature")
 	auditNotificationURL := viper.GetString("audit-notification-url")
 	auditNotificationUsername := viper.GetString("audit-notification-username")
 	auditNotificationPassword := viper.GetString("audit-notification-password")
-	if err != nil {
-		return nil, err
-	}
 	if len(auditUsername) > 0 || len(auditPassword) > 0 {
 		if _, err = cAgent.immuc.Login(ctx, []byte(auditUsername), []byte(auditPassword)); err != nil {
 			return nil, fmt.Errorf("Invalid login operation: %v", err)
@@ -97,6 +107,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		cliOpts.DialOptions,
 		auditUsername,
 		auditPassword,
+		auditDatabases,
 		auditSignature,
 		auditor.AuditNotificationConfig{
 			URL:            auditNotificationURL,

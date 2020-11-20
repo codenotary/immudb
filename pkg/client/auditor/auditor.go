@@ -70,6 +70,7 @@ type defaultAuditor struct {
 	username           []byte
 	databases          []string
 	password           []byte
+	auditDatabases     []string
 	auditSignature     string
 	notificationConfig AuditNotificationConfig
 	serviceClient      schema.ImmuServiceClient
@@ -86,6 +87,7 @@ func DefaultAuditor(
 	dialOptions *[]grpc.DialOption,
 	username string,
 	passwordBase64 string,
+	auditDatabases []string,
 	auditSignature string,
 	notificationConfig AuditNotificationConfig,
 	serviceClient schema.ImmuServiceClient,
@@ -125,6 +127,7 @@ func DefaultAuditor(
 		[]byte(username),
 		nil,
 		[]byte(password),
+		auditDatabases,
 		auditSignature,
 		notificationConfig,
 		serviceClient,
@@ -197,10 +200,30 @@ func (a *defaultAuditor) audit() error {
 			withError = true
 			return noErr
 		}
-		for _, val := range dbs.Databases {
-			a.databases = append(a.databases, val.Databasename)
+		a.databases = nil
+		for _, db := range dbs.Databases {
+			dbMustBeAudited := len(a.auditDatabases) <= 0
+			for _, dbPrefix := range a.auditDatabases {
+				if strings.HasPrefix(db.Databasename, dbPrefix) {
+					dbMustBeAudited = true
+					break
+				}
+			}
+			if dbMustBeAudited {
+				a.databases = append(a.databases, db.Databasename)
+			}
 		}
 		a.databaseIndex = 0
+		if len(a.databases) <= 0 {
+			a.logger.Errorf(
+				"audit #%d aborted: no databases to audit found after (re)loading the list of databases",
+				a.index)
+			withError = true
+			return noErr
+		}
+		a.logger.Infof(
+			"audit #%d - list of databases to audit has been (re)loaded - %d database(s) found: %v",
+			a.index, len(a.databases), a.databases)
 	}
 	dbName := a.databases[a.databaseIndex]
 	resp, err := a.serviceClient.UseDatabase(ctx, &schema.Database{
@@ -215,7 +238,7 @@ func (a *defaultAuditor) audit() error {
 	md = metadata.Pairs("authorization", resp.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	a.logger.Infof("Auditing database %s\n", dbName)
+	a.logger.Infof("audit #%d - auditing database %s\n", a.index, dbName)
 	a.databaseIndex++
 
 	root, err = a.serviceClient.CurrentRoot(ctx, &empty.Empty{})
