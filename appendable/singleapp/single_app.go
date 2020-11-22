@@ -129,13 +129,13 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 		mLenBs := make([]byte, 4)
 		_, err := r.Read(mLenBs)
 		if err != nil {
-			return nil, err
+			return nil, ErrCorruptedMetadata
 		}
 
 		mBs := make([]byte, binary.BigEndian.Uint32(mLenBs))
 		_, err = r.Read(mBs)
 		if err != nil {
-			return nil, err
+			return nil, ErrCorruptedMetadata
 		}
 
 		m := appendable.NewMetadata(mBs)

@@ -16,6 +16,9 @@ limitations under the License.
 package singleapp
 
 import (
+	"bufio"
+	"encoding/binary"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -119,6 +122,115 @@ func TestSingleAppReOpening(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
+	f, err := ioutil.TempFile(".", "singleapp_test_")
+	require.NoError(t, err)
+
+	defer os.Remove(f.Name())
+
+	// should fail reading metadata len
+	_, err = Open(f.Name(), DefaultOptions())
+	require.Error(t, ErrCorruptedMetadata, err)
+
+	mLenBs := make([]byte, 4)
+	binary.BigEndian.PutUint32(mLenBs, 1)
+
+	w := bufio.NewWriter(f)
+	_, err = w.Write(mLenBs)
+	require.NoError(t, err)
+
+	err = w.Flush()
+	require.NoError(t, err)
+
+	// should failt reading metadata
+	_, err = Open(f.Name(), DefaultOptions())
+	require.Error(t, ErrCorruptedMetadata, err)
+}
+
+func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
+	f, err := ioutil.TempFile(".", "singleapp_test_")
+	require.NoError(t, err)
+
+	defer os.Remove(f.Name())
+
+	m := appendable.NewMetadata(nil)
+
+	mBs := m.Bytes()
+	mLenBs := make([]byte, 4)
+	binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)))
+
+	w := bufio.NewWriter(f)
+	_, err = w.Write(mLenBs)
+	require.NoError(t, err)
+
+	_, err = w.Write(mBs)
+	require.NoError(t, err)
+
+	err = w.Flush()
+	require.NoError(t, err)
+
+	// should failt reading metadata
+	_, err = Open(f.Name(), DefaultOptions())
+	require.Error(t, ErrCorruptedMetadata, err)
+}
+
+func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
+	f, err := ioutil.TempFile(".", "singleapp_test_")
+	require.NoError(t, err)
+
+	defer os.Remove(f.Name())
+
+	m := appendable.NewMetadata(nil)
+	m.PutInt(metaCompressionFormat, appendable.NoCompression)
+
+	mBs := m.Bytes()
+	mLenBs := make([]byte, 4)
+	binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)))
+
+	w := bufio.NewWriter(f)
+	_, err = w.Write(mLenBs)
+	require.NoError(t, err)
+
+	_, err = w.Write(mBs)
+	require.NoError(t, err)
+
+	err = w.Flush()
+	require.NoError(t, err)
+
+	// should failt reading metadata
+	_, err = Open(f.Name(), DefaultOptions())
+	require.Error(t, ErrCorruptedMetadata, err)
+}
+
+func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
+	f, err := ioutil.TempFile(".", "singleapp_test_")
+	require.NoError(t, err)
+
+	defer os.Remove(f.Name())
+
+	m := appendable.NewMetadata(nil)
+	m.PutInt(metaCompressionFormat, appendable.NoCompression)
+	m.PutInt(metaCompressionLevel, appendable.DefaultCompression)
+
+	mBs := m.Bytes()
+	mLenBs := make([]byte, 4)
+	binary.BigEndian.PutUint32(mLenBs, uint32(len(mBs)))
+
+	w := bufio.NewWriter(f)
+	_, err = w.Write(mLenBs)
+	require.NoError(t, err)
+
+	_, err = w.Write(mBs)
+	require.NoError(t, err)
+
+	err = w.Flush()
+	require.NoError(t, err)
+
+	// should failt reading metadata
+	_, err = Open(f.Name(), DefaultOptions())
+	require.Error(t, ErrCorruptedMetadata, err)
+}
+
 func TestSingleAppEdgeCases(t *testing.T) {
 	_, err := Open("testdata.aof", nil)
 	require.Error(t, ErrIllegalArguments, err)
@@ -126,8 +238,11 @@ func TestSingleAppEdgeCases(t *testing.T) {
 	_, err = Open("testdata.aof", DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
 
-	a, err := Open("testdata.aof", DefaultOptions())
+	a, err := Open("testdata.aof", DefaultOptions().WithSynced(false))
 	defer os.RemoveAll("testdata.aof")
+	require.NoError(t, err)
+
+	err = a.Flush()
 	require.NoError(t, err)
 
 	_, err = a.ReadAt(nil, 0)
@@ -158,8 +273,75 @@ func TestSingleAppEdgeCases(t *testing.T) {
 	require.Error(t, ErrAlreadyClosed, err)
 }
 
-func TestSingleAppCompression(t *testing.T) {
-	a, err := Open("testdata.aof", DefaultOptions().WithCompressionFormat(appendable.ZLibCompression))
+func TestSingleAppZLibCompression(t *testing.T) {
+	opts := DefaultOptions().WithCompressionFormat(appendable.ZLibCompression)
+	a, err := Open("testdata.aof", opts)
+	defer os.Remove("testdata.aof")
+	require.NoError(t, err)
+
+	off, _, err := a.Append([]byte{1, 2, 3})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), off)
+
+	err = a.Flush()
+	require.NoError(t, err)
+
+	bs := make([]byte, 3)
+	_, err = a.ReadAt(bs, 0)
+	require.NoError(t, err)
+	require.Equal(t, []byte{1, 2, 3}, bs)
+
+	err = a.Close()
+	require.NoError(t, err)
+}
+
+func TestSingleAppFlateCompression(t *testing.T) {
+	opts := DefaultOptions().WithCompressionFormat(appendable.FlateCompression)
+	a, err := Open("testdata.aof", opts)
+	defer os.Remove("testdata.aof")
+	require.NoError(t, err)
+
+	off, _, err := a.Append([]byte{1, 2, 3})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), off)
+
+	err = a.Flush()
+	require.NoError(t, err)
+
+	bs := make([]byte, 3)
+	_, err = a.ReadAt(bs, 0)
+	require.NoError(t, err)
+	require.Equal(t, []byte{1, 2, 3}, bs)
+
+	err = a.Close()
+	require.NoError(t, err)
+}
+
+func TestSingleAppGZipCompression(t *testing.T) {
+	opts := DefaultOptions().WithCompressionFormat(appendable.GZipCompression)
+	a, err := Open("testdata.aof", opts)
+	defer os.Remove("testdata.aof")
+	require.NoError(t, err)
+
+	off, _, err := a.Append([]byte{1, 2, 3})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), off)
+
+	err = a.Flush()
+	require.NoError(t, err)
+
+	bs := make([]byte, 3)
+	_, err = a.ReadAt(bs, 0)
+	require.NoError(t, err)
+	require.Equal(t, []byte{1, 2, 3}, bs)
+
+	err = a.Close()
+	require.NoError(t, err)
+}
+
+func TestSingleAppLZWCompression(t *testing.T) {
+	opts := DefaultOptions().WithCompressionFormat(appendable.LZWCompression)
+	a, err := Open("testdata.aof", opts)
 	defer os.Remove("testdata.aof")
 	require.NoError(t, err)
 
