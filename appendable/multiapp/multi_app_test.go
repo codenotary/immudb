@@ -16,10 +16,13 @@ limitations under the License.
 package multiapp
 
 import (
+	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"codenotary.io/immudb-v2/appendable"
+	"codenotary.io/immudb-v2/appendable/singleapp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -83,6 +86,77 @@ func TestMultiApp(t *testing.T) {
 
 	err = a.Close()
 	require.NoError(t, err)
+}
+
+func TestMultiApOffsetAndLRUCacheEviction(t *testing.T) {
+	a, err := Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
+	defer os.RemoveAll("testdata")
+	require.NoError(t, err)
+
+	off, n, err := a.Append([]byte{0, 1, 2, 3, 4, 5, 6, 7})
+	require.NoError(t, err)
+
+	err = a.Flush()
+	require.NoError(t, err)
+
+	err = a.SetOffset(0)
+	require.NoError(t, err)
+
+	_, _, err = a.Append([]byte{7, 6, 5, 4, 3, 2, 1, 0})
+	require.NoError(t, err)
+
+	err = a.Flush()
+	require.NoError(t, err)
+
+	b := make([]byte, n)
+	_, err = a.ReadAt(b, off)
+	require.NoError(t, err)
+
+	require.Equal(t, []byte{7, 6, 5, 4, 3, 2, 1, 0}, b)
+}
+
+func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
+	a, err := Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
+	defer os.RemoveAll("testdata")
+	require.NoError(t, err)
+
+	_, n, err := a.Append([]byte{0, 1, 2, 3, 4, 5, 6, 7})
+	require.NoError(t, err)
+
+	err = a.appendables.Apply(func(k interface{}, v interface{}) error {
+		return v.(*singleapp.AppendableFile).Close()
+	})
+	require.NoError(t, err)
+
+	err = a.Close()
+	require.Error(t, ErrAlreadyClosed, err)
+
+	fname := filepath.Join(a.path, appendableName(0, a.fileExt))
+	os.Remove(fname)
+
+	a, err = Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(1))
+	require.NoError(t, err)
+
+	b := make([]byte, n)
+	_, err = a.ReadAt(b, 0)
+	require.Error(t, io.EOF, err)
+}
+
+func TestMultiAppClosedFiles(t *testing.T) {
+	a, err := Open("testdata", DefaultOptions().WithFileSize(1).WithMaxOpenedFiles(2))
+	defer os.RemoveAll("testdata")
+	require.NoError(t, err)
+
+	_, _, err = a.Append([]byte{0, 1, 2})
+	require.NoError(t, err)
+
+	err = a.appendables.Apply(func(k interface{}, v interface{}) error {
+		return v.(*singleapp.AppendableFile).Close()
+	})
+	require.NoError(t, err)
+
+	_, _, err = a.Append([]byte{3, 4, 5})
+	require.Error(t, ErrAlreadyClosed, err)
 }
 
 func TestMultiAppReOpening(t *testing.T) {
