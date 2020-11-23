@@ -77,7 +77,7 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 	}
 
 	if sourceTxID < proof.TargetTxMetadata.BlTxID {
-		cTargetBlRoot := ahtree.EvalInclusion(proof.BinaryInclusionProof, sourceTxID, proof.TargetTxMetadata.BlTxID, sha256.Sum256(sourceAlh[:]))
+		cTargetBlRoot := ahtree.EvalInclusion(proof.BinaryInclusionProof, sourceTxID, proof.TargetTxMetadata.BlTxID, leafFor(sourceAlh))
 		if proof.TargetTxMetadata.BlRoot != cTargetBlRoot {
 			return false
 		}
@@ -91,7 +91,7 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 	}
 
 	if proof.TargetTxMetadata.BlTxID > 0 {
-		c2TargetBlRoot := ahtree.EvalLastInclusion(proof.BinaryLastInclusionProof, proof.TargetTxMetadata.BlTxID, sha256.Sum256(proof.TargetBlTxAlh[:]))
+		c2TargetBlRoot := ahtree.EvalLastInclusion(proof.BinaryLastInclusionProof, proof.TargetTxMetadata.BlTxID, leafFor(proof.TargetBlTxAlh))
 		if proof.TargetTxMetadata.BlRoot != c2TargetBlRoot {
 			return false
 		}
@@ -119,4 +119,11 @@ func alh(txID uint64, prevAlh [sha256.Size]byte, blTxID uint64, blRoot, txH [sha
 	copy(bi[txIDSize+sha256.Size:], innerHash[:]) // hash(txID + prevAlh + innerHash)
 
 	return sha256.Sum256(bi[:])
+}
+
+func leafFor(d [sha256.Size]byte) [sha256.Size]byte {
+	var b [1 + sha256.Size]byte
+	b[0] = ahtree.LeafPrefix
+	copy(b[1:], d[:])
+	return sha256.Sum256(b[:])
 }

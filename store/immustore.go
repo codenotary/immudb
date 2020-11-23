@@ -136,12 +136,14 @@ type KV struct {
 }
 
 func (kv *KV) Digest() [sha256.Size]byte {
-	b := make([]byte, len(kv.Key)+sha256.Size)
+	b := make([]byte, 1+len(kv.Key)+sha256.Size)
 
-	copy(b, kv.Key)
+	b[0] = LeafPrefix
+
+	copy(b[1:], kv.Key)
 
 	hvalue := sha256.Sum256(kv.Value)
-	copy(b[len(kv.Key):], hvalue[:])
+	copy(b[1+len(kv.Key):], hvalue[:])
 
 	return sha256.Sum256(b)
 }

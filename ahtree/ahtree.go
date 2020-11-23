@@ -40,6 +40,7 @@ var ErrEmptyTree = errors.New("empty tree")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 var ErrUnexistentData = errors.New("attempt to read unexistent data")
 
+const LeafPrefix = byte(0)
 const NodePrefix = byte(1)
 
 const Version = 1
@@ -235,7 +236,11 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 
 	n = uint64(t.cLogSize/cLogEntrySize) + 1
 
-	h = sha256.Sum256(d)
+	b := make([]byte, 1+len(d))
+	b[0] = LeafPrefix
+	copy(b[1:], d) // payload
+
+	h = sha256.Sum256(b)
 	copy(t._digests[:], h[:])
 	dCount := 1
 
@@ -299,9 +304,7 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		return
 	}
 
-	b := make([]byte, len(d))
-	copy(b, d)
-	_, _, err = t.pCache.Put(n, b)
+	_, _, err = t.pCache.Put(n, b[1:])
 	if err != nil {
 		return
 	}

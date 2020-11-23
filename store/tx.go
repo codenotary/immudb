@@ -64,6 +64,7 @@ func newTx(nentries int, maxKeyLen int) *Tx {
 	}
 }
 
+const LeafPrefix = byte(0)
 const NodePrefix = byte(1)
 
 func (tx *Tx) buildHashTree() {
@@ -251,10 +252,11 @@ func (e *Txe) Key() []byte {
 }
 
 func (e *Txe) digest() [sha256.Size]byte {
-	b := make([]byte, e.keyLen+sha256.Size)
+	b := make([]byte, 1+e.keyLen+sha256.Size)
 
-	copy(b, e.key[:e.keyLen])
-	copy(b[e.keyLen:], e.HValue[:])
+	b[0] = LeafPrefix
+	copy(b[1:], e.key[:e.keyLen])
+	copy(b[1+e.keyLen:], e.HValue[:])
 
 	return sha256.Sum256(b)
 }

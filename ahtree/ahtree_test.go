@@ -332,7 +332,7 @@ func TestInclusionAndConsistencyProofs(t *testing.T) {
 			jroot, err := tree.RootAt(uint64(j))
 			require.NoError(t, err)
 
-			h := sha256.Sum256([]byte{byte(i)})
+			h := sha256.Sum256([]byte{LeafPrefix, byte(i)})
 
 			verifies := VerifyInclusion(iproof, uint64(i), uint64(j), h, jroot)
 			require.True(t, verifies)
@@ -352,7 +352,7 @@ func TestInclusionAndConsistencyProofs(t *testing.T) {
 		iproof, err := tree.InclusionProof(uint64(i), uint64(N))
 		require.NoError(t, err)
 
-		h := sha256.Sum256([]byte{byte(i)})
+		h := sha256.Sum256([]byte{LeafPrefix, byte(i)})
 		root, err := tree.RootAt(uint64(i))
 		require.NoError(t, err)
 
@@ -400,7 +400,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 
 			root, _ := tree.RootAt(uint64(j))
 
-			h := sha256.Sum256([]byte{byte((i - 1) % ACount)})
+			h := sha256.Sum256([]byte{LeafPrefix, byte((i - 1) % ACount)})
 
 			verifies := VerifyInclusion(proof, uint64(i), uint64(j), h, root)
 			require.True(t, verifies)
