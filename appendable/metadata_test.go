@@ -16,15 +16,35 @@ limitations under the License.
 package appendable
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestMedatada(t *testing.T) {
+type mockedIOReader struct {
+}
 
+func (w *mockedIOReader) Read(b []byte) (int, error) {
+	return 0, errors.New("error")
+}
+
+type mockedIOWriter struct {
+}
+
+func (w *mockedIOWriter) Write(b []byte) (int, error) {
+	return 0, errors.New("error")
+}
+
+func TestMedatada(t *testing.T) {
 	md := NewMetadata(nil)
+
+	_, found := md.Get("key")
+	require.False(t, found)
+
+	_, found = md.GetInt("key")
+	require.False(t, found)
 
 	for i := 0; i < 10; i++ {
 		md.PutInt(fmt.Sprintf("key_%d", i), i)
@@ -44,4 +64,11 @@ func TestMedatada(t *testing.T) {
 		require.Equal(t, i, v)
 	}
 
+	mockedReader := &mockedIOReader{}
+	err := md.ReadFrom(mockedReader)
+	require.Error(t, err)
+
+	mockedWriter := &mockedIOWriter{}
+	_, err = md.WriteTo(mockedWriter)
+	require.Error(t, err)
 }

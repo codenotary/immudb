@@ -24,6 +24,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type mockedIOReaderAt struct {
+}
+
+func (w *mockedIOReaderAt) ReadAt(b []byte, off int64) (int, error) {
+	return 0, errors.New("error")
+}
+
 func TestReader(t *testing.T) {
 	a := &mocked.MockedAppendable{}
 
@@ -63,4 +70,14 @@ func TestReader(t *testing.T) {
 	n64, err := r.ReadUint64()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1024), n64)
+}
+
+func TestMockedReader(t *testing.T) {
+	mockedReaderAt := &mockedIOReaderAt{}
+
+	r := NewReaderFrom(mockedReaderAt, 0, 1024)
+	require.NotNil(t, r)
+
+	_, err := r.ReadByte()
+	require.Error(t, err)
 }
