@@ -445,5 +445,81 @@ func TestFloat(t *testing.T) {
 		assert.True(t, len(bs) == 8)
 		assert.Equal(t, n, Bytes2float(bs))
 	}
+}
 
+func TestStore_ZScanInvalidSet(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	opt := schema.ZScanOptions{
+		Set: []byte{tsPrefix},
+	}
+	_, err := st.ZScan(opt)
+	assert.Error(t, err, ErrInvalidSet)
+}
+
+func TestStore_ZScanInvalidOffset(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	opt := schema.ZScanOptions{
+		Set:    []byte(`set`),
+		Offset: []byte{tsPrefix},
+	}
+	_, err := st.ZScan(opt)
+	assert.Error(t, err, ErrInvalidOffset)
+}
+
+func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx0, _ := st.Set(schema.KeyValue{Key: []byte(`key1`), Value: []byte(`val1-C`)})
+	st.Set(schema.KeyValue{Key: []byte(`key2`), Value: []byte(`val2-A`)})
+	idx2, _ := st.Set(schema.KeyValue{Key: []byte(`key1`), Value: []byte(`val1-B`)})
+	st.Set(schema.KeyValue{Key: []byte(`key3`), Value: []byte(`val3-A`)})
+	idx4, _ := st.Set(schema.KeyValue{Key: []byte(`key1`), Value: []byte(`val1-A`)})
+
+	st.ZAdd(schema.ZAddOptions{
+		Set:   []byte(`mySet`),
+		Score: &schema.Score{Score: 0},
+		Key:   []byte(`key1`),
+		Index: idx2,
+	})
+	st.ZAdd(schema.ZAddOptions{
+		Set:   []byte(`mySet`),
+		Score: &schema.Score{Score: 0},
+		Key:   []byte(`key1`),
+		Index: idx0,
+	})
+	st.ZAdd(schema.ZAddOptions{
+		Set:   []byte(`mySet`),
+		Score: &schema.Score{Score: 0},
+		Key:   []byte(`key2`),
+	})
+	st.ZAdd(schema.ZAddOptions{
+		Set:   []byte(`mySet`),
+		Score: &schema.Score{Score: 0},
+		Key:   []byte(`key3`),
+	})
+	st.ZAdd(schema.ZAddOptions{
+		Set:   []byte(`mySet`),
+		Score: &schema.Score{Score: 0},
+		Key:   []byte(`key1`),
+		Index: idx4,
+	})
+
+	zScanOptions := schema.ZScanOptions{
+		Set: []byte(`mySet`),
+	}
+
+	list, err := st.ZScan(zScanOptions)
+
+	assert.NoError(t, err)
+	// same key, sorted by internal timestamp
+	assert.Exactly(t, []byte(`val1-C`), list.Items[0].Item.Value)
+	assert.Exactly(t, []byte(`val1-B`), list.Items[1].Item.Value)
+	assert.Exactly(t, []byte(`val1-A`), list.Items[2].Item.Value)
+	assert.Exactly(t, []byte(`val2-A`), list.Items[3].Item.Value)
+	assert.Exactly(t, []byte(`val3-A`), list.Items[4].Item.Value)
 }
