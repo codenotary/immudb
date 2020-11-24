@@ -103,6 +103,7 @@ message BatchOp{
 	oneof operation {
 		KeyValue KVs = 1;
 		ZAddOptions ZOpts = 2;
+		ReferenceOptions ROpts = 3;
 	}
 }
 
@@ -273,6 +274,7 @@ message HealthResponse {
 message ReferenceOptions {
 	bytes reference = 1;
 	bytes key = 2;
+	Index index = 3;
 }
 
 /*

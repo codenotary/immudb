@@ -860,3 +860,38 @@ func TestSetBatchOpsMonotoneTsRange(t *testing.T) {
 		assert.Equal(t, uint64(i), item.Index)
 	}
 }
+
+func TestBatchOps_Reference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx0, _ := st.Set(schema.KeyValue{
+		Key:   []byte(`persistedKey`),
+		Value: []byte(`persistedVal`),
+	})
+
+	// BatchOps payload
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
+			{
+				Operation: &schema.BatchOp_ROpts{
+					ROpts: &schema.ReferenceOptions{
+						Reference: []byte(`myReference`),
+						Key:       []byte(`persistedKey`),
+						Index:     idx0,
+					},
+				},
+			},
+		},
+	}
+	_, err := st.SetBatchOps(aOps)
+	assert.NoError(t, err)
+
+	ref, err := st.Get(schema.Key{Key: []byte(`myReference`)})
+
+	assert.NoError(t, err)
+	assert.NotEmptyf(t, ref, "Should not be empty")
+	assert.Equal(t, []byte(`persistedVal`), ref.Value, "Should have referenced item value")
+	assert.Equal(t, []byte(`persistedKey`), ref.Key, "Should have referenced item value")
+
+}
