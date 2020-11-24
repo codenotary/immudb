@@ -138,6 +138,35 @@ func (t *Store) SetBatchOps(ops *schema.BatchOps, options ...WriteOption) (index
 				r:  &kv.Key,
 			}
 			tsEntriesKv = append(tsEntriesKv, entry)
+		case *schema.BatchOp_ROpts:
+			// zAdd arguments are converted in regular key value items and then batch generation
+			skipPersistenceCheck := false
+			if idx, exists := kmap[sha256.Sum256(x.ROpts.Key)]; exists {
+				skipPersistenceCheck = true
+				x.ROpts.Index = &schema.Index{Index: idx}
+			} else if x.ROpts.Index == nil {
+				return nil, ErrZAddIndexMissing
+			}
+			// if skipPersistenceCheck is true it means that the reference will be done with a key value that is not yet
+			// persisted in the store, but it's present in the previous key value list.
+			// if skipPersistenceCheck is false it means that the reference is already persisted on disk.
+			v, err := t.getReferenceVal(txn, x.ROpts, skipPersistenceCheck)
+			if err != nil {
+				return nil, err
+			}
+			kv := &schema.KeyValue{
+				Key:   x.ROpts.Reference,
+				Value: v,
+			}
+			kvList.KVs = append(kvList.KVs, kv)
+			h := api.Digest(ats-1, kv.Key, kv.Value)
+			entry := &treeStoreEntry{
+				ts: ats,
+				h:  &h,
+				r:  &kv.Key,
+			}
+			tsEntriesKv = append(tsEntriesKv, entry)
+
 		case nil:
 			return nil, status.New(codes.InvalidArgument, "batch operation is not set").Err()
 		default:

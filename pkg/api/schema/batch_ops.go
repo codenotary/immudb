@@ -30,6 +30,12 @@ func (m *BatchOps) Validate() error {
 				return ErrDuplicatedZAddNotSupported
 			}
 			mops[mk] = struct{}{}
+		case *BatchOp_ROpts:
+			mk := sha256.Sum256(bytes.Join([][]byte{x.ROpts.Reference, x.ROpts.Key, []byte(x.ROpts.Index.String())}, nil))
+			if _, ok := mops[mk]; ok {
+				return ErrDuplicatedReferencesNotSupported
+			}
+			mops[mk] = struct{}{}
 		case nil:
 			return status.New(codes.InvalidArgument, "operation is not set").Err()
 		default:
