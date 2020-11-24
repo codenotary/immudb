@@ -33,8 +33,20 @@ func TestNewHistoryFileCache(t *testing.T) {
 
 func TestNewHistoryFileCacheSet(t *testing.T) {
 	fc := NewHistoryFileCache(dirnamehfc)
-	err := fc.Set(&schema.Root{}, "uuid", "dbName")
+
+	err := fc.Set(&schema.Root{Payload: &schema.RootIndex{Index: 1}}, "uuid", "dbName")
 	assert.Nil(t, err)
+
+	err = fc.Set(&schema.Root{Payload: &schema.RootIndex{Index: 2}}, "uuid", "dbName")
+	assert.Nil(t, err)
+
+	root, err := fc.Get("uuid", "dbName")
+	assert.Nil(t, err)
+	assert.IsType(t, &schema.Root{}, root)
+
+	_, err = fc.Get("uuid1", "dbName")
+	assert.Nil(t, err)
+
 	os.RemoveAll(dirnamehfc)
 }
 
