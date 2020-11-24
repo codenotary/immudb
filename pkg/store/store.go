@@ -368,68 +368,6 @@ func (t *Store) History(options *schema.HistoryOptions) (list *schema.ItemList, 
 	return
 }
 
-// Reference adds a new entry who's value is an existing key
-func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
-	opts := makeWriteOptions(options...)
-	if isReservedKey(refOpts.Key) {
-		return nil, ErrInvalidKey
-	}
-	if isReservedKey(refOpts.Reference) {
-		return nil, ErrInvalidReference
-	}
-
-	txn := t.db.NewTransactionAt(math.MaxUint64, true)
-	defer txn.Discard()
-
-	i, err := txn.Get(refOpts.Key)
-	if err != nil {
-		return nil, mapError(err)
-	}
-
-	tsEntry := t.tree.NewEntry(refOpts.Reference, i.Key())
-
-	if err = txn.SetEntry(&badger.Entry{
-		Key:      refOpts.Reference,
-		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
-		UserMeta: bitReferenceEntry,
-	}); err != nil {
-		return nil, mapError(err)
-	}
-
-	index = &schema.Index{
-		Index: tsEntry.ts - 1,
-	}
-
-	if err = txn.SetEntry(&badger.Entry{
-		Key:      treeKey(uint8(0), tsEntry.ts-1),
-		Value:    refTreeKey(*tsEntry.h, *tsEntry.r),
-		UserMeta: bitTreeEntry,
-	}); err != nil {
-		return nil, mapError(err)
-	}
-
-	cb := func(err error) {
-		if err == nil {
-			t.tree.Commit(tsEntry)
-		} else {
-			t.tree.Discard(tsEntry)
-		}
-		if opts.asyncCommit {
-			t.wg.Done()
-		}
-	}
-
-	if opts.asyncCommit {
-		t.wg.Add(1)
-		err = mapError(txn.CommitAt(tsEntry.ts, cb)) // cb will be executed in a new goroutine
-	} else {
-		err = mapError(txn.CommitAt(tsEntry.ts, nil))
-		cb(err)
-	}
-
-	return index, err
-}
-
 // ZAdd adds a score for an existing key in a sorted set
 // As a parameter of ZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
