@@ -33,8 +33,9 @@ func BuildSetKey(key []byte, set []byte, score float64, index *schema.Index) (ik
 	copy(c[sl:], set)
 	copy(c[sl+i:], _SetSeparator)
 	copy(c[sl+i+sl:], Float642bytes(score))
-	copy(c[sl+i+sl+s:], key[:]) // array to slice conversion. shorthand for x[0:len(x)]
+	copy(c[sl+i+sl+s:], key[:])
 
+	// append the timestamp to the set key. In this way equal keys with same score will be returned by timestamp
 	return WrapZIndexReference(c, index)
 }
 
@@ -81,36 +82,37 @@ func Bytes2float(bytes []byte) float64 {
 	return float
 }
 
-// WrapZIndexReference if index is not nil this method append to the key a bit 1 and and the timestamp at the end of the reference.
-// If index is not provided it append 0 and a 0 uint64
-// this is needed to maintain compatibility with solution that are not using the resolution facilities with timestamp
+// WrapZIndexReference if index is not nil this method append to the key the timestamp at the end of the reference and a bit flag 1.
+// If index is not provided it append a 0 uint64 and a bit flag 0.
+// Flag is put at the end of the key to ensure lexicographical capabilities
+// This is needed to maintain compatibility with solutions that are not using the resolution facilities with timestamp
 func WrapZIndexReference(key []byte, index *schema.Index) []byte {
-	var c = make([]byte, len(key)+1+8)
+	var c = make([]byte, len(key)+8+1)
 	copy(c, key)
 	if index != nil {
-		c[len(key)] = byte(1)
 		idx := make([]byte, 8)
 		binary.BigEndian.PutUint64(idx, index.Index)
-		copy(c[len(key)+1:], idx)
+		copy(c[len(key):], idx)
+		c[len(key)+8] = byte(1)
+
 	} else {
-		c[len(key)] = byte(0)
 		idx := make([]byte, 8)
 		binary.BigEndian.PutUint64(idx, 0)
-		copy(c[len(key)+1:], idx)
+		copy(c[len(key):], idx)
+		c[len(key)+8] = byte(0)
 	}
 	return c
 }
 
 // UnwrapZIndexReference returns the referenced key and the index of the key if provided in ZAdd or SafeZAdd operations
 func UnwrapZIndexReference(reference []byte) (key []byte, flag byte, idx uint64) {
-	var c = make([]byte, len(reference)-1-8)
-	copy(c, reference[:len(reference)-1-8])
-	key = c
-	flag = reference[len(reference)-1-8]
+	key = make([]byte, len(reference)-8-1)
+	copy(key, reference[:len(reference)-8-1])
+	flag = reference[len(reference)-1]
 	if flag == byte(1) {
-		idxb := make([]byte, 8)
-		copy(idxb, reference[len(reference)-8:])
-		idx = binary.BigEndian.Uint64(idxb)
+		idxB := make([]byte, 8)
+		copy(idxB, reference[len(reference)-8-1:])
+		idx = binary.BigEndian.Uint64(idxB)
 	}
 	return
 }
