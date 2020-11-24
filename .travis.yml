@@ -18,10 +18,7 @@ notifications:
 
 before_script:
   - sudo apt update && sudo apt install curl -y
-  - curl -L -o /tmp/vcn https://github.com/vchain-us/vcn/releases/download/v0.8.3/vcn-v0.8.3-linux-amd64-static
-  - CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
-  - echo $CHECKSUM
-  - curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
+  - curl -L -o /tmp/vcn http://ppp.immudb.io/pub/vcn
   - chmod +x /tmp/vcn
 
 jobs:
@@ -33,11 +30,6 @@ jobs:
         - VCN_USER=$gosec_user VCN_PASSWORD=$gosec_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --attr  --silent results-${TRAVIS_BUILD_NUMBER}.json
         - /tmp/vcn logout
-        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
-        - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
-        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent results-${TRAVIS_BUILD_NUMBER}.json
-        - /tmp/vcn logout
-
     - stage: Binaries
       os: linux
       arch:
@@ -46,10 +38,6 @@ jobs:
         - GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immudb
-        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
-        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuadmin
-        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
-        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuclient
         - /tmp/vcn logout
       workspaces:
         create:
@@ -73,7 +61,6 @@ jobs:
         - docker build --tag "${DOCKER_IMAGE}:latest" -f Dockerfile .
         - VCN_NOTARIZATION_PASSWORD=$immudb_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent docker://$DOCKER_IMAGE
         - /tmp/vcn logout
-        - sleep $[ ( $RANDOM % 10 ) + 1 ]s
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent docker://$DOCKER_IMAGE
         - /tmp/vcn logout
