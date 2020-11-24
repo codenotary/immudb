@@ -409,3 +409,57 @@ func TestStore_ScanInvalidOffset(t *testing.T) {
 	_, err := st.Scan(opt)
 	assert.Error(t, err, ErrInvalidOffset)
 }
+
+func TestStoreIndexReferenceDeepScan(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx1, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	idx2, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item2`)})
+	_, err := st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`myTag1`), Index: idx1})
+	assert.NoError(t, err)
+	_, err = st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`myTag2`), Index: idx2})
+	assert.NoError(t, err)
+
+	scanOptions := schema.ScanOptions{
+		Prefix:  []byte(`myTag`),
+		Offset:  nil,
+		Limit:   0,
+		Reverse: false,
+		Deep:    true,
+	}
+
+	list, err := st.Scan(scanOptions)
+
+	assert.NoError(t, err)
+	assert.Exactly(t, 2, len(list.Items))
+	assert.Equal(t, list.Items[0].Key, []byte(`aaa`))
+	assert.Equal(t, list.Items[0].Value, []byte(`item1`))
+	assert.Equal(t, list.Items[1].Key, []byte(`aaa`))
+	assert.Equal(t, list.Items[1].Value, []byte(`item2`))
+}
+
+func TestStoreIndexReferenceScan(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx1, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	idx2, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item2`)})
+	_, err := st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`myTag1`), Index: idx1})
+	assert.NoError(t, err)
+	_, err = st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`myTag2`), Index: idx2})
+	assert.NoError(t, err)
+
+	scanOptions := schema.ScanOptions{
+		Prefix:  []byte(`myTag`),
+		Offset:  nil,
+		Limit:   0,
+		Reverse: false,
+		Deep:    false,
+	}
+
+	list, err := st.Scan(scanOptions)
+
+	assert.NoError(t, err)
+	assert.Exactly(t, 0, len(list.Items))
+}

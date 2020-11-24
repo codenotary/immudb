@@ -25,18 +25,19 @@ import (
 
 // immudb errors
 var (
-	ErrInconsistentState  = status.New(codes.Unknown, "inconsistent state").Err()
-	ErrIndexNotFound      = status.New(codes.NotFound, "index not found").Err()
-	ErrInvalidKey         = status.New(codes.InvalidArgument, "invalid key").Err()
-	ErrInvalidReference   = status.New(codes.InvalidArgument, "invalid reference").Err()
-	ErrInvalidKeyPrefix   = status.New(codes.InvalidArgument, "invalid key prefix").Err()
-	ErrInvalidSet         = status.New(codes.InvalidArgument, "invalid set").Err()
-	ErrInvalidOffset      = status.New(codes.InvalidArgument, "invalid offset").Err()
-	ErrInvalidRootIndex   = status.New(codes.InvalidArgument, "invalid root index").Err()
-	ErrObsoleteDataFormat = status.New(codes.Unknown, "data format in which elements are written on disk is not up to date to the current version of immudb server. Please upgrade to access to complete functionalities").Err()
-	ErrInconsistentDigest = status.New(codes.Unknown, "insertion order index hash is not equal to the digest of the related value").Err()
-	ErrIndexKeyMismatch   = status.New(codes.InvalidArgument, "mismatch between provided index and key").Err()
-	ErrZAddIndexMissing   = status.New(codes.InvalidArgument, "zAdd index not provided").Err()
+	ErrInconsistentState     = status.New(codes.Unknown, "inconsistent state").Err()
+	ErrIndexNotFound         = status.New(codes.NotFound, "index not found").Err()
+	ErrInvalidKey            = status.New(codes.InvalidArgument, "invalid key").Err()
+	ErrInvalidReference      = status.New(codes.InvalidArgument, "invalid reference").Err()
+	ErrInvalidKeyPrefix      = status.New(codes.InvalidArgument, "invalid key prefix").Err()
+	ErrInvalidSet            = status.New(codes.InvalidArgument, "invalid set").Err()
+	ErrInvalidOffset         = status.New(codes.InvalidArgument, "invalid offset").Err()
+	ErrInvalidRootIndex      = status.New(codes.InvalidArgument, "invalid root index").Err()
+	ErrObsoleteDataFormat    = status.New(codes.Unknown, "data format in which elements are written on disk is not up to date to the current version of immudb server. Please upgrade to access to complete functionalities").Err()
+	ErrInconsistentDigest    = status.New(codes.Unknown, "insertion order index hash is not equal to the digest of the related value").Err()
+	ErrIndexKeyMismatch      = status.New(codes.InvalidArgument, "mismatch between provided index and key").Err()
+	ErrZAddIndexMissing      = status.New(codes.InvalidArgument, "zAdd index not provided").Err()
+	ErrReferenceIndexMissing = status.New(codes.InvalidArgument, "reference index not provided").Err()
 )
 
 // fixme(leogr): review codes and fix/remove errors which do not make sense in this context, finally correct comments accordingly.

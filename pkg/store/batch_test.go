@@ -861,7 +861,7 @@ func TestSetBatchOpsMonotoneTsRange(t *testing.T) {
 	}
 }
 
-func TestBatchOps_Reference(t *testing.T) {
+func TestBatchOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -894,4 +894,86 @@ func TestBatchOps_Reference(t *testing.T) {
 	assert.Equal(t, []byte(`persistedVal`), ref.Value, "Should have referenced item value")
 	assert.Equal(t, []byte(`persistedKey`), ref.Key, "Should have referenced item value")
 
+}
+
+func TestBatchOps_ReferenceKeyNotYetPersisted(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	// BatchOps payload
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
+			{
+				Operation: &schema.BatchOp_KVs{
+					KVs: &schema.KeyValue{
+						Key:   []byte(`key`),
+						Value: []byte(`val`),
+					},
+				},
+			},
+			{
+				Operation: &schema.BatchOp_ROpts{
+					ROpts: &schema.ReferenceOptions{
+						Reference: []byte(`myTag`),
+						Key:       []byte(`key`),
+					},
+				},
+			},
+		},
+	}
+	_, err := st.SetBatchOps(aOps)
+	assert.NoError(t, err)
+
+	ref, err := st.Get(schema.Key{Key: []byte(`myTag`)})
+
+	assert.NoError(t, err)
+	assert.NotEmptyf(t, ref, "Should not be empty")
+	assert.Equal(t, []byte(`val`), ref.Value, "Should have referenced item value")
+	assert.Equal(t, []byte(`key`), ref.Key, "Should have referenced item value")
+
+}
+
+func TestBatchOps_ReferenceIndexNotExists(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	// BatchOps payload
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
+			{
+				Operation: &schema.BatchOp_ROpts{
+					ROpts: &schema.ReferenceOptions{
+						Reference: []byte(`myReference`),
+						Key:       []byte(`persistedKey`),
+						Index: &schema.Index{
+							Index: 1234,
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := st.SetBatchOps(aOps)
+	assert.Equal(t, ErrIndexNotFound, err)
+}
+
+func TestBatchOps_ReferenceIndexMissing(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	// BatchOps payload
+	aOps := &schema.BatchOps{
+		Operations: []*schema.BatchOp{
+			{
+				Operation: &schema.BatchOp_ROpts{
+					ROpts: &schema.ReferenceOptions{
+						Reference: []byte(`myReference`),
+						Key:       []byte(`persistedKey`),
+					},
+				},
+			},
+		},
+	}
+	_, err := st.SetBatchOps(aOps)
+	assert.Equal(t, ErrReferenceIndexMissing, err)
 }

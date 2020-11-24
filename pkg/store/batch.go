@@ -111,7 +111,7 @@ func (t *Store) SetBatchOps(ops *schema.BatchOps, options ...WriteOption) (index
 			kmap[sha256.Sum256(x.KVs.Key)] = entry.Index()
 			tsEntriesKv = append(tsEntriesKv, entry)
 		case *schema.BatchOp_ZOpts:
-			// zAdd arguments are converted in regular key value items and then batch generation
+			// zAdd arguments are converted in regular key value items and then atomically inserted
 			skipPersistenceCheck := false
 			if idx, exists := kmap[sha256.Sum256(x.ZOpts.Key)]; exists {
 				skipPersistenceCheck = true
@@ -139,13 +139,13 @@ func (t *Store) SetBatchOps(ops *schema.BatchOps, options ...WriteOption) (index
 			}
 			tsEntriesKv = append(tsEntriesKv, entry)
 		case *schema.BatchOp_ROpts:
-			// zAdd arguments are converted in regular key value items and then batch generation
+			// reference arguments are converted in regular key value items and then atomically inserted
 			skipPersistenceCheck := false
 			if idx, exists := kmap[sha256.Sum256(x.ROpts.Key)]; exists {
 				skipPersistenceCheck = true
 				x.ROpts.Index = &schema.Index{Index: idx}
 			} else if x.ROpts.Index == nil {
-				return nil, ErrZAddIndexMissing
+				return nil, ErrReferenceIndexMissing
 			}
 			// if skipPersistenceCheck is true it means that the reference will be done with a key value that is not yet
 			// persisted in the store, but it's present in the previous key value list.
