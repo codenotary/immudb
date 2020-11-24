@@ -475,8 +475,8 @@ func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions
 			return nil, nil, ErrIndexKeyMismatch
 		}
 		key = zaddOpts.Key
-		// We know the index ( i.Version() - 1 ) but if is not submitted by the client we can not store it inside the reference to allow verifications in SDKs
-		index.Index = i.Version() - 1
+		// We know the index ( i.Version() - 1 ) but if is not submitted by the client we can not store it inside the reference. This is needed to permit verifications in SDKs
+		index = nil
 	}
 	ik := BuildSetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score.Score, index)
 

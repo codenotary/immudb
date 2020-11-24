@@ -17,7 +17,6 @@ limitations under the License.
 package store
 
 import (
-	"bytes"
 	"math"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -271,34 +270,10 @@ func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, e
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
-	var referenceValue []byte
-	var index *schema.Index
-	var key []byte
-
-	if options.Zopts.Index != nil {
-		// convert to internal timestamp for itemAt
-		_, key, _, err = t.itemAt(options.Zopts.Index.Index + 1)
-		if err != nil {
-			return nil, mapError(err)
-		}
-		if bytes.Compare(key, options.Zopts.Key) != 0 {
-			return nil, ErrIndexKeyMismatch
-		}
-		// here we append the index to the reference value
-		index = options.Zopts.Index
-	} else {
-		var i *badger.Item
-		i, err = txn.Get(options.Zopts.Key)
-		if err != nil {
-			return nil, mapError(err)
-		}
-		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
-		key = i.KeyCopy(nil)
-		index = nil
+	ik, referenceValue, err := t.getSortedSetKeyVal(txn, options.Zopts, false)
+	if err != nil {
+		return nil, err
 	}
-
-	ik := BuildSetKey(options.Zopts.Key, options.Zopts.Set, options.Zopts.Score.Score, index)
-	referenceValue = WrapZIndexReference(key, index)
 
 	tsEntry := t.tree.NewEntry(ik, referenceValue)
 
