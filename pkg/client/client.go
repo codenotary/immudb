@@ -1084,6 +1084,9 @@ func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []
 		return nil, err
 	}
 
+	// to pass the following guard we need to add the index reference that is added also by the server
+	key = store.WrapZIndexReference(key, nil)
+
 	// This guard ensures that result.Leaf is equal to the item's hash computed
 	// from request values. From now on, result.Leaf can be trusted.
 	item := schema.Item{
@@ -1172,7 +1175,8 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 	// This guard ensures that result.Leaf is equal to the item's hash computed
 	// from request values. From now on, result.Leaf can be trusted.
 	item := schema.Item{
-		Key:   keySet,
+		Key: keySet,
+		// to pass the  following guard we need to add the index reference to the value that is added also by the server
 		Value: store.WrapZIndexReference(key, nil),
 		Index: result.Index,
 	}

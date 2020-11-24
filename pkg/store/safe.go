@@ -118,31 +118,44 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
+
 	i, err = txn.Get(key)
 	if err != nil {
 		return nil, mapError(err)
 	}
 
-	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
+	if i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
 		var refKey []byte
 		err = i.Value(func(val []byte) error {
 			refKey, _ = UnwrapValueWithTS(val)
 			return nil
 		})
-		if err != nil {
-			return nil, err
+
+		k, flag, refIndex := UnwrapZIndexReference(refKey)
+
+		// here check for index reference, if present we resolve reference with ByIndex
+		if flag == byte(1) {
+			item, err = t.ByIndex(schema.Index{Index: refIndex})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			i, err = txn.Get(k)
+			if err != nil {
+				return nil, mapError(err)
+			}
+			item, err = itemToSchema(i.Key(), i)
+			if err != nil {
+				return nil, err
+			}
 		}
-		i, err = txn.Get(refKey)
-		key = i.Key()
+	} else {
+		item, err = itemToSchema(key, i)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	item, err = itemToSchema(key, i)
-	if err != nil {
-		return nil, err
-	}
 	safeItem = &schema.SafeItem{
 		Item: item,
 	}
@@ -185,16 +198,16 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
-	i, err := txn.Get(ro.Key)
+	k, err := t.getReferenceVal(txn, options.Ro, false)
 	if err != nil {
 		return nil, mapError(err)
 	}
 
-	tsEntry := t.tree.NewEntry(ro.Reference, i.Key())
+	tsEntry := t.tree.NewEntry(ro.Reference, k)
 
 	if err = txn.SetEntry(&badger.Entry{
 		Key:      ro.Reference,
-		Value:    WrapValueWithTS(i.Key(), tsEntry.ts),
+		Value:    WrapValueWithTS(k, tsEntry.ts),
 		UserMeta: bitReferenceEntry,
 	}); err != nil {
 		return nil, mapError(err)

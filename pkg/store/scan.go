@@ -76,7 +76,6 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 			if !options.Deep {
 				continue
 			}
-
 			var refKey []byte
 
 			err = it.Item().Value(func(val []byte) error {
@@ -87,10 +86,26 @@ func (t *Store) Scan(options schema.ScanOptions) (list *schema.ItemList, err err
 				return nil, err
 			}
 
-			if ref, err := txn.Get(refKey); err == nil {
-				item, err = itemToSchema(refKey, ref)
+			refKey, flag, refIndex := UnwrapZIndexReference(refKey)
+
+			// here check for index reference, if present we resolve reference with itemAt
+			if flag == byte(1) {
+				idx, key, val, err := t.itemAt(refIndex + 1) // itemAt returns index
 				if err != nil {
 					return nil, err
+				}
+
+				item = &schema.Item{
+					Key:   key,
+					Value: val,
+					Index: idx,
+				}
+			} else {
+				if ref, err := txn.Get(refKey); err == nil {
+					item, err = itemToSchema(refKey, ref)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		} else {
