@@ -711,6 +711,37 @@ func TestImmuClient_History(t *testing.T) {
 	client.Disconnect()
 }
 
+func TestImmuClient_SetAll(t *testing.T) {
+	setup()
+
+	_, err := client.SetAll(context.TODO(), nil)
+	require.Error(t, ErrIllegalArguments, err)
+
+	kvList := &schema.KVList{KVs: []*schema.KeyValue{}}
+	_, err = client.SetAll(context.TODO(), kvList)
+	require.Error(t, schema.ErrEmptySet, err)
+
+	kvList = &schema.KVList{KVs: []*schema.KeyValue{
+		{Key: []byte("1,2,3"), Value: []byte("3,2,1")},
+		{Key: []byte("4,5,6"), Value: []byte("6,5,4")},
+	}}
+
+	_, err = client.SetAll(context.TODO(), kvList)
+	require.NoError(t, err)
+
+	for _, kv := range kvList.KVs {
+		i, err := client.Get(context.TODO(), kv.Key)
+		require.NoError(t, err)
+		require.Equal(t, kv.Value, i.Value.GetPayload())
+	}
+
+	err = client.Disconnect()
+	require.NoError(t, err)
+
+	_, err = client.SetAll(context.TODO(), kvList)
+	require.Error(t, ErrNotConnected, err)
+}
+
 func TestImmuClient_GetBatch(t *testing.T) {
 	setup()
 	_, _ = client.SafeSet(context.TODO(), []byte(`aaa`), []byte(`val`))
