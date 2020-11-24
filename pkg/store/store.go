@@ -184,26 +184,35 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	if err = checkKey(key.Key); err != nil {
 		return nil, err
 	}
+	k := key.Key
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
-	i, err := txn.Get(key.Key)
+	i, err := txn.Get(k)
+	if err != nil {
+		return nil, mapError(err)
+	}
 
-	if err == nil && i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
-		var refkey []byte
+	if i.UserMeta()&bitReferenceEntry == bitReferenceEntry {
+		var refKey []byte
 		err = i.Value(func(val []byte) error {
-			refkey, _ = UnwrapValueWithTS(val)
+			refKey, _ = UnwrapValueWithTS(val)
 			return nil
 		})
-		if ref, err := txn.Get(refkey); err == nil {
-			return itemToSchema(refkey, ref)
+
+		k, flag, refIndex := UnwrapZIndexReference(refKey)
+
+		// here check for index reference, if present we resolve reference with itemAt
+		if flag == byte(1) {
+			return t.ByIndex(schema.Index{Index: refIndex})
+		} else {
+			i, err = txn.Get(k)
+			if err != nil {
+				return nil, mapError(err)
+			}
 		}
 	}
 
-	if err != nil {
-		err = mapError(err)
-		return
-	}
-	return itemToSchema(key.Key, i)
+	return itemToSchema(i.Key(), i)
 }
 
 // CountAll returns the total number of entries
@@ -437,7 +446,7 @@ func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index
 func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions, skipPersistenceCheck bool) (k, v []byte, err error) {
 
 	var referenceValue []byte
-	var index *schema.Index
+	var index = &schema.Index{}
 	var key []byte
 	if zaddOpts.Index != nil {
 		if !skipPersistenceCheck {
@@ -453,29 +462,69 @@ func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions
 			key = zaddOpts.Key
 		}
 		// here we append the index to the reference value
+		// In case that skipPersistenceCheck == true index need to be assigned carefully
 		index = zaddOpts.Index
 	} else {
-		if !skipPersistenceCheck {
-			var i *badger.Item
-			i, err = txn.Get(zaddOpts.Key)
-			if err != nil {
-				return nil, nil, mapError(err)
-			}
-			key = i.KeyCopy(nil)
-			if bytes.Compare(key, zaddOpts.Key) != 0 {
-				return nil, nil, ErrIndexKeyMismatch
-			}
-		} else {
-			key = zaddOpts.Key
+		var i *badger.Item
+		i, err = txn.Get(zaddOpts.Key)
+		if err != nil {
+			return nil, nil, mapError(err)
 		}
-		// here we append a flag that the index reference was not specified. Thanks to this we will use only the key to calculate digest
-		index = nil
+		key = i.KeyCopy(nil)
+		if bytes.Compare(key, zaddOpts.Key) != 0 {
+			return nil, nil, ErrIndexKeyMismatch
+		}
+		key = zaddOpts.Key
+		// We know the index ( i.Version() - 1 ) but if is not submitted by the client we can not store it inside the reference to allow verifications in SDKs
+		index.Index = i.Version() - 1
 	}
 	ik := BuildSetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score.Score, index)
 
+	// append the index to the reference. In this way the resolution will be index based
 	referenceValue = WrapZIndexReference(key, index)
 
 	return ik, referenceValue, err
+}
+
+//
+func (t *Store) getReferenceVal(txn *badger.Txn, rOpts *schema.ReferenceOptions, skipPersistenceCheck bool) (v []byte, err error) {
+	var index = &schema.Index{}
+	var key []byte
+	if rOpts.Index != nil {
+		if !skipPersistenceCheck {
+			// convert to internal timestamp for itemAt, that returns the index
+			_, key, _, err = t.itemAt(rOpts.Index.Index + 1)
+			if err != nil {
+				return nil, mapError(err)
+			}
+			if bytes.Compare(key, rOpts.Key) != 0 {
+				return nil, ErrIndexKeyMismatch
+			}
+		} else {
+			key = rOpts.Key
+		}
+		// here we append the index to the reference value
+		// In case that skipPersistenceCheck == true index need to be assigned carefully
+		index = rOpts.Index
+	} else {
+		var i *badger.Item
+		i, err = txn.Get(rOpts.Key)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		key = i.KeyCopy(nil)
+		if bytes.Compare(key, rOpts.Key) != 0 {
+			return nil, ErrIndexKeyMismatch
+		}
+		key = rOpts.Key
+		// We know the index ( i.Version() - 1 ) but if is not submitted by the client we can not store it inside the reference to allow verifications in SDKs
+		index = nil
+	}
+
+	// append the timestamp to the reference key. In this way equal keys will be returned sorted by timestamp and the resolution will be index based
+	v = WrapZIndexReference(key, index)
+
+	return v, err
 }
 
 // FlushToDisk flushes cached data from memory to disk

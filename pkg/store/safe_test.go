@@ -256,7 +256,7 @@ func TestStoreSafeReference(t *testing.T) {
 		assert.NotNil(t, proof, "n=%d", n)
 		assert.Equal(t, n+1, proof.Index, "n=%d", n)
 
-		leaf := api.Digest(proof.Index, opts.Ro.Reference, opts.Ro.Key)
+		leaf := api.Digest(proof.Index, opts.Ro.Reference, WrapZIndexReference(opts.Ro.Key, nil))
 		verified := proof.Verify(leaf[:], *root)
 		assert.True(t, verified, "n=%d", n)
 
@@ -297,7 +297,7 @@ func TestStoreSafeGetOnSafeReference(t *testing.T) {
 	proof, err := st.SafeReference(ref1)
 	assert.NoError(t, err)
 
-	leaf := api.Digest(proof.Index, firstTag, firstKey)
+	leaf := api.Digest(proof.Index, firstTag, WrapZIndexReference(firstKey, nil))
 	// Here verify if first reference was correctly inserted. We have no root yet.
 	verified := proof.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
 	assert.True(t, verified)
@@ -316,7 +316,7 @@ func TestStoreSafeGetOnSafeReference(t *testing.T) {
 	assert.NoError(t, err)
 
 	prevRoot := proof.NewRoot()
-	leaf2 := api.Digest(proof2.Index, secondTag, firstKey)
+	leaf2 := api.Digest(proof2.Index, secondTag, WrapZIndexReference(firstKey, nil))
 	// Here verify if second reference was correctly inserted. We have root from safeReference 2.
 	verified2 := proof2.Verify(leaf2[:], *prevRoot)
 	assert.True(t, verified2)

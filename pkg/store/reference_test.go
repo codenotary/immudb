@@ -84,7 +84,6 @@ func TestStoreReferenceAsyncCommit(t *testing.T) {
 			itemKey = []byte(`firstKey`)
 			itemVal = []byte(`firstValue`)
 			index = firstIndex.Index
-
 		} else {
 			itemKey = []byte(`secondKey`)
 			itemVal = []byte(`secondValue`)
@@ -96,4 +95,62 @@ func TestStoreReferenceAsyncCommit(t *testing.T) {
 		assert.Equal(t, itemVal, item.Value, "n=%d", n)
 		assert.Equal(t, itemKey, item.Key, "n=%d", n)
 	}
+}
+
+func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx0, err := st.Set(schema.KeyValue{Key: []byte(`firstKey`), Value: []byte(`firstValue`)})
+	idx1, err := st.Set(schema.KeyValue{Key: []byte(`firstKey`), Value: []byte(`secondValue`)})
+
+	assert.NoError(t, err)
+
+	refOpts1 := &schema.ReferenceOptions{
+		Reference: []byte(`myTag1`),
+		Key:       []byte(`firstKey`),
+		Index:     idx0,
+	}
+	reference1, err := st.Reference(refOpts1)
+	assert.NoError(t, err)
+	assert.Exactly(t, uint64(2), reference1.Index)
+	assert.NotEmptyf(t, reference1, "Should not be empty")
+
+	refOpts2 := &schema.ReferenceOptions{
+		Reference: []byte(`myTag2`),
+		Key:       []byte(`firstKey`),
+		Index:     idx0,
+	}
+	reference2, err := st.Reference(refOpts2)
+	assert.NoError(t, err)
+	assert.Exactly(t, uint64(3), reference2.Index)
+	assert.NotEmptyf(t, reference2, "Should not be empty")
+
+	refOpts3 := &schema.ReferenceOptions{
+		Reference: []byte(`myTag3`),
+		Key:       []byte(`firstKey`),
+		Index:     idx1,
+	}
+	reference3, err := st.Reference(refOpts3)
+	assert.NoError(t, err)
+	assert.Exactly(t, uint64(4), reference3.Index)
+	assert.NotEmptyf(t, reference3, "Should not be empty")
+
+	firstTagRet, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+
+	assert.NoError(t, err)
+	assert.NotEmptyf(t, firstTagRet, "Should not be empty")
+	assert.Equal(t, []byte(`firstValue`), firstTagRet.Value, "Should have referenced item value")
+
+	secondTagRet, err := st.Get(schema.Key{Key: []byte(`myTag2`)})
+
+	assert.NoError(t, err)
+	assert.NotEmptyf(t, secondTagRet, "Should not be empty")
+	assert.Equal(t, []byte(`firstValue`), secondTagRet.Value, "Should have referenced item value")
+
+	thirdItemRet, err := st.Get(schema.Key{Key: []byte(`myTag3`)})
+
+	assert.NoError(t, err)
+	assert.NotEmptyf(t, thirdItemRet, "Should not be empty")
+	assert.Equal(t, []byte(`secondValue`), thirdItemRet.Value, "Should have referenced item value")
 }
