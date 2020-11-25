@@ -65,7 +65,7 @@ func TestMedatada(t *testing.T) {
 	}
 
 	mockedReader := &mockedIOReader{}
-	err := md.ReadFrom(mockedReader)
+	_, err := md.ReadFrom(mockedReader)
 	require.Error(t, err)
 
 	mockedWriter := &mockedIOWriter{}
