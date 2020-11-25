@@ -108,20 +108,20 @@ func TestSetBatchAsynch(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSetBatchOps(t *testing.T) {
+func TestExecAllOps(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
 	batchSize := 100
 
 	for b := 0; b < 10; b++ {
-		atomicOps := make([]*schema.BatchOp, batchSize*2)
+		atomicOps := make([]*schema.Op, batchSize*2)
 
 		for i := 0; i < batchSize; i++ {
 			key := []byte(strconv.FormatUint(uint64(i), 10))
 			value := []byte(strconv.FormatUint(uint64(b*batchSize+batchSize+i), 10))
-			atomicOps[i] = &schema.BatchOp{
-				Operation: &schema.BatchOp_KVs{
+			atomicOps[i] = &schema.Op{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   key,
 						Value: value,
@@ -132,19 +132,19 @@ func TestSetBatchOps(t *testing.T) {
 
 		for i := 0; i < batchSize; i++ {
 
-			atomicOps[i+batchSize] = &schema.BatchOp{
-				Operation: &schema.BatchOp_ZOpts{
+			atomicOps[i+batchSize] = &schema.Op{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set:   []byte(`mySet`),
 						Score: &schema.Score{Score: 0.6},
-						Key:   atomicOps[i].Operation.(*schema.BatchOp_KVs).KVs.Key,
+						Key:   atomicOps[i].Operation.(*schema.Op_KVs).KVs.Key,
 						Index: nil,
 					},
 				},
 			}
 		}
 
-		idx, err := st.SetBatchOps(&schema.BatchOps{Operations: atomicOps})
+		idx, err := st.ExecAllOps(&schema.Ops{Operations: atomicOps})
 		assert.NoError(t, err)
 		assert.Equal(t, uint64((b+1)*batchSize*2), idx.GetIndex()+1)
 	}
@@ -158,7 +158,7 @@ func TestSetBatchOps(t *testing.T) {
 	assert.Len(t, zList.Items, batchSize*10)
 }
 
-func TestSetBatchOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
+func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 	dbDir := tmpDir()
 
 	st, _ := makeStoreAt(dbDir)
@@ -168,11 +168,11 @@ func TestSetBatchOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 		Value: []byte(`persistedVal`),
 	})
 
-	// BatchOps payload
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	// Ops payload
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_KVs{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`notPersistedKey`),
 						Value: []byte(`notPersistedVal`),
@@ -180,7 +180,7 @@ func TestSetBatchOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_ZOpts{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set:   []byte(`mySet`),
 						Score: &schema.Score{Score: 0.6},
@@ -188,7 +188,7 @@ func TestSetBatchOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_ZOpts{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set:   []byte(`mySet`),
 						Score: &schema.Score{Score: 0.6},
@@ -199,7 +199,7 @@ func TestSetBatchOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 			},
 		},
 	}
-	index, err := st.SetBatchOps(aOps)
+	index, err := st.ExecAllOps(aOps)
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(3), index.Index)
 
@@ -219,23 +219,23 @@ func TestSetBatchOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 	assert.Equal(t, []byte(`persistedKey`), list.Items[1].Item.Key)
 }
 
-func TestSetBatchOpsEmptyList(t *testing.T) {
+func TestExecAllOpsEmptyList(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{},
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.Equal(t, schema.ErrEmptySet, err)
 }
 
-func TestSetBatchOpsInvalidKvKey(t *testing.T) {
+func TestExecAllOpsInvalidKvKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_KVs{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte{0},
 						Value: []byte(`val`),
@@ -244,17 +244,17 @@ func TestSetBatchOpsInvalidKvKey(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.Equal(t, ErrInvalidKey, err)
 }
 
-func TestSetBatchOpsZAddKeyNotFound(t *testing.T) {
+func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_ZOpts{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Key: []byte(`key`),
 						Score: &schema.Score{
@@ -268,16 +268,16 @@ func TestSetBatchOpsZAddKeyNotFound(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.Equal(t, ErrIndexNotFound, err)
 }
 
-func TestSetBatchOpsNilElementFound(t *testing.T) {
+func TestExecAllOpsNilElementFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	bOps := make([]*schema.BatchOp, 2)
-	op := &schema.BatchOp{
-		Operation: &schema.BatchOp_ZOpts{
+	bOps := make([]*schema.Op, 2)
+	op := &schema.Op{
+		Operation: &schema.Op_ZOpts{
 			ZOpts: &schema.ZAddOptions{
 				Key: []byte(`key`),
 				Score: &schema.Score{
@@ -290,46 +290,46 @@ func TestSetBatchOpsNilElementFound(t *testing.T) {
 		},
 	}
 	bOps[1] = op
-	aOps := &schema.BatchOps{Operations: bOps}
-	_, err := st.SetBatchOps(aOps)
-	assert.Equal(t, status.Error(codes.InvalidArgument, "batchOp is not set"), err)
+	aOps := &schema.Ops{Operations: bOps}
+	_, err := st.ExecAllOps(aOps)
+	assert.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
 }
 
 func TestSetOperationNilElementFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
 				Operation: nil,
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.Equal(t, err, status.Error(codes.InvalidArgument, "operation is not set"))
 }
 
-func TestSetBatchOpsUnexpectedType(t *testing.T) {
+func TestExecAllOpsUnexpectedType(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
 				Operation: &schema.Op_Unexpected{},
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation has unexpected type *schema.Op_Unexpected"))
 }
 
-func TestSetBatchOpsDuplicatedKey(t *testing.T) {
+func TestExecAllOpsDuplicatedKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_KVs{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -337,7 +337,7 @@ func TestSetBatchOpsDuplicatedKey(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_KVs{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -345,7 +345,7 @@ func TestSetBatchOpsDuplicatedKey(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_ZOpts{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Key: []byte(`key`),
 						Score: &schema.Score{
@@ -356,18 +356,18 @@ func TestSetBatchOpsDuplicatedKey(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 
 	assert.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
 }
 
-func TestSetBatchOpsDuplicatedKeyZAdd(t *testing.T) {
+func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_KVs{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -375,7 +375,7 @@ func TestSetBatchOpsDuplicatedKeyZAdd(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_ZOpts{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Key: []byte(`key`),
 						Score: &schema.Score{
@@ -385,7 +385,7 @@ func TestSetBatchOpsDuplicatedKeyZAdd(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_ZOpts{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Key: []byte(`key`),
 						Score: &schema.Score{
@@ -396,19 +396,19 @@ func TestSetBatchOpsDuplicatedKeyZAdd(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 
 	assert.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
 }
 
-func TestSetBatchOpsAsynch(t *testing.T) {
+func TestExecAllOpsAsynch(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_KVs{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -416,7 +416,7 @@ func TestSetBatchOpsAsynch(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_KVs{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key1`),
 						Value: []byte(`val1`),
@@ -424,7 +424,7 @@ func TestSetBatchOpsAsynch(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_ZOpts{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Key: []byte(`key`),
 						Score: &schema.Score{
@@ -435,12 +435,12 @@ func TestSetBatchOpsAsynch(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps, WithAsyncCommit(true))
+	_, err := st.ExecAllOps(aOps, WithAsyncCommit(true))
 
 	assert.NoError(t, err)
 }
 
-func TestBatchOps_ValidateErrZAddIndexMissing(t *testing.T) {
+func TestOps_ValidateErrZAddIndexMissing(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -449,11 +449,11 @@ func TestBatchOps_ValidateErrZAddIndexMissing(t *testing.T) {
 		Value: []byte(`persistedVal`),
 	})
 
-	// BatchOps payload
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	// Ops payload
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_ZOpts{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Key: []byte(`persistedKey`),
 						Score: &schema.Score{
@@ -464,25 +464,25 @@ func TestBatchOps_ValidateErrZAddIndexMissing(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.Equal(t, err, ErrZAddIndexMissing)
 }
 
-func TestStore_SetBatchOpsConcurrent(t *testing.T) {
+func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
 	wg := sync.WaitGroup{}
 	wg.Add(10)
 	for i := 1; i <= 10; i++ {
-		aOps := &schema.BatchOps{
-			Operations: []*schema.BatchOp{},
+		aOps := &schema.Ops{
+			Operations: []*schema.Op{},
 		}
 		for j := 1; j <= 10; j++ {
 			key := strconv.FormatUint(uint64(j), 10)
 			val := strconv.FormatUint(uint64(i), 10)
-			aOp := &schema.BatchOp{
-				Operation: &schema.BatchOp_KVs{
+			aOp := &schema.Op{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(key),
 						Value: []byte(key),
@@ -497,8 +497,8 @@ func TestStore_SetBatchOpsConcurrent(t *testing.T) {
 
 			set := val
 			refKey := key
-			aOp = &schema.BatchOp{
-				Operation: &schema.BatchOp_ZOpts{
+			aOp = &schema.Op{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set: []byte(set),
 						Key: []byte(refKey),
@@ -511,7 +511,7 @@ func TestStore_SetBatchOpsConcurrent(t *testing.T) {
 			aOps.Operations = append(aOps.Operations, aOp)
 		}
 		go func() {
-			idx, err := st.SetBatchOps(aOps)
+			idx, err := st.ExecAllOps(aOps)
 			assert.NoError(t, err)
 			assert.NotNil(t, idx)
 			wg.Done()
@@ -532,7 +532,7 @@ func TestStore_SetBatchOpsConcurrent(t *testing.T) {
 	}
 }
 
-func TestStore_SetBatchOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
+func TestStore_ExecAllOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 	dbDir := tmpDir()
 
 	st, _ := makeStoreAt(dbDir)
@@ -560,8 +560,8 @@ func TestStore_SetBatchOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 
 	gIdx := uint64(0)
 	for i := 1; i <= 10; i++ {
-		aOps := &schema.BatchOps{
-			Operations: []*schema.BatchOp{},
+		aOps := &schema.Ops{
+			Operations: []*schema.Op{},
 		}
 		for j := 1; j <= 10; j++ {
 			key := strconv.FormatUint(uint64(j), 10)
@@ -574,8 +574,8 @@ func TestStore_SetBatchOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 
 			set := val
 			refKey := key
-			aOp := &schema.BatchOp{
-				Operation: &schema.BatchOp_ZOpts{
+			aOp := &schema.Op{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set: []byte(set),
 						Key: []byte(refKey),
@@ -590,7 +590,7 @@ func TestStore_SetBatchOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 			gIdx++
 		}
 		go func() {
-			idx, err := st.SetBatchOps(aOps)
+			idx, err := st.ExecAllOps(aOps)
 			assert.NoError(t, err)
 			assert.NotNil(t, idx)
 			wg.Done()
@@ -610,7 +610,7 @@ func TestStore_SetBatchOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 	}
 }
 
-func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
+func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 	// even items are stored on disk with regular sets
 	// odd ones are stored inside batch operations
 	// zAdd references all items
@@ -645,8 +645,8 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 
 	gIdx := uint64(0)
 	for i := 1; i <= 10; i++ {
-		aOps := &schema.BatchOps{
-			Operations: []*schema.BatchOp{},
+		aOps := &schema.Ops{
+			Operations: []*schema.Op{},
 		}
 		for j := 1; j <= 10; j++ {
 			key := strconv.FormatUint(uint64(j), 10)
@@ -655,8 +655,8 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 
 			// odd
 			if j%2 != 0 {
-				aOp := &schema.BatchOp{
-					Operation: &schema.BatchOp_KVs{
+				aOp := &schema.Op{
+					Operation: &schema.Op_KVs{
 						KVs: &schema.KeyValue{
 							Key:   []byte(key),
 							Value: []byte(key),
@@ -676,8 +676,8 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 
 			set := val
 			refKey := key
-			aOp := &schema.BatchOp{
-				Operation: &schema.BatchOp_ZOpts{
+			aOp := &schema.Op{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set: []byte(set),
 						Key: []byte(refKey),
@@ -691,7 +691,7 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 			aOps.Operations = append(aOps.Operations, aOp)
 		}
 		go func() {
-			idx, err := st.SetBatchOps(aOps)
+			idx, err := st.ExecAllOps(aOps)
 			assert.NoError(t, err)
 			assert.NotNil(t, idx)
 			wg.Done()
@@ -710,7 +710,7 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 	}
 }
 
-func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualScore(t *testing.T) {
+func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualScore(t *testing.T) {
 	// Inserting 100 items:
 	// even items are stored on disk with regular sets
 	// odd ones are stored inside batch operations
@@ -757,15 +757,15 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualSco
 
 	for i := 1; i <= 10; i++ {
 		for j := 1; j <= 10; j++ {
-			aOps := &schema.BatchOps{
-				Operations: []*schema.BatchOp{},
+			aOps := &schema.Ops{
+				Operations: []*schema.Op{},
 			}
 
 			// odd
 			if j%2 != 0 {
 				val := fmt.Sprintf("%d,%d", i, j)
-				aOp := &schema.BatchOp{
-					Operation: &schema.BatchOp_KVs{
+				aOp := &schema.Op{
+					Operation: &schema.Op_KVs{
 						KVs: &schema.KeyValue{
 							Key:   []byte(keyA),
 							Value: []byte(val),
@@ -786,8 +786,8 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualSco
 
 			refKey := keyA
 			set := strconv.FormatUint(uint64(j), 10)
-			aOp := &schema.BatchOp{
-				Operation: &schema.BatchOp_ZOpts{
+			aOp := &schema.Op{
+				Operation: &schema.Op_ZOpts{
 					ZOpts: &schema.ZAddOptions{
 						Set: []byte(set),
 						Key: []byte(refKey),
@@ -800,7 +800,7 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualSco
 			}
 			aOps.Operations = append(aOps.Operations, aOp)
 			go func() {
-				idx, err := st.SetBatchOps(aOps)
+				idx, err := st.ExecAllOps(aOps)
 				assert.NoError(t, err)
 				assert.NotNil(t, idx)
 				wg.Done()
@@ -827,19 +827,19 @@ func TestStore_SetBatchOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualSco
 	}
 }
 
-func TestSetBatchOpsMonotoneTsRange(t *testing.T) {
+func TestExecAllOpsMonotoneTsRange(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
 	batchSize := 100
 
-	atomicOps := make([]*schema.BatchOp, batchSize)
+	atomicOps := make([]*schema.Op, batchSize)
 
 	for i := 0; i < batchSize; i++ {
 		key := []byte(strconv.FormatUint(uint64(i), 10))
 		value := []byte(strconv.FormatUint(uint64(batchSize+batchSize+i), 10))
-		atomicOps[i] = &schema.BatchOp{
-			Operation: &schema.BatchOp_KVs{
+		atomicOps[i] = &schema.Op{
+			Operation: &schema.Op_KVs{
 				KVs: &schema.KeyValue{
 					Key:   key,
 					Value: value,
@@ -847,7 +847,7 @@ func TestSetBatchOpsMonotoneTsRange(t *testing.T) {
 			},
 		}
 	}
-	idx, err := st.SetBatchOps(&schema.BatchOps{Operations: atomicOps})
+	idx, err := st.ExecAllOps(&schema.Ops{Operations: atomicOps})
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(batchSize), idx.GetIndex()+1)
 
@@ -861,7 +861,7 @@ func TestSetBatchOpsMonotoneTsRange(t *testing.T) {
 	}
 }
 
-func TestBatchOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
+func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -870,11 +870,11 @@ func TestBatchOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 		Value: []byte(`persistedVal`),
 	})
 
-	// BatchOps payload
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	// Ops payload
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_ROpts{
+				Operation: &schema.Op_ROpts{
 					ROpts: &schema.ReferenceOptions{
 						Reference: []byte(`myReference`),
 						Key:       []byte(`persistedKey`),
@@ -884,7 +884,7 @@ func TestBatchOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.NoError(t, err)
 
 	ref, err := st.Get(schema.Key{Key: []byte(`myReference`)})
@@ -896,15 +896,15 @@ func TestBatchOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 
 }
 
-func TestBatchOps_ReferenceKeyNotYetPersisted(t *testing.T) {
+func TestOps_ReferenceKeyNotYetPersisted(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	// BatchOps payload
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	// Ops payload
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_KVs{
+				Operation: &schema.Op_KVs{
 					KVs: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -912,7 +912,7 @@ func TestBatchOps_ReferenceKeyNotYetPersisted(t *testing.T) {
 				},
 			},
 			{
-				Operation: &schema.BatchOp_ROpts{
+				Operation: &schema.Op_ROpts{
 					ROpts: &schema.ReferenceOptions{
 						Reference: []byte(`myTag`),
 						Key:       []byte(`key`),
@@ -921,7 +921,7 @@ func TestBatchOps_ReferenceKeyNotYetPersisted(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.NoError(t, err)
 
 	ref, err := st.Get(schema.Key{Key: []byte(`myTag`)})
@@ -933,15 +933,15 @@ func TestBatchOps_ReferenceKeyNotYetPersisted(t *testing.T) {
 
 }
 
-func TestBatchOps_ReferenceIndexNotExists(t *testing.T) {
+func TestOps_ReferenceIndexNotExists(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	// BatchOps payload
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	// Ops payload
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_ROpts{
+				Operation: &schema.Op_ROpts{
 					ROpts: &schema.ReferenceOptions{
 						Reference: []byte(`myReference`),
 						Key:       []byte(`persistedKey`),
@@ -953,19 +953,19 @@ func TestBatchOps_ReferenceIndexNotExists(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.Equal(t, ErrIndexNotFound, err)
 }
 
-func TestBatchOps_ReferenceIndexMissing(t *testing.T) {
+func TestOps_ReferenceIndexMissing(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	// BatchOps payload
-	aOps := &schema.BatchOps{
-		Operations: []*schema.BatchOp{
+	// Ops payload
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
 			{
-				Operation: &schema.BatchOp_ROpts{
+				Operation: &schema.Op_ROpts{
 					ROpts: &schema.ReferenceOptions{
 						Reference: []byte(`myReference`),
 						Key:       []byte(`persistedKey`),
@@ -974,6 +974,6 @@ func TestBatchOps_ReferenceIndexMissing(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.SetBatchOps(aOps)
+	_, err := st.ExecAllOps(aOps)
 	assert.Equal(t, ErrReferenceIndexMissing, err)
 }

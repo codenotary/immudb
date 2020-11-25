@@ -14,7 +14,7 @@
   "paths": {
     "/v1/immurestproxy/batch/atomic/set": {
       "post": {
-        "operationId": "SetBatchOps",
+        "operationId": "ExecAllOps",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -29,7 +29,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaBatchOps"
+              "$ref": "#/definitions/schemaOps"
             }
           }
         ],
@@ -971,31 +971,6 @@
         }
       }
     },
-    "schemaBatchOp": {
-      "type": "object",
-      "properties": {
-        "KVs": {
-          "$ref": "#/definitions/schemaKeyValue"
-        },
-        "ZOpts": {
-          "$ref": "#/definitions/schemaZAddOptions"
-        },
-        "ROpts": {
-          "$ref": "#/definitions/schemaReferenceOptions"
-        }
-      }
-    },
-    "schemaBatchOps": {
-      "type": "object",
-      "properties": {
-        "Operations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaBatchOp"
-          }
-        }
-      }
-    },
     "schemaChangePasswordRequest": {
       "type": "object",
       "properties": {
@@ -1313,6 +1288,31 @@
         "root": {
           "type": "boolean",
           "format": "boolean"
+        }
+      }
+    },
+    "schemaOp": {
+      "type": "object",
+      "properties": {
+        "KVs": {
+          "$ref": "#/definitions/schemaKeyValue"
+        },
+        "ZOpts": {
+          "$ref": "#/definitions/schemaZAddOptions"
+        },
+        "ROpts": {
+          "$ref": "#/definitions/schemaReferenceOptions"
+        }
+      }
+    },
+    "schemaOps": {
+      "type": "object",
+      "properties": {
+        "Operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaOp"
+          }
         }
       }
     },

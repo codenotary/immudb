@@ -7,11 +7,11 @@ import (
 	"testing"
 )
 
-func TestBatchOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
-	aOps := &BatchOps{
-		Operations: []*BatchOp{
+func TestOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
+	aOps := &Ops{
+		Operations: []*Op{
 			{
-				Operation: &BatchOp_KVs{
+				Operation: &Op_KVs{
 					KVs: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -19,7 +19,7 @@ func TestBatchOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 				},
 			},
 			{
-				Operation: &BatchOp_KVs{
+				Operation: &Op_KVs{
 					KVs: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -27,7 +27,7 @@ func TestBatchOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 				},
 			},
 			{
-				Operation: &BatchOp_ZOpts{
+				Operation: &Op_ZOpts{
 					ZOpts: &ZAddOptions{
 						Key: []byte(`key`),
 						Score: &Score{
@@ -43,11 +43,11 @@ func TestBatchOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 
 }
 
-func TestBatchOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
-	aOps := &BatchOps{
-		Operations: []*BatchOp{
+func TestOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
+	aOps := &Ops{
+		Operations: []*Op{
 			{
-				Operation: &BatchOp_KVs{
+				Operation: &Op_KVs{
 					KVs: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -55,7 +55,7 @@ func TestBatchOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 				},
 			},
 			{
-				Operation: &BatchOp_ZOpts{
+				Operation: &Op_ZOpts{
 					ZOpts: &ZAddOptions{
 						Key: []byte(`key`),
 						Score: &Score{
@@ -68,7 +68,7 @@ func TestBatchOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 				},
 			},
 			{
-				Operation: &BatchOp_ZOpts{
+				Operation: &Op_ZOpts{
 					ZOpts: &ZAddOptions{
 						Key: []byte(`key`),
 						Score: &Score{
@@ -86,19 +86,19 @@ func TestBatchOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 	assert.Equal(t, err, ErrDuplicatedZAddNotSupported)
 }
 
-func TestBatchOps_ValidateErrEmptySet(t *testing.T) {
-	aOps := &BatchOps{
-		Operations: []*BatchOp{},
+func TestOps_ValidateErrEmptySet(t *testing.T) {
+	aOps := &Ops{
+		Operations: []*Op{},
 	}
 	err := aOps.Validate()
 	assert.Equal(t, err, ErrEmptySet)
 }
 
-func TestBatchOps_ValidateErrDuplicate(t *testing.T) {
-	aOps := &BatchOps{
-		Operations: []*BatchOp{
+func TestOps_ValidateErrDuplicate(t *testing.T) {
+	aOps := &Ops{
+		Operations: []*Op{
 			{
-				Operation: &BatchOp_KVs{
+				Operation: &Op_KVs{
 					KVs: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
@@ -106,7 +106,7 @@ func TestBatchOps_ValidateErrDuplicate(t *testing.T) {
 				},
 			},
 			{
-				Operation: &BatchOp_ZOpts{
+				Operation: &Op_ZOpts{
 					ZOpts: &ZAddOptions{
 						Key: []byte(`key`),
 						Score: &Score{
@@ -124,9 +124,9 @@ func TestBatchOps_ValidateErrDuplicate(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestBatchOps_ValidateUnexpectedType(t *testing.T) {
-	aOps := &BatchOps{
-		Operations: []*BatchOp{
+func TestOps_ValidateUnexpectedType(t *testing.T) {
+	aOps := &Ops{
+		Operations: []*Op{
 			{
 				Operation: &Op_Unexpected{},
 			},
@@ -135,10 +135,10 @@ func TestBatchOps_ValidateUnexpectedType(t *testing.T) {
 	err := aOps.Validate()
 	assert.Equal(t, status.Error(codes.InvalidArgument, "batch operation has unexpected type *schema.Op_Unexpected"), err)
 }
-func TestSetBatchOpsNilElementFound(t *testing.T) {
-	bOps := make([]*BatchOp, 2)
-	op := &BatchOp{
-		Operation: &BatchOp_ZOpts{
+func TestExecAllOpsNilElementFound(t *testing.T) {
+	bOps := make([]*Op, 2)
+	op := &Op{
+		Operation: &Op_ZOpts{
 			ZOpts: &ZAddOptions{
 				Key: []byte(`key`),
 				Score: &Score{
@@ -151,14 +151,14 @@ func TestSetBatchOpsNilElementFound(t *testing.T) {
 		},
 	}
 	bOps[1] = op
-	aOps := &BatchOps{Operations: bOps}
+	aOps := &Ops{Operations: bOps}
 	err := aOps.Validate()
-	assert.Equal(t, status.Error(codes.InvalidArgument, "batchOp is not set"), err)
+	assert.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
 }
 
-func TestBatchOps_ValidateOperationNilElementFound(t *testing.T) {
-	aOps := &BatchOps{
-		Operations: []*BatchOp{
+func TestOps_ValidateOperationNilElementFound(t *testing.T) {
+	aOps := &Ops{
+		Operations: []*Op{
 			{
 				Operation: nil,
 			},

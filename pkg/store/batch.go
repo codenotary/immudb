@@ -74,10 +74,10 @@ func (t *Store) SetBatch(list schema.KVList, options ...WriteOption) (index *sch
 	return
 }
 
-// SetBatchOps like SetBatch it permits many insertions at once.
+// ExecAllOps like SetBatch it permits many insertions at once.
 // The difference is that is possible to to specify a list of a mix of key value set and zAdd insertions.
 // If zAdd reference is not yet present on disk it's possible to add it as a regular key value and the reference is done onFly
-func (t *Store) SetBatchOps(ops *schema.BatchOps, options ...WriteOption) (index *schema.Index, err error) {
+func (t *Store) ExecAllOps(ops *schema.Ops, options ...WriteOption) (index *schema.Index, err error) {
 	if err = ops.Validate(); err != nil {
 		return nil, err
 	}
@@ -95,11 +95,11 @@ func (t *Store) SetBatchOps(ops *schema.BatchOps, options ...WriteOption) (index
 	kmap := make(map[[32]byte]uint64)
 
 	// in order to get a monotone sequence of ts here is obtained a ts range
-	tsRange := t.tree.NewBatchOpsTsRange(ops)
+	tsRange := t.tree.NewOpsTsRange(ops)
 	for i, op := range ops.Operations {
 		ats := tsRange + uint64(i) + 1
 		switch x := op.Operation.(type) {
-		case *schema.BatchOp_KVs:
+		case *schema.Op_KVs:
 			kvList.KVs = append(kvList.KVs, x.KVs)
 			h := api.Digest(ats-1, x.KVs.Key, x.KVs.Value)
 			entry := &treeStoreEntry{
@@ -110,7 +110,7 @@ func (t *Store) SetBatchOps(ops *schema.BatchOps, options ...WriteOption) (index
 
 			kmap[sha256.Sum256(x.KVs.Key)] = entry.Index()
 			tsEntriesKv = append(tsEntriesKv, entry)
-		case *schema.BatchOp_ZOpts:
+		case *schema.Op_ZOpts:
 			// zAdd arguments are converted in regular key value items and then atomically inserted
 			skipPersistenceCheck := false
 			if idx, exists := kmap[sha256.Sum256(x.ZOpts.Key)]; exists {
@@ -138,7 +138,7 @@ func (t *Store) SetBatchOps(ops *schema.BatchOps, options ...WriteOption) (index
 				r:  &kv.Key,
 			}
 			tsEntriesKv = append(tsEntriesKv, entry)
-		case *schema.BatchOp_ROpts:
+		case *schema.Op_ROpts:
 			// reference arguments are converted in regular key value items and then atomically inserted
 			skipPersistenceCheck := false
 			if idx, exists := kmap[sha256.Sum256(x.ROpts.Key)]; exists {

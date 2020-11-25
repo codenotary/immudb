@@ -67,7 +67,7 @@ type ImmuServiceClientMock struct {
 	ChangePermissionF func(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SetActiveUserF    func(ctx context.Context, in *schema.SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	DatabaseListF     func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error)
-	SetBatchOpsF      func(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error)
+	ExecAllOpsF       func(ctx context.Context, in *schema.Ops, opts ...grpc.CallOption) (*schema.Index, error)
 }
 
 func (iscm *ImmuServiceClientMock) CurrentRoot(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
@@ -157,8 +157,8 @@ func (icm *ImmuServiceClientMock) GetBatch(ctx context.Context, in *schema.KeyLi
 	return icm.GetBatchF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) SetBatchOps(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error) {
-	return icm.SetBatchOpsF(ctx, in, opts...)
+func (icm *ImmuServiceClientMock) ExecAllOps(ctx context.Context, in *schema.Ops, opts ...grpc.CallOption) (*schema.Index, error) {
+	return icm.ExecAllOpsF(ctx, in, opts...)
 }
 
 func (icm *ImmuServiceClientMock) Inclusion(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.InclusionProof, error) {
@@ -225,7 +225,7 @@ func NewImmuServiceClientMock() *ImmuServiceClientMock {
 		GetBatchF: func(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error) {
 			return &schema.ItemList{}, nil
 		},
-		SetBatchOpsF: func(ctx context.Context, in *schema.BatchOps, opts ...grpc.CallOption) (*schema.Index, error) {
+		ExecAllOpsF: func(ctx context.Context, in *schema.Ops, opts ...grpc.CallOption) (*schema.Index, error) {
 			return &schema.Index{}, nil
 		},
 		InclusionF: func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.InclusionProof, error) {

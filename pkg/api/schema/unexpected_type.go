@@ -4,4 +4,4 @@ type Op_Unexpected struct {
 	myStruct *struct{}
 }
 
-func (*Op_Unexpected) isBatchOp_Operation() {}
+func (*Op_Unexpected) isOp_Operation() {}

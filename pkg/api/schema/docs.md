@@ -5,8 +5,6 @@
 
 - [schema.proto](#schema.proto)
     - [AuthConfig](#immudb.schema.AuthConfig)
-    - [BatchOp](#immudb.schema.BatchOp)
-    - [BatchOps](#immudb.schema.BatchOps)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [ConsistencyProof](#immudb.schema.ConsistencyProof)
@@ -32,6 +30,8 @@
     - [LoginResponse](#immudb.schema.LoginResponse)
     - [MTLSConfig](#immudb.schema.MTLSConfig)
     - [Node](#immudb.schema.Node)
+    - [Op](#immudb.schema.Op)
+    - [Ops](#immudb.schema.Ops)
     - [Page](#immudb.schema.Page)
     - [Permission](#immudb.schema.Permission)
     - [Proof](#immudb.schema.Proof)
@@ -91,37 +91,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | kind | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.BatchOp"></a>
-
-### BatchOp
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| KVs | [KeyValue](#immudb.schema.KeyValue) |  |  |
-| ZOpts | [ZAddOptions](#immudb.schema.ZAddOptions) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.BatchOps"></a>
-
-### BatchOps
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| Operations | [BatchOp](#immudb.schema.BatchOp) | repeated |  |
 
 
 
@@ -535,6 +504,38 @@
 
 
 
+<a name="immudb.schema.Op"></a>
+
+### Op
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| KVs | [KeyValue](#immudb.schema.KeyValue) |  |  |
+| ZOpts | [ZAddOptions](#immudb.schema.ZAddOptions) |  |  |
+| ROpts | [ReferenceOptions](#immudb.schema.ReferenceOptions) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Ops"></a>
+
+### Ops
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| Operations | [Op](#immudb.schema.Op) | repeated |  |
+
+
+
+
+
+
 <a name="immudb.schema.Page"></a>
 
 ### Page
@@ -597,6 +598,7 @@
 | ----- | ---- | ----- | ----------- |
 | reference | [bytes](#bytes) |  |  |
 | key | [bytes](#bytes) |  |  |
+| index | [Index](#immudb.schema.Index) |  |  |
 
 
 
@@ -1134,7 +1136,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | SafeGet | [SafeGetOptions](#immudb.schema.SafeGetOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
 | SetBatch | [KVList](#immudb.schema.KVList) | [Index](#immudb.schema.Index) |  |
 | GetBatch | [KeyList](#immudb.schema.KeyList) | [ItemList](#immudb.schema.ItemList) |  |
-| SetBatchOps | [BatchOps](#immudb.schema.BatchOps) | [Index](#immudb.schema.Index) |  |
+| ExecAllOps | [Ops](#immudb.schema.Ops) | [Index](#immudb.schema.Index) |  |
 | Scan | [ScanOptions](#immudb.schema.ScanOptions) | [ItemList](#immudb.schema.ItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |
