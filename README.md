@@ -21,7 +21,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://immudb.io/careers/)
 
 ```
-Dont forget to ⭐ this repo if you like immudb!
+Don't forget to ⭐ this repo if you like immudb!
 ```
 
 ### **New**: immudb Coding Challenge - Winter 2020 Edition [#immuchallenge](https://github.com/codenotary/immuchallenge)
