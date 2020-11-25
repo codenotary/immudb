@@ -39,7 +39,7 @@ import (
 )
 
 func TestImmudbStoreConcurrency(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(5)
 	immuStore, err := Open("data_concurrency", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_concurrency")
@@ -148,13 +148,13 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 }
 
 func TestImmudbStoreSettings(t *testing.T) {
-	immuStore, err := Open("store_settings", DefaultOptions().WithMaxConcurrency(2))
+	immuStore, err := Open("store_settings", DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 	defer os.RemoveAll("store_settings")
 
 	require.Equal(t, DefaultOptions().readOnly, immuStore.ReadOnly())
 	require.Equal(t, DefaultOptions().synced, immuStore.Synced())
-	require.Equal(t, 2, immuStore.MaxConcurrency())
+	require.Equal(t, 1, immuStore.MaxConcurrency())
 	require.Equal(t, DefaultOptions().maxIOConcurrency, immuStore.MaxIOConcurrency())
 	require.Equal(t, DefaultOptions().maxTxEntries, immuStore.MaxTxEntries())
 	require.Equal(t, DefaultOptions().maxKeyLen, immuStore.MaxKeyLen())
@@ -171,7 +171,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = OpenWith("edge_cases", nil, nil, nil, nil)
 	require.Error(t, ErrIllegalArguments, err)
 
-	_, err = OpenWith("edge_cases", nil, nil, nil, DefaultOptions())
+	opts := DefaultOptions().WithMaxConcurrency(1)
+
+	_, err = OpenWith("edge_cases", nil, nil, nil, opts)
 	require.Error(t, ErrIllegalArguments, err)
 
 	vLog := &mocked.MockedAppendable{}
@@ -183,7 +185,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	cLog.MetadataFn = func() []byte {
 		return nil
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
 	// Should fail reading maxTxEntries from metadata
@@ -192,7 +194,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		md.PutInt(metaFileSize, 1)
 		return md.Bytes()
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
 	// Should fail reading maxKeyLen from metadata
@@ -202,7 +204,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		md.PutInt(metaMaxTxEntries, 4)
 		return md.Bytes()
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
 	// Should fail reading maxKeyLen from metadata
@@ -213,7 +215,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 		md.PutInt(metaMaxKeyLen, 8)
 		return md.Bytes()
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
 	cLog.MetadataFn = func() []byte {
@@ -229,14 +231,14 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	cLog.SizeFn = func() (int64, error) {
 		return 0, errors.New("error")
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
 	// Should fail validating cLogSize
 	cLog.SizeFn = func() (int64, error) {
 		return cLogEntrySize + 1, nil
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
 	// Should fail reading cLog
@@ -246,7 +248,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	cLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
 		return 0, errors.New("error")
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
 	// Should fail reading txLogSize
@@ -256,7 +258,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	txLog.SizeFn = func() (int64, error) {
 		return 0, errors.New("error")
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
 	// Should fail validating txLogSize
@@ -272,10 +274,10 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	txLog.SizeFn = func() (int64, error) {
 		return 0, nil
 	}
-	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", vLogs, txLog, cLog, opts)
 	require.Error(t, err)
 
-	immuStore, err := Open("edge_cases", DefaultOptions())
+	immuStore, err := Open("edge_cases", opts)
 	require.NoError(t, err)
 
 	_, err = immuStore.DualProof(nil, nil)
@@ -317,7 +319,8 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 }
 
 func TestImmudbSetBlErr(t *testing.T) {
-	immuStore, err := Open("data_bl_err", DefaultOptions().WithMaxConcurrency(1))
+	opts := DefaultOptions().WithMaxConcurrency(1)
+	immuStore, err := Open("data_bl_err", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_bl_err")
 
@@ -328,7 +331,8 @@ func TestImmudbSetBlErr(t *testing.T) {
 }
 
 func TestImmudbTxOffsetAndSize(t *testing.T) {
-	immuStore, err := Open("data_tx_off_sz", DefaultOptions().WithMaxConcurrency(1))
+	opts := DefaultOptions().WithMaxConcurrency(1)
+	immuStore, err := Open("data_tx_off_sz", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_tx_off_sz")
 
@@ -1194,7 +1198,8 @@ func (la *FailingAppendable) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func BenchmarkSyncedAppend(b *testing.B) {
-	immuStore, _ := Open("data_synced_bench", DefaultOptions().WithMaxConcurrency(1))
+	opts := DefaultOptions().WithMaxConcurrency(1)
+	immuStore, _ := Open("data_synced_bench", opts)
 	defer os.RemoveAll("data_synced_bench")
 
 	for i := 0; i < b.N; i++ {
