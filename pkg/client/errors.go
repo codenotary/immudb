@@ -22,6 +22,8 @@ import (
 
 // Errors related to Client connection and health check
 var (
+	ErrIllegalArguments = errors.New("illegal arguments")
+
 	ErrAlreadyConnected  = errors.New("already connected")
 	ErrNotConnected      = errors.New("not connected")
 	ErrHealthCheckFailed = errors.New("health check failed")
