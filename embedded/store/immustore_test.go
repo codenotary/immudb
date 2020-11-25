@@ -615,7 +615,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	_, _, _, _, err = immuStore.Commit([]*KV{{Key: []byte{}, Value: []byte{}}})
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	immuStore, err = Open("data_inclusion_proof", DefaultOptions())
+	immuStore, err = Open("data_inclusion_proof", opts)
 	require.NoError(t, err)
 
 	r, err := immuStore.NewTxReader(1, 1024)
