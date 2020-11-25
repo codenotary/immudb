@@ -590,14 +590,13 @@ func TestStore_SafeZAddWrongKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	i1, _ := st.Set(schema.KeyValue{Key: []byte(`val1`), Value: []byte(`val2`)})
+	_, _ = st.Set(schema.KeyValue{Key: []byte(`val1`), Value: []byte(`val2`)})
 
 	zaddOpts1 := schema.SafeZAddOptions{
 		Zopts: &schema.ZAddOptions{
 			Set:   []byte(`set`),
 			Score: &schema.Score{Score: float64(1)},
 			Key:   []byte{tsPrefix},
-			Index: i1,
 		},
 	}
 
@@ -626,4 +625,118 @@ func TestStore_SafeZAddWrongSet(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, err, ErrInvalidSet)
+}
+
+func TestStoreOnlyIndexSafeReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	root, _ := st.CurrentRoot()
+
+	key := []byte(`aaa`)
+
+	idx1, _ := st.Set(schema.KeyValue{Key: key, Value: []byte(`item1`)})
+	idx2, _ := st.Set(schema.KeyValue{Key: key, Value: []byte(`item2`)})
+
+	opts1 := schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{Reference: []byte(`myTag1`), Index: idx1},
+	}
+	proof1, err := st.SafeReference(opts1)
+	assert.NoError(t, err)
+
+	leaf := api.Digest(proof1.Index, opts1.Ro.Reference, WrapZIndexReference(key, idx1))
+	verified := proof1.Verify(leaf[:], *root)
+	assert.True(t, verified)
+
+	opts2 := schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{Reference: []byte(`myTag2`), Index: idx2},
+		RootIndex: &schema.Index{
+			Index: proof1.GetIndex(),
+		},
+	}
+
+	proof2, err := st.SafeReference(opts2)
+	assert.NoError(t, err)
+	leaf = api.Digest(proof2.Index, opts2.Ro.Reference, WrapZIndexReference(key, idx2))
+	prevRoot := proof1.NewRoot()
+	verified = proof2.Verify(leaf[:], *prevRoot)
+	assert.True(t, verified)
+
+	tag1, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag1.Key)
+	assert.Equal(t, []byte(`item1`), tag1.Value)
+
+	tag2, err := st.Get(schema.Key{Key: []byte(`myTag2`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag2.Key)
+	assert.Equal(t, []byte(`item2`), tag2.Value)
+}
+
+func TestStoreZScanOnSafeZAddIndexReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	key1 := []byte(`myFirstElementKey`)
+	key2 := []byte(`mySecondElementKey`)
+
+	idx1, _ := st.Set(schema.KeyValue{Key: key1, Value: []byte(`firstValue`)})
+	idx2, _ := st.Set(schema.KeyValue{Key: key2, Value: []byte(`secondValue`)})
+
+	safeZAddOptions1 := schema.SafeZAddOptions{
+		Zopts: &schema.ZAddOptions{
+			Set:   []byte(`FirstSet`),
+			Score: &schema.Score{Score: float64(43)},
+			Index: idx1,
+		},
+	}
+
+	proof1, err := st.SafeZAdd(safeZAddOptions1)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, proof1)
+	assert.Equal(t, uint64(2), proof1.Index)
+
+	setKey1 := BuildSetKey(key1, safeZAddOptions1.Zopts.Set, safeZAddOptions1.Zopts.Score.Score, idx1)
+	leaf := api.Digest(proof1.Index, setKey1, WrapZIndexReference(key1, idx1))
+	// Here verify if first reference was correctly inserted. We have no root yet.
+	verified := proof1.Verify(leaf[:], schema.Root{Payload: &schema.RootIndex{}})
+	assert.True(t, verified)
+
+	root := schema.Root{
+		Payload: &schema.RootIndex{
+			Index: proof1.Index,
+			Root:  proof1.Root,
+		},
+	}
+	safeZAddOptions2 := schema.SafeZAddOptions{
+		Zopts: &schema.ZAddOptions{
+			Set:   []byte(`FirstSet`),
+			Score: &schema.Score{Score: float64(43.548)},
+			Index: idx2,
+		},
+		RootIndex: &schema.Index{
+			Index: proof1.Index,
+		},
+	}
+
+	proof2, err2 := st.SafeZAdd(safeZAddOptions2)
+
+	assert.NoError(t, err2)
+	assert.NotNil(t, proof2)
+	assert.Equal(t, uint64(3), proof2.Index)
+
+	setkey2 := BuildSetKey(key2, safeZAddOptions2.Zopts.Set, safeZAddOptions2.Zopts.Score.Score, idx2)
+
+	leaf2 := api.Digest(proof2.Index, setkey2, WrapZIndexReference(key2, idx2))
+	// Here verify if first reference was correctly inserted. We have no root yet.
+	verified2 := proof2.Verify(leaf2[:], root)
+	assert.True(t, verified2)
+}
+
+func TestStore_SafeReferenceWrongKey(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+	_, err := st.SafeReference(schema.SafeReferenceOptions{Ro: &schema.ReferenceOptions{Reference: []byte(`myTag1`), Key: []byte{tsPrefix}}})
+	assert.Equal(t, err, ErrInvalidKey)
 }

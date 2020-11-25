@@ -943,13 +943,12 @@ func TestStore_ZAddWrongKey(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
-	i1, _ := st.Set(schema.KeyValue{Key: []byte(`val1`), Value: []byte(`val2`)})
+	_, _ = st.Set(schema.KeyValue{Key: []byte(`val1`), Value: []byte(`val2`)})
 
 	zaddOpts1 := schema.ZAddOptions{
 		Set:   []byte(`set`),
 		Score: &schema.Score{Score: float64(1)},
 		Key:   []byte{tsPrefix},
-		Index: i1,
 	}
 	_, err := st.ZAdd(zaddOpts1)
 

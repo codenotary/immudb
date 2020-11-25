@@ -175,3 +175,31 @@ func TestStoreIndexReference(t *testing.T) {
 	assert.Equal(t, []byte(`item2`), tag2.Value)
 
 }
+
+func TestStoreOnlyIndexReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx1, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	idx2, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item2`)})
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Index: idx1})
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag2`), Index: idx2})
+
+	tag1, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag1.Key)
+	assert.Equal(t, []byte(`item1`), tag1.Value)
+
+	tag2, err := st.Get(schema.Key{Key: []byte(`myTag2`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag2.Key)
+	assert.Equal(t, []byte(`item2`), tag2.Value)
+}
+
+func TestStore_ReferenceWrongKey(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	_, err := st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Key: []byte{tsPrefix}})
+	assert.Equal(t, err, ErrInvalidKey)
+}

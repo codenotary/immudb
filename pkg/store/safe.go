@@ -182,7 +182,7 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 // inclusion proof for it and the consistency proof for the previous root
 func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	ro := options.Ro
-	if err = checkKey(ro.Key); err != nil {
+	if err = checkKey(ro.Key); err != nil && options.Ro.Index == nil {
 		return nil, err
 	}
 	if err = checkKey(ro.Reference); err != nil {
@@ -254,9 +254,9 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 // the inclusion proof for it and the consistency proof for the previous root
 // As a parameter of SafeZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
+// If SafeZAddOptions.Zopts.index is provided key is optional
 func (t *Store) SafeZAdd(options schema.SafeZAddOptions) (proof *schema.Proof, err error) {
-
-	if err = checkKey(options.Zopts.Key); err != nil {
+	if err = checkKey(options.Zopts.Key); err != nil && options.Zopts.Index == nil {
 		return nil, err
 	}
 	if err = checkSet(options.Zopts.Set); err != nil {
