@@ -533,6 +533,9 @@ func (t *AHtree) highestNode(i uint64, d int) ([sha256.Size]byte, error) {
 }
 
 func (t *AHtree) Size() uint64 {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	return uint64(t.cLogSize / cLogEntrySize)
 }
 
