@@ -945,11 +945,16 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		proof.BinaryInclusionProof = binInclusionProof
 	}
 
+	if sourceTx.BlTxID > targetTx.BlTxID {
+		return nil, ErrorCorruptedTxData
+	}
+
 	if sourceTx.BlTxID > 0 {
 		binConsistencyProof, err := s.aht.ConsistencyProof(sourceTx.BlTxID, targetTx.BlTxID) // first root sourceTx.BlRoot, second one targetTx.BlRoot
 		if err != nil {
 			return nil, err
 		}
+
 		proof.BinaryConsistencyProof = binConsistencyProof
 	}
 
