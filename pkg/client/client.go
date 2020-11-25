@@ -1084,7 +1084,7 @@ func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []
 		return nil, err
 	}
 
-	// to pass the following guard we need to add the index reference that is added also by the server
+	// The index reference addition grants that key is the same to the one handled in the server
 	key = store.WrapZIndexReference(key, nil)
 
 	// This guard ensures that result.Leaf is equal to the item's hash computed
