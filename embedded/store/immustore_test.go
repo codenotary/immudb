@@ -332,6 +332,9 @@ func TestImmudbTxOffsetAndSize(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("data_tx_off_sz")
 
+	immuStore.mutex.Lock()
+	defer immuStore.mutex.Unlock()
+
 	_, _, err = immuStore.txOffsetAndSize(0)
 	require.Error(t, ErrIllegalArguments, err)
 
