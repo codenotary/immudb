@@ -20,6 +20,10 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Discuss at immudb@googlegroups.com](https://img.shields.io/badge/discuss-immudb%40googlegroups.com-blue.svg)](https://groups.google.com/group/immudb)
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://immudb.io/careers/)
 
+```
+Dont forget to ⭐ this repo if you like immudb!
+```
+
 ### **New**: immudb Coding Challenge - Winter 2020 Edition [#immuchallenge](https://github.com/codenotary/immuchallenge)
 
 ---
@@ -70,15 +74,6 @@ Elapsed t.: 0.36 sec
 Throughput: 2772181 tx/sec
 ```
 
-As immudb is sometimes compared to Amazon QLDB, we compared the performance using a simple demo application to write data (without using any unfair optimization).
-
-![immudb throughput read Benchmark](img/throughput_read.png "Throughput read (higher is better)")
-
-![immudb Throughput write Benchmark](img/throughput_write.png "Throughput write (higher is better)")
-
-![immudb Query Benchmark](img/query_bm.png "100 records read execution time (lower is better)")
-
-![immudb Execution Benchmark](img/exectime.png "100 records write execution time (lower is better)")
 
 
 **immudb High-level**
@@ -98,20 +93,14 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 2.  [Using immudb](#using-immudb) - Official SDKs and REST-based client
 3.  [CLI tools](#cli-tools) - Using `immuadmin` and `immuclient`
 4.  [Migration from older releases](#migration-from-older-releases) - Easily migrate your existent database to latest release
-5.  [Why immudb](#why-immudb) - Why people love immudb and how it compares with other solutions
-6.  [News](#news) - The latest news about immudb
-7.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
-8.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
-9.  [Features](#features) - How you'll use immudb on your systems
-10.  [Monitor status and performance](#monitor-status-and-performance) - How you can monitor immudb
-11.  [Real world examples](#real-world-examples) - Read about how others use immudb
-12.  [Multiple databases](#multiple-databases) - Multiple databases
-13.  [Documentation](#documentation) - Read the documentation
-14.  [FAQ](#faq) - Frequently asked questions
-15.  [Community](#community) - Discuss immudb with others and get support
-16.  [License](#license) - Check immudb's licencing
-17.  [Is it awesome?](#is-it-awesome) - Yes.
-18. [Stargazers over time](#stargazers-over-time) - GitHub stars over time!
+5.  [News](#news) - The latest news about immudb
+6.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
+7.  [How immudb works](#how-immudb-works) - A high-level diagram of how immudb works
+8.  [Real world examples](#real-world-examples) - Read about how others use immudb
+9.  [Multiple databases](#multiple-databases) - Multiple databases
+10.  [Documentation](#documentation) - Read the documentation
+11.  [Community](#community) - Discuss immudb with others and get support
+12.  [License](#license) - Check immudb's licencing
 
 ## Quickstart
 
@@ -155,7 +144,7 @@ Download latest release binaries from [here](https://github.com/codenotary/immud
 ./immudb -d
 ```
 
-To stop immudb în that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`.
+To stop immudb in that case you need to find the process `ps -ax | grep immudb` and then `kill -15 <pid>`. Windows PowerShell would be `Get-Process immudb* | Stop-Process`.
 
 Using non-default configuration:
 
@@ -299,7 +288,7 @@ The FreeBSD service is using the following defaults:
 The Windows service is using the following defaults:
 
 | File or configuration   | location                             |
-| ----------------------- | ------------------------------------
+| ----------------------- | ------------------------------------|
 | executable              | Program Files\Immudb\immudb.exe      |
 | configuration file      | ProgramData\Immudb\config\immudb.toml|
 | all data files          | ProgramData\Immudb\                  |
@@ -535,17 +524,6 @@ All databases have been successfully migrated!
 ```
 
 
-## Why immudb
-
-immudb has been developed with performance, scalability and versatility in mind. The user feedback has shown that they love the very high throughput and being able to store hashes as well as data. They see it as a great alternative to using a blockchain or ledger service.
-
-That makes immudb fit to store changes to other database fields (like Microsoft SQL or MongoDB) in a tamperproof fashion.
-
-You can find an example video here:
-
-[![With immudb you can track changes in sensitive data in your transactional databases and then record those changes indelibly in a the tamperproof immudb database. This allows you to keep an indelible history of, say, your debit/credit transactions.](http://img.youtube.com/vi/rQ4iZAM14m0/0.jpg)](http://www.youtube.com/watch?v=rQ4iZAM14m0 "track changes in sensitive data in your transactional databases")
-
-
 ## News
 `August 21th, 2020` - **Updated and New SDKs!**
 
@@ -558,45 +536,6 @@ SDKs for Java, Golang, .net, Python and Node are fully compatible with latest im
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
 
 
-`September 15th, 2020` - **[immudb v0.8.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.8.0)**
-
-Release v0.8.0 Multi-key insertion, crypto signature, immugw moved to a [separate repository](https://github.com/codenotary/immugw), bug fixes & enhancements
-
-`August 20th, 2020` - **[immudb4j v0.1.7 in GitHub Packages!](https://github.com/codenotary/immudb4j)**
-
-immudb4j v0.1.7 Token-based authentication, multi-database and transactional support. Compatible with latest immudb release v0.7.1
-
-`August 17th, 2020` - **[immudb v0.7.1 released!](https://github.com/codenotary/immudb/releases/tag/v0.7.1)**
-
-Release v0.7.1 Bug Fixes & Enhancements
-
-`August 10th, 2020` - **[immudb v0.7.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.7.0)**
-
-Release v0.7.0 multi-database support, more resilience, even better performance, improved documentation
-
-`June 16th, 2020` - **[immudb v0.6.2 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.2)**
-
-Release v0.6.2 ringbuffer management fix, improved user management for automatic deployment, improved container support
-
-`June 9th, 2020` - **[immudb v0.6.1 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.1)**
-
-Release v0.6.1 fixes some important bugs and has many improvements - we recommend updating to it
-
-`May 28, 2020` - **[immudb v0.6.0 GA released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0)**
-
-We're thrilled to announce our GA Release v0.6.0 that contains many improvements, bug fixes and new audit features.
-
-
-`May 19, 2020` - **[immudb v0.6.0-rc2 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0-RC2)**
-
-Release v0.6.0-rc2 is our second public release and contains an all new immuclient CLI as well as a built-in Trust Checker that does a server based continous consistency check.
-
-
-`May 11, 2020` - **[immudb v0.6.0-rc1 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0-RC1)**
-
-Release v0.6.0-rc1 is our first release to the public. While we were using immudb for quite some time in the [codenotary.io](https://www.codenotary.io) platform, we're thrilled to finally release it to the Open Source community (Apache 2 license).
-
-The release contains 2 components, the main immutable database immudb and the admin CLI tool immuadmin. immudb is ready to be used on Linux as well as Microsoft Windows.
 
 ## Tech specs
 
@@ -710,87 +649,6 @@ A signature (PKI) provided by the client can be became part of the insertion pro
 
 Integrated mTLS offers the best approach for machine-to-machine authentication, also providing communications security (entryption) over the transport channel
 
-## Monitor status and performance
-
-### immuadmin CLI
-
-With `immuadmin stats` you can access text `-t` or visual statistics:
-
-```
-./immuadmin stats -t
-Database path              :    db/immudb
-Uptime                     :    1m38.64s
-Number of entries          :    12
-LSM size                   :    701 B
-VLog size                  :    1.1 kB
-Total size                 :    1.8 kB
-Number of clients          :    1
-Queries per client         :
-   127.0.0.1               :    26
-      Last query           :    749.641765ms ago
-Avg. duration (nb calls)   :    µs
-   ByIndex (0)             :    0
-   ByIndexSV (0)           :    0
-   ChangePassword (0)      :    0
-   Consistency (0)         :    0
-   Count (0)               :    0
-   CreateUser (0)          :    0
-   CurrentRoot (0)         :    0
-   DeactivateUser (0)      :    0
-   Dump (0)                :    0
-   Get (5)                 :    20
-   GetBatch (0)            :    0
-   GetBatchSV (0)          :    0
-   GetSV (0)               :    0
-   Health (16)             :    33
-   History (0)             :    0
-   HistorySV (0)           :    0
-   IScan (0)               :    0
-   IScanSV (0)             :    0
-   Inclusion (0)           :    0
-   Login (0)               :    0
-   Reference (0)           :    0
-   SafeGet (0)             :    0
-   SafeGetSV (0)           :    0
-   SafeReference (0)       :    0
-   SafeSet (0)             :    0
-   SafeSetSV (0)           :    0
-   SafeZAdd (0)            :    0
-   Scan (0)                :    0
-   ScanSV (0)              :    0
-   Set (5)                 :    76
-   SetBatch (0)            :    0
-   SetBatchSV (0)          :    0
-   SetSV (0)               :    0
-   ZAdd (0)                :    0
-   ZScan (0)               :    0
-   ZScanSV (0)             :    0
-
-```
-
-or visual (default)
-
-![immuadmin stats](img/stats-v.png)
-
-### Performance monitoring (Prometheus)
-
-immudb has a built-in prometheus exporter that publishes all metrics at port 9497 (:9497/metrics) by default. When running a Prometheus instance, you can configure the target like in this example:
-
-```
-  - job_name: 'immudbmetrics'
-    scrape_interval: 60s
-    static_configs:
-         - targets: ['my-immudb-server:9497']
-
-```
-
-#### Grafana
-
-There is a Grafana dashboard available as well: https://grafana.com/grafana/dashboards/12026
-
-![immudb Grafana dashboard](img/grafana-dashboard.png "immudb Performance dashboard")
-
-
 ## Real world examples
 
 We already learned about the following use cases from users:
@@ -836,30 +694,6 @@ immudb    soft    nofile      65536
 
 Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
 
-## FAQ
-
-| Question                                                                                     | Answer                                                                                                                                                                                                                                                                                                                                                                                                    | Release date    |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| Where is the Immudb data stored?                                                             | The data location can be defined using the directory parameter when starting immudb. By default the data is in `/var/lib/immudb`                                                                                                                                                                                                                                                                          | initial release |
-| How is the data structured?                                                                  | Data is stored in a Key-Value fashion. Data is always appended and never overwritten, so multiple versions of the same Key-Value can exist and can be inspected (by using the History API).                                                                                                                                                                                                               | initial release |
-| What kind of data can be stored?                                                             | Any kind of Key-Value of data, values can be json data, configuration data, etc... Clients can choose how to structure data.                                                                                                                                                                                                                                                                              | initial release |
-| What happens to my data if someone tamperes with it?                                         | immudb is a tamper-evident history system. When data (or the data history) is being tampered, the DB will not able to produce a valid consistency proof, so each client connect to the db will be able to notice the tampering and notify the user.                                                                                                                                                       | initial release |
-| How can data be backed up?                                                                   | Currently the database needs to be stopped and the data files copied manually to backup. immudb will provide an APIs to perform online backups and restores in Q3/2020.                                                                                                                                                                                                                                   | initial release |
-| How can data be restored?                                                                    | Backups files can easily restored by stopping the immudb server and replacing the data with the backed up files. If the backup data has been tampered the immudb server will detect that. API based restore is planned for Q3/2020                                                                                                                                                                        | initial release |
-| Is there a way to incremently backup data?                                                   | immudb provides stream APIs and data can be streamed in insertion order, that can be easily used to perform incremental backups and incremental restores.                                                                                                                                                                                                                                                 | Q3/2020         |
-| Is there a way to incremently restore data?                                                  | (see above)                                                                                                                                                                                                                                                                                                                                                                                               | Q3/2020         |
-| How can the data be replicated to other systems?                                             | Our goal is to provide a scalable and redundant solution for enterprises. The investigation for the best approach is ongoing and not finalized yet. Our goal is to have it ready shortly after the official enterprise version release                                                                                                                                                                    | Q3/2020         |
-| Would replication stop, when unverifiable data is detected?                                  | Customers will able to configure the wanted behavior when a unverifiable state is detected across replicas. By default, all valid replicas will able to continue working and replicas with invalid states will be skipped by all clients.                                                                                                                                                                 | Q3/2020         |
-| Somebody changes one value in the database - how can it be detected and reverted?            | With replication, it's possible to detect which replica nodes are valid and which are not. If at least a replica node was not tampered data can be easily restored.                                                                                                                                                                                                                                       | Q3/2020         |
-| Somebody changes the merkle root entry - how can I recover?                                  | Each client locally stores the last valid Merkle Tree Root (just 32 bytes of data). When the root of a DB instance is tampered then client will be able to mathematically proof that the provided root is not consistent with the last valid one. If an authenticated backup or a not tampered replica node is available, not-tampered data can be used to recover the Merkle Tree Root to a valid state. | Q3/2020         |
-| How is the database protected? outside probes?                                               | Each client helps in protecting the DB. Special clients (called "agents") can be installed on different systems and continuously monitor the DB.                                                                                                                                                                                                                                                          | Q3/2020         |
-| How can I monitor database performance?                                                      | immudb provides realtime metrics that can be collected using Prometheus                                                                                                                                                                                                                                                                                                                                   | initial release |
-| How can I monitor database health?                                                           | immudb provides realtime healthcheck endpoints via API and immu client                                                                                                                                                                                                                                                                                                                                    | initial release |
-| How can I monitor database integrity?                                                        | immudb provides proof APIs and clients and agents can ask for proof in realtime.                                                                                                                                                                                                                                                                                                                          | initial release |
-| How can I monitor database integrity for single objects or specific entries?                 | immu client has a functionality to authenticate a specific entry at a given point in time. So both last version and the whole history of an item can be verified.                                                                                                                                                                                                                                         | initial release |
-| Can I build and distribute an immudb that skips the verification? If yes, how to avoid that? | [CodeNotary](https://www.codenotary.io) team notarizes sources and releases of all immudb components. Check if the release binaries are notarized by vChain.us using [authenticate.codenotary.io](https://authenticate.codenotary.io/org/vchain.us) to prove origin and detect any kind of tampering.                                                                                                     | initial release |
-| How many databases can I run on a single immudb server?                                      | Multi-database support was incorporated since release v0.7.0. There is no hard limit on how many databases you can use; however, keep in mind that immudb uses 4 file descriptors per existing database, so with a very high number of databases you can reach the open file quota limit for the process.                                                                                                                                                                                                                                                   | Q3/2020         |
-
 ## Community
 
 We welcome [contributions](CONTRIBUTING.md). Feel free to join the team!
@@ -872,12 +706,3 @@ To report bugs or get help, use [GitHub's issues](https://github.com/codenotary/
 immudb is [Apache v2.0 License](LICENSE).
 
 immudb re-distributes other open-source tools and libraries - [Acknowledgements](ACKNOWLEDGEMENTS.md).
-
-
-## Is it awesome?
-
-Yes.
-
-
-## Stargazers over time
-[![Stargazers over time](https://starchart.cc/codenotary/immudb.svg)](https://starchart.cc/codenotary/immudb)
