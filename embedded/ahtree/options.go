@@ -18,8 +18,8 @@ package ahtree
 import (
 	"os"
 
-	"codenotary.io/immudb-v2/appendable"
-	"codenotary.io/immudb-v2/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 )
 
 const DefaultFileSize = multiapp.DefaultFileSize

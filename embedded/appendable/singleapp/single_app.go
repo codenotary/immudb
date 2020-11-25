@@ -27,7 +27,7 @@ import (
 	"io"
 	"os"
 
-	"codenotary.io/immudb-v2/appendable"
+	"github.com/codenotary/immudb/embedded/appendable"
 )
 
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")

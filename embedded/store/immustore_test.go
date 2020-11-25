@@ -29,16 +29,17 @@ import (
 	"testing"
 	"time"
 
-	"codenotary.io/immudb-v2/appendable"
-	"codenotary.io/immudb-v2/appendable/mocked"
-	"codenotary.io/immudb-v2/appendable/multiapp"
-	"codenotary.io/immudb-v2/tbtree"
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/mocked"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/tbtree"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestImmudbStoreConcurrency(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_concurrency", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_concurrency")
@@ -123,7 +124,7 @@ func TestImmudbStoreOpenWithInvalidPath(t *testing.T) {
 }
 
 func TestImmudbStoreOnClosedStore(t *testing.T) {
-	immuStore, err := Open("closed_store", DefaultOptions())
+	immuStore, err := Open("closed_store", DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 	defer os.RemoveAll("closed_store")
 
@@ -147,13 +148,13 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 }
 
 func TestImmudbStoreSettings(t *testing.T) {
-	immuStore, err := Open("store_settings", DefaultOptions())
+	immuStore, err := Open("store_settings", DefaultOptions().WithMaxConcurrency(2))
 	require.NoError(t, err)
 	defer os.RemoveAll("store_settings")
 
 	require.Equal(t, DefaultOptions().readOnly, immuStore.ReadOnly())
 	require.Equal(t, DefaultOptions().synced, immuStore.Synced())
-	require.Equal(t, DefaultOptions().maxConcurrency, immuStore.MaxConcurrency())
+	require.Equal(t, 2, immuStore.MaxConcurrency())
 	require.Equal(t, DefaultOptions().maxIOConcurrency, immuStore.MaxIOConcurrency())
 	require.Equal(t, DefaultOptions().maxTxEntries, immuStore.MaxTxEntries())
 	require.Equal(t, DefaultOptions().maxKeyLen, immuStore.MaxKeyLen())
@@ -316,7 +317,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 }
 
 func TestImmudbSetBlErr(t *testing.T) {
-	immuStore, err := Open("data_bl_err", DefaultOptions())
+	immuStore, err := Open("data_bl_err", DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 	defer os.RemoveAll("data_bl_err")
 
@@ -327,9 +328,12 @@ func TestImmudbSetBlErr(t *testing.T) {
 }
 
 func TestImmudbTxOffsetAndSize(t *testing.T) {
-	immuStore, err := Open("data_tx_off_sz", DefaultOptions())
+	immuStore, err := Open("data_tx_off_sz", DefaultOptions().WithMaxConcurrency(1))
 	require.NoError(t, err)
 	defer os.RemoveAll("data_tx_off_sz")
+
+	immuStore.mutex.Lock()
+	defer immuStore.mutex.Unlock()
 
 	_, _, err = immuStore.txOffsetAndSize(0)
 	require.Error(t, ErrIllegalArguments, err)
@@ -347,7 +351,7 @@ func TestImmudbTxOffsetAndSize(t *testing.T) {
 }
 
 func TestImmudbStoreIndexing(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_indexing", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_indexing")
@@ -469,7 +473,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 }
 
 func TestImmudbStoreHistoricalValues(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_historical", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_historical")
@@ -477,7 +481,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 	require.NotNil(t, immuStore)
 
 	txCount := 10
-	eCount := 100
+	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
@@ -506,7 +510,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 		require.Equal(t, uint64(i+1), id)
 	}
 
-	time.Sleep(time.Duration(1000) * time.Millisecond)
+	time.Sleep(time.Duration(100) * time.Millisecond)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -574,7 +578,8 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 }
 
 func TestImmudbStoreInclusionProof(t *testing.T) {
-	immuStore, err := Open("data_inclusion_proof", DefaultOptions().WithSynced(false))
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_inclusion_proof", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_inclusion_proof")
 
@@ -613,7 +618,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	_, _, _, _, err = immuStore.Commit([]*KV{{Key: []byte{}, Value: []byte{}}})
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	immuStore, err = Open("data_inclusion_proof", DefaultOptions())
+	immuStore, err = Open("data_inclusion_proof", opts)
 	require.NoError(t, err)
 
 	r, err := immuStore.NewTxReader(1, 1024)
@@ -660,7 +665,8 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 }
 
 func TestLeavesMatchesAHTSync(t *testing.T) {
-	immuStore, err := Open("data_leaves_alh", DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0))
+	opts := DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0).WithMaxConcurrency(1)
+	immuStore, err := Open("data_leaves_alh", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_leaves_alh")
 
@@ -714,7 +720,8 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 }
 
 func TestLeavesMatchesAHTASync(t *testing.T) {
-	immuStore, err := Open("data_leaves_alh_async", DefaultOptions().WithSynced(false))
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_leaves_alh_async", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_leaves_alh_async")
 
@@ -768,13 +775,14 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProof(t *testing.T) {
-	immuStore, err := Open("data_consistency_proof", DefaultOptions().WithSynced(false))
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_consistency_proof", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_consistency_proof")
 
 	require.NotNil(t, immuStore)
 
-	txCount := 32
+	txCount := 16
 	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
@@ -828,13 +836,14 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
-	immuStore, err := Open("data_consistency_proof_latest", DefaultOptions().WithSynced(false))
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_consistency_proof_latest", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_consistency_proof_latest")
 
 	require.NotNil(t, immuStore)
 
-	txCount := 66
+	txCount := 32
 	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
@@ -894,13 +903,14 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 }
 
 func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
-	immuStore, err := Open("data_consistency_proof_reopen", DefaultOptions().WithSynced(false))
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_consistency_proof_reopen", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_consistency_proof_reopen")
 
 	require.NotNil(t, immuStore)
 
-	txCount := 32
+	txCount := 16
 	eCount := 100
 
 	_, _, _, _, err = immuStore.Commit(nil)
@@ -933,7 +943,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 	_, _, _, _, err = immuStore.Commit([]*KV{{Key: []byte{}, Value: []byte{}}})
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	immuStore, err = Open("data_consistency_proof_reopen", DefaultOptions())
+	immuStore, err = Open("data_consistency_proof_reopen", opts)
 	require.NoError(t, err)
 
 	for i := 0; i < txCount; i++ {
@@ -990,7 +1000,7 @@ func TestReOpenningImmudbStore(t *testing.T) {
 	eCount := 10
 
 	for it := 0; it < itCount; it++ {
-		opts := DefaultOptions().WithSynced(false)
+		opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 		immuStore, err := Open("data_reopenning", opts)
 		require.NoError(t, err)
 
@@ -1028,7 +1038,8 @@ func TestReOpenningWithCompressionEnabledImmudbStore(t *testing.T) {
 		opts := DefaultOptions().
 			WithSynced(false).
 			WithCompressionFormat(appendable.GZipCompression).
-			WithCompresionLevel(appendable.DefaultCompression)
+			WithCompresionLevel(appendable.DefaultCompression).
+			WithMaxConcurrency(1)
 
 		immuStore, err := Open("data_compression", opts)
 		require.NoError(t, err)
@@ -1062,7 +1073,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("data_overwriting")
 
-	opts := DefaultOptions()
+	opts := DefaultOptions().WithMaxConcurrency(1)
 
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(metaFileSize, opts.fileSize)
@@ -1183,7 +1194,7 @@ func (la *FailingAppendable) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func BenchmarkSyncedAppend(b *testing.B) {
-	immuStore, _ := Open("data_synced_bench", DefaultOptions())
+	immuStore, _ := Open("data_synced_bench", DefaultOptions().WithMaxConcurrency(1))
 	defer os.RemoveAll("data_synced_bench")
 
 	for i := 0; i < b.N; i++ {
@@ -1212,7 +1223,7 @@ func BenchmarkSyncedAppend(b *testing.B) {
 }
 
 func BenchmarkAppend(b *testing.B) {
-	opts := DefaultOptions().WithSynced(false)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, _ := Open("data_async_bench", opts)
 	defer os.RemoveAll("data_async_bench")
 

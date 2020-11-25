@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"strings"
 
-	"codenotary.io/immudb-v2/appendable"
-	"codenotary.io/immudb-v2/appendable/singleapp"
-	"codenotary.io/immudb-v2/cache"
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
+	"github.com/codenotary/immudb/embedded/cache"
 )
 
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")

@@ -22,7 +22,8 @@ import (
 	"os"
 	"testing"
 
-	"codenotary.io/immudb-v2/appendable"
+	"github.com/codenotary/immudb/embedded/appendable"
+
 	"github.com/stretchr/testify/require"
 )
 

@@ -18,7 +18,7 @@ package singleapp
 import (
 	"os"
 
-	"codenotary.io/immudb-v2/appendable"
+	"github.com/codenotary/immudb/embedded/appendable"
 )
 
 const DefaultFileMode = os.FileMode(0644)

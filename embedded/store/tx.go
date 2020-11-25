@@ -20,7 +20,8 @@ import (
 	"encoding/binary"
 	"math/bits"
 
-	"codenotary.io/immudb-v2/appendable"
+	"github.com/codenotary/immudb/embedded/appendable"
+
 	"github.com/codenotary/merkletree"
 )
 

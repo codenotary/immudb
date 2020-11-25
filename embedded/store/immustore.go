@@ -29,12 +29,12 @@ import (
 	"sync"
 	"time"
 
-	"codenotary.io/immudb-v2/ahtree"
-	"codenotary.io/immudb-v2/appendable"
-	"codenotary.io/immudb-v2/appendable/multiapp"
-	"codenotary.io/immudb-v2/cbuffer"
-	"codenotary.io/immudb-v2/multierr"
-	"codenotary.io/immudb-v2/tbtree"
+	"github.com/codenotary/immudb/embedded/ahtree"
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/cbuffer"
+	"github.com/codenotary/immudb/embedded/multierr"
+	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")

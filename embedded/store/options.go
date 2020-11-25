@@ -19,12 +19,12 @@ import (
 	"os"
 	"time"
 
-	"codenotary.io/immudb-v2/appendable"
-	"codenotary.io/immudb-v2/appendable/multiapp"
-	"codenotary.io/immudb-v2/tbtree"
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
-const DefaultMaxConcurrency = 100
+const DefaultMaxConcurrency = 30
 const DefaultMaxIOConcurrency = 1
 const DefaultMaxTxEntries = 1 << 16 // 65536
 const DefaultMaxKeyLen = 256

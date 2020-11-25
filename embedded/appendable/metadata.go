@@ -45,35 +45,35 @@ func (m *Metadata) Bytes() []byte {
 	return b.Bytes()
 }
 
-func (m *Metadata) ReadFrom(r io.Reader) error {
+func (m *Metadata) ReadFrom(r io.Reader) (int64, error) {
 	lenb, err := readField(r)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	len := int(binary.BigEndian.Uint32(lenb))
 
 	for i := 0; i < len; i++ {
 		k, err := readField(r)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		v, err := readField(r)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		m.data[string(k)] = v
 	}
 
-	return nil
+	return int64(len), nil
 }
 
-func (m *Metadata) WriteTo(w io.Writer) (n int, err error) {
+func (m *Metadata) WriteTo(w io.Writer) (n int64, err error) {
 	lenb := make([]byte, 4)
 	binary.BigEndian.PutUint32(lenb, uint32(len(m.data)))
 	wn, err := writeField(lenb, w)
-	n += wn
+	n += int64(wn)
 
 	if err != nil {
 		return
@@ -81,14 +81,14 @@ func (m *Metadata) WriteTo(w io.Writer) (n int, err error) {
 
 	for k, v := range m.data {
 		wn, err = writeField([]byte(k), w)
-		n += wn
+		n += int64(wn)
 
 		if err != nil {
 			return
 		}
 
 		wn, err = writeField(v, w)
-		n += wn
+		n += int64(wn)
 
 		if err != nil {
 			return

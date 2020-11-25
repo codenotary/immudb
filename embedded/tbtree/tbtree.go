@@ -25,10 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"codenotary.io/immudb-v2/appendable"
-	"codenotary.io/immudb-v2/appendable/multiapp"
-	"codenotary.io/immudb-v2/cache"
-	"codenotary.io/immudb-v2/multierr"
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/cache"
+	"github.com/codenotary/immudb/embedded/multierr"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")

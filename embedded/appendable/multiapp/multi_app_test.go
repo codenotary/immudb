@@ -21,8 +21,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"codenotary.io/immudb-v2/appendable"
-	"codenotary.io/immudb-v2/appendable/singleapp"
+	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
+
 	"github.com/stretchr/testify/require"
 )
 

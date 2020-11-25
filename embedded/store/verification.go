@@ -19,7 +19,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
-	"codenotary.io/immudb-v2/ahtree"
+	"github.com/codenotary/immudb/embedded/ahtree"
 )
 
 func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) bool {
