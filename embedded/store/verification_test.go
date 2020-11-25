@@ -43,7 +43,8 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 	require.False(t, VerifyDualProof(nil, 0, 0, sha256.Sum256(nil), sha256.Sum256(nil)))
 	require.False(t, VerifyDualProof(&DualProof{}, 0, 0, sha256.Sum256(nil), sha256.Sum256(nil)))
 
-	immuStore, err := Open("data_dualproof_edge_cases", DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0))
+	opts := DefaultOptions().WithSynced(false).WithMaxLinearProofLen(0).WithMaxConcurrency(1)
+	immuStore, err := Open("data_dualproof_edge_cases", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_dualproof_edge_cases")
 

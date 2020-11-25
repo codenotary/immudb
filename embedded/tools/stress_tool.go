@@ -98,6 +98,7 @@ func main() {
 
 	opts := store.DefaultOptions().
 		WithSynced(*synced).
+		WithMaxConcurrency(*committers).
 		WithMaxIOConcurrency(*parallelIO).
 		WithFileSize(*fileSize).
 		WithVLogMaxOpenedFiles(*openedLogFiles).

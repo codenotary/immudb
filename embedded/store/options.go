@@ -24,7 +24,7 @@ import (
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
-const DefaultMaxConcurrency = 100
+const DefaultMaxConcurrency = 30
 const DefaultMaxIOConcurrency = 1
 const DefaultMaxTxEntries = 1 << 16 // 65536
 const DefaultMaxKeyLen = 256
