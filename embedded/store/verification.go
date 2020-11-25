@@ -77,22 +77,42 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 	}
 
 	if sourceTxID < proof.TargetTxMetadata.BlTxID {
-		cTargetBlRoot := ahtree.EvalInclusion(proof.BinaryInclusionProof, sourceTxID, proof.TargetTxMetadata.BlTxID, leafFor(sourceAlh))
-		if proof.TargetTxMetadata.BlRoot != cTargetBlRoot {
+		verifies := ahtree.VerifyInclusion(
+			proof.BinaryInclusionProof,
+			sourceTxID,
+			proof.TargetTxMetadata.BlTxID,
+			leafFor(sourceAlh),
+			proof.TargetTxMetadata.BlRoot,
+		)
+
+		if !verifies {
 			return false
 		}
 	}
 
 	if proof.SourceTxMetadata.BlTxID > 0 {
-		cSourceBlRoot, c2TargetBlRoot := ahtree.EvalConsistency(proof.BinaryConsistencyProof, proof.SourceTxMetadata.BlTxID, proof.TargetTxMetadata.BlTxID)
-		if proof.SourceTxMetadata.BlRoot != cSourceBlRoot || proof.TargetTxMetadata.BlRoot != c2TargetBlRoot {
+		verfifies := ahtree.VerifyConsistency(
+			proof.BinaryConsistencyProof,
+			proof.SourceTxMetadata.BlTxID,
+			proof.TargetTxMetadata.BlTxID,
+			proof.SourceTxMetadata.BlRoot,
+			proof.TargetTxMetadata.BlRoot,
+		)
+
+		if !verfifies {
 			return false
 		}
 	}
 
 	if proof.TargetTxMetadata.BlTxID > 0 {
-		c2TargetBlRoot := ahtree.EvalLastInclusion(proof.BinaryLastInclusionProof, proof.TargetTxMetadata.BlTxID, leafFor(proof.TargetBlTxAlh))
-		if proof.TargetTxMetadata.BlRoot != c2TargetBlRoot {
+		verifies := ahtree.VerifyLastInclusion(
+			proof.BinaryLastInclusionProof,
+			proof.TargetTxMetadata.BlTxID,
+			leafFor(proof.TargetBlTxAlh),
+			proof.TargetTxMetadata.BlRoot,
+		)
+
+		if !verifies {
 			return false
 		}
 	}
