@@ -144,9 +144,9 @@ func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 	return list, nil
 }
 
-// SetBatchOps ...
-func (d *Db) SetBatchOps(operations *schema.BatchOps) (*schema.Index, error) {
-	return d.Store.SetBatchOps(operations)
+// ExecAllOps ...
+func (d *Db) ExecAllOps(operations *schema.Ops) (*schema.Index, error) {
+	return d.Store.ExecAllOps(operations)
 }
 
 //Count ...

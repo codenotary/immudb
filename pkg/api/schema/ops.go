@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (m *BatchOps) Validate() error {
+func (m *Ops) Validate() error {
 	if len(m.GetOperations()) == 0 {
 		return ErrEmptySet
 	}
@@ -15,22 +15,22 @@ func (m *BatchOps) Validate() error {
 
 	for _, op := range m.Operations {
 		if op == nil {
-			return status.New(codes.InvalidArgument, "batchOp is not set").Err()
+			return status.New(codes.InvalidArgument, "Op is not set").Err()
 		}
 		switch x := op.Operation.(type) {
-		case *BatchOp_KVs:
+		case *Op_KVs:
 			mk := sha256.Sum256(x.KVs.Key)
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedKeysNotSupported
 			}
 			mops[mk] = struct{}{}
-		case *BatchOp_ZOpts:
+		case *Op_ZOpts:
 			mk := sha256.Sum256(bytes.Join([][]byte{x.ZOpts.Set, x.ZOpts.Key, []byte(x.ZOpts.Index.String())}, nil))
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedZAddNotSupported
 			}
 			mops[mk] = struct{}{}
-		case *BatchOp_ROpts:
+		case *Op_ROpts:
 			mk := sha256.Sum256(bytes.Join([][]byte{x.ROpts.Reference, x.ROpts.Key, []byte(x.ROpts.Index.String())}, nil))
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedReferencesNotSupported
