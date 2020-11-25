@@ -478,7 +478,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 	require.NotNil(t, immuStore)
 
 	txCount := 10
-	eCount := 100
+	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
@@ -507,7 +507,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 		require.Equal(t, uint64(i+1), id)
 	}
 
-	time.Sleep(time.Duration(1000) * time.Millisecond)
+	time.Sleep(time.Duration(100) * time.Millisecond)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -779,7 +779,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 32
+	txCount := 16
 	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
@@ -840,7 +840,7 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 66
+	txCount := 32
 	eCount := 10
 
 	_, _, _, _, err = immuStore.Commit(nil)
