@@ -907,7 +907,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 32
+	txCount := 16
 	eCount := 100
 
 	_, _, _, _, err = immuStore.Commit(nil)
