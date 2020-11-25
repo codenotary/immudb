@@ -30,6 +30,9 @@ jobs:
         - VCN_USER=$gosec_user VCN_PASSWORD=$gosec_pass VCN_OTP_EMPTY=true /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --attr  --silent results-${TRAVIS_BUILD_NUMBER}.json
         - /tmp/vcn logout
+        - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass VCN_OTP_EMPTY=true /tmp/vcn login
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent results-${TRAVIS_BUILD_NUMBER}.json
+        - /tmp/vcn logout
     - stage: Binaries
       os: linux
       arch:
@@ -38,6 +41,8 @@ jobs:
         - GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
         - VCN_USER=$trv_user VCN_PASSWORD=$trv_pass VCN_OTP_EMPTY=true /tmp/vcn login
         - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immudb
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuadmin
+        - VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr TravisJobName=${TRAVIS_JOB_NAME} --attr TravisJobNo=${TRAVIS_JOB_NUMBER} --silent immuclient
         - /tmp/vcn logout
       workspaces:
         create:
