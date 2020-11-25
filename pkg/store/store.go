@@ -304,7 +304,7 @@ func (t *Store) itemAt(readTs uint64) (index uint64, key, value []byte, err erro
 		if err != nil {
 			return 0, nil, nil, err
 		}
-		// there are multiple possible versions of a key. Here we retrieve the one with the correct timestamp
+		// there are multiple possible versions of a key. Choosing the one with the correct timestamp
 		if i.Index == index {
 			item = i
 			break
@@ -380,12 +380,13 @@ func (t *Store) History(options *schema.HistoryOptions) (list *schema.ItemList, 
 // ZAdd adds a score for an existing key in a sorted set
 // As a parameter of ZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
+// If ZAddOptions.index is provided key is optional
 func (t *Store) ZAdd(zaddOpts schema.ZAddOptions, options ...WriteOption) (index *schema.Index, err error) {
 	txn := t.db.NewTransactionAt(math.MaxUint64, true)
 	defer txn.Discard()
 
 	opts := makeWriteOptions(options...)
-	if err = checkKey(zaddOpts.Key); err != nil {
+	if err = checkKey(zaddOpts.Key); err != nil && zaddOpts.Index == nil {
 		return nil, err
 	}
 	if err = checkSet(zaddOpts.Set); err != nil {
@@ -455,13 +456,13 @@ func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions
 			if err != nil {
 				return nil, nil, mapError(err)
 			}
-			if bytes.Compare(key, zaddOpts.Key) != 0 {
+			if len(zaddOpts.Key) > 0 && bytes.Compare(key, zaddOpts.Key) != 0 {
 				return nil, nil, ErrIndexKeyMismatch
 			}
 		} else {
 			key = zaddOpts.Key
 		}
-		// here we append the index to the reference value
+		// here the index is appended the reference value
 		// In case that skipPersistenceCheck == true index need to be assigned carefully
 		index = zaddOpts.Index
 	} else {
@@ -475,10 +476,10 @@ func (t *Store) getSortedSetKeyVal(txn *badger.Txn, zaddOpts *schema.ZAddOptions
 			return nil, nil, ErrIndexKeyMismatch
 		}
 		key = zaddOpts.Key
-		// We know the index ( i.Version() - 1 ) but if is not submitted by the client we can not store it inside the reference. This is needed to permit verifications in SDKs
+		// Index ( i.Version() - 1 ) has not to be stored inside the reference if not submitted by the client. This is needed to permit verifications in SDKs
 		index = nil
 	}
-	ik := BuildSetKey(zaddOpts.Key, zaddOpts.Set, zaddOpts.Score.Score, index)
+	ik := BuildSetKey(key, zaddOpts.Set, zaddOpts.Score.Score, index)
 
 	// append the index to the reference. In this way the resolution will be index based
 	referenceValue = WrapZIndexReference(key, index)
@@ -497,13 +498,13 @@ func (t *Store) getReferenceVal(txn *badger.Txn, rOpts *schema.ReferenceOptions,
 			if err != nil {
 				return nil, mapError(err)
 			}
-			if bytes.Compare(key, rOpts.Key) != 0 {
+			if len(rOpts.Key) > 0 && bytes.Compare(key, rOpts.Key) != 0 {
 				return nil, ErrIndexKeyMismatch
 			}
 		} else {
 			key = rOpts.Key
 		}
-		// here we append the index to the reference value
+		// append the index to the reference. In this way the resolution will be index based
 		// In case that skipPersistenceCheck == true index need to be assigned carefully
 		index = rOpts.Index
 	} else {
@@ -517,7 +518,7 @@ func (t *Store) getReferenceVal(txn *badger.Txn, rOpts *schema.ReferenceOptions,
 			return nil, ErrIndexKeyMismatch
 		}
 		key = rOpts.Key
-		// We know the index ( i.Version() - 1 ) but if is not submitted by the client we can not store it inside the reference to allow verifications in SDKs
+		// Index ( i.Version() - 1 ) has not to be stored inside the reference if not submitted by the client. This is needed to permit verifications in SDKs
 		index = nil
 	}
 

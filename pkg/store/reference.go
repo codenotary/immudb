@@ -7,9 +7,11 @@ import (
 )
 
 // Reference adds a new entry who's value is an existing key
+// If the ReferenceOption.index is not provided the resolution will use only the key and last version of the item will be returned
+// If ReferenceOption.index is provided key is optional
 func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOption) (index *schema.Index, err error) {
 	opts := makeWriteOptions(options...)
-	if isReservedKey(refOpts.Key) {
+	if isReservedKey(refOpts.Key) && refOpts.Index == nil {
 		return nil, ErrInvalidKey
 	}
 	if isReservedKey(refOpts.Reference) {

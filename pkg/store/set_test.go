@@ -523,3 +523,62 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 	assert.Exactly(t, []byte(`val2-A`), list.Items[3].Item.Value)
 	assert.Exactly(t, []byte(`val3-A`), list.Items[4].Item.Value)
 }
+
+func TestStoreZScanOnZAddIndexReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	i1, _ := st.Set(schema.KeyValue{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)})
+	i2, _ := st.Set(schema.KeyValue{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)})
+	i3, _ := st.Set(schema.KeyValue{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)})
+
+	zaddOpts1 := schema.ZAddOptions{
+		Set:   []byte(`hashA`),
+		Score: &schema.Score{Score: float64(1)},
+		Index: i1,
+	}
+
+	reference1, err1 := st.ZAdd(zaddOpts1)
+
+	assert.NoError(t, err1)
+	assert.Exactly(t, reference1.Index, uint64(3))
+	assert.NotEmptyf(t, reference1, "Should not be empty")
+
+	zaddOpts2 := schema.ZAddOptions{
+		Set:   []byte(`hashA`),
+		Score: &schema.Score{Score: float64(2)},
+		Index: i2,
+	}
+
+	reference2, err2 := st.ZAdd(zaddOpts2)
+
+	assert.NoError(t, err2)
+	assert.Exactly(t, reference2.Index, uint64(4))
+	assert.NotEmptyf(t, reference2, "Should not be empty")
+
+	zaddOpts3 := schema.ZAddOptions{
+		Set:   []byte(`hashA`),
+		Score: &schema.Score{Score: float64(3)},
+		Index: i3,
+	}
+
+	reference3, err3 := st.ZAdd(zaddOpts3)
+
+	assert.NoError(t, err3)
+	assert.Exactly(t, reference3.Index, uint64(5))
+	assert.NotEmptyf(t, reference3, "Should not be empty")
+
+	zscanOpts1 := schema.ZScanOptions{
+		Set:     []byte(`hashA`),
+		Reverse: false,
+	}
+
+	itemList1, err := st.ZScan(zscanOpts1)
+
+	assert.NoError(t, err)
+	assert.Len(t, itemList1.Items, 3)
+	assert.Equal(t, []byte(`SignerId1`), itemList1.Items[0].Item.Key)
+	assert.Equal(t, []byte(`SignerId1`), itemList1.Items[1].Item.Key)
+	assert.Equal(t, []byte(`SignerId2`), itemList1.Items[2].Item.Key)
+
+}
