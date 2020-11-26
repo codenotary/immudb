@@ -225,7 +225,7 @@ func TestStoreOnlyIndexReference(t *testing.T) {
 
 }
 
-func TestStore_GetOnReferenceOnSameKeyReturnsEverLastValue(t *testing.T) {
+func TestStore_GetOnReferenceOnSameKeyReturnsAlwaysLastValue(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
@@ -245,7 +245,7 @@ func TestStore_GetOnReferenceOnSameKeyReturnsEverLastValue(t *testing.T) {
 	assert.Equal(t, []byte(`item2`), tag1b.Value)
 }
 
-func TestStore_GetOnReferenceOnSameKeyMixReturnsEverLastValue(t *testing.T) {
+func TestStore_GetOnReferenceOnSameKeyMixReturnsAlwaysLastValue(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
 
