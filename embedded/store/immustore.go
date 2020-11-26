@@ -973,12 +973,13 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		proof.BinaryConsistencyProof = binConsistencyProof
 	}
 
+	var targetBlTx *Tx
+
 	if targetTx.BlTxID > 0 {
-		targetBlTx, err := s.fetchAllocTx()
+		targetBlTx, err = s.fetchAllocTx()
 		if err != nil {
 			return nil, err
 		}
-		defer s.releaseAllocTx(targetBlTx)
 
 		err = s.ReadTx(targetTx.BlTxID, targetBlTx)
 		if err != nil {
@@ -993,6 +994,10 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 			return nil, err
 		}
 		proof.BinaryLastInclusionProof = binLastInclusionProof
+	}
+
+	if targetBlTx != nil {
+		s.releaseAllocTx(targetBlTx)
 	}
 
 	lproof, err := s.LinearProof(maxUint64(sourceTx.ID, targetTx.BlTxID), targetTx.ID)
