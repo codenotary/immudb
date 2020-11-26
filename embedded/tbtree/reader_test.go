@@ -144,8 +144,9 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	snapshot, err := tbtree.Snapshot()
-	require.NotNil(t, snapshot)
 	require.NoError(t, err)
+	require.NotNil(t, snapshot)
+	require.Equal(t, uint64(keyCount), snapshot.Ts())
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{

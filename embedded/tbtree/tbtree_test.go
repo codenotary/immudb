@@ -247,6 +247,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		if !override {
 			snapshot, err := tbtree.Snapshot()
 			require.NoError(t, err)
+			require.Equal(t, uint64(i), snapshot.Ts())
 
 			for {
 				_, _, err = snapshot.Get(k)
@@ -420,24 +421,24 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 }
 
 func TestTBTreeInsertionInRandomOrder(t *testing.T) {
-	opts := DefaultOptions().WithMaxNodeSize(DefaultMaxNodeSize).WithCacheSize(100_000).WithSynced(false)
+	opts := DefaultOptions().WithMaxNodeSize(DefaultMaxNodeSize).WithCacheSize(1000).WithSynced(false)
 	tbtree, err := Open("test_tree_irnd", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_irnd")
 
-	randomInsertions(t, tbtree, 100_000, true)
+	randomInsertions(t, tbtree, 10_000, true)
 
 	err = tbtree.Close()
 	require.NoError(t, err)
 }
 
 func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
-	opts := DefaultOptions().WithMaxNodeSize(DefaultMaxNodeSize).WithCacheSize(100_000)
+	opts := DefaultOptions().WithMaxNodeSize(DefaultMaxNodeSize).WithCacheSize(1000)
 	tbtree, err := Open("test_tree_c", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_c")
 
-	keyCount := 10_000
+	keyCount := 1000
 
 	go randomInsertions(t, tbtree, keyCount, false)
 
