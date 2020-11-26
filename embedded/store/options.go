@@ -26,9 +26,9 @@ import (
 
 const DefaultMaxConcurrency = 30
 const DefaultMaxIOConcurrency = 1
-const DefaultMaxTxEntries = 1 << 16 // 65536
+const DefaultMaxTxEntries = 1 << 10 // 1024
 const DefaultMaxKeyLen = 256
-const DefaultMaxValueLen = 1 << 20 // 1 Mb
+const DefaultMaxValueLen = 4096 // 4Kb
 const DefaultFileMode = os.FileMode(0755)
 const DefaultMaxLinearProofLen = 1 << 10
 const DefaultFileSize = multiapp.DefaultFileSize
