@@ -288,6 +288,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		txs.PushBack(tx)
 	}
 
+	// Extra tx pre-allocation for indexing thread
+	txs.PushBack(newTx(maxTxEntries, maxKeyLen))
+
 	txbs := make([]byte, maxTxSize)
 
 	committedAlh := sha256.Sum256(nil)
@@ -451,7 +454,13 @@ func (s *ImmuStore) syncBinaryLinking() error {
 		return nil
 	}
 
-	txReader, err := s.NewTxReader(s.aht.Size()+1, s.maxTxSize)
+	tx, err := s.fetchAllocTx()
+	if err != nil {
+		return err
+	}
+	defer s.releaseAllocTx(tx)
+
+	txReader, err := s.NewTxReader(s.aht.Size()+1, tx, s.maxTxSize)
 	if err != nil {
 		return err
 	}
@@ -499,7 +508,13 @@ func (s *ImmuStore) IndexInfo() (uint64, error) {
 func (s *ImmuStore) doIndexing() error {
 	txID := s.index.Ts() + 1
 
-	txReader, err := s.NewTxReader(txID, s.maxTxSize)
+	tx, err := s.fetchAllocTx()
+	if err != nil {
+		return err
+	}
+	defer s.releaseAllocTx(tx)
+
+	txReader, err := s.NewTxReader(txID, tx, s.maxTxSize)
 	if err != nil {
 		return err
 	}
@@ -1000,9 +1015,15 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 		return nil, ErrLinearProofMaxLenExceeded
 	}
 
-	r, err := s.NewTxReader(sourceTxID, s.maxTxSize)
+	tx, err := s.fetchAllocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer s.releaseAllocTx(tx)
 
-	tx, err := r.Read()
+	r, err := s.NewTxReader(sourceTxID, tx, s.maxTxSize)
+
+	tx, err = r.Read()
 	if err != nil {
 		return nil, err
 	}
@@ -1116,12 +1137,16 @@ type TxReader struct {
 	alh         [sha256.Size]byte
 }
 
-func (s *ImmuStore) NewTxReader(txID uint64, bufSize int) (*TxReader, error) {
+func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	if s.closed {
 		return nil, ErrAlreadyClosed
+	}
+
+	if tx == nil {
+		return nil, ErrIllegalArguments
 	}
 
 	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
@@ -1132,8 +1157,6 @@ func (s *ImmuStore) NewTxReader(txID uint64, bufSize int) (*TxReader, error) {
 	}
 
 	r := appendable.NewReaderFrom(syncedReader, txOff, bufSize)
-
-	tx := s.NewTx()
 
 	return &TxReader{r: r, _tx: tx}, nil
 }

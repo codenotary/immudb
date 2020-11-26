@@ -39,7 +39,7 @@ import (
 )
 
 func TestImmudbStoreConcurrency(t *testing.T) {
-	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(5)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(4)
 	immuStore, err := Open("data_concurrency", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_concurrency")
@@ -82,11 +82,12 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 	go func() {
 
 		txID := uint64(1)
+		tx := immuStore.NewTx()
 
 		for {
 			time.Sleep(time.Duration(100) * time.Millisecond)
 
-			txReader, err := immuStore.NewTxReader(txID, 4096)
+			txReader, err := immuStore.NewTxReader(txID, tx, 4096)
 			if err != nil {
 				panic(err)
 			}
@@ -143,7 +144,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	err = immuStore.ReadTx(1, nil)
 	require.Error(t, ErrAlreadyClosed, err)
 
-	_, err = immuStore.NewTxReader(1, 1024)
+	_, err = immuStore.NewTxReader(1, nil, 1024)
 	require.Error(t, ErrAlreadyClosed, err)
 }
 
@@ -279,6 +280,21 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	immuStore, err := Open("edge_cases", opts)
 	require.NoError(t, err)
+
+	tx1, err := immuStore.fetchAllocTx()
+	require.NoError(t, err)
+
+	tx2, err := immuStore.fetchAllocTx()
+	require.NoError(t, err)
+
+	_, err = immuStore.fetchAllocTx()
+	require.Error(t, ErrMaxConcurrencyLimitExceeded, err)
+
+	immuStore.releaseAllocTx(tx1)
+	immuStore.releaseAllocTx(tx2)
+
+	_, err = immuStore.NewTxReader(1, nil, 1024)
+	require.Error(t, ErrIllegalArguments, err)
 
 	_, err = immuStore.DualProof(nil, nil)
 	require.Error(t, ErrIllegalArguments, err)
@@ -521,6 +537,8 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 
 	for f := 0; f < 1; f++ {
 		go func() {
+			tx := immuStore.NewTx()
+
 			for {
 				snap, err := immuStore.Snapshot()
 				if err != nil {
@@ -539,8 +557,6 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 						if int(snap.Ts()) != len(txIDs) {
 							panic(fmt.Errorf("expected %v actual %v", int(snap.Ts()), len(txIDs)))
 						}
-
-						tx := immuStore.NewTx()
 
 						for _, txID := range txIDs {
 							v := make([]byte, 8)
@@ -625,7 +641,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	immuStore, err = Open("data_inclusion_proof", opts)
 	require.NoError(t, err)
 
-	r, err := immuStore.NewTxReader(1, 1024)
+	r, err := immuStore.NewTxReader(1, immuStore.NewTx(), 1024)
 	require.NoError(t, err)
 
 	for i := 0; i < txCount; i++ {
@@ -710,6 +726,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 	}
 
 	tx := immuStore.NewTx()
+
 	for i := 0; i < txCount; i++ {
 		err := immuStore.ReadTx(uint64(i+1), tx)
 		require.NoError(t, err)
@@ -765,6 +782,7 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 	}
 
 	tx := immuStore.NewTx()
+
 	for i := 0; i < txCount; i++ {
 		err := immuStore.ReadTx(uint64(i+1), tx)
 		require.NoError(t, err)
@@ -950,10 +968,12 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 	immuStore, err = Open("data_consistency_proof_reopen", opts)
 	require.NoError(t, err)
 
+	tx := immuStore.NewTx()
+
 	for i := 0; i < txCount; i++ {
 		txID := uint64(i + 1)
 
-		ri, err := immuStore.NewTxReader(txID, 1024)
+		ri, err := immuStore.NewTxReader(txID, tx, 1024)
 		require.NoError(t, err)
 
 		txi, err := ri.Read()
@@ -1146,7 +1166,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	immuStore, err = Open(path, opts)
 	require.NoError(t, err)
 
-	r, err := immuStore.NewTxReader(1, 1024)
+	r, err := immuStore.NewTxReader(1, immuStore.NewTx(), 1024)
 	require.NoError(t, err)
 
 	for i := 0; i < txCount-emulatedFailures; i++ {
