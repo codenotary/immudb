@@ -141,6 +141,7 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	tbtree, err = Open("test_tree_asc", DefaultOptions())
+	require.NoError(t, err)
 
 	snapshot, err := tbtree.Snapshot()
 	require.NotNil(t, snapshot)
