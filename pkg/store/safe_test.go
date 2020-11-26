@@ -662,7 +662,7 @@ func TestStoreOnlyIndexSafeReference(t *testing.T) {
 	verified = proof2.Verify(leaf[:], *prevRoot)
 	assert.True(t, verified)
 
-	tag1, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+	tag1, err := st.GetReference(schema.Key{Key: []byte(`myTag1`)})
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(`aaa`), tag1.Key)
 	assert.Equal(t, []byte(`item1`), tag1.Value)
@@ -671,6 +671,82 @@ func TestStoreOnlyIndexSafeReference(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(`aaa`), tag2.Key)
 	assert.Equal(t, []byte(`item2`), tag2.Value)
+}
+
+func TestStore_SafeGetReferenceOnSameKeyResolveByIndex(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	root, _ := st.CurrentRoot()
+
+	firstItem, err := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`firstValue`)})
+	assert.NoError(t, err)
+	_, err = st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`secondValue`)})
+	assert.NoError(t, err)
+
+	opts2 := schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{Reference: []byte(`myTag1`), Index: &schema.Index{Index: firstItem.Index}},
+	}
+
+	proof1, err := st.SafeReference(opts2)
+	assert.NoError(t, err)
+	leaf := api.Digest(proof1.Index, opts2.Ro.Reference, WrapZIndexReference([]byte(`aaa`), &schema.Index{Index: firstItem.Index}))
+	verified := proof1.Verify(leaf[:], *root)
+	assert.True(t, verified)
+
+	safeItem, err := st.SafeGetReference(schema.SafeGetOptions{
+		Key: []byte(`myTag1`),
+		RootIndex: &schema.Index{
+			Index: proof1.GetIndex(),
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, safeItem)
+	assert.Equal(t, []byte(`aaa`), safeItem.Item.Key)
+	assert.Equal(t, []byte(`firstValue`), safeItem.Item.Value)
+	assert.Equal(t, firstItem.Index, safeItem.Item.Index)
+	assert.True(t, safeItem.Proof.Verify(
+		safeItem.Item.Hash(),
+		schema.Root{Payload: &schema.RootIndex{}}, // zerovalue signals no prev root
+	))
+}
+
+func TestStore_SafeGetReferenceOnSameKeyResolveByKey(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	root, _ := st.CurrentRoot()
+
+	_, err := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`firstValue`)})
+	assert.NoError(t, err)
+	secondItem, err := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`secondValue`)})
+	assert.NoError(t, err)
+
+	opts2 := schema.SafeReferenceOptions{
+		Ro: &schema.ReferenceOptions{Reference: []byte(`myTag1`), Key: []byte(`aaa`)},
+	}
+
+	proof1, err := st.SafeReference(opts2)
+	assert.NoError(t, err)
+	leaf := api.Digest(proof1.Index, opts2.Ro.Reference, WrapZIndexReference([]byte(`aaa`), nil))
+	verified := proof1.Verify(leaf[:], *root)
+	assert.True(t, verified)
+
+	safeItem, err := st.SafeGetReference(schema.SafeGetOptions{
+		Key: []byte(`myTag1`),
+		RootIndex: &schema.Index{
+			Index: proof1.GetIndex(),
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, safeItem)
+	assert.Equal(t, []byte(`aaa`), safeItem.Item.Key)
+	assert.Equal(t, []byte(`secondValue`), safeItem.Item.Value)
+	assert.Equal(t, secondItem.Index, safeItem.Item.Index)
+	assert.True(t, safeItem.Proof.Verify(
+		safeItem.Item.Hash(),
+		schema.Root{Payload: &schema.RootIndex{}}, // zerovalue signals no prev root
+	))
 }
 
 func TestStoreZScanOnSafeZAddIndexReference(t *testing.T) {
@@ -739,4 +815,43 @@ func TestStore_SafeReferenceWrongKey(t *testing.T) {
 	defer closer()
 	_, err := st.SafeReference(schema.SafeReferenceOptions{Ro: &schema.ReferenceOptions{Reference: []byte(`myTag1`), Key: []byte{tsPrefix}}})
 	assert.Equal(t, err, ErrInvalidKey)
+}
+
+func TestStore_SafeReferenceWrongReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+	_, err := st.SafeReference(schema.SafeReferenceOptions{Ro: &schema.ReferenceOptions{Reference: []byte{tsPrefix}, Key: []byte(`myTag1`)}})
+	assert.Equal(t, err, ErrInvalidReference)
+}
+
+func TestStore_SafeGetReferenceNoReferenceProvided(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+	_, _ = st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`firstValue`)})
+
+	_, err := st.SafeGetReference(schema.SafeGetOptions{
+		Key: []byte(`aaa`),
+	})
+
+	assert.Equal(t, err, ErrNoReferenceProvided)
+}
+
+func TestStore_SafeGetReferenceWrongReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+	_, err := st.SafeGetReference(schema.SafeGetOptions{
+		Key: []byte{tsPrefix},
+	})
+	assert.Equal(t, err, ErrInvalidReference)
+}
+
+func TestStore_SafeGetReferenceKeyNotFound(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	_, err := st.SafeGetReference(schema.SafeGetOptions{
+		Key: []byte(`aaa`),
+	})
+
+	assert.Equal(t, err, ErrKeyNotFound)
 }

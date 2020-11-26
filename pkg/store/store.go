@@ -179,15 +179,14 @@ func (t *Store) Set(kv schema.KeyValue, options ...WriteOption) (index *schema.I
 	return
 }
 
-// Get fetches the entry having the specified key
+// Get fetches the entry having the specified key or resolve the reference with the specified key
 func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 	if err = checkKey(key.Key); err != nil {
 		return nil, err
 	}
-	k := key.Key
 	txn := t.db.NewTransactionAt(math.MaxUint64, false)
 	defer txn.Discard()
-	i, err := txn.Get(k)
+	i, err := txn.Get(key.Key)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -198,17 +197,10 @@ func (t *Store) Get(key schema.Key) (item *schema.Item, err error) {
 			refKey, _ = UnwrapValueWithTS(val)
 			return nil
 		})
-
-		k, flag, refIndex := UnwrapZIndexReference(refKey)
-
-		// here check for index reference, if present we resolve reference with itemAt
-		if flag == byte(1) {
-			return t.ByIndex(schema.Index{Index: refIndex})
-		} else {
-			i, err = txn.Get(k)
-			if err != nil {
-				return nil, mapError(err)
-			}
+		k, _, _ := UnwrapZIndexReference(refKey)
+		i, err = txn.Get(k)
+		if err != nil {
+			return nil, mapError(err)
 		}
 	}
 

@@ -49,6 +49,34 @@ func TestStoreReference(t *testing.T) {
 	assert.Equal(t, firstItemRet.Value, []byte(`firstValue`), "Should have referenced item value")
 }
 
+func TestStore_GetReferenceWithKeyResolution(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	_, _ = st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Key: []byte(`aaa`)})
+
+	tag3, err := st.GetReference(schema.Key{Key: []byte(`myTag1`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag3.Key)
+	assert.Equal(t, []byte(`item1`), tag3.Value)
+}
+
+func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx1, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Index: idx1, Key: []byte(`aaa`)})
+
+	tag3, err := st.GetReference(schema.Key{Key: []byte(`myTag1`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag3.Key)
+	assert.Equal(t, []byte(`item1`), tag3.Value)
+}
+
 func TestStoreReferenceAsyncCommit(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
@@ -136,13 +164,13 @@ func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
 	assert.Exactly(t, uint64(4), reference3.Index)
 	assert.NotEmptyf(t, reference3, "Should not be empty")
 
-	firstTagRet, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+	firstTagRet, err := st.GetReference(schema.Key{Key: []byte(`myTag1`)})
 
 	assert.NoError(t, err)
 	assert.NotEmptyf(t, firstTagRet, "Should not be empty")
 	assert.Equal(t, []byte(`firstValue`), firstTagRet.Value, "Should have referenced item value")
 
-	secondTagRet, err := st.Get(schema.Key{Key: []byte(`myTag2`)})
+	secondTagRet, err := st.GetReference(schema.Key{Key: []byte(`myTag2`)})
 
 	assert.NoError(t, err)
 	assert.NotEmptyf(t, secondTagRet, "Should not be empty")
@@ -164,7 +192,7 @@ func TestStoreIndexReference(t *testing.T) {
 	st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`myTag1`), Index: idx1})
 	st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte(`myTag2`), Index: idx2})
 
-	tag1, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+	tag1, err := st.GetReference(schema.Key{Key: []byte(`myTag1`)})
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(`aaa`), tag1.Key)
 	assert.Equal(t, []byte(`item1`), tag1.Value)
@@ -185,7 +213,7 @@ func TestStoreOnlyIndexReference(t *testing.T) {
 	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Index: idx1})
 	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag2`), Index: idx2})
 
-	tag1, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+	tag1, err := st.GetReference(schema.Key{Key: []byte(`myTag1`)})
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(`aaa`), tag1.Key)
 	assert.Equal(t, []byte(`item1`), tag1.Value)
@@ -194,6 +222,55 @@ func TestStoreOnlyIndexReference(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(`aaa`), tag2.Key)
 	assert.Equal(t, []byte(`item2`), tag2.Value)
+
+}
+
+func TestStore_GetOnReferenceOnSameKeyReturnsEverLastValue(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx1, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	idx2, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item2`)})
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Index: idx1})
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag2`), Index: idx2})
+
+	tag2, err := st.Get(schema.Key{Key: []byte(`myTag2`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag2.Key)
+	assert.Equal(t, []byte(`item2`), tag2.Value)
+
+	tag1b, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag1b.Key)
+	assert.Equal(t, []byte(`item2`), tag1b.Value)
+}
+
+func TestStore_GetOnReferenceOnSameKeyMixReturnsEverLastValue(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	idx1, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	idx2, _ := st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item2`)})
+	_, _ = st.Set(schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item3`)})
+
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Index: idx1})
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag2`), Index: idx2})
+	st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag3`), Key: []byte(`aaa`)})
+
+	tag2, err := st.Get(schema.Key{Key: []byte(`myTag2`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag2.Key)
+	assert.Equal(t, []byte(`item3`), tag2.Value)
+
+	tag1, err := st.Get(schema.Key{Key: []byte(`myTag1`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag1.Key)
+	assert.Equal(t, []byte(`item3`), tag1.Value)
+
+	tag3, err := st.Get(schema.Key{Key: []byte(`myTag3`)})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`aaa`), tag3.Key)
+	assert.Equal(t, []byte(`item3`), tag3.Value)
 }
 
 func TestStore_ReferenceWrongKey(t *testing.T) {
@@ -202,4 +279,12 @@ func TestStore_ReferenceWrongKey(t *testing.T) {
 
 	_, err := st.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Key: []byte{tsPrefix}})
 	assert.Equal(t, err, ErrInvalidKey)
+}
+
+func TestStore_ReferenceWrongReference(t *testing.T) {
+	st, closer := makeStore()
+	defer closer()
+
+	_, err := st.Reference(&schema.ReferenceOptions{Key: []byte(`aaa`), Reference: []byte{tsPrefix}})
+	assert.Equal(t, err, ErrInvalidReference)
 }

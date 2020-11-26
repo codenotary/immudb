@@ -38,6 +38,7 @@ var (
 	ErrIndexKeyMismatch      = status.New(codes.InvalidArgument, "mismatch between provided index and key").Err()
 	ErrZAddIndexMissing      = status.New(codes.InvalidArgument, "zAdd index not provided").Err()
 	ErrReferenceIndexMissing = status.New(codes.InvalidArgument, "reference index not provided").Err()
+	ErrNoReferenceProvided   = status.New(codes.InvalidArgument, "provided argument is not a reference").Err()
 )
 
 // fixme(leogr): review codes and fix/remove errors which do not make sense in this context, finally correct comments accordingly.

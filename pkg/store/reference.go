@@ -70,3 +70,39 @@ func (t *Store) Reference(refOpts *schema.ReferenceOptions, options ...WriteOpti
 
 	return index, err
 }
+
+// GetReference fetches the reference having the specified key or index
+func (t *Store) GetReference(key schema.Key) (item *schema.Item, err error) {
+	if err = checkReference(key.Key); err != nil {
+		return nil, err
+	}
+	k := key.Key
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
+	defer txn.Discard()
+	i, err := txn.Get(k)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	if i.UserMeta()&bitReferenceEntry != bitReferenceEntry {
+		return nil, ErrNoReferenceProvided
+	}
+	var refKey []byte
+	err = i.Value(func(val []byte) error {
+		refKey, _ = UnwrapValueWithTS(val)
+		return nil
+	})
+
+	k, flag, refIndex := UnwrapZIndexReference(refKey)
+
+	// here check for index reference, if present we resolve reference with itemAt
+	if flag == byte(1) {
+		return t.ByIndex(schema.Index{Index: refIndex})
+	} else {
+		i, err = txn.Get(k)
+		if err != nil {
+			return nil, mapError(err)
+		}
+	}
+
+	return itemToSchema(i.Key(), i)
+}
