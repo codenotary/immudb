@@ -439,7 +439,7 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 
 	keyCount := 10_000
 
-	go randomInsertions(t, tbtree, keyCount, true)
+	go randomInsertions(t, tbtree, keyCount, false)
 
 	for {
 		snapshot, err := tbtree.Snapshot()
