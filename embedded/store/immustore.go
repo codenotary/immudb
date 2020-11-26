@@ -974,7 +974,12 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 	}
 
 	if targetTx.BlTxID > 0 {
-		targetBlTx := s.NewTx()
+		targetBlTx, err := s.fetchAllocTx()
+		if err != nil {
+			return nil, err
+		}
+		defer s.releaseAllocTx(targetBlTx)
+
 		err = s.ReadTx(targetTx.BlTxID, targetBlTx)
 		if err != nil {
 			return nil, err
