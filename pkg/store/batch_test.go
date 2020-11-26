@@ -2,14 +2,15 @@ package store
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"log"
 	"strconv"
 	"sync"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSetBatch(t *testing.T) {
@@ -931,6 +932,25 @@ func TestOps_ReferenceKeyNotYetPersisted(t *testing.T) {
 	assert.Equal(t, []byte(`val`), ref.Value, "Should have referenced item value")
 	assert.Equal(t, []byte(`key`), ref.Key, "Should have referenced item value")
 
+	//--> Updating value of "key" using Set
+	_, err = st.Set(schema.KeyValue{Key: []byte("key"), Value: []byte("newVal")})
+	assert.NoError(t, err)
+	// get the value of "key" and expect it to be the updated value "newVal"
+	ref, err = st.Get(schema.Key{Key: []byte(`key`)})
+	assert.NoError(t, err)
+	assert.NotEmptyf(t, ref, "Should not be empty")
+	assert.Equal(t, []byte(`newVal`), ref.Value, "Should have referenced item value")
+	assert.Equal(t, []byte(`key`), ref.Key, "Should have referenced item value")
+	// get the value of key through the reference key "myTag" and expect it to be
+	// the updated value "newVal"
+	ref, err = st.Get(schema.Key{Key: []byte(`myTag`)})
+	assert.NoError(t, err)
+	assert.NotEmptyf(t, ref, "Should not be empty")
+	// BUG?: the following assert fails: the value is still the old one ("val"),
+	//      instead of the updated one ("newVal")
+	assert.Equal(t, []byte(`newVal`), ref.Value, "Should have referenced item value")
+	assert.Equal(t, []byte(`key`), ref.Key, "Should have referenced item value")
+	//<--
 }
 
 func TestOps_ReferenceIndexNotExists(t *testing.T) {
