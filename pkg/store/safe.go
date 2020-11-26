@@ -130,26 +130,95 @@ func (t *Store) SafeGet(options schema.SafeGetOptions) (safeItem *schema.SafeIte
 			return nil
 		})
 
-		k, flag, refIndex := UnwrapZIndexReference(refKey)
+		k, _, _ := UnwrapZIndexReference(refKey)
 
-		// here check for index reference, if present we resolve reference with ByIndex
-		if flag == byte(1) {
-			item, err = t.ByIndex(schema.Index{Index: refIndex})
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			i, err = txn.Get(k)
-			if err != nil {
-				return nil, mapError(err)
-			}
-			item, err = itemToSchema(i.Key(), i)
-			if err != nil {
-				return nil, err
-			}
+		i, err = txn.Get(k)
+		if err != nil {
+			return nil, mapError(err)
 		}
+		item, err = itemToSchema(i.Key(), i)
+		if err != nil {
+			return nil, err
+		}
+
 	} else {
 		item, err = itemToSchema(key, i)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	safeItem = &schema.SafeItem{
+		Item: item,
+	}
+
+	t.tree.WaitUntil(item.Index)
+	t.tree.RLock()
+	defer t.tree.RUnlock()
+
+	at := t.tree.w - 1
+	root := merkletree.Root(t.tree)
+
+	safeItem.Proof = &schema.Proof{
+		Leaf:            item.Hash(),
+		Index:           item.Index,
+		Root:            root[:],
+		At:              at,
+		InclusionPath:   merkletree.InclusionProof(t.tree, at, item.Index).ToSlice(),
+		ConsistencyPath: merkletree.ConsistencyProof(t.tree, at, prevRootIdx).ToSlice(),
+	}
+
+	return
+}
+
+// SafeGetReference fetches the reference having the specified key or index together with the inclusion proof
+// for it and the consistency proof for the current root
+func (t *Store) SafeGetReference(options schema.SafeGetOptions) (safeItem *schema.SafeItem, err error) {
+	var item *schema.Item
+	var i *badger.Item
+	key := options.Key
+
+	if err = checkReference(key); err != nil {
+		return nil, err
+	}
+
+	prevRootIdx, err := getPrevRootIdx(t.tree.LastIndex(), options.RootIndex)
+	if err != nil {
+		return
+	}
+
+	txn := t.db.NewTransactionAt(math.MaxUint64, false)
+	defer txn.Discard()
+
+	i, err = txn.Get(key)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	if i.UserMeta()&bitReferenceEntry != bitReferenceEntry {
+		return nil, ErrNoReferenceProvided
+	}
+
+	var refKey []byte
+	err = i.Value(func(val []byte) error {
+		refKey, _ = UnwrapValueWithTS(val)
+		return nil
+	})
+
+	k, flag, refIndex := UnwrapZIndexReference(refKey)
+
+	// here check for index reference, if present we resolve reference with ByIndex
+	if flag == byte(1) {
+		item, err = t.ByIndex(schema.Index{Index: refIndex})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		i, err = txn.Get(k)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		item, err = itemToSchema(i.Key(), i)
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +254,7 @@ func (t *Store) SafeReference(options schema.SafeReferenceOptions) (proof *schem
 	if err = checkKey(ro.Key); err != nil && options.Ro.Index == nil {
 		return nil, err
 	}
-	if err = checkKey(ro.Reference); err != nil {
+	if err = checkReference(ro.Reference); err != nil {
 		return nil, err
 	}
 

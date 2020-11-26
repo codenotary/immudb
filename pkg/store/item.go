@@ -52,3 +52,10 @@ func checkSet(key []byte) error {
 	}
 	return nil
 }
+
+func checkReference(key []byte) error {
+	if len(key) == 0 || isReservedKey(key) {
+		return ErrInvalidReference
+	}
+	return nil
+}
