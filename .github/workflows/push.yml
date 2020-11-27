@@ -25,14 +25,17 @@ jobs:
           bash <(curl -s https://codecov.io/bash) -t c1c189f5-954e-40e5-ac1f-6075df144f01
         shell: bash
 
-      - name: Coveralls
+      - name: Install goveralls
         env:
           GO111MODULE: "off"
+
+        run: go get github.com/mattn/goveralls
+
+      - name: Publish coverage
+        env:   
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        run: |
-          go get github.com/mattn/goveralls
-          goveralls -coverprofile=coverage.txt -service=github -repotoken $COVERALLS_TOKEN
+        run: goveralls -coverprofile=coverage.txt -service=github -repotoken $COVERALLS_TOKEN
   
   build-windows:
     name: Build
