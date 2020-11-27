@@ -9,13 +9,12 @@ jobs:
     name: Install VCN
     runs-on: ubuntu-latest
     steps:
-      run: |
-        sudo apt update && sudo apt install curl -y
-        curl -L -o /tmp/vcn https://github.com/vchain-us/vcn/releases/download/v0.8.3/vcn-v0.8.3-linux-amd64-static
-        CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
-        echo $CHECKSUM
-        curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
-        chmod +x /tmp/vcn
+      - run: sudo apt update && sudo apt install curl -y
+      - run: curl -L -o /tmp/vcn https://github.com/vchain-us/vcn/releases/download/v0.8.3/vcn-v0.8.3-linux-amd64-static
+      - run: CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
+      - run: echo $CHECKSUM
+      - run: curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
+      - run: chmod +x /tmp/vcn
   
   gosec:
     needs: install_vcn
@@ -24,16 +23,16 @@ jobs:
       env:   
         JOB_NAME: ${{ github.job }}
         JOB_ID: ${{ github.run_id }}
-      run: |
-        curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
-        gosec -fmt=json -out=results-$JOB_ID.json -no-fail ./...
-        VCN_USER=$gosec_user VCN_PASSWORD=$gosec_pass /tmp/vcn login
-        VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --attr  --silent results-$JOB_ID.json
-        /tmp/vcn logout
-        sleep $[ ( $RANDOM % 10 ) + 1 ]s
-        VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
-        VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent results-$JOB_ID.json
-        /tmp/vcn logout
+      steps:
+        - run: curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
+        - run: gosec -fmt=json -out=results-$JOB_ID.json -no-fail ./...
+        - run: VCN_USER=$gosec_user VCN_PASSWORD=$gosec_pass /tmp/vcn login
+        - run: VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --attr  --silent results-$JOB_ID.json
+        - run: /tmp/vcn logout
+        - run: sleep $[ ( $RANDOM % 10 ) + 1 ]s
+        - run: VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
+        - run: VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent results-$JOB_ID.json
+        - run: /tmp/vcn logout
 
   binaries:
       name: Build and notarize binaries
@@ -43,15 +42,15 @@ jobs:
         env:   
           JOB_NAME: ${{ github.job }}
           JOB_ID: ${{ github.run_id }}
-        run: |
-          GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
-          VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
-          VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immudb
-          sleep $[ ( $RANDOM % 10 ) + 1 ]s
-          VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuadmin
-          sleep $[ ( $RANDOM % 10 ) + 1 ]s
-          VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuclient
-          /tmp/vcn logout
+        steps:
+          - run: GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
+          - run: VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
+          - run: VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immudb
+          - run: sleep $[ ( $RANDOM % 10 ) + 1 ]s
+          - run: VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuadmin
+          - run: sleep $[ ( $RANDOM % 10 ) + 1 ]s
+          - run: VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuclient
+          - run: /tmp/vcn logout
         with:
           name: bin
           path: |
@@ -63,15 +62,14 @@ jobs:
     name: Publish coverage
     needs: gosec
     runs-on: ubuntu-latest
-    steps:
-      env:   
+    env:   
         COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        go get golang.org/x/tools/cmd/cover
-        go get github.com/mattn/goveralls
-        go get -u github.com/ory/go-acc
-        set -o pipefail
-        go-acc ./... --ignore test || true
-        cat coverage.txt | grep -v "schema.pb" > cover.out
-        $HOME/gopath/bin/goveralls -coverprofile=cover.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+    steps: 
+      - run: go get golang.org/x/tools/cmd/cover
+      - run: go get github.com/mattn/goveralls
+      - run: go get -u github.com/ory/go-acc
+      - run: set -o pipefail
+      - run: go-acc ./... --ignore test || true
+      - run: cat coverage.txt | grep -v "schema.pb" > cover.out
+      - run: $HOME/gopath/bin/goveralls -coverprofile=cover.out -service=travis-ci -repotoken $COVERALLS_TOKEN
   
