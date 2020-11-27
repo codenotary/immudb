@@ -20,11 +20,20 @@ jobs:
         run: make all
 
       - name: Test
-
         run: |
           make test
           bash <(curl -s https://codecov.io/bash) -t c1c189f5-954e-40e5-ac1f-6075df144f01
         shell: bash
+
+      - name: Coveralls
+        env:
+          GO111MODULE: "off"
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        run: |
+          go get github.com/mattn/goveralls
+          goveralls -coverprofile=coverage.txt -service=github -repotoken $COVERALLS_TOKEN
+  
   build-windows:
     name: Build
     strategy:
