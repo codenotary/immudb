@@ -2,7 +2,7 @@ name: pullCI
 on: [pull_request]
 jobs:
   build-linux:
-    name: Build
+    name: linux build
     strategy:
       matrix:
         go-version: [1.13]
@@ -26,7 +26,7 @@ jobs:
         shell: bash
 
   build-windows:
-    name: Build
+    name: windows build
     runs-on: windows-latest
     steps:
       - uses: actions/setup-go@v1
