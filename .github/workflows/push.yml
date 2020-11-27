@@ -2,7 +2,7 @@ name: pushCI
 
 on:
   push:
-    branches: master
+    branches: master, ci_GH_actions
 
 jobs:
   install_vcn:
