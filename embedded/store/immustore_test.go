@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -96,7 +95,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 				time.Sleep(time.Duration(10) * time.Millisecond)
 
 				tx, err := txReader.Read()
-				if err == io.EOF {
+				if err == ErrNoMoreEntries {
 					break
 				}
 				if err != nil {
@@ -1133,6 +1132,9 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	immuStore, err := OpenWith(path, []appendable.Appendable{failingVLog}, failingTxLog, failingCLog, opts)
 	require.NoError(t, err)
 
+	_, err = immuStore.NewTxReader(1, immuStore.NewTx(), 1024)
+	require.Error(t, ErrNoMoreEntries, err)
+
 	txCount := 100
 	eCount := 64
 
@@ -1194,7 +1196,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	}
 
 	_, err = r.Read()
-	require.Equal(t, io.EOF, err)
+	require.Error(t, ErrNoMoreEntries, err)
 
 	require.Equal(t, uint64(txCount-emulatedFailures), immuStore.TxCount())
 

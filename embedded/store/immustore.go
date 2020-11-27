@@ -54,6 +54,7 @@ var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = errors.New("key not found")
+var ErrNoMoreEntries = errors.New("no more entries")
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
@@ -467,7 +468,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 	for {
 		tx, err := txReader.Read()
-		if err == io.EOF {
+		if err == ErrNoMoreEntries {
 			break
 		}
 		if err != nil {
@@ -487,7 +488,7 @@ func (s *ImmuStore) indexer() {
 
 		err := s.doIndexing()
 
-		if err != nil && err != io.EOF {
+		if err != nil && err != ErrNoMoreEntries {
 			if err != ErrAlreadyClosed {
 				s.indexerMutex.Lock()
 				s.indexerErr = err
@@ -521,7 +522,7 @@ func (s *ImmuStore) doIndexing() error {
 
 	for {
 		tx, err := txReader.Read()
-		if err == io.EOF {
+		if err == ErrNoMoreEntries {
 			break
 		}
 		if err != nil {
@@ -1162,6 +1163,9 @@ func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, er
 	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
 
 	txOff, _, err := s.txOffsetAndSize(txID)
+	if err == io.EOF {
+		return nil, ErrNoMoreEntries
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1173,6 +1177,9 @@ func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, er
 
 func (txr *TxReader) Read() (*Tx, error) {
 	err := txr._tx.readFrom(txr.r)
+	if err == io.EOF {
+		return nil, ErrNoMoreEntries
+	}
 	if err != nil {
 		return nil, err
 	}
