@@ -1,61 +1,77 @@
-name: CI
-on: [push, pull_request]
+name: pushCI
+
+on:
+  push:
+    branches: master
+
 jobs:
-  build-linux:
-    name: Build
-    strategy:
-      matrix:
-        go-version: [1.13]
-        platform: [ubuntu-latest]
-    runs-on: ${{ matrix.platform }}
+  install_vcn:
+    name: Install VCN
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-      - uses: actions/checkout@v1
+      run: |
+        sudo apt update && sudo apt install curl -y
+        curl -L -o /tmp/vcn https://github.com/vchain-us/vcn/releases/download/v0.8.3/vcn-v0.8.3-linux-amd64-static
+        CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
+        echo $CHECKSUM
+        curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
+        chmod +x /tmp/vcn
+  
+  gosec:
+    needs: install_vcn
+    runs-on: ubuntu-latest
+    steps:
+      env:   
+        JOB_NAME: ${{ github.job }}
+        JOB_ID: ${{ github.run_id }}
+      run: |
+        curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
+        gosec -fmt=json -out=results-$JOB_ID.json -no-fail ./...
+        VCN_USER=$gosec_user VCN_PASSWORD=$gosec_pass /tmp/vcn login
+        VCN_NOTARIZATION_PASSWORD=$gosec_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --attr  --silent results-$JOB_ID.json
+        /tmp/vcn logout
+        sleep $[ ( $RANDOM % 10 ) + 1 ]s
+        VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
+        VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent results-$JOB_ID.json
+        /tmp/vcn logout
 
-      - name: Build
-        env:
-          GO111MODULE: "on"
-        run: make all
-
-      - name: Test
+  binaries:
+      name: Build and notarize binaries
+      needs: gosec
+      runs-on: ubuntu-latest
+      steps:
+        env:   
+          JOB_NAME: ${{ github.job }}
+          JOB_ID: ${{ github.run_id }}
         run: |
-          make test
-          bash <(curl -s https://codecov.io/bash) -t c1c189f5-954e-40e5-ac1f-6075df144f01
-        shell: bash
-
-  build-windows:
-    name: Build
-    strategy:
-      matrix:
-        go-version: [1.13]
-        platform: [windows-latest]
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/setup-go@v1
+          GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
+          VCN_USER=$trv_user VCN_PASSWORD=$trv_pass /tmp/vcn login
+          VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immudb
+          sleep $[ ( $RANDOM % 10 ) + 1 ]s
+          VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuadmin
+          sleep $[ ( $RANDOM % 10 ) + 1 ]s
+          VCN_NOTARIZATION_PASSWORD=$trv_pass /tmp/vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuclient
+          /tmp/vcn logout
         with:
-          go-version: 1.13
-      - uses: actions/checkout@v1
-
-      - name: Build
-        env:
-          GO111MODULE: "on"
-        run: make all
+          name: bin
+          path: |
+            ./immudb
+            ./immuadmin
+            ./immuclient
 
   coveralls:
-    name: Coveralls
-    needs: build-linux
+    name: Publish coverage
+    needs: gosec
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
     steps:
-      - name: Install goveralls
-        env:
-          GO111MODULE: "off"
-        run: go get github.com/mattn/goveralls
-
-      - name: Publish coverage
-        env:   
-          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: goveralls -coverprofile=coverage.txt -service=github -repotoken $COVERALLS_TOKEN
+      env:   
+        COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        go get golang.org/x/tools/cmd/cover
+        go get github.com/mattn/goveralls
+        go get -u github.com/ory/go-acc
+        set -o pipefail
+        go-acc ./... --ignore test || true
+        cat coverage.txt | grep -v "schema.pb" > cover.out
+        $HOME/gopath/bin/goveralls -coverprofile=cover.out -service=travis-ci -repotoken $COVERALLS_TOKEN
   
