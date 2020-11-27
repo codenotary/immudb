@@ -49,15 +49,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
     steps:
-        - name: Install goveralls
+      - name: Install goveralls
         env:
           GO111MODULE: "off"
-
         run: go get github.com/mattn/goveralls
 
       - name: Publish coverage
         env:   
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
         run: goveralls -coverprofile=coverage.txt -service=github -repotoken $COVERALLS_TOKEN
   
