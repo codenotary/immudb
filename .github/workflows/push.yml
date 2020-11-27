@@ -25,18 +25,6 @@ jobs:
           bash <(curl -s https://codecov.io/bash) -t c1c189f5-954e-40e5-ac1f-6075df144f01
         shell: bash
 
-      - name: Install goveralls
-        env:
-          GO111MODULE: "off"
-
-        run: go get github.com/mattn/goveralls
-
-      - name: Publish coverage
-        env:   
-          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        run: goveralls -coverprofile=coverage.txt -service=github -repotoken $COVERALLS_TOKEN
-  
   build-windows:
     name: Build
     strategy:
@@ -54,3 +42,22 @@ jobs:
         env:
           GO111MODULE: "on"
         run: make all
+
+  coveralls:
+    name: Coveralls
+    needs: build-linux
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+        - name: Install goveralls
+        env:
+          GO111MODULE: "off"
+
+        run: go get github.com/mattn/goveralls
+
+      - name: Publish coverage
+        env:   
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        run: goveralls -coverprofile=coverage.txt -service=github -repotoken $COVERALLS_TOKEN
+  
