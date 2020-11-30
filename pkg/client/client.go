@@ -243,7 +243,7 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 		opts = []grpc.DialOption{grpc.WithTransportCredentials(transportCreds)}
 	}
 
-	if options.Auth {
+	if options.Auth && c.Tkns != nil {
 		token, err := c.Tkns.GetToken()
 		if err == nil {
 			opts = append(opts, grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))
