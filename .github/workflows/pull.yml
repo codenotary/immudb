@@ -1,0 +1,55 @@
+name: pullCI
+on: [pull_request]
+jobs:
+  build-linux:
+    name: linux build
+    strategy:
+      matrix:
+        go-version: [1.13]
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+      - uses: actions/checkout@v1
+
+      - name: Build
+        env:
+          GO111MODULE: "on"
+        run: make all
+
+      - name: Test
+        run: make test
+
+  build-windows:
+    name: windows build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+      - uses: actions/checkout@v1
+
+      - name: Build
+        env:
+          GO111MODULE: "on"
+        run: make all
+
+  coveralls:
+    name: Coverage
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+      - uses: actions/checkout@v1
+      - run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          go get golang.org/x/tools/cmd/cover
+          go get -u github.com/mattn/goveralls
+          go get -u github.com/ory/go-acc
+          set -o pipefail
+          go-acc ./... --ignore test || true
+          cat coverage.txt | grep -v "schema.pb" > coverage.out
