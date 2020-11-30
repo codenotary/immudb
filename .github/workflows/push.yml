@@ -1,44 +1,117 @@
-name: CI
-on: [push, pull_request]
+name: pushCI
+
+on:
+  push:
+    branches: master
+
 jobs:
-  build-linux:
-    name: Build
-    strategy:
-      matrix:
-        go-version: [1.13]
-        platform: [ubuntu-latest]
-    runs-on: ${{ matrix.platform }}
+  install_vcn:
+    name: Install VCN
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          sudo apt update && sudo apt install curl -y
+          curl -L -o /tmp/vcn https://github.com/vchain-us/vcn/releases/download/v0.8.3/vcn-v0.8.3-linux-amd64-static
+          CHECKSUM=$(sha256sum /tmp/vcn | cut -d " " -f 1)
+          echo $CHECKSUM
+          curl -s https://api.codenotary.io/authenticate/$CHECKSUM?org=vchain.us | grep -q :0
+      - name: Upload vcn
+        uses: actions/upload-artifact@v2
+        with:
+          name: vcn
+          path: /tmp/vcn
+  gosec:
+    needs: install_vcn
+    runs-on: ubuntu-latest
+    env:   
+      JOB_NAME: ${{ github.job }}
+      JOB_ID: ${{ github.run_id }}
     steps:
       - uses: actions/setup-go@v1
         with:
           go-version: 1.13
       - uses: actions/checkout@v1
+      - name: Download vcn
+        uses: actions/download-artifact@v2
+        with:
+          name: vcn
+      - run: |
+          curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sudo sh -s -- -b $GOPATH/bin latest
+          gosec -fmt=json -out=results-$JOB_ID.json -no-fail ./...
+          chmod +x ./vcn
+          VCN_USER=${{ secrets.VCN_GOSEC_USER }} VCN_PASSWORD=${{ secrets.VCN_GOSEC_PASS }} ./vcn login
+          VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_GOSEC_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --attr  --silent results-$JOB_ID.json
+          ./vcn logout
 
-      - name: Build
-        env:
-          GO111MODULE: "on"
-        run: make all
-
-      - name: Test
-
-        run: |
-          make test
-          bash <(curl -s https://codecov.io/bash) -t c1c189f5-954e-40e5-ac1f-6075df144f01
-        shell: bash
-  build-windows:
-    name: Build
-    strategy:
-      matrix:
-        go-version: [1.13]
-        platform: [windows-latest]
-    runs-on: ${{ matrix.platform }}
+  binaries:
+      name: Build and notarize binaries
+      needs: gosec
+      runs-on: ubuntu-latest
+      env:
+        JOB_NAME: ${{ github.job }}
+        JOB_ID: ${{ github.run_id }}
+      steps:
+        - uses: actions/setup-go@v1
+          with:
+            go-version: 1.13
+        - uses: actions/checkout@v1
+        - name: Download vcn
+          uses: actions/download-artifact@v2
+          with:
+            name: vcn
+        - run: |
+            GOOS=linux GOARCH=amd64 make immudb-static immuadmin-static immuclient-static
+            chmod +x ./vcn
+            VCN_USER=${{ secrets.VCN_BUILD_USER }} VCN_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn login
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immudb
+            sleep $[ ( $RANDOM % 10 ) + 1 ]s
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuadmin
+            sleep $[ ( $RANDOM % 10 ) + 1 ]s
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuclient
+            ./vcn logout
+  
+  images:
+      name: Build and notarize Docker Images
+      needs: gosec
+      runs-on: ubuntu-latest
+      env:
+        JOB_NAME: ${{ github.job }}
+        JOB_ID: ${{ github.run_id }}
+        DOCKER_IMAGE: "codenotary/immudb"
+      steps:
+        - uses: actions/setup-go@v1
+          with:
+            go-version: 1.13
+        - uses: actions/checkout@v1
+        - name: Download vcn
+          uses: actions/download-artifact@v2
+          with:
+            name: vcn
+        - run: |
+            docker build --tag "${DOCKER_IMAGE}:latest" -f Dockerfile .
+            docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
+            docker push "${DOCKER_IMAGE}:latest"
+            docker logout
+            chmod +x ./vcn
+            VCN_USER=${{ secrets.VCN_IMAGE_USER }} VCN_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn login
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE
+            ./vcn logout
+            
+  coveralls:
+    name: Publish coverage
+    needs: gosec
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v1
         with:
           go-version: 1.13
       - uses: actions/checkout@v1
-
-      - name: Build
-        env:
-          GO111MODULE: "on"
-        run: make all
+      - run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          go get golang.org/x/tools/cmd/cover
+          go get -u github.com/mattn/goveralls
+          go get -u github.com/ory/go-acc
+          set -o pipefail
+          go-acc ./... --ignore test || true
+          cat coverage.txt | grep -v "schema.pb" > coverage.out
+          goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
