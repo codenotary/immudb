@@ -439,6 +439,13 @@ func (s *ImmuStore) SetBlErr(err error) {
 	s.blErr = err
 }
 
+func (s *ImmuStore) Alh() (uint64, [sha256.Size]byte) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.committedTxID, s.committedAlh
+}
+
 func (s *ImmuStore) BlInfo() (uint64, error) {
 	s.blMutex.Lock()
 	defer s.blMutex.Unlock()
@@ -720,7 +727,7 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	donec <- appendableResult{offsets, nil}
 }
 
-func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, txh [sha256.Size]byte, err error) {
+func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, err error) {
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
@@ -768,7 +775,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		return
 	}
 
-	return tx.ID, tx.Ts, tx.PrevAlh, tx.TxH, nil
+	return tx.ID, tx.Ts, tx.Alh(), nil
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
