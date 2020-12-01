@@ -238,13 +238,13 @@ func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) 
 	if cLogSize == 0 {
 		root = &leafNode{t: t, maxSize: maxNodeSize, keySpace: keyHistorySpace, mut: true}
 	} else {
-		b := make([]byte, cLogEntrySize)
-		_, err := cLog.ReadAt(b, cLogSize-cLogEntrySize)
+		var b [cLogEntrySize]byte
+		_, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
 		if err != nil {
 			return nil, err
 		}
 
-		committedRootOffset := int64(binary.BigEndian.Uint64(b))
+		committedRootOffset := int64(binary.BigEndian.Uint64(b[:]))
 
 		root, err = t.readNodeAt(committedRootOffset)
 		if err != nil {
@@ -296,7 +296,9 @@ func (t *TBtree) readNodeAt(off int64) (node, error) {
 }
 
 func (t *TBtree) readNodeFrom(r *appendable.Reader) (node, error) {
-	b, err := r.ReadByte()
+	off := r.Offset()
+
+	nodeType, err := r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
@@ -306,19 +308,27 @@ func (t *TBtree) readNodeFrom(r *appendable.Reader) (node, error) {
 		return nil, err
 	}
 
-	switch b {
+	switch nodeType {
 	case InnerNodeType:
-		return t.readInnerNodeFrom(r)
+		n, err := t.readInnerNodeFrom(r)
+		if err != nil {
+			return nil, err
+		}
+		n.off = off
+		return n, nil
 	case LeafNodeType:
-		return t.readLeafNodeFrom(r)
+		n, err := t.readLeafNodeFrom(r)
+		if err != nil {
+			return nil, err
+		}
+		n.off = off
+		return n, nil
 	}
 
 	return nil, ErrReadingFileContent
 }
 
 func (t *TBtree) readInnerNodeFrom(r *appendable.Reader) (*innerNode, error) {
-	off := r.Offset()
-
 	childCount, err := r.ReadUint32()
 	if err != nil {
 		return nil, err
@@ -330,7 +340,6 @@ func (t *TBtree) readInnerNodeFrom(r *appendable.Reader) (*innerNode, error) {
 		_maxKey: nil,
 		_ts:     0,
 		maxSize: t.maxNodeSize,
-		off:     off,
 	}
 
 	for c := 0; c < int(childCount); c++ {
@@ -390,8 +399,6 @@ func (t *TBtree) readNodeRefFrom(r *appendable.Reader) (*nodeRef, error) {
 }
 
 func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
-	off := r.Offset()
-
 	prevNodeOff, err := r.ReadUint64()
 	if err != nil {
 		return nil, err
@@ -418,7 +425,6 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 		_ts:      0,
 		maxSize:  t.maxNodeSize,
 		keySpace: t.keyHistorySpace,
-		off:      off,
 	}
 
 	for c := 0; c < int(valueCount); c++ {
