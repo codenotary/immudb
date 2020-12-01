@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"io"
 	"math/rand"
 	"sync"
 	"time"
@@ -306,7 +305,7 @@ func main() {
 			for {
 				tx, err := txReader.Read()
 				if err != nil {
-					if err == io.EOF {
+					if err == store.ErrNoMoreEntries {
 						break
 					}
 					panic(err)
