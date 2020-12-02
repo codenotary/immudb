@@ -117,9 +117,9 @@ type ImmuStore struct {
 	blMutex  sync.Mutex
 	aht      *ahtree.AHtree
 
-	index        *tbtree.TBtree
-	indexerErr   error
-	indexerMutex sync.Mutex
+	index       *tbtree.TBtree
+	indexerErr  error
+	indexerCond *sync.Cond
 
 	mutex sync.Mutex
 
@@ -378,7 +378,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		maxTxSize: maxTxSize,
 
-		index:    index,
+		index:       index,
+		indexerCond: sync.NewCond(&sync.Mutex{}),
+
 		blBuffer: blBuffer,
 		aht:      aht,
 
@@ -491,15 +493,19 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 func (s *ImmuStore) indexer() {
 	for {
-		time.Sleep(time.Duration(100) * time.Millisecond) // TODO: use sync for waking up (ideally, would index from rotated file)
+		s.indexerCond.L.Lock()
+		if s.index.Ts() == s.TxCount() {
+			s.indexerCond.Wait()
+		}
+		s.indexerCond.L.Unlock()
 
 		err := s.doIndexing()
 
 		if err != nil && err != ErrNoMoreEntries {
 			if err != ErrAlreadyClosed {
-				s.indexerMutex.Lock()
+				s.indexerCond.L.Lock()
 				s.indexerErr = err
-				s.indexerMutex.Unlock()
+				s.indexerCond.L.Unlock()
 			}
 			return
 		}
@@ -507,8 +513,8 @@ func (s *ImmuStore) indexer() {
 }
 
 func (s *ImmuStore) IndexInfo() (uint64, error) {
-	s.indexerMutex.Lock()
-	defer s.indexerMutex.Unlock()
+	s.indexerCond.L.Lock()
+	defer s.indexerCond.L.Unlock()
 
 	return s.index.Ts(), s.indexerErr
 }
@@ -907,6 +913,8 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	s.committedTxID++
 	s.committedAlh = alh
 	s.committedTxLogSize += int64(txSize)
+
+	s.indexerCond.Broadcast()
 
 	return nil
 }

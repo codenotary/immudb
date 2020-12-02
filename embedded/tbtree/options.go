@@ -71,7 +71,7 @@ func validOptions(opts *Options) bool {
 		opts.keyHistorySpace >= 0 &&
 		opts.flushThld > 0 &&
 		opts.maxActiveSnapshots > 0 &&
-		opts.renewSnapRootAfter > 0 &&
+		opts.renewSnapRootAfter >= 0 &&
 		opts.cacheSize >= MinCacheSize
 }
 
