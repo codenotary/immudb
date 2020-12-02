@@ -967,6 +967,30 @@ func TestImmuClient_GetOptions(t *testing.T) {
 	client.Disconnect()
 }
 
+func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
+	setup()
+
+	aOps := &schema.Ops{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_KVs{
+					KVs: &schema.KeyValue{
+						Key:   []byte(`key`),
+						Value: []byte(`val`),
+					},
+				},
+			},
+		},
+	}
+
+	idx, err := client.ExecAllOps(context.TODO(), aOps)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, idx)
+
+	client.Disconnect()
+}
+
 func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	setup()
 	var (

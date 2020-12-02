@@ -78,6 +78,7 @@ type ImmuClient interface {
 	Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error)
 	CountAll(ctx context.Context) (*schema.ItemsCount, error)
 	SetAll(ctx context.Context, kvList *schema.KVList) (*schema.Index, error)
+	ExecAllOps(ctx context.Context, in *schema.Ops) (*schema.Index, error)
 	SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error)
 	GetBatch(ctx context.Context, keys [][]byte) (*schema.StructuredItemList, error)
 	Inclusion(ctx context.Context, index uint64) (*schema.InclusionProof, error)
@@ -841,6 +842,16 @@ func (c *immuClient) SetAll(ctx context.Context, kvList *schema.KVList) (*schema
 
 	result, err := c.ServiceClient.SetBatch(ctx, svlist)
 
+	return result, err
+}
+
+// ExecAllOps ...
+func (c *immuClient) ExecAllOps(ctx context.Context, op *schema.Ops) (*schema.Index, error) {
+	op, err := c.NewSOps(op)
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.ServiceClient.ExecAllOps(ctx, op)
 	return result, err
 }
 
