@@ -112,10 +112,10 @@ type ImmuStore struct {
 
 	_kvs []*tbtree.KV //pre-allocated for indexing
 
+	aht      *ahtree.AHtree
 	blBuffer *cbuffer.CHBuffer
 	blErr    error
-	blMutex  sync.Mutex
-	aht      *ahtree.AHtree
+	blCond   *sync.Cond
 
 	index       *tbtree.TBtree
 	indexerErr  error
@@ -381,8 +381,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		index:       index,
 		indexerCond: sync.NewCond(&sync.Mutex{}),
 
-		blBuffer: blBuffer,
 		aht:      aht,
+		blBuffer: blBuffer,
+		blCond:   sync.NewCond(&sync.Mutex{}),
 
 		_kvs:  kvs,
 		_txs:  txs,
@@ -413,12 +414,16 @@ func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
 
 func (s *ImmuStore) binaryLinking() {
 	for {
+		// TODO (jeroiraz): blBuffer+blCond may be replaced by a buffered channel
+		s.blCond.L.Lock()
+
+		if s.blBuffer.IsEmpty() {
+			s.blCond.Wait()
+		}
+
 		alh, err := s.blBuffer.Get()
 
-		if err == cbuffer.ErrBufferIsEmpty {
-			time.Sleep(time.Duration(10) * time.Millisecond)
-			continue
-		}
+		s.blCond.L.Unlock()
 
 		if err == nil {
 			_, _, err = s.aht.Append(alh[:])
@@ -435,8 +440,8 @@ func (s *ImmuStore) binaryLinking() {
 }
 
 func (s *ImmuStore) SetBlErr(err error) {
-	s.blMutex.Lock()
-	defer s.blMutex.Unlock()
+	s.blCond.L.Lock()
+	defer s.blCond.L.Unlock()
 
 	s.blErr = err
 }
@@ -449,8 +454,8 @@ func (s *ImmuStore) Alh() (uint64, [sha256.Size]byte) {
 }
 
 func (s *ImmuStore) BlInfo() (uint64, error) {
-	s.blMutex.Lock()
-	defer s.blMutex.Unlock()
+	s.blCond.L.Lock()
+	defer s.blCond.L.Unlock()
 
 	return s.aht.Size(), s.blErr
 }
@@ -895,6 +900,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 			}
 			return err
 		}
+		s.blCond.Broadcast()
 	}
 
 	var cb [cLogEntrySize]byte
