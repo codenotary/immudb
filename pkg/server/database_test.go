@@ -18,7 +18,6 @@ package server
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"os"
 	"path"
@@ -26,6 +25,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/codenotary/immudb/pkg/store"
 
@@ -203,7 +204,8 @@ func TestDbSetGet(t *testing.T) {
 		k := &schema.Key{
 			Key: []byte(val.Key),
 		}
-		item, err := db.Get(k)
+
+		item, err := db.GetSince(k, it.Index+1)
 		if err != nil {
 			t.Fatalf("Error reading key %s", err)
 		}
@@ -237,7 +239,7 @@ func TestCurrentRoot(t *testing.T) {
 			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 		time.Sleep(1 * time.Second)
-		r, err := db.CurrentRoot(&emptypb.Empty{})
+		r, err := db.CurrentRoot()
 		if err != nil {
 			t.Fatalf("Error getting current root %s", err)
 		}
@@ -250,7 +252,7 @@ func TestCurrentRoot(t *testing.T) {
 func TestSafeSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	root, err := db.CurrentRoot(&emptypb.Empty{})
+	root, err := db.CurrentRoot()
 	if err != nil {
 		t.Error(err)
 	}
@@ -621,7 +623,7 @@ func TestScan(t *testing.T) {
 func TestCount(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	root, err := db.CurrentRoot(&emptypb.Empty{})
+	root, err := db.CurrentRoot()
 	if err != nil {
 		t.Error(err)
 	}
@@ -684,7 +686,7 @@ func TestCount(t *testing.T) {
 func TestSafeReference(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	root, err := db.CurrentRoot(&emptypb.Empty{})
+	root, err := db.CurrentRoot()
 	if err != nil {
 		t.Error(err)
 	}
@@ -733,7 +735,7 @@ func TestDump(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	root, err := db.CurrentRoot(&emptypb.Empty{})
+	root, err := db.CurrentRoot()
 	if err != nil {
 		t.Error(err)
 	}
