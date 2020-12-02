@@ -84,6 +84,7 @@ type ImmuClient interface {
 	Consistency(ctx context.Context, index uint64) (*schema.ConsistencyProof, error)
 	History(ctx context.Context, options *schema.HistoryOptions) (*schema.StructuredItemList, error)
 	Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error)
+	GetReference(ctx context.Context, key *schema.Key) (*schema.Item, error)
 	SafeReference(ctx context.Context, reference []byte, key []byte) (*VerifiedIndex, error)
 	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error)
 	SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*VerifiedIndex, error)
@@ -1040,6 +1041,21 @@ func (c *immuClient) Reference(ctx context.Context, reference []byte, key []byte
 		Reference: reference,
 		Key:       key,
 	})
+
+	c.Logger.Debugf("reference finished in %s", time.Since(start))
+
+	return result, err
+}
+
+// Reference ...
+func (c *immuClient) GetReference(ctx context.Context, key *schema.Key) (*schema.Item, error) {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	result, err := c.ServiceClient.GetReference(ctx, key)
 
 	c.Logger.Debugf("reference finished in %s", time.Since(start))
 

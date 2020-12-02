@@ -518,6 +518,13 @@ func TestReference(t *testing.T) {
 	if !bytes.Equal(item.Value, kv[0].Value) {
 		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
 	}
+	item, err = db.GetReference(&schema.Key{Key: []byte(`tag`)})
+	if err != nil {
+		t.Fatalf("Reference  Get error %s", err)
+	}
+	if !bytes.Equal(item.Value, kv[0].Value) {
+		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
+	}
 }
 
 func TestZAdd(t *testing.T) {
