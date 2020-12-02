@@ -803,6 +803,16 @@ func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOpt
 	return s.dbList.GetByIndex(ind).Reference(refOpts)
 }
 
+// Reference ...
+func (s *ImmuServer) GetReference(ctx context.Context, refOpts *schema.Key) (index *schema.Item, err error) {
+	s.Logger.Debugf("getReference options: %v", refOpts)
+	ind, err := s.getDbIndexFromCtx(ctx, "GetReference")
+	if err != nil {
+		return nil, err
+	}
+	return s.dbList.GetByIndex(ind).GetReference(refOpts)
+}
+
 // SafeReference ...
 func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	s.Logger.Debugf("safe reference options: %v", safeRefOpts)

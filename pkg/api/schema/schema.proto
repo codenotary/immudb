@@ -549,6 +549,11 @@ service ImmuService {
 			body: "*"
 		};
 	};
+	rpc GetReference (Key) returns (Item){
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/reference/{key}"
+		};
+	};
 	rpc SafeReference (SafeReferenceOptions) returns (Proof){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/safe/reference"

@@ -172,6 +172,9 @@ func (m *immuServiceClientMock) Health(ctx context.Context, in *empty.Empty, opt
 func (m *immuServiceClientMock) Reference(ctx context.Context, in *schema.ReferenceOptions, opts ...grpc.CallOption) (*schema.Index, error) {
 	return &schema.Index{}, nil
 }
+func (m *immuServiceClientMock) GetReference(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.Item, error) {
+	return &schema.Item{}, nil
+}
 func (m *immuServiceClientMock) SafeReference(ctx context.Context, in *schema.SafeReferenceOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
 	return &schema.Proof{}, nil
 }

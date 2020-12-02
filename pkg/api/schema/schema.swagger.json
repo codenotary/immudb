@@ -603,6 +603,31 @@
         ]
       }
     },
+    "/v1/immurestproxy/reference/{key}": {
+      "get": {
+        "operationId": "GetReference",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaItem"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "byte"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/root": {
       "get": {
         "operationId": "CurrentRoot",

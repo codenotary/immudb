@@ -196,6 +196,12 @@ func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, e
 	return d.Store.Reference(refOpts)
 }
 
+//Reference ...
+func (d *Db) GetReference(refOpts *schema.Key) (index *schema.Item, err error) {
+	d.Logger.Debugf("getReference options: %v", refOpts)
+	return d.Store.GetReference(*refOpts)
+}
+
 //SafeReference ...
 func (d *Db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
 	return d.Store.SafeReference(*safeRefOpts)
