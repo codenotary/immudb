@@ -94,7 +94,7 @@ func TestSetCommandsErrors(t *testing.T) {
 	require.Error(t, err)
 
 	errZAdd := errors.New("zadd error")
-	immuClientMock.ZAddF = func(context.Context, []byte, float64, []byte) (*schema.Index, error) {
+	immuClientMock.ZAddF = func(context.Context, []byte, float64, []byte, *schema.Index) (*schema.Index, error) {
 		return nil, errZAdd
 	}
 	_, err = ic.ZAdd([]string{"set1", "1", "key1"})
@@ -105,7 +105,7 @@ func TestSetCommandsErrors(t *testing.T) {
 	require.Error(t, err)
 
 	errSafeZAdd := errors.New("safe zadd error")
-	immuClientMock.SafeZAddF = func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error) {
+	immuClientMock.SafeZAddF = func(context.Context, []byte, float64, []byte, *schema.Index) (*client.VerifiedIndex, error) {
 		return nil, errSafeZAdd
 	}
 	_, err = ic.SafeZAdd([]string{"set1", "1", "key1"})

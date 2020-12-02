@@ -35,7 +35,7 @@ func TestReferencesErrors(t *testing.T) {
 
 	// Reference errors
 	args := []string{"refKey1", "key1"}
-	immuClientMock.ReferenceF = func(context.Context, []byte, []byte) (*schema.Index, error) {
+	immuClientMock.ReferenceF = func(context.Context, []byte, []byte, *schema.Index) (*schema.Index, error) {
 		return nil, status.New(codes.Internal, "reference RPC error").Err()
 	}
 	resp, err := ic.Reference(args)
@@ -43,14 +43,14 @@ func TestReferencesErrors(t *testing.T) {
 	require.Equal(t, " reference RPC error", resp)
 
 	errReference := errors.New("reference error")
-	immuClientMock.ReferenceF = func(context.Context, []byte, []byte) (*schema.Index, error) {
+	immuClientMock.ReferenceF = func(context.Context, []byte, []byte, *schema.Index) (*schema.Index, error) {
 		return nil, errReference
 	}
 	_, err = ic.Reference(args)
 	require.Equal(t, errReference, err)
 
 	// SafeReference errors
-	immuClientMock.SafeReferenceF = func(context.Context, []byte, []byte) (*client.VerifiedIndex, error) {
+	immuClientMock.SafeReferenceF = func(context.Context, []byte, []byte, *schema.Index) (*client.VerifiedIndex, error) {
 		return nil, status.New(codes.Internal, "safe reference RPC error").Err()
 	}
 	resp, err = ic.SafeReference(args)
@@ -58,7 +58,7 @@ func TestReferencesErrors(t *testing.T) {
 	require.Equal(t, " safe reference RPC error", resp)
 
 	errSafeReference := errors.New("safe reference error")
-	immuClientMock.SafeReferenceF = func(context.Context, []byte, []byte) (*client.VerifiedIndex, error) {
+	immuClientMock.SafeReferenceF = func(context.Context, []byte, []byte, *schema.Index) (*client.VerifiedIndex, error) {
 		return nil, errSafeReference
 	}
 	_, err = ic.SafeReference(args)

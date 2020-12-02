@@ -67,10 +67,10 @@ func TestImmuClientMock(t *testing.T) {
 		SetF: func(context.Context, []byte, []byte) (*schema.Index, error) {
 			return nil, errSet
 		},
-		SafeReferenceF: func(context.Context, []byte, []byte) (*client.VerifiedIndex, error) {
+		SafeReferenceF: func(context.Context, []byte, []byte, *schema.Index) (*client.VerifiedIndex, error) {
 			return nil, errSafeReference
 		},
-		SafeZAddF: func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error) {
+		SafeZAddF: func(context.Context, []byte, float64, []byte, *schema.Index) (*client.VerifiedIndex, error) {
 			return nil, errSafeZAdd
 		},
 		HistoryF: func(context.Context, *schema.HistoryOptions) (*schema.StructuredItemList, error) {
@@ -100,10 +100,10 @@ func TestImmuClientMock(t *testing.T) {
 	_, err = icm.Set(nil, nil, nil)
 
 	require.Equal(t, errSet, err)
-	_, err = icm.SafeReference(nil, nil, nil)
+	_, err = icm.SafeReference(nil, nil, nil, nil)
 
 	require.Equal(t, errSafeReference, err)
-	_, err = icm.SafeZAdd(nil, nil, 0., nil)
+	_, err = icm.SafeZAdd(nil, nil, 0., nil, nil)
 
 	require.Equal(t, errSafeZAdd, err)
 	_, err = icm.History(nil, nil)

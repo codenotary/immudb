@@ -42,10 +42,10 @@ type ImmuClientMock struct {
 	SafeGetF            func(context.Context, []byte, ...grpc.CallOption) (*client.VerifiedItem, error)
 	SafeSetF            func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
 	SetF                func(context.Context, []byte, []byte) (*schema.Index, error)
-	ReferenceF          func(context.Context, []byte, []byte) (*schema.Index, error)
-	SafeReferenceF      func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
-	ZAddF               func(context.Context, []byte, float64, []byte) (*schema.Index, error)
-	SafeZAddF           func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error)
+	ReferenceF          func(context.Context, []byte, []byte, *schema.Index) (*schema.Index, error)
+	SafeReferenceF      func(context.Context, []byte, []byte, *schema.Index) (*client.VerifiedIndex, error)
+	ZAddF               func(context.Context, []byte, float64, []byte, *schema.Index) (*schema.Index, error)
+	SafeZAddF           func(context.Context, []byte, float64, []byte, *schema.Index) (*client.VerifiedIndex, error)
 	HistoryF            func(context.Context, *schema.HistoryOptions) (*schema.StructuredItemList, error)
 	UseDatabaseF        func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
 	DumpF               func(context.Context, io.WriteSeeker) (int64, error)
@@ -124,23 +124,23 @@ func (icm *ImmuClientMock) Set(ctx context.Context, key []byte, value []byte) (*
 }
 
 // Reference ...
-func (icm *ImmuClientMock) Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error) {
-	return icm.ReferenceF(ctx, reference, key)
+func (icm *ImmuClientMock) Reference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*schema.Index, error) {
+	return icm.ReferenceF(ctx, reference, key, index)
 }
 
 // SafeReference ...
-func (icm *ImmuClientMock) SafeReference(ctx context.Context, reference []byte, key []byte) (*client.VerifiedIndex, error) {
-	return icm.SafeReferenceF(ctx, reference, key)
+func (icm *ImmuClientMock) SafeReference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*client.VerifiedIndex, error) {
+	return icm.SafeReferenceF(ctx, reference, key, index)
 }
 
 // ZAdd ...
-func (icm *ImmuClientMock) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error) {
-	return icm.ZAddF(ctx, set, score, key)
+func (icm *ImmuClientMock) ZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*schema.Index, error) {
+	return icm.ZAddF(ctx, set, score, key, index)
 }
 
 // SafeZAdd ...
-func (icm *ImmuClientMock) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*client.VerifiedIndex, error) {
-	return icm.SafeZAddF(ctx, set, score, key)
+func (icm *ImmuClientMock) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*client.VerifiedIndex, error) {
+	return icm.SafeZAddF(ctx, set, score, key, index)
 }
 
 // History ...
