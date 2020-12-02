@@ -150,7 +150,7 @@ func (s *ImmuServer) Start() error {
 
 	s.installShutdownHandler()
 
-	dbSize, _ := s.dbList.GetByIndex(DefaultDbIndex).Store.DbSize()
+	dbSize, _ := s.dbList.GetByIndex(DefaultDbIndex).Size()
 	if dbSize <= 0 {
 		s.Logger.Infof("Started with an empty database")
 	}
@@ -231,7 +231,7 @@ func (s *ImmuServer) setUpMetricsServer() error {
 	s.metricsServer = StartMetrics(
 		s.Options.MetricsBind(),
 		s.Logger,
-		func() float64 { return float64(s.dbList.GetByIndex(DefaultDbIndex).Store.CountAll()) },
+		func() float64 { return float64(s.dbList.GetByIndex(DefaultDbIndex).CountAll().Count) },
 		func() float64 { return time.Since(startedAt).Hours() },
 	)
 	return nil
@@ -642,7 +642,7 @@ func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (root *sch
 		return nil, err
 	}
 
-	if root, err = s.dbList.GetByIndex(ind).CurrentRoot(e); err != nil {
+	if root, err = s.dbList.GetByIndex(ind).CurrentRoot(); err != nil {
 		return nil, err
 	}
 
@@ -1544,7 +1544,7 @@ func (s *ImmuServer) getUser(username []byte, includeDeactivated bool) (*auth.Us
 	key := make([]byte, 1+len(username))
 	key[0] = sysstore.KeyPrefixUser
 	copy(key[1:], username)
-	item, err := s.sysDb.Store.Get(schema.Key{Key: key})
+	item, err := s.sysDb.Get(&schema.Key{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -1571,9 +1571,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	copy(userKey[1:], []byte(user.Username))
 
 	userKV := schema.KeyValue{Key: userKey, Value: userData}
-	_, err = s.sysDb.SafeSet(&schema.SafeSetOptions{
-		Kv: &userKV,
-	})
+	_, err = s.sysDb.Set(&userKV)
 
 	return logErr(s.Logger, "error saving user: %v", err)
 }
