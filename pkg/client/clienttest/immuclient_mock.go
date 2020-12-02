@@ -46,7 +46,7 @@ type ImmuClientMock struct {
 	SafeReferenceF      func(context.Context, []byte, []byte) (*client.VerifiedIndex, error)
 	ZAddF               func(context.Context, []byte, float64, []byte) (*schema.Index, error)
 	SafeZAddF           func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error)
-	HistoryF            func(context.Context, []byte) (*schema.StructuredItemList, error)
+	HistoryF            func(context.Context, *schema.HistoryOptions) (*schema.StructuredItemList, error)
 	UseDatabaseF        func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
 	DumpF               func(context.Context, io.WriteSeeker) (int64, error)
 	CurrentRootF        func(context.Context) (*schema.Root, error)
@@ -57,9 +57,9 @@ type ImmuClientMock struct {
 	ListUsersF          func(context.Context) (*schema.UserList, error)
 	SetActiveUserF      func(context.Context, *schema.SetActiveUserRequest) error
 	ChangePermissionF   func(context.Context, schema.PermissionAction, string, string, uint32) error
-	ZScanF              func(context.Context, []byte) (*schema.ZStructuredItemList, error)
+	ZScanF              func(context.Context, *schema.ZScanOptions) (*schema.ZStructuredItemList, error)
 	IScanF              func(context.Context, uint64, uint64) (*schema.SPage, error)
-	ScanF               func(context.Context, []byte) (*schema.StructuredItemList, error)
+	ScanF               func(context.Context, *schema.ScanOptions) (*schema.StructuredItemList, error)
 	CountF              func(context.Context, []byte) (*schema.ItemsCount, error)
 	RawSafeSetF         func(context.Context, []byte, []byte) (vi *client.VerifiedIndex, err error)
 	CreateDatabaseF     func(context.Context, *schema.Database) error
@@ -144,8 +144,8 @@ func (icm *ImmuClientMock) SafeZAdd(ctx context.Context, set []byte, score float
 }
 
 // History ...
-func (icm *ImmuClientMock) History(ctx context.Context, key []byte) (*schema.StructuredItemList, error) {
-	return icm.HistoryF(ctx, key)
+func (icm *ImmuClientMock) History(ctx context.Context, options *schema.HistoryOptions) (*schema.StructuredItemList, error) {
+	return icm.HistoryF(ctx, options)
 }
 
 // UseDatabase ...
@@ -199,8 +199,8 @@ func (icm *ImmuClientMock) ChangePermission(ctx context.Context, action schema.P
 }
 
 // ZScan ...
-func (icm *ImmuClientMock) ZScan(ctx context.Context, set []byte) (*schema.ZStructuredItemList, error) {
-	return icm.ZScanF(ctx, set)
+func (icm *ImmuClientMock) ZScan(ctx context.Context, options *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
+	return icm.ZScanF(ctx, options)
 }
 
 // IScan ...
@@ -209,8 +209,8 @@ func (icm *ImmuClientMock) IScan(ctx context.Context, pageNumber uint64, pageSiz
 }
 
 // Scan ...
-func (icm *ImmuClientMock) Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error) {
-	return icm.ScanF(ctx, prefix)
+func (icm *ImmuClientMock) Scan(ctx context.Context, options *schema.ScanOptions) (*schema.StructuredItemList, error) {
+	return icm.ScanF(ctx, options)
 }
 
 // Count ...
