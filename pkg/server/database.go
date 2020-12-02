@@ -188,21 +188,18 @@ func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Index, error) {
 
 //GetBatch ...
 func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
-	/*
-		list := &schema.ItemList{}
-		for _, key := range kl.Keys {
-			item, err := d.Store.Get(*key)
-			if err == nil || err == store.ErrKeyNotFound {
-				if item != nil {
-					list.Items = append(list.Items, item)
-				}
-			} else {
-				return nil, err
+	list := &schema.ItemList{}
+	for _, key := range kl.Keys {
+		item, err := d.Get(key)
+		if err == nil || err == store.ErrKeyNotFound {
+			if item != nil {
+				list.Items = append(list.Items, item)
 			}
+		} else {
+			return nil, err
 		}
-		return list, nil
-	*/
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "GetBatch")
+	}
+	return list, nil
 }
 
 // ExecAllOps ...
