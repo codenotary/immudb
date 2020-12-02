@@ -111,7 +111,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	s.currentDbIndex++
 	var r *schema.Root
 	s.Logger.Debugf("Retrieving a fresh root ...")
-	if r, err = db.Store.CurrentRoot(); err != nil {
+	if r, err = db.CurrentRoot(); err != nil {
 		s.Logger.Errorf("Error retrieving root: %s", err)
 		return
 	}
@@ -126,7 +126,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				return
 			}
 			var item *schema.SafeItem
-			if item, err = db.Store.BySafeIndex(schema.SafeIndexOptions{
+			if item, err = db.BySafeIndex(&schema.SafeIndexOptions{
 				Index: id,
 				RootIndex: &schema.Index{
 					Index: r.GetIndex(),
