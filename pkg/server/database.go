@@ -18,6 +18,7 @@ package server
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -108,7 +109,7 @@ func (d *Db) Set(kv *schema.KeyValue) (*schema.Index, error) {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Set")
 	}
 
-	return &schema.Index{Index: id - 1}, nil
+	return &schema.Index{Index: id}, nil
 }
 
 //Get ...
@@ -183,7 +184,7 @@ func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Index, error) {
 		return nil, err
 	}
 
-	return &schema.Index{Index: id - 1}, nil
+	return &schema.Index{Index: id}, nil
 }
 
 //GetBatch ...
@@ -251,8 +252,46 @@ func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.SafeItem, error)
 
 //History ...
 func (d *Db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
-	//return d.Store.History(options)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "History")
+	snapshot, err := d.Store.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+
+	limit := math.MaxInt64
+	if options.Limit > 0 {
+		limit = int(options.Offset + options.Limit)
+	}
+
+	tss, err := snapshot.GetTs(options.Key, int64(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	list := &schema.ItemList{}
+
+	for i := int(options.Offset); i < len(tss); i++ {
+		ts := tss[i]
+
+		err = d.Store.ReadTx(ts, d.tx)
+		if err != nil {
+			return nil, err
+		}
+
+		val, err := d.Store.ReadValue(d.tx, options.Key)
+		if err != nil {
+			return nil, err
+		}
+
+		item := &schema.Item{Key: options.Key, Value: val, Index: ts}
+
+		if options.Reverse {
+			list.Items = append([]*schema.Item{item}, list.Items...)
+		} else {
+			list.Items = append(list.Items, item)
+		}
+	}
+
+	return list, nil
 }
 
 //Health ...
