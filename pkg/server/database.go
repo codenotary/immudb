@@ -213,7 +213,7 @@ func (d *Db) ExecAllOps(operations *schema.Ops) (*schema.Index, error) {
 
 //Size ...
 func (d *Db) Size() (uint64, error) {
-	return 0, nil
+	return d.Store.TxCount(), nil
 }
 
 //Count ...
