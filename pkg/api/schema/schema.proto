@@ -277,11 +277,6 @@ message ReferenceOptions {
 	Index index = 3;
 }
 
-/*
-Why use double as score type?
-Because it is not purely about the storage size, but also use cases.
-64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer.
-*/
 message ZAddOptions {
 	bytes set = 1;
 	Score score = 2;

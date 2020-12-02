@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -81,6 +82,27 @@ func (c *immuClient) NewSKVList(list *schema.KVList) *schema.SKVList {
 		})
 	}
 	return slist
+}
+
+func (c *immuClient) NewSOps(ops *schema.Ops) (*schema.Ops, error) {
+	for _, op := range ops.Operations {
+		switch x := op.Operation.(type) {
+		case *schema.Op_KVs:
+			skv := c.NewSKV(x.KVs.GetKey(), x.KVs.GetValue())
+			kv, err := skv.ToKV()
+			if err != nil {
+				return nil, err
+			}
+			x.KVs = kv
+		case *schema.Op_ZOpts:
+			continue
+		case nil:
+			continue
+		default:
+			return nil, fmt.Errorf("operation has unexpected type %T", x)
+		}
+	}
+	return ops, nil
 }
 
 // VerifiedItem ...
