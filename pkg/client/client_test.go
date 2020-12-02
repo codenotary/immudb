@@ -263,7 +263,9 @@ func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float6
 		_, err := client.SafeZAdd(ctx, set, scores[i], keys[i])
 		require.NoError(t, err)
 	}
-	itemList, err := client.ZScan(ctx, set)
+	itemList, err := client.ZScan(ctx, &schema.ZScanOptions{
+		Set: set,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, itemList)
 	require.Len(t, itemList.Items, len(keys))
@@ -466,10 +468,13 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.RawSafeGet(context.TODO(), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.Scan(context.TODO(), []byte("key"))
+	_, err = client.Scan(context.TODO(), &schema.ScanOptions{
+		Prefix: []byte("key"),
+	})
+
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.ZScan(context.TODO(), []byte("key"))
+	_, err = client.ZScan(context.TODO(), &schema.ZScanOptions{Set: []byte("key")})
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.IScan(context.TODO(), 1, 1)
@@ -508,7 +513,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.RawBySafeIndex(context.TODO(), 1)
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.History(context.TODO(), []byte("key"))
+	_, err = client.History(context.TODO(), &schema.HistoryOptions{
+		Key: []byte("key"),
+	})
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.Reference(context.TODO(), []byte("ref"), []byte("key"))
@@ -703,7 +710,9 @@ func TestImmuClient_History(t *testing.T) {
 	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
 	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val2`))
 
-	sil, err := client.History(context.TODO(), []byte(`key1`))
+	sil, err := client.History(context.TODO(), &schema.HistoryOptions{
+		Key: []byte(`key1`),
+	})
 
 	assert.IsType(t, &schema.StructuredItemList{}, sil)
 	assert.Nil(t, err)
@@ -891,7 +900,7 @@ func TestImmuClient_Scan(t *testing.T) {
 	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val11`))
 	_, _ = client.SafeSet(context.TODO(), []byte(`key3`), []byte(`val3`))
 
-	sil, err := client.Scan(context.TODO(), []byte(`key`))
+	sil, err := client.Scan(context.TODO(), &schema.ScanOptions{Prefix: []byte("key")})
 
 	assert.IsType(t, &schema.StructuredItemList{}, sil)
 	assert.Nil(t, err)

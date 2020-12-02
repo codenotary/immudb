@@ -19,6 +19,7 @@ package immuc
 import (
 	"context"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"strconv"
 	"strings"
 )
@@ -26,7 +27,7 @@ import (
 func (i *immuc) ZScan(args []string) (string, error) {
 	set := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.ZScan(ctx, set)
+	response, err := i.ImmuClient.ZScan(ctx, &schema.ZScanOptions{Set: set})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -80,7 +81,7 @@ func (i *immuc) IScan(args []string) (string, error) {
 func (i *immuc) Scan(args []string) (string, error) {
 	prefix := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.Scan(ctx, prefix)
+	response, err := i.ImmuClient.Scan(ctx, &schema.ScanOptions{Prefix: prefix})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {

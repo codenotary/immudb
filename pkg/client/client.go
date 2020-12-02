@@ -70,8 +70,8 @@ type ImmuClient interface {
 	Get(ctx context.Context, key []byte) (*schema.StructuredItem, error)
 	SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error)
 	RawSafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error)
-	Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error)
-	ZScan(ctx context.Context, set []byte) (*schema.ZStructuredItemList, error)
+	Scan(ctx context.Context, options *schema.ScanOptions) (*schema.StructuredItemList, error)
+	ZScan(ctx context.Context, options *schema.ZScanOptions) (*schema.ZStructuredItemList, error)
 	ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error)
 	RawBySafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error)
 	IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error)
@@ -82,7 +82,7 @@ type ImmuClient interface {
 	GetBatch(ctx context.Context, keys [][]byte) (*schema.StructuredItemList, error)
 	Inclusion(ctx context.Context, index uint64) (*schema.InclusionProof, error)
 	Consistency(ctx context.Context, index uint64) (*schema.ConsistencyProof, error)
-	History(ctx context.Context, key []byte) (*schema.StructuredItemList, error)
+	History(ctx context.Context, options *schema.HistoryOptions) (*schema.StructuredItemList, error)
 	Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error)
 	SafeReference(ctx context.Context, reference []byte, key []byte) (*VerifiedIndex, error)
 	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error)
@@ -605,12 +605,12 @@ func (c *immuClient) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.Ca
 }
 
 // Scan ...
-func (c *immuClient) Scan(ctx context.Context, prefix []byte) (*schema.StructuredItemList, error) {
+func (c *immuClient) Scan(ctx context.Context, options *schema.ScanOptions) (*schema.StructuredItemList, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	list, err := c.ServiceClient.Scan(ctx, &schema.ScanOptions{Prefix: prefix})
+	list, err := c.ServiceClient.Scan(ctx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -619,12 +619,12 @@ func (c *immuClient) Scan(ctx context.Context, prefix []byte) (*schema.Structure
 }
 
 // ZScan ...
-func (c *immuClient) ZScan(ctx context.Context, set []byte) (*schema.ZStructuredItemList, error) {
+func (c *immuClient) ZScan(ctx context.Context, options *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	list, err := c.ServiceClient.ZScan(ctx, &schema.ZScanOptions{Set: set})
+	list, err := c.ServiceClient.ZScan(ctx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -1006,16 +1006,14 @@ func (c *immuClient) RawBySafeIndex(ctx context.Context, index uint64) (*Verifie
 }
 
 // History ...
-func (c *immuClient) History(ctx context.Context, key []byte) (sl *schema.StructuredItemList, err error) {
+func (c *immuClient) History(ctx context.Context, options *schema.HistoryOptions) (sl *schema.StructuredItemList, err error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	list, err := c.ServiceClient.History(ctx, &schema.HistoryOptions{
-		Key: key,
-	})
+	list, err := c.ServiceClient.History(ctx, options)
 	if err != nil {
 		return nil, err
 	}

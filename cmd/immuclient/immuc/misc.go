@@ -18,13 +18,16 @@ package immuc
 
 import (
 	"context"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"strings"
 )
 
 func (i *immuc) History(args []string) (string, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.History(ctx, key)
+	response, err := i.ImmuClient.History(ctx, &schema.HistoryOptions{
+		Key: key,
+	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {

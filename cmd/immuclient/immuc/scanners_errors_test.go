@@ -35,7 +35,7 @@ func TestScannersErrors(t *testing.T) {
 
 	// ZScan errors
 	args := []string{"set1"}
-	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.ZStructuredItemList, error) {
+	immuClientMock.ZScanF = func(context.Context, *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
 		return nil, status.New(codes.Internal, "zscan RPC error").Err()
 	}
 	resp, err := ic.ZScan(args)
@@ -43,13 +43,13 @@ func TestScannersErrors(t *testing.T) {
 	require.Equal(t, " zscan RPC error", resp)
 
 	errZScan := errors.New("zscan error")
-	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.ZStructuredItemList, error) {
+	immuClientMock.ZScanF = func(context.Context, *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
 		return nil, errZScan
 	}
 	_, err = ic.ZScan(args)
 	require.Equal(t, errZScan, err)
 
-	immuClientMock.ZScanF = func(context.Context, []byte) (*schema.ZStructuredItemList, error) {
+	immuClientMock.ZScanF = func(context.Context, *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
 		return &schema.ZStructuredItemList{}, nil
 	}
 	resp, err = ic.ZScan(args)
@@ -87,7 +87,7 @@ func TestScannersErrors(t *testing.T) {
 
 	// Scan errors
 	args = []string{"prefix1"}
-	immuClientMock.ScanF = func(context.Context, []byte) (*schema.StructuredItemList, error) {
+	immuClientMock.ScanF = func(context.Context, *schema.ScanOptions) (*schema.StructuredItemList, error) {
 		return nil, status.New(codes.Internal, "scan RPC error").Err()
 	}
 	resp, err = ic.Scan(args)
@@ -95,13 +95,13 @@ func TestScannersErrors(t *testing.T) {
 	require.Equal(t, " scan RPC error", resp)
 
 	errScan := errors.New("scan error")
-	immuClientMock.ScanF = func(context.Context, []byte) (*schema.StructuredItemList, error) {
+	immuClientMock.ScanF = func(context.Context, *schema.ScanOptions) (*schema.StructuredItemList, error) {
 		return nil, errScan
 	}
 	_, err = ic.Scan(args)
 	require.Equal(t, errScan, err)
 
-	immuClientMock.ScanF = func(context.Context, []byte) (*schema.StructuredItemList, error) {
+	immuClientMock.ScanF = func(context.Context, *schema.ScanOptions) (*schema.StructuredItemList, error) {
 		return &schema.StructuredItemList{}, nil
 	}
 	resp, err = ic.Scan(args)

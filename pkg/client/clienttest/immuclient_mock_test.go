@@ -73,7 +73,7 @@ func TestImmuClientMock(t *testing.T) {
 		SafeZAddF: func(context.Context, []byte, float64, []byte) (*client.VerifiedIndex, error) {
 			return nil, errSafeZAdd
 		},
-		HistoryF: func(context.Context, []byte) (*schema.StructuredItemList, error) {
+		HistoryF: func(context.Context, *schema.HistoryOptions) (*schema.StructuredItemList, error) {
 			return nil, errHistory
 		},
 	}

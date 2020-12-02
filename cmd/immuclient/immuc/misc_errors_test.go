@@ -34,7 +34,7 @@ func TestMiscErrors(t *testing.T) {
 
 	// History errors
 	args := []string{"key1"}
-	immuClientMock.HistoryF = func(context.Context, []byte) (*schema.StructuredItemList, error) {
+	immuClientMock.HistoryF = func(context.Context, *schema.HistoryOptions) (*schema.StructuredItemList, error) {
 		return nil, status.New(codes.Internal, "history RPC error").Err()
 	}
 	resp, err := ic.History(args)
@@ -42,7 +42,7 @@ func TestMiscErrors(t *testing.T) {
 	require.Equal(t, " history RPC error", resp)
 
 	errHistory := errors.New("history error")
-	immuClientMock.HistoryF = func(context.Context, []byte) (*schema.StructuredItemList, error) {
+	immuClientMock.HistoryF = func(context.Context, *schema.HistoryOptions) (*schema.StructuredItemList, error) {
 		return nil, errHistory
 	}
 	_, err = ic.History(args)
