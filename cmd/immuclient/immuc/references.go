@@ -44,7 +44,7 @@ func (i *immuc) Reference(args []string) (string, error) {
 		return "", err
 	}
 	ctx := context.Background()
-	response, err := i.ImmuClient.Reference(ctx, reference, key)
+	response, err := i.ImmuClient.Reference(ctx, reference, key, nil)
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -77,7 +77,7 @@ func (i *immuc) SafeReference(args []string) (string, error) {
 		return "", err
 	}
 	ctx := context.Background()
-	response, err := i.ImmuClient.SafeReference(ctx, reference, key)
+	response, err := i.ImmuClient.SafeReference(ctx, reference, key, nil)
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {

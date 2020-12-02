@@ -148,7 +148,7 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 		return "", err
 	}
 	ctx := context.Background()
-	response, err := i.ImmuClient.ZAdd(ctx, set, score, key)
+	response, err := i.ImmuClient.ZAdd(ctx, set, score, key, nil)
 	if err != nil {
 		return "", err
 	}
@@ -182,7 +182,7 @@ func (i *immuc) SafeZAdd(args []string) (string, error) {
 		return "", err
 	}
 	ctx := context.Background()
-	response, err := i.ImmuClient.SafeZAdd(ctx, set, score, key)
+	response, err := i.ImmuClient.SafeZAdd(ctx, set, score, key, nil)
 	if err != nil {
 		return "", err
 	}

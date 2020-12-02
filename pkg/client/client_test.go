@@ -235,7 +235,7 @@ func testRawSafeSetAndRawSafeGet(ctx context.Context, t *testing.T, key []byte, 
 }
 
 func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
-	_, err2 := client.Reference(ctx, referenceKey, key)
+	_, err2 := client.Reference(ctx, referenceKey, key, nil)
 	require.NoError(t, err2)
 	vi, err := client.SafeGet(ctx, referenceKey)
 	require.NoError(t, err)
@@ -247,7 +247,7 @@ func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key [
 }
 
 func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
-	_, err2 := client.SafeReference(ctx, referenceKey, key)
+	_, err2 := client.SafeReference(ctx, referenceKey, key, nil)
 	require.NoError(t, err2)
 	vi, err := client.SafeGet(ctx, referenceKey)
 	require.NoError(t, err)
@@ -260,7 +260,7 @@ func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, k
 
 func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
 	for i := 0; i < len(scores); i++ {
-		_, err := client.SafeZAdd(ctx, set, scores[i], keys[i])
+		_, err := client.SafeZAdd(ctx, set, scores[i], keys[i], nil)
 		require.NoError(t, err)
 	}
 	itemList, err := client.ZScan(ctx, &schema.ZScanOptions{
@@ -282,7 +282,7 @@ func testGetByRawIndexOnSafeZAdd(ctx context.Context, t *testing.T, set []byte, 
 	vi1, err1 := client.RawSafeSet(ctx, []byte("key-n1"), []byte("val-n1"))
 	require.True(t, vi1.Verified)
 	require.NoError(t, err1)
-	vi2, err2 := client.SafeZAdd(ctx, []byte("set-n1"), 98.5, []byte("key-n1"))
+	vi2, err2 := client.SafeZAdd(ctx, []byte("set-n1"), 98.5, []byte("key-n1"), nil)
 	require.True(t, vi2.Verified)
 	require.NoError(t, err2)
 
@@ -302,7 +302,7 @@ func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scor
 	vi1, err1 := client.RawSafeSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.True(t, vi1.Verified)
 	require.NoError(t, err1)
-	index, err2 := client.ZAdd(ctx, []byte("set-n11"), 98.5, []byte("key-n11"))
+	index, err2 := client.ZAdd(ctx, []byte("set-n11"), 98.5, []byte("key-n11"), nil)
 	require.NoError(t, err2)
 
 	item1, err3 := client.RawBySafeIndex(ctx, index.Index)
@@ -518,16 +518,16 @@ func TestImmuClientDisconnect(t *testing.T) {
 	})
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.Reference(context.TODO(), []byte("ref"), []byte("key"))
+	_, err = client.Reference(context.TODO(), []byte("ref"), []byte("key"), nil)
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.SafeReference(context.TODO(), []byte("ref"), []byte("key"))
+	_, err = client.SafeReference(context.TODO(), []byte("ref"), []byte("key"), nil)
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
+	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"), nil)
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.SafeZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
+	_, err = client.SafeZAdd(context.TODO(), []byte("set"), 1, []byte("key"), nil)
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.Dump(context.TODO(), nil)

@@ -83,11 +83,11 @@ type ImmuClient interface {
 	Inclusion(ctx context.Context, index uint64) (*schema.InclusionProof, error)
 	Consistency(ctx context.Context, index uint64) (*schema.ConsistencyProof, error)
 	History(ctx context.Context, options *schema.HistoryOptions) (*schema.StructuredItemList, error)
-	Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error)
-	GetReference(ctx context.Context, key *schema.Key) (*schema.Item, error)
-	SafeReference(ctx context.Context, reference []byte, key []byte) (*VerifiedIndex, error)
-	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error)
-	SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*VerifiedIndex, error)
+	Reference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*schema.Index, error)
+	GetReference(ctx context.Context, key *schema.Key) (*schema.StructuredItem, error)
+	SafeReference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*VerifiedIndex, error)
+	ZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*schema.Index, error)
+	SafeZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*VerifiedIndex, error)
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
 	HealthCheck(ctx context.Context) error
 	verifyAndSetRoot(result *schema.Proof, root *schema.Root, ctx context.Context) (bool, error)
@@ -1030,7 +1030,7 @@ func (c *immuClient) History(ctx context.Context, options *schema.HistoryOptions
 }
 
 // Reference ...
-func (c *immuClient) Reference(ctx context.Context, reference []byte, key []byte) (*schema.Index, error) {
+func (c *immuClient) Reference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*schema.Index, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
@@ -1040,6 +1040,7 @@ func (c *immuClient) Reference(ctx context.Context, reference []byte, key []byte
 	result, err := c.ServiceClient.Reference(ctx, &schema.ReferenceOptions{
 		Reference: reference,
 		Key:       key,
+		Index:     index,
 	})
 
 	c.Logger.Debugf("reference finished in %s", time.Since(start))
@@ -1048,22 +1049,19 @@ func (c *immuClient) Reference(ctx context.Context, reference []byte, key []byte
 }
 
 // Reference ...
-func (c *immuClient) GetReference(ctx context.Context, key *schema.Key) (*schema.Item, error) {
-	start := time.Now()
-
+func (c *immuClient) GetReference(ctx context.Context, key *schema.Key) (*schema.StructuredItem, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
-
-	result, err := c.ServiceClient.GetReference(ctx, key)
-
-	c.Logger.Debugf("reference finished in %s", time.Since(start))
-
-	return result, err
+	item, err := c.ServiceClient.GetReference(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	return item.ToSItem()
 }
 
 // SafeReference ...
-func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []byte) (*VerifiedIndex, error) {
+func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*VerifiedIndex, error) {
 	start := time.Now()
 
 	c.Lock()
@@ -1082,6 +1080,7 @@ func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []
 		Ro: &schema.ReferenceOptions{
 			Reference: reference,
 			Key:       key,
+			Index:     index,
 		},
 		RootIndex: &schema.Index{
 			Index: root.GetIndex(),
@@ -1128,7 +1127,7 @@ func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []
 }
 
 // ZAdd ...
-func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.Index, error) {
+func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*schema.Index, error) {
 	start := time.Now()
 
 	if !c.IsConnected() {
@@ -1139,6 +1138,7 @@ func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []
 		Set:   set,
 		Score: &schema.Score{Score: score},
 		Key:   key,
+		Index: index,
 	})
 
 	c.Logger.Debugf("zadd finished in %s", time.Since(start))
@@ -1147,7 +1147,7 @@ func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []
 }
 
 // SafeZAdd ...
-func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*VerifiedIndex, error) {
+func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*VerifiedIndex, error) {
 	start := time.Now()
 
 	c.Lock()
@@ -1167,6 +1167,7 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 			Set:   set,
 			Score: &schema.Score{Score: score},
 			Key:   key,
+			Index: index,
 		},
 		RootIndex: &schema.Index{
 			Index: root.GetIndex(),
