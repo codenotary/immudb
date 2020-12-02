@@ -133,7 +133,7 @@ func validIndexOptions(opts *IndexOptions) bool {
 		opts.flushThld > 0 &&
 		opts.maxActiveSnapshots > 0 &&
 		opts.maxNodeSize > 0 &&
-		opts.renewSnapRootAfter > 0
+		opts.renewSnapRootAfter >= 0
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
