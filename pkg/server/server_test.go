@@ -233,6 +233,19 @@ func TestServerCreateDatabase(t *testing.T) {
 	}
 }
 
+func TestServerCreateDatabaseCaseError(t *testing.T) {
+	s := newInmemoryAuthServer()
+	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+	newdb := &schema.Database{
+		Databasename: "MyDatabase",
+	}
+	_, err = s.CreateDatabase(ctx, newdb)
+	assert.Equal(t, err.Error(), "provide a lowercase database name")
+}
+
 func TestServerCreateMultipleDatabases(t *testing.T) {
 	s := newAuthServer("multipledbs")
 	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
