@@ -960,6 +960,18 @@ func TestImmuClient_GetServiceClient(t *testing.T) {
 	client.Disconnect()
 }
 
+func TestImmuClient_GetReference(t *testing.T) {
+	setup()
+	idx, err := client.Set(context.TODO(), []byte(`key`), []byte(`value`))
+	require.NoError(t, err)
+	_, err = client.Reference(context.TODO(), []byte(`reference`), []byte(`key`), idx)
+	require.NoError(t, err)
+	op, err := client.GetReference(context.TODO(), &schema.Key{Key: []byte(`reference`)})
+	assert.IsType(t, &schema.StructuredItem{}, op)
+	require.NoError(t, err)
+	client.Disconnect()
+}
+
 func TestImmuClient_GetOptions(t *testing.T) {
 	setup()
 	op := client.GetOptions()
