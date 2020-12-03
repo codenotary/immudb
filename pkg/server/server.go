@@ -1002,7 +1002,9 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	if newdb.Databasename == SystemdbName {
 		return nil, fmt.Errorf("this database name is reserved")
 	}
-
+	if strings.ToLower(newdb.Databasename) != newdb.Databasename {
+		return nil, fmt.Errorf("provide a lowercase database name")
+	}
 	newdb.Databasename = strings.ToLower(newdb.Databasename)
 	if err = IsAllowedDbName(newdb.Databasename); err != nil {
 		return nil, err
