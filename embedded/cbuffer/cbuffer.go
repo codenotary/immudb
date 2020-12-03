@@ -68,11 +68,15 @@ func (b *CHBuffer) Put(h [sha256.Size]byte) error {
 	return nil
 }
 
+func (b *CHBuffer) IsEmpty() bool {
+	return b.freeSlots() == len(b.buf)
+}
+
 func (b *CHBuffer) Get() (h [sha256.Size]byte, err error) {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 
-	if b.freeSlots() == len(b.buf) {
+	if b.IsEmpty() {
 		err = ErrBufferIsEmpty
 		return
 	}
