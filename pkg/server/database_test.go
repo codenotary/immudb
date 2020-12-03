@@ -527,6 +527,39 @@ func TestReference(t *testing.T) {
 	}
 }
 
+func TestGetReference(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+	_, err := db.Set(kv[0])
+	if err != nil {
+		t.Fatalf("Reference error %s", err)
+	}
+	ref, err := db.Reference(&schema.ReferenceOptions{
+		Reference: []byte(`tag`),
+		Key:       kv[0].Key,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref.Index != 1 {
+		t.Fatalf("Reference, expected %v, got %v", 1, ref.Index)
+	}
+	item, err := db.GetReference(&schema.Key{Key: []byte(`tag`)})
+	if err != nil {
+		t.Fatalf("Reference  Get error %s", err)
+	}
+	if !bytes.Equal(item.Value, kv[0].Value) {
+		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
+	}
+	item, err = db.GetReference(&schema.Key{Key: []byte(`tag`)})
+	if err != nil {
+		t.Fatalf("Reference  Get error %s", err)
+	}
+	if !bytes.Equal(item.Value, kv[0].Value) {
+		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
+	}
+}
+
 func TestZAdd(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()

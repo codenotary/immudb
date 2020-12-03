@@ -841,6 +841,29 @@ func testServerReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
+func testServerGetReference(ctx context.Context, s *ImmuServer, t *testing.T) {
+	_, err := s.Set(ctx, kv[0])
+	if err != nil {
+		t.Fatalf("Reference error %s", err)
+	}
+	_, err = s.Reference(ctx, &schema.ReferenceOptions{
+		Reference: []byte(`tag`),
+		Key:       kv[0].Key,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := s.GetReference(ctx, &schema.Key{
+		Key: []byte(`tag`),
+	})
+	if err != nil {
+		t.Fatalf("Reference  Get error %s", err)
+	}
+	if !bytes.Equal(item.Value, kv[0].Value) {
+		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kv[0].Value))
+	}
+}
+
 func testServerReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Reference(ctx, &schema.ReferenceOptions{
 		Reference: []byte(`tag`),
