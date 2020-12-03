@@ -108,6 +108,10 @@ type ImmuClient interface {
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
+
+	NewSKV(key []byte, value []byte) *schema.StructuredKeyValue
+	NewSKVList(list *schema.KVList) *schema.SKVList
+	NewSOps(ops *schema.Ops) (*schema.Ops, error)
 }
 
 type immuClient struct {
