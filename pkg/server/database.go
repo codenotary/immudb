@@ -198,7 +198,7 @@ func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 		return nil, err
 	}
 
-	kProof := d.tx.Proof(ik)
+	inclusionProof := d.tx.Proof(ik)
 
 	kvDigest := (&store.KV{Key: it.Key, Value: it.Value}).Digest()
 	verifies := kProof.VerifyInclusion(uint64(len(d.tx.Entries())-1), uint64(ik), d.tx.Eh, kvDigest)
@@ -229,8 +229,15 @@ func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	}
 
 	proof := &schema.Proof{
-		Leaf:  kvDigest[:],
-		Index: it.Index,
+		Metadata: &schema.TxMetadata{},
+		Entry:    nil,
+		InclusionProof: &schema.InclusionProof{
+			I:     uint64(ik),
+			J:     uint64(len(d.tx.Entries())),
+			ILeaf: kvDigest[:],
+			JRoot: d.tx.Eh[:],
+			Terms: inclusionProof,
+		},
 	}
 
 	return &schema.SafeItem{Item: it, Proof: proof}, nil
