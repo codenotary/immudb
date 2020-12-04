@@ -656,8 +656,12 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 
 			key := txEntries[j].Key()
 
+			ki, err := tx.IndexOf(key)
+			require.NoError(t, err)
+			require.Equal(t, j, ki)
+
 			value := make([]byte, txEntries[j].ValueLen)
-			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
+			_, err = immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
 			require.NoError(t, err)
 
 			k := make([]byte, 8)
@@ -734,7 +738,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		p, err := immuStore.aht.DataAt(uint64(i + 1))
 		require.NoError(t, err)
 
-		alh := tx.Alh()
+		alh := tx.Alh
 		require.Equal(t, alh[:], p)
 	}
 }
@@ -790,7 +794,7 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 		p, err := immuStore.aht.DataAt(uint64(i + 1))
 		require.NoError(t, err)
 
-		alh := tx.Alh()
+		alh := tx.Alh
 		require.Equal(t, alh[:], p)
 	}
 }
@@ -847,7 +851,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 			dproof, err := immuStore.DualProof(sourceTx, targetTx)
 			require.NoError(t, err)
 
-			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 			require.True(t, verifies)
 		}
 	}
@@ -915,7 +919,7 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 		dproof, err := immuStore.DualProof(sourceTx, targetTx)
 		require.NoError(t, err)
 
-		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 		require.True(t, verifies)
 	}
 
@@ -1004,13 +1008,13 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 			lproof, err := immuStore.LinearProof(sourceTxID, targetTxID)
 			require.NoError(t, err)
 
-			verifies := VerifyLinearProof(lproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+			verifies := VerifyLinearProof(lproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 			require.True(t, verifies)
 
 			dproof, err := immuStore.DualProof(sourceTx, targetTx)
 			require.NoError(t, err)
 
-			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 			require.True(t, verifies)
 		}
 	}

@@ -89,12 +89,12 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 		dproof, err := immuStore.DualProof(sourceTx, targetTx)
 		require.NoError(t, err)
 
-		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 		require.True(t, verifies)
 
 		// Alter proof
 		dproof.SourceTxMetadata.BlTxID++
-		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 		require.False(t, verifies)
 
 		// Restore proof
@@ -102,7 +102,7 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 
 		// Alter proof
 		dproof.TargetTxMetadata.BlTxID++
-		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+		verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 		require.False(t, verifies)
 	}
 

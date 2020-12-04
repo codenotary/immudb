@@ -16,6 +16,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"math/bits"
@@ -26,19 +27,20 @@ import (
 )
 
 type Tx struct {
-	ID       uint64
-	Ts       int64
-	BlTxID   uint64
-	BlRoot   [sha256.Size]byte
-	PrevAlh  [sha256.Size]byte
+	ID      uint64
+	Ts      int64
+	BlTxID  uint64
+	BlRoot  [sha256.Size]byte
+	PrevAlh [sha256.Size]byte
+
 	nentries int
 	entries  []*Txe
-	TxH      [sha256.Size]byte
-	htree    [][][sha256.Size]byte
-	Eh       [sha256.Size]byte
 
-	_alh     [sha256.Size]byte
-	_alhTxID uint64
+	Eh    [sha256.Size]byte
+	htree [][][sha256.Size]byte
+
+	Alh       [sha256.Size]byte
+	InnerHash [sha256.Size]byte
 }
 
 func newTx(nentries int, maxKeyLen int) *Tx {
@@ -111,29 +113,37 @@ func (tx *Tx) Entries() []*Txe {
 }
 
 // Alh calculates the Accumulative Linear Hash up to this transaction
-// Alh is calculated as hash(txID + prevAlh + hash(blTxID + blRoot + txH))
+// Alh is calculated as hash(txID + prevAlh + hash(ts + nentries + eH + blTxID + blRoot))
 // Inner hash is calculated so to reduce the length of linear proofs
-func (tx *Tx) Alh() [sha256.Size]byte {
-	if tx.ID == tx._alhTxID {
-		return tx._alh
-	}
+func (tx *Tx) calcAlh() {
+	tx.calcInnerHash()
 
 	var bi [txIDSize + 2*sha256.Size]byte
 	binary.BigEndian.PutUint64(bi[:], tx.ID)
 	copy(bi[txIDSize:], tx.PrevAlh[:])
+	copy(bi[txIDSize+sha256.Size:], tx.InnerHash[:]) // hash(ts + nentries + eH + blTxID + blRoot)
 
-	var bj [txIDSize + 2*sha256.Size]byte
-	binary.BigEndian.PutUint64(bj[:], tx.BlTxID)
-	copy(bj[txIDSize:], tx.BlRoot[:])
-	copy(bj[txIDSize+sha256.Size:], tx.TxH[:])
-	innerHash := sha256.Sum256(bj[:]) // hash(blTxID + blRoot + txH)
+	tx.Alh = sha256.Sum256(bi[:]) // hash(txID + prevAlh + innerHash)
+}
 
-	copy(bi[txIDSize+sha256.Size:], innerHash[:])
+func (tx *Tx) calcInnerHash() {
+	var bj [tsSize + 4 + sha256.Size + txIDSize + sha256.Size]byte
+	binary.BigEndian.PutUint64(bj[:], uint64(tx.Ts))
+	binary.BigEndian.PutUint32(bj[tsSize:], uint32(tx.nentries))
+	copy(bj[tsSize+4:], tx.Eh[:])
+	binary.BigEndian.PutUint64(bj[tsSize+4+sha256.Size:], tx.BlTxID)
+	copy(bj[tsSize+4+sha256.Size+txIDSize:], tx.BlRoot[:])
 
-	tx._alh = sha256.Sum256(bi[:]) // hash(txID + prevAlh + innerHash)
-	tx._alhTxID = tx.ID
+	tx.InnerHash = sha256.Sum256(bj[:]) // hash(ts + nentries + eH + blTxID + blRoot)
+}
 
-	return tx._alh
+func (tx *Tx) IndexOf(key []byte) (int, error) {
+	for i, e := range tx.Entries() {
+		if bytes.Equal(e.Key(), key) {
+			return i, nil
+		}
+	}
+	return 0, ErrKeyNotFound
 }
 
 func (tx *Tx) Proof(kindex int) merkletree.Path {
@@ -207,35 +217,19 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		tx.htree[0][i] = tx.entries[i].digest()
 	}
 
-	_, err = r.Read(tx.TxH[:])
+	var alh [sha256.Size]byte
+	_, err = r.Read(alh[:])
 	if err != nil {
 		return err
 	}
 
 	tx.buildHashTree()
 
-	var b [txIDSize + tsSize + txIDSize + 2*sha256.Size + szSize + sha256.Size]byte
-	bi := 0
+	tx.calcAlh()
 
-	binary.BigEndian.PutUint64(b[:], tx.ID)
-	bi += txIDSize
-	binary.BigEndian.PutUint64(b[bi:], uint64(tx.Ts))
-	bi += tsSize
-	binary.BigEndian.PutUint64(b[bi:], tx.BlTxID)
-	bi += txIDSize
-	copy(b[bi:], tx.BlRoot[:])
-	bi += sha256.Size
-	copy(b[bi:], tx.PrevAlh[:])
-	bi += sha256.Size
-	binary.BigEndian.PutUint32(b[bi:], uint32(len(tx.entries)))
-	bi += szSize
-	copy(b[bi:], tx.Eh[:])
-
-	if tx.TxH != sha256.Sum256(b[:]) {
+	if tx.Alh != alh {
 		return ErrorCorruptedTxData
 	}
-
-	tx._alhTxID = 0
 
 	return nil
 }
