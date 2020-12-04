@@ -374,8 +374,10 @@ func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, e
 
 //Reference ...
 func (d *Db) GetReference(refOpts *schema.Key) (index *schema.Item, err error) {
-	d.Logger.Debugf("getReference options: %v", refOpts)
+	/*d.Logger.Debugf("getReference options: %v", refOpts)
 	return d.Store.GetReference(*refOpts)
+	*/
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "Reference")
 }
 
 //SafeReference ...
