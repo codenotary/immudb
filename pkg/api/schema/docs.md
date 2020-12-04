@@ -12,6 +12,7 @@
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
+    - [DualProof](#immudb.schema.DualProof)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryOptions](#immudb.schema.HistoryOptions)
     - [IScanOptions](#immudb.schema.IScanOptions)
@@ -26,6 +27,7 @@
     - [KeyPrefix](#immudb.schema.KeyPrefix)
     - [KeyValue](#immudb.schema.KeyValue)
     - [Layer](#immudb.schema.Layer)
+    - [LinearProof](#immudb.schema.LinearProof)
     - [LoginRequest](#immudb.schema.LoginRequest)
     - [LoginResponse](#immudb.schema.LoginResponse)
     - [MTLSConfig](#immudb.schema.MTLSConfig)
@@ -56,6 +58,9 @@
     - [StructuredItemList](#immudb.schema.StructuredItemList)
     - [StructuredKeyValue](#immudb.schema.StructuredKeyValue)
     - [Tree](#immudb.schema.Tree)
+    - [Tx](#immudb.schema.Tx)
+    - [TxEntry](#immudb.schema.TxEntry)
+    - [TxMetadata](#immudb.schema.TxMetadata)
     - [UseDatabaseReply](#immudb.schema.UseDatabaseReply)
     - [User](#immudb.schema.User)
     - [UserList](#immudb.schema.UserList)
@@ -66,11 +71,11 @@
     - [ZScanOptions](#immudb.schema.ZScanOptions)
     - [ZStructuredItem](#immudb.schema.ZStructuredItem)
     - [ZStructuredItemList](#immudb.schema.ZStructuredItemList)
-
+  
     - [PermissionAction](#immudb.schema.PermissionAction)
-
+  
     - [ImmuService](#immudb.schema.ImmuService)
-
+  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -140,11 +145,11 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| first | [uint64](#uint64) |  |  |
-| second | [uint64](#uint64) |  |  |
-| firstRoot | [bytes](#bytes) |  |  |
-| secondRoot | [bytes](#bytes) |  |  |
-| path | [bytes](#bytes) | repeated |  |
+| i | [uint64](#uint64) |  |  |
+| j | [uint64](#uint64) |  |  |
+| iRoot | [bytes](#bytes) |  |  |
+| jRoot | [bytes](#bytes) |  |  |
+| terms | [bytes](#bytes) | repeated |  |
 
 
 
@@ -215,6 +220,27 @@
 
 
 
+<a name="immudb.schema.DualProof"></a>
+
+### DualProof
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| sourceTxMetadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
+| targetTxMetadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
+| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
+| consistencyProof | [ConsistencyProof](#immudb.schema.ConsistencyProof) |  |  |
+| targetBlTxAlh | [bytes](#bytes) |  |  |
+| lastInclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
+| linearProof | [LinearProof](#immudb.schema.LinearProof) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.HealthResponse"></a>
 
 ### HealthResponse
@@ -273,11 +299,11 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| at | [uint64](#uint64) |  |  |
-| index | [uint64](#uint64) |  |  |
-| root | [bytes](#bytes) |  |  |
-| leaf | [bytes](#bytes) |  |  |
-| path | [bytes](#bytes) | repeated |  |
+| i | [uint64](#uint64) |  |  |
+| j | [uint64](#uint64) |  |  |
+| iLeaf | [bytes](#bytes) |  |  |
+| jRoot | [bytes](#bytes) |  |  |
+| terms | [bytes](#bytes) | repeated |  |
 
 
 
@@ -437,6 +463,25 @@
 
 
 
+<a name="immudb.schema.LinearProof"></a>
+
+### LinearProof
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| i | [uint64](#uint64) |  |  |
+| j | [uint64](#uint64) |  |  |
+| iAlh | [bytes](#bytes) |  |  |
+| jAlh | [bytes](#bytes) |  |  |
+| terms | [bytes](#bytes) | repeated |  |
+
+
+
+
+
+
 <a name="immudb.schema.LoginRequest"></a>
 
 ### LoginRequest
@@ -576,12 +621,10 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| leaf | [bytes](#bytes) |  |  |
-| index | [uint64](#uint64) |  |  |
-| root | [bytes](#bytes) |  |  |
-| at | [uint64](#uint64) |  |  |
-| inclusionPath | [bytes](#bytes) | repeated |  |
-| consistencyPath | [bytes](#bytes) | repeated |  |
+| metadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
+| entry | [TxEntry](#immudb.schema.TxEntry) |  |  |
+| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
+| dualProof | [DualProof](#immudb.schema.DualProof) |  |  |
 
 
 
@@ -926,6 +969,60 @@
 
 
 
+<a name="immudb.schema.Tx"></a>
+
+### Tx
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| metadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
+| entries | [TxEntry](#immudb.schema.TxEntry) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.TxEntry"></a>
+
+### TxEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+| hValue | [bytes](#bytes) |  |  |
+| vOff | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.TxMetadata"></a>
+
+### TxMetadata
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [uint64](#uint64) |  |  |
+| prevAlh | [bytes](#bytes) |  |  |
+| ts | [int64](#int64) |  |  |
+| nentries | [int32](#int32) |  |  |
+| eH | [bytes](#bytes) |  |  |
+| blTxId | [uint64](#uint64) |  |  |
+| blRoot | [bytes](#bytes) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.UseDatabaseReply"></a>
 
 ### UseDatabaseReply
@@ -993,9 +1090,7 @@
 <a name="immudb.schema.ZAddOptions"></a>
 
 ### ZAddOptions
-Why use double as score type?
-Because it is not purely about the storage size, but also use cases.
-64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer.
+
 
 
 | Field | Type | Label | Description |
@@ -1095,7 +1190,7 @@ Because it is not purely about the storage size, but also use cases.
 
 
 
-
+ 
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -1109,9 +1204,9 @@ Because it is not purely about the storage size, but also use cases.
 | REVOKE | 1 |  |
 
 
+ 
 
-
-
+ 
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -1161,7 +1256,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 
-
+ 
 
 
 
@@ -1184,3 +1279,4 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
+
