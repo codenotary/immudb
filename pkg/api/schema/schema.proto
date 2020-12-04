@@ -232,11 +232,11 @@ message ConsistencyProof {
 message TxMetadata {
 	uint64 id = 1;
 	bytes prevAlh = 2;
-	uint64 blTxId = 3;
-	bytes blRoot = 4;
-	int64 timestamp = 5;
-	int32 nentries = 6;
-	bytes eH = 7;
+	int64 ts = 3;
+	int32 nentries = 4;
+	bytes eH = 5;
+	uint64 blTxId = 6;
+	bytes blRoot = 7;
 }
 
 message LinearProof {
@@ -251,11 +251,11 @@ message DualProof {
 	TxMetadata sourceTxMetadata = 1;
 	TxMetadata targetTxMetadata = 2;
 
-	InclusionProof binInclusionProof = 3;
-	ConsistencyProof binConsistencyProof = 4;
+	InclusionProof inclusionProof = 3;
+	ConsistencyProof consistencyProof = 4;
 
 	bytes targetBlTxAlh = 5;
-	InclusionProof binLastInclusionProof = 6;
+	InclusionProof lastInclusionProof = 6;
 
 	LinearProof linearProof = 7;
 }
@@ -269,6 +269,14 @@ message TxEntry {
 	bytes key = 1;
 	bytes hValue = 2;
 	int64 vOff = 3;
+}
+
+message Proof {
+	TxMetadata metadata = 1;
+	TxEntry entry = 2;
+
+	InclusionProof inclusionProof = 3;
+	DualProof dualProof = 4;
 }
 
 ////////////////////////////////////////
