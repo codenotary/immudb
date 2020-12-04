@@ -38,7 +38,7 @@ func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, source
 		var bs [txIDSize + 2*sha256.Size]byte
 		binary.BigEndian.PutUint64(bs[:], proof.SourceTxID+uint64(i))
 		copy(bs[txIDSize:], calculatedAlh[:])
-		copy(bs[txIDSize+sha256.Size:], proof.Proof[i][:]) // innerHash = hash(blTxID + blRoot + txH)
+		copy(bs[txIDSize+sha256.Size:], proof.Proof[i][:]) // innerHash = hash(ts + nentries + eH + blTxID + blRoot)
 		calculatedAlh = sha256.Sum256(bs[:])               // hash(txID + prevAlh + innerHash)
 	}
 
@@ -54,24 +54,12 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 		return false
 	}
 
-	cSourceAlh := alh(
-		proof.SourceTxMetadata.ID,
-		proof.SourceTxMetadata.PrevAlh,
-		proof.SourceTxMetadata.BlTxID,
-		proof.SourceTxMetadata.BlRoot,
-		proof.SourceTxMetadata.TxH,
-	)
+	cSourceAlh := alh(proof.SourceTxMetadata)
 	if sourceAlh != cSourceAlh {
 		return false
 	}
 
-	cTargetAlh := alh(
-		proof.TargetTxMetadata.ID,
-		proof.TargetTxMetadata.PrevAlh,
-		proof.TargetTxMetadata.BlTxID,
-		proof.TargetTxMetadata.BlRoot,
-		proof.TargetTxMetadata.TxH,
-	)
+	cTargetAlh := alh(proof.TargetTxMetadata)
 	if targetAlh != cTargetAlh {
 		return false
 	}
@@ -124,17 +112,19 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 	return VerifyLinearProof(proof.LinearProof, sourceTxID, targetTxID, sourceAlh, targetAlh)
 }
 
-func alh(txID uint64, prevAlh [sha256.Size]byte, blTxID uint64, blRoot, txH [sha256.Size]byte) [sha256.Size]byte {
+func alh(txMetadata TxMetadata) [sha256.Size]byte {
 	var bi [txIDSize + 2*sha256.Size]byte
 
-	binary.BigEndian.PutUint64(bi[:], txID)
-	copy(bi[txIDSize:], prevAlh[:])
+	binary.BigEndian.PutUint64(bi[:], txMetadata.ID)
+	copy(bi[txIDSize:], txMetadata.PrevAlh[:])
 
-	var bj [txIDSize + 2*sha256.Size]byte
-	binary.BigEndian.PutUint64(bj[:], blTxID)
-	copy(bj[txIDSize:], blRoot[:])
-	copy(bj[txIDSize+sha256.Size:], txH[:])
-	innerHash := sha256.Sum256(bj[:]) // hash(blTxID + blRoot + txH)
+	var bj [tsSize + 4 + sha256.Size + txIDSize + sha256.Size]byte
+	binary.BigEndian.PutUint64(bj[:], uint64(txMetadata.Ts))
+	binary.BigEndian.PutUint32(bj[tsSize:], uint32(txMetadata.NEntries))
+	copy(bj[tsSize+4:], txMetadata.Eh[:])
+	binary.BigEndian.PutUint64(bj[tsSize+4+sha256.Size:], txMetadata.BlTxID)
+	copy(bj[tsSize+4+sha256.Size+txIDSize:], txMetadata.BlRoot[:])
+	innerHash := sha256.Sum256(bj[:]) // hash(ts + nentries + eH + blTxID + blRoot)
 
 	copy(bi[txIDSize+sha256.Size:], innerHash[:]) // hash(txID + prevAlh + innerHash)
 
