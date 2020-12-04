@@ -33,7 +33,8 @@ import (
 //Db database instance
 type Db struct {
 	Store *store.ImmuStore
-	tx    *store.Tx
+
+	tx *store.Tx
 
 	Logger  logger.Logger
 	options *DbOptions
@@ -87,8 +88,9 @@ func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
 	}
 
 	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
+	storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
 
-	db.Store, err = store.Open(dbDir, store.DefaultOptions().WithIndexOptions(indexOptions))
+	db.Store, err = store.Open(dbDir, storeOpts)
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
@@ -117,11 +119,11 @@ func (d *Db) Get(k *schema.Key) (*schema.Item, error) {
 	return d.GetSince(k, 0)
 }
 
-func (d *Db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
+func (d *Db) waitForIndexing(ts uint64) error {
 	for {
 		its, err := d.Store.IndexInfo()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if its >= ts {
@@ -129,6 +131,14 @@ func (d *Db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
 		}
 
 		time.Sleep(time.Duration(5) * time.Millisecond)
+	}
+	return nil
+}
+
+func (d *Db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
+	err := d.waitForIndexing(ts)
+	if err != nil {
+		return nil, err
 	}
 
 	snapshot, err := d.Store.Snapshot()
@@ -167,8 +177,63 @@ func (d *Db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 
 //SafeGet ...
 func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
-	//return d.Store.SafeGet(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeGet")
+	if opts == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	// get value of key
+	it, err := d.GetSince(&schema.Key{Key: opts.Key}, opts.RootIndex.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	// key-value inclusion proof
+	err = d.Store.ReadTx(it.Index, d.tx)
+	if err != nil {
+		return nil, err
+	}
+
+	ik, err := d.tx.IndexOf(opts.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	kProof := d.tx.Proof(ik)
+
+	kvDigest := (&store.KV{Key: it.Key, Value: it.Value}).Digest()
+	verifies := kProof.VerifyInclusion(uint64(len(d.tx.Entries())-1), uint64(ik), d.tx.Eh, kvDigest)
+	if !verifies {
+		return nil, err
+	}
+
+	if opts.RootIndex.Index > 0 {
+		rootTx := d.Store.NewTx()
+
+		err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
+		if err != nil {
+			return nil, err
+		}
+
+		/*var dProof *store.DualProof
+
+		if it.Index <= opts.RootIndex.Index {
+			dProof, err = d.Store.DualProof(d.tx, rootTx)
+		} else {
+			dProof, err = d.Store.DualProof(rootTx, d.tx)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+		*/
+	}
+
+	proof := &schema.Proof{
+		Leaf:  kvDigest[:],
+		Index: it.Index,
+	}
+
+	return &schema.SafeItem{Item: it, Proof: proof}, nil
 }
 
 // SetBatch ...
@@ -234,7 +299,6 @@ func (d *Db) Inclusion(index *schema.Index) (*schema.InclusionProof, error) {
 
 // Consistency ...
 func (d *Db) Consistency(index *schema.Index) (*schema.ConsistencyProof, error) {
-	//return d.Store.ConsistencyProof(*index)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Consistency")
 }
 

@@ -198,14 +198,14 @@ func TestDbSetGet(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error Inserting to db %s", err)
 		}
-		if it.GetIndex() != uint64(ind) {
+		if it.GetIndex() != uint64(ind+1) {
 			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 		k := &schema.Key{
 			Key: []byte(val.Key),
 		}
 
-		item, err := db.GetSince(k, it.Index+1)
+		item, err := db.GetSince(k, it.Index)
 		if err != nil {
 			t.Fatalf("Error reading key %s", err)
 		}
@@ -213,6 +213,20 @@ func TestDbSetGet(t *testing.T) {
 			t.Fatalf("Inserted CurrentOffset not equal to read CurrentOffset")
 		}
 		if !bytes.Equal(item.Value, val.Value) {
+			t.Fatalf("Inserted value not equal to read value")
+		}
+
+		sitem, err := db.SafeGet(&schema.SafeGetOptions{
+			Key:       val.Key,
+			RootIndex: &schema.Index{Index: 0},
+		})
+		if err != nil {
+			t.Fatalf("Error reading key %s", err)
+		}
+		if !bytes.Equal(sitem.Item.Key, val.Key) {
+			t.Fatalf("Inserted CurrentOffset not equal to read CurrentOffset")
+		}
+		if !bytes.Equal(sitem.Item.Value, val.Value) {
 			t.Fatalf("Inserted value not equal to read value")
 		}
 	}
