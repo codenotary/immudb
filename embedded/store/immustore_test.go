@@ -31,6 +31,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/htree"
 	"github.com/codenotary/immudb/embedded/tbtree"
 
 	"github.com/stretchr/testify/assert"
@@ -652,7 +653,8 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 		assert.Equal(t, eCount, len(txEntries))
 
 		for j := 0; j < eCount; j++ {
-			path := tx.Proof(j)
+			proof, err := tx.Proof(j)
+			require.NoError(t, err)
 
 			key := txEntries[j].Key()
 
@@ -675,7 +677,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 
 			kv := &KV{Key: key, Value: value}
 
-			verifies := path.VerifyInclusion(uint64(tx.nentries-1), uint64(j), tx.Eh, kv.Digest())
+			verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 			require.True(t, verifies)
 
 			v, err = immuStore.ReadValue(tx, key)
@@ -1188,17 +1190,18 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 		assert.Equal(t, eCount, len(txEntries))
 
 		for j := 0; j < eCount; j++ {
-			path := tx.Proof(j)
+			proof, err := tx.Proof(j)
+			require.NoError(t, err)
 
 			key := txEntries[j].Key()
 
 			value := make([]byte, txEntries[j].ValueLen)
-			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
+			_, err = immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
 			require.NoError(t, err)
 
 			kv := &KV{Key: key, Value: value}
 
-			verifies := path.VerifyInclusion(uint64(tx.nentries-1), uint64(j), tx.Eh, kv.Digest())
+			verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 			require.True(t, verifies)
 		}
 	}
