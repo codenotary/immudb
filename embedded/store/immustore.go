@@ -137,14 +137,12 @@ type KV struct {
 }
 
 func (kv *KV) Digest() [sha256.Size]byte {
-	b := make([]byte, 1+len(kv.Key)+sha256.Size)
+	b := make([]byte, len(kv.Key)+sha256.Size)
 
-	b[0] = LeafPrefix
-
-	copy(b[1:], kv.Key)
+	copy(b[:], kv.Key)
 
 	hvalue := sha256.Sum256(kv.Value)
-	copy(b[1+len(kv.Key):], hvalue[:])
+	copy(b[len(kv.Key):], hvalue[:])
 
 	return sha256.Sum256(b)
 }
@@ -769,8 +767,6 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		copy(txe.key, e.Key)
 		txe.ValueLen = len(e.Value)
 		txe.HValue = sha256.Sum256(e.Value)
-
-		tx.htree[0][i] = txe.digest()
 	}
 
 	tx.buildHashTree()
@@ -946,7 +942,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 			PrevAlh:  sourceTx.PrevAlh,
 			Ts:       sourceTx.Ts,
 			NEntries: sourceTx.nentries,
-			Eh:       sourceTx.Eh,
+			Eh:       sourceTx.Eh(),
 			BlTxID:   sourceTx.BlTxID,
 			BlRoot:   sourceTx.BlRoot,
 		},
@@ -955,7 +951,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 			PrevAlh:  targetTx.PrevAlh,
 			Ts:       targetTx.Ts,
 			NEntries: targetTx.nentries,
-			Eh:       targetTx.Eh,
+			Eh:       targetTx.Eh(),
 			BlTxID:   targetTx.BlTxID,
 			BlRoot:   targetTx.BlRoot,
 		},
