@@ -654,7 +654,7 @@ func (s *ImmuServer) CurrentRoot(ctx context.Context, e *empty.Empty) (root *sch
 }
 
 // Set ...
-func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Index, error) {
+func (s *ImmuServer) Set(ctx context.Context, kv *schema.KeyValue) (*schema.Root, error) {
 	s.Logger.Debugf("set %s %d bytes", kv.Key, len(kv.Value))
 
 	ind, err := s.getDbIndexFromCtx(ctx, "Set")
@@ -732,17 +732,8 @@ func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.Item
 	return s.dbList.GetByIndex(ind).CountAll(), nil
 }
 
-// Inclusion ...
-func (s *ImmuServer) Inclusion(ctx context.Context, index *schema.Index) (*schema.InclusionProof, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "Inclusion")
-	if err != nil {
-		return nil, err
-	}
-	return s.dbList.GetByIndex(ind).Inclusion(index)
-}
-
 // Consistency ...
-func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*schema.ConsistencyProof, error) {
+func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*schema.DualProof, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "Consistency")
 	if err != nil {
 		return nil, err
@@ -752,7 +743,7 @@ func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*sch
 }
 
 // ByIndex ...
-func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Item, error) {
+func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Tx, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
 
 	ind, err := s.getDbIndexFromCtx(ctx, "ByIndex")
@@ -764,7 +755,7 @@ func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.
 }
 
 // BySafeIndex ...
-func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
+func (s *ImmuServer) BySafeIndex(ctx context.Context, sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error) {
 	s.Logger.Debugf("get by safeIndex %d ", sio.Index)
 	ind, err := s.getDbIndexFromCtx(ctx, "BySafeIndex")
 	if err != nil {
@@ -794,7 +785,7 @@ func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.Health
 }
 
 // Reference ...
-func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
+func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOptions) (*schema.Root, error) {
 	s.Logger.Debugf("reference options: %v", refOpts)
 	ind, err := s.getDbIndexFromCtx(ctx, "Reference")
 	if err != nil {
@@ -804,7 +795,7 @@ func (s *ImmuServer) Reference(ctx context.Context, refOpts *schema.ReferenceOpt
 }
 
 // Reference ...
-func (s *ImmuServer) GetReference(ctx context.Context, refOpts *schema.Key) (index *schema.Item, err error) {
+func (s *ImmuServer) GetReference(ctx context.Context, refOpts *schema.Key) (item *schema.Item, err error) {
 	s.Logger.Debugf("getReference options: %v", refOpts)
 	ind, err := s.getDbIndexFromCtx(ctx, "GetReference")
 	if err != nil {
@@ -824,7 +815,7 @@ func (s *ImmuServer) SafeReference(ctx context.Context, safeRefOpts *schema.Safe
 }
 
 // ZAdd ...
-func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Index, error) {
+func (s *ImmuServer) ZAdd(ctx context.Context, opts *schema.ZAddOptions) (*schema.Root, error) {
 	s.Logger.Debugf("zadd %+v", *opts)
 	ind, err := s.getDbIndexFromCtx(ctx, "ZAdd")
 	if err != nil {

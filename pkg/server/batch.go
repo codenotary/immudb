@@ -2,12 +2,13 @@ package server
 
 import (
 	"context"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/store"
 )
 
 // SetBatch ...
-func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
+func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Root, error) {
 	s.Logger.Debugf("set batch %d", len(kvl.KVs))
 
 	ind, err := s.getDbIndexFromCtx(ctx, "SetBatch")
@@ -40,7 +41,7 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 	return list, nil
 }
 
-func (s *ImmuServer) ExecAllOps(ctx context.Context, operations *schema.Ops) (*schema.Index, error) {
+func (s *ImmuServer) ExecAllOps(ctx context.Context, operations *schema.Ops) (*schema.Root, error) {
 	s.Logger.Debugf("set batch atomic operations")
 
 	ind, err := s.getDbIndexFromCtx(ctx, "ExecAllOps")

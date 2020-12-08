@@ -101,17 +101,22 @@ func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
 }
 
 //Set ...
-func (d *Db) Set(kv *schema.KeyValue) (*schema.Index, error) {
+func (d *Db) Set(kv *schema.KeyValue) (*schema.Root, error) {
 	if kv == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
-	id, _, _, err := d.Store.Commit([]*store.KV{{Key: kv.Key, Value: kv.Value}})
+	id, _, alh, err := d.Store.Commit([]*store.KV{{Key: kv.Key, Value: kv.Value}})
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Set")
 	}
 
-	return &schema.Index{Index: id}, nil
+	return &schema.Root{
+		Payload: &schema.RootIndex{
+			Index: id,
+			Root:  alh[:],
+		},
+	}, nil
 }
 
 //Get ...
@@ -182,7 +187,7 @@ func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	}
 
 	// get value of key
-	it, err := d.GetSince(&schema.Key{Key: opts.Key}, opts.RootIndex.Index)
+	it, err := d.Get(&schema.Key{Key: opts.Key})
 	if err != nil {
 		return nil, err
 	}
@@ -198,15 +203,18 @@ func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 		return nil, err
 	}
 
-	inclusionProof := d.tx.Proof(ik)
-
-	kvDigest := (&store.KV{Key: it.Key, Value: it.Value}).Digest()
-	verifies := kProof.VerifyInclusion(uint64(len(d.tx.Entries())-1), uint64(ik), d.tx.Eh, kvDigest)
-	if !verifies {
+	inclusionProof, err := d.tx.Proof(ik)
+	if err != nil {
 		return nil, err
 	}
 
-	if opts.RootIndex.Index > 0 {
+	proof := &schema.Proof{
+		InclusionProof: inclusionProofTo(inclusionProof),
+		DualProof:      nil,
+	}
+
+	// TODO: if not, dual proof might be made against latest transaction
+	if opts.RootIndex.Index <= it.Index {
 		rootTx := d.Store.NewTx()
 
 		err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
@@ -214,49 +222,36 @@ func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 			return nil, err
 		}
 
-		/*var dProof *store.DualProof
-
-		if it.Index <= opts.RootIndex.Index {
-			dProof, err = d.Store.DualProof(d.tx, rootTx)
-		} else {
-			dProof, err = d.Store.DualProof(rootTx, d.tx)
-		}
-
+		dualProof, err := d.Store.DualProof(rootTx, d.tx)
 		if err != nil {
 			return nil, err
 		}
-		*/
-	}
 
-	proof := &schema.Proof{
-		Metadata: &schema.TxMetadata{},
-		Entry:    nil,
-		InclusionProof: &schema.InclusionProof{
-			I:     uint64(ik),
-			J:     uint64(len(d.tx.Entries())),
-			ILeaf: kvDigest[:],
-			JRoot: d.tx.Eh[:],
-			Terms: inclusionProof,
-		},
+		proof.DualProof = dualProofTo(dualProof)
 	}
 
 	return &schema.SafeItem{Item: it, Proof: proof}, nil
 }
 
 // SetBatch ...
-func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Index, error) {
+func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Root, error) {
 	if kvl == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
 	entries := make([]*store.KV, len(kvl.KVs))
 
-	id, _, _, err := d.Store.Commit(entries)
+	id, _, alh, err := d.Store.Commit(entries)
 	if err != nil {
 		return nil, err
 	}
 
-	return &schema.Index{Index: id}, nil
+	return &schema.Root{
+		Payload: &schema.RootIndex{
+			Index: id,
+			Root:  alh[:],
+		},
+	}, nil
 }
 
 //GetBatch ...
@@ -276,7 +271,7 @@ func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 }
 
 // ExecAllOps ...
-func (d *Db) ExecAllOps(operations *schema.Ops) (*schema.Index, error) {
+func (d *Db) ExecAllOps(operations *schema.Ops) (*schema.Root, error) {
 	//return d.Store.ExecAllOps(operations)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ExecAllOps")
 }
@@ -298,25 +293,19 @@ func (d *Db) CountAll() *schema.ItemsCount {
 	return nil
 }
 
-// Inclusion ...
-func (d *Db) Inclusion(index *schema.Index) (*schema.InclusionProof, error) {
-	//return d.Store.InclusionProof(*index)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "Inclusion")
-}
-
 // Consistency ...
-func (d *Db) Consistency(index *schema.Index) (*schema.ConsistencyProof, error) {
+func (d *Db) Consistency(index *schema.Index) (*schema.DualProof, error) {
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Consistency")
 }
 
 // ByIndex ...
-func (d *Db) ByIndex(index *schema.Index) (*schema.Item, error) {
+func (d *Db) ByIndex(index *schema.Index) (*schema.Tx, error) {
 	//return d.Store.ByIndex(*index)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ByIndex")
 }
 
 //BySafeIndex ...
-func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.SafeItem, error) {
+func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error) {
 	//return d.Store.BySafeIndex(*sio)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "BySafeIndex")
 }
@@ -371,7 +360,7 @@ func (d *Db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 }
 
 //Reference ...
-func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, err error) {
+func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Root, err error) {
 	/*
 		d.Logger.Debugf("reference options: %v", refOpts)
 		return d.Store.Reference(refOpts)
@@ -380,7 +369,7 @@ func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Index, e
 }
 
 //Reference ...
-func (d *Db) GetReference(refOpts *schema.Key) (index *schema.Item, err error) {
+func (d *Db) GetReference(refOpts *schema.Key) (item *schema.Item, err error) {
 	/*d.Logger.Debugf("getReference options: %v", refOpts)
 	return d.Store.GetReference(*refOpts)
 	*/
@@ -394,7 +383,7 @@ func (d *Db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *sch
 }
 
 //ZAdd ...
-func (d *Db) ZAdd(opts *schema.ZAddOptions) (*schema.Index, error) {
+func (d *Db) ZAdd(opts *schema.ZAddOptions) (*schema.Root, error) {
 	//return d.Store.ZAdd(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZAdd")
 }
