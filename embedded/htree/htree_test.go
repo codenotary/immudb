@@ -64,7 +64,7 @@ func TestHTree(t *testing.T) {
 		verifies = VerifyInclusion(proof, digests[i], sha256.Sum256(root[:]))
 		require.False(t, verifies)
 
-		proof.terms = nil
+		proof.Terms = nil
 		verifies = VerifyInclusion(proof, digests[i], root)
 		require.False(t, verifies)
 

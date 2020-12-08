@@ -36,9 +36,9 @@ type HTree struct {
 }
 
 type InclusionProof struct {
-	i     int
-	width int
-	terms [][sha256.Size]byte
+	Index int
+	Width int
+	Terms [][sha256.Size]byte
 }
 
 func New(maxWidth int) (*HTree, error) {
@@ -132,8 +132,12 @@ func (t *HTree) InclusionProof(i int) (proof *InclusionProof, err error) {
 	var r int
 
 	proof = &InclusionProof{
-		i:     i,
-		width: t.width,
+		Index: i,
+		Width: t.width,
+	}
+
+	if t.width == 1 {
+		return
 	}
 
 	for {
@@ -152,7 +156,7 @@ func (t *HTree) InclusionProof(i int) (proof *InclusionProof, err error) {
 		layer := bits.Len(uint(r - l))
 		index := l / (1 << layer)
 
-		proof.terms = append([][sha256.Size]byte{t.levels[layer][index]}, proof.terms...)
+		proof.Terms = append([][sha256.Size]byte{t.levels[layer][index]}, proof.Terms...)
 
 		if n < 1 || (n == 1 && m == 0) {
 			return
@@ -169,10 +173,10 @@ func VerifyInclusion(proof *InclusionProof, digest, root [sha256.Size]byte) bool
 	copy(leaf[1:], digest[:])
 
 	calcRoot := sha256.Sum256(leaf[:])
-	i := proof.i
-	r := proof.width - 1
+	i := proof.Index
+	r := proof.Width - 1
 
-	for _, t := range proof.terms {
+	for _, t := range proof.Terms {
 		b := [1 + 2*sha256.Size]byte{NodePrefix}
 
 		if i%2 == 0 && i != r {
