@@ -137,14 +137,12 @@ type KV struct {
 }
 
 func (kv *KV) Digest() [sha256.Size]byte {
-	b := make([]byte, 1+len(kv.Key)+sha256.Size)
+	b := make([]byte, len(kv.Key)+sha256.Size)
 
-	b[0] = LeafPrefix
-
-	copy(b[1:], kv.Key)
+	copy(b[:], kv.Key)
 
 	hvalue := sha256.Sum256(kv.Value)
-	copy(b[1+len(kv.Key):], hvalue[:])
+	copy(b[len(kv.Key):], hvalue[:])
 
 	return sha256.Sum256(b)
 }
@@ -305,7 +303,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 			return nil, err
 		}
 
-		committedAlh = tx.Alh()
+		committedAlh = tx.Alh
 	}
 
 	vLogsMap := make(map[byte]*refVLog, len(vLogs))
@@ -489,7 +487,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 			return err
 		}
 
-		alh := tx.Alh()
+		alh := tx.Alh
 		s.aht.Append(alh[:])
 	}
 
@@ -769,8 +767,6 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		copy(txe.key, e.Key)
 		txe.ValueLen = len(e.Value)
 		txe.HValue = sha256.Sum256(e.Value)
-
-		tx.htree[0][i] = txe.digest()
 	}
 
 	tx.buildHashTree()
@@ -786,7 +782,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		return
 	}
 
-	return tx.ID, tx.Ts, tx.Alh(), nil
+	return tx.ID, tx.Ts, tx.Alh, nil
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
@@ -852,27 +848,10 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		txSize += sha256.Size
 	}
 
-	var b [txIDSize + tsSize + txIDSize + 2*sha256.Size + szSize + sha256.Size]byte
-	bi := 0
-
-	binary.BigEndian.PutUint64(b[:], tx.ID)
-	bi += txIDSize
-	binary.BigEndian.PutUint64(b[bi:], uint64(tx.Ts))
-	bi += tsSize
-	binary.BigEndian.PutUint64(b[bi:], tx.BlTxID)
-	bi += txIDSize
-	copy(b[bi:], tx.BlRoot[:])
-	bi += sha256.Size
-	copy(b[bi:], tx.PrevAlh[:])
-	bi += sha256.Size
-	binary.BigEndian.PutUint32(b[bi:], uint32(len(tx.entries)))
-	bi += szSize
-	copy(b[bi:], tx.Eh[:])
-
-	tx.TxH = sha256.Sum256(b[:])
+	tx.calcAlh()
 
 	// tx serialization using pre-allocated buffer
-	copy(s._txbs[txSize:], tx.TxH[:])
+	copy(s._txbs[txSize:], tx.Alh[:])
 	txSize += sha256.Size
 
 	txOff, _, err := s.txLog.Append(s._txbs[:txSize])
@@ -885,15 +864,13 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
-	alh := tx.Alh()
-
 	if s.blBuffer == nil {
-		_, _, err := s.aht.Append(alh[:])
+		_, _, err := s.aht.Append(tx.Alh[:])
 		if err != nil {
 			return err
 		}
 	} else {
-		err = s.blBuffer.Put(alh)
+		err = s.blBuffer.Put(tx.Alh)
 		if err != nil {
 			if err == cbuffer.ErrBufferIsFull {
 				return ErrLinearProofMaxLenExceeded
@@ -917,7 +894,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	}
 
 	s.committedTxID++
-	s.committedAlh = alh
+	s.committedAlh = tx.Alh
 	s.committedTxLogSize += int64(txSize)
 
 	s.indexerCond.Broadcast()
@@ -926,11 +903,13 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 }
 
 type TxMetadata struct {
-	ID      uint64
-	PrevAlh [sha256.Size]byte
-	TxH     [sha256.Size]byte
-	BlTxID  uint64
-	BlRoot  [sha256.Size]byte
+	ID       uint64
+	PrevAlh  [sha256.Size]byte
+	Ts       int64
+	NEntries int
+	Eh       [sha256.Size]byte
+	BlTxID   uint64
+	BlRoot   [sha256.Size]byte
 }
 
 type DualProof struct {
@@ -959,18 +938,22 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 
 	proof = &DualProof{
 		SourceTxMetadata: TxMetadata{
-			ID:      sourceTx.ID,
-			PrevAlh: sourceTx.PrevAlh,
-			TxH:     sourceTx.TxH,
-			BlTxID:  sourceTx.BlTxID,
-			BlRoot:  sourceTx.BlRoot,
+			ID:       sourceTx.ID,
+			PrevAlh:  sourceTx.PrevAlh,
+			Ts:       sourceTx.Ts,
+			NEntries: sourceTx.nentries,
+			Eh:       sourceTx.Eh(),
+			BlTxID:   sourceTx.BlTxID,
+			BlRoot:   sourceTx.BlRoot,
 		},
 		TargetTxMetadata: TxMetadata{
-			ID:      targetTx.ID,
-			PrevAlh: targetTx.PrevAlh,
-			TxH:     targetTx.TxH,
-			BlTxID:  targetTx.BlTxID,
-			BlRoot:  targetTx.BlRoot,
+			ID:       targetTx.ID,
+			PrevAlh:  targetTx.PrevAlh,
+			Ts:       targetTx.Ts,
+			NEntries: targetTx.nentries,
+			Eh:       targetTx.Eh(),
+			BlTxID:   targetTx.BlTxID,
+			BlRoot:   targetTx.BlRoot,
 		},
 	}
 
@@ -1008,7 +991,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 			return nil, err
 		}
 
-		proof.TargetBlTxAlh = targetBlTx.Alh()
+		proof.TargetBlTxAlh = targetBlTx.Alh
 
 		// Used to validate targetTx.BlRoot is calculated with alh@targetTx.BlTxID as last leaf
 		binLastInclusionProof, err := s.aht.InclusionProof(targetTx.BlTxID, targetTx.BlTxID) // must match targetTx.BlRoot
@@ -1061,7 +1044,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 	}
 
 	proof := make([][sha256.Size]byte, targetTxID-sourceTxID+1)
-	proof[0] = tx.Alh()
+	proof[0] = tx.Alh
 
 	for i := 1; i < len(proof); i++ {
 		tx, err := r.Read()
@@ -1069,12 +1052,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 			return nil, err
 		}
 
-		var b [txIDSize + 2*sha256.Size]byte
-		binary.BigEndian.PutUint64(b[:], tx.BlTxID)
-		copy(b[txIDSize:], tx.BlRoot[:])
-		copy(b[txIDSize+sha256.Size:], tx.TxH[:])
-
-		proof[i] = sha256.Sum256(b[:]) // hash(blTxID + blRoot + txH)
+		proof[i] = tx.InnerHash
 	}
 
 	return &LinearProof{
@@ -1211,7 +1189,7 @@ func (txr *TxReader) Read() (*Tx, error) {
 
 	txr.alreadyRead = true
 	txr.txID = txr._tx.ID
-	txr.alh = txr._tx.Alh()
+	txr.alh = txr._tx.Alh
 
 	return txr._tx, nil
 }

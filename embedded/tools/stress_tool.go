@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/appendable"
+	"github.com/codenotary/immudb/embedded/htree"
 	"github.com/codenotary/immudb/embedded/store"
 )
 
@@ -315,7 +316,10 @@ func main() {
 
 				if *kvInclusion {
 					for i := 0; i < len(txEntries); i++ {
-						path := tx.Proof(i)
+						proof, err := tx.Proof(i)
+						if err != nil {
+							panic(err)
+						}
 
 						_, err = immuStore.ReadValueAt(b[:txEntries[i].ValueLen], txEntries[i].VOff, txEntries[i].HValue)
 						if err != nil {
@@ -324,7 +328,7 @@ func main() {
 
 						kv := &store.KV{Key: txEntries[i].Key(), Value: b[:txEntries[i].ValueLen]}
 
-						verifies := path.VerifyInclusion(uint64(len(txEntries)-1), uint64(i), tx.Eh, kv.Digest())
+						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 						if !verifies {
 							panic("kv does not verify")
 						}

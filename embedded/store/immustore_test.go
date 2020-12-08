@@ -31,6 +31,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/mocked"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/htree"
 	"github.com/codenotary/immudb/embedded/tbtree"
 
 	"github.com/stretchr/testify/assert"
@@ -652,12 +653,17 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 		assert.Equal(t, eCount, len(txEntries))
 
 		for j := 0; j < eCount; j++ {
-			path := tx.Proof(j)
+			proof, err := tx.Proof(j)
+			require.NoError(t, err)
 
 			key := txEntries[j].Key()
 
+			ki, err := tx.IndexOf(key)
+			require.NoError(t, err)
+			require.Equal(t, j, ki)
+
 			value := make([]byte, txEntries[j].ValueLen)
-			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
+			_, err = immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
 			require.NoError(t, err)
 
 			k := make([]byte, 8)
@@ -671,7 +677,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 
 			kv := &KV{Key: key, Value: value}
 
-			verifies := path.VerifyInclusion(uint64(tx.nentries-1), uint64(j), tx.Eh, kv.Digest())
+			verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 			require.True(t, verifies)
 
 			v, err = immuStore.ReadValue(tx, key)
@@ -734,7 +740,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		p, err := immuStore.aht.DataAt(uint64(i + 1))
 		require.NoError(t, err)
 
-		alh := tx.Alh()
+		alh := tx.Alh
 		require.Equal(t, alh[:], p)
 	}
 }
@@ -790,7 +796,7 @@ func TestLeavesMatchesAHTASync(t *testing.T) {
 		p, err := immuStore.aht.DataAt(uint64(i + 1))
 		require.NoError(t, err)
 
-		alh := tx.Alh()
+		alh := tx.Alh
 		require.Equal(t, alh[:], p)
 	}
 }
@@ -847,7 +853,7 @@ func TestImmudbStoreConsistencyProof(t *testing.T) {
 			dproof, err := immuStore.DualProof(sourceTx, targetTx)
 			require.NoError(t, err)
 
-			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+			verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 			require.True(t, verifies)
 		}
 	}
@@ -915,7 +921,7 @@ func TestImmudbStoreConsistencyProofAgainstLatest(t *testing.T) {
 		dproof, err := immuStore.DualProof(sourceTx, targetTx)
 		require.NoError(t, err)
 
-		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+		verifies := VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 		require.True(t, verifies)
 	}
 
@@ -1004,13 +1010,13 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 			lproof, err := immuStore.LinearProof(sourceTxID, targetTxID)
 			require.NoError(t, err)
 
-			verifies := VerifyLinearProof(lproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+			verifies := VerifyLinearProof(lproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 			require.True(t, verifies)
 
 			dproof, err := immuStore.DualProof(sourceTx, targetTx)
 			require.NoError(t, err)
 
-			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh(), targetTx.Alh())
+			verifies = VerifyDualProof(dproof, sourceTxID, targetTxID, sourceTx.Alh, targetTx.Alh)
 			require.True(t, verifies)
 		}
 	}
@@ -1184,17 +1190,18 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 		assert.Equal(t, eCount, len(txEntries))
 
 		for j := 0; j < eCount; j++ {
-			path := tx.Proof(j)
+			proof, err := tx.Proof(j)
+			require.NoError(t, err)
 
 			key := txEntries[j].Key()
 
 			value := make([]byte, txEntries[j].ValueLen)
-			_, err := immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
+			_, err = immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
 			require.NoError(t, err)
 
 			kv := &KV{Key: key, Value: value}
 
-			verifies := path.VerifyInclusion(uint64(tx.nentries-1), uint64(j), tx.Eh, kv.Digest())
+			verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 			require.True(t, verifies)
 		}
 	}

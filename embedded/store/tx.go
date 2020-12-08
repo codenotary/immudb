@@ -16,29 +16,28 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
-	"math/bits"
 
 	"github.com/codenotary/immudb/embedded/appendable"
-
-	"github.com/codenotary/merkletree"
+	"github.com/codenotary/immudb/embedded/htree"
 )
 
 type Tx struct {
-	ID       uint64
-	Ts       int64
-	BlTxID   uint64
-	BlRoot   [sha256.Size]byte
-	PrevAlh  [sha256.Size]byte
+	ID      uint64
+	Ts      int64
+	BlTxID  uint64
+	BlRoot  [sha256.Size]byte
+	PrevAlh [sha256.Size]byte
+
 	nentries int
 	entries  []*Txe
-	TxH      [sha256.Size]byte
-	htree    [][][sha256.Size]byte
-	Eh       [sha256.Size]byte
 
-	_alh     [sha256.Size]byte
-	_alhTxID uint64
+	htree *htree.HTree
+
+	Alh       [sha256.Size]byte
+	InnerHash [sha256.Size]byte
 }
 
 func newTx(nentries int, maxKeyLen int) *Tx {
@@ -47,16 +46,7 @@ func newTx(nentries int, maxKeyLen int) *Tx {
 		entries[i] = &Txe{key: make([]byte, maxKeyLen)}
 	}
 
-	w := 1
-	for w < nentries {
-		w = w << 1
-	}
-
-	layers := bits.Len64(uint64(nentries-1)) + 1
-	htree := make([][][sha256.Size]byte, layers)
-	for l := 0; l < layers; l++ {
-		htree[l] = make([][sha256.Size]byte, w>>l)
-	}
+	htree, _ := htree.New(nentries)
 
 	return &Tx{
 		ID:      0,
@@ -65,45 +55,14 @@ func newTx(nentries int, maxKeyLen int) *Tx {
 	}
 }
 
-const LeafPrefix = byte(0)
-const NodePrefix = byte(1)
+func (tx *Tx) buildHashTree() error {
+	digests := make([][sha256.Size]byte, tx.nentries)
 
-func (tx *Tx) buildHashTree() {
-	l := 0
-	w := tx.nentries
-
-	p := [sha256.Size*2 + 1]byte{NodePrefix}
-
-	for w > 1 {
-		wn := 0
-
-		for i := 0; i+1 < w; i += 2 {
-			copy(p[1:sha256.Size+1], tx.htree[l][i][:])
-			copy(p[sha256.Size+1:], tx.htree[l][i+1][:])
-			tx.htree[l+1][wn] = sha256.Sum256(p[:])
-			wn++
-		}
-
-		if w%2 == 1 {
-			tx.htree[l+1][wn] = tx.htree[l][w-1]
-			wn++
-		}
-
-		l++
-		w = wn
+	for i, e := range tx.Entries() {
+		digests[i] = e.Digest()
 	}
 
-	tx.Eh = tx.htree[l][0]
-}
-
-func (tx *Tx) Width() uint64 {
-	return uint64(tx.nentries)
-}
-
-func (tx *Tx) Set(layer uint8, index uint64, value [sha256.Size]byte) { /* not used */ }
-
-func (tx *Tx) Get(layer uint8, index uint64) *[sha256.Size]byte {
-	return &tx.htree[layer][index]
+	return tx.htree.BuildWith(digests)
 }
 
 func (tx *Tx) Entries() []*Txe {
@@ -111,33 +70,47 @@ func (tx *Tx) Entries() []*Txe {
 }
 
 // Alh calculates the Accumulative Linear Hash up to this transaction
-// Alh is calculated as hash(txID + prevAlh + hash(blTxID + blRoot + txH))
+// Alh is calculated as hash(txID + prevAlh + hash(ts + nentries + eH + blTxID + blRoot))
 // Inner hash is calculated so to reduce the length of linear proofs
-func (tx *Tx) Alh() [sha256.Size]byte {
-	if tx.ID == tx._alhTxID {
-		return tx._alh
-	}
+func (tx *Tx) calcAlh() {
+	tx.calcInnerHash()
 
 	var bi [txIDSize + 2*sha256.Size]byte
 	binary.BigEndian.PutUint64(bi[:], tx.ID)
 	copy(bi[txIDSize:], tx.PrevAlh[:])
+	copy(bi[txIDSize+sha256.Size:], tx.InnerHash[:]) // hash(ts + nentries + eH + blTxID + blRoot)
 
-	var bj [txIDSize + 2*sha256.Size]byte
-	binary.BigEndian.PutUint64(bj[:], tx.BlTxID)
-	copy(bj[txIDSize:], tx.BlRoot[:])
-	copy(bj[txIDSize+sha256.Size:], tx.TxH[:])
-	innerHash := sha256.Sum256(bj[:]) // hash(blTxID + blRoot + txH)
-
-	copy(bi[txIDSize+sha256.Size:], innerHash[:])
-
-	tx._alh = sha256.Sum256(bi[:]) // hash(txID + prevAlh + innerHash)
-	tx._alhTxID = tx.ID
-
-	return tx._alh
+	tx.Alh = sha256.Sum256(bi[:]) // hash(txID + prevAlh + innerHash)
 }
 
-func (tx *Tx) Proof(kindex int) merkletree.Path {
-	return merkletree.InclusionProof(tx, uint64(tx.nentries-1), uint64(kindex))
+func (tx *Tx) calcInnerHash() {
+	var bj [tsSize + 4 + sha256.Size + txIDSize + sha256.Size]byte
+	binary.BigEndian.PutUint64(bj[:], uint64(tx.Ts))
+	binary.BigEndian.PutUint32(bj[tsSize:], uint32(tx.nentries))
+	eh := tx.Eh()
+	copy(bj[tsSize+4:], eh[:])
+	binary.BigEndian.PutUint64(bj[tsSize+4+sha256.Size:], tx.BlTxID)
+	copy(bj[tsSize+4+sha256.Size+txIDSize:], tx.BlRoot[:])
+
+	tx.InnerHash = sha256.Sum256(bj[:]) // hash(ts + nentries + eH + blTxID + blRoot)
+}
+
+func (tx *Tx) Eh() [sha256.Size]byte {
+	root, _ := tx.htree.Root()
+	return root
+}
+
+func (tx *Tx) IndexOf(key []byte) (int, error) {
+	for i, e := range tx.Entries() {
+		if bytes.Equal(e.Key(), key) {
+			return i, nil
+		}
+	}
+	return 0, ErrKeyNotFound
+}
+
+func (tx *Tx) Proof(kindex int) (*htree.InclusionProof, error) {
+	return tx.htree.InclusionProof(kindex)
 }
 
 func (tx *Tx) readFrom(r *appendable.Reader) error {
@@ -203,39 +176,21 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		if err != nil {
 			return err
 		}
-
-		tx.htree[0][i] = tx.entries[i].digest()
 	}
 
-	_, err = r.Read(tx.TxH[:])
+	var alh [sha256.Size]byte
+	_, err = r.Read(alh[:])
 	if err != nil {
 		return err
 	}
 
 	tx.buildHashTree()
 
-	var b [txIDSize + tsSize + txIDSize + 2*sha256.Size + szSize + sha256.Size]byte
-	bi := 0
+	tx.calcAlh()
 
-	binary.BigEndian.PutUint64(b[:], tx.ID)
-	bi += txIDSize
-	binary.BigEndian.PutUint64(b[bi:], uint64(tx.Ts))
-	bi += tsSize
-	binary.BigEndian.PutUint64(b[bi:], tx.BlTxID)
-	bi += txIDSize
-	copy(b[bi:], tx.BlRoot[:])
-	bi += sha256.Size
-	copy(b[bi:], tx.PrevAlh[:])
-	bi += sha256.Size
-	binary.BigEndian.PutUint32(b[bi:], uint32(len(tx.entries)))
-	bi += szSize
-	copy(b[bi:], tx.Eh[:])
-
-	if tx.TxH != sha256.Sum256(b[:]) {
+	if tx.Alh != alh {
 		return ErrorCorruptedTxData
 	}
-
-	tx._alhTxID = 0
 
 	return nil
 }
@@ -252,12 +207,11 @@ func (e *Txe) Key() []byte {
 	return e.key[:e.keyLen]
 }
 
-func (e *Txe) digest() [sha256.Size]byte {
-	b := make([]byte, 1+e.keyLen+sha256.Size)
+func (e *Txe) Digest() [sha256.Size]byte {
+	b := make([]byte, e.keyLen+sha256.Size)
 
-	b[0] = LeafPrefix
-	copy(b[1:], e.key[:e.keyLen])
-	copy(b[1+e.keyLen:], e.HValue[:])
+	copy(b[:], e.key[:e.keyLen])
+	copy(b[e.keyLen:], e.HValue[:])
 
 	return sha256.Sum256(b)
 }
