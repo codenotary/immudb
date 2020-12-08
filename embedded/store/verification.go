@@ -20,7 +20,12 @@ import (
 	"encoding/binary"
 
 	"github.com/codenotary/immudb/embedded/ahtree"
+	"github.com/codenotary/immudb/embedded/htree"
 )
+
+func VerifyInclusion(proof *htree.InclusionProof, kv *KV, root [sha256.Size]byte) bool {
+	return htree.VerifyInclusion(proof, kv.Digest(), root)
+}
 
 func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) bool {
 	if proof == nil || proof.SourceTxID != sourceTxID || proof.TargetTxID != targetTxID {
@@ -54,19 +59,19 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 		return false
 	}
 
-	cSourceAlh := alh(proof.SourceTxMetadata)
+	cSourceAlh := Alh(proof.SourceTxMetadata)
 	if sourceAlh != cSourceAlh {
 		return false
 	}
 
-	cTargetAlh := alh(proof.TargetTxMetadata)
+	cTargetAlh := Alh(proof.TargetTxMetadata)
 	if targetAlh != cTargetAlh {
 		return false
 	}
 
 	if sourceTxID < proof.TargetTxMetadata.BlTxID {
 		verifies := ahtree.VerifyInclusion(
-			proof.BinaryInclusionProof,
+			proof.InclusionProof,
 			sourceTxID,
 			proof.TargetTxMetadata.BlTxID,
 			leafFor(sourceAlh),
@@ -80,7 +85,7 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 
 	if proof.SourceTxMetadata.BlTxID > 0 {
 		verfifies := ahtree.VerifyConsistency(
-			proof.BinaryConsistencyProof,
+			proof.ConsistencyProof,
 			proof.SourceTxMetadata.BlTxID,
 			proof.TargetTxMetadata.BlTxID,
 			proof.SourceTxMetadata.BlRoot,
@@ -94,7 +99,7 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 
 	if proof.TargetTxMetadata.BlTxID > 0 {
 		verifies := ahtree.VerifyLastInclusion(
-			proof.BinaryLastInclusionProof,
+			proof.LastInclusionProof,
 			proof.TargetTxMetadata.BlTxID,
 			leafFor(proof.TargetBlTxAlh),
 			proof.TargetTxMetadata.BlRoot,
@@ -112,7 +117,7 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 	return VerifyLinearProof(proof.LinearProof, sourceTxID, targetTxID, sourceAlh, targetAlh)
 }
 
-func alh(txMetadata TxMetadata) [sha256.Size]byte {
+func Alh(txMetadata *TxMetadata) [sha256.Size]byte {
 	var bi [txIDSize + 2*sha256.Size]byte
 
 	binary.BigEndian.PutUint64(bi[:], txMetadata.ID)

@@ -913,13 +913,13 @@ type TxMetadata struct {
 }
 
 type DualProof struct {
-	SourceTxMetadata         TxMetadata
-	TargetTxMetadata         TxMetadata
-	BinaryInclusionProof     [][sha256.Size]byte
-	BinaryConsistencyProof   [][sha256.Size]byte
-	TargetBlTxAlh            [sha256.Size]byte
-	BinaryLastInclusionProof [][sha256.Size]byte
-	LinearProof              *LinearProof
+	SourceTxMetadata   *TxMetadata
+	TargetTxMetadata   *TxMetadata
+	InclusionProof     [][sha256.Size]byte
+	ConsistencyProof   [][sha256.Size]byte
+	TargetBlTxAlh      [sha256.Size]byte
+	LastInclusionProof [][sha256.Size]byte
+	LinearProof        *LinearProof
 }
 
 // DualProof combines linear cryptographic linking i.e. transactions include the linear accumulative hash up to the previous one,
@@ -937,7 +937,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 	}
 
 	proof = &DualProof{
-		SourceTxMetadata: TxMetadata{
+		SourceTxMetadata: &TxMetadata{
 			ID:       sourceTx.ID,
 			PrevAlh:  sourceTx.PrevAlh,
 			Ts:       sourceTx.Ts,
@@ -946,7 +946,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 			BlTxID:   sourceTx.BlTxID,
 			BlRoot:   sourceTx.BlRoot,
 		},
-		TargetTxMetadata: TxMetadata{
+		TargetTxMetadata: &TxMetadata{
 			ID:       targetTx.ID,
 			PrevAlh:  targetTx.PrevAlh,
 			Ts:       targetTx.Ts,
@@ -962,7 +962,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		if err != nil {
 			return nil, err
 		}
-		proof.BinaryInclusionProof = binInclusionProof
+		proof.InclusionProof = binInclusionProof
 	}
 
 	if sourceTx.BlTxID > targetTx.BlTxID {
@@ -975,7 +975,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 			return nil, err
 		}
 
-		proof.BinaryConsistencyProof = binConsistencyProof
+		proof.ConsistencyProof = binConsistencyProof
 	}
 
 	var targetBlTx *Tx
@@ -998,7 +998,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		if err != nil {
 			return nil, err
 		}
-		proof.BinaryLastInclusionProof = binLastInclusionProof
+		proof.LastInclusionProof = binLastInclusionProof
 	}
 
 	if targetBlTx != nil {
