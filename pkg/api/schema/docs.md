@@ -7,7 +7,6 @@
     - [AuthConfig](#immudb.schema.AuthConfig)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
-    - [ConsistencyProof](#immudb.schema.ConsistencyProof)
     - [Content](#immudb.schema.Content)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
@@ -65,6 +64,7 @@
     - [User](#immudb.schema.User)
     - [UserList](#immudb.schema.UserList)
     - [UserRequest](#immudb.schema.UserRequest)
+    - [VerifiedTx](#immudb.schema.VerifiedTx)
     - [ZAddOptions](#immudb.schema.ZAddOptions)
     - [ZItem](#immudb.schema.ZItem)
     - [ZItemList](#immudb.schema.ZItemList)
@@ -131,25 +131,6 @@
 | username | [string](#string) |  |  |
 | database | [string](#string) |  |  |
 | permission | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ConsistencyProof"></a>
-
-### ConsistencyProof
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| i | [uint64](#uint64) |  |  |
-| j | [uint64](#uint64) |  |  |
-| iRoot | [bytes](#bytes) |  |  |
-| jRoot | [bytes](#bytes) |  |  |
-| terms | [bytes](#bytes) | repeated |  |
 
 
 
@@ -230,10 +211,10 @@
 | ----- | ---- | ----- | ----------- |
 | sourceTxMetadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
 | targetTxMetadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
-| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
-| consistencyProof | [ConsistencyProof](#immudb.schema.ConsistencyProof) |  |  |
+| inclusionProof | [bytes](#bytes) | repeated |  |
+| consistencyProof | [bytes](#bytes) | repeated |  |
 | targetBlTxAlh | [bytes](#bytes) |  |  |
-| lastInclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
+| lastInclusionProof | [bytes](#bytes) | repeated |  |
 | linearProof | [LinearProof](#immudb.schema.LinearProof) |  |  |
 
 
@@ -299,10 +280,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| i | [uint64](#uint64) |  |  |
-| j | [uint64](#uint64) |  |  |
-| iLeaf | [bytes](#bytes) |  |  |
-| jRoot | [bytes](#bytes) |  |  |
+| index | [int32](#int32) |  |  |
+| width | [int32](#int32) |  |  |
 | terms | [bytes](#bytes) | repeated |  |
 
 
@@ -471,10 +450,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| i | [uint64](#uint64) |  |  |
-| j | [uint64](#uint64) |  |  |
-| iAlh | [bytes](#bytes) |  |  |
-| jAlh | [bytes](#bytes) |  |  |
+| sourceTxId | [uint64](#uint64) |  |  |
+| TargetTxId | [uint64](#uint64) |  |  |
 | terms | [bytes](#bytes) | repeated |  |
 
 
@@ -621,8 +598,6 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| metadata | [TxMetadata](#immudb.schema.TxMetadata) |  |  |
-| entry | [TxEntry](#immudb.schema.TxEntry) |  |  |
 | inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
 | dualProof | [DualProof](#immudb.schema.DualProof) |  |  |
 
@@ -1087,6 +1062,22 @@
 
 
 
+<a name="immudb.schema.VerifiedTx"></a>
+
+### VerifiedTx
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tx | [Tx](#immudb.schema.Tx) |  |  |
+| dualProof | [DualProof](#immudb.schema.DualProof) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.ZAddOptions"></a>
 
 ### ZAddOptions
@@ -1225,32 +1216,31 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | PrintTree | [.google.protobuf.Empty](#google.protobuf.Empty) | [Tree](#immudb.schema.Tree) |  |
 | Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
 | Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| Set | [KeyValue](#immudb.schema.KeyValue) | [Index](#immudb.schema.Index) |  |
+| Set | [KeyValue](#immudb.schema.KeyValue) | [Root](#immudb.schema.Root) |  |
 | SafeSet | [SafeSetOptions](#immudb.schema.SafeSetOptions) | [Proof](#immudb.schema.Proof) |  |
 | Get | [Key](#immudb.schema.Key) | [Item](#immudb.schema.Item) |  |
 | SafeGet | [SafeGetOptions](#immudb.schema.SafeGetOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
-| SetBatch | [KVList](#immudb.schema.KVList) | [Index](#immudb.schema.Index) |  |
+| SetBatch | [KVList](#immudb.schema.KVList) | [Root](#immudb.schema.Root) |  |
 | GetBatch | [KeyList](#immudb.schema.KeyList) | [ItemList](#immudb.schema.ItemList) |  |
-| ExecAllOps | [Ops](#immudb.schema.Ops) | [Index](#immudb.schema.Index) |  |
+| ExecAllOps | [Ops](#immudb.schema.Ops) | [Root](#immudb.schema.Root) |  |
 | Scan | [ScanOptions](#immudb.schema.ScanOptions) | [ItemList](#immudb.schema.ItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CurrentRoot | [.google.protobuf.Empty](#google.protobuf.Empty) | [Root](#immudb.schema.Root) |  |
-| Inclusion | [Index](#immudb.schema.Index) | [InclusionProof](#immudb.schema.InclusionProof) |  |
-| Consistency | [Index](#immudb.schema.Index) | [ConsistencyProof](#immudb.schema.ConsistencyProof) |  |
-| ByIndex | [Index](#immudb.schema.Index) | [Item](#immudb.schema.Item) |  |
-| BySafeIndex | [SafeIndexOptions](#immudb.schema.SafeIndexOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
+| Consistency | [Index](#immudb.schema.Index) | [DualProof](#immudb.schema.DualProof) |  |
+| ByIndex | [Index](#immudb.schema.Index) | [Tx](#immudb.schema.Tx) |  |
+| BySafeIndex | [SafeIndexOptions](#immudb.schema.SafeIndexOptions) | [VerifiedTx](#immudb.schema.VerifiedTx) |  |
 | History | [HistoryOptions](#immudb.schema.HistoryOptions) | [ItemList](#immudb.schema.ItemList) |  |
 | Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
-| Reference | [ReferenceOptions](#immudb.schema.ReferenceOptions) | [Index](#immudb.schema.Index) |  |
+| Reference | [ReferenceOptions](#immudb.schema.ReferenceOptions) | [Root](#immudb.schema.Root) |  |
 | GetReference | [Key](#immudb.schema.Key) | [Item](#immudb.schema.Item) |  |
 | SafeReference | [SafeReferenceOptions](#immudb.schema.SafeReferenceOptions) | [Proof](#immudb.schema.Proof) |  |
-| ZAdd | [ZAddOptions](#immudb.schema.ZAddOptions) | [Index](#immudb.schema.Index) |  |
+| ZAdd | [ZAddOptions](#immudb.schema.ZAddOptions) | [Root](#immudb.schema.Root) |  |
 | ZScan | [ZScanOptions](#immudb.schema.ZScanOptions) | [ZItemList](#immudb.schema.ZItemList) |  |
 | SafeZAdd | [SafeZAddOptions](#immudb.schema.SafeZAddOptions) | [Proof](#immudb.schema.Proof) |  |
 | IScan | [IScanOptions](#immudb.schema.IScanOptions) | [Page](#immudb.schema.Page) |  |
 | Dump | [.google.protobuf.Empty](#google.protobuf.Empty) | [.pb.KVList](#pb.KVList) stream |  |
-| CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) | todo(joe-dz): Enable restore when the feature is required again 	rpc Restore(stream pb.KVList) returns (ItemsCount) { 		option (google.api.http) = { 			post: &#34;/v1/immurestproxy/restore&#34; 			body: &#34;*&#34; 		}; 	} |
+| CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

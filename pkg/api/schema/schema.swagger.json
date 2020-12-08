@@ -19,7 +19,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaIndex"
+              "$ref": "#/definitions/schemaRoot"
             }
           },
           "default": {
@@ -83,7 +83,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaIndex"
+              "$ref": "#/definitions/schemaRoot"
             }
           },
           "default": {
@@ -147,7 +147,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaConsistencyProof"
+              "$ref": "#/definitions/schemaDualProof"
             }
           },
           "default": {
@@ -173,7 +173,6 @@
     },
     "/v1/immurestproxy/createdatabase": {
       "post": {
-        "summary": "todo(joe-dz): Enable restore when the feature is required again\n\trpc Restore(stream pb.KVList) returns (ItemsCount) {\n\t\toption (google.api.http) = {\n\t\t\tpost: \"/v1/immurestproxy/restore\"\n\t\t\tbody: \"*\"\n\t\t};\n\t}",
         "operationId": "ImmuService_CreateDatabase",
         "responses": {
           "200": {
@@ -300,37 +299,6 @@
         ]
       }
     },
-    "/v1/immurestproxy/inclusionproof/{index}": {
-      "get": {
-        "operationId": "ImmuService_Inclusion",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaInclusionProof"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "index",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uint64"
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/v1/immurestproxy/iscan": {
       "post": {
         "operationId": "ImmuService_IScan",
@@ -370,7 +338,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaIndex"
+              "$ref": "#/definitions/schemaRoot"
             }
           },
           "default": {
@@ -455,7 +423,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItem"
+              "$ref": "#/definitions/schemaTx"
             }
           },
           "default": {
@@ -550,7 +518,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaSafeItem"
+              "$ref": "#/definitions/schemaVerifiedTx"
             }
           },
           "default": {
@@ -716,7 +684,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaIndex"
+              "$ref": "#/definitions/schemaRoot"
             }
           },
           "default": {
@@ -1046,7 +1014,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaIndex"
+              "$ref": "#/definitions/schemaRoot"
             }
           },
           "default": {
@@ -1261,34 +1229,6 @@
         }
       }
     },
-    "schemaConsistencyProof": {
-      "type": "object",
-      "properties": {
-        "i": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "j": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "iRoot": {
-          "type": "string",
-          "format": "byte"
-        },
-        "jRoot": {
-          "type": "string",
-          "format": "byte"
-        },
-        "terms": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
-        }
-      }
-    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1338,17 +1278,29 @@
           "$ref": "#/definitions/schemaTxMetadata"
         },
         "inclusionProof": {
-          "$ref": "#/definitions/schemaInclusionProof"
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
         },
         "consistencyProof": {
-          "$ref": "#/definitions/schemaConsistencyProof"
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
         },
         "targetBlTxAlh": {
           "type": "string",
           "format": "byte"
         },
         "lastInclusionProof": {
-          "$ref": "#/definitions/schemaInclusionProof"
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
         },
         "linearProof": {
           "$ref": "#/definitions/schemaLinearProof"
@@ -1402,21 +1354,13 @@
     "schemaInclusionProof": {
       "type": "object",
       "properties": {
-        "i": {
-          "type": "string",
-          "format": "uint64"
+        "index": {
+          "type": "integer",
+          "format": "int32"
         },
-        "j": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "iLeaf": {
-          "type": "string",
-          "format": "byte"
-        },
-        "jRoot": {
-          "type": "string",
-          "format": "byte"
+        "width": {
+          "type": "integer",
+          "format": "int32"
         },
         "terms": {
           "type": "array",
@@ -1520,21 +1464,13 @@
     "schemaLinearProof": {
       "type": "object",
       "properties": {
-        "i": {
+        "sourceTxId": {
           "type": "string",
           "format": "uint64"
         },
-        "j": {
+        "TargetTxId": {
           "type": "string",
           "format": "uint64"
-        },
-        "iAlh": {
-          "type": "string",
-          "format": "byte"
-        },
-        "jAlh": {
-          "type": "string",
-          "format": "byte"
         },
         "terms": {
           "type": "array",
@@ -1658,12 +1594,6 @@
     "schemaProof": {
       "type": "object",
       "properties": {
-        "metadata": {
-          "$ref": "#/definitions/schemaTxMetadata"
-        },
-        "entry": {
-          "$ref": "#/definitions/schemaTxEntry"
-        },
         "inclusionProof": {
           "$ref": "#/definitions/schemaInclusionProof"
         },
@@ -1835,6 +1765,20 @@
         }
       }
     },
+    "schemaTx": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "$ref": "#/definitions/schemaTxMetadata"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaTxEntry"
+          }
+        }
+      }
+    },
     "schemaTxEntry": {
       "type": "object",
       "properties": {
@@ -1925,6 +1869,17 @@
           "items": {
             "$ref": "#/definitions/schemaUser"
           }
+        }
+      }
+    },
+    "schemaVerifiedTx": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "$ref": "#/definitions/schemaTx"
+        },
+        "dualProof": {
+          "$ref": "#/definitions/schemaDualProof"
         }
       }
     },

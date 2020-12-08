@@ -125,7 +125,8 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 			if s.isTerminated() {
 				return
 			}
-			var item *schema.SafeItem
+
+			var item *schema.VerifiedTx
 			if item, err = db.BySafeIndex(&schema.SafeIndexOptions{
 				Index: id,
 				RootIndex: &schema.Index{
@@ -140,12 +141,13 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
 				return
 			}
-			verified := item.Proof.Verify(item.Proof.Leaf, *r)
-			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Item.Index, item.Item.Value, verified)
+			//verified := item.Proof.Verify(item.Item.Value, *r)
+			verified := item != nil
+			s.Logger.Debugf("Item index %d, verified %t", item.Tx.Metadata.Id, verified)
 			if !verified {
 				s.Trusted = false
 				auth.IsTampered = true
-				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
+				s.Logger.Errorf(ErrConsistencyFail, item.Tx.Metadata.Id)
 				return
 			}
 			time.Sleep(s.options.frequencySleepTime)

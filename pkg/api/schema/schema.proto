@@ -33,6 +33,7 @@ message Permission{
 	string database = 1;
 	uint32 permission = 2;
 }
+
 message User {
 	bytes user = 1;
 	repeated Permission permissions = 3;
@@ -40,6 +41,7 @@ message User {
 	string createdat = 5;
 	bool active = 6;
 }
+
 message UserList {
 	repeated User users = 1;
 }
@@ -65,6 +67,7 @@ message LoginRequest {
 	bytes user = 1;
 	bytes password = 2;
 }
+
 message LoginResponse {
 	string token = 1;
 	bytes warning = 2;
@@ -73,6 +76,7 @@ message LoginResponse {
 message AuthConfig {
 	uint32 kind = 1;
 }
+
 message MTLSConfig {
 	bool enabled = 1;
 }
@@ -211,23 +215,7 @@ message ItemsCount {
 	uint64 count = 1;
 }
 
-////////////////////////////////////////
-
-message InclusionProof {
-	uint64 i = 1;
-	uint64 j = 2;
-	bytes iLeaf = 3;
-	bytes jRoot = 4;
-	repeated bytes terms = 5;
-}
-
-message ConsistencyProof {
-	uint64 i = 1;
-	uint64 j = 2;
-	bytes iRoot = 3;
-	bytes jRoot = 4;
-	repeated bytes terms = 5;
-}
+///////////////
 
 message TxMetadata {
 	uint64 id = 1;
@@ -240,22 +228,20 @@ message TxMetadata {
 }
 
 message LinearProof {
-	uint64 i = 1;
-	uint64 j = 2;
-	bytes iAlh = 3;
-	bytes jAlh = 4;
-	repeated bytes terms = 5;
+	uint64 sourceTxId = 1;
+	uint64 TargetTxId = 2;
+	repeated bytes terms = 3;
 }
 
 message DualProof {
 	TxMetadata sourceTxMetadata = 1;
 	TxMetadata targetTxMetadata = 2;
 
-	InclusionProof inclusionProof = 3;
-	ConsistencyProof consistencyProof = 4;
+	repeated bytes inclusionProof = 3;
+	repeated bytes consistencyProof = 4;
 
 	bytes targetBlTxAlh = 5;
-	InclusionProof lastInclusionProof = 6;
+	repeated bytes lastInclusionProof = 6;
 
 	LinearProof linearProof = 7;
 }
@@ -271,15 +257,23 @@ message TxEntry {
 	int64 vOff = 3;
 }
 
-message Proof {
-	TxMetadata metadata = 1;
-	TxEntry entry = 2;
-
-	InclusionProof inclusionProof = 3;
-	DualProof dualProof = 4;
+message VerifiedTx {
+	Tx tx = 1;
+	DualProof dualProof = 2;
 }
 
-////////////////////////////////////////
+message InclusionProof {
+	int32 index = 1;
+	int32 width = 2;
+	repeated bytes terms = 3;
+}
+
+message Proof {
+	InclusionProof inclusionProof = 1;
+	DualProof dualProof = 2;
+}
+
+///////////////
 
 message SafeItem {
 	Item item = 1;
@@ -378,6 +372,7 @@ message SafeIndexOptions {
 message Database {
 	string databasename = 1;
 }
+
 message UseDatabaseReply{
 	string token = 1;
 }
@@ -402,6 +397,7 @@ message SetActiveUserRequest {
 message DatabaseListResponse{
 	repeated Database databases = 1;
 }
+
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "immudb REST API";
@@ -470,7 +466,7 @@ service ImmuService {
 		};
 	};
 
-	rpc Set (KeyValue) returns (Index){
+	rpc Set (KeyValue) returns (Root){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/item"
 			body: "*"
@@ -497,7 +493,7 @@ service ImmuService {
 		};
 	};
 
-	rpc SetBatch (KVList) returns (Index){
+	rpc SetBatch (KVList) returns (Root){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/set"
 			body: "*"
@@ -511,7 +507,7 @@ service ImmuService {
 		};
 	};
 
-	rpc ExecAllOps (Ops) returns (Index){
+	rpc ExecAllOps (Ops) returns (Root){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/atomic/set"
 			body: "*"
@@ -546,23 +542,19 @@ service ImmuService {
 		};
 	};
 
-	rpc Inclusion(Index) returns (InclusionProof){
-		option (google.api.http) = {
-			get: "/v1/immurestproxy/inclusionproof/{index}"
-		};
-	};
-	rpc Consistency(Index) returns (ConsistencyProof){
+	rpc Consistency(Index) returns (DualProof){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/consistencyproof/{index}"
 		};
 	};
-	rpc ByIndex(Index) returns (Item){
+
+	rpc ByIndex(Index) returns (Tx){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/index/{index}"
 		};
 	};
 
-	rpc BySafeIndex(SafeIndexOptions) returns (SafeItem){
+	rpc BySafeIndex(SafeIndexOptions) returns (VerifiedTx){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/safe/index/{index}"
 		};
@@ -583,29 +575,34 @@ service ImmuService {
 			security: {} // no security
 		};
 	};
-	rpc Reference (ReferenceOptions) returns (Index){
+
+	rpc Reference (ReferenceOptions) returns (Root){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/reference"
 			body: "*"
 		};
 	};
+
 	rpc GetReference (Key) returns (Item){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/reference/{key}"
 		};
 	};
+
 	rpc SafeReference (SafeReferenceOptions) returns (Proof){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/safe/reference"
 			body: "*"
 		};
 	};
-	rpc ZAdd (ZAddOptions) returns (Index){
+
+	rpc ZAdd (ZAddOptions) returns (Root){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/zadd"
 			body: "*"
 		};
 	};
+
 	rpc ZScan (ZScanOptions) returns (ZItemList){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/zscan"
@@ -633,6 +630,7 @@ service ImmuService {
 			body: "*"
 		};
 	}
+
 	// todo(joe-dz): Enable restore when the feature is required again
 	//	rpc Restore(stream pb.KVList) returns (ItemsCount) {
 	//		option (google.api.http) = {
@@ -640,29 +638,34 @@ service ImmuService {
 	//			body: "*"
 	//		};
 	//	}
+
 	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/createdatabase"
 			body: "*"
 		};
 	}
+
 	rpc UseDatabase(Database) returns (UseDatabaseReply) {
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/usedatabase/{databasename}"
 		};
 	}
+
 	rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/changepermission"
 			body: "*"
 		};
 	}
+
 	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user/setactiveUser"
 			body: "*"
 		};
 	};
+
 	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user/databaselist"
