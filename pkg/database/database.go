@@ -42,7 +42,6 @@ type Db interface {
 	Size() (uint64, error)
 	Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error)
 	CountAll() *schema.ItemsCount
-	Consistency(index *schema.Index) (*schema.DualProof, error)
 	ByIndex(index *schema.Index) (*schema.Tx, error)
 	BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error)
 	History(options *schema.HistoryOptions) (*schema.ItemList, error)
@@ -373,11 +372,6 @@ func (d *db) CountAll() *schema.ItemsCount {
 	return &schema.ItemsCount{Count: d.Store.TxCount()}
 }
 
-// Consistency ...
-func (d *db) Consistency(index *schema.Index) (*schema.DualProof, error) {
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "Consistency")
-}
-
 // ByIndex ...
 func (d *db) ByIndex(index *schema.Index) (*schema.Tx, error) {
 	if index == nil {
@@ -395,8 +389,42 @@ func (d *db) ByIndex(index *schema.Index) (*schema.Tx, error) {
 
 //BySafeIndex ...
 func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error) {
-	//return d.Store.BySafeIndex(*sio)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "BySafeIndex")
+	if sio == nil || sio.RootIndex == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	// key-value inclusion proof
+	err := d.Store.ReadTx(sio.Index, d.tx)
+	if err != nil {
+		return nil, err
+	}
+
+	var sourceTx, targetTx *store.Tx
+
+	rootTx := d.Store.NewTx()
+
+	err = d.Store.ReadTx(sio.RootIndex.Index, rootTx)
+	if err != nil {
+		return nil, err
+	}
+
+	if sio.RootIndex.Index <= sio.Index {
+		sourceTx = rootTx
+		targetTx = d.tx
+	} else {
+		sourceTx = d.tx
+		targetTx = rootTx
+	}
+
+	dualProof, err := d.Store.DualProof(sourceTx, targetTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.VerifiedTx{
+		Tx:        txTo(d.tx),
+		DualProof: dualProofTo(dualProof),
+	}, nil
 }
 
 //History ...
