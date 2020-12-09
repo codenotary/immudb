@@ -380,8 +380,17 @@ func (d *db) Consistency(index *schema.Index) (*schema.DualProof, error) {
 
 // ByIndex ...
 func (d *db) ByIndex(index *schema.Index) (*schema.Tx, error) {
-	//return d.Store.ByIndex(*index)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "ByIndex")
+	if index == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	// key-value inclusion proof
+	err := d.Store.ReadTx(index.Index, d.tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return txTo(d.tx), nil
 }
 
 //BySafeIndex ...
