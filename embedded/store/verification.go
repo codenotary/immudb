@@ -51,7 +51,11 @@ func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, source
 }
 
 func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) bool {
-	if proof == nil || proof.SourceTxMetadata.ID != sourceTxID || proof.TargetTxMetadata.ID != targetTxID {
+	if proof == nil ||
+		proof.SourceTxMetadata == nil ||
+		proof.TargetTxMetadata == nil ||
+		proof.SourceTxMetadata.ID != sourceTxID ||
+		proof.TargetTxMetadata.ID != targetTxID {
 		return false
 	}
 
