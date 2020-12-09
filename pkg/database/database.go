@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package database
 
 import (
 	"fmt"
@@ -361,29 +361,6 @@ func (d *Db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
 }
 
-//Reference ...
-func (d *Db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Root, err error) {
-	/*
-		d.Logger.Debugf("reference options: %v", refOpts)
-		return d.Store.Reference(refOpts)
-	*/
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "Reference")
-}
-
-//Reference ...
-func (d *Db) GetReference(refOpts *schema.Key) (item *schema.Item, err error) {
-	/*d.Logger.Debugf("getReference options: %v", refOpts)
-	return d.Store.GetReference(*refOpts)
-	*/
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "Reference")
-}
-
-//SafeReference ...
-func (d *Db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
-	//return d.Store.SafeReference(*safeRefOpts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeReference")
-}
-
 //ZAdd ...
 func (d *Db) ZAdd(opts *schema.ZAddOptions) (*schema.Root, error) {
 	//return d.Store.ZAdd(*opts)
@@ -440,6 +417,13 @@ func (d *Db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 		return err
 	*/
 	return fmt.Errorf("Functionality not yet supported: %s", "Dump")
+}
+
+func logErr(log logger.Logger, formattedMessage string, err error) error {
+	if err != nil {
+		log.Errorf(formattedMessage, err)
+	}
+	return err
 }
 
 // PrintTree ...

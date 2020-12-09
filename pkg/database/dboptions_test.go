@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package database
 
 import (
 	"testing"
@@ -25,7 +25,7 @@ func TestDefaultOptions(t *testing.T) {
 	if op.GetDbName() != "db_name" {
 		t.Errorf("default sysdb name not what expected")
 	}
-	if op.GetDbRootPath() != DefaultOptions().Dir {
+	if op.GetDbRootPath() != DefaultOption().dbRootPath {
 		t.Errorf("default db rootpath not what expected")
 	}
 	if !op.GetCorruptionChecker() {
