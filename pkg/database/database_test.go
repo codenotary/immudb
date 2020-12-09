@@ -77,16 +77,16 @@ var kvs = []*schema.KeyValue{
 	},
 }
 
-func makeDb() (*db, func()) {
+func makeDb() (Db, func()) {
 	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	options := DefaultOption().WithDbName(dbName).WithInMemoryStore(true).WithCorruptionChecker(false)
-	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
-	db := d.(*db)
+
 	return db, func() {
-		if err := db.Store.Close(); err != nil {
+		if err := db.Close(); err != nil {
 			log.Fatal(err)
 		}
 		if err := os.RemoveAll(options.GetDbName()); err != nil {
@@ -97,17 +97,17 @@ func makeDb() (*db, func()) {
 
 func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
-	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
-	db := d.(*db)
 
 	defer func() {
-		db.Store.Close()
+		db.Close()
 		time.Sleep(1 * time.Second)
 		os.RemoveAll(options.GetDbRootPath())
 	}()
+
 	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
 		t.Fatalf("Db dir not created")
@@ -143,13 +143,13 @@ func TestDbCreationInInvalidDirectory(t *testing.T) {
 
 func TestDbCreation(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
-	db := d.(*db)
+
 	defer func() {
-		db.Store.Close()
+		db.Close()
 		time.Sleep(1 * time.Second)
 		os.RemoveAll(options.GetDbRootPath())
 	}()
@@ -173,22 +173,22 @@ func TestOpenWithMissingDBDirectories(t *testing.T) {
 
 func TestOpenDb(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
-	dbi := d.(*db)
-	err = dbi.Store.Close()
+
+	err = db.Close()
 	if err != nil {
 		t.Fatalf("Error closing store %s", err)
 	}
 
-	d, err = OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db, err = OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error opening database %s", err)
 	}
-	dbi = d.(*db)
-	dbi.Store.Close()
+
+	db.Close()
 	time.Sleep(1 * time.Second)
 	os.RemoveAll(options.GetDbRootPath())
 }

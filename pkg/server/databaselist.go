@@ -18,25 +18,27 @@ package server
 
 import (
 	"sync"
+
+	"github.com/codenotary/immudb/pkg/database"
 )
 
 type databaseList struct {
-	databases []*Db
+	databases []database.Db
 	sync.RWMutex
 }
 
 //NewDatabaseList constructs a new database list
 func NewDatabaseList() DatabaseList {
 	return &databaseList{
-		databases: make([]*Db, 0),
+		databases: make([]database.Db, 0),
 	}
 }
-func (d *databaseList) Append(database *Db) {
+func (d *databaseList) Append(database database.Db) {
 	d.Lock()
 	defer d.Unlock()
 	d.databases = append(d.databases, database)
 }
-func (d *databaseList) GetByIndex(index int64) *Db {
+func (d *databaseList) GetByIndex(index int64) database.Db {
 	d.RLock()
 	defer d.RUnlock()
 	return d.databases[index]

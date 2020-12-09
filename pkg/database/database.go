@@ -33,6 +33,7 @@ import (
 type Db interface {
 	Set(kv *schema.KeyValue) (*schema.Root, error)
 	Get(k *schema.Key) (*schema.Item, error)
+	GetSince(k *schema.Key, index uint64) (*schema.Item, error)
 	CurrentRoot() (*schema.Root, error)
 	SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error)
 	SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error)
@@ -60,9 +61,9 @@ type Db interface {
 	GetOptions() *DbOptions
 }
 
-//Db database instance
+//IDB database instance
 type db struct {
-	Store *store.ImmuStore
+	st *store.ImmuStore
 
 	tx *store.Tx
 
@@ -88,12 +89,12 @@ func OpenDb(op *DbOptions, log logger.Logger) (Db, error) {
 
 	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
 
-	db.Store, err = store.Open(dbDir, store.DefaultOptions().WithIndexOptions(indexOptions))
+	db.st, err = store.Open(dbDir, store.DefaultOptions().WithIndexOptions(indexOptions))
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
 
-	db.tx = db.Store.NewTx()
+	db.tx = db.st.NewTx()
 
 	return db, nil
 }
@@ -120,12 +121,12 @@ func NewDb(op *DbOptions, log logger.Logger) (Db, error) {
 	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
 	storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
 
-	db.Store, err = store.Open(dbDir, storeOpts)
+	db.st, err = store.Open(dbDir, storeOpts)
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
 
-	db.tx = db.Store.NewTx()
+	db.tx = db.st.NewTx()
 
 	return db, nil
 }
@@ -136,7 +137,7 @@ func (d *db) Set(kv *schema.KeyValue) (*schema.Root, error) {
 		return nil, store.ErrIllegalArguments
 	}
 
-	id, _, alh, err := d.Store.Commit([]*store.KV{{Key: kv.Key, Value: kv.Value}})
+	id, _, alh, err := d.st.Commit([]*store.KV{{Key: kv.Key, Value: kv.Value}})
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Set")
 	}
@@ -156,7 +157,7 @@ func (d *db) Get(k *schema.Key) (*schema.Item, error) {
 
 func (d *db) waitForIndexing(ts uint64) error {
 	for {
-		its, err := d.Store.IndexInfo()
+		its, err := d.st.IndexInfo()
 		if err != nil {
 			return err
 		}
@@ -176,7 +177,7 @@ func (d *db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
 		return nil, err
 	}
 
-	snapshot, err := d.Store.Snapshot()
+	snapshot, err := d.st.Snapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -187,9 +188,9 @@ func (d *db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
 		return nil, err
 	}
 
-	d.Store.ReadTx(id, d.tx)
+	d.st.ReadTx(id, d.tx)
 
-	val, err := d.Store.ReadValue(d.tx, k.Key)
+	val, err := d.st.ReadValue(d.tx, k.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +200,7 @@ func (d *db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
 
 // CurrentRoot ...
 func (d *db) CurrentRoot() (*schema.Root, error) {
-	id, alh := d.Store.Alh()
+	id, alh := d.st.Alh()
 
 	return &schema.Root{Payload: &schema.RootIndex{Index: id, Root: alh[:]}}, nil
 }
@@ -216,7 +217,7 @@ func (d *db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	}
 
 	// key-value inclusion proof
-	err = d.Store.ReadTx(root.Payload.Index, d.tx)
+	err = d.st.ReadTx(root.Payload.Index, d.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -236,9 +237,9 @@ func (d *db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	if opts.RootIndex.Index == 0 {
 		rootTx = d.tx
 	} else {
-		rootTx = d.Store.NewTx()
+		rootTx = d.st.NewTx()
 
-		err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
+		err = d.st.ReadTx(opts.RootIndex.Index, rootTx)
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +255,7 @@ func (d *db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 		targetTx = rootTx
 	}
 
-	dualProof, err := d.Store.DualProof(sourceTx, targetTx)
+	dualProof, err := d.st.DualProof(sourceTx, targetTx)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +278,7 @@ func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	}
 
 	// key-value inclusion proof
-	err = d.Store.ReadTx(it.Index, d.tx)
+	err = d.st.ReadTx(it.Index, d.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -297,9 +298,9 @@ func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	if opts.RootIndex.Index == 0 {
 		rootTx = d.tx
 	} else {
-		rootTx = d.Store.NewTx()
+		rootTx = d.st.NewTx()
 
-		err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
+		err = d.st.ReadTx(opts.RootIndex.Index, rootTx)
 		if err != nil {
 			return nil, err
 		}
@@ -315,7 +316,7 @@ func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 		targetTx = rootTx
 	}
 
-	dualProof, err := d.Store.DualProof(sourceTx, targetTx)
+	dualProof, err := d.st.DualProof(sourceTx, targetTx)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +338,7 @@ func (d *db) SetBatch(kvl *schema.KVList) (*schema.Root, error) {
 		entries[i] = &store.KV{Key: kv.Key, Value: kv.Value}
 	}
 
-	id, _, alh, err := d.Store.Commit(entries)
+	id, _, alh, err := d.st.Commit(entries)
 	if err != nil {
 		return nil, err
 	}
@@ -368,24 +369,24 @@ func (d *db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 
 // ExecAllOps ...
 func (d *db) ExecAllOps(operations *schema.Ops) (*schema.Root, error) {
-	//return d.Store.ExecAllOps(operations)
+	//return d.st.ExecAllOps(operations)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ExecAllOps")
 }
 
 //Size ...
 func (d *db) Size() (uint64, error) {
-	return d.Store.TxCount(), nil
+	return d.st.TxCount(), nil
 }
 
 //Count ...
 func (d *db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
-	//return d.Store.Count(*prefix)
+	//return d.st.Count(*prefix)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
 }
 
 // CountAll ...
 func (d *db) CountAll() *schema.ItemsCount {
-	return &schema.ItemsCount{Count: d.Store.TxCount()}
+	return &schema.ItemsCount{Count: d.st.TxCount()}
 }
 
 // ByIndex ...
@@ -395,7 +396,7 @@ func (d *db) ByIndex(index *schema.Index) (*schema.Tx, error) {
 	}
 
 	// key-value inclusion proof
-	err := d.Store.ReadTx(index.Index, d.tx)
+	err := d.st.ReadTx(index.Index, d.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +411,7 @@ func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, erro
 	}
 
 	// key-value inclusion proof
-	err := d.Store.ReadTx(sio.Index, d.tx)
+	err := d.st.ReadTx(sio.Index, d.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -422,9 +423,9 @@ func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, erro
 	if sio.RootIndex.Index == 0 {
 		rootTx = d.tx
 	} else {
-		rootTx = d.Store.NewTx()
+		rootTx = d.st.NewTx()
 
-		err = d.Store.ReadTx(sio.RootIndex.Index, rootTx)
+		err = d.st.ReadTx(sio.RootIndex.Index, rootTx)
 		if err != nil {
 			return nil, err
 		}
@@ -438,7 +439,7 @@ func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, erro
 		targetTx = rootTx
 	}
 
-	dualProof, err := d.Store.DualProof(sourceTx, targetTx)
+	dualProof, err := d.st.DualProof(sourceTx, targetTx)
 	if err != nil {
 		return nil, err
 	}
@@ -451,7 +452,7 @@ func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, erro
 
 //History ...
 func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
-	snapshot, err := d.Store.Snapshot()
+	snapshot, err := d.st.Snapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -472,12 +473,12 @@ func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
 	for i := int(options.Offset); i < len(tss); i++ {
 		ts := tss[i]
 
-		err = d.Store.ReadTx(ts, d.tx)
+		err = d.st.ReadTx(ts, d.tx)
 		if err != nil {
 			return nil, err
 		}
 
-		val, err := d.Store.ReadValue(d.tx, options.Key)
+		val, err := d.st.ReadValue(d.tx, options.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -501,31 +502,31 @@ func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 
 //ZAdd ...
 func (d *db) ZAdd(opts *schema.ZAddOptions) (*schema.Root, error) {
-	//return d.Store.ZAdd(*opts)
+	//return d.st.ZAdd(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZAdd")
 }
 
 // ZScan ...
 func (d *db) ZScan(opts *schema.ZScanOptions) (*schema.ZItemList, error) {
-	//return d.Store.ZScan(*opts)
+	//return d.st.ZScan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZScan")
 }
 
 //SafeZAdd ...
 func (d *db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
-	//return d.Store.SafeZAdd(*opts)
+	//return d.st.SafeZAdd(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeZAdd")
 }
 
 //Scan ...
 func (d *db) Scan(opts *schema.ScanOptions) (*schema.ItemList, error) {
-	//return d.Store.Scan(*opts)
+	//return d.st.Scan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Scan")
 }
 
 //IScan ...
 func (d *db) IScan(opts *schema.IScanOptions) (*schema.Page, error) {
-	//return d.Store.IScan(*opts)
+	//return d.st.IScan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "IScan")
 }
 
@@ -548,7 +549,7 @@ func (d *db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 		}
 
 		go retrieveLists()
-		err := d.Store.Dump(kvChan)
+		err := d.st.Dump(kvChan)
 		<-done
 
 		d.Logger.Debugf("Dump stream complete")
@@ -559,7 +560,7 @@ func (d *db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 
 //Close ...
 func (d *db) Close() error {
-	return d.Store.Close()
+	return d.st.Close()
 }
 
 //GetOptions ...

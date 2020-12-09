@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +30,7 @@ import (
 )
 
 func TestServerCurrentRootSigned(t *testing.T) {
-	dbRootpath := DefaultOption().GetDbRootPath()
+	dbRootpath := database.DefaultOption().GetDbRootPath()
 	s := DefaultServer()
 
 	sig, err := signer.NewSigner("./../../test/signer/ec3.key")

@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/database"
 	"log"
 	"net"
 	"os"
@@ -33,6 +32,8 @@ import (
 	"syscall"
 	"time"
 	"unicode"
+
+	"github.com/codenotary/immudb/pkg/database"
 
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/signer"
@@ -733,16 +734,6 @@ func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.Item
 	return s.dbList.GetByIndex(ind).CountAll(), nil
 }
 
-// Consistency ...
-func (s *ImmuServer) Consistency(ctx context.Context, index *schema.Index) (*schema.DualProof, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "Consistency")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).Consistency(index)
-}
-
 // ByIndex ...
 func (s *ImmuServer) ByIndex(ctx context.Context, index *schema.Index) (*schema.Tx, error) {
 	s.Logger.Debugf("get by index %d ", index.Index)
@@ -1248,7 +1239,7 @@ func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tre
 	if err != nil {
 		return nil, err
 	}
-	return s.dbList.GetByIndex(ind).PrintTree(), nil
+	return s.dbList.GetByIndex(ind).PrintTree()
 }
 
 // UseDatabase ...

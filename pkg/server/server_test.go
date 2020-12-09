@@ -39,6 +39,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/grpc/metadata"
@@ -51,8 +52,23 @@ var testPassword = []byte("Familia@2")
 var testKey = []byte("Antoni")
 var testValue = []byte("Gaudí")
 
+var kvs = []*schema.KeyValue{
+	{
+		Key:   []byte("Alberto"),
+		Value: []byte("Tomba"),
+	},
+	{
+		Key:   []byte("Jean-Claude"),
+		Value: []byte("Killy"),
+	},
+	{
+		Key:   []byte("Franz"),
+		Value: []byte("Clamer"),
+	},
+}
+
 func newInmemoryAuthServer() *ImmuServer {
-	dbRootpath := DefaultOption().GetDbRootPath()
+	dbRootpath := database.DefaultOption().GetDbRootPath()
 	s := DefaultServer()
 	s = s.WithOptions(s.Options.WithAuth(true).WithInMemoryStore(true)).(*ImmuServer)
 	err := s.loadDefaultDatabase(dbRootpath)
@@ -67,7 +83,7 @@ func newInmemoryAuthServer() *ImmuServer {
 }
 
 func newAuthServer(dbroot string) *ImmuServer {
-	dbRootpath := DefaultOption().WithDbRootPath(dbroot).GetDbRootPath()
+	dbRootpath := database.DefaultOption().WithDbRootPath(dbroot).GetDbRootPath()
 	s := DefaultServer()
 	s = s.WithOptions(s.Options.WithAuth(true).WithDir(dbRootpath).WithCorruptionCheck(false)).(*ImmuServer)
 	err := s.loadDefaultDatabase(dbRootpath)
@@ -126,7 +142,7 @@ func usedatabase(ctx context.Context, s *ImmuServer, dbname string) (context.Con
 }
 
 func TestServerDefaultDatabaseLoad(t *testing.T) {
-	options := DefaultOption()
+	options := database.DefaultOption()
 	dbRootpath := options.GetDbRootPath()
 	s := DefaultServer()
 	err := s.loadDefaultDatabase(dbRootpath)
@@ -143,7 +159,7 @@ func TestServerDefaultDatabaseLoad(t *testing.T) {
 }
 func TestServerSystemDatabaseLoad(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir("Nice")
-	options := DefaultOption().WithDbRootPath(serverOptions.Dir)
+	options := database.DefaultOption().WithDbRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDbRootPath()
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	err := s.loadDefaultDatabase(dbRootpath)
@@ -674,28 +690,6 @@ func testServerSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T
 	}
 }
 
-func testServerConsintency(ctx context.Context, s *ImmuServer, t *testing.T) {
-	for _, val := range kvs {
-		_, err := s.Set(ctx, val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-	}
-	ind := uint64(1)
-	_, err := s.Consistency(ctx, &schema.Index{Index: ind})
-	if err != nil {
-		t.Fatalf("Consistency Error %s", err)
-	}
-	/*if inc.First != ind {
-		t.Fatalf("Consistency, expected %d, got %d", inc.First, ind)
-	}*/
-}
-func testServerConsintencyError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.Consistency(context.Background(), &schema.Index{Index: 0})
-	if err == nil {
-		t.Fatalf("Consistency expected error")
-	}
-}
 func testServerByIndex(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 	ind := uint64(1)
@@ -1107,8 +1101,6 @@ func TestServerDbOperations(t *testing.T) {
 	testServerSafeSetGet(ctx, s, t)
 	testServerSetGetBatch(ctx, s, t)
 	testServerSetGetBatchError(ctx, s, t)
-	testServerConsintency(ctx, s, t)
-	testServerConsintencyError(ctx, s, t)
 	testServerByIndex(ctx, s, t)
 	testServerByIndexError(ctx, s, t)
 	testServerHistory(ctx, s, t)

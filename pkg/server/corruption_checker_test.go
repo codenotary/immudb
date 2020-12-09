@@ -27,12 +27,32 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/pkg/database"
+
 	"github.com/dgraph-io/badger/v2"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
+
+func makeDb() (database.Db, func()) {
+	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	options := database.DefaultOption().WithDbName(dbName).WithInMemoryStore(true).WithCorruptionChecker(false)
+	db, err := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	if err != nil {
+		log.Fatalf("Error creating Db instance %s", err)
+	}
+
+	return db, func() {
+		if err := db.Close(); err != nil {
+			log.Fatal(err)
+		}
+		if err := os.RemoveAll(options.GetDbName()); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
 
 func TestEmptyDBCorruptionChecker(t *testing.T) {
 
@@ -52,7 +72,7 @@ func TestEmptyDBCorruptionChecker(t *testing.T) {
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
-		val.Store.Close()
+		val.Close()
 	}
 	assert.Nil(t, err)
 }
@@ -80,7 +100,7 @@ func TestCorruptionChecker(t *testing.T) {
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
-		val.Store.Close()
+		val.Close()
 	}
 	assert.Nil(t, err)
 }
@@ -89,8 +109,8 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 	var err error
 	defer os.RemoveAll("test")
 	dbList := NewDatabaseList()
-	options := DefaultOption().WithDbName("test").WithDbRootPath("test")
-	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	options := database.DefaultOption().WithDbName("test").WithDbRootPath("test")
+	db, err := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -103,7 +123,7 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 	if _, err = db.Set(kv); err != nil {
 		log.Fatal(err)
 	}
-	db.Store.Close()
+	db.Close()
 	// Tampering
 	opts := badger.DefaultOptions("test/test").WithLogger(nil)
 	dbb, err := badger.OpenManaged(opts)
@@ -130,7 +150,7 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 	}
 	dbb.Close()
 	// End Tampering
-	db1, err := OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db1, err := database.OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	assert.NoError(t, err)
 	dbList.Append(db1)
 
@@ -146,7 +166,7 @@ func TestCorruptionCheckerOnTamperInsertionOrderIndexDb(t *testing.T) {
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
-		val.Store.Close()
+		val.Close()
 	}
 	assert.Error(t, err)
 }
@@ -155,8 +175,8 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 	var err error
 	defer os.RemoveAll("test")
 	dbList := NewDatabaseList()
-	options := DefaultOption().WithDbName("test").WithDbRootPath("test")
-	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	options := database.DefaultOption().WithDbName("test").WithDbRootPath("test")
+	db, err := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -169,7 +189,7 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 	if _, err = db.Set(kv); err != nil {
 		log.Fatal(err)
 	}
-	db.Store.Close()
+	db.Close()
 	// Tampering
 	opts := badger.DefaultOptions("test/test").WithLogger(nil)
 	dbb, err := badger.OpenManaged(opts)
@@ -193,7 +213,7 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 	}
 	dbb.Close()
 	// End Tampering
-	db1, err := OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db1, err := database.OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	assert.NoError(t, err)
 	dbList.Append(db1)
 
@@ -209,7 +229,7 @@ func TestCorruptionCheckerOnTamperDbInconsistentState(t *testing.T) {
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
-		val.Store.Close()
+		val.Close()
 	}
 	assert.Error(t, err)
 }
@@ -218,8 +238,8 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 	var err error
 	defer os.RemoveAll("test")
 	dbList := NewDatabaseList()
-	options := DefaultOption().WithDbName("test").WithDbRootPath("test")
-	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	options := database.DefaultOption().WithDbName("test").WithDbRootPath("test")
+	db, err := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -241,7 +261,7 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 	if _, err = db.Set(kv1); err != nil {
 		log.Fatal(err)
 	}
-	db.Store.Close()
+	db.Close()
 	// Tampering
 	opts := badger.DefaultOptions("test/test").WithLogger(nil)
 	dbb, err := badger.OpenManaged(opts)
@@ -265,7 +285,7 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 	}
 	dbb.Close()
 	// End Tampering
-	db1, err := OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db1, err := database.OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	assert.NoError(t, err)
 	dbList.Append(db1)
 
@@ -282,7 +302,7 @@ func TestCorruptionCheckerOnTamperDb(t *testing.T) {
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
-		val.Store.Close()
+		val.Close()
 	}
 	assert.False(t, cc.GetStatus())
 }
@@ -298,9 +318,9 @@ func (rg randomGeneratorMock) getList(start, end uint64) []uint64 {
 func TestCorruptionChecker_Stop(t *testing.T) {
 	defer os.RemoveAll("test")
 	dbList := NewDatabaseList()
-	options := DefaultOption().WithDbName("test").WithDbRootPath("test")
+	options := database.DefaultOption().WithDbName("test").WithDbRootPath("test")
 
-	db1, _ := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	db1, _ := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	dbList.Append(db1)
 
 	time.Sleep(500 * time.Millisecond)
@@ -315,7 +335,7 @@ func TestCorruptionChecker_Stop(t *testing.T) {
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
-		val.Store.Close()
+		val.Close()
 	}
 	cc.Stop()
 	assert.True(t, cc.GetStatus())
@@ -344,7 +364,7 @@ func TestCorruptionChecker_ExitImmediatly(t *testing.T) {
 
 	for i := 0; i < dbList.Length(); i++ {
 		val := dbList.GetByIndex(int64(i))
-		val.Store.Close()
+		val.Close()
 	}
 	assert.Nil(t, err)
 }
