@@ -207,8 +207,56 @@ func (d *db) CurrentRoot() (*schema.Root, error) {
 
 //SafeSet ...
 func (d *db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
-	//return d.Store.SafeSet(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeSet")
+	if opts == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	root, err := d.Set(opts.Kv)
+	if err != nil {
+		return nil, err
+	}
+
+	// key-value inclusion proof
+	err = d.Store.ReadTx(root.Payload.Index, d.tx)
+	if err != nil {
+		return nil, err
+	}
+
+	inclusionProof, err := d.tx.Proof(opts.Kv.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	proof := &schema.Proof{
+		InclusionProof: inclusionProofTo(inclusionProof),
+		DualProof:      nil,
+	}
+
+	rootTx := d.Store.NewTx()
+
+	err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
+	if err != nil {
+		return nil, err
+	}
+
+	var sourceTx, targetTx *store.Tx
+
+	if opts.RootIndex.Index <= root.Payload.Index {
+		sourceTx = rootTx
+		targetTx = d.tx
+	} else {
+		sourceTx = d.tx
+		targetTx = rootTx
+	}
+
+	dualProof, err := d.Store.DualProof(sourceTx, targetTx)
+	if err != nil {
+		return nil, err
+	}
+
+	proof.DualProof = dualProofTo(dualProof)
+
+	return proof, nil
 }
 
 //SafeGet ...
@@ -322,8 +370,7 @@ func (d *db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 
 // CountAll ...
 func (d *db) CountAll() *schema.ItemsCount {
-	//return &schema.ItemsCount{Count: d.Store.CountAll()}
-	return nil
+	return &schema.ItemsCount{Count: d.Store.TxCount()}
 }
 
 // Consistency ...
