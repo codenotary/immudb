@@ -231,11 +231,17 @@ func (d *db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 		DualProof:      nil,
 	}
 
-	rootTx := d.Store.NewTx()
+	var rootTx *store.Tx
 
-	err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
-	if err != nil {
-		return nil, err
+	if opts.RootIndex.Index == 0 {
+		rootTx = d.tx
+	} else {
+		rootTx = d.Store.NewTx()
+
+		err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var sourceTx, targetTx *store.Tx
