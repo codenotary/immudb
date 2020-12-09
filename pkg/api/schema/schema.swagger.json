@@ -140,37 +140,6 @@
         ]
       }
     },
-    "/v1/immurestproxy/consistencyproof/{index}": {
-      "get": {
-        "operationId": "ImmuService_Consistency",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaDualProof"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "index",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uint64"
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/v1/immurestproxy/createdatabase": {
       "post": {
         "operationId": "ImmuService_CreateDatabase",

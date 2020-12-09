@@ -1227,7 +1227,6 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CurrentRoot | [.google.protobuf.Empty](#google.protobuf.Empty) | [Root](#immudb.schema.Root) |  |
-| Consistency | [Index](#immudb.schema.Index) | [DualProof](#immudb.schema.DualProof) |  |
 | ByIndex | [Index](#immudb.schema.Index) | [Tx](#immudb.schema.Tx) |  |
 | BySafeIndex | [SafeIndexOptions](#immudb.schema.SafeIndexOptions) | [VerifiedTx](#immudb.schema.VerifiedTx) |  |
 | History | [HistoryOptions](#immudb.schema.HistoryOptions) | [ItemList](#immudb.schema.ItemList) |  |

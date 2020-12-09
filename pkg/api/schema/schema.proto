@@ -542,12 +542,6 @@ service ImmuService {
 		};
 	};
 
-	rpc Consistency(Index) returns (DualProof){
-		option (google.api.http) = {
-			get: "/v1/immurestproxy/consistencyproof/{index}"
-		};
-	};
-
 	rpc ByIndex(Index) returns (Tx){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/index/{index}"
