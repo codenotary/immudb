@@ -312,21 +312,19 @@ func main() {
 					panic(err)
 				}
 
-				txEntries := tx.Entries()
-
 				if *kvInclusion {
-					for i := 0; i < len(txEntries); i++ {
-						proof, err := tx.Proof(i)
+					for _, e := range tx.Entries() {
+						proof, err := tx.Proof(e.Key())
 						if err != nil {
 							panic(err)
 						}
 
-						_, err = immuStore.ReadValueAt(b[:txEntries[i].ValueLen], txEntries[i].VOff, txEntries[i].HValue)
+						_, err = immuStore.ReadValueAt(b[:e.ValueLen], e.VOff, e.HValue)
 						if err != nil {
 							panic(err)
 						}
 
-						kv := &store.KV{Key: txEntries[i].Key(), Value: b[:txEntries[i].ValueLen]}
+						kv := &store.KV{Key: e.Key(), Value: b[:e.ValueLen]}
 
 						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 						if !verifies {

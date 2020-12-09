@@ -198,12 +198,7 @@ func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 		return nil, err
 	}
 
-	ik, err := d.tx.IndexOf(opts.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	inclusionProof, err := d.tx.Proof(ik)
+	inclusionProof, err := d.tx.Proof(opts.Key)
 	if err != nil {
 		return nil, err
 	}

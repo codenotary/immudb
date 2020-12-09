@@ -109,7 +109,12 @@ func (tx *Tx) IndexOf(key []byte) (int, error) {
 	return 0, ErrKeyNotFound
 }
 
-func (tx *Tx) Proof(kindex int) (*htree.InclusionProof, error) {
+func (tx *Tx) Proof(key []byte) (*htree.InclusionProof, error) {
+	kindex, err := tx.IndexOf(key)
+	if err != nil {
+		return nil, err
+	}
+
 	return tx.htree.InclusionProof(kindex)
 }
 

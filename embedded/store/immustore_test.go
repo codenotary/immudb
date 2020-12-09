@@ -652,8 +652,8 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 		txEntries := tx.Entries()
 		assert.Equal(t, eCount, len(txEntries))
 
-		for j := 0; j < eCount; j++ {
-			proof, err := tx.Proof(j)
+		for j, e := range txEntries {
+			proof, err := tx.Proof(e.Key())
 			require.NoError(t, err)
 
 			key := txEntries[j].Key()
@@ -1189,17 +1189,15 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 		txEntries := tx.Entries()
 		assert.Equal(t, eCount, len(txEntries))
 
-		for j := 0; j < eCount; j++ {
-			proof, err := tx.Proof(j)
+		for _, e := range txEntries {
+			proof, err := tx.Proof(e.Key())
 			require.NoError(t, err)
 
-			key := txEntries[j].Key()
-
-			value := make([]byte, txEntries[j].ValueLen)
-			_, err = immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
+			value := make([]byte, e.ValueLen)
+			_, err = immuStore.ReadValueAt(value, e.VOff, e.HValue)
 			require.NoError(t, err)
 
-			kv := &KV{Key: key, Value: value}
+			kv := &KV{Key: e.Key(), Value: value}
 
 			verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 			require.True(t, verifies)
