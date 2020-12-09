@@ -191,7 +191,8 @@ func TestDbSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	var alh1 [sha256.Size]byte
+	var trustedAlh [sha256.Size]byte
+	var trustedIndex uint64
 
 	for i, kv := range kvs {
 		it, err := db.Set(kv)
@@ -203,7 +204,8 @@ func TestDbSetGet(t *testing.T) {
 		}
 
 		if i == 0 {
-			copy(alh1[:], it.Payload.Root)
+			copy(trustedAlh[:], it.Payload.Root)
+			trustedIndex = 1
 		}
 
 		k := &schema.Key{
@@ -223,7 +225,7 @@ func TestDbSetGet(t *testing.T) {
 
 		sitem, err := db.SafeGet(&schema.SafeGetOptions{
 			Key:       kv.Key,
-			RootIndex: &schema.Index{Index: 1},
+			RootIndex: &schema.Index{Index: trustedIndex},
 		})
 		if err != nil {
 			t.Fatalf("Error reading key %s", err)
@@ -238,7 +240,12 @@ func TestDbSetGet(t *testing.T) {
 		inclusionProof := inclusionProofFrom(sitem.Proof.InclusionProof)
 
 		var eh [sha256.Size]byte
-		copy(eh[:], sitem.Proof.DualProof.TargetTxMetadata.EH)
+
+		if trustedIndex <= sitem.Item.Index {
+			copy(eh[:], sitem.Proof.DualProof.TargetTxMetadata.EH)
+		} else {
+			copy(eh[:], sitem.Proof.DualProof.SourceTxMetadata.EH)
+		}
 
 		verifies := store.VerifyInclusion(inclusionProof, &store.KV{Key: sitem.Item.Key, Value: sitem.Item.Value}, eh)
 		require.True(t, verifies)
@@ -249,7 +256,7 @@ func TestDbSetGet(t *testing.T) {
 			dualProof,
 			dualProof.SourceTxMetadata.ID,
 			dualProof.TargetTxMetadata.ID,
-			alh1,
+			trustedAlh,
 			store.Alh(dualProof.TargetTxMetadata),
 		)
 		require.True(t, verifies)

@@ -208,22 +208,29 @@ func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 		DualProof:      nil,
 	}
 
-	// TODO: if not, dual proof might be made against latest transaction
-	if opts.RootIndex.Index <= it.Index {
-		rootTx := d.Store.NewTx()
+	rootTx := d.Store.NewTx()
 
-		err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
-		if err != nil {
-			return nil, err
-		}
-
-		dualProof, err := d.Store.DualProof(rootTx, d.tx)
-		if err != nil {
-			return nil, err
-		}
-
-		proof.DualProof = dualProofTo(dualProof)
+	err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
+	if err != nil {
+		return nil, err
 	}
+
+	var sourceTx, targetTx *store.Tx
+
+	if opts.RootIndex.Index <= it.Index {
+		sourceTx = rootTx
+		targetTx = d.tx
+	} else {
+		sourceTx = d.tx
+		targetTx = rootTx
+	}
+
+	dualProof, err := d.Store.DualProof(sourceTx, targetTx)
+	if err != nil {
+		return nil, err
+	}
+
+	proof.DualProof = dualProofTo(dualProof)
 
 	return &schema.SafeItem{Item: it, Proof: proof}, nil
 }
