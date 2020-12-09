@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/database"
 	"log"
 	"net"
 	"os"
@@ -298,13 +299,13 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 	_, sysDbErr := s.OS.Stat(systemDbRootDir)
 	if s.OS.IsNotExist(sysDbErr) {
 		if s.Options.GetAuth() {
-			op := DefaultOption().
+			op := database.DefaultOption().
 				WithDbName(s.Options.GetSystemAdminDbName()).
 				WithDbRootPath(dataDir).
 				WithCorruptionChecker(s.Options.CorruptionCheck).
 				WithInMemoryStore(s.Options.GetInMemoryStore()).WithDbRootPath(s.Options.Dir)
 
-			db, err := NewDb(op, s.Logger)
+			db, err := database.NewDb(op, s.Logger)
 			if err != nil {
 				return err
 			}
@@ -319,12 +320,12 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 			s.Logger.Infof("Admin user %s successfully created", adminUsername)
 		}
 	} else {
-		op := DefaultOption().
+		op := database.DefaultOption().
 			WithDbName(s.Options.GetSystemAdminDbName()).
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
 
-		db, err := OpenDb(op, s.Logger)
+		db, err := database.OpenDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -345,13 +346,13 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 
 	_, defaultDbErr := s.OS.Stat(defaultDbRootDir)
 	if s.OS.IsNotExist(defaultDbErr) {
-		op := DefaultOption().
+		op := database.DefaultOption().
 			WithDbName(s.Options.GetDefaultDbName()).
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck).
 			WithInMemoryStore(s.Options.GetInMemoryStore()).WithDbRootPath(s.Options.Dir)
 
-		db, err := NewDb(op, s.Logger)
+		db, err := database.NewDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -359,12 +360,12 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(s.dbList.Length())
 		s.dbList.Append(db)
 	} else {
-		op := DefaultOption().
+		op := database.DefaultOption().
 			WithDbName(s.Options.GetDefaultDbName()).
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
 
-		db, err := OpenDb(op, s.Logger)
+		db, err := database.OpenDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -411,10 +412,10 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 		pathparts := strings.Split(val, string(filepath.Separator))
 		dbname := pathparts[len(pathparts)-1]
 
-		op := DefaultOption().WithDbName(dbname).WithDbRootPath(dataDir).
+		op := database.DefaultOption().WithDbName(dbname).WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
 
-		db, err := OpenDb(op, s.Logger)
+		db, err := database.OpenDb(op, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -449,12 +450,12 @@ func (s *ImmuServer) CloseDatabases() error {
 	s.stopCorruptionChecker()
 
 	if s.sysDb != nil {
-		s.sysDb.Store.Close()
+		s.sysDb.Close()
 	}
 
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
-		val.Store.Close()
+		val.Close()
 	}
 
 	return nil
@@ -1008,13 +1009,13 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 
 	dataDir := s.Options.Dir
 
-	op := DefaultOption().
+	op := database.DefaultOption().
 		WithDbName(newdb.Databasename).
 		WithDbRootPath(dataDir).
 		WithCorruptionChecker(s.Options.CorruptionCheck).
 		WithInMemoryStore(s.Options.GetInMemoryStore()).WithDbRootPath(s.Options.Dir)
 
-	db, err := NewDb(op, s.Logger)
+	db, err := database.NewDb(op, s.Logger)
 	if err != nil {
 		s.Logger.Errorf(err.Error())
 		return nil, err
@@ -1146,9 +1147,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 			userlist.Users = append(userlist.Users, &u)
 		}
 		return userlist, nil
-	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).options.dbName) == auth.PermissionAdmin {
+	} else if loggedInuser.WhichPermission(s.dbList.GetByIndex(dbInd).GetOptions().GetDbName()) == auth.PermissionAdmin {
 		// for admin users return only users for the database that is has selected
-		selectedDbname := s.dbList.GetByIndex(dbInd).options.dbName
+		selectedDbname := s.dbList.GetByIndex(dbInd).GetOptions().GetDbName()
 		userlist := &schema.UserList{}
 		for i := 0; i < len(itemList.Items); i++ {
 			include := false
@@ -1220,12 +1221,12 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		for i := 0; i < s.dbList.Length(); i++ {
 			val := s.dbList.GetByIndex(int64(i))
-			if val.options.dbName == SystemdbName {
+			if val.GetOptions().GetDbName() == SystemdbName {
 				//do not put sysemdb in the list
 				continue
 			}
 			db := &schema.Database{
-				Databasename: val.options.dbName,
+				Databasename: val.GetOptions().GetDbName(),
 			}
 			dbList.Databases = append(dbList.Databases, db)
 		}
@@ -1449,7 +1450,7 @@ func (s *ImmuServer) getDbIndexFromCtx(ctx context.Context, methodname string) (
 		return ind, nil
 	}
 
-	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).options.dbName), methodname); !ok {
+	if ok := auth.HasPermissionForMethod(usr.WhichPermission(s.dbList.GetByIndex(ind).GetOptions().GetDbName()), methodname); !ok {
 		return 0, fmt.Errorf("you do not have permission for this operation")
 	}
 	return ind, nil
@@ -1607,13 +1608,13 @@ func (s *ImmuServer) mandatoryAuth() bool {
 	//check if there are user created databases, should be zero for auth to be off
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
-		if (val.options.dbName != s.Options.defaultDbName) &&
-			(val.options.dbName != s.Options.systemAdminDbName) {
+		if (val.GetOptions().GetDbName() != s.Options.defaultDbName) &&
+			(val.GetOptions().GetDbName() != s.Options.systemAdminDbName) {
 			return true
 		}
 	}
 	//check if there is only default database
-	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(DefaultDbIndex).options.dbName == s.Options.defaultDbName) {
+	if (s.dbList.Length() == 1) && (s.dbList.GetByIndex(DefaultDbIndex).GetOptions().GetDbName() == s.Options.defaultDbName) {
 		return false
 	}
 	if s.sysDb != nil {

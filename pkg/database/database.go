@@ -30,8 +30,39 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
+type Db interface {
+	Set(kv *schema.KeyValue) (*schema.Root, error)
+	Get(k *schema.Key) (*schema.Item, error)
+	CurrentRoot() (*schema.Root, error)
+	SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error)
+	SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error)
+	SetBatch(kvl *schema.KVList) (*schema.Root, error)
+	GetBatch(kl *schema.KeyList) (*schema.ItemList, error)
+	ExecAllOps(operations *schema.Ops) (*schema.Root, error)
+	Size() (uint64, error)
+	Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error)
+	CountAll() *schema.ItemsCount
+	Consistency(index *schema.Index) (*schema.DualProof, error)
+	ByIndex(index *schema.Index) (*schema.Tx, error)
+	BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error)
+	History(options *schema.HistoryOptions) (*schema.ItemList, error)
+	Health(*empty.Empty) (*schema.HealthResponse, error)
+	Reference(refOpts *schema.ReferenceOptions) (index *schema.Root, err error)
+	GetReference(refOpts *schema.Key) (item *schema.Item, err error)
+	SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error)
+	ZAdd(opts *schema.ZAddOptions) (*schema.Root, error)
+	ZScan(opts *schema.ZScanOptions) (*schema.ZItemList, error)
+	SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error)
+	Scan(opts *schema.ScanOptions) (*schema.ItemList, error)
+	IScan(opts *schema.IScanOptions) (*schema.Page, error)
+	Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error
+	PrintTree() (*schema.Tree, error)
+	Close() error
+	GetOptions() *DbOptions
+}
+
 //Db database instance
-type Db struct {
+type db struct {
 	Store *store.ImmuStore
 
 	tx *store.Tx
@@ -41,10 +72,10 @@ type Db struct {
 }
 
 // OpenDb Opens an existing Database from disk
-func OpenDb(op *DbOptions, log logger.Logger) (*Db, error) {
+func OpenDb(op *DbOptions, log logger.Logger) (Db, error) {
 	var err error
 
-	db := &Db{
+	db := &db{
 		Logger:  log,
 		options: op,
 	}
@@ -69,10 +100,10 @@ func OpenDb(op *DbOptions, log logger.Logger) (*Db, error) {
 }
 
 // NewDb Creates a new Database along with it's directories and files
-func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
+func NewDb(op *DbOptions, log logger.Logger) (Db, error) {
 	var err error
 
-	db := &Db{
+	db := &db{
 		Logger:  log,
 		options: op,
 	}
@@ -101,7 +132,7 @@ func NewDb(op *DbOptions, log logger.Logger) (*Db, error) {
 }
 
 //Set ...
-func (d *Db) Set(kv *schema.KeyValue) (*schema.Root, error) {
+func (d *db) Set(kv *schema.KeyValue) (*schema.Root, error) {
 	if kv == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -120,11 +151,11 @@ func (d *Db) Set(kv *schema.KeyValue) (*schema.Root, error) {
 }
 
 //Get ...
-func (d *Db) Get(k *schema.Key) (*schema.Item, error) {
+func (d *db) Get(k *schema.Key) (*schema.Item, error) {
 	return d.GetSince(k, 0)
 }
 
-func (d *Db) waitForIndexing(ts uint64) error {
+func (d *db) waitForIndexing(ts uint64) error {
 	for {
 		its, err := d.Store.IndexInfo()
 		if err != nil {
@@ -140,7 +171,7 @@ func (d *Db) waitForIndexing(ts uint64) error {
 	return nil
 }
 
-func (d *Db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
+func (d *db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
 	err := d.waitForIndexing(ts)
 	if err != nil {
 		return nil, err
@@ -168,20 +199,20 @@ func (d *Db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
 }
 
 // CurrentRoot ...
-func (d *Db) CurrentRoot() (*schema.Root, error) {
+func (d *db) CurrentRoot() (*schema.Root, error) {
 	id, alh := d.Store.Alh()
 
 	return &schema.Root{Payload: &schema.RootIndex{Index: id, Root: alh[:]}}, nil
 }
 
 //SafeSet ...
-func (d *Db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
+func (d *db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 	//return d.Store.SafeSet(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeSet")
 }
 
 //SafeGet ...
-func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
+func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 	if opts == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -236,7 +267,7 @@ func (d *Db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 }
 
 // SetBatch ...
-func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Root, error) {
+func (d *db) SetBatch(kvl *schema.KVList) (*schema.Root, error) {
 	if kvl == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -257,7 +288,7 @@ func (d *Db) SetBatch(kvl *schema.KVList) (*schema.Root, error) {
 }
 
 //GetBatch ...
-func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
+func (d *db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
 		item, err := d.Get(key)
@@ -273,47 +304,47 @@ func (d *Db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 }
 
 // ExecAllOps ...
-func (d *Db) ExecAllOps(operations *schema.Ops) (*schema.Root, error) {
+func (d *db) ExecAllOps(operations *schema.Ops) (*schema.Root, error) {
 	//return d.Store.ExecAllOps(operations)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ExecAllOps")
 }
 
 //Size ...
-func (d *Db) Size() (uint64, error) {
+func (d *db) Size() (uint64, error) {
 	return d.Store.TxCount(), nil
 }
 
 //Count ...
-func (d *Db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
+func (d *db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
 	//return d.Store.Count(*prefix)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
 }
 
 // CountAll ...
-func (d *Db) CountAll() *schema.ItemsCount {
+func (d *db) CountAll() *schema.ItemsCount {
 	//return &schema.ItemsCount{Count: d.Store.CountAll()}
 	return nil
 }
 
 // Consistency ...
-func (d *Db) Consistency(index *schema.Index) (*schema.DualProof, error) {
+func (d *db) Consistency(index *schema.Index) (*schema.DualProof, error) {
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Consistency")
 }
 
 // ByIndex ...
-func (d *Db) ByIndex(index *schema.Index) (*schema.Tx, error) {
+func (d *db) ByIndex(index *schema.Index) (*schema.Tx, error) {
 	//return d.Store.ByIndex(*index)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ByIndex")
 }
 
 //BySafeIndex ...
-func (d *Db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error) {
+func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error) {
 	//return d.Store.BySafeIndex(*sio)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "BySafeIndex")
 }
 
 //History ...
-func (d *Db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
+func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
 	snapshot, err := d.Store.Snapshot()
 	if err != nil {
 		return nil, err
@@ -357,42 +388,42 @@ func (d *Db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
 }
 
 //Health ...
-func (d *Db) Health(*empty.Empty) (*schema.HealthResponse, error) {
+func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
 }
 
 //ZAdd ...
-func (d *Db) ZAdd(opts *schema.ZAddOptions) (*schema.Root, error) {
+func (d *db) ZAdd(opts *schema.ZAddOptions) (*schema.Root, error) {
 	//return d.Store.ZAdd(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZAdd")
 }
 
 // ZScan ...
-func (d *Db) ZScan(opts *schema.ZScanOptions) (*schema.ZItemList, error) {
+func (d *db) ZScan(opts *schema.ZScanOptions) (*schema.ZItemList, error) {
 	//return d.Store.ZScan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZScan")
 }
 
 //SafeZAdd ...
-func (d *Db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
+func (d *db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
 	//return d.Store.SafeZAdd(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeZAdd")
 }
 
 //Scan ...
-func (d *Db) Scan(opts *schema.ScanOptions) (*schema.ItemList, error) {
+func (d *db) Scan(opts *schema.ScanOptions) (*schema.ItemList, error) {
 	//return d.Store.Scan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Scan")
 }
 
 //IScan ...
-func (d *Db) IScan(opts *schema.IScanOptions) (*schema.Page, error) {
+func (d *db) IScan(opts *schema.IScanOptions) (*schema.Page, error) {
 	//return d.Store.IScan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "IScan")
 }
 
 //Dump ...
-func (d *Db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
+func (d *db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 	/*
 		kvChan := make(chan *pb.KVList)
 		done := make(chan bool)
@@ -419,6 +450,16 @@ func (d *Db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 	return fmt.Errorf("Functionality not yet supported: %s", "Dump")
 }
 
+//Close ...
+func (d *db) Close() error {
+	return d.Store.Close()
+}
+
+//GetOptions ...
+func (d *db) GetOptions() *DbOptions {
+	return d.options
+}
+
 func logErr(log logger.Logger, formattedMessage string, err error) error {
 	if err != nil {
 		log.Errorf(formattedMessage, err)
@@ -427,7 +468,6 @@ func logErr(log logger.Logger, formattedMessage string, err error) error {
 }
 
 // PrintTree ...
-func (d *Db) PrintTree() *schema.Tree {
-	//return d.Store.GetTree()
-	return nil
+func (d *db) PrintTree() (*schema.Tree, error) {
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "PrintTree")
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/pkg/database"
 	"net/http"
 	"os"
 	"sync"
@@ -39,8 +40,8 @@ const DefaultDbIndex = 0
 
 // DatabaseList DatabaseList interface
 type DatabaseList interface {
-	Append(database *Db)
-	GetByIndex(index int64) *Db
+	Append(database database.Db)
+	GetByIndex(index int64) database.Db
 	Length() int
 }
 
@@ -57,7 +58,7 @@ type ImmuServer struct {
 	userdata            *usernameToUserdataMap
 	multidbmode         bool
 	Cc                  CorruptionChecker
-	sysDb               *Db
+	sysDb               database.Db
 	metricsServer       *http.Server
 	mux                 sync.Mutex
 	RootSigner          RootSigner
