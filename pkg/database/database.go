@@ -266,7 +266,7 @@ func (d *db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
 
 //SafeGet ...
 func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
-	if opts == nil {
+	if opts == nil || opts.RootIndex == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
@@ -292,11 +292,17 @@ func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 		DualProof:      nil,
 	}
 
-	rootTx := d.Store.NewTx()
+	var rootTx *store.Tx
 
-	err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
-	if err != nil {
-		return nil, err
+	if opts.RootIndex.Index == 0 {
+		rootTx = d.tx
+	} else {
+		rootTx = d.Store.NewTx()
+
+		err = d.Store.ReadTx(opts.RootIndex.Index, rootTx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var sourceTx, targetTx *store.Tx
@@ -326,6 +332,10 @@ func (d *db) SetBatch(kvl *schema.KVList) (*schema.Root, error) {
 	}
 
 	entries := make([]*store.KV, len(kvl.KVs))
+
+	for i, kv := range kvl.KVs {
+		entries[i] = &store.KV{Key: kv.Key, Value: kv.Value}
+	}
 
 	id, _, alh, err := d.Store.Commit(entries)
 	if err != nil {
@@ -407,11 +417,17 @@ func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, erro
 
 	var sourceTx, targetTx *store.Tx
 
-	rootTx := d.Store.NewTx()
+	var rootTx *store.Tx
 
-	err = d.Store.ReadTx(sio.RootIndex.Index, rootTx)
-	if err != nil {
-		return nil, err
+	if sio.RootIndex.Index == 0 {
+		rootTx = d.tx
+	} else {
+		rootTx = d.Store.NewTx()
+
+		err = d.Store.ReadTx(sio.RootIndex.Index, rootTx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if sio.RootIndex.Index <= sio.Index {
@@ -439,6 +455,7 @@ func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer snapshot.Close()
 
 	limit := math.MaxInt64
 	if options.Limit > 0 {

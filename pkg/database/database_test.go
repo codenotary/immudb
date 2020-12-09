@@ -77,15 +77,16 @@ var kvs = []*schema.KeyValue{
 	},
 }
 
-func makeDb() (*Db, func()) {
+func makeDb() (*db, func()) {
 	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	options := DefaultOption().WithDbName(dbName).WithInMemoryStore(true).WithCorruptionChecker(false)
 	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
-	return d, func() {
-		if err := d.Store.Close(); err != nil {
+	db := d.(*db)
+	return db, func() {
+		if err := db.Store.Close(); err != nil {
 			log.Fatal(err)
 		}
 		if err := os.RemoveAll(options.GetDbName()); err != nil {
@@ -96,10 +97,12 @@ func makeDb() (*Db, func()) {
 
 func TestDefaultDbCreation(t *testing.T) {
 	options := DefaultOption()
-	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
+	db := d.(*db)
+
 	defer func() {
 		db.Store.Close()
 		time.Sleep(1 * time.Second)
@@ -140,10 +143,11 @@ func TestDbCreationInInvalidDirectory(t *testing.T) {
 
 func TestDbCreation(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
+	db := d.(*db)
 	defer func() {
 		db.Store.Close()
 		time.Sleep(1 * time.Second)
@@ -169,20 +173,22 @@ func TestOpenWithMissingDBDirectories(t *testing.T) {
 
 func TestOpenDb(t *testing.T) {
 	options := DefaultOption().WithDbName("EdithPiaf").WithDbRootPath("Paris")
-	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	d, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
-	err = db.Store.Close()
+	dbi := d.(*db)
+	err = dbi.Store.Close()
 	if err != nil {
 		t.Fatalf("Error closing store %s", err)
 	}
 
-	db, err = OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
+	d, err = OpenDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		t.Fatalf("Error opening database %s", err)
 	}
-	db.Store.Close()
+	dbi = d.(*db)
+	dbi.Store.Close()
 	time.Sleep(1 * time.Second)
 	os.RemoveAll(options.GetDbRootPath())
 }
@@ -358,14 +364,17 @@ func TestSafeSetGet(t *testing.T) {
 			t.Fatalf("Nil proof after SafeSet")
 		}
 
+		time.Sleep(1 * time.Millisecond)
+
 		it, err := db.SafeGet(&schema.SafeGetOptions{
-			Key: val.Kv.Key,
+			Key:       val.Kv.Key,
+			RootIndex: &schema.Index{Index: 0},
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if it.GetItem().GetIndex() != uint64(ind) {
-			t.Fatalf("SafeGet index error, expected %d, got %d", uint64(ind), it.GetItem().GetIndex())
+		if it.GetItem().GetIndex() != uint64(ind+1) {
+			t.Fatalf("SafeGet index error, expected %d, got %d", uint64(ind+1), it.GetItem().GetIndex())
 		}
 	}
 }
@@ -397,9 +406,11 @@ func TestSetGetBatch(t *testing.T) {
 	if ind == nil {
 		t.Fatalf("Nil index after Setbatch")
 	}
-	if ind.GetIndex() != 2 {
-		t.Fatalf("SafeSet proof index error, expected %d, got %d", 2, ind.GetIndex())
+	if ind.GetIndex() != 1 {
+		t.Fatalf("SafeSet proof index error, expected %d, got %d", 1, ind.GetIndex())
 	}
+
+	time.Sleep(1 * time.Millisecond)
 
 	itList, err := db.GetBatch(&schema.KeyList{
 		Keys: []*schema.Key{
@@ -424,27 +435,6 @@ func TestSetGetBatch(t *testing.T) {
 	}
 }
 
-func TestConsintency(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-
-	for ind, val := range kvs {
-		it, err := db.Set(val)
-		if err != nil {
-			t.Fatalf("Error Inserting to db %s", err)
-		}
-		if it.GetIndex() != uint64(ind) {
-			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
-		}
-	}
-	time.Sleep(1 * time.Second)
-	ind := uint64(1)
-	_, err := db.Consistency(&schema.Index{Index: ind})
-	if err != nil {
-		t.Fatalf("Error Inserting to db %s", err)
-	}
-}
-
 func TestByIndex(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
@@ -454,7 +444,7 @@ func TestByIndex(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error Inserting to db %s", err)
 		}
-		if it.GetIndex() != uint64(ind) {
+		if it.GetIndex() != uint64(ind+1) {
 			t.Fatalf("index error expecting %v got %v", ind, it.GetIndex())
 		}
 	}
@@ -475,9 +465,14 @@ func TestBySafeIndex(t *testing.T) {
 			t.Fatalf("Error Inserting to db %s", err)
 		}
 	}
+
 	time.Sleep(1 * time.Second)
+
 	ind := uint64(1)
-	_, err := db.BySafeIndex(&schema.SafeIndexOptions{Index: ind})
+	_, err := db.BySafeIndex(&schema.SafeIndexOptions{
+		Index:     ind,
+		RootIndex: &schema.Index{Index: 0},
+	})
 	if err != nil {
 		t.Fatalf("Error Inserting to db %s", err)
 	}
@@ -496,6 +491,7 @@ func TestHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	time.Sleep(1 * time.Second)
 
 	inc, err := db.History(&schema.HistoryOptions{
@@ -694,10 +690,12 @@ func TestScan(t *testing.T) {
 func TestCount(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
+
 	root, err := db.CurrentRoot()
 	if err != nil {
 		t.Error(err)
 	}
+
 	kv := []*schema.SafeSetOptions{
 		{
 			Kv: &schema.KeyValue{
@@ -727,6 +725,7 @@ func TestCount(t *testing.T) {
 			},
 		},
 	}
+
 	for _, val := range kv {
 		_, err := db.SafeSet(val)
 		if err != nil {
