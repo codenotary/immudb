@@ -73,6 +73,7 @@ func dualProofTo(dualProof *store.DualProof) *schema.DualProof {
 		TargetTxMetadata:   txMetatadaTo(dualProof.TargetTxMetadata),
 		InclusionProof:     digestsTo(dualProof.InclusionProof),
 		ConsistencyProof:   digestsTo(dualProof.ConsistencyProof),
+		TargetBlTxAlh:      dualProof.TargetBlTxAlh[:],
 		LastInclusionProof: digestsTo(dualProof.LastInclusionProof),
 		LinearProof:        linearProofTo(dualProof.LinearProof),
 	}
@@ -94,7 +95,7 @@ func linearProofTo(linearProof *store.LinearProof) *schema.LinearProof {
 	return &schema.LinearProof{
 		SourceTxId: linearProof.SourceTxID,
 		TargetTxId: linearProof.TargetTxID,
-		Terms:      digestsTo(linearProof.Proof),
+		Terms:      digestsTo(linearProof.Terms),
 	}
 }
 
@@ -104,6 +105,7 @@ func dualProofFrom(dproof *schema.DualProof) *store.DualProof {
 		TargetTxMetadata:   txMetatadaFrom(dproof.TargetTxMetadata),
 		InclusionProof:     digestsFrom(dproof.InclusionProof),
 		ConsistencyProof:   digestsFrom(dproof.ConsistencyProof),
+		TargetBlTxAlh:      digestFrom(dproof.TargetBlTxAlh),
 		LastInclusionProof: digestsFrom(dproof.LastInclusionProof),
 		LinearProof:        linearProofFrom(dproof.LinearProof),
 	}
@@ -125,18 +127,19 @@ func linearProofFrom(lproof *schema.LinearProof) *store.LinearProof {
 	return &store.LinearProof{
 		SourceTxID: lproof.SourceTxId,
 		TargetTxID: lproof.TargetTxId,
-		Proof:      digestsFrom(lproof.Terms),
+		Terms:      digestsFrom(lproof.Terms),
 	}
 }
 
 func digestsTo(terms [][sha256.Size]byte) [][]byte {
-	ts := make([][]byte, len(terms))
+	slicedTerms := make([][]byte, len(terms))
 
 	for i, t := range terms {
-		ts[i] = t[:]
+		slicedTerms[i] = make([]byte, sha256.Size)
+		copy(slicedTerms[i], t[:])
 	}
 
-	return ts
+	return slicedTerms
 }
 
 func digestFrom(slicedDigest []byte) [sha256.Size]byte {
@@ -146,11 +149,11 @@ func digestFrom(slicedDigest []byte) [sha256.Size]byte {
 }
 
 func digestsFrom(slicedTerms [][]byte) [][sha256.Size]byte {
-	ts := make([][sha256.Size]byte, len(slicedTerms))
+	terms := make([][sha256.Size]byte, len(slicedTerms))
 
 	for i, t := range slicedTerms {
-		copy(ts[i][:], t)
+		copy(terms[i][:], t)
 	}
 
-	return ts
+	return terms
 }

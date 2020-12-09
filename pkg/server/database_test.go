@@ -238,26 +238,39 @@ func TestDbSetGet(t *testing.T) {
 		}
 
 		inclusionProof := inclusionProofFrom(sitem.Proof.InclusionProof)
+		dualProof := dualProofFrom(sitem.Proof.DualProof)
 
 		var eh [sha256.Size]byte
+		var sourceID, targetID uint64
+		var sourceAlh, targetAlh [sha256.Size]byte
 
 		if trustedIndex <= sitem.Item.Index {
 			copy(eh[:], sitem.Proof.DualProof.TargetTxMetadata.EH)
+			sourceID = trustedIndex
+			sourceAlh = trustedAlh
+			targetID = sitem.Item.Index
+			targetAlh = store.Alh(dualProof.TargetTxMetadata)
 		} else {
 			copy(eh[:], sitem.Proof.DualProof.SourceTxMetadata.EH)
+			sourceID = sitem.Item.Index
+			sourceAlh = store.Alh(dualProof.SourceTxMetadata)
+			targetID = trustedIndex
+			targetAlh = trustedAlh
 		}
 
-		verifies := store.VerifyInclusion(inclusionProof, &store.KV{Key: sitem.Item.Key, Value: sitem.Item.Value}, eh)
+		verifies := store.VerifyInclusion(
+			inclusionProof,
+			&store.KV{Key: sitem.Item.Key, Value: sitem.Item.Value},
+			eh,
+		)
 		require.True(t, verifies)
-
-		dualProof := dualProofFrom(sitem.Proof.DualProof)
 
 		verifies = store.VerifyDualProof(
 			dualProof,
-			dualProof.SourceTxMetadata.ID,
-			dualProof.TargetTxMetadata.ID,
-			trustedAlh,
-			store.Alh(dualProof.TargetTxMetadata),
+			sourceID,
+			targetID,
+			sourceAlh,
+			targetAlh,
 		)
 		require.True(t, verifies)
 	}
