@@ -30,7 +30,7 @@ func TestVerifyLinearProofEdgeCases(t *testing.T) {
 
 	require.True(t,
 		VerifyLinearProof(
-			&LinearProof{Proof: [][sha256.Size]byte{sha256.Sum256(nil)}, SourceTxID: 1, TargetTxID: 1},
+			&LinearProof{Terms: [][sha256.Size]byte{sha256.Sum256(nil)}, SourceTxID: 1, TargetTxID: 1},
 			1,
 			1,
 			sha256.Sum256(nil),

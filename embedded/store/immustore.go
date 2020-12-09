@@ -1017,7 +1017,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 type LinearProof struct {
 	SourceTxID uint64
 	TargetTxID uint64
-	Proof      [][sha256.Size]byte
+	Terms      [][sha256.Size]byte
 }
 
 // LinearProof returns a list of hashes to calculate Alh@targetTxID from Alh@sourceTxID
@@ -1058,7 +1058,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 	return &LinearProof{
 		SourceTxID: sourceTxID,
 		TargetTxID: targetTxID,
-		Proof:      proof,
+		Terms:      proof,
 	}, nil
 }
 

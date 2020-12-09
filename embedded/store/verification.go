@@ -33,17 +33,17 @@ func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, source
 	}
 
 	if proof.SourceTxID == 0 || proof.SourceTxID > proof.TargetTxID ||
-		len(proof.Proof) == 0 || sourceAlh != proof.Proof[0] {
+		len(proof.Terms) == 0 || sourceAlh != proof.Terms[0] {
 		return false
 	}
 
-	calculatedAlh := proof.Proof[0]
+	calculatedAlh := proof.Terms[0]
 
-	for i := 1; i < len(proof.Proof); i++ {
+	for i := 1; i < len(proof.Terms); i++ {
 		var bs [txIDSize + 2*sha256.Size]byte
 		binary.BigEndian.PutUint64(bs[:], proof.SourceTxID+uint64(i))
 		copy(bs[txIDSize:], calculatedAlh[:])
-		copy(bs[txIDSize+sha256.Size:], proof.Proof[i][:]) // innerHash = hash(ts + nentries + eH + blTxID + blRoot)
+		copy(bs[txIDSize+sha256.Size:], proof.Terms[i][:]) // innerHash = hash(ts + nentries + eH + blTxID + blRoot)
 		calculatedAlh = sha256.Sum256(bs[:])               // hash(txID + prevAlh + innerHash)
 	}
 
