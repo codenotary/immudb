@@ -63,12 +63,12 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 		return false
 	}
 
-	cSourceAlh := Alh(proof.SourceTxMetadata)
+	cSourceAlh := proof.SourceTxMetadata.Alh()
 	if sourceAlh != cSourceAlh {
 		return false
 	}
 
-	cTargetAlh := Alh(proof.TargetTxMetadata)
+	cTargetAlh := proof.TargetTxMetadata.Alh()
 	if targetAlh != cTargetAlh {
 		return false
 	}
@@ -119,25 +119,6 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 	}
 
 	return VerifyLinearProof(proof.LinearProof, sourceTxID, targetTxID, sourceAlh, targetAlh)
-}
-
-func Alh(txMetadata *TxMetadata) [sha256.Size]byte {
-	var bi [txIDSize + 2*sha256.Size]byte
-
-	binary.BigEndian.PutUint64(bi[:], txMetadata.ID)
-	copy(bi[txIDSize:], txMetadata.PrevAlh[:])
-
-	var bj [tsSize + 4 + sha256.Size + txIDSize + sha256.Size]byte
-	binary.BigEndian.PutUint64(bj[:], uint64(txMetadata.Ts))
-	binary.BigEndian.PutUint32(bj[tsSize:], uint32(txMetadata.NEntries))
-	copy(bj[tsSize+4:], txMetadata.Eh[:])
-	binary.BigEndian.PutUint64(bj[tsSize+4+sha256.Size:], txMetadata.BlTxID)
-	copy(bj[tsSize+4+sha256.Size+txIDSize:], txMetadata.BlRoot[:])
-	innerHash := sha256.Sum256(bj[:]) // hash(ts + nentries + eH + blTxID + blRoot)
-
-	copy(bi[txIDSize+sha256.Size:], innerHash[:]) // hash(txID + prevAlh + innerHash)
-
-	return sha256.Sum256(bi[:])
 }
 
 func leafFor(d [sha256.Size]byte) [sha256.Size]byte {

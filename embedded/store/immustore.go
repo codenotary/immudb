@@ -736,18 +736,17 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	donec <- appendableResult{offsets, nil}
 }
 
-func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, err error) {
+func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
-		err = ErrAlreadyClosed
-		return
+		return nil, ErrAlreadyClosed
 	}
 	s.mutex.Unlock()
 
-	err = s.validateEntries(entries)
+	err := s.validateEntries(entries)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	appendableCh := make(chan appendableResult)
@@ -755,7 +754,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer s.releaseAllocTx(tx)
 
@@ -774,15 +773,15 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 	r := <-appendableCh // wait for data to be writen
 	err = r.err
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = s.commit(tx, r.offsets)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	return tx.ID, tx.Ts, tx.Alh, nil
+	return tx.Metadata(), nil
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
