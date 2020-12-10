@@ -74,7 +74,7 @@ type db struct {
 }
 
 // OpenDb Opens an existing Database from disk
-func OpenDb(op *DbOptions, log logger.Logger) (Db, error) {
+func OpenDb(op *DbOptions, log logger.Logger) (*db, error) {
 	var err error
 
 	db := &db{
@@ -102,7 +102,7 @@ func OpenDb(op *DbOptions, log logger.Logger) (Db, error) {
 }
 
 // NewDb Creates a new Database along with it's directories and files
-func NewDb(op *DbOptions, log logger.Logger) (Db, error) {
+func NewDb(op *DbOptions, log logger.Logger) (*db, error) {
 	var err error
 
 	db := &db{

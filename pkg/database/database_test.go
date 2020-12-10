@@ -77,7 +77,7 @@ var kvs = []*schema.KeyValue{
 	},
 }
 
-func makeDb() (Db, func()) {
+func makeDb() (*db, func()) {
 	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	options := DefaultOption().WithDbName(dbName).WithInMemoryStore(true).WithCorruptionChecker(false)
 	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
