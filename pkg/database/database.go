@@ -17,7 +17,9 @@ limitations under the License.
 package database
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/common"
 	"math"
 	"os"
 	"path/filepath"
@@ -61,7 +63,7 @@ type Db interface {
 	GetOptions() *DbOptions
 }
 
-//IDB database instance
+//Db database instance
 type db struct {
 	st *store.ImmuStore
 
@@ -152,7 +154,16 @@ func (d *db) Set(kv *schema.KeyValue) (*schema.Root, error) {
 
 //Get ...
 func (d *db) Get(k *schema.Key) (*schema.Item, error) {
-	return d.GetSince(k, 0)
+	item, err := d.GetSince(k, 0)
+	if err != nil {
+		return nil, err
+	}
+	if bytes.HasPrefix(item.Value, common.ReferencePrefix) {
+		ref := bytes.TrimPrefix(item.Value, common.ReferencePrefix)
+		key, _, _ := common.UnwrapIndexReference(ref)
+		return d.GetSince(&schema.Key{Key: key}, 0)
+	}
+	return item, err
 }
 
 func (d *db) waitForIndexing(ts uint64) error {
