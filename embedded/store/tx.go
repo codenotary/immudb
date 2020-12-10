@@ -40,6 +40,16 @@ type Tx struct {
 	InnerHash [sha256.Size]byte
 }
 
+type TxMetadata struct {
+	ID       uint64
+	PrevAlh  [sha256.Size]byte
+	Ts       int64
+	NEntries int
+	Eh       [sha256.Size]byte
+	BlTxID   uint64
+	BlRoot   [sha256.Size]byte
+}
+
 func newTx(nentries int, maxKeyLen int) *Tx {
 	entries := make([]*Txe, nentries)
 	for i := 0; i < nentries; i++ {
@@ -52,6 +62,23 @@ func newTx(nentries int, maxKeyLen int) *Tx {
 		ID:      0,
 		entries: entries,
 		htree:   htree,
+	}
+}
+
+func (tx *Tx) Metadata() *TxMetadata {
+	var prevAlh, blRoot [sha256.Size]byte
+
+	copy(prevAlh[:], tx.PrevAlh[:])
+	copy(blRoot[:], tx.BlRoot[:])
+
+	return &TxMetadata{
+		ID:       tx.ID,
+		PrevAlh:  prevAlh,
+		Ts:       tx.Ts,
+		NEntries: tx.nentries,
+		Eh:       tx.Eh(),
+		BlTxID:   tx.BlTxID,
+		BlRoot:   blRoot,
 	}
 }
 

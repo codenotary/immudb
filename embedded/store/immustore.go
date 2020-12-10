@@ -902,16 +902,6 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	return nil
 }
 
-type TxMetadata struct {
-	ID       uint64
-	PrevAlh  [sha256.Size]byte
-	Ts       int64
-	NEntries int
-	Eh       [sha256.Size]byte
-	BlTxID   uint64
-	BlRoot   [sha256.Size]byte
-}
-
 type DualProof struct {
 	SourceTxMetadata   *TxMetadata
 	TargetTxMetadata   *TxMetadata
@@ -937,24 +927,8 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 	}
 
 	proof = &DualProof{
-		SourceTxMetadata: &TxMetadata{
-			ID:       sourceTx.ID,
-			PrevAlh:  sourceTx.PrevAlh,
-			Ts:       sourceTx.Ts,
-			NEntries: sourceTx.nentries,
-			Eh:       sourceTx.Eh(),
-			BlTxID:   sourceTx.BlTxID,
-			BlRoot:   sourceTx.BlRoot,
-		},
-		TargetTxMetadata: &TxMetadata{
-			ID:       targetTx.ID,
-			PrevAlh:  targetTx.PrevAlh,
-			Ts:       targetTx.Ts,
-			NEntries: targetTx.nentries,
-			Eh:       targetTx.Eh(),
-			BlTxID:   targetTx.BlTxID,
-			BlRoot:   targetTx.BlRoot,
-		},
+		SourceTxMetadata: sourceTx.Metadata(),
+		TargetTxMetadata: targetTx.Metadata(),
 	}
 
 	if sourceTx.ID < targetTx.BlTxID {
