@@ -1,6 +1,6 @@
 module github.com/codenotary/immudb
 
-go 1.13
+go 1.15
 
 require (
 	github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656
