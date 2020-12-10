@@ -36,7 +36,7 @@ type HTree struct {
 }
 
 type InclusionProof struct {
-	Index int
+	Leaf  int
 	Width int
 	Terms [][sha256.Size]byte
 }
@@ -132,7 +132,7 @@ func (t *HTree) InclusionProof(i int) (proof *InclusionProof, err error) {
 	var r int
 
 	proof = &InclusionProof{
-		Index: i,
+		Leaf:  i,
 		Width: t.width,
 	}
 
@@ -173,7 +173,7 @@ func VerifyInclusion(proof *InclusionProof, digest, root [sha256.Size]byte) bool
 	copy(leaf[1:], digest[:])
 
 	calcRoot := sha256.Sum256(leaf[:])
-	i := proof.Index
+	i := proof.Leaf
 	r := proof.Width - 1
 
 	for _, t := range proof.Terms {
