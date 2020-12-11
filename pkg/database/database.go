@@ -17,6 +17,8 @@ limitations under the License.
 package database
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"os"
@@ -30,31 +32,29 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
-type Db interface {
-	Set(kv *schema.KeyValue) (*schema.Root, error)
-	Get(k *schema.Key) (*schema.Item, error)
-	GetSince(k *schema.Key, index uint64) (*schema.Item, error)
-	CurrentRoot() (*schema.Root, error)
-	SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error)
-	SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error)
-	SetBatch(kvl *schema.KVList) (*schema.Root, error)
-	GetBatch(kl *schema.KeyList) (*schema.ItemList, error)
-	ExecAllOps(operations *schema.Ops) (*schema.Root, error)
+type DB interface {
+	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
+	Get(req *schema.KeyRequest) (*schema.Item, error)
+	Health(e *empty.Empty) (*schema.HealthResponse, error)
+	CurrentImmutableState() (*schema.ImmutableState, error)
+	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
+	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error)
+	GetAll(kl *schema.KeyList) (*schema.ItemList, error)
+	ExecAllOps(operations *schema.Ops) (*schema.TxMetadata, error)
 	Size() (uint64, error)
 	Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error)
 	CountAll() *schema.ItemsCount
-	ByIndex(index *schema.Index) (*schema.Tx, error)
-	BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error)
-	History(options *schema.HistoryOptions) (*schema.ItemList, error)
-	Health(*empty.Empty) (*schema.HealthResponse, error)
-	Reference(refOpts *schema.ReferenceOptions) (index *schema.Root, err error)
-	GetReference(refOpts *schema.Key) (item *schema.Item, err error)
-	SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error)
-	ZAdd(opts *schema.ZAddOptions) (*schema.Root, error)
-	ZScan(opts *schema.ZScanOptions) (*schema.ZItemList, error)
-	SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error)
-	Scan(opts *schema.ScanOptions) (*schema.ItemList, error)
-	IScan(opts *schema.IScanOptions) (*schema.Page, error)
+	TxByID(req *schema.TxRequest) (*schema.Tx, error)
+	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
+	History(req *schema.HistoryRequest) (*schema.ItemList, error)
+	SetReference(req *schema.Reference) (*schema.TxMetadata, error)
+	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
+	GetReference(req *schema.KeyRequest) (item *schema.Item, err error)
+	ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error)
+	ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error)
+	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
+	Scan(req *schema.ScanRequest) (*schema.ItemList, error)
+	IScan(req *schema.IScanRequest) (*schema.Page, error)
 	Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error
 	PrintTree() (*schema.Tree, error)
 	Close() error
@@ -72,7 +72,7 @@ type db struct {
 }
 
 // OpenDb Opens an existing Database from disk
-func OpenDb(op *DbOptions, log logger.Logger) (Db, error) {
+func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
 	var err error
 
 	db := &db{
@@ -100,7 +100,7 @@ func OpenDb(op *DbOptions, log logger.Logger) (Db, error) {
 }
 
 // NewDb Creates a new Database along with it's directories and files
-func NewDb(op *DbOptions, log logger.Logger) (Db, error) {
+func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 	var err error
 
 	db := &db{
@@ -131,28 +131,29 @@ func NewDb(op *DbOptions, log logger.Logger) (Db, error) {
 	return db, nil
 }
 
-//Set ...
-func (d *db) Set(kv *schema.KeyValue) (*schema.Root, error) {
-	if kv == nil {
+// Set ...
+func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
+	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
-	id, _, alh, err := d.st.Commit([]*store.KV{{Key: kv.Key, Value: kv.Value}})
-	if err != nil {
-		return nil, fmt.Errorf("unexpected error %v during %s", err, "Set")
+	entries := make([]*store.KV, len(req.KVs))
+
+	for i, kv := range req.KVs {
+		entries[i] = &store.KV{Key: kv.Key, Value: kv.Value}
 	}
 
-	return &schema.Root{
-		Payload: &schema.RootIndex{
-			Index: id,
-			Root:  alh[:],
-		},
-	}, nil
+	txMetatadata, err := d.st.Commit(entries)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.TxMetatadaTo(txMetatadata), nil
 }
 
 //Get ...
-func (d *db) Get(k *schema.Key) (*schema.Item, error) {
-	return d.GetSince(k, 0)
+func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
+	return d.getSince(req.Key, uint64(req.FromTx))
 }
 
 func (d *db) waitForIndexing(ts uint64) error {
@@ -166,15 +167,17 @@ func (d *db) waitForIndexing(ts uint64) error {
 			break
 		}
 
-		time.Sleep(time.Duration(5) * time.Millisecond)
+		time.Sleep(time.Duration(1) * time.Millisecond)
 	}
 	return nil
 }
 
-func (d *db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
-	err := d.waitForIndexing(ts)
-	if err != nil {
-		return nil, err
+func (d *db) getSince(key []byte, txID uint64) (*schema.Item, error) {
+	if txID > 0 {
+		err := d.waitForIndexing(txID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	snapshot, err := d.st.Snapshot()
@@ -183,124 +186,113 @@ func (d *db) GetSince(k *schema.Key, ts uint64) (*schema.Item, error) {
 	}
 	defer snapshot.Close()
 
-	_, id, err := snapshot.Get(k.Key)
+	wv, ts, err := snapshot.Get(key)
 	if err != nil {
 		return nil, err
 	}
 
-	d.st.ReadTx(id, d.tx)
+	valLen := binary.BigEndian.Uint32(wv)
+	vOff := binary.BigEndian.Uint64(wv[4:])
 
-	val, err := d.st.ReadValue(d.tx, k.Key)
-	if err != nil {
-		return nil, err
-	}
+	var hVal [sha256.Size]byte
+	copy(hVal[:], wv[4+8:])
 
-	return &schema.Item{Key: k.Key, Value: val, Index: id}, err
+	val := make([]byte, valLen)
+	_, err = d.st.ReadValueAt(val, int64(vOff), hVal)
+
+	return &schema.Item{Key: key, Value: val, Tx: ts}, err
 }
 
-// CurrentRoot ...
-func (d *db) CurrentRoot() (*schema.Root, error) {
-	id, alh := d.st.Alh()
-
-	return &schema.Root{Payload: &schema.RootIndex{Index: id, Root: alh[:]}}, nil
+//Health ...
+func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
+	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
 }
 
-//SafeSet ...
-func (d *db) SafeSet(opts *schema.SafeSetOptions) (*schema.Proof, error) {
-	if opts == nil {
+// CurrentImmutableState ...
+func (d *db) CurrentImmutableState() (*schema.ImmutableState, error) {
+	lastTxID, lastTxAlh := d.st.Alh()
+
+	return &schema.ImmutableState{
+		TxId:   lastTxID,
+		TxHash: lastTxAlh[:],
+	}, nil
+}
+
+//VerifiableSet ...
+func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
+	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
-	root, err := d.Set(opts.Kv)
+	txMetatadata, err := d.Set(req.SetRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	// key-value inclusion proof
-	err = d.st.ReadTx(root.Payload.Index, d.tx)
+	lastTx := d.tx //TODO: fetch/release from tx pool
+
+	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
 	if err != nil {
 		return nil, err
 	}
 
-	inclusionProof, err := d.tx.Proof(opts.Kv.Key)
-	if err != nil {
-		return nil, err
-	}
+	var prevTx *store.Tx
 
-	proof := &schema.Proof{
-		InclusionProof: inclusionProofTo(inclusionProof),
-		DualProof:      nil,
-	}
-
-	var rootTx *store.Tx
-
-	if opts.RootIndex.Index == 0 {
-		rootTx = d.tx
+	if req.ProveFromTx == 0 {
+		prevTx = lastTx
 	} else {
-		rootTx = d.st.NewTx()
+		prevTx = d.st.NewTx()
 
-		err = d.st.ReadTx(opts.RootIndex.Index, rootTx)
+		err = d.st.ReadTx(uint64(req.ProveFromTx), prevTx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	var sourceTx, targetTx *store.Tx
-
-	if opts.RootIndex.Index <= root.Payload.Index {
-		sourceTx = rootTx
-		targetTx = d.tx
-	} else {
-		sourceTx = d.tx
-		targetTx = rootTx
-	}
-
-	dualProof, err := d.st.DualProof(sourceTx, targetTx)
+	dualProof, err := d.st.DualProof(prevTx, lastTx)
 	if err != nil {
 		return nil, err
 	}
 
-	proof.DualProof = dualProofTo(dualProof)
-
-	return proof, nil
+	return &schema.VerifiableTx{
+		Tx:        schema.TxTo(lastTx),
+		DualProof: schema.DualProofTo(dualProof),
+	}, nil
 }
 
-//SafeGet ...
-func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
-	if opts == nil || opts.RootIndex == nil {
+//VerifiableGet ...
+func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error) {
+	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
 	// get value of key
-	it, err := d.Get(&schema.Key{Key: opts.Key})
+	it, err := d.Get(req.KeyRequest)
 	if err != nil {
 		return nil, err
 	}
+
+	txItem := d.tx
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(it.Index, d.tx)
+	err = d.st.ReadTx(it.Tx, txItem)
 	if err != nil {
 		return nil, err
 	}
 
-	inclusionProof, err := d.tx.Proof(opts.Key)
+	inclusionProof, err := d.tx.Proof(req.KeyRequest.Key)
 	if err != nil {
 		return nil, err
-	}
-
-	proof := &schema.Proof{
-		InclusionProof: inclusionProofTo(inclusionProof),
-		DualProof:      nil,
 	}
 
 	var rootTx *store.Tx
 
-	if opts.RootIndex.Index == 0 {
-		rootTx = d.tx
+	if req.ProveFromTx == 0 {
+		rootTx = txItem
 	} else {
 		rootTx = d.st.NewTx()
 
-		err = d.st.ReadTx(opts.RootIndex.Index, rootTx)
+		err = d.st.ReadTx(uint64(req.ProveFromTx), rootTx)
 		if err != nil {
 			return nil, err
 		}
@@ -308,11 +300,11 @@ func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 
 	var sourceTx, targetTx *store.Tx
 
-	if opts.RootIndex.Index <= it.Index {
+	if uint64(req.ProveFromTx) <= it.Tx {
 		sourceTx = rootTx
-		targetTx = d.tx
+		targetTx = txItem
 	} else {
-		sourceTx = d.tx
+		sourceTx = txItem
 		targetTx = rootTx
 	}
 
@@ -321,41 +313,23 @@ func (d *db) SafeGet(opts *schema.SafeGetOptions) (*schema.SafeItem, error) {
 		return nil, err
 	}
 
-	proof.DualProof = dualProofTo(dualProof)
-
-	return &schema.SafeItem{Item: it, Proof: proof}, nil
-}
-
-// SetBatch ...
-func (d *db) SetBatch(kvl *schema.KVList) (*schema.Root, error) {
-	if kvl == nil {
-		return nil, store.ErrIllegalArguments
+	verifiableTx := &schema.VerifiableTx{
+		Tx:        schema.TxTo(txItem),
+		DualProof: schema.DualProofTo(dualProof),
 	}
 
-	entries := make([]*store.KV, len(kvl.KVs))
-
-	for i, kv := range kvl.KVs {
-		entries[i] = &store.KV{Key: kv.Key, Value: kv.Value}
-	}
-
-	id, _, alh, err := d.st.Commit(entries)
-	if err != nil {
-		return nil, err
-	}
-
-	return &schema.Root{
-		Payload: &schema.RootIndex{
-			Index: id,
-			Root:  alh[:],
-		},
+	return &schema.VerifiableItem{
+		Item:           it,
+		VerifiableTx:   verifiableTx,
+		InclusionProof: schema.InclusionProofTo(inclusionProof),
 	}, nil
 }
 
-//GetBatch ...
-func (d *db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
+//GetAll ...
+func (d *db) GetAll(kl *schema.KeyList) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 	for _, key := range kl.Keys {
-		item, err := d.Get(key)
+		item, err := d.getSince(key, 0)
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)
@@ -368,7 +342,7 @@ func (d *db) GetBatch(kl *schema.KeyList) (*schema.ItemList, error) {
 }
 
 // ExecAllOps ...
-func (d *db) ExecAllOps(operations *schema.Ops) (*schema.Root, error) {
+func (d *db) ExecAllOps(operations *schema.Ops) (*schema.TxMetadata, error) {
 	//return d.st.ExecAllOps(operations)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ExecAllOps")
 }
@@ -389,29 +363,29 @@ func (d *db) CountAll() *schema.ItemsCount {
 	return &schema.ItemsCount{Count: d.st.TxCount()}
 }
 
-// ByIndex ...
-func (d *db) ByIndex(index *schema.Index) (*schema.Tx, error) {
-	if index == nil {
+// TxByID ...
+func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
+	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
 	// key-value inclusion proof
-	err := d.st.ReadTx(index.Index, d.tx)
+	err := d.st.ReadTx(req.Tx, d.tx)
 	if err != nil {
 		return nil, err
 	}
 
-	return txTo(d.tx), nil
+	return schema.TxTo(d.tx), nil
 }
 
-//BySafeIndex ...
-func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, error) {
-	if sio == nil || sio.RootIndex == nil {
+//VerifiableTxByID ...
+func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
+	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
 	// key-value inclusion proof
-	err := d.st.ReadTx(sio.Index, d.tx)
+	err := d.st.ReadTx(req.Tx, d.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -420,18 +394,18 @@ func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, erro
 
 	var rootTx *store.Tx
 
-	if sio.RootIndex.Index == 0 {
+	if req.ProveFromTx == 0 {
 		rootTx = d.tx
 	} else {
 		rootTx = d.st.NewTx()
 
-		err = d.st.ReadTx(sio.RootIndex.Index, rootTx)
+		err = d.st.ReadTx(uint64(req.ProveFromTx), rootTx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if sio.RootIndex.Index <= sio.Index {
+	if uint64(req.ProveFromTx) <= req.Tx {
 		sourceTx = rootTx
 		targetTx = d.tx
 	} else {
@@ -444,14 +418,14 @@ func (d *db) BySafeIndex(sio *schema.SafeIndexOptions) (*schema.VerifiedTx, erro
 		return nil, err
 	}
 
-	return &schema.VerifiedTx{
-		Tx:        txTo(d.tx),
-		DualProof: dualProofTo(dualProof),
+	return &schema.VerifiableTx{
+		Tx:        schema.TxTo(d.tx),
+		DualProof: schema.DualProofTo(dualProof),
 	}, nil
 }
 
 //History ...
-func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
+func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 	snapshot, err := d.st.Snapshot()
 	if err != nil {
 		return nil, err
@@ -459,18 +433,18 @@ func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
 	defer snapshot.Close()
 
 	limit := math.MaxInt64
-	if options.Limit > 0 {
-		limit = int(options.Offset + options.Limit)
+	if req.Limit > 0 {
+		limit = int(req.Offset + req.Limit)
 	}
 
-	tss, err := snapshot.GetTs(options.Key, int64(limit))
+	tss, err := snapshot.GetTs(req.Key, int64(limit))
 	if err != nil {
 		return nil, err
 	}
 
 	list := &schema.ItemList{}
 
-	for i := int(options.Offset); i < len(tss); i++ {
+	for i := int(req.Offset); i < len(tss); i++ {
 		ts := tss[i]
 
 		err = d.st.ReadTx(ts, d.tx)
@@ -478,14 +452,14 @@ func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
 			return nil, err
 		}
 
-		val, err := d.st.ReadValue(d.tx, options.Key)
+		val, err := d.st.ReadValue(d.tx, req.Key)
 		if err != nil {
 			return nil, err
 		}
 
-		item := &schema.Item{Key: options.Key, Value: val, Index: ts}
+		item := &schema.Item{Key: req.Key, Value: val, Tx: ts}
 
-		if options.Reverse {
+		if req.Reverse {
 			list.Items = append([]*schema.Item{item}, list.Items...)
 		} else {
 			list.Items = append(list.Items, item)
@@ -495,37 +469,32 @@ func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
 	return list, nil
 }
 
-//Health ...
-func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
-	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
-}
-
 //ZAdd ...
-func (d *db) ZAdd(opts *schema.ZAddOptions) (*schema.Root, error) {
+func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 	//return d.st.ZAdd(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZAdd")
 }
 
 // ZScan ...
-func (d *db) ZScan(opts *schema.ZScanOptions) (*schema.ZItemList, error) {
+func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 	//return d.st.ZScan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZScan")
 }
 
-//SafeZAdd ...
-func (d *db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
-	//return d.st.SafeZAdd(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeZAdd")
+//VerifiableZAdd ...
+func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
+	//return d.st.VerifiableZAdd(*opts)
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableZAdd")
 }
 
 //Scan ...
-func (d *db) Scan(opts *schema.ScanOptions) (*schema.ItemList, error) {
+func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
 	//return d.st.Scan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Scan")
 }
 
 //IScan ...
-func (d *db) IScan(opts *schema.IScanOptions) (*schema.Page, error) {
+func (d *db) IScan(req *schema.IScanRequest) (*schema.Page, error) {
 	//return d.st.IScan(*opts)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "IScan")
 }

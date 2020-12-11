@@ -2,11 +2,12 @@ package database
 
 import (
 	"fmt"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 //Reference ...
-func (d *db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Root, err error) {
+func (d *db) SetReference(req *schema.Reference) (*schema.TxMetadata, error) {
 	/*d.Logger.Debugf("getReference options: %v", refOpts)
 	return d.Store.GetReference(*refOpts)
 	*/
@@ -14,15 +15,15 @@ func (d *db) Reference(refOpts *schema.ReferenceOptions) (index *schema.Root, er
 }
 
 //Reference ...
-func (d *db) GetReference(refOpts *schema.Key) (item *schema.Item, err error) {
+func (d *db) GetReference(req *schema.KeyRequest) (*schema.Item, error) {
 	/*d.Logger.Debugf("getReference options: %v", refOpts)
 	return d.Store.GetReference(*refOpts)
 	*/
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Reference")
 }
 
-//SafeReference ...
-func (d *db) SafeReference(safeRefOpts *schema.SafeReferenceOptions) (proof *schema.Proof, err error) {
+//VerifiableReference ...
+func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
 	//return d.Store.SafeReference(*safeRefOpts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeReference")
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableReference")
 }

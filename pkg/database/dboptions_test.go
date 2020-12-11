@@ -31,14 +31,11 @@ func TestDefaultOptions(t *testing.T) {
 	if !op.GetCorruptionChecker() {
 		t.Errorf("default corruption checker not what expected")
 	}
-	if op.GetInMemoryStore() {
-		t.Errorf("default in memory store not what expected")
-	}
 
 	DbName := "Charles_Aznavour"
 	rootpath := "rootpath"
 	op = DefaultOption().WithDbName(DbName).
-		WithDbRootPath(rootpath).WithCorruptionChecker(false).WithInMemoryStore(true)
+		WithDbRootPath(rootpath).WithCorruptionChecker(false)
 	if op.GetDbName() != DbName {
 		t.Errorf("db name not set correctly , expected %s got %s", DbName, op.GetDbName())
 	}
@@ -48,8 +45,5 @@ func TestDefaultOptions(t *testing.T) {
 
 	if op.GetCorruptionChecker() {
 		t.Errorf("coruuption checker not set correctly , expected %v got %v", false, op.GetCorruptionChecker())
-	}
-	if !op.GetInMemoryStore() {
-		t.Errorf("in  memory store not set correctly , expected %v got %v", false, op.GetInMemoryStore())
 	}
 }
