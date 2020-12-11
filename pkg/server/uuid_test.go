@@ -28,7 +28,7 @@ import (
 )
 
 func TestNewUUID(t *testing.T) {
-	id, err := getOrSetUuid("./")
+	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -38,16 +38,16 @@ func TestNewUUID(t *testing.T) {
 		t.Errorf("uuid file not created, %s", err)
 	}
 
-	uuid := NewUuidContext(id)
+	uuid := NewUUIDContext(id)
 	if id.Compare(uuid.Uuid) != 0 {
-		t.Fatalf("NewUuidContext error expected %v, got %v", id, uuid.Uuid)
+		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.Uuid)
 	}
 }
 
 func TestExistingUUID(t *testing.T) {
 	x, _ := xid.FromString("bs6c1kn1lu5qfesu061g")
 	ioutil.WriteFile(IDENTIFIER_FNAME, x.Bytes(), os.ModePerm)
-	id, err := getOrSetUuid("./")
+	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
@@ -57,19 +57,19 @@ func TestExistingUUID(t *testing.T) {
 		t.Errorf("uuid file not created, %s", err)
 	}
 
-	uuid := NewUuidContext(id)
+	uuid := NewUUIDContext(id)
 	if id.Compare(uuid.Uuid) != 0 {
-		t.Fatalf("NewUuidContext error expected %v, got %v", id, uuid.Uuid)
+		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.Uuid)
 	}
 }
 
-func TestUuidContextSetter(t *testing.T) {
-	id, err := getOrSetUuid("./")
+func TestUUIDContextSetter(t *testing.T) {
+	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
 	defer os.RemoveAll(IDENTIFIER_FNAME)
-	uuid := NewUuidContext(id)
+	uuid := NewUUIDContext(id)
 	transportStream := &mockServerTransportStream{}
 	srv := &grpc.UnaryServerInfo{}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -90,18 +90,18 @@ func TestUuidContextSetter(t *testing.T) {
 	}
 	var req interface{}
 	ctx := grpc.NewContextWithServerTransportStream(context.Background(), transportStream)
-	_, err = uuid.UuidContextSetter(ctx, req, srv, handler)
+	_, err = uuid.UUIDContextSetter(ctx, req, srv, handler)
 	if err != nil {
 		t.Fatalf("error setting uuid UUID, %v", err)
 	}
 }
-func TestUuidStreamContextSetter(t *testing.T) {
-	id, err := getOrSetUuid("./")
+func TestUUIDStreamContextSetter(t *testing.T) {
+	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
 	defer os.RemoveAll(IDENTIFIER_FNAME)
-	uuid := NewUuidContext(id)
+	uuid := NewUUIDContext(id)
 	srv := grpc.StreamServerInfo{}
 	ss := mockServerStream{}
 	handler := func(srv interface{}, stream grpc.ServerStream) error {
@@ -119,7 +119,7 @@ func TestUuidStreamContextSetter(t *testing.T) {
 		return nil
 	}
 	var req interface{}
-	err = uuid.UuidStreamContextSetter(req, &ss, &srv, handler)
+	err = uuid.UUIDStreamContextSetter(req, &ss, &srv, handler)
 	if err != nil {
 		t.Fatalf("error setting uuid UUID, %v", err)
 	}

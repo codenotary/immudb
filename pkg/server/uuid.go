@@ -39,16 +39,16 @@ type uuidContext struct {
 
 // UUIDContext manage UUID context
 type UUIDContext interface {
-	UuidStreamContextSetter(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error
-	UuidContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error)
+	UUIDStreamContextSetter(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error
+	UUIDContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error)
 }
 
-// NewUuidContext return a new UUId context servive
-func NewUuidContext(id xid.ID) uuidContext {
+// NewUUIDContext return a new UUId context servive
+func NewUUIDContext(id xid.ID) uuidContext {
 	return uuidContext{id}
 }
 
-func getOrSetUuid(dir string) (xid.ID, error) {
+func getOrSetUUID(dir string) (xid.ID, error) {
 	fname := path.Join(dir, IDENTIFIER_FNAME)
 	if fileExists(fname) {
 		b, err := ioutil.ReadFile(fname)
@@ -87,15 +87,15 @@ func (w *WrappedServerStream) SendMsg(m interface{}) error {
 	return w.ServerStream.SendMsg(m)
 }
 
-// UuidStreamContextSetter set uuid header in a stream
-func (u *uuidContext) UuidStreamContextSetter(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+// UUIDStreamContextSetter set uuid header in a stream
+func (u *uuidContext) UUIDStreamContextSetter(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	header := metadata.Pairs(SERVER_UUID_HEADER, u.Uuid.String())
 	ss.SendHeader(header)
 	return handler(srv, &WrappedServerStream{ss})
 }
 
-// UuidContextSetter set uuid header
-func (u *uuidContext) UuidContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+// UUIDContextSetter set uuid header
+func (u *uuidContext) UUIDContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	header := metadata.Pairs(SERVER_UUID_HEADER, u.Uuid.String())
 	err := grpc.SendHeader(ctx, header)
 	if err != nil {
