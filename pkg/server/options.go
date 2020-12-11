@@ -50,7 +50,6 @@ type Options struct {
 	AdminPassword       string `json:"-"`
 	systemAdminDbName   string
 	defaultDbName       string
-	inMemoryStore       bool
 	listener            net.Listener
 	usingCustomListener bool
 	maintenance         bool
@@ -79,7 +78,6 @@ func DefaultOptions() Options {
 		AdminPassword:       auth.SysAdminPassword,
 		systemAdminDbName:   SystemdbName,
 		defaultDbName:       DefaultdbName,
-		inMemoryStore:       false,
 		usingCustomListener: false,
 		maintenance:         false,
 	}
@@ -249,17 +247,6 @@ func (o Options) GetSystemAdminDbName() string {
 //GetDefaultDbName returns the default database name
 func (o Options) GetDefaultDbName() string {
 	return o.defaultDbName
-}
-
-// WithInMemoryStore use in memory database without persistence, used for tests
-func (o Options) WithInMemoryStore(inmemory bool) Options {
-	o.inMemoryStore = inmemory
-	return o
-}
-
-//GetInMemoryStore returns if we use in memory database without persistence , used for tests
-func (o Options) GetInMemoryStore() bool {
-	return o.inMemoryStore
 }
 
 // WithListener used usually to pass a bufered listener for testing purposes

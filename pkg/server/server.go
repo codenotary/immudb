@@ -386,15 +386,9 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 }
 
 func (s *ImmuServer) loadUserDatabases(dataDir string) error {
-	//return early since there is nothing to load
-	if s.Options.GetInMemoryStore() {
-		return nil
-	}
-
 	var dirs []string
 
 	//get first level sub directories of data dir
-
 	files, err := ioutil.ReadDir(s.Options.Dir)
 	if err != nil {
 		return err

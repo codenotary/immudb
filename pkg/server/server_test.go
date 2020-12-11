@@ -163,7 +163,7 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 }
 
 func TestServerWithEmptyAdminPassword(t *testing.T) {
-	serverOptions := DefaultOptions().WithInMemoryStore(true).WithMetricsServer(false).WithAdminPassword("")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword("")
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
@@ -172,7 +172,7 @@ func TestServerWithEmptyAdminPassword(t *testing.T) {
 }
 
 func TestServerWithInvalidAdminPassword(t *testing.T) {
-	serverOptions := DefaultOptions().WithInMemoryStore(true).WithMetricsServer(false).WithAdminPassword("enc:*")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword("enc:*")
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
@@ -1123,7 +1123,6 @@ func TestServerUpdateConfigItem(t *testing.T) {
 	configFile := fmt.Sprintf("%s.toml", dataDir)
 	s := DefaultServer().WithOptions(DefaultOptions().
 		WithCorruptionCheck(false).
-		WithInMemoryStore(true).
 		WithAuth(false).
 		WithMaintenance(false).
 		WithDir(dataDir)).(*ImmuServer)
@@ -1180,7 +1179,6 @@ func TestServerUpdateAuthConfig(t *testing.T) {
 	dataDir := "bratislava"
 	s := DefaultServer().WithOptions(DefaultOptions().
 		WithCorruptionCheck(false).
-		WithInMemoryStore(true).
 		WithAuth(false).
 		WithMaintenance(false).WithDir(dataDir).WithConfig("/tmp/immudb.toml")).(*ImmuServer)
 
@@ -1206,7 +1204,6 @@ func TestServerUpdateMTLSConfig(t *testing.T) {
 	dataDir := "ljubljana"
 	s := DefaultServer().WithOptions(DefaultOptions().
 		WithCorruptionCheck(false).
-		WithInMemoryStore(true).
 		WithAuth(false).
 		WithMaintenance(false).WithDir(dataDir).WithMTLs(false).WithConfig("/tmp/immudb.toml")).(*ImmuServer)
 	_, err = s.UpdateMTLSConfig(context.Background(), &schema.MTLSConfig{
@@ -1225,7 +1222,6 @@ func TestServerMtls(t *testing.T) {
 	}
 	op := DefaultOptions().
 		WithCorruptionCheck(false).
-		WithInMemoryStore(true).
 		WithAuth(false).
 		WithMaintenance(false).WithMTLs(true).WithMTLsOptions(mtlsopts)
 	s := DefaultServer().WithOptions(op).(*ImmuServer)
@@ -1249,7 +1245,6 @@ func TestServerMtls(t *testing.T) {
 func TestServerPID(t *testing.T) {
 	op := DefaultOptions().
 		WithCorruptionCheck(false).
-		WithInMemoryStore(true).
 		WithAuth(false).
 		WithMaintenance(false).WithPidfile("pidfile")
 	s := DefaultServer().WithOptions(op).(*ImmuServer)

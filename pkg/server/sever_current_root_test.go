@@ -36,7 +36,7 @@ func TestServerCurrentRootSigned(t *testing.T) {
 	assert.NoError(t, err)
 
 	stSig := NewStateSigner(sig)
-	s = s.WithOptions(s.Options.WithAuth(false).WithInMemoryStore(true).WithSigningKey("foo")).WithStateSigner(stSig).(*ImmuServer)
+	s = s.WithOptions(s.Options.WithAuth(false).WithSigningKey("foo")).WithStateSigner(stSig).(*ImmuServer)
 	err = s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		log.Fatal(err)
