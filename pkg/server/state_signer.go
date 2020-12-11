@@ -17,31 +17,36 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/signer"
-	"github.com/golang/protobuf/proto"
 )
 
-type RootSigner interface {
-	Sign(root *schema.Root) (*schema.Root, error)
+type StateSigner interface {
+	Sign(state *schema.ImmutableState) error
 }
 
-type rootSigner struct {
+type stateSigner struct {
 	Signer signer.Signer
 }
 
-func NewRootSigner(signer signer.Signer) *rootSigner {
-	return &rootSigner{
+func NewStateSigner(signer signer.Signer) *stateSigner {
+	return &stateSigner{
 		Signer: signer,
 	}
 }
 
-func (rs *rootSigner) Sign(root *schema.Root) (*schema.Root, error) {
-	m, err := proto.Marshal(root.Payload)
-	if err != nil {
-		return nil, err
+func (sts *stateSigner) Sign(state *schema.ImmutableState) error {
+	if state == nil {
+		return store.ErrIllegalArguments
 	}
 
-	root.Signature.Signature, root.Signature.PublicKey, err = rs.Signer.Sign(m)
-	return root, err
+	signature, publicKey, err := sts.Signer.Sign(state.ToBytes())
+
+	state.Signature = &schema.Signature{
+		Signature: signature,
+		PublicKey: publicKey,
+	}
+
+	return err
 }

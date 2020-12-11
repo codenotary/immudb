@@ -17,32 +17,32 @@ limitations under the License.
 package server
 
 import (
+	"testing"
+
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/signer"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
-func TestNewRootSigner(t *testing.T) {
+func TestNewStateSigner(t *testing.T) {
 	s, _ := signer.NewSigner("./../../test/signer/ec3.key")
-	rs := NewRootSigner(s)
-	assert.IsType(t, &rootSigner{}, rs)
+	rs := NewStateSigner(s)
+	assert.IsType(t, &stateSigner{}, rs)
 }
 
-func TestRootSigner_Sign(t *testing.T) {
+func TestStateSigner_Sign(t *testing.T) {
 	s, _ := signer.NewSigner("./../../test/signer/ec3.key")
-	rs := NewRootSigner(s)
-	root := schema.NewRoot()
-	root, err := rs.Sign(root)
+	stSigner := NewStateSigner(s)
+	state := &schema.ImmutableState{}
+	err := stSigner.Sign(state)
 	assert.NoError(t, err)
-	assert.IsType(t, &schema.Root{}, root)
+	assert.IsType(t, &schema.ImmutableState{}, state)
 }
 
-func TestRootSigner_Err(t *testing.T) {
+func TestStateSigner_Err(t *testing.T) {
 	s, _ := signer.NewSigner("./../../test/signer/ec3.key")
-	rs := NewRootSigner(s)
-	root := schema.NewRoot()
-	root.Payload = nil
-	root, err := rs.Sign(root)
-	assert.Error(t, err)
+	stSigner := NewStateSigner(s)
+	err := stSigner.Sign(nil)
+	assert.Error(t, store.ErrIllegalArguments, err)
 }
