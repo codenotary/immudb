@@ -54,6 +54,7 @@ var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = errors.New("key not found")
+var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = errors.New("no more entries")
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
@@ -1044,8 +1045,14 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 
 	var cb [cLogEntrySize]byte
 
-	_, err := s.cLog.ReadAt(cb[:], int64(off))
+	n, err := s.cLog.ReadAt(cb[:], int64(off))
 	if err != nil {
+		if err == io.EOF && n == 0 {
+			return 0, 0, ErrTxNotFound
+		}
+		if err == io.EOF && n > 0 {
+			return 0, n, ErrCorruptedCLog
+		}
 		return 0, 0, err
 	}
 

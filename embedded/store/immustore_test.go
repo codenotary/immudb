@@ -129,6 +129,9 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("closed_store")
 
+	err = immuStore.ReadTx(1, nil)
+	require.Error(t, ErrTxNotFound, err)
+
 	err = immuStore.Close()
 	require.NoError(t, err)
 
