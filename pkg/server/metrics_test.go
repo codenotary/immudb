@@ -18,12 +18,13 @@ package server
 
 import (
 	"context"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/peer"
 	"net"
 	"net/http"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/peer"
 )
 
 func TestStartMetrics(t *testing.T) {

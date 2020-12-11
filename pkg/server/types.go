@@ -17,10 +17,11 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/pkg/database"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/codenotary/immudb/pkg/database"
 
 	"google.golang.org/grpc"
 
@@ -40,8 +41,8 @@ const DefaultDbIndex = 0
 
 // DatabaseList DatabaseList interface
 type DatabaseList interface {
-	Append(database database.Db)
-	GetByIndex(index int64) database.Db
+	Append(database database.DB)
+	GetByIndex(index int64) database.DB
 	Length() int
 }
 
@@ -58,10 +59,10 @@ type ImmuServer struct {
 	userdata            *usernameToUserdataMap
 	multidbmode         bool
 	Cc                  CorruptionChecker
-	sysDb               database.Db
+	sysDb               database.DB
 	metricsServer       *http.Server
 	mux                 sync.Mutex
-	RootSigner          RootSigner
+	StateSigner         StateSigner
 }
 
 // DefaultServer ...
@@ -83,7 +84,7 @@ type ImmuServerIf interface {
 	Stop() error
 	WithOptions(options Options) ImmuServerIf
 	WithLogger(logger.Logger) ImmuServerIf
-	WithRootSigner(rootSigner RootSigner) ImmuServerIf
+	WithStateSigner(stateSigner StateSigner) ImmuServerIf
 }
 
 // WithLogger ...
@@ -93,8 +94,8 @@ func (s *ImmuServer) WithLogger(logger logger.Logger) ImmuServerIf {
 }
 
 // WithRootSigner ...
-func (s *ImmuServer) WithRootSigner(rootSigner RootSigner) ImmuServerIf {
-	s.RootSigner = rootSigner
+func (s *ImmuServer) WithStateSigner(stateSigner StateSigner) ImmuServerIf {
+	s.StateSigner = stateSigner
 	return s
 }
 

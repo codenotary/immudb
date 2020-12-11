@@ -17,26 +17,13 @@ limitations under the License.
 package server
 
 import (
-	"context"
-	"encoding/binary"
-	"fmt"
-	"log"
-	"math"
-	"os"
-	"strconv"
 	"testing"
-	"time"
 
-	"github.com/codenotary/immudb/pkg/database"
-
-	"github.com/dgraph-io/badger/v2"
-
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/stretchr/testify/assert"
 )
 
-func makeDb() (database.Db, func()) {
+/*
+func makeDb() (database.DB, func()) {
 	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	options := database.DefaultOption().WithDbName(dbName).WithInMemoryStore(true).WithCorruptionChecker(false)
 	db, err := database.NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
@@ -396,6 +383,8 @@ func makeDB(dir string) *badger.DB {
 	}
 	return db
 }
+
+*/
 
 type mockLogger struct{}
 

@@ -20,14 +20,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	mrand "math/rand"
 	"sync"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/store"
 )
 
 // ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
@@ -104,6 +102,11 @@ func (s *corruptionChecker) Stop() {
 }
 
 func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
+	return errors.New("not supported")
+}
+
+/*
+func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	if s.currentDbIndex == s.dbList.Length() {
 		s.currentDbIndex = 0
 	}
@@ -156,6 +159,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 
 	return nil
 }
+*/
 
 // GetStatus return status of the trust checker. False means that a consistency checks was failed
 func (s *corruptionChecker) GetStatus() bool {

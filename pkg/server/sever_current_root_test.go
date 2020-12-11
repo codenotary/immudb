@@ -24,7 +24,6 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/signer"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -36,8 +35,8 @@ func TestServerCurrentRootSigned(t *testing.T) {
 	sig, err := signer.NewSigner("./../../test/signer/ec3.key")
 	assert.NoError(t, err)
 
-	rsig := NewRootSigner(sig)
-	s = s.WithOptions(s.Options.WithAuth(false).WithInMemoryStore(true).WithSigningKey("foo")).WithRootSigner(rsig).(*ImmuServer)
+	stSig := NewStateSigner(sig)
+	s = s.WithOptions(s.Options.WithAuth(false).WithInMemoryStore(true).WithSigningKey("foo")).WithStateSigner(stSig).(*ImmuServer)
 	err = s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		log.Fatal(err)
@@ -49,24 +48,25 @@ func TestServerCurrentRootSigned(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, _ = s.SafeSet(ctx, &schema.SafeSetOptions{
-		Kv: &schema.KeyValue{
-			Key:   []byte("Alberto"),
-			Value: []byte("Tomba"),
+	_, _ = s.Set(ctx, &schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte("Alberto"),
+				Value: []byte("Tomba"),
+			},
 		},
-	})
-	root, err := s.CurrentRoot(ctx, &emptypb.Empty{})
+	},
+	)
+
+	state, err := s.CurrentImmutableState(ctx, &emptypb.Empty{})
 
 	assert.NoError(t, err)
-	assert.IsType(t, &schema.Root{}, root)
-	assert.IsType(t, &schema.Signature{}, root.Signature)
-	assert.NotNil(t, root.Signature.Signature)
-	assert.NotNil(t, root.Signature.PublicKey)
+	assert.IsType(t, &schema.ImmutableState{}, state)
+	assert.IsType(t, &schema.Signature{}, state.Signature)
+	assert.NotNil(t, state.Signature.Signature)
+	assert.NotNil(t, state.Signature.PublicKey)
 
-	p2verify, err := proto.Marshal(root.Payload)
-	assert.NoError(t, err)
-
-	ok, err := signer.Verify(p2verify, root.Signature.Signature, root.Signature.PublicKey)
+	ok, err := signer.Verify(state.ToBytes(), state.Signature.Signature, state.Signature.PublicKey)
 
 	assert.NoError(t, err)
 	assert.True(t, ok)
