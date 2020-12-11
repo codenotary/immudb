@@ -1,34 +1,35 @@
 package schema
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"testing"
 )
 
 func TestOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 	aOps := &Ops{
 		Operations: []*Op{
 			{
-				Operation: &Op_KVs{
-					KVs: &KeyValue{
+				Operation: &Op_Kv{
+					Kv: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &Op_KVs{
-					KVs: &KeyValue{
+				Operation: &Op_Kv{
+					Kv: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &Op_ZOpts{
-					ZOpts: &ZAddOptions{
+				Operation: &Op_ZAdd{
+					ZAdd: &ZAddRequest{
 						Key: []byte(`key`),
 						Score: &Score{
 							Score: 5.6,
@@ -47,36 +48,32 @@ func TestOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 	aOps := &Ops{
 		Operations: []*Op{
 			{
-				Operation: &Op_KVs{
-					KVs: &KeyValue{
+				Operation: &Op_Kv{
+					Kv: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &Op_ZOpts{
-					ZOpts: &ZAddOptions{
+				Operation: &Op_ZAdd{
+					ZAdd: &ZAddRequest{
 						Key: []byte(`key`),
 						Score: &Score{
 							Score: 5.6,
 						},
-						Index: &Index{
-							Index: uint64(1),
-						},
+						AtTx: int64(1),
 					},
 				},
 			},
 			{
-				Operation: &Op_ZOpts{
-					ZOpts: &ZAddOptions{
+				Operation: &Op_ZAdd{
+					ZAdd: &ZAddRequest{
 						Key: []byte(`key`),
 						Score: &Score{
 							Score: 5.6,
 						},
-						Index: &Index{
-							Index: uint64(1),
-						},
+						AtTx: int64(1),
 					},
 				},
 			},
@@ -98,23 +95,21 @@ func TestOps_ValidateErrDuplicate(t *testing.T) {
 	aOps := &Ops{
 		Operations: []*Op{
 			{
-				Operation: &Op_KVs{
-					KVs: &KeyValue{
+				Operation: &Op_Kv{
+					Kv: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &Op_ZOpts{
-					ZOpts: &ZAddOptions{
+				Operation: &Op_ZAdd{
+					ZAdd: &ZAddRequest{
 						Key: []byte(`key`),
 						Score: &Score{
 							Score: 5.6,
 						},
-						Index: &Index{
-							Index: uint64(1),
-						},
+						AtTx: int64(1),
 					},
 				},
 			},
@@ -138,15 +133,13 @@ func TestOps_ValidateUnexpectedType(t *testing.T) {
 func TestExecAllOpsNilElementFound(t *testing.T) {
 	bOps := make([]*Op, 2)
 	op := &Op{
-		Operation: &Op_ZOpts{
-			ZOpts: &ZAddOptions{
+		Operation: &Op_ZAdd{
+			ZAdd: &ZAddRequest{
 				Key: []byte(`key`),
 				Score: &Score{
 					Score: 5.6,
 				},
-				Index: &Index{
-					Index: 4,
-				},
+				AtTx: int64(4),
 			},
 		},
 	}

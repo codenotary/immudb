@@ -7,23 +7,22 @@
     - [AuthConfig](#immudb.schema.AuthConfig)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
-    - [Content](#immudb.schema.Content)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
     - [DualProof](#immudb.schema.DualProof)
     - [HealthResponse](#immudb.schema.HealthResponse)
-    - [HistoryOptions](#immudb.schema.HistoryOptions)
-    - [IScanOptions](#immudb.schema.IScanOptions)
+    - [HistoryRequest](#immudb.schema.HistoryRequest)
+    - [IScanRequest](#immudb.schema.IScanRequest)
+    - [ImmutableState](#immudb.schema.ImmutableState)
     - [InclusionProof](#immudb.schema.InclusionProof)
-    - [Index](#immudb.schema.Index)
     - [Item](#immudb.schema.Item)
     - [ItemList](#immudb.schema.ItemList)
     - [ItemsCount](#immudb.schema.ItemsCount)
-    - [KVList](#immudb.schema.KVList)
     - [Key](#immudb.schema.Key)
     - [KeyList](#immudb.schema.KeyList)
     - [KeyPrefix](#immudb.schema.KeyPrefix)
+    - [KeyRequest](#immudb.schema.KeyRequest)
     - [KeyValue](#immudb.schema.KeyValue)
     - [Layer](#immudb.schema.Layer)
     - [LinearProof](#immudb.schema.LinearProof)
@@ -35,42 +34,32 @@
     - [Ops](#immudb.schema.Ops)
     - [Page](#immudb.schema.Page)
     - [Permission](#immudb.schema.Permission)
-    - [Proof](#immudb.schema.Proof)
-    - [ReferenceOptions](#immudb.schema.ReferenceOptions)
-    - [Root](#immudb.schema.Root)
-    - [RootIndex](#immudb.schema.RootIndex)
-    - [SKVList](#immudb.schema.SKVList)
-    - [SPage](#immudb.schema.SPage)
-    - [SafeGetOptions](#immudb.schema.SafeGetOptions)
-    - [SafeIndexOptions](#immudb.schema.SafeIndexOptions)
-    - [SafeItem](#immudb.schema.SafeItem)
-    - [SafeReferenceOptions](#immudb.schema.SafeReferenceOptions)
-    - [SafeSetOptions](#immudb.schema.SafeSetOptions)
-    - [SafeSetSVOptions](#immudb.schema.SafeSetSVOptions)
-    - [SafeStructuredItem](#immudb.schema.SafeStructuredItem)
-    - [SafeZAddOptions](#immudb.schema.SafeZAddOptions)
-    - [ScanOptions](#immudb.schema.ScanOptions)
+    - [Reference](#immudb.schema.Reference)
+    - [ScanRequest](#immudb.schema.ScanRequest)
     - [Score](#immudb.schema.Score)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
+    - [SetRequest](#immudb.schema.SetRequest)
     - [Signature](#immudb.schema.Signature)
-    - [StructuredItem](#immudb.schema.StructuredItem)
-    - [StructuredItemList](#immudb.schema.StructuredItemList)
-    - [StructuredKeyValue](#immudb.schema.StructuredKeyValue)
     - [Tree](#immudb.schema.Tree)
     - [Tx](#immudb.schema.Tx)
     - [TxEntry](#immudb.schema.TxEntry)
     - [TxMetadata](#immudb.schema.TxMetadata)
+    - [TxRequest](#immudb.schema.TxRequest)
     - [UseDatabaseReply](#immudb.schema.UseDatabaseReply)
     - [User](#immudb.schema.User)
     - [UserList](#immudb.schema.UserList)
     - [UserRequest](#immudb.schema.UserRequest)
-    - [VerifiedTx](#immudb.schema.VerifiedTx)
-    - [ZAddOptions](#immudb.schema.ZAddOptions)
+    - [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest)
+    - [VerifiableItem](#immudb.schema.VerifiableItem)
+    - [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest)
+    - [VerifiableSetRequest](#immudb.schema.VerifiableSetRequest)
+    - [VerifiableTx](#immudb.schema.VerifiableTx)
+    - [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest)
+    - [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest)
+    - [ZAddRequest](#immudb.schema.ZAddRequest)
     - [ZItem](#immudb.schema.ZItem)
     - [ZItemList](#immudb.schema.ZItemList)
-    - [ZScanOptions](#immudb.schema.ZScanOptions)
-    - [ZStructuredItem](#immudb.schema.ZStructuredItem)
-    - [ZStructuredItemList](#immudb.schema.ZStructuredItemList)
+    - [ZScanRequest](#immudb.schema.ZScanRequest)
   
     - [PermissionAction](#immudb.schema.PermissionAction)
   
@@ -131,22 +120,6 @@
 | username | [string](#string) |  |  |
 | database | [string](#string) |  |  |
 | permission | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.Content"></a>
-
-### Content
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| timestamp | [uint64](#uint64) |  |  |
-| payload | [bytes](#bytes) |  |  |
 
 
 
@@ -238,9 +211,9 @@
 
 
 
-<a name="immudb.schema.HistoryOptions"></a>
+<a name="immudb.schema.HistoryRequest"></a>
 
-### HistoryOptions
+### HistoryRequest
 
 
 
@@ -256,9 +229,9 @@
 
 
 
-<a name="immudb.schema.IScanOptions"></a>
+<a name="immudb.schema.IScanRequest"></a>
 
-### IScanOptions
+### IScanRequest
 
 
 
@@ -266,6 +239,23 @@
 | ----- | ---- | ----- | ----------- |
 | pageSize | [uint64](#uint64) |  |  |
 | pageNumber | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ImmutableState"></a>
+
+### ImmutableState
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| txId | [uint64](#uint64) |  |  |
+| txHash | [bytes](#bytes) |  |  |
+| signature | [Signature](#immudb.schema.Signature) |  |  |
 
 
 
@@ -280,24 +270,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| index | [int32](#int32) |  |  |
+| leaf | [int32](#int32) |  |  |
 | width | [int32](#int32) |  |  |
 | terms | [bytes](#bytes) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.Index"></a>
-
-### Index
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| index | [uint64](#uint64) |  |  |
 
 
 
@@ -314,7 +289,7 @@
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  |  |
 | value | [bytes](#bytes) |  |  |
-| index | [uint64](#uint64) |  |  |
+| tx | [uint64](#uint64) |  |  |
 
 
 
@@ -351,21 +326,6 @@
 
 
 
-<a name="immudb.schema.KVList"></a>
-
-### KVList
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| KVs | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
-
-
-
-
-
-
 <a name="immudb.schema.Key"></a>
 
 ### Key
@@ -389,7 +349,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| keys | [Key](#immudb.schema.Key) | repeated |  |
+| keys | [bytes](#bytes) | repeated |  |
 
 
 
@@ -405,6 +365,22 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | prefix | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.KeyRequest"></a>
+
+### KeyRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  |  |
+| fromTx | [int64](#int64) |  |  |
 
 
 
@@ -534,9 +510,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| KVs | [KeyValue](#immudb.schema.KeyValue) |  |  |
-| ZOpts | [ZAddOptions](#immudb.schema.ZAddOptions) |  |  |
-| ROpts | [ReferenceOptions](#immudb.schema.ReferenceOptions) |  |  |
+| kv | [KeyValue](#immudb.schema.KeyValue) |  |  |
+| zAdd | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
+| ref | [Reference](#immudb.schema.Reference) |  |  |
 
 
 
@@ -567,6 +543,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | items | [Item](#immudb.schema.Item) | repeated |  |
+| pageNum | [uint64](#uint64) |  |  |
 | more | [bool](#bool) |  |  |
 
 
@@ -590,25 +567,9 @@
 
 
 
-<a name="immudb.schema.Proof"></a>
+<a name="immudb.schema.Reference"></a>
 
-### Proof
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
-| dualProof | [DualProof](#immudb.schema.DualProof) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ReferenceOptions"></a>
-
-### ReferenceOptions
+### Reference
 
 
 
@@ -616,208 +577,16 @@
 | ----- | ---- | ----- | ----------- |
 | reference | [bytes](#bytes) |  |  |
 | key | [bytes](#bytes) |  |  |
-| index | [Index](#immudb.schema.Index) |  |  |
+| atTx | [int64](#int64) |  |  |
 
 
 
 
 
 
-<a name="immudb.schema.Root"></a>
+<a name="immudb.schema.ScanRequest"></a>
 
-### Root
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| payload | [RootIndex](#immudb.schema.RootIndex) |  |  |
-| signature | [Signature](#immudb.schema.Signature) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.RootIndex"></a>
-
-### RootIndex
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| index | [uint64](#uint64) |  |  |
-| root | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SKVList"></a>
-
-### SKVList
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| SKVs | [StructuredKeyValue](#immudb.schema.StructuredKeyValue) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.SPage"></a>
-
-### SPage
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| items | [StructuredItem](#immudb.schema.StructuredItem) | repeated |  |
-| pageNum | [uint64](#uint64) |  |  |
-| more | [bool](#bool) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SafeGetOptions"></a>
-
-### SafeGetOptions
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-| rootIndex | [Index](#immudb.schema.Index) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SafeIndexOptions"></a>
-
-### SafeIndexOptions
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| index | [uint64](#uint64) |  |  |
-| rootIndex | [Index](#immudb.schema.Index) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SafeItem"></a>
-
-### SafeItem
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| item | [Item](#immudb.schema.Item) |  |  |
-| proof | [Proof](#immudb.schema.Proof) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SafeReferenceOptions"></a>
-
-### SafeReferenceOptions
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| ro | [ReferenceOptions](#immudb.schema.ReferenceOptions) |  |  |
-| rootIndex | [Index](#immudb.schema.Index) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SafeSetOptions"></a>
-
-### SafeSetOptions
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| kv | [KeyValue](#immudb.schema.KeyValue) |  |  |
-| rootIndex | [Index](#immudb.schema.Index) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SafeSetSVOptions"></a>
-
-### SafeSetSVOptions
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| skv | [StructuredKeyValue](#immudb.schema.StructuredKeyValue) |  |  |
-| rootIndex | [Index](#immudb.schema.Index) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SafeStructuredItem"></a>
-
-### SafeStructuredItem
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| item | [StructuredItem](#immudb.schema.StructuredItem) |  |  |
-| proof | [Proof](#immudb.schema.Proof) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.SafeZAddOptions"></a>
-
-### SafeZAddOptions
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| zopts | [ZAddOptions](#immudb.schema.ZAddOptions) |  |  |
-| rootIndex | [Index](#immudb.schema.Index) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ScanOptions"></a>
-
-### ScanOptions
+### ScanRequest
 
 
 
@@ -827,7 +596,7 @@
 | offset | [bytes](#bytes) |  |  |
 | limit | [uint64](#uint64) |  |  |
 | reverse | [bool](#bool) |  |  |
-| deep | [bool](#bool) |  |  |
+| deep | [bool](#bool) |  | TODO: ? |
 
 
 
@@ -865,6 +634,21 @@
 
 
 
+<a name="immudb.schema.SetRequest"></a>
+
+### SetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| KVs | [KeyValue](#immudb.schema.KeyValue) | repeated |  |
+
+
+
+
+
+
 <a name="immudb.schema.Signature"></a>
 
 ### Signature
@@ -873,56 +657,8 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| signature | [bytes](#bytes) |  |  |
 | publicKey | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.StructuredItem"></a>
-
-### StructuredItem
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-| value | [Content](#immudb.schema.Content) |  |  |
-| index | [uint64](#uint64) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.StructuredItemList"></a>
-
-### StructuredItemList
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| items | [StructuredItem](#immudb.schema.StructuredItem) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.StructuredKeyValue"></a>
-
-### StructuredKeyValue
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [bytes](#bytes) |  |  |
-| value | [Content](#immudb.schema.Content) |  |  |
+| signature | [bytes](#bytes) |  |  |
 
 
 
@@ -998,6 +734,21 @@
 
 
 
+<a name="immudb.schema.TxRequest"></a>
+
+### TxRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tx | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.UseDatabaseReply"></a>
 
 ### UseDatabaseReply
@@ -1062,9 +813,74 @@
 
 
 
-<a name="immudb.schema.VerifiedTx"></a>
+<a name="immudb.schema.VerifiableGetRequest"></a>
 
-### VerifiedTx
+### VerifiableGetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| keyRequest | [KeyRequest](#immudb.schema.KeyRequest) |  |  |
+| proveFromTx | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableItem"></a>
+
+### VerifiableItem
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| item | [Item](#immudb.schema.Item) |  |  |
+| verifiableTx | [VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
+| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableReferenceRequest"></a>
+
+### VerifiableReferenceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| reference | [Reference](#immudb.schema.Reference) |  |  |
+| proveFromTx | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableSetRequest"></a>
+
+### VerifiableSetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| setRequest | [SetRequest](#immudb.schema.SetRequest) |  |  |
+| proveFromTx | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableTx"></a>
+
+### VerifiableTx
 
 
 
@@ -1072,15 +888,48 @@
 | ----- | ---- | ----- | ----------- |
 | tx | [Tx](#immudb.schema.Tx) |  |  |
 | dualProof | [DualProof](#immudb.schema.DualProof) |  |  |
+| signature | [Signature](#immudb.schema.Signature) |  |  |
 
 
 
 
 
 
-<a name="immudb.schema.ZAddOptions"></a>
+<a name="immudb.schema.VerifiableTxRequest"></a>
 
-### ZAddOptions
+### VerifiableTxRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tx | [uint64](#uint64) |  |  |
+| proveFromTx | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableZAddRequest"></a>
+
+### VerifiableZAddRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| zAddRequest | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
+| proveFromTx | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.ZAddRequest"></a>
+
+### ZAddRequest
 
 
 
@@ -1089,7 +938,7 @@
 | set | [bytes](#bytes) |  |  |
 | score | [Score](#immudb.schema.Score) |  |  |
 | key | [bytes](#bytes) |  |  |
-| index | [Index](#immudb.schema.Index) |  |  |
+| atTx | [int64](#int64) |  |  |
 
 
 
@@ -1106,8 +955,8 @@
 | ----- | ---- | ----- | ----------- |
 | item | [Item](#immudb.schema.Item) |  |  |
 | score | [double](#double) |  |  |
-| currentOffset | [bytes](#bytes) |  |  |
-| index | [uint64](#uint64) |  |  |
+| currentOffset | [bytes](#bytes) |  | TODO: ? |
+| tx | [uint64](#uint64) |  |  |
 
 
 
@@ -1129,9 +978,9 @@
 
 
 
-<a name="immudb.schema.ZScanOptions"></a>
+<a name="immudb.schema.ZScanRequest"></a>
 
-### ZScanOptions
+### ZScanRequest
 
 
 
@@ -1143,39 +992,6 @@
 | reverse | [bool](#bool) |  |  |
 | min | [Score](#immudb.schema.Score) |  |  |
 | max | [Score](#immudb.schema.Score) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ZStructuredItem"></a>
-
-### ZStructuredItem
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| item | [StructuredItem](#immudb.schema.StructuredItem) |  |  |
-| score | [double](#double) |  |  |
-| currentOffset | [bytes](#bytes) |  |  |
-| index | [uint64](#uint64) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.ZStructuredItemList"></a>
-
-### ZStructuredItemList
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| items | [ZStructuredItem](#immudb.schema.ZStructuredItem) | repeated |  |
 
 
 
@@ -1216,28 +1032,27 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | PrintTree | [.google.protobuf.Empty](#google.protobuf.Empty) | [Tree](#immudb.schema.Tree) |  |
 | Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
 | Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| Set | [KeyValue](#immudb.schema.KeyValue) | [Root](#immudb.schema.Root) |  |
-| SafeSet | [SafeSetOptions](#immudb.schema.SafeSetOptions) | [Proof](#immudb.schema.Proof) |  |
-| Get | [Key](#immudb.schema.Key) | [Item](#immudb.schema.Item) |  |
-| SafeGet | [SafeGetOptions](#immudb.schema.SafeGetOptions) | [SafeItem](#immudb.schema.SafeItem) |  |
-| SetBatch | [KVList](#immudb.schema.KVList) | [Root](#immudb.schema.Root) |  |
-| GetBatch | [KeyList](#immudb.schema.KeyList) | [ItemList](#immudb.schema.ItemList) |  |
-| ExecAllOps | [Ops](#immudb.schema.Ops) | [Root](#immudb.schema.Root) |  |
-| Scan | [ScanOptions](#immudb.schema.ScanOptions) | [ItemList](#immudb.schema.ItemList) |  |
+| Set | [SetRequest](#immudb.schema.SetRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
+| VerifiableSet | [VerifiableSetRequest](#immudb.schema.VerifiableSetRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
+| Get | [KeyRequest](#immudb.schema.KeyRequest) | [Item](#immudb.schema.Item) |  |
+| VerifiableGet | [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest) | [VerifiableItem](#immudb.schema.VerifiableItem) |  |
+| GetAll | [KeyList](#immudb.schema.KeyList) | [ItemList](#immudb.schema.ItemList) |  |
+| ExecAllOps | [Ops](#immudb.schema.Ops) | [TxMetadata](#immudb.schema.TxMetadata) |  |
+| Scan | [ScanRequest](#immudb.schema.ScanRequest) | [ItemList](#immudb.schema.ItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |
-| CurrentRoot | [.google.protobuf.Empty](#google.protobuf.Empty) | [Root](#immudb.schema.Root) |  |
-| ByIndex | [Index](#immudb.schema.Index) | [Tx](#immudb.schema.Tx) |  |
-| BySafeIndex | [SafeIndexOptions](#immudb.schema.SafeIndexOptions) | [VerifiedTx](#immudb.schema.VerifiedTx) |  |
-| History | [HistoryOptions](#immudb.schema.HistoryOptions) | [ItemList](#immudb.schema.ItemList) |  |
+| TxById | [TxRequest](#immudb.schema.TxRequest) | [Tx](#immudb.schema.Tx) |  |
+| VerifiableTxById | [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
+| History | [HistoryRequest](#immudb.schema.HistoryRequest) | [ItemList](#immudb.schema.ItemList) |  |
 | Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
-| Reference | [ReferenceOptions](#immudb.schema.ReferenceOptions) | [Root](#immudb.schema.Root) |  |
-| GetReference | [Key](#immudb.schema.Key) | [Item](#immudb.schema.Item) |  |
-| SafeReference | [SafeReferenceOptions](#immudb.schema.SafeReferenceOptions) | [Proof](#immudb.schema.Proof) |  |
-| ZAdd | [ZAddOptions](#immudb.schema.ZAddOptions) | [Root](#immudb.schema.Root) |  |
-| ZScan | [ZScanOptions](#immudb.schema.ZScanOptions) | [ZItemList](#immudb.schema.ZItemList) |  |
-| SafeZAdd | [SafeZAddOptions](#immudb.schema.SafeZAddOptions) | [Proof](#immudb.schema.Proof) |  |
-| IScan | [IScanOptions](#immudb.schema.IScanOptions) | [Page](#immudb.schema.Page) |  |
+| CurrentImmutableState | [.google.protobuf.Empty](#google.protobuf.Empty) | [ImmutableState](#immudb.schema.ImmutableState) |  |
+| SetReference | [Reference](#immudb.schema.Reference) | [TxMetadata](#immudb.schema.TxMetadata) |  |
+| VerifiableSetReference | [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
+| GetReference | [KeyRequest](#immudb.schema.KeyRequest) | [Item](#immudb.schema.Item) |  |
+| ZAdd | [ZAddRequest](#immudb.schema.ZAddRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
+| VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
+| ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZItemList](#immudb.schema.ZItemList) |  |
+| IScan | [IScanRequest](#immudb.schema.IScanRequest) | [Page](#immudb.schema.Page) |  |
 | Dump | [.google.protobuf.Empty](#google.protobuf.Empty) | [.pb.KVList](#pb.KVList) stream |  |
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
