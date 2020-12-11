@@ -17,3 +17,4 @@ limitations under the License.
 package common
 
 var ReferencePrefix = []byte("_REF")
+var SortedSetSeparator = []byte(`_~|IMMU|~_`)

@@ -158,6 +158,7 @@ func (d *db) Get(k *schema.Key) (*schema.Item, error) {
 	if err != nil {
 		return nil, err
 	}
+	//Reference lookup
 	if bytes.HasPrefix(item.Value, common.ReferencePrefix) {
 		ref := bytes.TrimPrefix(item.Value, common.ReferencePrefix)
 		key, _, _ := common.UnwrapIndexReference(ref)
@@ -509,24 +510,6 @@ func (d *db) History(options *schema.HistoryOptions) (*schema.ItemList, error) {
 //Health ...
 func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
-}
-
-//ZAdd ...
-func (d *db) ZAdd(opts *schema.ZAddOptions) (*schema.Root, error) {
-	//return d.st.ZAdd(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZAdd")
-}
-
-// ZScan ...
-func (d *db) ZScan(opts *schema.ZScanOptions) (*schema.ZItemList, error) {
-	//return d.st.ZScan(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZScan")
-}
-
-//SafeZAdd ...
-func (d *db) SafeZAdd(opts *schema.SafeZAddOptions) (*schema.Proof, error) {
-	//return d.st.SafeZAdd(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeZAdd")
 }
 
 //Scan ...
