@@ -16,6 +16,7 @@ limitations under the License.
 
 package immutest
 
+/*
 import (
 	"context"
 	"errors"
@@ -210,3 +211,4 @@ func TestImmutest(t *testing.T) {
 	cmd13.SetArgs([]string{"1"})
 	cmd13.Execute()
 }
+*/

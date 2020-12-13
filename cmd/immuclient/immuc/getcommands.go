@@ -23,16 +23,16 @@ import (
 	"strings"
 )
 
-func (i *immuc) GetByIndex(args []string) (string, error) {
-	index, err := strconv.ParseUint(args[0], 10, 64)
+func (i *immuc) GetTxByID(args []string) (string, error) {
+	id, err := strconv.ParseUint(args[0], 10, 64)
 	if err != nil {
-		return "", fmt.Errorf(" \"%v\" is not a valid index number", args[0])
+		return "", fmt.Errorf(" \"%v\" is not a valid id number", args[0])
 	}
 	ctx := context.Background()
-	response, err := i.ImmuClient.ByIndex(ctx, index)
+	tx, err := i.ImmuClient.TxByID(ctx, id)
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("no item exists in index:%v", index), nil
+			return fmt.Sprintf("no item exists in id:%v", id), nil
 		}
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -40,10 +40,10 @@ func (i *immuc) GetByIndex(args []string) (string, error) {
 		}
 		return "", err
 	}
-	return PrintByIndex(response, i.valueOnly), nil
+	return PrintTx(tx), nil
 }
 
-func (i *immuc) GetKey(args []string) (string, error) {
+func (i *immuc) Get(args []string) (string, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
 	response, err := i.ImmuClient.Get(ctx, key)
@@ -58,13 +58,13 @@ func (i *immuc) GetKey(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintItem([]byte(args[0]), nil, response, i.valueOnly), nil
+	return PrintKV([]byte(args[0]), response.Value, response.Tx, false, i.valueOnly), nil
 }
 
-func (i *immuc) RawSafeGetKey(args []string) (string, error) {
+func (i *immuc) VerifiedGet(args []string) (string, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
-	vi, err := i.ImmuClient.RawSafeGet(ctx, key)
+	response, err := i.ImmuClient.VerifiedGet(ctx, key)
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
 			return fmt.Sprintf("key not found: %v ", string(key)), nil
@@ -75,37 +75,5 @@ func (i *immuc) RawSafeGetKey(args []string) (string, error) {
 		}
 		return "", err
 	}
-
-	return PrintItem(vi.Key, vi.Value, vi, i.valueOnly), nil
-}
-
-func (i *immuc) SafeGetKey(args []string) (string, error) {
-	key := []byte(args[0])
-	ctx := context.Background()
-	response, err := i.ImmuClient.SafeGet(ctx, key)
-	if err != nil {
-		if strings.Contains(err.Error(), "NotFound") {
-			return fmt.Sprintf("key not found: %v ", string(key)), nil
-		}
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-	return PrintItem([]byte(args[0]), nil, response, i.valueOnly), nil
-}
-
-func (i *immuc) GetRawBySafeIndex(args []string) (string, error) {
-	index, err := strconv.ParseUint(args[0], 10, 64)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := i.ImmuClient.RawBySafeIndex(ctx, index)
-	if err != nil {
-		return "", err
-	}
-	resp := PrintItem(response.Key, response.Value, response, i.valueOnly)
-	return resp, nil
+	return PrintKV([]byte(args[0]), response.Value, response.Tx, true, i.valueOnly), nil
 }

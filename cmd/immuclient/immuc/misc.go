@@ -18,14 +18,15 @@ package immuc
 
 import (
 	"context"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func (i *immuc) History(args []string) (string, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.History(ctx, &schema.HistoryOptions{
+	response, err := i.ImmuClient.History(ctx, &schema.HistoryRequest{
 		Key: key,
 	})
 	if err != nil {
@@ -41,7 +42,7 @@ func (i *immuc) History(args []string) (string, error) {
 		return str.String(), nil
 	}
 	for _, item := range response.Items {
-		str.WriteString(PrintItem(nil, nil, item, false))
+		str.WriteString(PrintKV(item.Key, item.Value, item.Tx, false, false))
 		str.WriteString("\n")
 	}
 	return str.String(), nil

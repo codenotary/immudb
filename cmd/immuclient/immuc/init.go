@@ -35,31 +35,24 @@ type immuc struct {
 type Client interface {
 	Connect(args []string) error
 	Disconnect(args []string) error
-	CurrentRoot(args []string) (string, error)
-	GetByIndex(args []string) (string, error)
-	GetKey(args []string) (string, error)
-	RawSafeGetKey(args []string) (string, error)
-	SafeGetKey(args []string) (string, error)
-	GetRawBySafeIndex(args []string) (string, error)
+	HealthCheck(args []string) (string, error)
+	CurrentState(args []string) (string, error)
+	GetTxByID(args []string) (string, error)
+	Get(args []string) (string, error)
+	VerifiedGet(args []string) (string, error)
 	Login(args []string) (string, error)
 	Logout(args []string) (string, error)
 	History(args []string) (string, error)
-	HealthCheck(args []string) (string, error)
-	Reference(args []string) (string, error)
-	SafeReference(args []string) (string, error)
+	SetReference(args []string) (string, error)
+	VerifiedSetReference(args []string) (string, error)
 	ZScan(args []string) (string, error)
 	IScan(args []string) (string, error)
 	Scan(args []string) (string, error)
 	Count(args []string) (string, error)
-	RawSafeSet(args []string) (string, error)
 	Set(args []string) (string, error)
-	SafeSet(args []string) (string, error)
+	VerifiedSet(args []string) (string, error)
 	ZAdd(args []string) (string, error)
-	SafeZAdd(args []string) (string, error)
-	Consistency(args []string) (string, error)
-	Inclusion(args []string) (string, error)
-	ValueOnly() bool
-	SetValueOnly(v bool)
+	VerifiedZAdd(args []string) (string, error)
 	CreateDatabase(args []string) (string, error)
 	DatabaseList(args []string) (string, error)
 	UseDatabase(args []string) (string, error)
@@ -68,6 +61,8 @@ type Client interface {
 	SetUserPermission(args []string) (string, error)
 	UserList(args []string) (string, error)
 	ChangeUserPassword(args []string) (string, error)
+	ValueOnly() bool     // TODO: ?
+	SetValueOnly(v bool) // TODO: ?
 }
 
 // Init ...

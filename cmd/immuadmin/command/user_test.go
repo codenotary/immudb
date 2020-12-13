@@ -16,6 +16,7 @@ limitations under the License.
 
 package immuadmin
 
+/*
 import (
 	"bytes"
 	"context"
@@ -684,3 +685,4 @@ func TestUserPermissionErrors(t *testing.T) {
 	_, err = cl.setUserPermission(args)
 	require.Equal(t, errChangePermission, err)
 }
+*/

@@ -22,15 +22,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *commandline) getByIndex(cmd *cobra.Command) {
+func (cl *commandline) getTxByID(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "getByIndex",
-		Short:             "Return an element by index",
-		Aliases:           []string{"bi"},
+		Use:               "tx",
+		Short:             "Return a tx by id",
+		Aliases:           []string{"tx"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.GetByIndex(args)
+			resp, err := cl.immucl.GetTxByID(args)
 			if err != nil {
 				cl.quit(err)
 			}
@@ -42,15 +42,15 @@ func (cl *commandline) getByIndex(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) getRawBySafeIndex(cmd *cobra.Command) {
+func (cl *commandline) safegetTxByID(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "getRawBySafeIndex",
-		Short:             "Return an element by index",
-		Aliases:           []string{"brsi"},
+		Use:               "safetx",
+		Short:             "Return a tx by ID",
+		Aliases:           []string{"stx"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.GetRawBySafeIndex(args)
+			resp, err := cl.immucl.GetTxByID(args) //TODO: use verified
 			if err != nil {
 				cl.quit(err)
 			}
@@ -64,33 +64,13 @@ func (cl *commandline) getRawBySafeIndex(cmd *cobra.Command) {
 
 func (cl *commandline) getKey(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "get key",
+		Use:               "get",
 		Short:             "Get item having the specified key",
 		Aliases:           []string{"g"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.GetKey(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.ExactArgs(1),
-	}
-	cmd.AddCommand(ccmd)
-}
-
-func (cl *commandline) rawSafeGetKey(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:               "rawsafeget key",
-		Short:             "Get item having the specified key, without parsing structured values",
-		Aliases:           []string{"rg"},
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.RawSafeGetKey(args)
+			resp, err := cl.immucl.Get(args)
 			if err != nil {
 				cl.quit(err)
 			}
@@ -110,7 +90,7 @@ func (cl *commandline) safeGetKey(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.SafeGetKey(args)
+			resp, err := cl.immucl.VerifiedGet(args)
 			if err != nil {
 				cl.quit(err)
 			}

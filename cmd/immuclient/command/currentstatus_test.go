@@ -16,6 +16,7 @@ limitations under the License.
 
 package immuclient
 
+/*
 import (
 	"bytes"
 	"io/ioutil"
@@ -70,3 +71,4 @@ func TestCurrentRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+*/

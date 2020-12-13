@@ -17,9 +17,10 @@ limitations under the License.
 package sservice
 
 import (
+	"io"
+
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
-	"io"
 )
 
 // Sservice ...

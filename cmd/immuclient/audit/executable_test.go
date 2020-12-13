@@ -16,6 +16,7 @@ limitations under the License.
 
 package audit
 
+/*
 import (
 	"os"
 	"testing"
@@ -53,3 +54,4 @@ func TestExecutableRun(t *testing.T) {
 	exec.Run()
 	os.RemoveAll(pidpath)
 }
+*/

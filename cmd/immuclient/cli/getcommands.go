@@ -16,22 +16,14 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) getByIndex(args []string) (string, error) {
-	return cli.immucl.GetByIndex(args)
+func (cli *cli) getTxByID(args []string) (string, error) {
+	return cli.immucl.GetTxByID(args)
 }
 
 func (cli *cli) getKey(args []string) (string, error) {
-	return cli.immucl.GetKey(args)
-}
-
-func (cli *cli) rawSafeGetKey(args []string) (string, error) {
-	return cli.immucl.RawSafeGetKey(args)
+	return cli.immucl.Get(args)
 }
 
 func (cli *cli) safeGetKey(args []string) (string, error) {
-	return cli.immucl.SafeGetKey(args)
-}
-
-func (cli *cli) getRawBySafeIndex(args []string) (string, error) {
-	return cli.immucl.GetRawBySafeIndex(args)
+	return cli.immucl.VerifiedGet(args)
 }

@@ -93,8 +93,8 @@ func (p *prometheusMetrics) updateMetrics(
 	checked bool,
 	withError bool,
 	result bool,
-	prevRoot *schema.Root,
-	currRoot *schema.Root,
+	prevState *schema.ImmutableState,
+	currState *schema.ImmutableState,
 ) {
 	var r float64
 	if checked && result {
@@ -104,25 +104,25 @@ func (p *prometheusMetrics) updateMetrics(
 	} else if withError {
 		r = -2
 	}
-	prevRootIndex := -1.
-	currRootIndex := -1.
+	prevRootTxID := -1.
+	currRootTxID := -1.
 	if withError {
-		prevRootIndex = -2.
-		currRootIndex = -2.
+		prevRootTxID = -2.
+		currRootTxID = -2.
 	}
-	if prevRoot != nil {
-		prevRootIndex = float64(prevRoot.GetIndex())
+	if prevState != nil {
+		prevRootTxID = float64(prevState.TxId)
 	}
-	if currRoot != nil {
-		currRootIndex = float64(currRoot.GetIndex())
+	if currState != nil {
+		currRootTxID = float64(currState.TxId)
 	}
 
 	AuditResultPerServer.
 		WithLabelValues(p.server_id, p.server_address).Set(r)
 	AuditPrevRootPerServer.
-		WithLabelValues(p.server_id, p.server_address).Set(prevRootIndex)
+		WithLabelValues(p.server_id, p.server_address).Set(prevRootTxID)
 	AuditCurrRootPerServer.
-		WithLabelValues(p.server_id, p.server_address).Set(currRootIndex)
+		WithLabelValues(p.server_id, p.server_address).Set(currRootTxID)
 	AuditRunAtPerServer.
 		WithLabelValues(p.server_id, p.server_address).SetToCurrentTime()
 }

@@ -16,6 +16,7 @@ limitations under the License.
 
 package cli
 
+/*
 import (
 	"github.com/codenotary/immudb/pkg/client"
 	"strings"
@@ -143,3 +144,4 @@ func TestGetRawBySafeIndex(t *testing.T) {
 		t.Fatalf("GetRawBySafeIndex failed: %s", msg)
 	}
 }
+*/

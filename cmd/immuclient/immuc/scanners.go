@@ -19,15 +19,16 @@ package immuc
 import (
 	"context"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"strconv"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func (i *immuc) ZScan(args []string) (string, error) {
 	set := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.ZScan(ctx, &schema.ZScanOptions{Set: set})
+	response, err := i.ImmuClient.ZScan(ctx, &schema.ZScanRequest{Set: set})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -41,7 +42,7 @@ func (i *immuc) ZScan(args []string) (string, error) {
 		return str.String(), nil
 	}
 	for _, item := range response.Items {
-		str.WriteString(PrintItem(nil, nil, item, i.valueOnly))
+		str.WriteString(PrintKV(item.Item.Key, item.Item.Value, item.Item.Tx, false, i.valueOnly))
 		str.WriteString("\n")
 	}
 	return str.String(), nil
@@ -72,7 +73,7 @@ func (i *immuc) IScan(args []string) (string, error) {
 		return str.String(), nil
 	}
 	for _, item := range response.Items {
-		str.WriteString(PrintItem(nil, nil, item, i.valueOnly))
+		str.WriteString(PrintKV(item.Key, item.Value, item.Tx, false, i.valueOnly))
 		str.WriteString("\n")
 	}
 	return str.String(), nil
@@ -81,7 +82,7 @@ func (i *immuc) IScan(args []string) (string, error) {
 func (i *immuc) Scan(args []string) (string, error) {
 	prefix := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.Scan(ctx, &schema.ScanOptions{Prefix: prefix})
+	response, err := i.ImmuClient.Scan(ctx, &schema.ScanRequest{Prefix: prefix})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -95,7 +96,7 @@ func (i *immuc) Scan(args []string) (string, error) {
 		return str.String(), nil
 	}
 	for _, item := range response.Items {
-		str.WriteString(PrintItem(nil, nil, item, i.valueOnly))
+		str.WriteString(PrintKV(item.Key, item.Value, item.Tx, false, i.valueOnly))
 		str.WriteString("\n")
 	}
 	return str.String(), nil

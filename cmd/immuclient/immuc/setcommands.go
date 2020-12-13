@@ -30,29 +30,6 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 )
 
-func (i *immuc) RawSafeSet(args []string) (string, error) {
-	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
-	if err != nil {
-		return "", err
-	}
-	val, err := ioutil.ReadAll(bytes.NewReader([]byte(args[1])))
-	if err != nil {
-		return "", err
-	}
-
-	ctx := context.Background()
-	_, err = i.ImmuClient.RawSafeSet(ctx, key, val)
-	if err != nil {
-		return "", err
-	}
-	vi, err := i.ImmuClient.RawSafeGet(ctx, key)
-
-	if err != nil {
-		return "", err
-	}
-	return PrintItem(vi.Key, vi.Value, vi, false), nil
-}
-
 func (i *immuc) Set(args []string) (string, error) {
 	var reader io.Reader
 	if len(args) > 1 {
@@ -84,10 +61,10 @@ func (i *immuc) Set(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintItem([]byte(args[0]), value2, scstr, false), nil
+	return PrintKV([]byte(args[0]), value2, scstr.Tx, false, false), nil
 }
 
-func (i *immuc) SafeSet(args []string) (string, error) {
+func (i *immuc) VerifiedSet(args []string) (string, error) {
 	var reader io.Reader
 	if len(args) > 1 {
 		reader = bytes.NewReader([]byte(args[1]))
@@ -105,7 +82,7 @@ func (i *immuc) SafeSet(args []string) (string, error) {
 		return "", err
 	}
 	ctx := context.Background()
-	_, err = i.ImmuClient.SafeSet(ctx, key, value)
+	_, err = i.ImmuClient.VerifiedSet(ctx, key, value)
 	if err != nil {
 		return "", err
 	}
@@ -113,12 +90,12 @@ func (i *immuc) SafeSet(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	vi, err := i.ImmuClient.SafeGet(ctx, key)
+	vi, err := i.ImmuClient.VerifiedGet(ctx, key)
 	if err != nil {
 		return "", err
 	}
 
-	return PrintItem([]byte(args[0]), value2, vi, false), nil
+	return PrintKV([]byte(args[0]), value2, vi.Tx, true, false), nil
 }
 
 func (i *immuc) ZAdd(args []string) (string, error) {
@@ -148,7 +125,7 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 		return "", err
 	}
 	ctx := context.Background()
-	response, err := i.ImmuClient.ZAdd(ctx, set, score, key, nil)
+	response, err := i.ImmuClient.ZAdd(ctx, set, score, key)
 	if err != nil {
 		return "", err
 	}
@@ -156,7 +133,7 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 	return PrintSetItem([]byte(args[0]), []byte(args[2]), score, response), nil
 }
 
-func (i *immuc) SafeZAdd(args []string) (string, error) {
+func (i *immuc) VerifiedZAdd(args []string) (string, error) {
 	var setReader io.Reader
 	var scoreReader io.Reader
 	var keyReader io.Reader
@@ -182,7 +159,7 @@ func (i *immuc) SafeZAdd(args []string) (string, error) {
 		return "", err
 	}
 	ctx := context.Background()
-	response, err := i.ImmuClient.SafeZAdd(ctx, set, score, key, nil)
+	response, err := i.ImmuClient.VerifiedZAdd(ctx, set, score, key)
 	if err != nil {
 		return "", err
 	}

@@ -16,6 +16,7 @@ limitations under the License.
 
 package immuc
 
+/*
 import (
 	"context"
 	"errors"
@@ -173,3 +174,4 @@ func TestSetCommandsErrors(t *testing.T) {
 	_, err = ic.UseDatabase(args)
 	require.Equal(t, errWriteFileToHomeDir, err)
 }
+*/

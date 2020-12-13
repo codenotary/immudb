@@ -16,6 +16,6 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) currentRoot(args []string) (string, error) {
-	return cli.immucl.CurrentRoot(args)
+func (cli *cli) currentState(args []string) (string, error) {
+	return cli.immucl.CurrentState(args)
 }

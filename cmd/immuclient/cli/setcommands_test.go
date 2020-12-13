@@ -16,6 +16,7 @@ limitations under the License.
 
 package cli
 
+/*
 import (
 	"github.com/codenotary/immudb/pkg/client"
 	"os"
@@ -152,3 +153,4 @@ func TestSafeZAdd(t *testing.T) {
 		t.Fatalf("SafeZAdd failed: %s", msg)
 	}
 }
+*/

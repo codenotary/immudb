@@ -18,6 +18,7 @@ package audit
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 
 	srvc "github.com/codenotary/immudb/cmd/immuclient/service/configs"

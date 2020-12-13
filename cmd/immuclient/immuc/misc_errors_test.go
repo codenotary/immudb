@@ -16,6 +16,7 @@ limitations under the License.
 
 package immuc
 
+/*
 import (
 	"context"
 	"errors"
@@ -63,3 +64,4 @@ func TestMiscErrors(t *testing.T) {
 	_, err = ic.HealthCheck(nil)
 	require.Equal(t, errHealthCheck, err)
 }
+*/

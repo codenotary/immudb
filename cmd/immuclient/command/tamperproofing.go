@@ -17,7 +17,7 @@ limitations under the License.
 package immuclient
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/spf13/cobra"
 )
@@ -30,34 +30,15 @@ func (cl *commandline) consistency(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.Consistency(args)
+			return errors.New("not supported")
+			/*resp, err := cl.immucl.Consistency(args)
 			if err != nil {
 				cl.quit(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
+			return nil*/
 		},
 		Args: cobra.MinimumNArgs(2),
-	}
-	cmd.AddCommand(ccmd)
-}
-
-func (cl *commandline) inclusion(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:               "inclusion index",
-		Short:             "Check if specified index is included in the current tree",
-		Aliases:           []string{"i"},
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.Inclusion(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.MinimumNArgs(1),
 	}
 	cmd.AddCommand(ccmd)
 }

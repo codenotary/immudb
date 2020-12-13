@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
@@ -35,8 +36,12 @@ import (
 )
 
 func TestStats_Status(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
-	bs.Start()
+	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	bs := servertest.NewBufconnServer(options)
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -73,8 +78,12 @@ func TestStats_Status(t *testing.T) {
 }
 
 func TestStats_StatsText(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
-	bs.Start()
+	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	bs := servertest.NewBufconnServer(options)
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -122,8 +131,12 @@ func TestStats_StatsText(t *testing.T) {
 }
 
 func TestStats_StatsRaw(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
-	bs.Start()
+	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	bs := servertest.NewBufconnServer(options)
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {

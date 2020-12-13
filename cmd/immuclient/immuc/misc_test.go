@@ -17,59 +17,24 @@ limitations under the License.
 package immuc_test
 
 import (
-	"github.com/codenotary/immudb/pkg/client"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/client"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestHealthCheckSucceeds(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	msg, err := ic.Imc.HealthCheck([]string{})
-	if err != nil {
-		t.Fatal("HealthCheck fail", err)
-	}
-	if !strings.Contains(msg, "Health check OK") {
-		t.Fatal("HealthCheck fail")
-	}
-}
-
-func TestHealthCheckFails(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-	bs.GrpcServer.Stop()
-	msg, err := ic.Imc.HealthCheck([]string{})
-	if err != nil {
-		t.Fatal("HealthCheck fail stoped server", err)
-	}
-	if (!strings.Contains(msg, "Error while dialing closed")) && (!strings.Contains(msg, "transport is closing")) {
-		t.Fatal("HealthCheck fail stoped server", msg)
-	}
-}
-
 func TestHistory(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{

@@ -16,6 +16,7 @@ limitations under the License.
 
 package immuc
 
+/*
 import (
 	"context"
 	"errors"
@@ -48,3 +49,4 @@ func TestCurrentRootErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, " CurrentRoot RPC error", resp)
 }
+*/

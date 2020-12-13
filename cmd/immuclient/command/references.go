@@ -30,7 +30,7 @@ func (cl *commandline) reference(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.Reference(args)
+			resp, err := cl.immucl.SetReference(args)
 			if err != nil {
 				cl.quit(err)
 			}
@@ -50,7 +50,7 @@ func (cl *commandline) safereference(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.SafeReference(args)
+			resp, err := cl.immucl.VerifiedSetReference(args)
 			if err != nil {
 				cl.quit(err)
 			}

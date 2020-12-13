@@ -21,62 +21,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/store"
 )
 
-// PrintItem ...
-func PrintItem(key []byte, value []byte, message interface{}, valueOnly bool) string {
-	var index, ts uint64
-	var verified, isVerified bool
-	var hash []byte
-	switch m := message.(type) {
-	case *schema.Index:
-		index = m.Index
-		dig := api.Digest(index, key, value)
-		hash = dig[:]
-	case *client.VerifiedIndex:
-		index = m.Index
-		dig := api.Digest(index, key, value)
-		hash = dig[:]
-		verified = m.Verified
-		isVerified = true
-	case *schema.Item:
-		key = m.Key
-		value = m.Value
-		index = m.Index
-		hash = m.Hash()
-	case *schema.StructuredItem:
-		key = m.Key
-		value = m.Value.Payload
-		ts = m.Value.Timestamp
-		index = m.Index
-		hash, _ = m.Hash()
-	case *client.VerifiedItem:
-		key = m.Key
-		value = m.Value
-		index = m.Index
-		ts = m.Time
-		verified = m.Verified
-		isVerified = true
-		me, _ := schema.Merge(value, ts)
-		dig := api.Digest(index, key, me)
-		hash = dig[:]
+// PrintKV ...
+func PrintKV(key []byte, value []byte, tx uint64, verified, valueOnly bool) string {
+	hash := (&store.KV{Key: key, Value: value}).Digest()
 
-	}
 	if valueOnly {
 		return fmt.Sprintf("%s\n", value)
 	}
+
 	str := strings.Builder{}
 	if !valueOnly {
-		str.WriteString(fmt.Sprintf("index:		%d \n", index))
+		str.WriteString(fmt.Sprintf("tx:		%d \n", tx))
 		str.WriteString(fmt.Sprintf("key:		%s \n", key))
 		str.WriteString(fmt.Sprintf("value:		%s \n", value))
 		str.WriteString(fmt.Sprintf("hash:		%x \n", hash))
-		str.WriteString(fmt.Sprintf("time:		%s \n", time.Unix(int64(ts), 0)))
-		if isVerified {
+		if verified {
 			str.WriteString(fmt.Sprintf("verified:	%t \n", verified))
 		}
 	}
@@ -85,58 +48,34 @@ func PrintItem(key []byte, value []byte, message interface{}, valueOnly bool) st
 }
 
 // PrintSetItem ...
-func PrintSetItem(set []byte, rkey []byte, score float64, message interface{}) string {
-	var index uint64
-	var verified, isVerified bool
-	switch m := message.(type) {
-	case *schema.Index:
-		index = m.Index
-	case *client.VerifiedIndex:
-		index = m.Index
-		verified = m.Verified
-		isVerified = true
-	}
-	key := store.BuildSetKey(rkey, set, score, nil)
+func PrintSetItem(set []byte, rkey []byte, score float64, txMetadata *schema.TxMetadata) string {
+	/*key := store.BuildSetKey(rkey, set, score, nil)
 
-	if !isVerified {
-		return fmt.Sprintf("index:		%d\nset:		%s \nkey:		%s \nscore:		%f \nvalue:		%s \nhash:		%x \n",
-			index,
-			set,
-			key,
-			score,
-			rkey,
-			api.Digest(index, key, rkey))
-	}
-	return fmt.Sprintf("index:		%d\nset:		%s\nkey:		%s\nscore:		%f\nvalue:		%s\nhash:		%x\nverified:	%t\n",
-		index,
+	return fmt.Sprintf("tx:		%d\nset:		%s\nkey:		%s\nscore:		%f\nvalue:		%s\nhash:		%x\nverified:	%t\n",
+		txMetadata.Id,
 		set,
 		key,
 		score,
 		rkey,
-		api.Digest(index, key, rkey),
-		verified)
+		api.Digest(txMetadata.Id, key, rkey),
+		true)*/
+	return "not supported"
 }
 
-// PrintRoot ...
-func PrintRoot(root *schema.Root) string {
-	if root.GetRoot() == nil {
+// PrintState ...
+func PrintState(root *schema.ImmutableState) string {
+	if root.TxId == 0 {
 		return "immudb is empty\n"
 	}
-	return fmt.Sprintf("index:		%d\nhash:		%x\n", root.GetIndex(), root.GetRoot())
+	return fmt.Sprintf("txID:		%d\nhash:		%x\n", root.TxId, root.TxHash)
 }
 
-// PrintByIndex ...
-func PrintByIndex(item *schema.StructuredItem, valueOnly bool) string {
-	dig, _ := item.Hash()
-	if valueOnly {
-		return fmt.Sprintf("%s\n", item.Value)
-	}
+// PrintTx ...
+func PrintTx(tx *schema.Tx) string {
 	str := strings.Builder{}
-	str.WriteString(fmt.Sprintf("index:		%d\n", item.Index))
-	str.WriteString(fmt.Sprintf("key:		%s\n", item.Key))
-	str.WriteString(fmt.Sprintf("value:		%s\n", item.Value))
-	str.WriteString(fmt.Sprintf("hash:		%x\n", dig))
-	str.WriteString(fmt.Sprintf("time:		%s\n", time.Unix(int64(item.Value.Timestamp), 0)))
+	str.WriteString(fmt.Sprintf("tx:		%d\n", tx.Metadata.Id))
+	str.WriteString(fmt.Sprintf("time:		%s\n", time.Unix(int64(tx.Metadata.Ts), 0)))
+	str.WriteString(fmt.Sprintf("hash:		%x\n", schema.TxMetadataFrom(tx.Metadata).Alh()))
 
 	return str.String()
 }

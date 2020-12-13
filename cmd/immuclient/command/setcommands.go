@@ -22,26 +22,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (cl *commandline) rawSafeSet(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:               "rawsafeset key value",
-		Short:             "Set a value for the item having the specified key, without setup structured values",
-		Aliases:           []string{"rs"},
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.RawSafeSet(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.ExactArgs(2),
-	}
-	cmd.AddCommand(ccmd)
-}
-
 func (cl *commandline) set(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "set key value",
@@ -71,7 +51,7 @@ func (cl *commandline) safeset(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.SafeSet(args)
+			resp, err := cl.immucl.VerifiedSet(args)
 			if err != nil {
 				cl.quit(err)
 			}
@@ -110,7 +90,7 @@ func (cl *commandline) safeZAdd(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.SafeZAdd(args)
+			resp, err := cl.immucl.VerifiedZAdd(args)
 			if err != nil {
 				cl.quit(err)
 			}

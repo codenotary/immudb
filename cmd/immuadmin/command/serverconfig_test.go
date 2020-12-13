@@ -42,9 +42,12 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 		panic(err)
 	}
 
-	options := server.Options{}.WithAuth(false).WithInMemoryStore(true).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
+	options := server.Options{}.WithAuth(false).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -93,9 +96,13 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	options := server.Options{}.WithAuth(false).WithInMemoryStore(true).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
+
+	options := server.Options{}.WithAuth(false).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),

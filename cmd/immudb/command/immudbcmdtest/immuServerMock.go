@@ -22,9 +22,9 @@ import (
 )
 
 type ImmuServerMock struct {
-	Options    server.Options
-	Logger     logger.Logger
-	RootSigner server.RootSigner
+	Options     server.Options
+	Logger      logger.Logger
+	StateSigner server.StateSigner
 }
 
 func (s ImmuServerMock) WithOptions(options server.Options) server.ImmuServerIf {
@@ -36,8 +36,8 @@ func (s ImmuServerMock) WithLogger(logger logger.Logger) server.ImmuServerIf {
 	return s
 }
 
-func (s ImmuServerMock) WithRootSigner(rootSigner server.RootSigner) server.ImmuServerIf {
-	s.RootSigner = rootSigner
+func (s ImmuServerMock) WithStateSigner(stateSigner server.StateSigner) server.ImmuServerIf {
+	s.StateSigner = stateSigner
 	return s
 }
 

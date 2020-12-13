@@ -21,9 +21,9 @@ import (
 	"strings"
 )
 
-func (i *immuc) CurrentRoot(args []string) (string, error) {
+func (i *immuc) CurrentState(args []string) (string, error) {
 	ctx := context.Background()
-	root, err := i.ImmuClient.CurrentRoot(ctx)
+	state, err := i.ImmuClient.CurrentImmutableState(ctx)
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -31,5 +31,5 @@ func (i *immuc) CurrentRoot(args []string) (string, error) {
 		}
 		return "", err
 	}
-	return PrintRoot(root), nil
+	return PrintState(state), nil
 }
