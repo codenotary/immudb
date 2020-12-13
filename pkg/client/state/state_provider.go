@@ -14,26 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rootservice
+package state
 
 import (
 	"context"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 )
 
-type ImmudbRootProvider struct {
+type StateProvider interface {
+	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
+}
+
+type stateProvider struct {
 	client schema.ImmuServiceClient
 }
 
-func NewImmudbRootProvider(client schema.ImmuServiceClient) *ImmudbRootProvider {
-	return &ImmudbRootProvider{client}
+func NewStateProvider(client schema.ImmuServiceClient) StateProvider {
+	return &stateProvider{client}
 }
 
-func (r ImmudbRootProvider) CurrentRoot(ctx context.Context) (*schema.Root, error) {
+func (r *stateProvider) CurrentState(ctx context.Context) (*schema.ImmutableState, error) {
 	var metadata runtime.ServerMetadata
 	var protoReq empty.Empty
-	return r.client.CurrentRoot(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return r.client.CurrentImmutableState(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 }

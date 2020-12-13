@@ -14,18 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rootservice_test
+package state
 
+/*
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/client/rootservice"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"testing"
 )
 
 func TestImmudbUUIDProvider_CurrentUuidNotFound(t *testing.T) {
@@ -52,3 +54,4 @@ func TestImmudbUUIDProvider_CurrentHealthError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "", uuid)
 }
+*/

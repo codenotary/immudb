@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rootservice
+package state
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -32,17 +33,21 @@ var ErrNoServerUuid = fmt.Errorf(
 		"this client MUST NOT be used to connect to different immudb servers!",
 	server.SERVER_UUID_HEADER)
 
-type ImmudbUUIDProvider struct {
+type UUIDProvider interface {
+	CurrentUUID(ctx context.Context) (string, error)
+}
+
+type uuidProvider struct {
 	client schema.ImmuServiceClient
 }
 
-func NewImmudbUUIDProvider(client schema.ImmuServiceClient) *ImmudbUUIDProvider {
-	return &ImmudbUUIDProvider{client}
+func NewUUIDProvider(client schema.ImmuServiceClient) UUIDProvider {
+	return &uuidProvider{client}
 }
 
 // CurrentUUID issues a Health command to the server, then parses and returns
 // the server UUID from the response metadata
-func (r ImmudbUUIDProvider) CurrentUUID(ctx context.Context) (string, error) {
+func (r *uuidProvider) CurrentUUID(ctx context.Context) (string, error) {
 	var metadata runtime.ServerMetadata
 	if _, err := r.client.Health(
 		ctx,

@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rootservice
+package state
 
+/*
 import (
 	"context"
 	"errors"
@@ -28,46 +29,46 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestRootService(t *testing.T) {
+func TestStateService(t *testing.T) {
 
 	ic := &immuServiceClientMock{}
 
-	cache := &cacheMock{data: make(map[string]*schema.Root)}
+	cache := &cacheMock{data: make(map[string]*schema.ImmutableState)}
 
 	logger := &mockLogger{}
 
-	immudbRootProvider := NewImmudbRootProvider(ic)
-	immudbUUIDProvider := NewImmudbUUIDProvider(ic)
+	stateProvider := NewStateProvider(ic)
+	uuidProvider := NewUUIDProvider(ic)
 
-	rs, err := NewRootService(cache, logger, immudbRootProvider, immudbUUIDProvider)
+	rs, err := NewStateService(cache, logger, stateProvider, uuidProvider)
 	assert.Nil(t, err)
 
-	root, err := rs.GetRoot(context.TODO(), "db1")
+	state, err := rs.GetState(context.TODO(), "db1")
 	assert.Nil(t, err)
-	assert.IsType(t, &schema.Root{}, root)
+	assert.IsType(t, &schema.ImmutableState{}, state)
 
-	err = rs.SetRoot(&schema.Root{}, "db1")
+	err = rs.SetState(&schema.ImmutableState{}, "db1")
 	assert.Nil(t, err)
 
-	root, err = rs.GetRoot(context.TODO(), "db1")
+	state, err = rs.GetState(context.TODO(), "db1")
 	assert.Nil(t, err)
-	assert.IsType(t, &schema.Root{}, root)
+	assert.IsType(t, &schema.ImmutableState{}, state)
 }
 
 type cacheMock struct {
-	data map[string]*schema.Root
+	data map[string]*schema.ImmutableState
 }
 
-func (m *cacheMock) Get(serverUUID string, databasename string) (*schema.Root, error) {
-	r, ok := m.data[serverUUID+databasename]
+func (m *cacheMock) Get(serverUUID string, dbName string) (*schema.ImmutableState, error) {
+	r, ok := m.data[serverUUID+dbName]
 	if ok {
 		return r, nil
 	}
 	return nil, errors.New("not found")
 }
 
-func (m *cacheMock) Set(root *schema.Root, serverUUID string, databasename string) error {
-	m.data[serverUUID+databasename] = root
+func (m *cacheMock) Set(state *schema.ImmutableState, serverUUID string, dbName string) error {
+	m.data[serverUUID+dbName] = state
 	return nil
 }
 
@@ -208,3 +209,4 @@ func (m *immuServiceClientMock) SetActiveUser(ctx context.Context, in *schema.Se
 func (m *immuServiceClientMock) DatabaseList(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
 	return &schema.DatabaseListResponse{}, nil
 }
+*/
