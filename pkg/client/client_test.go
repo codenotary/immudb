@@ -17,27 +17,19 @@ limitations under the License.
 package client
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
-	"sort"
 	"strconv"
-	"strings"
-	"sync"
 	"testing"
 	"time"
-
-	"github.com/codenotary/immudb/pkg/store"
-
-	"github.com/codenotary/immudb/pkg/client/rootservice"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -83,9 +75,10 @@ func newServer() *server.ImmuServer {
 	is := server.DefaultServer()
 	is = is.WithOptions(is.Options.
 		WithAuth(true).
-		WithInMemoryStore(true).
 		WithAdminPassword("non-default-admin-password").
 		WithConfig("../../test/immudb.toml")).(*server.ImmuServer)
+
+	defer os.RemoveAll(is.Options.Dir)
 
 	auth.AuthEnabled = is.Options.GetAuth()
 
@@ -122,13 +115,13 @@ func newClient(withToken bool, token string) ImmuClient {
 	immuclient.WithClientConn(clientConn)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 	immuclient.WithServiceClient(serviceClient)
-	immudbRootProvider := rootservice.NewImmudbRootProvider(serviceClient)
-	immudbUuidProvider := rootservice.NewImmudbUUIDProvider(serviceClient)
-	rootService, err := rootservice.NewRootService(cache.NewFileCache("."), logger.NewSimpleLogger("test", os.Stdout), immudbRootProvider, immudbUuidProvider)
+	stateProvider := state.NewStateProvider(serviceClient)
+	uuidProvider := state.NewUUIDProvider(serviceClient)
+	stateService, err := state.NewStateService(cache.NewFileCache("."), logger.NewSimpleLogger("test", os.Stdout), stateProvider, uuidProvider)
 	if err != nil {
 		log.Fatal(err)
 	}
-	immuclient.WithRootService(rootService)
+	immuclient.WithStateService(stateService)
 
 	return immuclient
 }
@@ -199,7 +192,7 @@ func bufDialer(ctx context.Context, address string) (net.Conn, error) {
 
 func cleanup() {
 	// delete files and folders created by tests
-	if err := os.Remove(".root-"); err != nil {
+	if err := os.Remove(".state-"); err != nil {
 		log.Println(err)
 	}
 }
@@ -210,40 +203,25 @@ func cleanupDump() {
 }
 
 func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte) {
-	_, err2 := client.SafeSet(ctx, key, value)
+	_, err2 := client.VerifiedSet(ctx, key, value)
 	require.NoError(t, err2)
-	vi, err := client.SafeGet(ctx, key)
+	vi, err := client.VerifiedGet(ctx, key)
 
 	require.NoError(t, err)
 	require.NotNil(t, vi)
 	require.Equal(t, key, vi.Key)
 	require.Equal(t, value, vi.Value)
-	require.Equal(t, uint64(1405544146), vi.Time)
-	require.True(t, vi.Verified)
 }
 
-func testRawSafeSetAndRawSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte) {
-	_, err2 := client.RawSafeSet(ctx, key, value)
-	require.NoError(t, err2)
-	vi, err := client.RawSafeGet(ctx, key)
-
-	require.NoError(t, err)
-	require.NotNil(t, vi)
-	require.Equal(t, key, vi.Key)
-	require.Equal(t, value, vi.Value)
-	require.True(t, vi.Verified)
-}
-
+/*
 func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
-	_, err2 := client.Reference(ctx, referenceKey, key, nil)
+	_, err2 := client.SetReference(ctx, referenceKey, key, nil)
 	require.NoError(t, err2)
-	vi, err := client.SafeGet(ctx, referenceKey)
+	vi, err := client.VerifiedGet(ctx, referenceKey)
 	require.NoError(t, err)
 	require.NotNil(t, vi)
 	require.Equal(t, key, vi.Key)
 	require.Equal(t, value, vi.Value)
-	require.Equal(t, uint64(1405544146), vi.Time)
-	require.True(t, vi.Verified)
 }
 
 func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
@@ -311,20 +289,20 @@ func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scor
 	require.Equal(t, []byte("key-n11"), key, nil)
 	require.NoError(t, err3)
 }
-
+*/
 func testGet(ctx context.Context, t *testing.T) {
-	_, _ = client.SafeSet(ctx, []byte("key-n11"), []byte("val-n11"))
+	_, _ = client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	item1, err3 := client.Get(ctx, []byte("key-n11"))
 	require.Equal(t, []byte("key-n11"), item1.Key)
 	require.NoError(t, err3)
 }
 
-func testGetByIndex(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
-	vi1, err := client.SafeSet(ctx, []byte("key-n11"), []byte("val-n11"))
+func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
+	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 
-	item1, err3 := client.ByIndex(ctx, vi1.Index)
-	require.Equal(t, []byte("key-n11"), item1.Key)
+	item1, err3 := client.TxByID(ctx, vi1.Id)
+	require.Equal(t, vi1.Ts, item1.Metadata.Ts)
 	require.NoError(t, err3)
 }
 
@@ -357,19 +335,15 @@ func TestImmuClient(t *testing.T) {
 	testSafeSetAndSafeGet(ctx, t, testData.keys[1], testData.values[1])
 	testSafeSetAndSafeGet(ctx, t, testData.keys[2], testData.values[2])
 
-	testSafeReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
-	testSafeReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1])
-	testSafeReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2])
-	testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
-	testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
-	testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+	//testSafeReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
+	//testSafeReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1])
+	//testSafeReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2])
+	//testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+	//testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+	//testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 
-	testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
-	testGetByIndex(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
-
-	testRawSafeSetAndRawSafeGet(ctx, t, testData.keys[0], testData.values[0])
-	testRawSafeSetAndRawSafeGet(ctx, t, testData.keys[1], testData.values[1])
-	testRawSafeSetAndRawSafeGet(ctx, t, testData.keys[2], testData.values[2])
+	//testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
+	testGetTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 
 	testGet(ctx, t)
 
@@ -459,22 +433,19 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.Get(context.TODO(), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.CurrentRoot(context.TODO())
+	_, err = client.CurrentImmutableState(context.TODO())
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.SafeGet(context.TODO(), []byte("key"))
+	_, err = client.VerifiedGet(context.TODO(), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.RawSafeGet(context.TODO(), []byte("key"))
-	require.Error(t, ErrNotConnected, err)
-
-	_, err = client.Scan(context.TODO(), &schema.ScanOptions{
+	_, err = client.Scan(context.TODO(), &schema.ScanRequest{
 		Prefix: []byte("key"),
 	})
 
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.ZScan(context.TODO(), &schema.ZScanOptions{Set: []byte("key")})
+	_, err = client.ZScan(context.TODO(), &schema.ZScanRequest{Set: []byte("key")})
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.IScan(context.TODO(), 1, 1)
@@ -489,45 +460,33 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.Set(context.TODO(), []byte("key"), []byte("value"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.SafeSet(context.TODO(), []byte("key"), []byte("value"))
+	_, err = client.VerifiedSet(context.TODO(), []byte("key"), []byte("value"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.RawSafeSet(context.TODO(), []byte("key"), []byte("value"))
+	_, err = client.Set(context.TODO(), nil, nil)
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.SetBatch(context.TODO(), nil)
+	_, err = client.TxByID(context.TODO(), 1)
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.GetBatch(context.TODO(), nil)
+	_, err = client.VerifiedTxByID(context.TODO(), 1)
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.Inclusion(context.TODO(), 1)
-	require.Error(t, ErrNotConnected, err)
-
-	_, err = client.Consistency(context.TODO(), 1)
-	require.Error(t, ErrNotConnected, err)
-
-	_, err = client.ByIndex(context.TODO(), 1)
-	require.Error(t, ErrNotConnected, err)
-
-	_, err = client.RawBySafeIndex(context.TODO(), 1)
-	require.Error(t, ErrNotConnected, err)
-
-	_, err = client.History(context.TODO(), &schema.HistoryOptions{
+	_, err = client.History(context.TODO(), &schema.HistoryRequest{
 		Key: []byte("key"),
 	})
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.Reference(context.TODO(), []byte("ref"), []byte("key"), nil)
+	_, err = client.SetReference(context.TODO(), []byte("ref"), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.SafeReference(context.TODO(), []byte("ref"), []byte("key"), nil)
+	_, err = client.VerifiedSetReference(context.TODO(), []byte("ref"), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"), nil)
+	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.SafeZAdd(context.TODO(), []byte("set"), 1, []byte("key"), nil)
+	_, err = client.VerifiedZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.Dump(context.TODO(), nil)
@@ -571,7 +530,7 @@ func TestWaitForHealthCheckFail(t *testing.T) {
 
 func TestDump(t *testing.T) {
 	setup()
-	_, _ = client.SafeSet(context.TODO(), []byte(`key`), []byte(`val`))
+	_, _ = client.VerifiedSet(context.TODO(), []byte(`key`), []byte(`val`))
 	f, _ := os.Create("tmp")
 	i, err := client.Dump(context.TODO(), f)
 	_ = os.Remove("tmp")
@@ -683,6 +642,7 @@ func TestDatabaseManagement(t *testing.T) {
 	client.Disconnect()
 }
 
+/*
 func TestImmuClient_Inclusion(t *testing.T) {
 	setup()
 	index, _ := client.SafeSet(context.TODO(), []byte(`key`), []byte(`val`))
@@ -704,22 +664,22 @@ func TestImmuClient_Consistency(t *testing.T) {
 	assert.Nil(t, err)
 	client.Disconnect()
 }
-
+*/
 func TestImmuClient_History(t *testing.T) {
 	setup()
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val2`))
+	_, _ = client.VerifiedSet(context.TODO(), []byte(`key1`), []byte(`val1`))
+	_, _ = client.VerifiedSet(context.TODO(), []byte(`key1`), []byte(`val2`))
 
-	sil, err := client.History(context.TODO(), &schema.HistoryOptions{
+	sil, err := client.History(context.TODO(), &schema.HistoryRequest{
 		Key: []byte(`key1`),
 	})
 
-	assert.IsType(t, &schema.StructuredItemList{}, sil)
 	assert.Nil(t, err)
 	assert.Len(t, sil.Items, 2)
 	client.Disconnect()
 }
 
+/*
 func TestImmuClient_SetAll(t *testing.T) {
 	setup()
 
@@ -1081,3 +1041,4 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	client.Disconnect()
 	testUserClient.Disconnect()
 }
+*/

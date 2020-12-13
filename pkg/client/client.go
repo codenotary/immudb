@@ -17,12 +17,10 @@ limitations under the License.
 package client
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -30,10 +28,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/rootservice"
-
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/grpc/credentials"
@@ -45,7 +42,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/store"
 )
 
 // ImmuClient ...
@@ -53,9 +49,12 @@ type ImmuClient interface {
 	Disconnect() error
 	IsConnected() bool
 	WaitForHealthCheck(ctx context.Context) (err error)
+	HealthCheck(ctx context.Context) error
 	Connect(ctx context.Context) (clientConn *grpc.ClientConn, err error)
+
 	Login(ctx context.Context, user []byte, pass []byte) (*schema.LoginResponse, error)
 	Logout(ctx context.Context) error
+
 	CreateUser(ctx context.Context, user []byte, pass []byte, permission uint32, databasename string) error
 	ListUsers(ctx context.Context) (*schema.UserList, error)
 	ChangePassword(ctx context.Context, user []byte, oldPass []byte, newPass []byte) error
@@ -63,39 +62,56 @@ type ImmuClient interface {
 	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
 	UpdateMTLSConfig(ctx context.Context, enabled bool) error
 	PrintTree(ctx context.Context) (*schema.Tree, error)
-	CurrentRoot(ctx context.Context) (*schema.Root, error)
-	Set(ctx context.Context, key []byte, value []byte) (*schema.Index, error)
-	SafeSet(ctx context.Context, key []byte, value []byte) (*VerifiedIndex, error)
-	RawSafeSet(ctx context.Context, key []byte, value []byte) (*VerifiedIndex, error)
-	Get(ctx context.Context, key []byte) (*schema.StructuredItem, error)
-	SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error)
-	RawSafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*VerifiedItem, error)
-	Scan(ctx context.Context, options *schema.ScanOptions) (*schema.StructuredItemList, error)
-	ZScan(ctx context.Context, options *schema.ZScanOptions) (*schema.ZStructuredItemList, error)
-	ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error)
-	RawBySafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error)
-	IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error)
+
+	CurrentImmutableState(ctx context.Context) (*schema.ImmutableState, error)
+
+	Set(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
+	VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
+
+	Get(ctx context.Context, key []byte) (*schema.Item, error)
+	VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Item, error)
+
+	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
+	VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
+
+	ZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error)
+	VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error)
+
+	Scan(ctx context.Context, req *schema.ScanRequest) (*schema.ItemList, error)
+	ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZItemList, error)
+	IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.Page, error)
+
+	TxByID(ctx context.Context, txID uint64) (*schema.Tx, error)
+	VerifiedTxByID(ctx context.Context, txID uint64) (*schema.Tx, error)
+
 	Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error)
 	CountAll(ctx context.Context) (*schema.ItemsCount, error)
-	SetAll(ctx context.Context, kvList *schema.KVList) (*schema.Index, error)
-	ExecAllOps(ctx context.Context, in *schema.Ops) (*schema.Index, error)
-	SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error)
-	GetBatch(ctx context.Context, keys [][]byte) (*schema.StructuredItemList, error)
-	Inclusion(ctx context.Context, index uint64) (*schema.InclusionProof, error)
-	Consistency(ctx context.Context, index uint64) (*schema.ConsistencyProof, error)
-	History(ctx context.Context, options *schema.HistoryOptions) (*schema.StructuredItemList, error)
-	Reference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*schema.Index, error)
-	GetReference(ctx context.Context, key *schema.Key) (*schema.StructuredItem, error)
-	SafeReference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*VerifiedIndex, error)
-	ZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*schema.Index, error)
-	SafeZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*VerifiedIndex, error)
+
+	SetAll(ctx context.Context, kvList *schema.SetRequest) (*schema.TxMetadata, error)
+	ExecAllOps(ctx context.Context, in *schema.Ops) (*schema.TxMetadata, error)
+	GetAll(ctx context.Context, keys [][]byte) (*schema.ItemList, error)
+
+	History(ctx context.Context, req *schema.HistoryRequest) (*schema.ItemList, error)
+
+	SetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
+	GetReference(ctx context.Context, key []byte) (*schema.Item, error)
+	VerifiedSetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
+
+	SetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error)
+	VerifiedSetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error)
+
+	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
+	CreateDatabase(ctx context.Context, d *schema.Database) error
+	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
+	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
+
+	//VerifyAndSetRoot(result *schema.DualProof, txMetadata *schema.TxMetadata, ctx context.Context) (bool, error)
+
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
-	HealthCheck(ctx context.Context) error
-	verifyAndSetRoot(result *schema.Proof, root *schema.Root, ctx context.Context) (bool, error)
 
 	WithOptions(options *Options) *immuClient
 	WithLogger(logger logger.Logger) *immuClient
-	WithRootService(rs rootservice.RootService) *immuClient
+	WithStateService(rs state.StateService) *immuClient
 	WithTimestampService(ts TimestampService) *immuClient
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
@@ -104,14 +120,6 @@ type ImmuClient interface {
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
 	SetupDialOptions(options *Options) *[]grpc.DialOption
-	CreateDatabase(ctx context.Context, d *schema.Database) error
-	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
-	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
-	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
-
-	NewSKV(key []byte, value []byte) *schema.StructuredKeyValue
-	NewSKVList(list *schema.KVList) *schema.SKVList
-	NewSOps(ops *schema.Ops) (*schema.Ops, error)
 }
 
 type immuClient struct {
@@ -120,7 +128,7 @@ type immuClient struct {
 	Options       *Options
 	clientConn    *grpc.ClientConn
 	ServiceClient schema.ImmuServiceClient
-	Rootservice   rootservice.RootService
+	StateService  state.StateService
 	ts            TimestampService
 	Tkns          TokenService
 	sync.RWMutex
@@ -169,10 +177,10 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 		return nil, logErr(l, "Unable to create program file folder: %s", err)
 	}
 
-	immudbRootProvider := rootservice.NewImmudbRootProvider(serviceClient)
-	immudbUUIDProvider := rootservice.NewImmudbUUIDProvider(serviceClient)
+	stateProvider := state.NewStateProvider(serviceClient)
+	uuidProvider := state.NewUUIDProvider(serviceClient)
 
-	rootService, err := rootservice.NewRootService(cache.NewFileCache(options.Dir), l, immudbRootProvider, immudbUUIDProvider)
+	stateService, err := state.NewStateService(cache.NewFileCache(options.Dir), l, stateProvider, uuidProvider)
 	if err != nil {
 		return nil, logErr(l, "Unable to create root service: %s", err)
 	}
@@ -183,7 +191,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	}
 
 	ts := NewTimestampService(dt)
-	c.WithTimestampService(ts).WithRootService(rootService)
+	c.WithTimestampService(ts).WithStateService(stateService)
 
 	return c, nil
 }
@@ -453,50 +461,31 @@ func (c *immuClient) Logout(ctx context.Context) error {
 }
 
 // Get ...
-func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.StructuredItem, error) {
-	start := time.Now()
-
+func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Item, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	item, err := c.ServiceClient.Get(ctx, &schema.Key{Key: key})
-	if err != nil {
-		return nil, err
-	}
+	start := time.Now()
+	defer c.Logger.Debugf("get finished in %s", time.Since(start))
 
-	result, err := item.ToSItem()
-	if err != nil {
-		return nil, err
-	}
-
-	c.Logger.Debugf("get finished in %s", time.Since(start))
-
-	return result, err
+	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key})
 }
 
-// CurrentRoot returns current merkle tree root and index
-func (c *immuClient) CurrentRoot(ctx context.Context) (*schema.Root, error) {
-	start := time.Now()
-
+// CurrentImmutableState returns current database state
+func (c *immuClient) CurrentImmutableState(ctx context.Context) (*schema.ImmutableState, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.ServiceClient.CurrentRoot(ctx, &empty.Empty{})
-	if err != nil {
-		return nil, err
-	}
+	start := time.Now()
+	defer c.Logger.Debugf("Current root finished in %s", time.Since(start))
 
-	c.Logger.Debugf("Current root finished in %s", time.Since(start))
-
-	return root, err
+	return c.ServiceClient.CurrentImmutableState(ctx, &empty.Empty{})
 }
 
-// SafeGet ...
-func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *VerifiedItem, err error) {
-	start := time.Now()
-
+// VerifiedGet ...
+func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *schema.Item, err error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -504,152 +493,66 @@ func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallO
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
-	if err != nil {
-		return nil, err
-	}
-
-	sgOpts := &schema.SafeGetOptions{
-		Key: key,
-		RootIndex: &schema.Index{
-			Index: root.GetIndex(),
-		},
-	}
-
-	safeItem, err := c.ServiceClient.SafeGet(ctx, sgOpts, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	h, err := safeItem.Hash()
-	if err != nil {
-		return nil, err
-	}
-
-	verified := safeItem.Proof.Verify(h, *root)
-	if verified {
-		// saving a fresh root
-		tocache := schema.NewRoot()
-		tocache.SetIndex(safeItem.Proof.At)
-		tocache.SetRoot(safeItem.Proof.Root)
-		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	c.Logger.Debugf("safeget finished in %s", time.Since(start))
-	sitem, err := safeItem.ToSafeSItem()
-	if err != nil {
-		return nil, err
-	}
-
-	return &VerifiedItem{
-			Key:      sitem.Item.GetKey(),
-			Value:    sitem.Item.Value.Payload,
-			Index:    sitem.Item.GetIndex(),
-			Time:     sitem.Item.Value.Timestamp,
-			Verified: verified,
-		},
-		nil
-}
-
-// RawSafeGet ...
-func (c *immuClient) RawSafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *VerifiedItem, err error) {
-	c.Lock()
-	defer c.Unlock()
-
 	start := time.Now()
+	defer c.Logger.Debugf("safeget finished in %s", time.Since(start))
 
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
+	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
 
-	sgOpts := &schema.SafeGetOptions{
-		Key: key,
-		RootIndex: &schema.Index{
-			Index: root.GetIndex(),
-		},
+	req := &schema.VerifiableGetRequest{
+		KeyRequest:  &schema.KeyRequest{Key: key},
+		ProveFromTx: int64(state.TxId),
 	}
 
-	safeItem, err := c.ServiceClient.SafeGet(ctx, sgOpts, opts...)
+	vItem, err := c.ServiceClient.VerifiableGet(ctx, req, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	h, err := safeItem.Hash()
-	if err != nil {
-		return nil, err
-	}
-
-	verified := safeItem.Proof.Verify(h, *root)
-	if verified {
-		// saving a fresh root
-		tocache := schema.NewRoot()
-		tocache.SetIndex(safeItem.Proof.At)
-		tocache.SetRoot(safeItem.Proof.Root)
-		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
-		if err != nil {
-			return nil, err
+	/*
+		verified := safeItem.Proof.Verify(h, *root)
+		if verified {
+			// saving a fresh root
+			tocache := schema.NewRoot()
+			tocache.SetIndex(safeItem.Proof.At)
+			tocache.SetRoot(safeItem.Proof.Root)
+			err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
+			if err != nil {
+				return nil, err
+			}
 		}
-	}
+	*/
 
-	c.Logger.Debugf("safeget finished in %s", time.Since(start))
-
-	return &VerifiedItem{
-			Key:      safeItem.Item.GetKey(),
-			Value:    safeItem.Item.Value,
-			Index:    safeItem.Item.GetIndex(),
-			Verified: verified,
-		},
-		nil
+	return vItem.Item, nil
 }
 
 // Scan ...
-func (c *immuClient) Scan(ctx context.Context, options *schema.ScanOptions) (*schema.StructuredItemList, error) {
+func (c *immuClient) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.ItemList, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	list, err := c.ServiceClient.Scan(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return list.ToSItemList()
+	return c.ServiceClient.Scan(ctx, req)
 }
 
 // ZScan ...
-func (c *immuClient) ZScan(ctx context.Context, options *schema.ZScanOptions) (*schema.ZStructuredItemList, error) {
+func (c *immuClient) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZItemList, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	list, err := c.ServiceClient.ZScan(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return list.ToZSItemList()
+	return c.ServiceClient.ZScan(ctx, req)
 }
 
 // IScan ...
-func (c *immuClient) IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.SPage, error) {
+func (c *immuClient) IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.Page, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	page, err := c.ServiceClient.IScan(ctx, &schema.IScanOptions{PageSize: pageSize, PageNumber: pageNumber})
-	if err != nil {
-		return nil, err
-	}
-
-	return page.ToSPage()
+	return c.ServiceClient.IScan(ctx, &schema.IScanRequest{PageSize: pageSize, PageNumber: pageNumber})
 }
 
 // Count ...
@@ -669,33 +572,19 @@ func (c *immuClient) CountAll(ctx context.Context) (*schema.ItemsCount, error) {
 }
 
 // Set ...
-func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.Index, error) {
-	start := time.Now()
-
+func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	skv := c.NewSKV(key, value)
+	start := time.Now()
+	defer c.Logger.Debugf("set finished in %s", time.Since(start))
 
-	kv, err := skv.ToKV()
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := c.ServiceClient.Set(ctx, kv)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Logger.Debugf("set finished in %s", time.Since(start))
-
-	return result, err
+	return c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
 }
 
-// SafeSet ...
-func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*VerifiedIndex, error) {
-	start := time.Now()
+// VerifiedSet ...
+func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -703,382 +592,86 @@ func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*Ve
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
+	start := time.Now()
+	defer c.Logger.Debugf("VerifiedSet finished in %s", time.Since(start))
+
+	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
 
-	skv := c.NewSKV(key, value)
-	kv, err := skv.ToKV()
-	if err != nil {
-		return nil, err
-	}
-
-	opts := &schema.SafeSetOptions{
-		Kv: kv,
-		RootIndex: &schema.Index{
-			Index: root.GetIndex(),
-		},
+	req := &schema.VerifiableSetRequest{
+		SetRequest:  &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}},
+		ProveFromTx: int64(state.TxId),
 	}
 
 	var metadata runtime.ServerMetadata
 
-	result, err := c.ServiceClient.SafeSet(
+	verifiableTx, err := c.ServiceClient.VerifiableSet(
 		ctx,
-		opts,
+		req,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	// This guard ensures that result.Leaf is equal to the item's hash computed from
-	// request values. From now on, result.Leaf can be trusted.
-	sitem := schema.StructuredItem{
-		Key: key,
-		Value: &schema.Content{
-			Timestamp: skv.Value.Timestamp,
-			Payload:   value,
-		},
-		Index: result.Index,
-	}
-
-	item, err := sitem.ToItem()
-	if err != nil {
-		return nil, err
-	}
-
-	h := item.Hash()
-
-	if !bytes.Equal(h, result.Leaf) {
-		return nil, errors.New("proof does not match the given item")
-	}
-
-	verified, err := c.verifyAndSetRoot(result, root, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Logger.Debugf("safeset finished in %s", time.Since(start))
-
-	return &VerifiedIndex{
-			Index:    result.Index,
-			Verified: verified,
-		},
-		nil
-}
-
-// RawSafeSet ...
-func (c *immuClient) RawSafeSet(ctx context.Context, key []byte, value []byte) (vi *VerifiedIndex, err error) {
-	start := time.Now()
-	c.Lock()
-	defer c.Unlock()
-
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
-	if err != nil {
-		return nil, err
-	}
-
-	opts := &schema.SafeSetOptions{
-		Kv: &schema.KeyValue{
-			Key:   key,
-			Value: value,
-		},
-		RootIndex: &schema.Index{
-			Index: root.GetIndex(),
-		},
-	}
-
-	var metadata runtime.ServerMetadata
-
-	result, err := c.ServiceClient.SafeSet(
-		ctx,
-		opts,
-		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// This guard ensures that result.Leaf is equal to the item's hash computed from
-	// request values. From now on, result.Leaf can be trusted.
-	item := schema.Item{
-		Key:   key,
-		Value: value,
-		Index: result.Index,
-	}
-
-	h := item.Hash()
-
-	if !bytes.Equal(h, result.Leaf) {
-		return nil, errors.New("proof does not match the given item")
-	}
-
-	verified, err := c.verifyAndSetRoot(result, root, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Logger.Debugf("safeset finished in %s", time.Since(start))
-
-	return &VerifiedIndex{
-			Index:    result.Index,
-			Verified: verified,
-		},
-		nil
-}
-
-func (c *immuClient) SetAll(ctx context.Context, kvList *schema.KVList) (*schema.Index, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	if kvList == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	slist := c.NewSKVList(kvList)
-	svlist, err := slist.ToKVList()
-
-	result, err := c.ServiceClient.SetBatch(ctx, svlist)
-
-	return result, err
-}
-
-// ExecAllOps ...
-func (c *immuClient) ExecAllOps(ctx context.Context, op *schema.Ops) (*schema.Index, error) {
-	op, err := c.NewSOps(op)
-	if err != nil {
-		return nil, err
-	}
-	result, err := c.ServiceClient.ExecAllOps(ctx, op)
-	return result, err
-}
-
-// SetBatch ...
-func (c *immuClient) SetBatch(ctx context.Context, request *BatchRequest) (*schema.Index, error) {
-	start := time.Now()
-
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	list, err := request.toKVList()
-	slist := c.NewSKVList(list)
-	if err != nil {
-		return nil, err
-	}
-	svlist, err := slist.ToKVList()
-	if err != nil {
-		return nil, err
-	}
-	result, err := c.ServiceClient.SetBatch(ctx, svlist)
-
-	c.Logger.Debugf("set-batch finished in %s", time.Since(start))
-
-	return result, err
-}
-
-// GetBatch ...
-func (c *immuClient) GetBatch(ctx context.Context, keys [][]byte) (*schema.StructuredItemList, error) {
-	start := time.Now()
-
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	keyList := &schema.KeyList{}
-	for _, key := range keys {
-		keyList.Keys = append(keyList.Keys, &schema.Key{Key: key})
-	}
-
-	list, err := c.ServiceClient.GetBatch(ctx, keyList)
-
-	c.Logger.Debugf("get-batch finished in %s", time.Since(start))
-
-	if err != nil {
-		return nil, err
-	}
-
-	return list.ToSItemList()
-}
-
-// Inclusion ...
-func (c *immuClient) Inclusion(ctx context.Context, index uint64) (*schema.InclusionProof, error) {
-	start := time.Now()
-
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	result, err := c.ServiceClient.Inclusion(ctx, &schema.Index{
-		Index: index,
-	})
-
-	c.Logger.Debugf("inclusion finished in %s", time.Since(start))
-
-	return result, err
-}
-
-// Consistency ...
-func (c *immuClient) Consistency(ctx context.Context, index uint64) (*schema.ConsistencyProof, error) {
-	start := time.Now()
-
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	result, err := c.ServiceClient.Consistency(ctx, &schema.Index{
-		Index: index,
-	})
-
-	c.Logger.Debugf("consistency finished in %s", time.Since(start))
-
-	return result, err
-}
-
-// ByIndex returns a structured value at index
-func (c *immuClient) ByIndex(ctx context.Context, index uint64) (*schema.StructuredItem, error) {
-	start := time.Now()
-
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	item, err := c.ServiceClient.ByIndex(ctx, &schema.Index{
-		Index: index,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := item.ToSItem()
-	if err != nil {
-		return nil, err
-	}
-
-	c.Logger.Debugf("by-index finished in %s", time.Since(start))
-
-	return result, err
-}
-
-// RawBySafeIndex returns a verified index at specified index
-func (c *immuClient) RawBySafeIndex(ctx context.Context, index uint64) (*VerifiedItem, error) {
-	c.Lock()
-	defer c.Unlock()
-
-	start := time.Now()
-
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
-	if err != nil {
-		return nil, err
-	}
-
-	safeItem, err := c.ServiceClient.BySafeIndex(ctx, &schema.SafeIndexOptions{
-		Index: index,
-		RootIndex: &schema.Index{
-			Index: root.GetIndex(),
-		},
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	h, err := safeItem.Hash()
-	if err != nil {
-		return nil, err
-	}
-
-	verified := safeItem.Proof.Verify(h, *root)
-	if verified {
-		// saving a fresh root
-		tocache := schema.NewRoot()
-		tocache.SetIndex(safeItem.Proof.At)
-		tocache.SetRoot(safeItem.Proof.Root)
-		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
+	/*
+		verified, err := c.verifyAndSetRoot(result, root, ctx)
 		if err != nil {
 			return nil, err
 		}
-	}
+	*/
 
-	c.Logger.Debugf("by-rawsafeindex finished in %s", time.Since(start))
-
-	return &VerifiedItem{
-			Key:      safeItem.Item.GetKey(),
-			Value:    safeItem.Item.Value,
-			Index:    safeItem.Item.GetIndex(),
-			Verified: verified,
-		},
-		nil
+	return verifiableTx.Tx.Metadata, nil
 }
 
-// History ...
-func (c *immuClient) History(ctx context.Context, options *schema.HistoryOptions) (sl *schema.StructuredItemList, err error) {
-	start := time.Now()
-
+func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	list, err := c.ServiceClient.History(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-
-	sl, err = list.ToSItemList()
-	if err != nil {
-		return nil, err
-	}
-
-	c.Logger.Debugf("history finished in %s", time.Since(start))
-
-	return sl, err
+	return c.ServiceClient.Set(ctx, req)
 }
 
-// Reference ...
-func (c *immuClient) Reference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*schema.Index, error) {
-	start := time.Now()
+// ExecAllOps ...
+func (c *immuClient) ExecAllOps(ctx context.Context, op *schema.Ops) (*schema.TxMetadata, error) {
+	return c.ServiceClient.ExecAllOps(ctx, op)
+}
 
+// GetAll ...
+func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.ItemList, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	result, err := c.ServiceClient.Reference(ctx, &schema.ReferenceOptions{
-		Reference: reference,
-		Key:       key,
-		Index:     index,
+	start := time.Now()
+	defer c.Logger.Debugf("get-batch finished in %s", time.Since(start))
+
+	keyList := &schema.KeyList{}
+	for _, key := range keys {
+		keyList.Keys = append(keyList.Keys, key)
+	}
+
+	return c.ServiceClient.GetAll(ctx, keyList)
+}
+
+// TxByID ...
+func (c *immuClient) TxByID(ctx context.Context, txID uint64) (*schema.Tx, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	start := time.Now()
+	defer c.Logger.Debugf("by-index finished in %s", time.Since(start))
+
+	return c.ServiceClient.TxById(ctx, &schema.TxRequest{
+		Tx: txID,
 	})
-
-	c.Logger.Debugf("reference finished in %s", time.Since(start))
-
-	return result, err
 }
 
-// Reference ...
-func (c *immuClient) GetReference(ctx context.Context, key *schema.Key) (*schema.StructuredItem, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	item, err := c.ServiceClient.GetReference(ctx, key)
-	if err != nil {
-		return nil, err
-	}
-	return item.ToSItem()
-}
-
-// SafeReference ...
-func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []byte, index *schema.Index) (*VerifiedIndex, error) {
-	start := time.Now()
-
+// VerifiedTxByID returns a verified tx
+func (c *immuClient) VerifiedTxByID(ctx context.Context, txID uint64) (*schema.Tx, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -1086,85 +679,161 @@ func (c *immuClient) SafeReference(ctx context.Context, reference []byte, key []
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
+	start := time.Now()
+	defer c.Logger.Debugf("VerifiedTxByID finished in %s", time.Since(start))
+
+	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
 
-	opts := &schema.SafeReferenceOptions{
-		Ro: &schema.ReferenceOptions{
+	vTx, err := c.ServiceClient.VerifiableTxById(ctx, &schema.VerifiableTxRequest{
+		Tx:          txID,
+		ProveFromTx: int64(state.TxId),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	/*
+		verified := safeItem.Proof.Verify(h, *root)
+		if verified {
+			// saving a fresh root
+			tocache := schema.NewRoot()
+			tocache.SetIndex(safeItem.Proof.At)
+			tocache.SetRoot(safeItem.Proof.Root)
+			err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
+			if err != nil {
+				return nil, err
+			}
+		}
+	*/
+
+	return vTx.Tx, nil
+}
+
+// History ...
+func (c *immuClient) History(ctx context.Context, req *schema.HistoryRequest) (sl *schema.ItemList, err error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	start := time.Now()
+	defer c.Logger.Debugf("history finished in %s", time.Since(start))
+
+	return c.ServiceClient.History(ctx, req)
+}
+
+// SetReference ...
+func (c *immuClient) SetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error) {
+	return c.SetReferenceAt(ctx, reference, key, 0)
+}
+
+// SetReferenceAt ...
+func (c *immuClient) SetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	start := time.Now()
+	defer c.Logger.Debugf("SetReference finished in %s", time.Since(start))
+
+	return c.ServiceClient.SetReference(ctx, &schema.Reference{
+		Reference: reference,
+		Key:       key,
+		AtTx:      int64(txID),
+	})
+}
+
+// GetReference ...
+func (c *immuClient) GetReference(ctx context.Context, key []byte) (*schema.Item, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.ServiceClient.GetReference(ctx, &schema.KeyRequest{Key: key})
+}
+
+// VerifiedSetReference ...
+func (c *immuClient) VerifiedSetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error) {
+	return c.VerifiedSetReferenceAt(ctx, reference, key, 0)
+}
+
+// VerifiedSetReferenceAt ...
+func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error) {
+	c.Lock()
+	defer c.Unlock()
+
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	start := time.Now()
+	defer c.Logger.Debugf("safereference finished in %s", time.Since(start))
+
+	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &schema.VerifiableReferenceRequest{
+		Reference: &schema.Reference{
 			Reference: reference,
 			Key:       key,
-			Index:     index,
+			AtTx:      int64(txID),
 		},
-		RootIndex: &schema.Index{
-			Index: root.GetIndex(),
-		},
+		ProveFromTx: int64(state.TxId),
 	}
 
 	var metadata runtime.ServerMetadata
 
-	result, err := c.ServiceClient.SafeReference(
+	vTx, err := c.ServiceClient.VerifiableSetReference(
 		ctx,
-		opts,
+		req,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	if err != nil {
 		return nil, err
 	}
 
-	// The index reference addition grants that key is the same to the one handled in the server
-	key = store.WrapZIndexReference(key, nil)
+	/*
+		verified, err := c.verifyAndSetRoot(result, root, ctx)
+		if err != nil {
+			return nil, err
+		}
+	*/
 
-	// This guard ensures that result.Leaf is equal to the item's hash computed
-	// from request values. From now on, result.Leaf can be trusted.
-	item := schema.Item{
-		Key:   reference,
-		Value: key,
-		Index: result.Index,
-	}
-
-	if !bytes.Equal(item.Hash(), result.Leaf) {
-		return nil, errors.New("proof does not match the given item")
-	}
-
-	verified, err := c.verifyAndSetRoot(result, root, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Logger.Debugf("safereference finished in %s", time.Since(start))
-
-	return &VerifiedIndex{
-			Index:    result.Index,
-			Verified: verified,
-		},
-		nil
+	return vTx.Tx.Metadata, nil
 }
 
 // ZAdd ...
-func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*schema.Index, error) {
-	start := time.Now()
+func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error) {
+	return c.ZAddAt(ctx, set, score, key, 0)
+}
 
+// ZAddAt ...
+func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
 
-	result, err := c.ServiceClient.ZAdd(ctx, &schema.ZAddOptions{
+	start := time.Now()
+	defer c.Logger.Debugf("zadd finished in %s", time.Since(start))
+
+	return c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
 		Set:   set,
 		Score: &schema.Score{Score: score},
 		Key:   key,
-		Index: index,
+		AtTx:  int64(txID),
 	})
-
-	c.Logger.Debugf("zadd finished in %s", time.Since(start))
-
-	return result, err
 }
 
-// SafeZAdd ...
-func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte, index *schema.Index) (*VerifiedIndex, error) {
-	start := time.Now()
+// ZAdd ...
+func (c *immuClient) VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error) {
+	return c.VerifiedZAddAt(ctx, set, score, key, 0)
+}
 
+// VerifiedZAdd ...
+func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -1172,61 +841,43 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 		return nil, ErrNotConnected
 	}
 
-	root, err := c.Rootservice.GetRoot(ctx, c.Options.CurrentDatabase)
+	start := time.Now()
+	defer c.Logger.Debugf("safezadd finished in %s", time.Since(start))
+
+	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
 
-	opts := &schema.SafeZAddOptions{
-		Zopts: &schema.ZAddOptions{
+	req := &schema.VerifiableZAddRequest{
+		ZAddRequest: &schema.ZAddRequest{
 			Set:   set,
 			Score: &schema.Score{Score: score},
 			Key:   key,
-			Index: index,
+			AtTx:  int64(txID),
 		},
-		RootIndex: &schema.Index{
-			Index: root.GetIndex(),
-		},
+		ProveFromTx: int64(state.TxId),
 	}
 
 	var metadata runtime.ServerMetadata
 
-	result, err := c.ServiceClient.SafeZAdd(
+	result, err := c.ServiceClient.VerifiableZAdd(
 		ctx,
-		opts,
+		req,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	keySet := store.BuildSetKey(key, set, score, nil)
+	/*
+		verified, err := c.verifyAndSetRoot(result, root, ctx)
+		if err != nil {
+			return nil, err
+		}
+	*/
 
-	// This guard ensures that result.Leaf is equal to the item's hash computed
-	// from request values. From now on, result.Leaf can be trusted.
-	item := schema.Item{
-		Key: keySet,
-		// to pass the  following guard we need to add the index reference to the value that is added also by the server
-		Value: store.WrapZIndexReference(key, nil),
-		Index: result.Index,
-	}
-
-	if !bytes.Equal(item.Hash(), result.Leaf) {
-		return nil, errors.New("proof does not match the given item")
-	}
-
-	verified, err := c.verifyAndSetRoot(result, root, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Logger.Debugf("safezadd finished in %s", time.Since(start))
-
-	return &VerifiedIndex{
-			Index:    result.Index,
-			Verified: verified,
-		},
-		nil
+	return result.Tx.Metadata, nil
 }
 
 // Dump to be used from Immu CLI
@@ -1344,6 +995,7 @@ func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, er
 //
 //	return counter, errorsMerged
 //}
+
 func (c *immuClient) HealthCheck(ctx context.Context) error {
 	start := time.Now()
 
@@ -1428,7 +1080,8 @@ func writeSeek(w io.WriteSeeker, msg []byte, offset int64) (int64, error) {
 	return msg, o2, nil
 }*/
 
-func (c *immuClient) verifyAndSetRoot(result *schema.Proof, root *schema.Root, ctx context.Context) (bool, error) {
+/*
+func (c *immuClient) VerifyAndSetRoot(result *schema.DualProof, txMetadata *schema.TxMetadata, ctx context.Context) (bool, error)
 	verified := result.Verify(result.Leaf, *root)
 	var err error
 
@@ -1442,6 +1095,7 @@ func (c *immuClient) verifyAndSetRoot(result *schema.Proof, root *schema.Root, c
 
 	return verified, err
 }
+*/
 
 // CreateDatabase create a new database by making a grpc call
 func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) error {

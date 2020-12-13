@@ -27,8 +27,8 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-// ROOT_FN ...
-const ROOT_FN = ".root-"
+// STATE_FN ...
+const STATE_FN = ".state-"
 
 type fileCache struct {
 	Dir string
@@ -39,55 +39,55 @@ func NewFileCache(dir string) Cache {
 	return &fileCache{Dir: dir}
 }
 
-func (w *fileCache) Get(serverUUID string, databasename string) (*schema.Root, error) {
-	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(ROOT_FN), []byte(serverUUID))))
+func (w *fileCache) Get(serverUUID string, dbName string) (*schema.ImmutableState, error) {
+	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(STATE_FN), []byte(serverUUID))))
 
 	raw, err := ioutil.ReadFile(fn)
 	if err != nil {
 		return nil, err
 	}
-	root := schema.NewRoot()
+	state := &schema.ImmutableState{}
 	lines := strings.Split(string(raw), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, databasename+":") {
+		if strings.Contains(line, dbName+":") {
 			r := strings.Split(line, ":")
 			if len(r) != 2 {
-				return nil, fmt.Errorf("could not find previous root")
+				return nil, fmt.Errorf("could not find previous state")
 			}
-			oldRoot, err := base64.StdEncoding.DecodeString(r[1])
+			oldState, err := base64.StdEncoding.DecodeString(r[1])
 			if err != nil {
-				return nil, fmt.Errorf("could not find previous root")
+				return nil, fmt.Errorf("could not find previous state")
 			}
-			root := schema.NewRoot()
-			if err = proto.Unmarshal(oldRoot, root); err != nil {
+			state := &schema.ImmutableState{}
+			if err = proto.Unmarshal(oldState, state); err != nil {
 				return nil, err
 			}
-			return root, nil
+			return state, nil
 		}
 	}
-	return root, nil
+	return state, nil
 }
 
-func (w *fileCache) Set(root *schema.Root, serverUUID string, databasename string) error {
-	raw, err := proto.Marshal(root)
+func (w *fileCache) Set(state *schema.ImmutableState, serverUUID string, dbName string) error {
+	raw, err := proto.Marshal(state)
 	if err != nil {
 		return err
 	}
-	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(ROOT_FN), []byte(serverUUID))))
+	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(STATE_FN), []byte(serverUUID))))
 
 	input, _ := ioutil.ReadFile(fn)
 	lines := strings.Split(string(input), "\n")
 
-	newRoot := databasename + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
+	newState := dbName + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
 	var exists bool
 	for i, line := range lines {
-		if strings.Contains(line, databasename+":") {
+		if strings.Contains(line, dbName+":") {
 			exists = true
-			lines[i] = newRoot
+			lines[i] = newState
 		}
 	}
 	if !exists {
-		lines = append(lines, newRoot)
+		lines = append(lines, newState)
 	}
 	output := strings.Join(lines, "\n")
 
@@ -101,7 +101,7 @@ func getRootFileName(prefix []byte, serverUUID []byte) []byte {
 	l1 := len(prefix)
 	l2 := len(serverUUID)
 	var fn = make([]byte, l1+l2)
-	copy(fn[:], ROOT_FN)
+	copy(fn[:], STATE_FN)
 	copy(fn[l1:], serverUUID)
 	return fn
 }

@@ -32,11 +32,11 @@ func TestImmuClientMock(t *testing.T) {
 	errDisconnect := errors.New("DisconnectF got called")
 	errLogin := errors.New("LoginF got called")
 	errLogout := errors.New("LogoutF got called")
-	errSafeGet := errors.New("SafeGetF got called")
-	errSafeSet := errors.New("SafeSetF got called")
+	errVerifiedGet := errors.New("VerifiedGetF got called")
+	errVerifiedSet := errors.New("VerifiedSetF got called")
 	errSet := errors.New("SetF got called")
-	errSafeReference := errors.New("SafeReferenceF got called")
-	errSafeZAdd := errors.New("SafeZAddF got called")
+	errVerifiedReference := errors.New("VerifiedReferenceF got called")
+	errVerifiedZAdd := errors.New("VerifiedZAddF got called")
 	errHistory := errors.New("HistoryF got called")
 	icm := &ImmuClientMock{
 		ImmuClient: client.DefaultClient(),
@@ -58,22 +58,22 @@ func TestImmuClientMock(t *testing.T) {
 		LogoutF: func(context.Context) error {
 			return errLogout
 		},
-		SafeGetF: func(context.Context, []byte, ...grpc.CallOption) (*client.VerifiedItem, error) {
-			return nil, errSafeGet
+		VerifiedGetF: func(context.Context, []byte, ...grpc.CallOption) (*schema.Item, error) {
+			return nil, errVerifiedGet
 		},
-		SafeSetF: func(context.Context, []byte, []byte) (*client.VerifiedIndex, error) {
-			return nil, errSafeSet
+		VerifiedSetF: func(context.Context, []byte, []byte) (*schema.TxMetadata, error) {
+			return nil, errVerifiedSet
 		},
-		SetF: func(context.Context, []byte, []byte) (*schema.Index, error) {
+		SetF: func(context.Context, []byte, []byte) (*schema.TxMetadata, error) {
 			return nil, errSet
 		},
-		SafeReferenceF: func(context.Context, []byte, []byte, *schema.Index) (*client.VerifiedIndex, error) {
-			return nil, errSafeReference
+		VerifiedSetReferenceF: func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error) {
+			return nil, errVerifiedReference
 		},
-		SafeZAddF: func(context.Context, []byte, float64, []byte, *schema.Index) (*client.VerifiedIndex, error) {
-			return nil, errSafeZAdd
+		VerifiedZAddF: func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error) {
+			return nil, errVerifiedZAdd
 		},
-		HistoryF: func(context.Context, *schema.HistoryOptions) (*schema.StructuredItemList, error) {
+		HistoryF: func(context.Context, *schema.HistoryRequest) (*schema.ItemList, error) {
 			return nil, errHistory
 		},
 	}
@@ -91,21 +91,21 @@ func TestImmuClientMock(t *testing.T) {
 	require.Equal(t, errLogin, err)
 
 	require.Equal(t, errLogout, icm.Logout(nil))
-	_, err = icm.SafeGet(nil, nil)
+	_, err = icm.VerifiedGet(nil, nil)
 
-	require.Equal(t, errSafeGet, err)
-	_, err = icm.SafeSet(nil, nil, nil)
+	require.Equal(t, errVerifiedGet, err)
+	_, err = icm.VerifiedSet(nil, nil, nil)
 
-	require.Equal(t, errSafeSet, err)
+	require.Equal(t, errVerifiedSet, err)
 	_, err = icm.Set(nil, nil, nil)
 
 	require.Equal(t, errSet, err)
-	_, err = icm.SafeReference(nil, nil, nil, nil)
+	_, err = icm.VerifiedSetReference(nil, nil, nil, 0)
 
-	require.Equal(t, errSafeReference, err)
-	_, err = icm.SafeZAdd(nil, nil, 0., nil, nil)
+	require.Equal(t, errVerifiedReference, err)
+	_, err = icm.VerifiedZAdd(nil, nil, 0., nil, 0)
 
-	require.Equal(t, errSafeZAdd, err)
+	require.Equal(t, errVerifiedZAdd, err)
 	_, err = icm.History(nil, nil)
 
 	require.Equal(t, errHistory, err)

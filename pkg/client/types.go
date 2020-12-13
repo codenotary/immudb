@@ -17,11 +17,9 @@ limitations under the License.
 package client
 
 import (
-	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/client/rootservice"
+	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 )
 
@@ -30,8 +28,8 @@ func (c *immuClient) WithLogger(logger logger.Logger) *immuClient {
 	return c
 }
 
-func (c *immuClient) WithRootService(rs rootservice.RootService) *immuClient {
-	c.Rootservice = rs
+func (c *immuClient) WithStateService(rs state.StateService) *immuClient {
+	c.StateService = rs
 	return c
 }
 
@@ -59,79 +57,3 @@ func (c *immuClient) WithOptions(options *Options) *immuClient {
 	c.Options = options
 	return c
 }
-
-func (c *immuClient) NewSKV(key []byte, value []byte) *schema.StructuredKeyValue {
-	return &schema.StructuredKeyValue{
-		Key: key,
-		Value: &schema.Content{
-			Timestamp: uint64(c.ts.GetTime().Unix()),
-			Payload:   value,
-		},
-	}
-}
-
-func (c *immuClient) NewSKVList(list *schema.KVList) *schema.SKVList {
-	slist := &schema.SKVList{}
-	for _, kv := range list.KVs {
-		slist.SKVs = append(slist.SKVs, &schema.StructuredKeyValue{
-			Key: kv.Key,
-			Value: &schema.Content{
-				Timestamp: uint64(c.ts.GetTime().Unix()),
-				Payload:   kv.Value,
-			},
-		})
-	}
-	return slist
-}
-
-func (c *immuClient) NewSOps(ops *schema.Ops) (*schema.Ops, error) {
-	for _, op := range ops.Operations {
-		switch x := op.Operation.(type) {
-		case *schema.Op_KVs:
-			skv := c.NewSKV(x.KVs.GetKey(), x.KVs.GetValue())
-			kv, err := skv.ToKV()
-			if err != nil {
-				return nil, err
-			}
-			x.KVs = kv
-		case *schema.Op_ZOpts:
-			continue
-		case nil:
-			continue
-		default:
-			return nil, fmt.Errorf("operation has unexpected type %T", x)
-		}
-	}
-	return ops, nil
-}
-
-// VerifiedItem ...
-type VerifiedItem struct {
-	Key      []byte `json:"key"`
-	Value    []byte `json:"value"`
-	Index    uint64 `json:"index"`
-	Time     uint64 `json:"time"`
-	Verified bool   `json:"verified"`
-}
-
-// VerifiedIndex ...
-type VerifiedIndex struct {
-	Index    uint64 `json:"index"`
-	Verified bool   `json:"verified"`
-}
-
-// Reset ...
-func (vi *VerifiedIndex) Reset() { *vi = VerifiedIndex{} }
-
-func (vi *VerifiedIndex) String() string { return proto.CompactTextString(vi) }
-
-// ProtoMessage ...
-func (*VerifiedIndex) ProtoMessage() {}
-
-// Reset ...
-func (vi *VerifiedItem) Reset() { *vi = VerifiedItem{} }
-
-func (vi *VerifiedItem) String() string { return proto.CompactTextString(vi) }
-
-// ProtoMessage ...
-func (*VerifiedItem) ProtoMessage() {}

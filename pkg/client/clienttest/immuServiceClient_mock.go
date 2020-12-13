@@ -17,6 +17,7 @@ limitations under the License.
 // Package clienttest ...
 package clienttest
 
+/*
 import (
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -240,3 +241,4 @@ func NewImmuServiceClientMock() *ImmuServiceClientMock {
 	}
 	return bs
 }
+*/

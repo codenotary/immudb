@@ -19,7 +19,6 @@ package auditor
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,17 +28,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/rootservice"
-	"google.golang.org/grpc/metadata"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -74,10 +72,10 @@ type defaultAuditor struct {
 	auditSignature     string
 	notificationConfig AuditNotificationConfig
 	serviceClient      schema.ImmuServiceClient
-	uuidProvider       rootservice.UUIDProvider
+	uuidProvider       state.UUIDProvider
 
 	slugifyRegExp *regexp.Regexp
-	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root)
+	updateMetrics func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState)
 }
 
 // DefaultAuditor creates initializes a default auditor implementation
@@ -91,9 +89,9 @@ func DefaultAuditor(
 	auditSignature string,
 	notificationConfig AuditNotificationConfig,
 	serviceClient schema.ImmuServiceClient,
-	uuidProvider rootservice.UUIDProvider,
+	uuidProvider state.UUIDProvider,
 	history cache.HistoryCache,
-	updateMetrics func(string, string, bool, bool, bool, *schema.Root, *schema.Root),
+	updateMetrics func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState),
 	log logger.Logger) (Auditor, error) {
 
 	switch auditSignature {
@@ -167,11 +165,11 @@ func (a *defaultAuditor) audit() error {
 	checked := false
 	withError := false
 	serverID := "unknown"
-	var prevRoot *schema.Root
-	var root *schema.Root
+	var prevState *schema.ImmutableState
+	var state *schema.ImmutableState
 	defer func() {
 		a.updateMetrics(
-			serverID, a.serverAddress, checked, withError, verified, prevRoot, root)
+			serverID, a.serverAddress, checked, withError, verified, prevState, state)
 	}()
 
 	// returning an error would completely stop the auditor process
@@ -242,15 +240,15 @@ func (a *defaultAuditor) audit() error {
 	a.logger.Infof("audit #%d - auditing database %s\n", a.index, dbName)
 	a.databaseIndex++
 
-	root, err = a.serviceClient.CurrentRoot(ctx, &empty.Empty{})
+	state, err = a.serviceClient.CurrentImmutableState(ctx, &empty.Empty{})
 	if err != nil {
-		a.logger.Errorf("error getting current root: %v", err)
+		a.logger.Errorf("error getting current state: %v", err)
 		withError = true
 		return noErr
 	}
 
 	if a.auditSignature == "validate" {
-		if okSig, err := root.CheckSignature(); err != nil || !okSig {
+		if okSig, err := state.CheckSignature(); err != nil || !okSig {
 			a.logger.Errorf(
 				"audit #%d aborted: could not verify signature on server root at %s @ %s",
 				a.index, serverID, a.serverAddress)
@@ -259,87 +257,89 @@ func (a *defaultAuditor) audit() error {
 		}
 	}
 
-	isEmptyDB := len(root.GetRoot()) == 0 && root.GetIndex() == 0
+	isEmptyDB := len(state.TxHash) == 0 && state.TxId == 0
 
 	serverID = a.getServerID(ctx)
-	prevRoot, err = a.history.Get(serverID, dbName)
+	prevState, err = a.history.Get(serverID, dbName)
 	if err != nil {
 		a.logger.Errorf(err.Error())
 		withError = true
 		return noErr
 	}
-	if prevRoot != nil {
-		if isEmptyDB {
-			a.logger.Errorf(
-				"audit #%d aborted: database is empty on server %s @ %s, "+
-					"but locally a previous root exists with hash %x at index %d",
-				a.index, serverID, a.serverAddress, prevRoot.GetRoot(), prevRoot.GetIndex())
-			withError = true
-			return noErr
-		}
-		proof, err := a.serviceClient.Consistency(ctx, &schema.Index{
-			Index: prevRoot.GetIndex(),
-		})
-		if err != nil {
-			a.logger.Errorf(
-				"error fetching consistency proof for previous root %d: %v",
-				prevRoot.GetIndex(), err)
-			withError = true
-			return noErr
-		}
-		verified =
-			proof.Verify(schema.Root{Payload: &schema.RootIndex{Index: prevRoot.GetIndex(), Root: prevRoot.GetRoot()}})
-		firstRoot := proof.FirstRoot
-		// proof.FirstRoot is empty if check fails
-		if !verified && len(firstRoot) == 0 {
-			firstRoot = prevRoot.GetRoot()
-		}
-		a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t\n"+
-			"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
-			a.index, dbName, verified,
-			firstRoot, proof.First, proof.SecondRoot, proof.Second)
-		root = &schema.Root{
-			Payload: &schema.RootIndex{Index: proof.Second, Root: proof.SecondRoot},
-			// TODO OGG: here the signature from proof should be set, but proof
-			// does not have roots Signatures yet.
-			// NOTE: the signature from the root obtained with CurrentRoot call above
-			// might belong to an older root if the server root changed between the
-			// CurrentRoot and Consistency calls above, that's why we don't set that.
-			Signature: nil,
-		}
-		checked = true
-		// publish audit notification
-		if len(a.notificationConfig.URL) > 0 {
-			err := a.publishAuditNotification(
-				dbName,
-				time.Now(),
-				!verified,
-				&Root{
-					Index: proof.First,
-					Hash:  fmt.Sprintf("%x", firstRoot),
-					Signature: Signature{
-						Signature: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetSignature()),
-						PublicKey: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetPublicKey()),
-					},
-				},
-				&Root{
-					Index: proof.Second,
-					Hash:  fmt.Sprintf("%x", proof.SecondRoot),
-					Signature: Signature{
-						Signature: base64.StdEncoding.EncodeToString(root.GetSignature().GetSignature()),
-						PublicKey: base64.StdEncoding.EncodeToString(root.GetSignature().GetPublicKey()),
-					},
-				},
-			)
+
+	if prevState != nil {
+		/*
+			if isEmptyDB {
+				a.logger.Errorf(
+					"audit #%d aborted: database is empty on server %s @ %s, "+
+						"but locally a previous state exists with hash %x at id %d",
+					a.index, serverID, a.serverAddress, prevState.TxHash, prevState.TxId)
+				withError = true
+				return noErr
+			}
+			proof, err := a.serviceClient.Consistency(ctx, &schema.Index{
+				Index: prevRoot.GetIndex(),
+			})
 			if err != nil {
 				a.logger.Errorf(
-					"error publishing audit notification for db %s: %v", dbName, err)
-			} else {
-				a.logger.Infof(
-					"audit notification for db %s has been published at %s",
-					dbName, a.notificationConfig.URL)
+					"error fetching consistency proof for previous root %d: %v",
+					prevRoot.GetIndex(), err)
+				withError = true
+				return noErr
 			}
-		}
+			verified =
+				proof.Verify(schema.Root{Payload: &schema.RootIndex{Index: prevRoot.GetIndex(), Root: prevRoot.GetRoot()}})
+			firstRoot := proof.FirstRoot
+			// proof.FirstRoot is empty if check fails
+			if !verified && len(firstRoot) == 0 {
+				firstRoot = prevRoot.GetRoot()
+			}
+			a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t\n"+
+				"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
+				a.index, dbName, verified,
+				firstRoot, proof.First, proof.SecondRoot, proof.Second)
+			root = &schema.Root{
+				Payload: &schema.RootIndex{Index: proof.Second, Root: proof.SecondRoot},
+				// TODO OGG: here the signature from proof should be set, but proof
+				// does not have roots Signatures yet.
+				// NOTE: the signature from the root obtained with CurrentRoot call above
+				// might belong to an older root if the server root changed between the
+				// CurrentRoot and Consistency calls above, that's why we don't set that.
+				Signature: nil,
+			}
+			checked = true
+			// publish audit notification
+			if len(a.notificationConfig.URL) > 0 {
+				err := a.publishAuditNotification(
+					dbName,
+					time.Now(),
+					!verified,
+					&Root{
+						Index: proof.First,
+						Hash:  fmt.Sprintf("%x", firstRoot),
+						Signature: Signature{
+							Signature: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetSignature()),
+							PublicKey: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetPublicKey()),
+						},
+					},
+					&Root{
+						Index: proof.Second,
+						Hash:  fmt.Sprintf("%x", proof.SecondRoot),
+						Signature: Signature{
+							Signature: base64.StdEncoding.EncodeToString(root.GetSignature().GetSignature()),
+							PublicKey: base64.StdEncoding.EncodeToString(root.GetSignature().GetPublicKey()),
+						},
+					},
+				)
+				if err != nil {
+					a.logger.Errorf(
+						"error publishing audit notification for db %s: %v", dbName, err)
+				} else {
+					a.logger.Infof(
+						"audit notification for db %s has been published at %s",
+						dbName, a.notificationConfig.URL)
+				}
+			}*/
 	} else if isEmptyDB {
 		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",
 			a.index, serverID, a.serverAddress)
@@ -348,11 +348,11 @@ func (a *defaultAuditor) audit() error {
 
 	if !verified {
 		a.logger.Warningf(
-			"audit #%d detected possible tampering of db %s remote root (at index %d) "+
-				"so it will not overwrite the previous local root (at index %d)",
-			a.index, dbName, root.GetIndex(), prevRoot.GetIndex())
-	} else if prevRoot == nil || root.GetIndex() != prevRoot.GetIndex() {
-		if err := a.history.Set(root, serverID, dbName); err != nil {
+			"audit #%d detected possible tampering of db %s remote state (at id %d) "+
+				"so it will not overwrite the previous local state (at id %d)",
+			a.index, dbName, state.TxId, prevState.TxId)
+	} else if prevState == nil || state.TxId != prevState.TxId {
+		if err := a.history.Set(state, serverID, dbName); err != nil {
 			a.logger.Errorf(err.Error())
 			return noErr
 		}
@@ -441,7 +441,7 @@ func (a *defaultAuditor) getServerID(
 ) string {
 	serverID, err := a.uuidProvider.CurrentUUID(ctx)
 	if err != nil {
-		if err != rootservice.ErrNoServerUuid {
+		if err != state.ErrNoServerUuid {
 			a.logger.Errorf("error getting server UUID: %v", err)
 		} else {
 			a.logger.Warningf(err.Error())

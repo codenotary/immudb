@@ -37,127 +37,127 @@ func NewHistoryFileCache(dir string) HistoryCache {
 	return &historyFileCache{dir: dir}
 }
 
-func (history *historyFileCache) Get(serverID string, databasename string) (*schema.Root, error) {
-	rootsDir := filepath.Join(history.dir, serverID)
-	rootsFileInfos, err := history.getRootsFileInfos(rootsDir)
+func (history *historyFileCache) Get(serverID string, dbName string) (*schema.ImmutableState, error) {
+	statesDir := filepath.Join(history.dir, serverID)
+	statesFileInfos, err := history.getStatesFileInfos(statesDir)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(rootsFileInfos) == 0 {
+	if len(statesFileInfos) == 0 {
 		return nil, nil
 	}
 
-	prevRootFileName := rootsFileInfos[len(rootsFileInfos)-1].Name()
-	prevRootFilePath := filepath.Join(rootsDir, prevRootFileName)
-	return history.unmarshalRoot(prevRootFilePath, databasename)
+	prevStateFileName := statesFileInfos[len(statesFileInfos)-1].Name()
+	prevStateFilePath := filepath.Join(statesDir, prevStateFileName)
+	return history.unmarshalRoot(prevStateFilePath, dbName)
 }
 
 func (history *historyFileCache) Walk(
 	serverID string, databasename string,
-	f func(*schema.Root) interface{},
+	f func(*schema.ImmutableState) interface{},
 ) ([]interface{}, error) {
-	rootsDir := filepath.Join(history.dir, serverID)
-	rootsFileInfos, err := history.getRootsFileInfos(rootsDir)
+	statesDir := filepath.Join(history.dir, serverID)
+	statesFileInfos, err := history.getStatesFileInfos(statesDir)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(rootsFileInfos) == 0 {
+	if len(statesFileInfos) == 0 {
 		return nil, nil
 	}
 
-	results := make([]interface{}, 0, len(rootsFileInfos))
+	results := make([]interface{}, 0, len(statesFileInfos))
 
-	for _, rootFileInfo := range rootsFileInfos {
-		rootFilePath := filepath.Join(rootsDir, rootFileInfo.Name())
-		root, err := history.unmarshalRoot(rootFilePath, databasename)
+	for _, stateFileInfo := range statesFileInfos {
+		stateFilePath := filepath.Join(statesDir, stateFileInfo.Name())
+		state, err := history.unmarshalRoot(stateFilePath, databasename)
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, f(root))
+		results = append(results, f(state))
 	}
 
 	return results, nil
 }
 
-func (history *historyFileCache) Set(root *schema.Root, serverID string, databasename string) error {
-	rootsDir := filepath.Join(history.dir, serverID)
-	if err := os.MkdirAll(rootsDir, os.ModePerm); err != nil {
-		return fmt.Errorf("error ensuring roots dir %s exists: %v", rootsDir, err)
+func (history *historyFileCache) Set(state *schema.ImmutableState, serverID string, dbName string) error {
+	statesDir := filepath.Join(history.dir, serverID)
+	if err := os.MkdirAll(statesDir, os.ModePerm); err != nil {
+		return fmt.Errorf("error ensuring states dir %s exists: %v", statesDir, err)
 	}
-	rootFilePath := filepath.Join(rootsDir, ".root")
+	stateFilePath := filepath.Join(statesDir, ".state")
 
 	//at run first the file does not exist
-	input, _ := ioutil.ReadFile(rootFilePath)
+	input, _ := ioutil.ReadFile(stateFilePath)
 
 	lines := strings.Split(string(input), "\n")
-	raw, err := proto.Marshal(root)
+	raw, err := proto.Marshal(state)
 	if err != nil {
 		return err
 	}
 
-	newRoot := databasename + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
+	newState := dbName + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
 	var exists bool
 	for i, line := range lines {
-		if strings.Contains(line, databasename+":") {
+		if strings.Contains(line, dbName+":") {
 			exists = true
-			lines[i] = newRoot
+			lines[i] = newState
 		}
 	}
 	if !exists {
-		lines = append(lines, newRoot)
+		lines = append(lines, newState)
 	}
 
 	output := strings.Join(lines, "\n")
 
-	if err = ioutil.WriteFile(rootFilePath, []byte(output), 0644); err != nil {
+	if err = ioutil.WriteFile(stateFilePath, []byte(output), 0644); err != nil {
 		return fmt.Errorf(
-			"error writing root %d to file %s: %v",
-			root.GetIndex(), rootFilePath, err)
+			"error writing state %d to file %s: %v",
+			state.TxId, stateFilePath, err)
 	}
 
 	return nil
 }
 
-func (history *historyFileCache) getRootsFileInfos(dir string) ([]os.FileInfo, error) {
+func (history *historyFileCache) getStatesFileInfos(dir string) ([]os.FileInfo, error) {
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return nil, fmt.Errorf("error ensuring roots dir %s exists: %v", dir, err)
+		return nil, fmt.Errorf("error ensuring states dir %s exists: %v", dir, err)
 	}
 
-	rootsFileInfos, err := ioutil.ReadDir(dir)
+	statesFileInfos, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("error reading roots dir %s: %v", dir, err)
+		return nil, fmt.Errorf("error reading states dir %s: %v", dir, err)
 	}
 
-	return rootsFileInfos, nil
+	return statesFileInfos, nil
 }
 
-func (history *historyFileCache) unmarshalRoot(fpath string, databasename string) (*schema.Root, error) {
-	root := schema.NewRoot()
+func (history *historyFileCache) unmarshalRoot(fpath string, dbName string) (*schema.ImmutableState, error) {
+	state := &schema.ImmutableState{}
 	raw, err := ioutil.ReadFile(fpath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading root from %s: %v", fpath, err)
+		return nil, fmt.Errorf("error reading state from %s: %v", fpath, err)
 	}
 
 	lines := strings.Split(string(raw), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, databasename+":") {
+		if strings.Contains(line, dbName+":") {
 			r := strings.Split(line, ":")
 
 			if len(r) != 2 {
-				return nil, fmt.Errorf("could not find previous root")
+				return nil, fmt.Errorf("could not find previous state")
 			}
 
 			oldRoot, err := base64.StdEncoding.DecodeString(r[1])
 			if err != nil {
-				return nil, fmt.Errorf("could not find previous root")
+				return nil, fmt.Errorf("could not find previous state")
 			}
 
-			if err = proto.Unmarshal(oldRoot, root); err != nil {
-				return nil, fmt.Errorf("error unmarshaling root from %s: %v", fpath, err)
+			if err = proto.Unmarshal(oldRoot, state); err != nil {
+				return nil, fmt.Errorf("error unmarshaling state from %s: %v", fpath, err)
 			}
-			return root, nil
+			return state, nil
 		}
 	}
 

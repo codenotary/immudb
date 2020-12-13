@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -15,9 +16,14 @@ import (
 )
 
 func TestDatabasesSwitching(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() {
+		bs.Start()
+	}()
+
+	defer os.RemoveAll(options.Dir)
 
 	ctx := context.Background()
 
@@ -33,7 +39,7 @@ func TestDatabasesSwitching(t *testing.T) {
 	cliopt.PasswordReader = pr
 	cliopt.DialOptions = &dialOptions
 
-	client, _ = NewImmuClient(cliopt)
+	client, _ := NewImmuClient(cliopt)
 	lresp, err := client.Login(ctx, []byte("immudb"), []byte("immudb"))
 	if err != nil {
 		t.Fatal(err)
@@ -55,9 +61,8 @@ func TestDatabasesSwitching(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotEmpty(t, resp.Token)
-	i, err := client.SafeSet(ctx, []byte(`db1-my`), []byte(`item`))
+	_, err = client.VerifiedSet(ctx, []byte(`db1-my`), []byte(`item`))
 	assert.Nil(t, err)
-	assert.True(t, i.Verified)
 
 	err = client.CreateDatabase(ctx, &schema.Database{
 		Databasename: "db2",
@@ -72,10 +77,10 @@ func TestDatabasesSwitching(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotEmpty(t, resp.Token)
-	i, err = client.SafeSet(ctx, []byte(`db2-my`), []byte(`item`))
+	_, err = client.VerifiedSet(ctx, []byte(`db2-my`), []byte(`item`))
 	assert.Nil(t, err)
-	assert.True(t, i.Verified)
-	vi, err := client.SafeGet(ctx, []byte(`db1-my`))
+
+	vi, err := client.VerifiedGet(ctx, []byte(`db1-my`))
 	assert.Error(t, err)
 	assert.Nil(t, vi)
 }

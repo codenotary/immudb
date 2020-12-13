@@ -20,12 +20,12 @@ import "github.com/codenotary/immudb/pkg/api/schema"
 
 // Cache the cache interface
 type Cache interface {
-	Get(serverUuid string, databasename string) (*schema.Root, error)
-	Set(root *schema.Root, serverUuid string, databasename string) error
+	Get(serverUuid string, dbName string) (*schema.ImmutableState, error)
+	Set(root *schema.ImmutableState, serverUuid string, dbName string) error
 }
 
 // HistoryCache the history cache interface
 type HistoryCache interface {
 	Cache
-	Walk(serverID string, databasename string, f func(*schema.Root) interface{}) ([]interface{}, error)
+	Walk(serverID string, dbName string, f func(*schema.ImmutableState) interface{}) ([]interface{}, error)
 }
