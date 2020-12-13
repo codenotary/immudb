@@ -287,9 +287,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| tx | [uint64](#uint64) |  |  |
 | key | [bytes](#bytes) |  |  |
 | value | [bytes](#bytes) |  |  |
-| tx | [uint64](#uint64) |  |  |
 
 
 

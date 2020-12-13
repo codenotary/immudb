@@ -106,9 +106,9 @@ message KeyValue {
 }
 
 message Item {
-	bytes key = 1;
-	bytes value = 2;
-	uint64 tx = 3;
+	uint64 tx = 1;
+	bytes key = 4;
+	bytes value = 5;
 }
 
 message Op {

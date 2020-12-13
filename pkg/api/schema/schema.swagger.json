@@ -1307,6 +1307,10 @@
     "schemaItem": {
       "type": "object",
       "properties": {
+        "tx": {
+          "type": "string",
+          "format": "uint64"
+        },
         "key": {
           "type": "string",
           "format": "byte"
@@ -1314,10 +1318,6 @@
         "value": {
           "type": "string",
           "format": "byte"
-        },
-        "tx": {
-          "type": "string",
-          "format": "uint64"
         }
       }
     },
