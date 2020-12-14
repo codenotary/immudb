@@ -17,9 +17,11 @@ limitations under the License.
 package database
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/common"
 	"math"
 	"os"
 	"path/filepath"
@@ -60,6 +62,7 @@ type DB interface {
 	PrintTree() (*schema.Tree, error)
 	Close() error
 	GetOptions() *DbOptions
+	waitForIndexing(ts uint64) error
 }
 
 //IDB database instance
@@ -203,7 +206,12 @@ func (d *db) getSince(key []byte, txID uint64) (*schema.Item, error) {
 
 	val := make([]byte, valLen)
 	_, err = d.st.ReadValueAt(val, int64(vOff), hVal)
-
+	//Reference lookup
+	if bytes.HasPrefix(val, common.ReferencePrefix) {
+		ref := bytes.TrimPrefix(val, common.ReferencePrefix)
+		key, _, _ = common.UnwrapIndexReference(ref)
+		return d.getSince(key, txID)
+	}
 	return &schema.Item{Key: key, Value: val, Tx: ts}, err
 }
 
@@ -488,30 +496,6 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 	}
 
 	return list, nil
-}
-
-//ZAdd ...
-func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
-	//return d.st.ZAdd(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZAdd")
-}
-
-// ZScan ...
-func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
-	//return d.st.ZScan(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "ZScan")
-}
-
-//VerifiableZAdd ...
-func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
-	//return d.st.VerifiableZAdd(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableZAdd")
-}
-
-//Scan ...
-func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
-	//return d.st.Scan(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "Scan")
 }
 
 //IScan ...
