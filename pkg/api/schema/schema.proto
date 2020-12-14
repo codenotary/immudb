@@ -19,7 +19,6 @@ syntax = "proto3";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "protoc-gen-swagger/options/annotations.proto";
-import "pb/pb.proto";
 
 package immudb.schema;
 
@@ -121,10 +120,6 @@ message Op {
 
 message Ops {
 	repeated Op Operations = 1;
-}
-
-message KeyList {
-	repeated bytes keys = 1;
 }
 
 message ItemList {
@@ -235,6 +230,11 @@ message KeyRequest {
 	int64 fromTx = 2;
 }
 
+message KeyListRequest {
+	repeated bytes keys = 1;
+	int64 fromTx = 2;
+}
+
 message VerifiableSetRequest {
 	SetRequest setRequest = 1;
 	int64 proveFromTx = 2;
@@ -303,6 +303,7 @@ message HistoryRequest {
 	uint64 offset = 2;
 	uint64 limit = 3;
 	bool reverse = 4;
+	uint64 FromTx = 5;
 }
 
 message VerifiableZAddRequest {
@@ -443,7 +444,7 @@ service ImmuService {
 		};
 	};
 
-	rpc GetAll (KeyList) returns (ItemList){
+	rpc GetAll (KeyListRequest) returns (ItemList){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/get"
 			body: "*"
@@ -561,12 +562,13 @@ service ImmuService {
 		};
 	};
 
-	rpc Dump(google.protobuf.Empty) returns (stream pb.KVList) {
+	/*rpc Dump(google.protobuf.Empty) returns (stream KVList) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/dump"
 			body: "*"
 		};
 	}
+	*/
 
 	// todo(joe-dz): Enable restore when the feature is required again
 	//	rpc Restore(stream pb.KVList) returns (ItemsCount) {

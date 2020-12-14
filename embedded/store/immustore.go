@@ -411,6 +411,10 @@ func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
 	return s.index.Snapshot()
 }
 
+func (s *ImmuStore) SnapshotAt(tx uint64) (*tbtree.Snapshot, error) {
+	return s.index.SnapshotAt(tx)
+}
+
 func (s *ImmuStore) binaryLinking() {
 	for {
 		// TODO (jeroiraz): blBuffer+blCond may be replaced by a buffered channel

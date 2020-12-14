@@ -20,7 +20,7 @@
     - [ItemList](#immudb.schema.ItemList)
     - [ItemsCount](#immudb.schema.ItemsCount)
     - [Key](#immudb.schema.Key)
-    - [KeyList](#immudb.schema.KeyList)
+    - [KeyListRequest](#immudb.schema.KeyListRequest)
     - [KeyPrefix](#immudb.schema.KeyPrefix)
     - [KeyRequest](#immudb.schema.KeyRequest)
     - [KeyValue](#immudb.schema.KeyValue)
@@ -223,6 +223,7 @@
 | offset | [uint64](#uint64) |  |  |
 | limit | [uint64](#uint64) |  |  |
 | reverse | [bool](#bool) |  |  |
+| FromTx | [uint64](#uint64) |  |  |
 
 
 
@@ -341,15 +342,16 @@
 
 
 
-<a name="immudb.schema.KeyList"></a>
+<a name="immudb.schema.KeyListRequest"></a>
 
-### KeyList
+### KeyListRequest
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | keys | [bytes](#bytes) | repeated |  |
+| fromTx | [int64](#int64) |  |  |
 
 
 
@@ -1037,7 +1039,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | VerifiableSet | [VerifiableSetRequest](#immudb.schema.VerifiableSetRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | Get | [KeyRequest](#immudb.schema.KeyRequest) | [Item](#immudb.schema.Item) |  |
 | VerifiableGet | [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest) | [VerifiableItem](#immudb.schema.VerifiableItem) |  |
-| GetAll | [KeyList](#immudb.schema.KeyList) | [ItemList](#immudb.schema.ItemList) |  |
+| GetAll | [KeyListRequest](#immudb.schema.KeyListRequest) | [ItemList](#immudb.schema.ItemList) |  |
 | ExecAllOps | [Ops](#immudb.schema.Ops) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | Scan | [ScanRequest](#immudb.schema.ScanRequest) | [ItemList](#immudb.schema.ItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
@@ -1054,7 +1056,6 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZItemList](#immudb.schema.ZItemList) |  |
 | IScan | [IScanRequest](#immudb.schema.IScanRequest) | [Page](#immudb.schema.Page) |  |
-| Dump | [.google.protobuf.Empty](#google.protobuf.Empty) | [.pb.KVList](#pb.KVList) stream |  |
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

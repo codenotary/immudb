@@ -40,7 +40,7 @@ type DB interface {
 	CurrentImmutableState() (*schema.ImmutableState, error)
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
 	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error)
-	GetAll(kl *schema.KeyList) (*schema.ItemList, error)
+	GetAll(req *schema.KeyListRequest) (*schema.ItemList, error)
 	ExecAllOps(operations *schema.Ops) (*schema.TxMetadata, error)
 	Size() (uint64, error)
 	Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error)
@@ -56,7 +56,7 @@ type DB interface {
 	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
 	Scan(req *schema.ScanRequest) (*schema.ItemList, error)
 	IScan(req *schema.IScanRequest) (*schema.Page, error)
-	Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error
+	//Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error
 	PrintTree() (*schema.Tree, error)
 	Close() error
 	GetOptions() *DbOptions
@@ -184,7 +184,7 @@ func (d *db) getSince(key []byte, txID uint64) (*schema.Item, error) {
 		}
 	}
 
-	snapshot, err := d.st.Snapshot()
+	snapshot, err := d.st.SnapshotAt(txID)
 	if err != nil {
 		return nil, err
 	}
@@ -336,10 +336,10 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 }
 
 //GetAll ...
-func (d *db) GetAll(kl *schema.KeyList) (*schema.ItemList, error) {
+func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
-	for _, key := range kl.Keys {
-		item, err := d.getSince(key, 0)
+	for _, key := range req.Keys {
+		item, err := d.getSince(key, uint64(req.FromTx))
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)
@@ -447,7 +447,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	snapshot, err := d.st.Snapshot()
+	snapshot, err := d.st.SnapshotAt(req.FromTx)
 	if err != nil {
 		return nil, err
 	}
@@ -521,8 +521,8 @@ func (d *db) IScan(req *schema.IScanRequest) (*schema.Page, error) {
 }
 
 //Dump ...
+/*
 func (d *db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
-	/*
 		kvChan := make(chan *pb.KVList)
 		done := make(chan bool)
 
@@ -544,9 +544,9 @@ func (d *db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 
 		d.Logger.Debugf("Dump stream complete")
 		return err
-	*/
 	return fmt.Errorf("Functionality not yet supported: %s", "Dump")
 }
+*/
 
 //Close ...
 func (d *db) Close() error {

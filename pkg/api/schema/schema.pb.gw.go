@@ -363,7 +363,7 @@ func local_request_ImmuService_VerifiableGet_0(ctx context.Context, marshaler ru
 }
 
 func request_ImmuService_GetAll_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq KeyList
+	var protoReq KeyListRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -380,7 +380,7 @@ func request_ImmuService_GetAll_0(ctx context.Context, marshaler runtime.Marshal
 }
 
 func local_request_ImmuService_GetAll_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq KeyList
+	var protoReq KeyListRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -1005,31 +1005,6 @@ func local_request_ImmuService_IScan_0(ctx context.Context, marshaler runtime.Ma
 
 	msg, err := server.IScan(ctx, &protoReq)
 	return msg, metadata, err
-
-}
-
-func request_ImmuService_Dump_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (ImmuService_DumpClient, runtime.ServerMetadata, error) {
-	var protoReq empty.Empty
-	var metadata runtime.ServerMetadata
-
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
-	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	stream, err := client.Dump(ctx, &protoReq)
-	if err != nil {
-		return nil, metadata, err
-	}
-	header, err := stream.Header()
-	if err != nil {
-		return nil, metadata, err
-	}
-	metadata.HeaderMD = header
-	return stream, metadata, nil
 
 }
 
@@ -1827,13 +1802,6 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_Dump_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
-		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-		return
-	})
-
 	mux.Handle("POST", pattern_ImmuService_CreateDatabase_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -2510,26 +2478,6 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_Dump_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_ImmuService_Dump_0(rctx, inboundMarshaler, client, req, pathParams)
-		ctx = runtime.NewServerMetadataContext(ctx, md)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_ImmuService_Dump_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
-
-	})
-
 	mux.Handle("POST", pattern_ImmuService_CreateDatabase_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -2686,8 +2634,6 @@ var (
 
 	pattern_ImmuService_IScan_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "iscan"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_Dump_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "dump"}, "", runtime.AssumeColonVerbOpt(true)))
-
 	pattern_ImmuService_CreateDatabase_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "createdatabase"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_UseDatabase_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "immurestproxy", "usedatabase", "databasename"}, "", runtime.AssumeColonVerbOpt(true)))
@@ -2751,8 +2697,6 @@ var (
 	forward_ImmuService_ZScan_0 = runtime.ForwardResponseMessage
 
 	forward_ImmuService_IScan_0 = runtime.ForwardResponseMessage
-
-	forward_ImmuService_Dump_0 = runtime.ForwardResponseStream
 
 	forward_ImmuService_CreateDatabase_0 = runtime.ForwardResponseMessage
 

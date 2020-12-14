@@ -659,7 +659,7 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Nil index after Setbatch")
 	}
 
-	itList, err := s.GetAll(ctx, &schema.KeyList{
+	itList, err := s.GetAll(ctx, &schema.KeyListRequest{
 		Keys: [][]byte{
 			[]byte("Alberto"),
 			[]byte("Jean-Claude"),
@@ -688,7 +688,7 @@ func testServerSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T
 	if err == nil {
 		t.Fatalf("SetBatch expected Error")
 	}
-	_, err = s.GetAll(context.Background(), &schema.KeyList{
+	_, err = s.GetAll(context.Background(), &schema.KeyListRequest{
 		Keys: [][]byte{
 			[]byte("Alberto"),
 		},

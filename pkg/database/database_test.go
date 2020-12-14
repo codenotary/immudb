@@ -306,10 +306,11 @@ func TestSafeSetGet(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vtx)
 
-		time.Sleep(1 * time.Millisecond)
-
 		vit, err := db.VerifiableGet(&schema.VerifiableGetRequest{
-			KeyRequest: &schema.KeyRequest{Key: val.SetRequest.KVs[0].Key},
+			KeyRequest: &schema.KeyRequest{
+				Key:    val.SetRequest.KVs[0].Key,
+				FromTx: int64(vtx.Tx.Metadata.Id),
+			},
 		})
 		require.NoError(t, err)
 		require.Equal(t, uint64(ind+1), vit.Item.Tx)
@@ -339,14 +340,13 @@ func TestSetGetAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), txMetadata.Id)
 
-	time.Sleep(1 * time.Millisecond)
-
-	itList, err := db.GetAll(&schema.KeyList{
+	itList, err := db.GetAll(&schema.KeyListRequest{
 		Keys: [][]byte{
 			[]byte("Alberto"),
 			[]byte("Jean-Claude"),
 			[]byte("Franz"),
 		},
+		FromTx: int64(txMetadata.Id),
 	})
 	require.NoError(t, err)
 

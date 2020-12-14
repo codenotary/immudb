@@ -842,6 +842,7 @@ func (s *ImmuServer) IScan(ctx context.Context, req *schema.IScanRequest) (*sche
 }
 
 // Dump ...
+/*
 func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
 	ind, err := s.getDbIndexFromCtx(stream.Context(), "Dump")
 	if err != nil {
@@ -853,6 +854,7 @@ func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer)
 
 	return err
 }
+*/
 
 // todo(joe-dz): Enable restore when the feature is required again.
 // Also, make sure that the generated files are updated

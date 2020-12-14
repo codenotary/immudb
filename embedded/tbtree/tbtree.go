@@ -775,6 +775,10 @@ func (t *TBtree) Ts() uint64 {
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
+	return t.SnapshotAt(0)
+}
+
+func (t *TBtree) SnapshotAt(ts uint64) (*Snapshot, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -786,11 +790,18 @@ func (t *TBtree) Snapshot() (*Snapshot, error) {
 		return nil, ErrorToManyActiveSnapshots
 	}
 
-	if t.lastSnapRoot == nil || time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter {
+	if t.root.ts() < ts {
+		return nil, ErrIllegalState
+	}
+
+	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
+		(t.renewSnapRootAfter > 0 && time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter) {
+
 		_, err := t.flushTree()
 		if err != nil {
 			return nil, err
 		}
+
 	}
 
 	if !t.root.mutated() {

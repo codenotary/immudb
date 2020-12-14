@@ -22,7 +22,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -38,7 +38,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
@@ -758,7 +757,8 @@ func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.ItemLis
 	start := time.Now()
 	defer c.Logger.Debugf("get-batch finished in %s", time.Since(start))
 
-	keyList := &schema.KeyList{}
+	keyList := &schema.KeyListRequest{}
+
 	for _, key := range keys {
 		keyList.Keys = append(keyList.Keys, key)
 	}
@@ -1028,50 +1028,52 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 
 // Dump to be used from Immu CLI
 func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
-	start := time.Now()
+	return 0, errors.New("Functionality not yet supported")
+	/*	start := time.Now()
 
-	if !c.IsConnected() {
-		return 0, ErrNotConnected
-	}
-
-	bkpClient, err := c.ServiceClient.Dump(ctx, &empty.Empty{})
-	if err != nil {
-		return 0, err
-	}
-	defer bkpClient.CloseSend()
-
-	var offset int64
-	var counter int64
-
-	for {
-		kvList, err := bkpClient.Recv()
-		if err == io.EOF {
-			break
+		if !c.IsConnected() {
+			return 0, ErrNotConnected
 		}
 
+		bkpClient, err := c.ServiceClient.Dump(ctx, &empty.Empty{})
 		if err != nil {
-			return 0, fmt.Errorf("error receiving chunk: %v", err)
+			return 0, err
 		}
+		defer bkpClient.CloseSend()
 
-		for _, kv := range kvList.Kv {
-			kvBytes, err := proto.Marshal(kv)
-			if err != nil {
-				return 0, fmt.Errorf("error marshaling key-value %+v: %v", kv, err)
+		var offset int64
+		var counter int64
+
+		for {
+			kvList, err := bkpClient.Recv()
+			if err == io.EOF {
+				break
 			}
 
-			o, err := writeSeek(writer, kvBytes, offset)
 			if err != nil {
-				return 0, fmt.Errorf("error writing as bytes key-value %+v: %v", kv, err)
+				return 0, fmt.Errorf("error receiving chunk: %v", err)
 			}
 
-			offset = o
-			counter++
+			for _, kv := range kvList.Kv {
+				kvBytes, err := proto.Marshal(kv)
+				if err != nil {
+					return 0, fmt.Errorf("error marshaling key-value %+v: %v", kv, err)
+				}
+
+				o, err := writeSeek(writer, kvBytes, offset)
+				if err != nil {
+					return 0, fmt.Errorf("error writing as bytes key-value %+v: %v", kv, err)
+				}
+
+				offset = o
+				counter++
+			}
 		}
-	}
 
-	c.Logger.Debugf("dump finished in %s", time.Since(start))
+		c.Logger.Debugf("dump finished in %s", time.Since(start))
 
-	return counter, nil
+		return counter, nil
+	*/
 }
 
 // todo(joe-dz): Enable restore when the feature is required again.

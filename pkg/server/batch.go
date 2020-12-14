@@ -8,15 +8,20 @@ import (
 )
 
 // GetAll ...
-func (s *ImmuServer) GetAll(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
-	list := &schema.ItemList{}
+func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.ItemList, error) {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
 	ind, err := s.getDbIndexFromCtx(ctx, "GetAll")
 	if err != nil {
 		return nil, err
 	}
 
-	for _, key := range kl.Keys {
-		item, err := s.dbList.GetByIndex(ind).Get(&schema.KeyRequest{Key: key})
+	list := &schema.ItemList{}
+
+	for _, key := range req.Keys {
+		item, err := s.dbList.GetByIndex(ind).Get(&schema.KeyRequest{Key: key, FromTx: req.FromTx})
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)

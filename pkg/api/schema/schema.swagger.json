@@ -67,7 +67,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaKeyList"
+              "$ref": "#/definitions/schemaKeyListRequest"
             }
           }
         ],
@@ -132,47 +132,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaDatabase"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/dump": {
-      "post": {
-        "operationId": "ImmuService_Dump",
-        "responses": {
-          "200": {
-            "description": "A successful response.(streaming responses)",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "result": {
-                  "$ref": "#/definitions/pbKVList"
-                },
-                "error": {
-                  "$ref": "#/definitions/runtimeStreamError"
-                }
-              },
-              "title": "Stream result of pbKVList"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "properties": {}
             }
           }
         ],
@@ -1001,55 +960,6 @@
     }
   },
   "definitions": {
-    "pbKV": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "format": "byte"
-        },
-        "value": {
-          "type": "string",
-          "format": "byte"
-        },
-        "user_meta": {
-          "type": "string",
-          "format": "byte"
-        },
-        "version": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "expires_at": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "meta": {
-          "type": "string",
-          "format": "byte"
-        },
-        "stream_id": {
-          "type": "integer",
-          "format": "int64",
-          "description": "Stream id is used to identify which stream the KV came from."
-        },
-        "stream_done": {
-          "type": "boolean",
-          "description": "Stream done is used to indicate end of stream."
-        }
-      }
-    },
-    "pbKVList": {
-      "type": "object",
-      "properties": {
-        "kv": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/pbKV"
-          }
-        }
-      }
-    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -1076,31 +986,6 @@
           "format": "int32"
         },
         "message": {
-          "type": "string"
-        },
-        "details": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/protobufAny"
-          }
-        }
-      }
-    },
-    "runtimeStreamError": {
-      "type": "object",
-      "properties": {
-        "grpc_code": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "http_code": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "message": {
-          "type": "string"
-        },
-        "http_status": {
           "type": "string"
         },
         "details": {
@@ -1252,6 +1137,10 @@
         },
         "reverse": {
           "type": "boolean"
+        },
+        "FromTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -1341,7 +1230,7 @@
         }
       }
     },
-    "schemaKeyList": {
+    "schemaKeyListRequest": {
       "type": "object",
       "properties": {
         "keys": {
@@ -1350,6 +1239,10 @@
             "type": "string",
             "format": "byte"
           }
+        },
+        "fromTx": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
