@@ -302,9 +302,9 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	_, err = immuStore.DualProof(nil, nil)
 	require.Error(t, ErrIllegalArguments, err)
 
-	sourceTx := newTx(1, 1)
+	sourceTx := NewTx(1, 1)
 	sourceTx.ID = 2
-	targetTx := newTx(1, 1)
+	targetTx := NewTx(1, 1)
 	targetTx.ID = 1
 	_, err = immuStore.DualProof(sourceTx, targetTx)
 	require.Error(t, ErrIllegalArguments, err)

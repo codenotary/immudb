@@ -284,12 +284,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	txs := list.New()
 
 	for i := 0; i < opts.maxConcurrency; i++ {
-		tx := newTx(maxTxEntries, maxKeyLen)
+		tx := NewTx(maxTxEntries, maxKeyLen)
 		txs.PushBack(tx)
 	}
 
 	// Extra tx pre-allocation for indexing thread
-	txs.PushBack(newTx(maxTxEntries, maxKeyLen))
+	txs.PushBack(NewTx(maxTxEntries, maxKeyLen))
 
 	txbs := make([]byte, maxTxSize)
 
@@ -404,7 +404,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 }
 
 func (s *ImmuStore) NewTx() *Tx {
-	return newTx(s.maxTxEntries, s.maxKeyLen)
+	return NewTx(s.maxTxEntries, s.maxKeyLen)
 }
 
 func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
@@ -769,7 +769,7 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 		txe.HValue = sha256.Sum256(e.Value)
 	}
 
-	tx.buildHashTree()
+	tx.BuildHashTree()
 
 	r := <-appendableCh // wait for data to be writen
 	err = r.err
@@ -848,7 +848,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		txSize += sha256.Size
 	}
 
-	tx.calcAlh()
+	tx.CalcAlh()
 
 	// tx serialization using pre-allocated buffer
 	copy(s._txbs[txSize:], tx.Alh[:])
