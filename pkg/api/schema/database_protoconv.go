@@ -31,6 +31,7 @@ func TxTo(tx *store.Tx) *Tx {
 			Key:    e.Key(),
 			HValue: e.HValue[:],
 			VOff:   e.VOff,
+			VLen:   int32(e.ValueLen),
 		}
 	}
 
@@ -40,11 +41,37 @@ func TxTo(tx *store.Tx) *Tx {
 	}
 }
 
+func TxFrom(stx *Tx) *store.Tx {
+	entries := make([]*store.Txe, len(stx.Entries))
+
+	for i, e := range stx.Entries {
+		entries[i] = &store.Txe{
+			HValue:   DigestFrom(e.HValue),
+			VOff:     e.VOff,
+			ValueLen: int(e.VLen),
+		}
+		entries[i].SetKey(e.Key)
+	}
+
+	tx := store.NewTxWithEntries(entries)
+
+	tx.ID = stx.Metadata.Id
+	tx.PrevAlh = DigestFrom(stx.Metadata.PrevAlh)
+	tx.Ts = stx.Metadata.Ts
+	tx.BlTxID = stx.Metadata.BlTxId
+	tx.BlRoot = DigestFrom(stx.Metadata.BlRoot)
+
+	tx.BuildHashTree()
+	tx.CalcAlh()
+
+	return tx
+}
+
 func InclusionProofTo(iproof *htree.InclusionProof) *InclusionProof {
 	return &InclusionProof{
 		Leaf:  int32(iproof.Leaf),
 		Width: int32(iproof.Width),
-		Terms: digestsTo(iproof.Terms),
+		Terms: DigestsTo(iproof.Terms),
 	}
 }
 
@@ -52,7 +79,7 @@ func InclusionProofFrom(iproof *InclusionProof) *htree.InclusionProof {
 	return &htree.InclusionProof{
 		Leaf:  int(iproof.Leaf),
 		Width: int(iproof.Width),
-		Terms: digestsFrom(iproof.Terms),
+		Terms: DigestsFrom(iproof.Terms),
 	}
 }
 
@@ -60,10 +87,10 @@ func DualProofTo(dualProof *store.DualProof) *DualProof {
 	return &DualProof{
 		SourceTxMetadata:   TxMetatadaTo(dualProof.SourceTxMetadata),
 		TargetTxMetadata:   TxMetatadaTo(dualProof.TargetTxMetadata),
-		InclusionProof:     digestsTo(dualProof.InclusionProof),
-		ConsistencyProof:   digestsTo(dualProof.ConsistencyProof),
+		InclusionProof:     DigestsTo(dualProof.InclusionProof),
+		ConsistencyProof:   DigestsTo(dualProof.ConsistencyProof),
 		TargetBlTxAlh:      dualProof.TargetBlTxAlh[:],
-		LastInclusionProof: digestsTo(dualProof.LastInclusionProof),
+		LastInclusionProof: DigestsTo(dualProof.LastInclusionProof),
 		LinearProof:        LinearProofTo(dualProof.LinearProof),
 	}
 }
@@ -84,7 +111,7 @@ func LinearProofTo(linearProof *store.LinearProof) *LinearProof {
 	return &LinearProof{
 		SourceTxId: linearProof.SourceTxID,
 		TargetTxId: linearProof.TargetTxID,
-		Terms:      digestsTo(linearProof.Terms),
+		Terms:      DigestsTo(linearProof.Terms),
 	}
 }
 
@@ -92,10 +119,10 @@ func DualProofFrom(dproof *DualProof) *store.DualProof {
 	return &store.DualProof{
 		SourceTxMetadata:   TxMetadataFrom(dproof.SourceTxMetadata),
 		TargetTxMetadata:   TxMetadataFrom(dproof.TargetTxMetadata),
-		InclusionProof:     digestsFrom(dproof.InclusionProof),
-		ConsistencyProof:   digestsFrom(dproof.ConsistencyProof),
-		TargetBlTxAlh:      digestFrom(dproof.TargetBlTxAlh),
-		LastInclusionProof: digestsFrom(dproof.LastInclusionProof),
+		InclusionProof:     DigestsFrom(dproof.InclusionProof),
+		ConsistencyProof:   DigestsFrom(dproof.ConsistencyProof),
+		TargetBlTxAlh:      DigestFrom(dproof.TargetBlTxAlh),
+		LastInclusionProof: DigestsFrom(dproof.LastInclusionProof),
 		LinearProof:        LinearProofFrom(dproof.LinearProof),
 	}
 }
@@ -103,12 +130,12 @@ func DualProofFrom(dproof *DualProof) *store.DualProof {
 func TxMetadataFrom(txMetadata *TxMetadata) *store.TxMetadata {
 	return &store.TxMetadata{
 		ID:       txMetadata.Id,
-		PrevAlh:  digestFrom(txMetadata.PrevAlh),
+		PrevAlh:  DigestFrom(txMetadata.PrevAlh),
 		Ts:       txMetadata.Ts,
 		NEntries: int(txMetadata.Nentries),
-		Eh:       digestFrom(txMetadata.EH),
+		Eh:       DigestFrom(txMetadata.EH),
 		BlTxID:   txMetadata.BlTxId,
-		BlRoot:   digestFrom(txMetadata.BlRoot),
+		BlRoot:   DigestFrom(txMetadata.BlRoot),
 	}
 }
 
@@ -116,11 +143,11 @@ func LinearProofFrom(lproof *LinearProof) *store.LinearProof {
 	return &store.LinearProof{
 		SourceTxID: lproof.SourceTxId,
 		TargetTxID: lproof.TargetTxId,
-		Terms:      digestsFrom(lproof.Terms),
+		Terms:      DigestsFrom(lproof.Terms),
 	}
 }
 
-func digestsTo(terms [][sha256.Size]byte) [][]byte {
+func DigestsTo(terms [][sha256.Size]byte) [][]byte {
 	slicedTerms := make([][]byte, len(terms))
 
 	for i, t := range terms {
@@ -131,13 +158,13 @@ func digestsTo(terms [][sha256.Size]byte) [][]byte {
 	return slicedTerms
 }
 
-func digestFrom(slicedDigest []byte) [sha256.Size]byte {
+func DigestFrom(slicedDigest []byte) [sha256.Size]byte {
 	var d [sha256.Size]byte
 	copy(d[:], slicedDigest)
 	return d
 }
 
-func digestsFrom(slicedTerms [][]byte) [][sha256.Size]byte {
+func DigestsFrom(slicedTerms [][]byte) [][sha256.Size]byte {
 	terms := make([][sha256.Size]byte, len(slicedTerms))
 
 	for i, t := range slicedTerms {

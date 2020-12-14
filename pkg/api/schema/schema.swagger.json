@@ -1647,6 +1647,10 @@
         "vOff": {
           "type": "string",
           "format": "int64"
+        },
+        "vLen": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },

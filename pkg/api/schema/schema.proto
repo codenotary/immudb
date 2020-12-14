@@ -203,6 +203,7 @@ message TxEntry {
 	bytes key = 1;
 	bytes hValue = 2;
 	int64 vOff = 3;
+	int32 vLen = 4;
 }
 
 message VerifiableTx {
