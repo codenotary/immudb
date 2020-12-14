@@ -71,11 +71,15 @@ func PrintState(root *schema.ImmutableState) string {
 }
 
 // PrintTx ...
-func PrintTx(tx *schema.Tx) string {
+func PrintTx(tx *schema.Tx, verified bool) string {
 	str := strings.Builder{}
 	str.WriteString(fmt.Sprintf("tx:		%d\n", tx.Metadata.Id))
 	str.WriteString(fmt.Sprintf("time:		%s\n", time.Unix(int64(tx.Metadata.Ts), 0)))
+	str.WriteString(fmt.Sprintf("entries:	%d\n", tx.Metadata.Nentries))
 	str.WriteString(fmt.Sprintf("hash:		%x\n", schema.TxMetadataFrom(tx.Metadata).Alh()))
+	if verified {
+		str.WriteString(fmt.Sprintf("verified:	%t \n", verified))
+	}
 
 	return str.String()
 }

@@ -38,6 +38,7 @@ type Client interface {
 	HealthCheck(args []string) (string, error)
 	CurrentState(args []string) (string, error)
 	GetTxByID(args []string) (string, error)
+	VerifiedGetTxByID(args []string) (string, error)
 	Get(args []string) (string, error)
 	VerifiedGet(args []string) (string, error)
 	Login(args []string) (string, error)

@@ -40,7 +40,27 @@ func (i *immuc) GetTxByID(args []string) (string, error) {
 		}
 		return "", err
 	}
-	return PrintTx(tx), nil
+	return PrintTx(tx, false), nil
+}
+
+func (i *immuc) VerifiedGetTxByID(args []string) (string, error) {
+	id, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
+		return "", fmt.Errorf(" \"%v\" is not a valid id number", args[0])
+	}
+	ctx := context.Background()
+	tx, err := i.ImmuClient.VerifiedTxByID(ctx, id)
+	if err != nil {
+		if strings.Contains(err.Error(), "NotFound") {
+			return fmt.Sprintf("no item exists in id:%v", id), nil
+		}
+		rpcerrors := strings.SplitAfter(err.Error(), "=")
+		if len(rpcerrors) > 1 {
+			return rpcerrors[len(rpcerrors)-1], nil
+		}
+		return "", err
+	}
+	return PrintTx(tx, true), nil
 }
 
 func (i *immuc) Get(args []string) (string, error) {

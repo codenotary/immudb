@@ -50,7 +50,7 @@ func (cl *commandline) safegetTxByID(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.GetTxByID(args) //TODO: use verified
+			resp, err := cl.immucl.VerifiedGetTxByID(args) //TODO: use verified
 			if err != nil {
 				cl.quit(err)
 			}
