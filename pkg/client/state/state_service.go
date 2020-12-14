@@ -27,8 +27,8 @@ import (
 
 // StateService the root service interface
 type StateService interface {
-	GetState(ctx context.Context, dbName string) (*schema.ImmutableState, error)
-	SetState(state *schema.ImmutableState, dbName string) error
+	GetState(ctx context.Context, db string) (*schema.ImmutableState, error)
+	SetState(db string, state *schema.ImmutableState) error
 }
 
 type stateService struct {
@@ -63,27 +63,27 @@ func NewStateService(cache cache.Cache,
 	}, nil
 }
 
-func (r *stateService) GetState(ctx context.Context, dbName string) (*schema.ImmutableState, error) {
+func (r *stateService) GetState(ctx context.Context, db string) (*schema.ImmutableState, error) {
 	defer r.Unlock()
 	r.Lock()
 
-	if state, err := r.cache.Get(r.serverUUID, dbName); err == nil {
+	if state, err := r.cache.Get(r.serverUUID, db); err == nil {
 		return state, nil
 	}
 
 	if state, err := r.stateProvider.CurrentState(ctx); err != nil {
 		return nil, err
 	} else {
-		if err := r.cache.Set(state, r.serverUUID, dbName); err != nil {
+		if err := r.cache.Set(r.serverUUID, db, state); err != nil {
 			return nil, err
 		}
 		return state, nil
 	}
 }
 
-func (r *stateService) SetState(state *schema.ImmutableState, dbName string) error {
+func (r *stateService) SetState(db string, state *schema.ImmutableState) error {
 	defer r.Unlock()
 	r.Lock()
 
-	return r.cache.Set(state, r.serverUUID, dbName)
+	return r.cache.Set(r.serverUUID, db, state)
 }

@@ -169,8 +169,13 @@ func init() {
 func setup() {
 	cleanup()
 	cleanupDump()
+
 	immuServer = newServer()
-	immuServer.Start()
+
+	go func() { immuServer.Start() }()
+
+	time.Sleep(1 * time.Second)
+
 	nm, _ := NewNtpMock()
 	tss := NewTimestampService(nm)
 	token := login()
@@ -181,9 +186,13 @@ func setup() {
 	if err != nil {
 		panic(err)
 	}
+
 	client = newClient(true, resp.Token).WithTimestampService(tss).WithTokenService(NewTokenService().WithHds(NewHomedirService()).WithTokenFileName("testTokenFile"))
 
 	err = client.UpdateMTLSConfig(context.Background(), false)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {

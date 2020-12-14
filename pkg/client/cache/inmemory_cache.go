@@ -36,26 +36,26 @@ func NewInMemoryCache() Cache {
 	}
 }
 
-func (imc *inMemoryCache) Get(serverUUID string, dbName string) (*schema.ImmutableState, error) {
+func (imc *inMemoryCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
 	serverStates, ok := imc.states[serverUUID]
 	if !ok {
 		return nil, fmt.Errorf("no roots found for server %s", serverUUID)
 	}
-	state, ok := serverStates[dbName]
+	state, ok := serverStates[db]
 	if !ok {
 		return nil, fmt.Errorf(
-			"no state found for server %s and database %s", serverUUID, dbName)
+			"no state found for server %s and database %s", serverUUID, db)
 	}
 	return state, nil
 }
 
-func (imc *inMemoryCache) Set(state *schema.ImmutableState, serverUUID string, dbName string) error {
+func (imc *inMemoryCache) Set(serverUUID, db string, state *schema.ImmutableState) error {
 	imc.lock.Lock()
 	defer imc.lock.Unlock()
 	if _, ok := imc.states[serverUUID]; !ok {
-		imc.states[serverUUID] = map[string]*schema.ImmutableState{dbName: state}
+		imc.states[serverUUID] = map[string]*schema.ImmutableState{db: state}
 		return nil
 	}
-	imc.states[serverUUID][dbName] = state
+	imc.states[serverUUID][db] = state
 	return nil
 }

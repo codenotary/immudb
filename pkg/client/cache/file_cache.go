@@ -39,7 +39,7 @@ func NewFileCache(dir string) Cache {
 	return &fileCache{Dir: dir}
 }
 
-func (w *fileCache) Get(serverUUID string, dbName string) (*schema.ImmutableState, error) {
+func (w *fileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
 	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(STATE_FN), []byte(serverUUID))))
 
 	raw, err := ioutil.ReadFile(fn)
@@ -49,7 +49,7 @@ func (w *fileCache) Get(serverUUID string, dbName string) (*schema.ImmutableStat
 	state := &schema.ImmutableState{}
 	lines := strings.Split(string(raw), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, dbName+":") {
+		if strings.Contains(line, db+":") {
 			r := strings.Split(line, ":")
 			if len(r) != 2 {
 				return nil, fmt.Errorf("could not find previous state")
@@ -68,7 +68,7 @@ func (w *fileCache) Get(serverUUID string, dbName string) (*schema.ImmutableStat
 	return state, nil
 }
 
-func (w *fileCache) Set(state *schema.ImmutableState, serverUUID string, dbName string) error {
+func (w *fileCache) Set(serverUUID, db string, state *schema.ImmutableState) error {
 	raw, err := proto.Marshal(state)
 	if err != nil {
 		return err
@@ -78,10 +78,10 @@ func (w *fileCache) Set(state *schema.ImmutableState, serverUUID string, dbName 
 	input, _ := ioutil.ReadFile(fn)
 	lines := strings.Split(string(input), "\n")
 
-	newState := dbName + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
+	newState := db + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
 	var exists bool
 	for i, line := range lines {
-		if strings.Contains(line, dbName+":") {
+		if strings.Contains(line, db+":") {
 			exists = true
 			lines[i] = newState
 		}

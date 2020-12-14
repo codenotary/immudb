@@ -352,7 +352,7 @@ func (a *defaultAuditor) audit() error {
 				"so it will not overwrite the previous local state (at id %d)",
 			a.index, dbName, state.TxId, prevState.TxId)
 	} else if prevState == nil || state.TxId != prevState.TxId {
-		if err := a.history.Set(state, serverID, dbName); err != nil {
+		if err := a.history.Set(serverID, dbName, state); err != nil {
 			a.logger.Errorf(err.Error())
 			return noErr
 		}

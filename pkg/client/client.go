@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
@@ -28,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/state"
@@ -63,6 +65,25 @@ type ImmuClient interface {
 	UpdateMTLSConfig(ctx context.Context, enabled bool) error
 	PrintTree(ctx context.Context) (*schema.Tree, error)
 
+	WithOptions(options *Options) *immuClient
+	WithLogger(logger logger.Logger) *immuClient
+	WithStateService(rs state.StateService) *immuClient
+	WithTimestampService(ts TimestampService) *immuClient
+	WithClientConn(clientConn *grpc.ClientConn) *immuClient
+	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
+	WithTokenService(tokenService TokenService) *immuClient
+
+	GetServiceClient() *schema.ImmuServiceClient
+	GetOptions() *Options
+	SetupDialOptions(options *Options) *[]grpc.DialOption
+
+	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
+	CreateDatabase(ctx context.Context, d *schema.Database) error
+	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
+	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
+
+	//
+
 	CurrentImmutableState(ctx context.Context) (*schema.ImmutableState, error)
 
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
@@ -70,6 +91,8 @@ type ImmuClient interface {
 
 	Get(ctx context.Context, key []byte) (*schema.Item, error)
 	VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Item, error)
+
+	History(ctx context.Context, req *schema.HistoryRequest) (*schema.ItemList, error)
 
 	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
 	VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
@@ -88,10 +111,9 @@ type ImmuClient interface {
 	CountAll(ctx context.Context) (*schema.ItemsCount, error)
 
 	SetAll(ctx context.Context, kvList *schema.SetRequest) (*schema.TxMetadata, error)
-	ExecAllOps(ctx context.Context, in *schema.Ops) (*schema.TxMetadata, error)
 	GetAll(ctx context.Context, keys [][]byte) (*schema.ItemList, error)
 
-	History(ctx context.Context, req *schema.HistoryRequest) (*schema.ItemList, error)
+	ExecAllOps(ctx context.Context, in *schema.Ops) (*schema.TxMetadata, error)
 
 	SetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
 	GetReference(ctx context.Context, key []byte) (*schema.Item, error)
@@ -100,26 +122,7 @@ type ImmuClient interface {
 	SetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error)
 	VerifiedSetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error)
 
-	DatabaseList(ctx context.Context) (*schema.DatabaseListResponse, error)
-	CreateDatabase(ctx context.Context, d *schema.Database) error
-	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
-	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
-
-	//VerifyAndSetRoot(result *schema.DualProof, txMetadata *schema.TxMetadata, ctx context.Context) (bool, error)
-
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
-
-	WithOptions(options *Options) *immuClient
-	WithLogger(logger logger.Logger) *immuClient
-	WithStateService(rs state.StateService) *immuClient
-	WithTimestampService(ts TimestampService) *immuClient
-	WithClientConn(clientConn *grpc.ClientConn) *immuClient
-	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
-	WithTokenService(tokenService TokenService) *immuClient
-
-	GetServiceClient() *schema.ImmuServiceClient
-	GetOptions() *Options
-	SetupDialOptions(options *Options) *[]grpc.DialOption
 }
 
 type immuClient struct {
@@ -494,7 +497,7 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 	}
 
 	start := time.Now()
-	defer c.Logger.Debugf("safeget finished in %s", time.Since(start))
+	defer c.Logger.Debugf("verifiedGet finished in %s", time.Since(start))
 
 	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
@@ -511,19 +514,70 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 		return nil, err
 	}
 
-	/*
-		verified := safeItem.Proof.Verify(h, *root)
-		if verified {
-			// saving a fresh root
-			tocache := schema.NewRoot()
-			tocache.SetIndex(safeItem.Proof.At)
-			tocache.SetRoot(safeItem.Proof.Root)
-			err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
-			if err != nil {
-				return nil, err
-			}
+	inclusionProof := schema.InclusionProofFrom(vItem.InclusionProof)
+	dualProof := schema.DualProofFrom(vItem.VerifiableTx.DualProof)
+
+	var eh [sha256.Size]byte
+
+	var sourceID, targetID uint64
+	var sourceAlh, targetAlh [sha256.Size]byte
+
+	if state.TxId <= vItem.Item.Tx {
+		eh = schema.DigestFrom(vItem.VerifiableTx.DualProof.TargetTxMetadata.EH)
+
+		sourceID = state.TxId
+		sourceAlh = schema.DigestFrom(state.TxHash)
+		targetID = vItem.Item.Tx
+		targetAlh = dualProof.TargetTxMetadata.Alh()
+	} else {
+		eh = schema.DigestFrom(vItem.VerifiableTx.DualProof.SourceTxMetadata.EH)
+
+		sourceID = vItem.Item.Tx
+		sourceAlh = dualProof.SourceTxMetadata.Alh()
+		targetID = state.TxId
+		targetAlh = schema.DigestFrom(state.TxHash)
+	}
+
+	verifies := store.VerifyInclusion(
+		inclusionProof,
+		&store.KV{Key: key, Value: vItem.Item.Value},
+		eh)
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	verifies = store.VerifyDualProof(
+		dualProof,
+		sourceID,
+		targetID,
+		sourceAlh,
+		targetAlh,
+	)
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	newState := &schema.ImmutableState{
+		TxId:      targetID,
+		TxHash:    targetAlh[:],
+		Signature: vItem.VerifiableTx.Signature,
+	}
+
+	// TODO: FIX state signing
+	if newState.Signature != nil {
+		ok, err := newState.CheckSignature()
+		if err != nil {
+			return nil, err
 		}
-	*/
+		if !ok {
+			return nil, store.ErrCorruptedData
+		}
+	}
+
+	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
+	if err != nil {
+		return nil, err
+	}
 
 	return vItem.Item, nil
 }
@@ -616,12 +670,68 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		return nil, err
 	}
 
-	/*
-		verified, err := c.verifyAndSetRoot(result, root, ctx)
+	tx := schema.TxFrom(verifiableTx.Tx)
+
+	inclusionProof, err := tx.Proof(key)
+	if err != nil {
+		return nil, err
+	}
+
+	verifies := store.VerifyInclusion(inclusionProof, &store.KV{Key: key, Value: value}, tx.Eh())
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	if tx.Eh() != schema.DigestFrom(verifiableTx.DualProof.TargetTxMetadata.EH) {
+		return nil, store.ErrCorruptedData
+	}
+
+	var sourceID, targetID uint64
+	var sourceAlh, targetAlh [sha256.Size]byte
+
+	if state.TxId == 0 {
+		sourceID = tx.ID
+		sourceAlh = tx.Alh
+	} else {
+		sourceID = state.TxId
+		sourceAlh = schema.DigestFrom(state.TxHash)
+	}
+
+	targetID = tx.ID
+	targetAlh = tx.Alh
+
+	verifies = store.VerifyDualProof(
+		schema.DualProofFrom(verifiableTx.DualProof),
+		sourceID,
+		targetID,
+		sourceAlh,
+		targetAlh,
+	)
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	newState := &schema.ImmutableState{
+		TxId:      tx.ID,
+		TxHash:    tx.Alh[:],
+		Signature: verifiableTx.Signature,
+	}
+
+	// TODO: FIX state signing
+	if newState.Signature != nil {
+		ok, err := newState.CheckSignature()
 		if err != nil {
 			return nil, err
 		}
-	*/
+		if !ok {
+			return nil, store.ErrCorruptedData
+		}
+	}
+
+	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
+	if err != nil {
+		return nil, err
+	}
 
 	return verifiableTx.Tx.Metadata, nil
 }
@@ -695,19 +805,55 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, txID uint64) (*schema.T
 		return nil, err
 	}
 
-	/*
-		verified := safeItem.Proof.Verify(h, *root)
-		if verified {
-			// saving a fresh root
-			tocache := schema.NewRoot()
-			tocache.SetIndex(safeItem.Proof.At)
-			tocache.SetRoot(safeItem.Proof.Root)
-			err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
-			if err != nil {
-				return nil, err
-			}
+	dualProof := schema.DualProofFrom(vTx.DualProof)
+
+	var sourceID, targetID uint64
+	var sourceAlh, targetAlh [sha256.Size]byte
+
+	if state.TxId <= vTx.Tx.Metadata.Id {
+		sourceID = state.TxId
+		sourceAlh = schema.DigestFrom(state.TxHash)
+		targetID = vTx.Tx.Metadata.Id
+		targetAlh = dualProof.TargetTxMetadata.Alh()
+	} else {
+		sourceID = vTx.Tx.Metadata.Id
+		sourceAlh = dualProof.SourceTxMetadata.Alh()
+		targetID = state.TxId
+		targetAlh = schema.DigestFrom(state.TxHash)
+	}
+
+	verifies := store.VerifyDualProof(
+		dualProof,
+		sourceID,
+		targetID,
+		sourceAlh,
+		targetAlh,
+	)
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	newState := &schema.ImmutableState{
+		TxId:      targetID,
+		TxHash:    targetAlh[:],
+		Signature: vTx.Signature,
+	}
+
+	// TODO: FIX state signing
+	if newState.Signature != nil {
+		ok, err := newState.CheckSignature()
+		if err != nil {
+			return nil, err
 		}
-	*/
+		if !ok {
+			return nil, store.ErrCorruptedData
+		}
+	}
+
+	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
+	if err != nil {
+		return nil, err
+	}
 
 	return vTx.Tx, nil
 }

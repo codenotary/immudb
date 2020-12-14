@@ -37,8 +37,8 @@ func NewHistoryFileCache(dir string) HistoryCache {
 	return &historyFileCache{dir: dir}
 }
 
-func (history *historyFileCache) Get(serverID string, dbName string) (*schema.ImmutableState, error) {
-	statesDir := filepath.Join(history.dir, serverID)
+func (history *historyFileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
+	statesDir := filepath.Join(history.dir, serverUUID)
 	statesFileInfos, err := history.getStatesFileInfos(statesDir)
 	if err != nil {
 		return nil, err
@@ -50,14 +50,14 @@ func (history *historyFileCache) Get(serverID string, dbName string) (*schema.Im
 
 	prevStateFileName := statesFileInfos[len(statesFileInfos)-1].Name()
 	prevStateFilePath := filepath.Join(statesDir, prevStateFileName)
-	return history.unmarshalRoot(prevStateFilePath, dbName)
+	return history.unmarshalRoot(prevStateFilePath, db)
 }
 
 func (history *historyFileCache) Walk(
-	serverID string, databasename string,
+	serverUUID string, databasename string,
 	f func(*schema.ImmutableState) interface{},
 ) ([]interface{}, error) {
-	statesDir := filepath.Join(history.dir, serverID)
+	statesDir := filepath.Join(history.dir, serverUUID)
 	statesFileInfos, err := history.getStatesFileInfos(statesDir)
 	if err != nil {
 		return nil, err
@@ -81,8 +81,8 @@ func (history *historyFileCache) Walk(
 	return results, nil
 }
 
-func (history *historyFileCache) Set(state *schema.ImmutableState, serverID string, dbName string) error {
-	statesDir := filepath.Join(history.dir, serverID)
+func (history *historyFileCache) Set(serverUUID, db string, state *schema.ImmutableState) error {
+	statesDir := filepath.Join(history.dir, serverUUID)
 	if err := os.MkdirAll(statesDir, os.ModePerm); err != nil {
 		return fmt.Errorf("error ensuring states dir %s exists: %v", statesDir, err)
 	}
@@ -97,10 +97,10 @@ func (history *historyFileCache) Set(state *schema.ImmutableState, serverID stri
 		return err
 	}
 
-	newState := dbName + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
+	newState := db + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
 	var exists bool
 	for i, line := range lines {
-		if strings.Contains(line, dbName+":") {
+		if strings.Contains(line, db+":") {
 			exists = true
 			lines[i] = newState
 		}
@@ -133,7 +133,7 @@ func (history *historyFileCache) getStatesFileInfos(dir string) ([]os.FileInfo, 
 	return statesFileInfos, nil
 }
 
-func (history *historyFileCache) unmarshalRoot(fpath string, dbName string) (*schema.ImmutableState, error) {
+func (history *historyFileCache) unmarshalRoot(fpath string, db string) (*schema.ImmutableState, error) {
 	state := &schema.ImmutableState{}
 	raw, err := ioutil.ReadFile(fpath)
 	if err != nil {
@@ -142,7 +142,7 @@ func (history *historyFileCache) unmarshalRoot(fpath string, dbName string) (*sc
 
 	lines := strings.Split(string(raw), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, dbName+":") {
+		if strings.Contains(line, db+":") {
 			r := strings.Split(line, ":")
 
 			if len(r) != 2 {
