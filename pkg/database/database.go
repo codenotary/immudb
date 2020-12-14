@@ -23,6 +23,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -65,7 +66,8 @@ type DB interface {
 type db struct {
 	st *store.ImmuStore
 
-	tx *store.Tx
+	tx1, tx2 *store.Tx
+	mutex    sync.Mutex
 
 	Logger  logger.Logger
 	options *DbOptions
@@ -94,7 +96,8 @@ func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
 
-	db.tx = db.st.NewTx()
+	db.tx1 = db.st.NewTx()
+	db.tx2 = db.st.NewTx()
 
 	return db, nil
 }
@@ -126,7 +129,8 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
 
-	db.tx = db.st.NewTx()
+	db.tx1 = db.st.NewTx()
+	db.tx2 = db.st.NewTx()
 
 	return db, nil
 }
@@ -220,6 +224,9 @@ func (d *db) CurrentImmutableState() (*schema.ImmutableState, error) {
 
 //VerifiableSet ...
 func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -229,7 +236,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	lastTx := d.tx //TODO: fetch/release from tx pool
+	lastTx := d.tx1
 
 	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
 	if err != nil {
@@ -241,7 +248,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 	if req.ProveFromTx == 0 {
 		prevTx = lastTx
 	} else {
-		prevTx = d.st.NewTx()
+		prevTx = d.tx2
 
 		err = d.st.ReadTx(uint64(req.ProveFromTx), prevTx)
 		if err != nil {
@@ -262,6 +269,9 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 
 //VerifiableGet ...
 func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -272,7 +282,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	txItem := d.tx
+	txItem := d.tx1
 
 	// key-value inclusion proof
 	err = d.st.ReadTx(it.Tx, txItem)
@@ -280,7 +290,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	inclusionProof, err := d.tx.Proof(req.KeyRequest.Key)
+	inclusionProof, err := d.tx1.Proof(req.KeyRequest.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +300,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	if req.ProveFromTx == 0 {
 		rootTx = txItem
 	} else {
-		rootTx = d.st.NewTx()
+		rootTx = d.tx2
 
 		err = d.st.ReadTx(uint64(req.ProveFromTx), rootTx)
 		if err != nil {
@@ -365,27 +375,35 @@ func (d *db) CountAll() *schema.ItemsCount {
 
 // TxByID ...
 func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
 	// key-value inclusion proof
-	err := d.st.ReadTx(req.Tx, d.tx)
+	err := d.st.ReadTx(req.Tx, d.tx1)
 	if err != nil {
 		return nil, err
 	}
 
-	return schema.TxTo(d.tx), nil
+	return schema.TxTo(d.tx1), nil
 }
 
 //VerifiableTxByID ...
 func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
 	// key-value inclusion proof
-	err := d.st.ReadTx(req.Tx, d.tx)
+	reqTx := d.tx1
+
+	err := d.st.ReadTx(req.Tx, reqTx)
 	if err != nil {
 		return nil, err
 	}
@@ -395,9 +413,9 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	var rootTx *store.Tx
 
 	if req.ProveFromTx == 0 {
-		rootTx = d.tx
+		rootTx = reqTx
 	} else {
-		rootTx = d.st.NewTx()
+		rootTx = d.tx2
 
 		err = d.st.ReadTx(uint64(req.ProveFromTx), rootTx)
 		if err != nil {
@@ -407,9 +425,9 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 
 	if uint64(req.ProveFromTx) <= req.Tx {
 		sourceTx = rootTx
-		targetTx = d.tx
+		targetTx = reqTx
 	} else {
-		sourceTx = d.tx
+		sourceTx = reqTx
 		targetTx = rootTx
 	}
 
@@ -419,13 +437,16 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	}
 
 	return &schema.VerifiableTx{
-		Tx:        schema.TxTo(d.tx),
+		Tx:        schema.TxTo(reqTx),
 		DualProof: schema.DualProofTo(dualProof),
 	}, nil
 }
 
 //History ...
 func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	snapshot, err := d.st.Snapshot()
 	if err != nil {
 		return nil, err
@@ -447,12 +468,12 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 	for i := int(req.Offset); i < len(tss); i++ {
 		ts := tss[i]
 
-		err = d.st.ReadTx(ts, d.tx)
+		err = d.st.ReadTx(ts, d.tx1)
 		if err != nil {
 			return nil, err
 		}
 
-		val, err := d.st.ReadValue(d.tx, req.Key)
+		val, err := d.st.ReadValue(d.tx1, req.Key)
 		if err != nil {
 			return nil, err
 		}
