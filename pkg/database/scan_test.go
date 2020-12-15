@@ -23,7 +23,7 @@ func TestStoreScan(t *testing.T) {
 		Prefix:  []byte(`a`),
 		Offset:  nil,
 		Limit:   0,
-		Reverse: false,
+		Reverse: true,
 		Deep:    false,
 	}
 
@@ -42,7 +42,7 @@ func TestStoreScan(t *testing.T) {
 		Prefix:  []byte(`a`),
 		Offset:  nil,
 		Limit:   0,
-		Reverse: true,
+		Reverse: false,
 		Deep:    false,
 	}
 
