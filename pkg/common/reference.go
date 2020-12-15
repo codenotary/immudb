@@ -29,7 +29,7 @@ func WrapIndexReference(key []byte, index uint64) []byte {
 	copy(c, key)
 	if index > 0 {
 		idx := make([]byte, 8)
-		binary.BigEndian.PutUint64(idx, 0)
+		binary.BigEndian.PutUint64(idx, index)
 		copy(c[len(key):], idx)
 		c[len(key)+8] = byte(1)
 
