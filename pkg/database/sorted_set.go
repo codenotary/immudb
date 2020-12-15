@@ -1,9 +1,23 @@
+/*
+Copyright 2019-2020 vChain, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package database
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -53,20 +67,17 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 		offsetKey = options.Offset
 	}
 
-	snapshot, err := d.st.Snapshot()
+	r, err := store.NewReader(
+		d.st,
+		store.ReaderSpec{
+			IsPrefix:   true,
+			InitialKey: offsetKey,
+			AscOrder:   options.Reverse,
+		})
 	if err != nil {
 		return nil, err
 	}
-	defer snapshot.Close()
-
-	reader, err := snapshot.Reader(&tbtree.ReaderSpec{
-		IsPrefix:   true,
-		InitialKey: offsetKey,
-		AscOrder:   options.Reverse})
-	if err != nil {
-		return nil, err
-	}
-	defer reader.Close()
+	defer r.Close()
 
 	var items []*schema.ZItem
 	i := uint64(0)
@@ -78,7 +89,7 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 	}
 
 	for {
-		sortedSetItemKey, btreeVal, sortedSetItemIndex, err := reader.Read()
+		sortedSetItemKey, value, sortedSetItemIndex, err := r.Read()
 		if err == tbtree.ErrNoMoreEntries {
 			break
 		}
@@ -86,14 +97,10 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 			return nil, err
 		}
 
-		valLen := binary.BigEndian.Uint32(btreeVal)
-		vOff := binary.BigEndian.Uint64(btreeVal[4:])
-
-		var hVal [sha256.Size]byte
-		copy(hVal[:], btreeVal[4+8:])
-
-		refVal := make([]byte, valLen)
-		_, err = d.st.ReadValueAt(refVal, int64(vOff), hVal)
+		refVal, err := d.st.Resolve(value)
+		if err != nil {
+			return nil, err
+		}
 
 		var zitem *schema.ZItem
 		var item *schema.Item

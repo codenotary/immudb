@@ -85,6 +85,7 @@ func (s *Reader) Read() (key []byte, val *Value, tx uint64, err error) {
 }
 
 func (s *Reader) Close() {
-	s.snap.Close()
 	s.tbtReader.Close()
+	s.snap.Close()
+
 }
