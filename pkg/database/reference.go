@@ -19,6 +19,7 @@ package database
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/common"
@@ -37,40 +38,48 @@ func (d *db) SetReference(refOpts *schema.Reference) (*schema.TxMetadata, error)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Reference")
 	}
+
 	meta, err := d.st.Commit([]*store.KV{{Key: refOpts.Reference, Value: k}})
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Reference")
 	}
+
 	return schema.TxMetatadaTo(meta), err
 }
 
 //GetReference ...
-func (d *db) GetReference(k *schema.KeyRequest) (*schema.Item, error) {
-	if k == nil {
+func (d *db) GetReference(req *schema.KeyRequest) (*schema.Item, error) {
+	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
-	item, err := d.getSince(k.Key, 0)
+
+	item, err := d.getSince(req.Key, uint64(req.FromTx))
 	if err != nil {
 		return nil, err
 	}
+
 	if !bytes.HasPrefix(item.Value, common.ReferencePrefix) {
 		return nil, ErrNoReferenceProvided
 	}
+
 	ref := bytes.TrimPrefix(item.Value, common.ReferencePrefix)
 
-	key, flag, refIndex := common.UnwrapIndexReference(ref)
+	key, flag, refAt := common.UnwrapReferenceAt(ref)
+
 	if flag == byte(1) {
-		if err = d.st.ReadTx(refIndex, d.tx1); err != nil {
+		if err = d.st.ReadTx(refAt, d.tx1); err != nil {
 			return nil, err
 		}
+
 		val, err := d.st.ReadValue(d.tx1, key)
 		if err != nil {
 			return nil, err
 		}
-		return &schema.Item{Key: key, Value: val, Tx: refIndex}, nil
-	} else {
-		return d.Get(&schema.KeyRequest{Key: key})
+
+		return &schema.Item{Key: key, Value: val, Tx: refAt}, nil
 	}
+
+	return d.Get(&schema.KeyRequest{Key: key, FromTx: req.FromTx})
 }
 
 //SafeReference ...
@@ -80,37 +89,41 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 }
 
 func (d *db) getReferenceVal(rOpts *schema.Reference, skipPersistenceCheck bool) (v []byte, err error) {
-	var index uint64
+	var atTx uint64
 	var key []byte
+
 	if rOpts.AtTx > 0 {
 		if !skipPersistenceCheck {
 			if err := d.st.ReadTx(uint64(rOpts.AtTx), d.tx1); err != nil {
 				return nil, err
 			}
-			// check if specific key exists at the referenced index
+
+			// check if specific key exists at the referenced at tx
 			if _, err := d.st.ReadValue(d.tx1, rOpts.Key); err != nil {
 				return nil, ErrIndexKeyMismatch
 			}
 		}
+
 		key = rOpts.Key
-		// append the index to the reference. In this way the resolution will be index based
-		index = uint64(rOpts.AtTx)
+		// append the index to the reference. In this way the resolution will be at tx
+		atTx = uint64(rOpts.AtTx)
 	} else {
 		i, err := d.Get(&schema.KeyRequest{Key: rOpts.Key})
 		if err != nil {
 			return nil, err
 		}
+
 		if bytes.Compare(i.Key, rOpts.Key) != 0 {
 			return nil, ErrIndexKeyMismatch
 		}
+
 		key = rOpts.Key
-		// Index has not to be stored inside the reference if not submitted by the client. This is needed to permit verifications in SDKs
-		index = 0
+		// atTx has not to be stored inside the reference if not submitted by the client. This is needed to permit verifications in SDKs
+		atTx = 0
 	}
 
 	// append the timestamp to the reference key. In this way equal keys will be returned sorted by timestamp and the resolution will be index based
-	v = common.WrapIndexReference(key, index)
-
+	v = common.WrapReferenceAt(key, atTx)
 	v = common.WrapPrefix(v, common.ReferencePrefix)
 
 	return v, err

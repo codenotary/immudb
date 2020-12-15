@@ -18,6 +18,7 @@ package database
 
 import (
 	"crypto/sha256"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -49,6 +50,7 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 		case *schema.Op_ZAdd:
 			// zAdd arguments are converted in regular key value items and then atomically inserted
 			skipPersistenceCheck := false
+
 			if _, exists := kmap[sha256.Sum256(x.ZAdd.Key)]; exists {
 				skipPersistenceCheck = true
 				x.ZAdd.AtTx = int64(d.tx1.ID)
@@ -62,6 +64,7 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			kv := &schema.KeyValue{
 				Key:   k,
 				Value: v,
@@ -70,12 +73,14 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 		case *schema.Op_Ref:
 			// reference arguments are converted in regular key value items and then atomically inserted
 			skipPersistenceCheck := false
+
 			if _, exists := kmap[sha256.Sum256(x.Ref.Key)]; exists {
 				skipPersistenceCheck = true
 				x.Ref.AtTx = int64(d.tx1.ID)
 			} else if x.Ref.AtTx == 0 {
 				return nil, ErrReferenceIndexMissing
 			}
+
 			// if skipPersistenceCheck is true it means that the reference will be done with a key value that is not yet
 			// persisted in the store, but it's present in the previous key value list.
 			// if skipPersistenceCheck is false it means that the reference is already persisted on disk.
@@ -83,6 +88,7 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			kv := &schema.KeyValue{
 				Key:   x.Ref.Reference,
 				Value: v,

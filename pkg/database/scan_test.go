@@ -1,10 +1,11 @@
 package database
 
 import (
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestStoreScan(t *testing.T) {
@@ -13,8 +14,10 @@ func TestStoreScan(t *testing.T) {
 
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`bbb`), Value: []byte(`item2`)}}})
+
 	txID, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`abc`), Value: []byte(`item3`)}}})
 	require.NoError(t, err)
+
 	item, err := db.Get(&schema.KeyRequest{Key: []byte(`abc`), FromTx: int64(txID.Id)})
 	require.Equal(t, []byte(`abc`), item.Key)
 	require.NoError(t, err)
@@ -27,7 +30,7 @@ func TestStoreScan(t *testing.T) {
 		Deep:    false,
 	}
 
-	db.waitForIndexing(txID.Id)
+	db.WaitForIndexingUpto(txID.Id)
 
 	list, err := db.Scan(&scanOptions)
 

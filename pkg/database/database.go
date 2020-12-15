@@ -37,10 +37,10 @@ import (
 )
 
 type DB interface {
-	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
-	Get(req *schema.KeyRequest) (*schema.Item, error)
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
 	CurrentImmutableState() (*schema.ImmutableState, error)
+	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
+	Get(req *schema.KeyRequest) (*schema.Item, error)
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
 	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error)
 	GetAll(req *schema.KeyListRequest) (*schema.ItemList, error)
@@ -63,7 +63,7 @@ type DB interface {
 	PrintTree() (*schema.Tree, error)
 	Close() error
 	GetOptions() *DbOptions
-	waitForIndexing(ts uint64) error
+	WaitForIndexingUpto(txID uint64) error
 }
 
 //IDB database instance
@@ -159,14 +159,14 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
 	return d.getSince(req.Key, uint64(req.FromTx))
 }
 
-func (d *db) waitForIndexing(ts uint64) error {
+func (d *db) WaitForIndexingUpto(txID uint64) error {
 	for {
 		its, err := d.st.IndexInfo()
 		if err != nil {
 			return err
 		}
 
-		if its >= ts {
+		if its >= txID {
 			break
 		}
 
@@ -177,7 +177,7 @@ func (d *db) waitForIndexing(ts uint64) error {
 
 func (d *db) getSince(key []byte, txID uint64) (*schema.Item, error) {
 	if txID > 0 {
-		err := d.waitForIndexing(txID)
+		err := d.WaitForIndexingUpto(txID)
 		if err != nil {
 			return nil, err
 		}
@@ -202,12 +202,14 @@ func (d *db) getSince(key []byte, txID uint64) (*schema.Item, error) {
 
 	val := make([]byte, valLen)
 	_, err = d.st.ReadValueAt(val, int64(vOff), hVal)
+
 	//Reference lookup
 	if bytes.HasPrefix(val, common.ReferencePrefix) {
 		ref := bytes.TrimPrefix(val, common.ReferencePrefix)
-		key, _, _ = common.UnwrapIndexReference(ref)
+		key, _, _ = common.UnwrapReferenceAt(ref)
 		return d.getSince(key, txID)
 	}
+
 	return &schema.Item{Key: key, Value: val, Tx: ts}, err
 }
 

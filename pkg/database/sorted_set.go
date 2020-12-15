@@ -19,11 +19,12 @@ package database
 import (
 	"bytes"
 	"fmt"
+	"math"
+
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/common"
-	"math"
 )
 
 // ZAdd adds a score for an existing key in a sorted set
@@ -108,7 +109,7 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 		//Reference lookup
 		if bytes.HasPrefix(sortedSetItemKey, common.SortedSetSeparator) {
 
-			refKey, flag, refIndex := common.UnwrapIndexReference(refVal)
+			refKey, flag, refIndex := common.UnwrapReferenceAt(refVal)
 
 			// here check for index reference, if present we resolve reference with itemAt
 			if flag == byte(1) {
@@ -204,7 +205,7 @@ func (d *db) getSortedSetKeyVal(zaddOpts *schema.ZAddRequest, skipPersistenceChe
 	ik := common.BuildSetKey(key, zaddOpts.Set, zaddOpts.Score.Score, index)
 
 	// append the index to the reference. In this way the resolution will be index based
-	referenceValue = common.WrapIndexReference(key, index)
+	referenceValue = common.WrapReferenceAt(key, index)
 
 	return ik, referenceValue, err
 }

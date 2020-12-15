@@ -40,6 +40,7 @@ func TestReference(t *testing.T) {
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
+
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -53,6 +54,7 @@ func TestReference(t *testing.T) {
 		t.Fatalf("Reference failed: %s", msg)
 	}
 }
+
 func TestVerifiedSetReference(t *testing.T) {
 	defer os.Remove(".state-")
 	options := server.DefaultOptions().WithAuth(true)

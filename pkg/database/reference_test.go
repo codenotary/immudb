@@ -17,22 +17,25 @@ limitations under the License.
 package database
 
 import (
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestStoreReference(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}})
+	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
+	meta, err := db.Set(req)
 
-	db.waitForIndexing(meta.Id)
+	db.WaitForIndexingUpto(meta.Id)
 
 	item, err := db.Get(&schema.KeyRequest{Key: []byte(`firstKey`)})
 	require.NoError(t, err)
-	require.NotNil(t, item)
+	require.Equal(t, []byte(`firstKey`), item.Key)
+	require.Equal(t, []byte(`firstValue`), item.Value)
 
 	refOpts := &schema.Reference{
 		Reference: []byte(`myTag`),
@@ -41,34 +44,16 @@ func TestStoreReference(t *testing.T) {
 	meta, err = db.SetReference(refOpts)
 	require.NoError(t, err)
 
-	db.waitForIndexing(meta.Id)
+	db.WaitForIndexingUpto(meta.Id)
 
-	require.Exactly(t, uint64(2), meta.Id)
-	require.NotEmptyf(t, meta.Id, "Should not be empty")
+	require.Equal(t, uint64(2), meta.Id)
 
 	firstItemRet, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag`), FromTx: int64(meta.Id)})
-
 	require.NoError(t, err)
-	require.NotEmptyf(t, firstItemRet, "Should not be empty")
-	require.Equal(t, firstItemRet.Value, []byte(`firstValue`), "Should have referenced item value")
+	require.Equal(t, []byte(`firstValue`), firstItemRet.Value, "Should have referenced item value")
 }
 
 /*
-func TestStore_GetReferenceWithKeyResolution(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-
-	set, _ := db.Set(&schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
-	db.waitForIndexing(set.GetIndex())
-	ref, _ := db.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Key: []byte(`aaa`)})
-	db.waitForIndexing(ref.GetIndex())
-	tag3, err := db.GetReference(&schema.Key{Key: []byte(`myTag1`)})
-	db.waitForIndexing(tag3.GetIndex())
-
-	require.NoError(t, err)
-	require.Equal(t, []byte(`aaa`), tag3.Key)
-	require.Equal(t, []byte(`item1`), tag3.Value)
-}
 
 func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 	db, closer := makeDb()
@@ -87,7 +72,9 @@ func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 	require.Equal(t, []byte(`aaa`), tag3.Key)
 	require.Equal(t, []byte(`item1`), tag3.Value)
 }
+*/
 
+/*
 func TestStoreReferenceAsyncCommit(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()

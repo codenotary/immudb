@@ -17,12 +17,13 @@ limitations under the License.
 package database
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/common"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/common"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStoreIndexExists(t *testing.T) {
@@ -39,7 +40,7 @@ func TestStoreIndexExists(t *testing.T) {
 		Score: &schema.Score{Score: float64(14.6)},
 	}
 
-	db.waitForIndexing(idx1.Id)
+	db.WaitForIndexingUpto(idx1.Id)
 
 	reference1, err1 := db.ZAdd(zaddOpts1)
 	require.NoError(t, err1)
@@ -72,7 +73,7 @@ func TestStoreIndexExists(t *testing.T) {
 	require.Exactly(t, reference3.Id, uint64(6))
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
-	db.waitForIndexing(reference3.Id)
+	db.WaitForIndexingUpto(reference3.Id)
 
 	//try to retrieve directly the value or full scan to debug
 
@@ -154,7 +155,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 		Set:     []byte(`hashA`),
 		Reverse: false,
 	}
-	db.waitForIndexing(reference3.Id)
+	db.WaitForIndexingUpto(reference3.Id)
 	itemList1, err := db.ZScan(zscanOpts1)
 
 	require.NoError(t, err)
