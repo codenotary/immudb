@@ -7,8 +7,6 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/aokoli/goutils v1.1.0 // indirect
-	github.com/codenotary/merkletree v0.1.2-0.20200720105344-68d95395a656
-	github.com/dgraph-io/badger/v2 v2.0.0-20200408100755-2e708d968e94
 	github.com/envoyproxy/protoc-gen-validate v0.4.1 // indirect
 	github.com/fatih/color v1.9.0
 	github.com/gizak/termui/v3 v3.1.0

@@ -29,9 +29,7 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -757,6 +755,7 @@ func TestDump(t *testing.T) {
 }
 */
 
+/*
 type mockImmuService_DumpServer struct {
 	grpc.ServerStream
 	results []*pb.KVList
@@ -766,6 +765,7 @@ func (_m *mockImmuService_DumpServer) Send(kvs *pb.KVList) error {
 	_m.results = append(_m.results, kvs)
 	return nil
 }
+*/
 
 /*
 func TestDb_SetBatchAtomicOperations(t *testing.T) {
