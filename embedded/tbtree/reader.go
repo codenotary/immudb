@@ -89,7 +89,8 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 			r.offset--
 		}
 
-		if !r.isPrefix || bytes.Equal(r.initialKey, leafValue.key[:len(r.initialKey)]) {
+		if !r.isPrefix ||
+			(len(leafValue.key) >= len(r.initialKey) && bytes.Equal(r.initialKey, leafValue.key[:len(r.initialKey)])) {
 			return leafValue.key, leafValue.value, leafValue.ts, nil
 		}
 	}
