@@ -16,12 +16,15 @@ limitations under the License.
 
 package database
 
+import "github.com/codenotary/immudb/embedded/store"
+
 //DbOptions database instance options
 type DbOptions struct {
 	//	dbDir             string
 	dbName            string
 	dbRootPath        string
 	corruptionChecker bool
+	storeOpts         *store.Options
 }
 
 // DefaultOption Initialise Db Optionts to default values
@@ -31,6 +34,7 @@ func DefaultOption() *DbOptions {
 		dbName:            "db_name",
 		dbRootPath:        "./data",
 		corruptionChecker: true,
+		storeOpts:         store.DefaultOptions(),
 	}
 }
 
@@ -65,4 +69,15 @@ func (o *DbOptions) WithCorruptionChecker(cc bool) *DbOptions {
 // GetCorruptionChecker returns if corruption checker should start for this database instance
 func (o *DbOptions) GetCorruptionChecker() bool {
 	return o.corruptionChecker
+}
+
+// WithStoreOptions sets backing store options
+func (o *DbOptions) WithStoreOptions(storeOpts *store.Options) *DbOptions {
+	o.storeOpts = storeOpts
+	return o
+}
+
+// GetStoreOptions returns backing store options
+func (o *DbOptions) GetStoreOptions() *store.Options {
+	return o.storeOpts
 }

@@ -21,12 +21,13 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/common"
 	"math"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/common"
 
 	"github.com/codenotary/immudb/embedded/store"
 
@@ -92,9 +93,7 @@ func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
 		return nil, fmt.Errorf("Missing database directories")
 	}
 
-	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
-
-	db.st, err = store.Open(dbDir, store.DefaultOptions().WithIndexOptions(indexOptions))
+	db.st, err = store.Open(dbDir, op.GetStoreOptions())
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
@@ -124,10 +123,7 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 		return nil, logErr(db.Logger, "Unable to create data folder: %s", err)
 	}
 
-	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
-	storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
-
-	db.st, err = store.Open(dbDir, storeOpts)
+	db.st, err = store.Open(dbDir, op.GetStoreOptions())
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}

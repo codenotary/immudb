@@ -516,8 +516,11 @@ func testServerSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("set error %v", err)
 	}
 
+	time.Sleep(1 * time.Millisecond)
+
 	it, err := s.Get(ctx, &schema.KeyRequest{
-		Key: testKey,
+		Key:    testKey,
+		FromTx: int64(txMetadata.Id),
 	})
 	if err != nil {
 		t.Fatalf("Get error %v", err)
@@ -603,8 +606,12 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 		if vTx == nil {
 			t.Fatalf("Nil proof after SafeSet")
 		}
+
 		_, err = s.VerifiableGet(ctx, &schema.VerifiableGetRequest{
-			KeyRequest: &schema.KeyRequest{Key: val.SetRequest.KVs[0].Key},
+			KeyRequest: &schema.KeyRequest{
+				Key:    val.SetRequest.KVs[0].Key,
+				FromTx: int64(vTx.Tx.Metadata.Id),
+			},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -807,23 +814,17 @@ func testServerHealthError(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func testServerReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{kvs[0]}})
-	if err != nil {
-		t.Fatalf("Reference error %s", err)
-	}
-	_, err = s.SetReference(ctx, &schema.Reference{
+	require.NoError(t, err)
+
+	meta, err := s.SetReference(ctx, &schema.Reference{
 		Reference: []byte(`tag`),
 		Key:       kvs[0].Key,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	item, err := s.Get(ctx, &schema.KeyRequest{Key: []byte(`tag`)})
-	if err != nil {
-		t.Fatalf("Reference  Get error %s", err)
-	}
-	if !bytes.Equal(item.Value, kvs[0].Value) {
-		t.Fatalf("Reference, expected %v, got %v", string(item.Value), string(kvs[0].Value))
-	}
+	require.NoError(t, err)
+
+	item, err := s.Get(ctx, &schema.KeyRequest{Key: []byte(`tag`), FromTx: int64(meta.Id)})
+	require.NoError(t, err)
+	require.Equal(t, kvs[0].Value, item.Value)
 }
 
 func testServerGetReference(ctx context.Context, s *ImmuServer, t *testing.T) {

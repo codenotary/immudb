@@ -34,6 +34,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/database"
 
 	"github.com/codenotary/immudb/pkg/logger"
@@ -305,11 +306,15 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 	_, sysDbErr := s.OS.Stat(systemDbRootDir)
 	if s.OS.IsNotExist(sysDbErr) {
 		if s.Options.GetAuth() {
+			indexOptions := store.DefaultIndexOptions().WithFlushThld(1)
+			storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
+
 			op := database.DefaultOption().
 				WithDbName(s.Options.GetSystemAdminDbName()).
 				WithDbRootPath(dataDir).
 				WithCorruptionChecker(s.Options.CorruptionCheck).
-				WithDbRootPath(s.Options.Dir)
+				WithDbRootPath(s.Options.Dir).
+				WithStoreOptions(storeOpts)
 
 			db, err := database.NewDb(op, s.Logger)
 			if err != nil {
@@ -328,10 +333,15 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 			s.Logger.Infof("Admin user %s successfully created", adminUsername)
 		}
 	} else {
+		indexOptions := store.DefaultIndexOptions().WithFlushThld(1)
+		storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
+
 		op := database.DefaultOption().
 			WithDbName(s.Options.GetSystemAdminDbName()).
 			WithDbRootPath(dataDir).
-			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
+			WithCorruptionChecker(s.Options.CorruptionCheck).
+			WithDbRootPath(s.Options.Dir).
+			WithStoreOptions(storeOpts)
 
 		db, err := database.OpenDb(op, s.Logger)
 		if err != nil {
@@ -354,11 +364,15 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 
 	_, defaultDbErr := s.OS.Stat(defaultDbRootDir)
 	if s.OS.IsNotExist(defaultDbErr) {
+		indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
+		storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
+
 		op := database.DefaultOption().
 			WithDbName(s.Options.GetDefaultDbName()).
 			WithDbRootPath(dataDir).
 			WithCorruptionChecker(s.Options.CorruptionCheck).
-			WithDbRootPath(s.Options.Dir)
+			WithDbRootPath(s.Options.Dir).
+			WithStoreOptions(storeOpts)
 
 		db, err := database.NewDb(op, s.Logger)
 		if err != nil {
@@ -368,10 +382,15 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(s.dbList.Length())
 		s.dbList.Append(db)
 	} else {
+		indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
+		storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
+
 		op := database.DefaultOption().
 			WithDbName(s.Options.GetDefaultDbName()).
 			WithDbRootPath(dataDir).
-			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
+			WithCorruptionChecker(s.Options.CorruptionCheck).
+			WithDbRootPath(s.Options.Dir).
+			WithStoreOptions(storeOpts)
 
 		db, err := database.OpenDb(op, s.Logger)
 		if err != nil {
@@ -411,8 +430,15 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 		pathparts := strings.Split(val, string(filepath.Separator))
 		dbname := pathparts[len(pathparts)-1]
 
-		op := database.DefaultOption().WithDbName(dbname).WithDbRootPath(dataDir).
-			WithCorruptionChecker(s.Options.CorruptionCheck).WithDbRootPath(s.Options.Dir)
+		indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
+		storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
+
+		op := database.DefaultOption().
+			WithDbName(dbname).
+			WithDbRootPath(dataDir).
+			WithCorruptionChecker(s.Options.CorruptionCheck).
+			WithDbRootPath(s.Options.Dir).
+			WithStoreOptions(storeOpts)
 
 		db, err := database.OpenDb(op, s.Logger)
 		if err != nil {
@@ -1001,11 +1027,15 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 
 	dataDir := s.Options.Dir
 
+	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
+	storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
+
 	op := database.DefaultOption().
 		WithDbName(newdb.Databasename).
 		WithDbRootPath(dataDir).
 		WithCorruptionChecker(s.Options.CorruptionCheck).
-		WithDbRootPath(s.Options.Dir)
+		WithDbRootPath(s.Options.Dir).
+		WithStoreOptions(storeOpts)
 
 	db, err := database.NewDb(op, s.Logger)
 	if err != nil {
