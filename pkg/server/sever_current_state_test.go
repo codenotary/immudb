@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -28,9 +29,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func TestServerCurrentRootSigned(t *testing.T) {
+func TestServerCurrentStateSigned(t *testing.T) {
 	dbRootpath := database.DefaultOption().GetDbRootPath()
 	s := DefaultServer()
+
+	defer os.RemoveAll(s.Options.Dir)
 
 	sig, err := signer.NewSigner("./../../test/signer/ec3.key")
 	assert.NoError(t, err)
