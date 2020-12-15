@@ -22,7 +22,9 @@ import (
 )
 
 var (
-	ErrIndexKeyMismatch    = status.New(codes.InvalidArgument, "mismatch between provided index and key").Err()
-	ErrNoReferenceProvided = status.New(codes.InvalidArgument, "provided argument is not a reference").Err()
-	ErrReferenceKeyMissing = status.New(codes.InvalidArgument, "reference key not provided").Err()
+	ErrIndexKeyMismatch      = status.New(codes.InvalidArgument, "mismatch between provided index and key").Err()
+	ErrNoReferenceProvided   = status.New(codes.InvalidArgument, "provided argument is not a reference").Err()
+	ErrReferenceKeyMissing   = status.New(codes.InvalidArgument, "reference key not provided").Err()
+	ErrZAddIndexMissing      = status.New(codes.InvalidArgument, "zAdd index not provided").Err()
+	ErrReferenceIndexMissing = status.New(codes.InvalidArgument, "reference index not provided").Err()
 )

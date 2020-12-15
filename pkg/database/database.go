@@ -355,12 +355,6 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
 	return list, nil
 }
 
-// ExecAllOps ...
-func (d *db) ExecAllOps(operations *schema.Ops) (*schema.TxMetadata, error) {
-	//return d.st.ExecAllOps(operations)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "ExecAllOps")
-}
-
 //Size ...
 func (d *db) Size() (uint64, error) {
 	return d.st.TxCount(), nil
