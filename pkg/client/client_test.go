@@ -204,7 +204,14 @@ func cleanup() {
 	if err := os.Remove(".state-"); err != nil {
 		log.Println(err)
 	}
+
+	if immuServer != nil {
+		if err := os.RemoveAll(immuServer.Options.Dir); err != nil {
+			log.Println(err)
+		}
+	}
 }
+
 func cleanupDump() {
 	if err := os.Remove(BkpFileName); err != nil {
 		log.Println(err)
@@ -214,6 +221,9 @@ func cleanupDump() {
 func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte) {
 	_, err2 := client.VerifiedSet(ctx, key, value)
 	require.NoError(t, err2)
+
+	time.Sleep(10 * time.Millisecond)
+
 	vi, err := client.VerifiedGet(ctx, key)
 
 	require.NoError(t, err)
@@ -300,10 +310,12 @@ func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scor
 }
 */
 func testGet(ctx context.Context, t *testing.T) {
-	_, _ = client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
-	item1, err3 := client.Get(ctx, []byte("key-n11"))
-	require.Equal(t, []byte("key-n11"), item1.Key)
-	require.NoError(t, err3)
+	txmd, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
+	require.NoError(t, err)
+
+	item, err := client.GetSince(ctx, []byte("key-n11"), txmd.Id)
+	require.NoError(t, err)
+	require.Equal(t, []byte("key-n11"), item.Key)
 }
 
 func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
@@ -333,8 +345,6 @@ func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float
 // }
 
 func TestImmuClient(t *testing.T) {
-	cleanup()
-	cleanupDump()
 	defer cleanup()
 	defer cleanupDump()
 

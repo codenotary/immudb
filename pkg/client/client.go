@@ -91,6 +91,8 @@ type ImmuClient interface {
 	Get(ctx context.Context, key []byte) (*schema.Item, error)
 	VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Item, error)
 
+	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Item, error)
+
 	History(ctx context.Context, req *schema.HistoryRequest) (*schema.ItemList, error)
 
 	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
@@ -184,7 +186,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 
 	stateService, err := state.NewStateService(cache.NewFileCache(options.Dir), l, stateProvider, uuidProvider)
 	if err != nil {
-		return nil, logErr(l, "Unable to create root service: %s", err)
+		return nil, logErr(l, "Unable to create state service: %s", err)
 	}
 
 	dt, err := timestamp.NewDefaultTimestamp()
@@ -462,6 +464,18 @@ func (c *immuClient) Logout(ctx context.Context) error {
 	return err
 }
 
+// CurrentImmutableState returns current database state
+func (c *immuClient) CurrentImmutableState(ctx context.Context) (*schema.ImmutableState, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	start := time.Now()
+	defer c.Logger.Debugf("Current state finished in %s", time.Since(start))
+
+	return c.ServiceClient.CurrentImmutableState(ctx, &empty.Empty{})
+}
+
 // Get ...
 func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Item, error) {
 	if !c.IsConnected() {
@@ -472,18 +486,6 @@ func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Item, error) 
 	defer c.Logger.Debugf("get finished in %s", time.Since(start))
 
 	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key})
-}
-
-// CurrentImmutableState returns current database state
-func (c *immuClient) CurrentImmutableState(ctx context.Context) (*schema.ImmutableState, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	start := time.Now()
-	defer c.Logger.Debugf("Current root finished in %s", time.Since(start))
-
-	return c.ServiceClient.CurrentImmutableState(ctx, &empty.Empty{})
 }
 
 // VerifiedGet ...
@@ -504,7 +506,7 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 	}
 
 	req := &schema.VerifiableGetRequest{
-		KeyRequest:  &schema.KeyRequest{Key: key},
+		KeyRequest:  &schema.KeyRequest{Key: key, FromTx: int64(state.TxId)},
 		ProveFromTx: int64(state.TxId),
 	}
 
@@ -579,6 +581,18 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 	}
 
 	return vItem.Item, nil
+}
+
+// GetSince ...
+func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Item, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	start := time.Now()
+	defer c.Logger.Debugf("get finished in %s", time.Since(start))
+
+	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, FromTx: int64(tx)})
 }
 
 // Scan ...
