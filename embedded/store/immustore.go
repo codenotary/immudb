@@ -415,8 +415,8 @@ func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
 	return s.index.Snapshot()
 }
 
-func (s *ImmuStore) SnapshotAt(tx uint64) (*tbtree.Snapshot, error) {
-	return s.index.SnapshotAt(tx)
+func (s *ImmuStore) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
+	return s.index.SnapshotSince(tx)
 }
 
 func (s *ImmuStore) binaryLinking() {

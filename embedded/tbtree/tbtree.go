@@ -790,10 +790,10 @@ func (t *TBtree) Ts() uint64 {
 }
 
 func (t *TBtree) Snapshot() (*Snapshot, error) {
-	return t.SnapshotAt(0)
+	return t.SnapshotSince(0)
 }
 
-func (t *TBtree) SnapshotAt(ts uint64) (*Snapshot, error) {
+func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
