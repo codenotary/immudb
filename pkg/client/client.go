@@ -945,12 +945,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, reference []byt
 		return nil, err
 	}
 
-	/*
-		verified, err := c.verifyAndSetRoot(result, root, ctx)
-		if err != nil {
-			return nil, err
-		}
-	*/
+	//TODO: verification and root update
 
 	return vTx.Tx.Metadata, nil
 }

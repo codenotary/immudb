@@ -52,8 +52,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 
 //SafeReference ...
 func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
-	//return d.st.SafeReference(*safeRefOpts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeReference")
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableSetReference")
 }
 
 func (d *db) getReferenceVal(req *schema.ReferenceRequest, skipPersistenceCheck bool, tx *store.Tx) (v []byte, err error) {
