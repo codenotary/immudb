@@ -51,7 +51,7 @@ type DB interface {
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	History(req *schema.HistoryRequest) (*schema.ItemList, error)
-	SetReference(req *schema.Reference) (*schema.TxMetadata, error)
+	SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error)
 	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
 	ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error)
 	ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error)

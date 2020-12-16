@@ -733,7 +733,7 @@ func local_request_ImmuService_CurrentState_0(ctx context.Context, marshaler run
 }
 
 func request_ImmuService_SetReference_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq Reference
+	var protoReq ReferenceRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -750,7 +750,7 @@ func request_ImmuService_SetReference_0(ctx context.Context, marshaler runtime.M
 }
 
 func local_request_ImmuService_SetReference_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq Reference
+	var protoReq ReferenceRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)

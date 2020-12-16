@@ -34,7 +34,7 @@
     - [Ops](#immudb.schema.Ops)
     - [Page](#immudb.schema.Page)
     - [Permission](#immudb.schema.Permission)
-    - [Reference](#immudb.schema.Reference)
+    - [ReferenceRequest](#immudb.schema.ReferenceRequest)
     - [ScanRequest](#immudb.schema.ScanRequest)
     - [Score](#immudb.schema.Score)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
@@ -514,7 +514,7 @@
 | ----- | ---- | ----- | ----------- |
 | kv | [KeyValue](#immudb.schema.KeyValue) |  |  |
 | zAdd | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
-| ref | [Reference](#immudb.schema.Reference) |  |  |
+| ref | [ReferenceRequest](#immudb.schema.ReferenceRequest) |  |  |
 
 
 
@@ -569,9 +569,9 @@
 
 
 
-<a name="immudb.schema.Reference"></a>
+<a name="immudb.schema.ReferenceRequest"></a>
 
-### Reference
+### ReferenceRequest
 
 
 
@@ -857,7 +857,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| reference | [Reference](#immudb.schema.Reference) |  |  |
+| referenceRequest | [ReferenceRequest](#immudb.schema.ReferenceRequest) |  |  |
 | proveSinceTx | [uint64](#uint64) |  |  |
 
 
@@ -1049,7 +1049,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | History | [HistoryRequest](#immudb.schema.HistoryRequest) | [ItemList](#immudb.schema.ItemList) |  |
 | Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
 | CurrentState | [.google.protobuf.Empty](#google.protobuf.Empty) | [ImmutableState](#immudb.schema.ImmutableState) |  |
-| SetReference | [Reference](#immudb.schema.Reference) | [TxMetadata](#immudb.schema.TxMetadata) |  |
+| SetReference | [ReferenceRequest](#immudb.schema.ReferenceRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | VerifiableSetReference | [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZAdd | [ZAddRequest](#immudb.schema.ZAddRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |

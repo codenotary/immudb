@@ -26,20 +26,20 @@ import (
 )
 
 //Reference ...
-func (d *db) SetReference(refOpts *schema.Reference) (*schema.TxMetadata, error) {
-	if refOpts == nil {
+func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
+	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
-	if refOpts.Key == nil {
+	if req.Key == nil {
 		return nil, ErrReferenceKeyMissing
 	}
 
-	k, err := d.getReferenceVal(refOpts, false)
+	k, err := d.getReferenceVal(req, false)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Reference")
 	}
 
-	meta, err := d.st.Commit([]*store.KV{{Key: refOpts.Reference, Value: k}})
+	meta, err := d.st.Commit([]*store.KV{{Key: req.Reference, Value: k}})
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Reference")
 	}
@@ -53,7 +53,7 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeReference")
 }
 
-func (d *db) getReferenceVal(rOpts *schema.Reference, skipPersistenceCheck bool) (v []byte, err error) {
+func (d *db) getReferenceVal(rOpts *schema.ReferenceRequest, skipPersistenceCheck bool) (v []byte, err error) {
 	var atTx uint64
 	var key []byte
 

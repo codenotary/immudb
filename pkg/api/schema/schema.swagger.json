@@ -539,7 +539,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaReference"
+              "$ref": "#/definitions/schemaReferenceRequest"
             }
           }
         ],
@@ -1326,7 +1326,7 @@
           "$ref": "#/definitions/schemaZAddRequest"
         },
         "ref": {
-          "$ref": "#/definitions/schemaReference"
+          "$ref": "#/definitions/schemaReferenceRequest"
         }
       }
     },
@@ -1379,7 +1379,7 @@
       ],
       "default": "GRANT"
     },
-    "schemaReference": {
+    "schemaReferenceRequest": {
       "type": "object",
       "properties": {
         "reference": {
@@ -1614,8 +1614,8 @@
     "schemaVerifiableReferenceRequest": {
       "type": "object",
       "properties": {
-        "reference": {
-          "$ref": "#/definitions/schemaReference"
+        "referenceRequest": {
+          "$ref": "#/definitions/schemaReferenceRequest"
         },
         "proveSinceTx": {
           "type": "string",

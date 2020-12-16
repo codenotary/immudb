@@ -897,7 +897,7 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, reference []byte, key [
 	start := time.Now()
 	defer c.Logger.Debugf("SetReference finished in %s", time.Since(start))
 
-	return c.ServiceClient.SetReference(ctx, &schema.Reference{
+	return c.ServiceClient.SetReference(ctx, &schema.ReferenceRequest{
 		Reference: reference,
 		Key:       key,
 		AtTx:      txID,
@@ -927,7 +927,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, reference []byt
 	}
 
 	req := &schema.VerifiableReferenceRequest{
-		Reference: &schema.Reference{
+		ReferenceRequest: &schema.ReferenceRequest{
 			Reference: reference,
 			Key:       key,
 			AtTx:      txID,

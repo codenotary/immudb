@@ -798,7 +798,7 @@ func (s *ImmuServer) History(ctx context.Context, req *schema.HistoryRequest) (*
 }
 
 // SetReference ...
-func (s *ImmuServer) SetReference(ctx context.Context, req *schema.Reference) (*schema.TxMetadata, error) {
+func (s *ImmuServer) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "SetReference")
 	if err != nil {
 		return nil, err

@@ -114,7 +114,7 @@ message Op {
 	oneof operation {
 		KeyValue kv = 1;
 		ZAddRequest zAdd = 2;
-		Reference ref = 3;
+		ReferenceRequest ref = 3;
 	}
 }
 
@@ -256,14 +256,14 @@ message ImmutableState {
 	Signature signature = 5;
 }
 
-message Reference {
+message ReferenceRequest {
 	bytes reference = 1;
 	bytes key = 2;
 	uint64 atTx = 3;
 }
 
 message VerifiableReferenceRequest {
-	Reference reference = 1;
+	ReferenceRequest referenceRequest = 1;
 	uint64 proveSinceTx = 2;
 }
 
@@ -514,7 +514,7 @@ service ImmuService {
 		};
 	};
 
-	rpc SetReference (Reference) returns (TxMetadata){
+	rpc SetReference (ReferenceRequest) returns (TxMetadata){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/reference"
 			body: "*"
