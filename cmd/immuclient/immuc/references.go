@@ -62,7 +62,7 @@ func (i *immuc) SetReference(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value, uint64(response.Ts), false, false), nil
+	return PrintKV([]byte(args[0]), value, uint64(response.Id), false, false), nil
 }
 
 func (i *immuc) VerifiedSetReference(args []string) (string, error) {
@@ -101,5 +101,5 @@ func (i *immuc) VerifiedSetReference(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value, uint64(response.Ts), false, false), nil
+	return PrintKV([]byte(args[0]), value, uint64(response.Id), false, false), nil
 }
