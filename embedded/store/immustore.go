@@ -403,6 +403,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	return store, nil
 }
 
+func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, err error) {
+	return s.index.Get(key)
+}
+
 func (s *ImmuStore) NewTx() *Tx {
 	return NewTx(s.maxTxEntries, s.maxKeyLen)
 }

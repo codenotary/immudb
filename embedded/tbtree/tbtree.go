@@ -491,6 +491,21 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 	return l, nil
 }
 
+func (t *TBtree) Get(key []byte) (value []byte, ts uint64, err error) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		return nil, 0, ErrAlreadyClosed
+	}
+
+	if key == nil {
+		return nil, 0, ErrIllegalArguments
+	}
+
+	return t.root.get(key)
+}
+
 func (t *TBtree) Sync() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()

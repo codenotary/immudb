@@ -269,6 +269,11 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		err := tbtree.Insert(k, v)
 		require.NoError(t, err)
 
+		v0, ts0, err := tbtree.Get(k)
+		require.NoError(t, err)
+		require.Equal(t, v, v0)
+		require.Equal(t, ts, ts0)
+
 		_, err = tbtree.Flush()
 		require.NoError(t, err)
 
