@@ -341,7 +341,7 @@
             "in": "query",
             "required": false,
             "type": "string",
-            "format": "int64"
+            "format": "uint64"
           }
         ],
         "tags": [
@@ -443,7 +443,7 @@
             "in": "query",
             "required": false,
             "type": "string",
-            "format": "int64"
+            "format": "uint64"
           }
         ],
         "tags": [
@@ -541,44 +541,6 @@
             "schema": {
               "$ref": "#/definitions/schemaReference"
             }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/reference/{key}": {
-      "get": {
-        "operationId": "ImmuService_GetReference",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaItem"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "key",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "byte"
-          },
-          {
-            "name": "fromTx",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "int64"
           }
         ],
         "tags": [
@@ -1242,7 +1204,7 @@
         },
         "fromTx": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
         }
       }
     },
@@ -1255,7 +1217,7 @@
         },
         "fromTx": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
         }
       }
     },
@@ -1430,7 +1392,7 @@
         },
         "atTx": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
         }
       }
     },
@@ -1631,7 +1593,7 @@
         },
         "proveFromTx": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
         }
       }
     },
@@ -1657,7 +1619,7 @@
         },
         "proveFromTx": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
         }
       }
     },
@@ -1669,7 +1631,7 @@
         },
         "proveFromTx": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
         }
       }
     },
@@ -1695,7 +1657,7 @@
         },
         "proveFromTx": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
         }
       }
     },
@@ -1715,7 +1677,7 @@
         },
         "atTx": {
           "type": "string",
-          "format": "int64"
+          "format": "uint64"
         }
       }
     },

@@ -18,7 +18,7 @@ func TestStoreScan(t *testing.T) {
 	txID, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`abc`), Value: []byte(`item3`)}}})
 	require.NoError(t, err)
 
-	item, err := db.Get(&schema.KeyRequest{Key: []byte(`abc`), FromTx: int64(txID.Id)})
+	item, err := db.Get(&schema.KeyRequest{Key: []byte(`abc`), FromTx: txID.Id})
 	require.Equal(t, []byte(`abc`), item.Key)
 	require.NoError(t, err)
 
@@ -30,7 +30,7 @@ func TestStoreScan(t *testing.T) {
 		Deep:    false,
 	}
 
-	db.WaitForIndexingUpto(txID.Id)
+	//db.WaitForIndexingUpto(txID.Id)
 
 	list, err := db.Scan(&scanOptions)
 

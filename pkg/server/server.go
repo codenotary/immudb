@@ -807,16 +807,6 @@ func (s *ImmuServer) SetReference(ctx context.Context, req *schema.Reference) (*
 	return s.dbList.GetByIndex(ind).SetReference(req)
 }
 
-// GetReference ...
-func (s *ImmuServer) GetReference(ctx context.Context, req *schema.KeyRequest) (*schema.Item, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "GetReference")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).GetReference(req)
-}
-
 // VerifibleSetReference ...
 func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableSetReference")

@@ -42,13 +42,13 @@ func (m *Ops) Validate() error {
 			}
 			mops[mk] = struct{}{}
 		case *Op_ZAdd:
-			mk := sha256.Sum256(bytes.Join([][]byte{x.ZAdd.Set, x.ZAdd.Key, []byte(strconv.FormatInt(x.ZAdd.AtTx, 10))}, nil))
+			mk := sha256.Sum256(bytes.Join([][]byte{x.ZAdd.Set, x.ZAdd.Key, []byte(strconv.FormatUint(x.ZAdd.AtTx, 10))}, nil))
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedZAddNotSupported
 			}
 			mops[mk] = struct{}{}
 		case *Op_Ref:
-			mk := sha256.Sum256(bytes.Join([][]byte{x.Ref.Reference, x.Ref.Key, []byte(strconv.FormatInt(x.Ref.AtTx, 10))}, nil))
+			mk := sha256.Sum256(bytes.Join([][]byte{x.Ref.Reference, x.Ref.Key, []byte(strconv.FormatUint(x.Ref.AtTx, 10))}, nil))
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedReferencesNotSupported
 			}

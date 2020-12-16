@@ -117,7 +117,6 @@ type ImmuClient interface {
 	ExecAllOps(ctx context.Context, in *schema.Ops) (*schema.TxMetadata, error)
 
 	SetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
-	GetReference(ctx context.Context, key []byte) (*schema.Item, error)
 	VerifiedSetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
 
 	SetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error)
@@ -506,8 +505,8 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 	}
 
 	req := &schema.VerifiableGetRequest{
-		KeyRequest:  &schema.KeyRequest{Key: key, FromTx: int64(state.TxId)},
-		ProveFromTx: int64(state.TxId),
+		KeyRequest:  &schema.KeyRequest{Key: key, FromTx: state.TxId},
+		ProveFromTx: state.TxId,
 	}
 
 	vItem, err := c.ServiceClient.VerifiableGet(ctx, req, opts...)
@@ -592,7 +591,7 @@ func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*sche
 	start := time.Now()
 	defer c.Logger.Debugf("get finished in %s", time.Since(start))
 
-	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, FromTx: int64(tx)})
+	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, FromTx: tx})
 }
 
 // Scan ...
@@ -669,7 +668,7 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 
 	req := &schema.VerifiableSetRequest{
 		SetRequest:  &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}},
-		ProveFromTx: int64(state.TxId),
+		ProveFromTx: state.TxId,
 	}
 
 	var metadata runtime.ServerMetadata
@@ -813,7 +812,7 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, txID uint64) (*schema.T
 
 	vTx, err := c.ServiceClient.VerifiableTxById(ctx, &schema.VerifiableTxRequest{
 		Tx:          txID,
-		ProveFromTx: int64(state.TxId),
+		ProveFromTx: state.TxId,
 	})
 	if err != nil {
 		return nil, err
@@ -901,17 +900,8 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, reference []byte, key [
 	return c.ServiceClient.SetReference(ctx, &schema.Reference{
 		Reference: reference,
 		Key:       key,
-		AtTx:      int64(txID),
+		AtTx:      txID,
 	})
-}
-
-// GetReference ...
-func (c *immuClient) GetReference(ctx context.Context, key []byte) (*schema.Item, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	return c.ServiceClient.GetReference(ctx, &schema.KeyRequest{Key: key})
 }
 
 // VerifiedSetReference ...
@@ -940,9 +930,9 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, reference []byt
 		Reference: &schema.Reference{
 			Reference: reference,
 			Key:       key,
-			AtTx:      int64(txID),
+			AtTx:      txID,
 		},
-		ProveFromTx: int64(state.TxId),
+		ProveFromTx: state.TxId,
 	}
 
 	var metadata runtime.ServerMetadata
@@ -983,7 +973,7 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 		Set:   set,
 		Score: &schema.Score{Score: score},
 		Key:   key,
-		AtTx:  int64(txID),
+		AtTx:  txID,
 	})
 }
 
@@ -1014,9 +1004,9 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 			Set:   set,
 			Score: &schema.Score{Score: score},
 			Key:   key,
-			AtTx:  int64(txID),
+			AtTx:  txID,
 		},
-		ProveFromTx: int64(state.TxId),
+		ProveFromTx: state.TxId,
 	}
 
 	var metadata runtime.ServerMetadata

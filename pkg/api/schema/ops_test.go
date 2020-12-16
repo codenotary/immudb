@@ -77,7 +77,7 @@ func TestOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 						Score: &Score{
 							Score: 5.6,
 						},
-						AtTx: int64(1),
+						AtTx: 1,
 					},
 				},
 			},
@@ -88,7 +88,7 @@ func TestOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 						Score: &Score{
 							Score: 5.6,
 						},
-						AtTx: int64(1),
+						AtTx: 1,
 					},
 				},
 			},
@@ -124,7 +124,7 @@ func TestOps_ValidateErrDuplicate(t *testing.T) {
 						Score: &Score{
 							Score: 5.6,
 						},
-						AtTx: int64(1),
+						AtTx: 1,
 					},
 				},
 			},
@@ -154,7 +154,7 @@ func TestExecAllOpsNilElementFound(t *testing.T) {
 				Score: &Score{
 					Score: 5.6,
 				},
-				AtTx: int64(4),
+				AtTx: 4,
 			},
 		},
 	}

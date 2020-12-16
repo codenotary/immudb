@@ -227,22 +227,22 @@ message SetRequest {
 
 message KeyRequest {
 	bytes key = 1;
-	int64 fromTx = 2;
+	uint64 fromTx = 2;
 }
 
 message KeyListRequest {
 	repeated bytes keys = 1;
-	int64 fromTx = 2;
+	uint64 fromTx = 2;
 }
 
 message VerifiableSetRequest {
 	SetRequest setRequest = 1;
-	int64 proveFromTx = 2;
+	uint64 proveFromTx = 2;
 }
 
 message VerifiableGetRequest {
 	KeyRequest keyRequest = 1;
-	int64 proveFromTx = 2;
+	uint64 proveFromTx = 2;
 }
 
 message HealthResponse {
@@ -259,19 +259,19 @@ message ImmutableState {
 message Reference {
 	bytes reference = 1;
 	bytes key = 2;
-	int64 atTx = 3;
+	uint64 atTx = 3;
 }
 
 message VerifiableReferenceRequest {
 	Reference reference = 1;
-	int64 proveFromTx = 2;
+	uint64 proveFromTx = 2;
 }
 
 message ZAddRequest {
 	bytes set = 1;
 	Score score = 2;
 	bytes key = 3;
-	int64 atTx = 4;
+	uint64 atTx = 4;
 }
 
 message ZScanRequest {
@@ -308,7 +308,7 @@ message HistoryRequest {
 
 message VerifiableZAddRequest {
 	ZAddRequest zAddRequest = 1;
-	int64 proveFromTx = 2;
+	uint64 proveFromTx = 2;
 }
 
 message TxRequest {
@@ -317,7 +317,7 @@ message TxRequest {
 
 message VerifiableTxRequest {
 	uint64 tx = 1;
-	int64 proveFromTx = 2;
+	uint64 proveFromTx = 2;
 }
 
 message Database {
@@ -525,12 +525,6 @@ service ImmuService {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/safe/reference"
 			body: "*"
-		};
-	};
-
-	rpc GetReference (KeyRequest) returns (Item){
-		option (google.api.http) = {
-			get: "/v1/immurestproxy/reference/{key}"
 		};
 	};
 

@@ -47,41 +47,6 @@ func (d *db) SetReference(refOpts *schema.Reference) (*schema.TxMetadata, error)
 	return schema.TxMetatadaTo(meta), err
 }
 
-//GetReference ...
-func (d *db) GetReference(req *schema.KeyRequest) (*schema.Item, error) {
-	if req == nil {
-		return nil, store.ErrIllegalArguments
-	}
-
-	item, err := d.getSince(req.Key, uint64(req.FromTx))
-	if err != nil {
-		return nil, err
-	}
-
-	if !bytes.HasPrefix(item.Value, common.ReferencePrefix) {
-		return nil, ErrNoReferenceProvided
-	}
-
-	ref := bytes.TrimPrefix(item.Value, common.ReferencePrefix)
-
-	key, flag, refAt := common.UnwrapReferenceAt(ref)
-
-	if flag == byte(1) {
-		if err = d.st.ReadTx(refAt, d.tx1); err != nil {
-			return nil, err
-		}
-
-		val, err := d.st.ReadValue(d.tx1, key)
-		if err != nil {
-			return nil, err
-		}
-
-		return &schema.Item{Key: key, Value: val, Tx: refAt}, nil
-	}
-
-	return d.Get(&schema.KeyRequest{Key: key, FromTx: req.FromTx})
-}
-
 //SafeReference ...
 func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
 	//return d.st.SafeReference(*safeRefOpts)

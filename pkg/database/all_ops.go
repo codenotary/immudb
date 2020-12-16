@@ -53,7 +53,7 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 
 			if _, exists := kmap[sha256.Sum256(x.ZAdd.Key)]; exists {
 				skipPersistenceCheck = true
-				x.ZAdd.AtTx = int64(d.tx1.ID)
+				x.ZAdd.AtTx = d.tx1.ID
 			} else if x.ZAdd.AtTx == 0 {
 				return nil, ErrZAddIndexMissing
 			}
@@ -76,7 +76,7 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 
 			if _, exists := kmap[sha256.Sum256(x.Ref.Key)]; exists {
 				skipPersistenceCheck = true
-				x.Ref.AtTx = int64(d.tx1.ID)
+				x.Ref.AtTx = d.tx1.ID
 			} else if x.Ref.AtTx == 0 {
 				return nil, ErrReferenceIndexMissing
 			}

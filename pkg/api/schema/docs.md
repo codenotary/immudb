@@ -351,7 +351,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | keys | [bytes](#bytes) | repeated |  |
-| fromTx | [int64](#int64) |  |  |
+| fromTx | [uint64](#uint64) |  |  |
 
 
 
@@ -382,7 +382,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  |  |
-| fromTx | [int64](#int64) |  |  |
+| fromTx | [uint64](#uint64) |  |  |
 
 
 
@@ -579,7 +579,7 @@
 | ----- | ---- | ----- | ----------- |
 | reference | [bytes](#bytes) |  |  |
 | key | [bytes](#bytes) |  |  |
-| atTx | [int64](#int64) |  |  |
+| atTx | [uint64](#uint64) |  |  |
 
 
 
@@ -825,7 +825,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | keyRequest | [KeyRequest](#immudb.schema.KeyRequest) |  |  |
-| proveFromTx | [int64](#int64) |  |  |
+| proveFromTx | [uint64](#uint64) |  |  |
 
 
 
@@ -858,7 +858,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | reference | [Reference](#immudb.schema.Reference) |  |  |
-| proveFromTx | [int64](#int64) |  |  |
+| proveFromTx | [uint64](#uint64) |  |  |
 
 
 
@@ -874,7 +874,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | setRequest | [SetRequest](#immudb.schema.SetRequest) |  |  |
-| proveFromTx | [int64](#int64) |  |  |
+| proveFromTx | [uint64](#uint64) |  |  |
 
 
 
@@ -907,7 +907,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
-| proveFromTx | [int64](#int64) |  |  |
+| proveFromTx | [uint64](#uint64) |  |  |
 
 
 
@@ -923,7 +923,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | zAddRequest | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
-| proveFromTx | [int64](#int64) |  |  |
+| proveFromTx | [uint64](#uint64) |  |  |
 
 
 
@@ -941,7 +941,7 @@
 | set | [bytes](#bytes) |  |  |
 | score | [Score](#immudb.schema.Score) |  |  |
 | key | [bytes](#bytes) |  |  |
-| atTx | [int64](#int64) |  |  |
+| atTx | [uint64](#uint64) |  |  |
 
 
 
@@ -1051,7 +1051,6 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | CurrentImmutableState | [.google.protobuf.Empty](#google.protobuf.Empty) | [ImmutableState](#immudb.schema.ImmutableState) |  |
 | SetReference | [Reference](#immudb.schema.Reference) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | VerifiableSetReference | [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
-| GetReference | [KeyRequest](#immudb.schema.KeyRequest) | [Item](#immudb.schema.Item) |  |
 | ZAdd | [ZAddRequest](#immudb.schema.ZAddRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZItemList](#immudb.schema.ZItemList) |  |

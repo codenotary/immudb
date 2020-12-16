@@ -30,9 +30,7 @@ func TestStoreReference(t *testing.T) {
 	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
 	meta, err := db.Set(req)
 
-	db.WaitForIndexingUpto(meta.Id)
-
-	item, err := db.Get(&schema.KeyRequest{Key: []byte(`firstKey`)})
+	item, err := db.Get(&schema.KeyRequest{Key: []byte(`firstKey`), FromTx: meta.Id})
 	require.NoError(t, err)
 	require.Equal(t, []byte(`firstKey`), item.Key)
 	require.Equal(t, []byte(`firstValue`), item.Value)
@@ -44,35 +42,28 @@ func TestStoreReference(t *testing.T) {
 	meta, err = db.SetReference(refOpts)
 	require.NoError(t, err)
 
-	db.WaitForIndexingUpto(meta.Id)
-
 	require.Equal(t, uint64(2), meta.Id)
 
-	firstItemRet, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag`), FromTx: int64(meta.Id)})
+	firstItemRet, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag`), FromTx: meta.Id})
 	require.NoError(t, err)
 	require.Equal(t, []byte(`firstValue`), firstItemRet.Value, "Should have referenced item value")
 }
-
-/*
 
 func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	set, err := db.Set(&schema.KeyValue{Key: []byte(`aaa`), Value: []byte(`item1`)})
+	set, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
 	require.NoError(t, err)
-	db.waitForIndexing(set.GetIndex())
 
-	ref, err := db.Reference(&schema.ReferenceOptions{Reference: []byte(`myTag1`), Index: &schema.Index{Index: set.GetIndex()}, Key: []byte(`aaa`)})
+	ref, err := db.SetReference(&schema.Reference{Reference: []byte(`myTag1`), Key: []byte(`aaa`), AtTx: set.Id})
 	require.NoError(t, err)
-	db.waitForIndexing(ref.GetIndex())
 
-	tag3, err := db.GetReference(&schema.Key{Key: []byte(`myTag1`)})
+	tag3, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), FromTx: ref.Id})
 	require.NoError(t, err)
 	require.Equal(t, []byte(`aaa`), tag3.Key)
 	require.Equal(t, []byte(`item1`), tag3.Value)
 }
-*/
 
 /*
 func TestStoreReferenceAsyncCommit(t *testing.T) {

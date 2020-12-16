@@ -520,7 +520,7 @@ func testServerSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 	it, err := s.Get(ctx, &schema.KeyRequest{
 		Key:    testKey,
-		FromTx: int64(txMetadata.Id),
+		FromTx: txMetadata.Id,
 	})
 	if err != nil {
 		t.Fatalf("Get error %v", err)
@@ -572,7 +572,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: int64(state.TxId),
+			ProveFromTx: state.TxId,
 		},
 		{
 			SetRequest: &schema.SetRequest{
@@ -583,7 +583,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: int64(state.TxId),
+			ProveFromTx: state.TxId,
 		},
 		{
 			SetRequest: &schema.SetRequest{
@@ -594,7 +594,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: int64(state.TxId),
+			ProveFromTx: state.TxId,
 		},
 	}
 
@@ -610,7 +610,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 		_, err = s.VerifiableGet(ctx, &schema.VerifiableGetRequest{
 			KeyRequest: &schema.KeyRequest{
 				Key:    val.SetRequest.KVs[0].Key,
-				FromTx: int64(vTx.Tx.Metadata.Id),
+				FromTx: vTx.Tx.Metadata.Id,
 			},
 		})
 		if err != nil {
@@ -822,7 +822,7 @@ func testServerReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	item, err := s.Get(ctx, &schema.KeyRequest{Key: []byte(`tag`), FromTx: int64(meta.Id)})
+	item, err := s.Get(ctx, &schema.KeyRequest{Key: []byte(`tag`), FromTx: meta.Id})
 	require.NoError(t, err)
 	require.Equal(t, kvs[0].Value, item.Value)
 }
@@ -839,7 +839,7 @@ func testServerGetReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	item, err := s.GetReference(ctx, &schema.KeyRequest{
+	item, err := s.Get(ctx, &schema.KeyRequest{
 		Key: []byte(`tag`),
 	})
 	if err != nil {
