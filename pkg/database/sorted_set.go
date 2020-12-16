@@ -109,11 +109,11 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 		//Reference lookup
 		if bytes.HasPrefix(sortedSetItemKey, common.SortedSetSeparator) {
 
-			refKey, flag, refIndex := common.UnwrapReferenceAt(refVal)
+			refKey, refAtTx := common.UnwrapReferenceAt(refVal)
 
 			// here check for index reference, if present we resolve reference with itemAt
-			if flag == byte(1) {
-				if err = d.st.ReadTx(refIndex, d.tx1); err != nil {
+			if refAtTx > 0 {
+				if err = d.st.ReadTx(refAtTx, d.tx1); err != nil {
 					return nil, err
 				}
 				val, err := d.st.ReadValue(d.tx1, refKey)
@@ -121,7 +121,7 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 					return nil, err
 				}
 
-				item = &schema.Item{Key: refKey, Value: val, Tx: refIndex}
+				item = &schema.Item{Key: refKey, Value: val, Tx: refAtTx}
 			} else {
 				item, err = d.Get(&schema.KeyRequest{Key: refKey})
 				if err != nil {

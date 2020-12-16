@@ -159,7 +159,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
 		return nil, err
 	}
 
-	return d.getFrom(req.Key, d.st)
+	return d.getAt(req.Key, req.SinceTx, d.st)
 }
 
 func (d *db) WaitForIndexingUpto(txID uint64) error {
@@ -181,33 +181,66 @@ func (d *db) WaitForIndexingUpto(txID uint64) error {
 	}
 }
 
-type KeyGetter interface {
+type KeyIndex interface {
 	Get(key []byte) (value []byte, tx uint64, err error)
 }
 
-func (d *db) getFrom(key []byte, keyGetter KeyGetter) (*schema.Item, error) {
-	wv, tx, err := keyGetter.Get(key)
-	if err != nil {
-		return nil, err
+func (d *db) get(key []byte, keyIndex KeyIndex) (item *schema.Item, err error) {
+	return d.getAt(key, 0, keyIndex)
+}
+
+func (d *db) getAt(key []byte, atTx uint64, keyIndex KeyIndex) (item *schema.Item, err error) {
+	var tx uint64
+	var val []byte
+
+	if atTx == 0 {
+		wv, ktx, err := keyIndex.Get(key)
+		if err != nil {
+			return nil, err
+		}
+
+		valLen := binary.BigEndian.Uint32(wv)
+		vOff := binary.BigEndian.Uint64(wv[4:])
+
+		var hVal [sha256.Size]byte
+		copy(hVal[:], wv[4+8:])
+
+		tx = ktx
+
+		val = make([]byte, valLen)
+		_, err = d.st.ReadValueAt(val, int64(vOff), hVal)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		val, err = d.readValue(key, atTx)
+		if err != nil {
+			return nil, err
+		}
+		tx = atTx
 	}
-
-	valLen := binary.BigEndian.Uint32(wv)
-	vOff := binary.BigEndian.Uint64(wv[4:])
-
-	var hVal [sha256.Size]byte
-	copy(hVal[:], wv[4+8:])
-
-	val := make([]byte, valLen)
-	_, err = d.st.ReadValueAt(val, int64(vOff), hVal)
 
 	//Reference lookup
 	if bytes.HasPrefix(val, common.ReferencePrefix) {
 		ref := bytes.TrimPrefix(val, common.ReferencePrefix)
-		key, _, _ = common.UnwrapReferenceAt(ref)
-		return d.getFrom(key, keyGetter)
+		key, atTx := common.UnwrapReferenceAt(ref)
+
+		return d.getAt(key, atTx, keyIndex)
 	}
 
 	return &schema.Item{Key: key, Value: val, Tx: tx}, err
+}
+
+func (d *db) readValue(key []byte, atTx uint64) ([]byte, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	err := d.st.ReadTx(atTx, d.tx1) //TODO: use tx pool
+	if err != nil {
+		return nil, err
+	}
+
+	return d.st.ReadValue(d.tx1, key)
 }
 
 //Health ...
@@ -354,7 +387,7 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 
 	for _, key := range req.Keys {
-		item, err := d.getFrom(key, snapshot)
+		item, err := d.get(key, snapshot)
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)

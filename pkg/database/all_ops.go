@@ -19,6 +19,7 @@ package database
 import (
 	"crypto/sha256"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,18 +43,23 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 	kmap := make(map[[32]byte]bool)
 
 	for _, op := range ops.Operations {
+		if op == nil {
+			return nil, store.ErrIllegalArguments
+		}
 
 		switch x := op.Operation.(type) {
+
 		case *schema.Op_Kv:
 			kmap[sha256.Sum256(x.Kv.Key)] = true
 			tsEntriesKv = append(tsEntriesKv, x.Kv)
+
 		case *schema.Op_ZAdd:
 			// zAdd arguments are converted in regular key value items and then atomically inserted
 			skipPersistenceCheck := false
 
 			if _, exists := kmap[sha256.Sum256(x.ZAdd.Key)]; exists {
 				skipPersistenceCheck = true
-				x.ZAdd.AtTx = d.tx1.ID
+				x.ZAdd.AtTx = d.tx1.ID // ??
 			} else if x.ZAdd.AtTx == 0 {
 				return nil, ErrZAddIndexMissing
 			}
@@ -70,13 +76,14 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 				Value: v,
 			}
 			tsEntriesKv = append(tsEntriesKv, kv)
+
 		case *schema.Op_Ref:
 			// reference arguments are converted in regular key value items and then atomically inserted
 			skipPersistenceCheck := false
 
 			if _, exists := kmap[sha256.Sum256(x.Ref.Key)]; exists {
 				skipPersistenceCheck = true
-				x.Ref.AtTx = d.tx1.ID
+				x.Ref.AtTx = d.tx1.ID // ??
 			} else if x.Ref.AtTx == 0 {
 				return nil, ErrReferenceIndexMissing
 			}
@@ -84,7 +91,7 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 			// if skipPersistenceCheck is true it means that the reference will be done with a key value that is not yet
 			// persisted in the store, but it's present in the previous key value list.
 			// if skipPersistenceCheck is false it means that the reference is already persisted on disk.
-			v, err := d.getReferenceVal(x.Ref, skipPersistenceCheck)
+			v, err := d.getReferenceVal(x.Ref, skipPersistenceCheck, d.tx1)
 			if err != nil {
 				return nil, err
 			}
@@ -94,8 +101,7 @@ func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
 				Value: v,
 			}
 			tsEntriesKv = append(tsEntriesKv, kv)
-		case nil:
-			return nil, status.New(codes.InvalidArgument, "batch operation is not set").Err()
+
 		default:
 			return nil, status.Newf(codes.InvalidArgument, "batch operation has unexpected type %T", x).Err()
 		}

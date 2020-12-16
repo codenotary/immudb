@@ -17,7 +17,6 @@ limitations under the License.
 package database
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -27,6 +26,9 @@ import (
 
 //Reference ...
 func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -34,12 +36,12 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 		return nil, ErrReferenceKeyMissing
 	}
 
-	k, err := d.getReferenceVal(req, false)
+	refVal, err := d.getReferenceVal(req, false, d.tx1)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Reference")
 	}
 
-	meta, err := d.st.Commit([]*store.KV{{Key: req.Reference, Value: k}})
+	meta, err := d.st.Commit([]*store.KV{{Key: req.Reference, Value: refVal}})
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error %v during %s", err, "Reference")
 	}
@@ -53,42 +55,26 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeReference")
 }
 
-func (d *db) getReferenceVal(rOpts *schema.ReferenceRequest, skipPersistenceCheck bool) (v []byte, err error) {
-	var atTx uint64
-	var key []byte
-
-	if rOpts.AtTx > 0 {
-		if !skipPersistenceCheck {
-			if err := d.st.ReadTx(uint64(rOpts.AtTx), d.tx1); err != nil {
-				return nil, err
-			}
-
-			// check if specific key exists at the referenced at tx
-			if _, err := d.st.ReadValue(d.tx1, rOpts.Key); err != nil {
-				return nil, ErrIndexKeyMismatch
-			}
-		}
-
-		key = rOpts.Key
-		// append the index to the reference. In this way the resolution will be at tx
-		atTx = uint64(rOpts.AtTx)
-	} else {
-		i, err := d.Get(&schema.KeyRequest{Key: rOpts.Key})
-		if err != nil {
+func (d *db) getReferenceVal(req *schema.ReferenceRequest, skipPersistenceCheck bool, tx *store.Tx) (v []byte, err error) {
+	if req.AtTx > 0 && !skipPersistenceCheck {
+		if err := d.st.ReadTx(req.AtTx, tx); err != nil {
 			return nil, err
 		}
 
-		if bytes.Compare(i.Key, rOpts.Key) != 0 {
+		// check if specific key exists at the referenced at tx
+		if _, err := d.st.ReadValue(tx, req.Key); err != nil {
 			return nil, ErrIndexKeyMismatch
 		}
-
-		key = rOpts.Key
-		// atTx has not to be stored inside the reference if not submitted by the client. This is needed to permit verifications in SDKs
-		atTx = 0
 	}
 
-	// append the timestamp to the reference key. In this way equal keys will be returned sorted by timestamp and the resolution will be index based
-	v = common.WrapReferenceAt(key, atTx)
+	if req.AtTx == 0 && !skipPersistenceCheck {
+		_, err := d.Get(&schema.KeyRequest{Key: req.Key, SinceTx: req.AtTx})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	v = common.WrapReferenceAt(req.Key, req.AtTx)
 	v = common.WrapPrefix(v, common.ReferencePrefix)
 
 	return v, err
