@@ -53,7 +53,6 @@ type DB interface {
 	History(req *schema.HistoryRequest) (*schema.ItemList, error)
 	SetReference(req *schema.Reference) (*schema.TxMetadata, error)
 	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
-	GetReference(req *schema.KeyRequest) (item *schema.Item, err error)
 	ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error)
 	ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error)
 	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
@@ -63,7 +62,6 @@ type DB interface {
 	PrintTree() (*schema.Tree, error)
 	Close() error
 	GetOptions() *DbOptions
-	WaitForIndexingUpto(txID uint64) error
 }
 
 //IDB database instance
@@ -156,10 +154,19 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 
 //Get ...
 func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
-	return d.getSince(req.Key, uint64(req.FromTx))
+	err := d.WaitForIndexingUpto(req.FromTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.getFrom(req.Key, d.st)
 }
 
 func (d *db) WaitForIndexingUpto(txID uint64) error {
+	if txID == 0 {
+		return nil
+	}
+
 	for {
 		its, err := d.st.IndexInfo()
 		if err != nil {
@@ -167,29 +174,19 @@ func (d *db) WaitForIndexingUpto(txID uint64) error {
 		}
 
 		if its >= txID {
-			break
+			return nil
 		}
 
 		time.Sleep(time.Duration(1) * time.Millisecond)
 	}
-	return nil
 }
 
-func (d *db) getSince(key []byte, txID uint64) (*schema.Item, error) {
-	if txID > 0 {
-		err := d.WaitForIndexingUpto(txID)
-		if err != nil {
-			return nil, err
-		}
-	}
+type KeyGetter interface {
+	Get(key []byte) (value []byte, tx uint64, err error)
+}
 
-	snapshot, err := d.st.SnapshotAt(txID)
-	if err != nil {
-		return nil, err
-	}
-	defer snapshot.Close()
-
-	wv, ts, err := snapshot.Get(key)
+func (d *db) getFrom(key []byte, keyGetter KeyGetter) (*schema.Item, error) {
+	wv, tx, err := keyGetter.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -207,10 +204,10 @@ func (d *db) getSince(key []byte, txID uint64) (*schema.Item, error) {
 	if bytes.HasPrefix(val, common.ReferencePrefix) {
 		ref := bytes.TrimPrefix(val, common.ReferencePrefix)
 		key, _, _ = common.UnwrapReferenceAt(ref)
-		return d.getSince(key, txID)
+		return d.getFrom(key, keyGetter)
 	}
 
-	return &schema.Item{Key: key, Value: val, Tx: ts}, err
+	return &schema.Item{Key: key, Value: val, Tx: tx}, err
 }
 
 //Health ...
@@ -256,7 +253,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 	} else {
 		prevTx = d.tx2
 
-		err = d.st.ReadTx(uint64(req.ProveFromTx), prevTx)
+		err = d.st.ReadTx(req.ProveFromTx, prevTx)
 		if err != nil {
 			return nil, err
 		}
@@ -308,7 +305,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	} else {
 		rootTx = d.tx2
 
-		err = d.st.ReadTx(uint64(req.ProveFromTx), rootTx)
+		err = d.st.ReadTx(req.ProveFromTx, rootTx)
 		if err != nil {
 			return nil, err
 		}
@@ -316,7 +313,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 	var sourceTx, targetTx *store.Tx
 
-	if uint64(req.ProveFromTx) <= it.Tx {
+	if req.ProveFromTx <= it.Tx {
 		sourceTx = rootTx
 		targetTx = txItem
 	} else {
@@ -343,9 +340,21 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 //GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
+	err := d.WaitForIndexingUpto(req.FromTx)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot, err := d.st.SnapshotAt(req.FromTx)
+	if err != nil {
+		return nil, err
+	}
+	defer snapshot.Close()
+
 	list := &schema.ItemList{}
+
 	for _, key := range req.Keys {
-		item, err := d.getSince(key, uint64(req.FromTx))
+		item, err := d.getFrom(key, snapshot)
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)
@@ -354,6 +363,7 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
 			return nil, err
 		}
 	}
+
 	return list, nil
 }
 
@@ -417,13 +427,13 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	} else {
 		rootTx = d.tx2
 
-		err = d.st.ReadTx(uint64(req.ProveFromTx), rootTx)
+		err = d.st.ReadTx(req.ProveFromTx, rootTx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if uint64(req.ProveFromTx) <= req.Tx {
+	if req.ProveFromTx <= req.Tx {
 		sourceTx = rootTx
 		targetTx = reqTx
 	} else {
