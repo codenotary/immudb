@@ -505,8 +505,8 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 	}
 
 	req := &schema.VerifiableGetRequest{
-		KeyRequest:  &schema.KeyRequest{Key: key, FromTx: state.TxId},
-		ProveFromTx: state.TxId,
+		KeyRequest:   &schema.KeyRequest{Key: key, SinceTx: state.TxId},
+		ProveSinceTx: state.TxId,
 	}
 
 	vItem, err := c.ServiceClient.VerifiableGet(ctx, req, opts...)
@@ -591,7 +591,7 @@ func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*sche
 	start := time.Now()
 	defer c.Logger.Debugf("get finished in %s", time.Since(start))
 
-	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, FromTx: tx})
+	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, SinceTx: tx})
 }
 
 // Scan ...
@@ -667,8 +667,8 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	req := &schema.VerifiableSetRequest{
-		SetRequest:  &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}},
-		ProveFromTx: state.TxId,
+		SetRequest:   &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}},
+		ProveSinceTx: state.TxId,
 	}
 
 	var metadata runtime.ServerMetadata
@@ -811,8 +811,8 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, txID uint64) (*schema.T
 	}
 
 	vTx, err := c.ServiceClient.VerifiableTxById(ctx, &schema.VerifiableTxRequest{
-		Tx:          txID,
-		ProveFromTx: state.TxId,
+		Tx:           txID,
+		ProveSinceTx: state.TxId,
 	})
 	if err != nil {
 		return nil, err
@@ -932,7 +932,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, reference []byt
 			Key:       key,
 			AtTx:      txID,
 		},
-		ProveFromTx: state.TxId,
+		ProveSinceTx: state.TxId,
 	}
 
 	var metadata runtime.ServerMetadata
@@ -1006,7 +1006,7 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 			Key:   key,
 			AtTx:  txID,
 		},
-		ProveFromTx: state.TxId,
+		ProveSinceTx: state.TxId,
 	}
 
 	var metadata runtime.ServerMetadata

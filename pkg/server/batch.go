@@ -21,7 +21,7 @@ func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 	list := &schema.ItemList{}
 
 	for _, key := range req.Keys {
-		item, err := s.dbList.GetByIndex(ind).Get(&schema.KeyRequest{Key: key, FromTx: req.FromTx})
+		item, err := s.dbList.GetByIndex(ind).Get(&schema.KeyRequest{Key: key, SinceTx: req.SinceTx})
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)

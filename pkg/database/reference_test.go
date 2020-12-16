@@ -30,7 +30,7 @@ func TestStoreReference(t *testing.T) {
 	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
 	meta, err := db.Set(req)
 
-	item, err := db.Get(&schema.KeyRequest{Key: []byte(`firstKey`), FromTx: meta.Id})
+	item, err := db.Get(&schema.KeyRequest{Key: []byte(`firstKey`), SinceTx: meta.Id})
 	require.NoError(t, err)
 	require.Equal(t, []byte(`firstKey`), item.Key)
 	require.Equal(t, []byte(`firstValue`), item.Value)
@@ -44,7 +44,7 @@ func TestStoreReference(t *testing.T) {
 
 	require.Equal(t, uint64(2), meta.Id)
 
-	firstItemRet, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag`), FromTx: meta.Id})
+	firstItemRet, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag`), SinceTx: meta.Id})
 	require.NoError(t, err)
 	require.Equal(t, []byte(`firstValue`), firstItemRet.Value, "Should have referenced item value")
 }
@@ -59,7 +59,7 @@ func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 	ref, err := db.SetReference(&schema.Reference{Reference: []byte(`myTag1`), Key: []byte(`aaa`), AtTx: set.Id})
 	require.NoError(t, err)
 
-	tag3, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), FromTx: ref.Id})
+	tag3, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref.Id})
 	require.NoError(t, err)
 	require.Equal(t, []byte(`aaa`), tag3.Key)
 	require.Equal(t, []byte(`item1`), tag3.Value)

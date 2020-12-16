@@ -182,7 +182,7 @@ func TestDbSetGet(t *testing.T) {
 			trustedIndex = 1
 		}
 
-		keyReq := &schema.KeyRequest{Key: kv.Key, FromTx: txMetadata.Id}
+		keyReq := &schema.KeyRequest{Key: kv.Key, SinceTx: txMetadata.Id}
 
 		item, err := db.Get(keyReq)
 		require.NoError(t, err)
@@ -190,8 +190,8 @@ func TestDbSetGet(t *testing.T) {
 		require.Equal(t, kv.Value, item.Value)
 
 		vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{
-			KeyRequest:  keyReq,
-			ProveFromTx: trustedIndex,
+			KeyRequest:   keyReq,
+			ProveSinceTx: trustedIndex,
 		})
 		require.NoError(t, err)
 		require.Equal(t, kv.Key, vitem.Item.Key)
@@ -273,7 +273,7 @@ func TestSafeSetGet(t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: state.TxId,
+			ProveSinceTx: state.TxId,
 		},
 		{
 			SetRequest: &schema.SetRequest{
@@ -284,7 +284,7 @@ func TestSafeSetGet(t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: state.TxId,
+			ProveSinceTx: state.TxId,
 		},
 		{
 			SetRequest: &schema.SetRequest{
@@ -295,7 +295,7 @@ func TestSafeSetGet(t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: state.TxId,
+			ProveSinceTx: state.TxId,
 		},
 	}
 
@@ -306,8 +306,8 @@ func TestSafeSetGet(t *testing.T) {
 
 		vit, err := db.VerifiableGet(&schema.VerifiableGetRequest{
 			KeyRequest: &schema.KeyRequest{
-				Key:    val.SetRequest.KVs[0].Key,
-				FromTx: vtx.Tx.Metadata.Id,
+				Key:     val.SetRequest.KVs[0].Key,
+				SinceTx: vtx.Tx.Metadata.Id,
 			},
 		})
 		require.NoError(t, err)
@@ -344,7 +344,7 @@ func TestSetGetAll(t *testing.T) {
 			[]byte("Jean-Claude"),
 			[]byte("Franz"),
 		},
-		FromTx: txMetadata.Id,
+		SinceTx: txMetadata.Id,
 	})
 	require.NoError(t, err)
 
@@ -377,8 +377,8 @@ func TestVerifiableTxByID(t *testing.T) {
 	}
 
 	_, err := db.VerifiableTxByID(&schema.VerifiableTxRequest{
-		Tx:          uint64(1),
-		ProveFromTx: 0,
+		Tx:           uint64(1),
+		ProveSinceTx: 0,
 	})
 	require.NoError(t, err)
 }

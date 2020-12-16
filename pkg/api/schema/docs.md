@@ -351,7 +351,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | keys | [bytes](#bytes) | repeated |  |
-| fromTx | [uint64](#uint64) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -382,7 +382,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  |  |
-| fromTx | [uint64](#uint64) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -825,7 +825,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | keyRequest | [KeyRequest](#immudb.schema.KeyRequest) |  |  |
-| proveFromTx | [uint64](#uint64) |  |  |
+| proveSinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -858,7 +858,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | reference | [Reference](#immudb.schema.Reference) |  |  |
-| proveFromTx | [uint64](#uint64) |  |  |
+| proveSinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -874,7 +874,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | setRequest | [SetRequest](#immudb.schema.SetRequest) |  |  |
-| proveFromTx | [uint64](#uint64) |  |  |
+| proveSinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -907,7 +907,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
-| proveFromTx | [uint64](#uint64) |  |  |
+| proveSinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -923,7 +923,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | zAddRequest | [ZAddRequest](#immudb.schema.ZAddRequest) |  |  |
-| proveFromTx | [uint64](#uint64) |  |  |
+| proveSinceTx | [uint64](#uint64) |  |  |
 
 
 

@@ -227,22 +227,22 @@ message SetRequest {
 
 message KeyRequest {
 	bytes key = 1;
-	uint64 fromTx = 2;
+	uint64 sinceTx = 2;
 }
 
 message KeyListRequest {
 	repeated bytes keys = 1;
-	uint64 fromTx = 2;
+	uint64 sinceTx = 2;
 }
 
 message VerifiableSetRequest {
 	SetRequest setRequest = 1;
-	uint64 proveFromTx = 2;
+	uint64 proveSinceTx = 2;
 }
 
 message VerifiableGetRequest {
 	KeyRequest keyRequest = 1;
-	uint64 proveFromTx = 2;
+	uint64 proveSinceTx = 2;
 }
 
 message HealthResponse {
@@ -264,7 +264,7 @@ message Reference {
 
 message VerifiableReferenceRequest {
 	Reference reference = 1;
-	uint64 proveFromTx = 2;
+	uint64 proveSinceTx = 2;
 }
 
 message ZAddRequest {
@@ -308,7 +308,7 @@ message HistoryRequest {
 
 message VerifiableZAddRequest {
 	ZAddRequest zAddRequest = 1;
-	uint64 proveFromTx = 2;
+	uint64 proveSinceTx = 2;
 }
 
 message TxRequest {
@@ -317,7 +317,7 @@ message TxRequest {
 
 message VerifiableTxRequest {
 	uint64 tx = 1;
-	uint64 proveFromTx = 2;
+	uint64 proveSinceTx = 2;
 }
 
 message Database {

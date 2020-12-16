@@ -154,7 +154,7 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 
 //Get ...
 func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
-	err := d.WaitForIndexingUpto(req.FromTx)
+	err := d.WaitForIndexingUpto(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
@@ -248,12 +248,12 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 
 	var prevTx *store.Tx
 
-	if req.ProveFromTx == 0 {
+	if req.ProveSinceTx == 0 {
 		prevTx = lastTx
 	} else {
 		prevTx = d.tx2
 
-		err = d.st.ReadTx(req.ProveFromTx, prevTx)
+		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
 		if err != nil {
 			return nil, err
 		}
@@ -300,12 +300,12 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 	var rootTx *store.Tx
 
-	if req.ProveFromTx == 0 {
+	if req.ProveSinceTx == 0 {
 		rootTx = txItem
 	} else {
 		rootTx = d.tx2
 
-		err = d.st.ReadTx(req.ProveFromTx, rootTx)
+		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +313,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 	var sourceTx, targetTx *store.Tx
 
-	if req.ProveFromTx <= it.Tx {
+	if req.ProveSinceTx <= it.Tx {
 		sourceTx = rootTx
 		targetTx = txItem
 	} else {
@@ -340,12 +340,12 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 //GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
-	err := d.WaitForIndexingUpto(req.FromTx)
+	err := d.WaitForIndexingUpto(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshot, err := d.st.SnapshotAt(req.FromTx)
+	snapshot, err := d.st.SnapshotSince(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
@@ -422,18 +422,18 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 
 	var rootTx *store.Tx
 
-	if req.ProveFromTx == 0 {
+	if req.ProveSinceTx == 0 {
 		rootTx = reqTx
 	} else {
 		rootTx = d.tx2
 
-		err = d.st.ReadTx(req.ProveFromTx, rootTx)
+		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if req.ProveFromTx <= req.Tx {
+	if req.ProveSinceTx <= req.Tx {
 		sourceTx = rootTx
 		targetTx = reqTx
 	} else {
@@ -457,7 +457,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	snapshot, err := d.st.SnapshotAt(req.FromTx)
+	snapshot, err := d.st.SnapshotSince(req.FromTx)
 	if err != nil {
 		return nil, err
 	}

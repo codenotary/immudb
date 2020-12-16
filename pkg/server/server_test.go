@@ -519,8 +519,8 @@ func testServerSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	it, err := s.Get(ctx, &schema.KeyRequest{
-		Key:    testKey,
-		FromTx: txMetadata.Id,
+		Key:     testKey,
+		SinceTx: txMetadata.Id,
 	})
 	if err != nil {
 		t.Fatalf("Get error %v", err)
@@ -572,7 +572,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: state.TxId,
+			ProveSinceTx: state.TxId,
 		},
 		{
 			SetRequest: &schema.SetRequest{
@@ -583,7 +583,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: state.TxId,
+			ProveSinceTx: state.TxId,
 		},
 		{
 			SetRequest: &schema.SetRequest{
@@ -594,7 +594,7 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 					},
 				},
 			},
-			ProveFromTx: state.TxId,
+			ProveSinceTx: state.TxId,
 		},
 	}
 
@@ -609,8 +609,8 @@ func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 		_, err = s.VerifiableGet(ctx, &schema.VerifiableGetRequest{
 			KeyRequest: &schema.KeyRequest{
-				Key:    val.SetRequest.KVs[0].Key,
-				FromTx: vTx.Tx.Metadata.Id,
+				Key:     val.SetRequest.KVs[0].Key,
+				SinceTx: vTx.Tx.Metadata.Id,
 			},
 		})
 		if err != nil {
@@ -822,7 +822,7 @@ func testServerReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	item, err := s.Get(ctx, &schema.KeyRequest{Key: []byte(`tag`), FromTx: meta.Id})
+	item, err := s.Get(ctx, &schema.KeyRequest{Key: []byte(`tag`), SinceTx: meta.Id})
 	require.NoError(t, err)
 	require.Equal(t, kvs[0].Value, item.Value)
 }
@@ -920,7 +920,7 @@ func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 			Score: &schema.Score{Score: 0},
 			Set:   kvs[0].Value,
 		},
-		ProveFromTx: 0,
+		ProveSinceTx: 0,
 	})
 	require.NoError(t, err)
 
@@ -979,7 +979,7 @@ func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 			Key:       kvs[0].Key,
 			Reference: []byte("key1"),
 		},
-		ProveFromTx: 1,
+		ProveSinceTx: 1,
 	})
 	require.NoError(t, err)
 
@@ -996,7 +996,7 @@ func testServerSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing
 			Key:       kvs[0].Key,
 			Reference: []byte("key1"),
 		},
-		ProveFromTx: 0,
+		ProveSinceTx: 0,
 	})
 	require.Error(t, err)
 }
