@@ -31,39 +31,39 @@ import (
 type ImmuClientMock struct {
 	immuclient.ImmuClient
 
-	GetOptionsF            func() *client.Options
-	IsConnectedF           func() bool
-	HealthCheckF           func(context.Context) error
-	WaitForHealthCheckF    func(context.Context) error
-	ConnectF               func(context.Context) (*grpc.ClientConn, error)
-	DisconnectF            func() error
-	LoginF                 func(context.Context, []byte, []byte) (*schema.LoginResponse, error)
-	LogoutF                func(context.Context) error
-	VerifiedGetF           func(context.Context, []byte, ...grpc.CallOption) (*schema.Item, error)
-	VerifiedSetF           func(context.Context, []byte, []byte) (*schema.TxMetadata, error)
-	SetF                   func(context.Context, []byte, []byte) (*schema.TxMetadata, error)
-	SetReferenceF          func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error)
-	VerifiedSetReferenceF  func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error)
-	ZAddF                  func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error)
-	VerifiedZAddF          func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error)
-	HistoryF               func(context.Context, *schema.HistoryRequest) (*schema.ItemList, error)
-	UseDatabaseF           func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
-	DumpF                  func(context.Context, io.WriteSeeker) (int64, error)
-	CurrentImmutableStateF func(context.Context) (*schema.ImmutableState, error)
-	TxByIDF                func(context.Context, uint64) (*schema.Tx, error)
-	GetF                   func(context.Context, []byte) (*schema.Item, error)
-	VerifiedTxByIDF        func(context.Context, uint64) (*schema.Tx, error)
-	ListUsersF             func(context.Context) (*schema.UserList, error)
-	SetActiveUserF         func(context.Context, *schema.SetActiveUserRequest) error
-	ChangePermissionF      func(context.Context, schema.PermissionAction, string, string, uint32) error
-	ZScanF                 func(context.Context, *schema.ZScanRequest) (*schema.ZItemList, error)
-	IScanF                 func(context.Context, uint64, uint64) (*schema.Page, error)
-	ScanF                  func(context.Context, *schema.ScanRequest) (*schema.ItemList, error)
-	CountF                 func(context.Context, []byte) (*schema.ItemsCount, error)
-	CreateDatabaseF        func(context.Context, *schema.Database) error
-	DatabaseListF          func(context.Context) (*schema.DatabaseListResponse, error)
-	ChangePasswordF        func(context.Context, []byte, []byte, []byte) error
-	CreateUserF            func(context.Context, []byte, []byte, uint32, string) error
+	GetOptionsF           func() *client.Options
+	IsConnectedF          func() bool
+	HealthCheckF          func(context.Context) error
+	WaitForHealthCheckF   func(context.Context) error
+	ConnectF              func(context.Context) (*grpc.ClientConn, error)
+	DisconnectF           func() error
+	LoginF                func(context.Context, []byte, []byte) (*schema.LoginResponse, error)
+	LogoutF               func(context.Context) error
+	VerifiedGetF          func(context.Context, []byte, ...grpc.CallOption) (*schema.Item, error)
+	VerifiedSetF          func(context.Context, []byte, []byte) (*schema.TxMetadata, error)
+	SetF                  func(context.Context, []byte, []byte) (*schema.TxMetadata, error)
+	SetReferenceF         func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error)
+	VerifiedSetReferenceF func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error)
+	ZAddF                 func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error)
+	VerifiedZAddF         func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error)
+	HistoryF              func(context.Context, *schema.HistoryRequest) (*schema.ItemList, error)
+	UseDatabaseF          func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
+	DumpF                 func(context.Context, io.WriteSeeker) (int64, error)
+	CurrentStateF         func(context.Context) (*schema.ImmutableState, error)
+	TxByIDF               func(context.Context, uint64) (*schema.Tx, error)
+	GetF                  func(context.Context, []byte) (*schema.Item, error)
+	VerifiedTxByIDF       func(context.Context, uint64) (*schema.Tx, error)
+	ListUsersF            func(context.Context) (*schema.UserList, error)
+	SetActiveUserF        func(context.Context, *schema.SetActiveUserRequest) error
+	ChangePermissionF     func(context.Context, schema.PermissionAction, string, string, uint32) error
+	ZScanF                func(context.Context, *schema.ZScanRequest) (*schema.ZItemList, error)
+	IScanF                func(context.Context, uint64, uint64) (*schema.Page, error)
+	ScanF                 func(context.Context, *schema.ScanRequest) (*schema.ItemList, error)
+	CountF                func(context.Context, []byte) (*schema.ItemsCount, error)
+	CreateDatabaseF       func(context.Context, *schema.Database) error
+	DatabaseListF         func(context.Context) (*schema.DatabaseListResponse, error)
+	ChangePasswordF       func(context.Context, []byte, []byte, []byte) error
+	CreateUserF           func(context.Context, []byte, []byte, uint32, string) error
 }
 
 // GetOptions ...
@@ -156,9 +156,9 @@ func (icm *ImmuClientMock) Dump(ctx context.Context, writer io.WriteSeeker) (int
 	return icm.DumpF(ctx, writer)
 }
 
-// CurrentImmutableState ...
-func (icm *ImmuClientMock) CurrentImmutableState(ctx context.Context) (*schema.ImmutableState, error) {
-	return icm.CurrentImmutableStateF(ctx)
+// CurrentState ...
+func (icm *ImmuClientMock) CurrentState(ctx context.Context) (*schema.ImmutableState, error) {
+	return icm.CurrentStateF(ctx)
 }
 
 // Get ...

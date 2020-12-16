@@ -672,14 +672,14 @@ func (s *ImmuServer) Health(ctx context.Context, e *empty.Empty) (*schema.Health
 	return s.dbList.GetByIndex(ind).Health(e)
 }
 
-// CurrentImmutableState ...
-func (s *ImmuServer) CurrentImmutableState(ctx context.Context, e *empty.Empty) (*schema.ImmutableState, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "CurrentImmutableState")
+// CurrentState ...
+func (s *ImmuServer) CurrentState(ctx context.Context, e *empty.Empty) (*schema.ImmutableState, error) {
+	ind, err := s.getDbIndexFromCtx(ctx, "CurrentState")
 	if err != nil {
 		return nil, err
 	}
 
-	state, err := s.dbList.GetByIndex(ind).CurrentImmutableState()
+	state, err := s.dbList.GetByIndex(ind).CurrentState()
 	if err != nil {
 		return nil, err
 	}

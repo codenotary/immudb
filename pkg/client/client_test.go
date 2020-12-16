@@ -452,7 +452,7 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.Get(context.TODO(), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.CurrentImmutableState(context.TODO())
+	_, err = client.CurrentState(context.TODO())
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.VerifiedGet(context.TODO(), []byte("key"))

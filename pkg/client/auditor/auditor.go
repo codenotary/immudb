@@ -240,7 +240,7 @@ func (a *defaultAuditor) audit() error {
 	a.logger.Infof("audit #%d - auditing database %s\n", a.index, dbName)
 	a.databaseIndex++
 
-	state, err = a.serviceClient.CurrentImmutableState(ctx, &empty.Empty{})
+	state, err = a.serviceClient.CurrentState(ctx, &empty.Empty{})
 	if err != nil {
 		a.logger.Errorf("error getting current state: %v", err)
 		withError = true

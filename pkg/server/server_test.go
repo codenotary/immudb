@@ -558,7 +558,7 @@ func testServerSetGetError(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func testServerSafeSetGet(ctx context.Context, s *ImmuServer, t *testing.T) {
-	state, err := s.CurrentImmutableState(ctx, &emptypb.Empty{})
+	state, err := s.CurrentState(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -628,7 +628,7 @@ func testServerCurrentRoot(ctx context.Context, s *ImmuServer, t *testing.T) {
 		if err != nil {
 			t.Fatalf("CurrentRoot Error Inserting to db %s", err)
 		}
-		_, err = s.CurrentImmutableState(ctx, &emptypb.Empty{})
+		_, err = s.CurrentState(ctx, &emptypb.Empty{})
 		if err != nil {
 			t.Fatalf("CurrentRoot Error getting current root %s", err)
 		}
@@ -636,7 +636,7 @@ func testServerCurrentRoot(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func testServerCurrentRootError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.CurrentImmutableState(context.Background(), &emptypb.Empty{})
+	_, err := s.CurrentState(context.Background(), &emptypb.Empty{})
 	if err == nil {
 		t.Fatalf("CurrentRoot expected Error")
 	}

@@ -23,7 +23,7 @@ import (
 
 func (i *immuc) CurrentState(args []string) (string, error) {
 	ctx := context.Background()
-	state, err := i.ImmuClient.CurrentImmutableState(ctx)
+	state, err := i.ImmuClient.CurrentState(ctx)
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {

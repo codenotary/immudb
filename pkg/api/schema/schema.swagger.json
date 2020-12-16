@@ -142,7 +142,7 @@
     },
     "/v1/immurestproxy/healthresponse": {
       "get": {
-        "operationId": "ImmuService_CurrentImmutableState",
+        "operationId": "ImmuService_CurrentState",
         "responses": {
           "200": {
             "description": "A successful response.",

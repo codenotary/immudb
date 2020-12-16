@@ -61,7 +61,7 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	},
 	)
 
-	state, err := s.CurrentImmutableState(ctx, &emptypb.Empty{})
+	state, err := s.CurrentState(ctx, &emptypb.Empty{})
 
 	assert.NoError(t, err)
 	assert.IsType(t, &schema.ImmutableState{}, state)

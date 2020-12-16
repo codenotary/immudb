@@ -40,5 +40,5 @@ func NewStateProvider(client schema.ImmuServiceClient) StateProvider {
 func (r *stateProvider) CurrentState(ctx context.Context) (*schema.ImmutableState, error) {
 	var metadata runtime.ServerMetadata
 	var protoReq empty.Empty
-	return r.client.CurrentImmutableState(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return r.client.CurrentState(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 }

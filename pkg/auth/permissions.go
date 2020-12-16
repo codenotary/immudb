@@ -50,7 +50,7 @@ var methodsPermissions = map[string][]uint32{
 	"Count":                  {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"CountAll":               {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DatabaseList":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
-	"CurrentImmutableState":  {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"CurrentState":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 
 	// admin methods
 	"ListUsers":        {PermissionSysAdmin, PermissionAdmin},

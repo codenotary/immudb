@@ -239,7 +239,7 @@ func TestDbSetGet(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCurrentImmutableState(t *testing.T) {
+func TestCurrentState(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
@@ -250,7 +250,7 @@ func TestCurrentImmutableState(t *testing.T) {
 
 		time.Sleep(1 * time.Second)
 
-		state, err := db.CurrentImmutableState()
+		state, err := db.CurrentState()
 		require.NoError(t, err)
 		require.Equal(t, uint64(ind+1), state.TxId)
 	}
@@ -260,7 +260,7 @@ func TestSafeSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	state, err := db.CurrentImmutableState()
+	state, err := db.CurrentState()
 	require.NoError(t, err)
 
 	kv := []*schema.VerifiableSetRequest{

@@ -83,7 +83,7 @@ type ImmuClient interface {
 
 	//
 
-	CurrentImmutableState(ctx context.Context) (*schema.ImmutableState, error)
+	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
 	VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
@@ -463,8 +463,8 @@ func (c *immuClient) Logout(ctx context.Context) error {
 	return err
 }
 
-// CurrentImmutableState returns current database state
-func (c *immuClient) CurrentImmutableState(ctx context.Context) (*schema.ImmutableState, error) {
+// CurrentState returns current database state
+func (c *immuClient) CurrentState(ctx context.Context) (*schema.ImmutableState, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -472,7 +472,7 @@ func (c *immuClient) CurrentImmutableState(ctx context.Context) (*schema.Immutab
 	start := time.Now()
 	defer c.Logger.Debugf("Current state finished in %s", time.Since(start))
 
-	return c.ServiceClient.CurrentImmutableState(ctx, &empty.Empty{})
+	return c.ServiceClient.CurrentState(ctx, &empty.Empty{})
 }
 
 // Get ...

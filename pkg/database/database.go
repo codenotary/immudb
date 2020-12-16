@@ -38,7 +38,7 @@ import (
 
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
-	CurrentImmutableState() (*schema.ImmutableState, error)
+	CurrentState() (*schema.ImmutableState, error)
 	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
 	Get(req *schema.KeyRequest) (*schema.Item, error)
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
@@ -215,8 +215,8 @@ func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
 }
 
-// CurrentImmutableState ...
-func (d *db) CurrentImmutableState() (*schema.ImmutableState, error) {
+// CurrentState ...
+func (d *db) CurrentState() (*schema.ImmutableState, error) {
 	lastTxID, lastTxAlh := d.st.Alh()
 
 	return &schema.ImmutableState{

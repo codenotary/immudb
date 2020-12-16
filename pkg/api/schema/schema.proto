@@ -505,7 +505,7 @@ service ImmuService {
 		};
 	};
 
-	rpc CurrentImmutableState (google.protobuf.Empty) returns (ImmutableState){
+	rpc CurrentState (google.protobuf.Empty) returns (ImmutableState){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/healthresponse"
 		};
