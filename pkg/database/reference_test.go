@@ -68,6 +68,29 @@ func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 	require.Equal(t, []byte(`value1`), tag3.Value)
 }
 
+func TestStoreCyclicReference(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
+	meta, err := db.Set(req)
+
+	ref1, err := db.SetReference(&schema.ReferenceRequest{Reference: []byte(`myTag1`), Key: []byte(`firstKey`), AtTx: meta.Id})
+	require.NoError(t, err)
+
+	_, err = db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref1.Id})
+	require.NoError(t, err)
+
+	ref2, err := db.SetReference(&schema.ReferenceRequest{Reference: []byte(`myTag2`), Key: []byte(`myTag1`)})
+	require.NoError(t, err)
+
+	ref11, err := db.SetReference(&schema.ReferenceRequest{Reference: []byte(`myTag1`), Key: []byte(`myTag2`), AtTx: ref2.Id})
+	require.NoError(t, err)
+
+	_, err = db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref11.Id})
+	require.Error(t, ErrMaxKeyResolutionLimitReached, err)
+}
+
 /*
 func TestStoreReferenceAsyncCommit(t *testing.T) {
 	db, closer := makeDb()

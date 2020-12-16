@@ -28,6 +28,7 @@ import (
 func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+	// TODO: use tx pool
 
 	if req == nil {
 		return nil, store.ErrIllegalArguments
@@ -38,12 +39,12 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 
 	refVal, err := d.getReferenceVal(req, false, d.tx1)
 	if err != nil {
-		return nil, fmt.Errorf("unexpected error %v during %s", err, "Reference")
+		return nil, err
 	}
 
 	meta, err := d.st.Commit([]*store.KV{{Key: req.Reference, Value: refVal}})
 	if err != nil {
-		return nil, fmt.Errorf("unexpected error %v during %s", err, "Reference")
+		return nil, err
 	}
 
 	return schema.TxMetatadaTo(meta), err
@@ -56,20 +57,9 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 }
 
 func (d *db) getReferenceVal(req *schema.ReferenceRequest, skipPersistenceCheck bool, tx *store.Tx) (v []byte, err error) {
-	if req.AtTx > 0 && !skipPersistenceCheck {
-		if err := d.st.ReadTx(req.AtTx, tx); err != nil {
-			return nil, err
-		}
-
-		// check if specific key exists at the referenced at tx
-		if _, err := d.st.ReadValue(tx, req.Key); err != nil {
-			return nil, ErrIndexKeyMismatch
-		}
-	}
-
-	if req.AtTx == 0 && !skipPersistenceCheck {
-		_, err := d.Get(&schema.KeyRequest{Key: req.Key, SinceTx: req.AtTx})
-		if err != nil {
+	if !skipPersistenceCheck {
+		// check if key exists
+		if _, err := d.getAt(req.Key, req.AtTx, 0, d.st, tx); err != nil {
 			return nil, err
 		}
 	}

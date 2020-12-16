@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -35,6 +36,10 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/golang/protobuf/ptypes/empty"
 )
+
+const MaxKeyResolutionLimit = 10
+
+var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
 
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
@@ -159,7 +164,10 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
 		return nil, err
 	}
 
-	return d.getAt(req.Key, req.SinceTx, d.st)
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	return d.getAt(req.Key, req.SinceTx, 0, d.st, d.tx1) //TODO: use tx pool
 }
 
 func (d *db) WaitForIndexingUpto(txID uint64) error {
@@ -185,16 +193,16 @@ type KeyIndex interface {
 	Get(key []byte) (value []byte, tx uint64, err error)
 }
 
-func (d *db) get(key []byte, keyIndex KeyIndex) (item *schema.Item, err error) {
-	return d.getAt(key, 0, keyIndex)
+func (d *db) get(key []byte, keyIndex KeyIndex, tx *store.Tx) (item *schema.Item, err error) {
+	return d.getAt(key, 0, 0, keyIndex, tx)
 }
 
-func (d *db) getAt(key []byte, atTx uint64, keyIndex KeyIndex) (item *schema.Item, err error) {
-	var tx uint64
+func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx *store.Tx) (item *schema.Item, err error) {
+	var ktx uint64
 	var val []byte
 
 	if atTx == 0 {
-		wv, ktx, err := keyIndex.Get(key)
+		wv, wtx, err := keyIndex.Get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -205,7 +213,7 @@ func (d *db) getAt(key []byte, atTx uint64, keyIndex KeyIndex) (item *schema.Ite
 		var hVal [sha256.Size]byte
 		copy(hVal[:], wv[4+8:])
 
-		tx = ktx
+		ktx = wtx
 
 		val = make([]byte, valLen)
 		_, err = d.st.ReadValueAt(val, int64(vOff), hVal)
@@ -213,11 +221,11 @@ func (d *db) getAt(key []byte, atTx uint64, keyIndex KeyIndex) (item *schema.Ite
 			return nil, err
 		}
 	} else {
-		val, err = d.readValue(key, atTx)
+		val, err = d.readValue(key, atTx, tx)
 		if err != nil {
 			return nil, err
 		}
-		tx = atTx
+		ktx = atTx
 	}
 
 	//Reference lookup
@@ -225,22 +233,23 @@ func (d *db) getAt(key []byte, atTx uint64, keyIndex KeyIndex) (item *schema.Ite
 		ref := bytes.TrimPrefix(val, common.ReferencePrefix)
 		key, atTx := common.UnwrapReferenceAt(ref)
 
-		return d.getAt(key, atTx, keyIndex)
+		if resolved == MaxKeyResolutionLimit {
+			return nil, ErrMaxKeyResolutionLimitReached
+		}
+
+		return d.getAt(key, atTx, resolved+1, keyIndex, tx)
 	}
 
-	return &schema.Item{Key: key, Value: val, Tx: tx}, err
+	return &schema.Item{Key: key, Value: val, Tx: ktx}, err
 }
 
-func (d *db) readValue(key []byte, atTx uint64) ([]byte, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	err := d.st.ReadTx(atTx, d.tx1) //TODO: use tx pool
+func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
+	err := d.st.ReadTx(atTx, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	return d.st.ReadValue(d.tx1, key)
+	return d.st.ReadValue(tx, key)
 }
 
 //Health ...
@@ -378,6 +387,9 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
 		return nil, err
 	}
 
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	snapshot, err := d.st.SnapshotSince(req.SinceTx)
 	if err != nil {
 		return nil, err
@@ -387,7 +399,7 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 
 	for _, key := range req.Keys {
-		item, err := d.get(key, snapshot)
+		item, err := d.get(key, snapshot, d.tx1)
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)
