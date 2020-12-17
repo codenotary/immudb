@@ -17,63 +17,101 @@ limitations under the License.
 package database
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/common"
 )
+
+const setLenLen = 8
+const scoreLen = 8
+const txIDLen = 8
 
 // ZAdd adds a score for an existing key in a sorted set
 // As a parameter of ZAddOptions is possible to provide the associated index of the provided key. In this way, when resolving reference, the specified version of the key will be returned.
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
 // If ZAddOptions.index is provided key is optional
-func (d *db) ZAdd(zaddOpts *schema.ZAddRequest) (*schema.TxMetadata, error) {
+func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
-	ik, referenceValue, err := d.getSortedSetKeyVal(zaddOpts, false)
-	if err != nil {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	// check referenced key exists
+	if _, err := d.getAt(req.Key, req.AtTx, 0, d.st, d.tx1); err != nil {
 		return nil, err
 	}
 
-	meta, err := d.st.Commit([]*store.KV{{Key: ik, Value: referenceValue}})
+	zKey := wrapZAddReferenceAt(req.Set, req.Key, req.AtTx, req.Score)
+
+	meta, err := d.st.Commit([]*store.KV{{Key: zKey, Value: nil}})
 
 	return schema.TxMetatadaTo(meta), err
 }
 
+// math.Float64frombits(bits)
+
 // ZScan ...
-func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
-	/*if len(options.Set) == 0 || isReservedKey(options.Set) {
-		return nil, ErrInvalidSet
+func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil || len(req.Set) == 0 {
+		return nil, store.ErrIllegalArguments
 	}
 
-	if isReservedKey(options.Offset) {
-		return nil, ErrInvalidOffset
-	}*/
-
-	offsetKey := common.WrapSeparatorToSet(options.Set)
-
-	// here we compose the offset if Min score filter is provided only if is not reversed order
-	if options.Min != nil && !options.Reverse {
-		offsetKey = common.AppendScoreToSet(options.Set, options.Min.Score)
-	}
-	// here we compose the offset if Max score filter is provided only if is reversed order
-	if options.Max != nil && options.Reverse {
-		offsetKey = common.AppendScoreToSet(options.Set, options.Max.Score)
-	}
-	// if offset is provided by client it takes precedence
-	if len(options.Offset) > 0 {
-		offsetKey = options.Offset
+	if req.Limit > MaxKeyScanLimit {
+		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	r, err := store.NewReader(
-		d.st,
-		store.ReaderSpec{
-			IsPrefix:   true,
-			InitialKey: offsetKey,
-			AscOrder:   options.Reverse,
+	limit := req.Limit
+
+	if req.Limit == 0 {
+		limit = MaxKeyScanLimit
+	}
+
+	prefix := make([]byte, 1+setLenLen+len(req.Set))
+	prefix[0] = sortedSetKeyPrefix
+	binary.BigEndian.PutUint64(prefix[1:], uint64(len(req.Set)))
+	copy(prefix[1+setLenLen:], req.Set)
+
+	var seekKey []byte
+
+	if len(req.SeekKey) == 0 {
+		seekKey = make([]byte, len(prefix)+scoreLen)
+		// here we compose the offset if Min score filter is provided only if is not reversed order
+		if req.MinScore > 0 && !req.Desc {
+			binary.BigEndian.PutUint64(prefix[1+setLenLen+len(req.Set):], math.Float64bits(req.MinScore))
+		}
+		// here we compose the offset if Max score filter is provided only if is reversed order
+		if req.MaxScore > 0 && req.Desc {
+			binary.BigEndian.PutUint64(prefix[1+setLenLen+len(req.Set):], math.Float64bits(req.MaxScore))
+		}
+	} else {
+		seekKey = make([]byte, len(prefix)+scoreLen+len(req.SeekKey))
+		copy(seekKey, prefix)
+		binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.SeekScore))
+		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen:], req.SeekAtTx)
+		copy(seekKey[len(prefix)+scoreLen+txIDLen:], req.SeekKey)
+	}
+
+	snap, err := d.st.SnapshotSince(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Close()
+
+	r, err := d.st.NewReader(
+		snap,
+		&tbtree.ReaderSpec{
+			SeekKey:   seekKey,
+			Prefix:    prefix,
+			DescOrder: req.Desc,
 		})
 	if err != nil {
 		return nil, err
@@ -83,14 +121,8 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 	var items []*schema.ZItem
 	i := uint64(0)
 
-	var limit = options.Limit
-	if limit == 0 {
-		// we're reusing max batch count to enforce the default scan limit
-		limit = math.MaxUint64
-	}
-
 	for {
-		sortedSetItemKey, value, sortedSetItemIndex, err := r.Read()
+		zKey, _, _, err := r.Read()
 		if err == tbtree.ErrNoMoreEntries {
 			break
 		}
@@ -98,53 +130,33 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 			return nil, err
 		}
 
-		refVal, err := d.st.Resolve(value)
-		if err != nil {
-			return nil, err
-		}
-
-		var zitem *schema.ZItem
-		var item *schema.Item
-
-		//Reference lookup
-		if bytes.HasPrefix(sortedSetItemKey, common.SortedSetSeparator) {
-
-			refKey, refAtTx := common.UnwrapReferenceAt(refVal)
-
-			// here check for index reference, if present we resolve reference with itemAt
-			if refAtTx > 0 {
-				if err = d.st.ReadTx(refAtTx, d.tx1); err != nil {
-					return nil, err
-				}
-				val, err := d.st.ReadValue(d.tx1, refKey)
-				if err != nil {
-					return nil, err
-				}
-
-				item = &schema.Item{Key: refKey, Value: val, Tx: refAtTx}
-			} else {
-				item, err = d.Get(&schema.KeyRequest{Key: refKey})
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		if item != nil {
-			zitem = &schema.ZItem{
-				Item:          item,
-				Score:         common.SetKeyScore(sortedSetItemKey, options.Set),
-				CurrentOffset: sortedSetItemKey,
-				Tx:            sortedSetItemIndex,
-			}
-		}
+		// zKey = [1+setLenLen+len(req.Set)+scoreLen+txIDLen+len(req.Key)]
+		scoreOff := 1 + setLenLen + len(req.Set)
+		scoreB := binary.BigEndian.Uint64(zKey[scoreOff:])
+		score := math.Float64frombits(scoreB)
 
 		// Guard to ensure that score match the filter range if filter is provided
-		if options.Min != nil && zitem.Score < options.Min.Score {
+		if req.MinScore > 0 && score < req.MinScore {
 			continue
 		}
-		if options.Max != nil && zitem.Score > options.Max.Score {
+		if req.MaxScore > 0 && score > req.MaxScore {
 			continue
+		}
+
+		atTx := binary.BigEndian.Uint64(zKey[scoreOff+scoreLen:])
+
+		keyOff := scoreOff + scoreLen + txIDLen
+		key := make([]byte, len(zKey)-keyOff)
+		copy(key, zKey[keyOff:])
+
+		item, err := d.getAt(key, atTx, 0, snap, d.tx1)
+
+		zitem := &schema.ZItem{
+			Set:   req.Set,
+			Key:   key,
+			Item:  item,
+			Score: score,
+			AtTx:  atTx,
 		}
 
 		items = append(items, zitem)
@@ -160,52 +172,26 @@ func (d *db) ZScan(options *schema.ZScanRequest) (*schema.ZItemList, error) {
 	return list, nil
 }
 
-//SafeZAdd ...
+//VerifiableZAdd ...
 func (d *db) VerifiableZAdd(opts *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
-	//return d.st.SafeZAdd(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "SafeZAdd")
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableZAdd")
 }
 
-// getSortedSetKeyVal return a key value pair that represent a sorted set entry.
-// If skipPersistenceCheck is true and index is not provided reference lookup is disabled.
-// This is used in Ops, to enable an key value creation with reference insertion in the same transaction.
-func (d *db) getSortedSetKeyVal(zaddOpts *schema.ZAddRequest, skipPersistenceCheck bool) (k, v []byte, err error) {
+func wrapZAddReferenceAt(set, key []byte, atTx uint64, score float64) []byte {
+	zKey := make([]byte, 1+setLenLen+len(set)+scoreLen+txIDLen+len(key))
+	zi := 0
 
-	var referenceValue []byte
-	var index uint64
-	var key []byte
-	if zaddOpts.AtTx > 0 {
-		if !skipPersistenceCheck {
-			if err := d.st.ReadTx(uint64(zaddOpts.AtTx), d.tx1); err != nil {
-				return nil, nil, err
-			}
-			// check if specific key exists at the referenced index
-			if _, err := d.st.ReadValue(d.tx1, zaddOpts.Key); err != nil {
-				return nil, nil, ErrIndexKeyMismatch
-			}
-			key = zaddOpts.Key
-		} else {
-			key = zaddOpts.Key
-		}
-		// here the index is appended the reference value
-		// In case that skipPersistenceCheck == true index need to be assigned carefully
-		index = uint64(zaddOpts.AtTx)
-	} else {
-		i, err := d.Get(&schema.KeyRequest{Key: zaddOpts.Key})
-		if err != nil {
-			return nil, nil, err
-		}
-		if bytes.Compare(i.Key, zaddOpts.Key) != 0 {
-			return nil, nil, ErrIndexKeyMismatch
-		}
-		key = zaddOpts.Key
-		// Index has not to be stored inside the reference if not submitted by the client. This is needed to permit verifications in SDKs
-		index = 0
-	}
-	ik := common.BuildSetKey(key, zaddOpts.Set, zaddOpts.Score.Score, index)
+	zKey[0] = sortedSetKeyPrefix
+	zi++
+	binary.BigEndian.PutUint64(zKey[zi:], uint64(len(set)))
+	zi += setLenLen
+	copy(zKey[zi:], set)
+	zi += len(set)
+	binary.BigEndian.PutUint64(zKey[zi:], math.Float64bits(score))
+	zi += scoreLen
+	binary.BigEndian.PutUint64(zKey[zi:], atTx)
+	zi += txIDLen
+	copy(zKey[zi:], key)
 
-	// append the index to the reference. In this way the resolution will be index based
-	referenceValue = common.WrapReferenceAt(key, index)
-
-	return ik, referenceValue, err
+	return zKey
 }

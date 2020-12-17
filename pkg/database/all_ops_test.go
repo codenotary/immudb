@@ -1,10 +1,11 @@
 package database
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/stretchr/testify/assert"
 )
 
 /*
@@ -132,7 +133,7 @@ func TestExecAllOps(t *testing.T) {
 				Operation: &schema.Op_ZAdd{
 					ZAdd: &schema.ZAddRequest{
 						Set:   []byte(`mySet`),
-						Score: &schema.Score{Score: 0.6},
+						Score: 0.6,
 						Key:   atomicOps[i].Operation.(*schema.Op_Kv).Kv.Key,
 						AtTx:  0,
 					},
@@ -140,7 +141,7 @@ func TestExecAllOps(t *testing.T) {
 			}
 		}
 
-		idx, err := db.ExecAllOps(&schema.Ops{Operations: atomicOps})
+		idx, err := db.ExecAll(&schema.ExecAllRequest{Operations: atomicOps})
 		assert.NoError(t, err)
 		assert.Equal(t, uint64((b+1)*batchSize*2), idx.Id+1)
 	}

@@ -21,91 +21,99 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-// ExecAllOps like SetBatch it permits many insertions at once.
+// ExecAll like Set it permits many insertions at once.
 // The difference is that is possible to to specify a list of a mix of key value set and zAdd insertions.
 // If zAdd reference is not yet present on disk it's possible to add it as a regular key value and the reference is done onFly
-func (d *db) ExecAllOps(ops *schema.Ops) (*schema.TxMetadata, error) {
-	if err := ops.Validate(); err != nil {
+func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
-	//var kvList schema.KVList
-	tsEntriesKv := make([]*schema.KeyValue, 0)
+	snap, err := d.st.SnapshotSince(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Close()
+
+	entries := make([]*store.KV, len(req.Operations))
 
 	// In order to:
 	// * make a memory efficient check system for keys that need to be referenced
 	// * store the index of the future persisted zAdd referenced entries
 	// we build a map in which we store sha256 sum as key and the index as value
-	kmap := make(map[[32]byte]bool)
+	kmap := make(map[[sha256.Size]byte]bool)
 
-	for _, op := range ops.Operations {
+	for _, op := range req.Operations {
 		if op == nil {
 			return nil, store.ErrIllegalArguments
 		}
+
+		kv := &store.KV{}
 
 		switch x := op.Operation.(type) {
 
 		case *schema.Op_Kv:
 			kmap[sha256.Sum256(x.Kv.Key)] = true
-			tsEntriesKv = append(tsEntriesKv, x.Kv)
 
-		case *schema.Op_ZAdd:
-			// zAdd arguments are converted in regular key value items and then atomically inserted
-			skipPersistenceCheck := false
-
-			if _, exists := kmap[sha256.Sum256(x.ZAdd.Key)]; exists {
-				skipPersistenceCheck = true
-				x.ZAdd.AtTx = d.tx1.ID // ??
-			} else if x.ZAdd.AtTx == 0 {
-				return nil, ErrZAddIndexMissing
+			kv = &store.KV{
+				Key:   wrapWithPrefix(x.Kv.Key, setKeyPrefix),
+				Value: wrapWithPrefix(x.Kv.Value, plainValuePrefix),
 			}
-			// if skipPersistenceCheck is true it means that the reference will be done with a key value that is not yet
-			// persisted in the store, but it's present in the previous key value list.
-			// if skipPersistenceCheck is false it means that the reference is already persisted on disk.
-			k, v, err := d.getSortedSetKeyVal(x.ZAdd, skipPersistenceCheck)
-			if err != nil {
-				return nil, err
-			}
-
-			kv := &schema.KeyValue{
-				Key:   k,
-				Value: v,
-			}
-			tsEntriesKv = append(tsEntriesKv, kv)
 
 		case *schema.Op_Ref:
 			// reference arguments are converted in regular key value items and then atomically inserted
-			skipPersistenceCheck := false
+			_, exists := kmap[sha256.Sum256(x.Ref.Key)]
 
-			if _, exists := kmap[sha256.Sum256(x.Ref.Key)]; exists {
-				skipPersistenceCheck = true
-				x.Ref.AtTx = d.tx1.ID // ??
-			} else if x.Ref.AtTx == 0 {
-				return nil, ErrReferenceIndexMissing
+			if !exists {
+				// check referenced key exists
+				_, err := d.getAt(x.Ref.Key, x.Ref.AtTx, 0, snap, d.tx1)
+				if err != nil {
+					return nil, err
+				}
 			}
 
-			// if skipPersistenceCheck is true it means that the reference will be done with a key value that is not yet
-			// persisted in the store, but it's present in the previous key value list.
-			// if skipPersistenceCheck is false it means that the reference is already persisted on disk.
-			v, err := d.getReferenceVal(x.Ref, skipPersistenceCheck, d.tx1)
-			if err != nil {
-				return nil, err
+			kv = &store.KV{
+				Key:   wrapWithPrefix(x.Ref.Reference, setKeyPrefix),
+				Value: wrapReferenceValueAt(x.Ref.Key, x.Ref.AtTx),
 			}
 
-			kv := &schema.KeyValue{
-				Key:   x.Ref.Reference,
-				Value: v,
+		case *schema.Op_ZAdd:
+			// zAdd arguments are converted in regular key value items and then atomically inserted
+			_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
+
+			if !exists {
+				// check referenced key exists
+				_, err := d.getAt(x.ZAdd.Key, x.ZAdd.AtTx, 0, snap, d.tx1)
+				if err != nil {
+					return nil, err
+				}
 			}
-			tsEntriesKv = append(tsEntriesKv, kv)
+
+			kv = &store.KV{
+				Key:   wrapZAddReferenceAt(x.ZAdd.Set, x.ZAdd.Key, x.ZAdd.AtTx, x.ZAdd.Score),
+				Value: nil,
+			}
 
 		default:
-			return nil, status.Newf(codes.InvalidArgument, "batch operation has unexpected type %T", x).Err()
+			return nil, store.ErrIllegalArguments
 		}
+
+		entries = append(entries, kv)
 	}
 
-	return d.Set(&schema.SetRequest{KVs: tsEntriesKv})
+	txMetatadata, err := d.st.Commit(entries)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.TxMetatadaTo(txMetatadata), nil
 }

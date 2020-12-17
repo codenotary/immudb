@@ -17,57 +17,53 @@ limitations under the License.
 package database
 
 import (
-	"bytes"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/common"
-	"math"
 )
 
 //Scan ...
-func (d *db) Scan(options *schema.ScanRequest) (*schema.ItemList, error) {
-	/*if isReservedKey(options.Prefix) {
-		return nil, ErrInvalidKeyPrefix
+func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, store.ErrIllegalArguments
 	}
 
-	if isReservedKey(options.Offset) {
-		return nil, ErrInvalidOffset
+	if req.Limit > MaxKeyScanLimit {
+		return nil, ErrMaxKeyScanLimitExceeded
 	}
-	*/
 
-	//offsettedKey := options.Prefix
+	limit := req.Limit
 
-	/*if len(options.Offset) > 0 {
-		offsettedKey = options.Offset
-	}*/
-
-	/*if options.Reverse {
-		offsettedKey = append(offsettedKey, 0xFF)
-	}*/
-
-	var limit = options.Limit
-	if limit == 0 {
-		limit = math.MaxUint64
+	if req.Limit == 0 {
+		limit = MaxKeyScanLimit
 	}
 
 	var items []*schema.Item
 	i := uint64(0)
 
-	r, err := store.NewReader(
-		d.st,
-		store.ReaderSpec{
-			IsPrefix:   true,
-			InitialKey: options.Prefix,
-			AscOrder:   options.Reverse,
+	snap, err := d.st.SnapshotSince(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Close()
+
+	r, err := d.st.NewReader(
+		snap,
+		&tbtree.ReaderSpec{
+			SeekKey:   wrapWithPrefix(req.SeekKey, setKeyPrefix),
+			Prefix:    wrapWithPrefix(req.Prefix, setKeyPrefix),
+			DescOrder: req.Desc,
 		})
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
+
 	for {
-		var item *schema.Item
-		key, val, tx, err := r.Read()
+		key, _, tx, err := r.Read()
 		if err == tbtree.ErrNoMoreEntries {
 			break
 		}
@@ -75,23 +71,9 @@ func (d *db) Scan(options *schema.ScanRequest) (*schema.ItemList, error) {
 			return nil, err
 		}
 
-		//Reference lookup
-		if bytes.HasPrefix(key, common.SortedSetSeparator) {
-
-		} else {
-			var value []byte
-			value, err := d.st.Resolve(val)
-			if err != nil {
-				return nil, err
-			}
-			item = &schema.Item{
-				Key:   key,
-				Value: value,
-				Tx:    tx,
-			}
-			if err != nil {
-				return nil, err
-			}
+		item, err := d.getAt(key, tx, 0, snap, d.tx1)
+		if err != nil {
+			return nil, err
 		}
 
 		items = append(items, item)

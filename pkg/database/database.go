@@ -17,18 +17,14 @@ limitations under the License.
 package database
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/codenotary/immudb/pkg/common"
 
 	"github.com/codenotary/immudb/embedded/store"
 
@@ -38,8 +34,10 @@ import (
 )
 
 const MaxKeyResolutionLimit = 10
+const MaxKeyScanLimit = 1000
 
 var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
+var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
 
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
@@ -49,10 +47,10 @@ type DB interface {
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
 	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error)
 	GetAll(req *schema.KeyListRequest) (*schema.ItemList, error)
-	ExecAllOps(operations *schema.Ops) (*schema.TxMetadata, error)
+	ExecAll(operations *schema.ExecAllRequest) (*schema.TxMetadata, error)
 	Size() (uint64, error)
 	Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error)
-	CountAll() *schema.ItemsCount
+	CountAll() (*schema.ItemsCount, error)
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
 	History(req *schema.HistoryRequest) (*schema.ItemList, error)
@@ -62,8 +60,6 @@ type DB interface {
 	ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error)
 	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
 	Scan(req *schema.ScanRequest) (*schema.ItemList, error)
-	IScan(req *schema.IScanRequest) (*schema.Page, error)
-	//Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error
 	PrintTree() (*schema.Tree, error)
 	Close() error
 	GetOptions() *DbOptions
@@ -146,7 +142,11 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 	entries := make([]*store.KV, len(req.KVs))
 
 	for i, kv := range req.KVs {
-		entries[i] = &store.KV{Key: kv.Key, Value: kv.Value}
+		if len(kv.Key) == 0 {
+			return nil, store.ErrIllegalArguments
+		}
+
+		entries[i] = &store.KV{Key: wrapWithPrefix(kv.Key, setKeyPrefix), Value: wrapWithPrefix(kv.Value, plainValuePrefix)}
 	}
 
 	txMetatadata, err := d.st.Commit(entries)
@@ -229,15 +229,16 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 	}
 
 	//Reference lookup
-	if bytes.HasPrefix(val, common.ReferencePrefix) {
-		ref := bytes.TrimPrefix(val, common.ReferencePrefix)
-		key, atTx := common.UnwrapReferenceAt(ref)
-
+	if val[0] == referenceValuePrefix {
 		if resolved == MaxKeyResolutionLimit {
 			return nil, ErrMaxKeyResolutionLimitReached
 		}
 
-		return d.getAt(key, atTx, resolved+1, keyIndex, tx)
+		atTx := binary.BigEndian.Uint64(val[1:])
+		refKey := make([]byte, len(val)-1-8)
+		copy(refKey, val[1+8:])
+
+		return d.getAt(refKey, atTx, resolved+1, keyIndex, tx)
 	}
 
 	return &schema.Item{Key: key, Value: val, Tx: ktx}, err
@@ -419,13 +420,12 @@ func (d *db) Size() (uint64, error) {
 
 //Count ...
 func (d *db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
-	//return d.st.Count(*prefix)
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
 }
 
 // CountAll ...
-func (d *db) CountAll() *schema.ItemsCount {
-	return &schema.ItemsCount{Count: d.st.TxCount()}
+func (d *db) CountAll() (*schema.ItemsCount, error) {
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
 }
 
 // TxByID ...
@@ -502,15 +502,20 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	snapshot, err := d.st.SnapshotSince(req.FromTx)
+	snapshot, err := d.st.SnapshotSince(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
 	defer snapshot.Close()
 
-	limit := math.MaxInt64
-	if req.Limit > 0 {
-		limit = int(req.Offset + req.Limit)
+	if req.Limit > MaxKeyScanLimit {
+		return nil, ErrMaxKeyScanLimitExceeded
+	}
+
+	limit := req.Limit
+
+	if req.Limit == 0 {
+		limit = MaxKeyScanLimit
 	}
 
 	tss, err := snapshot.GetTs(req.Key, int64(limit))
@@ -535,7 +540,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 
 		item := &schema.Item{Key: req.Key, Value: val, Tx: ts}
 
-		if req.Reverse {
+		if req.Desc {
 			list.Items = append([]*schema.Item{item}, list.Items...)
 		} else {
 			list.Items = append(list.Items, item)
@@ -544,40 +549,6 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 
 	return list, nil
 }
-
-//IScan ...
-func (d *db) IScan(req *schema.IScanRequest) (*schema.Page, error) {
-	//return d.st.IScan(*opts)
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "IScan")
-}
-
-//Dump ...
-/*
-func (d *db) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
-		kvChan := make(chan *pb.KVList)
-		done := make(chan bool)
-
-		retrieveLists := func() {
-			for {
-				list, more := <-kvChan
-				if more {
-					stream.Send(list)
-				} else {
-					done <- true
-					return
-				}
-			}
-		}
-
-		go retrieveLists()
-		err := d.st.Dump(kvChan)
-		<-done
-
-		d.Logger.Debugf("Dump stream complete")
-		return err
-	return fmt.Errorf("Functionality not yet supported: %s", "Dump")
-}
-*/
 
 //Close ...
 func (d *db) Close() error {

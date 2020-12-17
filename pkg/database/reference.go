@@ -17,11 +17,11 @@ limitations under the License.
 package database
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/common"
 )
 
 //Reference ...
@@ -30,19 +30,20 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	defer d.mutex.Unlock()
 	// TODO: use tx pool
 
-	if req == nil {
+	if req == nil || len(req.Reference) == 0 || len(req.Key) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
-	if req.Key == nil {
-		return nil, ErrReferenceKeyMissing
-	}
 
-	refVal, err := d.getReferenceVal(req, false, d.tx1)
+	// check referenced key exists
+	_, err := d.getAt(req.Key, req.AtTx, 0, d.st, d.tx1)
 	if err != nil {
 		return nil, err
 	}
 
-	meta, err := d.st.Commit([]*store.KV{{Key: req.Reference, Value: refVal}})
+	refKey := wrapWithPrefix(req.Reference, setKeyPrefix)
+	refVal := wrapReferenceValueAt(req.Key, req.AtTx)
+
+	meta, err := d.st.Commit([]*store.KV{{Key: refKey, Value: refVal}})
 	if err != nil {
 		return nil, err
 	}
@@ -55,16 +56,12 @@ func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*sc
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableSetReference")
 }
 
-func (d *db) getReferenceVal(req *schema.ReferenceRequest, skipPersistenceCheck bool, tx *store.Tx) (v []byte, err error) {
-	if !skipPersistenceCheck {
-		// check if key exists
-		if _, err := d.getAt(req.Key, req.AtTx, 0, d.st, tx); err != nil {
-			return nil, err
-		}
-	}
+func wrapReferenceValueAt(key []byte, atTx uint64) []byte {
+	refVal := make([]byte, 1+8+len(key))
 
-	v = common.WrapReferenceAt(req.Key, req.AtTx)
-	v = common.WrapPrefix(v, common.ReferencePrefix)
+	refVal[0] = referenceValuePrefix
+	binary.BigEndian.PutUint64(refVal[1:], atTx)
+	copy(refVal[1+8:], key)
 
-	return v, err
+	return refVal
 }

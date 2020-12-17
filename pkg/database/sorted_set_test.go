@@ -17,12 +17,9 @@ limitations under the License.
 package database
 
 import (
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +35,7 @@ func TestStoreIndexExists(t *testing.T) {
 	zaddOpts1 := &schema.ZAddRequest{
 		Key:   []byte(`myFirstElementKey`),
 		Set:   []byte(`firstIndex`),
-		Score: &schema.Score{Score: float64(14.6)},
+		Score: float64(14.6),
 	}
 
 	//db.WaitForIndexingUpto(idx1.Id)
@@ -53,7 +50,7 @@ func TestStoreIndexExists(t *testing.T) {
 	zaddOpts2 := &schema.ZAddRequest{
 		Key:   []byte(`mySecondElementKey`),
 		Set:   []byte(`firstIndex`),
-		Score: &schema.Score{Score: float64(6)},
+		Score: float64(6),
 	}
 
 	reference2, err2 := db.ZAdd(zaddOpts2)
@@ -66,7 +63,7 @@ func TestStoreIndexExists(t *testing.T) {
 	zaddOpts3 := &schema.ZAddRequest{
 		Key:   []byte(`myThirdElementKey`),
 		Set:   []byte(`firstIndex`),
-		Score: &schema.Score{Score: float64(14.5)},
+		Score: float64(14.5),
 	}
 
 	reference3, err3 := db.ZAdd(zaddOpts3)
@@ -79,8 +76,8 @@ func TestStoreIndexExists(t *testing.T) {
 	//try to retrieve directly the value or full scan to debug
 
 	zscanOpts1 := &schema.ZScanRequest{
-		Set:     []byte(`firstIndex`),
-		Reverse: true,
+		Set:  []byte(`firstIndex`),
+		Desc: true,
 	}
 
 	itemList1, err := db.ZScan(zscanOpts1)
@@ -115,7 +112,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: float64(1)},
+		Score: float64(1),
 		Key:   []byte(`SignerId1`),
 		AtTx:  i1.Id,
 	}
@@ -129,7 +126,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	zaddOpts2 := &schema.ZAddRequest{
 		Key:   []byte(`SignerId1`),
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: float64(2)},
+		Score: float64(2),
 		AtTx:  i2.Id,
 	}
 
@@ -142,7 +139,7 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	zaddOpts3 := &schema.ZAddRequest{
 		Key:   []byte(`SignerId2`),
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: float64(3)},
+		Score: float64(3),
 		AtTx:  i3.Id,
 	}
 
@@ -153,8 +150,8 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts1 := &schema.ZScanRequest{
-		Set:     []byte(`hashA`),
-		Reverse: false,
+		Set:  []byte(`hashA`),
+		Desc: false,
 	}
 
 	//db.WaitForIndexingUpto(reference3.Id)
@@ -181,7 +178,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: score},
+		Score: score,
 		Key:   []byte(`SignerId1`),
 		AtTx:  i1.Id,
 	}
@@ -195,7 +192,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	zaddOpts2 := &schema.ZAddRequest{
 		Key:   []byte(`SignerId1`),
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: score},
+		Score: score,
 		AtTx:  i2.Id,
 	}
 
@@ -208,7 +205,7 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	zaddOpts3 := &schema.ZAddRequest{
 		Key:   []byte(`SignerId2`),
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: score},
+		Score: score,
 		AtTx:  i3.Id,
 	}
 
@@ -219,8 +216,8 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts1 := &schema.ZScanRequest{
-		Set:     []byte(`hashA`),
-		Reverse: false,
+		Set:  []byte(`hashA`),
+		Desc: false,
 	}
 
 	itemList1, err := db.ZScan(zscanOpts1)
@@ -244,7 +241,7 @@ func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: float64(1)},
+		Score: float64(1),
 		Key:   []byte(`WrongKey`),
 		AtTx:  i1.Id,
 	}
@@ -277,37 +274,37 @@ func TestStore_ZScanPagination(t *testing.T) {
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(1)},
+		Score: float64(1),
 		Key:   []byte(`key1`),
 		AtTx:  i1.Id,
 	}
 	zaddOpts2 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(1)},
+		Score: float64(1),
 		Key:   []byte(`key2`),
 		AtTx:  i2.Id,
 	}
 	zaddOpts3 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(2)},
+		Score: float64(2),
 		Key:   []byte(`key3`),
 		AtTx:  i3.Id,
 	}
 	zaddOpts4 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(2)},
+		Score: float64(2),
 		Key:   []byte(`key4`),
 		AtTx:  i4.Id,
 	}
 	zaddOpts5 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(2)},
+		Score: float64(2),
 		Key:   []byte(`key5`),
 		AtTx:  i5.Id,
 	}
 	zaddOpts6 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(3)},
+		Score: float64(3),
 		Key:   []byte(`key6`),
 		AtTx:  i6.Id,
 	}
@@ -320,12 +317,12 @@ func TestStore_ZScanPagination(t *testing.T) {
 	db.ZAdd(zaddOpts6)
 
 	zScanOption1 := &schema.ZScanRequest{
-		Set:     setName,
-		Offset:  nil,
-		Limit:   2,
-		Reverse: false,
-		Min:     &schema.Score{Score: 2},
-		Max:     &schema.Score{Score: 3},
+		Set:      setName,
+		SeekKey:  nil,
+		Limit:    2,
+		Desc:     false,
+		MinScore: 2,
+		MaxScore: 3,
 	}
 
 	list1, err := db.ZScan(zScanOption1)
@@ -334,13 +331,17 @@ func TestStore_ZScanPagination(t *testing.T) {
 	require.Equal(t, list1.Items[0].Item.Key, []byte(`key3`))
 	require.Equal(t, list1.Items[1].Item.Key, []byte(`key4`))
 
+	lastItem := list1.Items[len(list1.Items)-1]
+
 	zScanOption2 := &schema.ZScanRequest{
-		Set:     setName,
-		Offset:  list1.Items[len(list1.Items)-1].CurrentOffset,
-		Limit:   2,
-		Reverse: false,
-		Min:     &schema.Score{Score: 2},
-		Max:     &schema.Score{Score: 3},
+		Set:       setName,
+		SeekKey:   lastItem.Key,
+		SeekScore: lastItem.Score,
+		SeekAtTx:  lastItem.AtTx,
+		Limit:     2,
+		Desc:      false,
+		MinScore:  2,
+		MaxScore:  3,
 	}
 
 	list, err := db.ZScan(zScanOption2)
@@ -372,37 +373,37 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(1)},
+		Score: float64(1),
 		Key:   []byte(`key1`),
 		AtTx:  i1.Id,
 	}
 	zaddOpts2 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(1)},
+		Score: float64(1),
 		Key:   []byte(`key2`),
 		AtTx:  i2.Id,
 	}
 	zaddOpts3 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(2)},
+		Score: float64(2),
 		Key:   []byte(`key3`),
 		AtTx:  i3.Id,
 	}
 	zaddOpts4 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(2)},
+		Score: float64(2),
 		Key:   []byte(`key4`),
 		AtTx:  i4.Id,
 	}
 	zaddOpts5 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(2)},
+		Score: float64(2),
 		Key:   []byte(`key5`),
 		AtTx:  i5.Id,
 	}
 	zaddOpts6 := &schema.ZAddRequest{
 		Set:   setName,
-		Score: &schema.Score{Score: float64(3)},
+		Score: float64(3),
 		Key:   []byte(`key6`),
 		AtTx:  i6.Id,
 	}
@@ -415,12 +416,12 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 	db.ZAdd(zaddOpts6)
 
 	zScanOption1 := &schema.ZScanRequest{
-		Set:     setName,
-		Offset:  nil,
-		Limit:   2,
-		Reverse: true,
-		Min:     &schema.Score{Score: 2},
-		Max:     &schema.Score{Score: 3},
+		Set:      setName,
+		SeekKey:  nil,
+		Limit:    2,
+		Desc:     true,
+		MinScore: 2,
+		MaxScore: 3,
 	}
 
 	list1, err := db.ZScan(zScanOption1)
@@ -429,13 +430,17 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 	require.Equal(t, list1.Items[0].Item.Key, []byte(`key6`))
 	require.Equal(t, list1.Items[1].Item.Key, []byte(`key5`))
 
+	lastItem := list1.Items[len(list1.Items)-1]
+
 	zScanOption2 := &schema.ZScanRequest{
-		Set:     setName,
-		Offset:  list1.Items[len(list1.Items)-1].CurrentOffset,
-		Limit:   2,
-		Reverse: true,
-		Min:     &schema.Score{Score: 2},
-		Max:     &schema.Score{Score: 3},
+		Set:       setName,
+		SeekKey:   lastItem.Key,
+		SeekScore: lastItem.Score,
+		SeekAtTx:  lastItem.AtTx,
+		Limit:     2,
+		Desc:      true,
+		MinScore:  2,
+		MaxScore:  3,
 	}
 
 	list2, err := db.ZScan(zScanOption2)
@@ -443,19 +448,6 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 	require.Len(t, list2.Items, 2)
 	require.Equal(t, list2.Items[0].Item.Key, []byte(`key4`))
 	require.Equal(t, list2.Items[1].Item.Key, []byte(`key3`))
-}
-
-func TestFloat(t *testing.T) {
-	s := rand.NewSource(time.Now().UnixNano())
-	r := rand.New(s)
-
-	for i := 0; i < 100; i++ {
-		n := r.Float64()
-		bs := common.Float642bytes(n)
-		require.NotNil(t, bs)
-		require.True(t, len(bs) == 8)
-		require.Equal(t, n, common.Bytes2float(bs))
-	}
 }
 
 /*func TestStore_ZScanInvalidSet(t *testing.T) {
@@ -493,29 +485,29 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 
 	db.ZAdd(&schema.ZAddRequest{
 		Set:   []byte(`mySet`),
-		Score: &schema.Score{Score: 0},
+		Score: 0,
 		Key:   []byte(`key1`),
 		AtTx:  idx2.Id,
 	})
 	db.ZAdd(&schema.ZAddRequest{
 		Set:   []byte(`mySet`),
-		Score: &schema.Score{Score: 0},
+		Score: 0,
 		Key:   []byte(`key1`),
 		AtTx:  idx0.Id,
 	})
 	db.ZAdd(&schema.ZAddRequest{
 		Set:   []byte(`mySet`),
-		Score: &schema.Score{Score: 0},
+		Score: 0,
 		Key:   []byte(`key2`),
 	})
 	db.ZAdd(&schema.ZAddRequest{
 		Set:   []byte(`mySet`),
-		Score: &schema.Score{Score: 0},
+		Score: 0,
 		Key:   []byte(`key3`),
 	})
 	db.ZAdd(&schema.ZAddRequest{
 		Set:   []byte(`mySet`),
-		Score: &schema.Score{Score: 0},
+		Score: 0,
 		Key:   []byte(`key1`),
 		AtTx:  idx4.Id,
 	})
@@ -545,7 +537,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: float64(1)},
+		Score: float64(1),
 		AtTx:  i1.Id,
 	}
 
@@ -557,7 +549,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 
 	zaddOpts2 := &schema.ZAddRequest{
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: float64(2)},
+		Score: float64(2),
 		AtTx:  i2.Id,
 	}
 
@@ -569,7 +561,7 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 
 	zaddOpts3 := &schema.ZAddRequest{
 		Set:   []byte(`hashA`),
-		Score: &schema.Score{Score: float64(3)},
+		Score: float64(3),
 		AtTx:  i3.Id,
 	}
 
@@ -580,8 +572,8 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts1 := &schema.ZScanRequest{
-		Set:     []byte(`hashA`),
-		Reverse: false,
+		Set:  []byte(`hashA`),
+		Desc: false,
 	}
 
 	itemList1, err := db.ZScan(zscanOpts1)

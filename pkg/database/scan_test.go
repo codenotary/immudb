@@ -15,22 +15,20 @@ func TestStoreScan(t *testing.T) {
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`bbb`), Value: []byte(`item2`)}}})
 
-	txID, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`abc`), Value: []byte(`item3`)}}})
+	meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`abc`), Value: []byte(`item3`)}}})
 	require.NoError(t, err)
 
-	item, err := db.Get(&schema.KeyRequest{Key: []byte(`abc`), SinceTx: txID.Id})
+	item, err := db.Get(&schema.KeyRequest{Key: []byte(`abc`), SinceTx: meta.Id})
 	require.Equal(t, []byte(`abc`), item.Key)
 	require.NoError(t, err)
 
 	scanOptions := schema.ScanRequest{
-		Prefix:  []byte(`a`),
-		Offset:  nil,
+		SeekKey: []byte(`a`),
+		Prefix:  nil,
 		Limit:   0,
-		Reverse: true,
-		Deep:    false,
+		Desc:    true,
+		SinceTx: meta.Id,
 	}
-
-	//db.WaitForIndexingUpto(txID.Id)
 
 	list, err := db.Scan(&scanOptions)
 
@@ -42,11 +40,11 @@ func TestStoreScan(t *testing.T) {
 	assert.Equal(t, list.Items[1].Value, []byte(`item3`))
 
 	scanOptions1 := schema.ScanRequest{
-		Prefix:  []byte(`a`),
-		Offset:  nil,
+		SeekKey: []byte(`a`),
+		Prefix:  nil,
 		Limit:   0,
-		Reverse: false,
-		Deep:    false,
+		Desc:    false,
+		SinceTx: meta.Id,
 	}
 
 	list1, err1 := db.Scan(&scanOptions1)
