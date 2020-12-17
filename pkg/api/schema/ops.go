@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (m *Ops) Validate() error {
+func (m *ExecAllRequest) Validate() error {
 	if len(m.GetOperations()) == 0 {
 		return ErrEmptySet
 	}

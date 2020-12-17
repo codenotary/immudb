@@ -396,8 +396,8 @@ func local_request_ImmuService_GetAll_0(ctx context.Context, marshaler runtime.M
 
 }
 
-func request_ImmuService_ExecAllOps_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq Ops
+func request_ImmuService_ExecAll_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ExecAllRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -408,13 +408,13 @@ func request_ImmuService_ExecAllOps_0(ctx context.Context, marshaler runtime.Mar
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.ExecAllOps(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.ExecAll(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ImmuService_ExecAllOps_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq Ops
+func local_request_ImmuService_ExecAll_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ExecAllRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -425,7 +425,7 @@ func local_request_ImmuService_ExecAllOps_0(ctx context.Context, marshaler runti
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.ExecAllOps(ctx, &protoReq)
+	msg, err := server.ExecAll(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -902,40 +902,6 @@ func local_request_ImmuService_ZScan_0(ctx context.Context, marshaler runtime.Ma
 
 }
 
-func request_ImmuService_IScan_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq IScanRequest
-	var metadata runtime.ServerMetadata
-
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
-	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	msg, err := client.IScan(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
-
-}
-
-func local_request_ImmuService_IScan_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq IScanRequest
-	var metadata runtime.ServerMetadata
-
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
-	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	msg, err := server.IScan(ctx, &protoReq)
-	return msg, metadata, err
-
-}
-
 func request_ImmuService_CreateDatabase_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq Database
 	var metadata runtime.ServerMetadata
@@ -1362,7 +1328,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_ExecAllOps_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuService_ExecAll_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -1373,7 +1339,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ImmuService_ExecAllOps_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ImmuService_ExecAll_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -1381,7 +1347,7 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_ImmuService_ExecAllOps_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuService_ExecAll_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -1681,29 +1647,6 @@ func RegisterImmuServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		}
 
 		forward_ImmuService_ZScan_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("POST", pattern_ImmuService_IScan_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		var stream runtime.ServerTransportStream
-		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := local_request_ImmuService_IScan_0(rctx, inboundMarshaler, server, req, pathParams)
-		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
-		ctx = runtime.NewServerMetadataContext(ctx, md)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_ImmuService_IScan_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -2063,7 +2006,7 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_ExecAllOps_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_ImmuService_ExecAll_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -2072,14 +2015,14 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ImmuService_ExecAllOps_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ImmuService_ExecAll_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ImmuService_ExecAllOps_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ImmuService_ExecAll_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -2343,26 +2286,6 @@ func RegisterImmuServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
-	mux.Handle("POST", pattern_ImmuService_IScan_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_ImmuService_IScan_0(rctx, inboundMarshaler, client, req, pathParams)
-		ctx = runtime.NewServerMetadataContext(ctx, md)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_ImmuService_IScan_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
 	mux.Handle("POST", pattern_ImmuService_CreateDatabase_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -2487,7 +2410,7 @@ var (
 
 	pattern_ImmuService_GetAll_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "batch", "get"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_ExecAllOps_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"v1", "immurestproxy", "batch", "atomic", "set"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuService_ExecAll_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"v1", "immurestproxy", "batch", "atomic", "set"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_Scan_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "item", "scan"}, "", runtime.AssumeColonVerbOpt(true)))
 
@@ -2514,8 +2437,6 @@ var (
 	pattern_ImmuService_VerifiableZAdd_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "safe", "zadd"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_ZScan_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "zscan"}, "", runtime.AssumeColonVerbOpt(true)))
-
-	pattern_ImmuService_IScan_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "iscan"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_CreateDatabase_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "immurestproxy", "createdatabase"}, "", runtime.AssumeColonVerbOpt(true)))
 
@@ -2549,7 +2470,7 @@ var (
 
 	forward_ImmuService_GetAll_0 = runtime.ForwardResponseMessage
 
-	forward_ImmuService_ExecAllOps_0 = runtime.ForwardResponseMessage
+	forward_ImmuService_ExecAll_0 = runtime.ForwardResponseMessage
 
 	forward_ImmuService_Scan_0 = runtime.ForwardResponseMessage
 
@@ -2576,8 +2497,6 @@ var (
 	forward_ImmuService_VerifiableZAdd_0 = runtime.ForwardResponseMessage
 
 	forward_ImmuService_ZScan_0 = runtime.ForwardResponseMessage
-
-	forward_ImmuService_IScan_0 = runtime.ForwardResponseMessage
 
 	forward_ImmuService_CreateDatabase_0 = runtime.ForwardResponseMessage
 

@@ -118,8 +118,9 @@ message Op {
 	}
 }
 
-message Ops {
+message ExecAllRequest {
 	repeated Op Operations = 1;
+	uint64 sinceTx = 2;
 }
 
 message ItemList {
@@ -127,10 +128,11 @@ message ItemList {
 }
 
 message ZItem {
-	Item item = 1;
-	double score = 2;
-	bytes currentOffset = 3; // TODO: ?
-	uint64 tx = 4;
+	bytes set = 1;
+	bytes key = 2;
+	Item item = 3;
+	double score = 4;
+	uint64 atTx = 5;
 }
 
 message ZItemList {
@@ -138,11 +140,11 @@ message ZItemList {
 }
 
 message ScanRequest {
-	bytes prefix = 1;
-	bytes offset = 2;
-	uint64 limit = 3;
-	bool reverse = 4;
-	bool deep = 5; // TODO: ?
+	bytes seekKey = 1;
+	bytes prefix = 2;
+	bool desc = 3;
+	uint64 limit = 4;
+	uint64 sinceTx = 5;
 }
 
 message KeyPrefix {
@@ -269,41 +271,29 @@ message VerifiableReferenceRequest {
 
 message ZAddRequest {
 	bytes set = 1;
-	Score score = 2;
+	double score = 2;
 	bytes key = 3;
 	uint64 atTx = 4;
 }
 
 message ZScanRequest {
 	bytes set = 1;
-	bytes offset = 2;
-	uint64 limit = 3;
-	bool reverse = 4;
-	Score min = 5;
-	Score max = 6;
-}
-
-message Score {
-	double score = 1;
-}
-
-message IScanRequest {
-	uint64 pageSize = 1;
-	uint64 pageNumber = 2;
-}
-
-message Page {
-	repeated Item items = 1;
-	uint64 pageNum  = 2;
-	bool more = 3;
+	bytes seekKey = 2;
+	double seekScore = 3;
+	uint64 seekAtTx = 4;
+	uint64 limit = 5;
+	bool desc = 6;
+	double minScore = 7;
+	double maxScore = 8;
+	uint64 sinceTx = 9;
 }
 
 message HistoryRequest {
 	bytes key = 1;
 	uint64 offset = 2;
 	uint64 limit = 3;
-	bool reverse = 4;
-	uint64 FromTx = 5;
+	bool desc = 4;
+	uint64 sinceTx = 5;
 }
 
 message VerifiableZAddRequest {
@@ -451,7 +441,7 @@ service ImmuService {
 		};
 	};
 
-	rpc ExecAllOps (Ops) returns (TxMetadata) {
+	rpc ExecAll (ExecAllRequest) returns (TxMetadata) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/atomic/set"
 			body: "*"
@@ -548,29 +538,6 @@ service ImmuService {
 			body: "*"
 		};
 	};
-
-	rpc IScan (IScanRequest) returns (Page){
-		option (google.api.http) = {
-			post: "/v1/immurestproxy/iscan"
-			body: "*"
-		};
-	};
-
-	/*rpc Dump(google.protobuf.Empty) returns (stream KVList) {
-		option (google.api.http) = {
-			post: "/v1/immurestproxy/dump"
-			body: "*"
-		};
-	}
-	*/
-
-	// todo(joe-dz): Enable restore when the feature is required again
-	//	rpc Restore(stream pb.KVList) returns (ItemsCount) {
-	//		option (google.api.http) = {
-	//			post: "/v1/immurestproxy/restore"
-	//			body: "*"
-	//		};
-	//	}
 
 	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
 		option (google.api.http) = {

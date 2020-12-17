@@ -11,9 +11,9 @@
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
     - [DualProof](#immudb.schema.DualProof)
+    - [ExecAllRequest](#immudb.schema.ExecAllRequest)
     - [HealthResponse](#immudb.schema.HealthResponse)
     - [HistoryRequest](#immudb.schema.HistoryRequest)
-    - [IScanRequest](#immudb.schema.IScanRequest)
     - [ImmutableState](#immudb.schema.ImmutableState)
     - [InclusionProof](#immudb.schema.InclusionProof)
     - [Item](#immudb.schema.Item)
@@ -31,12 +31,9 @@
     - [MTLSConfig](#immudb.schema.MTLSConfig)
     - [Node](#immudb.schema.Node)
     - [Op](#immudb.schema.Op)
-    - [Ops](#immudb.schema.Ops)
-    - [Page](#immudb.schema.Page)
     - [Permission](#immudb.schema.Permission)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
     - [ScanRequest](#immudb.schema.ScanRequest)
-    - [Score](#immudb.schema.Score)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
     - [SetRequest](#immudb.schema.SetRequest)
     - [Signature](#immudb.schema.Signature)
@@ -195,6 +192,22 @@
 
 
 
+<a name="immudb.schema.ExecAllRequest"></a>
+
+### ExecAllRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| Operations | [Op](#immudb.schema.Op) | repeated |  |
+| sinceTx | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.HealthResponse"></a>
 
 ### HealthResponse
@@ -222,24 +235,8 @@
 | key | [bytes](#bytes) |  |  |
 | offset | [uint64](#uint64) |  |  |
 | limit | [uint64](#uint64) |  |  |
-| reverse | [bool](#bool) |  |  |
-| FromTx | [uint64](#uint64) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.IScanRequest"></a>
-
-### IScanRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| pageSize | [uint64](#uint64) |  |  |
-| pageNumber | [uint64](#uint64) |  |  |
+| desc | [bool](#bool) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -521,38 +518,6 @@
 
 
 
-<a name="immudb.schema.Ops"></a>
-
-### Ops
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| Operations | [Op](#immudb.schema.Op) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.Page"></a>
-
-### Page
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| items | [Item](#immudb.schema.Item) | repeated |  |
-| pageNum | [uint64](#uint64) |  |  |
-| more | [bool](#bool) |  |  |
-
-
-
-
-
-
 <a name="immudb.schema.Permission"></a>
 
 ### Permission
@@ -594,26 +559,11 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| seekKey | [bytes](#bytes) |  |  |
 | prefix | [bytes](#bytes) |  |  |
-| offset | [bytes](#bytes) |  |  |
+| desc | [bool](#bool) |  |  |
 | limit | [uint64](#uint64) |  |  |
-| reverse | [bool](#bool) |  |  |
-| deep | [bool](#bool) |  | TODO: ? |
-
-
-
-
-
-
-<a name="immudb.schema.Score"></a>
-
-### Score
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| score | [double](#double) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -939,7 +889,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | set | [bytes](#bytes) |  |  |
-| score | [Score](#immudb.schema.Score) |  |  |
+| score | [double](#double) |  |  |
 | key | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
 
@@ -956,10 +906,11 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| set | [bytes](#bytes) |  |  |
+| key | [bytes](#bytes) |  |  |
 | item | [Item](#immudb.schema.Item) |  |  |
 | score | [double](#double) |  |  |
-| currentOffset | [bytes](#bytes) |  | TODO: ? |
-| tx | [uint64](#uint64) |  |  |
+| atTx | [uint64](#uint64) |  |  |
 
 
 
@@ -990,11 +941,14 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | set | [bytes](#bytes) |  |  |
-| offset | [bytes](#bytes) |  |  |
+| seekKey | [bytes](#bytes) |  |  |
+| seekScore | [double](#double) |  |  |
+| seekAtTx | [uint64](#uint64) |  |  |
 | limit | [uint64](#uint64) |  |  |
-| reverse | [bool](#bool) |  |  |
-| min | [Score](#immudb.schema.Score) |  |  |
-| max | [Score](#immudb.schema.Score) |  |  |
+| desc | [bool](#bool) |  |  |
+| minScore | [double](#double) |  |  |
+| maxScore | [double](#double) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -1040,7 +994,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | Get | [KeyRequest](#immudb.schema.KeyRequest) | [Item](#immudb.schema.Item) |  |
 | VerifiableGet | [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest) | [VerifiableItem](#immudb.schema.VerifiableItem) |  |
 | GetAll | [KeyListRequest](#immudb.schema.KeyListRequest) | [ItemList](#immudb.schema.ItemList) |  |
-| ExecAllOps | [Ops](#immudb.schema.Ops) | [TxMetadata](#immudb.schema.TxMetadata) |  |
+| ExecAll | [ExecAllRequest](#immudb.schema.ExecAllRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | Scan | [ScanRequest](#immudb.schema.ScanRequest) | [ItemList](#immudb.schema.ItemList) |  |
 | Count | [KeyPrefix](#immudb.schema.KeyPrefix) | [ItemsCount](#immudb.schema.ItemsCount) |  |
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [ItemsCount](#immudb.schema.ItemsCount) |  |
@@ -1054,7 +1008,6 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | ZAdd | [ZAddRequest](#immudb.schema.ZAddRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | VerifiableZAdd | [VerifiableZAddRequest](#immudb.schema.VerifiableZAddRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
 | ZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [ZItemList](#immudb.schema.ZItemList) |  |
-| IScan | [IScanRequest](#immudb.schema.IScanRequest) | [Page](#immudb.schema.Page) |  |
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |

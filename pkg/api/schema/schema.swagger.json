@@ -14,7 +14,7 @@
   "paths": {
     "/v1/immurestproxy/batch/atomic/set": {
       "post": {
-        "operationId": "ImmuService_ExecAllOps",
+        "operationId": "ImmuService_ExecAll",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -35,7 +35,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaOps"
+              "$ref": "#/definitions/schemaExecAllRequest"
             }
           }
         ],
@@ -187,38 +187,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaHistoryRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/iscan": {
-      "post": {
-        "operationId": "ImmuService_IScan",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaPage"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaIScanRequest"
             }
           }
         ],
@@ -1071,6 +1039,21 @@
         }
       }
     },
+    "schemaExecAllRequest": {
+      "type": "object",
+      "properties": {
+        "Operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaOp"
+          }
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "schemaHealthResponse": {
       "type": "object",
       "properties": {
@@ -1097,23 +1080,10 @@
           "type": "string",
           "format": "uint64"
         },
-        "reverse": {
+        "desc": {
           "type": "boolean"
         },
-        "FromTx": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
-    "schemaIScanRequest": {
-      "type": "object",
-      "properties": {
-        "pageSize": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "pageNumber": {
+        "sinceTx": {
           "type": "string",
           "format": "uint64"
         }
@@ -1330,35 +1300,6 @@
         }
       }
     },
-    "schemaOps": {
-      "type": "object",
-      "properties": {
-        "Operations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaOp"
-          }
-        }
-      }
-    },
-    "schemaPage": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaItem"
-          }
-        },
-        "pageNum": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "more": {
-          "type": "boolean"
-        }
-      }
-    },
     "schemaPermission": {
       "type": "object",
       "properties": {
@@ -1399,32 +1340,24 @@
     "schemaScanRequest": {
       "type": "object",
       "properties": {
+        "seekKey": {
+          "type": "string",
+          "format": "byte"
+        },
         "prefix": {
           "type": "string",
           "format": "byte"
         },
-        "offset": {
-          "type": "string",
-          "format": "byte"
+        "desc": {
+          "type": "boolean"
         },
         "limit": {
           "type": "string",
           "format": "uint64"
         },
-        "reverse": {
-          "type": "boolean"
-        },
-        "deep": {
-          "type": "boolean"
-        }
-      }
-    },
-    "schemaScore": {
-      "type": "object",
-      "properties": {
-        "score": {
-          "type": "number",
-          "format": "double"
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -1669,7 +1602,8 @@
           "format": "byte"
         },
         "score": {
-          "$ref": "#/definitions/schemaScore"
+          "type": "number",
+          "format": "double"
         },
         "key": {
           "type": "string",
@@ -1684,6 +1618,14 @@
     "schemaZItem": {
       "type": "object",
       "properties": {
+        "set": {
+          "type": "string",
+          "format": "byte"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
         "item": {
           "$ref": "#/definitions/schemaItem"
         },
@@ -1691,11 +1633,7 @@
           "type": "number",
           "format": "double"
         },
-        "currentOffset": {
-          "type": "string",
-          "format": "byte"
-        },
-        "tx": {
+        "atTx": {
           "type": "string",
           "format": "uint64"
         }
@@ -1719,22 +1657,36 @@
           "type": "string",
           "format": "byte"
         },
-        "offset": {
+        "seekKey": {
           "type": "string",
           "format": "byte"
+        },
+        "seekScore": {
+          "type": "number",
+          "format": "double"
+        },
+        "seekAtTx": {
+          "type": "string",
+          "format": "uint64"
         },
         "limit": {
           "type": "string",
           "format": "uint64"
         },
-        "reverse": {
+        "desc": {
           "type": "boolean"
         },
-        "min": {
-          "$ref": "#/definitions/schemaScore"
+        "minScore": {
+          "type": "number",
+          "format": "double"
         },
-        "max": {
-          "$ref": "#/definitions/schemaScore"
+        "maxScore": {
+          "type": "number",
+          "format": "double"
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     }
