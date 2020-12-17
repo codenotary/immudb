@@ -88,7 +88,7 @@ type node interface {
 	insertAt(key []byte, value []byte, ts uint64) (node, node, error)
 	get(key []byte) (value []byte, ts uint64, err error)
 	getTs(key []byte, limit int64) ([]uint64, error)
-	findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error)
+	findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
 	maxKey() []byte
 	ts() uint64
 	size() int
@@ -987,24 +987,24 @@ func (n *innerNode) getTs(key []byte, limit int64) ([]uint64, error) {
 	return n.nodes[i].getTs(key, limit)
 }
 
-func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
-	if ascOrder || neqKey == nil {
+func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
+	if !descOrder || neqKey == nil {
 		for i := 0; i < len(n.nodes); i++ {
 			if bytes.Compare(keyPrefix, n.nodes[i].maxKey()) < 1 && bytes.Compare(n.nodes[i].maxKey(), neqKey) == 1 {
-				return n.nodes[i].findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
+				return n.nodes[i].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
 			}
 		}
 
-		if ascOrder {
+		if !descOrder {
 			return nil, nil, 0, ErrKeyNotFound
 		}
 
-		return n.nodes[len(n.nodes)-1].findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
+		return n.nodes[len(n.nodes)-1].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
 	}
 
 	for i := len(n.nodes); i > 0; i-- {
 		if bytes.Compare(n.nodes[i-1].maxKey(), keyPrefix) < 1 && bytes.Compare(n.nodes[i-1].maxKey(), neqKey) < 0 {
-			return n.nodes[i-1].findLeafNode(keyPrefix, append(path, n), neqKey, ascOrder)
+			return n.nodes[i-1].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
 		}
 	}
 
@@ -1124,12 +1124,12 @@ func (r *nodeRef) getTs(key []byte, limit int64) ([]uint64, error) {
 	return n.getTs(key, limit)
 }
 
-func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
+func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
 	n, err := r.t.nodeAt(r.off)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	return n.findLeafNode(keyPrefix, path, neqKey, ascOrder)
+	return n.findLeafNode(keyPrefix, path, neqKey, descOrder)
 }
 
 func (r *nodeRef) maxKey() []byte {
@@ -1334,15 +1334,15 @@ func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
 	return tss, nil
 }
 
-func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, ascOrder bool) (path, *leafNode, int, error) {
-	if ascOrder || neqKey == nil {
+func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
+	if !descOrder || neqKey == nil {
 		for i := 0; i < len(l.values); i++ {
 			if bytes.Compare(keyPrefix, l.values[i].key) < 1 && bytes.Compare(l.values[i].key, neqKey) == 1 {
 				return path, l, i, nil
 			}
 		}
 
-		if ascOrder || len(l.values) == 0 {
+		if !descOrder || len(l.values) == 0 {
 			return nil, nil, 0, ErrKeyNotFound
 		}
 

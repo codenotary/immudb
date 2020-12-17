@@ -78,7 +78,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	path, startingLeaf, startingOffset, err := s.root.findLeafNode(spec.InitialKey, nil, nil, spec.AscOrder)
+	path, startingLeaf, startingOffset, err := s.root.findLeafNode(spec.InitialKey, nil, nil, spec.DescOrder)
 	if err == ErrKeyNotFound {
 		return nil, ErrNoMoreEntries
 	}
@@ -91,7 +91,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 		id:         s.maxReaderID,
 		initialKey: spec.InitialKey,
 		isPrefix:   spec.IsPrefix,
-		ascOrder:   spec.AscOrder,
+		descOrder:  spec.DescOrder,
 		path:       path,
 		leafNode:   startingLeaf,
 		offset:     startingOffset,

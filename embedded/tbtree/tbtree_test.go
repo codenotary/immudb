@@ -382,7 +382,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	rspec := &ReaderSpec{
 		InitialKey: []byte{},
 		IsPrefix:   false,
-		AscOrder:   true,
+		DescOrder:  false,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
@@ -455,7 +455,7 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 		rspec := &ReaderSpec{
 			InitialKey: []byte{},
 			IsPrefix:   false,
-			AscOrder:   true,
+			DescOrder:  false,
 		}
 
 		reader, err := snapshot.Reader(rspec)
