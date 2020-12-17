@@ -23,25 +23,25 @@ import (
 var ErrNoMoreEntries = errors.New("no more entries")
 
 type Reader struct {
-	snapshot   *Snapshot
-	id         int
-	initialKey []byte
-	isPrefix   bool
-	descOrder  bool
-	path       path
-	leafNode   *leafNode
-	offset     int
-	closed     bool
+	snapshot  *Snapshot
+	id        int
+	seekKey   []byte
+	prefix    []byte
+	descOrder bool
+	path      path
+	leafNode  *leafNode
+	offset    int
+	closed    bool
 }
 
 type ReaderSpec struct {
-	InitialKey []byte
-	IsPrefix   bool
-	DescOrder  bool
+	SeekKey   []byte
+	Prefix    []byte
+	DescOrder bool
 }
 
 func validReaderSpec(spec *ReaderSpec) bool {
-	return spec != nil && spec.InitialKey != nil
+	return spec != nil && spec.SeekKey != nil
 }
 
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
@@ -63,7 +63,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				path, leaf, off, err := parent.findLeafNode(r.initialKey, parentPath, r.leafNode.maxKey(), r.descOrder)
+				path, leaf, off, err := parent.findLeafNode(r.seekKey, parentPath, r.leafNode.maxKey(), r.descOrder)
 
 				if err == ErrKeyNotFound {
 					r.path = r.path[:len(r.path)-1]
@@ -89,8 +89,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 			r.offset++
 		}
 
-		if !r.isPrefix ||
-			(len(leafValue.key) >= len(r.initialKey) && bytes.Equal(r.initialKey, leafValue.key[:len(r.initialKey)])) {
+		if len(leafValue.key) >= len(r.prefix) && bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)]) {
 			return leafValue.key, leafValue.value, leafValue.ts, nil
 		}
 	}

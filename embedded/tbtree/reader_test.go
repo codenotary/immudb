@@ -33,7 +33,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	require.NoError(t, err)
 	defer snapshot.Close()
 
-	_, err = snapshot.Reader(&ReaderSpec{InitialKey: []byte{0, 0, 0, 0}, DescOrder: false})
+	_, err = snapshot.Reader(&ReaderSpec{SeekKey: []byte{0, 0, 0, 0}, DescOrder: false})
 	require.Error(t, ErrNoMoreEntries, err)
 }
 
@@ -47,7 +47,7 @@ func TestReaderWithInvalidSpec(t *testing.T) {
 	require.NoError(t, err)
 	defer snapshot.Close()
 
-	_, err = snapshot.Reader(&ReaderSpec{InitialKey: nil, DescOrder: false})
+	_, err = snapshot.Reader(&ReaderSpec{SeekKey: nil, DescOrder: false})
 	require.Error(t, ErrIllegalArguments, err)
 }
 
@@ -67,9 +67,9 @@ func TestReaderAscendingScan(t *testing.T) {
 	}()
 
 	rspec := &ReaderSpec{
-		InitialKey: []byte{0, 0, 0, 250},
-		IsPrefix:   true,
-		DescOrder:  false,
+		SeekKey:   []byte{0, 0, 0, 250},
+		Prefix:    []byte{0, 0, 0, 250},
+		DescOrder: false,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestReaderAscendingScan(t *testing.T) {
 			break
 		}
 
-		require.True(t, bytes.Compare(reader.initialKey, k) < 1)
+		require.True(t, bytes.Compare(reader.seekKey, k) < 1)
 	}
 
 	err = reader.Close()
@@ -110,9 +110,9 @@ func TestReaderDescendingScan(t *testing.T) {
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
-		InitialKey: []byte{0, 0, 0, 100},
-		IsPrefix:   false,
-		DescOrder:  true,
+		SeekKey:   []byte{0, 0, 0, 100},
+		Prefix:    nil,
+		DescOrder: true,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestReaderDescendingScan(t *testing.T) {
 			break
 		}
 
-		require.True(t, bytes.Compare(k, reader.initialKey) < 1)
+		require.True(t, bytes.Compare(k, reader.seekKey) < 1)
 	}
 }
 
@@ -150,16 +150,16 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
-		InitialKey: []byte{},
-		IsPrefix:   false,
-		DescOrder:  false,
+		SeekKey:   []byte{},
+		Prefix:    nil,
+		DescOrder: false,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
 	defer reader.Close()
 
 	i := 0
-	prevk := reader.initialKey
+	prevk := reader.seekKey
 	for {
 		k, _, _, err := reader.Read()
 		if err != nil {
@@ -188,16 +188,16 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
-		InitialKey: []byte{255, 255, 255, 255},
-		IsPrefix:   false,
-		DescOrder:  true,
+		SeekKey:   []byte{255, 255, 255, 255},
+		Prefix:    nil,
+		DescOrder: true,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
 	defer reader.Close()
 
 	i := 0
-	prevk := reader.initialKey
+	prevk := reader.seekKey
 	for {
 		k, _, _, err := reader.Read()
 		if err != nil {
