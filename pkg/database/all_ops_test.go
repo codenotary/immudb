@@ -139,7 +139,6 @@ func TestExecAllOps(t *testing.T) {
 				},
 			}
 		}
-
 		idx, err := db.ExecAllOps(&schema.Ops{Operations: atomicOps})
 		assert.NoError(t, err)
 		assert.Equal(t, uint64((b+1)*batchSize*2), idx.Id+1)
@@ -397,32 +396,32 @@ func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
 
 	assert.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
 }
-
+*/
 func TestExecAllOpsAsynch(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
 
 	aOps := &schema.Ops{
 		Operations: []*schema.Op{
 			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
 						Key:   []byte(`key1`),
 						Value: []byte(`val1`),
 					},
 				},
 			},
 			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
 						Key: []byte(`key`),
 						Score: &schema.Score{
 							Score: 5.6,
@@ -432,11 +431,12 @@ func TestExecAllOpsAsynch(t *testing.T) {
 			},
 		},
 	}
-	_, err := st.ExecAllOps(aOps, WithAsyncCommit(true))
+	_, err := db.ExecAllOps(aOps)
 
 	assert.NoError(t, err)
 }
 
+/*
 func TestOps_ValidateErrZAddIndexMissing(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()

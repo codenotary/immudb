@@ -173,7 +173,7 @@ func (d *db) getSortedSetKeyVal(zaddOpts *schema.ZAddRequest, skipPersistenceChe
 	var referenceValue []byte
 	var index uint64
 	var key []byte
-	if zaddOpts.AtTx > 0 {
+	if zaddOpts.AtTx == 0 {
 		if !skipPersistenceCheck {
 			if err := d.st.ReadTx(uint64(zaddOpts.AtTx), d.tx1); err != nil {
 				return nil, nil, err
