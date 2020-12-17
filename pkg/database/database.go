@@ -167,7 +167,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return d.getAt(req.Key, req.SinceTx, 0, d.st, d.tx1) //TODO: use tx pool
+	return d.get(req.Key, d.st, d.tx1) //TODO: use tx pool
 }
 
 func (d *db) WaitForIndexingUpto(txID uint64) error {
@@ -202,7 +202,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 	var val []byte
 
 	if atTx == 0 {
-		wv, wtx, err := keyIndex.Get(key)
+		wv, wtx, err := keyIndex.Get(wrapWithPrefix(key, setKeyPrefix))
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +221,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 			return nil, err
 		}
 	} else {
-		val, err = d.readValue(key, atTx, tx)
+		val, err = d.readValue(wrapWithPrefix(key, setKeyPrefix), atTx, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -241,7 +241,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 		return d.getAt(refKey, atTx, resolved+1, keyIndex, tx)
 	}
 
-	return &schema.Item{Key: key, Value: val, Tx: ktx}, err
+	return &schema.Item{Key: key, Value: val[1:], Tx: ktx}, err
 }
 
 func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
@@ -322,8 +322,13 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, store.ErrIllegalArguments
 	}
 
+	err := d.WaitForIndexingUpto(req.KeyRequest.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+
 	// get value of key
-	it, err := d.Get(req.KeyRequest)
+	it, err := d.get(req.KeyRequest.Key, d.st, d.tx1) //TODO: use tx pool
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +341,9 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	inclusionProof, err := d.tx1.Proof(req.KeyRequest.Key)
+	key := wrapWithPrefix(req.KeyRequest.Key, setKeyPrefix)
+
+	inclusionProof, err := d.tx1.Proof(key)
 	if err != nil {
 		return nil, err
 	}
@@ -518,7 +525,9 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 		limit = MaxKeyScanLimit
 	}
 
-	tss, err := snapshot.GetTs(req.Key, int64(limit))
+	key := wrapWithPrefix(req.Key, setKeyPrefix)
+
+	tss, err := snapshot.GetTs(key, int64(limit))
 	if err != nil {
 		return nil, err
 	}
@@ -533,12 +542,12 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 			return nil, err
 		}
 
-		val, err := d.st.ReadValue(d.tx1, req.Key)
+		val, err := d.st.ReadValue(d.tx1, key)
 		if err != nil {
 			return nil, err
 		}
 
-		item := &schema.Item{Key: req.Key, Value: val, Tx: ts}
+		item := &schema.Item{Key: req.Key, Value: val[1:], Tx: ts}
 
 		if req.Desc {
 			list.Items = append([]*schema.Item{item}, list.Items...)

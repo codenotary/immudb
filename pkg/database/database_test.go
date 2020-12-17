@@ -220,7 +220,7 @@ func TestDbSetGet(t *testing.T) {
 
 		verifies := store.VerifyInclusion(
 			inclusionProof,
-			&store.KV{Key: vitem.Item.Key, Value: vitem.Item.Value},
+			&store.KV{Key: wrapWithPrefix(vitem.Item.Key, setKeyPrefix), Value: wrapWithPrefix(vitem.Item.Value, plainValuePrefix)},
 			eh,
 		)
 		require.True(t, verifies)
@@ -387,15 +387,20 @@ func TestHistory(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	var lastTx uint64
+
 	for _, val := range kvs {
-		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
+
+		lastTx = meta.Id
 	}
 
 	time.Sleep(1 * time.Millisecond)
 
 	inc, err := db.History(&schema.HistoryRequest{
-		Key: kvs[0].Key,
+		Key:     kvs[0].Key,
+		SinceTx: lastTx,
 	})
 	require.NoError(t, err)
 
