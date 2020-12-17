@@ -3,68 +3,48 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/binary"
+
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 type Reader struct {
-	initialKey []byte
-	isPrefix   bool
-	ascOrder   bool
-	tbtReader  *tbtree.Reader
-	snap       *tbtree.Snapshot
-	st         *ImmuStore
+	store  *ImmuStore
+	reader *tbtree.Reader
 }
 
-type ReaderSpec struct {
-	InitialKey []byte
-	IsPrefix   bool
-	AscOrder   bool
-}
-
-func NewReader(store *ImmuStore, spec ReaderSpec) (*Reader, error) {
-	snapshot, err := store.Snapshot()
-	if err != nil {
-		return nil, err
+// NewReader ...
+func (st *ImmuStore) NewReader(snap *tbtree.Snapshot, spec *tbtree.ReaderSpec) (*Reader, error) {
+	if snap == nil || spec == nil {
+		return nil, ErrIllegalArguments
 	}
-	tbtr, err := snapshot.Reader(&tbtree.ReaderSpec{
-		IsPrefix:   spec.IsPrefix,
-		InitialKey: spec.InitialKey,
-		AscOrder:   spec.AscOrder})
+
+	r, err := snap.Reader(spec)
 	if err != nil {
 		return nil, err
 	}
 
-	reader := &Reader{
-		initialKey: spec.InitialKey,
-		isPrefix:   spec.IsPrefix,
-		ascOrder:   spec.AscOrder,
-		st:         store,
-		tbtReader:  tbtr,
-		snap:       snapshot,
-	}
-
-	//defer snapshot.Close()
-
-	//defer reader.Close()
-
-	return reader, nil
+	return &Reader{
+		store:  st,
+		reader: r,
+	}, nil
 }
 
-type Value struct {
+type IndexedValue struct {
 	hVal   [32]byte
 	vOff   int64
 	valLen uint32
+	st     *ImmuStore
 }
 
 // Resolve ...
-func (s *ImmuStore) Resolve(val *Value) ([]byte, error) {
-	refVal := make([]byte, val.valLen)
-	_, err := s.ReadValueAt(refVal, val.vOff, val.hVal)
+func (v *IndexedValue) Resolve() ([]byte, error) {
+	refVal := make([]byte, v.valLen)
+	_, err := v.st.ReadValueAt(refVal, v.vOff, v.hVal)
 	return refVal, err
 }
 
-func (s *Reader) Read() (key []byte, val *Value, tx uint64, err error) {
-	key, vLogOffset, index, err := s.tbtReader.Read()
+func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, err error) {
+	key, vLogOffset, index, err := s.reader.Read()
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -75,7 +55,7 @@ func (s *Reader) Read() (key []byte, val *Value, tx uint64, err error) {
 	var hVal [sha256.Size]byte
 	copy(hVal[:], vLogOffset[4+8:])
 
-	val = &Value{
+	val = &IndexedValue{
 		hVal:   hVal,
 		vOff:   int64(vOff),
 		valLen: valLen,
@@ -84,8 +64,6 @@ func (s *Reader) Read() (key []byte, val *Value, tx uint64, err error) {
 	return key, val, index, nil
 }
 
-func (s *Reader) Close() {
-	s.tbtReader.Close()
-	s.snap.Close()
-
+func (s *Reader) Close() error {
+	return s.reader.Close()
 }
