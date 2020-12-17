@@ -42,7 +42,7 @@ var ErrAlreadyClosed = errors.New("already closed")
 var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
-var ErrNullKeyOrValue = errors.New("null key or value")
+var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
 var ErrDuplicatedKey = errors.New("duplicated key")
@@ -669,19 +669,19 @@ func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable, err
 		s.vLogsCond.Wait()
 	}
 
-	vLogID := s.vLogUnlockedList.Remove(s.vLogUnlockedList.Front()).(byte)
+	vLogID := s.vLogUnlockedList.Remove(s.vLogUnlockedList.Front()).(byte) + 1
 
-	s.vLogs[vLogID].unlockedRef = nil // locked
+	s.vLogs[vLogID-1].unlockedRef = nil // locked
 
 	s.vLogsCond.L.Unlock()
 
-	return vLogID, s.vLogs[vLogID].vLog, nil
+	return vLogID, s.vLogs[vLogID-1].vLog, nil
 }
 
 func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
 	s.vLogsCond.L.Lock()
 
-	for s.vLogs[vLogID].unlockedRef == nil {
+	for s.vLogs[vLogID-1].unlockedRef == nil {
 		if checkClosed {
 			s.mutex.Lock()
 			if s.closed {
@@ -697,17 +697,17 @@ func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Ap
 		s.vLogsCond.Wait()
 	}
 
-	s.vLogUnlockedList.Remove(s.vLogs[vLogID].unlockedRef)
-	s.vLogs[vLogID].unlockedRef = nil // locked
+	s.vLogUnlockedList.Remove(s.vLogs[vLogID-1].unlockedRef)
+	s.vLogs[vLogID-1].unlockedRef = nil // locked
 
 	s.vLogsCond.L.Unlock()
 
-	return s.vLogs[vLogID].vLog, nil
+	return s.vLogs[vLogID-1].vLog, nil
 }
 
 func (s *ImmuStore) releaseVLog(vLogID byte) {
 	s.vLogsCond.L.Lock()
-	s.vLogs[vLogID].unlockedRef = s.vLogUnlockedList.PushBack(vLogID) // unlocked
+	s.vLogs[vLogID-1].unlockedRef = s.vLogUnlockedList.PushBack(vLogID - 1) // unlocked
 	s.vLogsCond.L.Unlock()
 	s.vLogsCond.Signal()
 }
@@ -729,6 +729,10 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	defer s.releaseVLog(vLogID)
 
 	for i := 0; i < len(offsets); i++ {
+		if len(entries[i].Value) == 0 {
+			continue
+		}
+
 		voff, _, err := vLog.Append(entries[i].Value)
 		if err != nil {
 			donec <- appendableResult{nil, err}
@@ -1109,22 +1113,24 @@ func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
 func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
 	vLogID, offset := decodeOffset(off)
 
-	vLog, err := s.fetchVLog(vLogID, true)
-	if err != nil {
-		return 0, err
-	}
-	defer s.releaseVLog(vLogID)
+	if vLogID > 0 {
+		vLog, err := s.fetchVLog(vLogID, true)
+		if err != nil {
+			return 0, err
+		}
+		defer s.releaseVLog(vLogID)
 
-	n, err := vLog.ReadAt(b, offset)
-	if err != nil {
-		return n, err
+		n, err := vLog.ReadAt(b, offset)
+		if err != nil {
+			return n, err
+		}
 	}
 
 	if hvalue != sha256.Sum256(b) {
-		return n, ErrCorruptedData
+		return len(b), ErrCorruptedData
 	}
 
-	return n, nil
+	return len(b), nil
 }
 
 type TxReader struct {
@@ -1216,8 +1222,8 @@ func (s *ImmuStore) validateEntries(entries []*KV) error {
 	m := make(map[string]struct{}, len(entries))
 
 	for _, kv := range entries {
-		if kv.Key == nil || kv.Value == nil {
-			return ErrNullKeyOrValue
+		if kv.Key == nil {
+			return ErrNullKey
 		}
 
 		if len(kv.Key) > s.maxKeyLen {
@@ -1244,13 +1250,13 @@ func (s *ImmuStore) Sync() error {
 		return ErrAlreadyClosed
 	}
 
-	for vLogID := range s.vLogs {
-		vLog, _ := s.fetchVLog(vLogID, false)
+	for i := range s.vLogs {
+		vLog, _ := s.fetchVLog(i+1, false)
 		err := vLog.Sync()
 		if err != nil {
 			return err
 		}
-		s.releaseVLog(vLogID)
+		s.releaseVLog(i + 1)
 	}
 
 	err := s.txLog.Sync()
@@ -1278,8 +1284,8 @@ func (s *ImmuStore) Close() error {
 
 	errors := make([]error, 0)
 
-	for vLogID := range s.vLogs {
-		vLog, _ := s.fetchVLog(vLogID, false)
+	for i := range s.vLogs {
+		vLog, _ := s.fetchVLog(i+1, false)
 
 		err := vLog.Close()
 		if err != nil {

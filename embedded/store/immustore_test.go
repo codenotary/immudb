@@ -326,7 +326,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 
 	entry := &KV{Key: nil, Value: nil}
 	err = immuStore.validateEntries([]*KV{entry})
-	require.Error(t, ErrNullKeyOrValue, err)
+	require.Error(t, ErrNullKey, err)
 
 	entry = &KV{Key: make([]byte, immuStore.maxKeyLen+1), Value: make([]byte, 1)}
 	err = immuStore.validateEntries([]*KV{entry})
