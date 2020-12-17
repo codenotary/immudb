@@ -51,7 +51,6 @@ func (cli *cli) initCommands() {
 	// Scannner commands
 	cli.Register(&command{"scan", "Iterate over keys having the specified prefix", cli.scan, []string{"prefix"}, false})
 	cli.Register(&command{"zscan", "Iterate over a sorted set", cli.zScan, []string{"prefix"}, false})
-	cli.Register(&command{"iscan", "Iterate over all elements by insertion order", cli.iScan, []string{"pagenumber", "pagesize"}, false})
 	cli.Register(&command{"count", "Count keys having the specified prefix", cli.count, []string{"prefix"}, false})
 
 	// Misc commands

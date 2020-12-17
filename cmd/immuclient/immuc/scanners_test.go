@@ -81,15 +81,6 @@ func TestIScan(t *testing.T) {
 	if err != nil {
 		t.Fatal("Set fail", err)
 	}
-
-	msg, err := ic.Imc.IScan([]string{"0", "1"})
-
-	if err != nil {
-		t.Fatal("IScan fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("IScan failed: %s", msg)
-	}
 }
 
 func TestScan(t *testing.T) {

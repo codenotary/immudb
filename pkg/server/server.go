@@ -239,7 +239,14 @@ func (s *ImmuServer) setUpMetricsServer() error {
 	s.metricsServer = StartMetrics(
 		s.Options.MetricsBind(),
 		s.Logger,
-		func() float64 { return float64(s.dbList.GetByIndex(DefaultDbIndex).CountAll().Count) },
+		func() float64 {
+			ic, err := s.dbList.GetByIndex(DefaultDbIndex).CountAll()
+			if err != nil {
+				return 0
+			}
+
+			return float64(ic.Count)
+		},
 		func() float64 { return time.Since(startedAt).Hours() },
 	)
 	return nil
@@ -764,7 +771,7 @@ func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.Item
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).CountAll(), nil
+	return s.dbList.GetByIndex(ind).CountAll()
 }
 
 // TxByID ...
@@ -846,65 +853,6 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 
 	return s.dbList.GetByIndex(ind).VerifiableZAdd(req)
 }
-
-// IScan ...
-func (s *ImmuServer) IScan(ctx context.Context, req *schema.IScanRequest) (*schema.Page, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "IScan")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).IScan(req)
-}
-
-// Dump ...
-/*
-func (s *ImmuServer) Dump(in *empty.Empty, stream schema.ImmuService_DumpServer) error {
-	ind, err := s.getDbIndexFromCtx(stream.Context(), "Dump")
-	if err != nil {
-		return err
-	}
-
-	err = s.dbList.GetByIndex(ind).Dump(in, stream)
-	s.Logger.Debugf("Dump stream complete")
-
-	return err
-}
-*/
-
-// todo(joe-dz): Enable restore when the feature is required again.
-// Also, make sure that the generated files are updated
-//func (s *ImmuServer) HotRestore(stream schema.ImmuService_RestoreServer) (err error) {
-//	kvChan := make(chan *pb.KVList)
-//	errs := make(chan error, 1)
-//
-//	sendLists := func() {
-//		defer func() {
-//			close(errs)
-//			close(kvChan)
-//		}()
-//		for {
-//			list, err := stream.Recv()
-//			kvChan <- list
-//			if err == io.EOF {
-//				return
-//			}
-//			if err != nil {
-//				errs <- err
-//				return
-//			}
-//		}
-//	}
-//
-//	go sendLists()
-//
-//	i, err := s.SystemAdminDb.Restore(kvChan)
-//
-//	ic := &schema.ItemsCount{
-//		Count: i,
-//	}
-//	return stream.SendAndClose(ic)
-//}
 
 func (s *ImmuServer) installShutdownHandler() {
 	c := make(chan os.Signal)

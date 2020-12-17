@@ -866,16 +866,16 @@ func testServerZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 	_, err = s.ZAdd(ctx, &schema.ZAddRequest{
 		Key:   kvs[0].Key,
-		Score: &schema.Score{Score: 1},
+		Score: 1,
 		Set:   kvs[0].Value,
 	})
 	require.NoError(t, err)
 
 	item, err := s.ZScan(ctx, &schema.ZScanRequest{
 		Set:     kvs[0].Value,
-		Offset:  []byte(""),
+		SeekKey: []byte(""),
 		Limit:   3,
-		Reverse: false,
+		Desc:    false,
 	})
 	require.NoError(t, err)
 	if !bytes.Equal(item.Items[0].Item.Value, kvs[0].Value) {
@@ -886,7 +886,7 @@ func testServerZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 func testServerZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ZAdd(context.Background(), &schema.ZAddRequest{
 		Key:   kvs[0].Key,
-		Score: &schema.Score{Score: 1},
+		Score: 1,
 		Set:   kvs[0].Value,
 	})
 	if err == nil {
@@ -894,9 +894,9 @@ func testServerZAddError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 	_, err = s.ZScan(context.Background(), &schema.ZScanRequest{
 		Set:     kvs[0].Value,
-		Offset:  []byte(""),
+		SeekKey: []byte(""),
 		Limit:   3,
-		Reverse: false,
+		Desc:    false,
 	})
 	if err == nil {
 		t.Fatalf("ZScan expected errr")
@@ -909,7 +909,7 @@ func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 	_, err = s.ZAdd(ctx, &schema.ZAddRequest{
 		Key:   kvs[0].Key,
-		Score: &schema.Score{Score: 3},
+		Score: 3,
 		Set:   kvs[0].Value,
 	})
 	require.NoError(t, err)
@@ -917,7 +917,7 @@ func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err = s.VerifiableZAdd(ctx, &schema.VerifiableZAddRequest{
 		ZAddRequest: &schema.ZAddRequest{
 			Key:   kvs[0].Key,
-			Score: &schema.Score{Score: 0},
+			Score: 0,
 			Set:   kvs[0].Value,
 		},
 		ProveSinceTx: 0,
@@ -925,44 +925,25 @@ func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	require.NoError(t, err)
 
 	item, err := s.Scan(ctx, &schema.ScanRequest{
-		Offset: nil,
-		Deep:   false,
-		Limit:  1,
-		Prefix: kvs[0].Key,
+		SeekKey: nil,
+		Limit:   1,
+		Prefix:  kvs[0].Key,
 	})
 	require.NoError(t, err)
 
 	if !bytes.Equal(item.Items[0].Key, kvs[0].Key) {
 		t.Fatalf("Reference, expected %v, got %v", string(kvs[0].Key), string(item.Items[0].Key))
 	}
-
-	scanItem, err := s.IScan(ctx, &schema.IScanRequest{
-		PageNumber: 2,
-		PageSize:   1,
-	})
-	require.NoError(t, err)
-
-	if !bytes.Equal(scanItem.Items[0].Key, kvs[0].Key) {
-		t.Fatalf("Reference, expected %v, got %v", string(kvs[0].Key), string(scanItem.Items[0].Value))
-	}
 }
 
 func testServerScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Scan(context.Background(), &schema.ScanRequest{
-		Offset: nil,
-		Deep:   false,
-		Limit:  1,
-		Prefix: kvs[0].Key,
+		SeekKey: nil,
+		Limit:   1,
+		Prefix:  kvs[0].Key,
 	})
 	if err == nil {
 		t.Fatalf("Scan exptected error")
-	}
-	_, err = s.IScan(context.Background(), &schema.IScanRequest{
-		PageNumber: 2,
-		PageSize:   1,
-	})
-	if err == nil {
-		t.Fatalf("IScan  exptected error")
 	}
 }
 

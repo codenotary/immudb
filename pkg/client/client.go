@@ -103,7 +103,6 @@ type ImmuClient interface {
 
 	Scan(ctx context.Context, req *schema.ScanRequest) (*schema.ItemList, error)
 	ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZItemList, error)
-	IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.Page, error)
 
 	TxByID(ctx context.Context, txID uint64) (*schema.Tx, error)
 	VerifiedTxByID(ctx context.Context, txID uint64) (*schema.Tx, error)
@@ -114,7 +113,7 @@ type ImmuClient interface {
 	SetAll(ctx context.Context, kvList *schema.SetRequest) (*schema.TxMetadata, error)
 	GetAll(ctx context.Context, keys [][]byte) (*schema.ItemList, error)
 
-	ExecAllOps(ctx context.Context, in *schema.Ops) (*schema.TxMetadata, error)
+	ExecAll(ctx context.Context, in *schema.ExecAllRequest) (*schema.TxMetadata, error)
 
 	SetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
 	VerifiedSetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
@@ -612,15 +611,6 @@ func (c *immuClient) ZScan(ctx context.Context, req *schema.ZScanRequest) (*sche
 	return c.ServiceClient.ZScan(ctx, req)
 }
 
-// IScan ...
-func (c *immuClient) IScan(ctx context.Context, pageNumber uint64, pageSize uint64) (*schema.Page, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	return c.ServiceClient.IScan(ctx, &schema.IScanRequest{PageSize: pageSize, PageNumber: pageNumber})
-}
-
 // Count ...
 func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error) {
 	if !c.IsConnected() {
@@ -756,9 +746,9 @@ func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schem
 	return c.ServiceClient.Set(ctx, req)
 }
 
-// ExecAllOps ...
-func (c *immuClient) ExecAllOps(ctx context.Context, op *schema.Ops) (*schema.TxMetadata, error) {
-	return c.ServiceClient.ExecAllOps(ctx, op)
+// ExecAll ...
+func (c *immuClient) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
+	return c.ServiceClient.ExecAll(ctx, req)
 }
 
 // GetAll ...
@@ -966,7 +956,7 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 
 	return c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
 		Set:   set,
-		Score: &schema.Score{Score: score},
+		Score: score,
 		Key:   key,
 		AtTx:  txID,
 	})
@@ -997,7 +987,7 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	req := &schema.VerifiableZAddRequest{
 		ZAddRequest: &schema.ZAddRequest{
 			Set:   set,
-			Score: &schema.Score{Score: score},
+			Score: score,
 			Key:   key,
 			AtTx:  txID,
 		},

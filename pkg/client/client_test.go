@@ -467,9 +467,6 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.ZScan(context.TODO(), &schema.ZScanRequest{Set: []byte("key")})
 	require.Error(t, ErrNotConnected, err)
 
-	_, err = client.IScan(context.TODO(), 1, 1)
-	require.Error(t, ErrNotConnected, err)
-
 	_, err = client.Count(context.TODO(), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 

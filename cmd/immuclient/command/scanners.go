@@ -42,26 +42,6 @@ func (cl *commandline) zScan(cmd *cobra.Command) {
 	cmd.AddCommand(ccmd)
 }
 
-func (cl *commandline) iScan(cmd *cobra.Command) {
-	ccmd := &cobra.Command{
-		Use:               "iscan pagenumber pagesize",
-		Short:             "Iterate over all elements by insertion order",
-		Aliases:           []string{"iscn"},
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.IScan(args)
-			if err != nil {
-				cl.quit(err)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
-			return nil
-		},
-		Args: cobra.ExactArgs(2),
-	}
-	cmd.AddCommand(ccmd)
-}
-
 func (cl *commandline) scan(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:               "scan prefix",

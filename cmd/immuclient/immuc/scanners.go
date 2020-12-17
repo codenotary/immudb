@@ -19,7 +19,6 @@ package immuc
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -43,37 +42,6 @@ func (i *immuc) ZScan(args []string) (string, error) {
 	}
 	for _, item := range response.Items {
 		str.WriteString(PrintKV(item.Item.Key, item.Item.Value, item.Item.Tx, false, i.valueOnly))
-		str.WriteString("\n")
-	}
-	return str.String(), nil
-}
-
-func (i *immuc) IScan(args []string) (string, error) {
-	pageNumber, err := strconv.ParseUint(args[0], 10, 64)
-	if err != nil {
-		return "", err
-	}
-	pageSize, err := strconv.ParseUint(args[1], 10, 64)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	response, err := i.ImmuClient.IScan(ctx, pageNumber, pageSize)
-	if err != nil {
-		rpcerrors := strings.SplitAfter(err.Error(), "=")
-		if len(rpcerrors) > 1 {
-			return rpcerrors[len(rpcerrors)-1], nil
-		}
-		return "", err
-	}
-
-	str := strings.Builder{}
-	if len(response.Items) == 0 {
-		str.WriteString("0")
-		return str.String(), nil
-	}
-	for _, item := range response.Items {
-		str.WriteString(PrintKV(item.Key, item.Value, item.Tx, false, i.valueOnly))
 		str.WriteString("\n")
 	}
 	return str.String(), nil

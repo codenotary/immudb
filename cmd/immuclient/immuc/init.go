@@ -47,7 +47,6 @@ type Client interface {
 	SetReference(args []string) (string, error)
 	VerifiedSetReference(args []string) (string, error)
 	ZScan(args []string) (string, error)
-	IScan(args []string) (string, error)
 	Scan(args []string) (string, error)
 	Count(args []string) (string, error)
 	Set(args []string) (string, error)

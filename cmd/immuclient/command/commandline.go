@@ -54,7 +54,6 @@ func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
 	cl.safeZAdd(rootCmd)
 	// scanners
 	cl.zScan(rootCmd)
-	cl.iScan(rootCmd)
 	cl.scan(rootCmd)
 	cl.count(rootCmd)
 	// references

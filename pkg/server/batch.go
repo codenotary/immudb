@@ -34,13 +34,13 @@ func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 	return list, nil
 }
 
-func (s *ImmuServer) ExecAllOps(ctx context.Context, operations *schema.Ops) (*schema.TxMetadata, error) {
-	s.Logger.Debugf("set batch atomic operations")
+func (s *ImmuServer) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
+	s.Logger.Debugf("set atomic operations")
 
-	ind, err := s.getDbIndexFromCtx(ctx, "ExecAllOps")
+	ind, err := s.getDbIndexFromCtx(ctx, "ExecAll")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).ExecAllOps(operations)
+	return s.dbList.GetByIndex(ind).ExecAll(req)
 }

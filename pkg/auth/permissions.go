@@ -36,7 +36,7 @@ var methodsPermissions = map[string][]uint32{
 	"VerifiableSet":          {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"VerifiableGet":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"GetAll":                 {PermissionSysAdmin, PermissionAdmin, PermissionRW},
-	"ExecAllOps":             {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"ExecAll":                {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"SetReference":           {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"VerifiableSetReference": {PermissionSysAdmin, PermissionAdmin, PermissionRW},
 	"ZAdd":                   {PermissionSysAdmin, PermissionAdmin, PermissionRW},
