@@ -27,9 +27,6 @@ import (
 // The difference is that is possible to to specify a list of a mix of key value set and zAdd insertions.
 // If zAdd reference is not yet present on disk it's possible to add it as a regular key value and the reference is done onFly
 func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -37,6 +34,14 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	snap, err := d.st.SnapshotSince(req.SinceTx)
 	if err != nil {
