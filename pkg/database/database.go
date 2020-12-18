@@ -159,6 +159,10 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 
 //Get ...
 func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
 	err := d.WaitForIndexingUpto(req.SinceTx)
 	if err != nil {
 		return nil, err
@@ -315,9 +319,6 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 
 //VerifiableGet ...
 func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -326,6 +327,9 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	if err != nil {
 		return nil, err
 	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	key := wrapWithPrefix(req.KeyRequest.Key, setKeyPrefix)
 

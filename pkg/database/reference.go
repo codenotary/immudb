@@ -26,10 +26,6 @@ import (
 
 //Reference ...
 func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	// TODO: use tx pool
-
 	if req == nil || len(req.Reference) == 0 || len(req.Key) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
@@ -38,6 +34,10 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	if err != nil {
 		return nil, err
 	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	// TODO: use tx pool
 
 	key := wrapWithPrefix(req.Key, setKeyPrefix)
 

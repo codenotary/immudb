@@ -24,9 +24,6 @@ import (
 
 //Scan ...
 func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -34,6 +31,14 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
 	if req.Limit > MaxKeyScanLimit {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
+
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	limit := req.Limit
 
@@ -43,11 +48,6 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
 
 	var items []*schema.Item
 	i := uint64(0)
-
-	err := d.WaitForIndexingUpto(req.SinceTx)
-	if err != nil {
-		return nil, err
-	}
 
 	snap, err := d.st.SnapshotSince(req.SinceTx)
 	if err != nil {

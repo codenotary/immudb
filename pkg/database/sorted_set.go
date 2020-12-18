@@ -35,9 +35,6 @@ const txIDLen = 8
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
 // If ZAddOptions.index is provided key is optional
 func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -46,6 +43,9 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	key := wrapWithPrefix(req.Key, setKeyPrefix)
 
