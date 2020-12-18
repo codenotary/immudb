@@ -42,19 +42,25 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 		return nil, store.ErrIllegalArguments
 	}
 
-	// check referenced key exists
-	if _, err := d.getAt(req.Key, req.AtTx, 0, d.st, d.tx1); err != nil {
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
 		return nil, err
 	}
 
-	zKey := wrapZAddReferenceAt(req.Set, req.Key, req.AtTx, req.Score)
+	key := wrapWithPrefix(req.Key, setKeyPrefix)
+
+	// check referenced key exists
+	_, err = d.getAt(key, req.AtTx, 0, d.st, d.tx1)
+	if err != nil {
+		return nil, err
+	}
+
+	zKey := wrapZAddReferenceAt(req.Set, key, req.AtTx, req.Score)
 
 	meta, err := d.st.Commit([]*store.KV{{Key: zKey, Value: nil}})
 
 	return schema.TxMetatadaTo(meta), err
 }
-
-// math.Float64frombits(bits)
 
 // ZScan ...
 func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
@@ -84,20 +90,26 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 
 	if len(req.SeekKey) == 0 {
 		seekKey = make([]byte, len(prefix)+scoreLen)
+		copy(seekKey, prefix)
 		// here we compose the offset if Min score filter is provided only if is not reversed order
-		if req.MinScore > 0 && !req.Desc {
-			binary.BigEndian.PutUint64(prefix[1+setLenLen+len(req.Set):], math.Float64bits(req.MinScore))
+		if req.MinScore != nil && !req.Desc {
+			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.MinScore.Score))
 		}
 		// here we compose the offset if Max score filter is provided only if is reversed order
-		if req.MaxScore > 0 && req.Desc {
-			binary.BigEndian.PutUint64(prefix[1+setLenLen+len(req.Set):], math.Float64bits(req.MaxScore))
+		if req.MaxScore != nil && req.Desc {
+			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.MaxScore.Score))
 		}
 	} else {
-		seekKey = make([]byte, len(prefix)+scoreLen+len(req.SeekKey))
+		seekKey = make([]byte, len(prefix)+scoreLen+txIDLen+len(req.SeekKey))
 		copy(seekKey, prefix)
 		binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.SeekScore))
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen:], req.SeekAtTx)
 		copy(seekKey[len(prefix)+scoreLen+txIDLen:], req.SeekKey)
+	}
+
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
+		return nil, err
 	}
 
 	snap, err := d.st.SnapshotSince(req.SinceTx)
@@ -136,10 +148,10 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 		score := math.Float64frombits(scoreB)
 
 		// Guard to ensure that score match the filter range if filter is provided
-		if req.MinScore > 0 && score < req.MinScore {
+		if req.MinScore != nil && score < req.MinScore.Score {
 			continue
 		}
-		if req.MaxScore > 0 && score > req.MaxScore {
+		if req.MaxScore != nil && score > req.MaxScore.Score {
 			continue
 		}
 
@@ -153,7 +165,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 
 		zitem := &schema.ZItem{
 			Set:   req.Set,
-			Key:   key,
+			Key:   key[1:],
 			Item:  item,
 			Score: score,
 			AtTx:  atTx,

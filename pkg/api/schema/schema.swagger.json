@@ -1365,6 +1365,15 @@
         }
       }
     },
+    "schemaScore": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
     "schemaSetActiveUserRequest": {
       "type": "object",
       "properties": {
@@ -1685,12 +1694,10 @@
           "type": "boolean"
         },
         "minScore": {
-          "type": "number",
-          "format": "double"
+          "$ref": "#/definitions/schemaScore"
         },
         "maxScore": {
-          "type": "number",
-          "format": "double"
+          "$ref": "#/definitions/schemaScore"
         },
         "sinceTx": {
           "type": "string",

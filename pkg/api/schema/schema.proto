@@ -278,6 +278,10 @@ message ZAddRequest {
 	uint64 sinceTx = 5;
 }
 
+message Score {
+	double score = 1;
+}
+
 message ZScanRequest {
 	bytes set = 1;
 	bytes seekKey = 2;
@@ -285,8 +289,8 @@ message ZScanRequest {
 	uint64 seekAtTx = 4;
 	uint64 limit = 5;
 	bool desc = 6;
-	double minScore = 7;
-	double maxScore = 8;
+	Score minScore = 7;
+	Score maxScore = 8;
 	uint64 sinceTx = 9;
 }
 

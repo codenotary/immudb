@@ -34,6 +34,7 @@
     - [Permission](#immudb.schema.Permission)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
     - [ScanRequest](#immudb.schema.ScanRequest)
+    - [Score](#immudb.schema.Score)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
     - [SetRequest](#immudb.schema.SetRequest)
     - [Signature](#immudb.schema.Signature)
@@ -571,6 +572,21 @@
 
 
 
+<a name="immudb.schema.Score"></a>
+
+### Score
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| score | [double](#double) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.SetActiveUserRequest"></a>
 
 ### SetActiveUserRequest
@@ -948,8 +964,8 @@
 | seekAtTx | [uint64](#uint64) |  |  |
 | limit | [uint64](#uint64) |  |  |
 | desc | [bool](#bool) |  |  |
-| minScore | [double](#double) |  |  |
-| maxScore | [double](#double) |  |  |
+| minScore | [Score](#immudb.schema.Score) |  |  |
+| maxScore | [Score](#immudb.schema.Score) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
 
 

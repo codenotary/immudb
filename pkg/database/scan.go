@@ -44,6 +44,11 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
 	var items []*schema.Item
 	i := uint64(0)
 
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+
 	snap, err := d.st.SnapshotSince(req.SinceTx)
 	if err != nil {
 		return nil, err
