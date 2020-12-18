@@ -99,7 +99,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 			}
 
 			kv = &store.KV{
-				Key:   wrapZAddReferenceAt(x.ZAdd.Set, x.ZAdd.Key, x.ZAdd.AtTx, x.ZAdd.Score),
+				Key:   wrapZAddReferenceAt(x.ZAdd.Set, x.ZAdd.Score, x.ZAdd.AtTx, x.ZAdd.Key),
 				Value: nil,
 			}
 

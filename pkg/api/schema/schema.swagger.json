@@ -1686,6 +1686,9 @@
           "type": "string",
           "format": "uint64"
         },
+        "inclusiveSeek": {
+          "type": "boolean"
+        },
         "limit": {
           "type": "string",
           "format": "uint64"

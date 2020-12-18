@@ -55,7 +55,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 		return nil, err
 	}
 
-	zKey := wrapZAddReferenceAt(req.Set, key, req.AtTx, req.Score)
+	zKey := wrapZAddReferenceAt(req.Set, req.Score, req.AtTx, key)
 
 	meta, err := d.st.Commit([]*store.KV{{Key: zKey, Value: nil}})
 
@@ -100,11 +100,11 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.MaxScore.Score))
 		}
 	} else {
-		seekKey = make([]byte, len(prefix)+scoreLen+txIDLen+len(req.SeekKey))
+		seekKey = make([]byte, len(prefix)+scoreLen+txIDLen+1+len(req.SeekKey))
 		copy(seekKey, prefix)
 		binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.SeekScore))
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen:], req.SeekAtTx)
-		copy(seekKey[len(prefix)+scoreLen+txIDLen:], req.SeekKey)
+		copy(seekKey[len(prefix)+scoreLen+txIDLen:], wrapWithPrefix(req.SeekKey, setKeyPrefix))
 	}
 
 	err := d.WaitForIndexingUpto(req.SinceTx)
@@ -121,9 +121,10 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 	r, err := d.st.NewReader(
 		snap,
 		&tbtree.ReaderSpec{
-			SeekKey:   seekKey,
-			Prefix:    prefix,
-			DescOrder: req.Desc,
+			SeekKey:       seekKey,
+			Prefix:        prefix,
+			InclusiveSeek: req.InclusiveSeek,
+			DescOrder:     req.Desc,
 		})
 	if err != nil {
 		return nil, err
@@ -189,7 +190,7 @@ func (d *db) VerifiableZAdd(opts *schema.VerifiableZAddRequest) (*schema.Verifia
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableZAdd")
 }
 
-func wrapZAddReferenceAt(set, key []byte, atTx uint64, score float64) []byte {
+func wrapZAddReferenceAt(set []byte, score float64, atTx uint64, key []byte) []byte {
 	zKey := make([]byte, 1+setLenLen+len(set)+scoreLen+txIDLen+len(key))
 	zi := 0
 

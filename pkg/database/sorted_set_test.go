@@ -434,20 +434,38 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 	lastItem := list1.Items[len(list1.Items)-1]
 
 	zScanOption2 := &schema.ZScanRequest{
-		Set:       setName,
-		SeekScore: lastItem.Score,
-		SeekAtTx:  lastItem.AtTx,
-		SeekKey:   lastItem.Key,
-		Limit:     2,
-		Desc:      true,
-		SinceTx:   meta.Id,
+		Set:           setName,
+		SeekScore:     lastItem.Score,
+		SeekAtTx:      lastItem.AtTx,
+		SeekKey:       lastItem.Key,
+		Limit:         2,
+		InclusiveSeek: true,
+		Desc:          true,
+		SinceTx:       meta.Id,
 	}
 
 	list2, err := db.ZScan(zScanOption2)
 	require.NoError(t, err)
 	require.Len(t, list2.Items, 2)
-	require.Equal(t, list2.Items[0].Item.Key, []byte(`key6`))
-	require.Equal(t, list2.Items[1].Item.Key, []byte(`key3`))
+	require.Equal(t, list2.Items[0].Item.Key, []byte(`key5`))
+	require.Equal(t, list2.Items[1].Item.Key, []byte(`key4`))
+
+	zScanOption3 := &schema.ZScanRequest{
+		Set:           setName,
+		SeekScore:     lastItem.Score,
+		SeekAtTx:      lastItem.AtTx,
+		SeekKey:       lastItem.Key,
+		Limit:         2,
+		InclusiveSeek: false,
+		Desc:          true,
+		SinceTx:       meta.Id,
+	}
+
+	list3, err := db.ZScan(zScanOption3)
+	require.NoError(t, err)
+	require.Len(t, list3.Items, 2)
+	require.Equal(t, list3.Items[0].Item.Key, []byte(`key4`))
+	require.Equal(t, list3.Items[1].Item.Key, []byte(`key3`))
 }
 
 /*func TestStore_ZScanInvalidSet(t *testing.T) {

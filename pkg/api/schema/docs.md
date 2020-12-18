@@ -962,6 +962,7 @@
 | seekKey | [bytes](#bytes) |  |  |
 | seekScore | [double](#double) |  |  |
 | seekAtTx | [uint64](#uint64) |  |  |
+| inclusiveSeek | [bool](#bool) |  |  |
 | limit | [uint64](#uint64) |  |  |
 | desc | [bool](#bool) |  |  |
 | minScore | [Score](#immudb.schema.Score) |  |  |

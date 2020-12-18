@@ -287,11 +287,12 @@ message ZScanRequest {
 	bytes seekKey = 2;
 	double seekScore = 3;
 	uint64 seekAtTx = 4;
-	uint64 limit = 5;
-	bool desc = 6;
-	Score minScore = 7;
-	Score maxScore = 8;
-	uint64 sinceTx = 9;
+	bool inclusiveSeek = 5;
+	uint64 limit = 6;
+	bool desc = 7;
+	Score minScore = 8;
+	Score maxScore = 9;
+	uint64 sinceTx = 10;
 }
 
 message HistoryRequest {
