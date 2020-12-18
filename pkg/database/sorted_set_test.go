@@ -495,11 +495,11 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 	db, closer := makeDb()
 	defer closer()
 
-	idx0, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-C`)}}})
+	idx0, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-A`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`val2-A`)}}})
 	idx2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-B`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`val3-A`)}}})
-	idx4, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-A`)}}})
+	idx4, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-C`)}}})
 
 	db.ZAdd(&schema.ZAddRequest{
 		Set:     []byte(`mySet`),
@@ -540,11 +540,11 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 
 	require.NoError(t, err)
 	// same key, sorted by internal timestamp
-	require.Exactly(t, []byte(`val2-A`), list.Items[0].Item.Value)
-	require.Exactly(t, []byte(`val3-A`), list.Items[1].Item.Value)
+	require.Exactly(t, []byte(`val1-A`), list.Items[0].Item.Value)
+	require.Exactly(t, []byte(`val1-B`), list.Items[1].Item.Value)
 	require.Exactly(t, []byte(`val1-C`), list.Items[2].Item.Value)
-	require.Exactly(t, []byte(`val1-B`), list.Items[3].Item.Value)
-	require.Exactly(t, []byte(`val1-A`), list.Items[4].Item.Value)
+	require.Exactly(t, []byte(`val2-A`), list.Items[3].Item.Value)
+	require.Exactly(t, []byte(`val3-A`), list.Items[4].Item.Value)
 }
 
 func TestStoreZScanOnZAddIndexReference(t *testing.T) {

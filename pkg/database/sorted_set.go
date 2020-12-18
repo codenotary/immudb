@@ -28,6 +28,7 @@ import (
 
 const setLenLen = 8
 const scoreLen = 8
+const keyLenLen = 8
 const txIDLen = 8
 
 // ZAdd adds a score for an existing key in a sorted set
@@ -55,7 +56,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 		return nil, err
 	}
 
-	zKey := wrapZAddReferenceAt(req.Set, req.Score, req.AtTx, key)
+	zKey := wrapZAddReferenceAt(req.Set, req.Score, key, req.AtTx)
 
 	meta, err := d.st.Commit([]*store.KV{{Key: zKey, Value: nil}})
 
@@ -100,11 +101,12 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 			binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.MaxScore.Score))
 		}
 	} else {
-		seekKey = make([]byte, len(prefix)+scoreLen+txIDLen+1+len(req.SeekKey))
+		seekKey = make([]byte, len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey)+txIDLen)
 		copy(seekKey, prefix)
 		binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.SeekScore))
-		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen:], req.SeekAtTx)
-		copy(seekKey[len(prefix)+scoreLen+txIDLen:], wrapWithPrefix(req.SeekKey, setKeyPrefix))
+		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen:], uint64(1+len(req.SeekKey)))
+		copy(seekKey[len(prefix)+scoreLen+keyLenLen:], wrapWithPrefix(req.SeekKey, setKeyPrefix))
+		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey):], req.SeekAtTx)
 	}
 
 	err := d.WaitForIndexingUpto(req.SinceTx)
@@ -143,7 +145,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 			return nil, err
 		}
 
-		// zKey = [1+setLenLen+len(req.Set)+scoreLen+txIDLen+len(req.Key)]
+		// zKey = [1+setLenLen+len(req.Set)+scoreLen+keyLenLen+1+len(req.Key)+txIDLen]
 		scoreOff := 1 + setLenLen + len(req.Set)
 		scoreB := binary.BigEndian.Uint64(zKey[scoreOff:])
 		score := math.Float64frombits(scoreB)
@@ -156,11 +158,11 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 			continue
 		}
 
-		atTx := binary.BigEndian.Uint64(zKey[scoreOff+scoreLen:])
-
-		keyOff := scoreOff + scoreLen + txIDLen
-		key := make([]byte, len(zKey)-keyOff)
+		keyOff := scoreOff + scoreLen + keyLenLen
+		key := make([]byte, len(zKey)-keyOff-txIDLen)
 		copy(key, zKey[keyOff:])
+
+		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
 		item, err := d.getAt(key, atTx, 0, snap, d.tx1)
 
@@ -190,8 +192,8 @@ func (d *db) VerifiableZAdd(opts *schema.VerifiableZAddRequest) (*schema.Verifia
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableZAdd")
 }
 
-func wrapZAddReferenceAt(set []byte, score float64, atTx uint64, key []byte) []byte {
-	zKey := make([]byte, 1+setLenLen+len(set)+scoreLen+txIDLen+len(key))
+func wrapZAddReferenceAt(set []byte, score float64, key []byte, atTx uint64) []byte {
+	zKey := make([]byte, 1+setLenLen+len(set)+scoreLen+keyLenLen+len(key)+txIDLen)
 	zi := 0
 
 	zKey[0] = sortedSetKeyPrefix
@@ -202,9 +204,11 @@ func wrapZAddReferenceAt(set []byte, score float64, atTx uint64, key []byte) []b
 	zi += len(set)
 	binary.BigEndian.PutUint64(zKey[zi:], math.Float64bits(score))
 	zi += scoreLen
-	binary.BigEndian.PutUint64(zKey[zi:], atTx)
-	zi += txIDLen
+	binary.BigEndian.PutUint64(zKey[zi:], uint64(len(key)))
+	zi += keyLenLen
 	copy(zKey[zi:], key)
+	zi += len(key)
+	binary.BigEndian.PutUint64(zKey[zi:], atTx)
 
 	return zKey
 }
