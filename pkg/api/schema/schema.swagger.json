@@ -1334,6 +1334,10 @@
         "atTx": {
           "type": "string",
           "format": "uint64"
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -1610,6 +1614,10 @@
           "format": "byte"
         },
         "atTx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "sinceTx": {
           "type": "string",
           "format": "uint64"
         }

@@ -38,6 +38,7 @@ func TestStoreReference(t *testing.T) {
 	refOpts := &schema.ReferenceRequest{
 		Reference: []byte(`myTag`),
 		Key:       []byte(`firstKey`),
+		SinceTx:   meta.Id,
 	}
 	meta, err = db.SetReference(refOpts)
 	require.NoError(t, err)

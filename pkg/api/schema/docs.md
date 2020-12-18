@@ -545,6 +545,7 @@
 | reference | [bytes](#bytes) |  |  |
 | key | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -892,6 +893,7 @@
 | score | [double](#double) |  |  |
 | key | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
 
 
 

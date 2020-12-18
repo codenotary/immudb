@@ -34,14 +34,21 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 		return nil, store.ErrIllegalArguments
 	}
 
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+
+	key := wrapWithPrefix(req.Key, setKeyPrefix)
+
 	// check referenced key exists
-	_, err := d.getAt(req.Key, req.AtTx, 0, d.st, d.tx1)
+	_, err = d.getAt(key, req.AtTx, 0, d.st, d.tx1)
 	if err != nil {
 		return nil, err
 	}
 
 	refKey := wrapWithPrefix(req.Reference, setKeyPrefix)
-	refVal := wrapReferenceValueAt(req.Key, req.AtTx)
+	refVal := wrapReferenceValueAt(key, req.AtTx)
 
 	meta, err := d.st.Commit([]*store.KV{{Key: refKey, Value: refVal}})
 	if err != nil {
