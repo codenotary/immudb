@@ -23,21 +23,23 @@ import (
 var ErrNoMoreEntries = errors.New("no more entries")
 
 type Reader struct {
-	snapshot  *Snapshot
-	id        int
-	seekKey   []byte
-	prefix    []byte
-	descOrder bool
-	path      path
-	leafNode  *leafNode
-	offset    int
-	closed    bool
+	snapshot      *Snapshot
+	id            int
+	seekKey       []byte
+	prefix        []byte
+	inclusiveSeek bool
+	descOrder     bool
+	path          path
+	leafNode      *leafNode
+	offset        int
+	closed        bool
 }
 
 type ReaderSpec struct {
-	SeekKey   []byte
-	Prefix    []byte
-	DescOrder bool
+	SeekKey       []byte
+	Prefix        []byte
+	InclusiveSeek bool
+	DescOrder     bool
 }
 
 func validReaderSpec(spec *ReaderSpec) bool {
@@ -87,6 +89,10 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 			r.offset--
 		} else {
 			r.offset++
+		}
+
+		if !r.inclusiveSeek && bytes.Equal(r.seekKey, leafValue.key) {
+			continue
 		}
 
 		if len(leafValue.key) >= len(r.prefix) && bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)]) {

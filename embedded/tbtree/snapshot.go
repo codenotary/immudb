@@ -87,15 +87,16 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	reader := &Reader{
-		snapshot:  s,
-		id:        s.maxReaderID,
-		seekKey:   spec.SeekKey,
-		prefix:    spec.Prefix,
-		descOrder: spec.DescOrder,
-		path:      path,
-		leafNode:  startingLeaf,
-		offset:    startingOffset,
-		closed:    false,
+		snapshot:      s,
+		id:            s.maxReaderID,
+		seekKey:       spec.SeekKey,
+		prefix:        spec.Prefix,
+		inclusiveSeek: spec.InclusiveSeek,
+		descOrder:     spec.DescOrder,
+		path:          path,
+		leafNode:      startingLeaf,
+		offset:        startingOffset,
+		closed:        false,
 	}
 
 	s.readers[reader.id] = reader

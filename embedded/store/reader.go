@@ -44,7 +44,7 @@ func (v *IndexedValue) Resolve() ([]byte, error) {
 }
 
 func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, err error) {
-	key, vLogOffset, index, err := s.reader.Read()
+	key, vLogOffset, tx, err := s.reader.Read()
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -61,7 +61,7 @@ func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, err error) {
 		valLen: valLen,
 	}
 
-	return key, val, index, nil
+	return key, val, tx, nil
 }
 
 func (s *Reader) Close() error {
