@@ -167,7 +167,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return d.get(req.Key, d.st, d.tx1) //TODO: use tx pool
+	return d.get(wrapWithPrefix(req.Key, setKeyPrefix), d.st, d.tx1) //TODO: use tx pool
 }
 
 func (d *db) WaitForIndexingUpto(txID uint64) error {
@@ -202,7 +202,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 	var val []byte
 
 	if atTx == 0 {
-		wv, wtx, err := keyIndex.Get(wrapWithPrefix(key, setKeyPrefix))
+		wv, wtx, err := keyIndex.Get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +221,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 			return nil, err
 		}
 	} else {
-		val, err = d.readValue(wrapWithPrefix(key, setKeyPrefix), atTx, tx)
+		val, err = d.readValue(key, atTx, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -241,7 +241,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 		return d.getAt(refKey, atTx, resolved+1, keyIndex, tx)
 	}
 
-	return &schema.Item{Key: key, Value: val[1:], Tx: ktx}, err
+	return &schema.Item{Key: key[1:], Value: val[1:], Tx: ktx}, err
 }
 
 func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
@@ -327,8 +327,10 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
+	key := wrapWithPrefix(req.KeyRequest.Key, setKeyPrefix)
+
 	// get value of key
-	it, err := d.get(req.KeyRequest.Key, d.st, d.tx1) //TODO: use tx pool
+	it, err := d.get(key, d.st, d.tx1) //TODO: use tx pool
 	if err != nil {
 		return nil, err
 	}
@@ -340,8 +342,6 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	if err != nil {
 		return nil, err
 	}
-
-	key := wrapWithPrefix(req.KeyRequest.Key, setKeyPrefix)
 
 	inclusionProof, err := d.tx1.Proof(key)
 	if err != nil {
@@ -407,7 +407,7 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
 	list := &schema.ItemList{}
 
 	for _, key := range req.Keys {
-		item, err := d.get(key, snapshot, d.tx1)
+		item, err := d.get(wrapWithPrefix(key, setKeyPrefix), snapshot, d.tx1)
 		if err == nil || err == store.ErrKeyNotFound {
 			if item != nil {
 				list.Items = append(list.Items, item)
