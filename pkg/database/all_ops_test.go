@@ -132,10 +132,11 @@ func TestExecAllOps(t *testing.T) {
 			atomicOps[i+batchSize] = &schema.Op{
 				Operation: &schema.Op_ZAdd{
 					ZAdd: &schema.ZAddRequest{
-						Set:   []byte(`mySet`),
-						Score: 0.6,
-						Key:   atomicOps[i].Operation.(*schema.Op_Kv).Kv.Key,
-						AtTx:  0,
+						Set:     []byte(`mySet`),
+						Score:   0.6,
+						Key:     atomicOps[i].Operation.(*schema.Op_Kv).Kv.Key,
+						AtTx:    0,
+						SinceTx: uint64((b + 1) * batchSize),
 					},
 				},
 			}
@@ -143,16 +144,17 @@ func TestExecAllOps(t *testing.T) {
 
 		idx, err := db.ExecAll(&schema.ExecAllRequest{Operations: atomicOps})
 		assert.NoError(t, err)
-		assert.Equal(t, uint64((b+1)*batchSize*2), idx.Id+1)
+		assert.Equal(t, uint64(b+1), idx.Id)
 	}
 
 	zScanOpt := &schema.ZScanRequest{
-		Set: []byte(`mySet`),
+		Set:     []byte(`mySet`),
+		SinceTx: 10,
 	}
 	zList, err := db.ZScan(zScanOpt)
 	assert.NoError(t, err)
 	println(len(zList.Items))
-	assert.Len(t, zList.Items, batchSize*10)
+	assert.Len(t, zList.Items, batchSize)
 }
 
 /*

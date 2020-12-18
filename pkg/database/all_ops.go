@@ -52,7 +52,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 	// we build a map in which we store sha256 sum as key and the index as value
 	kmap := make(map[[sha256.Size]byte]bool)
 
-	for _, op := range req.Operations {
+	for i, op := range req.Operations {
 		if op == nil {
 			return nil, store.ErrIllegalArguments
 		}
@@ -107,7 +107,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 			return nil, store.ErrIllegalArguments
 		}
 
-		entries = append(entries, kv)
+		entries[i] = kv
 	}
 
 	txMetatadata, err := d.st.Commit(entries)
