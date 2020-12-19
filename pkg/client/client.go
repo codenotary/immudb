@@ -98,14 +98,14 @@ type ImmuClient interface {
 	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
 	VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
 
-	ZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error)
-	VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error)
+	ZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxMetadata, error)
+	VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxMetadata, error)
 
 	Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)
 	ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error)
 
-	TxByID(ctx context.Context, txID uint64) (*schema.Tx, error)
-	VerifiedTxByID(ctx context.Context, txID uint64) (*schema.Tx, error)
+	TxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
+	VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
 
 	Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error)
 	CountAll(ctx context.Context) (*schema.EntryCount, error)
@@ -118,8 +118,8 @@ type ImmuClient interface {
 	SetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
 	VerifiedSetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
 
-	SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, txID uint64) (*schema.TxMetadata, error)
-	VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, txID uint64) (*schema.TxMetadata, error)
+	SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxMetadata, error)
+	VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxMetadata, error)
 
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
 }
@@ -770,7 +770,7 @@ func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.Entries
 }
 
 // TxByID ...
-func (c *immuClient) TxByID(ctx context.Context, txID uint64) (*schema.Tx, error) {
+func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -779,12 +779,12 @@ func (c *immuClient) TxByID(ctx context.Context, txID uint64) (*schema.Tx, error
 	defer c.Logger.Debugf("by-index finished in %s", time.Since(start))
 
 	return c.ServiceClient.TxById(ctx, &schema.TxRequest{
-		Tx: txID,
+		Tx: tx,
 	})
 }
 
 // VerifiedTxByID returns a verified tx
-func (c *immuClient) VerifiedTxByID(ctx context.Context, txID uint64) (*schema.Tx, error) {
+func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -801,7 +801,7 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, txID uint64) (*schema.T
 	}
 
 	vTx, err := c.ServiceClient.VerifiableTxById(ctx, &schema.VerifiableTxRequest{
-		Tx:           txID,
+		Tx:           tx,
 		ProveSinceTx: state.TxId,
 	})
 	if err != nil {
@@ -879,7 +879,7 @@ func (c *immuClient) SetReference(ctx context.Context, key []byte, referencedKey
 }
 
 // SetReferenceAt ...
-func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, txID uint64) (*schema.TxMetadata, error) {
+func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -890,7 +890,7 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedK
 	return c.ServiceClient.SetReference(ctx, &schema.ReferenceRequest{
 		Key:           key,
 		ReferencedKey: referencedKey,
-		AtTx:          txID,
+		AtTx:          atTx,
 	})
 }
 
@@ -900,7 +900,7 @@ func (c *immuClient) VerifiedSetReference(ctx context.Context, key []byte, refer
 }
 
 // VerifiedSetReferenceAt ...
-func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, txID uint64) (*schema.TxMetadata, error) {
+func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxMetadata, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -920,7 +920,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 		ReferenceRequest: &schema.ReferenceRequest{
 			Key:           key,
 			ReferencedKey: referencedKey,
-			AtTx:          txID,
+			AtTx:          atTx,
 		},
 		ProveSinceTx: state.TxId,
 	}
@@ -946,7 +946,7 @@ func (c *immuClient) ZAdd(ctx context.Context, set []byte, score float64, key []
 }
 
 // ZAddAt ...
-func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error) {
+func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -958,7 +958,7 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 		Set:   set,
 		Score: score,
 		Key:   key,
-		AtTx:  txID,
+		AtTx:  atTx,
 	})
 }
 
@@ -968,7 +968,7 @@ func (c *immuClient) VerifiedZAdd(ctx context.Context, set []byte, score float64
 }
 
 // VerifiedZAdd ...
-func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error) {
+func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxMetadata, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -989,7 +989,7 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 			Set:   set,
 			Score: score,
 			Key:   key,
-			AtTx:  txID,
+			AtTx:  atTx,
 		},
 		ProveSinceTx: state.TxId,
 	}
