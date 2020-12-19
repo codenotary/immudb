@@ -23,7 +23,7 @@ import (
 )
 
 //Scan ...
-func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
+func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -46,7 +46,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
 		limit = MaxKeyScanLimit
 	}
 
-	var items []*schema.Item
+	var entries []*schema.Entry
 	i := uint64(0)
 
 	snap, err := d.st.SnapshotSince(req.SinceTx)
@@ -76,18 +76,18 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.ItemList, error) {
 			return nil, err
 		}
 
-		item, err := d.getAt(key, tx, 0, snap, d.tx1)
+		e, err := d.getAt(key, tx, 0, snap, d.tx1)
 		if err != nil {
 			return nil, err
 		}
 
-		items = append(items, item)
+		entries = append(entries, e)
 		if i++; i == limit {
 			break
 		}
 	}
 
-	return &schema.ItemList{
-		Items: items,
+	return &schema.Entries{
+		Entries: entries,
 	}, nil
 }

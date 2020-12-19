@@ -691,7 +691,7 @@ func TestImmuClient_History(t *testing.T) {
 	})
 
 	assert.Nil(t, err)
-	assert.Len(t, sil.Items, 2)
+	assert.Len(t, sil.Entries, 2)
 	client.Disconnect()
 }
 

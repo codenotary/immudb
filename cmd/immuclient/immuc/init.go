@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package immuc
 
 import (
@@ -87,6 +86,7 @@ func (i *immuc) Connect(args []string) error {
 	}
 
 	i.valueOnly = viper.GetBool("value-only")
+
 	return nil
 }
 
@@ -118,6 +118,7 @@ func Options() *client.Options {
 		WithTokenFileName(viper.GetString("tokenfile")).
 		WithMTLs(viper.GetBool("mtls")).
 		WithTokenService(client.NewTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(client.NewHomedirService()))
+
 	if viper.GetBool("mtls") {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = client.DefaultMTLsOptions().
@@ -126,5 +127,6 @@ func Options() *client.Options {
 			WithPkey(viper.GetString("pkey")).
 			WithClientCAs(viper.GetString("clientcas"))
 	}
+
 	return options
 }

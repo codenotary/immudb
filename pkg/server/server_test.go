@@ -676,7 +676,7 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for ind, val := range itList.Items {
+	for ind, val := range itList.Entries {
 		if !bytes.Equal(val.Value, kvs[ind].Value) {
 			t.Fatalf("BatchSet value not equal to BatchGet value, expected %s, got %s", string(kvs[ind].Value), string(val.Value))
 		}
@@ -779,7 +779,7 @@ func testServerHistory(ctx context.Context, s *ImmuServer, t *testing.T) {
 	if err != nil {
 		t.Fatalf("History Error %s", err)
 	}
-	for _, val := range inc.Items {
+	for _, val := range inc.Entries {
 		if !bytes.Equal(val.Value, testValue) {
 			t.Fatalf("History, expected %s, got %s", val.Value, testValue)
 		}
@@ -878,8 +878,8 @@ func testServerZAdd(ctx context.Context, s *ImmuServer, t *testing.T) {
 		Desc:    false,
 	})
 	require.NoError(t, err)
-	if !bytes.Equal(item.Items[0].Item.Value, kvs[0].Value) {
-		t.Fatalf("Reference, expected %v, got %v", string(kvs[0].Value), string(item.Items[0].Item.Value))
+	if !bytes.Equal(item.Entries[0].Entry.Value, kvs[0].Value) {
+		t.Fatalf("Reference, expected %v, got %v", string(kvs[0].Value), string(item.Entries[0].Entry.Value))
 	}
 }
 
@@ -931,8 +931,8 @@ func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	if !bytes.Equal(item.Items[0].Key, kvs[0].Key) {
-		t.Fatalf("Reference, expected %v, got %v", string(kvs[0].Key), string(item.Items[0].Key))
+	if !bytes.Equal(item.Entries[0].Key, kvs[0].Key) {
+		t.Fatalf("Reference, expected %v, got %v", string(kvs[0].Key), string(item.Entries[0].Key))
 	}
 }
 

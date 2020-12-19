@@ -58,7 +58,7 @@ func TestImmuClientMock(t *testing.T) {
 		LogoutF: func(context.Context) error {
 			return errLogout
 		},
-		VerifiedGetF: func(context.Context, []byte, ...grpc.CallOption) (*schema.Item, error) {
+		VerifiedGetF: func(context.Context, []byte, ...grpc.CallOption) (*schema.Entry, error) {
 			return nil, errVerifiedGet
 		},
 		VerifiedSetF: func(context.Context, []byte, []byte) (*schema.TxMetadata, error) {
@@ -73,7 +73,7 @@ func TestImmuClientMock(t *testing.T) {
 		VerifiedZAddF: func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error) {
 			return nil, errVerifiedZAdd
 		},
-		HistoryF: func(context.Context, *schema.HistoryRequest) (*schema.ItemList, error) {
+		HistoryF: func(context.Context, *schema.HistoryRequest) (*schema.Entries, error) {
 			return nil, errHistory
 		},
 	}

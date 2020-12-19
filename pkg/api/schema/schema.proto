@@ -104,10 +104,18 @@ message KeyValue {
 	bytes value = 2;
 }
 
-message Item {
+message Entry {
 	uint64 tx = 1;
-	bytes key = 4;
-	bytes value = 5;
+	bytes key = 2;
+	bytes value = 3;
+
+	Reference reference = 4;
+}
+
+message Reference {
+	uint64 tx = 1;
+	bytes key = 2;
+	uint64 atTx = 3;
 }
 
 message Op {
@@ -123,20 +131,20 @@ message ExecAllRequest {
 	uint64 sinceTx = 2;
 }
 
-message ItemList {
-	repeated Item items = 1;
+message Entries {
+	repeated Entry entries = 1;
 }
 
-message ZItem {
+message ZEntry {
 	bytes set = 1;
 	bytes key = 2;
-	Item item = 3;
+	Entry entry = 3;
 	double score = 4;
 	uint64 atTx = 5;
 }
 
-message ZItemList {
-	repeated ZItem items = 1;
+message ZEntries {
+	repeated ZEntry entries = 1;
 }
 
 message ScanRequest {
@@ -151,7 +159,7 @@ message KeyPrefix {
 	bytes prefix = 1;
 }
 
-message ItemsCount {
+message EntryCount {
 	uint64 count = 1;
 }
 
@@ -211,8 +219,8 @@ message VerifiableTx {
 
 //////////////////
 
-message VerifiableItem {
-	Item item = 1;
+message VerifiableEntry {
+	Entry entry = 1;
 	VerifiableTx verifiableTx = 2;
 	InclusionProof inclusionProof = 3;
 }
@@ -427,20 +435,20 @@ service ImmuService {
 		};
 	};
 
-	rpc Get (KeyRequest) returns (Item){
+	rpc Get (KeyRequest) returns (Entry){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/{key}"
 		};
 	};
 
-	rpc VerifiableGet (VerifiableGetRequest) returns (VerifiableItem){
+	rpc VerifiableGet (VerifiableGetRequest) returns (VerifiableEntry){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/item/verifiable/get"
 			body: "*"
 		};
 	};
 
-	rpc GetAll (KeyListRequest) returns (ItemList){
+	rpc GetAll (KeyListRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/get"
 			body: "*"
@@ -454,20 +462,20 @@ service ImmuService {
 		};
 	};
 
-	rpc Scan(ScanRequest) returns (ItemList){
+	rpc Scan(ScanRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/item/scan"
 			body: "*"
 		};
 	};
 
-	rpc Count(KeyPrefix) returns (ItemsCount){
+	rpc Count(KeyPrefix) returns (EntryCount){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/count/{prefix}"
 		};
 	};
 
-	rpc CountAll(google.protobuf.Empty) returns (ItemsCount){
+	rpc CountAll(google.protobuf.Empty) returns (EntryCount){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/countall"
 		};
@@ -485,7 +493,7 @@ service ImmuService {
 		};
 	};
 
-	rpc History(HistoryRequest) returns (ItemList){
+	rpc History(HistoryRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/history"
 			body: "*"
@@ -538,7 +546,7 @@ service ImmuService {
 		};
 	};
 
-	rpc ZScan (ZScanRequest) returns (ZItemList){
+	rpc ZScan (ZScanRequest) returns (ZEntries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/zscan"
 			body: "*"

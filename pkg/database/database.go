@@ -43,23 +43,23 @@ type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
 	CurrentState() (*schema.ImmutableState, error)
 	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
-	Get(req *schema.KeyRequest) (*schema.Item, error)
+	Get(req *schema.KeyRequest) (*schema.Entry, error)
 	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
-	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error)
-	GetAll(req *schema.KeyListRequest) (*schema.ItemList, error)
+	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error)
+	GetAll(req *schema.KeyListRequest) (*schema.Entries, error)
 	ExecAll(operations *schema.ExecAllRequest) (*schema.TxMetadata, error)
 	Size() (uint64, error)
-	Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error)
-	CountAll() (*schema.ItemsCount, error)
+	Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error)
+	CountAll() (*schema.EntryCount, error)
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
-	History(req *schema.HistoryRequest) (*schema.ItemList, error)
+	History(req *schema.HistoryRequest) (*schema.Entries, error)
 	SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error)
 	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
 	ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error)
-	ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error)
+	ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error)
 	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
-	Scan(req *schema.ScanRequest) (*schema.ItemList, error)
+	Scan(req *schema.ScanRequest) (*schema.Entries, error)
 	PrintTree() (*schema.Tree, error)
 	Close() error
 	GetOptions() *DbOptions
@@ -158,7 +158,7 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 }
 
 //Get ...
-func (d *db) Get(req *schema.KeyRequest) (*schema.Item, error) {
+func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -197,11 +197,11 @@ type KeyIndex interface {
 	Get(key []byte) (value []byte, tx uint64, err error)
 }
 
-func (d *db) get(key []byte, keyIndex KeyIndex, tx *store.Tx) (item *schema.Item, err error) {
+func (d *db) get(key []byte, keyIndex KeyIndex, tx *store.Tx) (*schema.Entry, error) {
 	return d.getAt(key, 0, 0, keyIndex, tx)
 }
 
-func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx *store.Tx) (item *schema.Item, err error) {
+func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx *store.Tx) (entry *schema.Entry, err error) {
 	var ktx uint64
 	var val []byte
 
@@ -245,7 +245,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 		return d.getAt(refKey, atTx, resolved+1, keyIndex, tx)
 	}
 
-	return &schema.Item{Key: key[1:], Value: val[1:], Tx: ktx}, err
+	return &schema.Entry{Key: key[1:], Value: val[1:], Tx: ktx}, err
 }
 
 func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
@@ -318,7 +318,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 }
 
 //VerifiableGet ...
-func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error) {
+func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -334,15 +334,15 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	key := wrapWithPrefix(req.KeyRequest.Key, setKeyPrefix)
 
 	// get value of key
-	it, err := d.get(key, d.st, d.tx1) //TODO: use tx pool
+	e, err := d.get(key, d.st, d.tx1) //TODO: use tx pool
 	if err != nil {
 		return nil, err
 	}
 
-	txItem := d.tx1
+	txEntry := d.tx1
 
 	// key-value inclusion proof
-	err = d.st.ReadTx(it.Tx, txItem)
+	err = d.st.ReadTx(e.Tx, txEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +355,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	var rootTx *store.Tx
 
 	if req.ProveSinceTx == 0 {
-		rootTx = txItem
+		rootTx = txEntry
 	} else {
 		rootTx = d.tx2
 
@@ -367,11 +367,11 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 	var sourceTx, targetTx *store.Tx
 
-	if req.ProveSinceTx <= it.Tx {
+	if req.ProveSinceTx <= e.Tx {
 		sourceTx = rootTx
-		targetTx = txItem
+		targetTx = txEntry
 	} else {
-		sourceTx = txItem
+		sourceTx = txEntry
 		targetTx = rootTx
 	}
 
@@ -381,19 +381,19 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	}
 
 	verifiableTx := &schema.VerifiableTx{
-		Tx:        schema.TxTo(txItem),
+		Tx:        schema.TxTo(txEntry),
 		DualProof: schema.DualProofTo(dualProof),
 	}
 
-	return &schema.VerifiableItem{
-		Item:           it,
+	return &schema.VerifiableEntry{
+		Entry:          e,
 		VerifiableTx:   verifiableTx,
 		InclusionProof: schema.InclusionProofTo(inclusionProof),
 	}, nil
 }
 
 //GetAll ...
-func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
+func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	err := d.WaitForIndexingUpto(req.SinceTx)
 	if err != nil {
 		return nil, err
@@ -408,13 +408,13 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.ItemList, error) {
 	}
 	defer snapshot.Close()
 
-	list := &schema.ItemList{}
+	list := &schema.Entries{}
 
 	for _, key := range req.Keys {
-		item, err := d.get(wrapWithPrefix(key, setKeyPrefix), snapshot, d.tx1)
+		e, err := d.get(wrapWithPrefix(key, setKeyPrefix), snapshot, d.tx1)
 		if err == nil || err == store.ErrKeyNotFound {
-			if item != nil {
-				list.Items = append(list.Items, item)
+			if e != nil {
+				list.Entries = append(list.Entries, e)
 			}
 		} else {
 			return nil, err
@@ -430,12 +430,12 @@ func (d *db) Size() (uint64, error) {
 }
 
 //Count ...
-func (d *db) Count(prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
+func (d *db) Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
 }
 
 // CountAll ...
-func (d *db) CountAll() (*schema.ItemsCount, error) {
+func (d *db) CountAll() (*schema.EntryCount, error) {
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
 }
 
@@ -509,7 +509,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 }
 
 //History ...
-func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
+func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -536,7 +536,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 		return nil, err
 	}
 
-	list := &schema.ItemList{}
+	list := &schema.Entries{}
 
 	for i := int(req.Offset); i < len(tss); i++ {
 		ts := tss[i]
@@ -551,12 +551,12 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.ItemList, error) {
 			return nil, err
 		}
 
-		item := &schema.Item{Key: req.Key, Value: val[1:], Tx: ts}
+		e := &schema.Entry{Key: req.Key, Value: val[1:], Tx: ts}
 
 		if req.Desc {
-			list.Items = append([]*schema.Item{item}, list.Items...)
+			list.Entries = append([]*schema.Entry{e}, list.Entries...)
 		} else {
-			list.Items = append(list.Items, item)
+			list.Entries = append(list.Entries, e)
 		}
 	}
 

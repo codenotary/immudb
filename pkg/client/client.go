@@ -88,12 +88,12 @@ type ImmuClient interface {
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
 	VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
 
-	Get(ctx context.Context, key []byte) (*schema.Item, error)
-	VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Item, error)
+	Get(ctx context.Context, key []byte) (*schema.Entry, error)
+	VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error)
 
-	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Item, error)
+	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
 
-	History(ctx context.Context, req *schema.HistoryRequest) (*schema.ItemList, error)
+	History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 
 	ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
 	VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
@@ -101,17 +101,17 @@ type ImmuClient interface {
 	ZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error)
 	VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, txID uint64) (*schema.TxMetadata, error)
 
-	Scan(ctx context.Context, req *schema.ScanRequest) (*schema.ItemList, error)
-	ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZItemList, error)
+	Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)
+	ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error)
 
 	TxByID(ctx context.Context, txID uint64) (*schema.Tx, error)
 	VerifiedTxByID(ctx context.Context, txID uint64) (*schema.Tx, error)
 
-	Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error)
-	CountAll(ctx context.Context) (*schema.ItemsCount, error)
+	Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error)
+	CountAll(ctx context.Context) (*schema.EntryCount, error)
 
 	SetAll(ctx context.Context, kvList *schema.SetRequest) (*schema.TxMetadata, error)
-	GetAll(ctx context.Context, keys [][]byte) (*schema.ItemList, error)
+	GetAll(ctx context.Context, keys [][]byte) (*schema.Entries, error)
 
 	ExecAll(ctx context.Context, in *schema.ExecAllRequest) (*schema.TxMetadata, error)
 
@@ -475,7 +475,7 @@ func (c *immuClient) CurrentState(ctx context.Context) (*schema.ImmutableState, 
 }
 
 // Get ...
-func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Item, error) {
+func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Entry, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -487,7 +487,7 @@ func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Item, error) 
 }
 
 // VerifiedGet ...
-func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *schema.Item, err error) {
+func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *schema.Entry, err error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -508,30 +508,30 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 		ProveSinceTx: state.TxId,
 	}
 
-	vItem, err := c.ServiceClient.VerifiableGet(ctx, req, opts...)
+	vEntry, err := c.ServiceClient.VerifiableGet(ctx, req, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	inclusionProof := schema.InclusionProofFrom(vItem.InclusionProof)
-	dualProof := schema.DualProofFrom(vItem.VerifiableTx.DualProof)
+	inclusionProof := schema.InclusionProofFrom(vEntry.InclusionProof)
+	dualProof := schema.DualProofFrom(vEntry.VerifiableTx.DualProof)
 
 	var eh [sha256.Size]byte
 
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
-	if state.TxId <= vItem.Item.Tx {
-		eh = schema.DigestFrom(vItem.VerifiableTx.DualProof.TargetTxMetadata.EH)
+	if state.TxId <= vEntry.Entry.Tx {
+		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
 
 		sourceID = state.TxId
 		sourceAlh = schema.DigestFrom(state.TxHash)
-		targetID = vItem.Item.Tx
+		targetID = vEntry.Entry.Tx
 		targetAlh = dualProof.TargetTxMetadata.Alh()
 	} else {
-		eh = schema.DigestFrom(vItem.VerifiableTx.DualProof.SourceTxMetadata.EH)
+		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.SourceTxMetadata.EH)
 
-		sourceID = vItem.Item.Tx
+		sourceID = vEntry.Entry.Tx
 		sourceAlh = dualProof.SourceTxMetadata.Alh()
 		targetID = state.TxId
 		targetAlh = schema.DigestFrom(state.TxHash)
@@ -539,7 +539,7 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 
 	verifies := store.VerifyInclusion(
 		inclusionProof,
-		&store.KV{Key: key, Value: vItem.Item.Value},
+		&store.KV{Key: key, Value: vEntry.Entry.Value},
 		eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
@@ -559,7 +559,7 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 	newState := &schema.ImmutableState{
 		TxId:      targetID,
 		TxHash:    targetAlh[:],
-		Signature: vItem.VerifiableTx.Signature,
+		Signature: vEntry.VerifiableTx.Signature,
 	}
 
 	// TODO: FIX state signing
@@ -578,11 +578,11 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 		return nil, err
 	}
 
-	return vItem.Item, nil
+	return vEntry.Entry, nil
 }
 
 // GetSince ...
-func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Item, error) {
+func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -594,7 +594,7 @@ func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*sche
 }
 
 // Scan ...
-func (c *immuClient) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.ItemList, error) {
+func (c *immuClient) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -603,7 +603,7 @@ func (c *immuClient) Scan(ctx context.Context, req *schema.ScanRequest) (*schema
 }
 
 // ZScan ...
-func (c *immuClient) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZItemList, error) {
+func (c *immuClient) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -612,7 +612,7 @@ func (c *immuClient) ZScan(ctx context.Context, req *schema.ZScanRequest) (*sche
 }
 
 // Count ...
-func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error) {
+func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -620,7 +620,7 @@ func (c *immuClient) Count(ctx context.Context, prefix []byte) (*schema.ItemsCou
 }
 
 // CountAll ...
-func (c *immuClient) CountAll(ctx context.Context) (*schema.ItemsCount, error) {
+func (c *immuClient) CountAll(ctx context.Context) (*schema.EntryCount, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -752,7 +752,7 @@ func (c *immuClient) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*
 }
 
 // GetAll ...
-func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.ItemList, error) {
+func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.Entries, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -862,7 +862,7 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, txID uint64) (*schema.T
 }
 
 // History ...
-func (c *immuClient) History(ctx context.Context, req *schema.HistoryRequest) (sl *schema.ItemList, err error) {
+func (c *immuClient) History(ctx context.Context, req *schema.HistoryRequest) (sl *schema.Entries, err error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}

@@ -51,7 +51,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaEntries"
             }
           },
           "default": {
@@ -170,7 +170,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaEntries"
             }
           },
           "default": {
@@ -202,7 +202,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemsCount"
+              "$ref": "#/definitions/schemaEntryCount"
             }
           },
           "default": {
@@ -233,7 +233,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemsCount"
+              "$ref": "#/definitions/schemaEntryCount"
             }
           },
           "default": {
@@ -324,7 +324,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaEntries"
             }
           },
           "default": {
@@ -356,7 +356,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaVerifiableItem"
+              "$ref": "#/definitions/schemaVerifiableEntry"
             }
           },
           "default": {
@@ -388,7 +388,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItem"
+              "$ref": "#/definitions/schemaEntry"
             }
           },
           "default": {
@@ -863,7 +863,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaZItemList"
+              "$ref": "#/definitions/schemaZEntries"
             }
           },
           "default": {
@@ -1039,6 +1039,46 @@
         }
       }
     },
+    "schemaEntries": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaEntry"
+          }
+        }
+      }
+    },
+    "schemaEntry": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        },
+        "reference": {
+          "$ref": "#/definitions/schemaReference"
+        }
+      }
+    },
+    "schemaEntryCount": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "schemaExecAllRequest": {
       "type": "object",
       "properties": {
@@ -1122,43 +1162,6 @@
             "type": "string",
             "format": "byte"
           }
-        }
-      }
-    },
-    "schemaItem": {
-      "type": "object",
-      "properties": {
-        "tx": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "key": {
-          "type": "string",
-          "format": "byte"
-        },
-        "value": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
-    "schemaItemList": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaItem"
-          }
-        }
-      }
-    },
-    "schemaItemsCount": {
-      "type": "object",
-      "properties": {
-        "count": {
-          "type": "string",
-          "format": "uint64"
         }
       }
     },
@@ -1319,6 +1322,23 @@
         "REVOKE"
       ],
       "default": "GRANT"
+    },
+    "schemaReference": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "atTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
     },
     "schemaReferenceRequest": {
       "type": "object",
@@ -1527,6 +1547,20 @@
         }
       }
     },
+    "schemaVerifiableEntry": {
+      "type": "object",
+      "properties": {
+        "entry": {
+          "$ref": "#/definitions/schemaEntry"
+        },
+        "verifiableTx": {
+          "$ref": "#/definitions/schemaVerifiableTx"
+        },
+        "inclusionProof": {
+          "$ref": "#/definitions/schemaInclusionProof"
+        }
+      }
+    },
     "schemaVerifiableGetRequest": {
       "type": "object",
       "properties": {
@@ -1536,20 +1570,6 @@
         "proveSinceTx": {
           "type": "string",
           "format": "uint64"
-        }
-      }
-    },
-    "schemaVerifiableItem": {
-      "type": "object",
-      "properties": {
-        "item": {
-          "$ref": "#/definitions/schemaItem"
-        },
-        "verifiableTx": {
-          "$ref": "#/definitions/schemaVerifiableTx"
-        },
-        "inclusionProof": {
-          "$ref": "#/definitions/schemaInclusionProof"
         }
       }
     },
@@ -1628,7 +1648,18 @@
         }
       }
     },
-    "schemaZItem": {
+    "schemaZEntries": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaZEntry"
+          }
+        }
+      }
+    },
+    "schemaZEntry": {
       "type": "object",
       "properties": {
         "set": {
@@ -1639,8 +1670,8 @@
           "type": "string",
           "format": "byte"
         },
-        "item": {
-          "$ref": "#/definitions/schemaItem"
+        "entry": {
+          "$ref": "#/definitions/schemaEntry"
         },
         "score": {
           "type": "number",
@@ -1649,17 +1680,6 @@
         "atTx": {
           "type": "string",
           "format": "uint64"
-        }
-      }
-    },
-    "schemaZItemList": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaZItem"
-          }
         }
       }
     },

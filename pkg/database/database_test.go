@@ -194,8 +194,8 @@ func TestDbSetGet(t *testing.T) {
 			ProveSinceTx: trustedIndex,
 		})
 		require.NoError(t, err)
-		require.Equal(t, kv.Key, vitem.Item.Key)
-		require.Equal(t, kv.Value, vitem.Item.Value)
+		require.Equal(t, kv.Key, vitem.Entry.Key)
+		require.Equal(t, kv.Value, vitem.Entry.Value)
 
 		inclusionProof := schema.InclusionProofFrom(vitem.InclusionProof)
 		dualProof := schema.DualProofFrom(vitem.VerifiableTx.DualProof)
@@ -204,15 +204,15 @@ func TestDbSetGet(t *testing.T) {
 		var sourceID, targetID uint64
 		var sourceAlh, targetAlh [sha256.Size]byte
 
-		if trustedIndex <= vitem.Item.Tx {
+		if trustedIndex <= vitem.Entry.Tx {
 			copy(eh[:], dualProof.TargetTxMetadata.Eh[:])
 			sourceID = trustedIndex
 			sourceAlh = trustedAlh
-			targetID = vitem.Item.Tx
+			targetID = vitem.Entry.Tx
 			targetAlh = dualProof.TargetTxMetadata.Alh()
 		} else {
 			copy(eh[:], dualProof.SourceTxMetadata.Eh[:])
-			sourceID = vitem.Item.Tx
+			sourceID = vitem.Entry.Tx
 			sourceAlh = dualProof.SourceTxMetadata.Alh()
 			targetID = trustedIndex
 			targetAlh = trustedAlh
@@ -220,7 +220,7 @@ func TestDbSetGet(t *testing.T) {
 
 		verifies := store.VerifyInclusion(
 			inclusionProof,
-			&store.KV{Key: wrapWithPrefix(vitem.Item.Key, setKeyPrefix), Value: wrapWithPrefix(vitem.Item.Value, plainValuePrefix)},
+			&store.KV{Key: wrapWithPrefix(vitem.Entry.Key, setKeyPrefix), Value: wrapWithPrefix(vitem.Entry.Value, plainValuePrefix)},
 			eh,
 		)
 		require.True(t, verifies)
@@ -311,7 +311,7 @@ func TestSafeSetGet(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, uint64(ind+1), vit.Item.Tx)
+		require.Equal(t, uint64(ind+1), vit.Entry.Tx)
 	}
 }
 
@@ -348,7 +348,7 @@ func TestSetGetAll(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	for ind, val := range itList.Items {
+	for ind, val := range itList.Entries {
 		require.Equal(t, kvs[ind].Value, val.Value)
 	}
 }
@@ -404,7 +404,7 @@ func TestHistory(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	for _, val := range inc.Items {
+	for _, val := range inc.Entries {
 		require.Equal(t, kvs[0].Value, val.Value)
 	}
 }

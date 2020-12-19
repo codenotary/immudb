@@ -723,7 +723,7 @@ func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSe
 }
 
 // Get ...
-func (s *ImmuServer) Get(ctx context.Context, req *schema.KeyRequest) (*schema.Item, error) {
+func (s *ImmuServer) Get(ctx context.Context, req *schema.KeyRequest) (*schema.Entry, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "Get")
 	if err != nil {
 		return nil, err
@@ -733,7 +733,7 @@ func (s *ImmuServer) Get(ctx context.Context, req *schema.KeyRequest) (*schema.I
 }
 
 // VerifiableGet ...
-func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.VerifiableItem, error) {
+func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableGet")
 	if err != nil {
 		return nil, err
@@ -743,7 +743,7 @@ func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGe
 }
 
 // Scan ...
-func (s *ImmuServer) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.ItemList, error) {
+func (s *ImmuServer) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "Scan")
 	if err != nil {
 		return nil, err
@@ -753,7 +753,7 @@ func (s *ImmuServer) Scan(ctx context.Context, req *schema.ScanRequest) (*schema
 }
 
 // Count ...
-func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.ItemsCount, error) {
+func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
 	s.Logger.Debugf("count %s", prefix.Prefix)
 	ind, err := s.getDbIndexFromCtx(ctx, "Count")
 	if err != nil {
@@ -764,7 +764,7 @@ func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*sche
 }
 
 // CountAll ...
-func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.ItemsCount, error) {
+func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.EntryCount, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "CountAll")
 	s.Logger.Debugf("count all for db index %d", ind)
 	if err != nil {
@@ -795,7 +795,7 @@ func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 }
 
 // History ...
-func (s *ImmuServer) History(ctx context.Context, req *schema.HistoryRequest) (*schema.ItemList, error) {
+func (s *ImmuServer) History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "History")
 	if err != nil {
 		return nil, err
@@ -835,7 +835,7 @@ func (s *ImmuServer) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema
 }
 
 // ZScan ...
-func (s *ImmuServer) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZItemList, error) {
+func (s *ImmuServer) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "ZScan")
 	if err != nil {
 		return nil, err
@@ -1083,10 +1083,10 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 
 	if loggedInuser.IsSysAdmin || s.Options.GetMaintenance() {
 		// return all users, including the deactivated ones
-		for i := 0; i < len(itemList.Items); i++ {
-			itemList.Items[i].Key = itemList.Items[i].Key[1:]
+		for i := 0; i < len(itemList.Entries); i++ {
+			itemList.Entries[i].Key = itemList.Entries[i].Key[1:]
 			var user auth.User
-			err = json.Unmarshal(itemList.Items[i].Value, &user)
+			err = json.Unmarshal(itemList.Entries[i].Value, &user)
 			if err != nil {
 				return nil, err
 			}
@@ -1111,11 +1111,11 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 		// for admin users return only users for the database that is has selected
 		selectedDbname := s.dbList.GetByIndex(dbInd).GetOptions().GetDbName()
 		userlist := &schema.UserList{}
-		for i := 0; i < len(itemList.Items); i++ {
+		for i := 0; i < len(itemList.Entries); i++ {
 			include := false
-			itemList.Items[i].Key = itemList.Items[i].Key[1:]
+			itemList.Entries[i].Key = itemList.Entries[i].Key[1:]
 			var user auth.User
-			err = json.Unmarshal(itemList.Items[i].Value, &user)
+			err = json.Unmarshal(itemList.Entries[i].Value, &user)
 			if err != nil {
 				return nil, err
 			}
@@ -1640,7 +1640,7 @@ func (s *ImmuServer) mandatoryAuth() bool {
 			return true
 		}
 
-		for _, val := range itemList.Items {
+		for _, val := range itemList.Entries {
 			if len(val.Key) > 2 {
 				if auth.SysAdminUsername != string(val.Key[1:]) {
 					//another user detected

@@ -35,6 +35,9 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	// TODO: use tx pool
 
 	//TODO: chequear que req.Reference no exista o al menos sea una referencia, si es una plainkey entonces error
+	//req.Key no existe o es reference
+
+	//req.ReferencedKey existe y es plainKey
 
 	//TODO: chequear que la req.Key existe
 	key := wrapWithPrefix(req.ReferencedKey, setKeyPrefix)

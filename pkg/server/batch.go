@@ -8,7 +8,7 @@ import (
 )
 
 // GetAll ...
-func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.ItemList, error) {
+func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.Entries, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -18,13 +18,13 @@ func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 		return nil, err
 	}
 
-	list := &schema.ItemList{}
+	list := &schema.Entries{}
 
 	for _, key := range req.Keys {
-		item, err := s.dbList.GetByIndex(ind).Get(&schema.KeyRequest{Key: key, SinceTx: req.SinceTx})
+		e, err := s.dbList.GetByIndex(ind).Get(&schema.KeyRequest{Key: key, SinceTx: req.SinceTx})
 		if err == nil || err == store.ErrKeyNotFound {
-			if item != nil {
-				list.Items = append(list.Items, item)
+			if e != nil {
+				list.Entries = append(list.Entries, e)
 			}
 		} else {
 			return nil, err

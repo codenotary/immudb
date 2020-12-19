@@ -77,10 +77,10 @@ func TestStoreIndexExists(t *testing.T) {
 	itemList1, err := db.ZScan(zscanOpts1)
 
 	require.NoError(t, err)
-	require.Len(t, itemList1.Items, 3)
-	require.Equal(t, []byte(`mySecondElementKey`), itemList1.Items[0].Item.Key)
-	require.Equal(t, []byte(`myThirdElementKey`), itemList1.Items[1].Item.Key)
-	require.Equal(t, []byte(`myFirstElementKey`), itemList1.Items[2].Item.Key)
+	require.Len(t, itemList1.Entries, 3)
+	require.Equal(t, []byte(`mySecondElementKey`), itemList1.Entries[0].Entry.Key)
+	require.Equal(t, []byte(`myThirdElementKey`), itemList1.Entries[1].Entry.Key)
+	require.Equal(t, []byte(`myFirstElementKey`), itemList1.Entries[2].Entry.Key)
 
 	zscanOpts2 := &schema.ZScanRequest{
 		Set:      []byte(`firstIndex`),
@@ -91,10 +91,10 @@ func TestStoreIndexExists(t *testing.T) {
 	itemList2, err := db.ZScan(zscanOpts2)
 
 	require.NoError(t, err)
-	require.Len(t, itemList2.Items, 3)
-	require.Equal(t, []byte(`myFirstElementKey`), itemList2.Items[0].Item.Key)
-	require.Equal(t, []byte(`myThirdElementKey`), itemList2.Items[1].Item.Key)
-	require.Equal(t, []byte(`mySecondElementKey`), itemList2.Items[2].Item.Key)
+	require.Len(t, itemList2.Entries, 3)
+	require.Equal(t, []byte(`myFirstElementKey`), itemList2.Entries[0].Entry.Key)
+	require.Equal(t, []byte(`myThirdElementKey`), itemList2.Entries[1].Entry.Key)
+	require.Equal(t, []byte(`mySecondElementKey`), itemList2.Entries[2].Entry.Key)
 }
 
 func TestStoreIndexEqualKeys(t *testing.T) {
@@ -153,10 +153,10 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	itemList1, err := db.ZScan(zscanOpts1)
 
 	require.NoError(t, err)
-	require.Len(t, itemList1.Items, 3)
-	require.Equal(t, []byte(`SignerId1`), itemList1.Items[0].Item.Key)
-	require.Equal(t, []byte(`SignerId1`), itemList1.Items[1].Item.Key)
-	require.Equal(t, []byte(`SignerId2`), itemList1.Items[2].Item.Key)
+	require.Len(t, itemList1.Entries, 3)
+	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[0].Entry.Key)
+	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[1].Entry.Key)
+	require.Equal(t, []byte(`SignerId2`), itemList1.Entries[2].Entry.Key)
 
 }
 
@@ -219,13 +219,13 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	itemList1, err := db.ZScan(zscanOpts1)
 
 	require.NoError(t, err)
-	require.Len(t, itemList1.Items, 3)
-	require.Equal(t, []byte(`SignerId1`), itemList1.Items[0].Item.Key)
-	require.Equal(t, []byte(`firstValue`), itemList1.Items[0].Item.Value)
-	require.Equal(t, []byte(`SignerId1`), itemList1.Items[1].Item.Key)
-	require.Equal(t, []byte(`secondValue`), itemList1.Items[1].Item.Value)
-	require.Equal(t, []byte(`SignerId2`), itemList1.Items[2].Item.Key)
-	require.Equal(t, []byte(`thirdValue`), itemList1.Items[2].Item.Value)
+	require.Len(t, itemList1.Entries, 3)
+	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[0].Entry.Key)
+	require.Equal(t, []byte(`firstValue`), itemList1.Entries[0].Entry.Value)
+	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[1].Entry.Key)
+	require.Equal(t, []byte(`secondValue`), itemList1.Entries[1].Entry.Value)
+	require.Equal(t, []byte(`SignerId2`), itemList1.Entries[2].Entry.Key)
+	require.Equal(t, []byte(`thirdValue`), itemList1.Entries[2].Entry.Value)
 
 }
 
@@ -326,11 +326,11 @@ func TestStore_ZScanPagination(t *testing.T) {
 
 	list1, err := db.ZScan(zScanOption1)
 	require.NoError(t, err)
-	require.Len(t, list1.Items, 2)
-	require.Equal(t, list1.Items[0].Item.Key, []byte(`key3`))
-	require.Equal(t, list1.Items[1].Item.Key, []byte(`key4`))
+	require.Len(t, list1.Entries, 2)
+	require.Equal(t, list1.Entries[0].Entry.Key, []byte(`key3`))
+	require.Equal(t, list1.Entries[1].Entry.Key, []byte(`key4`))
 
-	lastItem := list1.Items[len(list1.Items)-1]
+	lastItem := list1.Entries[len(list1.Entries)-1]
 
 	zScanOption2 := &schema.ZScanRequest{
 		Set:       setName,
@@ -346,9 +346,9 @@ func TestStore_ZScanPagination(t *testing.T) {
 
 	list, err := db.ZScan(zScanOption2)
 	require.NoError(t, err)
-	require.Len(t, list.Items, 2)
-	require.Equal(t, list.Items[0].Item.Key, []byte(`key5`))
-	require.Equal(t, list.Items[1].Item.Key, []byte(`key6`))
+	require.Len(t, list.Entries, 2)
+	require.Equal(t, list.Entries[0].Entry.Key, []byte(`key5`))
+	require.Equal(t, list.Entries[1].Entry.Key, []byte(`key6`))
 }
 
 // TestStore_ZScanMinMax
@@ -427,11 +427,11 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 
 	list1, err := db.ZScan(zScanOption1)
 	require.NoError(t, err)
-	require.Len(t, list1.Items, 2)
-	require.Equal(t, list1.Items[0].Item.Key, []byte(`key6`))
-	require.Equal(t, list1.Items[1].Item.Key, []byte(`key5`))
+	require.Len(t, list1.Entries, 2)
+	require.Equal(t, list1.Entries[0].Entry.Key, []byte(`key6`))
+	require.Equal(t, list1.Entries[1].Entry.Key, []byte(`key5`))
 
-	lastItem := list1.Items[len(list1.Items)-1]
+	lastItem := list1.Entries[len(list1.Entries)-1]
 
 	zScanOption2 := &schema.ZScanRequest{
 		Set:           setName,
@@ -446,9 +446,9 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 
 	list2, err := db.ZScan(zScanOption2)
 	require.NoError(t, err)
-	require.Len(t, list2.Items, 2)
-	require.Equal(t, list2.Items[0].Item.Key, []byte(`key5`))
-	require.Equal(t, list2.Items[1].Item.Key, []byte(`key4`))
+	require.Len(t, list2.Entries, 2)
+	require.Equal(t, list2.Entries[0].Entry.Key, []byte(`key5`))
+	require.Equal(t, list2.Entries[1].Entry.Key, []byte(`key4`))
 
 	zScanOption3 := &schema.ZScanRequest{
 		Set:           setName,
@@ -463,9 +463,9 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 
 	list3, err := db.ZScan(zScanOption3)
 	require.NoError(t, err)
-	require.Len(t, list3.Items, 2)
-	require.Equal(t, list3.Items[0].Item.Key, []byte(`key4`))
-	require.Equal(t, list3.Items[1].Item.Key, []byte(`key3`))
+	require.Len(t, list3.Entries, 2)
+	require.Equal(t, list3.Entries[0].Entry.Key, []byte(`key4`))
+	require.Equal(t, list3.Entries[1].Entry.Key, []byte(`key3`))
 }
 
 /*func TestStore_ZScanInvalidSet(t *testing.T) {
@@ -540,11 +540,11 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 
 	require.NoError(t, err)
 	// same key, sorted by internal timestamp
-	require.Exactly(t, []byte(`val1-A`), list.Items[0].Item.Value)
-	require.Exactly(t, []byte(`val1-B`), list.Items[1].Item.Value)
-	require.Exactly(t, []byte(`val1-C`), list.Items[2].Item.Value)
-	require.Exactly(t, []byte(`val2-A`), list.Items[3].Item.Value)
-	require.Exactly(t, []byte(`val3-A`), list.Items[4].Item.Value)
+	require.Exactly(t, []byte(`val1-A`), list.Entries[0].Entry.Value)
+	require.Exactly(t, []byte(`val1-B`), list.Entries[1].Entry.Value)
+	require.Exactly(t, []byte(`val1-C`), list.Entries[2].Entry.Value)
+	require.Exactly(t, []byte(`val2-A`), list.Entries[3].Entry.Value)
+	require.Exactly(t, []byte(`val3-A`), list.Entries[4].Entry.Value)
 }
 
 func TestStoreZScanOnZAddIndexReference(t *testing.T) {
@@ -604,9 +604,9 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	itemList1, err := db.ZScan(zscanOpts1)
 
 	require.NoError(t, err)
-	require.Len(t, itemList1.Items, 3)
-	require.Equal(t, []byte(`SignerId1`), itemList1.Items[0].Item.Key)
-	require.Equal(t, []byte(`SignerId1`), itemList1.Items[1].Item.Key)
-	require.Equal(t, []byte(`SignerId2`), itemList1.Items[2].Item.Key)
+	require.Len(t, itemList1.Entries, 3)
+	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[0].Entry.Key)
+	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[1].Entry.Key)
+	require.Equal(t, []byte(`SignerId2`), itemList1.Entries[2].Entry.Key)
 
 }

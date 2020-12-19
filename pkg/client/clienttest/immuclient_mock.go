@@ -39,26 +39,26 @@ type ImmuClientMock struct {
 	DisconnectF           func() error
 	LoginF                func(context.Context, []byte, []byte) (*schema.LoginResponse, error)
 	LogoutF               func(context.Context) error
-	VerifiedGetF          func(context.Context, []byte, ...grpc.CallOption) (*schema.Item, error)
+	VerifiedGetF          func(context.Context, []byte, ...grpc.CallOption) (*schema.Entry, error)
 	VerifiedSetF          func(context.Context, []byte, []byte) (*schema.TxMetadata, error)
 	SetF                  func(context.Context, []byte, []byte) (*schema.TxMetadata, error)
 	SetReferenceF         func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error)
 	VerifiedSetReferenceF func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error)
 	ZAddF                 func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error)
 	VerifiedZAddF         func(context.Context, []byte, float64, []byte, uint64) (*schema.TxMetadata, error)
-	HistoryF              func(context.Context, *schema.HistoryRequest) (*schema.ItemList, error)
+	HistoryF              func(context.Context, *schema.HistoryRequest) (*schema.Entries, error)
 	UseDatabaseF          func(context.Context, *schema.Database) (*schema.UseDatabaseReply, error)
 	DumpF                 func(context.Context, io.WriteSeeker) (int64, error)
 	CurrentStateF         func(context.Context) (*schema.ImmutableState, error)
 	TxByIDF               func(context.Context, uint64) (*schema.Tx, error)
-	GetF                  func(context.Context, []byte) (*schema.Item, error)
+	GetF                  func(context.Context, []byte) (*schema.Entry, error)
 	VerifiedTxByIDF       func(context.Context, uint64) (*schema.Tx, error)
 	ListUsersF            func(context.Context) (*schema.UserList, error)
 	SetActiveUserF        func(context.Context, *schema.SetActiveUserRequest) error
 	ChangePermissionF     func(context.Context, schema.PermissionAction, string, string, uint32) error
-	ZScanF                func(context.Context, *schema.ZScanRequest) (*schema.ZItemList, error)
-	ScanF                 func(context.Context, *schema.ScanRequest) (*schema.ItemList, error)
-	CountF                func(context.Context, []byte) (*schema.ItemsCount, error)
+	ZScanF                func(context.Context, *schema.ZScanRequest) (*schema.ZEntries, error)
+	ScanF                 func(context.Context, *schema.ScanRequest) (*schema.Entries, error)
+	CountF                func(context.Context, []byte) (*schema.EntryCount, error)
 	CreateDatabaseF       func(context.Context, *schema.Database) error
 	DatabaseListF         func(context.Context) (*schema.DatabaseListResponse, error)
 	ChangePasswordF       func(context.Context, []byte, []byte, []byte) error
@@ -106,7 +106,7 @@ func (icm *ImmuClientMock) Logout(ctx context.Context) error {
 }
 
 // VerifiedGet ...
-func (icm *ImmuClientMock) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Item, error) {
+func (icm *ImmuClientMock) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error) {
 	return icm.VerifiedGetF(ctx, key)
 }
 
@@ -141,7 +141,7 @@ func (icm *ImmuClientMock) VerifiedZAdd(ctx context.Context, set []byte, score f
 }
 
 // History ...
-func (icm *ImmuClientMock) History(ctx context.Context, options *schema.HistoryRequest) (*schema.ItemList, error) {
+func (icm *ImmuClientMock) History(ctx context.Context, options *schema.HistoryRequest) (*schema.Entries, error) {
 	return icm.HistoryF(ctx, options)
 }
 
@@ -161,7 +161,7 @@ func (icm *ImmuClientMock) CurrentState(ctx context.Context) (*schema.ImmutableS
 }
 
 // Get ...
-func (icm *ImmuClientMock) Get(ctx context.Context, key []byte) (*schema.Item, error) {
+func (icm *ImmuClientMock) Get(ctx context.Context, key []byte) (*schema.Entry, error) {
 	return icm.GetF(ctx, key)
 }
 
@@ -191,17 +191,17 @@ func (icm *ImmuClientMock) ChangePermission(ctx context.Context, action schema.P
 }
 
 // ZScan ...
-func (icm *ImmuClientMock) ZScan(ctx context.Context, request *schema.ZScanRequest) (*schema.ZItemList, error) {
+func (icm *ImmuClientMock) ZScan(ctx context.Context, request *schema.ZScanRequest) (*schema.ZEntries, error) {
 	return icm.ZScanF(ctx, request)
 }
 
 // Scan ...
-func (icm *ImmuClientMock) Scan(ctx context.Context, request *schema.ScanRequest) (*schema.ItemList, error) {
+func (icm *ImmuClientMock) Scan(ctx context.Context, request *schema.ScanRequest) (*schema.Entries, error) {
 	return icm.ScanF(ctx, request)
 }
 
 // Count ...
-func (icm *ImmuClientMock) Count(ctx context.Context, prefix []byte) (*schema.ItemsCount, error) {
+func (icm *ImmuClientMock) Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error) {
 	return icm.CountF(ctx, prefix)
 }
 

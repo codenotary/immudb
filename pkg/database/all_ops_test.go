@@ -153,8 +153,8 @@ func TestExecAllOps(t *testing.T) {
 	}
 	zList, err := db.ZScan(zScanOpt)
 	assert.NoError(t, err)
-	println(len(zList.Items))
-	assert.Len(t, zList.Items, batchSize)
+	println(len(zList.Entries))
+	assert.Len(t, zList.Entries, batchSize)
 }
 
 /*

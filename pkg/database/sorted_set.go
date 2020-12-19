@@ -64,7 +64,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 }
 
 // ZScan ...
-func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
+func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -133,7 +133,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 	}
 	defer r.Close()
 
-	var items []*schema.ZItem
+	var entries []*schema.ZEntry
 	i := uint64(0)
 
 	for {
@@ -164,24 +164,24 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZItemList, error) {
 
 		atTx := binary.BigEndian.Uint64(zKey[keyOff+len(key):])
 
-		item, err := d.getAt(key, atTx, 0, snap, d.tx1)
+		e, err := d.getAt(key, atTx, 0, snap, d.tx1)
 
-		zitem := &schema.ZItem{
+		zentry := &schema.ZEntry{
 			Set:   req.Set,
 			Key:   key[1:],
-			Item:  item,
+			Entry: e,
 			Score: score,
 			AtTx:  atTx,
 		}
 
-		items = append(items, zitem)
+		entries = append(entries, zentry)
 		if i++; i == limit {
 			break
 		}
 	}
 
-	list := &schema.ZItemList{
-		Items: items,
+	list := &schema.ZEntries{
+		Entries: entries,
 	}
 
 	return list, nil
