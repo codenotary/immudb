@@ -817,8 +817,8 @@ func testServerReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	require.NoError(t, err)
 
 	meta, err := s.SetReference(ctx, &schema.ReferenceRequest{
-		Reference: []byte(`tag`),
-		Key:       kvs[0].Key,
+		Key:           []byte(`tag`),
+		ReferencedKey: kvs[0].Key,
 	})
 	require.NoError(t, err)
 
@@ -833,8 +833,8 @@ func testServerGetReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Reference error %s", err)
 	}
 	_, err = s.SetReference(ctx, &schema.ReferenceRequest{
-		Reference: []byte(`tag`),
-		Key:       kvs[0].Key,
+		Key:           []byte(`tag`),
+		ReferencedKey: kvs[0].Key,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -852,8 +852,8 @@ func testServerGetReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func testServerReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.SetReference(ctx, &schema.ReferenceRequest{
-		Reference: []byte(`tag`),
-		Key:       kvs[0].Key,
+		Key:           []byte(`tag`),
+		ReferencedKey: kvs[0].Key,
 	})
 	if err != nil {
 		t.Fatalf("Reference  exptected  error")
@@ -957,8 +957,8 @@ func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 	_, err = s.VerifiableSetReference(ctx, &schema.VerifiableReferenceRequest{
 		ReferenceRequest: &schema.ReferenceRequest{
-			Key:       kvs[0].Key,
-			Reference: []byte("key1"),
+			Key:           kvs[0].Key,
+			ReferencedKey: []byte("key1"),
 		},
 		ProveSinceTx: 1,
 	})
@@ -974,8 +974,8 @@ func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 func testServerSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.VerifiableSetReference(context.Background(), &schema.VerifiableReferenceRequest{
 		ReferenceRequest: &schema.ReferenceRequest{
-			Key:       kvs[0].Key,
-			Reference: []byte("key1"),
+			Key:           kvs[0].Key,
+			ReferencedKey: []byte("key1"),
 		},
 		ProveSinceTx: 0,
 	})

@@ -26,28 +26,26 @@ import (
 
 //Reference ...
 func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
-	if req == nil || len(req.Reference) == 0 || len(req.Key) == 0 {
+	if req == nil || len(req.Key) == 0 || len(req.ReferencedKey) == 0 {
 		return nil, store.ErrIllegalArguments
-	}
-
-	err := d.WaitForIndexingUpto(req.SinceTx)
-	if err != nil {
-		return nil, err
 	}
 
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	// TODO: use tx pool
 
-	key := wrapWithPrefix(req.Key, setKeyPrefix)
+	//TODO: chequear que req.Reference no exista o al menos sea una referencia, si es una plainkey entonces error
+
+	//TODO: chequear que la req.Key existe
+	key := wrapWithPrefix(req.ReferencedKey, setKeyPrefix)
 
 	// check referenced key exists
-	_, err = d.getAt(key, req.AtTx, 0, d.st, d.tx1)
+	_, err := d.getAt(key, req.AtTx, 0, d.st, d.tx1)
 	if err != nil {
 		return nil, err
 	}
 
-	refKey := wrapWithPrefix(req.Reference, setKeyPrefix)
+	refKey := wrapWithPrefix(req.Key, setKeyPrefix)
 	refVal := wrapReferenceValueAt(key, req.AtTx)
 
 	meta, err := d.st.Commit([]*store.KV{{Key: refKey, Value: refVal}})

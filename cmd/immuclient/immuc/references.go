@@ -35,20 +35,20 @@ func (i *immuc) SetReference(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 	if err != nil {
 		return "", err
 	}
 
 	var buf bytes.Buffer
 	tee := io.TeeReader(reader, &buf)
-	key, err := ioutil.ReadAll(tee)
+	referencedKey, err := ioutil.ReadAll(tee)
 	if err != nil {
 		return "", err
 	}
 
 	ctx := context.Background()
-	response, err := i.ImmuClient.SetReference(ctx, reference, key)
+	response, err := i.ImmuClient.SetReference(ctx, key, referencedKey)
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -74,20 +74,20 @@ func (i *immuc) VerifiedSetReference(args []string) (string, error) {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
-	reference, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
+	key, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 	if err != nil {
 		return "", err
 	}
 
 	var buf bytes.Buffer
 	tee := io.TeeReader(reader, &buf)
-	key, err := ioutil.ReadAll(tee)
+	referencedKey, err := ioutil.ReadAll(tee)
 	if err != nil {
 		return "", err
 	}
 
 	ctx := context.Background()
-	response, err := i.ImmuClient.VerifiedSetReference(ctx, reference, key)
+	response, err := i.ImmuClient.VerifiedSetReference(ctx, key, referencedKey)
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {

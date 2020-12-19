@@ -33,7 +33,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
-const MaxKeyResolutionLimit = 10
+const MaxKeyResolutionLimit = 1
 const MaxKeyScanLimit = 1000
 
 var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")

@@ -36,9 +36,8 @@ func TestStoreReference(t *testing.T) {
 	require.Equal(t, []byte(`firstValue`), item.Value)
 
 	refOpts := &schema.ReferenceRequest{
-		Reference: []byte(`myTag`),
-		Key:       []byte(`firstKey`),
-		SinceTx:   meta.Id,
+		Key:           []byte(`myTag`),
+		ReferencedKey: []byte(`firstKey`),
 	}
 	meta, err = db.SetReference(refOpts)
 	require.NoError(t, err)
@@ -60,7 +59,7 @@ func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 	_, err = db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`value2`)}}})
 	require.NoError(t, err)
 
-	ref, err := db.SetReference(&schema.ReferenceRequest{Reference: []byte(`myTag1`), Key: []byte(`aaa`), AtTx: set.Id})
+	ref, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`aaa`), AtTx: set.Id})
 	require.NoError(t, err)
 
 	tag3, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref.Id})
@@ -69,26 +68,23 @@ func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 	require.Equal(t, []byte(`value1`), tag3.Value)
 }
 
-func TestStoreCyclicReference(t *testing.T) {
+func TestStoreInvalidReferenceToReference(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
 	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
 	meta, err := db.Set(req)
 
-	ref1, err := db.SetReference(&schema.ReferenceRequest{Reference: []byte(`myTag1`), Key: []byte(`firstKey`), AtTx: meta.Id})
+	ref1, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`firstKey`), AtTx: meta.Id})
 	require.NoError(t, err)
 
 	_, err = db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref1.Id})
 	require.NoError(t, err)
 
-	ref2, err := db.SetReference(&schema.ReferenceRequest{Reference: []byte(`myTag2`), Key: []byte(`myTag1`)})
+	ref2, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag2`), ReferencedKey: []byte(`myTag1`)})
 	require.NoError(t, err)
 
-	ref11, err := db.SetReference(&schema.ReferenceRequest{Reference: []byte(`myTag1`), Key: []byte(`myTag2`), AtTx: ref2.Id})
-	require.NoError(t, err)
-
-	_, err = db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref11.Id})
+	_, err = db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`myTag2`), AtTx: ref2.Id})
 	require.Error(t, ErrMaxKeyResolutionLimitReached, err)
 }
 

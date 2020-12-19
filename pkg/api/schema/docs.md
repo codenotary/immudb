@@ -543,10 +543,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| reference | [bytes](#bytes) |  |  |
 | key | [bytes](#bytes) |  |  |
+| referencedKey | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
 
 
 

@@ -76,19 +76,19 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 
 		case *schema.Op_Ref:
 			// reference arguments are converted in regular key value items and then atomically inserted
-			_, exists := kmap[sha256.Sum256(x.Ref.Key)]
+			_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
 
 			if !exists {
 				// check referenced key exists
-				_, err := d.getAt(x.Ref.Key, x.Ref.AtTx, 0, snap, d.tx1)
+				_, err := d.getAt(x.Ref.ReferencedKey, x.Ref.AtTx, 0, snap, d.tx1)
 				if err != nil {
 					return nil, err
 				}
 			}
 
 			kv = &store.KV{
-				Key:   wrapWithPrefix(x.Ref.Reference, setKeyPrefix),
-				Value: wrapReferenceValueAt(x.Ref.Key, x.Ref.AtTx),
+				Key:   wrapWithPrefix(x.Ref.Key, setKeyPrefix),
+				Value: wrapReferenceValueAt(x.Ref.ReferencedKey, x.Ref.AtTx),
 			}
 
 		case *schema.Op_ZAdd:

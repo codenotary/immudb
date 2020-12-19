@@ -115,11 +115,11 @@ type ImmuClient interface {
 
 	ExecAll(ctx context.Context, in *schema.ExecAllRequest) (*schema.TxMetadata, error)
 
-	SetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
-	VerifiedSetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error)
+	SetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
+	VerifiedSetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
 
-	SetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error)
-	VerifiedSetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error)
+	SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, txID uint64) (*schema.TxMetadata, error)
+	VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, txID uint64) (*schema.TxMetadata, error)
 
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
 }
@@ -874,12 +874,12 @@ func (c *immuClient) History(ctx context.Context, req *schema.HistoryRequest) (s
 }
 
 // SetReference ...
-func (c *immuClient) SetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error) {
-	return c.SetReferenceAt(ctx, reference, key, 0)
+func (c *immuClient) SetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error) {
+	return c.SetReferenceAt(ctx, key, referencedKey, 0)
 }
 
 // SetReferenceAt ...
-func (c *immuClient) SetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error) {
+func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, txID uint64) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -888,19 +888,19 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, reference []byte, key [
 	defer c.Logger.Debugf("SetReference finished in %s", time.Since(start))
 
 	return c.ServiceClient.SetReference(ctx, &schema.ReferenceRequest{
-		Reference: reference,
-		Key:       key,
-		AtTx:      txID,
+		Key:           key,
+		ReferencedKey: referencedKey,
+		AtTx:          txID,
 	})
 }
 
 // VerifiedSetReference ...
-func (c *immuClient) VerifiedSetReference(ctx context.Context, reference []byte, key []byte) (*schema.TxMetadata, error) {
-	return c.VerifiedSetReferenceAt(ctx, reference, key, 0)
+func (c *immuClient) VerifiedSetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error) {
+	return c.VerifiedSetReferenceAt(ctx, key, referencedKey, 0)
 }
 
 // VerifiedSetReferenceAt ...
-func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, reference []byte, key []byte, txID uint64) (*schema.TxMetadata, error) {
+func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, txID uint64) (*schema.TxMetadata, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -918,9 +918,9 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, reference []byt
 
 	req := &schema.VerifiableReferenceRequest{
 		ReferenceRequest: &schema.ReferenceRequest{
-			Reference: reference,
-			Key:       key,
-			AtTx:      txID,
+			Key:           key,
+			ReferencedKey: referencedKey,
+			AtTx:          txID,
 		},
 		ProveSinceTx: state.TxId,
 	}

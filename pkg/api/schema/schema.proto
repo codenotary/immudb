@@ -259,10 +259,9 @@ message ImmutableState {
 }
 
 message ReferenceRequest {
-	bytes reference = 1;
-	bytes key = 2;
+	bytes key = 1;
+	bytes referencedKey = 2;
 	uint64 atTx = 3;
-	uint64 sinceTx = 4;
 }
 
 message VerifiableReferenceRequest {

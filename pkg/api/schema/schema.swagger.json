@@ -1323,19 +1323,15 @@
     "schemaReferenceRequest": {
       "type": "object",
       "properties": {
-        "reference": {
-          "type": "string",
-          "format": "byte"
-        },
         "key": {
           "type": "string",
           "format": "byte"
         },
-        "atTx": {
+        "referencedKey": {
           "type": "string",
-          "format": "uint64"
+          "format": "byte"
         },
-        "sinceTx": {
+        "atTx": {
           "type": "string",
           "format": "uint64"
         }
