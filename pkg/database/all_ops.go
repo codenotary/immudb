@@ -98,10 +98,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 				}
 			}
 
-			kv = &store.KV{
-				Key:   wrapWithPrefix(x.Ref.Key, setKeyPrefix),
-				Value: wrapReferenceValueAt(x.Ref.ReferencedKey, x.Ref.AtTx),
-			}
+			kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, x.Ref.AtTx)
 
 		case *schema.Op_ZAdd:
 			// zAdd arguments are converted in regular key value items and then atomically inserted
