@@ -81,11 +81,8 @@ func TestStoreInvalidReferenceToReference(t *testing.T) {
 	_, err = db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref1.Id})
 	require.NoError(t, err)
 
-	ref2, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag2`), ReferencedKey: []byte(`myTag1`)})
-	require.NoError(t, err)
-
-	_, err = db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`myTag2`), AtTx: ref2.Id})
-	require.Error(t, ErrMaxKeyResolutionLimitReached, err)
+	_, err = db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag2`), ReferencedKey: []byte(`myTag1`)})
+	require.Error(t, ErrReferencedKeyCannotBeAReference, err)
 }
 
 /*

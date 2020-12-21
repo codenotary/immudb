@@ -220,7 +220,7 @@
 | tx | [uint64](#uint64) |  |  |
 | key | [bytes](#bytes) |  |  |
 | value | [bytes](#bytes) |  |  |
-| reference | [Reference](#immudb.schema.Reference) |  |  |
+| referencedBy | [Reference](#immudb.schema.Reference) |  |  |
 
 
 
@@ -251,7 +251,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | Operations | [Op](#immudb.schema.Op) | repeated |  |
-| sinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -927,7 +926,6 @@
 | score | [double](#double) |  |  |
 | key | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
-| sinceTx | [uint64](#uint64) |  |  |
 
 
 

@@ -132,11 +132,10 @@ func TestExecAllOps(t *testing.T) {
 			atomicOps[i+batchSize] = &schema.Op{
 				Operation: &schema.Op_ZAdd{
 					ZAdd: &schema.ZAddRequest{
-						Set:     []byte(`mySet`),
-						Score:   0.6,
-						Key:     atomicOps[i].Operation.(*schema.Op_Kv).Kv.Key,
-						AtTx:    0,
-						SinceTx: uint64((b + 1) * batchSize),
+						Set:   []byte(`mySet`),
+						Score: 0.6,
+						Key:   atomicOps[i].Operation.(*schema.Op_Kv).Kv.Key,
+						AtTx:  0,
 					},
 				},
 			}

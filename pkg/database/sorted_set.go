@@ -40,20 +40,21 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 		return nil, store.ErrIllegalArguments
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx)
-	if err != nil {
-		return nil, err
-	}
-
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	lastTxID, _ := d.st.Alh()
+	d.WaitForIndexingUpto(lastTxID)
+
+	// check referenced key exists and it's not a reference
 	key := wrapWithPrefix(req.Key, setKeyPrefix)
 
-	// check referenced key exists
-	_, err = d.getAt(key, req.AtTx, 0, d.st, d.tx1)
+	refEntry, err := d.getAt(key, req.AtTx, 0, d.st, d.tx1)
 	if err != nil {
 		return nil, err
+	}
+	if refEntry.ReferencedBy != nil {
+		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
 	zKey := wrapZAddReferenceAt(req.Set, req.Score, key, req.AtTx)

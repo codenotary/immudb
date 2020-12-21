@@ -109,7 +109,7 @@ message Entry {
 	bytes key = 2;
 	bytes value = 3;
 
-	Reference reference = 4;
+	Reference referencedBy = 4;
 }
 
 message Reference {
@@ -128,7 +128,6 @@ message Op {
 
 message ExecAllRequest {
 	repeated Op Operations = 1;
-	uint64 sinceTx = 2;
 }
 
 message Entries {
@@ -282,7 +281,6 @@ message ZAddRequest {
 	double score = 2;
 	bytes key = 3;
 	uint64 atTx = 4;
-	uint64 sinceTx = 5;
 }
 
 message Score {

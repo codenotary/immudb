@@ -18,11 +18,15 @@ package database
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
+
+var ErrReferencedKeyCannotBeAReference = errors.New("referenced key cannot be a reference")
+var ErrFinalKeyCannotBeConvertedIntoReference = errors.New("final key cannot be converted into a reference")
 
 //Reference ...
 func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
@@ -32,20 +36,28 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	// TODO: use tx pool
 
-	//TODO: chequear que req.Reference no exista o al menos sea una referencia, si es una plainkey entonces error
-	//req.Key no existe o es reference
+	lastTxID, _ := d.st.Alh()
+	d.WaitForIndexingUpto(lastTxID)
 
-	//req.ReferencedKey existe y es plainKey
+	// check key does not exists or it's already a reference
+	entry, err := d.getAt(wrapWithPrefix(req.Key, setKeyPrefix), req.AtTx, 0, d.st, d.tx1)
+	if err != nil && err != store.ErrKeyNotFound {
+		return nil, err
+	}
+	if entry != nil && entry.ReferencedBy == nil {
+		return nil, ErrFinalKeyCannotBeConvertedIntoReference
+	}
 
-	//TODO: chequear que la req.Key existe
+	// check referenced key exists and it's not a reference
 	key := wrapWithPrefix(req.ReferencedKey, setKeyPrefix)
 
-	// check referenced key exists
-	_, err := d.getAt(key, req.AtTx, 0, d.st, d.tx1)
+	refEntry, err := d.getAt(key, req.AtTx, 0, d.st, d.tx1)
 	if err != nil {
 		return nil, err
+	}
+	if refEntry.ReferencedBy != nil {
+		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
 	refKey := wrapWithPrefix(req.Key, setKeyPrefix)

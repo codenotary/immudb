@@ -31,13 +31,13 @@ func TestStoreIndexExists(t *testing.T) {
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`mySecondElementKey`), Value: []byte(`secondValue`)}}})
 
-	meta, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`myThirdElementKey`), Value: []byte(`thirdValue`)}}})
+	_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`myThirdElementKey`), Value: []byte(`thirdValue`)}}})
+	require.NoError(t, err)
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Key:     []byte(`myFirstElementKey`),
-		Set:     []byte(`firstIndex`),
-		Score:   float64(14.6),
-		SinceTx: meta.Id,
+		Key:   []byte(`myFirstElementKey`),
+		Set:   []byte(`firstIndex`),
+		Score: float64(14.6),
 	}
 
 	reference1, err1 := db.ZAdd(zaddOpts1)
@@ -171,11 +171,10 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	score := float64(1.1)
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:     []byte(`hashA`),
-		Score:   score,
-		Key:     []byte(`SignerId1`),
-		AtTx:    i1.Id,
-		SinceTx: i3.Id,
+		Set:   []byte(`hashA`),
+		Score: score,
+		Key:   []byte(`SignerId1`),
+		AtTx:  i1.Id,
 	}
 
 	reference1, err1 := db.ZAdd(zaddOpts1)
@@ -236,11 +235,10 @@ func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:     []byte(`hashA`),
-		Score:   float64(1),
-		Key:     []byte(`WrongKey`),
-		AtTx:    i1.Id,
-		SinceTx: i1.Id,
+		Set:   []byte(`hashA`),
+		Score: float64(1),
+		Key:   []byte(`WrongKey`),
+		AtTx:  i1.Id,
 	}
 
 	_, err := db.ZAdd(zaddOpts1)
@@ -502,11 +500,10 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 	idx4, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-C`)}}})
 
 	db.ZAdd(&schema.ZAddRequest{
-		Set:     []byte(`mySet`),
-		Score:   0,
-		Key:     []byte(`key1`),
-		AtTx:    idx2.Id,
-		SinceTx: idx4.Id,
+		Set:   []byte(`mySet`),
+		Score: 0,
+		Key:   []byte(`key1`),
+		AtTx:  idx2.Id,
 	})
 	db.ZAdd(&schema.ZAddRequest{
 		Set:   []byte(`mySet`),
@@ -556,11 +553,10 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:     []byte(`hashA`),
-		Score:   float64(1),
-		Key:     []byte(`SignerId1`),
-		AtTx:    i1.Id,
-		SinceTx: i3.Id,
+		Set:   []byte(`hashA`),
+		Score: float64(1),
+		Key:   []byte(`SignerId1`),
+		AtTx:  i1.Id,
 	}
 
 	reference1, err1 := db.ZAdd(zaddOpts1)

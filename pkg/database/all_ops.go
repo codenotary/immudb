@@ -35,15 +35,13 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 		return nil, err
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx)
-	if err != nil {
-		return nil, err
-	}
-
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	snap, err := d.st.SnapshotSince(req.SinceTx)
+	lastTxID, _ := d.st.Alh()
+	d.WaitForIndexingUpto(lastTxID)
+
+	snap, err := d.st.SnapshotSince(lastTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -75,14 +73,28 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 			}
 
 		case *schema.Op_Ref:
+			// check key does not exists or it's already a reference
+			entry, err := d.getAt(wrapWithPrefix(x.Ref.Key, setKeyPrefix), x.Ref.AtTx, 0, snap, d.tx1)
+			if err != nil && err != store.ErrKeyNotFound {
+				return nil, err
+			}
+			if entry != nil && entry.ReferencedBy == nil {
+				return nil, ErrFinalKeyCannotBeConvertedIntoReference
+			}
+
 			// reference arguments are converted in regular key value items and then atomically inserted
 			_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
 
 			if !exists {
-				// check referenced key exists
-				_, err := d.getAt(x.Ref.ReferencedKey, x.Ref.AtTx, 0, snap, d.tx1)
+				// check referenced key exists and it's not a reference
+				key := wrapWithPrefix(x.Ref.ReferencedKey, setKeyPrefix)
+
+				refEntry, err := d.getAt(key, x.Ref.AtTx, 0, snap, d.tx1)
 				if err != nil {
 					return nil, err
+				}
+				if refEntry.ReferencedBy != nil {
+					return nil, ErrReferencedKeyCannotBeAReference
 				}
 			}
 
@@ -96,10 +108,15 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 			_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
 
 			if !exists {
-				// check referenced key exists
-				_, err := d.getAt(x.ZAdd.Key, x.ZAdd.AtTx, 0, snap, d.tx1)
+				// check referenced key exists and it's not a reference
+				key := wrapWithPrefix(x.ZAdd.Key, setKeyPrefix)
+
+				refEntry, err := d.getAt(key, x.ZAdd.AtTx, 0, snap, d.tx1)
 				if err != nil {
 					return nil, err
+				}
+				if refEntry.ReferencedBy != nil {
+					return nil, ErrReferencedKeyCannotBeAReference
 				}
 			}
 

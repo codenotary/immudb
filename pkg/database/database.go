@@ -70,7 +70,7 @@ type db struct {
 	st *store.ImmuStore
 
 	tx1, tx2 *store.Tx
-	mutex    sync.Mutex
+	mutex    sync.RWMutex
 
 	Logger  logger.Logger
 	options *DbOptions
@@ -135,6 +135,9 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 
 // Set ...
 func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -171,7 +174,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return d.get(wrapWithPrefix(req.Key, setKeyPrefix), d.st, d.tx1) //TODO: use tx pool
+	return d.get(wrapWithPrefix(req.Key, setKeyPrefix), d.st, d.tx1)
 }
 
 func (d *db) WaitForIndexingUpto(txID uint64) error {
@@ -242,7 +245,18 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 		refKey := make([]byte, len(val)-1-8)
 		copy(refKey, val[1+8:])
 
-		return d.getAt(refKey, atTx, resolved+1, keyIndex, tx)
+		entry, err := d.getAt(refKey, atTx, resolved+1, keyIndex, tx)
+		if err != nil {
+			return nil, err
+		}
+
+		entry.ReferencedBy = &schema.Reference{
+			Tx:   ktx,
+			Key:  key[1:],
+			AtTx: atTx,
+		}
+
+		return entry, nil
 	}
 
 	return &schema.Entry{Key: key[1:], Value: val[1:], Tx: ktx}, err
@@ -334,7 +348,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	key := wrapWithPrefix(req.KeyRequest.Key, setKeyPrefix)
 
 	// get value of key
-	e, err := d.get(key, d.st, d.tx1) //TODO: use tx pool
+	e, err := d.get(key, d.st, d.tx1)
 	if err != nil {
 		return nil, err
 	}
