@@ -57,9 +57,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	zKey := wrapZAddReferenceAt(req.Set, req.Score, key, req.AtTx)
-
-	meta, err := d.st.Commit([]*store.KV{{Key: zKey, Value: nil}})
+	meta, err := d.st.Commit([]*store.KV{EncodeZAdd(req.Set, req.Score, key, req.AtTx)})
 
 	return schema.TxMetatadaTo(meta), err
 }
@@ -191,6 +189,13 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 //VerifiableZAdd ...
 func (d *db) VerifiableZAdd(opts *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableZAdd")
+}
+
+func EncodeZAdd(set []byte, score float64, key []byte, atTx uint64) *store.KV {
+	return &store.KV{
+		Key:   wrapZAddReferenceAt(set, score, key, atTx),
+		Value: nil,
+	}
 }
 
 func wrapZAddReferenceAt(set []byte, score float64, key []byte, atTx uint64) []byte {

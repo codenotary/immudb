@@ -60,15 +60,19 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	refKey := wrapWithPrefix(req.Key, setKeyPrefix)
-	refVal := wrapReferenceValueAt(key, req.AtTx)
-
-	meta, err := d.st.Commit([]*store.KV{{Key: refKey, Value: refVal}})
+	meta, err := d.st.Commit([]*store.KV{EncodeReference(req.Key, req.ReferencedKey, req.AtTx)})
 	if err != nil {
 		return nil, err
 	}
 
 	return schema.TxMetatadaTo(meta), err
+}
+
+func EncodeReference(key, referencedKey []byte, atTx uint64) *store.KV {
+	return &store.KV{
+		Key:   wrapWithPrefix(key, setKeyPrefix),
+		Value: wrapReferenceValueAt(wrapWithPrefix(referencedKey, setKeyPrefix), atTx),
+	}
 }
 
 //SafeReference ...

@@ -562,7 +562,6 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 		Signature: vEntry.VerifiableTx.Signature,
 	}
 
-	// TODO: FIX state signing
 	if newState.Signature != nil {
 		ok, err := newState.CheckSignature()
 		if err != nil {
@@ -719,7 +718,6 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		Signature: verifiableTx.Signature,
 	}
 
-	// TODO: FIX state signing
 	if newState.Signature != nil {
 		ok, err := newState.CheckSignature()
 		if err != nil {
@@ -842,7 +840,6 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 		Signature: vTx.Signature,
 	}
 
-	// TODO: FIX state signing
 	if newState.Signature != nil {
 		ok, err := newState.CheckSignature()
 		if err != nil {

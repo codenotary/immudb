@@ -138,6 +138,10 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
+	return d.set(req)
+}
+
+func (d *db) set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -295,7 +299,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 		return nil, store.ErrIllegalArguments
 	}
 
-	txMetatadata, err := d.Set(req.SetRequest)
+	txMetatadata, err := d.set(req.SetRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -355,13 +359,24 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 	txEntry := d.tx1
 
+	var vTxID uint64
+	var vKey []byte
+
+	if e.ReferencedBy == nil {
+		vTxID = e.Tx
+		vKey = e.Key
+	} else {
+		vTxID = e.ReferencedBy.Tx
+		vKey = e.ReferencedBy.Key
+	}
+
 	// key-value inclusion proof
-	err = d.st.ReadTx(e.Tx, txEntry)
+	err = d.st.ReadTx(vTxID, txEntry)
 	if err != nil {
 		return nil, err
 	}
 
-	inclusionProof, err := d.tx1.Proof(key)
+	inclusionProof, err := d.tx1.Proof(wrapWithPrefix(vKey, setKeyPrefix))
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +396,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 	var sourceTx, targetTx *store.Tx
 
-	if req.ProveSinceTx <= e.Tx {
+	if req.ProveSinceTx <= vTxID {
 		sourceTx = rootTx
 		targetTx = txEntry
 	} else {

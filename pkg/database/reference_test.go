@@ -17,8 +17,10 @@ limitations under the License.
 package database
 
 import (
+	"crypto/sha256"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -44,9 +46,31 @@ func TestStoreReference(t *testing.T) {
 
 	require.Equal(t, uint64(2), meta.Id)
 
-	firstItemRet, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag`), SinceTx: meta.Id})
+	keyReq := &schema.KeyRequest{Key: []byte(`myTag`), SinceTx: meta.Id}
+
+	firstItemRet, err := db.Get(keyReq)
 	require.NoError(t, err)
 	require.Equal(t, []byte(`firstValue`), firstItemRet.Value, "Should have referenced item value")
+
+	vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{
+		KeyRequest:   keyReq,
+		ProveSinceTx: 1,
+	})
+	require.NoError(t, err)
+	require.Equal(t, []byte(`firstKey`), vitem.Entry.Key)
+	require.Equal(t, []byte(`firstValue`), vitem.Entry.Value)
+
+	inclusionProof := schema.InclusionProofFrom(vitem.InclusionProof)
+
+	var eh [sha256.Size]byte
+	copy(eh[:], vitem.VerifiableTx.Tx.Metadata.EH)
+
+	verifies := store.VerifyInclusion(
+		inclusionProof,
+		EncodeReference([]byte(`myTag`), []byte(`firstKey`), 0),
+		eh,
+	)
+	require.True(t, verifies)
 }
 
 func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
