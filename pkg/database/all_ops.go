@@ -85,7 +85,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 			// reference arguments are converted in regular key value items and then atomically inserted
 			_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
 
-			if !exists {
+			if !exists || x.Ref.AtTx > 0 {
 				// check referenced key exists and it's not a reference
 				key := wrapWithPrefix(x.Ref.ReferencedKey, setKeyPrefix)
 
