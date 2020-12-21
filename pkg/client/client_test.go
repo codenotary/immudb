@@ -232,9 +232,8 @@ func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value 
 	require.Equal(t, value, vi.Value)
 }
 
-/*
 func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
-	_, err2 := client.SetReference(ctx, referenceKey, key, nil)
+	_, err2 := client.SetReference(ctx, referenceKey, key)
 	require.NoError(t, err2)
 	vi, err := client.VerifiedGet(ctx, referenceKey)
 	require.NoError(t, err)
@@ -242,6 +241,8 @@ func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key [
 	require.Equal(t, key, vi.Key)
 	require.Equal(t, value, vi.Value)
 }
+
+/*
 
 func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
 	_, err2 := client.SafeReference(ctx, referenceKey, key, nil)
@@ -361,7 +362,7 @@ func TestImmuClient(t *testing.T) {
 	//testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	//testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 
-	//testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
+	testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
 	testGetTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 
 	testGet(ctx, t)
