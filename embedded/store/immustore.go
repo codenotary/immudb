@@ -53,7 +53,7 @@ var ErrCorruptedData = errors.New("data is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
-var ErrKeyNotFound = errors.New("key not found")
+var ErrKeyNotFound = tbtree.ErrKeyNotFound
 var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = errors.New("no more entries")
 
