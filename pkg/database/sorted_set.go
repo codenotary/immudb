@@ -47,7 +47,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 	d.WaitForIndexingUpto(lastTxID)
 
 	// check referenced key exists and it's not a reference
-	key := wrapWithPrefix(req.Key, setKeyPrefix)
+	key := EncodeKey(req.Key)
 
 	refEntry, err := d.getAt(key, req.AtTx, 0, d.st, d.tx1)
 	if err != nil {
@@ -82,7 +82,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	}
 
 	prefix := make([]byte, 1+setLenLen+len(req.Set))
-	prefix[0] = sortedSetKeyPrefix
+	prefix[0] = SortedSetKeyPrefix
 	binary.BigEndian.PutUint64(prefix[1:], uint64(len(req.Set)))
 	copy(prefix[1+setLenLen:], req.Set)
 
@@ -104,7 +104,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		copy(seekKey, prefix)
 		binary.BigEndian.PutUint64(seekKey[len(prefix):], math.Float64bits(req.SeekScore))
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen:], uint64(1+len(req.SeekKey)))
-		copy(seekKey[len(prefix)+scoreLen+keyLenLen:], wrapWithPrefix(req.SeekKey, setKeyPrefix))
+		copy(seekKey[len(prefix)+scoreLen+keyLenLen:], EncodeKey(req.SeekKey))
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey):], req.SeekAtTx)
 	}
 
@@ -189,32 +189,4 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 //VerifiableZAdd ...
 func (d *db) VerifiableZAdd(opts *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableZAdd")
-}
-
-func EncodeZAdd(set []byte, score float64, key []byte, atTx uint64) *store.KV {
-	return &store.KV{
-		Key:   wrapZAddReferenceAt(set, score, key, atTx),
-		Value: nil,
-	}
-}
-
-func wrapZAddReferenceAt(set []byte, score float64, key []byte, atTx uint64) []byte {
-	zKey := make([]byte, 1+setLenLen+len(set)+scoreLen+keyLenLen+len(key)+txIDLen)
-	zi := 0
-
-	zKey[0] = sortedSetKeyPrefix
-	zi++
-	binary.BigEndian.PutUint64(zKey[zi:], uint64(len(set)))
-	zi += setLenLen
-	copy(zKey[zi:], set)
-	zi += len(set)
-	binary.BigEndian.PutUint64(zKey[zi:], math.Float64bits(score))
-	zi += scoreLen
-	binary.BigEndian.PutUint64(zKey[zi:], uint64(len(key)))
-	zi += keyLenLen
-	copy(zKey[zi:], key)
-	zi += len(key)
-	binary.BigEndian.PutUint64(zKey[zi:], atTx)
-
-	return zKey
 }

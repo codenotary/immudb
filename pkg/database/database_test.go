@@ -220,7 +220,7 @@ func TestDbSetGet(t *testing.T) {
 
 		verifies := store.VerifyInclusion(
 			inclusionProof,
-			&store.KV{Key: wrapWithPrefix(vitem.Entry.Key, setKeyPrefix), Value: wrapWithPrefix(vitem.Entry.Value, plainValuePrefix)},
+			EncodeKV(vitem.Entry.Key, vitem.Entry.Value),
 			eh,
 		)
 		require.True(t, verifies)

@@ -34,6 +34,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
@@ -521,17 +522,28 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
-	if state.TxId <= vEntry.Entry.Tx {
+	var vTx uint64
+	var kv *store.KV
+
+	if vEntry.Entry.ReferencedBy == nil {
+		vTx = vEntry.Entry.Tx
+		kv = database.EncodeKV(key, vEntry.Entry.Value)
+	} else {
+		vTx = vEntry.Entry.ReferencedBy.Tx
+		kv = database.EncodeReference(vEntry.Entry.ReferencedBy.Key, vEntry.Entry.Key, vEntry.Entry.ReferencedBy.AtTx)
+	}
+
+	if state.TxId <= vTx {
 		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
 
 		sourceID = state.TxId
 		sourceAlh = schema.DigestFrom(state.TxHash)
-		targetID = vEntry.Entry.Tx
+		targetID = vTx
 		targetAlh = dualProof.TargetTxMetadata.Alh()
 	} else {
 		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.SourceTxMetadata.EH)
 
-		sourceID = vEntry.Entry.Tx
+		sourceID = vTx
 		sourceAlh = dualProof.SourceTxMetadata.Alh()
 		targetID = state.TxId
 		targetAlh = schema.DigestFrom(state.TxHash)
@@ -539,7 +551,7 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 
 	verifies := store.VerifyInclusion(
 		inclusionProof,
-		&store.KV{Key: key, Value: vEntry.Entry.Value},
+		kv,
 		eh)
 	if !verifies {
 		return nil, store.ErrCorruptedData
@@ -673,12 +685,12 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 
 	tx := schema.TxFrom(verifiableTx.Tx)
 
-	inclusionProof, err := tx.Proof(key)
+	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
 		return nil, err
 	}
 
-	verifies := store.VerifyInclusion(inclusionProof, &store.KV{Key: key, Value: value}, tx.Eh())
+	verifies := store.VerifyInclusion(inclusionProof, database.EncodeKV(key, value), tx.Eh())
 	if !verifies {
 		return nil, store.ErrCorruptedData
 	}

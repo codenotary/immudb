@@ -153,7 +153,7 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 			return nil, store.ErrIllegalArguments
 		}
 
-		entries[i] = &store.KV{Key: wrapWithPrefix(kv.Key, setKeyPrefix), Value: wrapWithPrefix(kv.Value, plainValuePrefix)}
+		entries[i] = EncodeKV(kv.Key, kv.Value)
 	}
 
 	txMetatadata, err := d.st.Commit(entries)
@@ -178,7 +178,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return d.get(wrapWithPrefix(req.Key, setKeyPrefix), d.st, d.tx1)
+	return d.get(EncodeKey(req.Key), d.st, d.tx1)
 }
 
 func (d *db) WaitForIndexingUpto(txID uint64) error {
@@ -240,7 +240,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 	}
 
 	//Reference lookup
-	if val[0] == referenceValuePrefix {
+	if val[0] == ReferenceValuePrefix {
 		if resolved == MaxKeyResolutionLimit {
 			return nil, ErrMaxKeyResolutionLimitReached
 		}
@@ -349,10 +349,8 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	key := wrapWithPrefix(req.KeyRequest.Key, setKeyPrefix)
-
 	// get value of key
-	e, err := d.get(key, d.st, d.tx1)
+	e, err := d.get(EncodeKey(req.KeyRequest.Key), d.st, d.tx1)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +374,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, err
 	}
 
-	inclusionProof, err := d.tx1.Proof(wrapWithPrefix(vKey, setKeyPrefix))
+	inclusionProof, err := d.tx1.Proof(EncodeKey(vKey))
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +438,7 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 	list := &schema.Entries{}
 
 	for _, key := range req.Keys {
-		e, err := d.get(wrapWithPrefix(key, setKeyPrefix), snapshot, d.tx1)
+		e, err := d.get(EncodeKey(key), snapshot, d.tx1)
 		if err == nil || err == store.ErrKeyNotFound {
 			if e != nil {
 				list.Entries = append(list.Entries, e)
@@ -558,7 +556,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		limit = MaxKeyScanLimit
 	}
 
-	key := wrapWithPrefix(req.Key, setKeyPrefix)
+	key := EncodeKey(req.Key)
 
 	tss, err := snapshot.GetTs(key, int64(limit))
 	if err != nil {

@@ -17,7 +17,6 @@ limitations under the License.
 package database
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -41,7 +40,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	d.WaitForIndexingUpto(lastTxID)
 
 	// check key does not exists or it's already a reference
-	entry, err := d.getAt(wrapWithPrefix(req.Key, setKeyPrefix), req.AtTx, 0, d.st, d.tx1)
+	entry, err := d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.tx1)
 	if err != nil && err != store.ErrKeyNotFound {
 		return nil, err
 	}
@@ -50,9 +49,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	}
 
 	// check referenced key exists and it's not a reference
-	key := wrapWithPrefix(req.ReferencedKey, setKeyPrefix)
-
-	refEntry, err := d.getAt(key, req.AtTx, 0, d.st, d.tx1)
+	refEntry, err := d.getAt(EncodeKey(req.ReferencedKey), req.AtTx, 0, d.st, d.tx1)
 	if err != nil {
 		return nil, err
 	}
@@ -68,24 +65,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	return schema.TxMetatadaTo(meta), err
 }
 
-func EncodeReference(key, referencedKey []byte, atTx uint64) *store.KV {
-	return &store.KV{
-		Key:   wrapWithPrefix(key, setKeyPrefix),
-		Value: wrapReferenceValueAt(wrapWithPrefix(referencedKey, setKeyPrefix), atTx),
-	}
-}
-
 //SafeReference ...
 func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
 	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableSetReference")
-}
-
-func wrapReferenceValueAt(key []byte, atTx uint64) []byte {
-	refVal := make([]byte, 1+8+len(key))
-
-	refVal[0] = referenceValuePrefix
-	binary.BigEndian.PutUint64(refVal[1:], atTx)
-	copy(refVal[1+8:], key)
-
-	return refVal
 }

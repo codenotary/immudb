@@ -58,8 +58,8 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	r, err := d.st.NewReader(
 		snap,
 		&tbtree.ReaderSpec{
-			SeekKey:   wrapWithPrefix(req.SeekKey, setKeyPrefix),
-			Prefix:    wrapWithPrefix(req.Prefix, setKeyPrefix),
+			SeekKey:   EncodeKey(req.SeekKey),
+			Prefix:    EncodeKey(req.Prefix),
 			DescOrder: req.Desc,
 		})
 	if err != nil {

@@ -67,14 +67,11 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 		case *schema.Op_Kv:
 			kmap[sha256.Sum256(x.Kv.Key)] = true
 
-			kv = &store.KV{
-				Key:   wrapWithPrefix(x.Kv.Key, setKeyPrefix),
-				Value: wrapWithPrefix(x.Kv.Value, plainValuePrefix),
-			}
+			kv = EncodeKV(x.Kv.Key, x.Kv.Value)
 
 		case *schema.Op_Ref:
 			// check key does not exists or it's already a reference
-			entry, err := d.getAt(wrapWithPrefix(x.Ref.Key, setKeyPrefix), x.Ref.AtTx, 0, snap, d.tx1)
+			entry, err := d.getAt(EncodeKey(x.Ref.Key), x.Ref.AtTx, 0, snap, d.tx1)
 			if err != nil && err != store.ErrKeyNotFound {
 				return nil, err
 			}
@@ -87,9 +84,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 
 			if !exists || x.Ref.AtTx > 0 {
 				// check referenced key exists and it's not a reference
-				key := wrapWithPrefix(x.Ref.ReferencedKey, setKeyPrefix)
-
-				refEntry, err := d.getAt(key, x.Ref.AtTx, 0, snap, d.tx1)
+				refEntry, err := d.getAt(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, snap, d.tx1)
 				if err != nil {
 					return nil, err
 				}
@@ -106,9 +101,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 
 			if !exists || x.ZAdd.AtTx > 0 {
 				// check referenced key exists and it's not a reference
-				key := wrapWithPrefix(x.ZAdd.Key, setKeyPrefix)
-
-				refEntry, err := d.getAt(key, x.ZAdd.AtTx, 0, snap, d.tx1)
+				refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, snap, d.tx1)
 				if err != nil {
 					return nil, err
 				}
