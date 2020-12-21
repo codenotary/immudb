@@ -104,7 +104,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 			// zAdd arguments are converted in regular key value items and then atomically inserted
 			_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
 
-			if !exists {
+			if !exists || x.ZAdd.AtTx > 0 {
 				// check referenced key exists and it's not a reference
 				key := wrapWithPrefix(x.ZAdd.Key, setKeyPrefix)
 
