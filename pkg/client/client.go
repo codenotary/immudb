@@ -82,8 +82,6 @@ type ImmuClient interface {
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
-	//
-
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
@@ -123,6 +121,17 @@ type ImmuClient interface {
 	VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxMetadata, error)
 
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
+
+	// DEPRECATED: Please use CurrentState
+	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)
+	// DEPRECATED: Please use VerifiedSet
+	SafeSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
+	// DEPRECATED: Please use VerifiedGet
+	SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error)
+	// DEPRECATED: Please use VerifiedZAdd
+	SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
+	// DEPRECATED: Please use VerifiedSetRefrence
+	SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
 }
 
 type immuClient struct {
@@ -1321,4 +1330,29 @@ func (c *immuClient) DatabaseList(ctx context.Context) (*schema.DatabaseListResp
 	c.Logger.Debugf("DatabaseList finished in %s", time.Since(start))
 
 	return result, err
+}
+
+// DEPRECATED: Please use CurrentState
+func (c *immuClient) CurrentRoot(ctx context.Context) (*schema.ImmutableState, error) {
+	return c.CurrentState(ctx)
+}
+
+// DEPRECATED: Please use VerifiedSet
+func (c *immuClient) SafeSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error) {
+	return c.VerifiedSet(ctx, key, value)
+}
+
+// DEPRECATED: Please use VerifiedGet
+func (c *immuClient) SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error) {
+	return c.VerifiedGet(ctx, key)
+}
+
+// DEPRECATED: Please use VerifiedZAdd
+func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error) {
+	return c.VerifiedZAdd(ctx, set, score, key)
+}
+
+// DEPRECATED: Please use VerifiedSetRefrence
+func (c *immuClient) SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error) {
+	return c.VerifiedSetReference(ctx, key, referencedKey)
 }
