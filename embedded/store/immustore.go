@@ -404,9 +404,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 }
 
 func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, err error) {
-	s.indexerCond.L.Lock()
-	defer s.indexerCond.L.Unlock()
-
 	return s.index.Get(key)
 }
 
@@ -415,16 +412,10 @@ func (s *ImmuStore) NewTx() *Tx {
 }
 
 func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
-	s.indexerCond.L.Lock()
-	defer s.indexerCond.L.Unlock()
-
 	return s.index.Snapshot()
 }
 
 func (s *ImmuStore) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
-	s.indexerCond.L.Lock()
-	defer s.indexerCond.L.Unlock()
-
 	return s.index.SnapshotSince(tx)
 }
 
@@ -514,14 +505,15 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 func (s *ImmuStore) indexer() {
 	for {
+		txCount := s.TxCount()
+
 		s.indexerCond.L.Lock()
-		if s.index.Ts() == s.TxCount() {
+		if s.index.Ts() == txCount {
 			s.indexerCond.Wait()
 		}
+		s.indexerCond.L.Unlock()
 
 		err := s.doIndexing()
-
-		s.indexerCond.L.Unlock()
 
 		if err != nil && err != ErrNoMoreEntries {
 			if err != ErrAlreadyClosed {
@@ -1324,9 +1316,6 @@ func (s *ImmuStore) Close() error {
 	if tErr != nil {
 		errors = append(errors, tErr)
 	}
-
-	s.indexerCond.L.Lock()
-	defer s.indexerCond.L.Unlock()
 
 	iErr := s.index.Close()
 	if iErr != nil {
