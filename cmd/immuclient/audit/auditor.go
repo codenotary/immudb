@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/rootservice"
-
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/codenotary/immudb/pkg/server"
@@ -35,6 +33,7 @@ import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
 	"github.com/codenotary/immudb/pkg/client/cache"
+	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/spf13/viper"
 )
 
@@ -53,7 +52,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	}
 	ctx := context.Background()
 	sclient := cAgent.immuc.GetServiceClient()
-	cAgent.uuidProvider = rootservice.NewImmudbUUIDProvider(*sclient)
+	cAgent.uuidProvider = state.NewUUIDProvider(*sclient)
 	if cAgent.opts.PidPath != "" {
 		if cAgent.Pid, err = server.NewPid(cAgent.opts.PidPath, immuos.NewStandardOS()); err != nil {
 			cAgent.logger.Errorf("failed to write pidfile: %s", err)

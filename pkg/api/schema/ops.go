@@ -1,13 +1,30 @@
+/*
+Copyright 2019-2020 vChain, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package schema
 
 import (
 	"bytes"
 	"crypto/sha256"
+	"strconv"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func (m *Ops) Validate() error {
+func (m *ExecAllRequest) Validate() error {
 	if len(m.GetOperations()) == 0 {
 		return ErrEmptySet
 	}
@@ -18,20 +35,20 @@ func (m *Ops) Validate() error {
 			return status.New(codes.InvalidArgument, "Op is not set").Err()
 		}
 		switch x := op.Operation.(type) {
-		case *Op_KVs:
-			mk := sha256.Sum256(x.KVs.Key)
+		case *Op_Kv:
+			mk := sha256.Sum256(x.Kv.Key)
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedKeysNotSupported
 			}
 			mops[mk] = struct{}{}
-		case *Op_ZOpts:
-			mk := sha256.Sum256(bytes.Join([][]byte{x.ZOpts.Set, x.ZOpts.Key, []byte(x.ZOpts.Index.String())}, nil))
+		case *Op_ZAdd:
+			mk := sha256.Sum256(bytes.Join([][]byte{x.ZAdd.Set, x.ZAdd.Key, []byte(strconv.FormatUint(x.ZAdd.AtTx, 10))}, nil))
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedZAddNotSupported
 			}
 			mops[mk] = struct{}{}
-		case *Op_ROpts:
-			mk := sha256.Sum256(bytes.Join([][]byte{x.ROpts.Reference, x.ROpts.Key, []byte(x.ROpts.Index.String())}, nil))
+		case *Op_Ref:
+			mk := sha256.Sum256(bytes.Join([][]byte{x.Ref.Key, x.Ref.ReferencedKey, []byte(strconv.FormatUint(x.Ref.AtTx, 10))}, nil))
 			if _, ok := mops[mk]; ok {
 				return ErrDuplicatedReferencesNotSupported
 			}

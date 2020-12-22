@@ -16,6 +16,7 @@ limitations under the License.
 
 package cli
 
+/*
 import (
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/stretchr/testify/assert"
@@ -52,3 +53,4 @@ func TestCurrentRoot(t *testing.T) {
 		t.Fatalf("CurrentRoot failed: %s", msg)
 	}
 }
+*/

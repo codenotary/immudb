@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/helper"
@@ -53,8 +54,12 @@ var pwReaderMock = &clienttest.PasswordReaderMock{
 
 func TestCommandLine_Connect(t *testing.T) {
 	log.Info("TestCommandLine_Connect")
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
-	bs.Start()
+	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	bs := servertest.NewBufconnServer(options)
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -71,8 +76,12 @@ func TestCommandLine_Connect(t *testing.T) {
 
 func TestCommandLine_Disconnect(t *testing.T) {
 	log.Info("TestCommandLine_Disconnect")
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
-	bs.Start()
+	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	bs := servertest.NewBufconnServer(options)
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -118,9 +127,12 @@ func (c scIClientInnerMock) Login(ctx context.Context, user []byte, pass []byte)
 }
 
 func TestCommandLine_LoginLogout(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
+	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	cl := commandline{}
 	cmd, _ := cl.NewCmd()
@@ -187,9 +199,12 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 }
 
 func TestCommandLine_CheckLoggedIn(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
+	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	cl := commandline{}
 	cmd, _ := cl.NewCmd()

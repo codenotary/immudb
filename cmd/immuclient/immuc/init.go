@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package immuc
 
 import (
@@ -35,31 +34,24 @@ type immuc struct {
 type Client interface {
 	Connect(args []string) error
 	Disconnect(args []string) error
-	CurrentRoot(args []string) (string, error)
-	GetByIndex(args []string) (string, error)
-	GetKey(args []string) (string, error)
-	RawSafeGetKey(args []string) (string, error)
-	SafeGetKey(args []string) (string, error)
-	GetRawBySafeIndex(args []string) (string, error)
+	HealthCheck(args []string) (string, error)
+	CurrentState(args []string) (string, error)
+	GetTxByID(args []string) (string, error)
+	VerifiedGetTxByID(args []string) (string, error)
+	Get(args []string) (string, error)
+	VerifiedGet(args []string) (string, error)
 	Login(args []string) (string, error)
 	Logout(args []string) (string, error)
 	History(args []string) (string, error)
-	HealthCheck(args []string) (string, error)
-	Reference(args []string) (string, error)
-	SafeReference(args []string) (string, error)
+	SetReference(args []string) (string, error)
+	VerifiedSetReference(args []string) (string, error)
 	ZScan(args []string) (string, error)
-	IScan(args []string) (string, error)
 	Scan(args []string) (string, error)
 	Count(args []string) (string, error)
-	RawSafeSet(args []string) (string, error)
 	Set(args []string) (string, error)
-	SafeSet(args []string) (string, error)
+	VerifiedSet(args []string) (string, error)
 	ZAdd(args []string) (string, error)
-	SafeZAdd(args []string) (string, error)
-	Consistency(args []string) (string, error)
-	Inclusion(args []string) (string, error)
-	ValueOnly() bool
-	SetValueOnly(v bool)
+	VerifiedZAdd(args []string) (string, error)
 	CreateDatabase(args []string) (string, error)
 	DatabaseList(args []string) (string, error)
 	UseDatabase(args []string) (string, error)
@@ -68,6 +60,8 @@ type Client interface {
 	SetUserPermission(args []string) (string, error)
 	UserList(args []string) (string, error)
 	ChangeUserPassword(args []string) (string, error)
+	ValueOnly() bool     // TODO: ?
+	SetValueOnly(v bool) // TODO: ?
 }
 
 // Init ...
@@ -92,6 +86,7 @@ func (i *immuc) Connect(args []string) error {
 	}
 
 	i.valueOnly = viper.GetBool("value-only")
+
 	return nil
 }
 
@@ -123,6 +118,7 @@ func Options() *client.Options {
 		WithTokenFileName(viper.GetString("tokenfile")).
 		WithMTLs(viper.GetBool("mtls")).
 		WithTokenService(client.NewTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(client.NewHomedirService()))
+
 	if viper.GetBool("mtls") {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = client.DefaultMTLsOptions().
@@ -131,5 +127,6 @@ func Options() *client.Options {
 			WithPkey(viper.GetString("pkey")).
 			WithClientCAs(viper.GetString("clientcas"))
 	}
+
 	return options
 }

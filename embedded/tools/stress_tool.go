@@ -149,7 +149,7 @@ func main() {
 		}
 
 		if *action == "set" {
-			_, _, _, err := immuStore.Commit([]*store.KV{
+			_, err := immuStore.Commit([]*store.KV{
 				{Key: []byte(*key), Value: []byte(*value)},
 			})
 			if err != nil {
@@ -227,12 +227,12 @@ func main() {
 				ids := make([]uint64, *txCount)
 
 				for t := 0; t < *txCount; t++ {
-					txid, _, _, err := immuStore.Commit(txs[t])
+					txMetadata, err := immuStore.Commit(txs[t])
 					if err != nil {
 						panic(err)
 					}
 
-					ids[t] = txid
+					ids[t] = txMetadata.ID
 
 					if *printAfter > 0 && t%*printAfter == 0 {
 						fmt.Print(".")
@@ -312,21 +312,19 @@ func main() {
 					panic(err)
 				}
 
-				txEntries := tx.Entries()
-
 				if *kvInclusion {
-					for i := 0; i < len(txEntries); i++ {
-						proof, err := tx.Proof(i)
+					for _, e := range tx.Entries() {
+						proof, err := tx.Proof(e.Key())
 						if err != nil {
 							panic(err)
 						}
 
-						_, err = immuStore.ReadValueAt(b[:txEntries[i].ValueLen], txEntries[i].VOff, txEntries[i].HValue)
+						_, err = immuStore.ReadValueAt(b[:e.ValueLen], e.VOff, e.HValue)
 						if err != nil {
 							panic(err)
 						}
 
-						kv := &store.KV{Key: txEntries[i].Key(), Value: b[:txEntries[i].ValueLen]}
+						kv := &store.KV{Key: e.Key(), Value: b[:e.ValueLen]}
 
 						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 						if !verifies {

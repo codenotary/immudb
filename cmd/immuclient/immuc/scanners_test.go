@@ -29,9 +29,13 @@ import (
 )
 
 func TestZScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
@@ -59,35 +63,34 @@ func TestZScan(t *testing.T) {
 }
 
 func TestIScan(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	defer os.Remove(".state-")
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
-	_, err := ic.Imc.SafeSet([]string{"key", "val"})
+	_, err := ic.Imc.VerifiedSet([]string{"key", "val"})
 	if err != nil {
 		t.Fatal("Set fail", err)
-	}
-
-	msg, err := ic.Imc.IScan([]string{"0", "1"})
-
-	if err != nil {
-		t.Fatal("IScan fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("IScan failed: %s", msg)
 	}
 }
 
 func TestScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
@@ -109,9 +112,13 @@ func TestScan(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},

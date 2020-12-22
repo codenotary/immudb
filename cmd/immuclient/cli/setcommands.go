@@ -16,16 +16,12 @@ limitations under the License.
 
 package cli
 
-func (cli *cli) rawSafeSet(args []string) (string, error) {
-	return cli.immucl.RawSafeSet(args)
-}
-
 func (cli *cli) set(args []string) (string, error) {
 	return cli.immucl.Set(args)
 }
 
 func (cli *cli) safeset(args []string) (string, error) {
-	return cli.immucl.SafeSet(args)
+	return cli.immucl.VerifiedSet(args)
 }
 
 func (cli *cli) zAdd(args []string) (string, error) {
@@ -33,7 +29,7 @@ func (cli *cli) zAdd(args []string) (string, error) {
 }
 
 func (cli *cli) safeZAdd(args []string) (string, error) {
-	return cli.immucl.SafeZAdd(args)
+	return cli.immucl.VerifiedZAdd(args)
 }
 
 func (cli *cli) UseDatabase(args []string) (string, error) {

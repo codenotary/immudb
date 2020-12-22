@@ -16,6 +16,7 @@ limitations under the License.
 
 package immuc
 
+/*
 import (
 	"context"
 	"errors"
@@ -116,3 +117,4 @@ func TestScannersErrors(t *testing.T) {
 	_, err = ic.Count(args)
 	require.Equal(t, errCount, err)
 }
+*/

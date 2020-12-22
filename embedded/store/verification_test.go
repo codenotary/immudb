@@ -30,7 +30,7 @@ func TestVerifyLinearProofEdgeCases(t *testing.T) {
 
 	require.True(t,
 		VerifyLinearProof(
-			&LinearProof{Proof: [][sha256.Size]byte{sha256.Sum256(nil)}, SourceTxID: 1, TargetTxID: 1},
+			&LinearProof{Terms: [][sha256.Size]byte{sha256.Sum256(nil)}, SourceTxID: 1, TargetTxID: 1},
 			1,
 			1,
 			sha256.Sum256(nil),
@@ -66,9 +66,9 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 			kvs[j] = &KV{Key: k, Value: v}
 		}
 
-		id, _, _, err := immuStore.Commit(kvs)
+		txMetadata, err := immuStore.Commit(kvs)
 		require.NoError(t, err)
-		require.Equal(t, uint64(i+1), id)
+		require.Equal(t, uint64(i+1), txMetadata.ID)
 	}
 
 	sourceTx := immuStore.NewTx()

@@ -2,35 +2,29 @@ package server
 
 import (
 	"context"
+
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/store"
 )
 
-// SetBatch ...
-func (s *ImmuServer) SetBatch(ctx context.Context, kvl *schema.KVList) (*schema.Index, error) {
-	s.Logger.Debugf("set batch %d", len(kvl.KVs))
+// GetAll ...
+func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.Entries, error) {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
 
-	ind, err := s.getDbIndexFromCtx(ctx, "SetBatch")
+	ind, err := s.getDbIndexFromCtx(ctx, "GetAll")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).SetBatch(kvl)
-}
+	list := &schema.Entries{}
 
-// GetBatch ...
-func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.ItemList, error) {
-	list := &schema.ItemList{}
-	ind, err := s.getDbIndexFromCtx(ctx, "GetBatch")
-	if err != nil {
-		return nil, err
-	}
-
-	for _, key := range kl.Keys {
-		item, err := s.dbList.GetByIndex(ind).Get(key)
+	for _, key := range req.Keys {
+		e, err := s.dbList.GetByIndex(ind).Get(&schema.KeyRequest{Key: key, SinceTx: req.SinceTx})
 		if err == nil || err == store.ErrKeyNotFound {
-			if item != nil {
-				list.Items = append(list.Items, item)
+			if e != nil {
+				list.Entries = append(list.Entries, e)
 			}
 		} else {
 			return nil, err
@@ -40,13 +34,13 @@ func (s *ImmuServer) GetBatch(ctx context.Context, kl *schema.KeyList) (*schema.
 	return list, nil
 }
 
-func (s *ImmuServer) ExecAllOps(ctx context.Context, operations *schema.Ops) (*schema.Index, error) {
-	s.Logger.Debugf("set batch atomic operations")
+func (s *ImmuServer) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
+	s.Logger.Debugf("set atomic operations")
 
-	ind, err := s.getDbIndexFromCtx(ctx, "ExecAllOps")
+	ind, err := s.getDbIndexFromCtx(ctx, "ExecAll")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).ExecAllOps(operations)
+	return s.dbList.GetByIndex(ind).ExecAll(req)
 }

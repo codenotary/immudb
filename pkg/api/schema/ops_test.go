@@ -1,38 +1,52 @@
+/*
+Copyright 2019-2020 vChain, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package schema
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"testing"
 )
 
 func TestOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
-	aOps := &Ops{
+	aOps := &ExecAllRequest{
 		Operations: []*Op{
 			{
-				Operation: &Op_KVs{
-					KVs: &KeyValue{
+				Operation: &Op_Kv{
+					Kv: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &Op_KVs{
-					KVs: &KeyValue{
+				Operation: &Op_Kv{
+					Kv: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &Op_ZOpts{
-					ZOpts: &ZAddOptions{
-						Key: []byte(`key`),
-						Score: &Score{
-							Score: 5.6,
-						},
+				Operation: &Op_ZAdd{
+					ZAdd: &ZAddRequest{
+						Key:   []byte(`key`),
+						Score: 5.6,
 					},
 				},
 			},
@@ -44,39 +58,31 @@ func TestOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 }
 
 func TestOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
-	aOps := &Ops{
+	aOps := &ExecAllRequest{
 		Operations: []*Op{
 			{
-				Operation: &Op_KVs{
-					KVs: &KeyValue{
+				Operation: &Op_Kv{
+					Kv: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &Op_ZOpts{
-					ZOpts: &ZAddOptions{
-						Key: []byte(`key`),
-						Score: &Score{
-							Score: 5.6,
-						},
-						Index: &Index{
-							Index: uint64(1),
-						},
+				Operation: &Op_ZAdd{
+					ZAdd: &ZAddRequest{
+						Key:   []byte(`key`),
+						Score: 5.6,
+						AtTx:  1,
 					},
 				},
 			},
 			{
-				Operation: &Op_ZOpts{
-					ZOpts: &ZAddOptions{
-						Key: []byte(`key`),
-						Score: &Score{
-							Score: 5.6,
-						},
-						Index: &Index{
-							Index: uint64(1),
-						},
+				Operation: &Op_ZAdd{
+					ZAdd: &ZAddRequest{
+						Key:   []byte(`key`),
+						Score: 5.6,
+						AtTx:  1,
 					},
 				},
 			},
@@ -87,7 +93,7 @@ func TestOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 }
 
 func TestOps_ValidateErrEmptySet(t *testing.T) {
-	aOps := &Ops{
+	aOps := &ExecAllRequest{
 		Operations: []*Op{},
 	}
 	err := aOps.Validate()
@@ -95,26 +101,22 @@ func TestOps_ValidateErrEmptySet(t *testing.T) {
 }
 
 func TestOps_ValidateErrDuplicate(t *testing.T) {
-	aOps := &Ops{
+	aOps := &ExecAllRequest{
 		Operations: []*Op{
 			{
-				Operation: &Op_KVs{
-					KVs: &KeyValue{
+				Operation: &Op_Kv{
+					Kv: &KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &Op_ZOpts{
-					ZOpts: &ZAddOptions{
-						Key: []byte(`key`),
-						Score: &Score{
-							Score: 5.6,
-						},
-						Index: &Index{
-							Index: uint64(1),
-						},
+				Operation: &Op_ZAdd{
+					ZAdd: &ZAddRequest{
+						Key:   []byte(`key`),
+						Score: 5.6,
+						AtTx:  1,
 					},
 				},
 			},
@@ -125,7 +127,7 @@ func TestOps_ValidateErrDuplicate(t *testing.T) {
 }
 
 func TestOps_ValidateUnexpectedType(t *testing.T) {
-	aOps := &Ops{
+	aOps := &ExecAllRequest{
 		Operations: []*Op{
 			{
 				Operation: &Op_Unexpected{},
@@ -138,26 +140,22 @@ func TestOps_ValidateUnexpectedType(t *testing.T) {
 func TestExecAllOpsNilElementFound(t *testing.T) {
 	bOps := make([]*Op, 2)
 	op := &Op{
-		Operation: &Op_ZOpts{
-			ZOpts: &ZAddOptions{
-				Key: []byte(`key`),
-				Score: &Score{
-					Score: 5.6,
-				},
-				Index: &Index{
-					Index: 4,
-				},
+		Operation: &Op_ZAdd{
+			ZAdd: &ZAddRequest{
+				Key:   []byte(`key`),
+				Score: 5.6,
+				AtTx:  4,
 			},
 		},
 	}
 	bOps[1] = op
-	aOps := &Ops{Operations: bOps}
+	aOps := &ExecAllRequest{Operations: bOps}
 	err := aOps.Validate()
 	assert.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
 }
 
 func TestOps_ValidateOperationNilElementFound(t *testing.T) {
-	aOps := &Ops{
+	aOps := &ExecAllRequest{
 		Operations: []*Op{
 			{
 				Operation: nil,

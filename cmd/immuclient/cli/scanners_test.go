@@ -17,9 +17,11 @@ limitations under the License.
 package cli
 
 import (
-	"github.com/codenotary/immudb/pkg/client"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/client"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -27,9 +29,12 @@ import (
 )
 
 func TestZScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -60,9 +65,12 @@ func TestZScan(t *testing.T) {
 }
 
 func TestIScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -77,21 +85,15 @@ func TestIScan(t *testing.T) {
 	if err != nil {
 		t.Fatal("Set fail", err)
 	}
-
-	msg, err := cli.iScan([]string{"0", "1"})
-
-	if err != nil {
-		t.Fatal("IScan fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("IScan failed: %s", msg)
-	}
 }
 
 func TestScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -117,9 +119,12 @@ func TestScan(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{

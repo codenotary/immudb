@@ -16,6 +16,7 @@ limitations under the License.
 
 package immuclient
 
+/*
 import (
 	"bytes"
 	"io/ioutil"
@@ -272,3 +273,4 @@ func TestSafeZAdd(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+*/

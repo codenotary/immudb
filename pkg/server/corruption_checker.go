@@ -20,14 +20,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	mrand "math/rand"
 	"sync"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/store"
 )
 
 // ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
@@ -104,6 +102,11 @@ func (s *corruptionChecker) Stop() {
 }
 
 func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
+	return errors.New("not supported")
+}
+
+/*
+func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	if s.currentDbIndex == s.dbList.Length() {
 		s.currentDbIndex = 0
 	}
@@ -111,7 +114,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	s.currentDbIndex++
 	var r *schema.Root
 	s.Logger.Debugf("Retrieving a fresh root ...")
-	if r, err = db.Store.CurrentRoot(); err != nil {
+	if r, err = db.CurrentRoot(); err != nil {
 		s.Logger.Errorf("Error retrieving root: %s", err)
 		return
 	}
@@ -125,8 +128,9 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 			if s.isTerminated() {
 				return
 			}
-			var item *schema.SafeItem
-			if item, err = db.Store.BySafeIndex(schema.SafeIndexOptions{
+
+			var item *schema.VerifiedTx
+			if item, err = db.BySafeIndex(&schema.SafeIndexOptions{
 				Index: id,
 				RootIndex: &schema.Index{
 					Index: r.GetIndex(),
@@ -140,12 +144,13 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 				s.Logger.Errorf("Error retrieving element at index %d: %s", id, err)
 				return
 			}
-			verified := item.Proof.Verify(item.Proof.Leaf, *r)
-			s.Logger.Debugf("Item index %d, value %s, verified %t", item.Item.Index, item.Item.Value, verified)
+			//verified := item.Proof.Verify(item.Item.Value, *r)
+			verified := item != nil
+			s.Logger.Debugf("Item index %d, verified %t", item.Tx.Metadata.Id, verified)
 			if !verified {
 				s.Trusted = false
 				auth.IsTampered = true
-				s.Logger.Errorf(ErrConsistencyFail, item.Item.Index)
+				s.Logger.Errorf(ErrConsistencyFail, item.Tx.Metadata.Id)
 				return
 			}
 			time.Sleep(s.options.frequencySleepTime)
@@ -154,6 +159,7 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 
 	return nil
 }
+*/
 
 // GetStatus return status of the trust checker. False means that a consistency checks was failed
 func (s *corruptionChecker) GetStatus() bool {

@@ -18,9 +18,9 @@ package audit
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/pkg/client/rootservice"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
 
 	c "github.com/codenotary/immudb/cmd/helper"
 	immusrvc "github.com/codenotary/immudb/cmd/sservice"
@@ -28,6 +28,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/auditor"
+	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/spf13/viper"
 	"github.com/takama/daemon"
@@ -41,7 +42,7 @@ type AuditAgent interface {
 
 type auditAgent struct {
 	service        immusrvc.Sservice
-	uuidProvider   rootservice.UUIDProvider
+	uuidProvider   state.UUIDProvider
 	Daemon         daemon.Daemon
 	cycleFrequency int
 	metrics        prometheusMetrics

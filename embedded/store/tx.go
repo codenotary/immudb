@@ -40,22 +40,73 @@ type Tx struct {
 	InnerHash [sha256.Size]byte
 }
 
-func newTx(nentries int, maxKeyLen int) *Tx {
+type TxMetadata struct {
+	ID       uint64
+	PrevAlh  [sha256.Size]byte
+	Ts       int64
+	NEntries int
+	Eh       [sha256.Size]byte
+	BlTxID   uint64
+	BlRoot   [sha256.Size]byte
+}
+
+func NewTx(nentries int, maxKeyLen int) *Tx {
 	entries := make([]*Txe, nentries)
 	for i := 0; i < nentries; i++ {
 		entries[i] = &Txe{key: make([]byte, maxKeyLen)}
 	}
 
-	htree, _ := htree.New(nentries)
+	return NewTxWithEntries(entries)
+}
+
+func NewTxWithEntries(entries []*Txe) *Tx {
+	htree, _ := htree.New(len(entries))
 
 	return &Tx{
-		ID:      0,
-		entries: entries,
-		htree:   htree,
+		ID:       0,
+		entries:  entries,
+		nentries: len(entries),
+		htree:    htree,
 	}
 }
 
-func (tx *Tx) buildHashTree() error {
+func (tx *Tx) Metadata() *TxMetadata {
+	var prevAlh, blRoot [sha256.Size]byte
+
+	copy(prevAlh[:], tx.PrevAlh[:])
+	copy(blRoot[:], tx.BlRoot[:])
+
+	return &TxMetadata{
+		ID:       tx.ID,
+		PrevAlh:  prevAlh,
+		Ts:       tx.Ts,
+		NEntries: tx.nentries,
+		Eh:       tx.Eh(),
+		BlTxID:   tx.BlTxID,
+		BlRoot:   blRoot,
+	}
+}
+
+func (txMetadata *TxMetadata) Alh() [sha256.Size]byte {
+	var bi [txIDSize + 2*sha256.Size]byte
+
+	binary.BigEndian.PutUint64(bi[:], txMetadata.ID)
+	copy(bi[txIDSize:], txMetadata.PrevAlh[:])
+
+	var bj [tsSize + 4 + sha256.Size + txIDSize + sha256.Size]byte
+	binary.BigEndian.PutUint64(bj[:], uint64(txMetadata.Ts))
+	binary.BigEndian.PutUint32(bj[tsSize:], uint32(txMetadata.NEntries))
+	copy(bj[tsSize+4:], txMetadata.Eh[:])
+	binary.BigEndian.PutUint64(bj[tsSize+4+sha256.Size:], txMetadata.BlTxID)
+	copy(bj[tsSize+4+sha256.Size+txIDSize:], txMetadata.BlRoot[:])
+	innerHash := sha256.Sum256(bj[:]) // hash(ts + nentries + eH + blTxID + blRoot)
+
+	copy(bi[txIDSize+sha256.Size:], innerHash[:]) // hash(txID + prevAlh + innerHash)
+
+	return sha256.Sum256(bi[:])
+}
+
+func (tx *Tx) BuildHashTree() error {
 	digests := make([][sha256.Size]byte, tx.nentries)
 
 	for i, e := range tx.Entries() {
@@ -72,7 +123,7 @@ func (tx *Tx) Entries() []*Txe {
 // Alh calculates the Accumulative Linear Hash up to this transaction
 // Alh is calculated as hash(txID + prevAlh + hash(ts + nentries + eH + blTxID + blRoot))
 // Inner hash is calculated so to reduce the length of linear proofs
-func (tx *Tx) calcAlh() {
+func (tx *Tx) CalcAlh() {
 	tx.calcInnerHash()
 
 	var bi [txIDSize + 2*sha256.Size]byte
@@ -109,7 +160,12 @@ func (tx *Tx) IndexOf(key []byte) (int, error) {
 	return 0, ErrKeyNotFound
 }
 
-func (tx *Tx) Proof(kindex int) (*htree.InclusionProof, error) {
+func (tx *Tx) Proof(key []byte) (*htree.InclusionProof, error) {
+	kindex, err := tx.IndexOf(key)
+	if err != nil {
+		return nil, err
+	}
+
 	return tx.htree.InclusionProof(kindex)
 }
 
@@ -184,9 +240,9 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 		return err
 	}
 
-	tx.buildHashTree()
+	tx.BuildHashTree()
 
-	tx.calcAlh()
+	tx.CalcAlh()
 
 	if tx.Alh != alh {
 		return ErrorCorruptedTxData
@@ -205,6 +261,12 @@ type Txe struct {
 
 func (e *Txe) Key() []byte {
 	return e.key[:e.keyLen]
+}
+
+func (e *Txe) SetKey(key []byte) {
+	e.key = make([]byte, len(key))
+	copy(e.key, key)
+	e.keyLen = len(key)
 }
 
 func (e *Txe) Digest() [sha256.Size]byte {

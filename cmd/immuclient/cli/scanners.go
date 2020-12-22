@@ -20,10 +20,6 @@ func (cli *cli) zScan(args []string) (string, error) {
 	return cli.immucl.ZScan(args)
 }
 
-func (cli *cli) iScan(args []string) (string, error) {
-	return cli.immucl.IScan(args)
-}
-
 func (cli *cli) scan(args []string) (string, error) {
 	return cli.immucl.Scan(args)
 }

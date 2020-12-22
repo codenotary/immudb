@@ -41,29 +41,25 @@ func (cl *commandline) Register(rootCmd *cobra.Command) *cobra.Command {
 	cl.login(rootCmd)
 	cl.logout(rootCmd)
 	// current status
-	cl.currentRoot(rootCmd)
+	cl.currentState(rootCmd)
 	// get operations
-	cl.getByIndex(rootCmd)
-	cl.getRawBySafeIndex(rootCmd)
+	cl.getTxByID(rootCmd)
+	cl.safegetTxByID(rootCmd)
 	cl.getKey(rootCmd)
-	cl.rawSafeGetKey(rootCmd)
 	cl.safeGetKey(rootCmd)
 	// set operations
-	cl.rawSafeSet(rootCmd)
 	cl.set(rootCmd)
 	cl.safeset(rootCmd)
 	cl.zAdd(rootCmd)
 	cl.safeZAdd(rootCmd)
 	// scanners
 	cl.zScan(rootCmd)
-	cl.iScan(rootCmd)
 	cl.scan(rootCmd)
 	cl.count(rootCmd)
 	// references
 	cl.reference(rootCmd)
 	cl.safereference(rootCmd)
 	// misc
-	cl.inclusion(rootCmd)
 	cl.consistency(rootCmd)
 	cl.history(rootCmd)
 	cl.status(rootCmd)

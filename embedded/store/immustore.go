@@ -42,7 +42,7 @@ var ErrAlreadyClosed = errors.New("already closed")
 var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
-var ErrNullKeyOrValue = errors.New("null key or value")
+var ErrNullKey = errors.New("null key")
 var ErrorMaxKeyLenExceeded = errors.New("max key length exceeded")
 var ErrorMaxValueLenExceeded = errors.New("max value length exceeded")
 var ErrDuplicatedKey = errors.New("duplicated key")
@@ -53,7 +53,8 @@ var ErrCorruptedData = errors.New("data is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
-var ErrKeyNotFound = errors.New("key not found")
+var ErrKeyNotFound = tbtree.ErrKeyNotFound
+var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = errors.New("no more entries")
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
@@ -283,12 +284,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	txs := list.New()
 
 	for i := 0; i < opts.maxConcurrency; i++ {
-		tx := newTx(maxTxEntries, maxKeyLen)
+		tx := NewTx(maxTxEntries, maxKeyLen)
 		txs.PushBack(tx)
 	}
 
 	// Extra tx pre-allocation for indexing thread
-	txs.PushBack(newTx(maxTxEntries, maxKeyLen))
+	txs.PushBack(NewTx(maxTxEntries, maxKeyLen))
 
 	txbs := make([]byte, maxTxSize)
 
@@ -402,12 +403,20 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	return store, nil
 }
 
+func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, err error) {
+	return s.index.Get(key)
+}
+
 func (s *ImmuStore) NewTx() *Tx {
-	return newTx(s.maxTxEntries, s.maxKeyLen)
+	return NewTx(s.maxTxEntries, s.maxKeyLen)
 }
 
 func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
 	return s.index.Snapshot()
+}
+
+func (s *ImmuStore) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
+	return s.index.SnapshotSince(tx)
 }
 
 func (s *ImmuStore) binaryLinking() {
@@ -496,8 +505,10 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 func (s *ImmuStore) indexer() {
 	for {
+		txCount := s.TxCount()
+
 		s.indexerCond.L.Lock()
-		if s.index.Ts() == s.TxCount() {
+		if s.index.Ts() == txCount {
 			s.indexerCond.Wait()
 		}
 		s.indexerCond.L.Unlock()
@@ -660,19 +671,19 @@ func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable, err
 		s.vLogsCond.Wait()
 	}
 
-	vLogID := s.vLogUnlockedList.Remove(s.vLogUnlockedList.Front()).(byte)
+	vLogID := s.vLogUnlockedList.Remove(s.vLogUnlockedList.Front()).(byte) + 1
 
-	s.vLogs[vLogID].unlockedRef = nil // locked
+	s.vLogs[vLogID-1].unlockedRef = nil // locked
 
 	s.vLogsCond.L.Unlock()
 
-	return vLogID, s.vLogs[vLogID].vLog, nil
+	return vLogID, s.vLogs[vLogID-1].vLog, nil
 }
 
 func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
 	s.vLogsCond.L.Lock()
 
-	for s.vLogs[vLogID].unlockedRef == nil {
+	for s.vLogs[vLogID-1].unlockedRef == nil {
 		if checkClosed {
 			s.mutex.Lock()
 			if s.closed {
@@ -688,17 +699,17 @@ func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Ap
 		s.vLogsCond.Wait()
 	}
 
-	s.vLogUnlockedList.Remove(s.vLogs[vLogID].unlockedRef)
-	s.vLogs[vLogID].unlockedRef = nil // locked
+	s.vLogUnlockedList.Remove(s.vLogs[vLogID-1].unlockedRef)
+	s.vLogs[vLogID-1].unlockedRef = nil // locked
 
 	s.vLogsCond.L.Unlock()
 
-	return s.vLogs[vLogID].vLog, nil
+	return s.vLogs[vLogID-1].vLog, nil
 }
 
 func (s *ImmuStore) releaseVLog(vLogID byte) {
 	s.vLogsCond.L.Lock()
-	s.vLogs[vLogID].unlockedRef = s.vLogUnlockedList.PushBack(vLogID) // unlocked
+	s.vLogs[vLogID-1].unlockedRef = s.vLogUnlockedList.PushBack(vLogID - 1) // unlocked
 	s.vLogsCond.L.Unlock()
 	s.vLogsCond.Signal()
 }
@@ -720,6 +731,10 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	defer s.releaseVLog(vLogID)
 
 	for i := 0; i < len(offsets); i++ {
+		if len(entries[i].Value) == 0 {
+			continue
+		}
+
 		voff, _, err := vLog.Append(entries[i].Value)
 		if err != nil {
 			donec <- appendableResult{nil, err}
@@ -736,18 +751,17 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	donec <- appendableResult{offsets, nil}
 }
 
-func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size]byte, err error) {
+func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
-		err = ErrAlreadyClosed
-		return
+		return nil, ErrAlreadyClosed
 	}
 	s.mutex.Unlock()
 
-	err = s.validateEntries(entries)
+	err := s.validateEntries(entries)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	appendableCh := make(chan appendableResult)
@@ -755,7 +769,7 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer s.releaseAllocTx(tx)
 
@@ -769,20 +783,20 @@ func (s *ImmuStore) Commit(entries []*KV) (id uint64, ts int64, alh [sha256.Size
 		txe.HValue = sha256.Sum256(e.Value)
 	}
 
-	tx.buildHashTree()
+	tx.BuildHashTree()
 
 	r := <-appendableCh // wait for data to be writen
 	err = r.err
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = s.commit(tx, r.offsets)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	return tx.ID, tx.Ts, tx.Alh, nil
+	return tx.Metadata(), nil
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
@@ -848,7 +862,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		txSize += sha256.Size
 	}
 
-	tx.calcAlh()
+	tx.CalcAlh()
 
 	// tx serialization using pre-allocated buffer
 	copy(s._txbs[txSize:], tx.Alh[:])
@@ -870,6 +884,9 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 			return err
 		}
 	} else {
+		s.blCond.L.Lock()
+		defer s.blCond.L.Unlock()
+
 		err = s.blBuffer.Put(tx.Alh)
 		if err != nil {
 			if err == cbuffer.ErrBufferIsFull {
@@ -902,24 +919,14 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	return nil
 }
 
-type TxMetadata struct {
-	ID       uint64
-	PrevAlh  [sha256.Size]byte
-	Ts       int64
-	NEntries int
-	Eh       [sha256.Size]byte
-	BlTxID   uint64
-	BlRoot   [sha256.Size]byte
-}
-
 type DualProof struct {
-	SourceTxMetadata         TxMetadata
-	TargetTxMetadata         TxMetadata
-	BinaryInclusionProof     [][sha256.Size]byte
-	BinaryConsistencyProof   [][sha256.Size]byte
-	TargetBlTxAlh            [sha256.Size]byte
-	BinaryLastInclusionProof [][sha256.Size]byte
-	LinearProof              *LinearProof
+	SourceTxMetadata   *TxMetadata
+	TargetTxMetadata   *TxMetadata
+	InclusionProof     [][sha256.Size]byte
+	ConsistencyProof   [][sha256.Size]byte
+	TargetBlTxAlh      [sha256.Size]byte
+	LastInclusionProof [][sha256.Size]byte
+	LinearProof        *LinearProof
 }
 
 // DualProof combines linear cryptographic linking i.e. transactions include the linear accumulative hash up to the previous one,
@@ -937,24 +944,8 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 	}
 
 	proof = &DualProof{
-		SourceTxMetadata: TxMetadata{
-			ID:       sourceTx.ID,
-			PrevAlh:  sourceTx.PrevAlh,
-			Ts:       sourceTx.Ts,
-			NEntries: sourceTx.nentries,
-			Eh:       sourceTx.Eh(),
-			BlTxID:   sourceTx.BlTxID,
-			BlRoot:   sourceTx.BlRoot,
-		},
-		TargetTxMetadata: TxMetadata{
-			ID:       targetTx.ID,
-			PrevAlh:  targetTx.PrevAlh,
-			Ts:       targetTx.Ts,
-			NEntries: targetTx.nentries,
-			Eh:       targetTx.Eh(),
-			BlTxID:   targetTx.BlTxID,
-			BlRoot:   targetTx.BlRoot,
-		},
+		SourceTxMetadata: sourceTx.Metadata(),
+		TargetTxMetadata: targetTx.Metadata(),
 	}
 
 	if sourceTx.ID < targetTx.BlTxID {
@@ -962,7 +953,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		if err != nil {
 			return nil, err
 		}
-		proof.BinaryInclusionProof = binInclusionProof
+		proof.InclusionProof = binInclusionProof
 	}
 
 	if sourceTx.BlTxID > targetTx.BlTxID {
@@ -975,7 +966,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 			return nil, err
 		}
 
-		proof.BinaryConsistencyProof = binConsistencyProof
+		proof.ConsistencyProof = binConsistencyProof
 	}
 
 	var targetBlTx *Tx
@@ -998,7 +989,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 		if err != nil {
 			return nil, err
 		}
-		proof.BinaryLastInclusionProof = binLastInclusionProof
+		proof.LastInclusionProof = binLastInclusionProof
 	}
 
 	if targetBlTx != nil {
@@ -1017,7 +1008,7 @@ func (s *ImmuStore) DualProof(sourceTx, targetTx *Tx) (proof *DualProof, err err
 type LinearProof struct {
 	SourceTxID uint64
 	TargetTxID uint64
-	Proof      [][sha256.Size]byte
+	Terms      [][sha256.Size]byte
 }
 
 // LinearProof returns a list of hashes to calculate Alh@targetTxID from Alh@sourceTxID
@@ -1058,7 +1049,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 	return &LinearProof{
 		SourceTxID: sourceTxID,
 		TargetTxID: targetTxID,
-		Proof:      proof,
+		Terms:      proof,
 	}, nil
 }
 
@@ -1071,8 +1062,14 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 
 	var cb [cLogEntrySize]byte
 
-	_, err := s.cLog.ReadAt(cb[:], int64(off))
+	n, err := s.cLog.ReadAt(cb[:], int64(off))
 	if err != nil {
+		if err == io.EOF && n == 0 {
+			return 0, 0, ErrTxNotFound
+		}
+		if err == io.EOF && n > 0 {
+			return 0, n, ErrCorruptedCLog
+		}
 		return 0, 0, err
 	}
 
@@ -1121,22 +1118,24 @@ func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
 func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (int, error) {
 	vLogID, offset := decodeOffset(off)
 
-	vLog, err := s.fetchVLog(vLogID, true)
-	if err != nil {
-		return 0, err
-	}
-	defer s.releaseVLog(vLogID)
+	if vLogID > 0 {
+		vLog, err := s.fetchVLog(vLogID, true)
+		if err != nil {
+			return 0, err
+		}
+		defer s.releaseVLog(vLogID)
 
-	n, err := vLog.ReadAt(b, offset)
-	if err != nil {
-		return n, err
+		n, err := vLog.ReadAt(b, offset)
+		if err != nil {
+			return n, err
+		}
 	}
 
 	if hvalue != sha256.Sum256(b) {
-		return n, ErrCorruptedData
+		return len(b), ErrCorruptedData
 	}
 
-	return n, nil
+	return len(b), nil
 }
 
 type TxReader struct {
@@ -1228,8 +1227,8 @@ func (s *ImmuStore) validateEntries(entries []*KV) error {
 	m := make(map[string]struct{}, len(entries))
 
 	for _, kv := range entries {
-		if kv.Key == nil || kv.Value == nil {
-			return ErrNullKeyOrValue
+		if kv.Key == nil {
+			return ErrNullKey
 		}
 
 		if len(kv.Key) > s.maxKeyLen {
@@ -1256,13 +1255,13 @@ func (s *ImmuStore) Sync() error {
 		return ErrAlreadyClosed
 	}
 
-	for vLogID := range s.vLogs {
-		vLog, _ := s.fetchVLog(vLogID, false)
+	for i := range s.vLogs {
+		vLog, _ := s.fetchVLog(i+1, false)
 		err := vLog.Sync()
 		if err != nil {
 			return err
 		}
-		s.releaseVLog(vLogID)
+		s.releaseVLog(i + 1)
 	}
 
 	err := s.txLog.Sync()
@@ -1274,6 +1273,9 @@ func (s *ImmuStore) Sync() error {
 	if err != nil {
 		return err
 	}
+
+	s.indexerCond.L.Lock()
+	defer s.indexerCond.L.Unlock()
 
 	return s.index.Sync()
 }
@@ -1290,8 +1292,8 @@ func (s *ImmuStore) Close() error {
 
 	errors := make([]error, 0)
 
-	for vLogID := range s.vLogs {
-		vLog, _ := s.fetchVLog(vLogID, false)
+	for i := range s.vLogs {
+		vLog, _ := s.fetchVLog(i+1, false)
 
 		err := vLog.Close()
 		if err != nil {

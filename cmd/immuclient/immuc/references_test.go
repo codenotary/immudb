@@ -29,19 +29,24 @@ import (
 )
 
 func TestReference(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
 	}, ts)
+
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 
-	msg, err := ic.Imc.Reference([]string{"val", "key"})
+	msg, err := ic.Imc.SetReference([]string{"val", "key"})
 	if err != nil {
 		t.Fatal("Reference fail", err)
 	}
@@ -49,11 +54,16 @@ func TestReference(t *testing.T) {
 		t.Fatalf("Reference failed: %s", msg)
 	}
 }
-func TestSafeReference(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+
+func TestVerifiedSetReference(t *testing.T) {
+	defer os.Remove(".state-")
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
@@ -63,7 +73,7 @@ func TestSafeReference(t *testing.T) {
 
 	_, _ = ic.Imc.Set([]string{"key", "val"})
 
-	msg, err := ic.Imc.SafeReference([]string{"val", "key"})
+	msg, err := ic.Imc.VerifiedSetReference([]string{"val", "key"})
 	if err != nil {
 		t.Fatal("SafeReference fail", err)
 	}

@@ -16,6 +16,7 @@ limitations under the License.
 
 package immuc
 
+/*
 import (
 	"context"
 	"errors"
@@ -139,3 +140,4 @@ func TestGetCommandsErrors(t *testing.T) {
 	_, err = ic.GetRawBySafeIndex([]string{"0"})
 	require.Equal(t, errRawBySafeIndex, err)
 }
+*/

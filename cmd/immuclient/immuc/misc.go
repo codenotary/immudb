@@ -13,19 +13,20 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package immuc
 
 import (
 	"context"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 func (i *immuc) History(args []string) (string, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.History(ctx, &schema.HistoryOptions{
+
+	response, err := i.ImmuClient.History(ctx, &schema.HistoryRequest{
 		Key: key,
 	})
 	if err != nil {
@@ -35,26 +36,34 @@ func (i *immuc) History(args []string) (string, error) {
 		}
 		return "", err
 	}
+
 	str := strings.Builder{}
-	if len(response.Items) == 0 {
+
+	if len(response.Entries) == 0 {
 		str.WriteString("No item found \n")
 		return str.String(), nil
 	}
-	for _, item := range response.Items {
-		str.WriteString(PrintItem(nil, nil, item, false))
+
+	for _, entry := range response.Entries {
+		str.WriteString(PrintKV(entry.Key, entry.Value, entry.Tx, false, false))
 		str.WriteString("\n")
 	}
+
 	return str.String(), nil
 }
 
 func (i *immuc) HealthCheck(args []string) (string, error) {
 	ctx := context.Background()
+
 	if err := i.ImmuClient.HealthCheck(ctx); err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
+
 		if len(rpcerrors) > 1 {
 			return rpcerrors[len(rpcerrors)-1], nil
 		}
+
 		return "", err
 	}
+
 	return "Health check OK", nil
 }

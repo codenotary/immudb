@@ -269,6 +269,11 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		err := tbtree.Insert(k, v)
 		require.NoError(t, err)
 
+		v0, ts0, err := tbtree.Get(k)
+		require.NoError(t, err)
+		require.Equal(t, v, v0)
+		require.Equal(t, ts, ts0)
+
 		_, err = tbtree.Flush()
 		require.NoError(t, err)
 
@@ -375,15 +380,15 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	rspec := &ReaderSpec{
-		InitialKey: []byte{},
-		IsPrefix:   false,
-		AscOrder:   true,
+		SeekKey:   []byte{},
+		Prefix:    nil,
+		DescOrder: false,
 	}
 	reader, err := snapshot.Reader(rspec)
 	require.NoError(t, err)
 
 	i := 0
-	prevk := reader.initialKey
+	prevk := reader.seekKey
 	for {
 		k, _, _, err := reader.Read()
 		if err != nil {
@@ -448,9 +453,9 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 		require.NoError(t, err)
 
 		rspec := &ReaderSpec{
-			InitialKey: []byte{},
-			IsPrefix:   false,
-			AscOrder:   true,
+			SeekKey:   []byte{},
+			Prefix:    nil,
+			DescOrder: false,
 		}
 
 		reader, err := snapshot.Reader(rspec)
@@ -461,7 +466,7 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 		}
 
 		i := 0
-		prevk := reader.initialKey
+		prevk := reader.seekKey
 		for {
 			k, _, _, err := reader.Read()
 			if err != nil {

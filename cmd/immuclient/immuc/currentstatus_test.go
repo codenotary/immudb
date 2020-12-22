@@ -28,10 +28,13 @@ import (
 )
 
 func TestCurrentRoot(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	defer os.Remove(".state-")
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -40,13 +43,13 @@ func TestCurrentRoot(t *testing.T) {
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.SafeSet([]string{"key", "val"})
-	msg, err := ic.Imc.CurrentRoot([]string{""})
+	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
+	msg, err := ic.Imc.CurrentState([]string{""})
 
 	if err != nil {
-		t.Fatal("CurrentRoot fail", err)
+		t.Fatal("CurrentState fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("CurrentRoot failed: %s", msg)
+		t.Fatalf("CurrentState failed: %s", msg)
 	}
 }

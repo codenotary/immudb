@@ -16,9 +16,7 @@ limitations under the License.
 
 package server
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestWithLogger(t *testing.T) {
 	s := DefaultServer()

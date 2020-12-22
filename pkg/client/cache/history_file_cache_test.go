@@ -16,6 +16,7 @@ limitations under the License.
 
 package cache
 
+/*
 import (
 	"os"
 	"testing"
@@ -80,3 +81,4 @@ func TestNewHistoryFileCacheWalk(t *testing.T) {
 	assert.Nil(t, err)
 	assert.IsType(t, []interface{}{interface{}(nil)}, iface)
 }
+*/

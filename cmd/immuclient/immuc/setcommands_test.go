@@ -28,30 +28,14 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestRawSafeSet(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	msg, err := ic.Imc.RawSafeSet([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("RawSafeSet fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("RawSafeSet failed: %s", msg)
-	}
-}
 func TestSet(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
@@ -68,11 +52,15 @@ func TestSet(t *testing.T) {
 		t.Fatalf("Set failed: %s", msg)
 	}
 }
-func TestSafeSet(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+func TestVerifiedSet(t *testing.T) {
+	defer os.Remove(".state-")
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
@@ -80,20 +68,24 @@ func TestSafeSet(t *testing.T) {
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	msg, err := ic.Imc.SafeSet([]string{"key", "val"})
+	msg, err := ic.Imc.VerifiedSet([]string{"key", "val"})
 
 	if err != nil {
-		t.Fatal("SafeSet fail", err)
+		t.Fatal("VerifiedSet fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("SafeSet failed: %s", msg)
+		t.Fatalf("VerifiedSet failed: %s", msg)
 	}
 }
 func TestZAdd(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	defer os.Remove(".state-")
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
@@ -101,7 +93,7 @@ func TestZAdd(t *testing.T) {
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.SafeSet([]string{"key", "val"})
+	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 
 	msg, err := ic.Imc.ZAdd([]string{"val", "1", "key"})
 
@@ -112,11 +104,15 @@ func TestZAdd(t *testing.T) {
 		t.Fatalf("ZAdd failed: %s", msg)
 	}
 }
-func TestSafeZAdd(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+func TestVerifiedZAdd(t *testing.T) {
+	defer os.Remove(".state-")
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
@@ -124,21 +120,25 @@ func TestSafeZAdd(t *testing.T) {
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	_, _ = ic.Imc.SafeSet([]string{"key", "val"})
+	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
 
-	msg, err := ic.Imc.SafeZAdd([]string{"val", "1", "key"})
+	msg, err := ic.Imc.VerifiedZAdd([]string{"val", "1", "key"})
 
 	if err != nil {
-		t.Fatal("SafeZAdd fail", err)
+		t.Fatal("VerifiedZAdd fail", err)
 	}
 	if !strings.Contains(msg, "hash") {
-		t.Fatalf("SafeZAdd failed: %s", msg)
+		t.Fatalf("VerifiedZAdd failed: %s", msg)
 	}
 }
 func TestCreateDatabase(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},

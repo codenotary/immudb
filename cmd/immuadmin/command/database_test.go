@@ -3,20 +3,26 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"io/ioutil"
+	"os"
+	"strings"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"io/ioutil"
-	"strings"
-	"testing"
 )
 
 func TestDatabaseList(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
-	bs.Start()
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
@@ -69,8 +75,12 @@ func TestDatabaseList(t *testing.T) {
 }
 
 func TestDatabaseCreate(t *testing.T) {
-	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
-	bs.Start()
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},

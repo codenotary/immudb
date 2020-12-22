@@ -25,7 +25,6 @@ import (
 func TestOptions(t *testing.T) {
 	op := DefaultOptions()
 	if op.GetAuth() != true ||
-		op.GetInMemoryStore() != false ||
 		op.GetMaintenance() != false ||
 		op.GetDefaultDbName() != DefaultdbName ||
 		op.GetSystemAdminDbName() != SystemdbName ||

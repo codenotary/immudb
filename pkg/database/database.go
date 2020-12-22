@@ -1,0 +1,613 @@
+/*
+Copyright 2019-2020 vChain, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package database
+
+import (
+	"crypto/sha256"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/codenotary/immudb/embedded/store"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/golang/protobuf/ptypes/empty"
+)
+
+const MaxKeyResolutionLimit = 1
+const MaxKeyScanLimit = 1000
+
+var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
+var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
+
+type DB interface {
+	Health(e *empty.Empty) (*schema.HealthResponse, error)
+	CurrentState() (*schema.ImmutableState, error)
+	Set(req *schema.SetRequest) (*schema.TxMetadata, error)
+	Get(req *schema.KeyRequest) (*schema.Entry, error)
+	VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error)
+	VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error)
+	GetAll(req *schema.KeyListRequest) (*schema.Entries, error)
+	ExecAll(operations *schema.ExecAllRequest) (*schema.TxMetadata, error)
+	Size() (uint64, error)
+	Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error)
+	CountAll() (*schema.EntryCount, error)
+	TxByID(req *schema.TxRequest) (*schema.Tx, error)
+	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
+	History(req *schema.HistoryRequest) (*schema.Entries, error)
+	SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error)
+	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
+	ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error)
+	ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error)
+	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
+	Scan(req *schema.ScanRequest) (*schema.Entries, error)
+	PrintTree() (*schema.Tree, error)
+	Close() error
+	GetOptions() *DbOptions
+}
+
+//IDB database instance
+type db struct {
+	st *store.ImmuStore
+
+	tx1, tx2 *store.Tx
+	mutex    sync.RWMutex
+
+	Logger  logger.Logger
+	options *DbOptions
+}
+
+// OpenDb Opens an existing Database from disk
+func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
+	var err error
+
+	db := &db{
+		Logger:  log,
+		options: op,
+	}
+
+	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
+
+	_, dbErr := os.Stat(dbDir)
+	if os.IsNotExist(dbErr) {
+		return nil, fmt.Errorf("Missing database directories")
+	}
+
+	db.st, err = store.Open(dbDir, op.GetStoreOptions())
+	if err != nil {
+		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+	}
+
+	db.tx1 = db.st.NewTx()
+	db.tx2 = db.st.NewTx()
+
+	return db, nil
+}
+
+// NewDb Creates a new Database along with it's directories and files
+func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
+	var err error
+
+	db := &db{
+		Logger:  log,
+		options: op,
+	}
+
+	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
+
+	if _, dbErr := os.Stat(dbDir); dbErr == nil {
+		return nil, fmt.Errorf("Database directories already exist")
+	}
+
+	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
+		return nil, logErr(db.Logger, "Unable to create data folder: %s", err)
+	}
+
+	db.st, err = store.Open(dbDir, op.GetStoreOptions())
+	if err != nil {
+		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+	}
+
+	db.tx1 = db.st.NewTx()
+	db.tx2 = db.st.NewTx()
+
+	return db, nil
+}
+
+// Set ...
+func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.set(req)
+}
+
+func (d *db) set(req *schema.SetRequest) (*schema.TxMetadata, error) {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	entries := make([]*store.KV, len(req.KVs))
+
+	for i, kv := range req.KVs {
+		if len(kv.Key) == 0 {
+			return nil, store.ErrIllegalArguments
+		}
+
+		entries[i] = EncodeKV(kv.Key, kv.Value)
+	}
+
+	txMetatadata, err := d.st.Commit(entries)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.TxMetatadaTo(txMetatadata), nil
+}
+
+//Get ...
+func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	return d.get(EncodeKey(req.Key), d.st, d.tx1)
+}
+
+func (d *db) WaitForIndexingUpto(txID uint64) error {
+	if txID == 0 {
+		return nil
+	}
+
+	for {
+		its, err := d.st.IndexInfo()
+		if err != nil {
+			return err
+		}
+
+		if its >= txID {
+			return nil
+		}
+
+		time.Sleep(time.Duration(1) * time.Millisecond)
+	}
+}
+
+type KeyIndex interface {
+	Get(key []byte) (value []byte, tx uint64, err error)
+}
+
+func (d *db) get(key []byte, keyIndex KeyIndex, tx *store.Tx) (*schema.Entry, error) {
+	return d.getAt(key, 0, 0, keyIndex, tx)
+}
+
+func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx *store.Tx) (entry *schema.Entry, err error) {
+	var ktx uint64
+	var val []byte
+
+	if atTx == 0 {
+		wv, wtx, err := keyIndex.Get(key)
+		if err != nil {
+			return nil, err
+		}
+
+		valLen := binary.BigEndian.Uint32(wv)
+		vOff := binary.BigEndian.Uint64(wv[4:])
+
+		var hVal [sha256.Size]byte
+		copy(hVal[:], wv[4+8:])
+
+		ktx = wtx
+
+		val = make([]byte, valLen)
+		_, err = d.st.ReadValueAt(val, int64(vOff), hVal)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		val, err = d.readValue(key, atTx, tx)
+		if err != nil {
+			return nil, err
+		}
+		ktx = atTx
+	}
+
+	//Reference lookup
+	if val[0] == ReferenceValuePrefix {
+		if resolved == MaxKeyResolutionLimit {
+			return nil, ErrMaxKeyResolutionLimitReached
+		}
+
+		atTx := binary.BigEndian.Uint64(val[1:])
+		refKey := make([]byte, len(val)-1-8)
+		copy(refKey, val[1+8:])
+
+		entry, err := d.getAt(refKey, atTx, resolved+1, keyIndex, tx)
+		if err != nil {
+			return nil, err
+		}
+
+		entry.ReferencedBy = &schema.Reference{
+			Tx:   ktx,
+			Key:  key[1:],
+			AtTx: atTx,
+		}
+
+		return entry, nil
+	}
+
+	return &schema.Entry{Key: key[1:], Value: val[1:], Tx: ktx}, err
+}
+
+func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
+	err := d.st.ReadTx(atTx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.st.ReadValue(tx, key)
+}
+
+//Health ...
+func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
+	return &schema.HealthResponse{Status: true, Version: fmt.Sprintf("%d", store.Version)}, nil
+}
+
+// CurrentState ...
+func (d *db) CurrentState() (*schema.ImmutableState, error) {
+	lastTxID, lastTxAlh := d.st.Alh()
+
+	return &schema.ImmutableState{
+		TxId:   lastTxID,
+		TxHash: lastTxAlh[:],
+	}, nil
+}
+
+//VerifiableSet ...
+func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	txMetatadata, err := d.set(req.SetRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	lastTx := d.tx1
+
+	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
+	if err != nil {
+		return nil, err
+	}
+
+	var prevTx *store.Tx
+
+	if req.ProveSinceTx == 0 {
+		prevTx = lastTx
+	} else {
+		prevTx = d.tx2
+
+		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	dualProof, err := d.st.DualProof(prevTx, lastTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.VerifiableTx{
+		Tx:        schema.TxTo(lastTx),
+		DualProof: schema.DualProofTo(dualProof),
+	}, nil
+}
+
+//VerifiableGet ...
+func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	err := d.WaitForIndexingUpto(req.KeyRequest.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	// get value of key
+	e, err := d.get(EncodeKey(req.KeyRequest.Key), d.st, d.tx1)
+	if err != nil {
+		return nil, err
+	}
+
+	txEntry := d.tx1
+
+	var vTxID uint64
+	var vKey []byte
+
+	if e.ReferencedBy == nil {
+		vTxID = e.Tx
+		vKey = e.Key
+	} else {
+		vTxID = e.ReferencedBy.Tx
+		vKey = e.ReferencedBy.Key
+	}
+
+	// key-value inclusion proof
+	err = d.st.ReadTx(vTxID, txEntry)
+	if err != nil {
+		return nil, err
+	}
+
+	inclusionProof, err := d.tx1.Proof(EncodeKey(vKey))
+	if err != nil {
+		return nil, err
+	}
+
+	var rootTx *store.Tx
+
+	if req.ProveSinceTx == 0 {
+		rootTx = txEntry
+	} else {
+		rootTx = d.tx2
+
+		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var sourceTx, targetTx *store.Tx
+
+	if req.ProveSinceTx <= vTxID {
+		sourceTx = rootTx
+		targetTx = txEntry
+	} else {
+		sourceTx = txEntry
+		targetTx = rootTx
+	}
+
+	dualProof, err := d.st.DualProof(sourceTx, targetTx)
+	if err != nil {
+		return nil, err
+	}
+
+	verifiableTx := &schema.VerifiableTx{
+		Tx:        schema.TxTo(txEntry),
+		DualProof: schema.DualProofTo(dualProof),
+	}
+
+	return &schema.VerifiableEntry{
+		Entry:          e,
+		VerifiableTx:   verifiableTx,
+		InclusionProof: schema.InclusionProofTo(inclusionProof),
+	}, nil
+}
+
+//GetAll ...
+func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	snapshot, err := d.st.SnapshotSince(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+	defer snapshot.Close()
+
+	list := &schema.Entries{}
+
+	for _, key := range req.Keys {
+		e, err := d.get(EncodeKey(key), snapshot, d.tx1)
+		if err == nil || err == store.ErrKeyNotFound {
+			if e != nil {
+				list.Entries = append(list.Entries, e)
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	return list, nil
+}
+
+//Size ...
+func (d *db) Size() (uint64, error) {
+	return d.st.TxCount(), nil
+}
+
+//Count ...
+func (d *db) Count(prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
+}
+
+// CountAll ...
+func (d *db) CountAll() (*schema.EntryCount, error) {
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "Count")
+}
+
+// TxByID ...
+func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	// key-value inclusion proof
+	err := d.st.ReadTx(req.Tx, d.tx1)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.TxTo(d.tx1), nil
+}
+
+//VerifiableTxByID ...
+func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	// key-value inclusion proof
+	reqTx := d.tx1
+
+	err := d.st.ReadTx(req.Tx, reqTx)
+	if err != nil {
+		return nil, err
+	}
+
+	var sourceTx, targetTx *store.Tx
+
+	var rootTx *store.Tx
+
+	if req.ProveSinceTx == 0 {
+		rootTx = reqTx
+	} else {
+		rootTx = d.tx2
+
+		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if req.ProveSinceTx <= req.Tx {
+		sourceTx = rootTx
+		targetTx = reqTx
+	} else {
+		sourceTx = reqTx
+		targetTx = rootTx
+	}
+
+	dualProof, err := d.st.DualProof(sourceTx, targetTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.VerifiableTx{
+		Tx:        schema.TxTo(reqTx),
+		DualProof: schema.DualProofTo(dualProof),
+	}, nil
+}
+
+//History ...
+func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	snapshot, err := d.st.SnapshotSince(req.SinceTx)
+	if err != nil {
+		return nil, err
+	}
+	defer snapshot.Close()
+
+	if req.Limit > MaxKeyScanLimit {
+		return nil, ErrMaxKeyScanLimitExceeded
+	}
+
+	limit := req.Limit
+
+	if req.Limit == 0 {
+		limit = MaxKeyScanLimit
+	}
+
+	key := EncodeKey(req.Key)
+
+	tss, err := snapshot.GetTs(key, int64(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	list := &schema.Entries{}
+
+	for i := int(req.Offset); i < len(tss); i++ {
+		ts := tss[i]
+
+		err = d.st.ReadTx(ts, d.tx1)
+		if err != nil {
+			return nil, err
+		}
+
+		val, err := d.st.ReadValue(d.tx1, key)
+		if err != nil {
+			return nil, err
+		}
+
+		e := &schema.Entry{Key: req.Key, Value: val[1:], Tx: ts}
+
+		if req.Desc {
+			list.Entries = append([]*schema.Entry{e}, list.Entries...)
+		} else {
+			list.Entries = append(list.Entries, e)
+		}
+	}
+
+	return list, nil
+}
+
+//Close ...
+func (d *db) Close() error {
+	return d.st.Close()
+}
+
+//GetOptions ...
+func (d *db) GetOptions() *DbOptions {
+	return d.options
+}
+
+func logErr(log logger.Logger, formattedMessage string, err error) error {
+	if err != nil {
+		log.Errorf(formattedMessage, err)
+	}
+	return err
+}
+
+// PrintTree ...
+func (d *db) PrintTree() (*schema.Tree, error) {
+	return nil, fmt.Errorf("Functionality not yet supported: %s", "PrintTree")
+}

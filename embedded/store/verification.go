@@ -20,7 +20,12 @@ import (
 	"encoding/binary"
 
 	"github.com/codenotary/immudb/embedded/ahtree"
+	"github.com/codenotary/immudb/embedded/htree"
 )
+
+func VerifyInclusion(proof *htree.InclusionProof, kv *KV, root [sha256.Size]byte) bool {
+	return htree.VerifyInclusion(proof, kv.Digest(), root)
+}
 
 func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) bool {
 	if proof == nil || proof.SourceTxID != sourceTxID || proof.TargetTxID != targetTxID {
@@ -28,17 +33,17 @@ func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, source
 	}
 
 	if proof.SourceTxID == 0 || proof.SourceTxID > proof.TargetTxID ||
-		len(proof.Proof) == 0 || sourceAlh != proof.Proof[0] {
+		len(proof.Terms) == 0 || sourceAlh != proof.Terms[0] {
 		return false
 	}
 
-	calculatedAlh := proof.Proof[0]
+	calculatedAlh := proof.Terms[0]
 
-	for i := 1; i < len(proof.Proof); i++ {
+	for i := 1; i < len(proof.Terms); i++ {
 		var bs [txIDSize + 2*sha256.Size]byte
 		binary.BigEndian.PutUint64(bs[:], proof.SourceTxID+uint64(i))
 		copy(bs[txIDSize:], calculatedAlh[:])
-		copy(bs[txIDSize+sha256.Size:], proof.Proof[i][:]) // innerHash = hash(ts + nentries + eH + blTxID + blRoot)
+		copy(bs[txIDSize+sha256.Size:], proof.Terms[i][:]) // innerHash = hash(ts + nentries + eH + blTxID + blRoot)
 		calculatedAlh = sha256.Sum256(bs[:])               // hash(txID + prevAlh + innerHash)
 	}
 
@@ -46,7 +51,11 @@ func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, source
 }
 
 func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh, targetAlh [sha256.Size]byte) bool {
-	if proof == nil || proof.SourceTxMetadata.ID != sourceTxID || proof.TargetTxMetadata.ID != targetTxID {
+	if proof == nil ||
+		proof.SourceTxMetadata == nil ||
+		proof.TargetTxMetadata == nil ||
+		proof.SourceTxMetadata.ID != sourceTxID ||
+		proof.TargetTxMetadata.ID != targetTxID {
 		return false
 	}
 
@@ -54,19 +63,19 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 		return false
 	}
 
-	cSourceAlh := alh(proof.SourceTxMetadata)
+	cSourceAlh := proof.SourceTxMetadata.Alh()
 	if sourceAlh != cSourceAlh {
 		return false
 	}
 
-	cTargetAlh := alh(proof.TargetTxMetadata)
+	cTargetAlh := proof.TargetTxMetadata.Alh()
 	if targetAlh != cTargetAlh {
 		return false
 	}
 
 	if sourceTxID < proof.TargetTxMetadata.BlTxID {
 		verifies := ahtree.VerifyInclusion(
-			proof.BinaryInclusionProof,
+			proof.InclusionProof,
 			sourceTxID,
 			proof.TargetTxMetadata.BlTxID,
 			leafFor(sourceAlh),
@@ -80,7 +89,7 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 
 	if proof.SourceTxMetadata.BlTxID > 0 {
 		verfifies := ahtree.VerifyConsistency(
-			proof.BinaryConsistencyProof,
+			proof.ConsistencyProof,
 			proof.SourceTxMetadata.BlTxID,
 			proof.TargetTxMetadata.BlTxID,
 			proof.SourceTxMetadata.BlRoot,
@@ -94,7 +103,7 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 
 	if proof.TargetTxMetadata.BlTxID > 0 {
 		verifies := ahtree.VerifyLastInclusion(
-			proof.BinaryLastInclusionProof,
+			proof.LastInclusionProof,
 			proof.TargetTxMetadata.BlTxID,
 			leafFor(proof.TargetBlTxAlh),
 			proof.TargetTxMetadata.BlRoot,
@@ -110,25 +119,6 @@ func VerifyDualProof(proof *DualProof, sourceTxID, targetTxID uint64, sourceAlh,
 	}
 
 	return VerifyLinearProof(proof.LinearProof, sourceTxID, targetTxID, sourceAlh, targetAlh)
-}
-
-func alh(txMetadata TxMetadata) [sha256.Size]byte {
-	var bi [txIDSize + 2*sha256.Size]byte
-
-	binary.BigEndian.PutUint64(bi[:], txMetadata.ID)
-	copy(bi[txIDSize:], txMetadata.PrevAlh[:])
-
-	var bj [tsSize + 4 + sha256.Size + txIDSize + sha256.Size]byte
-	binary.BigEndian.PutUint64(bj[:], uint64(txMetadata.Ts))
-	binary.BigEndian.PutUint32(bj[tsSize:], uint32(txMetadata.NEntries))
-	copy(bj[tsSize+4:], txMetadata.Eh[:])
-	binary.BigEndian.PutUint64(bj[tsSize+4+sha256.Size:], txMetadata.BlTxID)
-	copy(bj[tsSize+4+sha256.Size+txIDSize:], txMetadata.BlRoot[:])
-	innerHash := sha256.Sum256(bj[:]) // hash(ts + nentries + eH + blTxID + blRoot)
-
-	copy(bi[txIDSize+sha256.Size:], innerHash[:]) // hash(txID + prevAlh + innerHash)
-
-	return sha256.Sum256(bi[:])
 }
 
 func leafFor(d [sha256.Size]byte) [sha256.Size]byte {

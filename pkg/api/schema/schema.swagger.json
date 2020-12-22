@@ -14,12 +14,18 @@
   "paths": {
     "/v1/immurestproxy/batch/atomic/set": {
       "post": {
-        "operationId": "ExecAllOps",
+        "operationId": "ImmuService_ExecAll",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaIndex"
+              "$ref": "#/definitions/schemaTxMetadata"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -29,7 +35,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaOps"
+              "$ref": "#/definitions/schemaExecAllRequest"
             }
           }
         ],
@@ -40,12 +46,18 @@
     },
     "/v1/immurestproxy/batch/get": {
       "post": {
-        "operationId": "GetBatch",
+        "operationId": "ImmuService_GetAll",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaEntries"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -55,33 +67,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaKeyList"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/batch/set": {
-      "post": {
-        "operationId": "SetBatch",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaIndex"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/immudbschemaKVList"
+              "$ref": "#/definitions/schemaKeyListRequest"
             }
           }
         ],
@@ -92,12 +78,18 @@
     },
     "/v1/immurestproxy/changepermission": {
       "post": {
-        "operationId": "ChangePermission",
+        "operationId": "ImmuService_ChangePermission",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -116,40 +108,20 @@
         ]
       }
     },
-    "/v1/immurestproxy/consistencyproof/{index}": {
-      "get": {
-        "operationId": "Consistency",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaConsistencyProof"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "index",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uint64"
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/v1/immurestproxy/createdatabase": {
       "post": {
-        "summary": "todo(joe-dz): Enable restore when the feature is required again\n\trpc Restore(stream pb.KVList) returns (ItemsCount) {\n\t\toption (google.api.http) = {\n\t\t\tpost: \"/v1/immurestproxy/restore\"\n\t\t\tbody: \"*\"\n\t\t};\n\t}",
-        "operationId": "CreateDatabase",
+        "operationId": "ImmuService_CreateDatabase",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -168,49 +140,20 @@
         ]
       }
     },
-    "/v1/immurestproxy/dump": {
-      "post": {
-        "operationId": "Dump",
-        "responses": {
-          "200": {
-            "description": "A successful response.(streaming responses)",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "result": {
-                  "$ref": "#/definitions/pbKVList"
-                },
-                "error": {
-                  "$ref": "#/definitions/runtimeStreamError"
-                }
-              },
-              "title": "Stream result of pbKVList"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "properties": {}
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/v1/immurestproxy/healthresponse": {
       "get": {
-        "operationId": "Health",
+        "operationId": "ImmuService_CurrentState",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaHealthResponse"
+              "$ref": "#/definitions/schemaImmutableState"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -222,12 +165,18 @@
     },
     "/v1/immurestproxy/history": {
       "post": {
-        "operationId": "History",
+        "operationId": "ImmuService_History",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaEntries"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -237,84 +186,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaHistoryOptions"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/inclusionproof/{index}": {
-      "get": {
-        "operationId": "Inclusion",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaInclusionProof"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "index",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uint64"
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/iscan": {
-      "post": {
-        "operationId": "IScan",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaPage"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaIScanOptions"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/item": {
-      "post": {
-        "operationId": "Set",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaIndex"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaKeyValue"
+              "$ref": "#/definitions/schemaHistoryRequest"
             }
           }
         ],
@@ -325,12 +197,18 @@
     },
     "/v1/immurestproxy/item/count/{prefix}": {
       "get": {
-        "operationId": "Count",
+        "operationId": "ImmuService_Count",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemsCount"
+              "$ref": "#/definitions/schemaEntryCount"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -350,12 +228,18 @@
     },
     "/v1/immurestproxy/item/countall": {
       "get": {
-        "operationId": "CountAll",
+        "operationId": "ImmuService_CountAll",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemsCount"
+              "$ref": "#/definitions/schemaEntryCount"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -364,20 +248,26 @@
         ]
       }
     },
-    "/v1/immurestproxy/item/index/{index}": {
+    "/v1/immurestproxy/item/index/{tx}": {
       "get": {
-        "operationId": "ByIndex",
+        "operationId": "ImmuService_TxById",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItem"
+              "$ref": "#/definitions/schemaTx"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
         "parameters": [
           {
-            "name": "index",
+            "name": "tx",
             "in": "path",
             "required": true,
             "type": "string",
@@ -389,79 +279,33 @@
         ]
       }
     },
-    "/v1/immurestproxy/item/safe": {
-      "post": {
-        "operationId": "SafeSet",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaProof"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaSafeSetOptions"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/item/safe/get": {
-      "post": {
-        "operationId": "SafeGet",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaSafeItem"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaSafeGetOptions"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/item/safe/index/{index}": {
+    "/v1/immurestproxy/item/safe/index/{tx}": {
       "get": {
-        "operationId": "BySafeIndex",
+        "operationId": "ImmuService_VerifiableTxById",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaSafeItem"
+              "$ref": "#/definitions/schemaVerifiableTx"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
         "parameters": [
           {
-            "name": "index",
+            "name": "tx",
             "in": "path",
             "required": true,
             "type": "string",
             "format": "uint64"
           },
           {
-            "name": "rootIndex.index",
+            "name": "proveSinceTx",
             "in": "query",
             "required": false,
             "type": "string",
@@ -475,12 +319,18 @@
     },
     "/v1/immurestproxy/item/scan": {
       "post": {
-        "operationId": "Scan",
+        "operationId": "ImmuService_Scan",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItemList"
+              "$ref": "#/definitions/schemaEntries"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -490,7 +340,39 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaScanOptions"
+              "$ref": "#/definitions/schemaScanRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/item/verifiable/get": {
+      "post": {
+        "operationId": "ImmuService_VerifiableGet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableEntry"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableGetRequest"
             }
           }
         ],
@@ -501,12 +383,18 @@
     },
     "/v1/immurestproxy/item/{key}": {
       "get": {
-        "operationId": "Get",
+        "operationId": "ImmuService_Get",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaItem"
+              "$ref": "#/definitions/schemaEntry"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -517,6 +405,13 @@
             "required": true,
             "type": "string",
             "format": "byte"
+          },
+          {
+            "name": "sinceTx",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
           }
         ],
         "tags": [
@@ -526,12 +421,18 @@
     },
     "/v1/immurestproxy/login": {
       "post": {
-        "operationId": "Login",
+        "operationId": "ImmuService_Login",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaLoginResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -553,12 +454,18 @@
     },
     "/v1/immurestproxy/logout": {
       "post": {
-        "operationId": "Logout",
+        "operationId": "ImmuService_Logout",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -579,12 +486,18 @@
     },
     "/v1/immurestproxy/reference": {
       "post": {
-        "operationId": "Reference",
+        "operationId": "ImmuService_SetReference",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaIndex"
+              "$ref": "#/definitions/schemaTxMetadata"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -594,65 +507,29 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaReferenceOptions"
+              "$ref": "#/definitions/schemaReferenceRequest"
             }
           }
         ],
         "tags": [
           "ImmuService"
         ]
-      }
-    },
-    "/v1/immurestproxy/reference/{key}": {
-      "get": {
-        "operationId": "GetReference",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaItem"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "key",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "byte"
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/root": {
-      "get": {
-        "operationId": "CurrentRoot",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaRoot"
-            }
-          }
-        },
-        "tags": [
-          "ImmuService"
-        ],
-        "security": []
       }
     },
     "/v1/immurestproxy/safe/reference": {
       "post": {
-        "operationId": "SafeReference",
+        "operationId": "ImmuService_VerifiableSetReference",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaProof"
+              "$ref": "#/definitions/schemaVerifiableTx"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -662,7 +539,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaSafeReferenceOptions"
+              "$ref": "#/definitions/schemaVerifiableReferenceRequest"
             }
           }
         ],
@@ -673,12 +550,18 @@
     },
     "/v1/immurestproxy/safe/zadd": {
       "post": {
-        "operationId": "SafeZAdd",
+        "operationId": "ImmuService_VerifiableZAdd",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaProof"
+              "$ref": "#/definitions/schemaVerifiableTx"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -688,7 +571,39 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaSafeZAddOptions"
+              "$ref": "#/definitions/schemaVerifiableZAddRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/set": {
+      "post": {
+        "operationId": "ImmuService_Set",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaTxMetadata"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSetRequest"
             }
           }
         ],
@@ -699,12 +614,18 @@
     },
     "/v1/immurestproxy/usedatabase/{databasename}": {
       "get": {
-        "operationId": "UseDatabase",
+        "operationId": "ImmuService_UseDatabase",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaUseDatabaseReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -723,12 +644,18 @@
     },
     "/v1/immurestproxy/user": {
       "post": {
-        "operationId": "CreateUser",
+        "operationId": "ImmuService_CreateUser",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -749,12 +676,18 @@
     },
     "/v1/immurestproxy/user/databaselist": {
       "post": {
-        "operationId": "DatabaseList",
+        "operationId": "ImmuService_DatabaseList",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaDatabaseListResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -775,12 +708,18 @@
     },
     "/v1/immurestproxy/user/list": {
       "get": {
-        "operationId": "ListUsers",
+        "operationId": "ImmuService_ListUsers",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/schemaUserList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -791,12 +730,18 @@
     },
     "/v1/immurestproxy/user/password/change": {
       "post": {
-        "operationId": "ChangePassword",
+        "operationId": "ImmuService_ChangePassword",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -817,12 +762,18 @@
     },
     "/v1/immurestproxy/user/setactiveUser": {
       "post": {
-        "operationId": "SetActiveUser",
+        "operationId": "ImmuService_SetActiveUser",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -841,14 +792,20 @@
         ]
       }
     },
-    "/v1/immurestproxy/zadd": {
+    "/v1/immurestproxy/verifiable/set": {
       "post": {
-        "operationId": "ZAdd",
+        "operationId": "ImmuService_VerifiableSet",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaIndex"
+              "$ref": "#/definitions/schemaVerifiableTx"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -858,7 +815,39 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaZAddOptions"
+              "$ref": "#/definitions/schemaVerifiableSetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/zadd": {
+      "post": {
+        "operationId": "ImmuService_ZAdd",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaTxMetadata"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaZAddRequest"
             }
           }
         ],
@@ -869,12 +858,18 @@
     },
     "/v1/immurestproxy/zscan": {
       "post": {
-        "operationId": "ZScan",
+        "operationId": "ImmuService_ZScan",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaZItemList"
+              "$ref": "#/definitions/schemaZEntries"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -884,7 +879,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaZScanOptions"
+              "$ref": "#/definitions/schemaZScanRequest"
             }
           }
         ],
@@ -895,73 +890,12 @@
     }
   },
   "definitions": {
-    "immudbschemaKVList": {
-      "type": "object",
-      "properties": {
-        "KVs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaKeyValue"
-          }
-        }
-      }
-    },
-    "pbKV": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "format": "byte"
-        },
-        "value": {
-          "type": "string",
-          "format": "byte"
-        },
-        "user_meta": {
-          "type": "string",
-          "format": "byte"
-        },
-        "version": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "expires_at": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "meta": {
-          "type": "string",
-          "format": "byte"
-        },
-        "stream_id": {
-          "type": "integer",
-          "format": "int64",
-          "description": "Stream id is used to identify which stream the KV came from."
-        },
-        "stream_done": {
-          "type": "boolean",
-          "format": "boolean",
-          "description": "Stream done is used to indicate end of stream."
-        }
-      }
-    },
-    "pbKVList": {
-      "type": "object",
-      "properties": {
-        "kv": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/pbKV"
-          }
-        }
-      }
-    },
     "protobufAny": {
       "type": "object",
       "properties": {
         "type_url": {
           "type": "string",
-          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
+          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
         },
         "value": {
           "type": "string",
@@ -971,21 +905,17 @@
       },
       "description": "`Any` contains an arbitrary serialized protocol buffer message along with a\nURL that describes the type of the serialized message.\n\nProtobuf library provides support to pack/unpack Any values in the form\nof utility functions or additional generated methods of the Any type.\n\nExample 1: Pack and unpack a message in C++.\n\n    Foo foo = ...;\n    Any any;\n    any.PackFrom(foo);\n    ...\n    if (any.UnpackTo(\u0026foo)) {\n      ...\n    }\n\nExample 2: Pack and unpack a message in Java.\n\n    Foo foo = ...;\n    Any any = Any.pack(foo);\n    ...\n    if (any.is(Foo.class)) {\n      foo = any.unpack(Foo.class);\n    }\n\n Example 3: Pack and unpack a message in Python.\n\n    foo = Foo(...)\n    any = Any()\n    any.Pack(foo)\n    ...\n    if any.Is(Foo.DESCRIPTOR):\n      any.Unpack(foo)\n      ...\n\n Example 4: Pack and unpack a message in Go\n\n     foo := \u0026pb.Foo{...}\n     any, err := ptypes.MarshalAny(foo)\n     ...\n     foo := \u0026pb.Foo{}\n     if err := ptypes.UnmarshalAny(any, foo); err != nil {\n       ...\n     }\n\nThe pack methods provided by protobuf library will by default use\n'type.googleapis.com/full.type.name' as the type URL and the unpack\nmethods only use the fully qualified type name after the last '/'\nin the type URL, for example \"foo.bar.com/x/y.z\" will yield type\nname \"y.z\".\n\n\nJSON\n====\nThe JSON representation of an `Any` value uses the regular\nrepresentation of the deserialized, embedded message, with an\nadditional field `@type` which contains the type URL. Example:\n\n    package google.profile;\n    message Person {\n      string first_name = 1;\n      string last_name = 2;\n    }\n\n    {\n      \"@type\": \"type.googleapis.com/google.profile.Person\",\n      \"firstName\": \u003cstring\u003e,\n      \"lastName\": \u003cstring\u003e\n    }\n\nIf the embedded message type is well-known and has a custom JSON\nrepresentation, that representation will be embedded adding a field\n`value` which holds the custom JSON in addition to the `@type`\nfield. Example (for message [google.protobuf.Duration][]):\n\n    {\n      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",\n      \"value\": \"1.212s\"\n    }"
     },
-    "runtimeStreamError": {
+    "runtimeError": {
       "type": "object",
       "properties": {
-        "grpc_code": {
-          "type": "integer",
-          "format": "int32"
+        "error": {
+          "type": "string"
         },
-        "http_code": {
+        "code": {
           "type": "integer",
           "format": "int32"
         },
         "message": {
-          "type": "string"
-        },
-        "http_status": {
           "type": "string"
         },
         "details": {
@@ -1031,34 +961,6 @@
         }
       }
     },
-    "schemaConsistencyProof": {
-      "type": "object",
-      "properties": {
-        "first": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "second": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "firstRoot": {
-          "type": "string",
-          "format": "byte"
-        },
-        "secondRoot": {
-          "type": "string",
-          "format": "byte"
-        },
-        "path": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
-        }
-      }
-    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1098,19 +1000,108 @@
         }
       }
     },
+    "schemaDualProof": {
+      "type": "object",
+      "properties": {
+        "sourceTxMetadata": {
+          "$ref": "#/definitions/schemaTxMetadata"
+        },
+        "targetTxMetadata": {
+          "$ref": "#/definitions/schemaTxMetadata"
+        },
+        "inclusionProof": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "consistencyProof": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "targetBlTxAlh": {
+          "type": "string",
+          "format": "byte"
+        },
+        "lastInclusionProof": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "linearProof": {
+          "$ref": "#/definitions/schemaLinearProof"
+        }
+      }
+    },
+    "schemaEntries": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaEntry"
+          }
+        }
+      }
+    },
+    "schemaEntry": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        },
+        "referencedBy": {
+          "$ref": "#/definitions/schemaReference"
+        }
+      }
+    },
+    "schemaEntryCount": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaExecAllRequest": {
+      "type": "object",
+      "properties": {
+        "Operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaOp"
+          }
+        }
+      }
+    },
     "schemaHealthResponse": {
       "type": "object",
       "properties": {
         "status": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         },
         "version": {
           "type": "string"
         }
       }
     },
-    "schemaHistoryOptions": {
+    "schemaHistoryRequest": {
       "type": "object",
       "properties": {
         "key": {
@@ -1125,45 +1116,43 @@
           "type": "string",
           "format": "uint64"
         },
-        "reverse": {
-          "type": "boolean",
-          "format": "boolean"
+        "desc": {
+          "type": "boolean"
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
-    "schemaIScanOptions": {
+    "schemaImmutableState": {
       "type": "object",
       "properties": {
-        "pageSize": {
+        "txId": {
           "type": "string",
           "format": "uint64"
         },
-        "pageNumber": {
+        "txHash": {
           "type": "string",
-          "format": "uint64"
+          "format": "byte"
+        },
+        "signature": {
+          "$ref": "#/definitions/schemaSignature"
         }
       }
     },
     "schemaInclusionProof": {
       "type": "object",
       "properties": {
-        "at": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "index": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "root": {
-          "type": "string",
-          "format": "byte"
-        },
         "leaf": {
-          "type": "string",
-          "format": "byte"
+          "type": "integer",
+          "format": "int32"
         },
-        "path": {
+        "width": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "terms": {
           "type": "array",
           "items": {
             "type": "string",
@@ -1172,69 +1161,32 @@
         }
       }
     },
-    "schemaIndex": {
-      "type": "object",
-      "properties": {
-        "index": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
-    "schemaItem": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "format": "byte"
-        },
-        "value": {
-          "type": "string",
-          "format": "byte"
-        },
-        "index": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
-    "schemaItemList": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaItem"
-          }
-        }
-      }
-    },
-    "schemaItemsCount": {
-      "type": "object",
-      "properties": {
-        "count": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
-    "schemaKey": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
-    "schemaKeyList": {
+    "schemaKeyListRequest": {
       "type": "object",
       "properties": {
         "keys": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaKey"
+            "type": "string",
+            "format": "byte"
           }
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaKeyRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -1258,6 +1210,26 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaNode"
+          }
+        }
+      }
+    },
+    "schemaLinearProof": {
+      "type": "object",
+      "properties": {
+        "sourceTxId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "TargetTxId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
           }
         }
       }
@@ -1303,56 +1275,27 @@
           "format": "byte"
         },
         "ref": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         },
         "cache": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         },
         "root": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         }
       }
     },
     "schemaOp": {
       "type": "object",
       "properties": {
-        "KVs": {
+        "kv": {
           "$ref": "#/definitions/schemaKeyValue"
         },
-        "ZOpts": {
-          "$ref": "#/definitions/schemaZAddOptions"
+        "zAdd": {
+          "$ref": "#/definitions/schemaZAddRequest"
         },
-        "ROpts": {
-          "$ref": "#/definitions/schemaReferenceOptions"
-        }
-      }
-    },
-    "schemaOps": {
-      "type": "object",
-      "properties": {
-        "Operations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaOp"
-          }
-        }
-      }
-    },
-    "schemaPage": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaItem"
-          }
-        },
-        "more": {
-          "type": "boolean",
-          "format": "boolean"
+        "ref": {
+          "$ref": "#/definitions/schemaReferenceRequest"
         }
       }
     },
@@ -1376,159 +1319,61 @@
       ],
       "default": "GRANT"
     },
-    "schemaProof": {
+    "schemaReference": {
       "type": "object",
       "properties": {
-        "leaf": {
-          "type": "string",
-          "format": "byte"
-        },
-        "index": {
+        "tx": {
           "type": "string",
           "format": "uint64"
-        },
-        "root": {
-          "type": "string",
-          "format": "byte"
-        },
-        "at": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "inclusionPath": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
-        },
-        "consistencyPath": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
-        }
-      }
-    },
-    "schemaReferenceOptions": {
-      "type": "object",
-      "properties": {
-        "reference": {
-          "type": "string",
-          "format": "byte"
         },
         "key": {
           "type": "string",
           "format": "byte"
         },
-        "index": {
-          "$ref": "#/definitions/schemaIndex"
-        }
-      }
-    },
-    "schemaRoot": {
-      "type": "object",
-      "properties": {
-        "payload": {
-          "$ref": "#/definitions/schemaRootIndex"
-        },
-        "signature": {
-          "$ref": "#/definitions/schemaSignature"
-        }
-      }
-    },
-    "schemaRootIndex": {
-      "type": "object",
-      "properties": {
-        "index": {
+        "atTx": {
           "type": "string",
           "format": "uint64"
-        },
-        "root": {
-          "type": "string",
-          "format": "byte"
         }
       }
     },
-    "schemaSafeGetOptions": {
+    "schemaReferenceRequest": {
       "type": "object",
       "properties": {
         "key": {
           "type": "string",
           "format": "byte"
         },
-        "rootIndex": {
-          "$ref": "#/definitions/schemaIndex"
-        }
-      }
-    },
-    "schemaSafeItem": {
-      "type": "object",
-      "properties": {
-        "item": {
-          "$ref": "#/definitions/schemaItem"
+        "referencedKey": {
+          "type": "string",
+          "format": "byte"
         },
-        "proof": {
-          "$ref": "#/definitions/schemaProof"
+        "atTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
-    "schemaSafeReferenceOptions": {
+    "schemaScanRequest": {
       "type": "object",
       "properties": {
-        "ro": {
-          "$ref": "#/definitions/schemaReferenceOptions"
+        "seekKey": {
+          "type": "string",
+          "format": "byte"
         },
-        "rootIndex": {
-          "$ref": "#/definitions/schemaIndex"
-        }
-      }
-    },
-    "schemaSafeSetOptions": {
-      "type": "object",
-      "properties": {
-        "kv": {
-          "$ref": "#/definitions/schemaKeyValue"
-        },
-        "rootIndex": {
-          "$ref": "#/definitions/schemaIndex"
-        }
-      }
-    },
-    "schemaSafeZAddOptions": {
-      "type": "object",
-      "properties": {
-        "zopts": {
-          "$ref": "#/definitions/schemaZAddOptions"
-        },
-        "rootIndex": {
-          "$ref": "#/definitions/schemaIndex"
-        }
-      }
-    },
-    "schemaScanOptions": {
-      "type": "object",
-      "properties": {
         "prefix": {
           "type": "string",
           "format": "byte"
         },
-        "offset": {
-          "type": "string",
-          "format": "byte"
+        "desc": {
+          "type": "boolean"
         },
         "limit": {
           "type": "string",
           "format": "uint64"
         },
-        "reverse": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "deep": {
-          "type": "boolean",
-          "format": "boolean"
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -1545,22 +1390,32 @@
       "type": "object",
       "properties": {
         "active": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         },
         "username": {
           "type": "string"
         }
       }
     },
+    "schemaSetRequest": {
+      "type": "object",
+      "properties": {
+        "KVs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaKeyValue"
+          }
+        }
+      }
+    },
     "schemaSignature": {
       "type": "object",
       "properties": {
-        "signature": {
+        "publicKey": {
           "type": "string",
           "format": "byte"
         },
-        "publicKey": {
+        "signature": {
           "type": "string",
           "format": "byte"
         }
@@ -1574,6 +1429,74 @@
           "items": {
             "$ref": "#/definitions/schemaLayer"
           }
+        }
+      }
+    },
+    "schemaTx": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "$ref": "#/definitions/schemaTxMetadata"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaTxEntry"
+          }
+        }
+      }
+    },
+    "schemaTxEntry": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "hValue": {
+          "type": "string",
+          "format": "byte"
+        },
+        "vOff": {
+          "type": "string",
+          "format": "int64"
+        },
+        "vLen": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "schemaTxMetadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "prevAlh": {
+          "type": "string",
+          "format": "byte"
+        },
+        "ts": {
+          "type": "string",
+          "format": "int64"
+        },
+        "nentries": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "eH": {
+          "type": "string",
+          "format": "byte"
+        },
+        "blTxId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "blRoot": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -1605,8 +1528,7 @@
           "type": "string"
         },
         "active": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         }
       }
     },
@@ -1621,81 +1543,176 @@
         }
       }
     },
-    "schemaZAddOptions": {
+    "schemaVerifiableEntry": {
+      "type": "object",
+      "properties": {
+        "entry": {
+          "$ref": "#/definitions/schemaEntry"
+        },
+        "verifiableTx": {
+          "$ref": "#/definitions/schemaVerifiableTx"
+        },
+        "inclusionProof": {
+          "$ref": "#/definitions/schemaInclusionProof"
+        }
+      }
+    },
+    "schemaVerifiableGetRequest": {
+      "type": "object",
+      "properties": {
+        "keyRequest": {
+          "$ref": "#/definitions/schemaKeyRequest"
+        },
+        "proveSinceTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaVerifiableReferenceRequest": {
+      "type": "object",
+      "properties": {
+        "referenceRequest": {
+          "$ref": "#/definitions/schemaReferenceRequest"
+        },
+        "proveSinceTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaVerifiableSetRequest": {
+      "type": "object",
+      "properties": {
+        "setRequest": {
+          "$ref": "#/definitions/schemaSetRequest"
+        },
+        "proveSinceTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaVerifiableTx": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "$ref": "#/definitions/schemaTx"
+        },
+        "dualProof": {
+          "$ref": "#/definitions/schemaDualProof"
+        },
+        "signature": {
+          "$ref": "#/definitions/schemaSignature"
+        }
+      }
+    },
+    "schemaVerifiableZAddRequest": {
+      "type": "object",
+      "properties": {
+        "zAddRequest": {
+          "$ref": "#/definitions/schemaZAddRequest"
+        },
+        "proveSinceTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaZAddRequest": {
       "type": "object",
       "properties": {
         "set": {
           "type": "string",
           "format": "byte"
-        },
-        "score": {
-          "$ref": "#/definitions/schemaScore"
-        },
-        "key": {
-          "type": "string",
-          "format": "byte"
-        },
-        "index": {
-          "$ref": "#/definitions/schemaIndex"
-        }
-      },
-      "description": "Why use double as score type?\nBecause it is not purely about the storage size, but also use cases.\n64-bit floating point double gives a lot of flexibility and dynamic range, at the expense of having only 53-bits of integer."
-    },
-    "schemaZItem": {
-      "type": "object",
-      "properties": {
-        "item": {
-          "$ref": "#/definitions/schemaItem"
         },
         "score": {
           "type": "number",
           "format": "double"
         },
-        "currentOffset": {
+        "key": {
           "type": "string",
           "format": "byte"
         },
-        "index": {
+        "atTx": {
           "type": "string",
           "format": "uint64"
         }
       }
     },
-    "schemaZItemList": {
+    "schemaZEntries": {
       "type": "object",
       "properties": {
-        "items": {
+        "entries": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaZItem"
+            "$ref": "#/definitions/schemaZEntry"
           }
         }
       }
     },
-    "schemaZScanOptions": {
+    "schemaZEntry": {
       "type": "object",
       "properties": {
         "set": {
           "type": "string",
           "format": "byte"
         },
-        "offset": {
+        "key": {
           "type": "string",
           "format": "byte"
+        },
+        "entry": {
+          "$ref": "#/definitions/schemaEntry"
+        },
+        "score": {
+          "type": "number",
+          "format": "double"
+        },
+        "atTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaZScanRequest": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "string",
+          "format": "byte"
+        },
+        "seekKey": {
+          "type": "string",
+          "format": "byte"
+        },
+        "seekScore": {
+          "type": "number",
+          "format": "double"
+        },
+        "seekAtTx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "inclusiveSeek": {
+          "type": "boolean"
         },
         "limit": {
           "type": "string",
           "format": "uint64"
         },
-        "reverse": {
-          "type": "boolean",
-          "format": "boolean"
+        "desc": {
+          "type": "boolean"
         },
-        "min": {
+        "minScore": {
           "$ref": "#/definitions/schemaScore"
         },
-        "max": {
+        "maxScore": {
           "$ref": "#/definitions/schemaScore"
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     }

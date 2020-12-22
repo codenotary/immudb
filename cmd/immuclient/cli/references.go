@@ -17,9 +17,9 @@ limitations under the License.
 package cli
 
 func (cli *cli) reference(args []string) (string, error) {
-	return cli.immucl.Reference(args)
+	return cli.immucl.SetReference(args)
 }
 
 func (cli *cli) safereference(args []string) (string, error) {
-	return cli.immucl.SafeReference(args)
+	return cli.immucl.VerifiedSetReference(args)
 }

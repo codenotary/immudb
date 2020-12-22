@@ -53,7 +53,7 @@ func (cl *commandline) status(cmd *cobra.Command) {
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := cl.immucl.HealthCheck(args)
+			resp, err := cl.immucl.CurrentState(args)
 			if err != nil {
 				cl.quit(err)
 			}

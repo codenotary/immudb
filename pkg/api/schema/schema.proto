@@ -19,7 +19,6 @@ syntax = "proto3";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "protoc-gen-swagger/options/annotations.proto";
-import "pb/pb.proto";
 
 package immudb.schema;
 
@@ -33,6 +32,7 @@ message Permission{
 	string database = 1;
 	uint32 permission = 2;
 }
+
 message User {
 	bytes user = 1;
 	repeated Permission permissions = 3;
@@ -40,6 +40,7 @@ message User {
 	string createdat = 5;
 	bool active = 6;
 }
+
 message UserList {
 	repeated User users = 1;
 }
@@ -65,6 +66,7 @@ message LoginRequest {
 	bytes user = 1;
 	bytes password = 2;
 }
+
 message LoginResponse {
 	string token = 1;
 	bytes warning = 2;
@@ -73,6 +75,7 @@ message LoginResponse {
 message AuthConfig {
 	uint32 kind = 1;
 }
+
 message MTLSConfig {
 	bool enabled = 1;
 }
@@ -94,176 +97,161 @@ message Tree{
 	repeated Layer t = 1;
 }
 
+////////////////////////////////////////////////////////
+
 message KeyValue {
 	bytes key = 1;
 	bytes value = 2;
 }
 
-message Op{
+message Entry {
+	uint64 tx = 1;
+	bytes key = 2;
+	bytes value = 3;
+
+	Reference referencedBy = 4;
+}
+
+message Reference {
+	uint64 tx = 1;
+	bytes key = 2;
+	uint64 atTx = 3;
+}
+
+message Op {
 	oneof operation {
-		KeyValue KVs = 1;
-		ZAddOptions ZOpts = 2;
-		ReferenceOptions ROpts = 3;
+		KeyValue kv = 1;
+		ZAddRequest zAdd = 2;
+		ReferenceRequest ref = 3;
 	}
 }
 
-message Ops{
+message ExecAllRequest {
 	repeated Op Operations = 1;
 }
 
-message StructuredKeyValue {
-	bytes key = 1;
-	Content value = 2;
+message Entries {
+	repeated Entry entries = 1;
 }
 
-message Content {
-	uint64 timestamp = 1;
-	bytes payload = 2;
+message ZEntry {
+	bytes set = 1;
+	bytes key = 2;
+	Entry entry = 3;
+	double score = 4;
+	uint64 atTx = 5;
 }
 
-message Index {
-	uint64 index = 1;
+message ZEntries {
+	repeated ZEntry entries = 1;
 }
 
-message Item {
-	bytes key = 1;
-	bytes value = 2;
-	uint64 index = 3;
-}
-
-message StructuredItem {
-	bytes key = 1;
-	Content value = 2;
-	uint64 index = 3;
-}
-
-message KVList {
-	repeated KeyValue KVs = 1;
-}
-
-message SKVList {
-	repeated StructuredKeyValue SKVs = 1;
-}
-
-message KeyList {
-	repeated Key keys = 1;
-}
-
-message ItemList {
-	repeated Item items = 1;
-}
-
-message ZItem {
-	Item item = 1;
-	double score = 2;
-	bytes currentOffset = 3;
-	uint64 index = 4;
-}
-
-message ZItemList {
-	repeated ZItem items = 1;
-}
-
-message StructuredItemList {
-	repeated StructuredItem items = 1;
-}
-
-message ZStructuredItemList {
-	repeated ZStructuredItem items = 1;
-}
-
-message ZStructuredItem {
-	StructuredItem item = 1;
-	double score = 2;
-	bytes currentOffset = 3;
-	uint64 index = 4;
-}
-
-
-message Root {
-	RootIndex payload = 1;
-	Signature signature = 2;
-}
-
-message RootIndex {
-	uint64 index = 1;
-	bytes root = 2;
-}
-
-message Signature {
-	bytes signature = 1;
-	bytes publicKey = 2;
-}
-
-message ScanOptions {
-	bytes prefix = 1;
-	bytes offset = 2;
-	uint64 limit = 3;
-	bool reverse = 4;
-	bool deep = 5;
+message ScanRequest {
+	bytes seekKey = 1;
+	bytes prefix = 2;
+	bool desc = 3;
+	uint64 limit = 4;
+	uint64 sinceTx = 5;
 }
 
 message KeyPrefix {
 	bytes prefix = 1;
 }
 
-message ItemsCount {
+message EntryCount {
 	uint64 count = 1;
 }
 
-message InclusionProof {
-	uint64 at = 1;
-	uint64 index = 2;
-	bytes root = 3;
-	bytes leaf = 4;
-	repeated bytes path = 5;
+///////////////
+
+message Signature {
+	bytes publicKey = 1;
+	bytes signature = 2;
 }
 
-message ConsistencyProof {
-	uint64 first = 1;
-	uint64 second = 2;
-	bytes firstRoot = 3;
-	bytes secondRoot = 4;
-	repeated bytes path = 5;
+message TxMetadata {
+	uint64 id = 1;
+	bytes prevAlh = 2;
+	int64 ts = 3;
+	int32 nentries = 4;
+	bytes eH = 5;
+	uint64 blTxId = 6;
+	bytes blRoot = 7;
 }
 
-message Proof {
-	bytes leaf = 1;
-	uint64 index = 2;
-	bytes root = 3;
-	uint64 at = 4;
-	repeated bytes inclusionPath = 5;
-	repeated bytes consistencyPath = 6;
+message LinearProof {
+	uint64 sourceTxId = 1;
+	uint64 TargetTxId = 2;
+	repeated bytes terms = 3;
 }
 
-message SafeItem {
-	Item item = 1;
-	Proof proof = 2;
+message DualProof {
+	TxMetadata sourceTxMetadata = 1;
+	TxMetadata targetTxMetadata = 2;
+
+	repeated bytes inclusionProof = 3;
+	repeated bytes consistencyProof = 4;
+
+	bytes targetBlTxAlh = 5;
+	repeated bytes lastInclusionProof = 6;
+
+	LinearProof linearProof = 7;
 }
 
-message SafeStructuredItem {
-	StructuredItem item = 1;
-	Proof proof = 2;
+message Tx {
+	TxMetadata metadata = 1;
+	repeated TxEntry entries = 2;
 }
 
-message SafeSetOptions {
-	KeyValue kv = 1;
-	Index rootIndex = 2;
-}
-
-message SafeSetSVOptions {
-	StructuredKeyValue skv = 1;
-	Index rootIndex = 2;
-}
-
-message SafeGetOptions {
+message TxEntry {
 	bytes key = 1;
-	Index rootIndex = 2;
+	bytes hValue = 2;
+	int64 vOff = 3;
+	int32 vLen = 4;
 }
 
-message SafeReferenceOptions {
-	ReferenceOptions ro = 1;
-	Index rootIndex = 2;
+message VerifiableTx {
+	Tx tx = 1;
+	DualProof dualProof = 2;
+	Signature signature = 3;
+}
+
+//////////////////
+
+message VerifiableEntry {
+	Entry entry = 1;
+	VerifiableTx verifiableTx = 2;
+	InclusionProof inclusionProof = 3;
+}
+
+message InclusionProof {
+	int32 leaf = 1;
+	int32 width = 2;
+	repeated bytes terms = 3;
+}
+
+message SetRequest {
+	repeated KeyValue KVs = 1;
+}
+
+message KeyRequest {
+	bytes key = 1;
+	uint64 sinceTx = 2;
+}
+
+message KeyListRequest {
+	repeated bytes keys = 1;
+	uint64 sinceTx = 2;
+}
+
+message VerifiableSetRequest {
+	SetRequest setRequest = 1;
+	uint64 proveSinceTx = 2;
+}
+
+message VerifiableGetRequest {
+	KeyRequest keyRequest = 1;
+	uint64 proveSinceTx = 2;
 }
 
 message HealthResponse {
@@ -271,68 +259,73 @@ message HealthResponse {
 	string version = 2;
 }
 
-message ReferenceOptions {
-	bytes reference = 1;
-	bytes key = 2;
-	Index index = 3;
+message ImmutableState {
+	uint64 txId = 3;
+	bytes txHash = 4;
+	Signature signature = 5;
 }
 
-message ZAddOptions {
+message ReferenceRequest {
+	bytes key = 1;
+	bytes referencedKey = 2;
+	uint64 atTx = 3;
+}
+
+message VerifiableReferenceRequest {
+	ReferenceRequest referenceRequest = 1;
+	uint64 proveSinceTx = 2;
+}
+
+message ZAddRequest {
 	bytes set = 1;
-	Score score = 2;
+	double score = 2;
 	bytes key = 3;
-	Index index = 4;
-}
-
-message ZScanOptions {
-	bytes set = 1;
-	bytes offset = 2;
-	uint64 limit = 3;
-	bool reverse = 4;
-	Score min = 5;
-	Score max = 6;
+	uint64 atTx = 4;
 }
 
 message Score {
 	double score = 1;
 }
 
-message IScanOptions {
-	uint64 pageSize = 1;
-	uint64 pageNumber = 2;
+message ZScanRequest {
+	bytes set = 1;
+	bytes seekKey = 2;
+	double seekScore = 3;
+	uint64 seekAtTx = 4;
+	bool inclusiveSeek = 5;
+	uint64 limit = 6;
+	bool desc = 7;
+	Score minScore = 8;
+	Score maxScore = 9;
+	uint64 sinceTx = 10;
 }
 
-message Page {
-	repeated Item items = 1;
-	bool more = 3;
-}
-
-message SPage {
-	repeated StructuredItem items = 1;
-	uint64 pageNum  = 2;
-	bool more = 3;
-}
-
-message HistoryOptions {
+message HistoryRequest {
 	bytes key = 1;
 	uint64 offset = 2;
 	uint64 limit = 3;
-	bool reverse = 4;
+	bool desc = 4;
+	uint64 sinceTx = 5;
 }
 
-message SafeZAddOptions {
-	ZAddOptions zopts = 1;
-	Index rootIndex = 2;
+message VerifiableZAddRequest {
+	ZAddRequest zAddRequest = 1;
+	uint64 proveSinceTx = 2;
 }
 
-message SafeIndexOptions {
-	uint64 index = 1;
-	Index rootIndex = 2;
+message TxRequest {
+	uint64 tx = 1;
+}
+
+message VerifiableTxRequest {
+	uint64 tx = 1;
+	uint64 proveSinceTx = 2;
 }
 
 message Database {
 	string databasename = 1;
 }
+
 message UseDatabaseReply{
 	string token = 1;
 }
@@ -357,6 +350,7 @@ message SetActiveUserRequest {
 message DatabaseListResponse{
 	repeated Database databases = 1;
 }
+
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "immudb REST API";
@@ -425,105 +419,79 @@ service ImmuService {
 		};
 	};
 
-	rpc Set (KeyValue) returns (Index){
+	rpc Set (SetRequest) returns (TxMetadata){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/item"
+			post: "/v1/immurestproxy/set"
 			body: "*"
 		};
 	};
 
-	rpc SafeSet(SafeSetOptions) returns (Proof){
+	rpc VerifiableSet (VerifiableSetRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/item/safe"
+			post: "/v1/immurestproxy/verifiable/set"
 			body: "*"
 		};
-	}
+	};
 
-	rpc Get (Key) returns (Item){
+	rpc Get (KeyRequest) returns (Entry){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/{key}"
 		};
 	};
 
-	rpc SafeGet(SafeGetOptions) returns (SafeItem){
+	rpc VerifiableGet (VerifiableGetRequest) returns (VerifiableEntry){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/item/safe/get"
+			post: "/v1/immurestproxy/item/verifiable/get"
 			body: "*"
 		};
 	};
 
-	rpc SetBatch (KVList) returns (Index){
-		option (google.api.http) = {
-			post: "/v1/immurestproxy/batch/set"
-			body: "*"
-		};
-	};
-
-	rpc GetBatch (KeyList) returns (ItemList){
+	rpc GetAll (KeyListRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/get"
 			body: "*"
 		};
 	};
 
-	rpc ExecAllOps (Ops) returns (Index){
+	rpc ExecAll (ExecAllRequest) returns (TxMetadata) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/batch/atomic/set"
 			body: "*"
 		};
 	};
 
-	rpc Scan(ScanOptions) returns (ItemList){
+	rpc Scan(ScanRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/item/scan"
 			body: "*"
 		};
 	};
 
-	rpc Count(KeyPrefix) returns (ItemsCount){
+	rpc Count(KeyPrefix) returns (EntryCount){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/count/{prefix}"
 		};
 	};
 
-	rpc CountAll(google.protobuf.Empty) returns (ItemsCount){
+	rpc CountAll(google.protobuf.Empty) returns (EntryCount){
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/item/countall"
 		};
 	};
 
-	rpc CurrentRoot(google.protobuf.Empty) returns (Root) {
+	rpc TxById(TxRequest) returns (Tx){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/root"
-		};
-		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-			security: {} // no security
+			get: "/v1/immurestproxy/item/index/{tx}"
 		};
 	};
 
-	rpc Inclusion(Index) returns (InclusionProof){
+	rpc VerifiableTxById(VerifiableTxRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/inclusionproof/{index}"
-		};
-	};
-	rpc Consistency(Index) returns (ConsistencyProof){
-		option (google.api.http) = {
-			get: "/v1/immurestproxy/consistencyproof/{index}"
-		};
-	};
-	rpc ByIndex(Index) returns (Item){
-		option (google.api.http) = {
-			get: "/v1/immurestproxy/item/index/{index}"
+			get: "/v1/immurestproxy/item/safe/index/{tx}"
 		};
 	};
 
-	rpc BySafeIndex(SafeIndexOptions) returns (SafeItem){
-		option (google.api.http) = {
-			get: "/v1/immurestproxy/item/safe/index/{index}"
-		};
-	};
-
-	rpc History(HistoryOptions) returns (ItemList){
+	rpc History(HistoryRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/history"
 			body: "*"
@@ -538,86 +506,78 @@ service ImmuService {
 			security: {} // no security
 		};
 	};
-	rpc Reference (ReferenceOptions) returns (Index){
+
+	rpc CurrentState (google.protobuf.Empty) returns (ImmutableState){
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/healthresponse"
+		};
+		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+			security: {} // no security
+		};
+	};
+
+	rpc SetReference (ReferenceRequest) returns (TxMetadata){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/reference"
 			body: "*"
 		};
 	};
-	rpc GetReference (Key) returns (Item){
-		option (google.api.http) = {
-			get: "/v1/immurestproxy/reference/{key}"
-		};
-	};
-	rpc SafeReference (SafeReferenceOptions) returns (Proof){
+
+	rpc VerifiableSetReference (VerifiableReferenceRequest) returns (VerifiableTx){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/safe/reference"
 			body: "*"
 		};
 	};
-	rpc ZAdd (ZAddOptions) returns (Index){
+
+	rpc ZAdd (ZAddRequest) returns (TxMetadata){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/zadd"
 			body: "*"
 		};
 	};
-	rpc ZScan (ZScanOptions) returns (ZItemList){
-		option (google.api.http) = {
-			post: "/v1/immurestproxy/zscan"
-			body: "*"
-		};
-	};
 
-	rpc SafeZAdd (SafeZAddOptions) returns (Proof){
+	rpc VerifiableZAdd (VerifiableZAddRequest) returns (VerifiableTx){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/safe/zadd"
 			body: "*"
 		};
 	};
 
-	rpc IScan (IScanOptions) returns (Page){
+	rpc ZScan (ZScanRequest) returns (ZEntries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/iscan"
+			post: "/v1/immurestproxy/zscan"
 			body: "*"
 		};
 	};
 
-	rpc Dump(google.protobuf.Empty) returns (stream pb.KVList) {
-		option (google.api.http) = {
-			post: "/v1/immurestproxy/dump"
-			body: "*"
-		};
-	}
-	// todo(joe-dz): Enable restore when the feature is required again
-	//	rpc Restore(stream pb.KVList) returns (ItemsCount) {
-	//		option (google.api.http) = {
-	//			post: "/v1/immurestproxy/restore"
-	//			body: "*"
-	//		};
-	//	}
 	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/createdatabase"
 			body: "*"
 		};
 	}
+
 	rpc UseDatabase(Database) returns (UseDatabaseReply) {
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/usedatabase/{databasename}"
 		};
 	}
+
 	rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/changepermission"
 			body: "*"
 		};
 	}
+
 	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user/setactiveUser"
 			body: "*"
 		};
 	};
+
 	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user/databaselist"

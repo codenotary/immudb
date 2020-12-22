@@ -24,38 +24,38 @@ import (
 )
 
 type inMemoryCache struct {
-	roots map[string]map[string]*schema.Root
-	lock  *sync.RWMutex
+	states map[string]map[string]*schema.ImmutableState
+	lock   *sync.RWMutex
 }
 
 // NewInMemoryCache returns a new in-memory cache
 func NewInMemoryCache() Cache {
 	return &inMemoryCache{
-		roots: map[string]map[string]*schema.Root{},
-		lock:  new(sync.RWMutex),
+		states: map[string]map[string]*schema.ImmutableState{},
+		lock:   new(sync.RWMutex),
 	}
 }
 
-func (imc *inMemoryCache) Get(serverUUID string, databasename string) (*schema.Root, error) {
-	serverRoots, ok := imc.roots[serverUUID]
+func (imc *inMemoryCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
+	serverStates, ok := imc.states[serverUUID]
 	if !ok {
 		return nil, fmt.Errorf("no roots found for server %s", serverUUID)
 	}
-	root, ok := serverRoots[databasename]
+	state, ok := serverStates[db]
 	if !ok {
 		return nil, fmt.Errorf(
-			"no root found for server %s and database %s", serverUUID, databasename)
+			"no state found for server %s and database %s", serverUUID, db)
 	}
-	return root, nil
+	return state, nil
 }
 
-func (imc *inMemoryCache) Set(root *schema.Root, serverUUID string, databasename string) error {
+func (imc *inMemoryCache) Set(serverUUID, db string, state *schema.ImmutableState) error {
 	imc.lock.Lock()
 	defer imc.lock.Unlock()
-	if _, ok := imc.roots[serverUUID]; !ok {
-		imc.roots[serverUUID] = map[string]*schema.Root{databasename: root}
+	if _, ok := imc.states[serverUUID]; !ok {
+		imc.states[serverUUID] = map[string]*schema.ImmutableState{db: state}
 		return nil
 	}
-	imc.roots[serverUUID][databasename] = root
+	imc.states[serverUUID][db] = state
 	return nil
 }

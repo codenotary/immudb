@@ -17,6 +17,7 @@ limitations under the License.
 package immuc_test
 
 import (
+	"os"
 	"testing"
 
 	. "github.com/codenotary/immudb/cmd/immuclient/immuc"
@@ -26,9 +27,12 @@ import (
 )
 
 func TestConnect(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
-	bs.Start()
+
+	go func() { bs.Start() }()
+
+	defer os.RemoveAll(options.Dir)
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),

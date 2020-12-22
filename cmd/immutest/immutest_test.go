@@ -16,6 +16,7 @@ limitations under the License.
 
 package main
 
+/*
 import (
 	"context"
 	"errors"
@@ -90,3 +91,4 @@ func TestImmutest(t *testing.T) {
 		},
 		[]string{"3"})
 }
+*/
