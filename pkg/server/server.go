@@ -871,7 +871,7 @@ func (s *ImmuServer) installShutdownHandler() {
 
 // ChangePassword ...
 func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswordRequest) (*empty.Empty, error) {
-	s.Logger.Debugf("ChangePassword %+v", *r)
+	s.Logger.Debugf("ChangePassword")
 
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
@@ -931,7 +931,7 @@ func (s *ImmuServer) ChangePassword(ctx context.Context, r *schema.ChangePasswor
 
 // CreateDatabase Create a new database instance
 func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database) (*empty.Empty, error) {
-	s.Logger.Debugf("createdatabase %+v", *newdb)
+	s.Logger.Debugf("createdatabase")
 
 	if !s.Options.GetAuth() {
 		return nil, fmt.Errorf("this command is available only with authentication on")
@@ -991,7 +991,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 
 // CreateUser Creates a new user
 func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest) (*empty.Empty, error) {
-	s.Logger.Debugf("CreateUser %+v", *r)
+	s.Logger.Debugf("CreateUser")
 
 	loggedInuser := &auth.User{}
 	var err error
@@ -1057,7 +1057,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 
 // ListUsers returns a list of users based on the requesting user permissions
 func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
-	s.Logger.Debugf("ListUsers %+v")
+	s.Logger.Debugf("ListUsers")
 
 	loggedInuser := &auth.User{}
 	var dbInd = int64(0)
@@ -1358,7 +1358,7 @@ func (s *ImmuServer) ChangePermission(ctx context.Context, r *schema.ChangePermi
 
 //SetActiveUser activate or deactivate a user
 func (s *ImmuServer) SetActiveUser(ctx context.Context, r *schema.SetActiveUserRequest) (*empty.Empty, error) {
-	s.Logger.Debugf("SetActiveUser %+v", *r)
+	s.Logger.Debugf("SetActiveUser")
 	if len(r.Username) == 0 {
 		return nil, fmt.Errorf("username can not be empty")
 	}
