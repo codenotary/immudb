@@ -532,6 +532,7 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 	assert.Error(t, err)
 	assert.Errorf(t, err, "not connected")
 }
+
 func TestWaitForHealthCheck(t *testing.T) {
 	setup()
 	err := client.WaitForHealthCheck(context.TODO())
@@ -545,6 +546,7 @@ func TestWaitForHealthCheckFail(t *testing.T) {
 	assert.Error(t, err)
 }
 
+/*
 func TestDump(t *testing.T) {
 	setup()
 	_, _ = client.VerifiedSet(context.TODO(), []byte(`key`), []byte(`val`))
@@ -555,6 +557,7 @@ func TestDump(t *testing.T) {
 	assert.True(t, i > 0)
 	client.Disconnect()
 }
+*/
 
 func TestSetupDialOptions(t *testing.T) {
 	setup()
@@ -646,6 +649,7 @@ func TestUserManagement(t *testing.T) {
 
 	client.Disconnect()
 }
+
 func TestDatabaseManagement(t *testing.T) {
 	setup()
 	err1 := client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})

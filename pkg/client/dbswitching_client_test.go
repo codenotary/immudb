@@ -11,7 +11,6 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -27,37 +26,13 @@ func TestDatabasesSwitching(t *testing.T) {
 
 	ctx := context.Background()
 
-	pr := &PasswordReader{
-		Pass: []string{"immudb"},
-	}
-
-	dialOptions := []grpc.DialOption{
-		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
-	}
-	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(NewHomedirService())
-	cliopt := DefaultOptions().WithDialOptions(&dialOptions).WithPasswordReader(pr).WithTokenService(ts)
-	cliopt.PasswordReader = pr
-	cliopt.DialOptions = &dialOptions
-
-	client, _ := NewImmuClient(cliopt)
-	lresp, err := client.Login(ctx, []byte("immudb"), []byte("immudb"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	md := metadata.Pairs("authorization", lresp.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	err = client.CreateDatabase(ctx, &schema.Database{
+	err := client.CreateDatabase(ctx, &schema.Database{
 		Databasename: "db1",
 	})
 	require.Nil(t, err)
 	resp, err := client.UseDatabase(ctx, &schema.Database{
 		Databasename: "db1",
 	})
-
-	md = metadata.Pairs("authorization", resp.Token)
-	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	assert.Nil(t, err)
 	assert.NotEmpty(t, resp.Token)
@@ -71,8 +46,8 @@ func TestDatabasesSwitching(t *testing.T) {
 	resp2, err := client.UseDatabase(ctx, &schema.Database{
 		Databasename: "db2",
 	})
-	md = metadata.Pairs("authorization", resp2.Token)
 
+	md := metadata.Pairs("authorization", resp2.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
 	assert.Nil(t, err)
