@@ -28,6 +28,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
@@ -39,6 +40,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -371,6 +373,48 @@ func TestImmuClient(t *testing.T) {
 	//userdata.CreatedAt = time.Now()
 	//testDump(ctx, t)
 
+}
+
+func TestDatabasesSwitching(t *testing.T) {
+	defer cleanup()
+	defer cleanupDump()
+
+	ctx := context.Background()
+
+	err := client.CreateDatabase(ctx, &schema.Database{
+		Databasename: "db1",
+	})
+	require.NoError(t, err)
+
+	resp, err := client.UseDatabase(ctx, &schema.Database{
+		Databasename: "db1",
+	})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.Token)
+
+	_, err = client.VerifiedSet(ctx, []byte(`db1-my`), []byte(`item`))
+	assert.NoError(t, err)
+
+	err = client.CreateDatabase(ctx, &schema.Database{
+		Databasename: "db2",
+	})
+	assert.NoError(t, err)
+
+	resp2, err := client.UseDatabase(ctx, &schema.Database{
+		Databasename: "db2",
+	})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp2.Token)
+
+	md := metadata.Pairs("authorization", resp2.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.VerifiedSet(ctx, []byte(`db2-my`), []byte(`item`))
+	require.NoError(t, err)
+
+	vi, err := client.VerifiedGet(ctx, []byte(`db1-my`))
+	require.Error(t, store.ErrKeyNotFound, err)
+	require.Nil(t, vi)
 }
 
 // todo(joe-dz): Enable restore when the feature is required again.
