@@ -48,9 +48,6 @@ const bufSize = 1024 * 1024
 
 var lis *bufconn.Listener
 
-var immuServer *server.ImmuServer
-var client ImmuClient
-
 const BkpFileName = "client_test.dump.bkp"
 const ExpectedBkpFileName = "./../../test/client_test.expected.bkp"
 
@@ -129,7 +126,9 @@ func newClient(withToken bool, token string) ImmuClient {
 }
 
 func TestLogErr(t *testing.T) {
-	defer cleanup()
+	server, _ := setup("testdb_logerr")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	logger := logger.NewSimpleLogger("client_test", os.Stderr)
@@ -167,14 +166,7 @@ func (n *ntpMock) Now() time.Time {
 	return n.t
 }
 
-func init() {
-	setup()
-}
-
-func setup() {
-	cleanup()
-	cleanupDump()
-
+func setup(dir string) (immuServer *server.ImmuServer, client ImmuClient) {
 	immuServer = newServer()
 
 	go func() { immuServer.Start() }()
@@ -198,13 +190,15 @@ func setup() {
 	if err != nil {
 		panic(err)
 	}
+
+	return
 }
 
 func bufDialer(ctx context.Context, address string) (net.Conn, error) {
 	return lis.Dial()
 }
 
-func cleanup() {
+func cleanup(immuServer *server.ImmuServer) {
 	// delete files and folders created by tests
 	if err := os.Remove(".state-"); err != nil {
 		log.Println(err)
@@ -223,7 +217,7 @@ func cleanupDump() {
 	}
 }
 
-func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte) {
+func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte, client ImmuClient) {
 	_, err2 := client.VerifiedSet(ctx, key, value)
 	require.NoError(t, err2)
 
@@ -237,7 +231,7 @@ func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value 
 	require.Equal(t, value, vi.Value)
 }
 
-func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
+func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte, client ImmuClient) {
 	_, err2 := client.SetReference(ctx, referenceKey, key)
 	require.NoError(t, err2)
 	vi, err := client.VerifiedGet(ctx, referenceKey)
@@ -315,7 +309,7 @@ func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scor
 	require.NoError(t, err3)
 }
 */
-func testGet(ctx context.Context, t *testing.T) {
+func testGet(ctx context.Context, t *testing.T, client ImmuClient) {
 	txmd, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 
@@ -324,7 +318,7 @@ func testGet(ctx context.Context, t *testing.T) {
 	require.Equal(t, []byte("key-n11"), item.Key)
 }
 
-func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
+func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ImmuClient) {
 	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
 
@@ -351,14 +345,16 @@ func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float
 // }
 
 func TestImmuClient(t *testing.T) {
-	defer cleanup()
+	server, client := setup("testdb_client")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	ctx := context.Background()
 
-	testSafeSetAndSafeGet(ctx, t, testData.keys[0], testData.values[0])
-	testSafeSetAndSafeGet(ctx, t, testData.keys[1], testData.values[1])
-	testSafeSetAndSafeGet(ctx, t, testData.keys[2], testData.values[2])
+	testSafeSetAndSafeGet(ctx, t, testData.keys[0], testData.values[0], client)
+	testSafeSetAndSafeGet(ctx, t, testData.keys[1], testData.values[1], client)
+	testSafeSetAndSafeGet(ctx, t, testData.keys[2], testData.values[2], client)
 
 	//testSafeReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
 	//testSafeReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1])
@@ -367,10 +363,10 @@ func TestImmuClient(t *testing.T) {
 	//testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	//testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 
-	testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
-	testGetTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+	testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0], client)
+	testGetTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
 
-	testGet(ctx, t)
+	testGet(ctx, t, client)
 
 	//dump comparison will not work because at start user immu is automatically created and a time stamp of creation is used which will always make dumps different
 	//userdata.CreatedAt = time.Now()
@@ -379,7 +375,9 @@ func TestImmuClient(t *testing.T) {
 }
 
 func TestDatabasesSwitching(t *testing.T) {
-	defer cleanup()
+	server, client := setup("testdb_switching")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	ctx := context.Background()
@@ -478,8 +476,9 @@ func TestDatabasesSwitching(t *testing.T) {
 //	}
 //}
 func TestImmuClientDisconnect(t *testing.T) {
-	setup()
-	defer cleanup()
+	server, client := setup("testdb_disconnect")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	err := client.Disconnect()
@@ -576,8 +575,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 }
 
 func TestImmuClientDisconnectNotConn(t *testing.T) {
-	setup()
-	defer cleanup()
+	server, client := setup("testdb_notconn")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	client.Disconnect()
@@ -587,8 +587,9 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 }
 
 func TestWaitForHealthCheck(t *testing.T) {
-	setup()
-	defer cleanup()
+	server, client := setup("testdb_health")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	err := client.WaitForHealthCheck(context.TODO())
@@ -596,8 +597,9 @@ func TestWaitForHealthCheck(t *testing.T) {
 }
 
 func TestWaitForHealthCheckFail(t *testing.T) {
-	setup()
-	defer cleanup()
+	server, client := setup("testdb_healthfail")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	client.Disconnect()
@@ -619,8 +621,9 @@ func TestDump(t *testing.T) {
 */
 
 func TestSetupDialOptions(t *testing.T) {
-	setup()
-	defer cleanup()
+	server, client := setup("testdb_dial")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	dialOpts := client.SetupDialOptions(DefaultOptions().WithMTLs(true))
@@ -628,8 +631,9 @@ func TestSetupDialOptions(t *testing.T) {
 }
 
 func TestUserManagement(t *testing.T) {
-	setup()
-	defer cleanup()
+	server, client := setup("testdb_usermgmt")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	var (
@@ -716,8 +720,9 @@ func TestUserManagement(t *testing.T) {
 }
 
 func TestDatabaseManagement(t *testing.T) {
-	setup()
-	defer cleanup()
+	server, client := setup("testdb_mgmt")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	err1 := client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
@@ -755,8 +760,9 @@ func TestImmuClient_Consistency(t *testing.T) {
 }
 */
 func TestImmuClient_History(t *testing.T) {
-	setup()
-	defer cleanup()
+	server, client := setup("testdb_history")
+
+	defer cleanup(server)
 	defer cleanupDump()
 
 	_, _ = client.VerifiedSet(context.TODO(), []byte(`key1`), []byte(`val1`))
