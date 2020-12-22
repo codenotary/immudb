@@ -95,5 +95,5 @@ func (i *immuc) VerifiedGet(args []string) (string, error) {
 		}
 		return "", err
 	}
-	return PrintKV([]byte(args[0]), response.Value, response.Tx, true, i.valueOnly), nil
+	return PrintKV(response.Key, response.Value, response.Tx, true, i.valueOnly), nil
 }
