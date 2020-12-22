@@ -129,6 +129,9 @@ func newClient(withToken bool, token string) ImmuClient {
 }
 
 func TestLogErr(t *testing.T) {
+	defer cleanup()
+	defer cleanupDump()
+
 	logger := logger.NewSimpleLogger("client_test", os.Stderr)
 
 	require.Nil(t, logErr(logger, "error: %v", nil))
@@ -476,6 +479,9 @@ func TestDatabasesSwitching(t *testing.T) {
 //}
 func TestImmuClientDisconnect(t *testing.T) {
 	setup()
+	defer cleanup()
+	defer cleanupDump()
+
 	err := client.Disconnect()
 	require.Nil(t, err)
 
@@ -571,6 +577,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 
 func TestImmuClientDisconnectNotConn(t *testing.T) {
 	setup()
+	defer cleanup()
+	defer cleanupDump()
+
 	client.Disconnect()
 	err := client.Disconnect()
 	assert.Error(t, err)
@@ -579,12 +588,18 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 
 func TestWaitForHealthCheck(t *testing.T) {
 	setup()
+	defer cleanup()
+	defer cleanupDump()
+
 	err := client.WaitForHealthCheck(context.TODO())
 	assert.Nil(t, err)
 }
 
 func TestWaitForHealthCheckFail(t *testing.T) {
 	setup()
+	defer cleanup()
+	defer cleanupDump()
+
 	client.Disconnect()
 	err := client.WaitForHealthCheck(context.TODO())
 	assert.Error(t, err)
@@ -605,12 +620,18 @@ func TestDump(t *testing.T) {
 
 func TestSetupDialOptions(t *testing.T) {
 	setup()
+	defer cleanup()
+	defer cleanupDump()
+
 	dialOpts := client.SetupDialOptions(DefaultOptions().WithMTLs(true))
 	require.NotNil(t, dialOpts)
 }
 
 func TestUserManagement(t *testing.T) {
 	setup()
+	defer cleanup()
+	defer cleanupDump()
+
 	var (
 		userName        = "test"
 		userPassword    = "1Password!*"
@@ -696,6 +717,9 @@ func TestUserManagement(t *testing.T) {
 
 func TestDatabaseManagement(t *testing.T) {
 	setup()
+	defer cleanup()
+	defer cleanupDump()
+
 	err1 := client.CreateDatabase(context.TODO(), &schema.Database{Databasename: "test"})
 	assert.Nil(t, err1)
 
@@ -732,6 +756,9 @@ func TestImmuClient_Consistency(t *testing.T) {
 */
 func TestImmuClient_History(t *testing.T) {
 	setup()
+	defer cleanup()
+	defer cleanupDump()
+
 	_, _ = client.VerifiedSet(context.TODO(), []byte(`key1`), []byte(`val1`))
 	_, _ = client.VerifiedSet(context.TODO(), []byte(`key1`), []byte(`val2`))
 
