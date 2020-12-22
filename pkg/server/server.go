@@ -200,7 +200,8 @@ func (s *ImmuServer) Start() error {
 	s.GrpcServer = grpc.NewServer(options...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
-	s.startCorruptionChecker()
+
+	//s.startCorruptionChecker()
 
 	go s.printUsageCallToAction()
 
