@@ -480,7 +480,7 @@ func (s *ImmuServer) Stop() error {
 
 //CloseDatabases closes all opened databases including the consinstency checker
 func (s *ImmuServer) CloseDatabases() error {
-	s.stopCorruptionChecker()
+	//s.stopCorruptionChecker()
 
 	if s.sysDb != nil {
 		s.sysDb.Close()
