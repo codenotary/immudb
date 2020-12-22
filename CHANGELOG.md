@@ -4,6 +4,363 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v0.9.0-RC1"></a>
+## [v0.9.0-RC1] - 2020-12-22
+### Bug Fixes
+- **cmd/immuclient:** print referenced key
+- **cmd/immuclient:** print referenced key
+- **embedded/store:** fix race condition
+- **embedded/store:** fix race condition
+- **embedded/store:** contemplate bad-formated proof
+- **embedded/tbtree:** fix issue when initialKey is greater than keys
+- **pkg/common:** fix leftover in index wrapper
+- **pkg/database:** lookup for referenced key when atTx is non-zero
+- **pkg/database:** working scan and zscan without pagination
+- **pkg/database:** add cyclic references validation during resolution
+- **pkg/database:** use EncodeReference in ExecAllIOps
+- **pkg/database:** referenced key lookup when atTx is non-zero
+- **pkg/database:** adjust execAll method
+- **pkg/databse:** encoding of reference and zadd
+
+### Changes
+- new proto definitions
+- proof proto definition
+- datatype conversion methods
+- inject store reader inside zscan
+- partial fix of scan test
+- remove badger and merkletree dependencies
+- **api/schema:** removed consistency method
+- **cmd:** adjusted commandline tools
+- **cmd/immuclient:** add verified operations
+- **cmd/immuclient:** add support for safe operations
+- **database:** implements ByIndex operation
+- **database:** implements safeByIndex operation
+- **database:** several fixes and unit testing adaptation
+- **database:** contemplates the case not previously verified tx
+- **database:** implements safeSet operation
+- **embedded:** rename as SnapshotSince
+- **embedded/htree:** minor changes in proof struct
+- **embedded/htree:** internal linear proof renaming
+- **embedded/store:** minor proof renaming
+- **embedded/store:** return ErrTxNotFound when attemping to read non-existent tx
+- **embedded/store:** add tx constructor with entries
+- **embedded/store:** return txMetadata when tx on commit
+- **embedded/store:** allow empty values and don't attempt to store in vlog
+- **embedded/store:** adjustments on store reader
+- **embedded/store:** add snapshotAt and adjust based on it
+- **embedded/store:** wrap keyNotFound index error
+- **embedded/store:** change tx proof method signature
+- **embedded/store:** add method to retrieve tx metadata
+- **embedded/store:** minor changes in proof struct
+- **pkg:** rename to ReferenceRequest
+- **pkg:** rename to CurrentState
+- **pkg:** several minor changes
+- **pkg:** rename to sinceTx
+- **pkg/api:** rename to Entry and ZEntry and embedded Reference
+- **pkg/api:** several improvements on grpc api
+- **pkg/api:** add copyright notice
+- **pkg/api:** new proof messages
+- **pkg/api:** add vLen property to TxEntry
+- **pkg/api:** new server proto definition
+- **pkg/api:** remove digest data type
+- **pkg/auth:** adjust permissions based on new api
+- **pkg/client:** minor renaming to improve readability
+- **pkg/client:** adjusted client providers
+- **pkg/client:** add safe method alises for backwards familiarity
+- **pkg/client:** adjusted golang client
+- **pkg/database:** fixed methods with prefix mgmt, including scan
+- **pkg/database:** minor adjustments
+- **pkg/database:** mutex for reusable txs
+- **pkg/database:** return functionality not yet implemented for VerifiableSetReference
+- **pkg/database:** remove ambiguity in references
+- **pkg/database:** zscan order with tx after key
+- **pkg/database:** wait for indexing on execAll
+- **pkg/database:** delay locking until indexing is done
+- **pkg/database:** get from snapshot or directly from store
+- **pkg/database:** add sinceTx to reference and make it handle key prefixes
+- **pkg/database:** fix get/set with prefix wrapping/unwrapping
+- **pkg/database:** implements new DB api using embedded storage
+- **pkg/ring:** remove ring pkg
+- **pkg/server:** partial use of embedded storage
+- **pkg/server:** return number of tx as db size
+- **pkg/server:** prevent logging request details
+- **pkg/server:** getBatch operation
+- **pkg/server:** implements history operation
+- **pkg/server:** proof construction in safeget operation
+- **pkg/server:** adjusted state signer
+- **pkg/server:** adjusted UUID handler
+- **pkg/server:** remove in-memory option
+- **pkg/server:** disable proactive corruption checker
+- **pkg/server:** disable cc
+- **pkg/server:** adapt implementation to new api
+- **pkg/server:** adapt to new database implementation
+- **pkg/server:** comment unimplemented GetReference method
+- **pkg/store:** moved package
+- **pkg/tbree:** reader with descOrder
+- **server:** implements safeGet
+- **server/api:** minor changes in Item element
+
+### Code Refactoring
+- **pkg/server:** add database interface and inject in server package
+- **pkg/server:** move database to new package
+
+### Features
+- partial implementation of safeGet
+- add store reader, scan and sorted sets
+- **embedded:** inclusiveSeek point when reading
+- **embedded:** add Get operation without the need of a snapshot
+- **embedded/tbtree:** use seek and prefix
+- **pkg/client:** add GetSince method
+- **pkg/client:** implements latest server API
+- **pkg/database:** complete set and get reference methods
+- **pkg/database:** uniform implementation for set, references, zadd, scan and zscan operations
+- **pkg/database:** add execAllOps
+- **pkg/database:** support for seekable scanning
+- **pkg/database:** consistent reference handling, prevent cyclic references
+- **pkg/database:** verify reference upon key resolution
+- **pkg/server:** expose store options
+
+
+<a name="v0.8.1"></a>
+## [v0.8.1] - 2020-12-08
+### Bug Fixes
+- file ext removal
+- fix batchOps permission and clean sv ones
+- add permissions for the new CountAll gRPC method
+- appID parsing from filename
+- appendable extensions without dot
+- restore current offset after reading compressed data
+- encode metadata numeric fields with 64bits
+- consider the case when key was not yet inserted
+- set fileSize after reading values from metadata
+- read metadata before reading
+- pass compression settings into newly created single-file appendable
+- compression with bigger values
+- compression with multiple-files
+- return EOF when data cannot be fully read from appendables
+- set new appendable id when changing current appendable
+- typos
+- avoid duplicate index insertion in zAdd batch operation transaction
+- fix batchOps tests and minors fix for zAdd sorted set key generation
+- **embedded:** set correct offset while reading node
+- **embedded/store:** use verificatication methods for dual proof evaluation
+- **embedded/store:** release tx before linear proof generation
+- **embedded/tools:** catch ErrNoMoreEntries when iterating over txs ([#569](https://github.com/vchain-us/immudb/issues/569))
+- **pkg:** handle expired token error
+- **pkg/client:** token service is not mandatory for setup a client
+- **pkg/client:** handle rootservice error inside constructor
+- **pkg/store:** fixes issue [#532](https://github.com/vchain-us/immudb/issues/532) ([#549](https://github.com/vchain-us/immudb/issues/549))
+- **pkg/store:** fix bug on lexicographical read of multiple sets
+- **pkg/store:** move separator at the beginning of a keyset
+- **pkg/store:** fix scan and add tests for pagination
+- **pkg/store:** scan item now contains immudb index, not badger timestamp
+- **pkg/store:** fix key set generation. index reference flag (0,1 bit) is put at the end of the key to mantain lexicographical properties
+- **pkg/store:** in reference based command key is optional if index is provided. Increase code coverage
+- **pkg/store:** fix reverse history pagination
+
+### Changes
+- error naming
+- include github stars over time chart ([#509](https://github.com/vchain-us/immudb/issues/509))
+- fix naming conventions
+- export uwrap and wrap value method to be used in nimmu
+- link to immuchallenge repo ([#528](https://github.com/vchain-us/immudb/issues/528))
+- fix typo in cmd help ([#541](https://github.com/vchain-us/immudb/issues/541))
+- renaming set key generation method
+- remove *sv methods
+- update readme with SDKs urls ([#506](https://github.com/vchain-us/immudb/issues/506))
+- move set and get batch in a separate file
+- fix naming conventions and typos
+- increase testing timeout
+- add setBatch, getBatch, setBatchOps method in mock client
+- unit testing
+- close appendable hash tree on close
+- print commiting status after sync
+- root method without error
+- cbuffer pkg
+- cbuffer pkg
+- use constants for field len
+- simplify linear proof
+- remove verification during indexing
+- unify kv hash calculation
+- LinearProof verification
+- minor code change
+- multierror handling on close func
+- multierror handling on close func
+- error naming
+- improved comprehensibility of the immudb configuration file
+- unify options for appendables
+- unify naming
+- move options validations to options file
+- minor changes in append operation
+- hash tree construction
+- advances in hash tree and proof construction
+- make spec read fields public
+- implement commit log for btree and improved reduced dump
+- txi commit file ext
+- aof as default file ext
+- sync also applies to index
+- panic if set key fails
+- panic when close returns an error
+- validate clog size after setting fileSize from metadata
+- index file extensions
+- return after auto mode
+- mode as required flag
+- renamed to IndexInfo
+- random and monotonic keys
+- split code into files, index options exposed for external config
+- support for historical value tracing
+- changes on historical value tracing
+- validate hvalue when reading value from vlog
+- newTx method using store values
+- check for non-duplication within same tx
+- when txInclusion is true then txLinking is made as well
+- options validation
+- close index when closing store
+- add VERSION to metadata section
+- time-based flushing
+- renaming batchOps in ops and SetBatchOps in ExecAllOps
+- solved concurrency issues
+- changes to solve and improve concurrency
+- copy on insert and fresh snapshots
+- when compression is enabled, each append takes place into a single file
+- set fileSize based on initial value set at creation time
+- change max value length to 64Mb
+- return partially written number of bytes when write is not completed
+- reorg appendable packages
+- moved stress_tool under tools folder
+- renamed filesize flag
+- use channels for communicating data offsets
+- close txlog after completion
+- random key-value generation in stress tool
+- kv alloc inside tx prep
+- parallel IO non-exclusive yet synchorinized with store closing
+- open with appendables to facilitate parallel IO
+- spec parallel IO in stress tool
+- appendale with path
+- preparing for parallel IO
+- optimized hashtree generation
+- minor internal change on commit tx method
+- time only considering commit time
+- don't print dots if printAfter is 0
+- don't print dots if printAfter is 0
+- minor typo in error message
+- preparing for concurrency optimization
+- minor changes in stress tool
+- close commit log file
+- return EOF when available content is less than buffer size
+- make key-value struct public
+- add more batchOps tests, fixing naming typo
+- fix immudb consistency diagram
+- do not store hvalue in index
+- add more tests and remove code duplications
+- initial commit with functional implementation
+- **embedded/store:** sleep indexing thread until there are entries to be indexed
+- **embedded/store:** internal changes to use innerhash for proof generation
+- **embedded/store:** permit immediate snapshot renewals
+- **embedded/store:** sleep binary linking thread until txs are committed ([#572](https://github.com/vchain-us/immudb/issues/572))
+- **embedded/store:** return ErrNoMoreEntries when all tx has been read
+- **embedded/store:** use embedded reusable built-at-once hash tree
+- **embedded/store:** add data consistency validation during dual proof construction
+- **embedded/store:** pre-allocated tx pool used for indexing and proofs
+- **embedded/store:** pre-allocated tx pool used with dual proof
+- **embedded/store:** changed defaults
+- **pkg/api/schema:** increase code readability
+- **pkg/auth:** fix get batch permissions
+- **pkg/client:** client exposes structured values conversion tools
+- **pkg/client:** fix comment
+- **pkg/client/clienttest:** add mock service client constructor
+- **pkg/client/clienttest:** add inclusion, consistency, byIndex mock methods
+- **pkg/client/clienttest:** add missing method inside service client mock
+- **pkg/client/timestamp:** fix naming convention
+- **pkg/server:** remove ScanSV test
+- **pkg/server:** add database name server validator
+- **pkg/store:** add consistency check on zadd and safezadd index reference method and tests
+- **pkg/store:** fix comments in test
+- **pkg/store:** move reference code to a dedicated file
+- **server:** enhance namings related audit report notification
+
+### Code Refactoring
+- batch ops produces monotonic ts sequences, index is mandatory if reference key is already persisted
+- **pkg/client:** decoupled immuclient from rootService
+- **pkg/store:** get resolve reference only by key
+- **pkg/store:** add set separator. Fixes [#51](https://github.com/vchain-us/immudb/issues/51)
+
+### Features
+- inclusion and consistency verification algorithms
+- configurable max incomming msg size ([#526](https://github.com/vchain-us/immudb/issues/526))
+- extend sorted set to support multiple equals key
+- getReference is exposed throught gRPC server and in SDK
+- client supports paginated scan, zscan, history
+- enhance auditor to publish tampering details at a specified URL (optional)
+- payload and digest lru caches
+- replay missing binary linking entries
+- binary linking in-memory integration
+- root returns number of entries
+- dual proof construction and verification
+- towards linear and dual proofs
+- dual proof and liearProof against target accumulative linear hash
+- dual cryptographic linking
+- store accumulative linear hash into mutable hash tree
+- towards dual cryprographic linking
+- add ZScan pagination
+- consistency proof
+- multierr custom error wrapping multiple errors when closing the store
+- several improvements, data by index
+- towards persistent storage of mutable hash tree
+- ongoing implementation of appendable hash tree
+- add sync method
+- TxReader starts from a txID
+- IndexInfo to return up to which tx was indexed and error status of indexing task
+- add interactive mode for get/set key values
+- add method for reading value of a key within a tx
+- retrieve the list of ts at which a key was updated
+- key updates tracing to support historical reading
+- back btree with multi-appendables
+- add read numeric values
+- initial indexing
+- towards k-indexing
+- add flag to stress_tool to specify if values are random or fixed
+- add lzw compression format
+- Add awesome-go badge ([#554](https://github.com/vchain-us/immudb/issues/554))
+- data compression
+- towards data compression capabilities
+- set compression setting into value logs
+- towards data compression capabilities
+- store immutable settings into metadata section
+- add log file sizes and number of openned files per log type flags
+- enable file mgmt settings
+- multi-file appendables
+- add metadata to appendables
+- include full tx validation and fixed sync issue
+- full committed tx verification against input kv data
+- add key and value length params in stress tool
+- parallel IO support
+- optimized for concurrent committers
+- added concurrent committers to stress tool
+- add cryptographic linking verification of transactions
+- add method to retrieve number of committed txs
+- export sync mode config
+- add batchOps reference operation
+- add history pagination
+- add reverse zscan and reverse history pagination
+- rearrange badges on README ([#555](https://github.com/vchain-us/immudb/issues/555))
+- data compression support by stress tool
+- add atomic operations method
+- expose CountAll through gRPC
+- **embedded/htree:** reusable build-at-once hash tree
+- **embedded/store:** add Alh method to get last committed tx ID and alh ([#570](https://github.com/vchain-us/immudb/issues/570))
+- **pkg/client:** sdk support index reference resolving)
+- **pkg/client:** add SetAll operation for simple  multi-kv atomic insertion ([#556](https://github.com/vchain-us/immudb/issues/556))
+- **pkg/client:** sdk support execAllOps
+- **pkg/client/auditor:** enhance auditor to always send audit notification (even when no tampering was detected) if a notification URL is specified
+- **pkg/store:** reference support index resolution
+- **pkg/store:** sorted sets support multiple equal keys with same score
+- **server:** add --audit-databases optional auditor flag
+
+### Reverts
+- chore: increase testing timeout
+
+
 <a name="v0.8.0"></a>
 ## [v0.8.0] - 2020-09-15
 ### Bug Fixes
@@ -874,7 +1231,9 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC1...HEAD
+[v0.9.0-RC1]: https://github.com/vchain-us/immudb/compare/v0.8.1...v0.9.0-RC1
+[v0.8.1]: https://github.com/vchain-us/immudb/compare/v0.8.0...v0.8.1
 [v0.8.0]: https://github.com/vchain-us/immudb/compare/v0.7.0...v0.8.0
 [v0.7.0]: https://github.com/vchain-us/immudb/compare/v0.6.2...v0.7.0
 [v0.6.2]: https://github.com/vchain-us/immudb/compare/v0.6.1...v0.6.2
