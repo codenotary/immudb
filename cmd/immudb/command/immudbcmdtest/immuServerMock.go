@@ -48,3 +48,7 @@ func (s ImmuServerMock) Start() error {
 func (s ImmuServerMock) Stop() error {
 	return nil
 }
+
+func (s ImmuServerMock) Initialize() error {
+	return nil
+}
