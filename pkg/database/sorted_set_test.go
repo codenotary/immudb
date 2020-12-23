@@ -466,28 +466,16 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 	require.Equal(t, list3.Entries[1].Entry.Key, []byte(`key3`))
 }
 
-/*func TestStore_ZScanInvalidSet(t *testing.T) {
+func TestStore_ZScanInvalidSet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
 	opt := &schema.ZScanRequest{
-		Set: []byte{tsPrefix},
+		Set: nil,
 	}
 	_, err := db.ZScan(opt)
-	require.Error(t, err, ErrInvalidSet)
+	require.Error(t, store.ErrIllegalArguments, err)
 }
-
-func TestStore_ZScanInvalidOffset(t *testing.T) {
-	db, closer := makeDb()
-	defer closer()
-
-	opt := &schema.ZScanRequest{
-		Set:    []byte(`set`),
-		Offset: []byte{tsPrefix},
-	}
-	_, err := db.ZScan(opt)
-	require.Error(t, err, ErrInvalidOffset)
-}*/
 
 func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T) {
 	db, closer := makeDb()
