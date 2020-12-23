@@ -32,7 +32,7 @@ func TestSet(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -57,7 +57,7 @@ func TestVerifiedSet(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -82,7 +82,7 @@ func TestZAdd(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -109,7 +109,7 @@ func TestVerifiedZAdd(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -135,7 +135,7 @@ func TestCreateDatabase(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 

@@ -17,11 +17,10 @@ limitations under the License.
 package cli
 
 import (
+	"github.com/codenotary/immudb/pkg/client"
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/codenotary/immudb/pkg/client"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -32,7 +31,7 @@ func TestHealthCheck(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -58,7 +57,7 @@ func TestHistory(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -70,12 +69,13 @@ func TestHistory(t *testing.T) {
 	ic.Login("immudb")
 
 	cli := new(cli)
+
 	cli.immucl = ic.Imc
 	msg, err := cli.history([]string{"key"})
 	if err != nil {
 		t.Fatal("History fail", err)
 	}
-	if !strings.Contains(msg, "No item found") {
+	if !strings.Contains(msg, "key not found") {
 		t.Fatalf("History fail %s", msg)
 	}
 
@@ -83,6 +83,7 @@ func TestHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal("History fail", err)
 	}
+
 	msg, err = cli.history([]string{"key"})
 	if err != nil {
 		t.Fatal("History fail", err)
@@ -95,7 +96,7 @@ func TestVersion(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 

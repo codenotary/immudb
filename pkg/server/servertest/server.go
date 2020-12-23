@@ -57,11 +57,11 @@ func (bs *bufconnServer) Start() {
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
 	}
+	bs.Server.Initialize()
 	schema.RegisterImmuServiceServer(bs.GrpcServer, bs.Server)
 	go func() {
 		if err := bs.GrpcServer.Serve(bs.Lis); err != nil {
 			log.Fatal(err)
 		}
 	}()
-	bs.Server.Start()
 }

@@ -20,7 +20,7 @@ func TestDatabaseList(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -78,7 +78,7 @@ func TestDatabaseCreate(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 

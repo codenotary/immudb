@@ -39,7 +39,7 @@ func TestStats_Status(t *testing.T) {
 	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -81,7 +81,7 @@ func TestStats_StatsText(t *testing.T) {
 	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -134,7 +134,7 @@ func TestStats_StatsRaw(t *testing.T) {
 	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 

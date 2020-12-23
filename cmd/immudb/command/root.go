@@ -98,6 +98,10 @@ func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Comm
 			c.QuitToStdErr(err)
 		}
 
+		if err = immudbServer.Initialize(); err != nil {
+			return err
+		}
+
 		service := server.Service{
 			ImmuServerIf: immudbServer,
 		}

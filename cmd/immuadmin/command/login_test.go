@@ -57,7 +57,7 @@ func TestCommandLine_Connect(t *testing.T) {
 	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -79,7 +79,7 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -130,7 +130,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -202,7 +202,7 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
