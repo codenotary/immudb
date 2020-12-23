@@ -506,6 +506,22 @@ func (t *TBtree) Get(key []byte) (value []byte, ts uint64, err error) {
 	return t.root.get(key)
 }
 
+func (t *TBtree) GetTs(key []byte, limit int64) (ts []uint64, err error) {
+	if t.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	if key == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if limit < 1 {
+		return nil, ErrIllegalArguments
+	}
+
+	return t.root.getTs(key, limit)
+}
+
 func (t *TBtree) Sync() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
