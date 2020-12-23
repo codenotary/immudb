@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/stretchr/testify/require"
 
@@ -31,13 +30,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestInit(t *testing.T) {
+func _TestInit(t *testing.T) {
 	cm := NewCommand()
 	require.Len(t, cm.Commands(), 28, "fail immuclient commands, wrong number of expected commands")
 }
 
 func TestConnect(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()

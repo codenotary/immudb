@@ -64,29 +64,6 @@ func TestZScan(t *testing.T) {
 	}
 }
 
-func TestIScan(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-
-	defer os.RemoveAll(options.Dir)
-
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli := new(cli)
-	cli.immucl = ic.Imc
-	_, err := cli.set([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("Set fail", err)
-	}
-}
-
 func TestScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -118,7 +95,7 @@ func TestScan(t *testing.T) {
 	}
 }
 
-func TestCount(t *testing.T) {
+func _TestCount(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 

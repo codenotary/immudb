@@ -149,12 +149,12 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	response, err := i.ImmuClient.ZAdd(ctx, set, score, key)
+	txMeta, err := i.ImmuClient.ZAdd(ctx, set, score, key)
 	if err != nil {
 		return "", err
 	}
 
-	return PrintSetItem([]byte(args[0]), []byte(args[2]), score, response), nil
+	return PrintSetItem(set, key, score, txMeta), nil
 }
 
 func (i *immuc) VerifiedZAdd(args []string) (string, error) {

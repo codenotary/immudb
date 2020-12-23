@@ -48,18 +48,15 @@ func PrintKV(key []byte, value []byte, tx uint64, verified, valueOnly bool) stri
 }
 
 // PrintSetItem ...
-func PrintSetItem(set []byte, rkey []byte, score float64, txMetadata *schema.TxMetadata) string {
-	/*key := store.BuildSetKey(rkey, set, score, nil)
+func PrintSetItem(set []byte, referencedkey []byte, score float64, txMetadata *schema.TxMetadata) string {
 
-	return fmt.Sprintf("tx:		%d\nset:		%s\nkey:		%s\nscore:		%f\nvalue:		%s\nhash:		%x\nverified:	%t\n",
+	return fmt.Sprintf("tx:		%d\nset:		%s\nreferenced key:		%s\nscore:		%f\nhash:		%x\nverified:	%t\n",
 		txMetadata.Id,
 		set,
-		key,
+		referencedkey,
 		score,
-		rkey,
-		api.Digest(txMetadata.Id, key, rkey),
-		true)*/
-	return "not supported"
+		txMetadata.EH,
+		true)
 }
 
 // PrintState ...

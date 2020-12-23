@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/helper"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 
 	test "github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
@@ -33,7 +32,7 @@ import (
 )
 
 func TestLogin(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
