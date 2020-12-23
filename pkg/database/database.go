@@ -540,14 +540,13 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	snapshot, err := d.st.SnapshotSince(req.SinceTx)
-	if err != nil {
-		return nil, err
-	}
-	defer snapshot.Close()
-
 	if req.Limit > MaxKeyScanLimit {
 		return nil, ErrMaxKeyScanLimitExceeded
+	}
+
+	err := d.WaitForIndexingUpto(req.SinceTx)
+	if err != nil {
+		return nil, err
 	}
 
 	limit := req.Limit
@@ -558,15 +557,15 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 
 	key := EncodeKey(req.Key)
 
-	tss, err := snapshot.GetTs(key, int64(limit))
+	txs, err := d.st.GetTs(key, int64(limit))
 	if err != nil {
 		return nil, err
 	}
 
 	list := &schema.Entries{}
 
-	for i := int(req.Offset); i < len(tss); i++ {
-		ts := tss[i]
+	for i := int(req.Offset); i < len(txs); i++ {
+		ts := txs[i]
 
 		err = d.st.ReadTx(ts, d.tx1)
 		if err != nil {

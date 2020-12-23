@@ -407,6 +407,10 @@ func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, err error) {
 	return s.index.Get(key)
 }
 
+func (s *ImmuStore) GetTs(key []byte, limit int64) (txs []uint64, err error) {
+	return s.index.GetTs(key, limit)
+}
+
 func (s *ImmuStore) NewTx() *Tx {
 	return NewTx(s.maxTxEntries, s.maxKeyLen)
 }
