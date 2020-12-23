@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"net"
 	"net/http"
 	"os"
 	"sync"
@@ -52,6 +53,7 @@ type ImmuServer struct {
 	dbList              DatabaseList
 	Logger              logger.Logger
 	Options             Options
+	listener            net.Listener
 	GrpcServer          *grpc.Server
 	Pid                 PIDFile
 	quit                chan struct{}
@@ -80,6 +82,7 @@ func DefaultServer() *ImmuServer {
 }
 
 type ImmuServerIf interface {
+	Initialize() error
 	Start() error
 	Stop() error
 	WithOptions(options Options) ImmuServerIf

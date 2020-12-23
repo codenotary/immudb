@@ -37,7 +37,7 @@ func TestLogin(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -69,7 +69,7 @@ func TestLogout(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -98,7 +98,7 @@ func TestUserList(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -118,7 +118,7 @@ func TestUserCreate(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -251,7 +251,7 @@ func TestUserChangePassword(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -325,7 +325,7 @@ func TestUserSetActive(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 
@@ -394,7 +394,7 @@ func TestSetUserPermission(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 

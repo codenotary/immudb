@@ -40,7 +40,7 @@ func TestConnect(t *testing.T) {
 	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
-	go func() { bs.Start() }()
+	bs.Start()
 
 	defer os.RemoveAll(options.Dir)
 

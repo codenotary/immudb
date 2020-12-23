@@ -70,9 +70,8 @@ var immudbTextLogo = " _                               _ _     \n" +
 	"| | | | | | | | | | | | |_| | (_| | |_) |\n" +
 	"|_|_| |_| |_|_| |_| |_|\\__,_|\\__,_|_.__/ \n"
 
-// Start starts the immudb server
-// Loads and starts the System DB, default db and user db
-func (s *ImmuServer) Start() error {
+// Initialize initializes dependencies, set up multi database capabilities and stats
+func (s *ImmuServer) Initialize() error {
 	s.mux.Lock()
 
 	_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
@@ -117,19 +116,18 @@ func (s *ImmuServer) Start() error {
 	}
 
 	if s.Options.SigningKey != "" {
-		if signer, err := signer.NewSigner(s.Options.SigningKey); err == nil {
-			s.StateSigner = NewStateSigner(signer)
-		} else {
+		if signer, err := signer.NewSigner(s.Options.SigningKey); err != nil {
 			return logErr(s.Logger, "Unable to configure the cryptographic signer: %v", err)
+		} else {
+			s.StateSigner = NewStateSigner(signer)
 		}
 	}
 
-	var listener net.Listener
 	if s.Options.usingCustomListener {
 		s.Logger.Infof("Using custom listener")
-		listener = s.Options.listener
+		s.listener = s.Options.listener
 	} else {
-		listener, err = net.Listen(s.Options.Network, s.Options.Bind())
+		s.listener, err = net.Listen(s.Options.Network, s.Options.Bind())
 		if err != nil {
 			return logErr(s.Logger, "Immudb unable to listen: %v", err)
 		}
@@ -201,6 +199,13 @@ func (s *ImmuServer) Start() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 
+	return err
+}
+
+// Start starts the immudb server
+// Loads and starts the System DB, default db and user db
+func (s *ImmuServer) Start() (err error) {
+
 	//s.startCorruptionChecker()
 
 	go s.printUsageCallToAction()
@@ -208,7 +213,7 @@ func (s *ImmuServer) Start() error {
 	startedAt = time.Now()
 
 	go func() {
-		if err := s.GrpcServer.Serve(listener); err != nil {
+		if err := s.GrpcServer.Serve(s.listener); err != nil {
 			log.Fatal(err)
 		}
 	}()
