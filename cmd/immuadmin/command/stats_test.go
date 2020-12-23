@@ -26,7 +26,6 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -36,7 +35,7 @@ import (
 )
 
 func TestStats_Status(t *testing.T) {
-	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -78,7 +77,7 @@ func TestStats_Status(t *testing.T) {
 }
 
 func TestStats_StatsText(t *testing.T) {
-	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -131,7 +130,7 @@ func TestStats_StatsText(t *testing.T) {
 }
 
 func TestStats_StatsRaw(t *testing.T) {
-	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
