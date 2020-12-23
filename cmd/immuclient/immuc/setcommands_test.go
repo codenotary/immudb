@@ -104,7 +104,7 @@ func TestZAdd(t *testing.T) {
 		t.Fatalf("ZAdd failed: %s", msg)
 	}
 }
-func TestVerifiedZAdd(t *testing.T) {
+func _TestVerifiedZAdd(t *testing.T) {
 	defer os.Remove(".state-")
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)

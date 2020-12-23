@@ -47,7 +47,7 @@ func TestHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal("History fail", err)
 	}
-	if !strings.Contains(msg, "No item found") {
+	if !strings.Contains(msg, "key not found") {
 		t.Fatalf("History fail %s", msg)
 	}
 

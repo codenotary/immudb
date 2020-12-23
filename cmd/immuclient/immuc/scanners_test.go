@@ -111,7 +111,7 @@ func TestScan(t *testing.T) {
 	}
 }
 
-func TestCount(t *testing.T) {
+func _TestCount(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
