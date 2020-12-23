@@ -54,7 +54,7 @@ var pwReaderMock = &clienttest.PasswordReaderMock{
 
 func TestCommandLine_Connect(t *testing.T) {
 	log.Info("TestCommandLine_Connect")
-	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -76,7 +76,7 @@ func TestCommandLine_Connect(t *testing.T) {
 
 func TestCommandLine_Disconnect(t *testing.T) {
 	log.Info("TestCommandLine_Disconnect")
-	options := server.Options{}.WithAuth(false).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -127,7 +127,7 @@ func (c scIClientInnerMock) Login(ctx context.Context, user []byte, pass []byte)
 }
 
 func TestCommandLine_LoginLogout(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -199,7 +199,7 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 }
 
 func TestCommandLine_CheckLoggedIn(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
