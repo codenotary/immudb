@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"github.com/codenotary/immudb/pkg/auth"
 	"os"
 	"strings"
 	"testing"
@@ -29,7 +30,7 @@ import (
 )
 
 func TestLogin(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
