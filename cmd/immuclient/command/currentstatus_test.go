@@ -16,10 +16,10 @@ limitations under the License.
 
 package immuclient
 
-/*
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -32,10 +32,12 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestCurrentRoot(t *testing.T) {
-	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
+func TestCurrentState(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+	defer os.RemoveAll(options.Dir)
+
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
@@ -48,7 +50,7 @@ func TestCurrentRoot(t *testing.T) {
 		immucl: ic.Imc,
 	}
 	cmd, _ := cmdl.NewCmd()
-	cmdl.currentRoot(cmd)
+	cmdl.currentState(cmd)
 	b := bytes.NewBufferString("")
 	cmd.SetOut(b)
 	cmd.SetArgs([]string{"current"})
@@ -71,4 +73,3 @@ func TestCurrentRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-*/
