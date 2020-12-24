@@ -39,8 +39,10 @@ func TestStats_Status(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -81,8 +83,10 @@ func TestStats_StatsText(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -134,8 +138,10 @@ func TestStats_StatsRaw(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {

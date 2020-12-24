@@ -37,6 +37,7 @@ func TestReference(t *testing.T) {
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+defer bs.Stop()
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -82,6 +83,7 @@ func TestSafeReference(t *testing.T) {
 	options := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 	bs.Start()
+defer bs.Stop()
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{

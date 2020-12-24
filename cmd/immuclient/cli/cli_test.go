@@ -47,8 +47,10 @@ func TestRunCommand(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -78,8 +80,10 @@ func TestRunCommandExtraArgs(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -108,8 +112,10 @@ func TestRunMissingArgs(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -139,8 +145,10 @@ func TestRunWrongCommand(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -169,8 +177,10 @@ func TestCheckCommand(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{

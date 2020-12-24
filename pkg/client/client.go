@@ -130,7 +130,7 @@ type ImmuClient interface {
 	SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error)
 	// DEPRECATED: Please use VerifiedZAdd
 	SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
-	// DEPRECATED: Please use VerifiedSetRefrence
+	// DEPRECATED: Please use VerifiedSetReference
 	SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
 }
 

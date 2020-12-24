@@ -34,6 +34,7 @@ func TestExecutableRun(t *testing.T) {
 	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
+defer bs.Stop()
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),

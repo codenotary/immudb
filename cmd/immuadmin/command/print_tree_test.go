@@ -20,6 +20,7 @@ import (
 func TestCommandLine_PrintTreeInit(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
+defer bs.Stop()
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
 	}
@@ -38,6 +39,7 @@ func TestCommandLine_PrintTreeInit(t *testing.T) {
 func TestCommandLine_PrintTree(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(false).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
+defer bs.Stop()
 	bs.Server.Set(context.TODO(), &schema.KeyValue{Key: []byte(`myFirstElementKey`), Value: []byte(`firstValue`)})
 
 	dialOptions := []grpc.DialOption{

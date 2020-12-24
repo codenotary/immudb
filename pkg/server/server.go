@@ -72,8 +72,6 @@ var immudbTextLogo = " _                               _ _     \n" +
 
 // Initialize initializes dependencies, set up multi database capabilities and stats
 func (s *ImmuServer) Initialize() error {
-	s.mux.Lock()
-
 	_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
 	logErr(s.Logger, "Error printing immudb config: %v", err)
 
@@ -205,6 +203,7 @@ func (s *ImmuServer) Initialize() error {
 // Start starts the immudb server
 // Loads and starts the System DB, default db and user db
 func (s *ImmuServer) Start() (err error) {
+	s.mux.Lock()
 
 	//s.startCorruptionChecker()
 
@@ -214,6 +213,7 @@ func (s *ImmuServer) Start() (err error) {
 
 	go func() {
 		if err := s.GrpcServer.Serve(s.listener); err != nil {
+			s.mux.Unlock()
 			log.Fatal(err)
 		}
 	}()
