@@ -42,6 +42,7 @@ import (
 func TestUserList(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
+defer bs.Stop()
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
@@ -141,6 +142,7 @@ func TestUserListErrors(t *testing.T) {
 func TestUserChangePassword(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
+defer bs.Stop()
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
@@ -265,6 +267,7 @@ func TestUserChangePasswordErrors(t *testing.T) {
 func TestUserCreate(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
+defer bs.Stop()
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
@@ -438,6 +441,7 @@ func TestUserCreateErrors(t *testing.T) {
 func TestUserActivate(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
+defer bs.Stop()
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
@@ -505,6 +509,7 @@ func TestUserActivate(t *testing.T) {
 func TestUserDeactivate(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
+defer bs.Stop()
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},
@@ -587,6 +592,7 @@ func TestUserActivateErrors(t *testing.T) {
 func TestUserPermission(t *testing.T) {
 	bs := servertest.NewBufconnServer(server.DefaultOptions().WithAuth(true).WithInMemoryStore(true))
 	bs.Start()
+defer bs.Stop()
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb", "MyUser@9", "MyUser@9"},

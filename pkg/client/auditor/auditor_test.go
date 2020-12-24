@@ -303,6 +303,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 	defer os.RemoveAll(dirname)
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
+defer bs.Stop()
 
 	ds := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -337,6 +338,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 	defer os.RemoveAll(dirname)
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
+defer bs.Stop()
 
 	ctx := context.Background()
 	pr := &PasswordReader{
@@ -398,6 +400,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 	defer os.RemoveAll(dirname)
 	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
+defer bs.Stop()
 
 	ctx := context.Background()
 	pr := &PasswordReader{
@@ -482,6 +485,7 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 			WithSigningKey(pKeyPath).
 			WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
+defer bs.Stop()
 
 	ctx := context.Background()
 	pr := &PasswordReader{

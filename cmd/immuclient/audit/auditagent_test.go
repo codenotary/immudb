@@ -40,6 +40,7 @@ func TestManageNotRoot(t *testing.T) {
 	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
+defer bs.Stop()
 
 	os.Setenv("audit-agent-interval", "1s")
 	pidPath := "pid_path"
@@ -106,6 +107,7 @@ func TestManage(t *testing.T) {
 	srvoptions := server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(srvoptions)
 	bs.Start()
+defer bs.Stop()
 
 	os.Setenv("audit-agent-interval", "1s")
 	pidPath := "pid_path_2"

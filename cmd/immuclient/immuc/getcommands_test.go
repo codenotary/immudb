@@ -29,13 +29,15 @@ import (
 )
 
 func TestGetTxByID(t *testing.T) {
-	defer os.Remove(".state-")
+
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -60,8 +62,10 @@ func TestGet(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -86,8 +90,10 @@ func TestVerifiedGet(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{

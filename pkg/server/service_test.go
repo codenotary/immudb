@@ -35,6 +35,7 @@ func TestService(t *testing.T) {
 
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
 
+	server.Initialize()
 	srvc := &Service{
 		ImmuServerIf: server,
 	}

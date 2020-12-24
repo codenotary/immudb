@@ -58,8 +58,10 @@ func TestCommandLine_Connect(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -80,8 +82,10 @@ func TestCommandLine_Disconnect(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -131,8 +135,10 @@ func TestCommandLine_LoginLogout(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	cl := commandline{}
 	cmd, _ := cl.NewCmd()
@@ -203,8 +209,10 @@ func TestCommandLine_CheckLoggedIn(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	cl := commandline{}
 	cmd, _ := cl.NewCmd()

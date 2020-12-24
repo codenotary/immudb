@@ -38,8 +38,10 @@ func TestLogin(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -70,8 +72,10 @@ func TestLogout(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -99,8 +103,10 @@ func TestUserList(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -119,8 +125,10 @@ func TestUserCreate(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -252,8 +260,10 @@ func TestUserChangePassword(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -326,8 +336,10 @@ func TestUserSetActive(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -395,8 +407,10 @@ func TestSetUserPermission(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{

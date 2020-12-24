@@ -21,8 +21,10 @@ func TestDatabaseList(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},
@@ -79,8 +81,10 @@ func TestDatabaseCreate(t *testing.T) {
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
+	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	pr := &immuclienttest.PasswordReader{
 		Pass: []string{"immudb"},

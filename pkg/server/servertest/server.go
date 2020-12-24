@@ -20,6 +20,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"sync"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -33,6 +34,7 @@ const bufSize = 1024 * 1024
 type BuffDialer func(context.Context, string) (net.Conn, error)
 
 type bufconnServer struct {
+	m          sync.Mutex
 	Lis        *bufconn.Listener
 	Server     *server.ImmuServer
 	Options    *server.Options
@@ -53,6 +55,7 @@ func NewBufconnServer(options server.Options) *bufconnServer {
 }
 
 func (bs *bufconnServer) Start() {
+	bs.m.Lock()
 	bs.Server = server.DefaultServer().WithOptions(*bs.Options).(*server.ImmuServer)
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
@@ -64,4 +67,10 @@ func (bs *bufconnServer) Start() {
 			log.Fatal(err)
 		}
 	}()
+}
+
+func (bs *bufconnServer) Stop() {
+	bs.GrpcServer.Stop()
+	defer bs.m.Unlock()
+
 }

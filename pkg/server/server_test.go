@@ -64,25 +64,6 @@ var kvs = []*schema.KeyValue{
 	},
 }
 
-func newAuthServer(dbroot string) *ImmuServer {
-	dbRootpath := database.DefaultOption().WithDbRootPath(dbroot).GetDbRootPath()
-	s := DefaultServer()
-	s = s.WithOptions(s.Options.WithAuth(true).WithDir(dbRootpath).WithCorruptionCheck(false)).(*ImmuServer)
-	err := s.loadDefaultDatabase(dbRootpath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = s.loadUserDatabases(dbRootpath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return s
-}
-
 func TestLogErr(t *testing.T) {
 	logger := logger.NewSimpleLogger("immudb ", os.Stderr)
 
@@ -90,37 +71,6 @@ func TestLogErr(t *testing.T) {
 
 	err := fmt.Errorf("expected error")
 	require.Error(t, logErr(logger, "error: %v", err))
-}
-
-func login(s *ImmuServer, username, password string) (context.Context, error) {
-	r := &schema.LoginRequest{
-		User:     []byte(username),
-		Password: []byte(password),
-	}
-	ctx := context.Background()
-	l, err := s.Login(ctx, r)
-	if err != nil {
-		return nil, err
-	}
-	m := make(map[string]string)
-	m["Authorization"] = "Bearer " + string(l.Token)
-	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
-	return ctx, nil
-}
-
-func usedatabase(ctx context.Context, s *ImmuServer, dbname string) (context.Context, error) {
-	token, err := s.UseDatabase(ctx, &schema.Database{
-		Databasename: dbname,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	m := make(map[string]string)
-	m["Authorization"] = "Bearer " + string(token.Token)
-	ctx = metadata.NewIncomingContext(ctx, metadata.New(m))
-
-	return ctx, nil
 }
 
 func TestServerDefaultDatabaseLoad(t *testing.T) {
@@ -167,7 +117,7 @@ func TestServerWithEmptyAdminPassword(t *testing.T) {
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	err := s.Start()
+	err := s.Initialize()
 	assert.Equal(t, ErrEmptyAdminPassword, err)
 }
 
@@ -176,13 +126,16 @@ func TestServerWithInvalidAdminPassword(t *testing.T) {
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	err := s.Start()
+	err := s.Initialize()
 	assert.Error(t, err)
 }
 
 func TestServerLogin(t *testing.T) {
-	s := newAuthServer("db-login")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
+
+	err := s.Initialize()
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
@@ -201,10 +154,13 @@ func TestServerLogin(t *testing.T) {
 }
 
 func TestServerLogout(t *testing.T) {
-	s := newAuthServer("db-logout")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	_, err := s.Logout(context.Background(), &emptypb.Empty{})
+	err := s.Initialize()
+
+	_, err = s.Logout(context.Background(), &emptypb.Empty{})
 	if err == nil || err.Error() != "rpc error: code = Internal desc = no headers found on request" {
 		t.Fatalf("Logout expected error, got %v", err)
 	}
@@ -228,13 +184,25 @@ func TestServerLogout(t *testing.T) {
 }
 
 func TestServerCreateDatabase(t *testing.T) {
-	s := newAuthServer("db-create")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
 	if err != nil {
 		t.Fatalf("Login error %v", err)
 	}
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
 	newdb := &schema.Database{
 		Databasename: "lisbon",
 	}
@@ -245,29 +213,52 @@ func TestServerCreateDatabase(t *testing.T) {
 }
 
 func TestServerCreateDatabaseCaseError(t *testing.T) {
-	s := newAuthServer("db-error")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
 	if err != nil {
 		t.Fatalf("Login error %v", err)
 	}
 	newdb := &schema.Database{
 		Databasename: "MyDatabase",
 	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
 	_, err = s.CreateDatabase(ctx, newdb)
 	assert.Equal(t, err.Error(), "provide a lowercase database name")
 }
 
 func TestServerCreateMultipleDatabases(t *testing.T) {
-	s := newAuthServer("multipledbs")
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
 	if err != nil {
 		t.Fatalf("Login error %v", err)
 	}
-	defer os.RemoveAll(s.Options.Dir)
 
-	for i := 0; i < 128; i++ {
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	for i := 0; i < 64; i++ {
 		dbname := fmt.Sprintf("db%d", i)
 
 		db := &schema.Database{
@@ -278,12 +269,15 @@ func TestServerCreateMultipleDatabases(t *testing.T) {
 			t.Fatalf("Createdatabase error %v", err)
 		}
 
-		ctx, err = usedatabase(ctx, s, dbname)
+		uR, err := s.UseDatabase(ctx, db)
 		if err != nil {
 			t.Fatalf("UseDatabase error %v", err)
 		}
 
-		_, err := s.Set(ctx, &schema.SetRequest{
+		md := metadata.Pairs("authorization", uR.Token)
+		ctx := metadata.NewIncomingContext(context.Background(), md)
+
+		_, err = s.Set(ctx, &schema.SetRequest{
 			KVs: []*schema.KeyValue{
 				{
 					Key:   testKey,
@@ -303,12 +297,25 @@ func TestServerCreateMultipleDatabases(t *testing.T) {
 }
 
 func TestServerLoaduserDatabase(t *testing.T) {
-	s := newAuthServer("loaduserdatabase")
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
 	if err != nil {
 		t.Fatalf("Login error %v", err)
 	}
-	defer os.RemoveAll(s.Options.Dir)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
 	newdb := &schema.Database{
 		Databasename: testDatabase,
 	}
@@ -323,7 +330,6 @@ func TestServerLoaduserDatabase(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	s = newAuthServer("loaduserdatabase")
 	if s.dbList.Length() != 2 {
 		t.Fatalf("LoadUserDatabase error %d", s.dbList.Length())
 	}
@@ -357,16 +363,29 @@ func testServerListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func TestServerListUsersAdmin(t *testing.T) {
-	srv := newAuthServer("listusersadmin")
-	ctx, err := login(srv, auth.SysAdminUsername, auth.SysAdminPassword)
-	if err != nil {
-		t.Fatalf("login error %v", err)
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
 	}
-	defer os.RemoveAll("listusersadmin")
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
 	newdb := &schema.Database{
 		Databasename: testDatabase,
 	}
-	_, err = srv.CreateDatabase(ctx, newdb)
+	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,20 +395,27 @@ func TestServerListUsersAdmin(t *testing.T) {
 		Database:   testDatabase,
 		Permission: auth.PermissionAdmin,
 	}
-	_, err = srv.CreateUser(ctx, newUser)
+	_, err = s.CreateUser(ctx, newUser)
 	if err != nil {
 		t.Fatalf("CreateUser error %v", err)
 	}
-	srv.multidbmode = true
-	ctx, err = login(srv, string(testUsername), string(testPassword))
+	s.multidbmode = true
+	lr, err = s.Login(ctx, &schema.LoginRequest{User: testUsername, Password: testPassword})
 	if err != nil {
-		t.Fatalf("login error %v", err)
+		t.Fatalf("Login error %v", err)
 	}
-	ctx, err = usedatabase(ctx, srv, testDatabase)
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+	ur, err := s.UseDatabase(ctx, &schema.Database{
+		Databasename: testDatabase,
+	})
 	if err != nil {
 		t.Fatalf("UseDatabase error %v", err)
 	}
-	users, err := srv.ListUsers(ctx, &emptypb.Empty{})
+	md = metadata.Pairs("authorization", ur.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	users, err := s.ListUsers(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("ListUsers error %v", err)
 	}
@@ -397,11 +423,17 @@ func TestServerListUsersAdmin(t *testing.T) {
 		t.Fatalf("List users, expected >1 got %v", len(users.Users))
 	}
 
-	ctx, err = login(srv, auth.SysAdminUsername, auth.SysAdminPassword)
+	lr, err = s.Login(ctx, &schema.LoginRequest{User: []byte(auth.SysAdminUsername), Password: []byte(auth.SysAdminPassword)})
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
 	if err != nil {
 		t.Fatalf("login error %v", err)
 	}
-	users, err = srv.ListUsers(ctx, &emptypb.Empty{})
+	users, err = s.ListUsers(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("ListUsers error %v", err)
 	}
@@ -415,20 +447,29 @@ func TestServerListUsersAdmin(t *testing.T) {
 		Database:   testDatabase,
 		Permission: auth.PermissionRW,
 	}
-	_, err = srv.CreateUser(ctx, newUser)
+	_, err = s.CreateUser(ctx, newUser)
 	if err != nil {
 		t.Fatalf("CreateUser error %v", err)
 	}
-	srv.multidbmode = true
-	ctx, err = login(srv, "rwuser", "rwuserPas@1")
+	s.multidbmode = true
+
+	lr, err = s.Login(ctx, &schema.LoginRequest{User: []byte("rwuser"), Password: []byte("rwuserPas@1")})
 	if err != nil {
-		t.Fatalf("login error %v", err)
+		t.Fatalf("Login error %v", err)
 	}
-	ctx, err = usedatabase(ctx, srv, testDatabase)
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	ur, err = s.UseDatabase(ctx, &schema.Database{
+		Databasename: testDatabase,
+	})
 	if err != nil {
 		t.Fatalf("UseDatabase error %v", err)
 	}
-	users, err = srv.ListUsers(ctx, &emptypb.Empty{})
+	md = metadata.Pairs("authorization", ur.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
+	users, err = s.ListUsers(ctx, &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("ListUsers error %v", err)
 	}
@@ -458,6 +499,7 @@ func testServerUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Expected token, got %v", dbs.Token)
 	}
 }
+
 func testServerChangePermission(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.ChangePermission(ctx, &schema.ChangePermissionRequest{
 		Action:     schema.PermissionAction_GRANT,
@@ -1036,13 +1078,25 @@ func testServerPrintTreeError(ctx context.Context, s *ImmuServer, t *testing.T) 
 */
 
 func TestServerUsermanagement(t *testing.T) {
-	s := newAuthServer("db-user")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
-	if err != nil {
-		log.Fatal(err)
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
 	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
 	newdb := &schema.Database{
 		Databasename: testDatabase,
 	}
@@ -1062,13 +1116,25 @@ func TestServerUsermanagement(t *testing.T) {
 }
 
 func TestServerDbOperations(t *testing.T) {
-	s := newAuthServer("db-op")
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
-	if err != nil {
-		log.Fatal(err)
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
 	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
 	newdb := &schema.Database{
 		Databasename: testDatabase,
 	}
@@ -1244,11 +1310,24 @@ func TestServerPID(t *testing.T) {
 }
 
 func TestServerErrors(t *testing.T) {
-	dataDir := "TestInsertNewUserAndOtherUserOperations"
-	s := newAuthServer(dataDir)
-	defer os.RemoveAll(dataDir)
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
-	require.NoError(t, err)
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	// insertNewUser errors
 	_, _, err = s.insertNewUser([]byte("%"), nil, 1, DefaultdbName, true, auth.SysAdminUsername)
@@ -1310,8 +1389,12 @@ func TestServerErrors(t *testing.T) {
 		Database:   DefaultdbName,
 	})
 	require.NoError(t, err)
-	ctx2, err := login(s, username, password)
+	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
 	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx2 := metadata.NewIncomingContext(context.Background(), md)
+
 	_, err = s.SetActiveUser(ctx2, &schema.SetActiveUserRequest{Username: auth.SysAdminUsername, Active: false})
 	require.Equal(t, errors.New("user is not system admin nor admin in any of the databases"), err)
 
@@ -1423,7 +1506,12 @@ func TestServerErrors(t *testing.T) {
 	_, err = s.UseDatabase(ctx, &schema.Database{Databasename: SystemdbName})
 	require.Equal(t, errors.New("this database can not be selected"), err)
 
-	ctx2, err = login(s, username, password)
+	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx2 = metadata.NewIncomingContext(context.Background(), md)
+
 	require.NoError(t, err)
 	someDb1 := "somedatabase1"
 	_, err = s.CreateDatabase(ctx, &schema.Database{Databasename: someDb1})
@@ -1462,7 +1550,12 @@ func TestServerErrors(t *testing.T) {
 	}
 	_, err = s.ChangePermission(ctx, cpr)
 	require.NoError(t, err)
-	ctx2, err = login(s, username, password)
+	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx2 = metadata.NewIncomingContext(context.Background(), md)
+
 	require.NoError(t, err)
 	_, err = s.DatabaseList(ctx2, new(emptypb.Empty))
 	require.NoError(t, err)
@@ -1593,7 +1686,12 @@ func TestServerErrors(t *testing.T) {
 		Permission: auth.PermissionAdmin,
 	})
 	require.NoError(t, err)
-	ctx2, err = login(s, username, password)
+	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx2 = metadata.NewIncomingContext(context.Background(), md)
+
 	require.NoError(t, err)
 	createUser2Req = &schema.CreateUserRequest{
 		User:       username2Bytes,
@@ -1639,7 +1737,12 @@ func TestServerErrors(t *testing.T) {
 	require.Equal(t, errors.New("user is not active"), err)
 	_, err = s.SetActiveUser(ctx, &schema.SetActiveUserRequest{Active: true, Username: username})
 	require.NoError(t, err)
-	_, err = login(s, username, password)
+	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx2 = metadata.NewIncomingContext(context.Background(), md)
+
 	require.NoError(t, err)
 
 	// setup MTL errors
@@ -1665,10 +1768,24 @@ func TestServerErrors(t *testing.T) {
 }
 
 func TestServerGetUserAndUserExists(t *testing.T) {
-	dataDir := "Test-Get-User"
-	s := newAuthServer(dataDir)
-	defer os.RemoveAll(dataDir)
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
 	require.NoError(t, err)
 	username := "someuser"
 	_, err = s.CreateUser(ctx, &schema.CreateUserRequest{
@@ -1712,15 +1829,25 @@ func TestServerIsAllowedDbName(t *testing.T) {
 }
 
 func TestServerMandatoryAuth(t *testing.T) {
-	dataDir := "Test-Server-Mandatory-Auth"
-	s := newAuthServer(dataDir)
-	defer os.RemoveAll(dataDir)
-	s.Options.maintenance = true
-	require.False(t, s.mandatoryAuth())
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
 
-	s.Options.maintenance = false
-	ctx, err := login(s, auth.SysAdminUsername, auth.SysAdminPassword)
-	require.NoError(t, err)
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(auth.SysAdminPassword),
+	}
+	ctx := context.Background()
+	lr, err := s.Login(ctx, r)
+	if err != nil {
+		t.Fatalf("Login error %v", err)
+	}
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+
 	_, err = s.CreateUser(ctx, &schema.CreateUserRequest{
 		User:       []byte("someuser"),
 		Password:   []byte("Somepass1$"),
@@ -1736,11 +1863,18 @@ func TestServerMandatoryAuth(t *testing.T) {
 }
 
 func TestServerLoginAttempWithEmptyPassword(t *testing.T) {
-	dataDir := "TestServerLoginAttempWithEmptyPassword"
-	s := newAuthServer(dataDir)
-	defer os.RemoveAll(dataDir)
+	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
 
-	_, err := login(s, auth.SysAdminUsername, "")
-	require.Error(t, err)
+	err := s.Initialize()
+
+	r := &schema.LoginRequest{
+		User:     []byte(auth.SysAdminUsername),
+		Password: []byte(``),
+	}
+	ctx := context.Background()
+	_, err = s.Login(ctx, r)
+
 	require.Contains(t, err.Error(), "invalid user name or password")
 }
