@@ -945,7 +945,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 
 	var metadata runtime.ServerMetadata
 
-	vTx, err := c.ServiceClient.VerifiableSetReference(
+	verifiableTx, err := c.ServiceClient.VerifiableSetReference(
 		ctx,
 		req,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -953,9 +953,69 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 		return nil, err
 	}
 
-	//TODO: verification and root update
+	tx := schema.TxFrom(verifiableTx.Tx)
 
-	return vTx.Tx.Metadata, nil
+	inclusionProof, err := tx.Proof(database.EncodeKey(key))
+	if err != nil {
+		return nil, err
+	}
+
+	verifies := store.VerifyInclusion(inclusionProof, database.EncodeReference(key, referencedKey, atTx), tx.Eh())
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	if tx.Eh() != schema.DigestFrom(verifiableTx.DualProof.TargetTxMetadata.EH) {
+		return nil, store.ErrCorruptedData
+	}
+
+	var sourceID, targetID uint64
+	var sourceAlh, targetAlh [sha256.Size]byte
+
+	if state.TxId == 0 {
+		sourceID = tx.ID
+		sourceAlh = tx.Alh
+	} else {
+		sourceID = state.TxId
+		sourceAlh = schema.DigestFrom(state.TxHash)
+	}
+
+	targetID = tx.ID
+	targetAlh = tx.Alh
+
+	verifies = store.VerifyDualProof(
+		schema.DualProofFrom(verifiableTx.DualProof),
+		sourceID,
+		targetID,
+		sourceAlh,
+		targetAlh,
+	)
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	newState := &schema.ImmutableState{
+		TxId:      tx.ID,
+		TxHash:    tx.Alh[:],
+		Signature: verifiableTx.Signature,
+	}
+
+	if newState.Signature != nil {
+		ok, err := newState.CheckSignature()
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, store.ErrCorruptedData
+		}
+	}
+
+	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
+	if err != nil {
+		return nil, err
+	}
+
+	return verifiableTx.Tx.Metadata, nil
 }
 
 // ZAdd ...
