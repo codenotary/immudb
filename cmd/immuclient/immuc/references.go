@@ -101,5 +101,5 @@ func (i *immuc) VerifiedSetReference(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value, uint64(response.Id), false, false), nil
+	return PrintKV([]byte(args[0]), value, uint64(response.Id), true, false), nil
 }
