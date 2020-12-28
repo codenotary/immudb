@@ -594,3 +594,52 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	require.Equal(t, []byte(`SignerId2`), itemList1.Entries[2].Entry.Key)
 
 }
+
+func TestStoreVerifiableZAdd(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`value1`)}}})
+
+	req := &schema.ZAddRequest{
+		Set:   []byte(`set1`),
+		Key:   []byte(`key1`),
+		Score: float64(1.1),
+		AtTx:  i1.Id,
+	}
+
+	vtx, err := db.VerifiableZAdd(&schema.VerifiableZAddRequest{
+		ZAddRequest:  req,
+		ProveSinceTx: i1.Id,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), vtx.Tx.Metadata.Id)
+
+	ekv := EncodeZAdd(req.Set, req.Score, EncodeKey(req.Key), req.AtTx)
+	require.Equal(t, ekv.Key, vtx.Tx.Entries[0].Key)
+	require.Equal(t, int32(0), vtx.Tx.Entries[0].VLen)
+
+	dualProof := schema.DualProofFrom(vtx.DualProof)
+
+	verifies := store.VerifyDualProof(
+		dualProof,
+		i1.Id,
+		vtx.Tx.Metadata.Id,
+		schema.TxMetadataFrom(i1).Alh(),
+		dualProof.TargetTxMetadata.Alh(),
+	)
+	require.True(t, verifies)
+
+	zscanReq := &schema.ZScanRequest{
+		Set:     []byte(`set1`),
+		SinceTx: vtx.Tx.Metadata.Id,
+	}
+
+	itemList1, err := db.ZScan(zscanReq)
+
+	require.NoError(t, err)
+	require.Len(t, itemList1.Entries, 1)
+	require.Equal(t, req.Key, itemList1.Entries[0].Entry.Key)
+	require.Equal(t, req.Score, itemList1.Entries[0].Score)
+}
