@@ -331,7 +331,7 @@ func TestStoreVerifiableReference(t *testing.T) {
 	)
 	require.True(t, verifies)
 
-	keyReq := &schema.KeyRequest{Key: []byte(`myTag`), SinceTx: meta.Id}
+	keyReq := &schema.KeyRequest{Key: []byte(`myTag`), SinceTx: vtx.Tx.Metadata.Id}
 
 	firstItemRet, err := db.Get(keyReq)
 	require.NoError(t, err)
