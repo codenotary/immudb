@@ -300,3 +300,40 @@ func TestStore_ReferencedItemNotFound(t *testing.T) {
 	_, err := db.SetReference(&schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`notExists`)})
 	require.Error(t, store.ErrKeyNotFound, err)
 }
+
+func TestStoreVerifiableReference(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
+	meta, err := db.Set(req)
+	require.NoError(t, err)
+
+	refReq := &schema.ReferenceRequest{
+		Key:           []byte(`myTag`),
+		ReferencedKey: []byte(`firstKey`),
+	}
+	vtx, err := db.VerifiableSetReference(&schema.VerifiableReferenceRequest{
+		ReferenceRequest: refReq,
+		ProveSinceTx:     meta.Id,
+	})
+	require.NoError(t, err)
+	require.Equal(t, WrapWithPrefix([]byte(`myTag`), SetKeyPrefix), vtx.Tx.Entries[0].Key)
+
+	dualProof := schema.DualProofFrom(vtx.DualProof)
+
+	verifies := store.VerifyDualProof(
+		dualProof,
+		meta.Id,
+		vtx.Tx.Metadata.Id,
+		schema.TxMetadataFrom(meta).Alh(),
+		dualProof.TargetTxMetadata.Alh(),
+	)
+	require.True(t, verifies)
+
+	keyReq := &schema.KeyRequest{Key: []byte(`myTag`), SinceTx: meta.Id}
+
+	firstItemRet, err := db.Get(keyReq)
+	require.NoError(t, err)
+	require.Equal(t, []byte(`firstValue`), firstItemRet.Value, "Should have referenced item value")
+}
