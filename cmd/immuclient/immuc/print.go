@@ -48,15 +48,14 @@ func PrintKV(key []byte, value []byte, tx uint64, verified, valueOnly bool) stri
 }
 
 // PrintSetItem ...
-func PrintSetItem(set []byte, referencedkey []byte, score float64, txMetadata *schema.TxMetadata) string {
-
+func PrintSetItem(set []byte, referencedkey []byte, score float64, txMetadata *schema.TxMetadata, verified bool) string {
 	return fmt.Sprintf("tx:		%d\nset:		%s\nreferenced key:		%s\nscore:		%f\nhash:		%x\nverified:	%t\n",
 		txMetadata.Id,
 		set,
 		referencedkey,
 		score,
 		txMetadata.EH,
-		true)
+		verified)
 }
 
 // PrintState ...

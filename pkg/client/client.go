@@ -1074,7 +1074,7 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 
 	var metadata runtime.ServerMetadata
 
-	result, err := c.ServiceClient.VerifiableZAdd(
+	vtx, err := c.ServiceClient.VerifiableZAdd(
 		ctx,
 		req,
 		grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD),
@@ -1083,14 +1083,75 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 		return nil, err
 	}
 
-	/*
-		verified, err := c.verifyAndSetRoot(result, root, ctx)
+	tx := schema.TxFrom(vtx.Tx)
+
+	ekv := database.EncodeZAdd(req.ZAddRequest.Set,
+		req.ZAddRequest.Score,
+		database.EncodeKey(req.ZAddRequest.Key),
+		req.ZAddRequest.AtTx,
+	)
+
+	inclusionProof, err := tx.Proof(ekv.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	verifies := store.VerifyInclusion(inclusionProof, ekv, tx.Eh())
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	if tx.Eh() != schema.DigestFrom(vtx.DualProof.TargetTxMetadata.EH) {
+		return nil, store.ErrCorruptedData
+	}
+
+	var sourceID, targetID uint64
+	var sourceAlh, targetAlh [sha256.Size]byte
+
+	if state.TxId == 0 {
+		sourceID = tx.ID
+		sourceAlh = tx.Alh
+	} else {
+		sourceID = state.TxId
+		sourceAlh = schema.DigestFrom(state.TxHash)
+	}
+
+	targetID = tx.ID
+	targetAlh = tx.Alh
+
+	verifies = store.VerifyDualProof(
+		schema.DualProofFrom(vtx.DualProof),
+		sourceID,
+		targetID,
+		sourceAlh,
+		targetAlh,
+	)
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
+
+	newState := &schema.ImmutableState{
+		TxId:      tx.ID,
+		TxHash:    tx.Alh[:],
+		Signature: vtx.Signature,
+	}
+
+	if newState.Signature != nil {
+		ok, err := newState.CheckSignature()
 		if err != nil {
 			return nil, err
 		}
-	*/
+		if !ok {
+			return nil, store.ErrCorruptedData
+		}
+	}
 
-	return result.Tx.Metadata, nil
+	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
+	if err != nil {
+		return nil, err
+	}
+
+	return vtx.Tx.Metadata, nil
 }
 
 // Dump to be used from Immu CLI
