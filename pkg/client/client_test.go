@@ -19,12 +19,13 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/server/servertest"
 	"log"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/server/servertest"
 
 	"github.com/stretchr/testify/assert"
 
@@ -126,26 +127,26 @@ func testVerifiedReference(ctx context.Context, t *testing.T, key []byte, refere
 	require.Equal(t, value, vi.Value)
 }
 
-/*
-func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
+func testVerifiedZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ImmuClient) {
 	for i := 0; i < len(scores); i++ {
-		_, err := client.SafeZAdd(ctx, set, scores[i], keys[i], nil)
+		_, err := client.VerifiedZAdd(ctx, set, scores[i], keys[i])
 		require.NoError(t, err)
 	}
-	itemList, err := client.ZScan(ctx, &schema.ZScanOptions{
+
+	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
 		Set: set,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, itemList)
-	require.Len(t, itemList.Items, len(keys))
+	require.Len(t, itemList.Entries, len(keys))
 
 	for i := 0; i < len(keys); i++ {
-		require.Equal(t, keys[i], itemList.Items[i].Item.Key)
-		require.Equal(t, values[i], itemList.Items[i].Item.Value.Payload)
-		require.Equal(t, uint64(1405544146), itemList.Items[i].Item.Value.Timestamp)
+		require.Equal(t, keys[i], itemList.Entries[i].Entry.Key)
+		require.Equal(t, values[i], itemList.Entries[i].Entry.Value)
 	}
 }
 
+/*
 func testGetByRawIndexOnSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
 
 	vi1, err1 := client.RawSafeSet(ctx, []byte("key-n1"), []byte("val-n1"))
@@ -246,7 +247,7 @@ func TestImmuClient(t *testing.T) {
 	testVerifiedReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1], client)
 	testVerifiedReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2], client)
 
-	//testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+	testVerifiedZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
 	//testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	//testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 

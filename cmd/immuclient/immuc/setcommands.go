@@ -154,7 +154,7 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintSetItem(set, key, score, txMeta), nil
+	return PrintSetItem(set, key, score, txMeta, false), nil
 }
 
 func (i *immuc) VerifiedZAdd(args []string) (string, error) {
@@ -194,7 +194,7 @@ func (i *immuc) VerifiedZAdd(args []string) (string, error) {
 		return "", err
 	}
 
-	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response)
+	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response, true)
 
 	return resp, nil
 }
