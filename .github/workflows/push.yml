@@ -23,7 +23,7 @@ jobs:
   gosec:
     needs: install_vcn
     runs-on: ubuntu-latest
-    env:   
+    env:
       JOB_NAME: ${{ github.job }}
       JOB_ID: ${{ github.run_id }}
     steps:
@@ -69,7 +69,7 @@ jobs:
             sleep $[ ( $RANDOM % 10 ) + 1 ]s
             VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_BUILD_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent immuclient
             ./vcn logout
-  
+
   images:
       name: Build and notarize Docker Images
       needs: gosec
@@ -96,7 +96,7 @@ jobs:
             VCN_USER=${{ secrets.VCN_IMAGE_USER }} VCN_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn login
             VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE
             ./vcn logout
-            
+
   coveralls:
     name: Publish coverage
     needs: gosec
@@ -112,6 +112,6 @@ jobs:
           go get -u github.com/mattn/goveralls
           go get -u github.com/ory/go-acc
           set -o pipefail
-          go-acc ./... --covermode=atomic --ignore test || true
-          cat coverage.txt | grep -v "schema.pb" > coverage.out
+          go-acc ./... --covermode=atomic --ignore test,immuclient,immuadmin,helper,cmdtest,sservice,version || true
+          cat coverage.txt | grep -v "schema.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" > coverage.out
           goveralls -coverprofile=coverage.out -service=gh-ci -repotoken ${{ secrets.COVERALLS_TOKEN }}
