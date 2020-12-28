@@ -115,20 +115,18 @@ func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key [
 	require.Equal(t, value, vi.Value)
 }
 
-/*
-
-func testSafeReference(ctx context.Context, t *testing.T, referenceKey []byte, key []byte, value []byte) {
-	_, err2 := client.SafeReference(ctx, referenceKey, key, nil)
+func testVerifiedReference(ctx context.Context, t *testing.T, key []byte, referencedKey []byte, value []byte, client ImmuClient) {
+	_, err2 := client.VerifiedSetReference(ctx, key, referencedKey)
 	require.NoError(t, err2)
-	vi, err := client.SafeGet(ctx, referenceKey)
+
+	vi, err := client.SafeGet(ctx, key)
 	require.NoError(t, err)
 	require.NotNil(t, vi)
-	require.Equal(t, key, vi.Key)
+	require.Equal(t, referencedKey, vi.Key)
 	require.Equal(t, value, vi.Value)
-	require.Equal(t, uint64(1405544146), vi.Time)
-	require.True(t, vi.Verified)
 }
 
+/*
 func testSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
 	for i := 0; i < len(scores); i++ {
 		_, err := client.SafeZAdd(ctx, set, scores[i], keys[i], nil)
@@ -244,9 +242,10 @@ func TestImmuClient(t *testing.T) {
 	testSafeSetAndSafeGet(ctx, t, testData.keys[1], testData.values[1], client)
 	testSafeSetAndSafeGet(ctx, t, testData.keys[2], testData.values[2], client)
 
-	//testSafeReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0])
-	//testSafeReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1])
-	//testSafeReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2])
+	testVerifiedReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0], client)
+	testVerifiedReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1], client)
+	testVerifiedReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2], client)
+
 	//testSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	//testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
 	//testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
@@ -259,7 +258,6 @@ func TestImmuClient(t *testing.T) {
 	//dump comparison will not work because at start user immu is automatically created and a time stamp of creation is used which will always make dumps different
 	//userdata.CreatedAt = time.Now()
 	//testDump(ctx, t)
-
 }
 
 func TestDatabasesSwitching(t *testing.T) {
