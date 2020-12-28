@@ -292,17 +292,22 @@ func (d *db) CurrentState() (*schema.ImmutableState, error) {
 
 //VerifiableSet ...
 func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 
-	txMetatadata, err := d.set(req.SetRequest)
+	lastTxID, _ := d.st.Alh()
+	if lastTxID < req.ProveSinceTx {
+		return nil, store.ErrIllegalArguments
+	}
+
+	txMetatadata, err := d.Set(req.SetRequest)
 	if err != nil {
 		return nil, err
 	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	lastTx := d.tx1
 
