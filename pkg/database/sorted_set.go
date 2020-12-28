@@ -18,7 +18,6 @@ package database
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -187,6 +186,51 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 }
 
 //VerifiableZAdd ...
-func (d *db) VerifiableZAdd(opts *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "VerifiableZAdd")
+func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	lastTxID, _ := d.st.Alh()
+	if lastTxID < req.ProveSinceTx {
+		return nil, store.ErrIllegalArguments
+	}
+
+	txMetatadata, err := d.ZAdd(req.ZAddRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	lastTx := d.tx1
+
+	err = d.st.ReadTx(uint64(txMetatadata.Id), lastTx)
+	if err != nil {
+		return nil, err
+	}
+
+	var prevTx *store.Tx
+
+	if req.ProveSinceTx == 0 {
+		prevTx = lastTx
+	} else {
+		prevTx = d.tx2
+
+		err = d.st.ReadTx(req.ProveSinceTx, prevTx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	dualProof, err := d.st.DualProof(prevTx, lastTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.VerifiableTx{
+		Tx:        schema.TxTo(lastTx),
+		DualProof: schema.DualProofTo(dualProof),
+	}, nil
 }
