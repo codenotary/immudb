@@ -85,7 +85,14 @@ vendor:
 .PHONY: test
 test:
 	$(GO) vet ./...
-	$(GO) test -failfast $(go list ./... | grep -v test) --race -coverprofile=coverage.txt -covermode=atomic ./...
+	$(GO) test -failfast $(go list ./... | grep -v test | grep -v immuclient | grep -v immuadmin ) --race -coverprofile=coverage.txt -covermode=atomic ./...
+
+.PHONY: coverage
+coverage:
+	go-acc ./... --covermode=atomic --ignore=test,immuclient,immuadmin,helper,cmdtest,sservice,version
+	cat coverage.txt | grep -v "schema.pb" | grep -v "immuclient" | grep -v "immuadmin" | grep -v "helper" | grep -v "cmdtest" | grep -v "sservice" | grep -v "version" > coverage.out
+	$(GO) tool cover -func coverage.out
+
 
 .PHONY: build/codegen
 build/codegen:
