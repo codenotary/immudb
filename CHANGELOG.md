@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v0.9.0-RC2"></a>
+## [v0.9.0-RC2] - 2020-12-29
+### Bug Fixes
+- **cmd/immuadmin/command:** fix unit tests
+- **cmd/immuclient:** fix unit tests
+- **embedded/tbtree:** sync GetTs to prevent data races
+- **pkg/api:** change order of validations when checking state signature
+
+### Changes
+- adapt coverage to the new server implementation
+- fix immuserver mock
+- **cmd/immuadmin:** disable stats and removed print tree command
+- **cmd/immuclient:** print verified label when executing safereference
+- **pkg/client:** update service mock to new API
+- **pkg/database:** add input validations during verifiable set
+- **pkg/database:** implements History using lock-based operation
+
+### Code Refactoring
+- uniform server and client tests
+- improving buffconn server with splitting start method in initialization and start
+
+### Features
+- **embedded/store:** implements lock-based History without requiring snapshot creation
+- **pkg/client:** update auditor implementation to new server API
+- **pkg/client:** implementation of client-side verifiedZAdd
+- **pkg/client:** implements VerifiedSetReference
+- **pkg/database:** implementation of verifiableZAdd
+- **pkg/database:** implementation of VerifiableSetReference
+
+
 <a name="v0.9.0-RC1"></a>
 ## [v0.9.0-RC1] - 2020-12-22
 ### Bug Fixes
@@ -1231,7 +1261,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC2...HEAD
+[v0.9.0-RC2]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC1...v0.9.0-RC2
 [v0.9.0-RC1]: https://github.com/vchain-us/immudb/compare/v0.8.1...v0.9.0-RC1
 [v0.8.1]: https://github.com/vchain-us/immudb/compare/v0.8.0...v0.8.1
 [v0.8.0]: https://github.com/vchain-us/immudb/compare/v0.7.0...v0.8.0
