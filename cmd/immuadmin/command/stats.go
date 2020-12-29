@@ -46,12 +46,14 @@ func (cl *commandline) status(cmd *cobra.Command) {
 
 func (cl *commandline) stats(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "stats",
-		Short:             fmt.Sprintf("Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details."),
-		Aliases:           []string{"s"},
-		PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,
+		Use:     "stats",
+		Short:   fmt.Sprintf("Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details."),
+		Aliases: []string{"s"},
+		/*PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,*/
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Print("Not yet supported in v0.9.0\n")
+			return nil
 			raw, err := cmd.Flags().GetBool("raw")
 			if err != nil {
 				c.QuitToStdErr(err)
