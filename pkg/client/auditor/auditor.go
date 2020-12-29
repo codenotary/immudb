@@ -19,6 +19,7 @@ package auditor
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
@@ -167,6 +169,7 @@ func (a *defaultAuditor) audit() error {
 	serverID := "unknown"
 	var prevState *schema.ImmutableState
 	var state *schema.ImmutableState
+
 	defer func() {
 		a.updateMetrics(
 			serverID, a.serverAddress, checked, withError, verified, prevState, state)
@@ -200,6 +203,7 @@ func (a *defaultAuditor) audit() error {
 			return noErr
 		}
 		a.databases = nil
+
 		for _, db := range dbs.Databases {
 			dbMustBeAudited := len(a.auditDatabases) <= 0
 			for _, dbPrefix := range a.auditDatabases {
@@ -212,6 +216,7 @@ func (a *defaultAuditor) audit() error {
 				a.databases = append(a.databases, db.Databasename)
 			}
 		}
+
 		a.databaseIndex = 0
 		if len(a.databases) <= 0 {
 			a.logger.Errorf(
@@ -220,10 +225,12 @@ func (a *defaultAuditor) audit() error {
 			withError = true
 			return noErr
 		}
+
 		a.logger.Infof(
 			"audit #%d - list of databases to audit has been (re)loaded - %d database(s) found: %v",
 			a.index, len(a.databases), a.databases)
 	}
+
 	dbName := a.databases[a.databaseIndex]
 	resp, err := a.serviceClient.UseDatabase(ctx, &schema.Database{
 		Databasename: dbName,
@@ -250,14 +257,14 @@ func (a *defaultAuditor) audit() error {
 	if a.auditSignature == "validate" {
 		if okSig, err := state.CheckSignature(); err != nil || !okSig {
 			a.logger.Errorf(
-				"audit #%d aborted: could not verify signature on server root at %s @ %s",
+				"audit #%d aborted: could not verify signature on server state at %s @ %s",
 				a.index, serverID, a.serverAddress)
 			withError = true
 			return noErr
 		}
 	}
 
-	isEmptyDB := len(state.TxHash) == 0 && state.TxId == 0
+	isEmptyDB := state.TxId == 0
 
 	serverID = a.getServerID(ctx)
 	prevState, err = a.history.Get(serverID, dbName)
@@ -268,78 +275,73 @@ func (a *defaultAuditor) audit() error {
 	}
 
 	if prevState != nil {
-		/*
-			if isEmptyDB {
-				a.logger.Errorf(
-					"audit #%d aborted: database is empty on server %s @ %s, "+
-						"but locally a previous state exists with hash %x at id %d",
-					a.index, serverID, a.serverAddress, prevState.TxHash, prevState.TxId)
-				withError = true
-				return noErr
-			}
-			proof, err := a.serviceClient.Consistency(ctx, &schema.Index{
-				Index: prevRoot.GetIndex(),
-			})
+		if isEmptyDB {
+			a.logger.Errorf(
+				"audit #%d aborted: database is empty on server %s @ %s, "+
+					"but locally a previous state exists with hash %x at id %d",
+				a.index, serverID, a.serverAddress, prevState.TxHash, prevState.TxId)
+			withError = true
+			return noErr
+		}
+
+		vtx, err := a.serviceClient.VerifiableTxById(ctx, &schema.VerifiableTxRequest{
+			Tx:           state.TxId,
+			ProveSinceTx: prevState.TxId,
+		})
+		if err != nil {
+			a.logger.Errorf(
+				"error fetching consistency proof for previous state %d: %v",
+				prevState.TxId, err)
+			withError = true
+			return noErr
+		}
+
+		verified = store.VerifyDualProof(
+			schema.DualProofFrom(vtx.DualProof),
+			prevState.TxId,
+			state.TxId,
+			schema.DigestFrom(prevState.TxHash),
+			schema.DigestFrom(state.TxHash),
+		)
+
+		a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t\n"+
+			"  previous state:	%x at tx: %d\n  current state:	%x at tx: %d",
+			a.index, dbName, verified,
+			prevState.TxHash, prevState.TxId, state.TxHash, state.TxId)
+
+		checked = true
+		// publish audit notification
+		if len(a.notificationConfig.URL) > 0 {
+			err := a.publishAuditNotification(
+				dbName,
+				time.Now(),
+				!verified,
+				&State{
+					Tx:   prevState.TxId,
+					Hash: fmt.Sprintf("%x", prevState.TxHash),
+					Signature: Signature{
+						Signature: base64.StdEncoding.EncodeToString(prevState.GetSignature().GetSignature()),
+						PublicKey: base64.StdEncoding.EncodeToString(prevState.GetSignature().GetPublicKey()),
+					},
+				},
+				&State{
+					Tx:   state.TxId,
+					Hash: fmt.Sprintf("%x", state.TxHash),
+					Signature: Signature{
+						Signature: base64.StdEncoding.EncodeToString(state.GetSignature().GetSignature()),
+						PublicKey: base64.StdEncoding.EncodeToString(state.GetSignature().GetPublicKey()),
+					},
+				},
+			)
 			if err != nil {
 				a.logger.Errorf(
-					"error fetching consistency proof for previous root %d: %v",
-					prevRoot.GetIndex(), err)
-				withError = true
-				return noErr
+					"error publishing audit notification for db %s: %v", dbName, err)
+			} else {
+				a.logger.Infof(
+					"audit notification for db %s has been published at %s",
+					dbName, a.notificationConfig.URL)
 			}
-			verified =
-				proof.Verify(schema.Root{Payload: &schema.RootIndex{Index: prevRoot.GetIndex(), Root: prevRoot.GetRoot()}})
-			firstRoot := proof.FirstRoot
-			// proof.FirstRoot is empty if check fails
-			if !verified && len(firstRoot) == 0 {
-				firstRoot = prevRoot.GetRoot()
-			}
-			a.logger.Infof("audit #%d result:\n db: %s, consistent:	%t\n"+
-				"  firstRoot:	%x at index: %d\n  secondRoot:	%x at index: %d",
-				a.index, dbName, verified,
-				firstRoot, proof.First, proof.SecondRoot, proof.Second)
-			root = &schema.Root{
-				Payload: &schema.RootIndex{Index: proof.Second, Root: proof.SecondRoot},
-				// TODO OGG: here the signature from proof should be set, but proof
-				// does not have roots Signatures yet.
-				// NOTE: the signature from the root obtained with CurrentRoot call above
-				// might belong to an older root if the server root changed between the
-				// CurrentRoot and Consistency calls above, that's why we don't set that.
-				Signature: nil,
-			}
-			checked = true
-			// publish audit notification
-			if len(a.notificationConfig.URL) > 0 {
-				err := a.publishAuditNotification(
-					dbName,
-					time.Now(),
-					!verified,
-					&Root{
-						Index: proof.First,
-						Hash:  fmt.Sprintf("%x", firstRoot),
-						Signature: Signature{
-							Signature: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetSignature()),
-							PublicKey: base64.StdEncoding.EncodeToString(prevRoot.GetSignature().GetPublicKey()),
-						},
-					},
-					&Root{
-						Index: proof.Second,
-						Hash:  fmt.Sprintf("%x", proof.SecondRoot),
-						Signature: Signature{
-							Signature: base64.StdEncoding.EncodeToString(root.GetSignature().GetSignature()),
-							PublicKey: base64.StdEncoding.EncodeToString(root.GetSignature().GetPublicKey()),
-						},
-					},
-				)
-				if err != nil {
-					a.logger.Errorf(
-						"error publishing audit notification for db %s: %v", dbName, err)
-				} else {
-					a.logger.Infof(
-						"audit notification for db %s has been published at %s",
-						dbName, a.notificationConfig.URL)
-				}
-			}*/
+		}
 	} else if isEmptyDB {
 		a.logger.Warningf("audit #%d canceled: database is empty on server %s @ %s",
 			a.index, serverID, a.serverAddress)
@@ -369,39 +371,39 @@ type Signature struct {
 	PublicKey string `json:"public_key"`
 }
 
-// Root ...
-type Root struct {
-	Index     uint64    `json:"index" validate:"required"`
+// State ...
+type State struct {
+	Tx        uint64    `json:"tx" validate:"required"`
 	Hash      string    `json:"hash" validate:"required"`
 	Signature Signature `json:"signature" validate:"required"`
 }
 
 // AuditNotificationRequest ...
 type AuditNotificationRequest struct {
-	Username     string    `json:"username" validate:"required"`
-	Password     string    `json:"password" validate:"required"`
-	DB           string    `json:"db" validate:"required"`
-	RunAt        time.Time `json:"run_at" validate:"required" example:"2020-11-13T00:53:42+01:00"`
-	Tampered     bool      `json:"tampered"`
-	PreviousRoot *Root     `json:"previous_root"`
-	CurrentRoot  *Root     `json:"current_root"`
+	Username      string    `json:"username" validate:"required"`
+	Password      string    `json:"password" validate:"required"`
+	DB            string    `json:"db" validate:"required"`
+	RunAt         time.Time `json:"run_at" validate:"required" example:"2020-11-13T00:53:42+01:00"`
+	Tampered      bool      `json:"tampered"`
+	PreviousState *State    `json:"previous_state"`
+	CurrentState  *State    `json:"current_state"`
 }
 
 func (a *defaultAuditor) publishAuditNotification(
 	db string,
 	runAt time.Time,
 	tampered bool,
-	prevRoot *Root,
-	currRoot *Root) error {
+	prevState *State,
+	currState *State) error {
 
 	payload := AuditNotificationRequest{
-		Username:     a.notificationConfig.Username,
-		Password:     a.notificationConfig.Password,
-		DB:           db,
-		RunAt:        runAt,
-		Tampered:     tampered,
-		PreviousRoot: prevRoot,
-		CurrentRoot:  currRoot,
+		Username:      a.notificationConfig.Username,
+		Password:      a.notificationConfig.Password,
+		DB:            db,
+		RunAt:         runAt,
+		Tampered:      tampered,
+		PreviousState: prevState,
+		CurrentState:  currState,
 	}
 
 	reqBody, err := json.Marshal(payload)
@@ -436,9 +438,7 @@ func (a *defaultAuditor) publishAuditNotification(
 	return nil
 }
 
-func (a *defaultAuditor) getServerID(
-	ctx context.Context,
-) string {
+func (a *defaultAuditor) getServerID(ctx context.Context) string {
 	serverID, err := a.uuidProvider.CurrentUUID(ctx)
 	if err != nil {
 		if err != state.ErrNoServerUuid {
@@ -447,6 +447,7 @@ func (a *defaultAuditor) getServerID(
 			a.logger.Warningf(err.Error())
 		}
 	}
+
 	if serverID == "" {
 		serverID = strings.ReplaceAll(
 			strings.ReplaceAll(a.serverAddress, ".", "-"),
@@ -456,6 +457,7 @@ func (a *defaultAuditor) getServerID(
 			"the current immudb server @ %s will be identified as %s",
 			a.serverAddress, serverID)
 	}
+
 	return serverID
 }
 
@@ -468,14 +470,17 @@ func repeat(
 ) error {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
+
 	for {
 		if err := f(); err != nil {
 			return err
 		}
+
 		select {
 		case <-stopc:
 			return nil
 		case <-tick.C:
 		}
 	}
+
 }

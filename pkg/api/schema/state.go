@@ -32,11 +32,11 @@ func (state *ImmutableState) ToBytes() []byte {
 
 //CheckSignature
 func (state *ImmutableState) CheckSignature() (ok bool, err error) {
-	if state.Signature.PublicKey == nil {
-		return false, errors.New("no public key found")
-	}
 	if state.Signature == nil {
 		return false, errors.New("no signature found")
+	}
+	if state.Signature.PublicKey == nil {
+		return false, errors.New("no public key found")
 	}
 
 	return signer.Verify(state.ToBytes(), state.Signature.Signature, state.Signature.PublicKey)

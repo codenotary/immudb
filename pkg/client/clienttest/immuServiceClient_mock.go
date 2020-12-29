@@ -17,9 +17,9 @@ limitations under the License.
 // Package clienttest ...
 package clienttest
 
-/*
 import (
 	"context"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
@@ -33,212 +33,172 @@ type ImmuServiceClientMock struct {
 	GetUserF          func(ctx context.Context, in *schema.UserRequest, opts ...grpc.CallOption) error
 	CreateUserF       func(ctx context.Context, in *schema.CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	ChangePasswordF   func(ctx context.Context, in *schema.ChangePasswordRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	SetPermissionF    func(ctx context.Context, in *schema.Item, opts ...grpc.CallOption) (*empty.Empty, error)
 	DeactivateUserF   func(ctx context.Context, in *schema.UserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	UpdateAuthConfigF func(ctx context.Context, in *schema.AuthConfig, opts ...grpc.CallOption) (*empty.Empty, error)
 	UpdateMTLSConfigF func(ctx context.Context, in *schema.MTLSConfig, opts ...grpc.CallOption) (*empty.Empty, error)
 	PrintTreeF        func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Tree, error)
 	LoginF            func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error)
 	LogoutF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
-	SetF              func(ctx context.Context, in *schema.KeyValue, opts ...grpc.CallOption) (*schema.Index, error)
-	SafeSetF          func(ctx context.Context, in *schema.SafeSetOptions, opts ...grpc.CallOption) (*schema.Proof, error)
-	GetF              func(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.Item, error)
-	SafeGetF          func(ctx context.Context, in *schema.SafeGetOptions, opts ...grpc.CallOption) (*schema.SafeItem, error)
-	SetBatchF         func(ctx context.Context, in *schema.KVList, opts ...grpc.CallOption) (*schema.Index, error)
-	GetBatchF         func(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error)
-	ScanF             func(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error)
-	CountF            func(ctx context.Context, in *schema.KeyPrefix, opts ...grpc.CallOption) (*schema.ItemsCount, error)
-	CountAllF         func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ItemsCount, error)
-	CurrentRootF      func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error)
-	InclusionF        func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.InclusionProof, error)
-	ConsistencyF      func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.ConsistencyProof, error)
-	ByIndexF          func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.Item, error)
-	BySafeIndexF      func(ctx context.Context, in *schema.SafeIndexOptions, opts ...grpc.CallOption) (*schema.SafeItem, error)
-	HistoryF          func(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error)
-	HealthF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error)
-	ReferenceF        func(ctx context.Context, in *schema.ReferenceOptions, opts ...grpc.CallOption) (*schema.Index, error)
-	SafeReferenceF    func(ctx context.Context, in *schema.SafeReferenceOptions, opts ...grpc.CallOption) (*schema.Proof, error)
-	ZAddF             func(ctx context.Context, in *schema.ZAddOptions, opts ...grpc.CallOption) (*schema.Index, error)
-	ZScanF            func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error)
-	SafeZAddF         func(ctx context.Context, in *schema.SafeZAddOptions, opts ...grpc.CallOption) (*schema.Proof, error)
-	IScanF            func(ctx context.Context, in *schema.IScanOptions, opts ...grpc.CallOption) (*schema.Page, error)
-	DumpF             func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (schema.ImmuService_DumpClient, error)
-	CreateDatabaseF   func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error)
-	UseDatabaseF      func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error)
-	ChangePermissionF func(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	SetActiveUserF    func(ctx context.Context, in *schema.SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	DatabaseListF     func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error)
-	ExecAllOpsF       func(ctx context.Context, in *schema.Ops, opts ...grpc.CallOption) (*schema.Index, error)
+
+	SetF           func(ctx context.Context, in *schema.SetRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
+	VerifiableSetF func(ctx context.Context, in *schema.VerifiableSetRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
+	GetF           func(ctx context.Context, in *schema.KeyRequest, opts ...grpc.CallOption) (*schema.Entry, error)
+	VerifiableGetF func(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error)
+
+	GetAllF                 func(ctx context.Context, in *schema.KeyListRequest, opts ...grpc.CallOption) (*schema.Entries, error)
+	ExecAllF                func(ctx context.Context, in *schema.ExecAllRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
+	ScanF                   func(ctx context.Context, in *schema.ScanRequest, opts ...grpc.CallOption) (*schema.Entries, error)
+	CountF                  func(ctx context.Context, in *schema.KeyPrefix, opts ...grpc.CallOption) (*schema.EntryCount, error)
+	CountAllF               func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.EntryCount, error)
+	TxByIdF                 func(ctx context.Context, in *schema.TxRequest, opts ...grpc.CallOption) (*schema.Tx, error)
+	VerifiableTxByIdF       func(ctx context.Context, in *schema.VerifiableTxRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
+	HistoryF                func(ctx context.Context, in *schema.HistoryRequest, opts ...grpc.CallOption) (*schema.Entries, error)
+	HealthF                 func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error)
+	CurrentStateF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ImmutableState, error)
+	SetReferenceF           func(ctx context.Context, in *schema.ReferenceRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
+	VerifiableSetReferenceF func(ctx context.Context, in *schema.VerifiableReferenceRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
+	ZAddF                   func(ctx context.Context, in *schema.ZAddRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error)
+	VerifiableZAddF         func(ctx context.Context, in *schema.VerifiableZAddRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error)
+	ZScanF                  func(ctx context.Context, in *schema.ZScanRequest, opts ...grpc.CallOption) (*schema.ZEntries, error)
+	CreateDatabaseF         func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error)
+	UseDatabaseF            func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error)
+	ChangePermissionF       func(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	SetActiveUserF          func(ctx context.Context, in *schema.SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	DatabaseListF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error)
 }
 
-func (iscm *ImmuServiceClientMock) CurrentRoot(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
-	return iscm.CurrentRootF(ctx, in, opts...)
+func (icm *ImmuServiceClientMock) ListUsers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.UserList, error) {
+	return icm.ListUsersF(ctx, in, opts...)
 }
 
-func (iscm *ImmuServiceClientMock) Login(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
-	return iscm.LoginF(ctx, in, opts...)
+func (icm *ImmuServiceClientMock) GetUser(ctx context.Context, in *schema.UserRequest, opts ...grpc.CallOption) error {
+	return icm.GetUserF(ctx, in, opts...)
 }
 
-func (iscm *ImmuServiceClientMock) Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {
-	return iscm.HealthF(ctx, in, opts...)
-}
-
-func (iscm *ImmuServiceClientMock) DatabaseList(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
-	return iscm.DatabaseListF(ctx, in, opts...)
-}
-
-func (iscm *ImmuServiceClientMock) UseDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
-	return iscm.UseDatabaseF(ctx, in, opts...)
-}
-
-func (iscm *ImmuServiceClientMock) Logout(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
-	return iscm.LogoutF(ctx, in, opts...)
-}
-
-// SafeGet ...
-func (icm *ImmuServiceClientMock) SafeGet(ctx context.Context, in *schema.SafeGetOptions, opts ...grpc.CallOption) (*schema.SafeItem, error) {
-	return icm.SafeGetF(ctx, in, opts...)
-}
-
-// SafeSet ...
-func (icm *ImmuServiceClientMock) SafeSet(ctx context.Context, in *schema.SafeSetOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
-	return icm.SafeSetF(ctx, in, opts...)
-}
-
-// Set ...
-func (icm *ImmuServiceClientMock) Set(ctx context.Context, in *schema.KeyValue, opts ...grpc.CallOption) (*schema.Index, error) {
-	return icm.SetF(ctx, in, opts...)
-}
-
-// ZAdd ...
-func (icm *ImmuServiceClientMock) ZAdd(ctx context.Context, in *schema.ZAddOptions, opts ...grpc.CallOption) (*schema.Index, error) {
-	return icm.ZAddF(ctx, in, opts...)
-}
-
-// SafeZAdd ...
-func (icm *ImmuServiceClientMock) SafeZAdd(ctx context.Context, in *schema.SafeZAddOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
-	return icm.SafeZAddF(ctx, in, opts...)
-}
-
-// History ...
-func (icm *ImmuServiceClientMock) History(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
-	return icm.HistoryF(ctx, in, opts...)
-}
-
-// Get ...
-func (icm *ImmuServiceClientMock) Get(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.Item, error) {
-	return icm.GetF(ctx, in, opts...)
-}
-
-// ZScan ...
-func (icm *ImmuServiceClientMock) ZScan(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error) {
-	return icm.ZScanF(ctx, in, opts...)
-}
-
-// Scan ...
-func (icm *ImmuServiceClientMock) Scan(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
-	return icm.ScanF(ctx, in, opts...)
-}
-
-// CreateDatabase ...
-func (icm *ImmuServiceClientMock) CreateDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error) {
-	return icm.CreateDatabaseF(ctx, in, opts...)
-}
-
-// CreateUser ...
 func (icm *ImmuServiceClientMock) CreateUser(ctx context.Context, in *schema.CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return icm.CreateUserF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) SetBatch(ctx context.Context, in *schema.KVList, opts ...grpc.CallOption) (*schema.Index, error) {
-	return icm.SetBatchF(ctx, in, opts...)
+func (icm *ImmuServiceClientMock) ChangePassword(ctx context.Context, in *schema.ChangePasswordRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.ChangePasswordF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) GetBatch(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error) {
-	return icm.GetBatchF(ctx, in, opts...)
+func (icm *ImmuServiceClientMock) DeactivateUser(ctx context.Context, in *schema.UserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.DeactivateUserF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) ExecAllOps(ctx context.Context, in *schema.Ops, opts ...grpc.CallOption) (*schema.Index, error) {
-	return icm.ExecAllOpsF(ctx, in, opts...)
+func (icm *ImmuServiceClientMock) UpdateAuthConfig(ctx context.Context, in *schema.AuthConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.UpdateAuthConfigF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) Inclusion(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.InclusionProof, error) {
-	return icm.InclusionF(ctx, in, opts...)
+func (icm *ImmuServiceClientMock) UpdateMTLSConfig(ctx context.Context, in *schema.MTLSConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.UpdateMTLSConfigF(ctx, in, opts...)
 }
 
-func (icm *ImmuServiceClientMock) Consistency(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.ConsistencyProof, error) {
-	return icm.ConsistencyF(ctx, in, opts...)
-}
-func (icm *ImmuServiceClientMock) ByIndex(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.Item, error) {
-	return icm.ByIndexF(ctx, in, opts...)
+func (icm *ImmuServiceClientMock) PrintTree(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Tree, error) {
+	return icm.PrintTreeF(ctx, in, opts...)
 }
 
-func NewImmuServiceClientMock() *ImmuServiceClientMock {
-	bs := &ImmuServiceClientMock{
-		HealthF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {
-			return &schema.HealthResponse{}, nil
-		},
-		LoginF: func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
-			return &schema.LoginResponse{}, nil
-		},
-		SafeGetF: func(ctx context.Context, in *schema.SafeGetOptions, opts ...grpc.CallOption) (*schema.SafeItem, error) {
-			return &schema.SafeItem{}, nil
-		},
-		SafeSetF: func(ctx context.Context, in *schema.SafeSetOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
-			return &schema.Proof{}, nil
-		},
-		SetF: func(ctx context.Context, in *schema.KeyValue, opts ...grpc.CallOption) (*schema.Index, error) {
-			return &schema.Index{}, nil
-		},
-		UseDatabaseF: func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
-			return &schema.UseDatabaseReply{}, nil
-		},
-		CreateDatabaseF: func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error) {
-			return &empty.Empty{}, nil
-		},
-		CurrentRootF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
-			return &schema.Root{}, nil
-		},
-		GetF: func(ctx context.Context, in *schema.Key, opts ...grpc.CallOption) (*schema.Item, error) {
-			return &schema.Item{}, nil
-		},
-		ScanF: func(ctx context.Context, in *schema.ScanOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
-			return &schema.ItemList{}, nil
-		},
-		HistoryF: func(ctx context.Context, in *schema.HistoryOptions, opts ...grpc.CallOption) (*schema.ItemList, error) {
-			return &schema.ItemList{}, nil
-		},
-		ZAddF: func(ctx context.Context, in *schema.ZAddOptions, opts ...grpc.CallOption) (*schema.Index, error) {
-			return &schema.Index{}, nil
-		},
-		SafeZAddF: func(ctx context.Context, in *schema.SafeZAddOptions, opts ...grpc.CallOption) (*schema.Proof, error) {
-			return &schema.Proof{}, nil
-		},
-		ZScanF: func(ctx context.Context, in *schema.ZScanOptions, opts ...grpc.CallOption) (*schema.ZItemList, error) {
-			return &schema.ZItemList{}, nil
-		},
-		CreateUserF: func(ctx context.Context, in *schema.CreateUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
-			return &empty.Empty{}, nil
-		},
-		SetBatchF: func(ctx context.Context, in *schema.KVList, opts ...grpc.CallOption) (*schema.Index, error) {
-			return &schema.Index{}, nil
-		},
-		GetBatchF: func(ctx context.Context, in *schema.KeyList, opts ...grpc.CallOption) (*schema.ItemList, error) {
-			return &schema.ItemList{}, nil
-		},
-		ExecAllOpsF: func(ctx context.Context, in *schema.Ops, opts ...grpc.CallOption) (*schema.Index, error) {
-			return &schema.Index{}, nil
-		},
-		InclusionF: func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.InclusionProof, error) {
-			return &schema.InclusionProof{}, nil
-		},
-		ConsistencyF: func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.ConsistencyProof, error) {
-			return &schema.ConsistencyProof{}, nil
-		},
-		ByIndexF: func(ctx context.Context, in *schema.Index, opts ...grpc.CallOption) (*schema.Item, error) {
-			return &schema.Item{}, nil
-		},
-	}
-	return bs
+func (icm *ImmuServiceClientMock) Login(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
+	return icm.LoginF(ctx, in, opts...)
 }
-*/
+
+func (icm *ImmuServiceClientMock) Logout(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.LogoutF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) Set(ctx context.Context, in *schema.SetRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error) {
+	return icm.SetF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) VerifiableSet(ctx context.Context, in *schema.VerifiableSetRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error) {
+	return icm.VerifiableSetF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) Get(ctx context.Context, in *schema.KeyRequest, opts ...grpc.CallOption) (*schema.Entry, error) {
+	return icm.GetF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) VerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest, opts ...grpc.CallOption) (*schema.VerifiableEntry, error) {
+	return icm.VerifiableGetF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) GetAll(ctx context.Context, in *schema.KeyListRequest, opts ...grpc.CallOption) (*schema.Entries, error) {
+	return icm.GetAllF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) ExecAll(ctx context.Context, in *schema.ExecAllRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error) {
+	return icm.ExecAllF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) Scan(ctx context.Context, in *schema.ScanRequest, opts ...grpc.CallOption) (*schema.Entries, error) {
+	return icm.ScanF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) Count(ctx context.Context, in *schema.KeyPrefix, opts ...grpc.CallOption) (*schema.EntryCount, error) {
+	return icm.CountF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) CountAll(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.EntryCount, error) {
+	return icm.CountAllF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) TxById(ctx context.Context, in *schema.TxRequest, opts ...grpc.CallOption) (*schema.Tx, error) {
+	return icm.TxByIdF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) VerifiableTxById(ctx context.Context, in *schema.VerifiableTxRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error) {
+	return icm.VerifiableTxByIdF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) History(ctx context.Context, in *schema.HistoryRequest, opts ...grpc.CallOption) (*schema.Entries, error) {
+	return icm.HistoryF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.HealthResponse, error) {
+	return icm.HealthF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) CurrentState(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ImmutableState, error) {
+	return icm.CurrentStateF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) SetReference(ctx context.Context, in *schema.ReferenceRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error) {
+	return icm.SetReferenceF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) VerifiableSetReference(ctx context.Context, in *schema.VerifiableReferenceRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error) {
+	return icm.VerifiableSetReferenceF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) ZAdd(ctx context.Context, in *schema.ZAddRequest, opts ...grpc.CallOption) (*schema.TxMetadata, error) {
+	return icm.ZAddF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) VerifiableZAdd(ctx context.Context, in *schema.VerifiableZAddRequest, opts ...grpc.CallOption) (*schema.VerifiableTx, error) {
+	return icm.VerifiableZAddF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) ZScan(ctx context.Context, in *schema.ZScanRequest, opts ...grpc.CallOption) (*schema.ZEntries, error) {
+	return icm.ZScanF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) CreateDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.CreateDatabaseF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) UseDatabase(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
+	return icm.UseDatabaseF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) ChangePermission(ctx context.Context, in *schema.ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.ChangePermissionF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) SetActiveUser(ctx context.Context, in *schema.SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return icm.SetActiveUserF(ctx, in, opts...)
+}
+
+func (icm *ImmuServiceClientMock) DatabaseList(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
+	return icm.DatabaseListF(ctx, in, opts...)
+}

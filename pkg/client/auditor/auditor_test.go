@@ -16,7 +16,6 @@ limitations under the License.
 
 package auditor
 
-/*
 import (
 	"context"
 	"errors"
@@ -29,18 +28,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/pkg/client/rootservice"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/clienttest"
+	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -67,10 +64,10 @@ func TestDefaultAuditor(t *testing.T) {
 		nil,
 		nil,
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout))
-	assert.Nil(t, err)
-	assert.IsType(t, &defaultAuditor{}, da)
+	require.Nil(t, err)
+	require.IsType(t, &defaultAuditor{}, da)
 }
 
 type writerMock struct {
@@ -96,14 +93,15 @@ func TestDefaultAuditorPasswordDecodeErr(t *testing.T) {
 		nil,
 		nil,
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "illegal base64 data at input byte 0")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "illegal base64 data at input byte 0")
 }
 
 func TestDefaultAuditorLoginErr(t *testing.T) {
 	defer os.RemoveAll(dirname)
+
 	serviceClient := clienttest.ImmuServiceClientMock{
 		LoginF: func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
 			return nil, errors.New("some login error")
@@ -112,6 +110,7 @@ func TestDefaultAuditorLoginErr(t *testing.T) {
 			return new(empty.Empty), nil
 		},
 	}
+
 	wm := writerMock{}
 	auditor, err := DefaultAuditor(
 		time.Duration(0),
@@ -125,15 +124,15 @@ func TestDefaultAuditorLoginErr(t *testing.T) {
 		"ignore",
 		AuditNotificationConfig{},
 		&serviceClient,
-		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(wm.written), 1)
-	assert.Contains(t, wm.written[len(wm.written)-1], "some login error")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(wm.written), 1)
+	require.Contains(t, wm.written[len(wm.written)-1], "some login error")
 }
 
 func TestDefaultAuditorDatabaseListErr(t *testing.T) {
@@ -162,15 +161,15 @@ func TestDefaultAuditorDatabaseListErr(t *testing.T) {
 		"ignore",
 		AuditNotificationConfig{},
 		&serviceClient,
-		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(wm.written), 1)
-	assert.Contains(t, wm.written[len(wm.written)-1], "some database list error")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(wm.written), 1)
+	require.Contains(t, wm.written[len(wm.written)-1], "some database list error")
 }
 
 func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
@@ -201,15 +200,15 @@ func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
 		"ignore",
 		AuditNotificationConfig{},
 		&serviceClient,
-		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(wm.written), 1)
-	assert.Contains(t, wm.written[len(wm.written)-1], "no databases to audit found")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(wm.written), 1)
+	require.Contains(t, wm.written[len(wm.written)-1], "no databases to audit found")
 }
 
 func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
@@ -243,15 +242,15 @@ func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
 		"ignore",
 		AuditNotificationConfig{},
 		&serviceClient,
-		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(wm.written), 1)
-	assert.Contains(t, wm.written[len(wm.written)-1], "some use database error")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(wm.written), 1)
+	require.Contains(t, wm.written[len(wm.written)-1], "some use database error")
 }
 
 func TestDefaultAuditorCurrentRootErr(t *testing.T) {
@@ -271,8 +270,8 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 		UseDatabaseF: func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
 			return &schema.UseDatabaseReply{Token: ""}, nil
 		},
-		CurrentRootF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
-			return nil, errors.New("some current root error")
+		CurrentStateF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ImmutableState, error) {
+			return nil, errors.New("some current state error")
 		},
 	}
 	wm := writerMock{}
@@ -288,22 +287,23 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 		"ignore",
 		AuditNotificationConfig{},
 		&serviceClient,
-		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", &wm))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = auditor.(*defaultAuditor).audit()
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(wm.written), 1)
-	assert.Contains(t, wm.written[len(wm.written)-1], "some current root error")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(wm.written), 1)
+	require.Contains(t, wm.written[len(wm.written)-1], "some current state error")
 }
 
 func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 	defer os.RemoveAll(dirname)
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
+
+	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dirname).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
 
 	ds := []grpc.DialOption{
 		grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure(),
@@ -324,21 +324,22 @@ defer bs.Stop()
 		"ignore",
 		AuditNotificationConfig{},
 		serviceClient,
-		rootservice.NewImmudbUUIDProvider(serviceClient),
+		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout))
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 }
 
 func TestDefaultAuditorRunOnDb(t *testing.T) {
 	defer os.RemoveAll(dirname)
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
+
+	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dirname).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
 
 	ctx := context.Background()
 	pr := &PasswordReader{
@@ -383,24 +384,25 @@ defer bs.Stop()
 		"ignore",
 		AuditNotificationConfig{},
 		serviceClient,
-		rootservice.NewImmudbUUIDProvider(serviceClient),
+		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout))
 	require.NoError(t, err)
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 }
 
 func TestRepeatedAuditorRunOnDb(t *testing.T) {
 	defer os.RemoveAll(dirname)
-	bs := servertest.NewBufconnServer(server.Options{}.WithAuth(true).WithInMemoryStore(true).WithAdminPassword(auth.SysAdminPassword))
+
+	bs := servertest.NewBufconnServer(server.DefaultOptions().WithDir(dirname).WithAuth(true).WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
 
 	ctx := context.Background()
 	pr := &PasswordReader{
@@ -458,9 +460,9 @@ defer bs.Stop()
 		"ignore",
 		alertConfig,
 		serviceClient,
-		rootservice.NewImmudbUUIDProvider(serviceClient),
+		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout))
 	require.NoError(t, err)
 
@@ -477,15 +479,16 @@ defer bs.Stop()
 
 func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 	defer os.RemoveAll(dirname)
+
 	pKeyPath := "./../../../test/signer/ec3.key"
 	bs := servertest.NewBufconnServer(
-		server.Options{}.
+		server.DefaultOptions().
+			WithDir(dirname).
 			WithAuth(true).
-			WithInMemoryStore(true).
 			WithSigningKey(pKeyPath).
 			WithAdminPassword(auth.SysAdminPassword))
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
 
 	ctx := context.Background()
 	pr := &PasswordReader{
@@ -530,24 +533,26 @@ defer bs.Stop()
 		"validate",
 		AuditNotificationConfig{},
 		serviceClient,
-		rootservice.NewImmudbUUIDProvider(serviceClient),
+		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout))
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 }
 
 func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 	defer os.RemoveAll(dirname)
-	serviceClient := clienttest.NewImmuServiceClientMock()
-	serviceClient.CurrentRootF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Root, error) {
-		return schema.NewRoot(), nil
+
+	serviceClient := &clienttest.ImmuServiceClientMock{}
+
+	serviceClient.CurrentStateF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.ImmutableState, error) {
+		return &schema.ImmutableState{}, nil
 	}
 	serviceClient.LoginF = func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
 		return &schema.LoginResponse{
@@ -580,17 +585,17 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		"validate",
 		AuditNotificationConfig{},
 		serviceClient,
-		rootservice.NewImmudbUUIDProvider(serviceClient),
+		state.NewUUIDProvider(serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout))
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	auditorDone := make(chan struct{}, 2)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 }
 
 func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
@@ -607,11 +612,11 @@ func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
 		"wrong",
 		AuditNotificationConfig{},
 		&serviceClient,
-		rootservice.NewImmudbUUIDProvider(&serviceClient),
+		state.NewUUIDProvider(&serviceClient),
 		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.Root, *schema.Root) {},
+		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
 		logger.NewSimpleLogger("test", os.Stdout))
-	assert.Errorf(t, err, "auditSignature allowed values are 'validate' or 'ignore'")
+	require.Errorf(t, err, "auditSignature allowed values are 'validate' or 'ignore'")
 }
 
 type PasswordReader struct {
@@ -651,8 +656,8 @@ func TestPublishAuditNotification(t *testing.T) {
 		"some-db",
 		runAt,
 		true,
-		&Root{Index: 1, Hash: "root-hash-1"},
-		&Root{Index: 2, Hash: "root-hash-2"},
+		&State{Tx: 1, Hash: "hash-1"},
+		&State{Tx: 2, Hash: "hash-2"},
 	)
 	require.NoError(t, err)
 
@@ -668,13 +673,13 @@ func TestPublishAuditNotification(t *testing.T) {
 		"some-db2",
 		runAt,
 		false,
-		&Root{
-			Index:     11,
-			Hash:      "root-hash-11",
+		&State{
+			Tx:        11,
+			Hash:      "hash-11",
 			Signature: Signature{Signature: "sig11", PublicKey: "pk11"}},
-		&Root{
-			Index:     22,
-			Hash:      "root-hash-22",
+		&State{
+			Tx:        22,
+			Hash:      "hash-22",
 			Signature: Signature{Signature: "sig22", PublicKey: "pk22"}},
 	)
 	require.Error(t, err)
@@ -683,9 +688,9 @@ func TestPublishAuditNotification(t *testing.T) {
 		"POST http://some-non-existent-url.com request with body "+
 			`{"username":"some-username","password":"some-password",`+
 			`"db":"some-db2","run_at":"2020-11-13T00:53:42+01:00",`+
-			`"tampered":false,"previous_root":{"index":11,"hash":"root-hash-11",`+
+			`"tampered":false,"previous_state":{"tx":11,"hash":"hash-11",`+
 			`"signature":{"signature":"sig11","public_key":"pk11"}},`+
-			`"current_root":{"index":22,"hash":"root-hash-22",`+
+			`"current_state":{"tx":22,"hash":"hash-22",`+
 			`"signature":{"signature":"sig22","public_key":"pk22"}}}: got unexpected `+
 			"response status Internal Server Error with response body Some error",
 		err.Error())
@@ -697,10 +702,9 @@ func TestPublishAuditNotification(t *testing.T) {
 		"some-db4",
 		runAt,
 		true,
-		&Root{Index: 1111, Hash: "root-hash-1111"},
-		&Root{Index: 2222, Hash: "root-hash-2222"},
+		&State{Tx: 1111, Hash: "hash-1111"},
+		&State{Tx: 2222, Hash: "hash-2222"},
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid control character in URL")
 }
-*/
