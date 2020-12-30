@@ -100,10 +100,10 @@ func TestImmuClientMock(t *testing.T) {
 	_, err = icm.Set(nil, nil, nil)
 
 	require.Equal(t, errSet, err)
-	_, err = icm.VerifiedSetReference(nil, nil, nil, 0)
+	_, err = icm.VerifiedSetReference(nil, nil, nil)
 
 	require.Equal(t, errVerifiedReference, err)
-	_, err = icm.VerifiedZAdd(nil, nil, 0., nil, 0)
+	_, err = icm.VerifiedZAdd(nil, nil, 0., nil)
 
 	require.Equal(t, errVerifiedZAdd, err)
 	_, err = icm.History(nil, nil)
