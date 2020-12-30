@@ -12,14 +12,14 @@
     "application/json"
   ],
   "paths": {
-    "/v1/immurestproxy/batch/atomic/set": {
-      "post": {
-        "operationId": "ImmuService_ExecAll",
+    "/v1/immurestproxy/db/count/{prefix}": {
+      "get": {
+        "operationId": "ImmuService_Count",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaTxMetadata"
+              "$ref": "#/definitions/schemaEntryCount"
             }
           },
           "default": {
@@ -31,12 +31,11 @@
         },
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
+            "name": "prefix",
+            "in": "path",
             "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaExecAllRequest"
-            }
+            "type": "string",
+            "format": "byte"
           }
         ],
         "tags": [
@@ -44,14 +43,14 @@
         ]
       }
     },
-    "/v1/immurestproxy/batch/get": {
-      "post": {
-        "operationId": "ImmuService_GetAll",
+    "/v1/immurestproxy/db/countall": {
+      "get": {
+        "operationId": "ImmuService_CountAll",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaEntries"
+              "$ref": "#/definitions/schemaEntryCount"
             }
           },
           "default": {
@@ -61,54 +60,12 @@
             }
           }
         },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaKeyListRequest"
-            }
-          }
-        ],
         "tags": [
           "ImmuService"
         ]
       }
     },
-    "/v1/immurestproxy/changepermission": {
-      "post": {
-        "operationId": "ImmuService_ChangePermission",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaChangePermissionRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/createdatabase": {
+    "/v1/immurestproxy/db/create": {
       "post": {
         "operationId": "ImmuService_CreateDatabase",
         "responses": {
@@ -140,14 +97,14 @@
         ]
       }
     },
-    "/v1/immurestproxy/healthresponse": {
-      "get": {
-        "operationId": "ImmuService_CurrentState",
+    "/v1/immurestproxy/db/execall": {
+      "post": {
+        "operationId": "ImmuService_ExecAll",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaImmutableState"
+              "$ref": "#/definitions/schemaTxMetadata"
             }
           },
           "default": {
@@ -157,13 +114,92 @@
             }
           }
         },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaExecAllRequest"
+            }
+          }
+        ],
         "tags": [
           "ImmuService"
-        ],
-        "security": []
+        ]
       }
     },
-    "/v1/immurestproxy/history": {
+    "/v1/immurestproxy/db/get/{key}": {
+      "get": {
+        "operationId": "ImmuService_Get",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaEntry"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "sinceTx",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/getall": {
+      "post": {
+        "operationId": "ImmuService_GetAll",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaEntries"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaKeyListRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/history": {
       "post": {
         "operationId": "ImmuService_History",
         "responses": {
@@ -195,14 +231,14 @@
         ]
       }
     },
-    "/v1/immurestproxy/item/count/{prefix}": {
-      "get": {
-        "operationId": "ImmuService_Count",
+    "/v1/immurestproxy/db/list": {
+      "post": {
+        "operationId": "ImmuService_DatabaseList",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaEntryCount"
+              "$ref": "#/definitions/schemaDatabaseListResponse"
             }
           },
           "default": {
@@ -214,11 +250,12 @@
         },
         "parameters": [
           {
-            "name": "prefix",
-            "in": "path",
+            "name": "body",
+            "in": "body",
             "required": true,
-            "type": "string",
-            "format": "byte"
+            "schema": {
+              "properties": {}
+            }
           }
         ],
         "tags": [
@@ -226,14 +263,110 @@
         ]
       }
     },
-    "/v1/immurestproxy/item/countall": {
-      "get": {
-        "operationId": "ImmuService_CountAll",
+    "/v1/immurestproxy/db/scan": {
+      "post": {
+        "operationId": "ImmuService_Scan",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaEntryCount"
+              "$ref": "#/definitions/schemaEntries"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaScanRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/set": {
+      "post": {
+        "operationId": "ImmuService_Set",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaTxMetadata"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaSetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/setreference": {
+      "post": {
+        "operationId": "ImmuService_SetReference",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaTxMetadata"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaReferenceRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/state": {
+      "get": {
+        "operationId": "ImmuService_CurrentState",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaImmutableState"
             }
           },
           "default": {
@@ -245,10 +378,11 @@
         },
         "tags": [
           "ImmuService"
-        ]
+        ],
+        "security": []
       }
     },
-    "/v1/immurestproxy/item/index/{tx}": {
+    "/v1/immurestproxy/db/tx/{tx}": {
       "get": {
         "operationId": "ImmuService_TxById",
         "responses": {
@@ -279,7 +413,133 @@
         ]
       }
     },
-    "/v1/immurestproxy/item/safe/index/{tx}": {
+    "/v1/immurestproxy/db/use/{databasename}": {
+      "get": {
+        "operationId": "ImmuService_UseDatabase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaUseDatabaseReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "databasename",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/verifiable/get": {
+      "post": {
+        "operationId": "ImmuService_VerifiableGet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableEntry"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableGetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/verifiable/set": {
+      "post": {
+        "operationId": "ImmuService_VerifiableSet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableTx"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableSetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/verifiable/setreference": {
+      "post": {
+        "operationId": "ImmuService_VerifiableSetReference",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableTx"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableReferenceRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/db/verifiable/tx/{tx}": {
       "get": {
         "operationId": "ImmuService_VerifiableTxById",
         "responses": {
@@ -317,14 +577,14 @@
         ]
       }
     },
-    "/v1/immurestproxy/item/scan": {
+    "/v1/immurestproxy/db/verifiable/zadd": {
       "post": {
-        "operationId": "ImmuService_Scan",
+        "operationId": "ImmuService_VerifiableZAdd",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaEntries"
+              "$ref": "#/definitions/schemaVerifiableTx"
             }
           },
           "default": {
@@ -340,7 +600,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaScanRequest"
+              "$ref": "#/definitions/schemaVerifiableZAddRequest"
             }
           }
         ],
@@ -349,14 +609,14 @@
         ]
       }
     },
-    "/v1/immurestproxy/item/verifiable/get": {
+    "/v1/immurestproxy/db/zadd": {
       "post": {
-        "operationId": "ImmuService_VerifiableGet",
+        "operationId": "ImmuService_ZAdd",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaVerifiableEntry"
+              "$ref": "#/definitions/schemaTxMetadata"
             }
           },
           "default": {
@@ -372,7 +632,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/schemaVerifiableGetRequest"
+              "$ref": "#/definitions/schemaZAddRequest"
             }
           }
         ],
@@ -381,14 +641,46 @@
         ]
       }
     },
-    "/v1/immurestproxy/item/{key}": {
+    "/v1/immurestproxy/db/zscan": {
+      "post": {
+        "operationId": "ImmuService_ZScan",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaZEntries"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaZScanRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/v1/immurestproxy/health": {
       "get": {
-        "operationId": "ImmuService_Get",
+        "operationId": "ImmuService_Health",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaEntry"
+              "$ref": "#/definitions/schemaHealthResponse"
             }
           },
           "default": {
@@ -398,25 +690,10 @@
             }
           }
         },
-        "parameters": [
-          {
-            "name": "key",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "byte"
-          },
-          {
-            "name": "sinceTx",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "uint64"
-          }
-        ],
         "tags": [
           "ImmuService"
-        ]
+        ],
+        "security": []
       }
     },
     "/v1/immurestproxy/login": {
@@ -484,164 +761,6 @@
         ]
       }
     },
-    "/v1/immurestproxy/reference": {
-      "post": {
-        "operationId": "ImmuService_SetReference",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaTxMetadata"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaReferenceRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/safe/reference": {
-      "post": {
-        "operationId": "ImmuService_VerifiableSetReference",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaVerifiableTx"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaVerifiableReferenceRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/safe/zadd": {
-      "post": {
-        "operationId": "ImmuService_VerifiableZAdd",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaVerifiableTx"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaVerifiableZAddRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/set": {
-      "post": {
-        "operationId": "ImmuService_Set",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaTxMetadata"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaSetRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/usedatabase/{databasename}": {
-      "get": {
-        "operationId": "ImmuService_UseDatabase",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaUseDatabaseReply"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "databasename",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
     "/v1/immurestproxy/user": {
       "post": {
         "operationId": "ImmuService_CreateUser",
@@ -674,14 +793,14 @@
         ]
       }
     },
-    "/v1/immurestproxy/user/databaselist": {
+    "/v1/immurestproxy/user/changepermission": {
       "post": {
-        "operationId": "ImmuService_DatabaseList",
+        "operationId": "ImmuService_ChangePermission",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schemaDatabaseListResponse"
+              "properties": {}
             }
           },
           "default": {
@@ -697,7 +816,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "properties": {}
+              "$ref": "#/definitions/schemaChangePermissionRequest"
             }
           }
         ],
@@ -784,102 +903,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/schemaSetActiveUserRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/verifiable/set": {
-      "post": {
-        "operationId": "ImmuService_VerifiableSet",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaVerifiableTx"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaVerifiableSetRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/zadd": {
-      "post": {
-        "operationId": "ImmuService_ZAdd",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaTxMetadata"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaZAddRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ImmuService"
-        ]
-      }
-    },
-    "/v1/immurestproxy/zscan": {
-      "post": {
-        "operationId": "ImmuService_ZScan",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/schemaZEntries"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/runtimeError"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/schemaZScanRequest"
             }
           }
         ],

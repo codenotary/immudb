@@ -421,86 +421,86 @@ service ImmuService {
 
 	rpc Set (SetRequest) returns (TxMetadata){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/set"
+			post: "/v1/immurestproxy/db/set"
 			body: "*"
 		};
 	};
 
 	rpc VerifiableSet (VerifiableSetRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/verifiable/set"
+			post: "/v1/immurestproxy/db/verifiable/set"
 			body: "*"
 		};
 	};
 
 	rpc Get (KeyRequest) returns (Entry){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/item/{key}"
+			get: "/v1/immurestproxy/db/get/{key}"
 		};
 	};
 
 	rpc VerifiableGet (VerifiableGetRequest) returns (VerifiableEntry){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/item/verifiable/get"
+			post: "/v1/immurestproxy/db/verifiable/get"
 			body: "*"
 		};
 	};
 
 	rpc GetAll (KeyListRequest) returns (Entries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/batch/get"
+			post: "/v1/immurestproxy/db/getall"
 			body: "*"
 		};
 	};
 
 	rpc ExecAll (ExecAllRequest) returns (TxMetadata) {
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/batch/atomic/set"
+			post: "/v1/immurestproxy/db/execall"
 			body: "*"
 		};
 	};
 
 	rpc Scan(ScanRequest) returns (Entries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/item/scan"
+			post: "/v1/immurestproxy/db/scan"
 			body: "*"
 		};
 	};
 
 	rpc Count(KeyPrefix) returns (EntryCount){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/item/count/{prefix}"
+			get: "/v1/immurestproxy/db/count/{prefix}"
 		};
 	};
 
 	rpc CountAll(google.protobuf.Empty) returns (EntryCount){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/item/countall"
+			get: "/v1/immurestproxy/db/countall"
 		};
 	};
 
 	rpc TxById(TxRequest) returns (Tx){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/item/index/{tx}"
+			get: "/v1/immurestproxy/db/tx/{tx}"
 		};
 	};
 
 	rpc VerifiableTxById(VerifiableTxRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/item/safe/index/{tx}"
+			get: "/v1/immurestproxy/db/verifiable/tx/{tx}"
 		};
 	};
 
 	rpc History(HistoryRequest) returns (Entries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/history"
+			post: "/v1/immurestproxy/db/history"
 			body: "*"
 		};
 	};
 
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/healthresponse"
+			get: "/v1/immurestproxy/health"
 		};
 		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
 			security: {} // no security
@@ -509,7 +509,7 @@ service ImmuService {
 
 	rpc CurrentState (google.protobuf.Empty) returns (ImmutableState){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/healthresponse"
+			get: "/v1/immurestproxy/db/state"
 		};
 		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
 			security: {} // no security
@@ -518,55 +518,62 @@ service ImmuService {
 
 	rpc SetReference (ReferenceRequest) returns (TxMetadata){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/reference"
+			post: "/v1/immurestproxy/db/setreference"
 			body: "*"
 		};
 	};
 
 	rpc VerifiableSetReference (VerifiableReferenceRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/safe/reference"
+			post: "/v1/immurestproxy/db/verifiable/setreference"
 			body: "*"
 		};
 	};
 
 	rpc ZAdd (ZAddRequest) returns (TxMetadata){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/zadd"
+			post: "/v1/immurestproxy/db/zadd"
 			body: "*"
 		};
 	};
 
 	rpc VerifiableZAdd (VerifiableZAddRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/safe/zadd"
+			post: "/v1/immurestproxy/db/verifiable/zadd"
 			body: "*"
 		};
 	};
 
 	rpc ZScan (ZScanRequest) returns (ZEntries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/zscan"
+			post: "/v1/immurestproxy/db/zscan"
 			body: "*"
 		};
 	};
 
 	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/createdatabase"
+			post: "/v1/immurestproxy/db/create"
 			body: "*"
 		};
 	}
 
+	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
+		option (google.api.http) = {
+			post: "/v1/immurestproxy/db/list"
+			body: "*"
+		};
+	};
+
 	rpc UseDatabase(Database) returns (UseDatabaseReply) {
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/usedatabase/{databasename}"
+			get: "/v1/immurestproxy/db/use/{databasename}"
 		};
 	}
 
 	rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/changepermission"
+			post: "/v1/immurestproxy/user/changepermission"
 			body: "*"
 		};
 	}
@@ -574,13 +581,6 @@ service ImmuService {
 	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user/setactiveUser"
-			body: "*"
-		};
-	};
-
-	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
-		option (google.api.http) = {
-			post: "/v1/immurestproxy/user/databaselist"
 			body: "*"
 		};
 	};
