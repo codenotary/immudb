@@ -121,23 +121,43 @@ func (icm *ImmuClientMock) Set(ctx context.Context, key []byte, value []byte) (*
 }
 
 // SetReference ...
-func (icm *ImmuClientMock) SetReference(ctx context.Context, reference []byte, key []byte, tx uint64) (*schema.TxMetadata, error) {
-	return icm.SetReferenceF(ctx, reference, key, tx)
+func (icm *ImmuClientMock) SetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error) {
+	return icm.SetReferenceF(ctx, key, referencedKey, 0)
 }
 
 // VerifiedSetReference ...
-func (icm *ImmuClientMock) VerifiedSetReference(ctx context.Context, reference []byte, key []byte, tx uint64) (*schema.TxMetadata, error) {
-	return icm.VerifiedSetReferenceF(ctx, reference, key, tx)
+func (icm *ImmuClientMock) VerifiedSetReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error) {
+	return icm.VerifiedSetReferenceF(ctx, key, referencedKey, 0)
+}
+
+// SetReferenceAt ...
+func (icm *ImmuClientMock) SetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxMetadata, error) {
+	return icm.SetReferenceF(ctx, key, referencedKey, atTx)
+}
+
+// VerifiedSetReferenceAt ...
+func (icm *ImmuClientMock) VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxMetadata, error) {
+	return icm.VerifiedSetReferenceF(ctx, key, referencedKey, atTx)
 }
 
 // ZAdd ...
-func (icm *ImmuClientMock) ZAdd(ctx context.Context, set []byte, score float64, key []byte, tx uint64) (*schema.TxMetadata, error) {
-	return icm.ZAddF(ctx, set, score, key, tx)
+func (icm *ImmuClientMock) ZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error) {
+	return icm.ZAddF(ctx, set, score, key, 0)
 }
 
 // SafeZAdd ...
-func (icm *ImmuClientMock) VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte, tx uint64) (*schema.TxMetadata, error) {
-	return icm.VerifiedZAddF(ctx, set, score, key, tx)
+func (icm *ImmuClientMock) VerifiedZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error) {
+	return icm.VerifiedZAddF(ctx, set, score, key, 0)
+}
+
+// ZAddAt ...
+func (icm *ImmuClientMock) ZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxMetadata, error) {
+	return icm.ZAddF(ctx, set, score, key, atTx)
+}
+
+// VerifiedZAddAt ...
+func (icm *ImmuClientMock) VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxMetadata, error) {
+	return icm.VerifiedZAddF(ctx, set, score, key, atTx)
 }
 
 // History ...
