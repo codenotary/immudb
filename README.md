@@ -36,7 +36,7 @@ tamperproof immudb database. This allows you to keep an indelible history of sen
 Traditional DB transactions and logs are hard to scale and are mutable. So there is no way to know for sure if your data has been compromised.
 
 As such, immudb provides **unparalleled insights** **retroactively** of changes to your sensitive data, even
-if your perimeter has been compromised. immudb guarantees immutability by using a **Merkle tree structure** internally.
+if your perimeter has been compromised. immudb guarantees immutability by using **cryptographic data structures** internally.
 
 immudb gives you the same **cryptographic verification** of the integrity of data written with **SHA-256** like a classic blockchain without the cost and complexity associated with blockchains today.
 
@@ -480,6 +480,19 @@ docker build -t myown/immuclient:latest -f Dockerfile.immuclient .
 ```
 
 ## News
+
+`December 29th, 2020` - **[immudb v0.9.0-RC2 released!](https://github.com/codenotary/immudb/releases/tag/v0.9.0-RC2)**
+
+Release v0.9.0-RC2 is 7 times faster data writes than the former version 0.8.0 and instant cryptographic proof!
+
+`December 22th, 2020` - **[immudb v0.9.0-RC1 released!](https://github.com/codenotary/immudb/releases/tag/v0.9.0-RC1)**
+
+Release v0.9.0-RC1 integrates our new embeddable cryptographic-proof storage engine!
+
+`September 15th, 2020` - **[immudb v0.8.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.8.0)**
+
+Release v0.8.0 Multi-key insertion, crypto signature, immugw moved to a [separate repository](https://github.com/codenotary/immugw), bug fixes & enhancements
+
 `August 21th, 2020` - **Updated and New SDKs!**
 
 SDKs for Java, Golang, .net, Python and Node are fully compatible with latest immudb release v0.8.0:
@@ -490,6 +503,40 @@ SDKs for Java, Golang, .net, Python and Node are fully compatible with latest im
 4. Python [immudb-py](https://github.com/codenotary/immudb-py)
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
 
+`August 20th, 2020` - **[immudb4j v0.1.7 in GitHub Packages!](https://github.com/codenotary/immudb4j)**
+
+immudb4j v0.1.7 Token-based authentication, multi-database and transactional support. Compatible with latest immudb release v0.7.1
+
+`August 17th, 2020` - **[immudb v0.7.1 released!](https://github.com/codenotary/immudb/releases/tag/v0.7.1)**
+
+Release v0.7.1 Bug Fixes & Enhancements
+
+`August 10th, 2020` - **[immudb v0.7.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.7.0)**
+
+Release v0.7.0 multi-database support, more resilience, even better performance, improved documentation
+
+`June 16th, 2020` - **[immudb v0.6.2 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.2)**
+
+Release v0.6.2 ringbuffer management fix, improved user management for automatic deployment, improved container support
+
+`June 9th, 2020` - **[immudb v0.6.1 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.1)**
+
+Release v0.6.1 fixes some important bugs and has many improvements - we recommend updating to it
+
+`May 28, 2020` - **[immudb v0.6.0 GA released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0)**
+
+We're thrilled to announce our GA Release v0.6.0 that contains many improvements, bug fixes and new audit features.
+
+
+`May 19, 2020` - **[immudb v0.6.0-rc2 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0-RC2)**
+
+Release v0.6.0-rc2 is our second public release and contains an all new immuclient CLI as well as a built-in Trust Checker that does a server based continous consistency check.
+
+`May 11, 2020` - **[immudb v0.6.0-rc1 released!](https://github.com/codenotary/immudb/releases/tag/v0.6.0-RC1)**
+
+Release v0.6.0-rc1 is our first release to the public. While we were using immudb for quite some time in the [codenotary.io](https://www.codenotary.io) platform, we're thrilled to finally release it to the Open Source community (Apache 2 license).
+
+The release contains 2 components, the main immutable database immudb and the admin CLI tool immuadmin. immudb is ready to be used on Linux as well as Microsoft Windows.
 
 ## Tech specs
 
