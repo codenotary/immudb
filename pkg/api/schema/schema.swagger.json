@@ -1226,17 +1226,6 @@
         }
       }
     },
-    "schemaLayer": {
-      "type": "object",
-      "properties": {
-        "l": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaNode"
-          }
-        }
-      }
-    },
     "schemaLinearProof": {
       "type": "object",
       "properties": {
@@ -1279,32 +1268,6 @@
         "warning": {
           "type": "string",
           "format": "byte"
-        }
-      }
-    },
-    "schemaNode": {
-      "type": "object",
-      "properties": {
-        "i": {
-          "type": "string",
-          "format": "byte"
-        },
-        "h": {
-          "type": "string",
-          "format": "byte"
-        },
-        "refk": {
-          "type": "string",
-          "format": "byte"
-        },
-        "ref": {
-          "type": "boolean"
-        },
-        "cache": {
-          "type": "boolean"
-        },
-        "root": {
-          "type": "boolean"
         }
       }
     },
@@ -1441,17 +1404,6 @@
         "signature": {
           "type": "string",
           "format": "byte"
-        }
-      }
-    },
-    "schemaTree": {
-      "type": "object",
-      "properties": {
-        "t": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/schemaLayer"
-          }
         }
       }
     },

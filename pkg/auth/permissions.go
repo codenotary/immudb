@@ -62,7 +62,6 @@ var methodsPermissions = map[string][]uint32{
 	"UpdateAuthConfig": {PermissionSysAdmin},
 	"UpdateMTLSConfig": {PermissionSysAdmin},
 	"CreateDatabase":   {PermissionSysAdmin},
-	"PrintTree":        {PermissionSysAdmin},
 	"Dump":             {PermissionSysAdmin, PermissionAdmin},
 }
 

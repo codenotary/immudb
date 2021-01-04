@@ -13,7 +13,3 @@ repos:
   - id: go-fmt
   - id: validate-toml
   - id: no-go-testing
-  - id: golangci-lint
-    args: ['./...']
-  - id: go-unit-tests
-    args: ['--race', './...']

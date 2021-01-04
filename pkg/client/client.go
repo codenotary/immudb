@@ -63,7 +63,6 @@ type ImmuClient interface {
 	ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error
 	UpdateAuthConfig(ctx context.Context, kind auth.Kind) error
 	UpdateMTLSConfig(ctx context.Context, enabled bool) error
-	PrintTree(ctx context.Context) (*schema.Tree, error)
 
 	WithOptions(options *Options) *immuClient
 	WithLogger(logger logger.Logger) *immuClient
@@ -419,20 +418,6 @@ func (c *immuClient) UpdateMTLSConfig(ctx context.Context, enabled bool) error {
 	c.Logger.Debugf("updatemtlsconfig finished in %s", time.Since(start))
 
 	return err
-}
-
-func (c *immuClient) PrintTree(ctx context.Context) (*schema.Tree, error) {
-	start := time.Now()
-
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
-	tree, err := c.ServiceClient.PrintTree(ctx, new(empty.Empty))
-
-	c.Logger.Debugf("set finished in %s", time.Since(start))
-
-	return tree, err
 }
 
 // Login ...

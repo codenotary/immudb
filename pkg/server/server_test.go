@@ -1058,25 +1058,6 @@ func testServerCountError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
-/*
-func testServerPrintTree(ctx context.Context, s *ImmuServer, t *testing.T) {
-	item, err := s.PrintTree(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("PrintTree  error %s", err)
-	}
-	if len(item.T) == 0 {
-		t.Fatalf("PrintTree, expected > 0, got %v", len(item.T))
-	}
-}
-
-func testServerPrintTreeError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	_, err := s.PrintTree(context.Background(), &emptypb.Empty{})
-	if err == nil {
-		t.Fatalf("PrintTree exptected error")
-	}
-}
-*/
-
 func TestServerUsermanagement(t *testing.T) {
 	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
@@ -1164,8 +1145,6 @@ func TestServerDbOperations(t *testing.T) {
 	testServerZAddError(ctx, s, t)
 	testServerScan(ctx, s, t)
 	testServerScanError(ctx, s, t)
-	//testServerPrintTree(ctx, s, t)
-	//testServerPrintTreeError(ctx, s, t)
 	//testServerSafeReference(ctx, s, t)
 	//testServerSafeReferenceError(ctx, s, t)
 	//testServerCount(ctx, s, t)

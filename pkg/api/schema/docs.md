@@ -24,12 +24,10 @@
     - [KeyPrefix](#immudb.schema.KeyPrefix)
     - [KeyRequest](#immudb.schema.KeyRequest)
     - [KeyValue](#immudb.schema.KeyValue)
-    - [Layer](#immudb.schema.Layer)
     - [LinearProof](#immudb.schema.LinearProof)
     - [LoginRequest](#immudb.schema.LoginRequest)
     - [LoginResponse](#immudb.schema.LoginResponse)
     - [MTLSConfig](#immudb.schema.MTLSConfig)
-    - [Node](#immudb.schema.Node)
     - [Op](#immudb.schema.Op)
     - [Permission](#immudb.schema.Permission)
     - [Reference](#immudb.schema.Reference)
@@ -39,7 +37,6 @@
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
     - [SetRequest](#immudb.schema.SetRequest)
     - [Signature](#immudb.schema.Signature)
-    - [Tree](#immudb.schema.Tree)
     - [Tx](#immudb.schema.Tx)
     - [TxEntry](#immudb.schema.TxEntry)
     - [TxMetadata](#immudb.schema.TxMetadata)
@@ -59,11 +56,11 @@
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
-  
+
     - [PermissionAction](#immudb.schema.PermissionAction)
-  
+
     - [ImmuService](#immudb.schema.ImmuService)
-  
+
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -404,21 +401,6 @@
 
 
 
-<a name="immudb.schema.Layer"></a>
-
-### Layer
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| l | [Node](#immudb.schema.Node) | repeated |  |
-
-
-
-
-
-
 <a name="immudb.schema.LinearProof"></a>
 
 ### LinearProof
@@ -477,26 +459,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | enabled | [bool](#bool) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.Node"></a>
-
-### Node
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| i | [bytes](#bytes) |  |  |
-| h | [bytes](#bytes) |  |  |
-| refk | [bytes](#bytes) |  |  |
-| ref | [bool](#bool) |  |  |
-| cache | [bool](#bool) |  |  |
-| root | [bool](#bool) |  |  |
 
 
 
@@ -645,21 +607,6 @@
 | ----- | ---- | ----- | ----------- |
 | publicKey | [bytes](#bytes) |  |  |
 | signature | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.Tree"></a>
-
-### Tree
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| t | [Layer](#immudb.schema.Layer) | repeated |  |
 
 
 
@@ -989,7 +936,7 @@
 
 
 
- 
+
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -1003,9 +950,9 @@
 | REVOKE | 1 |  |
 
 
- 
 
- 
+
+
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -1021,7 +968,6 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | ChangePassword | [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateAuthConfig | [AuthConfig](#immudb.schema.AuthConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | UpdateMTLSConfig | [MTLSConfig](#immudb.schema.MTLSConfig) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| PrintTree | [.google.protobuf.Empty](#google.protobuf.Empty) | [Tree](#immudb.schema.Tree) |  |
 | Login | [LoginRequest](#immudb.schema.LoginRequest) | [LoginResponse](#immudb.schema.LoginResponse) |  |
 | Logout | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | Set | [SetRequest](#immudb.schema.SetRequest) | [TxMetadata](#immudb.schema.TxMetadata) |  |
@@ -1049,7 +995,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 
- 
+
 
 
 
@@ -1072,4 +1018,3 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
-
