@@ -146,42 +146,63 @@ func testVerifiedZAdd(ctx context.Context, t *testing.T, set []byte, scores []fl
 	}
 }
 
-/*
-func testGetByRawIndexOnSafeZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
+func testZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ImmuClient) {
+	for i := 0; i < len(scores); i++ {
+		_, err := client.ZAdd(ctx, set, scores[i], keys[i])
+		require.NoError(t, err)
+	}
 
-	vi1, err1 := client.RawSafeSet(ctx, []byte("key-n1"), []byte("val-n1"))
-	require.True(t, vi1.Verified)
-	require.NoError(t, err1)
-	vi2, err2 := client.SafeZAdd(ctx, []byte("set-n1"), 98.5, []byte("key-n1"), nil)
-	require.True(t, vi2.Verified)
-	require.NoError(t, err2)
+	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
+		Set: set,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, itemList)
+	require.Len(t, itemList.Entries, len(keys))
 
-	item1, err3 := client.RawBySafeIndex(ctx, 9)
-	require.True(t, item1.Verified)
-	require.Equal(t, []byte("val-n1"), item1.Value)
-	require.NoError(t, err3)
-	item2, err2 := client.RawBySafeIndex(ctx, 1)
-	require.True(t, item2.Verified)
-	require.NoError(t, err2)
-	item3, err3 := client.RawBySafeIndex(ctx, 2)
-	require.True(t, item3.Verified)
-	require.NoError(t, err3)
+	for i := 0; i < len(keys); i++ {
+		require.Equal(t, keys[i], itemList.Entries[i].Entry.Key)
+		require.Equal(t, values[i], itemList.Entries[i].Entry.Value)
+	}
 }
 
-func testGetByRawIndexOnZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte) {
-	vi1, err1 := client.RawSafeSet(ctx, []byte("key-n11"), []byte("val-n11"))
-	require.True(t, vi1.Verified)
-	require.NoError(t, err1)
-	index, err2 := client.ZAdd(ctx, []byte("set-n11"), 98.5, []byte("key-n11"), nil)
-	require.NoError(t, err2)
+func testZAddAt(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, at uint64, client ImmuClient) {
+	for i := 0; i < len(scores); i++ {
+		_, err := client.ZAddAt(ctx, set, scores[i], keys[i], at)
+		require.NoError(t, err)
+	}
 
-	item1, err3 := client.RawBySafeIndex(ctx, index.Index)
-	require.True(t, item1.Verified)
-	key, _, _ := store.UnwrapZIndexReference(item1.Value)
-	require.Equal(t, []byte("key-n11"), key, nil)
-	require.NoError(t, err3)
+	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
+		Set: set,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, itemList)
+	require.Len(t, itemList.Entries, len(keys))
+
+	for i := 0; i < len(keys); i++ {
+		require.Equal(t, keys[i], itemList.Entries[i].Entry.Key)
+		require.Equal(t, values[i], itemList.Entries[i].Entry.Value)
+	}
 }
-*/
+
+func testVerifiedZAddAt(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, at uint64, client ImmuClient) {
+	for i := 0; i < len(scores); i++ {
+		_, err := client.VerifiedZAddAt(ctx, set, scores[i], keys[i], at)
+		require.NoError(t, err)
+	}
+
+	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
+		Set: set,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, itemList)
+	require.Len(t, itemList.Entries, len(keys))
+
+	for i := 0; i < len(keys); i++ {
+		require.Equal(t, keys[i], itemList.Entries[i].Entry.Key)
+		require.Equal(t, values[i], itemList.Entries[i].Entry.Value)
+	}
+}
+
 func testGet(ctx context.Context, t *testing.T, client ImmuClient) {
 	txmd, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
 	require.NoError(t, err)
@@ -199,23 +220,6 @@ func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float
 	require.Equal(t, vi1.Ts, item1.Metadata.Ts)
 	require.NoError(t, err3)
 }
-
-// func testDump(ctx context.Context, t *testing.T) {
-// 	bkpFile, err := os.Create(BkpFileName)
-// 	require.NoError(t, err)
-// 	n, err := client.Dump(ctx, bkpFile)
-
-// 	require.NoError(t, err)
-// 	require.Equal(t, int64(41), n)
-
-// 	bkpBytesActual, err := ioutil.ReadFile(BkpFileName)
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, bkpBytesActual)
-// 	bkpBytesExpected, err := ioutil.ReadFile(ExpectedBkpFileName)
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, bkpBytesExpected)
-// 	require.Equal(t, bkpBytesExpected, bkpBytesActual)
-// }
 
 func TestImmuClient(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
@@ -247,18 +251,16 @@ func TestImmuClient(t *testing.T) {
 	testVerifiedReference(ctx, t, testData.refKeys[1], testData.keys[1], testData.values[1], client)
 	testVerifiedReference(ctx, t, testData.refKeys[2], testData.keys[2], testData.values[2], client)
 
+	testZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
+	testZAddAt(ctx, t, testData.set, testData.scores, testData.keys, testData.values, 0, client)
+
 	testVerifiedZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
-	//testGetByRawIndexOnSafeZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
-	//testGetByRawIndexOnZAdd(ctx, t, testData.set, testData.scores, testData.keys, testData.values)
+	testVerifiedZAddAt(ctx, t, testData.set, testData.scores, testData.keys, testData.values, 0, client)
 
 	testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0], client)
 	testGetTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
 
 	testGet(ctx, t, client)
-
-	//dump comparison will not work because at start user immu is automatically created and a time stamp of creation is used which will always make dumps different
-	//userdata.CreatedAt = time.Now()
-	//testDump(ctx, t)
 }
 
 func TestDatabasesSwitching(t *testing.T) {
@@ -319,63 +321,6 @@ func TestDatabasesSwitching(t *testing.T) {
 	require.Nil(t, vi)
 }
 
-// todo(joe-dz): Enable restore when the feature is required again.
-//func TestRestore(t *testing.T) {
-//	cleanup()
-//	defer cleanup()
-//
-//	ctx := context.Background()
-//
-//	// this only succeeds if only this test function is run, otherwise the key may
-//	// be present from other test function that run before this:
-//	// r1, err := client.Connected(ctx, func() (interface{}, error) {
-//	// 	return client.SafeGet(ctx, testData.keys[1])
-//	// })
-//	// require.Error(t, err)
-//	// require.Nil(t, r1)
-//
-//	bkpFileForRead, err := os.Open(ExpectedBkpFileName)
-//	require.NoError(t, err)
-//	r2, err := client.Connected(ctx, func() (interface{}, error) {
-//		return client.Restore(ctx, bkpFileForRead, 20)
-//	})
-//	require.NoError(t, err)
-//	n2 := r2.(int64)
-//	require.Equal(t, int64(26), n2)
-//
-//	r3, err := client.Connected(ctx, func() (interface{}, error) {
-//		return client.SafeGet(ctx, testData.keys[1])
-//	})
-//	require.NoError(t, err)
-//	require.NotNil(t, r3)
-//	vi := r3.(*VerifiedItem)
-//	require.Equal(t, testData.keys[1], vi.CurrentOffset)
-//	require.Equal(t, testData.values[1], vi.Value)
-//	require.True(t, vi.Verified)
-//
-//	r4, err := client.Connected(ctx, func() (interface{}, error) {
-//		return client.SafeGet(ctx, testData.refKeys[2])
-//	})
-//	require.NoError(t, err)
-//	require.NotNil(t, r4)
-//	viFromRef := r4.(*VerifiedItem)
-//	require.Equal(t, testData.keys[2], viFromRef.CurrentOffset)
-//	require.Equal(t, testData.values[2], viFromRef.Value)
-//	require.True(t, viFromRef.Verified)
-//
-//	r5, err := client.Connected(ctx, func() (interface{}, error) {
-//		return client.ZScan(ctx, testData.set)
-//	})
-//	require.NoError(t, err)
-//	require.NotNil(t, r5)
-//	itemList := r5.(*schema.StructuredItemList)
-//	require.Len(t, itemList.Items, len(testData.keys))
-//
-//	for i := 0; i < len(testData.keys); i++ {
-//		require.Equal(t, testData.keys[i], itemList.Items[i].CurrentOffset)
-//		require.Equal(t, testData.values[i], itemList.Items[i].Value.Payload)
-//	}
-//}
 func TestImmuClientDisconnect(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -425,7 +370,6 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.Scan(context.TODO(), &schema.ScanRequest{
 		Prefix: []byte("key"),
 	})
-
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.ZScan(context.TODO(), &schema.ZScanRequest{Set: []byte("key")})
@@ -452,10 +396,10 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.VerifiedTxByID(context.TODO(), 1)
 	require.Error(t, ErrNotConnected, err)
 
-	/*_, err = client.History(context.TODO(), &schema.HistoryRequest{
+	_, err = client.History(context.TODO(), &schema.HistoryRequest{
 		Key: []byte("key"),
 	})
-	require.Error(t, ErrNotConnected, err)*/
+	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.SetReference(context.TODO(), []byte("ref"), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
@@ -472,6 +416,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.Dump(context.TODO(), nil)
 	require.Error(t, ErrNotConnected, err)
 
+	_, err = client.GetSince(context.TODO(), []byte("key"), 0)
+	require.Error(t, ErrNotConnected, err)
+
 	require.Error(t, ErrNotConnected, client.HealthCheck(context.TODO()))
 
 	require.Error(t, ErrNotConnected, client.CreateDatabase(context.TODO(), nil))
@@ -485,6 +432,21 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.Error(t, ErrNotConnected, client.SetActiveUser(context.TODO(), nil))
 
 	_, err = client.DatabaseList(context.TODO())
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.CurrentRoot(context.TODO())
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SafeSet(context.TODO(), []byte("key"), []byte("value"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SafeGet(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SafeZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.SafeReference(context.TODO(), []byte("ref"), []byte("key"))
 	require.Error(t, ErrNotConnected, err)
 }
 
@@ -534,19 +496,6 @@ func TestWaitForHealthCheckFail(t *testing.T) {
 	err := client.WaitForHealthCheck(context.TODO())
 	assert.Error(t, err)
 }
-
-/*
-func TestDump(t *testing.T) {
-	setup()
-	_, _ = client.VerifiedSet(context.TODO(), []byte(`key`), []byte(`val`))
-	f, _ := os.Create("tmp")
-	i, err := client.Dump(context.TODO(), f)
-	_ = os.Remove("tmp")
-	assert.Nil(t, err)
-	assert.True(t, i > 0)
-	client.Disconnect()
-}
-*/
 
 func TestSetupDialOptions(t *testing.T) {
 	client := DefaultClient()
@@ -853,18 +802,179 @@ func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
 	client.Disconnect()
 }
 
-/*
-func TestImmuClient_SetBatch(t *testing.T) {
-	setup()
-	br := BatchRequest{
-		Keys:   []io.Reader{strings.NewReader("key1"), strings.NewReader("key2"), strings.NewReader("key3")},
-		Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2"), strings.NewReader("val3")},
+func TestImmuClient_Scan(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
 	}
-	ris, err := client.SetBatch(context.TODO(), &br)
-	assert.Equal(t, uint64(2), ris.Index)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val11`))
+	_, _ = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
+
+	entries, err := client.Scan(ctx, &schema.ScanRequest{Prefix: []byte("key")})
+
+	assert.IsType(t, &schema.Entries{}, entries)
+	assert.Nil(t, err)
+	assert.Len(t, entries.Entries, 2)
+	client.Disconnect()
+}
+
+func TestImmuClient_Logout(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	err = client.Logout(ctx)
+
 	assert.Nil(t, err)
 	client.Disconnect()
 }
+
+func TestImmuClient_GetServiceClient(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cli := client.GetServiceClient()
+	assert.Implements(t, (*schema.ImmuServiceClient)(nil), *cli)
+	client.Disconnect()
+}
+
+func TestImmuClient_GetOptions(t *testing.T) {
+	client := DefaultClient()
+	op := client.GetOptions()
+	assert.IsType(t, &Options{}, op)
+}
+
+func TestImmuClient_CurrentRoot(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+
+	r, err := client.CurrentState(ctx)
+
+	assert.IsType(t, &schema.ImmutableState{}, r)
+	assert.Nil(t, err)
+	client.Disconnect()
+}
+
+func TestImmuClient_Count(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.Count(ctx, []byte(`key1`))
+	assert.Error(t, err)
+}
+
+func TestImmuClient_CountAll(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, err = client.CountAll(ctx)
+
+	assert.Error(t, err)
+}
+
+/*
 
 func TestImmuClient_SetBatchConcurrent(t *testing.T) {
 	setup()
@@ -955,90 +1065,7 @@ func (p BytesSlice) Len() int           { return len(p) }
 func (p BytesSlice) Less(i, j int) bool { return bytes.Compare(p[i], p[j]) == -1 }
 func (p BytesSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func TestImmuClient_Count(t *testing.T) {
-	setup()
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val2`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val3`))
 
-	ic, err := client.Count(context.TODO(), []byte(`key1`))
-
-	assert.Nil(t, err)
-	assert.IsType(t, &schema.ItemsCount{}, ic)
-	assert.True(t, ic.Count == 3)
-	client.Disconnect()
-}
-
-func TestImmuClient_CountAll(t *testing.T) {
-	setup()
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val11`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key2`), []byte(`val21`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key2`), []byte(`val22`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key3`), []byte(`val31`))
-
-	ic, err := client.CountAll(context.TODO())
-
-	assert.Nil(t, err)
-	assert.IsType(t, &schema.ItemsCount{}, ic)
-	// for each key there's an extra entry in the db:
-	// 4 entries (2 of them have the same key) + 3 extra = 7 entries in total
-	assert.Equal(t, 7, int(ic.Count))
-	client.Disconnect()
-}
-
-func TestImmuClient_Scan(t *testing.T) {
-	setup()
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val11`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key3`), []byte(`val3`))
-
-	sil, err := client.Scan(context.TODO(), &schema.ScanOptions{Prefix: []byte("key")})
-
-	assert.IsType(t, &schema.StructuredItemList{}, sil)
-	assert.Nil(t, err)
-	assert.Len(t, sil.Items, 2)
-	client.Disconnect()
-}
-
-func TestImmuClient_IScan(t *testing.T) {
-	setup()
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val11`))
-	_, _ = client.SafeSet(context.TODO(), []byte(`key3`), []byte(`val3`))
-
-	p, err := client.IScan(context.TODO(), 1, 2)
-
-	assert.IsType(t, &schema.SPage{}, p)
-	assert.Nil(t, err)
-	assert.Len(t, p.Items, 2)
-	client.Disconnect()
-}
-
-func TestImmuClient_CurrentRoot(t *testing.T) {
-	setup()
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
-
-	r, err := client.CurrentRoot(context.TODO())
-
-	assert.IsType(t, &schema.Root{}, r)
-	assert.Nil(t, err)
-	client.Disconnect()
-}
-
-func TestImmuClient_Logout(t *testing.T) {
-	setup()
-	// @todo need to be fixed
-	_ = client.Logout(context.TODO())
-	//assert.Nil(t, err)
-	client.Disconnect()
-}
-
-func TestImmuClient_GetServiceClient(t *testing.T) {
-	setup()
-	cli := client.GetServiceClient()
-	assert.Implements(t, (*schema.ImmuServiceClient)(nil), *cli)
-	client.Disconnect()
-}
 
 func TestImmuClient_GetReference(t *testing.T) {
 	setup()
@@ -1052,32 +1079,46 @@ func TestImmuClient_GetReference(t *testing.T) {
 	client.Disconnect()
 }
 
-func TestImmuClient_GetOptions(t *testing.T) {
-	setup()
-	op := client.GetOptions()
-	assert.IsType(t, &Options{}, op)
-	client.Disconnect()
-}
+
+*/
 
 func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
-	setup()
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
 	var (
 		userName        = "test"
 		userPassword    = "1Password!*"
 		userNewPassword = "2Password!*"
 		testDBName      = "test"
 		testDB          = &schema.Database{Databasename: testDBName}
-		err             error
-		testUserClient  ImmuClient
 		testUserContext = context.TODO()
 	)
 	// step 1: create test database
-	err = client.CreateDatabase(context.TODO(), testDB)
+	err = client.CreateDatabase(ctx, testDB)
 	assert.Nil(t, err)
 
 	// step 2: create test user with read write permissions to the test db
 	err = client.CreateUser(
-		context.TODO(),
+		ctx,
 		[]byte(userName),
 		[]byte(userPassword),
 		auth.PermissionRW,
@@ -1086,58 +1127,37 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	assert.Nil(t, err)
 
 	// setp 3: create test client and context
-	nm, _ := NewNtpMock()
-	tss := NewTimestampService(nm)
-	testUserClient = newClient(false, "").WithTimestampService(tss)
+	lr, err = client.Login(context.TODO(), []byte(userName), []byte(userPassword))
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// step 4: test user login using the test context and test client
-	resp, err := testUserClient.Login(
-		testUserContext,
-		[]byte(userName),
-		[]byte(userPassword),
-	)
-	assert.Nil(t, err)
-	testUserClient = newClient(true, resp.Token).WithTimestampService(tss)
-	dbResp, err := testUserClient.UseDatabase(testUserContext, testDB)
-	assert.Nil(t, err)
-	testUserClient = newClient(true, dbResp.Token).WithTimestampService(tss)
+	md = metadata.Pairs("authorization", lr.Token)
+	testUserContext = metadata.NewOutgoingContext(context.Background(), md)
 
-	// step 5: successfully access the test db using the test client
-	_, err = testUserClient.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
+	dbResp, err := client.UseDatabase(testUserContext, testDB)
+	md = metadata.Pairs("authorization", dbResp.Token)
+	testUserContext = metadata.NewOutgoingContext(context.Background(), md)
+
+	// step 4: successfully access the test db using the test client
+	_, err = client.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
 	assert.Nil(t, err)
 
-	// step 6: using admin client change the test user password
+	// step 5: using admin client change the test user password
 	err = client.ChangePassword(
-		context.TODO(),
+		ctx,
 		[]byte(userName),
 		[]byte(userPassword),
 		[]byte(userNewPassword),
 	)
 	assert.Nil(t, err)
 
-	// step 7: access the test db again using the test client which should give an error
-	_, err = testUserClient.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
+	// step 6: access the test db again using the test client which should give an error
+	_, err = client.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
 	assert.NotNil(t, err)
 
-	// step 8: repeat 4 and 5
-	resp, err = testUserClient.Login(
-		testUserContext,
-		[]byte(userName),
-		[]byte(userNewPassword),
-	)
-	assert.Nil(t, err)
-	testUserClient = newClient(true, resp.Token).WithTimestampService(tss)
-	dbResp, err = testUserClient.UseDatabase(testUserContext, testDB)
-	assert.Nil(t, err)
-	testUserClient = newClient(true, dbResp.Token).WithTimestampService(tss)
-
-	_, err = testUserClient.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
-	assert.Nil(t, err)
-
 	client.Disconnect()
-	testUserClient.Disconnect()
 }
-*/
 
 type HomedirServiceMock struct {
 	HomedirService
