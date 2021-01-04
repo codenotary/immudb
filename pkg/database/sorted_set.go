@@ -35,7 +35,7 @@ const txIDLen = 8
 // If the index is not provided the resolution will use only the key and last version of the item will be returned
 // If ZAddOptions.index is provided key is optional
 func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
-	if req == nil {
+	if req == nil || len(req.Set) == 0 || len(req.Key) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
 
@@ -187,7 +187,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 //VerifiableZAdd ...
 func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
-	if req == nil {
+	if req == nil || len(req.ZAddRequest.Set) == 0 || len(req.ZAddRequest.Key) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
 

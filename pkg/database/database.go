@@ -165,7 +165,7 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 
 //Get ...
 func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
-	if req == nil {
+	if req == nil || len(req.Key) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
 
