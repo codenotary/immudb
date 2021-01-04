@@ -66,7 +66,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 
 //SafeReference ...
 func (d *db) VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
-	if req == nil {
+	if req == nil || len(req.ReferenceRequest.Key) == 0 || len(req.ReferenceRequest.ReferencedKey) == 0 {
 		return nil, store.ErrIllegalArguments
 	}
 

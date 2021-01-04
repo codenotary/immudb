@@ -4,13 +4,13 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-/*
 func TestSetBatch(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
 
 	batchSize := 100
@@ -27,50 +27,56 @@ func TestSetBatch(t *testing.T) {
 			}
 		}
 
-		index, err := st.SetBatch(schema.KVList{KVs: kvList})
-		assert.NoError(t, err)
-		assert.Equal(t, uint64((b+1)*batchSize), index.GetIndex()+1)
+		md, err := db.Set(&schema.SetRequest{KVs: kvList})
+		require.NoError(t, err)
+		require.Equal(t, uint64(b+1), md.Id)
 
 		for i := 0; i < batchSize; i++ {
 			key := []byte(strconv.FormatUint(uint64(i), 10))
 			value := []byte(strconv.FormatUint(uint64(b*batchSize+batchSize+i), 10))
-			item, err := st.Get(schema.Key{Key: key})
-			assert.NoError(t, err)
-			assert.Equal(t, value, item.Value)
-			assert.Equal(t, uint64(b*batchSize+i), item.Index)
+			entry, err := db.Get(&schema.KeyRequest{Key: key, SinceTx: md.Id})
+			require.NoError(t, err)
+			require.Equal(t, value, entry.Value)
+			require.Equal(t, uint64(b+1), entry.Tx)
 
-			safeItem, err := st.SafeGet(schema.SafeGetOptions{Key: key}) //no prev root
-			assert.NoError(t, err)
-			assert.Equal(t, key, safeItem.Item.Key)
-			assert.Equal(t, value, safeItem.Item.Value)
-			assert.Equal(t, item.Index, safeItem.Item.Index)
-			assert.True(t, safeItem.Proof.Verify(
-				safeItem.Item.Hash(),
-				schema.Root{Payload: &schema.RootIndex{}}, // zerovalue signals no prev root
-			))
+			vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: key}}) //no prev root
+			require.NoError(t, err)
+			require.Equal(t, key, vitem.Entry.Key)
+			require.Equal(t, value, vitem.Entry.Value)
+			require.Equal(t, entry.Tx, vitem.Entry.Tx)
+
+			tx := schema.TxFrom(vitem.VerifiableTx.Tx)
+
+			inclusionProof := schema.InclusionProofFrom(vitem.InclusionProof)
+			verifies := store.VerifyInclusion(
+				inclusionProof,
+				EncodeKV(vitem.Entry.Key, vitem.Entry.Value),
+				tx.Eh(),
+			)
+			require.True(t, verifies)
 		}
 	}
 }
 
 func TestSetBatchInvalidKvKey(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
 
-	_, err := st.SetBatch(schema.KVList{
+	_, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
 			{
-				Key:   []byte{0},
+				Key:   []byte{},
 				Value: []byte(`val`),
 			},
 		}})
-	assert.Equal(t, ErrInvalidKey, err)
+	require.Equal(t, store.ErrIllegalArguments, err)
 }
 
 func TestSetBatchDuplicatedKey(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
 
-	_, err := st.SetBatch(schema.KVList{
+	_, err := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
 			{
 				Key:   []byte(`key`),
@@ -82,29 +88,9 @@ func TestSetBatchDuplicatedKey(t *testing.T) {
 			},
 		}},
 	)
-	assert.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
+	require.Equal(t, store.ErrDuplicatedKey, err)
 }
 
-func TestSetBatchAsynch(t *testing.T) {
-	st, closer := makeStore()
-	defer closer()
-
-	_, err := st.SetBatch(schema.KVList{
-		KVs: []*schema.KeyValue{
-			{
-				Key:   []byte(`key1`),
-				Value: []byte(`val1`),
-			},
-			{
-				Key:   []byte(`key2`),
-				Value: []byte(`val2`),
-			},
-		}},
-		WithAsyncCommit(true),
-	)
-	assert.NoError(t, err)
-}
-*/
 func TestExecAllOps(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
@@ -142,8 +128,8 @@ func TestExecAllOps(t *testing.T) {
 		}
 
 		idx, err := db.ExecAll(&schema.ExecAllRequest{Operations: atomicOps})
-		assert.NoError(t, err)
-		assert.Equal(t, uint64(b+1), idx.Id)
+		require.NoError(t, err)
+		require.Equal(t, uint64(b+1), idx.Id)
 	}
 
 	zScanOpt := &schema.ZScanRequest{
@@ -151,102 +137,100 @@ func TestExecAllOps(t *testing.T) {
 		SinceTx: 10,
 	}
 	zList, err := db.ZScan(zScanOpt)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	println(len(zList.Entries))
-	assert.Len(t, zList.Entries, batchSize)
+	require.Len(t, zList.Entries, batchSize)
 }
 
-/*
 func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
-	dbDir := tmpDir()
+	db, closer := makeDb()
+	defer closer()
 
-	st, _ := makeStoreAt(dbDir)
-
-	idx, _ := st.Set(schema.KeyValue{
-		Key:   []byte(`persistedKey`),
-		Value: []byte(`persistedVal`),
+	idx, _ := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{Key: []byte(`persistedKey`),
+				Value: []byte(`persistedVal`),
+			},
+		},
 	})
 
 	// Ops payload
-	aOps := &schema.Ops{
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
 						Key:   []byte(`notPersistedKey`),
 						Value: []byte(`notPersistedVal`),
 					},
 				},
 			},
 			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
 						Set:   []byte(`mySet`),
-						Score: &schema.Score{Score: 0.6},
+						Score: 0.6,
 						Key:   []byte(`notPersistedKey`)},
 				},
 			},
 			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
 						Set:   []byte(`mySet`),
-						Score: &schema.Score{Score: 0.6},
+						Score: 0.6,
 						Key:   []byte(`persistedKey`),
-						Index: idx,
+						AtTx:  idx.Id,
 					},
 				},
 			},
 		},
 	}
-	index, err := st.ExecAllOps(aOps)
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(3), index.Index)
 
-	st.tree.close(true)
-	st.Close()
+	index, err := db.ExecAll(aOps)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), index.Id)
 
-	st, closer := makeStoreAt(dbDir)
-	defer closer()
-
-	st.tree.WaitUntil(3)
-
-	list, err := st.ZScan(schema.ZScanOptions{
-		Set: []byte(`mySet`),
+	list, err := db.ZScan(&schema.ZScanRequest{
+		Set:     []byte(`mySet`),
+		SinceTx: index.Id,
 	})
-
-	assert.Equal(t, []byte(`notPersistedKey`), list.Items[0].Item.Key)
-	assert.Equal(t, []byte(`persistedKey`), list.Items[1].Item.Key)
+	require.NoError(t, err)
+	require.Equal(t, []byte(`persistedKey`), list.Entries[0].Key)
+	require.Equal(t, []byte(`notPersistedKey`), list.Entries[1].Key)
 }
 
 func TestExecAllOpsEmptyList(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
-	aOps := &schema.Ops{
+
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{},
 	}
-	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, schema.ErrEmptySet, err)
+	_, err := db.ExecAll(aOps)
+	require.Equal(t, schema.ErrEmptySet, err)
 }
 
 func TestExecAllOpsInvalidKvKey(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
-	aOps := &schema.Ops{
+
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
-						Key:   []byte{0},
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
+						Key:   []byte{},
 						Value: []byte(`val`),
 					},
 				},
 			},
 		},
 	}
-	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, ErrInvalidKey, err)
+	_, err := db.ExecAll(aOps)
+	require.Equal(t, store.ErrIllegalArguments, err)
 }
 
+/*
 func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
@@ -268,7 +252,7 @@ func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, ErrIndexNotFound, err)
+	require.Equal(t, ErrIndexNotFound, err)
 }
 
 func TestExecAllOpsNilElementFound(t *testing.T) {
@@ -291,7 +275,7 @@ func TestExecAllOpsNilElementFound(t *testing.T) {
 	bOps[1] = op
 	aOps := &schema.Ops{Operations: bOps}
 	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
+	require.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
 }
 
 func TestSetOperationNilElementFound(t *testing.T) {
@@ -305,7 +289,7 @@ func TestSetOperationNilElementFound(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, err, status.Error(codes.InvalidArgument, "operation is not set"))
+	require.Equal(t, err, status.Error(codes.InvalidArgument, "operation is not set"))
 }
 
 func TestExecAllOpsUnexpectedType(t *testing.T) {
@@ -319,7 +303,7 @@ func TestExecAllOpsUnexpectedType(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation has unexpected type *schema.Op_Unexpected"))
+	require.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation has unexpected type *schema.Op_Unexpected"))
 }
 
 func TestExecAllOpsDuplicatedKey(t *testing.T) {
@@ -357,7 +341,7 @@ func TestExecAllOpsDuplicatedKey(t *testing.T) {
 	}
 	_, err := st.ExecAllOps(aOps)
 
-	assert.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
+	require.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
 }
 
 func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
@@ -397,7 +381,7 @@ func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
 	}
 	_, err := st.ExecAllOps(aOps)
 
-	assert.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
+	require.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
 }
 
 func TestExecAllOpsAsynch(t *testing.T) {
@@ -436,7 +420,7 @@ func TestExecAllOpsAsynch(t *testing.T) {
 	}
 	_, err := st.ExecAllOps(aOps, WithAsyncCommit(true))
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestOps_ValidateErrZAddIndexMissing(t *testing.T) {
@@ -464,7 +448,7 @@ func TestOps_ValidateErrZAddIndexMissing(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, err, ErrZAddIndexMissing)
+	require.Equal(t, err, ErrZAddIndexMissing)
 }
 
 func TestStore_ExecAllOpsConcurrent(t *testing.T) {
@@ -511,8 +495,8 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 		}
 		go func() {
 			idx, err := st.ExecAllOps(aOps)
-			assert.NoError(t, err)
-			assert.NotNil(t, idx)
+			require.NoError(t, err)
+			require.NotNil(t, idx)
 			wg.Done()
 		}()
 
@@ -524,9 +508,9 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 		zList, err := st.ZScan(schema.ZScanOptions{
 			Set: []byte(set),
 		})
-		assert.NoError(t, err)
-		assert.Len(t, zList.Items, 10)
-		assert.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
+		require.NoError(t, err)
+		require.Len(t, zList.Items, 10)
+		require.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
 
 	}
 }
@@ -590,8 +574,8 @@ func TestStore_ExecAllOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 		}
 		go func() {
 			idx, err := st.ExecAllOps(aOps)
-			assert.NoError(t, err)
-			assert.NotNil(t, idx)
+			require.NoError(t, err)
+			require.NotNil(t, idx)
 			wg.Done()
 		}()
 	}
@@ -603,9 +587,9 @@ func TestStore_ExecAllOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 		zList, err := st.ZScan(schema.ZScanOptions{
 			Set: []byte(set),
 		})
-		assert.NoError(t, err)
-		assert.Len(t, zList.Items, 10)
-		assert.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
+		require.NoError(t, err)
+		require.Len(t, zList.Items, 10)
+		require.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
 	}
 }
 
@@ -691,8 +675,8 @@ func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 		}
 		go func() {
 			idx, err := st.ExecAllOps(aOps)
-			assert.NoError(t, err)
-			assert.NotNil(t, idx)
+			require.NoError(t, err)
+			require.NotNil(t, idx)
 			wg.Done()
 		}()
 	}
@@ -703,9 +687,9 @@ func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotKeys(t *testing.T) {
 		zList, err := st.ZScan(schema.ZScanOptions{
 			Set: []byte(set),
 		})
-		assert.NoError(t, err)
-		assert.Len(t, zList.Items, 10)
-		assert.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
+		require.NoError(t, err)
+		require.Len(t, zList.Items, 10)
+		require.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
 	}
 }
 
@@ -736,7 +720,7 @@ func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualScor
 					Key:   []byte(keyA),
 					Value: []byte(val),
 				})
-				assert.NotNil(t, index)
+				require.NotNil(t, index)
 			}
 		}
 	}
@@ -800,8 +784,8 @@ func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualScor
 			aOps.Operations = append(aOps.Operations, aOp)
 			go func() {
 				idx, err := st.ExecAllOps(aOps)
-				assert.NoError(t, err)
-				assert.NotNil(t, idx)
+				require.NoError(t, err)
+				require.NotNil(t, idx)
 				wg.Done()
 			}()
 		}
@@ -812,17 +796,17 @@ func TestStore_ExecAllOpsConcurrentOnMixedPersistedAndNotOnEqualKeysAndEqualScor
 	history, err := st.History(&schema.HistoryOptions{
 		Key: []byte(keyA),
 	})
-	assert.NoError(t, err)
-	assert.NotNil(t, history)
+	require.NoError(t, err)
+	require.NotNil(t, history)
 	for i := 1; i <= 10; i++ {
 		set := strconv.FormatUint(uint64(i), 10)
 		zList, err := st.ZScan(schema.ZScanOptions{
 			Set: []byte(set),
 		})
-		assert.NoError(t, err)
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		require.NoError(t, err)
 		// item are returned in insertion order since they have same score
-		assert.Len(t, zList.Items, 10)
+		require.Len(t, zList.Items, 10)
 	}
 }
 
@@ -847,16 +831,16 @@ func TestExecAllOpsMonotoneTsRange(t *testing.T) {
 		}
 	}
 	idx, err := st.ExecAllOps(&schema.Ops{Operations: atomicOps})
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(batchSize), idx.GetIndex()+1)
+	require.NoError(t, err)
+	require.Equal(t, uint64(batchSize), idx.GetIndex()+1)
 
 	for i := 0; i < batchSize; i++ {
 		item, err := st.ByIndex(schema.Index{
 			Index: uint64(i),
 		})
-		assert.NoError(t, err)
-		assert.Equal(t, []byte(strconv.FormatUint(uint64(batchSize+batchSize+i), 10)), item.Value)
-		assert.Equal(t, uint64(i), item.Index)
+		require.NoError(t, err)
+		require.Equal(t, []byte(strconv.FormatUint(uint64(batchSize+batchSize+i), 10)), item.Value)
+		require.Equal(t, uint64(i), item.Index)
 	}
 }
 
@@ -884,14 +868,14 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	ref, err := st.Get(schema.Key{Key: []byte(`myReference`)})
 
-	assert.NoError(t, err)
-	assert.NotEmptyf(t, ref, "Should not be empty")
-	assert.Equal(t, []byte(`persistedVal`), ref.Value, "Should have referenced item value")
-	assert.Equal(t, []byte(`persistedKey`), ref.Key, "Should have referenced item value")
+	require.NoError(t, err)
+	require.NotEmptyf(t, ref, "Should not be empty")
+	require.Equal(t, []byte(`persistedVal`), ref.Value, "Should have referenced item value")
+	require.Equal(t, []byte(`persistedKey`), ref.Key, "Should have referenced item value")
 
 }
 
@@ -921,14 +905,14 @@ func TestOps_ReferenceKeyNotYetPersisted(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	ref, err := st.Get(schema.Key{Key: []byte(`myTag`)})
 
-	assert.NoError(t, err)
-	assert.NotEmptyf(t, ref, "Should not be empty")
-	assert.Equal(t, []byte(`val`), ref.Value, "Should have referenced item value")
-	assert.Equal(t, []byte(`key`), ref.Key, "Should have referenced item value")
+	require.NoError(t, err)
+	require.NotEmptyf(t, ref, "Should not be empty")
+	require.Equal(t, []byte(`val`), ref.Value, "Should have referenced item value")
+	require.Equal(t, []byte(`key`), ref.Key, "Should have referenced item value")
 
 }
 
@@ -953,7 +937,7 @@ func TestOps_ReferenceIndexNotExists(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, ErrIndexNotFound, err)
+	require.Equal(t, ErrIndexNotFound, err)
 }
 
 func TestOps_ReferenceIndexMissing(t *testing.T) {
@@ -974,6 +958,6 @@ func TestOps_ReferenceIndexMissing(t *testing.T) {
 		},
 	}
 	_, err := st.ExecAllOps(aOps)
-	assert.Equal(t, ErrReferenceIndexMissing, err)
+	require.Equal(t, ErrReferenceIndexMissing, err)
 }
 */

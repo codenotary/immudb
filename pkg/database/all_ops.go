@@ -67,9 +67,17 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 		case *schema.Op_Kv:
 			kmap[sha256.Sum256(x.Kv.Key)] = true
 
+			if len(x.Kv.Key) == 0 {
+				return nil, store.ErrIllegalArguments
+			}
+
 			kv = EncodeKV(x.Kv.Key, x.Kv.Value)
 
 		case *schema.Op_Ref:
+			if len(x.Ref.Key) == 0 || len(x.Ref.ReferencedKey) == 0 {
+				return nil, store.ErrIllegalArguments
+			}
+
 			// check key does not exists or it's already a reference
 			entry, err := d.getAt(EncodeKey(x.Ref.Key), x.Ref.AtTx, 0, snap, d.tx1)
 			if err != nil && err != store.ErrKeyNotFound {
@@ -96,6 +104,10 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 			kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, x.Ref.AtTx)
 
 		case *schema.Op_ZAdd:
+			if len(x.ZAdd.Set) == 0 || len(x.ZAdd.Key) == 0 {
+				return nil, store.ErrIllegalArguments
+			}
+
 			// zAdd arguments are converted in regular key value items and then atomically inserted
 			_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
 
@@ -110,7 +122,9 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 				}
 			}
 
-			kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, x.ZAdd.Key, x.ZAdd.AtTx)
+			key := EncodeKey(x.ZAdd.Key)
+
+			kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, x.ZAdd.AtTx)
 
 		default:
 			return nil, store.ErrIllegalArguments
