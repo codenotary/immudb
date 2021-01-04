@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/binary"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -1189,74 +1188,6 @@ func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, er
 	*/
 }
 
-// todo(joe-dz): Enable restore when the feature is required again.
-// Also, make sure that the generated files are updated
-// Restore to be used from Immu CLI
-//func (c *immuClient) Restore(ctx context.Context, reader io.ReadSeeker, chunkSize int) (int64, error) {
-//	start := time.Now()
-//
-//	var entryCounter int64
-//	var counter int64
-//
-//	if !c.IsConnected() {
-//		return counter, ErrNotConnected
-//	}
-//
-//	var errs []string
-//	var offset int64
-//	kvList := new(pb.KVList)
-//	for {
-//		lineBytes, o, err := readSeek(reader, offset)
-//		if err == io.EOF {
-//			break
-//		}
-//		entryCounter++
-//		offset = o
-//		if err != nil {
-//			errs = append(errs, fmt.Sprintf("error reading file entry %d: %v", entryCounter, err))
-//			continue
-//		}
-//		if len(lineBytes) <= 1 {
-//			continue
-//		}
-//		kv := new(pb.KV)
-//		err = proto.Unmarshal(lineBytes, kv)
-//		if err != nil {
-//			errs = append(errs, fmt.Sprintf("error unmarshaling to key-value the file entry %d: %v", entryCounter, err))
-//			continue
-//		}
-//
-//		kvList.Kv = append(kvList.Kv, kv)
-//		if len(kvList.Kv) == chunkSize {
-//			if err := c.restoreChunk(ctx, kvList); err != nil {
-//				errs = append(errs, err.Error())
-//			} else {
-//				counter += int64(len(kvList.Kv))
-//			}
-//			kvList.Kv = []*pb.KV{}
-//		}
-//	}
-//
-//	if len(kvList.Kv) > 0 {
-//		if err := c.restoreChunk(ctx, kvList); err != nil {
-//			errs = append(errs, err.Error())
-//		} else {
-//			counter += int64(len(kvList.Kv))
-//		}
-//		kvList.Kv = []*pb.KV{}
-//	}
-//
-//	var errorsMerged error
-//	if len(errs) > 0 {
-//		errorsMerged = fmt.Errorf("Errors:\n\t%s", strings.Join(errs[:], "\n\t"))
-//		c.Logger.Errorf("restore terminated with errors. %v", errorsMerged)
-//	} else {
-//		c.Logger.Infof("restore finished restoring %d of %d entries in %s", counter, entryCounter, time.Since(start))
-//	}
-//
-//	return counter, errorsMerged
-//}
-
 func (c *immuClient) HealthCheck(ctx context.Context) error {
 	start := time.Now()
 
@@ -1277,86 +1208,6 @@ func (c *immuClient) HealthCheck(ctx context.Context) error {
 
 	return nil
 }
-
-// todo(joe-dz): Enable restore when the feature is required again.
-// Also, make sure that the generated files are updated
-//func (c *immuClient) restoreChunk(ctx context.Context, kvList *pb.KVList) error {
-//	kvListLen := len(kvList.Kv)
-//	kvListStr := fmt.Sprintf("%+v", kvList)
-//	restoreClient, err := c.ServiceClient.Restore(ctx)
-//	if err != nil {
-//		c.Logger.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: error getting restore client: %v", kvListLen, kvListStr, err)
-//		return err
-//	}
-//	defer restoreClient.CloseAndRecv()
-//	err = restoreClient.Send(kvList)
-//	if err != nil {
-//		c.Logger.Errorf("error sending to restore client a chunk of %d KVs in key-value list %s: %v", kvListLen, kvListStr, err)
-//		return err
-//	}
-//	return nil
-//}
-
-func writeSeek(w io.WriteSeeker, msg []byte, offset int64) (int64, error) {
-	buf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, uint32(len(msg)))
-
-	if _, err := w.Seek(offset, io.SeekStart); err != nil {
-		return offset, err
-	}
-
-	if _, err := w.Write(buf); err != nil {
-		return offset, err
-	}
-
-	if _, err := w.Seek(offset+int64(len(buf)), io.SeekStart); err != nil {
-		return offset, err
-	}
-
-	if _, err := w.Write(msg); err != nil {
-		return offset, err
-	}
-
-	return offset + int64(len(buf)) + int64(len(msg)), nil
-}
-
-/*func readSeek(r io.ReadSeeker, offset int64) ([]byte, int64, error) {
-	if _, err := r.Seek(offset, io.SeekStart); err != nil {
-		return nil, offset, err
-	}
-	buf := make([]byte, 4)
-	o1 := offset + int64(len(buf))
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, o1, err
-	}
-	if _, err := r.Seek(o1, io.SeekStart); err != nil {
-		return nil, o1, err
-	}
-	size := binary.LittleEndian.Uint32(buf)
-	msg := make([]byte, size)
-	o2 := o1 + int64(size)
-	if _, err := io.ReadFull(r, msg); err != nil {
-		return nil, o2, err
-	}
-	return msg, o2, nil
-}*/
-
-/*
-func (c *immuClient) VerifyAndSetRoot(result *schema.DualProof, txMetadata *schema.TxMetadata, ctx context.Context) (bool, error)
-	verified := result.Verify(result.Leaf, *root)
-	var err error
-
-	if verified {
-		//saving a fresh root
-		tocache := schema.NewRoot()
-		tocache.SetIndex(result.Index)
-		tocache.SetRoot(result.Root)
-		err = c.Rootservice.SetRoot(tocache, c.Options.CurrentDatabase)
-	}
-
-	return verified, err
-}
-*/
 
 // CreateDatabase create a new database by making a grpc call
 func (c *immuClient) CreateDatabase(ctx context.Context, db *schema.Database) error {
