@@ -36,7 +36,6 @@ type ImmuServiceClientMock struct {
 	DeactivateUserF   func(ctx context.Context, in *schema.UserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	UpdateAuthConfigF func(ctx context.Context, in *schema.AuthConfig, opts ...grpc.CallOption) (*empty.Empty, error)
 	UpdateMTLSConfigF func(ctx context.Context, in *schema.MTLSConfig, opts ...grpc.CallOption) (*empty.Empty, error)
-	PrintTreeF        func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Tree, error)
 	LoginF            func(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error)
 	LogoutF           func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 
@@ -93,10 +92,6 @@ func (icm *ImmuServiceClientMock) UpdateAuthConfig(ctx context.Context, in *sche
 
 func (icm *ImmuServiceClientMock) UpdateMTLSConfig(ctx context.Context, in *schema.MTLSConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return icm.UpdateMTLSConfigF(ctx, in, opts...)
-}
-
-func (icm *ImmuServiceClientMock) PrintTree(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Tree, error) {
-	return icm.PrintTreeF(ctx, in, opts...)
 }
 
 func (icm *ImmuServiceClientMock) Login(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {

@@ -135,7 +135,6 @@ grpc_server_handled_total{grpc_code="Aborted",grpc_method="Inclusion",grpc_servi
 grpc_server_handled_total{grpc_code="Aborted",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Aborted",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Aborted",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="Aborted",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Aborted",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Aborted",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Aborted",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -184,7 +183,6 @@ grpc_server_handled_total{grpc_code="AlreadyExists",grpc_method="Inclusion",grpc
 grpc_server_handled_total{grpc_code="AlreadyExists",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="AlreadyExists",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="AlreadyExists",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="AlreadyExists",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="AlreadyExists",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="AlreadyExists",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="AlreadyExists",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -233,7 +231,6 @@ grpc_server_handled_total{grpc_code="Canceled",grpc_method="Inclusion",grpc_serv
 grpc_server_handled_total{grpc_code="Canceled",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Canceled",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Canceled",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="Canceled",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Canceled",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Canceled",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Canceled",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -282,7 +279,6 @@ grpc_server_handled_total{grpc_code="DataLoss",grpc_method="Inclusion",grpc_serv
 grpc_server_handled_total{grpc_code="DataLoss",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DataLoss",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DataLoss",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="DataLoss",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DataLoss",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DataLoss",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DataLoss",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -331,7 +327,6 @@ grpc_server_handled_total{grpc_code="DeadlineExceeded",grpc_method="Inclusion",g
 grpc_server_handled_total{grpc_code="DeadlineExceeded",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DeadlineExceeded",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DeadlineExceeded",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="DeadlineExceeded",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DeadlineExceeded",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DeadlineExceeded",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="DeadlineExceeded",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -380,7 +375,6 @@ grpc_server_handled_total{grpc_code="FailedPrecondition",grpc_method="Inclusion"
 grpc_server_handled_total{grpc_code="FailedPrecondition",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="FailedPrecondition",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="FailedPrecondition",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="FailedPrecondition",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="FailedPrecondition",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="FailedPrecondition",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="FailedPrecondition",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -429,7 +423,6 @@ grpc_server_handled_total{grpc_code="Internal",grpc_method="Inclusion",grpc_serv
 grpc_server_handled_total{grpc_code="Internal",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Internal",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Internal",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="Internal",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Internal",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Internal",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Internal",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -478,7 +471,6 @@ grpc_server_handled_total{grpc_code="InvalidArgument",grpc_method="Inclusion",gr
 grpc_server_handled_total{grpc_code="InvalidArgument",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="InvalidArgument",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="InvalidArgument",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="InvalidArgument",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="InvalidArgument",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="InvalidArgument",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="InvalidArgument",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -527,7 +519,6 @@ grpc_server_handled_total{grpc_code="NotFound",grpc_method="Inclusion",grpc_serv
 grpc_server_handled_total{grpc_code="NotFound",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="NotFound",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="NotFound",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="NotFound",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="NotFound",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="NotFound",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="NotFound",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -576,7 +567,6 @@ grpc_server_handled_total{grpc_code="OK",grpc_method="Inclusion",grpc_service="i
 grpc_server_handled_total{grpc_code="OK",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OK",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OK",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="OK",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OK",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OK",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OK",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -625,7 +615,6 @@ grpc_server_handled_total{grpc_code="OutOfRange",grpc_method="Inclusion",grpc_se
 grpc_server_handled_total{grpc_code="OutOfRange",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OutOfRange",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OutOfRange",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="OutOfRange",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OutOfRange",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OutOfRange",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="OutOfRange",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -674,7 +663,6 @@ grpc_server_handled_total{grpc_code="PermissionDenied",grpc_method="Inclusion",g
 grpc_server_handled_total{grpc_code="PermissionDenied",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="PermissionDenied",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="PermissionDenied",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="PermissionDenied",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="PermissionDenied",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="PermissionDenied",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="PermissionDenied",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -723,7 +711,6 @@ grpc_server_handled_total{grpc_code="ResourceExhausted",grpc_method="Inclusion",
 grpc_server_handled_total{grpc_code="ResourceExhausted",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="ResourceExhausted",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="ResourceExhausted",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="ResourceExhausted",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="ResourceExhausted",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="ResourceExhausted",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="ResourceExhausted",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -772,7 +759,6 @@ grpc_server_handled_total{grpc_code="Unauthenticated",grpc_method="Inclusion",gr
 grpc_server_handled_total{grpc_code="Unauthenticated",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unauthenticated",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unauthenticated",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="Unauthenticated",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unauthenticated",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unauthenticated",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unauthenticated",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -821,7 +807,6 @@ grpc_server_handled_total{grpc_code="Unavailable",grpc_method="Inclusion",grpc_s
 grpc_server_handled_total{grpc_code="Unavailable",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unavailable",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unavailable",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="Unavailable",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unavailable",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unavailable",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unavailable",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -870,7 +855,6 @@ grpc_server_handled_total{grpc_code="Unimplemented",grpc_method="Inclusion",grpc
 grpc_server_handled_total{grpc_code="Unimplemented",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unimplemented",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unimplemented",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="Unimplemented",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unimplemented",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unimplemented",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unimplemented",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -919,7 +903,6 @@ grpc_server_handled_total{grpc_code="Unknown",grpc_method="Inclusion",grpc_servi
 grpc_server_handled_total{grpc_code="Unknown",grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unknown",grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unknown",grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handled_total{grpc_code="Unknown",grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unknown",grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unknown",grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handled_total{grpc_code="Unknown",grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -1321,20 +1304,6 @@ grpc_server_handling_seconds_bucket{grpc_method="Logout",grpc_service="immudb.sc
 grpc_server_handling_seconds_bucket{grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="+Inf"} 0
 grpc_server_handling_seconds_sum{grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handling_seconds_count{grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.005"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.01"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.025"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.05"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.1"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.25"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.5"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="1"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="2.5"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="5"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="10"} 0
-grpc_server_handling_seconds_bucket{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="+Inf"} 0
-grpc_server_handling_seconds_sum{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_handling_seconds_count{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_handling_seconds_bucket{grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.005"} 0
 grpc_server_handling_seconds_bucket{grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.01"} 0
 grpc_server_handling_seconds_bucket{grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary",le="0.025"} 0
@@ -1658,7 +1627,6 @@ grpc_server_msg_received_total{grpc_method="Inclusion",grpc_service="immudb.sche
 grpc_server_msg_received_total{grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_received_total{grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_received_total{grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_msg_received_total{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_received_total{grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_received_total{grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_received_total{grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -1709,7 +1677,6 @@ grpc_server_msg_sent_total{grpc_method="Inclusion",grpc_service="immudb.schema.I
 grpc_server_msg_sent_total{grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_sent_total{grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_sent_total{grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_msg_sent_total{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_sent_total{grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_sent_total{grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_msg_sent_total{grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
@@ -1760,7 +1727,6 @@ grpc_server_started_total{grpc_method="Inclusion",grpc_service="immudb.schema.Im
 grpc_server_started_total{grpc_method="ListUsers",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="Login",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="Logout",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-grpc_server_started_total{grpc_method="PrintTree",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="Reference",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="SafeGet",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="SafeGetSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0

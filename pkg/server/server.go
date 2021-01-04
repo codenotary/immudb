@@ -1212,18 +1212,6 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 	return dbList, nil
 }
 
-// PrintTree ...
-func (s *ImmuServer) PrintTree(ctx context.Context, r *empty.Empty) (*schema.Tree, error) {
-	s.Logger.Debugf("PrintTree")
-
-	ind, err := s.getDbIndexFromCtx(ctx, "PrintTree")
-	if err != nil {
-		return nil, err
-	}
-
-	return s.dbList.GetByIndex(ind).PrintTree()
-}
-
 // UseDatabase ...
 func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*schema.UseDatabaseReply, error) {
 	s.Logger.Debugf("UseDatabase %+v", db)

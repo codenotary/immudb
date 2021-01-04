@@ -110,9 +110,6 @@ func (m *immuServiceClientMock) UpdateAuthConfig(ctx context.Context, in *schema
 func (m *immuServiceClientMock) UpdateMTLSConfig(ctx context.Context, in *schema.MTLSConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return &empty.Empty{}, nil
 }
-func (m *immuServiceClientMock) PrintTree(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.Tree, error) {
-	return &schema.Tree{}, nil
-}
 func (m *immuServiceClientMock) Login(ctx context.Context, in *schema.LoginRequest, opts ...grpc.CallOption) (*schema.LoginResponse, error) {
 	return &schema.LoginResponse{}, nil
 }

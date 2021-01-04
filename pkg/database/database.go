@@ -60,7 +60,6 @@ type DB interface {
 	ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error)
 	VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error)
 	Scan(req *schema.ScanRequest) (*schema.Entries, error)
-	PrintTree() (*schema.Tree, error)
 	Close() error
 	GetOptions() *DbOptions
 }
@@ -609,9 +608,4 @@ func logErr(log logger.Logger, formattedMessage string, err error) error {
 		log.Errorf(formattedMessage, err)
 	}
 	return err
-}
-
-// PrintTree ...
-func (d *db) PrintTree() (*schema.Tree, error) {
-	return nil, fmt.Errorf("Functionality not yet supported: %s", "PrintTree")
 }

@@ -408,9 +408,6 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.Error(t, ErrNotConnected, client.UpdateAuthConfig(ctx, auth.KindPassword))
 	require.Error(t, ErrNotConnected, client.UpdateMTLSConfig(ctx, false))
 
-	_, err = client.PrintTree(ctx)
-	require.Error(t, ErrNotConnected, err)
-
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
 	require.Error(t, ErrNotConnected, err)
 
@@ -973,18 +970,6 @@ func TestImmuClient_Logout(t *testing.T) {
 	// @todo need to be fixed
 	_ = client.Logout(context.TODO())
 	//assert.Nil(t, err)
-	client.Disconnect()
-}
-
-func TestImmuClient_PrintTree(t *testing.T) {
-	setup()
-	_, _ = client.SafeSet(context.TODO(), []byte(`key1`), []byte(`val1`))
-
-	tree, err := client.PrintTree(context.TODO())
-
-	assert.Nil(t, err)
-	assert.IsType(t, &schema.Tree{}, tree)
-
 	client.Disconnect()
 }
 

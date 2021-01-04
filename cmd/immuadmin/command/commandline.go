@@ -34,7 +34,6 @@ type Commandline interface {
 	status(cmd *cobra.Command)
 	stats(cmd *cobra.Command)
 	serverConfig(cmd *cobra.Command)
-	printTree(rootCmd *cobra.Command)
 	database(cmd *cobra.Command)
 	ConfigChain(post func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) (err error)
 }
