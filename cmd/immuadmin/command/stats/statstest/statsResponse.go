@@ -1748,54 +1748,12 @@ grpc_server_started_total{grpc_method="UseDatabase",grpc_service="immudb.schema.
 grpc_server_started_total{grpc_method="ZAdd",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="ZScan",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="ZScanSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-# HELP immudb_blocked_puts_total Blocked Puts
-# TYPE immudb_blocked_puts_total untyped
-immudb_blocked_puts_total 0
-# HELP immudb_disk_reads_total Disk Reads
-# TYPE immudb_disk_reads_total untyped
-immudb_disk_reads_total 46
-# HELP immudb_disk_writes_total Disk Writes
-# TYPE immudb_disk_writes_total untyped
-immudb_disk_writes_total 0
-# HELP immudb_gets_total Gets
-# TYPE immudb_gets_total untyped
-immudb_gets_total 39
-# HELP immudb_lsm_bloom_hits_total LSM Bloom Hits
-# TYPE immudb_lsm_bloom_hits_total untyped
-immudb_lsm_bloom_hits_total{level="l1"} 2
-# HELP immudb_lsm_level_gets_total LSM Level Gets
-# TYPE immudb_lsm_level_gets_total untyped
-immudb_lsm_level_gets_total{level="l1"} 37
-# HELP immudb_lsm_size_bytes LSM Size in bytes
-# TYPE immudb_lsm_size_bytes untyped
-immudb_lsm_size_bytes{database="data/defaultdb"} 295
-immudb_lsm_size_bytes{database="data/systemdb"} 449
-# HELP immudb_memtable_gets_total Memtable gets
-# TYPE immudb_memtable_gets_total untyped
-immudb_memtable_gets_total 39
 # HELP immudb_number_of_stored_entries Number of key-value entries currently stored by the database.
 # TYPE immudb_number_of_stored_entries counter
 immudb_number_of_stored_entries 2
-# HELP immudb_pending_writes_total Pending Writes
-# TYPE immudb_pending_writes_total untyped
-immudb_pending_writes_total{database="data/defaultdb"} 0
-immudb_pending_writes_total{database="data/systemdb"} 0
-# HELP immudb_puts_total Puts
-# TYPE immudb_puts_total untyped
-immudb_puts_total 0
-# HELP immudb_read_bytes Read bytes
-# TYPE immudb_read_bytes untyped
-immudb_read_bytes 5287
 # HELP immudb_uptime_hours Server uptime in hours.
 # TYPE immudb_uptime_hours counter
 immudb_uptime_hours 0.010175722224166666
-# HELP immudb_vlog_size_bytes Value Log Size in bytes
-# TYPE immudb_vlog_size_bytes untyped
-immudb_vlog_size_bytes{database="data/defaultdb"} 177
-immudb_vlog_size_bytes{database="data/systemdb"} 883
-# HELP immudb_written_bytes Written bytes
-# TYPE immudb_written_bytes untyped
-immudb_written_bytes 0
 # HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
 # TYPE process_cpu_seconds_total counter
 process_cpu_seconds_total 0.15

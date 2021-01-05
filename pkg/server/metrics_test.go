@@ -28,12 +28,12 @@ import (
 )
 
 func TestStartMetrics(t *testing.T) {
-	server := StartMetrics("0.0.0.0:9999", &mockLogger{}, func() float64 {
-		return 0
-	},
-		func() float64 {
-			return 0
-		})
+	server := StartMetrics(
+		"0.0.0.0:9999",
+		&mockLogger{},
+		func() float64 { return 0 },
+		func() float64 { return 0 },
+		func() float64 { return 0 })
 	defer server.Close()
 
 	assert.IsType(t, &http.Server{}, server)

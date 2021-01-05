@@ -47,6 +47,7 @@ type statsController struct {
 	tui                   Tui
 }
 
+// Tui ...
 type Tui interface {
 	TerminalDimensions() (int, int)
 	Render(items ...ui.Drawable)
@@ -128,15 +129,13 @@ func (p *statsController) Render(ms *metrics) {
 		{"  active < 1h ago", fmt.Sprintf("%d", len(*ms.clientsActiveDuringLastHour()))},
 	}
 
-	totalSizeS, _ := byteCountBinary(ms.db.totalBytes)
-	vlogSizeS, vlogSize := byteCountBinary(ms.db.vlogBytes)
-	lsmSizeS, lsmSize := byteCountBinary(ms.db.lsmBytes)
+	totalSizeS, totalSize := byteCountBinary(ms.db.totalBytes)
 	updatePlot(
 		p.SizePlot,
 		&p.SizePlotData,
 		sizePlotDataLength,
-		[]float64{vlogSize, lsmSize},
-		fmt.Sprintf(" DB Size: %s (VLog %s, LSM %s) ", totalSizeS, vlogSizeS, lsmSizeS))
+		[]float64{totalSize},
+		fmt.Sprintf(" DB Size: %s ", totalSizeS))
 
 	if p.withDBHistograms {
 		nbReads := ms.reads.counter
@@ -225,7 +224,7 @@ func (p *statsController) initUI() {
 		p.SizePlot,
 		&p.SizePlotData,
 		int(float64(gridWidth)*(sizePlotWidthPercent-.025)),
-		[]string{"VLog", "LSM"},
+		[]string{"DB Size"},
 		" DB Size ")
 
 	p.NbReadsWritesPlotData = make([]*list.List, 2)

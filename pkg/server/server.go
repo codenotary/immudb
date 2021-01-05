@@ -243,18 +243,32 @@ func (s *ImmuServer) setupPidFile() error {
 }
 
 func (s *ImmuServer) setUpMetricsServer() error {
+	defaultDBSizeFunc := func() float64 {
+		var defaultDBDirSizeBytes int64 = 0
+		readSize := func(path string, file os.FileInfo, err error) error {
+			if !file.IsDir() {
+				defaultDBDirSizeBytes += file.Size()
+			}
+			return nil
+		}
+		defaultDBPath := filepath.Join(s.Options.Dir, s.Options.defaultDbName)
+		filepath.Walk(defaultDBPath, readSize)
+		return float64(defaultDBDirSizeBytes)
+	}
+
 	s.metricsServer = StartMetrics(
 		s.Options.MetricsBind(),
 		s.Logger,
 		func() float64 {
-			ic, err := s.dbList.GetByIndex(DefaultDbIndex).CountAll()
+			ic, err := s.dbList.GetByIndex(DefaultDbIndex).CurrentState()
 			if err != nil {
 				return 0
 			}
 
-			return float64(ic.Count)
+			return float64(ic.GetTxId())
 		},
 		func() float64 { return time.Since(startedAt).Hours() },
+		defaultDBSizeFunc,
 	)
 	return nil
 }

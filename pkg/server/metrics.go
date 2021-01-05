@@ -34,6 +34,7 @@ import (
 type MetricsCollection struct {
 	RecordsCounter               prometheus.CounterFunc
 	UptimeCounter                prometheus.CounterFunc
+	DBSizeFunc                   prometheus.CounterFunc
 	RPCsPerClientCounters        *prometheus.CounterVec
 	LastMessageAtPerClientGauges *prometheus.GaugeVec
 }
@@ -59,6 +60,18 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 			Namespace: metricsNamespace,
 			Name:      "uptime_hours",
 			Help:      "Server uptime in hours.",
+		},
+		f,
+	)
+}
+
+// WithDBSizeFunc ...
+func (mc *MetricsCollection) WithDBSizeFunc(f func() float64) {
+	mc.DBSizeFunc = promauto.NewCounterFunc(
+		prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Name:      "db_size_bytes",
+			Help:      "Database size in bytes.",
 		},
 		f,
 	)
@@ -96,26 +109,6 @@ var Metrics = MetricsCollection{
 	),
 }
 
-func init() {
-	http.Handle("/metrics", promhttp.Handler())
-	expvarCollector := prometheus.NewExpvarCollector(map[string]*prometheus.Desc{
-		"badger_blocked_puts_total":   prometheus.NewDesc("immudb_blocked_puts_total", "Blocked Puts", nil, nil),
-		"badger_disk_reads_total":     prometheus.NewDesc("immudb_disk_reads_total", "Disk Reads", nil, nil),
-		"badger_disk_writes_total":    prometheus.NewDesc("immudb_disk_writes_total", "Disk Writes", nil, nil),
-		"badger_gets_total":           prometheus.NewDesc("immudb_gets_total", "Gets", nil, nil),
-		"badger_puts_total":           prometheus.NewDesc("immudb_puts_total", "Puts", nil, nil),
-		"badger_memtable_gets_total":  prometheus.NewDesc("immudb_memtable_gets_total", "Memtable gets", nil, nil),
-		"badger_lsm_size_bytes":       prometheus.NewDesc("immudb_lsm_size_bytes", "LSM Size in bytes", []string{"database"}, nil),
-		"badger_vlog_size_bytes":      prometheus.NewDesc("immudb_vlog_size_bytes", "Value Log Size in bytes", []string{"database"}, nil),
-		"badger_pending_writes_total": prometheus.NewDesc("immudb_pending_writes_total", "Pending Writes", []string{"database"}, nil),
-		"badger_read_bytes":           prometheus.NewDesc("immudb_read_bytes", "Read bytes", nil, nil),
-		"badger_written_bytes":        prometheus.NewDesc("immudb_written_bytes", "Written bytes", nil, nil),
-		"badger_lsm_bloom_hits_total": prometheus.NewDesc("immudb_lsm_bloom_hits_total", "LSM Bloom Hits", []string{"level"}, nil),
-		"badger_lsm_level_gets_total": prometheus.NewDesc("immudb_lsm_level_gets_total", "LSM Level Gets", []string{"level"}, nil),
-	})
-	prometheus.MustRegister(expvarCollector)
-}
-
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
 // The server is then returned and can be stopped using Close().
 func StartMetrics(
@@ -123,9 +116,11 @@ func StartMetrics(
 	l logger.Logger,
 	recordsCounter func() float64,
 	uptimeCounter func() float64,
+	dbSizeFunc func() float64,
 ) *http.Server {
 	Metrics.WithRecordsCounter(recordsCounter)
 	Metrics.WithUptimeCounter(uptimeCounter)
+	Metrics.WithDBSizeFunc(dbSizeFunc)
 	// expvar package adds a handler in to the default HTTP server (which has to be started explicitly),
 	// and serves up the metrics at the /debug/vars endpoint.
 	// Here we're registering both expvar and promhttp handlers in our custom server.

@@ -23,6 +23,7 @@ import (
 	ui "github.com/gizak/termui/v3"
 )
 
+// Statsui ...
 type Statsui interface {
 }
 
