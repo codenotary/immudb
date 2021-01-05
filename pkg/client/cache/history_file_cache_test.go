@@ -16,7 +16,6 @@ limitations under the License.
 
 package cache
 
-/*
 import (
 	"os"
 	"testing"
@@ -35,15 +34,15 @@ func TestNewHistoryFileCache(t *testing.T) {
 func TestNewHistoryFileCacheSet(t *testing.T) {
 	fc := NewHistoryFileCache(dirnamehfc)
 
-	err := fc.Set(&schema.Root{Payload: &schema.RootIndex{Index: 1}}, "uuid", "dbName")
+	err := fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 1, TxHash: []byte{1}})
 	assert.Nil(t, err)
 
-	err = fc.Set(&schema.Root{Payload: &schema.RootIndex{Index: 2}}, "uuid", "dbName")
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 2, TxHash: []byte{2}})
 	assert.Nil(t, err)
 
 	root, err := fc.Get("uuid", "dbName")
 	assert.Nil(t, err)
-	assert.IsType(t, &schema.Root{}, root)
+	assert.IsType(t, &schema.ImmutableState{}, root)
 
 	_, err = fc.Get("uuid1", "dbName")
 	assert.Nil(t, err)
@@ -56,7 +55,7 @@ func TestNewHistoryFileCacheGet(t *testing.T) {
 	fc := NewHistoryFileCache(dirnamehfc)
 	root, err := fc.Get("uuid", "dbName")
 	assert.Nil(t, err)
-	assert.IsType(t, &schema.Root{}, root)
+	assert.IsType(t, &schema.ImmutableState{}, root)
 	os.RemoveAll(dirnamehfc)
 }
 
@@ -66,19 +65,18 @@ func TestNewHistoryFileCacheWalk(t *testing.T) {
 
 	fc := NewHistoryFileCache(dirnamehfc)
 
-	iface, err := fc.Walk("uuid", "dbName", func(root *schema.Root) interface{} {
+	iface, err := fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
 	})
 	assert.Nil(t, err)
 	assert.IsType(t, []interface{}{interface{}(nil)}, iface)
 
-	err = fc.Set(&schema.Root{}, "uuid", "dbName")
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{})
 	assert.Nil(t, err)
 
-	iface, err = fc.Walk("uuid", "dbName", func(root *schema.Root) interface{} {
+	iface, err = fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
 	})
 	assert.Nil(t, err)
 	assert.IsType(t, []interface{}{interface{}(nil)}, iface)
 }
-*/

@@ -112,9 +112,7 @@ func (history *historyFileCache) Set(serverUUID, db string, state *schema.Immuta
 	output := strings.Join(lines, "\n")
 
 	if err = ioutil.WriteFile(stateFilePath, []byte(output), 0644); err != nil {
-		return fmt.Errorf(
-			"error writing state %d to file %s: %v",
-			state.TxId, stateFilePath, err)
+		return fmt.Errorf("error writing state %d to file %s: %v", state.TxId, stateFilePath, err)
 	}
 
 	return nil

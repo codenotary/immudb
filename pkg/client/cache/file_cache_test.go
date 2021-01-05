@@ -1,6 +1,5 @@
 package cache
 
-/*
 import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +19,7 @@ func TestNewFileCache(t *testing.T) {
 func TestFileCacheSet(t *testing.T) {
 	os.Mkdir(dirname, os.ModePerm)
 	fc := NewFileCache(dirname)
-	err := fc.Set(&schema.Root{}, "uuid", "dbName")
+	err := fc.Set("uuid", "dbName", &schema.ImmutableState{})
 	assert.Nil(t, err)
 	os.RemoveAll(dirname)
 }
@@ -28,11 +27,11 @@ func TestFileCacheSet(t *testing.T) {
 func TestFileCacheGet(t *testing.T) {
 	os.Mkdir(dirname, os.ModePerm)
 	fc := NewFileCache(dirname)
-	err := fc.Set(&schema.Root{}, "uuid", "dbName")
+	err := fc.Set("uuid", "dbName", &schema.ImmutableState{})
 	assert.Nil(t, err)
 	root, err := fc.Get("uuid", "dbName")
 	assert.Nil(t, err)
-	assert.IsType(t, &schema.Root{}, root)
+	assert.IsType(t, &schema.ImmutableState{}, root)
 	os.RemoveAll(dirname)
 }
 
@@ -43,4 +42,3 @@ func TestFileCacheGetFail(t *testing.T) {
 	assert.Error(t, err)
 	os.RemoveAll(dirname)
 }
-*/

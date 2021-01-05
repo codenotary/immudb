@@ -221,6 +221,15 @@ func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float
 	require.NoError(t, err3)
 }
 
+func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ImmuClient) {
+	vi1, err := client.VerifiedSet(ctx, []byte("key-n11"), []byte("val-n11"))
+	require.NoError(t, err)
+
+	item1, err3 := client.VerifiedTxByID(ctx, vi1.Id)
+	require.Equal(t, vi1.Ts, item1.Metadata.Ts)
+	require.NoError(t, err3)
+}
+
 func TestImmuClient(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -259,6 +268,7 @@ func TestImmuClient(t *testing.T) {
 
 	testReference(ctx, t, testData.refKeys[0], testData.keys[0], testData.values[0], client)
 	testGetTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
+	testImmuClient_VerifiedTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
 
 	testGet(ctx, t, client)
 }
@@ -365,6 +375,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.VerifiedGet(context.TODO(), []byte("key"))
+	require.Error(t, ErrNotConnected, err)
+
+	_, err = client.GetAll(context.TODO(), [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.Error(t, ErrNotConnected, err)
 
 	_, err = client.Scan(context.TODO(), &schema.ScanRequest{
