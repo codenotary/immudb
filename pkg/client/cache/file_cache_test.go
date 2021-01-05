@@ -3,13 +3,17 @@ package cache
 import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
+	"log"
 	"os"
 	"testing"
 )
 
-var dirname = "./test"
-
 func TestNewFileCache(t *testing.T) {
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
 	os.Mkdir(dirname, os.ModePerm)
 	fc := NewFileCache(dirname)
 	assert.IsType(t, &fileCache{}, fc)
@@ -17,17 +21,23 @@ func TestNewFileCache(t *testing.T) {
 }
 
 func TestFileCacheSet(t *testing.T) {
-	os.Mkdir(dirname, os.ModePerm)
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
 	fc := NewFileCache(dirname)
-	err := fc.Set("uuid", "dbName", &schema.ImmutableState{})
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{})
 	assert.Nil(t, err)
 	os.RemoveAll(dirname)
 }
 
 func TestFileCacheGet(t *testing.T) {
-	os.Mkdir(dirname, os.ModePerm)
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
 	fc := NewFileCache(dirname)
-	err := fc.Set("uuid", "dbName", &schema.ImmutableState{})
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{})
 	assert.Nil(t, err)
 	root, err := fc.Get("uuid", "dbName")
 	assert.Nil(t, err)
@@ -36,9 +46,12 @@ func TestFileCacheGet(t *testing.T) {
 }
 
 func TestFileCacheGetFail(t *testing.T) {
-	os.Mkdir(dirname, os.ModePerm)
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
 	fc := NewFileCache(dirname)
-	_, err := fc.Get("uuid", "dbName")
+	_, err = fc.Get("uuid", "dbName")
 	assert.Error(t, err)
 	os.RemoveAll(dirname)
 }

@@ -17,66 +17,128 @@ limitations under the License.
 package cache
 
 import (
+	"github.com/stretchr/testify/require"
+	"io/ioutil"
+	"log"
 	"os"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
 )
 
-var dirnamehfc = "./test"
-
 func TestNewHistoryFileCache(t *testing.T) {
-	fc := NewHistoryFileCache(dirnamehfc)
-	assert.IsType(t, &historyFileCache{}, fc)
+	dir, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fc := NewHistoryFileCache(dir)
+	defer os.RemoveAll(dir)
+	require.IsType(t, &historyFileCache{}, fc)
 }
 
 func TestNewHistoryFileCacheSet(t *testing.T) {
-	fc := NewHistoryFileCache(dirnamehfc)
+	dir, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fc := NewHistoryFileCache(dir)
+	defer os.RemoveAll(dir)
 
-	err := fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 1, TxHash: []byte{1}})
-	assert.Nil(t, err)
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 1, TxHash: []byte{1}})
+	require.Nil(t, err)
 
 	err = fc.Set("uuid", "dbName", &schema.ImmutableState{TxId: 2, TxHash: []byte{2}})
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	root, err := fc.Get("uuid", "dbName")
-	assert.Nil(t, err)
-	assert.IsType(t, &schema.ImmutableState{}, root)
+	require.Nil(t, err)
+	require.IsType(t, &schema.ImmutableState{}, root)
 
 	_, err = fc.Get("uuid1", "dbName")
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
-	os.RemoveAll(dirnamehfc)
 }
 
 func TestNewHistoryFileCacheGet(t *testing.T) {
-	os.Mkdir(dirnamehfc, os.ModePerm)
-	fc := NewHistoryFileCache(dirnamehfc)
+	dir, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fc := NewHistoryFileCache(dir)
+	defer os.RemoveAll(dir)
+
 	root, err := fc.Get("uuid", "dbName")
-	assert.Nil(t, err)
-	assert.IsType(t, &schema.ImmutableState{}, root)
-	os.RemoveAll(dirnamehfc)
+	require.Nil(t, err)
+	require.IsType(t, &schema.ImmutableState{}, root)
 }
 
 func TestNewHistoryFileCacheWalk(t *testing.T) {
-	os.Mkdir(dirnamehfc, os.ModePerm)
-	defer os.RemoveAll(dirnamehfc)
-
-	fc := NewHistoryFileCache(dirnamehfc)
+	dir, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fc := NewHistoryFileCache(dir)
+	defer os.RemoveAll(dir)
 
 	iface, err := fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
 	})
-	assert.Nil(t, err)
-	assert.IsType(t, []interface{}{interface{}(nil)}, iface)
+	require.Nil(t, err)
+	require.IsType(t, []interface{}{interface{}(nil)}, iface)
 
 	err = fc.Set("uuid", "dbName", &schema.ImmutableState{})
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	iface, err = fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
 	})
-	assert.Nil(t, err)
-	assert.IsType(t, []interface{}{interface{}(nil)}, iface)
+	require.Nil(t, err)
+	require.IsType(t, []interface{}{interface{}(nil)}, iface)
+}
+
+func TestHistoryFileCache_SetError(t *testing.T) {
+	dir, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fc := NewHistoryFileCache(dir)
+	defer os.RemoveAll(dir)
+
+	err = fc.Set("uuid", "dbName", nil)
+	require.Error(t, err)
+}
+
+func TestHistoryFileCache_SetMissingFolder(t *testing.T) {
+	dir := "/notExists"
+	fc := NewHistoryFileCache(dir)
+	defer os.RemoveAll(dir)
+
+	err := fc.Set("uuid", "dbName", nil)
+	require.Error(t, err)
+}
+
+func TestHistoryFileCache_WalkFolderNotExists(t *testing.T) {
+	dir := "/notExists"
+	fc := NewHistoryFileCache(dir)
+	defer os.RemoveAll(dir)
+
+	_, err := fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
+		return nil
+	})
+	require.Error(t, err)
+}
+
+func TestHistoryFileCache_getStatesFileInfosError(t *testing.T) {
+	dir := "./testNotExists"
+	err := os.MkdirAll(dir, 0000)
+	defer os.RemoveAll(dir)
+	fc := &historyFileCache{dir: dir}
+	_, err = fc.getStatesFileInfos(dir)
+	require.Error(t, err)
+}
+
+func TestHistoryFileCache_unmarshalRootErr(t *testing.T) {
+	fc := &historyFileCache{}
+	_, err := fc.unmarshalRoot("path", "db")
+	require.Error(t, err)
 }
