@@ -107,9 +107,11 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey):], req.SeekAtTx)
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx)
-	if err != nil {
-		return nil, err
+	if !req.NoWait {
+		err := d.WaitForIndexingUpto(req.SinceTx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	snap, err := d.st.SnapshotSince(req.SinceTx)
