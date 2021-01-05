@@ -135,6 +135,7 @@ message ScanRequest {
 	bool desc = 3;
 	uint64 limit = 4;
 	uint64 sinceTx = 5;
+	bool  noWait = 6;
 }
 
 message KeyPrefix {
@@ -281,6 +282,7 @@ message ZScanRequest {
 	Score minScore = 8;
 	Score maxScore = 9;
 	uint64 sinceTx = 10;
+	bool  noWait = 11;
 }
 
 message HistoryRequest {

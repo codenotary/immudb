@@ -18,7 +18,7 @@ package schema
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -53,7 +53,7 @@ func TestOps_ValidateErrDuplicatedKeysNotSupported(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	assert.Equal(t, err, ErrDuplicatedKeysNotSupported)
+	require.Equal(t, err, ErrDuplicatedKeysNotSupported)
 
 }
 
@@ -89,7 +89,7 @@ func TestOps_ValidateErrDuplicateZAddNotSupported(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	assert.Equal(t, err, ErrDuplicatedZAddNotSupported)
+	require.Equal(t, err, ErrDuplicatedZAddNotSupported)
 }
 
 func TestOps_ValidateErrEmptySet(t *testing.T) {
@@ -97,7 +97,7 @@ func TestOps_ValidateErrEmptySet(t *testing.T) {
 		Operations: []*Op{},
 	}
 	err := aOps.Validate()
-	assert.Equal(t, err, ErrEmptySet)
+	require.Equal(t, err, ErrEmptySet)
 }
 
 func TestOps_ValidateErrDuplicate(t *testing.T) {
@@ -123,7 +123,7 @@ func TestOps_ValidateErrDuplicate(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestOps_ValidateUnexpectedType(t *testing.T) {
@@ -135,8 +135,9 @@ func TestOps_ValidateUnexpectedType(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	assert.Equal(t, status.Error(codes.InvalidArgument, "batch operation has unexpected type *schema.Op_Unexpected"), err)
+	require.Error(t, err)
 }
+
 func TestExecAllOpsNilElementFound(t *testing.T) {
 	bOps := make([]*Op, 2)
 	op := &Op{
@@ -151,7 +152,7 @@ func TestExecAllOpsNilElementFound(t *testing.T) {
 	bOps[1] = op
 	aOps := &ExecAllRequest{Operations: bOps}
 	err := aOps.Validate()
-	assert.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
+	require.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
 }
 
 func TestOps_ValidateOperationNilElementFound(t *testing.T) {
@@ -163,5 +164,5 @@ func TestOps_ValidateOperationNilElementFound(t *testing.T) {
 		},
 	}
 	err := aOps.Validate()
-	assert.Equal(t, status.Error(codes.InvalidArgument, "operation is not set"), err)
+	require.Equal(t, status.Error(codes.InvalidArgument, "operation is not set"), err)
 }

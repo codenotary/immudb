@@ -56,11 +56,11 @@
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
-
+  
     - [PermissionAction](#immudb.schema.PermissionAction)
-
+  
     - [ImmuService](#immudb.schema.ImmuService)
-
+  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -545,6 +545,7 @@
 | desc | [bool](#bool) |  |  |
 | limit | [uint64](#uint64) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
+| noWait | [bool](#bool) |  |  |
 
 
 
@@ -931,12 +932,13 @@
 | minScore | [Score](#immudb.schema.Score) |  |  |
 | maxScore | [Score](#immudb.schema.Score) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
+| noWait | [bool](#bool) |  |  |
 
 
 
 
 
-
+ 
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -950,9 +952,9 @@
 | REVOKE | 1 |  |
 
 
+ 
 
-
-
+ 
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -995,7 +997,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 
-
+ 
 
 
 
@@ -1018,3 +1020,4 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
+

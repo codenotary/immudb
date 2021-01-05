@@ -824,10 +824,6 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 		return nil, ErrorToManyActiveSnapshots
 	}
 
-	if t.root.ts() < ts {
-		return nil, ErrIllegalState
-	}
-
 	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
 		(t.renewSnapRootAfter > 0 && time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter) {
 

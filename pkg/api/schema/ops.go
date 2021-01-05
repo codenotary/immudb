@@ -56,7 +56,7 @@ func (m *ExecAllRequest) Validate() error {
 		case nil:
 			return status.New(codes.InvalidArgument, "operation is not set").Err()
 		default:
-			return status.Newf(codes.InvalidArgument, "batch operation has unexpected type %T", x).Err()
+			return status.Newf(codes.InvalidArgument, "unexpected type %T", x).Err()
 		}
 	}
 

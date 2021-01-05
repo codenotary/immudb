@@ -1360,6 +1360,9 @@
         "sinceTx": {
           "type": "string",
           "format": "uint64"
+        },
+        "noWait": {
+          "type": "boolean"
         }
       }
     },
@@ -1688,6 +1691,9 @@
         "sinceTx": {
           "type": "string",
           "format": "uint64"
+        },
+        "noWait": {
+          "type": "boolean"
         }
       }
     }

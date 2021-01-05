@@ -32,9 +32,11 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx)
-	if err != nil {
-		return nil, err
+	if !req.NoWait {
+		err := d.WaitForIndexingUpto(req.SinceTx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	d.mutex.Lock()
