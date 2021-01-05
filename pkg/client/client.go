@@ -1141,51 +1141,6 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 // Dump to be used from Immu CLI
 func (c *immuClient) Dump(ctx context.Context, writer io.WriteSeeker) (int64, error) {
 	return 0, errors.New("Functionality not yet supported")
-	/*	start := time.Now()
-
-		if !c.IsConnected() {
-			return 0, ErrNotConnected
-		}
-
-		bkpClient, err := c.ServiceClient.Dump(ctx, &empty.Empty{})
-		if err != nil {
-			return 0, err
-		}
-		defer bkpClient.CloseSend()
-
-		var offset int64
-		var counter int64
-
-		for {
-			kvList, err := bkpClient.Recv()
-			if err == io.EOF {
-				break
-			}
-
-			if err != nil {
-				return 0, fmt.Errorf("error receiving chunk: %v", err)
-			}
-
-			for _, kv := range kvList.Kv {
-				kvBytes, err := proto.Marshal(kv)
-				if err != nil {
-					return 0, fmt.Errorf("error marshaling key-value %+v: %v", kv, err)
-				}
-
-				o, err := writeSeek(writer, kvBytes, offset)
-				if err != nil {
-					return 0, fmt.Errorf("error writing as bytes key-value %+v: %v", kv, err)
-				}
-
-				offset = o
-				counter++
-			}
-		}
-
-		c.Logger.Debugf("dump finished in %s", time.Since(start))
-
-		return counter, nil
-	*/
 }
 
 func (c *immuClient) HealthCheck(ctx context.Context) error {
