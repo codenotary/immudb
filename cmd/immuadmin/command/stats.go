@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/immuadmin/command/stats"
 	"github.com/spf13/cobra"
 )
 
@@ -45,41 +46,37 @@ func (cl *commandline) status(cmd *cobra.Command) {
 
 func (cl *commandline) stats(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:     "stats",
-		Short:   fmt.Sprintf("Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details."),
-		Aliases: []string{"s"},
-		/*PersistentPreRunE: cl.ConfigChain(cl.connect),
-		PersistentPostRun: cl.disconnect,*/
+		Use:               "stats",
+		Short:             fmt.Sprintf("Show statistics as text or visually with the '-v' option. Run 'immuadmin stats -h' for details."),
+		Aliases:           []string{"s"},
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Print("Not yet supported in v0.9.0\n")
-			return nil
-			/*
-				raw, err := cmd.Flags().GetBool("raw")
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				options := cl.immuClient.GetOptions()
-				if raw {
-					if err := stats.ShowMetricsRaw(cmd.OutOrStderr(), options.Address); err != nil {
-						c.QuitToStdErr(err)
-					}
-					return nil
-				}
-				text, err := cmd.Flags().GetBool("text")
-				if err != nil {
-					c.QuitToStdErr(err)
-				}
-				if text {
-					if err := stats.ShowMetricsAsText(cmd.OutOrStderr(), options.Address); err != nil {
-						c.QuitToStdErr(err)
-					}
-					return nil
-				}
-				if err := stats.ShowMetricsVisually(options.Address); err != nil {
+			raw, err := cmd.Flags().GetBool("raw")
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			options := cl.immuClient.GetOptions()
+			if raw {
+				if err := stats.ShowMetricsRaw(cmd.OutOrStderr(), options.Address); err != nil {
 					c.QuitToStdErr(err)
 				}
 				return nil
-			*/
+			}
+			text, err := cmd.Flags().GetBool("text")
+			if err != nil {
+				c.QuitToStdErr(err)
+			}
+			if text {
+				if err := stats.ShowMetricsAsText(cmd.OutOrStderr(), options.Address); err != nil {
+					c.QuitToStdErr(err)
+				}
+				return nil
+			}
+			if err := stats.ShowMetricsVisually(options.Address); err != nil {
+				c.QuitToStdErr(err)
+			}
+			return nil
 		},
 		Args: cobra.NoArgs,
 	}
