@@ -48,33 +48,36 @@ func TestSingleApp(t *testing.T) {
 	require.Nil(t, md)
 
 	_, _, err = a.Append(nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
-	off, n, err := a.Append([]byte{})
+	_, _, err = a.Append([]byte{})
+	require.Equal(t, ErrIllegalArguments, err)
+
+	off, n, err := a.Append([]byte{0})
 	require.NoError(t, err)
 	require.Equal(t, int64(0), off)
-	require.Equal(t, 0, n)
+	require.Equal(t, 1, n)
 
 	off, n, err = a.Append([]byte{1, 2, 3})
 	require.NoError(t, err)
-	require.Equal(t, int64(0), off)
+	require.Equal(t, int64(1), off)
 	require.Equal(t, 3, n)
 
 	off, n, err = a.Append([]byte{4, 5, 6, 7, 8, 9, 10})
 	require.NoError(t, err)
-	require.Equal(t, int64(3), off)
+	require.Equal(t, int64(4), off)
 	require.Equal(t, 7, n)
 
 	err = a.Flush()
 	require.NoError(t, err)
 
-	bs := make([]byte, 3)
+	bs := make([]byte, 4)
 	n, err = a.ReadAt(bs, 0)
 	require.NoError(t, err)
-	require.Equal(t, []byte{1, 2, 3}, bs)
+	require.Equal(t, []byte{0, 1, 2, 3}, bs)
 
 	bs = make([]byte, 4)
-	n, err = a.ReadAt(bs, 6)
+	n, err = a.ReadAt(bs, 7)
 	require.NoError(t, err)
 	require.Equal(t, []byte{7, 8, 9, 10}, bs)
 
@@ -111,13 +114,13 @@ func TestSingleAppReOpening(t *testing.T) {
 	require.Equal(t, []byte{1, 2, 3}, bs)
 
 	_, _, err = a.Append([]byte{})
-	require.Error(t, ErrReadOnly, err)
+	require.Equal(t, ErrReadOnly, err)
 
 	err = a.Flush()
-	require.Error(t, ErrReadOnly, err)
+	require.Equal(t, ErrReadOnly, err)
 
 	err = a.Sync()
-	require.Error(t, ErrReadOnly, err)
+	require.Equal(t, ErrReadOnly, err)
 
 	err = a.Close()
 	require.NoError(t, err)
@@ -131,7 +134,7 @@ func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
 
 	// should fail reading metadata len
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Error(t, ErrCorruptedMetadata, err)
+	require.Equal(t, ErrCorruptedMetadata, err)
 
 	mLenBs := make([]byte, 4)
 	binary.BigEndian.PutUint32(mLenBs, 1)
@@ -145,7 +148,7 @@ func TestSingleAppCorruptedFileReadingMetadata(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Error(t, ErrCorruptedMetadata, err)
+	require.Equal(t, ErrCorruptedMetadata, err)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
@@ -172,7 +175,7 @@ func TestSingleAppCorruptedFileReadingCompresionFormat(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Error(t, ErrCorruptedMetadata, err)
+	require.Equal(t, ErrCorruptedMetadata, err)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
@@ -200,7 +203,7 @@ func TestSingleAppCorruptedFileReadingCompresionLevel(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Error(t, ErrCorruptedMetadata, err)
+	require.Equal(t, ErrCorruptedMetadata, err)
 }
 
 func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
@@ -229,12 +232,12 @@ func TestSingleAppCorruptedFileReadingCompresionWrappedMetadata(t *testing.T) {
 
 	// should failt reading metadata
 	_, err = Open(f.Name(), DefaultOptions())
-	require.Error(t, ErrCorruptedMetadata, err)
+	require.Equal(t, ErrCorruptedMetadata, err)
 }
 
 func TestSingleAppEdgeCases(t *testing.T) {
 	_, err := Open("testdata.aof", nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = Open("testdata.aof", DefaultOptions().WithReadOnly(true))
 	require.Error(t, err)
@@ -247,31 +250,31 @@ func TestSingleAppEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = a.ReadAt(nil, 0)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	err = a.Close()
 	require.NoError(t, err)
 
 	_, err = a.Size()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = a.SetOffset(0)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, _, err = a.Append([]byte{})
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = a.ReadAt([]byte{}, 0)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = a.Flush()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = a.Sync()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = a.Close()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 }
 
 func TestSingleAppZLibCompression(t *testing.T) {

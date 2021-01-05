@@ -27,7 +27,7 @@ func TestCHBuffer(t *testing.T) {
 	b := New(size)
 
 	_, err := b.Get()
-	require.Error(t, ErrBufferIsEmpty, err)
+	require.Equal(t, ErrBufferIsEmpty, err)
 
 	for i := 0; i < size; i++ {
 		err := b.Put(sha256.Sum256([]byte{byte(i)}))
@@ -35,7 +35,7 @@ func TestCHBuffer(t *testing.T) {
 	}
 
 	err = b.Put(sha256.Sum256(nil))
-	require.Error(t, ErrBufferIsFull, err)
+	require.Equal(t, ErrBufferIsFull, err)
 
 	for i := 0; i < size; i++ {
 		h, err := b.Get()
@@ -44,5 +44,5 @@ func TestCHBuffer(t *testing.T) {
 	}
 
 	_, err = b.Get()
-	require.Error(t, ErrBufferIsEmpty, err)
+	require.Equal(t, ErrBufferIsEmpty, err)
 }

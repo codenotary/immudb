@@ -171,7 +171,11 @@ func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
 		return 0, 0, ErrAlreadyClosed
 	}
 
-	if bs == nil {
+	if mf.readOnly {
+		return 0, 0, ErrReadOnly
+	}
+
+	if len(bs) == 0 {
 		return 0, 0, ErrIllegalArguments
 	}
 
@@ -275,6 +279,14 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 }
 
 func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
+	if mf.closed {
+		return 0, ErrAlreadyClosed
+	}
+
+	if len(bs) == 0 {
+		return 0, ErrIllegalArguments
+	}
+
 	r := 0
 
 	for r < len(bs) {

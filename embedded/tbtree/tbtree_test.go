@@ -34,10 +34,10 @@ func TestEdgeCases(t *testing.T) {
 	defer os.RemoveAll("edge_cases")
 
 	_, err := Open("edge_cases", nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = OpenWith(nil, nil, nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	nLog := &mocked.MockedAppendable{}
 	cLog := &mocked.MockedAppendable{}
@@ -93,7 +93,7 @@ func TestEdgeCases(t *testing.T) {
 	require.Equal(t, uint64(0), tree.Ts())
 
 	err = tree.Insert(make([]byte, tree.maxNodeSize), []byte{})
-	require.Error(t, ErrorMaxKVLenExceeded, err)
+	require.Equal(t, ErrorMaxKVLenExceeded, err)
 
 	for i := 0; i < 100; i++ {
 		err = tree.Insert(make([]byte, 1), []byte{2})
@@ -107,10 +107,10 @@ func TestEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = tree.Snapshot()
-	require.Error(t, ErrorToManyActiveSnapshots, err)
+	require.Equal(t, ErrorToManyActiveSnapshots, err)
 
 	err = tree.Close()
-	require.Error(t, ErrSnapshotsNotClosed, err)
+	require.Equal(t, ErrSnapshotsNotClosed, err)
 
 	err = s1.Close()
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = s1.GetTs([]byte{2}, 1)
-		require.Error(t, ErrKeyNotFound, err)
+		require.Equal(t, ErrKeyNotFound, err)
 
 		err = s1.Close()
 		require.NoError(t, err)
@@ -298,13 +298,13 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 
 func TestInvalidOpening(t *testing.T) {
 	_, err := Open("", nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = Open("tbtree_test.go", DefaultOptions())
-	require.Error(t, ErrorPathIsNotADirectory, err)
+	require.Equal(t, ErrorPathIsNotADirectory, err)
 
 	_, err = OpenWith(nil, nil, nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 }
 
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {

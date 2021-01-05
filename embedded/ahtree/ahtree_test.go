@@ -60,13 +60,13 @@ func TestNodeNumberCalculation(t *testing.T) {
 
 func TestEdgeCases(t *testing.T) {
 	_, err := Open("ahtree_test", nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = OpenWith(nil, nil, nil, nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = OpenWith(nil, nil, nil, DefaultOptions())
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	pLog := &mocked.MockedAppendable{}
 	dLog := &mocked.MockedAppendable{}
@@ -82,7 +82,7 @@ func TestEdgeCases(t *testing.T) {
 		return cLogEntrySize + 1, nil
 	}
 	_, err = OpenWith(pLog, dLog, cLog, DefaultOptions())
-	require.Error(t, ErrCorruptedCLog, err)
+	require.Equal(t, ErrCorruptedCLog, err)
 
 	cLog.SizeFn = func() (int64, error) {
 		return 0, nil
@@ -182,59 +182,62 @@ func TestEdgeCases(t *testing.T) {
 	require.Error(t, err)
 
 	_, err = Open("options.go", DefaultOptions())
-	require.Error(t, ErrorPathIsNotADirectory, err)
+	require.Equal(t, ErrorPathIsNotADirectory, err)
 
 	_, err = Open("ahtree_test", DefaultOptions().WithDataCacheSlots(-1))
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = Open("ahtree_test", DefaultOptions().WithDigestsCacheSlots(-1))
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	tree, err = Open("ahtree_test", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
 	defer os.RemoveAll("ahtree_test")
 
 	_, _, err = tree.Root()
-	require.Error(t, ErrEmptyTree, err)
+	require.Equal(t, ErrEmptyTree, err)
 
 	_, err = tree.rootAt(1)
-	require.Error(t, ErrEmptyTree, err)
+	require.Equal(t, ErrEmptyTree, err)
 
 	_, err = tree.rootAt(0)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = tree.DataAt(0)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	err = tree.Sync()
+	require.NoError(t, err)
+
+	_, _, err = tree.Append([]byte{1})
 	require.NoError(t, err)
 
 	err = tree.Close()
 	require.NoError(t, err)
 
 	_, _, err = tree.Append(nil)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = tree.InclusionProof(1, 2)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = tree.ConsistencyProof(1, 2)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, _, err = tree.Root()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = tree.rootAt(1)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = tree.DataAt(1)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = tree.Sync()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = tree.Close()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 }
 
 func TestReadOnly(t *testing.T) {
@@ -251,10 +254,10 @@ func TestReadOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = tree.Append(nil)
-	require.Error(t, ErrReadOnly, err)
+	require.Equal(t, ErrReadOnly, err)
 
 	err = tree.Sync()
-	require.Error(t, ErrReadOnly, err)
+	require.Equal(t, ErrReadOnly, err)
 
 	err = tree.Close()
 	require.NoError(t, err)
@@ -290,10 +293,10 @@ func TestAppend(t *testing.T) {
 		require.Equal(t, p, rp)
 
 		_, err = tree.RootAt(uint64(i) + 1)
-		require.Error(t, ErrUnexistentData, err)
+		require.Equal(t, ErrUnexistentData, err)
 
 		_, err = tree.DataAt(uint64(i) + 1)
-		require.Error(t, ErrUnexistentData, err)
+		require.Equal(t, ErrUnexistentData, err)
 	}
 
 	rp, err := tree.DataAt(uint64(1))
@@ -320,10 +323,10 @@ func TestInclusionAndConsistencyProofs(t *testing.T) {
 	}
 
 	_, err = tree.InclusionProof(2, 1)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = tree.ConsistencyProof(2, 1)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	for i := 1; i <= N; i++ {
 		for j := i; j <= N; j++ {
