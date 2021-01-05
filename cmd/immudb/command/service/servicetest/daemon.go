@@ -18,41 +18,67 @@ package servicetest
 
 import "github.com/takama/daemon"
 
+func NewDaemonMock() *daemonmock {
+	dm := &daemonmock{}
+	dm.SetTemplateF = func(string) error {
+		return nil
+	}
+	dm.InstallF = func(args ...string) (string, error) {
+		return "", nil
+	}
+	dm.RemoveF = func() (string, error) {
+		return "", nil
+	}
+	dm.StartF = func() (string, error) {
+		return "", nil
+	}
+	dm.StopF = func() (string, error) {
+		return "", nil
+	}
+	dm.StatusF = func() (string, error) {
+		return "", nil
+	}
+	dm.RunF = func(e daemon.Executable) (string, error) {
+		return "", nil
+	}
+	return dm
+}
+
 type daemonmock struct {
 	daemon.Daemon
+	SetTemplateF func(string) error
+	InstallF     func(args ...string) (string, error)
+	RemoveF      func() (string, error)
+	StartF       func() (string, error)
+	StopF        func() (string, error)
+	StatusF      func() (string, error)
+	RunF         func(e daemon.Executable) (string, error)
 }
 
-// SetTemplate - sets service config template
-func (d daemonmock) SetTemplate(string) error {
-	return nil
+func (d *daemonmock) SetTemplate(t string) error {
+	return d.SetTemplateF(t)
 }
 
-// Install the service into the system
-func (d daemonmock) Install(args ...string) (string, error) {
-	return "", nil
+func (d *daemonmock) Install(args ...string) (string, error) {
+	return d.InstallF(args...)
 }
 
-// Remove the service and all corresponding files from the system
-func (d daemonmock) Remove() (string, error) {
-	return "", nil
+func (d *daemonmock) Remove() (string, error) {
+	return d.RemoveF()
 }
 
-// Start the service
-func (d daemonmock) Start() (string, error) {
-	return "", nil
+func (d *daemonmock) Start() (string, error) {
+	return d.StartF()
 }
 
-// Stop the service
-func (d daemonmock) Stop() (string, error) {
-	return "", nil
+func (d *daemonmock) Stop() (string, error) {
+	return d.StopF()
 }
 
-// Status - check the service status
-func (d daemonmock) Status() (string, error) {
-	return "", nil
+func (d *daemonmock) Status() (string, error) {
+	return d.StatusF()
 }
 
-// Run - run executable service
-func (d daemonmock) Run(e daemon.Executable) (string, error) {
-	return "", nil
+func (d *daemonmock) Run(e daemon.Executable) (string, error) {
+	return d.RunF(e)
 }
