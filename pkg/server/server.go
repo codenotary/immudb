@@ -141,19 +141,6 @@ func (s *ImmuServer) Initialize() error {
 	auth.DevMode = s.Options.DevMode
 	auth.UpdateMetrics = func(ctx context.Context) { Metrics.UpdateClientMetrics(ctx) }
 
-	if s.Options.MetricsServer {
-		if err := s.setUpMetricsServer(); err != nil {
-			return err
-		}
-		defer func() {
-			if err := s.metricsServer.Close(); err != nil {
-				s.Logger.Errorf("Failed to shutdown metric server: %s", err)
-			}
-		}()
-	}
-
-	s.installShutdownHandler()
-
 	dbSize, _ := s.dbList.GetByIndex(DefaultDbIndex).Size()
 	if dbSize <= 0 {
 		s.Logger.Infof("Started with an empty database")
@@ -206,6 +193,19 @@ func (s *ImmuServer) Start() (err error) {
 	s.mux.Lock()
 
 	//s.startCorruptionChecker()
+
+	if s.Options.MetricsServer {
+		if err := s.setUpMetricsServer(); err != nil {
+			return err
+		}
+		defer func() {
+			if err := s.metricsServer.Close(); err != nil {
+				s.Logger.Errorf("Failed to shutdown metric server: %s", err)
+			}
+		}()
+	}
+
+	s.installShutdownHandler()
 
 	go s.printUsageCallToAction()
 
