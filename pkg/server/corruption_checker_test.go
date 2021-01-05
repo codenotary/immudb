@@ -23,6 +23,13 @@ import (
 )
 
 /*
+import (
+	"testing"
+
+	"github.com/codenotary/immudb/pkg/logger"
+)
+
+
 func makeDb() (database.DB, func()) {
 	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	options := database.DefaultOption().WithDbName(dbName).WithInMemoryStore(true).WithCorruptionChecker(false)

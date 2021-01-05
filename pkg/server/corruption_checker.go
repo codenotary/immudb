@@ -13,20 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package server
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/binary"
-	"errors"
 	mrand "math/rand"
-	"sync"
-	"time"
-
-	"github.com/codenotary/immudb/pkg/logger"
 )
+
+/*
 
 // ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
 const ErrConsistencyFail = "consistency check fail at index %d"
@@ -102,11 +97,6 @@ func (s *corruptionChecker) Stop() {
 }
 
 func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
-	return errors.New("not supported")
-}
-
-/*
-func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 	if s.currentDbIndex == s.dbList.Length() {
 		s.currentDbIndex = 0
 	}
@@ -159,12 +149,13 @@ func (s *corruptionChecker) checkLevel0(ctx context.Context) (err error) {
 
 	return nil
 }
-*/
 
 // GetStatus return status of the trust checker. False means that a consistency checks was failed
 func (s *corruptionChecker) GetStatus() bool {
 	return s.Trusted
 }
+
+*/
 
 type cryptoRandSource struct{}
 
