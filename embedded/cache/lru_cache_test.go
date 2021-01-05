@@ -19,73 +19,72 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCacheCreation(t *testing.T) {
 	_, err := NewLRUCache(0)
-	assert.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	cacheSize := 10
 	cache, err := NewLRUCache(cacheSize)
-	assert.NoError(t, err)
-	assert.NotNil(t, cache)
-	assert.Equal(t, cacheSize, cache.Size())
+	require.NoError(t, err)
+	require.NotNil(t, cache)
+	require.Equal(t, cacheSize, cache.Size())
 
 	_, err = cache.Get(nil)
-	assert.Equal(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, _, err = cache.Put(nil, nil)
-	assert.Equal(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	for i := 0; i < cacheSize; i++ {
 		_, _, err = cache.Put(i, 10*i)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	for i := cacheSize; i > 0; i-- {
 		v, err := cache.Get(i - 1)
-		assert.NoError(t, err)
-		assert.Equal(t, v, 10*(i-1))
+		require.NoError(t, err)
+		require.Equal(t, v, 10*(i-1))
 	}
 
 	for i := cacheSize; i < cacheSize+cacheSize/2; i++ {
 		_, _, err = cache.Put(i, 10*i)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		_, _, err = cache.Put(i, 10*i)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	for i := 0; i < cacheSize/2; i++ {
 		v, err := cache.Get(i)
-		assert.NoError(t, err)
-		assert.Equal(t, v, 10*i)
+		require.NoError(t, err)
+		require.Equal(t, v, 10*i)
 	}
 
 	for i := cacheSize / 2; i < cacheSize; i++ {
 		_, err = cache.Get(i)
-		assert.Equal(t, ErrKeyNotFound, err)
+		require.Equal(t, ErrKeyNotFound, err)
 	}
 
 	for i := cacheSize; i < cacheSize+cacheSize/2; i++ {
 		v, err := cache.Get(i)
-		assert.NoError(t, err)
-		assert.Equal(t, v, 10*i)
+		require.NoError(t, err)
+		require.Equal(t, v, 10*i)
 	}
 }
 
 func TestApply(t *testing.T) {
 	cacheSize := 10
 	cache, err := NewLRUCache(cacheSize)
-	assert.NoError(t, err)
-	assert.NotNil(t, cache)
-	assert.Equal(t, cacheSize, cache.Size())
+	require.NoError(t, err)
+	require.NotNil(t, cache)
+	require.Equal(t, cacheSize, cache.Size())
 
 	for i := 0; i < cacheSize; i++ {
 		_, _, err = cache.Put(i, 10*i)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	c := 0

@@ -255,11 +255,15 @@ func (aof *AppendableFile) reader(r io.Reader) (reader io.ReadCloser, err error)
 }
 
 func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
+	if aof.closed {
+		return 0, 0, ErrAlreadyClosed
+	}
+
 	if aof.readOnly {
 		return 0, 0, ErrReadOnly
 	}
 
-	if bs == nil {
+	if len(bs) == 0 {
 		return 0, 0, ErrIllegalArguments
 	}
 

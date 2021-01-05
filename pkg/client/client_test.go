@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package client
 
 import (
@@ -27,9 +26,6 @@ import (
 
 	"github.com/codenotary/immudb/pkg/server/servertest"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/client/timestamp"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -304,21 +300,21 @@ func TestDatabasesSwitching(t *testing.T) {
 		Databasename: "db1",
 	})
 	require.NoError(t, err)
-	assert.NotEmpty(t, resp.Token)
+	require.NotEmpty(t, resp.Token)
 
 	_, err = client.VerifiedSet(ctx, []byte(`db1-my`), []byte(`item`))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = client.CreateDatabase(ctx, &schema.Database{
 		Databasename: "db2",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resp2, err := client.UseDatabase(ctx, &schema.Database{
 		Databasename: "db2",
 	})
 	require.NoError(t, err)
-	assert.NotEmpty(t, resp2.Token)
+	require.NotEmpty(t, resp2.Token)
 
 	md = metadata.Pairs("authorization", resp2.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
@@ -327,7 +323,7 @@ func TestDatabasesSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	vi, err := client.VerifiedGet(ctx, []byte(`db1-my`))
-	require.Error(t, store.ErrKeyNotFound, err)
+	require.Error(t, err)
 	require.Nil(t, vi)
 }
 
@@ -358,24 +354,24 @@ func TestImmuClientDisconnect(t *testing.T) {
 
 	require.False(t, client.IsConnected())
 
-	require.Error(t, ErrNotConnected, client.CreateUser(ctx, []byte("user"), []byte("passwd"), 1, "db"))
-	require.Error(t, ErrNotConnected, client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd")))
-	require.Error(t, ErrNotConnected, client.UpdateAuthConfig(ctx, auth.KindPassword))
-	require.Error(t, ErrNotConnected, client.UpdateMTLSConfig(ctx, false))
+	require.Equal(t, ErrNotConnected, client.CreateUser(ctx, []byte("user"), []byte("passwd"), 1, "db"))
+	require.Equal(t, ErrNotConnected, client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd")))
+	require.Equal(t, ErrNotConnected, client.UpdateAuthConfig(ctx, auth.KindPassword))
+	require.Equal(t, ErrNotConnected, client.UpdateMTLSConfig(ctx, false))
 
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
-	require.Error(t, ErrNotConnected, client.Logout(context.TODO()))
+	require.Equal(t, ErrNotConnected, client.Logout(context.TODO()))
 
 	_, err = client.Get(context.TODO(), []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.CurrentState(context.TODO())
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.VerifiedGet(context.TODO(), []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.GetAll(context.TODO(), [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.Error(t, ErrNotConnected, err)
@@ -383,84 +379,84 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.Scan(context.TODO(), &schema.ScanRequest{
 		Prefix: []byte("key"),
 	})
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.ZScan(context.TODO(), &schema.ZScanRequest{Set: []byte("key")})
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.Count(context.TODO(), []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.CountAll(context.TODO())
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.Set(context.TODO(), []byte("key"), []byte("value"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.VerifiedSet(context.TODO(), []byte("key"), []byte("value"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.Set(context.TODO(), nil, nil)
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.TxByID(context.TODO(), 1)
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.VerifiedTxByID(context.TODO(), 1)
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.History(context.TODO(), &schema.HistoryRequest{
 		Key: []byte("key"),
 	})
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.SetReference(context.TODO(), []byte("ref"), []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.VerifiedSetReference(context.TODO(), []byte("ref"), []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.ZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.VerifiedZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
-	_, err = client.Dump(context.TODO(), nil)
-	require.Error(t, ErrNotConnected, err)
+	//_, err = client.Dump(context.TODO(), nil)
+	//require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.GetSince(context.TODO(), []byte("key"), 0)
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
-	require.Error(t, ErrNotConnected, client.HealthCheck(context.TODO()))
+	require.Equal(t, ErrNotConnected, client.HealthCheck(context.TODO()))
 
-	require.Error(t, ErrNotConnected, client.CreateDatabase(context.TODO(), nil))
+	require.Equal(t, ErrNotConnected, client.CreateDatabase(context.TODO(), nil))
 
 	_, err = client.UseDatabase(context.TODO(), nil)
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	err = client.ChangePermission(context.TODO(), schema.PermissionAction_REVOKE, "userName", "testDBName", auth.PermissionRW)
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
-	require.Error(t, ErrNotConnected, client.SetActiveUser(context.TODO(), nil))
+	require.Equal(t, ErrNotConnected, client.SetActiveUser(context.TODO(), nil))
 
 	_, err = client.DatabaseList(context.TODO())
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.CurrentRoot(context.TODO())
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.SafeSet(context.TODO(), []byte("key"), []byte("value"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.SafeGet(context.TODO(), []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.SafeZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.SafeReference(context.TODO(), []byte("ref"), []byte("key"))
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 }
 
 func TestImmuClientDisconnectNotConn(t *testing.T) {
@@ -481,8 +477,8 @@ func TestImmuClientDisconnectNotConn(t *testing.T) {
 
 	client.Disconnect()
 	err = client.Disconnect()
-	assert.Error(t, err)
-	assert.Errorf(t, err, "not connected")
+	require.Error(t, err)
+	require.Errorf(t, err, "not connected")
 }
 
 func TestWaitForHealthCheck(t *testing.T) {
@@ -501,13 +497,13 @@ func TestWaitForHealthCheck(t *testing.T) {
 		log.Fatal(err)
 	}
 	err = client.WaitForHealthCheck(context.TODO())
-	assert.Nil(t, err)
+	require.Nil(t, err)
 }
 
 func TestWaitForHealthCheckFail(t *testing.T) {
 	client := DefaultClient()
 	err := client.WaitForHealthCheck(context.TODO())
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestSetupDialOptions(t *testing.T) {
@@ -558,7 +554,7 @@ func TestUserManagement(t *testing.T) {
 	require.NoError(t, err)
 
 	err = client.UpdateMTLSConfig(ctx, false)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	err = client.CreateUser(
 		ctx,
@@ -567,7 +563,7 @@ func TestUserManagement(t *testing.T) {
 		auth.PermissionRW,
 		testDBName,
 	)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	err = client.ChangePermission(
 		ctx,
@@ -576,7 +572,7 @@ func TestUserManagement(t *testing.T) {
 		testDBName,
 		auth.PermissionRW,
 	)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	err = client.SetActiveUser(
 		ctx,
@@ -584,7 +580,7 @@ func TestUserManagement(t *testing.T) {
 			Active:   true,
 			Username: userName,
 		})
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	err = client.ChangePassword(
 		ctx,
@@ -592,7 +588,7 @@ func TestUserManagement(t *testing.T) {
 		[]byte(userPassword),
 		[]byte(userNewPassword),
 	)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	usrList, err = client.ListUsers(ctx)
 	require.NoError(t, err)
@@ -646,13 +642,13 @@ func TestDatabaseManagement(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	err1 := client.CreateDatabase(ctx, &schema.Database{Databasename: "test"})
-	assert.Nil(t, err1)
+	require.Nil(t, err1)
 
 	resp2, err2 := client.DatabaseList(ctx)
 
-	assert.Nil(t, err2)
-	assert.IsType(t, &schema.DatabaseListResponse{}, resp2)
-	assert.Len(t, resp2.Databases, 2)
+	require.Nil(t, err2)
+	require.IsType(t, &schema.DatabaseListResponse{}, resp2)
+	require.Len(t, resp2.Databases, 2)
 	client.Disconnect()
 }
 
@@ -685,8 +681,8 @@ func TestImmuClient_History(t *testing.T) {
 		Key: []byte(`key1`),
 	})
 
-	assert.Nil(t, err)
-	assert.Len(t, sil.Entries, 2)
+	require.Nil(t, err)
+	require.Len(t, sil.Entries, 2)
 	client.Disconnect()
 }
 
@@ -713,11 +709,11 @@ func TestImmuClient_SetAll(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.SetAll(ctx, nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Error(t, err)
 
 	setRequest := &schema.SetRequest{KVs: []*schema.KeyValue{}}
 	_, err = client.SetAll(ctx, setRequest)
-	require.Error(t, schema.ErrEmptySet, err)
+	require.Error(t, err)
 
 	setRequest = &schema.SetRequest{KVs: []*schema.KeyValue{
 		{Key: []byte("1,2,3"), Value: []byte("3,2,1")},
@@ -737,7 +733,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.SetAll(ctx, setRequest)
-	require.Error(t, ErrNotConnected, err)
+	require.Equal(t, ErrNotConnected, err)
 }
 
 func TestImmuClient_GetAll(t *testing.T) {
@@ -765,9 +761,9 @@ func TestImmuClient_GetAll(t *testing.T) {
 	_, _ = client.VerifiedSet(ctx, []byte(`aaa`), []byte(`val`))
 
 	entries, err := client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.IsType(t, &schema.Entries{}, entries)
+	require.IsType(t, &schema.Entries{}, entries)
 
 	client.Disconnect()
 }
@@ -809,8 +805,8 @@ func TestImmuClient_ExecAllOpsOptions(t *testing.T) {
 
 	idx, err := client.ExecAll(ctx, aOps)
 
-	assert.Nil(t, err)
-	assert.NotNil(t, idx)
+	require.Nil(t, err)
+	require.NotNil(t, idx)
 
 	client.Disconnect()
 }
@@ -843,9 +839,9 @@ func TestImmuClient_Scan(t *testing.T) {
 
 	entries, err := client.Scan(ctx, &schema.ScanRequest{Prefix: []byte("key")})
 
-	assert.IsType(t, &schema.Entries{}, entries)
-	assert.Nil(t, err)
-	assert.Len(t, entries.Entries, 2)
+	require.IsType(t, &schema.Entries{}, entries)
+	require.Nil(t, err)
+	require.Len(t, entries.Entries, 2)
 	client.Disconnect()
 }
 
@@ -873,7 +869,7 @@ func TestImmuClient_Logout(t *testing.T) {
 
 	err = client.Logout(ctx)
 
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	client.Disconnect()
 }
 
@@ -894,14 +890,14 @@ func TestImmuClient_GetServiceClient(t *testing.T) {
 	}
 
 	cli := client.GetServiceClient()
-	assert.Implements(t, (*schema.ImmuServiceClient)(nil), *cli)
+	require.Implements(t, (*schema.ImmuServiceClient)(nil), *cli)
 	client.Disconnect()
 }
 
 func TestImmuClient_GetOptions(t *testing.T) {
 	client := DefaultClient()
 	op := client.GetOptions()
-	assert.IsType(t, &Options{}, op)
+	require.IsType(t, &Options{}, op)
 }
 
 func TestImmuClient_CurrentRoot(t *testing.T) {
@@ -930,8 +926,8 @@ func TestImmuClient_CurrentRoot(t *testing.T) {
 
 	r, err := client.CurrentState(ctx)
 
-	assert.IsType(t, &schema.ImmutableState{}, r)
-	assert.Nil(t, err)
+	require.IsType(t, &schema.ImmutableState{}, r)
+	require.Nil(t, err)
 	client.Disconnect()
 }
 
@@ -958,7 +954,7 @@ func TestImmuClient_Count(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	_, err = client.Count(ctx, []byte(`key1`))
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestImmuClient_CountAll(t *testing.T) {
@@ -984,7 +980,7 @@ func TestImmuClient_CountAll(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	_, err = client.CountAll(ctx)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 /*
@@ -1002,7 +998,7 @@ func TestImmuClient_SetBatchConcurrent(t *testing.T) {
 				Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2"), strings.NewReader("val3")},
 			}
 			idx, err := client.SetBatch(context.TODO(), &br)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			ris <- int(idx.Index)
 		}()
 	}
@@ -1014,11 +1010,11 @@ func TestImmuClient_SetBatchConcurrent(t *testing.T) {
 		s = append(s, i)
 	}
 	sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })
-	assert.Equal(t, 2, s[0])
-	assert.Equal(t, 5, s[1])
-	assert.Equal(t, 8, s[2])
-	assert.Equal(t, 11, s[3])
-	assert.Equal(t, 14, s[4])
+	require.Equal(t, 2, s[0])
+	require.Equal(t, 5, s[1])
+	require.Equal(t, 8, s[2])
+	require.Equal(t, 11, s[3])
+	require.Equal(t, 14, s[4])
 }
 
 func TestImmuClient_GetBatchConcurrent(t *testing.T) {
@@ -1033,7 +1029,7 @@ func TestImmuClient_GetBatchConcurrent(t *testing.T) {
 				Values: []io.Reader{strings.NewReader("val1"), strings.NewReader("val2"), strings.NewReader("val3")},
 			}
 			_, err := client.SetBatch(context.TODO(), &br)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}()
 	}
 	wg.Wait()
@@ -1044,14 +1040,14 @@ func TestImmuClient_GetBatchConcurrent(t *testing.T) {
 	go func() {
 		defer wg1.Done()
 		sil, err := client.GetBatch(context.TODO(), [][]byte{[]byte(`key1`), []byte(`key2`)})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		sils <- sil
 	}()
 	wg1.Add(1)
 	go func() {
 		defer wg1.Done()
 		sil, err := client.GetBatch(context.TODO(), [][]byte{[]byte(`key3`)})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		sils <- sil
 	}()
 
@@ -1065,9 +1061,9 @@ func TestImmuClient_GetBatchConcurrent(t *testing.T) {
 		}
 	}
 	sort.Sort(values)
-	assert.Equal(t, []byte(`val1`), values[0])
-	assert.Equal(t, []byte(`val2`), values[1])
-	assert.Equal(t, []byte(`val3`), values[2])
+	require.Equal(t, []byte(`val1`), values[0])
+	require.Equal(t, []byte(`val2`), values[1])
+	require.Equal(t, []byte(`val3`), values[2])
 	client.Disconnect()
 
 }
@@ -1087,7 +1083,7 @@ func TestImmuClient_GetReference(t *testing.T) {
 	_, err = client.Reference(context.TODO(), []byte(`reference`), []byte(`key`), idx)
 	require.NoError(t, err)
 	op, err := client.GetReference(context.TODO(), &schema.Key{Key: []byte(`reference`)})
-	assert.IsType(t, &schema.StructuredItem{}, op)
+	require.IsType(t, &schema.StructuredItem{}, op)
 	require.NoError(t, err)
 	client.Disconnect()
 }
@@ -1127,7 +1123,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	)
 	// step 1: create test database
 	err = client.CreateDatabase(ctx, testDB)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	// step 2: create test user with read write permissions to the test db
 	err = client.CreateUser(
@@ -1137,7 +1133,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 		auth.PermissionRW,
 		testDBName,
 	)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	// setp 3: create test client and context
 	lr, err = client.Login(context.TODO(), []byte(userName), []byte(userPassword))
@@ -1154,7 +1150,7 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 
 	// step 4: successfully access the test db using the test client
 	_, err = client.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	// step 5: using admin client change the test user password
 	err = client.ChangePassword(
@@ -1163,11 +1159,11 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 		[]byte(userPassword),
 		[]byte(userNewPassword),
 	)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	// step 6: access the test db again using the test client which should give an error
 	_, err = client.Set(testUserContext, []byte("sampleKey"), []byte("sampleValue"))
-	assert.NotNil(t, err)
+	require.NotNil(t, err)
 
 	client.Disconnect()
 }

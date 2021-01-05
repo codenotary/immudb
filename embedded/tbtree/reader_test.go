@@ -34,7 +34,7 @@ func TestReaderForEmptyTreeShouldReturnError(t *testing.T) {
 	defer snapshot.Close()
 
 	_, err = snapshot.Reader(&ReaderSpec{SeekKey: []byte{0, 0, 0, 0}, DescOrder: false})
-	require.Error(t, ErrNoMoreEntries, err)
+	require.Equal(t, ErrNoMoreEntries, err)
 }
 
 func TestReaderWithInvalidSpec(t *testing.T) {
@@ -48,7 +48,7 @@ func TestReaderWithInvalidSpec(t *testing.T) {
 	defer snapshot.Close()
 
 	_, err = snapshot.Reader(&ReaderSpec{SeekKey: nil, DescOrder: false})
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 }
 
 func TestReaderAscendingScan(t *testing.T) {
@@ -75,7 +75,7 @@ func TestReaderAscendingScan(t *testing.T) {
 	require.NoError(t, err)
 
 	err = snapshot.Close()
-	require.Error(t, ErrReadersNotClosed, err)
+	require.Equal(t, ErrReadersNotClosed, err)
 
 	for {
 		k, _, _, err := reader.Read()
@@ -91,10 +91,10 @@ func TestReaderAscendingScan(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, _, err = reader.Read()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = reader.Close()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 }
 
 func TestReaderDescendingScan(t *testing.T) {
@@ -121,7 +121,7 @@ func TestReaderDescendingScan(t *testing.T) {
 	for {
 		k, _, _, err := reader.Read()
 		if err != nil {
-			require.Error(t, ErrNoMoreEntries, err)
+			require.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
 
@@ -163,7 +163,7 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	for {
 		k, _, _, err := reader.Read()
 		if err != nil {
-			require.Error(t, ErrNoMoreEntries, err)
+			require.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
 
@@ -201,7 +201,7 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	for {
 		k, _, _, err := reader.Read()
 		if err != nil {
-			require.Error(t, ErrNoMoreEntries, err)
+			require.Equal(t, ErrNoMoreEntries, err)
 			break
 		}
 

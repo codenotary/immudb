@@ -121,7 +121,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 
 func TestImmudbStoreOpenWithInvalidPath(t *testing.T) {
 	_, err := Open("immustore_test.go", DefaultOptions())
-	require.Error(t, ErrorPathIsNotADirectory, err)
+	require.Equal(t, ErrorPathIsNotADirectory, err)
 }
 
 func TestImmudbStoreOnClosedStore(t *testing.T) {
@@ -130,25 +130,25 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	defer os.RemoveAll("closed_store")
 
 	err = immuStore.ReadTx(1, nil)
-	require.Error(t, ErrTxNotFound, err)
+	require.Equal(t, ErrTxNotFound, err)
 
 	err = immuStore.Close()
 	require.NoError(t, err)
 
 	err = immuStore.Close()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = immuStore.Sync()
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = immuStore.Commit(nil)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = immuStore.ReadTx(1, nil)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = immuStore.NewTxReader(1, nil, 1024)
-	require.Error(t, ErrAlreadyClosed, err)
+	require.Equal(t, ErrAlreadyClosed, err)
 }
 
 func TestImmudbStoreSettings(t *testing.T) {
@@ -170,15 +170,15 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	defer os.RemoveAll("edge_cases")
 
 	_, err := Open("edge_cases", nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = OpenWith("edge_cases", nil, nil, nil, nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	opts := DefaultOptions().WithMaxConcurrency(1)
 
 	_, err = OpenWith("edge_cases", nil, nil, nil, opts)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	vLog := &mocked.MockedAppendable{}
 	vLogs := []appendable.Appendable{vLog}
@@ -291,50 +291,50 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = immuStore.fetchAllocTx()
-	require.Error(t, ErrMaxConcurrencyLimitExceeded, err)
+	require.Equal(t, ErrMaxConcurrencyLimitExceeded, err)
 
 	immuStore.releaseAllocTx(tx1)
 	immuStore.releaseAllocTx(tx2)
 
 	_, err = immuStore.NewTxReader(1, nil, 1024)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = immuStore.DualProof(nil, nil)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	sourceTx := NewTx(1, 1)
 	sourceTx.ID = 2
 	targetTx := NewTx(1, 1)
 	targetTx.ID = 1
 	_, err = immuStore.DualProof(sourceTx, targetTx)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
 
 	_, err = immuStore.LinearProof(2, 1)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrSourceTxNewerThanTargetTx, err)
 
 	_, err = immuStore.LinearProof(1, uint64(1+immuStore.maxLinearProofLen))
-	require.Error(t, ErrLinearProofMaxLenExceeded, err)
+	require.Equal(t, ErrLinearProofMaxLenExceeded, err)
 
 	_, err = immuStore.ReadValue(sourceTx, []byte{1, 2, 3})
-	require.Error(t, ErrKeyNotFound, err)
+	require.Equal(t, ErrKeyNotFound, err)
 
 	err = immuStore.validateEntries(nil)
-	require.Error(t, ErrorNoEntriesProvided, err)
+	require.Equal(t, ErrorNoEntriesProvided, err)
 
 	err = immuStore.validateEntries(make([]*KV, immuStore.maxTxEntries+1))
-	require.Error(t, ErrorMaxTxEntriesLimitExceeded, err)
+	require.Equal(t, ErrorMaxTxEntriesLimitExceeded, err)
 
 	entry := &KV{Key: nil, Value: nil}
 	err = immuStore.validateEntries([]*KV{entry})
-	require.Error(t, ErrNullKey, err)
+	require.Equal(t, ErrNullKey, err)
 
 	entry = &KV{Key: make([]byte, immuStore.maxKeyLen+1), Value: make([]byte, 1)}
 	err = immuStore.validateEntries([]*KV{entry})
-	require.Error(t, ErrorMaxKeyLenExceeded, err)
+	require.Equal(t, ErrorMaxKeyLenExceeded, err)
 
 	entry = &KV{Key: make([]byte, 1), Value: make([]byte, immuStore.maxValueLen+1)}
 	err = immuStore.validateEntries([]*KV{entry})
-	require.Error(t, ErrorMaxValueLenExceeded, err)
+	require.Equal(t, ErrorMaxValueLenExceeded, err)
 }
 
 func TestImmudbSetBlErr(t *testing.T) {
@@ -359,7 +359,7 @@ func TestImmudbTxOffsetAndSize(t *testing.T) {
 	defer immuStore.mutex.Unlock()
 
 	_, _, err = immuStore.txOffsetAndSize(0)
-	require.Error(t, ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	mockedCLog := &mocked.MockedAppendable{}
 	mockedCLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
@@ -370,7 +370,7 @@ func TestImmudbTxOffsetAndSize(t *testing.T) {
 	immuStore.cLog = mockedCLog
 
 	_, _, err = immuStore.txOffsetAndSize(1)
-	require.Error(t, ErrorCorruptedTxData, err)
+	require.Equal(t, ErrorCorruptedTxData, err)
 }
 
 func TestImmudbStoreIndexing(t *testing.T) {
@@ -1146,7 +1146,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = immuStore.NewTxReader(1, immuStore.NewTx(), 1024)
-	require.Error(t, ErrNoMoreEntries, err)
+	require.Equal(t, ErrTxNotFound, err)
 
 	txCount := 100
 	eCount := 64
@@ -1208,7 +1208,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	}
 
 	_, err = r.Read()
-	require.Error(t, ErrNoMoreEntries, err)
+	require.Equal(t, ErrNoMoreEntries, err)
 
 	require.Equal(t, uint64(txCount-emulatedFailures), immuStore.TxCount())
 

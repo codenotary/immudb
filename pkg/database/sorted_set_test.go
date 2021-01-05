@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package database
 
 import (
@@ -67,6 +66,15 @@ func TestStoreIndexExists(t *testing.T) {
 	require.Exactly(t, reference3.Id, uint64(6))
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
+	zscanOpts := &schema.ZScanRequest{
+		Set:     []byte(`firstIndex`),
+		SinceTx: reference3.Id,
+		Limit:   MaxKeyScanLimit + 1,
+	}
+
+	_, err = db.ZScan(zscanOpts)
+	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
+
 	//try to retrieve directly the value or full scan to debug
 
 	zscanOpts1 := &schema.ZScanRequest{
@@ -75,7 +83,6 @@ func TestStoreIndexExists(t *testing.T) {
 	}
 
 	itemList1, err := db.ZScan(zscanOpts1)
-
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 3)
 	require.Equal(t, []byte(`mySecondElementKey`), itemList1.Entries[0].Entry.Key)
@@ -89,7 +96,6 @@ func TestStoreIndexExists(t *testing.T) {
 	}
 
 	itemList2, err := db.ZScan(zscanOpts2)
-
 	require.NoError(t, err)
 	require.Len(t, itemList2.Entries, 3)
 	require.Equal(t, []byte(`myFirstElementKey`), itemList2.Entries[0].Entry.Key)
@@ -101,9 +107,25 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	_, err := db.ZAdd(nil)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
 	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
 	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
+
+	i, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`SignerId1`), AtTx: i1.Id})
+	require.NoError(t, err)
+
+	zaddOpts := &schema.ZAddRequest{
+		Set:   []byte(`hashA`),
+		Score: float64(1),
+		Key:   []byte(`myTag1`),
+		AtTx:  i.Id,
+	}
+
+	reference1, err := db.ZAdd(zaddOpts)
+	require.Equal(t, ErrReferencedKeyCannotBeAReference, err)
 
 	zaddOpts1 := &schema.ZAddRequest{
 		Set:   []byte(`hashA`),
@@ -113,9 +135,8 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	}
 
 	reference1, err1 := db.ZAdd(zaddOpts1)
-
 	require.NoError(t, err1)
-	require.Exactly(t, reference1.Id, uint64(4))
+	require.Exactly(t, reference1.Id, uint64(5))
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	zaddOpts2 := &schema.ZAddRequest{
@@ -126,9 +147,8 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	}
 
 	reference2, err2 := db.ZAdd(zaddOpts2)
-
 	require.NoError(t, err2)
-	require.Exactly(t, reference2.Id, uint64(5))
+	require.Exactly(t, reference2.Id, uint64(6))
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts3 := &schema.ZAddRequest{
@@ -139,9 +159,8 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	}
 
 	reference3, err3 := db.ZAdd(zaddOpts3)
-
 	require.NoError(t, err3)
-	require.Exactly(t, reference3.Id, uint64(6))
+	require.Exactly(t, reference3.Id, uint64(7))
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts1 := &schema.ZScanRequest{
@@ -151,13 +170,11 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	}
 
 	itemList1, err := db.ZScan(zscanOpts1)
-
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 3)
 	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[0].Entry.Key)
 	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[1].Entry.Key)
 	require.Equal(t, []byte(`SignerId2`), itemList1.Entries[2].Entry.Key)
-
 }
 
 func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
@@ -243,7 +260,7 @@ func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 
 	_, err := db.ZAdd(zaddOpts1)
 
-	require.Error(t, store.ErrKeyNotFound, err)
+	require.Equal(t, store.ErrKeyNotFound, err)
 }
 
 // TestStore_ZScanMinMax
@@ -474,7 +491,7 @@ func TestStore_ZScanInvalidSet(t *testing.T) {
 		Set: nil,
 	}
 	_, err := db.ZScan(opt)
-	require.Error(t, store.ErrIllegalArguments, err)
+	require.Equal(t, store.ErrIllegalArguments, err)
 }
 
 func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T) {
@@ -522,7 +539,6 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 	}
 
 	list, err := db.ZScan(ZScanRequest)
-
 	require.NoError(t, err)
 	// same key, sorted by internal timestamp
 	require.Exactly(t, []byte(`val1-A`), list.Entries[0].Entry.Value)
@@ -548,7 +564,6 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	}
 
 	reference1, err1 := db.ZAdd(zaddOpts1)
-
 	require.NoError(t, err1)
 	require.Exactly(t, uint64(4), reference1.Id)
 	require.NotEmptyf(t, reference1, "Should not be empty")
@@ -561,7 +576,6 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	}
 
 	reference2, err2 := db.ZAdd(zaddOpts2)
-
 	require.NoError(t, err2)
 	require.Exactly(t, uint64(5), reference2.Id)
 	require.NotEmptyf(t, reference2, "Should not be empty")
@@ -574,7 +588,6 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	}
 
 	reference3, err3 := db.ZAdd(zaddOpts3)
-
 	require.NoError(t, err3)
 	require.Exactly(t, uint64(6), reference3.Id)
 	require.NotEmptyf(t, reference3, "Should not be empty")
@@ -586,7 +599,6 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	}
 
 	itemList1, err := db.ZScan(zscanOpts1)
-
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 3)
 	require.Equal(t, []byte(`SignerId1`), itemList1.Entries[0].Entry.Key)
@@ -599,7 +611,22 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	_, err := db.VerifiableZAdd(nil)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`value1`)}}})
+
+	vtx, err := db.VerifiableZAdd(&schema.VerifiableZAddRequest{
+		ZAddRequest:  nil,
+		ProveSinceTx: i1.Id + 1,
+	})
+	require.Equal(t, store.ErrIllegalArguments, err)
+
+	vtx, err = db.VerifiableZAdd(&schema.VerifiableZAddRequest{
+		ZAddRequest:  nil,
+		ProveSinceTx: i1.Id,
+	})
+	require.Equal(t, store.ErrIllegalArguments, err)
 
 	req := &schema.ZAddRequest{
 		Set:   []byte(`set1`),
@@ -608,11 +635,10 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 		AtTx:  i1.Id,
 	}
 
-	vtx, err := db.VerifiableZAdd(&schema.VerifiableZAddRequest{
+	vtx, err = db.VerifiableZAdd(&schema.VerifiableZAddRequest{
 		ZAddRequest:  req,
 		ProveSinceTx: i1.Id,
 	})
-
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), vtx.Tx.Metadata.Id)
 
@@ -637,7 +663,6 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 	}
 
 	itemList1, err := db.ZScan(zscanReq)
-
 	require.NoError(t, err)
 	require.Len(t, itemList1.Entries, 1)
 	require.Equal(t, req.Key, itemList1.Entries[0].Entry.Key)
