@@ -230,160 +230,152 @@ func TestExecAllOpsInvalidKvKey(t *testing.T) {
 	require.Equal(t, store.ErrIllegalArguments, err)
 }
 
-/*
 func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
-	aOps := &schema.Ops{
+
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
-						Key: []byte(`key`),
-						Score: &schema.Score{
-							Score: 5.6,
-						},
-						Index: &schema.Index{
-							Index: 4,
-						},
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:   []byte("set"),
+						Key:   []byte(`key`),
+						Score: 5.6,
+						AtTx:  4,
 					},
 				},
 			},
 		},
 	}
-	_, err := st.ExecAllOps(aOps)
-	require.Equal(t, ErrIndexNotFound, err)
+	_, err := db.ExecAll(aOps)
+	require.Equal(t, store.ErrTxNotFound, err)
 }
 
 func TestExecAllOpsNilElementFound(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
-	bOps := make([]*schema.Op, 2)
-	op := &schema.Op{
-		Operation: &schema.Op_ZOpts{
-			ZOpts: &schema.ZAddOptions{
-				Key: []byte(`key`),
-				Score: &schema.Score{
-					Score: 5.6,
-				},
-				Index: &schema.Index{
-					Index: 4,
-				},
+
+	bOps := make([]*schema.Op, 1)
+	bOps[0] = &schema.Op{
+		Operation: &schema.Op_ZAdd{
+			ZAdd: &schema.ZAddRequest{
+				Key:   []byte(`key`),
+				Score: 5.6,
+				AtTx:  4,
 			},
 		},
 	}
-	bOps[1] = op
-	aOps := &schema.Ops{Operations: bOps}
-	_, err := st.ExecAllOps(aOps)
-	require.Equal(t, status.Error(codes.InvalidArgument, "Op is not set"), err)
+
+	_, err := db.ExecAll(&schema.ExecAllRequest{Operations: bOps})
+	require.Equal(t, store.ErrIllegalArguments, err)
 }
 
 func TestSetOperationNilElementFound(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
-	aOps := &schema.Ops{
+
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
 				Operation: nil,
 			},
 		},
 	}
-	_, err := st.ExecAllOps(aOps)
-	require.Equal(t, err, status.Error(codes.InvalidArgument, "operation is not set"))
+	_, err := db.ExecAll(aOps)
+	require.Error(t, err)
 }
 
 func TestExecAllOpsUnexpectedType(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
-	aOps := &schema.Ops{
+
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
 				Operation: &schema.Op_Unexpected{},
 			},
 		},
 	}
-	_, err := st.ExecAllOps(aOps)
-	require.Equal(t, err, status.Error(codes.InvalidArgument, "batch operation has unexpected type *schema.Op_Unexpected"))
+	_, err := db.ExecAll(aOps)
+	require.Error(t, err)
 }
 
 func TestExecAllOpsDuplicatedKey(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
-	aOps := &schema.Ops{
+
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
-						Key: []byte(`key`),
-						Score: &schema.Score{
-							Score: 5.6,
-						},
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:   []byte(`set`),
+						Key:   []byte(`key`),
+						Score: 5.6,
 					},
 				},
 			},
 		},
 	}
-	_, err := st.ExecAllOps(aOps)
-
+	_, err := db.ExecAll(aOps)
 	require.Equal(t, schema.ErrDuplicatedKeysNotSupported, err)
 }
 
 func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
-	aOps := &schema.Ops{
+
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
 						Key:   []byte(`key`),
 						Value: []byte(`val`),
 					},
 				},
 			},
 			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
-						Key: []byte(`key`),
-						Score: &schema.Score{
-							Score: 5.6,
-						},
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Key:   []byte(`key`),
+						Score: 5.6,
 					},
 				},
 			},
 			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
-						Key: []byte(`key`),
-						Score: &schema.Score{
-							Score: 5.6,
-						},
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Key:   []byte(`key`),
+						Score: 5.6,
 					},
 				},
 			},
 		},
 	}
-	_, err := st.ExecAllOps(aOps)
 
+	_, err := db.ExecAll(aOps)
 	require.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
 }
 
+/*
 func TestExecAllOpsAsynch(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
