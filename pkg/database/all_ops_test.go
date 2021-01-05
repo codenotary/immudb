@@ -1,7 +1,10 @@
 package database
 
 import (
+	"fmt"
+	"log"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -148,7 +151,8 @@ func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 
 	idx, _ := db.Set(&schema.SetRequest{
 		KVs: []*schema.KeyValue{
-			{Key: []byte(`persistedKey`),
+			{
+				Key:   []byte(`persistedKey`),
 				Value: []byte(`persistedVal`),
 			},
 		},
@@ -375,95 +379,30 @@ func TestExecAllOpsDuplicatedKeyZAdd(t *testing.T) {
 	require.Equal(t, schema.ErrDuplicatedZAddNotSupported, err)
 }
 
-/*
-func TestExecAllOpsAsynch(t *testing.T) {
-	st, closer := makeStore()
-	defer closer()
-
-	aOps := &schema.Ops{
-		Operations: []*schema.Op{
-			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
-						Key:   []byte(`key`),
-						Value: []byte(`val`),
-					},
-				},
-			},
-			{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
-						Key:   []byte(`key1`),
-						Value: []byte(`val1`),
-					},
-				},
-			},
-			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
-						Key: []byte(`key`),
-						Score: &schema.Score{
-							Score: 5.6,
-						},
-					},
-				},
-			},
-		},
-	}
-	_, err := st.ExecAllOps(aOps, WithAsyncCommit(true))
-
-	require.NoError(t, err)
-}
-
-func TestOps_ValidateErrZAddIndexMissing(t *testing.T) {
-	st, closer := makeStore()
-	defer closer()
-
-	_, _ = st.Set(schema.KeyValue{
-		Key:   []byte(`persistedKey`),
-		Value: []byte(`persistedVal`),
-	})
-
-	// Ops payload
-	aOps := &schema.Ops{
-		Operations: []*schema.Op{
-			{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
-						Key: []byte(`persistedKey`),
-						Score: &schema.Score{
-							Score: 5.6,
-						},
-					},
-				},
-			},
-		},
-	}
-	_, err := st.ExecAllOps(aOps)
-	require.Equal(t, err, ErrZAddIndexMissing)
-}
-
 func TestStore_ExecAllOpsConcurrent(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
 
 	wg := sync.WaitGroup{}
 	wg.Add(10)
+
 	for i := 1; i <= 10; i++ {
-		aOps := &schema.Ops{
+		aOps := &schema.ExecAllRequest{
 			Operations: []*schema.Op{},
 		}
+
 		for j := 1; j <= 10; j++ {
 			key := strconv.FormatUint(uint64(j), 10)
 			val := strconv.FormatUint(uint64(i), 10)
 			aOp := &schema.Op{
-				Operation: &schema.Op_KVs{
-					KVs: &schema.KeyValue{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
 						Key:   []byte(key),
 						Value: []byte(key),
 					},
 				},
 			}
+
 			aOps.Operations = append(aOps.Operations, aOp)
 			float, err := strconv.ParseFloat(fmt.Sprintf("%d", j), 64)
 			if err != nil {
@@ -473,40 +412,43 @@ func TestStore_ExecAllOpsConcurrent(t *testing.T) {
 			set := val
 			refKey := key
 			aOp = &schema.Op{
-				Operation: &schema.Op_ZOpts{
-					ZOpts: &schema.ZAddOptions{
-						Set: []byte(set),
-						Key: []byte(refKey),
-						Score: &schema.Score{
-							Score: float,
-						},
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:   []byte(set),
+						Key:   []byte(refKey),
+						Score: float,
 					},
 				},
 			}
 			aOps.Operations = append(aOps.Operations, aOp)
 		}
+
 		go func() {
-			idx, err := st.ExecAllOps(aOps)
+			idx, err := db.ExecAll(aOps)
 			require.NoError(t, err)
 			require.NotNil(t, idx)
 			wg.Done()
 		}()
 
 	}
+
 	wg.Wait()
+
 	for i := 1; i <= 10; i++ {
 		set := strconv.FormatUint(uint64(i), 10)
 
-		zList, err := st.ZScan(schema.ZScanOptions{
-			Set: []byte(set),
+		zList, err := db.ZScan(&schema.ZScanRequest{
+			Set:     []byte(set),
+			SinceTx: 10,
 		})
 		require.NoError(t, err)
-		require.Len(t, zList.Items, 10)
-		require.Equal(t, zList.Items[i-1].Item.Value, []byte(strconv.FormatUint(uint64(i), 10)))
+		require.Len(t, zList.Entries, 10)
+		require.Equal(t, zList.Entries[i-1].Entry.Value, []byte(strconv.FormatUint(uint64(i), 10)))
 
 	}
 }
 
+/*
 func TestStore_ExecAllOpsConcurrentOnAlreadyPersistedKeys(t *testing.T) {
 	dbDir := tmpDir()
 
@@ -835,42 +777,46 @@ func TestExecAllOpsMonotoneTsRange(t *testing.T) {
 		require.Equal(t, uint64(i), item.Index)
 	}
 }
+*/
 
 func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
-	st, closer := makeStore()
+	db, closer := makeDb()
 	defer closer()
 
-	idx0, _ := st.Set(schema.KeyValue{
-		Key:   []byte(`persistedKey`),
-		Value: []byte(`persistedVal`),
+	idx0, _ := db.Set(&schema.SetRequest{
+		KVs: []*schema.KeyValue{
+			{
+				Key:   []byte(`persistedKey`),
+				Value: []byte(`persistedVal`),
+			},
+		},
 	})
 
 	// Ops payload
-	aOps := &schema.Ops{
+	aOps := &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
-				Operation: &schema.Op_ROpts{
-					ROpts: &schema.ReferenceOptions{
-						Reference: []byte(`myReference`),
-						Key:       []byte(`persistedKey`),
-						Index:     idx0,
+				Operation: &schema.Op_Ref{
+					Ref: &schema.ReferenceRequest{
+						Key:           []byte(`myReference`),
+						ReferencedKey: []byte(`persistedKey`),
+						AtTx:          idx0.Id,
 					},
 				},
 			},
 		},
 	}
-	_, err := st.ExecAllOps(aOps)
+	idx1, err := db.ExecAll(aOps)
 	require.NoError(t, err)
 
-	ref, err := st.Get(schema.Key{Key: []byte(`myReference`)})
-
+	ref, err := db.Get(&schema.KeyRequest{Key: []byte(`myReference`), SinceTx: idx1.Id})
 	require.NoError(t, err)
 	require.NotEmptyf(t, ref, "Should not be empty")
 	require.Equal(t, []byte(`persistedVal`), ref.Value, "Should have referenced item value")
 	require.Equal(t, []byte(`persistedKey`), ref.Key, "Should have referenced item value")
-
 }
 
+/*
 func TestOps_ReferenceKeyNotYetPersisted(t *testing.T) {
 	st, closer := makeStore()
 	defer closer()
