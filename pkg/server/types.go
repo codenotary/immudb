@@ -60,11 +60,11 @@ type ImmuServer struct {
 	databasenameToIndex map[string]int64
 	userdata            *usernameToUserdataMap
 	multidbmode         bool
-	Cc                  CorruptionChecker
-	sysDb               database.DB
-	metricsServer       *http.Server
-	mux                 sync.Mutex
-	StateSigner         StateSigner
+	//Cc                  CorruptionChecker
+	sysDb         database.DB
+	metricsServer *http.Server
+	mux           sync.Mutex
+	StateSigner   StateSigner
 }
 
 // DefaultServer ...

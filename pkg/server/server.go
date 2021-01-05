@@ -500,7 +500,7 @@ func (s *ImmuServer) CloseDatabases() error {
 }
 
 func (s *ImmuServer) startCorruptionChecker() {
-	if s.Options.CorruptionCheck {
+	/*if s.Options.CorruptionCheck {
 		cco := CCOptions{}
 		cco.singleiteration = false
 		cco.iterationSleepTime = 5 * time.Second
@@ -515,14 +515,16 @@ func (s *ImmuServer) startCorruptionChecker() {
 			}
 		}()
 	}
+	*/
+	s.Logger.Errorf("Unable to start consistency-checker: Functionality not yet supported")
 }
 
 //StopCorruptionChecker shutdown the corruption checkcer
 func (s *ImmuServer) stopCorruptionChecker() error {
-	if s.Options.CorruptionCheck {
+	/*if s.Options.CorruptionCheck {
 		s.Cc.Stop()
 	}
-
+	*/
 	return nil
 }
 
