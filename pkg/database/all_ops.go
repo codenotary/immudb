@@ -56,9 +56,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 	kmap := make(map[[sha256.Size]byte]bool)
 
 	for i, op := range req.Operations {
-		if op == nil {
-			return nil, store.ErrIllegalArguments
-		}
 
 		kv := &store.KV{}
 
@@ -125,9 +122,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 			key := EncodeKey(x.ZAdd.Key)
 
 			kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, x.ZAdd.AtTx)
-
-		default:
-			return nil, store.ErrIllegalArguments
 		}
 
 		entries[i] = kv

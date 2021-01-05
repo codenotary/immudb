@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package database
 
 import (
@@ -189,7 +188,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 //VerifiableZAdd ...
 func (d *db) VerifiableZAdd(req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
-	if req == nil || len(req.ZAddRequest.Set) == 0 || len(req.ZAddRequest.Key) == 0 {
+	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
 

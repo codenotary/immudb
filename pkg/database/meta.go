@@ -41,13 +41,6 @@ func WrapWithPrefix(b []byte, prefix byte) []byte {
 	return wb
 }
 
-//unWrapWithPrefix ...
-func UnWrapWithPrefix(wb []byte) (b []byte, prefix byte) {
-	b = make([]byte, len(wb)-1)
-	prefix = wb[0]
-	return
-}
-
 func EncodeKey(key []byte) []byte {
 	return WrapWithPrefix(key, SetKeyPrefix)
 }

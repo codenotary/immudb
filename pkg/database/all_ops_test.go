@@ -98,6 +98,22 @@ func TestExecAllOps(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	_, err := db.ExecAll(nil)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{})
+	require.Error(t, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{Operations: []*schema.Op{}})
+	require.Error(t, err)
+
+	_, err = db.ExecAll(&schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			nil,
+		},
+	})
+	require.Error(t, err)
+
 	batchSize := 100
 
 	for b := 0; b < 10; b++ {
@@ -792,8 +808,24 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 		},
 	})
 
-	// Ops payload
 	aOps := &schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Ref{
+					Ref: &schema.ReferenceRequest{
+						Key:           nil,
+						ReferencedKey: nil,
+						AtTx:          idx0.Id,
+					},
+				},
+			},
+		},
+	}
+	_, err := db.ExecAll(aOps)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
+	// Ops payload
+	aOps = &schema.ExecAllRequest{
 		Operations: []*schema.Op{
 			{
 				Operation: &schema.Op_Ref{
@@ -808,6 +840,38 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 	}
 	idx1, err := db.ExecAll(aOps)
 	require.NoError(t, err)
+
+	aOps = &schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Ref{
+					Ref: &schema.ReferenceRequest{
+						Key:           []byte(`myReference1`),
+						ReferencedKey: []byte(`myReference`),
+						AtTx:          idx1.Id,
+					},
+				},
+			},
+		},
+	}
+	_, err = db.ExecAll(aOps)
+	require.Equal(t, ErrReferencedKeyCannotBeAReference, err)
+
+	aOps = &schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Ref{
+					Ref: &schema.ReferenceRequest{
+						Key:           []byte(`persistedKey`),
+						ReferencedKey: []byte(`persistedKey`),
+						AtTx:          idx0.Id,
+					},
+				},
+			},
+		},
+	}
+	_, err = db.ExecAll(aOps)
+	require.Equal(t, ErrFinalKeyCannotBeConvertedIntoReference, err)
 
 	ref, err := db.Get(&schema.KeyRequest{Key: []byte(`myReference`), SinceTx: idx1.Id})
 	require.NoError(t, err)

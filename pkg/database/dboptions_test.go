@@ -18,6 +18,9 @@ package database
 
 import (
 	"testing"
+
+	"github.com/codenotary/immudb/embedded/store"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultOptions(t *testing.T) {
@@ -34,8 +37,14 @@ func TestDefaultOptions(t *testing.T) {
 
 	DbName := "Charles_Aznavour"
 	rootpath := "rootpath"
-	op = DefaultOption().WithDbName(DbName).
-		WithDbRootPath(rootpath).WithCorruptionChecker(false)
+	storeOpts := store.DefaultOptions()
+
+	op = DefaultOption().
+		WithDbName(DbName).
+		WithDbRootPath(rootpath).
+		WithCorruptionChecker(false).
+		WithStoreOptions(storeOpts)
+
 	if op.GetDbName() != DbName {
 		t.Errorf("db name not set correctly , expected %s got %s", DbName, op.GetDbName())
 	}
@@ -46,4 +55,6 @@ func TestDefaultOptions(t *testing.T) {
 	if op.GetCorruptionChecker() {
 		t.Errorf("coruuption checker not set correctly , expected %v got %v", false, op.GetCorruptionChecker())
 	}
+
+	require.Equal(t, storeOpts, op.storeOpts)
 }
