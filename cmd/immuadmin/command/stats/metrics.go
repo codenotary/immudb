@@ -156,20 +156,43 @@ func (ms *metrics) withClients(metricsFamilies *map[string]*dto.MetricFamily) {
 }
 
 func (ms *metrics) withDBInfo(metricsFamilies *map[string]*dto.MetricFamily) {
-	lsmSizeMetric := (*metricsFamilies)["immudb_lsm_size_bytes"].GetMetric()[0]
-	lsmBytes := lsmSizeMetric.GetUntyped().GetValue()
-	vlogBytes := (*metricsFamilies)["immudb_vlog_size_bytes"].GetMetric()[0].GetUntyped().GetValue()
-	ms.db.lsmBytes = uint64(lsmBytes)
-	ms.db.vlogBytes = uint64(vlogBytes)
-	ms.db.totalBytes = uint64(lsmBytes + vlogBytes)
-	for _, labelPair := range lsmSizeMetric.GetLabel() {
-		if labelPair.GetName() == "database" {
-			ms.db.name = labelPair.GetValue()
-			break
+
+	// DB LSM size and DB name
+	lsmSizeMetricsFams := (*metricsFamilies)["immudb_lsm_size_bytes"]
+	if lsmSizeMetricsFams != nil && len(lsmSizeMetricsFams.GetMetric()) > 0 {
+		lsmSizeMetric := lsmSizeMetricsFams.GetMetric()[0]
+		ms.db.lsmBytes = uint64(lsmSizeMetric.GetUntyped().GetValue())
+		for _, labelPair := range lsmSizeMetric.GetLabel() {
+			if labelPair.GetName() == "database" {
+				ms.db.name = labelPair.GetValue()
+				break
+			}
 		}
 	}
-	ms.db.nbEntries = uint64((*metricsFamilies)["immudb_number_of_stored_entries"].GetMetric()[0].GetCounter().GetValue())
-	ms.db.uptimeHours = (*metricsFamilies)["immudb_uptime_hours"].GetMetric()[0].GetCounter().GetValue()
+
+	// DB VLog size
+	vlogSizeMetricsFams := (*metricsFamilies)["immudb_vlog_size_bytes"]
+	if vlogSizeMetricsFams != nil && len(vlogSizeMetricsFams.GetMetric()) > 0 {
+		ms.db.vlogBytes =
+			uint64(vlogSizeMetricsFams.GetMetric()[0].GetUntyped().GetValue())
+	}
+
+	// DB total size
+	ms.db.totalBytes = ms.db.lsmBytes + ms.db.vlogBytes
+
+	// Number of entries
+	nbEntriesMetricsFams := (*metricsFamilies)["immudb_number_of_stored_entries"]
+	if nbEntriesMetricsFams != nil && len(nbEntriesMetricsFams.GetMetric()) > 0 {
+		ms.db.nbEntries =
+			uint64(nbEntriesMetricsFams.GetMetric()[0].GetCounter().GetValue())
+	}
+
+	// Uptime hours
+	upHoursMetricsFams := (*metricsFamilies)["immudb_uptime_hours"]
+	if upHoursMetricsFams != nil && len(upHoursMetricsFams.GetMetric()) > 0 {
+		ms.db.uptimeHours = upHoursMetricsFams.GetMetric()[0].GetCounter().GetValue()
+	}
+
 }
 
 func (ms *metrics) withDuration(metricsFamilies *map[string]*dto.MetricFamily) {
