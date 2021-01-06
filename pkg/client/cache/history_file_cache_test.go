@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"encoding/base64"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"log"
@@ -86,7 +87,11 @@ func TestNewHistoryFileCacheWalk(t *testing.T) {
 	require.Nil(t, err)
 	require.IsType(t, []interface{}{interface{}(nil)}, iface)
 
-	err = fc.Set("uuid", "dbName", &schema.ImmutableState{})
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{
+		TxId:      0,
+		TxHash:    []byte(`hash`),
+		Signature: nil,
+	})
 	require.Nil(t, err)
 
 	iface, err = fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
@@ -141,4 +146,65 @@ func TestHistoryFileCache_unmarshalRootErr(t *testing.T) {
 	fc := &historyFileCache{}
 	_, err := fc.unmarshalRoot("path", "db")
 	require.Error(t, err)
+}
+
+func TestHistoryFileCache_unmarshalRootSingleLineErr(t *testing.T) {
+	dbName := "dbt"
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "file-state")
+	if err != nil {
+		log.Fatal("Cannot create temporary file", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	if _, err = tmpFile.Write([]byte(dbName + ":")); err != nil {
+		log.Fatal("Failed to write to temporary file", err)
+	}
+	fc := &historyFileCache{}
+	_, err = fc.unmarshalRoot(tmpFile.Name(), dbName)
+	require.Error(t, err)
+}
+
+func TestHistoryFileCache_unmarshalRootUnableToDecodeErr(t *testing.T) {
+	dbName := "dbt"
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "file-state")
+	if err != nil {
+		log.Fatal("Cannot create temporary file", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	if _, err = tmpFile.Write([]byte(dbName + ":firstLine")); err != nil {
+		log.Fatal("Failed to write to temporary file", err)
+	}
+	fc := &historyFileCache{}
+	_, err = fc.unmarshalRoot(tmpFile.Name(), dbName)
+	require.Error(t, err)
+}
+
+func TestHistoryFileCache_unmarshalRootUnmarshalErr(t *testing.T) {
+	dbName := "dbt"
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "file-state")
+	if err != nil {
+		log.Fatal("Cannot create temporary file", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	if _, err = tmpFile.Write([]byte(dbName + ":" + base64.StdEncoding.EncodeToString([]byte("wrong-content")))); err != nil {
+		log.Fatal("Failed to write to temporary file", err)
+	}
+	fc := &historyFileCache{}
+	_, err = fc.unmarshalRoot(tmpFile.Name(), dbName)
+	require.Error(t, err)
+}
+
+func TestHistoryFileCache_unmarshalRootEmptyFile(t *testing.T) {
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "file-state")
+	if err != nil {
+		log.Fatal("Cannot create temporary file", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	text := []byte("")
+	if _, err = tmpFile.Write(text); err != nil {
+		log.Fatal("Failed to write to temporary file", err)
+	}
+	fc := &historyFileCache{}
+	state, err := fc.unmarshalRoot(tmpFile.Name(), "db")
+	require.Nil(t, err)
+	require.Nil(t, state)
 }
