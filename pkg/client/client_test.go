@@ -758,12 +758,18 @@ func TestImmuClient_GetAll(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	_, _ = client.VerifiedSet(ctx, []byte(`aaa`), []byte(`val`))
+	_, err = client.VerifiedSet(ctx, []byte(`aaa`), []byte(`val`))
+	require.NoError(t, err)
+
+	_, err = client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
+	require.Error(t, err)
+
+	_, err = client.VerifiedSet(ctx, []byte(`bbb`), []byte(`val`))
+	require.NoError(t, err)
 
 	entries, err := client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.NoError(t, err)
-
-	require.IsType(t, &schema.Entries{}, entries)
+	require.Len(t, entries.Entries, 2)
 
 	client.Disconnect()
 }
