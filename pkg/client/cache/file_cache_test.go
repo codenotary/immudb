@@ -1,8 +1,9 @@
 package cache
 
 import (
+	"encoding/base64"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"log"
 	"os"
@@ -16,7 +17,7 @@ func TestNewFileCache(t *testing.T) {
 	}
 	os.Mkdir(dirname, os.ModePerm)
 	fc := NewFileCache(dirname)
-	assert.IsType(t, &fileCache{}, fc)
+	require.IsType(t, &fileCache{}, fc)
 	os.RemoveAll(dirname)
 }
 
@@ -26,8 +27,12 @@ func TestFileCacheSet(t *testing.T) {
 		log.Fatal(err)
 	}
 	fc := NewFileCache(dirname)
-	err = fc.Set("uuid", "dbName", &schema.ImmutableState{})
-	assert.Nil(t, err)
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{
+		TxId:      0,
+		TxHash:    []byte(`hash`),
+		Signature: nil,
+	})
+	require.Nil(t, err)
 	os.RemoveAll(dirname)
 }
 
@@ -37,11 +42,14 @@ func TestFileCacheGet(t *testing.T) {
 		log.Fatal(err)
 	}
 	fc := NewFileCache(dirname)
-	err = fc.Set("uuid", "dbName", &schema.ImmutableState{})
-	assert.Nil(t, err)
-	root, err := fc.Get("uuid", "dbName")
-	assert.Nil(t, err)
-	assert.IsType(t, &schema.ImmutableState{}, root)
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{
+		TxId:      0,
+		TxHash:    []byte(`hash`),
+		Signature: nil,
+	})
+	require.Nil(t, err)
+	_, err = fc.Get("uuid", "dbName")
+	require.Nil(t, err)
 	os.RemoveAll(dirname)
 }
 
@@ -52,6 +60,102 @@ func TestFileCacheGetFail(t *testing.T) {
 	}
 	fc := NewFileCache(dirname)
 	_, err = fc.Get("uuid", "dbName")
-	assert.Error(t, err)
+	require.Error(t, err)
 	os.RemoveAll(dirname)
+}
+
+func TestFileCacheGetSingleLineError(t *testing.T) {
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	f, err := os.Create(dirname + "/.state-test")
+	if err != nil {
+		log.Fatal("Cannot create state file", err)
+		return
+	}
+
+	dbName := "dbt"
+
+	defer os.Remove(f.Name())
+	if _, err = f.Write([]byte(dbName + ":")); err != nil {
+		log.Fatal("Failed to write to temporary file", err)
+	}
+
+	fc := NewFileCache(dirname)
+	_, err = fc.Get("test", dbName)
+	require.Error(t, err)
+	os.RemoveAll(dirname)
+}
+
+func TestFileCacheGetRootUnableToDecodeErr(t *testing.T) {
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	f, err := os.Create(dirname + "/.state-test")
+	if err != nil {
+		log.Fatal("Cannot create state file", err)
+		return
+	}
+
+	dbName := "dbt"
+
+	defer os.Remove(f.Name())
+	if _, err = f.Write([]byte(dbName + ":firstLine")); err != nil {
+		log.Fatal("Failed to write to temporary file", err)
+	}
+
+	fc := NewFileCache(dirname)
+	_, err = fc.Get("test", dbName)
+	require.Error(t, err)
+	os.RemoveAll(dirname)
+}
+
+func TestFileCacheGetRootUnmarshalErr(t *testing.T) {
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	f, err := os.Create(dirname + "/.state-test")
+	if err != nil {
+		log.Fatal("Cannot create state file", err)
+		return
+	}
+
+	dbName := "dbt"
+
+	defer os.Remove(f.Name())
+	if _, err = f.Write([]byte(dbName + ":" + base64.StdEncoding.EncodeToString([]byte("wrong-content")))); err != nil {
+		log.Fatal("Failed to write to temporary file", err)
+	}
+
+	fc := NewFileCache(dirname)
+	_, err = fc.Get("test", dbName)
+	require.Error(t, err)
+	os.RemoveAll(dirname)
+}
+
+func TestFileCacheGetEmptyFile(t *testing.T) {
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	f, err := os.Create(dirname + "/.state-test")
+	if err != nil {
+		log.Fatal("Cannot create state file", err)
+		return
+	}
+
+	dbName := "dbt"
+
+	defer os.Remove(f.Name())
+	if _, err = f.Write([]byte("")); err != nil {
+		log.Fatal("Failed to write to temporary file", err)
+	}
+
+	fc := NewFileCache(dirname)
+	state, err := fc.Get("test", dbName)
+	require.Nil(t, err)
+	require.IsType(t, &schema.ImmutableState{}, state)
 }

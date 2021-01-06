@@ -51,7 +51,7 @@ func (w *fileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
 	for _, line := range lines {
 		if strings.Contains(line, db+":") {
 			r := strings.Split(line, ":")
-			if len(r) != 2 {
+			if r[1] == "" {
 				return nil, fmt.Errorf("could not find previous state")
 			}
 			oldState, err := base64.StdEncoding.DecodeString(r[1])
