@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package server
 
 import (
@@ -29,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
@@ -708,6 +708,9 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Nil index after Setbatch")
 	}
 
+	_, err = s.GetAll(ctx, nil)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
 	itList, err := s.GetAll(ctx, &schema.KeyListRequest{
 		Keys: [][]byte{
 			[]byte("Alberto"),
@@ -726,14 +729,18 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 }
 
 func testServerSetGetBatchError(ctx context.Context, s *ImmuServer, t *testing.T) {
-	kvs := []*schema.KeyValue{
-		{
-			Key:   []byte("Alberto"),
-			Value: []byte("Tomba"),
+	_, err := s.ExecAll(context.Background(), &schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
+						Key:   []byte("Alberto"),
+						Value: []byte("Tomba"),
+					},
+				},
+			},
 		},
-	}
-
-	_, err := s.Set(context.Background(), &schema.SetRequest{KVs: kvs})
+	})
 	if err == nil {
 		t.Fatalf("SetBatch expected Error")
 	}
@@ -1003,15 +1010,15 @@ func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 	_, err = s.VerifiableSetReference(ctx, &schema.VerifiableReferenceRequest{
 		ReferenceRequest: &schema.ReferenceRequest{
-			Key:           kvs[0].Key,
-			ReferencedKey: []byte("key1"),
+			Key:           []byte("refKey1"),
+			ReferencedKey: kvs[0].Key,
 		},
 		ProveSinceTx: 1,
 	})
 	require.NoError(t, err)
 
 	ref, err := s.Get(ctx, &schema.KeyRequest{
-		Key: []byte("key1"),
+		Key: []byte("refKey1"),
 	})
 	require.NoError(t, err)
 	require.Equal(t, kvs[0].Value, ref.Value)
@@ -1020,8 +1027,8 @@ func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 func testServerSafeReferenceError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.VerifiableSetReference(context.Background(), &schema.VerifiableReferenceRequest{
 		ReferenceRequest: &schema.ReferenceRequest{
-			Key:           kvs[0].Key,
-			ReferencedKey: []byte("key1"),
+			Key:           []byte("refKey1"),
+			ReferencedKey: kvs[0].Key,
 		},
 		ProveSinceTx: 0,
 	})
@@ -1145,8 +1152,8 @@ func TestServerDbOperations(t *testing.T) {
 	testServerZAddError(ctx, s, t)
 	testServerScan(ctx, s, t)
 	testServerScanError(ctx, s, t)
-	//testServerSafeReference(ctx, s, t)
-	//testServerSafeReferenceError(ctx, s, t)
+	testServerSafeReference(ctx, s, t)
+	testServerSafeReferenceError(ctx, s, t)
 	//testServerCount(ctx, s, t)
 	//testServerCountError(ctx, s, t)
 }

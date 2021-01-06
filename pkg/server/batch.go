@@ -22,13 +22,10 @@ func (s *ImmuServer) GetAll(ctx context.Context, req *schema.KeyListRequest) (*s
 
 	for _, key := range req.Keys {
 		e, err := s.dbList.GetByIndex(ind).Get(&schema.KeyRequest{Key: key, SinceTx: req.SinceTx})
-		if err == nil || err == store.ErrKeyNotFound {
-			if e != nil {
-				list.Entries = append(list.Entries, e)
-			}
-		} else {
+		if err != nil {
 			return nil, err
 		}
+		list.Entries = append(list.Entries, e)
 	}
 
 	return list, nil

@@ -17,8 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"testing"
-
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
@@ -405,7 +403,9 @@ func (l *mockLogger) Debugf(f string, v ...interface{}) {}
 
 func (l *mockLogger) CloneWithLevel(level logger.LogLevel) logger.Logger { return l }
 
+/*
 func TestCryptoRandSource_Seed(t *testing.T) {
 	cs := newCryptoRandSource()
 	cs.Seed(678)
 }
+*/
