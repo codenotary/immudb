@@ -730,6 +730,8 @@ func TestImmuClient_SetAll(t *testing.T) {
 	_, err = client.SetAll(ctx, setRequest)
 	require.NoError(t, err)
 
+	time.Sleep(1 * time.Millisecond)
+
 	for _, kv := range setRequest.KVs {
 		i, err := client.Get(ctx, kv.Key)
 		require.NoError(t, err)
