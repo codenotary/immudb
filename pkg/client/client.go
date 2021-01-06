@@ -32,7 +32,6 @@ import (
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client/cache"
 	"github.com/codenotary/immudb/pkg/client/state"
-	"github.com/codenotary/immudb/pkg/client/timestamp"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/grpc/credentials"
@@ -66,7 +65,6 @@ type ImmuClient interface {
 	WithOptions(options *Options) *immuClient
 	WithLogger(logger logger.Logger) *immuClient
 	WithStateService(rs state.StateService) *immuClient
-	WithTimestampService(ts TimestampService) *immuClient
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
 	WithTokenService(tokenService TokenService) *immuClient
@@ -139,7 +137,6 @@ type immuClient struct {
 	clientConn    *grpc.ClientConn
 	ServiceClient schema.ImmuServiceClient
 	StateService  state.StateService
-	ts            TimestampService
 	Tkns          TokenService
 	sync.RWMutex
 }
@@ -195,13 +192,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 		return nil, logErr(l, "Unable to create state service: %s", err)
 	}
 
-	dt, err := timestamp.NewDefaultTimestamp()
-	if err != nil {
-		return nil, err
-	}
-
-	ts := NewTimestampService(dt)
-	c.WithTimestampService(ts).WithStateService(stateService)
+	c.WithStateService(stateService)
 
 	return c, nil
 }
