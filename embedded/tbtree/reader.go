@@ -42,10 +42,6 @@ type ReaderSpec struct {
 	DescOrder     bool
 }
 
-func validReaderSpec(spec *ReaderSpec) bool {
-	return spec != nil && spec.SeekKey != nil
-}
-
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 	if r.closed {
 		return nil, nil, 0, ErrAlreadyClosed

@@ -74,7 +74,7 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 		return nil, ErrAlreadyClosed
 	}
 
-	if !validReaderSpec(spec) {
+	if spec == nil {
 		return nil, ErrIllegalArguments
 	}
 
