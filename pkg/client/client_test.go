@@ -852,7 +852,7 @@ func TestImmuClient_Scan(t *testing.T) {
 	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val11`))
 	_, _ = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
 
-	entries, err := client.Scan(ctx, &schema.ScanRequest{Prefix: []byte("key")})
+	entries, err := client.Scan(ctx, &schema.ScanRequest{Prefix: []byte("key"), SinceTx: 3})
 
 	require.IsType(t, &schema.Entries{}, entries)
 	require.Nil(t, err)
