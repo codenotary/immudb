@@ -15,12 +15,6 @@ limitations under the License.
 */
 package server
 
-import (
-	"crypto/rand"
-	"encoding/binary"
-	mrand "math/rand"
-)
-
 /*
 
 // ErrConsistencyFail happens when a consistency check fails. Check the log to retrieve details on which element is failing
@@ -157,6 +151,7 @@ func (s *corruptionChecker) GetStatus() bool {
 
 */
 
+/*
 type cryptoRandSource struct{}
 
 func newCryptoRandSource() cryptoRandSource {
@@ -170,7 +165,9 @@ func (cryptoRandSource) Int63() int64 {
 }
 
 func (cryptoRandSource) Seed(_ int64) {}
+*/
 
+/*
 type randomGenerator struct{}
 
 type RandomGenerator interface {
@@ -188,3 +185,4 @@ func (rg randomGenerator) getList(start, end uint64) []uint64 {
 	rn.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
 	return ids
 }
+*/

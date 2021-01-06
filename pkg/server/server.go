@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -499,8 +500,9 @@ func (s *ImmuServer) CloseDatabases() error {
 	return nil
 }
 
+/*
 func (s *ImmuServer) startCorruptionChecker() {
-	/*if s.Options.CorruptionCheck {
+	if s.Options.CorruptionCheck {
 		cco := CCOptions{}
 		cco.singleiteration = false
 		cco.iterationSleepTime = 5 * time.Second
@@ -515,18 +517,20 @@ func (s *ImmuServer) startCorruptionChecker() {
 			}
 		}()
 	}
-	*/
+
 	s.Logger.Errorf("Unable to start consistency-checker: Functionality not yet supported")
 }
+*/
 
+/*
 //StopCorruptionChecker shutdown the corruption checkcer
 func (s *ImmuServer) stopCorruptionChecker() error {
-	/*if s.Options.CorruptionCheck {
+	if s.Options.CorruptionCheck {
 		s.Cc.Stop()
 	}
-	*/
 	return nil
 }
+*/
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
@@ -762,24 +766,28 @@ func (s *ImmuServer) Scan(ctx context.Context, req *schema.ScanRequest) (*schema
 
 // Count ...
 func (s *ImmuServer) Count(ctx context.Context, prefix *schema.KeyPrefix) (*schema.EntryCount, error) {
-	s.Logger.Debugf("count %s", prefix.Prefix)
+	/*s.Logger.Debugf("count %s", prefix.Prefix)
 	ind, err := s.getDbIndexFromCtx(ctx, "Count")
 	if err != nil {
 		return nil, err
 	}
 
 	return s.dbList.GetByIndex(ind).Count(prefix)
+	*/
+	return nil, errors.New("Functionality not yet supported")
 }
 
 // CountAll ...
 func (s *ImmuServer) CountAll(ctx context.Context, e *empty.Empty) (*schema.EntryCount, error) {
-	ind, err := s.getDbIndexFromCtx(ctx, "CountAll")
+	/*ind, err := s.getDbIndexFromCtx(ctx, "CountAll")
 	s.Logger.Debugf("count all for db index %d", ind)
 	if err != nil {
 		return nil, err
 	}
 
 	return s.dbList.GetByIndex(ind).CountAll()
+	*/
+	return nil, errors.New("Functionality not yet supported")
 }
 
 // TxByID ...
