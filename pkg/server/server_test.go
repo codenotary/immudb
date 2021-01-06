@@ -397,10 +397,12 @@ func testServerListUsers(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func TestServerListUsersAdmin(t *testing.T) {
 	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
 	err := s.Initialize()
+	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
@@ -432,6 +434,14 @@ func TestServerListUsersAdmin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateUser error %v", err)
 	}
+
+	err = s.Stop()
+	require.NoError(t, err)
+
+	s = DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	err = s.Initialize()
+	require.NoError(t, err)
+
 	s.multidbmode = true
 	lr, err = s.Login(ctx, &schema.LoginRequest{User: testUsername, Password: testPassword})
 	if err != nil {
