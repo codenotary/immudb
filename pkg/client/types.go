@@ -33,11 +33,6 @@ func (c *immuClient) WithStateService(rs state.StateService) *immuClient {
 	return c
 }
 
-func (c *immuClient) WithTimestampService(ts TimestampService) *immuClient {
-	c.ts = ts
-	return c
-}
-
 func (c *immuClient) WithClientConn(clientConn *grpc.ClientConn) *immuClient {
 	c.clientConn = clientConn
 	return c

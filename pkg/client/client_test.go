@@ -508,6 +508,13 @@ func TestWaitForHealthCheckFail(t *testing.T) {
 
 func TestSetupDialOptions(t *testing.T) {
 	client := DefaultClient()
+
+	ts := TokenServiceMock{}
+	ts.GetTokenF = func() (string, error) {
+		return "token", nil
+	}
+	client.WithTokenService(ts)
+
 	dialOpts := client.SetupDialOptions(DefaultOptions().WithMTLs(true))
 	require.NotNil(t, dialOpts)
 }
@@ -1218,4 +1225,40 @@ func DefaultHomedirServiceMock() *HomedirServiceMock {
 			return nil
 		},
 	}
+}
+
+type TokenServiceMock struct {
+	TokenService
+	GetTokenF       func() (string, error)
+	SetTokenF       func(database string, token string) error
+	IsTokenPresentF func() (bool, error)
+	DeleteTokenF    func() error
+}
+
+func (ts TokenServiceMock) GetToken() (string, error) {
+	return ts.GetTokenF()
+}
+
+func (ts TokenServiceMock) SetToken(database string, token string) error {
+	return ts.SetTokenF(database, token)
+}
+
+func (ts TokenServiceMock) DeleteToken() error {
+	return ts.DeleteTokenF()
+}
+
+func (ts TokenServiceMock) IsTokenPresent() (bool, error) {
+	return ts.IsTokenPresentF()
+}
+
+func (ts TokenServiceMock) GetDatabase() (string, error) {
+	return "", nil
+}
+
+func (ts TokenServiceMock) WithHds(hds HomedirService) TokenService {
+	return ts
+}
+
+func (ts TokenServiceMock) WithTokenFileName(tfn string) TokenService {
+	return ts
 }
