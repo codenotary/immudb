@@ -77,11 +77,7 @@ func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Comm
 		immudbServer := immudbServer.WithOptions(options)
 		if options.Logfile != "" {
 			if flogger, file, err := logger.NewFileLogger("immudb ", options.Logfile); err == nil {
-				defer func() {
-					if err = file.Close(); err != nil {
-						c.QuitToStdErr(err)
-					}
-				}()
+				defer file.Close()
 				immudbServer.WithLogger(flogger)
 			} else {
 				c.QuitToStdErr(err)

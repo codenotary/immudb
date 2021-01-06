@@ -289,6 +289,22 @@ func TestCommandline_ServiceUninstallIsRunning(t *testing.T) {
 	require.Nil(t, err)
 }
 
+func TestCommandline_ServiceUninstallEraseDataError(t *testing.T) {
+	cmd := &cobra.Command{}
+	tr := &clienttest.TerminalReaderMock{}
+	tr.Responses = []string{"y", "y"}
+
+	ss := servicetest.NewSservicemock()
+	ss.EraseDataF = func(serviceName string) error {
+		return fmt.Errorf("error")
+	}
+	cld := commandline{helper.Config{}, ss, tr}
+	cld.Service(cmd)
+	cmd.SetArgs([]string{"service", "uninstall"})
+	err := cmd.Execute()
+	require.Error(t, err)
+}
+
 func TestCommandline_ServiceUninstallNotWanted(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
@@ -455,6 +471,22 @@ func TestCommandline_ServicRestartDaemonStartError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestCommandline_ServicRestarIsNotAdminError(t *testing.T) {
+	cmd := &cobra.Command{}
+	tr := &clienttest.TerminalReaderMock{}
+
+	ss := servicetest.NewSservicemock()
+	ss.IsAdminF = func() (bool, error) {
+		return false, fmt.Errorf("error")
+	}
+
+	cld := commandline{helper.Config{}, ss, tr}
+	cld.Service(cmd)
+	cmd.SetArgs([]string{"service", "restart"})
+	err := cmd.Execute()
+	require.Error(t, err)
+}
+
 func TestCommandline_ServicStatusDaemonStatusError(t *testing.T) {
 	cmd := &cobra.Command{}
 	tr := &clienttest.TerminalReaderMock{}
@@ -470,6 +502,28 @@ func TestCommandline_ServicStatusDaemonStatusError(t *testing.T) {
 	cld := commandline{helper.Config{}, ss, tr}
 	cld.Service(cmd)
 	cmd.SetArgs([]string{"service", "status"})
+	err := cmd.Execute()
+	require.Error(t, err)
+}
+
+func TestCommandline_CommandInvalidArgument(t *testing.T) {
+	cmd := &cobra.Command{}
+	tr := &clienttest.TerminalReaderMock{}
+	ss := servicetest.NewSservicemock()
+	cld := commandline{helper.Config{}, ss, tr}
+	cld.Service(cmd)
+	cmd.SetArgs([]string{"service", "wrong"})
+	err := cmd.Execute()
+	require.Error(t, err)
+}
+
+func TestCommandline_CommandMissingCommandName(t *testing.T) {
+	cmd := &cobra.Command{}
+	tr := &clienttest.TerminalReaderMock{}
+	ss := servicetest.NewSservicemock()
+	cld := commandline{helper.Config{}, ss, tr}
+	cld.Service(cmd)
+	cmd.SetArgs([]string{"service"})
 	err := cmd.Execute()
 	require.Error(t, err)
 }
