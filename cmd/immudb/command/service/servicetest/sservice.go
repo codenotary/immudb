@@ -17,7 +17,6 @@ limitations under the License.
 package servicetest
 
 import (
-	"github.com/codenotary/immudb/cmd/sservice"
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
 )
@@ -66,7 +65,6 @@ func NewSservicemock() *Sservicemock {
 }
 
 type Sservicemock struct {
-	sservice.Sservice
 	NewDaemonF            func(serviceName, description string, dependencies ...string) (d daemon.Daemon, err error)
 	IsAdminF              func() (bool, error)
 	InstallSetupF         func(serviceName string, cmd *cobra.Command) (err error)
