@@ -47,7 +47,7 @@ func TestReaderWithInvalidSpec(t *testing.T) {
 	require.NoError(t, err)
 	defer snapshot.Close()
 
-	_, err = snapshot.Reader(&ReaderSpec{SeekKey: nil, DescOrder: false})
+	_, err = snapshot.Reader(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 }
 
@@ -150,7 +150,7 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	defer snapshot.Close()
 
 	rspec := &ReaderSpec{
-		SeekKey:   []byte{},
+		SeekKey:   nil,
 		Prefix:    nil,
 		DescOrder: false,
 	}
