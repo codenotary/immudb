@@ -246,15 +246,9 @@ func (s *ImmuServer) setUpMetricsServer() error {
 	s.metricsServer = StartMetrics(
 		s.Options.MetricsBind(),
 		s.Logger,
-		func() float64 {
-			ic, err := s.dbList.GetByIndex(DefaultDbIndex).CountAll()
-			if err != nil {
-				return 0
-			}
-
-			return float64(ic.Count)
-		},
-		func() float64 { return time.Since(startedAt).Hours() },
+		s.metricFuncDefaultDBRecordsCounter,
+		s.metricFuncServerUptimeCounter,
+		s.metricFuncDefaultDBSize,
 	)
 	return nil
 }

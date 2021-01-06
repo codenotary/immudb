@@ -71,8 +71,6 @@ type rpcDuration struct {
 
 type dbInfo struct {
 	name        string
-	lsmBytes    uint64
-	vlogBytes   uint64
 	totalBytes  uint64
 	nbEntries   uint64
 	uptimeHours float64
@@ -157,28 +155,14 @@ func (ms *metrics) withClients(metricsFamilies *map[string]*dto.MetricFamily) {
 
 func (ms *metrics) withDBInfo(metricsFamilies *map[string]*dto.MetricFamily) {
 
-	// DB LSM size and DB name
-	lsmSizeMetricsFams := (*metricsFamilies)["immudb_lsm_size_bytes"]
-	if lsmSizeMetricsFams != nil && len(lsmSizeMetricsFams.GetMetric()) > 0 {
-		lsmSizeMetric := lsmSizeMetricsFams.GetMetric()[0]
-		ms.db.lsmBytes = uint64(lsmSizeMetric.GetUntyped().GetValue())
-		for _, labelPair := range lsmSizeMetric.GetLabel() {
-			if labelPair.GetName() == "database" {
-				ms.db.name = labelPair.GetValue()
-				break
-			}
-		}
-	}
+	ms.db.name = "data/defaultdb"
 
-	// DB VLog size
-	vlogSizeMetricsFams := (*metricsFamilies)["immudb_vlog_size_bytes"]
-	if vlogSizeMetricsFams != nil && len(vlogSizeMetricsFams.GetMetric()) > 0 {
-		ms.db.vlogBytes =
-			uint64(vlogSizeMetricsFams.GetMetric()[0].GetUntyped().GetValue())
+	// DB size
+	dbSizeMetricsFams := (*metricsFamilies)["immudb_db_size_bytes"]
+	if dbSizeMetricsFams != nil && len(dbSizeMetricsFams.GetMetric()) > 0 {
+		ms.db.totalBytes =
+			uint64(dbSizeMetricsFams.GetMetric()[0].GetCounter().GetValue())
 	}
-
-	// DB total size
-	ms.db.totalBytes = ms.db.lsmBytes + ms.db.vlogBytes
 
 	// Number of entries
 	nbEntriesMetricsFams := (*metricsFamilies)["immudb_number_of_stored_entries"]

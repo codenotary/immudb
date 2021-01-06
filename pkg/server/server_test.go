@@ -1008,7 +1008,7 @@ func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = s.VerifiableSetReference(ctx, &schema.VerifiableReferenceRequest{
+	vtx, err := s.VerifiableSetReference(ctx, &schema.VerifiableReferenceRequest{
 		ReferenceRequest: &schema.ReferenceRequest{
 			Key:           []byte("refKey1"),
 			ReferencedKey: kvs[0].Key,
@@ -1018,7 +1018,8 @@ func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	require.NoError(t, err)
 
 	ref, err := s.Get(ctx, &schema.KeyRequest{
-		Key: []byte("refKey1"),
+		Key:     []byte("refKey1"),
+		SinceTx: vtx.Tx.Metadata.Id,
 	})
 	require.NoError(t, err)
 	require.Equal(t, kvs[0].Value, ref.Value)

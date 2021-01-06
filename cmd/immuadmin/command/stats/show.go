@@ -22,12 +22,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 )
 
 const requestTimeout = 3 * time.Second
 
 func metricsURL(serverAddress string) string {
+	if strings.HasPrefix(serverAddress, "http") {
+		return serverAddress
+	}
 	return "http://" + serverAddress + ":9497/metrics"
 }
 
@@ -69,12 +73,8 @@ func ShowMetricsAsText(w io.Writer, serverAddress string) error {
 	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.db.uptimeHours))
 	fmt.Fprintf(w, strPattern, labelLength, "Uptime", uptime)
 	fmt.Fprintf(w, intPattern, labelLength, "Number of entries", ms.db.nbEntries)
-	lsmSizeS, _ := byteCountBinary(ms.db.lsmBytes)
-	vlogSizeS, _ := byteCountBinary(ms.db.vlogBytes)
 	totalSizeS, _ := byteCountBinary(ms.db.totalBytes)
-	fmt.Fprintf(w, strPattern, labelLength, "LSM size", lsmSizeS)
-	fmt.Fprintf(w, strPattern, labelLength, "VLog size", vlogSizeS)
-	fmt.Fprintf(w, strPattern, labelLength, "Total size", totalSizeS)
+	fmt.Fprintf(w, strPattern, labelLength, "DB size", totalSizeS)
 
 	// print clients
 	fmt.Fprintf(w, intPattern, labelLength, "Number of clients", ms.nbClients)
