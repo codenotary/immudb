@@ -14,7 +14,7 @@ type Reader struct {
 
 // NewReader ...
 func (st *ImmuStore) NewReader(snap *tbtree.Snapshot, spec *tbtree.ReaderSpec) (*Reader, error) {
-	if snap == nil || spec == nil {
+	if snap == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -59,6 +59,7 @@ func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, err error) {
 		hVal:   hVal,
 		vOff:   int64(vOff),
 		valLen: valLen,
+		st:     s.store,
 	}
 
 	return key, val, tx, nil
