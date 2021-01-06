@@ -172,7 +172,7 @@ func TestStoreReferenceAsyncCommit(t *testing.T) {
 			index = secondIndex.Id
 		}
 
-		item, err := db.Get(&schema.KeyRequest{Key: tag, SinceTx: index})
+		item, err := db.Get(&schema.KeyRequest{Key: tag, SinceTx: 67})
 		require.NoError(t, err, "n=%d", n)
 		require.Equal(t, index, item.Tx, "n=%d", n)
 		require.Equal(t, itemVal, item.Value, "n=%d", n)
