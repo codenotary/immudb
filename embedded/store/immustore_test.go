@@ -80,7 +80,6 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 	}()
 
 	go func() {
-
 		txID := uint64(1)
 		tx := immuStore.NewTx()
 
@@ -112,6 +111,68 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 			}
 		}
 	}()
+
+	wg.Wait()
+
+	err = immuStore.Close()
+	require.NoError(t, err)
+}
+
+func TestImmudbStoreConcurrentCommits(t *testing.T) {
+	opts := DefaultOptions().WithSynced(true).WithMaxConcurrency(10)
+	immuStore, err := Open("data_concurrent_commits", opts)
+	require.NoError(t, err)
+	defer os.RemoveAll("data_concurrent_commits")
+
+	require.NotNil(t, immuStore)
+
+	txCount := 10
+	eCount := 1000
+
+	var wg sync.WaitGroup
+	wg.Add(10)
+
+	txs := make([]*Tx, 10)
+	for c := 0; c < 10; c++ {
+		txs[c] = immuStore.NewTx()
+	}
+
+	for c := 0; c < 10; c++ {
+		go func(tx *Tx) {
+			for i := 0; i < txCount; i++ {
+				kvs := make([]*KV, eCount)
+
+				for j := 0; j < eCount; j++ {
+					k := make([]byte, 8)
+					binary.BigEndian.PutUint64(k, uint64(j))
+
+					v := make([]byte, 8)
+					binary.BigEndian.PutUint64(v, uint64(i))
+
+					kvs[j] = &KV{Key: k, Value: v}
+				}
+
+				md, err := immuStore.Commit(kvs)
+				if err != nil {
+					panic(err)
+				}
+
+				err = immuStore.ReadTx(md.ID, tx)
+				if err != nil {
+					panic(err)
+				}
+
+				for _, e := range tx.Entries() {
+					_, err := immuStore.ReadValue(tx, e.Key())
+					if err != nil {
+						panic(err)
+					}
+				}
+			}
+
+			wg.Done()
+		}(txs[c])
+	}
 
 	wg.Wait()
 
@@ -381,9 +442,6 @@ func TestImmudbStoreIndexing(t *testing.T) {
 
 	require.NotNil(t, immuStore)
 
-	txCount := 1000
-	eCount := 10
-
 	_, err = immuStore.Commit(nil)
 	require.Equal(t, ErrorNoEntriesProvided, err)
 
@@ -392,6 +450,9 @@ func TestImmudbStoreIndexing(t *testing.T) {
 		{Key: []byte("key"), Value: []byte("value")},
 	})
 	require.Equal(t, ErrDuplicatedKey, err)
+
+	txCount := 1000
+	eCount := 10
 
 	for i := 0; i < txCount; i++ {
 		kvs := make([]*KV, eCount)
@@ -417,12 +478,12 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	for f := 0; f < 1; f++ {
 		go func() {
 			for {
-				_, err := immuStore.IndexInfo()
+				txID, err := immuStore.IndexInfo()
 				if err != nil {
 					panic(err)
 				}
 
-				snap, err := immuStore.Snapshot()
+				snap, err := immuStore.SnapshotSince(txID)
 				if err != nil {
 					panic(err)
 				}
@@ -474,12 +535,42 @@ func TestImmudbStoreIndexing(t *testing.T) {
 					}
 				}
 
-				snap.Close()
-
 				if snap.Ts() == uint64(txCount) {
+					k := make([]byte, 8)
+					binary.BigEndian.PutUint64(k, uint64(eCount-1))
+
+					v1, tx1, err := immuStore.Get(k)
+					if err != nil {
+						panic(err)
+					}
+
+					v2, tx2, err := snap.Get(k)
+					if err != nil {
+						panic(err)
+					}
+
+					if !bytes.Equal(v1, v2) {
+						panic(fmt.Errorf("expected %v actual %v", v1, v2))
+					}
+
+					if tx1 != tx2 {
+						panic(fmt.Errorf("expected %d actual %d", tx1, tx2))
+					}
+
+					txs, err := immuStore.GetTs(k, int64(txCount))
+					if err != nil {
+						panic(err)
+					}
+
+					if len(txs) != txCount {
+						panic(fmt.Errorf("expected %d actual %d", txCount, len(txs)))
+					}
+
+					snap.Close()
 					break
 				}
 
+				snap.Close()
 				time.Sleep(time.Duration(100) * time.Millisecond)
 			}
 			wg.Done()
@@ -976,6 +1067,8 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 
 	_, err = immuStore.Commit([]*KV{{Key: []byte{}, Value: []byte{}}})
 	require.Equal(t, ErrAlreadyClosed, err)
+
+	os.RemoveAll("data_consistency_proof_reopen/aht")
 
 	immuStore, err = Open("data_consistency_proof_reopen", opts)
 	require.NoError(t, err)
