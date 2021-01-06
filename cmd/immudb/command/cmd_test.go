@@ -18,6 +18,7 @@ package immudb
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 
@@ -200,4 +201,9 @@ type plauncherMock struct{}
 
 func (pl plauncherMock) Detached() error {
 	return nil
+}
+
+func TestNewCommand(t *testing.T) {
+	_, err := newCommand(server.DefaultServer())
+	require.NoError(t, err)
 }

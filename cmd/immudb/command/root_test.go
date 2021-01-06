@@ -17,17 +17,30 @@ limitations under the License.
 package immudb
 
 import (
+	"fmt"
+	"github.com/codenotary/immudb/cmd/immudb/command/service/servicetest"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNewCmd(t *testing.T) {
 	cl := Commandline{}
-
 	cmd, err := cl.NewRootCmd(server.DefaultServer())
-	assert.Nil(t, err)
-	assert.IsType(t, &cobra.Command{}, cmd)
+	require.Nil(t, err)
+	require.IsType(t, &cobra.Command{}, cmd)
+}
+
+func TestNewCmdInitializeError(t *testing.T) {
+	cl := Commandline{}
+	s := servicetest.NewDefaultImmuServerMock()
+	s.InitializeF = func() error {
+		return fmt.Errorf("error")
+	}
+	cmd, err := cl.NewRootCmd(s)
+	require.NoError(t, err)
+	err = cmd.Execute()
+	require.Error(t, err)
 }
