@@ -389,6 +389,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		_txbs: txbs,
 	}
 
+	if store.aht.Size() > store.committedTxID {
+		return nil, ErrCorruptedCLog
+	}
+
 	err = store.syncBinaryLinking()
 	if err != nil {
 		return nil, err
@@ -472,10 +476,6 @@ func (s *ImmuStore) BlInfo() (uint64, error) {
 }
 
 func (s *ImmuStore) syncBinaryLinking() error {
-	if s.aht.Size() > s.committedTxID {
-		return ErrUnexpectedLinkingError
-	}
-
 	if s.aht.Size() == s.committedTxID {
 		return nil
 	}
