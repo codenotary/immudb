@@ -406,8 +406,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 
-	err := s.Initialize()
-	require.NoError(t, err)
+	s.Initialize()
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
