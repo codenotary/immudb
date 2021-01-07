@@ -407,6 +407,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	defer os.RemoveAll(s.Options.Dir)
 
 	err := s.Initialize()
+	require.NoError(t, err)
 
 	r := &schema.LoginRequest{
 		User:     []byte(auth.SysAdminUsername),
@@ -428,6 +429,14 @@ func TestServerListUsersAdmin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	err = s.CloseDatabases()
+	require.NoError(t, err)
+
+	s = DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	err = s.Initialize()
+	require.NoError(t, err)
+
 	newUser := &schema.CreateUserRequest{
 		User:       testUsername,
 		Password:   testPassword,
