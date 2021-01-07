@@ -117,7 +117,8 @@ func Options() *client.Options {
 		WithAddress(viper.GetString("immudb-address")).
 		WithTokenFileName(viper.GetString("tokenfile")).
 		WithMTLs(viper.GetBool("mtls")).
-		WithTokenService(client.NewTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(client.NewHomedirService()))
+		WithTokenService(client.NewTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(client.NewHomedirService())).
+		WithPublicKey(viper.GetString("public-key"))
 
 	if viper.GetBool("mtls") {
 		// todo https://golang.org/src/crypto/x509/root_linux.go

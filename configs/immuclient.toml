@@ -8,3 +8,4 @@ pkey = "./tools/mtls/4_client/private/localhost.key.pem"
 certificate = "./tools/mtls/4_client/certs/localhost.cert.pem"
 clientcas = "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem"
 audit-signature = "ignore"
+public-key = "" #used to verify signatures

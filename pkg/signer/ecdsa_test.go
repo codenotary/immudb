@@ -90,7 +90,7 @@ func TestSignature_Verify(t *testing.T) {
 
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	signature, publicKey, _ := s.Sign(rawMessage[:])
-	ok, err := Verify(rawMessage[:], signature, publicKey)
+	ok, err := Verify(rawMessage[:], signature, UnmarshalKey(publicKey))
 	assert.True(t, ok)
 	assert.NoError(t, err)
 }
@@ -101,7 +101,7 @@ func TestSignature_VerifyError(t *testing.T) {
 
 	rawMessage := sha256.Sum256([]byte(`myhash`))
 	_, publicKey, _ := s.Sign(rawMessage[:])
-	ok, err := Verify(rawMessage[:], []byte(`wrongsignature`), publicKey)
+	ok, err := Verify(rawMessage[:], []byte(`wrongsignature`), UnmarshalKey(publicKey))
 	assert.False(t, ok)
 	assert.Error(t, err)
 }
@@ -113,7 +113,7 @@ func TestSignature_VerifyFalse(t *testing.T) {
 	_, publicKey, _ := s.Sign(rawMessage[:])
 	sigToMarshal := ecdsaSignature{R: &big.Int{}, S: &big.Int{}}
 	m, _ := asn1.Marshal(sigToMarshal)
-	ok, err := Verify(rawMessage[:], m, publicKey)
+	ok, err := Verify(rawMessage[:], m, UnmarshalKey(publicKey))
 	assert.False(t, ok)
 	assert.NoError(t, err)
 }

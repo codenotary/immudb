@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/signer"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -60,6 +61,7 @@ func TestDefaultAuditor(t *testing.T) {
 		"immudb",
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		nil,
 		nil,
@@ -89,6 +91,7 @@ func TestDefaultAuditorPasswordDecodeErr(t *testing.T) {
 		"enc:"+string([]byte{0}),
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		nil,
 		nil,
@@ -122,6 +125,7 @@ func TestDefaultAuditorLoginErr(t *testing.T) {
 		"immudb",
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
 		state.NewUUIDProvider(&serviceClient),
@@ -159,6 +163,7 @@ func TestDefaultAuditorDatabaseListErr(t *testing.T) {
 		"immudb",
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
 		state.NewUUIDProvider(&serviceClient),
@@ -198,6 +203,7 @@ func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
 		"immudb",
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
 		state.NewUUIDProvider(&serviceClient),
@@ -240,6 +246,7 @@ func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
 		"immudb",
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
 		state.NewUUIDProvider(&serviceClient),
@@ -285,6 +292,7 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 		"immudb",
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
 		state.NewUUIDProvider(&serviceClient),
@@ -322,6 +330,7 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		"immudb",
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
@@ -382,6 +391,7 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		"immudb",
 		nil,
 		"ignore",
+		nil,
 		AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
@@ -458,6 +468,7 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		"immudb",
 		[]string{"SomeNonExistentDb", ""},
 		"ignore",
+		nil,
 		alertConfig,
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
@@ -523,6 +534,8 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 	require.NoError(t, err)
 	serviceClient := schema.NewImmuServiceClient(clientConn)
 
+	pk, err := signer.ParsePublicKeyFile("./../../../test/signer/ec3.pub")
+	require.NoError(t, err)
 	da, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
@@ -531,6 +544,7 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 		"immudb",
 		nil,
 		"validate",
+		pk,
 		AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
@@ -583,6 +597,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		"immudb",
 		nil,
 		"validate",
+		nil,
 		AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
@@ -610,6 +625,7 @@ func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
 		"immudb",
 		nil,
 		"wrong",
+		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
 		state.NewUUIDProvider(&serviceClient),

@@ -43,6 +43,7 @@ type bufconnServer struct {
 }
 
 func NewBufconnServer(options server.Options) *bufconnServer {
+	options.Port = 0
 	bs := &bufconnServer{
 		Lis:     bufconn.Listen(bufSize),
 		Options: &options,
@@ -54,19 +55,22 @@ func NewBufconnServer(options server.Options) *bufconnServer {
 	return bs
 }
 
-func (bs *bufconnServer) Start() {
+func (bs *bufconnServer) Start() error {
 	bs.m.Lock()
 	bs.Server = server.DefaultServer().WithOptions(*bs.Options).(*server.ImmuServer)
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
 	}
-	bs.Server.Initialize()
+	if err := bs.Server.Initialize(); err != nil {
+		return err
+	}
 	schema.RegisterImmuServiceServer(bs.GrpcServer, bs.Server)
 	go func() {
 		if err := bs.GrpcServer.Serve(bs.Lis); err != nil {
 			log.Fatal(err)
 		}
 	}()
+	return nil
 }
 
 func (bs *bufconnServer) Stop() {

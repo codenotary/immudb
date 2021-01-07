@@ -48,6 +48,7 @@ type Options struct {
 	PrometheusHost     string
 	PrometheusPort     string
 	LogFileName        string
+	PublicKey          string
 }
 
 // DefaultOptions ...
@@ -70,6 +71,7 @@ func DefaultOptions() *Options {
 		PrometheusHost:     "",
 		PrometheusPort:     "",
 		LogFileName:        "",
+		PublicKey:          "",
 	}
 }
 
@@ -185,6 +187,12 @@ func (o *Options) WithPasswordReader(pr c.PasswordReader) *Options {
 // WithTokenService sets the TokenService for the client
 func (o *Options) WithTokenService(tkns TokenService) *Options {
 	o.Tkns = tkns
+	return o
+}
+
+// WithPublicKey sets the public key. If presents server state signature verification is enabled
+func (o *Options) WithPublicKey(publicKey string) *Options {
+	o.PublicKey = publicKey
 	return o
 }
 

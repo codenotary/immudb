@@ -77,15 +77,33 @@ func (sig signer) Sign(payload []byte) ([]byte, []byte, error) {
 	return m, p, nil
 }
 
-// verify verifies a signed payload
-func Verify(payload []byte, signature []byte, publicKey []byte) (bool, error) {
-	hash := sha256.Sum256(payload)
+func UnmarshalKey(publicKey []byte) *ecdsa.PublicKey {
 	x, y := elliptic.Unmarshal(elliptic.P256(), publicKey)
-	pk := &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+	return &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+}
 
+// verify verifies a signed payload
+func Verify(payload []byte, signature []byte, publicKey *ecdsa.PublicKey) (bool, error) {
+	hash := sha256.Sum256(payload)
 	es := ecdsaSignature{}
 	if _, err := asn1.Unmarshal(signature, &es); err != nil {
 		return false, err
 	}
-	return ecdsa.Verify(pk, hash[:], es.R, es.S), nil
+	return ecdsa.Verify(publicKey, hash[:], es.R, es.S), nil
+}
+
+func ParsePublicKeyFile(filePath string) (*ecdsa.PublicKey, error) {
+	publicKeyBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	publicKeyBlock, _ := pem.Decode(publicKeyBytes)
+	if publicKeyBlock == nil {
+		return nil, errors.New("no ecdsa key found in provided public key file")
+	}
+	cert, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return cert.(*ecdsa.PublicKey), nil
 }

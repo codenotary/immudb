@@ -1183,6 +1183,37 @@ func TestEnforcedLogoutAfterPasswordChange(t *testing.T) {
 	client.Disconnect()
 }
 
+func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
+
+	err := bs.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithPublicKey("./../../test/signer/ec1.pub"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	item, err := client.CurrentState(ctx)
+
+	require.IsType(t, &schema.ImmutableState{}, item)
+	require.Nil(t, err)
+}
+
 type HomedirServiceMock struct {
 	HomedirService
 	WriteFileToUserHomeDirF    func(content []byte, pathToFile string) error

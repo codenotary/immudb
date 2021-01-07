@@ -16,6 +16,7 @@ limitations under the License.
 package schema
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -30,14 +31,10 @@ func (state *ImmutableState) ToBytes() []byte {
 	return b
 }
 
-//CheckSignature
-func (state *ImmutableState) CheckSignature() (ok bool, err error) {
+// CheckSignature
+func (state *ImmutableState) CheckSignature(key *ecdsa.PublicKey) (ok bool, err error) {
 	if state.Signature == nil {
 		return false, errors.New("no signature found")
 	}
-	if state.Signature.PublicKey == nil {
-		return false, errors.New("no public key found")
-	}
-
-	return signer.Verify(state.ToBytes(), state.Signature.Signature, state.Signature.PublicKey)
+	return signer.Verify(state.ToBytes(), state.Signature.Signature, key)
 }

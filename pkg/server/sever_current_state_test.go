@@ -69,7 +69,7 @@ func TestServerCurrentStateSigned(t *testing.T) {
 	assert.NotNil(t, state.Signature.Signature)
 	assert.NotNil(t, state.Signature.PublicKey)
 
-	ok, err := signer.Verify(state.ToBytes(), state.Signature.Signature, state.Signature.PublicKey)
+	ok, err := signer.Verify(state.ToBytes(), state.Signature.Signature, signer.UnmarshalKey(state.Signature.PublicKey))
 
 	assert.NoError(t, err)
 	assert.True(t, ok)
