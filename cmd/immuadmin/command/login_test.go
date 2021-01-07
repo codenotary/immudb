@@ -19,6 +19,7 @@ package immuadmin
 import (
 	"bytes"
 	"context"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"testing"

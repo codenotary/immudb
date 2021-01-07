@@ -18,8 +18,10 @@ package audit
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/signer"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -101,6 +103,15 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 			return nil, fmt.Errorf("Invalid login operation: %v", err)
 		}
 	}
+
+	var pk *ecdsa.PublicKey
+	if cliOpts.PublicKey != "" {
+		pk, err = signer.ParsePublicKeyFile(cliOpts.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	cAgent.ImmuAudit, err = auditor.DefaultAuditor(time.Duration(cAgent.cycleFrequency)*time.Second,
 		fmt.Sprintf("%s:%v", options().Address, options().Port),
 		cliOpts.DialOptions,
@@ -108,6 +119,7 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		auditPassword,
 		auditDatabases,
 		auditSignature,
+		pk,
 		auditor.AuditNotificationConfig{
 			URL:            auditNotificationURL,
 			Username:       auditNotificationUsername,

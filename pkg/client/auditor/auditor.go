@@ -19,6 +19,7 @@ package auditor
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -72,6 +73,7 @@ type defaultAuditor struct {
 	password           []byte
 	auditDatabases     []string
 	auditSignature     string
+	publicKey          *ecdsa.PublicKey
 	notificationConfig AuditNotificationConfig
 	serviceClient      schema.ImmuServiceClient
 	uuidProvider       state.UUIDProvider
@@ -89,6 +91,7 @@ func DefaultAuditor(
 	passwordBase64 string,
 	auditDatabases []string,
 	auditSignature string,
+	publicKey *ecdsa.PublicKey,
 	notificationConfig AuditNotificationConfig,
 	serviceClient schema.ImmuServiceClient,
 	uuidProvider state.UUIDProvider,
@@ -129,6 +132,7 @@ func DefaultAuditor(
 		[]byte(password),
 		auditDatabases,
 		auditSignature,
+		publicKey,
 		notificationConfig,
 		serviceClient,
 		uuidProvider,
@@ -255,7 +259,7 @@ func (a *defaultAuditor) audit() error {
 	}
 
 	if a.auditSignature == "validate" {
-		if okSig, err := state.CheckSignature(); err != nil || !okSig {
+		if okSig, err := state.CheckSignature(a.publicKey); err != nil || !okSig {
 			a.logger.Errorf(
 				"audit #%d aborted: could not verify signature on server state at %s @ %s",
 				a.index, serverID, a.serverAddress)

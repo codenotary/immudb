@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"crypto/ecdsa"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/state"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -45,6 +46,11 @@ func (c *immuClient) WithServiceClient(serviceClient schema.ImmuServiceClient) *
 
 func (c *immuClient) WithTokenService(tokenService TokenService) *immuClient {
 	c.Tkns = tokenService
+	return c
+}
+
+func (c *immuClient) WithPublicKey(publicKey *ecdsa.PublicKey) *immuClient {
+	c.publicKey = publicKey
 	return c
 }
 

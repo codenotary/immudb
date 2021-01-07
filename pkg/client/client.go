@@ -18,10 +18,13 @@ package client
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"github.com/codenotary/immudb/pkg/signer"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"io"
 	"io/ioutil"
 	"os"
@@ -68,6 +71,7 @@ type ImmuClient interface {
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
 	WithTokenService(tokenService TokenService) *immuClient
+	WithPublicKey(publicKey *ecdsa.PublicKey) *immuClient
 
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
@@ -138,6 +142,7 @@ type immuClient struct {
 	ServiceClient schema.ImmuServiceClient
 	StateService  state.StateService
 	Tkns          TokenService
+	publicKey     *ecdsa.PublicKey
 	sync.RWMutex
 }
 
@@ -158,6 +163,14 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
 	c.WithLogger(l)
 	c.WithTokenService(options.Tkns.WithTokenFileName(options.TokenFileName))
+
+	if options.PublicKey != "" {
+		pk, err := signer.ParsePublicKeyFile(options.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+		c.WithPublicKey(pk)
+	}
 
 	options.DialOptions = c.SetupDialOptions(options)
 	if db, err := options.Tkns.GetDatabase(); err == nil && len(db) > 0 {
@@ -257,15 +270,20 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 
 		opts = []grpc.DialOption{grpc.WithTransportCredentials(transportCreds)}
 	}
+	var uic []grpc.UnaryClientInterceptor
+
+	if c.publicKey != nil {
+		uic = append(uic, c.SignatureVerifierInterceptor)
+	}
 
 	if options.Auth && c.Tkns != nil {
 		token, err := c.Tkns.GetToken()
+		uic = append(uic, auth.ClientUnaryInterceptor(token))
 		if err == nil {
-			opts = append(opts, grpc.WithUnaryInterceptor(auth.ClientUnaryInterceptor(token)))
 			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
 		}
 	}
-
+	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)))
 	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
 	return &opts
@@ -558,8 +576,8 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 		Signature: vEntry.VerifiableTx.Signature,
 	}
 
-	if newState.Signature != nil {
-		ok, err := newState.CheckSignature()
+	if c.publicKey != nil {
+		ok, err := newState.CheckSignature(c.publicKey)
 		if err != nil {
 			return nil, err
 		}
@@ -714,8 +732,8 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		Signature: verifiableTx.Signature,
 	}
 
-	if newState.Signature != nil {
-		ok, err := newState.CheckSignature()
+	if c.publicKey != nil {
+		ok, err := newState.CheckSignature(c.publicKey)
 		if err != nil {
 			return nil, err
 		}
@@ -836,8 +854,8 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 		Signature: vTx.Signature,
 	}
 
-	if newState.Signature != nil {
-		ok, err := newState.CheckSignature()
+	if c.publicKey != nil {
+		ok, err := newState.CheckSignature(c.publicKey)
 		if err != nil {
 			return nil, err
 		}
@@ -975,8 +993,8 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 		Signature: verifiableTx.Signature,
 	}
 
-	if newState.Signature != nil {
-		ok, err := newState.CheckSignature()
+	if c.publicKey != nil {
+		ok, err := newState.CheckSignature(c.publicKey)
 		if err != nil {
 			return nil, err
 		}
@@ -1111,8 +1129,8 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 		Signature: vtx.Signature,
 	}
 
-	if newState.Signature != nil {
-		ok, err := newState.CheckSignature()
+	if c.publicKey != nil {
+		ok, err := newState.CheckSignature(c.publicKey)
 		if err != nil {
 			return nil, err
 		}

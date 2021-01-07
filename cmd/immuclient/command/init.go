@@ -53,6 +53,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().String("audit-notification-url", "", "If set, auditor will send a POST request at this URL with audit result details.")
 	cmd.PersistentFlags().String("audit-notification-username", "", "Username used to authenticate when publishing audit result to 'audit-notification-url'.")
 	cmd.PersistentFlags().String("audit-notification-password", "", "Password used to authenticate when publishing audit result to 'audit-notification-url'.")
+	cmd.PersistentFlags().String("public-key", "", "Path to the public key to verify signatures when presents")
 
 	viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port"))
 	viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address"))
@@ -75,6 +76,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.BindPFlag("audit-notification-url", cmd.PersistentFlags().Lookup("audit-notification-url"))
 	viper.BindPFlag("audit-notification-username", cmd.PersistentFlags().Lookup("audit-notification-username"))
 	viper.BindPFlag("audit-notification-password", cmd.PersistentFlags().Lookup("audit-notification-password"))
+	viper.BindPFlag("public-key", cmd.PersistentFlags().Lookup("public-key"))
 
 	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
 	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
@@ -96,6 +98,7 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	viper.SetDefault("audit-notification-url", "")
 	viper.SetDefault("audit-notification-username", "")
 	viper.SetDefault("audit-notification-password", "")
+	viper.SetDefault("public-key", "")
 	viper.SetDefault("dir", os.TempDir())
 	return nil
 }
