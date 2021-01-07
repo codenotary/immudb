@@ -58,7 +58,8 @@ func TestCommandLine_Connect(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
+	err := bs.Start()
+	require.NoError(t, err)
 	defer bs.Stop()
 
 	defer os.RemoveAll(options.Dir)
@@ -73,7 +74,7 @@ func TestCommandLine_Connect(t *testing.T) {
 		context: context.Background(),
 		options: opts,
 	}
-	err := cmdl.connect(&cobra.Command{}, []string{})
+	err = cmdl.connect(&cobra.Command{}, []string{})
 	assert.Nil(t, err)
 }
 

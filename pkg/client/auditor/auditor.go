@@ -22,7 +22,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -61,22 +60,21 @@ type AuditNotificationConfig struct {
 }
 
 type defaultAuditor struct {
-	index              uint64
-	databaseIndex      int
-	logger             logger.Logger
-	serverAddress      string
-	dialOptions        []grpc.DialOption
-	history            cache.HistoryCache
-	ts                 client.TimestampService
-	username           []byte
-	databases          []string
-	password           []byte
-	auditDatabases     []string
-	auditSignature     string
-	publicKey          *ecdsa.PublicKey
-	notificationConfig AuditNotificationConfig
-	serviceClient      schema.ImmuServiceClient
-	uuidProvider       state.UUIDProvider
+	index               uint64
+	databaseIndex       int
+	logger              logger.Logger
+	serverAddress       string
+	dialOptions         []grpc.DialOption
+	history             cache.HistoryCache
+	ts                  client.TimestampService
+	username            []byte
+	databases           []string
+	password            []byte
+	auditDatabases      []string
+	serverSigningPubKey *ecdsa.PublicKey
+	notificationConfig  AuditNotificationConfig
+	serviceClient       schema.ImmuServiceClient
+	uuidProvider        state.UUIDProvider
 
 	slugifyRegExp *regexp.Regexp
 	updateMetrics func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState)
@@ -90,22 +88,13 @@ func DefaultAuditor(
 	username string,
 	passwordBase64 string,
 	auditDatabases []string,
-	auditSignature string,
-	publicKey *ecdsa.PublicKey,
+	serverSigningPubKey *ecdsa.PublicKey,
 	notificationConfig AuditNotificationConfig,
 	serviceClient schema.ImmuServiceClient,
 	uuidProvider state.UUIDProvider,
 	history cache.HistoryCache,
 	updateMetrics func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState),
 	log logger.Logger) (Auditor, error) {
-
-	switch auditSignature {
-	case "validate":
-	case "ignore":
-	case "":
-	default:
-		return nil, errors.New("auditSignature allowed values are 'validate' or 'ignore'")
-	}
 
 	password, err := auth.DecodeBase64Password(passwordBase64)
 	if err != nil {
@@ -131,8 +120,7 @@ func DefaultAuditor(
 		nil,
 		[]byte(password),
 		auditDatabases,
-		auditSignature,
-		publicKey,
+		serverSigningPubKey,
 		notificationConfig,
 		serviceClient,
 		uuidProvider,
@@ -258,8 +246,8 @@ func (a *defaultAuditor) audit() error {
 		return noErr
 	}
 
-	if a.auditSignature == "validate" {
-		if okSig, err := state.CheckSignature(a.publicKey); err != nil || !okSig {
+	if a.serverSigningPubKey != nil {
+		if okSig, err := state.CheckSignature(a.serverSigningPubKey); err != nil || !okSig {
 			a.logger.Errorf(
 				"audit #%d aborted: could not verify signature on server state at %s @ %s",
 				a.index, serverID, a.serverAddress)

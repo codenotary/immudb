@@ -29,49 +29,49 @@ const AdminTokenFileSuffix = "_admin"
 
 // Options client options
 type Options struct {
-	Dir                string
-	Address            string
-	Port               int
-	HealthCheckRetries int
-	MTLs               bool
-	MTLsOptions        MTLsOptions
-	Auth               bool
-	MaxRecvMsgSize     int
-	DialOptions        *[]grpc.DialOption
-	Config             string
-	TokenFileName      string
-	CurrentDatabase    string
-	PasswordReader     c.PasswordReader
-	Tkns               TokenService
-	Metrics            bool
-	PidPath            string
-	PrometheusHost     string
-	PrometheusPort     string
-	LogFileName        string
-	PublicKey          string
+	Dir                 string
+	Address             string
+	Port                int
+	HealthCheckRetries  int
+	MTLs                bool
+	MTLsOptions         MTLsOptions
+	Auth                bool
+	MaxRecvMsgSize      int
+	DialOptions         *[]grpc.DialOption
+	Config              string
+	TokenFileName       string
+	CurrentDatabase     string
+	PasswordReader      c.PasswordReader
+	Tkns                TokenService
+	Metrics             bool
+	PidPath             string
+	PrometheusHost      string
+	PrometheusPort      string
+	LogFileName         string
+	ServerSigningPubKey string
 }
 
 // DefaultOptions ...
 func DefaultOptions() *Options {
 	return &Options{
-		Dir:                ".",
-		Address:            "127.0.0.1",
-		Port:               3322,
-		HealthCheckRetries: 5,
-		MTLs:               false,
-		Auth:               true,
-		MaxRecvMsgSize:     4 * 1024 * 1024, //4Mb
-		Config:             "configs/immuclient.toml",
-		TokenFileName:      "token",
-		DialOptions:        &[]grpc.DialOption{},
-		PasswordReader:     c.DefaultPasswordReader,
-		Tkns:               NewTokenService().WithTokenFileName("token").WithHds(NewHomedirService()),
-		Metrics:            true,
-		PidPath:            "",
-		PrometheusHost:     "",
-		PrometheusPort:     "",
-		LogFileName:        "",
-		PublicKey:          "",
+		Dir:                 ".",
+		Address:             "127.0.0.1",
+		Port:                3322,
+		HealthCheckRetries:  5,
+		MTLs:                false,
+		Auth:                true,
+		MaxRecvMsgSize:      4 * 1024 * 1024, //4Mb
+		Config:              "configs/immuclient.toml",
+		TokenFileName:       "token",
+		DialOptions:         &[]grpc.DialOption{},
+		PasswordReader:      c.DefaultPasswordReader,
+		Tkns:                NewTokenService().WithTokenFileName("token").WithHds(NewHomedirService()),
+		Metrics:             true,
+		PidPath:             "",
+		PrometheusHost:      "",
+		PrometheusPort:      "",
+		LogFileName:         "",
+		ServerSigningPubKey: "",
 	}
 }
 
@@ -190,9 +190,9 @@ func (o *Options) WithTokenService(tkns TokenService) *Options {
 	return o
 }
 
-// WithPublicKey sets the public key. If presents server state signature verification is enabled
-func (o *Options) WithPublicKey(publicKey string) *Options {
-	o.PublicKey = publicKey
+// WithServerSigningPubKey sets the public key. If presents server state signature verification is enabled
+func (o *Options) WithServerSigningPubKey(serverSigningPubKey string) *Options {
+	o.ServerSigningPubKey = serverSigningPubKey
 	return o
 }
 

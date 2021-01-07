@@ -15,7 +15,7 @@ func TestSignatureVerifierInterceptor(t *testing.T) {
 
 	pk, err := signer.ParsePublicKeyFile("./../../test/signer/ec1.pub")
 	require.NoError(t, err)
-	c := DefaultClient().WithPublicKey(pk)
+	c := DefaultClient().WithServerSigningPubKey(pk)
 
 	// creation and state sign
 	state := &schema.ImmutableState{
@@ -41,7 +41,7 @@ func TestSignatureVerifierInterceptor(t *testing.T) {
 func TestSignatureVerifierInterceptorUnableToVerify(t *testing.T) {
 	pk, err := signer.ParsePublicKeyFile("./../../test/signer/ec1.pub")
 	require.NoError(t, err)
-	c := DefaultClient().WithPublicKey(pk)
+	c := DefaultClient().WithServerSigningPubKey(pk)
 
 	// creation and state sign
 	state := &schema.ImmutableState{
@@ -62,7 +62,7 @@ func TestSignatureVerifierInterceptorUnableToVerify(t *testing.T) {
 func TestSignatureVerifierInterceptorSignatureDoesntMatch(t *testing.T) {
 	pk, err := signer.ParsePublicKeyFile("./../../test/signer/ec1.pub")
 	require.NoError(t, err)
-	c := DefaultClient().WithPublicKey(pk)
+	c := DefaultClient().WithServerSigningPubKey(pk)
 
 	// creation and state sign
 	state := &schema.ImmutableState{
@@ -85,7 +85,7 @@ func TestSignatureVerifierInterceptorSignatureDoesntMatch(t *testing.T) {
 }
 
 func TestSignatureVerifierInterceptorNoPublicKey(t *testing.T) {
-	c := DefaultClient().WithPublicKey(nil)
+	c := DefaultClient().WithServerSigningPubKey(nil)
 	// creation and state sign
 	state := &schema.ImmutableState{
 		TxId:   0,

@@ -171,7 +171,7 @@ func options() *client.Options {
 	prometheusPort := viper.GetString("prometheus-port")
 	prometheusHost := viper.GetString("prometheus-host")
 	logfilename := viper.GetString("logfile")
-	publicKey := viper.GetString("public-key")
+	serverSigningPubKey := viper.GetString("server-signing-pub-key")
 	options := client.DefaultOptions().
 		WithPort(port).
 		WithAddress(address).
@@ -180,7 +180,7 @@ func options() *client.Options {
 		WithPrometheusPort(prometheusPort).
 		WithPrometheusHost(prometheusHost).
 		WithLogFileName(logfilename).
-		WithPublicKey(publicKey)
+		WithServerSigningPubKey(serverSigningPubKey)
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = client.DefaultMTLsOptions().

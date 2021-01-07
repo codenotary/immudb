@@ -71,7 +71,7 @@ type ImmuClient interface {
 	WithClientConn(clientConn *grpc.ClientConn) *immuClient
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
 	WithTokenService(tokenService TokenService) *immuClient
-	WithPublicKey(publicKey *ecdsa.PublicKey) *immuClient
+	WithServerSigningPubKey(serverSigningPubKey *ecdsa.PublicKey) *immuClient
 
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
@@ -135,14 +135,14 @@ type ImmuClient interface {
 }
 
 type immuClient struct {
-	Dir           string
-	Logger        logger.Logger
-	Options       *Options
-	clientConn    *grpc.ClientConn
-	ServiceClient schema.ImmuServiceClient
-	StateService  state.StateService
-	Tkns          TokenService
-	publicKey     *ecdsa.PublicKey
+	Dir                 string
+	Logger              logger.Logger
+	Options             *Options
+	clientConn          *grpc.ClientConn
+	ServiceClient       schema.ImmuServiceClient
+	StateService        state.StateService
+	Tkns                TokenService
+	serverSigningPubKey *ecdsa.PublicKey
 	sync.RWMutex
 }
 
@@ -164,12 +164,12 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	c.WithLogger(l)
 	c.WithTokenService(options.Tkns.WithTokenFileName(options.TokenFileName))
 
-	if options.PublicKey != "" {
-		pk, err := signer.ParsePublicKeyFile(options.PublicKey)
+	if options.ServerSigningPubKey != "" {
+		pk, err := signer.ParsePublicKeyFile(options.ServerSigningPubKey)
 		if err != nil {
 			return nil, err
 		}
-		c.WithPublicKey(pk)
+		c.WithServerSigningPubKey(pk)
 	}
 
 	options.DialOptions = c.SetupDialOptions(options)
@@ -272,7 +272,7 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 	}
 	var uic []grpc.UnaryClientInterceptor
 
-	if c.publicKey != nil {
+	if c.serverSigningPubKey != nil {
 		uic = append(uic, c.SignatureVerifierInterceptor)
 	}
 
@@ -576,8 +576,8 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 		Signature: vEntry.VerifiableTx.Signature,
 	}
 
-	if c.publicKey != nil {
-		ok, err := newState.CheckSignature(c.publicKey)
+	if c.serverSigningPubKey != nil {
+		ok, err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -732,8 +732,8 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		Signature: verifiableTx.Signature,
 	}
 
-	if c.publicKey != nil {
-		ok, err := newState.CheckSignature(c.publicKey)
+	if c.serverSigningPubKey != nil {
+		ok, err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -854,8 +854,8 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 		Signature: vTx.Signature,
 	}
 
-	if c.publicKey != nil {
-		ok, err := newState.CheckSignature(c.publicKey)
+	if c.serverSigningPubKey != nil {
+		ok, err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -993,8 +993,8 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 		Signature: verifiableTx.Signature,
 	}
 
-	if c.publicKey != nil {
-		ok, err := newState.CheckSignature(c.publicKey)
+	if c.serverSigningPubKey != nil {
+		ok, err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -1129,8 +1129,8 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 		Signature: vtx.Signature,
 	}
 
-	if c.publicKey != nil {
-		ok, err := newState.CheckSignature(c.publicKey)
+	if c.serverSigningPubKey != nil {
+		ok, err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return nil, err
 		}
