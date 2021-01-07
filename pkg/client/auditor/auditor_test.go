@@ -60,7 +60,6 @@ func TestDefaultAuditor(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		nil,
@@ -90,7 +89,6 @@ func TestDefaultAuditorPasswordDecodeErr(t *testing.T) {
 		"immudb",
 		"enc:"+string([]byte{0}),
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		nil,
@@ -124,7 +122,6 @@ func TestDefaultAuditorLoginErr(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
@@ -162,7 +159,6 @@ func TestDefaultAuditorDatabaseListErr(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
@@ -202,7 +198,6 @@ func TestDefaultAuditorDatabaseListEmpty(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
@@ -245,7 +240,6 @@ func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
@@ -291,7 +285,6 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		&serviceClient,
@@ -329,7 +322,6 @@ func TestDefaultAuditorRunOnEmptyDb(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		serviceClient,
@@ -390,7 +382,6 @@ func TestDefaultAuditorRunOnDb(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"ignore",
 		nil,
 		AuditNotificationConfig{},
 		serviceClient,
@@ -467,7 +458,6 @@ func TestRepeatedAuditorRunOnDb(t *testing.T) {
 		"immudb",
 		"immudb",
 		[]string{"SomeNonExistentDb", ""},
-		"ignore",
 		nil,
 		alertConfig,
 		serviceClient,
@@ -543,7 +533,6 @@ func TestDefaultAuditorRunOnDbWithSignature(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"validate",
 		pk,
 		AuditNotificationConfig{},
 		serviceClient,
@@ -587,6 +576,9 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		return &empty.Empty{}, nil
 	}
 
+	pk, err := signer.ParsePublicKeyFile("./../../../test/signer/ec1.pub")
+	require.NoError(t, err)
+
 	da, err := DefaultAuditor(
 		time.Duration(0),
 		fmt.Sprintf("%s:%d", "address", 0),
@@ -596,8 +588,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 		"immudb",
 		"immudb",
 		nil,
-		"validate",
-		nil,
+		pk,
 		AuditNotificationConfig{},
 		serviceClient,
 		state.NewUUIDProvider(serviceClient),
@@ -611,28 +602,6 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 	require.Nil(t, err)
 	err = da.Run(time.Duration(10), true, context.TODO().Done(), auditorDone)
 	require.Nil(t, err)
-}
-
-func TestDefaultAuditorRunOnDbWithWrongAuditSignatureMode(t *testing.T) {
-	serviceClient := clienttest.ImmuServiceClientMock{}
-	_, err := DefaultAuditor(
-		time.Duration(0),
-		fmt.Sprintf("%s:%d", "address", 0),
-		&[]grpc.DialOption{
-			grpc.WithInsecure(),
-		},
-		"immudb",
-		"immudb",
-		nil,
-		"wrong",
-		nil,
-		AuditNotificationConfig{},
-		&serviceClient,
-		state.NewUUIDProvider(&serviceClient),
-		cache.NewHistoryFileCache(dirname),
-		func(string, string, bool, bool, bool, *schema.ImmutableState, *schema.ImmutableState) {},
-		logger.NewSimpleLogger("test", os.Stdout))
-	require.Errorf(t, err, "auditSignature allowed values are 'validate' or 'ignore'")
 }
 
 type PasswordReader struct {

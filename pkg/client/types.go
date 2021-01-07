@@ -49,8 +49,8 @@ func (c *immuClient) WithTokenService(tokenService TokenService) *immuClient {
 	return c
 }
 
-func (c *immuClient) WithPublicKey(publicKey *ecdsa.PublicKey) *immuClient {
-	c.publicKey = publicKey
+func (c *immuClient) WithServerSigningPubKey(publicKey *ecdsa.PublicKey) *immuClient {
+	c.serverSigningPubKey = publicKey
 	return c
 }
 

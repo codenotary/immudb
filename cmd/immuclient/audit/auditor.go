@@ -94,7 +94,6 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 			auditDatabases = append(auditDatabases, dbPrefix)
 		}
 	}
-	auditSignature := viper.GetString("audit-signature")
 	auditNotificationURL := viper.GetString("audit-notification-url")
 	auditNotificationUsername := viper.GetString("audit-notification-username")
 	auditNotificationPassword := viper.GetString("audit-notification-password")
@@ -105,8 +104,8 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 	}
 
 	var pk *ecdsa.PublicKey
-	if cliOpts.PublicKey != "" {
-		pk, err = signer.ParsePublicKeyFile(cliOpts.PublicKey)
+	if cliOpts.ServerSigningPubKey != "" {
+		pk, err = signer.ParsePublicKeyFile(cliOpts.ServerSigningPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +117,6 @@ func (cAgent *auditAgent) InitAgent() (AuditAgent, error) {
 		auditUsername,
 		auditPassword,
 		auditDatabases,
-		auditSignature,
 		pk,
 		auditor.AuditNotificationConfig{
 			URL:            auditNotificationURL,

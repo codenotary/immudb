@@ -27,12 +27,12 @@ import (
 // SignatureVerifierInterceptor verify that provided server signature match with the public key provided
 func (c *immuClient) SignatureVerifierInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	ris := invoker(ctx, method, req, reply, cc, opts...)
-	if c.publicKey == nil {
+	if c.serverSigningPubKey == nil {
 		return status.Error(codes.FailedPrecondition, "public key not loaded")
 	}
 	if method == "/immudb.schema.ImmuService/CurrentState" {
 		state := reply.(*schema.ImmutableState)
-		ok, err := state.CheckSignature(c.publicKey)
+		ok, err := state.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to verify signature: %s", err)
 		}
