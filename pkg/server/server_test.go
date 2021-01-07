@@ -94,29 +94,35 @@ func TestServerReOpen(t *testing.T) {
 	serverOptions := DefaultOptions().WithDir("reopen")
 	options := database.DefaultOption().WithDbRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDbRootPath()
+
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
+	defer func() {
+		os.RemoveAll(dbRootpath)
+	}()
+
 	err := s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
 	}
+
 	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
 	}
 
 	s = DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
 	err = s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
 	}
+
 	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
 	}
 
-	defer func() {
-		os.RemoveAll(dbRootpath)
-	}()
 	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultOptions().GetSystemAdminDbName()))
 	if os.IsNotExist(err) {
 		t.Fatalf("system database directory not created")
