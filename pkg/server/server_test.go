@@ -433,8 +433,16 @@ func TestServerListUsersAdmin(t *testing.T) {
 	err = s.CloseDatabases()
 	require.NoError(t, err)
 
-	s = DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	err = s.Initialize()
+	s.dbList = NewDatabaseList()
+	s.sysDb = nil
+
+	err = s.loadDefaultDatabase(s.Options.Dir)
+	require.NoError(t, err)
+
+	err = s.loadSystemDatabase(s.Options.Dir, auth.SysAdminPassword)
+	require.NoError(t, err)
+
+	err = s.loadUserDatabases(s.Options.Dir)
 	require.NoError(t, err)
 
 	newUser := &schema.CreateUserRequest{
