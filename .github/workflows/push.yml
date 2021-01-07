@@ -77,7 +77,9 @@ jobs:
       env:
         JOB_NAME: ${{ github.job }}
         JOB_ID: ${{ github.run_id }}
-        DOCKER_IMAGE: "codenotary/immudb"
+        DOCKER_IMAGE_IMMUDB: "codenotary/immudb"
+        DOCKER_IMAGE_IMMUADMIN: "codenotary/immuadmin"
+        DOCKER_IMAGE_IMMUCLIENT: "codenotary/immuclient"
       steps:
         - uses: actions/setup-go@v1
           with:
@@ -88,15 +90,27 @@ jobs:
           with:
             name: vcn
         - run: |
-            docker build --tag "${DOCKER_IMAGE}:latest" -f Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUDB}:latest" -f Dockerfile .
+            docker build --tag "${DOCKER_IMAGE_IMMUADMIN}:latest" -f Dockerfile.immuadmin .
+            docker build --tag "${DOCKER_IMAGE_IMMUCLIENT}:latest" -f Dockerfile.immuclient .
+           
             docker login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASS }}"
-            docker push "${DOCKER_IMAGE}:latest"
+            
+            docker push "${DOCKER_IMAGE_IMMUDB}:latest"
+            docker push "${DOCKER_IMAGE_IMMUADMIN}:latest"
+            docker push "${DOCKER_IMAGE_IMMUCLIENT}:latest"
+           
             docker logout
+            
             chmod +x ./vcn
             VCN_USER=${{ secrets.VCN_IMAGE_USER }} VCN_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn login
-            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE
+            
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUDB
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUADMIN
+            VCN_NOTARIZATION_PASSWORD=${{ secrets.VCN_IMAGE_PASS }} ./vcn n -p --attr GHJobName=$JOB_NAME --attr GHJobNo=$JOB_ID --silent docker://$DOCKER_IMAGE_IMMUCLIENT
+            
             ./vcn logout
-
+            
   coveralls:
     name: Publish coverage
     needs: gosec
