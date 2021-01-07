@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v0.9.0"></a>
+## [v0.9.0] - 2021-01-07
+### Bug Fixes
+- remove badger metrics and fix stats command
+- **cmd/immuadmin/command:** fix immuadmin stats ([#592](https://github.com/vchain-us/immudb/issues/592))
+- **pkg/database:** enable scan on fresh snapshot
+- **pkg/server:** shutdown handlers and metrics server are moved in start method
+
+### Changes
+- removing audit-signature and add serverSigningPubKey
+- remove print tree method
+- restore inmemory_cache test
+- **cmd/immuadmin:** temporary disable stats functionality
+- **pkg/api:** upgrade rest endpoints
+- **pkg/client:** implement missing methods in immuclient mock
+- **pkg/server:** temporary remove proactive corruption checker ([#595](https://github.com/vchain-us/immudb/issues/595))
+
+### Features
+- add signature verification with a submitted public key
+
+
 <a name="v0.9.0-RC2"></a>
 ## [v0.9.0-RC2] - 2020-12-29
 ### Bug Fixes
@@ -394,11 +415,7 @@ All notable changes to this project will be documented in this file. This projec
 <a name="v0.8.0"></a>
 ## [v0.8.0] - 2020-09-15
 ### Bug Fixes
-- fix immudb and immugw version and mangen commands errors Without this change, while immuclient and immuadmin still worked as expected, immudb and immugw version and mangen commands were throwing the following error: ./immugw version Error: flag accessed but not defined: config Usage:   immugw version [flags]
-- fix immuclient audit-mode
-- **cmd/immuadmin/command:** fix immuadmin dbswitch
 - **pkg/client:** setBatch creates structured values
-- **pkg/client:** token service manages old token format
 
 ### Changes
 - update README file ([#487](https://github.com/vchain-us/immudb/issues/487))
@@ -415,14 +432,27 @@ All notable changes to this project will be documented in this file. This projec
 ### Code Refactoring
 - wrap root hash and index in a new structure to support signature
 - move immugw in a separate repository
-- configs file are loaded in viper preRun method
 - **pkg/server:** inject root signer service inside immudb server
 
 ### Features
 - auditor verifies root signature
-- **cmd:** process launcher check if are present another istances. fixes [#168](https://github.com/vchain-us/immudb/issues/168)
 - **pkg:** add root signer service
 - **pkg/signer:** add ecdsa signer
+
+
+<a name="v0.7.1"></a>
+## [v0.7.1] - 2020-08-17
+### Bug Fixes
+- fix immudb and immugw version and mangen commands errors Without this change, while immuclient and immuadmin still worked as expected, immudb and immugw version and mangen commands were throwing the following error: ./immugw version Error: flag accessed but not defined: config Usage:   immugw version [flags]
+- fix immuclient audit-mode
+- **cmd/immuadmin/command:** fix immuadmin dbswitch
+- **pkg/client:** token service manages old token format
+
+### Code Refactoring
+- configs file are loaded in viper preRun method
+
+### Features
+- **cmd:** process launcher check if are present another istances. fixes [#168](https://github.com/vchain-us/immudb/issues/168)
 
 
 <a name="v0.7.0"></a>
@@ -1261,11 +1291,13 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC2...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.0...HEAD
+[v0.9.0]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC2...v0.9.0
 [v0.9.0-RC2]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC1...v0.9.0-RC2
 [v0.9.0-RC1]: https://github.com/vchain-us/immudb/compare/v0.8.1...v0.9.0-RC1
 [v0.8.1]: https://github.com/vchain-us/immudb/compare/v0.8.0...v0.8.1
-[v0.8.0]: https://github.com/vchain-us/immudb/compare/v0.7.0...v0.8.0
+[v0.8.0]: https://github.com/vchain-us/immudb/compare/v0.7.1...v0.8.0
+[v0.7.1]: https://github.com/vchain-us/immudb/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/vchain-us/immudb/compare/v0.6.2...v0.7.0
 [v0.6.2]: https://github.com/vchain-us/immudb/compare/v0.6.1...v0.6.2
 [v0.6.1]: https://github.com/vchain-us/immudb/compare/v0.6.0...v0.6.1
