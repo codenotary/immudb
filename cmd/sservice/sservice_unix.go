@@ -20,6 +20,7 @@ package sservice
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -91,7 +92,7 @@ func (dt *delayedTasks) do() error {
 // InstallSetup ...
 func (ss sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err error) {
 	tasks := &delayedTasks{}
-
+	tasks.delay(func() error { return ss.ReadConfig(serviceName) })
 	tasks.delay(ss.GroupCreateIfNotExists)
 	tasks.delay(ss.UserCreateIfNotExists)
 
@@ -212,7 +213,7 @@ func (ss sservice) SetOwnership(path string) (err error) {
 
 	return ss.os.Walk(path, func(name string, info os.FileInfo, err error) error {
 		if err == nil {
-			err = ss.os.Chown(name, uid, gid)
+			err = ss.osChown(name, uid, gid)
 		}
 		return err
 	})
@@ -262,7 +263,7 @@ func (ss sservice) CopyExecInOsDefault(serviceName string) (string, error) {
 		return "", err
 	}
 
-	if err = ss.os.Chmod(path, 0775); err != nil {
+	if err = ss.osChmod(path, 0775); err != nil {
 		return "", err
 	}
 
@@ -312,6 +313,20 @@ func (ss sservice) removeFolderIfEmpty(folder string) error {
 	return nil
 }
 
+func (ss sservice) osChown(name string, uid, gid int) error {
+	if err := permissionGuard(name); err != nil {
+		return err
+	}
+	return ss.os.Chown(name, uid, gid)
+}
+
+func (ss sservice) osChmod(name string, mode os.FileMode) error {
+	if err := permissionGuard(name); err != nil {
+		return err
+	}
+	return ss.os.Chmod(name, mode)
+}
+
 func (ss sservice) osRemove(folder string) error {
 	if err := deletionGuard(folder); err != nil {
 		return err
@@ -339,6 +354,36 @@ func deletionGuard(path string) error {
 
 	if !found {
 		return fmt.Errorf("os system file or folder protected item deletion not allowed. Check immu* service configuration: %s", path)
+	}
+
+	return nil
+}
+
+var permissionWhitelist = []string{"immu"}
+
+func permissionGuard(path string) error {
+	var v string
+	found := false
+
+	for _, v = range permissionWhitelist {
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			return errors.New("file does not exist")
+		}
+		if !info.IsDir() {
+			// changing permissions of a specific file is allowed
+			found = true
+			break
+		}
+		// changing permissions of a folder is allowed with restrictions
+		if strings.Contains(path, v) {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf(" Check immu* service configuration: %s", path)
 	}
 
 	return nil

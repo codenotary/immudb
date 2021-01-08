@@ -96,6 +96,9 @@ func (ss *sservice) IsAdmin() (bool, error) {
 }
 
 func (ss *sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
+		return err
+	}
 	_, err = ss.CopyExecInOsDefault(serviceName)
 	if err != nil {
 		return err
@@ -107,6 +110,9 @@ func (ss *sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err er
 }
 
 func (ss *sservice) UninstallSetup(serviceName string) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
+		return err
+	}
 	//  Program Files\{ServiceName}\{serviceName}.exe
 	if err = ss.UninstallExecutables(serviceName); err != nil {
 		return err

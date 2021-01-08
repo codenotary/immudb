@@ -20,6 +20,7 @@ package sservice
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/immuos"
 	"github.com/spf13/cobra"
@@ -71,6 +72,9 @@ func (ss sservice) IsAdmin() (bool, error) {
 
 // InstallSetup ...
 func (ss sservice) InstallSetup(serviceName string, cmd *cobra.Command) (err error) {
+	if err = ss.ReadConfig(serviceName); err != nil {
+		return err
+	}
 	if err = ss.GroupCreateIfNotExists(); err != nil {
 		return err
 	}
@@ -215,7 +219,7 @@ func (ss sservice) SetOwnership(path string) (err error) {
 
 	return ss.os.Walk(path, func(name string, info os.FileInfo, err error) error {
 		if err == nil {
-			err = ss.os.Chown(name, uid, gid)
+			err = ss.osChown(name, uid, gid)
 		}
 		return err
 	})
@@ -264,7 +268,7 @@ func (ss sservice) CopyExecInOsDefault(serviceName string) (string, error) {
 		return "", err
 	}
 
-	if err = ss.os.Chmod(path, 0775); err != nil {
+	if err = ss.osChmod(path, 0775); err != nil {
 		return "", err
 	}
 
@@ -296,6 +300,20 @@ func (ss sservice) GetDefaultConfigPath(serviceName string) (string, error) {
 	return ss.os.Join(ss.options.ConfigPath, serviceName, serviceName+".toml"), nil
 }
 
+func (ss sservice) osChown(name string, uid, gid int) error {
+	if err := permissionGuard(name); err != nil {
+		return err
+	}
+	return ss.os.Chown(name, uid, gid)
+}
+
+func (ss sservice) osChmod(name string, mode os.FileMode) error {
+	if err := permissionGuard(name); err != nil {
+		return err
+	}
+	return ss.os.Chmod(name, mode)
+}
+
 var whitelist = []string{"/etc/immu", "/usr/sbin/immu", "/var/log/immu", "/var/lib/immu"}
 
 func (ss sservice) osRemove(folder string) error {
@@ -324,5 +342,35 @@ func deletionGuard(path string) error {
 	if !found {
 		return fmt.Errorf("os system file or folder protected item deletion not allowed. Check immu* service configuration: %s", path)
 	}
+	return nil
+}
+
+var permissionWhitelist = []string{"immu"}
+
+func permissionGuard(path string) error {
+	var v string
+	found := false
+
+	for _, v = range permissionWhitelist {
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			return errors.New("file does not exist")
+		}
+		if !info.IsDir() {
+			// changing permissions of a specific file is allowed
+			found = true
+			break
+		}
+		// changing permissions of a folder is allowed with restrictions
+		if strings.Contains(path, v) {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf(" Check immu* service configuration: %s", path)
+	}
+
 	return nil
 }
