@@ -40,7 +40,7 @@ type StandardUser struct {
 // NewStandardUser ...
 func NewStandardUser() *StandardUser {
 	return &StandardUser{
-		AddGroupF:    func(name string) error { return exec.Command("addgroup", name).Run() },
+		AddGroupF:    func(name string) error { return exec.Command("groupadd", name).Run() },
 		AddUserF:     func(usr string, group string) error { return exec.Command("useradd", "-g", usr, usr).Run() },
 		LookupGroupF: user.LookupGroup,
 		LookupF:      user.Lookup,
