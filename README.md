@@ -94,14 +94,13 @@ immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&lab
 1.  [Quickstart](#quickstart) - Get immudb up and running in seconds
 2.  [Using immudb](#using-immudb) - Official SDKs and REST-based client
 3.  [CLI tools](#cli-tools) - Using `immuadmin` and `immuclient`
-4.  [Migration from older releases](#migration-from-older-releases) - Easily migrate your existent database to latest release
-5.  [News](#news) - The latest news about immudb
-6.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
-7.  [Real world examples](#real-world-examples) - Read about how others use immudb
-8.  [Multiple databases](#multiple-databases) - Multiple databases
-9.  [Documentation](#documentation) - Read the documentation
-10.  [Community](#community) - Discuss immudb with others and get support
-11.  [License](#license) - Check immudb's licencing
+4.  [News](#news) - The latest news about immudb
+5.  [Tech specs](#tech-specs) - Technical details of the system in a nutshell
+6.  [Real world examples](#real-world-examples) - Read about how others use immudb
+7.  [Multiple databases](#multiple-databases) - Multiple databases
+8.  [Documentation](#documentation) - Read the documentation
+9.  [Community](#community) - Discuss immudb with others and get support
+10.  [License](#license) - Check immudb's licencing
 
 ## Quickstart
 
@@ -483,6 +482,10 @@ docker build -t myown/immuclient:latest -f Dockerfile.immuclient .
 ```
 
 ## News
+
+`January 8th, 2021` - **[immudb v0.9.0 released!](https://github.com/codenotary/immudb/releases/tag/v0.9.0)**
+
+Release v0.9.0 first release with our newly designed storage layer, super fast cryptographic data-structured!
 
 `December 29th, 2020` - **[immudb v0.9.0-RC2 released!](https://github.com/codenotary/immudb/releases/tag/v0.9.0-RC2)**
 
