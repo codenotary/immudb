@@ -362,20 +362,18 @@ func deletionGuard(path string) error {
 var permissionWhitelist = []string{"immu"}
 
 func permissionGuard(path string) error {
-	var v string
-	found := false
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return errors.New("file or folder does not exist")
+	}
+	if !info.IsDir() {
+		// changing a specific file permissions is allowed
+		return nil
+	}
 
-	for _, v = range permissionWhitelist {
-		info, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			return errors.New("file does not exist")
-		}
-		if !info.IsDir() {
-			// changing permissions of a specific file is allowed
-			found = true
-			break
-		}
-		// changing permissions of a folder is allowed with restrictions
+	found := false
+	for _, v := range permissionWhitelist {
+		// changing a folder permissions is allowed with restrictions
 		if strings.Contains(path, v) {
 			found = true
 			break
