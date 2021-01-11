@@ -35,7 +35,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/database"
 
 	"github.com/codenotary/immudb/pkg/logger"
@@ -311,12 +310,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDbName())
 
-	indexOptions := store.DefaultIndexOptions().WithFlushThld(0)
-
-	storeOpts := store.DefaultOptions().
-		WithIndexOptions(indexOptions).
-		WithMaxLinearProofLen(0).
-		WithSynced(true)
+	storeOpts := DefaultStoreOptions().WithSynced(true)
 
 	op := database.DefaultOption().
 		WithDbName(s.Options.GetSystemAdminDbName()).
@@ -953,15 +947,12 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 
 	dataDir := s.Options.Dir
 
-	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
-	storeOpts := store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
-
 	op := database.DefaultOption().
 		WithDbName(newdb.Databasename).
 		WithDbRootPath(dataDir).
 		WithCorruptionChecker(s.Options.CorruptionCheck).
 		WithDbRootPath(s.Options.Dir).
-		WithStoreOptions(storeOpts)
+		WithStoreOptions(s.Options.StoreOptions)
 
 	db, err := database.NewDb(op, s.Logger)
 	if err != nil {

@@ -50,7 +50,8 @@ Environment variables:
   IMMUDB_DEVMODE=true
   IMMUDB_MAINTENANCE=false
   IMMUDB_ADMIN_PASSWORD=immudb
-  IMMUDB_SIGNING_KEY=`,
+  IMMUDB_SIGNING_KEY=
+  IMMUDB_SYNCED=false`,
 		DisableAutoGenTag: true,
 		RunE:              cl.Immudb(immudbServer),
 		PersistentPreRunE: cl.ConfigChain(nil),

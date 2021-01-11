@@ -34,42 +34,42 @@ func TestDefaultOptions(t *testing.T) {
 func TestValidOptions(t *testing.T) {
 	opts := &Options{}
 
-	require.Equal(t, 1, opts.WithCommitLogMaxOpenedFiles(1).commitLogMaxOpenedFiles)
-	require.Equal(t, DefaultCompressionLevel, opts.WithCompresionLevel(DefaultCompressionLevel).compressionLevel)
-	require.Equal(t, DefaultCompressionFormat, opts.WithCompressionFormat(DefaultCompressionFormat).compressionFormat)
-	require.Equal(t, DefaultMaxConcurrency, opts.WithMaxConcurrency(DefaultMaxConcurrency).maxConcurrency)
-	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).fileMode)
-	require.Equal(t, DefaultFileSize, opts.WithFileSize(DefaultFileSize).fileSize)
-	require.Equal(t, DefaultMaxIOConcurrency, opts.WithMaxIOConcurrency(DefaultMaxIOConcurrency).maxIOConcurrency)
-	require.Equal(t, DefaultMaxKeyLen, opts.WithMaxKeyLen(DefaultMaxKeyLen).maxKeyLen)
-	require.Equal(t, DefaultMaxLinearProofLen, opts.WithMaxLinearProofLen(DefaultMaxLinearProofLen).maxLinearProofLen)
-	require.Equal(t, DefaultMaxTxEntries, opts.WithMaxTxEntries(DefaultMaxTxEntries).maxTxEntries)
-	require.Equal(t, DefaultMaxValueLen, opts.WithMaxValueLen(DefaultMaxValueLen).maxValueLen)
-	require.Equal(t, 2, opts.WithTxLogMaxOpenedFiles(2).txLogMaxOpenedFiles)
-	require.Equal(t, 3, opts.WithVLogMaxOpenedFiles(3).vLogMaxOpenedFiles)
+	require.Equal(t, 1, opts.WithCommitLogMaxOpenedFiles(1).CommitLogMaxOpenedFiles)
+	require.Equal(t, DefaultCompressionLevel, opts.WithCompresionLevel(DefaultCompressionLevel).CompressionLevel)
+	require.Equal(t, DefaultCompressionFormat, opts.WithCompressionFormat(DefaultCompressionFormat).CompressionFormat)
+	require.Equal(t, DefaultMaxConcurrency, opts.WithMaxConcurrency(DefaultMaxConcurrency).MaxConcurrency)
+	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).FileMode)
+	require.Equal(t, DefaultFileSize, opts.WithFileSize(DefaultFileSize).FileSize)
+	require.Equal(t, DefaultMaxIOConcurrency, opts.WithMaxIOConcurrency(DefaultMaxIOConcurrency).MaxIOConcurrency)
+	require.Equal(t, DefaultMaxKeyLen, opts.WithMaxKeyLen(DefaultMaxKeyLen).MaxKeyLen)
+	require.Equal(t, DefaultMaxLinearProofLen, opts.WithMaxLinearProofLen(DefaultMaxLinearProofLen).MaxLinearProofLen)
+	require.Equal(t, DefaultMaxTxEntries, opts.WithMaxTxEntries(DefaultMaxTxEntries).MaxTxEntries)
+	require.Equal(t, DefaultMaxValueLen, opts.WithMaxValueLen(DefaultMaxValueLen).MaxValueLen)
+	require.Equal(t, 2, opts.WithTxLogMaxOpenedFiles(2).TxLogMaxOpenedFiles)
+	require.Equal(t, 3, opts.WithVLogMaxOpenedFiles(3).VLogMaxOpenedFiles)
 
-	require.True(t, opts.WithSynced(true).synced)
+	require.True(t, opts.WithSynced(true).Synced)
 
-	require.NotNil(t, opts.WithIndexOptions(DefaultIndexOptions()).indexOpts)
+	require.NotNil(t, opts.WithIndexOptions(DefaultIndexOptions()).IndexOpts)
 
-	require.False(t, opts.WithReadOnly(false).readOnly)
+	require.False(t, opts.WithReadOnly(false).ReadOnly)
 	require.True(t, validOptions(opts))
 
-	require.True(t, opts.WithReadOnly(true).readOnly)
+	require.True(t, opts.WithReadOnly(true).ReadOnly)
 	require.True(t, validOptions(opts))
 
-	require.Nil(t, opts.WithIndexOptions(nil).indexOpts)
+	require.Nil(t, opts.WithIndexOptions(nil).IndexOpts)
 	require.False(t, validOptions(opts))
 
 	indexOpts := &IndexOptions{}
 	opts.WithIndexOptions(indexOpts)
 	require.False(t, validOptions(opts))
 
-	require.Equal(t, 100, indexOpts.WithCacheSize(100).cacheSize)
-	require.Equal(t, 1000, indexOpts.WithFlushThld(1000).flushThld)
-	require.Equal(t, 10, indexOpts.WithMaxActiveSnapshots(10).maxActiveSnapshots)
-	require.Equal(t, 4096, indexOpts.WithMaxNodeSize(4096).maxNodeSize)
+	require.Equal(t, 100, indexOpts.WithCacheSize(100).CacheSize)
+	require.Equal(t, 1000, indexOpts.WithFlushThld(1000).FlushThld)
+	require.Equal(t, 10, indexOpts.WithMaxActiveSnapshots(10).MaxActiveSnapshots)
+	require.Equal(t, 4096, indexOpts.WithMaxNodeSize(4096).MaxNodeSize)
 	require.Equal(t, time.Duration(1000)*time.Millisecond,
-		indexOpts.WithRenewSnapRootAfter(time.Duration(1000)*time.Millisecond).renewSnapRootAfter)
+		indexOpts.WithRenewSnapRootAfter(time.Duration(1000)*time.Millisecond).RenewSnapRootAfter)
 	require.True(t, validOptions(opts))
 }

@@ -147,98 +147,98 @@ func (opts *Options) WithSynced(synced bool) *Options {
 }
 
 func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
-	opts.fileMode = fileMode
+	opts.FileMode = fileMode
 	return opts
 }
 
 func (opts *Options) WithMaxConcurrency(maxConcurrency int) *Options {
-	opts.maxConcurrency = maxConcurrency
+	opts.MaxConcurrency = maxConcurrency
 	return opts
 }
 
 func (opts *Options) WithMaxIOConcurrency(maxIOConcurrency int) *Options {
-	opts.maxIOConcurrency = maxIOConcurrency
+	opts.MaxIOConcurrency = maxIOConcurrency
 	return opts
 }
 
 func (opts *Options) WithMaxTxEntries(maxTxEntries int) *Options {
-	opts.maxTxEntries = maxTxEntries
+	opts.MaxTxEntries = maxTxEntries
 	return opts
 }
 
 func (opts *Options) WithMaxKeyLen(maxKeyLen int) *Options {
-	opts.maxKeyLen = maxKeyLen
+	opts.MaxKeyLen = maxKeyLen
 	return opts
 }
 
 func (opts *Options) WithMaxValueLen(maxValueLen int) *Options {
-	opts.maxValueLen = maxValueLen
+	opts.MaxValueLen = maxValueLen
 	return opts
 }
 
 func (opts *Options) WithMaxLinearProofLen(maxLinearProofLen int) *Options {
-	opts.maxLinearProofLen = maxLinearProofLen
+	opts.MaxLinearProofLen = maxLinearProofLen
 	return opts
 }
 
 func (opts *Options) WithFileSize(fileSize int) *Options {
-	opts.fileSize = fileSize
+	opts.FileSize = fileSize
 	return opts
 }
 
 func (opts *Options) WithVLogMaxOpenedFiles(vLogMaxOpenedFiles int) *Options {
-	opts.vLogMaxOpenedFiles = vLogMaxOpenedFiles
+	opts.VLogMaxOpenedFiles = vLogMaxOpenedFiles
 	return opts
 }
 
 func (opts *Options) WithTxLogMaxOpenedFiles(txLogMaxOpenedFiles int) *Options {
-	opts.txLogMaxOpenedFiles = txLogMaxOpenedFiles
+	opts.TxLogMaxOpenedFiles = txLogMaxOpenedFiles
 	return opts
 }
 
 func (opts *Options) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
-	opts.commitLogMaxOpenedFiles = commitLogMaxOpenedFiles
+	opts.CommitLogMaxOpenedFiles = commitLogMaxOpenedFiles
 	return opts
 }
 
 func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
-	opts.compressionFormat = compressionFormat
+	opts.CompressionFormat = compressionFormat
 	return opts
 }
 
 func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
-	opts.compressionLevel = compressionLevel
+	opts.CompressionLevel = compressionLevel
 	return opts
 }
 
 func (opts *Options) WithIndexOptions(indexOptions *IndexOptions) *Options {
-	opts.indexOpts = indexOptions
+	opts.IndexOpts = indexOptions
 	return opts
 }
 
 // IndexOptions
 
 func (opts *IndexOptions) WithCacheSize(cacheSize int) *IndexOptions {
-	opts.cacheSize = cacheSize
+	opts.CacheSize = cacheSize
 	return opts
 }
 
 func (opts *IndexOptions) WithFlushThld(flushThld int) *IndexOptions {
-	opts.flushThld = flushThld
+	opts.FlushThld = flushThld
 	return opts
 }
 
 func (opts *IndexOptions) WithMaxActiveSnapshots(maxActiveSnapshots int) *IndexOptions {
-	opts.maxActiveSnapshots = maxActiveSnapshots
+	opts.MaxActiveSnapshots = maxActiveSnapshots
 	return opts
 }
 
 func (opts *IndexOptions) WithMaxNodeSize(maxNodeSize int) *IndexOptions {
-	opts.maxNodeSize = maxNodeSize
+	opts.MaxNodeSize = maxNodeSize
 	return opts
 }
 
 func (opts *IndexOptions) WithRenewSnapRootAfter(renewSnapRootAfter time.Duration) *IndexOptions {
-	opts.renewSnapRootAfter = renewSnapRootAfter
+	opts.RenewSnapRootAfter = renewSnapRootAfter
 	return opts
 }
