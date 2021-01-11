@@ -70,6 +70,7 @@ func DefaultOptions() *Options {
 		Pidfile:             "",
 		Logfile:             "",
 		MTLs:                false,
+		MTLsOptions:         &MTLsOptions{},
 		auth:                true,
 		MaxRecvMsgSize:      1024 * 1024 * 4, // 4Mb
 		NoHistograms:        false,
