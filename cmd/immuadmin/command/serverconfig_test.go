@@ -42,7 +42,7 @@ func TestCommandLine_ServerconfigAuth(t *testing.T) {
 		panic(err)
 	}
 
-	options := server.Options{}.WithAuth(false).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
+	options := (&server.Options{}).WithAuth(false).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -99,7 +99,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 		panic(err)
 	}
 
-	options := server.Options{}.WithAuth(false).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
+	options := (&server.Options{}).WithAuth(false).WithConfig("/tmp/immudb.toml").WithAdminPassword(auth.SysAdminPassword)
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()

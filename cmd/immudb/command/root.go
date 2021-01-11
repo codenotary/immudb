@@ -70,7 +70,7 @@ Environment variables:
 // Immudb ...
 func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
-		var options server.Options
+		var options *server.Options
 		if options, err = parseOptions(); err != nil {
 			return err
 		}

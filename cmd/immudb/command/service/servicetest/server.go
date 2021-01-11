@@ -32,7 +32,7 @@ func NewDefaultImmuServerMock() *ImmuServerMock {
 	s.StopF = func() error {
 		return nil
 	}
-	s.WithOptionsF = func(options server.Options) server.ImmuServerIf {
+	s.WithOptionsF = func(options *server.Options) server.ImmuServerIf {
 		return s
 	}
 	s.WithLoggerF = func(logger.Logger) server.ImmuServerIf {
@@ -49,7 +49,7 @@ type ImmuServerMock struct {
 	InitializeF      func() error
 	StartF           func() error
 	StopF            func() error
-	WithOptionsF     func(options server.Options) server.ImmuServerIf
+	WithOptionsF     func(options *server.Options) server.ImmuServerIf
 	WithLoggerF      func(logger.Logger) server.ImmuServerIf
 	WithStateSignerF func(stateSigner server.StateSigner) server.ImmuServerIf
 }
@@ -63,7 +63,7 @@ func (d *ImmuServerMock) Start() error {
 func (d *ImmuServerMock) Stop() error {
 	return d.StopF()
 }
-func (d *ImmuServerMock) WithOptions(options server.Options) server.ImmuServerIf {
+func (d *ImmuServerMock) WithOptions(options *server.Options) server.ImmuServerIf {
 	return d.WithOptionsF(options)
 }
 func (d *ImmuServerMock) WithLogger(l logger.Logger) server.ImmuServerIf {

@@ -18,9 +18,10 @@ package immudb
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/codenotary/immudb/cmd/immudb/command/immudbcmdtest"
 	"github.com/codenotary/immudb/pkg/server"
@@ -29,7 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func DefaultTestOptions() (o server.Options) {
+func DefaultTestOptions() (o *server.Options) {
 	o = server.DefaultOptions()
 	o.Pidfile = "tmp/immudbtest/immudbtest.pid"
 	o.Logfile = "immudbtest.log"
@@ -41,7 +42,7 @@ func DefaultTestOptions() (o server.Options) {
 func TestImmudbCommandFlagParser(t *testing.T) {
 	o := DefaultTestOptions()
 
-	var options server.Options
+	var options *server.Options
 	var err error
 	cmd := &cobra.Command{
 		Use: "immudb",
@@ -74,7 +75,7 @@ func TestImmudbCommandFlagParser(t *testing.T) {
 func TestImmudbCommandFlagParserPriority(t *testing.T) {
 	defer tearDown()
 	o := DefaultTestOptions()
-	var options server.Options
+	var options *server.Options
 	var err error
 	cl := Commandline{}
 	cl.config.Name = "immudb"
