@@ -22,12 +22,12 @@ import (
 )
 
 type ImmuServerMock struct {
-	Options     server.Options
+	Options     *server.Options
 	Logger      logger.Logger
 	StateSigner server.StateSigner
 }
 
-func (s ImmuServerMock) WithOptions(options server.Options) server.ImmuServerIf {
+func (s ImmuServerMock) WithOptions(options *server.Options) server.ImmuServerIf {
 	s.Options = options
 	return s
 }

@@ -50,7 +50,8 @@ Environment variables:
   IMMUDB_DEVMODE=true
   IMMUDB_MAINTENANCE=false
   IMMUDB_ADMIN_PASSWORD=immudb
-  IMMUDB_SIGNING_KEY=`,
+  IMMUDB_SIGNING_KEY=
+  IMMUDB_SYNCED=false`,
 		DisableAutoGenTag: true,
 		RunE:              cl.Immudb(immudbServer),
 		PersistentPreRunE: cl.ConfigChain(nil),
@@ -70,7 +71,7 @@ Environment variables:
 // Immudb ...
 func (cl *Commandline) Immudb(immudbServer server.ImmuServerIf) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
-		var options server.Options
+		var options *server.Options
 		if options, err = parseOptions(); err != nil {
 			return err
 		}

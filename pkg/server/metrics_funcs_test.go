@@ -56,7 +56,7 @@ func TestMetricFuncServerUptimeCounter(t *testing.T) {
 
 func TestMetricFuncDefaultDBSize(t *testing.T) {
 	s := ImmuServer{
-		Options: Options{
+		Options: &Options{
 			Dir:           ".",
 			defaultDbName: "TestMetricFuncServerUptimeCounter_DefaultDB",
 		},

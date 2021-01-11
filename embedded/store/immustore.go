@@ -156,7 +156,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 	finfo, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.Mkdir(path, opts.fileMode)
+			err = os.Mkdir(path, opts.FileMode)
 			if err != nil {
 				return nil, err
 			}
@@ -169,24 +169,24 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(metaVersion, Version)
-	metadata.PutInt(metaMaxTxEntries, opts.maxTxEntries)
-	metadata.PutInt(metaMaxKeyLen, opts.maxKeyLen)
-	metadata.PutInt(metaMaxValueLen, opts.maxValueLen)
-	metadata.PutInt(metaFileSize, opts.fileSize)
+	metadata.PutInt(metaMaxTxEntries, opts.MaxTxEntries)
+	metadata.PutInt(metaMaxKeyLen, opts.MaxKeyLen)
+	metadata.PutInt(metaMaxValueLen, opts.MaxValueLen)
+	metadata.PutInt(metaFileSize, opts.FileSize)
 
 	appendableOpts := multiapp.DefaultOptions().
-		WithReadOnly(opts.readOnly).
-		WithSynced(opts.synced).
-		WithFileSize(opts.fileSize).
-		WithFileMode(opts.fileMode).
+		WithReadOnly(opts.ReadOnly).
+		WithSynced(opts.Synced).
+		WithFileSize(opts.FileSize).
+		WithFileMode(opts.FileMode).
 		WithMetadata(metadata.Bytes())
 
-	vLogs := make([]appendable.Appendable, opts.maxIOConcurrency)
-	for i := 0; i < opts.maxIOConcurrency; i++ {
+	vLogs := make([]appendable.Appendable, opts.MaxIOConcurrency)
+	for i := 0; i < opts.MaxIOConcurrency; i++ {
 		appendableOpts.WithFileExt("val")
-		appendableOpts.WithCompressionFormat(opts.compressionFormat)
-		appendableOpts.WithCompresionLevel(opts.compressionLevel)
-		appendableOpts.WithMaxOpenedFiles(opts.vLogMaxOpenedFiles)
+		appendableOpts.WithCompressionFormat(opts.CompressionFormat)
+		appendableOpts.WithCompresionLevel(opts.CompressionLevel)
+		appendableOpts.WithMaxOpenedFiles(opts.VLogMaxOpenedFiles)
 		vLogPath := filepath.Join(path, fmt.Sprintf("val_%d", i))
 		vLog, err := multiapp.Open(vLogPath, appendableOpts)
 		if err != nil {
@@ -197,7 +197,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	appendableOpts.WithFileExt("tx")
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
-	appendableOpts.WithMaxOpenedFiles(opts.txLogMaxOpenedFiles)
+	appendableOpts.WithMaxOpenedFiles(opts.TxLogMaxOpenedFiles)
 	txLogPath := filepath.Join(path, "tx")
 	txLog, err := multiapp.Open(txLogPath, appendableOpts)
 	if err != nil {
@@ -206,7 +206,7 @@ func Open(path string, opts *Options) (*ImmuStore, error) {
 
 	appendableOpts.WithFileExt("txi")
 	appendableOpts.WithCompressionFormat(appendable.NoCompression)
-	appendableOpts.WithMaxOpenedFiles(opts.commitLogMaxOpenedFiles)
+	appendableOpts.WithMaxOpenedFiles(opts.CommitLogMaxOpenedFiles)
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
@@ -283,7 +283,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	txs := list.New()
 
-	for i := 0; i < opts.maxConcurrency; i++ {
+	for i := 0; i < opts.MaxConcurrency; i++ {
 		tx := NewTx(maxTxEntries, maxKeyLen)
 		txs.PushBack(tx)
 	}
@@ -318,15 +318,15 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	indexPath := filepath.Join(path, "index")
 
 	indexOpts := tbtree.DefaultOptions().
-		WithReadOnly(opts.readOnly).
-		WithFileMode(opts.fileMode).
+		WithReadOnly(opts.ReadOnly).
+		WithFileMode(opts.FileMode).
 		WithFileSize(fileSize).
 		WithSynced(false). // index is built from derived data
-		WithCacheSize(opts.indexOpts.cacheSize).
-		WithFlushThld(opts.indexOpts.flushThld).
-		WithMaxActiveSnapshots(opts.indexOpts.maxActiveSnapshots).
-		WithMaxNodeSize(opts.indexOpts.maxNodeSize).
-		WithRenewSnapRootAfter(opts.indexOpts.renewSnapRootAfter)
+		WithCacheSize(opts.IndexOpts.CacheSize).
+		WithFlushThld(opts.IndexOpts.FlushThld).
+		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
+		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
+		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter)
 
 	index, err := tbtree.Open(indexPath, indexOpts)
 	if err != nil {
@@ -336,8 +336,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	ahtPath := filepath.Join(path, "aht")
 
 	ahtOpts := ahtree.DefaultOptions().
-		WithReadOnly(opts.readOnly).
-		WithFileMode(opts.fileMode).
+		WithReadOnly(opts.ReadOnly).
+		WithFileMode(opts.FileMode).
 		WithFileSize(fileSize).
 		WithSynced(false) // built from derived data
 
@@ -352,8 +352,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	var blBuffer *cbuffer.CHBuffer
-	if opts.maxLinearProofLen > 0 {
-		blBuffer = cbuffer.New(opts.maxLinearProofLen)
+	if opts.MaxLinearProofLen > 0 {
+		blBuffer = cbuffer.New(opts.MaxLinearProofLen)
 	}
 
 	store := &ImmuStore{
@@ -366,14 +366,14 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		committedTxID:      committedTxID,
 		committedAlh:       committedAlh,
 
-		readOnly:          opts.readOnly,
-		synced:            opts.synced,
-		maxConcurrency:    opts.maxConcurrency,
-		maxIOConcurrency:  opts.maxIOConcurrency,
+		readOnly:          opts.ReadOnly,
+		synced:            opts.Synced,
+		maxConcurrency:    opts.MaxConcurrency,
+		maxIOConcurrency:  opts.MaxIOConcurrency,
 		maxTxEntries:      maxTxEntries,
 		maxKeyLen:         maxKeyLen,
 		maxValueLen:       maxValueLen,
-		maxLinearProofLen: opts.maxLinearProofLen,
+		maxLinearProofLen: opts.MaxLinearProofLen,
 
 		maxTxSize: maxTxSize,
 

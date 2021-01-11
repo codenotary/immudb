@@ -38,207 +38,207 @@ const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const MaxFileSize = 1 << 50 // 1 Pb
 
 type Options struct {
-	readOnly bool
-	synced   bool
-	fileMode os.FileMode
+	ReadOnly bool
+	Synced   bool
+	FileMode os.FileMode
 
-	maxConcurrency    int
-	maxIOConcurrency  int
-	maxLinearProofLen int
+	MaxConcurrency    int
+	MaxIOConcurrency  int
+	MaxLinearProofLen int
 
-	vLogMaxOpenedFiles      int
-	txLogMaxOpenedFiles     int
-	commitLogMaxOpenedFiles int
+	VLogMaxOpenedFiles      int
+	TxLogMaxOpenedFiles     int
+	CommitLogMaxOpenedFiles int
 
 	// options below are only set during initialization and stored as metadata
-	maxTxEntries      int
-	maxKeyLen         int
-	maxValueLen       int
-	fileSize          int
-	compressionFormat int
-	compressionLevel  int
+	MaxTxEntries      int
+	MaxKeyLen         int
+	MaxValueLen       int
+	FileSize          int
+	CompressionFormat int
+	CompressionLevel  int
 
 	// options below affect indexing
-	indexOpts *IndexOptions
+	IndexOpts *IndexOptions
 }
 
 type IndexOptions struct {
-	cacheSize          int
-	flushThld          int
-	maxActiveSnapshots int
-	maxNodeSize        int
-	renewSnapRootAfter time.Duration
+	CacheSize          int
+	FlushThld          int
+	MaxActiveSnapshots int
+	MaxNodeSize        int
+	RenewSnapRootAfter time.Duration
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		readOnly: false,
-		synced:   true,
-		fileMode: DefaultFileMode,
+		ReadOnly: false,
+		Synced:   true,
+		FileMode: DefaultFileMode,
 
-		maxConcurrency:    DefaultMaxConcurrency,
-		maxIOConcurrency:  DefaultMaxIOConcurrency,
-		maxLinearProofLen: DefaultMaxLinearProofLen,
+		MaxConcurrency:    DefaultMaxConcurrency,
+		MaxIOConcurrency:  DefaultMaxIOConcurrency,
+		MaxLinearProofLen: DefaultMaxLinearProofLen,
 
-		vLogMaxOpenedFiles:      10,
-		txLogMaxOpenedFiles:     10,
-		commitLogMaxOpenedFiles: 1,
+		VLogMaxOpenedFiles:      10,
+		TxLogMaxOpenedFiles:     10,
+		CommitLogMaxOpenedFiles: 1,
 
 		// options below are only set during initialization and stored as metadata
-		maxTxEntries:      DefaultMaxTxEntries,
-		maxKeyLen:         DefaultMaxKeyLen,
-		maxValueLen:       DefaultMaxValueLen,
-		fileSize:          DefaultFileSize,
-		compressionFormat: DefaultCompressionFormat,
-		compressionLevel:  DefaultCompressionLevel,
+		MaxTxEntries:      DefaultMaxTxEntries,
+		MaxKeyLen:         DefaultMaxKeyLen,
+		MaxValueLen:       DefaultMaxValueLen,
+		FileSize:          DefaultFileSize,
+		CompressionFormat: DefaultCompressionFormat,
+		CompressionLevel:  DefaultCompressionLevel,
 
-		indexOpts: DefaultIndexOptions(),
+		IndexOpts: DefaultIndexOptions(),
 	}
 }
 
 func DefaultIndexOptions() *IndexOptions {
 	return &IndexOptions{
-		cacheSize:          tbtree.DefaultCacheSize,
-		flushThld:          tbtree.DefaultFlushThld,
-		maxActiveSnapshots: tbtree.DefaultMaxActiveSnapshots,
-		maxNodeSize:        tbtree.DefaultMaxNodeSize,
-		renewSnapRootAfter: time.Duration(1000) * time.Millisecond,
+		CacheSize:          tbtree.DefaultCacheSize,
+		FlushThld:          tbtree.DefaultFlushThld,
+		MaxActiveSnapshots: tbtree.DefaultMaxActiveSnapshots,
+		MaxNodeSize:        tbtree.DefaultMaxNodeSize,
+		RenewSnapRootAfter: time.Duration(1000) * time.Millisecond,
 	}
 }
 
 func validOptions(opts *Options) bool {
 	return opts != nil &&
-		opts.maxConcurrency > 0 &&
-		opts.maxIOConcurrency > 0 &&
-		opts.maxIOConcurrency <= MaxParallelIO &&
-		opts.maxLinearProofLen >= 0 &&
+		opts.MaxConcurrency > 0 &&
+		opts.MaxIOConcurrency > 0 &&
+		opts.MaxIOConcurrency <= MaxParallelIO &&
+		opts.MaxLinearProofLen >= 0 &&
 
-		opts.vLogMaxOpenedFiles > 0 &&
-		opts.txLogMaxOpenedFiles > 0 &&
-		opts.commitLogMaxOpenedFiles > 0 &&
+		opts.VLogMaxOpenedFiles > 0 &&
+		opts.TxLogMaxOpenedFiles > 0 &&
+		opts.CommitLogMaxOpenedFiles > 0 &&
 
 		// options below are only set during initialization and stored as metadata
-		opts.maxTxEntries > 0 &&
-		opts.maxKeyLen > 0 &&
-		opts.maxKeyLen <= MaxKeyLen &&
-		opts.maxValueLen > 0 &&
-		opts.fileSize > 0 &&
-		opts.fileSize < MaxFileSize &&
-		validIndexOptions(opts.indexOpts)
+		opts.MaxTxEntries > 0 &&
+		opts.MaxKeyLen > 0 &&
+		opts.MaxKeyLen <= MaxKeyLen &&
+		opts.MaxValueLen > 0 &&
+		opts.FileSize > 0 &&
+		opts.FileSize < MaxFileSize &&
+		validIndexOptions(opts.IndexOpts)
 }
 
 func validIndexOptions(opts *IndexOptions) bool {
 	return opts != nil &&
-		opts.cacheSize > 0 &&
-		opts.flushThld > 0 &&
-		opts.maxActiveSnapshots > 0 &&
-		opts.maxNodeSize > 0 &&
-		opts.renewSnapRootAfter >= 0
+		opts.CacheSize > 0 &&
+		opts.FlushThld > 0 &&
+		opts.MaxActiveSnapshots > 0 &&
+		opts.MaxNodeSize > 0 &&
+		opts.RenewSnapRootAfter >= 0
 }
 
 func (opts *Options) WithReadOnly(readOnly bool) *Options {
-	opts.readOnly = readOnly
+	opts.ReadOnly = readOnly
 	return opts
 }
 
 func (opts *Options) WithSynced(synced bool) *Options {
-	opts.synced = synced
+	opts.Synced = synced
 	return opts
 }
 
 func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
-	opts.fileMode = fileMode
+	opts.FileMode = fileMode
 	return opts
 }
 
 func (opts *Options) WithMaxConcurrency(maxConcurrency int) *Options {
-	opts.maxConcurrency = maxConcurrency
+	opts.MaxConcurrency = maxConcurrency
 	return opts
 }
 
 func (opts *Options) WithMaxIOConcurrency(maxIOConcurrency int) *Options {
-	opts.maxIOConcurrency = maxIOConcurrency
+	opts.MaxIOConcurrency = maxIOConcurrency
 	return opts
 }
 
 func (opts *Options) WithMaxTxEntries(maxTxEntries int) *Options {
-	opts.maxTxEntries = maxTxEntries
+	opts.MaxTxEntries = maxTxEntries
 	return opts
 }
 
 func (opts *Options) WithMaxKeyLen(maxKeyLen int) *Options {
-	opts.maxKeyLen = maxKeyLen
+	opts.MaxKeyLen = maxKeyLen
 	return opts
 }
 
 func (opts *Options) WithMaxValueLen(maxValueLen int) *Options {
-	opts.maxValueLen = maxValueLen
+	opts.MaxValueLen = maxValueLen
 	return opts
 }
 
 func (opts *Options) WithMaxLinearProofLen(maxLinearProofLen int) *Options {
-	opts.maxLinearProofLen = maxLinearProofLen
+	opts.MaxLinearProofLen = maxLinearProofLen
 	return opts
 }
 
 func (opts *Options) WithFileSize(fileSize int) *Options {
-	opts.fileSize = fileSize
+	opts.FileSize = fileSize
 	return opts
 }
 
 func (opts *Options) WithVLogMaxOpenedFiles(vLogMaxOpenedFiles int) *Options {
-	opts.vLogMaxOpenedFiles = vLogMaxOpenedFiles
+	opts.VLogMaxOpenedFiles = vLogMaxOpenedFiles
 	return opts
 }
 
 func (opts *Options) WithTxLogMaxOpenedFiles(txLogMaxOpenedFiles int) *Options {
-	opts.txLogMaxOpenedFiles = txLogMaxOpenedFiles
+	opts.TxLogMaxOpenedFiles = txLogMaxOpenedFiles
 	return opts
 }
 
 func (opts *Options) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
-	opts.commitLogMaxOpenedFiles = commitLogMaxOpenedFiles
+	opts.CommitLogMaxOpenedFiles = commitLogMaxOpenedFiles
 	return opts
 }
 
 func (opts *Options) WithCompressionFormat(compressionFormat int) *Options {
-	opts.compressionFormat = compressionFormat
+	opts.CompressionFormat = compressionFormat
 	return opts
 }
 
 func (opts *Options) WithCompresionLevel(compressionLevel int) *Options {
-	opts.compressionLevel = compressionLevel
+	opts.CompressionLevel = compressionLevel
 	return opts
 }
 
 func (opts *Options) WithIndexOptions(indexOptions *IndexOptions) *Options {
-	opts.indexOpts = indexOptions
+	opts.IndexOpts = indexOptions
 	return opts
 }
 
 // IndexOptions
 
 func (opts *IndexOptions) WithCacheSize(cacheSize int) *IndexOptions {
-	opts.cacheSize = cacheSize
+	opts.CacheSize = cacheSize
 	return opts
 }
 
 func (opts *IndexOptions) WithFlushThld(flushThld int) *IndexOptions {
-	opts.flushThld = flushThld
+	opts.FlushThld = flushThld
 	return opts
 }
 
 func (opts *IndexOptions) WithMaxActiveSnapshots(maxActiveSnapshots int) *IndexOptions {
-	opts.maxActiveSnapshots = maxActiveSnapshots
+	opts.MaxActiveSnapshots = maxActiveSnapshots
 	return opts
 }
 
 func (opts *IndexOptions) WithMaxNodeSize(maxNodeSize int) *IndexOptions {
-	opts.maxNodeSize = maxNodeSize
+	opts.MaxNodeSize = maxNodeSize
 	return opts
 }
 
 func (opts *IndexOptions) WithRenewSnapRootAfter(renewSnapRootAfter time.Duration) *IndexOptions {
-	opts.renewSnapRootAfter = renewSnapRootAfter
+	opts.RenewSnapRootAfter = renewSnapRootAfter
 	return opts
 }

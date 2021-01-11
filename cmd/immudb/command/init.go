@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func parseOptions() (options server.Options, err error) {
+func parseOptions() (options *server.Options, err error) {
 	dir, err := c.ResolvePath(viper.GetString("dir"), true)
 	if err != nil {
 		return options, err
@@ -59,10 +59,15 @@ func parseOptions() (options server.Options, err error) {
 	if err != nil {
 		return options, err
 	}
+
 	devMode := viper.GetBool("devmode")
 	adminPassword := viper.GetString("admin-password")
 	maintenance := viper.GetBool("maintenance")
 	signingKey := viper.GetString("signingKey")
+	synced := viper.GetBool("synced")
+
+	storeOpts := server.DefaultStoreOptions().WithSynced(synced)
+
 	options = server.
 		DefaultOptions().
 		WithDir(dir).
@@ -79,7 +84,9 @@ func parseOptions() (options server.Options, err error) {
 		WithDevMode(devMode).
 		WithAdminPassword(adminPassword).
 		WithMaintenance(maintenance).
-		WithSigningKey(signingKey)
+		WithSigningKey(signingKey).
+		WithStoreOptions(storeOpts)
+
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
 		options.MTLsOptions = server.DefaultMTLsOptions().
@@ -87,10 +94,11 @@ func parseOptions() (options server.Options, err error) {
 			WithPkey(pkey).
 			WithClientCAs(clientcas)
 	}
+
 	return options, nil
 }
 
-func (cl *Commandline) setupFlags(cmd *cobra.Command, options server.Options, mtlsOptions server.MTLsOptions) {
+func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options, mtlsOptions *server.MTLsOptions) {
 	cmd.Flags().String("dir", options.Dir, "data folder")
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
@@ -110,9 +118,10 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options server.Options, mt
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
 	cmd.Flags().String("signingKey", options.SigningKey, "signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. E.g. \"./../test/signer/ec3.key\"")
+	cmd.Flags().Bool("synced", false, "synced mode prevents data lost under unexpected crashes but affects performance")
 }
 
-func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
+func setupDefaults(options *server.Options, mtlsOptions *server.MTLsOptions) {
 	viper.SetDefault("dir", options.Dir)
 	viper.SetDefault("port", options.Port)
 	viper.SetDefault("address", options.Address)
@@ -130,4 +139,5 @@ func setupDefaults(options server.Options, mtlsOptions server.MTLsOptions) {
 	viper.SetDefault("devmode", options.DevMode)
 	viper.SetDefault("admin-password", options.AdminPassword)
 	viper.SetDefault("maintenance", options.GetMaintenance())
+	viper.SetDefault("synced", false)
 }

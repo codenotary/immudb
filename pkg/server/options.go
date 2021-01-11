@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/auth"
 )
 
@@ -39,7 +40,7 @@ type Options struct {
 	Pidfile             string
 	Logfile             string
 	MTLs                bool
-	MTLsOptions         MTLsOptions
+	MTLsOptions         *MTLsOptions
 	auth                bool
 	MaxRecvMsgSize      int
 	NoHistograms        bool
@@ -54,11 +55,12 @@ type Options struct {
 	usingCustomListener bool
 	maintenance         bool
 	SigningKey          string
+	StoreOptions        *store.Options
 }
 
 // DefaultOptions returns default server options
-func DefaultOptions() Options {
-	return Options{
+func DefaultOptions() *Options {
+	return &Options{
 		Dir:                 "./data",
 		Network:             "tcp",
 		Address:             "0.0.0.0",
@@ -68,6 +70,7 @@ func DefaultOptions() Options {
 		Pidfile:             "",
 		Logfile:             "",
 		MTLs:                false,
+		MTLsOptions:         &MTLsOptions{},
 		auth:                true,
 		MaxRecvMsgSize:      1024 * 1024 * 4, // 4Mb
 		NoHistograms:        false,
@@ -80,29 +83,35 @@ func DefaultOptions() Options {
 		defaultDbName:       DefaultdbName,
 		usingCustomListener: false,
 		maintenance:         false,
+		StoreOptions:        DefaultStoreOptions(),
 	}
 }
 
+func DefaultStoreOptions() *store.Options {
+	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
+	return store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
+}
+
 // WithDir sets dir
-func (o Options) WithDir(dir string) Options {
+func (o *Options) WithDir(dir string) *Options {
 	o.Dir = dir
 	return o
 }
 
 // WithNetwork sets network
-func (o Options) WithNetwork(network string) Options {
+func (o *Options) WithNetwork(network string) *Options {
 	o.Network = network
 	return o
 }
 
 // WithAddress sets address
-func (o Options) WithAddress(address string) Options {
+func (o *Options) WithAddress(address string) *Options {
 	o.Address = address
 	return o
 }
 
 // WithPort sets port
-func (o Options) WithPort(port int) Options {
+func (o *Options) WithPort(port int) *Options {
 	if port > 0 {
 		o.Port = port
 	}
@@ -110,48 +119,48 @@ func (o Options) WithPort(port int) Options {
 }
 
 // WithConfig sets config file name
-func (o Options) WithConfig(config string) Options {
+func (o *Options) WithConfig(config string) *Options {
 	o.Config = config
 	return o
 }
 
 // WithPidfile sets pid file
-func (o Options) WithPidfile(pidfile string) Options {
+func (o *Options) WithPidfile(pidfile string) *Options {
 	o.Pidfile = pidfile
 	return o
 }
 
 // WithLogfile sets logfile
-func (o Options) WithLogfile(logfile string) Options {
+func (o *Options) WithLogfile(logfile string) *Options {
 	o.Logfile = logfile
 	return o
 }
 
 // WithMTLs sets mtls
-func (o Options) WithMTLs(MTLs bool) Options {
+func (o *Options) WithMTLs(MTLs bool) *Options {
 	o.MTLs = MTLs
 	return o
 }
 
 // WithMTLsOptions sets WithMTLsOptions
-func (o Options) WithMTLsOptions(MTLsOptions MTLsOptions) Options {
+func (o *Options) WithMTLsOptions(MTLsOptions *MTLsOptions) *Options {
 	o.MTLsOptions = MTLsOptions
 	return o
 }
 
 // WithAuth sets auth
-func (o Options) WithAuth(authEnabled bool) Options {
+func (o *Options) WithAuth(authEnabled bool) *Options {
 	o.auth = authEnabled
 	return o
 }
 
-func (o Options) WithMaxRecvMsgSize(maxRecvMsgSize int) Options {
+func (o *Options) WithMaxRecvMsgSize(maxRecvMsgSize int) *Options {
 	o.MaxRecvMsgSize = maxRecvMsgSize
 	return o
 }
 
 // GetAuth gets auth
-func (o Options) GetAuth() bool {
+func (o *Options) GetAuth() bool {
 	if o.maintenance {
 		return false
 	}
@@ -159,35 +168,40 @@ func (o Options) GetAuth() bool {
 }
 
 // WithNoHistograms disables collection of histograms metrics (e.g. query durations)
-func (o Options) WithNoHistograms(noHistograms bool) Options {
+func (o *Options) WithNoHistograms(noHistograms bool) *Options {
 	o.NoHistograms = noHistograms
 	return o
 }
 
 // WithDetached sets immudb to be run in background
-func (o Options) WithDetached(detached bool) Options {
+func (o *Options) WithDetached(detached bool) *Options {
 	o.Detached = detached
 	return o
 }
 
 // WithCorruptionCheck enable corruption check
-func (o Options) WithCorruptionCheck(corruptionCheck bool) Options {
+func (o *Options) WithCorruptionCheck(corruptionCheck bool) *Options {
 	o.CorruptionCheck = corruptionCheck
 	return o
 }
 
+func (o *Options) WithStoreOptions(storeOpts *store.Options) *Options {
+	o.StoreOptions = storeOpts
+	return o
+}
+
 // Bind returns bind address
-func (o Options) Bind() string {
+func (o *Options) Bind() string {
 	return o.Address + ":" + strconv.Itoa(o.Port)
 }
 
 // MetricsBind return metrics bind address
-func (o Options) MetricsBind() string {
+func (o *Options) MetricsBind() string {
 	return o.Address + ":" + strconv.Itoa(o.MetricsPort)
 }
 
 // String print options
-func (o Options) String() string {
+func (o *Options) String() string {
 	rightPad := func(k string, v interface{}) string {
 		return fmt.Sprintf("%-17s: %v", k, v)
 	}
@@ -213,6 +227,7 @@ func (o Options) String() string {
 	opts = append(opts, rightPad("Dev mode", o.DevMode))
 	opts = append(opts, rightPad("Default database", o.defaultDbName))
 	opts = append(opts, rightPad("Maintenance mode", o.maintenance))
+	opts = append(opts, rightPad("Synced mode", o.StoreOptions.Synced))
 	opts = append(opts, "----------------------------------------")
 	opts = append(opts, "Superadmin default credentials")
 	opts = append(opts, rightPad("   Username", auth.SysAdminUsername))
@@ -222,53 +237,53 @@ func (o Options) String() string {
 }
 
 // WithMetricsServer ...
-func (o Options) WithMetricsServer(metricsServer bool) Options {
+func (o *Options) WithMetricsServer(metricsServer bool) *Options {
 	o.MetricsServer = metricsServer
 	return o
 }
 
 // WithDevMode ...
-func (o Options) WithDevMode(devMode bool) Options {
+func (o *Options) WithDevMode(devMode bool) *Options {
 	o.DevMode = devMode
 	return o
 }
 
 // WithAdminPassword ...
-func (o Options) WithAdminPassword(adminPassword string) Options {
+func (o *Options) WithAdminPassword(adminPassword string) *Options {
 	o.AdminPassword = adminPassword
 	return o
 }
 
 //GetSystemAdminDbName returns the System database name
-func (o Options) GetSystemAdminDbName() string {
+func (o *Options) GetSystemAdminDbName() string {
 	return o.systemAdminDbName
 }
 
 //GetDefaultDbName returns the default database name
-func (o Options) GetDefaultDbName() string {
+func (o *Options) GetDefaultDbName() string {
 	return o.defaultDbName
 }
 
 // WithListener used usually to pass a bufered listener for testing purposes
-func (o Options) WithListener(lis net.Listener) Options {
+func (o *Options) WithListener(lis net.Listener) *Options {
 	o.listener = lis
 	o.usingCustomListener = true
 	return o
 }
 
 // WithMaintenance sets maintenance mode
-func (o Options) WithMaintenance(m bool) Options {
+func (o *Options) WithMaintenance(m bool) *Options {
 	o.maintenance = m
 	return o
 }
 
 // GetMaintenance gets maintenance mode
-func (o Options) GetMaintenance() bool {
+func (o *Options) GetMaintenance() bool {
 	return o.maintenance
 }
 
 // WithSigningKey sets signature private key
-func (o Options) WithSigningKey(signingKey string) Options {
+func (o *Options) WithSigningKey(signingKey string) *Options {
 	o.SigningKey = signingKey
 	return o
 }

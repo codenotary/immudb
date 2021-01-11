@@ -217,14 +217,14 @@ func TestImmudbStoreSettings(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("store_settings")
 
-	require.Equal(t, DefaultOptions().readOnly, immuStore.ReadOnly())
-	require.Equal(t, DefaultOptions().synced, immuStore.Synced())
+	require.Equal(t, DefaultOptions().ReadOnly, immuStore.ReadOnly())
+	require.Equal(t, DefaultOptions().Synced, immuStore.Synced())
 	require.Equal(t, 1, immuStore.MaxConcurrency())
-	require.Equal(t, DefaultOptions().maxIOConcurrency, immuStore.MaxIOConcurrency())
-	require.Equal(t, DefaultOptions().maxTxEntries, immuStore.MaxTxEntries())
-	require.Equal(t, DefaultOptions().maxKeyLen, immuStore.MaxKeyLen())
-	require.Equal(t, DefaultOptions().maxValueLen, immuStore.MaxValueLen())
-	require.Equal(t, DefaultOptions().maxLinearProofLen, immuStore.MaxLinearProofLen())
+	require.Equal(t, DefaultOptions().MaxIOConcurrency, immuStore.MaxIOConcurrency())
+	require.Equal(t, DefaultOptions().MaxTxEntries, immuStore.MaxTxEntries())
+	require.Equal(t, DefaultOptions().MaxKeyLen, immuStore.MaxKeyLen())
+	require.Equal(t, DefaultOptions().MaxValueLen, immuStore.MaxValueLen())
+	require.Equal(t, DefaultOptions().MaxLinearProofLen, immuStore.MaxLinearProofLen())
 }
 
 func TestImmudbStoreEdgeCases(t *testing.T) {
@@ -1205,15 +1205,15 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	opts := DefaultOptions().WithMaxConcurrency(1)
 
 	metadata := appendable.NewMetadata(nil)
-	metadata.PutInt(metaFileSize, opts.fileSize)
-	metadata.PutInt(metaMaxTxEntries, opts.maxTxEntries)
-	metadata.PutInt(metaMaxKeyLen, opts.maxKeyLen)
-	metadata.PutInt(metaMaxValueLen, opts.maxValueLen)
+	metadata.PutInt(metaFileSize, opts.FileSize)
+	metadata.PutInt(metaMaxTxEntries, opts.MaxTxEntries)
+	metadata.PutInt(metaMaxKeyLen, opts.MaxKeyLen)
+	metadata.PutInt(metaMaxValueLen, opts.MaxValueLen)
 
 	appendableOpts := multiapp.DefaultOptions().
-		WithReadOnly(opts.readOnly).
-		WithSynced(opts.synced).
-		WithFileMode(opts.fileMode).
+		WithReadOnly(opts.ReadOnly).
+		WithSynced(opts.Synced).
+		WithFileMode(opts.FileMode).
 		WithMetadata(metadata.Bytes())
 
 	vLogPath := filepath.Join(path, "val_0")

@@ -170,6 +170,7 @@ Environment variables:
   IMMUDB_MAINTENANCE=false
   IMMUDB_ADMIN_PASSWORD=immudb
   IMMUDB_SIGNING_KEY=
+  IMMUDB_SYNCED=true
 Usage:
   immudb [flags]
   immudb [command]
