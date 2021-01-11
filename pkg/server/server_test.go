@@ -1311,7 +1311,7 @@ func TestServerUpdateMTLSConfig(t *testing.T) {
 }
 
 func TestServerMtls(t *testing.T) {
-	mtlsopts := MTLsOptions{
+	mtlsopts := &MTLsOptions{
 		Pkey:        "./../../test/mtls_certs/ca.key.pem",
 		Certificate: "./../../test/mtls_certs/ca.cert.pem",
 		ClientCAs:   "./../../test/mtls_certs/ca-chain.cert.pem",

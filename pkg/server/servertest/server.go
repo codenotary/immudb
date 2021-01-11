@@ -42,11 +42,11 @@ type bufconnServer struct {
 	Dialer     BuffDialer
 }
 
-func NewBufconnServer(options server.Options) *bufconnServer {
+func NewBufconnServer(options *server.Options) *bufconnServer {
 	options.Port = 0
 	bs := &bufconnServer{
 		Lis:     bufconn.Listen(bufSize),
-		Options: &options,
+		Options: options,
 		GrpcServer: grpc.NewServer(
 			grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
 			grpc.StreamInterceptor(auth.ServerStreamInterceptor),
@@ -57,7 +57,7 @@ func NewBufconnServer(options server.Options) *bufconnServer {
 
 func (bs *bufconnServer) Start() error {
 	bs.m.Lock()
-	bs.Server = server.DefaultServer().WithOptions(*bs.Options).(*server.ImmuServer)
+	bs.Server = server.DefaultServer().WithOptions(bs.Options).(*server.ImmuServer)
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
 	}

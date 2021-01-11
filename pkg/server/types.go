@@ -52,7 +52,7 @@ type ImmuServer struct {
 	OS                  immuos.OS
 	dbList              DatabaseList
 	Logger              logger.Logger
-	Options             Options
+	Options             *Options
 	listener            net.Listener
 	GrpcServer          *grpc.Server
 	Pid                 PIDFile
@@ -85,7 +85,7 @@ type ImmuServerIf interface {
 	Initialize() error
 	Start() error
 	Stop() error
-	WithOptions(options Options) ImmuServerIf
+	WithOptions(options *Options) ImmuServerIf
 	WithLogger(logger.Logger) ImmuServerIf
 	WithStateSigner(stateSigner StateSigner) ImmuServerIf
 }
@@ -103,7 +103,7 @@ func (s *ImmuServer) WithStateSigner(stateSigner StateSigner) ImmuServerIf {
 }
 
 // WithOptions ...
-func (s *ImmuServer) WithOptions(options Options) ImmuServerIf {
+func (s *ImmuServer) WithOptions(options *Options) ImmuServerIf {
 	s.Options = options
 	return s
 }

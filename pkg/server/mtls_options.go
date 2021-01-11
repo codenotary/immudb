@@ -24,8 +24,8 @@ type MTLsOptions struct {
 }
 
 // DefaultMTLsOptions ...
-func DefaultMTLsOptions() MTLsOptions {
-	return MTLsOptions{
+func DefaultMTLsOptions() *MTLsOptions {
+	return &MTLsOptions{
 		Pkey:        "./tools/mtls/3_application/private/localhost.key.pem",
 		Certificate: "./tools/mtls/3_application/certs/localhost.cert.pem",
 		ClientCAs:   "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem",
@@ -33,19 +33,19 @@ func DefaultMTLsOptions() MTLsOptions {
 }
 
 // WithPkey ...
-func (o MTLsOptions) WithPkey(Pkey string) MTLsOptions {
+func (o *MTLsOptions) WithPkey(Pkey string) *MTLsOptions {
 	o.Pkey = Pkey
 	return o
 }
 
 // WithCertificate ...
-func (o MTLsOptions) WithCertificate(Certificate string) MTLsOptions {
+func (o *MTLsOptions) WithCertificate(Certificate string) *MTLsOptions {
 	o.Certificate = Certificate
 	return o
 }
 
 // WithClientCAs ...
-func (o MTLsOptions) WithClientCAs(ClientCAs string) MTLsOptions {
+func (o *MTLsOptions) WithClientCAs(ClientCAs string) *MTLsOptions {
 	o.ClientCAs = ClientCAs
 	return o
 }
