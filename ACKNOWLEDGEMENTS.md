@@ -12,7 +12,6 @@ immudb uses the following amazing open source projects. Copyright by their respe
 
 | Project                                                      | License                                                      |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| [badger](https://github.com/dgraph-io/badger)                | [Apache License 2.0](https://github.com/dgraph-io/badger/blob/master/LICENSE) |
 | [cobra](https://github.com/spf13/cobra)                      | [Apache License 2.0](https://github.com/spf13/cobra/blob/master/LICENSE.txt) |
 | [go-homedir](https://github.com/mitchellh/go-homedir)        | [MIT](https://github.com/mitchellh/go-homedir/blob/master/LICENSE) |
 | [viper](https://github.com/spf13/viper)                      | [MIT](https://github.com/spf13/viper/blob/master/LICENSE)    |
@@ -44,4 +43,3 @@ immudb uses the following amazing open source projects. Copyright by their respe
 | [gotenv](https://github.com/subosito/gotenv)                 | [MIT](https://github.com/subosito/gotenv/blob/master/LICENSE) |
 | [poly1305](https://github.com/aead/poly1305)                 | [MIT](https://github.com/aead/poly1305/blob/master/LICENSE)  |
 | [Go CORS handler](https://github.com/rs/cors)                | [MIT](https://github.com/rs/cors/blob/master/LICENSE)        |
-
