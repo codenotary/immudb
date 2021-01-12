@@ -189,6 +189,9 @@ func TestDbSetGet(t *testing.T) {
 		require.Equal(t, kv.Key, item.Key)
 		require.Equal(t, kv.Value, item.Value)
 
+		_, err = db.Get(&schema.KeyRequest{Key: kv.Key, SinceTx: txMetadata.Id, AtTx: txMetadata.Id})
+		require.Equal(t, store.ErrIllegalArguments, err)
+
 		vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{
 			KeyRequest:   keyReq,
 			ProveSinceTx: trustedIndex,

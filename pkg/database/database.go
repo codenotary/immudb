@@ -169,6 +169,10 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, store.ErrIllegalArguments
 	}
 
+	if req.AtTx > 0 && req.SinceTx > 0 {
+		return nil, store.ErrIllegalArguments
+	}
+
 	err := d.WaitForIndexingUpto(req.SinceTx)
 	if err != nil {
 		return nil, err
@@ -177,7 +181,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return d.get(EncodeKey(req.Key), d.st, d.tx1)
+	return d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.tx1)
 }
 
 func (d *db) WaitForIndexingUpto(txID uint64) error {
@@ -345,19 +349,13 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, store.ErrIllegalArguments
 	}
 
-	err := d.WaitForIndexingUpto(req.KeyRequest.SinceTx)
+	e, err := d.Get(req.KeyRequest)
 	if err != nil {
 		return nil, err
 	}
 
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-
-	// get value of key
-	e, err := d.get(EncodeKey(req.KeyRequest.Key), d.st, d.tx1)
-	if err != nil {
-		return nil, err
-	}
 
 	txEntry := d.tx1
 

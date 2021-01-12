@@ -220,7 +220,8 @@ message SetRequest {
 
 message KeyRequest {
 	bytes key = 1;
-	uint64 sinceTx = 2;
+    uint64 atTx = 2;
+	uint64 sinceTx = 3;
 }
 
 message KeyListRequest {

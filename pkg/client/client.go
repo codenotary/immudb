@@ -23,13 +23,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"github.com/codenotary/immudb/pkg/signer"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"io"
 	"io/ioutil"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/signer"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -91,6 +92,7 @@ type ImmuClient interface {
 	VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error)
 
 	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+	GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
 
 	History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 
@@ -604,6 +606,18 @@ func (c *immuClient) GetSince(ctx context.Context, key []byte, tx uint64) (*sche
 	defer c.Logger.Debugf("get finished in %s", time.Since(start))
 
 	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, SinceTx: tx})
+}
+
+// GetAt ...
+func (c *immuClient) GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	start := time.Now()
+	defer c.Logger.Debugf("get finished in %s", time.Since(start))
+
+	return c.ServiceClient.Get(ctx, &schema.KeyRequest{Key: key, AtTx: tx})
 }
 
 // Scan ...
