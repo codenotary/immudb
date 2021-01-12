@@ -206,6 +206,10 @@ func testGet(ctx context.Context, t *testing.T, client ImmuClient) {
 	item, err := client.GetSince(ctx, []byte("key-n11"), txmd.Id)
 	require.NoError(t, err)
 	require.Equal(t, []byte("key-n11"), item.Key)
+
+	item, err = client.GetAt(ctx, []byte("key-n11"), txmd.Id)
+	require.NoError(t, err)
+	require.Equal(t, []byte("key-n11"), item.Key)
 }
 
 func testGetTxByID(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ImmuClient) {
@@ -426,6 +430,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	//require.Equal(t, ErrNotConnected, err)
 
 	_, err = client.GetSince(context.TODO(), []byte("key"), 0)
+	require.Equal(t, ErrNotConnected, err)
+
+	_, err = client.GetAt(context.TODO(), []byte("key"), 0)
 	require.Equal(t, ErrNotConnected, err)
 
 	require.Equal(t, ErrNotConnected, client.HealthCheck(context.TODO()))
