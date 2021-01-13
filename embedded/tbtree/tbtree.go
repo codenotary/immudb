@@ -789,11 +789,11 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 
 			t.root = newRoot
 		}
+
+		t.insertionCount++
 	}
 
-	t.insertionCount++
-
-	if t.insertionCount == t.flushThld {
+	if t.insertionCount >= t.flushThld {
 		_, err := t.flushTree()
 		return err
 	}
@@ -1078,14 +1078,18 @@ func (n *innerNode) split() (node, error) {
 
 	newNode := &innerNode{
 		t:       n.t,
-		nodes:   n.nodes[splitIndex:],
+		nodes:   make([]node, len(n.nodes)-splitIndex),
 		_maxKey: n._maxKey,
 		maxSize: n.maxSize,
 		mut:     true,
 	}
+	copy(newNode.nodes, n.nodes[splitIndex:])
 	newNode.updateTs()
 
-	n.nodes = n.nodes[:splitIndex]
+	nodes := make([]node, splitIndex)
+	copy(nodes, n.nodes[:splitIndex])
+	n.nodes = nodes
+
 	n._maxKey = n.nodes[splitIndex-1].maxKey()
 	n.updateTs()
 
@@ -1435,15 +1439,19 @@ func (l *leafNode) split() (node, error) {
 	newLeaf := &leafNode{
 		t:        l.t,
 		prevNode: l.prevNode,
-		values:   l.values[splitIndex:],
+		values:   make([]*leafValue, len(l.values)-splitIndex),
 		_maxKey:  l._maxKey,
 		maxSize:  l.maxSize,
 		keySpace: l.keySpace,
 		mut:      true,
 	}
+	copy(newLeaf.values, l.values[splitIndex:])
 	newLeaf.updateTs()
 
-	l.values = l.values[:splitIndex]
+	values := make([]*leafValue, splitIndex)
+	copy(values, l.values[:splitIndex])
+	l.values = values
+
 	l._maxKey = l.values[splitIndex-1].key
 	l.updateTs()
 
