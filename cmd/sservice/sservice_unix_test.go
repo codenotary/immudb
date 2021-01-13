@@ -103,11 +103,13 @@ func TestSservice_IsAdmin(t *testing.T) {
 }
 
 func TestSservice_InstallSetup_immudb(t *testing.T) {
+	os.Mkdir("immutest", 0755)
+	defer os.Remove("immutest")
 	op := Option{}
 	mps := immudbcmdtest.ManpageServiceMock{}
 	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, op, mps}
 
-	err := ss.InstallSetup("immudb", &cobra.Command{})
+	err := ss.InstallSetup("immutest", &cobra.Command{})
 	if err != nil {
 		t.Logf("TestSservice_InstallSetup_immudb: %s", err)
 	}
@@ -139,10 +141,12 @@ func TestSservice_getDefaultExecPath(t *testing.T) {
 }
 
 func TestSservice_CopyExecInOsDefault(t *testing.T) {
+	os.Mkdir("immutest", 0755)
+	defer os.Remove("immutest")
 	op := Option{}
 	mps := manpageService{}
 	ss := sservice{osMock, &servicetest.ConfigServiceMock{}, op, mps}
-	_, err := ss.CopyExecInOsDefault("immudb")
+	_, err := ss.CopyExecInOsDefault("immutest")
 	assert.Nil(t, err)
 }
 
