@@ -586,6 +586,40 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestImmudbStoreCommitWith(t *testing.T) {
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_commit_with", opts)
+	require.NoError(t, err)
+	defer os.RemoveAll("data_commit_with")
+
+	require.NotNil(t, immuStore)
+
+	_, err = immuStore.CommitWith(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	callback := func(txID uint64) ([]*KV, error) {
+		return nil, nil
+	}
+	_, err = immuStore.CommitWith(callback)
+	require.Equal(t, ErrorNoEntriesProvided, err)
+
+	callback = func(txID uint64) ([]*KV, error) {
+		return []*KV{
+			{Key: []byte(fmt.Sprintf("keyInsertedAtTx%d", txID)), Value: []byte("value")},
+		}, nil
+	}
+
+	md, err := immuStore.CommitWith(callback)
+	require.NoError(t, err)
+
+	tx := immuStore.NewTx()
+	immuStore.ReadTx(md.ID, tx)
+
+	val, err := immuStore.ReadValue(tx, []byte(fmt.Sprintf("keyInsertedAtTx%d", md.ID)))
+	require.NoError(t, err)
+	require.Equal(t, []byte("value"), val)
+}
+
 func TestImmudbStoreHistoricalValues(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
 	immuStore, err := Open("data_historical", opts)
