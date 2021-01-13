@@ -593,6 +593,7 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	defer os.RemoveAll("data_commit_with")
 
 	require.NotNil(t, immuStore)
+	defer immuStore.Close()
 
 	_, err = immuStore.CommitWith(nil)
 	require.Equal(t, ErrIllegalArguments, err)
@@ -602,6 +603,12 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 	}
 	_, err = immuStore.CommitWith(callback)
 	require.Equal(t, ErrorNoEntriesProvided, err)
+
+	callback = func(txID uint64) ([]*KV, error) {
+		return nil, errors.New("error")
+	}
+	_, err = immuStore.CommitWith(callback)
+	require.Error(t, err)
 
 	callback = func(txID uint64) ([]*KV, error) {
 		return []*KV{
@@ -764,6 +771,13 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = immuStore.Commit([]*KV{{Key: []byte{}, Value: []byte{}}})
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	_, err = immuStore.CommitWith(func(txID uint64) ([]*KV, error) {
+		return []*KV{
+			{Key: []byte(fmt.Sprintf("keyInsertedAtTx%d", txID)), Value: nil},
+		}, nil
+	})
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	immuStore, err = Open("data_inclusion_proof", opts)
