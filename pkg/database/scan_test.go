@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -70,4 +71,109 @@ func TestStoreScan(t *testing.T) {
 	require.Equal(t, list1.Entries[2].Key, []byte(`bbb`))
 	require.Equal(t, list1.Entries[2].Value, []byte(`item2`))
 
+}
+
+func TestStoreScanPrefix(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix1`), Value: []byte(`item1`)}}})
+	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix2`), Value: []byte(`item2`)}}})
+
+	meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`prefix:suffix3`), Value: []byte(`item3`)}}})
+	require.NoError(t, err)
+
+	scanOptions := schema.ScanRequest{
+		SeekKey: nil,
+		Prefix:  []byte(`prefix:`),
+		Limit:   0,
+		Desc:    false,
+		SinceTx: meta.Id,
+	}
+
+	list, err := db.Scan(&scanOptions)
+	require.NoError(t, err)
+	require.Exactly(t, 3, len(list.Entries))
+	require.Equal(t, list.Entries[0].Key, []byte(`prefix:suffix1`))
+	require.Equal(t, list.Entries[1].Key, []byte(`prefix:suffix2`))
+	require.Equal(t, list.Entries[2].Key, []byte(`prefix:suffix3`))
+
+	scanOptions = schema.ScanRequest{
+		SeekKey: []byte(`prefix?`),
+		Prefix:  []byte(`prefix:`),
+		Limit:   0,
+		Desc:    true,
+		SinceTx: meta.Id,
+	}
+
+	list, err = db.Scan(&scanOptions)
+	require.NoError(t, err)
+	require.Exactly(t, 3, len(list.Entries))
+	require.Equal(t, list.Entries[0].Key, []byte(`prefix:suffix3`))
+	require.Equal(t, list.Entries[1].Key, []byte(`prefix:suffix2`))
+	require.Equal(t, list.Entries[2].Key, []byte(`prefix:suffix1`))
+}
+
+func TestStoreScanDesc(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`item1`)}}})
+	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key2`), Value: []byte(`item2`)}}})
+
+	meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key3`), Value: []byte(`item3`)}}})
+	require.NoError(t, err)
+
+	scanOptions := schema.ScanRequest{
+		SeekKey: []byte(`k`),
+		Prefix:  []byte(`key`),
+		Limit:   0,
+		Desc:    false,
+		SinceTx: meta.Id,
+	}
+
+	list, err := db.Scan(&scanOptions)
+	require.NoError(t, err)
+	require.Exactly(t, 3, len(list.Entries))
+	require.Equal(t, list.Entries[0].Key, []byte(`key1`))
+	require.Equal(t, list.Entries[1].Key, []byte(`key2`))
+	require.Equal(t, list.Entries[2].Key, []byte(`key3`))
+
+	scanOptions = schema.ScanRequest{
+		SeekKey: []byte(`key22`),
+		Prefix:  []byte(`key`),
+		Limit:   0,
+		Desc:    true,
+		SinceTx: meta.Id,
+	}
+
+	list, err = db.Scan(&scanOptions)
+	require.NoError(t, err)
+	require.Exactly(t, 2, len(list.Entries))
+	require.Equal(t, list.Entries[0].Key, []byte(`key2`))
+	require.Equal(t, list.Entries[1].Key, []byte(`key1`))
+
+	scanOptions = schema.ScanRequest{
+		SeekKey: []byte(`key2`),
+		Prefix:  []byte(`key`),
+		Limit:   0,
+		Desc:    true,
+		SinceTx: meta.Id,
+	}
+
+	list, err = db.Scan(&scanOptions)
+	require.NoError(t, err)
+	require.Exactly(t, 1, len(list.Entries))
+	require.Equal(t, list.Entries[0].Key, []byte(`key1`))
+
+	scanOptions = schema.ScanRequest{
+		SeekKey: nil,
+		Prefix:  []byte(`key`),
+		Limit:   0,
+		Desc:    true,
+		SinceTx: meta.Id,
+	}
+
+	list, err = db.Scan(&scanOptions)
+	require.Equal(t, tbtree.ErrNoMoreEntries, err)
 }
