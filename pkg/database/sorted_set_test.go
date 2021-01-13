@@ -16,6 +16,7 @@ limitations under the License.
 package database
 
 import (
+	"math"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -432,12 +433,15 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 	require.NoError(t, err)
 
 	zScanOption1 := &schema.ZScanRequest{
-		Set:      setName,
-		SeekKey:  nil,
-		Limit:    2,
-		Desc:     true,
-		MaxScore: &schema.Score{Score: 3},
-		SinceTx:  meta.Id,
+		Set:           setName,
+		SeekKey:       []byte(`key6`),
+		SeekScore:     math.MaxFloat64,
+		SeekAtTx:      math.MaxUint64,
+		InclusiveSeek: true,
+		Limit:         2,
+		Desc:          true,
+		MaxScore:      &schema.Score{Score: 3},
+		SinceTx:       meta.Id,
 	}
 
 	list1, err := db.ZScan(zScanOption1)
