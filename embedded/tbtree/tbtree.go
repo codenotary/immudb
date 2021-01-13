@@ -1003,23 +1003,31 @@ func (n *innerNode) getTs(key []byte, limit int64) ([]uint64, error) {
 }
 
 func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
-	if !descOrder || neqKey == nil {
-		for i := 0; i < len(n.nodes); i++ {
-			if bytes.Compare(keyPrefix, n.nodes[i].maxKey()) < 1 && bytes.Compare(n.nodes[i].maxKey(), neqKey) == 1 {
-				return n.nodes[i].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
+	if descOrder {
+		for i := len(n.nodes); i > 0; i-- {
+			maxKey := n.nodes[i-1].maxKey()
+
+			if len(neqKey) > 0 && bytes.Compare(maxKey, neqKey) >= 0 {
+				continue
+			}
+
+			if bytes.Compare(maxKey, keyPrefix) < 1 {
+				return n.nodes[i-1].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
 			}
 		}
 
-		if !descOrder {
-			return nil, nil, 0, ErrKeyNotFound
-		}
-
-		return n.nodes[len(n.nodes)-1].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
+		return nil, nil, 0, ErrKeyNotFound
 	}
 
-	for i := len(n.nodes); i > 0; i-- {
-		if bytes.Compare(n.nodes[i-1].maxKey(), keyPrefix) < 1 && bytes.Compare(n.nodes[i-1].maxKey(), neqKey) < 0 {
-			return n.nodes[i-1].findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
+	for _, c := range n.nodes {
+		maxKey := c.maxKey()
+
+		if len(neqKey) > 0 && bytes.Compare(maxKey, neqKey) <= 0 {
+			continue
+		}
+
+		if bytes.Compare(keyPrefix, maxKey) < 1 {
+			return c.findLeafNode(keyPrefix, append(path, n), neqKey, descOrder)
 		}
 	}
 
@@ -1351,23 +1359,29 @@ func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
 }
 
 func (l *leafNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
-	if !descOrder || neqKey == nil {
-		for i := 0; i < len(l.values); i++ {
-			if bytes.Compare(keyPrefix, l.values[i].key) < 1 && bytes.Compare(l.values[i].key, neqKey) == 1 {
-				return path, l, i, nil
+	if descOrder {
+		for i := len(l.values); i > 0; i-- {
+			key := l.values[i-1].key
+
+			if len(neqKey) > 0 && bytes.Compare(key, neqKey) >= 0 {
+				continue
+			}
+
+			if bytes.Compare(key, keyPrefix) < 1 {
+				return path, l, i - 1, nil
 			}
 		}
 
-		if !descOrder || len(l.values) == 0 {
-			return nil, nil, 0, ErrKeyNotFound
-		}
-
-		return path, l, len(l.values) - 1, nil
+		return nil, nil, 0, ErrKeyNotFound
 	}
 
-	for i := len(l.values); i > 0; i-- {
-		if bytes.Compare(l.values[i-1].key, keyPrefix) < 1 && bytes.Compare(l.values[i-1].key, neqKey) < 0 {
-			return path, l, i - 1, nil
+	for i, v := range l.values {
+		if len(neqKey) > 0 && bytes.Compare(v.key, neqKey) <= 0 {
+			continue
+		}
+
+		if bytes.Compare(keyPrefix, v.key) < 1 {
+			return path, l, i, nil
 		}
 	}
 
