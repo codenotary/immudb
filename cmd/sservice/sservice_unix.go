@@ -381,7 +381,7 @@ func permissionGuard(path string) error {
 	}
 
 	if !found {
-		return fmt.Errorf(" Check immu* service configuration: %s", path)
+		return fmt.Errorf("service installer tries to modify permissions on a not allowed item. Check immu* service configuration: %s", path)
 	}
 
 	return nil
