@@ -1078,17 +1078,14 @@ func (n *innerNode) split() (node, error) {
 
 	newNode := &innerNode{
 		t:       n.t,
-		nodes:   make([]node, len(n.nodes)-splitIndex),
+		nodes:   n.nodes[splitIndex:],
 		_maxKey: n._maxKey,
 		maxSize: n.maxSize,
 		mut:     true,
 	}
-	copy(newNode.nodes, n.nodes[splitIndex:])
 	newNode.updateTs()
 
-	nodes := make([]node, splitIndex)
-	copy(nodes, n.nodes[:splitIndex])
-	n.nodes = nodes
+	n.nodes = n.nodes[:splitIndex]
 
 	n._maxKey = n.nodes[splitIndex-1].maxKey()
 	n.updateTs()
@@ -1439,18 +1436,15 @@ func (l *leafNode) split() (node, error) {
 	newLeaf := &leafNode{
 		t:        l.t,
 		prevNode: l.prevNode,
-		values:   make([]*leafValue, len(l.values)-splitIndex),
+		values:   l.values[splitIndex:],
 		_maxKey:  l._maxKey,
 		maxSize:  l.maxSize,
 		keySpace: l.keySpace,
 		mut:      true,
 	}
-	copy(newLeaf.values, l.values[splitIndex:])
 	newLeaf.updateTs()
 
-	values := make([]*leafValue, splitIndex)
-	copy(values, l.values[:splitIndex])
-	l.values = values
+	l.values = l.values[:splitIndex]
 
 	l._maxKey = l.values[splitIndex-1].key
 	l.updateTs()
