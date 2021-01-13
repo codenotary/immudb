@@ -404,7 +404,7 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 		return nil, err
 	}
 
-	var prevNode *nodeRef
+	var prevNode node
 	if int64(prevNodeOff) >= 0 {
 		prevNode = &nodeRef{
 			t:   t,
