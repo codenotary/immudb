@@ -24,10 +24,9 @@ import (
 )
 
 func TestSnapshotSerialization(t *testing.T) {
-	insertionCountThld := 100_000
+	insertionCountThld := 10_000
 
 	tbtree, err := Open("test_tree_w", DefaultOptions().
-		WithMaxNodeSize(MinNodeSize).
 		WithFlushThld(insertionCountThld))
 
 	require.NoError(t, err)

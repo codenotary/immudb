@@ -186,6 +186,21 @@ func (n *innerNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64)
 	if writeOpts.commitLog {
 		n.off = writeOpts.BaseOffset + cw
 		n.mut = false
+
+		nodes := make([]node, len(n.nodes))
+
+		for i, c := range n.nodes {
+			nodes[i] = &nodeRef{
+				t:       n.t,
+				_maxKey: c.maxKey(),
+				_ts:     c.ts(),
+				_size:   c.size(),
+				off:     c.offset(),
+			}
+		}
+
+		n.nodes = nodes
+
 		n.t.cachePut(n)
 	}
 
@@ -226,6 +241,7 @@ func (l *leafNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) 
 				if err != nil {
 					return 0, w, err
 				}
+
 				prevNodeOff = o
 				cw = w
 			} else {
@@ -273,6 +289,17 @@ func (l *leafNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) 
 	if writeOpts.commitLog {
 		l.off = writeOpts.BaseOffset + cw
 		l.mut = false
+
+		if l.prevNode != nil {
+			l.prevNode = &nodeRef{
+				t:       l.t,
+				_maxKey: l.prevNode.maxKey(),
+				_ts:     l.prevNode.ts(),
+				_size:   l.prevNode.size(),
+				off:     l.prevNode.offset(),
+			}
+		}
+
 		l.t.cachePut(l)
 	}
 
