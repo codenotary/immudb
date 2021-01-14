@@ -77,7 +77,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 				}
 
 				// check key does not exists or it's already a reference
-				entry, err := d.getAt(EncodeKey(x.Ref.Key), x.Ref.AtTx, 0, snap, d.tx1)
+				entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, snap, d.tx1)
 				if err != nil && err != store.ErrKeyNotFound {
 					return nil, err
 				}
