@@ -63,7 +63,8 @@ type TBtree struct {
 
 	// bloom filter
 
-	root               node
+	root node
+
 	maxNodeSize        int
 	keyHistorySpace    int
 	insertionCount     int
@@ -71,10 +72,15 @@ type TBtree struct {
 	maxActiveSnapshots int
 	renewSnapRootAfter time.Duration
 	readOnly           bool
-	snapshots          map[uint64]*Snapshot
-	maxSnapshotID      uint64
-	lastSnapRoot       node
-	lastSnapRootAt     time.Time
+	synced             bool
+	cacheSize          int
+	fileSize           int
+	fileMode           os.FileMode
+
+	snapshots      map[uint64]*Snapshot
+	maxSnapshotID  uint64
+	lastSnapRoot   node
+	lastSnapRootAt time.Time
 
 	committedNLogSize int64
 
@@ -229,7 +235,11 @@ func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) 
 		flushThld:          opts.flushThld,
 		renewSnapRootAfter: opts.renewSnapRootAfter,
 		maxActiveSnapshots: opts.maxActiveSnapshots,
+		fileSize:           opts.fileSize,
+		cacheSize:          opts.cacheSize,
+		fileMode:           opts.fileMode,
 		readOnly:           opts.readOnly,
+		synced:             opts.synced,
 		snapshots:          make(map[uint64]*Snapshot),
 	}
 
@@ -257,6 +267,19 @@ func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) 
 	t.root = root
 
 	return t, nil
+}
+
+func (t *TBtree) GetOptions() *Options {
+	return DefaultOptions().
+		WithReadOnly(t.readOnly).
+		WithFileMode(t.fileMode).
+		WithFileSize(t.fileSize).
+		WithSynced(t.synced).
+		WithCacheSize(t.cacheSize).
+		WithFlushThld(t.flushThld).
+		WithMaxActiveSnapshots(t.maxActiveSnapshots).
+		WithMaxNodeSize(t.maxNodeSize).
+		WithRenewSnapRootAfter(t.renewSnapRootAfter)
 }
 
 func (t *TBtree) cachePut(n node) {
@@ -610,7 +633,11 @@ func (t *TBtree) flushTree() (int64, error) {
 	return n, nil
 }
 
-func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os.FileMode) error {
+func (t *TBtree) DumpTo(path string, onlyMutated bool) error {
+	return t.DumpToWith(path, onlyMutated, t.fileSize, t.fileMode)
+}
+
+func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMode os.FileMode) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
