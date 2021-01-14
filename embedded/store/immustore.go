@@ -1121,6 +1121,9 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 }
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
+	s.txLogMutex.Lock()
+	defer s.txLogMutex.Unlock()
+
 	if txID == 0 {
 		return 0, 0, ErrIllegalArguments
 	}
@@ -1151,13 +1154,13 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
-	s.txLogMutex.Lock()
-	defer s.txLogMutex.Unlock()
-
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
 		return err
 	}
+
+	s.txLogMutex.Lock()
+	defer s.txLogMutex.Unlock()
 
 	txReader := appendable.NewReaderFrom(s.txLog, txOff, txSize)
 
