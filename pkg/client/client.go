@@ -1251,6 +1251,21 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 
 	return result, err
 }
+
+func (c *immuClient) CleanIndex(ctx context.Context, db string) error {
+	start := time.Now()
+
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+
+	_, err := c.ServiceClient.CleanIndex(ctx, &schema.CleanIndexRequest{Databasename: db})
+
+	c.Logger.Debugf("CleanIndex finished in %s", time.Since(start))
+
+	return err
+}
+
 func (c *immuClient) ChangePermission(ctx context.Context, action schema.PermissionAction, username string, database string, permissions uint32) error {
 	start := time.Now()
 

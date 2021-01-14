@@ -62,6 +62,7 @@ type DB interface {
 	Scan(req *schema.ScanRequest) (*schema.Entries, error)
 	Close() error
 	GetOptions() *DbOptions
+	CleanIndex() error
 }
 
 //IDB database instance
@@ -130,6 +131,11 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 	db.tx2 = db.st.NewTx()
 
 	return db, nil
+}
+
+// CleanIndex ...
+func (d *db) CleanIndex() error {
+	return d.st.CleanIndex()
 }
 
 // Set ...

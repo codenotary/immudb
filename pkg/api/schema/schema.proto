@@ -318,6 +318,10 @@ message UseDatabaseReply{
 	string token = 1;
 }
 
+message CleanIndexRequest {
+	string databasename = 1;
+}
+
 enum PermissionAction {
 	GRANT = 0;
 	REVOKE = 1;
@@ -554,6 +558,12 @@ service ImmuService {
 	rpc UseDatabase(Database) returns (UseDatabaseReply) {
 		option (google.api.http) = {
 			get: "/v1/immurestproxy/db/use/{databasename}"
+		};
+	}
+
+	rpc CleanIndex(CleanIndexRequest) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/db/cleanindex/{databasename}"
 		};
 	}
 
