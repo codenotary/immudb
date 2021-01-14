@@ -130,33 +130,35 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-func (s *Snapshot) WriteTo(w io.Writer, writeOpts *WriteOpts) (off int64, tw int64, err error) {
-	return s.root.writeTo(w, writeOpts, make(map[node]int64))
+func (s *Snapshot) WriteTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
+	return s.root.writeTo(nw, hw, writeOpts)
 }
 
-func (n *innerNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) (off int64, tw int64, err error) {
+func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && !n.mutated() {
-		return n.off, 0, nil
+		return n.off, 0, 0, nil
 	}
 
-	var cw int64
+	var cnw, chw int64
 
 	offsets := make([]int64, len(n.nodes))
 
 	for i, c := range n.nodes {
 		wopts := &WriteOpts{
-			OnlyMutated: writeOpts.OnlyMutated,
-			BaseOffset:  writeOpts.BaseOffset + cw,
-			commitLog:   writeOpts.commitLog,
+			OnlyMutated:    writeOpts.OnlyMutated,
+			BaseNLogOffset: writeOpts.BaseNLogOffset + cnw,
+			BaseHLogOffset: writeOpts.BaseHLogOffset + chw,
+			commitLog:      writeOpts.commitLog,
 		}
 
-		o, w, err := c.writeTo(w, wopts, make(map[node]int64))
+		no, wn, wh, err := c.writeTo(nw, hw, wopts)
 		if err != nil {
-			return 0, w, err
+			return 0, wn, wh, err
 		}
 
-		offsets[i] = o
-		cw += w
+		offsets[i] = no
+		cnw += wn
+		chw += wh
 	}
 
 	size := n.size()
@@ -178,13 +180,16 @@ func (n *innerNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64)
 		bi += n
 	}
 
-	wn, err := w.Write(buf[:bi])
+	wn, err := nw.Write(buf[:bi])
 	if err != nil {
-		return 0, int64(wn), err
+		return 0, int64(wn), chw, err
 	}
 
+	wN = cnw + int64(size)
+	nOff = writeOpts.BaseNLogOffset + cnw
+
 	if writeOpts.commitLog {
-		n.off = writeOpts.BaseOffset + cw
+		n.off = writeOpts.BaseNLogOffset + cnw
 		n.mut = false
 
 		nodes := make([]node, len(n.nodes))
@@ -204,17 +209,12 @@ func (n *innerNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64)
 		n.t.cachePut(n)
 	}
 
-	tw = cw + int64(size)
-	off = writeOpts.BaseOffset + cw
-
-	m[n] = off
-
-	return off, tw, nil
+	return nOff, wN, chw, nil
 }
 
-func (l *leafNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) (off int64, tw int64, err error) {
+func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated && !l.mutated() {
-		return l.off, 0, nil
+		return l.off, 0, 0, nil
 	}
 
 	size := l.size()
@@ -227,34 +227,10 @@ func (l *leafNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) 
 	binary.BigEndian.PutUint32(buf[bi:], uint32(size)) // Size
 	bi += 4
 
-	var cw int64
-	prevNodeOff := int64(-1)
-
-	if l.prevNode != nil {
-		prevOff, written := m[l.prevNode]
-
-		if written {
-			prevNodeOff = prevOff
-		} else {
-			if l.prevNode.mutated() || !writeOpts.OnlyMutated {
-				o, w, err := l.prevNode.writeTo(w, writeOpts, m)
-				if err != nil {
-					return 0, w, err
-				}
-
-				prevNodeOff = o
-				cw = w
-			} else {
-				prevNodeOff = l.prevNode.offset()
-			}
-		}
-	}
-
-	binary.BigEndian.PutUint64(buf[bi:], uint64(prevNodeOff))
-	bi += 8
-
 	binary.BigEndian.PutUint32(buf[bi:], uint32(len(l.values)))
 	bi += 4
+
+	accH := int64(0)
 
 	for _, v := range l.values {
 		binary.BigEndian.PutUint32(buf[bi:], uint32(len(v.key)))
@@ -272,65 +248,80 @@ func (l *leafNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) 
 		binary.BigEndian.PutUint64(buf[bi:], v.ts)
 		bi += 8
 
-		binary.BigEndian.PutUint32(buf[bi:], uint32(len(v.tss)))
-		bi += 4
+		hOff := int64(-1)
 
-		for i := 0; i < len(v.tss); i++ {
-			binary.BigEndian.PutUint64(buf[bi:], v.tss[i])
-			bi += 8
+		if len(v.tss) > 0 {
+			hbuf := make([]byte, 4+len(v.tss)*8+8)
+			hi := 0
+
+			binary.BigEndian.PutUint32(hbuf[hi:], uint32(len(v.tss)))
+			hi += 4
+
+			for _, ts := range v.tss {
+				binary.BigEndian.PutUint64(hbuf[hi:], uint64(ts))
+				hi += 8
+			}
+
+			binary.BigEndian.PutUint64(hbuf[hi:], uint64(v.hOff))
+			hi += 8
+
+			n, err := hw.Write(hbuf[:])
+			if err != nil {
+				return 0, 0, int64(n), err
+			}
+
+			hOff = writeOpts.BaseHLogOffset + accH
+
+			accH += int64(n)
+		}
+
+		binary.BigEndian.PutUint64(buf[bi:], uint64(hOff))
+		bi += 8
+
+		if writeOpts.commitLog {
+			v.tss = nil
+			v.hOff = hOff
 		}
 	}
 
-	n, err := w.Write(buf[:bi])
+	n, err := nw.Write(buf[:bi])
 	if err != nil {
-		return 0, int64(n), err
+		return 0, int64(n), accH, err
 	}
+
+	wN += int64(size)
+	nOff = writeOpts.BaseNLogOffset
 
 	if writeOpts.commitLog {
-		l.off = writeOpts.BaseOffset + cw
+		l.off = writeOpts.BaseNLogOffset
 		l.mut = false
-
-		if l.prevNode != nil {
-			l.prevNode = &nodeRef{
-				t:       l.t,
-				_maxKey: l.prevNode.maxKey(),
-				_ts:     l.prevNode.ts(),
-				_size:   l.prevNode.size(),
-				off:     l.prevNode.offset(),
-			}
-		}
 
 		l.t.cachePut(l)
 	}
 
-	tw = cw + int64(size)
-	off = writeOpts.BaseOffset + cw
-
-	m[l] = off
-
-	return off, tw, nil
+	return nOff, wN, accH, nil
 }
 
-func (n *nodeRef) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) (int64, int64, error) {
+func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error) {
 	if writeOpts.OnlyMutated {
-		return n.offset(), 0, nil
+		return n.offset(), 0, 0, nil
 	}
 
 	node, err := n.t.nodeAt(n.off)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 
-	off, tw, err := node.writeTo(w, writeOpts, m)
+	off, wn, wh, err := node.writeTo(nw, hw, writeOpts)
 	if err != nil {
-		return 0, tw, err
+		return 0, wn, wh, err
 	}
 
 	if writeOpts.commitLog {
 		n.off = off
 	}
 
-	return off, tw, nil
+	return off, wn, wh, nil
 }
 
 func writeNodeRefToWithOffset(n node, offset int64, buf []byte) int {

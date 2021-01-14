@@ -28,8 +28,6 @@ const DefaultCacheSize = 100_000
 const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
 
-const DefaultKeyHistorySpace = 32 // ts trace len per key, number of key updates traced within a same key and leaf node
-
 const MinNodeSize = 96
 const MinCacheSize = 1
 
@@ -43,9 +41,8 @@ type Options struct {
 	fileMode           os.FileMode
 
 	// options below are only set during initialization and stored as metadata
-	maxNodeSize     int
-	keyHistorySpace int
-	fileSize        int
+	maxNodeSize int
+	fileSize    int
 }
 
 func DefaultOptions() *Options {
@@ -59,16 +56,14 @@ func DefaultOptions() *Options {
 		fileMode:           DefaultFileMode,
 
 		// options below are only set during initialization and stored as metadata
-		maxNodeSize:     DefaultMaxNodeSize,
-		keyHistorySpace: DefaultKeyHistorySpace,
-		fileSize:        DefaultFileSize,
+		maxNodeSize: DefaultMaxNodeSize,
+		fileSize:    DefaultFileSize,
 	}
 }
 
 func validOptions(opts *Options) bool {
 	return opts != nil &&
 		opts.maxNodeSize >= MinNodeSize &&
-		opts.keyHistorySpace >= 0 &&
 		opts.flushThld > 0 &&
 		opts.maxActiveSnapshots > 0 &&
 		opts.renewSnapRootAfter >= 0 &&
@@ -112,11 +107,6 @@ func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 
 func (opts *Options) WithMaxNodeSize(maxNodeSize int) *Options {
 	opts.maxNodeSize = maxNodeSize
-	return opts
-}
-
-func (opts *Options) WithKeyHistorySpace(keyHistorySpace int) *Options {
-	opts.keyHistorySpace = keyHistorySpace
 	return opts
 }
 
