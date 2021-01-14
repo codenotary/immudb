@@ -527,6 +527,7 @@
 | key | [bytes](#bytes) |  |  |
 | referencedKey | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
+| boundRef | [bool](#bool) |  |  |
 
 
 
@@ -875,6 +876,7 @@
 | score | [double](#double) |  |  |
 | key | [bytes](#bytes) |  |  |
 | atTx | [uint64](#uint64) |  |  |
+| boundRef | [bool](#bool) |  |  |
 
 
 

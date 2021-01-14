@@ -76,6 +76,10 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 					return nil, store.ErrIllegalArguments
 				}
 
+				if x.Ref.AtTx > 0 && !x.Ref.BoundRef {
+					return nil, store.ErrIllegalArguments
+				}
+
 				// check key does not exists or it's already a reference
 				entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, snap, d.tx1)
 				if err != nil && err != store.ErrKeyNotFound {
@@ -99,10 +103,18 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 					}
 				}
 
-				kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, x.Ref.AtTx)
+				if x.Ref.BoundRef && x.Ref.AtTx == 0 {
+					kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, txID)
+				} else {
+					kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, x.Ref.AtTx)
+				}
 
 			case *schema.Op_ZAdd:
 				if len(x.ZAdd.Set) == 0 || len(x.ZAdd.Key) == 0 {
+					return nil, store.ErrIllegalArguments
+				}
+
+				if x.ZAdd.AtTx > 0 && !x.ZAdd.BoundRef {
 					return nil, store.ErrIllegalArguments
 				}
 
@@ -122,7 +134,11 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 
 				key := EncodeKey(x.ZAdd.Key)
 
-				kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, x.ZAdd.AtTx)
+				if x.ZAdd.BoundRef && x.ZAdd.AtTx == 0 {
+					kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, txID)
+				} else {
+					kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, x.ZAdd.AtTx)
+				}
 			}
 
 			entries[i] = kv

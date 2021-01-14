@@ -254,6 +254,7 @@ message ReferenceRequest {
 	bytes key = 1;
 	bytes referencedKey = 2;
 	uint64 atTx = 3;
+	bool boundRef = 4;
 }
 
 message VerifiableReferenceRequest {
@@ -266,6 +267,7 @@ message ZAddRequest {
 	double score = 2;
 	bytes key = 3;
 	uint64 atTx = 4;
+	bool boundRef = 5;
 }
 
 message Score {

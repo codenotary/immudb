@@ -133,7 +133,6 @@ func TestExecAllOps(t *testing.T) {
 		}
 
 		for i := 0; i < batchSize; i++ {
-
 			atomicOps[i+batchSize] = &schema.Op{
 				Operation: &schema.Op_ZAdd{
 					ZAdd: &schema.ZAddRequest{
@@ -190,16 +189,18 @@ func TestExecAllOpsZAddOnMixedAlreadyPersitedNotPersistedItems(t *testing.T) {
 					ZAdd: &schema.ZAddRequest{
 						Set:   []byte(`mySet`),
 						Score: 0.6,
-						Key:   []byte(`notPersistedKey`)},
+						Key:   []byte(`notPersistedKey`),
+					},
 				},
 			},
 			{
 				Operation: &schema.Op_ZAdd{
 					ZAdd: &schema.ZAddRequest{
-						Set:   []byte(`mySet`),
-						Score: 0.6,
-						Key:   []byte(`persistedKey`),
-						AtTx:  idx.Id,
+						Set:      []byte(`mySet`),
+						Score:    0.6,
+						Key:      []byte(`persistedKey`),
+						AtTx:     idx.Id,
+						BoundRef: true,
 					},
 				},
 			},
@@ -259,10 +260,11 @@ func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
 			{
 				Operation: &schema.Op_ZAdd{
 					ZAdd: &schema.ZAddRequest{
-						Set:   []byte("set"),
-						Key:   []byte(`key`),
-						Score: 5.6,
-						AtTx:  4,
+						Set:      []byte("set"),
+						Key:      []byte(`key`),
+						Score:    5.6,
+						AtTx:     4,
+						BoundRef: true,
 					},
 				},
 			},
@@ -833,6 +835,7 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 						Key:           []byte(`myReference`),
 						ReferencedKey: []byte(`persistedKey`),
 						AtTx:          idx0.Id,
+						BoundRef:      true,
 					},
 				},
 			},
@@ -849,6 +852,7 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 						Key:           []byte(`myReference1`),
 						ReferencedKey: []byte(`myReference`),
 						AtTx:          idx1.Id,
+						BoundRef:      true,
 					},
 				},
 			},
@@ -865,6 +869,7 @@ func TestOps_ReferenceKeyAlreadyPersisted(t *testing.T) {
 						Key:           []byte(`persistedKey`),
 						ReferencedKey: []byte(`persistedKey`),
 						AtTx:          idx0.Id,
+						BoundRef:      true,
 					},
 				},
 			},

@@ -115,24 +115,26 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	i2, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`secondValue`)}}})
 	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
 
-	i, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`SignerId1`), AtTx: i1.Id})
+	i, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`SignerId1`), AtTx: i1.Id, BoundRef: true})
 	require.NoError(t, err)
 
 	zaddOpts := &schema.ZAddRequest{
-		Set:   []byte(`hashA`),
-		Score: float64(1),
-		Key:   []byte(`myTag1`),
-		AtTx:  i.Id,
+		Set:      []byte(`hashA`),
+		Score:    float64(1),
+		Key:      []byte(`myTag1`),
+		AtTx:     i.Id,
+		BoundRef: true,
 	}
 
 	reference1, err := db.ZAdd(zaddOpts)
 	require.Equal(t, ErrReferencedKeyCannotBeAReference, err)
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:   []byte(`hashA`),
-		Score: float64(1),
-		Key:   []byte(`SignerId1`),
-		AtTx:  i1.Id,
+		Set:      []byte(`hashA`),
+		Score:    float64(1),
+		Key:      []byte(`SignerId1`),
+		AtTx:     i1.Id,
+		BoundRef: true,
 	}
 
 	reference1, err1 := db.ZAdd(zaddOpts1)
@@ -141,10 +143,11 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	zaddOpts2 := &schema.ZAddRequest{
-		Key:   []byte(`SignerId1`),
-		Set:   []byte(`hashA`),
-		Score: float64(2),
-		AtTx:  i2.Id,
+		Key:      []byte(`SignerId1`),
+		Set:      []byte(`hashA`),
+		Score:    float64(2),
+		AtTx:     i2.Id,
+		BoundRef: true,
 	}
 
 	reference2, err2 := db.ZAdd(zaddOpts2)
@@ -153,10 +156,11 @@ func TestStoreIndexEqualKeys(t *testing.T) {
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts3 := &schema.ZAddRequest{
-		Key:   []byte(`SignerId2`),
-		Set:   []byte(`hashA`),
-		Score: float64(3),
-		AtTx:  i3.Id,
+		Key:      []byte(`SignerId2`),
+		Set:      []byte(`hashA`),
+		Score:    float64(3),
+		AtTx:     i3.Id,
+		BoundRef: true,
 	}
 
 	reference3, err3 := db.ZAdd(zaddOpts3)
@@ -189,10 +193,11 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	score := float64(1.1)
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:   []byte(`hashA`),
-		Score: score,
-		Key:   []byte(`SignerId1`),
-		AtTx:  i1.Id,
+		Set:      []byte(`hashA`),
+		Score:    score,
+		Key:      []byte(`SignerId1`),
+		AtTx:     i1.Id,
+		BoundRef: true,
 	}
 
 	reference1, err1 := db.ZAdd(zaddOpts1)
@@ -202,10 +207,11 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	zaddOpts2 := &schema.ZAddRequest{
-		Key:   []byte(`SignerId1`),
-		Set:   []byte(`hashA`),
-		Score: score,
-		AtTx:  i2.Id,
+		Key:      []byte(`SignerId1`),
+		Set:      []byte(`hashA`),
+		Score:    score,
+		AtTx:     i2.Id,
+		BoundRef: true,
 	}
 
 	reference2, err2 := db.ZAdd(zaddOpts2)
@@ -215,10 +221,11 @@ func TestStoreIndexEqualKeysEqualScores(t *testing.T) {
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts3 := &schema.ZAddRequest{
-		Key:   []byte(`SignerId2`),
-		Set:   []byte(`hashA`),
-		Score: score,
-		AtTx:  i3.Id,
+		Key:      []byte(`SignerId2`),
+		Set:      []byte(`hashA`),
+		Score:    score,
+		AtTx:     i3.Id,
+		BoundRef: true,
 	}
 
 	reference3, err3 := db.ZAdd(zaddOpts3)
@@ -253,10 +260,11 @@ func TestStoreIndexEqualKeysMismatchError(t *testing.T) {
 	i1, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId1`), Value: []byte(`firstValue`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:   []byte(`hashA`),
-		Score: float64(1),
-		Key:   []byte(`WrongKey`),
-		AtTx:  i1.Id,
+		Set:      []byte(`hashA`),
+		Score:    float64(1),
+		Key:      []byte(`WrongKey`),
+		AtTx:     i1.Id,
+		BoundRef: true,
 	}
 
 	_, err := db.ZAdd(zaddOpts1)
@@ -285,40 +293,46 @@ func TestStore_ZScanPagination(t *testing.T) {
 	i6, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key6`), Value: []byte(`val6`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(1),
-		Key:   []byte(`key1`),
-		AtTx:  i1.Id,
+		Set:      setName,
+		Score:    float64(1),
+		Key:      []byte(`key1`),
+		AtTx:     i1.Id,
+		BoundRef: true,
 	}
 	zaddOpts2 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(1),
-		Key:   []byte(`key2`),
-		AtTx:  i2.Id,
+		Set:      setName,
+		Score:    float64(1),
+		Key:      []byte(`key2`),
+		AtTx:     i2.Id,
+		BoundRef: true,
 	}
 	zaddOpts3 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(2),
-		Key:   []byte(`key3`),
-		AtTx:  i3.Id,
+		Set:      setName,
+		Score:    float64(2),
+		Key:      []byte(`key3`),
+		AtTx:     i3.Id,
+		BoundRef: true,
 	}
 	zaddOpts4 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(2),
-		Key:   []byte(`key4`),
-		AtTx:  i4.Id,
+		Set:      setName,
+		Score:    float64(2),
+		Key:      []byte(`key4`),
+		AtTx:     i4.Id,
+		BoundRef: true,
 	}
 	zaddOpts5 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(2),
-		Key:   []byte(`key5`),
-		AtTx:  i5.Id,
+		Set:      setName,
+		Score:    float64(2),
+		Key:      []byte(`key5`),
+		AtTx:     i5.Id,
+		BoundRef: true,
 	}
 	zaddOpts6 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(3),
-		Key:   []byte(`key6`),
-		AtTx:  i6.Id,
+		Set:      setName,
+		Score:    float64(3),
+		Key:      []byte(`key6`),
+		AtTx:     i6.Id,
+		BoundRef: true,
 	}
 
 	db.ZAdd(zaddOpts1)
@@ -388,40 +402,46 @@ func TestStore_ZScanReversePagination(t *testing.T) {
 	i6, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key6`), Value: []byte(`val6`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(1),
-		Key:   []byte(`key1`),
-		AtTx:  i1.Id,
+		Set:      setName,
+		Score:    float64(1),
+		Key:      []byte(`key1`),
+		AtTx:     i1.Id,
+		BoundRef: true,
 	}
 	zaddOpts2 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(1),
-		Key:   []byte(`key2`),
-		AtTx:  i2.Id,
+		Set:      setName,
+		Score:    float64(1),
+		Key:      []byte(`key2`),
+		AtTx:     i2.Id,
+		BoundRef: true,
 	}
 	zaddOpts3 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(2),
-		Key:   []byte(`key3`),
-		AtTx:  i3.Id,
+		Set:      setName,
+		Score:    float64(2),
+		Key:      []byte(`key3`),
+		AtTx:     i3.Id,
+		BoundRef: true,
 	}
 	zaddOpts4 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(2),
-		Key:   []byte(`key4`),
-		AtTx:  i4.Id,
+		Set:      setName,
+		Score:    float64(2),
+		Key:      []byte(`key4`),
+		AtTx:     i4.Id,
+		BoundRef: true,
 	}
 	zaddOpts5 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(2),
-		Key:   []byte(`key5`),
-		AtTx:  i5.Id,
+		Set:      setName,
+		Score:    float64(2),
+		Key:      []byte(`key5`),
+		AtTx:     i5.Id,
+		BoundRef: true,
 	}
 	zaddOpts6 := &schema.ZAddRequest{
-		Set:   setName,
-		Score: float64(3),
-		Key:   []byte(`key6`),
-		AtTx:  i6.Id,
+		Set:      setName,
+		Score:    float64(3),
+		Key:      []byte(`key6`),
+		AtTx:     i6.Id,
+		BoundRef: true,
 	}
 
 	db.ZAdd(zaddOpts1)
@@ -509,16 +529,18 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 	idx4, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`key1`), Value: []byte(`val1-C`)}}})
 
 	db.ZAdd(&schema.ZAddRequest{
-		Set:   []byte(`mySet`),
-		Score: 0,
-		Key:   []byte(`key1`),
-		AtTx:  idx2.Id,
+		Set:      []byte(`mySet`),
+		Score:    0,
+		Key:      []byte(`key1`),
+		AtTx:     idx2.Id,
+		BoundRef: true,
 	})
 	db.ZAdd(&schema.ZAddRequest{
-		Set:   []byte(`mySet`),
-		Score: 0,
-		Key:   []byte(`key1`),
-		AtTx:  idx0.Id,
+		Set:      []byte(`mySet`),
+		Score:    0,
+		Key:      []byte(`key1`),
+		AtTx:     idx0.Id,
+		BoundRef: true,
 	})
 	db.ZAdd(&schema.ZAddRequest{
 		Set:   []byte(`mySet`),
@@ -531,10 +553,11 @@ func TestStore_ZScanOnEqualKeysWithSameScoreAreReturnedOrderedByTS(t *testing.T)
 		Key:   []byte(`key3`),
 	})
 	meta, _ := db.ZAdd(&schema.ZAddRequest{
-		Set:   []byte(`mySet`),
-		Score: 0,
-		Key:   []byte(`key1`),
-		AtTx:  idx4.Id,
+		Set:      []byte(`mySet`),
+		Score:    0,
+		Key:      []byte(`key1`),
+		AtTx:     idx4.Id,
+		BoundRef: true,
 	})
 
 	ZScanRequest := &schema.ZScanRequest{
@@ -561,10 +584,11 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	i3, _ := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`SignerId2`), Value: []byte(`thirdValue`)}}})
 
 	zaddOpts1 := &schema.ZAddRequest{
-		Set:   []byte(`hashA`),
-		Score: float64(1),
-		Key:   []byte(`SignerId1`),
-		AtTx:  i1.Id,
+		Set:      []byte(`hashA`),
+		Score:    float64(1),
+		Key:      []byte(`SignerId1`),
+		AtTx:     i1.Id,
+		BoundRef: true,
 	}
 
 	reference1, err1 := db.ZAdd(zaddOpts1)
@@ -573,10 +597,11 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	require.NotEmptyf(t, reference1, "Should not be empty")
 
 	zaddOpts2 := &schema.ZAddRequest{
-		Set:   []byte(`hashA`),
-		Score: float64(2),
-		Key:   []byte(`SignerId1`),
-		AtTx:  i2.Id,
+		Set:      []byte(`hashA`),
+		Score:    float64(2),
+		Key:      []byte(`SignerId1`),
+		AtTx:     i2.Id,
+		BoundRef: true,
 	}
 
 	reference2, err2 := db.ZAdd(zaddOpts2)
@@ -585,10 +610,11 @@ func TestStoreZScanOnZAddIndexReference(t *testing.T) {
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
 	zaddOpts3 := &schema.ZAddRequest{
-		Set:   []byte(`hashA`),
-		Score: float64(3),
-		Key:   []byte(`SignerId2`),
-		AtTx:  i3.Id,
+		Set:      []byte(`hashA`),
+		Score:    float64(3),
+		Key:      []byte(`SignerId2`),
+		AtTx:     i3.Id,
+		BoundRef: true,
 	}
 
 	reference3, err3 := db.ZAdd(zaddOpts3)
@@ -633,10 +659,11 @@ func TestStoreVerifiableZAdd(t *testing.T) {
 	require.Equal(t, store.ErrIllegalArguments, err)
 
 	req := &schema.ZAddRequest{
-		Set:   []byte(`set1`),
-		Key:   []byte(`key1`),
-		Score: float64(1.1),
-		AtTx:  i1.Id,
+		Set:      []byte(`set1`),
+		Key:      []byte(`key1`),
+		Score:    float64(1.1),
+		AtTx:     i1.Id,
+		BoundRef: true,
 	}
 
 	vtx, err = db.VerifiableZAdd(&schema.VerifiableZAddRequest{
