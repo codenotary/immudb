@@ -1221,7 +1221,7 @@ func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, er
 		return nil, ErrIllegalArguments
 	}
 
-	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
+	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.txLogMutex}
 
 	txOff, _, err := s.txOffsetAndSize(txID)
 	if err == io.EOF {
