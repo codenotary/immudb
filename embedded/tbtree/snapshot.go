@@ -150,7 +150,7 @@ func (n *innerNode) writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64)
 			commitLog:   writeOpts.commitLog,
 		}
 
-		o, w, err := c.writeTo(w, wopts, m)
+		o, w, err := c.writeTo(w, wopts, make(map[node]int64))
 		if err != nil {
 			return 0, w, err
 		}
