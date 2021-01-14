@@ -122,7 +122,8 @@ type ImmuStore struct {
 	indexerErr  error
 	indexerCond *sync.Cond
 
-	mutex sync.Mutex
+	mutex      sync.Mutex
+	txLogMutex sync.Mutex
 
 	closed bool
 }
@@ -811,6 +812,9 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
+	s.txLogMutex.Lock()
+	defer s.txLogMutex.Unlock()
+
 	// will overrite partially written and uncommitted data
 	s.txLog.SetOffset(s.committedTxLogSize)
 
@@ -1147,12 +1151,8 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
+	s.txLogMutex.Lock()
+	defer s.txLogMutex.Unlock()
 
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
@@ -1221,7 +1221,7 @@ func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, er
 		return nil, ErrIllegalArguments
 	}
 
-	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
+	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.txLogMutex}
 
 	txOff, _, err := s.txOffsetAndSize(txID)
 	if err == io.EOF {
