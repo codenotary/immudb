@@ -1347,6 +1347,9 @@
         "atTx": {
           "type": "string",
           "format": "uint64"
+        },
+        "boundRef": {
+          "type": "boolean"
         }
       }
     },
@@ -1626,6 +1629,9 @@
         "atTx": {
           "type": "string",
           "format": "uint64"
+        },
+        "boundRef": {
+          "type": "boolean"
         }
       }
     },

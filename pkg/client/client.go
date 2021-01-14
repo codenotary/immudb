@@ -916,6 +916,7 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedK
 		Key:           key,
 		ReferencedKey: referencedKey,
 		AtTx:          atTx,
+		BoundRef:      atTx > 0,
 	})
 }
 
@@ -1040,10 +1041,11 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 	defer c.Logger.Debugf("zadd finished in %s", time.Since(start))
 
 	return c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
-		Set:   set,
-		Score: score,
-		Key:   key,
-		AtTx:  atTx,
+		Set:      set,
+		Score:    score,
+		Key:      key,
+		AtTx:     atTx,
+		BoundRef: atTx > 0,
 	})
 }
 

@@ -47,87 +47,107 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 	}
 	defer snap.Close()
 
-	entries := make([]*store.KV, len(req.Operations))
+	callback := func(txID uint64) ([]*store.KV, error) {
+		entries := make([]*store.KV, len(req.Operations))
 
-	// In order to:
-	// * make a memory efficient check system for keys that need to be referenced
-	// * store the index of the future persisted zAdd referenced entries
-	// we build a map in which we store sha256 sum as key and the index as value
-	kmap := make(map[[sha256.Size]byte]bool)
+		// In order to:
+		// * make a memory efficient check system for keys that need to be referenced
+		// * store the index of the future persisted zAdd referenced entries
+		// we build a map in which we store sha256 sum as key and the index as value
+		kmap := make(map[[sha256.Size]byte]bool)
 
-	for i, op := range req.Operations {
+		for i, op := range req.Operations {
 
-		kv := &store.KV{}
+			kv := &store.KV{}
 
-		switch x := op.Operation.(type) {
+			switch x := op.Operation.(type) {
 
-		case *schema.Op_Kv:
-			kmap[sha256.Sum256(x.Kv.Key)] = true
+			case *schema.Op_Kv:
+				kmap[sha256.Sum256(x.Kv.Key)] = true
 
-			if len(x.Kv.Key) == 0 {
-				return nil, store.ErrIllegalArguments
-			}
+				if len(x.Kv.Key) == 0 {
+					return nil, store.ErrIllegalArguments
+				}
 
-			kv = EncodeKV(x.Kv.Key, x.Kv.Value)
+				kv = EncodeKV(x.Kv.Key, x.Kv.Value)
 
-		case *schema.Op_Ref:
-			if len(x.Ref.Key) == 0 || len(x.Ref.ReferencedKey) == 0 {
-				return nil, store.ErrIllegalArguments
-			}
+			case *schema.Op_Ref:
+				if len(x.Ref.Key) == 0 || len(x.Ref.ReferencedKey) == 0 {
+					return nil, store.ErrIllegalArguments
+				}
 
-			// check key does not exists or it's already a reference
-			entry, err := d.getAt(EncodeKey(x.Ref.Key), x.Ref.AtTx, 0, snap, d.tx1)
-			if err != nil && err != store.ErrKeyNotFound {
-				return nil, err
-			}
-			if entry != nil && entry.ReferencedBy == nil {
-				return nil, ErrFinalKeyCannotBeConvertedIntoReference
-			}
+				if x.Ref.AtTx > 0 && !x.Ref.BoundRef {
+					return nil, store.ErrIllegalArguments
+				}
 
-			// reference arguments are converted in regular key value items and then atomically inserted
-			_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
-
-			if !exists || x.Ref.AtTx > 0 {
-				// check referenced key exists and it's not a reference
-				refEntry, err := d.getAt(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, snap, d.tx1)
-				if err != nil {
+				// check key does not exists or it's already a reference
+				entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, snap, d.tx1)
+				if err != nil && err != store.ErrKeyNotFound {
 					return nil, err
 				}
-				if refEntry.ReferencedBy != nil {
-					return nil, ErrReferencedKeyCannotBeAReference
+				if entry != nil && entry.ReferencedBy == nil {
+					return nil, ErrFinalKeyCannotBeConvertedIntoReference
+				}
+
+				// reference arguments are converted in regular key value items and then atomically inserted
+				_, exists := kmap[sha256.Sum256(x.Ref.ReferencedKey)]
+
+				if !exists || x.Ref.AtTx > 0 {
+					// check referenced key exists and it's not a reference
+					refEntry, err := d.getAt(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, snap, d.tx1)
+					if err != nil {
+						return nil, err
+					}
+					if refEntry.ReferencedBy != nil {
+						return nil, ErrReferencedKeyCannotBeAReference
+					}
+				}
+
+				if x.Ref.BoundRef && x.Ref.AtTx == 0 {
+					kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, txID)
+				} else {
+					kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, x.Ref.AtTx)
+				}
+
+			case *schema.Op_ZAdd:
+				if len(x.ZAdd.Set) == 0 || len(x.ZAdd.Key) == 0 {
+					return nil, store.ErrIllegalArguments
+				}
+
+				if x.ZAdd.AtTx > 0 && !x.ZAdd.BoundRef {
+					return nil, store.ErrIllegalArguments
+				}
+
+				// zAdd arguments are converted in regular key value items and then atomically inserted
+				_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
+
+				if !exists || x.ZAdd.AtTx > 0 {
+					// check referenced key exists and it's not a reference
+					refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, snap, d.tx1)
+					if err != nil {
+						return nil, err
+					}
+					if refEntry.ReferencedBy != nil {
+						return nil, ErrReferencedKeyCannotBeAReference
+					}
+				}
+
+				key := EncodeKey(x.ZAdd.Key)
+
+				if x.ZAdd.BoundRef && x.ZAdd.AtTx == 0 {
+					kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, txID)
+				} else {
+					kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, x.ZAdd.AtTx)
 				}
 			}
 
-			kv = EncodeReference(x.Ref.Key, x.Ref.ReferencedKey, x.Ref.AtTx)
-
-		case *schema.Op_ZAdd:
-			if len(x.ZAdd.Set) == 0 || len(x.ZAdd.Key) == 0 {
-				return nil, store.ErrIllegalArguments
-			}
-
-			// zAdd arguments are converted in regular key value items and then atomically inserted
-			_, exists := kmap[sha256.Sum256(x.ZAdd.Key)]
-
-			if !exists || x.ZAdd.AtTx > 0 {
-				// check referenced key exists and it's not a reference
-				refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, snap, d.tx1)
-				if err != nil {
-					return nil, err
-				}
-				if refEntry.ReferencedBy != nil {
-					return nil, ErrReferencedKeyCannotBeAReference
-				}
-			}
-
-			key := EncodeKey(x.ZAdd.Key)
-
-			kv = EncodeZAdd(x.ZAdd.Set, x.ZAdd.Score, key, x.ZAdd.AtTx)
+			entries[i] = kv
 		}
 
-		entries[i] = kv
+		return entries, nil
 	}
 
-	txMetatadata, err := d.st.Commit(entries)
+	txMetatadata, err := d.st.CommitWith(callback)
 	if err != nil {
 		return nil, err
 	}

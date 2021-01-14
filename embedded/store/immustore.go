@@ -122,7 +122,8 @@ type ImmuStore struct {
 	indexerErr  error
 	indexerCond *sync.Cond
 
-	mutex sync.Mutex
+	mutex      sync.Mutex
+	txLogMutex sync.Mutex
 
 	closed bool
 }
@@ -795,6 +796,13 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 		return nil, err
 	}
 
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return nil, ErrAlreadyClosed
+	}
+
 	err = s.commit(tx, r.offsets)
 	if err != nil {
 		return nil, err
@@ -804,12 +812,8 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
+	s.txLogMutex.Lock()
+	defer s.txLogMutex.Unlock()
 
 	// will overrite partially written and uncommitted data
 	s.txLog.SetOffset(s.committedTxLogSize)
@@ -921,6 +925,65 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	s.indexerCond.Broadcast()
 
 	return nil
+}
+
+func (s *ImmuStore) CommitWith(callback func(txID uint64) ([]*KV, error)) (*TxMetadata, error) {
+	if callback == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	txID := s.committedTxID + 1
+
+	entries, err := callback(txID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.validateEntries(entries)
+	if err != nil {
+		return nil, err
+	}
+
+	appendableCh := make(chan appendableResult)
+	go s.appendData(entries, appendableCh)
+
+	tx, err := s.fetchAllocTx()
+	if err != nil {
+		return nil, err
+	}
+	defer s.releaseAllocTx(tx)
+
+	tx.nentries = len(entries)
+
+	for i, e := range entries {
+		txe := tx.entries[i]
+		txe.keyLen = len(e.Key)
+		copy(txe.key, e.Key)
+		txe.ValueLen = len(e.Value)
+		txe.HValue = sha256.Sum256(e.Value)
+	}
+
+	tx.BuildHashTree()
+
+	r := <-appendableCh // wait for data to be writen
+	err = r.err
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.commit(tx, r.offsets)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.Metadata(), nil
 }
 
 type DualProof struct {
@@ -1058,6 +1121,9 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 }
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
+	s.txLogMutex.Lock()
+	defer s.txLogMutex.Unlock()
+
 	if txID == 0 {
 		return 0, 0, ErrIllegalArguments
 	}
@@ -1088,17 +1154,13 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
-
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
 		return err
 	}
+
+	s.txLogMutex.Lock()
+	defer s.txLogMutex.Unlock()
 
 	txReader := appendable.NewReaderFrom(s.txLog, txOff, txSize)
 
@@ -1162,7 +1224,7 @@ func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, er
 		return nil, ErrIllegalArguments
 	}
 
-	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
+	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.txLogMutex}
 
 	txOff, _, err := s.txOffsetAndSize(txID)
 	if err == io.EOF {

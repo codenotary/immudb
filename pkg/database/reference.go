@@ -32,6 +32,10 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 		return nil, store.ErrIllegalArguments
 	}
 
+	if (req.AtTx == 0 && req.BoundRef) || (req.AtTx > 0 && !req.BoundRef) {
+		return nil, store.ErrIllegalArguments
+	}
+
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 

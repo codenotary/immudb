@@ -97,7 +97,7 @@ func TestStore_GetReferenceWithIndexResolution(t *testing.T) {
 	_, err = db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`value2`)}}})
 	require.NoError(t, err)
 
-	ref, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`aaa`), AtTx: set.Id})
+	ref, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`aaa`), AtTx: set.Id, BoundRef: true})
 	require.NoError(t, err)
 
 	tag3, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref.Id})
@@ -113,7 +113,7 @@ func TestStoreInvalidReferenceToReference(t *testing.T) {
 	req := &schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`firstKey`), Value: []byte(`firstValue`)}}}
 	meta, err := db.Set(req)
 
-	ref1, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`firstKey`), AtTx: meta.Id})
+	ref1, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`firstKey`), AtTx: meta.Id, BoundRef: true})
 	require.NoError(t, err)
 
 	_, err = db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref1.Id})
@@ -150,6 +150,7 @@ func TestStoreReferenceAsyncCommit(t *testing.T) {
 			Key:           tag,
 			ReferencedKey: itemKey,
 			AtTx:          atTx,
+			BoundRef:      true,
 		}
 
 		ref, err := db.SetReference(refOpts)
@@ -194,6 +195,7 @@ func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
 		Key:           []byte(`myTag1`),
 		ReferencedKey: []byte(`firstKey`),
 		AtTx:          idx0.Id,
+		BoundRef:      true,
 	}
 
 	reference1, err := db.SetReference(refOpts1)
@@ -205,6 +207,7 @@ func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
 		Key:           []byte(`myTag2`),
 		ReferencedKey: []byte(`firstKey`),
 		AtTx:          idx0.Id,
+		BoundRef:      true,
 	}
 	reference2, err := db.SetReference(refOpts2)
 	require.NoError(t, err)
@@ -215,6 +218,7 @@ func TestStoreMultipleReferenceOnSameKey(t *testing.T) {
 		Key:           []byte(`myTag3`),
 		ReferencedKey: []byte(`secondKey`),
 		AtTx:          idx1.Id,
+		BoundRef:      true,
 	}
 	reference3, err := db.SetReference(refOpts3)
 	require.NoError(t, err)
@@ -247,10 +251,10 @@ func TestStoreIndexReference(t *testing.T) {
 	idx2, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item2`)}}})
 	require.NoError(t, err)
 
-	ref, err := db.SetReference(&schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`myTag1`), AtTx: idx1.Id})
+	ref, err := db.SetReference(&schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`myTag1`), AtTx: idx1.Id, BoundRef: true})
 	require.NoError(t, err)
 
-	ref, err = db.SetReference(&schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`myTag2`), AtTx: idx2.Id})
+	ref, err = db.SetReference(&schema.ReferenceRequest{ReferencedKey: []byte(`aaa`), Key: []byte(`myTag2`), AtTx: idx2.Id, BoundRef: true})
 	require.NoError(t, err)
 
 	tag1, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag1`), SinceTx: ref.Id})
@@ -267,7 +271,7 @@ func TestStoreIndexReference(t *testing.T) {
 func TestStoreReferenceKeyNotProvided(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
-	_, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), AtTx: 123})
+	_, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), AtTx: 123, BoundRef: true})
 	require.Equal(t, store.ErrIllegalArguments, err)
 }
 
@@ -284,7 +288,7 @@ func TestStore_GetOnReferenceOnSameKeyReturnsAlwaysLastValue(t *testing.T) {
 	_, err = db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag1`), ReferencedKey: []byte(`aaa`)})
 	require.NoError(t, err)
 
-	ref, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag2`), ReferencedKey: []byte(`aaa`), AtTx: idx1.Id})
+	ref, err := db.SetReference(&schema.ReferenceRequest{Key: []byte(`myTag2`), ReferencedKey: []byte(`aaa`), AtTx: idx1.Id, BoundRef: true})
 	require.NoError(t, err)
 
 	tag2, err := db.Get(&schema.KeyRequest{Key: []byte(`myTag2`), SinceTx: ref.Id})
