@@ -83,6 +83,8 @@ type ImmuClient interface {
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
+	CleanIndex(ctx context.Context, req *schema.CleanIndexRequest) error
+
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 
 	Set(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
@@ -1252,14 +1254,14 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	return result, err
 }
 
-func (c *immuClient) CleanIndex(ctx context.Context, db string) error {
+func (c *immuClient) CleanIndex(ctx context.Context, req *schema.CleanIndexRequest) error {
 	start := time.Now()
 
 	if !c.IsConnected() {
 		return ErrNotConnected
 	}
 
-	_, err := c.ServiceClient.CleanIndex(ctx, &schema.CleanIndexRequest{Databasename: db})
+	_, err := c.ServiceClient.CleanIndex(ctx, req)
 
 	c.Logger.Debugf("CleanIndex finished in %s", time.Since(start))
 

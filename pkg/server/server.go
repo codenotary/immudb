@@ -1293,7 +1293,7 @@ func (s *ImmuServer) CleanIndex(ctx context.Context, req *schema.CleanIndexReque
 
 	err = s.dbList.GetByIndex(ind).CleanIndex()
 
-	return nil, err
+	return &empty.Empty{}, err
 }
 
 //ChangePermission grant or revoke user permissions on databases

@@ -31,7 +31,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Aliases: []string{"d"},
 		//PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"list", "create", "use"},
+		ValidArgs:         []string{"list", "create", "use", "clean"},
 	}
 	ccd := &cobra.Command{
 		Use:               "list",
@@ -108,6 +108,31 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Args: cobra.MaximumNArgs(2),
 	}
 
+	ccc := &cobra.Command{
+		Use:               "clean command",
+		Short:             "Clean database index",
+		Example:           "clean {database_name}",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		ValidArgs:         []string{"databasename"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := cl.immuClient.CleanIndex(cl.context, &schema.CleanIndexRequest{
+				Databasename: args[0],
+			})
+			if err != nil {
+				cl.quit(err)
+			}
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Database index successfully cleaned\n")
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+
+	ccmd.AddCommand(ccc)
 	ccmd.AddCommand(ccu)
 	ccmd.AddCommand(ccd)
 	ccmd.AddCommand(cc)
