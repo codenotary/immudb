@@ -24,11 +24,16 @@ type MockedAppendable struct {
 	FlushFn     func() error
 	SyncFn      func() error
 	ReadAtFn    func(bs []byte, off int64) (int, error)
+	CopyFn      func(dstPath string) error
 	CloseFn     func() error
 }
 
 func (a *MockedAppendable) Metadata() []byte {
 	return a.MetadataFn()
+}
+
+func (a *MockedAppendable) Copy(dstPath string) error {
+	return a.CopyFn(dstPath)
 }
 
 func (a *MockedAppendable) Size() (int64, error) {

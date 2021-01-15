@@ -184,6 +184,16 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 	}, nil
 }
 
+func (aof *AppendableFile) Copy(dstPath string) error {
+	dstFile, err := os.Create(dstPath)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(dstFile, aof.f)
+	return err
+}
+
 func (aof *AppendableFile) CompressionFormat() int {
 	return aof.compressionFormat
 }

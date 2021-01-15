@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -139,6 +140,43 @@ func appendableName(appID int64, ext string) string {
 
 func appendableID(off int64, fileSize int) int64 {
 	return off / int64(fileSize)
+}
+
+func (mf *MultiFileAppendable) Copy(dstPath string) error {
+	err := os.MkdirAll(dstPath, mf.fileMode)
+	if err != nil {
+		return err
+	}
+
+	fis, err := ioutil.ReadDir(mf.path)
+	if err != nil {
+		return err
+	}
+
+	for _, fd := range fis {
+		_, err = copyFile(path.Join(mf.path, fd.Name()), path.Join(dstPath, fd.Name()))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func copyFile(srcPath, dstPath string) (int64, error) {
+	dstFile, err := os.Create(dstPath)
+	if err != nil {
+		return 0, err
+	}
+	defer dstFile.Close()
+
+	srcFile, err := os.Open(srcPath)
+	if err != nil {
+		return 0, err
+	}
+	defer srcFile.Close()
+
+	return io.Copy(dstFile, srcFile)
 }
 
 func (mf *MultiFileAppendable) CompressionFormat() int {

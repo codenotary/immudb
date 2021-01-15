@@ -28,6 +28,10 @@ func TestMocked(t *testing.T) {
 		return nil
 	}
 
+	mocked.CopyFn = func(path string) error {
+		return nil
+	}
+
 	mocked.SizeFn = func() (int64, error) {
 		return 0, nil
 	}
@@ -62,6 +66,9 @@ func TestMocked(t *testing.T) {
 
 	md := mocked.Metadata()
 	require.Nil(t, md)
+
+	err := mocked.CopyFn("copy")
+	require.NoError(t, err)
 
 	sz, err := mocked.Size()
 	require.Equal(t, int64(0), sz)
