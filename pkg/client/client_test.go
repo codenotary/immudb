@@ -341,6 +341,7 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.Equal(t, ErrNotConnected, client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd")))
 	require.Equal(t, ErrNotConnected, client.UpdateAuthConfig(ctx, auth.KindPassword))
 	require.Equal(t, ErrNotConnected, client.UpdateMTLSConfig(ctx, false))
+	require.Equal(t, ErrNotConnected, client.CleanIndex(ctx, &schema.CleanIndexRequest{Databasename: "defaultdb"}))
 
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
 	require.Equal(t, ErrNotConnected, err)
@@ -717,6 +718,9 @@ func TestImmuClient_SetAll(t *testing.T) {
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Millisecond)
+
+	err = client.CleanIndex(ctx, &schema.CleanIndexRequest{Databasename: "defaultdb"})
+	require.NoError(t, err)
 
 	for _, kv := range setRequest.KVs {
 		i, err := client.Get(ctx, kv.Key)
