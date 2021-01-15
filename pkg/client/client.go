@@ -538,7 +538,7 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 		return nil, err
 	}
 
-	if kReq.AtTx == 0 {
+	if kReq.SinceTx == 0 && kReq.AtTx == 0 {
 		kReq.SinceTx = state.TxId
 	}
 
