@@ -89,10 +89,10 @@ func testReference(ctx context.Context, t *testing.T, referenceKey []byte, key [
 }
 
 func testVerifiedReference(ctx context.Context, t *testing.T, key []byte, referencedKey []byte, value []byte, client ImmuClient) {
-	_, err2 := client.VerifiedSetReference(ctx, key, referencedKey)
+	md, err2 := client.VerifiedSetReference(ctx, key, referencedKey)
 	require.NoError(t, err2)
 
-	vi, err := client.SafeGet(ctx, key)
+	vi, err := client.VerifiedGetSince(ctx, key, md.Id)
 	require.NoError(t, err)
 	require.NotNil(t, vi)
 	require.Equal(t, referencedKey, vi.Key)
