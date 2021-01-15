@@ -557,6 +557,12 @@ service ImmuService {
 		};
 	}
 
+	rpc CleanIndex(google.protobuf.Empty) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			get: "/v1/immurestproxy/db/cleanindex"
+		};
+	}
+
 	rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/user/changepermission"

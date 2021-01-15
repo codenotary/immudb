@@ -39,14 +39,16 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.NotNil(t, snapshot)
 	require.NoError(t, err)
 
-	dumpBuf := new(bytes.Buffer)
+	dumpNBuf := new(bytes.Buffer)
+	dumpHBuf := new(bytes.Buffer)
 	wopts := &WriteOpts{
-		OnlyMutated: true,
-		BaseOffset:  0,
+		OnlyMutated:    true,
+		BaseNLogOffset: 0,
+		BaseHLogOffset: 0,
 	}
-	_, _, err = snapshot.WriteTo(dumpBuf, wopts)
+	_, _, _, err = snapshot.WriteTo(dumpNBuf, dumpHBuf, wopts)
 	require.NoError(t, err)
-	require.True(t, dumpBuf.Len() == 0)
+	require.True(t, dumpNBuf.Len() == 0)
 
 	_, _, err = snapshot.Get(nil)
 	require.Equal(t, ErrIllegalArguments, err)
@@ -60,20 +62,22 @@ func TestSnapshotSerialization(t *testing.T) {
 	err = snapshot.Close()
 	require.NoError(t, err)
 
-	_, err = tbtree.Flush()
+	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
 	snapshot, err = tbtree.Snapshot()
 	require.NoError(t, err)
 
-	fulldumpBuf := new(bytes.Buffer)
+	fulldumpNBuf := new(bytes.Buffer)
+	fulldumpHBuf := new(bytes.Buffer)
 	wopts = &WriteOpts{
-		OnlyMutated: false,
-		BaseOffset:  0,
+		OnlyMutated:    false,
+		BaseNLogOffset: 0,
+		BaseHLogOffset: 0,
 	}
-	_, _, err = snapshot.WriteTo(fulldumpBuf, wopts)
+	_, _, _, err = snapshot.WriteTo(fulldumpNBuf, fulldumpHBuf, wopts)
 	require.NoError(t, err)
-	require.True(t, fulldumpBuf.Len() > 0)
+	require.True(t, fulldumpNBuf.Len() > 0)
 
 	err = snapshot.Close()
 	require.NoError(t, err)
@@ -120,7 +124,7 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 	keyCount := 1_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
-	err = tbtree.DumpTo("test_tree_dump", false, DefaultFileSize, DefaultFileMode)
+	err = tbtree.DumpTo("test_tree_dump", false)
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_dump")
 

@@ -98,10 +98,14 @@ func TestSingleAppReOpening(t *testing.T) {
 	require.Equal(t, int64(0), off)
 	require.Equal(t, 3, n)
 
+	err = a.Copy("testdata_copy.aof")
+	require.NoError(t, err)
+	defer os.Remove("testdata_copy.aof")
+
 	err = a.Close()
 	require.NoError(t, err)
 
-	a, err = Open("testdata.aof", DefaultOptions().WithReadOnly(true))
+	a, err = Open("testdata_copy.aof", DefaultOptions().WithReadOnly(true))
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -256,6 +260,9 @@ func TestSingleAppEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = a.Size()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = a.Copy("copy.aof")
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = a.SetOffset(0)

@@ -48,35 +48,45 @@ const Version = 1
 const cLogEntrySize = 8 // root node offset
 
 const (
-	MetaVersion        = "VERSION"
-	MetaMaxNodeSize    = "MAX_NODE_SIZE"
-	MetaKeyHistorySize = "KEY_HISTORY_SPACE"
+	MetaVersion     = "VERSION"
+	MetaMaxNodeSize = "MAX_NODE_SIZE"
 )
 
 // TBTree implements a timed-btree
 type TBtree struct {
+	path string
+
 	nLog   appendable.Appendable
 	cache  *cache.LRUCache
 	nmutex sync.Mutex // mutex for cache and file reading
+
+	hLog appendable.Appendable
 
 	cLog appendable.Appendable
 
 	// bloom filter
 
-	root               node
+	root node
+
 	maxNodeSize        int
-	keyHistorySpace    int
+	keyHistorySpace    uint64
 	insertionCount     int
 	flushThld          int
 	maxActiveSnapshots int
 	renewSnapRootAfter time.Duration
 	readOnly           bool
-	snapshots          map[uint64]*Snapshot
-	maxSnapshotID      uint64
-	lastSnapRoot       node
-	lastSnapRootAt     time.Time
+	synced             bool
+	cacheSize          int
+	fileSize           int
+	fileMode           os.FileMode
+
+	snapshots      map[uint64]*Snapshot
+	maxSnapshotID  uint64
+	lastSnapRoot   node
+	lastSnapRootAt time.Time
 
 	committedNLogSize int64
+	committedHLogSize int64
 
 	closed bool
 	mutex  sync.Mutex
@@ -94,13 +104,14 @@ type node interface {
 	size() int
 	mutated() bool
 	offset() int64
-	writeTo(w io.Writer, writeOpts *WriteOpts, m map[node]int64) (int64, int64, error)
+	writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, wN, wH int64, err error)
 }
 
 type WriteOpts struct {
-	OnlyMutated bool
-	BaseOffset  int64
-	commitLog   bool
+	OnlyMutated    bool
+	BaseNLogOffset int64
+	BaseHLogOffset int64
+	commitLog      bool
 }
 
 type innerNode struct {
@@ -114,15 +125,13 @@ type innerNode struct {
 }
 
 type leafNode struct {
-	t        *TBtree
-	prevNode node
-	values   []*leafValue
-	_maxKey  []byte
-	_ts      uint64
-	maxSize  int
-	keySpace int
-	off      int64
-	mut      bool
+	t       *TBtree
+	values  []*leafValue
+	_maxKey []byte
+	_ts     uint64
+	maxSize int
+	off     int64
+	mut     bool
 }
 
 type nodeRef struct {
@@ -138,6 +147,12 @@ type leafValue struct {
 	value []byte
 	ts    uint64
 	tss   []uint64
+	hOff  int64
+}
+
+type hValue struct {
+	tss  []uint64
+	hOff int64
 }
 
 func Open(path string, opts *Options) (*TBtree, error) {
@@ -162,7 +177,6 @@ func Open(path string, opts *Options) (*TBtree, error) {
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, opts.maxNodeSize)
-	metadata.PutInt(MetaKeyHistorySize, opts.keyHistorySpace)
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(opts.readOnly).
@@ -178,6 +192,13 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		return nil, err
 	}
 
+	appendableOpts.WithFileExt("h")
+	hLogPath := filepath.Join(path, "history")
+	hLog, err := multiapp.Open(hLogPath, appendableOpts)
+	if err != nil {
+		return nil, err
+	}
+
 	appendableOpts.WithFileExt("ri")
 	cLogPath := filepath.Join(path, "commit")
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
@@ -185,22 +206,17 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		return nil, err
 	}
 
-	return OpenWith(nLog, cLog, opts)
+	return OpenWith(nLog, hLog, cLog, opts)
 }
 
-func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
-	if nLog == nil || cLog == nil || !validOptions(opts) {
+func OpenWith(nLog, hLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
+	if nLog == nil || hLog == nil || cLog == nil || !validOptions(opts) {
 		return nil, ErrIllegalArguments
 	}
 
 	metadata := appendable.NewMetadata(cLog.Metadata())
 
 	maxNodeSize, ok := metadata.GetInt(MetaMaxNodeSize)
-	if !ok {
-		return nil, ErrCorruptedCLog
-	}
-
-	keyHistorySpace, ok := metadata.GetInt(MetaKeyHistorySize)
 	if !ok {
 		return nil, ErrCorruptedCLog
 	}
@@ -214,6 +230,11 @@ func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) 
 		return nil, ErrCorruptedCLog
 	}
 
+	hLogSize, err := cLog.Size()
+	if err != nil {
+		return nil, err
+	}
+
 	cache, err := cache.NewLRUCache(opts.cacheSize)
 	if err != nil {
 		return nil, err
@@ -221,22 +242,27 @@ func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) 
 
 	t := &TBtree{
 		nLog:               nLog,
+		hLog:               hLog,
 		cLog:               cLog,
 		committedNLogSize:  0,
+		committedHLogSize:  hLogSize,
 		cache:              cache,
 		maxNodeSize:        maxNodeSize,
-		keyHistorySpace:    keyHistorySpace,
 		flushThld:          opts.flushThld,
 		renewSnapRootAfter: opts.renewSnapRootAfter,
 		maxActiveSnapshots: opts.maxActiveSnapshots,
+		fileSize:           opts.fileSize,
+		cacheSize:          opts.cacheSize,
+		fileMode:           opts.fileMode,
 		readOnly:           opts.readOnly,
+		synced:             opts.synced,
 		snapshots:          make(map[uint64]*Snapshot),
 	}
 
 	var root node
 
 	if cLogSize == 0 {
-		root = &leafNode{t: t, maxSize: maxNodeSize, keySpace: keyHistorySpace, mut: true}
+		root = &leafNode{t: t, maxSize: maxNodeSize, mut: true}
 	} else {
 		var b [cLogEntrySize]byte
 		_, err := cLog.ReadAt(b[:], cLogSize-cLogEntrySize)
@@ -257,6 +283,19 @@ func OpenWith(nLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) 
 	t.root = root
 
 	return t, nil
+}
+
+func (t *TBtree) GetOptions() *Options {
+	return DefaultOptions().
+		WithReadOnly(t.readOnly).
+		WithFileMode(t.fileMode).
+		WithFileSize(t.fileSize).
+		WithSynced(t.synced).
+		WithCacheSize(t.cacheSize).
+		WithFlushThld(t.flushThld).
+		WithMaxActiveSnapshots(t.maxActiveSnapshots).
+		WithMaxNodeSize(t.maxNodeSize).
+		WithRenewSnapRootAfter(t.renewSnapRootAfter)
 }
 
 func (t *TBtree) cachePut(n node) {
@@ -399,32 +438,17 @@ func (t *TBtree) readNodeRefFrom(r *appendable.Reader) (*nodeRef, error) {
 }
 
 func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
-	prevNodeOff, err := r.ReadUint64()
-	if err != nil {
-		return nil, err
-	}
-
-	var prevNode node
-	if int64(prevNodeOff) >= 0 {
-		prevNode = &nodeRef{
-			t:   t,
-			off: int64(prevNodeOff),
-		}
-	}
-
 	valueCount, err := r.ReadUint32()
 	if err != nil {
 		return nil, err
 	}
 
 	l := &leafNode{
-		t:        t,
-		prevNode: prevNode,
-		values:   make([]*leafValue, valueCount),
-		_maxKey:  nil,
-		_ts:      0,
-		maxSize:  t.maxNodeSize,
-		keySpace: t.keyHistorySpace,
+		t:       t,
+		values:  make([]*leafValue, valueCount),
+		_maxKey: nil,
+		_ts:     0,
+		maxSize: t.maxNodeSize,
 	}
 
 	for c := 0; c < int(valueCount); c++ {
@@ -455,26 +479,17 @@ func (t *TBtree) readLeafNodeFrom(r *appendable.Reader) (*leafNode, error) {
 			return nil, err
 		}
 
-		tsLen, err := r.ReadUint32()
+		hOff, err := r.ReadUint64()
 		if err != nil {
 			return nil, err
-		}
-
-		tss := make([]uint64, tsLen)
-
-		for i := 0; i < int(tsLen); i++ {
-			t, err := r.ReadUint64()
-			if err != nil {
-				return nil, err
-			}
-			tss[i] = t
 		}
 
 		leafValue := &leafValue{
 			key:   key,
 			value: value,
-			tss:   tss,
 			ts:    ts,
+			tss:   nil,
+			hOff:  int64(hOff),
 		}
 
 		l.values[c] = leafValue
@@ -541,12 +556,12 @@ func (t *TBtree) Sync() error {
 	return t.cLog.Sync()
 }
 
-func (t *TBtree) Flush() (int64, error) {
+func (t *TBtree) Flush() (wN, wH int64, err error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
 	if t.closed {
-		return 0, ErrAlreadyClosed
+		return 0, 0, ErrAlreadyClosed
 	}
 
 	return t.flushTree()
@@ -561,43 +576,50 @@ func (aw *appendableWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func (t *TBtree) flushTree() (int64, error) {
+func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	if !t.root.mutated() {
-		return 0, nil
+		return 0, 0, nil
 	}
 
 	snapshot := t.newSnapshot(0, t.root)
 
 	wopts := &WriteOpts{
-		OnlyMutated: true,
-		BaseOffset:  t.committedNLogSize,
-		commitLog:   true,
+		OnlyMutated:    true,
+		BaseNLogOffset: t.committedNLogSize,
+		BaseHLogOffset: t.committedHLogSize,
+		commitLog:      true,
 	}
 
-	_, n, err := snapshot.WriteTo(&appendableWriter{t.nLog}, wopts)
+	_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	err = t.nLog.Flush()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
+	}
+
+	err = t.hLog.Flush()
+	if err != nil {
+		return 0, 0, err
 	}
 
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(t.root.offset()))
 	_, _, err = t.cLog.Append(cb[:])
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	err = t.cLog.Flush()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	t.insertionCount = 0
-	t.committedNLogSize += n
+	t.committedNLogSize += wN
+	t.committedHLogSize += wH
 
 	t.root = &nodeRef{
 		t:       t,
@@ -607,10 +629,14 @@ func (t *TBtree) flushTree() (int64, error) {
 		off:     t.root.offset(),
 	}
 
-	return n, nil
+	return wN, wH, nil
 }
 
-func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os.FileMode) error {
+func (t *TBtree) DumpTo(path string, onlyMutated bool) error {
+	return t.DumpToWith(path, onlyMutated, t.fileSize, t.fileMode)
+}
+
+func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMode os.FileMode) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -622,7 +648,7 @@ func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os
 		return ErrSnapshotsNotClosed
 	}
 
-	_, err := t.flushTree()
+	_, _, err := t.flushTree()
 	if err != nil {
 		return err
 	}
@@ -644,7 +670,6 @@ func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 	metadata.PutInt(MetaMaxNodeSize, t.maxNodeSize)
-	metadata.PutInt(MetaKeyHistorySize, t.keyHistorySpace)
 
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(false).
@@ -662,8 +687,9 @@ func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os
 	defer nLog.Close()
 
 	wopts := &WriteOpts{
-		OnlyMutated: false,
-		BaseOffset:  0,
+		OnlyMutated:    false,
+		BaseNLogOffset: 0,
+		BaseHLogOffset: 0,
 	}
 
 	snapshot := t.newSnapshot(0, t.root)
@@ -671,10 +697,12 @@ func (t *TBtree) DumpTo(path string, onlyMutated bool, fileSize int, fileMode os
 		return err
 	}
 
-	offset, _, err := snapshot.WriteTo(&appendableWriter{nLog}, wopts)
+	offset, _, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)
 	if err != nil {
 		return err
 	}
+
+	t.hLog.Copy(filepath.Join(path, "history"))
 
 	appendableOpts.WithFileExt("ri")
 	cLogPath := filepath.Join(path, "commit")
@@ -706,7 +734,7 @@ func (t *TBtree) Close() error {
 		return ErrSnapshotsNotClosed
 	}
 
-	_, err := t.flushTree()
+	_, _, err := t.flushTree()
 	if err != nil {
 		return err
 	}
@@ -718,6 +746,11 @@ func (t *TBtree) Close() error {
 	nErr := t.nLog.Close()
 	if nErr != nil {
 		errors = append(errors, nErr)
+	}
+
+	hErr := t.hLog.Close()
+	if hErr != nil {
+		errors = append(errors, hErr)
 	}
 
 	cErr := t.cLog.Close()
@@ -794,7 +827,7 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 	}
 
 	if t.insertionCount >= t.flushThld {
-		_, err := t.flushTree()
+		_, _, err := t.flushTree()
 		return err
 	}
 
@@ -827,7 +860,7 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
 		(t.renewSnapRootAfter > 0 && time.Since(t.lastSnapRootAt) >= t.renewSnapRootAfter) {
 
-		_, err := t.flushTree()
+		_, _, err := t.flushTree()
 		if err != nil {
 			return nil, err
 		}
@@ -1179,10 +1212,7 @@ func (r *nodeRef) offset() int64 {
 ////////////////////////////////////////////////////////////
 
 func (l *leafNode) insertAt(key []byte, value []byte, ts uint64) (n1 node, n2 node, err error) {
-	i, found := l.indexOf(key) // TODO: avoid calling indexOf twice
-	enoughKeySpace := !found || len(l.values[i].tss)+1 < l.keySpace
-
-	if !l.mut || !enoughKeySpace {
+	if !l.mut {
 		return l.copyOnInsertAt(key, value, ts)
 	}
 	return l.updateOnInsertAt(key, value, ts)
@@ -1215,6 +1245,7 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 		value: value,
 		ts:    ts,
 		tss:   []uint64{ts},
+		hOff:  -1,
 	}
 
 	if i+1 < len(values) {
@@ -1233,14 +1264,12 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 
 	if found {
 		newLeaf := &leafNode{
-			t:        l.t,
-			prevNode: l,
-			values:   make([]*leafValue, len(l.values)),
-			_maxKey:  l._maxKey,
-			_ts:      ts,
-			maxSize:  l.maxSize,
-			keySpace: l.keySpace,
-			mut:      true,
+			t:       l.t,
+			values:  make([]*leafValue, len(l.values)),
+			_maxKey: l._maxKey,
+			_ts:     ts,
+			maxSize: l.maxSize,
+			mut:     true,
 		}
 
 		for pi := 0; pi < i; pi++ {
@@ -1248,7 +1277,8 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 				key:   l.values[pi].key,
 				value: l.values[pi].value,
 				ts:    l.values[pi].ts,
-				tss:   nil,
+				tss:   l.values[pi].tss,
+				hOff:  l.values[pi].hOff,
 			}
 		}
 
@@ -1257,6 +1287,7 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 			value: value,
 			ts:    ts,
 			tss:   []uint64{ts},
+			hOff:  -1,
 		}
 
 		for pi := i + 1; pi < len(newLeaf.values); pi++ {
@@ -1264,7 +1295,8 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 				key:   l.values[pi].key,
 				value: l.values[pi].value,
 				ts:    l.values[pi].ts,
-				tss:   nil,
+				tss:   l.values[pi].tss,
+				hOff:  l.values[pi].hOff,
 			}
 		}
 
@@ -1277,14 +1309,12 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 	}
 
 	newLeaf := &leafNode{
-		t:        l.t,
-		prevNode: l,
-		values:   make([]*leafValue, len(l.values)+1),
-		_maxKey:  maxKey,
-		_ts:      ts,
-		maxSize:  l.maxSize,
-		keySpace: l.keySpace,
-		mut:      true,
+		t:       l.t,
+		values:  make([]*leafValue, len(l.values)+1),
+		_maxKey: maxKey,
+		_ts:     ts,
+		maxSize: l.maxSize,
+		mut:     true,
 	}
 
 	for pi := 0; pi < i; pi++ {
@@ -1292,7 +1322,8 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 			key:   l.values[pi].key,
 			value: l.values[pi].value,
 			ts:    l.values[pi].ts,
-			tss:   nil,
+			tss:   l.values[pi].tss,
+			hOff:  l.values[pi].hOff,
 		}
 	}
 
@@ -1301,6 +1332,7 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 		value: value,
 		ts:    ts,
 		tss:   []uint64{ts},
+		hOff:  -1,
 	}
 
 	for pi := i + 1; pi < len(newLeaf.values); pi++ {
@@ -1308,7 +1340,8 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 			key:   l.values[pi-1].key,
 			value: l.values[pi-1].value,
 			ts:    l.values[pi-1].ts,
-			tss:   nil,
+			tss:   l.values[pi-1].tss,
+			hOff:  l.values[pi-1].hOff,
 		}
 	}
 
@@ -1347,12 +1380,35 @@ func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
 		tss[i] = leafValue.tss[len(leafValue.tss)-1-i]
 	}
 
-	if int64(tsLen) < limit && l.prevNode != nil {
-		pts, err := l.prevNode.getTs(key, limit-int64(tsLen))
-		if err != nil && err != ErrKeyNotFound {
+	hOff := leafValue.hOff
+
+	for len(tss) < int(limit) && hOff >= 0 {
+		r := appendable.NewReaderFrom(l.t.hLog, hOff, DefaultMaxNodeSize)
+
+		hc, err := r.ReadUint32()
+		if err != nil {
 			return nil, err
 		}
-		tss = append(tss, pts...)
+
+		for i := 0; i < int(hc); i++ {
+			ts, err := r.ReadUint64()
+			if err != nil {
+				return nil, err
+			}
+			tss = append(tss, ts)
+
+			if len(tss) == int(limit) {
+				break
+			}
+		}
+
+		if len(tss) < int(limit) {
+			prevOff, err := r.ReadUint64()
+			if err != nil {
+				return nil, err
+			}
+			hOff = int64(prevOff)
+		}
 	}
 
 	return tss, nil
@@ -1415,18 +1471,15 @@ func (l *leafNode) size() int {
 
 	size += 4 // Size
 
-	size += 8 // prevNode offset
-
 	size += 4 // kv count
 
 	for _, kv := range l.values {
-		size += 4               // Key length
-		size += len(kv.key)     // Key
-		size += 4               // Value length
-		size += len(kv.value)   // Value
-		size += 8               // Ts
-		size += 4               // ts length
-		size += 8 * len(kv.tss) // Tss
+		size += 4             // Key length
+		size += len(kv.key)   // Key
+		size += 4             // Value length
+		size += len(kv.value) // Value
+		size += 8             // Ts
+		size += 8             // hOff
 	}
 
 	return size
@@ -1448,13 +1501,11 @@ func (l *leafNode) split() (node, error) {
 	splitIndex, _ := l.splitInfo()
 
 	newLeaf := &leafNode{
-		t:        l.t,
-		prevNode: l.prevNode,
-		values:   l.values[splitIndex:],
-		_maxKey:  l._maxKey,
-		maxSize:  l.maxSize,
-		keySpace: l.keySpace,
-		mut:      true,
+		t:       l.t,
+		values:  l.values[splitIndex:],
+		_maxKey: l._maxKey,
+		maxSize: l.maxSize,
+		mut:     true,
 	}
 	newLeaf.updateTs()
 

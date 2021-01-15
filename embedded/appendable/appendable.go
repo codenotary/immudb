@@ -45,4 +45,5 @@ type Appendable interface {
 	Sync() error
 	ReadAt(bs []byte, off int64) (int, error)
 	Close() error
+	Copy(dstPath string) error
 }

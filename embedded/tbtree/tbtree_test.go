@@ -36,52 +36,42 @@ func TestEdgeCases(t *testing.T) {
 	_, err := Open("edge_cases", nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = OpenWith(nil, nil, nil)
+	_, err = OpenWith(nil, nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	nLog := &mocked.MockedAppendable{}
+	hLog := &mocked.MockedAppendable{}
 	cLog := &mocked.MockedAppendable{}
 
 	// Should fail reading maxNodeSize from metadata
 	cLog.MetadataFn = func() []byte {
 		return nil
 	}
-	_, err = OpenWith(nLog, cLog, DefaultOptions())
-	require.Error(t, err)
-
-	// Should fail reading keyHistorySpace from metadata
-	cLog.MetadataFn = func() []byte {
-		md := appendable.NewMetadata(nil)
-		md.PutInt(MetaMaxNodeSize, 1)
-		return md.Bytes()
-	}
-	_, err = OpenWith(nLog, cLog, DefaultOptions())
+	_, err = OpenWith(nLog, hLog, cLog, DefaultOptions())
 	require.Error(t, err)
 
 	// Should fail reading cLogSize
 	cLog.MetadataFn = func() []byte {
 		md := appendable.NewMetadata(nil)
 		md.PutInt(MetaMaxNodeSize, 1)
-		md.PutInt(MetaKeyHistorySize, 1)
 		return md.Bytes()
 	}
 	cLog.SizeFn = func() (int64, error) {
 		return 0, errors.New("error")
 	}
-	_, err = OpenWith(nLog, cLog, DefaultOptions())
+	_, err = OpenWith(nLog, hLog, cLog, DefaultOptions())
 	require.Error(t, err)
 
 	// Should fail validating cLogSize
 	cLog.MetadataFn = func() []byte {
 		md := appendable.NewMetadata(nil)
 		md.PutInt(MetaMaxNodeSize, 1)
-		md.PutInt(MetaKeyHistorySize, 1)
 		return md.Bytes()
 	}
 	cLog.SizeFn = func() (int64, error) {
 		return cLogEntrySize + 1, nil
 	}
-	_, err = OpenWith(nLog, cLog, DefaultOptions())
+	_, err = OpenWith(nLog, hLog, cLog, DefaultOptions())
 	require.Error(t, err)
 
 	opts := DefaultOptions().
@@ -178,7 +168,7 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			err = tbtree.Insert(k, v)
 			require.NoError(t, err)
 
-			_, err = tbtree.Flush()
+			_, _, err = tbtree.Flush()
 			require.NoError(t, err)
 
 			if i%2 == 0 {
@@ -274,7 +264,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		require.Equal(t, v, v0)
 		require.Equal(t, ts, ts0)
 
-		_, err = tbtree.Flush()
+		_, _, err = tbtree.Flush()
 		require.NoError(t, err)
 
 		snapshot, err := tbtree.Snapshot()
@@ -303,7 +293,7 @@ func TestInvalidOpening(t *testing.T) {
 	_, err = Open("tbtree_test.go", DefaultOptions())
 	require.Equal(t, ErrorPathIsNotADirectory, err)
 
-	_, err = OpenWith(nil, nil, nil)
+	_, err = OpenWith(nil, nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 }
 
@@ -313,7 +303,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_iasc")
 
-	_, err = tbtree.Flush()
+	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
 	itCount := 100
@@ -326,13 +316,13 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	err = tbtree.BulkInsert([]*KV{{}})
 	require.Equal(t, err, ErrIllegalArguments)
 
-	_, err = tbtree.Flush()
+	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
 	err = tbtree.Close()
 	require.NoError(t, err)
 
-	_, err = tbtree.Flush()
+	_, _, err = tbtree.Flush()
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Close()
@@ -411,7 +401,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	err = tbtree.Insert(prevk, prevk)
 	require.NoError(t, err)
 
-	_, err = tbtree.Flush()
+	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
 	snapshot, err = tbtree.Snapshot()

@@ -12,6 +12,28 @@
     "application/json"
   ],
   "paths": {
+    "/v1/immurestproxy/db/cleanindex": {
+      "get": {
+        "operationId": "ImmuService_CleanIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/v1/immurestproxy/db/count/{prefix}": {
       "get": {
         "operationId": "ImmuService_Count",

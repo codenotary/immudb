@@ -83,7 +83,13 @@ const (
 	metaFileSize     = "FILE_SIZE"
 )
 
+const indexPath = "index"
+const cleanIndexPath = "index_cleaning"
+const ahtPath = "aht"
+
 type ImmuStore struct {
+	path string
+
 	vLogs            map[byte]*refVLog
 	vLogUnlockedList *list.List
 	vLogsCond        *sync.Cond
@@ -118,9 +124,10 @@ type ImmuStore struct {
 	blErr    error
 	blCond   *sync.Cond
 
-	index       *tbtree.TBtree
-	indexerErr  error
-	indexerCond *sync.Cond
+	index        *tbtree.TBtree
+	indexerErr   error
+	indexerMutex sync.Mutex
+	indexerCond  *sync.Cond
 
 	mutex      sync.Mutex
 	txLogMutex sync.Mutex
@@ -316,7 +323,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	indexPath := filepath.Join(path, "index")
+	indexPath := filepath.Join(path, indexPath)
 
 	indexOpts := tbtree.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
@@ -334,7 +341,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, err
 	}
 
-	ahtPath := filepath.Join(path, "aht")
+	ahtPath := filepath.Join(path, ahtPath)
 
 	ahtOpts := ahtree.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
@@ -358,6 +365,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	store := &ImmuStore{
+		path:               path,
 		txLog:              txLog,
 		vLogs:              vLogsMap,
 		vLogUnlockedList:   vLogUnlockedList,
@@ -518,22 +526,56 @@ func (s *ImmuStore) indexer() {
 		}
 		s.indexerCond.L.Unlock()
 
+		s.indexerMutex.Lock()
 		err := s.doIndexing()
-
-		if err != nil && err != ErrNoMoreEntries {
-			if err != ErrAlreadyClosed {
-				s.indexerCond.L.Lock()
-				s.indexerErr = err
-				s.indexerCond.L.Unlock()
-			}
+		if err != nil && err != ErrNoMoreEntries && err != ErrAlreadyClosed {
+			s.indexerErr = err
+			s.indexerMutex.Unlock()
 			return
 		}
+		s.indexerMutex.Unlock()
 	}
 }
 
+func (s *ImmuStore) CleanIndex() error {
+	s.indexerMutex.Lock()
+	defer s.indexerMutex.Unlock()
+
+	indexPath := filepath.Join(s.path, indexPath)
+	cleanIndexPath := filepath.Join(s.path, cleanIndexPath)
+	defer os.RemoveAll(cleanIndexPath)
+
+	err := s.index.DumpTo(cleanIndexPath, false)
+	if err != nil {
+		return err
+	}
+
+	err = s.index.Close()
+	if err != nil {
+		return err
+	}
+
+	err = os.RemoveAll(indexPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(cleanIndexPath, indexPath)
+	if err != nil {
+		return err
+	}
+
+	s.index, err = tbtree.Open(indexPath, s.index.GetOptions())
+	if err != nil {
+		s.indexerErr = err
+	}
+
+	return nil
+}
+
 func (s *ImmuStore) IndexInfo() (uint64, error) {
-	s.indexerCond.L.Lock()
-	defer s.indexerCond.L.Unlock()
+	s.indexerMutex.Lock()
+	defer s.indexerMutex.Unlock()
 
 	return s.index.Ts(), s.indexerErr
 }

@@ -37,7 +37,6 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultFileMode, opts.WithFileMode(DefaultFileMode).fileMode)
 	require.Equal(t, DefaultFileSize, opts.WithFileSize(DefaultFileSize).fileSize)
 	require.Equal(t, DefaultFlushThld, opts.WithFlushThld(DefaultFlushThld).flushThld)
-	require.Equal(t, DefaultKeyHistorySpace, opts.WithKeyHistorySpace(DefaultKeyHistorySpace).keyHistorySpace)
 	require.Equal(t, DefaultMaxActiveSnapshots, opts.WithMaxActiveSnapshots(DefaultMaxActiveSnapshots).maxActiveSnapshots)
 	require.Equal(t, DefaultMaxNodeSize, opts.WithMaxNodeSize(DefaultMaxNodeSize).maxNodeSize)
 	require.Equal(t, DefaultRenewSnapRootAfter, opts.WithRenewSnapRootAfter(DefaultRenewSnapRootAfter).renewSnapRootAfter)

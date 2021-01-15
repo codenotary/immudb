@@ -22,6 +22,7 @@ import (
 	c "github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (cl *commandline) database(cmd *cobra.Command) {
@@ -31,7 +32,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Aliases: []string{"d"},
 		//PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
-		ValidArgs:         []string{"list", "create", "use"},
+		ValidArgs:         []string{"list", "create", "use", "clean"},
 	}
 	ccd := &cobra.Command{
 		Use:               "list",
@@ -108,6 +109,29 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Args: cobra.MaximumNArgs(2),
 	}
 
+	ccc := &cobra.Command{
+		Use:               "clean command",
+		Short:             "Clean database index",
+		Example:           "clean",
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		ValidArgs:         []string{"databasename"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := cl.immuClient.CleanIndex(cl.context, &emptypb.Empty{})
+			if err != nil {
+				cl.quit(err)
+			}
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Database index successfully cleaned\n")
+			return nil
+		},
+		Args: cobra.ExactArgs(0),
+	}
+
+	ccmd.AddCommand(ccc)
 	ccmd.AddCommand(ccu)
 	ccmd.AddCommand(ccd)
 	ccmd.AddCommand(cc)

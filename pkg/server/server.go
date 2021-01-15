@@ -60,6 +60,7 @@ const (
 )
 
 var ErrEmptyAdminPassword = fmt.Errorf("Admin password cannot be empty")
+var ErrIllegalArguments = fmt.Errorf("Illegal arguments")
 
 var startedAt time.Time
 
@@ -1240,6 +1241,21 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	return &schema.UseDatabaseReply{
 		Token: token,
 	}, nil
+}
+
+func (s *ImmuServer) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	ind, err := s.getDbIndexFromCtx(ctx, "CleanIndex")
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.dbList.GetByIndex(ind).CleanIndex()
+
+	return &empty.Empty{}, err
 }
 
 //ChangePermission grant or revoke user permissions on databases
