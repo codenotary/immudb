@@ -297,6 +297,35 @@ func TestInvalidOpening(t *testing.T) {
 	require.Equal(t, ErrIllegalArguments, err)
 }
 
+func TestTBTreeHistory(t *testing.T) {
+	opts := DefaultOptions().WithSynced(false).WithMaxNodeSize(256).WithFlushThld(100)
+	tbtree, err := Open("test_tree_history", opts)
+	require.NoError(t, err)
+	defer os.RemoveAll("test_tree_history")
+
+	err = tbtree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v0")}})
+	require.NoError(t, err)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+
+	tbtree, err = Open("test_tree_history", opts)
+	require.NoError(t, err)
+
+	err = tbtree.BulkInsert([]*KV{{K: []byte("k0"), V: []byte("v00")}})
+	require.NoError(t, err)
+
+	err = tbtree.Close()
+	require.NoError(t, err)
+
+	tbtree, err = Open("test_tree_history", opts)
+	require.NoError(t, err)
+
+	tss, err := tbtree.GetTs([]byte("k0"), 10)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(tss))
+}
+
 func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxNodeSize(256).WithFlushThld(100)
 	tbtree, err := Open("test_tree_iasc", opts)

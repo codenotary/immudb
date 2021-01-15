@@ -265,7 +265,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 			binary.BigEndian.PutUint64(hbuf[hi:], uint64(v.hOff))
 			hi += 8
 
-			n, err := hw.Write(hbuf[:])
+			n, err := hw.Write(hbuf)
 			if err != nil {
 				return 0, 0, int64(n), err
 			}
@@ -289,7 +289,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 		return 0, int64(n), accH, err
 	}
 
-	wN += int64(size)
+	wN = int64(size)
 	nOff = writeOpts.BaseNLogOffset
 
 	if writeOpts.commitLog {

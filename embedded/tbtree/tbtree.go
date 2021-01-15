@@ -230,7 +230,7 @@ func OpenWith(nLog, hLog, cLog appendable.Appendable, opts *Options) (*TBtree, e
 		return nil, ErrCorruptedCLog
 	}
 
-	hLogSize, err := cLog.Size()
+	hLogSize, err := hLog.Size()
 	if err != nil {
 		return nil, err
 	}
@@ -1287,7 +1287,7 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 			value: value,
 			ts:    ts,
 			tss:   append([]uint64{ts}, l.values[i].tss...),
-			hOff:  -1,
+			hOff:  l.values[i].hOff,
 		}
 
 		for pi := i + 1; pi < len(newLeaf.values); pi++ {
