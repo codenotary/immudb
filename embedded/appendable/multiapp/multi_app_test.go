@@ -178,10 +178,15 @@ func TestMultiAppReOpening(t *testing.T) {
 	require.Equal(t, int64(2), off)
 	require.Equal(t, 1, n)
 
+	err = a.Copy("testdata_copy")
+	require.NoError(t, err)
+
+	defer os.RemoveAll("testdata_copy")
+
 	err = a.Close()
 	require.NoError(t, err)
 
-	a, err = Open("testdata", DefaultOptions().WithReadOnly(true))
+	a, err = Open("testdata_copy", DefaultOptions().WithReadOnly(true))
 	require.NoError(t, err)
 
 	sz, err := a.Size()
@@ -233,6 +238,9 @@ func TestMultiAppEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = a.Size()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = a.Copy("copy")
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = a.SetOffset(0)

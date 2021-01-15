@@ -143,7 +143,16 @@ func appendableID(off int64, fileSize int) int64 {
 }
 
 func (mf *MultiFileAppendable) Copy(dstPath string) error {
-	err := os.MkdirAll(dstPath, mf.fileMode)
+	if mf.closed {
+		return ErrAlreadyClosed
+	}
+
+	err := mf.Flush()
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(dstPath, mf.fileMode)
 	if err != nil {
 		return err
 	}
