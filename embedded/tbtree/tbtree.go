@@ -1227,7 +1227,7 @@ func (l *leafNode) updateOnInsertAt(key []byte, value []byte, ts uint64) (n1 nod
 	if found {
 		l.values[i].value = value
 		l.values[i].ts = ts
-		l.values[i].tss = append(l.values[i].tss, ts)
+		l.values[i].tss = append([]uint64{ts}, l.values[i].tss...)
 
 		return l, nil, nil
 	}
@@ -1286,7 +1286,7 @@ func (l *leafNode) copyOnInsertAt(key []byte, value []byte, ts uint64) (n1 node,
 			key:   key,
 			value: value,
 			ts:    ts,
-			tss:   []uint64{ts},
+			tss:   append([]uint64{ts}, l.values[i].tss...),
 			hOff:  -1,
 		}
 
@@ -1377,7 +1377,7 @@ func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
 
 	tss := make([]uint64, tsLen)
 	for i := 0; i < tsLen; i++ {
-		tss[i] = leafValue.tss[len(leafValue.tss)-1-i]
+		tss[i] = leafValue.tss[i]
 	}
 
 	hOff := leafValue.hOff
