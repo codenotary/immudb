@@ -538,10 +538,6 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 		return nil, err
 	}
 
-	if kReq.AtTx == 0 {
-		kReq.SinceTx = state.TxId
-	}
-
 	req := &schema.VerifiableGetRequest{
 		KeyRequest:   kReq,
 		ProveSinceTx: state.TxId,
