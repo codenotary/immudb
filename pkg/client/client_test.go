@@ -105,7 +105,8 @@ func testVerifiedZAdd(ctx context.Context, t *testing.T, set []byte, scores []fl
 	}
 
 	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
-		Set: set,
+		Set:     set,
+		SinceTx: uint64(len(scores)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, itemList)
@@ -124,7 +125,8 @@ func testZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, k
 	}
 
 	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
-		Set: set,
+		Set:     set,
+		SinceTx: uint64(len(scores)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, itemList)
@@ -143,7 +145,8 @@ func testZAddAt(ctx context.Context, t *testing.T, set []byte, scores []float64,
 	}
 
 	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
-		Set: set,
+		Set:     set,
+		SinceTx: uint64(len(scores)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, itemList)
@@ -162,7 +165,8 @@ func testVerifiedZAddAt(ctx context.Context, t *testing.T, set []byte, scores []
 	}
 
 	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
-		Set: set,
+		Set:     set,
+		SinceTx: uint64(len(scores)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, itemList)
