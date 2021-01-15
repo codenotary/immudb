@@ -54,6 +54,8 @@ const (
 
 // TBTree implements a timed-btree
 type TBtree struct {
+	path string
+
 	nLog   appendable.Appendable
 	cache  *cache.LRUCache
 	nmutex sync.Mutex // mutex for cache and file reading
@@ -695,18 +697,12 @@ func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMod
 		return err
 	}
 
-	appendableOpts.WithFileExt("h")
-	hLogPath := filepath.Join(path, "history")
-	hLog, err := multiapp.Open(hLogPath, appendableOpts)
+	offset, _, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)
 	if err != nil {
 		return err
 	}
-	defer nLog.Close()
 
-	offset, _, _, err := snapshot.WriteTo(&appendableWriter{nLog}, &appendableWriter{hLog}, wopts)
-	if err != nil {
-		return err
-	}
+	t.hLog.Copy(filepath.Join(path, "history"))
 
 	appendableOpts.WithFileExt("ri")
 	cLogPath := filepath.Join(path, "commit")
@@ -1387,7 +1383,7 @@ func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
 	hOff := leafValue.hOff
 
 	for len(tss) < int(limit) && hOff >= 0 {
-		r := appendable.NewReaderFrom(l.t.hLog, leafValue.hOff, DefaultMaxNodeSize)
+		r := appendable.NewReaderFrom(l.t.hLog, hOff, DefaultMaxNodeSize)
 
 		hc, err := r.ReadUint32()
 		if err != nil {
@@ -1406,11 +1402,13 @@ func (l *leafNode) getTs(key []byte, limit int64) ([]uint64, error) {
 			}
 		}
 
-		prevOff, err := r.ReadUint64()
-		if err != nil {
-			return nil, err
+		if len(tss) < int(limit) {
+			prevOff, err := r.ReadUint64()
+			if err != nil {
+				return nil, err
+			}
+			hOff = int64(prevOff)
 		}
-		hOff = int64(prevOff)
 	}
 
 	return tss, nil

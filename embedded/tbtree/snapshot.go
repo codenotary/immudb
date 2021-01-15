@@ -248,7 +248,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 		binary.BigEndian.PutUint64(buf[bi:], v.ts)
 		bi += 8
 
-		hOff := int64(-1)
+		hOff := v.hOff
 
 		if len(v.tss) > 0 {
 			hbuf := make([]byte, 4+len(v.tss)*8+8)
