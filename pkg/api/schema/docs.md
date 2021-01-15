@@ -7,7 +7,6 @@
     - [AuthConfig](#immudb.schema.AuthConfig)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
-    - [CleanIndexRequest](#immudb.schema.CleanIndexRequest)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
@@ -117,21 +116,6 @@
 | username | [string](#string) |  |  |
 | database | [string](#string) |  |  |
 | permission | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="immudb.schema.CleanIndexRequest"></a>
-
-### CleanIndexRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| databasename | [string](#string) |  |  |
 
 
 
@@ -1013,7 +997,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | CreateDatabase | [Database](#immudb.schema.Database) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | DatabaseList | [.google.protobuf.Empty](#google.protobuf.Empty) | [DatabaseListResponse](#immudb.schema.DatabaseListResponse) |  |
 | UseDatabase | [Database](#immudb.schema.Database) | [UseDatabaseReply](#immudb.schema.UseDatabaseReply) |  |
-| CleanIndex | [CleanIndexRequest](#immudb.schema.CleanIndexRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| CleanIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 

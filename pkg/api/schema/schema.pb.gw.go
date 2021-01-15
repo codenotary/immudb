@@ -1025,26 +1025,8 @@ func local_request_ImmuService_UseDatabase_0(ctx context.Context, marshaler runt
 }
 
 func request_ImmuService_CleanIndex_0(ctx context.Context, marshaler runtime.Marshaler, client ImmuServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CleanIndexRequest
+	var protoReq empty.Empty
 	var metadata runtime.ServerMetadata
-
-	var (
-		val string
-		ok  bool
-		err error
-		_   = err
-	)
-
-	val, ok = pathParams["databasename"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "databasename")
-	}
-
-	protoReq.Databasename, err = runtime.String(val)
-
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "databasename", err)
-	}
 
 	msg, err := client.CleanIndex(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
@@ -1052,26 +1034,8 @@ func request_ImmuService_CleanIndex_0(ctx context.Context, marshaler runtime.Mar
 }
 
 func local_request_ImmuService_CleanIndex_0(ctx context.Context, marshaler runtime.Marshaler, server ImmuServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CleanIndexRequest
+	var protoReq empty.Empty
 	var metadata runtime.ServerMetadata
-
-	var (
-		val string
-		ok  bool
-		err error
-		_   = err
-	)
-
-	val, ok = pathParams["databasename"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "databasename")
-	}
-
-	protoReq.Databasename, err = runtime.String(val)
-
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "databasename", err)
-	}
 
 	msg, err := server.CleanIndex(ctx, &protoReq)
 	return msg, metadata, err
@@ -2541,7 +2505,7 @@ var (
 
 	pattern_ImmuService_UseDatabase_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"v1", "immurestproxy", "db", "use", "databasename"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_CleanIndex_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"v1", "immurestproxy", "db", "cleanindex", "databasename"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuService_CleanIndex_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "db", "cleanindex"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_ChangePermission_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "user", "changepermission"}, "", runtime.AssumeColonVerbOpt(true)))
 

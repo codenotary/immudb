@@ -1243,52 +1243,14 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	}, nil
 }
 
-func (s *ImmuServer) CleanIndex(ctx context.Context, req *schema.CleanIndexRequest) (*empty.Empty, error) {
+func (s *ImmuServer) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	s.Logger.Debugf("CleanIndex %+v", req)
-	user := &auth.User{}
-
-	var err error
-
-	if !s.Options.GetMaintenance() {
-		if !s.Options.GetAuth() {
-			return nil, fmt.Errorf("this command is available only with authentication on")
-		}
-
-		_, user, err = s.getLoggedInUserdataFromCtx(ctx)
-		if err != nil {
-			if strings.HasPrefix(fmt.Sprintf("%s", err), "token has expired") {
-				return nil, status.Error(
-					codes.PermissionDenied, err.Error())
-			}
-			return nil, status.Errorf(codes.Unauthenticated, "Please login")
-		}
-
-		if req.Databasename == SystemdbName {
-			return nil, fmt.Errorf("this database can not be selected")
-		}
-
-		//check if this user has permission on this database
-		//if sysadmin allow to continue
-		if (!user.IsSysAdmin) &&
-			(!user.HasPermission(req.Databasename, auth.PermissionAdmin)) &&
-			(!user.HasPermission(req.Databasename, auth.PermissionRW)) {
-			return nil, status.Errorf(codes.PermissionDenied,
-				"Logged in user does not have permission on this database")
-		}
-	} else {
-		user.IsSysAdmin = true
-		user.Username = ""
-		s.addUserToLoginList(user)
-	}
-
-	//check if database exists
-	ind, ok := s.databasenameToIndex[req.Databasename]
-	if !ok {
-		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", req.Databasename))
+	ind, err := s.getDbIndexFromCtx(ctx, "CleanIndex")
+	if err != nil {
+		return nil, err
 	}
 
 	err = s.dbList.GetByIndex(ind).CleanIndex()

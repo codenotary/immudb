@@ -763,7 +763,10 @@ func testServerSetGetBatch(ctx context.Context, s *ImmuServer, t *testing.T) {
 		t.Fatalf("Nil index after Setbatch")
 	}
 
-	_, err = s.CleanIndex(ctx, &schema.CleanIndexRequest{Databasename: testDatabase})
+	_, err = s.CleanIndex(ctx, nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = s.CleanIndex(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
 
 	_, err = s.GetAll(ctx, nil)

@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var lis *bufconn.Listener
@@ -341,7 +342,7 @@ func TestImmuClientDisconnect(t *testing.T) {
 	require.Equal(t, ErrNotConnected, client.ChangePassword(ctx, []byte("user"), []byte("oldPasswd"), []byte("newPasswd")))
 	require.Equal(t, ErrNotConnected, client.UpdateAuthConfig(ctx, auth.KindPassword))
 	require.Equal(t, ErrNotConnected, client.UpdateMTLSConfig(ctx, false))
-	require.Equal(t, ErrNotConnected, client.CleanIndex(ctx, &schema.CleanIndexRequest{Databasename: "defaultdb"}))
+	require.Equal(t, ErrNotConnected, client.CleanIndex(ctx, &emptypb.Empty{}))
 
 	_, err = client.Login(context.TODO(), []byte("user"), []byte("passwd"))
 	require.Equal(t, ErrNotConnected, err)
@@ -719,7 +720,7 @@ func TestImmuClient_SetAll(t *testing.T) {
 
 	time.Sleep(1 * time.Millisecond)
 
-	err = client.CleanIndex(ctx, &schema.CleanIndexRequest{Databasename: "defaultdb"})
+	err = client.CleanIndex(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
 
 	for _, kv := range setRequest.KVs {

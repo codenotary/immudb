@@ -40,6 +40,7 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -83,7 +84,7 @@ type ImmuClient interface {
 	UseDatabase(ctx context.Context, d *schema.Database) (*schema.UseDatabaseReply, error)
 	SetActiveUser(ctx context.Context, u *schema.SetActiveUserRequest) error
 
-	CleanIndex(ctx context.Context, req *schema.CleanIndexRequest) error
+	CleanIndex(ctx context.Context, req *emptypb.Empty) error
 
 	CurrentState(ctx context.Context) (*schema.ImmutableState, error)
 
@@ -1254,7 +1255,7 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	return result, err
 }
 
-func (c *immuClient) CleanIndex(ctx context.Context, req *schema.CleanIndexRequest) error {
+func (c *immuClient) CleanIndex(ctx context.Context, req *empty.Empty) error {
 	start := time.Now()
 
 	if !c.IsConnected() {

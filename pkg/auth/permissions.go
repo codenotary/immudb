@@ -63,6 +63,7 @@ var methodsPermissions = map[string][]uint32{
 	"UpdateMTLSConfig": {PermissionSysAdmin},
 	"CreateDatabase":   {PermissionSysAdmin},
 	"Dump":             {PermissionSysAdmin, PermissionAdmin},
+	"CleanIndex":       {PermissionSysAdmin, PermissionAdmin},
 }
 
 //HasPermissionForMethod checks if userPermission can access method name

@@ -12,7 +12,7 @@
     "application/json"
   ],
   "paths": {
-    "/v1/immurestproxy/db/cleanindex/{databasename}": {
+    "/v1/immurestproxy/db/cleanindex": {
       "get": {
         "operationId": "ImmuService_CleanIndex",
         "responses": {
@@ -29,14 +29,6 @@
             }
           }
         },
-        "parameters": [
-          {
-            "name": "databasename",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "tags": [
           "ImmuService"
         ]
