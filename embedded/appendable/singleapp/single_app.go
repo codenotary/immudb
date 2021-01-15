@@ -185,7 +185,22 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 }
 
 func (aof *AppendableFile) Copy(dstPath string) error {
+	if aof.closed {
+		return ErrAlreadyClosed
+	}
+
 	dstFile, err := os.Create(dstPath)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	err = aof.Flush()
+	if err != nil {
+		return err
+	}
+
+	_, err = aof.f.Seek(0, io.SeekStart)
 	if err != nil {
 		return err
 	}
