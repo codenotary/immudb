@@ -20,13 +20,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/codenotary/immudb/pkg/server/servertest"
-
-	"github.com/codenotary/immudb/pkg/client/timestamp"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -39,12 +36,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-const bufSize = 1024 * 1024
-
 var lis *bufconn.Listener
-
-const BkpFileName = "client_test.dump.bkp"
-const ExpectedBkpFileName = "./../../test/client_test.expected.bkp"
 
 var testData = struct {
 	keys    [][]byte
@@ -69,23 +61,6 @@ func TestLogErr(t *testing.T) {
 
 	err := fmt.Errorf("expected error")
 	require.Error(t, logErr(logger, "error: %v", err))
-}
-
-type ntpMock struct {
-	t time.Time
-}
-
-func NewNtpMock() (timestamp.TsGenerator, error) {
-	i, err := strconv.ParseInt("1405544146", 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	tm := time.Unix(i, 0)
-	return &ntpMock{tm}, nil
-}
-
-func (n *ntpMock) Now() time.Time {
-	return n.t
 }
 
 func testSafeSetAndSafeGet(ctx context.Context, t *testing.T, key []byte, value []byte, client ImmuClient) {
@@ -1221,6 +1196,78 @@ func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
 
 	require.IsType(t, &schema.ImmutableState{}, item)
 	require.Nil(t, err)
+}
+
+func TestImmuClient_VerifiedGetAt(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	txMeta1, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	require.NoError(t, err)
+	txMeta2, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
+	require.NoError(t, err)
+	entry, err := client.VerifiedGetAt(ctx, []byte(`key1`), txMeta1.Id)
+	require.NoError(t, err)
+	require.Equal(t, []byte(`key1`), entry.Key)
+	require.Equal(t, []byte(`val1`), entry.Value)
+
+	entry2, err := client.VerifiedGetAt(ctx, []byte(`key1`), txMeta2.Id)
+	require.NoError(t, err)
+	require.Equal(t, []byte(`key1`), entry2.Key)
+	require.Equal(t, []byte(`val2`), entry2.Value)
+	client.Disconnect()
+}
+
+func TestImmuClient_VerifiedGetSince(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	require.NoError(t, err)
+	txMeta2, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
+	require.NoError(t, err)
+
+	entry2, err := client.VerifiedGetSince(ctx, []byte(`key1`), txMeta2.Id)
+	require.NoError(t, err)
+	require.Equal(t, []byte(`key1`), entry2.Key)
+	require.Equal(t, []byte(`val2`), entry2.Value)
+	client.Disconnect()
 }
 
 type HomedirServiceMock struct {

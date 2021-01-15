@@ -89,10 +89,12 @@ type ImmuClient interface {
 	VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
 
 	Get(ctx context.Context, key []byte) (*schema.Entry, error)
-	VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error)
-
 	GetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
 	GetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+
+	VerifiedGet(ctx context.Context, key []byte) (*schema.Entry, error)
+	VerifiedGetSince(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
+	VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (*schema.Entry, error)
 
 	History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 
@@ -492,7 +494,35 @@ func (c *immuClient) Get(ctx context.Context, key []byte) (*schema.Entry, error)
 }
 
 // VerifiedGet ...
-func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (vi *schema.Entry, err error) {
+func (c *immuClient) VerifiedGet(ctx context.Context, key []byte) (vi *schema.Entry, err error) {
+	start := time.Now()
+	defer c.Logger.Debugf("VerifiedGet finished in %s", time.Since(start))
+	return c.verifiedGet(ctx, &schema.KeyRequest{
+		Key: key,
+	})
+}
+
+// VerifiedGetSince ...
+func (c *immuClient) VerifiedGetSince(ctx context.Context, key []byte, tx uint64) (vi *schema.Entry, err error) {
+	start := time.Now()
+	defer c.Logger.Debugf("VerifiedGetSince finished in %s", time.Since(start))
+	return c.verifiedGet(ctx, &schema.KeyRequest{
+		Key:     key,
+		SinceTx: tx,
+	})
+}
+
+// VerifiedGetAt ...
+func (c *immuClient) VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (vi *schema.Entry, err error) {
+	start := time.Now()
+	defer c.Logger.Debugf("verifiedGetAt finished in %s", time.Since(start))
+	return c.verifiedGet(ctx, &schema.KeyRequest{
+		Key:  key,
+		AtTx: tx,
+	})
+}
+
+func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (vi *schema.Entry, err error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -500,20 +530,21 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 		return nil, ErrNotConnected
 	}
 
-	start := time.Now()
-	defer c.Logger.Debugf("verifiedGet finished in %s", time.Since(start))
-
 	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
 		return nil, err
 	}
 
+	if kReq.SinceTx == 0 {
+		kReq.SinceTx = state.TxId
+	}
+
 	req := &schema.VerifiableGetRequest{
-		KeyRequest:   &schema.KeyRequest{Key: key, SinceTx: state.TxId},
+		KeyRequest:   kReq,
 		ProveSinceTx: state.TxId,
 	}
 
-	vEntry, err := c.ServiceClient.VerifiableGet(ctx, req, opts...)
+	vEntry, err := c.ServiceClient.VerifiableGet(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +562,7 @@ func (c *immuClient) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.C
 
 	if vEntry.Entry.ReferencedBy == nil {
 		vTx = vEntry.Entry.Tx
-		kv = database.EncodeKV(key, vEntry.Entry.Value)
+		kv = database.EncodeKV(kReq.Key, vEntry.Entry.Value)
 	} else {
 		vTx = vEntry.Entry.ReferencedBy.Tx
 		kv = database.EncodeReference(vEntry.Entry.ReferencedBy.Key, vEntry.Entry.Key, vEntry.Entry.ReferencedBy.AtTx)
