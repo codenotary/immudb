@@ -32,4 +32,6 @@ type HistoryCache interface {
 }
 
 type Locker interface {
+	Lock() error
+	Unlock() error
 }

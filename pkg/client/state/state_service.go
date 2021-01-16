@@ -29,7 +29,8 @@ import (
 type StateService interface {
 	GetState(ctx context.Context, db string) (*schema.ImmutableState, error)
 	SetState(db string, state *schema.ImmutableState) error
-	GetLocker() cache.Locker
+	CacheLock() error
+	CacheUnlock() error
 }
 
 type stateService struct {
@@ -67,8 +68,8 @@ func NewStateService(cache cache.Cache,
 }
 
 func (r *stateService) GetState(ctx context.Context, db string) (*schema.ImmutableState, error) {
-	defer r.Unlock()
 	r.Lock()
+	defer r.Unlock()
 
 	if state, err := r.cache.Get(r.serverUUID, db); err == nil {
 		return state, nil
@@ -85,12 +86,16 @@ func (r *stateService) GetState(ctx context.Context, db string) (*schema.Immutab
 }
 
 func (r *stateService) SetState(db string, state *schema.ImmutableState) error {
-	defer r.Unlock()
 	r.Lock()
+	defer r.Unlock()
 
 	return r.cache.Set(r.serverUUID, db, state)
 }
 
-func (r *stateService) GetLocker() cache.Locker {
-	return r.l
+func (r *stateService) CacheLock() error {
+	return r.l.Lock()
+}
+
+func (r *stateService) CacheUnlock() error {
+	return r.l.Unlock()
 }
