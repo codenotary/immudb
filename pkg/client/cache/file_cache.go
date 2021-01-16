@@ -47,7 +47,6 @@ func (w *fileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
 	if err != nil {
 		return nil, err
 	}
-	state := &schema.ImmutableState{}
 	lines := strings.Split(string(raw), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, db+":") {
@@ -64,12 +63,9 @@ func (w *fileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
 				return nil, err
 			}
 			return state, nil
-		} else {
-			return nil, fmt.Errorf("could not find previous state")
 		}
 	}
-
-	return state, nil
+	return nil, fmt.Errorf("could not find previous state")
 }
 
 func (w *fileCache) Set(serverUUID, db string, state *schema.ImmutableState) error {

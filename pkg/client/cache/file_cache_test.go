@@ -155,7 +155,6 @@ func TestFileCacheGetEmptyFile(t *testing.T) {
 	}
 
 	fc := NewFileCache(dirname)
-	state, err := fc.Get("test", dbName)
-	require.Nil(t, err)
-	require.IsType(t, &schema.ImmutableState{}, state)
+	_, err = fc.Get("test", dbName)
+	require.Error(t, err)
 }
