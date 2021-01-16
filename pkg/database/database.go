@@ -273,7 +273,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 }
 
 func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
-	err := d.st.ReadTx(atTx, tx)
+	err := d.st.ReadTxUnsafe(atTx, tx)
 	if err != nil {
 		return nil, err
 	}
