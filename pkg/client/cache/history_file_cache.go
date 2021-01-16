@@ -163,7 +163,15 @@ func (history *historyFileCache) unmarshalRoot(fpath string, db string) (*schema
 }
 
 func (history *historyFileCache) GetLocker(serverUUID string) Locker {
-	return &historyLocker{}
+	return &HistoryLocker{}
 }
 
-type historyLocker struct{}
+type HistoryLocker struct{}
+
+func (fl *HistoryLocker) Lock() (err error) {
+	return fmt.Errorf("not implemented")
+}
+
+func (fl *HistoryLocker) Unlock() (err error) {
+	return fmt.Errorf("not implemented")
+}

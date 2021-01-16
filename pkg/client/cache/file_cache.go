@@ -113,9 +113,23 @@ func getRootFileName(prefix []byte, serverUUID []byte) []byte {
 func (w *fileCache) GetLocker(serverUUID string) Locker {
 	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(STATE_FN), []byte(serverUUID))))
 	fm := lockedfile.MutexAt(fn)
-	return &FileLocker{fm}
+	return &FileLocker{lm: fm}
 }
 
 type FileLocker struct {
-	*lockedfile.Mutex
+	lm         *lockedfile.Mutex
+	unlockFunc func()
+}
+
+func (fl *FileLocker) Lock() (err error) {
+	fl.unlockFunc, err = fl.lm.Lock()
+	return err
+}
+
+func (fl *FileLocker) Unlock() (err error) {
+	if fl.unlockFunc == nil {
+		return fmt.Errorf("try to lock a not locked file")
+	}
+	fl.unlockFunc()
+	return nil
 }
