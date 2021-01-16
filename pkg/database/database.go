@@ -196,10 +196,7 @@ func (d *db) WaitForIndexingUpto(txID uint64) error {
 	}
 
 	for {
-		its, err := d.st.IndexInfo()
-		if err != nil {
-			return err
-		}
+		its := d.st.IndexInfo()
 
 		if its >= txID {
 			return nil

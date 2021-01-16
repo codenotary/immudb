@@ -478,10 +478,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	for f := 0; f < 1; f++ {
 		go func() {
 			for {
-				txID, err := immuStore.IndexInfo()
-				if err != nil {
-					panic(err)
-				}
+				txID := immuStore.IndexInfo()
 
 				snap, err := immuStore.SnapshotSince(txID)
 				if err != nil {
@@ -578,9 +575,6 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	}
 
 	wg.Wait()
-
-	_, err = immuStore.IndexInfo()
-	require.NoError(t, err)
 
 	err = immuStore.Close()
 	require.NoError(t, err)
@@ -727,9 +721,6 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 	}
 
 	wg.Wait()
-
-	_, err = immuStore.IndexInfo()
-	require.NoError(t, err)
 
 	err = immuStore.Close()
 	require.NoError(t, err)
