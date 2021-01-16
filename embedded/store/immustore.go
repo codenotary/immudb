@@ -124,11 +124,9 @@ type ImmuStore struct {
 	blErr    error
 	blCond   *sync.Cond
 
-	index       *tbtree.TBtree
-	indexerCond *sync.Cond
+	index *tbtree.TBtree
 
-	mutex      sync.Mutex
-	txLogMutex sync.Mutex
+	mutex sync.Mutex
 
 	closed bool
 }
@@ -384,8 +382,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		maxTxSize: maxTxSize,
 
-		index:       index,
-		indexerCond: sync.NewCond(&sync.Mutex{}),
+		index: index,
 
 		aht:      aht,
 		blBuffer: blBuffer,
@@ -494,6 +491,9 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	defer s.releaseAllocTx(tx)
 
 	txReader, err := s.NewTxReader(s.aht.Size()+1, tx, s.maxTxSize)
+	if err == ErrNoMoreEntries {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -517,15 +517,15 @@ func (s *ImmuStore) syncBinaryLinking() error {
 func (s *ImmuStore) indexer() {
 	for {
 		err := s.doIndexing()
-		if err != nil && err != ErrNoMoreEntries && err != ErrAlreadyClosed {
+		if err != nil && err != ErrNoMoreEntries {
 			return
 		}
 	}
 }
 
 func (s *ImmuStore) CleanIndex() error {
-	s.indexerCond.L.Lock()
-	defer s.indexerCond.L.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	indexPath := filepath.Join(s.path, indexPath)
 	cleanIndexPath := filepath.Join(s.path, cleanIndexPath)
@@ -560,21 +560,19 @@ func (s *ImmuStore) CleanIndex() error {
 }
 
 func (s *ImmuStore) IndexInfo() uint64 {
-	s.indexerCond.L.Lock()
-	defer s.indexerCond.L.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.index.Ts()
 }
 
 func (s *ImmuStore) doIndexing() error {
-	txCount := s.TxCount()
-
-	s.indexerCond.L.Lock()
-	if s.index.Ts() == txCount {
-		s.indexerCond.Wait()
+	for {
+		if s.index.Ts() < s.TxCount() {
+			break
+		}
+		time.Sleep(1 * time.Millisecond)
 	}
-
-	defer s.indexerCond.L.Unlock()
 
 	txID := s.index.Ts() + 1
 
@@ -585,6 +583,9 @@ func (s *ImmuStore) doIndexing() error {
 	defer s.releaseAllocTx(tx)
 
 	txReader, err := s.NewTxReader(txID, tx, s.maxTxSize)
+	if err == ErrNoMoreEntries {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -849,9 +850,6 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
-	s.txLogMutex.Lock()
-	defer s.txLogMutex.Unlock()
-
 	// will overrite partially written and uncommitted data
 	s.txLog.SetOffset(s.committedTxLogSize)
 
@@ -958,8 +956,6 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	s.committedTxID++
 	s.committedAlh = tx.Alh
 	s.committedTxLogSize += int64(txSize)
-
-	s.indexerCond.Broadcast()
 
 	return nil
 }
@@ -1158,9 +1154,6 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 }
 
 func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
-	s.txLogMutex.Lock()
-	defer s.txLogMutex.Unlock()
-
 	if txID == 0 {
 		return 0, 0, ErrIllegalArguments
 	}
@@ -1191,13 +1184,13 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
 		return err
 	}
-
-	s.txLogMutex.Lock()
-	defer s.txLogMutex.Unlock()
 
 	txReader := appendable.NewReaderFrom(s.txLog, txOff, txSize)
 
@@ -1261,7 +1254,7 @@ func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, er
 		return nil, ErrIllegalArguments
 	}
 
-	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.txLogMutex}
+	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
 
 	txOff, _, err := s.txOffsetAndSize(txID)
 	if err == io.EOF {
@@ -1376,9 +1369,6 @@ func (s *ImmuStore) Sync() error {
 	if err != nil {
 		return err
 	}
-
-	s.indexerCond.L.Lock()
-	defer s.indexerCond.L.Unlock()
 
 	return s.index.Sync()
 }
