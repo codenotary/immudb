@@ -124,10 +124,8 @@ type ImmuStore struct {
 	blErr    error
 	blCond   *sync.Cond
 
-	index        *tbtree.TBtree
-	indexerErr   error
-	indexerMutex sync.Mutex
-	indexerCond  *sync.Cond
+	index       *tbtree.TBtree
+	indexerCond *sync.Cond
 
 	mutex      sync.Mutex
 	txLogMutex sync.Mutex
@@ -518,28 +516,16 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 func (s *ImmuStore) indexer() {
 	for {
-		txCount := s.TxCount()
-
-		s.indexerCond.L.Lock()
-		if s.index.Ts() == txCount {
-			s.indexerCond.Wait()
-		}
-		s.indexerCond.L.Unlock()
-
-		s.indexerMutex.Lock()
 		err := s.doIndexing()
 		if err != nil && err != ErrNoMoreEntries && err != ErrAlreadyClosed {
-			s.indexerErr = err
-			s.indexerMutex.Unlock()
 			return
 		}
-		s.indexerMutex.Unlock()
 	}
 }
 
 func (s *ImmuStore) CleanIndex() error {
-	s.indexerMutex.Lock()
-	defer s.indexerMutex.Unlock()
+	s.indexerCond.L.Lock()
+	defer s.indexerCond.L.Unlock()
 
 	indexPath := filepath.Join(s.path, indexPath)
 	cleanIndexPath := filepath.Join(s.path, cleanIndexPath)
@@ -567,20 +553,29 @@ func (s *ImmuStore) CleanIndex() error {
 
 	s.index, err = tbtree.Open(indexPath, s.index.GetOptions())
 	if err != nil {
-		s.indexerErr = err
+		return err
 	}
 
 	return nil
 }
 
-func (s *ImmuStore) IndexInfo() (uint64, error) {
-	s.indexerMutex.Lock()
-	defer s.indexerMutex.Unlock()
+func (s *ImmuStore) IndexInfo() uint64 {
+	s.indexerCond.L.Lock()
+	defer s.indexerCond.L.Unlock()
 
-	return s.index.Ts(), s.indexerErr
+	return s.index.Ts()
 }
 
 func (s *ImmuStore) doIndexing() error {
+	txCount := s.TxCount()
+
+	s.indexerCond.L.Lock()
+	if s.index.Ts() == txCount {
+		s.indexerCond.Wait()
+	}
+
+	defer s.indexerCond.L.Unlock()
+
 	txID := s.index.Ts() + 1
 
 	tx, err := s.fetchAllocTx()
