@@ -161,3 +161,9 @@ func (history *historyFileCache) unmarshalRoot(fpath string, db string) (*schema
 
 	return nil, nil
 }
+
+func (history *historyFileCache) GetLocker(serverUUID string) Locker {
+	return &historyLocker{}
+}
+
+type historyLocker struct{}

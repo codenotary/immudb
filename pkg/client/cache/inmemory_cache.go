@@ -59,3 +59,9 @@ func (imc *inMemoryCache) Set(serverUUID, db string, state *schema.ImmutableStat
 	imc.states[serverUUID][db] = state
 	return nil
 }
+
+func (imc *inMemoryCache) GetLocker(serverUUID string) Locker {
+	return &inMemoryLocker{}
+}
+
+type inMemoryLocker struct{}

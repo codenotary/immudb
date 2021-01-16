@@ -19,6 +19,7 @@ package cache
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/rogpeppe/go-internal/lockedfile"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -63,8 +64,11 @@ func (w *fileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
 				return nil, err
 			}
 			return state, nil
+		} else {
+			return nil, fmt.Errorf("could not find previous state")
 		}
 	}
+
 	return state, nil
 }
 
@@ -104,4 +108,14 @@ func getRootFileName(prefix []byte, serverUUID []byte) []byte {
 	copy(fn[:], STATE_FN)
 	copy(fn[l1:], serverUUID)
 	return fn
+}
+
+func (w *fileCache) GetLocker(serverUUID string) Locker {
+	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(STATE_FN), []byte(serverUUID))))
+	fm := lockedfile.MutexAt(fn)
+	return &FileLocker{fm}
+}
+
+type FileLocker struct {
+	*lockedfile.Mutex
 }

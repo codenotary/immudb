@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"github.com/rogpeppe/go-internal/lockedfile"
 	"io"
 	"io/ioutil"
 	"os"
@@ -526,8 +527,9 @@ func (c *immuClient) VerifiedGetAt(ctx context.Context, key []byte, tx uint64) (
 }
 
 func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (vi *schema.Entry, err error) {
-	c.Lock()
-	defer c.Unlock()
+	locker := c.StateService.GetLocker()
+	unlock, err := locker.(*lockedfile.Mutex).Lock()
+	defer unlock()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -698,8 +700,9 @@ func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema
 
 // VerifiedSet ...
 func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error) {
-	c.Lock()
-	defer c.Unlock()
+	locker := c.StateService.GetLocker()
+	unlock, err := locker.(*lockedfile.Mutex).Lock()
+	defer unlock()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -841,8 +844,9 @@ func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) 
 
 // VerifiedTxByID returns a verified tx
 func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error) {
-	c.Lock()
-	defer c.Unlock()
+	locker := c.StateService.GetLocker()
+	unlock, err := locker.(*lockedfile.Mutex).Lock()
+	defer unlock()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -957,8 +961,9 @@ func (c *immuClient) VerifiedSetReference(ctx context.Context, key []byte, refer
 
 // VerifiedSetReferenceAt ...
 func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, referencedKey []byte, atTx uint64) (*schema.TxMetadata, error) {
-	c.Lock()
-	defer c.Unlock()
+	locker := c.StateService.GetLocker()
+	unlock, err := locker.(*lockedfile.Mutex).Lock()
+	defer unlock()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -1086,8 +1091,9 @@ func (c *immuClient) VerifiedZAdd(ctx context.Context, set []byte, score float64
 
 // VerifiedZAdd ...
 func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float64, key []byte, atTx uint64) (*schema.TxMetadata, error) {
-	c.Lock()
-	defer c.Unlock()
+	locker := c.StateService.GetLocker()
+	unlock, err := locker.(*lockedfile.Mutex).Lock()
+	defer unlock()
 
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
