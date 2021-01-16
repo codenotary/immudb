@@ -29,6 +29,7 @@ import (
 type StateService interface {
 	GetState(ctx context.Context, db string) (*schema.ImmutableState, error)
 	SetState(db string, state *schema.ImmutableState) error
+	GetLocker() cache.Locker
 }
 
 type stateService struct {
@@ -37,6 +38,7 @@ type stateService struct {
 	cache         cache.Cache
 	serverUUID    string
 	logger        logger.Logger
+	l             cache.Locker
 	sync.RWMutex
 }
 
@@ -60,6 +62,7 @@ func NewStateService(cache cache.Cache,
 		cache:         cache,
 		logger:        logger,
 		serverUUID:    serverUuid,
+		l:             cache.GetLocker(serverUuid),
 	}, nil
 }
 
@@ -86,4 +89,8 @@ func (r *stateService) SetState(db string, state *schema.ImmutableState) error {
 	r.Lock()
 
 	return r.cache.Set(r.serverUUID, db, state)
+}
+
+func (r *stateService) GetLocker() cache.Locker {
+	return r.l
 }
