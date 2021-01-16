@@ -1197,6 +1197,17 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 	return tx.readFrom(txReader)
 }
 
+func (s *ImmuStore) ReadTxUnsafe(txID uint64, tx *Tx) error {
+	txOff, txSize, err := s.txOffsetAndSize(txID)
+	if err != nil {
+		return err
+	}
+
+	txReader := appendable.NewReaderFrom(s.txLog, txOff, txSize)
+
+	return tx.readFrom(txReader)
+}
+
 func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
 	for _, e := range tx.Entries() {
 		if bytes.Equal(e.Key(), key) {
