@@ -670,10 +670,14 @@ func TestImmuClient_History(t *testing.T) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
-	_, _ = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
+	txmd, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val2`))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	sil, err := client.History(ctx, &schema.HistoryRequest{
-		Key: []byte(`key1`),
+		Key:     []byte(`key1`),
+		SinceTx: txmd.Id,
 	})
 
 	require.Nil(t, err)
