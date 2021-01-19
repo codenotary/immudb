@@ -124,7 +124,8 @@ type ImmuStore struct {
 	blErr    error
 	blCond   *sync.Cond
 
-	index *tbtree.TBtree
+	index     *tbtree.TBtree
+	indexCond *sync.Cond
 
 	mutex sync.Mutex
 
@@ -382,7 +383,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		maxTxSize: maxTxSize,
 
-		index: index,
+		index:     index,
+		indexCond: sync.NewCond(&sync.Mutex{}),
 
 		aht:      aht,
 		blBuffer: blBuffer,
@@ -567,12 +569,13 @@ func (s *ImmuStore) IndexInfo() uint64 {
 }
 
 func (s *ImmuStore) doIndexing() error {
-	for {
-		if s.index.Ts() < s.TxCount() {
-			break
-		}
-		time.Sleep(1 * time.Millisecond)
+	s.indexCond.L.Lock()
+
+	if s.index.Ts() == s.TxCount() {
+		s.indexCond.Wait()
 	}
+
+	s.indexCond.L.Unlock()
 
 	txID := s.index.Ts() + 1
 
@@ -956,6 +959,8 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	s.committedTxID++
 	s.committedAlh = tx.Alh
 	s.committedTxLogSize += int64(txSize)
+
+	s.indexCond.Broadcast()
 
 	return nil
 }
