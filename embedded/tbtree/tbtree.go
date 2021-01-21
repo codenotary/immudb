@@ -198,7 +198,7 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		return nil, err
 	}
 
-	appendableOpts.WithFileExt("h")
+	appendableOpts.WithFileExt("hx")
 	hLogPath := filepath.Join(path, "history")
 	hLog, err := multiapp.Open(hLogPath, appendableOpts)
 	if err != nil {
