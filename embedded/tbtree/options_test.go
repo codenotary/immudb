@@ -41,6 +41,7 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, DefaultMaxNodeSize, opts.WithMaxNodeSize(DefaultMaxNodeSize).maxNodeSize)
 	require.Equal(t, DefaultRenewSnapRootAfter, opts.WithRenewSnapRootAfter(DefaultRenewSnapRootAfter).renewSnapRootAfter)
 	require.True(t, opts.WithSynced(true).synced)
+	require.Equal(t, 256, opts.WithMaxKeyLen(256).maxKeyLen)
 
 	require.False(t, opts.WithReadOnly(false).readOnly)
 	require.True(t, validOptions(opts))

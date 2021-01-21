@@ -27,8 +27,9 @@ const DefaultRenewSnapRootAfter = time.Duration(1000) * time.Millisecond
 const DefaultCacheSize = 100_000
 const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
+const DefaultMaxKeyLen = 1024
 
-const MinNodeSize = 96
+const MinNodeSize = 128
 const MinCacheSize = 1
 
 type Options struct {
@@ -39,6 +40,8 @@ type Options struct {
 	readOnly           bool
 	synced             bool
 	fileMode           os.FileMode
+
+	maxKeyLen int
 
 	// options below are only set during initialization and stored as metadata
 	maxNodeSize int
@@ -54,6 +57,7 @@ func DefaultOptions() *Options {
 		readOnly:           false,
 		synced:             false,
 		fileMode:           DefaultFileMode,
+		maxKeyLen:          DefaultMaxKeyLen,
 
 		// options below are only set during initialization and stored as metadata
 		maxNodeSize: DefaultMaxNodeSize,
@@ -67,7 +71,8 @@ func validOptions(opts *Options) bool {
 		opts.flushThld > 0 &&
 		opts.maxActiveSnapshots > 0 &&
 		opts.renewSnapRootAfter >= 0 &&
-		opts.cacheSize >= MinCacheSize
+		opts.cacheSize >= MinCacheSize &&
+		opts.maxKeyLen > 0
 }
 
 func (opts *Options) WithFlushThld(flushThld int) *Options {
@@ -102,6 +107,11 @@ func (opts *Options) WithSynced(synced bool) *Options {
 
 func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opts.fileMode = fileMode
+	return opts
+}
+
+func (opts *Options) WithMaxKeyLen(maxKeyLen int) *Options {
+	opts.maxKeyLen = maxKeyLen
 	return opts
 }
 
