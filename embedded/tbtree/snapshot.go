@@ -197,6 +197,7 @@ func (n *innerNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64,
 		for i, c := range n.nodes {
 			nodes[i] = &nodeRef{
 				t:       n.t,
+				_minKey: c.minKey(),
 				_maxKey: c.maxKey(),
 				_ts:     c.ts(),
 				_size:   c.size(),
@@ -326,6 +327,13 @@ func (n *nodeRef) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, w
 
 func writeNodeRefToWithOffset(n node, offset int64, buf []byte) int {
 	i := 0
+
+	minKey := n.minKey()
+	binary.BigEndian.PutUint32(buf[i:], uint32(len(minKey)))
+	i += 4
+
+	copy(buf[i:], minKey)
+	i += len(minKey)
 
 	maxKey := n.maxKey()
 	binary.BigEndian.PutUint32(buf[i:], uint32(len(maxKey)))

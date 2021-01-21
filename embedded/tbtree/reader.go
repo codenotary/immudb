@@ -61,7 +61,12 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 					parentPath = r.path[:len(r.path)-1]
 				}
 
-				path, leaf, off, err := parent.findLeafNode(r.seekKey, parentPath, r.leafNode.maxKey(), r.descOrder)
+				neqKey := r.leafNode.maxKey()
+				if r.descOrder {
+					neqKey = r.leafNode.minKey()
+				}
+
+				path, leaf, off, err := parent.findLeafNode(r.seekKey, parentPath, neqKey, r.descOrder)
 
 				if err == ErrKeyNotFound {
 					r.path = r.path[:len(r.path)-1]
