@@ -831,7 +831,7 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 
 	tx.BuildHashTree()
 
-	r := <-appendableCh // wait for data to be writen
+	r := <-appendableCh // wait for data to be written
 	err = r.err
 	if err != nil {
 		return nil, err
