@@ -999,6 +999,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 			Key:           key,
 			ReferencedKey: referencedKey,
 			AtTx:          atTx,
+			BoundRef:      atTx > 0,
 		},
 		ProveSinceTx: state.TxId,
 	}
