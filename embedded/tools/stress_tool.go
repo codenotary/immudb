@@ -139,12 +139,12 @@ func main() {
 			}
 			defer snap.Close()
 
-			v, ts, err := snap.Get([]byte(*key))
+			v, ts, hc, err := snap.Get([]byte(*key))
 			if err != nil {
 				panic(err)
 			}
 
-			fmt.Printf("key: %s, value: %s, ts: %d\r\n", *key, base64.StdEncoding.EncodeToString(v), ts)
+			fmt.Printf("key: %s, value: %s, ts: %d, hc: %d\r\n", *key, base64.StdEncoding.EncodeToString(v), ts, hc)
 			return
 		}
 

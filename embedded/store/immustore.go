@@ -413,12 +413,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	return store, nil
 }
 
-func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, err error) {
+func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
 	return s.index.Get(key)
 }
 
-func (s *ImmuStore) GetTs(key []byte, limit int64) (txs []uint64, err error) {
-	return s.index.GetTs(key, limit)
+func (s *ImmuStore) GetTs(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
+	return s.index.GetTs(key, offset, descOrder, limit)
 }
 
 func (s *ImmuStore) NewTx() *Tx {
