@@ -840,9 +840,17 @@ func (c *immuClient) TxByID(ctx context.Context, tx uint64) (*schema.Tx, error) 
 	start := time.Now()
 	defer c.Logger.Debugf("by-index finished in %s", time.Since(start))
 
-	return c.ServiceClient.TxById(ctx, &schema.TxRequest{
+	t, err := c.ServiceClient.TxById(ctx, &schema.TxRequest{
 		Tx: tx,
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	decodeTxEntries(t.Entries)
+
+	return t, err
 }
 
 // VerifiedTxByID returns a verified tx
@@ -921,6 +929,8 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	if err != nil {
 		return nil, err
 	}
+
+	decodeTxEntries(vTx.Tx.Entries)
 
 	return vTx.Tx, nil
 }
@@ -1352,4 +1362,10 @@ func (c *immuClient) SafeZAdd(ctx context.Context, set []byte, score float64, ke
 // DEPRECATED: Please use VerifiedSetRefrence
 func (c *immuClient) SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error) {
 	return c.VerifiedSetReference(ctx, key, referencedKey)
+}
+
+func decodeTxEntries(entries []*schema.TxEntry) {
+	for _, it := range entries {
+		it.Key = it.Key[1:]
+	}
 }
