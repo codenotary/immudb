@@ -280,7 +280,7 @@
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  |  |
 | offset | [uint64](#uint64) |  |  |
-| limit | [uint64](#uint64) |  |  |
+| limit | [int32](#int32) |  |  |
 | desc | [bool](#bool) |  |  |
 | sinceTx | [uint64](#uint64) |  |  |
 

@@ -1165,8 +1165,8 @@
           "format": "uint64"
         },
         "limit": {
-          "type": "string",
-          "format": "uint64"
+          "type": "integer",
+          "format": "int32"
         },
         "desc": {
           "type": "boolean"
