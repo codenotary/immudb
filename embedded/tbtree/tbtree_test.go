@@ -85,6 +85,9 @@ func TestEdgeCases(t *testing.T) {
 	err = tree.Insert(make([]byte, tree.maxNodeSize), []byte{})
 	require.Equal(t, ErrorMaxKVLenExceeded, err)
 
+	_, _, _, err = tree.Get(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
 	for i := 0; i < 100; i++ {
 		err = tree.Insert(make([]byte, 1), []byte{2})
 		require.NoError(t, err)
@@ -95,6 +98,13 @@ func TestEdgeCases(t *testing.T) {
 
 	_, err = s1.GetTs(make([]byte, 1), 0, false, 100)
 	require.NoError(t, err)
+
+	tss, err := s1.GetTs(make([]byte, 1), 0, true, 10)
+	require.NoError(t, err)
+	require.Len(t, tss, 10)
+
+	_, err = s1.GetTs(make([]byte, 1), 101, false, 100)
+	require.Equal(t, ErrIllegalState, err)
 
 	_, err = tree.Snapshot()
 	require.Equal(t, ErrorToManyActiveSnapshots, err)
@@ -368,6 +378,9 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Close()
+	require.Equal(t, err, ErrAlreadyClosed)
+
+	_, _, _, err = tbtree.Get([]byte("key"))
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Sync()

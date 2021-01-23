@@ -1455,10 +1455,6 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 }
 
 func (l *leafNode) getTs(key []byte, offset uint64, desc bool, limit int) ([]uint64, error) {
-	if limit < 0 {
-		return nil, ErrIllegalArguments
-	}
-
 	i, found := l.indexOf(key)
 
 	if !found {
