@@ -1484,7 +1484,7 @@ func (l *leafNode) getTs(key []byte, offset uint64, desc bool, limit int) ([]uin
 	tssOff := 0
 
 	if !desc {
-		initAt = hCount - uint64(tssLen)
+		initAt = hCount - offset - uint64(tssLen)
 	}
 
 	if initAt < uint64(len(leafValue.tss)) {
@@ -1501,6 +1501,8 @@ func (l *leafNode) getTs(key []byte, offset uint64, desc bool, limit int) ([]uin
 
 	hOff := leafValue.hOff
 
+	ti := uint64(len(leafValue.tss))
+
 	for tssOff < tssLen {
 		r := appendable.NewReaderFrom(l.t.hLog, hOff, DefaultMaxNodeSize)
 
@@ -1513,6 +1515,11 @@ func (l *leafNode) getTs(key []byte, offset uint64, desc bool, limit int) ([]uin
 			ts, err := r.ReadUint64()
 			if err != nil {
 				return nil, err
+			}
+
+			if ti < initAt {
+				ti++
+				continue
 			}
 
 			if desc {
