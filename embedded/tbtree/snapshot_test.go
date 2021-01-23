@@ -50,13 +50,13 @@ func TestSnapshotSerialization(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, dumpNBuf.Len() == 0)
 
-	_, _, err = snapshot.Get(nil)
+	_, _, _, err = snapshot.Get(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = snapshot.GetTs(nil, 1)
+	_, err = snapshot.GetTs(nil, 0, false, 1)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = snapshot.GetTs([]byte{}, 0)
+	_, err = snapshot.GetTs([]byte{}, 0, false, 0)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	err = snapshot.Close()
@@ -103,10 +103,10 @@ func TestSnapshotClosing(t *testing.T) {
 	err = snapshot.Close()
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	_, _, err = snapshot.Get([]byte{})
+	_, _, _, err = snapshot.Get([]byte{})
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	_, err = snapshot.GetTs([]byte{}, 1)
+	_, err = snapshot.GetTs([]byte{}, 0, false, 1)
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	_, err = snapshot.Reader(nil)

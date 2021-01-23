@@ -77,7 +77,7 @@ func TestEdgeCases(t *testing.T) {
 	opts := DefaultOptions().
 		WithMaxActiveSnapshots(1).
 		WithMaxNodeSize(MinNodeSize).
-		WithFlushThld(50)
+		WithFlushThld(1000)
 	tree, err := Open("edge_cases", opts)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tree.Ts())
@@ -85,16 +85,33 @@ func TestEdgeCases(t *testing.T) {
 	err = tree.Insert(make([]byte, tree.maxNodeSize), []byte{})
 	require.Equal(t, ErrorMaxKVLenExceeded, err)
 
+	_, _, _, err = tree.Get(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
 	for i := 0; i < 100; i++ {
 		err = tree.Insert(make([]byte, 1), []byte{2})
 		require.NoError(t, err)
 	}
 
+	tss, err := tree.GetTs(make([]byte, 1), 0, true, 10)
+	require.NoError(t, err)
+	require.Len(t, tss, 10)
+
+	tss, err = tree.GetTs(make([]byte, 1), 0, false, 10)
+	require.NoError(t, err)
+	require.Len(t, tss, 10)
+
+	err = tree.Sync()
+	require.NoError(t, err)
+
 	s1, err := tree.Snapshot()
 	require.NoError(t, err)
 
-	_, err = s1.GetTs(make([]byte, 1), 100)
+	_, err = s1.GetTs(make([]byte, 1), 0, false, 100)
 	require.NoError(t, err)
+
+	_, err = s1.GetTs(make([]byte, 1), 101, false, 100)
+	require.Equal(t, ErrIllegalState, err)
 
 	_, err = tree.Snapshot()
 	require.Equal(t, ErrorToManyActiveSnapshots, err)
@@ -112,7 +129,7 @@ func TestEdgeCases(t *testing.T) {
 		s1, err := tree.Snapshot()
 		require.NoError(t, err)
 
-		_, err = s1.GetTs([]byte{2}, 1)
+		_, err = s1.GetTs([]byte{2}, 0, false, 1)
 		require.Equal(t, ErrKeyNotFound, err)
 
 		err = s1.Close()
@@ -145,7 +162,7 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			snapshotTs := snapshot.Ts()
 			require.Equal(t, ts-1, snapshotTs)
 
-			v1, ts1, err := snapshot.Get(k)
+			v1, ts1, hc, err := snapshot.Get(k)
 
 			if i == 0 {
 				require.Equal(t, ErrKeyNotFound, err)
@@ -158,6 +175,8 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 
 				expectedTs := uint64((i-1)*kCount+j) + 1
 				require.Equal(t, expectedTs, ts1)
+
+				require.Equal(t, uint64(i), hc)
 			}
 
 			if i%2 == 1 {
@@ -181,11 +200,12 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			snapshotTs = snapshot.Ts()
 			require.Equal(t, ts, snapshotTs)
 
-			v1, ts1, err = snapshot.Get(k)
+			v1, ts1, hc, err = snapshot.Get(k)
 
 			require.NoError(t, err)
 			require.Equal(t, v, v1)
 			require.Equal(t, ts, ts1)
+			require.Equal(t, uint64(i+1), hc)
 
 			err = snapshot.Close()
 			require.NoError(t, err)
@@ -210,7 +230,7 @@ func checkAfterMonotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kC
 		v := make([]byte, 8)
 		binary.BigEndian.PutUint64(v, uint64(i<<4+j))
 
-		v1, ts1, err := snapshot.Get(k)
+		v1, ts1, hc1, err := snapshot.Get(k)
 
 		require.NoError(t, err)
 
@@ -220,6 +240,8 @@ func checkAfterMonotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kC
 
 		expectedTs := uint64((i-1)*kCount+j) + 1
 		require.Equal(t, expectedTs, ts1)
+
+		require.Equal(t, uint64(itCount), hc1)
 	}
 
 	err = snapshot.Close()
@@ -240,7 +262,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 			require.Equal(t, uint64(i), snapshot.Ts())
 
 			for {
-				_, _, err = snapshot.Get(k)
+				_, _, _, err = snapshot.Get(k)
 				if err == ErrKeyNotFound {
 					break
 				}
@@ -259,10 +281,14 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		err := tbtree.Insert(k, v)
 		require.NoError(t, err)
 
-		v0, ts0, err := tbtree.Get(k)
+		v0, ts0, hc0, err := tbtree.Get(k)
 		require.NoError(t, err)
 		require.Equal(t, v, v0)
 		require.Equal(t, ts, ts0)
+		if override {
+			require.Greater(t, hc0, uint64(0))
+		}
+		require.Equal(t, uint64(1), hc0)
 
 		_, _, err = tbtree.Flush()
 		require.NoError(t, err)
@@ -272,12 +298,16 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		snapshotTs := snapshot.Ts()
 		require.Equal(t, ts, snapshotTs)
 
-		v1, ts1, err := snapshot.Get(k)
+		v1, ts1, hc1, err := snapshot.Get(k)
 		require.NoError(t, err)
 		require.Equal(t, v, v1)
 		require.Equal(t, ts, ts1)
+		if override {
+			require.Greater(t, hc1, uint64(0))
+		}
+		require.Equal(t, uint64(1), hc1)
 
-		tss, err := snapshot.GetTs(k, 1)
+		tss, err := snapshot.GetTs(k, 0, false, 1)
 		require.NoError(t, err)
 		require.Equal(t, ts, tss[0])
 
@@ -321,7 +351,7 @@ func TestTBTreeHistory(t *testing.T) {
 	tbtree, err = Open("test_tree_history", opts)
 	require.NoError(t, err)
 
-	tss, err := tbtree.GetTs([]byte("k0"), 10)
+	tss, err := tbtree.GetTs([]byte("k0"), 0, false, 10)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(tss))
 }
@@ -348,13 +378,25 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
+	_, err = tbtree.GetTs(nil, 0, false, 10)
+	require.Equal(t, err, ErrIllegalArguments)
+
+	_, err = tbtree.GetTs([]byte("key"), 0, false, 0)
+	require.Equal(t, err, ErrIllegalArguments)
+
 	err = tbtree.Close()
 	require.NoError(t, err)
 
 	_, _, err = tbtree.Flush()
 	require.Equal(t, err, ErrAlreadyClosed)
 
+	_, err = tbtree.GetTs([]byte("key"), 0, false, 10)
+	require.Equal(t, err, ErrAlreadyClosed)
+
 	err = tbtree.Close()
+	require.Equal(t, err, ErrAlreadyClosed)
+
+	_, _, _, err = tbtree.Get([]byte("key"))
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Sync()
@@ -409,7 +451,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	i := 0
 	prevk := reader.seekKey
 	for {
-		k, _, _, err := reader.Read()
+		k, _, _, _, err := reader.Read()
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			break
@@ -436,10 +478,11 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	snapshot, err = tbtree.Snapshot()
 	require.NoError(t, err)
 
-	v, ts, err := snapshot.Get(prevk)
+	v, ts, hc, err := snapshot.Get(prevk)
 	require.NoError(t, err)
 	require.Equal(t, uint64(itCount*keyCount+1), ts)
 	require.Equal(t, prevk, v)
+	require.Equal(t, uint64(itCount+1), hc)
 
 	snapshot.Close()
 }
@@ -487,7 +530,7 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 		i := 0
 		prevk := reader.seekKey
 		for {
-			k, _, _, err := reader.Read()
+			k, _, _, _, err := reader.Read()
 			if err != nil {
 				require.Equal(t, ErrNoMoreEntries, err)
 				break

@@ -42,16 +42,16 @@ type ReaderSpec struct {
 	DescOrder     bool
 }
 
-func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
+func (r *Reader) Read() (key []byte, value []byte, ts uint64, hc uint64, err error) {
 	if r.closed {
-		return nil, nil, 0, ErrAlreadyClosed
+		return nil, nil, 0, 0, ErrAlreadyClosed
 	}
 
 	for {
 		if (!r.descOrder && len(r.leafNode.values) == r.offset) || (r.descOrder && r.offset < 0) {
 			for {
 				if len(r.path) == 0 {
-					return nil, nil, 0, ErrNoMoreEntries
+					return nil, nil, 0, 0, ErrNoMoreEntries
 				}
 
 				parent := r.path[len(r.path)-1]
@@ -74,7 +74,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 				}
 
 				if err != nil {
-					return nil, nil, 0, err
+					return nil, nil, 0, 0, err
 				}
 
 				r.path = path
@@ -97,7 +97,7 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, err error) {
 		}
 
 		if len(leafValue.key) >= len(r.prefix) && bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)]) {
-			return leafValue.key, leafValue.value, leafValue.ts, nil
+			return leafValue.key, leafValue.value, leafValue.ts, leafValue.hCount, nil
 		}
 	}
 }

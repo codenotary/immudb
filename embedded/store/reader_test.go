@@ -69,7 +69,7 @@ func TestImmudbStoreReader(t *testing.T) {
 	defer reader.Close()
 
 	for {
-		_, v, _, err := reader.Read()
+		_, v, _, _, err := reader.Read()
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			break

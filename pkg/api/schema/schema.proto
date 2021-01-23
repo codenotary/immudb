@@ -291,7 +291,7 @@ message ZScanRequest {
 message HistoryRequest {
 	bytes key = 1;
 	uint64 offset = 2;
-	uint64 limit = 3;
+	int32 limit = 3;
 	bool desc = 4;
 	uint64 sinceTx = 5;
 }

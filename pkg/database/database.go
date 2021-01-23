@@ -207,7 +207,7 @@ func (d *db) WaitForIndexingUpto(txID uint64) error {
 }
 
 type KeyIndex interface {
-	Get(key []byte) (value []byte, tx uint64, err error)
+	Get(key []byte) (value []byte, tx uint64, hc uint64, err error)
 }
 
 func (d *db) get(key []byte, keyIndex KeyIndex, tx *store.Tx) (*schema.Entry, error) {
@@ -219,7 +219,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 	var val []byte
 
 	if atTx == 0 {
-		wv, wtx, err := keyIndex.Get(key)
+		wv, wtx, _, err := keyIndex.Get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -554,7 +554,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return nil, err
 	}
 
-	limit := req.Limit
+	limit := int(req.Limit)
 
 	if req.Limit == 0 {
 		limit = MaxKeyScanLimit
@@ -562,17 +562,17 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 
 	key := EncodeKey(req.Key)
 
-	txs, err := d.st.GetTs(key, int64(limit))
+	txs, err := d.st.GetTs(key, req.Offset, req.Desc, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	list := &schema.Entries{}
+	list := &schema.Entries{
+		Entries: make([]*schema.Entry, len(txs)),
+	}
 
-	for i := int(req.Offset); i < len(txs); i++ {
-		ts := txs[i]
-
-		err = d.st.ReadTx(ts, d.tx1)
+	for i, tx := range txs {
+		err = d.st.ReadTx(tx, d.tx1)
 		if err != nil {
 			return nil, err
 		}
@@ -582,13 +582,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		e := &schema.Entry{Key: req.Key, Value: val[1:], Tx: ts}
-
-		if req.Desc {
-			list.Entries = append([]*schema.Entry{e}, list.Entries...)
-		} else {
-			list.Entries = append(list.Entries, e)
-		}
+		list.Entries[i] = &schema.Entry{Key: req.Key, Value: val[1:], Tx: tx}
 	}
 
 	return list, nil

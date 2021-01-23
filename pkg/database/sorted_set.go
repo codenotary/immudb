@@ -140,7 +140,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	i := uint64(0)
 
 	for {
-		zKey, _, _, err := r.Read()
+		zKey, _, _, _, err := r.Read()
 		if err == tbtree.ErrNoMoreEntries {
 			break
 		}

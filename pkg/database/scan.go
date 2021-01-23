@@ -70,7 +70,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	defer r.Close()
 
 	for {
-		key, _, tx, err := r.Read()
+		key, _, tx, _, err := r.Read()
 		if err == tbtree.ErrNoMoreEntries {
 			break
 		}

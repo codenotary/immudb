@@ -493,7 +493,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 						v := make([]byte, 8)
 						binary.BigEndian.PutUint64(v, snap.Ts()-1)
 
-						wv, _, err := snap.Get(k)
+						wv, _, _, err := snap.Get(k)
 
 						if err != nil {
 							if err != tbtree.ErrKeyNotFound {
@@ -536,12 +536,12 @@ func TestImmudbStoreIndexing(t *testing.T) {
 					k := make([]byte, 8)
 					binary.BigEndian.PutUint64(k, uint64(eCount-1))
 
-					v1, tx1, err := immuStore.Get(k)
+					v1, tx1, _, err := immuStore.Get(k)
 					if err != nil {
 						panic(err)
 					}
 
-					v2, tx2, err := snap.Get(k)
+					v2, tx2, _, err := snap.Get(k)
 					if err != nil {
 						panic(err)
 					}
@@ -554,7 +554,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 						panic(fmt.Errorf("expected %d actual %d", tx1, tx2))
 					}
 
-					txs, err := immuStore.GetTs(k, int64(txCount))
+					txs, err := immuStore.GetTs(k, 0, false, txCount)
 					if err != nil {
 						panic(err)
 					}
@@ -682,7 +682,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 						k := make([]byte, 8)
 						binary.BigEndian.PutUint64(k, uint64(j))
 
-						txIDs, err := snap.GetTs(k, int64(txCount))
+						txIDs, err := snap.GetTs(k, 0, false, txCount)
 						if err != nil {
 							panic(err)
 						}

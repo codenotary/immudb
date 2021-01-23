@@ -79,7 +79,7 @@ func TestReaderAscendingScan(t *testing.T) {
 	require.Equal(t, ErrReadersNotClosed, err)
 
 	for {
-		k, _, _, err := reader.Read()
+		k, _, _, _, err := reader.Read()
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			break
@@ -91,7 +91,7 @@ func TestReaderAscendingScan(t *testing.T) {
 	err = reader.Close()
 	require.NoError(t, err)
 
-	_, _, _, err = reader.Read()
+	_, _, _, _, err = reader.Read()
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = reader.Close()
@@ -126,7 +126,7 @@ func TestReaderDescendingScan(t *testing.T) {
 	i := 0
 	prevk := reader.seekKey
 	for {
-		k, _, _, err := reader.Read()
+		k, _, _, _, err := reader.Read()
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			break
@@ -171,7 +171,7 @@ func TestFullScanAscendingOrder(t *testing.T) {
 	i := 0
 	prevk := reader.seekKey
 	for {
-		k, _, _, err := reader.Read()
+		k, _, _, _, err := reader.Read()
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			break
@@ -209,7 +209,7 @@ func TestFullScanDescendingOrder(t *testing.T) {
 	i := 0
 	prevk := reader.seekKey
 	for {
-		k, _, _, err := reader.Read()
+		k, _, _, _, err := reader.Read()
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			break

@@ -43,10 +43,10 @@ func (v *IndexedValue) Resolve() ([]byte, error) {
 	return refVal, err
 }
 
-func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, err error) {
-	key, vLogOffset, tx, err := s.reader.Read()
+func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, hc uint64, err error) {
+	key, vLogOffset, tx, hc, err := s.reader.Read()
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, 0, err
 	}
 
 	valLen := binary.BigEndian.Uint32(vLogOffset)
@@ -62,7 +62,7 @@ func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, err error) {
 		st:     s.store,
 	}
 
-	return key, val, tx, nil
+	return key, val, tx, hc, nil
 }
 
 func (s *Reader) Close() error {

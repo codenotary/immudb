@@ -37,19 +37,19 @@ type Snapshot struct {
 	closed      bool
 }
 
-func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, err error) {
+func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err error) {
 	if s.closed {
-		return nil, 0, ErrAlreadyClosed
+		return nil, 0, 0, ErrAlreadyClosed
 	}
 
 	if key == nil {
-		return nil, 0, ErrIllegalArguments
+		return nil, 0, 0, ErrIllegalArguments
 	}
 
 	return s.root.get(key)
 }
 
-func (s *Snapshot) GetTs(key []byte, limit int64) (ts []uint64, err error) {
+func (s *Snapshot) GetTs(key []byte, offset uint64, descOrder bool, limit int) (ts []uint64, err error) {
 	if s.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -62,7 +62,7 @@ func (s *Snapshot) GetTs(key []byte, limit int64) (ts []uint64, err error) {
 		return nil, ErrIllegalArguments
 	}
 
-	return s.root.getTs(key, limit)
+	return s.root.getTs(key, offset, descOrder, limit)
 }
 
 func (s *Snapshot) Ts() uint64 {
@@ -250,6 +250,7 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 		bi += 8
 
 		hOff := v.hOff
+		hCount := v.hCount + uint64(len(v.tss))
 
 		if len(v.tss) > 0 {
 			hbuf := make([]byte, 4+len(v.tss)*8+8)
@@ -279,9 +280,13 @@ func (l *leafNode) writeTo(nw, hw io.Writer, writeOpts *WriteOpts) (nOff int64, 
 		binary.BigEndian.PutUint64(buf[bi:], uint64(hOff))
 		bi += 8
 
+		binary.BigEndian.PutUint64(buf[bi:], hCount)
+		bi += 8
+
 		if writeOpts.commitLog {
 			v.tss = nil
 			v.hOff = hOff
+			v.hCount = hCount
 		}
 	}
 
