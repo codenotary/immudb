@@ -77,7 +77,7 @@ func TestEdgeCases(t *testing.T) {
 	opts := DefaultOptions().
 		WithMaxActiveSnapshots(1).
 		WithMaxNodeSize(MinNodeSize).
-		WithFlushThld(50)
+		WithFlushThld(1000)
 	tree, err := Open("edge_cases", opts)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tree.Ts())
@@ -93,15 +93,22 @@ func TestEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	tss, err := tree.GetTs(make([]byte, 1), 0, true, 10)
+	require.NoError(t, err)
+	require.Len(t, tss, 10)
+
+	tss, err = tree.GetTs(make([]byte, 1), 0, false, 10)
+	require.NoError(t, err)
+	require.Len(t, tss, 10)
+
+	err = tree.Sync()
+	require.NoError(t, err)
+
 	s1, err := tree.Snapshot()
 	require.NoError(t, err)
 
 	_, err = s1.GetTs(make([]byte, 1), 0, false, 100)
 	require.NoError(t, err)
-
-	tss, err := s1.GetTs(make([]byte, 1), 0, true, 10)
-	require.NoError(t, err)
-	require.Len(t, tss, 10)
 
 	_, err = s1.GetTs(make([]byte, 1), 101, false, 100)
 	require.Equal(t, ErrIllegalState, err)
@@ -371,10 +378,19 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
+	_, err = tbtree.GetTs(nil, 0, false, 10)
+	require.Equal(t, err, ErrIllegalArguments)
+
+	_, err = tbtree.GetTs([]byte("key"), 0, false, 0)
+	require.Equal(t, err, ErrIllegalArguments)
+
 	err = tbtree.Close()
 	require.NoError(t, err)
 
 	_, _, err = tbtree.Flush()
+	require.Equal(t, err, ErrAlreadyClosed)
+
+	_, err = tbtree.GetTs([]byte("key"), 0, false, 10)
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Close()
