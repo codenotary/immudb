@@ -159,7 +159,7 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 				expectedTs := uint64((i-1)*kCount+j) + 1
 				require.Equal(t, expectedTs, ts1)
 
-				require.Greater(t, hc, uint64(0))
+				require.Equal(t, uint64(i), hc)
 			}
 
 			if i%2 == 1 {
@@ -188,7 +188,7 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 			require.NoError(t, err)
 			require.Equal(t, v, v1)
 			require.Equal(t, ts, ts1)
-			require.Greater(t, hc, uint64(0))
+			require.Equal(t, uint64(i+1), hc)
 
 			err = snapshot.Close()
 			require.NoError(t, err)
@@ -224,7 +224,7 @@ func checkAfterMonotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kC
 		expectedTs := uint64((i-1)*kCount+j) + 1
 		require.Equal(t, expectedTs, ts1)
 
-		require.Greater(t, hc1, uint64(0))
+		require.Equal(t, uint64(itCount), hc1)
 	}
 
 	err = snapshot.Close()
@@ -268,7 +268,10 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		require.NoError(t, err)
 		require.Equal(t, v, v0)
 		require.Equal(t, ts, ts0)
-		require.Greater(t, hc0, uint64(0))
+		if override {
+			require.Greater(t, hc0, uint64(0))
+		}
+		require.Equal(t, uint64(1), hc0)
 
 		_, _, err = tbtree.Flush()
 		require.NoError(t, err)
@@ -282,7 +285,10 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		require.NoError(t, err)
 		require.Equal(t, v, v1)
 		require.Equal(t, ts, ts1)
-		require.Greater(t, hc1, uint64(0))
+		if override {
+			require.Greater(t, hc1, uint64(0))
+		}
+		require.Equal(t, uint64(1), hc1)
 
 		tss, err := snapshot.GetTs(k, 0, false, 1)
 		require.NoError(t, err)
@@ -447,7 +453,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(itCount*keyCount+1), ts)
 	require.Equal(t, prevk, v)
-	require.Greater(t, hc, uint64(0))
+	require.Equal(t, uint64(itCount+1), hc)
 
 	snapshot.Close()
 }
