@@ -696,7 +696,16 @@ func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema
 	start := time.Now()
 	defer c.Logger.Debugf("set finished in %s", time.Since(start))
 
-	return c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+	txmd, err := c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != 1 {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // VerifiedSet ...
@@ -736,6 +745,10 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	tx := schema.TxFrom(verifiableTx.Tx)
+
+	if len(tx.Entries()) != 1 {
+		return nil, store.ErrCorruptedData
+	}
 
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
@@ -805,12 +818,30 @@ func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schem
 		return nil, ErrNotConnected
 	}
 
-	return c.ServiceClient.Set(ctx, req)
+	txmd, err := c.ServiceClient.Set(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != len(req.KVs) {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // ExecAll ...
 func (c *immuClient) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
-	return c.ServiceClient.ExecAll(ctx, req)
+	txmd, err := c.ServiceClient.ExecAll(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != len(req.Operations) {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // GetAll ...
@@ -961,12 +992,21 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedK
 	start := time.Now()
 	defer c.Logger.Debugf("SetReference finished in %s", time.Since(start))
 
-	return c.ServiceClient.SetReference(ctx, &schema.ReferenceRequest{
+	txmd, err := c.ServiceClient.SetReference(ctx, &schema.ReferenceRequest{
 		Key:           key,
 		ReferencedKey: referencedKey,
 		AtTx:          atTx,
 		BoundRef:      atTx > 0,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != 1 {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // VerifiedSetReference ...
@@ -1015,6 +1055,10 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	}
 
 	tx := schema.TxFrom(verifiableTx.Tx)
+
+	if len(tx.Entries()) != 1 {
+		return nil, store.ErrCorruptedData
+	}
 
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
@@ -1093,13 +1137,22 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 	start := time.Now()
 	defer c.Logger.Debugf("zadd finished in %s", time.Since(start))
 
-	return c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
+	txmd, err := c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
 		Set:      set,
 		Score:    score,
 		Key:      key,
 		AtTx:     atTx,
 		BoundRef: atTx > 0,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != 1 {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // ZAdd ...
@@ -1149,6 +1202,10 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	}
 
 	tx := schema.TxFrom(vtx.Tx)
+
+	if len(tx.Entries()) != 1 {
+		return nil, store.ErrCorruptedData
+	}
 
 	ekv := database.EncodeZAdd(req.ZAddRequest.Set,
 		req.ZAddRequest.Score,
