@@ -211,7 +211,7 @@ func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte
 }
 
 func TestImmuClient(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -221,7 +221,8 @@ func TestImmuClient(t *testing.T) {
 	defer os.Remove(".state-")
 
 	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	opts := DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
+	client, err := NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -312,7 +313,7 @@ func TestDatabasesSwitching(t *testing.T) {
 }
 
 func TestImmuClientDisconnect(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -322,7 +323,8 @@ func TestImmuClientDisconnect(t *testing.T) {
 	defer os.Remove(".state-")
 
 	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	opts := DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
+	client, err := NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1212,7 +1214,7 @@ func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
 }
 
 func TestImmuClient_VerifiedGetAt(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -1222,7 +1224,8 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 	defer os.Remove(".state-")
 
 	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	opts := DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
+	client, err := NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
