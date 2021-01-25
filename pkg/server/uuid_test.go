@@ -39,8 +39,8 @@ func TestNewUUID(t *testing.T) {
 	}
 
 	uuid := NewUUIDContext(id)
-	if id.Compare(uuid.Uuid) != 0 {
-		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.Uuid)
+	if id.Compare(uuid.UUID) != 0 {
+		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.UUID)
 	}
 }
 
@@ -58,8 +58,8 @@ func TestExistingUUID(t *testing.T) {
 	}
 
 	uuid := NewUUIDContext(id)
-	if id.Compare(uuid.Uuid) != 0 {
-		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.Uuid)
+	if id.Compare(uuid.UUID) != 0 {
+		t.Fatalf("NewUUIDContext error expected %v, got %v", id, uuid.UUID)
 	}
 }
 
@@ -69,9 +69,11 @@ func TestUUIDContextSetter(t *testing.T) {
 		t.Fatalf("error creating UUID, %v", err)
 	}
 	defer os.RemoveAll(IDENTIFIER_FNAME)
+
 	uuid := NewUUIDContext(id)
 	transportStream := &mockServerTransportStream{}
 	srv := &grpc.UnaryServerInfo{}
+
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 
 		ctxUUID, ok := transportStream.SentHeader[SERVER_UUID_HEADER]
@@ -83,42 +85,52 @@ func TestUUIDContextSetter(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error initializing xid from string %s", ctxUUID[0])
 		}
-		if uuid.Uuid.Compare(x) != 0 {
+		if uuid.UUID.Compare(x) != 0 {
 			t.Fatalf("set uuid does is not equal to transmitted uuid")
 		}
 		return req, nil
 	}
+
 	var req interface{}
 	ctx := grpc.NewContextWithServerTransportStream(context.Background(), transportStream)
+
 	_, err = uuid.UUIDContextSetter(ctx, req, srv, handler)
 	if err != nil {
 		t.Fatalf("error setting uuid UUID, %v", err)
 	}
 }
+
 func TestUUIDStreamContextSetter(t *testing.T) {
 	id, err := getOrSetUUID("./")
 	if err != nil {
 		t.Fatalf("error creating UUID, %v", err)
 	}
 	defer os.RemoveAll(IDENTIFIER_FNAME)
+
 	uuid := NewUUIDContext(id)
 	srv := grpc.StreamServerInfo{}
 	ss := mockServerStream{}
+
 	handler := func(srv interface{}, stream grpc.ServerStream) error {
 		ctxUUID, ok := ss.SentHeader[SERVER_UUID_HEADER]
 		if !ok {
 			t.Fatalf("error setting uuid")
 		}
+
 		x, err := xid.FromString(ctxUUID[0])
 		if err != nil {
 			t.Fatalf("error initializing xid from string %s", ctxUUID[0])
 		}
-		if uuid.Uuid.Compare(x) != 0 {
+
+		if uuid.UUID.Compare(x) != 0 {
 			t.Fatalf("set uuid does is not equal to transmitted uuid")
 		}
+
 		return nil
 	}
+
 	var req interface{}
+
 	err = uuid.UUIDStreamContextSetter(req, &ss, &srv, handler)
 	if err != nil {
 		t.Fatalf("error setting uuid UUID, %v", err)
