@@ -1180,6 +1180,12 @@
     "schemaImmutableState": {
       "type": "object",
       "properties": {
+        "uuid": {
+          "type": "string"
+        },
+        "db": {
+          "type": "string"
+        },
         "txId": {
           "type": "string",
           "format": "uint64"

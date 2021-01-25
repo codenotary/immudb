@@ -245,6 +245,8 @@ message HealthResponse {
 }
 
 message ImmutableState {
+	string uuid = 1;
+	string db = 2;
 	uint64 txId = 3;
 	bytes txHash = 4;
 	Signature signature = 5;
