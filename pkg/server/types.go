@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/codenotary/immudb/pkg/database"
+	"github.com/rs/xid"
 
 	"google.golang.org/grpc"
 
@@ -55,6 +56,7 @@ type ImmuServer struct {
 	Options             *Options
 	listener            net.Listener
 	GrpcServer          *grpc.Server
+	UUID                xid.ID
 	Pid                 PIDFile
 	quit                chan struct{}
 	databasenameToIndex map[string]int64

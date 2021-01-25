@@ -40,8 +40,6 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/signer"
 
-	"github.com/rs/xid"
-
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -133,8 +131,8 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
-	var uuid xid.ID
-	if uuid, err = getOrSetUUID(systemDbRootDir); err != nil {
+
+	if s.UUID, err = getOrSetUUID(systemDbRootDir); err != nil {
 		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
 	}
 
@@ -162,7 +160,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 	//<===
 
-	uuidContext := NewUUIDContext(uuid)
+	uuidContext := NewUUIDContext(s.UUID)
 
 	uis := []grpc.UnaryServerInterceptor{
 		uuidContext.UUIDContextSetter,
@@ -670,6 +668,9 @@ func (s *ImmuServer) CurrentState(ctx context.Context, e *empty.Empty) (*schema.
 		return nil, err
 	}
 
+	state.Uuid = s.UUID.String()
+	state.Db = s.dbList.GetByIndex(ind).GetOptions().GetDbName()
+
 	if s.Options.SigningKey != "" {
 		err = s.StateSigner.Sign(state)
 		if err != nil {
@@ -708,6 +709,8 @@ func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSe
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
+			Uuid:   s.UUID.String(),
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -750,6 +753,8 @@ func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGe
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
+			Uuid:   s.UUID.String(),
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -828,6 +833,8 @@ func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
+			Uuid:   s.UUID.String(),
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -880,6 +887,8 @@ func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.Ver
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
+			Uuid:   s.UUID.String(),
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
@@ -932,6 +941,8 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 		alh := md.Alh()
 
 		newState := &schema.ImmutableState{
+			Uuid:   s.UUID.String(),
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
 			TxId:   md.ID,
 			TxHash: alh[:],
 		}
