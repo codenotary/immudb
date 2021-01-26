@@ -141,6 +141,8 @@ type ImmuClient interface {
 	SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
 }
 
+const DefaultDB = "defaultdb"
+
 type immuClient struct {
 	Dir                 string
 	Logger              logger.Logger
@@ -606,6 +608,7 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      targetID,
 		TxHash:    targetAlh[:],
 		Signature: vEntry.VerifiableTx.Signature,
@@ -790,6 +793,7 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      tx.ID,
 		TxHash:    tx.Alh[:],
 		Signature: verifiableTx.Signature,
@@ -941,6 +945,7 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      targetID,
 		TxHash:    targetAlh[:],
 		Signature: vTx.Signature,
@@ -1100,6 +1105,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      tx.ID,
 		TxHash:    tx.Alh[:],
 		Signature: verifiableTx.Signature,
@@ -1253,6 +1259,7 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      tx.ID,
 		TxHash:    tx.Alh[:],
 		Signature: vtx.Signature,
@@ -1300,6 +1307,13 @@ func (c *immuClient) HealthCheck(ctx context.Context) error {
 	c.Logger.Debugf("health-check finished in %s", time.Since(start))
 
 	return nil
+}
+
+func (c *immuClient) currentDatabase() string {
+	if c.Options.CurrentDatabase == "" {
+		return DefaultDB
+	}
+	return c.Options.CurrentDatabase
 }
 
 // CreateDatabase create a new database by making a grpc call

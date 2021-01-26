@@ -297,7 +297,6 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| uuid | [string](#string) |  |  |
 | db | [string](#string) |  |  |
 | txId | [uint64](#uint64) |  |  |
 | txHash | [bytes](#bytes) |  |  |
