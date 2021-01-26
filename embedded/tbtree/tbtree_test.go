@@ -111,7 +111,7 @@ func TestEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s1.GetTs(make([]byte, 1), 101, false, 100)
-	require.Equal(t, ErrIllegalState, err)
+	require.Equal(t, ErrOffsetOutOfRange, err)
 
 	_, err = tree.Snapshot()
 	require.Equal(t, ErrorToManyActiveSnapshots, err)

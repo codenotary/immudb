@@ -36,6 +36,7 @@ var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrReadingFileContent = errors.New("error reading required file content")
 var ErrKeyNotFound = errors.New("key not found")
 var ErrorMaxKVLenExceeded = errors.New("max kv length exceeded")
+var ErrOffsetOutOfRange = errors.New("offset out of range")
 var ErrIllegalState = errors.New("illegal state")
 var ErrAlreadyClosed = errors.New("already closed")
 var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
@@ -1466,7 +1467,7 @@ func (l *leafNode) getTs(key []byte, offset uint64, desc bool, limit int) ([]uin
 	hCount := leafValue.hCount + uint64(len(leafValue.tss))
 
 	if offset > hCount {
-		return nil, ErrIllegalState
+		return nil, ErrOffsetOutOfRange
 	}
 
 	tssLen := limit
