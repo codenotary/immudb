@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -563,7 +564,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	key := EncodeKey(req.Key)
 
 	txs, err := d.st.GetTs(key, req.Offset, req.Desc, limit)
-	if err != nil {
+	if err != nil && err != tbtree.ErrOffsetOutOfRange {
 		return nil, err
 	}
 
