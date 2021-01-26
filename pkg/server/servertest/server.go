@@ -36,7 +36,7 @@ type BuffDialer func(context.Context, string) (net.Conn, error)
 type bufconnServer struct {
 	m          sync.Mutex
 	Lis        *bufconn.Listener
-	Server     *server.ImmuServer
+	Server     *ServerMock
 	Options    *server.Options
 	GrpcServer *grpc.Server
 	Dialer     BuffDialer
@@ -57,19 +57,27 @@ func NewBufconnServer(options *server.Options) *bufconnServer {
 
 func (bs *bufconnServer) Start() error {
 	bs.m.Lock()
-	bs.Server = server.DefaultServer().WithOptions(bs.Options).(*server.ImmuServer)
+
+	server := server.DefaultServer().WithOptions(bs.Options).(*server.ImmuServer)
+
 	bs.Dialer = func(ctx context.Context, s string) (net.Conn, error) {
 		return bs.Lis.Dial()
 	}
-	if err := bs.Server.Initialize(); err != nil {
+
+	if err := server.Initialize(); err != nil {
 		return err
 	}
+
+	bs.Server = &ServerMock{srv: server}
+
 	schema.RegisterImmuServiceServer(bs.GrpcServer, bs.Server)
+
 	go func() {
 		if err := bs.GrpcServer.Serve(bs.Lis); err != nil {
 			log.Fatal(err)
 		}
 	}()
+
 	return nil
 }
 
