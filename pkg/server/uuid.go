@@ -34,7 +34,7 @@ const IDENTIFIER_FNAME = "immudb.identifier"
 const SERVER_UUID_HEADER = "immudb-uuid"
 
 type uuidContext struct {
-	Uuid xid.ID
+	UUID xid.ID
 }
 
 // UUIDContext manage UUID context
@@ -89,14 +89,14 @@ func (w *WrappedServerStream) SendMsg(m interface{}) error {
 
 // UUIDStreamContextSetter set uuid header in a stream
 func (u *uuidContext) UUIDStreamContextSetter(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	header := metadata.Pairs(SERVER_UUID_HEADER, u.Uuid.String())
+	header := metadata.Pairs(SERVER_UUID_HEADER, u.UUID.String())
 	ss.SendHeader(header)
 	return handler(srv, &WrappedServerStream{ss})
 }
 
 // UUIDContextSetter set uuid header
 func (u *uuidContext) UUIDContextSetter(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	header := metadata.Pairs(SERVER_UUID_HEADER, u.Uuid.String())
+	header := metadata.Pairs(SERVER_UUID_HEADER, u.UUID.String())
 	err := grpc.SendHeader(ctx, header)
 	if err != nil {
 		return nil, err

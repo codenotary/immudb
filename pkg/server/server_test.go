@@ -1018,30 +1018,28 @@ func testServerScan(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{kvs[0]}})
 	require.NoError(t, err)
 
-	meta, err := s.ZAdd(ctx, &schema.ZAddRequest{
+	_, err = s.ZAdd(ctx, &schema.ZAddRequest{
 		Key:   kvs[0].Key,
 		Score: 3,
 		Set:   kvs[0].Value,
 	})
 	require.NoError(t, err)
 
-	/*
-			_, err = s.VerifiableZAdd(ctx, &schema.VerifiableZAddRequest{
-				ZAddRequest: &schema.ZAddRequest{
-					Key:   kvs[0].Key,
-					Score: 0,
-					Set:   kvs[0].Value,
-				},
-				ProveSinceTx: 0,
-			})
-		require.NoError(t, err)
-	*/
+	meta, err := s.VerifiableZAdd(ctx, &schema.VerifiableZAddRequest{
+		ZAddRequest: &schema.ZAddRequest{
+			Key:   kvs[0].Key,
+			Score: 0,
+			Set:   kvs[0].Value,
+		},
+		ProveSinceTx: 0,
+	})
+	require.NoError(t, err)
 
 	item, err := s.Scan(ctx, &schema.ScanRequest{
 		SeekKey: nil,
 		Limit:   1,
 		Prefix:  kvs[0].Key,
-		SinceTx: meta.Id,
+		SinceTx: meta.Tx.Metadata.Id,
 	})
 	require.NoError(t, err)
 
@@ -1166,7 +1164,11 @@ func TestServerUsermanagement(t *testing.T) {
 }
 
 func TestServerDbOperations(t *testing.T) {
-	serverOptions := DefaultOptions().WithMetricsServer(false).WithAdminPassword(auth.SysAdminPassword)
+	serverOptions := DefaultOptions().
+		WithMetricsServer(false).
+		WithAdminPassword(auth.SysAdminPassword).
+		WithSigningKey("./../../test/signer/ec1.key")
+
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 	defer os.RemoveAll(s.Options.Dir)
 

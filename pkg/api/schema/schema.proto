@@ -245,9 +245,10 @@ message HealthResponse {
 }
 
 message ImmutableState {
-	uint64 txId = 3;
-	bytes txHash = 4;
-	Signature signature = 5;
+	string db = 1;
+	uint64 txId = 2;
+	bytes txHash = 3;
+	Signature signature = 4;
 }
 
 message ReferenceRequest {

@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -211,7 +212,7 @@ func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte
 }
 
 func TestImmuClient(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -221,7 +222,8 @@ func TestImmuClient(t *testing.T) {
 	defer os.Remove(".state-")
 
 	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	opts := DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
+	client, err := NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -251,6 +253,156 @@ func TestImmuClient(t *testing.T) {
 	testImmuClient_VerifiedTxByID(ctx, t, testData.set, testData.scores, testData.keys, testData.values, client)
 
 	testGet(ctx, t, client)
+}
+
+func TestImmuClientTampering(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	opts := DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
+	client, err := NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	resp, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", resp.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.Set(ctx, []byte{0}, []byte{0})
+	require.NoError(t, err)
+
+	bs.Server.PostSetFn = func(ctx context.Context,
+		req *schema.SetRequest, res *schema.TxMetadata, err error) (*schema.TxMetadata, error) {
+
+		if err != nil {
+			return res, err
+		}
+
+		res.Nentries = 0
+
+		return res, nil
+	}
+
+	_, err = client.Set(ctx, []byte{1}, []byte{1})
+	require.Equal(t, store.ErrCorruptedData, err)
+
+	_, err = client.SetAll(ctx, &schema.SetRequest{
+		KVs: []*schema.KeyValue{{Key: []byte{1}, Value: []byte{1}}},
+	})
+	require.Equal(t, store.ErrCorruptedData, err)
+
+	bs.Server.PostVerifiableSetFn = func(ctx context.Context,
+		req *schema.VerifiableSetRequest, res *schema.VerifiableTx, err error) (*schema.VerifiableTx, error) {
+
+		if err != nil {
+			return res, err
+		}
+
+		res.Tx.Metadata.Nentries = 0
+
+		return res, nil
+	}
+
+	_, err = client.VerifiedSet(ctx, []byte{1}, []byte{1})
+	require.Equal(t, store.ErrCorruptedData, err)
+
+	bs.Server.PostSetReferenceFn = func(ctx context.Context,
+		req *schema.ReferenceRequest, res *schema.TxMetadata, err error) (*schema.TxMetadata, error) {
+
+		if err != nil {
+			return res, err
+		}
+
+		res.Nentries = 0
+
+		return res, nil
+	}
+
+	_, err = client.SetReference(ctx, []byte{2}, []byte{1})
+	require.Equal(t, store.ErrCorruptedData, err)
+
+	bs.Server.PostVerifiableSetReferenceFn = func(ctx context.Context,
+		req *schema.VerifiableReferenceRequest, res *schema.VerifiableTx, err error) (*schema.VerifiableTx, error) {
+
+		if err != nil {
+			return res, err
+		}
+
+		res.Tx.Metadata.Nentries = 0
+
+		return res, nil
+	}
+
+	_, err = client.VerifiedSetReference(ctx, []byte{2}, []byte{1})
+	require.Equal(t, store.ErrCorruptedData, err)
+
+	bs.Server.PostZAddFn = func(ctx context.Context,
+		req *schema.ZAddRequest, res *schema.TxMetadata, err error) (*schema.TxMetadata, error) {
+
+		if err != nil {
+			return res, err
+		}
+
+		res.Nentries = 0
+
+		return res, nil
+	}
+
+	_, err = client.ZAdd(ctx, []byte{7}, 1, []byte{1})
+	require.Equal(t, store.ErrCorruptedData, err)
+
+	bs.Server.PostVerifiableZAddFn = func(ctx context.Context,
+		req *schema.VerifiableZAddRequest, res *schema.VerifiableTx, err error) (*schema.VerifiableTx, error) {
+
+		if err != nil {
+			return res, err
+		}
+
+		res.Tx.Metadata.Nentries = 0
+
+		return res, nil
+	}
+
+	_, err = client.VerifiedZAdd(ctx, []byte{7}, 1, []byte{1})
+	require.Equal(t, store.ErrCorruptedData, err)
+
+	bs.Server.PostExecAllFn = func(ctx context.Context,
+		req *schema.ExecAllRequest, res *schema.TxMetadata, err error) (*schema.TxMetadata, error) {
+
+		if err != nil {
+			return res, err
+		}
+
+		res.Nentries = 0
+
+		return res, nil
+	}
+
+	aOps := &schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
+						Key:   []byte(`key`),
+						Value: []byte(`val`),
+					},
+				},
+			},
+		},
+	}
+
+	_, err = client.ExecAll(ctx, aOps)
+	require.Equal(t, store.ErrCorruptedData, err)
 }
 
 func TestDatabasesSwitching(t *testing.T) {
@@ -312,7 +464,7 @@ func TestDatabasesSwitching(t *testing.T) {
 }
 
 func TestImmuClientDisconnect(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -322,7 +474,8 @@ func TestImmuClientDisconnect(t *testing.T) {
 	defer os.Remove(".state-")
 
 	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	opts := DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
+	client, err := NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1212,7 +1365,7 @@ func TestImmuClient_CurrentStateVerifiedSignature(t *testing.T) {
 }
 
 func TestImmuClient_VerifiedGetAt(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
@@ -1222,7 +1375,8 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 	defer os.Remove(".state-")
 
 	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	opts := DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts)
+	client, err := NewImmuClient(opts.WithServerSigningPubKey("./../../test/signer/ec1.pub"))
 	if err != nil {
 		log.Fatal(err)
 	}

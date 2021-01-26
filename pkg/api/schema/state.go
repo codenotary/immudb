@@ -25,9 +25,20 @@ import (
 )
 
 func (state *ImmutableState) ToBytes() []byte {
-	b := make([]byte, 8+sha256.Size)
-	binary.BigEndian.PutUint64(b[:], state.TxId)
-	copy(b[8:], state.TxHash[:])
+	b := make([]byte, 4+len(state.Db)+8+sha256.Size)
+	i := 0
+
+	binary.BigEndian.PutUint32(b[i:], uint32(len(state.Db)))
+	i += 4
+
+	copy(b[i:], []byte(state.Db))
+	i += len(state.Db)
+
+	binary.BigEndian.PutUint64(b[i:], state.TxId)
+	i += 8
+
+	copy(b[i:], state.TxHash[:])
+
 	return b
 }
 

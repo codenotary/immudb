@@ -40,8 +40,6 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/signer"
 
-	"github.com/rs/xid"
-
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -133,8 +131,8 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
-	var uuid xid.ID
-	if uuid, err = getOrSetUUID(systemDbRootDir); err != nil {
+
+	if s.UUID, err = getOrSetUUID(systemDbRootDir); err != nil {
 		return logErr(s.Logger, "Unable to get or set uuid: %v", err)
 	}
 
@@ -162,7 +160,7 @@ func (s *ImmuServer) Initialize() error {
 	}
 	//<===
 
-	uuidContext := NewUUIDContext(uuid)
+	uuidContext := NewUUIDContext(s.UUID)
 
 	uis := []grpc.UnaryServerInterceptor{
 		uuidContext.UUIDContextSetter,
@@ -670,6 +668,8 @@ func (s *ImmuServer) CurrentState(ctx context.Context, e *empty.Empty) (*schema.
 		return nil, err
 	}
 
+	state.Db = s.dbList.GetByIndex(ind).GetOptions().GetDbName()
+
 	if s.Options.SigningKey != "" {
 		err = s.StateSigner.Sign(state)
 		if err != nil {
@@ -698,7 +698,30 @@ func (s *ImmuServer) VerifiableSet(ctx context.Context, req *schema.VerifiableSe
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).VerifiableSet(req)
+	vtx, err := s.dbList.GetByIndex(ind).VerifiableSet(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Options.SigningKey != "" {
+		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
+		alh := md.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			TxId:   md.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		vtx.Signature = newState.Signature
+	}
+
+	return vtx, nil
 }
 
 // Get ...
@@ -718,7 +741,30 @@ func (s *ImmuServer) VerifiableGet(ctx context.Context, req *schema.VerifiableGe
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).VerifiableGet(req)
+	vEntry, err := s.dbList.GetByIndex(ind).VerifiableGet(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Options.SigningKey != "" {
+		md := schema.TxMetadataFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata)
+		alh := md.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			TxId:   md.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		vEntry.VerifiableTx.Signature = newState.Signature
+	}
+
+	return vEntry, nil
 }
 
 // Scan ...
@@ -774,7 +820,30 @@ func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).VerifiableTxByID(req)
+	vtx, err := s.dbList.GetByIndex(ind).VerifiableTxByID(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Options.SigningKey != "" {
+		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
+		alh := md.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			TxId:   md.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		vtx.Signature = newState.Signature
+	}
+
+	return vtx, nil
 }
 
 // History ...
@@ -804,7 +873,30 @@ func (s *ImmuServer) VerifiableSetReference(ctx context.Context, req *schema.Ver
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).VerifiableSetReference(req)
+	vtx, err := s.dbList.GetByIndex(ind).VerifiableSetReference(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Options.SigningKey != "" {
+		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
+		alh := md.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			TxId:   md.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		vtx.Signature = newState.Signature
+	}
+
+	return vtx, nil
 }
 
 // ZAdd ...
@@ -834,7 +926,30 @@ func (s *ImmuServer) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZ
 		return nil, err
 	}
 
-	return s.dbList.GetByIndex(ind).VerifiableZAdd(req)
+	vtx, err := s.dbList.GetByIndex(ind).VerifiableZAdd(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Options.SigningKey != "" {
+		md := schema.TxMetadataFrom(vtx.DualProof.TargetTxMetadata)
+		alh := md.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			TxId:   md.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		vtx.Signature = newState.Signature
+	}
+
+	return vtx, nil
 }
 
 func (s *ImmuServer) installShutdownHandler() {

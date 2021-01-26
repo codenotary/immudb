@@ -49,7 +49,7 @@ func NewStateService(cache cache.Cache,
 	stateProvider StateProvider,
 	uuidProvider UUIDProvider) (StateService, error) {
 
-	serverUuid, err := uuidProvider.CurrentUUID(context.Background())
+	serverUUID, err := uuidProvider.CurrentUUID(context.Background())
 	if err != nil {
 		if err != ErrNoServerUuid {
 			return nil, err
@@ -62,8 +62,8 @@ func NewStateService(cache cache.Cache,
 		uuidProvider:  uuidProvider,
 		cache:         cache,
 		logger:        logger,
-		serverUUID:    serverUuid,
-		l:             cache.GetLocker(serverUuid),
+		serverUUID:    serverUUID,
+		l:             cache.GetLocker(serverUUID),
 	}, nil
 }
 
@@ -75,14 +75,16 @@ func (r *stateService) GetState(ctx context.Context, db string) (*schema.Immutab
 		return state, nil
 	}
 
-	if state, err := r.stateProvider.CurrentState(ctx); err != nil {
+	state, err := r.stateProvider.CurrentState(ctx)
+	if err != nil {
 		return nil, err
-	} else {
-		if err := r.cache.Set(r.serverUUID, db, state); err != nil {
-			return nil, err
-		}
-		return state, nil
 	}
+
+	if err := r.cache.Set(r.serverUUID, db, state); err != nil {
+		return nil, err
+	}
+
+	return state, nil
 }
 
 func (r *stateService) SetState(db string, state *schema.ImmutableState) error {

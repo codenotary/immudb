@@ -141,6 +141,8 @@ type ImmuClient interface {
 	SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
 }
 
+const DefaultDB = "defaultdb"
+
 type immuClient struct {
 	Dir                 string
 	Logger              logger.Logger
@@ -606,6 +608,7 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      targetID,
 		TxHash:    targetAlh[:],
 		Signature: vEntry.VerifiableTx.Signature,
@@ -696,7 +699,16 @@ func (c *immuClient) Set(ctx context.Context, key []byte, value []byte) (*schema
 	start := time.Now()
 	defer c.Logger.Debugf("set finished in %s", time.Since(start))
 
-	return c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+	txmd, err := c.ServiceClient.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != 1 {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // VerifiedSet ...
@@ -733,6 +745,10 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if verifiableTx.Tx.Metadata.Nentries != 1 {
+		return nil, store.ErrCorruptedData
 	}
 
 	tx := schema.TxFrom(verifiableTx.Tx)
@@ -777,6 +793,7 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      tx.ID,
 		TxHash:    tx.Alh[:],
 		Signature: verifiableTx.Signature,
@@ -805,12 +822,30 @@ func (c *immuClient) SetAll(ctx context.Context, req *schema.SetRequest) (*schem
 		return nil, ErrNotConnected
 	}
 
-	return c.ServiceClient.Set(ctx, req)
+	txmd, err := c.ServiceClient.Set(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != len(req.KVs) {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // ExecAll ...
 func (c *immuClient) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
-	return c.ServiceClient.ExecAll(ctx, req)
+	txmd, err := c.ServiceClient.ExecAll(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != len(req.Operations) {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // GetAll ...
@@ -910,6 +945,7 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      targetID,
 		TxHash:    targetAlh[:],
 		Signature: vTx.Signature,
@@ -961,12 +997,21 @@ func (c *immuClient) SetReferenceAt(ctx context.Context, key []byte, referencedK
 	start := time.Now()
 	defer c.Logger.Debugf("SetReference finished in %s", time.Since(start))
 
-	return c.ServiceClient.SetReference(ctx, &schema.ReferenceRequest{
+	txmd, err := c.ServiceClient.SetReference(ctx, &schema.ReferenceRequest{
 		Key:           key,
 		ReferencedKey: referencedKey,
 		AtTx:          atTx,
 		BoundRef:      atTx > 0,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != 1 {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // VerifiedSetReference ...
@@ -1014,6 +1059,10 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 		return nil, err
 	}
 
+	if verifiableTx.Tx.Metadata.Nentries != 1 {
+		return nil, store.ErrCorruptedData
+	}
+
 	tx := schema.TxFrom(verifiableTx.Tx)
 
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
@@ -1056,6 +1105,7 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      tx.ID,
 		TxHash:    tx.Alh[:],
 		Signature: verifiableTx.Signature,
@@ -1093,13 +1143,22 @@ func (c *immuClient) ZAddAt(ctx context.Context, set []byte, score float64, key 
 	start := time.Now()
 	defer c.Logger.Debugf("zadd finished in %s", time.Since(start))
 
-	return c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
+	txmd, err := c.ServiceClient.ZAdd(ctx, &schema.ZAddRequest{
 		Set:      set,
 		Score:    score,
 		Key:      key,
 		AtTx:     atTx,
 		BoundRef: atTx > 0,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if int(txmd.Nentries) != 1 {
+		return nil, store.ErrCorruptedData
+	}
+
+	return txmd, nil
 }
 
 // ZAdd ...
@@ -1146,6 +1205,10 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if vtx.Tx.Metadata.Nentries != 1 {
+		return nil, store.ErrCorruptedData
 	}
 
 	tx := schema.TxFrom(vtx.Tx)
@@ -1196,6 +1259,7 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	}
 
 	newState := &schema.ImmutableState{
+		Db:        c.currentDatabase(),
 		TxId:      tx.ID,
 		TxHash:    tx.Alh[:],
 		Signature: vtx.Signature,
@@ -1243,6 +1307,13 @@ func (c *immuClient) HealthCheck(ctx context.Context) error {
 	c.Logger.Debugf("health-check finished in %s", time.Since(start))
 
 	return nil
+}
+
+func (c *immuClient) currentDatabase() string {
+	if c.Options.CurrentDatabase == "" {
+		return DefaultDB
+	}
+	return c.Options.CurrentDatabase
 }
 
 // CreateDatabase create a new database by making a grpc call
