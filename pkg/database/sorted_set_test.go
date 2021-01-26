@@ -344,6 +344,16 @@ func TestStore_ZScanPagination(t *testing.T) {
 	meta, err := db.ZAdd(zaddOpts6)
 	require.NoError(t, err)
 
+	zScanOption0 := &schema.ZScanRequest{
+		Set:      setName,
+		MinScore: &schema.Score{Score: 20},
+		SinceTx:  meta.Id,
+	}
+
+	list0, err := db.ZScan(zScanOption0)
+	require.NoError(t, err)
+	require.Empty(t, list0.Entries)
+
 	zScanOption1 := &schema.ZScanRequest{
 		Set:      setName,
 		SeekKey:  nil,

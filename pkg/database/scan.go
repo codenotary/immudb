@@ -64,6 +64,9 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			Prefix:    EncodeKey(req.Prefix),
 			DescOrder: req.Desc,
 		})
+	if err == store.ErrNoMoreEntries {
+		return &schema.Entries{}, nil
+	}
 	if err != nil {
 		return nil, err
 	}

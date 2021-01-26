@@ -55,7 +55,7 @@ var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = tbtree.ErrKeyNotFound
 var ErrTxNotFound = errors.New("tx not found")
-var ErrNoMoreEntries = errors.New("no more entries")
+var ErrNoMoreEntries = tbtree.ErrNoMoreEntries
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
