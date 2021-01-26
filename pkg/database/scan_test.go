@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +15,13 @@ func TestStoreScan(t *testing.T) {
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`aaa`), Value: []byte(`item1`)}}})
 	db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`bbb`), Value: []byte(`item2`)}}})
 
+	scanOptions := schema.ScanRequest{
+		Prefix: []byte(`z`),
+	}
+	list, err := db.Scan(&scanOptions)
+	require.NoError(t, err)
+	require.Empty(t, list.Entries)
+
 	meta, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: []byte(`abc`), Value: []byte(`item3`)}}})
 	require.NoError(t, err)
 
@@ -26,7 +32,7 @@ func TestStoreScan(t *testing.T) {
 	_, err = db.Scan(nil)
 	require.Equal(t, store.ErrIllegalArguments, err)
 
-	scanOptions := schema.ScanRequest{
+	scanOptions = schema.ScanRequest{
 		SeekKey: []byte(`b`),
 		Prefix:  []byte(`a`),
 		Limit:   MaxKeyScanLimit + 1,
@@ -45,7 +51,7 @@ func TestStoreScan(t *testing.T) {
 		SinceTx: meta.Id,
 	}
 
-	list, err := db.Scan(&scanOptions)
+	list, err = db.Scan(&scanOptions)
 	require.NoError(t, err)
 	require.Exactly(t, 2, len(list.Entries))
 	require.Equal(t, list.Entries[0].Key, []byte(`abc`))
@@ -175,5 +181,6 @@ func TestStoreScanDesc(t *testing.T) {
 	}
 
 	list, err = db.Scan(&scanOptions)
-	require.Equal(t, tbtree.ErrNoMoreEntries, err)
+	require.NoError(t, err)
+	require.Empty(t, list.Entries)
 }

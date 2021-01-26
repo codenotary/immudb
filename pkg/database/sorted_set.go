@@ -131,6 +131,9 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 			InclusiveSeek: req.InclusiveSeek,
 			DescOrder:     req.Desc,
 		})
+	if err == store.ErrNoMoreEntries {
+		return &schema.ZEntries{}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +144,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 	for {
 		zKey, _, _, _, err := r.Read()
-		if err == tbtree.ErrNoMoreEntries {
+		if err == store.ErrNoMoreEntries {
 			break
 		}
 		if err != nil {
