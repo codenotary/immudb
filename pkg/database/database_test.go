@@ -413,6 +413,14 @@ func TestHistory(t *testing.T) {
 	for _, val := range inc.Entries {
 		require.Equal(t, kvs[0].Value, val.Value)
 	}
+
+	inc, err = db.History(&schema.HistoryRequest{
+		Key:     kvs[0].Key,
+		Offset:  uint64(len(kvs) + 1),
+		SinceTx: lastTx,
+	})
+	require.NoError(t, err)
+	require.Empty(t, inc.Entries)
 }
 
 func TestHealth(t *testing.T) {
