@@ -747,11 +747,11 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 		return nil, err
 	}
 
-	tx := schema.TxFrom(verifiableTx.Tx)
-
-	if len(tx.Entries()) != 1 {
+	if verifiableTx.Tx.Metadata.Nentries != 1 {
 		return nil, store.ErrCorruptedData
 	}
+
+	tx := schema.TxFrom(verifiableTx.Tx)
 
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
@@ -1059,11 +1059,11 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 		return nil, err
 	}
 
-	tx := schema.TxFrom(verifiableTx.Tx)
-
-	if len(tx.Entries()) != 1 {
+	if verifiableTx.Tx.Metadata.Nentries != 1 {
 		return nil, store.ErrCorruptedData
 	}
+
+	tx := schema.TxFrom(verifiableTx.Tx)
 
 	inclusionProof, err := tx.Proof(database.EncodeKey(key))
 	if err != nil {
@@ -1207,11 +1207,11 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 		return nil, err
 	}
 
-	tx := schema.TxFrom(vtx.Tx)
-
-	if len(tx.Entries()) != 1 {
+	if vtx.Tx.Metadata.Nentries != 1 {
 		return nil, store.ErrCorruptedData
 	}
+
+	tx := schema.TxFrom(vtx.Tx)
 
 	ekv := database.EncodeZAdd(req.ZAddRequest.Set,
 		req.ZAddRequest.Score,
