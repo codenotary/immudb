@@ -7,13 +7,13 @@ import (
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
-type Reader struct {
+type KeyReader struct {
 	store  *ImmuStore
 	reader *tbtree.Reader
 }
 
 // NewReader ...
-func (st *ImmuStore) NewReader(snap *tbtree.Snapshot, spec *tbtree.ReaderSpec) (*Reader, error) {
+func (st *ImmuStore) NewKeyReader(snap *tbtree.Snapshot, spec *tbtree.ReaderSpec) (*KeyReader, error) {
 	if snap == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -23,13 +23,13 @@ func (st *ImmuStore) NewReader(snap *tbtree.Snapshot, spec *tbtree.ReaderSpec) (
 		return nil, err
 	}
 
-	return &Reader{
+	return &KeyReader{
 		store:  st,
 		reader: r,
 	}, nil
 }
 
-type IndexedValue struct {
+type ValueRef struct {
 	hVal   [32]byte
 	vOff   int64
 	valLen uint32
@@ -37,13 +37,13 @@ type IndexedValue struct {
 }
 
 // Resolve ...
-func (v *IndexedValue) Resolve() ([]byte, error) {
+func (v *ValueRef) Resolve() ([]byte, error) {
 	refVal := make([]byte, v.valLen)
 	_, err := v.st.ReadValueAt(refVal, v.vOff, v.hVal)
 	return refVal, err
 }
 
-func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, hc uint64, err error) {
+func (s *KeyReader) Read() (key []byte, val *ValueRef, tx uint64, hc uint64, err error) {
 	key, vLogOffset, tx, hc, err := s.reader.Read()
 	if err != nil {
 		return nil, nil, 0, 0, err
@@ -55,7 +55,7 @@ func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, hc uint64, er
 	var hVal [sha256.Size]byte
 	copy(hVal[:], vLogOffset[4+8:])
 
-	val = &IndexedValue{
+	val = &ValueRef{
 		hVal:   hVal,
 		vOff:   int64(vOff),
 		valLen: valLen,
@@ -65,6 +65,6 @@ func (s *Reader) Read() (key []byte, val *IndexedValue, tx uint64, hc uint64, er
 	return key, val, tx, hc, nil
 }
 
-func (s *Reader) Close() error {
+func (s *KeyReader) Close() error {
 	return s.reader.Close()
 }
