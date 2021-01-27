@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/signer"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -28,6 +27,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/signer"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -619,20 +620,19 @@ func (pr *PasswordReader) Read(msg string) ([]byte, error) {
 }
 
 func TestPublishAuditNotification(t *testing.T) {
-	a := &defaultAuditor{
-		notificationConfig: AuditNotificationConfig{
-			URL:      "http://some-non-existent-url.com",
-			Username: "some-username",
-			Password: "some-password",
-			publishFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					Status:     http.StatusText(http.StatusNoContent),
-					StatusCode: http.StatusNoContent,
-					Body:       ioutil.NopCloser(strings.NewReader("All good")),
-				}, nil
-			},
+	notificationConfig := AuditNotificationConfig{
+		URL:      "http://some-non-existent-url.com",
+		Username: "some-username",
+		Password: "some-password",
+		publishFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				Status:     http.StatusText(http.StatusNoContent),
+				StatusCode: http.StatusNoContent,
+				Body:       ioutil.NopCloser(strings.NewReader("All good")),
+			}, nil
 		},
 	}
+	a := &defaultAuditor{notificationConfig: notificationConfig}
 	runAt, err := time.Parse(time.RFC3339, "2020-11-13T00:53:42+01:00")
 	require.NoError(t, err)
 
@@ -668,17 +668,15 @@ func TestPublishAuditNotification(t *testing.T) {
 			Signature: Signature{Signature: "sig22", PublicKey: "pk22"}},
 	)
 	require.Error(t, err)
-	require.Equal(
+	require.Contains(
 		t,
-		"POST http://some-non-existent-url.com request with body "+
-			`{"username":"some-username","password":"some-password",`+
-			`"db":"some-db2","run_at":"2020-11-13T00:53:42+01:00",`+
-			`"tampered":false,"previous_state":{"tx":11,"hash":"hash-11",`+
-			`"signature":{"signature":"sig11","public_key":"pk11"}},`+
-			`"current_state":{"tx":22,"hash":"hash-22",`+
-			`"signature":{"signature":"sig22","public_key":"pk22"}}}: got unexpected `+
-			"response status Internal Server Error with response body Some error",
-		err.Error())
+		err.Error(),
+		"POST http://some-non-existent-url.com request with payload")
+	require.Contains(
+		t,
+		err.Error(),
+		"got unexpected response status Internal Server Error with response body Some error")
+	require.NotContains(t, err.Error(), notificationConfig.Password)
 
 	// test error creating request
 	a.notificationConfig.RequestTimeout = 1 * time.Second
