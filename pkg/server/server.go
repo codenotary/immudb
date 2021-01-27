@@ -846,6 +846,16 @@ func (s *ImmuServer) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 	return vtx, nil
 }
 
+// TxScan ...
+func (s *ImmuServer) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error) {
+	ind, err := s.getDbIndexFromCtx(ctx, "TxScan")
+	if err != nil {
+		return nil, err
+	}
+
+	return s.dbList.GetByIndex(ind).TxScan(req)
+}
+
 // History ...
 func (s *ImmuServer) History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "History")

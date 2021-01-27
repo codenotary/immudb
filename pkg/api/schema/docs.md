@@ -39,8 +39,10 @@
     - [Signature](#immudb.schema.Signature)
     - [Tx](#immudb.schema.Tx)
     - [TxEntry](#immudb.schema.TxEntry)
+    - [TxList](#immudb.schema.TxList)
     - [TxMetadata](#immudb.schema.TxMetadata)
     - [TxRequest](#immudb.schema.TxRequest)
+    - [TxScanRequest](#immudb.schema.TxScanRequest)
     - [UseDatabaseReply](#immudb.schema.UseDatabaseReply)
     - [User](#immudb.schema.User)
     - [UserList](#immudb.schema.UserList)
@@ -651,6 +653,21 @@
 
 
 
+<a name="immudb.schema.TxList"></a>
+
+### TxList
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| txs | [Tx](#immudb.schema.Tx) | repeated |  |
+
+
+
+
+
+
 <a name="immudb.schema.TxMetadata"></a>
 
 ### TxMetadata
@@ -681,6 +698,23 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | tx | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.TxScanRequest"></a>
+
+### TxScanRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fromTx | [uint64](#uint64) |  |  |
+| limit | [uint32](#uint32) |  |  |
+| desc | [bool](#bool) |  |  |
 
 
 
@@ -987,6 +1021,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | CountAll | [.google.protobuf.Empty](#google.protobuf.Empty) | [EntryCount](#immudb.schema.EntryCount) |  |
 | TxById | [TxRequest](#immudb.schema.TxRequest) | [Tx](#immudb.schema.Tx) |  |
 | VerifiableTxById | [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest) | [VerifiableTx](#immudb.schema.VerifiableTx) |  |
+| TxScan | [TxScanRequest](#immudb.schema.TxScanRequest) | [TxList](#immudb.schema.TxList) |  |
 | History | [HistoryRequest](#immudb.schema.HistoryRequest) | [Entries](#immudb.schema.Entries) |  |
 | Health | [.google.protobuf.Empty](#google.protobuf.Empty) | [HealthResponse](#immudb.schema.HealthResponse) |  |
 | CurrentState | [.google.protobuf.Empty](#google.protobuf.Empty) | [ImmutableState](#immudb.schema.ImmutableState) |  |

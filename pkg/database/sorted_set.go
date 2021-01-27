@@ -123,7 +123,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	}
 	defer snap.Close()
 
-	r, err := d.st.NewReader(
+	r, err := d.st.NewKeyReader(
 		snap,
 		&tbtree.ReaderSpec{
 			SeekKey:       seekKey,

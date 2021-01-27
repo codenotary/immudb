@@ -54,6 +54,7 @@ type DB interface {
 	CountAll() (*schema.EntryCount, error)
 	TxByID(req *schema.TxRequest) (*schema.Tx, error)
 	VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error)
+	TxScan(req *schema.TxScanRequest) (*schema.TxList, error)
 	History(req *schema.HistoryRequest) (*schema.Entries, error)
 	SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, error)
 	VerifiableSetReference(req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error)
@@ -541,10 +542,19 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	}, nil
 }
 
+//TxScan ...
+func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
+	return nil, errors.New("not yet supported")
+}
+
 //History ...
 func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
 
 	if req.Limit > MaxKeyScanLimit {
 		return nil, ErrMaxKeyScanLimitExceeded

@@ -404,6 +404,9 @@ func TestHistory(t *testing.T) {
 
 	time.Sleep(1 * time.Millisecond)
 
+	_, err := db.History(nil)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
 	inc, err := db.History(&schema.HistoryRequest{
 		Key:     kvs[0].Key,
 		SinceTx: lastTx,

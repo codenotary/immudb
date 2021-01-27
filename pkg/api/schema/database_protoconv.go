@@ -41,10 +41,10 @@ func TxTo(tx *store.Tx) *Tx {
 }
 
 func TxFrom(stx *Tx) *store.Tx {
-	entries := make([]*store.Txe, len(stx.Entries))
+	entries := make([]*store.TxEntry, len(stx.Entries))
 
 	for i, e := range stx.Entries {
-		entries[i] = &store.Txe{
+		entries[i] = &store.TxEntry{
 			HValue:   DigestFrom(e.HValue),
 			VOff:     e.VOff,
 			ValueLen: int(e.VLen),

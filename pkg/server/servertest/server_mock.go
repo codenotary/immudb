@@ -126,6 +126,10 @@ func (s *ServerMock) VerifiableTxById(ctx context.Context, req *schema.Verifiabl
 	return s.srv.VerifiableTxById(ctx, req)
 }
 
+func (s *ServerMock) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error) {
+	return s.srv.TxScan(ctx, req)
+}
+
 func (s *ServerMock) History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
 	return s.srv.History(ctx, req)
 }

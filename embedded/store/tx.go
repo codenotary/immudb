@@ -32,7 +32,7 @@ type Tx struct {
 	PrevAlh [sha256.Size]byte
 
 	nentries int
-	entries  []*Txe
+	entries  []*TxEntry
 
 	htree *htree.HTree
 
@@ -51,15 +51,15 @@ type TxMetadata struct {
 }
 
 func NewTx(nentries int, maxKeyLen int) *Tx {
-	entries := make([]*Txe, nentries)
+	entries := make([]*TxEntry, nentries)
 	for i := 0; i < nentries; i++ {
-		entries[i] = &Txe{key: make([]byte, maxKeyLen)}
+		entries[i] = &TxEntry{key: make([]byte, maxKeyLen)}
 	}
 
 	return NewTxWithEntries(entries)
 }
 
-func NewTxWithEntries(entries []*Txe) *Tx {
+func NewTxWithEntries(entries []*TxEntry) *Tx {
 	htree, _ := htree.New(len(entries))
 
 	return &Tx{
@@ -116,7 +116,7 @@ func (tx *Tx) BuildHashTree() error {
 	return tx.htree.BuildWith(digests)
 }
 
-func (tx *Tx) Entries() []*Txe {
+func (tx *Tx) Entries() []*TxEntry {
 	return tx.entries[:tx.nentries]
 }
 
@@ -251,7 +251,7 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	return nil
 }
 
-type Txe struct {
+type TxEntry struct {
 	keyLen   int
 	key      []byte
 	ValueLen int
@@ -259,17 +259,17 @@ type Txe struct {
 	VOff     int64
 }
 
-func (e *Txe) Key() []byte {
+func (e *TxEntry) Key() []byte {
 	return e.key[:e.keyLen]
 }
 
-func (e *Txe) SetKey(key []byte) {
+func (e *TxEntry) SetKey(key []byte) {
 	e.key = make([]byte, len(key))
 	copy(e.key, key)
 	e.keyLen = len(key)
 }
 
-func (e *Txe) Digest() [sha256.Size]byte {
+func (e *TxEntry) Digest() [sha256.Size]byte {
 	b := make([]byte, e.keyLen+sha256.Size)
 
 	copy(b[:], e.key[:e.keyLen])

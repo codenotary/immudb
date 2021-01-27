@@ -47,6 +47,7 @@ var methodsPermissions = map[string][]uint32{
 	"Scan":                   {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"History":                {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"TxByID":                 {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"TxScan":                 {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"Count":                  {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"CountAll":               {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DatabaseList":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
