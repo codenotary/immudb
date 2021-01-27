@@ -416,14 +416,16 @@ func (a *defaultAuditor) publishAuditNotification(
 	}
 	defer resp.Body.Close()
 
+	payload.Password = strings.Repeat("*", len(payload.Password))
+
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusCreated, http.StatusAccepted, http.StatusNoContent:
 	default:
 		respBody, _ := ioutil.ReadAll(resp.Body)
 		return fmt.Errorf(
-			"POST %s request with body %s: "+
+			"POST %s request with payload %+v: "+
 				"got unexpected response status %s with response body %s",
-			a.notificationConfig.URL, reqBody,
+			a.notificationConfig.URL, payload,
 			resp.Status, respBody)
 	}
 
