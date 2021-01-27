@@ -620,20 +620,19 @@ func (pr *PasswordReader) Read(msg string) ([]byte, error) {
 }
 
 func TestPublishAuditNotification(t *testing.T) {
-	a := &defaultAuditor{
-		notificationConfig: AuditNotificationConfig{
-			URL:      "http://some-non-existent-url.com",
-			Username: "some-username",
-			Password: "some-password",
-			publishFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					Status:     http.StatusText(http.StatusNoContent),
-					StatusCode: http.StatusNoContent,
-					Body:       ioutil.NopCloser(strings.NewReader("All good")),
-				}, nil
-			},
+	notificationConfig := AuditNotificationConfig{
+		URL:      "http://some-non-existent-url.com",
+		Username: "some-username",
+		Password: "some-password",
+		publishFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				Status:     http.StatusText(http.StatusNoContent),
+				StatusCode: http.StatusNoContent,
+				Body:       ioutil.NopCloser(strings.NewReader("All good")),
+			}, nil
 		},
 	}
+	a := &defaultAuditor{notificationConfig: notificationConfig}
 	runAt, err := time.Parse(time.RFC3339, "2020-11-13T00:53:42+01:00")
 	require.NoError(t, err)
 
@@ -677,6 +676,7 @@ func TestPublishAuditNotification(t *testing.T) {
 		t,
 		err.Error(),
 		"got unexpected response status Internal Server Error with response body Some error")
+	require.NotContains(t, err.Error(), notificationConfig.Password)
 
 	// test error creating request
 	a.notificationConfig.RequestTimeout = 1 * time.Second

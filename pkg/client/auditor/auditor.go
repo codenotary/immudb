@@ -416,7 +416,7 @@ func (a *defaultAuditor) publishAuditNotification(
 	}
 	defer resp.Body.Close()
 
-	payload.Password = strings.Repeat("*", len(payload.Password))
+	payload.Password = ""
 
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusCreated, http.StatusAccepted, http.StatusNoContent:
