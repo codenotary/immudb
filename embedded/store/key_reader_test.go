@@ -56,14 +56,14 @@ func TestImmudbStoreReader(t *testing.T) {
 	snap, err := immuStore.Snapshot()
 	require.NoError(t, err)
 
-	_, err = immuStore.NewReader(nil, nil)
+	_, err = immuStore.NewKeyReader(nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = immuStore.NewReader(snap, nil)
+	_, err = immuStore.NewKeyReader(snap, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	spec := &tbtree.ReaderSpec{}
-	reader, err := immuStore.NewReader(snap, spec)
+	reader, err := immuStore.NewKeyReader(snap, spec)
 	require.NoError(t, err)
 
 	defer reader.Close()
