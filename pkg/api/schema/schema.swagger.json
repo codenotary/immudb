@@ -1484,6 +1484,17 @@
         }
       }
     },
+    "schemaTxList": {
+      "type": "object",
+      "properties": {
+        "txs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaTx"
+          }
+        }
+      }
+    },
     "schemaTxMetadata": {
       "type": "object",
       "properties": {

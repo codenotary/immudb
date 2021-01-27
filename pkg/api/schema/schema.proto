@@ -311,6 +311,16 @@ message VerifiableTxRequest {
 	uint64 proveSinceTx = 2;
 }
 
+message TxScanRequest {
+	uint64 fromTx = 1;
+	uint32 limit = 2;
+    bool desc = 3;
+}
+
+message TxList {
+	repeated Tx txs = 1;
+}
+
 message Database {
 	string databasename = 1;
 }
@@ -478,6 +488,8 @@ service ImmuService {
 		};
 	};
 
+	rpc TxScan(TxScanRequest) returns (TxList) {}
+	
 	rpc History(HistoryRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/db/history"
