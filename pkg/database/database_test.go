@@ -388,6 +388,26 @@ func TestVerifiableTxByID(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestTxScan(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	for _, val := range kvs {
+		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
+		require.NoError(t, err)
+	}
+
+	txList, err := db.TxScan(&schema.TxScanRequest{
+		InitialTx: 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, txList.Txs, len(kvs))
+
+	for i := 0; i < len(kvs); i++ {
+		require.Equal(t, kvs[i].Key, trimPrefix(txList.Txs[i].Entries[0].Key))
+	}
+}
+
 func TestHistory(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
@@ -413,6 +433,7 @@ func TestHistory(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, val := range inc.Entries {
+		require.Equal(t, kvs[0].Key, val.Key)
 		require.Equal(t, kvs[0].Value, val.Value)
 	}
 

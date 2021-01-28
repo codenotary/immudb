@@ -26,11 +26,13 @@ func TxTo(tx *store.Tx) *Tx {
 	entries := make([]*TxEntry, len(tx.Entries()))
 
 	for i, e := range tx.Entries() {
+		hValue := e.HVal()
+
 		entries[i] = &TxEntry{
 			Key:    e.Key(),
-			HValue: e.HValue[:],
-			VOff:   e.VOff,
-			VLen:   int32(e.ValueLen),
+			HValue: hValue[:],
+			VOff:   e.VOff(),
+			VLen:   int32(e.VLen()),
 		}
 	}
 
@@ -44,12 +46,7 @@ func TxFrom(stx *Tx) *store.Tx {
 	entries := make([]*store.TxEntry, len(stx.Entries))
 
 	for i, e := range stx.Entries {
-		entries[i] = &store.TxEntry{
-			HValue:   DigestFrom(e.HValue),
-			VOff:     e.VOff,
-			ValueLen: int(e.VLen),
-		}
-		entries[i].SetKey(e.Key)
+		entries[i] = store.NewTxEntry(e.Key, int(e.VLen), DigestFrom(e.HValue), e.VOff)
 	}
 
 	tx := store.NewTxWithEntries(entries)
