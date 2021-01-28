@@ -606,11 +606,11 @@ func (s *ImmuStore) doIndexing() error {
 
 		for i, e := range txEntries {
 			var b [szSize + offsetSize + sha256.Size]byte
-			binary.BigEndian.PutUint32(b[:], uint32(e.ValueLen))
-			binary.BigEndian.PutUint64(b[szSize:], uint64(e.VOff))
-			copy(b[szSize+offsetSize:], e.HValue[:])
+			binary.BigEndian.PutUint32(b[:], uint32(e.vLen))
+			binary.BigEndian.PutUint64(b[szSize:], uint64(e.vOff))
+			copy(b[szSize+offsetSize:], e.hVal[:])
 
-			s._kvs[i].K = e.Key()
+			s._kvs[i].K = e.key()
 			s._kvs[i].V = b[:]
 		}
 
@@ -823,10 +823,9 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 
 	for i, e := range entries {
 		txe := tx.entries[i]
-		txe.keyLen = len(e.Key)
-		copy(txe.key, e.Key)
-		txe.ValueLen = len(e.Value)
-		txe.HValue = sha256.Sum256(e.Value)
+		txe.setKey(e.Key)
+		txe.vLen = len(e.Value)
+		txe.hVal = sha256.Sum256(e.Value)
 	}
 
 	tx.BuildHashTree()
@@ -893,18 +892,18 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		e := tx.entries[i]
 
 		txe := tx.entries[i]
-		txe.VOff = offsets[i]
+		txe.vOff = offsets[i]
 
 		// tx serialization using pre-allocated buffer
-		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.keyLen))
+		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.kLen))
 		txSize += szSize
-		copy(s._txbs[txSize:], e.key[:e.keyLen])
-		txSize += e.keyLen
-		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.ValueLen))
+		copy(s._txbs[txSize:], e.k[:e.kLen])
+		txSize += e.kLen
+		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.vLen))
 		txSize += szSize
-		binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(txe.VOff))
+		binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(txe.vOff))
 		txSize += offsetSize
-		copy(s._txbs[txSize:], txe.HValue[:])
+		copy(s._txbs[txSize:], txe.hVal[:])
 		txSize += sha256.Size
 	}
 
@@ -1002,10 +1001,9 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64) ([]*KV, error)) (*TxMe
 
 	for i, e := range entries {
 		txe := tx.entries[i]
-		txe.keyLen = len(e.Key)
-		copy(txe.key, e.Key)
-		txe.ValueLen = len(e.Value)
-		txe.HValue = sha256.Sum256(e.Value)
+		txe.setKey(e.Key)
+		txe.vLen = len(e.Value)
+		txe.hVal = sha256.Sum256(e.Value)
 	}
 
 	tx.BuildHashTree()
@@ -1216,9 +1214,9 @@ func (s *ImmuStore) ReadTxUnsafe(txID uint64, tx *Tx) error {
 
 func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
 	for _, e := range tx.Entries() {
-		if bytes.Equal(e.Key(), key) {
-			v := make([]byte, e.ValueLen)
-			_, err := s.ReadValueAt(v, e.VOff, e.HValue)
+		if bytes.Equal(e.key(), key) {
+			v := make([]byte, e.vLen)
+			_, err := s.ReadValueAt(v, e.vOff, e.hVal)
 			if err != nil {
 				return nil, err
 			}

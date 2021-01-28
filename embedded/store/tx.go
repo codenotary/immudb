@@ -53,7 +53,7 @@ type TxMetadata struct {
 func NewTx(nentries int, maxKeyLen int) *Tx {
 	entries := make([]*TxEntry, nentries)
 	for i := 0; i < nentries; i++ {
-		entries[i] = &TxEntry{key: make([]byte, maxKeyLen)}
+		entries[i] = &TxEntry{k: make([]byte, maxKeyLen)}
 	}
 
 	return NewTxWithEntries(entries)
@@ -153,7 +153,7 @@ func (tx *Tx) Eh() [sha256.Size]byte {
 
 func (tx *Tx) IndexOf(key []byte) (int, error) {
 	for i, e := range tx.Entries() {
-		if bytes.Equal(e.Key(), key) {
+		if bytes.Equal(e.key(), key) {
 			return i, nil
 		}
 	}
@@ -205,30 +205,30 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 	tx.nentries = int(nentries)
 
 	for i := 0; i < int(nentries); i++ {
-		klen, err := r.ReadUint32()
+		kLen, err := r.ReadUint32()
 		if err != nil {
 			return err
 		}
-		tx.entries[i].keyLen = int(klen)
+		tx.entries[i].kLen = int(kLen)
 
-		_, err = r.Read(tx.entries[i].key[:klen])
+		_, err = r.Read(tx.entries[i].k[:kLen])
 		if err != nil {
 			return err
 		}
 
-		vlen, err := r.ReadUint32()
+		vLen, err := r.ReadUint32()
 		if err != nil {
 			return err
 		}
-		tx.entries[i].ValueLen = int(vlen)
+		tx.entries[i].vLen = int(vLen)
 
-		voff, err := r.ReadUint64()
+		vOff, err := r.ReadUint64()
 		if err != nil {
 			return err
 		}
-		tx.entries[i].VOff = int64(voff)
+		tx.entries[i].vOff = int64(vOff)
 
-		_, err = r.Read(tx.entries[i].HValue[:])
+		_, err = r.Read(tx.entries[i].hVal[:])
 		if err != nil {
 			return err
 		}
@@ -252,28 +252,55 @@ func (tx *Tx) readFrom(r *appendable.Reader) error {
 }
 
 type TxEntry struct {
-	keyLen   int
-	key      []byte
-	ValueLen int
-	HValue   [sha256.Size]byte
-	VOff     int64
+	k    []byte
+	kLen int
+	vLen int
+	hVal [sha256.Size]byte
+	vOff int64
+}
+
+func NewTxEntry(key []byte, vLen int, hVal [sha256.Size]byte, vOff int64) *TxEntry {
+	return &TxEntry{
+		k:    make([]byte, len(key)),
+		kLen: len(key),
+		vLen: vLen,
+		hVal: hVal,
+		vOff: vOff,
+	}
+}
+
+func (e *TxEntry) setKey(key []byte) {
+	e.kLen = len(key)
+	copy(e.k, key)
+}
+
+func (e *TxEntry) key() []byte {
+	return e.k[:e.kLen]
 }
 
 func (e *TxEntry) Key() []byte {
-	return e.key[:e.keyLen]
+	k := make([]byte, e.kLen)
+	copy(k, e.k[:e.kLen])
+	return k
 }
 
-func (e *TxEntry) SetKey(key []byte) {
-	e.key = make([]byte, len(key))
-	copy(e.key, key)
-	e.keyLen = len(key)
+func (e *TxEntry) HVal() [sha256.Size]byte {
+	return e.hVal
+}
+
+func (e *TxEntry) VOff() int64 {
+	return e.vOff
+}
+
+func (e *TxEntry) VLen() int {
+	return e.vLen
 }
 
 func (e *TxEntry) Digest() [sha256.Size]byte {
-	b := make([]byte, e.keyLen+sha256.Size)
+	b := make([]byte, e.kLen+sha256.Size)
 
-	copy(b[:], e.key[:e.keyLen])
-	copy(b[e.keyLen:], e.HValue[:])
+	copy(b[:], e.k[:e.kLen])
+	copy(b[e.kLen:], e.hVal[:])
 
 	return sha256.Sum256(b)
 }

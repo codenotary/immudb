@@ -258,7 +258,7 @@ func main() {
 								panic(fmt.Errorf("committed tx key does not match input values"))
 							}
 
-							_, err = immuStore.ReadValueAt(b, e.VOff, e.HValue)
+							_, err = immuStore.ReadValueAt(b, e.VOff(), e.HVal())
 							if err != nil {
 								panic(err)
 							}
@@ -319,12 +319,12 @@ func main() {
 							panic(err)
 						}
 
-						_, err = immuStore.ReadValueAt(b[:e.ValueLen], e.VOff, e.HValue)
+						_, err = immuStore.ReadValueAt(b[:e.VLen()], e.VOff(), e.HVal())
 						if err != nil {
 							panic(err)
 						}
 
-						kv := &store.KV{Key: e.Key(), Value: b[:e.ValueLen]}
+						kv := &store.KV{Key: e.Key(), Value: b[:e.VLen()]}
 
 						verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 						if !verifies {
