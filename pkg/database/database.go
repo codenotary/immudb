@@ -252,7 +252,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 			return nil, ErrMaxKeyResolutionLimitReached
 		}
 
-		atTx := binary.BigEndian.Uint64(val[1:])
+		atTx := binary.BigEndian.Uint64(trimPrefix(val))
 		refKey := make([]byte, len(val)-1-8)
 		copy(refKey, val[1+8:])
 
@@ -263,14 +263,14 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 
 		entry.ReferencedBy = &schema.Reference{
 			Tx:   ktx,
-			Key:  key[1:],
+			Key:  trimPrefix(key),
 			AtTx: atTx,
 		}
 
 		return entry, nil
 	}
 
-	return &schema.Entry{Key: key[1:], Value: val[1:], Tx: ktx}, err
+	return &schema.Entry{Key: trimPrefix(key), Value: trimPrefix(val), Tx: ktx}, err
 }
 
 func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
@@ -543,7 +543,43 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 
 //TxScan ...
 func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
-	return nil, errors.New("not yet supported")
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if req == nil {
+		return nil, store.ErrIllegalArguments
+	}
+
+	if req.Limit > MaxKeyScanLimit {
+		return nil, ErrMaxKeyScanLimitExceeded
+	}
+
+	limit := int(req.Limit)
+
+	if req.Limit == 0 {
+		limit = MaxKeyScanLimit
+	}
+
+	txReader, err := d.st.NewTxReader(req.InitialTx, req.Desc, d.tx1)
+	if err != nil {
+		return nil, err
+	}
+
+	txList := &schema.TxList{}
+
+	for i := 0; i < limit; i++ {
+		tx, err := txReader.Read()
+		if err == store.ErrNoMoreEntries {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		txList.Txs = append(txList.Txs, schema.TxTo(tx))
+	}
+
+	return txList, nil
 }
 
 //History ...
@@ -592,7 +628,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		list.Entries[i] = &schema.Entry{Key: req.Key, Value: val[1:], Tx: tx}
+		list.Entries[i] = &schema.Entry{Key: req.Key, Value: trimPrefix(val), Tx: tx}
 	}
 
 	return list, nil
