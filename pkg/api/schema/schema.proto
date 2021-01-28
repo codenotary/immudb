@@ -312,7 +312,7 @@ message VerifiableTxRequest {
 }
 
 message TxScanRequest {
-	uint64 fromTx = 1;
+	uint64 initialTx = 1;
 	uint32 limit = 2;
     bool desc = 3;
 }
