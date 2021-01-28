@@ -35,11 +35,11 @@ func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReade
 		return nil, ErrAlreadyClosed
 	}
 
-	if tx == nil {
+	if initialTxID == 0 {
 		return nil, ErrIllegalArguments
 	}
 
-	if initialTxID == 0 {
+	if tx == nil {
 		return nil, ErrIllegalArguments
 	}
 
