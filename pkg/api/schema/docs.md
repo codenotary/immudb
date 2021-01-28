@@ -712,7 +712,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| fromTx | [uint64](#uint64) |  |  |
+| initialTx | [uint64](#uint64) |  |  |
 | limit | [uint32](#uint32) |  |  |
 | desc | [bool](#bool) |  |  |
 
