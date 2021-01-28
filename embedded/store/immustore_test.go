@@ -163,7 +163,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 				}
 
 				for _, e := range tx.Entries() {
-					_, err := immuStore.ReadValue(tx, e.Key())
+					_, err := immuStore.ReadValue(tx, e.key())
 					if err != nil {
 						panic(err)
 					}
@@ -789,17 +789,17 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 		assert.Equal(t, eCount, len(txEntries))
 
 		for j, e := range txEntries {
-			proof, err := tx.Proof(e.Key())
+			proof, err := tx.Proof(e.key())
 			require.NoError(t, err)
 
-			key := txEntries[j].Key()
+			key := txEntries[j].key()
 
 			ki, err := tx.IndexOf(key)
 			require.NoError(t, err)
 			require.Equal(t, j, ki)
 
-			value := make([]byte, txEntries[j].ValueLen)
-			_, err = immuStore.ReadValueAt(value, txEntries[j].VOff, txEntries[j].HValue)
+			value := make([]byte, txEntries[j].vLen)
+			_, err = immuStore.ReadValueAt(value, txEntries[j].vOff, txEntries[j].hVal)
 			require.NoError(t, err)
 
 			k := make([]byte, 8)
@@ -1331,14 +1331,14 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 		assert.Equal(t, eCount, len(txEntries))
 
 		for _, e := range txEntries {
-			proof, err := tx.Proof(e.Key())
+			proof, err := tx.Proof(e.key())
 			require.NoError(t, err)
 
-			value := make([]byte, e.ValueLen)
-			_, err = immuStore.ReadValueAt(value, e.VOff, e.HValue)
+			value := make([]byte, e.vLen)
+			_, err = immuStore.ReadValueAt(value, e.vOff, e.hVal)
 			require.NoError(t, err)
 
-			kv := &KV{Key: e.Key(), Value: value}
+			kv := &KV{Key: e.key(), Value: value}
 
 			verifies := htree.VerifyInclusion(proof, kv.Digest(), tx.Eh())
 			require.True(t, verifies)
