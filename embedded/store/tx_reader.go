@@ -17,24 +17,20 @@ package store
 
 import (
 	"crypto/sha256"
-	"io"
-	"sync"
-
-	"github.com/codenotary/immudb/embedded/appendable"
 )
 
 type TxReader struct {
-	r           *appendable.Reader
-	_tx         *Tx
-	alreadyRead bool
-	txID        uint64
-	alh         [sha256.Size]byte
+	InitialTxID uint64
+	Desc        bool
+
+	CurrTxID uint64
+	CurrAlh  [sha256.Size]byte
+
+	st  *ImmuStore
+	_tx *Tx
 }
 
-func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
+func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReader, error) {
 	if s.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -43,60 +39,49 @@ func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, er
 		return nil, ErrIllegalArguments
 	}
 
-	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
-
-	txOff, _, err := s.txOffsetAndSize(txID)
-	if err == io.EOF {
-		return nil, ErrNoMoreEntries
-	}
-	if err != nil {
-		return nil, err
+	if initialTxID == 0 {
+		return nil, ErrIllegalArguments
 	}
 
-	r := appendable.NewReaderFrom(syncedReader, txOff, bufSize)
-
-	return &TxReader{r: r, _tx: tx}, nil
+	return &TxReader{
+		InitialTxID: initialTxID,
+		Desc:        desc,
+		CurrTxID:    initialTxID,
+		st:          s,
+		_tx:         tx,
+	}, nil
 }
 
 func (txr *TxReader) Read() (*Tx, error) {
-	err := txr._tx.readFrom(txr.r)
-	if err == io.EOF {
+	if txr.CurrTxID == 0 {
+		return nil, ErrNoMoreEntries
+	}
+
+	err := txr.st.ReadTx(txr.CurrTxID, txr._tx)
+	if err == ErrTxNotFound {
 		return nil, ErrNoMoreEntries
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	if txr.alreadyRead && (txr.txID != txr._tx.ID-1 || txr.alh != txr._tx.PrevAlh) {
-		return nil, ErrorCorruptedTxData
+	if txr.InitialTxID != txr.CurrTxID {
+		if txr.Desc && txr.CurrAlh != txr._tx.Alh {
+			return nil, ErrorCorruptedTxData
+		}
+
+		if !txr.Desc && txr.CurrAlh != txr._tx.PrevAlh {
+			return nil, ErrorCorruptedTxData
+		}
 	}
 
-	txr.alreadyRead = true
-	txr.txID = txr._tx.ID
-	txr.alh = txr._tx.Alh
+	if txr.Desc {
+		txr.CurrTxID--
+		txr.CurrAlh = txr._tx.PrevAlh
+	} else {
+		txr.CurrTxID++
+		txr.CurrAlh = txr._tx.Alh
+	}
 
 	return txr._tx, nil
-}
-
-type syncedReader struct {
-	wr      io.ReaderAt
-	maxSize int64
-	mutex   *sync.Mutex
-}
-
-func (r *syncedReader) ReadAt(bs []byte, off int64) (int, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	if len(bs) == 0 {
-		return 0, nil
-	}
-
-	available := minInt(len(bs), int(r.maxSize-off))
-
-	if r.maxSize < off || available == 0 {
-		return 0, io.EOF
-	}
-
-	return r.wr.ReadAt(bs[:available], off)
 }
