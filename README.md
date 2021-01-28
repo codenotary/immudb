@@ -24,9 +24,11 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 Don't forget to ⭐ this repo if you like immudb!
 ```
 
-[:tada: 1M+ pulls from docker hub!](https://hub.docker.com/r/codenotary/immudb/tags)
+[:tada: 2M+ pulls from docker hub!](https://hub.docker.com/r/codenotary/immudb/tags)
 
-### **New**: immudb Coding Challenge - Winter 2020 Edition [#immuchallenge](https://github.com/codenotary/immuchallenge)
+### **Free Trusted Timestamp**: Tamperproof provenance for your code and CI/CD pipeline [#timestamp](https://timestamp.codenotary.com/)
+
+### **Only 3 weeks left**: immudb Coding Challenge - Winter 2020 Edition [#immuchallenge](https://github.com/codenotary/immuchallenge)
 
 ---
 
