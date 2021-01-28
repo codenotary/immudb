@@ -1168,13 +1168,13 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	var cb [cLogEntrySize]byte
 
 	n, err := s.cLog.ReadAt(cb[:], int64(off))
+	if err == io.EOF && n == 0 {
+		return 0, 0, ErrTxNotFound
+	}
+	if err == io.EOF && n > 0 {
+		return 0, n, ErrCorruptedCLog
+	}
 	if err != nil {
-		if err == io.EOF && n == 0 {
-			return 0, 0, ErrTxNotFound
-		}
-		if err == io.EOF && n > 0 {
-			return 0, n, ErrCorruptedCLog
-		}
 		return 0, 0, err
 	}
 
@@ -1197,20 +1197,21 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 		return err
 	}
 
-	txReader := appendable.NewReaderFrom(s.txLog, txOff, txSize)
+	r := appendable.NewReaderFrom(s.txLog, txOff, txSize)
 
-	return tx.readFrom(txReader)
+	return tx.readFrom(r)
 }
 
+// ReadTxUnsafe should be used with care, inside Commit callback is safe
 func (s *ImmuStore) ReadTxUnsafe(txID uint64, tx *Tx) error {
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
 		return err
 	}
 
-	txReader := appendable.NewReaderFrom(s.txLog, txOff, txSize)
+	r := appendable.NewReaderFrom(s.txLog, txOff, txSize)
 
-	return tx.readFrom(txReader)
+	return tx.readFrom(r)
 }
 
 func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {
@@ -1248,84 +1249,6 @@ func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 	}
 
 	return len(b), nil
-}
-
-type TxReader struct {
-	r           *appendable.Reader
-	_tx         *Tx
-	alreadyRead bool
-	txID        uint64
-	alh         [sha256.Size]byte
-}
-
-func (s *ImmuStore) NewTxReader(txID uint64, tx *Tx, bufSize int) (*TxReader, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return nil, ErrAlreadyClosed
-	}
-
-	if tx == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	syncedReader := &syncedReader{wr: s.txLog, maxSize: s.committedTxLogSize, mutex: &s.mutex}
-
-	txOff, _, err := s.txOffsetAndSize(txID)
-	if err == io.EOF {
-		return nil, ErrNoMoreEntries
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	r := appendable.NewReaderFrom(syncedReader, txOff, bufSize)
-
-	return &TxReader{r: r, _tx: tx}, nil
-}
-
-func (txr *TxReader) Read() (*Tx, error) {
-	err := txr._tx.readFrom(txr.r)
-	if err == io.EOF {
-		return nil, ErrNoMoreEntries
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	if txr.alreadyRead && (txr.txID != txr._tx.ID-1 || txr.alh != txr._tx.PrevAlh) {
-		return nil, ErrorCorruptedTxData
-	}
-
-	txr.alreadyRead = true
-	txr.txID = txr._tx.ID
-	txr.alh = txr._tx.Alh
-
-	return txr._tx, nil
-}
-
-type syncedReader struct {
-	wr      io.ReaderAt
-	maxSize int64
-	mutex   *sync.Mutex
-}
-
-func (r *syncedReader) ReadAt(bs []byte, off int64) (int, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	if len(bs) == 0 {
-		return 0, nil
-	}
-
-	available := minInt(len(bs), int(r.maxSize-off))
-
-	if r.maxSize < off || available == 0 {
-		return 0, io.EOF
-	}
-
-	return r.wr.ReadAt(bs[:available], off)
 }
 
 func (s *ImmuStore) validateEntries(entries []*KV) error {
