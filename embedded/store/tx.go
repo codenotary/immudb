@@ -260,13 +260,17 @@ type TxEntry struct {
 }
 
 func NewTxEntry(key []byte, vLen int, hVal [sha256.Size]byte, vOff int64) *TxEntry {
-	return &TxEntry{
+	e := &TxEntry{
 		k:    make([]byte, len(key)),
 		kLen: len(key),
 		vLen: vLen,
 		hVal: hVal,
 		vOff: vOff,
 	}
+
+	copy(e.k, key)
+
+	return e
 }
 
 func (e *TxEntry) setKey(key []byte) {
