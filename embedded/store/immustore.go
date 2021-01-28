@@ -492,7 +492,7 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	}
 	defer s.releaseAllocTx(tx)
 
-	txReader, err := s.NewTxReader(s.aht.Size()+1, tx, s.maxTxSize)
+	txReader, err := s.NewTxReader(s.aht.Size()+1, false, tx)
 	if err == ErrNoMoreEntries {
 		return nil
 	}
@@ -585,7 +585,7 @@ func (s *ImmuStore) doIndexing() error {
 	}
 	defer s.releaseAllocTx(tx)
 
-	txReader, err := s.NewTxReader(txID, tx, s.maxTxSize)
+	txReader, err := s.NewTxReader(txID, false, tx)
 	if err == ErrNoMoreEntries {
 		return nil
 	}
@@ -1132,7 +1132,7 @@ func (s *ImmuStore) LinearProof(sourceTxID, targetTxID uint64) (*LinearProof, er
 	}
 	defer s.releaseAllocTx(tx)
 
-	r, err := s.NewTxReader(sourceTxID, tx, s.maxTxSize)
+	r, err := s.NewTxReader(sourceTxID, false, tx)
 
 	tx, err = r.Read()
 	if err != nil {

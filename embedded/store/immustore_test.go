@@ -86,7 +86,7 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 		for {
 			time.Sleep(time.Duration(100) * time.Millisecond)
 
-			txReader, err := immuStore.NewTxReader(txID, tx, 4096)
+			txReader, err := immuStore.NewTxReader(txID, false, tx)
 			if err != nil {
 				panic(err)
 			}
@@ -208,7 +208,7 @@ func TestImmudbStoreOnClosedStore(t *testing.T) {
 	err = immuStore.ReadTx(1, nil)
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	_, err = immuStore.NewTxReader(1, nil, 1024)
+	_, err = immuStore.NewTxReader(1, false, nil)
 	require.Equal(t, ErrAlreadyClosed, err)
 }
 
@@ -357,7 +357,7 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	immuStore.releaseAllocTx(tx1)
 	immuStore.releaseAllocTx(tx2)
 
-	_, err = immuStore.NewTxReader(1, nil, 1024)
+	_, err = immuStore.NewTxReader(1, false, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	_, err = immuStore.DualProof(nil, nil)
@@ -777,7 +777,7 @@ func TestImmudbStoreInclusionProof(t *testing.T) {
 	immuStore, err = Open("data_inclusion_proof", opts)
 	require.NoError(t, err)
 
-	r, err := immuStore.NewTxReader(1, immuStore.NewTx(), 1024)
+	r, err := immuStore.NewTxReader(1, false, immuStore.NewTx())
 	require.NoError(t, err)
 
 	for i := 0; i < txCount; i++ {
@@ -1120,7 +1120,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 	for i := 0; i < txCount; i++ {
 		txID := uint64(i + 1)
 
-		ri, err := immuStore.NewTxReader(txID, tx, 1024)
+		ri, err := immuStore.NewTxReader(txID, false, tx)
 		require.NoError(t, err)
 
 		txi, err := ri.Read()
@@ -1280,8 +1280,11 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	immuStore, err := OpenWith(path, []appendable.Appendable{failingVLog}, failingTxLog, failingCLog, opts)
 	require.NoError(t, err)
 
-	_, err = immuStore.NewTxReader(1, immuStore.NewTx(), 1024)
-	require.Equal(t, ErrTxNotFound, err)
+	txReader, err := immuStore.NewTxReader(1, false, immuStore.NewTx())
+	require.NoError(t, err)
+
+	_, err = txReader.Read()
+	require.Equal(t, ErrNoMoreEntries, err)
 
 	txCount := 100
 	eCount := 64
@@ -1316,7 +1319,7 @@ func TestUncommittedTxOverwriting(t *testing.T) {
 	immuStore, err = Open(path, opts)
 	require.NoError(t, err)
 
-	r, err := immuStore.NewTxReader(1, immuStore.NewTx(), 1024)
+	r, err := immuStore.NewTxReader(1, false, immuStore.NewTx())
 	require.NoError(t, err)
 
 	for i := 0; i < txCount-emulatedFailures; i++ {

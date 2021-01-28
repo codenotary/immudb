@@ -294,7 +294,7 @@ func main() {
 			fmt.Println("Starting full scan to verify linear cryptographic linking...")
 			start := time.Now()
 
-			txReader, err := immuStore.NewTxReader(1, immuStore.NewTx(), 4096)
+			txReader, err := immuStore.NewTxReader(1, false, immuStore.NewTx())
 			if err != nil {
 				panic(err)
 			}
