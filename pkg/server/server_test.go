@@ -1059,6 +1059,35 @@ func testServerScanError(ctx context.Context, s *ImmuServer, t *testing.T) {
 	}
 }
 
+func testServerTxScan(ctx context.Context, s *ImmuServer, t *testing.T) {
+	txmd, err := s.Set(ctx, &schema.SetRequest{KVs: []*schema.KeyValue{kvs[0]}})
+	require.NoError(t, err)
+
+	_, err = s.ZAdd(ctx, &schema.ZAddRequest{
+		Key:   kvs[0].Key,
+		Score: 3,
+		Set:   kvs[0].Value,
+	})
+	require.NoError(t, err)
+
+	_, err = s.VerifiableZAdd(ctx, &schema.VerifiableZAddRequest{
+		ZAddRequest: &schema.ZAddRequest{
+			Key:   kvs[0].Key,
+			Score: 0,
+			Set:   kvs[0].Value,
+		},
+		ProveSinceTx: 0,
+	})
+	require.NoError(t, err)
+
+	txls, err := s.TxScan(ctx, &schema.TxScanRequest{
+		InitialTx: txmd.Id,
+	})
+	require.NoError(t, err)
+	require.Len(t, txls.Txs, 3)
+	require.Equal(t, database.TrimPrefix(txls.Txs[0].Entries[0].Key), kvs[0].Key)
+}
+
 func testServerSafeReference(ctx context.Context, s *ImmuServer, t *testing.T) {
 	_, err := s.VerifiableSet(ctx, &schema.VerifiableSetRequest{
 		SetRequest: &schema.SetRequest{
@@ -1216,6 +1245,7 @@ func TestServerDbOperations(t *testing.T) {
 	testServerZAddError(ctx, s, t)
 	testServerScan(ctx, s, t)
 	testServerScanError(ctx, s, t)
+	testServerTxScan(ctx, s, t)
 	testServerSafeReference(ctx, s, t)
 	testServerSafeReferenceError(ctx, s, t)
 	//testServerCount(ctx, s, t)
