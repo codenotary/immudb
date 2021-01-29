@@ -189,7 +189,7 @@ func TestDbSetGet(t *testing.T) {
 		require.Equal(t, kv.Value, item.Value)
 
 		_, err = db.Get(&schema.KeyRequest{Key: kv.Key, SinceTx: txMetadata.Id, AtTx: txMetadata.Id})
-		require.Equal(t, store.ErrIllegalArguments, err)
+		require.Equal(t, ErrIllegalArguments, err)
 
 		vitem, err := db.VerifiableGet(&schema.VerifiableGetRequest{
 			KeyRequest:   keyReq,
@@ -397,6 +397,20 @@ func TestTxScan(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	_, err := db.TxScan(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.TxScan(&schema.TxScanRequest{
+		InitialTx: 0,
+	})
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.TxScan(&schema.TxScanRequest{
+		InitialTx: 1,
+		Limit:     MaxKeyScanLimit + 1,
+	})
+	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
+
 	txList, err := db.TxScan(&schema.TxScanRequest{
 		InitialTx: 1,
 	})
@@ -424,7 +438,7 @@ func TestHistory(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	_, err := db.History(nil)
-	require.Equal(t, store.ErrIllegalArguments, err)
+	require.Equal(t, ErrIllegalArguments, err)
 
 	inc, err := db.History(&schema.HistoryRequest{
 		Key:     kvs[0].Key,

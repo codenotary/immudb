@@ -38,6 +38,7 @@ const MaxKeyScanLimit = 1000
 
 var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
 var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
+var ErrIllegalArguments = store.ErrIllegalArguments
 
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
@@ -149,14 +150,14 @@ func (d *db) Set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 
 func (d *db) set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 	if req == nil {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	entries := make([]*store.KV, len(req.KVs))
 
 	for i, kv := range req.KVs {
 		if len(kv.Key) == 0 {
-			return nil, store.ErrIllegalArguments
+			return nil, ErrIllegalArguments
 		}
 
 		entries[i] = EncodeKV(kv.Key, kv.Value)
@@ -173,11 +174,11 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 //Get ...
 func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	if req == nil || len(req.Key) == 0 {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	if req.AtTx > 0 && req.SinceTx > 0 {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	err := d.WaitForIndexingUpto(req.SinceTx)
@@ -300,12 +301,12 @@ func (d *db) CurrentState() (*schema.ImmutableState, error) {
 //VerifiableSet ...
 func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
 	if req == nil {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	lastTxID, _ := d.st.Alh()
 	if lastTxID < req.ProveSinceTx {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	txMetatadata, err := d.Set(req.SetRequest)
@@ -350,7 +351,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 //VerifiableGet ...
 func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
 	if req == nil {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	e, err := d.Get(req.KeyRequest)
@@ -478,7 +479,7 @@ func (d *db) TxByID(req *schema.TxRequest) (*schema.Tx, error) {
 	defer d.mutex.Unlock()
 
 	if req == nil {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	// key-value inclusion proof
@@ -496,7 +497,7 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 	defer d.mutex.Unlock()
 
 	if req == nil {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	// key-value inclusion proof
@@ -547,7 +548,7 @@ func (d *db) TxScan(req *schema.TxScanRequest) (*schema.TxList, error) {
 	defer d.mutex.Unlock()
 
 	if req == nil {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	if req.Limit > MaxKeyScanLimit {
@@ -588,7 +589,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	defer d.mutex.Unlock()
 
 	if req == nil {
-		return nil, store.ErrIllegalArguments
+		return nil, ErrIllegalArguments
 	}
 
 	if req.Limit > MaxKeyScanLimit {
