@@ -112,6 +112,7 @@ type ImmuClient interface {
 
 	TxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
 	VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx, error)
+	TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error)
 
 	Count(ctx context.Context, prefix []byte) (*schema.EntryCount, error)
 	CountAll(ctx context.Context) (*schema.EntryCount, error)
@@ -969,6 +970,15 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 	decodeTxEntries(vTx.Tx.Entries)
 
 	return vTx.Tx, nil
+}
+
+// TxScan ...
+func (c *immuClient) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	return c.ServiceClient.TxScan(ctx, req)
 }
 
 // History ...

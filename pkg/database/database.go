@@ -252,7 +252,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 			return nil, ErrMaxKeyResolutionLimitReached
 		}
 
-		atTx := binary.BigEndian.Uint64(trimPrefix(val))
+		atTx := binary.BigEndian.Uint64(TrimPrefix(val))
 		refKey := make([]byte, len(val)-1-8)
 		copy(refKey, val[1+8:])
 
@@ -263,14 +263,14 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 
 		entry.ReferencedBy = &schema.Reference{
 			Tx:   ktx,
-			Key:  trimPrefix(key),
+			Key:  TrimPrefix(key),
 			AtTx: atTx,
 		}
 
 		return entry, nil
 	}
 
-	return &schema.Entry{Key: trimPrefix(key), Value: trimPrefix(val), Tx: ktx}, err
+	return &schema.Entry{Key: TrimPrefix(key), Value: TrimPrefix(val), Tx: ktx}, err
 }
 
 func (d *db) readValue(key []byte, atTx uint64, tx *store.Tx) ([]byte, error) {
@@ -628,7 +628,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 
-		list.Entries[i] = &schema.Entry{Key: req.Key, Value: trimPrefix(val), Tx: tx}
+		list.Entries[i] = &schema.Entry{Key: req.Key, Value: TrimPrefix(val), Tx: tx}
 	}
 
 	return list, nil
