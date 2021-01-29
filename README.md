@@ -16,6 +16,8 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Homebrew](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
+Note: The `master` branch is the joint point for all ongoing development efforts. Thus it may be in an `unstable` state and should not be used in production deployments. Please use the latest release in order to get stable binaries.
+
 [![Slack](https://img.shields.io/badge/join%20slack-%23immutability-brightgreen.svg)](https://slack.vchain.us/)
 [![Discuss at immudb@googlegroups.com](https://img.shields.io/badge/discuss-immudb%40googlegroups.com-blue.svg)](https://groups.google.com/group/immudb)
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://immudb.io/careers/)
