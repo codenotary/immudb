@@ -41,7 +41,7 @@ func WrapWithPrefix(b []byte, prefix byte) []byte {
 	return wb
 }
 
-func trimPrefix(prefixed []byte) []byte {
+func TrimPrefix(prefixed []byte) []byte {
 	return prefixed[1:]
 }
 

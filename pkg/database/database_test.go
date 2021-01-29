@@ -404,7 +404,7 @@ func TestTxScan(t *testing.T) {
 	require.Len(t, txList.Txs, len(kvs))
 
 	for i := 0; i < len(kvs); i++ {
-		require.Equal(t, kvs[i].Key, trimPrefix(txList.Txs[i].Entries[0].Key))
+		require.Equal(t, kvs[i].Key, TrimPrefix(txList.Txs[i].Entries[0].Key))
 	}
 }
 

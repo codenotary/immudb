@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -543,6 +544,9 @@ func TestImmuClientDisconnect(t *testing.T) {
 	_, err = client.VerifiedTxByID(context.TODO(), 1)
 	require.Equal(t, ErrNotConnected, err)
 
+	_, err = client.TxScan(context.TODO(), nil)
+	require.Equal(t, ErrNotConnected, err)
+
 	_, err = client.History(context.TODO(), &schema.HistoryRequest{
 		Key: []byte("key"),
 	})
@@ -1008,6 +1012,60 @@ func TestImmuClient_Scan(t *testing.T) {
 	require.Nil(t, err)
 	require.Len(t, entries.Entries, 2)
 	client.Disconnect()
+}
+
+func TestImmuClient_TxScan(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Disconnect()
+
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, _ = client.Set(ctx, []byte(`key1`), []byte(`val1`))
+	_, _ = client.Set(ctx, []byte(`key1`), []byte(`val11`))
+	_, _ = client.Set(ctx, []byte(`key3`), []byte(`val3`))
+
+	txls, err := client.TxScan(ctx, &schema.TxScanRequest{
+		InitialTx: 1,
+	})
+	require.IsType(t, &schema.TxList{}, txls)
+	require.Nil(t, err)
+	require.Len(t, txls.Txs, 3)
+
+	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
+		InitialTx: 3,
+		Desc:      true,
+	})
+	require.IsType(t, &schema.TxList{}, txls)
+	require.Nil(t, err)
+	require.Len(t, txls.Txs, 3)
+
+	txls, err = client.TxScan(ctx, &schema.TxScanRequest{
+		InitialTx: 2,
+		Limit:     1,
+		Desc:      true,
+	})
+	require.IsType(t, &schema.TxList{}, txls)
+	require.Nil(t, err)
+	require.Len(t, txls.Txs, 1)
+	require.Equal(t, database.TrimPrefix(txls.Txs[0].Entries[0].Key), []byte(`key1`))
 }
 
 func TestImmuClient_Logout(t *testing.T) {
