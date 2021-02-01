@@ -58,8 +58,8 @@ func (v *ValueRef) Resolve() ([]byte, error) {
 	return refVal, err
 }
 
-func (s *KeyReader) Read() (key []byte, val *ValueRef, tx uint64, hc uint64, err error) {
-	key, vLogOffset, tx, hc, err := s.reader.Read()
+func (r *KeyReader) Read() (key []byte, val *ValueRef, tx uint64, hc uint64, err error) {
+	key, vLogOffset, tx, hc, err := r.reader.Read()
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}
@@ -74,12 +74,12 @@ func (s *KeyReader) Read() (key []byte, val *ValueRef, tx uint64, hc uint64, err
 		hVal:   hVal,
 		vOff:   int64(vOff),
 		valLen: valLen,
-		st:     s.store,
+		st:     r.store,
 	}
 
 	return key, val, tx, hc, nil
 }
 
-func (s *KeyReader) Close() error {
-	return s.reader.Close()
+func (r *KeyReader) Close() error {
+	return r.reader.Close()
 }
