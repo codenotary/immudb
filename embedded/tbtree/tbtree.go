@@ -100,7 +100,7 @@ type path []*innerNode
 type node interface {
 	insertAt(key []byte, value []byte, ts uint64) (node, node, error)
 	get(key []byte) (value []byte, ts uint64, hc uint64, err error)
-	getTs(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error)
+	history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error)
 	findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error)
 	minKey() []byte
 	maxKey() []byte
@@ -563,7 +563,7 @@ func (t *TBtree) Get(key []byte) (value []byte, ts uint64, hc uint64, err error)
 	return t.root.get(key)
 }
 
-func (t *TBtree) GetTs(key []byte, offset uint64, descOrder bool, limit int) (ts []uint64, err error) {
+func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -579,7 +579,7 @@ func (t *TBtree) GetTs(key []byte, offset uint64, descOrder bool, limit int) (ts
 		return nil, ErrIllegalArguments
 	}
 
-	return t.root.getTs(key, offset, descOrder, limit)
+	return t.root.history(key, offset, descOrder, limit)
 }
 
 func (t *TBtree) Sync() error {
@@ -930,7 +930,7 @@ func (t *TBtree) newSnapshot(snapshotID uint64, root node) *Snapshot {
 		t:       t,
 		id:      snapshotID,
 		root:    root,
-		readers: make(map[int]*Reader),
+		readers: make(map[int]io.Closer),
 	}
 }
 
@@ -1089,14 +1089,14 @@ func (n *innerNode) get(key []byte) (value []byte, ts uint64, hc uint64, err err
 	return n.nodes[i].get(key)
 }
 
-func (n *innerNode) getTs(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error) {
+func (n *innerNode) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error) {
 	i := n.indexOf(key)
 
 	if bytes.Compare(key, n.nodes[i].maxKey()) == 1 {
 		return nil, ErrKeyNotFound
 	}
 
-	return n.nodes[i].getTs(key, offset, descOrder, limit)
+	return n.nodes[i].history(key, offset, descOrder, limit)
 }
 
 func (n *innerNode) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
@@ -1245,12 +1245,12 @@ func (r *nodeRef) get(key []byte) (value []byte, ts uint64, hc uint64, err error
 	return n.get(key)
 }
 
-func (r *nodeRef) getTs(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error) {
+func (r *nodeRef) history(key []byte, offset uint64, descOrder bool, limit int) ([]uint64, error) {
 	n, err := r.t.nodeAt(r.off)
 	if err != nil {
 		return nil, err
 	}
-	return n.getTs(key, offset, descOrder, limit)
+	return n.history(key, offset, descOrder, limit)
 }
 
 func (r *nodeRef) findLeafNode(keyPrefix []byte, path path, neqKey []byte, descOrder bool) (path, *leafNode, int, error) {
@@ -1455,7 +1455,7 @@ func (l *leafNode) get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 	return leafValue.value, leafValue.ts, leafValue.hCount + uint64(len(leafValue.tss)), nil
 }
 
-func (l *leafNode) getTs(key []byte, offset uint64, desc bool, limit int) ([]uint64, error) {
+func (l *leafNode) history(key []byte, offset uint64, desc bool, limit int) ([]uint64, error) {
 	i, found := l.indexOf(key)
 
 	if !found {
@@ -1465,6 +1465,10 @@ func (l *leafNode) getTs(key []byte, offset uint64, desc bool, limit int) ([]uin
 	leafValue := l.values[i]
 
 	hCount := leafValue.hCount + uint64(len(leafValue.tss))
+
+	if offset == hCount {
+		return nil, ErrNoMoreEntries
+	}
 
 	if offset > hCount {
 		return nil, ErrOffsetOutOfRange

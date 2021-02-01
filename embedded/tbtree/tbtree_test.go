@@ -93,11 +93,11 @@ func TestEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tss, err := tree.GetTs(make([]byte, 1), 0, true, 10)
+	tss, err := tree.History(make([]byte, 1), 0, true, 10)
 	require.NoError(t, err)
 	require.Len(t, tss, 10)
 
-	tss, err = tree.GetTs(make([]byte, 1), 0, false, 10)
+	tss, err = tree.History(make([]byte, 1), 0, false, 10)
 	require.NoError(t, err)
 	require.Len(t, tss, 10)
 
@@ -107,10 +107,10 @@ func TestEdgeCases(t *testing.T) {
 	s1, err := tree.Snapshot()
 	require.NoError(t, err)
 
-	_, err = s1.GetTs(make([]byte, 1), 0, false, 100)
+	_, err = s1.History(make([]byte, 1), 0, false, 100)
 	require.NoError(t, err)
 
-	_, err = s1.GetTs(make([]byte, 1), 101, false, 100)
+	_, err = s1.History(make([]byte, 1), 101, false, 100)
 	require.Equal(t, ErrOffsetOutOfRange, err)
 
 	_, err = tree.Snapshot()
@@ -129,7 +129,7 @@ func TestEdgeCases(t *testing.T) {
 		s1, err := tree.Snapshot()
 		require.NoError(t, err)
 
-		_, err = s1.GetTs([]byte{2}, 0, false, 1)
+		_, err = s1.History([]byte{2}, 0, false, 1)
 		require.Equal(t, ErrKeyNotFound, err)
 
 		err = s1.Close()
@@ -307,7 +307,7 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		}
 		require.Equal(t, uint64(1), hc1)
 
-		tss, err := snapshot.GetTs(k, 0, false, 1)
+		tss, err := snapshot.History(k, 0, false, 1)
 		require.NoError(t, err)
 		require.Equal(t, ts, tss[0])
 
@@ -351,7 +351,7 @@ func TestTBTreeHistory(t *testing.T) {
 	tbtree, err = Open("test_tree_history", opts)
 	require.NoError(t, err)
 
-	tss, err := tbtree.GetTs([]byte("k0"), 0, false, 10)
+	tss, err := tbtree.History([]byte("k0"), 0, false, 10)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(tss))
 }
@@ -378,10 +378,10 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
-	_, err = tbtree.GetTs(nil, 0, false, 10)
+	_, err = tbtree.History(nil, 0, false, 10)
 	require.Equal(t, err, ErrIllegalArguments)
 
-	_, err = tbtree.GetTs([]byte("key"), 0, false, 0)
+	_, err = tbtree.History([]byte("key"), 0, false, 0)
 	require.Equal(t, err, ErrIllegalArguments)
 
 	err = tbtree.Close()
@@ -390,7 +390,7 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, _, err = tbtree.Flush()
 	require.Equal(t, err, ErrAlreadyClosed)
 
-	_, err = tbtree.GetTs([]byte("key"), 0, false, 10)
+	_, err = tbtree.History([]byte("key"), 0, false, 10)
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Close()
@@ -445,7 +445,7 @@ func TestTBTreeInsertionInDescendingOrder(t *testing.T) {
 		Prefix:    nil,
 		DescOrder: false,
 	}
-	reader, err := snapshot.Reader(rspec)
+	reader, err := snapshot.NewReader(rspec)
 	require.NoError(t, err)
 
 	i := 0
@@ -520,7 +520,7 @@ func TestRandomInsertionWithConcurrentReaderOrder(t *testing.T) {
 			DescOrder: false,
 		}
 
-		reader, err := snapshot.Reader(rspec)
+		reader, err := snapshot.NewReader(rspec)
 		if err != nil {
 			require.Equal(t, ErrNoMoreEntries, err)
 			snapshot.Close()

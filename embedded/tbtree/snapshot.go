@@ -21,6 +21,7 @@ import (
 	"io"
 )
 
+var ErrNoMoreEntries = errors.New("no more entries")
 var ErrReadersNotClosed = errors.New("readers not closed")
 
 const (
@@ -32,7 +33,7 @@ type Snapshot struct {
 	t           *TBtree
 	id          uint64
 	root        node
-	readers     map[int]*Reader
+	readers     map[int]io.Closer
 	maxReaderID int
 	closed      bool
 }
@@ -49,7 +50,7 @@ func (s *Snapshot) Get(key []byte) (value []byte, ts uint64, hc uint64, err erro
 	return s.root.get(key)
 }
 
-func (s *Snapshot) GetTs(key []byte, offset uint64, descOrder bool, limit int) (ts []uint64, err error) {
+func (s *Snapshot) History(key []byte, offset uint64, descOrder bool, limit int) (tss []uint64, err error) {
 	if s.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -62,14 +63,30 @@ func (s *Snapshot) GetTs(key []byte, offset uint64, descOrder bool, limit int) (
 		return nil, ErrIllegalArguments
 	}
 
-	return s.root.getTs(key, offset, descOrder, limit)
+	return s.root.history(key, offset, descOrder, limit)
 }
 
 func (s *Snapshot) Ts() uint64 {
 	return s.root.ts()
 }
 
-func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
+func (s *Snapshot) NewHistoryReader(spec *HistoryReaderSpec) (*HistoryReader, error) {
+	if s.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	reader, err := newHistoryReader(s.maxReaderID, s, spec)
+	if err != nil {
+		return nil, err
+	}
+
+	s.readers[reader.id] = reader
+	s.maxReaderID++
+
+	return reader, nil
+}
+
+func (s *Snapshot) NewReader(spec *ReaderSpec) (*Reader, error) {
 	if s.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -100,14 +117,13 @@ func (s *Snapshot) Reader(spec *ReaderSpec) (*Reader, error) {
 	}
 
 	s.readers[reader.id] = reader
-
 	s.maxReaderID++
 
 	return reader, nil
 }
 
-func (s *Snapshot) closedReader(r *Reader) error {
-	delete(s.readers, r.id)
+func (s *Snapshot) closedReader(id int) error {
+	delete(s.readers, id)
 	return nil
 }
 

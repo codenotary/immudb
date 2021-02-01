@@ -53,10 +53,10 @@ func TestSnapshotSerialization(t *testing.T) {
 	_, _, _, err = snapshot.Get(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = snapshot.GetTs(nil, 0, false, 1)
+	_, err = snapshot.History(nil, 0, false, 1)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = snapshot.GetTs([]byte{}, 0, false, 0)
+	_, err = snapshot.History([]byte{}, 0, false, 0)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	err = snapshot.Close()
@@ -94,7 +94,7 @@ func TestSnapshotClosing(t *testing.T) {
 	snapshot, err := tbtree.Snapshot()
 	require.NoError(t, err)
 
-	_, err = snapshot.Reader(nil)
+	_, err = snapshot.NewReader(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	err = snapshot.Close()
@@ -106,10 +106,13 @@ func TestSnapshotClosing(t *testing.T) {
 	_, _, _, err = snapshot.Get([]byte{})
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	_, err = snapshot.GetTs([]byte{}, 0, false, 1)
+	_, err = snapshot.History([]byte{}, 0, false, 1)
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	_, err = snapshot.Reader(nil)
+	_, err = snapshot.NewReader(nil)
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	_, err = snapshot.NewHistoryReader(nil)
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = tbtree.Close()

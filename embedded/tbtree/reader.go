@@ -17,10 +17,7 @@ package tbtree
 
 import (
 	"bytes"
-	"errors"
 )
-
-var ErrNoMoreEntries = errors.New("no more entries")
 
 type Reader struct {
 	snapshot      *Snapshot
@@ -107,7 +104,7 @@ func (r *Reader) Close() error {
 		return ErrAlreadyClosed
 	}
 
-	r.snapshot.closedReader(r)
+	r.snapshot.closedReader(r.id)
 	r.closed = true
 
 	return nil
