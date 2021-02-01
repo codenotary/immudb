@@ -554,7 +554,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 						panic(fmt.Errorf("expected %d actual %d", tx1, tx2))
 					}
 
-					txs, err := immuStore.GetTs(k, 0, false, txCount)
+					txs, err := immuStore.History(k, 0, false, txCount)
 					if err != nil {
 						panic(err)
 					}
@@ -682,7 +682,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 						k := make([]byte, 8)
 						binary.BigEndian.PutUint64(k, uint64(j))
 
-						txIDs, err := snap.GetTs(k, 0, false, txCount)
+						txIDs, err := snap.History(k, 0, false, txCount)
 						if err != nil {
 							panic(err)
 						}

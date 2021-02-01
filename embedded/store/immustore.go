@@ -417,8 +417,8 @@ func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 	return s.index.Get(key)
 }
 
-func (s *ImmuStore) GetTs(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
-	return s.index.GetTs(key, offset, descOrder, limit)
+func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
+	return s.index.History(key, offset, descOrder, limit)
 }
 
 func (s *ImmuStore) NewTx() *Tx {

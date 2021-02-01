@@ -33,7 +33,7 @@ func (st *ImmuStore) NewKeyReader(snap *tbtree.Snapshot, spec *tbtree.ReaderSpec
 		return nil, ErrIllegalArguments
 	}
 
-	r, err := snap.Reader(spec)
+	r, err := snap.NewReader(spec)
 	if err != nil {
 		return nil, err
 	}

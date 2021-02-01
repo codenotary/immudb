@@ -609,7 +609,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 
 	key := EncodeKey(req.Key)
 
-	txs, err := d.st.GetTs(key, req.Offset, req.Desc, limit)
+	txs, err := d.st.History(key, req.Offset, req.Desc, limit)
 	if err != nil && err != tbtree.ErrOffsetOutOfRange {
 		return nil, err
 	}
