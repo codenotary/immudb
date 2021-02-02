@@ -37,6 +37,16 @@ func TestVerifyLinearProofEdgeCases(t *testing.T) {
 			sha256.Sum256(nil),
 		),
 	)
+
+	require.False(t,
+		VerifyLinearProof(
+			&LinearProof{Terms: [][sha256.Size]byte{sha256.Sum256(nil)}, SourceTxID: 1, TargetTxID: 2},
+			1,
+			2,
+			sha256.Sum256(nil),
+			sha256.Sum256(nil),
+		),
+	)
 }
 
 func TestVerifyDualProofEdgeCases(t *testing.T) {
