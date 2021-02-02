@@ -37,6 +37,10 @@ func VerifyLinearProof(proof *LinearProof, sourceTxID, targetTxID uint64, source
 		return false
 	}
 
+	if uint64(len(proof.Terms)) != targetTxID-sourceTxID+1 {
+		return false
+	}
+
 	calculatedAlh := proof.Terms[0]
 
 	for i := 1; i < len(proof.Terms); i++ {
