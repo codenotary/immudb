@@ -7,6 +7,7 @@
     - [AuthConfig](#immudb.schema.AuthConfig)
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
+    - [Chunk](#immudb.schema.Chunk)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
@@ -58,11 +59,11 @@
     - [ZEntries](#immudb.schema.ZEntries)
     - [ZEntry](#immudb.schema.ZEntry)
     - [ZScanRequest](#immudb.schema.ZScanRequest)
-  
+
     - [PermissionAction](#immudb.schema.PermissionAction)
-  
+
     - [ImmuService](#immudb.schema.ImmuService)
-  
+
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -118,6 +119,21 @@
 | username | [string](#string) |  |  |
 | database | [string](#string) |  |  |
 | permission | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Chunk"></a>
+
+### Chunk
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| content | [bytes](#bytes) |  |  |
 
 
 
@@ -976,7 +992,7 @@
 
 
 
- 
+
 
 
 <a name="immudb.schema.PermissionAction"></a>
@@ -990,9 +1006,9 @@
 | REVOKE | 1 |  |
 
 
- 
 
- 
+
+
 
 
 <a name="immudb.schema.ImmuService"></a>
@@ -1036,8 +1052,9 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | CleanIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
+| Stream | [Chunk](#immudb.schema.Chunk) stream | [Chunk](#immudb.schema.Chunk) stream | Streams |
 
- 
+
 
 
 
@@ -1060,4 +1077,3 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
-

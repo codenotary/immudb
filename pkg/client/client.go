@@ -130,6 +130,8 @@ type ImmuClient interface {
 
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
 
+	Stream(ctx context.Context) (schema.ImmuService_StreamClient, error)
+
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)
 	// DEPRECATED: Please use VerifiedSet
