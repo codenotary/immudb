@@ -340,6 +340,10 @@ message DatabaseListResponse{
 	repeated Database databases = 1;
 }
 
+message Chunk {
+	bytes content = 1;
+}
+
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "immudb REST API";
@@ -577,4 +581,7 @@ service ImmuService {
 			body: "*"
 		};
 	};
+
+	// Streams
+	rpc Stream(stream Chunk) returns (stream Chunk) {};
 }

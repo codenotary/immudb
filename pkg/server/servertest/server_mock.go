@@ -39,6 +39,10 @@ type ServerMock struct {
 	PostExecAllFn func(context.Context, *schema.ExecAllRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
 }
 
+func (s *ServerMock) Stream(streamServer schema.ImmuService_StreamServer) error {
+	panic("implement me")
+}
+
 func (s *ServerMock) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
 	return s.srv.ListUsers(ctx, req)
 }
