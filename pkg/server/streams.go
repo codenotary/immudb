@@ -20,18 +20,52 @@ import (
 	"bufio"
 	"bytes"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	stream2 "github.com/codenotary/immudb/pkg/stream"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/golang/protobuf/proto"
 	"io"
-	"os"
 )
 
-func (s *ImmuServer) Stream(stream schema.ImmuService_StreamServer) (err error) {
-	kvsr := NewKvStreamReveiver(stream2.NewMsgReceiver(stream))
+func (s *ImmuServer) GetStream(chunk *schema.Chunk, str schema.ImmuService_GetStreamServer) error {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "VerifiableGet")
+	if err != nil {
+		return err
+	}
+
+	kvsr := stream.NewKvStreamSender(stream.NewMsgSender(str))
+
+	kr := &schema.KeyRequest{}
+	err = proto.Unmarshal(chunk.Content, kr)
+	if err != nil {
+		return err
+	}
+
+	entry, err := s.dbList.GetByIndex(ind).Get(kr)
+	if err != nil {
+		return err
+	}
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(entry.Key)),
+			Size:    len(entry.Key),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(entry.Value)),
+			Size:    len(entry.Value),
+		},
+	}
+	return kvsr.Send(kv)
+}
+
+func (s *ImmuServer) SetStream(str schema.ImmuService_SetStreamServer) (err error) {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "VerifiableGet")
+	if err != nil {
+		return err
+	}
+
+	kvsr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(str))
 	done := false
 	for !done {
-		kv, err := kvsr.Rec()
+		kv, err := kvsr.Recv()
 		if err != nil {
 			if err == io.EOF {
 				done = true
@@ -39,12 +73,29 @@ func (s *ImmuServer) Stream(stream schema.ImmuService_StreamServer) (err error) 
 			}
 			return err
 		}
-		fn := make([]byte, kv.Key.Size)
-
-		if _, err = kv.Key.Content.Read(fn); err != nil {
+		key := make([]byte, kv.Key.Size)
+		if _, err = kv.Key.Content.Read(key); err != nil {
 			return err
 		}
-		f, err := os.Create(string(fn) + "_received")
+
+		value := make([]byte, kv.Value.Size)
+		if _, err = kv.Value.Content.Read(value); err != nil {
+			return err
+		}
+
+		txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+		if err != nil {
+			return err
+		}
+		txmb, err := proto.Marshal(txMeta)
+		if err != nil {
+			return err
+		}
+		err = str.SendAndClose(&schema.Chunk{Content: txmb})
+		if err != nil {
+			return err
+		}
+		/*f, err := os.Create(string(fn) + "_received")
 		if err != nil {
 			return status.Error(codes.Unknown, err.Error())
 		}
@@ -58,56 +109,8 @@ func (s *ImmuServer) Stream(stream schema.ImmuService_StreamServer) (err error) 
 		if err != nil {
 			return status.Error(codes.Unknown, err.Error())
 		}
-		println(read)
+		println(read)*/
 
 	}
 	return nil
-}
-
-type KvStreamReceiver interface {
-	Rec() (*stream2.KeyValue, error)
-}
-
-type kvStreamReceiver struct {
-	s stream2.MsgReceiver
-}
-
-func NewKvStreamReveiver(s stream2.MsgReceiver) *kvStreamReceiver {
-	return &kvStreamReceiver{
-		s: s,
-	}
-}
-
-func (kvr *kvStreamReceiver) Rec() (*stream2.KeyValue, error) {
-	kv := &stream2.KeyValue{}
-	key, err := kvr.s.Recv()
-	if err != nil {
-		return nil, err
-	}
-	if err := kvr.s.Send([]byte(`ok`)); err != nil {
-		return nil, err
-	}
-	bk := bytes.NewBuffer(key)
-	rk := bufio.NewReader(bk)
-	// todo @michele a reader and a len(key) should be returned by kvr.s.Recv()
-	kv.Key = &stream2.ValueSize{
-		Content: rk,
-		Size:    len(key),
-	}
-
-	val, err := kvr.s.Recv()
-	if err != nil {
-		return nil, err
-	}
-	if err := kvr.s.Send([]byte(`ok`)); err != nil {
-		return nil, err
-	}
-	bv := bytes.NewBuffer(val)
-	rv := bufio.NewReader(bv)
-	// todo @michele a reader and a len(val) should be returned by kvr.s.Recv()
-	kv.Value = &stream2.ValueSize{
-		Content: rv,
-		Size:    len(val),
-	}
-	return kv, nil
 }

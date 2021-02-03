@@ -14,23 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package stream
 
-import (
-	"context"
-	"github.com/codenotary/immudb/pkg/api/schema"
-)
-
-func (c *immuClient) SetStream(ctx context.Context) (schema.ImmuService_SetStreamClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.SetStream(ctx)
+type KvStreamSender interface {
+	Send(kv *KeyValue)
 }
 
-func (c *immuClient) GetStream(ctx context.Context, in *schema.Chunk) (schema.ImmuService_GetStreamClient, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-	return c.ServiceClient.GetStream(ctx, in)
+type KvStreamReceiver interface {
+	Recv() (*KeyValue, error)
+	SendAndClose([]byte) error
 }

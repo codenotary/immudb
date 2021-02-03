@@ -39,7 +39,11 @@ type ServerMock struct {
 	PostExecAllFn func(context.Context, *schema.ExecAllRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
 }
 
-func (s *ServerMock) Stream(streamServer schema.ImmuService_StreamServer) error {
+func (s *ServerMock) GetStream(chunk *schema.Chunk, streamServer schema.ImmuService_GetStreamServer) error {
+	panic("implement me")
+}
+
+func (s *ServerMock) SetStream(streamServer schema.ImmuService_SetStreamServer) error {
 	panic("implement me")
 }
 

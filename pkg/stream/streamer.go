@@ -20,7 +20,10 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-type ImmuService_Stream interface {
+type ImmuServiceSender_Stream interface {
 	Send(*schema.Chunk) error
+}
+
+type ImmuServiceReceiver_Stream interface {
 	Recv() (*schema.Chunk, error)
 }

@@ -19,20 +19,18 @@ package stream
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
-func NewMsgReceiver(stream ImmuService_Stream) *msgReceiver {
+func NewMsgReceiver(stream ImmuServiceReceiver_Stream) *msgReceiver {
 	return &msgReceiver{stream: stream, b: bytes.NewBuffer([]byte{})}
 }
 
 type MsgReceiver interface {
 	Recv() ([]byte, error)
-	Send(msg []byte) error
 }
 
 type msgReceiver struct {
-	stream ImmuService_Stream
+	stream ImmuServiceReceiver_Stream
 	b      *bytes.Buffer
 }
 
@@ -64,8 +62,4 @@ func (r *msgReceiver) Recv() ([]byte, error) {
 			return message, nil
 		}
 	}
-}
-
-func (r *msgReceiver) Send(msg []byte) error {
-	return r.stream.Send(&schema.Chunk{Content: msg})
 }
