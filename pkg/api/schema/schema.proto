@@ -583,5 +583,6 @@ service ImmuService {
 	};
 
 	// Streams
-	rpc Stream(stream Chunk) returns (stream Chunk) {};
+	rpc GetStream(Chunk) returns (stream Chunk) {};
+	rpc SetStream(stream Chunk) returns (Chunk) {};
 }

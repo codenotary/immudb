@@ -25,29 +25,20 @@ import (
 )
 
 type MsgSender interface {
-	Recv() ([]byte, error)
 	Send(reader *bufio.Reader, payloadSize int) (err error)
 }
 
 type msgSender struct {
-	s ImmuService_Stream
+	s ImmuServiceSender_Stream
 	b *bytes.Buffer
 }
 
-func NewMsgSender(s ImmuService_Stream) *msgSender {
+func NewMsgSender(s ImmuServiceSender_Stream) *msgSender {
 	buffer := bytes.NewBuffer([]byte{})
 	return &msgSender{
 		s: s,
 		b: buffer,
 	}
-}
-
-func (st *msgSender) Recv() ([]byte, error) {
-	chunk, err := st.s.Recv()
-	if err != nil {
-		return nil, err
-	}
-	return chunk.Content, nil
 }
 
 func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
