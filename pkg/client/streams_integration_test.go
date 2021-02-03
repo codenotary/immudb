@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 	"log"
@@ -43,11 +44,12 @@ func TestImmuServer_Stream(t *testing.T) {
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	stream, err := cli.Stream(ctx)
+	s, err := cli.Stream(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
-	kvs := NewKvStreamer(stream)
+
+	kvs := NewKvStreamSender(stream.NewMsgSender(s))
 
 	filename := "/home/falce/vchain/immudb/src/test/Graph_Algorithms_Neo4j.pdf"
 	f, err := os.Open(filename)
@@ -60,12 +62,12 @@ func TestImmuServer_Stream(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	kv := &KeyValue{
-		Key: &ValueSize{
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(filename))),
 			Size:    len(filename),
 		},
-		Value: &ValueSize{
+		Value: &stream.ValueSize{
 			Content: bufio.NewReader(f),
 			Size:    int(fi.Size()),
 		},
@@ -85,12 +87,12 @@ func TestImmuServer_Stream(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	kv2 := &KeyValue{
-		Key: &ValueSize{
+	kv2 := &stream.KeyValue{
+		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(filename2))),
 			Size:    len(filename2),
 		},
-		Value: &ValueSize{
+		Value: &stream.ValueSize{
 			Content: bufio.NewReader(f2),
 			Size:    int(fi2.Size()),
 		},
@@ -110,12 +112,12 @@ func TestImmuServer_Stream(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	kv3 := &KeyValue{
-		Key: &ValueSize{
+	kv3 := &stream.KeyValue{
+		Key: &stream.ValueSize{
 			Content: bufio.NewReader(bytes.NewBuffer([]byte(filename3))),
 			Size:    len(filename3),
 		},
-		Value: &ValueSize{
+		Value: &stream.ValueSize{
 			Content: bufio.NewReader(f3),
 			Size:    int(fi3.Size()),
 		},
@@ -124,7 +126,7 @@ func TestImmuServer_Stream(t *testing.T) {
 	err = kvs.Send(kv3)
 	require.NoError(t, err)
 
-	err = kvs.Close()
+	err = s.CloseSend()
 	require.NoError(t, err)
 
 }
