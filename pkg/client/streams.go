@@ -17,29 +17,10 @@ limitations under the License.
 package client
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/binary"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/pkg/errors"
-	"io"
+	"github.com/codenotary/immudb/pkg/stream"
 )
-
-const chunkSize int = 64 * 1024 // 64 KiB
-
-var ErrMaxChunkSizeReached = errors.New("max chunk size reached")
-var ErrDataLoss = errors.New("some data is not sent to the server")
-
-type KeyValue struct {
-	Key   *ValueSize
-	Value *ValueSize
-}
-
-type ValueSize struct {
-	Content *bufio.Reader
-	Size    int
-}
 
 func (c *immuClient) Stream(ctx context.Context) (schema.ImmuService_StreamClient, error) {
 	if !c.IsConnected() {
@@ -48,21 +29,22 @@ func (c *immuClient) Stream(ctx context.Context) (schema.ImmuService_StreamClien
 	return c.ServiceClient.Stream(ctx)
 }
 
-type kvStreamer struct {
-	s schema.ImmuService_StreamClient
-	b *bytes.Buffer
+type KvStreamSender interface {
+	Send(kv *stream.KeyValue) error
 }
 
-func NewKvStreamer(s schema.ImmuService_StreamClient) *kvStreamer {
-	buffer := bytes.NewBuffer([]byte{})
-	return &kvStreamer{
+type kvStreamSender struct {
+	s stream.MsgSender
+}
+
+func NewKvStreamSender(s stream.MsgSender) *kvStreamSender {
+	return &kvStreamSender{
 		s: s,
-		b: buffer,
 	}
 }
 
-func (st *kvStreamer) Send(kv *KeyValue) error {
-	err := st.send(kv.Key.Content, kv.Key.Size)
+func (st *kvStreamSender) Send(kv *stream.KeyValue) error {
+	err := st.s.Send(kv.Key.Content, kv.Key.Size)
 	if err != nil {
 		return err
 	}
@@ -70,7 +52,7 @@ func (st *kvStreamer) Send(kv *KeyValue) error {
 	if err != nil {
 		return err
 	}
-	err = st.send(kv.Value.Content, kv.Value.Size)
+	err = st.s.Send(kv.Value.Content, kv.Value.Size)
 	if err != nil {
 		return err
 	}
@@ -80,86 +62,7 @@ func (st *kvStreamer) Send(kv *KeyValue) error {
 		return err
 	}
 
-	println(string(c.Content))
+	println(string(c))
 
 	return nil
-}
-
-func (st *kvStreamer) Recv() ([]byte, error) {
-	chunk, err := st.s.Recv()
-	if err != nil {
-		return nil, err
-	}
-	return chunk.Content, nil
-}
-
-func (st *kvStreamer) Close() error {
-	if st.b.Len() > 0 {
-		return ErrDataLoss
-	}
-	return st.s.CloseSend()
-}
-
-func (st *kvStreamer) send(reader *bufio.Reader, payloadSize int) (err error) {
-	var read = 0
-	for {
-		// if read is 0 here trailer is created
-		if read == 0 {
-			ml := make([]byte, 8)
-			binary.BigEndian.PutUint64(ml, uint64(payloadSize))
-			st.b.Write(ml)
-		}
-		// read data from reader and append it to the buffer
-		data := make([]byte, reader.Size())
-		r, err := reader.Read(data)
-		if err != nil {
-			if err != io.EOF {
-				return err
-			}
-		}
-
-		read += r
-		// no more data to read in the reader, exit
-		if read == 0 {
-			return nil
-		}
-
-		// append read data in the buffer
-		st.b.Write(data[:r])
-
-		// chunk processing
-		var chunk []byte
-		// last chunk creation
-		if read == payloadSize {
-			chunk = make([]byte, st.b.Len())
-			if err != nil {
-				return nil
-			}
-			_, err = st.b.Read(chunk)
-			if err != nil {
-				return nil
-			}
-		}
-		// enough data to send a chunk
-		if st.b.Len() > chunkSize {
-			chunk = make([]byte, chunkSize)
-			_, err = st.b.Read(chunk)
-			if err != nil {
-				return nil
-			}
-		}
-		// sending ...
-		if len(chunk) > 0 {
-			err = st.s.Send(&schema.Chunk{
-				Content: chunk,
-			})
-			if err != nil {
-				return err
-			}
-			// is last chunk
-			if read == payloadSize {
-				return nil
-			}
-		}
-	}
 }

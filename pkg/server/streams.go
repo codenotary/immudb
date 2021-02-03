@@ -1,11 +1,26 @@
+/*
+Copyright 2019-2020 vChain, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package server
 
 import (
+	"bufio"
 	"bytes"
-	"encoding/binary"
-	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/logger"
+	stream2 "github.com/codenotary/immudb/pkg/stream"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io"
@@ -13,13 +28,10 @@ import (
 )
 
 func (s *ImmuServer) Stream(stream schema.ImmuService_StreamServer) (err error) {
-	mr := NewMsgReceiver(stream, s.Logger)
+	kvsr := NewKvStreamReveiver(stream2.NewMsgReceiver(stream))
 	done := false
-	var messages = make([][]byte, 2)
-	count := 0
 	for !done {
-		count++
-		msg, err := mr.rec()
+		kv, err := kvsr.Rec()
 		if err != nil {
 			if err == io.EOF {
 				done = true
@@ -27,64 +39,75 @@ func (s *ImmuServer) Stream(stream schema.ImmuService_StreamServer) (err error) 
 			}
 			return err
 		}
-		messages[count-1] = msg
-		if count%2 == 0 {
-			fn := string(messages[0]) + "_received"
-			f, err := os.Create(fn)
-			defer f.Close()
-			if err != nil {
-				return status.Error(codes.Unknown, err.Error())
-			}
-			_, err = f.Write(messages[1])
-			if err != nil {
-				return status.Error(codes.Unknown, err.Error())
-			}
-			count = 0
+		fn := make([]byte, kv.Key.Size)
+
+		if _, err = kv.Key.Content.Read(fn); err != nil {
+			return err
 		}
-		err = stream.Send(&schema.Chunk{Content: []byte(fmt.Sprintf("%s OK", messages[0]))})
+		f, err := os.Create(string(fn) + "_received")
 		if err != nil {
 			return status.Error(codes.Unknown, err.Error())
 		}
+		defer f.Close()
+		writer := bufio.NewWriter(f)
+		read, err := writer.ReadFrom(kv.Value.Content)
+		if err != nil {
+			return status.Error(codes.Unknown, err.Error())
+		}
+		err = writer.Flush()
+		if err != nil {
+			return status.Error(codes.Unknown, err.Error())
+		}
+		println(read)
+
 	}
 	return nil
 }
 
-func NewMsgReceiver(stream schema.ImmuService_StreamServer, l logger.Logger) *msgReceiver {
-	return &msgReceiver{stream: stream, l: l, b: bytes.NewBuffer([]byte{})}
+type KvStreamReceiver interface {
+	Rec() (*stream2.KeyValue, error)
 }
 
-type msgReceiver struct {
-	stream schema.ImmuService_StreamServer
-	l      logger.Logger
-	b      *bytes.Buffer
+type kvStreamReceiver struct {
+	s stream2.MsgReceiver
 }
 
-func (r *msgReceiver) rec() ([]byte, error) {
-	var l uint64 = 0
-	var message []byte
-	for {
-		chunk, err := r.stream.Recv()
-		if err != nil {
-			return nil, err
-		}
-		r.b.Write(chunk.Content)
-		// if l is zero need to read the trailer to get the message length
-		if l == 0 {
-			trailer := make([]byte, 8)
-			_, err = r.b.Read(trailer)
-			if err != nil {
-				return nil, err
-			}
-			l = binary.BigEndian.Uint64(trailer)
-			message = make([]byte, l)
-		}
-		// if message is contained in the first chunk is returned
-		if r.b.Len() >= int(l) {
-			_, err = r.b.Read(message)
-			if err != nil {
-				return nil, err
-			}
-			return message, nil
-		}
+func NewKvStreamReveiver(s stream2.MsgReceiver) *kvStreamReceiver {
+	return &kvStreamReceiver{
+		s: s,
 	}
+}
+
+func (kvr *kvStreamReceiver) Rec() (*stream2.KeyValue, error) {
+	kv := &stream2.KeyValue{}
+	key, err := kvr.s.Recv()
+	if err != nil {
+		return nil, err
+	}
+	if err := kvr.s.Send([]byte(`ok`)); err != nil {
+		return nil, err
+	}
+	bk := bytes.NewBuffer(key)
+	rk := bufio.NewReader(bk)
+	// todo @michele a reader and a len(key) should be returned by kvr.s.Recv()
+	kv.Key = &stream2.ValueSize{
+		Content: rk,
+		Size:    len(key),
+	}
+
+	val, err := kvr.s.Recv()
+	if err != nil {
+		return nil, err
+	}
+	if err := kvr.s.Send([]byte(`ok`)); err != nil {
+		return nil, err
+	}
+	bv := bytes.NewBuffer(val)
+	rv := bufio.NewReader(bv)
+	// todo @michele a reader and a len(val) should be returned by kvr.s.Recv()
+	kv.Value = &stream2.ValueSize{
+		Content: rv,
+		Size:    len(val),
+	}
+	return kv, nil
 }
