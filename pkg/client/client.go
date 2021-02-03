@@ -130,7 +130,8 @@ type ImmuClient interface {
 
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
 
-	Stream(ctx context.Context) (schema.ImmuService_StreamClient, error)
+	SetStream(ctx context.Context) (schema.ImmuService_SetStreamClient, error)
+	GetStream(ctx context.Context, in *schema.Chunk) (schema.ImmuService_GetStreamClient, error)
 
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)
