@@ -1052,8 +1052,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | CleanIndex | [.google.protobuf.Empty](#google.protobuf.Empty) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | ChangePermission | [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
 | SetActiveUser | [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest) | [.google.protobuf.Empty](#google.protobuf.Empty) |  |
-| GetStream | [Chunk](#immudb.schema.Chunk) | [Chunk](#immudb.schema.Chunk) stream | Streams |
-| SetStream | [Chunk](#immudb.schema.Chunk) stream | [Chunk](#immudb.schema.Chunk) |  |
+| GetStream | [KeyRequest](#immudb.schema.KeyRequest) | [Chunk](#immudb.schema.Chunk) stream | Streams |
+| SetStream | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
 
 
 
