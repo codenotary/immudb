@@ -46,6 +46,15 @@ func TestStoreReference(t *testing.T) {
 	require.Equal(t, store.ErrKeyNotFound, err)
 
 	refOpts = &schema.ReferenceRequest{
+		Key:           []byte(`firstKeyR`),
+		ReferencedKey: []byte(`firstKey`),
+		AtTx:          0,
+		BoundRef:      true,
+	}
+	_, err = db.SetReference(refOpts)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
+	refOpts = &schema.ReferenceRequest{
 		Key:           []byte(`firstKey`),
 		ReferencedKey: []byte(`firstKey`),
 	}

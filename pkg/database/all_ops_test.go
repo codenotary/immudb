@@ -249,6 +249,73 @@ func TestExecAllOpsInvalidKvKey(t *testing.T) {
 	}
 	_, err := db.ExecAll(aOps)
 	require.Equal(t, store.ErrIllegalArguments, err)
+
+	aOps = &schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
+						Key:   []byte("key"),
+						Value: []byte("val"),
+					},
+				},
+			},
+			{
+				Operation: &schema.Op_Ref{
+					Ref: &schema.ReferenceRequest{
+						Key:           []byte("rkey"),
+						ReferencedKey: []byte("key"),
+						AtTx:          1,
+						BoundRef:      false,
+					},
+				},
+			},
+		},
+	}
+	_, err = db.ExecAll(aOps)
+	require.Equal(t, store.ErrIllegalArguments, err)
+
+	aOps = &schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
+						Key:   []byte("key"),
+						Value: []byte("val"),
+					},
+				},
+			},
+			{
+				Operation: &schema.Op_Ref{
+					Ref: &schema.ReferenceRequest{
+						Key:           []byte("rkey"),
+						ReferencedKey: []byte("key"),
+						AtTx:          0,
+						BoundRef:      true,
+					},
+				},
+			},
+		},
+	}
+	_, err = db.ExecAll(aOps)
+	require.NoError(t, err)
+
+	// Ops payload
+	aOps = &schema.ExecAllRequest{
+		Operations: []*schema.Op{
+			{
+				Operation: &schema.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:   []byte(`mySet`),
+						Score: 0.6,
+						Key:   []byte(`rkey`),
+					},
+				},
+			},
+		},
+	}
+	_, err = db.ExecAll(aOps)
+	require.Equal(t, ErrReferencedKeyCannotBeAReference, err)
 }
 
 func TestExecAllOpsZAddKeyNotFound(t *testing.T) {
