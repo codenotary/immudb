@@ -56,6 +56,16 @@ func TestStoreIndexExists(t *testing.T) {
 	require.Exactly(t, reference2.Id, uint64(5))
 	require.NotEmptyf(t, reference2, "Should not be empty")
 
+	zaddOpts2 = &schema.ZAddRequest{
+		Key:      []byte(`mySecondElementKey`),
+		Set:      []byte(`firstIndex`),
+		Score:    float64(6),
+		AtTx:     0,
+		BoundRef: true,
+	}
+	_, err2 = db.ZAdd(zaddOpts2)
+	require.Equal(t, ErrIllegalArguments, err2)
+
 	zaddOpts3 := &schema.ZAddRequest{
 		Key:   []byte(`myThirdElementKey`),
 		Set:   []byte(`firstIndex`),
