@@ -28,7 +28,7 @@ func (c *immuClient) SetStream(ctx context.Context) (schema.ImmuService_SetStrea
 	return c.ServiceClient.SetStream(ctx)
 }
 
-func (c *immuClient) GetStream(ctx context.Context, in *schema.Chunk) (schema.ImmuService_GetStreamClient, error) {
+func (c *immuClient) GetStream(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_GetStreamClient, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
