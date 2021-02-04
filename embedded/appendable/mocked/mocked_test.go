@@ -67,7 +67,7 @@ func TestMocked(t *testing.T) {
 	md := mocked.Metadata()
 	require.Nil(t, md)
 
-	err := mocked.CopyFn("copy")
+	err := mocked.Copy("copy")
 	require.NoError(t, err)
 
 	sz, err := mocked.Size()
