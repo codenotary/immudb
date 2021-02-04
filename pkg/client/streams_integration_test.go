@@ -22,7 +22,6 @@ import (
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 	"log"
@@ -171,11 +170,9 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	err = kvs.Send(kv)
 	require.NoError(t, err)
 
-
-	txmb, err := s.CloseAndRecv()
-	txMeta := &schema.TxMetadata{}
-	err = proto.Unmarshal(txmb.Content, txMeta)
+	txMeta, err := s.CloseAndRecv()
 	require.NoError(t, err)
+	require.IsType(t, &schema.TxMetadata{}, txMeta)
 
 	s2, err := cli.SetStream(ctx)
 	if err != nil {
@@ -233,10 +230,8 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	kr := &schema.KeyRequest{
 		Key: key,
 	}
-	krb, err := proto.Marshal(kr)
-	require.NoError(t, err)
 
-	gs, err := cli.GetStream(ctx, &schema.Chunk{Content: krb})
+	gs, err := cli.GetStream(ctx, kr)
 	require.NoError(t, err)
 
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
@@ -257,10 +252,8 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	kr2 := &schema.KeyRequest{
 		Key: key2,
 	}
-	krb2, err := proto.Marshal(kr2)
-	require.NoError(t, err)
 
-	gs2, err := cli.GetStream(ctx, &schema.Chunk{Content: krb2})
+	gs2, err := cli.GetStream(ctx, kr2)
 	require.NoError(t, err)
 
 	kvr2 := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs2))
@@ -281,10 +274,8 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	kr3 := &schema.KeyRequest{
 		Key: key3,
 	}
-	krb3, err := proto.Marshal(kr3)
-	require.NoError(t, err)
 
-	gs3, err := cli.GetStream(ctx, &schema.Chunk{Content: krb3})
+	gs3, err := cli.GetStream(ctx, kr3)
 	require.NoError(t, err)
 
 	kvr3 := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs3))

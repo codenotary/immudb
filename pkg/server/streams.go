@@ -21,23 +21,16 @@ import (
 	"bytes"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
-	"github.com/golang/protobuf/proto"
 	"io"
 )
 
-func (s *ImmuServer) GetStream(chunk *schema.Chunk, str schema.ImmuService_GetStreamServer) error {
+func (s *ImmuServer) GetStream(kr *schema.KeyRequest, str schema.ImmuService_GetStreamServer) error {
 	ind, err := s.getDbIndexFromCtx(str.Context(), "VerifiableGet")
 	if err != nil {
 		return err
 	}
 
 	kvsr := stream.NewKvStreamSender(stream.NewMsgSender(str))
-
-	kr := &schema.KeyRequest{}
-	err = proto.Unmarshal(chunk.Content, kr)
-	if err != nil {
-		return err
-	}
 
 	entry, err := s.dbList.GetByIndex(ind).Get(kr)
 	if err != nil {
@@ -87,30 +80,10 @@ func (s *ImmuServer) SetStream(str schema.ImmuService_SetStreamServer) (err erro
 		if err != nil {
 			return err
 		}
-		txmb, err := proto.Marshal(txMeta)
+		err = str.SendAndClose(txMeta)
 		if err != nil {
 			return err
 		}
-		err = str.SendAndClose(&schema.Chunk{Content: txmb})
-		if err != nil {
-			return err
-		}
-		/*f, err := os.Create(string(fn) + "_received")
-		if err != nil {
-			return status.Error(codes.Unknown, err.Error())
-		}
-		defer f.Close()
-		writer := bufio.NewWriter(f)
-		read, err := writer.ReadFrom(kv.Value.Content)
-		if err != nil {
-			return status.Error(codes.Unknown, err.Error())
-		}
-		err = writer.Flush()
-		if err != nil {
-			return status.Error(codes.Unknown, err.Error())
-		}
-		println(read)*/
-
 	}
 	return nil
 }
