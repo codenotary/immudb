@@ -583,6 +583,6 @@ service ImmuService {
 	};
 
 	// Streams
-	rpc GetStream(Chunk) returns (stream Chunk) {};
-	rpc SetStream(stream Chunk) returns (Chunk) {};
+	rpc GetStream(KeyRequest) returns (stream Chunk) {};
+	rpc SetStream(stream Chunk) returns (TxMetadata) {};
 }
