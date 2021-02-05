@@ -78,7 +78,7 @@ func (s *ImmuServer) SetStream(str schema.ImmuService_SetStreamServer) (err erro
 
 		txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
 		if err != nil {
-			return err
+			return stream.ErrMaxValueLenExceeded
 		}
 		err = str.SendAndClose(txMeta)
 		if err != nil {

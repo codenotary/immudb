@@ -22,6 +22,7 @@ import (
 
 type ImmuServiceSender_Stream interface {
 	Send(*schema.Chunk) error
+	RecvMsg(m interface{}) error
 }
 
 type ImmuServiceReceiver_Stream interface {
