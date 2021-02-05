@@ -1112,7 +1112,7 @@ func TestImmudbStoreConsistencyProofReopened(t *testing.T) {
 
 	os.RemoveAll("data_consistency_proof_reopen/aht")
 
-	immuStore, err = Open("data_consistency_proof_reopen", opts)
+	immuStore, err = Open("data_consistency_proof_reopen", opts.WithMaxValueLen(opts.MaxValueLen-1))
 	require.NoError(t, err)
 
 	tx := immuStore.NewTx()

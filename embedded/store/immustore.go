@@ -288,13 +288,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	txs := list.New()
 
-	for i := 0; i < opts.MaxConcurrency; i++ {
-		tx := NewTx(maxTxEntries, maxKeyLen)
-		txs.PushBack(tx)
+	// one extra tx pre-allocation for indexing thread
+	for i := 0; i < opts.MaxConcurrency+1; i++ {
+		txs.PushBack(NewTx(maxTxEntries, maxKeyLen))
 	}
-
-	// Extra tx pre-allocation for indexing thread
-	txs.PushBack(NewTx(maxTxEntries, maxKeyLen))
 
 	txbs := make([]byte, maxTxSize)
 
@@ -378,7 +375,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		maxIOConcurrency:  opts.MaxIOConcurrency,
 		maxTxEntries:      maxTxEntries,
 		maxKeyLen:         maxKeyLen,
-		maxValueLen:       maxValueLen,
+		maxValueLen:       maxInt(maxValueLen, opts.MaxValueLen),
 		maxLinearProofLen: opts.MaxLinearProofLen,
 
 		maxTxSize: maxTxSize,
@@ -1364,6 +1361,13 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func maxInt(a, b int) int {
+	if a <= b {
+		return b
+	}
+	return a
 }
 
 func maxUint64(a, b uint64) uint64 {
