@@ -29,12 +29,12 @@ func NewKvStreamSender(s MsgSender) *kvStreamSender {
 func (st *kvStreamSender) Send(kv *KeyValue) error {
 	err := st.s.Send(kv.Key.Content, kv.Key.Size)
 	if err != nil {
-		return err
+		return st.s.RecvMsg(nil)
 	}
 
 	err = st.s.Send(kv.Value.Content, kv.Value.Size)
 	if err != nil {
-		return err
+		return st.s.RecvMsg(nil)
 	}
 
 	return nil

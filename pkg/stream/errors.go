@@ -16,7 +16,9 @@ limitations under the License.
 
 package stream
 
-import "github.com/pkg/errors"
+import (
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
 
-var ErrMaxChunkSizeReached = errors.New("max chunk size reached")
-var ErrDataLoss = errors.New("some data is not sent to the server")
+var ErrMaxValueLenExceeded = status.Error(codes.FailedPrecondition, "internal store max value length exceeded")
