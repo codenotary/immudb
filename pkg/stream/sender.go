@@ -26,6 +26,7 @@ import (
 
 type MsgSender interface {
 	Send(reader *bufio.Reader, payloadSize int) (err error)
+	RecvMsg(m interface{}) error
 }
 
 type msgSender struct {
@@ -103,4 +104,8 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 			}
 		}
 	}
+}
+
+func (st *msgSender) RecvMsg(m interface{}) error {
+	return st.s.RecvMsg(m)
 }
