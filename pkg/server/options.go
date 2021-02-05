@@ -83,13 +83,17 @@ func DefaultOptions() *Options {
 		defaultDbName:       DefaultdbName,
 		usingCustomListener: false,
 		maintenance:         false,
-		StoreOptions:        DefaultStoreOptions().WithMaxConcurrency(10).WithMaxValueLen(1 << 20),
+		StoreOptions:        DefaultStoreOptions(),
 	}
 }
 
 func DefaultStoreOptions() *store.Options {
 	indexOptions := store.DefaultIndexOptions().WithRenewSnapRootAfter(0)
-	return store.DefaultOptions().WithIndexOptions(indexOptions).WithMaxLinearProofLen(0)
+	return store.DefaultOptions().
+		WithIndexOptions(indexOptions).
+		WithMaxLinearProofLen(0).
+		WithMaxConcurrency(10).
+		WithMaxValueLen(1 << 20)
 }
 
 // WithDir sets dir
