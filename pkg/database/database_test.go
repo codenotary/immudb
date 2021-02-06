@@ -72,11 +72,23 @@ func TestDefaultDbCreation(t *testing.T) {
 		t.Fatalf("Error creating Db instance %s", err)
 	}
 
+	require.Equal(t, options, db.GetOptions())
+
 	defer func() {
 		db.Close()
 		time.Sleep(1 * time.Second)
 		os.RemoveAll(options.GetDbRootPath())
 	}()
+
+	n, err := db.Size()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), n)
+
+	_, err = db.Count(nil)
+	require.Error(t, err)
+
+	_, err = db.CountAll()
+	require.Error(t, err)
 
 	dbPath := path.Join(options.GetDbRootPath(), options.GetDbName())
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
@@ -170,6 +182,12 @@ func TestDbSetGet(t *testing.T) {
 	var trustedAlh [sha256.Size]byte
 	var trustedIndex uint64
 
+	_, err := db.Set(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.VerifiableGet(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
 	for i, kv := range kvs {
 		txMetadata, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
 		require.NoError(t, err)
@@ -237,7 +255,7 @@ func TestDbSetGet(t *testing.T) {
 		require.True(t, verifies)
 	}
 
-	_, err := db.Get(&schema.KeyRequest{Key: []byte{}})
+	_, err = db.Get(&schema.KeyRequest{Key: []byte{}})
 	require.Error(t, err)
 }
 
@@ -264,6 +282,22 @@ func TestSafeSetGet(t *testing.T) {
 
 	state, err := db.CurrentState()
 	require.NoError(t, err)
+
+	_, err = db.VerifiableSet(nil)
+	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.VerifiableSet(&schema.VerifiableSetRequest{
+		SetRequest: &schema.SetRequest{
+			KVs: []*schema.KeyValue{
+				{
+					Key:   []byte("Alberto"),
+					Value: []byte("Tomba"),
+				},
+			},
+		},
+		ProveSinceTx: 2,
+	})
+	require.Equal(t, ErrIllegalState, err)
 
 	kv := []*schema.VerifiableSetRequest{
 		{
@@ -362,13 +396,16 @@ func TestTxByID(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	_, err := db.TxByID(nil)
+	require.Error(t, ErrIllegalArguments, err)
+
 	for ind, val := range kvs {
 		txMetadata, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
 		require.Equal(t, uint64(ind+1), txMetadata.Id)
 	}
 
-	_, err := db.TxByID(&schema.TxRequest{Tx: uint64(1)})
+	_, err = db.TxByID(&schema.TxRequest{Tx: uint64(1)})
 	require.NoError(t, err)
 }
 
@@ -376,12 +413,15 @@ func TestVerifiableTxByID(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
+	_, err := db.VerifiableTxByID(nil)
+	require.Error(t, ErrIllegalArguments, err)
+
 	for _, val := range kvs {
 		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: val.Key, Value: val.Value}}})
 		require.NoError(t, err)
 	}
 
-	_, err := db.VerifiableTxByID(&schema.VerifiableTxRequest{
+	_, err = db.VerifiableTxByID(&schema.VerifiableTxRequest{
 		Tx:           uint64(1),
 		ProveSinceTx: 0,
 	})
@@ -439,6 +479,13 @@ func TestHistory(t *testing.T) {
 
 	_, err := db.History(nil)
 	require.Equal(t, ErrIllegalArguments, err)
+
+	_, err = db.History(&schema.HistoryRequest{
+		Key:     kvs[0].Key,
+		SinceTx: lastTx,
+		Limit:   MaxKeyScanLimit + 1,
+	})
+	require.Equal(t, ErrMaxKeyScanLimitExceeded, err)
 
 	inc, err := db.History(&schema.HistoryRequest{
 		Key:     kvs[0].Key,
