@@ -39,6 +39,7 @@ const MaxKeyScanLimit = 1000
 var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
 var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
 var ErrIllegalArguments = store.ErrIllegalArguments
+var ErrIllegalState = tbtree.ErrIllegalState
 
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
@@ -137,6 +138,9 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 
 // CleanIndex ...
 func (d *db) CleanIndex() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	return d.st.CleanIndex()
 }
 
@@ -290,6 +294,9 @@ func (d *db) Health(*empty.Empty) (*schema.HealthResponse, error) {
 
 // CurrentState ...
 func (d *db) CurrentState() (*schema.ImmutableState, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	lastTxID, lastTxAlh := d.st.Alh()
 
 	return &schema.ImmutableState{
@@ -306,7 +313,7 @@ func (d *db) VerifiableSet(req *schema.VerifiableSetRequest) (*schema.Verifiable
 
 	lastTxID, _ := d.st.Alh()
 	if lastTxID < req.ProveSinceTx {
-		return nil, ErrIllegalArguments
+		return nil, ErrIllegalState
 	}
 
 	txMetatadata, err := d.Set(req.SetRequest)
@@ -460,6 +467,9 @@ func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
 
 //Size ...
 func (d *db) Size() (uint64, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	return d.st.TxCount(), nil
 }
 
@@ -637,6 +647,9 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 
 //Close ...
 func (d *db) Close() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	return d.st.Close()
 }
 
