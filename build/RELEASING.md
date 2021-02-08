@@ -116,17 +116,14 @@ Once [dockerhub](https://hub.docker.com/repository/docker/codenotary/immudb/buil
 Pull:
 ```
 docker pull codenotary/immudb:vX.Y.Z
-docker pull codenotary/immudb:vX.Y.Z-docker
 ```
 
 Check:
 ```
-docker run --rm -it codenotary/immudb:vX.Y.Z info
-docker run --rm -it codenotary/immudb:vX.Y.Z-docker info
+docker run --rm -it codenotary/immudb:vX.Y.Z version
 ```
 
 Sign:
 ```
-vcn n -p codenotary/immudb:vX.Y.Z
-vcn n -p codenotary/immudb:vX.Y.Z-docker
+vcn n -p docker://codenotary/immudb:vX.Y.Z
 ```
