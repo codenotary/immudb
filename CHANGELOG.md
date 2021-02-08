@@ -4,6 +4,96 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v0.9.1"></a>
+## [v0.9.1] - 2021-02-08
+### Bug Fixes
+- **cmd/sservice:** fix group creation linux cross command
+- **cmd/sservice:** fix services management and add permissions guard
+- **embedded/history:** read history log file to set initial offset
+- **embedded/store:** mutex on txlog
+- **embedded/store:** continued indexing
+- **embedded/store:** fix indexing sync ([#621](https://github.com/vchain-us/immudb/issues/621))
+- **embedded/store:** copy key inside TxEntry constructor
+- **embedded/tbtree:** use minkey for desc scan
+- **embedded/tbtree:** prevNode nil comparisson
+- **embedded/tbtree:** determine entry by provided seekKey
+- **embedded/tbtree:** fix key history ordering ([#619](https://github.com/vchain-us/immudb/issues/619))
+- **pkg/client:** fix verifiedGetAt
+- **pkg/client/auditor:** hide auditor password in logs
+- **pkg/client/cache:** return an error if no state is found
+- **pkg/database:** check key does not exists in latest state
+- **pkg/server:** set default settings within DefaultStoreOptions method
+
+### Changes
+- update acknowledgments
+- **cmd/sservice:** minor fixes
+- **embeddded/tbtree:** reduce mem allocs
+- **embedded:** expose store opts
+- **embedded:** refactor TxEntry
+- **embedded/store:** validates targetTx is consistent with proof len
+- **embedded/store:** sync access to commit and tx logs
+- **embedded/store:** move TxReader code to its own file
+- **embedded/store:** renamed reader as KeyReader
+- **embedded/store:** minor KeyReader renaming
+- **embedded/store:** adapt after History changes
+- **embedded/store:** use conditional locking in indexing thread
+- **embedded/store/options.go:** increase DefaultMaxKeyLen
+- **embedded/tbtree:** reduce mem consumption
+- **embedded/tbtree:** offset map per branch
+- **embedded/tbtree:** change history file extension
+- **embedded/tbtree:** history log file
+- **embedded/tbtree:** return ErrOffsetOutOfRange if invalid offset was provided
+- **embedded/tbtree:** configurable max key length
+- **pkg:** current db included in signed state
+- **pkg:** unit testing index cleanup, use selected db
+- **pkg/api:** include server uuid and db name into state message
+- **pkg/api:** history limit as int32
+- **pkg/api:** minor changes in TxScan message
+- **pkg/client:** bound reference if atTx is provided in VerifiedSetReferenceAt
+- **pkg/client:** validate returned entries from metadata
+- **pkg/client:** add state service lock and unlock capabilities
+- **pkg/client:** set bound on SetReference and ZAdd
+- **pkg/client:** strip prefix from returned keys in txById and verifiedTxById
+- **pkg/client:** use indexing specified in GetRequest
+- **pkg/database:** return empty list if offset is out of range
+- **pkg/database:** catch NoMoreEntries error and return empty list on scan and zscan operations
+- **pkg/database:** unsafe read tx inside CommitWith callback
+- **pkg/database:** initial implementation of ExecAll with CommitWith
+- **pkg/server:** include uuid and db as result of verifiable operations
+- **pkg/server:** server mock wrapping default server implementation
+- **pkg/server:** change server default options. Max key value to 10kb
+- **pkg/server:** set default max value lenght to 1Mb
+- **pkg/server:** initialize mts options
+- **pkg/server:** expose store opts
+- **pkg/server:** naming conventions
+- **pkg/server:** use server wrapper to enable post processing of results
+
+### Features
+- **cmd/immuadmin:** db index cleanup
+- **embedded:** history with offset and limit, key updates counting
+- **embedded/appendable:** check no closed and flush before copying
+- **embedded/appendable:** implements Copy function
+- **embedded/appendable:** flush and seek to start before copying
+- **embedded/store:** index cleanup
+- **embedded/store:** TxScan asc/desc order
+- **embedded/store:** commitWith callback receiving assigned txID
+- **embedded/store:** allow increasing max value size after creation time
+- **embedded/tbtree:** HistoryReader to iterate over key updates
+- **embedded/tbtree:** complete history implementation
+- **embedded/tbtree:** full dump using copy on history log
+- **embedded/tbtree:** full dump of current snapshot
+- **pkg:** index cleanup service
+- **pkg/client:** add verifiedGetSince
+- **pkg/client:** implementation of TxScan operation
+- **pkg/client:** add state file locker
+- **pkg/database:** TxScan implementation
+- **pkg/database:** support for free and bound references
+- **pkg/database:** history with offset and limit
+- **pkg/database:** KeyRequest retrieves key at a specific tx or since a given tx
+- **pkg/server:** sign new state within verifiable operations
+- **pkg/server:** use exposed synced mode
+
+
 <a name="v0.9.0"></a>
 ## [v0.9.0] - 2021-01-07
 ### Bug Fixes
@@ -1291,7 +1381,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.1...HEAD
+[v0.9.1]: https://github.com/vchain-us/immudb/compare/v0.9.0...v0.9.1
 [v0.9.0]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC2...v0.9.0
 [v0.9.0-RC2]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC1...v0.9.0-RC2
 [v0.9.0-RC1]: https://github.com/vchain-us/immudb/compare/v0.8.1...v0.9.0-RC1

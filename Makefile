@@ -16,7 +16,7 @@ export GO111MODULE=on
 
 SHELL=/bin/bash -o pipefail
 
-VERSION=0.9.0
+VERSION=0.9.1
 TARGETS=linux/amd64 windows/amd64 darwin/amd64 linux/s390x
 SERVICE_EXE=${SERVICE_NAME}-v${VERSION}-windows-amd64.exe
 
