@@ -1,7 +1,7 @@
 // +build windows
 
 /*
-Copyright 2019-2020 vChain, Inc.
+Copyright 2021 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@ limitations under the License.
 package helper
 
 import (
-	"golang.org/x/sys/windows"
 	"strings"
+
+	"golang.org/x/sys/windows"
 )
 
 // ResolvePath
