@@ -3,7 +3,7 @@ WORKDIR /src
 COPY . .
 RUN GOOS=linux GOARCH=amd64 make immuadmin-static immudb-static
 FROM ubuntu:18.04
-MAINTAINER vChain, Inc.  <info@vchain.us>
+MAINTAINER CodeNotary, Inc. <info@codenotary.io>
 
 COPY --from=build /src/immudb /usr/sbin/immudb
 COPY --from=build /src/immuadmin /usr/local/bin/immuadmin

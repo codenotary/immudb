@@ -1,5 +1,5 @@
 /*
-Copyright 2019-2020 vChain, Inc.
+Copyright 2021 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ package stats
 
 import (
 	"bytes"
+	"testing"
+
 	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
 	ui "github.com/gizak/termui/v3"
 	"github.com/prometheus/common/expfmt"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type tuiMock struct{}

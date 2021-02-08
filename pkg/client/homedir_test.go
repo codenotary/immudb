@@ -1,5 +1,5 @@
 /*
-Copyright 2019-2020 vChain, Inc.
+Copyright 2021 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@ limitations under the License.
 package client
 
 import (
-	"github.com/mitchellh/go-homedir"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/mitchellh/go-homedir"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestWriteFileToUserHomeDir(t *testing.T) {

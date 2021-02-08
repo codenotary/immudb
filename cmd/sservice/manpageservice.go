@@ -1,5 +1,5 @@
 /*
-Copyright 2019-2020 vChain, Inc.
+Copyright 2021 CodeNotary, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@ package sservice
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 	"os"
 	"path/filepath"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 )
 
 const ManPath = "/usr/share/man/man1/"
