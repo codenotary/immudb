@@ -25,9 +25,8 @@ import (
 )
 
 func TestEmptyInput(t *testing.T) {
-	res, err := ParseString("")
-	require.NoError(t, err)
-	require.Equal(t, []SQLStmt{}, res)
+	_, err := ParseString("")
+	require.Error(t, err)
 }
 
 func TestCreateDatabaseStmt(t *testing.T) {
@@ -44,7 +43,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 		{
 			input:          "CREATE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE"),
+			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE or INDEX"),
 		},
 	}
 
@@ -72,7 +71,7 @@ func TestUseDatabaseStmt(t *testing.T) {
 		{
 			input:          "USE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE"),
+			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE"),
 		},
 	}
 
@@ -117,13 +116,14 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name STRING, active BOOLEAN, content BLOB)",
+			input: "CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: "INTEGER"},
 						{colName: "name", colType: "STRING"},
+						{colName: "ts", colType: "TIMESTAMP"},
 						{colName: "active", colType: "BOOLEAN"},
 						{colName: "content", colType: "BLOB"},
 					},
@@ -133,7 +133,7 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE table1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE"),
+			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE or INDEX"),
 		},
 	}
 
@@ -162,6 +162,47 @@ func TestCreateIndexStmt(t *testing.T) {
 			input:          "CREATE INDEX table1(id)",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected ID, expecting ON"),
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
+func TestAlterTableStmt(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input: "ALTER TABLE table1 ADD COLUMN title STRING",
+			expectedOutput: []SQLStmt{
+				&AddColumnStmt{
+					table:   "table1",
+					colSpec: &ColSpec{colName: "title", colType: "STRING"},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "ALTER TABLE table1 ALTER COLUMN title BLOB",
+			expectedOutput: []SQLStmt{
+				&AlterColumnStmt{
+					table:   "table1",
+					colSpec: &ColSpec{colName: "title", colType: "BLOB"},
+				}},
+			expectedError: nil,
+		},
+		{
+			input:          "ALTER TABLE table1 COLUMN title STRING",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ALTER or ADD"),
 		},
 	}
 
