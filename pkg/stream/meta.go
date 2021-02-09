@@ -16,4 +16,4 @@ limitations under the License.
 
 package stream
 
-const chunkSize int = 64 * 1024 // 64 KiB
+const ChunkSize int = 64 * 1024 // 64 KiB

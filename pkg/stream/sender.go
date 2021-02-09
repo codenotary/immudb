@@ -83,8 +83,8 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 			}
 		}
 		// enough data to send a chunk
-		if st.b.Len() > chunkSize {
-			chunk = make([]byte, chunkSize)
+		if st.b.Len() > ChunkSize {
+			chunk = make([]byte, ChunkSize)
 			_, err = st.b.Read(chunk)
 			if err != nil {
 				return nil
