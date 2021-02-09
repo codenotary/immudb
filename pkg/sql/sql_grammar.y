@@ -31,7 +31,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     err error
 }
 
-%token CREATE USE DATABASE TABLE
+%token CREATE USE DATABASE TABLE INDEX ON
 %token <id> ID TYPE
 %token <err> ERROR
 
@@ -79,6 +79,10 @@ sqlstmt:
 |   CREATE TABLE ID colsSpec
     {
         $$ = &CreateTableStmt{table: $3, colsSpec: $4}
+    }
+|   CREATE INDEX ON ID '(' ID ')'
+    {
+        $$ = &CreateIndexStmt{table: $4, col: $6}
     }
 
 colsSpec: 
