@@ -19,16 +19,50 @@ package sql
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 )
 
 //go:generate go run golang.org/x/tools/cmd/goyacc -l -o sql_parser.go sql_grammar.y
 
+var reservedWords = map[string]int{
+	"CREATE":   CREATE,
+	"USE":      USE,
+	"DATABASE": DATABASE,
+	"TABLE":    TABLE,
+}
+
 type lexer struct {
-	i      int
+	r      *aheadByteReader
 	err    error
 	result []SQLStmt
+}
+
+type aheadByteReader struct {
+	nextChar byte
+	nextErr  error
+	r        io.ByteReader
+}
+
+func newAheadByteReader(r io.ByteReader) *aheadByteReader {
+	ar := &aheadByteReader{r: r}
+	ar.nextChar, ar.nextErr = r.ReadByte()
+	return ar
+}
+
+func (ar *aheadByteReader) ReadByte() (byte, error) {
+	defer func() {
+		if ar.nextErr == nil {
+			ar.nextChar, ar.nextErr = ar.r.ReadByte()
+		}
+	}()
+
+	return ar.nextChar, ar.nextErr
+}
+
+func (ar *aheadByteReader) NextByte() (byte, error) {
+	return ar.nextChar, ar.nextErr
 }
 
 func ParseString(sql string) ([]SQLStmt, error) {
@@ -39,36 +73,105 @@ func ParseBytes(sql []byte) ([]SQLStmt, error) {
 	return Parse(bytes.NewReader(sql))
 }
 
-func Parse(r io.Reader) ([]SQLStmt, error) {
+func Parse(r io.ByteReader) ([]SQLStmt, error) {
 	lexer := newLexer(r)
+	yyErrorVerbose = true
 
 	yyParse(lexer)
 
 	return lexer.result, lexer.err
 }
 
-func newLexer(r io.Reader) *lexer {
+func newLexer(r io.ByteReader) *lexer {
 	return &lexer{
-		i:   0,
+		r:   newAheadByteReader(r),
 		err: nil,
 	}
 }
 
 func (l *lexer) Lex(lval *yySymType) int {
+	var ch byte
+	var err error
 
-	l.i++
+	for {
+		ch, err = l.r.ReadByte()
+		if err == io.EOF {
+			return 0
+		}
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
 
-	switch l.i {
-	case 1:
-		return CREATE
-	case 2:
-		return DATABASE
+		if !isSpace(ch) {
+			break
+		}
 	}
 
-	lval.id = "mydb1"
+	if isSeparator(ch) {
+		if ch == '\r' && l.r.nextChar == '\n' {
+			l.r.ReadByte()
+		}
+		return STMT_SEPARATOR
+	}
 
-	return ID
+	if isLetter(ch) {
+		tail, err := l.readWord()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
 
+		lval.id = fmt.Sprintf("%c%s", ch, tail)
+
+		tkn, ok := reservedWords[lval.id]
+		if !ok {
+			return ID
+		}
+		return tkn
+	}
+
+	lval.err = fmt.Errorf("unexpected character '%c'", ch)
+	return ERROR
+}
+
+func (l *lexer) readWord() (string, error) {
+	var b bytes.Buffer
+
+	for {
+		ch, err := l.r.NextByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		if !isLetter(ch) && !isNumber(ch) {
+			break
+		}
+
+		ch, _ = l.r.ReadByte()
+		b.WriteByte(ch)
+	}
+
+	return b.String(), nil
+}
+
+func isSeparator(ch byte) bool {
+	return ';' == ch || '\r' == ch || '\n' == ch
+}
+
+func isSpace(ch byte) bool {
+	return ' ' == ch
+}
+
+func isNumber(ch byte) bool {
+	return '0' <= ch && ch <= '9'
+}
+
+func isLetter(ch byte) bool {
+	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
 }
 
 func (l *lexer) Error(err string) {
