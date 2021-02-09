@@ -31,6 +31,8 @@ var reservedWords = map[string]int{
 	"USE":      USE,
 	"DATABASE": DATABASE,
 	"TABLE":    TABLE,
+	"INDEX":    INDEX,
+	"ON":       ON,
 }
 
 var types = map[string]struct{}{
