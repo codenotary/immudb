@@ -28,5 +28,11 @@ type UseDatabaseStmt struct {
 }
 
 type CreateTableStmt struct {
-	table string
+	table    string
+	colsSpec []*ColSpec
+}
+
+type ColSpec struct {
+	colName string
+	colType string
 }
