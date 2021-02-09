@@ -13,7 +13,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 )
 
 const FileVideoName = "/home/falce/Video/STS-127_Launch_HD_orig.mp4"
@@ -29,38 +28,42 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Range:")
 	fmt.Println(rangeValue)
 
-	buf := bytes.NewBuffer(nil)
 	f, err := os.Open(FileVideoName)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = io.Copy(buf, f)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer f.Close()
 
-	fi, err := f.Stat()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Server does not support Flusher!",
+			http.StatusInternalServerError)
 		return
 	}
 
-	fileSize := strconv.Itoa(int(fi.Size()))
-
-	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Content-Type", "video/mp4")
-	w.Header().Set("Content-Length", fileSize)
-	w.Header().Set("Last-Modified", fi.ModTime().String())
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 
-	w.WriteHeader(206)
-	_, err = w.Write(buf.Bytes())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	br := bufio.NewReader(f)
+	data := make([]byte, stream.ChunkSize)
+	for {
+		if _, err = br.Read(data); err != nil {
+			if err != nil {
+				if err != io.EOF {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+		}
+		if _, err = w.Write(data); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		flusher.Flush()
 	}
 }
 
