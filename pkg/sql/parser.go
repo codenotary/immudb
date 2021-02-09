@@ -33,13 +33,17 @@ var reservedWords = map[string]int{
 	"TABLE":    TABLE,
 	"INDEX":    INDEX,
 	"ON":       ON,
+	"ALTER":    ALTER,
+	"ADD":      ADD,
+	"COLUMN":   COLUMN,
 }
 
 var types = map[string]struct{}{
-	"INTEGER": {},
-	"BOOLEAN": {},
-	"STRING":  {},
-	"BLOB":    {},
+	"INTEGER":   {},
+	"BOOLEAN":   {},
+	"STRING":    {},
+	"BLOB":      {},
+	"TIMESTAMP": {},
 }
 
 type lexer struct {
