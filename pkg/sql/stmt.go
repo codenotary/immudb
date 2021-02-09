@@ -41,3 +41,13 @@ type CreateIndexStmt struct {
 	table string
 	col   string
 }
+
+type AddColumnStmt struct {
+	table   string
+	colSpec *ColSpec
+}
+
+type AlterColumnStmt struct {
+	table   string
+	colSpec *ColSpec
+}
