@@ -25,19 +25,24 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %union{
     stmts []SQLStmt
     stmt SQLStmt
+    colsSpec []*ColSpec
+    colSpec *ColSpec
     id string
     err error
 }
 
 %token CREATE USE DATABASE TABLE
-%token <id> ID
+%token <id> ID TYPE
 %token <err> ERROR
 
+%left ','
 %right STMT_SEPARATOR
 
 %type <stmts> sql
 %type <stmts> sqlstmts
 %type <stmt> sqlstmt
+%type <colsSpec> colsSpec colSpecList
+%type <colSpec> colSpec
 
 %start sql
     
@@ -50,28 +55,57 @@ sql: sqlstmts
 }
 
 sqlstmts: 
-  sqlstmt opt_separator
-  {
+    sqlstmt opt_separator
+    {
     $$ = []SQLStmt{$1}
-  }
+    }
 |
-  sqlstmt STMT_SEPARATOR sqlstmts
-  {
-    $$ = append([]SQLStmt{$1}, $3...)
-  }
+    sqlstmt STMT_SEPARATOR sqlstmts
+    {
+        $$ = append([]SQLStmt{$1}, $3...)
+    }
 
 opt_separator: {} | STMT_SEPARATOR
 
 sqlstmt:
-  CREATE DATABASE ID
+    CREATE DATABASE ID
     {
         $$ = &CreateDatabaseStmt{db: $3}
     }
-  | USE DATABASE ID
+|   USE DATABASE ID
     {
         $$ = &UseDatabaseStmt{db: $3}
     }
-  | CREATE TABLE ID
+|   CREATE TABLE ID colsSpec
     {
-        $$ = &CreateTableStmt{table: $3}
+        $$ = &CreateTableStmt{table: $3, colsSpec: $4}
+    }
+
+colsSpec: 
+    {
+        $$ = nil
+    }
+|   '(' ')'
+    {
+        $$ = nil
+    }
+|   '(' colSpecList ')'
+    {
+        $$ = $2
+    }
+
+colSpecList:
+    colSpec
+    {
+        $$ = []*ColSpec{$1}
+    }
+|
+    colSpecList ',' colSpec
+    {
+        $$ = append($1, $3)
+    }
+
+colSpec: ID TYPE
+    {
+      $$ = &ColSpec{colName: $1, colType: $2}
     }

@@ -33,6 +33,13 @@ var reservedWords = map[string]int{
 	"TABLE":    TABLE,
 }
 
+var types = map[string]struct{}{
+	"INTEGER": {},
+	"BOOLEAN": {},
+	"STRING":  {},
+	"BLOB":    {},
+}
+
 type lexer struct {
 	r      *aheadByteReader
 	err    error
@@ -124,15 +131,19 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		lval.id = fmt.Sprintf("%c%s", ch, tail)
 
+		if isType(lval.id) {
+			return TYPE
+		}
+
 		tkn, ok := reservedWords[lval.id]
 		if !ok {
 			return ID
 		}
+
 		return tkn
 	}
 
-	lval.err = fmt.Errorf("unexpected character '%c'", ch)
-	return ERROR
+	return int(ch)
 }
 
 func (l *lexer) readWord() (string, error) {
@@ -156,6 +167,11 @@ func (l *lexer) readWord() (string, error) {
 	}
 
 	return b.String(), nil
+}
+
+func isType(id string) bool {
+	_, ok := types[id]
+	return ok
 }
 
 func isSeparator(ch byte) bool {

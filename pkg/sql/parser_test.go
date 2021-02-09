@@ -98,6 +98,39 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError:  nil,
 		},
 		{
+			input:          "CREATE TABLE table1()",
+			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
+			expectedError:  nil,
+		},
+		{
+			input:          "CREATE TABLE table1 ( )",
+			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
+			expectedError:  nil,
+		},
+		{
+			input: "CREATE TABLE table1 (id INTEGER)",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table:    "table1",
+					colsSpec: []*ColSpec{{colName: "id", colType: "INTEGER"}},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "CREATE TABLE table1 (id INTEGER, name STRING, active BOOLEAN, content BLOB)",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: "INTEGER"},
+						{colName: "name", colType: "STRING"},
+						{colName: "active", colType: "BOOLEAN"},
+						{colName: "content", colType: "BLOB"},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
 			input:          "CREATE table1",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE"),
