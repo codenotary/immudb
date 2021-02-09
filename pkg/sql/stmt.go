@@ -36,3 +36,8 @@ type ColSpec struct {
 	colName string
 	colType string
 }
+
+type CreateIndexStmt struct {
+	table string
+	col   string
+}

@@ -147,6 +147,34 @@ func TestCreateTableStmt(t *testing.T) {
 	}
 }
 
+func TestCreateIndexStmt(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input:          "CREATE INDEX ON table1(id)",
+			expectedOutput: []SQLStmt{&CreateIndexStmt{table: "table1", col: "id"}},
+			expectedError:  nil,
+		},
+		{
+			input:          "CREATE INDEX table1(id)",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ID, expecting ON"),
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
 func TestStmtSeparator(t *testing.T) {
 	testCases := []struct {
 		input          string
