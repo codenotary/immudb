@@ -22,3 +22,11 @@ type SQLStmt interface {
 type CreateDatabaseStmt struct {
 	db string
 }
+
+type UseDatabaseStmt struct {
+	db string
+}
+
+type CreateTableStmt struct {
+	table string
+}
