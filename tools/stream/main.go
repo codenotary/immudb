@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
@@ -28,12 +29,22 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Range:")
 	fmt.Println(rangeValue)
 
-	f, err := os.Open(FileVideoName)
+	kr := &schema.KeyRequest{
+		Key: []byte(FileVideoName),
+	}
+
+	gs, err := h.cli.GetStream(h.ctx, kr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
+	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
+
+	rkv, err := kvr.Recv()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -46,10 +57,9 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	br := bufio.NewReader(f)
 	data := make([]byte, stream.ChunkSize)
 	for {
-		if _, err = br.Read(data); err != nil {
+		if _, err = rkv.Value.Content.Read(data); err != nil {
 			if err != nil {
 				if err != io.EOF {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -106,7 +116,18 @@ func (h *handler) upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	txMeta, err := s.CloseAndRecv()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	jm, err := json.Marshal(txMeta)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
+	w.Write(jm)
 }
 
 func main() {

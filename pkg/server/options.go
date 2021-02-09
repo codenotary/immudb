@@ -83,7 +83,7 @@ func DefaultOptions() *Options {
 		defaultDbName:       DefaultdbName,
 		usingCustomListener: false,
 		maintenance:         false,
-		StoreOptions:        DefaultStoreOptions().WithMaxConcurrency(10).WithMaxValueLen(1024 * 10),
+		StoreOptions:        DefaultStoreOptions().WithMaxConcurrency(10).WithMaxValueLen(1024 * 1000000000),
 	}
 }
 
