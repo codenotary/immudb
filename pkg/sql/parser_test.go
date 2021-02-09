@@ -17,27 +17,155 @@ limitations under the License.
 package sql
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
+func TestEmptyInput(t *testing.T) {
+	res, err := ParseString("")
+	require.NoError(t, err)
+	require.Equal(t, []SQLStmt{}, res)
+}
+
 func TestCreateDatabaseStmt(t *testing.T) {
 	testCases := []struct {
 		input          string
-		expectedOutput *CreateDatabaseStmt
+		expectedOutput []SQLStmt
 		expectedError  error
 	}{
 		{
 			input:          "CREATE DATABASE db1",
-			expectedOutput: &CreateDatabaseStmt{db: "db1"},
+			expectedOutput: []SQLStmt{&CreateDatabaseStmt{db: "db1"}},
 			expectedError:  nil,
+		},
+		{
+			input:          "CREATE db1",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE"),
 		},
 	}
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
 		res, err := ParseString(tc.input)
-		require.Equal(t, tc.expectedError, err)
-		require.Equal(t, tc.expectedOutput, res)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
+func TestUseDatabaseStmt(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input:          "USE DATABASE db1",
+			expectedOutput: []SQLStmt{&UseDatabaseStmt{db: "db1"}},
+			expectedError:  nil,
+		},
+		{
+			input:          "USE db1",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE"),
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
+func TestCreateTableStmt(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input:          "CREATE TABLE table1",
+			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
+			expectedError:  nil,
+		},
+		{
+			input:          "CREATE table1",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE"),
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
+func TestStmtSeparator(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input:          "CREATE TABLE table1;",
+			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
+			expectedError:  nil,
+		},
+		{
+			input:          "CREATE TABLE table1 \n",
+			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
+			expectedError:  nil,
+		},
+		{
+			input:          "CREATE TABLE table1\r\n",
+			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
+			expectedError:  nil,
+		},
+		{
+			input: "CREATE DATABASE db1; USE DATABASE db1; CREATE TABLE table1",
+			expectedOutput: []SQLStmt{
+				&CreateDatabaseStmt{db: "db1"},
+				&UseDatabaseStmt{db: "db1"},
+				&CreateTableStmt{table: "table1"},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "CREATE DATABASE db1; USE DATABASE db1 \r\n CREATE TABLE table1",
+			expectedOutput: []SQLStmt{
+				&CreateDatabaseStmt{db: "db1"},
+				&UseDatabaseStmt{db: "db1"},
+				&CreateTableStmt{table: "table1"},
+			},
+			expectedError: nil,
+		},
+		{
+			input:          "CREATE TABLE table1 USE DATABASE db1",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected USE"),
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
 	}
 }

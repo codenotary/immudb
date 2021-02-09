@@ -24,24 +24,54 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %union{
     stmts []SQLStmt
+    stmt SQLStmt
     id string
+    err error
 }
 
-%token CREATE DATABASE
+%token CREATE USE DATABASE TABLE
 %token <id> ID
+%token <err> ERROR
 
+%right STMT_SEPARATOR
+
+%type <stmts> sql
 %type <stmts> sqlstmts
+%type <stmt> sqlstmt
 
-%start sqlstmts
+%start sql
     
 %%
 
-sqlstmts:
+sql: sqlstmts
+{
+    $$ = $1
+    setResult(yylex, $1)
+}
+
+sqlstmts: 
+  sqlstmt opt_separator
+  {
+    $$ = []SQLStmt{$1}
+  }
+|
+  sqlstmt STMT_SEPARATOR sqlstmts
+  {
+    $$ = append([]SQLStmt{$1}, $3...)
+  }
+
+opt_separator: {} | STMT_SEPARATOR
+
+sqlstmt:
+  CREATE DATABASE ID
     {
-        $$ = []SQLStmt{}
+        $$ = &CreateDatabaseStmt{db: $3}
     }
-  | CREATE DATABASE ID
+  | USE DATABASE ID
     {
-        $$ = []SQLStmt{&CreateDatabaseStmt{db: $3}}
-        setResult(yylex, $$)
+        $$ = &UseDatabaseStmt{db: $3}
+    }
+  | CREATE TABLE ID
+    {
+        $$ = &CreateTableStmt{table: $3}
     }
