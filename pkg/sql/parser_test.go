@@ -44,7 +44,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 		{
 			input:          "CREATE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE or INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or INDEX"),
 		},
 	}
 
@@ -72,7 +72,7 @@ func TestUseDatabaseStmt(t *testing.T) {
 		{
 			input:          "USE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE"),
 		},
 	}
 
@@ -134,7 +134,7 @@ func TestCreateTableStmt(t *testing.T) {
 		{
 			input:          "CREATE table1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ID, expecting DATABASE or TABLE or INDEX"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or INDEX"),
 		},
 	}
 
@@ -162,7 +162,7 @@ func TestCreateIndexStmt(t *testing.T) {
 		{
 			input:          "CREATE INDEX table1(id)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ID, expecting ON"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting ON"),
 		},
 	}
 
@@ -244,12 +244,12 @@ func TestInsertIntoStmt(t *testing.T) {
 		{
 			input:          "INSERT INTO table1() VALUES (2, 'untitled')",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected ')', expecting ID"),
+			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER"),
 		},
 		{
 			input:          "INSERT INTO VALUES (2)",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected VALUES, expecting ID"),
+			expectedError:  errors.New("syntax error: unexpected VALUES, expecting IDENTIFIER"),
 		},
 	}
 
