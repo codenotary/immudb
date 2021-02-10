@@ -27,12 +27,19 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     stmt SQLStmt
     colsSpec []*ColSpec
     colSpec *ColSpec
+    cols []string
+    values []Value
     id string
+    sqlType SQLValueType
+    value Value
     err error
 }
 
 %token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN
-%token <id> ID TYPE
+%token INSERT INTO VALUES
+%token <id> ID
+%token <sqlType> TYPE
+%token <value> VAL
 %token <err> ERROR
 
 %left ','
@@ -43,6 +50,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <stmt> sqlstmt
 %type <colsSpec> colsSpec colSpecList
 %type <colSpec> colSpec
+%type <cols> cols
+%type <values> values
 
 %start sql
     
@@ -72,25 +81,57 @@ sqlstmt:
     {
         $$ = &CreateDatabaseStmt{db: $3}
     }
-|   USE DATABASE ID
+|   
+    USE DATABASE ID
     {
         $$ = &UseDatabaseStmt{db: $3}
     }
-|   CREATE TABLE ID colsSpec
+|   
+    CREATE TABLE ID colsSpec
     {
         $$ = &CreateTableStmt{table: $3, colsSpec: $4}
     }
-|   CREATE INDEX ON ID '(' ID ')'
+|   
+    CREATE INDEX ON ID '(' ID ')'
     {
         $$ = &CreateIndexStmt{table: $4, col: $6}
     }
-|   ALTER TABLE ID ADD COLUMN colSpec
+|   
+    ALTER TABLE ID ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
-|   ALTER TABLE ID ALTER COLUMN colSpec
+|   
+    ALTER TABLE ID ALTER COLUMN colSpec
     {
         $$ = &AlterColumnStmt{table: $3, colSpec: $6}
+    }
+|
+    INSERT INTO ID '(' cols ')' VALUES '(' values ')'
+    {
+        $$ = &InsertIntoStmt{table: $3, cols: $5, values: $9}
+    }
+
+cols:
+    ID
+    {
+        $$ = []string{$1}
+    }
+|
+    cols ',' ID
+    {
+        $$ = append($1, $3)
+    }
+
+values:
+    VAL
+    {
+        $$ = []Value{$1}
+    }
+|
+    values ',' VAL
+    {
+        $$ = append($1, $3)
     }
 
 colsSpec: 
