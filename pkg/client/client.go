@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"github.com/codenotary/immudb/pkg/stream"
 	"io"
 	"io/ioutil"
 	"os"
@@ -132,6 +133,9 @@ type ImmuClient interface {
 
 	SetStream(ctx context.Context) (schema.ImmuService_SetStreamClient, error)
 	GetStream(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_GetStreamClient, error)
+
+	SetStr(ctx context.Context, kv *stream.KeyValue) (*schema.TxMetadata, error)
+	GetStr(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
 
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)

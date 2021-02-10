@@ -17,8 +17,11 @@ limitations under the License.
 package client
 
 import (
+	"bytes"
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/stream"
+	"io"
 )
 
 func (c *immuClient) SetStream(ctx context.Context) (schema.ImmuService_SetStreamClient, error) {
@@ -33,4 +36,63 @@ func (c *immuClient) GetStream(ctx context.Context, in *schema.KeyRequest) (sche
 		return nil, ErrNotConnected
 	}
 	return c.ServiceClient.GetStream(ctx, in)
+}
+
+func (c *immuClient) SetStr(ctx context.Context, kv *stream.KeyValue) (*schema.TxMetadata, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	s, err := c.SetStream(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s))
+
+	err = kvs.Send(kv)
+	if err != nil {
+		return nil, err
+	}
+	return s.CloseAndRecv()
+}
+
+func (c *immuClient) GetStr(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
+	gs, err := c.GetStream(ctx, k)
+
+	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
+
+	key, err := kvr.NextKey()
+	if err != nil {
+		return nil, err
+	}
+
+	vr, err := kvr.NextValueReader()
+	if err != nil {
+		return nil, err
+	}
+
+	b := bytes.NewBuffer([]byte{})
+	vl := 0
+	chunk := make([]byte, stream.ChunkSize)
+	for {
+		l, err := vr.Read(chunk)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		vl += l
+		b.Write(chunk)
+		if err == io.EOF || l == 0 {
+			break
+		}
+	}
+	value := make([]byte, vl)
+	_, err = b.Read(value)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.Entry{
+		Key:   key,
+		Value: value,
+	}, nil
 }
