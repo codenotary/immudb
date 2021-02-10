@@ -35,7 +35,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     err error
 }
 
-%token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN
+%token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN BEGIN END
 %token INSERT INTO VALUES
 %token <id> IDENTIFIER
 %token <sqlType> TYPE
@@ -46,8 +46,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %right STMT_SEPARATOR
 
 %type <stmts> sql
-%type <stmts> sqlstmts
-%type <stmt> sqlstmt
+%type <stmts> sqlstmts dstmts
+%type <stmt> sqlstmt dstmt ddlstmt dmlstmt
 %type <colsSpec> colsSpec colSpecList
 %type <colSpec> colSpec
 %type <cols> cols
@@ -66,7 +66,7 @@ sql: sqlstmts
 sqlstmts: 
     sqlstmt opt_separator
     {
-    $$ = []SQLStmt{$1}
+        $$ = []SQLStmt{$1}
     }
 |
     sqlstmt STMT_SEPARATOR sqlstmts
@@ -76,7 +76,28 @@ sqlstmts:
 
 opt_separator: {} | STMT_SEPARATOR
 
-sqlstmt:
+sqlstmt: 
+    dstmt
+| 
+    BEGIN opt_separator dstmts END
+    {
+        $$ = &TxStmt{stmts: $3}
+    } 
+
+dstmt: ddlstmt | dmlstmt
+
+dstmts: 
+    dstmt opt_separator
+    {
+        $$ = []SQLStmt{$1}
+    }
+|
+    dstmt STMT_SEPARATOR dstmts
+    {
+        $$ = append([]SQLStmt{$1}, $3...)
+    }
+
+ddlstmt:
     CREATE DATABASE IDENTIFIER
     {
         $$ = &CreateDatabaseStmt{db: $3}
@@ -106,7 +127,8 @@ sqlstmt:
     {
         $$ = &AlterColumnStmt{table: $3, colSpec: $6}
     }
-|
+
+dmlstmt:
     INSERT INTO IDENTIFIER '(' cols ')' VALUES '(' values ')'
     {
         $$ = &InsertIntoStmt{table: $3, cols: $5, values: $9}
