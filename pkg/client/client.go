@@ -597,15 +597,17 @@ func (c *immuClient) verifiedGet(ctx context.Context, kReq *schema.KeyRequest) (
 		return nil, store.ErrCorruptedData
 	}
 
-	verifies = store.VerifyDualProof(
-		dualProof,
-		sourceID,
-		targetID,
-		sourceAlh,
-		targetAlh,
-	)
-	if !verifies {
-		return nil, store.ErrCorruptedData
+	if state.TxId > 0 {
+		verifies = store.VerifyDualProof(
+			dualProof,
+			sourceID,
+			targetID,
+			sourceAlh,
+			targetAlh,
+		)
+		if !verifies {
+			return nil, store.ErrCorruptedData
+		}
 	}
 
 	newState := &schema.ImmutableState{
@@ -771,32 +773,29 @@ func (c *immuClient) VerifiedSet(ctx context.Context, key []byte, value []byte) 
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
-	if state.TxId == 0 {
-		sourceID = tx.ID
-		sourceAlh = tx.Alh
-	} else {
-		sourceID = state.TxId
-		sourceAlh = schema.DigestFrom(state.TxHash)
-	}
-
+	sourceID = state.TxId
+	sourceAlh = schema.DigestFrom(state.TxHash)
 	targetID = tx.ID
 	targetAlh = tx.Alh
 
-	verifies = store.VerifyDualProof(
-		schema.DualProofFrom(verifiableTx.DualProof),
-		sourceID,
-		targetID,
-		sourceAlh,
-		targetAlh,
-	)
-	if !verifies {
-		return nil, store.ErrCorruptedData
+	if state.TxId > 0 {
+		verifies = store.VerifyDualProof(
+			schema.DualProofFrom(verifiableTx.DualProof),
+			sourceID,
+			targetID,
+			sourceAlh,
+			targetAlh,
+		)
+
+		if !verifies {
+			return nil, store.ErrCorruptedData
+		}
 	}
 
 	newState := &schema.ImmutableState{
 		Db:        c.currentDatabase(),
-		TxId:      tx.ID,
-		TxHash:    tx.Alh[:],
+		TxId:      targetID,
+		TxHash:    targetAlh[:],
 		Signature: verifiableTx.Signature,
 	}
 
@@ -934,15 +933,17 @@ func (c *immuClient) VerifiedTxByID(ctx context.Context, tx uint64) (*schema.Tx,
 		targetAlh = schema.DigestFrom(state.TxHash)
 	}
 
-	verifies := store.VerifyDualProof(
-		dualProof,
-		sourceID,
-		targetID,
-		sourceAlh,
-		targetAlh,
-	)
-	if !verifies {
-		return nil, store.ErrCorruptedData
+	if state.TxId > 0 {
+		verifies := store.VerifyDualProof(
+			dualProof,
+			sourceID,
+			targetID,
+			sourceAlh,
+			targetAlh,
+		)
+		if !verifies {
+			return nil, store.ErrCorruptedData
+		}
 	}
 
 	newState := &schema.ImmutableState{
@@ -1092,32 +1093,28 @@ func (c *immuClient) VerifiedSetReferenceAt(ctx context.Context, key []byte, ref
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
-	if state.TxId == 0 {
-		sourceID = tx.ID
-		sourceAlh = tx.Alh
-	} else {
-		sourceID = state.TxId
-		sourceAlh = schema.DigestFrom(state.TxHash)
-	}
-
+	sourceID = state.TxId
+	sourceAlh = schema.DigestFrom(state.TxHash)
 	targetID = tx.ID
 	targetAlh = tx.Alh
 
-	verifies = store.VerifyDualProof(
-		schema.DualProofFrom(verifiableTx.DualProof),
-		sourceID,
-		targetID,
-		sourceAlh,
-		targetAlh,
-	)
-	if !verifies {
-		return nil, store.ErrCorruptedData
+	if state.TxId > 0 {
+		verifies = store.VerifyDualProof(
+			schema.DualProofFrom(verifiableTx.DualProof),
+			sourceID,
+			targetID,
+			sourceAlh,
+			targetAlh,
+		)
+		if !verifies {
+			return nil, store.ErrCorruptedData
+		}
 	}
 
 	newState := &schema.ImmutableState{
 		Db:        c.currentDatabase(),
-		TxId:      tx.ID,
-		TxHash:    tx.Alh[:],
+		TxId:      targetID,
+		TxHash:    targetAlh[:],
 		Signature: verifiableTx.Signature,
 	}
 
@@ -1246,32 +1243,28 @@ func (c *immuClient) VerifiedZAddAt(ctx context.Context, set []byte, score float
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
-	if state.TxId == 0 {
-		sourceID = tx.ID
-		sourceAlh = tx.Alh
-	} else {
-		sourceID = state.TxId
-		sourceAlh = schema.DigestFrom(state.TxHash)
-	}
-
+	sourceID = state.TxId
+	sourceAlh = schema.DigestFrom(state.TxHash)
 	targetID = tx.ID
 	targetAlh = tx.Alh
 
-	verifies = store.VerifyDualProof(
-		schema.DualProofFrom(vtx.DualProof),
-		sourceID,
-		targetID,
-		sourceAlh,
-		targetAlh,
-	)
-	if !verifies {
-		return nil, store.ErrCorruptedData
+	if state.TxId > 0 {
+		verifies = store.VerifyDualProof(
+			schema.DualProofFrom(vtx.DualProof),
+			sourceID,
+			targetID,
+			sourceAlh,
+			targetAlh,
+		)
+		if !verifies {
+			return nil, store.ErrCorruptedData
+		}
 	}
 
 	newState := &schema.ImmutableState{
 		Db:        c.currentDatabase(),
-		TxId:      tx.ID,
-		TxHash:    tx.Alh[:],
+		TxId:      targetID,
+		TxHash:    targetAlh[:],
 		Signature: vtx.Signature,
 	}
 

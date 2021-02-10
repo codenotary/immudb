@@ -210,6 +210,13 @@ func testImmuClient_VerifiedTxByID(ctx context.Context, t *testing.T, set []byte
 	item1, err3 := client.VerifiedTxByID(ctx, vi1.Id)
 	require.Equal(t, vi1.Ts, item1.Metadata.Ts)
 	require.NoError(t, err3)
+
+	_, err = client.VerifiedSet(ctx, []byte("key-n12"), []byte("val-n12"))
+	require.NoError(t, err)
+
+	item1, err3 = client.VerifiedTxByID(ctx, vi1.Id)
+	require.Equal(t, vi1.Ts, item1.Metadata.Ts)
+	require.NoError(t, err3)
 }
 
 func TestImmuClient(t *testing.T) {
@@ -1444,6 +1451,13 @@ func TestImmuClient_VerifiedGetAt(t *testing.T) {
 	}
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	txMeta0, err := client.Set(ctx, []byte(`key0`), []byte(`val0`))
+	require.NoError(t, err)
+	entry0, err := client.VerifiedGetAt(ctx, []byte(`key0`), txMeta0.Id)
+	require.NoError(t, err)
+	require.Equal(t, []byte(`key0`), entry0.Key)
+	require.Equal(t, []byte(`val0`), entry0.Value)
 
 	txMeta1, err := client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
 	require.NoError(t, err)
