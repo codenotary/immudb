@@ -319,3 +319,92 @@ func TestStmtSeparator(t *testing.T) {
 		}
 	}
 }
+
+func TestTxStmt(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input: "BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1'); INSERT INTO table2 (id) VALUES (10) END;",
+			expectedOutput: []SQLStmt{
+				&TxStmt{stmts: []SQLStmt{
+					&InsertIntoStmt{
+						table: "table1",
+						cols:  []string{"id", "label"},
+						values: []Value{
+							&IntegerValue{value: 100},
+							&StringValue{value: "label1"},
+						},
+					},
+					&InsertIntoStmt{
+						table: "table2",
+						cols:  []string{"id"},
+						values: []Value{
+							&IntegerValue{value: 10},
+						},
+					},
+				}},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "CREATE TABLE table1; BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1'); END;",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table: "table1",
+				},
+				&TxStmt{stmts: []SQLStmt{
+					&InsertIntoStmt{
+						table: "table1",
+						cols:  []string{"id", "label"},
+						values: []Value{
+							&IntegerValue{value: 100},
+							&StringValue{value: "label1"},
+						},
+					},
+				}},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "BEGIN; CREATE TABLE table1; INSERT INTO table1 (id, label) VALUES (100, 'label1') END;",
+			expectedOutput: []SQLStmt{
+				&TxStmt{stmts: []SQLStmt{
+					&CreateTableStmt{
+						table: "table1",
+					},
+					&InsertIntoStmt{
+						table: "table1",
+						cols:  []string{"id", "label"},
+						values: []Value{
+							&IntegerValue{value: 100},
+							&StringValue{value: "label1"},
+						},
+					},
+				}},
+			},
+			expectedError: nil,
+		},
+		{
+			input:          "BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1');",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected $end, expecting END"),
+		},
+		{
+			input:          "BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN; CREATE TABLE table1; END; END",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting END"),
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}

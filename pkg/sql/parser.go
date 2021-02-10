@@ -41,6 +41,8 @@ var reservedWords = map[string]int{
 	"INSERT":   INSERT,
 	"INTO":     INTO,
 	"VALUES":   VALUES,
+	"BEGIN":    BEGIN,
+	"END":      END,
 }
 
 var types = map[string]SQLValueType{
