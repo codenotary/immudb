@@ -18,9 +18,11 @@ package sql
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -36,14 +38,22 @@ var reservedWords = map[string]int{
 	"ALTER":    ALTER,
 	"ADD":      ADD,
 	"COLUMN":   COLUMN,
+	"INSERT":   INSERT,
+	"INTO":     INTO,
+	"VALUES":   VALUES,
 }
 
-var types = map[string]struct{}{
-	"INTEGER":   {},
-	"BOOLEAN":   {},
-	"STRING":    {},
-	"BLOB":      {},
-	"TIMESTAMP": {},
+var types = map[string]SQLValueType{
+	"INTEGER":   IntegerType,
+	"BOOLEAN":   BooleanType,
+	"STRING":    StringType,
+	"BLOB":      BLOBType,
+	"TIMESTAMP": TimestampType,
+}
+
+var boolValues = map[string]bool{
+	"true":  true,
+	"false": false,
 }
 
 type lexer struct {
@@ -128,6 +138,32 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return STMT_SEPARATOR
 	}
 
+	if isBLOBPrefix(ch) {
+		if !isQuote(l.r.nextChar) {
+			lval.err = fmt.Errorf("syntax error: unexpected char %c, expecting quote", l.r.nextChar)
+			return ERROR
+		}
+
+		l.r.ReadByte() // consume starting quote
+
+		tail, err := l.readString()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		l.r.ReadByte() // consume closing quote
+
+		val, err := hex.DecodeString(tail)
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		lval.value = &BLOBValue{value: val}
+		return VAL
+	}
+
 	if isLetter(ch) {
 		tail, err := l.readWord()
 		if err != nil {
@@ -137,22 +173,80 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		lval.id = fmt.Sprintf("%c%s", ch, tail)
 
-		if isType(lval.id) {
+		sqlType, ok := types[lval.id]
+		if ok {
+			lval.sqlType = sqlType
 			return TYPE
 		}
 
-		tkn, ok := reservedWords[lval.id]
-		if !ok {
-			return ID
+		val, ok := boolValues[lval.id]
+		if ok {
+			lval.value = &BooleanValue{value: val}
+			return VAL
 		}
 
-		return tkn
+		tkn, ok := reservedWords[lval.id]
+		if ok {
+			return tkn
+		}
+
+		return ID
+	}
+
+	if isNumber(ch) {
+		tail, err := l.readNumber()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		val, err := strconv.Atoi(fmt.Sprintf("%c%s", ch, tail))
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		lval.value = &IntegerValue{value: val}
+		return VAL
+	}
+
+	if isQuote(ch) {
+		tail, err := l.readString()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		l.r.ReadByte() // consume closing quote
+
+		lval.value = &StringValue{value: tail}
+		return VAL
 	}
 
 	return int(ch)
 }
 
+func (l *lexer) Error(err string) {
+	l.err = errors.New(err)
+}
+
 func (l *lexer) readWord() (string, error) {
+	return l.readWhile(func(ch byte) bool {
+		return isLetter(ch) || isNumber(ch)
+	})
+}
+
+func (l *lexer) readNumber() (string, error) {
+	return l.readWhile(isNumber)
+}
+
+func (l *lexer) readString() (string, error) {
+	return l.readWhile(func(ch byte) bool {
+		return !isQuote(ch)
+	})
+}
+
+func (l *lexer) readWhile(condFn func(b byte) bool) (string, error) {
 	var b bytes.Buffer
 
 	for {
@@ -164,7 +258,7 @@ func (l *lexer) readWord() (string, error) {
 			return "", err
 		}
 
-		if !isLetter(ch) && !isNumber(ch) {
+		if !condFn(ch) {
 			break
 		}
 
@@ -175,9 +269,8 @@ func (l *lexer) readWord() (string, error) {
 	return b.String(), nil
 }
 
-func isType(id string) bool {
-	_, ok := types[id]
-	return ok
+func isBLOBPrefix(ch byte) bool {
+	return 'b' == ch
 }
 
 func isSeparator(ch byte) bool {
@@ -196,6 +289,6 @@ func isLetter(ch byte) bool {
 	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
 }
 
-func (l *lexer) Error(err string) {
-	l.err = errors.New(err)
+func isQuote(ch byte) bool {
+	return '\'' == ch
 }
