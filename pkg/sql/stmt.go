@@ -29,6 +29,10 @@ const (
 type SQLStmt interface {
 }
 
+type TxStmt struct {
+	stmts []SQLStmt
+}
+
 type CreateDatabaseStmt struct {
 	db string
 }
