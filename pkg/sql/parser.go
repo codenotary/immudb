@@ -52,8 +52,8 @@ var types = map[string]SQLValueType{
 }
 
 var boolValues = map[string]bool{
-	"true":  true,
-	"false": false,
+	"TRUE":  true,
+	"FALSE": false,
 }
 
 type lexer struct {
@@ -173,19 +173,19 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		lval.id = fmt.Sprintf("%c%s", ch, tail)
 
-		sqlType, ok := types[lval.id]
+		sqlType, ok := types[strings.ToUpper(lval.id)]
 		if ok {
 			lval.sqlType = sqlType
 			return TYPE
 		}
 
-		val, ok := boolValues[lval.id]
+		val, ok := boolValues[strings.ToUpper(lval.id)]
 		if ok {
 			lval.value = &BooleanValue{value: val}
 			return VAL
 		}
 
-		tkn, ok := reservedWords[lval.id]
+		tkn, ok := reservedWords[strings.ToUpper(lval.id)]
 		if ok {
 			return tkn
 		}
