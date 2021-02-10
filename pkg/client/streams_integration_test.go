@@ -20,10 +20,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
+	"io"
 	"log"
 	"os"
 	"testing"
@@ -43,13 +45,6 @@ func TestImmuServer_Stream(t *testing.T) {
 
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
-
-	s, err := cli.SetStream(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s))
 
 	filename := "/home/falce/vchain/immudb/src/test/Graph_Algorithms_Neo4j.pdf"
 	f, err := os.Open(filename)
@@ -73,15 +68,16 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	err = kvs.Send(kv)
+	txMeta, err := cli.SetStr(ctx, kv)
 	require.NoError(t, err)
+	require.NotNil(t, txMeta)
 
 	filename2 := "/home/falce/vchain/immudb/src/test/digest_OK.mp4"
 	f2, err := os.Open(filename2)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
+	defer f2.Close()
 	fi2, err := f2.Stat()
 	if err != nil {
 		log.Fatal(err)
@@ -98,8 +94,9 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	err = kvs.Send(kv2)
+	txMeta, err = cli.SetStr(ctx, kv2)
 	require.NoError(t, err)
+	require.NotNil(t, txMeta)
 
 	filename3 := "/home/falce/vchain/immudb/src/test/client_test.expected.bkp"
 	f3, err := os.Open(filename3)
@@ -123,11 +120,54 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	err = kvs.Send(kv3)
+	txMeta, err = cli.SetStr(ctx, kv3)
+	require.NoError(t, err)
+	require.NotNil(t, txMeta)
+
+	fn := &schema.KeyRequest{
+		Key: []byte(filename),
+	}
+	gs, err := cli.GetStream(ctx, fn)
 	require.NoError(t, err)
 
-	err = s.CloseSend()
+	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
+
+	k1, err := kvr.NextKey()
 	require.NoError(t, err)
+	require.Equal(t, []byte(filename), k1)
+
+	received, err := os.Create(filename + "_received")
+	defer received.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bw := bufio.NewWriter(received)
+	vr, err := kvr.NextValueReader()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	vl := 0
+	chunk := make([]byte, stream.ChunkSize)
+	exit := true
+	for exit {
+		l, err := vr.Read(chunk)
+		if err != nil && err != io.EOF {
+			log.Fatal(err)
+		}
+		vl += l
+
+		_, err = bw.Write(chunk[:l])
+		require.NoError(t, err)
+
+		if err == io.EOF || l == 0 {
+			err = bw.Flush()
+			require.NoError(t, err)
+			exit = false
+		}
+	}
+	log.Print(vl)
 
 }
 
@@ -231,64 +271,149 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 		Key: key,
 	}
 
-	gs, err := cli.GetStream(ctx, kr)
-	require.NoError(t, err)
+	entry, err := cli.GetStr(ctx, kr)
 
-	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
-
-	rkv, err := kvr.Recv()
 	require.NoError(t, err)
-
-	rk1 := make([]byte, rkv.Key.Size)
-	_, err = rkv.Key.Content.Read(rk1)
-	require.NoError(t, err)
-	require.Equal(t, rk1, key)
-	rv1 := make([]byte, rkv.Value.Size)
-	_, err = rkv.Value.Content.Read(rv1)
-	require.NoError(t, err)
-	require.Equal(t, rv1, val)
+	require.Equal(t, val, entry.Value)
 
 	// 2 val
 	kr2 := &schema.KeyRequest{
 		Key: key2,
 	}
 
-	gs2, err := cli.GetStream(ctx, kr2)
-	require.NoError(t, err)
+	entry, err = cli.GetStr(ctx, kr2)
 
-	kvr2 := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs2))
-
-	rkv2, err := kvr2.Recv()
 	require.NoError(t, err)
-
-	rk2 := make([]byte, rkv2.Key.Size)
-	_, err = rkv2.Key.Content.Read(rk2)
-	require.NoError(t, err)
-	require.Equal(t, rk2, key2)
-	rv2 := make([]byte, rkv2.Value.Size)
-	_, err = rkv2.Value.Content.Read(rv2)
-	require.NoError(t, err)
-	require.Equal(t, rv2, val2)
+	require.Equal(t, val2, entry.Value)
 
 	// 3 val
 	kr3 := &schema.KeyRequest{
 		Key: key3,
 	}
 
-	gs3, err := cli.GetStream(ctx, kr3)
+	entry, err = cli.GetStr(ctx, kr3)
+
+	require.NoError(t, err)
+	require.Equal(t, val3, entry.Value)
+}
+
+func TestReader(t *testing.T) {
+	filename := "/home/falce/vchain/immudb/src/test/Graph_Algorithms_Neo4j.pdf"
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	b := bytes.NewBuffer([]byte{})
+
+	r := bufio.NewReader(f)
+	chunk := make([]byte, 100000)
+	totalRead := 0
+	for {
+		read, err := r.Read(chunk)
+		totalRead += read
+		b.Write(chunk)
+		fmt.Printf("buffer size %d\n", b.Len())
+		fmt.Printf("buffer cap %d\n", b.Cap())
+
+		if err != nil {
+			if err == io.EOF {
+				fmt.Printf("EOF chunk lenght %d\n", len(chunk))
+				fmt.Printf("EOF read %d\n", read)
+				break
+			}
+		}
+		fmt.Printf("chunk lenght %d\n", len(chunk))
+		fmt.Printf("read %d\n", read)
+	}
+	fmt.Printf("total Read%d\n", totalRead)
+}
+
+func TestImmuServer_SimpleSetGetStream(t *testing.T) {
+
+	cli, err := NewImmuClient(DefaultOptions())
+	require.NoError(t, err)
+	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	ur, err := cli.UseDatabase(ctx, &schema.Database{Databasename: "defaultdb"})
 	require.NoError(t, err)
 
-	kvr3 := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs3))
+	md = metadata.Pairs("authorization", ur.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	rkv3, err := kvr3.Recv()
+	filename := "/home/falce/vchain/immudb/src/test/simple.pdf"
+
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(filename))),
+			Size:    len(filename),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(f),
+			Size:    int(fi.Size()),
+		},
+	}
+
+	s, err := cli.SetStream(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s))
+
+	/*key := []byte("ke")
+	val := []byte("valuethats")
+
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(key)),
+			Size:    len(key),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(val)),
+			Size:    len(val),
+		},
+	}*/
+
+	err = kvs.Send(kv)
 	require.NoError(t, err)
 
-	rk3 := make([]byte, rkv3.Key.Size)
-	_, err = rkv3.Key.Content.Read(rk3)
+	txMeta, err := s.CloseAndRecv()
 	require.NoError(t, err)
-	require.Equal(t, rk3, key3)
-	rv3 := make([]byte, rkv3.Value.Size)
-	_, err = rkv3.Value.Content.Read(rv3)
+	require.IsType(t, &schema.TxMetadata{}, txMeta)
+
+	// STREAM GET
+	// 1 val
+	/*kr := &schema.KeyRequest{
+		Key: []byte(filename),
+	}
+
+	gs, err := cli.GetStream(ctx, kr)
 	require.NoError(t, err)
-	require.Equal(t, rv3, val3)
+
+	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
+
+	k1, err := kvr.NextKey()
+	require.NoError(t, err)
+	require.Equal(t, key, k1)
+	rv1 := make([]byte, 5)
+	rdrv1, err := kvr.NextValueReader()
+	require.NoError(t, err)
+	l, err := rdrv1.Read(rv1)
+	require.Equal(t, val, rv1[:l])*/
+
 }

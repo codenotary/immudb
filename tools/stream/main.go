@@ -40,12 +40,6 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 	}
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
 
-	rkv, err := kvr.Recv()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Server does not support Flusher!",
@@ -58,8 +52,18 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	data := make([]byte, stream.ChunkSize)
+	_, err = kvr.NextKey()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	vr, err := kvr.NextValueReader()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	for {
-		if _, err = rkv.Value.Content.Read(data); err != nil {
+		if _, err = vr.Read(data); err != nil {
 			if err != nil {
 				if err != io.EOF {
 					http.Error(w, err.Error(), http.StatusInternalServerError)

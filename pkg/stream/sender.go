@@ -44,7 +44,8 @@ func NewMsgSender(s ImmuServiceSender_Stream) *msgSender {
 
 func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 	var read = 0
-	for {
+	var run = true
+	for run {
 		// if read is 0 here trailer is created
 		if read == 0 {
 			ml := make([]byte, 8)
@@ -100,10 +101,11 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 			}
 			// is last chunk
 			if read == payloadSize {
-				return nil
+				run = false
 			}
 		}
 	}
+	return nil
 }
 
 func (st *msgSender) RecvMsg(m interface{}) error {
