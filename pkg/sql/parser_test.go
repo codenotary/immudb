@@ -227,15 +227,16 @@ func TestInsertIntoStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "INSERT INTO table1(id, title, active, payload) VALUES (2, 'untitled row', true, b'AED0393F')",
+			input: "INSERT INTO table1(id, title, active, compressed, payload) VALUES (2, 'untitled row', TRUE, false, b'AED0393F')",
 			expectedOutput: []SQLStmt{
 				&InsertIntoStmt{
 					table: "table1",
-					cols:  []string{"id", "title", "active", "payload"},
+					cols:  []string{"id", "title", "active", "compressed", "payload"},
 					values: []Value{
 						&IntegerValue{value: 2},
 						&StringValue{value: "untitled row"},
 						&BooleanValue{value: true},
+						&BooleanValue{value: false},
 						&BLOBValue{value: decodedBLOB},
 					},
 				}},
