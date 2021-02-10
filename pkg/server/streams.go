@@ -21,6 +21,8 @@ import (
 	"bytes"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 )
 
@@ -50,40 +52,48 @@ func (s *ImmuServer) GetStream(kr *schema.KeyRequest, str schema.ImmuService_Get
 }
 
 func (s *ImmuServer) SetStream(str schema.ImmuService_SetStreamServer) (err error) {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "VerifiableGet")
+	ind, err := s.getDbIndexFromCtx(str.Context(), "SetStream")
 	if err != nil {
 		return err
 	}
 
 	kvsr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(str))
-	done := false
-	for !done {
-		kv, err := kvsr.Recv()
-		if err != nil {
-			if err == io.EOF {
-				done = true
-				break
-			}
-			return err
-		}
-		key := make([]byte, kv.Key.Size)
-		if _, err = kv.Key.Content.Read(key); err != nil {
-			return err
-		}
 
-		value := make([]byte, kv.Value.Size)
-		if _, err = kv.Value.Content.Read(value); err != nil {
-			return err
-		}
+	key, err := kvsr.NextKey()
+	if err != nil {
+		return err
+	}
 
-		txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
-		if err != nil {
-			return stream.ErrMaxValueLenExceeded
-		}
-		err = str.SendAndClose(txMeta)
-		if err != nil {
+	vr, err := kvsr.NextValueReader()
+	if err != nil {
+		return err
+	}
+	b := bytes.NewBuffer([]byte{})
+	vl := 0
+	chunk := make([]byte, stream.ChunkSize)
+	for {
+		l, err := vr.Read(chunk)
+		if err != nil && err != io.EOF {
 			return err
+		}
+		vl += l
+
+		b.Write(chunk)
+		if err == io.EOF || l == 0 {
+			break
 		}
 	}
+	value := make([]byte, vl)
+	b.Read(value)
+
+	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+	if err != nil {
+		return status.Errorf(codes.Unknown, "SetStream receives following error: %s", err.Error())
+	}
+	err = str.SendAndClose(txMeta)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
