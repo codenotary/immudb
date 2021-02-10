@@ -37,7 +37,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN
 %token INSERT INTO VALUES
-%token <id> ID
+%token <id> IDENTIFIER
 %token <sqlType> TYPE
 %token <value> VAL
 %token <err> ERROR
@@ -77,48 +77,48 @@ sqlstmts:
 opt_separator: {} | STMT_SEPARATOR
 
 sqlstmt:
-    CREATE DATABASE ID
+    CREATE DATABASE IDENTIFIER
     {
         $$ = &CreateDatabaseStmt{db: $3}
     }
 |   
-    USE DATABASE ID
+    USE DATABASE IDENTIFIER
     {
         $$ = &UseDatabaseStmt{db: $3}
     }
 |   
-    CREATE TABLE ID colsSpec
+    CREATE TABLE IDENTIFIER colsSpec
     {
         $$ = &CreateTableStmt{table: $3, colsSpec: $4}
     }
 |   
-    CREATE INDEX ON ID '(' ID ')'
+    CREATE INDEX ON IDENTIFIER '(' IDENTIFIER ')'
     {
         $$ = &CreateIndexStmt{table: $4, col: $6}
     }
 |   
-    ALTER TABLE ID ADD COLUMN colSpec
+    ALTER TABLE IDENTIFIER ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
 |   
-    ALTER TABLE ID ALTER COLUMN colSpec
+    ALTER TABLE IDENTIFIER ALTER COLUMN colSpec
     {
         $$ = &AlterColumnStmt{table: $3, colSpec: $6}
     }
 |
-    INSERT INTO ID '(' cols ')' VALUES '(' values ')'
+    INSERT INTO IDENTIFIER '(' cols ')' VALUES '(' values ')'
     {
         $$ = &InsertIntoStmt{table: $3, cols: $5, values: $9}
     }
 
 cols:
-    ID
+    IDENTIFIER
     {
         $$ = []string{$1}
     }
 |
-    cols ',' ID
+    cols ',' IDENTIFIER
     {
         $$ = append($1, $3)
     }
@@ -158,7 +158,7 @@ colSpecList:
         $$ = append($1, $3)
     }
 
-colSpec: ID TYPE
+colSpec: IDENTIFIER TYPE
     {
       $$ = &ColSpec{colName: $1, colType: $2}
     }

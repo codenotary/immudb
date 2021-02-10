@@ -190,7 +190,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return tkn
 		}
 
-		return ID
+		return IDENTIFIER
 	}
 
 	if isNumber(ch) {
