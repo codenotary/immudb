@@ -16,6 +16,16 @@ limitations under the License.
 
 package sql
 
+type SQLValueType = int
+
+const (
+	IntegerType SQLValueType = iota
+	BooleanType
+	StringType
+	BLOBType
+	TimestampType
+)
+
 type SQLStmt interface {
 }
 
@@ -34,7 +44,7 @@ type CreateTableStmt struct {
 
 type ColSpec struct {
 	colName string
-	colType string
+	colType SQLValueType
 }
 
 type CreateIndexStmt struct {
@@ -50,4 +60,29 @@ type AddColumnStmt struct {
 type AlterColumnStmt struct {
 	table   string
 	colSpec *ColSpec
+}
+
+type InsertIntoStmt struct {
+	table  string
+	cols   []string
+	values []Value
+}
+
+type Value interface {
+}
+
+type BooleanValue struct {
+	value bool
+}
+
+type IntegerValue struct {
+	value int
+}
+
+type StringValue struct {
+	value string
+}
+
+type BLOBValue struct {
+	value []byte
 }

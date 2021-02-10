@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"testing"
@@ -111,7 +112,7 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:    "table1",
-					colsSpec: []*ColSpec{{colName: "id", colType: "INTEGER"}},
+					colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}},
 				}},
 			expectedError: nil,
 		},
@@ -121,11 +122,11 @@ func TestCreateTableStmt(t *testing.T) {
 				&CreateTableStmt{
 					table: "table1",
 					colsSpec: []*ColSpec{
-						{colName: "id", colType: "INTEGER"},
-						{colName: "name", colType: "STRING"},
-						{colName: "ts", colType: "TIMESTAMP"},
-						{colName: "active", colType: "BOOLEAN"},
-						{colName: "content", colType: "BLOB"},
+						{colName: "id", colType: IntegerType},
+						{colName: "name", colType: StringType},
+						{colName: "ts", colType: TimestampType},
+						{colName: "active", colType: BooleanType},
+						{colName: "content", colType: BLOBType},
 					},
 				}},
 			expectedError: nil,
@@ -186,7 +187,7 @@ func TestAlterTableStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&AddColumnStmt{
 					table:   "table1",
-					colSpec: &ColSpec{colName: "title", colType: "STRING"},
+					colSpec: &ColSpec{colName: "title", colType: StringType},
 				}},
 			expectedError: nil,
 		},
@@ -195,7 +196,7 @@ func TestAlterTableStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&AlterColumnStmt{
 					table:   "table1",
-					colSpec: &ColSpec{colName: "title", colType: "BLOB"},
+					colSpec: &ColSpec{colName: "title", colType: BLOBType},
 				}},
 			expectedError: nil,
 		},
@@ -203,6 +204,52 @@ func TestAlterTableStmt(t *testing.T) {
 			input:          "ALTER TABLE table1 COLUMN title STRING",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ALTER or ADD"),
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
+func TestInsertIntoStmt(t *testing.T) {
+	decodedBLOB, err := hex.DecodeString("AED0393F")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input: "INSERT INTO table1(id, title, active, payload) VALUES (2, 'untitled row', true, b'AED0393F')",
+			expectedOutput: []SQLStmt{
+				&InsertIntoStmt{
+					table: "table1",
+					cols:  []string{"id", "title", "active", "payload"},
+					values: []Value{
+						&IntegerValue{value: 2},
+						&StringValue{value: "untitled row"},
+						&BooleanValue{value: true},
+						&BLOBValue{value: decodedBLOB},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input:          "INSERT INTO table1() VALUES (2, 'untitled')",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected ')', expecting ID"),
+		},
+		{
+			input:          "INSERT INTO VALUES (2)",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected VALUES, expecting ID"),
 		},
 	}
 
