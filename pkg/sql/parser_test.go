@@ -446,21 +446,21 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT id, name, table2.status FROM table1 INNER JOIN table2 ON table1.id = table2.id WHERE name = John ORDER BY name DESC",
+			input: "SELECT id, name, table2.status FROM table1 INNER JOIN table2 ON table1id = table2id WHERE name = John ORDER BY name DESC",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{
 						&ColSelector{col: "id"},
 						&ColSelector{col: "name"},
-						&ColSelector{col: "table2.status"},
+						&ColSelector{ds: "table2", col: "status"},
 					},
 					ds: &TableRef{table: "table1"},
 					join: &InnerJoinSpec{
 						ds: &TableRef{table: "table2"},
 						cond: &EqualBoolExp{
-							left:  "table1.id",
-							right: "table2.id",
+							left:  "table1id",
+							right: "table2id",
 						},
 					},
 					where: &EqualBoolExp{
