@@ -43,6 +43,21 @@ var reservedWords = map[string]int{
 	"VALUES":   VALUES,
 	"BEGIN":    BEGIN,
 	"END":      END,
+	"SELECT":   SELECT,
+	"DISTINCT": DISTINCT,
+	"FROM":     FROM,
+	"INNER":    INNER,
+	"JOIN":     JOIN,
+	"HAVING":   HAVING,
+	"WHERE":    WHERE,
+	"GROUP":    GROUP,
+	"BY":       BY,
+	"OFFSET":   OFFSET,
+	"LIMIT":    LIMIT,
+	"ORDER":    ORDER,
+	"AS":       AS,
+	"ASC":      ASC,
+	"DESC":     DESC,
 }
 
 var types = map[string]SQLValueType{
@@ -51,6 +66,14 @@ var types = map[string]SQLValueType{
 	"STRING":    StringType,
 	"BLOB":      BLOBType,
 	"TIMESTAMP": TimestampType,
+}
+
+var aggregateFns = map[string]AggregateFn{
+	"COUNT": COUNT,
+	"SUM":   SUM,
+	"MAX":   MAX,
+	"MIN":   MIN,
+	"AVG":   AVG,
 }
 
 var boolValues = map[string]bool{

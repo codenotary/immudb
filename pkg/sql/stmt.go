@@ -26,6 +26,16 @@ const (
 	TimestampType
 )
 
+type AggregateFn = int
+
+const (
+	COUNT AggregateFn = iota
+	SUM
+	MAX
+	MIN
+	AVG
+)
+
 type SQLStmt interface {
 }
 
@@ -89,4 +99,65 @@ type StringValue struct {
 
 type BLOBValue struct {
 	value []byte
+}
+
+type SelectStmt struct {
+	distinct  bool
+	selectors []Selector
+	ds        DataSource
+	join      *InnerJoinSpec
+	where     BoolExp
+	groupBy   []string
+	having    BoolExp
+	offset    uint64
+	limit     uint64
+	orderBy   []*OrdCol
+	as        string
+}
+
+type DataSource interface {
+}
+
+type TableRef struct {
+	table string
+}
+
+type InnerJoinSpec struct {
+	ds   DataSource
+	cond BoolExp
+}
+
+type GroupBySpec struct {
+	cols []string
+}
+
+type OrdCol struct {
+	col  string
+	desc bool
+}
+
+type Selector interface {
+}
+
+type ColSelector struct {
+	col string
+	as  string
+}
+
+type AggSelector struct {
+	aggFn AggregateFn
+	as    string
+}
+
+type AggColSelector struct {
+	aggFn AggregateFn
+	col   string
+	as    string
+}
+
+type BoolExp interface {
+}
+
+type EqualBoolExp struct {
+	left, right BoolExp
 }
