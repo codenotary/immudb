@@ -408,3 +408,79 @@ func TestTxStmt(t *testing.T) {
 		}
 	}
 }
+
+func TestSelectStmt(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input: "SELECT id, title FROM table1",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "title"},
+					},
+					ds: &TableRef{table: "table1"},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT DISTINCT id, name FROM table1 WHERE country = US",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: true,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "name"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &EqualBoolExp{
+						left:  "country",
+						right: "US",
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id, name, table2.status FROM table1 INNER JOIN table2 ON table1.id = table2.id WHERE name = John ORDER BY name DESC",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "name"},
+						&ColSelector{col: "table2.status"},
+					},
+					ds: &TableRef{table: "table1"},
+					join: &InnerJoinSpec{
+						ds: &TableRef{table: "table2"},
+						cond: &EqualBoolExp{
+							left:  "table1.id",
+							right: "table2.id",
+						},
+					},
+					where: &EqualBoolExp{
+						left:  "name",
+						right: "John",
+					},
+					orderBy: []*OrdCol{
+						{col: "name", desc: true},
+					},
+				}},
+			expectedError: nil,
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}

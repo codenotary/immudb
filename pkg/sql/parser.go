@@ -257,7 +257,7 @@ func (l *lexer) Error(err string) {
 
 func (l *lexer) readWord() (string, error) {
 	return l.readWhile(func(ch byte) bool {
-		return isLetter(ch) || isNumber(ch)
+		return isLetter(ch) || isNumber(ch) || '.' == ch
 	})
 }
 
