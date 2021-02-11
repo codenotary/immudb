@@ -233,11 +233,11 @@ func TestInsertIntoStmt(t *testing.T) {
 					table: "table1",
 					cols:  []string{"id", "title", "active", "compressed", "payload"},
 					values: []Value{
-						&IntegerValue{value: 2},
-						&StringValue{value: "untitled row"},
-						&BooleanValue{value: true},
-						&BooleanValue{value: false},
-						&BLOBValue{value: decodedBLOB},
+						uint64(2),
+						"untitled row",
+						true,
+						false,
+						decodedBLOB,
 					},
 				}},
 			expectedError: nil,
@@ -334,15 +334,15 @@ func TestTxStmt(t *testing.T) {
 						table: "table1",
 						cols:  []string{"id", "label"},
 						values: []Value{
-							&IntegerValue{value: 100},
-							&StringValue{value: "label1"},
+							uint64(100),
+							"label1",
 						},
 					},
 					&InsertIntoStmt{
 						table: "table2",
 						cols:  []string{"id"},
 						values: []Value{
-							&IntegerValue{value: 10},
+							uint64(10),
 						},
 					},
 				}},
@@ -360,8 +360,8 @@ func TestTxStmt(t *testing.T) {
 						table: "table1",
 						cols:  []string{"id", "label"},
 						values: []Value{
-							&IntegerValue{value: 100},
-							&StringValue{value: "label1"},
+							uint64(100),
+							"label1",
 						},
 					},
 				}},
@@ -379,8 +379,8 @@ func TestTxStmt(t *testing.T) {
 						table: "table1",
 						cols:  []string{"id", "label"},
 						values: []Value{
-							&IntegerValue{value: 100},
-							&StringValue{value: "label1"},
+							uint64(100),
+							"label1",
 						},
 					},
 				}},
@@ -470,6 +470,29 @@ func TestSelectStmt(t *testing.T) {
 					orderBy: []*OrdCol{
 						{col: "name", desc: true},
 					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id, title FROM (SELECT col1 AS id, col2 AS title FROM table2 OFFSET 1 LIMIT 100) LIMIT 10",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "title"},
+					},
+					ds: &SelectStmt{
+						distinct: false,
+						selectors: []Selector{
+							&ColSelector{col: "col1", as: "id"},
+							&ColSelector{col: "col2", as: "title"},
+						},
+						ds:     &TableRef{table: "table2"},
+						offset: uint64(1),
+						limit:  uint64(100),
+					},
+					limit: uint64(10),
 				}},
 			expectedError: nil,
 		},
