@@ -30,16 +30,30 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     cols []string
     values []Value
     id string
+    number uint64
     sqlType SQLValueType
     value Value
+    aggFn AggregateFn
+    sel Selector
+    sels []Selector
+    distinct bool
+    ds DataSource
+    join *InnerJoinSpec
+    boolExp BoolExp
     err error
+    ordcols []*OrdCol
+    opt_ord bool
 }
 
-%token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN BEGIN END
+%token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN
+%token BEGIN END
 %token INSERT INTO VALUES
+%token SELECT DISTINCT FROM INNER JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
 %token <id> IDENTIFIER
+%token <number> NUMBER
 %token <sqlType> TYPE
 %token <value> VAL
+%token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
 
 %left ','
@@ -47,11 +61,22 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %type <stmts> sql
 %type <stmts> sqlstmts dstmts
-%type <stmt> sqlstmt dstmt ddlstmt dmlstmt
+%type <stmt> sqlstmt dstmt ddlstmt dmlstmt dqlstmt
 %type <colsSpec> colsSpec colSpecList
 %type <colSpec> colSpec
 %type <cols> cols
 %type <values> values
+%type <sel> selector
+%type <sels> selectors
+%type <distinct> opt_distinct
+%type <ds> ds
+%type <join> opt_join
+%type <boolExp> boolExp opt_where opt_having
+%type <cols> opt_groupby
+%type <number> opt_offset opt_limit
+%type <id> opt_as
+%type <ordcols> ordcols opt_orderby
+%type <opt_ord> opt_ord
 
 %start sql
     
@@ -63,8 +88,13 @@ sql: sqlstmts
     setResult(yylex, $1)
 }
 
-sqlstmts: 
+sqlstmts:
     sqlstmt opt_separator
+    {
+        $$ = []SQLStmt{$1}
+    }
+|
+    dqlstmt opt_separator
     {
         $$ = []SQLStmt{$1}
     }
@@ -76,17 +106,17 @@ sqlstmts:
 
 opt_separator: {} | STMT_SEPARATOR
 
-sqlstmt: 
+sqlstmt:
     dstmt
-| 
+|
     BEGIN opt_separator dstmts END
     {
         $$ = &TxStmt{stmts: $3}
-    } 
+    }
 
 dstmt: ddlstmt | dmlstmt
 
-dstmts: 
+dstmts:
     dstmt opt_separator
     {
         $$ = []SQLStmt{$1}
@@ -102,27 +132,27 @@ ddlstmt:
     {
         $$ = &CreateDatabaseStmt{db: $3}
     }
-|   
+|
     USE DATABASE IDENTIFIER
     {
         $$ = &UseDatabaseStmt{db: $3}
     }
-|   
+|
     CREATE TABLE IDENTIFIER colsSpec
     {
         $$ = &CreateTableStmt{table: $3, colsSpec: $4}
     }
-|   
+|
     CREATE INDEX ON IDENTIFIER '(' IDENTIFIER ')'
     {
         $$ = &CreateIndexStmt{table: $4, col: $6}
     }
-|   
+|
     ALTER TABLE IDENTIFIER ADD COLUMN colSpec
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
-|   
+|
     ALTER TABLE IDENTIFIER ALTER COLUMN colSpec
     {
         $$ = &AlterColumnStmt{table: $3, colSpec: $6}
@@ -156,15 +186,17 @@ values:
         $$ = append($1, $3)
     }
 
-colsSpec: 
+colsSpec:
     {
         $$ = nil
     }
-|   '(' ')'
+|
+    '(' ')'
     {
         $$ = nil
     }
-|   '(' colSpecList ')'
+|
+    '(' colSpecList ')'
     {
         $$ = $2
     }
@@ -180,7 +212,177 @@ colSpecList:
         $$ = append($1, $3)
     }
 
-colSpec: IDENTIFIER TYPE
+colSpec:
+    IDENTIFIER TYPE
     {
-      $$ = &ColSpec{colName: $1, colType: $2}
+        $$ = &ColSpec{colName: $1, colType: $2}
+    }
+
+dqlstmt:
+    SELECT opt_distinct selectors FROM ds opt_join opt_where opt_groupby opt_having opt_offset opt_limit opt_orderby opt_as
+    {
+        $$ = &SelectStmt{
+                distinct: $2,
+                selectors: $3,
+                ds: $5,
+                join: $6,
+                where: $7,
+                groupBy: $8,
+                having: $9,
+                offset: $10,
+                limit: $11,
+                orderBy: $12,
+                as: $13,
+            }
+    }
+
+opt_distinct:
+    {
+    }
+|
+    DISTINCT
+    {
+        $$ = true
+    }
+
+selectors:
+    selector
+    {
+        $$ = []Selector{$1}
+    }
+|
+    selectors ',' selector
+    {
+        $$ = append($1, $3)
+    }
+
+selector:
+    IDENTIFIER opt_as
+    {
+        $$ = &ColSelector{col: $1, as: $2}
+    }
+|
+    AGGREGATE_FUNC '(' '*' ')' opt_as
+    {
+        $$ = &AggSelector{aggFn: $1, as: $5}
+    }
+|
+    AGGREGATE_FUNC '(' IDENTIFIER ')' opt_as
+    {
+        $$ = &AggColSelector{aggFn: $1, col: $3, as: $5}
+    }
+
+ds:
+    IDENTIFIER
+    {
+        $$ = &TableRef{table: $1}
+    }
+|
+    dqlstmt
+    {
+        $$ = $1
+    }
+
+opt_join:
+    {
+    }
+|
+    INNER JOIN ds ON boolExp
+    {
+        $$ = &InnerJoinSpec{ds: $3, cond: $5}
+    }
+
+opt_where:
+    {
+    }
+|
+    WHERE boolExp
+    {
+        $$ = $2
+    }
+
+opt_groupby:
+    {
+    }
+|
+    GROUP BY cols
+    {
+        $$ = $3
+    }
+
+opt_having:
+    {
+    }
+|
+    HAVING boolExp
+    {
+        $$ = $2
+    }
+
+opt_offset:
+    {
+    }
+|
+    OFFSET NUMBER
+    {
+        $$ = $2
+    }
+
+opt_limit:
+    {
+    }
+|
+    LIMIT NUMBER
+    {
+        $$ = $2
+    }
+
+opt_orderby:
+    {
+    }
+|
+    ORDER BY ordcols
+    {
+        $$ = $3
+    }
+
+ordcols:
+    IDENTIFIER opt_ord
+    {
+        $$ = []*OrdCol{{col: $1, desc: $2}}
+    }
+|
+    ordcols ',' IDENTIFIER opt_ord
+    {
+        $$ = append($1, &OrdCol{col: $3, desc: $4})
+    }
+
+opt_ord:
+    {
+        $$ = false
+    }
+|
+    ASC
+    {
+        $$ = false
+    }
+|
+    DESC
+    {
+        $$ = true
+    }
+
+opt_as:
+    {
+    }
+|
+    AS IDENTIFIER
+    {
+        $$ = $2
+    }
+
+boolExp:
+    IDENTIFIER '=' IDENTIFIER
+    {
+        $$ = &EqualBoolExp{left: $1, right: $3}
     }
