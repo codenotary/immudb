@@ -232,14 +232,26 @@ func TestInsertIntoStmt(t *testing.T) {
 				&InsertIntoStmt{
 					table: "table1",
 					cols:  []string{"id", "title", "active", "compressed", "payload"},
-					values: []Value{
-						uint64(2),
-						"untitled row",
-						true,
-						false,
-						decodedBLOB,
+					rows: []*Row{
+						{values: []Value{uint64(2), "untitled row", true, false, decodedBLOB}},
 					},
-				}},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "INSERT INTO table1(id, active) VALUES (1, false), (2, true), (3, true)",
+			expectedOutput: []SQLStmt{
+				&InsertIntoStmt{
+					table: "table1",
+					cols:  []string{"id", "active"},
+					rows: []*Row{
+						{values: []Value{uint64(1), false}},
+						{values: []Value{uint64(2), true}},
+						{values: []Value{uint64(3), true}},
+					},
+				},
+			},
 			expectedError: nil,
 		},
 		{
@@ -329,23 +341,24 @@ func TestTxStmt(t *testing.T) {
 		{
 			input: "BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1'); INSERT INTO table2 (id) VALUES (10) END;",
 			expectedOutput: []SQLStmt{
-				&TxStmt{stmts: []SQLStmt{
-					&InsertIntoStmt{
-						table: "table1",
-						cols:  []string{"id", "label"},
-						values: []Value{
-							uint64(100),
-							"label1",
+				&TxStmt{
+					stmts: []SQLStmt{
+						&InsertIntoStmt{
+							table: "table1",
+							cols:  []string{"id", "label"},
+							rows: []*Row{
+								{values: []Value{uint64(100), "label1"}},
+							},
+						},
+						&InsertIntoStmt{
+							table: "table2",
+							cols:  []string{"id"},
+							rows: []*Row{
+								{values: []Value{uint64(10)}},
+							},
 						},
 					},
-					&InsertIntoStmt{
-						table: "table2",
-						cols:  []string{"id"},
-						values: []Value{
-							uint64(10),
-						},
-					},
-				}},
+				},
 			},
 			expectedError: nil,
 		},
@@ -355,35 +368,37 @@ func TestTxStmt(t *testing.T) {
 				&CreateTableStmt{
 					table: "table1",
 				},
-				&TxStmt{stmts: []SQLStmt{
-					&InsertIntoStmt{
-						table: "table1",
-						cols:  []string{"id", "label"},
-						values: []Value{
-							uint64(100),
-							"label1",
+				&TxStmt{
+					stmts: []SQLStmt{
+						&InsertIntoStmt{
+							table: "table1",
+							cols:  []string{"id", "label"},
+							rows: []*Row{
+								{values: []Value{uint64(100), "label1"}},
+							},
 						},
 					},
-				}},
+				},
 			},
 			expectedError: nil,
 		},
 		{
 			input: "BEGIN; CREATE TABLE table1; INSERT INTO table1 (id, label) VALUES (100, 'label1') END;",
 			expectedOutput: []SQLStmt{
-				&TxStmt{stmts: []SQLStmt{
-					&CreateTableStmt{
-						table: "table1",
-					},
-					&InsertIntoStmt{
-						table: "table1",
-						cols:  []string{"id", "label"},
-						values: []Value{
-							uint64(100),
-							"label1",
+				&TxStmt{
+					stmts: []SQLStmt{
+						&CreateTableStmt{
+							table: "table1",
+						},
+						&InsertIntoStmt{
+							table: "table1",
+							cols:  []string{"id", "label"},
+							rows: []*Row{
+								{values: []Value{uint64(100), "label1"}},
+							},
 						},
 					},
-				}},
+				},
 			},
 			expectedError: nil,
 		},
