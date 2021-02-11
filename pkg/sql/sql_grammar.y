@@ -278,9 +278,9 @@ ds:
         $$ = &TableRef{table: $1}
     }
 |
-    dqlstmt
+    '(' dqlstmt ')'
     {
-        $$ = $1
+        $$ = $2
     }
 
 opt_join:
