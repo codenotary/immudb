@@ -140,6 +140,7 @@ type Selector interface {
 }
 
 type ColSelector struct {
+	ds  string
 	col string
 	as  string
 }
@@ -151,6 +152,7 @@ type AggSelector struct {
 
 type AggColSelector struct {
 	aggFn AggregateFn
+	ds    string
 	col   string
 	as    string
 }
