@@ -29,10 +29,13 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     colSpec *ColSpec
     cols []string
     values []Value
+    value Value
     id string
     number uint64
+    str string
+    boolean bool
+    blob []byte
     sqlType SQLValueType
-    value Value
     aggFn AggregateFn
     sel Selector
     sels []Selector
@@ -50,9 +53,11 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token INSERT INTO VALUES
 %token SELECT DISTINCT FROM INNER JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
 %token <id> IDENTIFIER
-%token <number> NUMBER
 %token <sqlType> TYPE
-%token <value> VAL
+%token <number> NUMBER
+%token <str> STRING
+%token <boolean> BOOLEAN
+%token <blob> BLOB
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
 
@@ -66,6 +71,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <colSpec> colSpec
 %type <cols> cols
 %type <values> values
+%type <value> val
 %type <sel> selector
 %type <sels> selectors
 %type <distinct> opt_distinct
@@ -176,14 +182,35 @@ cols:
     }
 
 values:
-    VAL
+    val
     {
         $$ = []Value{$1}
     }
 |
-    values ',' VAL
+    values ',' val
     {
         $$ = append($1, $3)
+    }
+
+val: 
+    NUMBER
+    {
+        $$ = $1
+    }
+|
+    STRING
+    {
+        $$ = $1
+    }
+|
+    BOOLEAN
+    {
+        $$ = $1
+    }
+|
+    BLOB
+    {
+        $$ = $1
     }
 
 colsSpec:
