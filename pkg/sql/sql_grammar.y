@@ -28,6 +28,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     colsSpec []*ColSpec
     colSpec *ColSpec
     cols []string
+    rows []*Row
+    row *Row
     values []Value
     value Value
     id string
@@ -70,6 +72,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <colsSpec> colsSpec colSpecList
 %type <colSpec> colSpec
 %type <cols> cols
+%type <rows> rows
+%type <row> row
 %type <values> values
 %type <value> val
 %type <sel> selector
@@ -165,9 +169,26 @@ ddlstmt:
     }
 
 dmlstmt:
-    INSERT INTO IDENTIFIER '(' cols ')' VALUES '(' values ')'
+    INSERT INTO IDENTIFIER '(' cols ')' VALUES rows
     {
-        $$ = &InsertIntoStmt{table: $3, cols: $5, values: $9}
+        $$ = &InsertIntoStmt{table: $3, cols: $5, rows: $8}
+    }
+
+rows:
+    row
+    {
+        $$ = []*Row{$1}
+    }
+|
+    rows ',' row
+    {
+        $$ = append($1, $3)
+    }
+
+row:
+    '(' values ')'
+    {
+        $$ = &Row{values: $2}
     }
 
 cols:

@@ -77,8 +77,12 @@ type AlterColumnStmt struct {
 }
 
 type InsertIntoStmt struct {
-	table  string
-	cols   []string
+	table string
+	cols  []string
+	rows  []*Row
+}
+
+type Row struct {
 	values []Value
 }
 
