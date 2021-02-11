@@ -85,22 +85,6 @@ type InsertIntoStmt struct {
 type Value interface {
 }
 
-type BooleanValue struct {
-	value bool
-}
-
-type IntegerValue struct {
-	value int
-}
-
-type StringValue struct {
-	value string
-}
-
-type BLOBValue struct {
-	value []byte
-}
-
 type SelectStmt struct {
 	distinct  bool
 	selectors []Selector

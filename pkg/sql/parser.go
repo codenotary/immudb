@@ -185,8 +185,8 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return ERROR
 		}
 
-		lval.value = &BLOBValue{value: val}
-		return VAL
+		lval.blob = val
+		return BLOB
 	}
 
 	if isLetter(ch) {
@@ -206,8 +206,8 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		val, ok := boolValues[strings.ToUpper(lval.id)]
 		if ok {
-			lval.value = &BooleanValue{value: val}
-			return VAL
+			lval.boolean = val
+			return BOOLEAN
 		}
 
 		tkn, ok := reservedWords[strings.ToUpper(lval.id)]
@@ -225,14 +225,15 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return ERROR
 		}
 
-		val, err := strconv.Atoi(fmt.Sprintf("%c%s", ch, tail))
+		val, err := strconv.ParseUint(fmt.Sprintf("%c%s", ch, tail), 10, 64)
 		if err != nil {
 			lval.err = err
 			return ERROR
 		}
 
-		lval.value = &IntegerValue{value: val}
-		return VAL
+		lval.number = val
+
+		return NUMBER
 	}
 
 	if isQuote(ch) {
@@ -244,8 +245,9 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		l.r.ReadByte() // consume closing quote
 
-		lval.value = &StringValue{value: tail}
-		return VAL
+		lval.str = tail
+
+		return STRING
 	}
 
 	return int(ch)
