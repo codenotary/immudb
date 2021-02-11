@@ -446,6 +446,24 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "SELECT id, title, year FROM table1 ORDER BY title ASC, year DESC",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "title"},
+						&ColSelector{col: "year"},
+					},
+					ds: &TableRef{table: "table1"},
+					orderBy: []*OrdCol{
+						{col: "title", desc: false},
+						{col: "year", desc: true},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "SELECT id, name, table2.status FROM table1 INNER JOIN table2 ON table1id = table2id WHERE name = John ORDER BY name DESC",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
