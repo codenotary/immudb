@@ -374,6 +374,7 @@ opt_ord:
 
 opt_as:
     {
+        $$ = ""
     }
 |
     AS IDENTIFIER
