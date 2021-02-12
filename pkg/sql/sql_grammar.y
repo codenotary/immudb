@@ -39,10 +39,12 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     blob []byte
     sqlType SQLValueType
     aggFn AggregateFn
+    col *ColSelector
     sel Selector
     sels []Selector
     distinct bool
     ds DataSource
+    tableRef *TableRef
     join *InnerJoinSpec
     boolExp BoolExp
     err error
@@ -64,6 +66,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <err> ERROR
 
 %left ','
+%left '.'
+%right AS
 %right STMT_SEPARATOR
 
 %type <stmts> sql
@@ -78,8 +82,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <value> val
 %type <sel> selector
 %type <sels> selectors
+%type <col> col
 %type <distinct> opt_distinct
 %type <ds> ds
+%type <tableRef> tableRef
 %type <join> opt_join
 %type <boolExp> boolExp opt_where opt_having
 %type <cols> opt_groupby
@@ -305,14 +311,10 @@ selectors:
     }
 
 selector:
-    IDENTIFIER opt_as
+    col opt_as
     {
-        $$ = &ColSelector{col: $1, as: $2}
-    }
-|
-    IDENTIFIER '.' IDENTIFIER opt_as
-    {
-        $$ = &ColSelector{ds: $1, col: $3, as: $4}
+        $1.as = $2
+        $$ = $1
     }
 |
     AGGREGATE_FUNC '(' '*' ')' opt_as
@@ -320,20 +322,53 @@ selector:
         $$ = &AggSelector{aggFn: $1, as: $5}
     }
 |
-    AGGREGATE_FUNC '(' IDENTIFIER '.' IDENTIFIER ')' opt_as
+    AGGREGATE_FUNC '(' col ')' opt_as
     {
-        $$ = &AggColSelector{aggFn: $1, ds: $3, col: $5, as: $7}
+        $$ = &AggColSelector{aggFn: $1, db: $3.db, table: $3.table, col: $3.col, as: $5}
+    }
+
+col:
+    IDENTIFIER
+    {
+        $$ = &ColSelector{col: $1}
+    }
+|
+    IDENTIFIER '.' IDENTIFIER
+    {
+        $$ = &ColSelector{table: $1, col: $3}
+    }
+|
+    IDENTIFIER '.' IDENTIFIER '.' IDENTIFIER
+    {
+        $$ = &ColSelector{db: $1, table: $3, col: $5}
     }
 
 ds:
-    IDENTIFIER
+    tableRef
     {
-        $$ = &TableRef{table: $1}
+        $$ = $1
+    }
+|
+    '(' tableRef opt_as ')'
+    {
+        $2.as = $3
+        $$ = $2
     }
 |
     '(' dqlstmt ')'
     {
         $$ = $2
+    }
+
+tableRef:
+    IDENTIFIER
+    {
+        $$ = &TableRef{table: $1}
+    }
+|
+    IDENTIFIER '.' IDENTIFIER
+    {
+        $$ = &TableRef{db: $1, table: $3}
     }
 
 opt_join:
