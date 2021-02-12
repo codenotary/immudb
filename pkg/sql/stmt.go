@@ -107,7 +107,9 @@ type DataSource interface {
 }
 
 type TableRef struct {
+	db    string
 	table string
+	as    string
 }
 
 type InnerJoinSpec struct {
@@ -128,9 +130,10 @@ type Selector interface {
 }
 
 type ColSelector struct {
-	ds  string
-	col string
-	as  string
+	db    string
+	table string
+	col   string
+	as    string
 }
 
 type AggSelector struct {
@@ -140,7 +143,8 @@ type AggSelector struct {
 
 type AggColSelector struct {
 	aggFn AggregateFn
-	ds    string
+	db    string
+	table string
 	col   string
 	as    string
 }
