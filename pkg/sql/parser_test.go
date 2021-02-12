@@ -444,6 +444,46 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "SELECT id, title FROM db1.table1 as t1",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "title"},
+					},
+					ds: &TableRef{db: "db1", table: "table1"},
+					as: "t1",
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT t1.id, title FROM (db1.table1 as t1)",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{table: "t1", col: "id"},
+						&ColSelector{col: "title"},
+					},
+					ds: &TableRef{db: "db1", table: "table1", as: "t1"},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT db1.table1.id, title FROM (db1.table1 as t1)",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{db: "db1", table: "table1", col: "id"},
+						&ColSelector{col: "title"},
+					},
+					ds: &TableRef{db: "db1", table: "table1", as: "t1"},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "SELECT DISTINCT id, name FROM table1 WHERE country = US",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
@@ -486,7 +526,7 @@ func TestSelectStmt(t *testing.T) {
 					selectors: []Selector{
 						&ColSelector{col: "id"},
 						&ColSelector{col: "name"},
-						&ColSelector{ds: "table2", col: "status"},
+						&ColSelector{table: "table2", col: "status"},
 					},
 					ds: &TableRef{table: "table1"},
 					join: &InnerJoinSpec{
