@@ -50,7 +50,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     err error
     ordcols []*OrdCol
     opt_ord bool
-    binOp BinOperator
+    logicOp LogicOperator
+    cmpOp CmpOperator
 }
 
 %token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN
@@ -58,7 +59,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token INSERT INTO VALUES
 %token SELECT DISTINCT FROM INNER JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
 %token NOT LIKE
-%token <binOp> BINOP
+%token <logicOp> LOP
+%token <cmpOp> CMPOP
 %token <id> IDENTIFIER
 %token <sqlType> TYPE
 %token <number> NUMBER
@@ -70,7 +72,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %left  ','
 %left  '.'
-%left  BINOP
+%left  LOP
+%left  CMPOP
 %right NOT
 %right AS
 %right STMT_SEPARATOR
@@ -476,7 +479,12 @@ opt_as:
     }
 
 boolExp:
-    IDENTIFIER
+    col
+    {
+        $$ = $1
+    }
+|
+    val
     {
         $$ = $1
     }
@@ -496,7 +504,12 @@ boolExp:
         $$ = &LikeBoolExp{id: $1, pattern: $3}
     }
 |
-    boolExp BINOP boolExp
+    boolExp LOP boolExp
     {
         $$ = &BinBoolExp{op: $2, left: $1, right: $3}
+    }
+|
+    boolExp CMPOP boolExp
+    {
+        $$ = &CmpBoolExp{op: $2, left: $1, right: $3}
     }

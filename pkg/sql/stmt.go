@@ -36,16 +36,21 @@ const (
 	AVG
 )
 
-type BinOperator = int
+type CmpOperator = int
 
 const (
-	EQ BinOperator = iota
+	EQ CmpOperator = iota
 	NE
 	LT
 	LE
 	GT
 	GE
-	AND
+)
+
+type LogicOperator = int
+
+const (
+	AND LogicOperator = iota
 	OR
 )
 
@@ -174,7 +179,12 @@ type LikeBoolExp struct {
 	pattern string
 }
 
+type CmpBoolExp struct {
+	op          CmpOperator
+	left, right BoolExp
+}
+
 type BinBoolExp struct {
-	op          BinOperator
+	op          LogicOperator
 	left, right BoolExp
 }

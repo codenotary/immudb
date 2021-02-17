@@ -83,12 +83,15 @@ var boolValues = map[string]bool{
 	"FALSE": false,
 }
 
-var binOps = map[string]BinOperator{
-	"=":   EQ,
-	"<":   LT,
-	"<=":  LE,
-	">":   GT,
-	">=":  GE,
+var cmpOps = map[string]CmpOperator{
+	"=":  EQ,
+	"<":  LT,
+	"<=": LE,
+	">":  GT,
+	">=": GE,
+}
+
+var logicOps = map[string]LogicOperator{
 	"AND": AND,
 	"OR":  OR,
 }
@@ -222,10 +225,10 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return BOOLEAN
 		}
 
-		bop, ok := binOps[strings.ToUpper(lval.id)]
+		lop, ok := logicOps[strings.ToUpper(lval.id)]
 		if ok {
-			lval.binOp = bop
-			return BINOP
+			lval.logicOp = lop
+			return LOP
 		}
 
 		tkn, ok := reservedWords[strings.ToUpper(lval.id)]
@@ -262,14 +265,14 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		op := fmt.Sprintf("%c%s", ch, tail)
 
-		bop, ok := binOps[op]
+		cmpOp, ok := cmpOps[op]
 		if !ok {
 			lval.err = fmt.Errorf("Invalid comparison operator %s", op)
 			return ERROR
 		}
 
-		lval.binOp = bop
-		return BINOP
+		lval.cmpOp = cmpOp
+		return CMPOP
 	}
 
 	if isQuote(ch) {
