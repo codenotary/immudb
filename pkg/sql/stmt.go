@@ -36,6 +36,19 @@ const (
 	AVG
 )
 
+type BinOperator = int
+
+const (
+	EQ BinOperator = iota
+	NE
+	LT
+	LE
+	GT
+	GE
+	AND
+	OR
+)
+
 type SQLStmt interface {
 }
 
@@ -152,6 +165,16 @@ type AggColSelector struct {
 type BoolExp interface {
 }
 
-type EqualBoolExp struct {
+type NotBoolExp struct {
+	exp BoolExp
+}
+
+type LikeBoolExp struct {
+	id      string
+	pattern string
+}
+
+type BinBoolExp struct {
+	op          BinOperator
 	left, right BoolExp
 }

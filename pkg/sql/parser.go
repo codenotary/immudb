@@ -58,6 +58,8 @@ var reservedWords = map[string]int{
 	"AS":       AS,
 	"ASC":      ASC,
 	"DESC":     DESC,
+	"NOT":      NOT,
+	"LIKE":     LIKE,
 }
 
 var types = map[string]SQLValueType{
@@ -79,6 +81,16 @@ var aggregateFns = map[string]AggregateFn{
 var boolValues = map[string]bool{
 	"TRUE":  true,
 	"FALSE": false,
+}
+
+var binOps = map[string]BinOperator{
+	"=":   EQ,
+	"<":   LT,
+	"<=":  LE,
+	">":   GT,
+	">=":  GE,
+	"AND": AND,
+	"OR":  OR,
 }
 
 type lexer struct {
@@ -210,6 +222,12 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return BOOLEAN
 		}
 
+		bop, ok := binOps[strings.ToUpper(lval.id)]
+		if ok {
+			lval.binOp = bop
+			return BINOP
+		}
+
 		tkn, ok := reservedWords[strings.ToUpper(lval.id)]
 		if ok {
 			return tkn
@@ -232,8 +250,26 @@ func (l *lexer) Lex(lval *yySymType) int {
 		}
 
 		lval.number = val
-
 		return NUMBER
+	}
+
+	if isComparison(ch) {
+		tail, err := l.readComparison()
+		if err != nil {
+			lval.err = err
+			return ERROR
+		}
+
+		op := fmt.Sprintf("%c%s", ch, tail)
+
+		bop, ok := binOps[op]
+		if !ok {
+			lval.err = fmt.Errorf("Invalid comparison operator %s", op)
+			return ERROR
+		}
+
+		lval.binOp = bop
+		return BINOP
 	}
 
 	if isQuote(ch) {
@@ -246,7 +282,6 @@ func (l *lexer) Lex(lval *yySymType) int {
 		l.r.ReadByte() // consume closing quote
 
 		lval.str = tail
-
 		return STRING
 	}
 
@@ -270,6 +305,12 @@ func (l *lexer) readNumber() (string, error) {
 func (l *lexer) readString() (string, error) {
 	return l.readWhile(func(ch byte) bool {
 		return !isQuote(ch)
+	})
+}
+
+func (l *lexer) readComparison() (string, error) {
+	return l.readWhile(func(ch byte) bool {
+		return isComparison(ch)
 	})
 }
 
@@ -314,6 +355,10 @@ func isNumber(ch byte) bool {
 
 func isLetter(ch byte) bool {
 	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
+}
+
+func isComparison(ch byte) bool {
+	return '<' == ch || '=' == ch || '>' == ch
 }
 
 func isQuote(ch byte) bool {
