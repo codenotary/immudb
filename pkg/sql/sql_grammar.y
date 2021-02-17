@@ -73,8 +73,9 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left  ','
 %left  '.'
 %left  LOP
-%left  CMPOP
 %right NOT
+%left  CMPOP
+%right LIKE
 %right AS
 %right STMT_SEPARATOR
 
@@ -300,6 +301,7 @@ dqlstmt:
 
 opt_distinct:
     {
+        $$ = false
     }
 |
     DISTINCT
@@ -381,6 +383,7 @@ tableRef:
 
 opt_join:
     {
+        $$ = nil
     }
 |
     INNER JOIN ds ON boolExp
@@ -390,6 +393,7 @@ opt_join:
 
 opt_where:
     {
+        $$ = nil
     }
 |
     WHERE boolExp
@@ -399,6 +403,7 @@ opt_where:
 
 opt_groupby:
     {
+        $$ = nil
     }
 |
     GROUP BY cols
@@ -408,6 +413,7 @@ opt_groupby:
 
 opt_having:
     {
+        $$ = nil
     }
 |
     HAVING boolExp
@@ -417,6 +423,7 @@ opt_having:
 
 opt_offset:
     {
+        $$ = 0
     }
 |
     OFFSET NUMBER
@@ -426,6 +433,7 @@ opt_offset:
 
 opt_limit:
     {
+        $$ = 0
     }
 |
     LIMIT NUMBER
@@ -435,6 +443,7 @@ opt_limit:
 
 opt_orderby:
     {
+        $$ = nil
     }
 |
     ORDER BY ordcols
@@ -443,12 +452,12 @@ opt_orderby:
     }
 
 ordcols:
-    IDENTIFIER opt_ord
+    col opt_ord
     {
         $$ = []*OrdCol{{col: $1, desc: $2}}
     }
 |
-    ordcols ',' IDENTIFIER opt_ord
+    ordcols ',' col opt_ord
     {
         $$ = append($1, &OrdCol{col: $3, desc: $4})
     }
@@ -499,9 +508,9 @@ boolExp:
         $$ = $2
     }
 |
-    IDENTIFIER LIKE STRING
+    col LIKE STRING
     {
-        $$ = &LikeBoolExp{id: $1, pattern: $3}
+        $$ = &LikeBoolExp{col: $1, pattern: $3}
     }
 |
     boolExp LOP boolExp
