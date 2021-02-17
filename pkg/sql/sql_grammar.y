@@ -27,7 +27,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     stmt SQLStmt
     colsSpec []*ColSpec
     colSpec *ColSpec
-    cols []string
+    cols []*ColSelector
     rows []*Row
     row *Row
     values []Value
@@ -39,6 +39,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     blob []byte
     sqlType SQLValueType
     aggFn AggregateFn
+    ids []string
     col *ColSelector
     sel Selector
     sels []Selector
@@ -84,6 +85,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <stmt> sqlstmt dstmt ddlstmt dmlstmt dqlstmt
 %type <colsSpec> colsSpec colSpecList
 %type <colSpec> colSpec
+%type <ids> ids
 %type <cols> cols
 %type <rows> rows
 %type <row> row
@@ -184,7 +186,7 @@ ddlstmt:
     }
 
 dmlstmt:
-    INSERT INTO IDENTIFIER '(' cols ')' VALUES rows
+    INSERT INTO IDENTIFIER '(' ids ')' VALUES rows
     {
         $$ = &InsertIntoStmt{table: $3, cols: $5, rows: $8}
     }
@@ -206,13 +208,24 @@ row:
         $$ = &Row{values: $2}
     }
 
-cols:
+ids:
     IDENTIFIER
     {
         $$ = []string{$1}
     }
 |
-    cols ',' IDENTIFIER
+    ids ',' IDENTIFIER
+    {
+        $$ = append($1, $3)
+    }
+
+cols:
+    col
+    {
+        $$ = []*ColSelector{$1}
+    }
+|
+    cols ',' col
     {
         $$ = append($1, $3)
     }
