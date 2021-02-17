@@ -592,6 +592,52 @@ func TestSelectStmt(t *testing.T) {
 	}
 }
 
+func TestAggFnStmt(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input: "SELECT COUNT(*) FROM table1",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&AggSelector{aggFn: COUNT},
+					},
+					ds: &TableRef{table: "table1"},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT country, SUM(amount) FROM table1 GROUP BY country",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "country"},
+						&AggColSelector{aggFn: SUM, col: "amount"},
+					},
+					ds: &TableRef{table: "table1"},
+					groupBy: []*ColSelector{
+						{col: "country"},
+					},
+				}},
+			expectedError: nil,
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
 func TestExpressions(t *testing.T) {
 	testCases := []struct {
 		input          string

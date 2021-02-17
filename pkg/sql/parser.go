@@ -213,25 +213,33 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		lval.id = fmt.Sprintf("%c%s", ch, tail)
 
-		sqlType, ok := types[strings.ToUpper(lval.id)]
+		tid := strings.ToUpper(lval.id)
+
+		sqlType, ok := types[tid]
 		if ok {
 			lval.sqlType = sqlType
 			return TYPE
 		}
 
-		val, ok := boolValues[strings.ToUpper(lval.id)]
+		val, ok := boolValues[tid]
 		if ok {
 			lval.boolean = val
 			return BOOLEAN
 		}
 
-		lop, ok := logicOps[strings.ToUpper(lval.id)]
+		lop, ok := logicOps[tid]
 		if ok {
 			lval.logicOp = lop
 			return LOP
 		}
 
-		tkn, ok := reservedWords[strings.ToUpper(lval.id)]
+		afn, ok := aggregateFns[tid]
+		if ok {
+			lval.aggFn = afn
+			return AGGREGATE_FUNC
+		}
+
+		tkn, ok := reservedWords[tid]
 		if ok {
 			return tkn
 		}
