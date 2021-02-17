@@ -140,7 +140,7 @@ type GroupBySpec struct {
 }
 
 type OrdCol struct {
-	col  string
+	col  *ColSelector
 	desc bool
 }
 
@@ -175,7 +175,7 @@ type NotBoolExp struct {
 }
 
 type LikeBoolExp struct {
-	id      string
+	col     *ColSelector
 	pattern string
 }
 
