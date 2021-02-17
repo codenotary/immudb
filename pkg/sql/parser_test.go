@@ -484,7 +484,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT DISTINCT id, name FROM table1 WHERE country = US",
+			input: "SELECT DISTINCT id, name FROM table1 WHERE country = 'US'",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: true,
@@ -493,7 +493,7 @@ func TestSelectStmt(t *testing.T) {
 						&ColSelector{col: "name"},
 					},
 					ds: &TableRef{table: "table1"},
-					where: &BinBoolExp{
+					where: &CmpBoolExp{
 						op:    EQ,
 						left:  "country",
 						right: "US",
@@ -532,13 +532,13 @@ func TestSelectStmt(t *testing.T) {
 					ds: &TableRef{table: "table1"},
 					join: &InnerJoinSpec{
 						ds: &TableRef{table: "table2"},
-						cond: &BinBoolExp{
+						cond: &CmpBoolExp{
 							op:    EQ,
 							left:  "table1id",
 							right: "table2id",
 						},
 					},
-					where: &BinBoolExp{
+					where: &CmpBoolExp{
 						op:    EQ,
 						left:  "name",
 						right: "John",
@@ -569,6 +569,72 @@ func TestSelectStmt(t *testing.T) {
 						limit:  uint64(100),
 					},
 					limit: uint64(10),
+				}},
+			expectedError: nil,
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
+func TestExpressions(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input: "SELECT id FROM table1 WHERE id > 0",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &CmpBoolExp{
+						op: GT,
+						left: &ColSelector{
+							col: "id",
+						},
+						right: uint64(0),
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id FROM table1 WHERE id > 0 AND id < 10",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &BinBoolExp{
+						op: AND,
+						left: &CmpBoolExp{
+							op: GT,
+							left: &ColSelector{
+								col: "id",
+							},
+							right: uint64(0),
+						},
+						right: &CmpBoolExp{
+							op: LT,
+							left: &ColSelector{
+								col: "id",
+							},
+							right: uint64(10),
+						},
+					},
 				}},
 			expectedError: nil,
 		},
