@@ -494,8 +494,10 @@ func TestSelectStmt(t *testing.T) {
 					},
 					ds: &TableRef{table: "table1"},
 					where: &CmpBoolExp{
-						op:    EQ,
-						left:  "country",
+						op: EQ,
+						left: &ColSelector{
+							col: "country",
+						},
 						right: "US",
 					},
 				}},
@@ -513,14 +515,14 @@ func TestSelectStmt(t *testing.T) {
 					},
 					ds: &TableRef{table: "table1"},
 					orderBy: []*OrdCol{
-						{col: "title", desc: false},
-						{col: "year", desc: true},
+						{col: &ColSelector{col: "title"}, desc: false},
+						{col: &ColSelector{col: "year"}, desc: true},
 					},
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "SELECT id, name, table2.status FROM table1 INNER JOIN table2 ON table1id = table2id WHERE name = John ORDER BY name DESC",
+			input: "SELECT id, name, table2.status FROM table1 INNER JOIN table2 ON table1.id = table2.id WHERE name = 'John' ORDER BY name DESC",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -533,18 +535,24 @@ func TestSelectStmt(t *testing.T) {
 					join: &InnerJoinSpec{
 						ds: &TableRef{table: "table2"},
 						cond: &CmpBoolExp{
-							op:    EQ,
-							left:  "table1id",
-							right: "table2id",
+							op: EQ,
+							left: &ColSelector{
+								table: "table1",
+								col:   "id",
+							},
+							right: &ColSelector{
+								table: "table2",
+								col:   "id",
+							},
 						},
 					},
 					where: &CmpBoolExp{
 						op:    EQ,
-						left:  "name",
+						left:  &ColSelector{col: "name"},
 						right: "John",
 					},
 					orderBy: []*OrdCol{
-						{col: "name", desc: true},
+						{col: &ColSelector{col: "name"}, desc: true},
 					},
 				}},
 			expectedError: nil,
@@ -633,6 +641,99 @@ func TestExpressions(t *testing.T) {
 								col: "id",
 							},
 							right: uint64(10),
+						},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id FROM table1 WHERE id > 0 AND NOT (table1.id >= 10)",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &BinBoolExp{
+						op: AND,
+						left: &CmpBoolExp{
+							op: GT,
+							left: &ColSelector{
+								col: "id",
+							},
+							right: uint64(0),
+						},
+						right: &NotBoolExp{
+							exp: &CmpBoolExp{
+								op: GE,
+								left: &ColSelector{
+									table: "table1",
+									col:   "id",
+								},
+								right: uint64(10),
+							},
+						},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id FROM table1 WHERE table1.title LIKE 'J%O'",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &LikeBoolExp{
+						col: &ColSelector{
+							table: "table1",
+							col:   "title",
+						},
+						pattern: "J%O",
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id FROM table1 WHERE (id > 0 AND NOT table1.id >= 10) OR table1.title LIKE 'J%O'",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &BinBoolExp{
+						op: OR,
+						left: &BinBoolExp{
+							op: AND,
+							left: &CmpBoolExp{
+								op: GT,
+								left: &ColSelector{
+									col: "id",
+								},
+								right: uint64(0),
+							},
+							right: &NotBoolExp{
+								exp: &CmpBoolExp{
+									op: GE,
+									left: &ColSelector{
+										table: "table1",
+										col:   "id",
+									},
+									right: uint64(10),
+								},
+							},
+						},
+						right: &LikeBoolExp{
+							col: &ColSelector{
+								table: "table1",
+								col:   "title",
+							},
+							pattern: "J%O",
 						},
 					},
 				}},
