@@ -113,7 +113,7 @@ type SelectStmt struct {
 	ds        DataSource
 	join      *InnerJoinSpec
 	where     BoolExp
-	groupBy   []string
+	groupBy   []*ColSelector
 	having    BoolExp
 	offset    uint64
 	limit     uint64
