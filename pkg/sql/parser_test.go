@@ -493,7 +493,8 @@ func TestSelectStmt(t *testing.T) {
 						&ColSelector{col: "name"},
 					},
 					ds: &TableRef{table: "table1"},
-					where: &EqualBoolExp{
+					where: &BinBoolExp{
+						op:    EQ,
 						left:  "country",
 						right: "US",
 					},
@@ -531,12 +532,14 @@ func TestSelectStmt(t *testing.T) {
 					ds: &TableRef{table: "table1"},
 					join: &InnerJoinSpec{
 						ds: &TableRef{table: "table2"},
-						cond: &EqualBoolExp{
+						cond: &BinBoolExp{
+							op:    EQ,
 							left:  "table1id",
 							right: "table2id",
 						},
 					},
-					where: &EqualBoolExp{
+					where: &BinBoolExp{
+						op:    EQ,
 						left:  "name",
 						right: "John",
 					},
