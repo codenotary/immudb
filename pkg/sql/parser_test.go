@@ -227,13 +227,13 @@ func TestInsertIntoStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "INSERT INTO table1(id, title, active, compressed, payload) VALUES (2, 'untitled row', TRUE, false, b'AED0393F')",
+			input: "INSERT INTO table1(id, time, title, active, compressed, payload) VALUES (2, TIME(), 'untitled row', TRUE, false, b'AED0393F')",
 			expectedOutput: []SQLStmt{
 				&InsertIntoStmt{
 					table: "table1",
-					cols:  []string{"id", "title", "active", "compressed", "payload"},
+					cols:  []string{"id", "time", "title", "active", "compressed", "payload"},
 					rows: []*Row{
-						{values: []Value{uint64(2), "untitled row", true, false, decodedBLOB}},
+						{values: []Value{uint64(2), &SysFn{fn: "TIME"}, "untitled row", true, false, decodedBLOB}},
 					},
 				},
 			},
@@ -484,21 +484,32 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT DISTINCT id, name FROM table1 WHERE country = 'US'",
+			input: "SELECT DISTINCT id, time, name FROM table1 WHERE country = 'US' AND time <= TIME()",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: true,
 					selectors: []Selector{
 						&ColSelector{col: "id"},
+						&ColSelector{col: "time"},
 						&ColSelector{col: "name"},
 					},
 					ds: &TableRef{table: "table1"},
-					where: &CmpBoolExp{
-						op: EQ,
-						left: &ColSelector{
-							col: "country",
+					where: &BinBoolExp{
+						op: AND,
+						left: &CmpBoolExp{
+							op: EQ,
+							left: &ColSelector{
+								col: "country",
+							},
+							right: "US",
 						},
-						right: "US",
+						right: &CmpBoolExp{
+							op: LE,
+							left: &ColSelector{
+								col: "time",
+							},
+							right: &SysFn{fn: "TIME"},
+						},
 					},
 				}},
 			expectedError: nil,

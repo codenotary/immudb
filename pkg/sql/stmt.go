@@ -107,6 +107,10 @@ type Row struct {
 type Value interface {
 }
 
+type SysFn struct {
+	fn string
+}
+
 type SelectStmt struct {
 	distinct  bool
 	selectors []Selector
