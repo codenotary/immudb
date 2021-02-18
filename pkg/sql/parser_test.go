@@ -86,6 +86,50 @@ func TestUseDatabaseStmt(t *testing.T) {
 	}
 }
 
+func TestUseSnapshotStmt(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input: "USE SNAPSHOT SINCE '20210211 00:00:00.000'",
+			expectedOutput: []SQLStmt{
+				&UseSnapshotStmt{since: "20210211 00:00:00.000"},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "USE SNAPSHOT UP TO '20210214 00:00:00.000'",
+			expectedOutput: []SQLStmt{
+				&UseSnapshotStmt{upTo: "20210214 00:00:00.000"},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "USE SNAPSHOT SINCE '20210211 00:00:00.000' UP TO '20210214 00:00:00.000'",
+			expectedOutput: []SQLStmt{
+				&UseSnapshotStmt{since: "20210211 00:00:00.000", upTo: "20210214 00:00:00.000"},
+			},
+			expectedError: nil,
+		},
+		{
+			input:          "USE SNAPSHOT SINCE UP TO '20210214 00:00:00.000'",
+			expectedOutput: nil,
+			expectedError:  errors.New("syntax error: unexpected UP, expecting STRING"),
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}
+
 func TestCreateTableStmt(t *testing.T) {
 	testCases := []struct {
 		input          string

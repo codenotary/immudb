@@ -56,7 +56,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     cmpOp CmpOperator
 }
 
-%token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN
+%token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN
 %token BEGIN END
 %token INSERT INTO VALUES
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
@@ -165,6 +165,21 @@ ddlstmt:
     USE DATABASE IDENTIFIER
     {
         $$ = &UseDatabaseStmt{db: $3}
+    }
+|
+    USE SNAPSHOT SINCE STRING
+    {
+        $$ = &UseSnapshotStmt{since: $4}
+    }
+|
+    USE SNAPSHOT UP TO STRING
+    {
+        $$ = &UseSnapshotStmt{upTo: $5}
+    }
+|
+    USE SNAPSHOT SINCE STRING UP TO STRING
+    {
+        $$ = &UseSnapshotStmt{since: $4, upTo: $7}
     }
 |
     CREATE TABLE IDENTIFIER colsSpec
