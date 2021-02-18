@@ -77,6 +77,10 @@ type UseDatabaseStmt struct {
 	db string
 }
 
+type UseSnapshotStmt struct {
+	since, upTo string
+}
+
 type CreateTableStmt struct {
 	table    string
 	colsSpec []*ColSpec
