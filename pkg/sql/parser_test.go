@@ -227,13 +227,13 @@ func TestInsertIntoStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "INSERT INTO table1(id, time, title, active, compressed, payload) VALUES (2, TIME(), 'untitled row', TRUE, false, b'AED0393F')",
+			input: "INSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, TIME(), 'untitled row', TRUE, false, b'AED0393F', @param1)",
 			expectedOutput: []SQLStmt{
 				&InsertIntoStmt{
 					table: "table1",
-					cols:  []string{"id", "time", "title", "active", "compressed", "payload"},
+					cols:  []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*Row{
-						{values: []Value{uint64(2), &SysFn{fn: "TIME"}, "untitled row", true, false, decodedBLOB}},
+						{values: []Value{uint64(2), &SysFn{fn: "TIME"}, "untitled row", true, false, decodedBLOB, &Param{id: "param1"}}},
 					},
 				},
 			},
@@ -484,7 +484,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT DISTINCT id, time, name FROM table1 WHERE country = 'US' AND time <= TIME()",
+			input: "SELECT DISTINCT id, time, name FROM table1 WHERE country = 'US' AND time <= TIME() AND name = @pname",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: true,
@@ -496,19 +496,29 @@ func TestSelectStmt(t *testing.T) {
 					ds: &TableRef{table: "table1"},
 					where: &BinBoolExp{
 						op: AND,
-						left: &CmpBoolExp{
-							op: EQ,
-							left: &ColSelector{
-								col: "country",
+						left: &BinBoolExp{
+							op: AND,
+							left: &CmpBoolExp{
+								op: EQ,
+								left: &ColSelector{
+									col: "country",
+								},
+								right: "US",
 							},
-							right: "US",
+							right: &CmpBoolExp{
+								op: LE,
+								left: &ColSelector{
+									col: "time",
+								},
+								right: &SysFn{fn: "TIME"},
+							},
 						},
 						right: &CmpBoolExp{
-							op: LE,
+							op: EQ,
 							left: &ColSelector{
-								col: "time",
+								col: "name",
 							},
-							right: &SysFn{fn: "TIME"},
+							right: &Param{id: "pname"},
 						},
 					},
 				}},
