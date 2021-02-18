@@ -307,6 +307,15 @@ func TestStmtSeparator(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "CREATE DATABASE db1; /* some comment here */ USE DATABASE db1; CREATE /* another comment here */ TABLE table1",
+			expectedOutput: []SQLStmt{
+				&CreateDatabaseStmt{db: "db1"},
+				&UseDatabaseStmt{db: "db1"},
+				&CreateTableStmt{table: "table1"},
+			},
+			expectedError: nil,
+		},
+		{
 			input: "CREATE DATABASE db1; USE DATABASE db1 \r\n CREATE TABLE table1",
 			expectedOutput: []SQLStmt{
 				&CreateDatabaseStmt{db: "db1"},
