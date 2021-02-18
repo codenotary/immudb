@@ -132,10 +132,6 @@ func ParseString(sql string) ([]SQLStmt, error) {
 	return Parse(strings.NewReader(sql))
 }
 
-func ParseBytes(sql []byte) ([]SQLStmt, error) {
-	return Parse(bytes.NewReader(sql))
-}
-
 func Parse(r io.ByteReader) ([]SQLStmt, error) {
 	lexer := newLexer(r)
 	yyErrorVerbose = true

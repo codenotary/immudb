@@ -580,6 +580,37 @@ func TestSelectStmt(t *testing.T) {
 				}},
 			expectedError: nil,
 		},
+		{
+			input: "SELECT id, name, time FROM table1 WHERE time >= '20210101 00:00:00.000' AND time < '20210211 00:00:00.000'",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "name"},
+						&ColSelector{col: "time"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &BinBoolExp{
+						op: AND,
+						left: &CmpBoolExp{
+							op: GE,
+							left: &ColSelector{
+								col: "time",
+							},
+							right: "20210101 00:00:00.000",
+						},
+						right: &CmpBoolExp{
+							op: LT,
+							left: &ColSelector{
+								col: "time",
+							},
+							right: "20210211 00:00:00.000",
+						},
+					},
+				}},
+			expectedError: nil,
+		},
 	}
 
 	for i, tc := range testCases {
