@@ -59,6 +59,7 @@ var reservedWords = map[string]int{
 	"DESC":     DESC,
 	"NOT":      NOT,
 	"LIKE":     LIKE,
+	"EXISTS":   EXISTS,
 }
 
 var joinTypes = map[string]JoinType{
