@@ -30,7 +30,7 @@ Don't forget to ⭐ this repo if you like immudb!
 
 ### **Free Trusted Timestamp**: Tamperproof provenance for your code and CI/CD pipeline [#timestamp](https://timestamp.codenotary.com/)
 
-### **Reviewing submissions**: immudb Coding Challenge - Winter 2020 Edition [#immuchallenge](https://github.com/codenotary/immuchallenge)
+### **Winners announcement**: immudb Coding Challenge - Winter 2020 Edition [#immuchallenge](https://github.com/codenotary/immuchallenge)
 
 ---
 
