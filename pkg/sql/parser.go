@@ -46,7 +46,6 @@ var reservedWords = map[string]int{
 	"SELECT":   SELECT,
 	"DISTINCT": DISTINCT,
 	"FROM":     FROM,
-	"INNER":    INNER,
 	"JOIN":     JOIN,
 	"HAVING":   HAVING,
 	"WHERE":    WHERE,
@@ -60,6 +59,12 @@ var reservedWords = map[string]int{
 	"DESC":     DESC,
 	"NOT":      NOT,
 	"LIKE":     LIKE,
+}
+
+var joinTypes = map[string]JoinType{
+	"INNER": InnerJoin,
+	"LEFT":  LeftJoin,
+	"RIGHT": RightJoin,
 }
 
 var types = map[string]SQLValueType{
@@ -233,6 +238,12 @@ func (l *lexer) Lex(lval *yySymType) int {
 		if ok {
 			lval.aggFn = afn
 			return AGGREGATE_FUNC
+		}
+
+		join, ok := joinTypes[tid]
+		if ok {
+			lval.joinType = join
+			return JOINTYPE
 		}
 
 		tkn, ok := reservedWords[tid]
