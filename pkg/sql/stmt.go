@@ -54,6 +54,14 @@ const (
 	OR
 )
 
+type JoinType = int
+
+const (
+	InnerJoin JoinType = iota
+	LeftJoin
+	RightJoin
+)
+
 type SQLStmt interface {
 }
 
@@ -119,7 +127,7 @@ type SelectStmt struct {
 	distinct  bool
 	selectors []Selector
 	ds        DataSource
-	join      *InnerJoinSpec
+	join      *JoinSpec
 	where     BoolExp
 	groupBy   []*ColSelector
 	having    BoolExp
@@ -138,9 +146,10 @@ type TableRef struct {
 	as    string
 }
 
-type InnerJoinSpec struct {
-	ds   DataSource
-	cond BoolExp
+type JoinSpec struct {
+	joinType JoinType
+	ds       DataSource
+	cond     BoolExp
 }
 
 type GroupBySpec struct {
