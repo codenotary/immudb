@@ -46,7 +46,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     distinct bool
     ds DataSource
     tableRef *TableRef
-    join *InnerJoinSpec
+    join *JoinSpec
+    joinType JoinType
     boolExp BoolExp
     err error
     ordcols []*OrdCol
@@ -58,8 +59,9 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token CREATE USE DATABASE TABLE INDEX ON ALTER ADD COLUMN
 %token BEGIN END
 %token INSERT INTO VALUES
-%token SELECT DISTINCT FROM INNER JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
+%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
 %token NOT LIKE
+%token <joinType> JOINTYPE
 %token <logicOp> LOP
 %token <cmpOp> CMPOP
 %token <id> IDENTIFIER
@@ -271,7 +273,7 @@ val:
     {
         $$ = &Param{id: $2}
     }
-    
+
 colsSpec:
     {
         $$ = nil
@@ -409,9 +411,9 @@ opt_join:
         $$ = nil
     }
 |
-    INNER JOIN ds ON boolExp
+    JOINTYPE JOIN ds ON boolExp
     {
-        $$ = &InnerJoinSpec{ds: $3, cond: $5}
+        $$ = &JoinSpec{joinType: $1, ds: $3, cond: $5}
     }
 
 opt_where:
