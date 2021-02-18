@@ -875,6 +875,36 @@ func TestExpressions(t *testing.T) {
 				}},
 			expectedError: nil,
 		},
+		{
+			input: "SELECT id FROM clients WHERE EXISTS (SELECT id FROM orders WHERE clients.id = orders.id_client)",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &TableRef{table: "clients"},
+					where: &ExistsBoolExp{
+						q: &SelectStmt{
+							selectors: []Selector{
+								&ColSelector{col: "id"},
+							},
+							ds: &TableRef{table: "orders"},
+							where: &CmpBoolExp{
+								op: EQ,
+								left: &ColSelector{
+									table: "clients",
+									col:   "id",
+								},
+								right: &ColSelector{
+									table: "orders",
+									col:   "id_client",
+								},
+							},
+						},
+					},
+				}},
+			expectedError: nil,
+		},
 	}
 
 	for i, tc := range testCases {
