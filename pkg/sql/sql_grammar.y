@@ -60,7 +60,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token BEGIN END
 %token INSERT INTO VALUES
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
-%token NOT LIKE
+%token NOT LIKE EXISTS
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
 %token <cmpOp> CMPOP
@@ -546,4 +546,9 @@ boolExp:
     boolExp CMPOP boolExp
     {
         $$ = &CmpBoolExp{op: $2, left: $1, right: $3}
+    }
+|
+    EXISTS '(' dqlstmt ')'
+    {
+        $$ = &ExistsBoolExp{q: ($3).(*SelectStmt)}
     }

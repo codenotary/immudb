@@ -205,3 +205,7 @@ type BinBoolExp struct {
 	op          LogicOperator
 	left, right BoolExp
 }
+
+type ExistsBoolExp struct {
+	q *SelectStmt
+}
