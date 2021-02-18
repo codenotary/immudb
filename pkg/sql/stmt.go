@@ -111,6 +111,10 @@ type SysFn struct {
 	fn string
 }
 
+type Param struct {
+	id string
+}
+
 type SelectStmt struct {
 	distinct  bool
 	selectors []Selector

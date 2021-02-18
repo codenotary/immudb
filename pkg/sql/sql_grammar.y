@@ -266,7 +266,12 @@ val:
     {
         $$ = &SysFn{fn: $1}
     }
-
+|
+    '@' IDENTIFIER
+    {
+        $$ = &Param{id: $2}
+    }
+    
 colsSpec:
     {
         $$ = nil
