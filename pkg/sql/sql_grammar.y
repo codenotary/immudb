@@ -261,6 +261,11 @@ val:
     {
         $$ = $1
     }
+|
+    IDENTIFIER '(' ')'
+    {
+        $$ = &SysFn{fn: $1}
+    }
 
 colsSpec:
     {
