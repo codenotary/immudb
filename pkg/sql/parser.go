@@ -168,6 +168,28 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return ERROR
 		}
 
+		if '/' == ch && '*' == l.r.nextChar {
+			l.r.ReadByte()
+
+			for {
+				ch, err := l.r.ReadByte()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					lval.err = err
+					return ERROR
+				}
+
+				if '*' == ch && '/' == l.r.nextChar {
+					l.r.ReadByte() // consume closing slash
+					break
+				}
+			}
+
+			continue
+		}
+
 		if !isSpace(ch) {
 			break
 		}
