@@ -111,10 +111,10 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     
 %%
 
-sql: sqlstmts
+sql: opt_separator sqlstmts
 {
-    $$ = $1
-    setResult(yylex, $1)
+    $$ = $2
+    setResult(yylex, $2)
 }
 
 sqlstmts:
@@ -128,12 +128,12 @@ sqlstmts:
         $$ = []SQLStmt{$1}
     }
 |
-    sqlstmt STMT_SEPARATOR sqlstmts
+    sqlstmt STMT_SEPARATOR opt_separator sqlstmts
     {
-        $$ = append([]SQLStmt{$1}, $3...)
+        $$ = append([]SQLStmt{$1}, $4...)
     }
 
-opt_separator: {} | STMT_SEPARATOR
+opt_separator: {} | STMT_SEPARATOR opt_separator
 
 sqlstmt:
     dstmt
