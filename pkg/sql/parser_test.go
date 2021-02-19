@@ -72,7 +72,7 @@ func TestUseDatabaseStmt(t *testing.T) {
 		{
 			input:          "USE db1",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE"),
+			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or SNAPSHOT"),
 		},
 	}
 
@@ -392,7 +392,7 @@ func TestTxStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1'); INSERT INTO table2 (id) VALUES (10) END;",
+			input: "BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); INSERT INTO table2 (id) VALUES (10) COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -416,7 +416,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1; BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1'); END;",
+			input: "CREATE TABLE table1; BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
@@ -436,7 +436,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "BEGIN; CREATE TABLE table1; INSERT INTO table1 (id, label) VALUES (100, 'label1') END;",
+			input: "BEGIN TRANSACTION; CREATE TABLE table1; INSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -456,14 +456,14 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input:          "BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1');",
+			input:          "BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1');",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected $end, expecting END"),
+			expectedError:  errors.New("syntax error: unexpected $end, expecting COMMIT"),
 		},
 		{
-			input:          "BEGIN; INSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN; CREATE TABLE table1; END; END",
+			input:          "BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION; CREATE TABLE table1; COMMIT; COMMIT",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting END"),
+			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting COMMIT"),
 		},
 	}
 
@@ -497,7 +497,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT id, title FROM db1.table1 as t1",
+			input: "SELECT id, title FROM db1.table1 AS t1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -511,7 +511,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT t1.id, title FROM (db1.table1 as t1)",
+			input: "SELECT t1.id, title FROM (db1.table1 AS t1)",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -524,7 +524,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT db1.table1.id, title FROM (db1.table1 as t1)",
+			input: "SELECT db1.table1.id, title FROM (db1.table1 AS t1)",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
