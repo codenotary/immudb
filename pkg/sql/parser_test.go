@@ -969,3 +969,100 @@ func TestExpressions(t *testing.T) {
 		}
 	}
 }
+
+func TestMultiLineStmts(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedOutput []SQLStmt
+		expectedError  error
+	}{
+		{
+			input: `
+
+			/*
+				SAMPLE MULTILINE COMMENT
+				IMMUDB SQL SCRIPT
+			*/
+
+			CREATE DATABASE db1
+
+			CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB)
+
+			BEGIN TRANSACTION
+				INSERT INTO table1 (id, label) VALUES (100, 'label1')
+				INSERT INTO table2 (id) VALUES (10)
+			COMMIT
+
+			SELECT id, name, time FROM table1 WHERE time >= '20210101 00:00:00.000' AND time < '20210211 00:00:00.000'
+
+			`,
+			expectedOutput: []SQLStmt{
+				&CreateDatabaseStmt{db: "db1"},
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: IntegerType},
+						{colName: "name", colType: StringType},
+						{colName: "ts", colType: TimestampType},
+						{colName: "active", colType: BooleanType},
+						{colName: "content", colType: BLOBType},
+					},
+				},
+				&TxStmt{
+					stmts: []SQLStmt{
+						&InsertIntoStmt{
+							table: "table1",
+							cols:  []string{"id", "label"},
+							rows: []*Row{
+								{values: []Value{uint64(100), "label1"}},
+							},
+						},
+						&InsertIntoStmt{
+							table: "table2",
+							cols:  []string{"id"},
+							rows: []*Row{
+								{values: []Value{uint64(10)}},
+							},
+						},
+					},
+				},
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+						&ColSelector{col: "name"},
+						&ColSelector{col: "time"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &BinBoolExp{
+						op: AND,
+						left: &CmpBoolExp{
+							op: GE,
+							left: &ColSelector{
+								col: "time",
+							},
+							right: "20210101 00:00:00.000",
+						},
+						right: &CmpBoolExp{
+							op: LT,
+							left: &ColSelector{
+								col: "time",
+							},
+							right: "20210211 00:00:00.000",
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+	}
+
+	for i, tc := range testCases {
+		res, err := ParseString(tc.input)
+		require.Equal(t, tc.expectedError, err, fmt.Sprintf("failed on iteration %d", i))
+
+		if tc.expectedError == nil {
+			require.Equal(t, tc.expectedOutput, res, fmt.Sprintf("failed on iteration %d", i))
+		}
+	}
+}

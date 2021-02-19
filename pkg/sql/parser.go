@@ -392,7 +392,7 @@ func isSeparator(ch byte) bool {
 }
 
 func isSpace(ch byte) bool {
-	return ' ' == ch
+	return 32 == ch || 9 == ch //SPACE or TAB
 }
 
 func isNumber(ch byte) bool {
