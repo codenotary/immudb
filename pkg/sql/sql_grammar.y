@@ -57,7 +57,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 }
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN
-%token BEGIN END
+%token BEGIN TRANSACTION COMMIT
 %token INSERT INTO VALUES
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
 %token NOT LIKE EXISTS
@@ -138,9 +138,9 @@ opt_separator: {} | STMT_SEPARATOR
 sqlstmt:
     dstmt
 |
-    BEGIN opt_separator dstmts END
+    BEGIN TRANSACTION opt_separator dstmts COMMIT
     {
-        $$ = &TxStmt{stmts: $3}
+        $$ = &TxStmt{stmts: $4}
     }
 
 dstmt: ddlstmt | dmlstmt
