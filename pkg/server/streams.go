@@ -26,7 +26,7 @@ import (
 	"io"
 )
 
-func (s *ImmuServer) GetStream(kr *schema.KeyRequest, str schema.ImmuService_GetStreamServer) error {
+func (s *ImmuServer) StreamReceiver(kr *schema.KeyRequest, str schema.ImmuService_StreamReceiverServer) error {
 	ind, err := s.getDbIndexFromCtx(str.Context(), "VerifiableGet")
 	if err != nil {
 		return err
@@ -51,8 +51,8 @@ func (s *ImmuServer) GetStream(kr *schema.KeyRequest, str schema.ImmuService_Get
 	return kvsr.Send(kv)
 }
 
-func (s *ImmuServer) SetStream(str schema.ImmuService_SetStreamServer) (err error) {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "SetStream")
+func (s *ImmuServer) StreamSender(str schema.ImmuService_StreamSenderServer) (err error) {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamSender")
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (s *ImmuServer) SetStream(str schema.ImmuService_SetStreamServer) (err erro
 
 	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
 	if err != nil {
-		return status.Errorf(codes.Unknown, "SetStream receives following error: %s", err.Error())
+		return status.Errorf(codes.Unknown, "StreamSender receives following error: %s", err.Error())
 	}
 	err = str.SendAndClose(txMeta)
 	if err != nil {
