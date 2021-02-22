@@ -131,11 +131,8 @@ type ImmuClient interface {
 
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
 
-	SetStream(ctx context.Context) (schema.ImmuService_SetStreamClient, error)
-	GetStream(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_GetStreamClient, error)
-
-	SetStr(ctx context.Context, kv *stream.KeyValue) (*schema.TxMetadata, error)
-	GetStr(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
+	SetStream(ctx context.Context, kv *stream.KeyValue) (*schema.TxMetadata, error)
+	GetStream(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
 
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)

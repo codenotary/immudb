@@ -493,7 +493,7 @@ service ImmuService {
 	};
 
 	rpc TxScan(TxScanRequest) returns (TxList) {}
-	
+
 	rpc History(HistoryRequest) returns (Entries){
 		option (google.api.http) = {
 			post: "/v1/immurestproxy/db/history"
@@ -595,6 +595,6 @@ service ImmuService {
 	};
 
 	// Streams
-	rpc GetStream(KeyRequest) returns (stream Chunk) {};
-	rpc SetStream(stream Chunk) returns (TxMetadata) {};
+	rpc StreamReceiver(KeyRequest) returns (stream Chunk) {};
+	rpc StreamSender(stream Chunk) returns (TxMetadata) {};
 }

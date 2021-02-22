@@ -24,25 +24,25 @@ import (
 	"io"
 )
 
-func (c *immuClient) SetStream(ctx context.Context) (schema.ImmuService_SetStreamClient, error) {
+func (c *immuClient) StreamSender(ctx context.Context) (schema.ImmuService_StreamSenderClient, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
-	return c.ServiceClient.SetStream(ctx)
+	return c.ServiceClient.StreamSender(ctx)
 }
 
-func (c *immuClient) GetStream(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_GetStreamClient, error) {
+func (c *immuClient) StreamReceiver(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_StreamReceiverClient, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
-	return c.ServiceClient.GetStream(ctx, in)
+	return c.ServiceClient.StreamReceiver(ctx, in)
 }
 
-func (c *immuClient) SetStr(ctx context.Context, kv *stream.KeyValue) (*schema.TxMetadata, error) {
+func (c *immuClient) SetStream(ctx context.Context, kv *stream.KeyValue) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
-	s, err := c.SetStream(ctx)
+	s, err := c.StreamSender(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -56,8 +56,8 @@ func (c *immuClient) SetStr(ctx context.Context, kv *stream.KeyValue) (*schema.T
 	return s.CloseAndRecv()
 }
 
-func (c *immuClient) GetStr(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
-	gs, err := c.GetStream(ctx, k)
+func (c *immuClient) GetStream(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
+	gs, err := c.StreamReceiver(ctx, k)
 
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
 

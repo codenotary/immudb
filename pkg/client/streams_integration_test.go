@@ -33,7 +33,8 @@ import (
 
 func TestImmuServer_Stream(t *testing.T) {
 
-	cli, err := NewImmuClient(DefaultOptions())
+	cliIf, err := NewImmuClient(DefaultOptions())
+	cli := cliIf.(*immuClient)
 	require.NoError(t, err)
 	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
@@ -68,7 +69,7 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	txMeta, err := cli.SetStr(ctx, kv)
+	txMeta, err := cli.SetStream(ctx, kv)
 	require.NoError(t, err)
 	require.NotNil(t, txMeta)
 
@@ -94,7 +95,7 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	txMeta, err = cli.SetStr(ctx, kv2)
+	txMeta, err = cli.SetStream(ctx, kv2)
 	require.NoError(t, err)
 	require.NotNil(t, txMeta)
 
@@ -120,14 +121,14 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	txMeta, err = cli.SetStr(ctx, kv3)
+	txMeta, err = cli.SetStream(ctx, kv3)
 	require.NoError(t, err)
 	require.NotNil(t, txMeta)
 
 	fn := &schema.KeyRequest{
 		Key: []byte(filename),
 	}
-	gs, err := cli.GetStream(ctx, fn)
+	gs, err := cli.StreamReceiver(ctx, fn)
 	require.NoError(t, err)
 
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
@@ -173,8 +174,9 @@ func TestImmuServer_Stream(t *testing.T) {
 
 func TestImmuServer_SetGetStream(t *testing.T) {
 
-	cli, err := NewImmuClient(DefaultOptions())
+	cliIf, err := NewImmuClient(DefaultOptions())
 	require.NoError(t, err)
+	cli := cliIf.(*immuClient)
 	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -186,7 +188,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	s, err := cli.SetStream(ctx)
+	s, err := cli.StreamSender(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -214,7 +216,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	require.NoError(t, err)
 	require.IsType(t, &schema.TxMetadata{}, txMeta)
 
-	s2, err := cli.SetStream(ctx)
+	s2, err := cli.StreamSender(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -238,7 +240,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	err = kvs2.Send(kv2)
 	require.NoError(t, err)
 
-	s3, err := cli.SetStream(ctx)
+	s3, err := cli.StreamSender(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -271,7 +273,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 		Key: key,
 	}
 
-	entry, err := cli.GetStr(ctx, kr)
+	entry, err := cli.GetStream(ctx, kr)
 
 	require.NoError(t, err)
 	require.Equal(t, val, entry.Value)
@@ -281,7 +283,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 		Key: key2,
 	}
 
-	entry, err = cli.GetStr(ctx, kr2)
+	entry, err = cli.GetStream(ctx, kr2)
 
 	require.NoError(t, err)
 	require.Equal(t, val2, entry.Value)
@@ -291,7 +293,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 		Key: key3,
 	}
 
-	entry, err = cli.GetStr(ctx, kr3)
+	entry, err = cli.GetStream(ctx, kr3)
 
 	require.NoError(t, err)
 	require.Equal(t, val3, entry.Value)
@@ -332,8 +334,9 @@ func TestReader(t *testing.T) {
 
 func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 
-	cli, err := NewImmuClient(DefaultOptions())
+	cliIf, err := NewImmuClient(DefaultOptions())
 	require.NoError(t, err)
+	cli := cliIf.(*immuClient)
 	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
 	require.NoError(t, err)
 	md := metadata.Pairs("authorization", lr.Token)
@@ -368,7 +371,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 		},
 	}
 
-	s, err := cli.SetStream(ctx)
+	s, err := cli.StreamSender(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -402,7 +405,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 		Key: []byte(filename),
 	}
 
-	gs, err := cli.GetStream(ctx, kr)
+	gs, err := cli.StreamReceiver(ctx, kr)
 	require.NoError(t, err)
 
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
