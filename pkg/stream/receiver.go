@@ -79,36 +79,3 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 
 	}
 }
-
-/*func (r *msgReceiver) Read(message []byte) (n int, err error) {
-	var lmsg []byte
-	for {
-		chunk, err := r.stream.Recv()
-		if err != nil {
-			return 0, err
-		}
-		r.b.Write(chunk.Content)
-
-		// if l is zero need to read the trailer to get the message length
-		if r.l == 0 {
-			trailer := make([]byte, 8)
-			_, err = r.b.Read(trailer)
-			if err != nil {
-				return 0, err
-			}
-			r.l = binary.BigEndian.Uint64(trailer)
-			lmsg = make([]byte, r.l)
-		}
-		// if message is contained in the first chunk is returned
-		if r.b.Len() >= int(r.l) {
-			r.l = 0
-			read, err := r.b.Read(lmsg)
-			if err != nil {
-				return 0, err
-			}
-			copy(message, lmsg)
-			return read, io.EOF
-		}
-		return r.b.Read(message)
-	}
-}*/
