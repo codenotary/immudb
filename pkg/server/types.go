@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/pkg/stream"
 	"net"
 	"net/http"
 	"os"
@@ -67,6 +68,7 @@ type ImmuServer struct {
 	metricsServer *http.Server
 	mux           sync.Mutex
 	StateSigner   StateSigner
+	Ssf           stream.ServiceFactory
 }
 
 // DefaultServer ...
@@ -80,6 +82,7 @@ func DefaultServer() *ImmuServer {
 		databasenameToIndex: make(map[string]int64),
 		userdata:            &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
 		GrpcServer:          grpc.NewServer(),
+		Ssf:                 stream.NewStreamServiceFactory(),
 	}
 }
 
@@ -90,6 +93,7 @@ type ImmuServerIf interface {
 	WithOptions(options *Options) ImmuServerIf
 	WithLogger(logger.Logger) ImmuServerIf
 	WithStateSigner(stateSigner StateSigner) ImmuServerIf
+	WithStreamServiceFactory(ssf stream.ServiceFactory) ImmuServerIf
 }
 
 // WithLogger ...
@@ -98,9 +102,14 @@ func (s *ImmuServer) WithLogger(logger logger.Logger) ImmuServerIf {
 	return s
 }
 
-// WithRootSigner ...
+// WithStateSigner ...
 func (s *ImmuServer) WithStateSigner(stateSigner StateSigner) ImmuServerIf {
 	s.StateSigner = stateSigner
+	return s
+}
+
+func (s *ImmuServer) WithStreamServiceFactory(ssf stream.ServiceFactory) ImmuServerIf {
+	s.Ssf = ssf
 	return s
 }
 

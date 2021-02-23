@@ -41,7 +41,7 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 		Key: []byte(h.sf),
 	}
 
-	gs, err := h.cli.StreamReceiver(h.ctx, kr)
+	gs, err := h.cli._StreamGet(h.ctx, kr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -91,7 +91,7 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) upload(w http.ResponseWriter, r *http.Request) {
 
-	s, err := h.cli.StreamSender(h.ctx)
+	s, err := h.cli._StreamSet(h.ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -39,11 +39,31 @@ type ServerMock struct {
 	PostExecAllFn func(context.Context, *schema.ExecAllRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
 }
 
-func (s *ServerMock) GetStream(request *schema.KeyRequest, streamServer schema.ImmuService_GetStreamServer) error {
+func (s *ServerMock) StreamGet(request *schema.KeyRequest, getServer schema.ImmuService_StreamGetServer) error {
+	return s.srv.StreamGet(request, getServer)
+}
+
+func (s *ServerMock) StreamSet(setServer schema.ImmuService_StreamSetServer) error {
+	return s.srv.StreamSet(setServer)
+}
+
+func (s *ServerMock) StreamVerifiableGet(request *schema.VerifiableGetRequest, getServer schema.ImmuService_StreamVerifiableGetServer) error {
 	panic("implement me")
 }
 
-func (s *ServerMock) SetStream(streamServer schema.ImmuService_SetStreamServer) error {
+func (s *ServerMock) StreamVerifiableSet(request *schema.VerifiableSetRequest, setServer schema.ImmuService_StreamVerifiableSetServer) error {
+	panic("implement me")
+}
+
+func (s *ServerMock) StreamScan(request *schema.ScanRequest, scanServer schema.ImmuService_StreamScanServer) error {
+	panic("implement me")
+}
+
+func (s *ServerMock) StreamZScan(request *schema.ZScanRequest, scanServer schema.ImmuService_StreamZScanServer) error {
+	panic("implement me")
+}
+
+func (s *ServerMock) StreamHistory(request *schema.HistoryRequest, historyServer schema.ImmuService_StreamHistoryServer) error {
 	panic("implement me")
 }
 

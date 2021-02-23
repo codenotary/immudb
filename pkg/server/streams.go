@@ -26,13 +26,13 @@ import (
 	"io"
 )
 
-func (s *ImmuServer) StreamReceiver(kr *schema.KeyRequest, str schema.ImmuService_StreamReceiverServer) error {
+func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_StreamGetServer) error {
 	ind, err := s.getDbIndexFromCtx(str.Context(), "VerifiableGet")
 	if err != nil {
 		return err
 	}
 
-	kvsr := stream.NewKvStreamSender(stream.NewMsgSender(str))
+	kvsr := s.Ssf.NewKvStreamSender(str)
 
 	entry, err := s.dbList.GetByIndex(ind).Get(kr)
 	if err != nil {
@@ -51,13 +51,13 @@ func (s *ImmuServer) StreamReceiver(kr *schema.KeyRequest, str schema.ImmuServic
 	return kvsr.Send(kv)
 }
 
-func (s *ImmuServer) StreamSender(str schema.ImmuService_StreamSenderServer) (err error) {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamSender")
+func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "_StreamSet")
 	if err != nil {
 		return err
 	}
 
-	kvsr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(str))
+	kvsr := s.Ssf.NewKvStreamReceiver(str)
 
 	key, err := kvsr.NextKey()
 	if err != nil {
@@ -88,7 +88,7 @@ func (s *ImmuServer) StreamSender(str schema.ImmuService_StreamSenderServer) (er
 
 	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
 	if err != nil {
-		return status.Errorf(codes.Unknown, "StreamSender receives following error: %s", err.Error())
+		return status.Errorf(codes.Unknown, "_StreamSet receives following error: %s", err.Error())
 	}
 	err = str.SendAndClose(txMeta)
 	if err != nil {
@@ -96,4 +96,24 @@ func (s *ImmuServer) StreamSender(str schema.ImmuService_StreamSenderServer) (er
 	}
 
 	return nil
+}
+
+func (s *ImmuServer) StreamVerifiableGet(request *schema.VerifiableGetRequest, server schema.ImmuService_StreamVerifiableGetServer) error {
+	panic("implement me")
+}
+
+func (s *ImmuServer) StreamVerifiableSet(request *schema.VerifiableSetRequest, server schema.ImmuService_StreamVerifiableSetServer) error {
+	panic("implement me")
+}
+
+func (s *ImmuServer) StreamScan(request *schema.ScanRequest, server schema.ImmuService_StreamScanServer) error {
+	panic("implement me")
+}
+
+func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.ImmuService_StreamZScanServer) error {
+	panic("implement me")
+}
+
+func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema.ImmuService_StreamHistoryServer) error {
+	panic("implement me")
 }

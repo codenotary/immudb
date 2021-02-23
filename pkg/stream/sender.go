@@ -30,15 +30,15 @@ type MsgSender interface {
 }
 
 type msgSender struct {
-	s ImmuServiceSender_Stream
-	b *bytes.Buffer
+	stream ImmuServiceSender_Stream
+	b      *bytes.Buffer
 }
 
 func NewMsgSender(s ImmuServiceSender_Stream) *msgSender {
 	buffer := bytes.NewBuffer([]byte{})
 	return &msgSender{
-		s: s,
-		b: buffer,
+		stream: s,
+		b:      buffer,
 	}
 }
 
@@ -93,7 +93,7 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 		}
 		// sending ...
 		if len(chunk) > 0 {
-			err = st.s.Send(&schema.Chunk{
+			err = st.stream.Send(&schema.Chunk{
 				Content: chunk,
 			})
 			if err != nil {
@@ -109,5 +109,5 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 }
 
 func (st *msgSender) RecvMsg(m interface{}) error {
-	return st.s.RecvMsg(m)
+	return st.stream.RecvMsg(m)
 }
