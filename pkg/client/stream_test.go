@@ -95,3 +95,164 @@ func TestImmuClient_SetGetStream(t *testing.T) {
 
 	require.Equal(t, oriSha, newSha[:])
 }
+
+func TestImmuClient_Set32MBStream(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	err = tmpFile.Truncate((1 << 15) - 1)
+	require.NoError(t, err)
+	defer tmpFile.Close()
+
+	fi, err := tmpFile.Stat()
+	require.NoError(t, err)
+
+	tmpFile.Seek(0, io.SeekStart)
+
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
+			Size:    len(tmpFile.Name()),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(tmpFile),
+			Size:    int(fi.Size()),
+		},
+	}
+
+	meta, err := client.StreamSet(ctx, kv)
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+
+	_, err = client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+
+	client.Disconnect()
+}
+
+func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	err = tmpFile.Truncate(1 << 15)
+	require.NoError(t, err)
+	defer tmpFile.Close()
+
+	fi, err := tmpFile.Stat()
+	require.NoError(t, err)
+
+	tmpFile.Seek(0, io.SeekStart)
+
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
+			Size:    len(tmpFile.Name()),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(tmpFile),
+			Size:    int(fi.Size()),
+		},
+	}
+
+	_, err = client.StreamSet(ctx, kv)
+	require.Equal(t, stream.ErrMaxValueLenExceeded, err)
+}
+
+func TestImmuClient_SetGetSmallMessage(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	err = tmpFile.Truncate(1)
+	require.NoError(t, err)
+	defer tmpFile.Close()
+
+	hOrig := sha256.New()
+	_, err = io.Copy(hOrig, tmpFile)
+	require.NoError(t, err)
+	oriSha := hOrig.Sum(nil)
+
+	fi, err := tmpFile.Stat()
+	require.NoError(t, err)
+
+	tmpFile.Seek(0, io.SeekStart)
+
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
+			Size:    len(tmpFile.Name()),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(tmpFile),
+			Size:    int(fi.Size()),
+		},
+	}
+
+	meta, err := client.StreamSet(ctx, kv)
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+
+	entry, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+
+	newSha := sha256.Sum256(entry.Value)
+
+	client.Disconnect()
+
+	require.Equal(t, oriSha, newSha[:])
+}
