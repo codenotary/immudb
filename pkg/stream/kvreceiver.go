@@ -39,7 +39,6 @@ func (kvr *kvStreamReceiver) NextKey() ([]byte, error) {
 		b := bytes.NewBuffer([]byte{})
 		chunk := make([]byte, ChunkSize)
 		keyl := 0
-		//kr := bufio.NewReader(kvr.s)
 		for {
 			l, err := kvr.s.Read(chunk)
 			if err != nil && err != io.EOF {

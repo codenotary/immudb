@@ -19,6 +19,7 @@ package servicetest
 import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/pkg/stream"
 )
 
 func NewDefaultImmuServerMock() *ImmuServerMock {
@@ -46,12 +47,13 @@ func NewDefaultImmuServerMock() *ImmuServerMock {
 
 type ImmuServerMock struct {
 	server.ImmuServerIf
-	InitializeF      func() error
-	StartF           func() error
-	StopF            func() error
-	WithOptionsF     func(options *server.Options) server.ImmuServerIf
-	WithLoggerF      func(logger.Logger) server.ImmuServerIf
-	WithStateSignerF func(stateSigner server.StateSigner) server.ImmuServerIf
+	InitializeF               func() error
+	StartF                    func() error
+	StopF                     func() error
+	WithOptionsF              func(options *server.Options) server.ImmuServerIf
+	WithLoggerF               func(logger.Logger) server.ImmuServerIf
+	WithStateSignerF          func(stateSigner server.StateSigner) server.ImmuServerIf
+	WithStreamServiceFactoryF func(ssf stream.ServiceFactory) server.ImmuServerIf
 }
 
 func (d *ImmuServerMock) Initialize() error {
@@ -71,4 +73,7 @@ func (d *ImmuServerMock) WithLogger(l logger.Logger) server.ImmuServerIf {
 }
 func (d *ImmuServerMock) WithStateSigner(stateSigner server.StateSigner) server.ImmuServerIf {
 	return d.WithStateSignerF(stateSigner)
+}
+func (d *ImmuServerMock) WithStreamServiceFactory(ssf stream.ServiceFactory) server.ImmuServerIf {
+	return d.WithStreamServiceFactoryF(ssf)
 }

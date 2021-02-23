@@ -22,7 +22,7 @@ import (
 
 type ImmuServiceSender_Stream interface {
 	Send(*schema.Chunk) error
-	RecvMsg(m interface{}) error
+	RecvMsg(m interface{}) error // used to retrieve server side errors
 }
 
 type ImmuServiceReceiver_Stream interface {
