@@ -19,12 +19,14 @@ package immudbcmdtest
 import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/pkg/server"
+	"github.com/codenotary/immudb/pkg/stream"
 )
 
 type ImmuServerMock struct {
 	Options     *server.Options
 	Logger      logger.Logger
 	StateSigner server.StateSigner
+	Ssf         stream.ServiceFactory
 }
 
 func (s ImmuServerMock) WithOptions(options *server.Options) server.ImmuServerIf {
@@ -38,6 +40,11 @@ func (s ImmuServerMock) WithLogger(logger logger.Logger) server.ImmuServerIf {
 
 func (s ImmuServerMock) WithStateSigner(stateSigner server.StateSigner) server.ImmuServerIf {
 	s.StateSigner = stateSigner
+	return s
+}
+
+func (s ImmuServerMock) WithStreamServiceFactory(ssf stream.ServiceFactory) server.ImmuServerIf {
+	s.Ssf = ssf
 	return s
 }
 

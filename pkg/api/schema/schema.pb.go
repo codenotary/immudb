@@ -3811,7 +3811,7 @@ var file_schema_proto_rawDesc = []byte{
 	0x6e, 0x74, 0x65, 0x6e, 0x74, 0x2a, 0x29, 0x0a, 0x10, 0x50, 0x65, 0x72, 0x6d, 0x69, 0x73, 0x73,
 	0x69, 0x6f, 0x6e, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x09, 0x0a, 0x05, 0x47, 0x52, 0x41,
 	0x4e, 0x54, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x52, 0x45, 0x56, 0x4f, 0x4b, 0x45, 0x10, 0x01,
-	0x32, 0xb7, 0x1d, 0x0a, 0x0b, 0x49, 0x6d, 0x6d, 0x75, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
+	0x32, 0xaf, 0x20, 0x0a, 0x0b, 0x49, 0x6d, 0x6d, 0x75, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
 	0x12, 0x61, 0x0a, 0x09, 0x4c, 0x69, 0x73, 0x74, 0x55, 0x73, 0x65, 0x72, 0x73, 0x12, 0x16, 0x2e,
 	0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e,
 	0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x17, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73,
@@ -4037,41 +4037,65 @@ var file_schema_proto_rawDesc = []byte{
 	0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x2f, 0x82,
 	0xd3, 0xe4, 0x93, 0x02, 0x29, 0x22, 0x24, 0x2f, 0x76, 0x31, 0x2f, 0x69, 0x6d, 0x6d, 0x75, 0x72,
 	0x65, 0x73, 0x74, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x2f, 0x75, 0x73, 0x65, 0x72, 0x2f, 0x73, 0x65,
-	0x74, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x55, 0x73, 0x65, 0x72, 0x3a, 0x01, 0x2a, 0x12, 0x45,
-	0x0a, 0x0e, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x72,
-	0x12, 0x19, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61,
-	0x2e, 0x4b, 0x65, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x69, 0x6d,
-	0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43, 0x68, 0x75, 0x6e,
-	0x6b, 0x22, 0x00, 0x30, 0x01, 0x12, 0x43, 0x0a, 0x0c, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x53,
-	0x65, 0x6e, 0x64, 0x65, 0x72, 0x12, 0x14, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73,
-	0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x1a, 0x19, 0x2e, 0x69, 0x6d,
-	0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x54, 0x78, 0x4d, 0x65,
-	0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x22, 0x00, 0x28, 0x01, 0x42, 0x8b, 0x03, 0x5a, 0x2b, 0x67,
-	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x6e, 0x6f,
-	0x74, 0x61, 0x72, 0x79, 0x2f, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2f, 0x70, 0x6b, 0x67, 0x2f,
-	0x61, 0x70, 0x69, 0x2f, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x92, 0x41, 0xda, 0x02, 0x12, 0xee,
-	0x01, 0x0a, 0x0f, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x20, 0x52, 0x45, 0x53, 0x54, 0x20, 0x41,
-	0x50, 0x49, 0x12, 0xda, 0x01, 0x3c, 0x62, 0x3e, 0x49, 0x4d, 0x50, 0x4f, 0x52, 0x54, 0x41, 0x4e,
-	0x54, 0x3c, 0x2f, 0x62, 0x3e, 0x3a, 0x20, 0x41, 0x6c, 0x6c, 0x20, 0x3c, 0x63, 0x6f, 0x64, 0x65,
-	0x3e, 0x67, 0x65, 0x74, 0x3c, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x20, 0x61, 0x6e, 0x64, 0x20,
-	0x3c, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x73, 0x61, 0x66, 0x65, 0x67, 0x65, 0x74, 0x3c, 0x2f, 0x63,
-	0x6f, 0x64, 0x65, 0x3e, 0x20, 0x66, 0x75, 0x6e, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x20, 0x72,
-	0x65, 0x74, 0x75, 0x72, 0x6e, 0x20, 0x3c, 0x75, 0x3e, 0x62, 0x61, 0x73, 0x65, 0x36, 0x34, 0x2d,
-	0x65, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x64, 0x3c, 0x2f, 0x75, 0x3e, 0x20, 0x6b, 0x65, 0x79, 0x73,
-	0x20, 0x61, 0x6e, 0x64, 0x20, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x2c, 0x20, 0x77, 0x68, 0x69,
-	0x6c, 0x65, 0x20, 0x61, 0x6c, 0x6c, 0x20, 0x3c, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x73, 0x65, 0x74,
-	0x3c, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x20, 0x61, 0x6e, 0x64, 0x20, 0x3c, 0x63, 0x6f, 0x64,
-	0x65, 0x3e, 0x73, 0x61, 0x66, 0x65, 0x73, 0x65, 0x74, 0x3c, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x3e,
-	0x20, 0x66, 0x75, 0x6e, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x20, 0x65, 0x78, 0x70, 0x65, 0x63,
-	0x74, 0x20, 0x3c, 0x75, 0x3e, 0x62, 0x61, 0x73, 0x65, 0x36, 0x34, 0x2d, 0x65, 0x6e, 0x63, 0x6f,
-	0x64, 0x65, 0x64, 0x3c, 0x2f, 0x75, 0x3e, 0x20, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x2e, 0x5a,
-	0x59, 0x0a, 0x57, 0x0a, 0x06, 0x62, 0x65, 0x61, 0x72, 0x65, 0x72, 0x12, 0x4d, 0x08, 0x02, 0x12,
-	0x38, 0x41, 0x75, 0x74, 0x68, 0x65, 0x6e, 0x74, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x20,
-	0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x2c, 0x20, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x65, 0x64, 0x20,
-	0x62, 0x79, 0x20, 0x42, 0x65, 0x61, 0x72, 0x65, 0x72, 0x3a, 0x20, 0x42, 0x65, 0x61, 0x72, 0x65,
-	0x72, 0x20, 0x3c, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x3e, 0x1a, 0x0d, 0x41, 0x75, 0x74, 0x68, 0x6f,
-	0x72, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x20, 0x02, 0x62, 0x0c, 0x0a, 0x0a, 0x0a, 0x06,
-	0x62, 0x65, 0x61, 0x72, 0x65, 0x72, 0x12, 0x00, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x74, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x55, 0x73, 0x65, 0x72, 0x3a, 0x01, 0x2a, 0x12, 0x40,
+	0x0a, 0x09, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x47, 0x65, 0x74, 0x12, 0x19, 0x2e, 0x69, 0x6d,
+	0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x4b, 0x65, 0x79, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e,
+	0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x22, 0x00, 0x30, 0x01,
+	0x12, 0x40, 0x0a, 0x09, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x53, 0x65, 0x74, 0x12, 0x14, 0x2e,
+	0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43, 0x68,
+	0x75, 0x6e, 0x6b, 0x1a, 0x19, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68,
+	0x65, 0x6d, 0x61, 0x2e, 0x54, 0x78, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x22, 0x00,
+	0x28, 0x01, 0x12, 0x54, 0x0a, 0x13, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x56, 0x65, 0x72, 0x69,
+	0x66, 0x69, 0x61, 0x62, 0x6c, 0x65, 0x47, 0x65, 0x74, 0x12, 0x23, 0x2e, 0x69, 0x6d, 0x6d, 0x75,
+	0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69,
+	0x61, 0x62, 0x6c, 0x65, 0x47, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14,
+	0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43,
+	0x68, 0x75, 0x6e, 0x6b, 0x22, 0x00, 0x30, 0x01, 0x12, 0x54, 0x0a, 0x13, 0x73, 0x74, 0x72, 0x65,
+	0x61, 0x6d, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x61, 0x62, 0x6c, 0x65, 0x53, 0x65, 0x74, 0x12,
+	0x23, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e,
+	0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x61, 0x62, 0x6c, 0x65, 0x53, 0x65, 0x74, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63,
+	0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x22, 0x00, 0x30, 0x01, 0x12, 0x42,
+	0x0a, 0x0a, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x53, 0x63, 0x61, 0x6e, 0x12, 0x1a, 0x2e, 0x69,
+	0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x53, 0x63, 0x61,
+	0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64,
+	0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x22, 0x00,
+	0x30, 0x01, 0x12, 0x44, 0x0a, 0x0b, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x5a, 0x53, 0x63, 0x61,
+	0x6e, 0x12, 0x1b, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d,
+	0x61, 0x2e, 0x5a, 0x53, 0x63, 0x61, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14,
+	0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43,
+	0x68, 0x75, 0x6e, 0x6b, 0x22, 0x00, 0x30, 0x01, 0x12, 0x48, 0x0a, 0x0d, 0x73, 0x74, 0x72, 0x65,
+	0x61, 0x6d, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x1d, 0x2e, 0x69, 0x6d, 0x6d, 0x75,
+	0x64, 0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72,
+	0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x69, 0x6d, 0x6d, 0x75, 0x64,
+	0x62, 0x2e, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x2e, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x22, 0x00,
+	0x30, 0x01, 0x42, 0x8b, 0x03, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x6e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x2f, 0x69, 0x6d, 0x6d,
+	0x75, 0x64, 0x62, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x73, 0x63, 0x68, 0x65,
+	0x6d, 0x61, 0x92, 0x41, 0xda, 0x02, 0x12, 0xee, 0x01, 0x0a, 0x0f, 0x69, 0x6d, 0x6d, 0x75, 0x64,
+	0x62, 0x20, 0x52, 0x45, 0x53, 0x54, 0x20, 0x41, 0x50, 0x49, 0x12, 0xda, 0x01, 0x3c, 0x62, 0x3e,
+	0x49, 0x4d, 0x50, 0x4f, 0x52, 0x54, 0x41, 0x4e, 0x54, 0x3c, 0x2f, 0x62, 0x3e, 0x3a, 0x20, 0x41,
+	0x6c, 0x6c, 0x20, 0x3c, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x67, 0x65, 0x74, 0x3c, 0x2f, 0x63, 0x6f,
+	0x64, 0x65, 0x3e, 0x20, 0x61, 0x6e, 0x64, 0x20, 0x3c, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x73, 0x61,
+	0x66, 0x65, 0x67, 0x65, 0x74, 0x3c, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x20, 0x66, 0x75, 0x6e,
+	0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x20, 0x72, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x20, 0x3c, 0x75,
+	0x3e, 0x62, 0x61, 0x73, 0x65, 0x36, 0x34, 0x2d, 0x65, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x64, 0x3c,
+	0x2f, 0x75, 0x3e, 0x20, 0x6b, 0x65, 0x79, 0x73, 0x20, 0x61, 0x6e, 0x64, 0x20, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x73, 0x2c, 0x20, 0x77, 0x68, 0x69, 0x6c, 0x65, 0x20, 0x61, 0x6c, 0x6c, 0x20, 0x3c,
+	0x63, 0x6f, 0x64, 0x65, 0x3e, 0x73, 0x65, 0x74, 0x3c, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x20,
+	0x61, 0x6e, 0x64, 0x20, 0x3c, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x73, 0x61, 0x66, 0x65, 0x73, 0x65,
+	0x74, 0x3c, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x3e, 0x20, 0x66, 0x75, 0x6e, 0x63, 0x74, 0x69, 0x6f,
+	0x6e, 0x73, 0x20, 0x65, 0x78, 0x70, 0x65, 0x63, 0x74, 0x20, 0x3c, 0x75, 0x3e, 0x62, 0x61, 0x73,
+	0x65, 0x36, 0x34, 0x2d, 0x65, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x64, 0x3c, 0x2f, 0x75, 0x3e, 0x20,
+	0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x2e, 0x5a, 0x59, 0x0a, 0x57, 0x0a, 0x06, 0x62, 0x65, 0x61,
+	0x72, 0x65, 0x72, 0x12, 0x4d, 0x08, 0x02, 0x12, 0x38, 0x41, 0x75, 0x74, 0x68, 0x65, 0x6e, 0x74,
+	0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x20, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x2c, 0x20, 0x70,
+	0x72, 0x65, 0x66, 0x69, 0x78, 0x65, 0x64, 0x20, 0x62, 0x79, 0x20, 0x42, 0x65, 0x61, 0x72, 0x65,
+	0x72, 0x3a, 0x20, 0x42, 0x65, 0x61, 0x72, 0x65, 0x72, 0x20, 0x3c, 0x74, 0x6f, 0x6b, 0x65, 0x6e,
+	0x3e, 0x1a, 0x0d, 0x41, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x20, 0x02, 0x62, 0x0c, 0x0a, 0x0a, 0x0a, 0x06, 0x62, 0x65, 0x61, 0x72, 0x65, 0x72, 0x12, 0x00,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -4213,45 +4237,55 @@ var file_schema_proto_depIdxs = []int32{
 	56, // 62: immudb.schema.ImmuService.CleanIndex:input_type -> google.protobuf.Empty
 	52, // 63: immudb.schema.ImmuService.ChangePermission:input_type -> immudb.schema.ChangePermissionRequest
 	53, // 64: immudb.schema.ImmuService.SetActiveUser:input_type -> immudb.schema.SetActiveUserRequest
-	33, // 65: immudb.schema.ImmuService.StreamReceiver:input_type -> immudb.schema.KeyRequest
-	55, // 66: immudb.schema.ImmuService.StreamSender:input_type -> immudb.schema.Chunk
-	4,  // 67: immudb.schema.ImmuService.ListUsers:output_type -> immudb.schema.UserList
-	56, // 68: immudb.schema.ImmuService.CreateUser:output_type -> google.protobuf.Empty
-	56, // 69: immudb.schema.ImmuService.ChangePassword:output_type -> google.protobuf.Empty
-	56, // 70: immudb.schema.ImmuService.UpdateAuthConfig:output_type -> google.protobuf.Empty
-	56, // 71: immudb.schema.ImmuService.UpdateMTLSConfig:output_type -> google.protobuf.Empty
-	9,  // 72: immudb.schema.ImmuService.Login:output_type -> immudb.schema.LoginResponse
-	56, // 73: immudb.schema.ImmuService.Logout:output_type -> google.protobuf.Empty
-	24, // 74: immudb.schema.ImmuService.Set:output_type -> immudb.schema.TxMetadata
-	29, // 75: immudb.schema.ImmuService.VerifiableSet:output_type -> immudb.schema.VerifiableTx
-	13, // 76: immudb.schema.ImmuService.Get:output_type -> immudb.schema.Entry
-	30, // 77: immudb.schema.ImmuService.VerifiableGet:output_type -> immudb.schema.VerifiableEntry
-	17, // 78: immudb.schema.ImmuService.GetAll:output_type -> immudb.schema.Entries
-	24, // 79: immudb.schema.ImmuService.ExecAll:output_type -> immudb.schema.TxMetadata
-	17, // 80: immudb.schema.ImmuService.Scan:output_type -> immudb.schema.Entries
-	22, // 81: immudb.schema.ImmuService.Count:output_type -> immudb.schema.EntryCount
-	22, // 82: immudb.schema.ImmuService.CountAll:output_type -> immudb.schema.EntryCount
-	27, // 83: immudb.schema.ImmuService.TxById:output_type -> immudb.schema.Tx
-	29, // 84: immudb.schema.ImmuService.VerifiableTxById:output_type -> immudb.schema.VerifiableTx
-	49, // 85: immudb.schema.ImmuService.TxScan:output_type -> immudb.schema.TxList
-	17, // 86: immudb.schema.ImmuService.History:output_type -> immudb.schema.Entries
-	37, // 87: immudb.schema.ImmuService.Health:output_type -> immudb.schema.HealthResponse
-	38, // 88: immudb.schema.ImmuService.CurrentState:output_type -> immudb.schema.ImmutableState
-	24, // 89: immudb.schema.ImmuService.SetReference:output_type -> immudb.schema.TxMetadata
-	29, // 90: immudb.schema.ImmuService.VerifiableSetReference:output_type -> immudb.schema.VerifiableTx
-	24, // 91: immudb.schema.ImmuService.ZAdd:output_type -> immudb.schema.TxMetadata
-	29, // 92: immudb.schema.ImmuService.VerifiableZAdd:output_type -> immudb.schema.VerifiableTx
-	19, // 93: immudb.schema.ImmuService.ZScan:output_type -> immudb.schema.ZEntries
-	56, // 94: immudb.schema.ImmuService.CreateDatabase:output_type -> google.protobuf.Empty
-	54, // 95: immudb.schema.ImmuService.DatabaseList:output_type -> immudb.schema.DatabaseListResponse
-	51, // 96: immudb.schema.ImmuService.UseDatabase:output_type -> immudb.schema.UseDatabaseReply
-	56, // 97: immudb.schema.ImmuService.CleanIndex:output_type -> google.protobuf.Empty
-	56, // 98: immudb.schema.ImmuService.ChangePermission:output_type -> google.protobuf.Empty
-	56, // 99: immudb.schema.ImmuService.SetActiveUser:output_type -> google.protobuf.Empty
-	55, // 100: immudb.schema.ImmuService.StreamReceiver:output_type -> immudb.schema.Chunk
-	24, // 101: immudb.schema.ImmuService.StreamSender:output_type -> immudb.schema.TxMetadata
-	67, // [67:102] is the sub-list for method output_type
-	32, // [32:67] is the sub-list for method input_type
+	33, // 65: immudb.schema.ImmuService.streamGet:input_type -> immudb.schema.KeyRequest
+	55, // 66: immudb.schema.ImmuService.streamSet:input_type -> immudb.schema.Chunk
+	36, // 67: immudb.schema.ImmuService.streamVerifiableGet:input_type -> immudb.schema.VerifiableGetRequest
+	35, // 68: immudb.schema.ImmuService.streamVerifiableSet:input_type -> immudb.schema.VerifiableSetRequest
+	20, // 69: immudb.schema.ImmuService.streamScan:input_type -> immudb.schema.ScanRequest
+	43, // 70: immudb.schema.ImmuService.streamZScan:input_type -> immudb.schema.ZScanRequest
+	44, // 71: immudb.schema.ImmuService.streamHistory:input_type -> immudb.schema.HistoryRequest
+	4,  // 72: immudb.schema.ImmuService.ListUsers:output_type -> immudb.schema.UserList
+	56, // 73: immudb.schema.ImmuService.CreateUser:output_type -> google.protobuf.Empty
+	56, // 74: immudb.schema.ImmuService.ChangePassword:output_type -> google.protobuf.Empty
+	56, // 75: immudb.schema.ImmuService.UpdateAuthConfig:output_type -> google.protobuf.Empty
+	56, // 76: immudb.schema.ImmuService.UpdateMTLSConfig:output_type -> google.protobuf.Empty
+	9,  // 77: immudb.schema.ImmuService.Login:output_type -> immudb.schema.LoginResponse
+	56, // 78: immudb.schema.ImmuService.Logout:output_type -> google.protobuf.Empty
+	24, // 79: immudb.schema.ImmuService.Set:output_type -> immudb.schema.TxMetadata
+	29, // 80: immudb.schema.ImmuService.VerifiableSet:output_type -> immudb.schema.VerifiableTx
+	13, // 81: immudb.schema.ImmuService.Get:output_type -> immudb.schema.Entry
+	30, // 82: immudb.schema.ImmuService.VerifiableGet:output_type -> immudb.schema.VerifiableEntry
+	17, // 83: immudb.schema.ImmuService.GetAll:output_type -> immudb.schema.Entries
+	24, // 84: immudb.schema.ImmuService.ExecAll:output_type -> immudb.schema.TxMetadata
+	17, // 85: immudb.schema.ImmuService.Scan:output_type -> immudb.schema.Entries
+	22, // 86: immudb.schema.ImmuService.Count:output_type -> immudb.schema.EntryCount
+	22, // 87: immudb.schema.ImmuService.CountAll:output_type -> immudb.schema.EntryCount
+	27, // 88: immudb.schema.ImmuService.TxById:output_type -> immudb.schema.Tx
+	29, // 89: immudb.schema.ImmuService.VerifiableTxById:output_type -> immudb.schema.VerifiableTx
+	49, // 90: immudb.schema.ImmuService.TxScan:output_type -> immudb.schema.TxList
+	17, // 91: immudb.schema.ImmuService.History:output_type -> immudb.schema.Entries
+	37, // 92: immudb.schema.ImmuService.Health:output_type -> immudb.schema.HealthResponse
+	38, // 93: immudb.schema.ImmuService.CurrentState:output_type -> immudb.schema.ImmutableState
+	24, // 94: immudb.schema.ImmuService.SetReference:output_type -> immudb.schema.TxMetadata
+	29, // 95: immudb.schema.ImmuService.VerifiableSetReference:output_type -> immudb.schema.VerifiableTx
+	24, // 96: immudb.schema.ImmuService.ZAdd:output_type -> immudb.schema.TxMetadata
+	29, // 97: immudb.schema.ImmuService.VerifiableZAdd:output_type -> immudb.schema.VerifiableTx
+	19, // 98: immudb.schema.ImmuService.ZScan:output_type -> immudb.schema.ZEntries
+	56, // 99: immudb.schema.ImmuService.CreateDatabase:output_type -> google.protobuf.Empty
+	54, // 100: immudb.schema.ImmuService.DatabaseList:output_type -> immudb.schema.DatabaseListResponse
+	51, // 101: immudb.schema.ImmuService.UseDatabase:output_type -> immudb.schema.UseDatabaseReply
+	56, // 102: immudb.schema.ImmuService.CleanIndex:output_type -> google.protobuf.Empty
+	56, // 103: immudb.schema.ImmuService.ChangePermission:output_type -> google.protobuf.Empty
+	56, // 104: immudb.schema.ImmuService.SetActiveUser:output_type -> google.protobuf.Empty
+	55, // 105: immudb.schema.ImmuService.streamGet:output_type -> immudb.schema.Chunk
+	24, // 106: immudb.schema.ImmuService.streamSet:output_type -> immudb.schema.TxMetadata
+	55, // 107: immudb.schema.ImmuService.streamVerifiableGet:output_type -> immudb.schema.Chunk
+	55, // 108: immudb.schema.ImmuService.streamVerifiableSet:output_type -> immudb.schema.Chunk
+	55, // 109: immudb.schema.ImmuService.streamScan:output_type -> immudb.schema.Chunk
+	55, // 110: immudb.schema.ImmuService.streamZScan:output_type -> immudb.schema.Chunk
+	55, // 111: immudb.schema.ImmuService.streamHistory:output_type -> immudb.schema.Chunk
+	72, // [72:112] is the sub-list for method output_type
+	32, // [32:72] is the sub-list for method input_type
 	32, // [32:32] is the sub-list for extension type_name
 	32, // [32:32] is the sub-list for extension extendee
 	0,  // [0:32] is the sub-list for field type_name
@@ -4996,8 +5030,13 @@ type ImmuServiceClient interface {
 	ChangePermission(ctx context.Context, in *ChangePermissionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SetActiveUser(ctx context.Context, in *SetActiveUserRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Streams
-	StreamReceiver(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (ImmuService_StreamReceiverClient, error)
-	StreamSender(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamSenderClient, error)
+	StreamGet(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (ImmuService_StreamGetClient, error)
+	StreamSet(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamSetClient, error)
+	StreamVerifiableGet(ctx context.Context, in *VerifiableGetRequest, opts ...grpc.CallOption) (ImmuService_StreamVerifiableGetClient, error)
+	StreamVerifiableSet(ctx context.Context, in *VerifiableSetRequest, opts ...grpc.CallOption) (ImmuService_StreamVerifiableSetClient, error)
+	StreamScan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (ImmuService_StreamScanClient, error)
+	StreamZScan(ctx context.Context, in *ZScanRequest, opts ...grpc.CallOption) (ImmuService_StreamZScanClient, error)
+	StreamHistory(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (ImmuService_StreamHistoryClient, error)
 }
 
 type immuServiceClient struct {
@@ -5305,12 +5344,12 @@ func (c *immuServiceClient) SetActiveUser(ctx context.Context, in *SetActiveUser
 	return out, nil
 }
 
-func (c *immuServiceClient) StreamReceiver(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (ImmuService_StreamReceiverClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[0], "/immudb.schema.ImmuService/StreamReceiver", opts...)
+func (c *immuServiceClient) StreamGet(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (ImmuService_StreamGetClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[0], "/immudb.schema.ImmuService/streamGet", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &immuServiceStreamReceiverClient{stream}
+	x := &immuServiceStreamGetClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -5320,16 +5359,16 @@ func (c *immuServiceClient) StreamReceiver(ctx context.Context, in *KeyRequest, 
 	return x, nil
 }
 
-type ImmuService_StreamReceiverClient interface {
+type ImmuService_StreamGetClient interface {
 	Recv() (*Chunk, error)
 	grpc.ClientStream
 }
 
-type immuServiceStreamReceiverClient struct {
+type immuServiceStreamGetClient struct {
 	grpc.ClientStream
 }
 
-func (x *immuServiceStreamReceiverClient) Recv() (*Chunk, error) {
+func (x *immuServiceStreamGetClient) Recv() (*Chunk, error) {
 	m := new(Chunk)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -5337,34 +5376,194 @@ func (x *immuServiceStreamReceiverClient) Recv() (*Chunk, error) {
 	return m, nil
 }
 
-func (c *immuServiceClient) StreamSender(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamSenderClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[1], "/immudb.schema.ImmuService/StreamSender", opts...)
+func (c *immuServiceClient) StreamSet(ctx context.Context, opts ...grpc.CallOption) (ImmuService_StreamSetClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[1], "/immudb.schema.ImmuService/streamSet", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &immuServiceStreamSenderClient{stream}
+	x := &immuServiceStreamSetClient{stream}
 	return x, nil
 }
 
-type ImmuService_StreamSenderClient interface {
+type ImmuService_StreamSetClient interface {
 	Send(*Chunk) error
 	CloseAndRecv() (*TxMetadata, error)
 	grpc.ClientStream
 }
 
-type immuServiceStreamSenderClient struct {
+type immuServiceStreamSetClient struct {
 	grpc.ClientStream
 }
 
-func (x *immuServiceStreamSenderClient) Send(m *Chunk) error {
+func (x *immuServiceStreamSetClient) Send(m *Chunk) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *immuServiceStreamSenderClient) CloseAndRecv() (*TxMetadata, error) {
+func (x *immuServiceStreamSetClient) CloseAndRecv() (*TxMetadata, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
 	m := new(TxMetadata)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *immuServiceClient) StreamVerifiableGet(ctx context.Context, in *VerifiableGetRequest, opts ...grpc.CallOption) (ImmuService_StreamVerifiableGetClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[2], "/immudb.schema.ImmuService/streamVerifiableGet", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &immuServiceStreamVerifiableGetClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ImmuService_StreamVerifiableGetClient interface {
+	Recv() (*Chunk, error)
+	grpc.ClientStream
+}
+
+type immuServiceStreamVerifiableGetClient struct {
+	grpc.ClientStream
+}
+
+func (x *immuServiceStreamVerifiableGetClient) Recv() (*Chunk, error) {
+	m := new(Chunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *immuServiceClient) StreamVerifiableSet(ctx context.Context, in *VerifiableSetRequest, opts ...grpc.CallOption) (ImmuService_StreamVerifiableSetClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[3], "/immudb.schema.ImmuService/streamVerifiableSet", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &immuServiceStreamVerifiableSetClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ImmuService_StreamVerifiableSetClient interface {
+	Recv() (*Chunk, error)
+	grpc.ClientStream
+}
+
+type immuServiceStreamVerifiableSetClient struct {
+	grpc.ClientStream
+}
+
+func (x *immuServiceStreamVerifiableSetClient) Recv() (*Chunk, error) {
+	m := new(Chunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *immuServiceClient) StreamScan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (ImmuService_StreamScanClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[4], "/immudb.schema.ImmuService/streamScan", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &immuServiceStreamScanClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ImmuService_StreamScanClient interface {
+	Recv() (*Chunk, error)
+	grpc.ClientStream
+}
+
+type immuServiceStreamScanClient struct {
+	grpc.ClientStream
+}
+
+func (x *immuServiceStreamScanClient) Recv() (*Chunk, error) {
+	m := new(Chunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *immuServiceClient) StreamZScan(ctx context.Context, in *ZScanRequest, opts ...grpc.CallOption) (ImmuService_StreamZScanClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[5], "/immudb.schema.ImmuService/streamZScan", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &immuServiceStreamZScanClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ImmuService_StreamZScanClient interface {
+	Recv() (*Chunk, error)
+	grpc.ClientStream
+}
+
+type immuServiceStreamZScanClient struct {
+	grpc.ClientStream
+}
+
+func (x *immuServiceStreamZScanClient) Recv() (*Chunk, error) {
+	m := new(Chunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *immuServiceClient) StreamHistory(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (ImmuService_StreamHistoryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ImmuService_serviceDesc.Streams[6], "/immudb.schema.ImmuService/streamHistory", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &immuServiceStreamHistoryClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ImmuService_StreamHistoryClient interface {
+	Recv() (*Chunk, error)
+	grpc.ClientStream
+}
+
+type immuServiceStreamHistoryClient struct {
+	grpc.ClientStream
+}
+
+func (x *immuServiceStreamHistoryClient) Recv() (*Chunk, error) {
+	m := new(Chunk)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -5407,8 +5606,13 @@ type ImmuServiceServer interface {
 	ChangePermission(context.Context, *ChangePermissionRequest) (*empty.Empty, error)
 	SetActiveUser(context.Context, *SetActiveUserRequest) (*empty.Empty, error)
 	// Streams
-	StreamReceiver(*KeyRequest, ImmuService_StreamReceiverServer) error
-	StreamSender(ImmuService_StreamSenderServer) error
+	StreamGet(*KeyRequest, ImmuService_StreamGetServer) error
+	StreamSet(ImmuService_StreamSetServer) error
+	StreamVerifiableGet(*VerifiableGetRequest, ImmuService_StreamVerifiableGetServer) error
+	StreamVerifiableSet(*VerifiableSetRequest, ImmuService_StreamVerifiableSetServer) error
+	StreamScan(*ScanRequest, ImmuService_StreamScanServer) error
+	StreamZScan(*ZScanRequest, ImmuService_StreamZScanServer) error
+	StreamHistory(*HistoryRequest, ImmuService_StreamHistoryServer) error
 }
 
 // UnimplementedImmuServiceServer can be embedded to have forward compatible implementations.
@@ -5514,11 +5718,26 @@ func (*UnimplementedImmuServiceServer) ChangePermission(context.Context, *Change
 func (*UnimplementedImmuServiceServer) SetActiveUser(context.Context, *SetActiveUserRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetActiveUser not implemented")
 }
-func (*UnimplementedImmuServiceServer) StreamReceiver(*KeyRequest, ImmuService_StreamReceiverServer) error {
-	return status.Errorf(codes.Unimplemented, "method StreamReceiver not implemented")
+func (*UnimplementedImmuServiceServer) StreamGet(*KeyRequest, ImmuService_StreamGetServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamGet not implemented")
 }
-func (*UnimplementedImmuServiceServer) StreamSender(ImmuService_StreamSenderServer) error {
-	return status.Errorf(codes.Unimplemented, "method StreamSender not implemented")
+func (*UnimplementedImmuServiceServer) StreamSet(ImmuService_StreamSetServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamSet not implemented")
+}
+func (*UnimplementedImmuServiceServer) StreamVerifiableGet(*VerifiableGetRequest, ImmuService_StreamVerifiableGetServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamVerifiableGet not implemented")
+}
+func (*UnimplementedImmuServiceServer) StreamVerifiableSet(*VerifiableSetRequest, ImmuService_StreamVerifiableSetServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamVerifiableSet not implemented")
+}
+func (*UnimplementedImmuServiceServer) StreamScan(*ScanRequest, ImmuService_StreamScanServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamScan not implemented")
+}
+func (*UnimplementedImmuServiceServer) StreamZScan(*ZScanRequest, ImmuService_StreamZScanServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamZScan not implemented")
+}
+func (*UnimplementedImmuServiceServer) StreamHistory(*HistoryRequest, ImmuService_StreamHistoryServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamHistory not implemented")
 }
 
 func RegisterImmuServiceServer(s *grpc.Server, srv ImmuServiceServer) {
@@ -6119,51 +6338,156 @@ func _ImmuService_SetActiveUser_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ImmuService_StreamReceiver_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _ImmuService_StreamGet_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(KeyRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ImmuServiceServer).StreamReceiver(m, &immuServiceStreamReceiverServer{stream})
+	return srv.(ImmuServiceServer).StreamGet(m, &immuServiceStreamGetServer{stream})
 }
 
-type ImmuService_StreamReceiverServer interface {
+type ImmuService_StreamGetServer interface {
 	Send(*Chunk) error
 	grpc.ServerStream
 }
 
-type immuServiceStreamReceiverServer struct {
+type immuServiceStreamGetServer struct {
 	grpc.ServerStream
 }
 
-func (x *immuServiceStreamReceiverServer) Send(m *Chunk) error {
+func (x *immuServiceStreamGetServer) Send(m *Chunk) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _ImmuService_StreamSender_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ImmuServiceServer).StreamSender(&immuServiceStreamSenderServer{stream})
+func _ImmuService_StreamSet_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ImmuServiceServer).StreamSet(&immuServiceStreamSetServer{stream})
 }
 
-type ImmuService_StreamSenderServer interface {
+type ImmuService_StreamSetServer interface {
 	SendAndClose(*TxMetadata) error
 	Recv() (*Chunk, error)
 	grpc.ServerStream
 }
 
-type immuServiceStreamSenderServer struct {
+type immuServiceStreamSetServer struct {
 	grpc.ServerStream
 }
 
-func (x *immuServiceStreamSenderServer) SendAndClose(m *TxMetadata) error {
+func (x *immuServiceStreamSetServer) SendAndClose(m *TxMetadata) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *immuServiceStreamSenderServer) Recv() (*Chunk, error) {
+func (x *immuServiceStreamSetServer) Recv() (*Chunk, error) {
 	m := new(Chunk)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
+}
+
+func _ImmuService_StreamVerifiableGet_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(VerifiableGetRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ImmuServiceServer).StreamVerifiableGet(m, &immuServiceStreamVerifiableGetServer{stream})
+}
+
+type ImmuService_StreamVerifiableGetServer interface {
+	Send(*Chunk) error
+	grpc.ServerStream
+}
+
+type immuServiceStreamVerifiableGetServer struct {
+	grpc.ServerStream
+}
+
+func (x *immuServiceStreamVerifiableGetServer) Send(m *Chunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ImmuService_StreamVerifiableSet_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(VerifiableSetRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ImmuServiceServer).StreamVerifiableSet(m, &immuServiceStreamVerifiableSetServer{stream})
+}
+
+type ImmuService_StreamVerifiableSetServer interface {
+	Send(*Chunk) error
+	grpc.ServerStream
+}
+
+type immuServiceStreamVerifiableSetServer struct {
+	grpc.ServerStream
+}
+
+func (x *immuServiceStreamVerifiableSetServer) Send(m *Chunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ImmuService_StreamScan_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ScanRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ImmuServiceServer).StreamScan(m, &immuServiceStreamScanServer{stream})
+}
+
+type ImmuService_StreamScanServer interface {
+	Send(*Chunk) error
+	grpc.ServerStream
+}
+
+type immuServiceStreamScanServer struct {
+	grpc.ServerStream
+}
+
+func (x *immuServiceStreamScanServer) Send(m *Chunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ImmuService_StreamZScan_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ZScanRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ImmuServiceServer).StreamZScan(m, &immuServiceStreamZScanServer{stream})
+}
+
+type ImmuService_StreamZScanServer interface {
+	Send(*Chunk) error
+	grpc.ServerStream
+}
+
+type immuServiceStreamZScanServer struct {
+	grpc.ServerStream
+}
+
+func (x *immuServiceStreamZScanServer) Send(m *Chunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ImmuService_StreamHistory_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(HistoryRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ImmuServiceServer).StreamHistory(m, &immuServiceStreamHistoryServer{stream})
+}
+
+type ImmuService_StreamHistoryServer interface {
+	Send(*Chunk) error
+	grpc.ServerStream
+}
+
+type immuServiceStreamHistoryServer struct {
+	grpc.ServerStream
+}
+
+func (x *immuServiceStreamHistoryServer) Send(m *Chunk) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 var _ImmuService_serviceDesc = grpc.ServiceDesc{
@@ -6305,14 +6629,39 @@ var _ImmuService_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "StreamReceiver",
-			Handler:       _ImmuService_StreamReceiver_Handler,
+			StreamName:    "streamGet",
+			Handler:       _ImmuService_StreamGet_Handler,
 			ServerStreams: true,
 		},
 		{
-			StreamName:    "StreamSender",
-			Handler:       _ImmuService_StreamSender_Handler,
+			StreamName:    "streamSet",
+			Handler:       _ImmuService_StreamSet_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "streamVerifiableGet",
+			Handler:       _ImmuService_StreamVerifiableGet_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "streamVerifiableSet",
+			Handler:       _ImmuService_StreamVerifiableSet_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "streamScan",
+			Handler:       _ImmuService_StreamScan_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "streamZScan",
+			Handler:       _ImmuService_StreamZScan_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "streamHistory",
+			Handler:       _ImmuService_StreamHistory_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "schema.proto",
