@@ -27,11 +27,17 @@ import (
 	"google.golang.org/grpc/metadata"
 	"io"
 	"log"
+	"net"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestImmuServer_Stream(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
+	}
 
 	cliIf, err := NewImmuClient(DefaultOptions())
 	cli := cliIf.(*immuClient)
@@ -173,6 +179,10 @@ func TestImmuServer_Stream(t *testing.T) {
 }
 
 func TestImmuServer_SetGetStream(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
+	}
 
 	cliIf, err := NewImmuClient(DefaultOptions())
 	require.NoError(t, err)
@@ -300,6 +310,11 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 }
 
 func TestReader(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
+	}
+
 	filename := "/home/falce/vchain/immudb/src/test/Graph_Algorithms_Neo4j.pdf"
 	f, err := os.Open(filename)
 	if err != nil {
@@ -333,6 +348,10 @@ func TestReader(t *testing.T) {
 }
 
 func TestImmuServer_SimpleSetGetStream(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
+	}
 
 	cliIf, err := NewImmuClient(DefaultOptions())
 	require.NoError(t, err)
@@ -378,45 +397,10 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 
 	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s))
 
-	/*key := []byte("ke")
-	val := []byte("valuethats")
-
-	kv := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(key)),
-			Size:    len(key),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(val)),
-			Size:    len(val),
-		},
-	}*/
-
 	err = kvs.Send(kv)
 	require.NoError(t, err)
 
 	txMeta, err := s.CloseAndRecv()
 	require.NoError(t, err)
 	require.IsType(t, &schema.TxMetadata{}, txMeta)
-
-	// STREAM GET
-	// 1 val
-	/*kr := &schema.KeyRequest{
-		Key: []byte(filename),
-	}
-
-	gs, err := cli.streamGet(ctx, kr)
-	require.NoError(t, err)
-
-	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
-
-	k1, err := kvr.NextKey()
-	require.NoError(t, err)
-	require.Equal(t, key, k1)
-	rv1 := make([]byte, 5)
-	rdrv1, err := kvr.NextValueReader()
-	require.NoError(t, err)
-	l, err := rdrv1.Read(rv1)
-	require.Equal(t, val, rv1[:l])*/
-
 }
