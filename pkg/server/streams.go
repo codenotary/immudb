@@ -19,6 +19,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
 	"google.golang.org/grpc/codes"
@@ -87,8 +88,11 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 	b.Read(value)
 
 	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+	if err == store.ErrorMaxValueLenExceeded {
+		return stream.ErrMaxValueLenExceeded
+	}
 	if err != nil {
-		return status.Errorf(codes.Unknown, "_StreamSet receives following error: %s", err.Error())
+		return status.Errorf(codes.Unknown, "StreamSet receives following error: %s", err.Error())
 	}
 	err = str.SendAndClose(txMeta)
 	if err != nil {
