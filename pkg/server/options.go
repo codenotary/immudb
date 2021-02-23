@@ -93,7 +93,7 @@ func DefaultStoreOptions() *store.Options {
 		WithIndexOptions(indexOptions).
 		WithMaxLinearProofLen(0).
 		WithMaxConcurrency(10).
-		WithMaxValueLen(1 << 20)
+		WithMaxValueLen(1 << 25) // 32Mb
 }
 
 // WithDir sets dir
