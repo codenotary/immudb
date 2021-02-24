@@ -18,6 +18,7 @@ package client
 
 import (
 	"encoding/json"
+	"github.com/codenotary/immudb/pkg/stream"
 	"strconv"
 
 	c "github.com/codenotary/immudb/cmd/helper"
@@ -54,6 +55,7 @@ type Options struct {
 	PrometheusPort      string
 	LogFileName         string
 	ServerSigningPubKey string
+	StreamChunkSize     int
 }
 
 // DefaultOptions ...
@@ -77,6 +79,7 @@ func DefaultOptions() *Options {
 		PrometheusPort:      "",
 		LogFileName:         "",
 		ServerSigningPubKey: "",
+		StreamChunkSize:     stream.DefaultChunkSize,
 	}
 }
 
@@ -216,6 +219,12 @@ func (o *Options) WithTokenService(tkns TokenService) *Options {
 // WithServerSigningPubKey sets the public key. If presents server state signature verification is enabled
 func (o *Options) WithServerSigningPubKey(serverSigningPubKey string) *Options {
 	o.ServerSigningPubKey = serverSigningPubKey
+	return o
+}
+
+// WithStreamChunkSize set the chunk size
+func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
+	o.StreamChunkSize = streamChunkSize
 	return o
 }
 

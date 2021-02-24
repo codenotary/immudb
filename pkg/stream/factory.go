@@ -21,18 +21,18 @@ import "github.com/codenotary/immudb/pkg/api/schema"
 type serviceFactory struct{}
 
 type ServiceFactory interface {
-	NewKvStreamReceiver(str schema.ImmuService_StreamSetServer) KvStreamReceiver
-	NewKvStreamSender(str schema.ImmuService_StreamGetServer) KvStreamSender
+	NewKvStreamReceiver(str schema.ImmuService_StreamSetServer, chunkSize int) KvStreamReceiver
+	NewKvStreamSender(str schema.ImmuService_StreamGetServer, chunkSize int) KvStreamSender
 }
 
 func NewStreamServiceFactory() ServiceFactory {
 	return &serviceFactory{}
 }
 
-func (s *serviceFactory) NewKvStreamReceiver(str schema.ImmuService_StreamSetServer) KvStreamReceiver {
-	return NewKvStreamReceiver(NewMsgReceiver(str))
+func (s *serviceFactory) NewKvStreamReceiver(str schema.ImmuService_StreamSetServer, chunkSize int) KvStreamReceiver {
+	return NewKvStreamReceiver(NewMsgReceiver(str), chunkSize)
 }
 
-func (s *serviceFactory) NewKvStreamSender(str schema.ImmuService_StreamGetServer) KvStreamSender {
-	return NewKvStreamSender(NewMsgSender(str))
+func (s *serviceFactory) NewKvStreamSender(str schema.ImmuService_StreamGetServer, chunkSize int) KvStreamSender {
+	return NewKvStreamSender(NewMsgSender(str, chunkSize))
 }

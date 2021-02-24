@@ -47,7 +47,7 @@ func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*sc
 		return nil, err
 	}
 
-	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s))
+	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, c.Options.StreamChunkSize))
 
 	for _, kv := range kvs {
 		err = kvss.Send(kv)
@@ -62,7 +62,7 @@ func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*sc
 func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
 	gs, err := c.streamGet(ctx, k)
 
-	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
+	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs), c.Options.StreamChunkSize)
 
 	key, err := kvr.NextKey()
 	if err != nil {
@@ -76,7 +76,7 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 
 	b := bytes.NewBuffer([]byte{})
 	vl := 0
-	chunk := make([]byte, stream.ChunkSize)
+	chunk := make([]byte, c.Options.StreamChunkSize)
 	for {
 		l, err := vr.Read(chunk)
 		if err != nil && err != io.EOF {

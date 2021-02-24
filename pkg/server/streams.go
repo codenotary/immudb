@@ -33,7 +33,7 @@ func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_Str
 		return err
 	}
 
-	kvsr := s.Ssf.NewKvStreamSender(str)
+	kvsr := s.Ssf.NewKvStreamSender(str, s.Options.StreamChunkSize)
 
 	entry, err := s.dbList.GetByIndex(ind).Get(kr)
 	if err != nil {
@@ -58,7 +58,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 		return err
 	}
 
-	kvsr := s.Ssf.NewKvStreamReceiver(str)
+	kvsr := s.Ssf.NewKvStreamReceiver(str, s.Options.StreamChunkSize)
 
 	var kvs = make([]*schema.KeyValue, 0)
 
@@ -78,7 +78,7 @@ out:
 		}
 		b := new(bytes.Buffer)
 		vl := 0
-		chunk := make([]byte, stream.ChunkSize)
+		chunk := make([]byte, stream.DefaultChunkSize)
 	inner:
 		for {
 			l, err := vr.Read(chunk)
