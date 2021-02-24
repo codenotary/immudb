@@ -60,34 +60,58 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 
 	kvsr := s.Ssf.NewKvStreamReceiver(str)
 
-	key, err := kvsr.NextKey()
-	if err != nil {
-		return err
-	}
+	var kvs = make([]*schema.KeyValue, 0)
 
-	vr, err := kvsr.NextValueReader()
-	if err != nil {
-		return err
-	}
-	b := bytes.NewBuffer([]byte{})
-	vl := 0
-	chunk := make([]byte, stream.ChunkSize)
+out:
 	for {
-		l, err := vr.Read(chunk)
-		if err != nil && err != io.EOF {
+		key, err := kvsr.NextKey()
+		if err != nil {
+			if err == io.EOF {
+				break out
+			}
 			return err
 		}
-		vl += l
 
-		b.Write(chunk)
-		if err == io.EOF || l == 0 {
-			break
+		vr, err := kvsr.NextValueReader()
+		if err != nil {
+			return err
 		}
-	}
-	value := make([]byte, vl)
-	b.Read(value)
+		b := bytes.NewBuffer([]byte{})
+		vl := 0
+		chunk := make([]byte, stream.ChunkSize)
+	inner:
+		for {
+			l, err := vr.Read(chunk)
+			if err != nil && err != io.EOF {
+				return err
+			}
+			if err == io.EOF {
+				value := make([]byte, vl)
+				_, err = b.Read(value)
+				if err != nil {
+					return err
+				}
+				kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
+				break out
+			}
+			vl += l
 
-	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: []*schema.KeyValue{{Key: key, Value: value}}})
+			b.Write(chunk)
+			if l == 0 {
+				value := make([]byte, vl)
+				_, err = b.Read(value)
+				if err != nil {
+					return err
+				}
+				kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
+				break inner
+			}
+
+		}
+
+	}
+
+	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: kvs})
 	if err == store.ErrorMaxValueLenExceeded {
 		return stream.ErrMaxValueLenExceeded
 	}

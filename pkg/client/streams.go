@@ -38,7 +38,7 @@ func (c *immuClient) streamGet(ctx context.Context, in *schema.KeyRequest) (sche
 	return c.ServiceClient.StreamGet(ctx, in)
 }
 
-func (c *immuClient) StreamSet(ctx context.Context, kv *stream.KeyValue) (*schema.TxMetadata, error) {
+func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
@@ -47,12 +47,15 @@ func (c *immuClient) StreamSet(ctx context.Context, kv *stream.KeyValue) (*schem
 		return nil, err
 	}
 
-	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s))
+	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s))
 
-	err = kvs.Send(kv)
-	if err != nil {
-		return nil, err
+	for _, kv := range kvs {
+		err = kvss.Send(kv)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return s.CloseAndRecv()
 }
 
