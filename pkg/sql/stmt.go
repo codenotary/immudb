@@ -22,8 +22,10 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-const catalogDatabase = "CATALOG/DATABASE/%s"
-const catalogTable = "CATALOG/TABLE/%s/%s"
+const catalogDatabase = "CATALOG/DATABASE/%s" // e.g. CATALOG/DATABASE/db1
+const catalogTable = "CATALOG/TABLE/%s/%s"    // e.g. CATALOG/TABLE/db1/table1
+const catalogIndex = "CATALOG/INDEX/%s/%s/%s" // e.g. CATALOG/INDEX/db1/table1/col1
+const catalogPK = "CATALOG/PK/%s/%s/%s"       // e.g. CATALOG/PK/db1/table1/col1
 
 type SQLValueType = int
 
@@ -146,6 +148,7 @@ func (stmt *UseSnapshotStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 type CreateTableStmt struct {
 	table    string
 	colsSpec []*ColSpec
+	pk       string
 }
 
 func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
