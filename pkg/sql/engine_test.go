@@ -99,6 +99,9 @@ func TestCreateTable(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY id)")
 	require.Equal(t, ErrInvalidPK, err)
 
+	_, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY name)")
+	require.Equal(t, ErrInvalidPKType, err)
+
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
