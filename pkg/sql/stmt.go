@@ -183,6 +183,9 @@ func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 		ces = append(ces, ce)
 
 		if stmt.pk == cs.colName {
+			if cs.colType != IntegerType {
+				return nil, nil, ErrInvalidPKType
+			}
 			validPK = true
 		}
 	}
