@@ -31,6 +31,7 @@ var ErrDatabaseNoExists = errors.New("database no exists")
 var ErrDatabaseAlreadyExists = errors.New("database already exists")
 var ErrNoDatabaseSelected = errors.New("no database selected")
 var ErrTableAlreadyExists = errors.New("table already exists")
+var ErrInvalidPK = errors.New("invalid primary key")
 
 type Engine struct {
 	catalogStore *store.ImmuStore
@@ -66,18 +67,18 @@ func existKey(key []byte, st *store.ImmuStore) (bool, error) {
 	return false, nil
 }
 
-func mapKey(pattern string, prefix []byte, keys ...string) []byte {
+func (e *Engine) mapKey(pattern string, keys ...string) []byte {
 	mk := fmt.Sprintf(pattern, keys)
 
-	pk := make([]byte, len(prefix)+len(mk))
-	copy(pk, prefix)
-	copy(pk[len(prefix):], mk)
+	pk := make([]byte, len(e.prefix)+len(mk))
+	copy(pk, e.prefix)
+	copy(pk[len(e.prefix):], mk)
 
 	return pk
 }
 
 func (e *Engine) ExistDatabase(db string) (bool, error) {
-	return existKey(mapKey(catalogDatabase, e.prefix, db), e.catalogStore)
+	return existKey(e.mapKey(catalogDatabase, db), e.catalogStore)
 }
 
 //TODO: will return a list of rows
