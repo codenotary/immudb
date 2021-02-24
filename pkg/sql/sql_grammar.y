@@ -56,7 +56,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     cmpOp CmpOperator
 }
 
-%token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN
+%token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT
 %token INSERT INTO VALUES
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
@@ -85,7 +85,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <stmts> sql
 %type <stmts> sqlstmts dstmts
 %type <stmt> sqlstmt dstmt ddlstmt dmlstmt dqlstmt
-%type <colsSpec> colsSpec colSpecList
+%type <colsSpec> colsSpec
 %type <colSpec> colSpec
 %type <ids> ids
 %type <cols> cols
@@ -182,9 +182,9 @@ ddlstmt:
         $$ = &UseSnapshotStmt{since: $4, upTo: $7}
     }
 |
-    CREATE TABLE IDENTIFIER colsSpec
+    CREATE TABLE IDENTIFIER '(' colsSpec ',' PRIMARY KEY IDENTIFIER ')'
     {
-        $$ = &CreateTableStmt{table: $3, colsSpec: $4}
+        $$ = &CreateTableStmt{table: $3, colsSpec: $5, pk: $9}
     }
 |
     CREATE INDEX ON IDENTIFIER '(' IDENTIFIER ')'
@@ -290,27 +290,12 @@ val:
     }
 
 colsSpec:
-    {
-        $$ = nil
-    }
-|
-    '(' ')'
-    {
-        $$ = nil
-    }
-|
-    '(' colSpecList ')'
-    {
-        $$ = $2
-    }
-
-colSpecList:
     colSpec
     {
         $$ = []*ColSpec{$1}
     }
 |
-    colSpecList ',' colSpec
+    colsSpec ',' colSpec
     {
         $$ = append($1, $3)
     }

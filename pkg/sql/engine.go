@@ -106,6 +106,7 @@ func (e *Engine) WaitForIndexingUpto(txID uint64) error {
 }
 
 func (e *Engine) Exec(sql io.ByteReader) (*store.TxMetadata, error) {
+	// TODO: only needs to lock insertions in catalog store
 	e.cmux.Lock()
 	defer e.cmux.Unlock()
 

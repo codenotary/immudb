@@ -87,7 +87,7 @@ func TestCreateTable(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1")
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
 	_, err = engine.ExecStmt("CREATE DATABASE db1")
@@ -96,9 +96,9 @@ func TestCreateTable(t *testing.T) {
 	_, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1")
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1")
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
 	require.Equal(t, ErrTableAlreadyExists, err)
 }

@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package sql
 
 import (
@@ -137,31 +136,17 @@ func TestCreateTableStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input:          "CREATE TABLE table1",
-			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  nil,
-		},
-		{
-			input:          "CREATE TABLE table1()",
-			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  nil,
-		},
-		{
-			input:          "CREATE TABLE table1 ( )",
-			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  nil,
-		},
-		{
-			input: "CREATE TABLE table1 (id INTEGER)",
+			input: "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:    "table1",
 					colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}},
+					pk:       "id",
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB)",
+			input: "CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
@@ -172,6 +157,7 @@ func TestCreateTableStmt(t *testing.T) {
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
 					},
+					pk: "id",
 				}},
 			expectedError: nil,
 		},
@@ -179,6 +165,16 @@ func TestCreateTableStmt(t *testing.T) {
 			input:          "CREATE table1",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected IDENTIFIER, expecting DATABASE or TABLE or INDEX"),
+		},
+		{
+			input:          "CREATE TABLE table1",
+			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
+			expectedError:  errors.New("syntax error: unexpected $end, expecting '('"),
+		},
+		{
+			input:          "CREATE TABLE table1()",
+			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
+			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER"),
 		},
 	}
 
@@ -327,49 +323,71 @@ func TestStmtSeparator(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input:          "CREATE TABLE table1;",
-			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  nil,
-		},
-		{
-			input:          "CREATE TABLE table1 \n",
-			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  nil,
-		},
-		{
-			input:          "CREATE TABLE table1\r\n",
-			expectedOutput: []SQLStmt{&CreateTableStmt{table: "table1"}},
-			expectedError:  nil,
-		},
-		{
-			input: "CREATE DATABASE db1; USE DATABASE db1; CREATE TABLE table1",
+			input: "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id);",
 			expectedOutput: []SQLStmt{
-				&CreateDatabaseStmt{db: "db1"},
-				&UseDatabaseStmt{db: "db1"},
-				&CreateTableStmt{table: "table1"},
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: IntegerType},
+					},
+					pk: "id",
+				},
 			},
 			expectedError: nil,
 		},
 		{
-			input: "CREATE DATABASE db1; /* some comment here */ USE DATABASE db1; CREATE /* another comment here */ TABLE table1",
+			input: "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)\n",
 			expectedOutput: []SQLStmt{
-				&CreateDatabaseStmt{db: "db1"},
-				&UseDatabaseStmt{db: "db1"},
-				&CreateTableStmt{table: "table1"},
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: IntegerType},
+					},
+					pk: "id",
+				},
 			},
 			expectedError: nil,
 		},
 		{
-			input: "CREATE DATABASE db1; USE DATABASE db1 \r\n CREATE TABLE table1",
+			input: "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)\r\n",
 			expectedOutput: []SQLStmt{
-				&CreateDatabaseStmt{db: "db1"},
-				&UseDatabaseStmt{db: "db1"},
-				&CreateTableStmt{table: "table1"},
+				&CreateTableStmt{
+					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: IntegerType},
+					},
+					pk: "id",
+				},
 			},
 			expectedError: nil,
 		},
 		{
-			input:          "CREATE TABLE table1 USE DATABASE db1",
+			input: "CREATE DATABASE db1; USE DATABASE db1;",
+			expectedOutput: []SQLStmt{
+				&CreateDatabaseStmt{db: "db1"},
+				&UseDatabaseStmt{db: "db1"},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "CREATE DATABASE db1; /* some comment here */ USE /* another comment here */ DATABASE db1",
+			expectedOutput: []SQLStmt{
+				&CreateDatabaseStmt{db: "db1"},
+				&UseDatabaseStmt{db: "db1"},
+			},
+			expectedError: nil,
+		},
+		{
+			input: "CREATE DATABASE db1; USE DATABASE db1 \r\n USE DATABASE db1",
+			expectedOutput: []SQLStmt{
+				&CreateDatabaseStmt{db: "db1"},
+				&UseDatabaseStmt{db: "db1"},
+				&UseDatabaseStmt{db: "db1"},
+			},
+			expectedError: nil,
+		},
+		{
+			input:          "CREATE DATABASE db1 USE DATABASE db1",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected USE"),
 		},
@@ -416,10 +434,15 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1; BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			input: "CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
+					colsSpec: []*ColSpec{
+						{colName: "id", colType: IntegerType},
+						{colName: "label", colType: StringType},
+					},
+					pk: "id",
 				},
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -436,12 +459,17 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "BEGIN TRANSACTION; CREATE TABLE table1; INSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
+			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); INSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
 						&CreateTableStmt{
 							table: "table1",
+							colsSpec: []*ColSpec{
+								{colName: "id", colType: IntegerType},
+								{colName: "label", colType: StringType},
+							},
+							pk: "id",
 						},
 						&InsertIntoStmt{
 							table: "table1",
@@ -461,7 +489,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError:  errors.New("syntax error: unexpected $end, expecting COMMIT"),
 		},
 		{
-			input:          "BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION; CREATE TABLE table1; COMMIT; COMMIT",
+			input:          "BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); COMMIT; COMMIT",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting COMMIT"),
 		},
@@ -986,7 +1014,7 @@ func TestMultiLineStmts(t *testing.T) {
 
 			CREATE DATABASE db1
 
-			CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB)
+			CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)
 
 			BEGIN TRANSACTION
 				INSERT INTO table1 (id, label) VALUES (100, 'label1')
@@ -1007,6 +1035,7 @@ func TestMultiLineStmts(t *testing.T) {
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
 					},
+					pk: "id",
 				},
 				&TxStmt{
 					stmts: []SQLStmt{
