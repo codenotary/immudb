@@ -32,6 +32,7 @@ var ErrDatabaseAlreadyExists = errors.New("database already exists")
 var ErrNoDatabaseSelected = errors.New("no database selected")
 var ErrTableAlreadyExists = errors.New("table already exists")
 var ErrInvalidPK = errors.New("invalid primary key")
+var ErrInvalidPKType = errors.New("primary key of invalid type. Only INTEGER type is supported")
 
 type Engine struct {
 	catalogStore *store.ImmuStore
