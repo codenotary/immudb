@@ -16,6 +16,15 @@ limitations under the License.
 
 package sql
 
+import (
+	"errors"
+
+	"github.com/codenotary/immudb/embedded/store"
+)
+
+const catalogDatabase = "CATALOG/DATABASE/%s"
+const catalogTable = "CATALOG/TABLE/%s/%s"
+
 type SQLValueType = int
 
 const (
@@ -63,27 +72,106 @@ const (
 )
 
 type SQLStmt interface {
+	ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error)
 }
 
 type TxStmt struct {
 	stmts []SQLStmt
 }
 
+func (stmt *TxStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	for _, stmt := range stmt.stmts {
+		cs, ds, err := stmt.ValidateAndCompileUsing(e)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ces = append(ces, cs...)
+		ds = append(ds, ds...)
+	}
+	return
+}
+
 type CreateDatabaseStmt struct {
 	db string
+}
+
+func (stmt *CreateDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	exists, err := e.ExistDatabase(stmt.db)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if exists {
+		return nil, nil, ErrDatabaseAlreadyExists
+	}
+
+	kv := &store.KV{
+		Key:   mapKey(catalogDatabase, e.prefix, stmt.db),
+		Value: nil,
+	}
+
+	ces = append(ces, kv)
+
+	return
 }
 
 type UseDatabaseStmt struct {
 	db string
 }
 
+func (stmt *UseDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	exists, err := e.ExistDatabase(stmt.db)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !exists {
+		return nil, nil, ErrDatabaseNoExists
+	}
+
+	e.implicitDatabase = stmt.db
+
+	return
+}
+
 type UseSnapshotStmt struct {
 	since, upTo string
+}
+
+func (stmt *UseSnapshotStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	return nil, nil, errors.New("not yet supported")
 }
 
 type CreateTableStmt struct {
 	table    string
 	colsSpec []*ColSpec
+}
+
+func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	if e.implicitDatabase == "" {
+		return nil, nil, ErrNoDatabaseSelected
+	}
+
+	mk := mapKey(catalogTable, e.prefix, e.implicitDatabase, stmt.table)
+
+	exists, err := existKey(mk, e.catalogStore)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if exists {
+		return nil, nil, ErrTableAlreadyExists
+	}
+
+	kv := &store.KV{
+		Key:   mk,
+		Value: nil,
+	}
+
+	ces = append(ces, kv)
+
+	return
 }
 
 type ColSpec struct {
@@ -96,9 +184,17 @@ type CreateIndexStmt struct {
 	col   string
 }
 
+func (stmt *CreateIndexStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	return nil, nil, errors.New("not yet supported")
+}
+
 type AddColumnStmt struct {
 	table   string
 	colSpec *ColSpec
+}
+
+func (stmt *AddColumnStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	return nil, nil, errors.New("not yet supported")
 }
 
 type AlterColumnStmt struct {
@@ -106,10 +202,18 @@ type AlterColumnStmt struct {
 	colSpec *ColSpec
 }
 
+func (stmt *AlterColumnStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	return nil, nil, errors.New("not yet supported")
+}
+
 type InsertIntoStmt struct {
 	table string
 	cols  []string
 	rows  []*Row
+}
+
+func (stmt *InsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	return nil, nil, errors.New("not yet supported")
 }
 
 type Row struct {
@@ -139,6 +243,10 @@ type SelectStmt struct {
 	limit     uint64
 	orderBy   []*OrdCol
 	as        string
+}
+
+func (stmt *SelectStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	return nil, nil, errors.New("not yet supported")
 }
 
 type DataSource interface {
