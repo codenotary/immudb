@@ -67,7 +67,7 @@ func (kvr *kvStreamReceiver) NextKey() ([]byte, error) {
 func (kvr *kvStreamReceiver) NextValueReader() (*bufio.Reader, error) {
 	if kvr.c%2 != 0 {
 		kvr.c++
-		return bufio.NewReader(kvr.s), nil
+		return bufio.NewReaderSize(kvr.s, ChunkSize), nil
 	} else {
 		return nil, fmt.Errorf("key not available, use NextKey first")
 	}

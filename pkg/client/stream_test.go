@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -276,24 +277,28 @@ func TestImmuClient_SetMultipleKeys(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
+	key1 := []byte("key1")
+	val1 := []byte("val1")
+	key2 := []byte("key2")
+	val2 := []byte("val2")
 	kv1 := &stream.KeyValue{
 		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte("key1"))),
-			Size:    len([]byte("key1")),
+			Content: bufio.NewReader(bytes.NewBuffer(key1)),
+			Size:    len(key1),
 		},
 		Value: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte("val1"))),
-			Size:    len([]byte("val1")),
+			Content: bufio.NewReader(bytes.NewBuffer(val1)),
+			Size:    len(val1),
 		},
 	}
 	kv2 := &stream.KeyValue{
 		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte("key2"))),
-			Size:    len([]byte("key2")),
+			Content: bufio.NewReader(bytes.NewBuffer(key2)),
+			Size:    len(key2),
 		},
 		Value: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte("val2"))),
-			Size:    len([]byte("val2")),
+			Content: bufio.NewReader(bytes.NewBuffer(val2)),
+			Size:    len(val2),
 		},
 	}
 
@@ -302,9 +307,17 @@ func TestImmuClient_SetMultipleKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, meta)
 
-	_, err = client.StreamGet(ctx, &schema.KeyRequest{Key: []byte("key1")})
+	entry1, err := client.StreamGet(ctx, &schema.KeyRequest{Key: key1})
 	require.NoError(t, err)
 	require.NotNil(t, meta)
+	require.Equal(t, val1, entry1.Value)
+
+	require.Equal(t, sha256.Sum256(val1), sha256.Sum256(entry1.Value))
+
+	entry2, err := client.StreamGet(ctx, &schema.KeyRequest{Key: key2})
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+	require.Equal(t, val2, entry2.Value)
 
 	client.Disconnect()
 }
@@ -485,13 +498,13 @@ func TestImmuClient_SetMultipleLargeEntriesWithRealFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	newSha1 := sha256.Sum256(entry1.Value)
-	require.Equal(t, oriSha1, newSha1[:])
+	assert.Equal(t, oriSha1, newSha1[:])
 
 	entry2, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile2.Name())})
 	require.NoError(t, err)
 
 	newSha2 := sha256.Sum256(entry2.Value)
-	require.Equal(t, oriSha2, newSha2[:])
+	assert.Equal(t, oriSha2, newSha2[:])
 
 	client.Disconnect()
 

@@ -76,7 +76,7 @@ out:
 		if err != nil {
 			return err
 		}
-		b := bytes.NewBuffer([]byte{})
+		b := new(bytes.Buffer)
 		vl := 0
 		chunk := make([]byte, stream.ChunkSize)
 	inner:
@@ -106,9 +106,7 @@ out:
 				kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
 				break inner
 			}
-
 		}
-
 	}
 
 	txMeta, err := s.dbList.GetByIndex(ind).Set(&schema.SetRequest{KVs: kvs})
