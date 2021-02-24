@@ -41,16 +41,21 @@ type msgReceiver struct {
 
 func (r *msgReceiver) Read(message []byte) (n int, err error) {
 	for {
+		// if message is fully received but there is more data in stream 0 and error nil is returned
 		if r.msgRcv {
 			r.msgRcv = false
 			return 0, nil
 		}
+		// if message is fully received and there is no more data in stream 0 and EOF is returned
 		if r.eof {
 			return 0, io.EOF
 		}
+		// read data in stream
 		chunk, err := r.stream.Recv()
 		if err != nil {
+			// no more data in stream
 			if err == io.EOF {
+				// no more data present in stream, but if buffer contains data it need to be return
 				if r.b.Len() > 0 {
 					lmsg := make([]byte, int(r.l)-r.r)
 					read, err := r.b.Read(lmsg)
@@ -61,13 +66,16 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 					copy(message, lmsg)
 					return read, nil
 				}
+				// no more data in stream, buffer empty
 				return 0, err
 			}
+			// shouldn't happen
 			return -1, err
 		}
 		if chunk != nil {
 			r.b.Write(chunk.Content)
 		}
+		// trailer creation, read counter and trailer length are 0
 		if r.r == 0 && r.l == 0 {
 			trailer := make([]byte, 8)
 			_, err = r.b.Read(trailer)
@@ -76,6 +84,7 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 			}
 			r.l = binary.BigEndian.Uint64(trailer)
 		}
+		// there is enough data in buffer to return the message. This happen when a single chunk contains both the trailer and the message
 		if r.b.Len() >= int(r.l) {
 			lmsg := make([]byte, int(r.l))
 			read, err := r.b.Read(lmsg)
@@ -88,6 +97,7 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 			copy(message, lmsg)
 			return read, nil
 		}
+		// buffer loading
 		if r.b.Len() >= len(message) {
 			read, err := r.b.Read(message)
 			if err != nil {
@@ -96,7 +106,7 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 			r.r += read
 			return read, err
 		}
-		// last message
+		// last message. Buffer contains enough data to return the last message
 		if r.b.Len() >= int(r.l)-r.r {
 			lmsg := make([]byte, int(r.l)-r.r)
 			read, err := r.b.Read(lmsg)
@@ -109,6 +119,5 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 			copy(message, lmsg)
 			return read, nil
 		}
-
 	}
 }
