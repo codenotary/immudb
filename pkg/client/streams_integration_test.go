@@ -137,7 +137,7 @@ func TestImmuServer_Stream(t *testing.T) {
 	gs, err := cli.streamGet(ctx, fn)
 	require.NoError(t, err)
 
-	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs))
+	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs), cli.Options.StreamChunkSize)
 
 	k1, err := kvr.NextKey()
 	require.NoError(t, err)
@@ -156,7 +156,7 @@ func TestImmuServer_Stream(t *testing.T) {
 	}
 
 	vl := 0
-	chunk := make([]byte, stream.ChunkSize)
+	chunk := make([]byte, stream.DefaultChunkSize)
 	exit := true
 	for exit {
 		l, err := vr.Read(chunk)
@@ -203,7 +203,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s))
+	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s, cli.Options.StreamChunkSize))
 
 	key := []byte("key1")
 	val := []byte("val1")
@@ -231,7 +231,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	kvs2 := stream.NewKvStreamSender(stream.NewMsgSender(s2))
+	kvs2 := stream.NewKvStreamSender(stream.NewMsgSender(s2, cli.Options.StreamChunkSize))
 
 	key2 := []byte("key2")
 	val2 := []byte("val2")
@@ -255,7 +255,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	kvs3 := stream.NewKvStreamSender(stream.NewMsgSender(s3))
+	kvs3 := stream.NewKvStreamSender(stream.NewMsgSender(s3, cli.Options.StreamChunkSize))
 
 	key3 := []byte("key3")
 	val3 := []byte("val3")
@@ -395,7 +395,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s))
+	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s, cli.Options.StreamChunkSize))
 
 	err = kvs.Send(kv)
 	require.NoError(t, err)

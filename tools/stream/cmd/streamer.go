@@ -59,7 +59,7 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	data := make([]byte, stream.ChunkSize)
+	data := make([]byte, stream.DefaultChunkSize)
 	_, err = kvr.NextKey()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

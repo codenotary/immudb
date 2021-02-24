@@ -16,4 +16,5 @@ limitations under the License.
 
 package stream
 
-const ChunkSize int = 64 * 1024 // 64 * 1024 64 KiB -> Minimum value allowed 4096
+const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
+const MinChunkSize int = 4096
