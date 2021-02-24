@@ -44,9 +44,12 @@ func (kvr *kvStreamReceiver) NextKey() ([]byte, error) {
 			if err != nil && err != io.EOF {
 				return nil, err
 			}
+			if err == io.EOF {
+				return nil, err
+			}
 			keyl += l
 			b.Write(chunk)
-			if err == io.EOF || l == 0 {
+			if l == 0 {
 				kvr.c++
 				break
 			}
