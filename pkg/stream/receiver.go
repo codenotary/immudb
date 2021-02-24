@@ -77,9 +77,10 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 		}
 
 		// message send edge case
-		msgInFirstRead := r.b.Len() >= r.tl
+		msgInFirstChunk := r.b.Len() >= r.tl
 		lastRead := r.tl-r.s <= len(message)
-		if msgInFirstRead || lastRead {
+		lastMessageSizeTooBig := r.tl-r.s > len(message)
+		if (msgInFirstChunk || lastRead) && !lastMessageSizeTooBig {
 			lastMessageSize := r.tl - r.s
 			lmsg := make([]byte, lastMessageSize)
 			_, err := r.b.Read(lmsg)
