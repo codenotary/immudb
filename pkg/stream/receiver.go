@@ -35,15 +35,35 @@ type msgReceiver struct {
 	b      *bytes.Buffer
 	l      uint64
 	r      int
+	msgRcv bool
+	eof    bool
 }
 
 func (r *msgReceiver) Read(message []byte) (n int, err error) {
 	for {
+		if r.msgRcv {
+			r.msgRcv = false
+			return 0, nil
+		}
+		if r.eof {
+			return 0, io.EOF
+		}
 		chunk, err := r.stream.Recv()
 		if err != nil {
-			if err != io.EOF {
+			if err == io.EOF {
+				if r.b.Len() > 0 {
+					lmsg := make([]byte, int(r.l)-r.r)
+					read, err := r.b.Read(lmsg)
+					if err != nil {
+						return 0, err
+					}
+					r.eof = true
+					copy(message, lmsg)
+					return read, nil
+				}
 				return 0, err
 			}
+			return -1, err
 		}
 		if chunk != nil {
 			r.b.Write(chunk.Content)
@@ -55,6 +75,18 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 				return 0, err
 			}
 			r.l = binary.BigEndian.Uint64(trailer)
+		}
+		if r.b.Len() >= int(r.l) {
+			lmsg := make([]byte, int(r.l))
+			read, err := r.b.Read(lmsg)
+			if err != nil {
+				return 0, err
+			}
+			r.r = 0
+			r.l = 0
+			r.msgRcv = true
+			copy(message, lmsg)
+			return read, nil
 		}
 		if r.b.Len() >= len(message) {
 			read, err := r.b.Read(message)
@@ -73,8 +105,9 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 			}
 			r.r = 0
 			r.l = 0
+			r.msgRcv = true
 			copy(message, lmsg)
-			return read, io.EOF
+			return read, nil
 		}
 
 	}

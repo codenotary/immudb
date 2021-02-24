@@ -75,7 +75,7 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	txMeta, err := cli.StreamSet(ctx, kv)
+	txMeta, err := cli.StreamSet(ctx, []*stream.KeyValue{kv})
 	require.NoError(t, err)
 	require.NotNil(t, txMeta)
 
@@ -101,7 +101,7 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	txMeta, err = cli.StreamSet(ctx, kv2)
+	txMeta, err = cli.StreamSet(ctx, []*stream.KeyValue{kv2})
 	require.NoError(t, err)
 	require.NotNil(t, txMeta)
 
@@ -127,7 +127,7 @@ func TestImmuServer_Stream(t *testing.T) {
 		},
 	}
 
-	txMeta, err = cli.StreamSet(ctx, kv3)
+	txMeta, err = cli.StreamSet(ctx, []*stream.KeyValue{kv3})
 	require.NoError(t, err)
 	require.NotNil(t, txMeta)
 

@@ -134,7 +134,7 @@ type ImmuClient interface {
 	streamSet(ctx context.Context) (schema.ImmuService_StreamSetClient, error)
 	streamGet(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_StreamGetClient, error)
 
-	StreamSet(ctx context.Context, kv *stream.KeyValue) (*schema.TxMetadata, error)
+	StreamSet(ctx context.Context, kv []*stream.KeyValue) (*schema.TxMetadata, error)
 	StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
 
 	// DEPRECATED: Please use CurrentState
