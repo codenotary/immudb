@@ -23,7 +23,7 @@ import (
 )
 
 func NewMsgReceiver(stream ImmuServiceReceiver_Stream) *msgReceiver {
-	return &msgReceiver{stream: stream, b: bytes.NewBuffer([]byte{})}
+	return &msgReceiver{stream: stream, b: new(bytes.Buffer)}
 }
 
 type MsgReceiver interface {
@@ -31,93 +31,75 @@ type MsgReceiver interface {
 }
 
 type msgReceiver struct {
-	stream ImmuServiceReceiver_Stream
-	b      *bytes.Buffer
-	l      uint64
-	r      int
-	msgRcv bool
-	eof    bool
+	stream  ImmuServiceReceiver_Stream
+	b       *bytes.Buffer
+	eof     bool
+	tl      int
+	s       int
+	msgSend bool
 }
 
 func (r *msgReceiver) Read(message []byte) (n int, err error) {
+	if r.msgSend {
+		r.msgSend = false
+		return 0, nil
+	}
+	// if message is fully received and there is no more data in stream 0 and EOF is returned
+	if r.eof && r.b.Len() == 0 {
+		return 0, io.EOF
+	}
+
 	for {
-		// if message is fully received but there is more data in stream 0 and error nil is returned
-		if r.msgRcv {
-			r.msgRcv = false
-			return 0, nil
-		}
-		// if message is fully received and there is no more data in stream 0 and EOF is returned
-		if r.eof {
-			return 0, io.EOF
-		}
-		// read data in stream
-		chunk, err := r.stream.Recv()
-		if err != nil {
-			// no more data in stream
-			if err == io.EOF {
-				// no more data present in stream, but if buffer contains data it need to be return
-				if r.b.Len() > 0 {
-					lmsg := make([]byte, int(r.l)-r.r)
-					read, err := r.b.Read(lmsg)
-					if err != nil {
-						return 0, err
-					}
+		// buffer until reach the capacity of the message
+	bufferLoad:
+		for r.b.Len() <= len(message) {
+			chunk, err := r.stream.Recv()
+			if chunk != nil {
+				r.b.Write(chunk.Content)
+			}
+			if err != nil {
+				// no more data in stream
+				if err == io.EOF {
 					r.eof = true
-					copy(message, lmsg)
-					return read, nil
+					break bufferLoad
 				}
-				// no more data in stream, buffer empty
 				return 0, err
 			}
-			// shouldn't happen
-			return -1, err
 		}
-		if chunk != nil {
-			r.b.Write(chunk.Content)
-		}
-		// trailer creation, read counter and trailer length are 0
-		if r.r == 0 && r.l == 0 {
+		// trailer (message length) initialization
+		if r.tl == 0 {
 			trailer := make([]byte, 8)
 			_, err = r.b.Read(trailer)
 			if err != nil {
 				return 0, err
 			}
-			r.l = binary.BigEndian.Uint64(trailer)
+			r.tl = int(binary.BigEndian.Uint64(trailer))
 		}
-		// there is enough data in buffer to return the message. This happen when a single chunk contains both the trailer and the message
-		if r.b.Len() >= int(r.l) {
-			lmsg := make([]byte, int(r.l))
-			read, err := r.b.Read(lmsg)
+
+		// message send edge case
+		msgInFirstRead := r.b.Len() >= r.tl
+		lastRead := r.tl-r.s <= len(message)
+		if msgInFirstRead || lastRead {
+			lastMessageSize := r.tl - r.s
+			lmsg := make([]byte, lastMessageSize)
+			_, err := r.b.Read(lmsg)
 			if err != nil {
 				return 0, err
 			}
-			r.r = 0
-			r.l = 0
-			r.msgRcv = true
-			copy(message, lmsg)
-			return read, nil
+			n := copy(message, lmsg)
+			r.tl = 0
+			r.msgSend = true
+			r.s = 0
+			return n, nil
 		}
-		// buffer loading
-		if r.b.Len() >= len(message) {
-			read, err := r.b.Read(message)
+		// message send
+		if r.b.Len() > len(message) {
+			n, err := r.b.Read(message)
 			if err != nil {
 				return 0, err
 			}
-			r.r += read
-			return read, err
-		}
-		// last message. Buffer contains enough data to return the last message
-		if r.b.Len() >= int(r.l)-r.r {
-			lmsg := make([]byte, int(r.l)-r.r)
-			read, err := r.b.Read(lmsg)
-			if err != nil {
-				return 0, err
-			}
-			r.r = 0
-			r.l = 0
-			r.msgRcv = true
-			copy(message, lmsg)
-			return read, nil
+			r.s += n
+			return n, nil
 		}
 	}
 }
