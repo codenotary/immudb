@@ -18,6 +18,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/codenotary/immudb/pkg/stream"
 	"net"
 	"strconv"
 	"strings"
@@ -56,6 +57,7 @@ type Options struct {
 	maintenance         bool
 	SigningKey          string
 	StoreOptions        *store.Options
+	StreamChunkSize     int
 }
 
 // DefaultOptions returns default server options
@@ -84,6 +86,7 @@ func DefaultOptions() *Options {
 		usingCustomListener: false,
 		maintenance:         false,
 		StoreOptions:        DefaultStoreOptions(),
+		StreamChunkSize:     stream.DefaultChunkSize,
 	}
 }
 
@@ -289,5 +292,11 @@ func (o *Options) GetMaintenance() bool {
 // WithSigningKey sets signature private key
 func (o *Options) WithSigningKey(signingKey string) *Options {
 	o.SigningKey = signingKey
+	return o
+}
+
+// WithStreamChunkSize set the chunk size
+func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
+	o.StreamChunkSize = streamChunkSize
 	return o
 }

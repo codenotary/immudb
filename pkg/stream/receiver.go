@@ -23,7 +23,9 @@ import (
 )
 
 func NewMsgReceiver(stream ImmuServiceReceiver_Stream) *msgReceiver {
-	return &msgReceiver{stream: stream, b: new(bytes.Buffer)}
+	return &msgReceiver{stream: stream,
+		b: new(bytes.Buffer),
+	}
 }
 
 type MsgReceiver interface {

@@ -24,20 +24,22 @@ import (
 )
 
 type kvStreamReceiver struct {
-	c int
-	s MsgReceiver
+	c               int
+	s               MsgReceiver
+	StreamChunkSize int
 }
 
-func NewKvStreamReceiver(s MsgReceiver) *kvStreamReceiver {
+func NewKvStreamReceiver(s MsgReceiver, chunkSize int) *kvStreamReceiver {
 	return &kvStreamReceiver{
-		s: s,
+		s:               s,
+		StreamChunkSize: chunkSize,
 	}
 }
 
 func (kvr *kvStreamReceiver) NextKey() ([]byte, error) {
 	if kvr.c%2 == 0 {
 		b := bytes.NewBuffer([]byte{})
-		chunk := make([]byte, ChunkSize)
+		chunk := make([]byte, kvr.StreamChunkSize)
 		keyl := 0
 		for {
 			l, err := kvr.s.Read(chunk)
@@ -67,7 +69,7 @@ func (kvr *kvStreamReceiver) NextKey() ([]byte, error) {
 func (kvr *kvStreamReceiver) NextValueReader() (*bufio.Reader, error) {
 	if kvr.c%2 != 0 {
 		kvr.c++
-		return bufio.NewReaderSize(kvr.s, ChunkSize), nil
+		return bufio.NewReaderSize(kvr.s, kvr.StreamChunkSize), nil
 	} else {
 		return nil, fmt.Errorf("key not available, use NextKey first")
 	}
