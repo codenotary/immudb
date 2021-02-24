@@ -22,19 +22,20 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-const catalogDatabase = "CATALOG/DATABASE/%s" // e.g. CATALOG/DATABASE/db1
-const catalogTable = "CATALOG/TABLE/%s/%s"    // e.g. CATALOG/TABLE/db1/table1
-const catalogIndex = "CATALOG/INDEX/%s/%s/%s" // e.g. CATALOG/INDEX/db1/table1/col1
-const catalogPK = "CATALOG/PK/%s/%s/%s"       // e.g. CATALOG/PK/db1/table1/col1
+const catalogDatabase = "CATALOG/DATABASE/%s"      // e.g. CATALOG/DATABASE/db1
+const catalogTable = "CATALOG/TABLE/%s/%s"         // e.g. CATALOG/TABLE/db1/table1
+const catalogColumn = "CATALOG/COLUMN/%s/%s/%s/%d" // e.g. "CATALOG/COLUMN/db1/table1/col1/INTEGER"
+const catalogPK = "CATALOG/PK/%s/%s/%s"            // e.g. CATALOG/PK/db1/table1/col1
+const catalogIndex = "CATALOG/INDEX/%s/%s/%s"      // e.g. CATALOG/INDEX/db1/table1/col1
 
-type SQLValueType = int
+type SQLValueType = string
 
 const (
-	IntegerType SQLValueType = iota
-	BooleanType
-	StringType
-	BLOBType
-	TimestampType
+	IntegerType   SQLValueType = "INTEGER"
+	BooleanType                = "BOOLEAN"
+	StringType                 = "STRING"
+	BLOBType                   = "BLOB"
+	TimestampType              = "TIMESTAMP"
 )
 
 type AggregateFn = int
@@ -109,7 +110,7 @@ func (stmt *CreateDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store
 	}
 
 	kv := &store.KV{
-		Key:   mapKey(catalogDatabase, e.prefix, stmt.db),
+		Key:   e.mapKey(catalogDatabase, stmt.db),
 		Value: nil,
 	}
 
@@ -156,7 +157,7 @@ func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 		return nil, nil, ErrNoDatabaseSelected
 	}
 
-	mk := mapKey(catalogTable, e.prefix, e.implicitDatabase, stmt.table)
+	mk := e.mapKey(catalogTable, e.implicitDatabase, stmt.table)
 
 	exists, err := existKey(mk, e.catalogStore)
 	if err != nil {
@@ -167,12 +168,33 @@ func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 		return nil, nil, ErrTableAlreadyExists
 	}
 
-	kv := &store.KV{
+	te := &store.KV{
 		Key:   mk,
 		Value: nil,
 	}
+	ces = append(ces, te)
 
-	ces = append(ces, kv)
+	validPK := false
+	for _, cs := range stmt.colsSpec {
+		ce := &store.KV{
+			Key:   e.mapKey(catalogColumn, e.implicitDatabase, stmt.table, cs.colName, cs.colType),
+			Value: nil,
+		}
+		ces = append(ces, ce)
+
+		if stmt.pk == cs.colName {
+			validPK = true
+		}
+	}
+	if !validPK {
+		return nil, nil, ErrInvalidPK
+	}
+
+	pke := &store.KV{
+		Key:   e.mapKey(catalogPK, e.implicitDatabase, stmt.table, stmt.pk),
+		Value: nil,
+	}
+	ces = append(ces, pke)
 
 	return
 }
