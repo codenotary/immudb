@@ -35,7 +35,7 @@ type msgSender struct {
 }
 
 func NewMsgSender(s ImmuServiceSender_Stream) *msgSender {
-	buffer := bytes.NewBuffer([]byte{})
+	buffer := new(bytes.Buffer)
 	return &msgSender{
 		stream: s,
 		b:      buffer,
@@ -53,7 +53,8 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 			st.b.Write(ml)
 		}
 		// read data from reader and append it to the buffer
-		data := make([]byte, reader.Size())
+		//  todo @Michele reader need to be dynamic, not of chunk size
+		data := make([]byte, ChunkSize)
 		r, err := reader.Read(data)
 		if err != nil {
 			if err != io.EOF {
