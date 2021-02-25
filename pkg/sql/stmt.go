@@ -143,7 +143,11 @@ func (stmt *CreateDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store
 
 	ces = append(ces, kv)
 
-	e.catalog.databases[stmt.db] = &Database{name: stmt.db}
+	e.catalog.databases[stmt.db] = &Database{
+		name:    stmt.db,
+		tables:  map[string]*Table{},
+		indexes: map[string]*Index{},
+	}
 
 	return
 }
@@ -194,22 +198,21 @@ func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 		return nil, nil, ErrNoDatabaseSelected
 	}
 
-	mk := e.mapKey(catalogTable, e.implicitDatabase, stmt.table)
-
-	exists, err := existKey(mk, e.catalogStore)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	exists := e.catalog.databases[e.implicitDatabase].ExistTable(stmt.table)
 	if exists {
 		return nil, nil, ErrTableAlreadyExists
 	}
 
 	te := &store.KV{
-		Key:   mk,
+		Key:   e.mapKey(catalogTable, e.implicitDatabase, stmt.table),
 		Value: nil,
 	}
 	ces = append(ces, te)
+
+	table := &Table{
+		name: stmt.table,
+		cols: make(map[string]*Column, 0),
+	}
 
 	validPK := false
 	for _, cs := range stmt.colsSpec {
@@ -219,11 +222,23 @@ func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 		}
 		ces = append(ces, ce)
 
+		_, colExists := table.cols[cs.colName]
+		if colExists {
+			return nil, nil, ErrDuplicatedColumn
+		}
+
+		table.cols[cs.colName] = &Column{
+			colName: cs.colName,
+			colType: cs.colType,
+		}
+
 		if stmt.pk == cs.colName {
 			if cs.colType != IntegerType {
 				return nil, nil, ErrInvalidPKType
 			}
 			validPK = true
+
+			table.pk = cs.colName
 		}
 	}
 	if !validPK {
@@ -235,6 +250,8 @@ func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 		Value: nil,
 	}
 	ces = append(ces, pke)
+
+	e.catalog.databases[e.implicitDatabase].tables[stmt.table] = table
 
 	return
 }

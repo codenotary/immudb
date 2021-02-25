@@ -37,6 +37,7 @@ var ErrTableAlreadyExists = errors.New("table already exists")
 var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrInvalidPK = errors.New("invalid primary key")
 var ErrInvalidPKType = errors.New("primary key of invalid type. Only INTEGER type is supported")
+var ErrDuplicatedColumn = errors.New("duplicated column")
 
 type Engine struct {
 	catalogStore *store.ImmuStore

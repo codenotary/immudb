@@ -21,19 +21,26 @@ type Catalog struct {
 
 type Database struct {
 	name    string
-	tables  []*Table
-	indexes []string
+	tables  map[string]*Table
+	indexes map[string]*Index
 }
 
 type Table struct {
 	name string
-	cols []*Column
-	pk   *Column
+	cols map[string]*Column
+	pk   string
 }
 
 type Column struct {
 	colName string
 	colType SQLValueType
+}
+
+type Index struct {
+	name  string
+	db    string
+	table string
+	col   string
 }
 
 func (c *Catalog) Databases() []*Database {
@@ -50,5 +57,10 @@ func (c *Catalog) Databases() []*Database {
 
 func (c *Catalog) ExistDatabase(db string) bool {
 	_, exists := c.databases[db]
+	return exists
+}
+
+func (db *Database) ExistTable(table string) bool {
+	_, exists := db.tables[table]
 	return exists
 }
