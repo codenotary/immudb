@@ -38,6 +38,13 @@ func (c *immuClient) streamGet(ctx context.Context, in *schema.KeyRequest) (sche
 	return c.ServiceClient.StreamGet(ctx, in)
 }
 
+func (c *immuClient) streamScan(ctx context.Context, in *schema.ScanRequest) (schema.ImmuService_StreamScanClient, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	return c.ServiceClient.StreamScan(ctx, in)
+}
+
 func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -93,4 +100,28 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 		Key:   key,
 		Value: value,
 	}, nil
+}
+
+func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
+	gs, err := c.streamScan(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	kvr := c.Ssf.NewKvStreamReceiver(gs)
+	var entries []*schema.Entry
+	for {
+		key, vr, err := kvr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		entry, err := stream.ParseKV(key, vr, c.Options.StreamChunkSize)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	return &schema.Entries{Entries: entries}, nil
 }

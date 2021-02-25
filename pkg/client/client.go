@@ -133,9 +133,11 @@ type ImmuClient interface {
 
 	streamSet(ctx context.Context) (schema.ImmuService_StreamSetClient, error)
 	streamGet(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_StreamGetClient, error)
+	streamScan(ctx context.Context, in *schema.ScanRequest) (schema.ImmuService_StreamScanClient, error)
 
 	StreamSet(ctx context.Context, kv []*stream.KeyValue) (*schema.TxMetadata, error)
 	StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
+	StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)
 
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)
@@ -160,6 +162,7 @@ type immuClient struct {
 	StateService        state.StateService
 	Tkns                TokenService
 	serverSigningPubKey *ecdsa.PublicKey
+	Ssf                 stream.ServiceFactory
 	sync.RWMutex
 }
 
@@ -169,6 +172,7 @@ func DefaultClient() ImmuClient {
 		Dir:     "",
 		Options: DefaultOptions(),
 		Logger:  logger.NewSimpleLogger("immuclient", os.Stderr),
+		Ssf:     stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 	}
 }
 

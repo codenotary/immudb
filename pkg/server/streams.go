@@ -28,12 +28,12 @@ import (
 )
 
 func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_StreamGetServer) error {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "VerifiableGet")
+	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamGet")
 	if err != nil {
 		return err
 	}
 
-	kvsr := s.Ssf.NewKvStreamSender(str, s.Options.StreamChunkSize)
+	kvsr := s.Ssf.NewKvStreamSender(str)
 
 	entry, err := s.dbList.GetByIndex(ind).Get(kr)
 	if err != nil {
@@ -53,12 +53,12 @@ func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_Str
 }
 
 func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
-	ind, err := s.getDbIndexFromCtx(str.Context(), "_StreamSet")
+	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamSet")
 	if err != nil {
 		return err
 	}
 
-	kvsr := s.Ssf.NewKvStreamReceiver(str, s.Options.StreamChunkSize)
+	kvsr := s.Ssf.NewKvStreamReceiver(str)
 
 	var kvs = make([]*schema.KeyValue, 0)
 
@@ -128,8 +128,33 @@ func (s *ImmuServer) StreamVerifiableSet(request *schema.VerifiableSetRequest, s
 	panic("implement me")
 }
 
-func (s *ImmuServer) StreamScan(request *schema.ScanRequest, server schema.ImmuService_StreamScanServer) error {
-	panic("implement me")
+func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_StreamScanServer) error {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "Scan")
+	if err != nil {
+		return err
+	}
+
+	r, err := s.dbList.GetByIndex(ind).Scan(req)
+
+	kvsr := s.Ssf.NewKvStreamSender(str)
+
+	for _, e := range r.Entries {
+		kv := &stream.KeyValue{
+			Key: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(e.Key)),
+				Size:    len(e.Key),
+			},
+			Value: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(e.Value)),
+				Size:    len(e.Value),
+			},
+		}
+		err = kvsr.Send(kv)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.ImmuService_StreamZScanServer) error {
