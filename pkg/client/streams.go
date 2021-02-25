@@ -64,12 +64,7 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs), c.Options.StreamChunkSize)
 
-	key, err := kvr.NextKey()
-	if err != nil {
-		return nil, err
-	}
-
-	vr, err := kvr.NextValueReader()
+	key, vr, err := kvr.Next()
 	if err != nil {
 		return nil, err
 	}

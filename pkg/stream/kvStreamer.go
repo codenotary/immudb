@@ -23,6 +23,5 @@ type KvStreamSender interface {
 }
 
 type KvStreamReceiver interface {
-	NextKey() ([]byte, error)
-	NextValueReader() (*bufio.Reader, error)
+	Next() ([]byte, *bufio.Reader, error)
 }
