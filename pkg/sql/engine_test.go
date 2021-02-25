@@ -70,7 +70,7 @@ func TestUseDatabase(t *testing.T) {
 	require.Equal(t, "db1", engine.implicitDatabase)
 
 	_, err = engine.ExecStmt("USE DATABASE db2")
-	require.Equal(t, ErrDatabaseNoExists, err)
+	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
 	require.Equal(t, "db1", engine.implicitDatabase)
 }

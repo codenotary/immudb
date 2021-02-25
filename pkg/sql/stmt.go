@@ -22,11 +22,7 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
-const catalogDatabase = "CATALOG/DATABASE/%s"      // e.g. CATALOG/DATABASE/db1
-const catalogTable = "CATALOG/TABLE/%s/%s"         // e.g. CATALOG/TABLE/db1/table1
-const catalogColumn = "CATALOG/COLUMN/%s/%s/%s/%d" // e.g. "CATALOG/COLUMN/db1/table1/col1/INTEGER"
-const catalogPK = "CATALOG/PK/%s/%s/%s"            // e.g. CATALOG/PK/db1/table1/col1
-const catalogIndex = "CATALOG/INDEX/%s/%s/%s"      // e.g. CATALOG/INDEX/db1/table1/col1
+const dataRow = "DATA/%s/%s/PRIMARY/%s" // e.g. DATA/db1/table1/PRIMARY/1
 
 type SQLValueType = string
 
@@ -130,7 +126,7 @@ func (stmt *UseDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 	}
 
 	if !exists {
-		return nil, nil, ErrDatabaseNoExists
+		return nil, nil, ErrDatabaseDoesNotExist
 	}
 
 	e.implicitDatabase = stmt.db
@@ -241,6 +237,25 @@ type InsertIntoStmt struct {
 }
 
 func (stmt *InsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	mk := e.mapKey(catalogTable, e.implicitDatabase, stmt.table)
+
+	exists, err := existKey(mk, e.catalogStore)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !exists {
+		return nil, nil, ErrTableDoesNotExist
+	}
+
+	//TODO: check specified columns exist
+	// check primary key is specified and not null nor empty
+
+	// mantener en memoria el catalogo
+	// siempre que se actualiza tambien en memoria
+	// al cargar,
+	// dataRow
+
 	return nil, nil, errors.New("not yet supported")
 }
 
