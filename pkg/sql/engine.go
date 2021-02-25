@@ -26,11 +26,13 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
+var ErrIllegalArguments = errors.New("illegal arguments")
 var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
-var ErrDatabaseNoExists = errors.New("database no exists")
+var ErrDatabaseDoesNotExist = errors.New("database does not exist")
 var ErrDatabaseAlreadyExists = errors.New("database already exists")
 var ErrNoDatabaseSelected = errors.New("no database selected")
 var ErrTableAlreadyExists = errors.New("table already exists")
+var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrInvalidPK = errors.New("invalid primary key")
 var ErrInvalidPKType = errors.New("primary key of invalid type. Only INTEGER type is supported")
 
@@ -108,6 +110,11 @@ func (e *Engine) WaitForIndexingUpto(txID uint64) error {
 }
 
 func (e *Engine) Exec(sql io.ByteReader) (*store.TxMetadata, error) {
+	stmts, err := Parse(sql)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: only needs to lock insertions in catalog store
 	e.cmux.Lock()
 	defer e.cmux.Unlock()
@@ -117,7 +124,7 @@ func (e *Engine) Exec(sql io.ByteReader) (*store.TxMetadata, error) {
 	lastTxID, _ := e.catalogStore.Alh()
 	e.WaitForIndexingUpto(lastTxID)
 
-	centries, dentries, err := e.ValidateAndCompile(sql)
+	centries, dentries, err := e.ValidateAndCompile(stmts)
 	if err != nil {
 		return nil, err
 	}
@@ -140,15 +147,7 @@ func (e *Engine) Exec(sql io.ByteReader) (*store.TxMetadata, error) {
 // Porque va a validar contra el catalogo antes de agregar
 // Y luego es el commit del resultado si no hubo error
 
-func (e *Engine) ValidateAndCompile(sql io.ByteReader) ([]*store.KV, []*store.KV, error) {
-	stmts, err := Parse(sql)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	centries := make([]*store.KV, 0)
-	dentries := make([]*store.KV, 0)
-
+func (e *Engine) ValidateAndCompile(stmts []SQLStmt) (centries []*store.KV, dentries []*store.KV, err error) {
 	for _, stmt := range stmts {
 		// TODO: semantic analysis
 
@@ -161,5 +160,5 @@ func (e *Engine) ValidateAndCompile(sql io.ByteReader) ([]*store.KV, []*store.KV
 		dentries = append(dentries, des...)
 	}
 
-	return centries, dentries, nil
+	return
 }
