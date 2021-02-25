@@ -19,12 +19,10 @@ package stream
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 )
 
 type kvStreamReceiver struct {
-	c               int
 	s               MsgReceiver
 	StreamChunkSize int
 }
@@ -36,41 +34,29 @@ func NewKvStreamReceiver(s MsgReceiver, chunkSize int) *kvStreamReceiver {
 	}
 }
 
-func (kvr *kvStreamReceiver) NextKey() ([]byte, error) {
-	if kvr.c%2 == 0 {
-		b := bytes.NewBuffer([]byte{})
-		chunk := make([]byte, kvr.StreamChunkSize)
-		keyl := 0
-		for {
-			l, err := kvr.s.Read(chunk)
-			if err != nil && err != io.EOF {
-				return nil, err
-			}
-			if err == io.EOF {
-				return nil, err
-			}
-			keyl += l
-			b.Write(chunk)
-			if l == 0 {
-				kvr.c++
-				break
-			}
+func (kvr *kvStreamReceiver) Next() ([]byte, *bufio.Reader, error) {
+	b := bytes.NewBuffer([]byte{})
+	chunk := make([]byte, kvr.StreamChunkSize)
+	keyl := 0
+	for {
+		l, err := kvr.s.Read(chunk)
+		if err != nil && err != io.EOF {
+			return nil, nil, err
 		}
-		key := make([]byte, keyl)
-		_, err := b.Read(key)
-		if err != nil {
-			return nil, err
+		if err == io.EOF {
+			return nil, nil, err
 		}
-		return key, nil
-	} else {
-		return nil, fmt.Errorf("key not available, use NextValueReader first")
+		keyl += l
+		b.Write(chunk)
+		if l == 0 {
+			break
+		}
 	}
-}
-func (kvr *kvStreamReceiver) NextValueReader() (*bufio.Reader, error) {
-	if kvr.c%2 != 0 {
-		kvr.c++
-		return bufio.NewReaderSize(kvr.s, kvr.StreamChunkSize), nil
-	} else {
-		return nil, fmt.Errorf("key not available, use NextKey first")
+	key := make([]byte, keyl)
+	_, err := b.Read(key)
+	if err != nil {
+		return nil, nil, err
 	}
+
+	return key, bufio.NewReaderSize(kvr.s, kvr.StreamChunkSize), nil
 }

@@ -79,7 +79,7 @@ func TestImmuServer_Stream(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, txMeta)
 
-	filename2 := "/home/falce/vchain/immudb/src/test/digest_OK.mp4"
+	filename2 := "/home/falce/vchain/immudb/src/test/PARA0119.mp4"
 	f2, err := os.Open(filename2)
 	if err != nil {
 		log.Fatal(err)
@@ -139,7 +139,7 @@ func TestImmuServer_Stream(t *testing.T) {
 
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs), cli.Options.StreamChunkSize)
 
-	k1, err := kvr.NextKey()
+	k1, vr, err := kvr.Next()
 	require.NoError(t, err)
 	require.Equal(t, []byte(filename), k1)
 
@@ -150,10 +150,6 @@ func TestImmuServer_Stream(t *testing.T) {
 	}
 
 	bw := bufio.NewWriter(received)
-	vr, err := kvr.NextValueReader()
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	vl := 0
 	chunk := make([]byte, stream.DefaultChunkSize)
@@ -198,12 +194,12 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	s, err := cli.streamSet(ctx)
+	s1, err := cli.streamSet(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s, cli.Options.StreamChunkSize))
+	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s1, cli.Options.StreamChunkSize))
 
 	key := []byte("key1")
 	val := []byte("val1")
@@ -222,7 +218,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	err = kvs.Send(kv)
 	require.NoError(t, err)
 
-	txMeta, err := s.CloseAndRecv()
+	txMeta, err := s1.CloseAndRecv()
 	require.NoError(t, err)
 	require.IsType(t, &schema.TxMetadata{}, txMeta)
 
@@ -250,6 +246,10 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	err = kvs2.Send(kv2)
 	require.NoError(t, err)
 
+	txMeta, err = s2.CloseAndRecv()
+	require.NoError(t, err)
+	require.IsType(t, &schema.TxMetadata{}, txMeta)
+
 	s3, err := cli.streamSet(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -274,7 +274,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 	err = kvs3.Send(kv3)
 	require.NoError(t, err)
 
-	err = s2.CloseSend()
+	err = s3.CloseSend()
 	require.NoError(t, err)
 
 	// STREAM GET
@@ -307,6 +307,7 @@ func TestImmuServer_SetGetStream(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, val3, entry.Value)
+
 }
 
 func TestReader(t *testing.T) {

@@ -64,7 +64,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 
 out:
 	for {
-		key, err := kvsr.NextKey()
+		key, vr, err := kvsr.Next()
 		if err != nil {
 			if err == io.EOF {
 				break out
@@ -72,10 +72,6 @@ out:
 			return err
 		}
 
-		vr, err := kvsr.NextValueReader()
-		if err != nil {
-			return err
-		}
 		b := new(bytes.Buffer)
 		vl := 0
 		chunk := make([]byte, stream.DefaultChunkSize)
