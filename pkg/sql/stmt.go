@@ -22,6 +22,23 @@ import (
 	"github.com/codenotary/immudb/embedded/store"
 )
 
+const patternSeparator = "/"
+
+const catalogDatabasePrefix = "CATALOG/DATABASE/"
+const catalogDatabase = catalogDatabasePrefix + "%s" // e.g. CATALOG/DATABASE/db1
+
+const catalogTablePrefix = "CATALOG/TABLE/"
+const catalogTable = catalogTablePrefix + "%s/%s" // e.g. CATALOG/TABLE/db1/table1
+
+const catalogColumnPrefix = "CATALOG/COLUMN/"
+const catalogColumn = catalogColumnPrefix + "%s/%s/%s/%s" // e.g. "CATALOG/COLUMN/db1/table1/col1/INTEGER"
+
+const catalogPKPrefix = "CATALOG/PK/"
+const catalogPK = catalogPKPrefix + "%s/%s/%s" // e.g. CATALOG/PK/db1/table1/col1
+
+const catalogIndexPrefix = "CATALOG/INDEX/"
+const catalogIndex = catalogIndexPrefix + "%s/%s/%s" // e.g. CATALOG/INDEX/db1/table1/col1
+
 const dataRow = "DATA/%s/%s/PRIMARY/%s" // e.g. DATA/db1/table1/PRIMARY/1
 
 type SQLValueType = string
@@ -71,11 +88,21 @@ const (
 )
 
 type SQLStmt interface {
+	isDDL() bool
 	ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error)
 }
 
 type TxStmt struct {
 	stmts []SQLStmt
+}
+
+func (stmt *TxStmt) isDDL() bool {
+	for _, stmt := range stmt.stmts {
+		if stmt.isDDL() {
+			return true
+		}
+	}
+	return false
 }
 
 func (stmt *TxStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
@@ -95,12 +122,16 @@ type CreateDatabaseStmt struct {
 	db string
 }
 
-func (stmt *CreateDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	exists, err := e.ExistDatabase(stmt.db)
-	if err != nil {
-		return nil, nil, err
-	}
+// for writes, always needs to be up the date, doesn't matter the snapshot...
+// for reading, a snapshot is created. It will wait until such tx is indexed.
+// still writing to the catalog will wait the index to be up to date and locked
+// conditional lock on writeLocked
+func (stmt *CreateDatabaseStmt) isDDL() bool {
+	return true
+}
 
+func (stmt *CreateDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	exists := e.catalog.ExistDatabase(stmt.db)
 	if exists {
 		return nil, nil, ErrDatabaseAlreadyExists
 	}
@@ -112,6 +143,8 @@ func (stmt *CreateDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store
 
 	ces = append(ces, kv)
 
+	e.catalog.databases[stmt.db] = &Database{name: stmt.db}
+
 	return
 }
 
@@ -119,12 +152,12 @@ type UseDatabaseStmt struct {
 	db string
 }
 
-func (stmt *UseDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	exists, err := e.ExistDatabase(stmt.db)
-	if err != nil {
-		return nil, nil, err
-	}
+func (stmt *UseDatabaseStmt) isDDL() bool {
+	return false
+}
 
+func (stmt *UseDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	exists := e.catalog.ExistDatabase(stmt.db)
 	if !exists {
 		return nil, nil, ErrDatabaseDoesNotExist
 	}
@@ -138,6 +171,10 @@ type UseSnapshotStmt struct {
 	since, upTo string
 }
 
+func (stmt *UseSnapshotStmt) isDDL() bool {
+	return false
+}
+
 func (stmt *UseSnapshotStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	return nil, nil, errors.New("not yet supported")
 }
@@ -146,6 +183,10 @@ type CreateTableStmt struct {
 	table    string
 	colsSpec []*ColSpec
 	pk       string
+}
+
+func (stmt *CreateTableStmt) isDDL() bool {
+	return true
 }
 
 func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
@@ -208,6 +249,10 @@ type CreateIndexStmt struct {
 	col   string
 }
 
+func (stmt *CreateIndexStmt) isDDL() bool {
+	return true
+}
+
 func (stmt *CreateIndexStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	return nil, nil, errors.New("not yet supported")
 }
@@ -215,6 +260,10 @@ func (stmt *CreateIndexStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 type AddColumnStmt struct {
 	table   string
 	colSpec *ColSpec
+}
+
+func (stmt *AddColumnStmt) isDDL() bool {
+	return true
 }
 
 func (stmt *AddColumnStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
@@ -226,6 +275,10 @@ type AlterColumnStmt struct {
 	colSpec *ColSpec
 }
 
+func (stmt *AlterColumnStmt) isDDL() bool {
+	return true
+}
+
 func (stmt *AlterColumnStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	return nil, nil, errors.New("not yet supported")
 }
@@ -234,6 +287,10 @@ type InsertIntoStmt struct {
 	table string
 	cols  []string
 	rows  []*Row
+}
+
+func (stmt *InsertIntoStmt) isDDL() bool {
+	return false
 }
 
 func (stmt *InsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
@@ -286,6 +343,10 @@ type SelectStmt struct {
 	limit     uint64
 	orderBy   []*OrdCol
 	as        string
+}
+
+func (stmt *SelectStmt) isDDL() bool {
+	return false
 }
 
 func (stmt *SelectStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
