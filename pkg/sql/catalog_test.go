@@ -16,39 +16,17 @@ limitations under the License.
 package sql
 
 import (
-	"os"
 	"testing"
 
-	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEmptyCatalog(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
-	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	catalog := &Catalog{}
 
-	catalog, err := openCatalog(catalogStore, prefix)
-
-	dbs, err := catalog.Databases()
-	require.NoError(t, err)
+	dbs := catalog.Databases()
 	require.Empty(t, dbs)
 
-	exists, err := catalog.DatabaseExist("db1")
-	require.NoError(t, err)
-	require.False(t, exists)
-
-	err = catalog.UseSnapshot(nil)
-	require.Equal(t, ErrIllegalArguments, err)
-
-	err = catalog.UseSnapshot(&UseSnapshotStmt{})
-	require.NoError(t, err)
-
-	dbs, err = catalog.Databases()
-	require.NoError(t, err)
-	require.Empty(t, dbs)
-
-	exists, err = catalog.DatabaseExist("db1")
-	require.NoError(t, err)
+	exists := catalog.ExistDatabase("db1")
 	require.False(t, exists)
 }
