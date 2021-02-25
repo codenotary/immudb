@@ -16,23 +16,23 @@ limitations under the License.
 
 package stream
 
-import "github.com/codenotary/immudb/pkg/api/schema"
-
-type serviceFactory struct{}
+type serviceFactory struct {
+	ChunkSize int
+}
 
 type ServiceFactory interface {
-	NewKvStreamReceiver(str schema.ImmuService_StreamSetServer, chunkSize int) KvStreamReceiver
-	NewKvStreamSender(str schema.ImmuService_StreamGetServer, chunkSize int) KvStreamSender
+	NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver
+	NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender
 }
 
-func NewStreamServiceFactory() ServiceFactory {
-	return &serviceFactory{}
+func NewStreamServiceFactory(chunkSize int) ServiceFactory {
+	return &serviceFactory{ChunkSize: chunkSize}
 }
 
-func (s *serviceFactory) NewKvStreamReceiver(str schema.ImmuService_StreamSetServer, chunkSize int) KvStreamReceiver {
-	return NewKvStreamReceiver(NewMsgReceiver(str), chunkSize)
+func (s *serviceFactory) NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver {
+	return NewKvStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
 }
 
-func (s *serviceFactory) NewKvStreamSender(str schema.ImmuService_StreamGetServer, chunkSize int) KvStreamSender {
-	return NewKvStreamSender(NewMsgSender(str, chunkSize))
+func (s *serviceFactory) NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender {
+	return NewKvStreamSender(NewMsgSender(str, s.ChunkSize))
 }

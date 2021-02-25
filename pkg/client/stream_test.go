@@ -560,3 +560,51 @@ func TestImmuClient_SetMultipleKeysLoop(t *testing.T) {
 
 	client.Disconnect()
 }
+
+func TestImmuClient_StreamScan(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	kvs := []*stream.KeyValue{}
+
+	for i := 1; i <= 100; i++ {
+		kv := &stream.KeyValue{
+			Key: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer([]byte(fmt.Sprintf("key-%d", i)))),
+				Size:    len([]byte(fmt.Sprintf("key-%d", i))),
+			},
+			Value: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer([]byte(fmt.Sprintf("val-%d", i)))),
+				Size:    len([]byte(fmt.Sprintf("val-%d", i))),
+			},
+		}
+		kvs = append(kvs, kv)
+	}
+
+	meta, err := client.StreamSet(ctx, kvs)
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+
+	scanResp, err := client.StreamScan(ctx, &schema.ScanRequest{
+		Prefix:  []byte("key"),
+		SinceTx: meta.Id,
+	})
+
+	client.Disconnect()
+
+	require.Len(t, scanResp.Entries, 100)
+}

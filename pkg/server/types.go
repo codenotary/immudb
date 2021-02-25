@@ -82,7 +82,7 @@ func DefaultServer() *ImmuServer {
 		databasenameToIndex: make(map[string]int64),
 		userdata:            &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
 		GrpcServer:          grpc.NewServer(),
-		Ssf:                 stream.NewStreamServiceFactory(),
+		Ssf:                 stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 	}
 }
 

@@ -56,7 +56,7 @@ func (s *ServerMock) StreamVerifiableSet(request *schema.VerifiableSetRequest, s
 }
 
 func (s *ServerMock) StreamScan(request *schema.ScanRequest, scanServer schema.ImmuService_StreamScanServer) error {
-	panic("implement me")
+	return s.srv.StreamScan(request, scanServer)
 }
 
 func (s *ServerMock) StreamZScan(request *schema.ZScanRequest, scanServer schema.ImmuService_StreamZScanServer) error {
