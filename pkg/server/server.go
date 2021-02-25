@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"os"
 	"os/signal"
@@ -1179,7 +1180,9 @@ func (s *ImmuServer) ListUsers(ctx context.Context, req *empty.Empty) (*schema.U
 	}
 
 	itemList, err := s.sysDb.Scan(&schema.ScanRequest{
-		Prefix: []byte{KeyPrefixUser},
+		Prefix:  []byte{KeyPrefixUser},
+		SinceTx: math.MaxUint64,
+		NoWait:  true,
 	})
 	if err != nil {
 		s.Logger.Errorf("error getting users: %v", err)
