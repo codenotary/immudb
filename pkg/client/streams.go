@@ -17,7 +17,6 @@ limitations under the License.
 package client
 
 import (
-	"bytes"
 	"context"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
@@ -76,30 +75,7 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 		return nil, err
 	}
 
-	b := bytes.NewBuffer([]byte{})
-	vl := 0
-	chunk := make([]byte, c.Options.StreamChunkSize)
-	for {
-		l, err := vr.Read(chunk)
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-		vl += l
-		b.Write(chunk)
-		if err == io.EOF || l == 0 {
-			break
-		}
-	}
-	value := make([]byte, vl)
-	_, err = b.Read(value)
-	if err != nil {
-		return nil, err
-	}
-
-	return &schema.Entry{
-		Key:   key,
-		Value: value,
-	}, nil
+	return stream.ParseKV(key, vr, c.Options.StreamChunkSize)
 }
 
 func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
