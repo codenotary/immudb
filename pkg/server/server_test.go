@@ -444,6 +444,10 @@ func TestServerListUsersAdmin(t *testing.T) {
 	err = s.loadUserDatabases(s.Options.Dir)
 	require.NoError(t, err)
 
+	users1, err := s.ListUsers(ctx, &emptypb.Empty{})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(users1.Users), 1)
+
 	newUser := &schema.CreateUserRequest{
 		User:       testUsername,
 		Password:   testPassword,
@@ -495,6 +499,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	if len(users.Users) < 1 {
 		t.Fatalf("List users, expected >1 got %v", len(users.Users))
 	}
+	require.Equal(t, len(users1.Users)+1, len(users.Users))
 
 	newUser = &schema.CreateUserRequest{
 		User:       []byte("rwuser"),
@@ -1875,6 +1880,10 @@ func TestServerGetUserAndUserExists(t *testing.T) {
 		Database:   DefaultdbName})
 	require.NoError(t, err)
 	require.NoError(t, err)
+
+	_, err = s.getUser([]byte(username), true)
+	require.NoError(t, err)
+
 	_, err = s.getUser([]byte(username), false)
 	require.Equal(t, errors.New("user not found"), err)
 
