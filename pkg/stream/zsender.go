@@ -16,41 +16,36 @@ limitations under the License.
 
 package stream
 
-import (
-	"bufio"
-	"bytes"
-	"encoding/binary"
-)
-
-type KeyValue struct {
-	Key   *ValueSize
-	Value *ValueSize
+type zStreamSender struct {
+	s MsgSender
 }
 
-type ValueSize struct {
-	Content *bufio.Reader
-	Size    int
-}
-
-type ZEntry struct {
-	Set   *ValueSize
-	Key   *ValueSize
-	Value *ValueSize
-	Score *ValueSize
-}
-
-// Float64ToBytes ...
-func Float64ToBytes(f float64) ([]byte, error) {
-	var buf bytes.Buffer
-	err := binary.Write(&buf, binary.BigEndian, f)
-	if err != nil {
-		return nil, err
+func NewZStreamSender(s MsgSender) *zStreamSender {
+	return &zStreamSender{
+		s: s,
 	}
-	return buf.Bytes(), err
 }
 
-// Float64FromBytes ...
-func Float64FromBytes(bs []byte, f *float64) error {
-	buf := bytes.NewReader(bs)
-	return binary.Read(buf, binary.BigEndian, f)
+func (st *zStreamSender) Send(ze *ZEntry) error {
+	err := st.s.Send(ze.Set.Content, ze.Set.Size)
+	if err != nil {
+		return st.s.RecvMsg(nil)
+	}
+
+	err = st.s.Send(ze.Key.Content, ze.Key.Size)
+	if err != nil {
+		return st.s.RecvMsg(nil)
+	}
+
+	err = st.s.Send(ze.Value.Content, ze.Value.Size)
+	if err != nil {
+		return st.s.RecvMsg(nil)
+	}
+
+	err = st.s.Send(ze.Score.Content, ze.Score.Size)
+	if err != nil {
+		return st.s.RecvMsg(nil)
+	}
+
+	return nil
 }
