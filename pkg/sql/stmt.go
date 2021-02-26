@@ -282,19 +282,6 @@ func (stmt *AddColumnStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, 
 	return nil, nil, errors.New("not yet supported")
 }
 
-type AlterColumnStmt struct {
-	table   string
-	colSpec *ColSpec
-}
-
-func (stmt *AlterColumnStmt) isDDL() bool {
-	return true
-}
-
-func (stmt *AlterColumnStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	return nil, nil, errors.New("not yet supported")
-}
-
 type InsertIntoStmt struct {
 	table string
 	cols  []string
