@@ -108,3 +108,37 @@ func TestCreateTable(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
 	require.Equal(t, ErrTableAlreadyExists, err)
 }
+
+func TestInsertInto(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("USE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1)")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1)") // what should happen  here? UPSERT  or constraint?
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (2)")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1, 'value')")
+	require.Equal(t, ErrInvalidNumberOfValues, err)
+}

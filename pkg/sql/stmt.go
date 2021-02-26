@@ -282,17 +282,17 @@ func (stmt *AddColumnStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, 
 	return nil, nil, errors.New("not yet supported")
 }
 
-type InsertIntoStmt struct {
+type UpsertIntoStmt struct {
 	table string
 	cols  []string
 	rows  []*Row
 }
 
-func (stmt *InsertIntoStmt) isDDL() bool {
+func (stmt *UpsertIntoStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *InsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *UpsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	if e.implicitDatabase == "" {
 		return nil, nil, ErrNoDatabaseSelected
 	}
@@ -342,7 +342,7 @@ func (stmt *InsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV,
 			return nil, nil, err
 		}
 
-		var values map[string]interface{}
+		values := make(map[string]interface{}, 0)
 
 		for i, val := range row.values {
 			col, _ := table.cols[stmt.cols[i]]
