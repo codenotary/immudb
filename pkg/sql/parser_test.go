@@ -232,9 +232,9 @@ func TestAlterTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "ALTER TABLE table1 ALTER COLUMN title BLOB",
+			input: "ALTER TABLE table1 ADD COLUMN title BLOB",
 			expectedOutput: []SQLStmt{
-				&AlterColumnStmt{
+				&AddColumnStmt{
 					table:   "table1",
 					colSpec: &ColSpec{colName: "title", colType: BLOBType},
 				}},
@@ -243,7 +243,7 @@ func TestAlterTableStmt(t *testing.T) {
 		{
 			input:          "ALTER TABLE table1 COLUMN title STRING",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ALTER or ADD"),
+			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD"),
 		},
 	}
 
