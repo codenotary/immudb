@@ -18,3 +18,4 @@ package stream
 
 const DefaultChunkSize int = 64 * 1024 // 64 * 1024 64 KiB
 const MinChunkSize int = 4096
+const MaxTxValueLen int = 1 << 25 // 32Mb

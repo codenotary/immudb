@@ -22,3 +22,4 @@ import (
 )
 
 var ErrMaxValueLenExceeded = status.Error(codes.FailedPrecondition, "internal store max value length exceeded")
+var ErrMaxTxValuesLenExceeded = status.Error(codes.FailedPrecondition, "max transaction values length exceeded")
