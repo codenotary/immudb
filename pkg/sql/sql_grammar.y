@@ -196,11 +196,6 @@ ddlstmt:
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
-|
-    ALTER TABLE IDENTIFIER ALTER COLUMN colSpec
-    {
-        $$ = &AlterColumnStmt{table: $3, colSpec: $6}
-    }
 
 dmlstmt:
     INSERT INTO IDENTIFIER '(' ids ')' VALUES rows
