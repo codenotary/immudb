@@ -30,8 +30,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     cols []*ColSelector
     rows []*Row
     row *Row
-    values []Value
-    value Value
+    values []interface{}
+    value interface{}
     id string
     number uint64
     str string
@@ -250,7 +250,7 @@ cols:
 values:
     val
     {
-        $$ = []Value{$1}
+        $$ = []interface{}{$1}
     }
 |
     values ',' val

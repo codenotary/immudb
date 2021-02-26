@@ -38,6 +38,10 @@ var ErrTableDoesNotExist = errors.New("table does not exist")
 var ErrInvalidPK = errors.New("invalid primary key")
 var ErrInvalidPKType = errors.New("primary key of invalid type. Only INTEGER type is supported")
 var ErrDuplicatedColumn = errors.New("duplicated column")
+var ErrInvalidColumn = errors.New("invalid column")
+var ErrPKCanNotBeNull = errors.New("primary key can not be null")
+var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
+var ErrInvalidValue = errors.New("invalid value provided")
 
 type Engine struct {
 	catalogStore *store.ImmuStore
@@ -167,8 +171,8 @@ func existKey(key []byte, st *store.ImmuStore) (bool, error) {
 	return false, nil
 }
 
-func (e *Engine) mapKey(pattern string, keys ...string) []byte {
-	mk := fmt.Sprintf(pattern, keys)
+func (e *Engine) mapKey(pattern string, keys ...interface{}) []byte {
+	mk := fmt.Sprintf(pattern, keys...)
 
 	pk := make([]byte, len(e.prefix)+len(mk))
 	copy(pk, e.prefix)
@@ -220,6 +224,7 @@ func (e *Engine) Exec(sql io.ByteReader) (*store.TxMetadata, error) {
 		defer e.catalogRWMux.RUnlock()
 	}
 
+	// with auto-commit each stmt on isolated tx, without auto-commit stmts are grouped until txStmt is found
 	centries, dentries, err := e.ValidateAndCompile(stmts)
 	if err != nil {
 		return nil, err
@@ -254,13 +259,8 @@ func includesDDL(stmts []SQLStmt) bool {
 	return false
 }
 
-// Porque va a validar contra el catalogo antes de agregar
-// Y luego es el commit del resultado si no hubo error
-
 func (e *Engine) ValidateAndCompile(stmts []SQLStmt) (centries []*store.KV, dentries []*store.KV, err error) {
 	for _, stmt := range stmts {
-		// TODO: semantic analysis
-
 		ces, des, err := stmt.ValidateAndCompileUsing(e)
 		if err != nil {
 			return nil, nil, err
