@@ -357,8 +357,6 @@ func (stmt *UpsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV,
 				return nil, nil, err
 			}
 
-			values[col.colName] = val
-
 			switch col.colType {
 			case StringType:
 				{
@@ -376,6 +374,8 @@ func (stmt *UpsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV,
 					if err != nil {
 						return nil, nil, err
 					}
+
+					values[col.colName] = v
 				}
 			case IntegerType:
 				{
@@ -391,9 +391,9 @@ func (stmt *UpsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV,
 					if err != nil {
 						return nil, nil, err
 					}
+
+					values[col.colName] = b
 				}
-			default:
-				return nil, nil, errors.New("unsupported type")
 			}
 
 			/*
