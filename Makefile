@@ -30,7 +30,7 @@ V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
 V_BUILT_BY := $(shell git config user.email)
 V_BUILT_AT := $(shell date +%s)
-V_LDFLAGS_COMMON := -X "github.com/codenotary/immudb/cmd/version.Version=$(VERSION)" \
+V_LDFLAGS_COMMON := -s -X "github.com/codenotary/immudb/cmd/version.Version=$(VERSION)" \
 					-X "github.com/codenotary/immudb/cmd/version.Commit=$(V_COMMIT)" \
 					-X "github.com/codenotary/immudb/cmd/version.BuiltBy=$(V_BUILT_BY)"\
 					-X "github.com/codenotary/immudb/cmd/version.BuiltAt=$(V_BUILT_AT)"
@@ -210,7 +210,7 @@ clean/dist:
 .PHONY: dist
 dist: clean/dist build/xgo
 	mkdir -p dist
-	$(GO) build -a -tags netgo -ldflags '${V_LDFLAGS_STATIC}' \
+	CGO_ENABLED=0 $(GO) build -a -tags netgo -ldflags '${V_LDFLAGS_STATIC}' \
 			-o ./dist/${SERVICE_NAME}-v${VERSION}-linux-amd64-static \
      		./cmd/${SERVICE_NAME}
 	$(DOCKER) run --rm \
