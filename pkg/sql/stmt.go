@@ -17,6 +17,8 @@ limitations under the License.
 package sql
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -28,18 +30,15 @@ const catalogDatabasePrefix = "CATALOG/DATABASE/"
 const catalogDatabase = catalogDatabasePrefix + "%s" // e.g. CATALOG/DATABASE/db1
 
 const catalogTablePrefix = "CATALOG/TABLE/"
-const catalogTable = catalogTablePrefix + "%s/%s" // e.g. CATALOG/TABLE/db1/table1
+const catalogTable = catalogTablePrefix + "%s/%s/%s" // e.g. CATALOG/TABLE/db1/table1/col1
 
 const catalogColumnPrefix = "CATALOG/COLUMN/"
 const catalogColumn = catalogColumnPrefix + "%s/%s/%s/%s" // e.g. "CATALOG/COLUMN/db1/table1/col1/INTEGER"
 
-const catalogPKPrefix = "CATALOG/PK/"
-const catalogPK = catalogPKPrefix + "%s/%s/%s" // e.g. CATALOG/PK/db1/table1/col1
-
 const catalogIndexPrefix = "CATALOG/INDEX/"
 const catalogIndex = catalogIndexPrefix + "%s/%s/%s" // e.g. CATALOG/INDEX/db1/table1/col1
 
-const dataRow = "DATA/%s/%s/PRIMARY/%s" // e.g. DATA/db1/table1/PRIMARY/1
+const dataRow = "DATA/%s/%s/%s/%v" // e.g. DATA/db1/table1/col1/1
 
 type SQLValueType = string
 
@@ -144,9 +143,8 @@ func (stmt *CreateDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store
 	ces = append(ces, kv)
 
 	e.catalog.databases[stmt.db] = &Database{
-		name:    stmt.db,
-		tables:  map[string]*Table{},
-		indexes: map[string]*Index{},
+		name:   stmt.db,
+		tables: map[string]*Table{},
 	}
 
 	return
@@ -203,15 +201,10 @@ func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 		return nil, nil, ErrTableAlreadyExists
 	}
 
-	te := &store.KV{
-		Key:   e.mapKey(catalogTable, e.implicitDatabase, stmt.table),
-		Value: nil,
-	}
-	ces = append(ces, te)
-
 	table := &Table{
-		name: stmt.table,
-		cols: make(map[string]*Column, 0),
+		name:    stmt.table,
+		cols:    make(map[string]*Column, 0),
+		indexes: make(map[string]struct{}, 0),
 	}
 
 	validPK := false
@@ -245,11 +238,11 @@ func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV
 		return nil, nil, ErrInvalidPK
 	}
 
-	pke := &store.KV{
-		Key:   e.mapKey(catalogPK, e.implicitDatabase, stmt.table, stmt.pk),
+	te := &store.KV{
+		Key:   e.mapKey(catalogTable, e.implicitDatabase, stmt.table, stmt.pk),
 		Value: nil,
 	}
-	ces = append(ces, pke)
+	ces = append(ces, te)
 
 	e.catalog.databases[e.implicitDatabase].tables[stmt.table] = table
 
@@ -271,6 +264,8 @@ func (stmt *CreateIndexStmt) isDDL() bool {
 }
 
 func (stmt *CreateIndexStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	// index cannot be created for pk nor for certain types such as blob
+
 	return nil, nil, errors.New("not yet supported")
 }
 
@@ -311,33 +306,147 @@ func (stmt *InsertIntoStmt) isDDL() bool {
 }
 
 func (stmt *InsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	mk := e.mapKey(catalogTable, e.implicitDatabase, stmt.table)
-
-	exists, err := existKey(mk, e.catalogStore)
-	if err != nil {
-		return nil, nil, err
+	if e.implicitDatabase == "" {
+		return nil, nil, ErrNoDatabaseSelected
 	}
 
+	table, exists := e.catalog.databases[e.implicitDatabase].tables[stmt.table]
 	if !exists {
 		return nil, nil, ErrTableDoesNotExist
 	}
 
-	//TODO: check specified columns exist
-	// check primary key is specified and not null nor empty
+	pkIncluded := false
+	cs := make(map[string]struct{}, len(stmt.cols))
 
-	// mantener en memoria el catalogo
-	// siempre que se actualiza tambien en memoria
-	// al cargar,
-	// dataRow
+	for _, c := range stmt.cols {
+		_, exists := table.cols[c]
+		if !exists {
+			return nil, nil, ErrInvalidColumn
+		}
 
-	return nil, nil, errors.New("not yet supported")
+		if table.pk == c {
+			pkIncluded = true
+		}
+
+		_, duplicated := cs[c]
+		if duplicated {
+			return nil, nil, ErrDuplicatedColumn
+		}
+
+		cs[c] = struct{}{}
+	}
+	if !pkIncluded {
+		return nil, nil, ErrPKCanNotBeNull
+	}
+
+	for _, row := range stmt.rows {
+		if len(row.values) != len(stmt.cols) {
+			return nil, nil, ErrInvalidNumberOfValues
+		}
+
+		valbuf := &bytes.Buffer{}
+
+		// len(stmt.cols)
+		var b [4]byte
+		binary.BigEndian.PutUint32(b[:], uint32(len(stmt.cols)))
+
+		_, err = valbuf.Write(b[:])
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var values map[string]interface{}
+
+		for i, val := range row.values {
+			col, _ := table.cols[stmt.cols[i]]
+
+			// len(colName) + colName
+			b := make([]byte, 4+len(col.colName))
+			binary.BigEndian.PutUint32(b, uint32(len(col.colName)))
+			copy(b[4:], []byte(col.colName))
+
+			_, err = valbuf.Write(b)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			values[col.colName] = val
+
+			switch col.colType {
+			case StringType:
+				{
+					v, ok := val.(string)
+					if !ok {
+						return nil, nil, ErrInvalidValue
+					}
+
+					// len(v) + v
+					b := make([]byte, 4+len(v))
+					binary.BigEndian.PutUint32(b, uint32(len(v)))
+					copy(b[4:], []byte(v))
+
+					_, err = valbuf.Write(b)
+					if err != nil {
+						return nil, nil, err
+					}
+				}
+			case IntegerType:
+				{
+					v, ok := val.(uint64)
+					if !ok {
+						return nil, nil, ErrInvalidValue
+					}
+
+					b := make([]byte, 8)
+					binary.BigEndian.PutUint64(b, v)
+
+					_, err = valbuf.Write(b)
+					if err != nil {
+						return nil, nil, err
+					}
+				}
+			default:
+				return nil, nil, errors.New("unsupported type")
+			}
+
+			/*
+				boolean  bool
+				blob     []byte
+				time ?
+			*/
+		}
+
+		// create entry for the column which is the pk
+		pke := &store.KV{
+			Key:   e.mapKey(dataRow, e.implicitDatabase, table.name, table.pk, values[table.pk]),
+			Value: valbuf.Bytes(),
+		}
+		des = append(des, pke)
+
+		// create entries for each indexed column, with value as value for pk column
+		for ic := range table.indexes {
+			var b [8]byte
+			binary.BigEndian.PutUint64(b[:], values[table.pk].(uint64))
+
+			ie := &store.KV{
+				Key:   e.mapKey(dataRow, e.implicitDatabase, table.name, ic, values[ic]),
+				Value: b[:],
+			}
+			des = append(des, ie)
+		}
+	}
+
+	return
 }
 
 type Row struct {
-	values []Value
+	values []interface{}
 }
 
-type Value interface {
+type String string
+
+func (s String) ToBytes() []byte {
+	return []byte(s)
 }
 
 type SysFn struct {

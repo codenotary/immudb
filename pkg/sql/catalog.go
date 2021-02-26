@@ -20,27 +20,20 @@ type Catalog struct {
 }
 
 type Database struct {
-	name    string
-	tables  map[string]*Table
-	indexes map[string]*Index
+	name   string
+	tables map[string]*Table
 }
 
 type Table struct {
-	name string
-	cols map[string]*Column
-	pk   string
+	name    string
+	cols    map[string]*Column
+	pk      string
+	indexes map[string]struct{}
 }
 
 type Column struct {
 	colName string
 	colType SQLValueType
-}
-
-type Index struct {
-	name  string
-	db    string
-	table string
-	col   string
 }
 
 func (c *Catalog) Databases() []*Database {
