@@ -197,6 +197,90 @@ func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
 	require.Equal(t, stream.ErrMaxValueLenExceeded, err)
 }
 
+func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	require.NoError(t, err)
+
+	err = tmpFile.Truncate(1 << 24)
+	require.NoError(t, err)
+
+	fi, err := tmpFile.Stat()
+	require.NoError(t, err)
+
+	tmpFile.Seek(0, io.SeekStart)
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	kv1 := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
+			Size:    len(tmpFile.Name()),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(tmpFile),
+			Size:    int(fi.Size()),
+		},
+	}
+
+	tmpFile1, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	require.NoError(t, err)
+	err = tmpFile1.Truncate(1 << 24)
+	require.NoError(t, err)
+	tmpFile1.Seek(0, io.SeekStart)
+	defer tmpFile1.Close()
+	defer os.Remove(tmpFile1.Name())
+
+	kv2 := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile1.Name()))),
+			Size:    len(tmpFile1.Name()),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(tmpFile1),
+			Size:    int(fi.Size()),
+		},
+	}
+
+	tmpFile2, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	require.NoError(t, err)
+	err = tmpFile2.Truncate(1 << 24)
+	require.NoError(t, err)
+	tmpFile2.Seek(0, io.SeekStart)
+	defer tmpFile2.Close()
+	defer os.Remove(tmpFile2.Name())
+
+	kv3 := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile2.Name()))),
+			Size:    len(tmpFile2.Name()),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(tmpFile2),
+			Size:    int(fi.Size()),
+		},
+	}
+
+	_, err = client.StreamSet(ctx, []*stream.KeyValue{kv1, kv2, kv3})
+	require.Equal(t, stream.ErrMaxTxValuesLenExceeded, err)
+}
+
 func TestImmuClient_SetGetSmallMessage(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
