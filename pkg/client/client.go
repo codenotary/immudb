@@ -23,12 +23,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"github.com/codenotary/immudb/pkg/stream"
 	"io"
 	"io/ioutil"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/pkg/signer"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -134,10 +135,14 @@ type ImmuClient interface {
 	streamSet(ctx context.Context) (schema.ImmuService_StreamSetClient, error)
 	streamGet(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_StreamGetClient, error)
 	streamScan(ctx context.Context, in *schema.ScanRequest) (schema.ImmuService_StreamScanClient, error)
+	streamZScan(ctx context.Context, in *schema.ZScanRequest) (schema.ImmuService_StreamZScanClient, error)
+	streamHistory(ctx context.Context, in *schema.HistoryRequest) (schema.ImmuService_StreamHistoryClient, error)
 
 	StreamSet(ctx context.Context, kv []*stream.KeyValue) (*schema.TxMetadata, error)
 	StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
 	StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)
+	StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error)
+	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)

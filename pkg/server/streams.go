@@ -19,12 +19,13 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"io"
+
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
 )
 
 func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_StreamGetServer) error {
@@ -140,10 +141,74 @@ func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_
 	return nil
 }
 
+// StreamZScan ...
 func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.ImmuService_StreamZScanServer) error {
-	panic("implement me")
+	ind, err := s.getDbIndexFromCtx(server.Context(), "ZScan")
+	if err != nil {
+		return err
+	}
+
+	r, err := s.dbList.GetByIndex(ind).ZScan(request)
+
+	zss := s.Ssf.NewZStreamSender(server)
+
+	for _, e := range r.Entries {
+		scoreBs, err := stream.Float64ToBytes(e.Score)
+		if err != nil {
+			s.Logger.Errorf(
+				"StreamZScan error: could not convert score (float64) to bytes: %v", err)
+		}
+		ze := &stream.ZEntry{
+			Set: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(e.Set)),
+				Size:    len(e.Set),
+			},
+			Key: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(e.Key)),
+				Size:    len(e.Key),
+			},
+			Value: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(e.Entry.Value)),
+				Size:    len(e.Entry.Value),
+			},
+			Score: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(scoreBs)),
+				Size:    len(scoreBs),
+			},
+		}
+		err = zss.Send(ze)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema.ImmuService_StreamHistoryServer) error {
-	panic("implement me")
+	ind, err := s.getDbIndexFromCtx(server.Context(), "History")
+	if err != nil {
+		return err
+	}
+
+	r, err := s.dbList.GetByIndex(ind).History(request)
+
+	kvsr := s.Ssf.NewKvStreamSender(server)
+
+	for _, e := range r.Entries {
+		kv := &stream.KeyValue{
+			Key: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(e.Key)),
+				Size:    len(e.Key),
+			},
+			Value: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(e.Value)),
+				Size:    len(e.Value),
+			},
+		}
+		err = kvsr.Send(kv)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
