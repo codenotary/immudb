@@ -23,6 +23,9 @@ type serviceFactory struct {
 type ServiceFactory interface {
 	NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver
 	NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender
+
+	NewZStreamReceiver(str ImmuServiceReceiver_Stream) ZStreamReceiver
+	NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender
 }
 
 func NewStreamServiceFactory(chunkSize int) ServiceFactory {
@@ -35,4 +38,12 @@ func (s *serviceFactory) NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvS
 
 func (s *serviceFactory) NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender {
 	return NewKvStreamSender(NewMsgSender(str, s.ChunkSize))
+}
+
+func (s *serviceFactory) NewZStreamReceiver(str ImmuServiceReceiver_Stream) ZStreamReceiver {
+	return NewZStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
+}
+
+func (s *serviceFactory) NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender {
+	return NewZStreamSender(NewMsgSender(str, s.ChunkSize))
 }
