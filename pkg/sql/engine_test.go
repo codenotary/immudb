@@ -127,18 +127,27 @@ func TestInsertInto(t *testing.T) {
 	_, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1)") // what should happen  here? UPSERT  or constraint?
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'some title')")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (2)")
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (2, 'another title')")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1, 'value')")
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1, 'yat')")
 	require.Equal(t, ErrInvalidNumberOfValues, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id, id) VALUES (1, 2)")
+	require.Equal(t, ErrDuplicatedColumn, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES ('1')")
+	require.Equal(t, ErrInvalidValue, err)
+
+	_, err = engine.ExecStmt("UPSERT INTO table1 (title) VALUES ('interesting title')")
+	require.Equal(t, ErrPKCanNotBeNull, err)
 }
