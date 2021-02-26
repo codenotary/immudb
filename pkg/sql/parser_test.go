@@ -267,9 +267,9 @@ func TestInsertIntoStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "INSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, TIME(), 'untitled row', TRUE, false, b'AED0393F', @param1)",
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, TIME(), 'untitled row', TRUE, false, b'AED0393F', @param1)",
 			expectedOutput: []SQLStmt{
-				&InsertIntoStmt{
+				&UpsertIntoStmt{
 					table: "table1",
 					cols:  []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*Row{
@@ -280,9 +280,9 @@ func TestInsertIntoStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "INSERT INTO table1(id, active) VALUES (1, false), (2, true), (3, true)",
+			input: "UPSERT INTO table1(id, active) VALUES (1, false), (2, true), (3, true)",
 			expectedOutput: []SQLStmt{
-				&InsertIntoStmt{
+				&UpsertIntoStmt{
 					table: "table1",
 					cols:  []string{"id", "active"},
 					rows: []*Row{
@@ -295,12 +295,12 @@ func TestInsertIntoStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input:          "INSERT INTO table1() VALUES (2, 'untitled')",
+			input:          "UPSERT INTO table1() VALUES (2, 'untitled')",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected ')', expecting IDENTIFIER"),
 		},
 		{
-			input:          "INSERT INTO VALUES (2)",
+			input:          "UPSERT INTO VALUES (2)",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected VALUES, expecting IDENTIFIER"),
 		},
@@ -410,18 +410,18 @@ func TestTxStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); INSERT INTO table2 (id) VALUES (10) COMMIT;",
+			input: "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); UPSERT INTO table2 (id) VALUES (10) COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
-						&InsertIntoStmt{
+						&UpsertIntoStmt{
 							table: "table1",
 							cols:  []string{"id", "label"},
 							rows: []*Row{
 								{values: []interface{}{uint64(100), "label1"}},
 							},
 						},
-						&InsertIntoStmt{
+						&UpsertIntoStmt{
 							table: "table2",
 							cols:  []string{"id"},
 							rows: []*Row{
@@ -434,7 +434,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			input: "CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
@@ -446,7 +446,7 @@ func TestTxStmt(t *testing.T) {
 				},
 				&TxStmt{
 					stmts: []SQLStmt{
-						&InsertIntoStmt{
+						&UpsertIntoStmt{
 							table: "table1",
 							cols:  []string{"id", "label"},
 							rows: []*Row{
@@ -459,7 +459,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); INSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
+			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -471,7 +471,7 @@ func TestTxStmt(t *testing.T) {
 							},
 							pk: "id",
 						},
-						&InsertIntoStmt{
+						&UpsertIntoStmt{
 							table: "table1",
 							cols:  []string{"id", "label"},
 							rows: []*Row{
@@ -484,12 +484,12 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input:          "BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1');",
+			input:          "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1');",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected $end, expecting COMMIT"),
 		},
 		{
-			input:          "BEGIN TRANSACTION; INSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); COMMIT; COMMIT",
+			input:          "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); COMMIT; COMMIT",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting COMMIT"),
 		},
@@ -1017,8 +1017,8 @@ func TestMultiLineStmts(t *testing.T) {
 			CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)
 
 			BEGIN TRANSACTION
-				INSERT INTO table1 (id, label) VALUES (100, 'label1')
-				INSERT INTO table2 (id) VALUES (10)
+				UPSERT INTO table1 (id, label) VALUES (100, 'label1')
+				UPSERT INTO table2 (id) VALUES (10)
 			COMMIT
 
 			SELECT id, name, time FROM table1 WHERE time >= '20210101 00:00:00.000' AND time < '20210211 00:00:00.000'
@@ -1039,14 +1039,14 @@ func TestMultiLineStmts(t *testing.T) {
 				},
 				&TxStmt{
 					stmts: []SQLStmt{
-						&InsertIntoStmt{
+						&UpsertIntoStmt{
 							table: "table1",
 							cols:  []string{"id", "label"},
 							rows: []*Row{
 								{values: []interface{}{uint64(100), "label1"}},
 							},
 						},
-						&InsertIntoStmt{
+						&UpsertIntoStmt{
 							table: "table2",
 							cols:  []string{"id"},
 							rows: []*Row{

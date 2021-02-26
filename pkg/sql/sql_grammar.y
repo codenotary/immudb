@@ -58,7 +58,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT
-%token INSERT INTO VALUES
+%token UPSERT INTO VALUES
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
 %token NOT LIKE EXISTS
 %token <joinType> JOINTYPE
@@ -198,9 +198,9 @@ ddlstmt:
     }
 
 dmlstmt:
-    INSERT INTO IDENTIFIER '(' ids ')' VALUES rows
+    UPSERT INTO IDENTIFIER '(' ids ')' VALUES rows
     {
-        $$ = &InsertIntoStmt{table: $3, cols: $5, rows: $8}
+        $$ = &UpsertIntoStmt{table: $3, cols: $5, rows: $8}
     }
 
 rows:
