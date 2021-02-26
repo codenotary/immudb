@@ -38,7 +38,8 @@ const catalogColumn = catalogColumnPrefix + "%s/%s/%s/%s" // e.g. "CATALOG/COLUM
 const catalogIndexPrefix = "CATALOG/INDEX/"
 const catalogIndex = catalogIndexPrefix + "%s/%s/%s" // e.g. CATALOG/INDEX/db1/table1/col1
 
-const dataRow = "DATA/%s/%s/%s/%v" // e.g. DATA/db1/table1/col1/1
+const pkRow = "DATA/%s/%s/%s/%v"     // e.g. DATA/db1/table1/col1/1
+const idxRow = "DATA/%s/%s/%s/%v/%v" // e.g. DATA/db1/table1/col2/4/1
 
 type SQLValueType = string
 
@@ -405,19 +406,16 @@ func (stmt *UpsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV,
 
 		// create entry for the column which is the pk
 		pke := &store.KV{
-			Key:   e.mapKey(dataRow, e.implicitDatabase, table.name, table.pk, values[table.pk]),
+			Key:   e.mapKey(pkRow, e.implicitDatabase, table.name, table.pk, values[table.pk]),
 			Value: valbuf.Bytes(),
 		}
 		des = append(des, pke)
 
 		// create entries for each indexed column, with value as value for pk column
 		for ic := range table.indexes {
-			var b [8]byte
-			binary.BigEndian.PutUint64(b[:], values[table.pk].(uint64))
-
 			ie := &store.KV{
-				Key:   e.mapKey(dataRow, e.implicitDatabase, table.name, ic, values[ic]),
-				Value: b[:],
+				Key:   e.mapKey(idxRow, e.implicitDatabase, table.name, ic, values[ic], values[table.pk]),
+				Value: nil,
 			}
 			des = append(des, ie)
 		}
