@@ -122,17 +122,17 @@ func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) 
 	if err != nil {
 		return nil, err
 	}
-	kvr := c.Ssf.NewZStreamReceiver(gs)
+	zr := c.Ssf.NewZStreamReceiver(gs)
 	var entries []*schema.ZEntry
 	for {
-		key, vr, err := kvr.Next()
+		set, key, score, vr, err := zr.Next()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			return nil, err
 		}
-		entry, err := stream.ParseZEntry(key, vr, c.Options.StreamChunkSize)
+		entry, err := stream.ParseZEntry(set, key, score, vr, c.Options.StreamChunkSize)
 		if err != nil {
 			return nil, err
 		}

@@ -35,8 +35,8 @@ type ValueSize struct {
 type ZEntry struct {
 	Set   *ValueSize
 	Key   *ValueSize
-	Value *ValueSize
 	Score *ValueSize
+	Value *ValueSize
 }
 
 // Float64ToBytes ...

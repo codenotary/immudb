@@ -18,10 +18,12 @@ package stream
 
 import "bufio"
 
+// ZStreamSender ...
 type ZStreamSender interface {
 	Send(ze *ZEntry) error
 }
 
+// ZStreamReceiver ...
 type ZStreamReceiver interface {
-	Next() ([]byte, *bufio.Reader, error)
+	Next() ([]byte, []byte, float64, *bufio.Reader, error)
 }
