@@ -167,13 +167,13 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 				Content: bufio.NewReader(bytes.NewBuffer(e.Key)),
 				Size:    len(e.Key),
 			},
-			Value: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer(e.Entry.Value)),
-				Size:    len(e.Entry.Value),
-			},
 			Score: &stream.ValueSize{
 				Content: bufio.NewReader(bytes.NewBuffer(scoreBs)),
 				Size:    len(scoreBs),
+			},
+			Value: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(e.Entry.Value)),
+				Size:    len(e.Entry.Value),
 			},
 		}
 		err = zss.Send(ze)

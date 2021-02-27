@@ -37,12 +37,12 @@ func (st *zStreamSender) Send(ze *ZEntry) error {
 		return st.s.RecvMsg(nil)
 	}
 
-	err = st.s.Send(ze.Value.Content, ze.Value.Size)
+	err = st.s.Send(ze.Score.Content, ze.Score.Size)
 	if err != nil {
 		return st.s.RecvMsg(nil)
 	}
 
-	err = st.s.Send(ze.Score.Content, ze.Score.Size)
+	err = st.s.Send(ze.Value.Content, ze.Value.Size)
 	if err != nil {
 		return st.s.RecvMsg(nil)
 	}
