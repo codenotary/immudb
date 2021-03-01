@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bytes"
+	"errors"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream/stream_test"
 	"github.com/stretchr/testify/require"
@@ -10,6 +11,42 @@ import (
 )
 
 func TestMsgReceiver_Read(t *testing.T) {
+
+	chunk_size := 5_000
+	chunk := make([]byte, chunk_size)
+	for i := 0; i < chunk_size-8; i++ {
+		chunk[i] = byte(1)
+	}
+	chunk1 := &schema.Chunk{Content: bytes.Join([][]byte{stream_test.GetTrailer(len(chunk)), chunk}, nil)}
+
+	chunk = make([]byte, 8)
+	for i := 0; i < 8; i++ {
+		chunk[i] = byte(1)
+	}
+	chunk2 := &schema.Chunk{Content: chunk}
+
+	sm := stream_test.DefaultImmuServiceReceiverStreamMock([]*stream_test.ChunkError{
+		{chunk1, nil},
+		{chunk2, nil},
+		{nil, io.EOF},
+	})
+
+	mr := NewMsgReceiver(sm)
+
+	message := make([]byte, 4096)
+
+	n, err := mr.Read(message)
+
+	require.NoError(t, err)
+	require.Equal(t, 4096, n)
+
+	n, err = mr.Read(message)
+
+	require.NoError(t, err)
+	require.Equal(t, 904, n)
+}
+
+func TestMsgReceiver_ReadMessInFirstChunk(t *testing.T) {
 	content := []byte(`mycontent`)
 	chunk := &schema.Chunk{Content: bytes.Join([][]byte{stream_test.GetTrailer(len(content)), content}, nil)}
 
@@ -40,6 +77,42 @@ func TestMsgReceiver_EmptyStream(t *testing.T) {
 
 	n, err := mr.Read(message)
 
-	require.NoError(t, err)
-	require.Equal(t, 9, n)
+	require.Equal(t, 0, n)
+	require.Equal(t, io.EOF, err)
+}
+
+func TestMsgReceiver_ErrNotEnoughDataOnStream(t *testing.T) {
+
+	content := []byte(`mycontent`)
+	chunk := &schema.Chunk{Content: bytes.Join([][]byte{stream_test.GetTrailer(len(content) + 10), content}, nil)}
+
+	sm := stream_test.DefaultImmuServiceReceiverStreamMock([]*stream_test.ChunkError{
+		{chunk, nil},
+		{nil, io.EOF},
+	})
+
+	mr := NewMsgReceiver(sm)
+
+	message := make([]byte, 4096)
+
+	n, err := mr.Read(message)
+
+	require.Equal(t, 0, n)
+	require.Equal(t, ErrNotEnoughDataOnStream, err)
+}
+
+func TestMsgReceiver_StreamRecvError(t *testing.T) {
+
+	sm := stream_test.DefaultImmuServiceReceiverStreamMock([]*stream_test.ChunkError{
+		{nil, errors.New("NewError!")},
+	})
+
+	mr := NewMsgReceiver(sm)
+
+	message := make([]byte, 4096)
+
+	n, err := mr.Read(message)
+
+	require.Equal(t, 0, n)
+	require.Error(t, err)
 }
