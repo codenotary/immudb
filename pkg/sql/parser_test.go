@@ -698,7 +698,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT id, title FROM (SELECT col1 AS id, col2 AS title FROM table2 OFFSET 1 LIMIT 100) LIMIT 10",
+			input: "SELECT id, title FROM (SELECT col1 AS id, col2 AS title FROM table2 LIMIT 100) LIMIT 10",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -712,9 +712,8 @@ func TestSelectStmt(t *testing.T) {
 							&ColSelector{col: "col1", as: "id"},
 							&ColSelector{col: "col2", as: "title"},
 						},
-						ds:     &TableRef{table: "table2"},
-						offset: uint64(1),
-						limit:  uint64(100),
+						ds:    &TableRef{table: "table2"},
+						limit: uint64(100),
 					},
 					limit: uint64(10),
 				}},
