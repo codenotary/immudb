@@ -58,7 +58,6 @@ var reservedWords = map[string]int{
 	"WHERE":       WHERE,
 	"GROUP":       GROUP,
 	"BY":          BY,
-	"OFFSET":      OFFSET,
 	"LIMIT":       LIMIT,
 	"ORDER":       ORDER,
 	"AS":          AS,
