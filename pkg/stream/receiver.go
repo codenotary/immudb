@@ -68,6 +68,7 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 				return 0, err
 			}
 		}
+
 		// trailer (message length) initialization
 		if r.tl == 0 {
 			trailer := make([]byte, 8)
@@ -76,6 +77,11 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 				return 0, err
 			}
 			r.tl = int(binary.BigEndian.Uint64(trailer))
+		}
+
+		// no more data in stream but buffer is not enough large to contains the expected value
+		if r.eof && r.b.Len() < r.tl {
+			return 0, ErrNotEnoughDataOnStream
 		}
 
 		// message send edge case

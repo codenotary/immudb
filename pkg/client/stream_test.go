@@ -692,3 +692,50 @@ func TestImmuClient_StreamScan(t *testing.T) {
 
 	require.Len(t, scanResp.Entries, 100)
 }
+
+func TestImmuClient_SetEmptyReader(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	kv1 := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myKey1`))),
+			Size:    len([]byte(`myKey1`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte{})),
+			Size:    int(50),
+		},
+	}
+
+	kv2 := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myKey2`))),
+			Size:    len([]byte(`myKey2`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myKey2`))),
+			Size:    len([]byte(`myKey2`)),
+		},
+	}
+	kvs := []*stream.KeyValue{kv1, kv2}
+	meta, err := client.StreamSet(ctx, kvs)
+	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
+	require.Nil(t, meta)
+
+	client.Disconnect()
+}
