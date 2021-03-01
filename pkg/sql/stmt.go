@@ -20,8 +20,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 const patternSeparator = "/"
@@ -38,7 +40,9 @@ const catalogColumn = catalogColumnPrefix + "%s/%s/%s/%s" // e.g. "CATALOG/COLUM
 const catalogIndexPrefix = "CATALOG/INDEX/"
 const catalogIndex = catalogIndexPrefix + "%s/%s/%s" // e.g. CATALOG/INDEX/db1/table1/col1
 
-const pkRow = "DATA/%s/%s/%s/%v"     // e.g. DATA/db1/table1/col1/1
+const pkRowPrefix = "DATA/%s/%s/%s/"
+const pkRow = pkRowPrefix + "%v" // e.g. DATA/db1/table1/col1/1
+
 const idxRow = "DATA/%s/%s/%s/%v/%v" // e.g. DATA/db1/table1/col2/4/1
 
 type SQLValueType = string
@@ -89,7 +93,7 @@ const (
 
 type SQLStmt interface {
 	isDDL() bool
-	ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error)
+	CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error)
 }
 
 type TxStmt struct {
@@ -105,9 +109,9 @@ func (stmt *TxStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *TxStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *TxStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	for _, stmt := range stmt.stmts {
-		cs, ds, err := stmt.ValidateAndCompileUsing(e)
+		cs, ds, err := stmt.CompileUsing(e)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -130,7 +134,7 @@ func (stmt *CreateDatabaseStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	exists := e.catalog.ExistDatabase(stmt.db)
 	if exists {
 		return nil, nil, ErrDatabaseAlreadyExists
@@ -159,7 +163,7 @@ func (stmt *UseDatabaseStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UseDatabaseStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *UseDatabaseStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	exists := e.catalog.ExistDatabase(stmt.db)
 	if !exists {
 		return nil, nil, ErrDatabaseDoesNotExist
@@ -178,7 +182,7 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UseSnapshotStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *UseSnapshotStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	return nil, nil, errors.New("not yet supported")
 }
 
@@ -192,7 +196,7 @@ func (stmt *CreateTableStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateTableStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *CreateTableStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	if e.implicitDatabase == "" {
 		return nil, nil, ErrNoDatabaseSelected
 	}
@@ -264,7 +268,7 @@ func (stmt *CreateIndexStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateIndexStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *CreateIndexStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	// index cannot be created for pk nor for certain types such as blob
 
 	return nil, nil, errors.New("not yet supported")
@@ -279,7 +283,7 @@ func (stmt *AddColumnStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *AddColumnStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *AddColumnStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
 	return nil, nil, errors.New("not yet supported")
 }
 
@@ -293,7 +297,40 @@ func (stmt *UpsertIntoStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UpsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *UpsertIntoStmt) Validate(table *Table) (map[string]int, error) {
+	pkIncluded := false
+	cs := make(map[string]int, len(stmt.cols))
+
+	for i, c := range stmt.cols {
+		_, exists := table.cols[c]
+		if !exists {
+			return nil, ErrInvalidColumn
+		}
+
+		if table.pk == c {
+			pkIncluded = true
+		}
+
+		_, duplicated := cs[c]
+		if duplicated {
+			return nil, ErrDuplicatedColumn
+		}
+
+		cs[c] = i
+	}
+
+	if !pkIncluded {
+		return nil, ErrPKCanNotBeNull
+	}
+
+	return cs, nil
+}
+
+func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	if e == nil {
+		return nil, nil, ErrIllegalArguments
+	}
+
 	if e.implicitDatabase == "" {
 		return nil, nil, ErrNoDatabaseSelected
 	}
@@ -303,28 +340,9 @@ func (stmt *UpsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV,
 		return nil, nil, ErrTableDoesNotExist
 	}
 
-	pkIncluded := false
-	cs := make(map[string]struct{}, len(stmt.cols))
-
-	for _, c := range stmt.cols {
-		_, exists := table.cols[c]
-		if !exists {
-			return nil, nil, ErrInvalidColumn
-		}
-
-		if table.pk == c {
-			pkIncluded = true
-		}
-
-		_, duplicated := cs[c]
-		if duplicated {
-			return nil, nil, ErrDuplicatedColumn
-		}
-
-		cs[c] = struct{}{}
-	}
-	if !pkIncluded {
-		return nil, nil, ErrPKCanNotBeNull
+	cs, err := stmt.Validate(table)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	for _, row := range stmt.rows {
@@ -332,89 +350,22 @@ func (stmt *UpsertIntoStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV,
 			return nil, nil, ErrInvalidNumberOfValues
 		}
 
-		valbuf := &bytes.Buffer{}
-
-		// len(stmt.cols)
-		var b [4]byte
-		binary.BigEndian.PutUint32(b[:], uint32(len(stmt.cols)))
-
-		_, err = valbuf.Write(b[:])
+		bs, err := row.Bytes(table, stmt.cols)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		values := make(map[string]interface{}, 0)
-
-		for i, val := range row.values {
-			col, _ := table.cols[stmt.cols[i]]
-
-			// len(colName) + colName
-			b := make([]byte, 4+len(col.colName))
-			binary.BigEndian.PutUint32(b, uint32(len(col.colName)))
-			copy(b[4:], []byte(col.colName))
-
-			_, err = valbuf.Write(b)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			switch col.colType {
-			case StringType:
-				{
-					v, ok := val.(string)
-					if !ok {
-						return nil, nil, ErrInvalidValue
-					}
-
-					// len(v) + v
-					b := make([]byte, 4+len(v))
-					binary.BigEndian.PutUint32(b, uint32(len(v)))
-					copy(b[4:], []byte(v))
-
-					_, err = valbuf.Write(b)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					values[col.colName] = v
-				}
-			case IntegerType:
-				{
-					v, ok := val.(uint64)
-					if !ok {
-						return nil, nil, ErrInvalidValue
-					}
-
-					b := make([]byte, 8)
-					binary.BigEndian.PutUint64(b, v)
-
-					_, err = valbuf.Write(b)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					values[col.colName] = b
-				}
-			}
-
-			/*
-				boolean  bool
-				blob     []byte
-				time ?
-			*/
-		}
-
 		// create entry for the column which is the pk
 		pke := &store.KV{
-			Key:   e.mapKey(pkRow, e.implicitDatabase, table.name, table.pk, values[table.pk]),
-			Value: valbuf.Bytes(),
+			Key:   e.mapKey(pkRow, e.implicitDatabase, table.name, table.pk, row.values[cs[table.pk]]),
+			Value: bs,
 		}
 		des = append(des, pke)
 
 		// create entries for each indexed column, with value as value for pk column
 		for ic := range table.indexes {
 			ie := &store.KV{
-				Key:   e.mapKey(idxRow, e.implicitDatabase, table.name, ic, values[ic], values[table.pk]),
+				Key:   e.mapKey(idxRow, e.implicitDatabase, table.name, ic, row.values[cs[ic]], row.values[cs[table.pk]]),
 				Value: nil,
 			}
 			des = append(des, ie)
@@ -428,10 +379,73 @@ type Row struct {
 	values []interface{}
 }
 
-type String string
+func (r *Row) Bytes(t *Table, cols []string) ([]byte, error) {
+	valbuf := bytes.Buffer{}
 
-func (s String) ToBytes() []byte {
-	return []byte(s)
+	// len(stmt.cols)
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:], uint32(len(cols)))
+	_, err := valbuf.Write(b[:])
+	if err != nil {
+		return nil, err
+	}
+
+	for i, val := range r.values {
+		col, _ := t.cols[cols[i]]
+
+		// len(colName) + colName
+		b := make([]byte, 4+len(col.colName))
+		binary.BigEndian.PutUint32(b, uint32(len(col.colName)))
+		copy(b[4:], []byte(col.colName))
+
+		_, err = valbuf.Write(b)
+		if err != nil {
+			return nil, err
+		}
+
+		switch col.colType {
+		case StringType:
+			{
+				v, ok := val.(string)
+				if !ok {
+					return nil, ErrInvalidValue
+				}
+
+				// len(v) + v
+				b := make([]byte, 4+len(v))
+				binary.BigEndian.PutUint32(b, uint32(len(v)))
+				copy(b[4:], []byte(v))
+
+				_, err = valbuf.Write(b)
+				if err != nil {
+					return nil, err
+				}
+			}
+		case IntegerType:
+			{
+				v, ok := val.(uint64)
+				if !ok {
+					return nil, ErrInvalidValue
+				}
+
+				b := make([]byte, 8)
+				binary.BigEndian.PutUint64(b, v)
+
+				_, err = valbuf.Write(b)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		/*
+			boolean  bool
+			blob     []byte
+			time
+		*/
+	}
+
+	return valbuf.Bytes(), nil
 }
 
 type SysFn struct {
@@ -442,6 +456,72 @@ type Param struct {
 	id string
 }
 
+type RowReader struct {
+	// podria retornar los nombres de las columnas seleccionadas
+	// para el snapshot, que pasa si el query quiere seleccionar una columna que no estaba, retorna null
+	e *Engine
+
+	cols []*Column
+
+	reader *store.KeyReader
+}
+
+func (r *RowReader) Read() (*Row, error) {
+	_, vref, _, _, err := r.reader.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	v, err := vref.Resolve()
+	if err != nil {
+		return nil, err
+	}
+
+	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
+	values := make([]interface{}, len(r.cols))
+
+	// len(stmt.cols)
+	if len(v) < 4 {
+		return nil, store.ErrCorruptedData
+	}
+
+	voff := 0
+
+	cols := int(binary.BigEndian.Uint32(v[voff:]))
+	voff += 4
+
+	for i := 0; i < cols; i++ {
+		cNameLen := int(binary.BigEndian.Uint32(v[voff:]))
+		voff += 4
+		colName := string(v[voff : voff+cNameLen])
+		voff += cNameLen
+
+		if colName != r.cols[i].colName {
+			return nil, errors.New("not supported")
+		}
+
+		switch r.cols[i].colType {
+		case StringType:
+			{
+				vlen := int(binary.BigEndian.Uint32(v[voff:]))
+				voff += 4
+
+				v := string(v[voff : voff+vlen])
+				voff += vlen
+				values[i] = v
+			}
+		case IntegerType:
+			{
+				v := binary.BigEndian.Uint64(v[voff:])
+				voff += 8
+				values[i] = v
+			}
+		}
+	}
+
+	return &Row{values: values}, nil
+}
+
 type SelectStmt struct {
 	distinct  bool
 	selectors []Selector
@@ -450,7 +530,6 @@ type SelectStmt struct {
 	where     BoolExp
 	groupBy   []*ColSelector
 	having    BoolExp
-	offset    uint64
 	limit     uint64
 	orderBy   []*OrdCol
 	as        string
@@ -460,8 +539,51 @@ func (stmt *SelectStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *SelectStmt) ValidateAndCompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	return nil, nil, errors.New("not yet supported")
+func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+	// will check table and columns exists
+	// select may have joins,
+	// may have sub-queries
+	// etc, but for time being only simple selects on a table...
+
+	return nil, nil, nil
+}
+
+func (stmt *SelectStmt) Resolve(e *Engine) (*RowReader, error) {
+	if e.implicitDatabase == "" {
+		return nil, ErrNoDatabaseSelected
+	}
+
+	_, _, err := stmt.CompileUsing(e)
+	if err != nil {
+		return nil, err
+	}
+
+	snap, err := e.dataStore.SnapshotSince(math.MaxUint64)
+	if err != nil {
+		return nil, err
+	}
+
+	tname := stmt.ds.(*TableRef).table
+	table := e.catalog.databases[e.implicitDatabase].tables[tname]
+	col := table.pk
+
+	rSpec := &tbtree.ReaderSpec{
+		Prefix: e.mapKey(pkRowPrefix, e.implicitDatabase, tname, col),
+	}
+
+	r, err := e.dataStore.NewKeyReader(snap, rSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	cols := make([]*Column, len(stmt.selectors))
+
+	for i, s := range stmt.selectors {
+		colSel := s.(*ColSelector)
+		cols[i] = table.cols[colSel.col]
+	}
+
+	return &RowReader{reader: r, cols: cols}, nil
 }
 
 type DataSource interface {
