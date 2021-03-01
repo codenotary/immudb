@@ -42,6 +42,7 @@ var ErrInvalidColumn = errors.New("invalid column")
 var ErrPKCanNotBeNull = errors.New("primary key can not be null")
 var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
+var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected")
 
 type Engine struct {
 	catalogStore *store.ImmuStore
@@ -186,17 +187,32 @@ func (e *Engine) Catalog() *Catalog {
 }
 
 // exist database directly on catalogStore: // existKey(e.mapKey(catalogDatabase, db), e.catalogStore)
+func (e *Engine) QueryStmt(sql string) (*RowReader, error) {
+	return e.Query(strings.NewReader(sql))
+}
 
-//TODO: will return a list of rows
-func (e *Engine) Query(sql io.ByteReader) error {
+func (e *Engine) Query(sql io.ByteReader) (*RowReader, error) {
 	if e.catalog == nil {
 		err := e.loadCatalog()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	stmts, err := Parse(sql)
+	if err != nil {
+		return nil, err
+	}
+	if len(stmts) > 1 {
+		return nil, ErrExpectingDQLStmt
+	}
+
+	stmt, ok := stmts[0].(*SelectStmt)
+	if !ok {
+		return nil, ErrExpectingDQLStmt
+	}
+
+	return stmt.Resolve(e)
 }
 
 func (e *Engine) ExecStmt(sql string) (*store.TxMetadata, error) {
@@ -224,27 +240,28 @@ func (e *Engine) Exec(sql io.ByteReader) (*store.TxMetadata, error) {
 		defer e.catalogRWMux.RUnlock()
 	}
 
-	// with auto-commit each stmt on isolated tx, without auto-commit stmts are grouped until txStmt is found
-	centries, dentries, err := e.ValidateAndCompile(stmts)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(centries) > 0 && len(dentries) > 0 {
-		return nil, ErrDDLorDMLTxOnly
-	}
-
-	if len(centries) > 0 {
-		txmd, err := e.catalogStore.Commit(centries)
+	for _, stmt := range stmts {
+		centries, dentries, err := stmt.CompileUsing(e)
 		if err != nil {
-			return nil, e.loadCatalog()
+			return nil, err
 		}
 
-		return txmd, nil
-	}
+		if len(centries) > 0 && len(dentries) > 0 {
+			return nil, ErrDDLorDMLTxOnly
+		}
 
-	if len(dentries) > 0 {
-		return e.dataStore.Commit(dentries)
+		if len(centries) > 0 {
+			txmd, err := e.catalogStore.Commit(centries)
+			if err != nil {
+				return nil, e.loadCatalog()
+			}
+
+			return txmd, nil
+		}
+
+		if len(dentries) > 0 {
+			return e.dataStore.Commit(dentries)
+		}
 	}
 
 	return nil, nil
@@ -257,18 +274,4 @@ func includesDDL(stmts []SQLStmt) bool {
 		}
 	}
 	return false
-}
-
-func (e *Engine) ValidateAndCompile(stmts []SQLStmt) (centries []*store.KV, dentries []*store.KV, err error) {
-	for _, stmt := range stmts {
-		ces, des, err := stmt.ValidateAndCompileUsing(e)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		centries = append(centries, ces...)
-		dentries = append(dentries, des...)
-	}
-
-	return
 }
