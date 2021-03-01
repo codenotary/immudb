@@ -16,8 +16,10 @@ limitations under the License.
 package sql
 
 import (
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/stretchr/testify/require"
@@ -150,4 +152,51 @@ func TestInsertInto(t *testing.T) {
 
 	_, err = engine.ExecStmt("UPSERT INTO table1 (title) VALUES ('interesting title')")
 	require.Equal(t, ErrPKCanNotBeNull, err)
+}
+
+func TestQuery(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("USE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	rowCount := 10
+
+	for i := 0; i < rowCount; i++ {
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title) VALUES (%d, 'title%d')", i, i))
+		require.NoError(t, err)
+	}
+
+	time.Sleep(10 * time.Millisecond)
+
+	r, err := engine.QueryStmt("SELECT id, title FROM table1")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.values, 2)
+
+		require.Equal(t, uint64(i), row.values[0])
+		require.Equal(t, fmt.Sprintf("title%d", i), row.values[1])
+	}
+
+	err = r.reader.Close()
+	require.NoError(t, err)
 }
