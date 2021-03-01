@@ -59,7 +59,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT
 %token UPSERT INTO VALUES
-%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY OFFSET LIMIT ORDER ASC DESC AS
+%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE EXISTS
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
@@ -102,7 +102,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <join> opt_join
 %type <boolExp> boolExp opt_where opt_having
 %type <cols> opt_groupby
-%type <number> opt_offset opt_limit
+%type <number> opt_limit
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
@@ -302,7 +302,7 @@ colSpec:
     }
 
 dqlstmt:
-    SELECT opt_distinct selectors FROM ds opt_join opt_where opt_groupby opt_having opt_offset opt_limit opt_orderby opt_as
+    SELECT opt_distinct selectors FROM ds opt_join opt_where opt_groupby opt_having opt_limit opt_orderby opt_as
     {
         $$ = &SelectStmt{
                 distinct: $2,
@@ -312,10 +312,9 @@ dqlstmt:
                 where: $7,
                 groupBy: $8,
                 having: $9,
-                offset: $10,
-                limit: $11,
-                orderBy: $12,
-                as: $13,
+                limit: $10,
+                orderBy: $11,
+                as: $12,
             }
     }
 
@@ -437,16 +436,6 @@ opt_having:
     }
 |
     HAVING boolExp
-    {
-        $$ = $2
-    }
-
-opt_offset:
-    {
-        $$ = 0
-    }
-|
-    OFFSET NUMBER
     {
         $$ = $2
     }
