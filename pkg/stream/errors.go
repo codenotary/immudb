@@ -23,3 +23,4 @@ import (
 
 var ErrMaxValueLenExceeded = status.Error(codes.FailedPrecondition, "internal store max value length exceeded")
 var ErrMaxTxValuesLenExceeded = status.Error(codes.FailedPrecondition, "max transaction values length exceeded")
+var ErrNotEnoughDataOnStream = status.Error(codes.InvalidArgument, "not enough data to build the expected message. check value length declaration")
