@@ -273,7 +273,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					table: "table1",
 					cols:  []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*Row{
-						{values: []interface{}{uint64(2), &SysFn{fn: "TIME"}, "untitled row", true, false, decodedBLOB, &Param{id: "param1"}}},
+						{Values: []interface{}{uint64(2), &SysFn{fn: "TIME"}, "untitled row", true, false, decodedBLOB, &Param{id: "param1"}}},
 					},
 				},
 			},
@@ -286,9 +286,9 @@ func TestInsertIntoStmt(t *testing.T) {
 					table: "table1",
 					cols:  []string{"id", "active"},
 					rows: []*Row{
-						{values: []interface{}{uint64(1), false}},
-						{values: []interface{}{uint64(2), true}},
-						{values: []interface{}{uint64(3), true}},
+						{Values: []interface{}{uint64(1), false}},
+						{Values: []interface{}{uint64(2), true}},
+						{Values: []interface{}{uint64(3), true}},
 					},
 				},
 			},
@@ -418,14 +418,14 @@ func TestTxStmt(t *testing.T) {
 							table: "table1",
 							cols:  []string{"id", "label"},
 							rows: []*Row{
-								{values: []interface{}{uint64(100), "label1"}},
+								{Values: []interface{}{uint64(100), "label1"}},
 							},
 						},
 						&UpsertIntoStmt{
 							table: "table2",
 							cols:  []string{"id"},
 							rows: []*Row{
-								{values: []interface{}{uint64(10)}},
+								{Values: []interface{}{uint64(10)}},
 							},
 						},
 					},
@@ -450,7 +450,7 @@ func TestTxStmt(t *testing.T) {
 							table: "table1",
 							cols:  []string{"id", "label"},
 							rows: []*Row{
-								{values: []interface{}{uint64(100), "label1"}},
+								{Values: []interface{}{uint64(100), "label1"}},
 							},
 						},
 					},
@@ -475,7 +475,7 @@ func TestTxStmt(t *testing.T) {
 							table: "table1",
 							cols:  []string{"id", "label"},
 							rows: []*Row{
-								{values: []interface{}{uint64(100), "label1"}},
+								{Values: []interface{}{uint64(100), "label1"}},
 							},
 						},
 					},
@@ -1042,14 +1042,14 @@ func TestMultiLineStmts(t *testing.T) {
 							table: "table1",
 							cols:  []string{"id", "label"},
 							rows: []*Row{
-								{values: []interface{}{uint64(100), "label1"}},
+								{Values: []interface{}{uint64(100), "label1"}},
 							},
 						},
 						&UpsertIntoStmt{
 							table: "table2",
 							cols:  []string{"id"},
 							rows: []*Row{
-								{values: []interface{}{uint64(10)}},
+								{Values: []interface{}{uint64(10)}},
 							},
 						},
 					},

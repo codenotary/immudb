@@ -217,7 +217,7 @@ rows:
 row:
     '(' values ')'
     {
-        $$ = &Row{values: $2}
+        $$ = &Row{Values: $2}
     }
 
 ids:
