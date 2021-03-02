@@ -191,10 +191,10 @@ func TestQuery(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.values, 2)
+		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(i), row.values[0])
-		require.Equal(t, fmt.Sprintf("title%d", i), row.values[1])
+		require.Equal(t, uint64(i), row.Values[0])
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[1])
 	}
 
 	err = r.reader.Close()

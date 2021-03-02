@@ -346,7 +346,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 	}
 
 	for _, row := range stmt.rows {
-		if len(row.values) != len(stmt.cols) {
+		if len(row.Values) != len(stmt.cols) {
 			return nil, nil, ErrInvalidNumberOfValues
 		}
 
@@ -357,7 +357,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 
 		// create entry for the column which is the pk
 		pke := &store.KV{
-			Key:   e.mapKey(pkRow, e.implicitDatabase, table.name, table.pk, row.values[cs[table.pk]]),
+			Key:   e.mapKey(pkRow, e.implicitDatabase, table.name, table.pk, row.Values[cs[table.pk]]),
 			Value: bs,
 		}
 		des = append(des, pke)
@@ -365,7 +365,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 		// create entries for each indexed column, with value as value for pk column
 		for ic := range table.indexes {
 			ie := &store.KV{
-				Key:   e.mapKey(idxRow, e.implicitDatabase, table.name, ic, row.values[cs[ic]], row.values[cs[table.pk]]),
+				Key:   e.mapKey(idxRow, e.implicitDatabase, table.name, ic, row.Values[cs[ic]], row.Values[cs[table.pk]]),
 				Value: nil,
 			}
 			des = append(des, ie)
@@ -376,7 +376,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 }
 
 type Row struct {
-	values []interface{}
+	Values []interface{}
 }
 
 func (r *Row) Bytes(t *Table, cols []string) ([]byte, error) {
@@ -390,7 +390,7 @@ func (r *Row) Bytes(t *Table, cols []string) ([]byte, error) {
 		return nil, err
 	}
 
-	for i, val := range r.values {
+	for i, val := range r.Values {
 		col, _ := t.cols[cols[i]]
 
 		// len(colName) + colName
@@ -519,7 +519,7 @@ func (r *RowReader) Read() (*Row, error) {
 		}
 	}
 
-	return &Row{values: values}, nil
+	return &Row{Values: values}, nil
 }
 
 type SelectStmt struct {
