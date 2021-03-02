@@ -59,12 +59,12 @@ func (s *ServerMock) StreamScan(request *schema.ScanRequest, scanServer schema.I
 	return s.srv.StreamScan(request, scanServer)
 }
 
-func (s *ServerMock) StreamZScan(request *schema.ZScanRequest, scanServer schema.ImmuService_StreamZScanServer) error {
-	panic("implement me")
+func (s *ServerMock) StreamZScan(request *schema.ZScanRequest, zscanServer schema.ImmuService_StreamZScanServer) error {
+	return s.srv.StreamZScan(request, zscanServer)
 }
 
 func (s *ServerMock) StreamHistory(request *schema.HistoryRequest, historyServer schema.ImmuService_StreamHistoryServer) error {
-	panic("implement me")
+	return s.srv.StreamHistory(request, historyServer)
 }
 
 func (s *ServerMock) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
