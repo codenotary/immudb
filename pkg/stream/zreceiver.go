@@ -18,8 +18,6 @@ package stream
 
 import (
 	"bufio"
-	"bytes"
-	"io"
 )
 
 type zStreamReceiver struct {
@@ -36,15 +34,15 @@ func NewZStreamReceiver(s MsgReceiver, chunkSize int) *zStreamReceiver {
 }
 
 func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, *bufio.Reader, error) {
-	set, err := readSmallMsg(zr.s, zr.StreamChunkSize)
+	set, err := ParseValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}
-	key, err := readSmallMsg(zr.s, zr.StreamChunkSize)
+	key, err := ParseValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}
-	scoreBs, err := readSmallMsg(zr.s, zr.StreamChunkSize)
+	scoreBs, err := ParseValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}
@@ -56,30 +54,4 @@ func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, *bufio.Reader, error
 	// for the value, (which can be large), return a Reader and let the caller read it
 	valueReader := bufio.NewReaderSize(zr.s, zr.StreamChunkSize)
 	return set, key, score, valueReader, nil
-}
-
-func readSmallMsg(msgReceiver MsgReceiver, streamChunkSize int) ([]byte, error) {
-	b := bytes.NewBuffer([]byte{})
-	chunk := make([]byte, streamChunkSize)
-	msgLen := 0
-	for {
-		l, err := msgReceiver.Read(chunk)
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-		if err == io.EOF {
-			return nil, err
-		}
-		msgLen += l
-		b.Write(chunk)
-		if l == 0 {
-			break
-		}
-	}
-	msg := make([]byte, msgLen)
-	_, err := b.Read(msg)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
 }
