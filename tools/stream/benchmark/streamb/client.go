@@ -146,14 +146,14 @@ func StreamContent(maxValueSize, kvLength int) error {
 		kvSHA256[i] = h
 	}
 
-	_, err = cli.StreamSet(ctx, kvs)
+	txMeta, err := cli.StreamSet(ctx, kvs)
 	if err != nil {
 		kvsj, _ := json.Marshal(kvs)
 		return fmt.Errorf("StreamSet returns error: %s on kv %s", err, kvsj)
 	}
 
 	for i := 0; i < kvLength; i++ {
-		entry, err := cli.StreamGet(ctx, &schema.KeyRequest{Key: kvKeys[i]})
+		entry, err := cli.StreamGet(ctx, &schema.KeyRequest{Key: kvKeys[i], SinceTx: txMeta.Id})
 		if err != nil {
 			return fmt.Errorf("StreamGet returns error: %s on key %s", err, kvKeys[i])
 		}
