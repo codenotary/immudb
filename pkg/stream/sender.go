@@ -45,6 +45,9 @@ func NewMsgSender(s ImmuServiceSender_Stream, chunkSize int) *msgSender {
 }
 
 func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
+	if payloadSize == 0 {
+		return ErrMessageLengthIsZero
+	}
 	var read = 0
 	var run = true
 	for run {
@@ -63,7 +66,9 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 				return err
 			}
 		}
-
+		if read == 0 && err == io.EOF {
+			return  ErrReaderIsEmpty
+		}
 		read += r
 		// no more data to read in the reader, exit
 		if read == 0 {
