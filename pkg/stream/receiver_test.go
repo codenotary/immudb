@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream/stream_test"
+	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/stretchr/testify/require"
 	"io"
 	"testing"
@@ -17,7 +18,7 @@ func TestMsgReceiver_Read(t *testing.T) {
 	for i := 0; i < chunk_size-8; i++ {
 		chunk[i] = byte(1)
 	}
-	chunk1 := &schema.Chunk{Content: bytes.Join([][]byte{stream_test.GetTrailer(len(chunk)), chunk}, nil)}
+	chunk1 := &schema.Chunk{Content: bytes.Join([][]byte{streamtest.GetTrailer(len(chunk)), chunk}, nil)}
 
 	chunk = make([]byte, 8)
 	for i := 0; i < 8; i++ {
@@ -25,7 +26,7 @@ func TestMsgReceiver_Read(t *testing.T) {
 	}
 	chunk2 := &schema.Chunk{Content: chunk}
 
-	sm := stream_test.DefaultImmuServiceReceiverStreamMock([]*stream_test.ChunkError{
+	sm := streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
 		{chunk1, nil},
 		{chunk2, nil},
 		{nil, io.EOF},
@@ -48,9 +49,9 @@ func TestMsgReceiver_Read(t *testing.T) {
 
 func TestMsgReceiver_ReadMessInFirstChunk(t *testing.T) {
 	content := []byte(`mycontent`)
-	chunk := &schema.Chunk{Content: bytes.Join([][]byte{stream_test.GetTrailer(len(content)), content}, nil)}
+	chunk := &schema.Chunk{Content: bytes.Join([][]byte{streamtest.GetTrailer(len(content)), content}, nil)}
 
-	sm := stream_test.DefaultImmuServiceReceiverStreamMock([]*stream_test.ChunkError{
+	sm := streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
 		{chunk, nil},
 		{nil, io.EOF},
 	})
@@ -67,7 +68,7 @@ func TestMsgReceiver_ReadMessInFirstChunk(t *testing.T) {
 
 func TestMsgReceiver_EmptyStream(t *testing.T) {
 
-	sm := stream_test.DefaultImmuServiceReceiverStreamMock([]*stream_test.ChunkError{
+	sm := streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
 		{nil, io.EOF},
 	})
 
@@ -84,9 +85,9 @@ func TestMsgReceiver_EmptyStream(t *testing.T) {
 func TestMsgReceiver_ErrNotEnoughDataOnStream(t *testing.T) {
 
 	content := []byte(`mycontent`)
-	chunk := &schema.Chunk{Content: bytes.Join([][]byte{stream_test.GetTrailer(len(content) + 10), content}, nil)}
+	chunk := &schema.Chunk{Content: bytes.Join([][]byte{streamtest.GetTrailer(len(content) + 10), content}, nil)}
 
-	sm := stream_test.DefaultImmuServiceReceiverStreamMock([]*stream_test.ChunkError{
+	sm := streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
 		{chunk, nil},
 		{nil, io.EOF},
 	})
@@ -103,7 +104,7 @@ func TestMsgReceiver_ErrNotEnoughDataOnStream(t *testing.T) {
 
 func TestMsgReceiver_StreamRecvError(t *testing.T) {
 
-	sm := stream_test.DefaultImmuServiceReceiverStreamMock([]*stream_test.ChunkError{
+	sm := streamtest.DefaultImmuServiceReceiverStreamMock([]*streamtest.ChunkError{
 		{nil, errors.New("NewError!")},
 	})
 
