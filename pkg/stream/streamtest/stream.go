@@ -17,8 +17,13 @@ limitations under the License.
 package streamtest
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/binary"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"io"
+	"io/ioutil"
+	"os"
 )
 
 type ChunkError struct {
@@ -56,4 +61,36 @@ func GetTrailer(payloadSize int) []byte {
 	ml := make([]byte, 8)
 	binary.BigEndian.PutUint64(ml, uint64(payloadSize))
 	return ml
+}
+
+func GenerateDummyFile(filename string, size int) (*os.File, error) {
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-bench-"+filename)
+	if err != nil {
+		return nil, err
+	}
+
+	b := make([]byte, size)
+	_, err = rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tmpFile.Write(b)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpFile.Seek(0, io.SeekStart)
+
+	return tmpFile, nil
+}
+
+func GetSHA256(r io.Reader) ([]byte, error) {
+	h := sha256.New()
+	_, err := io.Copy(h, r)
+	if err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
+
 }
