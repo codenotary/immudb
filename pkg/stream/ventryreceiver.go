@@ -17,40 +17,37 @@ limitations under the License.
 package stream
 
 import (
-	"io"
+	"bufio"
 )
 
-type zStreamReceiver struct {
+type vEntryStreamReceiver struct {
 	s               MsgReceiver
 	StreamChunkSize int
 }
 
-// NewZStreamReceiver ...
-func NewZStreamReceiver(s MsgReceiver, chunkSize int) *zStreamReceiver {
-	return &zStreamReceiver{
+// NewVEntryStreamReceiver ...
+func NewVEntryStreamReceiver(s MsgReceiver, chunkSize int) *vEntryStreamReceiver {
+	return &vEntryStreamReceiver{
 		s:               s,
 		StreamChunkSize: chunkSize,
 	}
 }
 
-func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, io.Reader, error) {
-	set, err := ReadValue(zr.s, zr.StreamChunkSize)
+func (vesr *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, *bufio.Reader, error) {
+	entryWithoutValueProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
 	if err != nil {
-		return nil, nil, 0, nil, err
+		return nil, nil, nil, nil, err
 	}
-	key, err := ReadValue(zr.s, zr.StreamChunkSize)
+	verifiableTxProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
 	if err != nil {
-		return nil, nil, 0, nil, err
-	}
-	scoreBs, err := ReadValue(zr.s, zr.StreamChunkSize)
-	if err != nil {
-		return nil, nil, 0, nil, err
-	}
-	var score float64
-	if err := NumberFromBytes(scoreBs, &score); err != nil {
-		return nil, nil, 0, nil, err
+		return nil, nil, nil, nil, err
 	}
 
+	inclusionProofProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	// for the value, (which can be large), return a Reader and let the caller read it
-	return set, key, score, zr.s, nil
+	valueReader := bufio.NewReaderSize(vesr.s, vesr.StreamChunkSize)
+	return entryWithoutValueProto, verifiableTxProto, inclusionProofProto, valueReader, nil
 }

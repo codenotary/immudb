@@ -134,6 +134,8 @@ type ImmuClient interface {
 
 	StreamSet(ctx context.Context, kv []*stream.KeyValue) (*schema.TxMetadata, error)
 	StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
+	StreamVerifiedSet(ctx context.Context, kv []*stream.KeyValue) (*schema.TxMetadata, error)
+	StreamVerifiedGet(ctx context.Context, k *schema.VerifiableGetRequest) (*schema.Entry, error)
 	StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)
 	StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error)
 	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)

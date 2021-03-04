@@ -18,45 +18,45 @@ package stream
 
 import "io"
 
-type zStreamSender struct {
+type vEntryStreamSender struct {
 	s MsgSender
 }
 
-func NewZStreamSender(s MsgSender) *zStreamSender {
-	return &zStreamSender{
+func NewVEntryStreamSender(s MsgSender) *vEntryStreamSender {
+	return &vEntryStreamSender{
 		s: s,
 	}
 }
 
-func (st *zStreamSender) Send(ze *ZEntry) error {
-	err := st.s.Send(ze.Set.Content, ze.Set.Size)
+func (vess *vEntryStreamSender) Send(ve *VerifiableEntry) error {
+	err := vess.s.Send(ve.EntryWithoutValueProto.Content, ve.EntryWithoutValueProto.Size)
 	if err != nil {
 		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+			return vess.s.RecvMsg(nil)
 		}
 		return err
 	}
 
-	err = st.s.Send(ze.Key.Content, ze.Key.Size)
+	err = vess.s.Send(ve.VerifiableTxProto.Content, ve.VerifiableTxProto.Size)
 	if err != nil {
 		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+			return vess.s.RecvMsg(nil)
 		}
 		return err
 	}
 
-	err = st.s.Send(ze.Score.Content, ze.Score.Size)
+	err = vess.s.Send(ve.InclusionProofProto.Content, ve.InclusionProofProto.Size)
 	if err != nil {
 		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+			return vess.s.RecvMsg(nil)
 		}
 		return err
 	}
 
-	err = st.s.Send(ze.Value.Content, ze.Value.Size)
+	err = vess.s.Send(ve.Value.Content, ve.Value.Size)
 	if err != nil {
 		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+			return vess.s.RecvMsg(nil)
 		}
 		return err
 	}
