@@ -16,7 +16,7 @@ limitations under the License.
 
 package stream
 
-import "bufio"
+import "io"
 
 // ZStreamSender ...
 type ZStreamSender interface {
@@ -25,5 +25,5 @@ type ZStreamSender interface {
 
 // ZStreamReceiver ...
 type ZStreamReceiver interface {
-	Next() ([]byte, []byte, float64, *bufio.Reader, error)
+	Next() ([]byte, []byte, float64, io.Reader, error)
 }

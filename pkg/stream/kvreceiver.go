@@ -17,7 +17,6 @@ limitations under the License.
 package stream
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 )
@@ -36,7 +35,7 @@ func NewKvStreamReceiver(s MsgReceiver, chunkSize int) *kvStreamReceiver {
 }
 
 // Next returns the following key and value reader pair found on stream. If no more key values are presents on stream it returns io.EOF
-func (kvr *kvStreamReceiver) Next() ([]byte, *bufio.Reader, error) {
+func (kvr *kvStreamReceiver) Next() ([]byte, io.Reader, error) {
 	b := bytes.NewBuffer([]byte{})
 	chunk := make([]byte, kvr.StreamChunkSize)
 	keyl := 0
@@ -60,5 +59,5 @@ func (kvr *kvStreamReceiver) Next() ([]byte, *bufio.Reader, error) {
 		return nil, nil, err
 	}
 
-	return key, bufio.NewReaderSize(kvr.s, kvr.StreamChunkSize), nil
+	return key, kvr.s, nil
 }
