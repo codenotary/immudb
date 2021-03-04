@@ -75,10 +75,6 @@ func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 		if read < payloadSize && err == io.EOF {
 			return ErrNotEnoughDataOnStream
 		}
-		// no more data to read in the reader, exit
-		if read == 0 {
-			return nil
-		}
 
 		// append read data in the buffer
 		st.b.Write(data[:r])
@@ -88,9 +84,6 @@ func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 		// last chunk creation
 		if read == payloadSize {
 			chunk = make([]byte, st.b.Len())
-			if err != nil {
-				return nil
-			}
 			_, err = st.b.Read(chunk)
 			if err != nil {
 				return nil

@@ -8,6 +8,7 @@ import (
 )
 
 // GetKeyValuesFromFiles returns an array of stream.KeyValue from full file names paths. Each key value is composed by a key that is the file name and a reader of the content of the file, if exists.
+// @todo Michele use only base path to avoid to use  pieces of local file system as key
 func GetKeyValuesFromFiles(filenames ...string) ([]*stream.KeyValue, error) {
 	var kvs []*stream.KeyValue
 	for _, fn := range filenames {

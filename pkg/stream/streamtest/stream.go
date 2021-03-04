@@ -57,6 +57,30 @@ func DefaultImmuServiceReceiverStreamMock(ce []*ChunkError) *ImmuServiceReceiver
 	return m
 }
 
+type ImmuServiceSender_StreamMock struct {
+	SendF    func(*schema.Chunk) error
+	RecvMsgF func(m interface{}) error
+}
+
+func DefaultImmuServiceSenderStreamMock() *ImmuServiceSender_StreamMock {
+	return &ImmuServiceSender_StreamMock{
+		SendF: func(*schema.Chunk) error {
+			return nil
+		},
+		RecvMsgF: func(m interface{}) error {
+			return nil
+		},
+	}
+}
+
+func (iss *ImmuServiceSender_StreamMock) Send(c *schema.Chunk) error {
+	return iss.SendF(c)
+}
+
+func (iss *ImmuServiceSender_StreamMock) RecvMsg(m interface{}) error {
+	return iss.RecvMsgF(m)
+}
+
 func GetTrailer(payloadSize int) []byte {
 	ml := make([]byte, 8)
 	binary.BigEndian.PutUint64(ml, uint64(payloadSize))
