@@ -37,6 +37,20 @@ func (c *immuClient) streamGet(ctx context.Context, in *schema.KeyRequest) (sche
 	return c.ServiceClient.StreamGet(ctx, in)
 }
 
+func (c *immuClient) streamVerifiableSet(ctx context.Context) (schema.ImmuService_StreamVerifiableSetClient, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	return c.ServiceClient.StreamVerifiableSet(ctx)
+}
+
+func (c *immuClient) streamVerifiableGet(ctx context.Context, in *schema.VerifiableGetRequest) (schema.ImmuService_StreamVerifiableGetClient, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	return c.ServiceClient.StreamVerifiableGet(ctx, in)
+}
+
 func (c *immuClient) streamScan(ctx context.Context, in *schema.ScanRequest) (schema.ImmuService_StreamScanClient, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
@@ -97,6 +111,65 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 	}
 
 	return stream.ParseKV(key, vr, c.Options.StreamChunkSize)
+}
+
+func (c *immuClient) StreamVerifiedSet(ctx context.Context, req *stream.VerifiableSetRequest) (*schema.TxMetadata, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	s, err := c.streamVerifiableSet(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, c.Options.StreamChunkSize))
+
+	// 1st send the ProveSinceTx (build a "fake" KV with it):
+	proveSinceTxFakeKey := []byte("ProveSinceTx")
+	err = kvss.Send(&stream.KeyValue{
+		// this is a fake key, server will ignore it and use only the value
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(proveSinceTxFakeKey)),
+			Size:    len([]byte("ProveSinceTx")),
+		},
+		Value: req.ProveSinceTx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, kv := range req.KVs {
+		err = kvss.Send(kv)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// TODO OGG NOW: add verification
+	verifiableTx, err := s.CloseAndRecv()
+
+	return verifiableTx.GetTx().GetMetadata(), nil
+}
+
+func (c *immuClient) StreamVerifiedGet(ctx context.Context, k *schema.VerifiableGetRequest) (*schema.Entry, error) {
+	gs, err := c.streamVerifiableGet(ctx, k)
+
+	ver := stream.NewVEntryStreamReceiver(stream.NewMsgReceiver(gs), c.Options.StreamChunkSize)
+
+	key, verifiableTx, inclusionProof, vr, err := ver.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	vEntry, err := stream.ParseVerifiableEntry(
+		key, verifiableTx, inclusionProof, vr, c.Options.StreamChunkSize)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO OGG NOW: add verification
+
+	return vEntry.Entry, nil
 }
 
 func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {

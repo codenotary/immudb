@@ -3,12 +3,12 @@ package stream
 import (
 	"bytes"
 	"errors"
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/stream/stream_test"
-	"github.com/codenotary/immudb/pkg/stream/streamtest"
-	"github.com/stretchr/testify/require"
 	"io"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/stream/streamtest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMsgReceiver_Read(t *testing.T) {

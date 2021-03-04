@@ -18,18 +18,19 @@ package stream
 
 import "io"
 
-type zStreamSender struct {
+type vEntryStreamSender struct {
 	s MsgSender
 }
 
-func NewZStreamSender(s MsgSender) *zStreamSender {
-	return &zStreamSender{
+func NewVEntryStreamSender(s MsgSender) *vEntryStreamSender {
+	return &vEntryStreamSender{
 		s: s,
 	}
 }
 
-func (st *zStreamSender) Send(ze *ZEntry) error {
-	err := st.s.Send(ze.Set.Content, ze.Set.Size)
+func (vess *vEntryStreamSender) Send(ve *VerifiableEntry) error {
+	// TODO OGG NOW: send the values from the VerifiableEntry; make sure ventryreceiver and ventryparser are updated
+	err := vess.s.Send(ve.Set.Content, ze.Set.Size)
 	if err != nil {
 		if err == io.EOF {
 			return st.s.RecvMsg(nil)

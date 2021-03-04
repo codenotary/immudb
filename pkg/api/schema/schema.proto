@@ -598,7 +598,7 @@ service ImmuService {
 	rpc streamGet(KeyRequest) returns (stream Chunk) {};
 	rpc streamSet(stream Chunk) returns (TxMetadata) {};
 	rpc streamVerifiableGet(VerifiableGetRequest) returns (stream Chunk) {};
-	rpc streamVerifiableSet (VerifiableSetRequest) returns (stream Chunk){};
+	rpc streamVerifiableSet(stream Chunk) returns (VerifiableTx) {};
 	rpc streamScan(ScanRequest) returns (stream Chunk) {};
 	rpc streamZScan(ZScanRequest) returns (stream Chunk) {};
 	rpc streamHistory(HistoryRequest) returns (stream Chunk) {};

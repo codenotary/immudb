@@ -32,6 +32,18 @@ type ValueSize struct {
 	Size    int
 }
 
+type VerifiableSetRequest struct {
+	KVs          []*KeyValue
+	ProveSinceTx *ValueSize
+}
+
+type VerifiableEntry struct {
+	EntryWithoutValueProto *ValueSize
+	VerifiableTxProto      *ValueSize
+	InclusionProofProto    *ValueSize
+	Value                  *ValueSize
+}
+
 type ZEntry struct {
 	Set   *ValueSize
 	Key   *ValueSize

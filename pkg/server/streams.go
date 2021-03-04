@@ -106,11 +106,33 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 	return nil
 }
 
-func (s *ImmuServer) StreamVerifiableGet(request *schema.VerifiableGetRequest, server schema.ImmuService_StreamVerifiableGetServer) error {
-	panic("implement me")
+func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str schema.ImmuService_StreamVerifiableGetServer) error {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamVerifiableGet")
+	if err != nil {
+		return err
+	}
+
+	kvsr := s.Ssf.NewKvStreamSender(str)
+
+	vEntry, err := s.dbList.GetByIndex(ind).VerifiableGet(req)
+	if err != nil {
+		return err
+	}
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(entry.Key)),
+			Size:    len(entry.Key),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(entry.Value)),
+			Size:    len(entry.Value),
+		},
+	}
+	return kvsr.Send(kv)
 }
 
-func (s *ImmuServer) StreamVerifiableSet(request *schema.VerifiableSetRequest, server schema.ImmuService_StreamVerifiableSetServer) error {
+func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiableSetServer) error {
+	// TODO OGG NOW: pay attention here, as the first KV is actually a fake one: it's value is ProveSinceTx
 	panic("implement me")
 }
 
