@@ -9,20 +9,25 @@ import (
 
 // ParseVerifiableEntry ...
 func ParseVerifiableEntry(
-	key []byte,
-	verifiableTxBs []byte,
-	inclusionProofBs []byte,
+	entryWithoutValueProto []byte,
+	verifiableTxProto []byte,
+	inclusionProofProto []byte,
 	vr *bufio.Reader,
 	chunkSize int,
 ) (*schema.VerifiableEntry, error) {
 
+	var entry schema.Entry
+	if err := proto.Unmarshal(verifiableTxProto, &entry); err != nil {
+		return nil, err
+	}
+
 	var verifiableTx schema.VerifiableTx
-	if err := proto.Unmarshal(verifiableTxBs, &verifiableTx); err != nil {
+	if err := proto.Unmarshal(verifiableTxProto, &verifiableTx); err != nil {
 		return nil, err
 	}
 
 	var inclusionProof schema.InclusionProof
-	if err := proto.Unmarshal(inclusionProofBs, &inclusionProof); err != nil {
+	if err := proto.Unmarshal(inclusionProofProto, &inclusionProof); err != nil {
 		return nil, err
 	}
 
@@ -30,8 +35,8 @@ func ParseVerifiableEntry(
 	if err != nil {
 		return nil, err
 	}
-
-	entry := schema.Entry{Key: key, Value: value}
+	// set the value on the entry, as it came without it
+	entry.Value = value
 
 	return &schema.VerifiableEntry{
 		Entry:          &entry,

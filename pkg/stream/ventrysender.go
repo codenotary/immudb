@@ -29,35 +29,34 @@ func NewVEntryStreamSender(s MsgSender) *vEntryStreamSender {
 }
 
 func (vess *vEntryStreamSender) Send(ve *VerifiableEntry) error {
-	// TODO OGG NOW: send the values from the VerifiableEntry; make sure ventryreceiver and ventryparser are updated
-	err := vess.s.Send(ve.Set.Content, ze.Set.Size)
+	err := vess.s.Send(ve.EntryWithoutValueProto.Content, ve.EntryWithoutValueProto.Size)
 	if err != nil {
 		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+			return vess.s.RecvMsg(nil)
 		}
 		return err
 	}
 
-	err = st.s.Send(ze.Key.Content, ze.Key.Size)
+	err = vess.s.Send(ve.VerifiableTxProto.Content, ve.VerifiableTxProto.Size)
 	if err != nil {
 		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+			return vess.s.RecvMsg(nil)
 		}
 		return err
 	}
 
-	err = st.s.Send(ze.Score.Content, ze.Score.Size)
+	err = vess.s.Send(ve.InclusionProofProto.Content, ve.InclusionProofProto.Size)
 	if err != nil {
 		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+			return vess.s.RecvMsg(nil)
 		}
 		return err
 	}
 
-	err = st.s.Send(ze.Value.Content, ze.Value.Size)
+	err = vess.s.Send(ve.Value.Content, ve.Value.Size)
 	if err != nil {
 		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+			return vess.s.RecvMsg(nil)
 		}
 		return err
 	}

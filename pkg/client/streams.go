@@ -125,12 +125,11 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, req *stream.Verifiab
 	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, c.Options.StreamChunkSize))
 
 	// 1st send the ProveSinceTx (build a "fake" KV with it):
-	proveSinceTxFakeKey := []byte("ProveSinceTx")
 	err = kvss.Send(&stream.KeyValue{
 		// this is a fake key, server will ignore it and use only the value
 		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(proveSinceTxFakeKey)),
-			Size:    len([]byte("ProveSinceTx")),
+			Content: bufio.NewReader(bytes.NewBuffer(stream.ProveSinceTxFakeKey)),
+			Size:    len(stream.ProveSinceTxFakeKey),
 		},
 		Value: req.ProveSinceTx,
 	})

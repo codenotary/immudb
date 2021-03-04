@@ -33,21 +33,21 @@ func NewVEntryStreamReceiver(s MsgReceiver, chunkSize int) *vEntryStreamReceiver
 	}
 }
 
-func (ver *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, *bufio.Reader, error) {
-	key, err := ParseValue(bufio.NewReader(ver.s), ver.StreamChunkSize)
+func (vesr *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, *bufio.Reader, error) {
+	entryWithoutValueProto, err := ParseValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	verifiableTx, err := ParseValue(bufio.NewReader(ver.s), ver.StreamChunkSize)
+	verifiableTxProto, err := ParseValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	inclusionProof, err := ParseValue(bufio.NewReader(ver.s), ver.StreamChunkSize)
+	inclusionProofProto, err := ParseValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	// for the value, (which can be large), return a Reader and let the caller read it
-	valueReader := bufio.NewReaderSize(ver.s, ver.StreamChunkSize)
-	return key, verifiableTx, inclusionProof, valueReader, nil
+	valueReader := bufio.NewReaderSize(vesr.s, vesr.StreamChunkSize)
+	return entryWithoutValueProto, verifiableTxProto, inclusionProofProto, valueReader, nil
 }

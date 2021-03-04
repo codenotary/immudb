@@ -22,6 +22,8 @@ import (
 	"io"
 )
 
+var ProveSinceTxFakeKey = []byte("ProveSinceTx")
+
 type KeyValue struct {
 	Key   *ValueSize
 	Value *ValueSize
@@ -51,18 +53,28 @@ type ZEntry struct {
 	Value *ValueSize
 }
 
-// Float64ToBytes ...
-func Float64ToBytes(f float64) ([]byte, error) {
+// NumberToBytes ...
+func NumberToBytes(n interface{}) ([]byte, error) {
 	var buf bytes.Buffer
-	err := binary.Write(&buf, binary.BigEndian, f)
+	err := binary.Write(&buf, binary.BigEndian, n)
 	if err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), err
 }
 
+// NumberFromBytes ...
+func NumberFromBytes(bs []byte, n interface{}) error {
+	buf := bytes.NewReader(bs)
+	return binary.Read(buf, binary.BigEndian, n)
+}
+
+// Float64ToBytes ...
+func Float64ToBytes(f float64) ([]byte, error) {
+	return NumberToBytes(f)
+}
+
 // Float64FromBytes ...
 func Float64FromBytes(bs []byte, f *float64) error {
-	buf := bytes.NewReader(bs)
-	return binary.Read(buf, binary.BigEndian, f)
+	return NumberFromBytes(bs, f)
 }
