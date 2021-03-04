@@ -22,12 +22,14 @@ type kvStreamSender struct {
 	s MsgSender
 }
 
+// NewKvStreamSender returns a new kvStreamSender
 func NewKvStreamSender(s MsgSender) *kvStreamSender {
 	return &kvStreamSender{
 		s: s,
 	}
 }
 
+// Send send a KeyValue on strem
 func (st *kvStreamSender) Send(kv *KeyValue) error {
 	err := st.s.Send(kv.Key.Content, kv.Key.Size)
 	if err != nil {

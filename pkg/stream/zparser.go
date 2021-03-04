@@ -15,7 +15,7 @@ func ParseZEntry(
 	chunkSize int,
 ) (*schema.ZEntry, error) {
 
-	value, err := ParseValue(vr, chunkSize)
+	value, err := ReadValue(vr, chunkSize)
 	if err != nil {
 		return nil, err
 	}

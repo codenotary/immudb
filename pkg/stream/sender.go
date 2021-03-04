@@ -35,6 +35,7 @@ type msgSender struct {
 	StreamChunkSize int
 }
 
+// NewMsgSender returns a NewMsgSender. It can be used on server side or client side to send a message on a stream.
 func NewMsgSender(s ImmuServiceSender_Stream, chunkSize int) *msgSender {
 	buffer := new(bytes.Buffer)
 	return &msgSender{
@@ -44,6 +45,8 @@ func NewMsgSender(s ImmuServiceSender_Stream, chunkSize int) *msgSender {
 	}
 }
 
+// Send reads from a reader until it reach payloadSize. It fill an internal buffer from what it read from reader and, when there is enough data, it sends a chunk on stream.
+// It continues until it reach the payloadsize. At that point it sends the last content of the buffer.
 func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 	if payloadSize == 0 {
 		return ErrMessageLengthIsZero
@@ -119,6 +122,7 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 	return nil
 }
 
+// RecvMsg block until it receives a message from the receiver (here we are on the sender). It's used mainly to retrieve an error message after sending data from a client(SDK) perspective.
 func (st *msgSender) RecvMsg(m interface{}) error {
 	return st.stream.RecvMsg(m)
 }

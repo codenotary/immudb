@@ -20,11 +20,13 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
+// ImmuServiceSender_Stream is used to inject schema.ImmuService_StreamGetServer, schema.ImmuService_StreamZScanServer inside both client and server senders
 type ImmuServiceSender_Stream interface {
 	Send(*schema.Chunk) error
 	RecvMsg(m interface{}) error // used to retrieve server side errors
 }
 
+// ImmuServiceReceiver_Stream is used to inject schema.ImmuService_StreamGetClient, schema.ImmuService_StreamGetClient, schema.ImmuService_StreamHistoryClient and similar inside both client and server receivers
 type ImmuServiceReceiver_Stream interface {
 	Recv() (*schema.Chunk, error)
 }

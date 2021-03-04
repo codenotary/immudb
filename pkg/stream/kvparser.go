@@ -7,8 +7,10 @@ import (
 	"io"
 )
 
+// ParseKV returns an entry from a key and a reader
+// @todo should be removed and we should use only ReadValue and explicitly setup the entry if needed
 func ParseKV(key []byte, vr *bufio.Reader, chunkSize int) (*schema.Entry, error) {
-	value, err := ParseValue(vr, chunkSize)
+	value, err := ReadValue(vr, chunkSize)
 	if err != nil {
 		return nil, err
 	}
@@ -18,7 +20,9 @@ func ParseKV(key []byte, vr *bufio.Reader, chunkSize int) (*schema.Entry, error)
 	}, nil
 }
 
-func ParseValue(vr *bufio.Reader, chunkSize int) (value []byte, err error) {
+// ReadValue returns the complete value from a message
+// @todo Michele, move it to streamutils package
+func ReadValue(vr *bufio.Reader, chunkSize int) (value []byte, err error) {
 	b := bytes.NewBuffer([]byte{})
 	vl := 0
 	eof := false

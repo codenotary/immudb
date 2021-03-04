@@ -24,6 +24,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
+	"github.com/codenotary/immudb/pkg/streamutils"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 	"log"
@@ -58,7 +59,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
 	if err != nil {
 		t.Error(err)
 	}
@@ -94,7 +95,7 @@ func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
 	if err != nil {
 		t.Error(err)
 	}

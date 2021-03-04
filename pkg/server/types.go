@@ -64,25 +64,25 @@ type ImmuServer struct {
 	userdata            *usernameToUserdataMap
 	multidbmode         bool
 	//Cc                  CorruptionChecker
-	sysDb         database.DB
-	metricsServer *http.Server
-	mux           sync.Mutex
-	StateSigner   StateSigner
-	Ssf           stream.ServiceFactory
+	sysDb                database.DB
+	metricsServer        *http.Server
+	mux                  sync.Mutex
+	StateSigner          StateSigner
+	StreamServiceFactory stream.ServiceFactory
 }
 
 // DefaultServer ...
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
-		OS:                  immuos.NewStandardOS(),
-		dbList:              NewDatabaseList(),
-		Logger:              logger.NewSimpleLogger("immudb ", os.Stderr),
-		Options:             DefaultOptions(),
-		quit:                make(chan struct{}),
-		databasenameToIndex: make(map[string]int64),
-		userdata:            &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
-		GrpcServer:          grpc.NewServer(),
-		Ssf:                 stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
+		OS:                   immuos.NewStandardOS(),
+		dbList:               NewDatabaseList(),
+		Logger:               logger.NewSimpleLogger("immudb ", os.Stderr),
+		Options:              DefaultOptions(),
+		quit:                 make(chan struct{}),
+		databasenameToIndex:  make(map[string]int64),
+		userdata:             &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
+		GrpcServer:           grpc.NewServer(),
+		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 	}
 }
 
@@ -109,7 +109,7 @@ func (s *ImmuServer) WithStateSigner(stateSigner StateSigner) ImmuServerIf {
 }
 
 func (s *ImmuServer) WithStreamServiceFactory(ssf stream.ServiceFactory) ImmuServerIf {
-	s.Ssf = ssf
+	s.StreamServiceFactory = ssf
 	return s
 }
 
