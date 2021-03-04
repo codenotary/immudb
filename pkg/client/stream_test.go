@@ -65,18 +65,12 @@ func TestImmuClient_SetGetStream(t *testing.T) {
 
 	tmpFile.Seek(0, io.SeekStart)
 
-	kv := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
-			Size:    len(tmpFile.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile),
-			Size:    1_000_000,
-		},
+	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	if err != nil {
+		t.Error(err)
 	}
 
-	meta, err := client.StreamSet(ctx, []*stream.KeyValue{kv})
+	meta, err := client.StreamSet(ctx, kvs)
 	require.NoError(t, err)
 	require.NotNil(t, meta)
 
@@ -114,20 +108,12 @@ func TestImmuClient_Set32MBStream(t *testing.T) {
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	tmpFile.Seek(0, io.SeekStart)
-
-	kv := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
-			Size:    len(tmpFile.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile),
-			Size:    (1 << 25) - 1,
-		},
+	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	if err != nil {
+		t.Error(err)
 	}
 
-	meta, err := client.StreamSet(ctx, []*stream.KeyValue{kv})
+	meta, err := client.StreamSet(ctx, kvs)
 	require.NoError(t, err)
 	require.NotNil(t, meta)
 
@@ -161,20 +147,12 @@ func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	tmpFile.Seek(0, io.SeekStart)
-
-	kv := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
-			Size:    len(tmpFile.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile),
-			Size:    1 << 25,
-		},
+	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, err = client.StreamSet(ctx, []*stream.KeyValue{kv})
+	_, err = client.StreamSet(ctx, kvs)
 	require.Equal(t, stream.ErrMaxValueLenExceeded, err)
 }
 
@@ -196,59 +174,27 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1<<24)
-	require.NoError(t, err)
-	defer tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
-
-	tmpFile.Seek(0, io.SeekStart)
-	defer tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
-
-	kv1 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
-			Size:    len(tmpFile.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile),
-			Size:    1 << 24,
-		},
-	}
-
 	tmpFile1, err := streamtest.GenerateDummyFile("myFile1", 1<<24)
 	require.NoError(t, err)
-	defer tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
+	defer tmpFile1.Close()
+	defer os.Remove(tmpFile1.Name())
 
-	kv2 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile1.Name()))),
-			Size:    len(tmpFile1.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile1),
-			Size:    1 << 24,
-		},
-	}
-
-	tmpFile2, err := streamtest.GenerateDummyFile("myFile1", 1<<24)
+	tmpFile2, err := streamtest.GenerateDummyFile("tmpFile2", 1<<24)
 	require.NoError(t, err)
-	defer tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
+	defer tmpFile2.Close()
+	defer os.Remove(tmpFile2.Name())
 
-	kv3 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile2.Name()))),
-			Size:    len(tmpFile2.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile2),
-			Size:    1 << 24,
-		},
+	tmpFile3, err := streamtest.GenerateDummyFile("tmpFile3", 1<<24)
+	require.NoError(t, err)
+	defer tmpFile3.Close()
+	defer os.Remove(tmpFile3.Name())
+
+	kvs, err := GetKeyValuesFromFiles(tmpFile1.Name(), tmpFile2.Name(), tmpFile3.Name())
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, err = client.StreamSet(ctx, []*stream.KeyValue{kv1, kv2, kv3})
+	_, err = client.StreamSet(ctx, kvs)
 	require.Equal(t, stream.ErrMaxTxValuesLenExceeded, err)
 }
 
@@ -282,18 +228,11 @@ func TestImmuClient_SetGetSmallMessage(t *testing.T) {
 
 	tmpFile.Seek(0, io.SeekStart)
 
-	kv := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
-			Size:    len(tmpFile.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile),
-			Size:    1,
-		},
+	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	if err != nil {
+		t.Error(err)
 	}
-
-	meta, err := client.StreamSet(ctx, []*stream.KeyValue{kv})
+	meta, err := client.StreamSet(ctx, kvs)
 	require.NoError(t, err)
 	require.NotNil(t, meta)
 
@@ -394,50 +333,23 @@ func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
 	defer tmpFile1.Close()
 	defer os.Remove(tmpFile1.Name())
 
-	tmpFile1.Seek(0, io.SeekStart)
-
 	hOrig1 := sha256.New()
 	_, err = io.Copy(hOrig1, tmpFile1)
 	require.NoError(t, err)
 	oriSha1 := hOrig1.Sum(nil)
-
-	tmpFile1.Seek(0, io.SeekStart)
-
-	kv1 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile1.Name()))),
-			Size:    len(tmpFile1.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile1),
-			Size:    1 << 14,
-		},
-	}
 
 	tmpFile2, err := streamtest.GenerateDummyFile("myFile1", 1<<13)
 	require.NoError(t, err)
 	defer tmpFile2.Close()
 	defer os.Remove(tmpFile2.Name())
 
-	tmpFile2.Seek(0, io.SeekStart)
 	hOrig2 := sha256.New()
 	_, err = io.Copy(hOrig2, tmpFile2)
 	require.NoError(t, err)
 	oriSha2 := hOrig2.Sum(nil)
 
-	tmpFile2.Seek(0, io.SeekStart)
+	kvs, err := GetKeyValuesFromFiles(tmpFile1.Name(), tmpFile2.Name())
 
-	kv2 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile2.Name()))),
-			Size:    len(tmpFile2.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile2),
-			Size:    1 << 13,
-		},
-	}
-	kvs := []*stream.KeyValue{kv1, kv2}
 	meta, err := client.StreamSet(ctx, kvs)
 	require.NoError(t, err)
 	require.NotNil(t, meta)
@@ -658,19 +570,10 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	kv := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myKey1`))),
-			Size:    len([]byte(`myKey1`)),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(f),
-			Size:    22_000_000,
-		},
-	}
+	kvs1, err := GetKeyValuesFromFiles(f.Name())
+	kvs1[0].Value.Size = 22_000_000
 
-	kvs := []*stream.KeyValue{kv}
-	meta, err := client.StreamSet(ctx, kvs)
+	meta, err := client.StreamSet(ctx, kvs1)
 	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
 	require.Nil(t, meta)
 
@@ -681,28 +584,9 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	kv1 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myFile1`))),
-			Size:    len([]byte(`myFile1`)),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(f1),
-			Size:    10_000_000,
-		},
-	}
-	kv2 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myFile2`))),
-			Size:    len([]byte(`myFile2`)),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(f2),
-			Size:    12_000_000,
-		},
-	}
+	kvs2, err := GetKeyValuesFromFiles(f1.Name(), f2.Name())
+	kvs2[1].Value.Size = 12_000_000
 
-	kvs2 := []*stream.KeyValue{kv1, kv2}
 	meta, err = client.StreamSet(ctx, kvs2)
 	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
 	require.Nil(t, meta)
