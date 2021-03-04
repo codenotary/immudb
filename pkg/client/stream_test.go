@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/pkg/stream"
+	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -734,6 +735,117 @@ func TestImmuClient_SetEmptyReader(t *testing.T) {
 	}
 	kvs := []*stream.KeyValue{kv1, kv2}
 	meta, err := client.StreamSet(ctx, kvs)
+	require.Equal(t, stream.ErrReaderIsEmpty, err)
+	require.Nil(t, meta)
+
+	client.Disconnect()
+}
+
+func TestImmuClient_SetSizeTooLarge(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	kv1 := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myKey1`))),
+			Size:    len([]byte(`myKey1`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myVal1`))),
+			Size:    len([]byte(`myVal1`)) + 10,
+		},
+	}
+
+	kvs := []*stream.KeyValue{kv1}
+	meta, err := client.StreamSet(ctx, kvs)
+	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
+	require.Nil(t, meta)
+
+	client.Disconnect()
+}
+
+func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	f, _ := streamtest.GenerateDummyFile("myFile", 20_000_000)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myKey1`))),
+			Size:    len([]byte(`myKey1`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(f),
+			Size:    22_000_000,
+		},
+	}
+
+	kvs := []*stream.KeyValue{kv}
+	meta, err := client.StreamSet(ctx, kvs)
+	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
+	require.Nil(t, meta)
+
+	f1, _ := streamtest.GenerateDummyFile("myFile1", 10_000_000)
+	defer f.Close()
+	defer os.Remove(f.Name())
+	f2, _ := streamtest.GenerateDummyFile("myFile2", 10_000_000)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	kv1 := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myFile1`))),
+			Size:    len([]byte(`myFile1`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(f1),
+			Size:    10_000_000,
+		},
+	}
+	kv2 := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`myFile2`))),
+			Size:    len([]byte(`myFile2`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(f2),
+			Size:    12_000_000,
+		},
+	}
+
+	kvs2 := []*stream.KeyValue{kv1, kv2}
+	meta, err = client.StreamSet(ctx, kvs2)
 	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
 	require.Nil(t, meta)
 

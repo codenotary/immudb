@@ -67,9 +67,12 @@ func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
 			}
 		}
 		if read == 0 && err == io.EOF {
-			return  ErrReaderIsEmpty
+			return ErrReaderIsEmpty
 		}
 		read += r
+		if read < payloadSize && err == io.EOF {
+			return ErrNotEnoughDataOnStream
+		}
 		// no more data to read in the reader, exit
 		if read == 0 {
 			return nil
