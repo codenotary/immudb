@@ -17,6 +17,7 @@ limitations under the License.
 package stream
 
 import (
+	"fmt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,3 +27,4 @@ var ErrMaxTxValuesLenExceeded = status.Error(codes.FailedPrecondition, "max tran
 var ErrNotEnoughDataOnStream = status.Error(codes.InvalidArgument, "not enough data to build the expected message. check value length declaration")
 var ErrMessageLengthIsZero = status.Error(codes.InvalidArgument, "message trailer length is declared equal to zero")
 var ErrReaderIsEmpty = status.Error(codes.InvalidArgument, "reader contains no data")
+var ErrChunkTooSmall = status.Error(codes.InvalidArgument, fmt.Sprintf("minimum chunk size is %d", MinChunkSize))

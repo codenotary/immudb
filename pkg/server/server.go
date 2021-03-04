@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/stream"
 	"io/ioutil"
 	"log"
 	"math"
@@ -149,6 +150,11 @@ func (s *ImmuServer) Initialize() error {
 	if err = s.setupPidFile(); err != nil {
 		return err
 	}
+
+	if s.Options.StreamChunkSize < stream.MinChunkSize {
+		return stream.ErrChunkTooSmall
+	}
+
 	//===> !NOTE: See Histograms section here:
 	// https://github.com/grpc-ecosystem/go-grpc-prometheus
 	// TL;DR:
