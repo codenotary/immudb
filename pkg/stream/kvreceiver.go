@@ -27,6 +27,7 @@ type kvStreamReceiver struct {
 	StreamChunkSize int
 }
 
+// NewKvStreamReceiver returns a new kvStreamReceiver
 func NewKvStreamReceiver(s MsgReceiver, chunkSize int) *kvStreamReceiver {
 	return &kvStreamReceiver{
 		s:               s,
@@ -34,6 +35,7 @@ func NewKvStreamReceiver(s MsgReceiver, chunkSize int) *kvStreamReceiver {
 	}
 }
 
+// Next returns the following key and value reader pair found on stream. If no more key values are presents on stream it returns io.EOF
 func (kvr *kvStreamReceiver) Next() ([]byte, *bufio.Reader, error) {
 	b := bytes.NewBuffer([]byte{})
 	chunk := make([]byte, kvr.StreamChunkSize)

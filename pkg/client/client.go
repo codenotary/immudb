@@ -132,12 +132,6 @@ type ImmuClient interface {
 
 	Dump(ctx context.Context, writer io.WriteSeeker) (int64, error)
 
-	streamSet(ctx context.Context) (schema.ImmuService_StreamSetClient, error)
-	streamGet(ctx context.Context, in *schema.KeyRequest) (schema.ImmuService_StreamGetClient, error)
-	streamScan(ctx context.Context, in *schema.ScanRequest) (schema.ImmuService_StreamScanClient, error)
-	streamZScan(ctx context.Context, in *schema.ZScanRequest) (schema.ImmuService_StreamZScanClient, error)
-	streamHistory(ctx context.Context, in *schema.HistoryRequest) (schema.ImmuService_StreamHistoryClient, error)
-
 	StreamSet(ctx context.Context, kv []*stream.KeyValue) (*schema.TxMetadata, error)
 	StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error)
 	StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)

@@ -17,14 +17,10 @@ limitations under the License.
 package client
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"io"
-	"os"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
+	"io"
 )
 
 func (c *immuClient) streamSet(ctx context.Context) (schema.ImmuService_StreamSetClient, error) {
@@ -62,10 +58,12 @@ func (c *immuClient) streamHistory(ctx context.Context, in *schema.HistoryReques
 	return c.ServiceClient.StreamHistory(ctx, in)
 }
 
+// StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
 func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
+
 	s, err := c.streamSet(ctx)
 	if err != nil {
 		return nil, err
@@ -83,7 +81,12 @@ func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*sc
 	return s.CloseAndRecv()
 }
 
+// StreamGet get an *schema.Entry from immudb with a stream
 func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
 	gs, err := c.streamGet(ctx, k)
 
 	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs), c.Options.StreamChunkSize)
@@ -97,6 +100,10 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 }
 
 func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
 	gs, err := c.streamScan(ctx, req)
 	if err != nil {
 		return nil, err
@@ -121,6 +128,10 @@ func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*
 }
 
 func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
 	gs, err := c.streamZScan(ctx, req)
 	if err != nil {
 		return nil, err
@@ -145,6 +156,10 @@ func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) 
 }
 
 func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
 	gs, err := c.streamHistory(ctx, req)
 	if err != nil {
 		return nil, err
@@ -166,30 +181,4 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 		entries = append(entries, entry)
 	}
 	return &schema.Entries{Entries: entries}, nil
-}
-
-func GetKeyValuesFromFiles(filenames ...string) ([]*stream.KeyValue, error) {
-	var kvs []*stream.KeyValue
-	for _, fn := range filenames {
-		f, err := os.Open(fn)
-		if err != nil {
-			return nil, err
-		}
-		fs, err := os.Stat(fn)
-		if err != nil {
-			return nil, err
-		}
-		kv := &stream.KeyValue{
-			Key: &stream.ValueSize{
-				Content: bufio.NewReader(bytes.NewBuffer([]byte(fn))),
-				Size:    len([]byte(fn)),
-			},
-			Value: &stream.ValueSize{
-				Content: bufio.NewReader(f),
-				Size:    int(fs.Size()),
-			},
-		}
-		kvs = append(kvs, kv)
-	}
-	return kvs, nil
 }
