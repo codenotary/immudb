@@ -48,11 +48,11 @@ func (s *ServerMock) StreamSet(setServer schema.ImmuService_StreamSetServer) err
 }
 
 func (s *ServerMock) StreamVerifiableGet(request *schema.VerifiableGetRequest, getServer schema.ImmuService_StreamVerifiableGetServer) error {
-	panic("implement me")
+	return s.srv.StreamVerifiableGet(request, getServer)
 }
 
-func (s *ServerMock) StreamVerifiableSet(request *schema.VerifiableSetRequest, setServer schema.ImmuService_StreamVerifiableSetServer) error {
-	panic("implement me")
+func (s *ServerMock) StreamVerifiableSet(vSetServer schema.ImmuService_StreamVerifiableSetServer) error {
+	return s.srv.StreamVerifiableSet(vSetServer)
 }
 
 func (s *ServerMock) StreamScan(request *schema.ScanRequest, scanServer schema.ImmuService_StreamScanServer) error {

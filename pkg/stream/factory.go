@@ -26,6 +26,9 @@ type ServiceFactory interface {
 	NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver
 	NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender
 
+	NewVEntryStreamReceiver(str ImmuServiceReceiver_Stream) VEntryStreamReceiver
+	NewVEntryStreamSender(str ImmuServiceSender_Stream) VEntryStreamSender
+
 	NewZStreamReceiver(str ImmuServiceReceiver_Stream) ZStreamReceiver
 	NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender
 }
@@ -43,6 +46,14 @@ func (s *serviceFactory) NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvS
 // NewKvStreamSender returns a KvStreamSender
 func (s *serviceFactory) NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender {
 	return NewKvStreamSender(NewMsgSender(str, s.ChunkSize))
+}
+
+func (s *serviceFactory) NewVEntryStreamReceiver(str ImmuServiceReceiver_Stream) VEntryStreamReceiver {
+	return NewVEntryStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
+}
+
+func (s *serviceFactory) NewVEntryStreamSender(str ImmuServiceSender_Stream) VEntryStreamSender {
+	return NewVEntryStreamSender(NewMsgSender(str, s.ChunkSize))
 }
 
 // NewZStreamReceiver returns a ZStreamReceiver

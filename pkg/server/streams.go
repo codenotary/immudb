@@ -19,6 +19,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -26,6 +27,7 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // StreamGet return a stream of key-values to the client
@@ -106,12 +108,145 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 	return nil
 }
 
-func (s *ImmuServer) StreamVerifiableGet(request *schema.VerifiableGetRequest, server schema.ImmuService_StreamVerifiableGetServer) error {
-	panic("implement me")
+// StreamVerifiableGet ...
+func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str schema.ImmuService_StreamVerifiableGetServer) error {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamVerifiableGet")
+	if err != nil {
+		return err
+	}
+
+	vess := s.StreamServiceFactory.NewVEntryStreamSender(str)
+
+	vEntry, err := s.dbList.GetByIndex(ind).VerifiableGet(req)
+	if err != nil {
+		return err
+	}
+
+	value := stream.ValueSize{
+		Content: bufio.NewReader(bytes.NewBuffer(vEntry.GetEntry().GetValue())),
+		Size:    len(vEntry.GetEntry().GetValue()),
+	}
+
+	entryWithoutValue := schema.Entry{
+		Tx:           vEntry.GetEntry().GetTx(),
+		Key:          vEntry.GetEntry().GetKey(),
+		ReferencedBy: vEntry.GetEntry().GetReferencedBy(),
+	}
+
+	entryWithoutValueProto, err := proto.Marshal(&entryWithoutValue)
+	if err != nil {
+		return err
+	}
+
+	verifiableTxProto, err := proto.Marshal(vEntry.GetVerifiableTx())
+	if err != nil {
+		return err
+	}
+
+	inclusionProofProto, err := proto.Marshal(vEntry.GetInclusionProof())
+	if err != nil {
+		return err
+	}
+
+	sVEntry := stream.VerifiableEntry{
+		EntryWithoutValueProto: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(entryWithoutValueProto)),
+			Size:    len(entryWithoutValueProto),
+		},
+		VerifiableTxProto: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(verifiableTxProto)),
+			Size:    len(verifiableTxProto),
+		},
+		InclusionProofProto: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(inclusionProofProto)),
+			Size:    len(inclusionProofProto),
+		},
+		Value: &value,
+	}
+	return vess.Send(&sVEntry)
 }
 
-func (s *ImmuServer) StreamVerifiableSet(request *schema.VerifiableSetRequest, server schema.ImmuService_StreamVerifiableSetServer) error {
-	panic("implement me")
+// StreamVerifiableSet ...
+func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiableSetServer) error {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamVerifiableSet")
+	if err != nil {
+		return err
+	}
+
+	kvsr := s.StreamServiceFactory.NewKvStreamReceiver(str)
+
+	vlength := 0
+
+	//--> 1st message is special: it's a fake key which has the ProveSinceTx as value
+	//		proveSinceTxFakeKey := []byte("ProveSinceTx")
+	proveSinceTxKey, proveSinceTxVReader, err := kvsr.Next()
+	if err != nil {
+		return err
+	}
+	if string(proveSinceTxKey) != string(stream.ProveSinceTxFakeKey) {
+		return fmt.Errorf("expected 1st key to be %s, got %s",
+			stream.ProveSinceTxFakeKey, proveSinceTxKey)
+	}
+	proveSinceTxBs, err := stream.ReadValue(proveSinceTxVReader, s.Options.StreamChunkSize)
+	if err != nil {
+		return err
+	}
+	var proveSinceTx uint64
+	if err := stream.NumberFromBytes(proveSinceTxBs, &proveSinceTx); err != nil {
+		return err
+	}
+	vlength += len(proveSinceTxBs)
+	if vlength > stream.MaxTxValueLen {
+		return stream.ErrMaxTxValuesLenExceeded
+	}
+	//<--
+
+	var kvs = make([]*schema.KeyValue, 0)
+
+	for {
+		key, vr, err := kvsr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		value, err := stream.ReadValue(vr, s.Options.StreamChunkSize)
+		if value != nil {
+			vlength += len(value)
+			if vlength > stream.MaxTxValueLen {
+				return stream.ErrMaxTxValuesLenExceeded
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
+				break
+			}
+		}
+		kvs = append(kvs, &schema.KeyValue{Key: key, Value: value})
+
+	}
+
+	vSetReq := schema.VerifiableSetRequest{
+		SetRequest:   &schema.SetRequest{KVs: kvs},
+		ProveSinceTx: proveSinceTx,
+	}
+	verifiableTx, err := s.dbList.GetByIndex(ind).VerifiableSet(&vSetReq)
+	if err == store.ErrorMaxValueLenExceeded {
+		return stream.ErrMaxValueLenExceeded
+	}
+	if err != nil {
+		return status.Errorf(
+			codes.Unknown,
+			"StreamVerifiableSet received the following error: %s", err.Error())
+	}
+	err = str.SendAndClose(verifiableTx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_StreamScanServer) error {
@@ -155,7 +290,7 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 	zss := s.StreamServiceFactory.NewZStreamSender(server)
 
 	for _, e := range r.Entries {
-		scoreBs, err := stream.Float64ToBytes(e.Score)
+		scoreBs, err := stream.NumberToBytes(e.Score)
 		if err != nil {
 			s.Logger.Errorf(
 				"StreamZScan error: could not convert score (float64) to bytes: %v", err)
