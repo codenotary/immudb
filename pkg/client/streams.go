@@ -17,8 +17,11 @@ limitations under the License.
 package client
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"io"
+	"os"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
@@ -163,4 +166,30 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 		entries = append(entries, entry)
 	}
 	return &schema.Entries{Entries: entries}, nil
+}
+
+func GetKeyValuesFromFiles(filenames ...string) ([]*stream.KeyValue, error) {
+	var kvs []*stream.KeyValue
+	for _, fn := range filenames {
+		f, err := os.Open(fn)
+		if err != nil {
+			return nil, err
+		}
+		fs, err := os.Stat(fn)
+		if err != nil {
+			return nil, err
+		}
+		kv := &stream.KeyValue{
+			Key: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer([]byte(fn))),
+				Size:    len([]byte(fn)),
+			},
+			Value: &stream.ValueSize{
+				Content: bufio.NewReader(f),
+				Size:    int(fs.Size()),
+			},
+		}
+		kvs = append(kvs, kv)
+	}
+	return kvs, nil
 }

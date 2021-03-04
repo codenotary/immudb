@@ -58,15 +58,45 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	kv := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile.Name()))),
-			Size:    len(tmpFile.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile),
-			Size:    (1 << 25) - 1,
-		},
+	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	if err != nil {
+		t.Error(err)
+	}
+
+	metaTx, err := cli.StreamSet(ctx, kvs)
+	require.NoError(t, err)
+	_, err = cli.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile.Name()), SinceTx: metaTx.Id})
+	require.NoError(t, err)
+}
+
+func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
+	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
+	if err != nil {
+		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
+	}
+
+	cliIf, err := NewImmuClient(DefaultOptions())
+	require.NoError(t, err)
+	cli := cliIf.(*immuClient)
+	lr, err := cli.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	ur, err := cli.UseDatabase(ctx, &schema.Database{Databasename: "defaultdb"})
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", ur.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (1<<25)-1)
+	require.NoError(t, err)
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	if err != nil {
+		t.Error(err)
 	}
 
 	s, err := cli.streamSet(ctx)
@@ -74,9 +104,9 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	kvs := stream.NewKvStreamSender(stream.NewMsgSender(s, cli.Options.StreamChunkSize))
+	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, cli.Options.StreamChunkSize))
 
-	err = kvs.Send(kv)
+	err = kvss.Send(kvs[0])
 	require.NoError(t, err)
 
 	txMeta, err := s.CloseAndRecv()
@@ -84,7 +114,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 	require.IsType(t, &schema.TxMetadata{}, txMeta)
 }
 
-func TestImmuServer_SetGetManagedStream(t *testing.T) {
+func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	_, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", DefaultOptions().Port), 1*time.Second)
 	if err != nil {
 		t.Skip(fmt.Sprintf("Please launch an immudb server at port %d to run this test.", DefaultOptions().Port))
