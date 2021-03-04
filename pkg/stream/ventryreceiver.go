@@ -34,16 +34,16 @@ func NewVEntryStreamReceiver(s MsgReceiver, chunkSize int) *vEntryStreamReceiver
 }
 
 func (vesr *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, *bufio.Reader, error) {
-	entryWithoutValueProto, err := ParseValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
+	entryWithoutValueProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	verifiableTxProto, err := ParseValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
+	verifiableTxProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	inclusionProofProto, err := ParseValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
+	inclusionProofProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

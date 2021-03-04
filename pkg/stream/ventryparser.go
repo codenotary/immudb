@@ -31,7 +31,7 @@ func ParseVerifiableEntry(
 		return nil, err
 	}
 
-	value, err := ParseValue(vr, chunkSize)
+	value, err := ReadValue(vr, chunkSize)
 	if err != nil {
 		return nil, err
 	}

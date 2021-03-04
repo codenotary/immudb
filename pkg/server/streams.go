@@ -115,7 +115,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 		return err
 	}
 
-	vess := s.Ssf.NewVEntryStreamSender(str)
+	vess := s.StreamServiceFactory.NewVEntryStreamSender(str)
 
 	vEntry, err := s.dbList.GetByIndex(ind).VerifiableGet(req)
 	if err != nil {
@@ -173,7 +173,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		return err
 	}
 
-	kvsr := s.Ssf.NewKvStreamReceiver(str)
+	kvsr := s.StreamServiceFactory.NewKvStreamReceiver(str)
 
 	vlength := 0
 
@@ -187,7 +187,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		return fmt.Errorf("expected 1st key to be %s, got %s",
 			stream.ProveSinceTxFakeKey, proveSinceTxKey)
 	}
-	proveSinceTxBs, err := stream.ParseValue(proveSinceTxVReader, s.Options.StreamChunkSize)
+	proveSinceTxBs, err := stream.ReadValue(proveSinceTxVReader, s.Options.StreamChunkSize)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 			}
 			return err
 		}
-		value, err := stream.ParseValue(vr, s.Options.StreamChunkSize)
+		value, err := stream.ReadValue(vr, s.Options.StreamChunkSize)
 		if value != nil {
 			vlength += len(value)
 			if vlength > stream.MaxTxValueLen {
