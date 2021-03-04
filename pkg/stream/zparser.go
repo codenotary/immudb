@@ -1,9 +1,8 @@
 package stream
 
 import (
-	"bufio"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"io"
 )
 
 // ParseZEntry ...
@@ -11,7 +10,7 @@ func ParseZEntry(
 	set []byte,
 	key []byte,
 	score float64,
-	vr *bufio.Reader,
+	vr io.Reader,
 	chunkSize int,
 ) (*schema.ZEntry, error) {
 

@@ -17,9 +17,9 @@ limitations under the License.
 package stream
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
+	"io"
 )
 
 type KeyValue struct {
@@ -28,7 +28,7 @@ type KeyValue struct {
 }
 
 type ValueSize struct {
-	Content *bufio.Reader
+	Content io.Reader
 	Size    int
 }
 
