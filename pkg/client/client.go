@@ -203,6 +203,10 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 		options.CurrentDatabase = db
 	}
 
+	if options.StreamChunkSize < stream.MinChunkSize {
+		return nil, stream.ErrChunkTooSmall
+	}
+
 	c.WithOptions(options)
 
 	var clientConn *grpc.ClientConn
