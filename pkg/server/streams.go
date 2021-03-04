@@ -28,13 +28,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// StreamGet return a stream of key-values to the client
 func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_StreamGetServer) error {
 	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamGet")
 	if err != nil {
 		return err
 	}
 
-	kvsr := s.Ssf.NewKvStreamSender(str)
+	kvsr := s.StreamServiceFactory.NewKvStreamSender(str)
 
 	entry, err := s.dbList.GetByIndex(ind).Get(kr)
 	if err != nil {
@@ -53,13 +54,14 @@ func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_Str
 	return kvsr.Send(kv)
 }
 
+// StreamSet set a stream of key-values in the internal store
 func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamSet")
 	if err != nil {
 		return err
 	}
 
-	kvsr := s.Ssf.NewKvStreamReceiver(str)
+	kvsr := s.StreamServiceFactory.NewKvStreamReceiver(str)
 
 	var kvs = make([]*schema.KeyValue, 0)
 
@@ -72,7 +74,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 			}
 			return err
 		}
-		value, err := stream.ParseValue(vr, s.Options.StreamChunkSize)
+		value, err := stream.ReadValue(vr, s.Options.StreamChunkSize)
 		if value != nil {
 			vlength += len(value)
 			if vlength > stream.MaxTxValueLen {
@@ -120,7 +122,7 @@ func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_
 
 	r, err := s.dbList.GetByIndex(ind).Scan(req)
 
-	kvsr := s.Ssf.NewKvStreamSender(str)
+	kvsr := s.StreamServiceFactory.NewKvStreamSender(str)
 
 	for _, e := range r.Entries {
 		kv := &stream.KeyValue{
@@ -150,7 +152,7 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 
 	r, err := s.dbList.GetByIndex(ind).ZScan(request)
 
-	zss := s.Ssf.NewZStreamSender(server)
+	zss := s.StreamServiceFactory.NewZStreamSender(server)
 
 	for _, e := range r.Entries {
 		scoreBs, err := stream.Float64ToBytes(e.Score)
@@ -192,7 +194,7 @@ func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema
 
 	r, err := s.dbList.GetByIndex(ind).History(request)
 
-	kvsr := s.Ssf.NewKvStreamSender(server)
+	kvsr := s.StreamServiceFactory.NewKvStreamSender(server)
 
 	for _, e := range r.Entries {
 		kv := &stream.KeyValue{

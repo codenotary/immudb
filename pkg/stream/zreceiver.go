@@ -34,15 +34,15 @@ func NewZStreamReceiver(s MsgReceiver, chunkSize int) *zStreamReceiver {
 }
 
 func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, *bufio.Reader, error) {
-	set, err := ParseValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
+	set, err := ReadValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}
-	key, err := ParseValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
+	key, err := ReadValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}
-	scoreBs, err := ParseValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
+	scoreBs, err := ReadValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}

@@ -22,6 +22,7 @@ import (
 	"io"
 )
 
+// NewMsgReceiver returns a NewMsgReceiver reader
 func NewMsgReceiver(stream ImmuServiceReceiver_Stream) *msgReceiver {
 	return &msgReceiver{stream: stream,
 		b: new(bytes.Buffer),
@@ -41,6 +42,7 @@ type msgReceiver struct {
 	msgSend bool
 }
 
+// Read read fill message with received data and return the number of read bytes or erroor. If no message is present it returns 0 and io.EOF. If the message is complete it returns 0 and nil, in that case successive calls to Read will returns a new message.
 func (r *msgReceiver) Read(message []byte) (n int, err error) {
 	if r.msgSend {
 		r.msgSend = false
@@ -84,7 +86,7 @@ func (r *msgReceiver) Read(message []byte) (n int, err error) {
 			return 0, ErrNotEnoughDataOnStream
 		}
 
-		// message send edge case
+		// message send edge cases
 		msgInFirstChunk := r.b.Len() >= r.tl
 		lastRead := r.tl-r.s <= len(message)
 		lastMessageSizeTooBig := r.tl-r.s > len(message)

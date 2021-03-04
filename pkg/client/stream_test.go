@@ -27,6 +27,7 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
+	"github.com/codenotary/immudb/pkg/streamutils"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -65,7 +66,7 @@ func TestImmuClient_SetGetStream(t *testing.T) {
 
 	tmpFile.Seek(0, io.SeekStart)
 
-	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
 	if err != nil {
 		t.Error(err)
 	}
@@ -108,7 +109,7 @@ func TestImmuClient_Set32MBStream(t *testing.T) {
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
 	if err != nil {
 		t.Error(err)
 	}
@@ -147,7 +148,7 @@ func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
 	if err != nil {
 		t.Error(err)
 	}
@@ -189,7 +190,7 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 	defer tmpFile3.Close()
 	defer os.Remove(tmpFile3.Name())
 
-	kvs, err := GetKeyValuesFromFiles(tmpFile1.Name(), tmpFile2.Name(), tmpFile3.Name())
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile1.Name(), tmpFile2.Name(), tmpFile3.Name())
 	if err != nil {
 		t.Error(err)
 	}
@@ -228,7 +229,7 @@ func TestImmuClient_SetGetSmallMessage(t *testing.T) {
 
 	tmpFile.Seek(0, io.SeekStart)
 
-	kvs, err := GetKeyValuesFromFiles(tmpFile.Name())
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
 	if err != nil {
 		t.Error(err)
 	}
@@ -348,7 +349,7 @@ func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
 	require.NoError(t, err)
 	oriSha2 := hOrig2.Sum(nil)
 
-	kvs, err := GetKeyValuesFromFiles(tmpFile1.Name(), tmpFile2.Name())
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile1.Name(), tmpFile2.Name())
 
 	meta, err := client.StreamSet(ctx, kvs)
 	require.NoError(t, err)
@@ -570,7 +571,7 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	kvs1, err := GetKeyValuesFromFiles(f.Name())
+	kvs1, err := streamutils.GetKeyValuesFromFiles(f.Name())
 	kvs1[0].Value.Size = 22_000_000
 
 	meta, err := client.StreamSet(ctx, kvs1)
@@ -584,7 +585,7 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	kvs2, err := GetKeyValuesFromFiles(f1.Name(), f2.Name())
+	kvs2, err := streamutils.GetKeyValuesFromFiles(f1.Name(), f2.Name())
 	kvs2[1].Value.Size = 12_000_000
 
 	meta, err = client.StreamSet(ctx, kvs2)

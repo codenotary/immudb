@@ -20,6 +20,8 @@ type serviceFactory struct {
 	ChunkSize int
 }
 
+// serviceFactory returns high level immudb streaming services
+// High level services are capable to receive and send immudb transportation objects. Those services rely on internal more generic receiver and sender services.
 type ServiceFactory interface {
 	NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver
 	NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender
@@ -28,22 +30,27 @@ type ServiceFactory interface {
 	NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender
 }
 
+// NewStreamServiceFactory returns a new ServiceFactory
 func NewStreamServiceFactory(chunkSize int) ServiceFactory {
 	return &serviceFactory{ChunkSize: chunkSize}
 }
 
+// NewKvStreamReceiver returns a KvStreamReceiver
 func (s *serviceFactory) NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver {
 	return NewKvStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
 }
 
+// NewKvStreamSender returns a KvStreamSender
 func (s *serviceFactory) NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender {
 	return NewKvStreamSender(NewMsgSender(str, s.ChunkSize))
 }
 
+// NewZStreamReceiver returns a ZStreamReceiver
 func (s *serviceFactory) NewZStreamReceiver(str ImmuServiceReceiver_Stream) ZStreamReceiver {
 	return NewZStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
 }
 
+// NewZStreamSender returns a ZStreamSender
 func (s *serviceFactory) NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender {
 	return NewZStreamSender(NewMsgSender(str, s.ChunkSize))
 }
