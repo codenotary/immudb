@@ -47,7 +47,7 @@ func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, io.Reader, error) {
 		return nil, nil, 0, nil, err
 	}
 	var score float64
-	if err := Float64FromBytes(scoreBs, &score); err != nil {
+	if err := NumberFromBytes(scoreBs, &score); err != nil {
 		return nil, nil, 0, nil, err
 	}
 

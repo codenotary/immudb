@@ -290,7 +290,7 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 	zss := s.StreamServiceFactory.NewZStreamSender(server)
 
 	for _, e := range r.Entries {
-		scoreBs, err := stream.Float64ToBytes(e.Score)
+		scoreBs, err := stream.NumberToBytes(e.Score)
 		if err != nil {
 			s.Logger.Errorf(
 				"StreamZScan error: could not convert score (float64) to bytes: %v", err)

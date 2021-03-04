@@ -34,11 +34,6 @@ type ValueSize struct {
 	Size    int
 }
 
-type VerifiableSetRequest struct {
-	KVs          []*KeyValue
-	ProveSinceTx *ValueSize
-}
-
 type VerifiableEntry struct {
 	EntryWithoutValueProto *ValueSize
 	VerifiableTxProto      *ValueSize
@@ -67,14 +62,4 @@ func NumberToBytes(n interface{}) ([]byte, error) {
 func NumberFromBytes(bs []byte, n interface{}) error {
 	buf := bytes.NewReader(bs)
 	return binary.Read(buf, binary.BigEndian, n)
-}
-
-// Float64ToBytes ...
-func Float64ToBytes(f float64) ([]byte, error) {
-	return NumberToBytes(f)
-}
-
-// Float64FromBytes ...
-func Float64FromBytes(bs []byte, f *float64) error {
-	return NumberFromBytes(bs, f)
 }
