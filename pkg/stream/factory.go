@@ -20,7 +20,7 @@ type serviceFactory struct {
 	ChunkSize int
 }
 
-// serviceFactory returns high level immudb streaming services
+// ServiceFactory returns high level immudb streaming services
 // High level services are capable to receive and send immudb transportation objects. Those services rely on internal more generic receiver and sender services.
 type ServiceFactory interface {
 	NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver
