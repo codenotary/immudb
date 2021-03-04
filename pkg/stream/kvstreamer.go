@@ -16,12 +16,12 @@ limitations under the License.
 
 package stream
 
-import "bufio"
+import "io"
 
 type KvStreamSender interface {
 	Send(kv *KeyValue) error
 }
 
 type KvStreamReceiver interface {
-	Next() ([]byte, *bufio.Reader, error)
+	Next() ([]byte, io.Reader, error)
 }

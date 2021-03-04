@@ -17,7 +17,6 @@ limitations under the License.
 package stream
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -25,7 +24,7 @@ import (
 )
 
 type MsgSender interface {
-	Send(reader *bufio.Reader, payloadSize int) (err error)
+	Send(reader io.Reader, payloadSize int) (err error)
 	RecvMsg(m interface{}) error
 }
 
@@ -47,7 +46,7 @@ func NewMsgSender(s ImmuServiceSender_Stream, chunkSize int) *msgSender {
 
 // Send reads from a reader until it reach payloadSize. It fill an internal buffer from what it read from reader and, when there is enough data, it sends a chunk on stream.
 // It continues until it reach the payloadsize. At that point it sends the last content of the buffer.
-func (st *msgSender) Send(reader *bufio.Reader, payloadSize int) (err error) {
+func (st *msgSender) Send(reader io.Reader, payloadSize int) (err error) {
 	if payloadSize == 0 {
 		return ErrMessageLengthIsZero
 	}

@@ -17,7 +17,7 @@ limitations under the License.
 package stream
 
 import (
-	"bufio"
+	"io"
 )
 
 type zStreamReceiver struct {
@@ -33,16 +33,16 @@ func NewZStreamReceiver(s MsgReceiver, chunkSize int) *zStreamReceiver {
 	}
 }
 
-func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, *bufio.Reader, error) {
-	set, err := ReadValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
+func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, io.Reader, error) {
+	set, err := ReadValue(zr.s, zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}
-	key, err := ReadValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
+	key, err := ReadValue(zr.s, zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}
-	scoreBs, err := ReadValue(bufio.NewReader(zr.s), zr.StreamChunkSize)
+	scoreBs, err := ReadValue(zr.s, zr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, 0, nil, err
 	}
@@ -52,6 +52,5 @@ func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, *bufio.Reader, error
 	}
 
 	// for the value, (which can be large), return a Reader and let the caller read it
-	valueReader := bufio.NewReaderSize(zr.s, zr.StreamChunkSize)
-	return set, key, score, valueReader, nil
+	return set, key, score, zr.s, nil
 }
