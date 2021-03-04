@@ -27,12 +27,10 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
-	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -55,21 +53,15 @@ func TestImmuClient_SetGetStream(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-
-	err = tmpFile.Truncate(1_000_000)
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1_000_000)
 	require.NoError(t, err)
 	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
 
 	hOrig := sha256.New()
 	_, err = io.Copy(hOrig, tmpFile)
 	require.NoError(t, err)
 	oriSha := hOrig.Sum(nil)
-
-	fi, err := tmpFile.Stat()
-	require.NoError(t, err)
 
 	tmpFile.Seek(0, io.SeekStart)
 
@@ -80,7 +72,7 @@ func TestImmuClient_SetGetStream(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile),
-			Size:    int(fi.Size()),
+			Size:    1_000_000,
 		},
 	}
 
@@ -117,16 +109,10 @@ func TestImmuClient_Set32MBStream(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-
-	err = tmpFile.Truncate((1 << 25) - 1)
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (1<<25)-1)
 	require.NoError(t, err)
 	defer tmpFile.Close()
-
-	fi, err := tmpFile.Stat()
-	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
 
 	tmpFile.Seek(0, io.SeekStart)
 
@@ -137,7 +123,7 @@ func TestImmuClient_Set32MBStream(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile),
-			Size:    int(fi.Size()),
+			Size:    (1 << 25) - 1,
 		},
 	}
 
@@ -170,16 +156,10 @@ func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-
-	err = tmpFile.Truncate(1 << 25)
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1<<25)
 	require.NoError(t, err)
 	defer tmpFile.Close()
-
-	fi, err := tmpFile.Stat()
-	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
 
 	tmpFile.Seek(0, io.SeekStart)
 
@@ -190,7 +170,7 @@ func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile),
-			Size:    int(fi.Size()),
+			Size:    1 << 25,
 		},
 	}
 
@@ -216,14 +196,10 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1<<24)
 	require.NoError(t, err)
-
-	err = tmpFile.Truncate(1 << 24)
-	require.NoError(t, err)
-
-	fi, err := tmpFile.Stat()
-	require.NoError(t, err)
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
 
 	tmpFile.Seek(0, io.SeekStart)
 	defer tmpFile.Close()
@@ -236,17 +212,14 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile),
-			Size:    int(fi.Size()),
+			Size:    1 << 24,
 		},
 	}
 
-	tmpFile1, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	tmpFile1, err := streamtest.GenerateDummyFile("myFile1", 1<<24)
 	require.NoError(t, err)
-	err = tmpFile1.Truncate(1 << 24)
-	require.NoError(t, err)
-	tmpFile1.Seek(0, io.SeekStart)
-	defer tmpFile1.Close()
-	defer os.Remove(tmpFile1.Name())
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
 
 	kv2 := &stream.KeyValue{
 		Key: &stream.ValueSize{
@@ -255,17 +228,14 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile1),
-			Size:    int(fi.Size()),
+			Size:    1 << 24,
 		},
 	}
 
-	tmpFile2, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
+	tmpFile2, err := streamtest.GenerateDummyFile("myFile1", 1<<24)
 	require.NoError(t, err)
-	err = tmpFile2.Truncate(1 << 24)
-	require.NoError(t, err)
-	tmpFile2.Seek(0, io.SeekStart)
-	defer tmpFile2.Close()
-	defer os.Remove(tmpFile2.Name())
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
 
 	kv3 := &stream.KeyValue{
 		Key: &stream.ValueSize{
@@ -274,7 +244,7 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile2),
-			Size:    int(fi.Size()),
+			Size:    1 << 24,
 		},
 	}
 
@@ -300,21 +270,15 @@ func TestImmuClient_SetGetSmallMessage(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-
-	err = tmpFile.Truncate(1)
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1)
 	require.NoError(t, err)
 	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
 
 	hOrig := sha256.New()
 	_, err = io.Copy(hOrig, tmpFile)
 	require.NoError(t, err)
 	oriSha := hOrig.Sum(nil)
-
-	fi, err := tmpFile.Stat()
-	require.NoError(t, err)
 
 	tmpFile.Seek(0, io.SeekStart)
 
@@ -325,7 +289,7 @@ func TestImmuClient_SetGetSmallMessage(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile),
-			Size:    int(fi.Size()),
+			Size:    1,
 		},
 	}
 
@@ -425,13 +389,10 @@ func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile1, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile1.Name())
-
-	err = tmpFile1.Truncate(1 << 14)
+	tmpFile1, err := streamtest.GenerateDummyFile("myFile1", 1<<14)
 	require.NoError(t, err)
 	defer tmpFile1.Close()
+	defer os.Remove(tmpFile1.Name())
 
 	tmpFile1.Seek(0, io.SeekStart)
 
@@ -439,9 +400,6 @@ func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
 	_, err = io.Copy(hOrig1, tmpFile1)
 	require.NoError(t, err)
 	oriSha1 := hOrig1.Sum(nil)
-
-	fi, err := tmpFile1.Stat()
-	require.NoError(t, err)
 
 	tmpFile1.Seek(0, io.SeekStart)
 
@@ -452,26 +410,20 @@ func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile1),
-			Size:    int(fi.Size()),
+			Size:    1 << 14,
 		},
 	}
 
-	tmpFile2, err := ioutil.TempFile(os.TempDir(), "go-stream-test-")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile2.Name())
-
-	err = tmpFile2.Truncate(1 << 13)
+	tmpFile2, err := streamtest.GenerateDummyFile("myFile1", 1<<13)
 	require.NoError(t, err)
 	defer tmpFile2.Close()
+	defer os.Remove(tmpFile2.Name())
 
 	tmpFile2.Seek(0, io.SeekStart)
 	hOrig2 := sha256.New()
 	_, err = io.Copy(hOrig2, tmpFile2)
 	require.NoError(t, err)
 	oriSha2 := hOrig2.Sum(nil)
-
-	fi, err = tmpFile2.Stat()
-	require.NoError(t, err)
 
 	tmpFile2.Seek(0, io.SeekStart)
 
@@ -482,7 +434,7 @@ func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
 		},
 		Value: &stream.ValueSize{
 			Content: bufio.NewReader(tmpFile2),
-			Size:    int(fi.Size()),
+			Size:    1 << 13,
 		},
 	}
 	kvs := []*stream.KeyValue{kv1, kv2}
@@ -503,100 +455,6 @@ func TestImmuClient_SetMultipleLargeEntries(t *testing.T) {
 	require.Equal(t, oriSha2, newSha2[:])
 
 	client.Disconnect()
-}
-
-func TestImmuClient_SetMultipleLargeEntriesWithRealFiles(t *testing.T) {
-	options := server.DefaultOptions().WithAuth(true)
-	bs := servertest.NewBufconnServer(options)
-
-	bs.Start()
-	defer bs.Stop()
-
-	defer os.RemoveAll(options.Dir)
-	defer os.Remove(".state-")
-
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
-	require.NoError(t, err)
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	require.NoError(t, err)
-
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-	filename1 := "/home/falce/vchain/immudb/src/test/Graph_Algorithms_Neo4j.pdf"
-	tmpFile1, err := os.Open(filename1)
-	require.NoError(t, err)
-	defer tmpFile1.Close()
-
-	hOrig1 := sha256.New()
-	_, err = io.Copy(hOrig1, tmpFile1)
-	require.NoError(t, err)
-	oriSha1 := hOrig1.Sum(nil)
-
-	fi, err := tmpFile1.Stat()
-	require.NoError(t, err)
-
-	tmpFile1.Seek(0, io.SeekStart)
-
-	kv1 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile1.Name()))),
-			Size:    len(tmpFile1.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile1),
-			Size:    int(fi.Size()),
-		},
-	}
-
-	filename2 := "/home/falce/vchain/immudb/src/test/PARA0119.mp4"
-	tmpFile2, err := os.Open(filename2)
-	require.NoError(t, err)
-	defer tmpFile2.Close()
-
-	hOrig2 := sha256.New()
-	_, err = io.Copy(hOrig2, tmpFile2)
-	require.NoError(t, err)
-	oriSha2 := hOrig2.Sum(nil)
-
-	fi2, err := tmpFile2.Stat()
-	require.NoError(t, err)
-
-	tmpFile2.Seek(0, io.SeekStart)
-
-	kv2 := &stream.KeyValue{
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer([]byte(tmpFile2.Name()))),
-			Size:    len(tmpFile2.Name()),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(tmpFile2),
-			Size:    int(fi2.Size()),
-		},
-	}
-	kvs := []*stream.KeyValue{kv1, kv2}
-	meta, err := client.StreamSet(ctx, kvs)
-	require.NoError(t, err)
-	require.NotNil(t, meta)
-
-	entry1, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile1.Name())})
-	require.NoError(t, err)
-
-	newSha1 := sha256.Sum256(entry1.Value)
-	assert.Equal(t, oriSha1, newSha1[:])
-
-	entry2, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile2.Name())})
-	require.NoError(t, err)
-
-	newSha2 := sha256.Sum256(entry2.Value)
-	assert.Equal(t, oriSha2, newSha2[:])
-
-	client.Disconnect()
-
-	err = ioutil.WriteFile(string(entry1.Key)+"_rec", entry1.Value, 0644)
-	require.NoError(t, err)
-	err = ioutil.WriteFile(string(entry2.Key)+"_rec", entry2.Value, 0644)
-	require.NoError(t, err)
 }
 
 func TestImmuClient_SetMultipleKeysLoop(t *testing.T) {
