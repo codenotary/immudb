@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/pkg/stream"
 	"testing"
 
 	"github.com/codenotary/immudb/pkg/auth"
@@ -41,6 +42,7 @@ func TestOptions(t *testing.T) {
 		op.MetricsPort != 9497 ||
 		op.Config != "configs/immudb.toml" ||
 		op.Pidfile != "" ||
+		op.StreamChunkSize != stream.DefaultChunkSize ||
 		op.Logfile != "" {
 		t.Errorf("database default options mismatch")
 	}
@@ -52,7 +54,9 @@ func TestSetOptions(t *testing.T) {
 		WithPidfile("immu.pid").WithMTLs(true).WithAuth(false).
 		WithMaxRecvMsgSize(4096).
 		WithDetached(true).WithNoHistograms(true).WithMetricsServer(false).
-		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin")
+		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin").
+		WithStreamChunkSize(4096)
+
 	if op.GetAuth() != false ||
 		op.Dir != "immudb_dir" ||
 		op.Network != "udp" ||
@@ -69,6 +73,7 @@ func TestSetOptions(t *testing.T) {
 		op.DevMode != true ||
 		op.Logfile != "logfile" ||
 		op.AdminPassword != "admin" ||
+		op.StreamChunkSize != 4096 ||
 		op.Bind() != "localhost:2048" {
 		t.Errorf("database default options mismatch")
 	}
