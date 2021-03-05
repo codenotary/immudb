@@ -17,7 +17,7 @@ func ParseVerifiableEntry(
 ) (*schema.VerifiableEntry, error) {
 
 	var entry schema.Entry
-	if err := proto.Unmarshal(verifiableTxProto, &entry); err != nil {
+	if err := proto.Unmarshal(entryWithoutValueProto, &entry); err != nil {
 		return nil, err
 	}
 
