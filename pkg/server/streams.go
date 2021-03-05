@@ -293,7 +293,12 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 		scoreBs, err := stream.NumberToBytes(e.Score)
 		if err != nil {
 			s.Logger.Errorf(
-				"StreamZScan error: could not convert score (float64) to bytes: %v", err)
+				"StreamZScan error: could not convert score %f to bytes: %v", e.Score, err)
+		}
+		atTxBs, err := stream.NumberToBytes(e.AtTx)
+		if err != nil {
+			s.Logger.Errorf(
+				"StreamZScan error: could not convert atTx %d to bytes: %v", e.AtTx, err)
 		}
 		ze := &stream.ZEntry{
 			Set: &stream.ValueSize{
@@ -307,6 +312,10 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 			Score: &stream.ValueSize{
 				Content: bufio.NewReader(bytes.NewBuffer(scoreBs)),
 				Size:    len(scoreBs),
+			},
+			AtTx: &stream.ValueSize{
+				Content: bufio.NewReader(bytes.NewBuffer(atTxBs)),
+				Size:    len(atTxBs),
 			},
 			Value: &stream.ValueSize{
 				Content: bufio.NewReader(bytes.NewBuffer(e.Entry.Value)),

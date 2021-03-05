@@ -33,24 +33,35 @@ func NewZStreamReceiver(s MsgReceiver, chunkSize int) *zStreamReceiver {
 	}
 }
 
-func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, io.Reader, error) {
+func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, uint64, io.Reader, error) {
 	set, err := ReadValue(zr.s, zr.StreamChunkSize)
 	if err != nil {
-		return nil, nil, 0, nil, err
+		return nil, nil, 0, 0, nil, err
 	}
+
 	key, err := ReadValue(zr.s, zr.StreamChunkSize)
 	if err != nil {
-		return nil, nil, 0, nil, err
+		return nil, nil, 0, 0, nil, err
 	}
+
 	scoreBs, err := ReadValue(zr.s, zr.StreamChunkSize)
 	if err != nil {
-		return nil, nil, 0, nil, err
+		return nil, nil, 0, 0, nil, err
 	}
 	var score float64
 	if err := NumberFromBytes(scoreBs, &score); err != nil {
-		return nil, nil, 0, nil, err
+		return nil, nil, 0, 0, nil, err
+	}
+
+	atTxBs, err := ReadValue(zr.s, zr.StreamChunkSize)
+	if err != nil {
+		return nil, nil, 0, 0, nil, err
+	}
+	var atTx uint64
+	if err := NumberFromBytes(atTxBs, &atTx); err != nil {
+		return nil, nil, 0, 0, nil, err
 	}
 
 	// for the value, (which can be large), return a Reader and let the caller read it
-	return set, key, score, zr.s, nil
+	return set, key, score, atTx, zr.s, nil
 }

@@ -25,5 +25,5 @@ type ZStreamSender interface {
 
 // ZStreamReceiver ...
 type ZStreamReceiver interface {
-	Next() ([]byte, []byte, float64, io.Reader, error)
+	Next() ([]byte, []byte, float64, uint64, io.Reader, error)
 }
