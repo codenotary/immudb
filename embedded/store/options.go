@@ -35,7 +35,7 @@ const DefaultFileSize = multiapp.DefaultFileSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 
-const MaxFileSize = 1 << 32 // 4Gb
+const MaxFileSize = 1 << 31 // 2Gb
 
 type Options struct {
 	ReadOnly bool
