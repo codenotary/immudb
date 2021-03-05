@@ -17,7 +17,7 @@ limitations under the License.
 package stream
 
 import (
-	"bufio"
+	"io"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
@@ -28,7 +28,7 @@ func ParseVerifiableEntry(
 	entryWithoutValueProto []byte,
 	verifiableTxProto []byte,
 	inclusionProofProto []byte,
-	vr *bufio.Reader,
+	vr io.Reader,
 	chunkSize int,
 ) (*schema.VerifiableEntry, error) {
 

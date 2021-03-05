@@ -16,7 +16,9 @@ limitations under the License.
 
 package stream
 
-import "bufio"
+import (
+	"io"
+)
 
 // VEntryStreamSender ...
 type VEntryStreamSender interface {
@@ -25,5 +27,5 @@ type VEntryStreamSender interface {
 
 // VEntryStreamReceiver ...
 type VEntryStreamReceiver interface {
-	Next() ([]byte, []byte, []byte, *bufio.Reader, error)
+	Next() ([]byte, []byte, []byte, io.Reader, error)
 }
