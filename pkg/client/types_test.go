@@ -14,19 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package client
 
 import (
 	"github.com/codenotary/immudb/pkg/stream"
 	"testing"
 )
 
-func TestWithLogger(t *testing.T) {
-	s := DefaultServer()
-	s.WithLogger(&mockLogger{})
-}
-
 func TestWithStreamServiceFactory(t *testing.T) {
-	s := DefaultServer()
+	s := DefaultClient()
 	s.WithStreamServiceFactory(stream.NewStreamServiceFactory(4096))
 }
