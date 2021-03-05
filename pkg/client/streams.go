@@ -27,6 +27,7 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/stream"
 )
 
@@ -158,6 +159,31 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyVal
 		return nil, err
 	}
 
+	//--> collect the keys and values as they need to be used for verifications
+	stdKVs := make([]*schema.KeyValue, 0, len(kvs))
+	for i, kv := range kvs {
+		var keyBuffer bytes.Buffer
+		keyTeeReader := io.TeeReader(kv.Key.Content, &keyBuffer)
+		key := make([]byte, kv.Key.Size)
+		if _, err := keyTeeReader.Read(key); err != nil {
+			return nil, err
+		}
+		// put a new Reader back
+		kvs[i].Key.Content = bufio.NewReader(&keyBuffer)
+
+		var valueBuffer bytes.Buffer
+		valueTeeReader := io.TeeReader(kv.Value.Content, &valueBuffer)
+		value := make([]byte, kv.Value.Size)
+		if _, err = valueTeeReader.Read(value); err != nil {
+			return nil, err
+		}
+		// put a new Reader back
+		kvs[i].Value.Content = bufio.NewReader(&valueBuffer)
+
+		stdKVs = append(stdKVs, &schema.KeyValue{Key: key, Value: value})
+	}
+	//<--
+
 	s, err := c.streamVerifiableSet(ctx)
 	if err != nil {
 		return nil, err
@@ -196,23 +222,18 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyVal
 
 	tx := schema.TxFrom(verifiableTx.Tx)
 
-	// TODO OGG: check with @Michele: to perform inclusion proof,
-	//					 key and value (i.e. the last ones from the input list of KVs?)
-	//					 need to be read => if value is huge, this can be problematic
-	//-->
-	verifies := false
+	var verifies bool
 
-	// inclusionProof, err := tx.Proof(database.EncodeKey(key))
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// verifies := store.VerifyInclusion(inclusionProof, database.EncodeKV(key, value), tx.Eh())
-	// if !verifies {
-	// 	return nil, store.ErrCorruptedData
-	// }
-
-	//<--
+	for _, kv := range stdKVs {
+		inclusionProof, err := tx.Proof(database.EncodeKey(kv.Key))
+		if err != nil {
+			return nil, err
+		}
+		verifies = store.VerifyInclusion(inclusionProof, database.EncodeKV(kv.Key, kv.Value), tx.Eh())
+		if !verifies {
+			return nil, store.ErrCorruptedData
+		}
+	}
 
 	if tx.Eh() != schema.DigestFrom(verifiableTx.DualProof.TargetTxMetadata.EH) {
 		return nil, store.ErrCorruptedData
@@ -296,50 +317,43 @@ func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.Verifiab
 		return nil, err
 	}
 
-	// inclusionProof := schema.InclusionProofFrom(vEntry.InclusionProof)
+	inclusionProof := schema.InclusionProofFrom(vEntry.InclusionProof)
 	dualProof := schema.DualProofFrom(vEntry.VerifiableTx.DualProof)
 
-	// var eh [sha256.Size]byte
+	var eh [sha256.Size]byte
 
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
 	var vTx uint64
-	// var kv *store.KV
+	var kv *store.KV
 
 	if vEntry.Entry.ReferencedBy == nil {
 		vTx = vEntry.Entry.Tx
-		// kv = database.EncodeKV(req.KeyRequest.Key, vEntry.Entry.Value)
+		kv = database.EncodeKV(req.KeyRequest.Key, vEntry.Entry.Value)
 	} else {
 		vTx = vEntry.Entry.ReferencedBy.Tx
-		// kv = database.EncodeReference(vEntry.Entry.ReferencedBy.Key, vEntry.Entry.Key, vEntry.Entry.ReferencedBy.AtTx)
+		kv = database.EncodeReference(vEntry.Entry.ReferencedBy.Key, vEntry.Entry.Key, vEntry.Entry.ReferencedBy.AtTx)
 	}
 
 	if state.TxId <= vTx {
-		// eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
-
+		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
 		sourceID = state.TxId
 		sourceAlh = schema.DigestFrom(state.TxHash)
 		targetID = vTx
 		targetAlh = dualProof.TargetTxMetadata.Alh()
 	} else {
-		// eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.SourceTxMetadata.EH)
-
+		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.SourceTxMetadata.EH)
 		sourceID = vTx
 		sourceAlh = dualProof.SourceTxMetadata.Alh()
 		targetID = state.TxId
 		targetAlh = schema.DigestFrom(state.TxHash)
 	}
 
-	verifies := false
-	// TODO OGG check with @Michele: this would be problematic if value is huge
-	// verifies := store.VerifyInclusion(
-	// 	inclusionProof,
-	// 	kv,
-	// 	eh)
-	// if !verifies {
-	// 	return nil, store.ErrCorruptedData
-	// }
+	verifies := store.VerifyInclusion(inclusionProof, kv, eh)
+	if !verifies {
+		return nil, store.ErrCorruptedData
+	}
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
