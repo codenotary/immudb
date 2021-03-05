@@ -76,6 +76,7 @@ type ImmuClient interface {
 	WithServiceClient(serviceClient schema.ImmuServiceClient) *immuClient
 	WithTokenService(tokenService TokenService) *immuClient
 	WithServerSigningPubKey(serverSigningPubKey *ecdsa.PublicKey) *immuClient
+	WithStreamServiceFactory(ssf stream.ServiceFactory) *immuClient
 
 	GetServiceClient() *schema.ImmuServiceClient
 	GetOptions() *Options
@@ -155,25 +156,25 @@ type ImmuClient interface {
 const DefaultDB = "defaultdb"
 
 type immuClient struct {
-	Dir                 string
-	Logger              logger.Logger
-	Options             *Options
-	clientConn          *grpc.ClientConn
-	ServiceClient       schema.ImmuServiceClient
-	StateService        state.StateService
-	Tkns                TokenService
-	serverSigningPubKey *ecdsa.PublicKey
-	Ssf                 stream.ServiceFactory
+	Dir                  string
+	Logger               logger.Logger
+	Options              *Options
+	clientConn           *grpc.ClientConn
+	ServiceClient        schema.ImmuServiceClient
+	StateService         state.StateService
+	Tkns                 TokenService
+	serverSigningPubKey  *ecdsa.PublicKey
+	StreamServiceFactory stream.ServiceFactory
 	sync.RWMutex
 }
 
 // DefaultClient ...
 func DefaultClient() ImmuClient {
 	return &immuClient{
-		Dir:     "",
-		Options: DefaultOptions(),
-		Logger:  logger.NewSimpleLogger("immuclient", os.Stderr),
-		Ssf:     stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
+		Dir:                  "",
+		Options:              DefaultOptions(),
+		Logger:               logger.NewSimpleLogger("immuclient", os.Stderr),
+		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
 	}
 }
 

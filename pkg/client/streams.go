@@ -91,7 +91,7 @@ func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*sc
 		return nil, err
 	}
 
-	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, c.Options.StreamChunkSize))
+	kvss := c.StreamServiceFactory.NewKvStreamSender(s)
 
 	for _, kv := range kvs {
 		err = kvss.Send(kv)
@@ -111,7 +111,7 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 
 	gs, err := c.streamGet(ctx, k)
 
-	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs), c.Options.StreamChunkSize)
+	kvr := c.StreamServiceFactory.NewKvStreamReceiver(gs)
 
 	key, vr, err := kvr.Next()
 	if err != nil {
@@ -153,7 +153,7 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyVal
 		return nil, err
 	}
 
-	kvss := stream.NewKvStreamSender(stream.NewMsgSender(s, c.Options.StreamChunkSize))
+	kvss := c.StreamServiceFactory.NewKvStreamSender(s)
 
 	// 1st send the ProveSinceTx (build a "fake" KV with it):
 	err = kvss.Send(&stream.KeyValue{
@@ -273,7 +273,7 @@ func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.Verifiab
 
 	gs, err := c.streamVerifiableGet(ctx, req)
 
-	ver := stream.NewVEntryStreamReceiver(stream.NewMsgReceiver(gs), c.Options.StreamChunkSize)
+	ver := c.StreamServiceFactory.NewVEntryStreamReceiver(gs)
 
 	entryWithoutValueProto, verifiableTxProto, inclusionProofProto, vr, err := ver.Next()
 	if err != nil {
@@ -376,7 +376,7 @@ func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	kvr := c.Ssf.NewKvStreamReceiver(gs)
+	kvr := c.StreamServiceFactory.NewKvStreamReceiver(gs)
 	var entries []*schema.Entry
 	for {
 		key, vr, err := kvr.Next()
@@ -404,7 +404,7 @@ func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) 
 	if err != nil {
 		return nil, err
 	}
-	zr := c.Ssf.NewZStreamReceiver(gs)
+	zr := c.StreamServiceFactory.NewZStreamReceiver(gs)
 	var entries []*schema.ZEntry
 	for {
 		set, key, score, vr, err := zr.Next()
@@ -432,7 +432,7 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 	if err != nil {
 		return nil, err
 	}
-	kvr := c.Ssf.NewKvStreamReceiver(gs)
+	kvr := c.StreamServiceFactory.NewKvStreamReceiver(gs)
 	var entries []*schema.Entry
 	for {
 		key, vr, err := kvr.Next()
