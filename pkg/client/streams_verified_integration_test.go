@@ -38,6 +38,6 @@ func TestImmuServer_StreamVerifiedSetAndGet(t *testing.T) {
 			KeyRequest: &schema.KeyRequest{Key: []byte(fileName)},
 		})
 		assert.NoError(t, err)
-		assert.Equal(t, vSizes[i]+1, len(entry.Value))
+		assert.Equal(t, vSizes[i], len(entry.Value))
 	}
 }
