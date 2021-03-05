@@ -45,6 +45,7 @@ type ZEntry struct {
 	Set   *ValueSize
 	Key   *ValueSize
 	Score *ValueSize
+	AtTx  *ValueSize
 	Value *ValueSize
 }
 

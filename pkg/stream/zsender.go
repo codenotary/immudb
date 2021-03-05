@@ -53,6 +53,14 @@ func (st *zStreamSender) Send(ze *ZEntry) error {
 		return err
 	}
 
+	err = st.s.Send(ze.AtTx.Content, ze.AtTx.Size)
+	if err != nil {
+		if err == io.EOF {
+			return st.s.RecvMsg(nil)
+		}
+		return err
+	}
+
 	err = st.s.Send(ze.Value.Content, ze.Value.Size)
 	if err != nil {
 		if err == io.EOF {

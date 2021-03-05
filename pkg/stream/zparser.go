@@ -1,8 +1,9 @@
 package stream
 
 import (
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"io"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
 // ParseZEntry ...
@@ -10,6 +11,7 @@ func ParseZEntry(
 	set []byte,
 	key []byte,
 	score float64,
+	atTx uint64,
 	vr io.Reader,
 	chunkSize int,
 ) (*schema.ZEntry, error) {
@@ -26,7 +28,6 @@ func ParseZEntry(
 		Key:   key,
 		Entry: &entry,
 		Score: score,
-		// TODO OGG NOW - check with Michele: shouldn't we also send/receive this:
-		AtTx: 0,
+		AtTx:  atTx,
 	}, nil
 }
