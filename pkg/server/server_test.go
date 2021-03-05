@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/stream"
 	"io/ioutil"
 	"log"
 	"os"
@@ -167,6 +168,15 @@ func TestServerWithInvalidAdminPassword(t *testing.T) {
 
 	err := s.Initialize()
 	assert.Error(t, err)
+}
+
+func TestServerErrChunkSizeTooSmall(t *testing.T) {
+	serverOptions := DefaultOptions().WithStreamChunkSize(4095)
+	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+	defer os.RemoveAll(s.Options.Dir)
+
+	err := s.Initialize()
+	assert.Equal(t, stream.ErrChunkTooSmall, err)
 }
 
 func TestServerLogin(t *testing.T) {

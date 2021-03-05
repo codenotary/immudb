@@ -117,7 +117,18 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 		return nil, err
 	}
 
-	return stream.ParseKV(key, vr, c.Options.StreamChunkSize)
+	value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
+	if err != nil {
+		if err == io.EOF {
+			return nil, stream.ErrMissingExpectedData
+		}
+		return nil, err
+	}
+
+	return &schema.Entry{
+		Key:   key,
+		Value: value,
+	}, nil
 }
 
 func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
@@ -387,10 +398,19 @@ func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*
 			}
 			return nil, err
 		}
-		entry, err := stream.ParseKV(key, vr, c.Options.StreamChunkSize)
+		value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 		if err != nil {
+			if err == io.EOF {
+				return nil, stream.ErrMissingExpectedData
+			}
 			return nil, err
 		}
+
+		entry := &schema.Entry{
+			Key:   key,
+			Value: value,
+		}
+
 		entries = append(entries, entry)
 	}
 	return &schema.Entries{Entries: entries}, nil
@@ -443,9 +463,17 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 			}
 			return nil, err
 		}
-		entry, err := stream.ParseKV(key, vr, c.Options.StreamChunkSize)
+		value, err := stream.ReadValue(vr, c.Options.StreamChunkSize)
 		if err != nil {
+			if err == io.EOF {
+				return nil, stream.ErrMissingExpectedData
+			}
 			return nil, err
+		}
+
+		entry := &schema.Entry{
+			Key:   key,
+			Value: value,
 		}
 		entries = append(entries, entry)
 	}

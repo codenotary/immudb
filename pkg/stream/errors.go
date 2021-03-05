@@ -28,3 +28,4 @@ var ErrNotEnoughDataOnStream = status.Error(codes.InvalidArgument, "not enough d
 var ErrMessageLengthIsZero = status.Error(codes.InvalidArgument, "message trailer length is declared equal to zero")
 var ErrReaderIsEmpty = status.Error(codes.InvalidArgument, "reader contains no data")
 var ErrChunkTooSmall = status.Error(codes.InvalidArgument, fmt.Sprintf("minimum chunk size is %d", MinChunkSize))
+var ErrMissingExpectedData = status.Error(codes.Internal, fmt.Sprintf("expected data on stream is missing"))
