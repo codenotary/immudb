@@ -22,6 +22,7 @@ type zStreamSender struct {
 	s MsgSender
 }
 
+// NewZStreamSender ...
 func NewZStreamSender(s MsgSender) *zStreamSender {
 	return &zStreamSender{
 		s: s,
@@ -29,45 +30,14 @@ func NewZStreamSender(s MsgSender) *zStreamSender {
 }
 
 func (st *zStreamSender) Send(ze *ZEntry) error {
-	err := st.s.Send(ze.Set.Content, ze.Set.Size)
-	if err != nil {
-		if err == io.EOF {
-			return st.s.RecvMsg(nil)
+	for _, vs := range []*ValueSize{ze.Set, ze.Key, ze.Score, ze.AtTx, ze.Value} {
+		err := st.s.Send(vs.Content, vs.Size)
+		if err != nil {
+			if err == io.EOF {
+				return st.s.RecvMsg(nil)
+			}
+			return err
 		}
-		return err
 	}
-
-	err = st.s.Send(ze.Key.Content, ze.Key.Size)
-	if err != nil {
-		if err == io.EOF {
-			return st.s.RecvMsg(nil)
-		}
-		return err
-	}
-
-	err = st.s.Send(ze.Score.Content, ze.Score.Size)
-	if err != nil {
-		if err == io.EOF {
-			return st.s.RecvMsg(nil)
-		}
-		return err
-	}
-
-	err = st.s.Send(ze.AtTx.Content, ze.AtTx.Size)
-	if err != nil {
-		if err == io.EOF {
-			return st.s.RecvMsg(nil)
-		}
-		return err
-	}
-
-	err = st.s.Send(ze.Value.Content, ze.Value.Size)
-	if err != nil {
-		if err == io.EOF {
-			return st.s.RecvMsg(nil)
-		}
-		return err
-	}
-
 	return nil
 }
