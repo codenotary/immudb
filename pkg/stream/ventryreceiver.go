@@ -34,19 +34,14 @@ func NewVEntryStreamReceiver(s MsgReceiver, chunkSize int) *vEntryStreamReceiver
 }
 
 func (vesr *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, io.Reader, error) {
-	entryWithoutValueProto, err := ReadValue(vesr.s, vesr.StreamChunkSize)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	verifiableTxProto, err := ReadValue(vesr.s, vesr.StreamChunkSize)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	inclusionProofProto, err := ReadValue(vesr.s, vesr.StreamChunkSize)
-	if err != nil {
-		return nil, nil, nil, nil, err
+	ris := make([][]byte, 3)
+	for i, _ := range ris {
+		r, err := ReadValue(vesr.s, vesr.StreamChunkSize)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		ris[i] = r
 	}
 	// for the value, (which can be large), return a Reader and let the caller read it
-	return entryWithoutValueProto, verifiableTxProto, inclusionProofProto, vesr.s, nil
+	return ris[0], ris[1], ris[2], vesr.s, nil
 }

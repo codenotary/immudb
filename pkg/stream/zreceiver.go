@@ -34,34 +34,24 @@ func NewZStreamReceiver(s MsgReceiver, chunkSize int) *zStreamReceiver {
 }
 
 func (zr *zStreamReceiver) Next() ([]byte, []byte, float64, uint64, io.Reader, error) {
-	set, err := ReadValue(zr.s, zr.StreamChunkSize)
-	if err != nil {
-		return nil, nil, 0, 0, nil, err
+	ris := make([][]byte, 4)
+	for i, _ := range ris {
+		r, err := ReadValue(zr.s, zr.StreamChunkSize)
+		if err != nil {
+			return nil, nil, 0, 0, nil, err
+		}
+		ris[i] = r
 	}
 
-	key, err := ReadValue(zr.s, zr.StreamChunkSize)
-	if err != nil {
-		return nil, nil, 0, 0, nil, err
-	}
-
-	scoreBs, err := ReadValue(zr.s, zr.StreamChunkSize)
-	if err != nil {
-		return nil, nil, 0, 0, nil, err
-	}
 	var score float64
-	if err := NumberFromBytes(scoreBs, &score); err != nil {
-		return nil, nil, 0, 0, nil, err
-	}
-
-	atTxBs, err := ReadValue(zr.s, zr.StreamChunkSize)
-	if err != nil {
+	if err := NumberFromBytes(ris[2], &score); err != nil {
 		return nil, nil, 0, 0, nil, err
 	}
 	var atTx uint64
-	if err := NumberFromBytes(atTxBs, &atTx); err != nil {
+	if err := NumberFromBytes(ris[3], &atTx); err != nil {
 		return nil, nil, 0, 0, nil, err
 	}
 
 	// for the value, (which can be large), return a Reader and let the caller read it
-	return set, key, score, atTx, zr.s, nil
+	return ris[0], ris[1], score, atTx, zr.s, nil
 }
