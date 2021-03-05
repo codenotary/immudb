@@ -17,7 +17,7 @@ limitations under the License.
 package stream
 
 import (
-	"bufio"
+	"io"
 )
 
 type vEntryStreamReceiver struct {
@@ -33,21 +33,20 @@ func NewVEntryStreamReceiver(s MsgReceiver, chunkSize int) *vEntryStreamReceiver
 	}
 }
 
-func (vesr *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, *bufio.Reader, error) {
-	entryWithoutValueProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
+func (vesr *vEntryStreamReceiver) Next() ([]byte, []byte, []byte, io.Reader, error) {
+	entryWithoutValueProto, err := ReadValue(vesr.s, vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	verifiableTxProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
+	verifiableTxProto, err := ReadValue(vesr.s, vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	inclusionProofProto, err := ReadValue(bufio.NewReader(vesr.s), vesr.StreamChunkSize)
+	inclusionProofProto, err := ReadValue(vesr.s, vesr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	// for the value, (which can be large), return a Reader and let the caller read it
-	valueReader := bufio.NewReaderSize(vesr.s, vesr.StreamChunkSize)
-	return entryWithoutValueProto, verifiableTxProto, inclusionProofProto, valueReader, nil
+	return entryWithoutValueProto, verifiableTxProto, inclusionProofProto, vesr.s, nil
 }
