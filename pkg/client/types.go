@@ -18,6 +18,7 @@ package client
 
 import (
 	"crypto/ecdsa"
+	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client/state"
@@ -52,6 +53,12 @@ func (c *immuClient) WithTokenService(tokenService TokenService) *immuClient {
 
 func (c *immuClient) WithServerSigningPubKey(publicKey *ecdsa.PublicKey) *immuClient {
 	c.serverSigningPubKey = publicKey
+	return c
+}
+
+// WithStreamServiceFactory set stream service factory
+func (c *immuClient) WithStreamServiceFactory(ssf stream.ServiceFactory) *immuClient {
+	c.StreamServiceFactory = ssf
 	return c
 }
 

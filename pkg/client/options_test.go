@@ -45,6 +45,8 @@ func TestOptions(t *testing.T) {
 		WithUsername("some-username").
 		WithPassword("some-password").
 		WithDatabase("some-db")
+		WithStreamChunkSize(4096)
+
 	if op.LogFileName != "logfilename" ||
 		op.PrometheusHost != "localhost" ||
 		op.PrometheusPort != "1234" ||
@@ -66,6 +68,7 @@ func TestOptions(t *testing.T) {
 		op.Username != "some-username" ||
 		op.Password != "some-password" ||
 		op.Database != "some-db" ||
+		op.StreamChunkSize != 4096 ||
 		op.Bind() != "127.0.0.1:4321" ||
 		len(op.String()) == 0 {
 		t.Fatal("Client options fail")
