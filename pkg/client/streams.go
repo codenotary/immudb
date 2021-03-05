@@ -27,7 +27,6 @@ import (
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/stream"
 )
 
@@ -180,13 +179,13 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyVal
 
 	verifiableTx, err := s.CloseAndRecv()
 
-	if verifiableTx.Tx.Metadata.Nentries != 1 {
+	if verifiableTx.Tx.Metadata.Nentries != int32(len(kvs)) {
 		return nil, store.ErrCorruptedData
 	}
 
 	tx := schema.TxFrom(verifiableTx.Tx)
 
-	// TODO OGG: check with @Michele to perform inclusion proof,
+	// TODO OGG: check with @Michele: to perform inclusion proof,
 	//					 key and value (i.e. the last ones from the input list of KVs?)
 	//					 need to be read => if value is huge, this can be problematic
 	//-->
@@ -286,34 +285,34 @@ func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.Verifiab
 		return nil, err
 	}
 
-	inclusionProof := schema.InclusionProofFrom(vEntry.InclusionProof)
+	// inclusionProof := schema.InclusionProofFrom(vEntry.InclusionProof)
 	dualProof := schema.DualProofFrom(vEntry.VerifiableTx.DualProof)
 
-	var eh [sha256.Size]byte
+	// var eh [sha256.Size]byte
 
 	var sourceID, targetID uint64
 	var sourceAlh, targetAlh [sha256.Size]byte
 
 	var vTx uint64
-	var kv *store.KV
+	// var kv *store.KV
 
 	if vEntry.Entry.ReferencedBy == nil {
 		vTx = vEntry.Entry.Tx
-		kv = database.EncodeKV(req.KeyRequest.Key, vEntry.Entry.Value)
+		// kv = database.EncodeKV(req.KeyRequest.Key, vEntry.Entry.Value)
 	} else {
 		vTx = vEntry.Entry.ReferencedBy.Tx
-		kv = database.EncodeReference(vEntry.Entry.ReferencedBy.Key, vEntry.Entry.Key, vEntry.Entry.ReferencedBy.AtTx)
+		// kv = database.EncodeReference(vEntry.Entry.ReferencedBy.Key, vEntry.Entry.Key, vEntry.Entry.ReferencedBy.AtTx)
 	}
 
 	if state.TxId <= vTx {
-		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
+		// eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
 
 		sourceID = state.TxId
 		sourceAlh = schema.DigestFrom(state.TxHash)
 		targetID = vTx
 		targetAlh = dualProof.TargetTxMetadata.Alh()
 	} else {
-		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.SourceTxMetadata.EH)
+		// eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.SourceTxMetadata.EH)
 
 		sourceID = vTx
 		sourceAlh = dualProof.SourceTxMetadata.Alh()
@@ -321,13 +320,15 @@ func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.Verifiab
 		targetAlh = schema.DigestFrom(state.TxHash)
 	}
 
-	verifies := store.VerifyInclusion(
-		inclusionProof,
-		kv,
-		eh)
-	if !verifies {
-		return nil, store.ErrCorruptedData
-	}
+	verifies := false
+	// TODO OGG check with @Michele: this would be problematic if value is huge
+	// verifies := store.VerifyInclusion(
+	// 	inclusionProof,
+	// 	kv,
+	// 	eh)
+	// if !verifies {
+	// 	return nil, store.ErrCorruptedData
+	// }
 
 	if state.TxId > 0 {
 		verifies = store.VerifyDualProof(
