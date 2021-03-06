@@ -39,10 +39,10 @@ func TestImmuClient_StreamVerifiedSetAndGet(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	nbFiles := 2
+	nbFiles := 3
 	fileNames := make([]string, 0, nbFiles)
 	hashes := make([][]byte, 0, nbFiles)
-	for i := 1; i <= 2; i++ {
+	for i := 1; i <= nbFiles; i++ {
 		tmpFile, err := streamtest.GenerateDummyFile(
 			fmt.Sprintf("TestImmuClient_StreamVerifiedSetAndGet_InputFile_%d", i),
 			1<<(10+i))
@@ -59,13 +59,20 @@ func TestImmuClient_StreamVerifiedSetAndGet(t *testing.T) {
 		hashes = append(hashes, hashSum)
 	}
 
-	kvs, err := streamutils.GetKeyValuesFromFiles(fileNames...)
+	// split the KVs so that the last one is set and get separately, so that
+	// StreamVerifiedSet gets called a second time (to catch also the case when
+	// local state exists and the verification is actually run)
+	fileNames1 := fileNames[:len(fileNames)-1]
+	lastFileName := fileNames[len(fileNames)-1]
+	kvs1, err := streamutils.GetKeyValuesFromFiles(fileNames1...)
+	lastKv, err := streamutils.GetKeyValuesFromFiles(lastFileName)
 
-	meta, err := client.StreamVerifiedSet(ctx, kvs)
+	// set and get all but the last one
+	meta, err := client.StreamVerifiedSet(ctx, kvs1)
 	require.NoError(t, err)
 	require.NotNil(t, meta)
 
-	for i, fileName := range fileNames {
+	for i, fileName := range fileNames1 {
 		entry, err := client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{
 			KeyRequest: &schema.KeyRequest{Key: []byte(fileName)},
 		})
@@ -73,4 +80,16 @@ func TestImmuClient_StreamVerifiedSetAndGet(t *testing.T) {
 		newSha1 := sha256.Sum256(entry.Value)
 		require.Equal(t, hashes[i], newSha1[:])
 	}
+
+	// set and get the last one
+	meta, err = client.StreamVerifiedSet(ctx, lastKv)
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+
+	entry, err := client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{
+		KeyRequest: &schema.KeyRequest{Key: []byte(lastFileName)},
+	})
+	require.NoError(t, err)
+	newSha1 := sha256.Sum256(entry.Value)
+	require.Equal(t, hashes[len(hashes)-1], newSha1[:])
 }
