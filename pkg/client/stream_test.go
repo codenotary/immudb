@@ -22,18 +22,20 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io"
+	"os"
+	"testing"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/codenotary/immudb/pkg/streamutils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"io"
-	"os"
-	"testing"
 )
 
 func TestImmuClient_SetGetStream(t *testing.T) {
@@ -593,4 +595,41 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	require.Nil(t, meta)
 
 	client.Disconnect()
+}
+
+func TestImmuClient_Errors(t *testing.T) {
+	client := DefaultClient().(*immuClient)
+	ctx := context.TODO()
+
+	_, err := client.StreamVerifiedSet(ctx, nil)
+	require.Error(t, err)
+	require.Equal(t, "no key-values specified", err.Error())
+
+	// test ErrNotConnected errors
+	fs := []func() (string, error){
+		func() (string, error) { _, err := client.streamSet(ctx); return "streamSet", err },
+		func() (string, error) { _, err := client.streamGet(ctx, nil); return "streamGet", err },
+		func() (string, error) { _, err := client.streamVerifiableSet(ctx); return "streamVerifiableSet", err },
+		func() (string, error) {
+			_, err := client.streamVerifiableGet(ctx, nil)
+			return "streamVerifiableGet", err
+		},
+		func() (string, error) { _, err := client.streamScan(ctx, nil); return "streamScan", err },
+		func() (string, error) { _, err := client.streamZScan(ctx, nil); return "streamZScan", err },
+		func() (string, error) { _, err := client.streamHistory(ctx, nil); return "streamHistory", err },
+		func() (string, error) { _, err := client.StreamSet(ctx, nil); return "StreamSet", err },
+		func() (string, error) { _, err := client.StreamGet(ctx, nil); return "StreamGet", err },
+		func() (string, error) {
+			_, err := client.StreamVerifiedSet(ctx, []*stream.KeyValue{{}})
+			return "StreamVerifiedSet", err
+		},
+		func() (string, error) { _, err := client.StreamVerifiedGet(ctx, nil); return "StreamVerifiedGet", err },
+		func() (string, error) { _, err := client.StreamScan(ctx, nil); return "StreamScan", err },
+		func() (string, error) { _, err := client.StreamZScan(ctx, nil); return "StreamZScan", err },
+		func() (string, error) { _, err := client.StreamHistory(ctx, nil); return "StreamHistory", err },
+	}
+	for _, f := range fs {
+		fn, err := f()
+		assert.Equal(t, ErrNotConnected, err, fn)
+	}
 }
