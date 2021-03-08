@@ -28,7 +28,6 @@ type execAllStreamSender struct {
 
 // NewExecAllStreamSender returns a new ExecAllStreamSender
 func NewExecAllStreamSender(s MsgSender) ExecAllStreamSender {
-
 	return &execAllStreamSender{
 		s:              s,
 		kvStreamSender: NewKvStreamSender(s),

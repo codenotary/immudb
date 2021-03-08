@@ -716,6 +716,6 @@ func TestImmuClient_Errors(t *testing.T) {
 	}
 	for _, f := range fs {
 		fn, err := f()
-		assert.Equal(t, ErrNotConnected, err, fn)
+		require.Equal(t, ErrNotConnected, err, fn)
 	}
 }
