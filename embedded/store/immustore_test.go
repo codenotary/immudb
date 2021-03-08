@@ -478,7 +478,10 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	for f := 0; f < 1; f++ {
 		go func() {
 			for {
-				txID := immuStore.IndexInfo()
+				txID, err := immuStore.IndexInfo()
+				if err != nil {
+					panic(err)
+				}
 
 				snap, err := immuStore.SnapshotSince(txID)
 				if err != nil {
