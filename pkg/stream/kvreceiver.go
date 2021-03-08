@@ -17,7 +17,6 @@ limitations under the License.
 package stream
 
 import (
-	"bytes"
 	"io"
 )
 
@@ -27,7 +26,7 @@ type kvStreamReceiver struct {
 }
 
 // NewKvStreamReceiver returns a new kvStreamReceiver
-func NewKvStreamReceiver(s MsgReceiver, chunkSize int) *kvStreamReceiver {
+func NewKvStreamReceiver(s MsgReceiver, chunkSize int) KvStreamReceiver {
 	return &kvStreamReceiver{
 		s:               s,
 		StreamChunkSize: chunkSize,
@@ -36,28 +35,9 @@ func NewKvStreamReceiver(s MsgReceiver, chunkSize int) *kvStreamReceiver {
 
 // Next returns the following key and value reader pair found on stream. If no more key values are presents on stream it returns io.EOF
 func (kvr *kvStreamReceiver) Next() ([]byte, io.Reader, error) {
-	b := bytes.NewBuffer([]byte{})
-	chunk := make([]byte, kvr.StreamChunkSize)
-	keyl := 0
-	for {
-		l, err := kvr.s.Read(chunk)
-		if err != nil && err != io.EOF {
-			return nil, nil, err
-		}
-		if err == io.EOF {
-			return nil, nil, err
-		}
-		keyl += l
-		b.Write(chunk)
-		if l == 0 {
-			break
-		}
-	}
-	key := make([]byte, keyl)
-	_, err := b.Read(key)
+	key, err := ReadValue(kvr.s, kvr.StreamChunkSize)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return key, kvr.s, nil
 }

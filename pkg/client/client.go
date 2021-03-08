@@ -140,6 +140,7 @@ type ImmuClient interface {
 	StreamScan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error)
 	StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error)
 	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
+	StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error)
 
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)

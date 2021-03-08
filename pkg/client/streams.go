@@ -80,6 +80,13 @@ func (c *immuClient) streamHistory(ctx context.Context, in *schema.HistoryReques
 	return c.ServiceClient.StreamHistory(ctx, in)
 }
 
+func (c *immuClient) streamExecAll(ctx context.Context) (schema.ImmuService_StreamExecAllClient, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	return c.ServiceClient.StreamExecAll(ctx)
+}
+
 // StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
 func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
 	if !c.IsConnected() {
@@ -492,4 +499,24 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 		entries = append(entries, entry)
 	}
 	return &schema.Entries{Entries: entries}, nil
+}
+
+func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	s, err := c.streamExecAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	eas := c.StreamServiceFactory.NewExecAllStreamSender(s)
+
+	err = eas.Send(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.CloseAndRecv()
 }

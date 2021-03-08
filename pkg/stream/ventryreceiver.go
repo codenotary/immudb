@@ -26,7 +26,7 @@ type vEntryStreamReceiver struct {
 }
 
 // NewVEntryStreamReceiver ...
-func NewVEntryStreamReceiver(s MsgReceiver, chunkSize int) *vEntryStreamReceiver {
+func NewVEntryStreamReceiver(s MsgReceiver, chunkSize int) VEntryStreamReceiver {
 	return &vEntryStreamReceiver{
 		s:               s,
 		StreamChunkSize: chunkSize,

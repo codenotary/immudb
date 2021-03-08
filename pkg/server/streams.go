@@ -358,3 +358,57 @@ func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema
 	}
 	return nil
 }
+
+func (s *ImmuServer) StreamExecAll(str schema.ImmuService_StreamExecAllServer) error {
+	ind, err := s.getDbIndexFromCtx(str.Context(), "StreamSet")
+	if err != nil {
+		return err
+	}
+
+	sops := []*schema.Op{}
+	eas := s.StreamServiceFactory.NewExecAllStreamReceiver(str)
+	for {
+		op, err := eas.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		switch x := op.(type) {
+		case *stream.Op_KeyValue:
+			key, err := stream.ReadValue(x.KeyValue.Key.Content, s.Options.StreamChunkSize)
+			if err != nil {
+				return err
+			}
+			value, err := stream.ReadValue(x.KeyValue.Value.Content, s.Options.StreamChunkSize)
+			if err != nil {
+				return err
+			}
+			sop := &schema.Op{Operation: &schema.Op_Kv{
+				Kv: &schema.KeyValue{
+					Key:   key,
+					Value: value,
+				},
+			},
+			}
+			sops = append(sops, sop)
+		case *stream.Op_ZAdd:
+			sop := &schema.Op{Operation: &schema.Op_ZAdd{
+				ZAdd: x.ZAdd,
+			},
+			}
+			sops = append(sops, sop)
+		}
+	}
+
+	txMeta, err := s.dbList.GetByIndex(ind).ExecAll(&schema.ExecAllRequest{Operations: sops})
+
+	err = str.SendAndClose(txMeta)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}

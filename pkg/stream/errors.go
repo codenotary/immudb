@@ -29,3 +29,4 @@ var ErrMessageLengthIsZero = status.Error(codes.InvalidArgument, "message traile
 var ErrReaderIsEmpty = status.Error(codes.InvalidArgument, "reader contains no data")
 var ErrChunkTooSmall = status.Error(codes.InvalidArgument, fmt.Sprintf("minimum chunk size is %d", MinChunkSize))
 var ErrMissingExpectedData = status.Error(codes.Internal, fmt.Sprintf("expected data on stream is missing"))
+var ErrRefOptNotImplemented = status.Error(codes.Unimplemented, fmt.Sprintf("reference operation is not implemented"))

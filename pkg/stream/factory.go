@@ -31,6 +31,9 @@ type ServiceFactory interface {
 
 	NewZStreamReceiver(str ImmuServiceReceiver_Stream) ZStreamReceiver
 	NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender
+
+	NewExecAllStreamSender(str ImmuServiceSender_Stream) ExecAllStreamSender
+	NewExecAllStreamReceiver(str ImmuServiceReceiver_Stream) ExecAllStreamReceiver
 }
 
 // NewStreamServiceFactory returns a new ServiceFactory
@@ -64,4 +67,14 @@ func (s *serviceFactory) NewZStreamReceiver(str ImmuServiceReceiver_Stream) ZStr
 // NewZStreamSender returns a ZStreamSender
 func (s *serviceFactory) NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender {
 	return NewZStreamSender(NewMsgSender(str, s.ChunkSize))
+}
+
+// NewExecAllStreamSender returns a ExecAllStreamSender
+func (s *serviceFactory) NewExecAllStreamSender(str ImmuServiceSender_Stream) ExecAllStreamSender {
+	return NewExecAllStreamSender(NewMsgSender(str, s.ChunkSize))
+}
+
+// NewExecAllStreamReceiver returns a ExecAllStreamReceiver
+func (s *serviceFactory) NewExecAllStreamReceiver(str ImmuServiceReceiver_Stream) ExecAllStreamReceiver {
+	return NewExecAllStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
 }

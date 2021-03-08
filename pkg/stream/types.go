@@ -19,6 +19,7 @@ package stream
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"io"
 )
 
@@ -47,6 +48,36 @@ type ZEntry struct {
 	Score *ValueSize
 	AtTx  *ValueSize
 	Value *ValueSize
+}
+
+const (
+	TOp_Kv byte = 1 << iota
+	TOp_ZAdd
+	TOp_Ref
+)
+
+type IsOp_Operation interface {
+	isOp_Operation()
+}
+
+type Op struct {
+	Operation IsOp_Operation
+}
+
+type Op_ZAdd struct {
+	ZAdd *schema.ZAddRequest
+}
+type Op_KeyValue struct {
+	KeyValue *KeyValue
+}
+type Op_Ref struct{}
+
+func (*Op_ZAdd) isOp_Operation()     {}
+func (*Op_KeyValue) isOp_Operation() {}
+func (*Op_Ref) isOp_Operation()      {}
+
+type ExecAllRequest struct {
+	Operations []*Op
 }
 
 // NumberToBytes ...
