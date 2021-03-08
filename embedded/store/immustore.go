@@ -38,7 +38,7 @@ import (
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrAlreadyClosed = errors.New("already closed")
+var ErrAlreadyClosed = tbtree.ErrAlreadyClosed
 var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
@@ -125,6 +125,7 @@ type ImmuStore struct {
 	blCond   *sync.Cond
 
 	index     *tbtree.TBtree
+	indexErr  error
 	indexCond *sync.Cond
 
 	mutex sync.Mutex
@@ -515,14 +516,34 @@ func (s *ImmuStore) syncBinaryLinking() error {
 
 func (s *ImmuStore) indexer() {
 	for {
-		err := s.doIndexing()
-		if err != nil && err != ErrNoMoreEntries {
-			return
+		s.indexCond.L.Lock()
+
+		if s.index.Ts() == s.TxCount() {
+			s.indexCond.Wait()
 		}
+
+		err := s.indexSince(s.index.Ts() + 1)
+		if err == ErrAlreadyClosed {
+			break
+		}
+		if err != nil {
+			s.indexErr = err
+			s.indexCond.L.Unlock()
+			break
+		}
+
+		s.indexCond.L.Unlock()
 	}
 }
 
 func (s *ImmuStore) CleanIndex() error {
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
+	if s.indexErr != nil {
+		return s.indexErr
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -558,24 +579,14 @@ func (s *ImmuStore) CleanIndex() error {
 	return nil
 }
 
-func (s *ImmuStore) IndexInfo() uint64 {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (s *ImmuStore) IndexInfo() (uint64, error) {
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
 
-	return s.index.Ts()
+	return s.index.Ts(), s.indexErr
 }
 
-func (s *ImmuStore) doIndexing() error {
-	s.indexCond.L.Lock()
-
-	if s.index.Ts() == s.TxCount() {
-		s.indexCond.Wait()
-	}
-
-	s.indexCond.L.Unlock()
-
-	txID := s.index.Ts() + 1
-
+func (s *ImmuStore) indexSince(txID uint64) error {
 	tx, err := s.fetchAllocTx()
 	if err != nil {
 		return err
@@ -617,7 +628,7 @@ func (s *ImmuStore) doIndexing() error {
 		}
 	}
 
-	return err
+	return nil
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
