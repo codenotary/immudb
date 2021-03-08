@@ -102,7 +102,10 @@ func waitForIndexingUpto(st *store.ImmuStore, txID uint64) error {
 	}
 
 	for {
-		its := st.IndexInfo()
+		its, err := st.IndexInfo()
+		if err != nil {
+			return err
+		}
 
 		if its >= txID {
 			return nil
