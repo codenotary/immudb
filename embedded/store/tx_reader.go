@@ -17,6 +17,8 @@ package store
 
 import (
 	"crypto/sha256"
+
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 )
 
 type TxReader struct {
@@ -31,6 +33,9 @@ type TxReader struct {
 }
 
 func (s *ImmuStore) NewTxReader(initialTxID uint64, desc bool, tx *Tx) (*TxReader, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if s.closed {
 		return nil, ErrAlreadyClosed
 	}
@@ -60,6 +65,9 @@ func (txr *TxReader) Read() (*Tx, error) {
 	err := txr.st.ReadTx(txr.CurrTxID, txr._tx)
 	if err == ErrTxNotFound {
 		return nil, ErrNoMoreEntries
+	}
+	if err == multiapp.ErrAlreadyClosed {
+		return nil, ErrAlreadyClosed
 	}
 	if err != nil {
 		return nil, err
