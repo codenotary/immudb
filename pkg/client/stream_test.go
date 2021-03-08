@@ -22,20 +22,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"io"
-	"os"
-	"testing"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/codenotary/immudb/pkg/streamutils"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"io"
+	"os"
+	"testing"
 )
 
 func TestImmuClient_SetGetStream(t *testing.T) {
@@ -593,6 +591,94 @@ func TestImmuClient_SetSizeTooLargeOnABigMessage(t *testing.T) {
 	meta, err = client.StreamSet(ctx, kvs2)
 	require.Equal(t, stream.ErrNotEnoughDataOnStream, err)
 	require.Nil(t, meta)
+
+	client.Disconnect()
+}
+
+func TestImmuClient_ExecAll(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	aOps := &stream.ExecAllRequest{
+		Operations: []*stream.Op{
+			{
+				Operation: &stream.Op_KeyValue{
+					KeyValue: &stream.KeyValue{
+						Key: &stream.ValueSize{
+							Content: bytes.NewBuffer([]byte(`exec-all-key`)),
+							Size:    len([]byte(`exec-all-key`)),
+						},
+						Value: &stream.ValueSize{
+							Content: bytes.NewBuffer([]byte(`exec-all-val`)),
+							Size:    len([]byte(`exec-all-val`)),
+						},
+					},
+				},
+			},
+			{
+				Operation: &stream.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:      []byte(`exec-all-set`),
+						Score:    85.4,
+						Key:      []byte(`exec-all-key`),
+						AtTx:     0,
+						BoundRef: true,
+					},
+				},
+			},
+			{
+				Operation: &stream.Op_KeyValue{
+					KeyValue: &stream.KeyValue{
+						Key: &stream.ValueSize{
+							Content: bytes.NewBuffer([]byte(`exec-all-key2`)),
+							Size:    len([]byte(`exec-all-key2`)),
+						},
+						Value: &stream.ValueSize{
+							Content: bytes.NewBuffer([]byte(`exec-all-val2`)),
+							Size:    len([]byte(`exec-all-val2`)),
+						},
+					},
+				},
+			},
+			{
+				Operation: &stream.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:      []byte(`exec-all-set`),
+						Score:    85.4,
+						Key:      []byte(`exec-all-key2`),
+						AtTx:     0,
+						BoundRef: true,
+					},
+				},
+			},
+		},
+	}
+
+	meta, err := client.StreamExecAll(ctx, aOps)
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+
+	entry1, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(`exec-all-key`)})
+	require.NoError(t, err)
+	require.Equal(t, []byte(`exec-all-val`), entry1.Value)
+
+	entry2, err := client.StreamGet(ctx, &schema.KeyRequest{Key: []byte(`exec-all-key2`)})
+	require.NoError(t, err)
+	require.Equal(t, []byte(`exec-all-val2`), entry2.Value)
 
 	client.Disconnect()
 }

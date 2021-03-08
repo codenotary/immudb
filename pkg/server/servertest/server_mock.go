@@ -39,6 +39,10 @@ type ServerMock struct {
 	PostExecAllFn func(context.Context, *schema.ExecAllRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
 }
 
+func (s *ServerMock) StreamExecAll(allServer schema.ImmuService_StreamExecAllServer) error {
+	return s.srv.StreamExecAll(allServer)
+}
+
 func (s *ServerMock) StreamGet(request *schema.KeyRequest, getServer schema.ImmuService_StreamGetServer) error {
 	return s.srv.StreamGet(request, getServer)
 }

@@ -602,5 +602,6 @@ service ImmuService {
 	rpc streamScan(ScanRequest) returns (stream Chunk) {};
 	rpc streamZScan(ZScanRequest) returns (stream Chunk) {};
 	rpc streamHistory(HistoryRequest) returns (stream Chunk) {};
+	rpc streamExecAll(stream Chunk) returns (TxMetadata) {};
 
 }
