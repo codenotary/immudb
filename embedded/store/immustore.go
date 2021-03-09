@@ -534,7 +534,7 @@ func (s *ImmuStore) indexer() {
 
 		s.indexCond.L.Unlock()
 
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
 }
 
