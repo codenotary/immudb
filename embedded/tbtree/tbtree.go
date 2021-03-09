@@ -312,6 +312,10 @@ func (t *TBtree) GetOptions() *Options {
 		WithRenewSnapRootAfter(t.renewSnapRootAfter)
 }
 
+func (t *TBtree) FlushThld() int {
+	return t.flushThld
+}
+
 func (t *TBtree) cachePut(n node) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
