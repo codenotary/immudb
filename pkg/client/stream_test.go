@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server"
@@ -919,4 +920,217 @@ func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
 	require.Error(t, err)
 
 	client.Disconnect()
+}
+
+func TestImmuClient_StreamerServiceErrors(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	err := bs.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer bs.Stop()
+
+	defer os.Remove(".state-")
+	defer os.RemoveAll(options.Dir)
+
+	sfm := DefaultServiceFactoryMock()
+	sfm.NewKvStreamSenderF = func(str stream.ImmuServiceSender_Stream) stream.KvStreamSender {
+		sm := streamtest.DefaultImmuServiceSenderStreamMock()
+		s := streamtest.DefaultMsgSenderMock(sm, 4096)
+		s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+			return errors.New("custom one")
+		}
+		return stream.NewKvStreamSender(s)
+	}
+	sfm.NewKvStreamReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.KvStreamReceiver {
+		me := []*streamtest.MsgError{
+			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
+		}
+		msr := streamtest.DefaultMsgReceiverMock(me)
+		return stream.NewKvStreamReceiver(msr, 4096)
+	}
+
+	sfm.NewVEntryStreamReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.VEntryStreamReceiver {
+		me := []*streamtest.MsgError{
+			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
+		}
+		msr := streamtest.DefaultMsgReceiverMock(me)
+		return stream.NewVEntryStreamReceiver(msr, 4096)
+	}
+
+	sfm.NewExecAllStreamSenderF = func(str stream.ImmuServiceSender_Stream) stream.ExecAllStreamSender {
+		sm := streamtest.DefaultImmuServiceSenderStreamMock()
+		s := streamtest.DefaultMsgSenderMock(sm, 4096)
+		s.SendF = func(reader io.Reader, payloadSize int) (err error) {
+			return errors.New("custom one")
+		}
+		return stream.NewExecAllStreamSender(s)
+	}
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	client.WithStreamServiceFactory(sfm)
+
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
+			Size:    len([]byte(`key`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`val`))),
+			Size:    len([]byte(`val`)),
+		},
+	}})
+	require.Error(t, err)
+
+	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+	require.Error(t, err)
+
+	key := []byte("key3")
+	val := []byte("val3")
+
+	kv := &stream.KeyValue{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(key)),
+			Size:    len(key),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer(val)),
+			Size:    len(val),
+		},
+	}
+
+	_, err = client.StreamSet(ctx, []*stream.KeyValue{kv})
+	require.Error(t, err)
+
+	_, err = client.StreamGet(ctx, &schema.KeyRequest{Key: key})
+	require.Error(t, err)
+
+	_, err = client.StreamExecAll(ctx, &stream.ExecAllRequest{
+		Operations: []*stream.Op{
+			{
+				Operation: &stream.Op_ZAdd{
+					ZAdd: &schema.ZAddRequest{
+						Set:      []byte(`exec-all-set`),
+						Score:    85.4,
+						Key:      []byte(`exec-all-key`),
+						AtTx:     0,
+						BoundRef: true,
+					},
+				},
+			},
+		},
+	})
+	require.Error(t, err)
+
+	client.Disconnect()
+
+}
+
+func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	err := bs.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer bs.Stop()
+
+	defer os.Remove(".state-")
+
+	sfm := DefaultServiceFactoryMock()
+	sfm.NewKvStreamReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.KvStreamReceiver {
+		me := []*streamtest.MsgError{
+			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
+		}
+		msr := streamtest.DefaultMsgReceiverMock(me)
+		return stream.NewKvStreamReceiver(msr, 4096)
+	}
+
+	sfm.NewZStreamReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.ZStreamReceiver {
+		me := []*streamtest.MsgError{
+			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
+		}
+		msr := streamtest.DefaultMsgReceiverMock(me)
+		return stream.NewZStreamReceiver(msr, 4096)
+	}
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	client.WithStreamServiceFactory(sfm)
+
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.StreamZScan(ctx, &schema.ZScanRequest{Set: []byte(`key`)})
+	require.Error(t, err)
+
+	_, err = client.StreamHistory(ctx, &schema.HistoryRequest{Key: []byte(`key`)})
+	require.Error(t, err)
+
+	client.Disconnect()
+}
+
+type ServiceFactoryMock struct {
+	NewKvStreamReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.KvStreamReceiver
+	NewKvStreamSenderF   func(str stream.ImmuServiceSender_Stream) stream.KvStreamSender
+
+	NewVEntryStreamReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.VEntryStreamReceiver
+	NewVEntryStreamSenderF   func(str stream.ImmuServiceSender_Stream) stream.VEntryStreamSender
+
+	NewZStreamReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.ZStreamReceiver
+	NewZStreamSenderF   func(str stream.ImmuServiceSender_Stream) stream.ZStreamSender
+
+	NewExecAllStreamReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.ExecAllStreamReceiver
+	NewExecAllStreamSenderF   func(str stream.ImmuServiceSender_Stream) stream.ExecAllStreamSender
+}
+
+func (sfm *ServiceFactoryMock) NewKvStreamReceiver(str stream.ImmuServiceReceiver_Stream) stream.KvStreamReceiver {
+	return sfm.NewKvStreamReceiverF(str)
+}
+func (sfm *ServiceFactoryMock) NewKvStreamSender(str stream.ImmuServiceSender_Stream) stream.KvStreamSender {
+	return sfm.NewKvStreamSenderF(str)
+}
+func (sfm *ServiceFactoryMock) NewVEntryStreamReceiver(str stream.ImmuServiceReceiver_Stream) stream.VEntryStreamReceiver {
+	return sfm.NewVEntryStreamReceiverF(str)
+}
+func (sfm *ServiceFactoryMock) NewVEntryStreamSender(str stream.ImmuServiceSender_Stream) stream.VEntryStreamSender {
+	return sfm.NewVEntryStreamSenderF(str)
+}
+func (sfm *ServiceFactoryMock) NewZStreamReceiver(str stream.ImmuServiceReceiver_Stream) stream.ZStreamReceiver {
+	return sfm.NewZStreamReceiverF(str)
+}
+func (sfm *ServiceFactoryMock) NewZStreamSender(str stream.ImmuServiceSender_Stream) stream.ZStreamSender {
+	return sfm.NewZStreamSenderF(str)
+}
+func (sfm *ServiceFactoryMock) NewExecAllStreamSender(str stream.ImmuServiceSender_Stream) stream.ExecAllStreamSender {
+	return sfm.NewExecAllStreamSenderF(str)
+}
+func (sfm *ServiceFactoryMock) NewExecAllStreamReceiver(str stream.ImmuServiceReceiver_Stream) stream.ExecAllStreamReceiver {
+	return sfm.NewExecAllStreamReceiverF(str)
+}
+
+func DefaultServiceFactoryMock() *ServiceFactoryMock {
+	return &ServiceFactoryMock{}
 }
