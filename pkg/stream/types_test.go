@@ -16,34 +16,13 @@ limitations under the License.
 
 package stream
 
-import (
-	"io"
+import "testing"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-)
-
-// ParseZEntry ...
-func ParseZEntry(
-	set []byte,
-	key []byte,
-	score float64,
-	atTx uint64,
-	vr io.Reader,
-	chunkSize int,
-) (*schema.ZEntry, error) {
-
-	value, err := ReadValue(vr, chunkSize)
-	if err != nil {
-		return nil, err
-	}
-
-	entry := schema.Entry{Key: key, Value: value}
-
-	return &schema.ZEntry{
-		Set:   set,
-		Key:   key,
-		Entry: &entry,
-		Score: score,
-		AtTx:  atTx,
-	}, nil
+func TestIsOps(t *testing.T) {
+	opZAdd := &Op_ZAdd{}
+	opZAdd.isOp_Operation()
+	opRef := &Op_Ref{}
+	opRef.isOp_Operation()
+	opKV := &Op_KeyValue{}
+	opKV.isOp_Operation()
 }

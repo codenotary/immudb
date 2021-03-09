@@ -30,3 +30,4 @@ var ErrReaderIsEmpty = status.Error(codes.InvalidArgument, "reader contains no d
 var ErrChunkTooSmall = status.Error(codes.InvalidArgument, fmt.Sprintf("minimum chunk size is %d", MinChunkSize))
 var ErrMissingExpectedData = status.Error(codes.Internal, fmt.Sprintf("expected data on stream is missing"))
 var ErrRefOptNotImplemented = status.Error(codes.Unimplemented, fmt.Sprintf("reference operation is not implemented"))
+var ErrUnableToReassembleExecAllMessage = status.Error(codes.Internal, fmt.Sprintf("unable to reassemble ZAdd message on a streamExecAll"))
