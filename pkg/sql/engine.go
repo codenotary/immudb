@@ -190,11 +190,11 @@ func (e *Engine) Catalog() *Catalog {
 }
 
 // exist database directly on catalogStore: // existKey(e.mapKey(catalogDatabase, db), e.catalogStore)
-func (e *Engine) QueryStmt(sql string) (*RowReader, error) {
+func (e *Engine) QueryStmt(sql string) (RowReader, error) {
 	return e.Query(strings.NewReader(sql))
 }
 
-func (e *Engine) Query(sql io.ByteReader) (*RowReader, error) {
+func (e *Engine) Query(sql io.ByteReader) (RowReader, error) {
 	if e.catalog == nil {
 		err := e.loadCatalog()
 		if err != nil {

@@ -455,7 +455,16 @@ type Param struct {
 	id string
 }
 
-type RowReader struct {
+type RowReader interface {
+	Read() (*Row, error)
+	Close() error
+}
+
+type Row struct {
+	Values map[string]interface{}
+}
+
+type RawRowReader struct {
 	e *Engine
 
 	cols map[string]*Column
@@ -463,11 +472,7 @@ type RowReader struct {
 	reader *store.KeyReader
 }
 
-type Row struct {
-	Values map[string]interface{}
-}
-
-func (r *RowReader) Read() (*Row, error) {
+func (r *RawRowReader) Read() (*Row, error) {
 	_, vref, _, _, err := r.reader.Read()
 	if err != nil {
 		return nil, err
@@ -524,8 +529,12 @@ func (r *RowReader) Read() (*Row, error) {
 	return &Row{Values: values}, nil
 }
 
+func (r *RawRowReader) Close() error {
+	return r.reader.Close()
+}
+
 type DataSource interface {
-	Resolve(e *Engine, snap *tbtree.Snapshot) (*RowReader, error)
+	Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, error)
 }
 
 type SelectStmt struct {
@@ -554,30 +563,19 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 	return nil, nil, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot) (*RowReader, error) {
-	if e.implicitDatabase == "" {
-		return nil, ErrNoDatabaseSelected
-	}
-
+func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, error) {
 	_, _, err := stmt.CompileUsing(e)
 	if err != nil {
 		return nil, err
 	}
 
-	tname := stmt.ds.(*TableRef).table
-	table := e.catalog.databases[e.implicitDatabase].tables[tname]
-	col := table.pk
-
-	rSpec := &tbtree.ReaderSpec{
-		Prefix: e.mapKey(pkRowPrefix, e.implicitDatabase, tname, col),
-	}
-
-	r, err := e.dataStore.NewKeyReader(snap, rSpec)
+	rowReader, err := stmt.ds.Resolve(e, snap)
 	if err != nil {
 		return nil, err
 	}
 
-	cols := make(map[string]*Column, len(stmt.selectors))
+	return rowReader, err
+	/*cols := make(map[string]*Column, len(stmt.selectors))
 
 	for _, s := range stmt.selectors {
 		colSel := s.(*ColSelector)
@@ -585,6 +583,7 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot) (*RowReader, e
 	}
 
 	return &RowReader{reader: r, cols: cols}, nil
+	*/
 }
 
 type TableRef struct {
@@ -593,7 +592,7 @@ type TableRef struct {
 	as    string
 }
 
-func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot) (*RowReader, error) {
+func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, error) {
 	var db string
 
 	if db != "" {
@@ -633,7 +632,7 @@ func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot) (*RowReader, err
 		cols[n] = c
 	}
 
-	return &RowReader{reader: r, cols: cols}, nil
+	return &RawRowReader{reader: r, cols: cols}, nil
 }
 
 type JoinSpec struct {
