@@ -522,7 +522,7 @@ func (s *ImmuStore) indexer() {
 			s.indexCond.Wait()
 		}
 
-		err := s.indexSince(s.index.Ts() + 1)
+		err := s.indexSince(s.index.Ts()+1, s.index.FlushThld())
 		if err == ErrAlreadyClosed {
 			break
 		}
@@ -533,6 +533,8 @@ func (s *ImmuStore) indexer() {
 		}
 
 		s.indexCond.L.Unlock()
+
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -586,7 +588,7 @@ func (s *ImmuStore) IndexInfo() (uint64, error) {
 	return s.index.Ts(), s.indexErr
 }
 
-func (s *ImmuStore) indexSince(txID uint64) error {
+func (s *ImmuStore) indexSince(txID uint64, limit int) error {
 	tx, err := s.fetchAllocTx()
 	if err != nil {
 		return err
@@ -601,7 +603,7 @@ func (s *ImmuStore) indexSince(txID uint64) error {
 		return err
 	}
 
-	for {
+	for i := 0; i < limit; i++ {
 		tx, err := txReader.Read()
 		if err == ErrNoMoreEntries {
 			break
