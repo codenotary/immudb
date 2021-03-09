@@ -200,12 +200,15 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*st
 		return nil, nil, ErrNoDatabaseSelected
 	}
 
-	exists := e.catalog.databases[e.implicitDatabase].ExistTable(stmt.table)
+	db := e.catalog.databases[e.implicitDatabase]
+
+	exists := db.ExistTable(stmt.table)
 	if exists {
 		return nil, nil, ErrTableAlreadyExists
 	}
 
 	table := &Table{
+		db:      db,
 		name:    stmt.table,
 		cols:    make(map[string]*Column, 0),
 		indexes: make(map[string]struct{}, 0),
@@ -225,6 +228,7 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*st
 		}
 
 		table.cols[cs.colName] = &Column{
+			table:   table,
 			colName: cs.colName,
 			colType: cs.colType,
 		}
@@ -472,6 +476,35 @@ type RawRowReader struct {
 	reader *store.KeyReader
 }
 
+// el order by solo es applicable al datasource no funciona sobre el grouped
+//tampoco sobre el row generado con el join
+// solo se puede ordenar por 1 columna existente en el datasource
+// pero entonces newRawRowReader podria recibir el pk o no.
+
+func newRawRowReader(e *Engine, table *Table, desc bool, snap *tbtree.Snapshot) (*RawRowReader, error) {
+	rSpec := &tbtree.ReaderSpec{
+		Prefix:    e.mapKey(pkRowPrefix, table.db.name, table.name, table.pk),
+		DescOrder: desc,
+	}
+
+	r, err := e.dataStore.NewKeyReader(snap, rSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	cols := make(map[string]*Column, len(table.cols))
+
+	for n, c := range table.cols {
+		cols[n] = c
+	}
+
+	return &RawRowReader{
+		e:      e,
+		cols:   cols,
+		reader: r,
+	}, nil
+}
+
 func (r *RawRowReader) Read() (*Row, error) {
 	_, vref, _, _, err := r.reader.Read()
 	if err != nil {
@@ -569,12 +602,38 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, er
 		return nil, err
 	}
 
+	/*orderBy =
+	if len(stmt.orderBy) > 0 {
+
+	}*/
+
 	rowReader, err := stmt.ds.Resolve(e, snap)
 	if err != nil {
 		return nil, err
 	}
 
+	if stmt.join != nil {
+		// JointRowReader
+	}
+
+	if stmt.where != nil {
+		// FilteredRowReader
+	}
+
+	//	rowBuilder := newRowBuilder(stmt.selectors)
+	// another to filter selected rows
+	//	&RowReaderWithrowReader
+
+	if stmt.groupBy != nil {
+		// GroupedRowReader
+	}
+
+	if stmt.having != nil {
+		// FilteredRowReader
+	}
+
 	return rowReader, err
+
 	/*cols := make(map[string]*Column, len(stmt.selectors))
 
 	for _, s := range stmt.selectors {
@@ -617,22 +676,7 @@ func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, erro
 		return nil, ErrTableDoesNotExist
 	}
 
-	rSpec := &tbtree.ReaderSpec{
-		Prefix: e.mapKey(pkRowPrefix, db, table.name, table.pk),
-	}
-
-	r, err := e.dataStore.NewKeyReader(snap, rSpec)
-	if err != nil {
-		return nil, err
-	}
-
-	cols := make(map[string]*Column, len(table.cols))
-
-	for n, c := range table.cols {
-		cols[n] = c
-	}
-
-	return &RawRowReader{reader: r, cols: cols}, nil
+	return newRawRowReader(e, table, snap)
 }
 
 type JoinSpec struct {
