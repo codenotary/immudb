@@ -340,7 +340,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 				return logErr(s.Logger, "%v", err)
 			}
 
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(time.Duration(1) * time.Millisecond)
 
 			s.Logger.Infof("Admin user %s successfully created", adminUsername)
 		}
@@ -1681,7 +1681,7 @@ func (s *ImmuServer) saveUser(user *auth.User) error {
 	userKV := &schema.KeyValue{Key: userKey, Value: userData}
 	_, err = s.sysDb.Set(&schema.SetRequest{KVs: []*schema.KeyValue{userKV}})
 
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(time.Duration(5) * time.Millisecond)
 
 	return logErr(s.Logger, "error saving user: %v", err)
 }
