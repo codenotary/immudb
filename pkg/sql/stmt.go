@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -290,7 +289,80 @@ func (stmt *AddColumnStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*stor
 type UpsertIntoStmt struct {
 	table string
 	cols  []string
-	rows  []*Row
+	rows  []*RowSpec
+}
+
+type RowSpec struct {
+	Values []interface{}
+}
+
+func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
+	valbuf := bytes.Buffer{}
+
+	// len(stmt.cols)
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:], uint32(len(cols)))
+	_, err := valbuf.Write(b[:])
+	if err != nil {
+		return nil, err
+	}
+
+	for i, val := range r.Values {
+		col, _ := t.cols[cols[i]]
+
+		// len(colName) + colName
+		b := make([]byte, 4+len(col.colName))
+		binary.BigEndian.PutUint32(b, uint32(len(col.colName)))
+		copy(b[4:], []byte(col.colName))
+
+		_, err = valbuf.Write(b)
+		if err != nil {
+			return nil, err
+		}
+
+		switch col.colType {
+		case StringType:
+			{
+				v, ok := val.(string)
+				if !ok {
+					return nil, ErrInvalidValue
+				}
+
+				// len(v) + v
+				b := make([]byte, 4+len(v))
+				binary.BigEndian.PutUint32(b, uint32(len(v)))
+				copy(b[4:], []byte(v))
+
+				_, err = valbuf.Write(b)
+				if err != nil {
+					return nil, err
+				}
+			}
+		case IntegerType:
+			{
+				v, ok := val.(uint64)
+				if !ok {
+					return nil, ErrInvalidValue
+				}
+
+				b := make([]byte, 8)
+				binary.BigEndian.PutUint64(b, v)
+
+				_, err = valbuf.Write(b)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		/*
+			boolean  bool
+			blob     []byte
+			time
+		*/
+	}
+
+	return valbuf.Bytes(), nil
 }
 
 func (stmt *UpsertIntoStmt) isDDL() bool {
@@ -375,79 +447,6 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 	return
 }
 
-type Row struct {
-	Values []interface{}
-}
-
-func (r *Row) Bytes(t *Table, cols []string) ([]byte, error) {
-	valbuf := bytes.Buffer{}
-
-	// len(stmt.cols)
-	var b [4]byte
-	binary.BigEndian.PutUint32(b[:], uint32(len(cols)))
-	_, err := valbuf.Write(b[:])
-	if err != nil {
-		return nil, err
-	}
-
-	for i, val := range r.Values {
-		col, _ := t.cols[cols[i]]
-
-		// len(colName) + colName
-		b := make([]byte, 4+len(col.colName))
-		binary.BigEndian.PutUint32(b, uint32(len(col.colName)))
-		copy(b[4:], []byte(col.colName))
-
-		_, err = valbuf.Write(b)
-		if err != nil {
-			return nil, err
-		}
-
-		switch col.colType {
-		case StringType:
-			{
-				v, ok := val.(string)
-				if !ok {
-					return nil, ErrInvalidValue
-				}
-
-				// len(v) + v
-				b := make([]byte, 4+len(v))
-				binary.BigEndian.PutUint32(b, uint32(len(v)))
-				copy(b[4:], []byte(v))
-
-				_, err = valbuf.Write(b)
-				if err != nil {
-					return nil, err
-				}
-			}
-		case IntegerType:
-			{
-				v, ok := val.(uint64)
-				if !ok {
-					return nil, ErrInvalidValue
-				}
-
-				b := make([]byte, 8)
-				binary.BigEndian.PutUint64(b, v)
-
-				_, err = valbuf.Write(b)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		/*
-			boolean  bool
-			blob     []byte
-			time
-		*/
-	}
-
-	return valbuf.Bytes(), nil
-}
-
 type SysFn struct {
 	fn string
 }
@@ -457,13 +456,15 @@ type Param struct {
 }
 
 type RowReader struct {
-	// podria retornar los nombres de las columnas seleccionadas
-	// para el snapshot, que pasa si el query quiere seleccionar una columna que no estaba, retorna null
 	e *Engine
 
-	cols []*Column
+	cols map[string]*Column
 
 	reader *store.KeyReader
+}
+
+type Row struct {
+	Values map[string]interface{}
 }
 
 func (r *RowReader) Read() (*Row, error) {
@@ -478,7 +479,7 @@ func (r *RowReader) Read() (*Row, error) {
 	}
 
 	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	values := make([]interface{}, len(r.cols))
+	values := make(map[string]interface{}, len(r.cols))
 
 	// len(stmt.cols)
 	if len(v) < 4 {
@@ -496,11 +497,12 @@ func (r *RowReader) Read() (*Row, error) {
 		colName := string(v[voff : voff+cNameLen])
 		voff += cNameLen
 
-		if colName != r.cols[i].colName {
-			return nil, errors.New("not supported")
+		col, ok := r.cols[colName]
+		if !ok {
+			return nil, ErrInvalidColumn
 		}
 
-		switch r.cols[i].colType {
+		switch col.colType {
 		case StringType:
 			{
 				vlen := int(binary.BigEndian.Uint32(v[voff:]))
@@ -508,18 +510,22 @@ func (r *RowReader) Read() (*Row, error) {
 
 				v := string(v[voff : voff+vlen])
 				voff += vlen
-				values[i] = v
+				values[colName] = v
 			}
 		case IntegerType:
 			{
 				v := binary.BigEndian.Uint64(v[voff:])
 				voff += 8
-				values[i] = v
+				values[colName] = v
 			}
 		}
 	}
 
 	return &Row{Values: values}, nil
+}
+
+type DataSource interface {
+	Resolve(e *Engine, snap *tbtree.Snapshot) (*RowReader, error)
 }
 
 type SelectStmt struct {
@@ -548,17 +554,12 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 	return nil, nil, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine) (*RowReader, error) {
+func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot) (*RowReader, error) {
 	if e.implicitDatabase == "" {
 		return nil, ErrNoDatabaseSelected
 	}
 
 	_, _, err := stmt.CompileUsing(e)
-	if err != nil {
-		return nil, err
-	}
-
-	snap, err := e.dataStore.SnapshotSince(math.MaxUint64)
 	if err != nil {
 		return nil, err
 	}
@@ -576,23 +577,63 @@ func (stmt *SelectStmt) Resolve(e *Engine) (*RowReader, error) {
 		return nil, err
 	}
 
-	cols := make([]*Column, len(stmt.selectors))
+	cols := make(map[string]*Column, len(stmt.selectors))
 
-	for i, s := range stmt.selectors {
+	for _, s := range stmt.selectors {
 		colSel := s.(*ColSelector)
-		cols[i] = table.cols[colSel.col]
+		cols[colSel.col] = table.cols[colSel.col]
 	}
 
 	return &RowReader{reader: r, cols: cols}, nil
-}
-
-type DataSource interface {
 }
 
 type TableRef struct {
 	db    string
 	table string
 	as    string
+}
+
+func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot) (*RowReader, error) {
+	var db string
+
+	if db != "" {
+		exists := e.catalog.ExistDatabase(stmt.db)
+		if !exists {
+			return nil, ErrDatabaseDoesNotExist
+		}
+
+		db = stmt.db
+	}
+
+	if db == "" {
+		if e.implicitDatabase == "" {
+			return nil, ErrNoDatabaseSelected
+		}
+
+		db = e.implicitDatabase
+	}
+
+	table, exists := e.catalog.databases[db].tables[stmt.table]
+	if !exists {
+		return nil, ErrTableDoesNotExist
+	}
+
+	rSpec := &tbtree.ReaderSpec{
+		Prefix: e.mapKey(pkRowPrefix, db, table.name, table.pk),
+	}
+
+	r, err := e.dataStore.NewKeyReader(snap, rSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	cols := make(map[string]*Column, len(table.cols))
+
+	for n, c := range table.cols {
+		cols[n] = c
+	}
+
+	return &RowReader{reader: r, cols: cols}, nil
 }
 
 type JoinSpec struct {

@@ -28,8 +28,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     colsSpec []*ColSpec
     colSpec *ColSpec
     cols []*ColSelector
-    rows []*Row
-    row *Row
+    rows []*RowSpec
+    row *RowSpec
     values []interface{}
     value interface{}
     id string
@@ -206,7 +206,7 @@ dmlstmt:
 rows:
     row
     {
-        $$ = []*Row{$1}
+        $$ = []*RowSpec{$1}
     }
 |
     rows ',' row
@@ -217,7 +217,7 @@ rows:
 row:
     '(' values ')'
     {
-        $$ = &Row{Values: $2}
+        $$ = &RowSpec{Values: $2}
     }
 
 ids:
@@ -386,7 +386,7 @@ ds:
 |
     '(' dqlstmt ')'
     {
-        $$ = $2
+        $$ = $2.(*SelectStmt)
     }
 
 tableRef:

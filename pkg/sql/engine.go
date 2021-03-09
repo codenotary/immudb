@@ -215,7 +215,12 @@ func (e *Engine) Query(sql io.ByteReader) (*RowReader, error) {
 		return nil, ErrExpectingDQLStmt
 	}
 
-	return stmt.Resolve(e)
+	snap, err := e.dataStore.SnapshotSince(math.MaxUint64)
+	if err != nil {
+		return nil, err
+	}
+
+	return stmt.Resolve(e, snap)
 }
 
 func (e *Engine) ExecStmt(sql string) (*store.TxMetadata, error) {
