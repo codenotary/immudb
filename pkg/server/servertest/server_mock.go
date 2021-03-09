@@ -37,6 +37,8 @@ type ServerMock struct {
 	PostVerifiableZAddFn func(context.Context, *schema.VerifiableZAddRequest, *schema.VerifiableTx, error) (*schema.VerifiableTx, error)
 
 	PostExecAllFn func(context.Context, *schema.ExecAllRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
+
+	GetDbIndexFromCtx func(context.Context, string) (int64, error)
 }
 
 func (s *ServerMock) StreamExecAll(allServer schema.ImmuService_StreamExecAllServer) error {
@@ -236,4 +238,8 @@ func (s *ServerMock) ChangePermission(ctx context.Context, req *schema.ChangePer
 
 func (s *ServerMock) SetActiveUser(ctx context.Context, req *schema.SetActiveUserRequest) (*empty.Empty, error) {
 	return s.srv.SetActiveUser(ctx, req)
+}
+
+func (s *ServerMock) getDbIndexFromCtx(ctx context.Context, methodname string) (int64, error) {
+	return s.GetDbIndexFromCtx(ctx, methodname)
 }

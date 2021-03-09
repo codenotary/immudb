@@ -702,6 +702,7 @@ func TestImmuClient_Errors(t *testing.T) {
 		},
 		func() (string, error) { _, err := client.streamScan(ctx, nil); return "streamScan", err },
 		func() (string, error) { _, err := client.streamZScan(ctx, nil); return "streamZScan", err },
+		func() (string, error) { _, err := client.streamExecAll(ctx); return "streamExecAll", err },
 		func() (string, error) { _, err := client.streamHistory(ctx, nil); return "streamHistory", err },
 		func() (string, error) { _, err := client.StreamSet(ctx, nil); return "StreamSet", err },
 		func() (string, error) { _, err := client.StreamGet(ctx, nil); return "StreamGet", err },
@@ -713,9 +714,14 @@ func TestImmuClient_Errors(t *testing.T) {
 		func() (string, error) { _, err := client.StreamScan(ctx, nil); return "StreamScan", err },
 		func() (string, error) { _, err := client.StreamZScan(ctx, nil); return "StreamZScan", err },
 		func() (string, error) { _, err := client.StreamHistory(ctx, nil); return "StreamHistory", err },
+		func() (string, error) { _, err := client.StreamExecAll(ctx, nil); return "StreamExecAll", err },
 	}
 	for _, f := range fs {
 		fn, err := f()
 		require.Equal(t, ErrNotConnected, err, fn)
 	}
+}
+
+func TestImmuClient_StreamGet(t *testing.T) {
+
 }
