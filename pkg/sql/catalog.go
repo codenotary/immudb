@@ -25,6 +25,7 @@ type Database struct {
 }
 
 type Table struct {
+	db      *Database
 	name    string
 	cols    map[string]*Column
 	pk      string
@@ -32,6 +33,7 @@ type Table struct {
 }
 
 type Column struct {
+	table   *Table
 	colName string
 	colType SQLValueType
 }
