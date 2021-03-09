@@ -197,6 +197,6 @@ func TestQuery(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["title"])
 	}
 
-	err = r.reader.Close()
+	err = r.Close()
 	require.NoError(t, err)
 }
