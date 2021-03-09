@@ -14,8 +14,8 @@ type yySymType struct {
 	colsSpec []*ColSpec
 	colSpec  *ColSpec
 	cols     []*ColSelector
-	rows     []*Row
-	row      *Row
+	rows     []*RowSpec
+	row      *RowSpec
 	values   []interface{}
 	value    interface{}
 	id       string
@@ -735,7 +735,7 @@ yydefault:
 	case 22:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.rows = []*Row{yyDollar[1].row}
+			yyVAL.rows = []*RowSpec{yyDollar[1].row}
 		}
 	case 23:
 		yyDollar = yyS[yypt-3 : yypt+1]
@@ -745,7 +745,7 @@ yydefault:
 	case 24:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
-			yyVAL.row = &Row{Values: yyDollar[2].values}
+			yyVAL.row = &RowSpec{Values: yyDollar[2].values}
 		}
 	case 25:
 		yyDollar = yyS[yypt-1 : yypt+1]
@@ -903,7 +903,7 @@ yydefault:
 	case 53:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
-			yyVAL.ds = yyDollar[2].stmt
+			yyVAL.ds = yyDollar[2].stmt.(*SelectStmt)
 		}
 	case 54:
 		yyDollar = yyS[yypt-1 : yypt+1]
