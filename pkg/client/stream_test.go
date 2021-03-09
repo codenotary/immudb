@@ -28,6 +28,7 @@ import (
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/codenotary/immudb/pkg/streamutils"
+	"github.com/prometheus/common/log"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -722,6 +723,200 @@ func TestImmuClient_Errors(t *testing.T) {
 	}
 }
 
-func TestImmuClient_StreamGet(t *testing.T) {
+func TestImmuClient_StreamWithSignature(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
 
+	err := bs.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
+			Size:    len([]byte(`key`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`val`))),
+			Size:    len([]byte(`val`)),
+		},
+	}})
+	require.Nil(t, err)
+
+	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+
+	require.Nil(t, err)
+}
+
+func TestImmuClient_StreamWithSignatureErrors(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec1.key")
+	bs := servertest.NewBufconnServer(options)
+
+	err := bs.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
+			Size:    len([]byte(`key`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`val`))),
+			Size:    len([]byte(`val`)),
+		},
+	}})
+	require.Error(t, err)
+
+	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+
+	require.Error(t, err)
+}
+
+func TestImmuClient_StreamWithSignatureErrorsMissingServerKey(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	err := bs.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
+			Size:    len([]byte(`key`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`val`))),
+			Size:    len([]byte(`val`)),
+		},
+	}})
+	require.Error(t, err)
+
+	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+
+	require.Error(t, err)
+}
+
+func TestImmuClient_StreamWithSignatureErrorsWrongClientKey(t *testing.T) {
+	// first set and get needed to create a state and avoid that execution will be break by current state signature verification
+	options := server.DefaultOptions().WithAuth(true).WithSigningKey("./../../test/signer/ec3.key")
+	bs := servertest.NewBufconnServer(options)
+
+	err := bs.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec3.pub"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
+			Size:    len([]byte(`key`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`val`))),
+			Size:    len([]byte(`val`)),
+		},
+	}})
+
+	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+
+	client.Disconnect()
+
+	ts = NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	client, err = NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts).WithServerSigningPubKey("./../../test/signer/ec1.pub"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.StreamVerifiedGet(ctx, &schema.VerifiableGetRequest{KeyRequest: &schema.KeyRequest{Key: []byte(`key`)}})
+
+	require.Error(t, err)
+
+	_, err = client.StreamVerifiedSet(ctx, []*stream.KeyValue{{
+		Key: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`key`))),
+			Size:    len([]byte(`key`)),
+		},
+		Value: &stream.ValueSize{
+			Content: bufio.NewReader(bytes.NewBuffer([]byte(`val`))),
+			Size:    len([]byte(`val`)),
+		},
+	}})
+	require.Error(t, err)
+
+	client.Disconnect()
 }

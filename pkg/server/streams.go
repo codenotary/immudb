@@ -122,6 +122,24 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 		return err
 	}
 
+	if s.Options.SigningKey != "" {
+		md := schema.TxMetadataFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata)
+		alh := md.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			TxId:   md.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return err
+		}
+
+		vEntry.VerifiableTx.Signature = newState.Signature
+	}
+
 	value := stream.ValueSize{
 		Content: bufio.NewReader(bytes.NewBuffer(vEntry.GetEntry().GetValue())),
 		Size:    len(vEntry.GetEntry().GetValue()),
@@ -241,6 +259,25 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 			codes.Unknown,
 			"StreamVerifiableSet received the following error: %s", err.Error())
 	}
+
+	if s.Options.SigningKey != "" {
+		md := schema.TxMetadataFrom(verifiableTx.DualProof.TargetTxMetadata)
+		alh := md.Alh()
+
+		newState := &schema.ImmutableState{
+			Db:     s.dbList.GetByIndex(ind).GetOptions().GetDbName(),
+			TxId:   md.ID,
+			TxHash: alh[:],
+		}
+
+		err = s.StateSigner.Sign(newState)
+		if err != nil {
+			return err
+		}
+
+		verifiableTx.Signature = newState.Signature
+	}
+
 	err = str.SendAndClose(verifiableTx)
 	if err != nil {
 		return err
