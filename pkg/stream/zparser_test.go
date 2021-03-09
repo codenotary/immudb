@@ -17,33 +17,20 @@ limitations under the License.
 package stream
 
 import (
-	"io"
-
+	"bytes"
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/stretchr/testify/require"
+	"testing"
 )
 
-// ParseZEntry ...
-func ParseZEntry(
-	set []byte,
-	key []byte,
-	score float64,
-	atTx uint64,
-	vr io.Reader,
-	chunkSize int,
-) (*schema.ZEntry, error) {
+func TestParseZEntry(t *testing.T) {
+	z, err := ParseZEntry([]byte(`set`), []byte(`key`), 87.4, 1, bytes.NewBuffer([]byte(`reader`)), 4096)
+	require.NoError(t, err)
+	require.IsType(t, &schema.ZEntry{}, z)
+}
 
-	value, err := ReadValue(vr, chunkSize)
-	if err != nil {
-		return nil, err
-	}
-
-	entry := schema.Entry{Key: key, Value: value}
-
-	return &schema.ZEntry{
-		Set:   set,
-		Key:   key,
-		Entry: &entry,
-		Score: score,
-		AtTx:  atTx,
-	}, nil
+func TestParseZEntryErr(t *testing.T) {
+	z, err := ParseZEntry([]byte(`set`), []byte(`key`), 87.4, 1, bytes.NewBuffer([]byte{}), 4096)
+	require.Error(t, err)
+	require.Nil(t, z)
 }
