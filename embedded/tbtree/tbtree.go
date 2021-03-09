@@ -590,7 +590,16 @@ func (t *TBtree) Sync() error {
 		return ErrAlreadyClosed
 	}
 
+	return t.sync()
+}
+
+func (t *TBtree) sync() error {
 	err := t.nLog.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = t.hLog.Sync()
 	if err != nil {
 		return err
 	}
@@ -692,6 +701,11 @@ func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMod
 	}
 
 	_, _, err := t.flushTree()
+	if err != nil {
+		return err
+	}
+
+	err = t.sync()
 	if err != nil {
 		return err
 	}
