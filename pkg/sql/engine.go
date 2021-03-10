@@ -43,6 +43,7 @@ var ErrPKCanNotBeNull = errors.New("primary key can not be null")
 var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
 var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected")
+var ErrLimitedOrderBy = errors.New("order is limit to one column on declared table")
 
 type Engine struct {
 	catalogStore *store.ImmuStore
@@ -87,7 +88,7 @@ func (e *Engine) loadCatalog() error {
 		return err
 	}
 
-	c, err := catalogFrom(latestSnapshot, e.prefix)
+	c, err := catalogFrom(e, latestSnapshot)
 	if err != nil {
 		return err
 	}
@@ -115,7 +116,7 @@ func waitForIndexingUpto(st *store.ImmuStore, txID uint64) error {
 	}
 }
 
-func catalogFrom(snap *tbtree.Snapshot, prefix []byte) (*Catalog, error) {
+func catalogFrom(e *Engine, snap *tbtree.Snapshot) (*Catalog, error) {
 	if snap == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -146,7 +147,7 @@ func catalogFrom(snap *tbtree.Snapshot, prefix []byte) (*Catalog, error) {
 		}
 
 		db := &Database{
-			name: unmapDatabase(mkey, prefix),
+			name: e.unmapDatabase(mkey),
 		}
 
 		catalog.databases[db.name] = db
@@ -155,12 +156,12 @@ func catalogFrom(snap *tbtree.Snapshot, prefix []byte) (*Catalog, error) {
 	return catalog, nil
 }
 
-func unmap(mkey []byte, prefix []byte, patternPrefix string) []string {
-	return strings.Split(strings.Trim(string(mkey[len(prefix):]), patternPrefix), patternSeparator)
+func (e *Engine) unmap(mkey []byte, patternPrefix string) []string {
+	return strings.Split(strings.Trim(string(mkey[len(e.prefix):]), patternPrefix), patternSeparator)
 }
 
-func unmapDatabase(mkey []byte, prefix []byte) string {
-	args := unmap(mkey, prefix, catalogDatabasePrefix)
+func (e *Engine) unmapDatabase(mkey []byte) string {
+	args := e.unmap(mkey, catalogDatabasePrefix)
 	return args[0]
 }
 
@@ -220,7 +221,7 @@ func (e *Engine) Query(sql io.ByteReader) (RowReader, error) {
 		return nil, err
 	}
 
-	return stmt.Resolve(e, snap)
+	return stmt.Resolve(e, snap, nil)
 }
 
 func (e *Engine) ExecStmt(sql string) (*store.TxMetadata, error) {
