@@ -25,25 +25,13 @@ import (
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
-const patternSeparator = "/"
-
-const catalogDatabasePrefix = "CATALOG/DATABASE/"
-const catalogDatabase = catalogDatabasePrefix + "%s" // e.g. CATALOG/DATABASE/db1
-
-const catalogTablePrefix = "CATALOG/TABLE/"
-const catalogTable = catalogTablePrefix + "%s/%s/%s" // e.g. CATALOG/TABLE/db1/table1/col1
-
-const catalogColumnPrefix = "CATALOG/COLUMN/"
-const catalogColumn = catalogColumnPrefix + "%s/%s/%s/%s" // e.g. "CATALOG/COLUMN/db1/table1/col1/INTEGER"
-
-const catalogIndexPrefix = "CATALOG/INDEX/"
-const catalogIndex = catalogIndexPrefix + "%s/%s/%s" // e.g. CATALOG/INDEX/db1/table1/col1
-
-const pkRowPrefix = "DATA/%s/%s/%s/"
-const pkRow = pkRowPrefix + "%v" // e.g. DATA/db1/table1/col1/1
-
-const idxRowPrefix = "DATA/%s/%s/%s/"
-const idxRow = idxRowPrefix + "%v/%v" // e.g. DATA/db1/table1/col2/4/1
+const (
+	catalogDatabasePrefix = "CATALOG.DATABASE." // (key=CATALOG.DATABASE.{dbID}, value={dbNAME})
+	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}{pkID}, value={tableNAME})
+	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={colNAME})
+	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{colID}, value={})
+	rowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{colID}({valLen}{val})?{pkVal}, value={})
+)
 
 type SQLValueType = string
 
@@ -135,22 +123,17 @@ func (stmt *CreateDatabaseStmt) isDDL() bool {
 }
 
 func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	exists := e.catalog.ExistDatabase(stmt.db)
-	if exists {
-		return nil, nil, ErrDatabaseAlreadyExists
+	db, err := e.catalog.newDatabase(stmt.db)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	kv := &store.KV{
-		Key:   e.mapKey(catalogDatabase, stmt.db),
-		Value: nil,
+		Key:   e.mapKey(catalogDatabasePrefix, encodeID(db.id)),
+		Value: []byte(stmt.db),
 	}
 
 	ces = append(ces, kv)
-
-	e.catalog.databases[stmt.db] = &Database{
-		name:   stmt.db,
-		tables: map[string]*Table{},
-	}
 
 	return
 }
@@ -201,59 +184,26 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*st
 		return nil, nil, ErrNoDatabaseSelected
 	}
 
-	db := e.catalog.databases[e.implicitDatabase]
+	db := e.catalog.dbsByName[e.implicitDatabase]
 
-	exists := db.ExistTable(stmt.table)
-	if exists {
-		return nil, nil, ErrTableAlreadyExists
+	table, err := db.newTable(stmt.table, stmt.colsSpec, stmt.pk)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	table := &Table{
-		db:      db,
-		name:    stmt.table,
-		cols:    make(map[string]*Column, 0),
-		indexes: make(map[string]struct{}, 0),
-	}
-
-	validPK := false
-	for _, cs := range stmt.colsSpec {
+	for colID, col := range table.colsByID {
 		ce := &store.KV{
-			Key:   e.mapKey(catalogColumn, e.implicitDatabase, stmt.table, cs.colName, cs.colType),
+			Key:   e.mapKey(catalogColumnPrefix, encodeID(db.id), encodeID(table.id), encodeID(colID), []byte(col.colType)),
 			Value: nil,
 		}
 		ces = append(ces, ce)
-
-		_, colExists := table.cols[cs.colName]
-		if colExists {
-			return nil, nil, ErrDuplicatedColumn
-		}
-
-		table.cols[cs.colName] = &Column{
-			table:   table,
-			colName: cs.colName,
-			colType: cs.colType,
-		}
-
-		if stmt.pk == cs.colName {
-			if cs.colType != IntegerType {
-				return nil, nil, ErrInvalidPKType
-			}
-			validPK = true
-
-			table.pk = cs.colName
-		}
-	}
-	if !validPK {
-		return nil, nil, ErrInvalidPK
 	}
 
 	te := &store.KV{
-		Key:   e.mapKey(catalogTable, e.implicitDatabase, stmt.table, stmt.pk),
-		Value: nil,
+		Key:   e.mapKey(catalogTablePrefix, encodeID(db.id), encodeID(db.id), encodeID(table.pk.id)),
+		Value: []byte(table.name),
 	}
 	ces = append(ces, te)
-
-	e.catalog.databases[e.implicitDatabase].tables[stmt.table] = table
 
 	return
 }
@@ -292,9 +242,9 @@ func (stmt *AddColumnStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*stor
 }
 
 type UpsertIntoStmt struct {
-	table string
-	cols  []string
-	rows  []*RowSpec
+	tableRef *TableRef
+	cols     []string
+	rows     []*RowSpec
 }
 
 type RowSpec struct {
@@ -313,7 +263,7 @@ func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
 	}
 
 	for i, val := range r.Values {
-		col, _ := t.cols[cols[i]]
+		col, _ := t.colsByName[cols[i]]
 
 		// len(colName) + colName
 		b := make([]byte, 4+len(col.colName))
@@ -374,47 +324,39 @@ func (stmt *UpsertIntoStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UpsertIntoStmt) Validate(table *Table) (map[string]int, error) {
+func (stmt *UpsertIntoStmt) Validate(table *Table) (map[uint64]int, error) {
 	pkIncluded := false
-	cs := make(map[string]int, len(stmt.cols))
+	selByColID := make(map[uint64]int, len(stmt.cols))
 
 	for i, c := range stmt.cols {
-		_, exists := table.cols[c]
+		col, exists := table.colsByName[c]
 		if !exists {
 			return nil, ErrInvalidColumn
 		}
 
-		if table.pk == c {
+		if table.pk.colName == c {
 			pkIncluded = true
 		}
 
-		_, duplicated := cs[c]
+		_, duplicated := selByColID[col.id]
 		if duplicated {
 			return nil, ErrDuplicatedColumn
 		}
 
-		cs[c] = i
+		selByColID[col.id] = i
 	}
 
 	if !pkIncluded {
 		return nil, ErrPKCanNotBeNull
 	}
 
-	return cs, nil
+	return selByColID, nil
 }
 
 func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	if e == nil {
-		return nil, nil, ErrIllegalArguments
-	}
-
-	if e.implicitDatabase == "" {
-		return nil, nil, ErrNoDatabaseSelected
-	}
-
-	table, exists := e.catalog.databases[e.implicitDatabase].tables[stmt.table]
-	if !exists {
-		return nil, nil, ErrTableDoesNotExist
+	table, err := stmt.tableRef.referencedTable(e)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	cs, err := stmt.Validate(table)
@@ -427,6 +369,12 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 			return nil, nil, ErrInvalidNumberOfValues
 		}
 
+		pkVal := row.Values[cs[table.pk.id]]
+		encVal, err := encodeValue(pkVal, table.pk.colType, asPK)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		bs, err := row.Bytes(table, stmt.cols)
 		if err != nil {
 			return nil, nil, err
@@ -434,15 +382,21 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 
 		// create entry for the column which is the pk
 		pke := &store.KV{
-			Key:   e.mapKey(pkRow, e.implicitDatabase, table.name, table.pk, row.Values[cs[table.pk]]),
+			Key:   e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id), encVal),
 			Value: bs,
 		}
 		des = append(des, pke)
 
 		// create entries for each indexed column, with value as value for pk column
-		for ic := range table.indexes {
+		for colID := range table.indexes {
+			cVal := row.Values[cs[colID]]
+			encVal, err := encodeValue(cVal, table.colsByID[colID].colType, !asPK)
+			if err != nil {
+				return nil, nil, err
+			}
+
 			ie := &store.KV{
-				Key:   e.mapKey(idxRow, e.implicitDatabase, table.name, ic, row.Values[cs[ic]], row.Values[cs[table.pk]]),
+				Key:   e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(colID), encVal, encVal),
 				Value: nil,
 			}
 			des = append(des, ie)
@@ -478,22 +432,45 @@ type RawRowReader struct {
 }
 
 func newRawRowReader(e *Engine, snap *tbtree.Snapshot, table *Table, ordCol *OrdCol) (*RawRowReader, error) {
-	var prefix []byte
-
-	if ordCol == nil || table.pk == ordCol.col.col {
-		prefix = e.mapKey(pkRowPrefix, table.db.name, table.name, table.pk)
-	} else {
-		e.mapKey(idxRowPrefix, table.db.name, table.name, ordCol.col.col)
-	}
+	usePK := ordCol == nil || table.pk.colName == ordCol.col.col
 
 	desc := false
 	if ordCol != nil {
 		desc = ordCol.desc
 	}
 
+	var col *Column
+
+	if usePK {
+		col = table.pk
+	} else {
+		col = table.colsByName[ordCol.col.col]
+	}
+
+	prefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id))
+
+	var skey []byte
+
+	if desc {
+		if usePK {
+			encMaxValue, err := encodeValue(maxValue(table.pk.colType, asPK))
+			if err != nil {
+				return nil, err
+			}
+
+			skey = make([]byte, len(prefix)+len(encMaxValue))
+			copy(skey, prefix)
+			copy(skey[len(prefix):], encMaxValue)
+		} else {
+			skey = e.mapKey(idxRow, table.db.name, table.name, ordCol.col.col, 0xFFFFFFFFFFFFFFF)
+		}
+	}
+
 	rSpec := &tbtree.ReaderSpec{
-		Prefix:    prefix,
-		DescOrder: desc,
+		SeekKey:       skey,
+		InclusiveSeek: true,
+		Prefix:        prefix,
+		DescOrder:     desc,
 	}
 
 	r, err := e.dataStore.NewKeyReader(snap, rSpec)
@@ -548,7 +525,7 @@ func (r *RawRowReader) Read() (*Row, error) {
 		colName := string(v[voff : voff+cNameLen])
 		voff += cNameLen
 
-		col, ok := r.table.cols[colName]
+		col, ok := r.table.colsByName[colName]
 		if !ok {
 			return nil, ErrInvalidColumn
 		}
@@ -611,13 +588,18 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 			return nil, nil, ErrLimitedOrderBy
 		}
 
-		table, err := tableRef.ReferencedTable(e)
+		table, err := tableRef.referencedTable(e)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		_, colExists := table.cols[stmt.orderBy[0].col.col]
+		col, colExists := table.colsByName[stmt.orderBy[0].col.col]
 		if !colExists {
+			return nil, nil, ErrLimitedOrderBy
+		}
+
+		_, indexed := table.indexes[col.id]
+		if !indexed {
 			return nil, nil, ErrLimitedOrderBy
 		}
 	}
@@ -685,7 +667,11 @@ type TableRef struct {
 	as    string
 }
 
-func (stmt *TableRef) ReferencedTable(e *Engine) (*Table, error) {
+func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
+	if e == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	var db string
 
 	if db != "" {
@@ -705,7 +691,7 @@ func (stmt *TableRef) ReferencedTable(e *Engine) (*Table, error) {
 		db = e.implicitDatabase
 	}
 
-	table, exists := e.catalog.databases[db].tables[stmt.table]
+	table, exists := e.catalog.dbsByName[db].tablesByName[stmt.table]
 	if !exists {
 		return nil, ErrTableDoesNotExist
 	}
@@ -714,7 +700,7 @@ func (stmt *TableRef) ReferencedTable(e *Engine) (*Table, error) {
 }
 
 func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error) {
-	table, err := stmt.ReferencedTable(e)
+	table, err := stmt.referencedTable(e)
 	if err != nil {
 		return nil, err
 	}
