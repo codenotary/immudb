@@ -42,7 +42,8 @@ const catalogIndex = catalogIndexPrefix + "%s/%s/%s" // e.g. CATALOG/INDEX/db1/t
 const pkRowPrefix = "DATA/%s/%s/%s/"
 const pkRow = pkRowPrefix + "%v" // e.g. DATA/db1/table1/col1/1
 
-const idxRow = "DATA/%s/%s/%s/%v/%v" // e.g. DATA/db1/table1/col2/4/1
+const idxRowPrefix = "DATA/%s/%s/%s/"
+const idxRow = idxRowPrefix + "%v/%v" // e.g. DATA/db1/table1/col2/4/1
 
 type SQLValueType = string
 
@@ -469,21 +470,29 @@ type Row struct {
 }
 
 type RawRowReader struct {
-	e *Engine
-
-	cols map[string]*Column
-
+	e      *Engine
+	snap   *tbtree.Snapshot
+	table  *Table
+	ordCol *OrdCol
 	reader *store.KeyReader
 }
 
-// el order by solo es applicable al datasource no funciona sobre el grouped
-//tampoco sobre el row generado con el join
-// solo se puede ordenar por 1 columna existente en el datasource
-// pero entonces newRawRowReader podria recibir el pk o no.
+func newRawRowReader(e *Engine, snap *tbtree.Snapshot, table *Table, ordCol *OrdCol) (*RawRowReader, error) {
+	var prefix []byte
 
-func newRawRowReader(e *Engine, table *Table, desc bool, snap *tbtree.Snapshot) (*RawRowReader, error) {
+	if ordCol == nil || table.pk == ordCol.col.col {
+		prefix = e.mapKey(pkRowPrefix, table.db.name, table.name, table.pk)
+	} else {
+		e.mapKey(idxRowPrefix, table.db.name, table.name, ordCol.col.col)
+	}
+
+	desc := false
+	if ordCol != nil {
+		desc = ordCol.desc
+	}
+
 	rSpec := &tbtree.ReaderSpec{
-		Prefix:    e.mapKey(pkRowPrefix, table.db.name, table.name, table.pk),
+		Prefix:    prefix,
 		DescOrder: desc,
 	}
 
@@ -492,32 +501,36 @@ func newRawRowReader(e *Engine, table *Table, desc bool, snap *tbtree.Snapshot) 
 		return nil, err
 	}
 
-	cols := make(map[string]*Column, len(table.cols))
-
-	for n, c := range table.cols {
-		cols[n] = c
-	}
-
 	return &RawRowReader{
 		e:      e,
-		cols:   cols,
+		snap:   snap,
+		table:  table,
+		ordCol: ordCol,
 		reader: r,
 	}, nil
 }
 
 func (r *RawRowReader) Read() (*Row, error) {
-	_, vref, _, _, err := r.reader.Read()
+	mkey, vref, _, _, err := r.reader.Read()
 	if err != nil {
 		return nil, err
 	}
 
-	v, err := vref.Resolve()
-	if err != nil {
-		return nil, err
-	}
+	var v []byte
 
 	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	values := make(map[string]interface{}, len(r.cols))
+	if r.ordCol == nil || r.table.pk == r.ordCol.col.col {
+		v, err = vref.Resolve()
+	} else {
+		pkVal := r.e.unmap(mkey, idxRowPrefix)[1]
+		v, _, _, err = r.snap.Get(r.e.mapKey(idxRowPrefix, r.table.db.name, r.table.pk, pkVal))
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	values := make(map[string]interface{}, len(r.table.cols))
 
 	// len(stmt.cols)
 	if len(v) < 4 {
@@ -535,7 +548,7 @@ func (r *RawRowReader) Read() (*Row, error) {
 		colName := string(v[voff : voff+cNameLen])
 		voff += cNameLen
 
-		col, ok := r.cols[colName]
+		col, ok := r.table.cols[colName]
 		if !ok {
 			return nil, ErrInvalidColumn
 		}
@@ -567,7 +580,7 @@ func (r *RawRowReader) Close() error {
 }
 
 type DataSource interface {
-	Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, error)
+	Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error)
 }
 
 type SelectStmt struct {
@@ -588,26 +601,47 @@ func (stmt *SelectStmt) isDDL() bool {
 }
 
 func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	// will check table and columns exists
-	// select may have joins,
-	// may have sub-queries
-	// etc, but for time being only simple selects on a table...
+	if len(stmt.orderBy) > 1 {
+		return nil, nil, ErrLimitedOrderBy
+	}
+
+	if len(stmt.orderBy) > 0 {
+		tableRef, ok := stmt.ds.(*TableRef)
+		if !ok {
+			return nil, nil, ErrLimitedOrderBy
+		}
+
+		table, err := tableRef.ReferencedTable(e)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		_, colExists := table.cols[stmt.orderBy[0].col.col]
+		if !colExists {
+			return nil, nil, ErrLimitedOrderBy
+		}
+	}
 
 	return nil, nil, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, error) {
+func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error) {
+	if ordCol != nil {
+		return nil, ErrLimitedOrderBy
+	}
+
 	_, _, err := stmt.CompileUsing(e)
 	if err != nil {
 		return nil, err
 	}
 
-	/*orderBy =
+	var orderByCol *OrdCol
+
 	if len(stmt.orderBy) > 0 {
+		orderByCol = stmt.orderBy[0]
+	}
 
-	}*/
-
-	rowReader, err := stmt.ds.Resolve(e, snap)
+	rowReader, err := stmt.ds.Resolve(e, snap, orderByCol)
 	if err != nil {
 		return nil, err
 	}
@@ -651,7 +685,7 @@ type TableRef struct {
 	as    string
 }
 
-func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, error) {
+func (stmt *TableRef) ReferencedTable(e *Engine) (*Table, error) {
 	var db string
 
 	if db != "" {
@@ -676,7 +710,16 @@ func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot) (RowReader, erro
 		return nil, ErrTableDoesNotExist
 	}
 
-	return newRawRowReader(e, table, snap)
+	return table, nil
+}
+
+func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error) {
+	table, err := stmt.ReferencedTable(e)
+	if err != nil {
+		return nil, err
+	}
+
+	return newRawRowReader(e, snap, table, ordCol)
 }
 
 type JoinSpec struct {
