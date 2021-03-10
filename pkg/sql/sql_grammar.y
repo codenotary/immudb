@@ -198,9 +198,9 @@ ddlstmt:
     }
 
 dmlstmt:
-    UPSERT INTO IDENTIFIER '(' ids ')' VALUES rows
+    UPSERT INTO tableRef '(' ids ')' VALUES rows
     {
-        $$ = &UpsertIntoStmt{table: $3, cols: $5, rows: $8}
+        $$ = &UpsertIntoStmt{tableRef: $3, cols: $5, rows: $8}
     }
 
 rows:

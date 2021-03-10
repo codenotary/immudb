@@ -16,8 +16,9 @@ limitations under the License.
 package sql
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"strings"
@@ -28,22 +29,28 @@ import (
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
-var ErrIllegalArguments = errors.New("illegal arguments")
+var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
 var ErrDatabaseDoesNotExist = errors.New("database does not exist")
 var ErrDatabaseAlreadyExists = errors.New("database already exists")
 var ErrNoDatabaseSelected = errors.New("no database selected")
 var ErrTableAlreadyExists = errors.New("table already exists")
 var ErrTableDoesNotExist = errors.New("table does not exist")
-var ErrInvalidPK = errors.New("invalid primary key")
-var ErrInvalidPKType = errors.New("primary key of invalid type. Only INTEGER type is supported")
+var ErrInvalidPK = errors.New("primary key of invalid type. Supported types are: INTEGER, STRING[256], TIMESTAMP OR BLOB[256]")
 var ErrDuplicatedColumn = errors.New("duplicated column")
 var ErrInvalidColumn = errors.New("invalid column")
 var ErrPKCanNotBeNull = errors.New("primary key can not be null")
 var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
 var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected")
-var ErrLimitedOrderBy = errors.New("order is limit to one column on declared table")
+var ErrLimitedOrderBy = errors.New("order is limit to one indexed column")
+var ErrIllegelMappedKey = errors.New("error illegal mapped key")
+var ErrCorruptedData = store.ErrCorruptedData
+var ErrNoMoreEntries = store.ErrNoMoreEntries
+
+const MaxPKStringValue = 256
+
+const asPK = true
 
 type Engine struct {
 	catalogStore *store.ImmuStore
@@ -121,15 +128,13 @@ func catalogFrom(e *Engine, snap *tbtree.Snapshot) (*Catalog, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	catalog := &Catalog{
-		databases: map[string]*Database{},
-	}
+	catalog := newCatalog()
 
 	dbReaderSpec := &tbtree.ReaderSpec{
 		Prefix: []byte(catalogDatabasePrefix),
 	}
 
-	dbReader, err := snap.NewReader(dbReaderSpec)
+	dbReader, err := e.dataStore.NewKeyReader(snap, dbReaderSpec)
 	if err == store.ErrNoMoreEntries {
 		return catalog, nil
 	}
@@ -138,7 +143,7 @@ func catalogFrom(e *Engine, snap *tbtree.Snapshot) (*Catalog, error) {
 	}
 
 	for {
-		mkey, _, _, _, err := dbReader.Read()
+		mkey, vref, _, _, err := dbReader.Read()
 		if err == store.ErrNoMoreEntries {
 			break
 		}
@@ -146,23 +151,44 @@ func catalogFrom(e *Engine, snap *tbtree.Snapshot) (*Catalog, error) {
 			return nil, err
 		}
 
-		db := &Database{
-			name: e.unmapDatabase(mkey),
+		id, err := e.unmapDatabaseID(mkey)
+		if err != nil {
+			return nil, err
 		}
 
-		catalog.databases[db.name] = db
+		v, err := vref.Resolve()
+		if err != nil {
+			return nil, err
+		}
+
+		db, err := catalog.newDatabase(string(v))
+		if err != nil {
+			return nil, err
+		}
+
+		if id != db.id {
+			return nil, ErrCorruptedData
+		}
 	}
 
 	return catalog, nil
 }
 
-func (e *Engine) unmap(mkey []byte, patternPrefix string) []string {
-	return strings.Split(strings.Trim(string(mkey[len(e.prefix):]), patternPrefix), patternSeparator)
+func (e *Engine) trimPrefix(mkey []byte, mappingPrefix []byte) ([]byte, error) {
+	if len(e.prefix) > len(mkey) || !bytes.Equal(mkey[len(e.prefix):], mappingPrefix) {
+		return nil, ErrIllegelMappedKey
+	}
+
+	return mkey[len(e.prefix)+len(mappingPrefix):], nil
 }
 
-func (e *Engine) unmapDatabase(mkey []byte) string {
-	args := e.unmap(mkey, catalogDatabasePrefix)
-	return args[0]
+func (e *Engine) unmapDatabaseID(mkey []byte) (uint64, error) {
+	encID, err := e.trimPrefix(mkey, []byte(catalogDatabasePrefix))
+	if err != nil {
+		return 0, err
+	}
+
+	return binary.BigEndian.Uint64(encID), nil
 }
 
 func existKey(key []byte, st *store.ImmuStore) (bool, error) {
@@ -176,14 +202,71 @@ func existKey(key []byte, st *store.ImmuStore) (bool, error) {
 	return false, nil
 }
 
-func (e *Engine) mapKey(pattern string, keys ...interface{}) []byte {
-	mk := fmt.Sprintf(pattern, keys...)
+func (e *Engine) mapKey(mappingPrefix string, encValues ...[]byte) []byte {
+	mkeyLen := len(e.prefix) + len(mappingPrefix)
 
-	pk := make([]byte, len(e.prefix)+len(mk))
-	copy(pk, e.prefix)
-	copy(pk[len(e.prefix):], mk)
+	for _, ev := range encValues {
+		mkeyLen += len(ev)
+	}
 
-	return pk
+	mkey := make([]byte, mkeyLen)
+
+	off := 0
+
+	copy(mkey[off:], e.prefix)
+	off += len(e.prefix)
+
+	copy(mkey[off:], []byte(mappingPrefix))
+	off += len(mappingPrefix)
+
+	for _, ev := range encValues {
+		copy(mkey[off:], ev)
+		off += len(ev)
+	}
+
+	return mkey
+}
+
+func encodeID(id uint64) []byte {
+	var encID [8]byte
+	binary.BigEndian.PutUint64(encID[:], id)
+	return encID[:]
+}
+
+func encodeValue(val interface{}, colType SQLValueType, isPK bool) ([]byte, error) {
+	switch colType {
+	case StringType:
+		{
+			strVal, ok := val.(string)
+			if !ok {
+				return nil, ErrInvalidValue
+			}
+
+			if len(strVal) > MaxPKStringValue {
+				return nil, ErrInvalidPK
+			}
+
+			encv := make([]byte, 4+len(strVal))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal)))
+			copy(encv[4:], []byte(strVal))
+
+			return encv, nil
+		}
+	case IntegerType:
+		{
+			intVal, ok := val.(uint64)
+			if !ok {
+				return nil, ErrInvalidValue
+			}
+
+			var encv [8]byte
+			binary.BigEndian.PutUint64(encv[:], intVal)
+
+			return encv[:], nil
+		}
+	}
+
+	return nil, ErrInvalidValue
 }
 
 func (e *Engine) Catalog() *Catalog {
