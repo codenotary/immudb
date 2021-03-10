@@ -102,7 +102,7 @@ func TestCreateTable(t *testing.T) {
 	require.Equal(t, ErrInvalidPK, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY name)")
-	require.Equal(t, ErrInvalidPKType, err)
+	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
@@ -185,6 +185,22 @@ func TestQuery(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	r, err := engine.QueryStmt("SELECT id, title FROM table1")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 2)
+
+		require.Equal(t, uint64(i), row.Values["id"])
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["title"])
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title FROM table1 ORDER BY id DESC")
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
