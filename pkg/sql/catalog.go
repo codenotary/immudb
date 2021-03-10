@@ -16,33 +16,67 @@ limitations under the License.
 package sql
 
 type Catalog struct {
-	databases map[string]*Database
+	dbsByID   map[uint64]*Database
+	dbsByName map[string]*Database
 }
 
 type Database struct {
-	name   string
-	tables map[string]*Table
+	id           uint64
+	name         string
+	tablesByID   map[uint64]*Table
+	tablesByName map[string]*Table
 }
 
 type Table struct {
-	db      *Database
-	name    string
-	cols    map[string]*Column
-	pk      string
-	indexes map[string]struct{}
+	db         *Database
+	id         uint64
+	name       string
+	colsByID   map[uint64]*Column
+	colsByName map[string]*Column
+	pk         *Column
+	indexes    map[uint64]struct{}
 }
 
 type Column struct {
 	table   *Table
+	id      uint64
 	colName string
 	colType SQLValueType
 }
 
+func newCatalog() *Catalog {
+	return &Catalog{
+		dbsByID:   map[uint64]*Database{},
+		dbsByName: map[string]*Database{},
+	}
+}
+
+func (c *Catalog) newDatabase(name string) (*Database, error) {
+	exists := c.ExistDatabase(name)
+	if exists {
+		return nil, ErrDatabaseAlreadyExists
+	}
+
+	id := len(c.dbsByID) + 1
+
+	db := &Database{
+		id:           uint64(id),
+		name:         name,
+		tablesByID:   map[uint64]*Table{},
+		tablesByName: map[string]*Table{},
+	}
+
+	c.dbsByID[db.id] = db
+	c.dbsByName[db.name] = db
+
+	return db, nil
+}
+
 func (c *Catalog) Databases() []*Database {
-	dbs := make([]*Database, len(c.databases))
+	dbs := make([]*Database, len(c.dbsByID))
 
 	i := 0
-	for _, db := range c.databases {
+	for _, db := range c.dbsByID {
 		dbs[i] = db
 		i++
 	}
@@ -51,11 +85,61 @@ func (c *Catalog) Databases() []*Database {
 }
 
 func (c *Catalog) ExistDatabase(db string) bool {
-	_, exists := c.databases[db]
+	_, exists := c.dbsByName[db]
 	return exists
 }
 
 func (db *Database) ExistTable(table string) bool {
-	_, exists := db.tables[table]
+	_, exists := db.tablesByName[table]
 	return exists
+}
+
+func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Table, error) {
+	exists := db.ExistTable(name)
+	if exists {
+		return nil, ErrTableAlreadyExists
+	}
+
+	id := len(db.tablesByID) + 1
+
+	table := &Table{
+		id:         uint64(id),
+		db:         db,
+		name:       name,
+		colsByID:   make(map[uint64]*Column, 0),
+		colsByName: make(map[string]*Column, 0),
+		indexes:    make(map[uint64]struct{}, 0),
+	}
+
+	for _, cs := range colsSpec {
+		_, colExists := table.colsByName[cs.colName]
+		if colExists {
+			return nil, ErrDuplicatedColumn
+		}
+
+		id := len(table.colsByID) + 1
+
+		col := &Column{
+			id:      uint64(id),
+			table:   table,
+			colName: cs.colName,
+			colType: cs.colType,
+		}
+
+		table.colsByID[col.id] = col
+		table.colsByName[col.colName] = col
+
+		if pk == col.colName {
+			table.pk = col
+		}
+	}
+
+	if table.pk == nil {
+		return nil, ErrInvalidPK
+	}
+
+	db.tablesByID[table.id] = table
+	db.tablesByName[table.name] = table
+
+	return table, nil
 }

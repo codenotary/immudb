@@ -270,8 +270,8 @@ func TestInsertIntoStmt(t *testing.T) {
 			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, TIME(), 'untitled row', TRUE, false, b'AED0393F', @param1)",
 			expectedOutput: []SQLStmt{
 				&UpsertIntoStmt{
-					table: "table1",
-					cols:  []string{"id", "time", "title", "active", "compressed", "payload", "note"},
+					tableRef: &TableRef{table: "table1"},
+					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*RowSpec{
 						{Values: []interface{}{uint64(2), &SysFn{fn: "TIME"}, "untitled row", true, false, decodedBLOB, &Param{id: "param1"}}},
 					},
@@ -283,8 +283,8 @@ func TestInsertIntoStmt(t *testing.T) {
 			input: "UPSERT INTO table1(id, active) VALUES (1, false), (2, true), (3, true)",
 			expectedOutput: []SQLStmt{
 				&UpsertIntoStmt{
-					table: "table1",
-					cols:  []string{"id", "active"},
+					tableRef: &TableRef{table: "table1"},
+					cols:     []string{"id", "active"},
 					rows: []*RowSpec{
 						{Values: []interface{}{uint64(1), false}},
 						{Values: []interface{}{uint64(2), true}},
@@ -415,15 +415,15 @@ func TestTxStmt(t *testing.T) {
 				&TxStmt{
 					stmts: []SQLStmt{
 						&UpsertIntoStmt{
-							table: "table1",
-							cols:  []string{"id", "label"},
+							tableRef: &TableRef{table: "table1"},
+							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
 								{Values: []interface{}{uint64(100), "label1"}},
 							},
 						},
 						&UpsertIntoStmt{
-							table: "table2",
-							cols:  []string{"id"},
+							tableRef: &TableRef{table: "table2"},
+							cols:     []string{"id"},
 							rows: []*RowSpec{
 								{Values: []interface{}{uint64(10)}},
 							},
@@ -447,8 +447,8 @@ func TestTxStmt(t *testing.T) {
 				&TxStmt{
 					stmts: []SQLStmt{
 						&UpsertIntoStmt{
-							table: "table1",
-							cols:  []string{"id", "label"},
+							tableRef: &TableRef{table: "table1"},
+							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
 								{Values: []interface{}{uint64(100), "label1"}},
 							},
@@ -472,8 +472,8 @@ func TestTxStmt(t *testing.T) {
 							pk: "id",
 						},
 						&UpsertIntoStmt{
-							table: "table1",
-							cols:  []string{"id", "label"},
+							tableRef: &TableRef{table: "table1"},
+							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
 								{Values: []interface{}{uint64(100), "label1"}},
 							},
@@ -1039,15 +1039,15 @@ func TestMultiLineStmts(t *testing.T) {
 				&TxStmt{
 					stmts: []SQLStmt{
 						&UpsertIntoStmt{
-							table: "table1",
-							cols:  []string{"id", "label"},
+							tableRef: &TableRef{table: "table1"},
+							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
 								{Values: []interface{}{uint64(100), "label1"}},
 							},
 						},
 						&UpsertIntoStmt{
-							table: "table2",
-							cols:  []string{"id"},
+							tableRef: &TableRef{table: "table2"},
+							cols:     []string{"id"},
 							rows: []*RowSpec{
 								{Values: []interface{}{uint64(10)}},
 							},
