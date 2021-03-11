@@ -452,17 +452,22 @@ func newRawRowReader(e *Engine, snap *tbtree.Snapshot, table *Table, ordCol *Ord
 	var skey []byte
 
 	if desc {
+		encMaxPKValue, err := maxPKVal(table.pk.colType)
+		if err != nil {
+			return nil, err
+		}
+
 		if usePK {
-			encMaxValue, err := encodeValue(maxValue(table.pk.colType, asPK))
+			skey = make([]byte, len(prefix)+len(encMaxPKValue))
+			copy(skey, prefix)
+			copy(skey[len(prefix):], encMaxPKValue)
+		} else {
+			encMaxIdxValue, err := maxPKVal(col.colType)
 			if err != nil {
 				return nil, err
 			}
 
-			skey = make([]byte, len(prefix)+len(encMaxValue))
-			copy(skey, prefix)
-			copy(skey[len(prefix):], encMaxValue)
-		} else {
-			skey = e.mapKey(idxRow, table.db.name, table.name, ordCol.col.col, 0xFFFFFFFFFFFFFFF)
+			skey = e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id), encMaxIdxValue, encMaxPKValue)
 		}
 	}
 
@@ -496,18 +501,21 @@ func (r *RawRowReader) Read() (*Row, error) {
 	var v []byte
 
 	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	if r.ordCol == nil || r.table.pk == r.ordCol.col.col {
+	if r.ordCol == nil || r.table.pk.colName == r.ordCol.col.col {
 		v, err = vref.Resolve()
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		pkVal := r.e.unmap(mkey, idxRowPrefix)[1]
-		v, _, _, err = r.snap.Get(r.e.mapKey(idxRowPrefix, r.table.db.name, r.table.pk, pkVal))
+		_, _, _, _, pkVal, err := r.e.unmapRow(mkey)
+		if err != nil {
+			return nil, err
+		}
+
+		v, _, _, err = r.snap.Get(r.e.mapKey(rowPrefix, encodeID(r.table.db.id), encodeID(r.table.id), encodeID(r.table.pk.id), pkVal))
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	values := make(map[string]interface{}, len(r.table.cols))
+	values := make(map[string]interface{}, len(r.table.colsByID))
 
 	// len(stmt.cols)
 	if len(v) < 4 {
@@ -596,6 +604,10 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 		col, colExists := table.colsByName[stmt.orderBy[0].col.col]
 		if !colExists {
 			return nil, nil, ErrLimitedOrderBy
+		}
+
+		if table.pk.id == col.id {
+			return nil, nil, nil
 		}
 
 		_, indexed := table.indexes[col.id]
