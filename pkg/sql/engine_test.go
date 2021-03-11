@@ -104,7 +104,7 @@ func TestCreateTable(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY name)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
+	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
@@ -209,8 +209,8 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(i), row.Values["id"])
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["title"])
+		require.Equal(t, uint64(rowCount-1-i), row.Values["id"])
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["title"])
 	}
 
 	err = r.Close()

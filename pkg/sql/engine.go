@@ -48,7 +48,7 @@ var ErrIllegelMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
 var ErrNoMoreEntries = store.ErrNoMoreEntries
 
-const MaxPKStringValue = 256
+var mPKVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 const asPK = true
 
@@ -191,6 +191,38 @@ func (e *Engine) unmapDatabaseID(mkey []byte) (uint64, error) {
 	return binary.BigEndian.Uint64(encID), nil
 }
 
+func (e *Engine) unmapRow(mkey []byte) (dbID, tableID, colID uint64, val, pkVal []byte, err error) {
+	//{dbID}{tableID}{colID}({valLen}{val})?{pkVal}
+	enc, err := e.trimPrefix(mkey, []byte(rowPrefix))
+	if err != nil {
+		return 0, 0, 0, nil, nil, err
+	}
+
+	off := 0
+
+	dbID = binary.BigEndian.Uint64(enc[off:])
+	off += 8
+	tableID = binary.BigEndian.Uint64(enc[off:])
+	off += 8
+	colID = binary.BigEndian.Uint64(enc[off:])
+	off += 8
+
+	if len(enc) > 8 {
+		//read index value
+		valLen := binary.BigEndian.Uint32(enc[off:])
+		off += 4
+		val = make([]byte, valLen)
+		copy(val, enc[off:off+int(valLen)])
+		off += int(valLen)
+	}
+
+	pkVal = make([]byte, len(enc)-off)
+	copy(pkVal, enc[off:])
+	off += len(pkVal)
+
+	return
+}
+
 func existKey(key []byte, st *store.ImmuStore) (bool, error) {
 	_, _, _, err := st.Get([]byte(key))
 	if err == nil {
@@ -233,7 +265,17 @@ func encodeID(id uint64) []byte {
 	return encID[:]
 }
 
-func encodeValue(val interface{}, colType SQLValueType, isPK bool) ([]byte, error) {
+func maxPKVal(colType SQLValueType) ([]byte, error) {
+	switch colType {
+	case IntegerType:
+		{
+			return mPKVal[:8], nil
+		}
+	}
+	return mPKVal[:], nil
+}
+
+func encodeValue(val interface{}, colType SQLValueType, asPK bool) ([]byte, error) {
 	switch colType {
 	case StringType:
 		{
@@ -242,7 +284,7 @@ func encodeValue(val interface{}, colType SQLValueType, isPK bool) ([]byte, erro
 				return nil, ErrInvalidValue
 			}
 
-			if len(strVal) > MaxPKStringValue {
+			if asPK && len(strVal) > len(mPKVal) {
 				return nil, ErrInvalidPK
 			}
 
