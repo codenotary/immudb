@@ -935,7 +935,7 @@ func TestImmuClient_GetAll(t *testing.T) {
 	_, err = client.VerifiedSet(ctx, []byte(`bbb`), []byte(`val`))
 	require.NoError(t, err)
 
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	entries, err := client.GetAll(ctx, [][]byte{[]byte(`aaa`), []byte(`bbb`)})
 	require.NoError(t, err)
