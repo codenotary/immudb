@@ -57,7 +57,6 @@ func execAll(db DB, req *schema.ExecAllRequest, timeout time.Duration) error {
 
 func TestConcurrentIndexClean(t *testing.T) {
 	db, closer := makeDb()
-	defer closer()
 
 	done := make(chan struct{})
 	ack := make(chan struct{})
@@ -113,6 +112,8 @@ func TestConcurrentIndexClean(t *testing.T) {
 
 	done <- struct{}{}
 	<-ack
+
+	closer()
 }
 
 func TestSetBatch(t *testing.T) {

@@ -582,11 +582,13 @@ func (s *ImmuStore) DumpIndexTo(targetDir string) error {
 	}
 
 	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
 
 	if s.indexErr != nil {
+		s.indexCond.L.Unlock()
 		return s.indexErr
 	}
+
+	s.indexCond.L.Unlock()
 
 	return s.index.DumpTo(filepath.Join(s.path, targetDir), false)
 }
