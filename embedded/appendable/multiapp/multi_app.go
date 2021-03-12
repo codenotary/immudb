@@ -152,6 +152,11 @@ func (mf *MultiFileAppendable) Copy(dstPath string) error {
 		return err
 	}
 
+	err = mf.Sync()
+	if err != nil {
+		return err
+	}
+
 	err = os.MkdirAll(dstPath, mf.fileMode)
 	if err != nil {
 		return err
