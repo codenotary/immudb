@@ -59,16 +59,19 @@ func TestConcurrentIndexClean(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
-	done := make(chan bool)
+	done := make(chan struct{})
+	ack := make(chan struct{})
 
-	cleanUpFreq := 1 * time.Second
-	cleanUpTimeout := 5 * time.Second
+	cleanUpFreq := 100 * time.Millisecond
+	cleanUpTimeout := 1 * time.Second
+	execAllTimeout := 1 * time.Second
 
-	go func(ticker *time.Ticker, done <-chan bool) {
+	go func(ticker *time.Ticker, done <-chan struct{}, ack chan<- struct{}) {
 		for {
 			select {
 			case <-done:
 				{
+					ack <- struct{}{}
 					return
 				}
 			case <-ticker.C:
@@ -80,7 +83,7 @@ func TestConcurrentIndexClean(t *testing.T) {
 				}
 			}
 		}
-	}(time.NewTicker(cleanUpFreq), done)
+	}(time.NewTicker(cleanUpFreq), done, ack)
 
 	txCount := 100
 	txSize := 32
@@ -103,12 +106,13 @@ func TestConcurrentIndexClean(t *testing.T) {
 			}
 		}
 
-		err := execAll(db, &schema.ExecAllRequest{Operations: kvs}, cleanUpTimeout)
+		err := execAll(db, &schema.ExecAllRequest{Operations: kvs}, execAllTimeout)
 		require.NoError(t, err)
 
 	}
 
-	done <- true
+	done <- struct{}{}
+	<-ack
 }
 
 func TestSetBatch(t *testing.T) {

@@ -692,24 +692,29 @@ func (t *TBtree) DumpTo(path string, onlyMutated bool) error {
 	return t.DumpToWith(path, onlyMutated, t.fileSize, t.fileMode)
 }
 
-func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMode os.FileMode) error {
+func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
 	if t.closed {
-		return ErrAlreadyClosed
-	}
-
-	if len(t.snapshots) > 0 {
-		return ErrSnapshotsNotClosed
+		return nil, ErrAlreadyClosed
 	}
 
 	_, _, err := t.flushTree()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = t.sync()
+	if err != nil {
+		return nil, err
+	}
+
+	return t.newSnapshot(0, t.root), nil
+}
+
+func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMode os.FileMode) error {
+	snapshot, err := t.currentSnapshot()
 	if err != nil {
 		return err
 	}
@@ -751,11 +756,6 @@ func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMod
 		OnlyMutated:    false,
 		BaseNLogOffset: 0,
 		BaseHLogOffset: 0,
-	}
-
-	snapshot := t.newSnapshot(0, t.root)
-	if err != nil {
-		return err
 	}
 
 	offset, _, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)

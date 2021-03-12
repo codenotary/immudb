@@ -83,9 +83,8 @@ const (
 	metaFileSize     = "FILE_SIZE"
 )
 
-const indexPath = "index"
-const cleanIndexPath = "index_cleaning"
-const ahtPath = "aht"
+const indexDirname = "index"
+const ahtDirname = "aht"
 
 type ImmuStore struct {
 	path string
@@ -318,7 +317,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	indexPath := filepath.Join(path, indexPath)
+	indexPath := filepath.Join(path, indexDirname)
 
 	indexOpts := tbtree.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
@@ -336,7 +335,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, err
 	}
 
-	ahtPath := filepath.Join(path, ahtPath)
+	ahtPath := filepath.Join(path, ahtDirname)
 
 	ahtOpts := ahtree.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
@@ -539,7 +538,11 @@ func (s *ImmuStore) indexer() {
 	s.indexCond.L.Unlock()
 }
 
-func (s *ImmuStore) CleanIndex() error {
+func (s *ImmuStore) ReplaceIndex(newIndexDir string) error {
+	if indexDirname == newIndexDir {
+		return ErrIllegalArguments
+	}
+
 	s.indexCond.L.Lock()
 	defer s.indexCond.L.Unlock()
 
@@ -550,36 +553,42 @@ func (s *ImmuStore) CleanIndex() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	indexPath := filepath.Join(s.path, indexPath)
-	cleanIndexPath := filepath.Join(s.path, cleanIndexPath)
-	defer os.RemoveAll(cleanIndexPath)
-
-	err := s.index.DumpTo(cleanIndexPath, false)
+	err := s.index.Close()
 	if err != nil {
 		return err
 	}
 
-	err = s.index.Close()
-	if err != nil {
-		return err
-	}
+	indexPath := filepath.Join(s.path, indexDirname)
 
 	err = os.RemoveAll(indexPath)
 	if err != nil {
 		return err
 	}
 
-	err = os.Rename(cleanIndexPath, indexPath)
+	refIndexPath := filepath.Join(s.path, newIndexDir)
+	err = os.Rename(refIndexPath, indexPath)
 	if err != nil {
 		return err
 	}
 
 	s.index, err = tbtree.Open(indexPath, s.index.GetOptions())
-	if err != nil {
-		return err
+
+	return err
+}
+
+func (s *ImmuStore) DumpIndexTo(targetDir string) error {
+	if indexDirname == targetDir {
+		return ErrIllegalArguments
 	}
 
-	return nil
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
+	if s.indexErr != nil {
+		return s.indexErr
+	}
+
+	return s.index.DumpTo(filepath.Join(s.path, targetDir), false)
 }
 
 func (s *ImmuStore) IndexInfo() (uint64, error) {
