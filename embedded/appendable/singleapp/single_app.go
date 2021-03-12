@@ -206,7 +206,11 @@ func (aof *AppendableFile) Copy(dstPath string) error {
 	}
 
 	_, err = io.Copy(dstFile, aof.f)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return dstFile.Sync()
 }
 
 func (aof *AppendableFile) CompressionFormat() int {

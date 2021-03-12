@@ -127,14 +127,7 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 	keyCount := 1_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
-	err = tbtree.DumpTo("test_tree_dump", false)
-	require.NoError(t, err)
-	defer os.RemoveAll("test_tree_dump")
-
-	err = tbtree.Close()
-	require.NoError(t, err)
-
-	tbtree, err = Open("test_tree_dump", DefaultOptions())
+	_, err = tbtree.CompactIndex()
 	require.NoError(t, err)
 
 	checkAfterMonotonicInsertions(t, tbtree, 1, keyCount, true)

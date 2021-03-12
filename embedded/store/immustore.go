@@ -538,11 +538,7 @@ func (s *ImmuStore) indexer() {
 	s.indexCond.L.Unlock()
 }
 
-func (s *ImmuStore) ReplaceIndex(newIndexDir string) error {
-	if indexDirname == newIndexDir {
-		return ErrIllegalArguments
-	}
-
+func (s *ImmuStore) ReplaceIndex(compactedIndexID uint64) error {
 	s.indexCond.L.Lock()
 	defer s.indexCond.L.Unlock()
 
@@ -560,13 +556,27 @@ func (s *ImmuStore) ReplaceIndex(newIndexDir string) error {
 
 	indexPath := filepath.Join(s.path, indexDirname)
 
-	err = os.RemoveAll(indexPath)
+	nLogPath := filepath.Join(indexPath, "nodes")
+	err = os.RemoveAll(nLogPath)
 	if err != nil {
 		return err
 	}
 
-	refIndexPath := filepath.Join(s.path, newIndexDir)
-	err = os.Rename(refIndexPath, indexPath)
+	cLogPath := filepath.Join(indexPath, "commit")
+	err = os.RemoveAll(cLogPath)
+	if err != nil {
+		return err
+	}
+
+	cnLogPath := filepath.Join(indexPath, fmt.Sprintf("nodes_%d", compactedIndexID))
+	ccLogPath := filepath.Join(indexPath, fmt.Sprintf("commit_%d", compactedIndexID))
+
+	err = os.Rename(cnLogPath, nLogPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(ccLogPath, cLogPath)
 	if err != nil {
 		return err
 	}
@@ -576,21 +586,17 @@ func (s *ImmuStore) ReplaceIndex(newIndexDir string) error {
 	return err
 }
 
-func (s *ImmuStore) DumpIndexTo(targetDir string) error {
-	if indexDirname == targetDir {
-		return ErrIllegalArguments
-	}
-
+func (s *ImmuStore) CompactIndex() (uint64, error) {
 	s.indexCond.L.Lock()
 
 	if s.indexErr != nil {
 		s.indexCond.L.Unlock()
-		return s.indexErr
+		return 0, s.indexErr
 	}
 
 	s.indexCond.L.Unlock()
 
-	return s.index.DumpTo(filepath.Join(s.path, targetDir), false)
+	return s.index.CompactIndex()
 }
 
 func (s *ImmuStore) IndexInfo() (uint64, error) {

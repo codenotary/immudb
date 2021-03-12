@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -209,10 +210,10 @@ func Open(path string, opts *Options) (*TBtree, error) {
 		return nil, err
 	}
 
-	return OpenWith(nLog, hLog, cLog, opts)
+	return OpenWith(path, nLog, hLog, cLog, opts)
 }
 
-func OpenWith(nLog, hLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
+func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options) (*TBtree, error) {
 	if nLog == nil || hLog == nil || cLog == nil || !validOptions(opts) {
 		return nil, ErrIllegalArguments
 	}
@@ -244,6 +245,7 @@ func OpenWith(nLog, hLog, cLog appendable.Appendable, opts *Options) (*TBtree, e
 	}
 
 	t := &TBtree{
+		path:               path,
 		nLog:               nLog,
 		hLog:               hLog,
 		cLog:               cLog,
@@ -688,8 +690,8 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	return wN, wH, nil
 }
 
-func (t *TBtree) DumpTo(path string, onlyMutated bool) error {
-	return t.DumpToWith(path, onlyMutated, t.fileSize, t.fileMode)
+func (t *TBtree) CompactIndex() (uint64, error) {
+	return t.CompactIndexWith(t.fileSize, t.fileMode)
 }
 
 func (t *TBtree) currentSnapshot() (*Snapshot, error) {
@@ -705,33 +707,16 @@ func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 		return nil, err
 	}
 
-	err = t.sync()
-	if err != nil {
-		return nil, err
-	}
-
 	return t.newSnapshot(0, t.root), nil
 }
 
-func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMode os.FileMode) error {
+func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, error) {
 	snapshot, err := t.currentSnapshot()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	finfo, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = os.Mkdir(path, fileMode)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	} else if !finfo.IsDir() {
-		return ErrorPathIsNotADirectory
-	}
+	indexID := snapshot.Ts()
 
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
@@ -745,10 +730,10 @@ func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMod
 		WithMetadata(t.cLog.Metadata())
 
 	appendableOpts.WithFileExt("n")
-	nLogPath := filepath.Join(path, "nodes")
+	nLogPath := filepath.Join(t.path, fmt.Sprintf("nodes_%d", indexID))
 	nLog, err := multiapp.Open(nLogPath, appendableOpts)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer nLog.Close()
 
@@ -760,16 +745,14 @@ func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMod
 
 	offset, _, _, err := snapshot.WriteTo(&appendableWriter{nLog}, nil, wopts)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	t.hLog.Copy(filepath.Join(path, "history"))
-
 	appendableOpts.WithFileExt("ri")
-	cLogPath := filepath.Join(path, "commit")
+	cLogPath := filepath.Join(t.path, fmt.Sprintf("commit_%d", indexID))
 	cLog, err := multiapp.Open(cLogPath, appendableOpts)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer cLog.Close()
 
@@ -777,10 +760,10 @@ func (t *TBtree) DumpToWith(path string, onlyMutated bool, fileSize int, fileMod
 	binary.BigEndian.PutUint64(cb[:], uint64(offset))
 	_, _, err = cLog.Append(cb[:])
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return indexID, nil
 }
 
 func (t *TBtree) Close() error {
