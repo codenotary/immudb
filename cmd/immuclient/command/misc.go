@@ -68,10 +68,10 @@ func (cl *commandline) status(cmd *cobra.Command) {
 func (cl *commandline) auditmode(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:       "audit-mode command",
-		Short:     "Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' or use -h flag for details",
+		Short:     "Starts immuclient as daemon in auditor mode. Run 'immuclient help audit-mode' or use -h flag for details",
 		Aliases:   []string{"audit-mode"},
 		Example:   service.UsageExamples,
-		ValidArgs: []string{"help", "start", "install", "uninstall", "restart", "stop", "status"},
+		ValidArgs: []string{"start", "install", "uninstall", "restart", "stop", "status"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := audit.Init(args, cmd.Parent()); err != nil {
 				cl.quit(err)
@@ -86,7 +86,7 @@ func (cl *commandline) auditmode(cmd *cobra.Command) {
 func (cl *commandline) interactiveCli(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
 		Use:     "it",
-		Short:   "Starts immuclient in CLI mode. Use 'help' or -h flag on the shell for details",
+		Short:   "Starts immuclient in CLI mode. Use 'help' in the shell or the -h flag for details",
 		Aliases: []string{"cli-mode"},
 		Example: cli.Init(cl.immucl).HelpMessage(),
 		RunE: func(cmd *cobra.Command, args []string) error {
