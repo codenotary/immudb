@@ -19,11 +19,16 @@ package immuc
 import (
 	"context"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 )
 
 func (i *immuc) CurrentState(args []string) (string, error) {
 	ctx := context.Background()
-	state, err := i.ImmuClient.CurrentState(ctx)
+	state, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.CurrentState(ctx)
+	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -31,5 +36,5 @@ func (i *immuc) CurrentState(args []string) (string, error) {
 		}
 		return "", err
 	}
-	return PrintState(state), nil
+	return PrintState(state.(*schema.ImmutableState)), nil
 }

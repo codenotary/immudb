@@ -29,6 +29,9 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 	cmd.PersistentFlags().IntP("immudb-port", "p", client.DefaultOptions().Port, "immudb port number")
 	cmd.PersistentFlags().StringP("immudb-address", "a", client.DefaultOptions().Address, "immudb host address")
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immuclient.toml)")
+	cmd.PersistentFlags().String("username", "", "immudb username used to login")
+	cmd.PersistentFlags().String("password", "", "immudb password used to login; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
+	cmd.PersistentFlags().String("database", "", "immudb database to be used")
 	cmd.PersistentFlags().String(
 		"tokenfile",
 		client.DefaultOptions().TokenFileName,
@@ -56,6 +59,9 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 
 	viper.BindPFlag("immudb-port", cmd.PersistentFlags().Lookup("immudb-port"))
 	viper.BindPFlag("immudb-address", cmd.PersistentFlags().Lookup("immudb-address"))
+	viper.BindPFlag("username", cmd.PersistentFlags().Lookup("username"))
+	viper.BindPFlag("password", cmd.PersistentFlags().Lookup("password"))
+	viper.BindPFlag("database", cmd.PersistentFlags().Lookup("database"))
 	viper.BindPFlag("tokenfile", cmd.PersistentFlags().Lookup("tokenfile"))
 	viper.BindPFlag("mtls", cmd.PersistentFlags().Lookup("mtls"))
 	viper.BindPFlag("max-recv-msg-size", cmd.PersistentFlags().Lookup("max-recv-msg-size"))
@@ -78,6 +84,9 @@ func (cl *commandline) configureFlags(cmd *cobra.Command) error {
 
 	viper.SetDefault("immudb-port", client.DefaultOptions().Port)
 	viper.SetDefault("immudb-address", client.DefaultOptions().Address)
+	viper.SetDefault("password", "")
+	viper.SetDefault("username", "")
+	viper.SetDefault("database", "")
 	viper.SetDefault("tokenfile", client.DefaultOptions().TokenFileName)
 	viper.SetDefault("mtls", client.DefaultOptions().MTLs)
 	viper.SetDefault("max-recv-msg-size", client.DefaultOptions().MaxRecvMsgSize)

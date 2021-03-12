@@ -334,6 +334,9 @@ Environment variables:
   IMMUCLIENT_IMMUDB_ADDRESS=127.0.0.1
   IMMUCLIENT_IMMUDB_PORT=3322
   IMMUCLIENT_AUTH=true
+  IMMUCLIENT_USERNAME=username
+  IMMUCLIENT_PASSWORD=password
+  IMMUCLIENT_DATABASE=database
   IMMUCLIENT_MTLS=false
   IMMUCLIENT_MAX_RECV_MSG_SIZE=4194304
   IMMUCLIENT_SERVERNAME=localhost
@@ -379,6 +382,9 @@ Available Commands:
   zscan             Iterate over a sorted set
 
 Flags:
+      --username string          immudb username used to login
+      --password string          immudb password used to login; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
+      --database string          immudb database to be used
       --audit-password string    immudb password used to login during audit; can be plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)
       --audit-signature string   audit signature mode. ignore|validate. If 'ignore' is set auditor doesn't check for the root server signature. If 'validate' is set auditor verify that the root is signed properly by immudb server. Default value is 'ignore'
       --audit-username string    immudb username used to login during audit

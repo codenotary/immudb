@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 )
 
 func (i *immuc) GetTxByID(args []string) (string, error) {
@@ -29,7 +32,9 @@ func (i *immuc) GetTxByID(args []string) (string, error) {
 		return "", fmt.Errorf(" \"%v\" is not a valid id number", args[0])
 	}
 	ctx := context.Background()
-	tx, err := i.ImmuClient.TxByID(ctx, id)
+	tx, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.TxByID(ctx, id)
+	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
 			return fmt.Sprintf("no item exists in id:%v", id), nil
@@ -40,7 +45,7 @@ func (i *immuc) GetTxByID(args []string) (string, error) {
 		}
 		return "", err
 	}
-	return PrintTx(tx, false), nil
+	return PrintTx(tx.(*schema.Tx), false), nil
 }
 
 func (i *immuc) VerifiedGetTxByID(args []string) (string, error) {
@@ -49,7 +54,9 @@ func (i *immuc) VerifiedGetTxByID(args []string) (string, error) {
 		return "", fmt.Errorf(" \"%v\" is not a valid id number", args[0])
 	}
 	ctx := context.Background()
-	tx, err := i.ImmuClient.VerifiedTxByID(ctx, id)
+	tx, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.VerifiedTxByID(ctx, id)
+	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
 			return fmt.Sprintf("no item exists in id:%v", id), nil
@@ -60,13 +67,15 @@ func (i *immuc) VerifiedGetTxByID(args []string) (string, error) {
 		}
 		return "", err
 	}
-	return PrintTx(tx, true), nil
+	return PrintTx(tx.(*schema.Tx), true), nil
 }
 
 func (i *immuc) Get(args []string) (string, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.Get(ctx, key)
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.Get(ctx, key)
+	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
 			return fmt.Sprintf("key not found: %v ", string(key)), nil
@@ -78,13 +87,16 @@ func (i *immuc) Get(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV(response.Key, response.Value, response.Tx, false, i.valueOnly), nil
+	entry := response.(*schema.Entry)
+	return PrintKV(entry.Key, entry.Value, entry.Tx, false, i.valueOnly), nil
 }
 
 func (i *immuc) VerifiedGet(args []string) (string, error) {
 	key := []byte(args[0])
 	ctx := context.Background()
-	response, err := i.ImmuClient.VerifiedGet(ctx, key)
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.VerifiedGet(ctx, key)
+	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
 			return fmt.Sprintf("key not found: %v ", string(key)), nil
@@ -95,5 +107,7 @@ func (i *immuc) VerifiedGet(args []string) (string, error) {
 		}
 		return "", err
 	}
-	return PrintKV(response.Key, response.Value, response.Tx, true, i.valueOnly), nil
+
+	entry := response.(*schema.Entry)
+	return PrintKV(entry.Key, entry.Value, entry.Tx, true, i.valueOnly), nil
 }

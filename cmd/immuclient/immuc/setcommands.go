@@ -54,7 +54,9 @@ func (i *immuc) Set(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	meta, err := i.ImmuClient.Set(ctx, key, value)
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.Set(ctx, key, value)
+	})
 	if err != nil {
 		return "", err
 	}
@@ -66,12 +68,15 @@ func (i *immuc) Set(args []string) (string, error) {
 		return "", err
 	}
 
-	scstr, err := i.ImmuClient.GetSince(ctx, key, meta.Id)
+	txMeta := response.(*schema.TxMetadata)
+	scstr, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.GetSince(ctx, key, txMeta.Id)
+	})
 	if err != nil {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value2, scstr.Tx, false, false), nil
+	return PrintKV([]byte(args[0]), value2, scstr.(*schema.Entry).Tx, false, false), nil
 }
 
 func (i *immuc) VerifiedSet(args []string) (string, error) {
@@ -97,8 +102,9 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	_, err = i.ImmuClient.VerifiedSet(ctx, key, value)
-	if err != nil {
+	if _, err = i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.VerifiedSet(ctx, key, value)
+	}); err != nil {
 		return "", err
 	}
 
@@ -109,12 +115,14 @@ func (i *immuc) VerifiedSet(args []string) (string, error) {
 		return "", err
 	}
 
-	vi, err := i.ImmuClient.VerifiedGet(ctx, key)
+	vi, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.VerifiedGet(ctx, key)
+	})
 	if err != nil {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value2, vi.Tx, true, false), nil
+	return PrintKV([]byte(args[0]), value2, vi.(*schema.Entry).Tx, true, false), nil
 }
 
 func (i *immuc) ZAdd(args []string) (string, error) {
@@ -149,12 +157,14 @@ func (i *immuc) ZAdd(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	txMeta, err := i.ImmuClient.ZAdd(ctx, set, score, key)
+	txMeta, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.ZAdd(ctx, set, score, key)
+	})
 	if err != nil {
 		return "", err
 	}
 
-	return PrintSetItem(set, key, score, txMeta, false), nil
+	return PrintSetItem(set, key, score, txMeta.(*schema.TxMetadata), false), nil
 }
 
 func (i *immuc) VerifiedZAdd(args []string) (string, error) {
@@ -189,12 +199,14 @@ func (i *immuc) VerifiedZAdd(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	response, err := i.ImmuClient.VerifiedZAdd(ctx, set, score, key)
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.VerifiedZAdd(ctx, set, score, key)
+	})
 	if err != nil {
 		return "", err
 	}
 
-	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response, true)
+	resp := PrintSetItem([]byte(args[0]), []byte(args[2]), score, response.(*schema.TxMetadata), true)
 
 	return resp, nil
 }
@@ -206,10 +218,11 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 
 	dbname := args[0]
 	ctx := context.Background()
-	err := i.ImmuClient.CreateDatabase(ctx, &schema.Database{
-		Databasename: string(dbname),
-	})
-	if err != nil {
+	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return nil, immuClient.CreateDatabase(ctx, &schema.Database{
+			Databasename: string(dbname),
+		})
+	}); err != nil {
 		return "", err
 	}
 
@@ -217,16 +230,18 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 }
 
 func (i *immuc) DatabaseList(args []string) (string, error) {
-	resp, err := i.ImmuClient.DatabaseList(context.Background())
+	resp, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.DatabaseList(context.Background())
+	})
 	if err != nil {
 		return "", err
 	}
 
 	var dbList string
 
-	for _, val := range resp.Databases {
+	for _, val := range resp.(*schema.DatabaseListResponse).Databases {
 		if i.options.CurrentDatabase == val.Databasename {
-			dbList += fmt.Sprintf("*")
+			dbList += "*"
 		}
 		dbList += fmt.Sprintf("%s\n", val.Databasename)
 	}
@@ -235,15 +250,20 @@ func (i *immuc) DatabaseList(args []string) (string, error) {
 }
 
 func (i *immuc) UseDatabase(args []string) (string, error) {
-	if len(args) < 1 {
+	var dbname string
+	if len(args) > 0 {
+		dbname = args[0]
+	} else if len(i.options.Database) > 0 {
+		dbname = i.options.Database
+	} else {
 		return "", fmt.Errorf("database name not specified")
 	}
 
-	dbname := args[0]
-
 	ctx := context.Background()
-	resp, err := i.ImmuClient.UseDatabase(ctx, &schema.Database{
-		Databasename: dbname,
+	resp, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.UseDatabase(ctx, &schema.Database{
+			Databasename: dbname,
+		})
 	})
 	if err != nil {
 		return "", err
@@ -251,7 +271,7 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 
 	i.ImmuClient.GetOptions().CurrentDatabase = dbname
 
-	if err = i.ts.SetToken(dbname, resp.Token); err != nil {
+	if err = i.ts.SetToken(dbname, resp.(*schema.UseDatabaseReply).Token); err != nil {
 		return "", err
 	}
 

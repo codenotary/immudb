@@ -29,19 +29,24 @@ const AdminTokenFileSuffix = "_admin"
 
 // Options client options
 type Options struct {
-	Dir                 string
-	Address             string
-	Port                int
-	HealthCheckRetries  int
-	MTLs                bool
-	MTLsOptions         MTLsOptions
-	Auth                bool
-	MaxRecvMsgSize      int
-	DialOptions         *[]grpc.DialOption
-	Config              string
-	TokenFileName       string
-	CurrentDatabase     string
-	PasswordReader      c.PasswordReader
+	Dir                string
+	Address            string
+	Port               int
+	HealthCheckRetries int
+	MTLs               bool
+	MTLsOptions        MTLsOptions
+	Auth               bool
+	MaxRecvMsgSize     int
+	DialOptions        *[]grpc.DialOption
+	Config             string
+	TokenFileName      string
+	CurrentDatabase    string
+	//--> only used by immuclient CLI
+	PasswordReader c.PasswordReader
+	Username       string
+	Password       string
+	Database       string
+	//<--
 	Tkns                TokenService
 	Metrics             bool
 	PidPath             string
@@ -181,6 +186,24 @@ func (o *Options) Bind() string {
 // WithPasswordReader sets the password reader for the client
 func (o *Options) WithPasswordReader(pr c.PasswordReader) *Options {
 	o.PasswordReader = pr
+	return o
+}
+
+// WithUsername sets the username for the client
+func (o *Options) WithUsername(username string) *Options {
+	o.Username = username
+	return o
+}
+
+// WithPassword sets the password for the client
+func (o *Options) WithPassword(password string) *Options {
+	o.Password = password
+	return o
+}
+
+// WithDatabase sets the database for the client
+func (o *Options) WithDatabase(database string) *Options {
+	o.Database = database
 	return o
 }
 

@@ -29,11 +29,26 @@ import (
 )
 
 func (i *immuc) Login(args []string) (string, error) {
-	user := []byte(args[0])
-	pass, err := i.passwordReader.Read("Password:")
-	if err != nil {
-		return "", err
+	var user []byte
+	if len(args) >= 1 {
+		user = []byte(args[0])
+	} else if len(i.options.Username) > 0 {
+		user = []byte(i.options.Username)
+	} else {
+		return "", errors.New("please specify a username")
 	}
+
+	var pass []byte
+	var err error
+	if len(i.options.Password) == 0 {
+		pass, err = i.passwordReader.Read("Password:")
+		if err != nil {
+			return "", err
+		}
+	} else {
+		pass = []byte(i.options.Password)
+	}
+
 	ctx := context.Background()
 	response, err := i.ImmuClient.Login(ctx, user, pass)
 	if err != nil {
@@ -108,32 +123,39 @@ func (i *immuc) UserCreate(args []string) (string, error) {
 	default:
 		return "permission value not recognized. Allowed permissions are read, readwrite, admin", nil
 	}
-	err = i.ImmuClient.CreateUser(context.Background(), []byte(username), pass, userpermission, databasename)
+	_, err = i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return nil, immuClient.CreateUser(
+			context.Background(), []byte(username), pass, userpermission, databasename)
+	})
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Created user %s", username), nil
 }
+
 func (i *immuc) UserList(args []string) (string, error) {
-	userlist, err := i.ImmuClient.ListUsers(context.Background())
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.ListUsers(context.Background())
+	})
 	if err != nil {
 		return "", err
 	}
+	userList := response.(*schema.UserList)
 	ris := "\n"
-	ris += fmt.Sprint("User\tActive\tCreated By\tCreated At\t\t\t\t\tDatabase\tPermission")
-	for _, val := range userlist.Users {
+	ris += "User\tActive\tCreated By\tCreated At\t\t\t\t\tDatabase\tPermission"
+	for _, val := range userList.Users {
 		ris += fmt.Sprintf("%s\t%v\t%s\t\t%s\n", string(val.User), val.Active, val.Createdby, val.Createdat)
 		for _, val := range val.Permissions {
 			ris += fmt.Sprintf("\t\t\t\t\t\t\t\t\t\t%s\t\t", val.Database)
 			switch val.Permission {
 			case auth.PermissionAdmin:
-				ris += fmt.Sprintf("Admin\n")
+				ris += "Admin\n"
 			case auth.PermissionSysAdmin:
-				ris += fmt.Sprintf("System Admin\n")
+				ris += "System Admin\n"
 			case auth.PermissionR:
-				ris += fmt.Sprintf("Read\n")
+				ris += "Read\n"
 			case auth.PermissionRW:
-				ris += fmt.Sprintf("Read/Write\n")
+				ris += "Read/Write\n"
 			default:
 				return "permission value not recognized. Allowed permissions are read, write, admin", nil
 			}
@@ -170,21 +192,26 @@ func (i *immuc) ChangeUserPassword(args []string) (string, error) {
 	if !bytes.Equal(newpass, pass2) {
 		return "Passwords don't match", nil
 	}
-	if err := i.ImmuClient.ChangePassword(context.Background(), []byte(username), oldpass, []byte(newpass)); err != nil {
+	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return nil, immuClient.ChangePassword(
+			context.Background(), []byte(username), oldpass, []byte(newpass))
+	}); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Password of %s was successfully changed", username), nil
 }
+
 func (i *immuc) SetActiveUser(args []string, active bool) (string, error) {
 	if len(args) < 1 {
 		return "incorrect number of parameters for this command. Please type 'user help' for more information", nil
 	}
 	username := args[0]
-	err := i.ImmuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
-		Active:   active,
-		Username: username,
-	})
-	if err != nil {
+	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return nil, immuClient.SetActiveUser(context.Background(), &schema.SetActiveUserRequest{
+			Active:   active,
+			Username: username,
+		})
+	}); err != nil {
 		return "", err
 	}
 	return "user status changed successfully", nil
@@ -218,8 +245,10 @@ func (i *immuc) SetUserPermission(args []string) (string, error) {
 
 	dbname := args[3]
 
-	err := i.ImmuClient.ChangePermission(context.Background(), permissionAction, username, dbname, userpermission)
-	if err != nil {
+	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return nil, immuClient.ChangePermission(
+			context.Background(), permissionAction, username, dbname, userpermission)
+	}); err != nil {
 		return "", err
 	}
 	return "permission changed successfully", nil

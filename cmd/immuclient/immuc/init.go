@@ -16,9 +16,15 @@ limitations under the License.
 package immuc
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+
 	c "github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc/status"
 )
 
 type immuc struct {
@@ -34,6 +40,7 @@ type immuc struct {
 type Client interface {
 	Connect(args []string) error
 	Disconnect(args []string) error
+	Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error)
 	HealthCheck(args []string) (string, error)
 	CurrentState(args []string) (string, error)
 	GetTxByID(args []string) (string, error)
@@ -97,6 +104,39 @@ func (i *immuc) Disconnect(args []string) error {
 	return nil
 }
 
+func (i *immuc) Execute(f func(immuClient client.ImmuClient) (interface{}, error)) (interface{}, error) {
+	r, err := f(i.ImmuClient)
+	if err == nil {
+		return r, nil
+	}
+
+	needsLogin := strings.Contains(err.Error(), "token has expired") ||
+		strings.Contains(err.Error(), "please login first") ||
+		strings.Contains(err.Error(), "please select a database first")
+	if !needsLogin ||
+		len(i.ImmuClient.GetOptions().Username) == 0 ||
+		len(i.ImmuClient.GetOptions().Password) == 0 {
+		return nil, err
+	}
+
+	_, err = i.Login(nil)
+	if err != nil {
+		return nil, fmt.Errorf("error during automatic (re)login: %v", err)
+	}
+	if len(i.options.Database) > 0 {
+		if _, err := i.UseDatabase(nil); err != nil {
+			gRPCStatus, ok := status.FromError(err)
+			if ok {
+				err = errors.New(gRPCStatus.Message())
+			}
+			return nil, fmt.Errorf(
+				"error using database %s after automatic (re)login: %v", i.options.Database, err)
+		}
+	}
+
+	return f(i.ImmuClient)
+}
+
 func (i *immuc) SetPasswordReader(p c.PasswordReader) error {
 	i.passwordReader = p
 	return nil
@@ -112,9 +152,13 @@ func (i *immuc) SetValueOnly(v bool) {
 }
 
 func Options() *client.Options {
+	password, _ := auth.DecodeBase64Password(viper.GetString("password"))
 	options := client.DefaultOptions().
 		WithPort(viper.GetInt("immudb-port")).
 		WithAddress(viper.GetString("immudb-address")).
+		WithUsername(viper.GetString("username")).
+		WithPassword(password).
+		WithDatabase(viper.GetString("database")).
 		WithTokenFileName(viper.GetString("tokenfile")).
 		WithMTLs(viper.GetBool("mtls")).
 		WithTokenService(client.NewTokenService().WithTokenFileName(viper.GetString("tokenfile")).WithHds(client.NewHomedirService())).
