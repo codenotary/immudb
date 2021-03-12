@@ -106,7 +106,7 @@ func (icm *ImmuClientMock) Logout(ctx context.Context) error {
 }
 
 // VerifiedGet ...
-func (icm *ImmuClientMock) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error) {
+func (icm *ImmuClientMock) VerifiedGet(ctx context.Context, key []byte) (*schema.Entry, error) {
 	return icm.VerifiedGetF(ctx, key)
 }
 

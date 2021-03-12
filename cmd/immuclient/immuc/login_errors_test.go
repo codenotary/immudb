@@ -16,7 +16,6 @@ limitations under the License.
 
 package immuc
 
-/*
 import (
 	"context"
 	"errors"
@@ -300,4 +299,4 @@ func TestLoginAndUserCommandsErrors(t *testing.T) {
 	_, err = ic.SetUserPermission(args)
 	require.Equal(t, errChangePermission, err)
 }
-*/
+
