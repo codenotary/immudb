@@ -528,7 +528,6 @@ func (s *ImmuStore) indexer() {
 		}
 		if err != nil {
 			s.indexErr = err
-			s.indexCond.L.Unlock()
 			break
 		}
 
@@ -536,6 +535,8 @@ func (s *ImmuStore) indexer() {
 
 		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
+
+	s.indexCond.L.Unlock()
 }
 
 func (s *ImmuStore) CleanIndex() error {
