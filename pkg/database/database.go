@@ -138,9 +138,7 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 
 // CleanIndex ...
 func (d *db) CleanIndex() error {
-	compactedIndexDir := fmt.Sprintf("compacted_index_%d", time.Now().Unix())
-
-	err := d.st.DumpIndexTo(compactedIndexDir)
+	compactedIndexID, err := d.st.CompactIndex()
 	if err != nil {
 		return err
 	}
@@ -148,7 +146,7 @@ func (d *db) CleanIndex() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return d.st.ReplaceIndex(compactedIndexDir)
+	return d.st.ReplaceIndex(compactedIndexID)
 }
 
 // Set ...

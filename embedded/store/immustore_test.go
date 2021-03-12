@@ -664,10 +664,10 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 
 	time.Sleep(time.Duration(100) * time.Millisecond)
 
-	err = immuStore.DumpIndexTo("compacted_index")
+	cid, err := immuStore.CompactIndex()
 	require.NoError(t, err)
 
-	err = immuStore.ReplaceIndex("compacted_index")
+	err = immuStore.ReplaceIndex(cid)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup

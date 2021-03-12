@@ -36,7 +36,7 @@ func TestEdgeCases(t *testing.T) {
 	_, err := Open("edge_cases", nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = OpenWith(nil, nil, nil, nil)
+	_, err = OpenWith("edge_cases", nil, nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	nLog := &mocked.MockedAppendable{}
@@ -47,7 +47,7 @@ func TestEdgeCases(t *testing.T) {
 	cLog.MetadataFn = func() []byte {
 		return nil
 	}
-	_, err = OpenWith(nLog, hLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
 	require.Error(t, err)
 
 	// Should fail reading cLogSize
@@ -59,7 +59,7 @@ func TestEdgeCases(t *testing.T) {
 	cLog.SizeFn = func() (int64, error) {
 		return 0, errors.New("error")
 	}
-	_, err = OpenWith(nLog, hLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
 	require.Error(t, err)
 
 	// Should fail validating cLogSize
@@ -71,7 +71,7 @@ func TestEdgeCases(t *testing.T) {
 	cLog.SizeFn = func() (int64, error) {
 		return cLogEntrySize + 1, nil
 	}
-	_, err = OpenWith(nLog, hLog, cLog, DefaultOptions())
+	_, err = OpenWith("edge_cases", nLog, hLog, cLog, DefaultOptions())
 	require.Error(t, err)
 
 	opts := DefaultOptions().
@@ -323,7 +323,7 @@ func TestInvalidOpening(t *testing.T) {
 	_, err = Open("tbtree_test.go", DefaultOptions())
 	require.Equal(t, ErrorPathIsNotADirectory, err)
 
-	_, err = OpenWith(nil, nil, nil, nil)
+	_, err = OpenWith("tbtree_test", nil, nil, nil, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 }
 
