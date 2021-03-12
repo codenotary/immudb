@@ -1,16 +1,115 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
+
+func cleanIndex(db DB, timeout time.Duration) error {
+	done := make(chan error)
+
+	go func(done chan<- error) {
+		err := db.CleanIndex()
+		done <- err
+	}(done)
+
+	select {
+	case err := <-done:
+		{
+			return err
+		}
+	case <-time.After(timeout):
+		{
+			return errors.New("clean index timed out")
+		}
+	}
+}
+
+func execAll(db DB, req *schema.ExecAllRequest, timeout time.Duration) error {
+	done := make(chan error)
+
+	go func(done chan<- error) {
+		_, err := db.ExecAll(req)
+		done <- err
+	}(done)
+
+	select {
+	case err := <-done:
+		{
+			return err
+		}
+	case <-time.After(timeout):
+		{
+			return errors.New("execAll timed out")
+		}
+	}
+}
+
+func TestConcurrentIndexClean(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	done := make(chan bool)
+
+	cleanUpFreq := 1 * time.Second
+	cleanUpTimeout := 5 * time.Second
+
+	go func(ticker *time.Ticker, done <-chan bool) {
+		for {
+			select {
+			case <-done:
+				{
+					return
+				}
+			case <-ticker.C:
+				{
+					err := cleanIndex(db, cleanUpTimeout)
+					if err != nil {
+						panic(err)
+					}
+				}
+			}
+		}
+	}(time.NewTicker(cleanUpFreq), done)
+
+	txCount := 100
+	txSize := 32
+
+	for i := 0; i < txCount; i++ {
+
+		kvs := make([]*schema.Op, txSize)
+
+		for j := 0; j < txSize; j++ {
+			key := make([]byte, 32)
+			rand.Read(key)
+
+			kvs[j] = &schema.Op{
+				Operation: &schema.Op_Kv{
+					Kv: &schema.KeyValue{
+						Key:   key,
+						Value: []byte{},
+					},
+				},
+			}
+		}
+
+		err := execAll(db, &schema.ExecAllRequest{Operations: kvs}, cleanUpTimeout)
+		require.NoError(t, err)
+
+	}
+
+	done <- true
+}
 
 func TestSetBatch(t *testing.T) {
 	db, closer := makeDb()
