@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
@@ -55,6 +56,8 @@ type MultiFileAppendable struct {
 	fileExt  string
 
 	closed bool
+
+	mutex sync.Mutex
 }
 
 func Open(path string, opts *Options) (*MultiFileAppendable, error) {
@@ -143,16 +146,19 @@ func appendableID(off int64, fileSize int) int64 {
 }
 
 func (mf *MultiFileAppendable) Copy(dstPath string) error {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	if mf.closed {
 		return ErrAlreadyClosed
 	}
 
-	err := mf.Flush()
+	err := mf.flush()
 	if err != nil {
 		return err
 	}
 
-	err = mf.Sync()
+	err = mf.sync()
 	if err != nil {
 		return err
 	}
@@ -194,19 +200,31 @@ func copyFile(srcPath, dstPath string) (int64, error) {
 }
 
 func (mf *MultiFileAppendable) CompressionFormat() int {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	return mf.currApp.CompressionFormat()
 }
 
 func (mf *MultiFileAppendable) CompressionLevel() int {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	return mf.currApp.CompressionLevel()
 }
 
 func (mf *MultiFileAppendable) Metadata() []byte {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	bs, _ := appendable.NewMetadata(mf.currApp.Metadata()).Get(metaWrappedMeta)
 	return bs
 }
 
 func (mf *MultiFileAppendable) Size() (int64, error) {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	if mf.closed {
 		return 0, ErrAlreadyClosed
 	}
@@ -219,6 +237,9 @@ func (mf *MultiFileAppendable) Size() (int64, error) {
 }
 
 func (mf *MultiFileAppendable) Append(bs []byte) (off int64, n int, err error) {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	if mf.closed {
 		return 0, 0, ErrAlreadyClosed
 	}
@@ -295,10 +316,16 @@ func (mf *MultiFileAppendable) openAppendable(appname string) (*singleapp.Append
 }
 
 func (mf *MultiFileAppendable) Offset() int64 {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	return mf.currAppID*int64(mf.fileSize) + mf.currApp.Offset()
 }
 
 func (mf *MultiFileAppendable) SetOffset(off int64) error {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	if mf.closed {
 		return ErrAlreadyClosed
 	}
@@ -331,6 +358,9 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 }
 
 func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	if mf.closed {
 		return 0, ErrAlreadyClosed
 	}
@@ -387,6 +417,13 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 }
 
 func (mf *MultiFileAppendable) Flush() error {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
+	return mf.flush()
+}
+
+func (mf *MultiFileAppendable) flush() error {
 	if mf.closed {
 		return ErrAlreadyClosed
 	}
@@ -402,6 +439,13 @@ func (mf *MultiFileAppendable) Flush() error {
 }
 
 func (mf *MultiFileAppendable) Sync() error {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
+	return mf.sync()
+}
+
+func (mf *MultiFileAppendable) sync() error {
 	if mf.closed {
 		return ErrAlreadyClosed
 	}
@@ -417,6 +461,9 @@ func (mf *MultiFileAppendable) Sync() error {
 }
 
 func (mf *MultiFileAppendable) Close() error {
+	mf.mutex.Lock()
+	defer mf.mutex.Unlock()
+
 	if mf.closed {
 		return ErrAlreadyClosed
 	}
