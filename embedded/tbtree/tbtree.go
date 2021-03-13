@@ -300,6 +300,18 @@ func greatestKeyOfSize(size int) []byte {
 	return k
 }
 
+func greatestKeyOfSizeWithPrefix(size int, prefix []byte) ([]byte, error) {
+	if size < len(prefix) {
+		return nil, ErrIllegalArguments
+	}
+
+	key := make([]byte, size)
+	copy(key, prefix)
+	copy(key[len(prefix):], greatestKeyOfSize(size-len(prefix)))
+
+	return key, nil
+}
+
 func (t *TBtree) GetOptions() *Options {
 	return DefaultOptions().
 		WithReadOnly(t.readOnly).
