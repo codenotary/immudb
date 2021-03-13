@@ -122,14 +122,17 @@ func testVerifiedZAdd(ctx context.Context, t *testing.T, set []byte, scores []fl
 }
 
 func testZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, client ImmuClient) {
+	var md *schema.TxMetadata
+	var err error
+
 	for i := 0; i < len(scores); i++ {
-		_, err := client.ZAdd(ctx, set, scores[i], keys[i])
+		md, err = client.ZAdd(ctx, set, scores[i], keys[i])
 		require.NoError(t, err)
 	}
 
 	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
 		Set:     set,
-		SinceTx: uint64(len(scores)),
+		SinceTx: md.Id,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, itemList)
@@ -142,14 +145,17 @@ func testZAdd(ctx context.Context, t *testing.T, set []byte, scores []float64, k
 }
 
 func testZAddAt(ctx context.Context, t *testing.T, set []byte, scores []float64, keys [][]byte, values [][]byte, at uint64, client ImmuClient) {
+	var md *schema.TxMetadata
+	var err error
+
 	for i := 0; i < len(scores); i++ {
-		_, err := client.ZAddAt(ctx, set, scores[i], keys[i], at)
+		md, err = client.ZAddAt(ctx, set, scores[i], keys[i], at)
 		require.NoError(t, err)
 	}
 
 	itemList, err := client.ZScan(ctx, &schema.ZScanRequest{
 		Set:     set,
-		SinceTx: uint64(len(scores)),
+		SinceTx: md.Id,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, itemList)
