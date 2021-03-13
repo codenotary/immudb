@@ -106,13 +106,6 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 		return nil, ErrNoMoreEntries
 	}
 
-	if spec.DescOrder && len(spec.SeekKey) == 0 {
-		seekKey, err = greatestKeyOfSizeWithPrefix(s.t.maxKeyLen, spec.Prefix)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	path, startingLeaf, startingOffset, err := s.root.findLeafNode(seekKey, nil, nil, spec.DescOrder)
 	if err == ErrKeyNotFound {
 		return nil, ErrNoMoreEntries
