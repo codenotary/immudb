@@ -16,7 +16,6 @@ limitations under the License.
 package tbtree
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -96,17 +95,7 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 		return nil, ErrIllegalArguments
 	}
 
-	seekKey := spec.SeekKey
-
-	if !spec.DescOrder && bytes.Compare(spec.SeekKey, spec.Prefix) < 0 {
-		seekKey = spec.Prefix
-	}
-
-	if spec.DescOrder && bytes.Compare(spec.SeekKey, spec.Prefix) < 0 {
-		return nil, ErrNoMoreEntries
-	}
-
-	path, startingLeaf, startingOffset, err := s.root.findLeafNode(seekKey, nil, nil, spec.DescOrder)
+	path, startingLeaf, startingOffset, err := s.root.findLeafNode(spec.SeekKey, nil, nil, spec.DescOrder)
 	if err == ErrKeyNotFound {
 		return nil, ErrNoMoreEntries
 	}
@@ -117,7 +106,7 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 	r = &Reader{
 		snapshot:      s,
 		id:            s.maxReaderID,
-		seekKey:       seekKey,
+		seekKey:       spec.SeekKey,
 		prefix:        spec.Prefix,
 		inclusiveSeek: spec.InclusiveSeek,
 		descOrder:     spec.DescOrder,
