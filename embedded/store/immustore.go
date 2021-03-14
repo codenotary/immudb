@@ -549,6 +549,8 @@ func (s *ImmuStore) ReplaceIndex(compactedIndexID uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	opts := s.index.GetOptions()
+
 	err := s.index.Close()
 	if err != nil {
 		return err
@@ -581,7 +583,7 @@ func (s *ImmuStore) ReplaceIndex(compactedIndexID uint64) error {
 		return err
 	}
 
-	s.index, err = tbtree.Open(indexPath, s.index.GetOptions())
+	s.index, err = tbtree.Open(indexPath, opts)
 
 	return err
 }
@@ -600,8 +602,8 @@ func (s *ImmuStore) CompactIndex() (uint64, error) {
 }
 
 func (s *ImmuStore) IndexInfo() (uint64, error) {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.index.Ts(), s.indexErr
 }
