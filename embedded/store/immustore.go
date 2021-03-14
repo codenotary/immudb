@@ -602,8 +602,8 @@ func (s *ImmuStore) CompactIndex() (uint64, error) {
 }
 
 func (s *ImmuStore) IndexInfo() (uint64, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
 
 	return s.index.Ts(), s.indexErr
 }

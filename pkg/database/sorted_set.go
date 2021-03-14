@@ -46,7 +46,10 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 	defer d.mutex.Unlock()
 
 	lastTxID, _ := d.st.Alh()
-	d.WaitForIndexingUpto(lastTxID)
+	err := d.WaitForIndexingUpto(lastTxID)
+	if err != nil {
+		return nil, err
+	}
 
 	// check referenced key exists and it's not a reference
 	key := EncodeKey(req.Key)

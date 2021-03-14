@@ -40,7 +40,10 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	defer d.mutex.Unlock()
 
 	lastTxID, _ := d.st.Alh()
-	d.WaitForIndexingUpto(lastTxID)
+	err := d.WaitForIndexingUpto(lastTxID)
+	if err != nil {
+		return nil, err
+	}
 
 	// check key does not exists or it's already a reference
 	entry, err := d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.tx1)
