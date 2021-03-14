@@ -39,7 +39,10 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 	defer d.mutex.Unlock()
 
 	lastTxID, _ := d.st.Alh()
-	d.WaitForIndexingUpto(lastTxID)
+	err := d.WaitForIndexingUpto(lastTxID)
+	if err != nil {
+		return nil, err
+	}
 
 	snap, err := d.st.SnapshotSince(lastTxID)
 	if err != nil {
