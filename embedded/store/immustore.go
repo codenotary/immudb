@@ -1219,21 +1219,6 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	txOff, txSize, err := s.txOffsetAndSize(txID)
-	if err != nil {
-		return err
-	}
-
-	r := appendable.NewReaderFrom(s.txLog, txOff, txSize)
-
-	return tx.readFrom(r)
-}
-
-// ReadTxUnsafe should be used with care, inside Commit callback is safe
-func (s *ImmuStore) ReadTxUnsafe(txID uint64, tx *Tx) error {
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
 		return err
