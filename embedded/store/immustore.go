@@ -32,6 +32,7 @@ import (
 	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/cbuffer"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -56,6 +57,7 @@ var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = tbtree.ErrKeyNotFound
 var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = tbtree.ErrNoMoreEntries
+var ErrIllegalState = tbtree.ErrIllegalState
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
 var ErrLinearProofMaxLenExceeded = errors.New("max linear proof length limit exceeded")
@@ -95,6 +97,9 @@ type ImmuStore struct {
 
 	txLog appendable.Appendable
 	cLog  appendable.Appendable
+
+	txLogCache        *cache.LRUCache
+	txLogCacheRWMutex sync.RWMutex
 
 	committedTxID      uint64
 	committedAlh       [sha256.Size]byte
@@ -358,9 +363,15 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		blBuffer = cbuffer.New(opts.MaxLinearProofLen)
 	}
 
+	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize)
+	if err != nil {
+		return nil, err
+	}
+
 	store := &ImmuStore{
 		path:               path,
 		txLog:              txLog,
+		txLogCache:         txLogCache,
 		vLogs:              vLogsMap,
 		vLogUnlockedList:   vLogUnlockedList,
 		vLogsCond:          sync.NewCond(&sync.Mutex{}),
@@ -945,10 +956,21 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	copy(s._txbs[txSize:], tx.Alh[:])
 	txSize += sha256.Size
 
-	txOff, _, err := s.txLog.Append(s._txbs[:txSize])
+	txbs := make([]byte, txSize)
+	copy(txbs, s._txbs[:txSize])
+
+	txOff, _, err := s.txLog.Append(txbs)
 	if err != nil {
 		return err
 	}
+
+	s.txLogCacheRWMutex.Lock()
+	_, _, err = s.txLogCache.Put(tx.ID, txbs)
+	if err != nil {
+		s.txLogCacheRWMutex.Unlock()
+		return err
+	}
+	s.txLogCacheRWMutex.Unlock()
 
 	err = s.txLog.Flush()
 	if err != nil {
@@ -986,6 +1008,8 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	if err != nil {
 		return err
 	}
+
+	// cache     tx.ID, txbs
 
 	s.committedTxID++
 	s.committedAlh = tx.Alh
@@ -1218,13 +1242,56 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	return txOffset, txSize, nil
 }
 
+type slicedReaderAt struct {
+	bs  []byte
+	off int64
+}
+
+func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
+	if off < r.off || int(off-r.off) > len(bs) {
+		return 0, ErrIllegalState
+	}
+
+	o := int(off - r.off)
+	available := len(r.bs) - o
+
+	copy(bs, r.bs[o:minInt(available, len(bs))])
+
+	if len(bs) > available {
+		return available, io.EOF
+	}
+
+	return available, nil
+}
+
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
+	s.txLogCacheRWMutex.RLock()
+	s.txLogCacheRWMutex.RUnlock()
+
+	cacheMiss := false
+
+	txbs, err := s.txLogCache.Get(txID)
+	if err != nil && err != cache.ErrKeyNotFound {
+		return err
+	}
+	if err == cache.ErrKeyNotFound {
+		cacheMiss = true
+	}
+
 	txOff, txSize, err := s.txOffsetAndSize(txID)
 	if err != nil {
 		return err
 	}
 
-	r := appendable.NewReaderFrom(s.txLog, txOff, txSize)
+	var txr io.ReaderAt
+
+	if cacheMiss {
+		txr = s.txLog
+	} else {
+		txr = &slicedReaderAt{bs: txbs.([]byte), off: txOff}
+	}
+
+	r := appendable.NewReaderFrom(txr, txOff, txSize)
 
 	return tx.readFrom(r)
 }
