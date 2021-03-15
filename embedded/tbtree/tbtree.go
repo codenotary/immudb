@@ -44,6 +44,7 @@ var ErrSnapshotsNotClosed = errors.New("snapshots not closed")
 var ErrorToManyActiveSnapshots = errors.New("max active snapshots limit reached")
 var ErrCorruptedFile = errors.New("file is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
+var ErrCompactAlreadyInProgress = errors.New("compact already in progress")
 
 const Version = 1
 
@@ -70,19 +71,21 @@ type TBtree struct {
 
 	root node
 
-	maxNodeSize        int
-	keyHistorySpace    uint64
-	insertionCount     int
-	flushThld          int
-	maxActiveSnapshots int
-	renewSnapRootAfter time.Duration
-	readOnly           bool
-	synced             bool
-	cacheSize          int
-	fileSize           int
-	fileMode           os.FileMode
-	maxKeyLen          int
-	greatestKey        []byte
+	maxNodeSize           int
+	keyHistorySpace       uint64
+	insertionCount        int
+	flushThld             int
+	maxActiveSnapshots    int
+	renewSnapRootAfter    time.Duration
+	readOnly              bool
+	synced                bool
+	cacheSize             int
+	fileSize              int
+	fileMode              os.FileMode
+	maxKeyLen             int
+	delayDuringCompaction time.Duration
+
+	greatestKey []byte
 
 	snapshots      map[uint64]*Snapshot
 	maxSnapshotID  uint64
@@ -91,6 +94,8 @@ type TBtree struct {
 
 	committedNLogSize int64
 	committedHLogSize int64
+
+	compacting bool
 
 	closed bool
 	mutex  sync.Mutex
@@ -245,25 +250,26 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	}
 
 	t := &TBtree{
-		path:               path,
-		nLog:               nLog,
-		hLog:               hLog,
-		cLog:               cLog,
-		committedNLogSize:  0,
-		committedHLogSize:  hLogSize,
-		cache:              cache,
-		maxNodeSize:        maxNodeSize,
-		flushThld:          opts.flushThld,
-		renewSnapRootAfter: opts.renewSnapRootAfter,
-		maxActiveSnapshots: opts.maxActiveSnapshots,
-		fileSize:           opts.fileSize,
-		cacheSize:          opts.cacheSize,
-		fileMode:           opts.fileMode,
-		maxKeyLen:          opts.maxKeyLen,
-		greatestKey:        greatestKeyOfSize(opts.maxKeyLen),
-		readOnly:           opts.readOnly,
-		synced:             opts.synced,
-		snapshots:          make(map[uint64]*Snapshot),
+		path:                  path,
+		nLog:                  nLog,
+		hLog:                  hLog,
+		cLog:                  cLog,
+		committedNLogSize:     0,
+		committedHLogSize:     hLogSize,
+		cache:                 cache,
+		maxNodeSize:           maxNodeSize,
+		flushThld:             opts.flushThld,
+		renewSnapRootAfter:    opts.renewSnapRootAfter,
+		maxActiveSnapshots:    opts.maxActiveSnapshots,
+		fileSize:              opts.fileSize,
+		cacheSize:             opts.cacheSize,
+		fileMode:              opts.fileMode,
+		maxKeyLen:             opts.maxKeyLen,
+		delayDuringCompaction: opts.delayDuringCompaction,
+		greatestKey:           greatestKeyOfSize(opts.maxKeyLen),
+		readOnly:              opts.readOnly,
+		synced:                opts.synced,
+		snapshots:             make(map[uint64]*Snapshot),
 	}
 
 	var root node
@@ -711,6 +717,20 @@ func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 }
 
 func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, error) {
+	t.mutex.Lock()
+	if t.compacting {
+		t.mutex.Unlock()
+		return 0, ErrCompactAlreadyInProgress
+	}
+	t.compacting = true
+	t.mutex.Unlock()
+
+	defer func() {
+		t.mutex.Lock()
+		t.compacting = false
+		t.mutex.Unlock()
+	}()
+
 	snapshot, err := t.currentSnapshot()
 	if err != nil {
 		return 0, err
@@ -869,6 +889,10 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		}
 
 		t.insertionCount++
+
+		if t.compacting && t.delayDuringCompaction > 0 {
+			time.Sleep(t.delayDuringCompaction)
+		}
 	}
 
 	if t.insertionCount >= t.flushThld {
