@@ -53,20 +53,20 @@ func (w *fileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
 		if strings.Contains(line, db+":") {
 			r := strings.Split(line, ":")
 			if r[1] == "" {
-				return nil, fmt.Errorf("could not find previous state")
+				return nil, ErrPrevStateNotFound
 			}
 			oldState, err := base64.StdEncoding.DecodeString(r[1])
 			if err != nil {
-				return nil, fmt.Errorf("could not find previous state")
+				return nil, ErrLocalStateCorrupted
 			}
 			state := &schema.ImmutableState{}
 			if err = proto.Unmarshal(oldState, state); err != nil {
-				return nil, err
+				return nil, ErrLocalStateCorrupted
 			}
 			return state, nil
 		}
 	}
-	return nil, fmt.Errorf("could not find previous state")
+	return nil, ErrPrevStateNotFound
 }
 
 func (w *fileCache) Set(serverUUID, db string, state *schema.ImmutableState) error {
