@@ -34,6 +34,7 @@ const DefaultMaxLinearProofLen = 1 << 10
 const DefaultFileSize = multiapp.DefaultFileSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
+const DefaultTxLogCacheSize = 1000
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
@@ -45,6 +46,8 @@ type Options struct {
 	MaxConcurrency    int
 	MaxIOConcurrency  int
 	MaxLinearProofLen int
+
+	TxLogCacheSize int
 
 	VLogMaxOpenedFiles      int
 	TxLogMaxOpenedFiles     int
@@ -79,6 +82,8 @@ func DefaultOptions() *Options {
 		MaxConcurrency:    DefaultMaxConcurrency,
 		MaxIOConcurrency:  DefaultMaxIOConcurrency,
 		MaxLinearProofLen: DefaultMaxLinearProofLen,
+
+		TxLogCacheSize: DefaultTxLogCacheSize,
 
 		VLogMaxOpenedFiles:      10,
 		TxLogMaxOpenedFiles:     10,
@@ -116,6 +121,8 @@ func validOptions(opts *Options) bool {
 		opts.VLogMaxOpenedFiles > 0 &&
 		opts.TxLogMaxOpenedFiles > 0 &&
 		opts.CommitLogMaxOpenedFiles > 0 &&
+
+		opts.TxLogCacheSize >= 0 &&
 
 		// options below are only set during initialization and stored as metadata
 		opts.MaxTxEntries > 0 &&
@@ -178,6 +185,11 @@ func (opts *Options) WithMaxValueLen(maxValueLen int) *Options {
 
 func (opts *Options) WithMaxLinearProofLen(maxLinearProofLen int) *Options {
 	opts.MaxLinearProofLen = maxLinearProofLen
+	return opts
+}
+
+func (opts *Options) WithTxLogCacheSize(txLogCacheSize int) *Options {
+	opts.TxLogCacheSize = txLogCacheSize
 	return opts
 }
 
