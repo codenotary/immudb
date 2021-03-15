@@ -357,14 +357,45 @@ func (mf *MultiFileAppendable) SetOffset(off int64) error {
 	return mf.currApp.SetOffset(off % int64(mf.fileSize))
 }
 
-func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
+func (mf *MultiFileAppendable) appendableFor(off int64) (*singleapp.AppendableFile, error) {
 	mf.mutex.Lock()
 	defer mf.mutex.Unlock()
 
 	if mf.closed {
-		return 0, ErrAlreadyClosed
+		return nil, ErrAlreadyClosed
 	}
 
+	appID := appendableID(off, mf.fileSize)
+
+	app, err := mf.appendables.Get(appID)
+
+	if err != nil {
+		if err != cache.ErrKeyNotFound {
+			return nil, err
+		}
+
+		app, err = mf.openAppendable(appendableName(appID, mf.fileExt))
+		if err != nil {
+			return nil, err
+		}
+
+		_, ejectedApp, err := mf.appendables.Put(appID, app)
+		if err != nil {
+			return nil, err
+		}
+
+		if ejectedApp != nil {
+			err = ejectedApp.(*singleapp.AppendableFile).Close()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return app.(*singleapp.AppendableFile), nil
+}
+
+func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 	if len(bs) == 0 {
 		return 0, ErrIllegalArguments
 	}
@@ -374,34 +405,12 @@ func (mf *MultiFileAppendable) ReadAt(bs []byte, off int64) (int, error) {
 	for r < len(bs) {
 		offr := off + int64(r)
 
-		appID := appendableID(offr, mf.fileSize)
-
-		app, err := mf.appendables.Get(appID)
-
+		app, err := mf.appendableFor(offr)
 		if err != nil {
-			if err != cache.ErrKeyNotFound {
-				return r, err
-			}
-
-			app, err = mf.openAppendable(appendableName(appID, mf.fileExt))
-			if err != nil {
-				return r, err
-			}
-
-			_, ejectedApp, err := mf.appendables.Put(appID, app)
-			if err != nil {
-				return r, err
-			}
-
-			if ejectedApp != nil {
-				err = ejectedApp.(*singleapp.AppendableFile).Close()
-				if err != nil {
-					return r, err
-				}
-			}
+			return r, err
 		}
 
-		rn, err := app.(*singleapp.AppendableFile).ReadAt(bs[r:], offr%int64(mf.fileSize))
+		rn, err := app.ReadAt(bs[r:], offr%int64(mf.fileSize))
 		r += rn
 
 		if err == io.EOF && rn > 0 {
