@@ -26,6 +26,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/codenotary/immudb/embedded/appendable"
 )
@@ -59,6 +60,8 @@ type AppendableFile struct {
 
 	baseOffset int64
 	offset     int64
+
+	mutex sync.Mutex
 }
 
 func Open(fileName string, opts *Options) (*AppendableFile, error) {
@@ -185,6 +188,9 @@ func Open(fileName string, opts *Options) (*AppendableFile, error) {
 }
 
 func (aof *AppendableFile) Copy(dstPath string) error {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	if aof.closed {
 		return ErrAlreadyClosed
 	}
@@ -195,7 +201,7 @@ func (aof *AppendableFile) Copy(dstPath string) error {
 	}
 	defer dstFile.Close()
 
-	err = aof.Flush()
+	err = aof.flush()
 	if err != nil {
 		return err
 	}
@@ -226,6 +232,9 @@ func (aof *AppendableFile) Metadata() []byte {
 }
 
 func (aof *AppendableFile) Size() (int64, error) {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	if aof.closed {
 		return 0, ErrAlreadyClosed
 	}
@@ -238,10 +247,16 @@ func (aof *AppendableFile) Size() (int64, error) {
 }
 
 func (aof *AppendableFile) Offset() int64 {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	return aof.offset
 }
 
 func (aof *AppendableFile) SetOffset(off int64) error {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	if aof.closed {
 		return ErrAlreadyClosed
 	}
@@ -284,6 +299,9 @@ func (aof *AppendableFile) reader(r io.Reader) (reader io.ReadCloser, err error)
 }
 
 func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	if aof.closed {
 		return 0, 0, ErrAlreadyClosed
 	}
@@ -340,6 +358,9 @@ func (aof *AppendableFile) Append(bs []byte) (off int64, n int, err error) {
 }
 
 func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	if aof.closed {
 		return 0, ErrAlreadyClosed
 	}
@@ -399,6 +420,9 @@ func (aof *AppendableFile) ReadAt(bs []byte, off int64) (n int, err error) {
 }
 
 func (aof *AppendableFile) Flush() error {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	if aof.closed {
 		return ErrAlreadyClosed
 	}
@@ -407,6 +431,10 @@ func (aof *AppendableFile) Flush() error {
 		return ErrReadOnly
 	}
 
+	return aof.flush()
+}
+
+func (aof *AppendableFile) flush() error {
 	err := aof.w.Flush()
 	if err != nil {
 		return err
@@ -420,6 +448,9 @@ func (aof *AppendableFile) Flush() error {
 }
 
 func (aof *AppendableFile) Sync() error {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	if aof.closed {
 		return ErrAlreadyClosed
 	}
@@ -428,16 +459,23 @@ func (aof *AppendableFile) Sync() error {
 		return ErrReadOnly
 	}
 
+	return aof.sync()
+}
+
+func (aof *AppendableFile) sync() error {
 	return aof.f.Sync()
 }
 
 func (aof *AppendableFile) Close() error {
+	aof.mutex.Lock()
+	defer aof.mutex.Unlock()
+
 	if aof.closed {
 		return ErrAlreadyClosed
 	}
 
 	if !aof.readOnly {
-		err := aof.Flush()
+		err := aof.flush()
 		if err != nil {
 			return err
 		}
