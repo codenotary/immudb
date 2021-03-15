@@ -71,11 +71,15 @@ func (r *stateService) GetState(ctx context.Context, db string) (*schema.Immutab
 	r.Lock()
 	defer r.Unlock()
 
-	if state, err := r.cache.Get(r.serverUUID, db); err == nil {
+	state, err := r.cache.Get(r.serverUUID, db)
+	if err == nil {
 		return state, nil
 	}
+	if err != cache.ErrPrevStateNotFound {
+		return nil, err
+	}
 
-	state, err := r.stateProvider.CurrentState(ctx)
+	state, err = r.stateProvider.CurrentState(ctx)
 	if err != nil {
 		return nil, err
 	}
