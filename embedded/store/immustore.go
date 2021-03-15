@@ -585,6 +585,8 @@ func (s *ImmuStore) ReplaceIndex(compactedIndexID uint64) error {
 
 	s.index, err = tbtree.Open(indexPath, opts)
 
+	s.indexCond.Broadcast() // indexing must go on
+
 	return err
 }
 
