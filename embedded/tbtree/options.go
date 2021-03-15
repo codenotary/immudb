@@ -43,6 +43,8 @@ type Options struct {
 
 	maxKeyLen int
 
+	delayDuringCompaction time.Duration
+
 	// options below are only set during initialization and stored as metadata
 	maxNodeSize int
 	fileSize    int
@@ -50,14 +52,15 @@ type Options struct {
 
 func DefaultOptions() *Options {
 	return &Options{
-		flushThld:          DefaultFlushThld,
-		maxActiveSnapshots: DefaultMaxActiveSnapshots,
-		renewSnapRootAfter: DefaultRenewSnapRootAfter,
-		cacheSize:          DefaultCacheSize,
-		readOnly:           false,
-		synced:             false,
-		fileMode:           DefaultFileMode,
-		maxKeyLen:          DefaultMaxKeyLen,
+		flushThld:             DefaultFlushThld,
+		maxActiveSnapshots:    DefaultMaxActiveSnapshots,
+		renewSnapRootAfter:    DefaultRenewSnapRootAfter,
+		cacheSize:             DefaultCacheSize,
+		readOnly:              false,
+		synced:                false,
+		fileMode:              DefaultFileMode,
+		maxKeyLen:             DefaultMaxKeyLen,
+		delayDuringCompaction: 0,
 
 		// options below are only set during initialization and stored as metadata
 		maxNodeSize: DefaultMaxNodeSize,
@@ -122,5 +125,10 @@ func (opts *Options) WithMaxNodeSize(maxNodeSize int) *Options {
 
 func (opts *Options) WithFileSize(fileSize int) *Options {
 	opts.fileSize = fileSize
+	return opts
+}
+
+func (opts *Options) WithDelayDuringCompaction(delay time.Duration) *Options {
+	opts.delayDuringCompaction = delay
 	return opts
 }
