@@ -22,13 +22,16 @@ import (
 	"strings"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 )
 
 func (i *immuc) ZScan(args []string) (string, error) {
 	set := []byte(args[0])
 	ctx := context.Background()
 
-	response, err := i.ImmuClient.ZScan(ctx, &schema.ZScanRequest{Set: set, SinceTx: math.MaxUint64, NoWait: true})
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.ZScan(ctx, &schema.ZScanRequest{Set: set, SinceTx: math.MaxUint64, NoWait: true})
+	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 
@@ -41,12 +44,13 @@ func (i *immuc) ZScan(args []string) (string, error) {
 
 	str := strings.Builder{}
 
-	if len(response.Entries) == 0 {
+	zEntries := response.(*schema.ZEntries)
+	if len(zEntries.Entries) == 0 {
 		str.WriteString("0")
 		return str.String(), nil
 	}
 
-	for _, entry := range response.Entries {
+	for _, entry := range zEntries.Entries {
 		str.WriteString(PrintKV(entry.Entry.Key, entry.Entry.Value, entry.Entry.Tx, false, i.valueOnly))
 		str.WriteString("\n")
 	}
@@ -59,8 +63,9 @@ func (i *immuc) Scan(args []string) (res string, err error) {
 
 	ctx := context.Background()
 
-	response, err := i.ImmuClient.Scan(ctx, &schema.ScanRequest{Prefix: prefix, SinceTx: math.MaxUint64, NoWait: true})
-
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.Scan(ctx, &schema.ScanRequest{Prefix: prefix, SinceTx: math.MaxUint64, NoWait: true})
+	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -71,12 +76,13 @@ func (i *immuc) Scan(args []string) (res string, err error) {
 
 	str := strings.Builder{}
 
-	if len(response.Entries) == 0 {
+	entries := response.(*schema.Entries)
+	if len(entries.Entries) == 0 {
 		str.WriteString("0")
 		return str.String(), nil
 	}
 
-	for _, entry := range response.Entries {
+	for _, entry := range entries.Entries {
 		str.WriteString(PrintKV(entry.Key, entry.Value, entry.Tx, false, i.valueOnly))
 		str.WriteString("\n")
 	}
@@ -88,10 +94,12 @@ func (i *immuc) Count(args []string) (string, error) {
 	prefix := []byte(args[0])
 	ctx := context.Background()
 
-	response, err := i.ImmuClient.Count(ctx, prefix)
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.Count(ctx, prefix)
+	})
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprint(response.Count), nil
+	return fmt.Sprint(response.(*schema.EntryCount).Count), nil
 }

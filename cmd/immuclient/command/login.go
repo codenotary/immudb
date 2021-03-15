@@ -24,7 +24,7 @@ import (
 
 func (cl *commandline) login(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "login username (you will be prompted for password)",
+		Use:               "login username (you may be prompted for password)",
 		Short:             "Login using the specified username and password",
 		Aliases:           []string{"l"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
@@ -37,7 +37,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
 			return nil
 		},
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 	}
 	cmd.AddCommand(ccmd)
 }

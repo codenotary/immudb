@@ -24,6 +24,9 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/client"
 )
 
 func (i *immuc) SetReference(args []string) (string, error) {
@@ -48,7 +51,9 @@ func (i *immuc) SetReference(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	response, err := i.ImmuClient.SetReference(ctx, key, referencedKey)
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.SetReference(ctx, key, referencedKey)
+	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -62,7 +67,8 @@ func (i *immuc) SetReference(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value, uint64(response.Id), false, false), nil
+	txMeta := response.(*schema.TxMetadata)
+	return PrintKV([]byte(args[0]), value, uint64(txMeta.Id), false, false), nil
 }
 
 func (i *immuc) VerifiedSetReference(args []string) (string, error) {
@@ -87,7 +93,9 @@ func (i *immuc) VerifiedSetReference(args []string) (string, error) {
 	}
 
 	ctx := context.Background()
-	response, err := i.ImmuClient.VerifiedSetReference(ctx, key, referencedKey)
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.VerifiedSetReference(ctx, key, referencedKey)
+	})
 	if err != nil {
 		rpcerrors := strings.SplitAfter(err.Error(), "=")
 		if len(rpcerrors) > 1 {
@@ -101,5 +109,6 @@ func (i *immuc) VerifiedSetReference(args []string) (string, error) {
 		return "", err
 	}
 
-	return PrintKV([]byte(args[0]), value, uint64(response.Id), true, false), nil
+	txMeta := response.(*schema.TxMetadata)
+	return PrintKV([]byte(args[0]), value, uint64(txMeta.Id), true, false), nil
 }
