@@ -28,6 +28,7 @@ const DefaultCacheSize = 100_000
 const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
 const DefaultMaxKeyLen = 1024
+const DefaultCompactionThld = 3
 
 const MinNodeSize = 128
 const MinCacheSize = 1
@@ -43,6 +44,7 @@ type Options struct {
 
 	maxKeyLen int
 
+	compactionThld        int
 	delayDuringCompaction time.Duration
 
 	// options below are only set during initialization and stored as metadata
@@ -60,6 +62,7 @@ func DefaultOptions() *Options {
 		synced:                false,
 		fileMode:              DefaultFileMode,
 		maxKeyLen:             DefaultMaxKeyLen,
+		compactionThld:        DefaultCompactionThld,
 		delayDuringCompaction: 0,
 
 		// options below are only set during initialization and stored as metadata
@@ -75,7 +78,8 @@ func validOptions(opts *Options) bool {
 		opts.maxActiveSnapshots > 0 &&
 		opts.renewSnapRootAfter >= 0 &&
 		opts.cacheSize >= MinCacheSize &&
-		opts.maxKeyLen > 0
+		opts.maxKeyLen > 0 &&
+		opts.compactionThld >= 0
 }
 
 func (opts *Options) WithFlushThld(flushThld int) *Options {
@@ -125,6 +129,11 @@ func (opts *Options) WithMaxNodeSize(maxNodeSize int) *Options {
 
 func (opts *Options) WithFileSize(fileSize int) *Options {
 	opts.fileSize = fileSize
+	return opts
+}
+
+func (opts *Options) WithCompactionThld(compactionThld int) *Options {
+	opts.compactionThld = compactionThld
 	return opts
 }
 

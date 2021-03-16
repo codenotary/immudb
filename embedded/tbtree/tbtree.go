@@ -45,6 +45,7 @@ var ErrorToManyActiveSnapshots = errors.New("max active snapshots limit reached"
 var ErrCorruptedFile = errors.New("file is corrupted")
 var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrCompactAlreadyInProgress = errors.New("compact already in progress")
+var ErrCompactionThresholdNotReached = errors.New("compaction threshold not yet reached")
 
 const Version = 1
 
@@ -83,6 +84,7 @@ type TBtree struct {
 	fileSize              int
 	fileMode              os.FileMode
 	maxKeyLen             int
+	compactionThld        int
 	delayDuringCompaction time.Duration
 
 	greatestKey []byte
@@ -265,6 +267,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		cacheSize:             opts.cacheSize,
 		fileMode:              opts.fileMode,
 		maxKeyLen:             opts.maxKeyLen,
+		compactionThld:        opts.compactionThld,
 		delayDuringCompaction: opts.delayDuringCompaction,
 		greatestKey:           greatestKeyOfSize(opts.maxKeyLen),
 		readOnly:              opts.readOnly,
@@ -318,6 +321,7 @@ func (t *TBtree) GetOptions() *Options {
 		WithMaxActiveSnapshots(t.maxActiveSnapshots).
 		WithMaxNodeSize(t.maxNodeSize).
 		WithRenewSnapRootAfter(t.renewSnapRootAfter).
+		WithCompactionThld(t.compactionThld).
 		WithDelayDuringCompaction(t.delayDuringCompaction)
 }
 
@@ -717,13 +721,33 @@ func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 	return t.newSnapshot(0, t.root), nil
 }
 
+func (t *TBtree) storedSnapshotCount() (int, error) {
+	sz, err := t.cLog.Size()
+	if err != nil {
+		return 0, err
+	}
+	return int(sz % cLogEntrySize), nil
+}
+
 func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, error) {
 	t.mutex.Lock()
+
 	if t.compacting {
 		t.mutex.Unlock()
 		return 0, ErrCompactAlreadyInProgress
 	}
+
+	snapCount, err := t.storedSnapshotCount()
+	if err != nil {
+		return 0, err
+	}
+
+	if snapCount < t.compactionThld {
+		return 0, ErrCompactionThresholdNotReached
+	}
+
 	t.compacting = true
+
 	t.mutex.Unlock()
 
 	defer func() {

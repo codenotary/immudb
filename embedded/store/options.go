@@ -71,6 +71,7 @@ type IndexOptions struct {
 	MaxActiveSnapshots    int
 	MaxNodeSize           int
 	RenewSnapRootAfter    time.Duration
+	CompactionThld        int
 	DelayDuringCompaction time.Duration
 }
 
@@ -109,6 +110,7 @@ func DefaultIndexOptions() *IndexOptions {
 		MaxActiveSnapshots:    tbtree.DefaultMaxActiveSnapshots,
 		MaxNodeSize:           tbtree.DefaultMaxNodeSize,
 		RenewSnapRootAfter:    time.Duration(1000) * time.Millisecond,
+		CompactionThld:        tbtree.DefaultCompactionThld,
 		DelayDuringCompaction: 0,
 	}
 }
@@ -254,6 +256,11 @@ func (opts *IndexOptions) WithMaxNodeSize(maxNodeSize int) *IndexOptions {
 
 func (opts *IndexOptions) WithRenewSnapRootAfter(renewSnapRootAfter time.Duration) *IndexOptions {
 	opts.RenewSnapRootAfter = renewSnapRootAfter
+	return opts
+}
+
+func (opts *IndexOptions) WithCompactionThld(compactionThld int) *IndexOptions {
+	opts.CompactionThld = compactionThld
 	return opts
 }
 
