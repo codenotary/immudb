@@ -106,7 +106,7 @@ func TestImmuClient_Set32MBStream(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (1<<25)-1)
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (32<<20)-1)
 	require.NoError(t, err)
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
@@ -145,7 +145,7 @@ func TestImmuClient_SetMaxValueExceeded(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 1<<25)
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", 32<<20)
 	require.NoError(t, err)
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
@@ -177,17 +177,17 @@ func TestImmuClient_SetMaxTxValuesExceeded(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile1, err := streamtest.GenerateDummyFile("myFile1", 1<<24)
+	tmpFile1, err := streamtest.GenerateDummyFile("myFile1", 8<<20)
 	require.NoError(t, err)
 	defer tmpFile1.Close()
 	defer os.Remove(tmpFile1.Name())
 
-	tmpFile2, err := streamtest.GenerateDummyFile("tmpFile2", 1<<24)
+	tmpFile2, err := streamtest.GenerateDummyFile("tmpFile2", 8<<20)
 	require.NoError(t, err)
 	defer tmpFile2.Close()
 	defer os.Remove(tmpFile2.Name())
 
-	tmpFile3, err := streamtest.GenerateDummyFile("tmpFile3", 1<<24)
+	tmpFile3, err := streamtest.GenerateDummyFile("tmpFile3", 8<<20)
 	require.NoError(t, err)
 	defer tmpFile3.Close()
 	defer os.Remove(tmpFile3.Name())

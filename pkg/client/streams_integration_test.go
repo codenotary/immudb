@@ -54,7 +54,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (1<<25)-1)
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (32<<20)-1)
 	require.NoError(t, err)
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
@@ -90,7 +90,7 @@ func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
 	md = metadata.Pairs("authorization", ur.Token)
 	ctx = metadata.NewOutgoingContext(context.Background(), md)
 
-	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (1<<25)-1)
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", (32<<20)-1)
 	require.NoError(t, err)
 	defer tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
