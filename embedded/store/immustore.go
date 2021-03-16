@@ -743,20 +743,10 @@ func decodeOffset(offset int64) (byte, int64) {
 	return byte(offset >> 56), offset & ^(0xff << 55)
 }
 
-func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable, err error) {
+func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable) {
 	s.vLogsCond.L.Lock()
 
 	for s.vLogUnlockedList.Len() == 0 {
-		s.mutex.Lock()
-		if s.closed {
-			err = ErrAlreadyClosed
-		}
-		s.mutex.Unlock()
-
-		if err != nil {
-			return 0, nil, err
-		}
-
 		s.vLogsCond.Wait()
 	}
 
@@ -766,7 +756,7 @@ func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable, err
 
 	s.vLogsCond.L.Unlock()
 
-	return vLogID, s.vLogs[vLogID-1].vLog, nil
+	return vLogID, s.vLogs[vLogID-1].vLog
 }
 
 func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
@@ -811,12 +801,7 @@ type appendableResult struct {
 func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	offsets := make([]int64, len(entries))
 
-	vLogID, vLog, err := s.fetchAnyVLog()
-	if err != nil {
-		donec <- appendableResult{nil, err}
-		return
-	}
-
+	vLogID, vLog := s.fetchAnyVLog()
 	defer s.releaseVLog(vLogID)
 
 	for i := 0; i < len(offsets); i++ {
@@ -832,7 +817,7 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 		offsets[i] = encodeOffset(voff, vLogID)
 	}
 
-	err = vLog.Flush()
+	err := vLog.Flush()
 	if err != nil {
 		donec <- appendableResult{nil, err}
 	}
