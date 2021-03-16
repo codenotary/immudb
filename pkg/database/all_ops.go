@@ -44,12 +44,6 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 		return nil, err
 	}
 
-	snap, err := d.st.SnapshotSince(lastTxID)
-	if err != nil {
-		return nil, err
-	}
-	defer snap.Close()
-
 	callback := func(txID uint64) ([]*store.KV, error) {
 		entries := make([]*store.KV, len(req.Operations))
 
@@ -84,7 +78,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 				}
 
 				// check key does not exists or it's already a reference
-				entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, snap, d.tx1)
+				entry, err := d.getAt(EncodeKey(x.Ref.Key), 0, 0, d.st, d.tx1)
 				if err != nil && err != store.ErrKeyNotFound {
 					return nil, err
 				}
@@ -97,7 +91,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 
 				if !exists || x.Ref.AtTx > 0 {
 					// check referenced key exists and it's not a reference
-					refEntry, err := d.getAt(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, snap, d.tx1)
+					refEntry, err := d.getAt(EncodeKey(x.Ref.ReferencedKey), x.Ref.AtTx, 0, d.st, d.tx1)
 					if err != nil {
 						return nil, err
 					}
@@ -126,7 +120,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 
 				if !exists || x.ZAdd.AtTx > 0 {
 					// check referenced key exists and it's not a reference
-					refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, snap, d.tx1)
+					refEntry, err := d.getAt(EncodeKey(x.ZAdd.Key), x.ZAdd.AtTx, 0, d.st, d.tx1)
 					if err != nil {
 						return nil, err
 					}
