@@ -317,7 +317,8 @@ func (t *TBtree) GetOptions() *Options {
 		WithFlushThld(t.flushThld).
 		WithMaxActiveSnapshots(t.maxActiveSnapshots).
 		WithMaxNodeSize(t.maxNodeSize).
-		WithRenewSnapRootAfter(t.renewSnapRootAfter)
+		WithRenewSnapRootAfter(t.renewSnapRootAfter).
+		WithDelayDuringCompaction(t.delayDuringCompaction)
 }
 
 func (t *TBtree) FlushThld() int {
