@@ -1012,6 +1012,9 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64) ([]*KV, error)) (*TxMe
 		return nil, ErrIllegalArguments
 	}
 
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
