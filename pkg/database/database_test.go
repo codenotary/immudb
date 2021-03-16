@@ -50,6 +50,8 @@ var kvs = []*schema.KeyValue{
 func makeDb() (DB, func()) {
 	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	options := DefaultOption().WithDbName(dbName).WithCorruptionChecker(false)
+	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0))
+
 	db, err := NewDb(options, logger.NewSimpleLogger("immudb ", os.Stderr))
 	if err != nil {
 		log.Fatalf("Error creating Db instance %s", err)
@@ -374,7 +376,7 @@ func TestSetGetAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), txMetadata.Id)
 
-	err = db.CleanIndex()
+	err = db.CompactIndex()
 	require.NoError(t, err)
 
 	itList, err := db.GetAll(&schema.KeyListRequest{

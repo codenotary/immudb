@@ -626,6 +626,8 @@ func TestImmudbStoreCommitWith(t *testing.T) {
 
 func TestImmudbStoreHistoricalValues(t *testing.T) {
 	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	opts.WithIndexOptions(opts.IndexOpts.WithFlushThld(10))
+
 	immuStore, err := Open("data_historical", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_historical")
@@ -662,7 +664,7 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 		require.Equal(t, uint64(i+1), txMetadata.ID)
 	}
 
-	time.Sleep(time.Duration(100) * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	cid, err := immuStore.CompactIndex()
 	require.NoError(t, err)
