@@ -857,6 +857,7 @@ func TestImmuClient_History(t *testing.T) {
 
 func TestImmuClient_SetAll(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
+	options.StoreOptions.WithIndexOptions(options.StoreOptions.IndexOpts.WithCompactionThld(0))
 	bs := servertest.NewBufconnServer(options)
 
 	bs.Start()
