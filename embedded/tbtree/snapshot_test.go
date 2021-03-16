@@ -120,7 +120,7 @@ func TestSnapshotClosing(t *testing.T) {
 }
 
 func TestSnapshotLoadFromFullDump(t *testing.T) {
-	tbtree, err := Open("test_tree_r", DefaultOptions())
+	tbtree, err := Open("test_tree_r", DefaultOptions().WithCompactionThld(1))
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_r")
 
