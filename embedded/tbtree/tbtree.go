@@ -743,6 +743,7 @@ func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, e
 	}
 
 	if snapCount < t.compactionThld {
+		t.mutex.Unlock()
 		return 0, ErrCompactionThresholdNotReached
 	}
 

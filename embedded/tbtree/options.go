@@ -28,7 +28,7 @@ const DefaultCacheSize = 100_000
 const DefaultFileMode = os.FileMode(0755)
 const DefaultFileSize = 1 << 26 // 64Mb
 const DefaultMaxKeyLen = 1024
-const DefaultCompactionThld = 3
+const DefaultCompactionThld = 2
 
 const MinNodeSize = 128
 const MinCacheSize = 1
