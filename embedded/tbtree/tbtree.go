@@ -292,11 +292,12 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		t.committedNLogSize = committedRootOffset + int64(root.size())
+
+		t.lastSnapRoot = root
+		t.lastSnapRootAt = time.Now()
 	}
 
 	t.root = root
-	t.lastSnapRoot = root
-	t.lastSnapRootAt = time.Now()
 
 	return t, nil
 }

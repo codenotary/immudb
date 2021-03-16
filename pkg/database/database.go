@@ -65,7 +65,7 @@ type DB interface {
 	Scan(req *schema.ScanRequest) (*schema.Entries, error)
 	Close() error
 	GetOptions() *DbOptions
-	CleanIndex() error
+	CompactIndex() error
 }
 
 //IDB database instance
@@ -136,8 +136,8 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 	return db, nil
 }
 
-// CleanIndex ...
-func (d *db) CleanIndex() error {
+// CompactIndex ...
+func (d *db) CompactIndex() error {
 	compactedIndexID, err := d.st.CompactIndex()
 	if err != nil {
 		return err

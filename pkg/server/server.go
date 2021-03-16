@@ -1387,7 +1387,7 @@ func (s *ImmuServer) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.E
 		return nil, err
 	}
 
-	err = s.dbList.GetByIndex(ind).CleanIndex()
+	err = s.dbList.GetByIndex(ind).CompactIndex()
 
 	return &empty.Empty{}, err
 }
