@@ -68,8 +68,6 @@ type TBtree struct {
 
 	cLog appendable.Appendable
 
-	// bloom filter
-
 	root node
 
 	maxNodeSize           int
@@ -297,6 +295,8 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 	}
 
 	t.root = root
+	t.lastSnapRoot = root
+	t.lastSnapRootAt = time.Now()
 
 	return t, nil
 }
@@ -698,6 +698,9 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 		off:     t.root.offset(),
 	}
 
+	t.lastSnapRoot = t.root
+	t.lastSnapRootAt = time.Now()
+
 	return wN, wH, nil
 }
 
@@ -721,12 +724,12 @@ func (t *TBtree) currentSnapshot() (*Snapshot, error) {
 	return t.newSnapshot(0, t.root), nil
 }
 
-func (t *TBtree) storedSnapshotCount() (int, error) {
+func (t *TBtree) storedSnapshotsCount() (int, error) {
 	sz, err := t.cLog.Size()
 	if err != nil {
 		return 0, err
 	}
-	return int(sz % cLogEntrySize), nil
+	return int(sz / cLogEntrySize), nil
 }
 
 func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, error) {
@@ -737,7 +740,7 @@ func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, e
 		return 0, ErrCompactAlreadyInProgress
 	}
 
-	snapCount, err := t.storedSnapshotCount()
+	snapCount, err := t.storedSnapshotsCount()
 	if err != nil {
 		return 0, err
 	}
@@ -866,7 +869,20 @@ func (t *TBtree) Insert(key []byte, value []byte) error {
 
 func (t *TBtree) BulkInsert(kvs []*KV) error {
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
+
+	defer func() {
+		slowDown := false
+
+		if t.compacting && t.delayDuringCompaction > 0 {
+			slowDown = true
+		}
+
+		t.mutex.Unlock()
+
+		if slowDown {
+			time.Sleep(t.delayDuringCompaction)
+		}
+	}()
 
 	if t.closed {
 		return ErrAlreadyClosed
@@ -915,10 +931,6 @@ func (t *TBtree) BulkInsert(kvs []*KV) error {
 		}
 
 		t.insertionCount++
-
-		if t.compacting && t.delayDuringCompaction > 0 {
-			time.Sleep(t.delayDuringCompaction)
-		}
 	}
 
 	if t.insertionCount >= t.flushThld {
@@ -959,12 +971,6 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 		if err != nil {
 			return nil, err
 		}
-
-	}
-
-	if !t.root.mutated() {
-		t.lastSnapRoot = t.root
-		t.lastSnapRootAt = time.Now()
 	}
 
 	t.maxSnapshotID++
