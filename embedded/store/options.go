@@ -66,11 +66,12 @@ type Options struct {
 }
 
 type IndexOptions struct {
-	CacheSize          int
-	FlushThld          int
-	MaxActiveSnapshots int
-	MaxNodeSize        int
-	RenewSnapRootAfter time.Duration
+	CacheSize             int
+	FlushThld             int
+	MaxActiveSnapshots    int
+	MaxNodeSize           int
+	RenewSnapRootAfter    time.Duration
+	DelayDuringCompaction time.Duration
 }
 
 func DefaultOptions() *Options {
@@ -103,11 +104,12 @@ func DefaultOptions() *Options {
 
 func DefaultIndexOptions() *IndexOptions {
 	return &IndexOptions{
-		CacheSize:          tbtree.DefaultCacheSize,
-		FlushThld:          tbtree.DefaultFlushThld,
-		MaxActiveSnapshots: tbtree.DefaultMaxActiveSnapshots,
-		MaxNodeSize:        tbtree.DefaultMaxNodeSize,
-		RenewSnapRootAfter: time.Duration(1000) * time.Millisecond,
+		CacheSize:             tbtree.DefaultCacheSize,
+		FlushThld:             tbtree.DefaultFlushThld,
+		MaxActiveSnapshots:    tbtree.DefaultMaxActiveSnapshots,
+		MaxNodeSize:           tbtree.DefaultMaxNodeSize,
+		RenewSnapRootAfter:    time.Duration(1000) * time.Millisecond,
+		DelayDuringCompaction: 0,
 	}
 }
 
@@ -252,5 +254,10 @@ func (opts *IndexOptions) WithMaxNodeSize(maxNodeSize int) *IndexOptions {
 
 func (opts *IndexOptions) WithRenewSnapRootAfter(renewSnapRootAfter time.Duration) *IndexOptions {
 	opts.RenewSnapRootAfter = renewSnapRootAfter
+	return opts
+}
+
+func (opts *IndexOptions) WithDelayDuringCompaction(delayDuringCompaction time.Duration) *IndexOptions {
+	opts.DelayDuringCompaction = delayDuringCompaction
 	return opts
 }

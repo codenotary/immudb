@@ -333,7 +333,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithFlushThld(opts.IndexOpts.FlushThld).
 		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
 		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
-		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter)
+		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
+		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
 
 	index, err := tbtree.Open(indexPath, indexOpts)
 	if err != nil {
