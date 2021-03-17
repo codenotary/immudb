@@ -36,7 +36,8 @@ import (
 	"github.com/codenotary/immudb/embedded/cbuffer"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
-	"github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/codenotary/immudb/pkg/logger"
+	"google.golang.org/appengine/log"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -91,6 +92,7 @@ const ahtDirname = "aht"
 
 type ImmuStore struct {
 	path string
+	log  logger.Logger
 
 	vLogs            map[byte]*refVLog
 	vLogUnlockedList *list.List
@@ -329,6 +331,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	indexOpts := tbtree.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
 		WithFileMode(opts.FileMode).
+		WithLog(opts.log).
 		WithFileSize(fileSize).
 		WithSynced(false). // index is built from derived data
 		WithCacheSize(opts.IndexOpts.CacheSize).
@@ -374,6 +377,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	store := &ImmuStore{
 		path:               path,
+		log:                opts.log,
 		txLog:              txLog,
 		txLogCache:         txLogCache,
 		vLogs:              vLogsMap,
@@ -422,7 +426,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	txsToIndex := store.committedTxID - store.index.Ts()
 	if txsToIndex > 0 {
-		log.Infof("%d transactions haven't yet been indexed (%s)", txsToIndex, store.path)
+		store.log.Infof("%d transactions haven't yet been indexed (%s)", txsToIndex, store.path)
 	}
 
 	go store.indexer()

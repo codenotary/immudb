@@ -95,7 +95,7 @@ func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
 		return nil, fmt.Errorf("Missing database directories")
 	}
 
-	db.st, err = store.Open(dbDir, op.GetStoreOptions())
+	db.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
@@ -125,7 +125,7 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 		return nil, logErr(db.Logger, "Unable to create data folder: %s", err)
 	}
 
-	db.st, err = store.Open(dbDir, op.GetStoreOptions())
+	db.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}

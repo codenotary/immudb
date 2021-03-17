@@ -22,6 +22,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/codenotary/immudb/pkg/logger"
 )
 
 const DefaultMaxConcurrency = 30
@@ -42,6 +43,7 @@ type Options struct {
 	ReadOnly bool
 	Synced   bool
 	FileMode os.FileMode
+	log      logger.Logger
 
 	MaxConcurrency    int
 	MaxIOConcurrency  int
@@ -80,6 +82,7 @@ func DefaultOptions() *Options {
 		ReadOnly: false,
 		Synced:   true,
 		FileMode: DefaultFileMode,
+		log:      logger.NewSimpleLogger("immudb ", os.Stderr),
 
 		MaxConcurrency:    DefaultMaxConcurrency,
 		MaxIOConcurrency:  DefaultMaxIOConcurrency,
@@ -135,6 +138,7 @@ func validOptions(opts *Options) bool {
 		opts.MaxValueLen > 0 &&
 		opts.FileSize > 0 &&
 		opts.FileSize < MaxFileSize &&
+		opts.log != nil &&
 		validIndexOptions(opts.IndexOpts)
 }
 
@@ -159,6 +163,11 @@ func (opts *Options) WithSynced(synced bool) *Options {
 
 func (opts *Options) WithFileMode(fileMode os.FileMode) *Options {
 	opts.FileMode = fileMode
+	return opts
+}
+
+func (opts *Options) WithLog(log logger.Logger) *Options {
+	opts.log = log
 	return opts
 }
 

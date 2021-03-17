@@ -30,6 +30,7 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/multierr"
+	"github.com/codenotary/immudb/pkg/logger"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -59,6 +60,7 @@ const (
 // TBTree implements a timed-btree
 type TBtree struct {
 	path string
+	log  logger.Logger
 
 	nLog   appendable.Appendable
 	cache  *cache.LRUCache
@@ -251,6 +253,7 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 
 	t := &TBtree{
 		path:                  path,
+		log:                   opts.log,
 		nLog:                  nLog,
 		hLog:                  hLog,
 		cLog:                  cLog,
@@ -314,6 +317,7 @@ func (t *TBtree) GetOptions() *Options {
 		WithFileSize(t.fileSize).
 		WithMaxKeyLen(t.maxKeyLen).
 		WithSynced(t.synced).
+		WithLog(t.log).
 		WithCacheSize(t.cacheSize).
 		WithFlushThld(t.flushThld).
 		WithMaxActiveSnapshots(t.maxActiveSnapshots).
