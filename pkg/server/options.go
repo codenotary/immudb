@@ -72,7 +72,7 @@ func DefaultOptions() *Options {
 		MTLs:                false,
 		MTLsOptions:         &MTLsOptions{},
 		auth:                true,
-		MaxRecvMsgSize:      1024 * 1024 * 4, // 4Mb
+		MaxRecvMsgSize:      1024 * 1024 * 32, // 32Mb
 		NoHistograms:        false,
 		Detached:            false,
 		CorruptionCheck:     true,
