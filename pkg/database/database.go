@@ -138,15 +138,17 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 
 // CompactIndex ...
 func (d *db) CompactIndex() error {
-	compactedIndexID, err := d.st.CompactIndex()
-	if err != nil {
-		return err
+	d.Logger.Infof("Compacting index...")
+
+	err := d.st.CompactIndex()
+
+	if err == nil {
+		d.Logger.Infof("Compaction of index sucessfully completed")
+	} else {
+		d.Logger.Warningf("Compaction of index returned: %v", err)
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	return d.st.ReplaceIndex(compactedIndexID)
+	return err
 }
 
 // Set ...
