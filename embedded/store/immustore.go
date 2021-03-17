@@ -36,6 +36,7 @@ import (
 	"github.com/codenotary/immudb/embedded/cbuffer"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/coredns/coredns/plugin/pkg/log"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -128,9 +129,10 @@ type ImmuStore struct {
 	blErr    error
 	blCond   *sync.Cond
 
-	index     *tbtree.TBtree
-	indexErr  error
-	indexCond *sync.Cond
+	index           *tbtree.TBtree
+	indexErr        error
+	indexCond       *sync.Cond
+	compactionMutex sync.Mutex
 
 	mutex sync.Mutex
 
@@ -418,16 +420,35 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		go store.binaryLinking()
 	}
 
+	txsToIndex := store.committedTxID - store.index.Ts()
+	if txsToIndex > 0 {
+		log.Infof("%d transactions haven't yet been indexed (%s)", txsToIndex, store.path)
+	}
+
 	go store.indexer()
 
 	return store, nil
 }
 
 func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
+	if s.indexErr != nil {
+		return nil, 0, 0, s.indexErr
+	}
+
 	return s.index.Get(key)
 }
 
 func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
+	if s.indexErr != nil {
+		return nil, s.indexErr
+	}
+
 	return s.index.History(key, offset, descOrder, limit)
 }
 
@@ -436,10 +457,24 @@ func (s *ImmuStore) NewTx() *Tx {
 }
 
 func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
+	if s.indexErr != nil {
+		return nil, s.indexErr
+	}
+
 	return s.index.Snapshot()
 }
 
 func (s *ImmuStore) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
+	if s.indexErr != nil {
+		return nil, s.indexErr
+	}
+
 	return s.index.SnapshotSince(tx)
 }
 
@@ -531,10 +566,11 @@ func (s *ImmuStore) indexer() {
 		s.indexCond.L.Lock()
 
 		if s.index.Ts() == s.TxCount() {
+			log.Infof("All transactions were successfully indexed (%s)", s.path)
 			s.indexCond.Wait()
 		}
 
-		err := s.indexSince(s.index.Ts()+1, s.index.FlushThld())
+		err := s.indexSince(s.index.Ts()+1, 10)
 		if err == ErrAlreadyClosed {
 			break
 		}
@@ -545,19 +581,20 @@ func (s *ImmuStore) indexer() {
 
 		s.indexCond.L.Unlock()
 
-		time.Sleep(time.Duration(10) * time.Millisecond)
+		txsToIndex := s.TxCount() - s.index.Ts()
+		if txsToIndex > 0 && txsToIndex%1000 == 0 {
+			log.Infof("%d transactions haven't yet been indexed (%s)", txsToIndex, s.path)
+		}
+
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	s.indexCond.L.Unlock()
 }
 
-func (s *ImmuStore) ReplaceIndex(compactedIndexID uint64) error {
+func (s *ImmuStore) replaceIndex(compactedIndexID uint64) error {
 	s.indexCond.L.Lock()
 	defer s.indexCond.L.Unlock()
-
-	if s.indexErr != nil {
-		return s.indexErr
-	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -603,17 +640,16 @@ func (s *ImmuStore) ReplaceIndex(compactedIndexID uint64) error {
 	return err
 }
 
-func (s *ImmuStore) CompactIndex() (uint64, error) {
-	s.indexCond.L.Lock()
+func (s *ImmuStore) CompactIndex() error {
+	s.compactionMutex.Lock()
+	defer s.compactionMutex.Unlock()
 
-	if s.indexErr != nil {
-		s.indexCond.L.Unlock()
-		return 0, s.indexErr
+	compactedIndexID, err := s.index.CompactIndex()
+	if err != nil {
+		return err
 	}
 
-	s.indexCond.L.Unlock()
-
-	return s.index.CompactIndex()
+	return s.replaceIndex(compactedIndexID)
 }
 
 func (s *ImmuStore) IndexInfo() (uint64, error) {
@@ -1007,13 +1043,17 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	return nil
 }
 
-func (s *ImmuStore) CommitWith(callback func(txID uint64) ([]*KV, error)) (*TxMetadata, error) {
+func (s *ImmuStore) CommitWith(callback func(txID uint64, index *tbtree.TBtree) ([]*KV, error)) (*TxMetadata, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
 	}
 
 	s.indexCond.L.Lock()
 	defer s.indexCond.L.Unlock()
+
+	if s.indexErr != nil {
+		return nil, s.indexErr
+	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1024,7 +1064,7 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64) ([]*KV, error)) (*TxMe
 
 	txID := s.committedTxID + 1
 
-	entries, err := callback(txID)
+	entries, err := callback(txID, s.index)
 	if err != nil {
 		return nil, err
 	}
@@ -1355,6 +1395,9 @@ func (s *ImmuStore) validateEntries(entries []*KV) error {
 }
 
 func (s *ImmuStore) Sync() error {
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1385,6 +1428,9 @@ func (s *ImmuStore) Sync() error {
 }
 
 func (s *ImmuStore) Close() error {
+	s.indexCond.L.Lock()
+	defer s.indexCond.L.Unlock()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

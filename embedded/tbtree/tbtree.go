@@ -779,7 +779,10 @@ func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, e
 	if err != nil {
 		return 0, err
 	}
-	defer nLog.Close()
+	defer func() {
+		nLog.Sync()
+		nLog.Close()
+	}()
 
 	wopts := &WriteOpts{
 		OnlyMutated:    false,
@@ -798,7 +801,10 @@ func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, e
 	if err != nil {
 		return 0, err
 	}
-	defer cLog.Close()
+	defer func() {
+		cLog.Sync()
+		cLog.Close()
+	}()
 
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(offset))
