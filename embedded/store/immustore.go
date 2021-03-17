@@ -37,7 +37,6 @@ import (
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/logger"
-	"google.golang.org/appengine/log"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -566,11 +565,16 @@ func (s *ImmuStore) syncBinaryLinking() error {
 }
 
 func (s *ImmuStore) indexer() {
+	lastNotification := time.Now()
+
 	for {
 		s.indexCond.L.Lock()
 
 		if s.index.Ts() == s.TxCount() {
-			log.Infof("All transactions were successfully indexed (%s)", s.path)
+			if time.Since(lastNotification) > 60*time.Second {
+				lastNotification = time.Now()
+				s.log.Infof("All transactions were successfully indexed (%s)", s.path)
+			}
 			s.indexCond.Wait()
 		}
 
@@ -586,11 +590,12 @@ func (s *ImmuStore) indexer() {
 		s.indexCond.L.Unlock()
 
 		txsToIndex := s.TxCount() - s.index.Ts()
-		if txsToIndex > 0 && txsToIndex%1000 == 0 {
-			log.Infof("%d transactions haven't yet been indexed (%s)", txsToIndex, s.path)
+		if txsToIndex > 0 && time.Since(lastNotification) > 60*time.Second {
+			lastNotification = time.Now()
+			s.log.Infof("%d transactions haven't yet been indexed (%s)", txsToIndex, s.path)
 		}
 
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 	}
 
 	s.indexCond.L.Unlock()
