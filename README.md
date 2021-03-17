@@ -352,7 +352,7 @@ Usage:
   immuclient [command]
 
 Available Commands:
-  audit-mode        Starts immuclient as daemon in auditor mode. Run 'immuclient audit-mode help' or use -h flag for details
+  audit-mode        Starts immuclient as daemon in auditor mode. Run 'immuclient help audit-mode' or use -h flag for details
   check-consistency Check consistency for the specified index and hash
   count             Count keys having the specified value
   current           Return the last merkle tree root and index stored locally
@@ -363,7 +363,7 @@ Available Commands:
   history           Fetch history for the item having the specified key
   inclusion         Check if specified index is included in the current tree
   iscan             Iterate over all elements by insertion order
-  it                Starts immuclient in CLI mode. Use 'help' or -h flag on the shell for details
+  it                Starts immuclient in CLI mode. Use 'help' in the shell or the -h flag for details
   login             Login using the specified username and password
   logout
   rawsafeget        Get item having the specified key, without parsing structured values
