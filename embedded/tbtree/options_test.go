@@ -44,8 +44,9 @@ func TestValidOptions(t *testing.T) {
 	require.True(t, opts.WithSynced(true).synced)
 	require.Equal(t, 256, opts.WithMaxKeyLen(256).maxKeyLen)
 	require.Equal(t, time.Duration(1)*time.Millisecond, opts.WithDelayDuringCompaction(time.Duration(1)*time.Millisecond).delayDuringCompaction)
-
 	require.False(t, opts.WithReadOnly(false).readOnly)
+	require.NotNil(t, opts.WithLog(DefaultOptions().log))
+
 	require.True(t, validOptions(opts))
 
 	require.True(t, opts.WithReadOnly(true).readOnly)

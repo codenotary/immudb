@@ -18,6 +18,8 @@ package tbtree
 import (
 	"os"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/logger"
 )
 
 const DefaultMaxNodeSize = 4096
@@ -34,6 +36,8 @@ const MinNodeSize = 128
 const MinCacheSize = 1
 
 type Options struct {
+	log logger.Logger
+
 	flushThld          int
 	maxActiveSnapshots int
 	renewSnapRootAfter time.Duration
@@ -54,6 +58,7 @@ type Options struct {
 
 func DefaultOptions() *Options {
 	return &Options{
+		log:                   logger.NewSimpleLogger("immudb ", os.Stderr),
 		flushThld:             DefaultFlushThld,
 		maxActiveSnapshots:    DefaultMaxActiveSnapshots,
 		renewSnapRootAfter:    DefaultRenewSnapRootAfter,
@@ -79,7 +84,13 @@ func validOptions(opts *Options) bool {
 		opts.renewSnapRootAfter >= 0 &&
 		opts.cacheSize >= MinCacheSize &&
 		opts.maxKeyLen > 0 &&
-		opts.compactionThld >= 0
+		opts.compactionThld >= 0 &&
+		opts.log != nil
+}
+
+func (opts *Options) WithLog(log logger.Logger) *Options {
+	opts.log = log
+	return opts
 }
 
 func (opts *Options) WithFlushThld(flushThld int) *Options {

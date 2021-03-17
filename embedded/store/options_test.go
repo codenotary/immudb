@@ -54,6 +54,9 @@ func TestValidOptions(t *testing.T) {
 	require.NotNil(t, opts.WithIndexOptions(DefaultIndexOptions()).IndexOpts)
 
 	require.False(t, opts.WithReadOnly(false).ReadOnly)
+
+	require.NotNil(t, opts.WithLog(DefaultOptions().log))
+
 	require.True(t, validOptions(opts))
 
 	require.True(t, opts.WithReadOnly(true).ReadOnly)
