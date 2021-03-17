@@ -47,7 +47,7 @@ func (cl *commandline) user(cmd *cobra.Command) {
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp)
+			fmt.Fprint(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.MaximumNArgs(0),
@@ -64,7 +64,7 @@ immuadmin user create user1 admin mydb`,
 			if err != nil {
 				c.QuitToStdErr(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp)
+			fmt.Fprint(cmd.OutOrStdout(), resp)
 			return nil
 		},
 		Args: cobra.RangeArgs(2, 3),
@@ -84,7 +84,7 @@ immuadmin user create user1 admin mydb`,
 				}
 			}
 			if resp, _, err = cl.changeUserPassword(username, oldpass); err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), resp)
+				fmt.Fprint(cmd.OutOrStdout(), resp)
 			}
 			return err
 		},
@@ -96,7 +96,7 @@ immuadmin user create user1 admin mydb`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var resp string
 			if resp, err = cl.setActiveUser(args, true); err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), resp)
+				fmt.Fprint(cmd.OutOrStdout(), resp)
 			}
 			return err
 		},
@@ -108,7 +108,7 @@ immuadmin user create user1 admin mydb`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var resp string
 			if resp, err = cl.setActiveUser(args, false); err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), resp)
+				fmt.Fprint(cmd.OutOrStdout(), resp)
 			}
 			return err
 		},

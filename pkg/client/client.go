@@ -311,8 +311,7 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 			opts = append(opts, grpc.WithStreamInterceptor(auth.ClientStreamInterceptor(token)))
 		}
 	}
-	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)))
-	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
+	opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(uic...)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(options.MaxRecvMsgSize)))
 
 	return &opts
 }
@@ -877,9 +876,7 @@ func (c *immuClient) GetAll(ctx context.Context, keys [][]byte) (*schema.Entries
 
 	keyList := &schema.KeyListRequest{}
 
-	for _, key := range keys {
-		keyList.Keys = append(keyList.Keys, key)
-	}
+	keyList.Keys = append(keyList.Keys, keys...)
 
 	return c.ServiceClient.GetAll(ctx, keyList)
 }

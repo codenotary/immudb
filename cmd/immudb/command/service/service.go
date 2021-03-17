@@ -72,8 +72,7 @@ Currently working on linux, windows and freebsd operating systems.
 						argi = append(argi, k)
 					}
 				}
-				argi = append(argi, "--delayed")
-				argi = append(argi, strconv.Itoa(t))
+				argi = append(argi, "--delayed", strconv.Itoa(t))
 				if err = launch(os.Args[0], argi); err != nil {
 					return err
 				}
