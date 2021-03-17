@@ -647,7 +647,10 @@ func (aw *appendableWriter) Write(b []byte) (int, error) {
 }
 
 func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
+	t.log.Infof("Flushing index '%s'...", t.path)
+
 	if !t.root.mutated() {
+		t.log.Infof("Flush not needed for index '%s'...", t.path)
 		return 0, 0, nil
 	}
 
@@ -662,16 +665,19 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 
 	_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
+		t.log.Warningf("Flushing index '%s' returned: %v", err)
 		return 0, 0, err
 	}
 
 	err = t.nLog.Flush()
 	if err != nil {
+		t.log.Warningf("Flushing index '%s' returned: %v", err)
 		return 0, 0, err
 	}
 
 	err = t.hLog.Flush()
 	if err != nil {
+		t.log.Warningf("Flushing index '%s' returned: %v", err)
 		return 0, 0, err
 	}
 
@@ -679,11 +685,13 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	binary.BigEndian.PutUint64(cb[:], uint64(t.root.offset()))
 	_, _, err = t.cLog.Append(cb[:])
 	if err != nil {
+		t.log.Warningf("Flushing index '%s' returned: %v", err)
 		return 0, 0, err
 	}
 
 	err = t.cLog.Flush()
 	if err != nil {
+		t.log.Warningf("Flushing index '%s' returned: %v", err)
 		return 0, 0, err
 	}
 
@@ -699,6 +707,8 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 		_size:   t.root.size(),
 		off:     t.root.offset(),
 	}
+
+	t.log.Infof("Flushing index '%s' successfully completed", t.path)
 
 	return wN, wH, nil
 }
