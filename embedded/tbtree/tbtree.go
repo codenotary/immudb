@@ -292,9 +292,6 @@ func OpenWith(path string, nLog, hLog, cLog appendable.Appendable, opts *Options
 		}
 
 		t.committedNLogSize = committedRootOffset + int64(root.size())
-
-		t.lastSnapRoot = root
-		t.lastSnapRootAt = time.Now()
 	}
 
 	t.root = root
@@ -699,9 +696,6 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 		off:     t.root.offset(),
 	}
 
-	t.lastSnapRoot = t.root
-	t.lastSnapRootAt = time.Now()
-
 	return wN, wH, nil
 }
 
@@ -972,6 +966,11 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if !t.root.mutated() {
+		t.lastSnapRoot = t.root
+		t.lastSnapRootAt = time.Now()
 	}
 
 	t.maxSnapshotID++
