@@ -425,7 +425,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 	txsToIndex := store.committedTxID - store.index.Ts()
 	if txsToIndex > 0 {
-		store.log.Infof("%d transactions haven't yet been indexed (%s)", txsToIndex, store.path)
+		store.log.Infof("%d transactions haven't yet been indexed at '%s'", txsToIndex, store.path)
 	}
 
 	go store.indexer()
@@ -573,7 +573,7 @@ func (s *ImmuStore) indexer() {
 		if s.index.Ts() == s.TxCount() {
 			if time.Since(lastNotification) > 60*time.Second {
 				lastNotification = time.Now()
-				s.log.Infof("All transactions were successfully indexed (%s)", s.path)
+				s.log.Infof("All transactions were successfully indexed at '%s'", s.path)
 			}
 			s.indexCond.Wait()
 		}
@@ -592,7 +592,7 @@ func (s *ImmuStore) indexer() {
 		txsToIndex := s.TxCount() - s.index.Ts()
 		if txsToIndex > 0 && time.Since(lastNotification) > 60*time.Second {
 			lastNotification = time.Now()
-			s.log.Infof("%d transactions haven't yet been indexed (%s)", txsToIndex, s.path)
+			s.log.Infof("%d transactions haven't yet been indexed at '%s'", txsToIndex, s.path)
 		}
 
 		time.Sleep(1 * time.Millisecond)
