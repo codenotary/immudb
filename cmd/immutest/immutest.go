@@ -27,7 +27,7 @@ import (
 
 func main() {
 	err := execute(
-		func(opts *client.Options) (client.ImmuClient, error) { return client.NewImmuClient(opts) },
+		client.NewImmuClient,
 		c.DefaultPasswordReader,
 		c.NewTerminalReader(os.Stdin),
 		client.NewTokenService(),

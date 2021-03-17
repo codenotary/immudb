@@ -106,15 +106,9 @@ func TestEdgeCases(t *testing.T) {
 	metadata := appendable.NewMetadata(nil)
 	metadata.PutInt(MetaVersion, Version)
 
-	pLog.MetadataFn = func() []byte {
-		return metadata.Bytes()
-	}
-	dLog.MetadataFn = func() []byte {
-		return metadata.Bytes()
-	}
-	cLog.MetadataFn = func() []byte {
-		return metadata.Bytes()
-	}
+	pLog.MetadataFn = metadata.Bytes
+	dLog.MetadataFn = metadata.Bytes
+	cLog.MetadataFn = metadata.Bytes
 
 	cLog.SizeFn = func() (int64, error) {
 		return cLogEntrySize, nil

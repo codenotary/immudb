@@ -63,7 +63,7 @@ func (cl *commandline) login(cmd *cobra.Command) {
 					cl.quit(err)
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), changedPassMsg)
+				fmt.Fprint(cmd.OutOrStdout(), changedPassMsg)
 			}
 			return nil
 		},

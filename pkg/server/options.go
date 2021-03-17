@@ -210,7 +210,7 @@ func (o *Options) String() string {
 		return fmt.Sprintf("%-17s: %v", k, v)
 	}
 	opts := make([]string, 0, 17)
-	opts = append(opts, "================ Config ================")
+  opts = append(opts, "================ Config ================")
 	opts = append(opts, rightPad("Data dir", o.Dir))
 	opts = append(opts, rightPad("Address", fmt.Sprintf("%s:%d", o.Address, o.Port)))
 	if o.MetricsServer {
@@ -225,7 +225,7 @@ func (o *Options) String() string {
 	if o.Logfile != "" {
 		opts = append(opts, rightPad("Log file", o.Logfile))
 	}
-	opts = append(opts, rightPad("MTLS enabled", o.MTLs))
+  opts = append(opts, rightPad("MTLS enabled", o.MTLs))
 	opts = append(opts, rightPad("Max recv msg size", o.MaxRecvMsgSize))
 	opts = append(opts, rightPad("Auth enabled", o.auth))
 	opts = append(opts, rightPad("Dev mode", o.DevMode))
