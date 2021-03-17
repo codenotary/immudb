@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -52,13 +53,24 @@ type stdinPasswordReader struct {
 var DefaultPasswordReader PasswordReader = stdinPasswordReader{trp: terminalReadPw{}}
 
 func (pr stdinPasswordReader) Read(msg string) ([]byte, error) {
-	fmt.Print(msg)
-	pass, err := pr.trp.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Println()
-	if err != nil {
-		return nil, err
+	fi, _ := os.Stdin.Stat()
+	// pipe?
+	if (fi.Mode() & os.ModeCharDevice) == 0 {
+		pass, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, err
+		}
+		return pass, nil
+	} else {
+		// terminal
+		fmt.Print(msg)
+		pass, err := pr.trp.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Println()
+		if err != nil {
+			return nil, err
+		}
+		return pass, nil
 	}
-	return pass, nil
 }
 
 type terminalReadPw struct{}
