@@ -51,7 +51,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     boolExp BoolExp
     err error
     ordcols []*OrdCol
-    opt_ord bool
+    opt_ord Comparison
     logicOp LogicOperator
     cmpOp CmpOperator
 }
@@ -463,27 +463,27 @@ opt_orderby:
 ordcols:
     col opt_ord
     {
-        $$ = []*OrdCol{{col: $1, desc: $2}}
+        $$ = []*OrdCol{{sel: $1, cmp: $2}}
     }
 |
     ordcols ',' col opt_ord
     {
-        $$ = append($1, &OrdCol{col: $3, desc: $4})
+        $$ = append($1, &OrdCol{sel: $3, cmp: $4})
     }
 
 opt_ord:
     {
-        $$ = false
+        $$ = GreaterOrEqualTo
     }
 |
     ASC
     {
-        $$ = false
+        $$ = GreaterOrEqualTo
     }
 |
     DESC
     {
-        $$ = true
+        $$ = LowerOrEqualTo
     }
 
 opt_as:
