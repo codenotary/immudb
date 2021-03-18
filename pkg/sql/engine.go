@@ -36,6 +36,8 @@ var ErrDatabaseAlreadyExists = errors.New("database already exists")
 var ErrNoDatabaseSelected = errors.New("no database selected")
 var ErrTableAlreadyExists = errors.New("table already exists")
 var ErrTableDoesNotExist = errors.New("table does not exist")
+var ErrColumnDoesNotExist = errors.New("columns does not exist")
+var ErrColumnNotIndexed = errors.New("column is not indexed")
 var ErrInvalidPK = errors.New("primary key of invalid type. Supported types are: INTEGER, STRING[256], TIMESTAMP OR BLOB[256]")
 var ErrDuplicatedColumn = errors.New("duplicated column")
 var ErrInvalidColumn = errors.New("invalid column")
@@ -48,7 +50,7 @@ var ErrIllegelMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
 var ErrNoMoreEntries = store.ErrNoMoreEntries
 
-var mPKVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+var mKeyVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 const asPK = true
 
@@ -265,14 +267,14 @@ func encodeID(id uint64) []byte {
 	return encID[:]
 }
 
-func maxPKVal(colType SQLValueType) ([]byte, error) {
+func maxKeyVal(colType SQLValueType) []byte {
 	switch colType {
 	case IntegerType:
 		{
-			return mPKVal[:8], nil
+			return mKeyVal[:8]
 		}
 	}
-	return mPKVal[:], nil
+	return mKeyVal[:]
 }
 
 func encodeValue(val interface{}, colType SQLValueType, asPK bool) ([]byte, error) {
@@ -284,7 +286,7 @@ func encodeValue(val interface{}, colType SQLValueType, asPK bool) ([]byte, erro
 				return nil, ErrInvalidValue
 			}
 
-			if asPK && len(strVal) > len(mPKVal) {
+			if asPK && len(strVal) > len(maxKeyVal(StringType)) {
 				return nil, ErrInvalidPK
 			}
 
