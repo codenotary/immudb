@@ -19,7 +19,6 @@ package server
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -37,7 +36,7 @@ func (s *ImmuServer) StreamGet(kr *schema.KeyRequest, str schema.ImmuService_Str
 		return err
 	}
 
-	kvsr := s.StreamServiceFactory.NewKvStreamSender(str)
+	kvsr := s.StreamServiceFactory.NewKvStreamSender(s.StreamServiceFactory.NewMsgSender(str))
 
 	entry, err := s.dbList.GetByIndex(ind).Get(kr)
 	if err != nil {
@@ -63,7 +62,7 @@ func (s *ImmuServer) StreamSet(str schema.ImmuService_StreamSetServer) error {
 		return err
 	}
 
-	kvsr := s.StreamServiceFactory.NewKvStreamReceiver(str)
+	kvsr := s.StreamServiceFactory.NewKvStreamReceiver(s.StreamServiceFactory.NewMsgReceiver(str))
 
 	var kvs = make([]*schema.KeyValue, 0)
 
@@ -115,7 +114,7 @@ func (s *ImmuServer) StreamVerifiableGet(req *schema.VerifiableGetRequest, str s
 		return err
 	}
 
-	vess := s.StreamServiceFactory.NewVEntryStreamSender(str)
+	vess := s.StreamServiceFactory.NewVEntryStreamSender(s.StreamServiceFactory.NewMsgSender(str))
 
 	vEntry, err := s.dbList.GetByIndex(ind).VerifiableGet(req)
 	if err != nil {
@@ -191,24 +190,16 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 		return err
 	}
 
-	kvsr := s.StreamServiceFactory.NewKvStreamReceiver(str)
+	sr := s.StreamServiceFactory.NewMsgReceiver(str)
+	kvsr := s.StreamServiceFactory.NewKvStreamReceiver(sr)
 
 	vlength := 0
 
-	//--> 1st message is special: it's a fake key which has the ProveSinceTx as value
-	//		proveSinceTxFakeKey := []byte("ProveSinceTx")
-	proveSinceTxKey, proveSinceTxVReader, err := kvsr.Next()
+	proveSinceTxBs, err := stream.ReadValue(sr, s.Options.StreamChunkSize)
 	if err != nil {
 		return err
 	}
-	if string(proveSinceTxKey) != string(stream.ProveSinceTxFakeKey) {
-		return fmt.Errorf("expected 1st key to be %s, got %s",
-			stream.ProveSinceTxFakeKey, proveSinceTxKey)
-	}
-	proveSinceTxBs, err := stream.ReadValue(proveSinceTxVReader, s.Options.StreamChunkSize)
-	if err != nil {
-		return err
-	}
+
 	var proveSinceTx uint64
 	if err := stream.NumberFromBytes(proveSinceTxBs, &proveSinceTx); err != nil {
 		return err
@@ -217,7 +208,6 @@ func (s *ImmuServer) StreamVerifiableSet(str schema.ImmuService_StreamVerifiable
 	if vlength > stream.MaxTxValueLen {
 		return stream.ErrMaxTxValuesLenExceeded
 	}
-	//<--
 
 	var kvs = make([]*schema.KeyValue, 0)
 
@@ -294,7 +284,7 @@ func (s *ImmuServer) StreamScan(req *schema.ScanRequest, str schema.ImmuService_
 
 	r, err := s.dbList.GetByIndex(ind).Scan(req)
 
-	kvsr := s.StreamServiceFactory.NewKvStreamSender(str)
+	kvsr := s.StreamServiceFactory.NewKvStreamSender(s.StreamServiceFactory.NewMsgSender(str))
 
 	for _, e := range r.Entries {
 		kv := &stream.KeyValue{
@@ -324,7 +314,7 @@ func (s *ImmuServer) StreamZScan(request *schema.ZScanRequest, server schema.Imm
 
 	r, err := s.dbList.GetByIndex(ind).ZScan(request)
 
-	zss := s.StreamServiceFactory.NewZStreamSender(server)
+	zss := s.StreamServiceFactory.NewZStreamSender(s.StreamServiceFactory.NewMsgSender(server))
 
 	for _, e := range r.Entries {
 		scoreBs, err := stream.NumberToBytes(e.Score)
@@ -375,7 +365,7 @@ func (s *ImmuServer) StreamHistory(request *schema.HistoryRequest, server schema
 
 	r, err := s.dbList.GetByIndex(ind).History(request)
 
-	kvsr := s.StreamServiceFactory.NewKvStreamSender(server)
+	kvsr := s.StreamServiceFactory.NewKvStreamSender(s.StreamServiceFactory.NewMsgSender(server))
 
 	for _, e := range r.Entries {
 		kv := &stream.KeyValue{
@@ -403,7 +393,7 @@ func (s *ImmuServer) StreamExecAll(str schema.ImmuService_StreamExecAllServer) e
 	}
 
 	sops := []*schema.Op{}
-	eas := s.StreamServiceFactory.NewExecAllStreamReceiver(str)
+	eas := s.StreamServiceFactory.NewExecAllStreamReceiver(s.StreamServiceFactory.NewMsgReceiver(str))
 	for {
 		op, err := eas.Next()
 		if err != nil {

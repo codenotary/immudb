@@ -23,17 +23,20 @@ type serviceFactory struct {
 // ServiceFactory returns high level immudb streaming services
 // High level services are capable to receive and send immudb transportation objects. Those services rely on internal more generic receiver and sender services.
 type ServiceFactory interface {
-	NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver
-	NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender
+	NewMsgReceiver(str ImmuServiceReceiver_Stream) MsgReceiver
+	NewMsgSender(str ImmuServiceSender_Stream) MsgSender
 
-	NewVEntryStreamReceiver(str ImmuServiceReceiver_Stream) VEntryStreamReceiver
-	NewVEntryStreamSender(str ImmuServiceSender_Stream) VEntryStreamSender
+	NewKvStreamReceiver(str MsgReceiver) KvStreamReceiver
+	NewKvStreamSender(str MsgSender) KvStreamSender
 
-	NewZStreamReceiver(str ImmuServiceReceiver_Stream) ZStreamReceiver
-	NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender
+	NewVEntryStreamReceiver(str MsgReceiver) VEntryStreamReceiver
+	NewVEntryStreamSender(str MsgSender) VEntryStreamSender
 
-	NewExecAllStreamSender(str ImmuServiceSender_Stream) ExecAllStreamSender
-	NewExecAllStreamReceiver(str ImmuServiceReceiver_Stream) ExecAllStreamReceiver
+	NewZStreamReceiver(str MsgReceiver) ZStreamReceiver
+	NewZStreamSender(str MsgSender) ZStreamSender
+
+	NewExecAllStreamSender(str MsgSender) ExecAllStreamSender
+	NewExecAllStreamReceiver(str MsgReceiver) ExecAllStreamReceiver
 }
 
 // NewStreamServiceFactory returns a new ServiceFactory
@@ -41,40 +44,50 @@ func NewStreamServiceFactory(chunkSize int) ServiceFactory {
 	return &serviceFactory{ChunkSize: chunkSize}
 }
 
+// NewMsgSender returns a MsgSender
+func (s *serviceFactory) NewMsgSender(str ImmuServiceSender_Stream) MsgSender {
+	return NewMsgSender(str, s.ChunkSize)
+}
+
+// NewMsgReceiver returns a MsgReceiver
+func (s *serviceFactory) NewMsgReceiver(str ImmuServiceReceiver_Stream) MsgReceiver {
+	return NewMsgReceiver(str)
+}
+
 // NewKvStreamReceiver returns a KvStreamReceiver
-func (s *serviceFactory) NewKvStreamReceiver(str ImmuServiceReceiver_Stream) KvStreamReceiver {
-	return NewKvStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
+func (s *serviceFactory) NewKvStreamReceiver(mr MsgReceiver) KvStreamReceiver {
+	return NewKvStreamReceiver(mr, s.ChunkSize)
 }
 
 // NewKvStreamSender returns a KvStreamSender
-func (s *serviceFactory) NewKvStreamSender(str ImmuServiceSender_Stream) KvStreamSender {
-	return NewKvStreamSender(NewMsgSender(str, s.ChunkSize))
+func (s *serviceFactory) NewKvStreamSender(ms MsgSender) KvStreamSender {
+	return NewKvStreamSender(ms)
 }
 
-func (s *serviceFactory) NewVEntryStreamReceiver(str ImmuServiceReceiver_Stream) VEntryStreamReceiver {
-	return NewVEntryStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
+func (s *serviceFactory) NewVEntryStreamReceiver(mr MsgReceiver) VEntryStreamReceiver {
+	return NewVEntryStreamReceiver(mr, s.ChunkSize)
 }
 
-func (s *serviceFactory) NewVEntryStreamSender(str ImmuServiceSender_Stream) VEntryStreamSender {
-	return NewVEntryStreamSender(NewMsgSender(str, s.ChunkSize))
+func (s *serviceFactory) NewVEntryStreamSender(ms MsgSender) VEntryStreamSender {
+	return NewVEntryStreamSender(ms)
 }
 
 // NewZStreamReceiver returns a ZStreamReceiver
-func (s *serviceFactory) NewZStreamReceiver(str ImmuServiceReceiver_Stream) ZStreamReceiver {
-	return NewZStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
+func (s *serviceFactory) NewZStreamReceiver(mr MsgReceiver) ZStreamReceiver {
+	return NewZStreamReceiver(mr, s.ChunkSize)
 }
 
 // NewZStreamSender returns a ZStreamSender
-func (s *serviceFactory) NewZStreamSender(str ImmuServiceSender_Stream) ZStreamSender {
-	return NewZStreamSender(NewMsgSender(str, s.ChunkSize))
-}
-
-// NewExecAllStreamSender returns a ExecAllStreamSender
-func (s *serviceFactory) NewExecAllStreamSender(str ImmuServiceSender_Stream) ExecAllStreamSender {
-	return NewExecAllStreamSender(NewMsgSender(str, s.ChunkSize))
+func (s *serviceFactory) NewZStreamSender(ms MsgSender) ZStreamSender {
+	return NewZStreamSender(ms)
 }
 
 // NewExecAllStreamReceiver returns a ExecAllStreamReceiver
-func (s *serviceFactory) NewExecAllStreamReceiver(str ImmuServiceReceiver_Stream) ExecAllStreamReceiver {
-	return NewExecAllStreamReceiver(NewMsgReceiver(str), s.ChunkSize)
+func (s *serviceFactory) NewExecAllStreamReceiver(mr MsgReceiver) ExecAllStreamReceiver {
+	return NewExecAllStreamReceiver(mr, s.ChunkSize)
+}
+
+// NewExecAllStreamSender returns a ExecAllStreamSender
+func (s *serviceFactory) NewExecAllStreamSender(ms MsgSender) ExecAllStreamSender {
+	return NewExecAllStreamSender(ms)
 }
