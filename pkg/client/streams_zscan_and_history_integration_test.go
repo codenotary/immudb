@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"net"
 	"os"
 	"testing"
@@ -118,9 +119,18 @@ func TestImmuServer_StreamZScan(t *testing.T) {
 
 	cliIF, ctx := newImmuClient(t)
 
+	tmpFile1, err := streamtest.GenerateDummyFile("myfile1.pdf", (8<<20)-1)
+	require.NoError(t, err)
+	defer tmpFile1.Close()
+	defer os.Remove(tmpFile1.Name())
+	tmpFile2, err := streamtest.GenerateDummyFile("myFile2.mp4", (16<<20)-1)
+	require.NoError(t, err)
+	defer tmpFile2.Close()
+	defer os.Remove(tmpFile2.Name())
+
 	fileNames := []string{
-		"/Users/ogg/Downloads/tmpogg/learn/migrating-to-microservice-databases.pdf",
-		"/Users/ogg/Downloads/Pneuma_by_Tool_LIVE.mp4",
+		tmpFile1.Name(),
+		tmpFile2.Name(),
 	}
 
 	vSizes := streamSetFiles(ctx, t, cliIF, fileNames)
@@ -149,9 +159,12 @@ func TestImmuServer_StreamHistory(t *testing.T) {
 
 	cliIF, ctx := newImmuClient(t)
 
-	fileName :=
-		"/Users/ogg/Downloads/tmpogg/learn/migrating-to-microservice-databases.pdf"
-	fileNames := []string{fileName}
+	tmpFile1, err := streamtest.GenerateDummyFile("myfile1.pdf", (8<<20)-1)
+	require.NoError(t, err)
+	defer tmpFile1.Close()
+	defer os.Remove(tmpFile1.Name())
+
+	fileNames := []string{tmpFile1.Name()}
 
 	vSizes1 := streamSetFiles(ctx, t, cliIF, fileNames)
 	require.Equal(t, 1, len(vSizes1))
@@ -160,11 +173,11 @@ func TestImmuServer_StreamHistory(t *testing.T) {
 	vSizes := []int{vSizes1[0], vSizes2[0]}
 
 	hEntries, err :=
-		cliIF.StreamHistory(ctx, &schema.HistoryRequest{Key: []byte(fileName)})
+		cliIF.StreamHistory(ctx, &schema.HistoryRequest{Key: []byte(tmpFile1.Name())})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(hEntries.Entries))
 	for i, hEntry := range hEntries.Entries {
-		require.Equal(t, fileName, string(hEntry.Key))
+		require.Equal(t, tmpFile1.Name(), string(hEntry.Key))
 		require.Equal(t, vSizes[i], len(hEntry.Value))
 	}
 }
