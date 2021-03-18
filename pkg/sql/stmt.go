@@ -427,142 +427,49 @@ type RawRowReader struct {
 	e      *Engine
 	snap   *tbtree.Snapshot
 	table  *Table
-	ordCol *OrdCol
+	col    string
+	desc   bool
 	reader *store.KeyReader
 }
 
-func newRawRowReader(e *Engine, snap *tbtree.Snapshot, table *Table, ordCol *OrdCol) (*RawRowReader, error) {
-	usePK := ordCol == nil || table.pk.colName == ordCol.col.col
+type Comparison int
 
-	desc := false
-	if ordCol != nil {
-		desc = ordCol.desc
+const (
+	EqualTo Comparison = iota
+	LowerThan
+	LowerOrEqualTo
+	GreaterThan
+	GreaterOrEqualTo
+)
+
+/*
+func (e *Engine) tableFrom(colSel *ColSelector) (*Table, error) {
+	if colSel == nil {
+		return nil, ErrIllegalArguments
 	}
 
-	var col *Column
-
-	if usePK {
-		col = table.pk
-	} else {
-		col = table.colsByName[ordCol.col.col]
+	if e.implicitDatabase == "" && colSel.db == "" {
+		return nil, ErrNoDatabaseSelected
 	}
 
-	prefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id))
-
-	var skey []byte
-
-	if desc {
-		encMaxPKValue, err := maxPKVal(table.pk.colType)
-		if err != nil {
-			return nil, err
-		}
-
-		if usePK {
-			skey = make([]byte, len(prefix)+len(encMaxPKValue))
-			copy(skey, prefix)
-			copy(skey[len(prefix):], encMaxPKValue)
-		} else {
-			encMaxIdxValue, err := maxPKVal(col.colType)
-			if err != nil {
-				return nil, err
-			}
-
-			skey = e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id), encMaxIdxValue, encMaxPKValue)
-		}
+	dbName := e.implicitDatabase
+	if colSel.db != "" {
+		dbName = colSel.db
 	}
 
-	rSpec := &tbtree.ReaderSpec{
-		SeekKey:       skey,
-		InclusiveSeek: true,
-		Prefix:        prefix,
-		DescOrder:     desc,
+	db, exist := e.catalog.dbsByName[dbName]
+	if !exist {
+		return nil, ErrDatabaseDoesNotExist
 	}
 
-	r, err := e.dataStore.NewKeyReader(snap, rSpec)
-	if err != nil {
-		return nil, err
+	table, exist := db.tablesByName[colSel.table]
+	if !exist {
+		return nil, ErrTableDoesNotExist
 	}
 
-	return &RawRowReader{
-		e:      e,
-		snap:   snap,
-		table:  table,
-		ordCol: ordCol,
-		reader: r,
-	}, nil
+	return table, nil
 }
-
-func (r *RawRowReader) Read() (*Row, error) {
-	mkey, vref, _, _, err := r.reader.Read()
-	if err != nil {
-		return nil, err
-	}
-
-	var v []byte
-
-	//decompose key, determine if it's pk, when it's pk, the value holds the actual row data
-	if r.ordCol == nil || r.table.pk.colName == r.ordCol.col.col {
-		v, err = vref.Resolve()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		_, _, _, _, pkVal, err := r.e.unmapRow(mkey)
-		if err != nil {
-			return nil, err
-		}
-
-		v, _, _, err = r.snap.Get(r.e.mapKey(rowPrefix, encodeID(r.table.db.id), encodeID(r.table.id), encodeID(r.table.pk.id), pkVal))
-	}
-
-	values := make(map[string]interface{}, len(r.table.colsByID))
-
-	// len(stmt.cols)
-	if len(v) < 4 {
-		return nil, store.ErrCorruptedData
-	}
-
-	voff := 0
-
-	cols := int(binary.BigEndian.Uint32(v[voff:]))
-	voff += 4
-
-	for i := 0; i < cols; i++ {
-		cNameLen := int(binary.BigEndian.Uint32(v[voff:]))
-		voff += 4
-		colName := string(v[voff : voff+cNameLen])
-		voff += cNameLen
-
-		col, ok := r.table.colsByName[colName]
-		if !ok {
-			return nil, ErrInvalidColumn
-		}
-
-		switch col.colType {
-		case StringType:
-			{
-				vlen := int(binary.BigEndian.Uint32(v[voff:]))
-				voff += 4
-
-				v := string(v[voff : voff+vlen])
-				voff += vlen
-				values[colName] = v
-			}
-		case IntegerType:
-			{
-				v := binary.BigEndian.Uint64(v[voff:])
-				voff += 8
-				values[colName] = v
-			}
-		}
-	}
-
-	return &Row{Values: values}, nil
-}
-
-func (r *RawRowReader) Close() error {
-	return r.reader.Close()
-}
+*/
 
 type DataSource interface {
 	Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error)
@@ -601,7 +508,7 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 			return nil, nil, err
 		}
 
-		col, colExists := table.colsByName[stmt.orderBy[0].col.col]
+		col, colExists := table.colsByName[stmt.orderBy[0].sel.col]
 		if !colExists {
 			return nil, nil, ErrLimitedOrderBy
 		}
@@ -620,6 +527,7 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 }
 
 func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error) {
+	// Ordering is only supported at TableRef level
 	if ordCol != nil {
 		return nil, ErrLimitedOrderBy
 	}
@@ -712,12 +620,47 @@ func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
 }
 
 func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error) {
+	if e == nil || snap == nil || (ordCol != nil && ordCol.sel == nil) {
+		return nil, ErrIllegalArguments
+	}
+
 	table, err := stmt.referencedTable(e)
 	if err != nil {
 		return nil, err
 	}
 
-	return newRawRowReader(e, snap, table, ordCol)
+	colName := table.pk.colName
+	var initKeyVal []byte
+	cmp := GreaterOrEqualTo
+
+	if ordCol != nil {
+		cmp = ordCol.cmp
+
+		if ordCol.sel.db != "" && ordCol.sel.db != table.db.name {
+			return nil, ErrInvalidColumn
+		}
+
+		if ordCol.sel.table != "" && ordCol.sel.table != table.name {
+			return nil, ErrInvalidColumn
+		}
+
+		col, exist := table.colsByName[ordCol.sel.col]
+		if !exist {
+			return nil, ErrColumnDoesNotExist
+		}
+
+		// if it's not PK then it must be an indexed column
+		if table.pk.colName != ordCol.sel.col {
+			_, indexed := table.indexes[col.id]
+			if !indexed {
+				return nil, ErrColumnNotIndexed
+			}
+		}
+
+		colName = col.colName
+	}
+
+	return e.newRawRowReader(snap, table, colName, initKeyVal, cmp)
 }
 
 type JoinSpec struct {
@@ -731,8 +674,8 @@ type GroupBySpec struct {
 }
 
 type OrdCol struct {
-	col  *ColSelector
-	desc bool
+	sel *ColSelector
+	cmp Comparison
 }
 
 type Selector interface {
