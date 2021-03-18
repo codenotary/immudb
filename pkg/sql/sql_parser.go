@@ -37,7 +37,7 @@ type yySymType struct {
 	boolExp  BoolExp
 	err      error
 	ordcols  []*OrdCol
-	opt_ord  bool
+	opt_ord  Comparison
 	logicOp  LogicOperator
 	cmpOp    CmpOperator
 }
@@ -978,27 +978,27 @@ yydefault:
 	case 68:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		{
-			yyVAL.ordcols = []*OrdCol{{col: yyDollar[1].col, desc: yyDollar[2].opt_ord}}
+			yyVAL.ordcols = []*OrdCol{{sel: yyDollar[1].col, cmp: yyDollar[2].opt_ord}}
 		}
 	case 69:
 		yyDollar = yyS[yypt-4 : yypt+1]
 		{
-			yyVAL.ordcols = append(yyDollar[1].ordcols, &OrdCol{col: yyDollar[3].col, desc: yyDollar[4].opt_ord})
+			yyVAL.ordcols = append(yyDollar[1].ordcols, &OrdCol{sel: yyDollar[3].col, cmp: yyDollar[4].opt_ord})
 		}
 	case 70:
 		yyDollar = yyS[yypt-0 : yypt+1]
 		{
-			yyVAL.opt_ord = false
+			yyVAL.opt_ord = GreaterOrEqualTo
 		}
 	case 71:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.opt_ord = false
+			yyVAL.opt_ord = GreaterOrEqualTo
 		}
 	case 72:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.opt_ord = true
+			yyVAL.opt_ord = LowerOrEqualTo
 		}
 	case 73:
 		yyDollar = yyS[yypt-0 : yypt+1]
