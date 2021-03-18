@@ -937,7 +937,7 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 
 	sfm := DefaultServiceFactoryMock()
-	sfm.NewKvStreamSenderF = func(str stream.ImmuServiceSender_Stream) stream.KvStreamSender {
+	sfm.NewKvStreamSenderF = func(str stream.MsgSender) stream.KvStreamSender {
 		sm := streamtest.DefaultImmuServiceSenderStreamMock()
 		s := streamtest.DefaultMsgSenderMock(sm, 4096)
 		s.SendF = func(reader io.Reader, payloadSize int) (err error) {
@@ -945,7 +945,7 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 		}
 		return stream.NewKvStreamSender(s)
 	}
-	sfm.NewKvStreamReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.KvStreamReceiver {
+	sfm.NewKvStreamReceiverF = func(str stream.MsgReceiver) stream.KvStreamReceiver {
 		me := []*streamtest.MsgError{
 			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
 		}
@@ -953,7 +953,7 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 		return stream.NewKvStreamReceiver(msr, 4096)
 	}
 
-	sfm.NewVEntryStreamReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.VEntryStreamReceiver {
+	sfm.NewVEntryStreamReceiverF = func(str stream.MsgReceiver) stream.VEntryStreamReceiver {
 		me := []*streamtest.MsgError{
 			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
 		}
@@ -961,7 +961,7 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 		return stream.NewVEntryStreamReceiver(msr, 4096)
 	}
 
-	sfm.NewExecAllStreamSenderF = func(str stream.ImmuServiceSender_Stream) stream.ExecAllStreamSender {
+	sfm.NewExecAllStreamSenderF = func(str stream.MsgSender) stream.ExecAllStreamSender {
 		sm := streamtest.DefaultImmuServiceSenderStreamMock()
 		s := streamtest.DefaultMsgSenderMock(sm, 4096)
 		s.SendF = func(reader io.Reader, payloadSize int) (err error) {
@@ -1053,7 +1053,7 @@ func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
 	defer os.Remove(".state-")
 
 	sfm := DefaultServiceFactoryMock()
-	sfm.NewKvStreamReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.KvStreamReceiver {
+	sfm.NewKvStreamReceiverF = func(str stream.MsgReceiver) stream.KvStreamReceiver {
 		me := []*streamtest.MsgError{
 			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
 		}
@@ -1061,7 +1061,7 @@ func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
 		return stream.NewKvStreamReceiver(msr, 4096)
 	}
 
-	sfm.NewZStreamReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.ZStreamReceiver {
+	sfm.NewZStreamReceiverF = func(str stream.MsgReceiver) stream.ZStreamReceiver {
 		me := []*streamtest.MsgError{
 			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
 		}
@@ -1093,41 +1093,52 @@ func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
 }
 
 type ServiceFactoryMock struct {
-	NewKvStreamReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.KvStreamReceiver
-	NewKvStreamSenderF   func(str stream.ImmuServiceSender_Stream) stream.KvStreamSender
+	NewMsgSenderF   func(str stream.ImmuServiceSender_Stream) stream.MsgSender
+	NewMsgReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.MsgReceiver
 
-	NewVEntryStreamReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.VEntryStreamReceiver
-	NewVEntryStreamSenderF   func(str stream.ImmuServiceSender_Stream) stream.VEntryStreamSender
+	NewKvStreamReceiverF func(str stream.MsgReceiver) stream.KvStreamReceiver
+	NewKvStreamSenderF   func(str stream.MsgSender) stream.KvStreamSender
 
-	NewZStreamReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.ZStreamReceiver
-	NewZStreamSenderF   func(str stream.ImmuServiceSender_Stream) stream.ZStreamSender
+	NewVEntryStreamReceiverF func(str stream.MsgReceiver) stream.VEntryStreamReceiver
+	NewVEntryStreamSenderF   func(str stream.MsgSender) stream.VEntryStreamSender
 
-	NewExecAllStreamReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.ExecAllStreamReceiver
-	NewExecAllStreamSenderF   func(str stream.ImmuServiceSender_Stream) stream.ExecAllStreamSender
+	NewZStreamReceiverF func(str stream.MsgReceiver) stream.ZStreamReceiver
+	NewZStreamSenderF   func(str stream.MsgSender) stream.ZStreamSender
+
+	NewExecAllStreamReceiverF func(str stream.MsgReceiver) stream.ExecAllStreamReceiver
+	NewExecAllStreamSenderF   func(str stream.MsgSender) stream.ExecAllStreamSender
 }
 
-func (sfm *ServiceFactoryMock) NewKvStreamReceiver(str stream.ImmuServiceReceiver_Stream) stream.KvStreamReceiver {
+func (sfm *ServiceFactoryMock) NewMsgReceiver(str stream.ImmuServiceReceiver_Stream) stream.MsgReceiver {
+	return sfm.NewMsgReceiverF(str)
+}
+
+func (sfm *ServiceFactoryMock) NewMsgSender(str stream.ImmuServiceSender_Stream) stream.MsgSender {
+	return sfm.NewMsgSenderF(str)
+}
+
+func (sfm *ServiceFactoryMock) NewKvStreamReceiver(str stream.MsgReceiver) stream.KvStreamReceiver {
 	return sfm.NewKvStreamReceiverF(str)
 }
-func (sfm *ServiceFactoryMock) NewKvStreamSender(str stream.ImmuServiceSender_Stream) stream.KvStreamSender {
+func (sfm *ServiceFactoryMock) NewKvStreamSender(str stream.MsgSender) stream.KvStreamSender {
 	return sfm.NewKvStreamSenderF(str)
 }
-func (sfm *ServiceFactoryMock) NewVEntryStreamReceiver(str stream.ImmuServiceReceiver_Stream) stream.VEntryStreamReceiver {
+func (sfm *ServiceFactoryMock) NewVEntryStreamReceiver(str stream.MsgReceiver) stream.VEntryStreamReceiver {
 	return sfm.NewVEntryStreamReceiverF(str)
 }
-func (sfm *ServiceFactoryMock) NewVEntryStreamSender(str stream.ImmuServiceSender_Stream) stream.VEntryStreamSender {
+func (sfm *ServiceFactoryMock) NewVEntryStreamSender(str stream.MsgSender) stream.VEntryStreamSender {
 	return sfm.NewVEntryStreamSenderF(str)
 }
-func (sfm *ServiceFactoryMock) NewZStreamReceiver(str stream.ImmuServiceReceiver_Stream) stream.ZStreamReceiver {
+func (sfm *ServiceFactoryMock) NewZStreamReceiver(str stream.MsgReceiver) stream.ZStreamReceiver {
 	return sfm.NewZStreamReceiverF(str)
 }
-func (sfm *ServiceFactoryMock) NewZStreamSender(str stream.ImmuServiceSender_Stream) stream.ZStreamSender {
+func (sfm *ServiceFactoryMock) NewZStreamSender(str stream.MsgSender) stream.ZStreamSender {
 	return sfm.NewZStreamSenderF(str)
 }
-func (sfm *ServiceFactoryMock) NewExecAllStreamSender(str stream.ImmuServiceSender_Stream) stream.ExecAllStreamSender {
+func (sfm *ServiceFactoryMock) NewExecAllStreamSender(str stream.MsgSender) stream.ExecAllStreamSender {
 	return sfm.NewExecAllStreamSenderF(str)
 }
-func (sfm *ServiceFactoryMock) NewExecAllStreamReceiver(str stream.ImmuServiceReceiver_Stream) stream.ExecAllStreamReceiver {
+func (sfm *ServiceFactoryMock) NewExecAllStreamReceiver(str stream.MsgReceiver) stream.ExecAllStreamReceiver {
 	return sfm.NewExecAllStreamReceiverF(str)
 }
 

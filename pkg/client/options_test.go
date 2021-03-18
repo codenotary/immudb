@@ -44,7 +44,7 @@ func TestOptions(t *testing.T) {
 		WithTokenFileName("tokenfile").
 		WithUsername("some-username").
 		WithPassword("some-password").
-		WithDatabase("some-db")
+		WithDatabase("some-db").
 		WithStreamChunkSize(4096)
 
 	if op.LogFileName != "logfilename" ||

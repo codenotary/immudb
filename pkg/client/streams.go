@@ -98,7 +98,7 @@ func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*sc
 		return nil, err
 	}
 
-	kvss := c.StreamServiceFactory.NewKvStreamSender(s)
+	kvss := c.StreamServiceFactory.NewKvStreamSender(c.StreamServiceFactory.NewMsgSender(s))
 
 	for _, kv := range kvs {
 		err = kvss.Send(kv)
@@ -118,7 +118,7 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 
 	gs, err := c.streamGet(ctx, k)
 
-	kvr := c.StreamServiceFactory.NewKvStreamReceiver(gs)
+	kvr := c.StreamServiceFactory.NewKvStreamReceiver(c.StreamServiceFactory.NewMsgReceiver(gs))
 
 	key, vr, err := kvr.Next()
 	if err != nil {
@@ -196,20 +196,10 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyVal
 		return nil, err
 	}
 
-	kvss := c.StreamServiceFactory.NewKvStreamSender(s)
+	kvss := c.StreamServiceFactory.NewKvStreamSender(c.StreamServiceFactory.NewMsgSender(s))
+	ss := c.StreamServiceFactory.NewMsgSender(s)
 
-	// 1st send the ProveSinceTx (build a "fake" KV with it):
-	err = kvss.Send(&stream.KeyValue{
-		// this is a fake key, server will ignore it and use only the value
-		Key: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(stream.ProveSinceTxFakeKey)),
-			Size:    len(stream.ProveSinceTxFakeKey),
-		},
-		Value: &stream.ValueSize{
-			Content: bufio.NewReader(bytes.NewBuffer(stateTxID)),
-			Size:    len(stateTxID),
-		},
-	})
+	err = ss.Send(bytes.NewBuffer(stateTxID), len(stateTxID))
 	if err != nil {
 		return nil, err
 	}
@@ -222,6 +212,9 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyVal
 	}
 
 	verifiableTx, err := s.CloseAndRecv()
+	if err != nil {
+		return nil, err
+	}
 
 	if verifiableTx.Tx.Metadata.Nentries != int32(len(kvs)) {
 		return nil, store.ErrCorruptedData
@@ -311,7 +304,7 @@ func (c *immuClient) StreamVerifiedGet(ctx context.Context, req *schema.Verifiab
 
 	gs, err := c.streamVerifiableGet(ctx, req)
 
-	ver := c.StreamServiceFactory.NewVEntryStreamReceiver(gs)
+	ver := c.StreamServiceFactory.NewVEntryStreamReceiver(c.StreamServiceFactory.NewMsgReceiver(gs))
 
 	entryWithoutValueProto, verifiableTxProto, inclusionProofProto, vr, err := ver.Next()
 	if err != nil {
@@ -409,7 +402,7 @@ func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	kvr := c.StreamServiceFactory.NewKvStreamReceiver(gs)
+	kvr := c.StreamServiceFactory.NewKvStreamReceiver(c.StreamServiceFactory.NewMsgReceiver(gs))
 	var entries []*schema.Entry
 	for {
 		key, vr, err := kvr.Next()
@@ -446,7 +439,7 @@ func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) 
 	if err != nil {
 		return nil, err
 	}
-	zr := c.StreamServiceFactory.NewZStreamReceiver(gs)
+	zr := c.StreamServiceFactory.NewZStreamReceiver(c.StreamServiceFactory.NewMsgReceiver(gs))
 	var entries []*schema.ZEntry
 	for {
 		set, key, score, atTx, vr, err := zr.Next()
@@ -474,7 +467,7 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 	if err != nil {
 		return nil, err
 	}
-	kvr := c.StreamServiceFactory.NewKvStreamReceiver(gs)
+	kvr := c.StreamServiceFactory.NewKvStreamReceiver(c.StreamServiceFactory.NewMsgReceiver(gs))
 	var entries []*schema.Entry
 	for {
 		key, vr, err := kvr.Next()
@@ -511,7 +504,7 @@ func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllReque
 		return nil, err
 	}
 
-	eas := c.StreamServiceFactory.NewExecAllStreamSender(s)
+	eas := c.StreamServiceFactory.NewExecAllStreamSender(c.StreamServiceFactory.NewMsgSender(s))
 
 	err = eas.Send(req)
 	if err != nil {
