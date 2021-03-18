@@ -196,8 +196,8 @@ func (c *immuClient) StreamVerifiedSet(ctx context.Context, kvs []*stream.KeyVal
 		return nil, err
 	}
 
-	kvss := c.StreamServiceFactory.NewKvStreamSender(c.StreamServiceFactory.NewMsgSender(s))
 	ss := c.StreamServiceFactory.NewMsgSender(s)
+	kvss := c.StreamServiceFactory.NewKvStreamSender(ss)
 
 	err = ss.Send(bytes.NewBuffer(stateTxID), len(stateTxID))
 	if err != nil {

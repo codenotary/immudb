@@ -937,13 +937,20 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 
 	sfm := DefaultServiceFactoryMock()
-	sfm.NewKvStreamSenderF = func(str stream.MsgSender) stream.KvStreamSender {
+
+	sfm.NewMsgSenderF = func(str stream.ImmuServiceSender_Stream) stream.MsgSender {
 		sm := streamtest.DefaultImmuServiceSenderStreamMock()
 		s := streamtest.DefaultMsgSenderMock(sm, 4096)
 		s.SendF = func(reader io.Reader, payloadSize int) (err error) {
 			return errors.New("custom one")
 		}
-		return stream.NewKvStreamSender(s)
+		return streamtest.DefaultMsgSenderMock(sm, 4096)
+	}
+	sfm.NewMsgReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.MsgReceiver {
+		return stream.NewMsgReceiver(str)
+	}
+	sfm.NewKvStreamSenderF = func(str stream.MsgSender) stream.KvStreamSender {
+		return stream.NewKvStreamSender(str)
 	}
 	sfm.NewKvStreamReceiverF = func(str stream.MsgReceiver) stream.KvStreamReceiver {
 		me := []*streamtest.MsgError{
@@ -962,12 +969,7 @@ func TestImmuClient_StreamerServiceErrors(t *testing.T) {
 	}
 
 	sfm.NewExecAllStreamSenderF = func(str stream.MsgSender) stream.ExecAllStreamSender {
-		sm := streamtest.DefaultImmuServiceSenderStreamMock()
-		s := streamtest.DefaultMsgSenderMock(sm, 4096)
-		s.SendF = func(reader io.Reader, payloadSize int) (err error) {
-			return errors.New("custom one")
-		}
-		return stream.NewExecAllStreamSender(s)
+		return stream.NewExecAllStreamSender(str)
 	}
 
 	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
@@ -1053,6 +1055,12 @@ func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
 	defer os.Remove(".state-")
 
 	sfm := DefaultServiceFactoryMock()
+	sfm.NewMsgReceiverF = func(str stream.ImmuServiceReceiver_Stream) stream.MsgReceiver {
+		return stream.NewMsgReceiver(str)
+	}
+	sfm.NewKvStreamSenderF = func(str stream.MsgSender) stream.KvStreamSender {
+		return stream.NewKvStreamSender(str)
+	}
 	sfm.NewKvStreamReceiverF = func(str stream.MsgReceiver) stream.KvStreamReceiver {
 		me := []*streamtest.MsgError{
 			{M: []byte{1, 1, 1}, E: errors.New("custom one")},
