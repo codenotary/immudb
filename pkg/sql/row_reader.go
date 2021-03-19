@@ -19,10 +19,29 @@ package sql
 import (
 	"encoding/binary"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
-func (e *Engine) newRawRowReader(snap *tbtree.Snapshot, table *Table, colName string, initKeyVal []byte, cmp Comparison) (*RawRowReader, error) {
+type RowReader interface {
+	Read() (*Row, error)
+	Close() error
+}
+
+type Row struct {
+	Values map[string]interface{}
+}
+
+type rawRowReader struct {
+	e      *Engine
+	snap   *tbtree.Snapshot
+	table  *Table
+	col    string
+	desc   bool
+	reader *store.KeyReader
+}
+
+func (e *Engine) newRawRowReader(snap *tbtree.Snapshot, table *Table, colName string, cmp Comparison, initKeyVal []byte) (*rawRowReader, error) {
 	if snap == nil || table == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -41,23 +60,17 @@ func (e *Engine) newRawRowReader(snap *tbtree.Snapshot, table *Table, colName st
 	skey := make([]byte, len(prefix))
 	copy(skey, prefix)
 
-	usePK := table.pk.colName == colName
-	maxPKVal := maxKeyVal(table.pk.colType)
-
 	if cmp == GreaterThan || cmp == GreaterOrEqualTo {
-		if usePK {
-			skey = append(skey, initKeyVal...)
-		} else {
-			skey = append(skey, initKeyVal...)
-			skey = append(skey, maxPKVal...)
-		}
+		skey = append(skey, initKeyVal...)
 	}
 
 	if cmp == LowerThan || cmp == LowerOrEqualTo {
-		if usePK {
-			skey = append(skey, maxPKVal...)
+		if table.pk.colName == colName {
+			skey = append(skey, initKeyVal...)
 		} else {
-			skey = append(skey, maxKeyVal(col.colType)...)
+			maxPKVal := maxKeyVal(table.pk.colType)
+
+			skey = append(skey, initKeyVal...)
 			skey = append(skey, maxPKVal...)
 		}
 	}
@@ -74,7 +87,7 @@ func (e *Engine) newRawRowReader(snap *tbtree.Snapshot, table *Table, colName st
 		return nil, err
 	}
 
-	return &RawRowReader{
+	return &rawRowReader{
 		e:      e,
 		snap:   snap,
 		table:  table,
@@ -84,7 +97,7 @@ func (e *Engine) newRawRowReader(snap *tbtree.Snapshot, table *Table, colName st
 	}, nil
 }
 
-func (r *RawRowReader) Read() (*Row, error) {
+func (r *rawRowReader) Read() (*Row, error) {
 	mkey, vref, _, _, err := r.reader.Read()
 	if err != nil {
 		return nil, err
@@ -147,6 +160,6 @@ func (r *RawRowReader) Read() (*Row, error) {
 	return &Row{Values: values}, nil
 }
 
-func (r *RawRowReader) Close() error {
+func (r *rawRowReader) Close() error {
 	return r.reader.Close()
 }

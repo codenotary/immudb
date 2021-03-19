@@ -46,6 +46,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     distinct bool
     ds DataSource
     tableRef *TableRef
+    joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
     boolExp BoolExp
@@ -99,7 +100,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <distinct> opt_distinct
 %type <ds> ds
 %type <tableRef> tableRef
-%type <join> opt_join
+%type <joins> opt_joins joins
+%type <join> join
 %type <boolExp> boolExp opt_where opt_having
 %type <cols> opt_groupby
 %type <number> opt_limit
@@ -302,13 +304,13 @@ colSpec:
     }
 
 dqlstmt:
-    SELECT opt_distinct selectors FROM ds opt_join opt_where opt_groupby opt_having opt_limit opt_orderby opt_as
+    SELECT opt_distinct selectors FROM ds opt_joins opt_where opt_groupby opt_having opt_limit opt_orderby opt_as
     {
         $$ = &SelectStmt{
                 distinct: $2,
                 selectors: $3,
                 ds: $5,
-                join: $6,
+                joins: $6,
                 where: $7,
                 groupBy: $8,
                 having: $9,
@@ -400,11 +402,28 @@ tableRef:
         $$ = &TableRef{db: $1, table: $3}
     }
 
-opt_join:
+opt_joins:
     {
         $$ = nil
     }
 |
+    joins
+    {
+        $$ = $1
+    }
+
+joins:
+    join
+    {
+        $$ = []*JoinSpec{$1}
+    }
+|
+    joins ',' join
+    {
+        $$ = append($1, $3)
+    }
+
+join:
     JOINTYPE JOIN ds ON boolExp
     {
         $$ = &JoinSpec{joinType: $1, ds: $3, cond: $5}
