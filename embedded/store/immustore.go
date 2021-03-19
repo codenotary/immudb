@@ -32,6 +32,7 @@ import (
 	"github.com/codenotary/immudb/embedded/ahtree"
 	"github.com/codenotary/immudb/embedded/appendable"
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/cbuffer"
 	"github.com/codenotary/immudb/embedded/multierr"
@@ -40,7 +41,7 @@ import (
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrAlreadyClosed = tbtree.ErrAlreadyClosed
+var ErrAlreadyClosed = errors.New("store already closed")
 var ErrUnexpectedLinkingError = errors.New("Internal inconsistency between linear and binary linking")
 var ErrorNoEntriesProvided = errors.New("no entries provided")
 var ErrorMaxTxEntriesLimitExceeded = errors.New("max number of entries per tx exceeded")
@@ -583,6 +584,7 @@ func (s *ImmuStore) indexer() {
 			break
 		}
 		if err != nil {
+			s.log.Infof("Indexing at '%s' was stopped due to error: %v", s.path, err)
 			s.indexErr = err
 			break
 		}
@@ -644,7 +646,9 @@ func (s *ImmuStore) replaceIndex(compactedIndexID uint64) error {
 
 	s.index, err = tbtree.Open(indexPath, opts)
 
-	s.indexCond.Broadcast() // indexing must go on
+	if err == nil {
+		s.indexCond.Broadcast() // indexing must go on
+	}
 
 	return err
 }
@@ -1261,6 +1265,9 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	var cb [cLogEntrySize]byte
 
 	n, err := s.cLog.ReadAt(cb[:], int64(off))
+	if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+		return 0, 0, ErrAlreadyClosed
+	}
 	if err == io.EOF && n == 0 {
 		return 0, 0, ErrTxNotFound
 	}
@@ -1360,6 +1367,9 @@ func (s *ImmuStore) ReadValueAt(b []byte, off int64, hvalue [sha256.Size]byte) (
 		defer s.releaseVLog(vLogID)
 
 		n, err := vLog.ReadAt(b, offset)
+		if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
+			return n, ErrAlreadyClosed
+		}
 		if err != nil {
 			return n, err
 		}

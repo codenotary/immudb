@@ -33,7 +33,7 @@ import (
 
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrAlreadyClosed = errors.New("already closed")
+var ErrAlreadyClosed = errors.New("single-file appendable already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 var ErrCorruptedMetadata = errors.New("corrupted metadata")
 

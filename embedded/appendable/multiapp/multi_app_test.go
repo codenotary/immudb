@@ -133,7 +133,7 @@ func TestMultiAppClosedAndDeletedFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	err = a.Close()
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.Equal(t, singleapp.ErrAlreadyClosed, err)
 
 	fname := filepath.Join(a.path, appendableName(0, a.fileExt))
 	os.Remove(fname)
@@ -160,7 +160,7 @@ func TestMultiAppClosedFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = a.Append([]byte{3, 4, 5})
-	require.Equal(t, ErrAlreadyClosed, err)
+	require.Equal(t, singleapp.ErrAlreadyClosed, err)
 }
 
 func TestMultiAppReOpening(t *testing.T) {

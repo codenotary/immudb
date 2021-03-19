@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 )
 
 type TxReader struct {
@@ -66,7 +67,7 @@ func (txr *TxReader) Read() (*Tx, error) {
 	if err == ErrTxNotFound {
 		return nil, ErrNoMoreEntries
 	}
-	if err == multiapp.ErrAlreadyClosed {
+	if err == multiapp.ErrAlreadyClosed || err == singleapp.ErrAlreadyClosed {
 		return nil, ErrAlreadyClosed
 	}
 	if err != nil {
