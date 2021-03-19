@@ -193,8 +193,8 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(i), row.Values["id"])
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["title"])
+		require.Equal(t, uint64(i), row.Values["db1.table1.id"])
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"])
 	}
 
 	err = r.Close()
@@ -209,8 +209,8 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["id"])
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["title"])
+		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"])
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"])
 	}
 
 	err = r.Close()
@@ -235,34 +235,44 @@ func TestJoins(t *testing.T) {
 	_, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, id2 INTEGER, PRIMARY KEY id)")
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
+	_, err = engine.ExecStmt("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
+
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, id2) VALUES (%d, 'title%d', %d)", i, i, i))
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", i, i, rowCount-1-i, i))
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount) VALUES (%d, %d)", i, i*i))
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount) VALUES (%d, %d)", rowCount-1-i, i*i))
+		require.NoError(t, err)
+
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i))
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, table2.amount FROM table1 INNER JOIN table2 ON table1.id2 = table2.id ORDER BY id DESC")
+	time.Sleep(100 * time.Millisecond)
+
+	r, err := engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id ORDER BY id DESC")
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 3)
+		require.Len(t, row.Values, 5)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["id"])
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["title"])
-		require.Equal(t, i*i, row.Values["table2.amount"])
+		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"])
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"])
+		require.Equal(t, uint64(i), row.Values["db1.table1.fkid"])
+		require.Equal(t, uint64(i), row.Values["db1.table2.id"])
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"])
 	}
 
 	err = r.Close()
