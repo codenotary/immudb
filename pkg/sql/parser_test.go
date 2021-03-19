@@ -634,18 +634,20 @@ func TestSelectStmt(t *testing.T) {
 						&ColSelector{table: "table2", col: "status"},
 					},
 					ds: &TableRef{table: "table1"},
-					join: &JoinSpec{
-						joinType: InnerJoin,
-						ds:       &TableRef{table: "table2"},
-						cond: &CmpBoolExp{
-							op: EQ,
-							left: &ColSelector{
-								table: "table1",
-								col:   "id",
-							},
-							right: &ColSelector{
-								table: "table2",
-								col:   "id",
+					joins: []*JoinSpec{
+						{
+							joinType: InnerJoin,
+							ds:       &TableRef{table: "table2"},
+							cond: &CmpBoolExp{
+								op: EQ,
+								left: &ColSelector{
+									table: "table1",
+									col:   "id",
+								},
+								right: &ColSelector{
+									table: "table2",
+									col:   "id",
+								},
 							},
 						},
 					},
@@ -671,18 +673,20 @@ func TestSelectStmt(t *testing.T) {
 						&ColSelector{table: "table2", col: "status"},
 					},
 					ds: &TableRef{table: "table1"},
-					join: &JoinSpec{
-						joinType: LeftJoin,
-						ds:       &TableRef{table: "table2"},
-						cond: &CmpBoolExp{
-							op: EQ,
-							left: &ColSelector{
-								table: "table1",
-								col:   "id",
-							},
-							right: &ColSelector{
-								table: "table2",
-								col:   "id",
+					joins: []*JoinSpec{
+						{
+							joinType: LeftJoin,
+							ds:       &TableRef{table: "table2"},
+							cond: &CmpBoolExp{
+								op: EQ,
+								left: &ColSelector{
+									table: "table1",
+									col:   "id",
+								},
+								right: &ColSelector{
+									table: "table2",
+									col:   "id",
+								},
 							},
 						},
 					},
