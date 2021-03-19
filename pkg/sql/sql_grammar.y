@@ -30,8 +30,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     cols []*ColSelector
     rows []*RowSpec
     row *RowSpec
-    values []interface{}
-    value interface{}
+    values []Value
+    value Value
     id string
     number uint64
     str string
@@ -247,7 +247,7 @@ cols:
 values:
     val
     {
-        $$ = []interface{}{$1}
+        $$ = []Value{$1}
     }
 |
     values ',' val
@@ -258,22 +258,22 @@ values:
 val: 
     NUMBER
     {
-        $$ = $1
+        $$ = &Number{val: $1}
     }
 |
     STRING
     {
-        $$ = $1
+        $$ = &String{val: $1}
     }
 |
     BOOLEAN
     {
-        $$ = $1
+        $$ = &Bool{val:$1}
     }
 |
     BLOB
     {
-        $$ = $1
+        $$ = &Blob{val: $1}
     }
 |
     IDENTIFIER '(' ')'
@@ -418,9 +418,9 @@ joins:
         $$ = []*JoinSpec{$1}
     }
 |
-    joins ',' join
+    join joins
     {
-        $$ = append($1, $3)
+        $$ = append([]*JoinSpec{$1}, $2...)
     }
 
 join:
