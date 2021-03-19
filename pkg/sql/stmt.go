@@ -414,24 +414,6 @@ type Param struct {
 	id string
 }
 
-type RowReader interface {
-	Read() (*Row, error)
-	Close() error
-}
-
-type Row struct {
-	Values map[string]interface{}
-}
-
-type RawRowReader struct {
-	e      *Engine
-	snap   *tbtree.Snapshot
-	table  *Table
-	col    string
-	desc   bool
-	reader *store.KeyReader
-}
-
 type Comparison int
 
 const (
@@ -479,7 +461,7 @@ type SelectStmt struct {
 	distinct  bool
 	selectors []Selector
 	ds        DataSource
-	join      *JoinSpec
+	joins     []*JoinSpec
 	where     BoolExp
 	groupBy   []*ColSelector
 	having    BoolExp
@@ -548,12 +530,15 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol
 		return nil, err
 	}
 
-	if stmt.join != nil {
-		// JointRowReader
+	if stmt.joins != nil {
+		rowReader, err = e.newJointRowReader(snap, rowReader, stmt.joins)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if stmt.where != nil {
-		// FilteredRowReader
+		// filteredRowReader
 	}
 
 	//	rowBuilder := newRowBuilder(stmt.selectors)
@@ -561,11 +546,11 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol
 	//	&RowReaderWithrowReader
 
 	if stmt.groupBy != nil {
-		// GroupedRowReader
+		// groupedRowReader
 	}
 
 	if stmt.having != nil {
-		// FilteredRowReader
+		// filteredRowReader
 	}
 
 	return rowReader, err
@@ -630,12 +615,10 @@ func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) 
 	}
 
 	colName := table.pk.colName
-	var initKeyVal []byte
 	cmp := GreaterOrEqualTo
+	var initKeyVal []byte
 
 	if ordCol != nil {
-		cmp = ordCol.cmp
-
 		if ordCol.sel.db != "" && ordCol.sel.db != table.db.name {
 			return nil, ErrInvalidColumn
 		}
@@ -658,9 +641,21 @@ func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) 
 		}
 
 		colName = col.colName
+		cmp = ordCol.cmp
+
+		if ordCol.useInitKeyVal {
+			if len(initKeyVal) > len(maxKeyVal(col.colType)) {
+				return nil, ErrIllegalArguments
+			}
+			initKeyVal = ordCol.initKeyVal
+		}
+
+		if !ordCol.useInitKeyVal && (cmp == LowerThan || cmp == LowerOrEqualTo) {
+			initKeyVal = maxKeyVal(col.colType)
+		}
 	}
 
-	return e.newRawRowReader(snap, table, colName, initKeyVal, cmp)
+	return e.newRawRowReader(snap, table, colName, cmp, initKeyVal)
 }
 
 type JoinSpec struct {
@@ -674,8 +669,10 @@ type GroupBySpec struct {
 }
 
 type OrdCol struct {
-	sel *ColSelector
-	cmp Comparison
+	sel           *ColSelector
+	cmp           Comparison
+	initKeyVal    []byte
+	useInitKeyVal bool
 }
 
 type Selector interface {

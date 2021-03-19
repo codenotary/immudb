@@ -216,3 +216,55 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 }
+
+func TestJoins(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("USE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, id2 INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	rowCount := 10
+
+	for i := 0; i < rowCount; i++ {
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, id2) VALUES (%d, 'title%d', %d)", i, i, i))
+		require.NoError(t, err)
+
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount) VALUES (%d, %d)", i, i*i))
+		require.NoError(t, err)
+	}
+
+	r, err := engine.QueryStmt("SELECT id, title, table2.amount FROM table1 INNER JOIN table2 ON table1.id2 = table2.id ORDER BY id DESC")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 3)
+
+		require.Equal(t, uint64(rowCount-1-i), row.Values["id"])
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["title"])
+		require.Equal(t, i*i, row.Values["table2.amount"])
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+}
