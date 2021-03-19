@@ -1120,7 +1120,7 @@ func TestImmuClient_GetServiceClient(t *testing.T) {
 	}
 
 	cli := client.GetServiceClient()
-	require.Implements(t, (*schema.ImmuServiceClient)(nil), *cli)
+	require.Implements(t, (*schema.ImmuServiceClient)(nil), cli)
 	client.Disconnect()
 }
 
