@@ -146,13 +146,13 @@ func (r *rawRowReader) Read() (*Row, error) {
 
 				v := string(v[voff : voff+vlen])
 				voff += vlen
-				values[colName] = v
+				values[r.table.db.name+"."+r.table.name+"."+colName] = v
 			}
 		case IntegerType:
 			{
 				v := binary.BigEndian.Uint64(v[voff:])
 				voff += 8
-				values[colName] = v
+				values[r.table.db.name+"."+r.table.name+"."+colName] = v
 			}
 		}
 	}

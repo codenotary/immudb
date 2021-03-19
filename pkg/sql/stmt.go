@@ -248,7 +248,7 @@ type UpsertIntoStmt struct {
 }
 
 type RowSpec struct {
-	Values []interface{}
+	Values []Value
 }
 
 func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
@@ -278,15 +278,15 @@ func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
 		switch col.colType {
 		case StringType:
 			{
-				v, ok := val.(string)
+				v, ok := val.(*String)
 				if !ok {
 					return nil, ErrInvalidValue
 				}
 
 				// len(v) + v
-				b := make([]byte, 4+len(v))
-				binary.BigEndian.PutUint32(b, uint32(len(v)))
-				copy(b[4:], []byte(v))
+				b := make([]byte, 4+len(v.val))
+				binary.BigEndian.PutUint32(b, uint32(len(v.val)))
+				copy(b[4:], []byte(v.val))
 
 				_, err = valbuf.Write(b)
 				if err != nil {
@@ -295,13 +295,13 @@ func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
 			}
 		case IntegerType:
 			{
-				v, ok := val.(uint64)
+				v, ok := val.(*Number)
 				if !ok {
 					return nil, ErrInvalidValue
 				}
 
 				b := make([]byte, 8)
-				binary.BigEndian.PutUint64(b, v)
+				binary.BigEndian.PutUint64(b, v.val)
 
 				_, err = valbuf.Write(b)
 				if err != nil {
@@ -406,12 +406,81 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 	return
 }
 
+type Value interface {
+	value() interface{}
+	jointColumnTo(col *Column) (*ColSelector, error)
+}
+
+type Number struct {
+	val uint64
+}
+
+func (v *Number) value() interface{} {
+	return v.val
+}
+
+func (v *Number) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
+type String struct {
+	val string
+}
+
+func (v *String) value() interface{} {
+	return v.val
+}
+
+func (v *String) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
+type Bool struct {
+	val bool
+}
+
+func (v *Bool) value() interface{} {
+	return v.val
+}
+
+func (v *Bool) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
+type Blob struct {
+	val []byte
+}
+
+func (v *Blob) value() interface{} {
+	return v.val
+}
+
+func (v *Blob) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
 type SysFn struct {
 	fn string
 }
 
+func (v *SysFn) value() interface{} {
+	return nil
+}
+
+func (v *SysFn) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
 type Param struct {
 	id string
+}
+
+func (v *Param) value() interface{} {
+	return nil
+}
+
+func (v *Param) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
 }
 
 type Comparison int
@@ -699,10 +768,31 @@ type AggColSelector struct {
 }
 
 type BoolExp interface {
+	jointColumnTo(col *Column) (*ColSelector, error)
+}
+
+func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
+	if bexp.db != "" && bexp.db != col.table.db.name {
+		return nil, ErrJointColumnNotFound
+	}
+
+	if bexp.table != "" && bexp.table != col.table.name {
+		return nil, ErrJointColumnNotFound
+	}
+
+	if bexp.col != col.colName {
+		return nil, ErrJointColumnNotFound
+	}
+
+	return bexp, nil
 }
 
 type NotBoolExp struct {
 	exp BoolExp
+}
+
+func (bexp *NotBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+	return bexp.exp.jointColumnTo(col)
 }
 
 type LikeBoolExp struct {
@@ -710,9 +800,43 @@ type LikeBoolExp struct {
 	pattern string
 }
 
+func (bexp *LikeBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
 type CmpBoolExp struct {
 	op          CmpOperator
 	left, right BoolExp
+}
+
+func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+	selLeft, okLeft := bexp.left.(*ColSelector)
+	selRight, okRight := bexp.right.(*ColSelector)
+
+	if !okLeft || !okRight {
+		return nil, ErrJointColumnNotFound
+	}
+
+	jcolLeft, errLeft := selLeft.jointColumnTo(col)
+	jcolRight, errRight := selRight.jointColumnTo(col)
+
+	if errLeft != nil && errLeft != ErrJointColumnNotFound {
+		return nil, errLeft
+	}
+
+	if errRight != nil && errRight != ErrJointColumnNotFound {
+		return nil, errRight
+	}
+
+	if errLeft == nil && errRight == nil {
+		return nil, ErrInvalidJointColumn
+	}
+
+	if errLeft == nil {
+		return jcolLeft, nil
+	}
+
+	return jcolRight, nil
 }
 
 type BinBoolExp struct {
@@ -720,6 +844,37 @@ type BinBoolExp struct {
 	left, right BoolExp
 }
 
+func (bexp *BinBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+	jcolLeft, errLeft := bexp.left.jointColumnTo(col)
+	jcolRight, errRight := bexp.left.jointColumnTo(col)
+
+	if errLeft != nil && errLeft != ErrJointColumnNotFound {
+		return nil, errLeft
+	}
+
+	if errRight != nil && errRight != ErrJointColumnNotFound {
+		return nil, errRight
+	}
+
+	if errLeft == ErrJointColumnNotFound && errRight == ErrJointColumnNotFound {
+		return nil, ErrJointColumnNotFound
+	}
+
+	if errLeft == nil && errRight == nil && jcolLeft != jcolRight {
+		return nil, ErrInvalidJointColumn
+	}
+
+	if errLeft == nil {
+		return jcolLeft, nil
+	}
+
+	return jcolRight, nil
+}
+
 type ExistsBoolExp struct {
 	q *SelectStmt
+}
+
+func (bexp *ExistsBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
 }
