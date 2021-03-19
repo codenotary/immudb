@@ -48,6 +48,8 @@ type Options struct {
 	NoHistograms        bool
 	Detached            bool
 	MetricsServer       bool
+	WebServer           bool
+	WebPort             int
 	DevMode             bool
 	AdminPassword       string `json:"-"`
 	systemAdminDbName   string
@@ -69,6 +71,7 @@ func DefaultOptions() *Options {
 		Address:             "0.0.0.0",
 		Port:                3322,
 		MetricsPort:         9497,
+		WebPort:             8080,
 		Config:              "configs/immudb.toml",
 		Pidfile:             "",
 		Logfile:             "",
@@ -78,6 +81,7 @@ func DefaultOptions() *Options {
 		NoHistograms:        false,
 		Detached:            false,
 		MetricsServer:       true,
+		WebServer:           true,
 		DevMode:             false,
 		AdminPassword:       auth.SysAdminPassword,
 		systemAdminDbName:   SystemdbName,
@@ -195,6 +199,19 @@ func (o *Options) MetricsBind() string {
 	return o.Address + ":" + strconv.Itoa(o.MetricsPort)
 }
 
+// WebBind return bind address for the Web API/console
+func (o *Options) WebBind() string {
+	return o.Address + ":" + strconv.Itoa(o.WebPort)
+}
+
+// The Web proxy needs to know where to find the GRPC server
+func (o *Options) GprcConnectAddr() string {
+	if o.Address == "" || o.Address == "0.0.0.0" {
+		return "127.0.0.1" + ":" + strconv.Itoa(o.Port)
+	}
+	return o.Address + ":" + strconv.Itoa(o.Port)
+}
+
 // String print options
 func (o *Options) String() string {
 	rightPad := func(k string, v interface{}) string {
@@ -233,6 +250,12 @@ func (o *Options) String() string {
 // WithMetricsServer ...
 func (o *Options) WithMetricsServer(metricsServer bool) *Options {
 	o.MetricsServer = metricsServer
+	return o
+}
+
+// WithWebServer ...
+func (o *Options) WithWebServer(webServer bool) *Options {
+	o.WebServer = webServer
 	return o
 }
 
