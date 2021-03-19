@@ -78,7 +78,7 @@ type ImmuClient interface {
 	WithServerSigningPubKey(serverSigningPubKey *ecdsa.PublicKey) *immuClient
 	WithStreamServiceFactory(ssf stream.ServiceFactory) *immuClient
 
-	GetServiceClient() *schema.ImmuServiceClient
+	GetServiceClient() schema.ImmuServiceClient
 	GetOptions() *Options
 	SetupDialOptions(options *Options) *[]grpc.DialOption
 
@@ -372,8 +372,8 @@ func logErr(log logger.Logger, formattedMessage string, err error) error {
 }
 
 // GetServiceClient ...
-func (c *immuClient) GetServiceClient() *schema.ImmuServiceClient {
-	return &c.ServiceClient
+func (c *immuClient) GetServiceClient() schema.ImmuServiceClient {
+	return c.ServiceClient
 }
 
 func (c *immuClient) GetOptions() *Options {
