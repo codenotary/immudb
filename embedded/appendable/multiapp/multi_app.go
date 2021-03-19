@@ -34,7 +34,7 @@ import (
 
 var ErrorPathIsNotADirectory = errors.New("path is not a directory")
 var ErrIllegalArguments = errors.New("illegal arguments")
-var ErrAlreadyClosed = errors.New("already closed")
+var ErrAlreadyClosed = errors.New("multi-appendable already closed")
 var ErrReadOnly = errors.New("cannot append when openned in read-only mode")
 
 const (
