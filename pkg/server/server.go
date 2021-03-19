@@ -34,6 +34,7 @@ import (
 	"syscall"
 	"time"
 	"unicode"
+	"net/http"
 
 	"github.com/codenotary/immudb/pkg/stream"
 
@@ -48,6 +49,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -190,6 +192,18 @@ func (s *ImmuServer) Initialize() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 
+	mux := runtime.NewServeMux()
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	err = schema.RegisterImmuServiceHandlerFromEndpoint(context.TODO(), mux,  "localhost:3322", opts)
+	if err != nil {
+		return err
+	}
+
+	s.restServer = &http.Server{
+		Addr:    "0.0.0.0",
+		Handler: mux,
+	}
+	
 	return err
 }
 
@@ -222,6 +236,18 @@ func (s *ImmuServer) Start() (err error) {
 		}
 	}()
 
+	go func() {
+		listener, err := net.Listen("tcp", ":9997")
+		if err != nil {
+			s.mux.Unlock()
+			log.Fatal(err)
+		}
+		if err = s.restServer.Serve(listener); err != nil {
+			s.mux.Unlock()
+			log.Fatal(err)
+		}
+	}()
+	
 	s.mux.Unlock()
 	<-s.quit
 
