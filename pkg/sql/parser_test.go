@@ -273,7 +273,16 @@ func TestInsertIntoStmt(t *testing.T) {
 					tableRef: &TableRef{table: "table1"},
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*RowSpec{
-						{Values: []interface{}{uint64(2), &SysFn{fn: "TIME"}, "untitled row", true, false, decodedBLOB, &Param{id: "param1"}}},
+						{Values: []Value{
+							&Number{val: 2},
+							&SysFn{fn: "TIME"},
+							&String{val: "untitled row"},
+							&Bool{val: true},
+							&Bool{val: false},
+							&Blob{val: decodedBLOB},
+							&Param{id: "param1"},
+						},
+						},
 					},
 				},
 			},
@@ -286,9 +295,9 @@ func TestInsertIntoStmt(t *testing.T) {
 					tableRef: &TableRef{table: "table1"},
 					cols:     []string{"id", "active"},
 					rows: []*RowSpec{
-						{Values: []interface{}{uint64(1), false}},
-						{Values: []interface{}{uint64(2), true}},
-						{Values: []interface{}{uint64(3), true}},
+						{Values: []Value{&Number{val: 1}, &Bool{val: false}}},
+						{Values: []Value{&Number{val: 2}, &Bool{val: true}}},
+						{Values: []Value{&Number{val: 3}, &Bool{val: true}}},
 					},
 				},
 			},
@@ -418,14 +427,14 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []interface{}{uint64(100), "label1"}},
+								{Values: []Value{&Number{val: 100}, &String{val: "label1"}}},
 							},
 						},
 						&UpsertIntoStmt{
 							tableRef: &TableRef{table: "table2"},
 							cols:     []string{"id"},
 							rows: []*RowSpec{
-								{Values: []interface{}{uint64(10)}},
+								{Values: []Value{&Number{val: 10}}},
 							},
 						},
 					},
@@ -450,7 +459,7 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []interface{}{uint64(100), "label1"}},
+								{Values: []Value{&Number{val: 100}, &String{val: "label1"}}},
 							},
 						},
 					},
@@ -475,7 +484,7 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []interface{}{uint64(100), "label1"}},
+								{Values: []Value{&Number{val: 100}, &String{val: "label1"}}},
 							},
 						},
 					},
@@ -584,7 +593,7 @@ func TestSelectStmt(t *testing.T) {
 								left: &ColSelector{
 									col: "country",
 								},
-								right: "US",
+								right: &String{val: "US"},
 							},
 							right: &CmpBoolExp{
 								op: LE,
@@ -654,7 +663,7 @@ func TestSelectStmt(t *testing.T) {
 					where: &CmpBoolExp{
 						op:    EQ,
 						left:  &ColSelector{col: "name"},
-						right: "John",
+						right: &String{val: "John"},
 					},
 					orderBy: []*OrdCol{
 						{sel: &ColSelector{col: "name"}, cmp: LowerOrEqualTo},
@@ -693,7 +702,7 @@ func TestSelectStmt(t *testing.T) {
 					where: &CmpBoolExp{
 						op:    EQ,
 						left:  &ColSelector{col: "name"},
-						right: "John",
+						right: &String{val: "John"},
 					},
 					orderBy: []*OrdCol{
 						{sel: &ColSelector{col: "name"}, cmp: LowerOrEqualTo},
@@ -741,14 +750,14 @@ func TestSelectStmt(t *testing.T) {
 							left: &ColSelector{
 								col: "time",
 							},
-							right: "20210101 00:00:00.000",
+							right: &String{val: "20210101 00:00:00.000"},
 						},
 						right: &CmpBoolExp{
 							op: LT,
 							left: &ColSelector{
 								col: "time",
 							},
-							right: "20210211 00:00:00.000",
+							right: &String{val: "20210211 00:00:00.000"},
 						},
 					},
 				}},
@@ -832,7 +841,7 @@ func TestExpressions(t *testing.T) {
 						left: &ColSelector{
 							col: "id",
 						},
-						right: uint64(0),
+						right: &Number{val: 0},
 					},
 				}},
 			expectedError: nil,
@@ -853,14 +862,14 @@ func TestExpressions(t *testing.T) {
 							left: &ColSelector{
 								col: "id",
 							},
-							right: uint64(0),
+							right: &Number{val: 0},
 						},
 						right: &CmpBoolExp{
 							op: LT,
 							left: &ColSelector{
 								col: "id",
 							},
-							right: uint64(10),
+							right: &Number{val: 10},
 						},
 					},
 				}},
@@ -882,7 +891,7 @@ func TestExpressions(t *testing.T) {
 							left: &ColSelector{
 								col: "id",
 							},
-							right: uint64(0),
+							right: &Number{val: 0},
 						},
 						right: &NotBoolExp{
 							exp: &CmpBoolExp{
@@ -891,7 +900,7 @@ func TestExpressions(t *testing.T) {
 									table: "table1",
 									col:   "id",
 								},
-								right: uint64(10),
+								right: &Number{val: 10},
 							},
 						},
 					},
@@ -935,7 +944,7 @@ func TestExpressions(t *testing.T) {
 								left: &ColSelector{
 									col: "id",
 								},
-								right: uint64(0),
+								right: &Number{val: 0},
 							},
 							right: &NotBoolExp{
 								exp: &CmpBoolExp{
@@ -944,7 +953,7 @@ func TestExpressions(t *testing.T) {
 										table: "table1",
 										col:   "id",
 									},
-									right: uint64(10),
+									right: &Number{val: 10},
 								},
 							},
 						},
@@ -1046,14 +1055,14 @@ func TestMultiLineStmts(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []interface{}{uint64(100), "label1"}},
+								{Values: []Value{&Number{val: 100}, &String{val: "label1"}}},
 							},
 						},
 						&UpsertIntoStmt{
 							tableRef: &TableRef{table: "table2"},
 							cols:     []string{"id"},
 							rows: []*RowSpec{
-								{Values: []interface{}{uint64(10)}},
+								{Values: []Value{&Number{val: 10}}},
 							},
 						},
 					},
@@ -1073,14 +1082,14 @@ func TestMultiLineStmts(t *testing.T) {
 							left: &ColSelector{
 								col: "time",
 							},
-							right: "20210101 00:00:00.000",
+							right: &String{val: "20210101 00:00:00.000"},
 						},
 						right: &CmpBoolExp{
 							op: LT,
 							left: &ColSelector{
 								col: "time",
 							},
-							right: "20210211 00:00:00.000",
+							right: &String{val: "20210211 00:00:00.000"},
 						},
 					},
 				},

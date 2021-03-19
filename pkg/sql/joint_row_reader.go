@@ -30,11 +30,16 @@ type jointRowReader struct {
 }
 
 func (e *Engine) newJointRowReader(snap *tbtree.Snapshot, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
-	if snap == nil || joins == nil {
+	if snap == nil || len(joins) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
-	return nil, nil
+	return &jointRowReader{
+		e:         e,
+		snap:      snap,
+		rowReader: rowReader,
+		joins:     joins,
+	}, nil
 }
 
 func (jointr *jointRowReader) Read() (*Row, error) {
@@ -51,12 +56,26 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 
 		table, err := tableRef.referencedTable(jointr.e)
 
+		fkSel, err := jspec.cond.jointColumnTo(table.pk)
+		if err != nil {
+			return nil, err
+		}
+
+		//fkSel.Resolve()
+
+		fk, ok := row.Values[fkSel].(uint64)
+		if !ok {
+			return nil, ErrInvalidJointColumn
+		}
+
 		pkOrd := &OrdCol{
 			sel: &ColSelector{
 				db:    table.db.name,
 				table: table.name,
 				col:   table.pk.colName,
 			},
+			initKeyVal:    encodeID(fk),
+			useInitKeyVal: true,
 		}
 
 		jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, pkOrd)
