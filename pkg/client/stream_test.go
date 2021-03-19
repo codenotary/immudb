@@ -1100,6 +1100,67 @@ func TestImmuClient_StreamerServiceHistoryErrors(t *testing.T) {
 	client.Disconnect()
 }
 
+func TestImmuClient_ChunkToChunkGetStream(t *testing.T) {
+	options := server.DefaultOptions().WithAuth(true)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
+
+	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
+	require.NoError(t, err)
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	file_size := 1_000_000
+	tmpFile, err := streamtest.GenerateDummyFile("myFile1", file_size)
+	require.NoError(t, err)
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	tmpFile.Seek(0, io.SeekStart)
+
+	kvs, err := streamutils.GetKeyValuesFromFiles(tmpFile.Name())
+	if err != nil {
+		t.Error(err)
+	}
+
+	meta, err := client.StreamSet(ctx, kvs)
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+
+	sc := client.GetServiceClient()
+	gs, err := sc.StreamGet(ctx, &schema.KeyRequest{Key: []byte(tmpFile.Name())})
+
+	kvr := stream.NewKvStreamReceiver(stream.NewMsgReceiver(gs), stream.DefaultChunkSize)
+
+	_, vr, err := kvr.Next()
+	require.NoError(t, err)
+
+	l := 0
+	chunk := make([]byte, 4096)
+	for {
+		r, err := vr.Read(chunk)
+		if err != nil && err != io.EOF {
+			log.Fatal(err)
+		}
+		if err == io.EOF {
+			break
+		}
+		l += r
+	}
+
+	client.Disconnect()
+
+	require.Equal(t, file_size, l)
+}
+
 type ServiceFactoryMock struct {
 	NewMsgSenderF   func(str stream.ImmuServiceSender_Stream) stream.MsgSender
 	NewMsgReceiverF func(str stream.ImmuServiceReceiver_Stream) stream.MsgReceiver
