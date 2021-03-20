@@ -754,6 +754,18 @@ type ColSelector struct {
 	as    string
 }
 
+func (sel *ColSelector) resolve(implicitDatabase string) string {
+	if sel.as != "" {
+		return sel.as
+	}
+
+	if sel.db == "" {
+		return implicitDatabase + "." + sel.table + "." + sel.col
+	}
+
+	return sel.db + "." + sel.table + "." + sel.col
+}
+
 type AggSelector struct {
 	aggFn AggregateFn
 	as    string
@@ -817,8 +829,8 @@ func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 		return nil, ErrJointColumnNotFound
 	}
 
-	jcolLeft, errLeft := selLeft.jointColumnTo(col)
-	jcolRight, errRight := selRight.jointColumnTo(col)
+	_, errLeft := selLeft.jointColumnTo(col)
+	_, errRight := selRight.jointColumnTo(col)
 
 	if errLeft != nil && errLeft != ErrJointColumnNotFound {
 		return nil, errLeft
@@ -833,10 +845,10 @@ func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	}
 
 	if errLeft == nil {
-		return jcolLeft, nil
+		return selRight, nil
 	}
 
-	return jcolRight, nil
+	return selLeft, nil
 }
 
 type BinBoolExp struct {

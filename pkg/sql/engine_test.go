@@ -266,13 +266,14 @@ func TestJoins(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 5)
+		require.Len(t, row.Values, 8)
 
 		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"])
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"])
-		require.Equal(t, uint64(i), row.Values["db1.table1.fkid"])
+		require.Equal(t, uint64(i), row.Values["db1.table1.fkid1"])
 		require.Equal(t, uint64(i), row.Values["db1.table2.id"])
 		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"])
+		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"])
 	}
 
 	err = r.Close()
