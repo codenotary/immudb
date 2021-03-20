@@ -284,30 +284,30 @@ func encodeValue(val interface{}, colType SQLValueType, asPK bool) ([]byte, erro
 	switch colType {
 	case StringType:
 		{
-			strVal, ok := val.(string)
+			strVal, ok := val.(*String)
 			if !ok {
 				return nil, ErrInvalidValue
 			}
 
-			if asPK && len(strVal) > len(maxKeyVal(StringType)) {
+			if asPK && len(strVal.val) > len(maxKeyVal(StringType)) {
 				return nil, ErrInvalidPK
 			}
 
-			encv := make([]byte, 4+len(strVal))
-			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal)))
-			copy(encv[4:], []byte(strVal))
+			encv := make([]byte, 4+len(strVal.val))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal.val)))
+			copy(encv[4:], []byte(strVal.val))
 
 			return encv, nil
 		}
 	case IntegerType:
 		{
-			intVal, ok := val.(uint64)
+			intVal, ok := val.(*Number)
 			if !ok {
 				return nil, ErrInvalidValue
 			}
 
 			var encv [8]byte
-			binary.BigEndian.PutUint64(encv[:], intVal)
+			binary.BigEndian.PutUint64(encv[:], intVal.val)
 
 			return encv[:], nil
 		}
