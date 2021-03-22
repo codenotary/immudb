@@ -69,8 +69,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		seekKey = EncodeKey(req.SeekKey)
 	}
 
-	r, err := d.st.NewKeyReader(
-		snap,
+	r, err := snap.NewKeyReader(
 		&tbtree.ReaderSpec{
 			SeekKey:   seekKey,
 			Prefix:    EncodeKey(req.Prefix),

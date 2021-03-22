@@ -16,7 +16,6 @@ limitations under the License.
 package database
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -215,21 +214,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 	var val []byte
 
 	if atTx == 0 {
-		wv, wtx, _, err := keyIndex.Get(key)
-		if err != nil {
-			return nil, err
-		}
-
-		valLen := binary.BigEndian.Uint32(wv)
-		vOff := binary.BigEndian.Uint64(wv[4:])
-
-		var hVal [sha256.Size]byte
-		copy(hVal[:], wv[4+8:])
-
-		ktx = wtx
-
-		val = make([]byte, valLen)
-		_, err = d.st.ReadValueAt(val, int64(vOff), hVal)
+		val, ktx, _, err = keyIndex.Get(key)
 		if err != nil {
 			return nil, err
 		}
