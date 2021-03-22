@@ -111,6 +111,58 @@ func TestCreateTable(t *testing.T) {
 	require.Equal(t, ErrTableAlreadyExists, err)
 }
 
+func TestCreateIndex(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("USE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, age INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	db := engine.catalog.Databases()[0]
+
+	table, ok := db.tablesByName["table1"]
+	require.True(t, ok)
+
+	require.Len(t, table.indexes, 0)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
+	require.NoError(t, err)
+
+	_, indexed := table.indexes[table.colsByName["name"].id]
+	require.True(t, indexed)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)")
+	require.NoError(t, err)
+
+	_, indexed = table.indexes[table.colsByName["age"].id]
+	require.True(t, indexed)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
+	require.Equal(t, ErrIndexAlreadyExists, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table2(name)")
+	require.Equal(t, ErrTableDoesNotExist, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(title)")
+	require.Equal(t, ErrColumnDoesNotExist, err)
+
+	require.Len(t, table.indexes, 2)
+}
+
 func TestInsertInto(t *testing.T) {
 	catalogStore, err := store.Open("catalog", store.DefaultOptions())
 	require.NoError(t, err)

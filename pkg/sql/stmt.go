@@ -200,7 +200,7 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*st
 	}
 
 	te := &store.KV{
-		Key:   e.mapKey(catalogTablePrefix, encodeID(db.id), encodeID(db.id), encodeID(table.pk.id)),
+		Key:   e.mapKey(catalogTablePrefix, encodeID(db.id), encodeID(table.id), encodeID(table.pk.id)),
 		Value: []byte(table.name),
 	}
 	ces = append(ces, te)
@@ -223,9 +223,38 @@ func (stmt *CreateIndexStmt) isDDL() bool {
 }
 
 func (stmt *CreateIndexStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	// index cannot be created for pk nor for certain types such as blob
+	if e.implicitDatabase == "" {
+		return nil, nil, ErrNoDatabaseSelected
+	}
 
-	return nil, nil, errors.New("not yet supported")
+	table, exists := e.catalog.dbsByName[e.implicitDatabase].tablesByName[stmt.table]
+	if !exists {
+		return nil, nil, ErrTableDoesNotExist
+	}
+
+	if table.pk.colName == stmt.col {
+		return nil, nil, ErrIndexAlreadyExists
+	}
+
+	col, exists := table.colsByName[stmt.col]
+	if !exists {
+		return nil, nil, ErrColumnDoesNotExist
+	}
+
+	_, exists = table.indexes[col.id]
+	if exists {
+		return nil, nil, ErrIndexAlreadyExists
+	}
+
+	table.indexes[col.id] = struct{}{}
+
+	te := &store.KV{
+		Key:   e.mapKey(catalogIndexPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id)),
+		Value: []byte(table.name),
+	}
+	ces = append(ces, te)
+
+	return
 }
 
 type AddColumnStmt struct {
