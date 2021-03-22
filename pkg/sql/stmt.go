@@ -407,7 +407,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 }
 
 type Value interface {
-	value() interface{}
+	Value() interface{}
 	jointColumnTo(col *Column) (*ColSelector, error)
 }
 
@@ -415,7 +415,7 @@ type Number struct {
 	val uint64
 }
 
-func (v *Number) value() interface{} {
+func (v *Number) Value() interface{} {
 	return v.val
 }
 
@@ -427,7 +427,7 @@ type String struct {
 	val string
 }
 
-func (v *String) value() interface{} {
+func (v *String) Value() interface{} {
 	return v.val
 }
 
@@ -439,7 +439,7 @@ type Bool struct {
 	val bool
 }
 
-func (v *Bool) value() interface{} {
+func (v *Bool) Value() interface{} {
 	return v.val
 }
 
@@ -451,7 +451,7 @@ type Blob struct {
 	val []byte
 }
 
-func (v *Blob) value() interface{} {
+func (v *Blob) Value() interface{} {
 	return v.val
 }
 
@@ -463,7 +463,7 @@ type SysFn struct {
 	fn string
 }
 
-func (v *SysFn) value() interface{} {
+func (v *SysFn) Value() interface{} {
 	return nil
 }
 
@@ -475,7 +475,7 @@ type Param struct {
 	id string
 }
 
-func (v *Param) value() interface{} {
+func (v *Param) Value() interface{} {
 	return nil
 }
 
