@@ -450,7 +450,22 @@ func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 		return nil, 0, 0, s.indexErr
 	}
 
-	return s.index.Get(key)
+	indexedVal, tx, hc, err := s.index.Get(key)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	valRef, err := s.valueRefFrom(indexedVal)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	val, err := valRef.Resolve()
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	return val, tx, hc, err
 }
 
 func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
@@ -468,7 +483,7 @@ func (s *ImmuStore) NewTx() *Tx {
 	return NewTx(s.maxTxEntries, s.maxKeyLen)
 }
 
-func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
+func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 	s.indexCond.L.Lock()
 	defer s.indexCond.L.Unlock()
 
@@ -476,10 +491,18 @@ func (s *ImmuStore) Snapshot() (*tbtree.Snapshot, error) {
 		return nil, s.indexErr
 	}
 
-	return s.index.Snapshot()
+	snap, err := s.index.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Snapshot{
+		st:   s,
+		snap: snap,
+	}, nil
 }
 
-func (s *ImmuStore) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
+func (s *ImmuStore) SnapshotSince(tx uint64) (*Snapshot, error) {
 	s.indexCond.L.Lock()
 	defer s.indexCond.L.Unlock()
 
@@ -487,7 +510,15 @@ func (s *ImmuStore) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
 		return nil, s.indexErr
 	}
 
-	return s.index.SnapshotSince(tx)
+	snap, err := s.index.SnapshotSince(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Snapshot{
+		st:   s,
+		snap: snap,
+	}, nil
 }
 
 func (s *ImmuStore) binaryLinking() {
