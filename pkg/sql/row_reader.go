@@ -34,14 +34,14 @@ type Row struct {
 
 type rawRowReader struct {
 	e      *Engine
-	snap   *tbtree.Snapshot
+	snap   *store.Snapshot
 	table  *Table
 	col    string
 	desc   bool
 	reader *store.KeyReader
 }
 
-func (e *Engine) newRawRowReader(snap *tbtree.Snapshot, table *Table, colName string, cmp Comparison, initKeyVal []byte) (*rawRowReader, error) {
+func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, colName string, cmp Comparison, initKeyVal []byte) (*rawRowReader, error) {
 	if snap == nil || table == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -53,24 +53,28 @@ func (e *Engine) newRawRowReader(snap *tbtree.Snapshot, table *Table, colName st
 
 	prefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id))
 
+	sizedInitKeyVal := make([]byte, 4+len(initKeyVal))
+	binary.BigEndian.PutUint32(sizedInitKeyVal, uint32(len(initKeyVal)))
+	copy(sizedInitKeyVal[4:], initKeyVal)
+
 	if cmp == EqualTo {
-		prefix = append(prefix, initKeyVal...)
+		prefix = append(prefix, sizedInitKeyVal...)
 	}
 
 	skey := make([]byte, len(prefix))
 	copy(skey, prefix)
 
 	if cmp == GreaterThan || cmp == GreaterOrEqualTo {
-		skey = append(skey, initKeyVal...)
+		skey = append(skey, sizedInitKeyVal...)
 	}
 
 	if cmp == LowerThan || cmp == LowerOrEqualTo {
 		if table.pk.colName == colName {
-			skey = append(skey, initKeyVal...)
+			skey = append(skey, sizedInitKeyVal...)
 		} else {
 			maxPKVal := maxKeyVal(table.pk.colType)
 
-			skey = append(skey, initKeyVal...)
+			skey = append(skey, sizedInitKeyVal...)
 			skey = append(skey, maxPKVal...)
 		}
 	}
@@ -82,7 +86,7 @@ func (e *Engine) newRawRowReader(snap *tbtree.Snapshot, table *Table, colName st
 		DescOrder:     cmp == LowerThan || cmp == LowerOrEqualTo,
 	}
 
-	r, err := e.dataStore.NewKeyReader(snap, rSpec)
+	r, err := snap.NewKeyReader(rSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +122,9 @@ func (r *rawRowReader) Read() (*Row, error) {
 		}
 
 		v, _, _, err = r.snap.Get(r.e.mapKey(rowPrefix, encodeID(r.table.db.id), encodeID(r.table.id), encodeID(r.table.pk.id), pkVal))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	values := make(map[string]Value, len(r.table.colsByID))
