@@ -278,6 +278,32 @@ func TestJoins(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", rowCount, rowCount, rowCount, rowCount))
+	require.NoError(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	r, err = engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id ORDER BY id DESC")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 8)
+
+		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
+		require.Equal(t, uint64(i), row.Values["db1.table1.fkid1"].Value())
+		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"].Value())
+		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"].Value())
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+
 }
 
 func TestTestedJoins(t *testing.T) {
