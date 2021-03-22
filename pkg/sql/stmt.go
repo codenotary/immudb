@@ -22,7 +22,6 @@ import (
 	"errors"
 
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 const (
@@ -304,46 +303,15 @@ func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
 			return nil, err
 		}
 
-		switch col.colType {
-		case StringType:
-			{
-				v, ok := val.(*String)
-				if !ok {
-					return nil, ErrInvalidValue
-				}
-
-				// len(v) + v
-				b := make([]byte, 4+len(v.val))
-				binary.BigEndian.PutUint32(b, uint32(len(v.val)))
-				copy(b[4:], []byte(v.val))
-
-				_, err = valbuf.Write(b)
-				if err != nil {
-					return nil, err
-				}
-			}
-		case IntegerType:
-			{
-				v, ok := val.(*Number)
-				if !ok {
-					return nil, ErrInvalidValue
-				}
-
-				b := make([]byte, 8)
-				binary.BigEndian.PutUint64(b, v.val)
-
-				_, err = valbuf.Write(b)
-				if err != nil {
-					return nil, err
-				}
-			}
+		valb, err := encodeValue(val, col.colType, !asKey)
+		if err != nil {
+			return nil, err
 		}
 
-		/*
-			boolean  bool
-			blob     []byte
-			time
-		*/
+		_, err = valbuf.Write(valb)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return valbuf.Bytes(), nil
@@ -399,7 +367,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 		}
 
 		pkVal := row.Values[cs[table.pk.id]]
-		encVal, err := encodeValue(pkVal, table.pk.colType, asPK)
+		pkEncVal, err := encodeValue(pkVal, table.pk.colType, asKey)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -411,7 +379,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 
 		// create entry for the column which is the pk
 		pke := &store.KV{
-			Key:   e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id), encVal),
+			Key:   e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id), pkEncVal),
 			Value: bs,
 		}
 		des = append(des, pke)
@@ -419,13 +387,13 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 		// create entries for each indexed column, with value as value for pk column
 		for colID := range table.indexes {
 			cVal := row.Values[cs[colID]]
-			encVal, err := encodeValue(cVal, table.colsByID[colID].colType, !asPK)
+			encVal, err := encodeValue(cVal, table.colsByID[colID].colType, asKey)
 			if err != nil {
 				return nil, nil, err
 			}
 
 			ie := &store.KV{
-				Key:   e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(colID), encVal, encVal),
+				Key:   e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(colID), encVal, pkEncVal),
 				Value: nil,
 			}
 			des = append(des, ie)
@@ -552,7 +520,7 @@ func (e *Engine) tableFrom(colSel *ColSelector) (*Table, error) {
 */
 
 type DataSource interface {
-	Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error)
+	Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol) (RowReader, error)
 }
 
 type SelectStmt struct {
@@ -606,7 +574,7 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 	return nil, nil, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error) {
+func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol) (RowReader, error) {
 	// Ordering is only supported at TableRef level
 	if ordCol != nil {
 		return nil, ErrLimitedOrderBy
@@ -702,7 +670,7 @@ func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
 	return table, nil
 }
 
-func (stmt *TableRef) Resolve(e *Engine, snap *tbtree.Snapshot, ordCol *OrdCol) (RowReader, error) {
+func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol) (RowReader, error) {
 	if e == nil || snap == nil || (ordCol != nil && ordCol.sel == nil) {
 		return nil, ErrIllegalArguments
 	}

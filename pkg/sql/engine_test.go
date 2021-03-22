@@ -145,6 +145,9 @@ func TestCreateIndex(t *testing.T) {
 	_, indexed := table.indexes[table.colsByName["name"].id]
 	require.True(t, indexed)
 
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(id)")
+	require.Equal(t, ErrIndexAlreadyExists, err)
+
 	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)")
 	require.NoError(t, err)
 
@@ -234,7 +237,7 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	r, err := engine.QueryStmt("SELECT id, title FROM table1")
 	require.NoError(t, err)
@@ -263,6 +266,74 @@ func TestQuery(t *testing.T) {
 
 		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
+func TestOrderBy(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("USE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, age INTEGER, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)")
+	require.NoError(t, err)
+
+	rowCount := 1
+
+	for i := 0; i < rowCount; i++ {
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, age) VALUES (%d, 'title%d', %d)", i, i, 40+i))
+		require.NoError(t, err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	r, err := engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 3)
+
+		require.Equal(t, uint64(i), row.Values["db1.table1.id"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"].Value())
+		require.Equal(t, uint64(40+i), row.Values["db1.table1.age"].Value())
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age DESC")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 3)
+
+		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
+		require.Equal(t, uint64(40-(rowCount-1-i)), row.Values["db1.table1.age"].Value())
 	}
 
 	err = r.Close()
@@ -358,7 +429,7 @@ func TestJoins(t *testing.T) {
 
 }
 
-func TestTestedJoins(t *testing.T) {
+func TestNestedJoins(t *testing.T) {
 	catalogStore, err := store.Open("catalog", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog")

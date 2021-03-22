@@ -18,19 +18,18 @@ package sql
 
 import (
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 type jointRowReader struct {
 	e    *Engine
-	snap *tbtree.Snapshot
+	snap *store.Snapshot
 
 	rowReader RowReader
 
 	joins []*JoinSpec
 }
 
-func (e *Engine) newJointRowReader(snap *tbtree.Snapshot, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
+func (e *Engine) newJointRowReader(snap *store.Snapshot, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
 	if snap == nil || len(joins) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -76,7 +75,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				return nil, ErrInvalidJointColumn
 			}
 
-			fkEncVal, err := encodeValue(fkVal, table.pk.colType, asPK)
+			fkEncVal, err := encodeValue(fkVal, table.pk.colType, asKey)
 			if err != nil {
 				return nil, err
 			}
