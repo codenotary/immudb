@@ -193,8 +193,8 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(i), row.Values["db1.table1.id"])
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"])
+		require.Equal(t, uint64(i), row.Values["db1.table1.id"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"].Value())
 	}
 
 	err = r.Close()
@@ -209,8 +209,8 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"])
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"])
+		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
 	}
 
 	err = r.Close()
@@ -268,12 +268,12 @@ func TestJoins(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 8)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"])
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"])
-		require.Equal(t, uint64(i), row.Values["db1.table1.fkid1"])
-		require.Equal(t, uint64(i), row.Values["db1.table2.id"])
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"])
-		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"])
+		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
+		require.Equal(t, uint64(i), row.Values["db1.table1.fkid1"].Value())
+		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"].Value())
+		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"].Value())
 	}
 
 	err = r.Close()

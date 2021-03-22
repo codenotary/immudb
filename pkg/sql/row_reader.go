@@ -29,7 +29,7 @@ type RowReader interface {
 }
 
 type Row struct {
-	Values map[string]interface{}
+	Values map[string]Value
 }
 
 type rawRowReader struct {
@@ -120,7 +120,7 @@ func (r *rawRowReader) Read() (*Row, error) {
 		v, _, _, err = r.snap.Get(r.e.mapKey(rowPrefix, encodeID(r.table.db.id), encodeID(r.table.id), encodeID(r.table.pk.id), pkVal))
 	}
 
-	values := make(map[string]interface{}, len(r.table.colsByID))
+	values := make(map[string]Value, len(r.table.colsByID))
 
 	voff := 0
 
@@ -146,13 +146,13 @@ func (r *rawRowReader) Read() (*Row, error) {
 
 				v := string(v[voff : voff+vlen])
 				voff += vlen
-				values[r.table.db.name+"."+r.table.name+"."+colName] = v
+				values[r.table.db.name+"."+r.table.name+"."+colName] = &String{val: v}
 			}
 		case IntegerType:
 			{
 				v := binary.BigEndian.Uint64(v[voff:])
 				voff += 8
-				values[r.table.db.name+"."+r.table.name+"."+colName] = v
+				values[r.table.db.name+"."+r.table.name+"."+colName] = &Number{val: v}
 			}
 		}
 	}
