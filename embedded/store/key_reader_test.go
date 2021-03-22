@@ -52,13 +52,10 @@ func TestImmudbStoreReader(t *testing.T) {
 	snap, err := immuStore.Snapshot()
 	require.NoError(t, err)
 
-	_, err = immuStore.NewKeyReader(nil, nil)
+	_, err = snap.NewKeyReader(nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	_, err = immuStore.NewKeyReader(snap, nil)
-	require.Equal(t, ErrIllegalArguments, err)
-
-	reader, err := immuStore.NewKeyReader(snap, &KeyReaderSpec{})
+	reader, err := snap.NewKeyReader(&KeyReaderSpec{})
 	require.NoError(t, err)
 
 	defer reader.Close()
@@ -112,7 +109,7 @@ func TestImmudbStoreReaderAsBefore(t *testing.T) {
 	snap, err := immuStore.Snapshot()
 	require.NoError(t, err)
 
-	reader, err := immuStore.NewKeyReader(snap, &KeyReaderSpec{})
+	reader, err := snap.NewKeyReader(&KeyReaderSpec{})
 	require.NoError(t, err)
 
 	defer reader.Close()

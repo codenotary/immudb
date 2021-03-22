@@ -17,7 +17,6 @@ package store
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -500,8 +499,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 						v := make([]byte, 8)
 						binary.BigEndian.PutUint64(v, snap.Ts()-1)
 
-						wv, _, _, err := snap.Get(k)
-
+						val, _, _, err := snap.Get(k)
 						if err != nil {
 							if err != tbtree.ErrKeyNotFound {
 								panic(err)
@@ -509,32 +507,9 @@ func TestImmudbStoreIndexing(t *testing.T) {
 						}
 
 						if err == nil {
-							if wv == nil {
-								panic("expected not nil")
-							}
-
-							valLen := binary.BigEndian.Uint32(wv)
-							vOff := binary.BigEndian.Uint64(wv[4:])
-
-							var hVal [sha256.Size]byte
-							copy(hVal[:], wv[4+8:])
-
-							val := make([]byte, valLen)
-							_, err := immuStore.ReadValueAt(val, int64(vOff), hVal)
-
-							if err != nil {
-								panic(err)
-							}
-
 							if !bytes.Equal(v, val) {
 								panic(fmt.Errorf("expected %v actual %v", v, val))
 							}
-
-							_, err = immuStore.ReadValueAt(val, int64(vOff), sha256.Sum256(hVal[:]))
-							if err != ErrCorruptedData {
-								panic(err)
-							}
-
 						}
 					}
 				}
