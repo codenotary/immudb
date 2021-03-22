@@ -20,9 +20,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/user"
 	"testing"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -30,11 +30,11 @@ import (
 
 func TestOptions_InitConfig(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../test/immudb.toml")
-	home, err := homedir.Dir()
+	user, err := user.Current()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fn := home + "/immudbtest9990.toml"
+	fn := user.HomeDir + "/immudbtest9990.toml"
 	_ = ioutil.WriteFile(fn, input, 0644)
 	defer os.RemoveAll(fn)
 	o := Config{}

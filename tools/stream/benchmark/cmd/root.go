@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"os"
+	"os/user"
 	"streamer/benchmark/streamb"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
@@ -88,14 +88,14 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
-		home, err := homedir.Dir()
+		user, err := user.Current()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
 		// Search config in home directory with name ".streamb" (without extension).
-		viper.AddConfigPath(home)
+		viper.AddConfigPath(user.HomeDir)
 		viper.SetConfigName(".streamb")
 	}
 
