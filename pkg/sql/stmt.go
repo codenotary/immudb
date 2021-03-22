@@ -822,6 +822,10 @@ type CmpBoolExp struct {
 }
 
 func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+	if bexp.op != EQ {
+		return nil, ErrJointColumnNotFound
+	}
+
 	selLeft, okLeft := bexp.left.(*ColSelector)
 	selRight, okRight := bexp.right.(*ColSelector)
 

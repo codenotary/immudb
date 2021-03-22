@@ -17,6 +17,7 @@ limitations under the License.
 package sql
 
 import (
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
@@ -34,6 +35,12 @@ func (e *Engine) newJointRowReader(snap *tbtree.Snapshot, rowReader RowReader, j
 		return nil, ErrIllegalArguments
 	}
 
+	for _, jspec := range joins {
+		if jspec.joinType != InnerJoin {
+			return nil, ErrUnsupportedJoinType
+		}
+	}
+
 	return &jointRowReader{
 		e:         e,
 		snap:      snap,
@@ -43,62 +50,72 @@ func (e *Engine) newJointRowReader(snap *tbtree.Snapshot, rowReader RowReader, j
 }
 
 func (jointr *jointRowReader) Read() (*Row, error) {
-	row, err := jointr.rowReader.Read()
-	if err != nil {
-		return nil, err
+	for {
+		row, err := jointr.rowReader.Read()
+		if err != nil {
+			return nil, err
+		}
+
+		unsolvedFK := false
+
+		for _, jspec := range jointr.joins {
+			tableRef, ok := jspec.ds.(*TableRef)
+			if !ok {
+				return nil, ErrLimitedJoins
+			}
+
+			table, err := tableRef.referencedTable(jointr.e)
+
+			fkSel, err := jspec.cond.jointColumnTo(table.pk)
+			if err != nil {
+				return nil, err
+			}
+
+			fkVal, ok := row.Values[fkSel.resolve(jointr.e.implicitDatabase)]
+			if !ok {
+				return nil, ErrInvalidJointColumn
+			}
+
+			fkEncVal, err := encodeValue(fkVal, table.pk.colType, asPK)
+			if err != nil {
+				return nil, err
+			}
+
+			pkOrd := &OrdCol{
+				sel: &ColSelector{
+					db:    table.db.name,
+					table: table.name,
+					col:   table.pk.colName,
+				},
+				initKeyVal:    fkEncVal,
+				useInitKeyVal: true,
+			}
+
+			jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, pkOrd)
+			if err != nil {
+				return nil, err
+			}
+
+			jrow, err := jr.Read()
+			if err == store.ErrNoMoreEntries {
+				unsolvedFK = true
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			// Note: by adding values this way joins behave as nested i.e. following joins will be able to seek values
+			// from previously resolved ones.
+			for c, v := range jrow.Values {
+				row.Values[c] = v
+			}
+		}
+
+		if !unsolvedFK {
+			return row, nil
+		}
 	}
-
-	for _, jspec := range jointr.joins {
-		tableRef, ok := jspec.ds.(*TableRef)
-		if !ok {
-			return nil, ErrLimitedJoins
-		}
-
-		table, err := tableRef.referencedTable(jointr.e)
-
-		fkSel, err := jspec.cond.jointColumnTo(table.pk)
-		if err != nil {
-			return nil, err
-		}
-
-		fkVal, ok := row.Values[fkSel.resolve(jointr.e.implicitDatabase)]
-		if !ok {
-			return nil, ErrInvalidJointColumn
-		}
-
-		fkEncVal, err := encodeValue(fkVal, table.pk.colType, asPK)
-		if err != nil {
-			return nil, err
-		}
-
-		pkOrd := &OrdCol{
-			sel: &ColSelector{
-				db:    table.db.name,
-				table: table.name,
-				col:   table.pk.colName,
-			},
-			initKeyVal:    fkEncVal,
-			useInitKeyVal: true,
-		}
-
-		jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, pkOrd)
-		if err != nil {
-			return nil, err
-		}
-
-		jrow, err := jr.Read()
-		if err != nil {
-			return nil, err
-		}
-
-		// Note: by adding values this way joins behave as nested i.e. following joins will be able to seek values
-		// from previously resolved ones.
-		for c, v := range jrow.Values {
-			row.Values[c] = v
-		}
-	}
-
-	return row, nil
 }
 
 func (jointr *jointRowReader) Close() error {
