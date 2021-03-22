@@ -57,7 +57,7 @@ var ErrUnsupportedJoinType = errors.New("unsupported join type")
 
 var mKeyVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
-const asPK = true
+const asKey = true
 
 type Engine struct {
 	catalogStore *store.ImmuStore
@@ -130,7 +130,7 @@ func waitForIndexingUpto(st *store.ImmuStore, txID uint64) error {
 	}
 }
 
-func catalogFrom(e *Engine, snap *tbtree.Snapshot) (*Catalog, error) {
+func catalogFrom(e *Engine, snap *store.Snapshot) (*Catalog, error) {
 	if snap == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -141,7 +141,7 @@ func catalogFrom(e *Engine, snap *tbtree.Snapshot) (*Catalog, error) {
 		Prefix: []byte(catalogDatabasePrefix),
 	}
 
-	dbReader, err := e.dataStore.NewKeyReader(snap, dbReaderSpec)
+	dbReader, err := snap.NewKeyReader(dbReaderSpec)
 	if err == store.ErrNoMoreEntries {
 		return catalog, nil
 	}
@@ -182,7 +182,9 @@ func catalogFrom(e *Engine, snap *tbtree.Snapshot) (*Catalog, error) {
 }
 
 func (e *Engine) trimPrefix(mkey []byte, mappingPrefix []byte) ([]byte, error) {
-	if len(e.prefix) > len(mkey) || !bytes.Equal(mkey[len(e.prefix):], mappingPrefix) {
+	if len(e.prefix)+len(mappingPrefix) > len(mkey) ||
+		!bytes.Equal(e.prefix, mkey[:len(e.prefix)]) ||
+		!bytes.Equal(mappingPrefix, mkey[len(e.prefix):len(e.prefix)+len(mappingPrefix)]) {
 		return nil, ErrIllegelMappedKey
 	}
 
@@ -207,10 +209,15 @@ func (e *Engine) unmapRow(mkey []byte) (dbID, tableID, colID uint64, val, pkVal 
 
 	off := 0
 
+	off += 4 // dbID len
 	dbID = binary.BigEndian.Uint64(enc[off:])
 	off += 8
+
+	off += 4 // tableID len
 	tableID = binary.BigEndian.Uint64(enc[off:])
 	off += 8
+
+	off += 4 // colID len
 	colID = binary.BigEndian.Uint64(enc[off:])
 	off += 8
 
@@ -218,11 +225,13 @@ func (e *Engine) unmapRow(mkey []byte) (dbID, tableID, colID uint64, val, pkVal 
 		//read index value
 		valLen := binary.BigEndian.Uint32(enc[off:])
 		off += 4
+
 		val = make([]byte, valLen)
 		copy(val, enc[off:off+int(valLen)])
 		off += int(valLen)
 	}
 
+	off += 4 // pkVal len
 	pkVal = make([]byte, len(enc)-off)
 	copy(pkVal, enc[off:])
 	off += len(pkVal)
@@ -242,7 +251,7 @@ func existKey(key []byte, st *store.ImmuStore) (bool, error) {
 }
 
 func (e *Engine) mapKey(mappingPrefix string, encValues ...[]byte) []byte {
-	mkeyLen := len(e.prefix) + len(mappingPrefix)
+	mkeyLen := len(e.prefix) + len(mappingPrefix) + 4*len(encValues)
 
 	for _, ev := range encValues {
 		mkeyLen += len(ev)
@@ -252,13 +261,18 @@ func (e *Engine) mapKey(mappingPrefix string, encValues ...[]byte) []byte {
 
 	off := 0
 
-	copy(mkey[off:], e.prefix)
+	copy(mkey, e.prefix)
 	off += len(e.prefix)
 
 	copy(mkey[off:], []byte(mappingPrefix))
 	off += len(mappingPrefix)
 
 	for _, ev := range encValues {
+		var encLen [4]byte
+		binary.BigEndian.PutUint32(encLen[:], uint32(len(ev)))
+
+		copy(mkey[off:], encLen[:])
+		off += 4
 		copy(mkey[off:], ev)
 		off += len(ev)
 	}
@@ -282,7 +296,7 @@ func maxKeyVal(colType SQLValueType) []byte {
 	return mKeyVal[:]
 }
 
-func encodeValue(val interface{}, colType SQLValueType, asPK bool) ([]byte, error) {
+func encodeValue(val Value, colType SQLValueType, asKey bool) ([]byte, error) {
 	switch colType {
 	case StringType:
 		{
@@ -291,10 +305,11 @@ func encodeValue(val interface{}, colType SQLValueType, asPK bool) ([]byte, erro
 				return nil, ErrInvalidValue
 			}
 
-			if asPK && len(strVal.val) > len(maxKeyVal(StringType)) {
+			if asKey && len(strVal.val) > len(maxKeyVal(StringType)) {
 				return nil, ErrInvalidPK
 			}
 
+			// len(v) + v
 			encv := make([]byte, 4+len(strVal.val))
 			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal.val)))
 			copy(encv[4:], []byte(strVal.val))
@@ -314,6 +329,12 @@ func encodeValue(val interface{}, colType SQLValueType, asPK bool) ([]byte, erro
 			return encv[:], nil
 		}
 	}
+
+	/*
+		boolean  bool
+		blob     []byte
+		time
+	*/
 
 	return nil, ErrInvalidValue
 }
