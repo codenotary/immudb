@@ -91,6 +91,8 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
+		// Note: by adding values this way joins behave as nested i.e. following joins will be able to seek values
+		// from previously resolved ones.
 		for c, v := range jrow.Values {
 			row.Values[c] = v
 		}
