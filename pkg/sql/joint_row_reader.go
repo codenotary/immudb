@@ -61,9 +61,14 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		fk, ok := row.Values[fkSel.resolve(jointr.e.implicitDatabase)].(uint64)
+		fkVal, ok := row.Values[fkSel.resolve(jointr.e.implicitDatabase)]
 		if !ok {
 			return nil, ErrInvalidJointColumn
+		}
+
+		fkEncVal, err := encodeValue(fkVal, table.pk.colType, asPK)
+		if err != nil {
+			return nil, err
 		}
 
 		pkOrd := &OrdCol{
@@ -72,7 +77,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				table: table.name,
 				col:   table.pk.colName,
 			},
-			initKeyVal:    encodeID(fk),
+			initKeyVal:    fkEncVal,
 			useInitKeyVal: true,
 		}
 
