@@ -82,6 +82,9 @@ func TestEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tree.Ts())
 
+	require.Nil(t, tree.warn("message", nil))
+	require.Equal(t, ErrorMaxKVLenExceeded, tree.warn("%v", ErrorMaxKVLenExceeded))
+
 	err = tree.Insert(make([]byte, tree.maxNodeSize), []byte{})
 	require.Equal(t, ErrorMaxKVLenExceeded, err)
 

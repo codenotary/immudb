@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -120,15 +121,20 @@ func TestSnapshotClosing(t *testing.T) {
 }
 
 func TestSnapshotLoadFromFullDump(t *testing.T) {
-	tbtree, err := Open("test_tree_r", DefaultOptions().WithCompactionThld(1))
+	tbtree, err := Open("test_tree_r", DefaultOptions().WithCompactionThld(1).WithDelayDuringCompaction(1))
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_r")
 
-	keyCount := 1_000
+	keyCount := 10_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
-	_, err = tbtree.CompactIndex()
-	require.NoError(t, err)
+	go func() {
+		_, err = tbtree.CompactIndex()
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}()
 
 	checkAfterMonotonicInsertions(t, tbtree, 1, keyCount, true)
 
