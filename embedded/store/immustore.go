@@ -103,8 +103,8 @@ type ImmuStore struct {
 	txLog appendable.Appendable
 	cLog  appendable.Appendable
 
-	txLogCache        *cache.LRUCache
-	txLogCacheRWMutex sync.RWMutex
+	txLogCache      *cache.LRUCache
+	txLogCacheMutex sync.Mutex
 
 	committedTxID      uint64
 	committedAlh       [sha256.Size]byte
@@ -1024,13 +1024,13 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
-	s.txLogCacheRWMutex.Lock()
+	s.txLogCacheMutex.Lock()
 	_, _, err = s.txLogCache.Put(tx.ID, txbs)
 	if err != nil {
-		s.txLogCacheRWMutex.Unlock()
+		s.txLogCacheMutex.Unlock()
 		return err
 	}
-	s.txLogCacheRWMutex.Unlock()
+	s.txLogCacheMutex.Unlock()
 
 	err = s.txLog.Flush()
 	if err != nil {
@@ -1335,8 +1335,8 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
-	s.txLogCacheRWMutex.RLock()
-	s.txLogCacheRWMutex.RUnlock()
+	s.txLogCacheMutex.Lock()
+	defer s.txLogCacheMutex.Unlock()
 
 	cacheMiss := false
 
