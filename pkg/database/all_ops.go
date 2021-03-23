@@ -13,14 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package database
 
 import (
 	"crypto/sha256"
 
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
@@ -45,7 +43,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 		return nil, err
 	}
 
-	callback := func(txID uint64, index *tbtree.TBtree) ([]*store.KV, error) {
+	callback := func(txID uint64, index store.KeyIndex) ([]*store.KV, error) {
 		entries := make([]*store.KV, len(req.Operations))
 
 		// In order to:
