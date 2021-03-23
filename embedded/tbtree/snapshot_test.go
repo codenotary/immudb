@@ -129,7 +129,10 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
 	go func() {
-		_, err = tbtree.CompactIndex()
+		_, err := tbtree.CompactIndex()
+		if err == ErrAlreadyClosed {
+			return
+		}
 		if err != nil {
 			panic(err)
 		}
