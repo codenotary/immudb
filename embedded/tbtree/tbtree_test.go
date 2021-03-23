@@ -362,6 +362,8 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_iasc")
 
+	require.Equal(t, opts, tbtree.GetOptions())
+
 	_, _, err = tbtree.Flush()
 	require.NoError(t, err)
 
