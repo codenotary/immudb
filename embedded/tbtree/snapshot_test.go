@@ -125,7 +125,7 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_r")
 
-	keyCount := 10_000
+	keyCount := 1_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
 	go func() {
