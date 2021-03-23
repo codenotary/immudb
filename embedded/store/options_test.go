@@ -76,4 +76,6 @@ func TestValidOptions(t *testing.T) {
 	require.Equal(t, time.Duration(1000)*time.Millisecond,
 		indexOpts.WithRenewSnapRootAfter(time.Duration(1000)*time.Millisecond).RenewSnapRootAfter)
 	require.True(t, validOptions(opts))
+	require.Equal(t, 3, indexOpts.WithCompactionThld(3).CompactionThld)
+	require.Equal(t, 1*time.Millisecond, indexOpts.WithDelayDuringCompaction(1*time.Millisecond).DelayDuringCompaction)
 }

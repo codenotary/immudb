@@ -17,9 +17,12 @@ package store
 
 import (
 	"encoding/binary"
+	"errors"
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/appendable/multiapp"
+	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,4 +92,23 @@ func TestTxReader(t *testing.T) {
 	}
 
 	require.Equal(t, uint64(0), currTxID)
+}
+
+func TestWrapAppendableErr(t *testing.T) {
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, err := Open("data_txreader", opts)
+	require.NoError(t, err)
+	defer os.RemoveAll("data_txreader")
+
+	err = immuStore.wrapAppendableErr(nil, "anAction")
+	require.Nil(t, err)
+
+	err = immuStore.wrapAppendableErr(errors.New("some error"), "anAction")
+	require.Equal(t, errors.New("some error"), err)
+
+	err = immuStore.wrapAppendableErr(singleapp.ErrAlreadyClosed, "anAction")
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = immuStore.wrapAppendableErr(multiapp.ErrAlreadyClosed, "anAction")
+	require.Equal(t, ErrAlreadyClosed, err)
 }

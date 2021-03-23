@@ -1498,6 +1498,15 @@ func (s *ImmuStore) Close() error {
 	return nil
 }
 
+func (s *ImmuStore) wrapAppendableErr(err error, action string) error {
+	if err == singleapp.ErrAlreadyClosed || err == multiapp.ErrAlreadyClosed {
+		s.log.Warningf("Got '%v' while '%s'", err, action)
+		return ErrAlreadyClosed
+	}
+
+	return err
+}
+
 func minInt(a, b int) int {
 	if a <= b {
 		return a
