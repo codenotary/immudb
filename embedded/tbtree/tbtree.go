@@ -327,10 +327,6 @@ func (t *TBtree) GetOptions() *Options {
 		WithDelayDuringCompaction(t.delayDuringCompaction)
 }
 
-func (t *TBtree) FlushThld() int {
-	return t.flushThld
-}
-
 func (t *TBtree) cachePut(n node) {
 	t.nmutex.Lock()
 	defer t.nmutex.Unlock()
@@ -646,6 +642,11 @@ func (aw *appendableWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
+func (t *TBtree) warn(formattedMessage string, err error) error {
+	t.log.Warningf(formattedMessage, err)
+	return err
+}
+
 func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	t.log.Infof("Flushing index '%s'...", t.path)
 
@@ -665,34 +666,29 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 
 	_, wN, wH, err = snapshot.WriteTo(&appendableWriter{t.nLog}, &appendableWriter{t.hLog}, wopts)
 	if err != nil {
-		t.log.Warningf("Flushing index '%s' returned: %v", err)
-		return 0, 0, err
+		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
 	err = t.nLog.Flush()
 	if err != nil {
-		t.log.Warningf("Flushing index '%s' returned: %v", err)
-		return 0, 0, err
+		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
 	err = t.hLog.Flush()
 	if err != nil {
-		t.log.Warningf("Flushing index '%s' returned: %v", err)
-		return 0, 0, err
+		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
 	var cb [cLogEntrySize]byte
 	binary.BigEndian.PutUint64(cb[:], uint64(t.root.offset()))
 	_, _, err = t.cLog.Append(cb[:])
 	if err != nil {
-		t.log.Warningf("Flushing index '%s' returned: %v", err)
-		return 0, 0, err
+		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
 	err = t.cLog.Flush()
 	if err != nil {
-		t.log.Warningf("Flushing index '%s' returned: %v", err)
-		return 0, 0, err
+		return 0, 0, t.warn("Flushing index '%s' returned: %v", err)
 	}
 
 	t.insertionCount = 0
