@@ -92,7 +92,9 @@ const ahtDirname = "aht"
 
 type ImmuStore struct {
 	path string
-	log  logger.Logger
+
+	log              logger.Logger
+	lastNotification time.Time
 
 	vLogs            map[byte]*refVLog
 	vLogUnlockedList *list.List
@@ -565,18 +567,46 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	return nil
 }
 
-func (s *ImmuStore) indexer() {
-	lastNotification := time.Now()
+type NotificationType = int
 
+const NotificationWindow = 60 * time.Second
+const (
+	Info NotificationType = iota
+	Warn
+	Error
+)
+
+func (s *ImmuStore) notify(nType NotificationType, formattedMessage string, args ...interface{}) {
+	if time.Since(s.lastNotification) > NotificationWindow {
+		switch nType {
+		case Info:
+			{
+				s.log.Infof(formattedMessage, args...)
+			}
+		case Warn:
+			{
+				s.log.Warningf(formattedMessage, args...)
+			}
+		case Error:
+			{
+				s.log.Errorf(formattedMessage, args...)
+			}
+		}
+		s.lastNotification = time.Now()
+	}
+}
+
+func (s *ImmuStore) indexer() {
 	for {
 		s.indexCond.L.Lock()
 
-		if s.index.Ts() == s.TxCount() {
-			if time.Since(lastNotification) > 60*time.Second {
-				lastNotification = time.Now()
-				s.log.Infof("All transactions were successfully indexed at '%s'", s.path)
-			}
+		txsToIndex := s.TxCount() - s.index.Ts()
+
+		if txsToIndex == 0 {
+			s.notify(Info, "All transactions successfully indexed at '%s'", s.path)
 			s.indexCond.Wait()
+		} else {
+			s.notify(Info, "%d transaction/s to be indexed at '%s'", txsToIndex, s.path)
 		}
 
 		err := s.indexSince(s.index.Ts()+1, 10)
@@ -584,18 +614,12 @@ func (s *ImmuStore) indexer() {
 			break
 		}
 		if err != nil {
-			s.log.Infof("Indexing at '%s' was stopped due to error: %v", s.path, err)
+			s.notify(Error, "Indexing at '%s' was stopped due to error: %v", s.path, err)
 			s.indexErr = err
 			break
 		}
 
 		s.indexCond.L.Unlock()
-
-		txsToIndex := s.TxCount() - s.index.Ts()
-		if txsToIndex > 0 && time.Since(lastNotification) > 60*time.Second {
-			lastNotification = time.Now()
-			s.log.Infof("%d transactions haven't yet been indexed at '%s'", txsToIndex, s.path)
-		}
 
 		time.Sleep(1 * time.Millisecond)
 	}

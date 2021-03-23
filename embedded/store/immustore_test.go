@@ -345,6 +345,15 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	immuStore, err := Open("edge_cases", opts)
 	require.NoError(t, err)
 
+	var zeroTime time.Time
+
+	immuStore.lastNotification = zeroTime
+	immuStore.notify(Info, "info message")
+	immuStore.lastNotification = zeroTime
+	immuStore.notify(Warn, "warn message")
+	immuStore.lastNotification = zeroTime
+	immuStore.notify(Error, "error message")
+
 	tx1, err := immuStore.fetchAllocTx()
 	require.NoError(t, err)
 
@@ -668,6 +677,9 @@ func TestImmudbStoreHistoricalValues(t *testing.T) {
 
 	err = immuStore.CompactIndex()
 	require.NoError(t, err)
+
+	err = immuStore.CompactIndex()
+	require.Equal(t, tbtree.ErrCompactionThresholdNotReached, err)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
