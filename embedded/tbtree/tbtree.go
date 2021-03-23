@@ -709,18 +709,7 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	return wN, wH, nil
 }
 
-func (t *TBtree) CompactIndex() (uint64, error) {
-	return t.CompactIndexWith(t.fileSize, t.fileMode)
-}
-
 func (t *TBtree) currentSnapshot() (*Snapshot, error) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	if t.closed {
-		return nil, ErrAlreadyClosed
-	}
-
 	_, _, err := t.flushTree()
 	if err != nil {
 		return nil, err
@@ -737,8 +726,13 @@ func (t *TBtree) storedSnapshotsCount() (int, error) {
 	return int(sz / cLogEntrySize), nil
 }
 
-func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, error) {
+func (t *TBtree) CompactIndex() (uint64, error) {
 	t.mutex.Lock()
+
+	if t.closed {
+		t.mutex.Unlock()
+		return 0, ErrAlreadyClosed
+	}
 
 	if t.compacting {
 		t.mutex.Unlock()
@@ -747,6 +741,7 @@ func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, e
 
 	snapCount, err := t.storedSnapshotsCount()
 	if err != nil {
+		t.mutex.Unlock()
 		return 0, err
 	}
 
@@ -757,8 +752,6 @@ func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, e
 
 	t.compacting = true
 
-	t.mutex.Unlock()
-
 	defer func() {
 		t.mutex.Lock()
 		t.compacting = false
@@ -767,6 +760,7 @@ func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, e
 
 	snapshot, err := t.currentSnapshot()
 	if err != nil {
+		t.mutex.Unlock()
 		return 0, err
 	}
 
@@ -779,20 +773,23 @@ func (t *TBtree) CompactIndexWith(fileSize int, fileMode os.FileMode) (uint64, e
 	appendableOpts := multiapp.DefaultOptions().
 		WithReadOnly(false).
 		WithSynced(false).
-		WithFileSize(fileSize).
-		WithFileMode(fileMode).
+		WithFileSize(t.fileSize).
+		WithFileMode(t.fileMode).
 		WithMetadata(t.cLog.Metadata())
 
 	appendableOpts.WithFileExt("n")
 	nLogPath := filepath.Join(t.path, fmt.Sprintf("nodes_%d", indexID))
 	nLog, err := multiapp.Open(nLogPath, appendableOpts)
 	if err != nil {
+		t.mutex.Unlock()
 		return 0, err
 	}
 	defer func() {
 		nLog.Sync()
 		nLog.Close()
 	}()
+
+	t.mutex.Unlock()
 
 	wopts := &WriteOpts{
 		OnlyMutated:    false,

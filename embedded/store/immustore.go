@@ -577,6 +577,9 @@ const (
 )
 
 func (s *ImmuStore) notify(nType NotificationType, formattedMessage string, args ...interface{}) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if time.Since(s.lastNotification) > NotificationWindow {
 		switch nType {
 		case Info:
