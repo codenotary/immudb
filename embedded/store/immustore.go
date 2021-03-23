@@ -1335,6 +1335,13 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return ErrAlreadyClosed
+	}
+
 	s.txLogCacheMutex.Lock()
 	defer s.txLogCacheMutex.Unlock()
 
