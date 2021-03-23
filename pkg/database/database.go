@@ -201,20 +201,16 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	return d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.tx1)
 }
 
-type KeyIndex interface {
-	Get(key []byte) (value []byte, tx uint64, hc uint64, err error)
+func (d *db) get(key []byte, index store.KeyIndex, tx *store.Tx) (*schema.Entry, error) {
+	return d.getAt(key, 0, 0, index, tx)
 }
 
-func (d *db) get(key []byte, keyIndex KeyIndex, tx *store.Tx) (*schema.Entry, error) {
-	return d.getAt(key, 0, 0, keyIndex, tx)
-}
-
-func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx *store.Tx) (entry *schema.Entry, err error) {
+func (d *db) getAt(key []byte, atTx uint64, resolved int, index store.KeyIndex, tx *store.Tx) (entry *schema.Entry, err error) {
 	var ktx uint64
 	var val []byte
 
 	if atTx == 0 {
-		val, ktx, _, err = keyIndex.Get(key)
+		val, ktx, _, err = index.Get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -236,7 +232,7 @@ func (d *db) getAt(key []byte, atTx uint64, resolved int, keyIndex KeyIndex, tx 
 		refKey := make([]byte, len(val)-1-8)
 		copy(refKey, val[1+8:])
 
-		entry, err := d.getAt(refKey, atTx, resolved+1, keyIndex, tx)
+		entry, err := d.getAt(refKey, atTx, resolved+1, index, tx)
 		if err != nil {
 			return nil, err
 		}
