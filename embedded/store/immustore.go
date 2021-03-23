@@ -451,6 +451,10 @@ func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err err
 		return nil, 0, 0, s.indexErr
 	}
 
+	return s.get(key)
+}
+
+func (s *ImmuStore) get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
 	indexedVal, tx, hc, err := s.index.Get(key)
 	if err != nil {
 		return nil, 0, 0, err
@@ -1125,8 +1129,6 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
-	// cache     tx.ID, txbs
-
 	s.committedTxID++
 	s.committedAlh = tx.Alh
 	s.committedTxLogSize += int64(txSize)
@@ -1136,7 +1138,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	return nil
 }
 
-func (s *ImmuStore) CommitWith(callback func(txID uint64, index *tbtree.TBtree) ([]*KV, error), waitForIndexing bool) (*TxMetadata, error) {
+func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*KV, error), waitForIndexing bool) (*TxMetadata, error) {
 	md, err := s.commitWith(callback)
 	if err != nil {
 		return nil, err
@@ -1152,7 +1154,19 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64, index *tbtree.TBtree) 
 	return md, err
 }
 
-func (s *ImmuStore) commitWith(callback func(txID uint64, index *tbtree.TBtree) ([]*KV, error)) (*TxMetadata, error) {
+type KeyIndex interface {
+	Get(key []byte) (value []byte, tx uint64, hc uint64, err error)
+}
+
+type unsafeIndex struct {
+	st *ImmuStore
+}
+
+func (index *unsafeIndex) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
+	return index.st.get(key)
+}
+
+func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV, error)) (*TxMetadata, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1173,7 +1187,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index *tbtree.TBtree) 
 
 	txID := s.committedTxID + 1
 
-	entries, err := callback(txID, s.index)
+	entries, err := callback(txID, &unsafeIndex{st: s})
 	if err != nil {
 		return nil, err
 	}
