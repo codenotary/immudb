@@ -3,9 +3,9 @@ package client
 import (
 	"io/ioutil"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
-
-	"github.com/mitchellh/go-homedir"
 )
 
 type HomedirService interface {
@@ -26,9 +26,9 @@ func NewHomedirService() *homedirService {
 func (h *homedirService) WriteFileToUserHomeDir(content []byte, pathToFile string) error {
 	p := pathToFile
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
-		hd, err := homedir.Dir()
+		user, err := user.Current()
 		if err == nil {
-			p = hd + string(os.PathSeparator) + p
+			p = filepath.Join(user.HomeDir, p)
 			if err := ioutil.WriteFile(p, content, 0644); err == nil {
 				return nil
 			}
@@ -41,9 +41,9 @@ func (h *homedirService) WriteFileToUserHomeDir(content []byte, pathToFile strin
 // case just a filename is provided, it looks for it in the user home dir
 func (h *homedirService) FileExistsInUserHomeDir(pathToFile string) (bool, error) {
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
-		hd, err := homedir.Dir()
+		user, err := user.Current()
 		if err == nil {
-			p := hd + string(os.PathSeparator) + pathToFile
+			p := filepath.Join(user.HomeDir, pathToFile)
 			if _, err := os.Stat(p); err == nil {
 				return true, nil
 			}
@@ -62,9 +62,9 @@ func (h *homedirService) FileExistsInUserHomeDir(pathToFile string) (bool, error
 // a filename is specified, it looks for it in the user home dir
 func (h *homedirService) ReadFileFromUserHomeDir(pathToFile string) (string, error) {
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
-		hd, err := homedir.Dir()
+		user, err := user.Current()
 		if err == nil {
-			p := hd + string(os.PathSeparator) + pathToFile
+			p := filepath.Join(user.HomeDir, pathToFile)
 			if _, err := os.Stat(p); err == nil {
 				contentBytes, err := ioutil.ReadFile(p)
 				if err == nil {
@@ -84,9 +84,9 @@ func (h *homedirService) ReadFileFromUserHomeDir(pathToFile string) (string, err
 // home dir if just a filename is provided
 func (h *homedirService) DeleteFileFromUserHomeDir(pathToFile string) error {
 	if !strings.Contains(pathToFile, "/") && !strings.Contains(pathToFile, "\\") {
-		hd, err := homedir.Dir()
+		user, err := user.Current()
 		if err == nil {
-			p := hd + string(os.PathSeparator) + pathToFile
+			p := filepath.Join(user.HomeDir, pathToFile)
 			return os.Remove(p)
 		} else {
 			return err

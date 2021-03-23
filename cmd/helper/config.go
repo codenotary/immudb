@@ -18,10 +18,10 @@ package helper
 
 import (
 	"os"
+	"os/user"
 	"strings"
 
 	service "github.com/codenotary/immudb/cmd/immuclient/service/constants"
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,10 +37,10 @@ func (c *Config) Init(name string) error {
 	if c.CfgFn != "" {
 		viper.SetConfigFile(c.CfgFn)
 	} else {
-		if home, err := homedir.Dir(); err != nil {
+		if user, err := user.Current(); err != nil {
 			return err
 		} else {
-			viper.AddConfigPath(home)
+			viper.AddConfigPath(user.HomeDir)
 		}
 		viper.AddConfigPath("../src/configs")
 		viper.AddConfigPath(os.Getenv("GOPATH") + "/src/configs")
