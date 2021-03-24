@@ -68,7 +68,7 @@ func TestImmuClient_StreamZScan(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	zScanResp, err := client.StreamZScan(ctx, &schema.ZScanRequest{Set: setBytes})
+	zScanResp, err := client.StreamZScan(ctx, &schema.ZScanRequest{Set: setBytes, SinceTx: meta.Id})
 
 	client.Disconnect()
 
@@ -95,6 +95,8 @@ func TestImmuClient_StreamHistory(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
+	var meta *schema.TxMetadata
+
 	k := []byte("StreamHistoryTestKey")
 	for i := 1; i <= 100; i++ {
 		v := []byte(fmt.Sprintf("val-%d", i))
@@ -108,12 +110,12 @@ func TestImmuClient_StreamHistory(t *testing.T) {
 				Size:    len(v),
 			},
 		}
-		meta, err := client.StreamSet(ctx, []*stream.KeyValue{kv})
+		meta, err = client.StreamSet(ctx, []*stream.KeyValue{kv})
 		require.NoError(t, err)
 		require.NotNil(t, meta)
 	}
 
-	historyResp, err := client.StreamHistory(ctx, &schema.HistoryRequest{Key: k})
+	historyResp, err := client.StreamHistory(ctx, &schema.HistoryRequest{Key: k, SinceTx: meta.Id})
 
 	client.Disconnect()
 
