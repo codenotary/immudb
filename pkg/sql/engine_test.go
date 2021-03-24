@@ -513,6 +513,9 @@ func TestReOpening(t *testing.T) {
 	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, PRIMARY KEY id)")
 	require.NoError(t, err)
 
+	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
+	require.NoError(t, err)
+
 	engine, err = NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
@@ -532,4 +535,9 @@ func TestReOpening(t *testing.T) {
 
 	require.Equal(t, IntegerType, table.colsByName["id"].colType)
 	require.Equal(t, StringType, table.colsByName["name"].colType)
+
+	require.Len(t, table.indexes, 1)
+
+	_, indexed := table.indexes[table.colsByName["name"].id]
+	require.True(t, indexed)
 }
