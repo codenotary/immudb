@@ -578,15 +578,91 @@ func encodeValue(val Value, colType SQLValueType, asKey bool) ([]byte, error) {
 
 			return encv[:], nil
 		}
+	case BooleanType:
+		{
+			boolVal, ok := val.(*Bool)
+			if !ok {
+				return nil, ErrInvalidValue
+			}
+
+			// len(v) + v
+			var encv [encLenLen + 1]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(1))
+			if boolVal.val {
+				encv[encLenLen] = 1
+			}
+
+			return encv[:], nil
+		}
+	case BLOBType:
+		{
+			blobVal, ok := val.(*Blob)
+			if !ok {
+				return nil, ErrInvalidValue
+			}
+
+			if asKey && len(blobVal.val) > len(maxKeyVal(BLOBType)) {
+				return nil, ErrInvalidPK
+			}
+
+			// len(v) + v
+			encv := make([]byte, encLenLen+len(blobVal.val))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal.val)))
+			copy(encv[encLenLen:], blobVal.val)
+
+			return encv[:], nil
+		}
 	}
 
 	/*
-		boolean  bool
-		blob     []byte
 		time
 	*/
 
 	return nil, ErrInvalidValue
+}
+
+func decodeValue(b []byte, colType SQLValueType) (Value, int, error) {
+	if len(b) < encLenLen {
+		return nil, 0, ErrCorruptedData
+	}
+
+	voff := 0
+
+	vlen := int(binary.BigEndian.Uint32(b[voff:]))
+	voff += encLenLen
+
+	if len(b) < vlen {
+		return nil, voff, ErrCorruptedData
+	}
+
+	switch colType {
+	case StringType:
+		{
+			v := string(b[voff : voff+vlen])
+			voff += vlen
+			return &String{val: v}, voff, nil
+		}
+	case IntegerType:
+		{
+			v := binary.BigEndian.Uint64(b[voff : voff+vlen])
+			voff += vlen
+			return &Number{val: v}, voff, nil
+		}
+	case BooleanType:
+		{
+			v := b[voff] == 1
+			voff += vlen
+			return &Bool{val: v}, voff, nil
+		}
+	case BLOBType:
+		{
+			v := b[voff : voff+vlen]
+			voff += vlen
+			return &Blob{val: v}, voff, nil
+		}
+	}
+
+	return nil, voff, ErrCorruptedData
 }
 
 func (e *Engine) Catalog() *Catalog {

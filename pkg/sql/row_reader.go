@@ -148,30 +148,13 @@ func (r *rawRowReader) Read() (*Row, error) {
 			return nil, ErrCorruptedData
 		}
 
-		if len(v) < encLenLen {
-			return nil, ErrCorruptedData
-		}
-		vlen := int(binary.BigEndian.Uint32(v[voff:]))
-		voff += encLenLen
-
-		if len(v) < vlen {
-			return nil, ErrCorruptedData
+		val, n, err := decodeValue(v[voff:], col.colType)
+		if err != nil {
+			return nil, err
 		}
 
-		switch col.colType {
-		case StringType:
-			{
-				v := string(v[voff : voff+vlen])
-				voff += vlen
-				values[r.table.db.name+"."+r.table.name+"."+colName] = &String{val: v}
-			}
-		case IntegerType:
-			{
-				v := binary.BigEndian.Uint64(v[voff : voff+vlen])
-				voff += vlen
-				values[r.table.db.name+"."+r.table.name+"."+colName] = &Number{val: v}
-			}
-		}
+		voff += n
+		values[r.table.db.name+"."+r.table.name+"."+colName] = val
 	}
 
 	return &Row{Values: values}, nil
