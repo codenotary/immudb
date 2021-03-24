@@ -41,7 +41,7 @@ type rawRowReader struct {
 	reader *store.KeyReader
 }
 
-func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, colName string, cmp Comparison, initKeyVal []byte) (*rawRowReader, error) {
+func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
 	if snap == nil || table == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -53,28 +53,24 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, colName str
 
 	prefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id))
 
-	sizedInitKeyVal := make([]byte, 4+len(initKeyVal))
-	binary.BigEndian.PutUint32(sizedInitKeyVal, uint32(len(initKeyVal)))
-	copy(sizedInitKeyVal[4:], initKeyVal)
-
 	if cmp == EqualTo {
-		prefix = append(prefix, sizedInitKeyVal...)
+		prefix = append(prefix, encInitKeyVal...)
 	}
 
 	skey := make([]byte, len(prefix))
 	copy(skey, prefix)
 
 	if cmp == GreaterThan || cmp == GreaterOrEqualTo {
-		skey = append(skey, sizedInitKeyVal...)
+		skey = append(skey, encInitKeyVal...)
 	}
 
 	if cmp == LowerThan || cmp == LowerOrEqualTo {
 		if table.pk.colName == colName {
-			skey = append(skey, sizedInitKeyVal...)
+			skey = append(skey, encInitKeyVal...)
 		} else {
 			maxPKVal := maxKeyVal(table.pk.colType)
 
-			skey = append(skey, sizedInitKeyVal...)
+			skey = append(skey, encInitKeyVal...)
 			skey = append(skey, maxPKVal...)
 		}
 	}
@@ -116,12 +112,12 @@ func (r *rawRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 	} else {
-		_, _, _, _, pkVal, err := r.e.unmapRow(mkey)
+		_, _, _, _, encPKVal, err := r.e.unmapIndexedRow(mkey)
 		if err != nil {
 			return nil, err
 		}
 
-		v, _, _, err = r.snap.Get(r.e.mapKey(rowPrefix, encodeID(r.table.db.id), encodeID(r.table.id), encodeID(r.table.pk.id), pkVal))
+		v, _, _, err = r.snap.Get(r.e.mapKey(rowPrefix, encodeID(r.table.db.id), encodeID(r.table.id), encodeID(r.table.pk.id), encPKVal))
 		if err != nil {
 			return nil, err
 		}
@@ -132,33 +128,47 @@ func (r *rawRowReader) Read() (*Row, error) {
 	voff := 0
 
 	cols := int(binary.BigEndian.Uint32(v[voff:]))
-	voff += 4
+	voff += encLenLen
 
 	for i := 0; i < cols; i++ {
+		if len(v) < encLenLen {
+			return nil, ErrCorruptedData
+		}
 		cNameLen := int(binary.BigEndian.Uint32(v[voff:]))
-		voff += 4
+		voff += encLenLen
+
+		if len(v) < cNameLen {
+			return nil, ErrCorruptedData
+		}
 		colName := string(v[voff : voff+cNameLen])
 		voff += cNameLen
 
 		col, ok := r.table.colsByName[colName]
 		if !ok {
-			return nil, ErrInvalidColumn
+			return nil, ErrCorruptedData
+		}
+
+		if len(v) < encLenLen {
+			return nil, ErrCorruptedData
+		}
+		vlen := int(binary.BigEndian.Uint32(v[voff:]))
+		voff += encLenLen
+
+		if len(v) < vlen {
+			return nil, ErrCorruptedData
 		}
 
 		switch col.colType {
 		case StringType:
 			{
-				vlen := int(binary.BigEndian.Uint32(v[voff:]))
-				voff += 4
-
 				v := string(v[voff : voff+vlen])
 				voff += vlen
 				values[r.table.db.name+"."+r.table.name+"."+colName] = &String{val: v}
 			}
 		case IntegerType:
 			{
-				v := binary.BigEndian.Uint64(v[voff:])
-				voff += 8
+				v := binary.BigEndian.Uint64(v[voff : voff+vlen])
+				voff += vlen
 				values[r.table.db.name+"."+r.table.name+"."+colName] = &Number{val: v}
 			}
 		}
