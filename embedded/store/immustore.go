@@ -1308,10 +1308,6 @@ func (s *ImmuStore) txOffsetAndSize(txID uint64) (int64, int, error) {
 	txOffset := int64(binary.BigEndian.Uint64(cb[:]))
 	txSize := int(binary.BigEndian.Uint32(cb[offsetSize:]))
 
-	if txOffset > s.committedTxLogSize || txSize > s.maxTxSize {
-		return 0, 0, ErrorCorruptedTxData
-	}
-
 	return txOffset, txSize, nil
 }
 
@@ -1338,13 +1334,6 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.closed {
-		return ErrAlreadyClosed
-	}
-
 	s.txLogCacheMutex.Lock()
 	defer s.txLogCacheMutex.Unlock()
 
@@ -1373,7 +1362,12 @@ func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
 
 	r := appendable.NewReaderFrom(txr, txOff, txSize)
 
-	return tx.readFrom(r)
+	err = tx.readFrom(r)
+	if err == io.EOF {
+		return ErrorCorruptedTxData
+	}
+
+	return err
 }
 
 func (s *ImmuStore) ReadValue(tx *Tx, key []byte) ([]byte, error) {

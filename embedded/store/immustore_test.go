@@ -430,17 +430,6 @@ func TestImmudbTxOffsetAndSize(t *testing.T) {
 
 	_, _, err = immuStore.txOffsetAndSize(0)
 	require.Equal(t, ErrIllegalArguments, err)
-
-	mockedCLog := &mocked.MockedAppendable{}
-	mockedCLog.ReadAtFn = func(bs []byte, off int64) (int, error) {
-		binary.BigEndian.PutUint64(bs, uint64(immuStore.committedTxLogSize+1))
-		binary.BigEndian.PutUint32(bs[8:], uint32(immuStore.maxTxSize+1))
-		return 12, nil
-	}
-	immuStore.cLog = mockedCLog
-
-	_, _, err = immuStore.txOffsetAndSize(1)
-	require.Equal(t, ErrorCorruptedTxData, err)
 }
 
 func TestImmudbStoreIndexing(t *testing.T) {
