@@ -29,7 +29,7 @@ const (
 	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}{pkID}, value={tableNAME})
 	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={colNAME})
 	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{colID}, value={})
-	rowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{colID}({valLen}{val})?{pkVal}, value={})
+	rowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{colID}({valLen}{val})?{pkValLen}{pkVal}, value={})
 )
 
 type SQLValueType = string
@@ -193,7 +193,7 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*st
 	for colID, col := range table.colsByID {
 		ce := &store.KV{
 			Key:   e.mapKey(catalogColumnPrefix, encodeID(db.id), encodeID(table.id), encodeID(colID), []byte(col.colType)),
-			Value: nil,
+			Value: []byte(col.colName),
 		}
 		ces = append(ces, ce)
 	}
@@ -283,7 +283,7 @@ func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
 	valbuf := bytes.Buffer{}
 
 	// len(stmt.cols)
-	var b [4]byte
+	var b [encLenLen]byte
 	binary.BigEndian.PutUint32(b[:], uint32(len(cols)))
 	_, err := valbuf.Write(b[:])
 	if err != nil {
@@ -294,9 +294,9 @@ func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
 		col, _ := t.colsByName[cols[i]]
 
 		// len(colName) + colName
-		b := make([]byte, 4+len(col.colName))
+		b := make([]byte, encLenLen+len(col.colName))
 		binary.BigEndian.PutUint32(b, uint32(len(col.colName)))
-		copy(b[4:], []byte(col.colName))
+		copy(b[encLenLen:], []byte(col.colName))
 
 		_, err = valbuf.Write(b)
 		if err != nil {
