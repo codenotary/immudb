@@ -426,11 +426,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		go store.binaryLinking()
 	}
 
-	txsToIndex := store.committedTxID - store.index.Ts()
-	if txsToIndex > 0 {
-		store.log.Infof("%d transactions haven't yet been indexed at '%s'", txsToIndex, store.path)
-	}
-
 	go store.indexer()
 
 	return store, nil
