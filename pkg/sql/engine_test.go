@@ -16,6 +16,7 @@ limitations under the License.
 package sql
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"testing"
@@ -227,13 +228,14 @@ func TestQuery(t *testing.T) {
 	_, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, PRIMARY KEY id)")
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active) VALUES (%d, 'title%d', %v)", i, i, i%2 == 0))
+		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
 		require.NoError(t, err)
 	}
 
@@ -246,28 +248,34 @@ func TestQuery(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 3)
+		require.Len(t, row.Values, 4)
 
 		require.Equal(t, uint64(i), row.Values["db1.table1.id"].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"].Value())
 		require.Equal(t, i%2 == 0, row.Values["db1.table1.active"].Value())
+
+		encPayload := []byte(fmt.Sprintf("blob%d", i))
+		require.Equal(t, []byte(encPayload), row.Values["db1.table1.payload"].Value())
 	}
 
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 ORDER BY id DESC")
+	r, err = engine.QueryStmt("SELECT id, title, active, payload FROM table1 ORDER BY id DESC")
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 3)
+		require.Len(t, row.Values, 4)
 
 		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
 		require.Equal(t, (rowCount-1-i)%2 == 0, row.Values["db1.table1.active"].Value())
+
+		encPayload := []byte(fmt.Sprintf("blob%d", rowCount-1-i))
+		require.Equal(t, []byte(encPayload), row.Values["db1.table1.payload"].Value())
 	}
 
 	err = r.Close()
