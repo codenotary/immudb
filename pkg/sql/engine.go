@@ -134,14 +134,12 @@ func waitForIndexingUpto(st *store.ImmuStore, txID uint64) error {
 }
 
 func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
-	if snap == nil {
-		return nil, ErrIllegalArguments
-	}
-
 	catalog := newCatalog()
 
+	initialKey := e.mapKey(catalogDatabasePrefix)
 	dbReaderSpec := &tbtree.ReaderSpec{
-		Prefix: e.mapKey(catalogDatabasePrefix),
+		SeekKey: initialKey,
+		Prefix:  initialKey,
 	}
 
 	dbReader, err := snap.NewKeyReader(dbReaderSpec)
@@ -190,8 +188,11 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 }
 
 func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
+	initialKey := e.mapKey(catalogTablePrefix, encodeID(db.id))
+
 	dbReaderSpec := &tbtree.ReaderSpec{
-		Prefix: e.mapKey(catalogTablePrefix),
+		SeekKey: initialKey,
+		Prefix:  initialKey,
 	}
 
 	tableReader, err := snap.NewKeyReader(dbReaderSpec)
@@ -211,16 +212,12 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 			return err
 		}
 
-		dbID, tableID, pkID, err := e.unmapTableID(mkey)
+		_, tableID, pkID, err := e.unmapTableID(mkey)
 		if err != nil {
 			return err
 		}
 
-		if dbID != db.id {
-			return ErrCorruptedData
-		}
-
-		colSpecs, pkName, err := e.loadColSpecs(dbID, tableID, pkID, snap)
+		colSpecs, pkName, err := e.loadColSpecs(db.id, tableID, pkID, snap)
 		if err != nil {
 			return err
 		}
@@ -242,14 +239,26 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 		if tableID != table.id {
 			return ErrCorruptedData
 		}
+
+		indexes, err := e.loadIndexes(db.id, tableID, snap)
+		if err != nil {
+			return err
+		}
+
+		for _, colID := range indexes {
+			table.indexes[colID] = struct{}{}
+		}
 	}
 
 	return nil
 }
 
 func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) (specs []*ColSpec, pkName string, err error) {
+	initialKey := e.mapKey(catalogColumnPrefix, encodeID(dbID), encodeID(tableID))
+
 	dbReaderSpec := &tbtree.ReaderSpec{
-		Prefix: e.mapKey(catalogColumnPrefix),
+		SeekKey: initialKey,
+		Prefix:  initialKey,
 	}
 
 	colSpecReader, err := snap.NewKeyReader(dbReaderSpec)
@@ -273,13 +282,9 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 			return nil, "", err
 		}
 
-		rdbID, rtableID, colID, colType, err := e.unmapColSpec(mkey)
+		_, _, colID, colType, err := e.unmapColSpec(mkey)
 		if err != nil {
 			return nil, "", err
-		}
-
-		if dbID != rdbID || tableID != rtableID {
-			return nil, "", ErrCorruptedData
 		}
 
 		v, err := vref.Resolve()
@@ -306,6 +311,44 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 	}
 
 	return
+}
+
+func (e *Engine) loadIndexes(dbID, tableID uint64, snap *store.Snapshot) ([]uint64, error) {
+	initialKey := e.mapKey(catalogIndexPrefix, encodeID(dbID), encodeID(tableID))
+
+	idxReaderSpec := &tbtree.ReaderSpec{
+		SeekKey: initialKey,
+		Prefix:  initialKey,
+	}
+
+	idxSpecReader, err := snap.NewKeyReader(idxReaderSpec)
+	if err == store.ErrNoMoreEntries {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	indexes := make([]uint64, 0)
+
+	for {
+		mkey, _, _, _, err := idxSpecReader.Read()
+		if err == store.ErrNoMoreEntries {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		_, _, colID, err := e.unmapIndex(mkey)
+		if err != nil {
+			return nil, err
+		}
+
+		indexes = append(indexes, colID)
+	}
+
+	return indexes, nil
 }
 
 func (e *Engine) trimPrefix(mkey []byte, mappingPrefix []byte) ([]byte, error) {
@@ -380,6 +423,23 @@ func asType(t string) (SQLValueType, error) {
 	}
 
 	return t, ErrCorruptedData
+}
+
+func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, colID uint64, err error) {
+	encID, err := e.trimPrefix(mkey, []byte(catalogIndexPrefix))
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	if len(encID) < encIDLen*3 {
+		return 0, 0, 0, ErrCorruptedData
+	}
+
+	dbID = binary.BigEndian.Uint64(encID)
+	tableID = binary.BigEndian.Uint64(encID[encIDLen:])
+	colID = binary.BigEndian.Uint64(encID[2*encIDLen:])
+
+	return
 }
 
 func (e *Engine) unmapIndexedRow(mkey []byte) (dbID, tableID, colID uint64, encVal, encPKVal []byte, err error) {
