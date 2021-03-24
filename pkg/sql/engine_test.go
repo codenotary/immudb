@@ -491,3 +491,45 @@ func TestNestedJoins(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 }
+
+func TestReOpening(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("USE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	engine, err = NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	exists := engine.catalog.ExistDatabase("db1")
+	require.True(t, exists)
+
+	db := engine.catalog.dbsByName["db1"]
+
+	exists = db.ExistTable("table1")
+	require.True(t, exists)
+
+	table := db.tablesByName["table1"]
+
+	require.Equal(t, "id", table.pk.colName)
+
+	require.Len(t, table.colsByName, 2)
+
+	require.Equal(t, IntegerType, table.colsByName["id"].colType)
+	require.Equal(t, StringType, table.colsByName["name"].colType)
+}
