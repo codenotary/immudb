@@ -490,35 +490,6 @@ const (
 	GreaterOrEqualTo
 )
 
-/*
-func (e *Engine) tableFrom(colSel *ColSelector) (*Table, error) {
-	if colSel == nil {
-		return nil, ErrIllegalArguments
-	}
-
-	if e.implicitDatabase == "" && colSel.db == "" {
-		return nil, ErrNoDatabaseSelected
-	}
-
-	dbName := e.implicitDatabase
-	if colSel.db != "" {
-		dbName = colSel.db
-	}
-
-	db, exist := e.catalog.dbsByName[dbName]
-	if !exist {
-		return nil, ErrDatabaseDoesNotExist
-	}
-
-	table, exist := db.tablesByName[colSel.table]
-	if !exist {
-		return nil, ErrTableDoesNotExist
-	}
-
-	return table, nil
-}
-*/
-
 type DataSource interface {
 	Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol) (RowReader, error)
 }
