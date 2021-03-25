@@ -93,8 +93,27 @@ func (r *Reader) Read() (key []byte, value []byte, ts uint64, hc uint64, err err
 			continue
 		}
 
-		if len(leafValue.key) >= len(r.prefix) && bytes.Equal(r.prefix, leafValue.key[:len(r.prefix)]) {
+		if len(r.prefix) == 0 {
 			return leafValue.key, leafValue.value, leafValue.ts, leafValue.hCount, nil
+		}
+
+		if len(r.prefix) > 0 && len(leafValue.key) >= len(r.prefix) {
+			leafPrefix := leafValue.key[:len(r.prefix)]
+
+			// prefix match
+			if bytes.Equal(r.prefix, leafPrefix) {
+				return leafValue.key, leafValue.value, leafValue.ts, leafValue.hCount, nil
+			}
+
+			// terminate scan if prefix won't match
+			if !r.descOrder && bytes.Compare(r.prefix, leafPrefix) < 0 {
+				return nil, nil, 0, 0, ErrNoMoreEntries
+			}
+
+			// terminate scan if prefix won't match
+			if r.descOrder && bytes.Compare(r.prefix, leafPrefix) > 0 {
+				return nil, nil, 0, 0, ErrNoMoreEntries
+			}
 		}
 	}
 }

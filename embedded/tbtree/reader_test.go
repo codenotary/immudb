@@ -103,7 +103,7 @@ func TestReaderDescendingScan(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll("test_tree_rdesc")
 
-	keyCount := 257
+	keyCount := 1024
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
 	snapshot, err := tbtree.Snapshot()
@@ -112,11 +112,14 @@ func TestReaderDescendingScan(t *testing.T) {
 	defer snapshot.Close()
 
 	seekKey := make([]byte, 4)
-	binary.BigEndian.PutUint32(seekKey, uint32(257))
+	binary.BigEndian.PutUint32(seekKey, uint32(512))
+
+	prefixKey := make([]byte, 3)
+	prefixKey[2] = 1
 
 	rspec := &ReaderSpec{
 		SeekKey:   seekKey,
-		Prefix:    nil,
+		Prefix:    prefixKey,
 		DescOrder: true,
 	}
 	reader, err := snapshot.NewReader(rspec)
@@ -136,7 +139,7 @@ func TestReaderDescendingScan(t *testing.T) {
 		prevk = k
 		i++
 	}
-	require.Equal(t, keyCount, i)
+	require.Equal(t, 256, i)
 }
 
 func TestFullScanAscendingOrder(t *testing.T) {
