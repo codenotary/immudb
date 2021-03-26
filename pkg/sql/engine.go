@@ -703,24 +703,29 @@ func (e *Engine) Query(sql io.ByteReader) (RowReader, error) {
 		return nil, err
 	}
 
+	_, _, err = stmt.CompileUsing(e)
+	if err != nil {
+		return nil, err
+	}
+
 	return stmt.Resolve(e, snap, nil, "")
 }
 
-func (e *Engine) ExecStmt(sql string) (*store.TxMetadata, error) {
+func (e *Engine) ExecStmt(sql string) (ddTxs []*store.TxMetadata, dmTxs []*store.TxMetadata, err error) {
 	return e.Exec(strings.NewReader(sql))
 }
 
-func (e *Engine) Exec(sql io.ByteReader) (*store.TxMetadata, error) {
+func (e *Engine) Exec(sql io.ByteReader) (ddTxs []*store.TxMetadata, dmTxs []*store.TxMetadata, err error) {
 	if e.catalog == nil {
 		err := e.loadCatalog()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	stmts, err := Parse(sql)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if includesDDL(stmts) {
@@ -734,28 +739,33 @@ func (e *Engine) Exec(sql io.ByteReader) (*store.TxMetadata, error) {
 	for _, stmt := range stmts {
 		centries, dentries, err := stmt.CompileUsing(e)
 		if err != nil {
-			return nil, err
+			return ddTxs, dmTxs, err
 		}
 
 		if len(centries) > 0 && len(dentries) > 0 {
-			return nil, ErrDDLorDMLTxOnly
+			return ddTxs, dmTxs, ErrDDLorDMLTxOnly
 		}
 
 		if len(centries) > 0 {
 			txmd, err := e.catalogStore.Commit(centries)
 			if err != nil {
-				return nil, e.loadCatalog()
+				return ddTxs, dmTxs, e.loadCatalog()
 			}
 
-			return txmd, nil
+			ddTxs = append(ddTxs, txmd)
 		}
 
 		if len(dentries) > 0 {
-			return e.dataStore.Commit(dentries)
+			txmd, err := e.dataStore.Commit(dentries)
+			if err != nil {
+				return ddTxs, dmTxs, err
+			}
+
+			dmTxs = append(dmTxs, txmd)
 		}
 	}
 
-	return nil, nil
+	return ddTxs, dmTxs, nil
 }
 
 func includesDDL(stmts []SQLStmt) bool {
