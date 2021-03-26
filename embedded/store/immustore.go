@@ -953,7 +953,7 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
-	// will overrite partially written and uncommitted data
+	// will overwrite partially written and uncommitted data
 	s.txLog.SetOffset(s.committedTxLogSize)
 
 	tx.ID = s.committedTxID + 1

@@ -216,7 +216,7 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		return
 	}
 
-	// will overrite partially written and uncommitted data
+	// will overwrite partially written and uncommitted data
 	t.pLog.SetOffset(t.pLogSize)
 
 	var dLenBs [szSize]byte
@@ -277,7 +277,7 @@ func (t *AHtree) Append(d []byte) (n uint64, h [sha256.Size]byte, err error) {
 		return
 	}
 
-	// will overrite partially written and uncommitted data
+	// will overwrite partially written and uncommitted data
 	t.dLog.SetOffset(t.dLogSize)
 
 	_, _, err = t.dLog.Append(t._digests[:dCount*sha256.Size])
