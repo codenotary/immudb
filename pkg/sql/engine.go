@@ -54,6 +54,9 @@ var ErrLimitedJoins = errors.New("joins limited to tables")
 var ErrInvalidJointColumn = errors.New("invalid joint column")
 var ErrJointColumnNotFound = errors.New("joint column not found")
 var ErrUnsupportedJoinType = errors.New("unsupported join type")
+var ErrInvalidCondition = errors.New("invalid condition")
+var ErrNotComparableValues = errors.New("values are not comparable")
+var ErrUnexpected = errors.New("unexpected error")
 
 var mKeyVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 

@@ -38,6 +38,11 @@ func (e *Engine) newJointRowReader(snap *store.Snapshot, rowReader RowReader, jo
 		if jspec.joinType != InnerJoin {
 			return nil, ErrUnsupportedJoinType
 		}
+
+		_, ok := jspec.ds.(*TableRef)
+		if !ok {
+			return nil, ErrLimitedJoins
+		}
 	}
 
 	return &jointRowReader{
@@ -58,11 +63,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 		unsolvedFK := false
 
 		for _, jspec := range jointr.joins {
-			tableRef, ok := jspec.ds.(*TableRef)
-			if !ok {
-				return nil, ErrLimitedJoins
-			}
-
+			tableRef := jspec.ds.(*TableRef)
 			table, err := tableRef.referencedTable(jointr.e)
 
 			fkSel, err := jspec.cond.jointColumnTo(table.pk)
