@@ -34,7 +34,6 @@ import (
 	"github.com/codenotary/immudb/embedded/appendable/multiapp"
 	"github.com/codenotary/immudb/embedded/appendable/singleapp"
 	"github.com/codenotary/immudb/embedded/cache"
-	"github.com/codenotary/immudb/embedded/cbuffer"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -129,9 +128,8 @@ type ImmuStore struct {
 	_kvs []*tbtree.KV //pre-allocated for indexing
 
 	aht      *ahtree.AHtree
-	blBuffer *cbuffer.CHBuffer
+	blBuffer chan ([sha256.Size]byte)
 	blErr    error
-	blCond   *sync.Cond
 
 	index           *tbtree.TBtree
 	indexErr        error
@@ -141,6 +139,7 @@ type ImmuStore struct {
 	mutex sync.Mutex
 
 	closed bool
+	done   chan (struct{})
 }
 
 type refVLog struct {
@@ -367,9 +366,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		kvs[i] = &tbtree.KV{K: make([]byte, maxKeyLen), V: make([]byte, sha256.Size+szSize+offsetSize)}
 	}
 
-	var blBuffer *cbuffer.CHBuffer
+	var blBuffer chan ([sha256.Size]byte)
 	if opts.MaxLinearProofLen > 0 {
-		blBuffer = cbuffer.New(opts.MaxLinearProofLen)
+		blBuffer = make(chan [sha256.Size]byte, opts.MaxLinearProofLen)
 	}
 
 	txLogCache, err := cache.NewLRUCache(opts.TxLogCacheSize)
@@ -406,11 +405,12 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		aht:      aht,
 		blBuffer: blBuffer,
-		blCond:   sync.NewCond(&sync.Mutex{}),
 
 		_kvs:  kvs,
 		_txs:  txs,
 		_txbs: txbs,
+
+		done: make(chan struct{}),
 	}
 
 	if store.aht.Size() > store.committedTxID {
@@ -481,34 +481,27 @@ func (s *ImmuStore) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
 
 func (s *ImmuStore) binaryLinking() {
 	for {
-		// TODO (jeroiraz): blBuffer+blCond may be replaced by a buffered channel
-		s.blCond.L.Lock()
-
-		if s.blBuffer.IsEmpty() {
-			s.blCond.Wait()
-		}
-
-		alh, err := s.blBuffer.Get()
-
-		s.blCond.L.Unlock()
-
-		if err == nil {
-			_, _, err = s.aht.Append(alh[:])
-			if err == ErrAlreadyClosed {
+		select {
+		case alh := <-s.blBuffer:
+			{
+				_, _, err := s.aht.Append(alh[:])
+				if err != nil {
+					s.SetBlErr(err)
+					s.log.Errorf("Binary linking at '%s' stopped due to error: %v", s.path, err)
+					return
+				}
+			}
+		case <-s.done:
+			{
 				return
 			}
-		}
-
-		if err != nil {
-			s.SetBlErr(err)
-			return
 		}
 	}
 }
 
 func (s *ImmuStore) SetBlErr(err error) {
-	s.blCond.L.Lock()
-	defer s.blCond.L.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	s.blErr = err
 }
@@ -521,16 +514,19 @@ func (s *ImmuStore) Alh() (uint64, [sha256.Size]byte) {
 }
 
 func (s *ImmuStore) BlInfo() (uint64, error) {
-	s.blCond.L.Lock()
-	defer s.blCond.L.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.aht.Size(), s.blErr
 }
 
 func (s *ImmuStore) syncBinaryLinking() error {
 	if s.aht.Size() == s.committedTxID {
+		s.log.Infof("Binary Linking up to date at '%s'", s.path)
 		return nil
 	}
+
+	s.log.Infof("Syncing Binary Linking at '%s'...", s.path)
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
@@ -558,6 +554,8 @@ func (s *ImmuStore) syncBinaryLinking() error {
 		alh := tx.Alh
 		s.aht.Append(alh[:])
 	}
+
+	s.log.Infof("Binary Linking up to date at '%s'", s.path)
 
 	return nil
 }
@@ -953,6 +951,10 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 }
 
 func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
+	if s.blErr != nil {
+		return s.blErr
+	}
+
 	// will overwrite partially written and uncommitted data
 	s.txLog.SetOffset(s.committedTxLogSize)
 
@@ -1041,17 +1043,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 			return err
 		}
 	} else {
-		s.blCond.L.Lock()
-		defer s.blCond.L.Unlock()
-
-		err = s.blBuffer.Put(tx.Alh)
-		if err != nil {
-			if err == cbuffer.ErrBufferIsFull {
-				return ErrLinearProofMaxLenExceeded
-			}
-			return err
-		}
-		s.blCond.Broadcast()
+		s.blBuffer <- tx.Alh
 	}
 
 	var cb [cLogEntrySize]byte
@@ -1493,6 +1485,12 @@ func (s *ImmuStore) Close() error {
 		}
 	}
 	s.vLogsCond.Broadcast()
+
+	if s.blBuffer != nil && s.blErr == nil {
+		s.log.Infof("Stopping Binary Linking at '%s'...", s.path)
+		s.done <- struct{}{}
+		s.log.Infof("Binary linking gracefully stopped at '%s'", s.path)
+	}
 
 	txErr := s.txLog.Close()
 	if txErr != nil {
