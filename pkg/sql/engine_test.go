@@ -42,13 +42,13 @@ func TestCreateDatabase(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.Equal(t, ErrDatabaseAlreadyExists, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db2")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db2")
 	require.NoError(t, err)
 }
 
@@ -64,15 +64,15 @@ func TestUseDatabase(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
 	require.Equal(t, "db1", engine.implicitDatabase)
 
-	_, err = engine.ExecStmt("USE DATABASE db2")
+	_, _, err = engine.ExecStmt("USE DATABASE db2")
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
 	require.Equal(t, "db1", engine.implicitDatabase)
@@ -90,25 +90,25 @@ func TestCreateTable(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY id)")
 	require.Equal(t, ErrInvalidPK, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY name)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY name)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)")
 	require.Equal(t, ErrTableAlreadyExists, err)
 }
 
@@ -124,13 +124,13 @@ func TestCreateIndex(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, age INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, age INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	db := engine.catalog.Databases()[0]
@@ -140,28 +140,28 @@ func TestCreateIndex(t *testing.T) {
 
 	require.Len(t, table.indexes, 0)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
 	require.NoError(t, err)
 
 	_, indexed := table.indexes[table.colsByName["name"].id]
 	require.True(t, indexed)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(id)")
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(id)")
 	require.Equal(t, ErrIndexAlreadyExists, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)")
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)")
 	require.NoError(t, err)
 
 	_, indexed = table.indexes[table.colsByName["age"].id]
 	require.True(t, indexed)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
 	require.Equal(t, ErrIndexAlreadyExists, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table2(name)")
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table2(name)")
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(title)")
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(title)")
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
 	require.Len(t, table.indexes, 2)
@@ -179,34 +179,34 @@ func TestInsertInto(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1)")
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'some title')")
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'some title')")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (2, 'another title')")
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (2, 'another title')")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1, 'yat')")
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1, 'yat')")
 	require.Equal(t, ErrInvalidNumberOfValues, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id, id) VALUES (1, 2)")
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, id) VALUES (1, 2)")
 	require.Equal(t, ErrDuplicatedColumn, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES ('1')")
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES ('1')")
 	require.Equal(t, ErrInvalidValue, err)
 
-	_, err = engine.ExecStmt("UPSERT INTO table1 (title) VALUES ('interesting title')")
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (title) VALUES ('interesting title')")
 	require.Equal(t, ErrPKCanNotBeNull, err)
 }
 
@@ -222,20 +222,20 @@ func TestQuery(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
 		require.NoError(t, err)
 	}
 
@@ -294,22 +294,22 @@ func TestOrderBy(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, age INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, age INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(age)")
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)")
 	require.NoError(t, err)
 
 	rowCount := 1
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, age) VALUES (%d, 'title%d', %d)", i, i, 40+i))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, age) VALUES (%d, 'title%d', %d)", i, i, 40+i))
 		require.NoError(t, err)
 	}
 
@@ -362,20 +362,20 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
 		require.NoError(t, err)
 	}
 
@@ -471,31 +471,31 @@ func TestJoins(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", i, i, rowCount-1-i, i))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", i, i, rowCount-1-i, i))
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount) VALUES (%d, %d)", rowCount-1-i, i*i))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount) VALUES (%d, %d)", rowCount-1-i, i*i))
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i))
 		require.NoError(t, err)
 	}
 
@@ -521,7 +521,7 @@ func TestJoins(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", rowCount, rowCount, rowCount, rowCount))
+	_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", rowCount, rowCount, rowCount, rowCount))
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -560,31 +560,31 @@ func TestNestedJoins(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, fkid1 INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, fkid1 INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, fkid1 INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, fkid1 INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table3 (id INTEGER, age INTEGER, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1) VALUES (%d, 'title%d', %d)", i, i, rowCount-1-i))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1) VALUES (%d, 'title%d', %d)", i, i, rowCount-1-i))
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount, fkid1) VALUES (%d, %d, %d)", rowCount-1-i, i*i, i))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table2 (id, amount, fkid1) VALUES (%d, %d, %d)", rowCount-1-i, i*i, i))
 		require.NoError(t, err)
 
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table3 (id, age) VALUES (%d, %d)", i, 30+i))
 		require.NoError(t, err)
 	}
 
@@ -623,16 +623,16 @@ func TestReOpening(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, PRIMARY KEY id)")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(name)")
 	require.NoError(t, err)
 
 	engine, err = NewEngine(catalogStore, dataStore, prefix)
@@ -673,20 +673,20 @@ func TestSubQuery(t *testing.T) {
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("USE DATABASE db1")
+	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
 	require.NoError(t, err)
 
 	rowCount := 10
 
 	for i := 0; i < rowCount; i++ {
 		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
-		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
 		require.NoError(t, err)
 	}
 
