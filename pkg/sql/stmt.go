@@ -963,10 +963,10 @@ func (bexp *CmpBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
 		return nil, err
 	}
 
-	return &Bool{val: cmpMatching(r, bexp.op)}, nil
+	return &Bool{val: cmpSatisfies(r, bexp.op)}, nil
 }
 
-func cmpMatching(cmp1, cmp2 CmpOperator) bool {
+func cmpSatisfies(cmp1, cmp2 CmpOperator) bool {
 	switch cmp1 {
 	case EQ:
 		{
@@ -974,11 +974,11 @@ func cmpMatching(cmp1, cmp2 CmpOperator) bool {
 		}
 	case LT:
 		{
-			return cmp2 == NE || cmp2 == LT
+			return cmp2 == NE || cmp2 == LT || cmp2 == LE
 		}
 	case GT:
 		{
-			return cmp2 == NE || cmp2 == GT
+			return cmp2 == NE || cmp2 == GT || cmp2 == GE
 		}
 	}
 	return false
