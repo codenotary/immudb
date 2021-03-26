@@ -703,7 +703,7 @@ func (e *Engine) Query(sql io.ByteReader) (RowReader, error) {
 		return nil, err
 	}
 
-	return stmt.Resolve(e, snap, nil)
+	return stmt.Resolve(e, snap, nil, "")
 }
 
 func (e *Engine) ExecStmt(sql string) (*store.TxMetadata, error) {
