@@ -350,6 +350,115 @@ func TestOrderBy(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestQueryWithRowFiltering(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("USE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	rowCount := 10
+
+	for i := 0; i < rowCount; i++ {
+		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
+		require.NoError(t, err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE false")
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrNoMoreEntries, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE false OR true")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		_, err := r.Read()
+		require.NoError(t, err)
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 < 2")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		_, err := r.Read()
+		require.NoError(t, err)
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 >= 2")
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrNoMoreEntries, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 = true")
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrNotComparableValues, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE NOT table1.active")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount/2; i++ {
+		_, err := r.Read()
+		require.NoError(t, err)
+	}
+
+	_, err = r.Read()
+	require.Equal(t, ErrNoMoreEntries, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE table1.id > 4")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount/2; i++ {
+		_, err := r.Read()
+		require.NoError(t, err)
+	}
+
+	_, err = r.Read()
+	require.Equal(t, ErrNoMoreEntries, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
 func TestJoins(t *testing.T) {
 	catalogStore, err := store.Open("catalog", store.DefaultOptions())
 	require.NoError(t, err)
