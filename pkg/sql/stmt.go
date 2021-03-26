@@ -405,7 +405,9 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 
 type Value interface {
 	Value() interface{}
+	Compare(val Value) (CmpOperator, error)
 	jointColumnTo(col *Column) (*ColSelector, error)
+	eval(row *Row, implicitDatabase string) (Value, error)
 }
 
 type Number struct {
@@ -414,6 +416,27 @@ type Number struct {
 
 func (v *Number) Value() interface{} {
 	return v.val
+}
+
+func (v *Number) eval(row *Row, implicitDatabase string) (Value, error) {
+	return v, nil
+}
+
+func (v *Number) Compare(val Value) (CmpOperator, error) {
+	ov, isNumber := val.(*Number)
+	if !isNumber {
+		return 0, ErrNotComparableValues
+	}
+
+	if v.val == ov.val {
+		return EQ, nil
+	}
+
+	if v.val > ov.val {
+		return GT, nil
+	}
+
+	return LT, nil
 }
 
 func (v *Number) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -428,6 +451,29 @@ func (v *String) Value() interface{} {
 	return v.val
 }
 
+func (v *String) eval(row *Row, implicitDatabase string) (Value, error) {
+	return v, nil
+}
+
+func (v *String) Compare(val Value) (CmpOperator, error) {
+	ov, isString := val.(*String)
+	if !isString {
+		return 0, ErrNotComparableValues
+	}
+
+	r := bytes.Compare([]byte(v.val), []byte(ov.val))
+
+	if r == 0 {
+		return EQ, nil
+	}
+
+	if r < 0 {
+		return LT, nil
+	}
+
+	return GT, nil
+}
+
 func (v *String) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
@@ -438,6 +484,23 @@ type Bool struct {
 
 func (v *Bool) Value() interface{} {
 	return v.val
+}
+
+func (v *Bool) eval(row *Row, implicitDatabase string) (Value, error) {
+	return v, nil
+}
+
+func (v *Bool) Compare(val Value) (CmpOperator, error) {
+	ov, isBool := val.(*Bool)
+	if !isBool {
+		return 0, ErrNotComparableValues
+	}
+
+	if v.val == ov.val {
+		return EQ, nil
+	}
+
+	return NE, nil
 }
 
 func (v *Bool) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -452,6 +515,29 @@ func (v *Blob) Value() interface{} {
 	return v.val
 }
 
+func (v *Blob) eval(row *Row, implicitDatabase string) (Value, error) {
+	return v, nil
+}
+
+func (v *Blob) Compare(val Value) (CmpOperator, error) {
+	ov, isBlob := val.(*Blob)
+	if !isBlob {
+		return 0, ErrNotComparableValues
+	}
+
+	r := bytes.Compare(v.val, ov.val)
+
+	if r == 0 {
+		return EQ, nil
+	}
+
+	if r < 0 {
+		return LT, nil
+	}
+
+	return GT, nil
+}
+
 func (v *Blob) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
@@ -464,6 +550,14 @@ func (v *SysFn) Value() interface{} {
 	return nil
 }
 
+func (v *SysFn) eval(row *Row, implicitDatabase string) (Value, error) {
+	return v, nil
+}
+
+func (v *SysFn) Compare(val Value) (CmpOperator, error) {
+	return 0, errors.New("not yet supported")
+}
+
 func (v *SysFn) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
@@ -474,6 +568,14 @@ type Param struct {
 
 func (v *Param) Value() interface{} {
 	return nil
+}
+
+func (v *Param) eval(row *Row, implicitDatabase string) (Value, error) {
+	return v, nil
+}
+
+func (v *Param) Compare(val Value) (CmpOperator, error) {
+	return 0, errors.New("not yet supported")
 }
 
 func (v *Param) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -575,7 +677,10 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol)
 	}
 
 	if stmt.where != nil {
-		// filteredRowReader
+		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.where)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	//	rowBuilder := newRowBuilder(stmt.selectors)
@@ -723,15 +828,13 @@ type ColSelector struct {
 }
 
 func (sel *ColSelector) resolve(implicitDatabase string) string {
-	if sel.as != "" {
-		return sel.as
+	db := implicitDatabase
+
+	if sel.db != "" {
+		db = sel.db
 	}
 
-	if sel.db == "" {
-		return implicitDatabase + "." + sel.table + "." + sel.col
-	}
-
-	return sel.db + "." + sel.table + "." + sel.col
+	return db + "." + sel.table + "." + sel.col
 }
 
 type AggSelector struct {
@@ -749,6 +852,7 @@ type AggColSelector struct {
 
 type BoolExp interface {
 	jointColumnTo(col *Column) (*ColSelector, error)
+	eval(row *Row, implicitDatabase string) (Value, error)
 }
 
 func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -767,12 +871,28 @@ func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
 	return bexp, nil
 }
 
+func (bexp *ColSelector) eval(row *Row, implicitDatabase string) (Value, error) {
+	v, ok := row.Values[bexp.resolve(implicitDatabase)]
+	if !ok {
+		return nil, ErrColumnDoesNotExist
+	}
+	return v, nil
+}
+
 type NotBoolExp struct {
 	exp BoolExp
 }
 
 func (bexp *NotBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return bexp.exp.jointColumnTo(col)
+}
+
+func (bexp *NotBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
+	v, err := bexp.exp.eval(row, implicitDatabase)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 type LikeBoolExp struct {
@@ -782,6 +902,10 @@ type LikeBoolExp struct {
 
 func (bexp *LikeBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
+}
+
+func (bexp *LikeBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
+	return nil, errors.New("not yet supported")
 }
 
 type CmpBoolExp struct {
@@ -823,6 +947,43 @@ func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return selLeft, nil
 }
 
+func (bexp *CmpBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
+	vl, err := bexp.left.eval(row, implicitDatabase)
+	if err != nil {
+		return nil, err
+	}
+
+	vr, err := bexp.right.eval(row, implicitDatabase)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := vl.Compare(vr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Bool{val: cmpMatching(r, bexp.op)}, nil
+}
+
+func cmpMatching(cmp1, cmp2 CmpOperator) bool {
+	switch cmp1 {
+	case EQ:
+		{
+			return cmp2 == EQ || cmp2 == LE || cmp2 == GE
+		}
+	case LT:
+		{
+			return cmp2 == NE || cmp2 == LT
+		}
+	case GT:
+		{
+			return cmp2 == NE || cmp2 == GT
+		}
+	}
+	return false
+}
+
 type BinBoolExp struct {
 	op          LogicOperator
 	left, right BoolExp
@@ -830,12 +991,11 @@ type BinBoolExp struct {
 
 func (bexp *BinBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	jcolLeft, errLeft := bexp.left.jointColumnTo(col)
-	jcolRight, errRight := bexp.left.jointColumnTo(col)
-
 	if errLeft != nil && errLeft != ErrJointColumnNotFound {
 		return nil, errLeft
 	}
 
+	jcolRight, errRight := bexp.left.jointColumnTo(col)
 	if errRight != nil && errRight != ErrJointColumnNotFound {
 		return nil, errRight
 	}
@@ -855,10 +1015,49 @@ func (bexp *BinBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return jcolRight, nil
 }
 
+func (bexp *BinBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
+	vl, err := bexp.left.eval(row, implicitDatabase)
+	if err != nil {
+		return nil, err
+	}
+
+	vr, err := bexp.right.eval(row, implicitDatabase)
+	if err != nil {
+		return nil, err
+	}
+
+	bl, isBool := vl.(*Bool)
+	if !isBool {
+		return nil, ErrInvalidValue
+	}
+
+	br, isBool := vr.(*Bool)
+	if !isBool {
+		return nil, ErrInvalidValue
+	}
+
+	switch bexp.op {
+	case AND:
+		{
+			return &Bool{val: bl.val && br.val}, nil
+		}
+	case OR:
+		{
+			return &Bool{val: bl.val || br.val}, nil
+		}
+	}
+
+	return nil, ErrUnexpected
+}
+
 type ExistsBoolExp struct {
 	q *SelectStmt
 }
 
 func (bexp *ExistsBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
+}
+
+func (bexp *ExistsBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
+	return nil, errors.New("not yet supported")
 }
