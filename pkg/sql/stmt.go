@@ -593,7 +593,7 @@ const (
 )
 
 type DataSource interface {
-	Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol) (RowReader, error)
+	Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol, alias string) (RowReader, error)
 }
 
 type SelectStmt struct {
@@ -647,7 +647,7 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 	return nil, nil, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol) (RowReader, error) {
+func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol, alias string) (RowReader, error) {
 	// Ordering is only supported at TableRef level
 	if ordCol != nil {
 		return nil, ErrLimitedOrderBy
@@ -664,7 +664,7 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol)
 		orderByCol = stmt.orderBy[0]
 	}
 
-	rowReader, err := stmt.ds.Resolve(e, snap, orderByCol)
+	rowReader, err := stmt.ds.Resolve(e, snap, orderByCol, stmt.as)
 	if err != nil {
 		return nil, err
 	}
@@ -746,7 +746,7 @@ func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
 	return table, nil
 }
 
-func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol) (RowReader, error) {
+func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol, alias string) (RowReader, error) {
 	if e == nil || snap == nil || (ordCol != nil && ordCol.sel == nil) {
 		return nil, ErrIllegalArguments
 	}
@@ -797,7 +797,7 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol) (
 		}
 	}
 
-	return e.newRawRowReader(snap, table, colName, cmp, initKeyVal)
+	return e.newRawRowReader(snap, table, alias, colName, cmp, initKeyVal)
 }
 
 type JoinSpec struct {

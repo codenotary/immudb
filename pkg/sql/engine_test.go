@@ -660,3 +660,55 @@ func TestReOpening(t *testing.T) {
 	_, indexed := table.indexes[table.colsByName["name"].id]
 	require.True(t, indexed)
 }
+
+func TestSubQuery(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("USE DATABASE db1")
+	require.NoError(t, err)
+
+	_, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)")
+	require.NoError(t, err)
+
+	rowCount := 10
+
+	for i := 0; i < rowCount; i++ {
+		encPayload := hex.EncodeToString([]byte(fmt.Sprintf("blob%d", i)))
+		_, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, active, payload) VALUES (%d, 'title%d', %v, b'%s')", i, i, i%2 == 0, encPayload))
+		require.NoError(t, err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	r, err := engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1 as table2) WHERE table2.active OR table2.id >= 0")
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 4)
+
+		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table2.title"].Value())
+		require.Equal(t, i%2 == 0, row.Values["db1.table2.active"].Value())
+
+		encPayload := []byte(fmt.Sprintf("blob%d", i))
+		require.Equal(t, []byte(encPayload), row.Values["db1.table2.payload"].Value())
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+}
