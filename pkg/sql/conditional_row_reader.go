@@ -62,6 +62,10 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 	}
 }
 
+func (cr *conditionalRowReader) Alias() string {
+	return cr.rowReader.Alias()
+}
+
 func (cr *conditionalRowReader) Close() error {
 	return cr.rowReader.Close()
 }
