@@ -91,7 +91,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				useInitKeyVal: true,
 			}
 
-			jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, pkOrd)
+			jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, pkOrd, "")
 			if err != nil {
 				return nil, err
 			}
@@ -116,6 +116,10 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 			return row, nil
 		}
 	}
+}
+
+func (jointr *jointRowReader) Alias() string {
+	return jointr.rowReader.Alias()
 }
 
 func (jointr *jointRowReader) Close() error {

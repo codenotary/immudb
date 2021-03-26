@@ -24,6 +24,7 @@ import (
 )
 
 type RowReader interface {
+	Alias() string
 	Read() (*Row, error)
 	Close() error
 }
@@ -36,12 +37,13 @@ type rawRowReader struct {
 	e      *Engine
 	snap   *store.Snapshot
 	table  *Table
+	alias  string
 	col    string
 	desc   bool
 	reader *store.KeyReader
 }
 
-func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
+func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, alias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
 	if snap == nil || table == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -87,10 +89,15 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, colName str
 		return nil, err
 	}
 
+	if alias == "" {
+		alias = table.name
+	}
+
 	return &rawRowReader{
 		e:      e,
 		snap:   snap,
 		table:  table,
+		alias:  alias,
 		col:    col.colName,
 		desc:   rSpec.DescOrder,
 		reader: r,
@@ -154,10 +161,14 @@ func (r *rawRowReader) Read() (*Row, error) {
 		}
 
 		voff += n
-		values[r.table.db.name+"."+r.table.name+"."+colName] = val
+		values[r.table.db.name+"."+r.alias+"."+colName] = val
 	}
 
 	return &Row{Values: values}, nil
+}
+
+func (r *rawRowReader) Alias() string {
+	return r.alias
 }
 
 func (r *rawRowReader) Close() error {
