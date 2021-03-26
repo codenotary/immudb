@@ -618,6 +618,10 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 		return nil, nil, ErrLimitedOrderBy
 	}
 
+	if len(stmt.selectors) == 0 {
+		return nil, nil, ErrIllegalArguments
+	}
+
 	if len(stmt.orderBy) > 0 {
 		tableRef, ok := stmt.ds.(*TableRef)
 		if !ok {
@@ -653,11 +657,6 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol,
 		return nil, ErrLimitedOrderBy
 	}
 
-	_, _, err := stmt.CompileUsing(e)
-	if err != nil {
-		return nil, err
-	}
-
 	var orderByCol *OrdCol
 
 	if len(stmt.orderBy) > 0 {
@@ -683,29 +682,23 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol,
 		}
 	}
 
-	//	rowBuilder := newRowBuilder(stmt.selectors)
-	// another to filter selected rows
-	//	&RowReaderWithrowReader
-
 	if stmt.groupBy != nil {
 		// groupedRowReader
+		return nil, errors.New("not yet supported")
 	}
 
 	if stmt.having != nil {
-		// filteredRowReader
+		if stmt.groupBy == nil {
+			return nil, ErrInvalidCondition
+		}
+
+		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.having)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return rowReader, err
-
-	/*cols := make(map[string]*Column, len(stmt.selectors))
-
-	for _, s := range stmt.selectors {
-		colSel := s.(*ColSelector)
-		cols[colSel.col] = table.cols[colSel.col]
-	}
-
-	return &RowReader{reader: r, cols: cols}, nil
-	*/
+	return e.newProjectedRowReader(snap, rowReader, stmt.selectors)
 }
 
 type TableRef struct {
