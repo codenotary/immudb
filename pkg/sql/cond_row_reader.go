@@ -46,7 +46,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		r, err := cr.condition.eval(row, cr.e.implicitDatabase)
+		r, err := cr.condition.eval(row, cr.e.implicitDatabase, cr.rowReader.Alias())
 		if err != nil {
 			return nil, err
 		}

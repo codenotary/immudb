@@ -350,7 +350,7 @@ selector:
 |
     AGGREGATE_FUNC '(' '*' ')' opt_as
     {
-        $$ = &AggSelector{aggFn: $1, as: $5}
+        $$ = &AggColSelector{aggFn: $1, as: $5}
     }
 |
     AGGREGATE_FUNC '(' col ')' opt_as

@@ -42,14 +42,14 @@ const (
 	TimestampType              = "TIMESTAMP"
 )
 
-type AggregateFn = int
+type AggregateFn = string
 
 const (
-	COUNT AggregateFn = iota
-	SUM
-	MAX
-	MIN
-	AVG
+	COUNT AggregateFn = "COUNT"
+	SUM               = "SUM"
+	MAX               = "MAX"
+	MIN               = "MIN"
+	AVG               = "AVG"
 )
 
 type CmpOperator = int
@@ -407,7 +407,7 @@ type Value interface {
 	Value() interface{}
 	Compare(val Value) (CmpOperator, error)
 	jointColumnTo(col *Column) (*ColSelector, error)
-	eval(row *Row, implicitDatabase string) (Value, error)
+	eval(row *Row, implicitDatabase, implicitTable string) (Value, error)
 }
 
 type Number struct {
@@ -418,7 +418,7 @@ func (v *Number) Value() interface{} {
 	return v.val
 }
 
-func (v *Number) eval(row *Row, implicitDatabase string) (Value, error) {
+func (v *Number) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
 	return v, nil
 }
 
@@ -451,7 +451,7 @@ func (v *String) Value() interface{} {
 	return v.val
 }
 
-func (v *String) eval(row *Row, implicitDatabase string) (Value, error) {
+func (v *String) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
 	return v, nil
 }
 
@@ -486,7 +486,7 @@ func (v *Bool) Value() interface{} {
 	return v.val
 }
 
-func (v *Bool) eval(row *Row, implicitDatabase string) (Value, error) {
+func (v *Bool) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
 	return v, nil
 }
 
@@ -515,7 +515,7 @@ func (v *Blob) Value() interface{} {
 	return v.val
 }
 
-func (v *Blob) eval(row *Row, implicitDatabase string) (Value, error) {
+func (v *Blob) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
 	return v, nil
 }
 
@@ -550,7 +550,7 @@ func (v *SysFn) Value() interface{} {
 	return nil
 }
 
-func (v *SysFn) eval(row *Row, implicitDatabase string) (Value, error) {
+func (v *SysFn) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
 	return v, nil
 }
 
@@ -570,7 +570,7 @@ func (v *Param) Value() interface{} {
 	return nil
 }
 
-func (v *Param) eval(row *Row, implicitDatabase string) (Value, error) {
+func (v *Param) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
 	return v, nil
 }
 
@@ -811,6 +811,7 @@ type OrdCol struct {
 }
 
 type Selector interface {
+	resolve(implicitDatabase, implicitTable string) string
 }
 
 type ColSelector struct {
@@ -820,19 +821,20 @@ type ColSelector struct {
 	as    string
 }
 
-func (sel *ColSelector) resolve(implicitDatabase string) string {
+func (sel *ColSelector) resolve(implicitDatabase, implicitTable string) string {
 	db := implicitDatabase
 
 	if sel.db != "" {
 		db = sel.db
 	}
 
-	return db + "." + sel.table + "." + sel.col
-}
+	table := implicitTable
 
-type AggSelector struct {
-	aggFn AggregateFn
-	as    string
+	if sel.table != "" {
+		table = sel.table
+	}
+
+	return db + "." + table + "." + sel.col
 }
 
 type AggColSelector struct {
@@ -843,9 +845,25 @@ type AggColSelector struct {
 	as    string
 }
 
+func (sel *AggColSelector) resolve(implicitDatabase, implicitTable string) string {
+	db := implicitDatabase
+
+	if sel.db != "" {
+		db = sel.db
+	}
+
+	table := implicitTable
+
+	if sel.table != "" {
+		table = sel.table
+	}
+
+	return sel.aggFn + "(" + db + "." + table + "." + sel.col + ")"
+}
+
 type BoolExp interface {
 	jointColumnTo(col *Column) (*ColSelector, error)
-	eval(row *Row, implicitDatabase string) (Value, error)
+	eval(row *Row, implicitDatabase, implicitTable string) (Value, error)
 }
 
 func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -864,8 +882,8 @@ func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
 	return bexp, nil
 }
 
-func (bexp *ColSelector) eval(row *Row, implicitDatabase string) (Value, error) {
-	v, ok := row.Values[bexp.resolve(implicitDatabase)]
+func (bexp *ColSelector) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+	v, ok := row.Values[bexp.resolve(implicitDatabase, implicitTable)]
 	if !ok {
 		return nil, ErrColumnDoesNotExist
 	}
@@ -880,8 +898,8 @@ func (bexp *NotBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return bexp.exp.jointColumnTo(col)
 }
 
-func (bexp *NotBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
-	v, err := bexp.exp.eval(row, implicitDatabase)
+func (bexp *NotBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+	v, err := bexp.exp.eval(row, implicitDatabase, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -897,7 +915,7 @@ func (bexp *LikeBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-func (bexp *LikeBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
+func (bexp *LikeBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
 	return nil, errors.New("not yet supported")
 }
 
@@ -940,13 +958,13 @@ func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return selLeft, nil
 }
 
-func (bexp *CmpBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
-	vl, err := bexp.left.eval(row, implicitDatabase)
+func (bexp *CmpBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+	vl, err := bexp.left.eval(row, implicitDatabase, implicitTable)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.eval(row, implicitDatabase)
+	vr, err := bexp.right.eval(row, implicitDatabase, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -1008,13 +1026,13 @@ func (bexp *BinBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return jcolRight, nil
 }
 
-func (bexp *BinBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
-	vl, err := bexp.left.eval(row, implicitDatabase)
+func (bexp *BinBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+	vl, err := bexp.left.eval(row, implicitDatabase, implicitTable)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.eval(row, implicitDatabase)
+	vr, err := bexp.right.eval(row, implicitDatabase, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -1051,6 +1069,6 @@ func (bexp *ExistsBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-func (bexp *ExistsBoolExp) eval(row *Row, implicitDatabase string) (Value, error) {
+func (bexp *ExistsBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
 	return nil, errors.New("not yet supported")
 }
