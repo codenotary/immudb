@@ -1173,6 +1173,9 @@
           "items": {
             "$ref": "#/definitions/schemaOp"
           }
+        },
+        "noWait": {
+          "type": "boolean"
         }
       }
     },
@@ -1409,6 +1412,9 @@
         },
         "boundRef": {
           "type": "boolean"
+        },
+        "noWait": {
+          "type": "boolean"
         }
       }
     },
@@ -1467,6 +1473,9 @@
           "items": {
             "$ref": "#/definitions/schemaKeyValue"
           }
+        },
+        "noWait": {
+          "type": "boolean"
         }
       }
     },
@@ -1701,6 +1710,9 @@
           "format": "uint64"
         },
         "boundRef": {
+          "type": "boolean"
+        },
+        "noWait": {
           "type": "boolean"
         }
       }

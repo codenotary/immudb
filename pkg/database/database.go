@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -174,7 +173,7 @@ func (d *db) set(req *schema.SetRequest) (*schema.TxMetadata, error) {
 		entries[i] = EncodeKV(kv.Key, kv.Value)
 	}
 
-	txMetatadata, err := d.st.Commit(entries)
+	txMetatadata, err := d.st.Commit(entries, !req.NoWait)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +191,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx)
+	err := d.st.WaitForIndexingUpto(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
@@ -201,25 +200,6 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 	defer d.mutex.Unlock()
 
 	return d.getAt(EncodeKey(req.Key), req.AtTx, 0, d.st, d.tx1)
-}
-
-func (d *db) WaitForIndexingUpto(txID uint64) error {
-	if txID == 0 {
-		return nil
-	}
-
-	for {
-		its, err := d.st.IndexInfo()
-		if err != nil {
-			return err
-		}
-
-		if its >= txID {
-			return nil
-		}
-
-		time.Sleep(time.Duration(1) * time.Millisecond)
-	}
 }
 
 type KeyIndex interface {
@@ -450,7 +430,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 //GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
-	err := d.WaitForIndexingUpto(req.SinceTx)
+	err := d.st.WaitForIndexingUpto(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}
@@ -626,7 +606,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	err := d.WaitForIndexingUpto(req.SinceTx)
+	err := d.st.WaitForIndexingUpto(req.SinceTx)
 	if err != nil {
 		return nil, err
 	}

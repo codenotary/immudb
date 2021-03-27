@@ -40,7 +40,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	defer d.mutex.Unlock()
 
 	lastTxID, _ := d.st.Alh()
-	err := d.WaitForIndexingUpto(lastTxID)
+	err := d.st.WaitForIndexingUpto(lastTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	meta, err := d.st.Commit([]*store.KV{EncodeReference(req.Key, req.ReferencedKey, req.AtTx)})
+	meta, err := d.st.Commit([]*store.KV{EncodeReference(req.Key, req.ReferencedKey, req.AtTx)}, !req.NoWait)
 	if err != nil {
 		return nil, err
 	}

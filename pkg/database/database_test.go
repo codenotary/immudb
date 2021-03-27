@@ -177,6 +177,21 @@ func TestOpenDb(t *testing.T) {
 	os.RemoveAll(options.GetDbRootPath())
 }
 
+func TestDbSetImmidiateGet(t *testing.T) {
+	db, closer := makeDb()
+	defer closer()
+
+	for _, kv := range kvs {
+		_, err := db.Set(&schema.SetRequest{KVs: []*schema.KeyValue{kv}})
+		require.NoError(t, err)
+
+		item, err := db.Get(&schema.KeyRequest{Key: kv.Key})
+		require.NoError(t, err)
+		require.Equal(t, kv.Key, item.Key)
+		require.Equal(t, kv.Value, item.Value)
+	}
+}
+
 func TestDbSetGet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
