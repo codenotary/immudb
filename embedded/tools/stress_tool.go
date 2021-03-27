@@ -154,7 +154,7 @@ func main() {
 		if *action == "set" {
 			_, err := immuStore.Commit([]*store.KV{
 				{Key: []byte(*key), Value: []byte(*value)},
-			})
+			}, false)
 			if err != nil {
 				panic(err)
 			}
@@ -230,7 +230,7 @@ func main() {
 				ids := make([]uint64, *txCount)
 
 				for t := 0; t < *txCount; t++ {
-					txMetadata, err := immuStore.Commit(txs[t])
+					txMetadata, err := immuStore.Commit(txs[t], false)
 					if err != nil {
 						panic(err)
 					}

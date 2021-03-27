@@ -47,7 +47,7 @@ func TestImmudbStoreReader(t *testing.T) {
 			kvs[j] = &KV{Key: k, Value: v}
 		}
 
-		_, err := immuStore.Commit(kvs)
+		_, err := immuStore.Commit(kvs, false)
 		require.NoError(t, err)
 	}
 

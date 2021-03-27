@@ -36,6 +36,8 @@ import (
 	"github.com/codenotary/immudb/embedded/cache"
 	"github.com/codenotary/immudb/embedded/multierr"
 	"github.com/codenotary/immudb/embedded/tbtree"
+	"github.com/codenotary/immudb/embedded/watchers"
+
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
@@ -136,10 +138,12 @@ type ImmuStore struct {
 	indexCond       *sync.Cond
 	compactionMutex sync.Mutex
 
-	mutex sync.Mutex
+	wCenter *watchers.WatchersCenter
 
 	closed bool
 	done   chan (struct{})
+
+	mutex sync.Mutex
 }
 
 type refVLog struct {
@@ -376,6 +380,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, err
 	}
 
+	var wCenter *watchers.WatchersCenter
+	if opts.MaxWaitees > 0 {
+		wCenter = watchers.New(0, opts.MaxWaitees)
+	}
+
 	store := &ImmuStore{
 		path:               path,
 		log:                opts.log,
@@ -405,6 +414,8 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		aht:      aht,
 		blBuffer: blBuffer,
+
+		wCenter: wCenter,
 
 		_kvs:  kvs,
 		_txs:  txs,
@@ -607,20 +618,32 @@ func (s *ImmuStore) indexer() {
 
 		err := s.indexSince(s.index.Ts()+1, 10)
 		if err == ErrAlreadyClosed {
-			break
+			s.indexCond.L.Unlock()
+			return
 		}
 		if err != nil {
 			s.notify(Error, "Indexing at '%s' was stopped due to error: %v", s.path, err)
 			s.indexErr = err
-			break
+			s.indexCond.L.Unlock()
+			return
+		}
+
+		if s.wCenter != nil {
+			s.wCenter.DoneUpto(s.index.Ts())
 		}
 
 		s.indexCond.L.Unlock()
 
 		time.Sleep(1 * time.Millisecond)
 	}
+}
 
-	s.indexCond.L.Unlock()
+func (s *ImmuStore) WaitForIndexingUpto(txID uint64) error {
+	if s.wCenter != nil {
+		return s.wCenter.WaitFor(txID)
+	}
+
+	return watchers.ErrMaxWaitessLimitExceeded
 }
 
 func (s *ImmuStore) replaceIndex(compactedIndexID uint64) error {
@@ -896,7 +919,7 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	donec <- appendableResult{offsets, nil}
 }
 
-func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
+func (s *ImmuStore) Commit(entries []*KV, waitForIndexing bool) (*TxMetadata, error) {
 	s.mutex.Lock()
 	if s.closed {
 		s.mutex.Unlock()
@@ -936,15 +959,25 @@ func (s *ImmuStore) Commit(entries []*KV) (*TxMetadata, error) {
 	}
 
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	if s.closed {
+		s.mutex.Unlock()
 		return nil, ErrAlreadyClosed
 	}
 
 	err = s.commit(tx, r.offsets)
 	if err != nil {
+		s.mutex.Unlock()
 		return nil, err
+	}
+
+	s.mutex.Unlock()
+
+	if waitForIndexing {
+		err = s.WaitForIndexingUpto(tx.ID)
+		if err != nil {
+			return tx.Metadata(), err
+		}
 	}
 
 	return tx.Metadata(), nil
@@ -1070,7 +1103,23 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	return nil
 }
 
-func (s *ImmuStore) CommitWith(callback func(txID uint64, index *tbtree.TBtree) ([]*KV, error)) (*TxMetadata, error) {
+func (s *ImmuStore) CommitWith(callback func(txID uint64, index *tbtree.TBtree) ([]*KV, error), waitForIndexing bool) (*TxMetadata, error) {
+	md, err := s.commitWith(callback)
+	if err != nil {
+		return nil, err
+	}
+
+	if waitForIndexing {
+		err = s.WaitForIndexingUpto(md.ID)
+		if err != nil {
+			return md, err
+		}
+	}
+
+	return md, err
+}
+
+func (s *ImmuStore) commitWith(callback func(txID uint64, index *tbtree.TBtree) ([]*KV, error)) (*TxMetadata, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -1490,6 +1539,11 @@ func (s *ImmuStore) Close() error {
 		s.log.Infof("Stopping Binary Linking at '%s'...", s.path)
 		s.done <- struct{}{}
 		s.log.Infof("Binary linking gracefully stopped at '%s'", s.path)
+		close(s.blBuffer)
+	}
+
+	if s.wCenter != nil {
+		s.wCenter.Close()
 	}
 
 	txErr := s.txLog.Close()

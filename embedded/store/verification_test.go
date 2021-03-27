@@ -76,7 +76,7 @@ func TestVerifyDualProofEdgeCases(t *testing.T) {
 			kvs[j] = &KV{Key: k, Value: v}
 		}
 
-		txMetadata, err := immuStore.Commit(kvs)
+		txMetadata, err := immuStore.Commit(kvs, false)
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txMetadata.ID)
 	}

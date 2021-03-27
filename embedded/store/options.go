@@ -36,6 +36,7 @@ const DefaultFileSize = multiapp.DefaultFileSize
 const DefaultCompressionFormat = appendable.DefaultCompressionFormat
 const DefaultCompressionLevel = appendable.DefaultCompressionLevel
 const DefaultTxLogCacheSize = 1000
+const DefaultMaxWaitees = 1000
 
 const MaxFileSize = (1 << 31) - 1 // 2Gb
 
@@ -54,6 +55,8 @@ type Options struct {
 	VLogMaxOpenedFiles      int
 	TxLogMaxOpenedFiles     int
 	CommitLogMaxOpenedFiles int
+
+	MaxWaitees int
 
 	// options below are only set during initialization and stored as metadata
 	MaxTxEntries      int
@@ -94,6 +97,8 @@ func DefaultOptions() *Options {
 		TxLogMaxOpenedFiles:     10,
 		CommitLogMaxOpenedFiles: 1,
 
+		MaxWaitees: DefaultMaxWaitees,
+
 		// options below are only set during initialization and stored as metadata
 		MaxTxEntries:      DefaultMaxTxEntries,
 		MaxKeyLen:         DefaultMaxKeyLen,
@@ -130,6 +135,8 @@ func validOptions(opts *Options) bool {
 		opts.CommitLogMaxOpenedFiles > 0 &&
 
 		opts.TxLogCacheSize >= 0 &&
+
+		opts.MaxWaitees >= 0 &&
 
 		// options below are only set during initialization and stored as metadata
 		opts.MaxTxEntries > 0 &&
@@ -223,6 +230,11 @@ func (opts *Options) WithTxLogMaxOpenedFiles(txLogMaxOpenedFiles int) *Options {
 
 func (opts *Options) WithCommitLogMaxOpenedFiles(commitLogMaxOpenedFiles int) *Options {
 	opts.CommitLogMaxOpenedFiles = commitLogMaxOpenedFiles
+	return opts
+}
+
+func (opts *Options) WithMaxWaitees(maxWaitees int) *Options {
+	opts.MaxWaitees = maxWaitees
 	return opts
 }
 
