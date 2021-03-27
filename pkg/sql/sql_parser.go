@@ -869,7 +869,7 @@ yydefault:
 	case 46:
 		yyDollar = yyS[yypt-5 : yypt+1]
 		{
-			yyVAL.sel = &AggSelector{aggFn: yyDollar[1].aggFn, as: yyDollar[5].id}
+			yyVAL.sel = &AggColSelector{aggFn: yyDollar[1].aggFn, as: yyDollar[5].id}
 		}
 	case 47:
 		yyDollar = yyS[yypt-5 : yypt+1]
