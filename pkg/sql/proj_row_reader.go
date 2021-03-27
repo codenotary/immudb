@@ -40,7 +40,7 @@ func (e *Engine) newProjectedRowReader(snap *store.Snapshot, rowReader RowReader
 }
 
 func (pr *projectedRowReader) Read() (*Row, error) {
-	/*row, err := pr.rowReader.Read()
+	row, err := pr.rowReader.Read()
 	if err != nil {
 		return nil, err
 	}
@@ -48,12 +48,17 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 	prow := &Row{Values: make(map[string]Value, len(pr.selectors))}
 
 	for _, sel := range pr.selectors {
+		c := sel.resolve(pr.e.implicitDatabase, pr.rowReader.Alias())
 
+		val, ok := row.Values[c]
+		if !ok {
+			return nil, ErrInvalidColumn
+		}
+
+		prow.Values[c] = val
 	}
 
 	return prow, nil
-	*/
-	return pr.rowReader.Read()
 }
 
 func (pr *projectedRowReader) Alias() string {

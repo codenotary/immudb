@@ -787,7 +787,7 @@ func TestAggFnStmt(t *testing.T) {
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{
-						&AggSelector{aggFn: COUNT},
+						&AggColSelector{aggFn: COUNT},
 					},
 					ds: &TableRef{table: "table1"},
 				}},

@@ -117,6 +117,7 @@ func (e *Engine) loadCatalog() error {
 	return nil
 }
 
+//TODO (jeroiraz): remove
 func waitForIndexingUpto(st *store.ImmuStore, txID uint64) error {
 	if txID == 0 {
 		return nil
