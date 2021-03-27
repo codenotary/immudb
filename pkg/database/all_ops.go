@@ -40,7 +40,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 	defer d.mutex.Unlock()
 
 	lastTxID, _ := d.st.Alh()
-	err := d.WaitForIndexingUpto(lastTxID)
+	err := d.st.WaitForIndexingUpto(lastTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (d *db) ExecAll(req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 		return entries, nil
 	}
 
-	txMetatadata, err := d.st.CommitWith(callback)
+	txMetatadata, err := d.st.CommitWith(callback, !req.NoWait)
 	if err != nil {
 		return nil, err
 	}

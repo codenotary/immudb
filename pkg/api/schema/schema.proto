@@ -111,6 +111,7 @@ message Op {
 
 message ExecAllRequest {
 	repeated Op Operations = 1;
+	bool  noWait = 2;
 }
 
 message Entries {
@@ -216,6 +217,7 @@ message InclusionProof {
 
 message SetRequest {
 	repeated KeyValue KVs = 1;
+	bool  noWait = 2;
 }
 
 message KeyRequest {
@@ -256,6 +258,7 @@ message ReferenceRequest {
 	bytes referencedKey = 2;
 	uint64 atTx = 3;
 	bool boundRef = 4;
+	bool  noWait = 5;
 }
 
 message VerifiableReferenceRequest {
@@ -269,6 +272,7 @@ message ZAddRequest {
 	bytes key = 3;
 	uint64 atTx = 4;
 	bool boundRef = 5;
+	bool  noWait = 6;
 }
 
 message Score {

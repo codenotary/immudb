@@ -46,7 +46,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 	defer d.mutex.Unlock()
 
 	lastTxID, _ := d.st.Alh()
-	err := d.WaitForIndexingUpto(lastTxID)
+	err := d.st.WaitForIndexingUpto(lastTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 		return nil, ErrReferencedKeyCannotBeAReference
 	}
 
-	meta, err := d.st.Commit([]*store.KV{EncodeZAdd(req.Set, req.Score, key, req.AtTx)})
+	meta, err := d.st.Commit([]*store.KV{EncodeZAdd(req.Set, req.Score, key, req.AtTx)}, !req.NoWait)
 
 	return schema.TxMetatadaTo(meta), err
 }
@@ -114,7 +114,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	}
 
 	if !req.NoWait {
-		err := d.WaitForIndexingUpto(req.SinceTx)
+		err := d.st.WaitForIndexingUpto(req.SinceTx)
 		if err != nil {
 			return nil, err
 		}
