@@ -241,7 +241,7 @@ func TestQuery(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	r, err := engine.QueryStmt("SELECT id, title, active FROM table1")
+	r, err := engine.QueryStmt("SELECT id, title, payload, active FROM table1")
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -508,12 +508,10 @@ func TestJoins(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 8)
+		require.Len(t, row.Values, 4)
 
 		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64(i), row.Values["db1.table1.fkid1"].Value())
-		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
 		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"].Value())
 		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"].Value())
 	}
@@ -533,12 +531,10 @@ func TestJoins(t *testing.T) {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 8)
+		require.Len(t, row.Values, 4)
 
 		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64(i), row.Values["db1.table1.fkid1"].Value())
-		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
 		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"].Value())
 		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"].Value())
 	}
@@ -590,19 +586,17 @@ func TestNestedJoins(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	r, err := engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table2.fkid1 = table3.id ORDER BY id DESC")
+	r, err := engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON fkid1 = table2.id INNER JOIN table3 ON table2.fkid1 = table3.id ORDER BY id DESC")
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 8)
+		require.Len(t, row.Values, 4)
 
 		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64(i), row.Values["db1.table1.fkid1"].Value())
-		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
 		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"].Value())
 		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"].Value())
 	}
@@ -692,21 +686,17 @@ func TestSubQuery(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	r, err := engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1 as table2) WHERE table2.active OR table2.id >= 0")
+	r, err := engine.QueryStmt("SELECT id, title FROM (SELECT id, title, active FROM table1 as table2) WHERE active")
 	require.NoError(t, err)
 
-	for i := 0; i < rowCount; i++ {
+	for i := 0; i < rowCount; i += 2 {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 4)
+		require.Len(t, row.Values, 2)
 
 		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table2.title"].Value())
-		require.Equal(t, i%2 == 0, row.Values["db1.table2.active"].Value())
-
-		encPayload := []byte(fmt.Sprintf("blob%d", i))
-		require.Equal(t, []byte(encPayload), row.Values["db1.table2.payload"].Value())
 	}
 
 	err = r.Close()
