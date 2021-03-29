@@ -23,12 +23,12 @@ type conditionalRowReader struct {
 
 	rowReader RowReader
 
-	condition BoolExp
+	condition ValueExp
 
 	params map[string]interface{}
 }
 
-func (e *Engine) newConditionalRowReader(snap *store.Snapshot, rowReader RowReader, condition BoolExp, params map[string]interface{}) (*conditionalRowReader, error) {
+func (e *Engine) newConditionalRowReader(snap *store.Snapshot, rowReader RowReader, condition ValueExp, params map[string]interface{}) (*conditionalRowReader, error) {
 	if snap == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -49,7 +49,12 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		r, err := cr.condition.eval(row, row.ImplicitDB, row.ImplictTable, cr.params)
+		cond, err := cr.condition.substitute(cr.params)
+		if err != nil {
+			return nil, err
+		}
+
+		r, err := cond.reduce(row, row.ImplicitDB, row.ImplictTable)
 		if err != nil {
 			return nil, err
 		}
