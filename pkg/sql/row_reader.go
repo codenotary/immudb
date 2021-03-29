@@ -30,7 +30,9 @@ type RowReader interface {
 }
 
 type Row struct {
-	Values map[string]Value
+	ImplicitDB   string
+	ImplictTable string
+	Values       map[string]Value
 }
 
 type rawRowReader struct {
@@ -164,7 +166,7 @@ func (r *rawRowReader) Read() (*Row, error) {
 		values[r.table.db.name+"."+r.alias+"."+colName] = val
 	}
 
-	return &Row{Values: values}, nil
+	return &Row{ImplicitDB: r.e.implicitDB, ImplictTable: r.alias, Values: values}, nil
 }
 
 func (r *rawRowReader) Alias() string {
