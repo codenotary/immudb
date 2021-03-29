@@ -70,12 +70,12 @@ func TestUseDatabase(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1")
 	require.NoError(t, err)
 
-	require.Equal(t, "db1", engine.implicitDatabase)
+	require.Equal(t, "db1", engine.implicitDB)
 
 	_, _, err = engine.ExecStmt("USE DATABASE db2")
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
-	require.Equal(t, "db1", engine.implicitDatabase)
+	require.Equal(t, "db1", engine.implicitDB)
 }
 
 func TestCreateTable(t *testing.T) {
@@ -586,7 +586,7 @@ func TestNestedJoins(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	r, err := engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON fkid1 = table2.id INNER JOIN table3 ON table2.fkid1 = table3.id ORDER BY id DESC")
+	r, err := engine.QueryStmt("SELECT id, title, table2.amount AS amount, table3.age AS age FROM table1 INNER JOIN table2 ON fkid1 = table2.id INNER JOIN table3 ON table2.fkid1 = table3.id ORDER BY id DESC")
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -597,8 +597,8 @@ func TestNestedJoins(t *testing.T) {
 
 		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"].Value())
-		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"].Value())
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table1.amount"].Value())
+		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table1.age"].Value())
 	}
 
 	err = r.Close()
@@ -686,7 +686,7 @@ func TestSubQuery(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	r, err := engine.QueryStmt("SELECT id, title FROM (SELECT id, title, active FROM table1 as table2) WHERE active")
+	r, err := engine.QueryStmt("SELECT id, title AS t FROM (SELECT id, title, active FROM table1 as table2) WHERE active")
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i += 2 {
@@ -696,7 +696,7 @@ func TestSubQuery(t *testing.T) {
 		require.Len(t, row.Values, 2)
 
 		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table2.title"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table2.t"].Value())
 	}
 
 	err = r.Close()

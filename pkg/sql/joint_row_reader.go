@@ -71,7 +71,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				return nil, err
 			}
 
-			fkVal, ok := row.Values[fkSel.resolve(jointr.e.implicitDatabase, jointr.rowReader.Alias())]
+			fkVal, ok := row.Values[fkSel.resolve(row.ImplicitDB, row.ImplictTable)]
 			if !ok {
 				return nil, ErrInvalidJointColumn
 			}

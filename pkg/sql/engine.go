@@ -75,7 +75,7 @@ type Engine struct {
 
 	catalogRWMux sync.RWMutex
 
-	implicitDatabase string
+	implicitDB string
 
 	snapSinceTx, snapUptoTx uint64
 }
