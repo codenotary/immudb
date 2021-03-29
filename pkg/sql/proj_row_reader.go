@@ -48,7 +48,7 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 	prow := &Row{
 		ImplicitDB:   row.ImplicitDB,
 		ImplictTable: row.ImplictTable,
-		Values:       make(map[string]Value, len(pr.selectors)),
+		Values:       make(map[string]TypedValue, len(pr.selectors)),
 	}
 
 	for _, sel := range pr.selectors {

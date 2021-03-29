@@ -280,6 +280,26 @@ func TestQuery(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	params := make(map[string]interface{})
+	params["some_param"] = true
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE active = @some_param", params)
+	require.NoError(t, err)
+
+	for i := 0; i < rowCount/2; i += 2 {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 3)
+
+		require.Equal(t, uint64(i), row.Values["db1.table1.id"].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"].Value())
+		require.Equal(t, params["some_param"], row.Values["db1.table1.active"].Value())
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
 }
 
 func TestOrderBy(t *testing.T) {

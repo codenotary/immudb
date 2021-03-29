@@ -30,8 +30,8 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     cols []*ColSelector
     rows []*RowSpec
     row *RowSpec
-    values []Value
-    value Value
+    values []ValueExp
+    value ValueExp
     id string
     number uint64
     str string
@@ -49,7 +49,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     joins []*JoinSpec
     join *JoinSpec
     joinType JoinType
-    boolExp BoolExp
+    boolExp ValueExp
     err error
     ordcols []*OrdCol
     opt_ord Comparison
@@ -247,7 +247,7 @@ cols:
 values:
     val
     {
-        $$ = []Value{$1}
+        $$ = []ValueExp{$1}
     }
 |
     values ',' val

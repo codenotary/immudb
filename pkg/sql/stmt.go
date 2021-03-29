@@ -276,10 +276,10 @@ type UpsertIntoStmt struct {
 }
 
 type RowSpec struct {
-	Values []Value
+	Values []ValueExp
 }
 
-func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
+func (r *RowSpec) bytes(t *Table, cols []string, params map[string]interface{}) ([]byte, error) {
 	valbuf := bytes.Buffer{}
 
 	// len(stmt.cols)
@@ -303,7 +303,17 @@ func (r *RowSpec) Bytes(t *Table, cols []string) ([]byte, error) {
 			return nil, err
 		}
 
-		valb, err := encodeValue(val, col.colType, !asKey)
+		sval, err := val.substitute(params)
+		if err != nil {
+			return nil, err
+		}
+
+		rval, err := sval.reduce(nil, t.db.name, t.name)
+		if err != nil {
+			return nil, err
+		}
+
+		valb, err := encodeValue(rval, col.colType, !asKey)
 		if err != nil {
 			return nil, err
 		}
@@ -367,12 +377,23 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 		}
 
 		pkVal := row.Values[cs[table.pk.id]]
-		pkEncVal, err := encodeValue(pkVal, table.pk.colType, asKey)
+
+		val, err := pkVal.substitute(params)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		bs, err := row.Bytes(table, stmt.cols)
+		rval, err := val.reduce(nil, e.implicitDB, table.name)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		pkEncVal, err := encodeValue(rval, table.pk.colType, asKey)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		bs, err := row.bytes(table, stmt.cols, params)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -387,7 +408,18 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 		// create entries for each indexed column, with value as value for pk column
 		for colID := range table.indexes {
 			cVal := row.Values[cs[colID]]
-			encVal, err := encodeValue(cVal, table.colsByID[colID].colType, asKey)
+
+			val, err := cVal.substitute(params)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			rval, err := val.reduce(nil, e.implicitDB, table.name)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			encVal, err := encodeValue(rval, table.colsByID[colID].colType, asKey)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -403,26 +435,38 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 	return
 }
 
-type Value interface {
-	Value() interface{}
-	Compare(val Value, params map[string]interface{}) (CmpOperator, error)
+type ValueExp interface {
 	jointColumnTo(col *Column) (*ColSelector, error)
-	eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error)
+	reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error)
+	substitute(params map[string]interface{}) (ValueExp, error)
+}
+
+type TypedValue interface {
+	Value() interface{}
+	Compare(val TypedValue) (CmpOperator, error)
 }
 
 type Number struct {
 	val uint64
 }
 
+func (v *Number) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
+func (v *Number) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *Number) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return v, nil
+}
+
 func (v *Number) Value() interface{} {
 	return v.val
 }
 
-func (v *Number) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	return v, nil
-}
-
-func (v *Number) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
+func (v *Number) Compare(val TypedValue) (CmpOperator, error) {
 	ov, isNumber := val.(*Number)
 	if !isNumber {
 		return 0, ErrNotComparableValues
@@ -439,23 +483,27 @@ func (v *Number) Compare(val Value, params map[string]interface{}) (CmpOperator,
 	return LT, nil
 }
 
-func (v *Number) jointColumnTo(col *Column) (*ColSelector, error) {
+type String struct {
+	val string
+}
+
+func (v *String) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-type String struct {
-	val string
+func (v *String) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *String) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return v, nil
 }
 
 func (v *String) Value() interface{} {
 	return v.val
 }
 
-func (v *String) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	return v, nil
-}
-
-func (v *String) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
+func (v *String) Compare(val TypedValue) (CmpOperator, error) {
 	ov, isString := val.(*String)
 	if !isString {
 		return 0, ErrNotComparableValues
@@ -474,23 +522,27 @@ func (v *String) Compare(val Value, params map[string]interface{}) (CmpOperator,
 	return GT, nil
 }
 
-func (v *String) jointColumnTo(col *Column) (*ColSelector, error) {
+type Bool struct {
+	val bool
+}
+
+func (v *Bool) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-type Bool struct {
-	val bool
+func (v *Bool) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *Bool) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return v, nil
 }
 
 func (v *Bool) Value() interface{} {
 	return v.val
 }
 
-func (v *Bool) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	return v, nil
-}
-
-func (v *Bool) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
+func (v *Bool) Compare(val TypedValue) (CmpOperator, error) {
 	ov, isBool := val.(*Bool)
 	if !isBool {
 		return 0, ErrNotComparableValues
@@ -503,23 +555,27 @@ func (v *Bool) Compare(val Value, params map[string]interface{}) (CmpOperator, e
 	return NE, nil
 }
 
-func (v *Bool) jointColumnTo(col *Column) (*ColSelector, error) {
+type Blob struct {
+	val []byte
+}
+
+func (v *Blob) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-type Blob struct {
-	val []byte
+func (v *Blob) substitute(params map[string]interface{}) (ValueExp, error) {
+	return v, nil
+}
+
+func (v *Blob) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return v, nil
 }
 
 func (v *Blob) Value() interface{} {
 	return v.val
 }
 
-func (v *Blob) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	return v, nil
-}
-
-func (v *Blob) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
+func (v *Blob) Compare(val TypedValue) (CmpOperator, error) {
 	ov, isBlob := val.(*Blob)
 	if !isBlob {
 		return 0, ErrNotComparableValues
@@ -538,48 +594,60 @@ func (v *Blob) Compare(val Value, params map[string]interface{}) (CmpOperator, e
 	return GT, nil
 }
 
-func (v *Blob) jointColumnTo(col *Column) (*ColSelector, error) {
-	return nil, ErrJointColumnNotFound
-}
-
 type SysFn struct {
 	fn string
-}
-
-func (v *SysFn) Value() interface{} {
-	return nil
-}
-
-func (v *SysFn) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	return v, nil
-}
-
-func (v *SysFn) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
-	return 0, errors.New("not yet supported")
 }
 
 func (v *SysFn) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
+func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
+	return nil, errors.New("not yet supported")
+}
+
+func (v *SysFn) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return nil, errors.New("not yet supported")
+}
+
 type Param struct {
 	id string
 }
 
-func (v *Param) Value() interface{} {
-	return nil
-}
-
-func (v *Param) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	return v, nil
-}
-
-func (v *Param) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
-	return 0, errors.New("not yet supported")
-}
-
-func (v *Param) jointColumnTo(col *Column) (*ColSelector, error) {
+func (p *Param) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
+}
+
+func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
+	val, ok := params[p.id]
+	if !ok {
+		return nil, ErrIllegalArguments
+	}
+
+	switch v := val.(type) {
+	case bool:
+		{
+			return &Bool{val: v}, nil
+		}
+	case string:
+		{
+			return &String{val: v}, nil
+		}
+	case uint64:
+		{
+			return &Number{val: v}, nil
+		}
+	case []byte:
+		{
+			return &Blob{val: v}, nil
+		}
+	}
+
+	return nil, ErrIllegalArguments
+}
+
+func (p *Param) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return nil, ErrUnexpected
 }
 
 type Comparison int
@@ -601,9 +669,9 @@ type SelectStmt struct {
 	selectors []Selector
 	ds        DataSource
 	joins     []*JoinSpec
-	where     BoolExp
+	where     ValueExp
 	groupBy   []*ColSelector
-	having    BoolExp
+	having    ValueExp
 	limit     uint64
 	orderBy   []*OrdCol
 	as        string
@@ -796,7 +864,7 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string
 type JoinSpec struct {
 	joinType JoinType
 	ds       DataSource
-	cond     BoolExp
+	cond     ValueExp
 }
 
 type GroupBySpec struct {
@@ -840,6 +908,34 @@ func (sel *ColSelector) alias() string {
 	return sel.as
 }
 
+func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
+	if bexp.db != "" && bexp.db != col.table.db.name {
+		return nil, ErrJointColumnNotFound
+	}
+
+	if bexp.table != "" && bexp.table != col.table.name {
+		return nil, ErrJointColumnNotFound
+	}
+
+	if bexp.col != col.colName {
+		return nil, ErrJointColumnNotFound
+	}
+
+	return bexp, nil
+}
+
+func (bexp *ColSelector) substitute(params map[string]interface{}) (ValueExp, error) {
+	return bexp, nil
+}
+
+func (bexp *ColSelector) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	v, ok := row.Values[bexp.resolve(implicitDB, implicitTable)]
+	if !ok {
+		return nil, ErrColumnDoesNotExist
+	}
+	return v, nil
+}
+
 type AggColSelector struct {
 	aggFn AggregateFn
 	db    string
@@ -866,48 +962,38 @@ func (sel *AggColSelector) alias() string {
 	return sel.as
 }
 
-type BoolExp interface {
-	jointColumnTo(col *Column) (*ColSelector, error)
-	eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error)
-}
-
-func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
-	if bexp.db != "" && bexp.db != col.table.db.name {
-		return nil, ErrJointColumnNotFound
-	}
-
-	if bexp.table != "" && bexp.table != col.table.name {
-		return nil, ErrJointColumnNotFound
-	}
-
-	if bexp.col != col.colName {
-		return nil, ErrJointColumnNotFound
-	}
-
-	return bexp, nil
-}
-
-func (bexp *ColSelector) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	v, ok := row.Values[bexp.resolve(implicitDB, implicitTable)]
-	if !ok {
-		return nil, ErrColumnDoesNotExist
-	}
-	return v, nil
-}
-
 type NotBoolExp struct {
-	exp BoolExp
+	exp ValueExp
 }
 
 func (bexp *NotBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return bexp.exp.jointColumnTo(col)
 }
 
-func (bexp *NotBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	v, err := bexp.exp.eval(row, implicitDB, implicitTable, params)
+func (bexp *NotBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	rexp, err := bexp.exp.substitute(params)
 	if err != nil {
 		return nil, err
 	}
+
+	bexp.exp = rexp
+
+	return bexp, nil
+}
+
+func (bexp *NotBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	v, err := bexp.exp.reduce(row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	r, isBool := v.Value().(bool)
+	if !isBool {
+		return nil, ErrInvalidCondition
+	}
+
+	v.(*Bool).val = !r
+
 	return v, nil
 }
 
@@ -920,13 +1006,17 @@ func (bexp *LikeBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-func (bexp *LikeBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
+func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	return bexp, nil
+}
+
+func (bexp *LikeBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, errors.New("not yet supported")
 }
 
 type CmpBoolExp struct {
 	op          CmpOperator
-	left, right BoolExp
+	left, right ValueExp
 }
 
 func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -963,18 +1053,35 @@ func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return selLeft, nil
 }
 
-func (bexp *CmpBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	vl, err := bexp.left.eval(row, implicitDB, implicitTable, params)
+func (bexp *CmpBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	rlexp, err := bexp.left.substitute(params)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.eval(row, implicitDB, implicitTable, params)
+	rrexp, err := bexp.right.substitute(params)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := vl.Compare(vr, params)
+	bexp.left = rlexp
+	bexp.right = rrexp
+
+	return bexp, nil
+}
+
+func (bexp *CmpBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	vl, err := bexp.left.reduce(row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	vr, err := bexp.right.reduce(row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := vl.Compare(vr)
 	if err != nil {
 		return nil, err
 	}
@@ -1002,7 +1109,7 @@ func cmpSatisfies(cmp1, cmp2 CmpOperator) bool {
 
 type BinBoolExp struct {
 	op          LogicOperator
-	left, right BoolExp
+	left, right ValueExp
 }
 
 func (bexp *BinBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -1031,13 +1138,30 @@ func (bexp *BinBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return jcolRight, nil
 }
 
-func (bexp *BinBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
-	vl, err := bexp.left.eval(row, implicitDB, implicitTable, params)
+func (bexp *BinBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	rlexp, err := bexp.left.substitute(params)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.eval(row, implicitDB, implicitTable, params)
+	rrexp, err := bexp.right.substitute(params)
+	if err != nil {
+		return nil, err
+	}
+
+	bexp.left = rlexp
+	bexp.right = rrexp
+
+	return bexp, nil
+}
+
+func (bexp *BinBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	vl, err := bexp.left.reduce(row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	vr, err := bexp.right.reduce(row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -1074,6 +1198,10 @@ func (bexp *ExistsBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-func (bexp *ExistsBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
+func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	return bexp, nil
+}
+
+func (bexp *ExistsBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, errors.New("not yet supported")
 }
