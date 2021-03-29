@@ -548,7 +548,7 @@ func maxKeyVal(colType SQLValueType) []byte {
 	return mKeyVal[:]
 }
 
-func encodeValue(val Value, colType SQLValueType, asKey bool) ([]byte, error) {
+func encodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, error) {
 	switch colType {
 	case StringType:
 		{
@@ -625,7 +625,7 @@ func encodeValue(val Value, colType SQLValueType, asKey bool) ([]byte, error) {
 	return nil, ErrInvalidValue
 }
 
-func decodeValue(b []byte, colType SQLValueType) (Value, int, error) {
+func decodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	if len(b) < encLenLen {
 		return nil, 0, ErrCorruptedData
 	}

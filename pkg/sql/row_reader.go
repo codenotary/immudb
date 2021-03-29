@@ -32,7 +32,7 @@ type RowReader interface {
 type Row struct {
 	ImplicitDB   string
 	ImplictTable string
-	Values       map[string]Value
+	Values       map[string]TypedValue
 }
 
 type rawRowReader struct {
@@ -132,7 +132,7 @@ func (r *rawRowReader) Read() (*Row, error) {
 		}
 	}
 
-	values := make(map[string]Value, len(r.table.colsByID))
+	values := make(map[string]TypedValue, len(r.table.colsByID))
 
 	voff := 0
 

@@ -273,7 +273,7 @@ func TestInsertIntoStmt(t *testing.T) {
 					tableRef: &TableRef{table: "table1"},
 					cols:     []string{"id", "time", "title", "active", "compressed", "payload", "note"},
 					rows: []*RowSpec{
-						{Values: []Value{
+						{Values: []ValueExp{
 							&Number{val: 2},
 							&SysFn{fn: "TIME"},
 							&String{val: "untitled row"},
@@ -295,9 +295,9 @@ func TestInsertIntoStmt(t *testing.T) {
 					tableRef: &TableRef{table: "table1"},
 					cols:     []string{"id", "active"},
 					rows: []*RowSpec{
-						{Values: []Value{&Number{val: 1}, &Bool{val: false}}},
-						{Values: []Value{&Number{val: 2}, &Bool{val: true}}},
-						{Values: []Value{&Number{val: 3}, &Bool{val: true}}},
+						{Values: []ValueExp{&Number{val: 1}, &Bool{val: false}}},
+						{Values: []ValueExp{&Number{val: 2}, &Bool{val: true}}},
+						{Values: []ValueExp{&Number{val: 3}, &Bool{val: true}}},
 					},
 				},
 			},
@@ -427,14 +427,14 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []Value{&Number{val: 100}, &String{val: "label1"}}},
+								{Values: []ValueExp{&Number{val: 100}, &String{val: "label1"}}},
 							},
 						},
 						&UpsertIntoStmt{
 							tableRef: &TableRef{table: "table2"},
 							cols:     []string{"id"},
 							rows: []*RowSpec{
-								{Values: []Value{&Number{val: 10}}},
+								{Values: []ValueExp{&Number{val: 10}}},
 							},
 						},
 					},
@@ -459,7 +459,7 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []Value{&Number{val: 100}, &String{val: "label1"}}},
+								{Values: []ValueExp{&Number{val: 100}, &String{val: "label1"}}},
 							},
 						},
 					},
@@ -484,7 +484,7 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []Value{&Number{val: 100}, &String{val: "label1"}}},
+								{Values: []ValueExp{&Number{val: 100}, &String{val: "label1"}}},
 							},
 						},
 					},
@@ -1055,14 +1055,14 @@ func TestMultiLineStmts(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []Value{&Number{val: 100}, &String{val: "label1"}}},
+								{Values: []ValueExp{&Number{val: 100}, &String{val: "label1"}}},
 							},
 						},
 						&UpsertIntoStmt{
 							tableRef: &TableRef{table: "table2"},
 							cols:     []string{"id"},
 							rows: []*RowSpec{
-								{Values: []Value{&Number{val: 10}}},
+								{Values: []ValueExp{&Number{val: 10}}},
 							},
 						},
 					},
