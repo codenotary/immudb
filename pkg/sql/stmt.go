@@ -151,7 +151,7 @@ func (stmt *UseDatabaseStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*st
 		return nil, nil, ErrDatabaseDoesNotExist
 	}
 
-	e.implicitDatabase = stmt.db
+	e.implicitDB = stmt.db
 
 	return
 }
@@ -179,11 +179,11 @@ func (stmt *CreateTableStmt) isDDL() bool {
 }
 
 func (stmt *CreateTableStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	if e.implicitDatabase == "" {
+	if e.implicitDB == "" {
 		return nil, nil, ErrNoDatabaseSelected
 	}
 
-	db := e.catalog.dbsByName[e.implicitDatabase]
+	db := e.catalog.dbsByName[e.implicitDB]
 
 	table, err := db.newTable(stmt.table, stmt.colsSpec, stmt.pk)
 	if err != nil {
@@ -222,11 +222,11 @@ func (stmt *CreateIndexStmt) isDDL() bool {
 }
 
 func (stmt *CreateIndexStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
-	if e.implicitDatabase == "" {
+	if e.implicitDB == "" {
 		return nil, nil, ErrNoDatabaseSelected
 	}
 
-	table, exists := e.catalog.dbsByName[e.implicitDatabase].tablesByName[stmt.table]
+	table, exists := e.catalog.dbsByName[e.implicitDB].tablesByName[stmt.table]
 	if !exists {
 		return nil, nil, ErrTableDoesNotExist
 	}
@@ -724,11 +724,11 @@ func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
 	}
 
 	if db == "" {
-		if e.implicitDatabase == "" {
+		if e.implicitDB == "" {
 			return nil, ErrNoDatabaseSelected
 		}
 
-		db = e.implicitDatabase
+		db = e.implicitDB
 	}
 
 	table, exists := e.catalog.dbsByName[db].tablesByName[stmt.table]
@@ -812,6 +812,7 @@ type OrdCol struct {
 
 type Selector interface {
 	resolve(implicitDatabase, implicitTable string) string
+	alias() string
 }
 
 type ColSelector struct {
@@ -823,18 +824,20 @@ type ColSelector struct {
 
 func (sel *ColSelector) resolve(implicitDatabase, implicitTable string) string {
 	db := implicitDatabase
-
 	if sel.db != "" {
 		db = sel.db
 	}
 
 	table := implicitTable
-
 	if sel.table != "" {
 		table = sel.table
 	}
 
 	return db + "." + table + "." + sel.col
+}
+
+func (sel *ColSelector) alias() string {
+	return sel.as
 }
 
 type AggColSelector struct {
@@ -847,18 +850,20 @@ type AggColSelector struct {
 
 func (sel *AggColSelector) resolve(implicitDatabase, implicitTable string) string {
 	db := implicitDatabase
-
 	if sel.db != "" {
 		db = sel.db
 	}
 
 	table := implicitTable
-
 	if sel.table != "" {
 		table = sel.table
 	}
 
 	return sel.aggFn + "(" + db + "." + table + "." + sel.col + ")"
+}
+
+func (sel *AggColSelector) alias() string {
+	return sel.as
 }
 
 type BoolExp interface {

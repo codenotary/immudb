@@ -45,14 +45,25 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 		return nil, err
 	}
 
-	prow := &Row{Values: make(map[string]Value, len(pr.selectors))}
+	prow := &Row{
+		ImplicitDB:   row.ImplicitDB,
+		ImplictTable: row.ImplictTable,
+		Values:       make(map[string]Value, len(pr.selectors)),
+	}
 
 	for _, sel := range pr.selectors {
-		c := sel.resolve(pr.e.implicitDatabase, pr.rowReader.Alias())
+		c := sel.resolve(prow.ImplicitDB, prow.ImplictTable)
 
 		val, ok := row.Values[c]
 		if !ok {
 			return nil, ErrInvalidColumn
+		}
+
+		selAlias := sel.alias()
+
+		if selAlias != "" {
+			asel := &ColSelector{col: selAlias}
+			c = asel.resolve(prow.ImplicitDB, prow.ImplictTable)
 		}
 
 		prow.Values[c] = val
