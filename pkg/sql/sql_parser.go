@@ -16,8 +16,8 @@ type yySymType struct {
 	cols     []*ColSelector
 	rows     []*RowSpec
 	row      *RowSpec
-	values   []Value
-	value    Value
+	values   []ValueExp
+	value    ValueExp
 	id       string
 	number   uint64
 	str      string
@@ -35,7 +35,7 @@ type yySymType struct {
 	joins    []*JoinSpec
 	join     *JoinSpec
 	joinType JoinType
-	boolExp  BoolExp
+	boolExp  ValueExp
 	err      error
 	ordcols  []*OrdCol
 	opt_ord  Comparison
@@ -772,7 +772,7 @@ yydefault:
 	case 29:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.values = []Value{yyDollar[1].value}
+			yyVAL.values = []ValueExp{yyDollar[1].value}
 		}
 	case 30:
 		yyDollar = yyS[yypt-3 : yypt+1]
