@@ -95,7 +95,27 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 		return nil, ErrIllegalArguments
 	}
 
-	path, startingLeaf, startingOffset, err := s.root.findLeafNode(spec.SeekKey, nil, nil, spec.DescOrder)
+	seekKey := spec.SeekKey
+	inclusiveSeek := spec.InclusiveSeek
+
+	// Automatically set seekKey based on prefixKey (when seekKey is not specified)
+	if len(seekKey) == 0 && len(spec.Prefix) > 0 {
+		inclusiveSeek = true
+
+		if spec.DescOrder {
+			// Initial key is padded so to cover all keys with provided prefix
+			seekKey = make([]byte, s.t.maxKeyLen)
+			copy(seekKey, spec.Prefix)
+			for i := len(spec.Prefix); i < s.t.maxKeyLen; i++ {
+				seekKey[i] = 0xFF
+			}
+		} else {
+			seekKey = make([]byte, len(spec.Prefix))
+			copy(seekKey, spec.Prefix)
+		}
+	}
+
+	path, startingLeaf, startingOffset, err := s.root.findLeafNode(seekKey, nil, nil, spec.DescOrder)
 	if err == ErrKeyNotFound {
 		return nil, ErrNoMoreEntries
 	}
@@ -106,9 +126,9 @@ func (s *Snapshot) NewReader(spec *ReaderSpec) (r *Reader, err error) {
 	r = &Reader{
 		snapshot:      s,
 		id:            s.maxReaderID,
-		seekKey:       spec.SeekKey,
+		seekKey:       seekKey,
 		prefix:        spec.Prefix,
-		inclusiveSeek: spec.InclusiveSeek,
+		inclusiveSeek: inclusiveSeek,
 		descOrder:     spec.DescOrder,
 		path:          path,
 		leafNode:      startingLeaf,
