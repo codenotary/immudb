@@ -80,7 +80,7 @@ const (
 
 type SQLStmt interface {
 	isDDL() bool
-	CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error)
+	CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error)
 }
 
 type TxStmt struct {
@@ -96,9 +96,9 @@ func (stmt *TxStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *TxStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *TxStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	for _, stmt := range stmt.stmts {
-		cs, ds, err := stmt.CompileUsing(e)
+		cs, ds, err := stmt.CompileUsing(e, params)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -121,7 +121,7 @@ func (stmt *CreateDatabaseStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	db, err := e.catalog.newDatabase(stmt.db)
 	if err != nil {
 		return nil, nil, err
@@ -145,7 +145,7 @@ func (stmt *UseDatabaseStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UseDatabaseStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	exists := e.catalog.ExistDatabase(stmt.db)
 	if !exists {
 		return nil, nil, ErrDatabaseDoesNotExist
@@ -164,7 +164,7 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UseSnapshotStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	return nil, nil, errors.New("not yet supported")
 }
 
@@ -178,7 +178,7 @@ func (stmt *CreateTableStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateTableStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *CreateTableStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	if e.implicitDB == "" {
 		return nil, nil, ErrNoDatabaseSelected
 	}
@@ -221,7 +221,7 @@ func (stmt *CreateIndexStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateIndexStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *CreateIndexStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	if e.implicitDB == "" {
 		return nil, nil, ErrNoDatabaseSelected
 	}
@@ -265,7 +265,7 @@ func (stmt *AddColumnStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *AddColumnStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *AddColumnStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	return nil, nil, errors.New("not yet supported")
 }
 
@@ -350,7 +350,7 @@ func (stmt *UpsertIntoStmt) Validate(table *Table) (map[uint64]int, error) {
 	return selByColID, nil
 }
 
-func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	table, err := stmt.tableRef.referencedTable(e)
 	if err != nil {
 		return nil, nil, err
@@ -405,9 +405,9 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*sto
 
 type Value interface {
 	Value() interface{}
-	Compare(val Value) (CmpOperator, error)
+	Compare(val Value, params map[string]interface{}) (CmpOperator, error)
 	jointColumnTo(col *Column) (*ColSelector, error)
-	eval(row *Row, implicitDatabase, implicitTable string) (Value, error)
+	eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error)
 }
 
 type Number struct {
@@ -418,11 +418,11 @@ func (v *Number) Value() interface{} {
 	return v.val
 }
 
-func (v *Number) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+func (v *Number) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
 	return v, nil
 }
 
-func (v *Number) Compare(val Value) (CmpOperator, error) {
+func (v *Number) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
 	ov, isNumber := val.(*Number)
 	if !isNumber {
 		return 0, ErrNotComparableValues
@@ -451,11 +451,11 @@ func (v *String) Value() interface{} {
 	return v.val
 }
 
-func (v *String) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+func (v *String) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
 	return v, nil
 }
 
-func (v *String) Compare(val Value) (CmpOperator, error) {
+func (v *String) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
 	ov, isString := val.(*String)
 	if !isString {
 		return 0, ErrNotComparableValues
@@ -486,11 +486,11 @@ func (v *Bool) Value() interface{} {
 	return v.val
 }
 
-func (v *Bool) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+func (v *Bool) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
 	return v, nil
 }
 
-func (v *Bool) Compare(val Value) (CmpOperator, error) {
+func (v *Bool) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
 	ov, isBool := val.(*Bool)
 	if !isBool {
 		return 0, ErrNotComparableValues
@@ -515,11 +515,11 @@ func (v *Blob) Value() interface{} {
 	return v.val
 }
 
-func (v *Blob) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+func (v *Blob) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
 	return v, nil
 }
 
-func (v *Blob) Compare(val Value) (CmpOperator, error) {
+func (v *Blob) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
 	ov, isBlob := val.(*Blob)
 	if !isBlob {
 		return 0, ErrNotComparableValues
@@ -550,11 +550,11 @@ func (v *SysFn) Value() interface{} {
 	return nil
 }
 
-func (v *SysFn) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+func (v *SysFn) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
 	return v, nil
 }
 
-func (v *SysFn) Compare(val Value) (CmpOperator, error) {
+func (v *SysFn) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
 	return 0, errors.New("not yet supported")
 }
 
@@ -570,11 +570,11 @@ func (v *Param) Value() interface{} {
 	return nil
 }
 
-func (v *Param) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+func (v *Param) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
 	return v, nil
 }
 
-func (v *Param) Compare(val Value) (CmpOperator, error) {
+func (v *Param) Compare(val Value, params map[string]interface{}) (CmpOperator, error) {
 	return 0, errors.New("not yet supported")
 }
 
@@ -593,7 +593,7 @@ const (
 )
 
 type DataSource interface {
-	Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol, alias string) (RowReader, error)
+	Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol, alias string) (RowReader, error)
 }
 
 type SelectStmt struct {
@@ -613,7 +613,7 @@ func (stmt *SelectStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	if len(stmt.orderBy) > 1 {
 		return nil, nil, ErrLimitedOrderBy
 	}
@@ -651,7 +651,7 @@ func (stmt *SelectStmt) CompileUsing(e *Engine) (ces []*store.KV, des []*store.K
 	return nil, nil, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol, alias string) (RowReader, error) {
+func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol, alias string) (RowReader, error) {
 	// Ordering is only supported at TableRef level
 	if ordCol != nil {
 		return nil, ErrLimitedOrderBy
@@ -663,20 +663,20 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol,
 		orderByCol = stmt.orderBy[0]
 	}
 
-	rowReader, err := stmt.ds.Resolve(e, snap, orderByCol, stmt.as)
+	rowReader, err := stmt.ds.Resolve(e, snap, params, orderByCol, stmt.as)
 	if err != nil {
 		return nil, err
 	}
 
 	if stmt.joins != nil {
-		rowReader, err = e.newJointRowReader(snap, rowReader, stmt.joins)
+		rowReader, err = e.newJointRowReader(snap, params, rowReader, stmt.joins)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if stmt.where != nil {
-		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.where)
+		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.where, params)
 		if err != nil {
 			return nil, err
 		}
@@ -692,7 +692,7 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol,
 			return nil, ErrInvalidCondition
 		}
 
-		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.having)
+		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.having, params)
 		if err != nil {
 			return nil, err
 		}
@@ -739,7 +739,7 @@ func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
 	return table, nil
 }
 
-func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, ordCol *OrdCol, alias string) (RowReader, error) {
+func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol, alias string) (RowReader, error) {
 	if e == nil || snap == nil || (ordCol != nil && ordCol.sel == nil) {
 		return nil, ErrIllegalArguments
 	}
@@ -811,7 +811,7 @@ type OrdCol struct {
 }
 
 type Selector interface {
-	resolve(implicitDatabase, implicitTable string) string
+	resolve(implicitDB, implicitTable string) string
 	alias() string
 }
 
@@ -822,8 +822,8 @@ type ColSelector struct {
 	as    string
 }
 
-func (sel *ColSelector) resolve(implicitDatabase, implicitTable string) string {
-	db := implicitDatabase
+func (sel *ColSelector) resolve(implicitDB, implicitTable string) string {
+	db := implicitDB
 	if sel.db != "" {
 		db = sel.db
 	}
@@ -848,8 +848,8 @@ type AggColSelector struct {
 	as    string
 }
 
-func (sel *AggColSelector) resolve(implicitDatabase, implicitTable string) string {
-	db := implicitDatabase
+func (sel *AggColSelector) resolve(implicitDB, implicitTable string) string {
+	db := implicitDB
 	if sel.db != "" {
 		db = sel.db
 	}
@@ -868,7 +868,7 @@ func (sel *AggColSelector) alias() string {
 
 type BoolExp interface {
 	jointColumnTo(col *Column) (*ColSelector, error)
-	eval(row *Row, implicitDatabase, implicitTable string) (Value, error)
+	eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error)
 }
 
 func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -887,8 +887,8 @@ func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
 	return bexp, nil
 }
 
-func (bexp *ColSelector) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
-	v, ok := row.Values[bexp.resolve(implicitDatabase, implicitTable)]
+func (bexp *ColSelector) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
+	v, ok := row.Values[bexp.resolve(implicitDB, implicitTable)]
 	if !ok {
 		return nil, ErrColumnDoesNotExist
 	}
@@ -903,8 +903,8 @@ func (bexp *NotBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return bexp.exp.jointColumnTo(col)
 }
 
-func (bexp *NotBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
-	v, err := bexp.exp.eval(row, implicitDatabase, implicitTable)
+func (bexp *NotBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
+	v, err := bexp.exp.eval(row, implicitDB, implicitTable, params)
 	if err != nil {
 		return nil, err
 	}
@@ -920,7 +920,7 @@ func (bexp *LikeBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-func (bexp *LikeBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+func (bexp *LikeBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
 	return nil, errors.New("not yet supported")
 }
 
@@ -963,18 +963,18 @@ func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return selLeft, nil
 }
 
-func (bexp *CmpBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
-	vl, err := bexp.left.eval(row, implicitDatabase, implicitTable)
+func (bexp *CmpBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
+	vl, err := bexp.left.eval(row, implicitDB, implicitTable, params)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.eval(row, implicitDatabase, implicitTable)
+	vr, err := bexp.right.eval(row, implicitDB, implicitTable, params)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := vl.Compare(vr)
+	r, err := vl.Compare(vr, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1031,13 +1031,13 @@ func (bexp *BinBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return jcolRight, nil
 }
 
-func (bexp *BinBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
-	vl, err := bexp.left.eval(row, implicitDatabase, implicitTable)
+func (bexp *BinBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
+	vl, err := bexp.left.eval(row, implicitDB, implicitTable, params)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.eval(row, implicitDatabase, implicitTable)
+	vr, err := bexp.right.eval(row, implicitDB, implicitTable, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1074,6 +1074,6 @@ func (bexp *ExistsBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-func (bexp *ExistsBoolExp) eval(row *Row, implicitDatabase, implicitTable string) (Value, error) {
+func (bexp *ExistsBoolExp) eval(row *Row, implicitDB, implicitTable string, params map[string]interface{}) (Value, error) {
 	return nil, errors.New("not yet supported")
 }
