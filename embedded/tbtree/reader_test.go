@@ -98,6 +98,52 @@ func TestReaderAscendingScan(t *testing.T) {
 	require.Equal(t, ErrAlreadyClosed, err)
 }
 
+func TestReaderAscendingScanWithoutSeekKey(t *testing.T) {
+	tbtree, err := Open("test_tree_rsasc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	require.NoError(t, err)
+	defer os.RemoveAll("test_tree_rsasc")
+
+	monotonicInsertions(t, tbtree, 1, 1000, true)
+
+	snapshot, err := tbtree.Snapshot()
+	require.NotNil(t, snapshot)
+	require.NoError(t, err)
+	defer func() {
+		err := snapshot.Close()
+		require.NoError(t, err)
+	}()
+
+	rspec := &ReaderSpec{
+		SeekKey:   nil,
+		Prefix:    []byte{0, 0, 0, 250},
+		DescOrder: false,
+	}
+	reader, err := snapshot.NewReader(rspec)
+	require.NoError(t, err)
+
+	err = snapshot.Close()
+	require.Equal(t, ErrReadersNotClosed, err)
+
+	for {
+		k, _, _, _, err := reader.Read()
+		if err != nil {
+			require.Equal(t, ErrNoMoreEntries, err)
+			break
+		}
+
+		require.True(t, bytes.Compare(reader.seekKey, k) < 1)
+	}
+
+	err = reader.Close()
+	require.NoError(t, err)
+
+	_, _, _, _, err = reader.Read()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = reader.Close()
+	require.Equal(t, ErrAlreadyClosed, err)
+}
+
 func TestReaderDescendingScan(t *testing.T) {
 	tbtree, err := Open("test_tree_rdesc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
 	require.NoError(t, err)
@@ -119,6 +165,47 @@ func TestReaderDescendingScan(t *testing.T) {
 
 	rspec := &ReaderSpec{
 		SeekKey:   seekKey,
+		Prefix:    prefixKey,
+		DescOrder: true,
+	}
+	reader, err := snapshot.NewReader(rspec)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	i := 0
+	prevk := reader.seekKey
+	for {
+		k, _, _, _, err := reader.Read()
+		if err != nil {
+			require.Equal(t, ErrNoMoreEntries, err)
+			break
+		}
+
+		require.True(t, bytes.Compare(prevk, k) > 0)
+		prevk = k
+		i++
+	}
+	require.Equal(t, 256, i)
+}
+
+func TestReaderDescendingWithoutSeekKeyScan(t *testing.T) {
+	tbtree, err := Open("test_tree_rsdesc", DefaultOptions().WithMaxNodeSize(MinNodeSize))
+	require.NoError(t, err)
+	defer os.RemoveAll("test_tree_rsdesc")
+
+	keyCount := 1024
+	monotonicInsertions(t, tbtree, 1, keyCount, true)
+
+	snapshot, err := tbtree.Snapshot()
+	require.NotNil(t, snapshot)
+	require.NoError(t, err)
+	defer snapshot.Close()
+
+	prefixKey := make([]byte, 3)
+	prefixKey[2] = 1
+
+	rspec := &ReaderSpec{
+		SeekKey:   nil,
 		Prefix:    prefixKey,
 		DescOrder: true,
 	}
