@@ -27,9 +27,11 @@ type jointRowReader struct {
 	rowReader RowReader
 
 	joins []*JoinSpec
+
+	params map[string]interface{}
 }
 
-func (e *Engine) newJointRowReader(snap *store.Snapshot, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
+func (e *Engine) newJointRowReader(snap *store.Snapshot, params map[string]interface{}, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
 	if snap == nil || len(joins) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -48,6 +50,7 @@ func (e *Engine) newJointRowReader(snap *store.Snapshot, rowReader RowReader, jo
 	return &jointRowReader{
 		e:         e,
 		snap:      snap,
+		params:    params,
 		rowReader: rowReader,
 		joins:     joins,
 	}, nil
@@ -91,7 +94,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				useInitKeyVal: true,
 			}
 
-			jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, pkOrd, "")
+			jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, jointr.params, pkOrd, "")
 			if err != nil {
 				return nil, err
 			}

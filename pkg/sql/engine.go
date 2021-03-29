@@ -674,11 +674,11 @@ func (e *Engine) Catalog() *Catalog {
 }
 
 // exist database directly on catalogStore: // existKey(e.mapKey(catalogDatabase, db), e.catalogStore)
-func (e *Engine) QueryStmt(sql string) (RowReader, error) {
-	return e.Query(strings.NewReader(sql))
+func (e *Engine) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
+	return e.Query(strings.NewReader(sql), params)
 }
 
-func (e *Engine) Query(sql io.ByteReader) (RowReader, error) {
+func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowReader, error) {
 	if e.catalog == nil {
 		err := e.loadCatalog()
 		if err != nil {
@@ -704,19 +704,19 @@ func (e *Engine) Query(sql io.ByteReader) (RowReader, error) {
 		return nil, err
 	}
 
-	_, _, err = stmt.CompileUsing(e)
+	_, _, err = stmt.CompileUsing(e, params)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.Resolve(e, snap, nil, "")
+	return stmt.Resolve(e, snap, params, nil, "")
 }
 
-func (e *Engine) ExecStmt(sql string) (ddTxs []*store.TxMetadata, dmTxs []*store.TxMetadata, err error) {
-	return e.Exec(strings.NewReader(sql))
+func (e *Engine) ExecStmt(sql string, params map[string]interface{}) (ddTxs []*store.TxMetadata, dmTxs []*store.TxMetadata, err error) {
+	return e.Exec(strings.NewReader(sql), params)
 }
 
-func (e *Engine) Exec(sql io.ByteReader) (ddTxs []*store.TxMetadata, dmTxs []*store.TxMetadata, err error) {
+func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (ddTxs []*store.TxMetadata, dmTxs []*store.TxMetadata, err error) {
 	if e.catalog == nil {
 		err := e.loadCatalog()
 		if err != nil {
@@ -738,7 +738,7 @@ func (e *Engine) Exec(sql io.ByteReader) (ddTxs []*store.TxMetadata, dmTxs []*st
 	}
 
 	for _, stmt := range stmts {
-		centries, dentries, err := stmt.CompileUsing(e)
+		centries, dentries, err := stmt.CompileUsing(e, params)
 		if err != nil {
 			return ddTxs, dmTxs, err
 		}
