@@ -16,7 +16,6 @@ limitations under the License.
 
 package cli
 
-/*
 import (
 	"github.com/codenotary/immudb/pkg/client"
 	"os"
@@ -28,37 +27,15 @@ import (
 	"github.com/codenotary/immudb/pkg/server/servertest"
 )
 
-func TestRawSafeSet(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
-	bs := servertest.NewBufconnServer(options)
-	bs.Start()
-defer bs.Stop()
-
-	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
-	ic := test.NewClientTest(&test.PasswordReader{
-		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
-	ic.Login("immudb")
-
-	cli := new(cli)
-	cli.immucl = ic.Imc
-	msg, err := cli.rawSafeSet([]string{"key", "val"})
-	if err != nil {
-		t.Fatal("RawSafeSet fail", err)
-	}
-	if !strings.Contains(msg, "hash") {
-		t.Fatalf("RawSafeSet failed: %s", msg)
-	}
-}
-
 func TestSet(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
+
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -79,11 +56,14 @@ defer bs.Stop()
 }
 
 func TestSafeSet(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
+
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -104,11 +84,14 @@ defer bs.Stop()
 }
 
 func TestZAdd(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
+
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -132,11 +115,14 @@ defer bs.Stop()
 }
 
 func TestSafeZAdd(t *testing.T) {
-	defer os.Remove(".root-")
-	options := server.DefaultOptions().WithAuth(true).WithInMemoryStore(true)
+	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
+
 	bs.Start()
-defer bs.Stop()
+	defer bs.Stop()
+
+	defer os.RemoveAll(options.Dir)
+	defer os.Remove(".state-")
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
@@ -158,4 +144,3 @@ defer bs.Stop()
 		t.Fatalf("SafeZAdd failed: %s", msg)
 	}
 }
-*/
