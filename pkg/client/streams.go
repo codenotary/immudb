@@ -117,6 +117,9 @@ func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*sche
 	}
 
 	gs, err := c.streamGet(ctx, k)
+	if err != nil {
+		return nil, err
+	}
 
 	kvr := c.StreamServiceFactory.NewKvStreamReceiver(c.StreamServiceFactory.NewMsgReceiver(gs))
 
