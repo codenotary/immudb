@@ -633,6 +633,10 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		{
 			return &String{val: v}, nil
 		}
+	case int:
+		{
+			return &Number{val: uint64(v)}, nil
+		}
 	case uint64:
 		{
 			return &Number{val: v}, nil
