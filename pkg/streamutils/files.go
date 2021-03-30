@@ -12,11 +12,12 @@ import (
 func GetKeyValuesFromFiles(filenames ...string) ([]*stream.KeyValue, error) {
 	var kvs []*stream.KeyValue
 	for _, fn := range filenames {
-		f, err := os.Open(fn)
+		fs, err := os.Stat(fn)
 		if err != nil {
 			return nil, err
 		}
-		fs, err := os.Stat(fn)
+
+		f, err := os.Open(fn)
 		if err != nil {
 			return nil, err
 		}
