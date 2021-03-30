@@ -182,5 +182,5 @@ func TestStoreScanDesc(t *testing.T) {
 
 	list, err = db.Scan(&scanOptions)
 	require.NoError(t, err)
-	require.Empty(t, list.Entries)
+	require.Len(t, list.Entries, 3)
 }
