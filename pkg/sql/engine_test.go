@@ -329,7 +329,12 @@ func TestOrderBy(t *testing.T) {
 	rowCount := 1
 
 	for i := 0; i < rowCount; i++ {
-		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, age) VALUES (%d, 'title%d', %d)", i, i, 40+i), nil)
+		params := make(map[string]interface{}, 3)
+		params["id"] = i
+		params["title"] = fmt.Sprintf("title%d", i)
+		params["age"] = 40 + i
+
+		_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params)
 		require.NoError(t, err)
 	}
 
