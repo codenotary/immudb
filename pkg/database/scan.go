@@ -57,10 +57,16 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	}
 	defer snap.Close()
 
+	seekKey := req.SeekKey
+
+	if len(seekKey) > 0 {
+		seekKey = EncodeKey(req.SeekKey)
+	}
+
 	r, err := d.st.NewKeyReader(
 		snap,
 		&tbtree.ReaderSpec{
-			SeekKey:   EncodeKey(req.SeekKey),
+			SeekKey:   seekKey,
 			Prefix:    EncodeKey(req.Prefix),
 			DescOrder: req.Desc,
 		})
