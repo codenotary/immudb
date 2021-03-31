@@ -381,4 +381,10 @@ func TestSingleAppCantCreateFile(t *testing.T) {
 	_, err = Open(filepath.Join(dir, "exists"), DefaultOptions())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "exists")
+
+	app, err := Open(filepath.Join(dir, "valid"), DefaultOptions())
+	require.NoError(t, err)
+	err = app.Copy(filepath.Join(dir, "exists"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exists")
 }
