@@ -410,7 +410,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrNoMoreEntries, err)
+	require.Equal(t, ErrNoMoreRows, err)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -441,7 +441,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = r.Read()
-	require.Equal(t, ErrNoMoreEntries, err)
+	require.Equal(t, ErrNoMoreRows, err)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -464,7 +464,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	}
 
 	_, err = r.Read()
-	require.Equal(t, ErrNoMoreEntries, err)
+	require.Equal(t, ErrNoMoreRows, err)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -478,7 +478,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	}
 
 	_, err = r.Read()
-	require.Equal(t, ErrNoMoreEntries, err)
+	require.Equal(t, ErrNoMoreRows, err)
 
 	err = r.Close()
 	require.NoError(t, err)
