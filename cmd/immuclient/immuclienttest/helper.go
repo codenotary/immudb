@@ -69,6 +69,10 @@ func NewClientTest(pr helper.PasswordReader, tkns client.TokenService) *clientTe
 	}
 }
 
+func (ct *clientTest) WithOptions(opts *client.Options) *clientTest {
+	ct.Options = *opts
+	return ct
+}
 func (c *clientTest) Connect(dialer servertest.BuffDialer) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithContextDialer(dialer), grpc.WithInsecure(),
