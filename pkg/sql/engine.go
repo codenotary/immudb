@@ -47,7 +47,7 @@ var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
 var ErrInvalidValue = errors.New("invalid value provided")
 var ErrExpectingDQLStmt = errors.New("illegal statement. DQL statement expected")
 var ErrLimitedOrderBy = errors.New("order is limit to one indexed column")
-var ErrIllegelMappedKey = errors.New("error illegal mapped key")
+var ErrIllegalMappedKey = errors.New("error illegal mapped key")
 var ErrCorruptedData = store.ErrCorruptedData
 var ErrNoMoreRows = store.ErrNoMoreEntries
 var ErrLimitedJoins = errors.New("joins limited to tables")
@@ -57,6 +57,7 @@ var ErrUnsupportedJoinType = errors.New("unsupported join type")
 var ErrInvalidCondition = errors.New("invalid condition")
 var ErrNotComparableValues = errors.New("values are not comparable")
 var ErrUnexpected = errors.New("unexpected error")
+var ErrMaxKeyLengthExceeded = errors.New("max key length exceeded")
 
 var mKeyVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
@@ -359,7 +360,7 @@ func (e *Engine) trimPrefix(mkey []byte, mappingPrefix []byte) ([]byte, error) {
 	if len(e.prefix)+len(mappingPrefix) > len(mkey) ||
 		!bytes.Equal(e.prefix, mkey[:len(e.prefix)]) ||
 		!bytes.Equal(mappingPrefix, mkey[len(e.prefix):len(e.prefix)+len(mappingPrefix)]) {
-		return nil, ErrIllegelMappedKey
+		return nil, ErrIllegalMappedKey
 	}
 
 	return mkey[len(e.prefix)+len(mappingPrefix):], nil

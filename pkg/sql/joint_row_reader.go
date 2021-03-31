@@ -68,6 +68,9 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 		for _, jspec := range jointr.joins {
 			tableRef := jspec.ds.(*TableRef)
 			table, err := tableRef.referencedTable(jointr.e)
+			if err != nil {
+				return nil, err
+			}
 
 			fkSel, err := jspec.cond.jointColumnTo(table.pk)
 			if err != nil {

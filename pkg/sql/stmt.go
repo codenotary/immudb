@@ -851,8 +851,8 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string
 		cmp = ordCol.cmp
 
 		if ordCol.useInitKeyVal {
-			if len(initKeyVal) > len(maxKeyVal(col.colType)) {
-				return nil, ErrIllegalArguments
+			if len(ordCol.initKeyVal) > encLenLen+len(maxKeyVal(col.colType)) {
+				return nil, ErrMaxKeyLengthExceeded
 			}
 			initKeyVal = ordCol.initKeyVal
 		}
