@@ -371,6 +371,11 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 		return nil, ErrIllegalArguments
 	}
 
+	lastTxID, _ := d.st.Alh()
+	if lastTxID < req.ProveSinceTx {
+		return nil, ErrIllegalState
+	}
+
 	e, err := d.Get(req.KeyRequest)
 	if err != nil {
 		return nil, err
@@ -518,6 +523,11 @@ func (d *db) VerifiableTxByID(req *schema.VerifiableTxRequest) (*schema.Verifiab
 
 	if req == nil {
 		return nil, ErrIllegalArguments
+	}
+
+	lastTxID, _ := d.st.Alh()
+	if lastTxID < req.ProveSinceTx {
+		return nil, ErrIllegalState
 	}
 
 	// key-value inclusion proof
