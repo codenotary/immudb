@@ -1047,6 +1047,17 @@
         }
       }
     },
+    "schemaColumn": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
     "schemaCreateUserRequest": {
       "type": "object",
       "properties": {
@@ -1344,6 +1355,18 @@
         }
       }
     },
+    "schemaNamedParam": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "schemaOp": {
       "type": "object",
       "properties": {
@@ -1415,6 +1438,52 @@
         },
         "noWait": {
           "type": "boolean"
+        }
+      }
+    },
+    "schemaRow": {
+      "type": "object",
+      "properties": {
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "schemaSQLExecResult": {
+      "type": "object",
+      "properties": {
+        "ctxs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaTxMetadata"
+          }
+        },
+        "dtxs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaTxMetadata"
+          }
+        }
+      }
+    },
+    "schemaSQLQueryResult": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaColumn"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/schemaRow"
+          }
         }
       }
     },

@@ -358,6 +358,41 @@ message Chunk {
 	bytes content = 1;
 }
 
+message SQLExecRequest {
+	string sql = 1;
+	repeated NamedParam params = 2;
+}
+
+message SQLQueryRequest {
+	string sql = 1;
+	repeated NamedParam params = 2;
+	uint32 limit = 3;
+}
+
+message NamedParam {
+	string name = 1;
+	bytes value = 2;
+}
+
+message SQLExecResult {
+	repeated TxMetadata ctxs = 1;
+	repeated TxMetadata dtxs = 2;
+}
+
+message SQLQueryResult {
+	repeated Column columns = 2;
+	repeated Row rows = 1;
+}
+
+message Column {
+	string name = 1;
+	string type = 2;
+}
+
+message Row {
+	repeated bytes values = 1;
+}
+
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "immudb REST API";
@@ -608,4 +643,10 @@ service ImmuService {
 	rpc streamHistory(HistoryRequest) returns (stream Chunk) {};
 	rpc streamExecAll(stream Chunk) returns (TxMetadata) {};
 
+	// SQL
+	rpc SQLExec(SQLExecRequest) returns (SQLExecResult) {
+	};
+
+	rpc SQLQuery(SQLQueryRequest) returns (SQLQueryResult) {
+	};
 }
