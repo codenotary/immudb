@@ -82,6 +82,11 @@ func TestSingleApp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{7, 8, 9, 10}, bs)
 
+	n , err = a.ReadAt(bs, 1000)
+	require.Error(t, err)
+	require.Equal(t, n, 0)
+	require.Contains(t, err.Error(), "EOF")
+
 	err = a.Sync()
 	require.NoError(t, err)
 
