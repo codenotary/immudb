@@ -28,6 +28,7 @@ import (
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
+	"github.com/codenotary/immudb/pkg/sql"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
@@ -64,11 +65,15 @@ type DB interface {
 	Close() error
 	GetOptions() *DbOptions
 	CompactIndex() error
+	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
+	SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
 }
 
 //IDB database instance
 type db struct {
 	st *store.ImmuStore
+
+	sqlEngine *sql.Engine
 
 	tx1, tx2 *store.Tx
 	mutex    sync.RWMutex
@@ -101,6 +106,11 @@ func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
 	db.tx1 = db.st.NewTx()
 	db.tx2 = db.st.NewTx()
 
+	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte("sql"))
+	if err != nil {
+		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+	}
+
 	return db, nil
 }
 
@@ -130,6 +140,11 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 
 	db.tx1 = db.st.NewTx()
 	db.tx2 = db.st.NewTx()
+
+	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte("sql"))
+	if err != nil {
+		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+	}
 
 	return db, nil
 }
