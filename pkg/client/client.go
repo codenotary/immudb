@@ -142,6 +142,9 @@ type ImmuClient interface {
 	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 	StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error)
 
+	SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
+	SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
+
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)
 	// DEPRECATED: Please use VerifiedSet

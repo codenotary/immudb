@@ -69,6 +69,8 @@ type Client interface {
 	ChangeUserPassword(args []string) (string, error)
 	ValueOnly() bool     // TODO: ?
 	SetValueOnly(v bool) // TODO: ?
+	SQLExec(args []string) (string, error)
+	SQLQuery(args []string) (string, error)
 }
 
 // Init ...
