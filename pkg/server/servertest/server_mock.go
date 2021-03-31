@@ -18,6 +18,7 @@ package servertest
 
 import (
 	"context"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -249,4 +250,12 @@ func (s *ServerMock) Stop() error {
 
 func (s *ServerMock) Initialize() error {
 	return s.srv.Initialize()
+}
+
+func (s *ServerMock) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
+	return s.srv.SQLExec(ctx, req)
+}
+
+func (s *ServerMock) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+	return s.srv.SQLQuery(ctx, req)
 }
