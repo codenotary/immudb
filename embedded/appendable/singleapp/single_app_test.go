@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/appendable"
@@ -370,4 +371,14 @@ func TestSingleAppLZWCompression(t *testing.T) {
 
 	err = a.Close()
 	require.NoError(t, err)
+}
+
+func TestSingleAppCantCreateFile(t *testing.T) {
+	dir, err := ioutil.TempDir(os.TempDir(), "singleapp")
+	defer os.RemoveAll(dir)
+	os.Mkdir(filepath.Join(dir, "exists"), 0644)
+
+	_, err = Open(filepath.Join(dir, "exists"), DefaultOptions())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exists")
 }
