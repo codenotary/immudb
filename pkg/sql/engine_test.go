@@ -250,12 +250,12 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
 
-		require.Equal(t, uint64(i), row.Values["db1.table1.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, i%2 == 0, row.Values["db1.table1.active"].Value())
+		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
 
 		encPayload := []byte(fmt.Sprintf("blob%d", i))
-		require.Equal(t, []byte(encPayload), row.Values["db1.table1.payload"].Value())
+		require.Equal(t, []byte(encPayload), row.Values[EncodeSelector("", "db1", "table1", "payload")].Value())
 	}
 
 	err = r.Close()
@@ -270,12 +270,12 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, (rowCount-1-i)%2 == 0, row.Values["db1.table1.active"].Value())
+		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Equal(t, (rowCount-1-i)%2 == 0, row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
 
 		encPayload := []byte(fmt.Sprintf("blob%d", rowCount-1-i))
-		require.Equal(t, []byte(encPayload), row.Values["db1.table1.payload"].Value())
+		require.Equal(t, []byte(encPayload), row.Values[EncodeSelector("", "db1", "table1", "payload")].Value())
 	}
 
 	err = r.Close()
@@ -293,9 +293,9 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 3)
 
-		require.Equal(t, uint64(i), row.Values["db1.table1.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, params["some_param"], row.Values["db1.table1.active"].Value())
+		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Equal(t, params["some_param"], row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
 	}
 
 	err = r.Close()
@@ -349,9 +349,9 @@ func TestOrderBy(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 3)
 
-		require.Equal(t, uint64(i), row.Values["db1.table1.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64(40+i), row.Values["db1.table1.age"].Value())
+		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Equal(t, uint64(40+i), row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
 	}
 
 	err = r.Close()
@@ -366,9 +366,9 @@ func TestOrderBy(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 3)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64(40-(rowCount-1-i)), row.Values["db1.table1.age"].Value())
+		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Equal(t, uint64(40-(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
 	}
 
 	err = r.Close()
@@ -535,10 +535,10 @@ func TestJoins(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"].Value())
-		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"].Value())
+		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table2", "amount")].Value())
+		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table3", "age")].Value())
 	}
 
 	err = r.Close()
@@ -558,10 +558,10 @@ func TestJoins(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table2.amount"].Value())
-		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table3.age"].Value())
+		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table2", "amount")].Value())
+		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table3", "age")].Value())
 	}
 
 	err = r.Close()
@@ -620,10 +620,10 @@ func TestNestedJoins(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values["db1.table1.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values["db1.table1.title"].Value())
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values["db1.table1.amount"].Value())
-		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values["db1.table1.age"].Value())
+		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table1", "amount")].Value())
+		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
 	}
 
 	err = r.Close()
@@ -720,8 +720,8 @@ func TestSubQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(i), row.Values["db1.table2.id"].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values["db1.table2.t"].Value())
+		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table2", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table2", "t")].Value())
 	}
 
 	err = r.Close()

@@ -39,6 +39,28 @@ func (e *Engine) newProjectedRowReader(snap *store.Snapshot, rowReader RowReader
 	}, nil
 }
 
+func (pr *projectedRowReader) ImplicitDB() string {
+	return pr.rowReader.ImplicitDB()
+}
+
+func (pr *projectedRowReader) Columns() []*ColDescriptor {
+	colDescriptors := make([]*ColDescriptor, len(pr.selectors))
+
+	for i, sel := range pr.selectors {
+		aggFn, db, table, col := sel.resolve(pr.ImplicitDB(), pr.Alias())
+
+		// TODO (jeroiraz): include support for aggregations
+		colType := pr.e.catalog.dbsByName[db].tablesByName[table].colsByName[col].colType
+
+		colDescriptors[i] = &ColDescriptor{
+			ColName: EncodeSelector(aggFn, db, table, col),
+			ColType: colType,
+		}
+	}
+
+	return colDescriptors
+}
+
 func (pr *projectedRowReader) Read() (*Row, error) {
 	row, err := pr.rowReader.Read()
 	if err != nil {
@@ -52,7 +74,7 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 	}
 
 	for _, sel := range pr.selectors {
-		c := sel.resolve(prow.ImplicitDB, prow.ImplictTable)
+		c := EncodeSelector(sel.resolve(prow.ImplicitDB, prow.ImplictTable))
 
 		val, ok := row.Values[c]
 		if !ok {
@@ -63,7 +85,7 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 
 		if selAlias != "" {
 			asel := &ColSelector{col: selAlias}
-			c = asel.resolve(prow.ImplicitDB, prow.ImplictTable)
+			c = EncodeSelector(asel.resolve(prow.ImplicitDB, prow.ImplictTable))
 		}
 
 		prow.Values[c] = val

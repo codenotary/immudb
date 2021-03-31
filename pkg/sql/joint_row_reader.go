@@ -41,9 +41,14 @@ func (e *Engine) newJointRowReader(snap *store.Snapshot, params map[string]inter
 			return nil, ErrUnsupportedJoinType
 		}
 
-		_, ok := jspec.ds.(*TableRef)
+		tableRef, ok := jspec.ds.(*TableRef)
 		if !ok {
 			return nil, ErrLimitedJoins
+		}
+
+		_, err := tableRef.referencedTable(e)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -54,6 +59,25 @@ func (e *Engine) newJointRowReader(snap *store.Snapshot, params map[string]inter
 		rowReader: rowReader,
 		joins:     joins,
 	}, nil
+}
+
+func (jointr *jointRowReader) ImplicitDB() string {
+	return jointr.rowReader.ImplicitDB()
+}
+
+func (jointr *jointRowReader) Columns() []*ColDescriptor {
+	colDescriptors := jointr.rowReader.Columns()
+
+	for _, jspec := range jointr.joins {
+		tableRef := jspec.ds.(*TableRef)
+		table, _ := tableRef.referencedTable(jointr.e)
+
+		for _, c := range table.colsByID {
+			colDescriptors = append(colDescriptors, &ColDescriptor{ColName: c.colName, ColType: c.colType})
+		}
+	}
+
+	return colDescriptors
 }
 
 func (jointr *jointRowReader) Read() (*Row, error) {
@@ -77,12 +101,12 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				return nil, err
 			}
 
-			fkVal, ok := row.Values[fkSel.resolve(row.ImplicitDB, row.ImplictTable)]
+			fkVal, ok := row.Values[EncodeSelector(fkSel.resolve(row.ImplicitDB, row.ImplictTable))]
 			if !ok {
 				return nil, ErrInvalidJointColumn
 			}
 
-			fkEncVal, err := encodeValue(fkVal, table.pk.colType, asKey)
+			fkEncVal, err := EncodeValue(fkVal, table.pk.colType, asKey)
 			if err != nil {
 				return nil, err
 			}
