@@ -151,7 +151,7 @@ func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, params map[string]interface
 		return nil, nil, ErrDatabaseDoesNotExist
 	}
 
-	e.implicitDB = stmt.db
+	e.SetImplicitDB(stmt.db)
 
 	return
 }
@@ -313,7 +313,7 @@ func (r *RowSpec) bytes(t *Table, cols []string, params map[string]interface{}) 
 			return nil, err
 		}
 
-		valb, err := encodeValue(rval, col.colType, !asKey)
+		valb, err := EncodeValue(rval, col.colType, !asKey)
 		if err != nil {
 			return nil, err
 		}
@@ -388,7 +388,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 			return nil, nil, err
 		}
 
-		pkEncVal, err := encodeValue(rval, table.pk.colType, asKey)
+		pkEncVal, err := EncodeValue(rval, table.pk.colType, asKey)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -419,7 +419,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 				return nil, nil, err
 			}
 
-			encVal, err := encodeValue(rval, table.colsByID[colID].colType, asKey)
+			encVal, err := EncodeValue(rval, table.colsByID[colID].colType, asKey)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -883,7 +883,7 @@ type OrdCol struct {
 }
 
 type Selector interface {
-	resolve(implicitDB, implicitTable string) string
+	resolve(implicitDB, implicitTable string) (aggFn, db, table, col string)
 	alias() string
 }
 
@@ -894,18 +894,18 @@ type ColSelector struct {
 	as    string
 }
 
-func (sel *ColSelector) resolve(implicitDB, implicitTable string) string {
-	db := implicitDB
+func (sel *ColSelector) resolve(implicitDB, implicitTable string) (aggFn, db, table, col string) {
+	db = implicitDB
 	if sel.db != "" {
 		db = sel.db
 	}
 
-	table := implicitTable
+	table = implicitTable
 	if sel.table != "" {
 		table = sel.table
 	}
 
-	return db + "." + table + "." + sel.col
+	return "", db, table, sel.col
 }
 
 func (sel *ColSelector) alias() string {
@@ -933,7 +933,7 @@ func (bexp *ColSelector) substitute(params map[string]interface{}) (ValueExp, er
 }
 
 func (bexp *ColSelector) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	v, ok := row.Values[bexp.resolve(implicitDB, implicitTable)]
+	v, ok := row.Values[EncodeSelector(bexp.resolve(implicitDB, implicitTable))]
 	if !ok {
 		return nil, ErrColumnDoesNotExist
 	}
@@ -948,18 +948,22 @@ type AggColSelector struct {
 	as    string
 }
 
-func (sel *AggColSelector) resolve(implicitDB, implicitTable string) string {
-	db := implicitDB
+func EncodeSelector(aggFn, db, table, col string) string {
+	return aggFn + "(" + db + "." + table + "." + col + ")"
+}
+
+func (sel *AggColSelector) resolve(implicitDB, implicitTable string) (aggFn, db, table, col string) {
+	db = implicitDB
 	if sel.db != "" {
 		db = sel.db
 	}
 
-	table := implicitTable
+	table = implicitTable
 	if sel.table != "" {
 		table = sel.table
 	}
 
-	return sel.aggFn + "(" + db + "." + table + "." + sel.col + ")"
+	return sel.aggFn, db, table, sel.col
 }
 
 func (sel *AggColSelector) alias() string {

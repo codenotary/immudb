@@ -42,6 +42,14 @@ func (e *Engine) newConditionalRowReader(snap *store.Snapshot, rowReader RowRead
 	}, nil
 }
 
+func (cr *conditionalRowReader) ImplicitDB() string {
+	return cr.rowReader.ImplicitDB()
+}
+
+func (cr *conditionalRowReader) Columns() []*ColDescriptor {
+	return cr.rowReader.Columns()
+}
+
 func (cr *conditionalRowReader) Read() (*Row, error) {
 	for {
 		row, err := cr.rowReader.Read()

@@ -79,6 +79,8 @@ type Engine struct {
 	implicitDB string
 
 	snapSinceTx, snapUptoTx uint64
+
+	mutex sync.Mutex
 }
 
 func NewEngine(catalogStore, dataStore *store.ImmuStore, prefix []byte) (*Engine, error) {
@@ -108,6 +110,7 @@ func (e *Engine) loadCatalog() error {
 	if err != nil {
 		return err
 	}
+	defer latestSnapshot.Close()
 
 	c, err := e.catalogFrom(latestSnapshot)
 	if err != nil {
@@ -116,6 +119,20 @@ func (e *Engine) loadCatalog() error {
 
 	e.catalog = c
 	return nil
+}
+
+func (e *Engine) SetImplicitDB(db string) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	e.implicitDB = db
+}
+
+func (e *Engine) ImplicitDB() string {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	return e.implicitDB
 }
 
 //TODO (jeroiraz): remove
@@ -549,7 +566,7 @@ func maxKeyVal(colType SQLValueType) []byte {
 	return mKeyVal[:]
 }
 
-func encodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, error) {
+func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, error) {
 	switch colType {
 	case StringType:
 		{
@@ -626,7 +643,7 @@ func encodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 	return nil, ErrInvalidValue
 }
 
-func decodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
+func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	if len(b) < encLenLen {
 		return nil, 0, ErrCorruptedData
 	}
