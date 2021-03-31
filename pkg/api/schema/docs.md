@@ -8,6 +8,7 @@
     - [ChangePasswordRequest](#immudb.schema.ChangePasswordRequest)
     - [ChangePermissionRequest](#immudb.schema.ChangePermissionRequest)
     - [Chunk](#immudb.schema.Chunk)
+    - [Column](#immudb.schema.Column)
     - [CreateUserRequest](#immudb.schema.CreateUserRequest)
     - [Database](#immudb.schema.Database)
     - [DatabaseListResponse](#immudb.schema.DatabaseListResponse)
@@ -29,10 +30,16 @@
     - [LoginRequest](#immudb.schema.LoginRequest)
     - [LoginResponse](#immudb.schema.LoginResponse)
     - [MTLSConfig](#immudb.schema.MTLSConfig)
+    - [NamedParam](#immudb.schema.NamedParam)
     - [Op](#immudb.schema.Op)
     - [Permission](#immudb.schema.Permission)
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
+    - [Row](#immudb.schema.Row)
+    - [SQLExecRequest](#immudb.schema.SQLExecRequest)
+    - [SQLExecResult](#immudb.schema.SQLExecResult)
+    - [SQLQueryRequest](#immudb.schema.SQLQueryRequest)
+    - [SQLQueryResult](#immudb.schema.SQLQueryResult)
     - [ScanRequest](#immudb.schema.ScanRequest)
     - [Score](#immudb.schema.Score)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
@@ -134,6 +141,22 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | content | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Column"></a>
+
+### Column
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| type | [string](#string) |  |  |
 
 
 
@@ -486,6 +509,22 @@
 
 
 
+<a name="immudb.schema.NamedParam"></a>
+
+### NamedParam
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| value | [bytes](#bytes) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.Op"></a>
 
 ### Op
@@ -549,6 +588,86 @@
 | atTx | [uint64](#uint64) |  |  |
 | boundRef | [bool](#bool) |  |  |
 | noWait | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.Row"></a>
+
+### Row
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| values | [bytes](#bytes) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.SQLExecRequest"></a>
+
+### SQLExecRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| sql | [string](#string) |  |  |
+| params | [NamedParam](#immudb.schema.NamedParam) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.SQLExecResult"></a>
+
+### SQLExecResult
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| ctxs | [TxMetadata](#immudb.schema.TxMetadata) | repeated |  |
+| dtxs | [TxMetadata](#immudb.schema.TxMetadata) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.SQLQueryRequest"></a>
+
+### SQLQueryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| sql | [string](#string) |  |  |
+| params | [NamedParam](#immudb.schema.NamedParam) | repeated |  |
+| limit | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.SQLQueryResult"></a>
+
+### SQLQueryResult
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| columns | [Column](#immudb.schema.Column) | repeated |  |
+| rows | [Row](#immudb.schema.Row) | repeated |  |
 
 
 
@@ -1064,6 +1183,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | streamZScan | [ZScanRequest](#immudb.schema.ZScanRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamHistory | [HistoryRequest](#immudb.schema.HistoryRequest) | [Chunk](#immudb.schema.Chunk) stream |  |
 | streamExecAll | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
+| SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) | SQL |
+| SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 
  
 
