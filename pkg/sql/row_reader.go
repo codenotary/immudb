@@ -24,9 +24,16 @@ import (
 )
 
 type RowReader interface {
+	ImplicitDB() string
 	Alias() string
 	Read() (*Row, error)
 	Close() error
+	Columns() []*ColDescriptor
+}
+
+type ColDescriptor struct {
+	ColName string
+	ColType SQLValueType
 }
 
 type Row struct {
@@ -36,13 +43,15 @@ type Row struct {
 }
 
 type rawRowReader struct {
-	e      *Engine
-	snap   *store.Snapshot
-	table  *Table
-	alias  string
-	col    string
-	desc   bool
-	reader *store.KeyReader
+	e              *Engine
+	implicitDB     string
+	snap           *store.Snapshot
+	table          *Table
+	colDescriptors []*ColDescriptor
+	alias          string
+	col            string
+	desc           bool
+	reader         *store.KeyReader
 }
 
 func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, alias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
@@ -95,15 +104,33 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, alias strin
 		alias = table.name
 	}
 
+	colDescriptors := make([]*ColDescriptor, len(table.colsByID))
+
+	i := 0
+	for _, c := range table.colsByID {
+		colDescriptors[i] = &ColDescriptor{ColName: c.colName, ColType: c.colType}
+		i++
+	}
+
 	return &rawRowReader{
-		e:      e,
-		snap:   snap,
-		table:  table,
-		alias:  alias,
-		col:    col.colName,
-		desc:   rSpec.DescOrder,
-		reader: r,
+		e:              e,
+		implicitDB:     e.ImplicitDB(),
+		snap:           snap,
+		table:          table,
+		colDescriptors: colDescriptors,
+		alias:          alias,
+		col:            col.colName,
+		desc:           rSpec.DescOrder,
+		reader:         r,
 	}, nil
+}
+
+func (r *rawRowReader) ImplicitDB() string {
+	return r.implicitDB
+}
+
+func (r *rawRowReader) Columns() []*ColDescriptor {
+	return r.colDescriptors
 }
 
 func (r *rawRowReader) Read() (*Row, error) {
@@ -157,13 +184,13 @@ func (r *rawRowReader) Read() (*Row, error) {
 			return nil, ErrCorruptedData
 		}
 
-		val, n, err := decodeValue(v[voff:], col.colType)
+		val, n, err := DecodeValue(v[voff:], col.colType)
 		if err != nil {
 			return nil, err
 		}
 
 		voff += n
-		values[r.table.db.name+"."+r.alias+"."+colName] = val
+		values[EncodeSelector("", r.table.db.name, r.alias, colName)] = val
 	}
 
 	return &Row{ImplicitDB: r.e.implicitDB, ImplictTable: r.alias, Values: values}, nil
@@ -174,5 +201,7 @@ func (r *rawRowReader) Alias() string {
 }
 
 func (r *rawRowReader) Close() error {
+	defer r.snap.Close()
+
 	return r.reader.Close()
 }
