@@ -243,3 +243,7 @@ func (s *ServerMock) SetActiveUser(ctx context.Context, req *schema.SetActiveUse
 func (s *ServerMock) getDbIndexFromCtx(ctx context.Context, methodname string) (int64, error) {
 	return s.GetDbIndexFromCtx(ctx, methodname)
 }
+
+func (s *ServerMock) Stop() error {
+	return s.srv.Stop()
+}

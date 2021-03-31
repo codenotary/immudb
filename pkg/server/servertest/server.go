@@ -22,10 +22,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/server"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -34,12 +31,11 @@ const bufSize = 1024 * 1024
 type BuffDialer func(context.Context, string) (net.Conn, error)
 
 type bufconnServer struct {
-	m          sync.Mutex
-	Lis        *bufconn.Listener
-	Server     *ServerMock
-	Options    *server.Options
-	GrpcServer *grpc.Server
-	Dialer     BuffDialer
+	m       sync.Mutex
+	Lis     *bufconn.Listener
+	Server  *ServerMock
+	Options *server.Options
+	Dialer  BuffDialer
 }
 
 func NewBufconnServer(options *server.Options) *bufconnServer {
@@ -47,10 +43,6 @@ func NewBufconnServer(options *server.Options) *bufconnServer {
 	bs := &bufconnServer{
 		Lis:     bufconn.Listen(bufSize),
 		Options: options,
-		GrpcServer: grpc.NewServer(
-			grpc.UnaryInterceptor(auth.ServerUnaryInterceptor),
-			grpc.StreamInterceptor(auth.ServerStreamInterceptor),
-		),
 	}
 	return bs
 }
@@ -70,19 +62,17 @@ func (bs *bufconnServer) Start() error {
 
 	bs.Server = &ServerMock{srv: server}
 
-	schema.RegisterImmuServiceServer(bs.GrpcServer, bs.Server)
-
 	go func() {
-		if err := bs.GrpcServer.Serve(bs.Lis); err != nil {
+		if err := bs.Server.srv.GrpcServer.Serve(bs.Lis); err != nil {
 			log.Fatal(err)
 		}
+		<-bs.Server.srv.Quit
 	}()
 
 	return nil
 }
 
 func (bs *bufconnServer) Stop() {
-	bs.GrpcServer.Stop()
 	defer bs.m.Unlock()
-
+	bs.Server.Stop()
 }
