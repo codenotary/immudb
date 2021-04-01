@@ -18,7 +18,6 @@ package servertest
 
 import (
 	"context"
-
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -246,4 +245,8 @@ func (s *ServerMock) getDbIndexFromCtx(ctx context.Context, methodname string) (
 
 func (s *ServerMock) Stop() error {
 	return s.srv.Stop()
+}
+
+func (s *ServerMock) Initialize() error {
+	return s.srv.Initialize()
 }

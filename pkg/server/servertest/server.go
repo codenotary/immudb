@@ -18,6 +18,10 @@ package servertest
 
 import (
 	"context"
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/codenotary/immudb/pkg/auth"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"google.golang.org/grpc"
 	"log"
 	"net"
 	"sync"
@@ -31,11 +35,12 @@ const bufSize = 1024 * 1024
 type BuffDialer func(context.Context, string) (net.Conn, error)
 
 type bufconnServer struct {
-	m       sync.Mutex
-	Lis     *bufconn.Listener
-	Server  *ServerMock
-	Options *server.Options
-	Dialer  BuffDialer
+	m          sync.Mutex
+	Lis        *bufconn.Listener
+	Server     *ServerMock
+	Options    *server.Options
+	GrpcServer *grpc.Server
+	Dialer     BuffDialer
 }
 
 func NewBufconnServer(options *server.Options) *bufconnServer {
@@ -43,6 +48,10 @@ func NewBufconnServer(options *server.Options) *bufconnServer {
 	bs := &bufconnServer{
 		Lis:     bufconn.Listen(bufSize),
 		Options: options,
+		GrpcServer: grpc.NewServer(
+			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(server.ErrorMapper, auth.ServerUnaryInterceptor)),
+			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(server.ErrorMapperStream, auth.ServerStreamInterceptor)),
+		),
 	}
 	return bs
 }
@@ -56,14 +65,16 @@ func (bs *bufconnServer) Start() error {
 		return bs.Lis.Dial()
 	}
 
-	if err := server.Initialize(); err != nil {
+	bs.Server = &ServerMock{srv: server}
+
+	if err := bs.Server.Initialize(); err != nil {
 		return err
 	}
 
-	bs.Server = &ServerMock{srv: server}
+	schema.RegisterImmuServiceServer(bs.GrpcServer, bs.Server)
 
 	go func() {
-		if err := bs.Server.srv.GrpcServer.Serve(bs.Lis); err != nil {
+		if err := bs.GrpcServer.Serve(bs.Lis); err != nil {
 			log.Fatal(err)
 		}
 		<-bs.Server.srv.Quit
@@ -74,5 +85,6 @@ func (bs *bufconnServer) Start() error {
 
 func (bs *bufconnServer) Stop() {
 	defer bs.m.Unlock()
+	bs.GrpcServer.Stop()
 	bs.Server.Stop()
 }
