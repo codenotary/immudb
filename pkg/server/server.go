@@ -59,9 +59,6 @@ const (
 	KeyPrefixUser = iota + 1
 )
 
-var ErrEmptyAdminPassword = fmt.Errorf("Admin password cannot be empty")
-var ErrIllegalArguments = fmt.Errorf("Illegal arguments")
-
 var startedAt time.Time
 
 var immudbTextLogo = " _                               _ _     \n" +
@@ -170,11 +167,13 @@ func (s *ImmuServer) Initialize() error {
 	uuidContext := NewUUIDContext(s.UUID)
 
 	uis := []grpc.UnaryServerInterceptor{
+		ErrorMapper, // converts errors in gRPC ones. Need to be the first
 		uuidContext.UUIDContextSetter,
 		grpc_prometheus.UnaryServerInterceptor,
 		auth.ServerUnaryInterceptor,
 	}
 	sss := []grpc.StreamServerInterceptor{
+		ErrorMapperStream, // converts errors in gRPC ones. Need to be the first
 		uuidContext.UUIDStreamContextSetter,
 		grpc_prometheus.StreamServerInterceptor,
 		auth.ServerStreamInterceptor,
