@@ -177,7 +177,7 @@ func TestOpenDb(t *testing.T) {
 	os.RemoveAll(options.GetDbRootPath())
 }
 
-func TestDbSetImmidiateGet(t *testing.T) {
+func TestDbSynchronousSet(t *testing.T) {
 	db, closer := makeDb()
 	defer closer()
 
