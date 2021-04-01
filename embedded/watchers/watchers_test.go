@@ -64,7 +64,7 @@ func TestWatchersCenter(t *testing.T) {
 			select {
 			case <-time.Tick(1 * time.Millisecond):
 				{
-					err := wCenter.DoneUpto(t)
+					err := wCenter.DoneUpto(t + 2)
 					if err != nil {
 						errMutex.Lock()
 						errHolder = err
