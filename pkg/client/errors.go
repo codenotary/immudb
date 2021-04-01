@@ -24,7 +24,8 @@ import (
 var (
 	ErrIllegalArguments = errors.New("illegal arguments")
 
-	ErrAlreadyConnected  = errors.New("already connected")
-	ErrNotConnected      = errors.New("not connected")
-	ErrHealthCheckFailed = errors.New("health check failed")
+	ErrAlreadyConnected   = errors.New("already connected")
+	ErrNotConnected       = errors.New("not connected")
+	ErrHealthCheckFailed  = errors.New("health check failed")
+	ErrServerStateIsOlder = errors.New("server state is older than the client one")
 )

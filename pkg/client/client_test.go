@@ -18,8 +18,10 @@ package client
 import (
 	"context"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/fs"
 	"log"
 	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -1514,6 +1516,97 @@ func TestImmuClient_VerifiedGetSince(t *testing.T) {
 	require.Equal(t, []byte(`key1`), entry2.Key)
 	require.Equal(t, []byte(`val2`), entry2.Value)
 	client.Disconnect()
+}
+
+func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
+	stateFileDir := path.Join(os.TempDir(), "testStates")
+	dir := path.Join(os.TempDir(), "data")
+	dirAtTx3 := path.Join(os.TempDir(), "dataTx3")
+
+	defer os.RemoveAll(dir)
+	defer os.RemoveAll(dirAtTx3)
+	defer os.RemoveAll(stateFileDir)
+
+	os.RemoveAll(dir)
+	os.RemoveAll(dirAtTx3)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(dir)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+
+	cliOpts := DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithDir(stateFileDir)
+	cliOpts.CurrentDatabase = DefaultDB
+	client, err := NewImmuClient(cliOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	md := metadata.Pairs("authorization", lr.Token)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	_, err = client.VerifiedSet(ctx, []byte(`key2`), []byte(`val2`))
+	_, err = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
+	require.NoError(t, err)
+	_, err = client.VerifiedGet(ctx, []byte(`key3`))
+	require.NoError(t, err)
+	client.Disconnect()
+	bs.Stop()
+
+	copier := fs.NewStandardCopier()
+	err = copier.CopyDir(dir, dirAtTx3)
+	require.NoError(t, err)
+
+	bs = servertest.NewBufconnServer(options)
+	err = bs.Start()
+	require.NoError(t, err)
+
+	cliOpts = DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithDir(stateFileDir)
+	cliOpts.CurrentDatabase = DefaultDB
+	client, err = NewImmuClient(cliOpts)
+	require.NoError(t, err)
+
+	lr, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.VerifiedSet(ctx, []byte(`key1`), []byte(`val1`))
+	_, err = client.VerifiedSet(ctx, []byte(`key2`), []byte(`val2`))
+	_, err = client.VerifiedSet(ctx, []byte(`key3`), []byte(`val3`))
+	require.NoError(t, err)
+	_, err = client.VerifiedGet(ctx, []byte(`key3`))
+	client.Disconnect()
+	bs.Stop()
+
+	os.RemoveAll(dir)
+	err = copier.CopyDir(dirAtTx3, dir)
+	require.NoError(t, err)
+
+	bs = servertest.NewBufconnServer(options)
+	err = bs.Start()
+	require.NoError(t, err)
+
+	cliOpts = DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithDir(stateFileDir)
+	cliOpts.CurrentDatabase = DefaultDB
+	client, err = NewImmuClient(cliOpts)
+	require.NoError(t, err)
+
+	lr, err = client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+	require.NoError(t, err)
+
+	md = metadata.Pairs("authorization", lr.Token)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+	_, err = client.VerifiedGet(ctx, []byte(`key3`))
+	require.Equal(t, ErrServerStateIsOlder, err)
+
+	bs.Stop()
 }
 
 type HomedirServiceMock struct {

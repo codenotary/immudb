@@ -184,6 +184,7 @@ func NewImmuClient(options *Options) (c ImmuClient, err error) {
 	ctx := context.Background()
 
 	c = DefaultClient()
+	c.WithOptions(options)
 	l := logger.NewSimpleLogger("immuclient", os.Stderr)
 	c.WithLogger(l)
 	c.WithTokenService(options.Tkns.WithTokenFileName(options.TokenFileName))
@@ -303,6 +304,7 @@ func (c *immuClient) SetupDialOptions(options *Options) *[]grpc.DialOption {
 	if c.serverSigningPubKey != nil {
 		uic = append(uic, c.SignatureVerifierInterceptor)
 	}
+	uic = append(uic, c.IllegalStateHandlerInterceptor)
 
 	if options.Auth && c.Tkns != nil {
 		token, err := c.Tkns.GetToken()
