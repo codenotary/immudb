@@ -17,7 +17,9 @@ limitations under the License.
 package cli
 
 import (
+	"github.com/codenotary/immudb/pkg/fs"
 	"os"
+	"path"
 	"strings"
 	"testing"
 
@@ -219,4 +221,86 @@ func TestCheckCommandErrors(t *testing.T) {
 	require.False(t, cli.checkCommand([]string{"-h"}, nil))
 	require.False(t, cli.checkCommand([]string{"clear"}, nil))
 	require.True(t, cli.checkCommand([]string{"unknown"}, nil))
+}
+
+func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
+	stateFileDir := path.Join(os.TempDir(), "testStates")
+	dir := path.Join(os.TempDir(), "data")
+	dirAtTx3 := path.Join(os.TempDir(), "dataTx3")
+
+	defer os.RemoveAll(dir)
+	defer os.RemoveAll(dirAtTx3)
+	defer os.RemoveAll(stateFileDir)
+
+	os.RemoveAll(dir)
+	os.RemoveAll(dirAtTx3)
+
+	options := server.DefaultOptions().WithAuth(true).WithDir(dir)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+
+	cliOpts := client.DefaultOptions().WithDir(stateFileDir)
+	cliOpts.CurrentDatabase = client.DefaultDB
+
+	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
+	ic := test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, ts).WithOptions(cliOpts)
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	cli := new(cli)
+	cli.immucl = ic.Imc
+	_, err := cli.safeset([]string{"key", "val"})
+	_, err = cli.safeset([]string{"key", "val"})
+	_, err = cli.safeset([]string{"key", "val"})
+	require.NoError(t, err)
+
+	bs.Stop()
+
+	copier := fs.NewStandardCopier()
+	err = copier.CopyDir(dir, dirAtTx3)
+	require.NoError(t, err)
+
+	bs = servertest.NewBufconnServer(options)
+	err = bs.Start()
+	require.NoError(t, err)
+
+	cliOpts = client.DefaultOptions().WithDir(stateFileDir)
+	cliOpts.CurrentDatabase = client.DefaultDB
+	ic = test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, ts).WithOptions(cliOpts)
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	cli.immucl = ic.Imc
+	_, err = cli.safeset([]string{"key", "val"})
+	_, err = cli.safeset([]string{"key", "val"})
+	_, err = cli.safeset([]string{"key", "val"})
+	require.NoError(t, err)
+
+	bs.Stop()
+
+	os.RemoveAll(dir)
+	err = copier.CopyDir(dirAtTx3, dir)
+	require.NoError(t, err)
+
+	bs = servertest.NewBufconnServer(options)
+	err = bs.Start()
+	require.NoError(t, err)
+
+	cliOpts = client.DefaultOptions().WithDir(stateFileDir)
+	cliOpts.CurrentDatabase = client.DefaultDB
+	ic = test.NewClientTest(&test.PasswordReader{
+		Pass: []string{"immudb"},
+	}, ts).WithOptions(cliOpts)
+	ic.Connect(bs.Dialer)
+	ic.Login("immudb")
+
+	cli.immucl = ic.Imc
+	_, err = cli.safeset([]string{"key", "val"})
+
+	require.NoError(t, err)
 }
