@@ -63,6 +63,10 @@ func (w *WatchersCenter) DoneUpto(t uint64) error {
 	}
 
 	for i := w.doneUpto + 1; i <= t; i++ {
+		if w.waiting == 0 {
+			break
+		}
+
 		wp, waiting := w.wpoints[i]
 		if waiting {
 			close(wp.ch)
