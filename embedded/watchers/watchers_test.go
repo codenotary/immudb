@@ -30,6 +30,11 @@ func TestWatchersCenter(t *testing.T) {
 
 	wCenter.DoneUpto(0)
 
+	doneUpto, waiting, err := wCenter.Status()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), doneUpto)
+	require.Equal(t, 0, waiting)
+
 	var wg sync.WaitGroup
 	wg.Add(waitessCount * 2)
 
@@ -52,7 +57,7 @@ func TestWatchersCenter(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	err := wCenter.WaitFor(uint64(waitessCount*2 + 1))
+	err = wCenter.WaitFor(uint64(waitessCount*2 + 1))
 	require.Equal(t, ErrMaxWaitessLimitExceeded, err)
 
 	done := make(chan struct{})
@@ -114,6 +119,9 @@ func TestWatchersCenter(t *testing.T) {
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = wCenter.DoneUpto(0)
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	_, _, err = wCenter.Status()
 	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = wCenter.Close()
