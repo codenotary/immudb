@@ -50,6 +50,17 @@ func New(doneUpto uint64, maxWaiting int) *WatchersCenter {
 	}
 }
 
+func (w *WatchersCenter) Status() (doneUpto uint64, waiting int, err error) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.closed {
+		return 0, 0, ErrAlreadyClosed
+	}
+
+	return w.doneUpto, w.waiting, nil
+}
+
 func (w *WatchersCenter) DoneUpto(t uint64) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
