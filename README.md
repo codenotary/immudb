@@ -105,6 +105,17 @@ Download latest release binaries from [here](https://github.com/codenotary/immud
 ./immudb
 ```
 
+### CLI tools
+
+- **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
+- **immuadmin** is the admin CLI for immudb. You can manage immudb and get statistics as well as runtime information.
+
+The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases)
+
+Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```
+
+For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage. Simply run ```./immuadmin``` on the same machine.
+
 ## Using immudb
 
 Integrate immudb into your application using official SDKs already available for the following programming languages:
@@ -120,17 +131,6 @@ We've developed a "language-agnostic SDK" which exposes a REST API for easy cons
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
 
 For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
-
-### CLI tools
-
-- **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
-- **immuadmin** is the admin CLI for immudb. You can manage immudb and get statistics as well as runtime information.
-
-The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases)
-
-Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```
-
-For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage. Simply run ```./immuadmin``` on the same machine.
 
 ### Real world examples
 
