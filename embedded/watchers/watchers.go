@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-var ErrMaxWaitessLimitExceeded = errors.New("max waitees limit exceeded")
+var ErrMaxWaitessLimitExceeded = errors.New("max waiting limit exceeded")
 var ErrAlreadyClosed = errors.New("already closed")
 
 type WatchersCenter struct {
@@ -29,7 +29,7 @@ type WatchersCenter struct {
 	doneUpto uint64 // no-wait on lower or equal values
 
 	maxWaiting int
-	waitees    int
+	waiting    int
 
 	closed bool
 
@@ -66,7 +66,7 @@ func (w *WatchersCenter) DoneUpto(t uint64) error {
 		wp, waiting := w.wpoints[i]
 		if waiting {
 			close(wp.ch)
-			w.waitees -= wp.count
+			w.waiting -= wp.count
 			delete(w.wpoints, i)
 		}
 	}
@@ -89,7 +89,7 @@ func (w *WatchersCenter) WaitFor(t uint64) error {
 		return nil
 	}
 
-	if w.waitees == w.maxWaiting {
+	if w.waiting == w.maxWaiting {
 		w.mutex.Unlock()
 		return ErrMaxWaitessLimitExceeded
 	}
@@ -101,7 +101,7 @@ func (w *WatchersCenter) WaitFor(t uint64) error {
 	}
 
 	wp.count++
-	w.waitees++
+	w.waiting++
 
 	w.mutex.Unlock()
 
