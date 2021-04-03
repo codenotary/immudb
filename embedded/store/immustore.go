@@ -607,6 +607,10 @@ func (s *ImmuStore) indexer() {
 	for {
 		s.indexCond.L.Lock()
 
+		if s.wCenter != nil {
+			s.wCenter.DoneUpto(s.index.Ts())
+		}
+
 		txsToIndex := s.TxCount() - s.index.Ts()
 
 		if txsToIndex == 0 {
@@ -626,10 +630,6 @@ func (s *ImmuStore) indexer() {
 			s.indexErr = err
 			s.indexCond.L.Unlock()
 			return
-		}
-
-		if s.wCenter != nil {
-			s.wCenter.DoneUpto(s.index.Ts())
 		}
 
 		s.indexCond.L.Unlock()
