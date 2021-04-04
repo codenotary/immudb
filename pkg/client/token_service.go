@@ -93,14 +93,17 @@ func (ts *tokenService) parseContent() (string, string, error) {
 	if strings.HasPrefix(content, "v2.public.") {
 		return "", "", errors.New("old token format. Please remove old token located in your default home dir")
 	}
-	databasel := make([]byte, 8)
-	copy(databasel, content[:8])
-	databaselUint64 := binary.BigEndian.Uint64(databasel)
-	databasename := make([]byte, int(databaselUint64))
-	copy(databasename, content[8:8+int(databaselUint64)])
+	dbNameLen := make([]byte, 8)
+	copy(dbNameLen, content[:8])
+	dbNameLenUint64 := binary.BigEndian.Uint64(dbNameLen)
+	if dbNameLenUint64 > uint64(len(content))-8 {
+		return "", "", errors.New("invalid token format")
+	}
+	databasename := make([]byte, dbNameLenUint64)
+	copy(databasename, content[8:8+dbNameLenUint64])
 
-	token := make([]byte, len(content)-8-int(databaselUint64))
-	copy(token, content[8+int(databaselUint64):])
+	token := make([]byte, uint64(len(content))-8-dbNameLenUint64)
+	copy(token, content[8+dbNameLenUint64:])
 
 	return string(databasename), string(token), nil
 }
