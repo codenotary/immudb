@@ -764,6 +764,11 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 		return 0, err
 	}
 
+	err = t.hLog.Sync()
+	if err != nil {
+		return 0, err
+	}
+
 	indexID := snapshot.Ts()
 
 	metadata := appendable.NewMetadata(nil)
