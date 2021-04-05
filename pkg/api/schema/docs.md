@@ -36,6 +36,7 @@
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
     - [Row](#immudb.schema.Row)
+    - [RowValue](#immudb.schema.RowValue)
     - [SQLExecRequest](#immudb.schema.SQLExecRequest)
     - [SQLExecResult](#immudb.schema.SQLExecResult)
     - [SQLQueryRequest](#immudb.schema.SQLQueryRequest)
@@ -602,7 +603,25 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| values | [bytes](#bytes) | repeated |  |
+| values | [RowValue](#immudb.schema.RowValue) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.RowValue"></a>
+
+### RowValue
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| n | [uint64](#uint64) |  |  |
+| s | [string](#string) |  |  |
+| v | [bool](#bool) |  |  |
+| b | [bytes](#bytes) |  |  |
 
 
 

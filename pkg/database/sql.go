@@ -92,7 +92,7 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 		}
 
 		rrow := &schema.Row{
-			Values: make([][]byte, len(row.Values)),
+			Values: make([]*schema.RowValue, len(row.Values)),
 		}
 
 		for i, c := range res.Columns {
@@ -101,7 +101,7 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 			if !isDefined {
 				rrow.Values[i] = nil
 			} else {
-				rrow.Values[i], err = sql.EncodeValue(v, c.Type, false)
+				rrow.Values[i] = typedValueToRowValue(v)
 			}
 		}
 
@@ -114,4 +114,26 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 	}
 
 	return res, nil
+}
+
+func typedValueToRowValue(tv sql.TypedValue) *schema.RowValue {
+	switch v := tv.(type) {
+	case *sql.Number:
+		{
+			return &schema.RowValue{Operation: &schema.RowValue_N{N: v.Value().(uint64)}}
+		}
+	case *sql.String:
+		{
+			return &schema.RowValue{Operation: &schema.RowValue_S{S: v.Value().(string)}}
+		}
+	case *sql.Bool:
+		{
+			return &schema.RowValue{Operation: &schema.RowValue_V{V: v.Value().(bool)}}
+		}
+	case *sql.Blob:
+		{
+			return &schema.RowValue{Operation: &schema.RowValue_B{B: v.Value().([]byte)}}
+		}
+	}
+	return nil
 }

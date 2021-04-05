@@ -390,7 +390,16 @@ message Column {
 }
 
 message Row {
-	repeated bytes values = 1;
+	repeated RowValue values = 1;
+}
+
+message RowValue {
+	oneof operation {
+		uint64 n = 1;
+		string s = 2;
+		bool v = 3;
+		bytes b = 4;
+	}
 }
 
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
