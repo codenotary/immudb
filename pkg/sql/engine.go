@@ -23,7 +23,6 @@ import (
 	"math"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/embedded/tbtree"
@@ -104,7 +103,10 @@ func (e *Engine) loadCatalog() error {
 	e.catalog = nil
 
 	lastTxID, _ := e.catalogStore.Alh()
-	waitForIndexingUpto(e.catalogStore, lastTxID)
+	err := e.catalogStore.WaitForIndexingUpto(lastTxID)
+	if err != nil {
+		return err
+	}
 
 	latestSnapshot, err := e.catalogStore.SnapshotSince(math.MaxUint64)
 	if err != nil {
@@ -133,26 +135,6 @@ func (e *Engine) ImplicitDB() string {
 	defer e.mutex.Unlock()
 
 	return e.implicitDB
-}
-
-//TODO (jeroiraz): remove
-func waitForIndexingUpto(st *store.ImmuStore, txID uint64) error {
-	if txID == 0 {
-		return nil
-	}
-
-	for {
-		its, err := st.IndexInfo()
-		if err != nil {
-			return err
-		}
-
-		if its >= txID {
-			return nil
-		}
-
-		time.Sleep(time.Duration(1) * time.Millisecond)
-	}
 }
 
 func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
@@ -766,7 +748,7 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (ddTxs [
 		}
 
 		if len(centries) > 0 {
-			txmd, err := e.catalogStore.Commit(centries)
+			txmd, err := e.catalogStore.Commit(centries, false)
 			if err != nil {
 				return ddTxs, dmTxs, e.loadCatalog()
 			}
@@ -775,7 +757,7 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (ddTxs [
 		}
 
 		if len(dentries) > 0 {
-			txmd, err := e.dataStore.Commit(dentries)
+			txmd, err := e.dataStore.Commit(dentries, false)
 			if err != nil {
 				return ddTxs, dmTxs, err
 			}
