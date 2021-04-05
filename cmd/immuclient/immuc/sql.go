@@ -45,10 +45,10 @@ func (i *immuc) SQLExec(args []string) (string, error) {
 	return fmt.Sprintf("sql ok, Ctxs: %d Dtxs: %d", len(txMetas.Ctxs), len(txMetas.Dtxs)), nil
 }
 
-func (i *immuc) SQLQuery(args []string) (string, error) {
+func (i *immuc) SQLQuery(args []string) (*schema.SQLQueryResult, error) {
 	sqlStmt, err := ioutil.ReadAll(bytes.NewReader([]byte(args[0])))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
@@ -56,10 +56,8 @@ func (i *immuc) SQLQuery(args []string) (string, error) {
 		return immuClient.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: string(sqlStmt), Limit: math.MaxInt32})
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	txMetas := response.(*schema.SQLQueryResult)
-
-	return fmt.Sprintf("sql ok: %v", txMetas), nil
+	return response.(*schema.SQLQueryResult), nil
 }

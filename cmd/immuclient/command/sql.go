@@ -18,6 +18,7 @@ package immuclient
 import (
 	"fmt"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +54,27 @@ func (cl *commandline) sqlQuery(cmd *cobra.Command) {
 			if err != nil {
 				cl.quit(err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), resp+"\n")
+
+			consoleTable := tablewriter.NewWriter(cmd.OutOrStdout())
+
+			cols := make([]string, len(resp.Columns))
+			for i, c := range resp.Columns {
+				cols[i] = c.Name
+			}
+			consoleTable.SetHeader(cols)
+
+			for _, r := range resp.Rows {
+				row := make([]string, len(r.Values))
+
+				for i, v := range r.Values {
+					row[i] = v.String()
+				}
+
+				consoleTable.Append(row)
+			}
+
+			consoleTable.Render()
+
 			return nil
 		},
 		Args: cobra.MinimumNArgs(1),
