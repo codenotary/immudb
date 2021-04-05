@@ -304,7 +304,7 @@ colSpec:
     }
 
 dqlstmt:
-    SELECT opt_distinct selectors FROM ds opt_joins opt_where opt_groupby opt_having opt_limit opt_orderby opt_as
+    SELECT opt_distinct selectors FROM ds opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_as
     {
         $$ = &SelectStmt{
                 distinct: $2,
@@ -314,8 +314,8 @@ dqlstmt:
                 where: $7,
                 groupBy: $8,
                 having: $9,
-                limit: $10,
-                orderBy: $11,
+                orderBy: $10,
+                limit: $11,
                 as: $12,
             }
     }
