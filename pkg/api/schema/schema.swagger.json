@@ -1447,9 +1447,27 @@
         "values": {
           "type": "array",
           "items": {
-            "type": "string",
-            "format": "byte"
+            "$ref": "#/definitions/schemaRowValue"
           }
+        }
+      }
+    },
+    "schemaRowValue": {
+      "type": "object",
+      "properties": {
+        "n": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "s": {
+          "type": "string"
+        },
+        "v": {
+          "type": "boolean"
+        },
+        "b": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
