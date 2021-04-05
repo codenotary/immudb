@@ -23,9 +23,9 @@ import (
 
 func (cl *commandline) sqlExec(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "sql",
+		Use:               "exec",
 		Short:             "Executes sql statement",
-		Aliases:           []string{"sql"},
+		Aliases:           []string{"e"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
