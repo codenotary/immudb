@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
 )
@@ -603,10 +604,14 @@ func (v *SysFn) jointColumnTo(col *Column) (*ColSelector, error) {
 }
 
 func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
-	return nil, errors.New("not yet supported")
+	return v, nil
 }
 
 func (v *SysFn) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	if v.fn == "NOW" {
+		return &Number{val: uint64(time.Now().UnixNano())}, nil
+	}
+
 	return nil, errors.New("not yet supported")
 }
 
