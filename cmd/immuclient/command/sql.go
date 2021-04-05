@@ -18,6 +18,7 @@ package immuclient
 import (
 	"fmt"
 
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -67,7 +68,7 @@ func (cl *commandline) sqlQuery(cmd *cobra.Command) {
 				row := make([]string, len(r.Values))
 
 				for i, v := range r.Values {
-					row[i] = v.String()
+					row[i] = schema.RenderValue(v.Operation)
 				}
 
 				consoleTable.Append(row)
