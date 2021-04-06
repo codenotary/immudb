@@ -146,6 +146,8 @@ Simply run ```./immuadmin``` on the same machine. You can also find immuadmin in
 
 ## Using immudb
 
+Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
+
 Integrate immudb into your application using official SDKs already available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
@@ -181,9 +183,6 @@ We already learned about the following use cases from users:
 [TA Capital](http://www.ta.capital)
 
 [tinaba](https://www.tinaba.bancaprofilo.it/)
-
-
-Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
 
 ## Contributing
 
