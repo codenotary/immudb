@@ -19,7 +19,6 @@ package client
 import (
 	"context"
 	"errors"
-	"github.com/codenotary/immudb/pkg/server"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -29,7 +28,7 @@ import (
 func (c *immuClient) IllegalStateHandlerInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	if err != nil && strings.Contains(method, "Verifiable") {
-		if errors.Is(err, server.ErrIllegalState) {
+		if errors.Is(err, ErrSrvIllegalState) {
 			serverState, err := c.CurrentState(ctx)
 			if err != nil {
 				return err
