@@ -80,6 +80,29 @@ other systems derived from them, such as **Kubernetes** and **Docker**.
 | High Write throughput   | Yes                                                           |
 | Optimized for SSD       | Yes                                                           |
 
+Benchmarks:
+
+* 4 CPU cores
+* Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz
+* 64 GB memory
+* SSD
+
+**sequential** *write*
+```
+Concurrency: 128
+Iterations: 1000000
+Elapsed t.: 3.06 sec
+Throughput: 326626 tx/sec
+```
+
+**batch** *write (async commit)*
+```
+Concurrency: 16
+Iterations: 1000000
+Elapsed t.: 0.36 sec
+Throughput: 2772181 tx/sec
+```
+
 ## Quickstart
 
 Getting immudb up and running is quite simple.
@@ -110,11 +133,16 @@ Download latest release binaries from [here](https://github.com/codenotary/immud
 - **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
 - **immuadmin** is the admin CLI for immudb. You can manage immudb and get statistics as well as runtime information.
 
-The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases)
+The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases). All cli components are also available as docker images on dockerhub.com.
 
-Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```
+| Component  | Container image                                |
+| ---------- | ---------------------------------------------- |
+| immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  |
+| immuclient | https://hub.docker.com/r/codenotary/immuclient |
 
-For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage. Simply run ```./immuadmin``` on the same machine.
+Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immucleint in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
+
+Simply run ```./immuadmin``` on the same machine. You can also find immuadmin in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local immudb with `docker run -it --rm --name immuadmin codenotary/immuadmin:latest status`. For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
 
 ## Using immudb
 
