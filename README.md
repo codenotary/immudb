@@ -30,10 +30,6 @@ Don't forget to ⭐ this repo if you like immudb!
 
 [:tada: 2M+ pulls from docker hub!](https://hub.docker.com/r/codenotary/immudb/tags)
 
-### **Free Trusted Timestamp**: Tamperproof provenance for your code and CI/CD pipeline [#timestamp](https://timestamp.codenotary.com/)
-
-### **Winners announcement**: immudb Coding Challenge - Winter 2020 Edition [#immuchallenge](https://github.com/codenotary/immuchallenge)
-
 ---
 
 immudb is not a blockchain, immudb is the **lightweight, high-speed immutable database** with built-in cryptographic proof and verification.
