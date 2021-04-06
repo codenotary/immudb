@@ -361,6 +361,7 @@ message Chunk {
 message SQLExecRequest {
 	string sql = 1;
 	repeated NamedParam params = 2;
+	bool  noWait = 3;
 }
 
 message SQLQueryRequest {

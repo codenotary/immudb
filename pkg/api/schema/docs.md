@@ -638,6 +638,7 @@
 | ----- | ---- | ----- | ----------- |
 | sql | [string](#string) |  |  |
 | params | [NamedParam](#immudb.schema.NamedParam) | repeated |  |
+| noWait | [bool](#bool) |  |  |
 
 
 
