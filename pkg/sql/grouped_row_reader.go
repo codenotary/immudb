@@ -61,15 +61,20 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 				return nil, err
 			}
 
-			return gr.currRow, nil
+			r := gr.currRow
+			gr.currRow = nil
+
+			return r, nil
 		}
+
+		// TODO: group by always over NON-NULLABLE columns
 
 		if gr.currRow == nil {
 			gr.currRow = row
 			continue
 		}
 
-		if !compatibleRows(gr.currRow, row, gr.selectors) {
+		if !gr.compatibleRow(row) {
 			r := gr.currRow
 			gr.currRow = row
 			return r, nil
@@ -80,10 +85,12 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 		// same agregations are ok with latest state vs new, such as MIN, COUNT
 		// others need complete sequence of values, such as SUM, AVG
 
-		// group by always over NON-NULLABLE columns
-
 		// selectors which are not part of an agregation should fail to receive more than 1 value
 	}
+}
+
+func (gr *groupedRowReader) compatibleRow(row *Row) bool {
+	return false
 }
 
 func (gr *groupedRowReader) Alias() string {
