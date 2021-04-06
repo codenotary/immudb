@@ -691,6 +691,10 @@ func (stmt *SelectStmt) isDDL() bool {
 }
 
 func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
+	if stmt.distinct {
+		return nil, nil, ErrNoSupported
+	}
+
 	if len(stmt.orderBy) > 1 {
 		return nil, nil, ErrLimitedOrderBy
 	}
@@ -760,8 +764,10 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 	}
 
 	if stmt.groupBy != nil {
-		// groupedRowReader
-		return nil, errors.New("not yet supported")
+		rowReader, err = e.newGroupedRowReader(snap, rowReader, params, stmt.selectors)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if stmt.having != nil {
