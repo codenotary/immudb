@@ -82,26 +82,12 @@ other systems derived from them, such as **Kubernetes** and **Docker**.
 
 Benchmarks:
 
-* 4 CPU cores
-* Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz
-* 64 GB memory
-* SSD
-
-**sequential** *write*
-```
-Concurrency: 128
-Iterations: 1000000
-Elapsed t.: 3.06 sec
-Throughput: 326626 tx/sec
-```
-
-**batch** *write (async commit)*
-```
-Concurrency: 16
-Iterations: 1000000
-Elapsed t.: 0.36 sec
-Throughput: 2772181 tx/sec
-```
+| Specifications | Sequential write | Batch write |
+| --- | --- | --- |
+| 4 CPU cores | Concurrency: 128 | Concurrency: 16 |
+| Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz | Iterations: 1000000 | Iterations: 1000000 |
+| 64 GB memory | Elapsted t.: 3.06 sec | Elapsed t.: 0.36 sec |
+| SSD | Throughput: 326626 tx/sec | Throughput: 2772181 tx/sec |
 
 ## Quickstart
 
