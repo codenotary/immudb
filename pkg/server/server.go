@@ -224,7 +224,7 @@ func (s *ImmuServer) Start() (err error) {
 	}()
 
 	s.mux.Unlock()
-	<-s.Quit
+	<-s.quit
 
 	return err
 }
@@ -445,7 +445,7 @@ func (s *ImmuServer) Stop() error {
 
 	s.Logger.Infof("Stopping immudb:\n%v", s.Options)
 
-	defer func() { s.Quit <- struct{}{} }()
+	defer func() { s.quit <- struct{}{} }()
 
 	if !s.Options.usingCustomListener {
 		s.GrpcServer.Stop()

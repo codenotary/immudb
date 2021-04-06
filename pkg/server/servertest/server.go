@@ -41,11 +41,13 @@ type bufconnServer struct {
 	Options    *server.Options
 	GrpcServer *grpc.Server
 	Dialer     BuffDialer
+	quit       chan struct{}
 }
 
 func NewBufconnServer(options *server.Options) *bufconnServer {
 	options.Port = 0
 	bs := &bufconnServer{
+		quit:    make(chan struct{}),
 		Lis:     bufconn.Listen(bufSize),
 		Options: options,
 		GrpcServer: grpc.NewServer(
@@ -77,14 +79,15 @@ func (bs *bufconnServer) Start() error {
 		if err := bs.GrpcServer.Serve(bs.Lis); err != nil {
 			log.Fatal(err)
 		}
-		<-bs.Server.srv.Quit
+		<-bs.quit
 	}()
 
 	return nil
 }
 
-func (bs *bufconnServer) Stop() {
+func (bs *bufconnServer) Stop() error {
+	defer func() { bs.quit <- struct{}{} }()
 	defer bs.m.Unlock()
 	bs.GrpcServer.Stop()
-	bs.Server.Stop()
+	return bs.Server.srv.CloseDatabases()
 }
