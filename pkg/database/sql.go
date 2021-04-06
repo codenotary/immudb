@@ -34,7 +34,7 @@ func (d *db) SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error) 
 		params[p.Name] = p.Value
 	}
 
-	ddTxs, dmTxs, err := d.sqlEngine.ExecStmt(req.Sql, params)
+	ddTxs, dmTxs, err := d.sqlEngine.ExecStmt(req.Sql, params, !req.NoWait)
 	if err != nil {
 		return nil, err
 	}

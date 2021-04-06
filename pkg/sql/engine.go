@@ -713,11 +713,11 @@ func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowRea
 	return stmt.Resolve(e, snap, params, nil, "")
 }
 
-func (e *Engine) ExecStmt(sql string, params map[string]interface{}) (ddTxs []*store.TxMetadata, dmTxs []*store.TxMetadata, err error) {
-	return e.Exec(strings.NewReader(sql), params)
+func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
+	return e.Exec(strings.NewReader(sql), params, waitForIndexing)
 }
 
-func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (ddTxs []*store.TxMetadata, dmTxs []*store.TxMetadata, err error) {
+func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
 	if e.catalog == nil {
 		err := e.loadCatalog()
 		if err != nil {
@@ -749,7 +749,7 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (ddTxs [
 		}
 
 		if len(centries) > 0 {
-			txmd, err := e.catalogStore.Commit(centries, false)
+			txmd, err := e.catalogStore.Commit(centries, waitForIndexing)
 			if err != nil {
 				return ddTxs, dmTxs, e.loadCatalog()
 			}
@@ -758,7 +758,7 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}) (ddTxs [
 		}
 
 		if len(dentries) > 0 {
-			txmd, err := e.dataStore.Commit(dentries, false)
+			txmd, err := e.dataStore.Commit(dentries, waitForIndexing)
 			if err != nil {
 				return ddTxs, dmTxs, err
 			}
