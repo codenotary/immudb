@@ -61,7 +61,7 @@ func PrintSetItem(set []byte, referencedkey []byte, score float64, txMetadata *s
 // PrintState ...
 func PrintState(root *schema.ImmutableState) string {
 	if root.TxId == 0 {
-		return "immudb is empty\n"
+		return fmt.Sprintf("database %s is empty\n", root.Db)
 	}
 	return fmt.Sprintf("txID:		%d\nhash:		%x\n", root.TxId, root.TxHash)
 }
