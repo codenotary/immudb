@@ -28,6 +28,7 @@ import (
 	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
+var ErrNoSupported = errors.New("not yet supported")
 var ErrIllegalArguments = store.ErrIllegalArguments
 var ErrDDLorDMLTxOnly = errors.New("transactions can NOT combine DDL and DML statements")
 var ErrDatabaseDoesNotExist = errors.New("database does not exist")
