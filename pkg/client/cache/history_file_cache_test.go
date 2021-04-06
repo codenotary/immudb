@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -58,7 +59,6 @@ func TestNewHistoryFileCacheSet(t *testing.T) {
 
 	_, err = fc.Get("uuid1", "dbName")
 	require.Nil(t, err)
-
 }
 
 func TestNewHistoryFileCacheGet(t *testing.T) {
@@ -112,6 +112,23 @@ func TestHistoryFileCache_SetError(t *testing.T) {
 
 	err = fc.Set("uuid", "dbName", nil)
 	require.Error(t, err)
+}
+
+func TestHistoryFileCache_GetError(t *testing.T) {
+	dir, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fc := NewHistoryFileCache(dir)
+	defer os.RemoveAll(dir)
+
+	// create a dummy file so that the cache can't create the directory
+	// automatically
+	err = ioutil.WriteFile(filepath.Join(dir, "exists"), []byte("data"), 0644)
+	require.NoError(t, err)
+	_, err = fc.Get("exists", "dbName")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exists")
 }
 
 func TestHistoryFileCache_SetMissingFolder(t *testing.T) {

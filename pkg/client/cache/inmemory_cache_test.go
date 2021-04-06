@@ -53,4 +53,16 @@ func TestInMemoryCache(t *testing.T) {
 	require.Error(t, err)
 	_, err = imc.Get("server1", "unknownDb")
 	require.Error(t, err)
+
+	locker := imc.GetLocker("server1")
+	require.NotNil(t, locker)
+
+	err = locker.Lock()
+	require.Error(t, err)
+
+	err = locker.Unlock()
+	require.Error(t, err)
+	
+	require.NotNil(t, locker)
+
 }

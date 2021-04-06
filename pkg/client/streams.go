@@ -89,10 +89,6 @@ func (c *immuClient) streamExecAll(ctx context.Context) (schema.ImmuService_Stre
 
 // StreamSet set an array of *stream.KeyValue in immudb streaming contents on a fixed size channel
 func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*schema.TxMetadata, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
 	s, err := c.streamSet(ctx)
 	if err != nil {
 		return nil, err
@@ -112,11 +108,10 @@ func (c *immuClient) StreamSet(ctx context.Context, kvs []*stream.KeyValue) (*sc
 
 // StreamGet get an *schema.Entry from immudb with a stream
 func (c *immuClient) StreamGet(ctx context.Context, k *schema.KeyRequest) (*schema.Entry, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
 	gs, err := c.streamGet(ctx, k)
+	if err != nil {
+		return nil, err
+	}
 
 	kvr := c.StreamServiceFactory.NewKvStreamReceiver(c.StreamServiceFactory.NewMsgReceiver(gs))
 
@@ -431,10 +426,6 @@ func (c *immuClient) StreamScan(ctx context.Context, req *schema.ScanRequest) (*
 }
 
 func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
 	gs, err := c.streamZScan(ctx, req)
 	if err != nil {
 		return nil, err
@@ -459,10 +450,6 @@ func (c *immuClient) StreamZScan(ctx context.Context, req *schema.ZScanRequest) 
 }
 
 func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
 	gs, err := c.streamHistory(ctx, req)
 	if err != nil {
 		return nil, err
@@ -495,10 +482,6 @@ func (c *immuClient) StreamHistory(ctx context.Context, req *schema.HistoryReque
 }
 
 func (c *immuClient) StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error) {
-	if !c.IsConnected() {
-		return nil, ErrNotConnected
-	}
-
 	s, err := c.streamExecAll(ctx)
 	if err != nil {
 		return nil, err

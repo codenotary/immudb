@@ -18,8 +18,10 @@ package singleapp
 import (
 	"bufio"
 	"encoding/binary"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/appendable"
@@ -80,6 +82,10 @@ func TestSingleApp(t *testing.T) {
 	n, err = a.ReadAt(bs, 7)
 	require.NoError(t, err)
 	require.Equal(t, []byte{7, 8, 9, 10}, bs)
+
+	n , err = a.ReadAt(bs, 1000)
+	require.Equal(t, n, 0)
+	require.Equal(t, err, io.EOF)
 
 	err = a.Sync()
 	require.NoError(t, err)
@@ -370,4 +376,20 @@ func TestSingleAppLZWCompression(t *testing.T) {
 
 	err = a.Close()
 	require.NoError(t, err)
+}
+
+func TestSingleAppCantCreateFile(t *testing.T) {
+	dir, err := ioutil.TempDir(os.TempDir(), "singleapp")
+	defer os.RemoveAll(dir)
+	os.Mkdir(filepath.Join(dir, "exists"), 0644)
+
+	_, err = Open(filepath.Join(dir, "exists"), DefaultOptions())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exists")
+
+	app, err := Open(filepath.Join(dir, "valid"), DefaultOptions())
+	require.NoError(t, err)
+	err = app.Copy(filepath.Join(dir, "exists"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exists")
 }
