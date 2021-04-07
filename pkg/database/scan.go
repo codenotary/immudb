@@ -32,8 +32,14 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
+	waitUntilTx := req.SinceTx
+
+	if waitUntilTx == 0 {
+		waitUntilTx, _ = d.st.Alh()
+	}
+
 	if !req.NoWait {
-		err := d.st.WaitForIndexingUpto(req.SinceTx)
+		err := d.st.WaitForIndexingUpto(waitUntilTx)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +57,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	var entries []*schema.Entry
 	i := uint64(0)
 
-	snap, err := d.st.SnapshotSince(req.SinceTx)
+	snap, err := d.st.SnapshotSince(waitUntilTx)
 	if err != nil {
 		return nil, err
 	}

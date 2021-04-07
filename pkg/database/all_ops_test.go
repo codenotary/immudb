@@ -269,8 +269,7 @@ func TestExecAllOps(t *testing.T) {
 	}
 
 	zScanOpt := &schema.ZScanRequest{
-		Set:     []byte(`mySet`),
-		SinceTx: 10,
+		Set: []byte(`mySet`),
 	}
 	zList, err := db.ZScan(zScanOpt)
 	require.NoError(t, err)

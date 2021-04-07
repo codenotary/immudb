@@ -78,9 +78,8 @@ func TestStoreIndexExists(t *testing.T) {
 	require.NotEmptyf(t, reference3, "Should not be empty")
 
 	zscanOpts := &schema.ZScanRequest{
-		Set:     []byte(`firstIndex`),
-		SinceTx: reference3.Id,
-		Limit:   MaxKeyScanLimit + 1,
+		Set:   []byte(`firstIndex`),
+		Limit: MaxKeyScanLimit + 1,
 	}
 
 	_, err = db.ZScan(zscanOpts)
@@ -89,8 +88,7 @@ func TestStoreIndexExists(t *testing.T) {
 	//try to retrieve directly the value or full scan to debug
 
 	zscanOpts1 := &schema.ZScanRequest{
-		Set:     []byte(`firstIndex`),
-		SinceTx: reference3.Id,
+		Set: []byte(`firstIndex`),
 	}
 
 	itemList1, err := db.ZScan(zscanOpts1)
