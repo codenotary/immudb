@@ -24,6 +24,9 @@ import (
 
 //Scan ...
 func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if req == nil {
 		return nil, store.ErrIllegalArguments
 	}
@@ -44,9 +47,6 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 			return nil, err
 		}
 	}
-
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
 
 	limit := req.Limit
 
