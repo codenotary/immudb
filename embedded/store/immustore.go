@@ -581,9 +581,6 @@ const (
 )
 
 func (s *ImmuStore) notify(nType NotificationType, formattedMessage string, args ...interface{}) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if time.Since(s.lastNotification) > NotificationWindow {
 		switch nType {
 		case Info:
@@ -611,13 +608,16 @@ func (s *ImmuStore) indexer() {
 			s.wCenter.DoneUpto(s.index.Ts())
 		}
 
-		txsToIndex := s.TxCount() - s.index.Ts()
+		s.mutex.Lock()
+		txsToIndex := s.committedTxID - s.index.Ts()
 
 		if txsToIndex == 0 {
 			s.notify(Info, "All transactions successfully indexed at '%s'", s.path)
+			s.mutex.Unlock()
 			s.indexCond.Wait()
 		} else {
 			s.notify(Info, "%d transaction/s to be indexed at '%s'", txsToIndex, s.path)
+			s.mutex.Unlock()
 		}
 
 		err := s.indexSince(s.index.Ts()+1, 10)
@@ -626,7 +626,9 @@ func (s *ImmuStore) indexer() {
 			return
 		}
 		if err != nil {
+			s.mutex.Lock()
 			s.notify(Error, "Indexing at '%s' was stopped due to error: %v", s.path, err)
+			s.mutex.Unlock()
 			s.indexErr = err
 			s.indexCond.L.Unlock()
 			return
