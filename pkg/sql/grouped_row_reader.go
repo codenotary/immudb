@@ -32,7 +32,7 @@ type groupedRowReader struct {
 }
 
 func (e *Engine) newGroupedRowReader(snap *store.Snapshot, rowReader RowReader, params map[string]interface{}, selectors []Selector) (*groupedRowReader, error) {
-	if snap == nil {
+	if snap == nil || len(selectors) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
@@ -67,30 +67,32 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 			return r, nil
 		}
 
-		// TODO: group by always over NON-NULLABLE columns
-
 		if gr.currRow == nil {
 			gr.currRow = row
 			continue
 		}
 
-		if !gr.compatibleRow(row) {
+		compatible, err := gr.currRow.Compatible(row, gr.selectors, gr.ImplicitDB(), gr.Alias())
+		if err != nil {
+			return nil, err
+		}
+
+		if !compatible {
 			r := gr.currRow
 			gr.currRow = row
 			return r, nil
 		}
 
-		// if row is compatible with currRow, then merge it
+		// Compatible rows get merged
+		for _, sel := range gr.selectors {
+			c := EncodeSelector(sel.resolve(gr.ImplicitDB(), gr.Alias()))
 
-		// same agregations are ok with latest state vs new, such as MIN, COUNT
-		// others need complete sequence of values, such as SUM, AVG
-
-		// selectors which are not part of an agregation should fail to receive more than 1 value
+			err = gr.currRow.Values[c].UpdateWith(row.Values[c])
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-}
-
-func (gr *groupedRowReader) compatibleRow(row *Row) bool {
-	return false
 }
 
 func (gr *groupedRowReader) Alias() string {

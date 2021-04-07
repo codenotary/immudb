@@ -445,6 +445,7 @@ type ValueExp interface {
 type TypedValue interface {
 	Value() interface{}
 	Compare(val TypedValue) (CmpOperator, error)
+	UpdateWith(val TypedValue) error
 }
 
 type Number struct {
@@ -482,6 +483,10 @@ func (v *Number) Compare(val TypedValue) (CmpOperator, error) {
 	}
 
 	return LT, nil
+}
+
+func (v *Number) UpdateWith(val TypedValue) error {
+	return ErrColumnIsNotAnAggregation
 }
 
 type String struct {
@@ -523,6 +528,10 @@ func (v *String) Compare(val TypedValue) (CmpOperator, error) {
 	return GT, nil
 }
 
+func (v *String) UpdateWith(val TypedValue) error {
+	return ErrColumnIsNotAnAggregation
+}
+
 type Bool struct {
 	val bool
 }
@@ -554,6 +563,10 @@ func (v *Bool) Compare(val TypedValue) (CmpOperator, error) {
 	}
 
 	return NE, nil
+}
+
+func (v *Bool) UpdateWith(val TypedValue) error {
+	return ErrColumnIsNotAnAggregation
 }
 
 type Blob struct {
@@ -593,6 +606,10 @@ func (v *Blob) Compare(val TypedValue) (CmpOperator, error) {
 	}
 
 	return GT, nil
+}
+
+func (v *Blob) UpdateWith(val TypedValue) error {
+	return ErrColumnIsNotAnAggregation
 }
 
 type SysFn struct {
