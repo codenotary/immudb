@@ -32,26 +32,22 @@ Don't forget to ⭐ this repo if you like immudb!
 
 ---
 
-immudb is not a blockchain, immudb is the **lightweight, high-speed immutable database** with built-in cryptographic proof and verification.
-With immudb you can track changes in sensitive data in your transactional databases and then record those changes permanently in a
-tamperproof immudb database. This allows you to keep an indelible history of sensitive data, for example debit/credit card transactions.
+immudb is a **lightweight, high-speed immutable database** with built-in cryptographic proof and verification.
+With immudb, you can track changes in sensitive data in your transactional databases and then record those changes permanently in a
+tamperproof immudb database.
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
-Traditional DB transactions and logs are hard to scale and are mutable. So there is no way to know for sure if your data has been compromised.
-
-As such, immudb provides **unparalleled insights** **retroactively** of changes to your sensitive data, even
+Traditional DB transactions and logs are hard to scale and are mutable, so there is no way to know for sure if your data has been compromised.
+immudb provides **unparalleled insights** **retroactively** of changes to your sensitive data, even
 if your perimeter has been compromised. immudb guarantees immutability by using **cryptographic data structures** internally.
-
-immudb gives you the same **cryptographic verification** of the integrity of data written with **SHA-256** like a classic blockchain without the cost and complexity associated with blockchains today.
-
-![immudb Highlevel](img/highlevel.png "immudb highlevel overview")
+This allows you to keep a persistent history of sensitive data, such as debit/credit card transactions.
 
 immudb has 4 main benefits:
 
-1. **immudb is immutable**. You can add records, but **never change or delete records**.
+1. **immudb is immutable**. You can add records, but **never change or delete records**. This lets you store critical data without fear of it being changed silently.
 2. Data stored in immudb is **cryptographically coherent and verifiable**, like blockchains, just without all the complexity and at high speed.
 3. Anyone can get **started with immudb in minutes**. Whether you're using node.js, Java, Python, Go, .Net, or any other language. It's very easy to use and you can have your immutable database running in just a few minutes.
-4. Finally, immudb is  **Open Source**. You can run it **on premise**, or in the **cloud**. It's completely free. immudb is governed by the Apache 2.0 License.
+4. Finally, immudb is **Open Source**. You can run it **on premise**, or in the **cloud**. It's completely free. immudb is governed by the Apache 2.0 License.
 
 immudb can be ran on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
 other systems derived from them, such as **Kubernetes** and **Docker**.
@@ -76,7 +72,7 @@ other systems derived from them, such as **Kubernetes** and **Docker**.
 | High Write throughput   | Yes                                                           |
 | Optimized for SSD       | Yes                                                           |
 
-Benchmarks:
+Benchmarks (v0.8.x):
 
 | Specifications | Sequential write | Batch write |
 | --- | --- | --- |
@@ -84,6 +80,46 @@ Benchmarks:
 | Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz | Iterations: 1000000 | Iterations: 1000000 |
 | 64 GB memory | Elapsted t.: 3.06 sec | Elapsed t.: 0.36 sec |
 | SSD | Throughput: 326626 tx/sec | Throughput: 2772181 tx/sec |
+
+## Using immudb
+
+Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
+
+Integrate immudb into your application using official SDKs already available for the following programming languages:
+
+1. Java [immudb4j](https://github.com/codenotary/immudb4j)
+2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
+3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
+4. Python [immudb-py](https://github.com/codenotary/immudb-py)
+5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
+
+We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
+[immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
+programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
+
+For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
+
+### Real world examples
+
+We already learned about the following use cases from users:
+
+- use immudb to immutably store every update to sensitive database fields (credit card or bank account data) of an existing application database
+- store CI/CD recipes in immudb to protect build and deployment pipelines
+- store public certificates in immudb
+- use immudb as an additional hash storage for digital objects checksums
+- store log streams (i. e. audit logs) tamperproof
+
+### Companies using immudb
+
+[Opvizor](https://www.opvizor.com) - immutable log (syslog) solution for VMware vSphere
+
+[eSoftThings ](https://www.esoftthings.com/en/)
+
+[Greentube](https://www.greentube.com/)
+
+[TA Capital](http://www.ta.capital)
+
+[tinaba](https://www.tinaba.bancaprofilo.it/)
 
 ## Quickstart
 
@@ -125,46 +161,6 @@ The latest release binaries can be found [here](https://github.com/codenotary/im
 Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immucleint in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
 
 Simply run ```./immuadmin``` on the same machine. You can also find immuadmin in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local immudb with `docker run -it --rm --name immuadmin codenotary/immuadmin:latest status`. For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
-
-## Using immudb
-
-Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
-
-Integrate immudb into your application using official SDKs already available for the following programming languages:
-
-1. Java [immudb4j](https://github.com/codenotary/immudb4j)
-2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
-3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
-4. Python [immudb-py](https://github.com/codenotary/immudb-py)
-5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
-
-We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
-[immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
-programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
-
-For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
-
-### Real world examples
-
-We already learned about the following use cases from users:
-
-- use immudb to immutably store every update to sensitive database fields (credit card or bank account data) of an existing application database
-- store CI/CD recipes in immudb to protect build and deployment pipelines
-- store public certificates in immudb
-- use immudb as an additional hash storage for digital objects checksums
-- store log streams (i. e. audit logs) tamperproof
-
-### Companies using immudb
-
-[Opvizor](https://www.opvizor.com) - immutable log (syslog) solution for VMware vSphere
-
-[eSoftThings ](https://www.esoftthings.com/en/)
-
-[Greentube](https://www.greentube.com/)
-
-[TA Capital](http://www.ta.capital)
-
-[tinaba](https://www.tinaba.bancaprofilo.it/)
 
 ## Contributing
 
