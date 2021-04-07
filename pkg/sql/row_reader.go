@@ -42,6 +42,34 @@ type Row struct {
 	Values       map[string]TypedValue
 }
 
+// rows are selector-compatible if both rows have the same assigned value for all specified selectors
+func (row *Row) Compatible(aRow *Row, selectors []Selector, db, table string) (bool, error) {
+	for _, sel := range selectors {
+		c := EncodeSelector(sel.resolve(db, table))
+
+		val1, ok := row.Values[c]
+		if !ok {
+			return false, ErrInvalidColumn
+		}
+
+		val2, ok := aRow.Values[c]
+		if !ok {
+			return false, ErrInvalidColumn
+		}
+
+		cmp, err := val1.Compare(val2)
+		if err != nil {
+			return false, err
+		}
+
+		if cmp != 0 {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
 type rawRowReader struct {
 	e              *Engine
 	implicitDB     string
