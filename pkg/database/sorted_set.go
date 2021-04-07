@@ -113,14 +113,20 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 		binary.BigEndian.PutUint64(seekKey[len(prefix)+scoreLen+keyLenLen+1+len(req.SeekKey):], req.SeekAtTx)
 	}
 
+	waitUntilTx := req.SinceTx
+
+	if waitUntilTx == 0 {
+		waitUntilTx, _ = d.st.Alh()
+	}
+
 	if !req.NoWait {
-		err := d.st.WaitForIndexingUpto(req.SinceTx)
+		err := d.st.WaitForIndexingUpto(waitUntilTx)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	snap, err := d.st.SnapshotSince(req.SinceTx)
+	snap, err := d.st.SnapshotSince(waitUntilTx)
 	if err != nil {
 		return nil, err
 	}

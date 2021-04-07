@@ -37,7 +37,6 @@ func TestStoreScan(t *testing.T) {
 		Prefix:  []byte(`a`),
 		Limit:   MaxKeyScanLimit + 1,
 		Desc:    true,
-		SinceTx: meta.Id,
 	}
 
 	_, err = db.Scan(&scanOptions)
@@ -48,7 +47,6 @@ func TestStoreScan(t *testing.T) {
 		Prefix:  []byte(`a`),
 		Limit:   0,
 		Desc:    true,
-		SinceTx: meta.Id,
 	}
 
 	list, err = db.Scan(&scanOptions)
@@ -64,7 +62,6 @@ func TestStoreScan(t *testing.T) {
 		Prefix:  nil,
 		Limit:   0,
 		Desc:    false,
-		SinceTx: meta.Id,
 	}
 
 	list1, err1 := db.Scan(&scanOptions1)
@@ -76,7 +73,6 @@ func TestStoreScan(t *testing.T) {
 	require.Equal(t, list1.Entries[1].Value, []byte(`item3`))
 	require.Equal(t, list1.Entries[2].Key, []byte(`bbb`))
 	require.Equal(t, list1.Entries[2].Value, []byte(`item2`))
-
 }
 
 func TestStoreScanPrefix(t *testing.T) {
