@@ -111,8 +111,6 @@ We already learned about the following use cases from users:
 
 ### Companies using immudb
 
-[Opvizor](https://www.opvizor.com) - immutable log (syslog) solution for VMware vSphere
-
 [eSoftThings ](https://www.esoftthings.com/en/)
 
 [Greentube](https://www.greentube.com/)
