@@ -438,18 +438,24 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 
 type ValueExp interface {
 	jointColumnTo(col *Column) (*ColSelector, error)
-	reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error)
 	substitute(params map[string]interface{}) (ValueExp, error)
+	reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error)
 }
 
 type TypedValue interface {
+	Type() SQLValueType
 	Value() interface{}
 	Compare(val TypedValue) (CmpOperator, error)
+	IsAggregatedValue() bool
 	UpdateWith(val TypedValue) error
 }
 
 type Number struct {
 	val uint64
+}
+
+func (v *Number) Type() SQLValueType {
+	return IntegerType
 }
 
 func (v *Number) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -485,12 +491,20 @@ func (v *Number) Compare(val TypedValue) (CmpOperator, error) {
 	return LT, nil
 }
 
+func (v *Number) IsAggregatedValue() bool {
+	return false
+}
+
 func (v *Number) UpdateWith(val TypedValue) error {
 	return ErrColumnIsNotAnAggregation
 }
 
 type String struct {
 	val string
+}
+
+func (v *String) Type() SQLValueType {
+	return StringType
 }
 
 func (v *String) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -528,12 +542,20 @@ func (v *String) Compare(val TypedValue) (CmpOperator, error) {
 	return GT, nil
 }
 
+func (v *String) IsAggregatedValue() bool {
+	return false
+}
+
 func (v *String) UpdateWith(val TypedValue) error {
 	return ErrColumnIsNotAnAggregation
 }
 
 type Bool struct {
 	val bool
+}
+
+func (v *Bool) Type() SQLValueType {
+	return BooleanType
 }
 
 func (v *Bool) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -565,12 +587,20 @@ func (v *Bool) Compare(val TypedValue) (CmpOperator, error) {
 	return NE, nil
 }
 
+func (v *Bool) IsAggregatedValue() bool {
+	return false
+}
+
 func (v *Bool) UpdateWith(val TypedValue) error {
 	return ErrColumnIsNotAnAggregation
 }
 
 type Blob struct {
 	val []byte
+}
+
+func (v *Blob) Type() SQLValueType {
+	return BLOBType
 }
 
 func (v *Blob) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -606,6 +636,10 @@ func (v *Blob) Compare(val TypedValue) (CmpOperator, error) {
 	}
 
 	return GT, nil
+}
+
+func (v *Blob) IsAggregatedValue() bool {
+	return false
 }
 
 func (v *Blob) UpdateWith(val TypedValue) error {
@@ -712,6 +746,10 @@ func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (
 		return nil, nil, ErrNoSupported
 	}
 
+	if stmt.groupBy == nil && stmt.having != nil {
+		return nil, nil, ErrInvalidCondition
+	}
+
 	if len(stmt.orderBy) > 1 {
 		return nil, nil, ErrLimitedOrderBy
 	}
@@ -766,6 +804,11 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 		return nil, err
 	}
 
+	rowReader, err = e.newAugmentedRowReader(snap, rowReader, stmt.selectors)
+	if err != nil {
+		return nil, err
+	}
+
 	if stmt.joins != nil {
 		rowReader, err = e.newJointRowReader(snap, params, rowReader, stmt.joins)
 		if err != nil {
@@ -781,17 +824,13 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 	}
 
 	if stmt.groupBy != nil {
-		rowReader, err = e.newGroupedRowReader(snap, rowReader, params, stmt.selectors)
+		rowReader, err = e.newGroupedRowReader(snap, rowReader, stmt.selectors)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if stmt.having != nil {
-		if stmt.groupBy == nil {
-			return nil, ErrInvalidCondition
-		}
-
 		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.having, params)
 		if err != nil {
 			return nil, err
@@ -911,8 +950,10 @@ type OrdCol struct {
 }
 
 type Selector interface {
+	ValueExp
 	resolve(implicitDB, implicitTable string) (aggFn, db, table, col string)
 	alias() string
+	setAlias(alias string)
 }
 
 type ColSelector struct {
@@ -938,6 +979,10 @@ func (sel *ColSelector) resolve(implicitDB, implicitTable string) (aggFn, db, ta
 
 func (sel *ColSelector) alias() string {
 	return sel.as
+}
+
+func (sel *ColSelector) setAlias(alias string) {
+	sel.as = alias
 }
 
 func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
@@ -998,6 +1043,26 @@ func (sel *AggColSelector) alias() string {
 	return sel.as
 }
 
+func (sel *AggColSelector) setAlias(alias string) {
+	sel.as = alias
+}
+
+func (sel *AggColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
+func (sel *AggColSelector) substitute(params map[string]interface{}) (ValueExp, error) {
+	return sel, nil
+}
+
+func (sel *AggColSelector) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	v, ok := row.Values[EncodeSelector(sel.resolve(implicitDB, implicitTable))]
+	if !ok {
+		return nil, ErrColumnDoesNotExist
+	}
+	return v, nil
+}
+
 type NotBoolExp struct {
 	exp ValueExp
 }
@@ -1034,7 +1099,7 @@ func (bexp *NotBoolExp) reduce(row *Row, implicitDB, implicitTable string) (Type
 }
 
 type LikeBoolExp struct {
-	col     *ColSelector
+	sel     Selector
 	pattern string
 }
 
