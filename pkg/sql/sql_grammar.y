@@ -331,31 +331,27 @@ opt_distinct:
     }
 
 selectors:
-    selector
+    selector opt_as
     {
+        $1.setAlias($2)
         $$ = []Selector{$1}
     }
 |
-    selectors ',' selector
+    selectors ',' selector opt_as
     {
+        $3.setAlias($4)
         $$ = append($1, $3)
     }
 
 selector:
-    col opt_as
+    col
     {
-        $1.as = $2
         $$ = $1
     }
 |
-    AGGREGATE_FUNC '(' '*' ')' opt_as
+    AGGREGATE_FUNC '(' col ')'
     {
-        $$ = &AggColSelector{aggFn: $1, as: $5}
-    }
-|
-    AGGREGATE_FUNC '(' col ')' opt_as
-    {
-        $$ = &AggColSelector{aggFn: $1, db: $3.db, table: $3.table, col: $3.col, as: $5}
+        $$ = &AggColSelector{aggFn: $1, db: $3.db, table: $3.table, col: $3.col}
     }
 
 col:
@@ -516,7 +512,7 @@ opt_as:
     }
 
 boolExp:
-    col
+    selector
     {
         $$ = $1
     }
@@ -536,9 +532,9 @@ boolExp:
         $$ = $2
     }
 |
-    col LIKE STRING
+    selector LIKE STRING
     {
-        $$ = &LikeBoolExp{col: $1, pattern: $3}
+        $$ = &LikeBoolExp{sel: $1, pattern: $3}
     }
 |
     boolExp LOP boolExp
