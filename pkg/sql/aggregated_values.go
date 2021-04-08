@@ -16,8 +16,17 @@ limitations under the License.
 
 package sql
 
+type aggregatedValue interface {
+	selector() string
+}
+
 type CountValue struct {
-	c uint64
+	c   uint64
+	sel string
+}
+
+func (v *CountValue) selector() string {
+	return v.sel
 }
 
 func (v *CountValue) Type() SQLValueType {
@@ -29,16 +38,17 @@ func (v *CountValue) Value() interface{} {
 }
 
 func (v *CountValue) Compare(val TypedValue) (CmpOperator, error) {
-	ov, isNumber := val.(*Number)
-	if !isNumber {
+	if val.Type() != IntegerType {
 		return 0, ErrNotComparableValues
 	}
 
-	if v.c == ov.val {
+	nv := val.Value().(uint64)
+
+	if v.c == nv {
 		return EQ, nil
 	}
 
-	if v.c > ov.val {
+	if v.c > nv {
 		return GT, nil
 	}
 

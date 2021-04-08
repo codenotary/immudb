@@ -64,7 +64,7 @@ func (ar *augmentedRowReader) Read() (*Row, error) {
 			switch aggFn {
 			case COUNT:
 				{
-					row.Values[EncodeSelector(aggFn, db, table, col)] = &CountValue{c: 0}
+					row.Values[EncodeSelector(aggFn, db, table, col)] = &CountValue{c: 0, sel: EncodeSelector("", db, table, col)}
 				}
 			case SUM:
 				{
