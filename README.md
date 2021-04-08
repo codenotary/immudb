@@ -83,21 +83,7 @@ Benchmarks (v0.8.x):
 
 ## Using immudb
 
-Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
-
-Integrate immudb into your application using official SDKs already available for the following programming languages:
-
-1. Java [immudb4j](https://github.com/codenotary/immudb4j)
-2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
-3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
-4. Python [immudb-py](https://github.com/codenotary/immudb-py)
-5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
-
-We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
-[immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
-programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
-
-For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
+Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/, and a playground is available at 
 
 ### Real world examples
 
@@ -119,9 +105,44 @@ We already learned about the following use cases from users:
 
 [tinaba](https://www.tinaba.bancaprofilo.it/)
 
+Integrate immudb into your application using official SDKs already available for the following programming languages:
+
+1. Java [immudb4j](https://github.com/codenotary/immudb4j)
+2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
+3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
+4. Python [immudb-py](https://github.com/codenotary/immudb-py)
+5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
+
+We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
+[immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
+programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
+
 ## Quickstart
 
-Getting immudb up and running is quite simple.
+Getting immudb up and running is quite simple. For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
+
+- **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
+- **immuadmin** is the admin CLI for immudb. You can manage immudb and get statistics as well as runtime information.
+
+### Binary
+
+Download latest release binaries from [here](https://github.com/codenotary/immudb/releases). Then just run immudb as follows:
+
+```bash
+./immudb
+```
+
+You can connect to the default database with immuclient by first running the interactive shell, then logging into the `immudb` database with the password `immudb`:
+
+```bash
+./immuclient
+
+immuclient> login immudb
+Password: immudb
+immuclient> 
+```
+
+For more information, run `immuclient --help` to see all options.
 
 ### Docker
 
@@ -136,27 +157,12 @@ immudb should be up and running, you can check the container logs:
 docker logs immudb
 ```
 
-### Binary
-
-Download latest release binaries from [here](https://github.com/codenotary/immudb/releases). Then just run immudb as follows:
-
-```bash
-./immudb
-```
-
-### CLI tools
-
-- **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
-- **immuadmin** is the admin CLI for immudb. You can manage immudb and get statistics as well as runtime information.
-
-The latest release binaries can be found [here](https://github.com/codenotary/immudb/releases). All cli components are also available as docker images on dockerhub.com.
-
 | Component  | Container image                                |
 | ---------- | ---------------------------------------------- |
 | immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  |
 | immuclient | https://hub.docker.com/r/codenotary/immuclient |
 
-Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immucleint in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
+Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immuclient in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
 
 Simply run ```./immuadmin``` on the same machine. You can also find immuadmin in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local immudb with `docker run -it --rm --name immuadmin codenotary/immuadmin:latest status`. For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
 
