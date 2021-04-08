@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package sql
 
 import "github.com/codenotary/immudb/embedded/store"
@@ -24,14 +23,12 @@ type groupedRowReader struct {
 
 	rowReader RowReader
 
-	params map[string]interface{}
-
 	selectors []Selector
 
 	currRow *Row
 }
 
-func (e *Engine) newGroupedRowReader(snap *store.Snapshot, rowReader RowReader, params map[string]interface{}, selectors []Selector) (*groupedRowReader, error) {
+func (e *Engine) newGroupedRowReader(snap *store.Snapshot, rowReader RowReader, selectors []Selector) (*groupedRowReader, error) {
 	if snap == nil || len(selectors) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -40,7 +37,6 @@ func (e *Engine) newGroupedRowReader(snap *store.Snapshot, rowReader RowReader, 
 		e:         e,
 		snap:      snap,
 		rowReader: rowReader,
-		params:    params,
 		selectors: selectors,
 	}, nil
 }
@@ -63,12 +59,21 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 
 			r := gr.currRow
 			gr.currRow = nil
-
 			return r, nil
 		}
 
 		if gr.currRow == nil {
 			gr.currRow = row
+
+			for c, v := range row.Values {
+				if v.IsAggregatedValue() {
+					err = gr.currRow.Values[c].UpdateWith(v)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+
 			continue
 		}
 
@@ -79,15 +84,13 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 
 		if !compatible {
 			r := gr.currRow
-			gr.currRow = row
+			gr.currRow = nil
 			return r, nil
 		}
 
 		// Compatible rows get merged
-		for _, sel := range gr.selectors {
-			c := EncodeSelector(sel.resolve(gr.ImplicitDB(), gr.Alias()))
-
-			err = gr.currRow.Values[c].UpdateWith(row.Values[c])
+		for c, v := range row.Values {
+			err = gr.currRow.Values[c].UpdateWith(v)
 			if err != nil {
 				return nil, err
 			}
