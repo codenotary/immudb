@@ -516,18 +516,16 @@ func TestGroupByHaving(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, age FROM table1 GROUP BY id HAVING id >= 0 ORDER BY age", nil)
+	r, err := engine.QueryStmt("SELECT age, COUNT(id) FROM table1 GROUP BY age HAVING COUNT(id) > 0 ORDER BY age", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 3)
+		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, uint64(40+i), row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
+		require.Equal(t, uint64(1), row.Values[EncodeSelector("COUNT", "db1", "table1", "id")].Value())
 	}
 
 	err = r.Close()
