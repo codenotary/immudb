@@ -27,7 +27,7 @@ type projectedRowReader struct {
 }
 
 func (e *Engine) newProjectedRowReader(snap *store.Snapshot, rowReader RowReader, selectors []Selector) (*projectedRowReader, error) {
-	if snap == nil {
+	if snap == nil || len(selectors) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
@@ -49,8 +49,14 @@ func (pr *projectedRowReader) Columns() []*ColDescriptor {
 	for i, sel := range pr.selectors {
 		aggFn, db, table, col := sel.resolve(pr.ImplicitDB(), pr.Alias())
 
-		// TODO (jeroiraz): include support for aggregations
-		colType := pr.e.catalog.dbsByName[db].tablesByName[table].colsByName[col].colType
+		var colType SQLValueType
+
+		if aggFn == "" || aggFn == MAX || aggFn == MIN {
+			colType = pr.e.catalog.dbsByName[db].tablesByName[table].colsByName[col].colType
+		} else {
+			// COUNT, SUM, AVG
+			colType = IntegerType
+		}
 
 		colDescriptors[i] = &ColDescriptor{
 			ColName: EncodeSelector(aggFn, db, table, col),
