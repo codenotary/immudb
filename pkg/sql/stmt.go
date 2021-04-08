@@ -824,7 +824,7 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 	}
 
 	if stmt.groupBy != nil {
-		rowReader, err = e.newGroupedRowReader(snap, rowReader, stmt.selectors)
+		rowReader, err = e.newGroupedRowReader(snap, rowReader, stmt.groupBy)
 		if err != nil {
 			return nil, err
 		}

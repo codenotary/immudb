@@ -23,12 +23,12 @@ type groupedRowReader struct {
 
 	rowReader RowReader
 
-	selectors []Selector
+	selectors []*ColSelector
 
 	currRow *Row
 }
 
-func (e *Engine) newGroupedRowReader(snap *store.Snapshot, rowReader RowReader, selectors []Selector) (*groupedRowReader, error) {
+func (e *Engine) newGroupedRowReader(snap *store.Snapshot, rowReader RowReader, selectors []*ColSelector) (*groupedRowReader, error) {
 	if snap == nil || len(selectors) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -63,17 +63,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 		}
 
 		if gr.currRow == nil {
-			gr.currRow = row
-
-			for c, v := range row.Values {
-				if v.IsAggregatedValue() {
-					err = gr.currRow.Values[c].UpdateWith(v)
-					if err != nil {
-						return nil, err
-					}
-				}
-			}
-
+			gr.currRow, err = row.initAggregations()
 			continue
 		}
 
@@ -84,18 +74,42 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 
 		if !compatible {
 			r := gr.currRow
-			gr.currRow = nil
+			gr.currRow, err = row.initAggregations()
 			return r, nil
 		}
 
 		// Compatible rows get merged
 		for c, v := range row.Values {
-			err = gr.currRow.Values[c].UpdateWith(v)
+			if v.IsAggregatedValue() {
+				val, exists := row.Values[v.(aggregatedValue).selector()]
+				if !exists {
+					return nil, ErrColumnDoesNotExist
+				}
+
+				err = gr.currRow.Values[c].UpdateWith(val)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+}
+
+func (row *Row) initAggregations() (*Row, error) {
+	for c, v := range row.Values {
+		if v.IsAggregatedValue() {
+			val, exists := row.Values[v.(aggregatedValue).selector()]
+			if !exists {
+				return nil, ErrColumnDoesNotExist
+			}
+
+			err := row.Values[c].UpdateWith(val)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
+	return row, nil
 }
 
 func (gr *groupedRowReader) Alias() string {
