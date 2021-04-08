@@ -83,7 +83,7 @@ Benchmarks (v0.8.x):
 
 ## Using immudb
 
-Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/, and a playground is available at 
+Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
 
 ### Real world examples
 
