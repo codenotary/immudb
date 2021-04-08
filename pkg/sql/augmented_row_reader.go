@@ -74,15 +74,15 @@ func (ar *augmentedRowReader) Read() (*Row, error) {
 				}
 			case MAX:
 				{
-
+					row.Values[encSel] = &MaxValue{sel: EncodeSelector("", db, table, col)}
 				}
 			case MIN:
 				{
-
+					row.Values[encSel] = &MinValue{sel: EncodeSelector("", db, table, col)}
 				}
 			case AVG:
 				{
-
+					row.Values[encSel] = &AVGValue{sel: EncodeSelector("", db, table, col)}
 				}
 			}
 		}

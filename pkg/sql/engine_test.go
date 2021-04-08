@@ -519,20 +519,25 @@ func TestGroupByHaving(t *testing.T) {
 		}
 	}
 
-	r, err := engine.QueryStmt("SELECT age, COUNT(id), SUM(age) FROM table1 GROUP BY age HAVING COUNT(id) > 0 ORDER BY age", nil)
+	r, err := engine.QueryStmt("SELECT age, COUNT(id), SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 GROUP BY age HAVING COUNT(id) > 0 ORDER BY age", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
-		require.Len(t, row.Values, 3)
+		require.Len(t, row.Values, 4)
 
 		require.Equal(t, uint64(itCount), row.Values[EncodeSelector("COUNT", "db1", "table1", "id")].Value())
 
 		age := row.Values[EncodeSelector("", "db1", "table1", "age")].Value().(uint64)
-
 		require.Equal(t, uint64(40+i), age)
+
+		require.Equal(t, uint64(40), row.Values[EncodeSelector("MIN", "db1", "table1", "age")].Value())
+
+		require.Equal(t, uint64(40+rowCount), row.Values[EncodeSelector("MAX", "db1", "table1", "age")].Value())
+
+		require.Equal(t, uint64(40+rowCount/2), row.Values[EncodeSelector("AVG", "db1", "table1", "age")].Value())
 
 		require.Equal(t, uint64(itCount)*age, row.Values[EncodeSelector("SUM", "db1", "table1", "age")].Value())
 	}
