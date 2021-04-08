@@ -43,7 +43,7 @@ type Row struct {
 }
 
 // rows are selector-compatible if both rows have the same assigned value for all specified selectors
-func (row *Row) Compatible(aRow *Row, selectors []Selector, db, table string) (bool, error) {
+func (row *Row) Compatible(aRow *Row, selectors []*ColSelector, db, table string) (bool, error) {
 	for _, sel := range selectors {
 		c := EncodeSelector(sel.resolve(db, table))
 
