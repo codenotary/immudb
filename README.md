@@ -147,7 +147,6 @@ For more information, run `immuclient --help` to see all options.
 ### Docker
 
 ```bash
-docker pull codenotary/immudb:latest
 docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:latest
 ```
 
@@ -156,11 +155,6 @@ immudb should be up and running, you can check the container logs:
 ```bash
 docker logs immudb
 ```
-
-| Component  | Container image                                |
-| ---------- | ---------------------------------------------- |
-| immuadmin  | https://hub.docker.com/r/codenotary/immuadmin  |
-| immuclient | https://hub.docker.com/r/codenotary/immuclient |
 
 Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immuclient in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
 
