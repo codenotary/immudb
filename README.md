@@ -156,9 +156,9 @@ immudb should be up and running, you can check the container logs:
 docker logs immudb
 ```
 
-Simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immuclient in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
+To perform actions, simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immuclient in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
 
-Simply run ```./immuadmin``` on the same machine. You can also find immuadmin in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local immudb with `docker run -it --rm --name immuadmin codenotary/immuadmin:latest status`. For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
+To manage the database, simply run ```./immuadmin``` on the same machine. You can also find immuadmin in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local immudb with `docker run -it --rm --name immuadmin codenotary/immuadmin:latest status`. For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
 
 ## Contributing
 
