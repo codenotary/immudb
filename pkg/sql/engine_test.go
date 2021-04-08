@@ -504,16 +504,19 @@ func TestGroupByHaving(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil, true)
 	require.NoError(t, err)
 
-	rowCount := 1
+	itCount := 10
+	rowCount := 10
 
-	for i := 0; i < rowCount; i++ {
-		params := make(map[string]interface{}, 3)
-		params["id"] = i
-		params["title"] = fmt.Sprintf("title%d", i)
-		params["age"] = 40 + i
+	for i := 0; i < itCount; i++ {
+		for j := 0; j < rowCount; j++ {
+			params := make(map[string]interface{}, 3)
+			params["id"] = i*10 + j
+			params["title"] = fmt.Sprintf("title%d", i*10+j)
+			params["age"] = 40 + j
 
-		_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, true)
-		require.NoError(t, err)
+			_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, true)
+			require.NoError(t, err)
+		}
 	}
 
 	r, err := engine.QueryStmt("SELECT age, COUNT(id) FROM table1 GROUP BY age HAVING COUNT(id) > 0 ORDER BY age", nil)
@@ -525,7 +528,10 @@ func TestGroupByHaving(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 2)
 
-		require.Equal(t, uint64(1), row.Values[EncodeSelector("COUNT", "db1", "table1", "id")].Value())
+		if uint64(itCount) != row.Values[EncodeSelector("COUNT", "db1", "table1", "id")].Value() {
+			require.NotNil(t, row)
+		}
+		require.Equal(t, uint64(itCount), row.Values[EncodeSelector("COUNT", "db1", "table1", "id")].Value())
 	}
 
 	err = r.Close()
