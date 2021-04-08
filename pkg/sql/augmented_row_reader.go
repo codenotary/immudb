@@ -61,14 +61,16 @@ func (ar *augmentedRowReader) Read() (*Row, error) {
 				return nil, err
 			}
 
+			encSel := EncodeSelector(aggFn, db, table, col)
+
 			switch aggFn {
 			case COUNT:
 				{
-					row.Values[EncodeSelector(aggFn, db, table, col)] = &CountValue{c: 0, sel: EncodeSelector("", db, table, col)}
+					row.Values[encSel] = &CountValue{sel: EncodeSelector("", db, table, col)}
 				}
 			case SUM:
 				{
-
+					row.Values[encSel] = &SumValue{sel: EncodeSelector("", db, table, col)}
 				}
 			case MAX:
 				{

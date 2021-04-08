@@ -61,6 +61,54 @@ func (v *CountValue) IsAggregatedValue() bool {
 
 func (v *CountValue) UpdateWith(val TypedValue) error {
 	v.c++
+	return nil
+}
+
+type SumValue struct {
+	s   uint64
+	sel string
+}
+
+func (v *SumValue) selector() string {
+	return v.sel
+}
+
+func (v *SumValue) Type() SQLValueType {
+	return IntegerType
+}
+
+func (v *SumValue) Value() interface{} {
+	return v.s
+}
+
+func (v *SumValue) Compare(val TypedValue) (CmpOperator, error) {
+	if val.Type() != IntegerType {
+		return 0, ErrNotComparableValues
+	}
+
+	nv := val.Value().(uint64)
+
+	if v.s == nv {
+		return EQ, nil
+	}
+
+	if v.s > nv {
+		return GT, nil
+	}
+
+	return LT, nil
+}
+
+func (v *SumValue) IsAggregatedValue() bool {
+	return true
+}
+
+func (v *SumValue) UpdateWith(val TypedValue) error {
+	if val.Type() != IntegerType {
+		return ErrNotComparableValues
+	}
+
+	v.s += val.Value().(uint64)
 
 	return nil
 }
