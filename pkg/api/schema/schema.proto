@@ -35,7 +35,7 @@ message Permission{
 
 message User {
 	bytes user = 1;
-	repeated Permission permissions = 3;
+	map<string, Permission> Permissions = 3;
 	string createdby = 4;
 	string createdat = 5;
 	bool active = 6;

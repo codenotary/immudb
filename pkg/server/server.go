@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/stream"
 	"io/ioutil"
 	"log"
 	"math"
@@ -36,6 +35,8 @@ import (
 	"syscall"
 	"time"
 	"unicode"
+
+	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/pkg/database"
 
@@ -1609,7 +1610,10 @@ func (s *ImmuServer) insertNewUser(username []byte, plainPassword []byte, permis
 
 	userdata.Active = true
 	userdata.Username = string(username)
-	userdata.Permissions = append(userdata.Permissions, auth.Permission{Permission: permission, Database: database})
+	if userdata.Permissions == nil {
+		userdata.Permissions = make(map[string]auth.Permission)
+	}
+	userdata.Permissions[database] = auth.Permission{Permission: permission, Database: database}
 	userdata.CreatedBy = createdBy
 	userdata.CreatedAt = time.Now()
 

@@ -30,13 +30,13 @@ type Permission struct {
 
 // User ...
 type User struct {
-	Username       string       `json:"username"`
-	HashedPassword []byte       `json:"hashedpassword"`
-	Permissions    []Permission `json:"permissions"`
-	Active         bool         `json:"active"`
-	IsSysAdmin     bool         `json:"-"`         //for the sysadmin we'll use this instead of adding all db and permissions to Permissions, to save some cpu cycles
-	CreatedBy      string       `json:"createdBy"` //user which created this user
-	CreatedAt      time.Time    `json:"createdat"` //time in which this user is created/updated
+	Username       string                `json:"username"`
+	HashedPassword []byte                `json:"hashedpassword"`
+	Permissions    map[string]Permission `json:"permissions"`
+	Active         bool                  `json:"active"`
+	IsSysAdmin     bool                  `json:"-"`         //for the sysadmin we'll use this instead of adding all db and permissions to Permissions, to save some cpu cycles
+	CreatedBy      string                `json:"createdBy"` //user which created this user
+	CreatedAt      time.Time             `json:"createdat"` //time in which this user is created/updated
 }
 
 // SysAdminUsername the system admin username
@@ -68,11 +68,9 @@ var IsValidUsername = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 
 //HasPermission checks if user has such permission for this database
 func (u *User) HasPermission(database string, permission uint32) bool {
-	for _, val := range u.Permissions {
-		if (val.Database == database) &&
-			(val.Permission == permission) {
-			return true
-		}
+	data, ok := u.Permissions[database]
+	if ok {
+		return data.Permission == permission
 	}
 	return false
 }
@@ -92,32 +90,27 @@ func (u *User) WhichPermission(database string) uint32 {
 	if u.IsSysAdmin {
 		return PermissionSysAdmin
 	}
-	for _, val := range u.Permissions {
-		if val.Database == database {
-			return val.Permission
-		}
+	data, ok := u.Permissions[database]
+	if ok {
+		return data.Permission
 	}
 	return PermissionNone
 }
 
 //RevokePermission revoke database permission from user
 func (u *User) RevokePermission(database string) bool {
-	for i, val := range u.Permissions {
-		if val.Database == database {
-			//todo there is a more efficient way to remove elements
-			u.Permissions = append(u.Permissions[:i], u.Permissions[i+1:]...)
-			return true
-		}
+	_, ok := u.Permissions[database]
+	if !ok {
+		return false
 	}
-	return false
+	delete(u.Permissions, database)
+	return true
 }
 
 //GrantPermission add permission to database
 func (u *User) GrantPermission(database string, permission uint32) bool {
 	//first remove any previous permission for this db
 	u.RevokePermission(database)
-
-	perm := Permission{Permission: permission, Database: database}
-	u.Permissions = append(u.Permissions, perm)
+	u.Permissions[database] = Permission{Permission: permission, Database: database}
 	return true
 }

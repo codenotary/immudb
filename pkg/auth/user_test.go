@@ -40,7 +40,7 @@ func TestUser(t *testing.T) {
 	if err != nil {
 		t.Errorf("ComparePasswords fail %s", err)
 	}
-
+	u.Permissions = make(map[string]Permission)
 	u.GrantPermission("immudb", PermissionR)
 	perm := u.WhichPermission("immudb")
 	if perm != PermissionR {
