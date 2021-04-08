@@ -112,3 +112,156 @@ func (v *SumValue) UpdateWith(val TypedValue) error {
 
 	return nil
 }
+
+type MinValue struct {
+	val TypedValue
+	sel string
+}
+
+func (v *MinValue) selector() string {
+	return v.sel
+}
+
+func (v *MinValue) Type() SQLValueType {
+	return v.val.Type()
+}
+
+func (v *MinValue) Value() interface{} {
+	return v.val.Value()
+}
+
+func (v *MinValue) Compare(val TypedValue) (CmpOperator, error) {
+	if val.Type() != val.Type() {
+		return 0, ErrNotComparableValues
+	}
+
+	return v.val.Compare(val)
+}
+
+func (v *MinValue) IsAggregatedValue() bool {
+	return true
+}
+
+func (v *MinValue) UpdateWith(val TypedValue) error {
+	if v.val == nil {
+		v.val = val
+		return nil
+	}
+
+	if val.Type() != val.Type() {
+		return ErrNotComparableValues
+	}
+
+	cmp, err := v.val.Compare(val)
+	if err != nil {
+		return err
+	}
+
+	if cmp == -1 {
+		v.val = val
+	}
+
+	return nil
+}
+
+type MaxValue struct {
+	val TypedValue
+	sel string
+}
+
+func (v *MaxValue) selector() string {
+	return v.sel
+}
+
+func (v *MaxValue) Type() SQLValueType {
+	return v.val.Type()
+}
+
+func (v *MaxValue) Value() interface{} {
+	return v.val.Value()
+}
+
+func (v *MaxValue) Compare(val TypedValue) (CmpOperator, error) {
+	if val.Type() != val.Type() {
+		return 0, ErrNotComparableValues
+	}
+
+	return v.val.Compare(val)
+}
+
+func (v *MaxValue) IsAggregatedValue() bool {
+	return true
+}
+
+func (v *MaxValue) UpdateWith(val TypedValue) error {
+	if v.val == nil {
+		v.val = val
+		return nil
+	}
+
+	if val.Type() != val.Type() {
+		return ErrNotComparableValues
+	}
+
+	cmp, err := v.val.Compare(val)
+	if err != nil {
+		return err
+	}
+
+	if cmp == 1 {
+		v.val = val
+	}
+
+	return nil
+}
+
+type AVGValue struct {
+	s   uint64
+	c   uint64
+	sel string
+}
+
+func (v *AVGValue) selector() string {
+	return v.sel
+}
+
+func (v *AVGValue) Type() SQLValueType {
+	return IntegerType
+}
+
+func (v *AVGValue) Value() interface{} {
+	return v.s / v.c
+}
+
+func (v *AVGValue) Compare(val TypedValue) (CmpOperator, error) {
+	if val.Type() != IntegerType {
+		return 0, ErrNotComparableValues
+	}
+
+	nv := val.Value().(uint64)
+
+	if v.s == nv {
+		return EQ, nil
+	}
+
+	if v.s > nv {
+		return GT, nil
+	}
+
+	return LT, nil
+}
+
+func (v *AVGValue) IsAggregatedValue() bool {
+	return true
+}
+
+func (v *AVGValue) UpdateWith(val TypedValue) error {
+	if val.Type() != IntegerType {
+		return ErrNotComparableValues
+	}
+
+	v.s += val.Value().(uint64)
+	v.c++
+
+	return nil
+}
