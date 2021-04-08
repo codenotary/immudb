@@ -4,6 +4,143 @@ All notable changes to this project will be documented in this file. This projec
 ## [Unreleased]
 
 
+<a name="v0.9.2"></a>
+## [v0.9.2] - 2021-04-07
+### Bug Fixes
+- fix StreamVerifiedSet and Get and add an (integration) test for them
+- fix inclusion proofs in StreamVerifiedSet and Get
+- password reader 'inappropriate ioctl for device' from stdin ([#658](https://github.com/vchain-us/immudb/issues/658))
+- include AtTx in StreamZScan response
+- **embedded:** fix data races
+- **embedded:** use mutex to sync ops at tx lru-cache
+- **embedded/store:** sync ReadTx operation
+- **embedded/store:** fix indexing sync and error retrieval
+- **embedded/store:** ensure waitees get notified when store is restarted
+- **embedded/store:** remove checking for closed store when fetching any vlog
+- **embedded/store:** continue indexing once index is replaced with compacted index
+- **embedded/store:** set delay with duration in ms
+- **embedded/store:** ensure watchers get notified when indexing is up-to-date
+- **embedded/tbtree:** release lock when compaction thld was not reached
+- **embedded/tbtree:** insertion delay while compacting not affecting compaction
+- **embedded/tbtree:** set lastSnapshot once flushed is completed
+- **pkg/auth:** add missing stream write methods to permissions
+- **pkg/client:** fix minor leftover
+- **pkg/client:** fix security issue: if client local state became corrupted an error is returned
+- **pkg/client:** ensure dual proof verification is made when there is a previously verified state
+- **pkg/database:** wrap seekKey with prefix only when seekKey is non-empty
+- **pkg/server:** use latest snapshot when listing users
+
+### Changes
+- add max tx values length guard and remove code duplication
+- move stream service to a proper package
+- improve serverside stream error handling
+- add video streamer command
+- renaming stream methods
+- updating copyright
+- renaming stream methods, add stubs and stream service factory
+- fix binary notation
+- in server store creation max value entry is fixed to 32Mb
+- mocked server uses the inner immudb grpc server and can be gracefully stopped
+- set stream supports multiple key values
+- fixed minimum chunk size at 4096 bytes
+- refactor code quality issues
+- increase stream coverage and add a guard if key is present on a stream but no value is found
+- remove fake proveSinceTxBs key send in streamVerifiableSet
+- polish streams methods and add comments
+- **embedded:** remove unused cbuffer package
+- **embedded:** add logger
+- **embedded:** fix some typos with comments
+- **embedded:** log indexing notifications
+- **embedded:** descriptive logs on indexing and already closed errors
+- **embedded:** add logs into relevant operations
+- **embedded:** compaction and snapshot handling
+- **embedded/appendable:** thread-safe multi-appendable
+- **embedded/appendable:** sync before copying appendable content
+- **embedded/appendable:** multi-appendable fine-grained locking
+- **embedded/store:** remove duplicated logging
+- **embedded/store:** stop indexing while commiting with callback
+- **embedded/store:** leverage fine-grained locking when reading tx data
+- **embedded/store:** general improvements on snapshot management
+- **embedded/store:** log number of transactions yet to be indexed
+- **embedded/store:** use buffered channel instead of a circular buffer
+- **embedded/store:** set a limit on indexing iteration
+- **embedded/store:** set max file size to 2Gb ([#649](https://github.com/vchain-us/immudb/issues/649))
+- **embedded/store:** remove conditional locking before dumping index
+- **embedded/store:** lock-less readTx
+- **embedded/tbtree:** terminate reader if prefix won't match any more
+- **embedded/tbtree:** optimize seek position
+- **embedded/tbtree:** revert seek key setting
+- **embedded/tbtree:** sync key-history log during compaction
+- **embedded/tbtree:** sync before dumping
+- **embedded/tbtree:** optimize seek position
+- **embedded/watchers:** broadcasting optimisation
+- **embedded/watchers:** minor renaming
+- **embedded/watchers:** accept non-continuous notification
+- **pkg/client:** add a guard to check for min chunk size
+- **pkg/client:** add stream service factory on client and increase stream coverage
+- **pkg/client:** maps server error on client package
+- **pkg/client:** remove local files tests
+- **pkg/client:** add GetKeyValuesFromFiles helper method
+- **pkg/client:** integration test is skipped if immudb server is not present
+- **pkg/database:** return error while waiting for index to be up to date
+- **pkg/database:** use in-mem current snapshot in execAll operation
+- **pkg/database:** leverage lightweight waiting features of embedded store
+- **pkg/database:** return error while waiting for index to be up to date
+- **pkg/database:** ensure scan runs over fully up-to-date snapshot
+- **pkg/database:** illegal state guard is added to verifiable get and getTx methods
+- **pkg/server:** max recv msg size is set to 32M
+- **pkg/server:** add a guard to check for min chunk size
+- **pkg/server:** revert quit chan exposure
+- **pkg/server:** add server error mapper interceptor
+- **pkg/server:** add small delay for indexing to be completed
+- **pkg/server:** exposes Quit chan
+- **pkg/stream:** remove bufio.reader when not needed
+- **pkg/stream:** remove duplicated code
+- **pkg/stream:** add ErrNotEnoughDataOnStream error and ImmuServiceReceiver_StreamMock
+- **pkg/stream:** renamed stream test package
+- **pkg/stream:** add a guard to detect ErrNotEnoughDataOnStream on client side
+- **pkg/stream:** remove bufio and add ventryreceiver unit test
+- **pkg/stream:** add some comments to mesasge receiver
+- **pkg/stream:** add more corner cases guards
+- **pkg/stream/streamtest:** add dummy file generator
+- **tools:** fix copyright
+- **tools/stream:** get stream content directly from immudb
+- **tools/stream/benchmark:** add stream benchmark command
+- **tools/stream/benchmark/streamb:** add SinceTx value to getStream
+
+### Code Refactoring
+- stream kvreceiver expose Next method to iterate over key values
+- stream receiver implements reader interface
+- use of explicit messages for stream request
+- **pkg/stream:** use ParseValue func in zreceiver and remove the redundant readSmallMsg func
+- **pkg/stream:** refactor receiver to increase simplicity
+
+### Features
+- add flusher to stream data to client
+- add Stream Scan and client stream ServiceFactory
+- Add StreamVerifiedSet and StreamVerifiedGet
+- add client->server stream handler
+- increase default store max value length to 32MB
+- refactors and implement server->client stream handler
+- Remove unnecessary dependencies ([#665](https://github.com/vchain-us/immudb/issues/665))
+- add support for user, password and database flags in immuclient ([#659](https://github.com/vchain-us/immudb/issues/659))
+- chunk size is passed as argument in client and server
+- **embedded/store:** expose insertion delay while compacting
+- **embedded/store:** configurable compaction threshold to set the min number of snapshots for a compaction to be done
+- **embedded/store:** integrate watchers to support indexing synchronicity
+- **embedded/store:** tx header cache to speed up indexing
+- **embedded/tbtree:** configurable insertion delay while compaction is in progress
+- **embedded/tbtree:** automatically set seekKey based on prefixKey when it's not set
+- **embedded/watchers:** lightweight watching center
+- **embedded/watchers:** fetchable current state
+- **pkg/client:** handle illegal state error
+- **pkg/database:** non-blocking, no history compaction
+- **pkg/database:** non-blocking index compaction
+- **pkg/database:** default scan parameters using up-to-date snapshot
+- **pkg/server:** add signature on stream verifiable methods and tests
+- **pkg/stream:** add exec all stream
+
+
 <a name="v0.9.1"></a>
 ## [v0.9.1] - 2021-02-08
 ### Bug Fixes
@@ -1381,7 +1518,8 @@ All notable changes to this project will be documented in this file. This projec
 - **tree:** MTH reference impl
 
 
-[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/vchain-us/immudb/compare/v0.9.2...HEAD
+[v0.9.2]: https://github.com/vchain-us/immudb/compare/v0.9.1...v0.9.2
 [v0.9.1]: https://github.com/vchain-us/immudb/compare/v0.9.0...v0.9.1
 [v0.9.0]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC2...v0.9.0
 [v0.9.0-RC2]: https://github.com/vchain-us/immudb/compare/v0.9.0-RC1...v0.9.0-RC2
