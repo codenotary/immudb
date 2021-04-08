@@ -782,19 +782,19 @@ func TestAggFnStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "SELECT COUNT(*) FROM table1",
+			input: "SELECT COUNT(id) FROM table1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{
-						&AggColSelector{aggFn: COUNT},
+						&AggColSelector{aggFn: COUNT, col: "id"},
 					},
 					ds: &TableRef{table: "table1"},
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "SELECT country, SUM(amount) FROM table1 GROUP BY country",
+			input: "SELECT country, SUM(amount) FROM table1 GROUP BY country HAVING SUM(amount) > 0",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -805,6 +805,11 @@ func TestAggFnStmt(t *testing.T) {
 					ds: &TableRef{table: "table1"},
 					groupBy: []*ColSelector{
 						{col: "country"},
+					},
+					having: &CmpBoolExp{
+						op:    GT,
+						left:  &AggColSelector{aggFn: SUM, col: "amount"},
+						right: &Number{val: 0},
 					},
 				}},
 			expectedError: nil,
@@ -917,7 +922,7 @@ func TestExpressions(t *testing.T) {
 					},
 					ds: &TableRef{table: "table1"},
 					where: &LikeBoolExp{
-						col: &ColSelector{
+						sel: &ColSelector{
 							table: "table1",
 							col:   "title",
 						},
@@ -958,7 +963,7 @@ func TestExpressions(t *testing.T) {
 							},
 						},
 						right: &LikeBoolExp{
-							col: &ColSelector{
+							sel: &ColSelector{
 								table: "table1",
 								col:   "title",
 							},
