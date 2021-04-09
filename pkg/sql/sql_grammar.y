@@ -349,6 +349,11 @@ selector:
         $$ = $1
     }
 |
+    AGGREGATE_FUNC '(' '*' ')'
+    {
+        $$ = &AggColSelector{aggFn: $1, col: "*"}
+    }
+|
     AGGREGATE_FUNC '(' col ')'
     {
         $$ = &AggColSelector{aggFn: $1, db: $3.db, table: $3.table, col: $3.col}

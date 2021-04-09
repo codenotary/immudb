@@ -480,7 +480,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGroupByHaving(t *testing.T) {
+func TestAggregations(t *testing.T) {
 	catalogStore, err := store.Open("catalog", store.DefaultOptions())
 	require.NoError(t, err)
 	defer os.RemoveAll("catalog")
@@ -504,42 +504,100 @@ func TestGroupByHaving(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil, true)
 	require.NoError(t, err)
 
-	itCount := 10
 	rowCount := 10
+	base := 30
 
-	for i := 0; i < itCount; i++ {
-		for j := 0; j < rowCount; j++ {
-			params := make(map[string]interface{}, 3)
-			params["id"] = i*10 + j
-			params["title"] = fmt.Sprintf("title%d", i*10+j)
-			params["age"] = 40 + j
+	for i := 1; i <= rowCount; i++ {
+		params := make(map[string]interface{}, 3)
+		params["id"] = i
+		params["title"] = fmt.Sprintf("title%d", i)
+		params["age"] = base + i
 
-			_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, true)
-			require.NoError(t, err)
-		}
+		_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age) VALUES (@id, @title, @age)", params, true)
+		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT age, COUNT(id), SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 GROUP BY age HAVING COUNT(id) > 0 ORDER BY age", nil)
+	r, err := engine.QueryStmt("SELECT COUNT(*), SUM(age), MIN(age), MAX(age), AVG(age) FROM table1", nil)
 	require.NoError(t, err)
 
+	row, err := r.Read()
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	require.Len(t, row.Values, 5)
+
+	require.Equal(t, uint64(rowCount), row.Values[EncodeSelector("COUNT", "db1", "table1", "*")].Value())
+
+	require.Equal(t, uint64((1+2*base+rowCount)*rowCount/2), row.Values[EncodeSelector("SUM", "db1", "table1", "age")].Value())
+
+	require.Equal(t, uint64(1+base), row.Values[EncodeSelector("MIN", "db1", "table1", "age")].Value())
+
+	require.Equal(t, uint64(base+rowCount), row.Values[EncodeSelector("MAX", "db1", "table1", "age")].Value())
+
+	require.Equal(t, uint64(base+rowCount/2), row.Values[EncodeSelector("AVG", "db1", "table1", "age")].Value())
+
+	_, err = r.Read()
+	require.Equal(t, ErrNoMoreRows, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
+func TestGroupByHaving(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil, true)
+	require.NoError(t, err)
+
+	rowCount := 10
+	base := 40
+
 	for i := 0; i < rowCount; i++ {
+		params := make(map[string]interface{}, 4)
+		params["id"] = i
+		params["title"] = fmt.Sprintf("title%d", i)
+		params["age"] = base + i
+		params["active"] = i%2 == 0
+
+		_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title, age, active) VALUES (@id, @title, @age, @active)", params, true)
+		require.NoError(t, err)
+	}
+
+	r, err := engine.QueryStmt("SELECT active, COUNT(*), MIN(age), MAX(age) FROM table1 GROUP BY active HAVING COUNT(*) > 0 ORDER BY active DESC", nil)
+	require.NoError(t, err)
+
+	for i := 0; i < 2; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
 
-		require.Equal(t, uint64(itCount), row.Values[EncodeSelector("COUNT", "db1", "table1", "id")].Value())
+		require.Equal(t, uint64(rowCount/2), row.Values[EncodeSelector("COUNT", "db1", "table1", "*")].Value())
 
-		age := row.Values[EncodeSelector("", "db1", "table1", "age")].Value().(uint64)
-		require.Equal(t, uint64(40+i), age)
-
-		require.Equal(t, uint64(40), row.Values[EncodeSelector("MIN", "db1", "table1", "age")].Value())
-
-		require.Equal(t, uint64(40+rowCount), row.Values[EncodeSelector("MAX", "db1", "table1", "age")].Value())
-
-		require.Equal(t, uint64(40+rowCount/2), row.Values[EncodeSelector("AVG", "db1", "table1", "age")].Value())
-
-		require.Equal(t, uint64(itCount)*age, row.Values[EncodeSelector("SUM", "db1", "table1", "age")].Value())
+		if i%2 == 0 {
+			require.Equal(t, uint64(base), row.Values[EncodeSelector("MIN", "db1", "table1", "age")].Value())
+			require.Equal(t, uint64(base+rowCount-2), row.Values[EncodeSelector("MAX", "db1", "table1", "age")].Value())
+		} else {
+			require.Equal(t, uint64(base+1), row.Values[EncodeSelector("MIN", "db1", "table1", "age")].Value())
+			require.Equal(t, uint64(base+rowCount-1), row.Values[EncodeSelector("MAX", "db1", "table1", "age")].Value())
+		}
 	}
 
 	err = r.Close()
