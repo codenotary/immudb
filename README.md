@@ -32,25 +32,13 @@ Don't forget to ⭐ this repo if you like immudb!
 
 ---
 
-immudb is a **lightweight, high-speed immutable database** with built-in cryptographic proof and verification.
-With immudb, you can track changes in sensitive data in your transactional databases and then record those changes permanently in a
-tamperproof immudb database.
+immudb is a key-value database with built-in cryptographic proof and verification. It can track changes in sensitive data and the integrity of the history will be protected by the clients, without the need to trust the server.
+
+Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library.
+
+Companies use immudb to protect credit card transactions and to secure processes by store digital certificates and checksums.
+
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
-
-Traditional DB transactions and logs are hard to scale and are mutable, so there is no way to know for sure if your data has been compromised.
-immudb provides **unparalleled insights** **retroactively** of changes to your sensitive data, even
-if your perimeter has been compromised. immudb guarantees immutability by using **cryptographic data structures** internally.
-This allows you to keep a persistent history of sensitive data, such as debit/credit card transactions.
-
-immudb has 4 main benefits:
-
-1. **immudb is immutable**. You can add records, but **never change or delete records**. This lets you store critical data without fear of it being changed silently.
-2. Data stored in immudb is **cryptographically coherent and verifiable**, like blockchains, just without all the complexity and at high speed.
-3. Anyone can get **started with immudb in minutes**. Whether you're using node.js, Java, Python, Go, .Net, or any other language. It's very easy to use and you can have your immutable database running in just a few minutes.
-4. Finally, immudb is **Open Source**. You can run it **on premise**, or in the **cloud**. It's completely free. immudb is governed by the Apache 2.0 License.
-
-immudb can be ran on **Linux**, **FreeBSD**, **Windows**, and **MacOS**, along with
-other systems derived from them, such as **Kubernetes** and **Docker**.
 
 ### Tech specs
 
