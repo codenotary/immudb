@@ -788,11 +788,6 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 		return nil, err
 	}
 
-	rowReader, err = e.newAugmentedRowReader(snap, rowReader, stmt.selectors)
-	if err != nil {
-		return nil, err
-	}
-
 	if stmt.joins != nil {
 		rowReader, err = e.newJointRowReader(snap, params, rowReader, stmt.joins)
 		if err != nil {
@@ -821,7 +816,7 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 			groupBy = stmt.groupBy
 		}
 
-		rowReader, err = e.newGroupedRowReader(snap, rowReader, groupBy)
+		rowReader, err = e.newGroupedRowReader(snap, rowReader, stmt.selectors, groupBy)
 		if err != nil {
 			return nil, err
 		}
