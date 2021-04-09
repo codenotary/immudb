@@ -111,7 +111,7 @@ func (stmt *TxStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces 
 }
 
 type CreateDatabaseStmt struct {
-	db string
+	DB string
 }
 
 // for writes, always needs to be up the date, doesn't matter the snapshot...
@@ -123,14 +123,14 @@ func (stmt *CreateDatabaseStmt) isDDL() bool {
 }
 
 func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	db, err := e.catalog.newDatabase(stmt.db)
+	db, err := e.catalog.newDatabase(stmt.DB)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	kv := &store.KV{
 		Key:   e.mapKey(catalogDatabasePrefix, encodeID(db.id)),
-		Value: []byte(stmt.db),
+		Value: []byte(stmt.DB),
 	}
 
 	ces = append(ces, kv)
@@ -139,7 +139,7 @@ func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, params map[string]interf
 }
 
 type UseDatabaseStmt struct {
-	db string
+	DB string
 }
 
 func (stmt *UseDatabaseStmt) isDDL() bool {
@@ -147,12 +147,12 @@ func (stmt *UseDatabaseStmt) isDDL() bool {
 }
 
 func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	exists := e.catalog.ExistDatabase(stmt.db)
+	exists := e.catalog.ExistDatabase(stmt.DB)
 	if !exists {
 		return nil, nil, ErrDatabaseDoesNotExist
 	}
 
-	e.SetImplicitDB(stmt.db)
+	e.SetImplicitDB(stmt.DB)
 
 	return
 }

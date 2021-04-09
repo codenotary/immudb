@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	SetKeyPrefix = iota
+	SetKeyPrefix byte = iota
 	SortedSetKeyPrefix
 	SQLPrefix
 )

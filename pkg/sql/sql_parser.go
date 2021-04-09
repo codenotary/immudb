@@ -692,12 +692,12 @@ yydefault:
 	case 13:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
-			yyVAL.stmt = &CreateDatabaseStmt{db: yyDollar[3].id}
+			yyVAL.stmt = &CreateDatabaseStmt{DB: yyDollar[3].id}
 		}
 	case 14:
 		yyDollar = yyS[yypt-3 : yypt+1]
 		{
-			yyVAL.stmt = &UseDatabaseStmt{db: yyDollar[3].id}
+			yyVAL.stmt = &UseDatabaseStmt{DB: yyDollar[3].id}
 		}
 	case 15:
 		yyDollar = yyS[yypt-4 : yypt+1]

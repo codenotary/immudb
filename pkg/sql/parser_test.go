@@ -37,7 +37,7 @@ func TestCreateDatabaseStmt(t *testing.T) {
 	}{
 		{
 			input:          "CREATE DATABASE db1",
-			expectedOutput: []SQLStmt{&CreateDatabaseStmt{db: "db1"}},
+			expectedOutput: []SQLStmt{&CreateDatabaseStmt{DB: "db1"}},
 			expectedError:  nil,
 		},
 		{
@@ -65,7 +65,7 @@ func TestUseDatabaseStmt(t *testing.T) {
 	}{
 		{
 			input:          "USE DATABASE db1",
-			expectedOutput: []SQLStmt{&UseDatabaseStmt{db: "db1"}},
+			expectedOutput: []SQLStmt{&UseDatabaseStmt{DB: "db1"}},
 			expectedError:  nil,
 		},
 		{
@@ -373,25 +373,25 @@ func TestStmtSeparator(t *testing.T) {
 		{
 			input: "CREATE DATABASE db1; USE DATABASE db1;",
 			expectedOutput: []SQLStmt{
-				&CreateDatabaseStmt{db: "db1"},
-				&UseDatabaseStmt{db: "db1"},
+				&CreateDatabaseStmt{DB: "db1"},
+				&UseDatabaseStmt{DB: "db1"},
 			},
 			expectedError: nil,
 		},
 		{
 			input: "CREATE DATABASE db1; /* some comment here */ USE /* another comment here */ DATABASE db1",
 			expectedOutput: []SQLStmt{
-				&CreateDatabaseStmt{db: "db1"},
-				&UseDatabaseStmt{db: "db1"},
+				&CreateDatabaseStmt{DB: "db1"},
+				&UseDatabaseStmt{DB: "db1"},
 			},
 			expectedError: nil,
 		},
 		{
 			input: "CREATE DATABASE db1; USE DATABASE db1 \r\n USE DATABASE db1",
 			expectedOutput: []SQLStmt{
-				&CreateDatabaseStmt{db: "db1"},
-				&UseDatabaseStmt{db: "db1"},
-				&UseDatabaseStmt{db: "db1"},
+				&CreateDatabaseStmt{DB: "db1"},
+				&UseDatabaseStmt{DB: "db1"},
+				&UseDatabaseStmt{DB: "db1"},
 			},
 			expectedError: nil,
 		},
@@ -1042,7 +1042,7 @@ func TestMultiLineStmts(t *testing.T) {
 
 			`,
 			expectedOutput: []SQLStmt{
-				&CreateDatabaseStmt{db: "db1"},
+				&CreateDatabaseStmt{DB: "db1"},
 				&CreateTableStmt{
 					table: "table1",
 					colsSpec: []*ColSpec{

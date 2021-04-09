@@ -161,12 +161,12 @@ dstmts:
 ddlstmt:
     CREATE DATABASE IDENTIFIER
     {
-        $$ = &CreateDatabaseStmt{db: $3}
+        $$ = &CreateDatabaseStmt{DB: $3}
     }
 |
     USE DATABASE IDENTIFIER
     {
-        $$ = &UseDatabaseStmt{db: $3}
+        $$ = &UseDatabaseStmt{DB: $3}
     }
 |
     USE SNAPSHOT SINCE STRING
