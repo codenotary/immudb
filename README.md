@@ -105,6 +105,8 @@ We already learned about the following use cases from users:
 
 [tinaba](https://www.tinaba.bancaprofilo.it/)
 
+### Using immudb in your application
+
 Integrate immudb into your application using official SDKs already available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
