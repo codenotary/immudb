@@ -69,34 +69,6 @@ Benchmarks (v0.8.x):
 | 64 GB memory | Elapsted t.: 3.06 sec | Elapsed t.: 0.36 sec |
 | SSD | Throughput: 326626 tx/sec | Throughput: 2772181 tx/sec |
 
-## Using immudb
-
-Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
-
-### Real world examples
-
-We already learned about the following use cases from users:
-
-- use immudb to immutably store every update to sensitive database fields (credit card or bank account data) of an existing application database
-- store CI/CD recipes in immudb to protect build and deployment pipelines
-- store public certificates in immudb
-- use immudb as an additional hash storage for digital objects checksums
-- store log streams (i. e. audit logs) tamperproof
-
-### How to integrate immudb in your application
-
-Integrate immudb into your application using official SDKs already available for the following programming languages:
-
-1. Java [immudb4j](https://github.com/codenotary/immudb4j)
-2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
-3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
-4. Python [immudb-py](https://github.com/codenotary/immudb-py)
-5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
-
-We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
-[immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
-programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
-
 ## Quickstart
 
 Getting immudb up and running is quite simple. For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
@@ -139,6 +111,34 @@ docker logs immudb
 To perform actions, simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immuclient in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
 
 To manage the database, simply run ```./immuadmin``` on the same machine. You can also find immuadmin in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local immudb with `docker run -it --rm --name immuadmin codenotary/immuadmin:latest status`. For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
+
+## Using immudb
+
+Lot of useful documentation and step by step guides can be found at https://docs.immudb.io/
+
+### Real world examples
+
+We already learned about the following use cases from users:
+
+- use immudb to immutably store every update to sensitive database fields (credit card or bank account data) of an existing application database
+- store CI/CD recipes in immudb to protect build and deployment pipelines
+- store public certificates in immudb
+- use immudb as an additional hash storage for digital objects checksums
+- store log streams (i. e. audit logs) tamperproof
+
+### How to integrate immudb in your application
+
+Integrate immudb into your application using official SDKs already available for the following programming languages:
+
+1. Java [immudb4j](https://github.com/codenotary/immudb4j)
+2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
+3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
+4. Python [immudb-py](https://github.com/codenotary/immudb-py)
+5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
+
+We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
+[immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
+programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
 
 ## Contributing
 
