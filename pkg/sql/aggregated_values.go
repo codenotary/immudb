@@ -37,7 +37,7 @@ func (v *CountValue) Value() interface{} {
 	return v.c
 }
 
-func (v *CountValue) Compare(val TypedValue) (CmpOperator, error) {
+func (v *CountValue) Compare(val TypedValue) (int, error) {
 	if val.Type() != IntegerType {
 		return 0, ErrNotComparableValues
 	}
@@ -45,14 +45,14 @@ func (v *CountValue) Compare(val TypedValue) (CmpOperator, error) {
 	nv := val.Value().(uint64)
 
 	if v.c == nv {
-		return EQ, nil
+		return 0, nil
 	}
 
 	if v.c > nv {
-		return GT, nil
+		return 1, nil
 	}
 
-	return LT, nil
+	return -1, nil
 }
 
 func (v *CountValue) IsAggregatedValue() bool {
@@ -81,7 +81,7 @@ func (v *SumValue) Value() interface{} {
 	return v.s
 }
 
-func (v *SumValue) Compare(val TypedValue) (CmpOperator, error) {
+func (v *SumValue) Compare(val TypedValue) (int, error) {
 	if val.Type() != IntegerType {
 		return 0, ErrNotComparableValues
 	}
@@ -89,14 +89,14 @@ func (v *SumValue) Compare(val TypedValue) (CmpOperator, error) {
 	nv := val.Value().(uint64)
 
 	if v.s == nv {
-		return EQ, nil
+		return 0, nil
 	}
 
 	if v.s > nv {
-		return GT, nil
+		return 1, nil
 	}
 
-	return LT, nil
+	return -1, nil
 }
 
 func (v *SumValue) IsAggregatedValue() bool {
@@ -130,7 +130,7 @@ func (v *MinValue) Value() interface{} {
 	return v.val.Value()
 }
 
-func (v *MinValue) Compare(val TypedValue) (CmpOperator, error) {
+func (v *MinValue) Compare(val TypedValue) (int, error) {
 	if val.Type() != val.Type() {
 		return 0, ErrNotComparableValues
 	}
@@ -157,7 +157,7 @@ func (v *MinValue) UpdateWith(val TypedValue) error {
 		return err
 	}
 
-	if cmp == -1 {
+	if cmp == 1 {
 		v.val = val
 	}
 
@@ -181,7 +181,7 @@ func (v *MaxValue) Value() interface{} {
 	return v.val.Value()
 }
 
-func (v *MaxValue) Compare(val TypedValue) (CmpOperator, error) {
+func (v *MaxValue) Compare(val TypedValue) (int, error) {
 	if val.Type() != val.Type() {
 		return 0, ErrNotComparableValues
 	}
@@ -208,7 +208,7 @@ func (v *MaxValue) UpdateWith(val TypedValue) error {
 		return err
 	}
 
-	if cmp == 1 {
+	if cmp == -1 {
 		v.val = val
 	}
 
@@ -233,7 +233,7 @@ func (v *AVGValue) Value() interface{} {
 	return v.s / v.c
 }
 
-func (v *AVGValue) Compare(val TypedValue) (CmpOperator, error) {
+func (v *AVGValue) Compare(val TypedValue) (int, error) {
 	if val.Type() != IntegerType {
 		return 0, ErrNotComparableValues
 	}
@@ -241,14 +241,14 @@ func (v *AVGValue) Compare(val TypedValue) (CmpOperator, error) {
 	nv := val.Value().(uint64)
 
 	if v.s == nv {
-		return EQ, nil
+		return 0, nil
 	}
 
 	if v.s > nv {
-		return GT, nil
+		return 1, nil
 	}
 
-	return LT, nil
+	return -1, nil
 }
 
 func (v *AVGValue) IsAggregatedValue() bool {

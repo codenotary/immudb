@@ -782,12 +782,12 @@ func TestAggFnStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "SELECT COUNT(id) FROM table1",
+			input: "SELECT COUNT(*) FROM table1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
 					selectors: []Selector{
-						&AggColSelector{aggFn: COUNT, col: "id"},
+						&AggColSelector{aggFn: COUNT, col: "*"},
 					},
 					ds: &TableRef{table: "table1"},
 				}},

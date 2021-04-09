@@ -445,7 +445,7 @@ type ValueExp interface {
 type TypedValue interface {
 	Type() SQLValueType
 	Value() interface{}
-	Compare(val TypedValue) (CmpOperator, error)
+	Compare(val TypedValue) (int, error)
 	IsAggregatedValue() bool
 	UpdateWith(val TypedValue) error
 }
@@ -474,21 +474,21 @@ func (v *Number) Value() interface{} {
 	return v.val
 }
 
-func (v *Number) Compare(val TypedValue) (CmpOperator, error) {
+func (v *Number) Compare(val TypedValue) (int, error) {
 	ov, isNumber := val.(*Number)
 	if !isNumber {
 		return 0, ErrNotComparableValues
 	}
 
 	if v.val == ov.val {
-		return EQ, nil
+		return 0, nil
 	}
 
 	if v.val > ov.val {
-		return GT, nil
+		return 1, nil
 	}
 
-	return LT, nil
+	return -1, nil
 }
 
 func (v *Number) IsAggregatedValue() bool {
@@ -523,23 +523,13 @@ func (v *String) Value() interface{} {
 	return v.val
 }
 
-func (v *String) Compare(val TypedValue) (CmpOperator, error) {
+func (v *String) Compare(val TypedValue) (int, error) {
 	ov, isString := val.(*String)
 	if !isString {
 		return 0, ErrNotComparableValues
 	}
 
-	r := bytes.Compare([]byte(v.val), []byte(ov.val))
-
-	if r == 0 {
-		return EQ, nil
-	}
-
-	if r < 0 {
-		return LT, nil
-	}
-
-	return GT, nil
+	return bytes.Compare([]byte(v.val), []byte(ov.val)), nil
 }
 
 func (v *String) IsAggregatedValue() bool {
@@ -574,17 +564,21 @@ func (v *Bool) Value() interface{} {
 	return v.val
 }
 
-func (v *Bool) Compare(val TypedValue) (CmpOperator, error) {
+func (v *Bool) Compare(val TypedValue) (int, error) {
 	ov, isBool := val.(*Bool)
 	if !isBool {
 		return 0, ErrNotComparableValues
 	}
 
 	if v.val == ov.val {
-		return EQ, nil
+		return 0, nil
 	}
 
-	return NE, nil
+	if v.val {
+		return 1, nil
+	}
+
+	return -1, nil
 }
 
 func (v *Bool) IsAggregatedValue() bool {
@@ -619,23 +613,13 @@ func (v *Blob) Value() interface{} {
 	return v.val
 }
 
-func (v *Blob) Compare(val TypedValue) (CmpOperator, error) {
+func (v *Blob) Compare(val TypedValue) (int, error) {
 	ov, isBlob := val.(*Blob)
 	if !isBlob {
 		return 0, ErrNotComparableValues
 	}
 
-	r := bytes.Compare(v.val, ov.val)
-
-	if r == 0 {
-		return EQ, nil
-	}
-
-	if r < 0 {
-		return LT, nil
-	}
-
-	return GT, nil
+	return bytes.Compare(v.val, ov.val), nil
 }
 
 func (v *Blob) IsAggregatedValue() bool {
@@ -823,17 +807,30 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 		}
 	}
 
-	if stmt.groupBy != nil {
-		rowReader, err = e.newGroupedRowReader(snap, rowReader, stmt.groupBy)
-		if err != nil {
-			return nil, err
+	containsAggregations := false
+	for _, sel := range stmt.selectors {
+		_, containsAggregations = sel.(*AggColSelector)
+		if containsAggregations {
+			break
 		}
 	}
 
-	if stmt.having != nil {
-		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.having, params)
+	if containsAggregations {
+		var groupBy []*ColSelector
+		if stmt.groupBy != nil {
+			groupBy = stmt.groupBy
+		}
+
+		rowReader, err = e.newGroupedRowReader(snap, rowReader, groupBy)
 		if err != nil {
 			return nil, err
+		}
+
+		if stmt.having != nil {
+			rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.having, params)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1187,22 +1184,22 @@ func (bexp *CmpBoolExp) reduce(row *Row, implicitDB, implicitTable string) (Type
 		return nil, err
 	}
 
-	return &Bool{val: cmpSatisfies(r, bexp.op)}, nil
+	return &Bool{val: cmpSatisfiesOp(r, bexp.op)}, nil
 }
 
-func cmpSatisfies(cmp1, cmp2 CmpOperator) bool {
-	switch cmp1 {
-	case EQ:
+func cmpSatisfiesOp(cmp int, op CmpOperator) bool {
+	switch cmp {
+	case 0:
 		{
-			return cmp2 == EQ || cmp2 == LE || cmp2 == GE
+			return op == EQ || op == LE || op == GE
 		}
-	case LT:
+	case -1:
 		{
-			return cmp2 == NE || cmp2 == LT || cmp2 == LE
+			return op == NE || op == LT || op == LE
 		}
-	case GT:
+	case 1:
 		{
-			return cmp2 == NE || cmp2 == GT || cmp2 == GE
+			return op == NE || op == GT || op == GE
 		}
 	}
 	return false
