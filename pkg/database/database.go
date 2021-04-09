@@ -106,7 +106,12 @@ func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
 	db.tx1 = db.st.NewTx()
 	db.tx2 = db.st.NewTx()
 
-	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte("sql"))
+	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte{SQLPrefix})
+	if err != nil {
+		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+	}
+
+	_, _, err = db.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.UseDatabaseStmt{DB: db.options.dbName}}, nil, true)
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
@@ -142,6 +147,14 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 	db.tx2 = db.st.NewTx()
 
 	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte("sql"))
+	if err != nil {
+		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+	}
+
+	_, _, err = db.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{
+		&sql.CreateDatabaseStmt{DB: db.options.dbName},
+		&sql.UseDatabaseStmt{DB: db.options.dbName},
+	}, nil, true)
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}

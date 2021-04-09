@@ -16,6 +16,9 @@ limitations under the License.
 package database
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/sql"
 )
@@ -25,16 +28,42 @@ func (d *db) SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error) 
 		return nil, ErrIllegalArguments
 	}
 
+	stmts, err := sql.Parse(strings.NewReader(req.Sql))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, stmt := range stmts {
+		switch stmt.(type) {
+		case *sql.UseDatabaseStmt:
+			{
+				return nil, errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
+			}
+		case *sql.CreateDatabaseStmt:
+			{
+				return nil, errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
+			}
+		}
+	}
+
+	return d.SQLExecPrepared(stmts, req.Params, !req.NoWait)
+}
+
+func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, waitForIndexing bool) (*schema.SQLExecResult, error) {
+	if len(stmts) == 0 {
+		return nil, ErrIllegalArguments
+	}
+
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	params := make(map[string]interface{})
 
-	for _, p := range req.Params {
+	for _, p := range namedParams {
 		params[p.Name] = p.Value
 	}
 
-	ddTxs, dmTxs, err := d.sqlEngine.ExecStmt(req.Sql, params, !req.NoWait)
+	ddTxs, dmTxs, err := d.sqlEngine.ExecPreparedStmts(stmts, params, waitForIndexing)
 	if err != nil {
 		return nil, err
 	}
