@@ -29,7 +29,7 @@ type groupedRowReader struct {
 }
 
 func (e *Engine) newGroupedRowReader(snap *store.Snapshot, rowReader RowReader, selectors []*ColSelector) (*groupedRowReader, error) {
-	if snap == nil || len(selectors) == 0 {
+	if snap == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -64,6 +64,9 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 
 		if gr.currRow == nil {
 			gr.currRow, err = row.initAggregations()
+			if err != nil {
+				return nil, err
+			}
 			continue
 		}
 
@@ -75,6 +78,9 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 		if !compatible {
 			r := gr.currRow
 			gr.currRow, err = row.initAggregations()
+			if err != nil {
+				return nil, err
+			}
 			return r, nil
 		}
 

@@ -57,28 +57,37 @@ func (ar *augmentedRowReader) Read() (*Row, error) {
 		// augment row with aggregated values
 		for _, sel := range ar.selectors {
 			aggFn, db, table, col := sel.resolve(ar.ImplicitDB(), ar.Alias())
-			if err != nil {
-				return nil, err
-			}
 
 			encSel := EncodeSelector(aggFn, db, table, col)
 
 			switch aggFn {
 			case COUNT:
 				{
+					if col == "*" {
+						database, ok := ar.e.catalog.dbsByName[db]
+						if !ok {
+							return nil, ErrDatabaseDoesNotExist
+						}
+						table, ok := database.tablesByName[table]
+						if !ok {
+							return nil, ErrTableDoesNotExist
+						}
+						col = table.pk.colName
+					}
+
 					row.Values[encSel] = &CountValue{sel: EncodeSelector("", db, table, col)}
 				}
 			case SUM:
 				{
 					row.Values[encSel] = &SumValue{sel: EncodeSelector("", db, table, col)}
 				}
-			case MAX:
-				{
-					row.Values[encSel] = &MaxValue{sel: EncodeSelector("", db, table, col)}
-				}
 			case MIN:
 				{
 					row.Values[encSel] = &MinValue{sel: EncodeSelector("", db, table, col)}
+				}
+			case MAX:
+				{
+					row.Values[encSel] = &MaxValue{sel: EncodeSelector("", db, table, col)}
 				}
 			case AVG:
 				{
