@@ -731,6 +731,10 @@ func (e *Engine) Exec(sql io.ByteReader, params map[string]interface{}, waitForI
 		return nil, nil, err
 	}
 
+	return e.ExecPreparedStmts(stmts, params, waitForIndexing)
+}
+
+func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
 	if includesDDL(stmts) {
 		e.catalogRWMux.Lock()
 		defer e.catalogRWMux.Unlock()
