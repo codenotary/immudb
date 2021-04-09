@@ -16,8 +16,10 @@ limitations under the License.
 
 package sql
 
-type aggregatedValue interface {
-	selector() string
+type AggregatedValue interface {
+	TypedValue
+	updateWith(val TypedValue) error
+	Selector() string
 }
 
 type CountValue struct {
@@ -25,7 +27,7 @@ type CountValue struct {
 	sel string
 }
 
-func (v *CountValue) selector() string {
+func (v *CountValue) Selector() string {
 	return v.sel
 }
 
@@ -55,11 +57,7 @@ func (v *CountValue) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
-func (v *CountValue) IsAggregatedValue() bool {
-	return true
-}
-
-func (v *CountValue) UpdateWith(val TypedValue) error {
+func (v *CountValue) updateWith(val TypedValue) error {
 	v.c++
 	return nil
 }
@@ -69,7 +67,7 @@ type SumValue struct {
 	sel string
 }
 
-func (v *SumValue) selector() string {
+func (v *SumValue) Selector() string {
 	return v.sel
 }
 
@@ -99,11 +97,7 @@ func (v *SumValue) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
-func (v *SumValue) IsAggregatedValue() bool {
-	return true
-}
-
-func (v *SumValue) UpdateWith(val TypedValue) error {
+func (v *SumValue) updateWith(val TypedValue) error {
 	if val.Type() != IntegerType {
 		return ErrNotComparableValues
 	}
@@ -118,7 +112,7 @@ type MinValue struct {
 	sel string
 }
 
-func (v *MinValue) selector() string {
+func (v *MinValue) Selector() string {
 	return v.sel
 }
 
@@ -138,11 +132,7 @@ func (v *MinValue) Compare(val TypedValue) (int, error) {
 	return v.val.Compare(val)
 }
 
-func (v *MinValue) IsAggregatedValue() bool {
-	return true
-}
-
-func (v *MinValue) UpdateWith(val TypedValue) error {
+func (v *MinValue) updateWith(val TypedValue) error {
 	if v.val == nil {
 		v.val = val
 		return nil
@@ -169,7 +159,7 @@ type MaxValue struct {
 	sel string
 }
 
-func (v *MaxValue) selector() string {
+func (v *MaxValue) Selector() string {
 	return v.sel
 }
 
@@ -189,11 +179,7 @@ func (v *MaxValue) Compare(val TypedValue) (int, error) {
 	return v.val.Compare(val)
 }
 
-func (v *MaxValue) IsAggregatedValue() bool {
-	return true
-}
-
-func (v *MaxValue) UpdateWith(val TypedValue) error {
+func (v *MaxValue) updateWith(val TypedValue) error {
 	if v.val == nil {
 		v.val = val
 		return nil
@@ -221,7 +207,7 @@ type AVGValue struct {
 	sel string
 }
 
-func (v *AVGValue) selector() string {
+func (v *AVGValue) Selector() string {
 	return v.sel
 }
 
@@ -251,11 +237,7 @@ func (v *AVGValue) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
-func (v *AVGValue) IsAggregatedValue() bool {
-	return true
-}
-
-func (v *AVGValue) UpdateWith(val TypedValue) error {
+func (v *AVGValue) updateWith(val TypedValue) error {
 	if val.Type() != IntegerType {
 		return ErrNotComparableValues
 	}
