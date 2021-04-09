@@ -83,15 +83,7 @@ We already learned about the following use cases from users:
 - use immudb as an additional hash storage for digital objects checksums
 - store log streams (i. e. audit logs) tamperproof
 
-### Companies using immudb
-
-[eSoftThings ](https://www.esoftthings.com/en/)
-
-[Greentube](https://www.greentube.com/)
-
-[TA Capital](http://www.ta.capital)
-
-[tinaba](https://www.tinaba.bancaprofilo.it/)
+### How to integrate immudb in your application
 
 Integrate immudb into your application using official SDKs already available for the following programming languages:
 
