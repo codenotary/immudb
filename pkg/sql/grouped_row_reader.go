@@ -90,14 +90,16 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 		}
 
 		// Compatible rows get merged
-		for c, v := range gr.currRow.Values {
-			if v.IsAggregatedValue() {
-				val, exists := row.Values[v.(aggregatedValue).selector()]
+		for _, v := range gr.currRow.Values {
+			aggV, isAggregatedValue := v.(AggregatedValue)
+
+			if isAggregatedValue {
+				val, exists := row.Values[aggV.Selector()]
 				if !exists {
 					return nil, ErrColumnDoesNotExist
 				}
 
-				err = gr.currRow.Values[c].UpdateWith(val)
+				err = aggV.updateWith(val)
 				if err != nil {
 					return nil, err
 				}
@@ -149,14 +151,16 @@ func (gr *groupedRowReader) initAggregations() error {
 		}
 	}
 
-	for c, v := range gr.currRow.Values {
-		if v.IsAggregatedValue() {
-			val, exists := gr.currRow.Values[v.(aggregatedValue).selector()]
+	for _, v := range gr.currRow.Values {
+		aggV, isAggregatedValue := v.(AggregatedValue)
+
+		if isAggregatedValue {
+			val, exists := gr.currRow.Values[v.(AggregatedValue).Selector()]
 			if !exists {
 				return ErrColumnDoesNotExist
 			}
 
-			err := gr.currRow.Values[c].UpdateWith(val)
+			err := aggV.updateWith(val)
 			if err != nil {
 				return err
 			}

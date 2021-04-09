@@ -446,8 +446,6 @@ type TypedValue interface {
 	Type() SQLValueType
 	Value() interface{}
 	Compare(val TypedValue) (int, error)
-	IsAggregatedValue() bool
-	UpdateWith(val TypedValue) error
 }
 
 type Number struct {
@@ -491,14 +489,6 @@ func (v *Number) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
-func (v *Number) IsAggregatedValue() bool {
-	return false
-}
-
-func (v *Number) UpdateWith(val TypedValue) error {
-	return ErrColumnIsNotAnAggregation
-}
-
 type String struct {
 	val string
 }
@@ -530,14 +520,6 @@ func (v *String) Compare(val TypedValue) (int, error) {
 	}
 
 	return bytes.Compare([]byte(v.val), []byte(ov.val)), nil
-}
-
-func (v *String) IsAggregatedValue() bool {
-	return false
-}
-
-func (v *String) UpdateWith(val TypedValue) error {
-	return ErrColumnIsNotAnAggregation
 }
 
 type Bool struct {
@@ -581,14 +563,6 @@ func (v *Bool) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
-func (v *Bool) IsAggregatedValue() bool {
-	return false
-}
-
-func (v *Bool) UpdateWith(val TypedValue) error {
-	return ErrColumnIsNotAnAggregation
-}
-
 type Blob struct {
 	val []byte
 }
@@ -620,14 +594,6 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 	}
 
 	return bytes.Compare(v.val, ov.val), nil
-}
-
-func (v *Blob) IsAggregatedValue() bool {
-	return false
-}
-
-func (v *Blob) UpdateWith(val TypedValue) error {
-	return ErrColumnIsNotAnAggregation
 }
 
 type SysFn struct {
