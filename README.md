@@ -36,7 +36,7 @@ immudb is a key-value database with built-in cryptographic proof and verificatio
 
 Unlike blockchains, immudb can handle millions of transactions per second, and can be used both as a lightweight service or embedded in your application as a library.
 
-Companies use immudb to protect credit card transactions and to secure processes by store digital certificates and checksums.
+Companies use immudb to protect credit card transactions and to secure processes by storing digital certificates and checksums.
 
 <img align="right" src="img/immudb-mascot-small.png" width="256px"/>
 
