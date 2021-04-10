@@ -146,7 +146,7 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 	db.tx1 = db.st.NewTx()
 	db.tx2 = db.st.NewTx()
 
-	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte("sql"))
+	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte{SQLPrefix})
 	if err != nil {
 		return nil, logErr(db.Logger, "Unable to open store: %s", err)
 	}
