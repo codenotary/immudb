@@ -23,6 +23,7 @@ Note: The `master` branch is the joint point for all ongoing development efforts
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://immudb.io/careers/)
 [![Tweet about
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
+[![Interactive Playground](https://img.shields.io/badge/Playground-blue?style=flat)](https://play.codenotary.com/)
 
 ```
 Don't forget to ⭐ this repo if you like immudb!
@@ -72,6 +73,8 @@ Benchmarks (v0.8.x):
 | SSD | Throughput: 326626 tx/sec | Throughput: 2772181 tx/sec |
 
 ## Quickstart
+
+>To learn interactively and to get started with immudb from the command line and programming languages, visit the [immudb Playground](https://play.codenotary.com).
 
 Getting immudb up and running is quite simple. For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
 
