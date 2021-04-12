@@ -146,22 +146,22 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 }
 
 func typedValueToRowValue(tv sql.TypedValue) *schema.RowValue {
-	switch v := tv.(type) {
-	case *sql.Number:
+	switch tv.Type() {
+	case sql.IntegerType:
 		{
-			return &schema.RowValue{Operation: &schema.RowValue_N{N: v.Value().(uint64)}}
+			return &schema.RowValue{Operation: &schema.RowValue_N{N: tv.Value().(uint64)}}
 		}
-	case *sql.String:
+	case sql.StringType:
 		{
-			return &schema.RowValue{Operation: &schema.RowValue_S{S: v.Value().(string)}}
+			return &schema.RowValue{Operation: &schema.RowValue_S{S: tv.Value().(string)}}
 		}
-	case *sql.Bool:
+	case sql.BooleanType:
 		{
-			return &schema.RowValue{Operation: &schema.RowValue_V{V: v.Value().(bool)}}
+			return &schema.RowValue{Operation: &schema.RowValue_V{V: tv.Value().(bool)}}
 		}
-	case *sql.Blob:
+	case sql.BLOBType:
 		{
-			return &schema.RowValue{Operation: &schema.RowValue_B{B: v.Value().([]byte)}}
+			return &schema.RowValue{Operation: &schema.RowValue_B{B: tv.Value().([]byte)}}
 		}
 	}
 	return nil
