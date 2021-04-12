@@ -46,6 +46,9 @@ import (
 	"github.com/codenotary/immudb/cmd/helper"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
+
+	"github.com/codenotary/immudb/webconsole"
+
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -199,9 +202,12 @@ func (s *ImmuServer) Initialize() error {
 		return err
 	}
 
+	restMux := http.NewServeMux()
+	restMux.Handle("/", mux)
+	restMux.Handle("/ui", http.StripPrefix("/ui", http.FileServer(http.FS(webconsole.FS))))
 	s.restServer = &http.Server{
-		Addr:    "0.0.0.0",
-		Handler: mux,
+		Addr:    s.Options.Address,
+		Handler: restMux,
 	}
 	
 	return err
