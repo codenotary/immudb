@@ -58,8 +58,16 @@ func (pr *projectedRowReader) Columns() []*ColDescriptor {
 			colType = IntegerType
 		}
 
+		var encSel string
+
+		if sel.alias() == "" {
+			encSel = EncodeSelector(aggFn, db, table, col)
+		} else {
+			encSel = EncodeSelector((&ColSelector{col: sel.alias()}).resolve(pr.ImplicitDB(), pr.Alias()))
+		}
+
 		colDescriptors[i] = &ColDescriptor{
-			ColName: EncodeSelector(aggFn, db, table, col),
+			ColName: encSel,
 			ColType: colType,
 		}
 	}
@@ -87,10 +95,8 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 			return nil, ErrInvalidColumn
 		}
 
-		selAlias := sel.alias()
-
-		if selAlias != "" {
-			asel := &ColSelector{col: selAlias}
+		if sel.alias() != "" {
+			asel := &ColSelector{col: sel.alias()}
 			c = EncodeSelector(asel.resolve(prow.ImplicitDB, prow.ImplictTable))
 		}
 
