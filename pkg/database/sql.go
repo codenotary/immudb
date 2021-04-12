@@ -102,6 +102,7 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 
 	cols := make([]*schema.Column, len(r.Columns()))
 
@@ -119,6 +120,9 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 		if err == sql.ErrNoMoreRows {
 			break
 		}
+		if err != nil {
+			return nil, err
+		}
 
 		rrow := &schema.Row{
 			Values: make([]*schema.RowValue, len(row.Values)),
@@ -135,11 +139,6 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 		}
 
 		res.Rows = append(res.Rows, rrow)
-	}
-
-	err = r.Close()
-	if err != nil {
-		return nil, err
 	}
 
 	return res, nil
