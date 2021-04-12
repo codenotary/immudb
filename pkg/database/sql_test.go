@@ -17,7 +17,6 @@ package database
 
 import (
 	"testing"
-	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
@@ -28,12 +27,10 @@ func TestSQLExecAndQuery(t *testing.T) {
 	defer closer()
 
 	md, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
-		CREATE DATABASE db1
-		USE DATABASE db1
 		CREATE TABLE table1(id INTEGER, title STRING, PRIMARY KEY id)
 	`})
 	require.NoError(t, err)
-	require.Len(t, md.Ctxs, 2)
+	require.Len(t, md.Ctxs, 1)
 	require.Len(t, md.Dtxs, 0)
 
 	md, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
@@ -43,12 +40,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, md.Ctxs, 0)
 	require.Len(t, md.Dtxs, 1)
 
-	time.Sleep(100 * time.Millisecond)
-
-	//	params := []*schema.NamedParam{&schema.NamedParam{Name: "maxID", Value: 3}}
-	var params []*schema.NamedParam
-
-	res, err := db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT id, title FROM table1 WHERE id < 3", Params: params, Limit: 10})
+	res, err := db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT id as d, title FROM table1 WHERE d < 3", Params: nil, Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
 }
