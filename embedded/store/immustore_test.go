@@ -119,15 +119,15 @@ func TestImmudbStoreConcurrency(t *testing.T) {
 }
 
 func TestImmudbStoreConcurrentCommits(t *testing.T) {
-	opts := DefaultOptions().WithSynced(true).WithMaxConcurrency(10)
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(5)
 	immuStore, err := Open("data_concurrent_commits", opts)
 	require.NoError(t, err)
 	defer os.RemoveAll("data_concurrent_commits")
 
 	require.NotNil(t, immuStore)
 
-	txCount := 10
-	eCount := 1000
+	txCount := 100
+	eCount := 100
 
 	var wg sync.WaitGroup
 	wg.Add(10)
@@ -139,7 +139,7 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 
 	for c := 0; c < 10; c++ {
 		go func(tx *Tx) {
-			for i := 0; i < txCount; i++ {
+			for c := 0; c < txCount; {
 				kvs := make([]*KV, eCount)
 
 				for j := 0; j < eCount; j++ {
@@ -147,12 +147,16 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 					binary.BigEndian.PutUint64(k, uint64(j))
 
 					v := make([]byte, 8)
-					binary.BigEndian.PutUint64(v, uint64(i))
+					binary.BigEndian.PutUint64(v, uint64(c))
 
 					kvs[j] = &KV{Key: k, Value: v}
 				}
 
 				md, err := immuStore.Commit(kvs, false)
+				if err == ErrMaxConcurrencyLimitExceeded {
+					time.Sleep(1 * time.Millisecond)
+					continue
+				}
 				if err != nil {
 					panic(err)
 				}
@@ -168,6 +172,8 @@ func TestImmudbStoreConcurrentCommits(t *testing.T) {
 						panic(err)
 					}
 				}
+
+				c++
 			}
 
 			wg.Done()
