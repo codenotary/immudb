@@ -916,6 +916,7 @@ func (s *ImmuStore) appendData(entries []*KV, donec chan<- appendableResult) {
 	err := vLog.Flush()
 	if err != nil {
 		donec <- appendableResult{nil, err}
+		return
 	}
 
 	donec <- appendableResult{offsets, nil}
@@ -939,6 +940,7 @@ func (s *ImmuStore) Commit(entries []*KV, waitForIndexing bool) (*TxMetadata, er
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
+		<-appendableCh // wait for data to be written
 		return nil, err
 	}
 	defer s.releaseAllocTx(tx)
@@ -1157,6 +1159,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index *tbtree.TBtree) 
 
 	tx, err := s.fetchAllocTx()
 	if err != nil {
+		<-appendableCh // wait for data to be writen
 		return nil, err
 	}
 	defer s.releaseAllocTx(tx)
