@@ -841,22 +841,21 @@ func decodeOffset(offset int64) (byte, int64) {
 
 func (s *ImmuStore) fetchAnyVLog() (vLodID byte, vLog appendable.Appendable) {
 	s.vLogsCond.L.Lock()
+	defer s.vLogsCond.L.Unlock()
 
 	for s.vLogUnlockedList.Len() == 0 {
 		s.vLogsCond.Wait()
 	}
 
 	vLogID := s.vLogUnlockedList.Remove(s.vLogUnlockedList.Front()).(byte) + 1
-
 	s.vLogs[vLogID-1].unlockedRef = nil // locked
-
-	s.vLogsCond.L.Unlock()
 
 	return vLogID, s.vLogs[vLogID-1].vLog
 }
 
 func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Appendable, err error) {
 	s.vLogsCond.L.Lock()
+	defer s.vLogsCond.L.Unlock()
 
 	for s.vLogs[vLogID-1].unlockedRef == nil {
 		if checkClosed {
@@ -876,8 +875,6 @@ func (s *ImmuStore) fetchVLog(vLogID byte, checkClosed bool) (vLog appendable.Ap
 
 	s.vLogUnlockedList.Remove(s.vLogs[vLogID-1].unlockedRef)
 	s.vLogs[vLogID-1].unlockedRef = nil // locked
-
-	s.vLogsCond.L.Unlock()
 
 	return s.vLogs[vLogID-1].vLog, nil
 }
@@ -1495,11 +1492,12 @@ func (s *ImmuStore) Sync() error {
 
 	for i := range s.vLogs {
 		vLog, _ := s.fetchVLog(i+1, false)
+		defer s.releaseVLog(i + 1)
+
 		err := vLog.Sync()
 		if err != nil {
 			return err
 		}
-		s.releaseVLog(i + 1)
 	}
 
 	err := s.txLog.Sync()
