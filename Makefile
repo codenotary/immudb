@@ -22,6 +22,7 @@ SERVICE_EXE=${SERVICE_NAME}-v${VERSION}-windows-amd64.exe
 
 PWD = $(shell pwd)
 GO ?= go
+GOPATH ?= $(shell go env GOPATH)
 DOCKER ?= docker
 PROTOC ?= protoc
 STRIP = strip
@@ -97,27 +98,27 @@ coverage:
 .PHONY: build/codegen
 build/codegen:
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
-	-I${GOPATH}/pkg/mod \
-	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
-	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	-I$(GOPATH)/pkg/mod \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
 	--go_out=plugins=grpc,paths=source_relative:pkg/api/schema
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
-	-I${GOPATH}/pkg/mod \
-	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
-	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	-I$(GOPATH)/pkg/mod \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
   	--grpc-gateway_out=logtostderr=true,paths=source_relative:pkg/api/schema \
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
-	-I${GOPATH}/pkg/mod \
-	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
-	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	-I$(GOPATH)/pkg/mod \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
   	--swagger_out=logtostderr=true:pkg/api/schema
 
 	$(PROTOC) -I pkg/api/schema/ pkg/api/schema/schema.proto \
-	-I${GOPATH}/pkg/mod \
-	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
-	-I${GOPATH}/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
+	-I$(GOPATH)/pkg/mod \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4/third_party/googleapis \
+	-I$(GOPATH)/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.4 \
 	--doc_out=pkg/api/schema --doc_opt=markdown,docs.md \
 
 .PHONY: clean
@@ -165,19 +166,7 @@ man:
 
 .PHONY: prerequisites
 prerequisites:
-	wget https://github.com/protocolbuffers/protobuf/releases/download/v3.11.4/protoc-3.11.4-linux-x86_64.zip -O /tmp/protoc.zip
-	unzip -o /tmp/protoc.zip -d $(GOPATH)/bin
-	rm -rf $(GOPATH)/pkg/mod/google
-	mv $(GOPATH)/bin/include/google $(GOPATH)/pkg/mod
-	rmdir $(GOPATH)/bin/include
-	rm /tmp/protoc.zip
-	go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
-	go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
-	go get -u google.golang.org/grpc
-	go get -u github.com/golang/protobuf/
-	go get -u github.com/golang/protobuf/proto
-	go get -u github.com/golang/protobuf/protoc-gen-go
-	go get -u github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc
+	cat tools.go | grep _ | awk -F'"' '{print $2}' | xargs -tI % go install %
 
 ########################## releases scripts ############################################################################
 .PHONY: CHANGELOG.md
