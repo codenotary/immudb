@@ -23,6 +23,10 @@ import (
 
 func RenderValue(op isRowValue_Operation) string {
 	switch v := op.(type) {
+	case *RowValue_Null:
+		{
+			return "NULL"
+		}
 	case *RowValue_N:
 		{
 			return strconv.FormatInt(int64(v.N), 10)
