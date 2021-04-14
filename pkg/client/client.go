@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -483,15 +484,23 @@ func (c *immuClient) Logout(ctx context.Context) error {
 		return ErrNotConnected
 	}
 
-	if err := c.Tkns.DeleteToken(); err != nil {
+	if _, err := c.ServiceClient.Logout(ctx, new(empty.Empty)); err != nil {
 		return err
 	}
 
-	_, err := c.ServiceClient.Logout(ctx, new(empty.Empty))
+	tokenFileExists, err := c.Tkns.IsTokenPresent()
+	if err != nil {
+		return fmt.Errorf("error checking if token file exists: %v", err)
+	}
+	if tokenFileExists {
+		if err := c.Tkns.DeleteToken(); err != nil {
+			return fmt.Errorf("error deleting token file during logout: %v", err)
+		}
+	}
 
 	c.Logger.Debugf("logout finished in %s", time.Since(start))
 
-	return err
+	return nil
 }
 
 // CurrentState returns current database state
