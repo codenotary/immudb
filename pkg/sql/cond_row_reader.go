@@ -15,11 +15,8 @@ limitations under the License.
 */
 package sql
 
-import "github.com/codenotary/immudb/embedded/store"
-
 type conditionalRowReader struct {
-	e    *Engine
-	snap *store.Snapshot
+	e *Engine
 
 	rowReader RowReader
 
@@ -28,14 +25,9 @@ type conditionalRowReader struct {
 	params map[string]interface{}
 }
 
-func (e *Engine) newConditionalRowReader(snap *store.Snapshot, rowReader RowReader, condition ValueExp, params map[string]interface{}) (*conditionalRowReader, error) {
-	if snap == nil {
-		return nil, ErrIllegalArguments
-	}
-
+func (e *Engine) newConditionalRowReader(rowReader RowReader, condition ValueExp, params map[string]interface{}) (*conditionalRowReader, error) {
 	return &conditionalRowReader{
 		e:         e,
-		snap:      snap,
 		rowReader: rowReader,
 		condition: condition,
 		params:    params,
@@ -46,7 +38,11 @@ func (cr *conditionalRowReader) ImplicitDB() string {
 	return cr.rowReader.ImplicitDB()
 }
 
-func (cr *conditionalRowReader) Columns() []*ColDescriptor {
+func (cr *conditionalRowReader) ImplicitTable() string {
+	return cr.rowReader.ImplicitTable()
+}
+
+func (cr *conditionalRowReader) Columns() (map[string]SQLValueType, error) {
 	return cr.rowReader.Columns()
 }
 
@@ -62,7 +58,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		r, err := cond.reduce(row, row.ImplicitDB, row.ImplictTable)
+		r, err := cond.reduce(row, cr.ImplicitDB(), cr.ImplicitTable())
 		if err != nil {
 			return nil, err
 		}
@@ -76,10 +72,6 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return row, err
 		}
 	}
-}
-
-func (cr *conditionalRowReader) Alias() string {
-	return cr.rowReader.Alias()
 }
 
 func (cr *conditionalRowReader) Close() error {

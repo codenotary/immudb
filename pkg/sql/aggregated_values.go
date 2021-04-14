@@ -20,6 +20,7 @@ type AggregatedValue interface {
 	TypedValue
 	updateWith(val TypedValue) error
 	Selector() string
+	ColBounded() bool
 }
 
 type CountValue struct {
@@ -29,6 +30,10 @@ type CountValue struct {
 
 func (v *CountValue) Selector() string {
 	return v.sel
+}
+
+func (v *CountValue) ColBounded() bool {
+	return false
 }
 
 func (v *CountValue) Type() SQLValueType {
@@ -69,6 +74,10 @@ type SumValue struct {
 
 func (v *SumValue) Selector() string {
 	return v.sel
+}
+
+func (v *SumValue) ColBounded() bool {
+	return true
 }
 
 func (v *SumValue) Type() SQLValueType {
@@ -114,6 +123,10 @@ type MinValue struct {
 
 func (v *MinValue) Selector() string {
 	return v.sel
+}
+
+func (v *MinValue) ColBounded() bool {
+	return true
 }
 
 func (v *MinValue) Type() SQLValueType {
@@ -163,6 +176,10 @@ func (v *MaxValue) Selector() string {
 	return v.sel
 }
 
+func (v *MaxValue) ColBounded() bool {
+	return true
+}
+
 func (v *MaxValue) Type() SQLValueType {
 	return v.val.Type()
 }
@@ -209,6 +226,10 @@ type AVGValue struct {
 
 func (v *AVGValue) Selector() string {
 	return v.sel
+}
+
+func (v *AVGValue) ColBounded() bool {
+	return true
 }
 
 func (v *AVGValue) Type() SQLValueType {

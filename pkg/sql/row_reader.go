@@ -25,21 +25,14 @@ import (
 
 type RowReader interface {
 	ImplicitDB() string
-	Alias() string
+	ImplicitTable() string
 	Read() (*Row, error)
 	Close() error
-	Columns() []*ColDescriptor
-}
-
-type ColDescriptor struct {
-	ColName string
-	ColType SQLValueType
+	Columns() (map[string]SQLValueType, error)
 }
 
 type Row struct {
-	ImplicitDB   string
-	ImplictTable string
-	Values       map[string]TypedValue
+	Values map[string]TypedValue
 }
 
 // rows are selector-compatible if both rows have the same assigned value for all specified selectors
@@ -75,14 +68,14 @@ type rawRowReader struct {
 	implicitDB     string
 	snap           *store.Snapshot
 	table          *Table
-	colDescriptors []*ColDescriptor
-	alias          string
+	tableAlias     string
+	colDescriptors map[string]SQLValueType
 	col            string
 	desc           bool
 	reader         *store.KeyReader
 }
 
-func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, alias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
+func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, tableAlias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
 	if snap == nil || table == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -128,16 +121,15 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, alias strin
 		return nil, err
 	}
 
-	if alias == "" {
-		alias = table.name
+	if tableAlias == "" {
+		tableAlias = table.name
 	}
 
-	colDescriptors := make([]*ColDescriptor, len(table.colsByID))
+	colDescriptors := make(map[string]SQLValueType, len(table.colsByID))
 
-	i := 0
 	for _, c := range table.colsByID {
-		colDescriptors[i] = &ColDescriptor{ColName: c.colName, ColType: c.colType}
-		i++
+		encSel := EncodeSelector("", table.db.name, tableAlias, c.colName)
+		colDescriptors[encSel] = c.colType
 	}
 
 	return &rawRowReader{
@@ -146,7 +138,7 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, alias strin
 		snap:           snap,
 		table:          table,
 		colDescriptors: colDescriptors,
-		alias:          alias,
+		tableAlias:     tableAlias,
 		col:            col.colName,
 		desc:           rSpec.DescOrder,
 		reader:         r,
@@ -157,8 +149,12 @@ func (r *rawRowReader) ImplicitDB() string {
 	return r.implicitDB
 }
 
-func (r *rawRowReader) Columns() []*ColDescriptor {
-	return r.colDescriptors
+func (r *rawRowReader) ImplicitTable() string {
+	return r.tableAlias
+}
+
+func (r *rawRowReader) Columns() (map[string]SQLValueType, error) {
+	return r.colDescriptors, nil
 }
 
 func (r *rawRowReader) Read() (*Row, error) {
@@ -218,18 +214,12 @@ func (r *rawRowReader) Read() (*Row, error) {
 		}
 
 		voff += n
-		values[EncodeSelector("", r.table.db.name, r.alias, colName)] = val
+		values[EncodeSelector("", r.table.db.name, r.tableAlias, colName)] = val
 	}
 
-	return &Row{ImplicitDB: r.e.implicitDB, ImplictTable: r.alias, Values: values}, nil
-}
-
-func (r *rawRowReader) Alias() string {
-	return r.alias
+	return &Row{Values: values}, nil
 }
 
 func (r *rawRowReader) Close() error {
-	defer r.snap.Close()
-
 	return r.reader.Close()
 }

@@ -104,13 +104,15 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 	}
 	defer r.Close()
 
-	cols := make([]*schema.Column, len(r.Columns()))
+	var cols []*schema.Column
 
-	for i, c := range r.Columns() {
-		cols[i] = &schema.Column{
-			Name: c.ColName,
-			Type: c.ColType,
-		}
+	colDescriptors, err := r.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	for c, t := range colDescriptors {
+		cols = append(cols, &schema.Column{Name: c, Type: t})
 	}
 
 	res := &schema.SQLQueryResult{Columns: cols}
