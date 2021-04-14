@@ -306,6 +306,58 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestQueryWithNullables(t *testing.T) {
+	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("catalog")
+
+	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	require.NoError(t, err)
+	defer os.RemoveAll("sqldata")
+
+	engine, err := NewEngine(catalogStore, dataStore, prefix)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title STRING, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
+
+	rowCount := 10
+
+	start := time.Now().UnixNano()
+
+	for i := 0; i < rowCount; i++ {
+		_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, ts, title) VALUES (%d, NOW(), 'title%d')", i, i), nil, true)
+		require.NoError(t, err)
+	}
+
+	r, err := engine.QueryStmt("SELECT id, ts, title, active FROM table1", nil)
+	require.NoError(t, err)
+
+	cols, err := r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 4)
+
+	for i := 0; i < rowCount; i++ {
+		row, err := r.Read()
+		require.NoError(t, err)
+		require.NotNil(t, row)
+		require.Len(t, row.Values, 4)
+		require.Less(t, uint64(start), row.Values[EncodeSelector("", "db1", "table1", "ts")].Value())
+		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
+		require.Nil(t, row.Values[EncodeSelector("", "db1", "table1", "active")])
+	}
+
+	err = r.Close()
+	require.NoError(t, err)
+}
+
 func TestOrderBy(t *testing.T) {
 	catalogStore, err := store.Open("catalog", store.DefaultOptions())
 	require.NoError(t, err)
