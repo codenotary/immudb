@@ -19,6 +19,7 @@ syntax = "proto3";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "protoc-gen-swagger/options/annotations.proto";
+import "google/protobuf/struct.proto";
 
 package immudb.schema;
 
@@ -396,10 +397,11 @@ message Row {
 
 message RowValue {
 	oneof operation {
-		uint64 n = 1;
-		string s = 2;
-		bool v = 3;
-		bytes b = 4;
+		google.protobuf.NullValue null = 1;
+		uint64 n = 2;
+		string s = 3;
+		bool v = 4;
+		bytes b = 5;
 	}
 }
 
