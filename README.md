@@ -16,8 +16,6 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Homebrew](https://img.shields.io/homebrew/v/immudb)](https://formulae.brew.sh/formula/immudb)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Note: The `master` branch is the joint point for all ongoing development efforts. Thus it may be in an `unstable` state and should not be used in production deployments. Please use the latest release in order to get stable binaries.
-
 [![Discord](https://img.shields.io/discord/831257098368319569)](https://discord.gg/pZnR7QC6)
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://immudb.io/careers/)
 [![Tweet about
@@ -75,7 +73,11 @@ Benchmarks (v0.8.x):
 
 ## Quickstart
 
->To learn interactively and to get started with immudb from the command line and programming languages, visit the [immudb Playground](https://play.codenotary.com).
+<div style="display: flex; justify-content: center">
+<img src="img/playground2.png" style="flex-basis: 1"/>
+</div>
+
+To learn interactively and to get started with immudb from the command line and programming languages, visit the [immudb Playground](https://play.codenotary.com).
 
 Getting immudb up and running is quite simple. For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
 
