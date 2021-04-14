@@ -17,13 +17,15 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/fs"
 	"log"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/fs"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/database"
@@ -1094,22 +1096,56 @@ func TestImmuClient_Logout(t *testing.T) {
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
 
-	ts := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
-	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).WithTokenService(ts))
-	if err != nil {
-		log.Fatal(err)
+	ts1 := NewTokenService().WithTokenFileName("testTokenFile").WithHds(DefaultHomedirServiceMock())
+	ts2 := &TokenServiceMock{
+		TokenService: ts1,
+		GetTokenF:    ts1.GetToken,
+		SetTokenF:    ts1.SetToken,
+		DeleteTokenF: ts1.DeleteToken,
+		IsTokenPresentF: func() (bool, error) {
+			return false, errors.New("some IsTokenPresent error")
+		},
 	}
-	lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
-	if err != nil {
-		log.Fatal(err)
+	ts3 := *ts2
+	ts3.DeleteTokenF = func() error {
+		return errors.New("some DeleteToken error")
 	}
-	md := metadata.Pairs("authorization", lr.Token)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	ts3.IsTokenPresentF = func() (bool, error) {
+		return true, nil
+	}
+	tokenServices := []TokenService{ts1, ts2, &ts3}
+	expectations := []func(error){
+		func(err error) { require.Nil(t, err) },
+		func(err error) {
+			require.NotNil(t, err)
+			require.Contains(t, err.Error(), "some IsTokenPresent error")
+		},
+		func(err error) {
+			require.NotNil(t, err)
+			require.Contains(t, err.Error(), "some DeleteToken error")
+		},
+	}
 
-	err = client.Logout(ctx)
+	for i, expect := range expectations {
+		clientOpts := DefaultOptions().
+			WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}).
+			WithTokenService(tokenServices[i])
+		client, err := NewImmuClient(clientOpts)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	require.Nil(t, err)
-	client.Disconnect()
+		lr, err := client.Login(context.TODO(), []byte(`immudb`), []byte(`immudb`))
+		if err != nil {
+			log.Fatal(err)
+		}
+		md := metadata.Pairs("authorization", lr.Token)
+		ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+		err = client.Logout(ctx)
+		expect(err)
+		client.Disconnect()
+	}
 }
 
 func TestImmuClient_GetServiceClient(t *testing.T) {
