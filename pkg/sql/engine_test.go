@@ -241,8 +241,12 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, ts, title, payload, active FROM table1", nil)
+	r, err := engine.QueryStmt("SELECT t1.id AS id, ts, title, payload, active FROM (table1 AS t1) AS table1", nil)
 	require.NoError(t, err)
+
+	cols, err := r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 5)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
@@ -517,23 +521,27 @@ func TestAggregations(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT COUNT(*), SUM(age), MIN(age), MAX(age), AVG(age) FROM table1", nil)
+	r, err := engine.QueryStmt("SELECT COUNT(*) AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil)
 	require.NoError(t, err)
+
+	cols, err := r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 5)
 
 	row, err := r.Read()
 	require.NoError(t, err)
 	require.NotNil(t, row)
 	require.Len(t, row.Values, 5)
 
-	require.Equal(t, uint64(rowCount), row.Values[EncodeSelector("COUNT", "db1", "table1", "*")].Value())
+	require.Equal(t, uint64(rowCount), row.Values[EncodeSelector("", "db1", "t1", "c")].Value())
 
-	require.Equal(t, uint64((1+2*base+rowCount)*rowCount/2), row.Values[EncodeSelector("SUM", "db1", "table1", "age")].Value())
+	require.Equal(t, uint64((1+2*base+rowCount)*rowCount/2), row.Values[EncodeSelector("", "db1", "t1", "col1")].Value())
 
-	require.Equal(t, uint64(1+base), row.Values[EncodeSelector("MIN", "db1", "table1", "age")].Value())
+	require.Equal(t, uint64(1+base), row.Values[EncodeSelector("", "db1", "t1", "col2")].Value())
 
-	require.Equal(t, uint64(base+rowCount), row.Values[EncodeSelector("MAX", "db1", "table1", "age")].Value())
+	require.Equal(t, uint64(base+rowCount), row.Values[EncodeSelector("", "db1", "t1", "col3")].Value())
 
-	require.Equal(t, uint64(base+rowCount/2), row.Values[EncodeSelector("AVG", "db1", "table1", "age")].Value())
+	require.Equal(t, uint64(base+rowCount/2), row.Values[EncodeSelector("", "db1", "t1", "col4")].Value())
 
 	_, err = r.Read()
 	require.Equal(t, ErrNoMoreRows, err)
@@ -580,7 +588,7 @@ func TestGroupByHaving(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT active, COUNT(*), MIN(age), MAX(age) FROM table1 GROUP BY active HAVING COUNT(*) > 0 ORDER BY active DESC", nil)
+	r, err := engine.QueryStmt("SELECT active, COUNT(*) as c, MIN(age), MAX(age) FROM table1 GROUP BY active HAVING COUNT(*) > 0 ORDER BY active DESC", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < 2; i++ {
@@ -589,14 +597,16 @@ func TestGroupByHaving(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
 
-		require.Equal(t, uint64(rowCount/2), row.Values[EncodeSelector("COUNT", "db1", "table1", "*")].Value())
+		require.Equal(t, i == 0, row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
+
+		require.Equal(t, uint64(rowCount/2), row.Values[EncodeSelector("", "db1", "table1", "c")].Value())
 
 		if i%2 == 0 {
-			require.Equal(t, uint64(base), row.Values[EncodeSelector("MIN", "db1", "table1", "age")].Value())
-			require.Equal(t, uint64(base+rowCount-2), row.Values[EncodeSelector("MAX", "db1", "table1", "age")].Value())
+			require.Equal(t, uint64(base), row.Values[EncodeSelector("", "db1", "table1", "col2")].Value())
+			require.Equal(t, uint64(base+rowCount-2), row.Values[EncodeSelector("", "db1", "table1", "col3")].Value())
 		} else {
-			require.Equal(t, uint64(base+1), row.Values[EncodeSelector("MIN", "db1", "table1", "age")].Value())
-			require.Equal(t, uint64(base+rowCount-1), row.Values[EncodeSelector("MAX", "db1", "table1", "age")].Value())
+			require.Equal(t, uint64(base+1), row.Values[EncodeSelector("", "db1", "table1", "col2")].Value())
+			require.Equal(t, uint64(base+rowCount-1), row.Values[EncodeSelector("", "db1", "table1", "col3")].Value())
 		}
 	}
 
@@ -725,8 +735,12 @@ func TestNestedJoins(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, table2.amount AS amount, table3.age AS age FROM table1 INNER JOIN table2 ON fkid1 = table2.id INNER JOIN table3 ON table2.fkid1 = table3.id ORDER BY id DESC", nil)
+	r, err := engine.QueryStmt("SELECT id, title, t2.amount AS totalAmount, t3.age FROM (table1 AS t1) INNER JOIN (table2 as t2) ON fkid1 = t2.id INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id ORDER BY id DESC", nil)
 	require.NoError(t, err)
+
+	cols, err := r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 4)
 
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
@@ -734,10 +748,10 @@ func TestNestedJoins(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 4)
 
-		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
-		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table1", "amount")].Value())
-		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "table1", "age")].Value())
+		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "t1", "id")].Value())
+		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "t1", "title")].Value())
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "t2", "totalAmount")].Value())
+		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "t3", "age")].Value())
 	}
 
 	err = r.Close()
@@ -823,8 +837,12 @@ func TestSubQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title AS t FROM (SELECT id, title, active FROM table1 as table2) WHERE active", nil)
+	r, err := engine.QueryStmt("SELECT id, title AS t FROM (SELECT id, title, active FROM table1 AS table2) WHERE active AND table2.id >= 0", nil)
 	require.NoError(t, err)
+
+	cols, err := r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 2)
 
 	for i := 0; i < rowCount; i += 2 {
 		row, err := r.Read()

@@ -671,7 +671,8 @@ const (
 )
 
 type DataSource interface {
-	Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol, alias string) (RowReader, error)
+	Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error)
+	Alias() string
 }
 
 type SelectStmt struct {
@@ -737,7 +738,7 @@ func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (
 	return nil, nil, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol, alias string) (RowReader, error) {
+func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
 	// Ordering is only supported at TableRef level
 	if ordCol != nil {
 		return nil, ErrLimitedOrderBy
@@ -749,7 +750,7 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 		orderByCol = stmt.orderBy[0]
 	}
 
-	rowReader, err := stmt.ds.Resolve(e, snap, params, orderByCol, stmt.as)
+	rowReader, err := stmt.ds.Resolve(e, snap, params, orderByCol)
 	if err != nil {
 		return nil, err
 	}
@@ -762,7 +763,7 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 	}
 
 	if stmt.where != nil {
-		rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.where, params)
+		rowReader, err = e.newConditionalRowReader(rowReader, stmt.where, params)
 		if err != nil {
 			return nil, err
 		}
@@ -782,20 +783,24 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 			groupBy = stmt.groupBy
 		}
 
-		rowReader, err = e.newGroupedRowReader(snap, rowReader, stmt.selectors, groupBy)
+		rowReader, err = e.newGroupedRowReader(rowReader, stmt.selectors, groupBy)
 		if err != nil {
 			return nil, err
 		}
 
 		if stmt.having != nil {
-			rowReader, err = e.newConditionalRowReader(snap, rowReader, stmt.having, params)
+			rowReader, err = e.newConditionalRowReader(rowReader, stmt.having, params)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	return e.newProjectedRowReader(snap, rowReader, stmt.selectors)
+	return e.newProjectedRowReader(rowReader, stmt.as, stmt.selectors)
+}
+
+func (stmt *SelectStmt) Alias() string {
+	return stmt.as
 }
 
 type TableRef struct {
@@ -836,7 +841,7 @@ func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
 	return table, nil
 }
 
-func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol, alias string) (RowReader, error) {
+func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
 	if e == nil || snap == nil || (ordCol != nil && ordCol.sel == nil) {
 		return nil, ErrIllegalArguments
 	}
@@ -887,7 +892,11 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string
 		}
 	}
 
-	return e.newRawRowReader(snap, table, alias, colName, cmp, initKeyVal)
+	return e.newRawRowReader(snap, table, stmt.as, colName, cmp, initKeyVal)
+}
+
+func (stmt *TableRef) Alias() string {
+	return stmt.as
 }
 
 type JoinSpec struct {

@@ -40,7 +40,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, md.Ctxs, 0)
 	require.Len(t, md.Dtxs, 1)
 
-	res, err := db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT id as d, title FROM table1 WHERE d < 3", Params: nil, Limit: 10})
+	res, err := db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id as d FROM (table1 as t) WHERE id < 3", Params: nil, Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
 }

@@ -15,27 +15,28 @@ limitations under the License.
 */
 package sql
 
-import "github.com/codenotary/immudb/embedded/store"
+import "fmt"
 
 type projectedRowReader struct {
-	e    *Engine
-	snap *store.Snapshot
+	e *Engine
 
 	rowReader RowReader
+
+	tableAlias string
 
 	selectors []Selector
 }
 
-func (e *Engine) newProjectedRowReader(snap *store.Snapshot, rowReader RowReader, selectors []Selector) (*projectedRowReader, error) {
-	if snap == nil || len(selectors) == 0 {
+func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector) (*projectedRowReader, error) {
+	if len(selectors) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
 	return &projectedRowReader{
-		e:         e,
-		snap:      snap,
-		rowReader: rowReader,
-		selectors: selectors,
+		e:          e,
+		rowReader:  rowReader,
+		tableAlias: tableAlias,
+		selectors:  selectors,
 	}, nil
 }
 
@@ -43,36 +44,53 @@ func (pr *projectedRowReader) ImplicitDB() string {
 	return pr.rowReader.ImplicitDB()
 }
 
-func (pr *projectedRowReader) Columns() []*ColDescriptor {
-	colDescriptors := make([]*ColDescriptor, len(pr.selectors))
-
-	for i, sel := range pr.selectors {
-		aggFn, db, table, col := sel.resolve(pr.ImplicitDB(), pr.Alias())
-
-		var colType SQLValueType
-
-		if aggFn == "" || aggFn == MAX || aggFn == MIN {
-			colType = pr.e.catalog.dbsByName[db].tablesByName[table].colsByName[col].colType
-		} else {
-			// COUNT, SUM, AVG
-			colType = IntegerType
-		}
-
-		var encSel string
-
-		if sel.alias() == "" {
-			encSel = EncodeSelector(aggFn, db, table, col)
-		} else {
-			encSel = EncodeSelector((&ColSelector{col: sel.alias()}).resolve(pr.ImplicitDB(), pr.Alias()))
-		}
-
-		colDescriptors[i] = &ColDescriptor{
-			ColName: encSel,
-			ColType: colType,
-		}
+func (pr *projectedRowReader) ImplicitTable() string {
+	if pr.tableAlias == "" {
+		return pr.rowReader.ImplicitTable()
 	}
 
-	return colDescriptors
+	return pr.tableAlias
+}
+
+func (pr *projectedRowReader) Columns() (map[string]SQLValueType, error) {
+	colDescriptors := make(map[string]SQLValueType, len(pr.selectors))
+
+	dsColDescriptors, err := pr.rowReader.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	for i, sel := range pr.selectors {
+		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
+
+		encSel := EncodeSelector(aggFn, db, table, col)
+
+		colDesc, ok := dsColDescriptors[encSel]
+		if !ok {
+			return nil, ErrColumnDoesNotExist
+		}
+
+		if pr.tableAlias != "" {
+			db = pr.ImplicitDB()
+			table = pr.tableAlias
+		}
+
+		if aggFn == "" && sel.alias() != "" {
+			col = sel.alias()
+		}
+
+		if aggFn != "" {
+			aggFn = ""
+			col = sel.alias()
+			if col == "" {
+				col = fmt.Sprintf("col%d", i)
+			}
+		}
+
+		colDescriptors[EncodeSelector(aggFn, db, table, col)] = colDesc
+	}
+
+	return colDescriptors, nil
 }
 
 func (pr *projectedRowReader) Read() (*Row, error) {
@@ -82,32 +100,40 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 	}
 
 	prow := &Row{
-		ImplicitDB:   row.ImplicitDB,
-		ImplictTable: row.ImplictTable,
-		Values:       make(map[string]TypedValue, len(pr.selectors)),
+		Values: make(map[string]TypedValue, len(pr.selectors)),
 	}
 
-	for _, sel := range pr.selectors {
-		c := EncodeSelector(sel.resolve(prow.ImplicitDB, prow.ImplictTable))
+	for i, sel := range pr.selectors {
+		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
 
-		val, ok := row.Values[c]
+		encSel := EncodeSelector(aggFn, db, table, col)
+
+		val, ok := row.Values[encSel]
 		if !ok {
-			return nil, ErrInvalidColumn
+			val = nil
 		}
 
-		if sel.alias() != "" {
-			asel := &ColSelector{col: sel.alias()}
-			c = EncodeSelector(asel.resolve(prow.ImplicitDB, prow.ImplictTable))
+		if pr.tableAlias != "" {
+			db = pr.ImplicitDB()
+			table = pr.tableAlias
 		}
 
-		prow.Values[c] = val
+		if aggFn == "" && sel.alias() != "" {
+			col = sel.alias()
+		}
+
+		if aggFn != "" {
+			aggFn = ""
+			col = sel.alias()
+			if col == "" {
+				col = fmt.Sprintf("col%d", i)
+			}
+		}
+
+		prow.Values[EncodeSelector(aggFn, db, table, col)] = val
 	}
 
 	return prow, nil
-}
-
-func (pr *projectedRowReader) Alias() string {
-	return pr.rowReader.Alias()
 }
 
 func (pr *projectedRowReader) Close() error {
