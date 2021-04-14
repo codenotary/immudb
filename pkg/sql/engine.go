@@ -59,6 +59,7 @@ var ErrNotComparableValues = errors.New("values are not comparable")
 var ErrUnexpected = errors.New("unexpected error")
 var ErrMaxKeyLengthExceeded = errors.New("max key length exceeded")
 var ErrColumnIsNotAnAggregation = errors.New("column is not an aggregation")
+var ErrLimitedCount = errors.New("only unbounded counting is supported i.e. COUNT(*)")
 
 var mKeyVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
@@ -711,7 +712,12 @@ func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowRea
 		return nil, err
 	}
 
-	return stmt.Resolve(e, snap, params, nil, "")
+	r, err := stmt.Resolve(e, snap, params, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.newCloserRowReader(snap, r)
 }
 
 func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {

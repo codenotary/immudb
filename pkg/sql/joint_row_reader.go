@@ -65,19 +65,27 @@ func (jointr *jointRowReader) ImplicitDB() string {
 	return jointr.rowReader.ImplicitDB()
 }
 
-func (jointr *jointRowReader) Columns() []*ColDescriptor {
-	colDescriptors := jointr.rowReader.Columns()
+func (jointr *jointRowReader) ImplicitTable() string {
+	return jointr.rowReader.ImplicitTable()
+}
+
+func (jointr *jointRowReader) Columns() (map[string]SQLValueType, error) {
+	colDescriptors, err := jointr.rowReader.Columns()
+	if err != nil {
+		return nil, err
+	}
 
 	for _, jspec := range jointr.joins {
 		tableRef := jspec.ds.(*TableRef)
 		table, _ := tableRef.referencedTable(jointr.e)
 
 		for _, c := range table.colsByID {
-			colDescriptors = append(colDescriptors, &ColDescriptor{ColName: c.colName, ColType: c.colType})
+			encSel := EncodeSelector("", table.db.name, tableRef.Alias(), c.colName)
+			colDescriptors[encSel] = c.colType
 		}
 	}
 
-	return colDescriptors
+	return colDescriptors, nil
 }
 
 func (jointr *jointRowReader) Read() (*Row, error) {
@@ -101,7 +109,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				return nil, err
 			}
 
-			fkVal, ok := row.Values[EncodeSelector(fkSel.resolve(row.ImplicitDB, row.ImplictTable))]
+			fkVal, ok := row.Values[EncodeSelector(fkSel.resolve(jointr.rowReader.ImplicitDB(), jointr.rowReader.ImplicitTable()))]
 			if !ok {
 				return nil, ErrInvalidJointColumn
 			}
@@ -121,7 +129,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				useInitKeyVal: true,
 			}
 
-			jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, jointr.params, pkOrd, "")
+			jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, jointr.params, pkOrd)
 			if err != nil {
 				return nil, err
 			}
@@ -146,10 +154,6 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 			return row, nil
 		}
 	}
-}
-
-func (jointr *jointRowReader) Alias() string {
-	return jointr.rowReader.Alias()
 }
 
 func (jointr *jointRowReader) Close() error {
