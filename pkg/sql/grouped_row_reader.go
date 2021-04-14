@@ -18,8 +18,7 @@ package sql
 import "github.com/codenotary/immudb/embedded/store"
 
 type groupedRowReader struct {
-	e    *Engine
-	snap *store.Snapshot
+	e *Engine
 
 	rowReader RowReader
 
@@ -30,14 +29,13 @@ type groupedRowReader struct {
 	currRow *Row
 }
 
-func (e *Engine) newGroupedRowReader(snap *store.Snapshot, rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
-	if snap == nil {
+func (e *Engine) newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
+	if len(selectors) == 0 {
 		return nil, ErrIllegalArguments
 	}
 
 	return &groupedRowReader{
 		e:         e,
-		snap:      snap,
 		rowReader: rowReader,
 		selectors: selectors,
 		groupBy:   groupBy,
@@ -48,8 +46,44 @@ func (gr *groupedRowReader) ImplicitDB() string {
 	return gr.rowReader.ImplicitDB()
 }
 
-func (gr *groupedRowReader) Columns() []*ColDescriptor {
-	return gr.rowReader.Columns()
+func (gr *groupedRowReader) ImplicitTable() string {
+	return gr.rowReader.ImplicitTable()
+}
+
+func (gr *groupedRowReader) Columns() (map[string]SQLValueType, error) {
+	colDescriptors, err := gr.rowReader.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sel := range gr.selectors {
+		aggFn, db, table, col := sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
+
+		if aggFn == "" {
+			continue
+		}
+
+		encSel := EncodeSelector(aggFn, db, table, col)
+
+		if aggFn == COUNT {
+			colDescriptors[encSel] = IntegerType
+			continue
+		}
+
+		colDesc, ok := colDescriptors[EncodeSelector("", db, table, col)]
+		if !ok {
+			return nil, ErrColumnDoesNotExist
+		}
+
+		if aggFn == MAX || aggFn == MIN {
+			colDescriptors[encSel] = colDesc
+		} else {
+			// SUM, AVG
+			colDescriptors[encSel] = IntegerType
+		}
+	}
+
+	return colDescriptors, nil
 }
 
 func (gr *groupedRowReader) Read() (*Row, error) {
@@ -74,7 +108,7 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 			continue
 		}
 
-		compatible, err := gr.currRow.Compatible(row, gr.groupBy, gr.ImplicitDB(), gr.Alias())
+		compatible, err := gr.currRow.Compatible(row, gr.groupBy, gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
 		if err != nil {
 			return nil, err
 		}
@@ -94,14 +128,23 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 			aggV, isAggregatedValue := v.(AggregatedValue)
 
 			if isAggregatedValue {
-				val, exists := row.Values[aggV.Selector()]
-				if !exists {
-					return nil, ErrColumnDoesNotExist
+				if aggV.ColBounded() {
+					val, exists := row.Values[aggV.Selector()]
+					if !exists {
+						return nil, ErrColumnDoesNotExist
+					}
+
+					err = aggV.updateWith(val)
+					if err != nil {
+						return nil, err
+					}
 				}
 
-				err = aggV.updateWith(val)
-				if err != nil {
-					return nil, err
+				if !aggV.ColBounded() {
+					err = aggV.updateWith(nil)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -111,23 +154,15 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 func (gr *groupedRowReader) initAggregations() error {
 	// augment row with aggregated values
 	for _, sel := range gr.selectors {
-		aggFn, db, table, col := sel.resolve(gr.ImplicitDB(), gr.Alias())
+		aggFn, db, table, col := sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
 
 		encSel := EncodeSelector(aggFn, db, table, col)
 
 		switch aggFn {
 		case COUNT:
 			{
-				if col == "*" {
-					database, ok := gr.e.catalog.dbsByName[db]
-					if !ok {
-						return ErrDatabaseDoesNotExist
-					}
-					table, ok := database.tablesByName[table]
-					if !ok {
-						return ErrTableDoesNotExist
-					}
-					col = table.pk.colName
+				if col != "*" {
+					return ErrLimitedCount
 				}
 
 				gr.currRow.Values[encSel] = &CountValue{sel: EncodeSelector("", db, table, col)}
@@ -155,23 +190,28 @@ func (gr *groupedRowReader) initAggregations() error {
 		aggV, isAggregatedValue := v.(AggregatedValue)
 
 		if isAggregatedValue {
-			val, exists := gr.currRow.Values[v.(AggregatedValue).Selector()]
-			if !exists {
-				return ErrColumnDoesNotExist
+			if aggV.ColBounded() {
+				val, exists := gr.currRow.Values[aggV.Selector()]
+				if !exists {
+					return ErrColumnDoesNotExist
+				}
+
+				err := aggV.updateWith(val)
+				if err != nil {
+					return err
+				}
 			}
 
-			err := aggV.updateWith(val)
-			if err != nil {
-				return err
+			if !aggV.ColBounded() {
+				err := aggV.updateWith(nil)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
 
 	return nil
-}
-
-func (gr *groupedRowReader) Alias() string {
-	return gr.rowReader.Alias()
 }
 
 func (gr *groupedRowReader) Close() error {
