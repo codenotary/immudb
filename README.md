@@ -18,8 +18,7 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 
 Note: The `master` branch is the joint point for all ongoing development efforts. Thus it may be in an `unstable` state and should not be used in production deployments. Please use the latest release in order to get stable binaries.
 
-[![Slack](https://img.shields.io/badge/join%20slack-%23immutability-brightgreen.svg)](https://slack.vchain.us/)
-[![Discuss at immudb@googlegroups.com](https://img.shields.io/badge/discuss-immudb%40googlegroups.com-blue.svg)](https://groups.google.com/group/immudb)
+[![Discord](https://img.shields.io/discord/831257098368319569)](https://discord.gg/pZnR7QC6)
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://immudb.io/careers/)
 [![Tweet about
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
