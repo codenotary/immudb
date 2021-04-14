@@ -709,6 +709,10 @@ func TestJoins(t *testing.T) {
 	r, err := engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id WHERE table1.id >= 0 AND table3.age >= 30 ORDER BY id DESC", nil)
 	require.NoError(t, err)
 
+	cols, err := r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 4)
+
 	for i := 0; i < rowCount; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
