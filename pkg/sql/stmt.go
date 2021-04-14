@@ -800,6 +800,10 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 }
 
 func (stmt *SelectStmt) Alias() string {
+	if stmt.as == "" {
+		return stmt.ds.Alias()
+	}
+
 	return stmt.as
 }
 
@@ -896,6 +900,9 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string
 }
 
 func (stmt *TableRef) Alias() string {
+	if stmt.as == "" {
+		return stmt.table
+	}
 	return stmt.as
 }
 
