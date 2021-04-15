@@ -79,7 +79,7 @@ func (jointr *jointRowReader) Columns() (map[string]SQLValueType, error) {
 		tableRef := jspec.ds.(*TableRef)
 		table, _ := tableRef.referencedTable(jointr.e)
 
-		for _, c := range table.colsByID {
+		for _, c := range table.GetColsByID() {
 			encSel := EncodeSelector("", table.db.name, tableRef.Alias(), c.colName)
 			colDescriptors[encSel] = c.colType
 		}
