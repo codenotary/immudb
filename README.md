@@ -40,8 +40,6 @@ Data stored in immudb is cryptographically coherent and verifiable, just like bl
 
 Companies use immudb to protect credit card transactions and to secure processes by storing digital certificates and checksums.
 
-
-
 ### Tech specs
 
 | Topic                   | Description                                                   |
@@ -74,51 +72,74 @@ Benchmarks (v0.8.x):
 ## Quickstart
 
 <div style="display: flex; justify-content: center">
-<img src="img/playground2.png" style="flex-basis: 1"/>
+<img src="img/playground2.png"/>
 </div>
 
 To learn interactively and to get started with immudb from the command line and programming languages, visit the [immudb Playground](https://play.codenotary.com).
 
-Getting immudb up and running is quite simple. For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples). Otherwise, you can use the immudb CLI tools described below.
+Getting immudb up and running is quite simple. For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
 
-- **immuclient** is the CLI client for immudb. You can read, write data into immudb from the commandline using direct or interactive mode.
-- **immuadmin** is the admin CLI for immudb. You can manage immudb and get statistics as well as runtime information.
+### Getting immudb running
 
-### Binary
-
-Download latest release binaries from [here](https://github.com/codenotary/immudb/releases). Then just run immudb as follows:
+You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v0.9.2 for linux amd64:
 
 ```bash
+wget https://github.com/vchain-us/immudb/releases/download/v0.9.2/immudb-v0.9.2-linux-amd64
+mv immudb-v0.9.2-linux-amd64 immudb
+chmod +x immudb
+
+# run immudb in the foreground to see all output
 ./immudb
+
+# or run immudb in the background
+./immudb -d
 ```
 
-You can connect to the default database with immuclient by first running the interactive shell, then logging into the `immudb` database with the password `immudb`:
+Alternatively, you may use Docker to run immudb in a ready-to-use container:
 
 ```bash
+docker run -d --net host -it --rm --name immudb codenotary/immudb:latest
+```
+
+If you are running the Docker image without host networking, make sure to expose ports 3322 and 9497.
+
+### Connecting with immuclient
+
+You may download the immuclient binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuclient, rename it to `immuclient`, make sure to mark it as executable, then run it. The following example shows how to obtain v0.9.2 for linux amd64:
+
+```bash
+wget https://github.com/vchain-us/immudb/releases/download/v0.9.2/immuclient-v0.9.2-linux-amd64
+mv immuclient-v0.9.2-linux-amd64 immuclient
+chmod +x immuclient
+
+# start the interactive shell
 ./immuclient
-
-immuclient> login immudb
-Password: immudb
-immuclient> 
 ```
 
-For more information, run `immuclient --help` to see all options.
-
-### Docker
+Alternatively, you may use Docker to run immuclient in a ready-to-use container:
 
 ```bash
-docker run -it -d -p 3322:3322 -p 9497:9497 --name immudb codenotary/immudb:latest
+docker run -it --rm --net host --name immuclient codenotary/immuclient:latest
 ```
 
-immudb should be up and running, you can check the container logs:
+### Managing immudb with immuadmin
 
 ```bash
-docker logs immudb
+wget https://github.com/vchain-us/immudb/releases/download/v0.9.2/immuadmin-v0.9.2-linux-amd64
+mv immuadmin-v0.9.2-linux-amd64 immuadmin
+chmod +x immuadmin
+
+# See a list of commands
+./immuadmin help
 ```
 
-To perform actions, simply run ```./immuclient``` on the same machine or ```./immuclient -a <immudb-host>```. You can also find immuclient in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local or remote immudb with `docker run -it --rm --name immuclient codenotary/immuclient:latest -a <immudb-host>`
+Alternatively, you may use Docker to run immuadmin in a ready-to-use container:
 
-To manage the database, simply run ```./immuadmin``` on the same machine. You can also find immuadmin in the immudb container at `/usr/local/bin/immuadmin` or run a Docker container to connect to the local immudb with `docker run -it --rm --name immuadmin codenotary/immuadmin:latest status`. For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
+```bash
+docker run -it --rm --net host --name immuadmin codenotary/immuadmin:latest <command>
+```
+
+For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
 
 ## Using immudb
 
