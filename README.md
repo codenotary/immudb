@@ -124,6 +124,8 @@ docker run -it --rm --net host --name immuclient codenotary/immuclient:latest
 
 ### Managing immudb with immuadmin
 
+You may download the immuadmin binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuadmin, rename it to `immuadmin`, make sure to mark it as executable, then run it. The following example shows how to obtain v0.9.2 for linux amd64:
+
 ```bash
 wget https://github.com/vchain-us/immudb/releases/download/v0.9.2/immuadmin-v0.9.2-linux-amd64
 mv immuadmin-v0.9.2-linux-amd64 immuadmin
