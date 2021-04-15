@@ -424,7 +424,7 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		done: make(chan struct{}),
 	}
 
-	if store.aht.Size() > store.committedTxID {
+	if store.aht.Size() > store.committedTxID || store.index.Ts() > store.committedTxID {
 		return nil, ErrCorruptedCLog
 	}
 
