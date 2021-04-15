@@ -80,9 +80,9 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, tableAlias 
 		return nil, ErrIllegalArguments
 	}
 
-	col, exist := table.colsByName[colName]
-	if !exist {
-		return nil, ErrColumnDoesNotExist
+	col, err := table.GetColumnByName(colName)
+	if err != nil {
+		return nil, err
 	}
 
 	prefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id))
@@ -125,9 +125,9 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, tableAlias 
 		tableAlias = table.name
 	}
 
-	colDescriptors := make(map[string]SQLValueType, len(table.colsByID))
+	colDescriptors := make(map[string]SQLValueType, len(table.GetColsByID()))
 
-	for _, c := range table.colsByID {
+	for _, c := range table.GetColsByID() {
 		encSel := EncodeSelector("", table.db.name, tableAlias, c.colName)
 		colDescriptors[encSel] = c.colType
 	}
@@ -183,7 +183,7 @@ func (r *rawRowReader) Read() (*Row, error) {
 		}
 	}
 
-	values := make(map[string]TypedValue, len(r.table.colsByID))
+	values := make(map[string]TypedValue, len(r.table.GetColsByID()))
 
 	voff := 0
 
@@ -203,8 +203,8 @@ func (r *rawRowReader) Read() (*Row, error) {
 		colName := string(v[voff : voff+cNameLen])
 		voff += cNameLen
 
-		col, ok := r.table.colsByName[colName]
-		if !ok {
+		col, err := r.table.GetColumnByName(colName)
+		if err != nil {
 			return nil, ErrCorruptedData
 		}
 
