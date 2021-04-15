@@ -121,7 +121,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options, m
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
 	cmd.Flags().String("signingKey", options.SigningKey, "signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. E.g. \"./../test/signer/ec3.key\"")
 	cmd.Flags().Bool("synced", false, "synced mode prevents data lost under unexpected crashes but affects performance")
-	cmd.Flags().Int("token-expiry-time", options.TokenExpiryTimeMin, "grpc authentication token expiration time. Minutes")
+	cmd.Flags().Int("token-expiry-time", options.TokenExpiryTimeMin, "client authentication token expiration time. Minutes")
 }
 
 func setupDefaults(options *server.Options, mtlsOptions *server.MTLsOptions) {
