@@ -104,7 +104,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				return nil, err
 			}
 
-			fkSel, err := jspec.cond.jointColumnTo(table.pk)
+			fkSel, err := jspec.cond.jointColumnTo(table.pk, tableRef.Alias())
 			if err != nil {
 				return nil, err
 			}
