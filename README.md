@@ -175,6 +175,8 @@ programming language you're using, for experimentation, or just because you pref
 
 We welcome [contributions](CONTRIBUTING.md). Feel free to join the team!
 
+Learn how to [build](BUILD.md) immudb components in both binary and Docker image form.
+
 To report bugs or get help, use [GitHub's issues](https://github.com/codenotary/immudb/issues).
 
 immudb is [Apache v2.0 License](LICENSE).
