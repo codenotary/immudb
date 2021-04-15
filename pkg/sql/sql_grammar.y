@@ -153,7 +153,7 @@ dstmts:
         $$ = []SQLStmt{$1}
     }
 |
-    dstmt STMT_SEPARATOR dstmts
+    dstmt opt_separator dstmts
     {
         $$ = append([]SQLStmt{$1}, $3...)
     }
