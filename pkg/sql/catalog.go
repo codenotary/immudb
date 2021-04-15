@@ -51,6 +51,11 @@ func newCatalog() *Catalog {
 	}
 }
 
+func (c *Catalog) ExistDatabase(db string) bool {
+	_, exists := c.dbsByName[db]
+	return exists
+}
+
 func (c *Catalog) newDatabase(name string) (*Database, error) {
 	exists := c.ExistDatabase(name)
 	if exists {
@@ -84,14 +89,69 @@ func (c *Catalog) Databases() []*Database {
 	return dbs
 }
 
-func (c *Catalog) ExistDatabase(db string) bool {
-	_, exists := c.dbsByName[db]
-	return exists
+func (c *Catalog) GetDatabaseByName(name string) (*Database, error) {
+	db, exists := c.dbsByName[name]
+	if !exists {
+		return nil, ErrDatabaseDoesNotExist
+	}
+	return db, nil
+}
+
+func (c *Catalog) GetDatabaseByID(id uint64) (*Database, error) {
+	db, exists := c.dbsByID[id]
+	if !exists {
+		return nil, ErrDatabaseDoesNotExist
+	}
+	return db, nil
 }
 
 func (db *Database) ExistTable(table string) bool {
 	_, exists := db.tablesByName[table]
 	return exists
+}
+
+func (c *Catalog) GetTableByName(dbName, tableName string) (*Table, error) {
+	db, err := c.GetDatabaseByName(dbName)
+	if err != nil {
+		return nil, err
+	}
+	return db.GetTableByName(tableName)
+}
+
+func (db *Database) GetTableByName(name string) (*Table, error) {
+	table, exists := db.tablesByName[name]
+	if !exists {
+		return nil, ErrTableDoesNotExist
+	}
+	return table, nil
+}
+
+func (db *Database) GetTableByID(id uint64) (*Table, error) {
+	table, exists := db.tablesByID[id]
+	if !exists {
+		return nil, ErrTableDoesNotExist
+	}
+	return table, nil
+}
+
+func (t *Table) GetColsByID() map[uint64]*Column {
+	return t.colsByID
+}
+
+func (t *Table) GetColumnByName(name string) (*Column, error) {
+	col, exists := t.colsByName[name]
+	if !exists {
+		return nil, ErrColumnDoesNotExist
+	}
+	return col, nil
+}
+
+func (t *Table) GetColumnByID(id uint64) (*Column, error) {
+	col, exists := t.colsByID[id]
+	if !exists {
+		return nil, ErrColumnDoesNotExist
+	}
+	return col, nil
 }
 
 func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Table, error) {

@@ -184,14 +184,17 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine, params map[string]interface
 		return nil, nil, ErrNoDatabaseSelected
 	}
 
-	db := e.catalog.dbsByName[e.implicitDB]
+	db, err := e.catalog.GetDatabaseByName(e.implicitDB)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	table, err := db.newTable(stmt.table, stmt.colsSpec, stmt.pk)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	for colID, col := range table.colsByID {
+	for colID, col := range table.GetColsByID() {
 		ce := &store.KV{
 			Key:   e.mapKey(catalogColumnPrefix, encodeID(db.id), encodeID(table.id), encodeID(colID), []byte(col.colType)),
 			Value: []byte(col.colName),
@@ -227,21 +230,21 @@ func (stmt *CreateIndexStmt) CompileUsing(e *Engine, params map[string]interface
 		return nil, nil, ErrNoDatabaseSelected
 	}
 
-	table, exists := e.catalog.dbsByName[e.implicitDB].tablesByName[stmt.table]
-	if !exists {
-		return nil, nil, ErrTableDoesNotExist
+	table, err := e.catalog.GetTableByName(e.implicitDB, stmt.table)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if table.pk.colName == stmt.col {
 		return nil, nil, ErrIndexAlreadyExists
 	}
 
-	col, exists := table.colsByName[stmt.col]
-	if !exists {
-		return nil, nil, ErrColumnDoesNotExist
+	col, err := table.GetColumnByName(stmt.col)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	_, exists = table.indexes[col.id]
+	_, exists := table.indexes[col.id]
 	if exists {
 		return nil, nil, ErrIndexAlreadyExists
 	}
@@ -292,7 +295,7 @@ func (r *RowSpec) bytes(t *Table, cols []string, params map[string]interface{}) 
 	}
 
 	for i, val := range r.Values {
-		col, _ := t.colsByName[cols[i]]
+		col, _ := t.GetColumnByName(cols[i])
 
 		// len(colName) + colName
 		b := make([]byte, encLenLen+len(col.colName))
@@ -337,9 +340,9 @@ func (stmt *UpsertIntoStmt) Validate(table *Table) (map[uint64]int, error) {
 	selByColID := make(map[uint64]int, len(stmt.cols))
 
 	for i, c := range stmt.cols {
-		col, exists := table.colsByName[c]
-		if !exists {
-			return nil, ErrInvalidColumn
+		col, err := table.GetColumnByName(c)
+		if err != nil {
+			return nil, err
 		}
 
 		if table.pk.colName == c {
@@ -408,7 +411,12 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 
 		// create entries for each indexed column, with value as value for pk column
 		for colID := range table.indexes {
-			cVal := row.Values[cs[colID]]
+			colPos, defined := cs[colID]
+			if !defined {
+				return nil, nil, ErrIndexedColumnCanNotBeNull
+			}
+
+			cVal := row.Values[colPos]
 
 			val, err := cVal.substitute(params)
 			if err != nil {
@@ -420,7 +428,12 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 				return nil, nil, err
 			}
 
-			encVal, err := EncodeValue(rval, table.colsByID[colID].colType, asKey)
+			col, err := table.GetColumnByID(colID)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			encVal, err := EncodeValue(rval, col.colType, asKey)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -720,8 +733,8 @@ func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (
 			return nil, nil, err
 		}
 
-		col, colExists := table.colsByName[stmt.orderBy[0].sel.col]
-		if !colExists {
+		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
+		if err != nil {
 			return nil, nil, ErrLimitedOrderBy
 		}
 
@@ -837,9 +850,9 @@ func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
 		db = e.implicitDB
 	}
 
-	table, exists := e.catalog.dbsByName[db].tablesByName[stmt.table]
-	if !exists {
-		return nil, ErrTableDoesNotExist
+	table, err := e.catalog.GetTableByName(db, stmt.table)
+	if err != nil {
+		return nil, err
 	}
 
 	return table, nil
@@ -868,9 +881,9 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string
 			return nil, ErrInvalidColumn
 		}
 
-		col, exist := table.colsByName[ordCol.sel.col]
-		if !exist {
-			return nil, ErrColumnDoesNotExist
+		col, err := table.GetColumnByName(ordCol.sel.col)
+		if err != nil {
+			return nil, err
 		}
 
 		// if it's not PK then it must be an indexed column
@@ -959,30 +972,38 @@ func (sel *ColSelector) setAlias(alias string) {
 	sel.as = alias
 }
 
-func (bexp *ColSelector) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	if bexp.db != "" && bexp.db != col.table.db.name {
+func (sel *ColSelector) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	if sel.db != "" && sel.db != col.table.db.name {
 		return nil, ErrJointColumnNotFound
 	}
 
-	if bexp.table != tableAlias {
+	if sel.table != tableAlias {
 		return nil, ErrJointColumnNotFound
 	}
 
-	if bexp.col != col.colName {
+	if sel.col != col.colName {
 		return nil, ErrJointColumnNotFound
 	}
 
-	return bexp, nil
+	return sel, nil
 }
 
-func (bexp *ColSelector) substitute(params map[string]interface{}) (ValueExp, error) {
-	return bexp, nil
+func (sel *ColSelector) substitute(params map[string]interface{}) (ValueExp, error) {
+	return sel, nil
 }
 
-func (bexp *ColSelector) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	v, ok := row.Values[EncodeSelector(bexp.resolve(implicitDB, implicitTable))]
+func (sel *ColSelector) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
+
+	//catalog *Catalog,
+
+	//catalog.dbsByName[]
+
+	//return nil, ErrColumnDoesNotExist
+
+	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
-		return nil, ErrColumnDoesNotExist
+		//return &NullValue{t: column.ColType}, nil
 	}
 	return v, nil
 }
