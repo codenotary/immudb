@@ -17,4 +17,4 @@ devmode = true
 admin-password = "immudb" # this password is only used once to initialize immudb and can be ignored
 maintenance = false
 signingKey = ""
-token-expiry-time = 1440 # grpc authentication token expiration time. Minutes
+token-expiry-time = 1440 # client authentication token expiration time. Minutes
