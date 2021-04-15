@@ -437,7 +437,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 }
 
 type ValueExp interface {
-	jointColumnTo(col *Column) (*ColSelector, error)
+	jointColumnTo(col *Column, tableAlias string) (*ColSelector, error)
 	substitute(params map[string]interface{}) (ValueExp, error)
 	reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error)
 }
@@ -456,7 +456,7 @@ func (v *Number) Type() SQLValueType {
 	return IntegerType
 }
 
-func (v *Number) jointColumnTo(col *Column) (*ColSelector, error) {
+func (v *Number) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
@@ -497,7 +497,7 @@ func (v *String) Type() SQLValueType {
 	return StringType
 }
 
-func (v *String) jointColumnTo(col *Column) (*ColSelector, error) {
+func (v *String) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
@@ -530,7 +530,7 @@ func (v *Bool) Type() SQLValueType {
 	return BooleanType
 }
 
-func (v *Bool) jointColumnTo(col *Column) (*ColSelector, error) {
+func (v *Bool) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
@@ -571,7 +571,7 @@ func (v *Blob) Type() SQLValueType {
 	return BLOBType
 }
 
-func (v *Blob) jointColumnTo(col *Column) (*ColSelector, error) {
+func (v *Blob) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
@@ -600,7 +600,7 @@ type SysFn struct {
 	fn string
 }
 
-func (v *SysFn) jointColumnTo(col *Column) (*ColSelector, error) {
+func (v *SysFn) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
@@ -620,7 +620,7 @@ type Param struct {
 	id string
 }
 
-func (p *Param) jointColumnTo(col *Column) (*ColSelector, error) {
+func (p *Param) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
@@ -959,12 +959,12 @@ func (sel *ColSelector) setAlias(alias string) {
 	sel.as = alias
 }
 
-func (bexp *ColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
+func (bexp *ColSelector) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	if bexp.db != "" && bexp.db != col.table.db.name {
 		return nil, ErrJointColumnNotFound
 	}
 
-	if bexp.table != "" && bexp.table != col.table.name {
+	if bexp.table != tableAlias {
 		return nil, ErrJointColumnNotFound
 	}
 
@@ -1021,7 +1021,7 @@ func (sel *AggColSelector) setAlias(alias string) {
 	sel.as = alias
 }
 
-func (sel *AggColSelector) jointColumnTo(col *Column) (*ColSelector, error) {
+func (sel *AggColSelector) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
@@ -1041,8 +1041,8 @@ type NotBoolExp struct {
 	exp ValueExp
 }
 
-func (bexp *NotBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
-	return bexp.exp.jointColumnTo(col)
+func (bexp *NotBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return bexp.exp.jointColumnTo(col, tableAlias)
 }
 
 func (bexp *NotBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -1077,7 +1077,7 @@ type LikeBoolExp struct {
 	pattern string
 }
 
-func (bexp *LikeBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+func (bexp *LikeBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
@@ -1094,7 +1094,7 @@ type CmpBoolExp struct {
 	left, right ValueExp
 }
 
-func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+func (bexp *CmpBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	if bexp.op != EQ {
 		return nil, ErrJointColumnNotFound
 	}
@@ -1106,26 +1106,26 @@ func (bexp *CmpBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
 		return nil, ErrJointColumnNotFound
 	}
 
-	_, errLeft := selLeft.jointColumnTo(col)
-	_, errRight := selRight.jointColumnTo(col)
+	_, lErr := selLeft.jointColumnTo(col, tableAlias)
+	_, rErr := selRight.jointColumnTo(col, tableAlias)
 
-	if errLeft != nil && errLeft != ErrJointColumnNotFound {
-		return nil, errLeft
-	}
-
-	if errRight != nil && errRight != ErrJointColumnNotFound {
-		return nil, errRight
-	}
-
-	if errLeft == nil && errRight == nil {
+	if lErr == nil && rErr == nil {
 		return nil, ErrInvalidJointColumn
 	}
 
-	if errLeft == nil {
+	if lErr == nil && rErr == ErrJointColumnNotFound {
 		return selRight, nil
 	}
 
-	return selLeft, nil
+	if rErr == nil && lErr == ErrJointColumnNotFound {
+		return selLeft, nil
+	}
+
+	if lErr != nil {
+		return nil, lErr
+	}
+
+	return nil, rErr
 }
 
 func (bexp *CmpBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
@@ -1187,13 +1187,13 @@ type BinBoolExp struct {
 	left, right ValueExp
 }
 
-func (bexp *BinBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
-	jcolLeft, errLeft := bexp.left.jointColumnTo(col)
+func (bexp *BinBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	jcolLeft, errLeft := bexp.left.jointColumnTo(col, tableAlias)
 	if errLeft != nil && errLeft != ErrJointColumnNotFound {
 		return nil, errLeft
 	}
 
-	jcolRight, errRight := bexp.left.jointColumnTo(col)
+	jcolRight, errRight := bexp.left.jointColumnTo(col, tableAlias)
 	if errRight != nil && errRight != ErrJointColumnNotFound {
 		return nil, errRight
 	}
@@ -1269,7 +1269,7 @@ type ExistsBoolExp struct {
 	q *SelectStmt
 }
 
-func (bexp *ExistsBoolExp) jointColumnTo(col *Column) (*ColSelector, error) {
+func (bexp *ExistsBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
