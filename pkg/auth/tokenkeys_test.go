@@ -53,7 +53,7 @@ func TestDropTokenKeysForCtx(t *testing.T) {
 		Active:   true,
 	}
 	generateKeys("copperfield")
-	token, err := GenerateToken(u, 2)
+	token, err := GenerateToken(u, 2, 60)
 	if err != nil {
 		t.Errorf("Error GenerateToken %s", err)
 	}

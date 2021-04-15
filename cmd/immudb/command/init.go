@@ -65,6 +65,7 @@ func parseOptions() (options *server.Options, err error) {
 	maintenance := viper.GetBool("maintenance")
 	signingKey := viper.GetString("signingKey")
 	synced := viper.GetBool("synced")
+	tokenExpTime := viper.GetInt("token-expiry-time")
 
 	storeOpts := server.DefaultStoreOptions().WithSynced(synced)
 
@@ -85,7 +86,8 @@ func parseOptions() (options *server.Options, err error) {
 		WithAdminPassword(adminPassword).
 		WithMaintenance(maintenance).
 		WithSigningKey(signingKey).
-		WithStoreOptions(storeOpts)
+		WithStoreOptions(storeOpts).
+		WithTokenExpiryTime(tokenExpTime)
 
 	if mtls {
 		// todo https://golang.org/src/crypto/x509/root_linux.go
@@ -119,6 +121,7 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options, m
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
 	cmd.Flags().String("signingKey", options.SigningKey, "signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. E.g. \"./../test/signer/ec3.key\"")
 	cmd.Flags().Bool("synced", false, "synced mode prevents data lost under unexpected crashes but affects performance")
+	cmd.Flags().Int("token-expiry-time", options.TokenExpiryTimeMin, "grpc authentication token expiration time. Minutes")
 }
 
 func setupDefaults(options *server.Options, mtlsOptions *server.MTLsOptions) {
@@ -140,4 +143,5 @@ func setupDefaults(options *server.Options, mtlsOptions *server.MTLsOptions) {
 	viper.SetDefault("admin-password", options.AdminPassword)
 	viper.SetDefault("maintenance", options.GetMaintenance())
 	viper.SetDefault("synced", false)
+	viper.SetDefault("token-expiry-time", options.TokenExpiryTimeMin)
 }

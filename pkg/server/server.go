@@ -521,9 +521,9 @@ func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema
 	//-1 no database yet, must exec the "use" (UseDatabase) command first
 	var token string
 	if s.multidbmode {
-		token, err = auth.GenerateToken(*u, -1)
+		token, err = auth.GenerateToken(*u, -1, s.Options.TokenExpiryTimeMin)
 	} else {
-		token, err = auth.GenerateToken(*u, DefaultDbIndex)
+		token, err = auth.GenerateToken(*u, DefaultDbIndex, s.Options.TokenExpiryTimeMin)
 	}
 	if err != nil {
 		return nil, err
@@ -1366,7 +1366,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", db.Databasename))
 	}
 
-	token, err := auth.GenerateToken(*user, ind)
+	token, err := auth.GenerateToken(*user, ind, s.Options.TokenExpiryTimeMin)
 	if err != nil {
 		return nil, err
 	}

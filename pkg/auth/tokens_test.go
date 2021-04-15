@@ -40,7 +40,7 @@ func TestToken(t *testing.T) {
 		Username: "immudb",
 		Active:   true,
 	}
-	token, err := GenerateToken(u, 2)
+	token, err := GenerateToken(u, 2, 60)
 	if err != nil {
 		t.Errorf("Error GenerateToken %s", err)
 	}
@@ -70,7 +70,7 @@ func TestVerifyFromCtx(t *testing.T) {
 		Username: "immudb",
 		Active:   true,
 	}
-	token, err := GenerateToken(u, 2)
+	token, err := GenerateToken(u, 2, 60)
 	if err != nil {
 		t.Errorf("Error GenerateToken %s", err)
 	}
