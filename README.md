@@ -77,8 +77,6 @@ Benchmarks (v0.8.x):
 <img src="img/playground2.png"/>
 </div>
 
-Getting immudb up and running is quite simple. For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
-
 ### Getting immudb running
 
 You may download the immudb binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immudb, rename it to `immudb`, make sure to mark it as executable, then run it. The following example shows how to obtain v0.9.2 for linux amd64:
@@ -167,9 +165,13 @@ Integrate immudb into your application using official SDKs already available for
 4. Python [immudb-py](https://github.com/codenotary/immudb-py)
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
 
+For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
+
 We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
-[immugw](https://github.com/codenotary/immugw) may be convenient tool when SDKs are not available for the
+[immugw](https://github.com/codenotary/immugw) may be a convenient tool when SDKs are not available for the
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
+
+
 
 ## Contributing
 
