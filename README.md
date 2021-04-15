@@ -112,6 +112,9 @@ chmod +x immuclient
 
 # start the interactive shell
 ./immuclient
+
+# or use commands directly
+./immuclient help
 ```
 
 Alternatively, you may use Docker to run immuclient in a ready-to-use container:
