@@ -64,10 +64,7 @@ Benchmarks (v0.8.x):
 
 | Specifications | Sequential write | Batch write |
 | --- | --- | --- |
-| 4 CPU cores | Concurrency: 128 | Concurrency: 16 |
-| Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz | Iterations: 1000000 | Iterations: 1000000 |
-| 64 GB memory | Elapsted t.: 3.06 sec | Elapsed t.: 0.36 sec |
-| SSD | Throughput: 326626 tx/sec | Throughput: 2772181 tx/sec |
+| 4 CPU cores <br> Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz <br> 64 GB memory <br> SSD | Concurrency: 128 <br> Iterations: 1000000 <br> Elapsted t.: 3.06 sec <br> Throughput: 326626 tx/sec | Concurrency: 16 <br> Iterations: 1000000 <br> Elapsed t.: 0.36 sec <br> Throughput: 2772181 tx/sec |
 
 ## Quickstart
 
