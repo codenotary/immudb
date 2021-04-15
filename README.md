@@ -20,13 +20,12 @@ custom_edit_url: https://github.com/codenotary/immudb/edit/master/README.md
 [![Immudb Careers](https://img.shields.io/badge/careers-We%20are%20hiring!-blue?style=flat)](https://immudb.io/careers/)
 [![Tweet about
 immudb!](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Tweet%20about%20immudb)](https://twitter.com/intent/tweet?text=immudb:%20lightweight,%20high-speed%20immutable%20database!&url=https://github.com/codenotary/immudb)
-[![Interactive Playground](https://img.shields.io/badge/Playground-blue?style=flat)](https://play.codenotary.com/)
 
 ```
 Don't forget to ⭐ this repo if you like immudb!
 ```
 
-[:tada: 2M+ pulls from docker hub!](https://hub.docker.com/r/codenotary/immudb/tags)
+[:tada: 3M+ pulls from docker hub!](https://hub.docker.com/r/codenotary/immudb/tags)
 
 ---
 
@@ -40,39 +39,36 @@ Data stored in immudb is cryptographically coherent and verifiable, just like bl
 
 Companies use immudb to protect credit card transactions and to secure processes by storing digital certificates and checksums.
 
+<div align="center">
+  <a href="https://play.codenotary.com">
+    <img alt="immudb playground to start using immudb in an online demo environment" src="img/playground2.png"/>
+  </a>
+</div>
+
+
 ### Tech specs
 
-| Topic                   | Description                                                   |
-| ----------------------- | ------------------------------------------------------------- |
-| DB Model                | Key-Value store with 3D access (key-value-index)              |
-| Data scheme             | schema-free                                                   |
-| Implementation design   | LSM tree with value log and parallel Merkle Tree              |
-| Implementation language | Go                                                            |
-| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows                            |
-| Embeddable              | Yes, optionally                                               |
-| Server APIs             | gRPC (using protocol buffers); immudb RESTful;                |
-| Partition methods       | Sharding                                                      |
-| Consistency concepts    | Eventual Consistency Immediate Consistency                    |
-| Transaction concepts    | ACID with Snapshot Isolation (SSI)                            |
-| Durability              | Yes                                                           |
-| Snapshots               | Yes                                                           |
-| High Read throughput    | Yes                                                           |
-| High Write throughput   | Yes                                                           |
-| Optimized for SSD       | Yes                                                           |
+| Topic                   | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| DB Model                | Key-Value store with 3D access (key-value-index) |
+| Data scheme             | schema-free                                      |
+| Implementation design   | LSM tree with value log and parallel Merkle Tree |
+| Implementation language | Go                                               |
+| Server OS(s)            | BSD, Linux, OS X, Solaris, Windows and more      |
+| Embeddable              | Yes, optionally                                  |
+| Server APIs             | gRPC                                             |
+| Partition methods       | Sharding                                         |
+| Consistency concepts    | Eventual Consistency Immediate Consistency       |
+| Transaction concepts    | ACID with Snapshot Isolation (SSI)               |
+| Durability              | Yes                                              |
+| Snapshots               | Yes                                              |
+| High Read throughput    | Yes                                              |
+| High Write throughput   | Yes                                              |
+| Optimized for SSD       | Yes                                              |
 
-Benchmarks (v0.8.x):
-
-| Specifications | Sequential write | Batch write |
-| --- | --- | --- |
-| 4 CPU cores <br> Intel(R) Xeon(R) CPU E3-1275 v6 @ 3.80GHz <br> 64 GB memory <br> SSD | Concurrency: 128 <br> Iterations: 1000000 <br> Elapsted t.: 3.06 sec <br> Throughput: 326626 tx/sec | Concurrency: 16 <br> Iterations: 1000000 <br> Elapsed t.: 0.36 sec <br> Throughput: 2772181 tx/sec |
 
 ## Quickstart
 
-### To learn interactively and to get started with immudb from the command line and programming languages, [visit the immudb Playground](https://play.codenotary.com).
-
-<div style="display: flex; justify-content: center">
-<img src="img/playground2.png"/>
-</div>
 
 ### Getting immudb running
 
@@ -120,26 +116,7 @@ Alternatively, you may use Docker to run immuclient in a ready-to-use container:
 docker run -it --rm --net host --name immuclient codenotary/immuclient:latest
 ```
 
-### Managing immudb with immuadmin
 
-You may download the immuadmin binary from [the latest releases on Github](https://github.com/codenotary/immudb/releases/latest). Once you have downloaded immuadmin, rename it to `immuadmin`, make sure to mark it as executable, then run it. The following example shows how to obtain v0.9.2 for linux amd64:
-
-```bash
-wget https://github.com/vchain-us/immudb/releases/download/v0.9.2/immuadmin-v0.9.2-linux-amd64
-mv immuadmin-v0.9.2-linux-amd64 immuadmin
-chmod +x immuadmin
-
-# See a list of commands
-./immuadmin help
-```
-
-Alternatively, you may use Docker to run immuadmin in a ready-to-use container:
-
-```bash
-docker run -it --rm --net host --name immuadmin codenotary/immuadmin:latest <command>
-```
-
-For security reasons we recommend using immuadmin only on the same system as immudb. User management is restricted to localhost usage.
 
 ## Using immudb
 
