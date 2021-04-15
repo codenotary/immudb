@@ -37,10 +37,9 @@ import (
 var pasetoV2 = paseto.NewV2()
 
 const footer = "immudb"
-const tokenValidity = 1 * time.Hour
 
 // GenerateToken ...
-func GenerateToken(user User, database int64) (string, error) {
+func GenerateToken(user User, database int64, expTime int) (string, error) {
 	now := time.Now()
 	keys, ok := tokenKeyPairs.keysPerUser[user.Username]
 	if !ok {
@@ -55,7 +54,7 @@ func GenerateToken(user User, database int64) (string, error) {
 		updateLastTokenGeneratedAt(user.Username)
 	}
 	jsonToken := paseto.JSONToken{
-		Expiration: now.Add(tokenValidity),
+		Expiration: now.Add(time.Duration(expTime) * time.Minute),
 		Subject:    user.Username,
 	}
 	jsonToken.Set("database", fmt.Sprintf("%d", database))

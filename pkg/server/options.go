@@ -58,6 +58,7 @@ type Options struct {
 	SigningKey          string
 	StoreOptions        *store.Options
 	StreamChunkSize     int
+	TokenExpiryTimeMin  int
 }
 
 // DefaultOptions returns default server options
@@ -87,6 +88,7 @@ func DefaultOptions() *Options {
 		maintenance:         false,
 		StoreOptions:        DefaultStoreOptions(),
 		StreamChunkSize:     stream.DefaultChunkSize,
+		TokenExpiryTimeMin:  1440,
 	}
 }
 
@@ -213,7 +215,7 @@ func (o *Options) String() string {
 		return fmt.Sprintf("%-17s: %v", k, v)
 	}
 	opts := make([]string, 0, 17)
-  opts = append(opts, "================ Config ================")
+	opts = append(opts, "================ Config ================")
 	opts = append(opts, rightPad("Data dir", o.Dir))
 	opts = append(opts, rightPad("Address", fmt.Sprintf("%s:%d", o.Address, o.Port)))
 	if o.MetricsServer {
@@ -228,7 +230,7 @@ func (o *Options) String() string {
 	if o.Logfile != "" {
 		opts = append(opts, rightPad("Log file", o.Logfile))
 	}
-  opts = append(opts, rightPad("MTLS enabled", o.MTLs))
+	opts = append(opts, rightPad("MTLS enabled", o.MTLs))
 	opts = append(opts, rightPad("Max recv msg size", o.MaxRecvMsgSize))
 	opts = append(opts, rightPad("Auth enabled", o.auth))
 	opts = append(opts, rightPad("Dev mode", o.DevMode))
@@ -298,5 +300,11 @@ func (o *Options) WithSigningKey(signingKey string) *Options {
 // WithStreamChunkSize set the chunk size
 func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
 	o.StreamChunkSize = streamChunkSize
+	return o
+}
+
+// WithTokenExpiryTime set authentication token expiration time in minutes
+func (o *Options) WithTokenExpiryTime(tokenExpiryTimeMin int) *Options {
+	o.TokenExpiryTimeMin = tokenExpiryTimeMin
 	return o
 }
