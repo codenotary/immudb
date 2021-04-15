@@ -71,11 +71,11 @@ Benchmarks (v0.8.x):
 
 ## Quickstart
 
+### To learn interactively and to get started with immudb from the command line and programming languages, [visit the immudb Playground](https://play.codenotary.com).
+
 <div style="display: flex; justify-content: center">
 <img src="img/playground2.png"/>
 </div>
-
-### To learn interactively and to get started with immudb from the command line and programming languages, [visit the immudb Playground](https://play.codenotary.com).
 
 Getting immudb up and running is quite simple. For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
 
