@@ -1035,6 +1035,7 @@ func TestMultiLineStmts(t *testing.T) {
 
 			BEGIN TRANSACTION
 				UPSERT INTO table1 (id, label) VALUES (100, 'label1')
+				
 				UPSERT INTO table2 (id) VALUES (10)
 			COMMIT
 
