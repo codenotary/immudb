@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"math"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/client"
@@ -53,7 +52,7 @@ func (i *immuc) SQLQuery(args []string) (*schema.SQLQueryResult, error) {
 
 	ctx := context.Background()
 	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: string(sqlStmt), Limit: math.MaxInt32})
+		return immuClient.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: string(sqlStmt), Limit: 0})
 	})
 	if err != nil {
 		return nil, err

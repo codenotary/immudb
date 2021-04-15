@@ -89,6 +89,16 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 		return nil, ErrIllegalArguments
 	}
 
+	if req.Limit > MaxKeyScanLimit {
+		return nil, ErrMaxKeyScanLimitExceeded
+	}
+
+	limit := int(req.Limit)
+
+	if req.Limit == 0 {
+		limit = MaxKeyScanLimit
+	}
+
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -117,7 +127,7 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 
 	res := &schema.SQLQueryResult{Columns: cols}
 
-	for l := 0; l < int(req.Limit); l++ {
+	for l := 0; l < limit; l++ {
 		row, err := r.Read()
 		if err == sql.ErrNoMoreRows {
 			break
