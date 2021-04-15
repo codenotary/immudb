@@ -135,15 +135,18 @@ func TestCreateIndex(t *testing.T) {
 
 	db := engine.catalog.Databases()[0]
 
-	table, ok := db.tablesByName["table1"]
-	require.True(t, ok)
+	table, err := db.GetTableByName("table1")
+	require.NoError(t, err)
 
 	require.Len(t, table.indexes, 0)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil, true)
 	require.NoError(t, err)
 
-	_, indexed := table.indexes[table.colsByName["name"].id]
+	col, err := table.GetColumnByName("name")
+	require.NoError(t, err)
+
+	_, indexed := table.indexes[col.id]
 	require.True(t, indexed)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(id)", nil, true)
@@ -152,7 +155,10 @@ func TestCreateIndex(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil, true)
 	require.NoError(t, err)
 
-	_, indexed = table.indexes[table.colsByName["age"].id]
+	col, err = table.GetColumnByName("age")
+	require.NoError(t, err)
+
+	_, indexed = table.indexes[col.id]
 	require.True(t, indexed)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil, true)
@@ -853,23 +859,30 @@ func TestReOpening(t *testing.T) {
 	exists := engine.catalog.ExistDatabase("db1")
 	require.True(t, exists)
 
-	db := engine.catalog.dbsByName["db1"]
+	db, err := engine.catalog.GetDatabaseByName("db1")
+	require.NoError(t, err)
 
 	exists = db.ExistTable("table1")
 	require.True(t, exists)
 
-	table := db.tablesByName["table1"]
+	table, err := db.GetTableByName("table1")
+	require.NoError(t, err)
 
 	require.Equal(t, "id", table.pk.colName)
 
-	require.Len(t, table.colsByName, 2)
+	require.Len(t, table.GetColsByID(), 2)
 
-	require.Equal(t, IntegerType, table.colsByName["id"].colType)
-	require.Equal(t, StringType, table.colsByName["name"].colType)
+	col, err := table.GetColumnByName("id")
+	require.NoError(t, err)
+	require.Equal(t, IntegerType, col.colType)
+
+	col, err = table.GetColumnByName("name")
+	require.NoError(t, err)
+	require.Equal(t, StringType, col.colType)
 
 	require.Len(t, table.indexes, 1)
 
-	_, indexed := table.indexes[table.colsByName["name"].id]
+	_, indexed := table.indexes[col.id]
 	require.True(t, indexed)
 }
 
