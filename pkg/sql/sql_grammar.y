@@ -62,6 +62,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token UPSERT INTO VALUES
 %token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE EXISTS
+%token NULL
 %token <joinType> JOINTYPE
 %token <logicOp> LOP
 %token <cmpOp> CMPOP
@@ -284,6 +285,11 @@ val:
     '@' IDENTIFIER
     {
         $$ = &Param{id: $2}
+    }
+|
+    NULL
+    {
+        $$ = &NullValue{}
     }
 
 colsSpec:

@@ -142,7 +142,9 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 
 		for i, c := range res.Columns {
 			v := row.Values[c.Name]
-			if v == nil {
+
+			_, isNull := v.(*sql.NullValue)
+			if isNull {
 				rrow.Values[i] = &schema.RowValue{Operation: &schema.RowValue_Null{}}
 			} else {
 				rrow.Values[i] = typedValueToRowValue(v)

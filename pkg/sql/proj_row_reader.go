@@ -110,7 +110,8 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 
 		val, ok := row.Values[encSel]
 		if !ok {
-			val = nil
+			// TODO (jeroiraz): typed nullables not yet fully supported
+			val = &NullValue{}
 		}
 
 		if pr.tableAlias != "" {

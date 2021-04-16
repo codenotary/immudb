@@ -342,7 +342,7 @@ func TestQueryWithNullables(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, ts, title, active FROM table1", nil)
+	r, err := engine.QueryStmt("SELECT id, ts, title, active FROM table1 WHERE NOT(active != NULL)", nil)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -357,7 +357,7 @@ func TestQueryWithNullables(t *testing.T) {
 		require.Less(t, uint64(start), row.Values[EncodeSelector("", "db1", "table1", "ts")].Value())
 		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Nil(t, row.Values[EncodeSelector("", "db1", "table1", "active")])
+		require.Equal(t, &NullValue{}, row.Values[EncodeSelector("", "db1", "table1", "active")])
 	}
 
 	err = r.Close()

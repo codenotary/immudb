@@ -58,7 +58,7 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
-		r, err := cond.reduce(row, cr.ImplicitDB(), cr.ImplicitTable())
+		r, err := cond.reduce(cr.e.catalog, row, cr.rowReader.ImplicitDB(), cr.rowReader.ImplicitTable())
 		if err != nil {
 			return nil, err
 		}
