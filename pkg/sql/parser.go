@@ -66,6 +66,7 @@ var reservedWords = map[string]int{
 	"NOT":         NOT,
 	"LIKE":        LIKE,
 	"EXISTS":      EXISTS,
+	"NULL":        NULL,
 }
 
 var joinTypes = map[string]JoinType{
@@ -97,6 +98,7 @@ var boolValues = map[string]bool{
 
 var cmpOps = map[string]CmpOperator{
 	"=":  EQ,
+	"!=": NE,
 	"<":  LT,
 	"<=": LE,
 	">":  GT,
@@ -405,7 +407,7 @@ func isLetter(ch byte) bool {
 }
 
 func isComparison(ch byte) bool {
-	return '<' == ch || '=' == ch || '>' == ch
+	return '!' == ch || '<' == ch || '=' == ch || '>' == ch
 }
 
 func isQuote(ch byte) bool {
