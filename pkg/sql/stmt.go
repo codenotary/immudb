@@ -283,7 +283,7 @@ type RowSpec struct {
 	Values []ValueExp
 }
 
-func (r *RowSpec) bytes(t *Table, cols []string, params map[string]interface{}) ([]byte, error) {
+func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[string]interface{}) ([]byte, error) {
 	valbuf := bytes.Buffer{}
 
 	// len(stmt.cols)
@@ -312,9 +312,14 @@ func (r *RowSpec) bytes(t *Table, cols []string, params map[string]interface{}) 
 			return nil, err
 		}
 
-		rval, err := sval.reduce(nil, t.db.name, t.name)
+		rval, err := sval.reduce(catalog, nil, t.db.name, t.name)
 		if err != nil {
 			return nil, err
+		}
+
+		_, isNull := rval.(*NullValue)
+		if isNull {
+			continue
 		}
 
 		valb, err := EncodeValue(rval, col.colType, !asKey)
@@ -387,7 +392,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 			return nil, nil, err
 		}
 
-		rval, err := val.reduce(nil, e.implicitDB, table.name)
+		rval, err := val.reduce(e.catalog, nil, e.implicitDB, table.name)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -397,7 +402,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 			return nil, nil, err
 		}
 
-		bs, err := row.bytes(table, stmt.cols, params)
+		bs, err := row.bytes(e.catalog, table, stmt.cols, params)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -423,7 +428,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 				return nil, nil, err
 			}
 
-			rval, err := val.reduce(nil, e.implicitDB, table.name)
+			rval, err := val.reduce(e.catalog, nil, e.implicitDB, table.name)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -452,13 +457,50 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 type ValueExp interface {
 	jointColumnTo(col *Column, tableAlias string) (*ColSelector, error)
 	substitute(params map[string]interface{}) (ValueExp, error)
-	reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error)
+	reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error)
 }
 
 type TypedValue interface {
 	Type() SQLValueType
 	Value() interface{}
 	Compare(val TypedValue) (int, error)
+}
+
+type NullValue struct {
+	t SQLValueType
+}
+
+func (n *NullValue) Type() SQLValueType {
+	return n.t
+}
+
+func (n *NullValue) Value() interface{} {
+	return nil
+}
+
+func (n *NullValue) Compare(val TypedValue) (int, error) {
+	if n.t != val.Type() {
+		return 0, ErrNotComparableValues
+	}
+
+	_, isNull := val.(*NullValue)
+	if isNull {
+		return 0, nil
+	}
+
+	return -1, nil
+}
+
+func (n *NullValue) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
+func (n *NullValue) substitute(params map[string]interface{}) (ValueExp, error) {
+	return n, nil
+}
+
+func (n *NullValue) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	return n, nil
 }
 
 type Number struct {
@@ -477,7 +519,7 @@ func (v *Number) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Number) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Number) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -518,7 +560,7 @@ func (v *String) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *String) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *String) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -551,7 +593,7 @@ func (v *Bool) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Bool) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Bool) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -592,7 +634,7 @@ func (v *Blob) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *Blob) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Blob) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
@@ -621,7 +663,7 @@ func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *SysFn) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	if v.fn == "NOW" {
 		return &Number{val: uint64(time.Now().UnixNano())}, nil
 	}
@@ -669,7 +711,7 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 	return nil, ErrIllegalArguments
 }
 
-func (p *Param) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (p *Param) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, ErrUnexpected
 }
 
@@ -992,19 +1034,28 @@ func (sel *ColSelector) substitute(params map[string]interface{}) (ValueExp, err
 	return sel, nil
 }
 
-func (sel *ColSelector) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	aggFn, db, table, col := sel.resolve(implicitDB, implicitTable)
-
-	//catalog *Catalog,
-
-	//catalog.dbsByName[]
-
-	//return nil, ErrColumnDoesNotExist
 
 	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
-		//return &NullValue{t: column.ColType}, nil
+		// TODO (jeroiraz): typed nullables not yet fully supported
+		/*t, err := catalog.GetTableByName(db, table)
+		if err != nil {
+			return nil, err
+		}
+
+		c, err := t.GetColumnByName(col)
+		if err != nil {
+			return nil, err
+		}
+
+		return &NullValue{t: c.colType}, nil
+		*/
+
+		return &NullValue{}, nil
 	}
+
 	return v, nil
 }
 
@@ -1050,7 +1101,7 @@ func (sel *AggColSelector) substitute(params map[string]interface{}) (ValueExp, 
 	return sel, nil
 }
 
-func (sel *AggColSelector) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	v, ok := row.Values[EncodeSelector(sel.resolve(implicitDB, implicitTable))]
 	if !ok {
 		return nil, ErrColumnDoesNotExist
@@ -1077,8 +1128,8 @@ func (bexp *NotBoolExp) substitute(params map[string]interface{}) (ValueExp, err
 	return bexp, nil
 }
 
-func (bexp *NotBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	v, err := bexp.exp.reduce(row, implicitDB, implicitTable)
+func (bexp *NotBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	v, err := bexp.exp.reduce(catalog, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -1106,7 +1157,7 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 	return bexp, nil
 }
 
-func (bexp *LikeBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, errors.New("not yet supported")
 }
 
@@ -1166,13 +1217,13 @@ func (bexp *CmpBoolExp) substitute(params map[string]interface{}) (ValueExp, err
 	return bexp, nil
 }
 
-func (bexp *CmpBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	vl, err := bexp.left.reduce(row, implicitDB, implicitTable)
+func (bexp *CmpBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	vl, err := bexp.left.reduce(catalog, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.reduce(row, implicitDB, implicitTable)
+	vr, err := bexp.right.reduce(catalog, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -1251,13 +1302,13 @@ func (bexp *BinBoolExp) substitute(params map[string]interface{}) (ValueExp, err
 	return bexp, nil
 }
 
-func (bexp *BinBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	vl, err := bexp.left.reduce(row, implicitDB, implicitTable)
+func (bexp *BinBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	vl, err := bexp.left.reduce(catalog, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
 
-	vr, err := bexp.right.reduce(row, implicitDB, implicitTable)
+	vr, err := bexp.right.reduce(catalog, row, implicitDB, implicitTable)
 	if err != nil {
 		return nil, err
 	}
@@ -1298,6 +1349,6 @@ func (bexp *ExistsBoolExp) substitute(params map[string]interface{}) (ValueExp, 
 	return bexp, nil
 }
 
-func (bexp *ExistsBoolExp) reduce(row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (bexp *ExistsBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return nil, errors.New("not yet supported")
 }
