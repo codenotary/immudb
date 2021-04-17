@@ -99,10 +99,10 @@ func TestCreateTable(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY id)", nil, true)
 	require.Equal(t, ErrInvalidPK, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (name STRING, PRIMARY KEY name)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (name VARCHAR, PRIMARY KEY name)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, PRIMARY KEY id)", nil, true)
@@ -130,7 +130,7 @@ func TestCreateIndex(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, age INTEGER, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR, age INTEGER, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	db := engine.catalog.Databases()[0]
@@ -191,7 +191,7 @@ func TestInsertInto(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1)", nil, true)
@@ -234,7 +234,7 @@ func TestQuery(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	rowCount := 10
@@ -330,7 +330,7 @@ func TestQueryWithNullables(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title STRING, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	rowCount := 10
@@ -382,7 +382,7 @@ func TestOrderBy(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, age INTEGER, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil, true)
@@ -453,7 +453,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	rowCount := 10
@@ -560,7 +560,7 @@ func TestAggregations(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, age INTEGER, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil, true)
@@ -626,7 +626,7 @@ func TestGroupByHaving(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil, true)
@@ -690,7 +690,7 @@ func TestJoins(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, fkid2 INTEGER, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, PRIMARY KEY id)", nil, true)
@@ -784,7 +784,7 @@ func TestNestedJoins(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, fkid1 INTEGER, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, fkid1 INTEGER, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE TABLE table2 (id INTEGER, amount INTEGER, fkid1 INTEGER, PRIMARY KEY id)", nil, true)
@@ -847,7 +847,7 @@ func TestReOpening(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name STRING, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(name)", nil, true)
@@ -878,7 +878,7 @@ func TestReOpening(t *testing.T) {
 
 	col, err = table.GetColumnByName("name")
 	require.NoError(t, err)
-	require.Equal(t, StringType, col.colType)
+	require.Equal(t, VarcharType, col.colType)
 
 	require.Len(t, table.indexes, 1)
 
@@ -904,7 +904,7 @@ func TestSubQuery(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title STRING, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	rowCount := 10
