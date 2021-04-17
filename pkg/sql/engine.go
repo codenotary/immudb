@@ -703,6 +703,14 @@ func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowRea
 		return nil, ErrExpectingDQLStmt
 	}
 
+	return e.QueryPreparedStmt(stmt, params)
+}
+
+func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}) (RowReader, error) {
+	if stmt == nil {
+		return nil, ErrIllegalArguments
+	}
+
 	snap, err := e.dataStore.SnapshotSince(math.MaxUint64)
 	if err != nil {
 		return nil, err
