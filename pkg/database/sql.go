@@ -89,13 +89,29 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 		return nil, ErrIllegalArguments
 	}
 
-	if req.Limit > MaxKeyScanLimit {
+	stmts, err := sql.Parse(strings.NewReader(req.Sql))
+	if err != nil {
+		return nil, err
+	}
+
+	stmt, ok := stmts[0].(*sql.SelectStmt)
+	if !ok {
+		return nil, ErrIllegalArguments
+	}
+
+	return d.SQLQueryPrepared(stmt, req.Params, int(req.Limit))
+}
+
+func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, limit int) (*schema.SQLQueryResult, error) {
+	if stmt == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	if limit > MaxKeyScanLimit {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	limit := int(req.Limit)
-
-	if req.Limit == 0 {
+	if limit == 0 {
 		limit = MaxKeyScanLimit
 	}
 
@@ -104,11 +120,11 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 
 	params := make(map[string]interface{})
 
-	for _, p := range req.Params {
+	for _, p := range namedParams {
 		params[p.Name] = p.Value
 	}
 
-	r, err := d.sqlEngine.QueryStmt(req.Sql, params)
+	r, err := d.sqlEngine.QueryPreparedStmt(stmt, params)
 	if err != nil {
 		return nil, err
 	}
