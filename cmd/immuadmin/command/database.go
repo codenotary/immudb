@@ -51,10 +51,10 @@ func (cl *commandline) database(cmd *cobra.Command) {
 				len(resp.Databases),
 				func(i int) []string {
 					row := make([]string, 1)
-					if cl.options.CurrentDatabase == resp.Databases[i].Databasename {
+					if cl.options.CurrentDatabase == resp.Databases[i].DatabaseName {
 						row[0] += fmt.Sprintf("*")
 					}
-					row[0] += fmt.Sprintf("%s", resp.Databases[i].Databasename)
+					row[0] += fmt.Sprintf("%s", resp.Databases[i].DatabaseName)
 					return row
 				},
 				fmt.Sprintf("%d database(s)", len(resp.Databases)),
@@ -71,7 +71,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		Example:           "create {database_name}",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := cl.immuClient.CreateDatabase(cl.context, &schema.Database{
-				Databasename: args[0],
+				DatabaseName: args[0],
 			}); err != nil {
 				return err
 			}
@@ -90,7 +90,7 @@ func (cl *commandline) database(cmd *cobra.Command) {
 		ValidArgs:         []string{"databasename"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := cl.immuClient.UseDatabase(cl.context, &schema.Database{
-				Databasename: args[0],
+				DatabaseName: args[0],
 			})
 			if err != nil {
 				cl.quit(err)
