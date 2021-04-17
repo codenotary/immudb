@@ -220,7 +220,7 @@ func (i *immuc) CreateDatabase(args []string) (string, error) {
 	ctx := context.Background()
 	if _, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return nil, immuClient.CreateDatabase(ctx, &schema.Database{
-			Databasename: string(dbname),
+			DatabaseName: string(dbname),
 		})
 	}); err != nil {
 		return "", err
@@ -240,10 +240,10 @@ func (i *immuc) DatabaseList(args []string) (string, error) {
 	var dbList string
 
 	for _, val := range resp.(*schema.DatabaseListResponse).Databases {
-		if i.options.CurrentDatabase == val.Databasename {
+		if i.options.CurrentDatabase == val.DatabaseName {
 			dbList += "*"
 		}
-		dbList += fmt.Sprintf("%s\n", val.Databasename)
+		dbList += fmt.Sprintf("%s\n", val.DatabaseName)
 	}
 
 	return dbList, nil
@@ -262,7 +262,7 @@ func (i *immuc) UseDatabase(args []string) (string, error) {
 	ctx := context.Background()
 	resp, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
 		return immuClient.UseDatabase(ctx, &schema.Database{
-			Databasename: dbname,
+			DatabaseName: dbname,
 		})
 	})
 	if err != nil {

@@ -341,7 +341,7 @@ func dbExists(
 		return false, err
 	}
 	for _, db := range existingDBs.GetDatabases() {
-		if db.GetDatabasename() == dbName {
+		if db.GetDatabaseName() == dbName {
 			return true, nil
 		}
 	}

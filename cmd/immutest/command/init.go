@@ -174,7 +174,7 @@ func selectDb(
 	tkns client.TokenService,
 	db string,
 	onSuccess func()) {
-	response, err := immuClient.UseDatabase(ctx, &schema.Database{Databasename: db})
+	response, err := immuClient.UseDatabase(ctx, &schema.Database{DatabaseName: db})
 	if err != nil {
 		cl.onError(err)
 		return
