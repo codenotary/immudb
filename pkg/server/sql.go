@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/golang/protobuf/ptypes/empty"
 )
 
 func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
@@ -37,4 +38,26 @@ func (s *ImmuServer) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) 
 	}
 
 	return s.dbList.GetByIndex(ind).SQLQuery(req)
+}
+
+func (s *ImmuServer) ListTables(ctx context.Context, _ *empty.Empty) (*schema.SQLQueryResult, error) {
+	ind, err := s.getDbIndexFromCtx(ctx, "ListTables")
+	if err != nil {
+		return nil, err
+	}
+
+	return s.dbList.GetByIndex(ind).ListTables()
+}
+
+func (s *ImmuServer) DescribeTable(ctx context.Context, req *schema.Table) (*schema.SQLQueryResult, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	ind, err := s.getDbIndexFromCtx(ctx, "DescribeTable")
+	if err != nil {
+		return nil, err
+	}
+
+	return s.dbList.GetByIndex(ind).DescribeTable(req.TableName)
 }

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/stream"
 	"io/ioutil"
 	"log"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
@@ -253,7 +254,7 @@ func TestServerCreateDatabase(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	newdb := &schema.Database{
-		Databasename: "lisbon",
+		DatabaseName: "lisbon",
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
@@ -278,7 +279,7 @@ func TestServerCreateDatabaseCaseError(t *testing.T) {
 		t.Fatalf("Login error %v", err)
 	}
 	newdb := &schema.Database{
-		Databasename: "MyDatabase",
+		DatabaseName: "MyDatabase",
 	}
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
@@ -311,7 +312,7 @@ func TestServerCreateMultipleDatabases(t *testing.T) {
 		dbname := fmt.Sprintf("db%d", i)
 
 		db := &schema.Database{
-			Databasename: dbname,
+			DatabaseName: dbname,
 		}
 		_, err = s.CreateDatabase(ctx, db)
 		if err != nil {
@@ -366,7 +367,7 @@ func TestServerLoaduserDatabase(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	newdb := &schema.Database{
-		Databasename: testDatabase,
+		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
@@ -432,7 +433,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	newdb := &schema.Database{
-		Databasename: testDatabase,
+		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
@@ -476,7 +477,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	md = metadata.Pairs("authorization", lr.Token)
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 	ur, err := s.UseDatabase(ctx, &schema.Database{
-		Databasename: testDatabase,
+		DatabaseName: testDatabase,
 	})
 	if err != nil {
 		t.Fatalf("UseDatabase error %v", err)
@@ -531,7 +532,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	ur, err = s.UseDatabase(ctx, &schema.Database{
-		Databasename: testDatabase,
+		DatabaseName: testDatabase,
 	})
 	if err != nil {
 		t.Fatalf("UseDatabase error %v", err)
@@ -560,7 +561,7 @@ func testServerListDatabases(ctx context.Context, s *ImmuServer, t *testing.T) {
 
 func testServerUseDatabase(ctx context.Context, s *ImmuServer, t *testing.T) {
 	dbs, err := s.UseDatabase(ctx, &schema.Database{
-		Databasename: testDatabase,
+		DatabaseName: testDatabase,
 	})
 	if err != nil {
 		t.Fatalf("UseDatabase error %v", err)
@@ -1190,7 +1191,7 @@ func TestServerUsermanagement(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	newdb := &schema.Database{
-		Databasename: testDatabase,
+		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
@@ -1234,7 +1235,7 @@ func TestServerDbOperations(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.Background(), md)
 
 	newdb := &schema.Database{
-		Databasename: testDatabase,
+		DatabaseName: testDatabase,
 	}
 	_, err = s.CreateDatabase(ctx, newdb)
 	if err != nil {
@@ -1590,17 +1591,17 @@ func TestServerErrors(t *testing.T) {
 
 	// UseDatabase errors
 	s.Options.auth = false
-	_, err = s.UseDatabase(ctx2, &schema.Database{Databasename: DefaultdbName})
+	_, err = s.UseDatabase(ctx2, &schema.Database{DatabaseName: DefaultdbName})
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
 	s.Options.auth = true
 
-	_, err = s.UseDatabase(ctx2, &schema.Database{Databasename: DefaultdbName})
+	_, err = s.UseDatabase(ctx2, &schema.Database{DatabaseName: DefaultdbName})
 
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.Unauthenticated, errStatus.Code())
 	require.Equal(t, "Please login", errStatus.Message())
 
-	_, err = s.UseDatabase(ctx, &schema.Database{Databasename: SystemdbName})
+	_, err = s.UseDatabase(ctx, &schema.Database{DatabaseName: SystemdbName})
 	require.Equal(t, errors.New("this database can not be selected"), err)
 
 	lr, err = s.Login(ctx, &schema.LoginRequest{User: usernameBytes, Password: passwordBytes})
@@ -1611,20 +1612,20 @@ func TestServerErrors(t *testing.T) {
 
 	require.NoError(t, err)
 	someDb1 := "somedatabase1"
-	_, err = s.CreateDatabase(ctx, &schema.Database{Databasename: someDb1})
+	_, err = s.CreateDatabase(ctx, &schema.Database{DatabaseName: someDb1})
 	require.NoError(t, err)
-	_, err = s.UseDatabase(ctx2, &schema.Database{Databasename: someDb1})
+	_, err = s.UseDatabase(ctx2, &schema.Database{DatabaseName: someDb1})
 
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.PermissionDenied, errStatus.Code())
 	require.Equal(t, "Logged in user does not have permission on this database", errStatus.Message())
 
 	s.Options.maintenance = true
-	_, err = s.UseDatabase(ctx2, &schema.Database{Databasename: DefaultdbName})
+	_, err = s.UseDatabase(ctx2, &schema.Database{DatabaseName: DefaultdbName})
 	require.NoError(t, err)
 	s.Options.maintenance = false
 
-	_, err = s.UseDatabase(ctx, &schema.Database{Databasename: "nonexistentdb"})
+	_, err = s.UseDatabase(ctx, &schema.Database{DatabaseName: "nonexistentdb"})
 
 	errStatus, _ = status.FromError(err)
 	require.Equal(t, codes.NotFound, errStatus.Code())
@@ -1718,7 +1719,7 @@ func TestServerErrors(t *testing.T) {
 
 	// CreateDatabase errors
 	someDb2 := "somedatabase2"
-	createDbReq := &schema.Database{Databasename: someDb2}
+	createDbReq := &schema.Database{DatabaseName: someDb2}
 	s.Options.auth = false
 	_, err = s.CreateDatabase(ctx, createDbReq)
 	require.Equal(t, errors.New("this command is available only with authentication on"), err)
@@ -1730,16 +1731,16 @@ func TestServerErrors(t *testing.T) {
 	_, err = s.CreateDatabase(ctx2, createDbReq)
 	require.Equal(t, errors.New("Logged In user does not have permissions for this operation"), err)
 
-	createDbReq.Databasename = SystemdbName
+	createDbReq.DatabaseName = SystemdbName
 	_, err = s.CreateDatabase(ctx, createDbReq)
 	require.Equal(t, errors.New("this database name is reserved"), err)
-	createDbReq.Databasename = someDb2
+	createDbReq.DatabaseName = someDb2
 
-	createDbReq.Databasename = ""
+	createDbReq.DatabaseName = ""
 	_, err = s.CreateDatabase(ctx, createDbReq)
 	require.Equal(t, errors.New("database name length outside of limits"), err)
 
-	createDbReq.Databasename = someDb1
+	createDbReq.DatabaseName = someDb1
 	_, err = s.CreateDatabase(ctx, createDbReq)
 	require.Equal(t, fmt.Errorf("database %s already exists", someDb1), err)
 

@@ -224,7 +224,7 @@ func TestDefaultAuditorUseDatabaseErr(t *testing.T) {
 		},
 		DatabaseListF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
 			return &schema.DatabaseListResponse{
-				Databases: []*schema.Database{{Databasename: "someDB"}},
+				Databases: []*schema.Database{{DatabaseName: "someDB"}},
 			}, nil
 		},
 		UseDatabaseF: func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
@@ -266,7 +266,7 @@ func TestDefaultAuditorCurrentRootErr(t *testing.T) {
 		},
 		DatabaseListF: func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
 			return &schema.DatabaseListResponse{
-				Databases: []*schema.Database{{Databasename: "someDB"}},
+				Databases: []*schema.Database{{DatabaseName: "someDB"}},
 			}, nil
 		},
 		UseDatabaseF: func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {
@@ -565,7 +565,7 @@ func TestDefaultAuditorRunOnDbWithFailSignature(t *testing.T) {
 	}
 	serviceClient.DatabaseListF = func(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*schema.DatabaseListResponse, error) {
 		return &schema.DatabaseListResponse{
-			Databases: []*schema.Database{{Databasename: "sysdb"}},
+			Databases: []*schema.Database{{DatabaseName: "sysdb"}},
 		}, nil
 	}
 	serviceClient.UseDatabaseF = func(ctx context.Context, in *schema.Database, opts ...grpc.CallOption) (*schema.UseDatabaseReply, error) {

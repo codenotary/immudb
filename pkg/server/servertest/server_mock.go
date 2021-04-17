@@ -259,3 +259,11 @@ func (s *ServerMock) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 func (s *ServerMock) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
 	return s.srv.SQLQuery(ctx, req)
 }
+
+func (s *ServerMock) ListTables(ctx context.Context, req *empty.Empty) (*schema.SQLQueryResult, error) {
+	return s.srv.ListTables(ctx, req)
+}
+
+func (s *ServerMock) DescribeTable(ctx context.Context, req *schema.Table) (*schema.SQLQueryResult, error) {
+	return s.srv.DescribeTable(ctx, req)
+}

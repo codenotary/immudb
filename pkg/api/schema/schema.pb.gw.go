@@ -981,15 +981,15 @@ func request_ImmuService_UseDatabase_0(ctx context.Context, marshaler runtime.Ma
 		_   = err
 	)
 
-	val, ok = pathParams["databasename"]
+	val, ok = pathParams["databaseName"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "databasename")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "databaseName")
 	}
 
-	protoReq.Databasename, err = runtime.String(val)
+	protoReq.DatabaseName, err = runtime.String(val)
 
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "databasename", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "databaseName", err)
 	}
 
 	msg, err := client.UseDatabase(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -1008,15 +1008,15 @@ func local_request_ImmuService_UseDatabase_0(ctx context.Context, marshaler runt
 		_   = err
 	)
 
-	val, ok = pathParams["databasename"]
+	val, ok = pathParams["databaseName"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "databasename")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "databaseName")
 	}
 
-	protoReq.Databasename, err = runtime.String(val)
+	protoReq.DatabaseName, err = runtime.String(val)
 
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "databasename", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "databaseName", err)
 	}
 
 	msg, err := server.UseDatabase(ctx, &protoReq)
@@ -2503,7 +2503,7 @@ var (
 
 	pattern_ImmuService_DatabaseList_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "db", "list"}, "", runtime.AssumeColonVerbOpt(true)))
 
-	pattern_ImmuService_UseDatabase_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"v1", "immurestproxy", "db", "use", "databasename"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_ImmuService_UseDatabase_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"v1", "immurestproxy", "db", "use", "databaseName"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_ImmuService_CleanIndex_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "immurestproxy", "db", "cleanindex"}, "", runtime.AssumeColonVerbOpt(true)))
 

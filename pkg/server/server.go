@@ -1059,28 +1059,28 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		return nil, fmt.Errorf("Logged In user does not have permissions for this operation")
 	}
 
-	if newdb.Databasename == SystemdbName {
+	if newdb.DatabaseName == SystemdbName {
 		return nil, fmt.Errorf("this database name is reserved")
 	}
 
-	if strings.ToLower(newdb.Databasename) != newdb.Databasename {
+	if strings.ToLower(newdb.DatabaseName) != newdb.DatabaseName {
 		return nil, fmt.Errorf("provide a lowercase database name")
 	}
 
-	newdb.Databasename = strings.ToLower(newdb.Databasename)
-	if err = IsAllowedDbName(newdb.Databasename); err != nil {
+	newdb.DatabaseName = strings.ToLower(newdb.DatabaseName)
+	if err = IsAllowedDbName(newdb.DatabaseName); err != nil {
 		return nil, err
 	}
 
 	//check if database exists
-	if _, ok := s.databasenameToIndex[newdb.GetDatabasename()]; ok {
-		return nil, fmt.Errorf("database %s already exists", newdb.GetDatabasename())
+	if _, ok := s.databasenameToIndex[newdb.GetDatabaseName()]; ok {
+		return nil, fmt.Errorf("database %s already exists", newdb.GetDatabaseName())
 	}
 
 	dataDir := s.Options.Dir
 
 	op := database.DefaultOption().
-		WithDbName(newdb.Databasename).
+		WithDbName(newdb.DatabaseName).
 		WithDbRootPath(dataDir).
 		WithCorruptionChecker(s.Options.CorruptionCheck).
 		WithDbRootPath(s.Options.Dir).
@@ -1092,7 +1092,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		return nil, err
 	}
 
-	s.databasenameToIndex[newdb.Databasename] = int64(s.dbList.Length())
+	s.databasenameToIndex[newdb.DatabaseName] = int64(s.dbList.Length())
 	s.dbList.Append(db)
 	s.multidbmode = true
 
@@ -1303,14 +1303,14 @@ func (s *ImmuServer) DatabaseList(ctx context.Context, req *empty.Empty) (*schem
 				continue
 			}
 			db := &schema.Database{
-				Databasename: val.GetOptions().GetDbName(),
+				DatabaseName: val.GetOptions().GetDbName(),
 			}
 			dbList.Databases = append(dbList.Databases, db)
 		}
 	} else {
 		for _, val := range loggedInuser.Permissions {
 			db := &schema.Database{
-				Databasename: val.Database,
+				DatabaseName: val.Database,
 			}
 			dbList.Databases = append(dbList.Databases, db)
 		}
@@ -1340,16 +1340,16 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 			return nil, status.Errorf(codes.Unauthenticated, "Please login")
 		}
 
-		if db.Databasename == SystemdbName {
+		if db.DatabaseName == SystemdbName {
 			return nil, fmt.Errorf("this database can not be selected")
 		}
 
 		//check if this user has permission on this database
 		//if sysadmin allow to continue
 		if (!user.IsSysAdmin) &&
-			(!user.HasPermission(db.Databasename, auth.PermissionAdmin)) &&
-			(!user.HasPermission(db.Databasename, auth.PermissionR)) &&
-			(!user.HasPermission(db.Databasename, auth.PermissionRW)) {
+			(!user.HasPermission(db.DatabaseName, auth.PermissionAdmin)) &&
+			(!user.HasPermission(db.DatabaseName, auth.PermissionR)) &&
+			(!user.HasPermission(db.DatabaseName, auth.PermissionRW)) {
 
 			return nil, status.Errorf(codes.PermissionDenied,
 				"Logged in user does not have permission on this database")
@@ -1361,9 +1361,9 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	}
 
 	//check if database exists
-	ind, ok := s.databasenameToIndex[db.Databasename]
+	ind, ok := s.databasenameToIndex[db.DatabaseName]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", db.Databasename))
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", db.DatabaseName))
 	}
 
 	token, err := auth.GenerateToken(*user, ind, s.Options.TokenExpiryTimeMin)
