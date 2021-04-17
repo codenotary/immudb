@@ -145,6 +145,8 @@ type ImmuClient interface {
 
 	SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
 	SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
+	ListTables(ctx context.Context) (*schema.SQLQueryResult, error)
+	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)
 
 	// DEPRECATED: Please use CurrentState
 	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)
@@ -1373,7 +1375,7 @@ func (c *immuClient) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 
 	result, err := c.ServiceClient.UseDatabase(ctx, db)
 
-	c.Options.CurrentDatabase = db.Databasename
+	c.Options.CurrentDatabase = db.DatabaseName
 
 	c.Logger.Debugf("UseDatabase finished in %s", time.Since(start))
 

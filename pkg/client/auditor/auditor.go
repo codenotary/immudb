@@ -199,13 +199,13 @@ func (a *defaultAuditor) audit() error {
 		for _, db := range dbs.Databases {
 			dbMustBeAudited := len(a.auditDatabases) <= 0
 			for _, dbPrefix := range a.auditDatabases {
-				if strings.HasPrefix(db.Databasename, dbPrefix) {
+				if strings.HasPrefix(db.DatabaseName, dbPrefix) {
 					dbMustBeAudited = true
 					break
 				}
 			}
 			if dbMustBeAudited {
-				a.databases = append(a.databases, db.Databasename)
+				a.databases = append(a.databases, db.DatabaseName)
 			}
 		}
 
@@ -225,7 +225,7 @@ func (a *defaultAuditor) audit() error {
 
 	dbName := a.databases[a.databaseIndex]
 	resp, err := a.serviceClient.UseDatabase(ctx, &schema.Database{
-		Databasename: dbName,
+		DatabaseName: dbName,
 	})
 	if err != nil {
 		a.logger.Errorf("error selecting database %s: %v", dbName, err)

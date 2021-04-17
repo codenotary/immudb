@@ -5,11 +5,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"net"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/stream/streamtest"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
@@ -36,7 +37,7 @@ func newImmuClient(t *testing.T) (ImmuClient, context.Context) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	ur, err := cli.UseDatabase(ctx, &schema.Database{Databasename: "defaultdb"})
+	ur, err := cli.UseDatabase(ctx, &schema.Database{DatabaseName: "defaultdb"})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", ur.Token)

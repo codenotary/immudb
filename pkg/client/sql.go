@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (c *immuClient) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
@@ -33,4 +34,18 @@ func (c *immuClient) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) 
 		return nil, ErrNotConnected
 	}
 	return c.ServiceClient.SQLQuery(ctx, req)
+}
+
+func (c *immuClient) ListTables(ctx context.Context) (*schema.SQLQueryResult, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	return c.ServiceClient.ListTables(ctx, &emptypb.Empty{})
+}
+
+func (c *immuClient) DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+	return c.ServiceClient.DescribeTable(ctx, &schema.Table{TableName: tableName})
 }
