@@ -60,3 +60,31 @@ func (i *immuc) SQLQuery(args []string) (*schema.SQLQueryResult, error) {
 
 	return response.(*schema.SQLQueryResult), nil
 }
+
+func (i *immuc) ListTables() (*schema.SQLQueryResult, error) {
+	ctx := context.Background()
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.ListTables(ctx)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return response.(*schema.SQLQueryResult), nil
+}
+
+func (i *immuc) DescribeTable(args []string) (*schema.SQLQueryResult, error) {
+	if len(args) != 1 {
+		return nil, client.ErrIllegalArguments
+	}
+
+	ctx := context.Background()
+	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
+		return immuClient.DescribeTable(ctx, args[0])
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return response.(*schema.SQLQueryResult), nil
+}

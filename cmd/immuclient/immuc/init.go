@@ -72,6 +72,8 @@ type Client interface {
 	SetValueOnly(v bool) // TODO: ?
 	SQLExec(args []string) (string, error)
 	SQLQuery(args []string) (*schema.SQLQueryResult, error)
+	ListTables() (*schema.SQLQueryResult, error)
+	DescribeTable(args []string) (*schema.SQLQueryResult, error)
 }
 
 // Init ...

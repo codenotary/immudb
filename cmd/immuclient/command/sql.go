@@ -82,3 +82,83 @@ func (cl *commandline) sqlQuery(cmd *cobra.Command) {
 	}
 	cmd.AddCommand(ccmd)
 }
+
+func (cl *commandline) listTables(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:               "list tables",
+		Short:             "List tables",
+		Aliases:           []string{"list"},
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.ListTables()
+			if err != nil {
+				cl.quit(err)
+			}
+
+			consoleTable := tablewriter.NewWriter(cmd.OutOrStdout())
+
+			cols := make([]string, len(resp.Columns))
+			for i, c := range resp.Columns {
+				cols[i] = c.Name
+			}
+			consoleTable.SetHeader(cols)
+
+			for _, r := range resp.Rows {
+				row := make([]string, len(r.Values))
+
+				for i, v := range r.Values {
+					row[i] = schema.RenderValue(v.Operation)
+				}
+
+				consoleTable.Append(row)
+			}
+
+			consoleTable.Render()
+
+			return nil
+		},
+		Args: cobra.MinimumNArgs(1),
+	}
+	cmd.AddCommand(ccmd)
+}
+
+func (cl *commandline) describeTable(cmd *cobra.Command) {
+	ccmd := &cobra.Command{
+		Use:               "describe",
+		Short:             "Describe table",
+		Aliases:           []string{"table"},
+		PersistentPreRunE: cl.ConfigChain(cl.connect),
+		PersistentPostRun: cl.disconnect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := cl.immucl.DescribeTable(args)
+			if err != nil {
+				cl.quit(err)
+			}
+
+			consoleTable := tablewriter.NewWriter(cmd.OutOrStdout())
+
+			cols := make([]string, len(resp.Columns))
+			for i, c := range resp.Columns {
+				cols[i] = c.Name
+			}
+			consoleTable.SetHeader(cols)
+
+			for _, r := range resp.Rows {
+				row := make([]string, len(r.Values))
+
+				for i, v := range r.Values {
+					row[i] = schema.RenderValue(v.Operation)
+				}
+
+				consoleTable.Append(row)
+			}
+
+			consoleTable.Render()
+
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	}
+	cmd.AddCommand(ccmd)
+}
