@@ -118,6 +118,18 @@ func (c *Catalog) GetTableByName(dbName, tableName string) (*Table, error) {
 	return db.GetTableByName(tableName)
 }
 
+func (db *Database) GetTables() []*Table {
+	ts := make([]*Table, len(db.tablesByName))
+
+	i := 0
+	for _, t := range db.tablesByID {
+		ts[i] = t
+		i++
+	}
+
+	return ts
+}
+
 func (db *Database) GetTableByName(name string) (*Table, error) {
 	table, exists := db.tablesByName[name]
 	if !exists {
@@ -136,6 +148,24 @@ func (db *Database) GetTableByID(id uint64) (*Table, error) {
 
 func (t *Table) GetColsByID() map[uint64]*Column {
 	return t.colsByID
+}
+
+func (t *Table) Name() string {
+	return t.name
+}
+
+func (t *Table) PrimaryKey() *Column {
+	return t.pk
+}
+
+func (t *Table) IsIndexed(colName string) (bool, error) {
+	c, exists := t.colsByName[colName]
+	if !exists {
+		return false, ErrColumnDoesNotExist
+	}
+
+	_, indexed := t.indexes[c.id]
+	return indexed, nil
 }
 
 func (t *Table) GetColumnByName(name string) (*Column, error) {
@@ -202,4 +232,12 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Tabl
 	db.tablesByName[table.name] = table
 
 	return table, nil
+}
+
+func (c *Column) Name() string {
+	return c.colName
+}
+
+func (c *Column) Type() string {
+	return c.colType
 }

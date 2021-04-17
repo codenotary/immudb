@@ -424,7 +424,7 @@ func (e *Engine) unmapColSpec(mkey []byte) (dbID, tableID, colID uint64, colType
 func asType(t string) (SQLValueType, error) {
 	if t == IntegerType ||
 		t == BooleanType ||
-		t == StringType ||
+		t == VarcharType ||
 		t == BLOBType ||
 		t == TimestampType {
 		return t, nil
@@ -554,14 +554,14 @@ func maxKeyVal(colType SQLValueType) []byte {
 
 func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, error) {
 	switch colType {
-	case StringType:
+	case VarcharType:
 		{
-			strVal, ok := val.(*String)
+			strVal, ok := val.(*Varchar)
 			if !ok {
 				return nil, ErrInvalidValue
 			}
 
-			if asKey && len(strVal.val) > len(maxKeyVal(StringType)) {
+			if asKey && len(strVal.val) > len(maxKeyVal(VarcharType)) {
 				return nil, ErrInvalidPK
 			}
 
@@ -644,11 +644,11 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	}
 
 	switch colType {
-	case StringType:
+	case VarcharType:
 		{
 			v := string(b[voff : voff+vlen])
 			voff += vlen
-			return &String{val: v}, voff, nil
+			return &Varchar{val: v}, voff, nil
 		}
 	case IntegerType:
 		{

@@ -69,7 +69,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <id> IDENTIFIER
 %token <sqlType> TYPE
 %token <number> NUMBER
-%token <str> STRING
+%token <str> VARCHAR
 %token <boolean> BOOLEAN
 %token <blob> BLOB
 %token <aggFn> AGGREGATE_FUNC
@@ -170,17 +170,17 @@ ddlstmt:
         $$ = &UseDatabaseStmt{DB: $3}
     }
 |
-    USE SNAPSHOT SINCE STRING
+    USE SNAPSHOT SINCE VARCHAR
     {
         $$ = &UseSnapshotStmt{since: $4}
     }
 |
-    USE SNAPSHOT UP TO STRING
+    USE SNAPSHOT UP TO VARCHAR
     {
         $$ = &UseSnapshotStmt{upTo: $5}
     }
 |
-    USE SNAPSHOT SINCE STRING UP TO STRING
+    USE SNAPSHOT SINCE VARCHAR UP TO VARCHAR
     {
         $$ = &UseSnapshotStmt{since: $4, upTo: $7}
     }
@@ -262,9 +262,9 @@ val:
         $$ = &Number{val: $1}
     }
 |
-    STRING
+    VARCHAR
     {
-        $$ = &String{val: $1}
+        $$ = &Varchar{val: $1}
     }
 |
     BOOLEAN
@@ -543,7 +543,7 @@ boolExp:
         $$ = $2
     }
 |
-    selector LIKE STRING
+    selector LIKE VARCHAR
     {
         $$ = &LikeBoolExp{sel: $1, pattern: $3}
     }

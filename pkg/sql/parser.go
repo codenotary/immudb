@@ -78,7 +78,7 @@ var joinTypes = map[string]JoinType{
 var types = map[string]SQLValueType{
 	"INTEGER":   IntegerType,
 	"BOOLEAN":   BooleanType,
-	"STRING":    StringType,
+	"VARCHAR":   VarcharType,
 	"BLOB":      BLOBType,
 	"TIMESTAMP": TimestampType,
 }
@@ -331,7 +331,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 		l.r.ReadByte() // consume closing quote
 
 		lval.str = tail
-		return STRING
+		return VARCHAR
 	}
 
 	return int(ch)

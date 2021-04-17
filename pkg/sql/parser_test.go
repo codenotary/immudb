@@ -115,7 +115,7 @@ func TestUseSnapshotStmt(t *testing.T) {
 		{
 			input:          "USE SNAPSHOT SINCE UP TO '20210214 00:00:00.000'",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected UP, expecting STRING"),
+			expectedError:  errors.New("syntax error: unexpected UP, expecting VARCHAR"),
 		},
 	}
 
@@ -146,13 +146,13 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)",
+			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
-						{colName: "name", colType: StringType},
+						{colName: "name", colType: VarcharType},
 						{colName: "ts", colType: TimestampType},
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
@@ -223,11 +223,11 @@ func TestAlterTableStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "ALTER TABLE table1 ADD COLUMN title STRING",
+			input: "ALTER TABLE table1 ADD COLUMN title VARCHAR",
 			expectedOutput: []SQLStmt{
 				&AddColumnStmt{
 					table:   "table1",
-					colSpec: &ColSpec{colName: "title", colType: StringType},
+					colSpec: &ColSpec{colName: "title", colType: VarcharType},
 				}},
 			expectedError: nil,
 		},
@@ -241,7 +241,7 @@ func TestAlterTableStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input:          "ALTER TABLE table1 COLUMN title STRING",
+			input:          "ALTER TABLE table1 COLUMN title VARCHAR",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected COLUMN, expecting ADD"),
 		},
@@ -276,7 +276,7 @@ func TestInsertIntoStmt(t *testing.T) {
 						{Values: []ValueExp{
 							&Number{val: 2},
 							&SysFn{fn: "TIME"},
-							&String{val: "untitled row"},
+							&Varchar{val: "untitled row"},
 							&Bool{val: true},
 							&Bool{val: false},
 							&Blob{val: decodedBLOB},
@@ -427,7 +427,7 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &String{val: "label1"}}},
+								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 							},
 						},
 						&UpsertIntoStmt{
@@ -443,13 +443,13 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
+			input: "CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); COMMIT;",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
-						{colName: "label", colType: StringType},
+						{colName: "label", colType: VarcharType},
 					},
 					pk: "id",
 				},
@@ -459,7 +459,7 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &String{val: "label1"}}},
+								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 							},
 						},
 					},
@@ -468,7 +468,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
+			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -476,7 +476,7 @@ func TestTxStmt(t *testing.T) {
 							table: "table1",
 							colsSpec: []*ColSpec{
 								{colName: "id", colType: IntegerType},
-								{colName: "label", colType: StringType},
+								{colName: "label", colType: VarcharType},
 							},
 							pk: "id",
 						},
@@ -484,7 +484,7 @@ func TestTxStmt(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &String{val: "label1"}}},
+								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 							},
 						},
 					},
@@ -498,7 +498,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError:  errors.New("syntax error: unexpected $end, expecting COMMIT"),
 		},
 		{
-			input:          "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label STRING, PRIMARY KEY id); COMMIT; COMMIT",
+			input:          "BEGIN TRANSACTION; UPSERT INTO table1 (id, label) VALUES (100, 'label1'); BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); COMMIT; COMMIT",
 			expectedOutput: nil,
 			expectedError:  errors.New("syntax error: unexpected BEGIN, expecting COMMIT"),
 		},
@@ -593,7 +593,7 @@ func TestSelectStmt(t *testing.T) {
 								left: &ColSelector{
 									col: "country",
 								},
-								right: &String{val: "US"},
+								right: &Varchar{val: "US"},
 							},
 							right: &CmpBoolExp{
 								op: LE,
@@ -663,7 +663,7 @@ func TestSelectStmt(t *testing.T) {
 					where: &CmpBoolExp{
 						op:    EQ,
 						left:  &ColSelector{col: "name"},
-						right: &String{val: "John"},
+						right: &Varchar{val: "John"},
 					},
 					orderBy: []*OrdCol{
 						{sel: &ColSelector{col: "name"}, cmp: LowerOrEqualTo},
@@ -702,7 +702,7 @@ func TestSelectStmt(t *testing.T) {
 					where: &CmpBoolExp{
 						op:    EQ,
 						left:  &ColSelector{col: "name"},
-						right: &String{val: "John"},
+						right: &Varchar{val: "John"},
 					},
 					orderBy: []*OrdCol{
 						{sel: &ColSelector{col: "name"}, cmp: LowerOrEqualTo},
@@ -750,14 +750,14 @@ func TestSelectStmt(t *testing.T) {
 							left: &ColSelector{
 								col: "time",
 							},
-							right: &String{val: "20210101 00:00:00.000"},
+							right: &Varchar{val: "20210101 00:00:00.000"},
 						},
 						right: &CmpBoolExp{
 							op: LT,
 							left: &ColSelector{
 								col: "time",
 							},
-							right: &String{val: "20210211 00:00:00.000"},
+							right: &Varchar{val: "20210211 00:00:00.000"},
 						},
 					},
 				}},
@@ -1031,7 +1031,7 @@ func TestMultiLineStmts(t *testing.T) {
 
 			CREATE DATABASE db1
 
-			CREATE TABLE table1 (id INTEGER, name STRING, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)
+			CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)
 
 			BEGIN TRANSACTION
 				UPSERT INTO table1 (id, label) VALUES (100, 'label1')
@@ -1048,7 +1048,7 @@ func TestMultiLineStmts(t *testing.T) {
 					table: "table1",
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
-						{colName: "name", colType: StringType},
+						{colName: "name", colType: VarcharType},
 						{colName: "ts", colType: TimestampType},
 						{colName: "active", colType: BooleanType},
 						{colName: "content", colType: BLOBType},
@@ -1061,7 +1061,7 @@ func TestMultiLineStmts(t *testing.T) {
 							tableRef: &TableRef{table: "table1"},
 							cols:     []string{"id", "label"},
 							rows: []*RowSpec{
-								{Values: []ValueExp{&Number{val: 100}, &String{val: "label1"}}},
+								{Values: []ValueExp{&Number{val: 100}, &Varchar{val: "label1"}}},
 							},
 						},
 						&UpsertIntoStmt{
@@ -1088,14 +1088,14 @@ func TestMultiLineStmts(t *testing.T) {
 							left: &ColSelector{
 								col: "time",
 							},
-							right: &String{val: "20210101 00:00:00.000"},
+							right: &Varchar{val: "20210101 00:00:00.000"},
 						},
 						right: &CmpBoolExp{
 							op: LT,
 							left: &ColSelector{
 								col: "time",
 							},
-							right: &String{val: "20210211 00:00:00.000"},
+							right: &Varchar{val: "20210211 00:00:00.000"},
 						},
 					},
 				},
