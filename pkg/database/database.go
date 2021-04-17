@@ -67,6 +67,8 @@ type DB interface {
 	CompactIndex() error
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
 	SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
+	ListTables() (*schema.SQLQueryResult, error)
+	DescribeTable(table string) (*schema.SQLQueryResult, error)
 }
 
 //IDB database instance

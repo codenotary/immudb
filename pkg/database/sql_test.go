@@ -27,11 +27,19 @@ func TestSQLExecAndQuery(t *testing.T) {
 	defer closer()
 
 	md, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
-		CREATE TABLE table1(id INTEGER, title STRING, PRIMARY KEY id)
+		CREATE TABLE table1(id INTEGER, title VARCHAR, PRIMARY KEY id)
 	`})
 	require.NoError(t, err)
 	require.Len(t, md.Ctxs, 1)
 	require.Len(t, md.Dtxs, 0)
+
+	res, err := db.ListTables()
+	require.NoError(t, err)
+	require.Len(t, res.Rows, 1)
+
+	res, err = db.DescribeTable("table1")
+	require.NoError(t, err)
+	require.Len(t, res.Rows, 2)
 
 	md, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
 		UPSERT INTO table1(id, title) VALUES (1, 'title1'), (2, 'title2'), (3, 'title3')
@@ -40,7 +48,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, md.Ctxs, 0)
 	require.Len(t, md.Dtxs, 1)
 
-	res, err := db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id as d FROM (table1 as t) WHERE id < 3", Params: nil, Limit: 10})
+	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id as d FROM (table1 as t) WHERE id < 3", Params: nil, Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
 }

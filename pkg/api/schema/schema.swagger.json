@@ -474,7 +474,7 @@
         ]
       }
     },
-    "/db/use/{databasename}": {
+    "/db/use/{databaseName}": {
       "get": {
         "operationId": "ImmuService_UseDatabase",
         "responses": {
@@ -493,7 +493,7 @@
         },
         "parameters": [
           {
-            "name": "databasename",
+            "name": "databaseName",
             "in": "path",
             "required": true,
             "type": "string"
@@ -1121,7 +1121,7 @@
     "schemaDatabase": {
       "type": "object",
       "properties": {
-        "databasename": {
+        "databaseName": {
           "type": "string"
         }
       }

@@ -21,17 +21,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
+	"net"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/stream"
 	"github.com/codenotary/immudb/pkg/stream/streamtest"
 	"github.com/codenotary/immudb/pkg/streamutils"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
-	"log"
-	"net"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestImmuServer_SimpleSetGetStream(t *testing.T) {
@@ -48,7 +49,7 @@ func TestImmuServer_SimpleSetGetStream(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	ur, err := cli.UseDatabase(ctx, &schema.Database{Databasename: "defaultdb"})
+	ur, err := cli.UseDatabase(ctx, &schema.Database{DatabaseName: "defaultdb"})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", ur.Token)
@@ -84,7 +85,7 @@ func TestImmuServer_SimpleSetGetManagedStream(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	ur, err := cli.UseDatabase(ctx, &schema.Database{Databasename: "defaultdb"})
+	ur, err := cli.UseDatabase(ctx, &schema.Database{DatabaseName: "defaultdb"})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", ur.Token)
@@ -129,7 +130,7 @@ func TestImmuServer_MultiSetGetManagedStream(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	ur, err := cli.UseDatabase(ctx, &schema.Database{Databasename: "defaultdb"})
+	ur, err := cli.UseDatabase(ctx, &schema.Database{DatabaseName: "defaultdb"})
 	require.NoError(t, err)
 
 	md = metadata.Pairs("authorization", ur.Token)

@@ -46,6 +46,7 @@
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
     - [SetRequest](#immudb.schema.SetRequest)
     - [Signature](#immudb.schema.Signature)
+    - [Table](#immudb.schema.Table)
     - [Tx](#immudb.schema.Tx)
     - [TxEntry](#immudb.schema.TxEntry)
     - [TxList](#immudb.schema.TxList)
@@ -190,7 +191,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| databasename | [string](#string) |  |  |
+| databaseName | [string](#string) |  |  |
 
 
 
@@ -778,6 +779,21 @@
 
 
 
+<a name="immudb.schema.Table"></a>
+
+### Table
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tableName | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.Tx"></a>
 
 ### Tx
@@ -1206,6 +1222,8 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | streamExecAll | [Chunk](#immudb.schema.Chunk) stream | [TxMetadata](#immudb.schema.TxMetadata) |  |
 | SQLExec | [SQLExecRequest](#immudb.schema.SQLExecRequest) | [SQLExecResult](#immudb.schema.SQLExecResult) | SQL |
 | SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
+| ListTables | [.google.protobuf.Empty](#google.protobuf.Empty) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
+| DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 
  
 

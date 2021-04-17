@@ -23,6 +23,66 @@ import (
 	"github.com/codenotary/immudb/pkg/sql"
 )
 
+func (d *db) ListTables() (*schema.SQLQueryResult, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	db, err := d.sqlEngine.Catalog().GetDatabaseByName(d.options.dbName)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &schema.SQLQueryResult{Columns: []*schema.Column{{Name: "TABLE", Type: sql.VarcharType}}}
+
+	for _, t := range db.GetTables() {
+		res.Rows = append(res.Rows, &schema.Row{Values: []*schema.RowValue{{Operation: &schema.RowValue_S{S: t.Name()}}}})
+	}
+
+	return res, nil
+}
+
+func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	table, err := d.sqlEngine.Catalog().GetTableByName(d.options.dbName, tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &schema.SQLQueryResult{Columns: []*schema.Column{
+		{Name: "COLUMN", Type: sql.VarcharType},
+		{Name: "TYPE", Type: sql.VarcharType},
+		{Name: "INDEX", Type: sql.VarcharType},
+	}}
+
+	for _, c := range table.GetColsByID() {
+		index := "NO"
+
+		if table.PrimaryKey().Name() == c.Name() {
+			index = "PRIMARY KEY"
+		}
+
+		indexed, err := table.IsIndexed(c.Name())
+		if err != nil {
+			return nil, err
+		}
+		if indexed {
+			index = "YES"
+		}
+
+		res.Rows = append(res.Rows, &schema.Row{
+			Values: []*schema.RowValue{
+				{Operation: &schema.RowValue_S{S: c.Name()}},
+				{Operation: &schema.RowValue_S{S: c.Type()}},
+				{Operation: &schema.RowValue_S{S: index}},
+			},
+		})
+	}
+
+	return res, nil
+}
+
 func (d *db) SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -179,7 +239,7 @@ func typedValueToRowValue(tv sql.TypedValue) *schema.RowValue {
 		{
 			return &schema.RowValue{Operation: &schema.RowValue_N{N: tv.Value().(uint64)}}
 		}
-	case sql.StringType:
+	case sql.VarcharType:
 		{
 			return &schema.RowValue{Operation: &schema.RowValue_S{S: tv.Value().(string)}}
 		}
