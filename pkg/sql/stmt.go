@@ -38,7 +38,7 @@ type SQLValueType = string
 const (
 	IntegerType   SQLValueType = "INTEGER"
 	BooleanType                = "BOOLEAN"
-	StringType                 = "STRING"
+	VarcharType                = "VARCHAR"
 	BLOBType                   = "BLOB"
 	TimestampType              = "TIMESTAMP"
 )
@@ -544,32 +544,32 @@ func (v *Number) Compare(val TypedValue) (int, error) {
 	return -1, nil
 }
 
-type String struct {
+type Varchar struct {
 	val string
 }
 
-func (v *String) Type() SQLValueType {
-	return StringType
+func (v *Varchar) Type() SQLValueType {
+	return VarcharType
 }
 
-func (v *String) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+func (v *Varchar) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
 	return nil, ErrJointColumnNotFound
 }
 
-func (v *String) substitute(params map[string]interface{}) (ValueExp, error) {
+func (v *Varchar) substitute(params map[string]interface{}) (ValueExp, error) {
 	return v, nil
 }
 
-func (v *String) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+func (v *Varchar) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
 	return v, nil
 }
 
-func (v *String) Value() interface{} {
+func (v *Varchar) Value() interface{} {
 	return v.val
 }
 
-func (v *String) Compare(val TypedValue) (int, error) {
-	ov, isString := val.(*String)
+func (v *Varchar) Compare(val TypedValue) (int, error) {
+	ov, isString := val.(*Varchar)
 	if !isString {
 		return 0, ErrNotComparableValues
 	}
@@ -692,7 +692,7 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		}
 	case string:
 		{
-			return &String{val: v}, nil
+			return &Varchar{val: v}, nil
 		}
 	case int:
 		{

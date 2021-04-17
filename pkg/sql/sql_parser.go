@@ -87,7 +87,7 @@ const CMPOP = 57386
 const IDENTIFIER = 57387
 const TYPE = 57388
 const NUMBER = 57389
-const STRING = 57390
+const VARCHAR = 57390
 const BOOLEAN = 57391
 const BLOB = 57392
 const AGGREGATE_FUNC = 57393
@@ -142,7 +142,7 @@ var yyToknames = [...]string{
 	"IDENTIFIER",
 	"TYPE",
 	"NUMBER",
-	"STRING",
+	"VARCHAR",
 	"BOOLEAN",
 	"BLOB",
 	"AGGREGATE_FUNC",
@@ -788,7 +788,7 @@ yydefault:
 	case 32:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		{
-			yyVAL.value = &String{val: yyDollar[1].str}
+			yyVAL.value = &Varchar{val: yyDollar[1].str}
 		}
 	case 33:
 		yyDollar = yyS[yypt-1 : yypt+1]
