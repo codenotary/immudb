@@ -159,20 +159,16 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 		return nil, ErrIllegalArguments
 	}
 
-	return d.SQLQueryPrepared(stmt, req.Params, int(req.Limit))
+	return d.SQLQueryPrepared(stmt, req.Params)
 }
 
-func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, limit int) (*schema.SQLQueryResult, error) {
+func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	if limit > MaxKeyScanLimit {
+	if stmt.Limit() > MaxKeyScanLimit {
 		return nil, ErrMaxKeyScanLimitExceeded
-	}
-
-	if limit == 0 {
-		limit = MaxKeyScanLimit
 	}
 
 	d.mutex.RLock()
@@ -203,7 +199,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 
 	res := &schema.SQLQueryResult{Columns: cols}
 
-	for l := 0; l < limit; l++ {
+	for l := 0; l < MaxKeyScanLimit; l++ {
 		row, err := r.Read()
 		if err == sql.ErrNoMoreRows {
 			break

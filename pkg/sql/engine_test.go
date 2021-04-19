@@ -247,7 +247,7 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT t1.id AS id, ts, title, payload, active FROM (table1 AS t1) AS table1", nil)
+	r, err := engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS id, ts, title, payload, active FROM (table1 AS t1) LIMIT %d AS table1", rowCount), nil)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()

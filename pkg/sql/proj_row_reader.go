@@ -25,9 +25,13 @@ type projectedRowReader struct {
 	tableAlias string
 
 	selectors []Selector
+
+	limit uint64
+
+	read uint64
 }
 
-func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector) (*projectedRowReader, error) {
+func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector, limit uint64) (*projectedRowReader, error) {
 	if len(selectors) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -37,6 +41,7 @@ func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, s
 		rowReader:  rowReader,
 		tableAlias: tableAlias,
 		selectors:  selectors,
+		limit:      limit,
 	}, nil
 }
 
@@ -94,6 +99,10 @@ func (pr *projectedRowReader) Columns() (map[string]SQLValueType, error) {
 }
 
 func (pr *projectedRowReader) Read() (*Row, error) {
+	if pr.limit > 0 && pr.read == pr.limit {
+		return nil, ErrNoMoreRows
+	}
+
 	row, err := pr.rowReader.Read()
 	if err != nil {
 		return nil, err
@@ -133,6 +142,8 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 
 		prow.Values[EncodeSelector(aggFn, db, table, col)] = val
 	}
+
+	pr.read++
 
 	return prow, nil
 }
