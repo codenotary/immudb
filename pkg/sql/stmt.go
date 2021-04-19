@@ -747,6 +747,10 @@ func (stmt *SelectStmt) isDDL() bool {
 	return false
 }
 
+func (stmt *SelectStmt) Limit() uint64 {
+	return stmt.limit
+}
+
 func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
 	if stmt.distinct {
 		return nil, nil, ErrNoSupported
@@ -851,7 +855,7 @@ func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[stri
 		}
 	}
 
-	return e.newProjectedRowReader(rowReader, stmt.as, stmt.selectors)
+	return e.newProjectedRowReader(rowReader, stmt.as, stmt.selectors, stmt.limit)
 }
 
 func (stmt *SelectStmt) Alias() string {
