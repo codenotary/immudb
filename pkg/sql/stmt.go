@@ -317,11 +317,6 @@ func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[st
 			return nil, err
 		}
 
-		_, isNull := rval.(*NullValue)
-		if isNull {
-			continue
-		}
-
 		valb, err := EncodeValue(rval, col.colType, !asKey)
 		if err != nil {
 			return nil, err
@@ -479,9 +474,12 @@ func (n *NullValue) Value() interface{} {
 }
 
 func (n *NullValue) Compare(val TypedValue) (int, error) {
-	if n.t != val.Type() {
-		return 0, ErrNotComparableValues
-	}
+	// TODO (jeroiraz): typed nullables not yet supported
+	/*
+		if n.t != val.Type() {
+			return 0, ErrNotComparableValues
+		}
+	*/
 
 	_, isNull := val.(*NullValue)
 	if isNull {
@@ -528,6 +526,11 @@ func (v *Number) Value() interface{} {
 }
 
 func (v *Number) Compare(val TypedValue) (int, error) {
+	_, isNull := val.(*NullValue)
+	if isNull {
+		return 1, nil
+	}
+
 	ov, isNumber := val.(*Number)
 	if !isNumber {
 		return 0, ErrNotComparableValues
@@ -569,6 +572,11 @@ func (v *Varchar) Value() interface{} {
 }
 
 func (v *Varchar) Compare(val TypedValue) (int, error) {
+	_, isNull := val.(*NullValue)
+	if isNull {
+		return 1, nil
+	}
+
 	ov, isString := val.(*Varchar)
 	if !isString {
 		return 0, ErrNotComparableValues
@@ -602,6 +610,11 @@ func (v *Bool) Value() interface{} {
 }
 
 func (v *Bool) Compare(val TypedValue) (int, error) {
+	_, isNull := val.(*NullValue)
+	if isNull {
+		return 1, nil
+	}
+
 	ov, isBool := val.(*Bool)
 	if !isBool {
 		return 0, ErrNotComparableValues
@@ -643,6 +656,11 @@ func (v *Blob) Value() interface{} {
 }
 
 func (v *Blob) Compare(val TypedValue) (int, error) {
+	_, isNull := val.(*NullValue)
+	if isNull {
+		return 1, nil
+	}
+
 	ov, isBlob := val.(*Blob)
 	if !isBlob {
 		return 0, ErrNotComparableValues
@@ -683,6 +701,11 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 	val, ok := params[p.id]
 	if !ok {
 		return nil, ErrIllegalArguments
+	}
+
+	if val == nil {
+		// TODO (jeroiraz): typed nullables not yet supported
+		return &NullValue{}, nil
 	}
 
 	switch v := val.(type) {
@@ -1043,7 +1066,7 @@ func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 
 	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
-		// TODO (jeroiraz): typed nullables not yet fully supported
+		// TODO (jeroiraz): typed nullables not yet supported
 		/*t, err := catalog.GetTableByName(db, table)
 		if err != nil {
 			return nil, err
