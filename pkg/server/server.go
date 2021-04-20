@@ -197,14 +197,15 @@ func (s *ImmuServer) Initialize() error {
 
 	mux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err = schema.RegisterImmuServiceHandlerFromEndpoint(context.TODO(), mux,  "localhost:3322", opts)
+	err = schema.RegisterImmuServiceHandlerFromEndpoint(context.TODO(), mux,  "localhost:3321", opts)
 	if err != nil {
 		return err
 	}
 
 	restMux := http.NewServeMux()
-	restMux.Handle("/", mux)
-	restMux.Handle("/ui", http.StripPrefix("/ui", http.FileServer(http.FS(webconsole.FS))))
+	restMux.Handle("/api/", http.StripPrefix("/api", mux))
+	restMux.Handle("/", http.FileServer(http.FS(webconsole.FS)))
+	
 	s.restServer = &http.Server{
 		Addr:    s.Options.Address,
 		Handler: restMux,
