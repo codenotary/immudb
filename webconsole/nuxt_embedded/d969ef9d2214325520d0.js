@@ -1,0 +1,1 @@
+(window.webpackJsonp=window.webpackJsonp||[]).push([[19],{649:function(e,n,t){"use strict";t.r(n);var r={middleware:function(e){return(0,e.redirect)("/")},head:function(){return{title:"Not found - immudb webconsole"}}},o=t(26),component=Object(o.a)(r,(function(){var e=this.$createElement;return(this._self._c||e)("div")}),[],!1,null,null,null);n.default=component.exports}}]);
