@@ -143,8 +143,8 @@ type ImmuClient interface {
 	StreamHistory(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error)
 	StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error)
 
-	SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
-	SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
+	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)
+	SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error)
 	ListTables(ctx context.Context) (*schema.SQLQueryResult, error)
 	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)
 

@@ -33,7 +33,7 @@ func (i *immuc) SQLExec(args []string) (string, error) {
 
 	ctx := context.Background()
 	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.SQLExec(ctx, &schema.SQLExecRequest{Sql: string(sqlStmt)})
+		return immuClient.SQLExec(ctx, string(sqlStmt), nil)
 	})
 	if err != nil {
 		return "", err
@@ -52,7 +52,7 @@ func (i *immuc) SQLQuery(args []string) (*schema.SQLQueryResult, error) {
 
 	ctx := context.Background()
 	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: string(sqlStmt), Limit: 0})
+		return immuClient.SQLQuery(ctx, string(sqlStmt), nil)
 	})
 	if err != nil {
 		return nil, err

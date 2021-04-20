@@ -22,18 +22,30 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (c *immuClient) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
+func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
-	return c.ServiceClient.SQLExec(ctx, req)
+
+	namedParams, err := encodeParams(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.ServiceClient.SQLExec(ctx, &schema.SQLExecRequest{Sql: sql, Params: namedParams})
 }
 
-func (c *immuClient) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
+func (c *immuClient) SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error) {
 	if !c.IsConnected() {
 		return nil, ErrNotConnected
 	}
-	return c.ServiceClient.SQLQuery(ctx, req)
+
+	namedParams, err := encodeParams(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.ServiceClient.SQLQuery(ctx, &schema.SQLQueryRequest{Sql: sql, Params: namedParams})
 }
 
 func (c *immuClient) ListTables(ctx context.Context) (*schema.SQLQueryResult, error) {
@@ -48,4 +60,50 @@ func (c *immuClient) DescribeTable(ctx context.Context, tableName string) (*sche
 		return nil, ErrNotConnected
 	}
 	return c.ServiceClient.DescribeTable(ctx, &schema.Table{TableName: tableName})
+}
+
+func encodeParams(params map[string]interface{}) ([]*schema.NamedParam, error) {
+	if params == nil {
+		return nil, nil
+	}
+
+	namedParams := make([]*schema.NamedParam, len(params))
+
+	i := 0
+	for n, v := range params {
+		var val *schema.SQLValue
+
+		if v == nil {
+			val = &schema.SQLValue{Value: &schema.SQLValue_Null{}}
+		}
+
+		switch tv := v.(type) {
+		case int64:
+			{
+				val = &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}
+			}
+		case uint64:
+			{
+				val = &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}
+			}
+		case string:
+			{
+				val = &schema.SQLValue{Value: &schema.SQLValue_S{S: tv}}
+			}
+		case bool:
+			{
+				val = &schema.SQLValue{Value: &schema.SQLValue_B{B: tv}}
+			}
+		case []byte:
+			{
+				val = &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv}}
+			}
+		}
+
+		namedParams[i] = &schema.NamedParam{Name: n, Value: val}
+
+		i++
+	}
+
+	return namedParams, nil
 }
