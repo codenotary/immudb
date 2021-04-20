@@ -35,7 +35,7 @@ func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 	res := &schema.SQLQueryResult{Columns: []*schema.Column{{Name: "TABLE", Type: sql.VarcharType}}}
 
 	for _, t := range db.GetTables() {
-		res.Rows = append(res.Rows, &schema.Row{Values: []*schema.RowValue{{Operation: &schema.RowValue_S{S: t.Name()}}}})
+		res.Rows = append(res.Rows, &schema.Row{Values: []*schema.SQLValue{{Value: &schema.SQLValue_S{S: t.Name()}}}})
 	}
 
 	return res, nil
@@ -72,10 +72,10 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 		}
 
 		res.Rows = append(res.Rows, &schema.Row{
-			Values: []*schema.RowValue{
-				{Operation: &schema.RowValue_S{S: c.Name()}},
-				{Operation: &schema.RowValue_S{S: c.Type()}},
-				{Operation: &schema.RowValue_S{S: index}},
+			Values: []*schema.SQLValue{
+				{Value: &schema.SQLValue_S{S: c.Name()}},
+				{Value: &schema.SQLValue_S{S: c.Type()}},
+				{Value: &schema.SQLValue_S{S: index}},
 			},
 		})
 	}
@@ -177,7 +177,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	params := make(map[string]interface{})
 
 	for _, p := range namedParams {
-		params[p.Name] = p.Value
+		params[p.Name] = rawValue(p.Value)
 	}
 
 	r, err := d.sqlEngine.QueryPreparedStmt(stmt, params)
@@ -209,7 +209,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 		}
 
 		rrow := &schema.Row{
-			Values: make([]*schema.RowValue, len(row.Values)),
+			Values: make([]*schema.SQLValue, len(row.Values)),
 		}
 
 		for i, c := range res.Columns {
@@ -217,7 +217,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 
 			_, isNull := v.(*sql.NullValue)
 			if isNull {
-				rrow.Values[i] = &schema.RowValue{Operation: &schema.RowValue_Null{}}
+				rrow.Values[i] = &schema.SQLValue{Value: &schema.SQLValue_Null{}}
 			} else {
 				rrow.Values[i] = typedValueToRowValue(v)
 			}
@@ -229,23 +229,53 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	return res, nil
 }
 
-func typedValueToRowValue(tv sql.TypedValue) *schema.RowValue {
+func rawValue(v *schema.SQLValue) interface{} {
+	if v == nil {
+		return nil
+	}
+
+	switch tv := v.Value.(type) {
+	case *schema.SQLValue_Null:
+		{
+			return nil
+		}
+	case *schema.SQLValue_N:
+		{
+			return tv.N
+		}
+	case *schema.SQLValue_S:
+		{
+			return tv.S
+		}
+	case *schema.SQLValue_B:
+		{
+			return tv.B
+		}
+	case *schema.SQLValue_Bs:
+		{
+			return tv.Bs
+		}
+	}
+	return nil
+}
+
+func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
 	switch tv.Type() {
 	case sql.IntegerType:
 		{
-			return &schema.RowValue{Operation: &schema.RowValue_N{N: tv.Value().(uint64)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.Value().(uint64)}}
 		}
 	case sql.VarcharType:
 		{
-			return &schema.RowValue{Operation: &schema.RowValue_S{S: tv.Value().(string)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.Value().(string)}}
 		}
 	case sql.BooleanType:
 		{
-			return &schema.RowValue{Operation: &schema.RowValue_V{V: tv.Value().(bool)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv.Value().(bool)}}
 		}
 	case sql.BLOBType:
 		{
-			return &schema.RowValue{Operation: &schema.RowValue_B{B: tv.Value().([]byte)}}
+			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.Value().([]byte)}}
 		}
 	}
 	return nil

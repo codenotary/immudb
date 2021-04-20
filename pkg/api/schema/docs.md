@@ -36,11 +36,11 @@
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
     - [Row](#immudb.schema.Row)
-    - [RowValue](#immudb.schema.RowValue)
     - [SQLExecRequest](#immudb.schema.SQLExecRequest)
     - [SQLExecResult](#immudb.schema.SQLExecResult)
     - [SQLQueryRequest](#immudb.schema.SQLQueryRequest)
     - [SQLQueryResult](#immudb.schema.SQLQueryResult)
+    - [SQLValue](#immudb.schema.SQLValue)
     - [ScanRequest](#immudb.schema.ScanRequest)
     - [Score](#immudb.schema.Score)
     - [SetActiveUserRequest](#immudb.schema.SetActiveUserRequest)
@@ -520,7 +520,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
-| value | [bytes](#bytes) |  |  |
+| value | [SQLValue](#immudb.schema.SQLValue) |  |  |
 
 
 
@@ -604,26 +604,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| values | [RowValue](#immudb.schema.RowValue) | repeated |  |
-
-
-
-
-
-
-<a name="immudb.schema.RowValue"></a>
-
-### RowValue
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| null | [google.protobuf.NullValue](#google.protobuf.NullValue) |  |  |
-| n | [uint64](#uint64) |  |  |
-| s | [string](#string) |  |  |
-| v | [bool](#bool) |  |  |
-| b | [bytes](#bytes) |  |  |
+| values | [SQLValue](#immudb.schema.SQLValue) | repeated |  |
 
 
 
@@ -673,7 +654,6 @@
 | ----- | ---- | ----- | ----------- |
 | sql | [string](#string) |  |  |
 | params | [NamedParam](#immudb.schema.NamedParam) | repeated |  |
-| limit | [uint32](#uint32) |  |  |
 
 
 
@@ -690,6 +670,25 @@
 | ----- | ---- | ----- | ----------- |
 | columns | [Column](#immudb.schema.Column) | repeated |  |
 | rows | [Row](#immudb.schema.Row) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.SQLValue"></a>
+
+### SQLValue
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| null | [google.protobuf.NullValue](#google.protobuf.NullValue) |  |  |
+| n | [uint64](#uint64) |  |  |
+| s | [string](#string) |  |  |
+| b | [bool](#bool) |  |  |
+| bs | [bytes](#bytes) |  |  |
 
 
 

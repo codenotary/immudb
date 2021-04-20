@@ -372,12 +372,11 @@ message SQLExecRequest {
 message SQLQueryRequest {
 	string sql = 1;
 	repeated NamedParam params = 2;
-	uint32 limit = 3;
 }
 
 message NamedParam {
 	string name = 1;
-	bytes value = 2;
+	SQLValue value = 2;
 }
 
 message SQLExecResult {
@@ -396,16 +395,16 @@ message Column {
 }
 
 message Row {
-	repeated RowValue values = 1;
+	repeated SQLValue values = 1;
 }
 
-message RowValue {
-	oneof operation {
+message SQLValue {
+	oneof value {
 		google.protobuf.NullValue null = 1;
 		uint64 n = 2;
 		string s = 3;
-		bool v = 4;
-		bytes b = 5;
+		bool b = 4;
+		bytes bs = 5;
 	}
 }
 
