@@ -27,7 +27,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	defer closer()
 
 	md, err := db.SQLExec(&schema.SQLExecRequest{Sql: `
-		CREATE TABLE table1(id INTEGER, title VARCHAR, PRIMARY KEY id)
+		CREATE TABLE table1(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)
 	`})
 	require.NoError(t, err)
 	require.Len(t, md.Ctxs, 1)
@@ -39,7 +39,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 
 	res, err = db.DescribeTable("table1")
 	require.NoError(t, err)
-	require.Len(t, res.Rows, 2)
+	require.Len(t, res.Rows, 3)
 
 	md, err = db.SQLExec(&schema.SQLExecRequest{Sql: `
 		UPSERT INTO table1(id, title) VALUES (1, 'title1'), (2, 'title2'), (3, 'title3')
@@ -48,7 +48,10 @@ func TestSQLExecAndQuery(t *testing.T) {
 	require.Len(t, md.Ctxs, 0)
 	require.Len(t, md.Dtxs, 1)
 
-	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id as d FROM (table1 as t) WHERE id < 3", Params: nil, Limit: 10})
+	params := make([]*schema.NamedParam, 1)
+	params[0] = &schema.NamedParam{Name: "active", Value: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}}
+
+	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id as d FROM (table1 as t) WHERE id < 3 AND active != @active", Params: params})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
 }
