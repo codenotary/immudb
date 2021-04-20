@@ -21,27 +21,27 @@ import (
 	"strconv"
 )
 
-func RenderValue(op isRowValue_Operation) string {
+func RenderValue(op isSQLValue_Value) string {
 	switch v := op.(type) {
-	case *RowValue_Null:
+	case *SQLValue_Null:
 		{
 			return "NULL"
 		}
-	case *RowValue_N:
+	case *SQLValue_N:
 		{
 			return strconv.FormatInt(int64(v.N), 10)
 		}
-	case *RowValue_S:
+	case *SQLValue_S:
 		{
 			return v.S
 		}
-	case *RowValue_V:
+	case *SQLValue_B:
 		{
-			return strconv.FormatBool(v.V)
+			return strconv.FormatBool(v.B)
 		}
-	case *RowValue_B:
+	case *SQLValue_Bs:
 		{
-			return hex.EncodeToString(v.B)
+			return hex.EncodeToString(v.Bs)
 		}
 	}
 

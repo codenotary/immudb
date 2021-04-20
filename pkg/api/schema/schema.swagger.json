@@ -1370,8 +1370,7 @@
           "type": "string"
         },
         "value": {
-          "type": "string",
-          "format": "byte"
+          "$ref": "#/definitions/schemaSQLValue"
         }
       }
     },
@@ -1455,30 +1454,8 @@
         "values": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/schemaRowValue"
+            "$ref": "#/definitions/schemaSQLValue"
           }
-        }
-      }
-    },
-    "schemaRowValue": {
-      "type": "object",
-      "properties": {
-        "null": {
-          "type": "string"
-        },
-        "n": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "s": {
-          "type": "string"
-        },
-        "v": {
-          "type": "boolean"
-        },
-        "b": {
-          "type": "string",
-          "format": "byte"
         }
       }
     },
@@ -1513,6 +1490,28 @@
           "items": {
             "$ref": "#/definitions/schemaRow"
           }
+        }
+      }
+    },
+    "schemaSQLValue": {
+      "type": "object",
+      "properties": {
+        "null": {
+          "type": "string"
+        },
+        "n": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "s": {
+          "type": "string"
+        },
+        "b": {
+          "type": "boolean"
+        },
+        "bs": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
