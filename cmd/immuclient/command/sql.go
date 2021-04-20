@@ -68,7 +68,7 @@ func (cl *commandline) sqlQuery(cmd *cobra.Command) {
 				row := make([]string, len(r.Values))
 
 				for i, v := range r.Values {
-					row[i] = schema.RenderValue(v.Operation)
+					row[i] = schema.RenderValue(v.Value)
 				}
 
 				consoleTable.Append(row)
@@ -108,7 +108,7 @@ func (cl *commandline) listTables(cmd *cobra.Command) {
 				row := make([]string, len(r.Values))
 
 				for i, v := range r.Values {
-					row[i] = schema.RenderValue(v.Operation)
+					row[i] = schema.RenderValue(v.Value)
 				}
 
 				consoleTable.Append(row)
@@ -148,7 +148,7 @@ func (cl *commandline) describeTable(cmd *cobra.Command) {
 				row := make([]string, len(r.Values))
 
 				for i, v := range r.Values {
-					row[i] = schema.RenderValue(v.Operation)
+					row[i] = schema.RenderValue(v.Value)
 				}
 
 				consoleTable.Append(row)
