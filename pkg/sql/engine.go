@@ -553,6 +553,12 @@ func maxKeyVal(colType SQLValueType) []byte {
 }
 
 func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, error) {
+	_, isNull := val.(*NullValue)
+	if isNull {
+		var encv [encLenLen]byte
+		return encv[:], nil
+	}
+
 	switch colType {
 	case VarcharType:
 		{
@@ -567,7 +573,7 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 
 			// len(v) + v
 			encv := make([]byte, encLenLen+len(strVal.val))
-			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal.val)))
+			binary.BigEndian.PutUint32(encv[:], uint32(1+len(strVal.val)))
 			copy(encv[encLenLen:], []byte(strVal.val))
 
 			return encv, nil
@@ -615,7 +621,7 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 
 			// len(v) + v
 			encv := make([]byte, encLenLen+len(blobVal.val))
-			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal.val)))
+			binary.BigEndian.PutUint32(encv[:], uint32(1+len(blobVal.val)))
 			copy(encv[encLenLen:], blobVal.val)
 
 			return encv[:], nil
@@ -634,43 +640,61 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 		return nil, 0, ErrCorruptedData
 	}
 
-	voff := 0
+	vlen := int(binary.BigEndian.Uint32(b[:]))
+	voff := encLenLen
 
-	vlen := int(binary.BigEndian.Uint32(b[voff:]))
-	voff += encLenLen
-
-	if len(b) < vlen {
-		return nil, voff, ErrCorruptedData
+	if vlen == 0 {
+		return &NullValue{t: colType}, voff, nil
 	}
 
 	switch colType {
 	case VarcharType:
 		{
-			v := string(b[voff : voff+vlen])
-			voff += vlen
+			if len(b) < vlen-1 {
+				return nil, 0, ErrCorruptedData
+			}
+
+			v := string(b[voff : voff+vlen-1])
+			voff += vlen - 1
+
 			return &Varchar{val: v}, voff, nil
 		}
 	case IntegerType:
 		{
+			if len(b) < vlen {
+				return nil, 0, ErrCorruptedData
+			}
+
 			v := binary.BigEndian.Uint64(b[voff : voff+vlen])
 			voff += vlen
+
 			return &Number{val: v}, voff, nil
 		}
 	case BooleanType:
 		{
+			if len(b) < vlen {
+				return nil, 0, ErrCorruptedData
+			}
+
 			v := b[voff] == 1
-			voff += vlen
+			voff += 1
+
 			return &Bool{val: v}, voff, nil
 		}
 	case BLOBType:
 		{
-			v := b[voff : voff+vlen]
-			voff += vlen
+			if len(b) < vlen-1 {
+				return nil, 0, ErrCorruptedData
+			}
+
+			v := b[voff : voff+vlen-1]
+			voff += vlen - 1
+
 			return &Blob{val: v}, voff, nil
 		}
 	}
 
-	return nil, voff, ErrCorruptedData
+	return nil, 0, ErrCorruptedData
 }
 
 func (e *Engine) Catalog() *Catalog {
