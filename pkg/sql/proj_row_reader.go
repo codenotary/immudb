@@ -57,10 +57,45 @@ func (pr *projectedRowReader) ImplicitTable() string {
 	return pr.tableAlias
 }
 
-func (pr *projectedRowReader) Columns() (map[string]SQLValueType, error) {
+func (pr *projectedRowReader) Columns() ([]*ColDescriptor, error) {
+	colsBySel, err := pr.colsBySelector()
+	if err != nil {
+		return nil, err
+	}
+
+	colsByPos := make([]*ColDescriptor, len(pr.selectors))
+
+	for i, sel := range pr.selectors {
+		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
+
+		if pr.tableAlias != "" {
+			db = pr.ImplicitDB()
+			table = pr.tableAlias
+		}
+
+		if aggFn == "" && sel.alias() != "" {
+			col = sel.alias()
+		}
+
+		if aggFn != "" {
+			aggFn = ""
+			col = sel.alias()
+			if col == "" {
+				col = fmt.Sprintf("col%d", i)
+			}
+		}
+
+		encSel := EncodeSelector(aggFn, db, table, col)
+		colsByPos[i] = &ColDescriptor{Selector: encSel, Type: colsBySel[encSel]}
+	}
+
+	return colsByPos, nil
+}
+
+func (pr *projectedRowReader) colsBySelector() (map[string]SQLValueType, error) {
 	colDescriptors := make(map[string]SQLValueType, len(pr.selectors))
 
-	dsColDescriptors, err := pr.rowReader.Columns()
+	dsColDescriptors, err := pr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
 	}
