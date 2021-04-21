@@ -16,6 +16,7 @@ limitations under the License.
 package store
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 
@@ -25,15 +26,28 @@ import (
 type KeyReader struct {
 	store  *ImmuStore
 	reader *tbtree.Reader
+	_tx    *Tx
+}
+
+type KeyReaderSpec struct {
+	SeekKey       []byte
+	Prefix        []byte
+	InclusiveSeek bool
+	DescOrder     bool
 }
 
 // NewReader ...
-func (st *ImmuStore) NewKeyReader(snap *tbtree.Snapshot, spec *tbtree.ReaderSpec) (*KeyReader, error) {
+func (st *ImmuStore) NewKeyReader(snap *tbtree.Snapshot, spec *KeyReaderSpec) (*KeyReader, error) {
 	if snap == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	r, err := snap.NewReader(spec)
+	r, err := snap.NewReader(&tbtree.ReaderSpec{
+		SeekKey:       spec.SeekKey,
+		Prefix:        spec.Prefix,
+		InclusiveSeek: spec.InclusiveSeek,
+		DescOrder:     spec.DescOrder,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +55,7 @@ func (st *ImmuStore) NewKeyReader(snap *tbtree.Snapshot, spec *tbtree.ReaderSpec
 	return &KeyReader{
 		store:  st,
 		reader: r,
+		_tx:    st.NewTx(),
 	}, nil
 }
 
@@ -56,6 +71,33 @@ func (v *ValueRef) Resolve() ([]byte, error) {
 	refVal := make([]byte, v.valLen)
 	_, err := v.st.ReadValueAt(refVal, v.vOff, v.hVal)
 	return refVal, err
+}
+
+func (r *KeyReader) ReadAsBefore(txID uint64) (key []byte, val *ValueRef, tx uint64, err error) {
+	key, ktxID, err := r.reader.ReadAsBefore(txID)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	err = r.store.ReadTx(ktxID, r._tx)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	for _, e := range r._tx.Entries() {
+		if bytes.Equal(e.key(), key) {
+			val = &ValueRef{
+				hVal:   e.hVal,
+				vOff:   int64(e.vOff),
+				valLen: uint32(e.vLen),
+				st:     r.store,
+			}
+
+			return key, val, ktxID, nil
+		}
+	}
+
+	return nil, nil, 0, ErrUnexpectedError
 }
 
 func (r *KeyReader) Read() (key []byte, val *ValueRef, tx uint64, hc uint64, err error) {

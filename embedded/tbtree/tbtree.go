@@ -1755,3 +1755,46 @@ func (l *leafNode) updateTs() {
 func (lv *leafValue) size() int {
 	return 16 + len(lv.key) + len(lv.value)
 }
+
+func (lv *leafValue) asBefore(hLog appendable.Appendable, beforeTs uint64) (uint64, error) {
+	if lv.ts < beforeTs {
+		return lv.ts, nil
+	}
+
+	for _, ts := range lv.tss {
+		if ts < beforeTs {
+			return ts, nil
+		}
+	}
+
+	hOff := lv.hOff
+
+	for i := uint64(0); i < lv.hCount; i++ {
+		r := appendable.NewReaderFrom(hLog, hOff, DefaultMaxNodeSize)
+
+		hc, err := r.ReadUint32()
+		if err != nil {
+			return 0, err
+		}
+
+		for i := 0; i < int(hc); i++ {
+			ts, err := r.ReadUint64()
+			if err != nil {
+				return 0, err
+			}
+
+			if ts < beforeTs {
+				return ts, nil
+			}
+		}
+
+		prevOff, err := r.ReadUint64()
+		if err != nil {
+			return 0, err
+		}
+
+		hOff = int64(prevOff)
+	}
+
+	return 0, ErrKeyNotFound
+}

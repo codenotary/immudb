@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,8 +61,7 @@ func TestImmudbStoreReader(t *testing.T) {
 	_, err = immuStore.NewKeyReader(snap, nil)
 	require.Equal(t, ErrIllegalArguments, err)
 
-	spec := &tbtree.ReaderSpec{}
-	reader, err := immuStore.NewKeyReader(snap, spec)
+	reader, err := immuStore.NewKeyReader(snap, &KeyReaderSpec{})
 	require.NoError(t, err)
 
 	defer reader.Close()
