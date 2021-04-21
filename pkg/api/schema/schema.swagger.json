@@ -12,7 +12,7 @@
     "application/json"
   ],
   "paths": {
-    "/v1/immurestproxy/db/cleanindex": {
+    "/db/cleanindex": {
       "get": {
         "operationId": "ImmuService_CleanIndex",
         "responses": {
@@ -34,7 +34,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/count/{prefix}": {
+    "/db/count/{prefix}": {
       "get": {
         "operationId": "ImmuService_Count",
         "responses": {
@@ -65,7 +65,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/countall": {
+    "/db/countall": {
       "get": {
         "operationId": "ImmuService_CountAll",
         "responses": {
@@ -87,7 +87,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/create": {
+    "/db/create": {
       "post": {
         "operationId": "ImmuService_CreateDatabase",
         "responses": {
@@ -119,7 +119,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/execall": {
+    "/db/execall": {
       "post": {
         "operationId": "ImmuService_ExecAll",
         "responses": {
@@ -151,7 +151,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/get/{key}": {
+    "/db/get/{key}": {
       "get": {
         "operationId": "ImmuService_Get",
         "responses": {
@@ -196,7 +196,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/getall": {
+    "/db/getall": {
       "post": {
         "operationId": "ImmuService_GetAll",
         "responses": {
@@ -228,7 +228,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/history": {
+    "/db/history": {
       "post": {
         "operationId": "ImmuService_History",
         "responses": {
@@ -260,7 +260,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/list": {
+    "/db/list": {
       "post": {
         "operationId": "ImmuService_DatabaseList",
         "responses": {
@@ -292,7 +292,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/scan": {
+    "/db/scan": {
       "post": {
         "operationId": "ImmuService_Scan",
         "responses": {
@@ -324,7 +324,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/set": {
+    "/db/set": {
       "post": {
         "operationId": "ImmuService_Set",
         "responses": {
@@ -356,7 +356,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/setreference": {
+    "/db/setreference": {
       "post": {
         "operationId": "ImmuService_SetReference",
         "responses": {
@@ -388,7 +388,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/state": {
+    "/db/state": {
       "get": {
         "operationId": "ImmuService_CurrentState",
         "responses": {
@@ -411,7 +411,39 @@
         "security": []
       }
     },
-    "/v1/immurestproxy/db/tx/{tx}": {
+    "/db/tx": {
+      "post": {
+        "operationId": "ImmuService_TxScan",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaTxList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaTxScanRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
+    "/db/tx/{tx}": {
       "get": {
         "operationId": "ImmuService_TxById",
         "responses": {
@@ -442,7 +474,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/use/{databasename}": {
+    "/db/use/{databasename}": {
       "get": {
         "operationId": "ImmuService_UseDatabase",
         "responses": {
@@ -472,7 +504,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/verifiable/get": {
+    "/db/verifiable/get": {
       "post": {
         "operationId": "ImmuService_VerifiableGet",
         "responses": {
@@ -504,7 +536,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/verifiable/set": {
+    "/db/verifiable/set": {
       "post": {
         "operationId": "ImmuService_VerifiableSet",
         "responses": {
@@ -536,7 +568,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/verifiable/setreference": {
+    "/db/verifiable/setreference": {
       "post": {
         "operationId": "ImmuService_VerifiableSetReference",
         "responses": {
@@ -568,7 +600,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/verifiable/tx/{tx}": {
+    "/db/verifiable/tx/{tx}": {
       "get": {
         "operationId": "ImmuService_VerifiableTxById",
         "responses": {
@@ -606,7 +638,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/verifiable/zadd": {
+    "/db/verifiable/zadd": {
       "post": {
         "operationId": "ImmuService_VerifiableZAdd",
         "responses": {
@@ -638,7 +670,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/zadd": {
+    "/db/zadd": {
       "post": {
         "operationId": "ImmuService_ZAdd",
         "responses": {
@@ -670,7 +702,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/db/zscan": {
+    "/db/zscan": {
       "post": {
         "operationId": "ImmuService_ZScan",
         "responses": {
@@ -702,7 +734,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/health": {
+    "/health": {
       "get": {
         "operationId": "ImmuService_Health",
         "responses": {
@@ -725,7 +757,7 @@
         "security": []
       }
     },
-    "/v1/immurestproxy/login": {
+    "/login": {
       "post": {
         "operationId": "ImmuService_Login",
         "responses": {
@@ -758,7 +790,7 @@
         "security": []
       }
     },
-    "/v1/immurestproxy/logout": {
+    "/logout": {
       "post": {
         "operationId": "ImmuService_Logout",
         "responses": {
@@ -790,7 +822,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/user": {
+    "/user": {
       "post": {
         "operationId": "ImmuService_CreateUser",
         "responses": {
@@ -822,7 +854,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/user/changepermission": {
+    "/user/changepermission": {
       "post": {
         "operationId": "ImmuService_ChangePermission",
         "responses": {
@@ -854,7 +886,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/user/list": {
+    "/user/list": {
       "get": {
         "operationId": "ImmuService_ListUsers",
         "responses": {
@@ -876,7 +908,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/user/password/change": {
+    "/user/password/change": {
       "post": {
         "operationId": "ImmuService_ChangePassword",
         "responses": {
@@ -908,7 +940,7 @@
         ]
       }
     },
-    "/v1/immurestproxy/user/setactiveUser": {
+    "/user/setactiveUser": {
       "post": {
         "operationId": "ImmuService_SetActiveUser",
         "responses": {
@@ -1568,6 +1600,22 @@
         "blRoot": {
           "type": "string",
           "format": "byte"
+        }
+      }
+    },
+    "schemaTxScanRequest": {
+      "type": "object",
+      "properties": {
+        "initialTx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "desc": {
+          "type": "boolean"
         }
       }
     },

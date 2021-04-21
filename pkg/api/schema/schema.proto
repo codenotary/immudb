@@ -386,20 +386,20 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 service ImmuService {
 	rpc ListUsers (google.protobuf.Empty) returns (UserList){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/user/list"
+			get: "/user/list"
 		};
 	};
 
 	rpc CreateUser (CreateUserRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/user"
+			post: "/user"
 			body: "*"
 		};
 	};
 
 	rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/user/password/change"
+			post: "/user/password/change"
 			body: "*"
 		};
 	};
@@ -409,7 +409,7 @@ service ImmuService {
 
 	rpc Login (LoginRequest) returns (LoginResponse){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/login"
+			post: "/login"
 			body: "*"
 		};
 		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
@@ -419,95 +419,100 @@ service ImmuService {
 
 	rpc Logout (google.protobuf.Empty) returns (google.protobuf.Empty){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/logout"
+			post: "/logout"
 			body: "*"
 		};
 	};
 
 	rpc Set (SetRequest) returns (TxMetadata){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/set"
+			post: "/db/set"
 			body: "*"
 		};
 	};
 
 	rpc VerifiableSet (VerifiableSetRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/verifiable/set"
+			post: "/db/verifiable/set"
 			body: "*"
 		};
 	};
 
 	rpc Get (KeyRequest) returns (Entry){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/db/get/{key}"
+			get: "/db/get/{key}"
 		};
 	};
 
 	rpc VerifiableGet (VerifiableGetRequest) returns (VerifiableEntry){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/verifiable/get"
+			post: "/db/verifiable/get"
 			body: "*"
 		};
 	};
 
 	rpc GetAll (KeyListRequest) returns (Entries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/getall"
+			post: "/db/getall"
 			body: "*"
 		};
 	};
 
 	rpc ExecAll (ExecAllRequest) returns (TxMetadata) {
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/execall"
+			post: "/db/execall"
 			body: "*"
 		};
 	};
 
 	rpc Scan(ScanRequest) returns (Entries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/scan"
+			post: "/db/scan"
 			body: "*"
 		};
 	};
 
 	rpc Count(KeyPrefix) returns (EntryCount){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/db/count/{prefix}"
+			get: "/db/count/{prefix}"
 		};
 	};
 
 	rpc CountAll(google.protobuf.Empty) returns (EntryCount){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/db/countall"
+			get: "/db/countall"
 		};
 	};
 
 	rpc TxById(TxRequest) returns (Tx){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/db/tx/{tx}"
+			get: "/db/tx/{tx}"
 		};
 	};
 
 	rpc VerifiableTxById(VerifiableTxRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/db/verifiable/tx/{tx}"
+			get: "/db/verifiable/tx/{tx}"
 		};
 	};
 
-	rpc TxScan(TxScanRequest) returns (TxList) {}
+	rpc TxScan(TxScanRequest) returns (TxList) {
+		option (google.api.http) = {
+			post: "/db/tx"
+			body: "*"
+		};
+	}
 
 	rpc History(HistoryRequest) returns (Entries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/history"
+			post: "/db/history"
 			body: "*"
 		};
 	};
 
 	rpc Health (google.protobuf.Empty) returns (HealthResponse){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/health"
+			get: "/health"
 		};
 		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
 			security: {} // no security
@@ -516,7 +521,7 @@ service ImmuService {
 
 	rpc CurrentState (google.protobuf.Empty) returns (ImmutableState){
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/db/state"
+			get: "/db/state"
 		};
 		option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
 			security: {} // no security
@@ -525,75 +530,75 @@ service ImmuService {
 
 	rpc SetReference (ReferenceRequest) returns (TxMetadata){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/setreference"
+			post: "/db/setreference"
 			body: "*"
 		};
 	};
 
 	rpc VerifiableSetReference (VerifiableReferenceRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/verifiable/setreference"
+			post: "/db/verifiable/setreference"
 			body: "*"
 		};
 	};
 
 	rpc ZAdd (ZAddRequest) returns (TxMetadata){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/zadd"
+			post: "/db/zadd"
 			body: "*"
 		};
 	};
 
 	rpc VerifiableZAdd (VerifiableZAddRequest) returns (VerifiableTx){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/verifiable/zadd"
+			post: "/db/verifiable/zadd"
 			body: "*"
 		};
 	};
 
 	rpc ZScan (ZScanRequest) returns (ZEntries){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/zscan"
+			post: "/db/zscan"
 			body: "*"
 		};
 	};
 
 	rpc CreateDatabase(Database) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/create"
+			post: "/db/create"
 			body: "*"
 		};
 	}
 
 	rpc DatabaseList (google.protobuf.Empty) returns (DatabaseListResponse){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/db/list"
+			post: "/db/list"
 			body: "*"
 		};
 	};
 
 	rpc UseDatabase(Database) returns (UseDatabaseReply) {
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/db/use/{databasename}"
+			get: "/db/use/{databasename}"
 		};
 	}
 
 	rpc CleanIndex(google.protobuf.Empty) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
-			get: "/v1/immurestproxy/db/cleanindex"
+			get: "/db/cleanindex"
 		};
 	}
 
 	rpc ChangePermission(ChangePermissionRequest) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/user/changepermission"
+			post: "/user/changepermission"
 			body: "*"
 		};
 	}
 
 	rpc SetActiveUser (SetActiveUserRequest) returns (google.protobuf.Empty){
 		option (google.api.http) = {
-			post: "/v1/immurestproxy/user/setactiveUser"
+			post: "/user/setactiveUser"
 			body: "*"
 		};
 	};
