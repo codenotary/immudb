@@ -42,8 +42,12 @@ func (cr *conditionalRowReader) ImplicitTable() string {
 	return cr.rowReader.ImplicitTable()
 }
 
-func (cr *conditionalRowReader) Columns() (map[string]SQLValueType, error) {
+func (cr *conditionalRowReader) Columns() ([]*ColDescriptor, error) {
 	return cr.rowReader.Columns()
+}
+
+func (cr *conditionalRowReader) colsBySelector() (map[string]SQLValueType, error) {
+	return cr.rowReader.colsBySelector()
 }
 
 func (cr *conditionalRowReader) Read() (*Row, error) {

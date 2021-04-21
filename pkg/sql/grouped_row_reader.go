@@ -50,8 +50,24 @@ func (gr *groupedRowReader) ImplicitTable() string {
 	return gr.rowReader.ImplicitTable()
 }
 
-func (gr *groupedRowReader) Columns() (map[string]SQLValueType, error) {
-	colDescriptors, err := gr.rowReader.Columns()
+func (gr *groupedRowReader) Columns() ([]*ColDescriptor, error) {
+	colsBySel, err := gr.colsBySelector()
+	if err != nil {
+		return nil, err
+	}
+
+	colsByPos := make([]*ColDescriptor, len(gr.selectors))
+
+	for i, sel := range gr.selectors {
+		encSel := EncodeSelector(sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable()))
+		colsByPos[i] = &ColDescriptor{Selector: encSel, Type: colsBySel[encSel]}
+	}
+
+	return colsByPos, nil
+}
+
+func (gr *groupedRowReader) colsBySelector() (map[string]SQLValueType, error) {
+	colDescriptors, err := gr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
 	}

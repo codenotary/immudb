@@ -69,8 +69,25 @@ func (jointr *jointRowReader) ImplicitTable() string {
 	return jointr.rowReader.ImplicitTable()
 }
 
-func (jointr *jointRowReader) Columns() (map[string]SQLValueType, error) {
-	colDescriptors, err := jointr.rowReader.Columns()
+func (jointr *jointRowReader) Columns() ([]*ColDescriptor, error) {
+	colsBySel, err := jointr.colsBySelector()
+	if err != nil {
+		return nil, err
+	}
+
+	colsByPos := make([]*ColDescriptor, len(colsBySel))
+
+	i := 0
+	for s, t := range colsBySel {
+		colsByPos[i] = &ColDescriptor{Selector: s, Type: t}
+		i++
+	}
+
+	return colsByPos, nil
+}
+
+func (jointr *jointRowReader) colsBySelector() (map[string]SQLValueType, error) {
+	colDescriptors, err := jointr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
 	}
