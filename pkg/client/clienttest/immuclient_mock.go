@@ -39,7 +39,7 @@ type ImmuClientMock struct {
 	DisconnectF           func() error
 	LoginF                func(context.Context, []byte, []byte) (*schema.LoginResponse, error)
 	LogoutF               func(context.Context) error
-	VerifiedGetF          func(context.Context, []byte, ...grpc.CallOption) (*schema.Entry, error)
+	VerifiedGetF          func(context.Context, []byte) (*schema.Entry, error)
 	VerifiedSetF          func(context.Context, []byte, []byte) (*schema.TxMetadata, error)
 	SetF                  func(context.Context, []byte, []byte) (*schema.TxMetadata, error)
 	SetReferenceF         func(context.Context, []byte, []byte, uint64) (*schema.TxMetadata, error)
@@ -106,7 +106,7 @@ func (icm *ImmuClientMock) Logout(ctx context.Context) error {
 }
 
 // VerifiedGet ...
-func (icm *ImmuClientMock) VerifiedGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error) {
+func (icm *ImmuClientMock) VerifiedGet(ctx context.Context, key []byte) (*schema.Entry, error) {
 	return icm.VerifiedGetF(ctx, key)
 }
 
