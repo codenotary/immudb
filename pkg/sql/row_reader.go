@@ -28,7 +28,8 @@ type RowReader interface {
 	ImplicitTable() string
 	Read() (*Row, error)
 	Close() error
-	Columns() (map[string]SQLValueType, error)
+	Columns() ([]*ColDescriptor, error)
+	colsBySelector() (map[string]SQLValueType, error)
 }
 
 type Row struct {
@@ -64,15 +65,21 @@ func (row *Row) Compatible(aRow *Row, selectors []*ColSelector, db, table string
 }
 
 type rawRowReader struct {
-	e              *Engine
-	implicitDB     string
-	snap           *store.Snapshot
-	table          *Table
-	tableAlias     string
-	colDescriptors map[string]SQLValueType
-	col            string
-	desc           bool
-	reader         *store.KeyReader
+	e          *Engine
+	implicitDB string
+	snap       *store.Snapshot
+	table      *Table
+	tableAlias string
+	colsByPos  []*ColDescriptor
+	colsBySel  map[string]SQLValueType
+	col        string
+	desc       bool
+	reader     *store.KeyReader
+}
+
+type ColDescriptor struct {
+	Selector string
+	Type     SQLValueType
 }
 
 func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, tableAlias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
@@ -125,23 +132,26 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, tableAlias 
 		tableAlias = table.name
 	}
 
-	colDescriptors := make(map[string]SQLValueType, len(table.GetColsByID()))
+	colsByPos := make([]*ColDescriptor, len(table.GetColsByID()))
+	colsBySel := make(map[string]SQLValueType, len(table.GetColsByID()))
 
-	for _, c := range table.GetColsByID() {
+	for i, c := range table.GetColsByID() {
 		encSel := EncodeSelector("", table.db.name, tableAlias, c.colName)
-		colDescriptors[encSel] = c.colType
+		colsByPos[i-1] = &ColDescriptor{Selector: encSel, Type: c.colType}
+		colsBySel[encSel] = c.colType
 	}
 
 	return &rawRowReader{
-		e:              e,
-		implicitDB:     e.ImplicitDB(),
-		snap:           snap,
-		table:          table,
-		colDescriptors: colDescriptors,
-		tableAlias:     tableAlias,
-		col:            col.colName,
-		desc:           rSpec.DescOrder,
-		reader:         r,
+		e:          e,
+		implicitDB: e.ImplicitDB(),
+		snap:       snap,
+		table:      table,
+		colsByPos:  colsByPos,
+		colsBySel:  colsBySel,
+		tableAlias: tableAlias,
+		col:        col.colName,
+		desc:       rSpec.DescOrder,
+		reader:     r,
 	}, nil
 }
 
@@ -153,8 +163,12 @@ func (r *rawRowReader) ImplicitTable() string {
 	return r.tableAlias
 }
 
-func (r *rawRowReader) Columns() (map[string]SQLValueType, error) {
-	return r.colDescriptors, nil
+func (r *rawRowReader) Columns() ([]*ColDescriptor, error) {
+	return r.colsByPos, nil
+}
+
+func (r *rawRowReader) colsBySelector() (map[string]SQLValueType, error) {
+	return r.colsBySel, nil
 }
 
 func (r *rawRowReader) Read() (*Row, error) {

@@ -40,8 +40,12 @@ func (cr *closerRowReader) ImplicitTable() string {
 	return cr.rowReader.ImplicitTable()
 }
 
-func (cr *closerRowReader) Columns() (map[string]SQLValueType, error) {
+func (cr *closerRowReader) Columns() ([]*ColDescriptor, error) {
 	return cr.rowReader.Columns()
+}
+
+func (cr *closerRowReader) colsBySelector() (map[string]SQLValueType, error) {
+	return cr.rowReader.colsBySelector()
 }
 
 func (cr *closerRowReader) Read() (*Row, error) {
