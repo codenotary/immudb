@@ -51,7 +51,7 @@ func TestSQLExecAndQuery(t *testing.T) {
 	params := make([]*schema.NamedParam, 1)
 	params[0] = &schema.NamedParam{Name: "active", Value: &schema.SQLValue{Value: &schema.SQLValue_B{B: true}}}
 
-	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id as d FROM (table1 as t) WHERE id < 3 AND active != @active", Params: params})
+	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id, t.id as id2, title FROM (table1 as t) WHERE id < 3 AND active != @active", Params: params})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
 }
