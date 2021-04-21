@@ -186,15 +186,15 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	}
 	defer r.Close()
 
-	var cols []*schema.Column
-
 	colDescriptors, err := r.Columns()
 	if err != nil {
 		return nil, err
 	}
 
-	for c, t := range colDescriptors {
-		cols = append(cols, &schema.Column{Name: c, Type: t})
+	cols := make([]*schema.Column, len(colDescriptors))
+
+	for i, c := range colDescriptors {
+		cols[i] = &schema.Column{Name: c.Selector, Type: c.Type}
 	}
 
 	res := &schema.SQLQueryResult{Columns: cols}
@@ -209,7 +209,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 		}
 
 		rrow := &schema.Row{
-			Values: make([]*schema.SQLValue, len(row.Values)),
+			Values: make([]*schema.SQLValue, len(res.Columns)),
 		}
 
 		for i, c := range res.Columns {
