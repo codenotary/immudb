@@ -26,6 +26,7 @@ type Reader struct {
 	prefix        []byte
 	inclusiveSeek bool
 	descOrder     bool
+	asBeforeTs    uint64
 	path          path
 	leafNode      *leafNode
 	offset        int
@@ -37,6 +38,91 @@ type ReaderSpec struct {
 	Prefix        []byte
 	InclusiveSeek bool
 	DescOrder     bool
+}
+
+func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error) {
+	if r.closed {
+		return nil, 0, ErrAlreadyClosed
+	}
+
+	for {
+		if (!r.descOrder && len(r.leafNode.values) == r.offset) || (r.descOrder && r.offset < 0) {
+			for {
+				if len(r.path) == 0 {
+					return nil, 0, ErrNoMoreEntries
+				}
+
+				parent := r.path[len(r.path)-1]
+
+				var parentPath []*innerNode
+				if len(r.path) > 1 {
+					parentPath = r.path[:len(r.path)-1]
+				}
+
+				neqKey := r.leafNode.maxKey()
+				if r.descOrder {
+					neqKey = r.leafNode.minKey()
+				}
+
+				path, leaf, off, err := parent.findLeafNode(r.seekKey, parentPath, neqKey, r.descOrder)
+
+				if err == ErrKeyNotFound {
+					r.path = r.path[:len(r.path)-1]
+					continue
+				}
+
+				if err != nil {
+					return nil, 0, err
+				}
+
+				r.path = path
+				r.leafNode = leaf
+				r.offset = off
+				break
+			}
+		}
+
+		leafValue := r.leafNode.values[r.offset]
+
+		if r.descOrder {
+			r.offset--
+		} else {
+			r.offset++
+		}
+
+		if !r.inclusiveSeek && bytes.Equal(r.seekKey, leafValue.key) {
+			continue
+		}
+
+		if len(r.prefix) == 0 {
+			ts, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
+			if err == nil {
+				return leafValue.key, ts, nil
+			}
+		}
+
+		if len(r.prefix) > 0 && len(leafValue.key) >= len(r.prefix) {
+			leafPrefix := leafValue.key[:len(r.prefix)]
+
+			// prefix match
+			if bytes.Equal(r.prefix, leafPrefix) {
+				ts, err := leafValue.asBefore(r.snapshot.t.hLog, beforeTs)
+				if err == nil {
+					return leafValue.key, ts, nil
+				}
+			}
+
+			// terminate scan if prefix won't match
+			if !r.descOrder && bytes.Compare(r.prefix, leafPrefix) < 0 {
+				return nil, 0, ErrNoMoreEntries
+			}
+
+			// terminate scan if prefix won't match
+			if r.descOrder && bytes.Compare(r.prefix, leafPrefix) > 0 {
+				return nil, 0, ErrNoMoreEntries
+			}
+		}
+	}
 }
 
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, hc uint64, err error) {
