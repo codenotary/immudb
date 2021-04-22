@@ -60,7 +60,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT
 %token UPSERT INTO VALUES
-%token SELECT DISTINCT FROM JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
+%token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE EXISTS
 %token NULL
 %token <joinType> JOINTYPE
@@ -101,6 +101,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <distinct> opt_distinct
 %type <ds> ds
 %type <tableRef> tableRef
+%type <number> opt_as_before
 %type <joins> opt_joins joins
 %type <join> join
 %type <boolExp> boolExp opt_where opt_having
@@ -170,19 +171,9 @@ ddlstmt:
         $$ = &UseDatabaseStmt{DB: $3}
     }
 |
-    USE SNAPSHOT SINCE VARCHAR
+    USE SNAPSHOT SINCE TX NUMBER
     {
-        $$ = &UseSnapshotStmt{since: $4}
-    }
-|
-    USE SNAPSHOT UP TO VARCHAR
-    {
-        $$ = &UseSnapshotStmt{upTo: $5}
-    }
-|
-    USE SNAPSHOT SINCE VARCHAR UP TO VARCHAR
-    {
-        $$ = &UseSnapshotStmt{since: $4, upTo: $7}
+        $$ = &UseSnapshotStmt{sinceTx: $5}
     }
 |
     CREATE TABLE IDENTIFIER '(' colsSpec ',' PRIMARY KEY IDENTIFIER ')'
@@ -387,9 +378,10 @@ ds:
         $$ = $1
     }
 |
-    '(' tableRef opt_as ')'
+    '(' tableRef opt_as_before opt_as ')'
     {
-        $2.as = $3
+        $2.asBefore = $3
+        $2.as = $4
         $$ = $2
     }
 |
@@ -407,6 +399,16 @@ tableRef:
     IDENTIFIER '.' IDENTIFIER
     {
         $$ = &TableRef{db: $1, table: $3}
+    }
+
+opt_as_before:
+    {
+        $$ = 0
+    }
+|
+    BEFORE TX NUMBER
+    {
+        $$ = $3
     }
 
 opt_joins:

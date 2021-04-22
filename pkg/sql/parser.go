@@ -53,6 +53,8 @@ var reservedWords = map[string]int{
 	"SELECT":      SELECT,
 	"DISTINCT":    DISTINCT,
 	"FROM":        FROM,
+	"BEFORE":      BEFORE,
+	"TX":          TX,
 	"JOIN":        JOIN,
 	"HAVING":      HAVING,
 	"WHERE":       WHERE,

@@ -158,7 +158,7 @@ func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, params map[string]interface
 }
 
 type UseSnapshotStmt struct {
-	since, upTo string
+	sinceTx uint64
 }
 
 func (stmt *UseSnapshotStmt) isDDL() bool {
@@ -166,7 +166,9 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 }
 
 func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	return nil, nil, errors.New("not yet supported")
+	e.snapSinceTx = stmt.sinceTx
+	err = e.dataStore.WaitForIndexingUpto(e.snapSinceTx)
+	return nil, nil, err
 }
 
 type CreateTableStmt struct {
@@ -890,9 +892,10 @@ func (stmt *SelectStmt) Alias() string {
 }
 
 type TableRef struct {
-	db    string
-	table string
-	as    string
+	db       string
+	table    string
+	asBefore uint64
+	as       string
 }
 
 func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
@@ -978,7 +981,7 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string
 		}
 	}
 
-	return e.newRawRowReader(snap, table, stmt.as, colName, cmp, initKeyVal)
+	return e.newRawRowReader(snap, table, stmt.asBefore, stmt.as, colName, cmp, initKeyVal)
 }
 
 func (stmt *TableRef) Alias() string {
