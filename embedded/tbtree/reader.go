@@ -40,6 +40,19 @@ type ReaderSpec struct {
 	DescOrder     bool
 }
 
+func (r *Reader) Reset() error {
+	path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+	if err != nil {
+		return err
+	}
+
+	r.path = path
+	r.leafNode = startingLeaf
+	r.offset = startingOffset
+
+	return nil
+}
+
 func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error) {
 	if r.closed {
 		return nil, 0, ErrAlreadyClosed

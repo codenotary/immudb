@@ -38,7 +38,7 @@ type KeyReaderSpec struct {
 
 // NewReader ...
 func (st *ImmuStore) NewKeyReader(snap *tbtree.Snapshot, spec *KeyReaderSpec) (*KeyReader, error) {
-	if snap == nil {
+	if snap == nil || spec == nil {
 		return nil, ErrIllegalArguments
 	}
 
@@ -120,6 +120,10 @@ func (r *KeyReader) Read() (key []byte, val *ValueRef, tx uint64, hc uint64, err
 	}
 
 	return key, val, tx, hc, nil
+}
+
+func (r *KeyReader) Reset() error {
+	return r.reader.Reset()
 }
 
 func (r *KeyReader) Close() error {
