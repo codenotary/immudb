@@ -68,6 +68,7 @@ type rawRowReader struct {
 	implicitDB string
 	snap       *store.Snapshot
 	table      *Table
+	asBefore   uint64
 	tableAlias string
 	colsByPos  []*ColDescriptor
 	colsBySel  map[string]SQLValueType
@@ -81,7 +82,7 @@ type ColDescriptor struct {
 	Type     SQLValueType
 }
 
-func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, tableAlias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
+func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
 	if snap == nil || table == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -145,6 +146,7 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, tableAlias 
 		implicitDB: e.ImplicitDB(),
 		snap:       snap,
 		table:      table,
+		asBefore:   asBefore,
 		colsByPos:  colsByPos,
 		colsBySel:  colsBySel,
 		tableAlias: tableAlias,
@@ -170,8 +172,15 @@ func (r *rawRowReader) colsBySelector() (map[string]SQLValueType, error) {
 	return r.colsBySel, nil
 }
 
-func (r *rawRowReader) Read() (*Row, error) {
-	mkey, vref, _, _, err := r.reader.Read()
+func (r *rawRowReader) Read() (row *Row, err error) {
+	var mkey []byte
+	var vref *store.ValueRef
+
+	if r.asBefore > 0 {
+		mkey, vref, _, err = r.reader.ReadAsBefore(r.asBefore)
+	} else {
+		mkey, vref, _, _, err = r.reader.Read()
+	}
 	if err != nil {
 		return nil, err
 	}

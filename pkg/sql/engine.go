@@ -80,7 +80,7 @@ type Engine struct {
 
 	implicitDB string
 
-	snapSinceTx, snapUptoTx uint64
+	snapSinceTx uint64
 
 	mutex sync.Mutex
 }
@@ -734,7 +734,12 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, ErrIllegalArguments
 	}
 
-	snap, err := e.dataStore.SnapshotSince(math.MaxUint64)
+	snapSinceTx := e.snapSinceTx
+	if snapSinceTx == 0 {
+		snapSinceTx = math.MaxUint64
+	}
+
+	snap, err := e.dataStore.SnapshotSince(snapSinceTx)
 	if err != nil {
 		return nil, err
 	}

@@ -92,30 +92,16 @@ func TestUseSnapshotStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "USE SNAPSHOT SINCE '20210211 00:00:00.000'",
+			input: "USE SNAPSHOT SINCE TX 100",
 			expectedOutput: []SQLStmt{
-				&UseSnapshotStmt{since: "20210211 00:00:00.000"},
+				&UseSnapshotStmt{sinceTx: uint64(100)},
 			},
 			expectedError: nil,
 		},
 		{
-			input: "USE SNAPSHOT UP TO '20210214 00:00:00.000'",
-			expectedOutput: []SQLStmt{
-				&UseSnapshotStmt{upTo: "20210214 00:00:00.000"},
-			},
-			expectedError: nil,
-		},
-		{
-			input: "USE SNAPSHOT SINCE '20210211 00:00:00.000' UP TO '20210214 00:00:00.000'",
-			expectedOutput: []SQLStmt{
-				&UseSnapshotStmt{since: "20210211 00:00:00.000", upTo: "20210214 00:00:00.000"},
-			},
-			expectedError: nil,
-		},
-		{
-			input:          "USE SNAPSHOT SINCE UP TO '20210214 00:00:00.000'",
+			input:          "USE SNAPSHOT SINCE 10",
 			expectedOutput: nil,
-			expectedError:  errors.New("syntax error: unexpected UP, expecting VARCHAR"),
+			expectedError:  errors.New("syntax error: unexpected NUMBER, expecting TX"),
 		},
 	}
 
