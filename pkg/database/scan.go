@@ -18,7 +18,6 @@ package database
 
 import (
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
@@ -71,7 +70,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 
 	r, err := d.st.NewKeyReader(
 		snap,
-		&tbtree.ReaderSpec{
+		&store.KeyReaderSpec{
 			SeekKey:   seekKey,
 			Prefix:    EncodeKey(req.Prefix),
 			DescOrder: req.Desc,
@@ -86,7 +85,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 
 	for {
 		key, _, tx, _, err := r.Read()
-		if err == tbtree.ErrNoMoreEntries {
+		if err == store.ErrNoMoreEntries {
 			break
 		}
 		if err != nil {
