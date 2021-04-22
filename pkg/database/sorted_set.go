@@ -20,7 +20,6 @@ import (
 	"math"
 
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
 
@@ -134,7 +133,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 
 	r, err := d.st.NewKeyReader(
 		snap,
-		&tbtree.ReaderSpec{
+		&store.KeyReaderSpec{
 			SeekKey:       seekKey,
 			Prefix:        prefix,
 			InclusiveSeek: req.InclusiveSeek,
