@@ -149,6 +149,20 @@ We've developed a "language-agnostic SDK" which exposes a REST API for easy cons
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
 
 
+## Roadmap
+
+The following topics are important to us and are planned or already being worked on:
+
+* Relational model support (including SQL)
+  * PostgreSQL wire compatibility
+  * Travel in time
+* Embedded web console
+* Replication (Follower)
+* Other storage backends (eg. Cloud)
+* Hot backups
+* Data pruning
+* Compression
+* Improving SDK API and errors
 
 ## Contributing
 
