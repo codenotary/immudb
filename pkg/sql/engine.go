@@ -25,7 +25,6 @@ import (
 	"sync"
 
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 var ErrNoSupported = errors.New("not yet supported")
@@ -145,7 +144,7 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	catalog := newCatalog()
 
 	initialKey := e.mapKey(catalogDatabasePrefix)
-	dbReaderSpec := &tbtree.ReaderSpec{
+	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
 		Prefix:  initialKey,
 	}
@@ -198,7 +197,7 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 	initialKey := e.mapKey(catalogTablePrefix, encodeID(db.id))
 
-	dbReaderSpec := &tbtree.ReaderSpec{
+	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
 		Prefix:  initialKey,
 	}
@@ -264,7 +263,7 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) (specs []*ColSpec, pkName string, err error) {
 	initialKey := e.mapKey(catalogColumnPrefix, encodeID(dbID), encodeID(tableID))
 
-	dbReaderSpec := &tbtree.ReaderSpec{
+	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
 		Prefix:  initialKey,
 	}
@@ -324,7 +323,7 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 func (e *Engine) loadIndexes(dbID, tableID uint64, snap *store.Snapshot) ([]uint64, error) {
 	initialKey := e.mapKey(catalogIndexPrefix, encodeID(dbID), encodeID(tableID))
 
-	idxReaderSpec := &tbtree.ReaderSpec{
+	idxReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
 		Prefix:  initialKey,
 	}

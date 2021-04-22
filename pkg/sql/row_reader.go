@@ -20,7 +20,6 @@ import (
 	"encoding/binary"
 
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 type RowReader interface {
@@ -116,7 +115,7 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, tableAlias 
 		}
 	}
 
-	rSpec := &tbtree.ReaderSpec{
+	rSpec := &store.KeyReaderSpec{
 		SeekKey:       skey,
 		InclusiveSeek: cmp != LowerThan && cmp != GreaterThan,
 		Prefix:        prefix,
