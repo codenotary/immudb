@@ -160,6 +160,21 @@ immudb can handle millions of writes per second. The following table shows perfo
 
 You can generate your own benchmarks using the `stress_tool` under `embedded/tools`.
 
+## Roadmap
+
+The following topics are important to us and are planned or already being worked on:
+
+* Relational model support (including SQL)
+  * PostgreSQL wire compatibility
+  * Travel in time
+* Embedded web console
+* Replication (Follower)
+* Other storage backends (eg. Cloud)
+* Hot backups
+* Data pruning
+* Compression
+* Improving SDK API and errors
+
 ## Contributing
 
 We welcome [contributions](CONTRIBUTING.md). Feel free to join the team!
