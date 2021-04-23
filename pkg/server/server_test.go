@@ -103,26 +103,26 @@ func TestServerReOpen(t *testing.T) {
 		os.RemoveAll(dbRootpath)
 	}()
 
-	err := s.loadDefaultDatabase(dbRootpath)
-	if err != nil {
-		t.Fatalf("error loading default database %v", err)
-	}
-
-	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
+	err := s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
 	}
-
-	s = DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 
 	err = s.loadDefaultDatabase(dbRootpath)
 	if err != nil {
 		t.Fatalf("error loading default database %v", err)
 	}
 
+	s = DefaultServer().WithOptions(serverOptions).(*ImmuServer)
+
 	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
+	}
+
+	err = s.loadDefaultDatabase(dbRootpath)
+	if err != nil {
+		t.Fatalf("error loading default database %v", err)
 	}
 
 	_, err = os.Stat(path.Join(options.GetDbRootPath(), DefaultOptions().GetSystemAdminDbName()))
@@ -136,14 +136,17 @@ func TestServerSystemDatabaseLoad(t *testing.T) {
 	options := database.DefaultOption().WithDbRootPath(serverOptions.Dir)
 	dbRootpath := options.GetDbRootPath()
 	s := DefaultServer().WithOptions(serverOptions).(*ImmuServer)
-	err := s.loadDefaultDatabase(dbRootpath)
-	if err != nil {
-		t.Fatalf("error loading default database %v", err)
-	}
-	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
+
+	err := s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
 	if err != nil {
 		t.Fatalf("error loading system database %v", err)
 	}
+
+	err = s.loadDefaultDatabase(dbRootpath)
+	if err != nil {
+		t.Fatalf("error loading default database %v", err)
+	}
+
 	defer func() {
 		os.RemoveAll(dbRootpath)
 	}()
@@ -446,10 +449,10 @@ func TestServerListUsersAdmin(t *testing.T) {
 	s.dbList = NewDatabaseList()
 	s.sysDb = nil
 
-	err = s.loadDefaultDatabase(s.Options.Dir)
+	err = s.loadSystemDatabase(s.Options.Dir, auth.SysAdminPassword)
 	require.NoError(t, err)
 
-	err = s.loadSystemDatabase(s.Options.Dir, auth.SysAdminPassword)
+	err = s.loadDefaultDatabase(s.Options.Dir)
 	require.NoError(t, err)
 
 	err = s.loadUserDatabases(s.Options.Dir)
@@ -1274,7 +1277,6 @@ func TestServerUpdateConfigItem(t *testing.T) {
 	dataDir := "test-server-update-config-item-config"
 	configFile := fmt.Sprintf("%s.toml", dataDir)
 	s := DefaultServer().WithOptions(DefaultOptions().
-		WithCorruptionCheck(false).
 		WithAuth(false).
 		WithMaintenance(false).
 		WithDir(dataDir)).(*ImmuServer)
@@ -1330,7 +1332,6 @@ func TestServerUpdateAuthConfig(t *testing.T) {
 
 	dataDir := "bratislava"
 	s := DefaultServer().WithOptions(DefaultOptions().
-		WithCorruptionCheck(false).
 		WithAuth(false).
 		WithMaintenance(false).WithDir(dataDir).WithConfig("/tmp/immudb.toml")).(*ImmuServer)
 
@@ -1355,7 +1356,6 @@ func TestServerUpdateMTLSConfig(t *testing.T) {
 
 	dataDir := "ljubljana"
 	s := DefaultServer().WithOptions(DefaultOptions().
-		WithCorruptionCheck(false).
 		WithAuth(false).
 		WithMaintenance(false).WithDir(dataDir).WithMTLs(false).WithConfig("/tmp/immudb.toml")).(*ImmuServer)
 	_, err = s.UpdateMTLSConfig(context.Background(), &schema.MTLSConfig{
@@ -1373,7 +1373,6 @@ func TestServerMtls(t *testing.T) {
 		ClientCAs:   "./../../test/mtls_certs/ca-chain.cert.pem",
 	}
 	op := DefaultOptions().
-		WithCorruptionCheck(false).
 		WithAuth(false).
 		WithMaintenance(false).WithMTLs(true).WithMTLsOptions(mtlsopts)
 	s := DefaultServer().WithOptions(op).(*ImmuServer)
@@ -1396,7 +1395,6 @@ func TestServerMtls(t *testing.T) {
 
 func TestServerPID(t *testing.T) {
 	op := DefaultOptions().
-		WithCorruptionCheck(false).
 		WithAuth(false).
 		WithMaintenance(false).WithPidfile("pidfile")
 	s := DefaultServer().WithOptions(op).(*ImmuServer)
