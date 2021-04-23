@@ -77,11 +77,6 @@ func (s *ImmuServer) Initialize() error {
 		s.Logger.Infof("\n%s\n%s\n\n", immudbTextLogo, s.Options)
 	}
 
-	dataDir := s.Options.Dir
-	if err = s.loadDefaultDatabase(dataDir); err != nil {
-		return logErr(s.Logger, "Unable load default database: %v", err)
-	}
-
 	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
 	if err != nil {
 		return logErr(s.Logger, "%v", err)
@@ -92,8 +87,14 @@ func (s *ImmuServer) Initialize() error {
 		return ErrEmptyAdminPassword
 	}
 
+	dataDir := s.Options.Dir
+
 	if err = s.loadSystemDatabase(dataDir, adminPassword); err != nil {
 		return logErr(s.Logger, "Unable load system database: %v", err)
+	}
+
+	if err = s.loadDefaultDatabase(dataDir); err != nil {
+		return logErr(s.Logger, "Unable load default database: %v", err)
 	}
 
 	if err = s.loadUserDatabases(dataDir); err != nil {
@@ -196,8 +197,6 @@ func (s *ImmuServer) Initialize() error {
 // Loads and starts the System DB, default db and user db
 func (s *ImmuServer) Start() (err error) {
 	s.mux.Lock()
-
-	//s.startCorruptionChecker()
 
 	if s.Options.MetricsServer {
 		if err := s.setUpMetricsServer(); err != nil {
@@ -309,8 +308,8 @@ func (s *ImmuServer) printUsageCallToAction() {
 }
 
 func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) error {
-	if s.dbList.Length() == 0 {
-		panic("loadSystemDatabase should be called after loadDefaultDatabase as system database should be at index 1")
+	if s.dbList.Length() != 0 {
+		panic("loadSystemDatabase should be called before any other database loading")
 	}
 
 	systemDbRootDir := s.OS.Join(dataDir, s.Options.GetSystemAdminDbName())
@@ -320,7 +319,6 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 	op := database.DefaultOption().
 		WithDbName(s.Options.GetSystemAdminDbName()).
 		WithDbRootPath(dataDir).
-		WithCorruptionChecker(s.Options.CorruptionCheck).
 		WithDbRootPath(s.Options.Dir).
 		WithStoreOptions(storeOpts)
 
@@ -355,10 +353,10 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 	return nil
 }
 
-//loadSystemDatabase it is important that is is called before loadDatabases so that defaultdb is at index zero of the databases array
+//loadDefaultDatabase
 func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
-	if s.dbList.Length() > 0 {
-		panic("loadDefaultDatabase should be called before any other database loading")
+	if s.dbList.Length() != 0 {
+		panic("loadDefaultDatabase should be called right after loading systemDatabase")
 	}
 
 	defaultDbRootDir := s.OS.Join(dataDir, s.Options.GetDefaultDbName())
@@ -366,7 +364,6 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 	op := database.DefaultOption().
 		WithDbName(s.Options.GetDefaultDbName()).
 		WithDbRootPath(dataDir).
-		WithCorruptionChecker(s.Options.CorruptionCheck).
 		WithDbRootPath(s.Options.Dir).
 		WithStoreOptions(s.Options.StoreOptions)
 
@@ -421,7 +418,6 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 		op := database.DefaultOption().
 			WithDbName(dbname).
 			WithDbRootPath(dataDir).
-			WithCorruptionChecker(s.Options.CorruptionCheck).
 			WithDbRootPath(s.Options.Dir).
 			WithStoreOptions(s.Options.StoreOptions)
 
@@ -457,51 +453,17 @@ func (s *ImmuServer) Stop() error {
 
 //CloseDatabases closes all opened databases including the consinstency checker
 func (s *ImmuServer) CloseDatabases() error {
-	//s.stopCorruptionChecker()
-
-	if s.sysDb != nil {
-		s.sysDb.Close()
-	}
-
 	for i := 0; i < s.dbList.Length(); i++ {
 		val := s.dbList.GetByIndex(int64(i))
 		val.Close()
 	}
 
-	return nil
-}
-
-/*
-func (s *ImmuServer) startCorruptionChecker() {
-	if s.Options.CorruptionCheck {
-		cco := CCOptions{}
-		cco.singleiteration = false
-		cco.iterationSleepTime = 5 * time.Second
-		cco.frequencySleepTime = 500 * time.Millisecond
-
-		s.Cc = NewCorruptionChecker(cco, s.dbList, s.Logger, randomGenerator{})
-
-		go func() {
-			s.Logger.Infof("Starting consistency-checker")
-			if err := s.Cc.Start(context.Background()); err != nil {
-				s.Logger.Errorf("Unable to start consistency-checker: %s", err)
-			}
-		}()
+	if s.sysDb != nil {
+		s.sysDb.Close()
 	}
 
-	s.Logger.Errorf("Unable to start consistency-checker: Functionality not yet supported")
-}
-*/
-
-/*
-//StopCorruptionChecker shutdown the corruption checkcer
-func (s *ImmuServer) stopCorruptionChecker() error {
-	if s.Options.CorruptionCheck {
-		s.Cc.Stop()
-	}
 	return nil
 }
-*/
 
 // Login ...
 func (s *ImmuServer) Login(ctx context.Context, r *schema.LoginRequest) (*schema.LoginResponse, error) {
@@ -1082,7 +1044,6 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	op := database.DefaultOption().
 		WithDbName(newdb.DatabaseName).
 		WithDbRootPath(dataDir).
-		WithCorruptionChecker(s.Options.CorruptionCheck).
 		WithDbRootPath(s.Options.Dir).
 		WithStoreOptions(s.Options.StoreOptions)
 
