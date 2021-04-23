@@ -148,7 +148,17 @@ We've developed a "language-agnostic SDK" which exposes a REST API for easy cons
 [immugw](https://github.com/codenotary/immugw) may be a convenient tool when SDKs are not available for the
 programming language you're using, for experimentation, or just because you prefer your app only uses REST endpoints.
 
+# Performance figures
 
+immudb can handle millions of writes per second. The following table shows performance of the embedded store inserting 1M entries on a 4-core E3-1275v6 CPU and SSD disk with 20-100 parallel workers:
+
+| Entries | Workers | Batch | Batches | time (s) | Entries/s |
+| ------ | ------ | ------ | ------ | ------ | ------ |
+| 1M | 20 | 1000 | 50 | 1.061 | 	1.2M /s |
+| 1M	| 50	| 1000 |	20 | 0.543	| 1.8M /s |
+| 1M |	100 |	1000 |	10 | 0.615 |	1.6M /s |
+
+You can generate your own benchmarks using the `stress_tool` under `embedded/tools`.
 
 ## Contributing
 
