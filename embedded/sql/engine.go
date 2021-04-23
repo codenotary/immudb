@@ -157,6 +157,7 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer dbReader.Close()
 
 	for {
 		mkey, vref, _, _, err := dbReader.Read()
