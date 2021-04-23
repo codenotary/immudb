@@ -81,7 +81,8 @@ type Engine struct {
 
 	implicitDB string
 
-	snapSinceTx uint64
+	snapAsBeforeTx uint64
+	snapSinceTx    uint64
 
 	mutex sync.Mutex
 }
