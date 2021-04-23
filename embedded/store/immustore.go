@@ -61,6 +61,7 @@ var ErrKeyNotFound = tbtree.ErrKeyNotFound
 var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = tbtree.ErrNoMoreEntries
 var ErrIllegalState = tbtree.ErrIllegalState
+var ErrOffsetOutOfRange = tbtree.ErrOffsetOutOfRange
 var ErrUnexpectedError = errors.New("unexpected error")
 
 var ErrSourceTxNewerThanTargetTx = errors.New("source tx is newer than target tx")
