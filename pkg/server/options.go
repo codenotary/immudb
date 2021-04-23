@@ -18,10 +18,11 @@ package server
 
 import (
 	"fmt"
-	"github.com/codenotary/immudb/pkg/stream"
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -46,7 +47,6 @@ type Options struct {
 	MaxRecvMsgSize      int
 	NoHistograms        bool
 	Detached            bool
-	CorruptionCheck     bool
 	MetricsServer       bool
 	DevMode             bool
 	AdminPassword       string `json:"-"`
@@ -78,7 +78,6 @@ func DefaultOptions() *Options {
 		MaxRecvMsgSize:      1024 * 1024 * 32, // 32Mb
 		NoHistograms:        false,
 		Detached:            false,
-		CorruptionCheck:     true,
 		MetricsServer:       true,
 		DevMode:             false,
 		AdminPassword:       auth.SysAdminPassword,
@@ -185,12 +184,6 @@ func (o *Options) WithNoHistograms(noHistograms bool) *Options {
 // WithDetached sets immudb to be run in background
 func (o *Options) WithDetached(detached bool) *Options {
 	o.Detached = detached
-	return o
-}
-
-// WithCorruptionCheck enable corruption check
-func (o *Options) WithCorruptionCheck(corruptionCheck bool) *Options {
-	o.CorruptionCheck = corruptionCheck
 	return o
 }
 

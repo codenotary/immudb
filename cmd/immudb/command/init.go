@@ -46,7 +46,6 @@ func parseOptions() (options *server.Options, err error) {
 	maxRecvMsgSize := viper.GetInt("max-recv-msg-size")
 	noHistograms := viper.GetBool("no-histograms")
 	detached := viper.GetBool("detached")
-	consistencyCheck := viper.GetBool("consistency-check")
 	certificate, err := c.ResolvePath(viper.GetString("certificate"), true)
 	if err != nil {
 		return options, err
@@ -81,7 +80,6 @@ func parseOptions() (options *server.Options, err error) {
 		WithMaxRecvMsgSize(maxRecvMsgSize).
 		WithNoHistograms(noHistograms).
 		WithDetached(detached).
-		WithCorruptionCheck(consistencyCheck).
 		WithDevMode(devMode).
 		WithAdminPassword(adminPassword).
 		WithMaintenance(maintenance).
@@ -111,7 +109,6 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options, m
 	cmd.Flags().BoolP("auth", "s", options.MTLs, "enable auth")
 	cmd.Flags().Int("max-recv-msg-size", options.MaxRecvMsgSize, "max message size in bytes the server can receive")
 	cmd.Flags().Bool("no-histograms", options.MTLs, "disable collection of histogram metrics like query durations")
-	cmd.Flags().Bool("consistency-check", options.CorruptionCheck, "enable consistency check monitor routine. To disable: --consistency-check=false")
 	cmd.Flags().BoolP(c.DetachedFlag, c.DetachedShortFlag, options.Detached, "run immudb in background")
 	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
 	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
@@ -134,7 +131,6 @@ func setupDefaults(options *server.Options, mtlsOptions *server.MTLsOptions) {
 	viper.SetDefault("auth", options.GetAuth())
 	viper.SetDefault("max-recv-msg-size", options.MaxRecvMsgSize)
 	viper.SetDefault("no-histograms", options.NoHistograms)
-	viper.SetDefault("consistency-check", options.CorruptionCheck)
 	viper.SetDefault("detached", options.Detached)
 	viper.SetDefault("certificate", mtlsOptions.Certificate)
 	viper.SetDefault("pkey", mtlsOptions.Pkey)

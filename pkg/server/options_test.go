@@ -17,8 +17,9 @@ limitations under the License.
 package server
 
 import (
-	"github.com/codenotary/immudb/pkg/stream"
 	"testing"
+
+	"github.com/codenotary/immudb/pkg/stream"
 
 	"github.com/codenotary/immudb/pkg/auth"
 )
@@ -29,7 +30,6 @@ func TestOptions(t *testing.T) {
 		op.GetMaintenance() != false ||
 		op.GetDefaultDbName() != DefaultdbName ||
 		op.GetSystemAdminDbName() != SystemdbName ||
-		op.CorruptionCheck != true ||
 		op.Detached != false ||
 		op.DevMode != false ||
 		op.MTLs != false ||
