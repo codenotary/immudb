@@ -31,7 +31,7 @@ func TestService(t *testing.T) {
 	defer func() {
 		os.RemoveAll(datadir)
 	}()
-	options := DefaultOptions().WithAuth(true).WithCorruptionCheck(true).WithDir(datadir).WithListener(l).WithPort(22222).WithMetricsServer(false)
+	options := DefaultOptions().WithAuth(true).WithDir(datadir).WithListener(l).WithPort(22222).WithMetricsServer(false)
 
 	server := DefaultServer().WithOptions(options).(*ImmuServer)
 

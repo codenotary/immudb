@@ -18,13 +18,14 @@ package servertest
 
 import (
 	"context"
+	"log"
+	"net"
+	"sync"
+
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
-	"log"
-	"net"
-	"sync"
 
 	"github.com/codenotary/immudb/pkg/server"
 	"google.golang.org/grpc/test/bufconn"
