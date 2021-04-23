@@ -101,7 +101,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <distinct> opt_distinct
 %type <ds> ds
 %type <tableRef> tableRef
-%type <number> opt_as_before
+%type <number> opt_since opt_as_before
 %type <joins> opt_joins joins
 %type <join> join
 %type <boolExp> boolExp opt_where opt_having
@@ -171,9 +171,9 @@ ddlstmt:
         $$ = &UseDatabaseStmt{DB: $3}
     }
 |
-    USE SNAPSHOT SINCE TX NUMBER
+    USE SNAPSHOT opt_since opt_as_before 
     {
-        $$ = &UseSnapshotStmt{sinceTx: $5}
+        $$ = &UseSnapshotStmt{sinceTx: $3, asBefore: $4}
     }
 |
     CREATE TABLE IDENTIFIER '(' colsSpec ',' PRIMARY KEY IDENTIFIER ')'
@@ -190,6 +190,17 @@ ddlstmt:
     {
         $$ = &AddColumnStmt{table: $3, colSpec: $6}
     }
+
+opt_since:
+    {
+        $$ = 0
+    }
+|
+    SINCE TX NUMBER
+    {
+        $$ = $3
+    }
+
 
 dmlstmt:
     UPSERT INTO tableRef '(' ids ')' VALUES rows

@@ -158,7 +158,8 @@ func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, params map[string]interface
 }
 
 type UseSnapshotStmt struct {
-	sinceTx uint64
+	sinceTx  uint64
+	asBefore uint64
 }
 
 func (stmt *UseSnapshotStmt) isDDL() bool {
@@ -166,14 +167,24 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 }
 
 func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
+	if stmt.sinceTx < stmt.asBefore {
+		return nil, nil, ErrIllegalArguments
+	}
+
 	txID, _ := e.dataStore.Alh()
 	if txID < stmt.sinceTx {
 		return nil, nil, ErrTxDoesNotExist
 	}
 
-	e.snapSinceTx = stmt.sinceTx
 	err = e.dataStore.WaitForIndexingUpto(e.snapSinceTx)
-	return nil, nil, err
+	if err != nil {
+		return nil, nil, err
+	}
+
+	e.snapSinceTx = stmt.sinceTx
+	e.snapAsBeforeTx = stmt.asBefore
+
+	return nil, nil, nil
 }
 
 type CreateTableStmt struct {
@@ -986,7 +997,12 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string
 		}
 	}
 
-	return e.newRawRowReader(snap, table, stmt.asBefore, stmt.as, colName, cmp, initKeyVal)
+	asBefore := stmt.asBefore
+	if asBefore == 0 {
+		asBefore = e.snapAsBeforeTx
+	}
+
+	return e.newRawRowReader(snap, table, asBefore, stmt.as, colName, cmp, initKeyVal)
 }
 
 func (stmt *TableRef) Alias() string {
