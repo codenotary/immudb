@@ -23,12 +23,11 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
-	"github.com/codenotary/immudb/embedded/tbtree"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
-	"github.com/codenotary/immudb/pkg/sql"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
@@ -38,7 +37,7 @@ const MaxKeyScanLimit = 1000
 var ErrMaxKeyResolutionLimitReached = errors.New("max key resolution limit reached. It may be due to cyclic references")
 var ErrMaxKeyScanLimitExceeded = errors.New("max key scan limit exceeded")
 var ErrIllegalArguments = store.ErrIllegalArguments
-var ErrIllegalState = tbtree.ErrIllegalState
+var ErrIllegalState = store.ErrIllegalState
 
 type DB interface {
 	Health(e *empty.Empty) (*schema.HealthResponse, error)
@@ -631,7 +630,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 	key := EncodeKey(req.Key)
 
 	txs, err := d.st.History(key, req.Offset, req.Desc, limit)
-	if err != nil && err != tbtree.ErrOffsetOutOfRange {
+	if err != nil && err != store.ErrOffsetOutOfRange {
 		return nil, err
 	}
 

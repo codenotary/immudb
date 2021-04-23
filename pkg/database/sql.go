@@ -19,8 +19,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/codenotary/immudb/pkg/sql"
 )
 
 func (d *db) ListTables() (*schema.SQLQueryResult, error) {
