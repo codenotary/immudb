@@ -166,6 +166,11 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 }
 
 func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
+	txID, _ := e.dataStore.Alh()
+	if txID < stmt.sinceTx {
+		return nil, nil, ErrTxDoesNotExist
+	}
+
 	e.snapSinceTx = stmt.sinceTx
 	err = e.dataStore.WaitForIndexingUpto(e.snapSinceTx)
 	return nil, nil, err
