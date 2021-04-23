@@ -84,10 +84,10 @@ type db struct {
 }
 
 // OpenDb Opens an existing Database from disk
-func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
+func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	var err error
 
-	db := &db{
+	dbi := &db{
 		Logger:  log,
 		options: op,
 	}
@@ -99,32 +99,40 @@ func OpenDb(op *DbOptions, log logger.Logger) (DB, error) {
 		return nil, fmt.Errorf("Missing database directories")
 	}
 
-	db.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
+	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
 	if err != nil {
-		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	db.tx1 = db.st.NewTx()
-	db.tx2 = db.st.NewTx()
+	dbi.tx1 = dbi.st.NewTx()
+	dbi.tx2 = dbi.st.NewTx()
 
-	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte{SQLPrefix})
-	if err != nil {
-		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+	var catalogStore *store.ImmuStore
+
+	if catalogDB == nil {
+		catalogStore = dbi.st
+	} else {
+		catalogStore = catalogDB.(*db).st
 	}
 
-	_, _, err = db.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.UseDatabaseStmt{DB: db.options.dbName}}, nil, true)
+	dbi.sqlEngine, err = sql.NewEngine(catalogStore, dbi.st, []byte{SQLPrefix})
 	if err != nil {
-		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	return db, nil
+	_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.UseDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
+	if err != nil {
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+	}
+
+	return dbi, nil
 }
 
 // NewDb Creates a new Database along with it's directories and files
-func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
+func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	var err error
 
-	db := &db{
+	dbi := &db{
 		Logger:  log,
 		options: op,
 	}
@@ -136,31 +144,39 @@ func NewDb(op *DbOptions, log logger.Logger) (DB, error) {
 	}
 
 	if err = os.MkdirAll(dbDir, os.ModePerm); err != nil {
-		return nil, logErr(db.Logger, "Unable to create data folder: %s", err)
+		return nil, logErr(dbi.Logger, "Unable to create data folder: %s", err)
 	}
 
-	db.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
+	dbi.st, err = store.Open(dbDir, op.GetStoreOptions().WithLog(log))
 	if err != nil {
-		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	db.tx1 = db.st.NewTx()
-	db.tx2 = db.st.NewTx()
+	dbi.tx1 = dbi.st.NewTx()
+	dbi.tx2 = dbi.st.NewTx()
 
-	db.sqlEngine, err = sql.NewEngine(db.st, db.st, []byte{SQLPrefix})
+	var catalogStore *store.ImmuStore
+
+	if catalogDB == nil {
+		catalogStore = dbi.st
+	} else {
+		catalogStore = catalogDB.(*db).st
+	}
+
+	dbi.sqlEngine, err = sql.NewEngine(catalogStore, dbi.st, []byte{SQLPrefix})
 	if err != nil {
-		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	_, _, err = db.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{
-		&sql.CreateDatabaseStmt{DB: db.options.dbName},
-		&sql.UseDatabaseStmt{DB: db.options.dbName},
+	_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{
+		&sql.CreateDatabaseStmt{DB: dbi.options.dbName},
+		&sql.UseDatabaseStmt{DB: dbi.options.dbName},
 	}, nil, true)
 	if err != nil {
-		return nil, logErr(db.Logger, "Unable to open store: %s", err)
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	return db, nil
+	return dbi, nil
 }
 
 // CompactIndex ...

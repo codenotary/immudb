@@ -325,7 +325,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 	_, sysDbErr := s.OS.Stat(systemDbRootDir)
 	if s.OS.IsNotExist(sysDbErr) {
 		if s.Options.GetAuth() {
-			db, err := database.NewDb(op, s.Logger)
+			db, err := database.NewDb(op, nil, s.Logger)
 			if err != nil {
 				return err
 			}
@@ -342,7 +342,7 @@ func (s *ImmuServer) loadSystemDatabase(dataDir string, adminPassword string) er
 			s.Logger.Infof("Admin user %s successfully created", adminUsername)
 		}
 	} else {
-		db, err := database.OpenDb(op, s.Logger)
+		db, err := database.OpenDb(op, nil, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -369,7 +369,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 
 	_, defaultDbErr := s.OS.Stat(defaultDbRootDir)
 	if s.OS.IsNotExist(defaultDbErr) {
-		db, err := database.NewDb(op, s.Logger)
+		db, err := database.NewDb(op, s.sysDb, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -377,7 +377,7 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(s.dbList.Length())
 		s.dbList.Append(db)
 	} else {
-		db, err := database.OpenDb(op, s.Logger)
+		db, err := database.OpenDb(op, s.sysDb, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -421,7 +421,7 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 			WithDbRootPath(s.Options.Dir).
 			WithStoreOptions(s.Options.StoreOptions)
 
-		db, err := database.OpenDb(op, s.Logger)
+		db, err := database.OpenDb(op, s.sysDb, s.Logger)
 		if err != nil {
 			return err
 		}
@@ -1047,7 +1047,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		WithDbRootPath(s.Options.Dir).
 		WithStoreOptions(s.Options.StoreOptions)
 
-	db, err := database.NewDb(op, s.Logger)
+	db, err := database.NewDb(op, s.sysDb, s.Logger)
 	if err != nil {
 		s.Logger.Errorf(err.Error())
 		return nil, err
