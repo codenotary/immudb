@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"regexp"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -1209,7 +1210,21 @@ func (bexp *LikeBoolExp) substitute(params map[string]interface{}) (ValueExp, er
 }
 
 func (bexp *LikeBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	return nil, errors.New("not yet supported")
+	v, ok := row.Values[EncodeSelector(bexp.sel.resolve(implicitDB, implicitTable))]
+	if !ok {
+		return nil, ErrColumnDoesNotExist
+	}
+
+	if v.Type() != VarcharType {
+		return nil, ErrInvalidColumn
+	}
+
+	matched, err := regexp.MatchString(bexp.pattern, v.Value().(string))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Bool{val: matched}, nil
 }
 
 type CmpBoolExp struct {
