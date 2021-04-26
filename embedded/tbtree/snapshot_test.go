@@ -133,7 +133,7 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 		if err == ErrAlreadyClosed {
 			return
 		}
-		if err != nil {
+		if err != ErrSnapshotsNotClosed && err != nil {
 			panic(err)
 		}
 		time.Sleep(10 * time.Millisecond)
