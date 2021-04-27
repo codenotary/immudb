@@ -1,8 +1,5 @@
 name: immudb Stress
 on:
-  push:
-    branches:
-    - '**'
   pull_request:
     branches:
     - '**'
