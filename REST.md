@@ -14,7 +14,7 @@ export KEY=$(echo -n key1 | base64) VAL=$(echo -n val1 | base64)
 
 curl  -X POST -H "authorization: Bearer $TOKEN" -d "{\"KVs\": [{\"key\": \"$KEY\", \"value\": \"$VAL\"}]}" http://localhost:9997/api/v1/immurestproxy/db/set
 
-export SQL="CREATE TABLE table1(id INTEGER, title STRING, PRIMARY KEY id);"
+export SQL="CREATE TABLE table1(id INTEGER, title VARCHAR, PRIMARY KEY id);"
 curl  -X POST -H "authorization: Bearer $TOKEN" -d "{\"sql\": \"$SQL\"}" http://localhost:9997/api/v1/immurestproxy/db/sqlexec
 
 export SQL="UPSERT INTO table1(id, title) VALUES (1, 'Fancy Title');"
