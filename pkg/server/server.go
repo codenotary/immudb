@@ -197,7 +197,7 @@ func (s *ImmuServer) Initialize() error {
 
 	mux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err = schema.RegisterImmuServiceHandlerFromEndpoint(context.TODO(), mux,  "localhost:3321", opts)
+	err = schema.RegisterImmuServiceHandlerFromEndpoint(context.TODO(), mux,  "localhost:3322", opts)
 	if err != nil {
 		return err
 	}
