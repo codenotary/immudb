@@ -58,7 +58,7 @@ func TestImmuClientMock(t *testing.T) {
 		LogoutF: func(context.Context) error {
 			return errLogout
 		},
-		VerifiedGetF: func(context.Context, []byte, ...grpc.CallOption) (*schema.Entry, error) {
+		VerifiedGetF: func(context.Context, []byte) (*schema.Entry, error) {
 			return nil, errVerifiedGet
 		},
 		VerifiedSetF: func(context.Context, []byte, []byte) (*schema.TxMetadata, error) {
