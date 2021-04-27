@@ -23,19 +23,22 @@ import (
 )
 
 type databaseList struct {
-	databases []database.DB
+	databases           []database.DB
+	databasenameToIndex map[string]int64
 	sync.RWMutex
 }
 
 //NewDatabaseList constructs a new database list
-func NewDatabaseList() DatabaseList {
+func NewDatabaseList() database.DatabaseList {
 	return &databaseList{
-		databases: make([]database.DB, 0),
+		databasenameToIndex: make(map[string]int64),
+		databases:           make([]database.DB, 0),
 	}
 }
 func (d *databaseList) Append(database database.DB) {
 	d.Lock()
 	defer d.Unlock()
+	d.databasenameToIndex[database.GetName()] = int64(d.Length())
 	d.databases = append(d.databases, database)
 }
 func (d *databaseList) GetByIndex(index int64) database.DB {
@@ -43,8 +46,23 @@ func (d *databaseList) GetByIndex(index int64) database.DB {
 	defer d.RUnlock()
 	return d.databases[index]
 }
+func (d *databaseList) GetByName(dbname string) database.DB {
+	d.RLock()
+	defer d.RUnlock()
+	return d.databases[d.databasenameToIndex[dbname]]
+}
 func (d *databaseList) Length() int {
 	d.RLock()
 	defer d.RUnlock()
 	return len(d.databases)
+}
+
+// GetById returns the database id number. 0 if database is not present
+func (d *databaseList) GetId(dbname string) int64 {
+	d.RLock()
+	defer d.RUnlock()
+	if id, ok := d.databasenameToIndex[dbname]; ok {
+		return id
+	}
+	return 0
 }

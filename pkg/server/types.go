@@ -43,27 +43,19 @@ type usernameToUserdataMap struct {
 //DefaultDbIndex systemdb should always be in index 0
 const DefaultDbIndex = 0
 
-// DatabaseList DatabaseList interface
-type DatabaseList interface {
-	Append(database database.DB)
-	GetByIndex(index int64) database.DB
-	Length() int
-}
-
 // ImmuServer ...
 type ImmuServer struct {
-	OS                  immuos.OS
-	dbList              DatabaseList
-	Logger              logger.Logger
-	Options             *Options
-	listener            net.Listener
-	GrpcServer          *grpc.Server
-	UUID                xid.ID
-	Pid                 PIDFile
-	quit                chan struct{}
-	databasenameToIndex map[string]int64
-	userdata            *usernameToUserdataMap
-	multidbmode         bool
+	OS          immuos.OS
+	dbList      database.DatabaseList
+	Logger      logger.Logger
+	Options     *Options
+	listener    net.Listener
+	GrpcServer  *grpc.Server
+	UUID        xid.ID
+	Pid         PIDFile
+	quit        chan struct{}
+	userdata    *usernameToUserdataMap
+	multidbmode bool
 	//Cc                  CorruptionChecker
 	sysDb         database.DB
 	metricsServer *http.Server
@@ -82,7 +74,6 @@ func DefaultServer() *ImmuServer {
 		Logger:               logger.NewSimpleLogger("immudb ", os.Stderr),
 		Options:              DefaultOptions(),
 		quit:                 make(chan struct{}),
-		databasenameToIndex:  make(map[string]int64),
 		userdata:             &usernameToUserdataMap{Userdata: make(map[string]*auth.User)},
 		GrpcServer:           grpc.NewServer(),
 		StreamServiceFactory: stream.NewStreamServiceFactory(DefaultOptions().StreamChunkSize),
@@ -97,6 +88,7 @@ type ImmuServerIf interface {
 	WithLogger(logger.Logger) ImmuServerIf
 	WithStateSigner(stateSigner StateSigner) ImmuServerIf
 	WithStreamServiceFactory(ssf stream.ServiceFactory) ImmuServerIf
+	WithPgsqlServer(psrv pgsqlsrv.Server) ImmuServerIf
 }
 
 // WithLogger ...
@@ -119,5 +111,11 @@ func (s *ImmuServer) WithStreamServiceFactory(ssf stream.ServiceFactory) ImmuSer
 // WithOptions ...
 func (s *ImmuServer) WithOptions(options *Options) ImmuServerIf {
 	s.Options = options
+	return s
+}
+
+// WithPgsqlServer ...
+func (s *ImmuServer) WithPgsqlServer(psrv pgsqlsrv.Server) ImmuServerIf {
+	s.PgsqlSrv = psrv
 	return s
 }

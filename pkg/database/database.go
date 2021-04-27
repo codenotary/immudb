@@ -69,6 +69,7 @@ type DB interface {
 	SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
 	ListTables() (*schema.SQLQueryResult, error)
 	DescribeTable(table string) (*schema.SQLQueryResult, error)
+	GetName() string
 }
 
 //IDB database instance
@@ -82,6 +83,8 @@ type db struct {
 
 	Logger  logger.Logger
 	options *DbOptions
+
+	name string
 }
 
 // OpenDb Opens an existing Database from disk
@@ -91,6 +94,7 @@ func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	dbi := &db{
 		Logger:  log,
 		options: op,
+		name:    op.dbName,
 	}
 
 	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())
@@ -688,6 +692,11 @@ func (d *db) Close() error {
 	}
 
 	return d.st.Close()
+}
+
+// GetName ...
+func (d *db) GetName() string {
+	return d.name
 }
 
 //GetOptions ...
