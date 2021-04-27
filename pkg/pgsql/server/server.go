@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"net"
 	"os"
@@ -27,6 +28,7 @@ type srv struct {
 	Logger         logger.Logger
 	Host           string
 	Port           string
+	dbList         database.DatabaseList
 }
 
 type Server interface {

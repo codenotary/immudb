@@ -23,8 +23,14 @@ import (
 func (s *srv) handleRequest(conn net.Conn) error {
 	ss := s.SessionFactory.NewSession(conn, s.Logger)
 
-	//startupMessage
-	err := ss.HandleStartup()
+	// initialize options
+	err := ss.InitializeSession(s.dbList)
+	if err != nil {
+		return err
+	}
+
+	// authentication
+	err = ss.HandleStartup()
 	if err != nil {
 		return err
 	}

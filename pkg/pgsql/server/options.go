@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 )
 
@@ -37,5 +38,11 @@ func Port(port string) Option {
 func Logger(logger logger.Logger) Option {
 	return func(args *srv) {
 		args.Logger = logger
+	}
+}
+
+func DatabaseList(dbList database.DatabaseList) Option {
+	return func(args *srv) {
+		args.dbList = dbList
 	}
 }
