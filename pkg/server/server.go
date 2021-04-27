@@ -377,7 +377,6 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 			return err
 		}
 
-		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(s.dbList.Length())
 		s.dbList.Append(db)
 	} else {
 		db, err := database.OpenDb(op, s.sysDb, s.Logger)
@@ -385,7 +384,6 @@ func (s *ImmuServer) loadDefaultDatabase(dataDir string) error {
 			return err
 		}
 
-		s.databasenameToIndex[s.Options.GetDefaultDbName()] = int64(s.dbList.Length())
 		s.dbList.Append(db)
 	}
 
@@ -429,8 +427,6 @@ func (s *ImmuServer) loadUserDatabases(dataDir string) error {
 			return err
 		}
 
-		//associate this database name to it's index in the array
-		s.databasenameToIndex[dbname] = int64(s.dbList.Length())
 		s.dbList.Append(db)
 	}
 
@@ -1038,7 +1034,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	}
 
 	//check if database exists
-	if _, ok := s.databasenameToIndex[newdb.GetDatabaseName()]; ok {
+	if s.dbList.GetId(newdb.GetDatabaseName()) == 0 {
 		return nil, fmt.Errorf("database %s already exists", newdb.GetDatabaseName())
 	}
 
@@ -1056,7 +1052,6 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 		return nil, err
 	}
 
-	s.databasenameToIndex[newdb.DatabaseName] = int64(s.dbList.Length())
 	s.dbList.Append(db)
 	s.multidbmode = true
 
@@ -1093,7 +1088,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		}
 
 		//check if database exists
-		if _, ok := s.databasenameToIndex[r.Database]; !ok {
+		if s.dbList.GetId(r.Database) == 0 {
 			return nil, fmt.Errorf("database %s does not exist", r.Database)
 		}
 
@@ -1325,12 +1320,12 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 	}
 
 	//check if database exists
-	ind, ok := s.databasenameToIndex[db.DatabaseName]
-	if !ok {
+	dbid := s.dbList.GetId(db.DatabaseName)
+	if dbid == 0 {
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", db.DatabaseName))
 	}
 
-	token, err := auth.GenerateToken(*user, ind, s.Options.TokenExpiryTimeMin)
+	token, err := auth.GenerateToken(*user, dbid, s.Options.TokenExpiryTimeMin)
 	if err != nil {
 		return nil, err
 	}
