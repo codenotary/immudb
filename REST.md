@@ -23,5 +23,6 @@ curl  -X POST -H "authorization: Bearer $TOKEN" -d "{\"sql\": \"$SQL\"}" http://
 export SQL="SELECT id,title FROM table1;"
 curl  -X POST -H "authorization: Bearer $TOKEN" -d "{\"sql\": \"$SQL\"}" http://localhost:9997/api/v1/immurestproxy/db/sqlquery
 
+curl  -H "authorization: Bearer $TOKEN" http://localhost:9997/api/v1/immurestproxy/db/table/list
 
 ```
