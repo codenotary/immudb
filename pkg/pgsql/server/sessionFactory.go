@@ -17,11 +17,13 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"net"
 )
 
 type sessionFactory struct {
+	dbList database.DatabaseList
 }
 
 type SessionFactory interface {

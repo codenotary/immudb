@@ -17,6 +17,8 @@ limitations under the License.
 package server
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/binary"
 	"net"
 )
@@ -40,7 +42,7 @@ type rawMessage struct {
 }
 
 type startupMessage struct {
-	payload []byte
+	payload map[string]string
 }
 
 type messageReader struct {
@@ -96,8 +98,37 @@ func (r *messageReader) ReadStartUpMessage() (*startupMessage, error) {
 		return nil, err
 	}
 
+	pr := bufio.NewScanner(bytes.NewBuffer(connString))
+	//params := bytes.Split(connString, []byte{0})
+	split := func(data []byte, atEOF bool) (int, []byte, error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		if i := bytes.IndexByte(data, 0); i >= 0 {
+			return i + 1, data[0:i], nil
+		}
+		if atEOF {
+			return len(data), data, nil
+		}
+		return 0, nil, nil
+	}
+
+	pr.Split(split)
+
+	pmap := make(map[string]string)
+
+	for pr.Scan() {
+		key := pr.Text()
+		for pr.Scan() {
+			value := pr.Text()
+			if value != "" {
+				pmap[key] = value
+			}
+			break
+		}
+	}
 	return &startupMessage{
-		payload: connString,
+		payload: pmap,
 	}, nil
 }
 

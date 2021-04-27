@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
@@ -24,26 +25,41 @@ import (
 )
 
 type session struct {
-	conn net.Conn
-	log  logger.Logger
-	mr   MessageReader
+	conn       net.Conn
+	log        logger.Logger
+	mr         MessageReader
+	database   database.DB
+	connParams map[string]string
 }
 
 type Session interface {
+	InitializeSession(dbList database.DatabaseList) error
 	HandleStartup() error
 	HandleSimpleQueries() error
 }
 
 func NewSession(c net.Conn, log logger.Logger) *session {
-	return &session{conn: c, log: log, mr: NewMessageReader(c)}
+	s := &session{conn: c, log: log, mr: NewMessageReader(c)}
+	return s
+}
+
+func (s *session) InitializeSession(dbList database.DatabaseList) error {
+	msg, err := s.mr.ReadStartUpMessage()
+	if err != nil {
+		return err
+	}
+	s.connParams = msg.payload
+
+	db, ok := s.connParams["database"]
+	if !ok {
+		return ErrDBNotExists
+	}
+	s.database = dbList.GetByName(db)
+
+	return nil
 }
 
 func (s *session) HandleStartup() error {
-	connString, err := s.mr.ReadStartUpMessage()
-	if err != nil {
-		println(connString)
-	}
-
 	if _, err := s.mr.WriteMessage(bm.AuthenticationCleartextPassword); err != nil {
 		return err
 	}
