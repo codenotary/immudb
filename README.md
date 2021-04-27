@@ -134,15 +134,17 @@ We already learned about the following use cases from users:
 
 ### How to integrate immudb in your application
 
-Integrate immudb into your application using official SDKs already available for the following programming languages:
+We have SDKs available for the following programming languages:
 
 1. Java [immudb4j](https://github.com/codenotary/immudb4j)
-2. Golang [immudb-go](https://docs.immudb.io/immudb/golang.html)
+2. Golang (`client` package in the immudb repo)
 3. .net [immudb4dotnet](https://github.com/codenotary/immudb4dotnet)
 4. Python [immudb-py](https://github.com/codenotary/immudb-py)
 5. Node.js [immudb-node](https://github.com/codenotary/immudb-node)
 
-For a super quick start, please follow step by step guides for each SDK or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
+To get started with development, there is a [quickstart in our documentation](https://docs.immudb.io/master/jumpstart.html): or pick a basic running sample from [immudb-client-examples](https://github.com/codenotary/immudb-client-examples).
+
+Our [immudb Playground](https://play.codenotary.com) provides a guided environment to learn the Python SDK.
 
 We've developed a "language-agnostic SDK" which exposes a REST API for easy consumption by any application.
 [immugw](https://github.com/codenotary/immugw) may be a convenient tool when SDKs are not available for the
