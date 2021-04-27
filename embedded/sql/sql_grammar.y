@@ -55,6 +55,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     opt_ord Comparison
     logicOp LogicOperator
     cmpOp CmpOperator
+    numOp NumOperator
 }
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
@@ -64,6 +65,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token NOT LIKE EXISTS
 %token NULL
 %token <joinType> JOINTYPE
+%token <numOp> NUMOP
 %token <logicOp> LOP
 %token <cmpOp> CMPOP
 %token <id> IDENTIFIER
@@ -80,6 +82,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %left  LOP
 %right NOT
 %left  CMPOP
+%left  NUMOP
 %right LIKE
 %right AS
 %right STMT_SEPARATOR
@@ -357,7 +360,7 @@ selector:
         $$ = $1
     }
 |
-    AGGREGATE_FUNC '(' '*' ')'
+    AGGREGATE_FUNC '(' ')'
     {
         $$ = &AggColSelector{aggFn: $1, col: "*"}
     }
@@ -544,6 +547,11 @@ boolExp:
     val
     {
         $$ = $1
+    }
+|
+    boolExp NUMOP boolExp
+    {
+        $$ = &NumExp{left: $1, op: $2, right: $3}
     }
 |
     NOT boolExp
