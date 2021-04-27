@@ -579,7 +579,7 @@ func TestAggregations(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT COUNT(*) AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil)
+	r, err := engine.QueryStmt("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -646,7 +646,7 @@ func TestGroupByHaving(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT active, COUNT(*) as c, MIN(age), MAX(age) FROM table1 GROUP BY active HAVING COUNT(*) > 0 ORDER BY active DESC", nil)
+	r, err := engine.QueryStmt("SELECT active, COUNT() as c, MIN(age), MAX(age) FROM table1 GROUP BY active HAVING COUNT() > 0 ORDER BY active DESC", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < 2; i++ {

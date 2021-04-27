@@ -768,7 +768,7 @@ func TestAggFnStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "SELECT COUNT(*) FROM table1",
+			input: "SELECT COUNT() FROM table1",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,

@@ -72,6 +72,15 @@ const (
 	OR
 )
 
+type NumOperator = int
+
+const (
+	ADDOP NumOperator = iota
+	SUBSOP
+	DIVOP
+	MULTOP
+)
+
 type JoinType = int
 
 const (
@@ -1161,6 +1170,79 @@ func (sel *AggColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implic
 	return v, nil
 }
 
+type NumExp struct {
+	op          NumOperator
+	left, right ValueExp
+}
+
+func (bexp *NumExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
+	return nil, ErrJointColumnNotFound
+}
+
+func (bexp *NumExp) substitute(params map[string]interface{}) (ValueExp, error) {
+	rlexp, err := bexp.left.substitute(params)
+	if err != nil {
+		return nil, err
+	}
+
+	rrexp, err := bexp.right.substitute(params)
+	if err != nil {
+		return nil, err
+	}
+
+	bexp.left = rlexp
+	bexp.right = rrexp
+
+	return bexp, nil
+}
+
+func (bexp *NumExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
+	vl, err := bexp.left.reduce(catalog, row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	vr, err := bexp.right.reduce(catalog, row, implicitDB, implicitTable)
+	if err != nil {
+		return nil, err
+	}
+
+	nl, isNumber := vl.Value().(uint64)
+	if !isNumber {
+		return nil, ErrInvalidCondition
+	}
+
+	nr, isNumber := vr.Value().(uint64)
+	if !isNumber {
+		return nil, ErrInvalidCondition
+	}
+
+	switch bexp.op {
+	case ADDOP:
+		{
+			return &Number{val: nl + nr}, nil
+		}
+	case SUBSOP:
+		{
+			return &Number{val: nl - nr}, nil
+		}
+	case DIVOP:
+		{
+			if nr == 0 {
+				return nil, ErrDivisionByZero
+			}
+
+			return &Number{val: nl / nr}, nil
+		}
+	case MULTOP:
+		{
+			return &Number{val: nl * nr}, nil
+		}
+	}
+
+	return nil, ErrUnexpected
+}
+
 type NotBoolExp struct {
 	exp ValueExp
 }
@@ -1326,29 +1408,7 @@ type BinBoolExp struct {
 }
 
 func (bexp *BinBoolExp) jointColumnTo(col *Column, tableAlias string) (*ColSelector, error) {
-	jcolLeft, errLeft := bexp.left.jointColumnTo(col, tableAlias)
-	if errLeft != nil && errLeft != ErrJointColumnNotFound {
-		return nil, errLeft
-	}
-
-	jcolRight, errRight := bexp.left.jointColumnTo(col, tableAlias)
-	if errRight != nil && errRight != ErrJointColumnNotFound {
-		return nil, errRight
-	}
-
-	if errLeft == ErrJointColumnNotFound && errRight == ErrJointColumnNotFound {
-		return nil, ErrJointColumnNotFound
-	}
-
-	if errLeft == nil && errRight == nil && jcolLeft != jcolRight {
-		return nil, ErrInvalidJointColumn
-	}
-
-	if errLeft == nil {
-		return jcolLeft, nil
-	}
-
-	return jcolRight, nil
+	return nil, ErrJointColumnNotFound
 }
 
 func (bexp *BinBoolExp) substitute(params map[string]interface{}) (ValueExp, error) {
