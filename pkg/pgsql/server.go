@@ -22,8 +22,8 @@ import (
 )
 
 func main() {
-	// todo inject in main server
-	sqlServer := server.New(server.Port("5439"))
+
+	sqlServer := server.New(server.Port(5439))
 
 	err := sqlServer.Serve()
 

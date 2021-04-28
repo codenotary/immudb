@@ -29,7 +29,7 @@ func Host(c string) Option {
 	}
 }
 
-func Port(port string) Option {
+func Port(port int) Option {
 	return func(args *srv) {
 		args.Port = port
 	}
