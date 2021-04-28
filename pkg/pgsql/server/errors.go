@@ -19,4 +19,8 @@ package server
 import "errors"
 
 var ErrUnknowMessageType = errors.New("found an unknown message type on the wire")
+var ErrDBNotprovided = errors.New("database name not provided")
+var ErrUsernameNotprovided = errors.New("user name not provided")
+var ErrPwNotprovided = errors.New("password not provided")
 var ErrDBNotExists = errors.New("selected db doesn't exists")
+var ErrUsernameNotFound = errors.New("user not found")

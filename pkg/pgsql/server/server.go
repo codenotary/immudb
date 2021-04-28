@@ -30,6 +30,7 @@ type srv struct {
 	Host           string
 	Port           int
 	dbList         database.DatabaseList
+	sysDb          database.DB
 }
 
 type Server interface {

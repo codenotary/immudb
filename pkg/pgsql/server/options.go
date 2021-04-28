@@ -46,3 +46,9 @@ func DatabaseList(dbList database.DatabaseList) Option {
 		args.dbList = dbList
 	}
 }
+
+func SysDb(sysdb database.DB) Option {
+	return func(args *srv) {
+		args.sysDb = sysdb
+	}
+}
