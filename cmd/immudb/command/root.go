@@ -53,6 +53,8 @@ Environment variables:
   IMMUDB_SIGNING_KEY=
   IMMUDB_SYNCED=false
   IMMUDB_TOKEN_EXPIRY_TIME=1440
+  IMMUDB_PGSQL_SERVER=true
+  IMMUDB_PGSQL_SERVER_PORT=5432
 `,
 		DisableAutoGenTag: true,
 		RunE:              cl.Immudb(immudbServer),

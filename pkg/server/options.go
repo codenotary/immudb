@@ -61,6 +61,8 @@ type Options struct {
 	StoreOptions        *store.Options
 	StreamChunkSize     int
 	TokenExpiryTimeMin  int
+	PgsqlServer         bool
+	PgsqlServerPort     int
 }
 
 // DefaultOptions returns default server options
@@ -91,6 +93,8 @@ func DefaultOptions() *Options {
 		StoreOptions:        DefaultStoreOptions(),
 		StreamChunkSize:     stream.DefaultChunkSize,
 		TokenExpiryTimeMin:  1440,
+		PgsqlServer:         true,
+		PgsqlServerPort:     5432,
 	}
 }
 
@@ -314,5 +318,19 @@ func (o *Options) WithStreamChunkSize(streamChunkSize int) *Options {
 // WithTokenExpiryTime set authentication token expiration time in minutes
 func (o *Options) WithTokenExpiryTime(tokenExpiryTimeMin int) *Options {
 	o.TokenExpiryTimeMin = tokenExpiryTimeMin
+	return o
+}
+
+// PgsqlServerPort enable or disable pgsql server
+func (o *Options) WithPgsqlServer(enable bool) *Options {
+	o.PgsqlServer = enable
+	return o
+}
+
+// PgsqlServerPort sets pgdsql server port
+func (o *Options) WithPgsqlServerPort(port int) *Options {
+	if port > 0 {
+		o.PgsqlServerPort = port
+	}
 	return o
 }
