@@ -18,6 +18,7 @@ package immudbcmdtest
 
 import (
 	"github.com/codenotary/immudb/pkg/logger"
+	pgsqlsrv "github.com/codenotary/immudb/pkg/pgsql/server"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/stream"
 )
@@ -27,6 +28,12 @@ type ImmuServerMock struct {
 	Logger      logger.Logger
 	StateSigner server.StateSigner
 	Ssf         stream.ServiceFactory
+	PgsqlSrv    pgsqlsrv.Server
+}
+
+func (s ImmuServerMock) WithPgsqlServer(psrv pgsqlsrv.Server) server.ImmuServerIf {
+	s.PgsqlSrv = psrv
+	return s
 }
 
 func (s ImmuServerMock) WithOptions(options *server.Options) server.ImmuServerIf {

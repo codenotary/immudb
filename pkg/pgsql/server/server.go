@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"fmt"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"net"
@@ -27,7 +28,7 @@ type srv struct {
 	SessionFactory SessionFactory
 	Logger         logger.Logger
 	Host           string
-	Port           string
+	Port           int
 	dbList         database.DatabaseList
 }
 
@@ -41,7 +42,7 @@ func New(setters ...Option) *srv {
 	cli := &srv{
 		SessionFactory: NewSessionFactory(),
 		Host:           "localhost",
-		Port:           "5432",
+		Port:           5432,
 		Logger:         logger.NewSimpleLogger("sqlSrv", os.Stderr),
 	}
 
@@ -53,7 +54,7 @@ func New(setters ...Option) *srv {
 }
 
 func (s *srv) Serve() error {
-	l, err := net.Listen("tcp", s.Host+":"+s.Port)
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Host, s.Port))
 	if err != nil {
 		return err
 	}
