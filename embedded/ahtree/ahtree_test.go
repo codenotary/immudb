@@ -304,6 +304,42 @@ func TestAppend(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestIntegrity(t *testing.T) {
+	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
+	require.NoError(t, err)
+	defer os.RemoveAll("ahtree_test")
+
+	N := 1024
+
+	for i := 1; i <= N; i++ {
+		_, _, err := tree.Append([]byte{byte(i)})
+		require.NoError(t, err)
+	}
+
+	n, _, err := tree.Root()
+	require.NoError(t, err)
+
+	for i := uint64(1); i <= n; i++ {
+		r, err := tree.RootAt(i)
+		require.NoError(t, err)
+
+		for j := uint64(1); j <= i; j++ {
+			iproof, err := tree.InclusionProof(j, i)
+			require.NoError(t, err)
+
+			d, err := tree.DataAt(j)
+			require.NoError(t, err)
+
+			pd := make([]byte, 1+len(d))
+			pd[0] = LeafPrefix
+			copy(pd[1:], d)
+
+			verifies := VerifyInclusion(iproof, j, i, sha256.Sum256(pd), r)
+			require.True(t, verifies)
+		}
+	}
+}
+
 func TestInclusionAndConsistencyProofs(t *testing.T) {
 	tree, err := Open("ahtree_test", DefaultOptions().WithSynced(false))
 	require.NoError(t, err)
