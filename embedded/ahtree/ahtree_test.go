@@ -312,8 +312,16 @@ func TestInclusionAndConsistencyProofs(t *testing.T) {
 	N := 1024
 
 	for i := 1; i <= N; i++ {
-		_, _, err := tree.Append([]byte{byte(i)})
+		_, r, err := tree.Append([]byte{byte(i)})
 		require.NoError(t, err)
+
+		iproof, err := tree.InclusionProof(uint64(i), uint64(i))
+		require.NoError(t, err)
+
+		h := sha256.Sum256([]byte{LeafPrefix, byte(i)})
+
+		verifies := VerifyInclusion(iproof, uint64(i), uint64(i), h, r)
+		require.True(t, verifies)
 	}
 
 	_, err = tree.InclusionProof(2, 1)
