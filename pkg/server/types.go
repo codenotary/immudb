@@ -70,7 +70,7 @@ type ImmuServer struct {
 func DefaultServer() *ImmuServer {
 	return &ImmuServer{
 		OS:                   immuos.NewStandardOS(),
-		dbList:               NewDatabaseList(),
+		dbList:               database.NewDatabaseList(),
 		Logger:               logger.NewSimpleLogger("immudb ", os.Stderr),
 		Options:              DefaultOptions(),
 		quit:                 make(chan struct{}),
