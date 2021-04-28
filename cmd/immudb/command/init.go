@@ -46,6 +46,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().Int("token-expiry-time", options.TokenExpiryTimeMin, "client authentication token expiration time. Minutes")
 	cmd.Flags().Bool("web-server", options.WebServer, "enable or disable web/console server")
 	cmd.Flags().Int("web-server-port", options.WebServerPort, "web/console server port")
+	cmd.Flags().Bool("pgsql-server", options.PgsqlServer, "enable or disable pgsql server")
+	cmd.Flags().Int("pgsql-server-port", options.PgsqlServerPort, "pgsql server port")
 }
 
 func setupDefaults(options *server.Options) {
@@ -69,4 +71,6 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("token-expiry-time", options.TokenExpiryTimeMin)
 	viper.SetDefault("web-server", options.WebServer)
 	viper.SetDefault("web-server-port", options.WebServerPort)
+	viper.SetDefault("pgsql-server", options.PgsqlServer)
+	viper.SetDefault("pgsql-server-port", options.PgsqlServerPort)
 }

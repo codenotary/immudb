@@ -18,3 +18,5 @@ admin-password = "immudb" # this password is only used once to initialize immudb
 maintenance = false
 signingKey = ""
 token-expiry-time = 1440 # client authentication token expiration time. Minutes
+pgsql-server = true # enable or disable pgsql server
+pgsql-server-port = 5432
