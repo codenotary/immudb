@@ -189,7 +189,7 @@ func (s *ImmuServer) Initialize() error {
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 
-	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList))
+	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList), pgsqlsrv.SysDb(s.sysDb))
 
 
 	return err
@@ -226,7 +226,7 @@ func (s *ImmuServer) Start() (err error) {
 
 	if s.Options.PgsqlServer {
 		go func() {
-			s.Logger.Infof("pgsl server is running at port %d", nil)
+			s.Logger.Infof("pgsl server is running at port %d", s.Options.PgsqlServerPort)
 			if err := s.PgsqlSrv.Serve(); err != nil {
 				s.mux.Unlock()
 				log.Fatal(err)

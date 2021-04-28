@@ -27,4 +27,5 @@ var (
 	ErrReferenceKeyMissing   = status.New(codes.InvalidArgument, "reference key not provided").Err()
 	ErrZAddIndexMissing      = status.New(codes.InvalidArgument, "zAdd index not provided").Err()
 	ErrReferenceIndexMissing = status.New(codes.InvalidArgument, "reference index not provided").Err()
+	ErrDatabaseNotExists     = status.New(codes.NotFound, "database does not exist").Err()
 )

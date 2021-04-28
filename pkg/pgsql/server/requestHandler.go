@@ -24,7 +24,7 @@ func (s *srv) handleRequest(conn net.Conn) error {
 	ss := s.SessionFactory.NewSession(conn, s.Logger)
 
 	// initialize options
-	err := ss.InitializeSession(s.dbList)
+	err := ss.InitializeSession(s.dbList, s.sysDb)
 	if err != nil {
 		return err
 	}
