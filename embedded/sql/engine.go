@@ -482,9 +482,9 @@ func (e *Engine) unmapIndexedRow(mkey []byte) (dbID, tableID, colID uint64, encV
 		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
-	encPKVal = make([]byte, encLenLen+valLen)
-	binary.BigEndian.PutUint32(encPKVal, uint32(valLen))
-	copy(encPKVal[encLenLen:], enc[off:off+valLen])
+	encVal = make([]byte, encLenLen+valLen)
+	binary.BigEndian.PutUint32(encVal, uint32(valLen))
+	copy(encVal[encLenLen:], enc[off:off+valLen])
 	off += int(valLen)
 
 	// read encPKVal
@@ -556,12 +556,6 @@ func maxKeyVal(colType SQLValueType) []byte {
 }
 
 func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, error) {
-	_, isNull := val.(*NullValue)
-	if isNull {
-		var encv [encLenLen]byte
-		return encv[:], nil
-	}
-
 	switch colType {
 	case VarcharType:
 		{
@@ -576,7 +570,7 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 
 			// len(v) + v
 			encv := make([]byte, encLenLen+len(strVal.val))
-			binary.BigEndian.PutUint32(encv[:], uint32(1+len(strVal.val)))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal.val)))
 			copy(encv[encLenLen:], []byte(strVal.val))
 
 			return encv, nil
@@ -624,7 +618,7 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 
 			// len(v) + v
 			encv := make([]byte, encLenLen+len(blobVal.val))
-			binary.BigEndian.PutUint32(encv[:], uint32(1+len(blobVal.val)))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal.val)))
 			copy(encv[encLenLen:], blobVal.val)
 
 			return encv[:], nil
@@ -646,28 +640,20 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 	vlen := int(binary.BigEndian.Uint32(b[:]))
 	voff := encLenLen
 
-	if vlen == 0 {
-		return &NullValue{t: colType}, voff, nil
+	if len(b) < vlen {
+		return nil, 0, ErrCorruptedData
 	}
 
 	switch colType {
 	case VarcharType:
 		{
-			if len(b) < vlen-1 {
-				return nil, 0, ErrCorruptedData
-			}
-
-			v := string(b[voff : voff+vlen-1])
-			voff += vlen - 1
+			v := string(b[voff : voff+vlen])
+			voff += vlen
 
 			return &Varchar{val: v}, voff, nil
 		}
 	case IntegerType:
 		{
-			if len(b) < vlen {
-				return nil, 0, ErrCorruptedData
-			}
-
 			v := binary.BigEndian.Uint64(b[voff : voff+vlen])
 			voff += vlen
 
@@ -675,10 +661,6 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 		}
 	case BooleanType:
 		{
-			if len(b) < vlen {
-				return nil, 0, ErrCorruptedData
-			}
-
 			v := b[voff] == 1
 			voff += 1
 
@@ -686,12 +668,8 @@ func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
 		}
 	case BLOBType:
 		{
-			if len(b) < vlen-1 {
-				return nil, 0, ErrCorruptedData
-			}
-
-			v := b[voff : voff+vlen-1]
-			voff += vlen - 1
+			v := b[voff : voff+vlen]
+			voff += vlen
 
 			return &Blob{val: v}, voff, nil
 		}
