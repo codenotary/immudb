@@ -26,3 +26,5 @@ var PgTypeMap = map[string]int{
 	"text":  25,
 	"oid":   26,
 }
+
+var PgSqlserver_rejected_establishment_of_sqlconnection = "08004"

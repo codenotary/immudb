@@ -16,7 +16,11 @@ limitations under the License.
 
 package server
 
-import "errors"
+import (
+	"errors"
+	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+)
 
 var ErrUnknowMessageType = errors.New("found an unknown message type on the wire")
 var ErrDBNotprovided = errors.New("database name not provided")
@@ -24,3 +28,31 @@ var ErrUsernameNotprovided = errors.New("user name not provided")
 var ErrPwNotprovided = errors.New("password not provided")
 var ErrDBNotExists = errors.New("selected db doesn't exists")
 var ErrUsernameNotFound = errors.New("user not found")
+var ErrExpectedQueryMessage = errors.New("expected query message")
+var ErrUseDBStatementNotSupported = errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
+var ErrCreateDBStatementNotSupported = errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
+
+
+
+func MapPgError(err error) []byte {
+	be := make([]byte, 0)
+	switch {
+	case errors.Is(err, ErrDBNotprovided):
+		be = bm.ErrorResponse(bm.Severity("ERROR"),
+			bm.Code(pgmeta.PgSqlserver_rejected_establishment_of_sqlconnection),
+			bm.Message(ErrDBNotprovided.Error()),
+			bm.Hint("please provide a valid database name or use immuclient to create a new one"),
+		)
+	case errors.Is(err, ErrDBNotExists):
+		be = bm.ErrorResponse(bm.Severity("ERROR"),
+			bm.Code(pgmeta.PgSqlserver_rejected_establishment_of_sqlconnection),
+			bm.Message(ErrDBNotExists.Error()),
+			bm.Hint("please provide a valid database name or use immuclient to create a new one"),
+		)
+	default:
+		be = bm.ErrorResponse(bm.Severity("FATAL"),
+			bm.Message(err.Error()),
+		)
+	}
+	return be
+}
