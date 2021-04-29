@@ -33,7 +33,7 @@ func RenderValue(op isSQLValue_Value) string {
 		}
 	case *SQLValue_S:
 		{
-			return v.S
+			return fmt.Sprintf("\"%s\"", v.S)
 		}
 	case *SQLValue_B:
 		{
