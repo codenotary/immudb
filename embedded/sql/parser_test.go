@@ -253,7 +253,7 @@ func TestInsertIntoStmt(t *testing.T) {
 		expectedError  error
 	}{
 		{
-			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, TIME(), 'untitled row', TRUE, false, b'AED0393F', @param1)",
+			input: "UPSERT INTO table1(id, time, title, active, compressed, payload, note) VALUES (2, TIME(), 'untitled row', TRUE, false, x'AED0393F', @param1)",
 			expectedOutput: []SQLStmt{
 				&UpsertIntoStmt{
 					tableRef: &TableRef{table: "table1"},

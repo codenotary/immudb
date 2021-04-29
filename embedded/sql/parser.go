@@ -252,9 +252,8 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return ERROR
 		}
 
-		lval.id = fmt.Sprintf("%c%s", ch, tail)
-
-		tid := strings.ToUpper(lval.id)
+		w := fmt.Sprintf("%c%s", ch, tail)
+		tid := strings.ToUpper(w)
 
 		sqlType, ok := types[tid]
 		if ok {
@@ -290,6 +289,8 @@ func (l *lexer) Lex(lval *yySymType) int {
 		if ok {
 			return tkn
 		}
+
+		lval.id = w
 
 		return IDENTIFIER
 	}
@@ -402,7 +403,7 @@ func (l *lexer) readWhile(condFn func(b byte) bool) (string, error) {
 }
 
 func isBLOBPrefix(ch byte) bool {
-	return 'b' == ch
+	return 'x' == ch
 }
 
 func isSeparator(ch byte) bool {
