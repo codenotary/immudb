@@ -178,7 +178,7 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 }
 
 func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	if stmt.sinceTx < stmt.asBefore {
+	if stmt.sinceTx > 0 && stmt.sinceTx < stmt.asBefore {
 		return nil, nil, ErrIllegalArguments
 	}
 
@@ -315,23 +315,10 @@ type RowSpec struct {
 func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[string]interface{}) ([]byte, error) {
 	valbuf := bytes.Buffer{}
 
-	// len(stmt.cols)
-	var b [encLenLen]byte
-	binary.BigEndian.PutUint32(b[:], uint32(len(cols)))
-	_, err := valbuf.Write(b[:])
-	if err != nil {
-		return nil, err
-	}
+	colCount := 0
 
 	for i, val := range r.Values {
-		col, _ := t.GetColumnByName(cols[i])
-
-		// len(colName) + colName
-		b := make([]byte, encLenLen+len(col.colName))
-		binary.BigEndian.PutUint32(b, uint32(len(col.colName)))
-		copy(b[encLenLen:], []byte(col.colName))
-
-		_, err = valbuf.Write(b)
+		col, err := t.GetColumnByName(cols[i])
 		if err != nil {
 			return nil, err
 		}
@@ -346,6 +333,19 @@ func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[st
 			return nil, err
 		}
 
+		_, isNull := rval.(*NullValue)
+		if isNull {
+			continue
+		}
+
+		b := make([]byte, encIDLen)
+		binary.BigEndian.PutUint64(b, uint64(col.id))
+
+		_, err = valbuf.Write(b)
+		if err != nil {
+			return nil, err
+		}
+
 		valb, err := EncodeValue(rval, col.colType, !asKey)
 		if err != nil {
 			return nil, err
@@ -355,9 +355,15 @@ func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[st
 		if err != nil {
 			return nil, err
 		}
+
+		colCount++
 	}
 
-	return valbuf.Bytes(), nil
+	b := make([]byte, encLenLen+len(valbuf.Bytes()))
+	binary.BigEndian.PutUint32(b, uint32(colCount))
+	copy(b[encLenLen:], valbuf.Bytes())
+
+	return b, nil
 }
 
 func (stmt *UpsertIntoStmt) isDDL() bool {

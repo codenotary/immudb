@@ -213,19 +213,14 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	voff += encLenLen
 
 	for i := 0; i < cols; i++ {
-		if len(v) < encLenLen {
+		if len(v) < encIDLen {
 			return nil, ErrCorruptedData
 		}
-		cNameLen := int(binary.BigEndian.Uint32(v[voff:]))
-		voff += encLenLen
 
-		if len(v) < cNameLen {
-			return nil, ErrCorruptedData
-		}
-		colName := string(v[voff : voff+cNameLen])
-		voff += cNameLen
+		colID := binary.BigEndian.Uint64(v[voff:])
+		voff += encIDLen
 
-		col, err := r.table.GetColumnByName(colName)
+		col, err := r.table.GetColumnByID(colID)
 		if err != nil {
 			return nil, ErrCorruptedData
 		}
@@ -236,7 +231,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 		}
 
 		voff += n
-		values[EncodeSelector("", r.table.db.name, r.tableAlias, colName)] = val
+		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = val
 	}
 
 	return &Row{Values: values}, nil
