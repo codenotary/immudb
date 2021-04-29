@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/codenotary/immudb/embedded/store"
@@ -710,7 +711,7 @@ func (v *SysFn) substitute(params map[string]interface{}) (ValueExp, error) {
 }
 
 func (v *SysFn) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
-	if v.fn == "NOW" {
+	if strings.ToUpper(v.fn) == "NOW" {
 		return &Number{val: uint64(time.Now().UnixNano())}, nil
 	}
 
