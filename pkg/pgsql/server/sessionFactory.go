@@ -27,13 +27,13 @@ type sessionFactory struct {
 }
 
 type SessionFactory interface {
-	NewSession(conn net.Conn, log logger.Logger) Session
+	NewSession(conn net.Conn, log logger.Logger, sysDb database.DB) Session
 }
 
 func NewSessionFactory() sessionFactory {
 	return sessionFactory{}
 }
 
-func (sm sessionFactory) NewSession(conn net.Conn, log logger.Logger) Session {
-	return NewSession(conn, log)
+func (sm sessionFactory) NewSession(conn net.Conn, log logger.Logger, sysDb database.DB) Session {
+	return NewSession(conn, log, sysDb)
 }
