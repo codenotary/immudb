@@ -85,9 +85,9 @@ func (cl *commandline) sqlQuery(cmd *cobra.Command) {
 
 func (cl *commandline) listTables(cmd *cobra.Command) {
 	ccmd := &cobra.Command{
-		Use:               "list tables",
+		Use:               "tables",
 		Short:             "List tables",
-		Aliases:           []string{"list"},
+		Aliases:           []string{"tables"},
 		PersistentPreRunE: cl.ConfigChain(cl.connect),
 		PersistentPostRun: cl.disconnect,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -118,7 +118,7 @@ func (cl *commandline) listTables(cmd *cobra.Command) {
 
 			return nil
 		},
-		Args: cobra.MinimumNArgs(1),
+		Args: cobra.ExactArgs(0),
 	}
 	cmd.AddCommand(ccmd)
 }
