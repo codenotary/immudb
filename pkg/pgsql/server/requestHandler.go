@@ -20,11 +20,15 @@ import (
 	"net"
 )
 
-func (s *srv) handleRequest(conn net.Conn) error {
+func (s *srv) handleRequest(conn net.Conn) (err error) {
 	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb)
-
+	defer func() {
+		ss.ErrorHandle(err)
+		conn.Close()
+		return
+	}()
 	// initialize options
-	err := ss.InitializeSession(s.dbList)
+	err = ss.InitializeSession(s.dbList)
 	if err != nil {
 		return err
 	}

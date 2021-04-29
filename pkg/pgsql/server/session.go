@@ -19,6 +19,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
@@ -43,6 +44,7 @@ type Session interface {
 	InitializeSession(dbList database.DatabaseList) error
 	HandleStartup() error
 	HandleSimpleQueries() error
+	ErrorHandle(err error)
 }
 
 func NewSession(c net.Conn, log logger.Logger, sysDb database.DB) *session {
@@ -50,7 +52,7 @@ func NewSession(c net.Conn, log logger.Logger, sysDb database.DB) *session {
 	return s
 }
 
-func (s *session) InitializeSession(dbList database.DatabaseList) error {
+func (s *session) InitializeSession(dbList database.DatabaseList) (err error) {
 	msg, err := s.mr.ReadStartUpMessage()
 	if err != nil {
 		return err
@@ -76,11 +78,11 @@ func (s *session) InitializeSession(dbList database.DatabaseList) error {
 	return nil
 }
 
-func (s *session) HandleStartup() error {
+func (s *session) HandleStartup() (err error) {
 	if _, err := s.mr.WriteMessage(bm.AuthenticationCleartextPassword); err != nil {
 		return err
 	}
-	msg, err := s.NextMessage()
+	msg, err := s.nextMessage()
 	if err != nil {
 		return err
 	}
@@ -105,35 +107,68 @@ func (s *session) HandleStartup() error {
 	return nil
 }
 
-func (s *session) HandleSimpleQueries() error {
+func (s *session) HandleSimpleQueries() (err error) {
+	defer func() {
+		s.ErrorHandle(err)
+	}()
 	for true {
 		if _, err := s.mr.WriteMessage(bm.ReadyForQuery); err != nil {
 			return err
 		}
-		msg, err := s.NextMessage()
+		msg, err := s.nextMessage()
 		if err != nil {
 			return err
 		}
 		query, ok := msg.(fm.QueryMsg)
 		if !ok {
-			s.log.Errorf("not a query")
+			s.ErrorHandle(ErrExpectedQueryMessage)
+			continue
 		}
-		println(query.GetStatements())
+
+		stmts, err := sql.Parse(strings.NewReader(query.GetStatements()))
+		if err != nil {
+			s.ErrorHandle(err)
+			continue
+		}
+
+		for _, stmt := range stmts {
+			switch stmt.(type) {
+			case *sql.UseDatabaseStmt:
+				{
+					return ErrUseDBStatementNotSupported
+				}
+			case *sql.CreateDatabaseStmt:
+				{
+					return ErrCreateDBStatementNotSupported
+				}
+			}
+		}
 
 		if _, err := s.mr.WriteMessage(bm.RowDescription); err != nil {
-			return err
+			s.ErrorHandle(err)
+			continue
 		}
 		if _, err := s.mr.WriteMessage(bm.DataRow); err != nil {
-			return err
+			s.ErrorHandle(err)
+			continue
 		}
 		if _, err := s.mr.WriteMessage(bm.CommandComplete); err != nil {
-			return err
+			s.ErrorHandle(err)
+			continue
 		}
 	}
 	return nil
 }
 
-func (s *session) NextMessage() (interface{}, error) {
+func (s *session) ErrorHandle(err error) {
+	if err != nil {
+		_, err = s.mr.WriteMessage(func() []byte {
+			return MapPgError(err)
+		})
+	}
+}
+
+func (s *session) nextMessage() (interface{}, error) {
 	msg, err := s.mr.ReadRawMessage()
 	if err != nil {
 		return nil, err
