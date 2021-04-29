@@ -40,17 +40,17 @@ type session struct {
 }
 
 type Session interface {
-	InitializeSession(dbList database.DatabaseList, sysDb database.DB) error
+	InitializeSession(dbList database.DatabaseList) error
 	HandleStartup() error
 	HandleSimpleQueries() error
 }
 
-func NewSession(c net.Conn, log logger.Logger) *session {
-	s := &session{conn: c, log: log, mr: NewMessageReader(c)}
+func NewSession(c net.Conn, log logger.Logger, sysDb database.DB) *session {
+	s := &session{conn: c, log: log, mr: NewMessageReader(c), sysDb: sysDb}
 	return s
 }
 
-func (s *session) InitializeSession(dbList database.DatabaseList, sysDb database.DB) error {
+func (s *session) InitializeSession(dbList database.DatabaseList) error {
 	msg, err := s.mr.ReadStartUpMessage()
 	if err != nil {
 		return err
@@ -73,7 +73,6 @@ func (s *session) InitializeSession(dbList database.DatabaseList, sysDb database
 		}
 		return err
 	}
-	s.sysDb = sysDb
 	return nil
 }
 

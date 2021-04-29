@@ -21,10 +21,10 @@ import (
 )
 
 func (s *srv) handleRequest(conn net.Conn) error {
-	ss := s.SessionFactory.NewSession(conn, s.Logger)
+	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb)
 
 	// initialize options
-	err := ss.InitializeSession(s.dbList, s.sysDb)
+	err := ss.InitializeSession(s.dbList)
 	if err != nil {
 		return err
 	}
