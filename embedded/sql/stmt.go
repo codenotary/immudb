@@ -116,7 +116,7 @@ func (stmt *TxStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces 
 		}
 
 		ces = append(ces, cs...)
-		ds = append(ds, ds...)
+		des = append(des, ds...)
 	}
 	return
 }
@@ -163,7 +163,7 @@ func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, params map[string]interface
 		return nil, nil, ErrDatabaseDoesNotExist
 	}
 
-	e.SetImplicitDB(stmt.DB)
+	e.UseDB(stmt.DB)
 
 	return
 }
@@ -183,7 +183,7 @@ func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface
 	}
 
 	txID, _ := e.dataStore.Alh()
-	if txID < stmt.sinceTx {
+	if txID < stmt.sinceTx || txID < stmt.asBefore {
 		return nil, nil, ErrTxDoesNotExist
 	}
 
@@ -427,6 +427,11 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 			return nil, nil, err
 		}
 
+		_, isNull := rval.(*NullValue)
+		if isNull {
+			return nil, nil, ErrPKCanNotBeNull
+		}
+
 		pkEncVal, err := EncodeValue(rval, table.pk.colType, asKey)
 		if err != nil {
 			return nil, nil, err
@@ -461,6 +466,11 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 			rval, err := val.reduce(e.catalog, nil, e.implicitDB, table.name)
 			if err != nil {
 				return nil, nil, err
+			}
+
+			_, isNull := rval.(*NullValue)
+			if isNull {
+				return nil, nil, ErrIndexedColumnCanNotBeNull
 			}
 
 			col, err := table.GetColumnByID(colID)
@@ -566,16 +576,17 @@ func (v *Number) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	ov, isNumber := val.(*Number)
-	if !isNumber {
+	if val.Type() != IntegerType {
 		return 0, ErrNotComparableValues
 	}
 
-	if v.val == ov.val {
+	rval := val.Value().(uint64)
+
+	if v.val == rval {
 		return 0, nil
 	}
 
-	if v.val > ov.val {
+	if v.val > rval {
 		return 1, nil
 	}
 
@@ -612,12 +623,13 @@ func (v *Varchar) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	ov, isString := val.(*Varchar)
-	if !isString {
+	if val.Type() != VarcharType {
 		return 0, ErrNotComparableValues
 	}
 
-	return bytes.Compare([]byte(v.val), []byte(ov.val)), nil
+	rval := val.Value().(string)
+
+	return bytes.Compare([]byte(v.val), []byte(rval)), nil
 }
 
 type Bool struct {
@@ -650,12 +662,13 @@ func (v *Bool) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	ov, isBool := val.(*Bool)
-	if !isBool {
+	if val.Type() != BooleanType {
 		return 0, ErrNotComparableValues
 	}
 
-	if v.val == ov.val {
+	rval := val.Value().(bool)
+
+	if v.val == rval {
 		return 0, nil
 	}
 
@@ -696,12 +709,13 @@ func (v *Blob) Compare(val TypedValue) (int, error) {
 		return 1, nil
 	}
 
-	ov, isBlob := val.(*Blob)
-	if !isBlob {
+	if val.Type() != BLOBType {
 		return 0, ErrNotComparableValues
 	}
 
-	return bytes.Compare(v.val, ov.val), nil
+	rval := val.Value().([]byte)
+
+	return bytes.Compare(v.val, rval), nil
 }
 
 type SysFn struct {

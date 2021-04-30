@@ -501,6 +501,8 @@ func TestTxStmt(t *testing.T) {
 }
 
 func TestSelectStmt(t *testing.T) {
+	bs, _ := hex.DecodeString("AED0393F")
+
 	testCases := []struct {
 		input          string
 		expectedOutput []SQLStmt
@@ -547,7 +549,7 @@ func TestSelectStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT db1.table1.id, title FROM (db1.table1 AS t1)",
+			input: "SELECT db1.table1.id, title FROM (db1.table1 AS t1) WHERE payload >= x'AED0393F'",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -556,11 +558,18 @@ func TestSelectStmt(t *testing.T) {
 						&ColSelector{col: "title"},
 					},
 					ds: &TableRef{db: "db1", table: "table1", as: "t1"},
+					where: &CmpBoolExp{
+						op: GE,
+						left: &ColSelector{
+							col: "payload",
+						},
+						right: &Blob{val: bs},
+					},
 				}},
 			expectedError: nil,
 		},
 		{
-			input: "SELECT DISTINCT id, time, name FROM table1 WHERE country = 'US' AND time <= TIME() AND name = @pname",
+			input: "SELECT DISTINCT id, time, name FROM table1 WHERE country = 'US' AND time <= NOW() AND name = @pname",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: true,
@@ -586,7 +595,7 @@ func TestSelectStmt(t *testing.T) {
 								left: &ColSelector{
 									col: "time",
 								},
-								right: &SysFn{fn: "TIME"},
+								right: &SysFn{fn: "NOW"},
 							},
 						},
 						right: &CmpBoolExp{

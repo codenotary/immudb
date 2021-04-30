@@ -129,14 +129,14 @@ func (e *Engine) loadCatalog() error {
 	return nil
 }
 
-func (e *Engine) SetImplicitDB(db string) {
+func (e *Engine) UseDB(db string) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
 	e.implicitDB = db
 }
 
-func (e *Engine) ImplicitDB() string {
+func (e *Engine) SelectedDB() string {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
