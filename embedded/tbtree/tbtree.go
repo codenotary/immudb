@@ -739,6 +739,11 @@ func (t *TBtree) CompactIndex() (uint64, error) {
 		return 0, ErrCompactAlreadyInProgress
 	}
 
+	if len(t.snapshots) > 0 {
+		t.mutex.Unlock()
+		return 0, ErrSnapshotsNotClosed
+	}
+
 	snapCount, err := t.storedSnapshotsCount()
 	if err != nil {
 		t.mutex.Unlock()
@@ -975,6 +980,10 @@ func (t *TBtree) SnapshotSince(ts uint64) (*Snapshot, error) {
 
 	if len(t.snapshots) == t.maxActiveSnapshots {
 		return nil, ErrorToManyActiveSnapshots
+	}
+
+	if t.compacting {
+		return nil, ErrCompactAlreadyInProgress
 	}
 
 	if t.lastSnapRoot == nil || t.lastSnapRoot.ts() < ts ||
