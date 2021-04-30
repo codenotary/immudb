@@ -78,8 +78,9 @@ func (s *session) InitializeSession(dbList database.DatabaseList) (err error) {
 	return nil
 }
 
+// HandleStartup errors are returned and handled in the caller
 func (s *session) HandleStartup() (err error) {
-	if _, err := s.mr.WriteMessage(bm.AuthenticationCleartextPassword); err != nil {
+	if _, err := s.mr.WriteMessage(bm.AuthenticationCleartextPassword()); err != nil {
 		return err
 	}
 	msg, err := s.nextMessage()
@@ -99,7 +100,7 @@ func (s *session) HandleStartup() (err error) {
 		if err := usr.ComparePasswords([]byte(pw.GetSecret())); err != nil {
 			return err
 		}
-		if _, err := s.mr.WriteMessage(bm.AuthenticationOk); err != nil {
+		if _, err := s.mr.WriteMessage(bm.AuthenticationOk()); err != nil {
 			return err
 		}
 	}
@@ -107,12 +108,13 @@ func (s *session) HandleStartup() (err error) {
 	return nil
 }
 
+// HandleSimpleQueries errors are returned and handled in the caller
 func (s *session) HandleSimpleQueries() (err error) {
 	defer func() {
 		s.ErrorHandle(err)
 	}()
 	for true {
-		if _, err := s.mr.WriteMessage(bm.ReadyForQuery); err != nil {
+		if _, err := s.mr.WriteMessage(bm.ReadyForQuery()); err != nil {
 			return err
 		}
 		msg, err := s.nextMessage()
@@ -131,6 +133,7 @@ func (s *session) HandleSimpleQueries() (err error) {
 			continue
 		}
 
+		sqlQuery := false
 		for _, stmt := range stmts {
 			switch stmt.(type) {
 			case *sql.UseDatabaseStmt:
@@ -141,18 +144,42 @@ func (s *session) HandleSimpleQueries() (err error) {
 				{
 					return ErrCreateDBStatementNotSupported
 				}
+			case *sql.SelectStmt:
+				sqlQuery = true
 			}
 		}
 
-		if _, err := s.mr.WriteMessage(bm.RowDescription); err != nil {
-			s.ErrorHandle(err)
-			continue
+		if sqlQuery {
+			r := &schema.SQLQueryRequest{
+				Sql: query.GetStatements(),
+			}
+			res, err := s.database.SQLQuery(r)
+
+			if err != nil {
+				s.ErrorHandle(err)
+				continue
+			}
+			if _, err := s.mr.WriteMessage(bm.RowDescription(res.Columns)); err != nil {
+				s.ErrorHandle(err)
+				continue
+			}
+			if _, err := s.mr.WriteMessage(bm.DataRow(res.Rows, len(res.Columns))); err != nil {
+				s.ErrorHandle(err)
+				continue
+			}
+		} else {
+			r := &schema.SQLExecRequest{
+				Sql: query.GetStatements(),
+			}
+			_, err = s.database.SQLExec(r)
+			if err != nil {
+				s.ErrorHandle(err)
+				continue
+			}
+
 		}
-		if _, err := s.mr.WriteMessage(bm.DataRow); err != nil {
-			s.ErrorHandle(err)
-			continue
-		}
-		if _, err := s.mr.WriteMessage(bm.CommandComplete); err != nil {
+
+		if _, err := s.mr.WriteMessage(bm.CommandComplete()); err != nil {
 			s.ErrorHandle(err)
 			continue
 		}
@@ -162,9 +189,7 @@ func (s *session) HandleSimpleQueries() (err error) {
 
 func (s *session) ErrorHandle(err error) {
 	if err != nil {
-		_, err = s.mr.WriteMessage(func() []byte {
-			return MapPgError(err)
-		})
+		_, err = s.mr.WriteMessage(MapPgError(err))
 	}
 }
 

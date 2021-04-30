@@ -20,6 +20,7 @@ import (
 	"errors"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
+	"strings"
 )
 
 var ErrUnknowMessageType = errors.New("found an unknown message type on the wire")
@@ -32,22 +33,25 @@ var ErrExpectedQueryMessage = errors.New("expected query message")
 var ErrUseDBStatementNotSupported = errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
 var ErrCreateDBStatementNotSupported = errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
 
-
-
 func MapPgError(err error) []byte {
 	be := make([]byte, 0)
 	switch {
 	case errors.Is(err, ErrDBNotprovided):
-		be = bm.ErrorResponse(bm.Severity("ERROR"),
-			bm.Code(pgmeta.PgSqlserver_rejected_establishment_of_sqlconnection),
+		be = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.PgServerErrRejectedEstablishmentOfSqlconnection),
 			bm.Message(ErrDBNotprovided.Error()),
 			bm.Hint("please provide a valid database name or use immuclient to create a new one"),
 		)
 	case errors.Is(err, ErrDBNotExists):
-		be = bm.ErrorResponse(bm.Severity("ERROR"),
-			bm.Code(pgmeta.PgSqlserver_rejected_establishment_of_sqlconnection),
+		be = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.PgServerErrRejectedEstablishmentOfSqlconnection),
 			bm.Message(ErrDBNotExists.Error()),
 			bm.Hint("please provide a valid database name or use immuclient to create a new one"),
+		)
+	case strings.Contains(err.Error(), "syntax error"):
+		be = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.PgServerErrSyntaxError),
+			bm.Message(err.Error()),
 		)
 	default:
 		be = bm.ErrorResponse(bm.Severity("FATAL"),

@@ -16,15 +16,28 @@ limitations under the License.
 
 package pgmeta
 
-var PgTypeMap = map[string]int{
-	"bool":  16,
-	"bytea": 17,
-	"char":  18,
-	"int8":  20,
-	"int2":  21,
-	"int4":  23,
-	"text":  25,
-	"oid":   26,
+const PgTypeMapOid = 0
+const PgTypeMapLength = 1
+
+// PgTypeMap maps the immudb type descriptor with pgsql pgtype map.
+// First int is the oid value (retrieved with select * from pg_type;)
+// Second int is the length of the value. -1 for dynamic.
+var PgTypeMap = map[string][]int{
+	"BOOLEAN":   {16, 1},    //bool
+	"BLOB":      {17, -1},   //bytea
+	"TIMESTAMP": {1700, -1}, //numeric
+	"INTEGER":   {20, 8},    //numeric
+	"VARCHAR":   {25, -1},   //text
 }
 
-var PgSqlserver_rejected_establishment_of_sqlconnection = "08004"
+const PgSeverityError = "ERROR"
+const PgSeverityFaral = "FATAL"
+const PgSeverityPanic = "PANIC"
+const PgSeverityWarning = "WARNING"
+const PgSeverityNotice = "NOTICE"
+const PgSeverityDebug = "DEBUG"
+const PgSeverityInfo = "INFO"
+const PgSeverityLog = "LOG"
+
+const PgServerErrRejectedEstablishmentOfSqlconnection = "08004"
+const PgServerErrSyntaxError = "42601"
