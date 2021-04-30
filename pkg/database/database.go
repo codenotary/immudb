@@ -140,6 +140,7 @@ func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 	dbi := &db{
 		Logger:  log,
 		options: op,
+		name:    op.dbName,
 	}
 
 	dbDir := filepath.Join(op.GetDbRootPath(), op.GetDbName())

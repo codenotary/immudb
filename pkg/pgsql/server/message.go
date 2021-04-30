@@ -52,7 +52,7 @@ type messageReader struct {
 type MessageReader interface {
 	ReadStartUpMessage() (*startupMessage, error)
 	ReadRawMessage() (*rawMessage, error)
-	WriteMessage(func() []byte) (int, error)
+	WriteMessage([]byte) (int, error)
 }
 
 func NewMessageReader(conn net.Conn) *messageReader {
@@ -132,6 +132,6 @@ func (r *messageReader) ReadStartUpMessage() (*startupMessage, error) {
 	}, nil
 }
 
-func (r *messageReader) WriteMessage(f func() []byte) (int, error) {
-	return r.conn.Write(f())
+func (r *messageReader) WriteMessage(msg []byte) (int, error) {
+	return r.conn.Write(msg)
 }
