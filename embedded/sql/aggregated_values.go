@@ -245,13 +245,14 @@ func (v *AVGValue) Compare(val TypedValue) (int, error) {
 		return 0, ErrNotComparableValues
 	}
 
+	avg := v.s / v.c
 	nv := val.Value().(uint64)
 
-	if v.s == nv {
+	if avg == nv {
 		return 0, nil
 	}
 
-	if v.s > nv {
+	if avg > nv {
 		return 1, nil
 	}
 

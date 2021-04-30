@@ -143,7 +143,7 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 
 	return &rawRowReader{
 		e:          e,
-		implicitDB: e.ImplicitDB(),
+		implicitDB: e.SelectedDB(),
 		snap:       snap,
 		table:      table,
 		asBefore:   asBefore,
