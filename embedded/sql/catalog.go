@@ -185,6 +185,10 @@ func (t *Table) GetColumnByID(id uint64) (*Column, error) {
 }
 
 func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Table, error) {
+	if len(name) == 0 || len(colsSpec) == 0 || len(pk) == 0 {
+		return nil, ErrIllegalArguments
+	}
+
 	exists := db.ExistTable(name)
 	if exists {
 		return nil, ErrTableAlreadyExists
