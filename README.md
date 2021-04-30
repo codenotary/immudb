@@ -167,7 +167,7 @@ You can generate your own benchmarks using the `stress_tool` under `embedded/too
 The following topics are important to us and are planned or already being worked on:
 
 * Relational model support (including SQL)
-  * PostgreSQL wire protocol compatibility (being able to connect with PostgreSQL compatible clients)
+  * psql wire protocol compatibility (being able to connect with compatible clients)
   * Travel in time
 * Embedded web console
 * Replication (Follower)
