@@ -1,5 +1,5 @@
 // +build webconsole
-//go:generate statik -f -src=. -include=index.html,nuxt_embedded,images,*.png,*.ico
+//go:generate go run github.com/rakyll/statik -f -src=. -include=index.html,nuxt_embedded,images,*.png,*.ico
 
 package webconsole
 
