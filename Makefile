@@ -38,6 +38,9 @@ V_LDFLAGS_COMMON := -s -X "github.com/codenotary/immudb/cmd/version.Version=$(VE
 V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
 				  -X github.com/codenotary/immudb/cmd/version.Static=static \
 				  -extldflags "-static"
+ifdef WEBCONSOLE
+  IMMUDB_BUILD_TAGS=-tags webconsole
+endif
 
 .PHONY: all
 all: immudb immuclient immuadmin immutest
@@ -45,6 +48,10 @@ all: immudb immuclient immuadmin immutest
 
 .PHONY: rebuild
 rebuild: clean build/codegen all
+
+.PHONY: webconsole
+webconsole:
+	$(GO) generate $(IMMUDB_BUILD_TAGS) ./webconsole
 
 .PHONY: immuclient
 immuclient:
@@ -55,8 +62,8 @@ immuadmin:
 	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immuadmin
 
 .PHONY: immudb
-immudb:
-	$(GO) build -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
+immudb: webconsole
+	$(GO) build $(IMMUDB_BUILD_TAGS) -v -ldflags '$(V_LDFLAGS_COMMON)' ./cmd/immudb
 
 .PHONY: immutest
 immutest:
@@ -71,8 +78,8 @@ immuadmin-static:
 	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immuadmin
 
 .PHONY: immudb-static
-immudb-static:
-	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immudb
+immudb-static: webconsole
+	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immudb
 
 .PHONY: immutest-static
 immutest-static:
