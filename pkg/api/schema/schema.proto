@@ -665,14 +665,29 @@ service ImmuService {
 
 	// SQL
 	rpc SQLExec(SQLExecRequest) returns (SQLExecResult) {
+		option (google.api.http) = {
+			post: "/db/sqlexec"
+			body: "*"
+		};
 	};
 
 	rpc SQLQuery(SQLQueryRequest) returns (SQLQueryResult) {
+		option (google.api.http) = {
+			post: "/db/sqlquery"
+			body: "*"
+		};
 	};
 
 	rpc ListTables(google.protobuf.Empty) returns (SQLQueryResult) {
+		option (google.api.http) = {
+			get: "/db/table/list"
+		};
 	};
 
 	rpc DescribeTable(Table) returns (SQLQueryResult) {
+		option (google.api.http) = {
+			post: "/db/tables"
+			body: "*"
+		};
 	};
 }
