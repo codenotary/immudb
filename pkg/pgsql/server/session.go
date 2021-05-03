@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
+	"io"
 	"net"
 	"strings"
 )
@@ -104,92 +105,103 @@ func (s *session) HandleStartup() (err error) {
 			return err
 		}
 	}
+	if _, err := s.mr.WriteMessage(bm.ParameterStatus([]byte("standard_conforming_strings"), []byte("on"))); err != nil {
+		return err
+	}
+	if _, err := s.mr.WriteMessage(bm.ParameterStatus([]byte("client_encoding"), []byte("UTF8"))); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 // HandleSimpleQueries errors are returned and handled in the caller
 func (s *session) HandleSimpleQueries() (err error) {
-	defer func() {
-		s.ErrorHandle(err)
-	}()
 	for true {
 		if _, err := s.mr.WriteMessage(bm.ReadyForQuery()); err != nil {
 			return err
 		}
 		msg, err := s.nextMessage()
 		if err != nil {
+			if err == io.EOF {
+				s.log.Warningf("connection is closed")
+			}
 			return err
 		}
-		query, ok := msg.(fm.QueryMsg)
-		if !ok {
-			s.ErrorHandle(ErrExpectedQueryMessage)
-			continue
-		}
 
-		stmts, err := sql.Parse(strings.NewReader(query.GetStatements()))
-		if err != nil {
-			s.ErrorHandle(err)
-			continue
-		}
-
-		sqlQuery := false
-		for _, stmt := range stmts {
-			switch stmt.(type) {
-			case *sql.UseDatabaseStmt:
-				{
-					return ErrUseDBStatementNotSupported
-				}
-			case *sql.CreateDatabaseStmt:
-				{
-					return ErrCreateDBStatementNotSupported
-				}
-			case *sql.SelectStmt:
-				sqlQuery = true
-			}
-		}
-
-		if sqlQuery {
-			r := &schema.SQLQueryRequest{
-				Sql: query.GetStatements(),
-			}
-			res, err := s.database.SQLQuery(r)
-
+		switch v := msg.(type) {
+		case fm.TerminateMsg:
+			s.conn.Close()
+			return nil
+		case fm.QueryMsg:
+			stmts, err := sql.Parse(strings.NewReader(v.GetStatements()))
 			if err != nil {
 				s.ErrorHandle(err)
 				continue
 			}
-			if _, err := s.mr.WriteMessage(bm.RowDescription(res.Columns)); err != nil {
-				s.ErrorHandle(err)
-				continue
-			}
-			if _, err := s.mr.WriteMessage(bm.DataRow(res.Rows, len(res.Columns))); err != nil {
-				s.ErrorHandle(err)
-				continue
-			}
-		} else {
-			r := &schema.SQLExecRequest{
-				Sql: query.GetStatements(),
-			}
-			_, err = s.database.SQLExec(r)
-			if err != nil {
-				s.ErrorHandle(err)
-				continue
+			sqlQuery := false
+			for _, stmt := range stmts {
+				switch stmt.(type) {
+				case *sql.UseDatabaseStmt:
+					{
+						return ErrUseDBStatementNotSupported
+					}
+				case *sql.CreateDatabaseStmt:
+					{
+						return ErrCreateDBStatementNotSupported
+					}
+				case *sql.SelectStmt:
+					sqlQuery = true
+				}
 			}
 
+			if sqlQuery {
+				r := &schema.SQLQueryRequest{
+					Sql: v.GetStatements(),
+				}
+				res, err := s.database.SQLQuery(r)
+				if err != nil {
+					s.ErrorHandle(err)
+					continue
+				}
+				if _, err := s.mr.WriteMessage(bm.RowDescription(res.Columns)); err != nil {
+					s.ErrorHandle(err)
+					continue
+				}
+				if _, err := s.mr.WriteMessage(bm.DataRow(res.Rows, len(res.Columns))); err != nil {
+					s.ErrorHandle(err)
+					continue
+				}
+			} else {
+				r := &schema.SQLExecRequest{
+					Sql: v.GetStatements(),
+				}
+				_, err = s.database.SQLExec(r)
+				if err != nil {
+					s.ErrorHandle(err)
+					continue
+				}
+			}
+			break
+		default:
+			s.ErrorHandle(ErrUnknowMessageType)
+			continue
 		}
-
 		if _, err := s.mr.WriteMessage(bm.CommandComplete()); err != nil {
 			s.ErrorHandle(err)
 			continue
 		}
 	}
+
 	return nil
 }
 
-func (s *session) ErrorHandle(err error) {
-	if err != nil {
-		_, err = s.mr.WriteMessage(MapPgError(err))
+func (s *session) ErrorHandle(e error) {
+	if e != nil {
+		_, err := s.mr.WriteMessage(MapPgError(e))
+		if err != nil {
+			s.log.Errorf("unable to write error on wire %v", err)
+		}
 	}
 }
 
@@ -207,6 +219,8 @@ func (s *session) parseRawMessage(msg *rawMessage) interface{} {
 		return fm.ParsePasswordMsg(msg.payload)
 	case 'Q':
 		return fm.ParseQueryMsg(msg.payload)
+	case 'X':
+		return fm.ParseTerminateMsg(msg.payload)
 	}
 	return nil
 }

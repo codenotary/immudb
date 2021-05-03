@@ -90,7 +90,6 @@ func DataRow(rows []*schema.Row, colNumb int) []byte {
 		// Int32
 		selfMessageLength := make([]byte, 4)
 		binary.BigEndian.PutUint32(selfMessageLength, uint32(4+2+len(rowB)))
-
 		rowsB = append(rowsB, bytes.Join([][]byte{messageType, selfMessageLength, columnNumb, rowB}, nil)...)
 	}
 	return rowsB
