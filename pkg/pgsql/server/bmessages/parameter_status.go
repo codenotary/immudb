@@ -14,31 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package bmessages
 
 import (
-	"net"
+	"bytes"
+	"encoding/binary"
 )
 
-func (s *srv) handleRequest(conn net.Conn) (err error) {
-	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb)
+func ParameterStatus(pname, pval []byte) []byte {
+	// Identifies the message as a run-time parameter status report.
+	messageType := []byte(`S`)
+	selfMessageLength := make([]byte, 4)
 
-	// initialize options
-	err = ss.InitializeSession(s.dbList)
-	if err != nil {
-		return err
-	}
+	//The name of the run-time parameter being reported.
+	pname = append(pname, 0)
+	// The current value of the parameter.
+	pval = append(pval, 0)
 
-	// authentication
-	err = ss.HandleStartup()
-	if err != nil {
-		return err
-	}
-
-	err = ss.HandleSimpleQueries()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	binary.BigEndian.PutUint32(selfMessageLength, uint32(len(pname)+len(pval)+4))
+	return bytes.Join([][]byte{messageType, selfMessageLength, pname, pval}, nil)
 }

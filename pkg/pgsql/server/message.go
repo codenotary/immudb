@@ -32,6 +32,7 @@ var Mtypes = map[byte]mtype{
 	'R': "cleartextPassword",
 	'p': "PasswordMessage",
 	'U': "unknown",
+	'X': "terminate",
 }
 
 type mtype string

@@ -41,7 +41,7 @@ func ErrorResponse(setters ...Option) []byte {
 		body = append(body, bytes.Join([][]byte{{code}, []byte(value), {0}}, nil)...)
 	}
 
-	binary.BigEndian.PutUint32(messageLength, uint32(len(body)))
+	binary.BigEndian.PutUint32(messageLength, uint32(len(body)+4+1))
 
 	erb := bytes.Join([][]byte{messageType, messageLength, body, {0}}, nil)
 	return erb

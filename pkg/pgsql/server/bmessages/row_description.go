@@ -34,7 +34,7 @@ func RowDescription(cols []*schema.Column) []byte {
 	binary.BigEndian.PutUint16(fieldNumb, uint16(len(cols)))
 
 	rowDescMessageB := make([]byte, 0)
-	for _, col := range cols {
+	for n, col := range cols {
 		// The field name.
 		// String
 		fieldName := []byte(col.Name)
@@ -46,17 +46,19 @@ func RowDescription(cols []*schema.Column) []byte {
 		// If the field can be identified as a column of a specific table, the attribute number of the column; otherwise zero.
 		// Int16
 		attributeNumber := make([]byte, 2)
-		binary.BigEndian.PutUint16(attributeNumber, uint16(0))
+		binary.BigEndian.PutUint16(attributeNumber, uint16(n+1))
 		// The object ID of the field's data type.
 		// Int32
 		objectId := make([]byte, 4)
 
-		binary.BigEndian.PutUint32(objectId, uint32(pgmeta.PgTypeMap[col.Type][pgmeta.PgTypeMapOid]))
+		oid := pgmeta.PgTypeMap[col.Type][pgmeta.PgTypeMapOid]
+		binary.BigEndian.PutUint32(objectId, uint32(oid))
 		// The data type size (see pg_type.typlen). Note that negative values denote variable-width types.
 		// For a fixed-size type, typlen is the number of bytes in the internal representation of the type. But for a variable-length type, typlen is negative. -1 indicates a “varlena” type (one that has a length word), -2 indicates a null-terminated C string.
 		// Int16
 		dataTypeSize := make([]byte, 2)
-		binary.BigEndian.PutUint16(dataTypeSize, uint16(pgmeta.PgTypeMap[col.Type][pgmeta.PgTypeMapLength]))
+		l := pgmeta.PgTypeMap[col.Type][pgmeta.PgTypeMapLength]
+		binary.BigEndian.PutUint16(dataTypeSize, uint16(l))
 		// The type modifier (see pg_attribute.atttypmod). The meaning of the modifier is type-specific.
 		// atttypmod records type-specific data supplied at table creation time (for example, the maximum length of a varchar column). It is passed to type-specific input functions and length coercion functions. The value will generally be -1 for types that do not need atttypmod.
 		// Int32
@@ -66,7 +68,7 @@ func RowDescription(cols []*schema.Column) []byte {
 		// The format code being used for the field. Currently will be zero (text) or one (binary). In a RowDescription returned from the statement variant of Describe, the format code is not yet known and will always be zero.
 		// Int16
 		formatCode := make([]byte, 2)
-		binary.BigEndian.PutUint16(formatCode, uint16(0))
+		binary.BigEndian.PutUint16(formatCode, uint16(1))
 
 		rowDescMessageB = append(rowDescMessageB, bytes.Join([][]byte{fieldName, id, attributeNumber, objectId, dataTypeSize, typeModifier, formatCode}, nil)...)
 	}
