@@ -138,10 +138,6 @@ func (v *MinValue) Value() interface{} {
 }
 
 func (v *MinValue) Compare(val TypedValue) (int, error) {
-	if val.Type() != val.Type() {
-		return 0, ErrNotComparableValues
-	}
-
 	return v.val.Compare(val)
 }
 
@@ -149,10 +145,6 @@ func (v *MinValue) updateWith(val TypedValue) error {
 	if v.val == nil {
 		v.val = val
 		return nil
-	}
-
-	if val.Type() != val.Type() {
-		return ErrNotComparableValues
 	}
 
 	cmp, err := v.val.Compare(val)
@@ -189,10 +181,6 @@ func (v *MaxValue) Value() interface{} {
 }
 
 func (v *MaxValue) Compare(val TypedValue) (int, error) {
-	if val.Type() != val.Type() {
-		return 0, ErrNotComparableValues
-	}
-
 	return v.val.Compare(val)
 }
 
@@ -200,10 +188,6 @@ func (v *MaxValue) updateWith(val TypedValue) error {
 	if v.val == nil {
 		v.val = val
 		return nil
-	}
-
-	if val.Type() != val.Type() {
-		return ErrNotComparableValues
 	}
 
 	cmp, err := v.val.Compare(val)
