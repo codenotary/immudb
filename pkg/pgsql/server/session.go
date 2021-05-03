@@ -168,7 +168,7 @@ func (s *session) HandleSimpleQueries() (err error) {
 					s.ErrorHandle(err)
 					continue
 				}
-				if _, err := s.mr.WriteMessage(bm.DataRow(res.Rows, len(res.Columns))); err != nil {
+				if _, err := s.mr.WriteMessage(bm.DataRow(res.Rows, len(res.Columns), false)); err != nil {
 					s.ErrorHandle(err)
 					continue
 				}
