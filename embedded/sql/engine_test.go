@@ -337,6 +337,13 @@ func TestQuery(t *testing.T) {
 	r, err := engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS id, ts, title, payload, active FROM (table1 AS t1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil)
 	require.NoError(t, err)
 
+	colsBySel, err := r.colsBySelector()
+	require.NoError(t, err)
+	require.Len(t, colsBySel, 5)
+
+	require.Equal(t, "db1", r.ImplicitDB())
+	require.Equal(t, "table1", r.ImplicitTable())
+
 	cols, err := r.Columns()
 	require.NoError(t, err)
 	require.Len(t, cols, 5)
@@ -377,6 +384,18 @@ func TestQuery(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE id", nil)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrInvalidCondition, err)
+
+	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @some_param1", nil)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrIllegalArguments, err)
 
 	params := make(map[string]interface{})
 	params["some_param"] = true
