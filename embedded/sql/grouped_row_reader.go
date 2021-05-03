@@ -30,10 +30,6 @@ type groupedRowReader struct {
 }
 
 func (e *Engine) newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
-	if len(selectors) == 0 {
-		return nil, ErrIllegalArguments
-	}
-
 	return &groupedRowReader{
 		e:         e,
 		rowReader: rowReader,

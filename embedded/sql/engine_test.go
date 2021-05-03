@@ -31,13 +31,13 @@ const sqlPrefix = 2
 var prefix = []byte{sqlPrefix}
 
 func TestCreateDatabase(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_create_db", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_create_db")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_create_db", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_create_db")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -53,13 +53,13 @@ func TestCreateDatabase(t *testing.T) {
 }
 
 func TestUseDatabase(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_use_db", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_use_db")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_use_db", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_use_db")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -79,13 +79,13 @@ func TestUseDatabase(t *testing.T) {
 }
 
 func TestCreateTable(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_create_table", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_create_table")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_create_table", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_create_table")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -113,13 +113,13 @@ func TestCreateTable(t *testing.T) {
 }
 
 func TestCreateIndex(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_create_index", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_create_index")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_create_index", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_create_index")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -173,14 +173,14 @@ func TestCreateIndex(t *testing.T) {
 	require.Len(t, table.indexes, 2)
 }
 
-func TestInsertInto(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+func TestUpsertInto(t *testing.T) {
+	catalogStore, err := store.Open("catalog_upsert", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_upsert")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_upsert", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_upsert")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -223,13 +223,13 @@ func TestInsertInto(t *testing.T) {
 }
 
 func TestTransactions(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_tx", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_tx")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_tx", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_tx")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -253,13 +253,13 @@ func TestTransactions(t *testing.T) {
 }
 
 func TestUseSnapshot(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_snap", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_snap")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_snap", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_snap")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -304,13 +304,13 @@ func TestUseSnapshot(t *testing.T) {
 }
 
 func TestQuery(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_q", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_q")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_q", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_q")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -334,7 +334,14 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS id, ts, title, payload, active FROM (table1 AS t1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil)
+	r, err := engine.QueryStmt("SELECT id1 FROM table1", nil)
+	require.NoError(t, err)
+
+	row, err := r.Read()
+	require.Equal(t, ErrColumnDoesNotExist, err)
+	require.Nil(t, row)
+
+	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS id, ts, title, payload, active FROM (table1 AS t1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil)
 	require.NoError(t, err)
 
 	colsBySel, err := r.colsBySelector()
@@ -361,6 +368,9 @@ func TestQuery(t *testing.T) {
 		encPayload := []byte(fmt.Sprintf("blob%d", i))
 		require.Equal(t, []byte(encPayload), row.Values[EncodeSelector("", "db1", "table1", "payload")].Value())
 	}
+
+	_, err = r.Read()
+	require.Equal(t, ErrNoMoreRows, err)
 
 	err = r.Close()
 	require.NoError(t, err)
@@ -439,13 +449,13 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryWithNullables(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_nullable", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_nullable")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_nullable", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_nullable")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -483,7 +493,7 @@ func TestQueryWithNullables(t *testing.T) {
 		require.Less(t, uint64(start), row.Values[EncodeSelector("", "db1", "table1", "ts")].Value())
 		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
-		require.Equal(t, &NullValue{}, row.Values[EncodeSelector("", "db1", "table1", "active")])
+		require.Equal(t, &NullValue{t: BooleanType}, row.Values[EncodeSelector("", "db1", "table1", "active")])
 	}
 
 	err = r.Close()
@@ -491,13 +501,13 @@ func TestQueryWithNullables(t *testing.T) {
 }
 
 func TestOrderBy(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_orderby", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_orderby")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_orderby", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_orderby")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -588,13 +598,13 @@ func TestOrderBy(t *testing.T) {
 }
 
 func TestQueryWithRowFiltering(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_where", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_where")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_where", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_where")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -695,13 +705,13 @@ func TestQueryWithRowFiltering(t *testing.T) {
 }
 
 func TestAggregations(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_agg", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_agg")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_agg", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_agg")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -761,13 +771,13 @@ func TestAggregations(t *testing.T) {
 }
 
 func TestGroupByHaving(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_having", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_having")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_having", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_having")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -798,7 +808,31 @@ func TestGroupByHaving(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age) FROM table1 GROUP BY active HAVING COUNT() <= SUM(age) AND MIN(age) <= MAX(age) AND AVG(age) <= MAX(age) AND MAX(age) < SUM(age) AND AVG(age) >= MIN(age) AND SUM(age) > 0 ORDER BY active DESC", nil)
+	r, err := engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null GROUP BY active HAVING AVG(age) >= MIN(age)", nil)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrColumnDoesNotExist, err)
+
+	r, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE AVG(age) >= MIN(age) GROUP BY active", nil)
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT active, COUNT(id) FROM table1 GROUP BY active", nil)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrLimitedCount, err)
+
+	r, err = engine.QueryStmt("SELECT active, COUNT() FROM table1 GROUP BY active HAVING AVG(age) >= MIN(age1)", nil)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrColumnDoesNotExist, err)
+
+	r, err = engine.QueryStmt("SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age) FROM table1 GROUP BY active HAVING COUNT() <= SUM(age) AND MIN(age) <= MAX(age) AND AVG(age) <= MAX(age) AND MAX(age) < SUM(age) AND AVG(age) >= MIN(age) AND SUM(age) > 0 ORDER BY active DESC", nil)
+	require.NoError(t, err)
+
+	_, err = r.(*closerRowReader).rowReader.(*projectedRowReader).rowReader.Columns()
 	require.NoError(t, err)
 
 	for i := 0; i < 2; i++ {
@@ -825,13 +859,13 @@ func TestGroupByHaving(t *testing.T) {
 }
 
 func TestJoins(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_innerjoin", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_innerjoin")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_innerjoin", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_innerjoin")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -919,13 +953,13 @@ func TestJoins(t *testing.T) {
 }
 
 func TestNestedJoins(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_nestedjoins", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_nestedjoins")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_nestedjoins", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_nestedjoins")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -982,13 +1016,13 @@ func TestNestedJoins(t *testing.T) {
 }
 
 func TestReOpening(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_reopening", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_reopening")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_reopening", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_reopening")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -1039,13 +1073,13 @@ func TestReOpening(t *testing.T) {
 }
 
 func TestSubQuery(t *testing.T) {
-	catalogStore, err := store.Open("catalog", store.DefaultOptions())
+	catalogStore, err := store.Open("catalog_subq", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("catalog")
+	defer os.RemoveAll("catalog_subq")
 
-	dataStore, err := store.Open("sqldata", store.DefaultOptions())
+	dataStore, err := store.Open("sqldata_subq", store.DefaultOptions())
 	require.NoError(t, err)
-	defer os.RemoveAll("sqldata")
+	defer os.RemoveAll("sqldata_subq")
 
 	engine, err := NewEngine(catalogStore, dataStore, prefix)
 	require.NoError(t, err)
@@ -1083,6 +1117,27 @@ func TestSubQuery(t *testing.T) {
 		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table2", "id")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table2", "t")].Value())
 	}
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (0, 'title0')", nil, true)
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE active", nil)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.NoError(t, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE title", nil)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrInvalidCondition, err)
 
 	err = r.Close()
 	require.NoError(t, err)

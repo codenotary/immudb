@@ -32,10 +32,6 @@ type projectedRowReader struct {
 }
 
 func (e *Engine) newProjectedRowReader(rowReader RowReader, tableAlias string, selectors []Selector, limit uint64) (*projectedRowReader, error) {
-	if len(selectors) == 0 {
-		return nil, ErrIllegalArguments
-	}
-
 	return &projectedRowReader{
 		e:          e,
 		rowReader:  rowReader,
@@ -154,8 +150,7 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 
 		val, ok := row.Values[encSel]
 		if !ok {
-			// TODO (jeroiraz): typed nullables not yet fully supported
-			val = &NullValue{}
+			return nil, ErrColumnDoesNotExist
 		}
 
 		if pr.tableAlias != "" {
