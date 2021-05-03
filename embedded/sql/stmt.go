@@ -519,12 +519,9 @@ func (n *NullValue) Value() interface{} {
 }
 
 func (n *NullValue) Compare(val TypedValue) (int, error) {
-	// TODO (jeroiraz): typed nullables not yet supported
-	/*
-		if n.t != val.Type() {
-			return 0, ErrNotComparableValues
-		}
-	*/
+	if n.t != "" && val.Type() != "" && n.t != val.Type() {
+		return 0, ErrNotComparableValues
+	}
 
 	_, isNull := val.(*NullValue)
 	if isNull {
@@ -753,7 +750,6 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 	}
 
 	if val == nil {
-		// TODO (jeroiraz): typed nullables not yet supported
 		return &NullValue{}, nil
 	}
 
@@ -1121,21 +1117,7 @@ func (sel *ColSelector) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 
 	v, ok := row.Values[EncodeSelector(aggFn, db, table, col)]
 	if !ok {
-		// TODO (jeroiraz): typed nullables not yet supported
-		/*t, err := catalog.GetTableByName(db, table)
-		if err != nil {
-			return nil, err
-		}
-
-		c, err := t.GetColumnByName(col)
-		if err != nil {
-			return nil, err
-		}
-
-		return &NullValue{t: c.colType}, nil
-		*/
-
-		return &NullValue{}, nil
+		return nil, ErrColumnDoesNotExist
 	}
 
 	return v, nil

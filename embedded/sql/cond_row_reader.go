@@ -67,6 +67,11 @@ func (cr *conditionalRowReader) Read() (*Row, error) {
 			return nil, err
 		}
 
+		nval, isNull := r.(*NullValue)
+		if isNull && nval.Type() == BooleanType {
+			continue
+		}
+
 		satisfies, boolExp := r.(*Bool)
 		if !boolExp {
 			return nil, ErrInvalidCondition

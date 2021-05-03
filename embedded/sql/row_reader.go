@@ -207,6 +207,10 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 
 	values := make(map[string]TypedValue, len(r.table.GetColsByID()))
 
+	for _, col := range r.table.colsByName {
+		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = &NullValue{t: col.colType}
+	}
+
 	voff := 0
 
 	cols := int(binary.BigEndian.Uint32(v[voff:]))
