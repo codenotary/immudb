@@ -67,8 +67,9 @@ func RowDescription(cols []*schema.Column) []byte {
 		binary.BigEndian.PutUint32(typeModifier, uint32(tm))
 		// The format code being used for the field. Currently will be zero (text) or one (binary). In a RowDescription returned from the statement variant of Describe, the format code is not yet known and will always be zero.
 		// Int16
+		// In simple Query mode, the format of retrieved values is always text, except when the given command is a FETCH from a cursor declared with the BINARY option. In that case, the retrieved values are in binary format. The format codes given in the RowDescription message tell which format is being used.
 		formatCode := make([]byte, 2)
-		binary.BigEndian.PutUint16(formatCode, uint16(1))
+		binary.BigEndian.PutUint16(formatCode, uint16(0))
 
 		rowDescMessageB = append(rowDescMessageB, bytes.Join([][]byte{fieldName, id, attributeNumber, objectId, dataTypeSize, typeModifier, formatCode}, nil)...)
 	}
