@@ -166,7 +166,8 @@ man:
 
 .PHONY: prerequisites
 prerequisites:
-	cat tools.go | grep _ | awk -F'"' '{print $2}' | xargs -tI % go install %
+	$(GO) mod tidy
+	cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
 
 ########################## releases scripts ############################################################################
 .PHONY: CHANGELOG.md
