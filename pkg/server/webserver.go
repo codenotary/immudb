@@ -6,21 +6,19 @@ import (
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/webconsole"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"google.golang.org/grpc"
 	"net/http"
 )
 
-func StartWebServer(addr string, grpcAddr string, l logger.Logger) (*http.Server, error) {
+func StartWebServer(addr string, s schema.ImmuServiceServer, l logger.Logger) (*http.Server, error) {
 	proxyMux := runtime.NewServeMux()
-	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := schema.RegisterImmuServiceHandlerFromEndpoint(context.Background(), proxyMux, grpcAddr, opts)
+	err := schema.RegisterImmuServiceHandlerServer(context.Background(), proxyMux, s)
 	if err != nil {
 		return nil, err
 	}
 
 	webMux := http.NewServeMux()
 	webMux.Handle("/api/", http.StripPrefix("/api", proxyMux))
-	l.Infof("Web API server enabled on %s/api. Managing immudb via %s", addr, grpcAddr)
+	l.Infof("Web API server enabled on %s/api.", addr)
 
 	err = webconsole.SetupWebconsole(webMux, l, addr)
 	if err != nil {

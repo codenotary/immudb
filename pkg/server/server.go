@@ -267,8 +267,8 @@ func (s *ImmuServer) setUpMetricsServer() error {
 
 func (s *ImmuServer) setUpWebServer() error {
 	server, err := StartWebServer(
-	    s.Options.WebBind(),
-		s.Options.GprcConnectAddr(),
+		s.Options.WebBind(),
+		s,
 		s.Logger,
 	)
 	if err != nil {
