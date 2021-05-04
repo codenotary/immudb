@@ -23,18 +23,17 @@ import (
 func (s *srv) handleRequest(conn net.Conn) (err error) {
 	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb)
 
-	// initialize options
-	err = ss.InitializeSession(s.dbList)
+	// initialize session
+	err = ss.InitializeSession()
 	if err != nil {
 		return err
 	}
-
 	// authentication
-	err = ss.HandleStartup()
+	err = ss.HandleStartup(s.dbList)
 	if err != nil {
 		return err
 	}
-
+	// https://www.postgresql.org/docs/current/protocol-flow.html#id-1.10.5.7.4
 	err = ss.HandleSimpleQueries()
 	if err != nil {
 		return err

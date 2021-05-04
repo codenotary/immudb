@@ -33,36 +33,35 @@ var ErrExpectedQueryMessage = errors.New("expected query message")
 var ErrUseDBStatementNotSupported = errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
 var ErrCreateDBStatementNotSupported = errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
 
-func MapPgError(err error) []byte {
-	be := make([]byte, 0)
+func MapPgError(err error) (er bm.ErrorResp) {
 	switch {
 	case errors.Is(err, ErrDBNotprovided):
-		be = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
 			bm.Code(pgmeta.PgServerErrRejectedEstablishmentOfSqlconnection),
 			bm.Message(ErrDBNotprovided.Error()),
 			bm.Hint("please provide a valid database name or use immuclient to create a new one"),
 		)
 	case errors.Is(err, ErrDBNotExists):
-		be = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
 			bm.Code(pgmeta.PgServerErrRejectedEstablishmentOfSqlconnection),
 			bm.Message(ErrDBNotExists.Error()),
 			bm.Hint("please provide a valid database name or use immuclient to create a new one"),
 		)
 	case strings.Contains(err.Error(), "syntax error"):
-		be = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
 			bm.Code(pgmeta.PgServerErrSyntaxError),
 			bm.Message(err.Error()),
 		)
 	case strings.Contains(err.Error(), ErrUnknowMessageType.Error()):
-		be = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
 			bm.Code(pgmeta.PgServerErrProtocolViolation),
 			bm.Message(err.Error()),
 			bm.Hint("submitted message is not yet implemented"),
 		)
 	default:
-		be = bm.ErrorResponse(bm.Severity("FATAL"),
+		er = bm.ErrorResponse(bm.Severity("FATAL"),
 			bm.Message(err.Error()),
 		)
 	}
-	return be
+	return er
 }
