@@ -1,4 +1,5 @@
 // +build tools
+
 package schema
 
 import (
