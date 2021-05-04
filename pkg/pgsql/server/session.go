@@ -125,8 +125,10 @@ func (s *session) HandleSimpleQueries() (err error) {
 		if err != nil {
 			if err == io.EOF {
 				s.log.Warningf("connection is closed")
+				return nil
 			}
-			return err
+			s.ErrorHandle(err)
+			continue
 		}
 
 		switch v := msg.(type) {

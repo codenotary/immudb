@@ -20,6 +20,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"net"
 )
 
@@ -66,7 +68,7 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 		return nil, err
 	}
 	if _, ok := Mtypes[t[0]]; !ok {
-		return nil, ErrUnknowMessageType
+		return nil, errors.New(fmt.Sprintf(ErrUnknowMessageType.Error()+". Message first byte was %s", string(t[0])))
 	}
 
 	lb := make([]byte, 4)
