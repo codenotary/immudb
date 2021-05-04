@@ -19,16 +19,19 @@ package bmessages
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 type errorResp struct {
 	fields map[byte]string
 }
 
-func ErrorResponse(setters ...Option) []byte {
-	messageType := []byte(`E`)
-	messageLength := make([]byte, 4)
-	// fields
+type ErrorResp interface {
+	Encode() []byte
+	ToString() string
+}
+
+func ErrorResponse(setters ...Option) *errorResp {
 	er := &errorResp{
 		fields: make(map[byte]string),
 	}
@@ -36,6 +39,13 @@ func ErrorResponse(setters ...Option) []byte {
 		setter(er)
 	}
 
+	return er
+}
+
+//Encode encode in binary
+func (er *errorResp) Encode() []byte {
+	messageType := []byte(`E`)
+	messageLength := make([]byte, 4)
 	body := make([]byte, 0)
 	for code, value := range er.fields {
 		body = append(body, bytes.Join([][]byte{{code}, []byte(value), {0}}, nil)...)
@@ -43,6 +53,9 @@ func ErrorResponse(setters ...Option) []byte {
 
 	binary.BigEndian.PutUint32(messageLength, uint32(len(body)+4+1))
 
-	erb := bytes.Join([][]byte{messageType, messageLength, body, {0}}, nil)
-	return erb
+	return bytes.Join([][]byte{messageType, messageLength, body, {0}}, nil)
+}
+
+func (er *errorResp) ToString() string {
+	return fmt.Sprintf("Map: %v", er.fields)
 }

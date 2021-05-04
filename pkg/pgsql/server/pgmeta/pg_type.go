@@ -42,3 +42,17 @@ const PgSeverityLog = "LOG"
 const PgServerErrRejectedEstablishmentOfSqlconnection = "08004"
 const PgServerErrSyntaxError = "42601"
 const PgServerErrProtocolViolation = "08P01"
+
+var MTypes = map[byte]string{
+	'Q': "query",
+	'T': "rowDescription",
+	'D': "dataRow",
+	'C': "commandComplete",
+	'Z': "readyForQuery",
+	'R': "authentication",
+	'p': "passwordMessage",
+	'U': "unknown",
+	'X': "terminate",
+	'S': "parameterStatus",
+	'E': "error",
+}

@@ -18,17 +18,13 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
-	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
-	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
-	"io"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"net"
-	"strings"
 )
 
 type session struct {
@@ -42,8 +38,8 @@ type session struct {
 }
 
 type Session interface {
-	InitializeSession(dbList database.DatabaseList) error
-	HandleStartup() error
+	InitializeSession() error
+	HandleStartup(dbList database.DatabaseList) error
 	HandleSimpleQueries() error
 	ErrorHandle(err error)
 }
@@ -53,157 +49,14 @@ func NewSession(c net.Conn, log logger.Logger, sysDb database.DB) *session {
 	return s
 }
 
-func (s *session) InitializeSession(dbList database.DatabaseList) (err error) {
-	msg, err := s.mr.ReadStartUpMessage()
-	if err != nil {
-		return err
-	}
-	s.connParams = msg.payload
-
-	user, ok := s.connParams["user"]
-	if !ok || user == "" {
-		return ErrUsernameNotprovided
-	}
-	s.username = user
-	db, ok := s.connParams["database"]
-	if !ok {
-		return ErrDBNotprovided
-	}
-	s.database, err = dbList.GetByName(db)
-	if err != nil {
-		if errors.Is(err, database.ErrDatabaseNotExists) {
-			return ErrDBNotExists
-		}
-		return err
-	}
-	return nil
-}
-
-// HandleStartup errors are returned and handled in the caller
-func (s *session) HandleStartup() (err error) {
-	if _, err := s.mr.WriteMessage(bm.AuthenticationCleartextPassword()); err != nil {
-		return err
-	}
-	msg, err := s.nextMessage()
-	if err != nil {
-		return err
-	}
-	if pw, ok := msg.(fm.PasswordMsg); ok {
-		if !ok || pw.GetSecret() == "" {
-			return ErrPwNotprovided
-		}
-		usr, err := s.getUser([]byte(s.username))
-		if err != nil {
-			if !strings.Contains(err.Error(), "key not found") {
-				return ErrUsernameNotFound
-			}
-		}
-		if err := usr.ComparePasswords([]byte(pw.GetSecret())); err != nil {
-			return err
-		}
-		if _, err := s.mr.WriteMessage(bm.AuthenticationOk()); err != nil {
-			return err
-		}
-	}
-	if _, err := s.mr.WriteMessage(bm.ParameterStatus([]byte("standard_conforming_strings"), []byte("on"))); err != nil {
-		return err
-	}
-	if _, err := s.mr.WriteMessage(bm.ParameterStatus([]byte("client_encoding"), []byte("UTF8"))); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// HandleSimpleQueries errors are returned and handled in the caller
-func (s *session) HandleSimpleQueries() (err error) {
-	for true {
-		if _, err := s.mr.WriteMessage(bm.ReadyForQuery()); err != nil {
-			return err
-		}
-		msg, err := s.nextMessage()
-		if err != nil {
-			if err == io.EOF {
-				s.log.Warningf("connection is closed")
-				return nil
-			}
-			s.ErrorHandle(err)
-			continue
-		}
-
-		switch v := msg.(type) {
-		case fm.TerminateMsg:
-			s.conn.Close()
-			return nil
-		case fm.QueryMsg:
-			stmts, err := sql.Parse(strings.NewReader(v.GetStatements()))
-			if err != nil {
-				s.ErrorHandle(err)
-				continue
-			}
-			sqlQuery := false
-			for _, stmt := range stmts {
-				switch stmt.(type) {
-				case *sql.UseDatabaseStmt:
-					{
-						return ErrUseDBStatementNotSupported
-					}
-				case *sql.CreateDatabaseStmt:
-					{
-						return ErrCreateDBStatementNotSupported
-					}
-				case *sql.SelectStmt:
-					sqlQuery = true
-				}
-			}
-
-			if sqlQuery {
-				r := &schema.SQLQueryRequest{
-					Sql: v.GetStatements(),
-				}
-				res, err := s.database.SQLQuery(r)
-				if err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-				if _, err := s.mr.WriteMessage(bm.RowDescription(res.Columns)); err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-				if _, err := s.mr.WriteMessage(bm.DataRow(res.Rows, len(res.Columns), false)); err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-			} else {
-				r := &schema.SQLExecRequest{
-					Sql: v.GetStatements(),
-				}
-				_, err = s.database.SQLExec(r)
-				if err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-			}
-			break
-		default:
-			s.ErrorHandle(ErrUnknowMessageType)
-			continue
-		}
-		if _, err := s.mr.WriteMessage(bm.CommandComplete()); err != nil {
-			s.ErrorHandle(err)
-			continue
-		}
-	}
-
-	return nil
-}
-
 func (s *session) ErrorHandle(e error) {
 	if e != nil {
-		_, err := s.mr.WriteMessage(MapPgError(e))
+		er := MapPgError(e)
+		_, err := s.writeMessage(er.Encode())
 		if err != nil {
 			s.log.Errorf("unable to write error on wire %v", err)
 		}
+		s.log.Debugf("%s", er.ToString())
 	}
 }
 
@@ -212,6 +65,7 @@ func (s *session) nextMessage() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.log.Debugf("received %s - %s message", string(msg.t), pgmeta.MTypes[msg.t])
 	return s.parseRawMessage(msg), nil
 }
 
@@ -225,6 +79,17 @@ func (s *session) parseRawMessage(msg *rawMessage) interface{} {
 		return fm.ParseTerminateMsg(msg.payload)
 	}
 	return nil
+}
+
+func (s *session) writeMessage(msg []byte) (int, error) {
+	s.debugMessage(msg)
+	return s.mr.WriteMessage(msg)
+}
+
+func (s *session) debugMessage(msg []byte) {
+	if len(msg) > 0 {
+		s.log.Debugf("write %s - %s message", string(msg[0]), pgmeta.MTypes[msg[0]])
+	}
 }
 
 func (s *session) getUser(username []byte) (*auth.User, error) {

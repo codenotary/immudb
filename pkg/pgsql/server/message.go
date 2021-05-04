@@ -22,22 +22,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"net"
 )
-
-var Mtypes = map[byte]mtype{
-	'Q': "query",
-	'T': "rowDescription",
-	'D': "dataRow",
-	'C': "commandComplete",
-	'Z': "readyForQuery",
-	'R': "cleartextPassword",
-	'p': "PasswordMessage",
-	'U': "unknown",
-	'X': "terminate",
-}
-
-type mtype string
 
 type rawMessage struct {
 	t       byte
@@ -67,7 +54,7 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	if _, err := r.conn.Read(t); err != nil {
 		return nil, err
 	}
-	if _, ok := Mtypes[t[0]]; !ok {
+	if _, ok := pgmeta.MTypes[t[0]]; !ok {
 		return nil, errors.New(fmt.Sprintf(ErrUnknowMessageType.Error()+". Message first byte was %s", string(t[0])))
 	}
 
@@ -102,7 +89,7 @@ func (r *messageReader) ReadStartUpMessage() (*startupMessage, error) {
 	}
 
 	pr := bufio.NewScanner(bytes.NewBuffer(connString))
-	//params := bytes.Split(connString, []byte{0})
+
 	split := func(data []byte, atEOF bool) (int, []byte, error) {
 		if atEOF && len(data) == 0 {
 			return 0, nil, nil
@@ -133,6 +120,10 @@ func (r *messageReader) ReadStartUpMessage() (*startupMessage, error) {
 	return &startupMessage{
 		payload: pmap,
 	}, nil
+}
+
+func (sm *startupMessage) ToString() string {
+	return fmt.Sprintf("%v", sm.payload)
 }
 
 func (r *messageReader) WriteMessage(msg []byte) (int, error) {
