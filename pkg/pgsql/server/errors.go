@@ -53,6 +53,12 @@ func MapPgError(err error) []byte {
 			bm.Code(pgmeta.PgServerErrSyntaxError),
 			bm.Message(err.Error()),
 		)
+	case strings.Contains(err.Error(), ErrUnknowMessageType.Error()):
+		be = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.PgServerErrProtocolViolation),
+			bm.Message(err.Error()),
+			bm.Hint("submitted message is not yet implemented"),
+		)
 	default:
 		be = bm.ErrorResponse(bm.Severity("FATAL"),
 			bm.Message(err.Error()),
