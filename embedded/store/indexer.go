@@ -190,6 +190,7 @@ func (idx *indexer) resume() {
 	idx.cancellation = make(chan struct{})
 	go idx.doIndexing()
 	idx.store.notify(Info, true, "Indexing in progress at '%s'", idx.store.path)
+	idx.Resume()
 }
 
 func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
@@ -279,7 +280,7 @@ func (idx *indexer) doIndexing() {
 		idx.runningCond.L.Unlock()
 
 		err = idx.indexSince(lastIndexedTx+1, 10)
-		if err == ErrAlreadyClosed {
+		if err == ErrAlreadyClosed || err == tbtree.ErrAlreadyClosed {
 			return
 		}
 		if err != nil {
