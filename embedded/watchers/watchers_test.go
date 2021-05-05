@@ -23,14 +23,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWatchersCenter(t *testing.T) {
+func TestWatchersHub(t *testing.T) {
 	waitessCount := 1_000
 
-	wCenter := New(0, waitessCount*2)
+	wHub := New(0, waitessCount*2)
 
-	wCenter.DoneUpto(0)
+	wHub.DoneUpto(0)
 
-	doneUpto, waiting, err := wCenter.Status()
+	cancellation := make(chan struct{}, 0)
+
+	go func(cancel chan<- struct{}) {
+		time.Sleep(100 * time.Millisecond)
+		cancel <- struct{}{}
+	}(cancellation)
+
+	wHub.WaitFor(1, cancellation)
+
+	doneUpto, waiting, err := wHub.Status()
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), doneUpto)
 	require.Equal(t, 0, waiting)
@@ -44,7 +53,7 @@ func TestWatchersCenter(t *testing.T) {
 	for it := 0; it < 2; it++ {
 		for i := 1; i <= waitessCount; i++ {
 			go func(i uint64) {
-				err := wCenter.WaitFor(i)
+				err := wHub.WaitFor(i, nil)
 				if err != nil {
 					errMutex.Lock()
 					errHolder = err
@@ -57,7 +66,7 @@ func TestWatchersCenter(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	err = wCenter.WaitFor(uint64(waitessCount*2 + 1))
+	err = wHub.WaitFor(uint64(waitessCount*2+1), nil)
 	require.Equal(t, ErrMaxWaitessLimitExceeded, err)
 
 	done := make(chan struct{})
@@ -69,7 +78,7 @@ func TestWatchersCenter(t *testing.T) {
 			select {
 			case <-time.Tick(1 * time.Millisecond):
 				{
-					err := wCenter.DoneUpto(t + 2)
+					err := wHub.DoneUpto(t + 2)
 					if err != nil {
 						errMutex.Lock()
 						errHolder = err
@@ -91,13 +100,13 @@ func TestWatchersCenter(t *testing.T) {
 
 	require.NoError(t, errHolder)
 
-	err = wCenter.WaitFor(5)
+	err = wHub.WaitFor(5, nil)
 	require.NoError(t, err)
 
 	wg.Add(1)
 
 	go func() {
-		err := wCenter.WaitFor(uint64(waitessCount) + 1)
+		err := wHub.WaitFor(uint64(waitessCount)+1, nil)
 		if err != ErrAlreadyClosed {
 			errMutex.Lock()
 			errHolder = err
@@ -108,22 +117,22 @@ func TestWatchersCenter(t *testing.T) {
 
 	time.Sleep(1 * time.Millisecond)
 
-	err = wCenter.Close()
+	err = wHub.Close()
 	require.NoError(t, err)
 
 	wg.Wait()
 
 	require.NoError(t, errHolder)
 
-	err = wCenter.WaitFor(0)
+	err = wHub.WaitFor(0, nil)
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	err = wCenter.DoneUpto(0)
+	err = wHub.DoneUpto(0)
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	_, _, err = wCenter.Status()
+	_, _, err = wHub.Status()
 	require.Equal(t, ErrAlreadyClosed, err)
 
-	err = wCenter.Close()
+	err = wHub.Close()
 	require.Equal(t, ErrAlreadyClosed, err)
 }
