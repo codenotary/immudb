@@ -45,7 +45,7 @@ func (d *db) ZAdd(req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 	defer d.mutex.Unlock()
 
 	lastTxID, _ := d.st.Alh()
-	err := d.st.WaitForIndexingUpto(lastTxID)
+	err := d.st.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 	}
 
 	if !req.NoWait {
-		err := d.st.WaitForIndexingUpto(waitUntilTx)
+		err := d.st.WaitForIndexingUpto(waitUntilTx, nil)
 		if err != nil {
 			return nil, err
 		}

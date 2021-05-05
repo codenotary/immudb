@@ -40,7 +40,7 @@ func (d *db) SetReference(req *schema.ReferenceRequest) (*schema.TxMetadata, err
 	defer d.mutex.Unlock()
 
 	lastTxID, _ := d.st.Alh()
-	err := d.st.WaitForIndexingUpto(lastTxID)
+	err := d.st.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -40,7 +40,7 @@ func (d *db) Scan(req *schema.ScanRequest) (*schema.Entries, error) {
 	}
 
 	if !req.NoWait {
-		err := d.st.WaitForIndexingUpto(waitUntilTx)
+		err := d.st.WaitForIndexingUpto(waitUntilTx, nil)
 		if err != nil {
 			return nil, err
 		}

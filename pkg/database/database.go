@@ -235,7 +235,7 @@ func (d *db) Get(req *schema.KeyRequest) (*schema.Entry, error) {
 		return nil, ErrIllegalArguments
 	}
 
-	err := d.st.WaitForIndexingUpto(req.SinceTx)
+	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -456,7 +456,7 @@ func (d *db) VerifiableGet(req *schema.VerifiableGetRequest) (*schema.Verifiable
 
 //GetAll ...
 func (d *db) GetAll(req *schema.KeyListRequest) (*schema.Entries, error) {
-	err := d.st.WaitForIndexingUpto(req.SinceTx)
+	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -632,7 +632,7 @@ func (d *db) History(req *schema.HistoryRequest) (*schema.Entries, error) {
 		return nil, ErrMaxKeyScanLimitExceeded
 	}
 
-	err := d.st.WaitForIndexingUpto(req.SinceTx)
+	err := d.st.WaitForIndexingUpto(req.SinceTx, nil)
 	if err != nil {
 		return nil, err
 	}
