@@ -411,7 +411,9 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		WithCompactionThld(opts.IndexOpts.CompactionThld).
 		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
 
-	store.indexer, err = newIndexer(store, indexDirname, indexOpts, opts.MaxWaitees)
+	indexPath := filepath.Join(store.path, indexDirname)
+
+	store.indexer, err = newIndexer(indexPath, store, indexOpts, opts.MaxWaitees)
 	if err != nil {
 		return nil, err
 	}
@@ -1012,7 +1014,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 		return nil, ErrAlreadyClosed
 	}
 
-	s.indexer.Stop()
+	s.indexer.Pause()
 	defer s.indexer.Resume()
 
 	committedTxID, _, _ := s.commitState()
