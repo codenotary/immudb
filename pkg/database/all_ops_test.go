@@ -78,7 +78,7 @@ func TestConcurrentCompactIndex(t *testing.T) {
 	ack := make(chan struct{})
 
 	cleanUpFreq := 1 * time.Second
-	cleanUpTimeout := 10 * time.Second
+	cleanUpTimeout := 5 * time.Second
 	execAllTimeout := 1 * time.Second
 
 	go func(ticker *time.Ticker, done <-chan struct{}, ack chan<- struct{}) {
@@ -100,7 +100,7 @@ func TestConcurrentCompactIndex(t *testing.T) {
 		}
 	}(time.NewTicker(cleanUpFreq), done, ack)
 
-	txCount := 100
+	txCount := 10
 	txSize := 32
 
 	for i := 0; i < txCount; i++ {
@@ -125,6 +125,8 @@ func TestConcurrentCompactIndex(t *testing.T) {
 		require.NoError(t, err)
 
 	}
+
+	time.Sleep(3 * time.Second)
 
 	done <- struct{}{}
 	<-ack

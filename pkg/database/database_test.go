@@ -48,8 +48,9 @@ var kvs = []*schema.KeyValue{
 }
 
 func makeDb() (DB, func()) {
-	catalogDBName := "EdithPiaf_catalog_" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	catalogOptions := DefaultOption().WithDbName(catalogDBName).WithCorruptionChecker(false)
+	rootPath := "data_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	catalogOptions := DefaultOption().WithDbRootPath(rootPath).WithDbName("catalog").WithCorruptionChecker(false)
 	catalogOptions.storeOpts.WithIndexOptions(catalogOptions.storeOpts.IndexOpts.WithCompactionThld(0))
 
 	catalogDB, err := NewDb(catalogOptions, nil, logger.NewSimpleLogger("immudb ", os.Stderr))
@@ -57,8 +58,7 @@ func makeDb() (DB, func()) {
 		log.Fatalf("Error creating Db instance %s", err)
 	}
 
-	dbName := "EdithPiaf" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	options := DefaultOption().WithDbName(dbName).WithCorruptionChecker(false)
+	options := DefaultOption().WithDbRootPath(rootPath).WithDbName("db").WithCorruptionChecker(false)
 	options.storeOpts.WithIndexOptions(options.storeOpts.IndexOpts.WithCompactionThld(0))
 
 	db, err := NewDb(options, catalogDB, logger.NewSimpleLogger("immudb ", os.Stderr))
@@ -70,13 +70,11 @@ func makeDb() (DB, func()) {
 		if err := db.Close(); err != nil {
 			log.Fatal(err)
 		}
-		if err := os.RemoveAll(options.dbRootPath); err != nil {
-			log.Fatal(err)
-		}
 		if err := catalogDB.Close(); err != nil {
 			log.Fatal(err)
 		}
-		if err := os.RemoveAll(catalogOptions.dbRootPath); err != nil {
+
+		if err := os.RemoveAll(rootPath); err != nil {
 			log.Fatal(err)
 		}
 	}
