@@ -22,8 +22,9 @@ import (
 
 var ErrMaxWaitessLimitExceeded = errors.New("max waiting limit exceeded")
 var ErrAlreadyClosed = errors.New("already closed")
+var ErrCancellationRequested = errors.New("cancellation requested")
 
-type WatchersCenter struct {
+type WatchersHub struct {
 	wpoints map[uint64]*waitingPoint
 
 	doneUpto uint64 // no-wait on lower or equal values
@@ -42,15 +43,15 @@ type waitingPoint struct {
 	count int
 }
 
-func New(doneUpto uint64, maxWaiting int) *WatchersCenter {
-	return &WatchersCenter{
+func New(doneUpto uint64, maxWaiting int) *WatchersHub {
+	return &WatchersHub{
 		wpoints:    make(map[uint64]*waitingPoint, 0),
 		doneUpto:   doneUpto,
 		maxWaiting: maxWaiting,
 	}
 }
 
-func (w *WatchersCenter) Status() (doneUpto uint64, waiting int, err error) {
+func (w *WatchersHub) Status() (doneUpto uint64, waiting int, err error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -61,7 +62,7 @@ func (w *WatchersCenter) Status() (doneUpto uint64, waiting int, err error) {
 	return w.doneUpto, w.waiting, nil
 }
 
-func (w *WatchersCenter) DoneUpto(t uint64) error {
+func (w *WatchersHub) DoneUpto(t uint64) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -82,6 +83,7 @@ func (w *WatchersCenter) DoneUpto(t uint64) error {
 		if waiting {
 			close(wp.ch)
 			w.waiting -= wp.count
+			wp.count = 0
 			delete(w.wpoints, i)
 		}
 	}
@@ -91,7 +93,7 @@ func (w *WatchersCenter) DoneUpto(t uint64) error {
 	return nil
 }
 
-func (w *WatchersCenter) WaitFor(t uint64) error {
+func (w *WatchersHub) WaitFor(t uint64, cancellation <-chan struct{}) error {
 	w.mutex.Lock()
 
 	if w.closed {
@@ -120,7 +122,36 @@ func (w *WatchersCenter) WaitFor(t uint64) error {
 
 	w.mutex.Unlock()
 
-	<-wp.ch
+	if cancellation == nil {
+		<-wp.ch
+	} else {
+		select {
+		case <-wp.ch:
+			{
+				break
+			}
+		case <-cancellation:
+			{
+				w.mutex.Lock()
+				defer w.mutex.Unlock()
+
+				if w.closed {
+					return ErrAlreadyClosed
+				}
+
+				if wp.count == 1 {
+					close(wp.ch)
+					delete(w.wpoints, t)
+				}
+
+				if wp.count > 0 {
+					w.waiting--
+				}
+
+				return ErrCancellationRequested
+			}
+		}
+	}
 
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -132,7 +163,7 @@ func (w *WatchersCenter) WaitFor(t uint64) error {
 	return nil
 }
 
-func (w *WatchersCenter) Close() error {
+func (w *WatchersHub) Close() error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -144,6 +175,8 @@ func (w *WatchersCenter) Close() error {
 
 	for _, wp := range w.wpoints {
 		close(wp.ch)
+		w.waiting -= wp.count
+		wp.count = 0
 	}
 
 	return nil
