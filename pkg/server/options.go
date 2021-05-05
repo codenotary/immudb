@@ -49,7 +49,7 @@ type Options struct {
 	Detached            bool
 	MetricsServer       bool
 	WebServer           bool
-	WebPort             int
+	WebServerPort       int
 	DevMode             bool
 	AdminPassword       string `json:"-"`
 	systemAdminDbName   string
@@ -71,7 +71,7 @@ func DefaultOptions() *Options {
 		Address:             "0.0.0.0",
 		Port:                3322,
 		MetricsPort:         9497,
-		WebPort:             8080,
+		WebServerPort:       8080,
 		Config:              "configs/immudb.toml",
 		Pidfile:             "",
 		Logfile:             "",
@@ -201,7 +201,7 @@ func (o *Options) MetricsBind() string {
 
 // WebBind return bind address for the Web API/console
 func (o *Options) WebBind() string {
-	return o.Address + ":" + strconv.Itoa(o.WebPort)
+	return o.Address + ":" + strconv.Itoa(o.WebServerPort)
 }
 
 // The Web proxy needs to know where to find the GRPC server
@@ -256,6 +256,14 @@ func (o *Options) WithMetricsServer(metricsServer bool) *Options {
 // WithWebServer ...
 func (o *Options) WithWebServer(webServer bool) *Options {
 	o.WebServer = webServer
+	return o
+}
+
+// WithWebServerPort ...
+func (o *Options) WithWebServerPort(port int) *Options {
+	if port > 0 {
+		o.WebServerPort = port
+	}
 	return o
 }
 
