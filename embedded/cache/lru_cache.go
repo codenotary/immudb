@@ -18,6 +18,7 @@ package cache
 import (
 	"container/list"
 	"errors"
+	"sync"
 )
 
 var ErrIllegalArguments = errors.New("illegal arguments")
@@ -27,6 +28,8 @@ type LRUCache struct {
 	data    map[interface{}]*entry
 	lruList *list.List
 	size    int
+
+	mutex sync.Mutex
 }
 
 type entry struct {
@@ -47,6 +50,9 @@ func NewLRUCache(size int) (*LRUCache, error) {
 }
 
 func (c *LRUCache) Put(key interface{}, value interface{}) (rkey interface{}, rvalue interface{}, err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	if key == nil || value == nil {
 		return nil, nil, ErrIllegalArguments
 	}
@@ -78,6 +84,9 @@ func (c *LRUCache) Put(key interface{}, value interface{}) (rkey interface{}, rv
 }
 
 func (c *LRUCache) Get(key interface{}) (interface{}, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	if key == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -93,10 +102,16 @@ func (c *LRUCache) Get(key interface{}) (interface{}, error) {
 }
 
 func (c *LRUCache) Size() int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	return c.size
 }
 
 func (c *LRUCache) Apply(fun func(k interface{}, v interface{}) error) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	for k, e := range c.data {
 		err := fun(k, e.value)
 		if err != nil {
