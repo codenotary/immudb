@@ -468,6 +468,10 @@ func (s *ImmuStore) notify(nType NotificationType, mandatory bool, formattedMess
 	}
 }
 
+func (s *ImmuStore) IndexInfo() uint64 {
+	return s.indexer.Ts()
+}
+
 func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
 	indexedVal, tx, hc, err := s.indexer.Get(key)
 	if err != nil {
