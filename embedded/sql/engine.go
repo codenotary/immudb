@@ -109,7 +109,7 @@ func (e *Engine) loadCatalog() error {
 	e.catalog = nil
 
 	lastTxID, _ := e.catalogStore.Alh()
-	err := e.catalogStore.WaitForIndexingUpto(lastTxID)
+	err := e.catalogStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
 		return err
 	}
@@ -501,17 +501,6 @@ func (e *Engine) unmapIndexedRow(mkey []byte) (dbID, tableID, colID uint64, encV
 	off += len(encPKVal)
 
 	return
-}
-
-func existKey(key []byte, st *store.ImmuStore) (bool, error) {
-	_, _, _, err := st.Get([]byte(key))
-	if err == nil {
-		return true, nil
-	}
-	if err != store.ErrKeyNotFound {
-		return false, err
-	}
-	return false, nil
 }
 
 func (e *Engine) mapKey(mappingPrefix string, encValues ...[]byte) []byte {

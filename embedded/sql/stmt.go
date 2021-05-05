@@ -187,7 +187,7 @@ func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface
 		return nil, nil, ErrTxDoesNotExist
 	}
 
-	err = e.dataStore.WaitForIndexingUpto(e.snapSinceTx)
+	err = e.dataStore.WaitForIndexingUpto(e.snapSinceTx, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -303,6 +303,7 @@ func (stmt *AddColumnStmt) CompileUsing(e *Engine, params map[string]interface{}
 }
 
 type UpsertIntoStmt struct {
+	isInsert bool
 	tableRef *TableRef
 	cols     []string
 	rows     []*RowSpec
@@ -443,9 +444,12 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 		}
 
 		// create entry for the column which is the pk
+		mkey := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id), pkEncVal)
+
 		pke := &store.KV{
-			Key:   e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id), pkEncVal),
-			Value: bs,
+			Key:    mkey,
+			Value:  bs,
+			Unique: stmt.isInsert,
 		}
 		des = append(des, pke)
 

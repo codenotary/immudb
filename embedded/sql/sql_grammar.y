@@ -60,7 +60,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
 %token BEGIN TRANSACTION COMMIT
-%token UPSERT INTO VALUES
+%token INSERT UPSERT INTO VALUES
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
 %token NOT LIKE EXISTS
 %token NULL
@@ -206,6 +206,11 @@ opt_since:
 
 
 dmlstmt:
+    INSERT INTO tableRef '(' ids ')' VALUES rows
+    {
+        $$ = &UpsertIntoStmt{isInsert: true, tableRef: $3, cols: $5, rows: $8}
+    }
+|
     UPSERT INTO tableRef '(' ids ')' VALUES rows
     {
         $$ = &UpsertIntoStmt{tableRef: $3, cols: $5, rows: $8}
