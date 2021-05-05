@@ -113,6 +113,11 @@ func TestServerReOpen(t *testing.T) {
 		t.Fatalf("error loading default database %v", err)
 	}
 
+	err = s.CloseDatabases()
+	if err != nil {
+		t.Fatalf("error closing databases %v", err)
+	}
+
 	s = DefaultServer().WithOptions(serverOptions).(*ImmuServer)
 
 	err = s.loadSystemDatabase(dbRootpath, s.Options.AdminPassword)
