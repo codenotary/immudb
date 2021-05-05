@@ -353,11 +353,11 @@ func TestImmudbStoreEdgeCases(t *testing.T) {
 	var zeroTime time.Time
 
 	immuStore.lastNotification = zeroTime
-	immuStore.notify(Info, "info message")
+	immuStore.notify(Info, false, "info message")
 	immuStore.lastNotification = zeroTime
-	immuStore.notify(Warn, "warn message")
+	immuStore.notify(Warn, false, "warn message")
 	immuStore.lastNotification = zeroTime
-	immuStore.notify(Error, "error message")
+	immuStore.notify(Error, false, "error message")
 
 	tx1, err := immuStore.fetchAllocTx()
 	require.NoError(t, err)
@@ -481,10 +481,7 @@ func TestImmudbStoreIndexing(t *testing.T) {
 	for f := 0; f < 1; f++ {
 		go func() {
 			for {
-				txID, err := immuStore.IndexInfo()
-				if err != nil {
-					panic(err)
-				}
+				txID, _ := immuStore.Alh()
 
 				snap, err := immuStore.SnapshotSince(txID)
 				if err != nil {
@@ -560,6 +557,29 @@ func TestImmudbStoreIndexing(t *testing.T) {
 
 	err = immuStore.Close()
 	require.NoError(t, err)
+}
+
+func TestImmudbStoreUniqueCommit(t *testing.T) {
+	opts := DefaultOptions().WithSynced(false).WithMaxConcurrency(1)
+	immuStore, _ := Open("data_unique", opts)
+	defer os.RemoveAll("data_unique")
+
+	_, err := immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{3, 2, 1}, Unique: false}}, false)
+	require.NoError(t, err)
+
+	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 2, 3}, Value: []byte{1, 1, 1}, Unique: true}}, false)
+	require.Equal(t, ErrKeyAlreadyExists, err)
+
+	v, tx, _, err := immuStore.Get([]byte{1, 2, 3})
+	require.NoError(t, err)
+	require.Equal(t, []byte{3, 2, 1}, v)
+	require.Equal(t, uint64(1), tx)
+
+	_, err = immuStore.Commit([]*KV{{Key: []byte{0, 0, 0}, Value: []byte{1, 1, 1}, Unique: true}}, false)
+	require.NoError(t, err)
+
+	_, err = immuStore.Commit([]*KV{{Key: []byte{1, 0, 0}, Value: []byte{0, 0, 1}, Unique: true}, {Key: []byte{1, 0, 0}, Value: []byte{0, 1, 1}, Unique: true}}, false)
+	require.Equal(t, ErrDuplicatedKey, err)
 }
 
 func TestImmudbStoreCommitWith(t *testing.T) {
@@ -843,7 +863,7 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(i+1), txMetadata.ID)
 
-		immuStore.WaitForIndexingUpto(txMetadata.ID)
+		immuStore.WaitForIndexingUpto(txMetadata.ID, nil)
 	}
 
 	for {

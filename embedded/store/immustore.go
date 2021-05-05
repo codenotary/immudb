@@ -58,6 +58,7 @@ var ErrCorruptedCLog = errors.New("commit log is corrupted")
 var ErrTxSizeGreaterThanMaxTxSize = errors.New("tx size greater than max tx size")
 var ErrCorruptedAHtree = errors.New("appendable hash tree is corrupted")
 var ErrKeyNotFound = tbtree.ErrKeyNotFound
+var ErrKeyAlreadyExists = errors.New("key already exists")
 var ErrTxNotFound = errors.New("tx not found")
 var ErrNoMoreEntries = tbtree.ErrNoMoreEntries
 var ErrIllegalState = tbtree.ErrIllegalState
@@ -98,6 +99,7 @@ type ImmuStore struct {
 
 	log              logger.Logger
 	lastNotification time.Time
+	notifyMutex      sync.Mutex
 
 	vLogs            map[byte]*refVLog
 	vLogUnlockedList *list.List
@@ -106,12 +108,12 @@ type ImmuStore struct {
 	txLog appendable.Appendable
 	cLog  appendable.Appendable
 
-	txLogCache      *cache.LRUCache
-	txLogCacheMutex sync.Mutex
+	txLogCache *cache.LRUCache
 
 	committedTxID      uint64
 	committedAlh       [sha256.Size]byte
 	committedTxLogSize int64
+	commitStateRWMutex sync.RWMutex
 
 	readOnly          bool
 	synced            bool
@@ -135,12 +137,9 @@ type ImmuStore struct {
 	blBuffer chan ([sha256.Size]byte)
 	blErr    error
 
-	index           *tbtree.TBtree
-	indexErr        error
-	indexCond       *sync.Cond
-	compactionMutex sync.Mutex
+	wHub *watchers.WatchersHub
 
-	wCenter *watchers.WatchersCenter
+	indexer *indexer
 
 	closed bool
 	done   chan (struct{})
@@ -154,8 +153,9 @@ type refVLog struct {
 }
 
 type KV struct {
-	Key   []byte
-	Value []byte
+	Key    []byte
+	Value  []byte
+	Unique bool
 }
 
 func (kv *KV) Digest() [sha256.Size]byte {
@@ -333,27 +333,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		vLogsMap[byte(i)] = &refVLog{vLog: vLog, unlockedRef: e}
 	}
 
-	indexPath := filepath.Join(path, indexDirname)
-
-	indexOpts := tbtree.DefaultOptions().
-		WithReadOnly(opts.ReadOnly).
-		WithFileMode(opts.FileMode).
-		WithLog(opts.log).
-		WithFileSize(fileSize).
-		WithSynced(false). // index is built from derived data
-		WithCacheSize(opts.IndexOpts.CacheSize).
-		WithFlushThld(opts.IndexOpts.FlushThld).
-		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
-		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
-		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
-		WithCompactionThld(opts.IndexOpts.CompactionThld).
-		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
-
-	index, err := tbtree.Open(indexPath, indexOpts)
-	if err != nil {
-		return nil, err
-	}
-
 	ahtPath := filepath.Join(path, ahtDirname)
 
 	ahtOpts := ahtree.DefaultOptions().
@@ -382,11 +361,6 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		return nil, err
 	}
 
-	var wCenter *watchers.WatchersCenter
-	if opts.MaxWaitees > 0 {
-		wCenter = watchers.New(0, opts.MaxWaitees)
-	}
-
 	store := &ImmuStore{
 		path:               path,
 		log:                opts.log,
@@ -411,13 +385,10 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 
 		maxTxSize: maxTxSize,
 
-		index:     index,
-		indexCond: sync.NewCond(&sync.Mutex{}),
-
 		aht:      aht,
 		blBuffer: blBuffer,
 
-		wCenter: wCenter,
+		wHub: watchers.New(0, 1+opts.MaxWaitees),
 
 		_kvs:  kvs,
 		_txs:  txs,
@@ -426,7 +397,26 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		done: make(chan struct{}),
 	}
 
-	if store.aht.Size() > store.committedTxID || store.index.Ts() > store.committedTxID {
+	indexOpts := tbtree.DefaultOptions().
+		WithReadOnly(opts.ReadOnly).
+		WithFileMode(opts.FileMode).
+		WithLog(opts.log).
+		WithFileSize(fileSize).
+		WithSynced(false). // index is built from derived data
+		WithCacheSize(opts.IndexOpts.CacheSize).
+		WithFlushThld(opts.IndexOpts.FlushThld).
+		WithMaxActiveSnapshots(opts.IndexOpts.MaxActiveSnapshots).
+		WithMaxNodeSize(opts.IndexOpts.MaxNodeSize).
+		WithRenewSnapRootAfter(opts.IndexOpts.RenewSnapRootAfter).
+		WithCompactionThld(opts.IndexOpts.CompactionThld).
+		WithDelayDuringCompaction(opts.IndexOpts.DelayDuringCompaction)
+
+	store.indexer, err = newIndexer(store, indexDirname, indexOpts, opts.MaxWaitees)
+	if err != nil {
+		return nil, err
+	}
+
+	if store.aht.Size() > store.committedTxID || store.indexer.Ts() > store.committedTxID {
 		return nil, ErrCorruptedCLog
 	}
 
@@ -439,24 +429,45 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		go store.binaryLinking()
 	}
 
-	go store.indexer()
+	store.indexer.Resume()
 
 	return store, nil
 }
 
-func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
+type NotificationType = int
 
-	if s.indexErr != nil {
-		return nil, 0, 0, s.indexErr
+const NotificationWindow = 60 * time.Second
+const (
+	Info NotificationType = iota
+	Warn
+	Error
+)
+
+func (s *ImmuStore) notify(nType NotificationType, mandatory bool, formattedMessage string, args ...interface{}) {
+	s.notifyMutex.Lock()
+	defer s.notifyMutex.Unlock()
+
+	if mandatory || time.Since(s.lastNotification) > NotificationWindow {
+		switch nType {
+		case Info:
+			{
+				s.log.Infof(formattedMessage, args...)
+			}
+		case Warn:
+			{
+				s.log.Warningf(formattedMessage, args...)
+			}
+		case Error:
+			{
+				s.log.Errorf(formattedMessage, args...)
+			}
+		}
+		s.lastNotification = time.Now()
 	}
-
-	return s.get(key)
 }
 
-func (s *ImmuStore) get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
-	indexedVal, tx, hc, err := s.index.Get(key)
+func (s *ImmuStore) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
+	indexedVal, tx, hc, err := s.indexer.Get(key)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -475,14 +486,7 @@ func (s *ImmuStore) get(key []byte) (value []byte, tx uint64, hc uint64, err err
 }
 
 func (s *ImmuStore) History(key []byte, offset uint64, descOrder bool, limit int) (txs []uint64, err error) {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
-
-	if s.indexErr != nil {
-		return nil, s.indexErr
-	}
-
-	return s.index.History(key, offset, descOrder, limit)
+	return s.indexer.History(key, offset, descOrder, limit)
 }
 
 func (s *ImmuStore) NewTx() *Tx {
@@ -490,14 +494,7 @@ func (s *ImmuStore) NewTx() *Tx {
 }
 
 func (s *ImmuStore) Snapshot() (*Snapshot, error) {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
-
-	if s.indexErr != nil {
-		return nil, s.indexErr
-	}
-
-	snap, err := s.index.Snapshot()
+	snap, err := s.indexer.Snapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -509,14 +506,7 @@ func (s *ImmuStore) Snapshot() (*Snapshot, error) {
 }
 
 func (s *ImmuStore) SnapshotSince(tx uint64) (*Snapshot, error) {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
-
-	if s.indexErr != nil {
-		return nil, s.indexErr
-	}
-
-	snap, err := s.index.SnapshotSince(tx)
+	snap, err := s.indexer.SnapshotSince(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -555,10 +545,8 @@ func (s *ImmuStore) SetBlErr(err error) {
 }
 
 func (s *ImmuStore) Alh() (uint64, [sha256.Size]byte) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.committedTxID, s.committedAlh
+	txID, txAlh, _ := s.commitState()
+	return txID, txAlh
 }
 
 func (s *ImmuStore) BlInfo() (uint64, error) {
@@ -608,195 +596,12 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	return nil
 }
 
-type NotificationType = int
-
-const NotificationWindow = 60 * time.Second
-const (
-	Info NotificationType = iota
-	Warn
-	Error
-)
-
-func (s *ImmuStore) notify(nType NotificationType, formattedMessage string, args ...interface{}) {
-	if time.Since(s.lastNotification) > NotificationWindow {
-		switch nType {
-		case Info:
-			{
-				s.log.Infof(formattedMessage, args...)
-			}
-		case Warn:
-			{
-				s.log.Warningf(formattedMessage, args...)
-			}
-		case Error:
-			{
-				s.log.Errorf(formattedMessage, args...)
-			}
-		}
-		s.lastNotification = time.Now()
-	}
-}
-
-func (s *ImmuStore) indexer() {
-	for {
-		s.indexCond.L.Lock()
-
-		if s.wCenter != nil {
-			s.wCenter.DoneUpto(s.index.Ts())
-		}
-
-		s.mutex.Lock()
-		txsToIndex := s.committedTxID - s.index.Ts()
-
-		if txsToIndex == 0 {
-			s.notify(Info, "All transactions successfully indexed at '%s'", s.path)
-			s.mutex.Unlock()
-			s.indexCond.Wait()
-		} else {
-			s.notify(Info, "%d transaction/s to be indexed at '%s'", txsToIndex, s.path)
-			s.mutex.Unlock()
-		}
-
-		err := s.indexSince(s.index.Ts()+1, 10)
-		if err == ErrAlreadyClosed {
-			s.indexCond.L.Unlock()
-			return
-		}
-		if err != nil {
-			s.mutex.Lock()
-			s.notify(Error, "Indexing at '%s' was stopped due to error: %v", s.path, err)
-			s.mutex.Unlock()
-			s.indexErr = err
-			s.indexCond.L.Unlock()
-			return
-		}
-
-		s.indexCond.L.Unlock()
-
-		time.Sleep(1 * time.Millisecond)
-	}
-}
-
-func (s *ImmuStore) WaitForIndexingUpto(txID uint64) error {
-	if s.wCenter != nil {
-		return s.wCenter.WaitFor(txID)
-	}
-
-	return watchers.ErrMaxWaitessLimitExceeded
-}
-
-func (s *ImmuStore) replaceIndex(compactedIndexID uint64) error {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	opts := s.index.GetOptions()
-
-	err := s.index.Close()
-	if err != nil {
-		return err
-	}
-
-	indexPath := filepath.Join(s.path, indexDirname)
-
-	nLogPath := filepath.Join(indexPath, "nodes")
-	err = os.RemoveAll(nLogPath)
-	if err != nil {
-		return err
-	}
-
-	cLogPath := filepath.Join(indexPath, "commit")
-	err = os.RemoveAll(cLogPath)
-	if err != nil {
-		return err
-	}
-
-	cnLogPath := filepath.Join(indexPath, fmt.Sprintf("nodes_%d", compactedIndexID))
-	ccLogPath := filepath.Join(indexPath, fmt.Sprintf("commit_%d", compactedIndexID))
-
-	err = os.Rename(cnLogPath, nLogPath)
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(ccLogPath, cLogPath)
-	if err != nil {
-		return err
-	}
-
-	s.index, err = tbtree.Open(indexPath, opts)
-
-	if err == nil {
-		s.indexCond.Broadcast() // indexing must go on
-	}
-
-	return err
+func (s *ImmuStore) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{}) error {
+	return s.indexer.WaitForIndexingUpto(txID, cancellation)
 }
 
 func (s *ImmuStore) CompactIndex() error {
-	s.compactionMutex.Lock()
-	defer s.compactionMutex.Unlock()
-
-	compactedIndexID, err := s.index.CompactIndex()
-	if err != nil {
-		return err
-	}
-
-	return s.replaceIndex(compactedIndexID)
-}
-
-func (s *ImmuStore) IndexInfo() (uint64, error) {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
-
-	return s.index.Ts(), s.indexErr
-}
-
-func (s *ImmuStore) indexSince(txID uint64, limit int) error {
-	tx, err := s.fetchAllocTx()
-	if err != nil {
-		return err
-	}
-	defer s.releaseAllocTx(tx)
-
-	txReader, err := s.NewTxReader(txID, false, tx)
-	if err == ErrNoMoreEntries {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < limit; i++ {
-		tx, err := txReader.Read()
-		if err == ErrNoMoreEntries {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		txEntries := tx.Entries()
-
-		for i, e := range txEntries {
-			var b [szSize + offsetSize + sha256.Size]byte
-			binary.BigEndian.PutUint32(b[:], uint32(e.vLen))
-			binary.BigEndian.PutUint64(b[szSize:], uint64(e.vOff))
-			copy(b[szSize+offsetSize:], e.hVal[:])
-
-			s._kvs[i].K = e.key()
-			s._kvs[i].V = b[:]
-		}
-
-		err = s.index.BulkInsert(s._kvs[:len(txEntries)])
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return s.indexer.CompactIndex()
 }
 
 func maxTxSize(maxTxEntries, maxKeyLen int) int {
@@ -844,10 +649,8 @@ func (s *ImmuStore) MaxLinearProofLen() int {
 }
 
 func (s *ImmuStore) TxCount() uint64 {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.committedTxID
+	committedTxID, _, _ := s.commitState()
+	return committedTxID
 }
 
 func (s *ImmuStore) fetchAllocTx() (*Tx, error) {
@@ -986,6 +789,7 @@ func (s *ImmuStore) Commit(entries []*KV, waitForIndexing bool) (*TxMetadata, er
 		txe.setKey(e.Key)
 		txe.vLen = len(e.Value)
 		txe.hVal = sha256.Sum256(e.Value)
+		txe.unique = e.Unique
 	}
 
 	tx.BuildHashTree()
@@ -1012,7 +816,7 @@ func (s *ImmuStore) Commit(entries []*KV, waitForIndexing bool) (*TxMetadata, er
 	s.mutex.Unlock()
 
 	if waitForIndexing {
-		err = s.WaitForIndexingUpto(tx.ID)
+		err = s.WaitForIndexingUpto(tx.ID, nil)
 		if err != nil {
 			return tx.Metadata(), err
 		}
@@ -1027,9 +831,11 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	}
 
 	// will overwrite partially written and uncommitted data
-	s.txLog.SetOffset(s.committedTxLogSize)
+	committedTxID, committedAlh, committedTxLogSize := s.commitState()
 
-	tx.ID = s.committedTxID + 1
+	s.txLog.SetOffset(committedTxLogSize)
+
+	tx.ID = committedTxID + 1
 	tx.Ts = time.Now().Unix()
 
 	blTxID, blRoot, err := s.aht.Root()
@@ -1044,7 +850,7 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return ErrUnexpectedLinkingError
 	}
 
-	tx.PrevAlh = s.committedAlh
+	tx.PrevAlh = committedAlh
 
 	txSize := 0
 
@@ -1063,17 +869,32 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 	txSize += szSize
 
 	for i := 0; i < tx.nentries; i++ {
-		e := tx.entries[i]
-
 		txe := tx.entries[i]
 		txe.vOff = offsets[i]
 
+		if txe.unique {
+			if tx.ID > 1 {
+				err = s.WaitForIndexingUpto(tx.ID-1, nil)
+				if err != nil {
+					return err
+				}
+
+				_, _, _, err = s.indexer.Get(txe.Key())
+				if err == nil {
+					return ErrKeyAlreadyExists
+				}
+				if err != ErrKeyNotFound {
+					return err
+				}
+			}
+		}
+
 		// tx serialization using pre-allocated buffer
-		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.kLen))
+		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(txe.kLen))
 		txSize += szSize
-		copy(s._txbs[txSize:], e.k[:e.kLen])
-		txSize += e.kLen
-		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(e.vLen))
+		copy(s._txbs[txSize:], txe.k[:txe.kLen])
+		txSize += txe.kLen
+		binary.BigEndian.PutUint32(s._txbs[txSize:], uint32(txe.vLen))
 		txSize += szSize
 		binary.BigEndian.PutUint64(s._txbs[txSize:], uint64(txe.vOff))
 		txSize += offsetSize
@@ -1095,13 +916,10 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
-	s.txLogCacheMutex.Lock()
 	_, _, err = s.txLogCache.Put(tx.ID, txbs)
 	if err != nil {
-		s.txLogCacheMutex.Unlock()
 		return err
 	}
-	s.txLogCacheMutex.Unlock()
 
 	err = s.txLog.Flush()
 	if err != nil {
@@ -1130,13 +948,28 @@ func (s *ImmuStore) commit(tx *Tx, offsets []int64) error {
 		return err
 	}
 
-	s.committedTxID++
-	s.committedAlh = tx.Alh
-	s.committedTxLogSize += int64(txSize)
-
-	s.indexCond.Broadcast()
+	committedTxID = s.advanceCommitState(tx.Alh, int64(txSize))
+	s.wHub.DoneUpto(committedTxID)
 
 	return nil
+}
+
+func (s *ImmuStore) advanceCommitState(txAlh [sha256.Size]byte, txSize int64) uint64 {
+	s.commitStateRWMutex.Lock()
+	defer s.commitStateRWMutex.Unlock()
+
+	s.committedTxID++
+	s.committedAlh = txAlh
+	s.committedTxLogSize += txSize
+
+	return s.committedTxID
+}
+
+func (s *ImmuStore) commitState() (txID uint64, txAlh [sha256.Size]byte, clogSize int64) {
+	s.commitStateRWMutex.RLock()
+	defer s.commitStateRWMutex.RUnlock()
+
+	return s.committedTxID, s.committedAlh, s.committedTxLogSize
 }
 
 func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*KV, error), waitForIndexing bool) (*TxMetadata, error) {
@@ -1146,7 +979,7 @@ func (s *ImmuStore) CommitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 	}
 
 	if waitForIndexing {
-		err = s.WaitForIndexingUpto(md.ID)
+		err = s.WaitForIndexingUpto(md.ID, nil)
 		if err != nil {
 			return md, err
 		}
@@ -1164,19 +997,12 @@ type unsafeIndex struct {
 }
 
 func (index *unsafeIndex) Get(key []byte) (value []byte, tx uint64, hc uint64, err error) {
-	return index.st.get(key)
+	return index.st.Get(key)
 }
 
 func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV, error)) (*TxMetadata, error) {
 	if callback == nil {
 		return nil, ErrIllegalArguments
-	}
-
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
-
-	if s.indexErr != nil {
-		return nil, s.indexErr
 	}
 
 	s.mutex.Lock()
@@ -1186,7 +1012,11 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 		return nil, ErrAlreadyClosed
 	}
 
-	txID := s.committedTxID + 1
+	s.indexer.Stop()
+	defer s.indexer.Resume()
+
+	committedTxID, _, _ := s.commitState()
+	txID := committedTxID + 1
 
 	entries, err := callback(txID, &unsafeIndex{st: s})
 	if err != nil {
@@ -1215,6 +1045,7 @@ func (s *ImmuStore) commitWith(callback func(txID uint64, index KeyIndex) ([]*KV
 		txe.setKey(e.Key)
 		txe.vLen = len(e.Value)
 		txe.hVal = sha256.Sum256(e.Value)
+		txe.unique = e.Unique
 	}
 
 	tx.BuildHashTree()
@@ -1419,9 +1250,6 @@ func (r *slicedReaderAt) ReadAt(bs []byte, off int64) (n int, err error) {
 }
 
 func (s *ImmuStore) ReadTx(txID uint64, tx *Tx) error {
-	s.txLogCacheMutex.Lock()
-	defer s.txLogCacheMutex.Unlock()
-
 	cacheMiss := false
 
 	txbs, err := s.txLogCache.Get(txID)
@@ -1527,9 +1355,6 @@ func (s *ImmuStore) validateEntries(entries []*KV) error {
 }
 
 func (s *ImmuStore) Sync() error {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
-
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1557,13 +1382,10 @@ func (s *ImmuStore) Sync() error {
 		return err
 	}
 
-	return s.index.Sync()
+	return s.indexer.Sync()
 }
 
 func (s *ImmuStore) Close() error {
-	s.indexCond.L.Lock()
-	defer s.indexCond.L.Unlock()
-
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1592,8 +1414,11 @@ func (s *ImmuStore) Close() error {
 		close(s.blBuffer)
 	}
 
-	if s.wCenter != nil {
-		s.wCenter.Close()
+	s.wHub.Close()
+
+	iErr := s.indexer.Close()
+	if iErr != nil {
+		errors = append(errors, iErr)
 	}
 
 	txErr := s.txLog.Close()
@@ -1609,11 +1434,6 @@ func (s *ImmuStore) Close() error {
 	tErr := s.aht.Close()
 	if tErr != nil {
 		errors = append(errors, tErr)
-	}
-
-	iErr := s.index.Close()
-	if iErr != nil {
-		errors = append(errors, iErr)
 	}
 
 	if len(errors) > 0 {
