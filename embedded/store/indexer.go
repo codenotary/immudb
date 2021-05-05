@@ -31,10 +31,9 @@ import (
 type indexer struct {
 	store *ImmuStore
 
-	indexPath string
+	path string
 
 	index        *tbtree.TBtree
-	running      bool
 	closed       bool
 	cancellation chan struct{}
 
@@ -42,12 +41,13 @@ type indexer struct {
 
 	compactionMutex sync.Mutex
 	mutex           sync.Mutex
+
+	running     bool
+	runningCond *sync.Cond
 }
 
-func newIndexer(store *ImmuStore, indexDirname string, indexOpts *tbtree.Options, maxWaitees int) (*indexer, error) {
-	indexPath := filepath.Join(store.path, indexDirname)
-
-	index, err := tbtree.Open(indexPath, indexOpts)
+func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWaitees int) (*indexer, error) {
+	index, err := tbtree.Open(path, indexOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -57,12 +57,17 @@ func newIndexer(store *ImmuStore, indexDirname string, indexOpts *tbtree.Options
 		wHub = watchers.New(0, maxWaitees)
 	}
 
-	return &indexer{
-		store:     store,
-		indexPath: indexPath,
-		index:     index,
-		wHub:      wHub,
-	}, nil
+	indexer := &indexer{
+		store:       store,
+		path:        path,
+		index:       index,
+		wHub:        wHub,
+		runningCond: sync.NewCond(&sync.Mutex{}),
+	}
+
+	indexer.resume()
+
+	return indexer, nil
 }
 
 func (idx *indexer) Ts() uint64 {
@@ -139,7 +144,6 @@ func (idx *indexer) Close() error {
 	}
 
 	idx.stop()
-
 	idx.wHub.Close()
 
 	idx.closed = true
@@ -173,8 +177,19 @@ func (idx *indexer) CompactIndex() error {
 
 	idx.stop()
 	defer idx.resume()
-
 	return idx.replaceIndex(compactedIndexID)
+}
+
+func (idx *indexer) stop() {
+	idx.Pause()
+	close(idx.cancellation)
+	idx.store.notify(Info, true, "Indexing gracefully stopped at '%s'", idx.store.path)
+}
+
+func (idx *indexer) resume() {
+	idx.cancellation = make(chan struct{})
+	go idx.doIndexing()
+	idx.store.notify(Info, true, "Indexing in progress at '%s'", idx.store.path)
 }
 
 func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
@@ -185,20 +200,20 @@ func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
 		return err
 	}
 
-	nLogPath := filepath.Join(idx.indexPath, "nodes")
+	nLogPath := filepath.Join(idx.path, "nodes")
 	err = os.RemoveAll(nLogPath)
 	if err != nil {
 		return err
 	}
 
-	cLogPath := filepath.Join(idx.indexPath, "commit")
+	cLogPath := filepath.Join(idx.path, "commit")
 	err = os.RemoveAll(cLogPath)
 	if err != nil {
 		return err
 	}
 
-	cnLogPath := filepath.Join(idx.indexPath, fmt.Sprintf("nodes_%d", compactedIndexID))
-	ccLogPath := filepath.Join(idx.indexPath, fmt.Sprintf("commit_%d", compactedIndexID))
+	cnLogPath := filepath.Join(idx.path, fmt.Sprintf("nodes_%d", compactedIndexID))
+	ccLogPath := filepath.Join(idx.path, fmt.Sprintf("commit_%d", compactedIndexID))
 
 	err = os.Rename(cnLogPath, nLogPath)
 	if err != nil {
@@ -210,7 +225,7 @@ func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
 		return err
 	}
 
-	index, err := tbtree.Open(idx.indexPath, opts)
+	index, err := tbtree.Open(idx.path, opts)
 	if err != nil {
 		return err
 	}
@@ -219,45 +234,17 @@ func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
 	return nil
 }
 
-func (idx *indexer) Resume() error {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
-
-	if idx.closed {
-		return ErrAlreadyClosed
-	}
-
-	idx.resume()
-	return nil
+func (idx *indexer) Resume() {
+	idx.runningCond.L.Lock()
+	idx.running = true
+	idx.runningCond.L.Unlock()
+	idx.runningCond.Signal()
 }
 
-func (idx *indexer) resume() {
-	if !idx.running {
-		idx.cancellation = make(chan struct{})
-		go idx.doIndexing()
-		idx.running = true
-		idx.store.notify(Info, true, "Indexing in progress at '%s'", idx.store.path)
-	}
-}
-
-func (idx *indexer) Stop() error {
-	idx.mutex.Lock()
-	defer idx.mutex.Unlock()
-
-	if idx.closed {
-		return ErrAlreadyClosed
-	}
-
-	idx.stop()
-	return nil
-}
-
-func (idx *indexer) stop() {
-	if idx.running {
-		close(idx.cancellation)
-		idx.running = false
-		idx.store.notify(Info, true, "Indexing gracefully stopped at '%s'", idx.store.path)
-	}
+func (idx *indexer) Pause() {
+	idx.runningCond.L.Lock()
+	idx.running = false
+	idx.runningCond.L.Unlock()
 }
 
 func (idx *indexer) doIndexing() {
@@ -282,6 +269,15 @@ func (idx *indexer) doIndexing() {
 		txsToIndex := committedTxID - lastIndexedTx
 		idx.store.notify(Info, false, "%d transaction/s to be indexed at '%s'", txsToIndex, idx.store.path)
 
+		idx.runningCond.L.Lock()
+		for {
+			if idx.running {
+				break
+			}
+			idx.runningCond.Wait()
+		}
+		idx.runningCond.L.Unlock()
+
 		err = idx.indexSince(lastIndexedTx+1, 10)
 		if err == ErrAlreadyClosed {
 			return
@@ -290,8 +286,6 @@ func (idx *indexer) doIndexing() {
 			idx.store.notify(Error, true, "Indexing failed at '%s' due to error: %v", idx.store.path, err)
 			time.Sleep(60 * time.Second)
 		}
-
-		time.Sleep(5 * time.Millisecond)
 	}
 }
 
