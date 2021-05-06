@@ -41,7 +41,7 @@ func (s *session) HandleSimpleQueries() (err error) {
 			s.ErrorHandle(ErrUnknowMessageType)
 			continue
 		}
-		if _, err := s.writeMessage(bm.CommandComplete()); err != nil {
+		if _, err := s.writeMessage(bm.CommandComplete([]byte(`Ok`))); err != nil {
 			s.ErrorHandle(err)
 			continue
 		}
@@ -85,10 +85,16 @@ func (s *session) selectStatement(st *sql.SelectStmt) error {
 	if err != nil {
 		return err
 	}
-	if _, err := s.writeMessage(bm.RowDescription(res.Columns)); err != nil {
-		return err
+	if res != nil && len(res.Rows) > 0 {
+		if _, err = s.writeMessage(bm.RowDescription(res.Columns)); err != nil {
+			return err
+		}
+		if _, err = s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), false)); err != nil {
+			return err
+		}
+		return nil
 	}
-	if _, err := s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), false)); err != nil {
+	if _, err = s.writeMessage(bm.EmptyQueryResponse()); err != nil {
 		return err
 	}
 	return nil
