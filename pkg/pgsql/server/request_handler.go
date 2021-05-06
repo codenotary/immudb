@@ -21,7 +21,7 @@ import (
 )
 
 func (s *srv) handleRequest(conn net.Conn) (err error) {
-	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb)
+	ss := s.SessionFactory.NewSession(conn, s.Logger, s.sysDb, s.tlsConfig)
 
 	// initialize session
 	err = ss.InitializeSession()

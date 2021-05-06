@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 	"net"
@@ -27,13 +28,13 @@ type sessionFactory struct {
 }
 
 type SessionFactory interface {
-	NewSession(conn net.Conn, log logger.Logger, sysDb database.DB) Session
+	NewSession(conn net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) Session
 }
 
 func NewSessionFactory() sessionFactory {
 	return sessionFactory{}
 }
 
-func (sm sessionFactory) NewSession(conn net.Conn, log logger.Logger, sysDb database.DB) Session {
-	return NewSession(conn, log, sysDb)
+func (sm sessionFactory) NewSession(conn net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) Session {
+	return NewSession(conn, log, sysDb, tlsConfig)
 }

@@ -17,8 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -31,40 +29,34 @@ type rawMessage struct {
 	payload []byte
 }
 
-type startupMessage struct {
-	payload map[string]string
-}
-
-type messageReader struct {
-	conn net.Conn
-}
+type messageReader struct{}
 
 type MessageReader interface {
-	ReadStartUpMessage() (*startupMessage, error)
-	ReadRawMessage() (*rawMessage, error)
-	WriteMessage([]byte) (int, error)
+	ReadRawMessage(conn net.Conn) (*rawMessage, error)
+	WriteMessage(conn net.Conn, msg []byte) (int, error)
 }
 
-func NewMessageReader(conn net.Conn) *messageReader {
-	return &messageReader{conn: conn}
+func NewMessageReader() *messageReader {
+	return &messageReader{}
 }
 
-func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
+func (r *messageReader) ReadRawMessage(conn net.Conn) (*rawMessage, error) {
 	t := make([]byte, 1)
-	if _, err := r.conn.Read(t); err != nil {
+	if _, err := conn.Read(t); err != nil {
 		return nil, err
 	}
+
 	if _, ok := pgmeta.MTypes[t[0]]; !ok {
 		return nil, errors.New(fmt.Sprintf(ErrUnknowMessageType.Error()+". Message first byte was %s", string(t[0])))
 	}
 
 	lb := make([]byte, 4)
-	if _, err := r.conn.Read(lb); err != nil {
+	if _, err := conn.Read(lb); err != nil {
 		return nil, err
 	}
 	l := binary.BigEndian.Uint32(lb)
 	payload := make([]byte, l-4)
-	if _, err := r.conn.Read(payload); err != nil {
+	if _, err := conn.Read(payload); err != nil {
 		return nil, err
 	}
 
@@ -74,58 +66,6 @@ func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	}, nil
 }
 
-func (r *messageReader) ReadStartUpMessage() (*startupMessage, error) {
-	lb := make([]byte, 4)
-	if _, err := r.conn.Read(lb); err != nil {
-		return nil, err
-	}
-	protocolVersion := make([]byte, 4)
-	if _, err := r.conn.Read(protocolVersion); err != nil {
-		return nil, err
-	}
-	connString := make([]byte, binary.BigEndian.Uint32(lb)-4)
-	if _, err := r.conn.Read(connString); err != nil {
-		return nil, err
-	}
-
-	pr := bufio.NewScanner(bytes.NewBuffer(connString))
-
-	split := func(data []byte, atEOF bool) (int, []byte, error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-		if i := bytes.IndexByte(data, 0); i >= 0 {
-			return i + 1, data[0:i], nil
-		}
-		if atEOF {
-			return len(data), data, nil
-		}
-		return 0, nil, nil
-	}
-
-	pr.Split(split)
-
-	pmap := make(map[string]string)
-
-	for pr.Scan() {
-		key := pr.Text()
-		for pr.Scan() {
-			value := pr.Text()
-			if value != "" {
-				pmap[key] = value
-			}
-			break
-		}
-	}
-	return &startupMessage{
-		payload: pmap,
-	}, nil
-}
-
-func (sm *startupMessage) ToString() string {
-	return fmt.Sprintf("%v", sm.payload)
-}
-
-func (r *messageReader) WriteMessage(msg []byte) (int, error) {
-	return r.conn.Write(msg)
+func (r *messageReader) WriteMessage(conn net.Conn, msg []byte) (int, error) {
+	return conn.Write(msg)
 }

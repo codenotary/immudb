@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
 )
@@ -50,5 +51,11 @@ func DatabaseList(dbList database.DatabaseList) Option {
 func SysDb(sysdb database.DB) Option {
 	return func(args *srv) {
 		args.sysDb = sysdb
+	}
+}
+
+func TlsConfig(tlsConfig *tls.Config) Option {
+	return func(args *srv) {
+		args.tlsConfig = tlsConfig
 	}
 }

@@ -13,7 +13,6 @@ func main() {
 	config, _ := pgx.ParseConfig("host=localhost port=5439 sslmode=disable user=immudb dbname=defaultdb password=immudb")
 	config.PreferSimpleProtocol = true
 	conn, err := pgx.ConnectConfig(context.Background(), config)
-	//conn, err := pgx.Connect(context.Background(), tested)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)

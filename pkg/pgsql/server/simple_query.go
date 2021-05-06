@@ -2,7 +2,6 @@ package server
 
 import (
 	"github.com/codenotary/immudb/embedded/sql"
-	"github.com/codenotary/immudb/pkg/api/schema"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"io"
@@ -27,58 +26,17 @@ func (s *session) HandleSimpleQueries() (err error) {
 
 		switch v := msg.(type) {
 		case fm.TerminateMsg:
-			s.conn.Close()
-			return nil
+			// @todo add terminate message
+			return s.conn.Close()
 		case fm.QueryMsg:
-			stmts, err := sql.Parse(strings.NewReader(v.GetStatements()))
-			if err != nil {
+			// @todo remove when this will be supported
+			if strings.Contains(v.GetStatements(), "SET") {
+				continue
+			}
+			if err = s.queryMsg(v); err != nil {
 				s.ErrorHandle(err)
 				continue
 			}
-			sqlQuery := false
-			for _, stmt := range stmts {
-				switch stmt.(type) {
-				case *sql.UseDatabaseStmt:
-					{
-						return ErrUseDBStatementNotSupported
-					}
-				case *sql.CreateDatabaseStmt:
-					{
-						return ErrCreateDBStatementNotSupported
-					}
-				case *sql.SelectStmt:
-					sqlQuery = true
-				}
-			}
-
-			if sqlQuery {
-				r := &schema.SQLQueryRequest{
-					Sql: v.GetStatements(),
-				}
-				res, err := s.database.SQLQuery(r)
-				if err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-				if _, err := s.writeMessage(bm.RowDescription(res.Columns)); err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-				if _, err := s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), false)); err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-			} else {
-				r := &schema.SQLExecRequest{
-					Sql: v.GetStatements(),
-				}
-				_, err = s.database.SQLExec(r)
-				if err != nil {
-					s.ErrorHandle(err)
-					continue
-				}
-			}
-			break
 		default:
 			s.ErrorHandle(ErrUnknowMessageType)
 			continue
@@ -89,5 +47,49 @@ func (s *session) HandleSimpleQueries() (err error) {
 		}
 	}
 
+	return nil
+}
+
+func (s *session) queryMsg(v fm.QueryMsg) error {
+	stmts, err := sql.Parse(strings.NewReader(v.GetStatements()))
+	if err != nil {
+		return err
+	}
+	for _, stmt := range stmts {
+		switch st := stmt.(type) {
+		case *sql.UseDatabaseStmt:
+			{
+				return ErrUseDBStatementNotSupported
+			}
+		case *sql.CreateDatabaseStmt:
+			{
+				return ErrCreateDBStatementNotSupported
+			}
+		case *sql.SelectStmt:
+			err := s.selectStatement(st)
+			if err != nil {
+				return err
+			}
+		case sql.SQLStmt:
+			_, err = s.database.SQLExecPrepared([]sql.SQLStmt{st}, nil, true)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *session) selectStatement(st *sql.SelectStmt) error {
+	res, err := s.database.SQLQueryPrepared(st, nil)
+	if err != nil {
+		return err
+	}
+	if _, err := s.writeMessage(bm.RowDescription(res.Columns)); err != nil {
+		return err
+	}
+	if _, err := s.writeMessage(bm.DataRow(res.Rows, len(res.Columns), false)); err != nil {
+		return err
+	}
 	return nil
 }
