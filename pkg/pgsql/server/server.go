@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
+	"golang.org/x/net/netutil"
 	"net"
 	"os"
 )
 
 type srv struct {
+	maxConnections int
 	tlsConfig      *tls.Config
 	SessionFactory SessionFactory
 	Logger         logger.Logger
@@ -43,11 +45,12 @@ func New(setters ...Option) *srv {
 
 	// Default Options
 	cli := &srv{
+		maxConnections: 1000,
 		tlsConfig:      &tls.Config{},
 		SessionFactory: NewSessionFactory(),
+		Logger:         logger.NewSimpleLogger("sqlSrv", os.Stderr),
 		Host:           "localhost",
 		Port:           5432,
-		Logger:         logger.NewSimpleLogger("sqlSrv", os.Stderr),
 	}
 
 	for _, setter := range setters {
@@ -64,13 +67,12 @@ func (s *srv) Serve() error {
 	}
 	defer l.Close()
 
+	l = netutil.LimitListener(l, s.maxConnections)
+
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			// @todo better handle log error
-			// @todo do not stop the server
-			// @todo add some logic to protect this server
-			return err
+			s.Logger.Errorf("%v", err)
 		}
 		go s.handleRequest(conn)
 	}
