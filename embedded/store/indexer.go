@@ -29,22 +29,31 @@ import (
 )
 
 type indexer struct {
-	store *ImmuStore
-
 	path string
 
-	index        *tbtree.TBtree
-	closed       bool
-	cancellation chan struct{}
+	store *ImmuStore
 
-	wHub *watchers.WatchersHub
+	index *tbtree.TBtree
+
+	cancellation chan struct{}
+	wHub         *watchers.WatchersHub
+
+	state     int
+	stateCond *sync.Cond
+
+	closed bool
 
 	compactionMutex sync.Mutex
 	mutex           sync.Mutex
-
-	running     bool
-	runningCond *sync.Cond
 }
+
+type runningState = int
+
+const (
+	running runningState = iota
+	stopped
+	paused
+)
 
 func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWaitees int) (*indexer, error) {
 	index, err := tbtree.Open(path, indexOpts)
@@ -58,11 +67,11 @@ func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWai
 	}
 
 	indexer := &indexer{
-		store:       store,
-		path:        path,
-		index:       index,
-		wHub:        wHub,
-		runningCond: sync.NewCond(&sync.Mutex{}),
+		store:     store,
+		path:      path,
+		index:     index,
+		wHub:      wHub,
+		stateCond: sync.NewCond(&sync.Mutex{}),
 	}
 
 	indexer.resume()
@@ -181,16 +190,26 @@ func (idx *indexer) CompactIndex() error {
 }
 
 func (idx *indexer) stop() {
-	idx.Pause()
+	idx.stateCond.L.Lock()
+	idx.state = stopped
+	idx.stateCond.L.Unlock()
+	idx.stateCond.Signal()
+
 	close(idx.cancellation)
+
 	idx.store.notify(Info, true, "Indexing gracefully stopped at '%s'", idx.store.path)
 }
 
 func (idx *indexer) resume() {
+	idx.stateCond.L.Lock()
+	idx.state = running
+	idx.stateCond.L.Unlock()
+
 	idx.cancellation = make(chan struct{})
+
 	go idx.doIndexing()
+
 	idx.store.notify(Info, true, "Indexing in progress at '%s'", idx.store.path)
-	idx.Resume()
 }
 
 func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
@@ -236,16 +255,16 @@ func (idx *indexer) replaceIndex(compactedIndexID uint64) error {
 }
 
 func (idx *indexer) Resume() {
-	idx.runningCond.L.Lock()
-	idx.running = true
-	idx.runningCond.L.Unlock()
-	idx.runningCond.Signal()
+	idx.stateCond.L.Lock()
+	idx.state = running
+	idx.stateCond.L.Unlock()
+	idx.stateCond.Signal()
 }
 
 func (idx *indexer) Pause() {
-	idx.runningCond.L.Lock()
-	idx.running = false
-	idx.runningCond.L.Unlock()
+	idx.stateCond.L.Lock()
+	idx.state = paused
+	idx.stateCond.L.Unlock()
 }
 
 func (idx *indexer) doIndexing() {
@@ -270,14 +289,17 @@ func (idx *indexer) doIndexing() {
 		txsToIndex := committedTxID - lastIndexedTx
 		idx.store.notify(Info, false, "%d transaction/s to be indexed at '%s'", txsToIndex, idx.store.path)
 
-		idx.runningCond.L.Lock()
+		idx.stateCond.L.Lock()
 		for {
-			if idx.running {
+			if idx.state == stopped {
+				return
+			}
+			if idx.state == running {
 				break
 			}
-			idx.runningCond.Wait()
+			idx.stateCond.Wait()
 		}
-		idx.runningCond.L.Unlock()
+		idx.stateCond.L.Unlock()
 
 		err = idx.indexSince(lastIndexedTx+1, 10)
 		if err == ErrAlreadyClosed || err == tbtree.ErrAlreadyClosed {
