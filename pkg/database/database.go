@@ -181,17 +181,7 @@ func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 
 // CompactIndex ...
 func (d *db) CompactIndex() error {
-	d.Logger.Infof("Compacting index '%s'...", d.options.dbName)
-
-	err := d.st.CompactIndex()
-
-	if err == nil {
-		d.Logger.Infof("Index '%s' sucessfully compacted", d.options.dbName)
-	} else {
-		d.Logger.Warningf("Compaction of index '%s' returned: %v", d.options.dbName, err)
-	}
-
-	return err
+	return d.st.CompactIndex()
 }
 
 // Set ...
