@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -25,6 +26,7 @@ import (
 )
 
 type srv struct {
+	tlsConfig      *tls.Config
 	SessionFactory SessionFactory
 	Logger         logger.Logger
 	Host           string
@@ -41,6 +43,7 @@ func New(setters ...Option) *srv {
 
 	// Default Options
 	cli := &srv{
+		tlsConfig:      &tls.Config{},
 		SessionFactory: NewSessionFactory(),
 		Host:           "localhost",
 		Port:           5432,
@@ -64,6 +67,9 @@ func (s *srv) Serve() error {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
+			// @todo better handle log error
+			// @todo do not stop the server
+			// @todo add some logic to protect this server
 			return err
 		}
 		go s.handleRequest(conn)

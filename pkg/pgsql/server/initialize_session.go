@@ -1,13 +1,18 @@
 package server
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/codenotary/immudb/pkg/database"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"strings"
 )
 
+// InitializeSession
 func (s *session) InitializeSession() (err error) {
 	defer func() {
 		if err != nil {
@@ -15,12 +20,85 @@ func (s *session) InitializeSession() (err error) {
 			s.conn.Close()
 		}
 	}()
-	msg, err := s.mr.ReadStartUpMessage()
-	if err != nil {
+
+	lb := make([]byte, 4)
+	if _, err := s.conn.Read(lb); err != nil {
 		return err
 	}
-	s.log.Debugf("startup message \n%s", msg.ToString())
-	s.connParams = msg.payload
+	pvb := make([]byte, 4)
+	if _, err := s.conn.Read(pvb); err != nil {
+		return err
+	}
+
+	s.protocolVersion = parseProtocolVersion(pvb)
+
+	// SSL Request packet
+	if s.protocolVersion == "1234.5679" {
+		if s.tlsConfig == nil {
+			if _, err = s.writeMessage([]byte(`N`)); err != nil {
+				return err
+			}
+		}
+		if _, err = s.writeMessage([]byte(`S`)); err != nil {
+			return err
+		}
+
+		if err = s.handshake(); err != nil {
+			return err
+		}
+
+		lb = make([]byte, 4)
+		if _, err := s.conn.Read(lb); err != nil {
+			return err
+		}
+		pvb = make([]byte, 4)
+		if _, err := s.conn.Read(pvb); err != nil {
+			return err
+		}
+
+		s.protocolVersion = parseProtocolVersion(pvb)
+	}
+
+	// startup message
+	connStringLenght := int(binary.BigEndian.Uint32(lb) - 4)
+	connString := make([]byte, connStringLenght)
+
+	if _, err := s.conn.Read(connString); err != nil {
+		return err
+	}
+
+	pr := bufio.NewScanner(bytes.NewBuffer(connString))
+
+	split := func(data []byte, atEOF bool) (int, []byte, error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		if i := bytes.IndexByte(data, 0); i >= 0 {
+			return i + 1, data[0:i], nil
+		}
+		if atEOF {
+			return len(data), data, nil
+		}
+		return 0, nil, nil
+	}
+
+	pr.Split(split)
+
+	pmap := make(map[string]string)
+
+	for pr.Scan() {
+		key := pr.Text()
+		for pr.Scan() {
+			value := pr.Text()
+			if value != "" {
+				pmap[key] = value
+			}
+			break
+		}
+	}
+
+	s.connParams = pmap
+
 	return nil
 }
 
@@ -82,6 +160,16 @@ func (s *session) HandleStartup(dbList database.DatabaseList) (err error) {
 	if _, err := s.writeMessage(bm.ParameterStatus([]byte("client_encoding"), []byte("UTF8"))); err != nil {
 		return err
 	}
+	// todo this is needed by jdbc driver. Here is added the minor supported version at the moment
+	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_version"), []byte("9.6"))); err != nil {
+		return err
+	}
 
 	return nil
+}
+
+func parseProtocolVersion(payload []byte) string {
+	major := int(binary.BigEndian.Uint16(payload[0:2]))
+	minor := int(binary.BigEndian.Uint16(payload[2:4]))
+	return fmt.Sprintf("%d.%d", major, minor)
 }

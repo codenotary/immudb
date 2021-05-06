@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
@@ -28,13 +29,15 @@ import (
 )
 
 type session struct {
-	conn       net.Conn
-	log        logger.Logger
-	mr         MessageReader
-	username   string
-	database   database.DB
-	sysDb      database.DB
-	connParams map[string]string
+	conn            net.Conn
+	tlsConfig       *tls.Config
+	log             logger.Logger
+	mr              MessageReader
+	username        string
+	database        database.DB
+	sysDb           database.DB
+	connParams      map[string]string
+	protocolVersion string
 }
 
 type Session interface {
@@ -44,8 +47,14 @@ type Session interface {
 	ErrorHandle(err error)
 }
 
-func NewSession(c net.Conn, log logger.Logger, sysDb database.DB) *session {
-	s := &session{conn: c, log: log, mr: NewMessageReader(c), sysDb: sysDb}
+func NewSession(c net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) *session {
+	s := &session{
+		conn:      c,
+		tlsConfig: tlsConfig,
+		log:       log,
+		mr:        NewMessageReader(),
+		sysDb:     sysDb,
+	}
 	return s
 }
 
@@ -61,7 +70,7 @@ func (s *session) ErrorHandle(e error) {
 }
 
 func (s *session) nextMessage() (interface{}, error) {
-	msg, err := s.mr.ReadRawMessage()
+	msg, err := s.mr.ReadRawMessage(s.conn)
 	if err != nil {
 		return nil, err
 	}
@@ -83,9 +92,13 @@ func (s *session) parseRawMessage(msg *rawMessage) interface{} {
 
 func (s *session) writeMessage(msg []byte) (int, error) {
 	s.debugMessage(msg)
-	return s.mr.WriteMessage(msg)
+	return s.mr.WriteMessage(s.conn, msg)
 }
 
+func (s *session) readMessage(msg []byte) (int, error) {
+	s.debugMessage(msg)
+	return s.mr.WriteMessage(s.conn, msg)
+}
 func (s *session) debugMessage(msg []byte) {
 	if len(msg) > 0 {
 		s.log.Debugf("write %s - %s message", string(msg[0]), pgmeta.MTypes[msg[0]])
