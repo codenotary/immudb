@@ -168,9 +168,19 @@ func (idx *indexer) WaitForIndexingUpto(txID uint64, cancellation <-chan struct{
 	return watchers.ErrMaxWaitessLimitExceeded
 }
 
-func (idx *indexer) CompactIndex() error {
+func (idx *indexer) CompactIndex() (err error) {
 	idx.compactionMutex.Lock()
 	defer idx.compactionMutex.Unlock()
+
+	idx.store.notify(Info, true, "Compacting index '%s'...", idx.store.path)
+
+	defer func() {
+		if err == nil {
+			idx.store.notify(Info, true, "Index '%s' sucessfully compacted", idx.store.path)
+		} else {
+			idx.store.notify(Info, true, "Compaction of index '%s' returned: %v", idx.store.path, err)
+		}
+	}()
 
 	compactedIndexID, err := idx.index.CompactIndex()
 	if err != nil {
@@ -186,6 +196,7 @@ func (idx *indexer) CompactIndex() error {
 
 	idx.stop()
 	defer idx.resume()
+
 	return idx.replaceIndex(compactedIndexID)
 }
 
