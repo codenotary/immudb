@@ -42,7 +42,11 @@ func TestOptions(t *testing.T) {
 		op.Config != "configs/immudb.toml" ||
 		op.Pidfile != "" ||
 		op.StreamChunkSize != stream.DefaultChunkSize ||
-		op.Logfile != "" {
+		op.Logfile != "" ||
+		op.WebServer != true ||
+		op.WebServerPort != 8080 ||
+		op.WebBind() != "0.0.0.0:8080" ||
+		op.MetricsBind() != "0.0.0.0:9497" {
 		t.Errorf("database default options mismatch")
 	}
 }
@@ -55,7 +59,8 @@ func TestSetOptions(t *testing.T) {
 		WithDetached(true).WithNoHistograms(true).WithMetricsServer(false).
 		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin").
 		WithStreamChunkSize(4096).
-		WithWebServerPort(8081)
+		WithWebServerPort(8081).
+		WithTokenExpiryTime(52)
 
 	if op.GetAuth() != false ||
 		op.Dir != "immudb_dir" ||
@@ -75,7 +80,8 @@ func TestSetOptions(t *testing.T) {
 		op.StreamChunkSize != 4096 ||
 		op.WebServerPort != 8081 ||
 		op.Bind() != "localhost:2048" ||
-		op.WebBind() != "localhost:8081" {
+		op.WebBind() != "localhost:8081" ||
+	        op.TokenExpiryTimeMin != 52 {
 		t.Errorf("database default options mismatch")
 	}
 }
