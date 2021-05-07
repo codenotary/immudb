@@ -17,11 +17,14 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/stream"
-
 	"github.com/codenotary/immudb/pkg/auth"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOptions(t *testing.T) {
@@ -52,6 +55,8 @@ func TestOptions(t *testing.T) {
 }
 
 func TestSetOptions(t *testing.T) {
+	storeOptions := store.DefaultOptions()
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{}}
 	op := DefaultOptions().WithDir("immudb_dir").WithNetwork("udp").
 		WithAddress("localhost").WithPort(2048).
 		WithPidfile("immu.pid").WithAuth(false).
@@ -60,7 +65,10 @@ func TestSetOptions(t *testing.T) {
 		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin").
 		WithStreamChunkSize(4096).
 		WithWebServerPort(8081).
-		WithTokenExpiryTime(52)
+		WithTokenExpiryTime(52).
+		WithWebServer(false).
+		WithStoreOptions(storeOptions).
+		WithTLS(tlsConfig)
 
 	if op.GetAuth() != false ||
 		op.Dir != "immudb_dir" ||
@@ -81,7 +89,47 @@ func TestSetOptions(t *testing.T) {
 		op.WebServerPort != 8081 ||
 		op.Bind() != "localhost:2048" ||
 		op.WebBind() != "localhost:8081" ||
-	        op.TokenExpiryTimeMin != 52 {
+		op.WebServer != false ||
+		op.StoreOptions != storeOptions ||
+		op.TLSConfig != tlsConfig ||
+		op.TokenExpiryTimeMin != 52 {
 		t.Errorf("database default options mismatch")
 	}
+}
+
+func TestOptionsMaintenance(t *testing.T) {
+	op := DefaultOptions().
+		WithAuth(true).
+		WithMaintenance(true)
+
+	if op.GetAuth() != false {
+		t.Errorf("Auth should be disabled in maintenance mode")
+	}
+}
+
+func TestOptionsString(t *testing.T) {
+	expected := `================ Config ================
+Data dir         : ./data
+Address          : 0.0.0.0:3322
+Metrics address  : 0.0.0.0:9497/metrics
+Config file      : configs/immudb.toml
+PID file         : immu.pid
+Log file         : immu.log
+Max recv msg size: 33554432
+Auth enabled     : true
+Dev mode         : false
+Default database : defaultdb
+Maintenance mode : false
+Synced mode      : true
+----------------------------------------
+Superadmin default credentials
+   Username      : immudb
+   Password      : immudb
+========================================`
+
+	op := DefaultOptions().
+		WithPidfile("immu.pid").
+		WithLogfile("immu.log")
+
+	assert.Equal(t, expected, op.String())
 }
