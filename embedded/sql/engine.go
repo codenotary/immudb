@@ -55,6 +55,7 @@ var ErrInvalidJointColumn = errors.New("invalid joint column")
 var ErrJointColumnNotFound = errors.New("joint column not found")
 var ErrUnsupportedJoinType = errors.New("unsupported join type")
 var ErrInvalidCondition = errors.New("invalid condition")
+var ErrHavingClauseRequiresGroupClause = errors.New("having clause requires group clause")
 var ErrNotComparableValues = errors.New("values are not comparable")
 var ErrUnexpected = errors.New("unexpected error")
 var ErrMaxKeyLengthExceeded = errors.New("max key length exceeded")
@@ -62,6 +63,8 @@ var ErrColumnIsNotAnAggregation = errors.New("column is not an aggregation")
 var ErrLimitedCount = errors.New("only unbounded counting is supported i.e. COUNT(*)")
 var ErrTxDoesNotExist = errors.New("tx does not exist")
 var ErrDivisionByZero = errors.New("division by zero")
+var ErrMissingParameter = errors.New("missing paramter")
+var ErrUnsupportedParameter = errors.New("unsupported parameter")
 
 var mKeyVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 

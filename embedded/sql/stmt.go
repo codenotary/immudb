@@ -299,7 +299,7 @@ func (stmt *AddColumnStmt) isDDL() bool {
 }
 
 func (stmt *AddColumnStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	return nil, nil, errors.New("not yet supported")
+	return nil, nil, ErrNoSupported
 }
 
 type UpsertIntoStmt struct {
@@ -750,7 +750,7 @@ func (p *Param) jointColumnTo(col *Column, tableAlias string) (*ColSelector, err
 func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 	val, ok := params[p.id]
 	if !ok {
-		return nil, ErrIllegalArguments
+		return nil, ErrMissingParameter
 	}
 
 	if val == nil {
@@ -780,7 +780,7 @@ func (p *Param) substitute(params map[string]interface{}) (ValueExp, error) {
 		}
 	}
 
-	return nil, ErrIllegalArguments
+	return nil, ErrUnsupportedParameter
 }
 
 func (p *Param) reduce(catalog *Catalog, row *Row, implicitDB, implicitTable string) (TypedValue, error) {
@@ -829,7 +829,7 @@ func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (
 	}
 
 	if stmt.groupBy == nil && stmt.having != nil {
-		return nil, nil, ErrInvalidCondition
+		return nil, nil, ErrHavingClauseRequiresGroupClause
 	}
 
 	if len(stmt.orderBy) > 1 {
@@ -853,7 +853,7 @@ func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (
 
 		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
 		if err != nil {
-			return nil, nil, ErrLimitedOrderBy
+			return nil, nil, err
 		}
 
 		if table.pk.id == col.id {
@@ -870,11 +870,6 @@ func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (
 }
 
 func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
-	// Ordering is only supported at TableRef level
-	if ordCol != nil {
-		return nil, ErrLimitedOrderBy
-	}
-
 	var orderByCol *OrdCol
 
 	if len(stmt.orderBy) > 0 {
@@ -946,13 +941,9 @@ type TableRef struct {
 }
 
 func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
-	if e == nil {
-		return nil, ErrIllegalArguments
-	}
-
 	var db string
 
-	if db != "" {
+	if stmt.db != "" {
 		exists := e.catalog.ExistDatabase(stmt.db)
 		if !exists {
 			return nil, ErrDatabaseDoesNotExist
