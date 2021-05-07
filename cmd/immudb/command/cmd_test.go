@@ -174,6 +174,9 @@ func TestImmudbMtls(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&config, "config", "", "test")
 	viper.Set("mtls", true)
+	viper.Set("pkey", "../../../test/mtls_certs/ca.key.pem")
+	viper.Set("certificate", "../../../test/mtls_certs/ca.cert.pem")
+	viper.Set("clientcas", "../../../test/mtls_certs/ca-chain.cert.pem")
 
 	cl := Commandline{}
 
