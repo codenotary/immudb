@@ -42,7 +42,7 @@ type Options struct {
 	Config              string
 	Pidfile             string
 	Logfile             string
-	TlsConfig           *tls.Config
+	TLSConfig           *tls.Config
 	auth                bool
 	MaxRecvMsgSize      int
 	NoHistograms        bool
@@ -72,7 +72,7 @@ func DefaultOptions() *Options {
 		Config:              "configs/immudb.toml",
 		Pidfile:             "",
 		Logfile:             "",
-		TlsConfig:           &tls.Config{},
+		TLSConfig:           &tls.Config{},
 		auth:                true,
 		MaxRecvMsgSize:      1024 * 1024 * 32, // 32Mb
 		NoHistograms:        false,
@@ -143,9 +143,9 @@ func (o *Options) WithLogfile(logfile string) *Options {
 	return o
 }
 
-// WithTls sets tls config
-func (o *Options) WithTls(tls *tls.Config) *Options {
-	o.TlsConfig = tls
+// WithTLS sets tls config
+func (o *Options) WithTLS(tls *tls.Config) *Options {
+	o.TLSConfig = tls
 	return o
 }
 

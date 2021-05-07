@@ -80,7 +80,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithAddress(address).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
-		WithTls(tlsConfig).
+		WithTLS(tlsConfig).
 		WithAuth(auth).
 		WithMaxRecvMsgSize(maxRecvMsgSize).
 		WithNoHistograms(noHistograms).
