@@ -68,6 +68,11 @@ func parseOptions() (options *server.Options, err error) {
 
 	storeOpts := server.DefaultStoreOptions().WithSynced(synced)
 
+	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls)
+	if err != nil {
+		return options, err
+	}
+
 	options = server.
 		DefaultOptions().
 		WithDir(dir).
@@ -75,7 +80,7 @@ func parseOptions() (options *server.Options, err error) {
 		WithAddress(address).
 		WithPidfile(pidfile).
 		WithLogfile(logfile).
-		WithMTLs(mtls).
+		WithTls(tlsConfig).
 		WithAuth(auth).
 		WithMaxRecvMsgSize(maxRecvMsgSize).
 		WithNoHistograms(noHistograms).
@@ -87,32 +92,24 @@ func parseOptions() (options *server.Options, err error) {
 		WithStoreOptions(storeOpts).
 		WithTokenExpiryTime(tokenExpTime)
 
-	if mtls {
-		// todo https://golang.org/src/crypto/x509/root_linux.go
-		options.MTLsOptions = server.DefaultMTLsOptions().
-			WithCertificate(certificate).
-			WithPkey(pkey).
-			WithClientCAs(clientcas)
-	}
-
 	return options, nil
 }
 
-func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options, mtlsOptions *server.MTLsOptions) {
+func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("dir", options.Dir, "data folder")
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
 	cmd.Flags().StringP("address", "a", options.Address, "bind address")
 	cmd.PersistentFlags().StringVar(&cl.config.CfgFn, "config", "", "config file (default path are configs or $HOME. Default filename is immudb.toml)")
 	cmd.Flags().String("pidfile", options.Pidfile, "pid path with filename. E.g. /var/run/immudb.pid")
 	cmd.Flags().String("logfile", options.Logfile, "log path with filename. E.g. /tmp/immudb/immudb.log")
-	cmd.Flags().BoolP("mtls", "m", options.MTLs, "enable mutual tls")
-	cmd.Flags().BoolP("auth", "s", options.MTLs, "enable auth")
+	cmd.Flags().BoolP("mtls", "m", false, "enable mutual tls")
+	cmd.Flags().BoolP("auth", "s", false, "enable auth")
 	cmd.Flags().Int("max-recv-msg-size", options.MaxRecvMsgSize, "max message size in bytes the server can receive")
-	cmd.Flags().Bool("no-histograms", options.MTLs, "disable collection of histogram metrics like query durations")
+	cmd.Flags().Bool("no-histograms", false, "disable collection of histogram metrics like query durations")
 	cmd.Flags().BoolP(c.DetachedFlag, c.DetachedShortFlag, options.Detached, "run immudb in background")
-	cmd.Flags().String("certificate", mtlsOptions.Certificate, "server certificate file path")
-	cmd.Flags().String("pkey", mtlsOptions.Pkey, "server private key path")
-	cmd.Flags().String("clientcas", mtlsOptions.ClientCAs, "clients certificates list. Aka certificate authority")
+	cmd.Flags().String("certificate", "", "server certificate file path")
+	cmd.Flags().String("pkey", "", "server private key path")
+	cmd.Flags().String("clientcas", "", "clients certificates list. Aka certificate authority")
 	cmd.Flags().Bool("devmode", options.DevMode, "enable dev mode: accept remote connections without auth")
 	cmd.Flags().String("admin-password", options.AdminPassword, "admin password (default is 'immudb') as plain-text or base64 encoded (must be prefixed with 'enc:' if it is encoded)")
 	cmd.Flags().Bool("maintenance", options.GetMaintenance(), "override the authentication flag")
@@ -121,20 +118,20 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options, m
 	cmd.Flags().Int("token-expiry-time", options.TokenExpiryTimeMin, "client authentication token expiration time. Minutes")
 }
 
-func setupDefaults(options *server.Options, mtlsOptions *server.MTLsOptions) {
+func setupDefaults(options *server.Options) {
 	viper.SetDefault("dir", options.Dir)
 	viper.SetDefault("port", options.Port)
 	viper.SetDefault("address", options.Address)
 	viper.SetDefault("pidfile", options.Pidfile)
 	viper.SetDefault("logfile", options.Logfile)
-	viper.SetDefault("mtls", options.MTLs)
+	viper.SetDefault("mtls", false)
 	viper.SetDefault("auth", options.GetAuth())
 	viper.SetDefault("max-recv-msg-size", options.MaxRecvMsgSize)
 	viper.SetDefault("no-histograms", options.NoHistograms)
 	viper.SetDefault("detached", options.Detached)
-	viper.SetDefault("certificate", mtlsOptions.Certificate)
-	viper.SetDefault("pkey", mtlsOptions.Pkey)
-	viper.SetDefault("clientcas", mtlsOptions.ClientCAs)
+	viper.SetDefault("certificate", "")
+	viper.SetDefault("pkey", "")
+	viper.SetDefault("clientcas", "")
 	viper.SetDefault("devmode", options.DevMode)
 	viper.SetDefault("admin-password", options.AdminPassword)
 	viper.SetDefault("maintenance", options.GetMaintenance())

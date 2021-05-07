@@ -32,7 +32,6 @@ func TestOptions(t *testing.T) {
 		op.GetSystemAdminDbName() != SystemdbName ||
 		op.Detached != false ||
 		op.DevMode != false ||
-		op.MTLs != false ||
 		op.MetricsServer != true ||
 		op.NoHistograms != false ||
 		op.AdminPassword != auth.SysAdminPassword ||
@@ -51,7 +50,7 @@ func TestOptions(t *testing.T) {
 func TestSetOptions(t *testing.T) {
 	op := DefaultOptions().WithDir("immudb_dir").WithNetwork("udp").
 		WithAddress("localhost").WithPort(2048).
-		WithPidfile("immu.pid").WithMTLs(true).WithAuth(false).
+		WithPidfile("immu.pid").WithAuth(false).
 		WithMaxRecvMsgSize(4096).
 		WithDetached(true).WithNoHistograms(true).WithMetricsServer(false).
 		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin").
@@ -64,7 +63,6 @@ func TestSetOptions(t *testing.T) {
 		op.Port != 2048 ||
 		op.Config != "configs/immudb.toml" ||
 		op.Pidfile != "immu.pid" ||
-		op.MTLs != true ||
 		op.GetAuth() != false ||
 		op.MaxRecvMsgSize != 4096 ||
 		op.Detached != true ||
