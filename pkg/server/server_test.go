@@ -1362,40 +1362,13 @@ func TestServerUpdateMTLSConfig(t *testing.T) {
 	dataDir := "ljubljana"
 	s := DefaultServer().WithOptions(DefaultOptions().
 		WithAuth(false).
-		WithMaintenance(false).WithDir(dataDir).WithMTLs(false).WithConfig("/tmp/immudb.toml")).(*ImmuServer)
+		WithMaintenance(false).WithDir(dataDir).WithConfig("/tmp/immudb.toml")).(*ImmuServer)
 	_, err = s.UpdateMTLSConfig(context.Background(), &schema.MTLSConfig{
 		Enabled: true,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func TestServerMtls(t *testing.T) {
-	mtlsopts := &MTLsOptions{
-		Pkey:        "./../../test/mtls_certs/ca.key.pem",
-		Certificate: "./../../test/mtls_certs/ca.cert.pem",
-		ClientCAs:   "./../../test/mtls_certs/ca-chain.cert.pem",
-	}
-	op := DefaultOptions().
-		WithAuth(false).
-		WithMaintenance(false).WithMTLs(true).WithMTLsOptions(mtlsopts)
-	s := DefaultServer().WithOptions(op).(*ImmuServer)
-	ops, err := s.setUpMTLS()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(ops) == 0 {
-		log.Fatal("setUpMTLS expected options > 0")
-	}
-
-	// ReadFile error
-	errReadFile := errors.New("ReadFile error")
-	s.OS.(*immuos.StandardOS).ReadFileF = func(filename string) ([]byte, error) {
-		return nil, errReadFile
-	}
-	_, err = s.setUpMTLS()
-	require.Equal(t, errReadFile, err)
 }
 
 func TestServerPID(t *testing.T) {
@@ -1845,12 +1818,6 @@ func TestServerErrors(t *testing.T) {
 	ctx2 = metadata.NewIncomingContext(context.Background(), md)
 
 	require.NoError(t, err)
-
-	// setup MTL errors
-	s.Options.MTLs = true
-	_, err = s.setUpMTLS()
-	require.Error(t, err)
-	s.Options.MTLs = false
 
 	// setup PID
 	OS := s.OS.(*immuos.StandardOS)

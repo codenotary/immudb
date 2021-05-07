@@ -6,8 +6,8 @@ dbname = "immudb"
 pidfile = ""
 logfile = "ConfigFileThatsNameIsDeclaredOnTheCommandLine"
 mtls = false
-pkey = "./tools/mtls/3_application/private/localhost.key.pem"
-certificate = "./tools/mtls/3_application/certs/localhost.cert.pem"
-clientcas = "./tools/mtls/2_intermediate/certs/ca-chain.cert.pem"
+pkey = ""
+certificate = ""
+clientcas = ""
 
 auth = true

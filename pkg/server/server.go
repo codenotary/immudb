@@ -17,8 +17,6 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -107,9 +105,9 @@ func (s *ImmuServer) Initialize() error {
 		return fmt.Errorf("auth should be on")
 	}
 
-	options, err := s.setUpMTLS()
-	if err != nil {
-		return logErr(s.Logger, "Error setting up MTLS: %v", err)
+	grpcSrvOpts := []grpc.ServerOption{}
+	if s.Options.TlsConfig != nil {
+		grpcSrvOpts = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(s.Options.TlsConfig))}
 	}
 
 	if s.Options.SigningKey != "" {
@@ -179,14 +177,14 @@ func (s *ImmuServer) Initialize() error {
 		grpc_prometheus.StreamServerInterceptor,
 		auth.ServerStreamInterceptor,
 	}
-	options = append(
-		options,
+	grpcSrvOpts = append(
+		grpcSrvOpts,
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(uis...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(sss...)),
 		grpc.MaxRecvMsgSize(s.Options.MaxRecvMsgSize),
 	)
 
-	s.GrpcServer = grpc.NewServer(options...)
+	s.GrpcServer = grpc.NewServer(grpcSrvOpts...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
 
@@ -254,40 +252,6 @@ func (s *ImmuServer) setUpMetricsServer() error {
 		s.metricFuncDefaultDBSize,
 	)
 	return nil
-}
-
-func (s *ImmuServer) setUpMTLS() ([]grpc.ServerOption, error) {
-	if s.Options.MTLs {
-		// credentials needed to communicate with client
-		certificate, err := tls.LoadX509KeyPair(
-			s.Options.MTLsOptions.Certificate,
-			s.Options.MTLsOptions.Pkey,
-		)
-		if err != nil {
-			return nil, logErr(s.Logger, "Failed to read server key pair: %s", err)
-		}
-
-		certPool := x509.NewCertPool()
-		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
-		bs, err := s.OS.ReadFile(s.Options.MTLsOptions.ClientCAs)
-		if err != nil {
-			return nil, logErr(s.Logger, "Failed to read client ca cert: %s", err)
-		}
-
-		ok := certPool.AppendCertsFromPEM(bs)
-		if !ok {
-			return nil, logErr(s.Logger, "Failed to append client certs", nil)
-		}
-
-		tlsConfig := &tls.Config{
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			Certificates: []tls.Certificate{certificate},
-			ClientCAs:    certPool,
-		}
-
-		return []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsConfig))}, nil
-	}
-	return []grpc.ServerOption{}, nil
 }
 
 func (s *ImmuServer) printUsageCallToAction() {

@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strconv"
@@ -41,8 +42,7 @@ type Options struct {
 	Config              string
 	Pidfile             string
 	Logfile             string
-	MTLs                bool
-	MTLsOptions         *MTLsOptions
+	TlsConfig           *tls.Config
 	auth                bool
 	MaxRecvMsgSize      int
 	NoHistograms        bool
@@ -72,8 +72,7 @@ func DefaultOptions() *Options {
 		Config:              "configs/immudb.toml",
 		Pidfile:             "",
 		Logfile:             "",
-		MTLs:                false,
-		MTLsOptions:         &MTLsOptions{},
+		TlsConfig:           &tls.Config{},
 		auth:                true,
 		MaxRecvMsgSize:      1024 * 1024 * 32, // 32Mb
 		NoHistograms:        false,
@@ -144,15 +143,9 @@ func (o *Options) WithLogfile(logfile string) *Options {
 	return o
 }
 
-// WithMTLs sets mtls
-func (o *Options) WithMTLs(MTLs bool) *Options {
-	o.MTLs = MTLs
-	return o
-}
-
-// WithMTLsOptions sets WithMTLsOptions
-func (o *Options) WithMTLsOptions(MTLsOptions *MTLsOptions) *Options {
-	o.MTLsOptions = MTLsOptions
+// WithTls sets tls config
+func (o *Options) WithTls(tls *tls.Config) *Options {
+	o.TlsConfig = tls
 	return o
 }
 
@@ -223,7 +216,6 @@ func (o *Options) String() string {
 	if o.Logfile != "" {
 		opts = append(opts, rightPad("Log file", o.Logfile))
 	}
-	opts = append(opts, rightPad("MTLS enabled", o.MTLs))
 	opts = append(opts, rightPad("Max recv msg size", o.MaxRecvMsgSize))
 	opts = append(opts, rightPad("Auth enabled", o.auth))
 	opts = append(opts, rightPad("Dev mode", o.DevMode))
