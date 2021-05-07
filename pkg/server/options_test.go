@@ -54,7 +54,8 @@ func TestSetOptions(t *testing.T) {
 		WithMaxRecvMsgSize(4096).
 		WithDetached(true).WithNoHistograms(true).WithMetricsServer(false).
 		WithDevMode(true).WithLogfile("logfile").WithAdminPassword("admin").
-		WithStreamChunkSize(4096)
+		WithStreamChunkSize(4096).
+		WithWebServerPort(8081)
 
 	if op.GetAuth() != false ||
 		op.Dir != "immudb_dir" ||
@@ -72,7 +73,9 @@ func TestSetOptions(t *testing.T) {
 		op.Logfile != "logfile" ||
 		op.AdminPassword != "admin" ||
 		op.StreamChunkSize != 4096 ||
-		op.Bind() != "localhost:2048" {
+		op.WebServerPort != 8081 ||
+		op.Bind() != "localhost:2048" ||
+		op.WebBind() != "localhost:8081" {
 		t.Errorf("database default options mismatch")
 	}
 }
