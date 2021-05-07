@@ -38,7 +38,12 @@ func setUpTLS(pkey, cert, ca string, mtls bool) (*tls.Config, error) {
 		}
 	}
 
-	if mtls {
+	if mtls && (cert == "" || pkey == "") {
+		return nil, errors.New("in order to enable MTLS a certificate and private key are required")
+	}
+
+	// if CA is not provided there is an automatic load of local CA in os
+	if mtls && ca != "" {
 		certPool := x509.NewCertPool()
 		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
 		bs, err := ioutil.ReadFile(ca)
