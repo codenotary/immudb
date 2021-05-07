@@ -204,14 +204,6 @@ func (o *Options) WebBind() string {
 	return o.Address + ":" + strconv.Itoa(o.WebServerPort)
 }
 
-// The Web proxy needs to know where to find the GRPC server
-func (o *Options) GprcConnectAddr() string {
-	if o.Address == "" || o.Address == "0.0.0.0" {
-		return "127.0.0.1" + ":" + strconv.Itoa(o.Port)
-	}
-	return o.Address + ":" + strconv.Itoa(o.Port)
-}
-
 // String print options
 func (o *Options) String() string {
 	rightPad := func(k string, v interface{}) string {
