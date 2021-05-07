@@ -291,7 +291,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 			return tkn
 		}
 
-		lval.id = w
+		lval.id = strings.ToLower(w)
 
 		return IDENTIFIER
 	}

@@ -188,16 +188,16 @@ func TestUpsertInto(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
+	_, _, err = engine.ExecStmt("USE DATABASE DB1", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1)", nil, true)
+	_, _, err = engine.ExecStmt("UPSERT INTO Table1 (id) VALUES (1)", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'some title')", nil, true)
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title) VALUES (1, 'some title')", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (2, 'another title')", nil, true)
@@ -341,7 +341,7 @@ func TestQuery(t *testing.T) {
 	require.Equal(t, ErrColumnDoesNotExist, err)
 	require.Nil(t, row)
 
-	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS id, ts, title, payload, active FROM (table1 AS t1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil)
+	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS Id, ts, Title, payload, Active FROM (table1 AS T1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil)
 	require.NoError(t, err)
 
 	colsBySel, err := r.colsBySelector()
@@ -375,7 +375,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active, payload FROM table1 ORDER BY id DESC", nil)
+	r, err = engine.QueryStmt("SELECT Id, Title, Active, payload FROM Table1 ORDER BY Id DESC", nil)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -992,7 +992,7 @@ func TestNestedJoins(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, t2.amount AS totalAmount, t3.age FROM (table1 AS t1) INNER JOIN (table2 as t2) ON fkid1 = t2.id INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id ORDER BY id DESC", nil)
+	r, err := engine.QueryStmt("SELECT id, title, t2.amount AS total_amount, t3.age FROM (table1 AS t1) INNER JOIN (table2 as t2) ON fkid1 = t2.id INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id ORDER BY id DESC", nil)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -1007,7 +1007,7 @@ func TestNestedJoins(t *testing.T) {
 
 		require.Equal(t, uint64(rowCount-1-i), row.Values[EncodeSelector("", "db1", "t1", "id")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", rowCount-1-i), row.Values[EncodeSelector("", "db1", "t1", "title")].Value())
-		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "t2", "totalAmount")].Value())
+		require.Equal(t, uint64((rowCount-1-i)*(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "t2", "total_amount")].Value())
 		require.Equal(t, uint64(30+(rowCount-1-i)), row.Values[EncodeSelector("", "db1", "t3", "age")].Value())
 	}
 
