@@ -1,3 +1,4 @@
+// +build windows
 /*
 Copyright 2021 CodeNotary, Inc. All rights reserved.
 
@@ -30,9 +31,7 @@ func parseOptions() (options *server.Options, err error) {
 	}
 	port := viper.GetInt("port")
 	address := viper.GetString("address")
-	if err != nil {
-		return options, err
-	}
+
 	pidfile, err := c.ResolvePath(viper.GetString("pidfile"), true)
 	if err != nil {
 		return options, err
