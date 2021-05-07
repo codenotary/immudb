@@ -106,8 +106,8 @@ func (s *ImmuServer) Initialize() error {
 	}
 
 	grpcSrvOpts := []grpc.ServerOption{}
-	if s.Options.TlsConfig != nil {
-		grpcSrvOpts = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(s.Options.TlsConfig))}
+	if s.Options.TLSConfig != nil {
+		grpcSrvOpts = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(s.Options.TLSConfig))}
 	}
 
 	if s.Options.SigningKey != "" {
