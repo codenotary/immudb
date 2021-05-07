@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/codenotary/immudb/webconsole"
@@ -9,7 +10,7 @@ import (
 	"net/http"
 )
 
-func StartWebServer(addr string, s *ImmuServer, l logger.Logger) (*http.Server, error) {
+func StartWebServer(addr string, tlsConfig *tls.Config, s schema.ImmuServiceServer, l logger.Logger) (*http.Server, error) {
 	proxyMux := runtime.NewServeMux()
 	err := schema.RegisterImmuServiceHandlerServer(context.Background(), proxyMux, s)
 	if err != nil {
@@ -24,17 +25,17 @@ func StartWebServer(addr string, s *ImmuServer, l logger.Logger) (*http.Server, 
 		return nil, err
 	}
 
-	server := &http.Server{Addr: addr, Handler: webMux}
-	server.TLSConfig = s.Options.TLSConfig
+	httpServer := &http.Server{Addr: addr, Handler: webMux}
+	httpServer.TLSConfig = tlsConfig
 
 	go func() {
 		var err error
-		if s.Options.TLSConfig != nil {
+		if tlsConfig != nil {
 			l.Infof("Web API server enabled on %s/api (https)", addr)
-			err = server.ListenAndServeTLS("", "")
+			err = httpServer.ListenAndServeTLS("", "")
 		} else {
 			l.Infof("Web API server enabled on %s/api (http)", addr)
-			err = server.ListenAndServe()
+			err = httpServer.ListenAndServe()
 		}
 
 		if err == http.ErrServerClosed {
@@ -44,5 +45,5 @@ func StartWebServer(addr string, s *ImmuServer, l logger.Logger) (*http.Server, 
 		}
 	}()
 
-	return server, nil
+	return httpServer, nil
 }

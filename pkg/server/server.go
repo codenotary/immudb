@@ -268,6 +268,7 @@ func (s *ImmuServer) setUpMetricsServer() error {
 func (s *ImmuServer) setUpWebServer() error {
 	server, err := StartWebServer(
 		s.Options.WebBind(),
+		s.Options.TLSConfig,
 		s,
 		s.Logger,
 	)

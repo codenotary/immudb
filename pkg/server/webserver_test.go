@@ -17,19 +17,46 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStartWebServer(t *testing.T) {
-	server, err := StartWebServer(
-		"0.0.0.0:8080",
-		"127.0.0.1:3322",
-		&mockLogger{})
-	defer server.Close()
+func TestStartWebServerHTTP(t *testing.T) {
+	options := DefaultOptions()
+	server := DefaultServer().WithOptions(options).(*ImmuServer)
 
-	assert.IsType(t, &http.Server{}, server)
+	webServer, err := StartWebServer(
+		"0.0.0.0:8080",
+		nil,
+		server,
+		&mockLogger{})
+	defer webServer.Close()
+
+	assert.IsType(t, &http.Server{}, webServer)
+	assert.Nil(t, webServer.TLSConfig)
+	assert.Nil(t, err)
+}
+
+func TestStartWebServerHTTPS(t *testing.T) {
+	options := DefaultOptions()
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{},
+		ClientAuth: tls.VerifyClientCertIfGiven,
+	}
+
+	server := DefaultServer().WithOptions(options).(*ImmuServer)
+
+	webServer, err := StartWebServer(
+		"0.0.0.0:8080",
+		tlsConfig,
+		server,
+		&mockLogger{})
+	defer webServer.Close()
+
+	assert.IsType(t, &http.Server{}, webServer)
+	assert.NotNil(t, webServer.TLSConfig)
 	assert.Nil(t, err)
 }
