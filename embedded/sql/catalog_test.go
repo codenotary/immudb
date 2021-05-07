@@ -50,6 +50,12 @@ func TestFromEmptyCatalog(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, db.name, db1.name)
 
+	_, err = catalog.GetDatabaseByName("db1")
+	require.NoError(t, err)
+
+	_, err = catalog.GetDatabaseByName("DB1")
+	require.NoError(t, err)
+
 	_, err = catalog.newDatabase("db1")
 	require.Equal(t, ErrDatabaseAlreadyExists, err)
 
@@ -80,7 +86,7 @@ func TestFromEmptyCatalog(t *testing.T) {
 	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "id", colType: IntegerType}}, "id")
 	require.Equal(t, ErrDuplicatedColumn, err)
 
-	table, err := db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}}, "id")
+	table, err := db.newTable("TABLE1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}}, "id")
 	require.NoError(t, err)
 	require.Equal(t, "table1", table.Name())
 
@@ -92,13 +98,20 @@ func TestFromEmptyCatalog(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "table1", table1.Name())
 
+	_, err = db.GetTableByName("Table1")
+	require.NoError(t, err)
+
 	_, err = db.GetTableByID(2)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "title", colType: IntegerType}}, "id")
+	_, err = db.newTable("table1", []*ColSpec{{colName: "id", colType: IntegerType}, {colName: "TITLE", colType: IntegerType}}, "ID")
 	require.Equal(t, ErrTableAlreadyExists, err)
 
 	indexed, err := table.IsIndexed("id")
+	require.NoError(t, err)
+	require.False(t, indexed)
+
+	indexed, err = table.IsIndexed("ID")
 	require.NoError(t, err)
 	require.False(t, indexed)
 
