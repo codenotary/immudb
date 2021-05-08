@@ -44,6 +44,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     sel Selector
     sels []Selector
     distinct bool
+    ifNotExists bool
     ds DataSource
     tableRef *TableRef
     joins []*JoinSpec
@@ -62,7 +63,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token BEGIN TRANSACTION COMMIT
 %token INSERT UPSERT INTO VALUES
 %token SELECT DISTINCT FROM BEFORE TX JOIN HAVING WHERE GROUP BY LIMIT ORDER ASC DESC AS
-%token NOT LIKE EXISTS
+%token NOT LIKE IF EXISTS
 %token NULL
 %token <joinType> JOINTYPE
 %token <numOp> NUMOP
@@ -113,6 +114,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
+%type <ifNotExists> opt_if_not_exists
 
 %start sql
     
@@ -179,9 +181,9 @@ ddlstmt:
         $$ = &UseSnapshotStmt{sinceTx: $3, asBefore: $4}
     }
 |
-    CREATE TABLE IDENTIFIER '(' colsSpec ',' PRIMARY KEY IDENTIFIER ')'
+    CREATE TABLE opt_if_not_exists IDENTIFIER '(' colsSpec ',' PRIMARY KEY IDENTIFIER ')'
     {
-        $$ = &CreateTableStmt{table: $3, colsSpec: $5, pk: $9}
+        $$ = &CreateTableStmt{ifNotExists: $3, table: $4, colsSpec: $6, pk: $10}
     }
 |
     CREATE INDEX ON IDENTIFIER '(' IDENTIFIER ')'
@@ -204,6 +206,15 @@ opt_since:
         $$ = $3
     }
 
+opt_if_not_exists:
+    {
+        $$ = false
+    }
+|
+    IF NOT EXISTS
+    {
+        $$ = true
+    }
 
 dmlstmt:
     INSERT INTO tableRef '(' ids ')' VALUES rows

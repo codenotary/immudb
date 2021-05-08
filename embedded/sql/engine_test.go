@@ -110,6 +110,9 @@ func TestCreateTable(t *testing.T) {
 
 	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)", nil, true)
 	require.Equal(t, ErrTableAlreadyExists, err)
+
+	_, _, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS table1 (id INTEGER, PRIMARY KEY id)", nil, true)
+	require.NoError(t, err)
 }
 
 func TestAddColumn(t *testing.T) {

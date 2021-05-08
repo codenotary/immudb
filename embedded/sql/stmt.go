@@ -200,6 +200,7 @@ func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface
 
 type CreateTableStmt struct {
 	table    string
+	ifNotExists bool
 	colsSpec []*ColSpec
 	pk       string
 }
@@ -216,6 +217,10 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine, params map[string]interface
 	db, err := e.catalog.GetDatabaseByName(e.implicitDB)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if stmt.ifNotExists && db.ExistTable(stmt.table) {
+		return
 	}
 
 	table, err := db.newTable(stmt.table, stmt.colsSpec, stmt.pk)

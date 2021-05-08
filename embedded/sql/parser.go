@@ -70,6 +70,7 @@ var reservedWords = map[string]int{
 	"LIKE":        LIKE,
 	"EXISTS":      EXISTS,
 	"NULL":        NULL,
+	"IF":          IF,
 }
 
 var joinTypes = map[string]JoinType{
