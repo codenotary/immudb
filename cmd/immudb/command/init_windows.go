@@ -65,6 +65,9 @@ func parseOptions() (options *server.Options, err error) {
 	synced := viper.GetBool("synced")
 	tokenExpTime := viper.GetInt("token-expiry-time")
 
+	webServer := viper.GetBool("web-server")
+	webServerPort := viper.GetInt("web-server-port")
+
 	storeOpts := server.DefaultStoreOptions().WithSynced(synced)
 
 	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls)
@@ -89,7 +92,9 @@ func parseOptions() (options *server.Options, err error) {
 		WithMaintenance(maintenance).
 		WithSigningKey(signingKey).
 		WithStoreOptions(storeOpts).
-		WithTokenExpiryTime(tokenExpTime)
+		WithTokenExpiryTime(tokenExpTime).
+		WithWebServer(webServer).
+		WithWebServerPort(webServerPort)
 
 	return options, nil
 }
@@ -115,6 +120,8 @@ func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("signingKey", options.SigningKey, "signature private key path. If a valid one is provided, it enables the cryptographic signature of the root. E.g. \"./../test/signer/ec3.key\"")
 	cmd.Flags().Bool("synced", false, "synced mode prevents data lost under unexpected crashes but affects performance")
 	cmd.Flags().Int("token-expiry-time", options.TokenExpiryTimeMin, "client authentication token expiration time. Minutes")
+	cmd.Flags().Bool("web-server", options.WebServer, "enable or disable web/console server")
+	cmd.Flags().Int("web-server-port", options.WebServerPort, "web/console server port")
 }
 
 func setupDefaults(options *server.Options) {
@@ -136,4 +143,6 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("maintenance", options.GetMaintenance())
 	viper.SetDefault("synced", false)
 	viper.SetDefault("token-expiry-time", options.TokenExpiryTimeMin)
+	viper.SetDefault("web-server", options.WebServer)
+	viper.SetDefault("web-server-port", options.WebServerPort)
 }

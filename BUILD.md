@@ -6,6 +6,15 @@ To build the binaries yourself, simply clone this repo and run
 make all
 ```
 
+To embed the webconsole, place the front-end code in `webconsole/dist`, and build with
+
+```
+make WEBCONSOLE=1
+```
+
+This will add the Go build tag `webconsole` which will use the *statik* library to embed the
+front-end code. The front-end will be then served in the web API root "/".
+
 ## Linux (by component)
 
 ```bash
