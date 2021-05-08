@@ -225,8 +225,11 @@ func TestUpsertInto(t *testing.T) {
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, true)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, active BOOLEAN NOT NULL, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
+
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, 'title1')", nil, true)
+	require.Equal(t, ErrNotNullableColumnCannotBeNull, err)
 
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, age) VALUES (1, 50)", nil, true)
 	require.Equal(t, ErrColumnDoesNotExist, err)
@@ -252,13 +255,13 @@ func TestUpsertInto(t *testing.T) {
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (1, @title)", params, true)
 	require.Equal(t, ErrInvalidValue, err)
 
-	_, _, err = engine.ExecStmt("UPSERT INTO Table1 (id) VALUES (1)", nil, true)
+	_, _, err = engine.ExecStmt("UPSERT INTO Table1 (id, active) VALUES (1, true)", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title) VALUES (1, 'some title')", nil, true)
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (Id, Title, Active) VALUES (1, 'some title', false)", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (2, 'another title')", nil, true)
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (2, 'another title', true)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (1, 'yat')", nil, true)
@@ -273,7 +276,7 @@ func TestUpsertInto(t *testing.T) {
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id) VALUES (NULL)", nil, true)
 	require.Equal(t, ErrPKCanNotBeNull, err)
 
-	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (2, NULL)", nil, true)
+	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title, active) VALUES (2, NULL, true)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (title) VALUES ('interesting title')", nil, true)

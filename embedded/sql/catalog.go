@@ -42,6 +42,7 @@ type Column struct {
 	id      uint64
 	colName string
 	colType SQLValueType
+	notNull bool
 }
 
 func newCatalog() *Catalog {
@@ -218,6 +219,7 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Tabl
 			table:   table,
 			colName: cs.colName,
 			colType: cs.colType,
+			notNull: cs.notNull,
 		}
 
 		table.colsByID[col.id] = col
@@ -244,4 +246,8 @@ func (c *Column) Name() string {
 
 func (c *Column) Type() string {
 	return c.colType
+}
+
+func (c *Column) IsNullable() bool {
+	return !c.notNull
 }

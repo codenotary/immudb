@@ -41,6 +41,7 @@ var ErrInvalidPK = errors.New("primary key of invalid type. Supported types are:
 var ErrDuplicatedColumn = errors.New("duplicated column")
 var ErrInvalidColumn = errors.New("invalid column")
 var ErrPKCanNotBeNull = errors.New("primary key can not be null")
+var ErrNotNullableColumnCannotBeNull = errors.New("not nullable column can not be null")
 var ErrIndexedColumnCanNotBeNull = errors.New("indexed column can not be null")
 var ErrIndexAlreadyExists = errors.New("index already exists")
 var ErrInvalidNumberOfValues = errors.New("invalid number of values provided")
@@ -305,8 +306,11 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 		if err != nil {
 			return nil, "", err
 		}
+		if len(v) < 1 {
+			return nil, "", ErrCorruptedData
+		}
 
-		spec := &ColSpec{colName: string(v), colType: colType}
+		spec := &ColSpec{colName: string(v[1:]), colType: colType, notNull: v[0] == 1}
 
 		specs = append(specs, spec)
 

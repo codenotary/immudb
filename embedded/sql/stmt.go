@@ -30,7 +30,7 @@ import (
 const (
 	catalogDatabasePrefix = "CATALOG.DATABASE." // (key=CATALOG.DATABASE.{dbID}, value={dbNAME})
 	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}{pkID}, value={tableNAME})
-	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={colNAME})
+	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={nullable}{colNAME})
 	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{colID}, value={})
 	rowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{colID}({valLen}{val})?{pkValLen}{pkVal}, value={})
 )
@@ -199,10 +199,10 @@ func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface
 }
 
 type CreateTableStmt struct {
-	table    string
+	table       string
 	ifNotExists bool
-	colsSpec []*ColSpec
-	pk       string
+	colsSpec    []*ColSpec
+	pk          string
 }
 
 func (stmt *CreateTableStmt) isDDL() bool {
@@ -229,9 +229,15 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine, params map[string]interface
 	}
 
 	for colID, col := range table.GetColsByID() {
+		v := make([]byte, 1+len(col.colName))
+		if col.notNull {
+			v[0] = 1
+		}
+		copy(v[1:], []byte(col.Name()))
+
 		ce := &store.KV{
 			Key:   e.mapKey(catalogColumnPrefix, encodeID(db.id), encodeID(table.id), encodeID(colID), []byte(col.colType)),
-			Value: []byte(col.colName),
+			Value: v,
 		}
 		ces = append(ces, ce)
 	}
@@ -248,6 +254,7 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine, params map[string]interface
 type ColSpec struct {
 	colName string
 	colType SQLValueType
+	notNull bool
 }
 
 type CreateIndexStmt struct {
@@ -323,6 +330,8 @@ func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[st
 
 	colCount := 0
 
+	notNullCols := make(map[uint64]struct{}, len(t.colsByID))
+
 	for i, val := range r.Values {
 		col, err := t.GetColumnByName(cols[i])
 		if err != nil {
@@ -362,7 +371,20 @@ func (r *RowSpec) bytes(catalog *Catalog, t *Table, cols []string, params map[st
 			return nil, err
 		}
 
+		notNullCols[col.id] = struct{}{}
+
 		colCount++
+	}
+
+	for _, c := range t.colsByID {
+		if c.IsNullable() {
+			continue
+		}
+
+		_, notNull := notNullCols[c.id]
+		if !notNull {
+			return nil, ErrNotNullableColumnCannotBeNull
+		}
 	}
 
 	b := make([]byte, encLenLen+len(valbuf.Bytes()))

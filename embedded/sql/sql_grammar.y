@@ -44,7 +44,6 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     sel Selector
     sels []Selector
     distinct bool
-    ifNotExists bool
     ds DataSource
     tableRef *TableRef
     joins []*JoinSpec
@@ -114,7 +113,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <id> opt_as
 %type <ordcols> ordcols opt_orderby
 %type <opt_ord> opt_ord
-%type <ifNotExists> opt_if_not_exists
+%type <boolean> opt_if_not_exists opt_not_null
 
 %start sql
     
@@ -325,9 +324,19 @@ colsSpec:
     }
 
 colSpec:
-    IDENTIFIER TYPE
+    IDENTIFIER TYPE opt_not_null
     {
-        $$ = &ColSpec{colName: $1, colType: $2}
+        $$ = &ColSpec{colName: $1, colType: $2, notNull: $3}
+    }
+
+opt_not_null:
+    {
+        $$ = false
+    }
+|
+    NOT NULL
+    {
+        $$ = true
     }
 
 dqlstmt:

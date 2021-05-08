@@ -125,10 +125,10 @@ func TestCreateTableStmt(t *testing.T) {
 			input: "CREATE TABLE table1 (id INTEGER, PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
-					table:    "table1",
+					table:       "table1",
 					ifNotExists: false,
-					colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}},
-					pk:       "id",
+					colsSpec:    []*ColSpec{{colName: "id", colType: IntegerType}},
+					pk:          "id",
 				}},
 			expectedError: nil,
 		},
@@ -136,10 +136,10 @@ func TestCreateTableStmt(t *testing.T) {
 			input: "CREATE TABLE IF NOT EXISTS table1 (id INTEGER, PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
-					table:    "table1",
+					table:       "table1",
 					ifNotExists: true,
-					colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}},
-					pk:       "id",
+					colsSpec:    []*ColSpec{{colName: "id", colType: IntegerType}},
+					pk:          "id",
 				}},
 			expectedError: nil,
 		},
@@ -147,7 +147,7 @@ func TestCreateTableStmt(t *testing.T) {
 			input: "CREATE TABLE table1 (id INTEGER, name VARCHAR, ts TIMESTAMP, active BOOLEAN, content BLOB, PRIMARY KEY id)",
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
-					table: "table1",
+					table:       "table1",
 					ifNotExists: false,
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
@@ -467,7 +467,7 @@ func TestTxStmt(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
+			input: "BEGIN TRANSACTION; CREATE TABLE table1 (id INTEGER, label VARCHAR NOT NULL, PRIMARY KEY id); UPSERT INTO table1 (id, label) VALUES (100, 'label1') COMMIT;",
 			expectedOutput: []SQLStmt{
 				&TxStmt{
 					stmts: []SQLStmt{
@@ -475,7 +475,7 @@ func TestTxStmt(t *testing.T) {
 							table: "table1",
 							colsSpec: []*ColSpec{
 								{colName: "id", colType: IntegerType},
-								{colName: "label", colType: VarcharType},
+								{colName: "label", colType: VarcharType, notNull: true},
 							},
 							pk: "id",
 						},
