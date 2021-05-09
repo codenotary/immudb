@@ -126,6 +126,18 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table:    "table1",
+					ifNotExists: false,
+					colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}},
+					pk:       "id",
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "CREATE TABLE IF NOT EXISTS table1 (id INTEGER, PRIMARY KEY id)",
+			expectedOutput: []SQLStmt{
+				&CreateTableStmt{
+					table:    "table1",
+					ifNotExists: true,
 					colsSpec: []*ColSpec{{colName: "id", colType: IntegerType}},
 					pk:       "id",
 				}},
@@ -136,6 +148,7 @@ func TestCreateTableStmt(t *testing.T) {
 			expectedOutput: []SQLStmt{
 				&CreateTableStmt{
 					table: "table1",
+					ifNotExists: false,
 					colsSpec: []*ColSpec{
 						{colName: "id", colType: IntegerType},
 						{colName: "name", colType: VarcharType},
