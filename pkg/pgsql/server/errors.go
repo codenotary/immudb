@@ -59,7 +59,7 @@ func MapPgError(err error) (er bm.ErrorResp) {
 			bm.Hint("submitted message is not yet implemented"),
 		)
 	default:
-		er = bm.ErrorResponse(bm.Severity("FATAL"),
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
 			bm.Message(err.Error()),
 		)
 	}

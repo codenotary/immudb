@@ -43,7 +43,7 @@ func (s *session) HandleSimpleQueries() (err error) {
 			s.ErrorHandle(ErrUnknowMessageType)
 			continue
 		}
-		if _, err := s.writeMessage(bm.CommandComplete([]byte(`Ok`))); err != nil {
+		if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
 			s.ErrorHandle(err)
 			continue
 		}
