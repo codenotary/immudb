@@ -10,6 +10,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/jaswdr/faker v1.0.2
+	github.com/lib/pq v1.10.1
 	github.com/o1egl/paseto v1.0.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterh/liner v1.2.0
