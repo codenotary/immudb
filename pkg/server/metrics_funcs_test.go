@@ -63,13 +63,12 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 	}
 
 	currentStateCounter := 0
-	dbList := databaseList{
-		databases: []database.DB{dbMock{
-			currentStateF: func() (*schema.ImmutableState, error) {
-				return currentStateSuccessfulOnce(&currentStateCounter)
-			},
-		}},
-	}
+	dbList := database.NewDatabaseList()
+	dbList.Append(dbMock{
+		currentStateF: func() (*schema.ImmutableState, error) {
+			return currentStateSuccessfulOnce(&currentStateCounter)
+		},
+	})
 
 	currentStateCounterSysDB := 0
 	sysDB := dbMock{
@@ -83,7 +82,7 @@ func TestMetricFuncComputeDBEntries(t *testing.T) {
 
 	var sw strings.Builder
 	s := ImmuServer{
-		dbList: &dbList,
+		dbList: dbList,
 		sysDb:  sysDB,
 		Logger: logger.NewSimpleLoggerWithLevel(
 			"TestMetricFuncComputeDBSizes",
@@ -120,18 +119,19 @@ func TestMetricFuncComputeDBSizes(t *testing.T) {
 	defer file.Close()
 	//<--
 
+	dbList := database.NewDatabaseList()
+	dbList.Append(dbMock{
+		getOptionsF: func() *database.DbOptions {
+			return database.DefaultOption().WithDbName(defaultDBName)
+		},
+	})
+
 	s := ImmuServer{
 		Options: &Options{
 			Dir:           dataDir,
 			defaultDbName: defaultDBName,
 		},
-		dbList: &databaseList{
-			databases: []database.DB{dbMock{
-				getOptionsF: func() *database.DbOptions {
-					return database.DefaultOption().WithDbName(defaultDBName)
-				},
-			}},
-		},
+		dbList: dbList,
 		sysDb: dbMock{
 			getOptionsF: func() *database.DbOptions {
 				return database.DefaultOption().WithDbName(SystemdbName)

@@ -57,11 +57,12 @@ type ImmuServer struct {
 	userdata    *usernameToUserdataMap
 	multidbmode bool
 	//Cc                  CorruptionChecker
-	sysDb         database.DB
-	metricsServer *http.Server
-	webServer     *http.Server
-	mux           sync.Mutex
-	StateSigner   StateSigner
+	sysDb                database.DB
+	metricsServer        *http.Server
+	webServer            *http.Server
+	mux                  sync.Mutex
+	pgsqlMux             sync.Mutex
+	StateSigner          StateSigner
 	StreamServiceFactory stream.ServiceFactory
 	PgsqlSrv             pgsqlsrv.Server
 }
