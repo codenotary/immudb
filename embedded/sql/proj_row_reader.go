@@ -59,6 +59,19 @@ func (pr *projectedRowReader) Columns() ([]*ColDescriptor, error) {
 		return nil, err
 	}
 
+	// Special case: SELECT *
+	if len(pr.selectors) == 0 {
+		colsByPos := make([]*ColDescriptor, len(colsBySel))
+
+		i := 0
+		for _, c := range colsBySel {
+			colsByPos[i] = c
+			i++
+		}
+
+		return colsByPos, nil
+	}
+
 	colsByPos := make([]*ColDescriptor, len(pr.selectors))
 
 	for i, sel := range pr.selectors {
@@ -81,20 +94,24 @@ func (pr *projectedRowReader) Columns() ([]*ColDescriptor, error) {
 			}
 		}
 
-		encSel := EncodeSelector(aggFn, db, table, col)
-		colsByPos[i] = &ColDescriptor{Selector: encSel, Type: colsBySel[encSel]}
+		colsByPos[i] = colsBySel[EncodeSelector(aggFn, db, table, col)]
 	}
 
 	return colsByPos, nil
 }
 
-func (pr *projectedRowReader) colsBySelector() (map[string]SQLValueType, error) {
-	colDescriptors := make(map[string]SQLValueType, len(pr.selectors))
-
+func (pr *projectedRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
 	dsColDescriptors, err := pr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
 	}
+
+	// Special case: SELECT *
+	if len(pr.selectors) == 0 {
+		return dsColDescriptors, nil
+	}
+
+	colDescriptors := make(map[string]*ColDescriptor, len(pr.selectors))
 
 	for i, sel := range pr.selectors {
 		aggFn, db, table, col := sel.resolve(pr.rowReader.ImplicitDB(), pr.rowReader.ImplicitTable())
@@ -141,6 +158,23 @@ func (pr *projectedRowReader) Read() (*Row, error) {
 
 	prow := &Row{
 		Values: make(map[string]TypedValue, len(pr.selectors)),
+	}
+
+	// Special case: SELECT *
+	if len(pr.selectors) == 0 {
+		colsBySel, err := pr.colsBySelector()
+		if err != nil {
+			return nil, err
+		}
+
+		for encSel, _ := range colsBySel {
+			val, ok := row.Values[encSel]
+			if !ok {
+				return nil, ErrColumnDoesNotExist
+			}
+
+			prow.Values[encSel] = val
+		}
 	}
 
 	for i, sel := range pr.selectors {

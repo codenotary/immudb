@@ -46,7 +46,7 @@ func (cr *conditionalRowReader) Columns() ([]*ColDescriptor, error) {
 	return cr.rowReader.Columns()
 }
 
-func (cr *conditionalRowReader) colsBySelector() (map[string]SQLValueType, error) {
+func (cr *conditionalRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
 	return cr.rowReader.colsBySelector()
 }
 

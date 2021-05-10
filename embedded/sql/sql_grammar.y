@@ -50,12 +50,12 @@ func setResult(l yyLexer, stmts []SQLStmt) {
     join *JoinSpec
     joinType JoinType
     boolExp ValueExp
+    binExp ValueExp
     err error
     ordcols []*OrdCol
     opt_ord Comparison
     logicOp LogicOperator
     cmpOp CmpOperator
-    numOp NumOperator
 }
 
 %token CREATE USE DATABASE SNAPSHOT SINCE UP TO TABLE INDEX ON ALTER ADD COLUMN PRIMARY KEY
@@ -65,7 +65,6 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token NOT LIKE IF EXISTS
 %token NULL
 %token <joinType> JOINTYPE
-%token <numOp> NUMOP
 %token <logicOp> LOP
 %token <cmpOp> CMPOP
 %token <id> IDENTIFIER
@@ -77,15 +76,16 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
 
-%left  ','
-%left  '.'
-%left  LOP
-%right NOT
-%left  CMPOP
-%left  NUMOP
-%right LIKE
-%right AS
 %right STMT_SEPARATOR
+%left  ','
+%right AS
+%right LIKE
+%left  LOP
+%left  CMPOP
+%right NOT
+%left '+' '-'
+%left '*' '/'
+%left  '.'
 
 %type <stmts> sql
 %type <stmts> sqlstmts dstmts
@@ -99,7 +99,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <values> values
 %type <value> val
 %type <sel> selector
-%type <sels> selectors
+%type <sels> opt_selectors selectors
 %type <col> col
 %type <distinct> opt_distinct
 %type <ds> ds
@@ -108,6 +108,7 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %type <joins> opt_joins joins
 %type <join> join
 %type <boolExp> boolExp opt_where opt_having
+%type <binExp> binExp
 %type <cols> opt_groupby
 %type <number> opt_limit
 %type <id> opt_as
@@ -340,7 +341,7 @@ opt_not_null:
     }
 
 dqlstmt:
-    SELECT opt_distinct selectors FROM ds opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_as
+    SELECT opt_distinct opt_selectors FROM ds opt_joins opt_where opt_groupby opt_having opt_orderby opt_limit opt_as
     {
         $$ = &SelectStmt{
                 distinct: $2,
@@ -364,6 +365,17 @@ opt_distinct:
     DISTINCT
     {
         $$ = true
+    }
+
+opt_selectors:
+    '*'
+    {
+        $$ = nil
+    }
+|
+    selectors
+    {
+        $$ = $1
     }
 
 selectors:
@@ -574,14 +586,19 @@ boolExp:
         $$ = $1
     }
 |
-    boolExp NUMOP boolExp
+    binExp
     {
-        $$ = &NumExp{left: $1, op: $2, right: $3}
+        $$ = $1
     }
 |
     NOT boolExp
     {
         $$ = &NotBoolExp{exp: $2}
+    }
+|
+    '-' boolExp
+    {
+        $$ = &NumExp{left: &Number{val: uint64(0)}, op: SUBSOP, right: $2}
     }
 |
     '(' boolExp ')'
@@ -594,17 +611,38 @@ boolExp:
         $$ = &LikeBoolExp{sel: $1, pattern: $3}
     }
 |
+    EXISTS '(' dqlstmt ')'
+    {
+        $$ = &ExistsBoolExp{q: ($3).(*SelectStmt)}
+    }
+
+binExp:
+    boolExp '+' boolExp
+    {
+        $$ = &NumExp{left: $1, op: ADDOP, right: $3}
+    }
+|
+    boolExp '-' boolExp
+    {
+        $$ = &NumExp{left: $1, op: SUBSOP, right: $3}
+    }
+|
+    boolExp '/' boolExp
+    {
+        $$ = &NumExp{left: $1, op: DIVOP, right: $3}
+    }
+|
+    boolExp '*' boolExp
+    {
+        $$ = &NumExp{left: $1, op: MULTOP, right: $3}
+    }
+|
     boolExp LOP boolExp
     {
-        $$ = &BinBoolExp{op: $2, left: $1, right: $3}
+        $$ = &BinBoolExp{left: $1, op: $2, right: $3}
     }
 |
     boolExp CMPOP boolExp
     {
-        $$ = &CmpBoolExp{op: $2, left: $1, right: $3}
-    }
-|
-    EXISTS '(' dqlstmt ')'
-    {
-        $$ = &ExistsBoolExp{q: ($3).(*SelectStmt)}
+        $$ = &CmpBoolExp{left: $1, op: $2, right: $3}
     }

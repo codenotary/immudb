@@ -56,13 +56,13 @@ func (gr *groupedRowReader) Columns() ([]*ColDescriptor, error) {
 
 	for i, sel := range gr.selectors {
 		encSel := EncodeSelector(sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable()))
-		colsByPos[i] = &ColDescriptor{Selector: encSel, Type: colsBySel[encSel]}
+		colsByPos[i] = colsBySel[encSel]
 	}
 
 	return colsByPos, nil
 }
 
-func (gr *groupedRowReader) colsBySelector() (map[string]SQLValueType, error) {
+func (gr *groupedRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
 	colDescriptors, err := gr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (gr *groupedRowReader) colsBySelector() (map[string]SQLValueType, error) {
 		encSel := EncodeSelector(aggFn, db, table, col)
 
 		if aggFn == COUNT {
-			colDescriptors[encSel] = IntegerType
+			colDescriptors[encSel] = &ColDescriptor{Selector: encSel, Type: IntegerType}
 			continue
 		}
 
@@ -91,7 +91,7 @@ func (gr *groupedRowReader) colsBySelector() (map[string]SQLValueType, error) {
 			colDescriptors[encSel] = colDesc
 		} else {
 			// SUM, AVG
-			colDescriptors[encSel] = IntegerType
+			colDescriptors[encSel] = &ColDescriptor{Selector: encSel, Type: IntegerType}
 		}
 	}
 

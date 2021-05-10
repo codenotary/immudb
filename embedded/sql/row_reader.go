@@ -28,7 +28,7 @@ type RowReader interface {
 	Read() (*Row, error)
 	Close() error
 	Columns() ([]*ColDescriptor, error)
-	colsBySelector() (map[string]SQLValueType, error)
+	colsBySelector() (map[string]*ColDescriptor, error)
 }
 
 type Row struct {
@@ -71,7 +71,7 @@ type rawRowReader struct {
 	asBefore   uint64
 	tableAlias string
 	colsByPos  []*ColDescriptor
-	colsBySel  map[string]SQLValueType
+	colsBySel  map[string]*ColDescriptor
 	col        string
 	desc       bool
 	reader     *store.KeyReader
@@ -133,12 +133,13 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 	}
 
 	colsByPos := make([]*ColDescriptor, len(table.GetColsByID()))
-	colsBySel := make(map[string]SQLValueType, len(table.GetColsByID()))
+	colsBySel := make(map[string]*ColDescriptor, len(table.GetColsByID()))
 
 	for i, c := range table.GetColsByID() {
 		encSel := EncodeSelector("", table.db.name, tableAlias, c.colName)
-		colsByPos[i-1] = &ColDescriptor{Selector: encSel, Type: c.colType}
-		colsBySel[encSel] = c.colType
+		colDescriptor := &ColDescriptor{Selector: encSel, Type: c.colType}
+		colsByPos[i-1] = colDescriptor
+		colsBySel[encSel] = colDescriptor
 	}
 
 	return &rawRowReader{
@@ -168,7 +169,7 @@ func (r *rawRowReader) Columns() ([]*ColDescriptor, error) {
 	return r.colsByPos, nil
 }
 
-func (r *rawRowReader) colsBySelector() (map[string]SQLValueType, error) {
+func (r *rawRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
 	return r.colsBySel, nil
 }
 
