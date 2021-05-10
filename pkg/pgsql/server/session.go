@@ -26,6 +26,7 @@ import (
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"net"
+	"sync"
 )
 
 type session struct {
@@ -38,6 +39,7 @@ type session struct {
 	sysDb           database.DB
 	connParams      map[string]string
 	protocolVersion string
+	sync.Mutex
 }
 
 type Session interface {

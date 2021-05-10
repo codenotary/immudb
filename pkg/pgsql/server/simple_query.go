@@ -10,6 +10,8 @@ import (
 
 // HandleSimpleQueries errors are returned and handled in the caller
 func (s *session) HandleSimpleQueries() (err error) {
+	s.Lock()
+	defer s.Unlock()
 	for true {
 		if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
 			return err
