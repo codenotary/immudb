@@ -18,6 +18,7 @@ package server
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
@@ -35,10 +36,13 @@ type srv struct {
 	Port           int
 	dbList         database.DatabaseList
 	sysDb          database.DB
+	listener       net.Listener
 }
 
 type Server interface {
+	Initialize() error
 	Serve() error
+	GetPort() int
 }
 
 func New(setters ...Option) *srv {
@@ -60,20 +64,35 @@ func New(setters ...Option) *srv {
 	return cli
 }
 
-func (s *srv) Serve() error {
-	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Host, s.Port))
+// Initialize initialize listener. If provided port is zero os auto assign a free one.
+func (s *srv) Initialize() (err error) {
+	s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", s.Host, s.Port))
 	if err != nil {
 		return err
 	}
-	defer l.Close()
+	return nil
+}
 
-	l = netutil.LimitListener(l, s.maxConnections)
+func (s *srv) Serve() (err error) {
+	if s.listener == nil {
+		return errors.New("no listener found for pgsql server")
+	}
+	defer s.listener.Close()
+
+	s.listener = netutil.LimitListener(s.listener, s.maxConnections)
 
 	for {
-		conn, err := l.Accept()
+		conn, err := s.listener.Accept()
 		if err != nil {
 			s.Logger.Errorf("%v", err)
 		}
 		go s.handleRequest(conn)
 	}
+}
+
+func (s *srv) GetPort() int {
+	if s.listener != nil {
+		return s.listener.Addr().(*net.TCPAddr).Port
+	}
+	return 0
 }

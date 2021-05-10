@@ -37,6 +37,7 @@ type BuffDialer func(context.Context, string) (net.Conn, error)
 
 type bufconnServer struct {
 	m          sync.Mutex
+	pgsqlwg    sync.WaitGroup
 	Lis        *bufconn.Listener
 	Server     *ServerMock
 	Options    *server.Options
@@ -61,6 +62,7 @@ func NewBufconnServer(options *server.Options) *bufconnServer {
 
 func (bs *bufconnServer) Start() error {
 	bs.m.Lock()
+	bs.pgsqlwg.Add(1)
 
 	server := server.DefaultServer().WithOptions(bs.Options).(*server.ImmuServer)
 
@@ -68,11 +70,13 @@ func (bs *bufconnServer) Start() error {
 		return bs.Lis.Dial()
 	}
 
-	bs.Server = &ServerMock{srv: server}
+	bs.Server = &ServerMock{Srv: server}
 
 	if err := bs.Server.Initialize(); err != nil {
 		return err
 	}
+	// in order to know the port of pgsql listener (auto assigned by os thanks 0 value) we need to wait
+	bs.pgsqlwg.Done()
 
 	schema.RegisterImmuServiceServer(bs.GrpcServer, bs.Server)
 
@@ -83,6 +87,15 @@ func (bs *bufconnServer) Start() error {
 		<-bs.quit
 	}()
 
+	if bs.Options.PgsqlServer {
+		go func() {
+			if err := bs.Server.Srv.PgsqlSrv.Serve(); err != nil {
+				log.Fatal(err)
+			}
+			<-bs.quit
+		}()
+	}
+
 	return nil
 }
 
@@ -90,5 +103,9 @@ func (bs *bufconnServer) Stop() error {
 	defer func() { bs.quit <- struct{}{} }()
 	defer bs.m.Unlock()
 	bs.GrpcServer.Stop()
-	return bs.Server.srv.CloseDatabases()
+	return bs.Server.Srv.CloseDatabases()
+}
+
+func (bs *bufconnServer) WaitForPgsqlListener() {
+	bs.pgsqlwg.Wait()
 }

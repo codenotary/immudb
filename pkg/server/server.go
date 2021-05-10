@@ -190,7 +190,11 @@ func (s *ImmuServer) Initialize() error {
 	grpc_prometheus.Register(s.GrpcServer)
 
 	s.PgsqlSrv = pgsqlsrv.New(pgsqlsrv.Port(s.Options.PgsqlServerPort), pgsqlsrv.DatabaseList(s.dbList), pgsqlsrv.SysDb(s.sysDb), pgsqlsrv.TlsConfig(s.Options.TLSConfig))
-
+	if s.Options.PgsqlServer {
+		if err = s.PgsqlSrv.Initialize(); err != nil {
+			return err
+		}
+	}
 
 	return err
 }
@@ -199,6 +203,7 @@ func (s *ImmuServer) Initialize() error {
 // Loads and starts the System DB, default db and user db
 func (s *ImmuServer) Start() (err error) {
 	s.mux.Lock()
+	s.pgsqlMux.Lock()
 
 	if s.Options.MetricsServer {
 		if err := s.setUpMetricsServer(); err != nil {
@@ -228,7 +233,7 @@ func (s *ImmuServer) Start() (err error) {
 		go func() {
 			s.Logger.Infof("pgsl server is running at port %d", s.Options.PgsqlServerPort)
 			if err := s.PgsqlSrv.Serve(); err != nil {
-				s.mux.Unlock()
+				s.pgsqlMux.Unlock()
 				log.Fatal(err)
 			}
 		}()
@@ -246,6 +251,7 @@ func (s *ImmuServer) Start() (err error) {
 	}
 
 	s.mux.Unlock()
+	s.pgsqlMux.Unlock()
 	<-s.quit
 
 	return err
@@ -1034,7 +1040,7 @@ func (s *ImmuServer) CreateDatabase(ctx context.Context, newdb *schema.Database)
 	}
 
 	//check if database exists
-	if s.dbList.GetId(newdb.GetDatabaseName()) == 0 {
+	if s.dbList.GetId(newdb.GetDatabaseName()) >= 0 {
 		return nil, fmt.Errorf("database %s already exists", newdb.GetDatabaseName())
 	}
 
@@ -1088,7 +1094,7 @@ func (s *ImmuServer) CreateUser(ctx context.Context, r *schema.CreateUserRequest
 		}
 
 		//check if database exists
-		if s.dbList.GetId(r.Database) == 0 {
+		if s.dbList.GetId(r.Database) < 0 {
 			return nil, fmt.Errorf("database %s does not exist", r.Database)
 		}
 
@@ -1321,7 +1327,7 @@ func (s *ImmuServer) UseDatabase(ctx context.Context, db *schema.Database) (*sch
 
 	//check if database exists
 	dbid := s.dbList.GetId(db.DatabaseName)
-	if dbid == 0 {
+	if dbid < 0 {
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("%s does not exist", db.DatabaseName))
 	}
 

@@ -93,7 +93,7 @@ func DefaultOptions() *Options {
 		StoreOptions:        DefaultStoreOptions(),
 		StreamChunkSize:     stream.DefaultChunkSize,
 		TokenExpiryTimeMin:  1440,
-		PgsqlServer:         true,
+		PgsqlServer:         false,
 		PgsqlServerPort:     5432,
 	}
 }
@@ -329,8 +329,6 @@ func (o *Options) WithPgsqlServer(enable bool) *Options {
 
 // PgsqlServerPort sets pgdsql server port
 func (o *Options) WithPgsqlServerPort(port int) *Options {
-	if port > 0 {
-		o.PgsqlServerPort = port
-	}
+	o.PgsqlServerPort = port
 	return o
 }

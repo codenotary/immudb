@@ -50,12 +50,12 @@ func (d *databaseList) Length() int {
 	return len(d.databases)
 }
 
-// GetById returns the database id number. 0 if database is not present
+// GetById returns the database id number. -1 if database is not present
 func (d *databaseList) GetId(dbname string) int64 {
 	d.RLock()
 	defer d.RUnlock()
 	if id, ok := d.databasenameToIndex[dbname]; ok {
 		return id
 	}
-	return 0
+	return -1
 }

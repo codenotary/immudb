@@ -451,7 +451,7 @@ func TestServerListUsersAdmin(t *testing.T) {
 	err = s.CloseDatabases()
 	require.NoError(t, err)
 
-	s.dbList = NewDatabaseList()
+	s.dbList = database.NewDatabaseList()
 	s.sysDb = nil
 
 	err = s.loadSystemDatabase(s.Options.Dir, auth.SysAdminPassword)

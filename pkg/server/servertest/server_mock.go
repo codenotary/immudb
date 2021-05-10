@@ -25,7 +25,7 @@ import (
 )
 
 type ServerMock struct {
-	srv *server.ImmuServer
+	Srv *server.ImmuServer
 
 	PostSetFn           func(context.Context, *schema.SetRequest, *schema.TxMetadata, error) (*schema.TxMetadata, error)
 	PostVerifiableSetFn func(context.Context, *schema.VerifiableSetRequest, *schema.VerifiableTx, error) (*schema.VerifiableTx, error)
@@ -42,202 +42,202 @@ type ServerMock struct {
 }
 
 func (s *ServerMock) StreamExecAll(allServer schema.ImmuService_StreamExecAllServer) error {
-	return s.srv.StreamExecAll(allServer)
+	return s.Srv.StreamExecAll(allServer)
 }
 
 func (s *ServerMock) StreamGet(request *schema.KeyRequest, getServer schema.ImmuService_StreamGetServer) error {
-	return s.srv.StreamGet(request, getServer)
+	return s.Srv.StreamGet(request, getServer)
 }
 
 func (s *ServerMock) StreamSet(setServer schema.ImmuService_StreamSetServer) error {
-	return s.srv.StreamSet(setServer)
+	return s.Srv.StreamSet(setServer)
 }
 
 func (s *ServerMock) StreamVerifiableGet(request *schema.VerifiableGetRequest, getServer schema.ImmuService_StreamVerifiableGetServer) error {
-	return s.srv.StreamVerifiableGet(request, getServer)
+	return s.Srv.StreamVerifiableGet(request, getServer)
 }
 
 func (s *ServerMock) StreamVerifiableSet(vSetServer schema.ImmuService_StreamVerifiableSetServer) error {
-	return s.srv.StreamVerifiableSet(vSetServer)
+	return s.Srv.StreamVerifiableSet(vSetServer)
 }
 
 func (s *ServerMock) StreamScan(request *schema.ScanRequest, scanServer schema.ImmuService_StreamScanServer) error {
-	return s.srv.StreamScan(request, scanServer)
+	return s.Srv.StreamScan(request, scanServer)
 }
 
 func (s *ServerMock) StreamZScan(request *schema.ZScanRequest, zscanServer schema.ImmuService_StreamZScanServer) error {
-	return s.srv.StreamZScan(request, zscanServer)
+	return s.Srv.StreamZScan(request, zscanServer)
 }
 
 func (s *ServerMock) StreamHistory(request *schema.HistoryRequest, historyServer schema.ImmuService_StreamHistoryServer) error {
-	return s.srv.StreamHistory(request, historyServer)
+	return s.Srv.StreamHistory(request, historyServer)
 }
 
 func (s *ServerMock) ListUsers(ctx context.Context, req *empty.Empty) (*schema.UserList, error) {
-	return s.srv.ListUsers(ctx, req)
+	return s.Srv.ListUsers(ctx, req)
 }
 
 func (s *ServerMock) CreateUser(ctx context.Context, req *schema.CreateUserRequest) (*empty.Empty, error) {
-	return s.srv.CreateUser(ctx, req)
+	return s.Srv.CreateUser(ctx, req)
 }
 
 func (s *ServerMock) ChangePassword(ctx context.Context, req *schema.ChangePasswordRequest) (*empty.Empty, error) {
-	return s.srv.ChangePassword(ctx, req)
+	return s.Srv.ChangePassword(ctx, req)
 }
 
 func (s *ServerMock) UpdateAuthConfig(ctx context.Context, req *schema.AuthConfig) (*empty.Empty, error) {
-	return s.srv.UpdateAuthConfig(ctx, req)
+	return s.Srv.UpdateAuthConfig(ctx, req)
 }
 
 func (s *ServerMock) UpdateMTLSConfig(ctx context.Context, req *schema.MTLSConfig) (*empty.Empty, error) {
-	return s.srv.UpdateMTLSConfig(ctx, req)
+	return s.Srv.UpdateMTLSConfig(ctx, req)
 }
 
 func (s *ServerMock) Login(ctx context.Context, req *schema.LoginRequest) (*schema.LoginResponse, error) {
-	return s.srv.Login(ctx, req)
+	return s.Srv.Login(ctx, req)
 }
 
 func (s *ServerMock) Logout(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
-	return s.srv.Logout(ctx, req)
+	return s.Srv.Logout(ctx, req)
 }
 
 func (s *ServerMock) Set(ctx context.Context, req *schema.SetRequest) (*schema.TxMetadata, error) {
 	if s.PostSetFn == nil {
-		return s.srv.Set(ctx, req)
+		return s.Srv.Set(ctx, req)
 	}
 
-	rsp, err := s.srv.Set(ctx, req)
+	rsp, err := s.Srv.Set(ctx, req)
 	return s.PostSetFn(ctx, req, rsp, err)
 }
 
 func (s *ServerMock) VerifiableSet(ctx context.Context, req *schema.VerifiableSetRequest) (*schema.VerifiableTx, error) {
 	if s.PostVerifiableSetFn == nil {
-		return s.srv.VerifiableSet(ctx, req)
+		return s.Srv.VerifiableSet(ctx, req)
 	}
 
-	rsp, err := s.srv.VerifiableSet(ctx, req)
+	rsp, err := s.Srv.VerifiableSet(ctx, req)
 	return s.PostVerifiableSetFn(ctx, req, rsp, err)
 }
 
 func (s *ServerMock) Get(ctx context.Context, req *schema.KeyRequest) (*schema.Entry, error) {
-	return s.srv.Get(ctx, req)
+	return s.Srv.Get(ctx, req)
 }
 
 func (s *ServerMock) VerifiableGet(ctx context.Context, req *schema.VerifiableGetRequest) (*schema.VerifiableEntry, error) {
-	return s.srv.VerifiableGet(ctx, req)
+	return s.Srv.VerifiableGet(ctx, req)
 }
 
 func (s *ServerMock) GetAll(ctx context.Context, req *schema.KeyListRequest) (*schema.Entries, error) {
-	return s.srv.GetAll(ctx, req)
+	return s.Srv.GetAll(ctx, req)
 }
 
 func (s *ServerMock) ExecAll(ctx context.Context, req *schema.ExecAllRequest) (*schema.TxMetadata, error) {
 	if s.PostExecAllFn == nil {
-		return s.srv.ExecAll(ctx, req)
+		return s.Srv.ExecAll(ctx, req)
 	}
 
-	rsp, err := s.srv.ExecAll(ctx, req)
+	rsp, err := s.Srv.ExecAll(ctx, req)
 	return s.PostExecAllFn(ctx, req, rsp, err)
 }
 
 func (s *ServerMock) Scan(ctx context.Context, req *schema.ScanRequest) (*schema.Entries, error) {
-	return s.srv.Scan(ctx, req)
+	return s.Srv.Scan(ctx, req)
 }
 
 func (s *ServerMock) Count(ctx context.Context, req *schema.KeyPrefix) (*schema.EntryCount, error) {
-	return s.srv.Count(ctx, req)
+	return s.Srv.Count(ctx, req)
 }
 
 func (s *ServerMock) CountAll(ctx context.Context, req *empty.Empty) (*schema.EntryCount, error) {
-	return s.srv.CountAll(ctx, req)
+	return s.Srv.CountAll(ctx, req)
 }
 
 func (s *ServerMock) TxById(ctx context.Context, req *schema.TxRequest) (*schema.Tx, error) {
-	return s.srv.TxById(ctx, req)
+	return s.Srv.TxById(ctx, req)
 }
 
 func (s *ServerMock) VerifiableTxById(ctx context.Context, req *schema.VerifiableTxRequest) (*schema.VerifiableTx, error) {
-	return s.srv.VerifiableTxById(ctx, req)
+	return s.Srv.VerifiableTxById(ctx, req)
 }
 
 func (s *ServerMock) TxScan(ctx context.Context, req *schema.TxScanRequest) (*schema.TxList, error) {
-	return s.srv.TxScan(ctx, req)
+	return s.Srv.TxScan(ctx, req)
 }
 
 func (s *ServerMock) History(ctx context.Context, req *schema.HistoryRequest) (*schema.Entries, error) {
-	return s.srv.History(ctx, req)
+	return s.Srv.History(ctx, req)
 }
 
 func (s *ServerMock) Health(ctx context.Context, req *empty.Empty) (*schema.HealthResponse, error) {
-	return s.srv.Health(ctx, req)
+	return s.Srv.Health(ctx, req)
 }
 
 func (s *ServerMock) CurrentState(ctx context.Context, req *empty.Empty) (*schema.ImmutableState, error) {
-	return s.srv.CurrentState(ctx, req)
+	return s.Srv.CurrentState(ctx, req)
 }
 
 func (s *ServerMock) SetReference(ctx context.Context, req *schema.ReferenceRequest) (*schema.TxMetadata, error) {
 	if s.PostSetReferenceFn == nil {
-		return s.srv.SetReference(ctx, req)
+		return s.Srv.SetReference(ctx, req)
 	}
 
-	rsp, err := s.srv.SetReference(ctx, req)
+	rsp, err := s.Srv.SetReference(ctx, req)
 	return s.PostSetReferenceFn(ctx, req, rsp, err)
 }
 
 func (s *ServerMock) VerifiableSetReference(ctx context.Context, req *schema.VerifiableReferenceRequest) (*schema.VerifiableTx, error) {
 	if s.PostVerifiableSetReferenceFn == nil {
-		return s.srv.VerifiableSetReference(ctx, req)
+		return s.Srv.VerifiableSetReference(ctx, req)
 	}
 
-	rsp, err := s.srv.VerifiableSetReference(ctx, req)
+	rsp, err := s.Srv.VerifiableSetReference(ctx, req)
 	return s.PostVerifiableSetReferenceFn(ctx, req, rsp, err)
 }
 
 func (s *ServerMock) ZAdd(ctx context.Context, req *schema.ZAddRequest) (*schema.TxMetadata, error) {
 	if s.PostZAddFn == nil {
-		return s.srv.ZAdd(ctx, req)
+		return s.Srv.ZAdd(ctx, req)
 	}
 
-	rsp, err := s.srv.ZAdd(ctx, req)
+	rsp, err := s.Srv.ZAdd(ctx, req)
 	return s.PostZAddFn(ctx, req, rsp, err)
 }
 
 func (s *ServerMock) VerifiableZAdd(ctx context.Context, req *schema.VerifiableZAddRequest) (*schema.VerifiableTx, error) {
 	if s.PostVerifiableZAddFn == nil {
-		return s.srv.VerifiableZAdd(ctx, req)
+		return s.Srv.VerifiableZAdd(ctx, req)
 	}
 
-	rsp, err := s.srv.VerifiableZAdd(ctx, req)
+	rsp, err := s.Srv.VerifiableZAdd(ctx, req)
 	return s.PostVerifiableZAddFn(ctx, req, rsp, err)
 }
 
 func (s *ServerMock) ZScan(ctx context.Context, req *schema.ZScanRequest) (*schema.ZEntries, error) {
-	return s.srv.ZScan(ctx, req)
+	return s.Srv.ZScan(ctx, req)
 }
 
 func (s *ServerMock) CreateDatabase(ctx context.Context, req *schema.Database) (*empty.Empty, error) {
-	return s.srv.CreateDatabase(ctx, req)
+	return s.Srv.CreateDatabase(ctx, req)
 }
 
 func (s *ServerMock) DatabaseList(ctx context.Context, req *empty.Empty) (*schema.DatabaseListResponse, error) {
-	return s.srv.DatabaseList(ctx, req)
+	return s.Srv.DatabaseList(ctx, req)
 }
 
 func (s *ServerMock) UseDatabase(ctx context.Context, req *schema.Database) (*schema.UseDatabaseReply, error) {
-	return s.srv.UseDatabase(ctx, req)
+	return s.Srv.UseDatabase(ctx, req)
 }
 
 func (s *ServerMock) CleanIndex(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
-	return s.srv.CleanIndex(ctx, req)
+	return s.Srv.CleanIndex(ctx, req)
 }
 
 func (s *ServerMock) ChangePermission(ctx context.Context, req *schema.ChangePermissionRequest) (*empty.Empty, error) {
-	return s.srv.ChangePermission(ctx, req)
+	return s.Srv.ChangePermission(ctx, req)
 }
 
 func (s *ServerMock) SetActiveUser(ctx context.Context, req *schema.SetActiveUserRequest) (*empty.Empty, error) {
-	return s.srv.SetActiveUser(ctx, req)
+	return s.Srv.SetActiveUser(ctx, req)
 }
 
 func (s *ServerMock) getDbIndexFromCtx(ctx context.Context, methodname string) (int64, error) {
@@ -245,15 +245,15 @@ func (s *ServerMock) getDbIndexFromCtx(ctx context.Context, methodname string) (
 }
 
 func (s *ServerMock) Stop() error {
-	return s.srv.Stop()
+	return s.Srv.Stop()
 }
 
 func (s *ServerMock) Initialize() error {
-	return s.srv.Initialize()
+	return s.Srv.Initialize()
 }
 
 func (s *ServerMock) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
-	return s.srv.SQLExec(ctx, req)
+	return s.Srv.SQLExec(ctx, req)
 }
 
 func (s *ServerMock) UseSnapshot(ctx context.Context, req *schema.UseSnapshotRequest) (*empty.Empty, error) {
@@ -261,13 +261,13 @@ func (s *ServerMock) UseSnapshot(ctx context.Context, req *schema.UseSnapshotReq
 }
 
 func (s *ServerMock) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
-	return s.srv.SQLQuery(ctx, req)
+	return s.Srv.SQLQuery(ctx, req)
 }
 
 func (s *ServerMock) ListTables(ctx context.Context, req *empty.Empty) (*schema.SQLQueryResult, error) {
-	return s.srv.ListTables(ctx, req)
+	return s.Srv.ListTables(ctx, req)
 }
 
 func (s *ServerMock) DescribeTable(ctx context.Context, req *schema.Table) (*schema.SQLQueryResult, error) {
-	return s.srv.DescribeTable(ctx, req)
+	return s.Srv.DescribeTable(ctx, req)
 }
