@@ -92,7 +92,7 @@ func TestConcurrentCompactIndex(t *testing.T) {
 			case <-ticker.C:
 				{
 					err := compactIndex(db, cleanUpTimeout)
-					if err != nil {
+					if err != nil && err != store.ErrAlreadyClosed {
 						panic(err)
 					}
 				}
