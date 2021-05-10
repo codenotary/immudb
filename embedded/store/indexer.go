@@ -203,10 +203,9 @@ func (idx *indexer) CompactIndex() (err error) {
 func (idx *indexer) stop() {
 	idx.stateCond.L.Lock()
 	idx.state = stopped
+	close(idx.cancellation)
 	idx.stateCond.L.Unlock()
 	idx.stateCond.Signal()
-
-	close(idx.cancellation)
 
 	idx.store.notify(Info, true, "Indexing gracefully stopped at '%s'", idx.store.path)
 }
@@ -214,11 +213,9 @@ func (idx *indexer) stop() {
 func (idx *indexer) resume() {
 	idx.stateCond.L.Lock()
 	idx.state = running
-	idx.stateCond.L.Unlock()
-
 	idx.cancellation = make(chan struct{})
-
-	go idx.doIndexing()
+	go idx.doIndexing(idx.cancellation)
+	idx.stateCond.L.Unlock()
 
 	idx.store.notify(Info, true, "Indexing in progress at '%s'", idx.store.path)
 }
@@ -278,7 +275,7 @@ func (idx *indexer) Pause() {
 	idx.stateCond.L.Unlock()
 }
 
-func (idx *indexer) doIndexing() {
+func (idx *indexer) doIndexing(cancellation <-chan struct{}) {
 	for {
 		lastIndexedTx := idx.index.Ts()
 
@@ -286,7 +283,7 @@ func (idx *indexer) doIndexing() {
 			idx.wHub.DoneUpto(lastIndexedTx)
 		}
 
-		err := idx.store.wHub.WaitFor(lastIndexedTx+1, idx.cancellation)
+		err := idx.store.wHub.WaitFor(lastIndexedTx+1, cancellation)
 		if err == watchers.ErrCancellationRequested || err == watchers.ErrAlreadyClosed {
 			return
 		}
