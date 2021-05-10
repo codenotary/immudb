@@ -78,15 +78,15 @@ func (jointr *jointRowReader) Columns() ([]*ColDescriptor, error) {
 	colsByPos := make([]*ColDescriptor, len(colsBySel))
 
 	i := 0
-	for s, t := range colsBySel {
-		colsByPos[i] = &ColDescriptor{Selector: s, Type: t}
+	for _, c := range colsBySel {
+		colsByPos[i] = c
 		i++
 	}
 
 	return colsByPos, nil
 }
 
-func (jointr *jointRowReader) colsBySelector() (map[string]SQLValueType, error) {
+func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
 	colDescriptors, err := jointr.rowReader.colsBySelector()
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (jointr *jointRowReader) colsBySelector() (map[string]SQLValueType, error) 
 
 		for _, c := range table.GetColsByID() {
 			encSel := EncodeSelector("", table.db.name, tableRef.Alias(), c.colName)
-			colDescriptors[encSel] = c.colType
+			colDescriptors[encSel] = &ColDescriptor{Selector: encSel, Type: c.colType}
 		}
 	}
 

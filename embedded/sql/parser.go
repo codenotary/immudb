@@ -114,13 +114,6 @@ var logicOps = map[string]LogicOperator{
 	"OR":  OR,
 }
 
-var numOps = map[string]NumOperator{
-	"+": ADDOP,
-	"-": SUBSOP,
-	"/": DIVOP,
-	"*": MULTOP,
-}
-
 type lexer struct {
 	r      *aheadByteReader
 	err    error
@@ -331,12 +324,6 @@ func (l *lexer) Lex(lval *yySymType) int {
 
 		lval.cmpOp = cmpOp
 		return CMPOP
-	}
-
-	nop, isNumOp := numOps[fmt.Sprintf("%c", ch)]
-	if isNumOp {
-		lval.numOp = nop
-		return NUMOP
 	}
 
 	if isQuote(ch) {

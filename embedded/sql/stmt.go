@@ -863,10 +863,6 @@ func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (
 		return nil, nil, ErrLimitedOrderBy
 	}
 
-	if len(stmt.selectors) == 0 {
-		return nil, nil, ErrIllegalArguments
-	}
-
 	if len(stmt.orderBy) > 0 {
 		tableRef, ok := stmt.ds.(*TableRef)
 		if !ok {

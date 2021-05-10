@@ -44,7 +44,7 @@ func (cr *closerRowReader) Columns() ([]*ColDescriptor, error) {
 	return cr.rowReader.Columns()
 }
 
-func (cr *closerRowReader) colsBySelector() (map[string]SQLValueType, error) {
+func (cr *closerRowReader) colsBySelector() (map[string]*ColDescriptor, error) {
 	return cr.rowReader.colsBySelector()
 }
 
