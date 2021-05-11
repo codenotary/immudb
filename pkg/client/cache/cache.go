@@ -16,13 +16,20 @@ limitations under the License.
 
 package cache
 
-import "github.com/codenotary/immudb/pkg/api/schema"
+import (
+	"errors"
+	"github.com/codenotary/immudb/pkg/api/schema"
+)
+
+var ErrCacheNotLocked = errors.New("cache is not locked")
+var ErrCacheAlreadyLocked = errors.New("cache is already locked")
 
 // Cache the cache interface
 type Cache interface {
 	Get(serverUUID, db string) (*schema.ImmutableState, error)
 	Set(serverUUID, db string, state *schema.ImmutableState) error
-	GetLocker(serverUUID string) Locker
+	Lock(serverUUID string) error
+	Unlock() error
 }
 
 // HistoryCache the history cache interface
@@ -31,7 +38,3 @@ type HistoryCache interface {
 	Walk(serverUUID string, db string, f func(*schema.ImmutableState) interface{}) ([]interface{}, error)
 }
 
-type Locker interface {
-	Lock() error
-	Unlock() error
-}
