@@ -405,6 +405,9 @@ func TestQuery(t *testing.T) {
 	_, err = engine.QueryStmt("SELECT id FROM table1", nil)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
+	_, err = engine.QueryStmt("SELECT * FROM table1", nil)
+	require.Equal(t, ErrNoDatabaseSelected, err)
+
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
@@ -418,6 +421,9 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = engine.QueryStmt("SELECT id FROM db1.table1", nil)
+	require.Equal(t, ErrNoMoreRows, err)
+
+	_, err = engine.QueryStmt("SELECT * FROM db1.table1", nil)
 	require.Equal(t, ErrNoMoreRows, err)
 
 	rowCount := 10
@@ -527,6 +533,20 @@ func TestQuery(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
 		require.Equal(t, params["some_param"], row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
 	}
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT * FROM table1 WHERE id = 0", nil)
+	require.NoError(t, err)
+
+	cols, err = r.Columns()
+	require.NoError(t, err)
+	require.Len(t, cols, 5)
+
+	row, err = r.Read()
+	require.NoError(t, err)
+	require.Len(t, row.Values, 5)
 
 	err = r.Close()
 	require.NoError(t, err)

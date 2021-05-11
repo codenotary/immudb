@@ -860,7 +860,7 @@ func TestExpressions(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			input: "SELECT id FROM table1 WHERE id > 0 AND id < 10",
+			input: "SELECT id FROM table1 WHERE NOT id > 0 AND id < 10",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
 					distinct: false,
@@ -870,12 +870,14 @@ func TestExpressions(t *testing.T) {
 					ds: &TableRef{table: "table1"},
 					where: &BinBoolExp{
 						op: AND,
-						left: &CmpBoolExp{
-							op: GT,
-							left: &ColSelector{
-								col: "id",
+						left: &NotBoolExp{
+							exp: &CmpBoolExp{
+								op: GT,
+								left: &ColSelector{
+									col: "id",
+								},
+								right: &Number{val: 0},
 							},
-							right: &Number{val: 0},
 						},
 						right: &CmpBoolExp{
 							op: LT,
@@ -883,6 +885,37 @@ func TestExpressions(t *testing.T) {
 								col: "id",
 							},
 							right: &Number{val: 10},
+						},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
+			input: "SELECT id FROM table1 WHERE NOT (id > 0 AND id < 10)",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &NotBoolExp{
+						exp: &BinBoolExp{
+							op: AND,
+							left: &CmpBoolExp{
+								op: GT,
+								left: &ColSelector{
+									col: "id",
+								},
+								right: &Number{val: 0},
+							},
+							right: &CmpBoolExp{
+								op: LT,
+								left: &ColSelector{
+									col: "id",
+								},
+								right: &Number{val: 10},
+							},
 						},
 					},
 				}},
