@@ -568,6 +568,15 @@ func TestQuery(t *testing.T) {
 
 	err = r.Close()
 	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.NoError(t, err)
+
+	err = r.Close()
+	require.NoError(t, err)
 }
 
 func TestQueryWithNullables(t *testing.T) {

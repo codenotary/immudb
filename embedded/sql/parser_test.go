@@ -922,6 +922,25 @@ func TestExpressions(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			input: "SELECT id FROM table1 WHERE NOT active OR active",
+			expectedOutput: []SQLStmt{
+				&SelectStmt{
+					distinct: false,
+					selectors: []Selector{
+						&ColSelector{col: "id"},
+					},
+					ds: &TableRef{table: "table1"},
+					where: &BinBoolExp{
+						op: OR,
+						left: &NotBoolExp{
+							exp: &ColSelector{col: "active"},
+						},
+						right: &ColSelector{col: "active"},
+					},
+				}},
+			expectedError: nil,
+		},
+		{
 			input: "SELECT id FROM table1 WHERE id > 0 AND NOT (table1.id >= 10)",
 			expectedOutput: []SQLStmt{
 				&SelectStmt{
