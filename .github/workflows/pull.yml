@@ -9,15 +9,19 @@ jobs:
         platform: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: 1.13
       - uses: actions/checkout@v1
-
       - name: Build
-        env:
-          GO111MODULE: "on"
         run: make all
+      - name: Test
+        run: make test
+        if: runner.os == 'Linux'
+      - name: Test Client
+        run: make test-client
+        if: runner.os == 'Windows'
+        shell: bash
 
   coveralls:
     name: Coverage
