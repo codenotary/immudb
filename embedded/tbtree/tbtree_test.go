@@ -308,8 +308,9 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 		require.Equal(t, ts, ts1)
 		if override {
 			require.Greater(t, hc1, uint64(0))
+		} else {
+			require.Equal(t, uint64(1), hc1)
 		}
-		require.Equal(t, uint64(1), hc1)
 
 		tss, err := snapshot.History(k, 0, false, 1)
 		require.NoError(t, err)
