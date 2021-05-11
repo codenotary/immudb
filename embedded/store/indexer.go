@@ -71,6 +71,7 @@ func newIndexer(path string, store *ImmuStore, indexOpts *tbtree.Options, maxWai
 		path:      path,
 		index:     index,
 		wHub:      wHub,
+		state:     stopped,
 		stateCond: sync.NewCond(&sync.Mutex{}),
 	}
 
