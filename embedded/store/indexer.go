@@ -131,6 +131,17 @@ func (idx *indexer) SnapshotSince(tx uint64) (*tbtree.Snapshot, error) {
 	return idx.index.SnapshotSince(tx)
 }
 
+func (idx *indexer) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
+	idx.mutex.Lock()
+	defer idx.mutex.Unlock()
+
+	if idx.closed {
+		return false, ErrAlreadyClosed
+	}
+
+	return idx.index.ExistKeyWith(prefix, neq, smaller)
+}
+
 func (idx *indexer) Sync() error {
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
