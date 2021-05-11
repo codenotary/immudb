@@ -76,16 +76,16 @@ func setResult(l yyLexer, stmts []SQLStmt) {
 %token <aggFn> AGGREGATE_FUNC
 %token <err> ERROR
 
-%right STMT_SEPARATOR
 %left  ','
 %right AS
-%right LIKE
 %left  LOP
-%left  CMPOP
+%right LIKE
 %right NOT
+%left  CMPOP
 %left '+' '-'
 %left '*' '/'
 %left  '.'
+%right STMT_SEPARATOR
 
 %type <stmts> sql
 %type <stmts> sqlstmts dstmts
