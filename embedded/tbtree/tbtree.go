@@ -597,6 +597,31 @@ func (t *TBtree) History(key []byte, offset uint64, descOrder bool, limit int) (
 	return t.root.history(key, offset, descOrder, limit)
 }
 
+func (t *TBtree) ExistKeyWith(prefix []byte, neq []byte, smaller bool) (bool, error) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.closed {
+		return false, ErrAlreadyClosed
+	}
+
+	_, leaf, off, err := t.root.findLeafNode(prefix, nil, neq, smaller)
+	if err == ErrKeyNotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	v := leaf.values[off]
+
+	if len(prefix) > len(v.key) {
+		return false, nil
+	}
+
+	return bytes.Equal(prefix, v.key[:len(prefix)]), nil
+}
+
 func (t *TBtree) Sync() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
