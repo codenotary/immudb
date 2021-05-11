@@ -1294,9 +1294,7 @@ func (bexp *NotBoolExp) reduce(catalog *Catalog, row *Row, implicitDB, implicitT
 		return nil, ErrInvalidCondition
 	}
 
-	v.(*Bool).val = !r
-
-	return v, nil
+	return &Bool{val: !r}, nil
 }
 
 type LikeBoolExp struct {
