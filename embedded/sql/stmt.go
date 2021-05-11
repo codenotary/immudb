@@ -290,6 +290,22 @@ func (stmt *CreateIndexStmt) CompileUsing(e *Engine, params map[string]interface
 		return nil, nil, ErrIndexAlreadyExists
 	}
 
+	// check table is empty
+	lastTxID, _ := e.dataStore.Alh()
+	err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pkPrefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id))
+	existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	if existKey {
+		return nil, nil, ErrLimitedIndex
+	}
+
 	table.indexes[col.id] = struct{}{}
 
 	te := &store.KV{
