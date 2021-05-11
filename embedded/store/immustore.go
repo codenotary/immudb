@@ -397,6 +397,11 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 		done: make(chan struct{}),
 	}
 
+	err = store.wHub.DoneUpto(committedTxID)
+	if err != nil {
+		return nil, err
+	}
+
 	indexOpts := tbtree.DefaultOptions().
 		WithReadOnly(opts.ReadOnly).
 		WithFileMode(opts.FileMode).
@@ -419,19 +424,19 @@ func OpenWith(path string, vLogs []appendable.Appendable, txLog, cLog appendable
 	}
 
 	if store.aht.Size() > store.committedTxID || store.indexer.Ts() > store.committedTxID {
+		store.Close()
 		return nil, ErrCorruptedCLog
 	}
 
 	err = store.syncBinaryLinking()
 	if err != nil {
+		store.Close()
 		return nil, err
 	}
 
 	if store.blBuffer != nil {
 		go store.binaryLinking()
 	}
-
-	store.indexer.Resume()
 
 	return store, nil
 }
