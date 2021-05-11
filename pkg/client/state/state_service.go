@@ -39,7 +39,6 @@ type stateService struct {
 	cache         cache.Cache
 	serverUUID    string
 	logger        logger.Logger
-	l             cache.Locker
 	sync.RWMutex
 }
 
@@ -63,7 +62,6 @@ func NewStateService(cache cache.Cache,
 		cache:         cache,
 		logger:        logger,
 		serverUUID:    serverUUID,
-		l:             cache.GetLocker(serverUUID),
 	}, nil
 }
 
@@ -99,9 +97,9 @@ func (r *stateService) SetState(db string, state *schema.ImmutableState) error {
 }
 
 func (r *stateService) CacheLock() error {
-	return r.l.Lock()
+	return r.cache.Lock(r.serverUUID)
 }
 
 func (r *stateService) CacheUnlock() error {
-	return r.l.Unlock()
+	return r.cache.Unlock()
 }

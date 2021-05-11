@@ -60,16 +60,10 @@ func (imc *inMemoryCache) Set(serverUUID, db string, state *schema.ImmutableStat
 	return nil
 }
 
-func (imc *inMemoryCache) GetLocker(serverUUID string) Locker {
-	return &InMemoryLocker{}
-}
-
-type InMemoryLocker struct{}
-
-func (fl *InMemoryLocker) Lock() (err error) {
+func (fl *inMemoryCache) Lock(serverUUID string) (err error) {
 	return fmt.Errorf("not implemented")
 }
 
-func (fl *InMemoryLocker) Unlock() (err error) {
+func (fl *inMemoryCache) Unlock() (err error) {
 	return fmt.Errorf("not implemented")
 }
