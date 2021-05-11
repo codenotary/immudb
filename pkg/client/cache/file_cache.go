@@ -17,13 +17,13 @@ limitations under the License.
 package cache
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/base64"
-	"fmt"
-	"io/ioutil"
+	"github.com/rogpeppe/go-internal/lockedfile"
+	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/rogpeppe/go-internal/lockedfile"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/golang/protobuf/proto"
@@ -34,6 +34,7 @@ const STATE_FN = ".state-"
 
 type fileCache struct {
 	Dir string
+	stateFile *lockedfile.File
 }
 
 // NewFileCache returns a new file cache
@@ -41,15 +42,14 @@ func NewFileCache(dir string) Cache {
 	return &fileCache{Dir: dir}
 }
 
-func (w *fileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
-	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(STATE_FN), []byte(serverUUID))))
-
-	raw, err := ioutil.ReadFile(fn)
-	if err != nil {
-		return nil, err
+func (w *fileCache) Get(serverUUID string, db string) (*schema.ImmutableState, error) {
+	if w.stateFile == nil {
+		return nil, ErrCacheNotLocked
 	}
-	lines := strings.Split(string(raw), "\n")
-	for _, line := range lines {
+	scanner := bufio.NewScanner(w.stateFile)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		line := scanner.Text()
 		if strings.Contains(line, db+":") {
 			r := strings.Split(line, ":")
 			if r[1] == "" {
@@ -69,64 +69,53 @@ func (w *fileCache) Get(serverUUID, db string) (*schema.ImmutableState, error) {
 	return nil, ErrPrevStateNotFound
 }
 
-func (w *fileCache) Set(serverUUID, db string, state *schema.ImmutableState) error {
+func (w *fileCache) Set(serverUUID string, db string, state *schema.ImmutableState) error {
+	if w.stateFile == nil {
+		return ErrCacheNotLocked
+	}
 	raw, err := proto.Marshal(state)
 	if err != nil {
 		return err
 	}
-	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(STATE_FN), []byte(serverUUID))))
 
-	input, _ := ioutil.ReadFile(fn)
-	lines := strings.Split(string(input), "\n")
-
-	newState := db + ":" + base64.StdEncoding.EncodeToString(raw) + "\n"
+	newState := db + ":" + base64.StdEncoding.EncodeToString(raw)
 	var exists bool
-	for i, line := range lines {
+
+	scanner := bufio.NewScanner(w.stateFile)
+	scanner.Split(bufio.ScanLines)
+	var lines [][]byte
+	for scanner.Scan() {
+		line := scanner.Text()
 		if strings.Contains(line, db+":") {
 			exists = true
-			lines[i] = newState
+			lines = append(lines, []byte(newState))
 		}
 	}
 	if !exists {
-		lines = append(lines, newState)
+		lines = append(lines, []byte(newState))
 	}
-	output := strings.Join(lines, "\n")
+	output := bytes.Join(lines, []byte("\n"))
 
-	if err = ioutil.WriteFile(fn, []byte(output), 0644); err != nil {
+	_, err = w.stateFile.WriteAt( output, 0)
+	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func getRootFileName(prefix []byte, serverUUID []byte) []byte {
-	l1 := len(prefix)
-	l2 := len(serverUUID)
-	var fn = make([]byte, l1+l2)
-	copy(fn[:], STATE_FN)
-	copy(fn[l1:], serverUUID)
-	return fn
-}
 
-func (w *fileCache) GetLocker(serverUUID string) Locker {
-	fn := filepath.Join(w.Dir, string(getRootFileName([]byte(STATE_FN), []byte(serverUUID))))
-	fm := lockedfile.MutexAt(fn)
-	return &FileLocker{lm: fm}
-}
-
-type FileLocker struct {
-	lm         *lockedfile.Mutex
-	unlockFunc func()
-}
-
-func (fl *FileLocker) Lock() (err error) {
-	fl.unlockFunc, err = fl.lm.Lock()
+func (w *fileCache) Lock(serverUUID string) (err error) {
+	if w.stateFile != nil {
+		return ErrCacheAlreadyLocked
+	}
+	w.stateFile, err = lockedfile.OpenFile(w.getStateFilePath(serverUUID), os.O_RDWR | os.O_CREATE, 0755)
 	return err
 }
 
-func (fl *FileLocker) Unlock() (err error) {
-	if fl.unlockFunc == nil {
-		return fmt.Errorf("try to lock a not locked file")
-	}
-	fl.unlockFunc()
-	return nil
+func (w *fileCache) Unlock() (err error) {
+	return w.stateFile.Close()
+}
+
+func (w *fileCache) getStateFilePath(UUID string) string {
+	return filepath.Join(w.Dir, STATE_FN+UUID)
 }
