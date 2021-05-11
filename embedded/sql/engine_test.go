@@ -446,7 +446,7 @@ func TestQuery(t *testing.T) {
 	require.Equal(t, ErrColumnDoesNotExist, err)
 	require.Nil(t, row)
 
-	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS Id, ts, Title, payload, Active FROM (table1 AS T1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil)
+	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil)
 	require.NoError(t, err)
 
 	colsBySel, err := r.colsBySelector()
@@ -466,7 +466,7 @@ func TestQuery(t *testing.T) {
 		require.NotNil(t, row)
 		require.Len(t, row.Values, 5)
 		require.Less(t, uint64(start), row.Values[EncodeSelector("", "db1", "table1", "ts")].Value())
-		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "id")].Value())
+		require.Equal(t, uint64(i), row.Values[EncodeSelector("", "db1", "table1", "d")].Value())
 		require.Equal(t, fmt.Sprintf("title%d", i), row.Values[EncodeSelector("", "db1", "table1", "title")].Value())
 		require.Equal(t, i%2 == 0, row.Values[EncodeSelector("", "db1", "table1", "active")].Value())
 
