@@ -42,8 +42,9 @@ defer bs.Stop()
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
+	}, ts).WithOptions(client.DefaultOptions())
+ic.
+Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	cmdl := commandline{
@@ -87,8 +88,9 @@ defer bs.Stop()
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
+	}, ts).WithOptions(client.DefaultOptions())
+ic.
+Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	cmdl := commandline{
@@ -132,8 +134,9 @@ defer bs.Stop()
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
+	}, ts).WithOptions(client.DefaultOptions())
+ic.
+Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	cmdl := commandline{

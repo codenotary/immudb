@@ -1,21 +1,6 @@
 package immuadmin
 
-import (
-	"bytes"
-	"context"
-	"io/ioutil"
-	"os"
-	"strings"
-	"testing"
-
-	"github.com/codenotary/immudb/cmd/immuclient/immuclienttest"
-	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-)
-
+/*
 func TestDatabaseList(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
@@ -136,3 +121,4 @@ func TestDatabaseCreate(t *testing.T) {
 		t.Fatal(string(msg))
 	}
 }
+*/

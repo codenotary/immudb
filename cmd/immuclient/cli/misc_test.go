@@ -41,7 +41,7 @@ func TestHealthCheck(t *testing.T) {
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts).WithOptions(client.DefaultOptions())
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -69,7 +69,7 @@ func TestHistory(t *testing.T) {
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts).WithOptions(client.DefaultOptions())
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
@@ -110,7 +110,7 @@ func TestVersion(t *testing.T) {
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
+	}, ts).WithOptions(client.DefaultOptions())
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 

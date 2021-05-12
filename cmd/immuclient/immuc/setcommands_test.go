@@ -41,8 +41,9 @@ func TestSet(t *testing.T) {
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
+	}, ts).WithOptions(client.DefaultOptions())
+	ic.
+		Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	msg, err := ic.Imc.Set([]string{"key", "val"})
@@ -68,8 +69,9 @@ func TestVerifiedSet(t *testing.T) {
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
+	}, ts).WithOptions(client.DefaultOptions())
+	ic.
+		Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	msg, err := ic.Imc.VerifiedSet([]string{"key", "val"})
@@ -95,8 +97,9 @@ func TestZAdd(t *testing.T) {
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
+	}, ts).WithOptions(client.DefaultOptions())
+	ic.
+		Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
@@ -124,8 +127,9 @@ func _TestVerifiedZAdd(t *testing.T) {
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
+	}, ts).WithOptions(client.DefaultOptions())
+	ic.
+		Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	_, _ = ic.Imc.VerifiedSet([]string{"key", "val"})
@@ -152,8 +156,9 @@ func TestCreateDatabase(t *testing.T) {
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts)
-	ic.Connect(bs.Dialer)
+	}, ts).WithOptions(client.DefaultOptions())
+	ic.
+		Connect(bs.Dialer)
 	ic.Login("immudb")
 
 	msg, err := ic.Imc.CreateDatabase([]string{"newdb"})

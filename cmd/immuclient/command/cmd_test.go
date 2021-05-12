@@ -24,7 +24,7 @@ import (
 
 func TestNew(t *testing.T) {
 	cmd := NewCommand()
-	if len(cmd.Commands()) != 24 {
+	if len(cmd.Commands()) != 28 {
 		t.Fatalf("error initialising command expected %d, got %d", 28, len(cmd.Commands()))
 	}
 	cmd.SetArgs([]string{"--help"})
