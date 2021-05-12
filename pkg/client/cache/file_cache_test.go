@@ -21,7 +21,7 @@ func TestNewFileCache(t *testing.T) {
 	os.RemoveAll(dirname)
 }
 
-func TestFileCacheSet(t *testing.T) {
+func TestFileCacheSetError(t *testing.T) {
 	dirname, err := ioutil.TempDir("", "example")
 	if err != nil {
 		log.Fatal(err)
@@ -32,7 +32,24 @@ func TestFileCacheSet(t *testing.T) {
 		TxHash:    []byte(`hash`),
 		Signature: nil,
 	})
-	require.Nil(t, err)
+	require.Error(t, err)
+	os.RemoveAll(dirname)
+}
+
+func TestFileCacheSet(t *testing.T) {
+	dirname, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fc := NewFileCache(dirname)
+	err = fc.Lock("uuid")
+	require.NoError(t, err)
+	err = fc.Set("uuid", "dbName", &schema.ImmutableState{
+		TxId:      0,
+		TxHash:    []byte(`hash`),
+		Signature: nil,
+	})
+	require.NoError(t, err)
 	os.RemoveAll(dirname)
 }
 
@@ -42,6 +59,8 @@ func TestFileCacheGet(t *testing.T) {
 		log.Fatal(err)
 	}
 	fc := NewFileCache(dirname)
+	err = fc.Lock("uuid")
+	require.NoError(t, err)
 	err = fc.Set("uuid", "dbName", &schema.ImmutableState{
 		TxId:      0,
 		TxHash:    []byte(`hash`),
