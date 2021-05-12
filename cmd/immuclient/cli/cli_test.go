@@ -238,26 +238,30 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true).WithDir(dir)
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
+	err := bs.Start()
+	require.NoError(t, err)
 
-	cliOpts := client.DefaultOptions().WithDir(stateFileDir)
+	cliOpts := client.DefaultOptions()
 	cliOpts.CurrentDatabase = client.DefaultDB
 
 	ts := client.NewTokenService().WithTokenFileName("testTokenFile").WithHds(&test.HomedirServiceMock{})
 	ic := test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(cliOpts)
+	}, ts).WithOptions(cliOpts.WithDir(stateFileDir))
+
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	cli := new(cli)
-	cli.immucl = ic.Imc
-	_, err := cli.safeset([]string{"key", "val"})
-	_, err = cli.safeset([]string{"key", "val"})
-	_, err = cli.safeset([]string{"key", "val"})
+	cl := new(cli)
+	cl.immucl = ic.Imc
+
+	_, err = cl.safeset([]string{"key1", "val"})
+	_, err = cl.safeset([]string{"key2", "val"})
+	_, err = cl.safeset([]string{"key3", "val"})
 	require.NoError(t, err)
 
-	bs.Stop()
+	err = bs.Stop()
+	require.NoError(t, err)
 
 	copier := fs.NewStandardCopier()
 	err = copier.CopyDir(dir, dirAtTx3)
@@ -267,21 +271,25 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	err = bs.Start()
 	require.NoError(t, err)
 
-	cliOpts = client.DefaultOptions().WithDir(stateFileDir)
+	cliOpts = client.DefaultOptions()
 	cliOpts.CurrentDatabase = client.DefaultDB
 	ic = test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(cliOpts)
+	}, ts).WithOptions(cliOpts.WithDir(stateFileDir))
+
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	cli.immucl = ic.Imc
-	_, err = cli.safeset([]string{"key", "val"})
-	_, err = cli.safeset([]string{"key", "val"})
-	_, err = cli.safeset([]string{"key", "val"})
+	cl = new(cli)
+	cl.immucl = ic.Imc
+
+	_, err = cl.safeset([]string{"key1", "val"})
+	_, err = cl.safeset([]string{"key2", "val"})
+	_, err = cl.safeset([]string{"key3", "val"})
 	require.NoError(t, err)
 
-	bs.Stop()
+	err = bs.Stop()
+	require.NoError(t, err)
 
 	os.RemoveAll(dir)
 	err = copier.CopyDir(dirAtTx3, dir)
@@ -291,16 +299,19 @@ func TestImmuClient_BackupAndRestoreUX(t *testing.T) {
 	err = bs.Start()
 	require.NoError(t, err)
 
-	cliOpts = client.DefaultOptions().WithDir(stateFileDir)
+	cliOpts = client.DefaultOptions()
 	cliOpts.CurrentDatabase = client.DefaultDB
 	ic = test.NewClientTest(&test.PasswordReader{
 		Pass: []string{"immudb"},
-	}, ts).WithOptions(cliOpts)
+	}, ts).WithOptions(cliOpts.WithDir(stateFileDir))
+
 	ic.Connect(bs.Dialer)
 	ic.Login("immudb")
 
-	cli.immucl = ic.Imc
-	_, err = cli.safeset([]string{"key", "val"})
+	cl = new(cli)
+	cl.immucl = ic.Imc
 
-	require.NoError(t, err)
+	_, err = cl.safeGetKey([]string{"key3"})
+
+	require.Equal(t, client.ErrServerStateIsOlder, err)
 }
