@@ -182,6 +182,12 @@ func monotonicInsertions(t *testing.T, tbtree *TBtree, itCount int, kCount int, 
 				require.Equal(t, uint64(i), hc)
 			}
 
+			if j == kCount-1 {
+				exists, err := tbtree.ExistKeyWith(k, k, false)
+				require.NoError(t, err)
+				require.False(t, exists)
+			}
+
 			if i%2 == 1 {
 				err = snapshot.Close()
 				require.NoError(t, err)
@@ -267,6 +273,11 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 			for {
 				_, _, _, err = snapshot.Get(k)
 				if err == ErrKeyNotFound {
+
+					exists, err := tbtree.ExistKeyWith(k, nil, false)
+					require.NoError(t, err)
+					require.False(t, exists)
+
 					break
 				}
 				binary.BigEndian.PutUint32(k, rnd.Uint32())
@@ -283,6 +294,10 @@ func randomInsertions(t *testing.T, tbtree *TBtree, kCount int, override bool) {
 
 		err := tbtree.Insert(k, v)
 		require.NoError(t, err)
+
+		exists, err := tbtree.ExistKeyWith(k, nil, false)
+		require.NoError(t, err)
+		require.True(t, exists)
 
 		v0, ts0, hc0, err := tbtree.Get(k)
 		require.NoError(t, err)
@@ -391,6 +406,10 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	_, err = tbtree.History([]byte("key"), 0, false, 0)
 	require.Equal(t, err, ErrIllegalArguments)
 
+	exists, err := tbtree.ExistKeyWith([]byte("key"), []byte("longerkey"), false)
+	require.NoError(t, err)
+	require.False(t, exists)
+
 	err = tbtree.Close()
 	require.NoError(t, err)
 
@@ -404,6 +423,9 @@ func TestTBTreeInsertionInAscendingOrder(t *testing.T) {
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	_, _, _, err = tbtree.Get([]byte("key"))
+	require.Equal(t, err, ErrAlreadyClosed)
+
+	_, err = tbtree.ExistKeyWith([]byte("key"), nil, false)
 	require.Equal(t, err, ErrAlreadyClosed)
 
 	err = tbtree.Sync()

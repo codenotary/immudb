@@ -161,7 +161,7 @@ func TestCreateIndex(t *testing.T) {
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR, age INTEGER, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, name VARCHAR, age INTEGER, active BOOLEAN, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	db := engine.catalog.Databases()[0]
@@ -202,6 +202,11 @@ func TestCreateIndex(t *testing.T) {
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
 	require.Len(t, table.indexes, 2)
+
+	_, _, err = engine.ExecStmt("INSERT INTO table1(id, name, age) VALUES (1, 'name1', 50)", nil, true)
+
+	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil, true)
+	require.Equal(t, ErrLimitedIndex, err)
 }
 
 func TestUpsertInto(t *testing.T) {
