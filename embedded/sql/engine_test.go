@@ -204,6 +204,7 @@ func TestCreateIndex(t *testing.T) {
 	require.Len(t, table.indexes, 2)
 
 	_, _, err = engine.ExecStmt("INSERT INTO table1(id, name, age) VALUES (1, 'name1', 50)", nil, true)
+	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(active)", nil, true)
 	require.Equal(t, ErrLimitedIndex, err)
