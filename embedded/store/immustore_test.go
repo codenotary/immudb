@@ -864,6 +864,10 @@ func TestLeavesMatchesAHTSync(t *testing.T) {
 		require.Equal(t, uint64(i+1), txMetadata.ID)
 
 		immuStore.WaitForIndexingUpto(txMetadata.ID, nil)
+
+		exists, err := immuStore.ExistKeyWith(kvs[0].Key, nil, false)
+		require.NoError(t, err)
+		require.True(t, exists)
 	}
 
 	for {
