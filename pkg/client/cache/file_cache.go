@@ -20,13 +20,13 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
+	"github.com/codenotary/immudb/pkg/api/schema"
+	"github.com/golang/protobuf/proto"
 	"github.com/rogpeppe/go-internal/lockedfile"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/codenotary/immudb/pkg/api/schema"
-	"github.com/golang/protobuf/proto"
 )
 
 // STATE_FN ...
@@ -46,6 +46,10 @@ func (w *fileCache) Get(serverUUID string, db string) (*schema.ImmutableState, e
 	if w.stateFile == nil {
 		return nil, ErrCacheNotLocked
 	}
+	_, err := w.stateFile.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
 	scanner := bufio.NewScanner(w.stateFile)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
@@ -59,6 +63,7 @@ func (w *fileCache) Get(serverUUID string, db string) (*schema.ImmutableState, e
 			if err != nil {
 				return nil, ErrLocalStateCorrupted
 			}
+
 			state := &schema.ImmutableState{}
 			if err = proto.Unmarshal(oldState, state); err != nil {
 				return nil, ErrLocalStateCorrupted
@@ -79,8 +84,12 @@ func (w *fileCache) Set(serverUUID string, db string, state *schema.ImmutableSta
 	}
 
 	newState := db + ":" + base64.StdEncoding.EncodeToString(raw)
-	var exists bool
 
+	var exists bool
+	_, err = w.stateFile.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
 	scanner := bufio.NewScanner(w.stateFile)
 	scanner.Split(bufio.ScanLines)
 	var lines [][]byte
@@ -96,7 +105,11 @@ func (w *fileCache) Set(serverUUID string, db string, state *schema.ImmutableSta
 	}
 	output := bytes.Join(lines, []byte("\n"))
 
-	_, err = w.stateFile.WriteAt(output, 0)
+	err = w.stateFile.Truncate(0)
+	if err != nil {
+		return err
+	}
+	_, err = w.stateFile.Write(output)
 	if err != nil {
 		return err
 	}
@@ -104,7 +117,7 @@ func (w *fileCache) Set(serverUUID string, db string, state *schema.ImmutableSta
 }
 
 func (w *fileCache) Lock(serverUUID string) (err error) {
-	w.stateFile, err = lockedfile.OpenFile(w.getStateFilePath(serverUUID), os.O_RDWR|os.O_CREATE, 0755)
+	w.stateFile, err = lockedfile.OpenFile(w.getStateFilePath(serverUUID), os.O_RDWR|os.O_CREATE, 0655)
 	return err
 }
 
