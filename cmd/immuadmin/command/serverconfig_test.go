@@ -17,24 +17,17 @@ limitations under the License.
 package immuadmin
 
 import (
-	"bytes"
-	"context"
-	"io/ioutil"
-	"os"
-	"testing"
-
-	"github.com/codenotary/immudb/pkg/client/clienttest"
-	"github.com/stretchr/testify/require"
-
-	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/codenotary/immudb/pkg/client"
-	"github.com/codenotary/immudb/pkg/server"
-	"github.com/codenotary/immudb/pkg/server/servertest"
-	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"context"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"google.golang.org/grpc"
 )
 
+/*
 func TestCommandLine_ServerconfigAuth(t *testing.T) {
 	input, _ := ioutil.ReadFile("../../../test/immudb.toml")
 	err := ioutil.WriteFile("/tmp/immudb.toml", input, 0644)
@@ -142,7 +135,7 @@ func TestCommandLine_ServerconfigMtls(t *testing.T) {
 	assert.Contains(t, string(out), "Server MTLS config updated")
 
 	os.RemoveAll("/tmp/immudb.toml")
-}
+}*/
 
 type scIClientMock struct {
 	client.ImmuClient
