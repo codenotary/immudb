@@ -92,7 +92,7 @@ const (
 
 type SQLStmt interface {
 	isDDL() bool
-	CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error)
+	CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error)
 }
 
 type TxStmt struct {
@@ -108,17 +108,20 @@ func (stmt *TxStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *TxStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *TxStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
 	for _, stmt := range stmt.stmts {
-		cs, ds, err := stmt.CompileUsing(e, params)
+		cs, ds, db, err := stmt.CompileUsing(e, implicitDB, params)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		ces = append(ces, cs...)
 		des = append(des, ds...)
+
+		implicitDB = db
 	}
-	return
+
+	return ces, des, implicitDB, nil
 }
 
 type CreateDatabaseStmt struct {
@@ -133,10 +136,10 @@ func (stmt *CreateDatabaseStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	db, err := e.catalog.newDatabase(stmt.DB)
+func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+	db, err = e.catalog.newDatabase(stmt.DB)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	kv := &store.KV{
@@ -146,7 +149,7 @@ func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, params map[string]interf
 
 	ces = append(ces, kv)
 
-	return
+	return ces, nil, implicitDB, nil
 }
 
 type UseDatabaseStmt struct {
@@ -157,15 +160,13 @@ func (stmt *UseDatabaseStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	exists := e.catalog.ExistDatabase(stmt.DB)
-	if !exists {
-		return nil, nil, ErrDatabaseDoesNotExist
+func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+	db, err = e.catalog.GetDatabaseByName(stmt.DB)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
-	e.UseDB(stmt.DB)
-
-	return
+	return nil, nil, db, nil
 }
 
 type UseSnapshotStmt struct {
@@ -177,25 +178,25 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
 	if stmt.sinceTx > 0 && stmt.sinceTx < stmt.asBefore {
-		return nil, nil, ErrIllegalArguments
+		return nil, nil, nil, ErrIllegalArguments
 	}
 
 	txID, _ := e.dataStore.Alh()
 	if txID < stmt.sinceTx || txID < stmt.asBefore {
-		return nil, nil, ErrTxDoesNotExist
+		return nil, nil, nil, ErrTxDoesNotExist
 	}
 
 	err = e.dataStore.WaitForIndexingUpto(e.snapSinceTx, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	e.snapSinceTx = stmt.sinceTx
 	e.snapAsBeforeTx = stmt.asBefore
 
-	return nil, nil, nil
+	return nil, nil, implicitDB, nil
 }
 
 type CreateTableStmt struct {
@@ -209,23 +210,18 @@ func (stmt *CreateTableStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateTableStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	if e.implicitDB == "" {
-		return nil, nil, ErrNoDatabaseSelected
+func (stmt *CreateTableStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+	if implicitDB == nil {
+		return nil, nil, nil, ErrNoDatabaseSelected
 	}
 
-	db, err := e.catalog.GetDatabaseByName(e.implicitDB)
+	if stmt.ifNotExists && implicitDB.ExistTable(stmt.table) {
+		return nil, nil, implicitDB, nil
+	}
+
+	table, err := implicitDB.newTable(stmt.table, stmt.colsSpec, stmt.pk)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	if stmt.ifNotExists && db.ExistTable(stmt.table) {
-		return
-	}
-
-	table, err := db.newTable(stmt.table, stmt.colsSpec, stmt.pk)
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	for colID, col := range table.GetColsByID() {
@@ -236,19 +232,19 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine, params map[string]interface
 		copy(v[1:], []byte(col.Name()))
 
 		ce := &store.KV{
-			Key:   e.mapKey(catalogColumnPrefix, encodeID(db.id), encodeID(table.id), encodeID(colID), []byte(col.colType)),
+			Key:   e.mapKey(catalogColumnPrefix, encodeID(implicitDB.id), encodeID(table.id), encodeID(colID), []byte(col.colType)),
 			Value: v,
 		}
 		ces = append(ces, ce)
 	}
 
 	te := &store.KV{
-		Key:   e.mapKey(catalogTablePrefix, encodeID(db.id), encodeID(table.id), encodeID(table.pk.id)),
+		Key:   e.mapKey(catalogTablePrefix, encodeID(implicitDB.id), encodeID(table.id), encodeID(table.pk.id)),
 		Value: []byte(table.name),
 	}
 	ces = append(ces, te)
 
-	return
+	return ces, des, implicitDB, nil
 }
 
 type ColSpec struct {
@@ -266,44 +262,44 @@ func (stmt *CreateIndexStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateIndexStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	if e.implicitDB == "" {
-		return nil, nil, ErrNoDatabaseSelected
+func (stmt *CreateIndexStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+	if implicitDB == nil {
+		return nil, nil, nil, ErrNoDatabaseSelected
 	}
 
-	table, err := e.catalog.GetTableByName(e.implicitDB, stmt.table)
+	table, err := implicitDB.GetTableByName(stmt.table)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if table.pk.colName == stmt.col {
-		return nil, nil, ErrIndexAlreadyExists
+		return nil, nil, nil, ErrIndexAlreadyExists
 	}
 
 	col, err := table.GetColumnByName(stmt.col)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	_, exists := table.indexes[col.id]
 	if exists {
-		return nil, nil, ErrIndexAlreadyExists
+		return nil, nil, nil, ErrIndexAlreadyExists
 	}
 
 	// check table is empty
 	lastTxID, _ := e.dataStore.Alh()
 	err = e.dataStore.WaitForIndexingUpto(lastTxID, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	pkPrefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id))
 	existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if existKey {
-		return nil, nil, ErrLimitedIndex
+		return nil, nil, nil, ErrLimitedIndex
 	}
 
 	table.indexes[col.id] = struct{}{}
@@ -314,7 +310,7 @@ func (stmt *CreateIndexStmt) CompileUsing(e *Engine, params map[string]interface
 	}
 	ces = append(ces, te)
 
-	return
+	return ces, des, implicitDB, nil
 }
 
 type AddColumnStmt struct {
@@ -326,8 +322,8 @@ func (stmt *AddColumnStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *AddColumnStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	return nil, nil, ErrNoSupported
+func (stmt *AddColumnStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+	return nil, nil, nil, ErrNoSupported
 }
 
 type UpsertIntoStmt struct {
@@ -443,47 +439,47 @@ func (stmt *UpsertIntoStmt) Validate(table *Table) (map[uint64]int, error) {
 	return selByColID, nil
 }
 
-func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
-	table, err := stmt.tableRef.referencedTable(e)
+func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+	table, err := stmt.tableRef.referencedTable(e, implicitDB)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	cs, err := stmt.Validate(table)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	for _, row := range stmt.rows {
 		if len(row.Values) != len(stmt.cols) {
-			return nil, nil, ErrInvalidNumberOfValues
+			return nil, nil, nil, ErrInvalidNumberOfValues
 		}
 
 		pkVal := row.Values[cs[table.pk.id]]
 
 		val, err := pkVal.substitute(params)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
-		rval, err := val.reduce(e.catalog, nil, e.implicitDB, table.name)
+		rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		_, isNull := rval.(*NullValue)
 		if isNull {
-			return nil, nil, ErrPKCanNotBeNull
+			return nil, nil, nil, ErrPKCanNotBeNull
 		}
 
 		pkEncVal, err := EncodeValue(rval, table.pk.colType, asKey)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		bs, err := row.bytes(e.catalog, table, stmt.cols, params)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		// create entry for the column which is the pk
@@ -500,34 +496,34 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 		for colID := range table.indexes {
 			colPos, defined := cs[colID]
 			if !defined {
-				return nil, nil, ErrIndexedColumnCanNotBeNull
+				return nil, nil, nil, ErrIndexedColumnCanNotBeNull
 			}
 
 			cVal := row.Values[colPos]
 
 			val, err := cVal.substitute(params)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 
-			rval, err := val.reduce(e.catalog, nil, e.implicitDB, table.name)
+			rval, err := val.reduce(e.catalog, nil, implicitDB.name, table.name)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 
 			_, isNull := rval.(*NullValue)
 			if isNull {
-				return nil, nil, ErrIndexedColumnCanNotBeNull
+				return nil, nil, nil, ErrIndexedColumnCanNotBeNull
 			}
 
 			col, err := table.GetColumnByID(colID)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 
 			encVal, err := EncodeValue(rval, col.colType, asKey)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 
 			ie := &store.KV{
@@ -538,7 +534,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, params map[string]interface{
 		}
 	}
 
-	return
+	return ces, des, implicitDB, nil
 }
 
 type ValueExp interface {
@@ -841,7 +837,7 @@ const (
 )
 
 type DataSource interface {
-	Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error)
+	Resolve(e *Engine, implicitDB *Database, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error)
 	Alias() string
 }
 
@@ -866,62 +862,62 @@ func (stmt *SelectStmt) Limit() uint64 {
 	return stmt.limit
 }
 
-func (stmt *SelectStmt) CompileUsing(e *Engine, params map[string]interface{}) (ces []*store.KV, des []*store.KV, err error) {
+func (stmt *SelectStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
 	if stmt.distinct {
-		return nil, nil, ErrNoSupported
+		return nil, nil, nil, ErrNoSupported
 	}
 
 	if stmt.groupBy == nil && stmt.having != nil {
-		return nil, nil, ErrHavingClauseRequiresGroupClause
+		return nil, nil, nil, ErrHavingClauseRequiresGroupClause
 	}
 
 	if len(stmt.orderBy) > 1 {
-		return nil, nil, ErrLimitedOrderBy
+		return nil, nil, nil, ErrLimitedOrderBy
 	}
 
 	if len(stmt.orderBy) > 0 {
 		tableRef, ok := stmt.ds.(*TableRef)
 		if !ok {
-			return nil, nil, ErrLimitedOrderBy
+			return nil, nil, nil, ErrLimitedOrderBy
 		}
 
-		table, err := tableRef.referencedTable(e)
+		table, err := tableRef.referencedTable(e, implicitDB)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		col, err := table.GetColumnByName(stmt.orderBy[0].sel.col)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		if table.pk.id == col.id {
-			return nil, nil, nil
+			return nil, nil, nil, nil
 		}
 
 		_, indexed := table.indexes[col.id]
 		if !indexed {
-			return nil, nil, ErrLimitedOrderBy
+			return nil, nil, nil, ErrLimitedOrderBy
 		}
 	}
 
-	return nil, nil, nil
+	return nil, nil, implicitDB, nil
 }
 
-func (stmt *SelectStmt) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
+func (stmt *SelectStmt) Resolve(e *Engine, implicitDB *Database, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
 	var orderByCol *OrdCol
 
 	if len(stmt.orderBy) > 0 {
 		orderByCol = stmt.orderBy[0]
 	}
 
-	rowReader, err := stmt.ds.Resolve(e, snap, params, orderByCol)
+	rowReader, err := stmt.ds.Resolve(e, implicitDB, snap, params, orderByCol)
 	if err != nil {
 		return nil, err
 	}
 
 	if stmt.joins != nil {
-		rowReader, err = e.newJointRowReader(snap, params, rowReader, stmt.joins)
+		rowReader, err = e.newJointRowReader(implicitDB, snap, params, rowReader, stmt.joins)
 		if err != nil {
 			return nil, err
 		}
@@ -979,27 +975,27 @@ type TableRef struct {
 	as       string
 }
 
-func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
-	var db string
+func (stmt *TableRef) referencedTable(e *Engine, implicitDB *Database) (*Table, error) {
+	var db *Database
 
 	if stmt.db != "" {
-		exists := e.catalog.ExistDatabase(stmt.db)
-		if !exists {
-			return nil, ErrDatabaseDoesNotExist
+		rdb, err := e.catalog.GetDatabaseByName(stmt.db)
+		if err != nil {
+			return nil, err
 		}
 
-		db = stmt.db
+		db = rdb
 	}
 
-	if db == "" {
-		if e.implicitDB == "" {
+	if db == nil {
+		if implicitDB == nil {
 			return nil, ErrNoDatabaseSelected
 		}
 
-		db = e.implicitDB
+		db = implicitDB
 	}
 
-	table, err := e.catalog.GetTableByName(db, stmt.table)
+	table, err := db.GetTableByName(stmt.table)
 	if err != nil {
 		return nil, err
 	}
@@ -1007,12 +1003,12 @@ func (stmt *TableRef) referencedTable(e *Engine) (*Table, error) {
 	return table, nil
 }
 
-func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
+func (stmt *TableRef) Resolve(e *Engine, implicitDB *Database, snap *store.Snapshot, params map[string]interface{}, ordCol *OrdCol) (RowReader, error) {
 	if e == nil || snap == nil || (ordCol != nil && ordCol.sel == nil) {
 		return nil, ErrIllegalArguments
 	}
 
-	table, err := stmt.referencedTable(e)
+	table, err := stmt.referencedTable(e, implicitDB)
 	if err != nil {
 		return nil, err
 	}
@@ -1063,7 +1059,7 @@ func (stmt *TableRef) Resolve(e *Engine, snap *store.Snapshot, params map[string
 		asBefore = e.snapAsBeforeTx
 	}
 
-	return e.newRawRowReader(snap, table, asBefore, stmt.as, colName, cmp, initKeyVal)
+	return e.newRawRowReader(implicitDB, snap, table, asBefore, stmt.as, colName, cmp, initKeyVal)
 }
 
 func (stmt *TableRef) Alias() string {

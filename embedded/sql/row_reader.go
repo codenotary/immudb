@@ -82,7 +82,7 @@ type ColDescriptor struct {
 	Type     SQLValueType
 }
 
-func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
+func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Table, asBefore uint64, tableAlias string, colName string, cmp Comparison, encInitKeyVal []byte) (*rawRowReader, error) {
 	if snap == nil || table == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -142,9 +142,14 @@ func (e *Engine) newRawRowReader(snap *store.Snapshot, table *Table, asBefore ui
 		colsBySel[encSel] = colDescriptor
 	}
 
+	implicitDB := ""
+	if db != nil {
+		implicitDB = db.name
+	}
+
 	return &rawRowReader{
 		e:          e,
-		implicitDB: e.SelectedDB(),
+		implicitDB: implicitDB,
 		snap:       snap,
 		table:      table,
 		asBefore:   asBefore,

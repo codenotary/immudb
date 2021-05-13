@@ -21,7 +21,9 @@ import (
 )
 
 type jointRowReader struct {
-	e    *Engine
+	e          *Engine
+	implicitDB *Database
+
 	snap *store.Snapshot
 
 	rowReader RowReader
@@ -31,7 +33,7 @@ type jointRowReader struct {
 	params map[string]interface{}
 }
 
-func (e *Engine) newJointRowReader(snap *store.Snapshot, params map[string]interface{}, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
+func (e *Engine) newJointRowReader(db *Database, snap *store.Snapshot, params map[string]interface{}, rowReader RowReader, joins []*JoinSpec) (*jointRowReader, error) {
 	if snap == nil || len(joins) == 0 {
 		return nil, ErrIllegalArguments
 	}
@@ -46,18 +48,19 @@ func (e *Engine) newJointRowReader(snap *store.Snapshot, params map[string]inter
 			return nil, ErrLimitedJoins
 		}
 
-		_, err := tableRef.referencedTable(e)
+		_, err := tableRef.referencedTable(e, db)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return &jointRowReader{
-		e:         e,
-		snap:      snap,
-		params:    params,
-		rowReader: rowReader,
-		joins:     joins,
+		e:          e,
+		implicitDB: db,
+		snap:       snap,
+		params:     params,
+		rowReader:  rowReader,
+		joins:      joins,
 	}, nil
 }
 
@@ -94,7 +97,7 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 
 	for _, jspec := range jointr.joins {
 		tableRef := jspec.ds.(*TableRef)
-		table, _ := tableRef.referencedTable(jointr.e)
+		table, _ := tableRef.referencedTable(jointr.e, jointr.implicitDB)
 
 		for _, c := range table.GetColsByID() {
 			encSel := EncodeSelector("", table.db.name, tableRef.Alias(), c.colName)
@@ -116,7 +119,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 
 		for _, jspec := range jointr.joins {
 			tableRef := jspec.ds.(*TableRef)
-			table, err := tableRef.referencedTable(jointr.e)
+			table, err := tableRef.referencedTable(jointr.e, jointr.implicitDB)
 			if err != nil {
 				return nil, err
 			}
@@ -146,7 +149,7 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 				useInitKeyVal: true,
 			}
 
-			jr, err := jspec.ds.Resolve(jointr.e, jointr.snap, jointr.params, pkOrd)
+			jr, err := jspec.ds.Resolve(jointr.e, jointr.implicitDB, jointr.snap, jointr.params, pkOrd)
 			if err != nil {
 				return nil, err
 			}

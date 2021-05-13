@@ -85,7 +85,7 @@ type Engine struct {
 
 	catalogRWMux sync.RWMutex
 
-	implicitDB string
+	implicitDB *Database
 
 	snapAsBeforeTx uint64
 	snapSinceTx    uint64
@@ -134,14 +134,24 @@ func (e *Engine) loadCatalog() error {
 	return nil
 }
 
-func (e *Engine) UseDB(db string) {
+func (e *Engine) UseDatabase(dbName string) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
+	e.catalogRWMux.RLock()
+	defer e.catalogRWMux.RUnlock()
+
+	db, err := e.catalog.GetDatabaseByName(dbName)
+	if err != nil {
+		return err
+	}
+
 	e.implicitDB = db
+
+	return nil
 }
 
-func (e *Engine) SelectedDB() string {
+func (e *Engine) DatabaseInUse() *Database {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -723,12 +733,14 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, err
 	}
 
-	_, _, err = stmt.CompileUsing(e, params)
+	implicitDB := e.DatabaseInUse()
+
+	_, _, _, err = stmt.CompileUsing(e, implicitDB, params)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := stmt.Resolve(e, snap, params, nil)
+	r, err := stmt.Resolve(e, implicitDB, snap, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -765,11 +777,15 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		defer e.catalogRWMux.RUnlock()
 	}
 
+	implicitDB := e.DatabaseInUse()
+
 	for _, stmt := range stmts {
-		centries, dentries, err := stmt.CompileUsing(e, params)
+		centries, dentries, db, err := stmt.CompileUsing(e, implicitDB, params)
 		if err != nil {
 			return ddTxs, dmTxs, err
 		}
+
+		implicitDB = db
 
 		if len(centries) > 0 && len(dentries) > 0 {
 			return ddTxs, dmTxs, ErrDDLorDMLTxOnly
