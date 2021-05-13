@@ -31,6 +31,15 @@ func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 	return s.dbList.GetByIndex(ind).SQLExec(req)
 }
 
+func (s *ImmuServer) UseSnapshot(ctx context.Context, req *schema.UseSnapshotRequest) (*empty.Empty, error) {
+	ind, err := s.getDbIndexFromCtx(ctx, "UseSnapshot")
+	if err != nil {
+		return nil, err
+	}
+
+	return new(empty.Empty), s.dbList.GetByIndex(ind).UseSnapshot(req)
+}
+
 func (s *ImmuServer) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "SQLQuery")
 	if err != nil {

@@ -363,6 +363,11 @@ message Chunk {
 	bytes content = 1;
 }
 
+message UseSnapshotRequest {
+	uint64 sinceTx = 1;
+	uint64 asBeforeTx = 2;
+}
+
 message SQLExecRequest {
 	string sql = 1;
 	repeated NamedParam params = 2;
@@ -372,6 +377,7 @@ message SQLExecRequest {
 message SQLQueryRequest {
 	string sql = 1;
 	repeated NamedParam params = 2;
+	bool reuseSnapshot = 3;
 }
 
 message NamedParam {
@@ -664,6 +670,12 @@ service ImmuService {
 	rpc streamExecAll(stream Chunk) returns (TxMetadata) {};
 
 	// SQL
+	rpc UseSnapshot(UseSnapshotRequest) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			get: "/db/usesnapshot"
+		};
+	}
+
 	rpc SQLExec(SQLExecRequest) returns (SQLExecResult) {
 		option (google.api.http) = {
 			post: "/db/sqlexec"
