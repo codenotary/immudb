@@ -669,6 +669,11 @@ func (d *db) Close() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	err := d.sqlEngine.Close()
+	if err != nil {
+		return err
+	}
+
 	return d.st.Close()
 }
 
