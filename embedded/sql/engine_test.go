@@ -73,7 +73,8 @@ func TestUseDatabase(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	db := engine.DatabaseInUse()
+	db, err := engine.DatabaseInUse()
+	require.NoError(t, err)
 	require.Equal(t, "db1", db.name)
 
 	_, _, err = engine.ExecStmt("USE DATABASE db1", nil, true)
@@ -369,15 +370,18 @@ func TestUseSnapshot(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("USE SNAPSHOT SINCE TX 1", nil, true)
+	require.Equal(t, ErrNoSupported, err)
+
+	err = engine.UseSnapshot(1, 1)
 	require.Equal(t, ErrTxDoesNotExist, err)
 
-	_, _, err = engine.ExecStmt("USE SNAPSHOT BEFORE TX 1", nil, true)
+	err = engine.UseSnapshot(0, 1)
 	require.Equal(t, ErrTxDoesNotExist, err)
 
-	_, _, err = engine.ExecStmt("USE SNAPSHOT SINCE TX 1 BEFORE TX 1", nil, true)
+	err = engine.UseSnapshot(1, 1)
 	require.Equal(t, ErrTxDoesNotExist, err)
 
-	_, _, err = engine.ExecStmt("USE SNAPSHOT SINCE TX 1 BEFORE TX 2", nil, true)
+	err = engine.UseSnapshot(1, 2)
 	require.Equal(t, ErrIllegalArguments, err)
 
 	_, _, err = engine.ExecStmt(`
@@ -388,13 +392,13 @@ func TestUseSnapshot(t *testing.T) {
 		`, nil, true)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("USE SNAPSHOT SINCE TX 1", nil, true)
+	err = engine.UseSnapshot(1, 0)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("USE SNAPSHOT BEFORE TX 1", nil, true)
+	err = engine.UseSnapshot(0, 1)
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("USE SNAPSHOT SINCE TX 1 BEFORE TX 1", nil, true)
+	err = engine.UseSnapshot(1, 1)
 	require.NoError(t, err)
 }
 
@@ -413,28 +417,28 @@ func TestQuery(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE DATABASE db1", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM table1", nil)
+	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
-	_, err = engine.QueryStmt("SELECT * FROM table1", nil)
+	_, err = engine.QueryStmt("SELECT * FROM table1", nil, true)
 	require.Equal(t, ErrNoDatabaseSelected, err)
 
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM db2.table1", nil)
+	_, err = engine.QueryStmt("SELECT id FROM db2.table1", nil, true)
 	require.Equal(t, ErrDatabaseDoesNotExist, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM table1", nil)
+	_, err = engine.QueryStmt("SELECT id FROM table1", nil, true)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
 	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM db1.table1", nil)
+	_, err = engine.QueryStmt("SELECT id FROM db1.table1", nil, true)
 	require.Equal(t, ErrNoMoreRows, err)
 
-	_, err = engine.QueryStmt("SELECT * FROM db1.table1", nil)
+	_, err = engine.QueryStmt("SELECT * FROM db1.table1", nil, true)
 	require.Equal(t, ErrNoMoreRows, err)
 
 	rowCount := 10
@@ -447,17 +451,17 @@ func TestQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	_, err = engine.QueryStmt("SELECT DISTINCT id1 FROM table1", nil)
+	_, err = engine.QueryStmt("SELECT DISTINCT id1 FROM table1", nil, true)
 	require.Equal(t, ErrNoSupported, err)
 
-	r, err := engine.QueryStmt("SELECT id1 FROM table1", nil)
+	r, err := engine.QueryStmt("SELECT id1 FROM table1", nil, true)
 	require.NoError(t, err)
 
 	row, err := r.Read()
 	require.Equal(t, ErrColumnDoesNotExist, err)
 	require.Nil(t, row)
 
-	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil)
+	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil, true)
 	require.NoError(t, err)
 
 	colsBySel, err := r.colsBySelector()
@@ -491,10 +495,10 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active, payload FROM table1 ORDER BY title", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active, payload FROM table1 ORDER BY title", nil, true)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
-	r, err = engine.QueryStmt("SELECT Id, Title, Active, payload FROM Table1 ORDER BY Id DESC", nil)
+	r, err = engine.QueryStmt("SELECT Id, Title, Active, payload FROM Table1 ORDER BY Id DESC", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -514,13 +518,13 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE id", nil)
+	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE id", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
 	require.Equal(t, ErrInvalidCondition, err)
 
-	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @some_param1", nil)
+	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @some_param1", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -531,7 +535,7 @@ func TestQuery(t *testing.T) {
 
 	encPayloadPrefix := hex.EncodeToString([]byte("blob"))
 
-	r, err = engine.QueryStmt(fmt.Sprintf("SELECT id, title, active FROM table1 WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't", encPayloadPrefix), params)
+	r, err = engine.QueryStmt(fmt.Sprintf("SELECT id, title, active FROM table1 WHERE active = @some_param AND title > 'title' AND payload >= x'%s' AND title LIKE 't", encPayloadPrefix), params, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount/2; i += 2 {
@@ -548,7 +552,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT * FROM table1 WHERE id = 0", nil)
+	r, err = engine.QueryStmt("SELECT * FROM table1 WHERE id = 0", nil, true)
 	require.NoError(t, err)
 
 	cols, err = r.Columns()
@@ -562,7 +566,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id / 0", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id / 0", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -571,7 +575,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id + 1/1 > 1 * (1 - 0)", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id + 1/1 > 1 * (1 - 0)", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -580,7 +584,7 @@ func TestQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE id = 0 AND NOT active OR active", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -623,7 +627,7 @@ func TestQueryWithNullables(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, ts, title, active FROM table1 WHERE NOT(active != NULL)", nil)
+	r, err := engine.QueryStmt("SELECT id, ts, title, active FROM table1 WHERE NOT(active != NULL)", nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -669,25 +673,25 @@ func TestOrderBy(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY id, title DESC", nil)
+	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY id, title DESC", nil, true)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM (SELECT id, title, age FROM table1) ORDER BY id", nil)
+	_, err = engine.QueryStmt("SELECT id, title, age FROM (SELECT id, title, age FROM table1) ORDER BY id", nil, true)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM (SELECT id, title, age FROM table1 AS t1) ORDER BY age DESC", nil)
+	_, err = engine.QueryStmt("SELECT id, title, age FROM (SELECT id, title, age FROM table1 AS t1) ORDER BY age DESC", nil, true)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM table2 ORDER BY title", nil)
+	_, err = engine.QueryStmt("SELECT id, title, age FROM table2 ORDER BY title", nil, true)
 	require.Equal(t, ErrTableDoesNotExist, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY amount", nil)
+	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY amount", nil, true)
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(title)", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age", nil)
+	_, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age", nil, true)
 	require.Equal(t, ErrLimitedOrderBy, err)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil, true)
@@ -713,7 +717,7 @@ func TestOrderBy(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY title", nil)
+	r, err := engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY title", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -730,7 +734,7 @@ func TestOrderBy(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age", nil)
+	r, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -747,7 +751,7 @@ func TestOrderBy(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age DESC", nil)
+	r, err = engine.QueryStmt("SELECT id, title, age FROM table1 ORDER BY age DESC", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -794,7 +798,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE false", nil)
+	r, err := engine.QueryStmt("SELECT id, title, active FROM table1 WHERE false", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -803,7 +807,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE false OR true", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE false OR true", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -814,7 +818,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 < 2", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 < 2", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -825,7 +829,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 >= 2", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 >= 2", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -834,7 +838,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 = true", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE 1 = true", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -843,7 +847,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE NOT table1.active", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE NOT table1.active", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount/2; i++ {
@@ -857,7 +861,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE table1.id > 4", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM table1 WHERE table1.id > 4", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount/2; i++ {
@@ -874,7 +878,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title) VALUES (%d, 'title%d')", rowCount, rowCount), nil, true)
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title FROM table1 WHERE active = null AND payload = null", nil)
+	r, err = engine.QueryStmt("SELECT id, title FROM table1 WHERE active = null AND payload = null", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -883,7 +887,7 @@ func TestQueryWithRowFiltering(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title FROM table1 WHERE active = null AND payload = null AND active = payload", nil)
+	r, err = engine.QueryStmt("SELECT id, title FROM table1 WHERE active = null AND payload = null AND active = payload", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -930,7 +934,7 @@ func TestAggregations(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil)
+	r, err := engine.QueryStmt("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -997,31 +1001,31 @@ func TestGroupByHaving(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	_, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null HAVING AVG(age) >= MIN(age)", nil)
+	_, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null HAVING AVG(age) >= MIN(age)", nil, true)
 	require.Equal(t, ErrHavingClauseRequiresGroupClause, err)
 
-	r, err := engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null GROUP BY active HAVING AVG(age) >= MIN(age)", nil)
+	r, err := engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE active != null GROUP BY active HAVING AVG(age) >= MIN(age)", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE AVG(age) >= MIN(age) GROUP BY active", nil)
+	r, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE AVG(age) >= MIN(age) GROUP BY active", nil, true)
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT(id) FROM table1 GROUP BY active", nil)
+	r, err = engine.QueryStmt("SELECT active, COUNT(id) FROM table1 GROUP BY active", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
 	require.Equal(t, ErrLimitedCount, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT() FROM table1 GROUP BY active HAVING AVG(age) >= MIN(age1)", nil)
+	r, err = engine.QueryStmt("SELECT active, COUNT() FROM table1 GROUP BY active HAVING AVG(age) >= MIN(age1)", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
-	r, err = engine.QueryStmt("SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age) FROM table1 GROUP BY active HAVING COUNT() <= SUM(age) AND MIN(age) <= MAX(age) AND AVG(age) <= MAX(age) AND MAX(age) < SUM(age) AND AVG(age) >= MIN(age) AND SUM(age) > 0 ORDER BY active DESC", nil)
+	r, err = engine.QueryStmt("SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age) FROM table1 GROUP BY active HAVING COUNT() <= SUM(age) AND MIN(age) <= MAX(age) AND AVG(age) <= MAX(age) AND MAX(age) < SUM(age) AND AVG(age) >= MIN(age) AND SUM(age) > 0 ORDER BY active DESC", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.(*closerRowReader).rowReader.(*projectedRowReader).rowReader.Columns()
@@ -1090,7 +1094,7 @@ func TestJoins(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, table2.amount FROM table1 INNER JOIN table2 ON table1.fkid1 = table1.fkid1", nil)
+	r, err := engine.QueryStmt("SELECT id, title, table2.amount FROM table1 INNER JOIN table2 ON table1.fkid1 = table1.fkid1", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1099,7 +1103,7 @@ func TestJoins(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id WHERE table1.id >= 0 AND table3.age >= 30 ORDER BY id DESC", nil)
+	r, err = engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id WHERE table1.id >= 0 AND table3.age >= 30 ORDER BY id DESC", nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -1124,7 +1128,7 @@ func TestJoins(t *testing.T) {
 	_, _, err = engine.ExecStmt(fmt.Sprintf("UPSERT INTO table1 (id, title, fkid1, fkid2) VALUES (%d, 'title%d', %d, %d)", rowCount, rowCount, rowCount, rowCount), nil, true)
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id ORDER BY id DESC", nil)
+	r, err = engine.QueryStmt("SELECT id, title, table2.amount, table3.age FROM table1 INNER JOIN table2 ON table1.fkid1 = table2.id INNER JOIN table3 ON table1.fkid2 = table3.id ORDER BY id DESC", nil, true)
 	require.NoError(t, err)
 
 	for i := 0; i < rowCount; i++ {
@@ -1184,7 +1188,7 @@ func TestNestedJoins(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title, t2.amount AS total_amount, t3.age FROM (table1 AS t1) INNER JOIN (table2 as t2) ON fkid1 = t2.id INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id ORDER BY id DESC", nil)
+	r, err := engine.QueryStmt("SELECT id, title, t2.amount AS total_amount, t3.age FROM (table1 AS t1) INNER JOIN (table2 as t2) ON fkid1 = t2.id INNER JOIN (table3 as t3) ON t2.fkid1 = t3.id ORDER BY id DESC", nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -1290,7 +1294,7 @@ func TestSubQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT id, title AS t FROM (SELECT id, title, active FROM table1 AS table2) WHERE active AND table2.id >= 0", nil)
+	r, err := engine.QueryStmt("SELECT id, title AS t FROM (SELECT id, title, active FROM table1 AS table2) WHERE active AND table2.id >= 0", nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
@@ -1313,7 +1317,7 @@ func TestSubQuery(t *testing.T) {
 	_, _, err = engine.ExecStmt("UPSERT INTO table1 (id, title) VALUES (0, 'title0')", nil, true)
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE active", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE active", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
@@ -1322,7 +1326,7 @@ func TestSubQuery(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE title", nil)
+	r, err = engine.QueryStmt("SELECT id, title, active FROM (SELECT id, title, active FROM table1) WHERE title", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()

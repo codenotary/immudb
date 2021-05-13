@@ -67,6 +67,7 @@ var ErrDivisionByZero = errors.New("division by zero")
 var ErrMissingParameter = errors.New("missing paramter")
 var ErrUnsupportedParameter = errors.New("unsupported parameter")
 var ErrLimitedIndex = errors.New("index creation is only supported on empty tables")
+var ErrAlreadyClosed = errors.New("sql engine already closed")
 
 var mKeyVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
@@ -87,8 +88,10 @@ type Engine struct {
 
 	implicitDB *Database
 
+	snapshot       *store.Snapshot
 	snapAsBeforeTx uint64
-	snapSinceTx    uint64
+
+	closed bool
 
 	mutex sync.Mutex
 }
@@ -134,9 +137,33 @@ func (e *Engine) loadCatalog() error {
 	return nil
 }
 
+func (e *Engine) Close() error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if e.closed {
+		return ErrAlreadyClosed
+	}
+
+	if e.snapshot != nil {
+		err := e.snapshot.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	e.closed = true
+
+	return nil
+}
+
 func (e *Engine) UseDatabase(dbName string) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
+
+	if e.closed {
+		return ErrAlreadyClosed
+	}
 
 	e.catalogRWMux.RLock()
 	defer e.catalogRWMux.RUnlock()
@@ -151,11 +178,91 @@ func (e *Engine) UseDatabase(dbName string) error {
 	return nil
 }
 
-func (e *Engine) DatabaseInUse() *Database {
+func (e *Engine) DatabaseInUse() (*Database, error) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	return e.implicitDB
+	if e.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	return e.implicitDB, nil
+}
+
+func (e *Engine) UseSnapshot(sinceTx uint64, asBeforeTx uint64) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if e.closed {
+		return ErrAlreadyClosed
+	}
+
+	return e.useSnapshot(sinceTx, asBeforeTx)
+}
+
+func (e *Engine) useSnapshot(sinceTx uint64, asBeforeTx uint64) error {
+	if sinceTx > 0 && sinceTx < asBeforeTx {
+		return ErrIllegalArguments
+	}
+
+	txID, _ := e.dataStore.Alh()
+	if txID < sinceTx || txID < asBeforeTx {
+		return ErrTxDoesNotExist
+	}
+
+	err := e.dataStore.WaitForIndexingUpto(sinceTx, nil)
+	if err != nil {
+		return err
+	}
+
+	if sinceTx == 0 {
+		sinceTx = math.MaxUint64
+	}
+
+	e.snapshot, err = e.dataStore.SnapshotSince(sinceTx)
+	if err != nil {
+		return err
+	}
+
+	e.snapAsBeforeTx = asBeforeTx
+
+	return nil
+}
+
+func (e *Engine) Snapshot() (*store.Snapshot, error) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if e.closed {
+		return nil, ErrAlreadyClosed
+	}
+
+	if e.snapshot == nil {
+		err := e.useSnapshot(0, 0)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return e.snapshot, nil
+}
+
+func (e *Engine) RenewSnapshot() error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if e.closed {
+		return ErrAlreadyClosed
+	}
+
+	if e.snapshot == nil {
+		err := e.useSnapshot(0, 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	return e.useSnapshot(0, e.snapAsBeforeTx)
 }
 
 func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
@@ -690,11 +797,11 @@ func (e *Engine) Catalog() *Catalog {
 }
 
 // exist database directly on catalogStore: // existKey(e.mapKey(catalogDatabase, db), e.catalogStore)
-func (e *Engine) QueryStmt(sql string, params map[string]interface{}) (RowReader, error) {
-	return e.Query(strings.NewReader(sql), params)
+func (e *Engine) QueryStmt(sql string, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
+	return e.Query(strings.NewReader(sql), params, renewSnapshot)
 }
 
-func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowReader, error) {
+func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
 	if e.catalog == nil {
 		err := e.loadCatalog()
 		if err != nil {
@@ -715,37 +822,42 @@ func (e *Engine) Query(sql io.ByteReader, params map[string]interface{}) (RowRea
 		return nil, ErrExpectingDQLStmt
 	}
 
-	return e.QueryPreparedStmt(stmt, params)
+	return e.QueryPreparedStmt(stmt, params, renewSnapshot)
 }
 
-func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}) (RowReader, error) {
+func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface{}, renewSnapshot bool) (RowReader, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
 
-	snapSinceTx := e.snapSinceTx
-	if snapSinceTx == 0 {
-		snapSinceTx = math.MaxUint64
+	if renewSnapshot {
+		err := e.RenewSnapshot()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	snap, err := e.dataStore.SnapshotSince(snapSinceTx)
+	snapshot, err := e.Snapshot()
 	if err != nil {
 		return nil, err
 	}
 
-	implicitDB := e.DatabaseInUse()
+	implicitDB, err := e.DatabaseInUse()
+	if err != nil {
+		return nil, err
+	}
 
 	_, _, _, err = stmt.CompileUsing(e, implicitDB, params)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := stmt.Resolve(e, implicitDB, snap, params, nil)
+	r, err := stmt.Resolve(e, implicitDB, snapshot, params, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return e.newCloserRowReader(snap, r)
+	return e.newCloserRowReader(snapshot, r)
 }
 
 func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
@@ -777,7 +889,10 @@ func (e *Engine) ExecPreparedStmts(stmts []SQLStmt, params map[string]interface{
 		defer e.catalogRWMux.RUnlock()
 	}
 
-	implicitDB := e.DatabaseInUse()
+	implicitDB, err := e.DatabaseInUse()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	for _, stmt := range stmts {
 		centries, dentries, db, err := stmt.CompileUsing(e, implicitDB, params)
