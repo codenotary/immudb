@@ -52,7 +52,7 @@ func (i *immuc) SQLQuery(args []string) (*schema.SQLQueryResult, error) {
 
 	ctx := context.Background()
 	response, err := i.Execute(func(immuClient client.ImmuClient) (interface{}, error) {
-		return immuClient.SQLQuery(ctx, string(sqlStmt), nil)
+		return immuClient.SQLQuery(ctx, string(sqlStmt), nil, true)
 	})
 	if err != nil {
 		return nil, err

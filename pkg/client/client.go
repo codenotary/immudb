@@ -144,7 +144,8 @@ type ImmuClient interface {
 	StreamExecAll(ctx context.Context, req *stream.ExecAllRequest) (*schema.TxMetadata, error)
 
 	SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error)
-	SQLQuery(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLQueryResult, error)
+	UseSnapshot(ctx context.Context, sinceTx, asBeforeTx uint64) error
+	SQLQuery(ctx context.Context, sql string, params map[string]interface{}, renewSnapshot bool) (*schema.SQLQueryResult, error)
 	ListTables(ctx context.Context) (*schema.SQLQueryResult, error)
 	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)
 

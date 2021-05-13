@@ -144,6 +144,14 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 	return res, nil
 }
 
+func (d *db) UseSnapshot(req *schema.UseSnapshotRequest) error {
+	if req == nil {
+		return ErrIllegalArguments
+	}
+
+	return d.sqlEngine.UseSnapshot(req.SinceTx, req.AsBeforeTx)
+}
+
 func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
 	if req == nil {
 		return nil, ErrIllegalArguments
@@ -159,10 +167,10 @@ func (d *db) SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, erro
 		return nil, ErrIllegalArguments
 	}
 
-	return d.SQLQueryPrepared(stmt, req.Params)
+	return d.SQLQueryPrepared(stmt, req.Params, !req.ReuseSnapshot)
 }
 
-func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam) (*schema.SQLQueryResult, error) {
+func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error) {
 	if stmt == nil {
 		return nil, ErrIllegalArguments
 	}
@@ -180,7 +188,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 		params[p.Name] = rawValue(p.Value)
 	}
 
-	r, err := d.sqlEngine.QueryPreparedStmt(stmt, params)
+	r, err := d.sqlEngine.QueryPreparedStmt(stmt, params, renewSnapshot)
 	if err != nil {
 		return nil, err
 	}

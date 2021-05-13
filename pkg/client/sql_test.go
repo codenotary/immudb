@@ -54,7 +54,7 @@ func TestImmuClient_SQL(t *testing.T) {
 	params := make(map[string]interface{})
 	params["active"] = nil
 
-	res, err := client.SQLQuery(ctx, "SELECT t.id as d FROM (table1 as t) WHERE id <= 3 AND active = @active", params)
+	res, err := client.SQLQuery(ctx, "SELECT t.id as d FROM (table1 as t) WHERE id <= 3 AND active = @active", params, true)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 }

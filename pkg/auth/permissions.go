@@ -61,6 +61,7 @@ var methodsPermissions = map[string][]uint32{
 	"DatabaseList":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"CurrentState":           {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"SQLExec":                {PermissionSysAdmin, PermissionAdmin, PermissionRW},
+	"UseSnapshot":            {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"SQLQuery":               {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"ListTables":             {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DescribeTable":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
