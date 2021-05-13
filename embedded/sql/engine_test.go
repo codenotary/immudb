@@ -50,6 +50,12 @@ func TestCreateDatabase(t *testing.T) {
 
 	_, _, err = engine.ExecStmt("CREATE DATABASE db2", nil, true)
 	require.NoError(t, err)
+
+	err = engine.Close()
+	require.NoError(t, err)
+
+	err = engine.Close()
+	require.Equal(t, ErrAlreadyClosed, err)
 }
 
 func TestUseDatabase(t *testing.T) {
@@ -461,6 +467,9 @@ func TestQuery(t *testing.T) {
 	require.Equal(t, ErrColumnDoesNotExist, err)
 	require.Nil(t, row)
 
+	err = r.Close()
+	require.NoError(t, err)
+
 	r, err = engine.QueryStmt(fmt.Sprintf("SELECT t1.id AS D, ts, Title, payload, Active FROM (table1 AS T1) WHERE id >= 0 LIMIT %d AS table1", rowCount), nil, true)
 	require.NoError(t, err)
 
@@ -524,11 +533,17 @@ func TestQuery(t *testing.T) {
 	_, err = r.Read()
 	require.Equal(t, ErrInvalidCondition, err)
 
+	err = r.Close()
+	require.NoError(t, err)
+
 	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE active = @some_param1", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
 	require.Equal(t, ErrMissingParameter, err)
+
+	err = r.Close()
+	require.NoError(t, err)
 
 	params := make(map[string]interface{})
 	params["some_param"] = true
@@ -1010,7 +1025,13 @@ func TestGroupByHaving(t *testing.T) {
 	_, err = r.Read()
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
+	err = r.Close()
+	require.NoError(t, err)
+
 	r, err = engine.QueryStmt("SELECT active, COUNT(), SUM(age1) FROM table1 WHERE AVG(age) >= MIN(age) GROUP BY active", nil, true)
+	require.NoError(t, err)
+
+	err = r.Close()
 	require.NoError(t, err)
 
 	r, err = engine.QueryStmt("SELECT active, COUNT(id) FROM table1 GROUP BY active", nil, true)
@@ -1019,16 +1040,22 @@ func TestGroupByHaving(t *testing.T) {
 	_, err = r.Read()
 	require.Equal(t, ErrLimitedCount, err)
 
+	err = r.Close()
+	require.NoError(t, err)
+
 	r, err = engine.QueryStmt("SELECT active, COUNT() FROM table1 GROUP BY active HAVING AVG(age) >= MIN(age1)", nil, true)
 	require.NoError(t, err)
 
 	_, err = r.Read()
 	require.Equal(t, ErrColumnDoesNotExist, err)
 
+	err = r.Close()
+	require.NoError(t, err)
+
 	r, err = engine.QueryStmt("SELECT active, COUNT() as c, MIN(age), MAX(age), AVG(age), SUM(age) FROM table1 GROUP BY active HAVING COUNT() <= SUM(age) AND MIN(age) <= MAX(age) AND AVG(age) <= MAX(age) AND MAX(age) < SUM(age) AND AVG(age) >= MIN(age) AND SUM(age) > 0 ORDER BY active DESC", nil, true)
 	require.NoError(t, err)
 
-	_, err = r.(*closerRowReader).rowReader.(*projectedRowReader).rowReader.Columns()
+	_, err = r.Columns()
 	require.NoError(t, err)
 
 	for i := 0; i < 2; i++ {
