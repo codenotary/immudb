@@ -120,7 +120,7 @@ func OpenDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.UseDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
+	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
@@ -168,10 +168,12 @@ func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
 
-	_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{
-		&sql.CreateDatabaseStmt{DB: dbi.options.dbName},
-		&sql.UseDatabaseStmt{DB: dbi.options.dbName},
-	}, nil, true)
+	_, _, err = dbi.sqlEngine.ExecPreparedStmts([]sql.SQLStmt{&sql.CreateDatabaseStmt{DB: dbi.options.dbName}}, nil, true)
+	if err != nil {
+		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
+	}
+
+	err = dbi.sqlEngine.UseDatabase(dbi.options.dbName)
 	if err != nil {
 		return nil, logErr(dbi.Logger, "Unable to open store: %s", err)
 	}
