@@ -184,7 +184,20 @@ func NewDb(op *DbOptions, catalogDB DB, log logger.Logger) (DB, error) {
 
 // CompactIndex ...
 func (d *db) CompactIndex() error {
-	return d.st.CompactIndex()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	err := d.sqlEngine.CloseSnapshot()
+	if err != nil {
+		return err
+	}
+
+	err = d.st.CompactIndex()
+	if err != nil {
+		return err
+	}
+
+	return d.sqlEngine.RenewSnapshot()
 }
 
 // Set ...

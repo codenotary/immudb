@@ -271,6 +271,23 @@ func (e *Engine) RenewSnapshot() error {
 	return e.useSnapshot(0, e.snapAsBeforeTx)
 }
 
+func (e *Engine) CloseSnapshot() error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if e.closed {
+		return ErrAlreadyClosed
+	}
+
+	if e.snapshot != nil {
+		err := e.snapshot.Close()
+		e.snapshot = nil
+		return err
+	}
+
+	return nil
+}
+
 func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	catalog := newCatalog()
 
