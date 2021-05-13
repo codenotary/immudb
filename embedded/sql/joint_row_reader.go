@@ -157,9 +157,11 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 			jrow, err := jr.Read()
 			if err == store.ErrNoMoreEntries {
 				unsolvedFK = true
+				jr.Close()
 				break
 			}
 			if err != nil {
+				jr.Close()
 				return nil, err
 			}
 
@@ -167,6 +169,11 @@ func (jointr *jointRowReader) Read() (*Row, error) {
 			// from previously resolved ones.
 			for c, v := range jrow.Values {
 				row.Values[c] = v
+			}
+
+			err = jr.Close()
+			if err != nil {
+				return nil, err
 			}
 		}
 

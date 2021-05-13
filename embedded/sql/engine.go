@@ -219,9 +219,18 @@ func (e *Engine) useSnapshot(sinceTx uint64, asBeforeTx uint64) error {
 		sinceTx = math.MaxUint64
 	}
 
-	e.snapshot, err = e.dataStore.SnapshotSince(sinceTx)
-	if err != nil {
-		return err
+	if e.snapshot == nil || e.snapshot.Ts() < sinceTx {
+		if e.snapshot != nil {
+			err = e.snapshot.Close()
+			if err != nil {
+				return err
+			}
+		}
+
+		e.snapshot, err = e.dataStore.SnapshotSince(sinceTx)
+		if err != nil {
+			return err
+		}
 	}
 
 	e.snapAsBeforeTx = asBeforeTx
@@ -256,10 +265,7 @@ func (e *Engine) RenewSnapshot() error {
 	}
 
 	if e.snapshot == nil {
-		err := e.useSnapshot(0, 0)
-		if err != nil {
-			return err
-		}
+		return e.useSnapshot(0, 0)
 	}
 
 	return e.useSnapshot(0, e.snapAsBeforeTx)
@@ -852,12 +858,7 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 		return nil, err
 	}
 
-	r, err := stmt.Resolve(e, implicitDB, snapshot, params, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return e.newCloserRowReader(snapshot, r)
+	return stmt.Resolve(e, implicitDB, snapshot, params, nil)
 }
 
 func (e *Engine) ExecStmt(sql string, params map[string]interface{}, waitForIndexing bool) (ddTxs, dmTxs []*store.TxMetadata, err error) {
