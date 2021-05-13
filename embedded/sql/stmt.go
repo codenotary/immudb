@@ -92,7 +92,7 @@ const (
 
 type SQLStmt interface {
 	isDDL() bool
-	CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error)
+	CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error)
 }
 
 type TxStmt struct {
@@ -108,7 +108,7 @@ func (stmt *TxStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *TxStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+func (stmt *TxStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	for _, stmt := range stmt.stmts {
 		cs, ds, db, err := stmt.CompileUsing(e, implicitDB, params)
 		if err != nil {
@@ -136,7 +136,7 @@ func (stmt *CreateDatabaseStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	db, err = e.catalog.newDatabase(stmt.DB)
 	if err != nil {
 		return nil, nil, nil, err
@@ -160,7 +160,7 @@ func (stmt *UseDatabaseStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+func (stmt *UseDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	db, err = e.catalog.GetDatabaseByName(stmt.DB)
 	if err != nil {
 		return nil, nil, nil, err
@@ -178,25 +178,8 @@ func (stmt *UseSnapshotStmt) isDDL() bool {
 	return false
 }
 
-func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
-	if stmt.sinceTx > 0 && stmt.sinceTx < stmt.asBefore {
-		return nil, nil, nil, ErrIllegalArguments
-	}
-
-	txID, _ := e.dataStore.Alh()
-	if txID < stmt.sinceTx || txID < stmt.asBefore {
-		return nil, nil, nil, ErrTxDoesNotExist
-	}
-
-	err = e.dataStore.WaitForIndexingUpto(e.snapSinceTx, nil)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	e.snapSinceTx = stmt.sinceTx
-	e.snapAsBeforeTx = stmt.asBefore
-
-	return nil, nil, implicitDB, nil
+func (stmt *UseSnapshotStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
+	return nil, nil, nil, ErrNoSupported
 }
 
 type CreateTableStmt struct {
@@ -210,7 +193,7 @@ func (stmt *CreateTableStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateTableStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+func (stmt *CreateTableStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	if implicitDB == nil {
 		return nil, nil, nil, ErrNoDatabaseSelected
 	}
@@ -262,7 +245,7 @@ func (stmt *CreateIndexStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *CreateIndexStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+func (stmt *CreateIndexStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	if implicitDB == nil {
 		return nil, nil, nil, ErrNoDatabaseSelected
 	}
@@ -322,7 +305,7 @@ func (stmt *AddColumnStmt) isDDL() bool {
 	return true
 }
 
-func (stmt *AddColumnStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+func (stmt *AddColumnStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	return nil, nil, nil, ErrNoSupported
 }
 
@@ -439,7 +422,7 @@ func (stmt *UpsertIntoStmt) Validate(table *Table) (map[uint64]int, error) {
 	return selByColID, nil
 }
 
-func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	table, err := stmt.tableRef.referencedTable(e, implicitDB)
 	if err != nil {
 		return nil, nil, nil, err
@@ -862,7 +845,7 @@ func (stmt *SelectStmt) Limit() uint64 {
 	return stmt.limit
 }
 
-func (stmt *SelectStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces []*store.KV, des []*store.KV, db *Database, err error) {
+func (stmt *SelectStmt) CompileUsing(e *Engine, implicitDB *Database, params map[string]interface{}) (ces, des []*store.KV, db *Database, err error) {
 	if stmt.distinct {
 		return nil, nil, nil, ErrNoSupported
 	}
