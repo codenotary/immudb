@@ -119,17 +119,19 @@ func updatePlot(
 }
 
 func (p *statsController) Render(ms *metrics) {
-	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.db.uptimeHours))
+	db := ms.dbWithMostEntries()
+
+	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.uptimeHours))
 	p.SummaryTable.Rows = [][]string{
 		{"[ImmuDB stats](mod:bold)", fmt.Sprintf("[ at %s](mod:bold)", time.Now().Format("15:04:05"))},
-		{"Database", ms.db.name},
+		{"Database", db.name},
 		{"Uptime", uptime.String()},
-		{"Entries", fmt.Sprintf("%d", ms.db.nbEntries)},
+		{"Entries", fmt.Sprintf("%d", db.nbEntries)},
 		{"No. clients", fmt.Sprintf("%d", ms.nbClients)},
 		{"  active < 1h ago", fmt.Sprintf("%d", len(*ms.clientsActiveDuringLastHour()))},
 	}
 
-	totalSizeS, totalSize := byteCountBinary(ms.db.totalBytes)
+	totalSizeS, totalSize := byteCountBinary(db.totalBytes)
 	updatePlot(
 		p.SizePlot,
 		&p.SizePlotData,
