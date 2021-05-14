@@ -18,6 +18,7 @@ package stats
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	dto "github.com/prometheus/client_model/go"
@@ -70,10 +71,9 @@ type rpcDuration struct {
 }
 
 type dbInfo struct {
-	name        string
-	totalBytes  uint64
-	nbEntries   uint64
-	uptimeHours float64
+	name       string
+	totalBytes uint64
+	nbEntries  uint64
 }
 
 type operations struct {
@@ -97,7 +97,8 @@ type metrics struct {
 	nbClients            int
 	nbRPCsPerClient      map[string]uint64
 	lastMsgAtPerClient   map[string]uint64
-	db                   dbInfo
+	uptimeHours          float64
+	dbs                  map[string]dbInfo
 	memstats             memstats
 }
 
@@ -153,30 +154,56 @@ func (ms *metrics) withClients(metricsFamilies *map[string]*dto.MetricFamily) {
 	}
 }
 
+func getGaugeVecPerLabel(metrics []*dto.Metric, label string, out *map[string]uint64) {
+	for _, m := range metrics {
+		var labelValue string
+		for _, labelPair := range m.GetLabel() {
+			if labelPair.GetName() == "db" {
+				labelValue = labelPair.GetValue()
+				break
+			}
+		}
+		(*out)[labelValue] = uint64(m.GetGauge().GetValue())
+	}
+}
+
 func (ms *metrics) withDBInfo(metricsFamilies *map[string]*dto.MetricFamily) {
-
-	ms.db.name = "data/defaultdb"
-
-	// DB size
-	dbSizeMetricsFams := (*metricsFamilies)["immudb_db_size_bytes"]
-	if dbSizeMetricsFams != nil && len(dbSizeMetricsFams.GetMetric()) > 0 {
-		ms.db.totalBytes =
-			uint64(dbSizeMetricsFams.GetMetric()[0].GetCounter().GetValue())
-	}
-
-	// Number of entries
-	nbEntriesMetricsFams := (*metricsFamilies)["immudb_number_of_stored_entries"]
-	if nbEntriesMetricsFams != nil && len(nbEntriesMetricsFams.GetMetric()) > 0 {
-		ms.db.nbEntries =
-			uint64(nbEntriesMetricsFams.GetMetric()[0].GetCounter().GetValue())
-	}
-
 	// Uptime hours
 	upHoursMetricsFams := (*metricsFamilies)["immudb_uptime_hours"]
 	if upHoursMetricsFams != nil && len(upHoursMetricsFams.GetMetric()) > 0 {
-		ms.db.uptimeHours = upHoursMetricsFams.GetMetric()[0].GetCounter().GetValue()
+		ms.uptimeHours = upHoursMetricsFams.GetMetric()[0].GetCounter().GetValue()
 	}
 
+	// DB sizes
+	dbSizes := make(map[string]uint64)
+	getGaugeVecPerLabel(
+		(*metricsFamilies)["immudb_db_size_bytes"].GetMetric(),
+		"db",
+		&dbSizes)
+
+	// Number of entries
+	nbsEntries := make(map[string]uint64)
+	getGaugeVecPerLabel(
+		(*metricsFamilies)["immudb_number_of_stored_entries"].GetMetric(),
+		"db",
+		&nbsEntries)
+
+	// aggregate all metrics to db info structs
+	dbInfos := make(map[string]dbInfo, int(math.Max(float64(len(dbSizes)), float64(len(nbsEntries)))))
+	for db, dbSize := range dbSizes {
+		currDBInfo := dbInfos[db]
+		currDBInfo.name = db
+		currDBInfo.totalBytes = dbSize
+		dbInfos[db] = currDBInfo
+	}
+	for db, nbEntries := range nbsEntries {
+		currDBInfo := dbInfos[db]
+		currDBInfo.name = db
+		currDBInfo.nbEntries = nbEntries
+		dbInfos[db] = currDBInfo
+	}
+
+	ms.dbs = dbInfos
 }
 
 func (ms *metrics) withDuration(metricsFamilies *map[string]*dto.MetricFamily) {

@@ -17,12 +17,16 @@ limitations under the License.
 package server
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/database"
+	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,6 +34,7 @@ type dbMock struct {
 	database.DB
 
 	currentStateF func() (*schema.ImmutableState, error)
+	getOptionsF   func() *database.DbOptions
 }
 
 func (dbm dbMock) CurrentState() (*schema.ImmutableState, error) {
@@ -38,15 +43,59 @@ func (dbm dbMock) CurrentState() (*schema.ImmutableState, error) {
 	}
 	return &schema.ImmutableState{TxId: 99}, nil
 }
+func (dbm dbMock) GetOptions() *database.DbOptions {
+	if dbm.getOptionsF != nil {
+		return dbm.getOptionsF()
+	}
+	return database.DefaultOption()
+}
 
-func TestMetricFuncDefaultDBRecordsCounter(t *testing.T) {
-	s := ImmuServer{
-		dbList: &databaseList{
-			databases: []database.DB{dbMock{}},
+func TestMetricFuncComputeDBEntries(t *testing.T) {
+
+	currentStateSuccessfulOnce := func(callCounter *int) (*schema.ImmutableState, error) {
+		*callCounter++
+		if *callCounter == 1 {
+			return &schema.ImmutableState{TxId: 99}, nil
+		} else {
+			return nil, fmt.Errorf(
+				"some current state error %d", *callCounter)
+		}
+	}
+
+	currentStateCounter := 0
+	dbList := databaseList{
+		databases: []database.DB{dbMock{
+			currentStateF: func() (*schema.ImmutableState, error) {
+				return currentStateSuccessfulOnce(&currentStateCounter)
+			},
+		}},
+	}
+
+	currentStateCounterSysDB := 0
+	sysDB := dbMock{
+		getOptionsF: func() *database.DbOptions {
+			return database.DefaultOption().WithDbName(SystemdbName)
+		},
+		currentStateF: func() (*schema.ImmutableState, error) {
+			return currentStateSuccessfulOnce(&currentStateCounterSysDB)
 		},
 	}
-	nbRecords := s.metricFuncDefaultDBRecordsCounter()
-	require.Equal(t, 99, int(nbRecords))
+
+	var sw strings.Builder
+	s := ImmuServer{
+		dbList: &dbList,
+		sysDb:  sysDB,
+		Logger: logger.NewSimpleLoggerWithLevel(
+			"TestMetricFuncComputeDBSizes",
+			&sw,
+			logger.LogError),
+	}
+
+	nbEntriesPerDB := s.metricFuncComputeDBEntries()
+	require.Len(t, nbEntriesPerDB, 2)
+
+	// call once again catch the currentState error paths
+	s.metricFuncComputeDBEntries()
 }
 
 func TestMetricFuncServerUptimeCounter(t *testing.T) {
@@ -54,19 +103,51 @@ func TestMetricFuncServerUptimeCounter(t *testing.T) {
 	s.metricFuncServerUptimeCounter()
 }
 
-func TestMetricFuncDefaultDBSize(t *testing.T) {
+func TestMetricFuncComputeDBSizes(t *testing.T) {
+	dataDir := "TestDBSizesData"
+	defaultDBName := "TestDBSizesDefaultDB"
+
+	//--> create the data dir with subdir for each db
+	var fullPermissions os.FileMode = 0777
+	require.NoError(t, os.MkdirAll(dataDir, fullPermissions))
+	defer os.RemoveAll(dataDir)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, defaultDBName), fullPermissions))
+	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, SystemdbName), fullPermissions))
+	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, SystemdbName, "some-dir"), fullPermissions))
+	file, err := os.Create(filepath.Join(dataDir, defaultDBName, "some-file"))
+	require.NoError(t, err)
+	defer file.Close()
+	//<--
+
 	s := ImmuServer{
 		Options: &Options{
-			Dir:           ".",
-			defaultDbName: "TestMetricFuncServerUptimeCounter_DefaultDB",
+			Dir:           dataDir,
+			defaultDbName: defaultDBName,
+		},
+		dbList: &databaseList{
+			databases: []database.DB{dbMock{
+				getOptionsF: func() *database.DbOptions {
+					return database.DefaultOption().WithDbName(defaultDBName)
+				},
+			}},
+		},
+		sysDb: dbMock{
+			getOptionsF: func() *database.DbOptions {
+				return database.DefaultOption().WithDbName(SystemdbName)
+			},
 		},
 	}
 
-	defaultDBPath := filepath.Join(s.Options.Dir, s.Options.defaultDbName)
-	require.NoError(t, os.MkdirAll(defaultDBPath, 0777))
-	defer os.RemoveAll(defaultDBPath)
-	_, err := os.Create(filepath.Join(defaultDBPath, "some-db-file"))
-	require.NoError(t, err)
+	var sw strings.Builder
+	s.Logger = logger.NewSimpleLoggerWithLevel(
+		"TestMetricFuncComputeDBSizes",
+		&sw,
+		logger.LogError)
 
-	s.metricFuncDefaultDBSize()
+	s.metricFuncComputeDBSizes()
+
+	// non-existent dir
+	s.Options.Dir = fmt.Sprintf("%d", time.Now().UnixNano())
+	s.metricFuncComputeDBSizes()
 }

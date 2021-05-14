@@ -187,7 +187,7 @@ func (s *ImmuServer) Initialize() error {
 	s.GrpcServer = grpc.NewServer(grpcSrvOpts...)
 	schema.RegisterImmuServiceServer(s.GrpcServer, s)
 	grpc_prometheus.Register(s.GrpcServer)
-	
+
 	return err
 }
 
@@ -258,9 +258,9 @@ func (s *ImmuServer) setUpMetricsServer() error {
 	s.metricsServer = StartMetrics(
 		s.Options.MetricsBind(),
 		s.Logger,
-		s.metricFuncDefaultDBRecordsCounter,
 		s.metricFuncServerUptimeCounter,
-		s.metricFuncDefaultDBSize,
+		s.metricFuncComputeDBSizes,
+		s.metricFuncComputeDBEntries,
 	)
 	return nil
 }
