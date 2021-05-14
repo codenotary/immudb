@@ -30,7 +30,6 @@ import (
 )
 
 type session struct {
-	conn            net.Conn
 	tlsConfig       *tls.Config
 	log             logger.Logger
 	mr              MessageReader
@@ -51,10 +50,9 @@ type Session interface {
 
 func NewSession(c net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) *session {
 	s := &session{
-		conn:      c,
 		tlsConfig: tlsConfig,
 		log:       log,
-		mr:        NewMessageReader(),
+		mr:        NewMessageReader(c),
 		sysDb:     sysDb,
 	}
 	return s
@@ -72,7 +70,7 @@ func (s *session) ErrorHandle(e error) {
 }
 
 func (s *session) nextMessage() (interface{}, error) {
-	msg, err := s.mr.ReadRawMessage(s.conn)
+	msg, err := s.mr.ReadRawMessage()
 	if err != nil {
 		return nil, err
 	}
@@ -94,13 +92,14 @@ func (s *session) parseRawMessage(msg *rawMessage) interface{} {
 
 func (s *session) writeMessage(msg []byte) (int, error) {
 	s.debugMessage(msg)
-	return s.mr.WriteMessage(s.conn, msg)
+	return s.mr.Write(msg)
 }
 
 func (s *session) readMessage(msg []byte) (int, error) {
 	s.debugMessage(msg)
-	return s.mr.WriteMessage(s.conn, msg)
+	return s.mr.Read(msg)
 }
+
 func (s *session) debugMessage(msg []byte) {
 	if len(msg) > 0 {
 		s.log.Debugf("write %s - %s message", string(msg[0]), pgmeta.MTypes[msg[0]])

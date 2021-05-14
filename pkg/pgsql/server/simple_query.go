@@ -45,7 +45,7 @@ func (s *session) HandleSimpleQueries() (err error) {
 		switch v := msg.(type) {
 		case fm.TerminateMsg:
 			// @todo add terminate message
-			return s.conn.Close()
+			return s.mr.CloseConnection()
 		case fm.QueryMsg:
 			// @todo remove when this will be supported
 			if strings.Contains(v.GetStatements(), "SET") {

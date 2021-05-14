@@ -33,16 +33,16 @@ func (s *session) InitializeSession() (err error) {
 	defer func() {
 		if err != nil {
 			s.ErrorHandle(err)
-			s.conn.Close()
+			s.mr.CloseConnection()
 		}
 	}()
 
 	lb := make([]byte, 4)
-	if _, err := s.conn.Read(lb); err != nil {
+	if _, err := s.mr.Read(lb); err != nil {
 		return err
 	}
 	pvb := make([]byte, 4)
-	if _, err := s.conn.Read(pvb); err != nil {
+	if _, err := s.mr.Read(pvb); err != nil {
 		return err
 	}
 
@@ -64,11 +64,11 @@ func (s *session) InitializeSession() (err error) {
 		}
 
 		lb = make([]byte, 4)
-		if _, err := s.conn.Read(lb); err != nil {
+		if _, err := s.mr.Read(lb); err != nil {
 			return err
 		}
 		pvb = make([]byte, 4)
-		if _, err := s.conn.Read(pvb); err != nil {
+		if _, err := s.mr.Read(pvb); err != nil {
 			return err
 		}
 
@@ -79,7 +79,7 @@ func (s *session) InitializeSession() (err error) {
 	connStringLenght := int(binary.BigEndian.Uint32(lb) - 4)
 	connString := make([]byte, connStringLenght)
 
-	if _, err := s.conn.Read(connString); err != nil {
+	if _, err := s.mr.Read(connString); err != nil {
 		return err
 	}
 
@@ -123,7 +123,7 @@ func (s *session) HandleStartup(dbList database.DatabaseList) (err error) {
 	defer func() {
 		if err != nil {
 			s.ErrorHandle(err)
-			s.conn.Close()
+			s.mr.CloseConnection()
 		}
 	}()
 

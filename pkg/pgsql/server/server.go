@@ -25,9 +25,12 @@ import (
 	"golang.org/x/net/netutil"
 	"net"
 	"os"
+	"sync"
 )
 
 type srv struct {
+	m              sync.RWMutex
+	running        bool
 	maxConnections int
 	tlsConfig      *tls.Config
 	SessionFactory SessionFactory
@@ -41,6 +44,7 @@ type srv struct {
 type Server interface {
 	Initialize() error
 	Serve() error
+	Stop() error
 	GetPort() int
 }
 
@@ -48,6 +52,7 @@ func New(setters ...Option) *srv {
 
 	// Default Options
 	cli := &srv{
+		running:        true,
 		maxConnections: 1000,
 		tlsConfig:      &tls.Config{},
 		SessionFactory: NewSessionFactory(),
@@ -72,23 +77,44 @@ func (s *srv) Initialize() (err error) {
 }
 
 func (s *srv) Serve() (err error) {
+	s.m.Lock()
 	if s.listener == nil {
 		return errors.New("no listener found for pgsql server")
 	}
-	defer s.listener.Close()
 
 	s.listener = netutil.LimitListener(s.listener, s.maxConnections)
+	s.m.Unlock()
 
-	for {
+	for true {
+		s.m.Lock()
+		if !s.running {
+			return nil
+		}
+		s.m.Unlock()
 		conn, err := s.listener.Accept()
 		if err != nil {
 			s.Logger.Errorf("%v", err)
+		} else {
+			go s.handleRequest(conn)
 		}
-		go s.handleRequest(conn)
+
 	}
+	return nil
+}
+
+func (s *srv) Stop() (err error) {
+	s.m.Lock()
+	defer s.m.Unlock()
+	s.running = false
+	if s.listener != nil {
+		return s.listener.Close()
+	}
+	return nil
 }
 
 func (s *srv) GetPort() int {
+	s.m.Lock()
+	defer s.m.Unlock()
 	if s.listener != nil {
 		return s.listener.Addr().(*net.TCPAddr).Port
 	}

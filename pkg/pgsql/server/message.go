@@ -29,20 +29,26 @@ type rawMessage struct {
 	payload []byte
 }
 
-type messageReader struct{}
+type messageReader struct {
+	conn net.Conn
+}
 
 type MessageReader interface {
-	ReadRawMessage(conn net.Conn) (*rawMessage, error)
-	WriteMessage(conn net.Conn, msg []byte) (int, error)
+	ReadRawMessage() (*rawMessage, error)
+	Write(msg []byte) (int, error)
+	Read(data []byte) (int, error)
+	UpgradeConnection(conn net.Conn)
+	CloseConnection() error
+	Connection() net.Conn
 }
 
-func NewMessageReader() *messageReader {
-	return &messageReader{}
+func NewMessageReader(conn net.Conn) *messageReader {
+	return &messageReader{conn: conn}
 }
 
-func (r *messageReader) ReadRawMessage(conn net.Conn) (*rawMessage, error) {
+func (r *messageReader) ReadRawMessage() (*rawMessage, error) {
 	t := make([]byte, 1)
-	if _, err := conn.Read(t); err != nil {
+	if _, err := r.conn.Read(t); err != nil {
 		return nil, err
 	}
 
@@ -51,12 +57,12 @@ func (r *messageReader) ReadRawMessage(conn net.Conn) (*rawMessage, error) {
 	}
 
 	lb := make([]byte, 4)
-	if _, err := conn.Read(lb); err != nil {
+	if _, err := r.conn.Read(lb); err != nil {
 		return nil, err
 	}
 	l := binary.BigEndian.Uint32(lb)
 	payload := make([]byte, l-4)
-	if _, err := conn.Read(payload); err != nil {
+	if _, err := r.conn.Read(payload); err != nil {
 		return nil, err
 	}
 
@@ -66,6 +72,20 @@ func (r *messageReader) ReadRawMessage(conn net.Conn) (*rawMessage, error) {
 	}, nil
 }
 
-func (r *messageReader) WriteMessage(conn net.Conn, msg []byte) (int, error) {
-	return conn.Write(msg)
+func (r *messageReader) Write(data []byte) (int, error) {
+	return r.conn.Write(data)
+}
+func (r *messageReader) Read(data []byte) (int, error) {
+	return r.conn.Read(data)
+}
+
+func (r *messageReader) UpgradeConnection(conn net.Conn) {
+	r.conn = conn
+}
+func (r *messageReader) CloseConnection() error {
+	return r.conn.Close()
+}
+
+func (r *messageReader) Connection() net.Conn {
+	return r.conn
 }
