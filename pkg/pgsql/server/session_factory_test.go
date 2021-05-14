@@ -20,42 +20,17 @@ import (
 	"crypto/tls"
 	"github.com/codenotary/immudb/pkg/database"
 	"github.com/codenotary/immudb/pkg/logger"
+	"net"
 )
 
-type Option func(s *srv)
-
-func Port(port int) Option {
-	return func(args *srv) {
-		args.Port = port
-	}
+type sessionFactoryMock struct {
+	s Session
 }
 
-func Logger(logger logger.Logger) Option {
-	return func(args *srv) {
-		args.Logger = logger
-	}
+func NewSessionFactoryMock(s Session) sessionFactoryMock {
+	return sessionFactoryMock{s: s}
 }
 
-func DatabaseList(dbList database.DatabaseList) Option {
-	return func(args *srv) {
-		args.dbList = dbList
-	}
-}
-
-func SysDb(sysdb database.DB) Option {
-	return func(args *srv) {
-		args.sysDb = sysdb
-	}
-}
-
-func TlsConfig(tlsConfig *tls.Config) Option {
-	return func(args *srv) {
-		args.tlsConfig = tlsConfig
-	}
-}
-
-func SessFactory(sf SessionFactory) Option {
-	return func(args *srv) {
-		args.SessionFactory = sf
-	}
+func (sm sessionFactoryMock) NewSession(conn net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) Session {
+	return sm.s
 }
