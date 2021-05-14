@@ -101,7 +101,7 @@ func (s *session) readMessage(msg []byte) (int, error) {
 }
 
 func (s *session) debugMessage(msg []byte) {
-	if len(msg) > 0 {
+	if s.log != nil && len(msg) > 0 {
 		s.log.Debugf("write %s - %s message", string(msg[0]), pgmeta.MTypes[msg[0]])
 	}
 }
