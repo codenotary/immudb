@@ -25,8 +25,8 @@ import (
 	daem "github.com/takama/daemon"
 )
 
-func TestSservice_NewDaemon(t *testing.T) {
-	ss := NewSService()
+func TestSserviceWin_NewDaemon(t *testing.T) {
+	ss := NewSService(&Option{})
 	d, err := ss.NewDaemon("test", "", "")
 	assert.Nil(t, err)
 	dc, _ := daem.New("test", "", "")

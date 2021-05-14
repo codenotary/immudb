@@ -122,11 +122,9 @@ func (ss *sservice) UninstallSetup(serviceName string) (err error) {
 	if err = ss.RemoveProgramFiles(serviceName); err != nil {
 		return err
 	}
-	// remove ProgramData folder only if it is empty
-	var cepd string
-	if cepd, err = helper.ResolvePath(ss.v.GetString("dir"), false); err != nil {
-		return err
-	}
+	// get immudb folder
+	cepd := strings.Replace(ss.v.GetString("dir"), "data", "", 1)
+	// remove immudb folder folder only if it is empty
 	if _, err := os.Stat(cepd); !os.IsNotExist(err) {
 		f1, err := ss.os.Open(cepd)
 		if err != nil {
@@ -147,9 +145,7 @@ func (ss *sservice) EraseData(serviceName string) (err error) {
 		return err
 	}
 	var path string
-	if path, err = helper.ResolvePath(filepath.FromSlash(ss.v.GetString("dir")), false); err != nil {
-		return err
-	}
+	path = filepath.FromSlash(ss.v.GetString("dir"))
 	if err := ss.osRemoveAll(path); err != nil {
 		return err
 	}
@@ -169,7 +165,8 @@ func (ss *sservice) GetDefaultConfigPath(serviceName string) (dataDir string, er
 		return "", err
 	}
 	dataDir = strings.Replace(dataDir, "%programdata%", pd, -1)
-	return filepath.Join(strings.Title(dataDir), "config", serviceName+".toml"), err
+	configDir := strings.Replace(dataDir, "data", "", 1)
+	return filepath.Join(strings.Title(configDir), "config", serviceName+".toml"), err
 }
 
 func (ss *sservice) ReadConfig(serviceName string) (err error) {
@@ -229,16 +226,16 @@ func (ss *sservice) CopyExecInOsDefault(serviceName string) (path string, err er
 	return path, err
 }
 
-// RemoveProgramFiles remove all program files
+// RemoveProgramFiles remove only config folder
 func (ss *sservice) RemoveProgramFiles(serviceName string) (err error) {
-	var path string
 	if err = ss.ReadConfig(serviceName); err != nil {
 		return err
 	}
-	if path, err = helper.ResolvePath(filepath.Join(filepath.FromSlash(ss.v.GetString("dir")), "config"), false); err != nil {
+	configPath, err := ss.GetDefaultConfigPath(serviceName)
+	if err != nil {
 		return err
 	}
-	return ss.osRemoveAll(path)
+	return ss.osRemoveAll(filepath.Dir(configPath))
 }
 
 func (ss sservice) UninstallExecutables(serviceName string) (err error) {
