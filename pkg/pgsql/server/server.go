@@ -32,7 +32,6 @@ type srv struct {
 	tlsConfig      *tls.Config
 	SessionFactory SessionFactory
 	Logger         logger.Logger
-	Host           string
 	Port           int
 	dbList         database.DatabaseList
 	sysDb          database.DB
@@ -53,7 +52,6 @@ func New(setters ...Option) *srv {
 		tlsConfig:      &tls.Config{},
 		SessionFactory: NewSessionFactory(),
 		Logger:         logger.NewSimpleLogger("sqlSrv", os.Stderr),
-		Host:           "localhost",
 		Port:           5432,
 	}
 
@@ -66,7 +64,7 @@ func New(setters ...Option) *srv {
 
 // Initialize initialize listener. If provided port is zero os auto assign a free one.
 func (s *srv) Initialize() (err error) {
-	s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", s.Host, s.Port))
+	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
 		return err
 	}

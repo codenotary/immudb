@@ -24,12 +24,6 @@ import (
 
 type Option func(s *srv)
 
-func Host(c string) Option {
-	return func(args *srv) {
-		args.Host = c
-	}
-}
-
 func Port(port int) Option {
 	return func(args *srv) {
 		args.Port = port

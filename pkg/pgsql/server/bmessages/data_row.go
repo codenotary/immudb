@@ -48,7 +48,8 @@ func DataRow(rows []*schema.Row, colNumb int, binaryFormat bool) []byte {
 			// Int32
 			// The value of the column, in the format indicated by the associated format code. n is the above length.
 			// Byten
-			if binaryFormat {
+			// @todo not needed at the moment
+			/*if binaryFormat {
 				switch tv := val.Value.(type) {
 				case *schema.SQLValue_Null:
 					{
@@ -83,7 +84,7 @@ func DataRow(rows []*schema.Row, colNumb int, binaryFormat bool) []byte {
 						value = tv.Bs
 					}
 				}
-			}
+			}*/
 
 			if !binaryFormat {
 				value = []byte(schema.RenderValue(val.Value))
