@@ -65,8 +65,10 @@ type DB interface {
 	GetOptions() *DbOptions
 	CompactIndex() error
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
+	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, waitForIndexing bool) (*schema.SQLExecResult, error)
 	UseSnapshot(req *schema.UseSnapshotRequest) error
 	SQLQuery(req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error)
+	SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedParam, renewSnapshot bool) (*schema.SQLQueryResult, error)
 	ListTables() (*schema.SQLQueryResult, error)
 	DescribeTable(table string) (*schema.SQLQueryResult, error)
 	GetName() string

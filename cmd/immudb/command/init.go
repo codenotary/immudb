@@ -23,64 +23,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-func parseOptions() (options *server.Options, err error) {
-	dir := viper.GetString("dir")
-	port := viper.GetInt("port")
-	address := viper.GetString("address")
-	pidfile := viper.GetString("pidfile")
-	logfile := viper.GetString("logfile")
-	mtls := viper.GetBool("mtls")
-	auth := viper.GetBool("auth")
-	maxRecvMsgSize := viper.GetInt("max-recv-msg-size")
-	noHistograms := viper.GetBool("no-histograms")
-	detached := viper.GetBool("detached")
-	certificate := viper.GetString("certificate")
-	pkey := viper.GetString("pkey")
-	clientcas := viper.GetString("clientcas")
-	devMode := viper.GetBool("devmode")
-	adminPassword := viper.GetString("admin-password")
-	maintenance := viper.GetBool("maintenance")
-	signingKey := viper.GetString("signingKey")
-	synced := viper.GetBool("synced")
-	tokenExpTime := viper.GetInt("token-expiry-time")
-	webServer := viper.GetBool("web-server")
-	webServerPort := viper.GetInt("web-server-port")
-	pgsqlServer := viper.GetBool("pgsql-server")
-	pgsqlServerPort := viper.GetInt("pgsql-server-port")
-
-	storeOpts := server.DefaultStoreOptions().WithSynced(synced)
-
-	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls)
-	if err != nil {
-		return options, err
-	}
-
-	options = server.
-		DefaultOptions().
-		WithDir(dir).
-		WithPort(port).
-		WithAddress(address).
-		WithPidfile(pidfile).
-		WithLogfile(logfile).
-		WithTLS(tlsConfig).
-		WithAuth(auth).
-		WithMaxRecvMsgSize(maxRecvMsgSize).
-		WithNoHistograms(noHistograms).
-		WithDetached(detached).
-		WithDevMode(devMode).
-		WithAdminPassword(adminPassword).
-		WithMaintenance(maintenance).
-		WithSigningKey(signingKey).
-		WithStoreOptions(storeOpts).
-		WithTokenExpiryTime(tokenExpTime).
-		WithPgsqlServer(pgsqlServer).
-		WithPgsqlServerPort(pgsqlServerPort).
-		WithWebServer(webServer).
-		WithWebServerPort(webServerPort)
-
-	return options, nil
-}
-
 func (cl *Commandline) setupFlags(cmd *cobra.Command, options *server.Options) {
 	cmd.Flags().String("dir", options.Dir, "data folder")
 	cmd.Flags().IntP("port", "p", options.Port, "port number")
