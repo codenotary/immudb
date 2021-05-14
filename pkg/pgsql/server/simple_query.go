@@ -99,7 +99,7 @@ func (s *session) queryMsg(v fm.QueryMsg) error {
 }
 
 func (s *session) selectStatement(st *sql.SelectStmt) error {
-	res, err := s.database.SQLQueryPrepared(st, nil)
+	res, err := s.database.SQLQueryPrepared(st, nil, true)
 	if err != nil {
 		return err
 	}

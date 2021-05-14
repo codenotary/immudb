@@ -257,7 +257,7 @@ func (s *ServerMock) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*
 }
 
 func (s *ServerMock) UseSnapshot(ctx context.Context, req *schema.UseSnapshotRequest) (*empty.Empty, error) {
-	return s.srv.UseSnapshot(ctx, req)
+	return s.Srv.UseSnapshot(ctx, req)
 }
 
 func (s *ServerMock) SQLQuery(ctx context.Context, req *schema.SQLQueryRequest) (*schema.SQLQueryResult, error) {
