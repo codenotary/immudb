@@ -36,8 +36,10 @@
     - [Reference](#immudb.schema.Reference)
     - [ReferenceRequest](#immudb.schema.ReferenceRequest)
     - [Row](#immudb.schema.Row)
+    - [SQLEntry](#immudb.schema.SQLEntry)
     - [SQLExecRequest](#immudb.schema.SQLExecRequest)
     - [SQLExecResult](#immudb.schema.SQLExecResult)
+    - [SQLGetRequest](#immudb.schema.SQLGetRequest)
     - [SQLQueryRequest](#immudb.schema.SQLQueryRequest)
     - [SQLQueryResult](#immudb.schema.SQLQueryResult)
     - [SQLValue](#immudb.schema.SQLValue)
@@ -61,6 +63,8 @@
     - [VerifiableEntry](#immudb.schema.VerifiableEntry)
     - [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest)
     - [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest)
+    - [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry)
+    - [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest)
     - [VerifiableSetRequest](#immudb.schema.VerifiableSetRequest)
     - [VerifiableTx](#immudb.schema.VerifiableTx)
     - [VerifiableTxRequest](#immudb.schema.VerifiableTxRequest)
@@ -605,7 +609,25 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| columns | [string](#string) | repeated |  |
 | values | [SQLValue](#immudb.schema.SQLValue) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.SQLEntry"></a>
+
+### SQLEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tx | [uint64](#uint64) |  |  |
+| key | [bytes](#bytes) |  |  |
+| value | [bytes](#bytes) |  |  |
 
 
 
@@ -639,6 +661,24 @@
 | ----- | ---- | ----- | ----------- |
 | ctxs | [TxMetadata](#immudb.schema.TxMetadata) | repeated |  |
 | dtxs | [TxMetadata](#immudb.schema.TxMetadata) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.SQLGetRequest"></a>
+
+### SQLGetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| table | [string](#string) |  |  |
+| pkValue | [SQLValue](#immudb.schema.SQLValue) |  |  |
+| atTx | [uint64](#uint64) |  |  |
+| sinceTx | [uint64](#uint64) |  |  |
 
 
 
@@ -1026,6 +1066,39 @@
 
 
 
+<a name="immudb.schema.VerifiableSQLEntry"></a>
+
+### VerifiableSQLEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| sqlEntry | [SQLEntry](#immudb.schema.SQLEntry) |  |  |
+| verifiableTx | [VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
+| inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableSQLGetRequest"></a>
+
+### VerifiableSQLGetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| sqlGetRequest | [SQLGetRequest](#immudb.schema.SQLGetRequest) |  |  |
+| proveSinceTx | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="immudb.schema.VerifiableSetRequest"></a>
 
 ### VerifiableSetRequest
@@ -1242,6 +1315,7 @@ IMPORTANT: All get and safeget functions return base64-encoded keys and values, 
 | SQLQuery | [SQLQueryRequest](#immudb.schema.SQLQueryRequest) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | ListTables | [.google.protobuf.Empty](#google.protobuf.Empty) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
 | DescribeTable | [Table](#immudb.schema.Table) | [SQLQueryResult](#immudb.schema.SQLQueryResult) |  |
+| VerifiableSQLGet | [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest) | [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry) |  |
 
  
 
