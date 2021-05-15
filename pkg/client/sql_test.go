@@ -54,7 +54,13 @@ func TestImmuClient_SQL(t *testing.T) {
 	params := make(map[string]interface{})
 	params["active"] = nil
 
-	res, err := client.SQLQuery(ctx, "SELECT t.id as d FROM (table1 as t) WHERE id <= 3 AND active = @active", params, true)
+	res, err := client.SQLQuery(ctx, "SELECT t.id as d, title as t FROM (table1 as t) WHERE id <= 3 AND active = @active", params, true)
 	require.NoError(t, err)
 	require.NotNil(t, res)
+
+	for _, row := range res.Rows {
+		verified, err := client.VerifyRow(ctx, row, "table1", row.Values[0])
+		require.NoError(t, err)
+		require.True(t, verified)
+	}
 }
