@@ -106,6 +106,10 @@ func (c *Catalog) GetDatabaseByID(id uint64) (*Database, error) {
 	return db, nil
 }
 
+func (db *Database) ID() uint64 {
+	return db.id
+}
+
 func (db *Database) ExistTable(table string) bool {
 	_, exists := db.tablesByName[table]
 	return exists
@@ -145,6 +149,14 @@ func (db *Database) GetTableByID(id uint64) (*Table, error) {
 		return nil, ErrTableDoesNotExist
 	}
 	return table, nil
+}
+
+func (t *Table) ID() uint64 {
+	return t.id
+}
+
+func (t *Table) Database() *Database {
+	return t.db
 }
 
 func (t *Table) GetColsByID() map[uint64]*Column {
@@ -240,11 +252,15 @@ func (db *Database) newTable(name string, colsSpec []*ColSpec, pk string) (*Tabl
 	return table, nil
 }
 
+func (c *Column) ID() uint64 {
+	return c.id
+}
+
 func (c *Column) Name() string {
 	return c.colName
 }
 
-func (c *Column) Type() string {
+func (c *Column) Type() SQLValueType {
 	return c.colType
 }
 
