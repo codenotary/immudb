@@ -64,6 +64,7 @@ type DB interface {
 	Close() error
 	GetOptions() *DbOptions
 	CompactIndex() error
+	VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error)
 	SQLExec(req *schema.SQLExecRequest) (*schema.SQLExecResult, error)
 	SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedParam, waitForIndexing bool) (*schema.SQLExecResult, error)
 	UseSnapshot(req *schema.UseSnapshotRequest) error

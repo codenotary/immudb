@@ -20,8 +20,113 @@ import (
 	"strings"
 
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 )
+
+func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
+	if req == nil {
+		return nil, ErrIllegalArguments
+	}
+
+	lastTxID, _ := d.st.Alh()
+	if lastTxID < req.ProveSinceTx {
+		return nil, ErrIllegalState
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	txEntry := d.tx1
+
+	table, err := d.sqlEngine.Catalog().GetTableByName(d.options.dbName, req.SqlGetRequest.Table)
+	if err != nil {
+		return nil, err
+	}
+
+	pkEncVal, err := sql.EncodeRawValue(rawValue(req.SqlGetRequest.PkValue), table.PrimaryKey().Type(), true)
+	if err != nil {
+		return nil, err
+	}
+
+	// build the encoded key for the pk
+	pkKey := d.sqlEngine.MapKey(sql.RowPrefix, sql.EncodeID(table.Database().ID()), sql.EncodeID(table.ID()), sql.EncodeID(table.PrimaryKey().ID()), pkEncVal)
+
+	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, txEntry)
+	if err != nil {
+		return nil, err
+	}
+
+	// key-value inclusion proof
+	err = d.st.ReadTx(e.Tx, txEntry)
+	if err != nil {
+		return nil, err
+	}
+
+	inclusionProof, err := d.tx1.Proof(e.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	var rootTx *store.Tx
+
+	if req.ProveSinceTx == 0 {
+		rootTx = txEntry
+	} else {
+		rootTx = d.tx2
+
+		err = d.st.ReadTx(req.ProveSinceTx, rootTx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var sourceTx, targetTx *store.Tx
+
+	if req.ProveSinceTx <= e.Tx {
+		sourceTx = rootTx
+		targetTx = txEntry
+	} else {
+		sourceTx = txEntry
+		targetTx = rootTx
+	}
+
+	dualProof, err := d.st.DualProof(sourceTx, targetTx)
+	if err != nil {
+		return nil, err
+	}
+
+	verifiableTx := &schema.VerifiableTx{
+		Tx:        schema.TxTo(txEntry),
+		DualProof: schema.DualProofTo(dualProof),
+	}
+
+	return &schema.VerifiableSQLEntry{
+		SqlEntry:       e,
+		VerifiableTx:   verifiableTx,
+		InclusionProof: schema.InclusionProofTo(inclusionProof),
+	}, nil
+}
+
+func (d *db) sqlGetAt(key []byte, atTx uint64, index store.KeyIndex, tx *store.Tx) (entry *schema.SQLEntry, err error) {
+	var ktx uint64
+	var val []byte
+
+	if atTx == 0 {
+		val, ktx, _, err = index.Get(key)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		val, err = d.readValue(key, atTx, tx)
+		if err != nil {
+			return nil, err
+		}
+		ktx = atTx
+	}
+
+	return &schema.SQLEntry{Key: key, Value: val, Tx: ktx}, err
+}
 
 func (d *db) ListTables() (*schema.SQLQueryResult, error) {
 	d.mutex.Lock()
@@ -217,10 +322,13 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 		}
 
 		rrow := &schema.Row{
-			Values: make([]*schema.SQLValue, len(res.Columns)),
+			Columns: make([]string, len(res.Columns)),
+			Values:  make([]*schema.SQLValue, len(res.Columns)),
 		}
 
 		for i, c := range res.Columns {
+			rrow.Columns[i] = c.Name
+
 			v := row.Values[c.Name]
 
 			_, isNull := v.(*sql.NullValue)
