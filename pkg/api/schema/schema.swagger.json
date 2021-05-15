@@ -757,6 +757,38 @@
         ]
       }
     },
+    "/db/verifiable/sqlget": {
+      "post": {
+        "operationId": "ImmuService_VerifiableSQLGet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableSQLEntry"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/schemaVerifiableSQLGetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ImmuService"
+        ]
+      }
+    },
     "/db/verifiable/tx/{tx}": {
       "get": {
         "operationId": "ImmuService_VerifiableTxById",
@@ -1640,11 +1672,34 @@
     "schemaRow": {
       "type": "object",
       "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "values": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/schemaSQLValue"
           }
+        }
+      }
+    },
+    "schemaSQLEntry": {
+      "type": "object",
+      "properties": {
+        "tx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -1679,6 +1734,25 @@
           "items": {
             "$ref": "#/definitions/schemaTxMetadata"
           }
+        }
+      }
+    },
+    "schemaSQLGetRequest": {
+      "type": "object",
+      "properties": {
+        "table": {
+          "type": "string"
+        },
+        "pkValue": {
+          "$ref": "#/definitions/schemaSQLValue"
+        },
+        "atTx": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "sinceTx": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -1989,6 +2063,32 @@
       "properties": {
         "referenceRequest": {
           "$ref": "#/definitions/schemaReferenceRequest"
+        },
+        "proveSinceTx": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "schemaVerifiableSQLEntry": {
+      "type": "object",
+      "properties": {
+        "sqlEntry": {
+          "$ref": "#/definitions/schemaSQLEntry"
+        },
+        "verifiableTx": {
+          "$ref": "#/definitions/schemaVerifiableTx"
+        },
+        "inclusionProof": {
+          "$ref": "#/definitions/schemaInclusionProof"
+        }
+      }
+    },
+    "schemaVerifiableSQLGetRequest": {
+      "type": "object",
+      "properties": {
+        "sqlGetRequest": {
+          "$ref": "#/definitions/schemaSQLGetRequest"
         },
         "proveSinceTx": {
           "type": "string",

@@ -334,6 +334,30 @@ message Table {
 	string tableName = 1;
 }
 
+message SQLGetRequest {
+	string table = 1;
+	SQLValue pkValue = 2;
+    uint64 atTx = 3;
+	uint64 sinceTx = 4;
+}
+
+message VerifiableSQLGetRequest {
+	SQLGetRequest sqlGetRequest = 1;
+	uint64 proveSinceTx = 2;
+}
+
+message SQLEntry {
+	uint64 tx = 1;
+	bytes key = 2;
+	bytes value = 3;
+}
+
+message VerifiableSQLEntry {
+	SQLEntry sqlEntry = 1;
+	VerifiableTx verifiableTx = 2;
+	InclusionProof inclusionProof = 3;
+}
+
 message UseDatabaseReply{
 	string token = 1;
 }
@@ -401,7 +425,8 @@ message Column {
 }
 
 message Row {
-	repeated SQLValue values = 1;
+	repeated string columns = 1;
+	repeated SQLValue values = 2;
 }
 
 message SQLValue {
@@ -699,6 +724,13 @@ service ImmuService {
 	rpc DescribeTable(Table) returns (SQLQueryResult) {
 		option (google.api.http) = {
 			post: "/db/tables"
+			body: "*"
+		};
+	};
+
+	rpc VerifiableSQLGet (VerifiableSQLGetRequest) returns (VerifiableSQLEntry){
+		option (google.api.http) = {
+			post: "/db/verifiable/sqlget"
 			body: "*"
 		};
 	};
