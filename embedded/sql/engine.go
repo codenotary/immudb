@@ -291,7 +291,7 @@ func (e *Engine) CloseSnapshot() error {
 func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	catalog := newCatalog()
 
-	initialKey := e.mapKey(catalogDatabasePrefix)
+	initialKey := e.MapKey(catalogDatabasePrefix)
 	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
 		Prefix:  initialKey,
@@ -344,7 +344,7 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 }
 
 func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
-	initialKey := e.mapKey(catalogTablePrefix, encodeID(db.id))
+	initialKey := e.MapKey(catalogTablePrefix, EncodeID(db.id))
 
 	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
@@ -410,7 +410,7 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 }
 
 func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) (specs []*ColSpec, pkName string, err error) {
-	initialKey := e.mapKey(catalogColumnPrefix, encodeID(dbID), encodeID(tableID))
+	initialKey := e.MapKey(catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
@@ -473,7 +473,7 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 }
 
 func (e *Engine) loadIndexes(dbID, tableID uint64, snap *store.Snapshot) ([]uint64, error) {
-	initialKey := e.mapKey(catalogIndexPrefix, encodeID(dbID), encodeID(tableID))
+	initialKey := e.MapKey(catalogIndexPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	idxReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
@@ -602,7 +602,7 @@ func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, colID uint64, err error
 }
 
 func (e *Engine) unmapIndexedRow(mkey []byte) (dbID, tableID, colID uint64, encVal, encPKVal []byte, err error) {
-	enc, err := e.trimPrefix(mkey, []byte(rowPrefix))
+	enc, err := e.trimPrefix(mkey, []byte(RowPrefix))
 	if err != nil {
 		return 0, 0, 0, nil, nil, err
 	}
@@ -651,7 +651,7 @@ func (e *Engine) unmapIndexedRow(mkey []byte) (dbID, tableID, colID uint64, encV
 	return
 }
 
-func (e *Engine) mapKey(mappingPrefix string, encValues ...[]byte) []byte {
+func (e *Engine) MapKey(mappingPrefix string, encValues ...[]byte) []byte {
 	mkeyLen := len(e.prefix) + len(mappingPrefix)
 
 	for _, ev := range encValues {
@@ -676,7 +676,7 @@ func (e *Engine) mapKey(mappingPrefix string, encValues ...[]byte) []byte {
 	return mkey
 }
 
-func encodeID(id uint64) []byte {
+func EncodeID(id uint64) []byte {
 	var encID [encIDLen]byte
 	binary.BigEndian.PutUint64(encID[:], id)
 	return encID[:]
@@ -690,6 +690,83 @@ func maxKeyVal(colType SQLValueType) []byte {
 		}
 	}
 	return mKeyVal[:]
+}
+
+func EncodeRawValue(val interface{}, colType SQLValueType, asKey bool) ([]byte, error) {
+	switch colType {
+	case VarcharType:
+		{
+			strVal, ok := val.(string)
+			if !ok {
+				return nil, ErrInvalidValue
+			}
+
+			if asKey && len(strVal) > len(maxKeyVal(VarcharType)) {
+				return nil, ErrInvalidPK
+			}
+
+			// len(v) + v
+			encv := make([]byte, encLenLen+len(strVal))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal)))
+			copy(encv[encLenLen:], []byte(strVal))
+
+			return encv, nil
+		}
+	case IntegerType:
+		{
+			intVal, ok := val.(uint64)
+			if !ok {
+				return nil, ErrInvalidValue
+			}
+
+			// len(v) + v
+			var encv [encLenLen + encIDLen]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(encIDLen))
+			binary.BigEndian.PutUint64(encv[encLenLen:], intVal)
+
+			return encv[:], nil
+		}
+	case BooleanType:
+		{
+			boolVal, ok := val.(bool)
+			if !ok {
+				return nil, ErrInvalidValue
+			}
+
+			// len(v) + v
+			var encv [encLenLen + 1]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(1))
+			if boolVal {
+				encv[encLenLen] = 1
+			}
+
+			return encv[:], nil
+		}
+	case BLOBType:
+		{
+			blobVal, ok := val.([]byte)
+			if !ok {
+				return nil, ErrInvalidValue
+			}
+
+			if asKey && len(blobVal) > len(maxKeyVal(BLOBType)) {
+				return nil, ErrInvalidPK
+			}
+
+			// len(v) + v
+			encv := make([]byte, encLenLen+len(blobVal))
+			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal)))
+			copy(encv[encLenLen:], blobVal)
+
+			return encv[:], nil
+		}
+	}
+
+	/*
+		time
+	*/
+
+	return nil, ErrInvalidValue
 }
 
 func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, error) {

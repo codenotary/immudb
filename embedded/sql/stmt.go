@@ -32,7 +32,7 @@ const (
 	catalogTablePrefix    = "CATALOG.TABLE."    // (key=CATALOG.TABLE.{dbID}{tableID}{pkID}, value={tableNAME})
 	catalogColumnPrefix   = "CATALOG.COLUMN."   // (key=CATALOG.COLUMN.{dbID}{tableID}{colID}{colTYPE}, value={nullable}{colNAME})
 	catalogIndexPrefix    = "CATALOG.INDEX."    // (key=CATALOG.INDEX.{dbID}{tableID}{colID}, value={})
-	rowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{colID}({valLen}{val})?{pkValLen}{pkVal}, value={})
+	RowPrefix             = "ROW."              // (key=ROW.{dbID}{tableID}{colID}({valLen}{val})?{pkValLen}{pkVal}, value={})
 )
 
 type SQLValueType = string
@@ -143,7 +143,7 @@ func (stmt *CreateDatabaseStmt) CompileUsing(e *Engine, implicitDB *Database, pa
 	}
 
 	kv := &store.KV{
-		Key:   e.mapKey(catalogDatabasePrefix, encodeID(db.id)),
+		Key:   e.MapKey(catalogDatabasePrefix, EncodeID(db.id)),
 		Value: []byte(stmt.DB),
 	}
 
@@ -215,14 +215,14 @@ func (stmt *CreateTableStmt) CompileUsing(e *Engine, implicitDB *Database, param
 		copy(v[1:], []byte(col.Name()))
 
 		ce := &store.KV{
-			Key:   e.mapKey(catalogColumnPrefix, encodeID(implicitDB.id), encodeID(table.id), encodeID(colID), []byte(col.colType)),
+			Key:   e.MapKey(catalogColumnPrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(colID), []byte(col.colType)),
 			Value: v,
 		}
 		ces = append(ces, ce)
 	}
 
 	te := &store.KV{
-		Key:   e.mapKey(catalogTablePrefix, encodeID(implicitDB.id), encodeID(table.id), encodeID(table.pk.id)),
+		Key:   e.MapKey(catalogTablePrefix, EncodeID(implicitDB.id), EncodeID(table.id), EncodeID(table.pk.id)),
 		Value: []byte(table.name),
 	}
 	ces = append(ces, te)
@@ -276,7 +276,7 @@ func (stmt *CreateIndexStmt) CompileUsing(e *Engine, implicitDB *Database, param
 		return nil, nil, nil, err
 	}
 
-	pkPrefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id))
+	pkPrefix := e.MapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.pk.id))
 	existKey, err := e.dataStore.ExistKeyWith(pkPrefix, pkPrefix, false)
 	if err != nil {
 		return nil, nil, nil, err
@@ -288,7 +288,7 @@ func (stmt *CreateIndexStmt) CompileUsing(e *Engine, implicitDB *Database, param
 	table.indexes[col.id] = struct{}{}
 
 	te := &store.KV{
-		Key:   e.mapKey(catalogIndexPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id)),
+		Key:   e.MapKey(catalogIndexPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(col.id)),
 		Value: []byte(table.name),
 	}
 	ces = append(ces, te)
@@ -466,7 +466,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, implicitDB *Database, params
 		}
 
 		// create entry for the column which is the pk
-		mkey := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(table.pk.id), pkEncVal)
+		mkey := e.MapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(table.pk.id), pkEncVal)
 
 		pke := &store.KV{
 			Key:    mkey,
@@ -510,7 +510,7 @@ func (stmt *UpsertIntoStmt) CompileUsing(e *Engine, implicitDB *Database, params
 			}
 
 			ie := &store.KV{
-				Key:   e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(colID), encVal, pkEncVal),
+				Key:   e.MapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(colID), encVal, pkEncVal),
 				Value: nil,
 			}
 			des = append(des, ie)

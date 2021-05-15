@@ -92,7 +92,7 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 		return nil, err
 	}
 
-	prefix := e.mapKey(rowPrefix, encodeID(table.db.id), encodeID(table.id), encodeID(col.id))
+	prefix := e.MapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(col.id))
 
 	if cmp == EqualTo {
 		prefix = append(prefix, encInitKeyVal...)
@@ -205,7 +205,7 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 			return nil, err
 		}
 
-		v, _, _, err = r.snap.Get(r.e.mapKey(rowPrefix, encodeID(r.table.db.id), encodeID(r.table.id), encodeID(r.table.pk.id), encPKVal))
+		v, _, _, err = r.snap.Get(r.e.MapKey(RowPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(r.table.pk.id), encPKVal))
 		if err != nil {
 			return nil, err
 		}
