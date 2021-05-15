@@ -150,17 +150,6 @@ type ImmuClient interface {
 	DescribeTable(ctx context.Context, tableName string) (*schema.SQLQueryResult, error)
 
 	VerifyRow(ctx context.Context, row *schema.Row, table string, pkVal *schema.SQLValue) (bool, error)
-
-	// DEPRECATED: Please use CurrentState
-	CurrentRoot(ctx context.Context) (*schema.ImmutableState, error)
-	// DEPRECATED: Please use VerifiedSet
-	SafeSet(ctx context.Context, key []byte, value []byte) (*schema.TxMetadata, error)
-	// DEPRECATED: Please use VerifiedGet
-	SafeGet(ctx context.Context, key []byte, opts ...grpc.CallOption) (*schema.Entry, error)
-	// DEPRECATED: Please use VerifiedZAdd
-	SafeZAdd(ctx context.Context, set []byte, score float64, key []byte) (*schema.TxMetadata, error)
-	// DEPRECATED: Please use VerifiedSetReference
-	SafeReference(ctx context.Context, key []byte, referencedKey []byte) (*schema.TxMetadata, error)
 }
 
 const DefaultDB = "defaultdb"

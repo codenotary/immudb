@@ -604,21 +604,6 @@ func TestImmuClientDisconnect(t *testing.T) {
 
 	_, err = client.DatabaseList(context.TODO())
 	require.Equal(t, ErrNotConnected, err)
-
-	_, err = client.CurrentRoot(context.TODO())
-	require.Equal(t, ErrNotConnected, err)
-
-	_, err = client.SafeSet(context.TODO(), []byte("key"), []byte("value"))
-	require.Equal(t, ErrNotConnected, err)
-
-	_, err = client.SafeGet(context.TODO(), []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
-
-	_, err = client.SafeZAdd(context.TODO(), []byte("set"), 1, []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
-
-	_, err = client.SafeReference(context.TODO(), []byte("ref"), []byte("key"))
-	require.Equal(t, ErrNotConnected, err)
 }
 
 func TestImmuClientDisconnectNotConn(t *testing.T) {
