@@ -22,6 +22,15 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
+func (s *ImmuServer) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
+	ind, err := s.getDbIndexFromCtx(ctx, "VerifiableSQLGet")
+	if err != nil {
+		return nil, err
+	}
+
+	return s.dbList.GetByIndex(ind).VerifiableSQLGet(req)
+}
+
 func (s *ImmuServer) SQLExec(ctx context.Context, req *schema.SQLExecRequest) (*schema.SQLExecResult, error) {
 	ind, err := s.getDbIndexFromCtx(ctx, "SQLExec")
 	if err != nil {
