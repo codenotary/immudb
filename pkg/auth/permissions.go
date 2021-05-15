@@ -65,6 +65,7 @@ var methodsPermissions = map[string][]uint32{
 	"SQLQuery":               {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"ListTables":             {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 	"DescribeTable":          {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
+	"VerifiableSQLGet":       {PermissionSysAdmin, PermissionAdmin, PermissionRW, PermissionR},
 
 	// admin methods
 	"ListUsers":        {PermissionSysAdmin, PermissionAdmin},
