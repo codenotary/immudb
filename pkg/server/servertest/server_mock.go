@@ -271,3 +271,7 @@ func (s *ServerMock) ListTables(ctx context.Context, req *empty.Empty) (*schema.
 func (s *ServerMock) DescribeTable(ctx context.Context, req *schema.Table) (*schema.SQLQueryResult, error) {
 	return s.Srv.DescribeTable(ctx, req)
 }
+
+func (s *ServerMock) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
+	return s.srv.VerifiableSQLGet(ctx, req)
+}
