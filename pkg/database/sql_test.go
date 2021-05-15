@@ -18,6 +18,7 @@ package database
 import (
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -54,4 +55,18 @@ func TestSQLExecAndQuery(t *testing.T) {
 	res, err = db.SQLQuery(&schema.SQLQueryRequest{Sql: "SELECT t.id, t.id as id2, title FROM (table1 as t) WHERE id < 3 AND active != @active", Params: params})
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 2)
+
+	ve, err := db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}}},
+		ProveSinceTx:  0,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, ve)
+
+	_, err = db.VerifiableSQLGet(&schema.VerifiableSQLGetRequest{
+		SqlGetRequest: &schema.SQLGetRequest{Table: "table1", PkValue: &schema.SQLValue{Value: &schema.SQLValue_N{N: 4}}},
+		ProveSinceTx:  0,
+	})
+	require.Equal(t, store.ErrKeyNotFound, err)
+
 }
