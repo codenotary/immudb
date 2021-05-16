@@ -71,6 +71,6 @@ func setupDefaults(options *server.Options) {
 	viper.SetDefault("token-expiry-time", options.TokenExpiryTimeMin)
 	viper.SetDefault("web-server", options.WebServer)
 	viper.SetDefault("web-server-port", options.WebServerPort)
-	viper.SetDefault("pgsql-server", options.PgsqlServer)
-	viper.SetDefault("pgsql-server-port", options.PgsqlServerPort)
+	viper.SetDefault("pgsql-server", true)
+	viper.SetDefault("pgsql-server-port", 5432)
 }
