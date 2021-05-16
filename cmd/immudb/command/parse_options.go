@@ -48,6 +48,9 @@ func parseOptions() (options *server.Options, err error) {
 	webServer := viper.GetBool("web-server")
 	webServerPort := viper.GetInt("web-server-port")
 
+	pgsqlServer := viper.GetBool("pgsql-server")
+	pgsqlServerPort := viper.GetInt("pgsql-server-port")
+
 	storeOpts := server.DefaultStoreOptions().WithSynced(synced)
 
 	tlsConfig, err := setUpTLS(pkey, certificate, clientcas, mtls)
@@ -74,7 +77,9 @@ func parseOptions() (options *server.Options, err error) {
 		WithStoreOptions(storeOpts).
 		WithTokenExpiryTime(tokenExpTime).
 		WithWebServer(webServer).
-		WithWebServerPort(webServerPort)
+		WithWebServerPort(webServerPort).
+		WithPgsqlServer(pgsqlServer).
+		WithPgsqlServerPort(pgsqlServerPort)
 
 	return options, nil
 }
