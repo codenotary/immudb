@@ -162,9 +162,6 @@ func (history *historyFileCache) unmarshalRoot(fpath string, db string) (*schema
 	return nil, nil
 }
 
-
-
-
 func (fl *historyFileCache) Lock(serverUUID string) (err error) {
 	return fmt.Errorf("not implemented")
 }

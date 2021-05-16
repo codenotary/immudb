@@ -37,4 +37,3 @@ type HistoryCache interface {
 	Cache
 	Walk(serverUUID string, db string, f func(*schema.ImmutableState) interface{}) ([]interface{}, error)
 }
-
