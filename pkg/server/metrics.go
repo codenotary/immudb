@@ -156,8 +156,8 @@ func StartMetrics(
 	// and serves up the metrics at the /debug/vars endpoint.
 	// Here we're registering both expvar and promhttp handlers in our custom server.
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.Handle("/debug/vars", expvar.Handler())
+	mux.Handle("/metrics", cors(promhttp.Handler()))
+	mux.Handle("/debug/vars", cors(expvar.Handler()))
 	server := &http.Server{Addr: addr, Handler: mux}
 
 	go func() {
@@ -172,4 +172,17 @@ func StartMetrics(
 	}()
 
 	return server
+}
+
+// CORS middleware
+func cors(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		if r.Method == "OPTIONS" {
+			return
+		}
+		handler.ServeHTTP(w, r)
+	})
 }
