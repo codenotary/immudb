@@ -50,17 +50,18 @@ func (s *session) InitializeSession() (err error) {
 
 	// SSL Request packet
 	if s.protocolVersion == "1234.5679" {
-		if s.tlsConfig == nil {
+		if s.tlsConfig == nil || len(s.tlsConfig.Certificates) == 0 {
 			if _, err = s.writeMessage([]byte(`N`)); err != nil {
 				return err
 			}
-		}
-
-		if err = s.handshake(); err != nil {
-			return err
+			return ErrSSLNotSupported
 		}
 
 		if _, err = s.writeMessage([]byte(`S`)); err != nil {
+			return err
+		}
+
+		if err = s.handshake(); err != nil {
 			return err
 		}
 
