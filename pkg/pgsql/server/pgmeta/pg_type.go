@@ -42,6 +42,7 @@ const PgSeverityLog = "LOG"
 const PgServerErrRejectedEstablishmentOfSqlconnection = "08004"
 const PgServerErrSyntaxError = "42601"
 const PgServerErrProtocolViolation = "08P01"
+const PgServerErrConnectionFailure = "08006"
 
 var MTypes = map[byte]string{
 	'Q': "query",

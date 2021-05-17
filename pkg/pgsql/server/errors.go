@@ -32,6 +32,7 @@ var ErrUsernameNotFound = errors.New("user not found")
 var ErrExpectedQueryMessage = errors.New("expected query message")
 var ErrUseDBStatementNotSupported = errors.New("SQL statement not supported. Please use `UseDatabase` operation instead")
 var ErrCreateDBStatementNotSupported = errors.New("SQL statement not supported. Please use `CreateDatabase` operation instead")
+var ErrSSLNotSupported = errors.New("SSL not supported")
 
 func MapPgError(err error) (er bm.ErrorResp) {
 	switch {
@@ -57,6 +58,12 @@ func MapPgError(err error) (er bm.ErrorResp) {
 			bm.Code(pgmeta.PgServerErrProtocolViolation),
 			bm.Message(err.Error()),
 			bm.Hint("submitted message is not yet implemented"),
+		)
+	case errors.Is(err, ErrSSLNotSupported):
+		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
+			bm.Code(pgmeta.PgServerErrConnectionFailure),
+			bm.Message(err.Error()),
+			bm.Hint("launch immudb with a certificate and a private key"),
 		)
 	default:
 		er = bm.ErrorResponse(bm.Severity(pgmeta.PgSeverityError),
