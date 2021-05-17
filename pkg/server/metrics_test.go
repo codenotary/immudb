@@ -32,8 +32,9 @@ func TestStartMetrics(t *testing.T) {
 		"0.0.0.0:9999",
 		&mockLogger{},
 		func() float64 { return 0 },
-		func() float64 { return 0 },
-		func() float64 { return 0 })
+		func() map[string]float64 { return make(map[string]float64) },
+		func() map[string]float64 { return make(map[string]float64) },
+	)
 	defer server.Close()
 
 	assert.IsType(t, &http.Server{}, server)
@@ -42,9 +43,6 @@ func TestStartMetrics(t *testing.T) {
 
 func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
 	mc := MetricsCollection{
-		RecordsCounter: prometheus.NewCounterFunc(prometheus.CounterOpts{}, func() float64 {
-			return 0
-		}),
 		UptimeCounter: prometheus.NewCounterFunc(prometheus.CounterOpts{}, func() float64 {
 			return 0
 		}),
@@ -78,6 +76,42 @@ func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
 	}
 	ctx := peer.NewContext(context.TODO(), p)
 	mc.UpdateClientMetrics(ctx)
+
+	assert.IsType(t, MetricsCollection{}, mc)
+}
+
+func TestMetricsCollection_UpdateDBMetrics(t *testing.T) {
+	mc := MetricsCollection{
+		DBSizeGauges: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "db_size_bytes",
+				Help:      "Database size in bytes.",
+			},
+			[]string{"db"},
+		),
+		DBEntriesGauges: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "number_of_stored_entries",
+				Help:      "Number of key-value entries currently stored by the database.",
+			},
+			[]string{"db"},
+		),
+	}
+
+	// update before injecting the funcs, to catch the fast-exit execution path
+	mc.UpdateDBMetrics()
+
+	mc.computeDBSizes = func() map[string]float64 {
+		return map[string]float64{"db1": 111, "db2": 222}
+	}
+	mc.computeDBEntries = func() map[string]float64 {
+		return map[string]float64{"db1": 10, "db2": 20}
+	}
+
+	// update after injecting the funcs, to catch the normal execution path
+	mc.UpdateDBMetrics()
 
 	assert.IsType(t, MetricsCollection{}, mc)
 }

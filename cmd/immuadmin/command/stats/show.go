@@ -64,17 +64,19 @@ func ShowMetricsAsText(w io.Writer, serverAddress string) error {
 		return err
 	}
 
+	db := ms.dbWithMostEntries()
+
 	const labelLength = 27
 	const strPattern = "%-*s:\t%s\n"
 	const intPattern = "%-*s:\t%d\n"
 
 	// print DB info
-	fmt.Fprintf(w, strPattern, labelLength, "Database path", ms.db.name)
-	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.db.uptimeHours))
+	fmt.Fprintf(w, strPattern, labelLength, "Database", db.name)
+	uptime, _ := time.ParseDuration(fmt.Sprintf("%.4fh", ms.uptimeHours))
 	fmt.Fprintf(w, strPattern, labelLength, "Uptime", uptime)
-	fmt.Fprintf(w, intPattern, labelLength, "Number of entries", ms.db.nbEntries)
-	totalSizeS, _ := byteCountBinary(ms.db.totalBytes)
-	fmt.Fprintf(w, strPattern, labelLength, "DB size", totalSizeS)
+	fmt.Fprintf(w, intPattern, labelLength, "Entries", db.nbEntries)
+	totalSizeS, _ := byteCountBinary(db.totalBytes)
+	fmt.Fprintf(w, strPattern, labelLength, "Size", totalSizeS)
 
 	// print clients
 	fmt.Fprintf(w, intPattern, labelLength, "Number of clients", ms.nbClients)

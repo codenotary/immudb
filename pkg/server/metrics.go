@@ -21,6 +21,7 @@ import (
 	"expvar"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/peer"
@@ -32,26 +33,19 @@ import (
 
 // MetricsCollection immudb Prometheus metrics collection
 type MetricsCollection struct {
-	RecordsCounter               prometheus.CounterFunc
-	UptimeCounter                prometheus.CounterFunc
-	DBSizeFunc                   prometheus.CounterFunc
+	UptimeCounter prometheus.CounterFunc
+
+	computeDBSizes func() map[string]float64
+	DBSizeGauges   *prometheus.GaugeVec
+
+	computeDBEntries func() map[string]float64
+	DBEntriesGauges  *prometheus.GaugeVec
+
 	RPCsPerClientCounters        *prometheus.CounterVec
 	LastMessageAtPerClientGauges *prometheus.GaugeVec
 }
 
 var metricsNamespace = "immudb"
-
-// WithRecordsCounter ...
-func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
-	mc.RecordsCounter = promauto.NewCounterFunc(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Name:      "number_of_stored_entries",
-			Help:      "Number of key-value entries currently stored by the database.",
-		},
-		f,
-	)
-}
 
 // WithUptimeCounter ...
 func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
@@ -60,18 +54,6 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 			Namespace: metricsNamespace,
 			Name:      "uptime_hours",
 			Help:      "Server uptime in hours.",
-		},
-		f,
-	)
-}
-
-// WithDBSizeFunc ...
-func (mc *MetricsCollection) WithDBSizeFunc(f func() float64) {
-	mc.DBSizeFunc = promauto.NewCounterFunc(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Name:      "db_size_bytes",
-			Help:      "Database size in bytes.",
 		},
 		f,
 	)
@@ -89,6 +71,30 @@ func (mc *MetricsCollection) UpdateClientMetrics(ctx context.Context) {
 	}
 }
 
+// WithComputeDBSizes ...
+func (mc *MetricsCollection) WithComputeDBSizes(f func() map[string]float64) {
+	mc.computeDBSizes = f
+}
+
+// WithComputeDBEntries ...
+func (mc *MetricsCollection) WithComputeDBEntries(f func() map[string]float64) {
+	mc.computeDBEntries = f
+}
+
+// UpdateDBMetrics ...
+func (mc *MetricsCollection) UpdateDBMetrics() {
+	if mc.computeDBSizes != nil {
+		for db, size := range mc.computeDBSizes() {
+			mc.DBSizeGauges.WithLabelValues(db).Set(size)
+		}
+	}
+	if mc.computeDBEntries != nil {
+		for db, nbEntries := range mc.computeDBEntries() {
+			mc.DBEntriesGauges.WithLabelValues(db).Set(nbEntries)
+		}
+	}
+}
+
 // Metrics immudb Prometheus metrics collection
 var Metrics = MetricsCollection{
 	RPCsPerClientCounters: promauto.NewCounterVec(
@@ -98,6 +104,22 @@ var Metrics = MetricsCollection{
 			Help:      "Number of handled RPCs per client.",
 		},
 		[]string{"ip"},
+	),
+	DBSizeGauges: promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "db_size_bytes",
+			Help:      "Database size in bytes.",
+		},
+		[]string{"db"},
+	),
+	DBEntriesGauges: promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "number_of_stored_entries",
+			Help:      "Number of key-value entries currently stored by the database.",
+		},
+		[]string{"db"},
 	),
 	LastMessageAtPerClientGauges: promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -114,20 +136,30 @@ var Metrics = MetricsCollection{
 func StartMetrics(
 	addr string,
 	l logger.Logger,
-	recordsCounter func() float64,
 	uptimeCounter func() float64,
-	dbSizeFunc func() float64,
+	computeDBSizes func() map[string]float64,
+	computeDBEntries func() map[string]float64,
 ) *http.Server {
-	Metrics.WithRecordsCounter(recordsCounter)
+
 	Metrics.WithUptimeCounter(uptimeCounter)
-	Metrics.WithDBSizeFunc(dbSizeFunc)
+	Metrics.WithComputeDBSizes(computeDBSizes)
+	Metrics.WithComputeDBEntries(computeDBEntries)
+
+	go func() {
+		Metrics.UpdateDBMetrics()
+		for range time.Tick(1 * time.Minute) {
+			Metrics.UpdateDBMetrics()
+		}
+	}()
+
 	// expvar package adds a handler in to the default HTTP server (which has to be started explicitly),
 	// and serves up the metrics at the /debug/vars endpoint.
 	// Here we're registering both expvar and promhttp handlers in our custom server.
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.Handle("/debug/vars", expvar.Handler())
+	mux.Handle("/metrics", cors(promhttp.Handler()))
+	mux.Handle("/debug/vars", cors(expvar.Handler()))
 	server := &http.Server{Addr: addr, Handler: mux}
+
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
@@ -140,4 +172,24 @@ func StartMetrics(
 	}()
 
 	return server
+}
+
+// CORS middleware
+func cors(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers for the preflight request
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET")
+			w.Header().Set(
+				"Access-Control-Allow-Headers",
+				"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Credentials")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		// Set CORS headers for the main request.
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		handler.ServeHTTP(w, r)
+	})
 }
