@@ -64,6 +64,9 @@
     - [VerifiableGetRequest](#immudb.schema.VerifiableGetRequest)
     - [VerifiableReferenceRequest](#immudb.schema.VerifiableReferenceRequest)
     - [VerifiableSQLEntry](#immudb.schema.VerifiableSQLEntry)
+    - [VerifiableSQLEntry.ColIdsByIdEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByIdEntry)
+    - [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry)
+    - [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry)
     - [VerifiableSQLGetRequest](#immudb.schema.VerifiableSQLGetRequest)
     - [VerifiableSetRequest](#immudb.schema.VerifiableSetRequest)
     - [VerifiableTx](#immudb.schema.VerifiableTx)
@@ -1077,6 +1080,60 @@
 | sqlEntry | [SQLEntry](#immudb.schema.SQLEntry) |  |  |
 | verifiableTx | [VerifiableTx](#immudb.schema.VerifiableTx) |  |  |
 | inclusionProof | [InclusionProof](#immudb.schema.InclusionProof) |  |  |
+| DatabaseId | [uint64](#uint64) |  |  |
+| TableId | [uint64](#uint64) |  |  |
+| PKName | [string](#string) |  |  |
+| ColIdsById | [VerifiableSQLEntry.ColIdsByIdEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByIdEntry) | repeated |  |
+| ColIdsByName | [VerifiableSQLEntry.ColIdsByNameEntry](#immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry) | repeated |  |
+| ColTypesById | [VerifiableSQLEntry.ColTypesByIdEntry](#immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry) | repeated |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableSQLEntry.ColIdsByIdEntry"></a>
+
+### VerifiableSQLEntry.ColIdsByIdEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [uint64](#uint64) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableSQLEntry.ColIdsByNameEntry"></a>
+
+### VerifiableSQLEntry.ColIdsByNameEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="immudb.schema.VerifiableSQLEntry.ColTypesByIdEntry"></a>
+
+### VerifiableSQLEntry.ColTypesByIdEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [uint64](#uint64) |  |  |
+| value | [string](#string) |  |  |
 
 
 

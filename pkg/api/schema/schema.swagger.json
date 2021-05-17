@@ -2081,6 +2081,36 @@
         },
         "inclusionProof": {
           "$ref": "#/definitions/schemaInclusionProof"
+        },
+        "DatabaseId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "TableId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "PKName": {
+          "type": "string"
+        },
+        "ColIdsById": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ColIdsByName": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "format": "uint64"
+          }
+        },
+        "ColTypesById": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

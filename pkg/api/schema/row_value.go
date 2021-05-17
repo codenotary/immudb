@@ -16,10 +16,58 @@ limitations under the License.
 package schema
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"strconv"
+
+	"github.com/codenotary/immudb/embedded/sql"
 )
+
+type SqlValue interface {
+	isSQLValue_Value
+	Equal(sqlv SqlValue) (bool, error)
+}
+
+func (v *SQLValue_Null) Equal(sqlv SqlValue) (bool, error) {
+	_, isNull := sqlv.(*SQLValue_Null)
+	if !isNull {
+		return false, sql.ErrNotComparableValues
+	}
+	return true, nil
+}
+
+func (v *SQLValue_N) Equal(sqlv SqlValue) (bool, error) {
+	n, isNumber := sqlv.(*SQLValue_N)
+	if !isNumber {
+		return false, sql.ErrNotComparableValues
+	}
+	return v.N == n.N, nil
+}
+
+func (v *SQLValue_S) Equal(sqlv SqlValue) (bool, error) {
+	s, isString := sqlv.(*SQLValue_S)
+	if !isString {
+		return false, sql.ErrNotComparableValues
+	}
+	return v.S == s.S, nil
+}
+
+func (v *SQLValue_B) Equal(sqlv SqlValue) (bool, error) {
+	b, isBool := sqlv.(*SQLValue_B)
+	if !isBool {
+		return false, sql.ErrNotComparableValues
+	}
+	return v.B == b.B, nil
+}
+
+func (v *SQLValue_Bs) Equal(sqlv SqlValue) (bool, error) {
+	b, isBytes := sqlv.(*SQLValue_Bs)
+	if !isBytes {
+		return false, sql.ErrNotComparableValues
+	}
+	return bytes.Equal(v.Bs, b.Bs), nil
+}
 
 func RenderValue(op isSQLValue_Value) string {
 	switch v := op.(type) {
@@ -46,4 +94,35 @@ func RenderValue(op isSQLValue_Value) string {
 	}
 
 	return fmt.Sprintf("%v", op)
+}
+
+func RawValue(v *SQLValue) interface{} {
+	if v == nil {
+		return nil
+	}
+
+	switch tv := v.Value.(type) {
+	case *SQLValue_Null:
+		{
+			return nil
+		}
+	case *SQLValue_N:
+		{
+			return tv.N
+		}
+	case *SQLValue_S:
+		{
+			return tv.S
+		}
+	case *SQLValue_B:
+		{
+			return tv.B
+		}
+	case *SQLValue_Bs:
+		{
+			return tv.Bs
+		}
+	}
+
+	return nil
 }

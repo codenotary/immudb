@@ -356,6 +356,12 @@ message VerifiableSQLEntry {
 	SQLEntry sqlEntry = 1;
 	VerifiableTx verifiableTx = 2;
 	InclusionProof inclusionProof = 3;
+	uint64 DatabaseId = 4;
+	uint64 TableId = 5;
+	string PKName = 6;
+	map<uint64, string> ColIdsById = 8;
+	map<string, uint64> ColIdsByName = 9;
+	map<uint64, string> ColTypesById = 10;
 }
 
 message UseDatabaseReply{
