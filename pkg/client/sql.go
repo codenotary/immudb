@@ -18,12 +18,15 @@ package client
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 
 	"github.com/codenotary/immudb/embedded/sql"
 	"github.com/codenotary/immudb/embedded/store"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+const SQLPrefix byte = 2
 
 func (c *immuClient) SQLExec(ctx context.Context, sql string, params map[string]interface{}) (*schema.SQLExecResult, error) {
 	if !c.IsConnected() {
@@ -95,20 +98,28 @@ func encodeParams(params map[string]interface{}) ([]*schema.NamedParam, error) {
 	return namedParams, nil
 }
 
-func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table string, pkVal *schema.SQLValue) (bool, error) {
+func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table string, pkVal *schema.SQLValue) error {
+	if row == nil || len(table) == 0 || pkVal == nil {
+		return ErrIllegalArguments
+	}
+
+	if len(row.Columns) == 0 || len(row.Columns) != len(row.Values) {
+		return sql.ErrCorruptedData
+	}
+
 	if !c.IsConnected() {
-		return false, ErrNotConnected
+		return ErrNotConnected
 	}
 
 	err := c.StateService.CacheLock()
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer c.StateService.CacheUnlock()
 
 	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	vEntry, err := c.ServiceClient.VerifiableSQLGet(ctx, &schema.VerifiableSQLGetRequest{
@@ -116,7 +127,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		ProveSinceTx:  state.TxId,
 	})
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	inclusionProof := schema.InclusionProofFrom(vEntry.InclusionProof)
@@ -128,7 +139,33 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 	var sourceAlh, targetAlh [sha256.Size]byte
 
 	vTx := vEntry.SqlEntry.Tx
-	kv := &store.KV{Key: vEntry.SqlEntry.Key, Value: vEntry.SqlEntry.Value}
+
+	dbID := vEntry.DatabaseId
+	tableID := vEntry.TableId
+	pkID := vEntry.ColIdsByName[sql.EncodeSelector("", c.Options.CurrentDatabase, table, vEntry.PKName)]
+	pkType, ok := vEntry.ColTypesById[pkID]
+	if !ok {
+		return sql.ErrCorruptedData
+	}
+
+	pkEncVal, err := sql.EncodeRawValue(schema.RawValue(pkVal), pkType, true)
+	if err != nil {
+		return err
+	}
+
+	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.RowPrefix, sql.EncodeID(dbID), sql.EncodeID(tableID), sql.EncodeID(pkID), pkEncVal)
+
+	decodedRow, err := decodeRow(vEntry.SqlEntry.Value, vEntry.ColTypesById)
+	if err != nil {
+		return err
+	}
+
+	err = verifyRowAgainst(row, decodedRow, vEntry.ColIdsByName)
+	if err != nil {
+		return err
+	}
+
+	kv := &store.KV{Key: pkKey, Value: vEntry.SqlEntry.Value}
 
 	if state.TxId <= vTx {
 		eh = schema.DigestFrom(vEntry.VerifiableTx.DualProof.TargetTxMetadata.EH)
@@ -151,7 +188,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		kv,
 		eh)
 	if !verifies {
-		return false, store.ErrCorruptedData
+		return store.ErrCorruptedData
 	}
 
 	if state.TxId > 0 {
@@ -163,7 +200,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 			targetAlh,
 		)
 		if !verifies {
-			return false, store.ErrCorruptedData
+			return store.ErrCorruptedData
 		}
 	}
 
@@ -177,22 +214,86 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 	if c.serverSigningPubKey != nil {
 		ok, err := newState.CheckSignature(c.serverSigningPubKey)
 		if err != nil {
-			return false, err
+			return err
 		}
 		if !ok {
-			return false, store.ErrCorruptedData
+			return store.ErrCorruptedData
 		}
 	}
 
 	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	// TODO: check matching against row, row contains col names... but not col IDs...
-	// need to validate col IDs
+	return nil
+}
 
-	return true, nil
+func verifyRowAgainst(row *schema.Row, decodedRow map[uint64]*schema.SQLValue, colIdsByName map[string]uint64) error {
+	for i, colName := range row.Columns {
+		colID, ok := colIdsByName[colName]
+		if !ok {
+			return sql.ErrColumnDoesNotExist
+		}
+
+		decodedVal, ok := decodedRow[colID]
+		if !ok {
+			return sql.ErrCorruptedData
+		}
+
+		val := row.Values[i]
+
+		if val == nil || val.Value == nil || decodedVal == nil || decodedVal.Value == nil {
+			return sql.ErrCorruptedData
+		}
+
+		equals, err := val.Value.(schema.SqlValue).Equal(decodedVal.Value.(schema.SqlValue))
+		if err != nil {
+			return err
+		}
+		if !equals {
+			return sql.ErrCorruptedData
+		}
+	}
+
+	return nil
+}
+
+func decodeRow(encodedRow []byte, colTypes map[uint64]sql.SQLValueType) (map[uint64]*schema.SQLValue, error) {
+	off := 0
+
+	if len(encodedRow) < off+sql.EncLenLen {
+		return nil, sql.ErrCorruptedData
+	}
+
+	colsCount := binary.BigEndian.Uint32(encodedRow[off:])
+	off += sql.EncLenLen
+
+	values := make(map[uint64]*schema.SQLValue, colsCount)
+
+	for i := 0; i < int(colsCount); i++ {
+		if len(encodedRow) < off+sql.EncIDLen {
+			return nil, sql.ErrCorruptedData
+		}
+
+		colID := binary.BigEndian.Uint64(encodedRow[off:])
+		off += sql.EncIDLen
+
+		colType, ok := colTypes[colID]
+		if !ok {
+			return nil, sql.ErrCorruptedData
+		}
+
+		val, n, err := sql.DecodeValue(encodedRow[off:], colType)
+		if err != nil {
+			return nil, err
+		}
+
+		values[colID] = typedValueToRowValue(val)
+		off += n
+	}
+
+	return values, nil
 }
 
 func asSQLValue(v interface{}) (*schema.SQLValue, error) {
@@ -224,4 +325,26 @@ func asSQLValue(v interface{}) (*schema.SQLValue, error) {
 	}
 
 	return nil, sql.ErrInvalidValue
+}
+
+func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
+	switch tv.Type() {
+	case sql.IntegerType:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_N{N: tv.Value().(uint64)}}
+		}
+	case sql.VarcharType:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_S{S: tv.Value().(string)}}
+		}
+	case sql.BooleanType:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_B{B: tv.Value().(bool)}}
+		}
+	case sql.BLOBType:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_Bs{Bs: tv.Value().([]byte)}}
+		}
+	}
+	return nil
 }
