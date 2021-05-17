@@ -20,6 +20,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	"github.com/stretchr/testify/require"
@@ -54,13 +56,29 @@ func TestImmuClient_SQL(t *testing.T) {
 	params := make(map[string]interface{})
 	params["active"] = nil
 
-	res, err := client.SQLQuery(ctx, "SELECT t.id as d, title as t FROM (table1 as t) WHERE id <= 3 AND active = @active", params, true)
+	res, err := client.SQLQuery(ctx, "SELECT t.id as id, title FROM (table1 as t) WHERE id <= 3 AND active = @active", params, true)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	_, err = client.SQLQuery(ctx, "SELECT id as uuid FROM table1", nil, true)
+	require.NoError(t, err)
+
+	for _, row := range res.Rows {
+		err := client.VerifyRow(ctx, row, "table1", row.Values[0])
+		require.Equal(t, sql.ErrColumnDoesNotExist, err)
+	}
+
+	res, err = client.SQLQuery(ctx, "SELECT id, title FROM table1 WHERE id <= 3 AND active = @active", params, true)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
 	for _, row := range res.Rows {
-		verified, err := client.VerifyRow(ctx, row, "table1", row.Values[0])
+		err := client.VerifyRow(ctx, row, "table1", row.Values[0])
 		require.NoError(t, err)
-		require.True(t, verified)
+
+		row.Values[1].Value.(*schema.SQLValue_S).S = "tampered title"
+
+		err = client.VerifyRow(ctx, row, "table1", row.Values[0])
+		require.Equal(t, sql.ErrCorruptedData, err)
 	}
 }
