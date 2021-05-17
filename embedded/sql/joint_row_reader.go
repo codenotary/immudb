@@ -99,7 +99,7 @@ func (jointr *jointRowReader) colsBySelector() (map[string]*ColDescriptor, error
 		tableRef := jspec.ds.(*TableRef)
 		table, _ := tableRef.referencedTable(jointr.e, jointr.implicitDB)
 
-		for _, c := range table.GetColsByID() {
+		for _, c := range table.ColsByID() {
 			encSel := EncodeSelector("", table.db.name, tableRef.Alias(), c.colName)
 			colDescriptors[encSel] = &ColDescriptor{Selector: encSel, Type: c.colType}
 		}
