@@ -84,7 +84,10 @@ func (r *messageReader) UpgradeConnection(conn net.Conn) {
 }
 
 func (r *messageReader) CloseConnection() error {
-	return r.conn.Close()
+	if r.conn != nil {
+		return r.conn.Close()
+	}
+	return nil
 }
 
 func (r *messageReader) Connection() net.Conn {
