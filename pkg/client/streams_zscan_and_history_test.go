@@ -21,11 +21,11 @@ func TestImmuClient_StreamZScan(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
-	defer bs.Stop()
-
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
 
 	client, err := NewImmuClient(DefaultOptions().WithDialOptions(
 		&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},
@@ -79,11 +79,11 @@ func TestImmuClient_StreamHistory(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
-	defer bs.Stop()
-
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
 
 	client, err := NewImmuClient(DefaultOptions().WithDialOptions(
 		&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()},

@@ -140,24 +140,33 @@ func TestHistoryFileCache_SetMissingFolder(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestHistoryFileCache_WalkFolderNotExists(t *testing.T) {
-	dir := "/notExists"
-	fc := NewHistoryFileCache(dir)
+func TestHistoryFileCache_WalkFolderNotExistsCreated(t *testing.T) {
+	dir, err := ioutil.TempDir("", "history-cache")
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer os.RemoveAll(dir)
 
-	_, err := fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
+	notExists := filepath.Join(dir, "not-exists")
+	fc := NewHistoryFileCache(notExists)
+
+	_, err = fc.Walk("uuid", "dbName", func(root *schema.ImmutableState) interface{} {
 		return nil
 	})
-	require.Error(t, err)
+	require.NoError(t, err)
 }
 
 func TestHistoryFileCache_getStatesFileInfosError(t *testing.T) {
-	dir := "./testNotExists"
-	err := os.MkdirAll(dir, 0000)
+	dir, err := ioutil.TempDir("", "history-cache")
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer os.RemoveAll(dir)
-	fc := &historyFileCache{dir: dir}
+
+	notExists := filepath.Join(dir, "does-not-exist")
+	fc := &historyFileCache{dir: notExists}
 	_, err = fc.getStatesFileInfos(dir)
-	require.Error(t, err)
+	require.NoError(t, err)
 }
 
 func TestHistoryFileCache_unmarshalRootErr(t *testing.T) {

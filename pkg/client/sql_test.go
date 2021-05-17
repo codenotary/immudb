@@ -31,11 +31,11 @@ func TestImmuClient_SQL(t *testing.T) {
 	options := server.DefaultOptions().WithAuth(true)
 	bs := servertest.NewBufconnServer(options)
 
-	bs.Start()
-	defer bs.Stop()
-
 	defer os.RemoveAll(options.Dir)
 	defer os.Remove(".state-")
+
+	bs.Start()
+	defer bs.Stop()
 
 	client, err := NewImmuClient(DefaultOptions().WithDialOptions(&[]grpc.DialOption{grpc.WithContextDialer(bs.Dialer), grpc.WithInsecure()}))
 	require.NoError(t, err)
