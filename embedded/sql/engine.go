@@ -73,8 +73,8 @@ var mKeyVal = [32]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf
 
 const asKey = true
 
-const encIDLen = 8
-const encLenLen = 4
+const EncIDLen = 8
+const EncLenLen = 4
 
 type Engine struct {
 	catalogStore *store.ImmuStore
@@ -291,7 +291,7 @@ func (e *Engine) CloseSnapshot() error {
 func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	catalog := newCatalog()
 
-	initialKey := e.MapKey(catalogDatabasePrefix)
+	initialKey := e.mapKey(catalogDatabasePrefix)
 	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
 		Prefix:  initialKey,
@@ -344,7 +344,7 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 }
 
 func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
-	initialKey := e.MapKey(catalogTablePrefix, EncodeID(db.id))
+	initialKey := e.mapKey(catalogTablePrefix, EncodeID(db.id))
 
 	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
@@ -410,7 +410,7 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 }
 
 func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) (specs []*ColSpec, pkName string, err error) {
-	initialKey := e.MapKey(catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
+	initialKey := e.mapKey(catalogColumnPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	dbReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
@@ -473,7 +473,7 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 }
 
 func (e *Engine) loadIndexes(dbID, tableID uint64, snap *store.Snapshot) ([]uint64, error) {
-	initialKey := e.MapKey(catalogIndexPrefix, EncodeID(dbID), EncodeID(tableID))
+	initialKey := e.mapKey(catalogIndexPrefix, EncodeID(dbID), EncodeID(tableID))
 
 	idxReaderSpec := &store.KeyReaderSpec{
 		SeekKey: initialKey,
@@ -526,7 +526,7 @@ func (e *Engine) unmapDatabaseID(mkey []byte) (dbID uint64, err error) {
 		return 0, err
 	}
 
-	if len(encID) != encIDLen {
+	if len(encID) != EncIDLen {
 		return 0, ErrCorruptedData
 	}
 
@@ -539,13 +539,13 @@ func (e *Engine) unmapTableID(mkey []byte) (dbID, tableID, pkID uint64, err erro
 		return 0, 0, 0, err
 	}
 
-	if len(encID) != encIDLen*3 {
+	if len(encID) != EncIDLen*3 {
 		return 0, 0, 0, ErrCorruptedData
 	}
 
 	dbID = binary.BigEndian.Uint64(encID)
-	tableID = binary.BigEndian.Uint64(encID[encIDLen:])
-	pkID = binary.BigEndian.Uint64(encID[2*encIDLen:])
+	tableID = binary.BigEndian.Uint64(encID[EncIDLen:])
+	pkID = binary.BigEndian.Uint64(encID[2*EncIDLen:])
 
 	return
 }
@@ -556,15 +556,15 @@ func (e *Engine) unmapColSpec(mkey []byte) (dbID, tableID, colID uint64, colType
 		return 0, 0, 0, "", err
 	}
 
-	if len(encID) < encIDLen*3 {
+	if len(encID) < EncIDLen*3 {
 		return 0, 0, 0, "", ErrCorruptedData
 	}
 
 	dbID = binary.BigEndian.Uint64(encID)
-	tableID = binary.BigEndian.Uint64(encID[encIDLen:])
-	colID = binary.BigEndian.Uint64(encID[2*encIDLen:])
+	tableID = binary.BigEndian.Uint64(encID[EncIDLen:])
+	colID = binary.BigEndian.Uint64(encID[2*EncIDLen:])
 
-	colType, err = asType(string(encID[encIDLen*3:]))
+	colType, err = asType(string(encID[EncIDLen*3:]))
 	if err != nil {
 		return 0, 0, 0, "", ErrCorruptedData
 	}
@@ -590,13 +590,13 @@ func (e *Engine) unmapIndex(mkey []byte) (dbID, tableID, colID uint64, err error
 		return 0, 0, 0, err
 	}
 
-	if len(encID) < encIDLen*3 {
+	if len(encID) < EncIDLen*3 {
 		return 0, 0, 0, ErrCorruptedData
 	}
 
 	dbID = binary.BigEndian.Uint64(encID)
-	tableID = binary.BigEndian.Uint64(encID[encIDLen:])
-	colID = binary.BigEndian.Uint64(encID[2*encIDLen:])
+	tableID = binary.BigEndian.Uint64(encID[EncIDLen:])
+	colID = binary.BigEndian.Uint64(encID[2*EncIDLen:])
 
 	return
 }
@@ -607,52 +607,56 @@ func (e *Engine) unmapIndexedRow(mkey []byte) (dbID, tableID, colID uint64, encV
 		return 0, 0, 0, nil, nil, err
 	}
 
-	if len(enc) < encIDLen*3+2*encLenLen {
+	if len(enc) < EncIDLen*3+2*EncLenLen {
 		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
 	off := 0
 
 	dbID = binary.BigEndian.Uint64(enc[off:])
-	off += encIDLen
+	off += EncIDLen
 
 	tableID = binary.BigEndian.Uint64(enc[off:])
-	off += encIDLen
+	off += EncIDLen
 
 	colID = binary.BigEndian.Uint64(enc[off:])
-	off += encIDLen
+	off += EncIDLen
 
 	//read index value
 	valLen := int(binary.BigEndian.Uint32(enc[off:]))
-	off += encLenLen
+	off += EncLenLen
 
-	if len(enc)-off < valLen+encLenLen {
+	if len(enc)-off < valLen+EncLenLen {
 		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
-	encVal = make([]byte, encLenLen+valLen)
+	encVal = make([]byte, EncLenLen+valLen)
 	binary.BigEndian.PutUint32(encVal, uint32(valLen))
-	copy(encVal[encLenLen:], enc[off:off+valLen])
+	copy(encVal[EncLenLen:], enc[off:off+valLen])
 	off += int(valLen)
 
 	// read encPKVal
 	pkValLen := int(binary.BigEndian.Uint32(enc[off:]))
-	off += encLenLen
+	off += EncLenLen
 
 	if len(enc)-off != pkValLen {
 		return 0, 0, 0, nil, nil, ErrCorruptedData
 	}
 
-	encPKVal = make([]byte, encLenLen+pkValLen)
+	encPKVal = make([]byte, EncLenLen+pkValLen)
 	binary.BigEndian.PutUint32(encPKVal, uint32(pkValLen))
-	copy(encPKVal[encLenLen:], enc[off:])
+	copy(encPKVal[EncLenLen:], enc[off:])
 	off += len(encPKVal)
 
 	return
 }
 
-func (e *Engine) MapKey(mappingPrefix string, encValues ...[]byte) []byte {
-	mkeyLen := len(e.prefix) + len(mappingPrefix)
+func (e *Engine) mapKey(mappingPrefix string, encValues ...[]byte) []byte {
+	return MapKey(e.prefix, mappingPrefix, encValues...)
+}
+
+func MapKey(prefix []byte, mappingPrefix string, encValues ...[]byte) []byte {
+	mkeyLen := len(prefix) + len(mappingPrefix)
 
 	for _, ev := range encValues {
 		mkeyLen += len(ev)
@@ -662,8 +666,8 @@ func (e *Engine) MapKey(mappingPrefix string, encValues ...[]byte) []byte {
 
 	off := 0
 
-	copy(mkey, e.prefix)
-	off += len(e.prefix)
+	copy(mkey, prefix)
+	off += len(prefix)
 
 	copy(mkey[off:], []byte(mappingPrefix))
 	off += len(mappingPrefix)
@@ -677,7 +681,7 @@ func (e *Engine) MapKey(mappingPrefix string, encValues ...[]byte) []byte {
 }
 
 func EncodeID(id uint64) []byte {
-	var encID [encIDLen]byte
+	var encID [EncIDLen]byte
 	binary.BigEndian.PutUint64(encID[:], id)
 	return encID[:]
 }
@@ -686,7 +690,7 @@ func maxKeyVal(colType SQLValueType) []byte {
 	switch colType {
 	case IntegerType:
 		{
-			return mKeyVal[:encIDLen]
+			return mKeyVal[:EncIDLen]
 		}
 	}
 	return mKeyVal[:]
@@ -706,9 +710,9 @@ func EncodeRawValue(val interface{}, colType SQLValueType, asKey bool) ([]byte, 
 			}
 
 			// len(v) + v
-			encv := make([]byte, encLenLen+len(strVal))
+			encv := make([]byte, EncLenLen+len(strVal))
 			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal)))
-			copy(encv[encLenLen:], []byte(strVal))
+			copy(encv[EncLenLen:], []byte(strVal))
 
 			return encv, nil
 		}
@@ -720,9 +724,9 @@ func EncodeRawValue(val interface{}, colType SQLValueType, asKey bool) ([]byte, 
 			}
 
 			// len(v) + v
-			var encv [encLenLen + encIDLen]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(encIDLen))
-			binary.BigEndian.PutUint64(encv[encLenLen:], intVal)
+			var encv [EncLenLen + EncIDLen]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(EncIDLen))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], intVal)
 
 			return encv[:], nil
 		}
@@ -734,10 +738,10 @@ func EncodeRawValue(val interface{}, colType SQLValueType, asKey bool) ([]byte, 
 			}
 
 			// len(v) + v
-			var encv [encLenLen + 1]byte
+			var encv [EncLenLen + 1]byte
 			binary.BigEndian.PutUint32(encv[:], uint32(1))
 			if boolVal {
-				encv[encLenLen] = 1
+				encv[EncLenLen] = 1
 			}
 
 			return encv[:], nil
@@ -754,9 +758,9 @@ func EncodeRawValue(val interface{}, colType SQLValueType, asKey bool) ([]byte, 
 			}
 
 			// len(v) + v
-			encv := make([]byte, encLenLen+len(blobVal))
+			encv := make([]byte, EncLenLen+len(blobVal))
 			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal)))
-			copy(encv[encLenLen:], blobVal)
+			copy(encv[EncLenLen:], blobVal)
 
 			return encv[:], nil
 		}
@@ -783,9 +787,9 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 			}
 
 			// len(v) + v
-			encv := make([]byte, encLenLen+len(strVal.val))
+			encv := make([]byte, EncLenLen+len(strVal.val))
 			binary.BigEndian.PutUint32(encv[:], uint32(len(strVal.val)))
-			copy(encv[encLenLen:], []byte(strVal.val))
+			copy(encv[EncLenLen:], []byte(strVal.val))
 
 			return encv, nil
 		}
@@ -797,9 +801,9 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 			}
 
 			// len(v) + v
-			var encv [encLenLen + encIDLen]byte
-			binary.BigEndian.PutUint32(encv[:], uint32(encIDLen))
-			binary.BigEndian.PutUint64(encv[encLenLen:], intVal.val)
+			var encv [EncLenLen + EncIDLen]byte
+			binary.BigEndian.PutUint32(encv[:], uint32(EncIDLen))
+			binary.BigEndian.PutUint64(encv[EncLenLen:], intVal.val)
 
 			return encv[:], nil
 		}
@@ -811,10 +815,10 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 			}
 
 			// len(v) + v
-			var encv [encLenLen + 1]byte
+			var encv [EncLenLen + 1]byte
 			binary.BigEndian.PutUint32(encv[:], uint32(1))
 			if boolVal.val {
-				encv[encLenLen] = 1
+				encv[EncLenLen] = 1
 			}
 
 			return encv[:], nil
@@ -831,9 +835,9 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 			}
 
 			// len(v) + v
-			encv := make([]byte, encLenLen+len(blobVal.val))
+			encv := make([]byte, EncLenLen+len(blobVal.val))
 			binary.BigEndian.PutUint32(encv[:], uint32(len(blobVal.val)))
-			copy(encv[encLenLen:], blobVal.val)
+			copy(encv[EncLenLen:], blobVal.val)
 
 			return encv[:], nil
 		}
@@ -847,12 +851,12 @@ func EncodeValue(val TypedValue, colType SQLValueType, asKey bool) ([]byte, erro
 }
 
 func DecodeValue(b []byte, colType SQLValueType) (TypedValue, int, error) {
-	if len(b) < encLenLen {
+	if len(b) < EncLenLen {
 		return nil, 0, ErrCorruptedData
 	}
 
 	vlen := int(binary.BigEndian.Uint32(b[:]))
-	voff := encLenLen
+	voff := EncLenLen
 
 	if len(b) < vlen {
 		return nil, 0, ErrCorruptedData

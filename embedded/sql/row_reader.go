@@ -92,7 +92,7 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 		return nil, err
 	}
 
-	prefix := e.MapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(col.id))
+	prefix := e.mapKey(RowPrefix, EncodeID(table.db.id), EncodeID(table.id), EncodeID(col.id))
 
 	if cmp == EqualTo {
 		prefix = append(prefix, encInitKeyVal...)
@@ -132,10 +132,10 @@ func (e *Engine) newRawRowReader(db *Database, snap *store.Snapshot, table *Tabl
 		tableAlias = table.name
 	}
 
-	colsByPos := make([]*ColDescriptor, len(table.GetColsByID()))
-	colsBySel := make(map[string]*ColDescriptor, len(table.GetColsByID()))
+	colsByPos := make([]*ColDescriptor, len(table.ColsByID()))
+	colsBySel := make(map[string]*ColDescriptor, len(table.ColsByID()))
 
-	for i, c := range table.GetColsByID() {
+	for i, c := range table.ColsByID() {
 		encSel := EncodeSelector("", table.db.name, tableAlias, c.colName)
 		colDescriptor := &ColDescriptor{Selector: encSel, Type: c.colType}
 		colsByPos[i-1] = colDescriptor
@@ -205,13 +205,13 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 			return nil, err
 		}
 
-		v, _, _, err = r.snap.Get(r.e.MapKey(RowPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(r.table.pk.id), encPKVal))
+		v, _, _, err = r.snap.Get(r.e.mapKey(RowPrefix, EncodeID(r.table.db.id), EncodeID(r.table.id), EncodeID(r.table.pk.id), encPKVal))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	values := make(map[string]TypedValue, len(r.table.GetColsByID()))
+	values := make(map[string]TypedValue, len(r.table.ColsByID()))
 
 	for _, col := range r.table.colsByName {
 		values[EncodeSelector("", r.table.db.name, r.tableAlias, col.colName)] = &NullValue{t: col.colType}
@@ -220,15 +220,15 @@ func (r *rawRowReader) Read() (row *Row, err error) {
 	voff := 0
 
 	cols := int(binary.BigEndian.Uint32(v[voff:]))
-	voff += encLenLen
+	voff += EncLenLen
 
 	for i := 0; i < cols; i++ {
-		if len(v) < encIDLen {
+		if len(v) < EncIDLen {
 			return nil, ErrCorruptedData
 		}
 
 		colID := binary.BigEndian.Uint64(v[voff:])
-		voff += encIDLen
+		voff += EncIDLen
 
 		col, err := r.table.GetColumnByID(colID)
 		if err != nil {

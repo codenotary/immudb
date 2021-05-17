@@ -1276,7 +1276,7 @@ func TestReOpening(t *testing.T) {
 
 	require.Equal(t, "id", table.pk.colName)
 
-	require.Len(t, table.GetColsByID(), 2)
+	require.Len(t, table.ColsByID(), 2)
 
 	col, err := table.GetColumnByName("id")
 	require.NoError(t, err)

@@ -110,6 +110,10 @@ func (db *Database) ID() uint64 {
 	return db.id
 }
 
+func (db *Database) Name() string {
+	return db.name
+}
+
 func (db *Database) ExistTable(table string) bool {
 	_, exists := db.tablesByName[table]
 	return exists
@@ -159,8 +163,12 @@ func (t *Table) Database() *Database {
 	return t.db
 }
 
-func (t *Table) GetColsByID() map[uint64]*Column {
+func (t *Table) ColsByID() map[uint64]*Column {
 	return t.colsByID
+}
+
+func (t *Table) ColsByName() map[string]*Column {
+	return t.colsByName
 }
 
 func (t *Table) Name() string {
