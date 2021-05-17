@@ -30,7 +30,7 @@ func StartWebServer(addr string, tlsConfig *tls.Config, s schema.ImmuServiceServ
 
 	go func() {
 		var err error
-		if tlsConfig != nil {
+		if tlsConfig != nil && len(tlsConfig.Certificates) > 0 {
 			l.Infof("Web API server enabled on %s/api (https)", addr)
 			err = httpServer.ListenAndServeTLS("", "")
 		} else {
