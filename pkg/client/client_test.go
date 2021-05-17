@@ -812,7 +812,6 @@ func TestDatabaseManagement(t *testing.T) {
 
 	err1 := client.CreateDatabase(ctx, &schema.Database{DatabaseName: "test"})
 	require.Nil(t, err1)
-	//require.Equal(t, "", err1.Error())
 
 	resp2, err2 := client.DatabaseList(ctx)
 
