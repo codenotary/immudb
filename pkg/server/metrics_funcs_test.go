@@ -35,6 +35,7 @@ type dbMock struct {
 
 	currentStateF func() (*schema.ImmutableState, error)
 	getOptionsF   func() *database.DbOptions
+	getNameF      func() string
 }
 
 func (dbm dbMock) CurrentState() (*schema.ImmutableState, error) {
@@ -48,6 +49,13 @@ func (dbm dbMock) GetOptions() *database.DbOptions {
 		return dbm.getOptionsF()
 	}
 	return database.DefaultOption()
+}
+
+func (dbm dbMock) GetName() string {
+	if dbm.getNameF != nil {
+		return dbm.getNameF()
+	}
+	return ""
 }
 
 func TestMetricFuncComputeDBEntries(t *testing.T) {
