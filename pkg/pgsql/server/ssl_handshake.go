@@ -24,8 +24,7 @@ func (s *session) handshake() error {
 	if len(s.tlsConfig.Certificates) == 0 {
 		return ErrSSLNotSupported
 	}
-	var tlsConn *tls.Conn
-	tlsConn = tls.Server(s.mr.Connection(), s.tlsConfig)
+	tlsConn := tls.Server(s.mr.Connection(), s.tlsConfig)
 	err := tlsConn.Handshake()
 	if err != nil {
 		return err

@@ -2,7 +2,7 @@ package database
 
 import "sync"
 
-// DatabaseList DatabaseList interface
+// DatabaseList interface
 type DatabaseList interface {
 	Append(database DB)
 	GetByIndex(index int64) DB

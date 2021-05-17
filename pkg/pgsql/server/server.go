@@ -85,7 +85,7 @@ func (s *srv) Serve() (err error) {
 	s.listener = netutil.LimitListener(s.listener, s.maxConnections)
 	s.m.Unlock()
 
-	for true {
+	for {
 		s.m.Lock()
 		if !s.running {
 			return nil
@@ -97,9 +97,7 @@ func (s *srv) Serve() (err error) {
 		} else {
 			go s.handleRequest(conn)
 		}
-
 	}
-	return nil
 }
 
 func (s *srv) Stop() (err error) {
