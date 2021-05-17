@@ -44,13 +44,13 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		return nil, err
 	}
 
-	pkEncVal, err := sql.EncodeRawValue(rawValue(req.SqlGetRequest.PkValue), table.PrimaryKey().Type(), true)
+	pkEncVal, err := sql.EncodeRawValue(schema.RawValue(req.SqlGetRequest.PkValue), table.PrimaryKey().Type(), true)
 	if err != nil {
 		return nil, err
 	}
 
 	// build the encoded key for the pk
-	pkKey := d.sqlEngine.MapKey(sql.RowPrefix, sql.EncodeID(table.Database().ID()), sql.EncodeID(table.ID()), sql.EncodeID(table.PrimaryKey().ID()), pkEncVal)
+	pkKey := sql.MapKey([]byte{SQLPrefix}, sql.RowPrefix, sql.EncodeID(table.Database().ID()), sql.EncodeID(table.ID()), sql.EncodeID(table.PrimaryKey().ID()), pkEncVal)
 
 	e, err := d.sqlGetAt(pkKey, req.SqlGetRequest.AtTx, d.st, txEntry)
 	if err != nil {
@@ -101,10 +101,26 @@ func (d *db) VerifiableSQLGet(req *schema.VerifiableSQLGetRequest) (*schema.Veri
 		DualProof: schema.DualProofTo(dualProof),
 	}
 
+	colIdsById := make(map[uint64]string, len(table.ColsByID()))
+	colIdsByName := make(map[string]uint64, len(table.ColsByName()))
+	colTypesById := make(map[uint64]string, len(table.ColsByID()))
+
+	for _, col := range table.ColsByID() {
+		colIdsById[col.ID()] = col.Name()
+		colIdsByName[sql.EncodeSelector("", table.Database().Name(), table.Name(), col.Name())] = col.ID()
+		colTypesById[col.ID()] = col.Type()
+	}
+
 	return &schema.VerifiableSQLEntry{
 		SqlEntry:       e,
 		VerifiableTx:   verifiableTx,
 		InclusionProof: schema.InclusionProofTo(inclusionProof),
+		DatabaseId:     table.Database().ID(),
+		TableId:        table.ID(),
+		PKName:         table.PrimaryKey().Name(),
+		ColIdsById:     colIdsById,
+		ColIdsByName:   colIdsByName,
+		ColTypesById:   colTypesById,
 	}, nil
 }
 
@@ -161,7 +177,7 @@ func (d *db) DescribeTable(tableName string) (*schema.SQLQueryResult, error) {
 		{Name: "INDEX", Type: sql.VarcharType},
 	}}
 
-	for _, c := range table.GetColsByID() {
+	for _, c := range table.ColsByID() {
 		index := "NO"
 
 		if table.PrimaryKey().Name() == c.Name() {
@@ -290,7 +306,7 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	params := make(map[string]interface{})
 
 	for _, p := range namedParams {
-		params[p.Name] = rawValue(p.Value)
+		params[p.Name] = schema.RawValue(p.Value)
 	}
 
 	r, err := d.sqlEngine.QueryPreparedStmt(stmt, params, renewSnapshot)
@@ -343,36 +359,6 @@ func (d *db) SQLQueryPrepared(stmt *sql.SelectStmt, namedParams []*schema.NamedP
 	}
 
 	return res, nil
-}
-
-func rawValue(v *schema.SQLValue) interface{} {
-	if v == nil {
-		return nil
-	}
-
-	switch tv := v.Value.(type) {
-	case *schema.SQLValue_Null:
-		{
-			return nil
-		}
-	case *schema.SQLValue_N:
-		{
-			return tv.N
-		}
-	case *schema.SQLValue_S:
-		{
-			return tv.S
-		}
-	case *schema.SQLValue_B:
-		{
-			return tv.B
-		}
-	case *schema.SQLValue_Bs:
-		{
-			return tv.Bs
-		}
-	}
-	return nil
 }
 
 func typedValueToRowValue(tv sql.TypedValue) *schema.SQLValue {
