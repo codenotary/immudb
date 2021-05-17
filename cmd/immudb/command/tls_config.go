@@ -48,12 +48,12 @@ func setUpTLS(pkey, cert, ca string, mtls bool) (*tls.Config, error) {
 		// Trusted store, contain the list of trusted certificates. client has to use one of this certificate to be trusted by this server
 		bs, err := ioutil.ReadFile(ca)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("failed to read client ca cert: %v", err))
+			return nil, fmt.Errorf("failed to read client ca cert: %v", err)
 		}
 
 		ok := certPool.AppendCertsFromPEM(bs)
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("failed to append client certs: %v", err))
+			return nil, fmt.Errorf("failed to append client certs: %v", err)
 		}
 		c.ClientCAs = certPool
 	}

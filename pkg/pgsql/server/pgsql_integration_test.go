@@ -169,7 +169,7 @@ func TestPgsqlServer_SimpleQueryQueryError(t *testing.T) {
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, isPresent FROM notExists")).Scan()
+	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
 	require.Error(t, err)
 }
 
@@ -189,7 +189,7 @@ func TestPgsqlServer_SimpleQueryQueryMissingDatabase(t *testing.T) {
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb  password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, isPresent FROM notExists")).Scan()
+	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
 	require.Error(t, err)
 }
 
@@ -209,7 +209,7 @@ func TestPgsqlServer_SimpleQueryQueryDatabaseNotExists(t *testing.T) {
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=notexists password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, isPresent FROM notExists")).Scan()
+	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
 	require.Error(t, err)
 }
 
@@ -229,7 +229,7 @@ func TestPgsqlServer_SimpleQueryQueryMissingUsername(t *testing.T) {
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable dbname=defaultdb password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, isPresent FROM notExists")).Scan()
+	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
 	require.Error(t, err)
 }
 
@@ -249,7 +249,7 @@ func TestPgsqlServer_SimpleQueryQueryMissingPassword(t *testing.T) {
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb", bs.Server.Srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, isPresent FROM notExists")).Scan()
+	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
 	require.Error(t, err)
 }
 
@@ -269,7 +269,7 @@ func TestPgsqlServer_SimpleQueryQueryClosedConnError(t *testing.T) {
 	require.NoError(t, err)
 	bs.Stop()
 
-	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title, isPresent FROM notExists")).Scan()
+	err = db.QueryRow("SELECT id, amount, title, isPresent FROM notExists").Scan()
 	require.Error(t, err)
 }
 
@@ -354,9 +354,9 @@ func TestPgsqlServer_SimpleQueryQueryCreateOrUseDatabaseNotSupported(t *testing.
 	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
 	require.NoError(t, err)
 
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE db"))
+	_, err = db.Exec("CREATE DATABASE db")
 	require.Error(t, err)
-	_, err = db.Exec(fmt.Sprintf("USE DATABASE db"))
+	_, err = db.Exec("USE DATABASE db")
 	require.Error(t, err)
 
 }

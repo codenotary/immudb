@@ -23,9 +23,7 @@ import (
 	"net"
 )
 
-type sessionFactory struct {
-	dbList database.DatabaseList
-}
+type sessionFactory struct{}
 
 type SessionFactory interface {
 	NewSession(conn net.Conn, log logger.Logger, sysDb database.DB, tlsConfig *tls.Config) Session

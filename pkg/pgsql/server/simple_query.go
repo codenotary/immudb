@@ -28,7 +28,7 @@ import (
 func (s *session) HandleSimpleQueries() (err error) {
 	s.Lock()
 	defer s.Unlock()
-	for true {
+	for {
 		if _, err := s.writeMessage(bm.ReadyForQuery()); err != nil {
 			return err
 		}
@@ -44,10 +44,9 @@ func (s *session) HandleSimpleQueries() (err error) {
 
 		switch v := msg.(type) {
 		case fm.TerminateMsg:
-			// @todo add terminate message
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
-			// @todo remove when this will be supported
+			// @todo remove when this will be supported or needed on immudb main server side
 			if strings.Contains(v.GetStatements(), "SET") {
 				continue
 			}
@@ -64,8 +63,6 @@ func (s *session) HandleSimpleQueries() (err error) {
 			continue
 		}
 	}
-
-	return nil
 }
 
 func (s *session) queryMsg(v fm.QueryMsg) error {
