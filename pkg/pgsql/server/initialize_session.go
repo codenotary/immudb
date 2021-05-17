@@ -55,11 +55,12 @@ func (s *session) InitializeSession() (err error) {
 				return err
 			}
 		}
-		if _, err = s.writeMessage([]byte(`S`)); err != nil {
+
+		if err = s.handshake(); err != nil {
 			return err
 		}
 
-		if err = s.handshake(); err != nil {
+		if _, err = s.writeMessage([]byte(`S`)); err != nil {
 			return err
 		}
 
