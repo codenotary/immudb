@@ -110,6 +110,9 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 			gr.currRow = nil
 			return r, nil
 		}
+		if err != nil {
+			return nil, err
+		}
 
 		if gr.currRow == nil {
 			gr.currRow = row
