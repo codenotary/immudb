@@ -986,7 +986,7 @@ func TestAggregations(t *testing.T) {
 	err = engine.UseDatabase("db1")
 	require.NoError(t, err)
 
-	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, PRIMARY KEY id)", nil, true)
+	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, title VARCHAR, age INTEGER, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
 	_, _, err = engine.ExecStmt("CREATE INDEX ON table1(age)", nil, true)
@@ -1014,10 +1014,19 @@ func TestAggregations(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
-	r, err = engine.QueryStmt("SELECT COUNT(), SUM(age), MIN(title), MAX(age), AVG(age) FROM table1 WHERE false", nil, true)
+	r, err = engine.QueryStmt("SELECT id FROM table1 WHERE false", nil, true)
 	require.NoError(t, err)
 
 	row, err := r.Read()
+	require.Equal(t, ErrNoMoreRows, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT COUNT(), SUM(age), MIN(title), MAX(age), AVG(age), MIN(active), MAX(active), MIN(payload) FROM table1 WHERE false", nil, true)
+	require.NoError(t, err)
+
+	row, err = r.Read()
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), row.Values[EncodeSelector("", "db1", "table1", "col0")].Value())
 	require.Equal(t, uint64(0), row.Values[EncodeSelector("", "db1", "table1", "col1")].Value())

@@ -127,10 +127,10 @@ func zeroForType(t SQLValueType) TypedValue {
 		{
 			return &Blob{}
 		}
-	case TimestampType:
+		/*case TimestampType:
 		{
 			return &Number{}
-		}
+		}*/
 	}
 	return nil
 }
