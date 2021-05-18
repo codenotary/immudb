@@ -26,7 +26,8 @@ type groupedRowReader struct {
 
 	groupBy []*ColSelector
 
-	currRow *Row
+	currRow  *Row
+	nonEmpty bool
 }
 
 func (e *Engine) newGroupedRowReader(rowReader RowReader, selectors []Selector, groupBy []*ColSelector) (*groupedRowReader, error) {
@@ -98,21 +99,88 @@ func (gr *groupedRowReader) colsBySelector() (map[string]*ColDescriptor, error) 
 	return colDescriptors, nil
 }
 
+func allAgregations(selectors []Selector) bool {
+	for _, sel := range selectors {
+		_, isAggregation := sel.(*AggColSelector)
+		if !isAggregation {
+			return false
+		}
+	}
+	return true
+}
+
+func zeroForType(t SQLValueType) TypedValue {
+	switch t {
+	case IntegerType:
+		{
+			return &Number{}
+		}
+	case BooleanType:
+		{
+			return &Bool{}
+		}
+	case VarcharType:
+		{
+			return &Varchar{}
+		}
+	case BLOBType:
+		{
+			return &Blob{}
+		}
+	case TimestampType:
+		{
+			return &Number{}
+		}
+	}
+	return nil
+}
+
 func (gr *groupedRowReader) Read() (*Row, error) {
 	for {
 		row, err := gr.rowReader.Read()
 		if err == store.ErrNoMoreEntries {
+			if !gr.nonEmpty && allAgregations(gr.selectors) {
+				// special case when all selectors are aggregations
+				zeroRow := &Row{Values: make(map[string]TypedValue, len(gr.selectors))}
+
+				colsBySelector, err := gr.colsBySelector()
+				if err != nil {
+					return nil, err
+				}
+
+				for _, sel := range gr.selectors {
+					aggFn, db, table, col := sel.resolve(gr.rowReader.ImplicitDB(), gr.rowReader.ImplicitTable())
+					encSel := EncodeSelector(aggFn, db, table, col)
+
+					var zero TypedValue
+					if aggFn == COUNT || aggFn == SUM || aggFn == AVG {
+						zero = zeroForType(IntegerType)
+					} else {
+						zero = zeroForType(colsBySelector[encSel].Type)
+					}
+
+					zeroRow.Values[encSel] = zero
+				}
+
+				gr.nonEmpty = true
+
+				return zeroRow, nil
+			}
+
 			if gr.currRow == nil {
 				return nil, err
 			}
 
 			r := gr.currRow
 			gr.currRow = nil
+
 			return r, nil
 		}
 		if err != nil {
 			return nil, err
 		}
+
+		gr.nonEmpty = true
 
 		if gr.currRow == nil {
 			gr.currRow = row
@@ -131,10 +199,12 @@ func (gr *groupedRowReader) Read() (*Row, error) {
 		if !compatible {
 			r := gr.currRow
 			gr.currRow = row
+
 			err = gr.initAggregations()
 			if err != nil {
 				return nil, err
 			}
+
 			return r, nil
 		}
 
