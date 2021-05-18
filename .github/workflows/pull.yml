@@ -75,8 +75,9 @@ jobs:
           ${{matrix.immuclient}} login --username immudb --password immudb || echo "Test #2 Login (Default credentials) Failed"
           ${{matrix.immuclient}} safeset test3 githubaction || echo "Test #3 Failed to safeset simple values"
           sg=$(${{matrix.immuclient}} safeget test3)
-          test [[ "$sg" == *"githubaction"*]] || echo "Test #4 Failed safeget responded with $sg"
-          test [[ "$sg" == *"verified: true"*]] || echo "Test #5 Failed safeset didn't get verified"
+          echo "$sg" |grep -q "githubaction" || echo "Test #4 Failed safeget responded with $sg"
+          echo "$sg" |grep -q  "verified: true" || echo "Test #5 Failed safeset didn't get verified"
+        shell: bash
 
   test-webconsole:
     name: Smoke tests (webconsole bundled)
