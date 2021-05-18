@@ -71,7 +71,7 @@ func makeDb() (DB, func()) {
 			log.Fatal(err)
 		}
 		if err := catalogDB.Close(); err != nil {
-			log.Fatal(err)
+			log.Fatalf("error closing catalog: %v", err)
 		}
 
 		if err := os.RemoveAll(rootPath); err != nil {
