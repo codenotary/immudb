@@ -48,6 +48,7 @@ type cfg struct {
 	rndValues         bool
 	readers           int
 	rdCount           int
+	readDelay         int
 }
 
 func parseConfig() (c cfg) {
@@ -69,6 +70,7 @@ func parseConfig() (c cfg) {
 
 	flag.IntVar(&c.readers, "readers", 0, "number of concurrent readers")
 	flag.IntVar(&c.rdCount, "rdCount", 100, "number of reads for each readers")
+	flag.IntVar(&c.readDelay, "readDelay", 100, "Readers start delay (ms)")
 
 	flag.Parse()
 
@@ -225,7 +227,9 @@ func main() {
 	for i := 0; i < c.readers; i++ {
 		wg.Add(1)
 		go func(id int) {
-			time.Sleep(100 * time.Millisecond) // give time to populate db
+			if c.readDelay>0 { // give time to populate db
+				time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
+			}
 			log.Printf("Reader %d is reading data\n", id)
 			for i := 1; i <= c.rdCount; i++ {
 // 				readerMx.Lock()
@@ -243,10 +247,11 @@ func main() {
 // 				readerMx.Unlock()
 				n := ret.Values["(defaultdb.entries.col0)"].Value().(uint64)
 				if n != uint64(i) {
-					log.Printf("READ %d vs %d", n, i)
+					log.Printf("Reader %d read %d vs %d", id, n, i)
 				}
 			}
 			wg.Done()
+			log.Printf("Reader %d out\n", id)
 		}(i)
 	}
 	wg.Wait()
