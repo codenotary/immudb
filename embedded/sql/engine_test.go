@@ -970,6 +970,20 @@ func TestAggregations(t *testing.T) {
 	err = r.Close()
 	require.NoError(t, err)
 
+	r, err = engine.QueryStmt("SELECT COUNT(), SUM(age), MIN(title), MAX(age), AVG(age) FROM table1 WHERE false", nil, true)
+	require.NoError(t, err)
+
+	row, err := r.Read()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), row.Values[EncodeSelector("", "db1", "table1", "col0")].Value())
+	require.Equal(t, uint64(0), row.Values[EncodeSelector("", "db1", "table1", "col1")].Value())
+	require.Equal(t, "", row.Values[EncodeSelector("", "db1", "table1", "col2")].Value())
+	require.Equal(t, uint64(0), row.Values[EncodeSelector("", "db1", "table1", "col3")].Value())
+	require.Equal(t, uint64(0), row.Values[EncodeSelector("", "db1", "table1", "col4")].Value())
+
+	err = r.Close()
+	require.NoError(t, err)
+
 	r, err = engine.QueryStmt("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil, true)
 	require.NoError(t, err)
 
@@ -977,7 +991,7 @@ func TestAggregations(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, cols, 5)
 
-	row, err := r.Read()
+	row, err = r.Read()
 	require.NoError(t, err)
 	require.NotNil(t, row)
 	require.Len(t, row.Values, 5)
