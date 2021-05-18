@@ -21,7 +21,7 @@ import (
 )
 
 func (s *session) handshake() error {
-	if len(s.tlsConfig.Certificates) == 0 {
+	if s.tlsConfig == nil || len(s.tlsConfig.Certificates) == 0 {
 		return ErrSSLNotSupported
 	}
 	tlsConn := tls.Server(s.mr.Connection(), s.tlsConfig)
