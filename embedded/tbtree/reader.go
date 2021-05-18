@@ -58,6 +58,20 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error
 		return nil, 0, ErrAlreadyClosed
 	}
 
+	if r.leafNode == nil {
+		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+		if err == ErrKeyNotFound {
+			return nil, 0, ErrNoMoreEntries
+		}
+		if err != nil {
+			return nil, 0, err
+		}
+
+		r.path = path
+		r.leafNode = startingLeaf
+		r.offset = startingOffset
+	}
+
 	for {
 		if (!r.descOrder && len(r.leafNode.values) == r.offset) || (r.descOrder && r.offset < 0) {
 			for {
@@ -141,6 +155,20 @@ func (r *Reader) ReadAsBefore(beforeTs uint64) (key []byte, ts uint64, err error
 func (r *Reader) Read() (key []byte, value []byte, ts uint64, hc uint64, err error) {
 	if r.closed {
 		return nil, nil, 0, 0, ErrAlreadyClosed
+	}
+
+	if r.leafNode == nil {
+		path, startingLeaf, startingOffset, err := r.snapshot.root.findLeafNode(r.seekKey, nil, nil, r.descOrder)
+		if err == ErrKeyNotFound {
+			return nil, nil, 0, 0, ErrNoMoreEntries
+		}
+		if err != nil {
+			return nil, nil, 0, 0, err
+		}
+
+		r.path = path
+		r.leafNode = startingLeaf
+		r.offset = startingOffset
 	}
 
 	for {
