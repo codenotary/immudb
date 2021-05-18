@@ -3,7 +3,6 @@ name: pullCI
 on:
   pull_request:
     branches:
-    - enh-it-763-pushtest
     - enh-it-763-push
     - enh-it-763
 jobs:
