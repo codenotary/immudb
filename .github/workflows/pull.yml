@@ -102,7 +102,7 @@ jobs:
           immudb -d
           immuclient login --username immudb --password immudb || echo "Test #2 Login (Default credentials) Failed"
           immuclient safeset test3 githubaction || echo "Test #3 Failed to safeset simple values"
-          immuclient safeget test3
+          sg=$(immuclient safeget test3)
           test [[ "$sg" == *"githubaction"*]] || echo "Test #4 Failed safeget responded with $sg"
           test [[ "$sg" == *"verified: true"*]] || echo "Test #5 Failed safeset didn't get verified"
           # Find <title>immudb webconsole</title>
