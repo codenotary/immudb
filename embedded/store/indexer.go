@@ -340,9 +340,6 @@ func (idx *indexer) indexSince(txID uint64, limit int) error {
 	defer idx.store.releaseAllocTx(tx)
 
 	txReader, err := idx.store.newTxReader(txID, false, tx)
-	if err == ErrNoMoreEntries {
-		return nil
-	}
 	if err != nil {
 		return err
 	}

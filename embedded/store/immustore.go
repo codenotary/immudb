@@ -586,9 +586,6 @@ func (s *ImmuStore) syncBinaryLinking() error {
 	defer s.releaseAllocTx(tx)
 
 	txReader, err := s.NewTxReader(s.aht.Size()+1, false, tx)
-	if err == ErrNoMoreEntries {
-		return nil
-	}
 	if err != nil {
 		return err
 	}

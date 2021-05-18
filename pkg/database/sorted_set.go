@@ -138,9 +138,6 @@ func (d *db) ZScan(req *schema.ZScanRequest) (*schema.ZEntries, error) {
 			InclusiveSeek: req.InclusiveSeek,
 			DescOrder:     req.Desc,
 		})
-	if err == store.ErrNoMoreEntries {
-		return &schema.ZEntries{}, nil
-	}
 	if err != nil {
 		return nil, err
 	}
