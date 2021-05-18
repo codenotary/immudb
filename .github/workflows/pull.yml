@@ -77,7 +77,8 @@ jobs:
           ${{matrix.immuclient}} safeset test3 githubaction || echo "Test #3 Failed to safeset simple values"
           sg=$(${{matrix.immuclient}} safeget test3)
           echo "$sg" |grep -q "githubaction" || echo "Test #4 Failed safeget responded with $sg"
-          echo "$sg" |grep -q  "verified: true" || echo "Test #5 Failed safeset didn't get verified"
+          echo "$sg" |grep -q  "verified" || echo "Test #5 Failed safeset didn't get verified"
+          echo "$sg" |grep -q "true" || echo "Test #5 Failed safeset didn't get verified"
         shell: bash
 
   test-webconsole:
@@ -105,8 +106,9 @@ jobs:
           immuclient login --username immudb --password immudb || echo "Test #2 Login (Default credentials) Failed"
           immuclient safeset test3 githubaction || echo "Test #3 Failed to safeset simple values"
           sg=$(immuclient safeget test3)
-          test [[ "$sg" == *"githubaction"*]] || echo "Test #4 Failed safeget responded with $sg"
-          test [[ "$sg" == *"verified: true"*]] || echo "Test #5 Failed safeset didn't get verified"
+          echo "$sg" |grep -q "githubaction" || echo "Test #4 Failed safeget responded with $sg"
+          echo "$sg" |grep -q  "verified" || echo "Test #5 Failed safeset didn't get verified"
+          echo "$sg" |grep -q "true" || echo "Test #5 Failed safeset didn't get verified"
           # Find <title>immudb webconsole</title>
           webconsole_page=$(curl -s localhost:8080) || echo "Test #6 web console unreachable"
           grep -q "<title>immudb webconsole</title>" <<< $webconsole_page || echo "Test #7 Failed, web console reachable but title not found"
