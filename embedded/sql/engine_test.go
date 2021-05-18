@@ -441,11 +441,23 @@ func TestQuery(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE TABLE table1 (id INTEGER, ts INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil, true)
 	require.NoError(t, err)
 
-	_, err = engine.QueryStmt("SELECT id FROM db1.table1", nil, true)
+	r, err := engine.QueryStmt("SELECT id FROM db1.table1", nil, true)
+	require.NoError(t, err)
+
+	_, err = r.Read()
 	require.Equal(t, ErrNoMoreRows, err)
 
-	_, err = engine.QueryStmt("SELECT * FROM db1.table1", nil, true)
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT * FROM db1.table1", nil, true)
+	require.NoError(t, err)
+
+	_, err = r.Read()
 	require.Equal(t, ErrNoMoreRows, err)
+
+	err = r.Close()
+	require.NoError(t, err)
 
 	rowCount := 10
 
@@ -460,7 +472,7 @@ func TestQuery(t *testing.T) {
 	_, err = engine.QueryStmt("SELECT DISTINCT id1 FROM table1", nil, true)
 	require.Equal(t, ErrNoSupported, err)
 
-	r, err := engine.QueryStmt("SELECT id1 FROM table1", nil, true)
+	r, err = engine.QueryStmt("SELECT id1 FROM table1", nil, true)
 	require.NoError(t, err)
 
 	row, err := r.Read()
