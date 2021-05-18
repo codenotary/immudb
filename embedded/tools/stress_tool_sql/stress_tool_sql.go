@@ -17,7 +17,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	// 	"fmt"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -32,77 +33,100 @@ type Entry struct {
 	value []byte
 }
 
-func main() {
-	dataDir := flag.String("dataDir", "data", "data directory")
-	catalogDir := flag.String("catalogDir", "catalog", "catalog directory")
+type cfg struct {
+	dataDir           string
+	catalogDir        string
+	parallelIO        int
+	fileSize          int
+	compressionFormat int
+	compressionLevel  int
+	synced            bool
+	openedLogFiles    int
+	committers        int
+	kvCount           int
+	vLen              int
+	rndValues         bool
+	readers           int
+	rdCount           int
+}
 
-	parallelIO := flag.Int("parallelIO", 1, "number of parallel IO")
-	fileSize := flag.Int("fileSize", 1<<26, "file size up to which a new ones are created")
+func parseConfig() (c cfg) {
+	flag.StringVar(&c.dataDir, "dataDir", "data", "data directory")
+	flag.StringVar(&c.catalogDir, "catalogDir", "catalog", "catalog directory")
+
+	flag.IntVar(&c.parallelIO, "parallelIO", 1, "number of parallel IO")
+	flag.IntVar(&c.fileSize, "fileSize", 1<<26, "file size up to which a new ones are created")
 	cFormat := flag.String("compressionFormat", "no-compression", "one of: no-compression, flate, gzip, lzw, zlib")
 	cLevel := flag.String("compressionLevel", "best-speed", "one of: best-speed, best-compression, default-compression, huffman-only")
 
-	synced := flag.Bool("synced", false, "strict sync mode - no data lost")
-	openedLogFiles := flag.Int("openedLogFiles", 10, "number of maximun number of opened files per each log type")
+	flag.BoolVar(&c.synced, "synced", false, "strict sync mode - no data lost")
+	flag.IntVar(&c.openedLogFiles, "openedLogFiles", 10, "number of maximun number of opened files per each log type")
 
-	committers := flag.Int("committers", 10, "number of concurrent committers")
-	kvCount := flag.Int("kvCount", 1_000, "number of kv entries per tx")
-	vLen := flag.Int("vLen", 32, "value length (bytes)")
-	rndValues := flag.Bool("rndValues", true, "values are randomly generated")
+	flag.IntVar(&c.committers, "committers", 10, "number of concurrent committers")
+	flag.IntVar(&c.kvCount, "kvCount", 1_000, "number of kv entries per tx")
+	flag.IntVar(&c.vLen, "vLen", 32, "value length (bytes)")
+	flag.BoolVar(&c.rndValues, "rndValues", true, "values are randomly generated")
+
+	flag.IntVar(&c.readers, "readers", 0, "number of concurrent readers")
+	flag.IntVar(&c.rdCount, "rdCount", 100, "number of reads for each readers")
 
 	flag.Parse()
 
-	fmt.Println("Opening Immutable Transactional Key-Value Log...")
-
-	var compressionFormat int
-	var compressionLevel int
-
 	switch *cFormat {
 	case "no-compression":
-		compressionFormat = appendable.NoCompression
+		c.compressionFormat = appendable.NoCompression
 	case "flate":
-		compressionFormat = appendable.FlateCompression
+		c.compressionFormat = appendable.FlateCompression
 	case "gzip":
-		compressionFormat = appendable.GZipCompression
+		c.compressionFormat = appendable.GZipCompression
 	case "lzw":
-		compressionFormat = appendable.LZWCompression
+		c.compressionFormat = appendable.LZWCompression
 	case "zlib":
-		compressionFormat = appendable.ZLibCompression
+		c.compressionFormat = appendable.ZLibCompression
 	default:
 		panic("invalid compression format")
 	}
 
 	switch *cLevel {
 	case "best-speed":
-		compressionLevel = appendable.BestSpeed
+		c.compressionLevel = appendable.BestSpeed
 	case "best-compression":
-		compressionLevel = appendable.BestCompression
+		c.compressionLevel = appendable.BestCompression
 	case "default-compression":
-		compressionLevel = appendable.DefaultCompression
+		c.compressionLevel = appendable.DefaultCompression
 	case "huffman-only":
-		compressionLevel = appendable.HuffmanOnly
+		c.compressionLevel = appendable.HuffmanOnly
 	default:
 		panic("invalid compression level")
 	}
 
+	return
+}
+
+func main() {
+	c := parseConfig()
+
+	log.Println("Opening Immutable Transactional Key-Value Log...")
+
 	opts := store.DefaultOptions().
-		WithSynced(*synced).
-		WithMaxConcurrency(*committers).
-		WithMaxIOConcurrency(*parallelIO).
-		WithFileSize(*fileSize).
-		WithVLogMaxOpenedFiles(*openedLogFiles).
-		WithTxLogMaxOpenedFiles(*openedLogFiles).
-		WithCommitLogMaxOpenedFiles(*openedLogFiles).
-		WithCompressionFormat(compressionFormat).
-		WithCompresionLevel(compressionLevel).
+		WithSynced(c.synced).
+		WithMaxConcurrency(c.committers).
+		WithMaxIOConcurrency(c.parallelIO).
+		WithFileSize(c.fileSize).
+		WithVLogMaxOpenedFiles(c.openedLogFiles).
+		WithTxLogMaxOpenedFiles(c.openedLogFiles).
+		WithCommitLogMaxOpenedFiles(c.openedLogFiles).
+		WithCompressionFormat(c.compressionFormat).
+		WithCompresionLevel(c.compressionLevel).
 		WithMaxLinearProofLen(0).
 		WithMaxValueLen(1 << 26) // 64Mb
 
-	catalogStore, err := store.Open(*catalogDir, opts)
+	catalogStore, err := store.Open(c.catalogDir, opts)
 	if err != nil {
 		panic(err)
 	}
 
-	dataStore, err := store.Open(*dataDir, opts)
+	dataStore, err := store.Open(c.dataDir, opts)
 	if err != nil {
 		panic(err)
 	}
@@ -111,27 +135,27 @@ func main() {
 		for name, store := range map[string]*store.ImmuStore{"catalog": catalogStore, "data": dataStore} {
 			store.Close()
 			if err != nil {
-				fmt.Printf("\r\nBacking store %s closed with error: %v\r\n", name, err)
+				log.Printf("\r\nBacking store %s closed with error: %v\r\n", name, err)
 				panic(err)
 			}
-			fmt.Printf("\r\nImmutable Transactional Key-Value Log %s successfully closed!\r\n", name)
+			log.Printf("\r\nImmutable Transactional Key-Value Log %s successfully closed!\r\n", name)
 		}
 	}()
 
 	for name, store := range map[string]*store.ImmuStore{"catalog": catalogStore, "data": dataStore} {
-		fmt.Printf("Store %s with %d Txs successfully opened!\r\n", name, store.TxCount())
+		log.Printf("Store %s with %d Txs successfully opened!\r\n", name, store.TxCount())
 	}
 
 	engine, err := sql.NewEngine(catalogStore, dataStore, []byte("sql"))
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("SQL engine successfully opened!\r\n")
+	log.Printf("SQL engine successfully opened!\r\n")
 
 	defer func() {
 		err := engine.Close()
 		if err != nil {
-			fmt.Printf("\r\nSQL engine closed with error: %v\r\n", err)
+			log.Printf("\r\nSQL engine closed with error: %v\r\n", err)
 			panic(err)
 		}
 	}()
@@ -146,7 +170,7 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("Creating tables\r\n")
+	log.Printf("Creating tables\r\n")
 	_, _, err = engine.ExecStmt("CREATE TABLE IF NOT EXISTS entries (id INTEGER, value BLOB, ts INTEGER, PRIMARY KEY id);", map[string]interface{}{}, true)
 	if err != nil {
 		panic(err)
@@ -155,39 +179,37 @@ func main() {
 	// incremental id generator
 	ids := make(chan int)
 	go func() {
-		i := 1
-		for {
+		for i := 1; ; i++ {
 			ids <- i
-			i = i + 1
 		}
 	}()
 
 	entries := make(chan Entry)
 
 	rand.Seed(time.Now().UnixNano())
-	for c := 0; c < *committers; c++ {
+	for i := 0; i < c.committers; i++ {
 		go func(id int) {
-			fmt.Printf("\r\nWorker %d is generating rows...\r\n", id)
+			log.Printf("Worker %d is generating rows...\r\n", id)
 
-			for i := 0; i < *kvCount; i++ {
+			for i := 0; i < c.kvCount; i++ {
 				id := <-ids
-				v := make([]byte, *vLen)
-				if *rndValues {
+				v := make([]byte, c.vLen)
+				if c.rndValues {
 					rand.Read(v)
 				}
 
 				entries <- Entry{id: id, value: v}
 			}
-		}(c)
+		}(i)
 	}
 
 	wg := sync.WaitGroup{}
 
-	for c := 0; c < *committers; c++ {
+	for i := 0; i < c.committers; i++ {
 		wg.Add(1)
 		go func(id int) {
-			fmt.Printf("\r\nCommitter %d is inserting data...\r\n", id)
-			for i := 0; i < *kvCount; i++ {
+			log.Printf("Committer %d is inserting data...\r\n", id)
+			for i := 0; i < c.kvCount; i++ {
 				entry := <-entries
 				_, _, err = engine.ExecStmt("INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
 					map[string]interface{}{"id": entry.id, "value": entry.value}, true)
@@ -196,12 +218,39 @@ func main() {
 				}
 			}
 			wg.Done()
-			fmt.Printf("\r\nCommitter %d done...\r\n", id)
-		}(c)
+			log.Printf("Committer %d done...\r\n", id)
+		}(i)
 	}
-
+	var readerMx = &sync.Mutex{} // this is needed as it seems that only 1 reader can be active at a time
+	for i := 0; i < c.readers; i++ {
+		wg.Add(1)
+		go func(id int) {
+			time.Sleep(100 * time.Millisecond) // give time to populate db
+			log.Printf("Reader %d is reading data\n", id)
+			for i := 1; i <= c.rdCount; i++ {
+				readerMx.Lock()
+				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, true)
+				if err != nil {
+					log.Printf("Error reading val %d",i)
+					panic(err)
+				}
+				ret, err := r.Read()
+				if err != nil {
+					log.Printf("Error reading val %d",i)
+					panic(err)
+				}
+				r.Close()
+				readerMx.Unlock()
+				n := ret.Values["(defaultdb.entries.col0)"].Value().(uint64)
+				if n != uint64(i) {
+					log.Printf("READ %d vs %d", n, i)
+				}
+			}
+			wg.Done()
+		}(i)
+	}
 	wg.Wait()
-	fmt.Printf("\r\nAll committers done...\r\n")
+	log.Printf("All committers done...\r\n")
 
 	r, err := engine.QueryStmt("SELECT count() FROM  entries;", map[string]interface{}{}, true)
 	if err != nil {
@@ -213,7 +262,7 @@ func main() {
 	}
 
 	count := row.Values["(defaultdb.entries.col0)"].Value().(uint64)
-	fmt.Printf("- Counted %d entries\n", count)
+	log.Printf("- Counted %d entries\n", count)
 	defer func() {
 		err := r.Close()
 		if err != nil {
