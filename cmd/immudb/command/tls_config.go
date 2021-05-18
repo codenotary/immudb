@@ -25,7 +25,7 @@ import (
 )
 
 func setUpTLS(pkey, cert, ca string, mtls bool) (*tls.Config, error) {
-	c := &tls.Config{}
+	var c *tls.Config
 
 	if cert != "" && pkey != "" {
 		certs, err := tls.LoadX509KeyPair(cert, pkey)
