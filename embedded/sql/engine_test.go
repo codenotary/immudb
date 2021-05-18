@@ -961,7 +961,16 @@ func TestAggregations(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	r, err := engine.QueryStmt("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil, true)
+	r, err := engine.QueryStmt("SELECT COUNT() FROM table1 WHERE id < i", nil, true)
+	require.NoError(t, err)
+
+	_, err = r.Read()
+	require.Equal(t, ErrColumnDoesNotExist, err)
+
+	err = r.Close()
+	require.NoError(t, err)
+
+	r, err = engine.QueryStmt("SELECT COUNT() AS c, SUM(age), MIN(age), MAX(age), AVG(age) FROM table1 AS t1", nil, true)
 	require.NoError(t, err)
 
 	cols, err := r.Columns()
