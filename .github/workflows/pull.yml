@@ -30,6 +30,7 @@ jobs:
           sudo apt update && sudo apt install curl -y
           curl -L  https://github.com/codenotary/immudb-webconsole/archive/refs/tags/v0.0.8.tar.gz | tar -xzv -C webconsole
           WEBCONSOLE=1 make all
+        if: runner.os == 'Linux'
       - name: Upload webconsole artifact
         uses: actions/upload-artifact@v2
         with:
