@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/codenotary/immudb/embedded/store"
+	"github.com/codenotary/immudb/embedded/tbtree"
 )
 
 var ErrNoSupported = errors.New("not yet supported")
@@ -927,7 +928,7 @@ func (e *Engine) QueryPreparedStmt(stmt *SelectStmt, params map[string]interface
 
 	if renewSnapshot {
 		err := e.RenewSnapshot()
-		if err != nil {
+		if err != nil && err != tbtree.ErrReadersNotClosed {
 			return nil, err
 		}
 	}
