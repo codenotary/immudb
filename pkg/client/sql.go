@@ -117,7 +117,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 	}
 	defer c.StateService.CacheUnlock()
 
-	state, err := c.StateService.GetState(ctx, c.Options.CurrentDatabase)
+	state, err := c.StateService.GetState(ctx, c.currentDatabase())
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,10 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 
 	dbID := vEntry.DatabaseId
 	tableID := vEntry.TableId
-	pkID := vEntry.ColIdsByName[sql.EncodeSelector("", c.Options.CurrentDatabase, table, vEntry.PKName)]
+	pkID, ok := vEntry.ColIdsByName[sql.EncodeSelector("", c.currentDatabase(), table, vEntry.PKName)]
+	if !ok {
+		return sql.ErrCorruptedData
+	}
 	pkType, ok := vEntry.ColTypesById[pkID]
 	if !ok {
 		return sql.ErrCorruptedData
@@ -221,7 +224,7 @@ func (c *immuClient) VerifyRow(ctx context.Context, row *schema.Row, table strin
 		}
 	}
 
-	err = c.StateService.SetState(c.Options.CurrentDatabase, newState)
+	err = c.StateService.SetState(c.currentDatabase(), newState)
 	if err != nil {
 		return err
 	}
