@@ -273,5 +273,5 @@ func (s *ServerMock) DescribeTable(ctx context.Context, req *schema.Table) (*sch
 }
 
 func (s *ServerMock) VerifiableSQLGet(ctx context.Context, req *schema.VerifiableSQLGetRequest) (*schema.VerifiableSQLEntry, error) {
-	return s.srv.VerifiableSQLGet(ctx, req)
+	return s.Srv.VerifiableSQLGet(ctx, req)
 }
