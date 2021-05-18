@@ -221,26 +221,26 @@ func main() {
 			log.Printf("Committer %d done...\r\n", id)
 		}(i)
 	}
-	var readerMx = &sync.Mutex{} // this is needed as it seems that only 1 reader can be active at a time
+// 	var readerMx = &sync.Mutex{} // this is needed as it seems that only 1 reader can be active at a time
 	for i := 0; i < c.readers; i++ {
 		wg.Add(1)
 		go func(id int) {
 			time.Sleep(100 * time.Millisecond) // give time to populate db
 			log.Printf("Reader %d is reading data\n", id)
 			for i := 1; i <= c.rdCount; i++ {
-				readerMx.Lock()
-				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, true)
+// 				readerMx.Lock()
+				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, false)
 				if err != nil {
-					log.Printf("Error reading val %d",i)
+					log.Printf("Error querying val %d: %s",i, err.Error())
 					panic(err)
 				}
 				ret, err := r.Read()
 				if err != nil {
-					log.Printf("Error reading val %d",i)
+					log.Printf("Error reading val %d: %s",i, err.Error())
 					panic(err)
 				}
 				r.Close()
-				readerMx.Unlock()
+// 				readerMx.Unlock()
 				n := ret.Values["(defaultdb.entries.col0)"].Value().(uint64)
 				if n != uint64(i) {
 					log.Printf("READ %d vs %d", n, i)
