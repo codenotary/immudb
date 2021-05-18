@@ -28,7 +28,7 @@ jobs:
       - name: Build with webconsole
         run: |
           sudo apt update && sudo apt install curl -y
-          curl -L  https://github.com/codenotary/immudb-webconsole/archive/refs/tags/v0.0.8.tar.gz | tar -xzv -C webconsole
+          curl -L  https://github.com/codenotary/immudb-webconsole/releases/download/v0.0.7/immudb-webconsole.tar.gz | tar -xzv -C webconsole
           WEBCONSOLE=1 make all
         if: runner.os == 'Linux'
       - name: Upload webconsole artifact
@@ -47,7 +47,6 @@ jobs:
             ${{github.workspace}}/${{matrix.immudb}}
             ${{github.workspace}}/${{matrix.immuclient}}
   
-
   test:
     name: Smoke tests (no webconsole)
     needs: build
