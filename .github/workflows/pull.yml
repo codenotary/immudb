@@ -49,6 +49,7 @@ jobs:
 
   test:
     name: Smoke tests (no webconsole)
+    needs: build
     strategy:
       matrix:
         include:
@@ -79,6 +80,7 @@ jobs:
 
   test-webconsole:
     name: Smoke tests (webconsole bundled)
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v2
