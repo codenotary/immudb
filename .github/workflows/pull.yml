@@ -1,11 +1,7 @@
 name: pullCI
 
-on:
-  pull_request:
-    branches:
-    - enh-it-763-pushtest
-    - enh-it-763-push
-    - enh-it-763
+on: [pull_request]
+
 jobs:
   build:
     name: build
@@ -29,6 +25,18 @@ jobs:
         shell: bash
       - name: build all
         run: make all
+      - name: Build with webconsole
+        run: |
+          sudo apt update && sudo apt install curl -y
+          curl -L  https://github.com/codenotary/immudb-webconsole/archive/refs/tags/v0.0.8.tar.gz | tar -xzv -C webconsole
+          WEBCONSOLE=1 make all
+        uses: actions/upload-artifact@v2
+        with:
+          name: immu-${{matrix.os}}-webconsole
+          path: |
+            ${{github.workspace}}/${{matrix.immudb}}
+            ${{github.workspace}}/${{matrix.immuclient}}
+        if: runner.os == 'Linux'
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
@@ -36,6 +44,66 @@ jobs:
           path: |
             ${{github.workspace}}/${{matrix.immudb}}
             ${{github.workspace}}/${{matrix.immuclient}}
+  
+
+  test:
+    name: Smoke tests (no webconsole)
+    strategy:
+      matrix:
+        include:
+          - {os: ubuntu-latest, go: 1.13, immudb: "immudb", immuclient: "immuclient"}
+          - {os: windows-latest, go: 1.15, immudb: "immudb.exe", immuclient: "immuclient.exe"}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v2
+        with: 
+          name: immu-${{matrix.os}}
+          path: ${{github.workspace}}/bin
+      - name: Make binaries executable
+        run: |
+          chmod +x ${GITHUB_WORKSPACE}/bin/*
+        shell: bash
+        if: runner.os == 'Linux'
+      - name: Testing immudb operations
+        run: |
+          export PATH=$PATH:${GITHUB_WORKSPACE}/bin
+          # Run immuclient before a server starts, make sure it fails
+          ${{matrix.immuclient}} || echo "Test #1 OK - immuclient failed to connect (no server started)"
+          ${{matrix.immudb}} -d
+          ${{matrix.immuclient}} login --username immudb --password immudb || echo "Test #2 Login (Default credentials) Failed"
+          ${{matrix.immuclient}} safeset test3 githubaction || echo "Test #3 Failed to safeset simple values"
+          sg=$(${{matrix.immuclient}} safeget test3)
+          test [[ "$sg" == *"githubaction"*]] || echo "Test #4 Failed safeget responded with $sg"
+          test [[ "$sg" == *"verified: true"*]] || echo "Test #5 Failed safeset didn't get verified"
+
+  test-webconsole:
+    name: Smoke tests (webconsole bundled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+        with: 
+          name: immu-${{matrix.os}}
+          path: ${{github.workspace}}/bin
+      - name: Make binaries executable
+        run: |
+          chmod +x ${GITHUB_WORKSPACE}/bin/*
+        shell: bash
+        if: runner.os == 'Linux'
+      - name: Testing immudb operations
+        run: |
+          sudo apt update && sudo apt install curl -y
+          export PATH=$PATH:${GITHUB_WORKSPACE}/bin
+          # Run immuclient before a server starts, make sure it fails
+          immuclient || echo "Test #1 OK - immuclient failed to connect (no server started)"
+          immudb -d
+          immuclient login --username immudb --password immudb || echo "Test #2 Login (Default credentials) Failed"
+          immuclient safeset test3 githubaction || echo "Test #3 Failed to safeset simple values"
+          immuclient safeget test3)
+          test [[ "$sg" == *"githubaction"*]] || echo "Test #4 Failed safeget responded with $sg"
+          test [[ "$sg" == *"verified: true"*]] || echo "Test #5 Failed safeset didn't get verified"
+          # Find <title>immudb webconsole</title>
+          webconsole_page=$(curl -s localhost:8080) || echo "Test #6 web console unreachable"
+          grep -q "<title>immudb webconsole</title>" <<< $webconsole_page || echo "Test #7 Failed, web console reachable but title not found"
 
 
   coveralls:
