@@ -239,14 +239,22 @@ func verifyRowAgainst(row *schema.Row, decodedRow map[uint64]*schema.SQLValue, c
 			return sql.ErrColumnDoesNotExist
 		}
 
-		decodedVal, ok := decodedRow[colID]
-		if !ok {
+		val := row.Values[i]
+
+		if val == nil || val.Value == nil {
 			return sql.ErrCorruptedData
 		}
 
-		val := row.Values[i]
+		decodedVal, ok := decodedRow[colID]
+		if !ok {
+			_, isNull := val.Value.(*schema.SQLValue_Null)
+			if isNull {
+				continue
+			}
+			return sql.ErrCorruptedData
+		}
 
-		if val == nil || val.Value == nil || decodedVal == nil || decodedVal.Value == nil {
+		if decodedVal == nil || decodedVal.Value == nil {
 			return sql.ErrCorruptedData
 		}
 

@@ -47,10 +47,10 @@ func TestImmuClient_SQL(t *testing.T) {
 	md := metadata.Pairs("authorization", lr.Token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	_, err = client.SQLExec(ctx, "CREATE TABLE table1(id INTEGER, title VARCHAR, active BOOLEAN, PRIMARY KEY id)", nil)
+	_, err = client.SQLExec(ctx, "CREATE TABLE table1(id INTEGER, title VARCHAR, active BOOLEAN, payload BLOB, PRIMARY KEY id)", nil)
 	require.NoError(t, err)
 
-	_, err = client.SQLExec(ctx, "UPSERT INTO table1(id, title, active) VALUES (1, 'title1', true), (2, 'title2', false), (3, 'title3', NULL)", nil)
+	_, err = client.SQLExec(ctx, "INSERT INTO table1(id, title, active, payload) VALUES (1, 'title1', true, NULL), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", nil)
 	require.NoError(t, err)
 
 	params := make(map[string]interface{})
@@ -68,7 +68,7 @@ func TestImmuClient_SQL(t *testing.T) {
 		require.Equal(t, sql.ErrColumnDoesNotExist, err)
 	}
 
-	res, err = client.SQLQuery(ctx, "SELECT id, title FROM table1 WHERE id <= 3 AND active = @active", params, true)
+	res, err = client.SQLQuery(ctx, "SELECT id, title, active, payload FROM table1 WHERE id <= 3 AND active = @active", params, true)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
@@ -76,9 +76,27 @@ func TestImmuClient_SQL(t *testing.T) {
 		err := client.VerifyRow(ctx, row, "table1", row.Values[0])
 		require.NoError(t, err)
 
-		row.Values[1].Value.(*schema.SQLValue_S).S = "tampered title"
+		row.Values[1].Value = &schema.SQLValue_S{S: "tampered title"}
 
 		err = client.VerifyRow(ctx, row, "table1", row.Values[0])
 		require.Equal(t, sql.ErrCorruptedData, err)
+	}
+
+	res, err = client.SQLQuery(ctx, "SELECT id, active FROM table1", nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	for _, row := range res.Rows {
+		err := client.VerifyRow(ctx, row, "table1", row.Values[0])
+		require.NoError(t, err)
+	}
+
+	res, err = client.SQLQuery(ctx, "SELECT active FROM table1 WHERE id = 1", nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	for _, row := range res.Rows {
+		err := client.VerifyRow(ctx, row, "table1", &schema.SQLValue{Value: &schema.SQLValue_N{N: 1}})
+		require.NoError(t, err)
 	}
 }
