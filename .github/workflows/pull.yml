@@ -34,7 +34,7 @@ jobs:
       - name: Upload webconsole artifact
         uses: actions/upload-artifact@v2
         with:
-          name: immu-${{matrix.os}}-webconsole
+          name: immu-ubuntu-latest-webconsole
           path: |
             ${{github.workspace}}/${{matrix.immudb}}
             ${{github.workspace}}/${{matrix.immuclient}}
@@ -86,7 +86,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v2
         with: 
-          name: immu-${{matrix.os}}
+          name: immu-ubuntu-latest-webconsole
           path: ${{github.workspace}}/bin
       - name: Make binaries executable
         run: |
