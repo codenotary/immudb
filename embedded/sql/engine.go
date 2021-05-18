@@ -298,9 +298,6 @@ func (e *Engine) catalogFrom(snap *store.Snapshot) (*Catalog, error) {
 	}
 
 	dbReader, err := snap.NewKeyReader(dbReaderSpec)
-	if err == store.ErrNoMoreEntries {
-		return catalog, nil
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -352,12 +349,10 @@ func (e *Engine) loadTables(db *Database, snap *store.Snapshot) error {
 	}
 
 	tableReader, err := snap.NewKeyReader(dbReaderSpec)
-	if err == store.ErrNoMoreEntries {
-		return nil
-	}
 	if err != nil {
 		return err
 	}
+	defer tableReader.Close()
 
 	for {
 		mkey, vref, _, _, err := tableReader.Read()
@@ -418,12 +413,10 @@ func (e *Engine) loadColSpecs(dbID, tableID, pkID uint64, snap *store.Snapshot) 
 	}
 
 	colSpecReader, err := snap.NewKeyReader(dbReaderSpec)
-	if err == store.ErrNoMoreEntries {
-		return nil, "", nil
-	}
 	if err != nil {
 		return nil, "", err
 	}
+	defer colSpecReader.Close()
 
 	specs = make([]*ColSpec, 0)
 
@@ -481,12 +474,10 @@ func (e *Engine) loadIndexes(dbID, tableID uint64, snap *store.Snapshot) ([]uint
 	}
 
 	idxSpecReader, err := snap.NewKeyReader(idxReaderSpec)
-	if err == store.ErrNoMoreEntries {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}
+	defer idxSpecReader.Close()
 
 	indexes := make([]uint64, 0)
 
