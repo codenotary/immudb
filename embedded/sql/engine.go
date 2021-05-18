@@ -740,9 +740,14 @@ func EncodeRawValue(val interface{}, colType SQLValueType, asKey bool) ([]byte, 
 		}
 	case BLOBType:
 		{
-			blobVal, ok := val.([]byte)
-			if !ok {
-				return nil, ErrInvalidValue
+			var blobVal []byte
+
+			if val != nil {
+				b, ok := val.([]byte)
+				if !ok {
+					return nil, ErrInvalidValue
+				}
+				blobVal = b
 			}
 
 			if asKey && len(blobVal) > len(maxKeyVal(BLOBType)) {

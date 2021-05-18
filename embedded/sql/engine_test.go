@@ -51,8 +51,17 @@ func TestCreateDatabase(t *testing.T) {
 	_, _, err = engine.ExecStmt("CREATE DATABASE db2", nil, true)
 	require.NoError(t, err)
 
+	err = engine.CloseSnapshot()
+	require.NoError(t, err)
+
 	err = engine.Close()
 	require.NoError(t, err)
+
+	err = engine.CloseSnapshot()
+	require.Equal(t, ErrAlreadyClosed, err)
+
+	err = engine.RenewSnapshot()
+	require.Equal(t, ErrAlreadyClosed, err)
 
 	err = engine.Close()
 	require.Equal(t, ErrAlreadyClosed, err)
@@ -401,11 +410,46 @@ func TestUseSnapshot(t *testing.T) {
 	err = engine.UseSnapshot(1, 0)
 	require.NoError(t, err)
 
+	err = engine.CloseSnapshot()
+	require.NoError(t, err)
+
 	err = engine.UseSnapshot(0, 1)
 	require.NoError(t, err)
 
 	err = engine.UseSnapshot(1, 1)
 	require.NoError(t, err)
+}
+
+func TestEncodeRawValue(t *testing.T) {
+	_, err := EncodeRawValue(uint64(1), IntegerType, true)
+	require.NoError(t, err)
+
+	_, err = EncodeRawValue(true, IntegerType, true)
+	require.Equal(t, ErrInvalidValue, err)
+
+	_, err = EncodeRawValue(true, BooleanType, true)
+	require.NoError(t, err)
+
+	_, err = EncodeRawValue(uint64(1), BooleanType, true)
+	require.Equal(t, ErrInvalidValue, err)
+
+	_, err = EncodeRawValue("title", VarcharType, true)
+	require.NoError(t, err)
+
+	_, err = EncodeRawValue(uint64(1), VarcharType, true)
+	require.Equal(t, ErrInvalidValue, err)
+
+	_, err = EncodeRawValue([]byte{}, BLOBType, true)
+	require.NoError(t, err)
+
+	_, err = EncodeRawValue(nil, BLOBType, true)
+	require.NoError(t, err)
+
+	_, err = EncodeRawValue(uint64(1), BLOBType, true)
+	require.Equal(t, ErrInvalidValue, err)
+
+	_, err = EncodeRawValue(uint64(1), "invalid type", true)
+	require.Equal(t, ErrInvalidValue, err)
 }
 
 func TestQuery(t *testing.T) {
