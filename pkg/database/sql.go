@@ -241,7 +241,7 @@ func (d *db) SQLExecPrepared(stmts []sql.SQLStmt, namedParams []*schema.NamedPar
 	params := make(map[string]interface{})
 
 	for _, p := range namedParams {
-		params[p.Name] = p.Value
+		params[p.Name] = schema.RawValue(p.Value)
 	}
 
 	ddTxs, dmTxs, err := d.sqlEngine.ExecPreparedStmts(stmts, params, waitForIndexing)
