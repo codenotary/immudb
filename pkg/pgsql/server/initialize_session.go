@@ -25,6 +25,7 @@ import (
 	"github.com/codenotary/immudb/pkg/database"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"strings"
 )
 
@@ -179,7 +180,7 @@ func (s *session) HandleStartup(dbList database.DatabaseList) (err error) {
 		return err
 	}
 	// todo this is needed by jdbc driver. Here is added the minor supported version at the moment
-	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_version"), []byte("9.6"))); err != nil {
+	if _, err := s.writeMessage(bm.ParameterStatus([]byte("server_version"), []byte(pgmeta.PgsqlProtocolVersion))); err != nil {
 		return err
 	}
 
