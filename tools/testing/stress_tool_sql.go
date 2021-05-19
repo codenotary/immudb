@@ -51,6 +51,8 @@ type cfg struct {
 	readRenew         bool
 	compactDelay      int
 	compactCycles     int
+	verifiers         int
+	vrCount           int
 }
 
 func parseConfig() (c cfg) {
@@ -73,6 +75,10 @@ func parseConfig() (c cfg) {
 
 	flag.IntVar(&c.compactDelay, "compactDelay", 0, "Milliseconds wait before compactions (0 disable)")
 	flag.IntVar(&c.compactCycles, "compactCycles", 0, "Number of compaction to perform")
+
+	flag.IntVar(&c.verifiers, "verifiers", 0, "number of verifiers readers")
+	flag.IntVar(&c.vrCount, "vrCount", 100, "number of reads for each verifiers")
+
 	flag.Parse()
 	return
 }
@@ -145,30 +151,60 @@ func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries
 	wg.Done()
 	log.Printf("Committer %d done...\r\n", cid)
 }
-func reader (ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
-			if c.readDelay > 0 { // give time to populate db
-				time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
-			}
-			log.Printf("Reader %d is reading data\n", id)
-			for i := 1; i <= c.rdCount; i++ {
-				r, err := client.SQLQuery(ctx, "SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": uint64(i)}, c.readRenew)
-				if err != nil {
-					log.Fatalf("Error querying val %d: %s", i, err.Error())
-				}
-				ret := r.Rows[0]
-				n := ret.Values[0].GetN()
-				if n != uint64(i) {
-					log.Printf("Reader %d read %d vs %d", id, n, i)
-				}
-				if c.readPause > 0 {
-					time.Sleep(time.Duration(c.readPause) * time.Millisecond)
-				}
-			}
-			wg.Done()
-			log.Printf("Reader %d out\n", id)
-		}
 
-func compactor(ctx context.Context, client immuclient.ImmuClient, c cfg, ws *sync.WaitGroup) {
+func reader(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
+	if c.readDelay > 0 { // give time to populate db
+		time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
+	}
+	log.Printf("Reader %d is reading data\n", id)
+	for i := 1; i <= c.rdCount; i++ {
+		r, err := client.SQLQuery(ctx, "SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, c.readRenew)
+		if err != nil {
+			log.Fatalf("Error querying val %d: %s", i, err.Error())
+		}
+		ret := r.Rows[0]
+		n := ret.Values[0].GetN()
+		if n != uint64(i) {
+			log.Printf("Reader %d read %d vs %d", id, n, i)
+		}
+		if c.readPause > 0 {
+			time.Sleep(time.Duration(c.readPause) * time.Millisecond)
+		}
+	}
+	wg.Done()
+	log.Printf("Reader %d out\n", id)
+}
+
+func verifier(ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
+	if c.readDelay > 0 { // give time to populate db
+		time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
+	}
+	log.Printf("Verifier %d is reading data\n", id)
+	for i := 0; i < c.vrCount; i++ {
+		idx := 1 + i*c.verifiers + id
+		r, err := client.SQLQuery(ctx, "SELECT id, value, ts FROM entries WHERE id=@i;", map[string]interface{}{"i": idx}, c.readRenew)
+		if err != nil {
+			log.Fatalf("Error querying val %d: %s", i, err.Error())
+		}
+		if len(r.Rows)>0 {
+			row := r.Rows[0]
+			err = client.VerifyRow(ctx, row, "entries", row.Values[0])
+			if err != nil {
+				log.Fatalf("Verification failed: verifier %d, id %d row %+v",id, idx, row)
+			}
+		} else {
+			log.Printf("Verifier %d no results for id %d",id, idx)
+		}
+		if c.readPause > 0 {
+			time.Sleep(time.Duration(c.readPause) * time.Millisecond)
+		}
+	}
+	wg.Done()
+	log.Printf("Verifier %d out\n", id)
+}
+
+
+func compactor(ctx context.Context, client immuclient.ImmuClient, c cfg, wg *sync.WaitGroup) {
 	for i:=0; i<c.compactCycles; i++ {
 		time.Sleep(time.Duration(c.compactDelay) * time.Millisecond)
 		log.Printf("Compaction %d started",i)
@@ -176,6 +212,7 @@ func compactor(ctx context.Context, client immuclient.ImmuClient, c cfg, ws *syn
 		log.Printf("Compaction %d terminated",i)
 	}
 log.Printf("All compaction terminated")
+wg.Done()
 }
 
 func main() {
@@ -204,6 +241,10 @@ func main() {
 	for i := 0; i < c.readers; i++ {
 		wg.Add(1)
 		go reader(ctx, client, c, i, &wg)
+	}
+	for i := 0; i < c.verifiers; i++ {
+		wg.Add(1)
+		go verifier(ctx, client, c, i, &wg)
 	}
 	if (c.compactDelay>0) {
 		wg.Add(1)
