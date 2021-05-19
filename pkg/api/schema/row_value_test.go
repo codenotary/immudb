@@ -16,6 +16,7 @@ limitations under the License.
 package schema
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/codenotary/immudb/embedded/sql"
@@ -100,4 +101,28 @@ func TestRowComparison(t *testing.T) {
 
 	rawBlobValue := RawValue(&SQLValue{Value: blobValue2})
 	require.Equal(t, []byte{1, 2, 3}, rawBlobValue)
+
+	nv := SQLValue{Value: nullValue}
+	bytesNullValue := RenderValueAsByte(nv.GetValue())
+	require.Equal(t, []byte(nil), bytesNullValue)
+
+	tv := SQLValue{Value: trueValue}
+	bytesTrueValue := RenderValueAsByte(tv.GetValue())
+	require.Equal(t, []byte(`true`), bytesTrueValue)
+
+	bf := SQLValue{Value: falseValue}
+	bytesFalseValue := RenderValueAsByte(bf.GetValue())
+	require.Equal(t, []byte(`false`), bytesFalseValue)
+
+	sv := &SQLValue{Value: stringValue1}
+	bytesStringValue := RenderValueAsByte(sv.GetValue())
+	require.Equal(t, []byte("string1"), bytesStringValue)
+
+	iv := &SQLValue{Value: intValue1}
+	bytesIntValue := RenderValueAsByte(iv.GetValue())
+	require.Equal(t, []byte(`1`), bytesIntValue)
+
+	bv := &SQLValue{Value: blobValue2}
+	bytesBlobValue := RenderValueAsByte(bv.GetValue())
+	require.Equal(t, []byte(hex.EncodeToString([]byte{1, 2, 3})), bytesBlobValue)
 }

@@ -493,6 +493,26 @@ func TestPgsqlServer_VersionStatement(t *testing.T) {
 	require.Equal(t, pgmeta.PgsqlProtocolVersionMessage, version)
 }
 
+func TestPgsqlServerSetStatement(t *testing.T) {
+	td, _ := ioutil.TempDir("", "_pgsql")
+	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(td)
+	defer os.Remove(".state-")
+
+	bs.WaitForPgsqlListener()
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
+	require.NoError(t, err)
+
+	_, err = db.Query(fmt.Sprintf("SET test=val"))
+	require.NoError(t, err)
+}
+
 func TestPgsqlServer_SimpleQueryNillValues(t *testing.T) {
 	td, _ := ioutil.TempDir("", "_pgsql")
 	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
