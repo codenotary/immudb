@@ -126,7 +126,7 @@ func entriesGenerator(c cfg, ids chan int) chan Entry {
 	return entries
 }
 
-func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries chan Entry, cid int, wg sync.WaitGroup) {
+func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries chan Entry, cid int, wg *sync.WaitGroup) {
 	log.Printf("Committer %d is inserting data...\r\n", cid)
 	for i := 0; i < c.kvCount; i++ {
 		entry := <-entries
@@ -139,7 +139,7 @@ func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries
 	wg.Done()
 	log.Printf("Committer %d done...\r\n", cid)
 }
-func reader (ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg sync.WaitGroup) {
+func reader (ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg *sync.WaitGroup) {
 			if c.readDelay > 0 { // give time to populate db
 				time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
 			}
@@ -181,12 +181,12 @@ func main() {
 
 	for i := 0; i < c.committers; i++ {
 		wg.Add(1)
-		go committer(ctx, client,c, entries, i, wg)
+		go committer(ctx, client,c, entries, i, &wg)
 	}
 
 	for i := 0; i < c.readers; i++ {
 		wg.Add(1)
-		go reader(ctx, client, c, i, wg)
+		go reader(ctx, client, c, i, &wg)
 	}
 	wg.Wait()
 	log.Printf("All committers done...\r\n")
