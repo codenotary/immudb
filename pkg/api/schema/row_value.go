@@ -32,12 +32,17 @@ type SqlValue interface {
 func (v *SQLValue_Null) Equal(sqlv SqlValue) (bool, error) {
 	_, isNull := sqlv.(*SQLValue_Null)
 	if !isNull {
-		return false, sql.ErrNotComparableValues
+		return false, nil
 	}
 	return true, nil
 }
 
 func (v *SQLValue_N) Equal(sqlv SqlValue) (bool, error) {
+	_, isNull := sqlv.(*SQLValue_Null)
+	if isNull {
+		return false, nil
+	}
+
 	n, isNumber := sqlv.(*SQLValue_N)
 	if !isNumber {
 		return false, sql.ErrNotComparableValues
@@ -46,6 +51,11 @@ func (v *SQLValue_N) Equal(sqlv SqlValue) (bool, error) {
 }
 
 func (v *SQLValue_S) Equal(sqlv SqlValue) (bool, error) {
+	_, isNull := sqlv.(*SQLValue_Null)
+	if isNull {
+		return false, nil
+	}
+
 	s, isString := sqlv.(*SQLValue_S)
 	if !isString {
 		return false, sql.ErrNotComparableValues
@@ -54,6 +64,11 @@ func (v *SQLValue_S) Equal(sqlv SqlValue) (bool, error) {
 }
 
 func (v *SQLValue_B) Equal(sqlv SqlValue) (bool, error) {
+	_, isNull := sqlv.(*SQLValue_Null)
+	if isNull {
+		return false, nil
+	}
+
 	b, isBool := sqlv.(*SQLValue_B)
 	if !isBool {
 		return false, sql.ErrNotComparableValues
@@ -62,6 +77,11 @@ func (v *SQLValue_B) Equal(sqlv SqlValue) (bool, error) {
 }
 
 func (v *SQLValue_Bs) Equal(sqlv SqlValue) (bool, error) {
+	_, isNull := sqlv.(*SQLValue_Null)
+	if isNull {
+		return false, nil
+	}
+
 	b, isBytes := sqlv.(*SQLValue_Bs)
 	if !isBytes {
 		return false, sql.ErrNotComparableValues
