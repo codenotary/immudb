@@ -493,6 +493,39 @@ func TestPgsqlServer_VersionStatement(t *testing.T) {
 	require.Equal(t, pgmeta.PgsqlProtocolVersionMessage, version)
 }
 
+func TestPgsqlServer_SimpleQueryNillValues(t *testing.T) {
+	td, _ := ioutil.TempDir("", "_pgsql")
+	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(td)
+	defer os.Remove(".state-")
+
+	bs.WaitForPgsqlListener()
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
+	require.NoError(t, err)
+
+	table := getRandomTableName()
+	result, err := db.Exec(fmt.Sprintf("CREATE TABLE %s (id INTEGER, amount INTEGER, title VARCHAR, content BLOB, PRIMARY KEY id)", table))
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	_, err = db.Exec(fmt.Sprintf("UPSERT INTO %s (id) VALUES (1)", table))
+	require.NoError(t, err)
+
+	var id int64
+	var amount sql.NullInt64
+	var title sql.NullString
+	err = db.QueryRow(fmt.Sprintf("SELECT id, amount, title FROM %s where title = null", table)).Scan(&id, &amount, &title)
+	require.NoError(t, err)
+	require.False(t, title.Valid)
+	require.False(t, amount.Valid)
+}
+
 func getRandomTableName() string {
 	rand.Seed(time.Now().UnixNano())
 	r := rand.Intn(100)
