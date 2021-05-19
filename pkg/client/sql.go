@@ -313,6 +313,14 @@ func asSQLValue(v interface{}) (*schema.SQLValue, error) {
 	}
 
 	switch tv := v.(type) {
+	case uint:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
+		}
+	case int:
+		{
+			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
+		}
 	case int64:
 		{
 			return &schema.SQLValue{Value: &schema.SQLValue_N{N: uint64(tv)}}, nil
