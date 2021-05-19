@@ -42,6 +42,7 @@ import (
 	"github.com/codenotary/immudb/pkg/signer"
 
 	"github.com/codenotary/immudb/cmd/helper"
+	"github.com/codenotary/immudb/cmd/version"
 	"github.com/codenotary/immudb/pkg/api/schema"
 	"github.com/codenotary/immudb/pkg/auth"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -69,11 +70,11 @@ var immudbTextLogo = " _                               _ _     \n" +
 
 // Initialize initializes dependencies, set up multi database capabilities and stats
 func (s *ImmuServer) Initialize() error {
-	_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n\n", immudbTextLogo, s.Options)
+	_, err := fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
 	logErr(s.Logger, "Error printing immudb config: %v", err)
 
 	if s.Options.Logfile != "" {
-		s.Logger.Infof("\n%s\n%s\n\n", immudbTextLogo, s.Options)
+		s.Logger.Infof("\n%s\n%s\n%s\n\n", immudbTextLogo, version.VersionStr(), s.Options)
 	}
 
 	adminPassword, err := auth.DecodeBase64Password(s.Options.AdminPassword)
