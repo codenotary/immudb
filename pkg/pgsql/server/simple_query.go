@@ -51,6 +51,9 @@ func (s *session) HandleSimpleQueries() (err error) {
 		case fm.QueryMsg:
 			var set = regexp.MustCompile(`(?i)set\s+.+`)
 			if set.MatchString(v.GetStatements()) {
+				if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
+					s.ErrorHandle(err)
+				}
 				continue
 			}
 			var version = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
