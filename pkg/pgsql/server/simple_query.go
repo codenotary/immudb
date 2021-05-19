@@ -23,6 +23,7 @@ import (
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
 	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"io"
+	"regexp"
 	"strings"
 )
 
@@ -48,11 +49,12 @@ func (s *session) HandleSimpleQueries() (err error) {
 		case fm.TerminateMsg:
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
-			// @todo remove when this will be supported or needed on immudb main server side
-			if strings.Contains(strings.ToUpper(v.GetStatements()), "SET") {
+			var set = regexp.MustCompile(`(?i)set\s+.+`)
+			if set.MatchString(v.GetStatements()) {
 				continue
 			}
-			if strings.Contains(strings.ToUpper(v.GetStatements()), "VERSION") {
+			var version = regexp.MustCompile(`(?i)select\s+version\(\s*\)`)
+			if version.MatchString(v.GetStatements()) {
 				if err = s.writeVersionInfo(); err != nil {
 					s.ErrorHandle(err)
 					continue
