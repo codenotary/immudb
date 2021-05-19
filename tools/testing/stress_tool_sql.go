@@ -126,18 +126,18 @@ func entriesGenerator(c cfg, ids chan int) chan Entry {
 	return entries
 }
 
-func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries chan Entry, id int, wg sync.WaitGroup) {
-	log.Printf("Committer %d is inserting data...\r\n", id)
+func committer(ctx context.Context, client immuclient.ImmuClient, c cfg, entries chan Entry, cid int, wg sync.WaitGroup) {
+	log.Printf("Committer %d is inserting data...\r\n", cid)
 	for i := 0; i < c.kvCount; i++ {
 		entry := <-entries
-		_, err := client.SQLExec(ctx, "INSERT INTO entries (id, value, ts) VALUES (@id, @value, now())",
+		_, err := client.SQLExec(ctx, "INSERT INTO entries (id, value, ts) VALUES (@id, @value, now());",
 			map[string]interface{}{"id": entry.id, "value": entry.value} )
 		if err != nil {
-			log.Fatalf("Error while inserting value %d [%s]: %s", entry.id, string(entry.value), err)
+			log.Fatalf("Committer %d: Error while inserting value %d [%d]: %s", cid, entry.id, i, err)
 		}
 	}
 	wg.Done()
-	log.Printf("Committer %d done...\r\n", id)
+	log.Printf("Committer %d done...\r\n", cid)
 }
 func reader (ctx context.Context, client immuclient.ImmuClient, c cfg, id int, wg sync.WaitGroup) {
 			if c.readDelay > 0 { // give time to populate db
@@ -145,9 +145,9 @@ func reader (ctx context.Context, client immuclient.ImmuClient, c cfg, id int, w
 			}
 			log.Printf("Reader %d is reading data\n", id)
 			for i := 1; i <= c.rdCount; i++ {
-				r, err := client.SQLQuery(ctx, "SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, c.readRenew)
+				r, err := client.SQLQuery(ctx, "SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": uint64(i)}, c.readRenew)
 				if err != nil {
-					log.Fatal("Error querying val %d: %s", i, err.Error())
+					log.Fatalf("Error querying val %d: %s", i, err.Error())
 				}
 				ret := r.Rows[0]
 				n := ret.Values[0].GetN()
