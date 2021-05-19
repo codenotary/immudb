@@ -18,8 +18,10 @@ package server
 
 import (
 	"github.com/codenotary/immudb/embedded/sql"
+	"github.com/codenotary/immudb/pkg/api/schema"
 	bm "github.com/codenotary/immudb/pkg/pgsql/server/bmessages"
 	fm "github.com/codenotary/immudb/pkg/pgsql/server/fmessages"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"io"
 	"strings"
 )
@@ -47,7 +49,14 @@ func (s *session) HandleSimpleQueries() (err error) {
 			return s.mr.CloseConnection()
 		case fm.QueryMsg:
 			// @todo remove when this will be supported or needed on immudb main server side
-			if strings.Contains(v.GetStatements(), "SET") {
+			if strings.Contains(strings.ToUpper(v.GetStatements()), "SET") {
+				continue
+			}
+			if strings.Contains(strings.ToUpper(v.GetStatements()), "VERSION") {
+				if err = s.writeVersionInfo(); err != nil {
+					s.ErrorHandle(err)
+					continue
+				}
 				continue
 			}
 			if err = s.queryMsg(v); err != nil {
@@ -111,6 +120,24 @@ func (s *session) selectStatement(st *sql.SelectStmt) error {
 	}
 	if _, err = s.writeMessage(bm.EmptyQueryResponse()); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (s *session) writeVersionInfo() error {
+	cols := []*schema.Column{{Name: "version", Type: "VARCHAR"}}
+	if _, err := s.writeMessage(bm.RowDescription(cols)); err != nil {
+		return err
+	}
+	rows := []*schema.Row{{
+		Columns: []string{"version"},
+		Values:  []*schema.SQLValue{{Value: &schema.SQLValue_S{S: pgmeta.PgsqlProtocolVersionMessage}}},
+	}}
+	if _, err := s.writeMessage(bm.DataRow(rows, len(cols), false)); err != nil {
+		return err
+	}
+	if _, err := s.writeMessage(bm.CommandComplete([]byte(`ok`))); err != nil {
+		s.ErrorHandle(err)
 	}
 	return nil
 }

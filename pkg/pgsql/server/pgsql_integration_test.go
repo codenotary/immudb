@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"github.com/codenotary/immudb/pkg/pgsql/server/pgmeta"
 	"github.com/codenotary/immudb/pkg/server"
 	"github.com/codenotary/immudb/pkg/server/servertest"
 	_ "github.com/lib/pq"
@@ -468,6 +469,28 @@ func _TestPgsqlServer_SimpleQueryAsynch(t *testing.T) {
 	}
 	wg.Wait()
 
+}
+
+func TestPgsqlServer_VersionStatement(t *testing.T) {
+	td, _ := ioutil.TempDir("", "_pgsql")
+	options := server.DefaultOptions().WithDir(td).WithPgsqlServer(true).WithPgsqlServerPort(0)
+	bs := servertest.NewBufconnServer(options)
+
+	bs.Start()
+	defer bs.Stop()
+
+	defer os.RemoveAll(td)
+	defer os.Remove(".state-")
+
+	bs.WaitForPgsqlListener()
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=%d sslmode=disable user=immudb dbname=defaultdb password=immudb", bs.Server.Srv.PgsqlSrv.GetPort()))
+	require.NoError(t, err)
+
+	var version string
+	err = db.QueryRow(fmt.Sprintf("SELECT version()")).Scan(&version)
+	require.NoError(t, err)
+	require.Equal(t, pgmeta.PgsqlProtocolVersionMessage, version)
 }
 
 func getRandomTableName() string {

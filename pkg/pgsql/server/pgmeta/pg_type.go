@@ -16,8 +16,14 @@ limitations under the License.
 
 package pgmeta
 
+import "fmt"
+
 const PgTypeMapOid = 0
 const PgTypeMapLength = 1
+
+const PgsqlProtocolVersion = "9.6"
+
+var PgsqlProtocolVersionMessage = fmt.Sprintf("pgsql wire protocol %s or greater version implemented by immudb", PgsqlProtocolVersion)
 
 // PgTypeMap maps the immudb type descriptor with pgsql pgtype map.
 // First int is the oid value (retrieved with select * from pg_type;)
