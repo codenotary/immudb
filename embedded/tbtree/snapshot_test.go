@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -128,16 +127,14 @@ func TestSnapshotLoadFromFullDump(t *testing.T) {
 	keyCount := 1_000
 	monotonicInsertions(t, tbtree, 1, keyCount, true)
 
-	go func() {
-		_, err := tbtree.CompactIndex()
-		if err == ErrAlreadyClosed {
-			return
-		}
-		if err != ErrSnapshotsNotClosed && err != nil {
-			panic(err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}()
+	done := make(chan struct{})
+
+	go func(done chan<- struct{}) {
+		tbtree.CompactIndex()
+		done <- struct{}{}
+	}(done)
+
+	<-done
 
 	checkAfterMonotonicInsertions(t, tbtree, 1, keyCount, true)
 
