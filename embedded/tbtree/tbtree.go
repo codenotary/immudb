@@ -676,7 +676,7 @@ func (t *TBtree) flushTree() (wN int64, wH int64, err error) {
 	t.log.Infof("Flushing index '%s'...", t.path)
 
 	if !t.root.mutated() {
-		t.log.Infof("Flushing not needed at '%s'...", t.path)
+		t.log.Infof("Flushing not needed at '%s'", t.path)
 		return 0, 0, nil
 	}
 
