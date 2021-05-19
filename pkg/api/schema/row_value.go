@@ -116,6 +116,33 @@ func RenderValue(op isSQLValue_Value) string {
 	return fmt.Sprintf("%v", op)
 }
 
+func RenderValueAsByte(op isSQLValue_Value) []byte {
+	switch v := op.(type) {
+	case *SQLValue_Null:
+		{
+			return nil
+		}
+	case *SQLValue_N:
+		{
+			return []byte(strconv.FormatInt(int64(v.N), 10))
+		}
+	case *SQLValue_S:
+		{
+			return []byte(fmt.Sprintf("%s", v.S))
+		}
+	case *SQLValue_B:
+		{
+			return []byte(strconv.FormatBool(v.B))
+		}
+	case *SQLValue_Bs:
+		{
+			return []byte(hex.EncodeToString(v.Bs))
+		}
+	}
+
+	return []byte(fmt.Sprintf("%v", op))
+}
+
 func RawValue(v *SQLValue) interface{} {
 	if v == nil {
 		return nil

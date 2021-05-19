@@ -43,10 +43,16 @@ func DataRow(rows []*schema.Row, colNumb int, binaryFormat bool) []byte {
 			valueLength := make([]byte, 4)
 			value := make([]byte, 0)
 
-			// only not binary format is allowed
-			value = []byte(schema.RenderValue(val.Value))
-			binary.BigEndian.PutUint32(valueLength, uint32(len(value)))
+			// only text format is allowed in simple query
+			value = schema.RenderValueAsByte(val.Value)
 
+			binary.BigEndian.PutUint32(valueLength, uint32(len(value)))
+			//  As a special case, -1 indicates a NULL column value. No value bytes follow in the NULL case.
+			if value == nil {
+				tm := int32(-1)
+				value = nil
+				binary.BigEndian.PutUint32(valueLength, uint32(tm))
+			}
 			rowB = append(rowB, bytes.Join([][]byte{valueLength, value}, nil)...)
 		}
 
