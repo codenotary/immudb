@@ -51,10 +51,12 @@ func TestImmuClient_SQL(t *testing.T) {
 	require.NoError(t, err)
 
 	params := make(map[string]interface{})
-	params["active"] = true
+	params["id"] = 1
 	params["title"] = "title1"
+	params["active"] = true
+	params["payload"] = []byte{1, 2, 3}
 
-	_, err = client.SQLExec(ctx, "INSERT INTO table1(id, title, active, payload) VALUES (1, @title, @active, NULL), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
+	_, err = client.SQLExec(ctx, "INSERT INTO table1(id, title, active, payload) VALUES (@id, @title, @active, @payload), (2, 'title2', false, NULL), (3, NULL, NULL, x'AED0393F')", params)
 	require.NoError(t, err)
 
 	res, err := client.SQLQuery(ctx, "SELECT t.id as id, title FROM (table1 as t) WHERE id <= 3 AND active = @active", params, true)
