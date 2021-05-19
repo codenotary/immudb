@@ -26,6 +26,7 @@ import (
 	"github.com/codenotary/immudb/pkg/api/schema"
 	immuclient "github.com/codenotary/immudb/pkg/client"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Entry struct {
@@ -48,6 +49,8 @@ type cfg struct {
 	readDelay         int
 	readPause         int
 	readRenew         bool
+	compactDelay      int
+	compactCycles     int
 }
 
 func parseConfig() (c cfg) {
@@ -67,6 +70,9 @@ func parseConfig() (c cfg) {
 	flag.IntVar(&c.readDelay, "readDelay", 100, "Readers start delay (ms)")
 	flag.IntVar(&c.readPause, "readPause", 0, "Readers pause at every cycle")
 	flag.BoolVar(&c.readRenew, "readRenew", false, "renew snapshots on read")
+
+	flag.IntVar(&c.compactDelay, "compactDelay", 0, "Milliseconds wait before compactions (0 disable)")
+	flag.IntVar(&c.compactCycles, "compactCycles", 0, "Number of compaction to perform")
 	flag.Parse()
 	return
 }
@@ -161,6 +167,17 @@ func reader (ctx context.Context, client immuclient.ImmuClient, c cfg, id int, w
 			wg.Done()
 			log.Printf("Reader %d out\n", id)
 		}
+
+func compactor(ctx context.Context, client immuclient.ImmuClient, c cfg, ws *sync.WaitGroup) {
+	for i:=0; i<c.compactCycles; i++ {
+		time.Sleep(time.Duration(c.compactDelay) * time.Millisecond)
+		log.Printf("Compaction %d started",i)
+		client.CleanIndex(ctx, &emptypb.Empty{})
+		log.Printf("Compaction %d terminated",i)
+	}
+log.Printf("All compaction terminated")
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	c := parseConfig()
@@ -188,8 +205,12 @@ func main() {
 		wg.Add(1)
 		go reader(ctx, client, c, i, &wg)
 	}
+	if (c.compactDelay>0) {
+		wg.Add(1)
+		go compactor(ctx, client, c, &wg)
+	}
 	wg.Wait()
-	log.Printf("All committers done...\r\n")
+	log.Printf("All operations done...\r\n")
 
 	r, err := client.SQLQuery(ctx, "SELECT count() FROM  entries;", map[string]interface{}{}, true)
 	if err != nil {
