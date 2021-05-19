@@ -49,6 +49,8 @@ type cfg struct {
 	readers           int
 	rdCount           int
 	readDelay         int
+	readPause         int
+	readRenew         bool
 }
 
 func parseConfig() (c cfg) {
@@ -71,6 +73,8 @@ func parseConfig() (c cfg) {
 	flag.IntVar(&c.readers, "readers", 0, "number of concurrent readers")
 	flag.IntVar(&c.rdCount, "rdCount", 100, "number of reads for each readers")
 	flag.IntVar(&c.readDelay, "readDelay", 100, "Readers start delay (ms)")
+	flag.IntVar(&c.readPause, "readPause", 0, "Readers pause at every cycle")
+	flag.BoolVar(&c.readRenew, "readRenew", false, "renew snapshots on read")
 
 	flag.Parse()
 
@@ -223,31 +227,31 @@ func main() {
 			log.Printf("Committer %d done...\r\n", id)
 		}(i)
 	}
-// 	var readerMx = &sync.Mutex{} // this is needed as it seems that only 1 reader can be active at a time
 	for i := 0; i < c.readers; i++ {
 		wg.Add(1)
 		go func(id int) {
-			if c.readDelay>0 { // give time to populate db
+			if c.readDelay > 0 { // give time to populate db
 				time.Sleep(time.Duration(c.readDelay) * time.Millisecond)
 			}
 			log.Printf("Reader %d is reading data\n", id)
 			for i := 1; i <= c.rdCount; i++ {
-// 				readerMx.Lock()
-				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, false)
+				r, err := engine.QueryStmt("SELECT count() FROM entries where id<=@i;", map[string]interface{}{"i": i}, c.readRenew)
 				if err != nil {
-					log.Printf("Error querying val %d: %s",i, err.Error())
+					log.Printf("Error querying val %d: %s", i, err.Error())
 					panic(err)
 				}
 				ret, err := r.Read()
 				if err != nil {
-					log.Printf("Error reading val %d: %s",i, err.Error())
+					log.Printf("Error reading val %d: %s", i, err.Error())
 					panic(err)
 				}
 				r.Close()
-// 				readerMx.Unlock()
 				n := ret.Values["(defaultdb.entries.col0)"].Value().(uint64)
 				if n != uint64(i) {
 					log.Printf("Reader %d read %d vs %d", id, n, i)
+				}
+				if c.readPause > 0 {
+					time.Sleep(time.Duration(c.readPause) * time.Millisecond)
 				}
 			}
 			wg.Done()
